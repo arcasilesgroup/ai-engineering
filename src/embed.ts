@@ -20,8 +20,8 @@ export function embeddedUnder(prefix: string): Map<string, string> {
 
 /** The skills canon proper: dot-entries under skills/ hold the generated chain
  *  bundle, payload for the plugin hosts and not a skill anyone loads. Materializing
- *  installing them wrote a 33 KB build artifact in every canon and every mirror, counted as
- *  canon by doctor (measured 2026-09-10). One predicate, every consumer. */
+ *  them writes a 33 KB build artifact in every canon and every mirror, counted as
+ *  canon by doctor. One predicate, every consumer. */
 export function canonSkills(): Map<string, string> {
   const out = new Map<string, string>();
   for (const [path, ref] of embeddedUnder("skills/")) {
@@ -35,11 +35,11 @@ export type CanonDrift = { verified: number; drift: number; missing: number; sta
 
 /** Files sitting in the canon home that this binary does not ship. The line between
  *  "ours to sweep" and "somebody else's to leave alone" is the skill folder: a path
- *  inside a folder we ship is a file we used to ship — a renamed asset, a deleted
- *  page — while anything else in the canon home (a skill of your own, a symlink) is
- *  not ours to delete. Dot entries are the OS talking (.DS_Store) and are ignored
- *  either way. Measured 2026-09-11: a renamed asset stayed in every installed canon
- *  forever, because canonDrift only walked the payload and an orphan was invisible. */
+ *  inside a folder we ship but absent from the payload is ours to sweep — a renamed
+ *  asset, a deleted page — while anything else in the canon home (a skill of your
+ *  own, a symlink) is not ours to delete. Dot entries are the OS talking (.DS_Store)
+ *  and are ignored either way. A payload walk never sees an orphan, so without this
+ *  walk a renamed asset lives in every installed canon forever. */
 export function canonExtras(homeDir: string): { stale: string[]; foreign: string[] } {
   const payload = canonSkills();
   const shipped = new Set([...payload.keys()].map((path) => path.split("/")[1] ?? ""));
@@ -103,12 +103,12 @@ export function removeStaleCanonFiles(homeDir: string): string[] {
 
 /** The installed canon against this binary's payload, byte for byte — the one
  *  predicate `init` and `doctor` share (health is a measurement, not a claim).
- *  Existence probes and a marker file lied twice (measured 2026-09-10): "global
- *  canon intact · nothing to install" over a canon with 34 files missing, and
- *  after an upgrade — notice.ts caches the REGISTRY version in the same
- *  version.json that installCanon wrote the INSTALLED version into. It counts the
- *  files the payload no longer has as well: a canon can be complete and dirty at
- *  once, and only the payload walk saw half of that (measured 2026-09-11). */
+ *  Existence probes and a marker file are not enough: notice.ts caches the
+ *  REGISTRY version in the same version.json that installCanon wrote the
+ *  INSTALLED version into, so a canon reads "intact · nothing to install" with
+ *  34 files missing. It counts the files the payload does not have as well: a
+ *  canon can be complete and dirty at once, and only the payload walk sees both
+ *  halves. */
 export function canonDrift(homeDir: string): CanonDrift {
   const extras = canonExtras(homeDir);
   const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale: extras.stale.length, foreign: extras.foreign.length };
@@ -150,9 +150,9 @@ export function materializeSkills(destRoot: string): string[] {
  *  already the path Bun serves the asset from; in the source tree it is relative to
  *  this module. It must NOT be round-tripped through a URL when it is already
  *  absolute: the pathname of a file URL carries a leading slash and, on Windows,
- *  drops the drive letter — measured in the windows leg of the e2e job, where init
- *  could not read a single template (ENOENT /~BUN/root/settings.claude.json-*.tpl)
- *  while macOS and Linux passed, because there the mangled path still resolves. */
+ *  drops the drive letter, so init cannot read a template (ENOENT
+ *  /~BUN/root/settings.claude.json-*.tpl) there, while macOS and Linux resolve
+ *  the mangled path anyway. */
 export function embeddedPath(ref: string, base: string = import.meta.url): string {
   if (ref.startsWith("/") || /^[A-Za-z]:[\\/]/.test(ref)) return ref;
   return fileURLToPath(new URL(ref, base));

@@ -1,12 +1,12 @@
 // Writes against anything that governs the agent. The first thing an agent obeying
-// injected text does is unhook its guards. Ported from v1's self_protect.py (145 LOC)
-// with the v2 additions: .ai-engineering/ governed files, spec.html once its sha256
-// is pinned in the lock (reopening an approved contract costs a human), canon skills.
+// injected text does is unhook its guards: .ai-engineering/ governed files, spec.html
+// once its sha256 is pinned in the lock (reopening an approved contract costs a
+// human), canon skills.
 
 import { basename, isAbsolute, join, resolve } from "node:path";
-import { homedir } from "node:os";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../chain/payload.ts";
+import { home, machineBase } from "../env.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -31,7 +31,7 @@ export type ProtectedPaths = {
 };
 
 function surfacesSettings(repoRoot: string): string[] {
-  // The settings files this install wires, per surface (v2: derived from what install
+  // The settings files this install wires, per surface (derived from what install
   // wrote; the on-disk check keeps an uninstall from leaving ghosts).
   const out: string[] = [];
   const candidates = [
@@ -47,7 +47,19 @@ function surfacesSettings(repoRoot: string): string[] {
  *  fall behind the wiring lets one edit to the IOC catalogue disarm the injection guard. */
 export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   const literals: string[] = [];
-  if (!repoRoot) return { literals, specPinned: false };
+  // The machine side is protected whether or not this call happens inside a governed
+  // repo: the canon and its mirrors govern every session on this machine, and a repo-less
+  // call is exactly the one an injected instruction would use to unprotect them (R4).
+  const globalHome = join(home(), "");
+  literals.push(join(home(), "skills"));
+  literals.push(join(machineBase(), ".claude", "skills"));
+  literals.push(join(machineBase(), ".agents", "skills"));
+  literals.push(join(machineBase(), ".config", "opencode", "skill"));
+  literals.push(globalHome);
+  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json"]) {
+    literals.push(join(machineBase(), carrier));
+  }
+  if (!repoRoot) return { literals: literals.filter((p) => p.length > 0), specPinned: false };
 
   // Prose contracts the user owns: editable by the governed agent (blueprint §9.2
   // "AGENTS.md no es sagrado" / §13.3 "tú lo editas"), so they are NOT literals.
@@ -60,9 +72,9 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
     literals.push(join(aiEng, name));
   }
   // The git floor itself. The shims live in .git/hooks/ (marker-managed, §13.2),
-  // NOT under .ai-engineering/git/ — that layout is gone, and protecting the
-  // ghost while leaving the real shims writable let a session overwrite the hook
-  // with `exit 0` (measured 2026-09-10: Write/Edit/redirect all allowed).
+  // NOT under .ai-engineering/git/ — protecting a ghost there while the real shims
+  // stay writable lets a session overwrite the hook with `exit 0`
+  // (Write/Edit/redirect all allowed).
   literals.push(join(repoRoot, ".git", "hooks"));
   // spec.html is protected ONLY once approved: its sha256 sits in the lock (§9.3).
   let specPinned = false;
@@ -75,12 +87,8 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   }
   // Surface wiring we ourselves wrote.
   literals.push(...surfacesSettings(repoRoot));
-  // Global canon and machine state: ~/.ai-engineering/** and the home mirrors.
-  const globalHome = join(homedir(), ".ai-engineering");
-  literals.push(globalHome);
-  for (const mirror of [".claude/skills", ".agents/skills", ".config/opencode/skill"]) {
-    literals.push(join(homedir(), mirror));
-  }
+  // Global canon and machine state: ~/.ai-engineering/** and the home mirrors. Both are
+  // protected above, for the repo-less call as well.
   // Drop empties: the test is substring, and "" is a substring of every command.
   return { literals: literals.filter((p) => p.length > 0), specPinned };
 }
@@ -114,8 +122,8 @@ export function writesTo(paths: ProtectedPaths, command: string): string | null 
 }
 
 function expandTilde(path: string): string {
-  if (path === "~") return homedir();
-  if (path.startsWith("~/")) return join(homedir(), path.slice(2));
+  if (path === "~") return machineBase();
+  if (path.startsWith("~/")) return join(machineBase(), path.slice(2));
   return path;
 }
 
@@ -126,9 +134,9 @@ function expandTilde(path: string): string {
  *  §13.3: "tú lo editas") — they are instructions, not wiring, and are simply not
  *  in the protected literal list. What must never change from inside a session is
  *  the machinery: .ai-engineering/, surface settings, git hooks, the global canon,
- *  and spec.html once approved. Bare names that WERE protected in v1 match as
- *  whole path SEGMENTS (never substrings): "src/AGENTS.md.notes/x.md" is not a
- *  contract file. Absolute literals stay substring. */
+ *  and spec.html once approved. Bare names match as whole path SEGMENTS (never
+ *  substrings): "src/AGENTS.md.notes/x.md" is not a contract file. Absolute
+ *  literals stay substring. */
 function offendingPath(paths: ProtectedPaths, text: string): string | null {
   for (const path of paths.literals) {
     const bare = path === basename(path);
@@ -209,12 +217,12 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
       return current;
     };
     const canon = (text: string): string => {
-      const expanded = text.replace(/(^|[\s"'=])~\//g, `$1${homedir()}/`);
+      const expanded = text.replace(/(^|[\s"'=])~\//g, `$1${machineBase()}/`);
       const absolute = expanded.replace(/(\/[\w.@+-]+)+/g, (m) => canonPath(m));
-      // A relative path escaped the substring test exactly as the tmpdir alias did:
-      // `> .git/hooks/pre-commit` never matched the absolute literal, so a session
-      // could disarm the floor with a redirect or a chmod (measured 2026-09-10).
-      // Resolve every relative path token against the repo root before judging.
+      // A relative path escapes a substring test on absolute literals:
+      // `> .git/hooks/pre-commit` never matches the absolute literal, so a session
+      // can disarm the floor with a redirect or a chmod. Resolve every relative
+      // path token against the repo root before judging.
       const base = repoRoot ?? process.cwd();
       return absolute.replace(RELATIVE_PATH, (match, lead: string, token: string) => `${lead}${canonPath(join(base, token))}`);
     };

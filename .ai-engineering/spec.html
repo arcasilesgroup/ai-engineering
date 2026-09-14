@@ -93,41 +93,41 @@
 <pre id="gates">
 # Gates: global-carriers
 
-- [ ] G1: La gobernanza se decide en un solo sitio y ningun otro modulo la reimplementa
+- [x] G1: La gobernanza se decide en un solo sitio y ningun otro modulo la reimplementa
   CHECK: bun test tests/arch.spec.ts
-  EVIDENCE: pending
+  EVIDENCE: 57 expect() calls | Ran 22 tests across 1 file. [808.00ms]
 
-- [ ] G2: Un repo sin .ai-engineering/config.toml recibe allow del chain, exit 0 y cero stdout
+- [x] G2: Un repo sin .ai-engineering/config.toml recibe allow del chain, exit 0 y cero stdout
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "ungoverned repo allows"
-  EVIDENCE: pending
+  EVIDENCE: 8 expect() calls | Ran 2 tests across 1 file. [113.00ms]
 
-- [ ] G3: Un repo sin carrier no recibe ninguna escritura, ni receipts ni un .ai-engineering/ nuevo
+- [x] G3: Un repo sin carrier no recibe ninguna escritura, ni receipts ni un .ai-engineering/ nuevo
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "no writes in a foreign repo"
-  EVIDENCE: pending
+  EVIDENCE: 2 expect() calls | Ran 1 test across 1 file. [218.00ms]
 
-- [ ] G4: Un config.toml ilegible no cuenta como gobernado, y doctor distingue ausente de corrupto
+- [x] G4: Un config.toml ilegible no cuenta como gobernado, y doctor distingue ausente de corrupto
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "unparseable config"
-  EVIDENCE: pending
+  EVIDENCE: 11 expect() calls | Ran 1 test across 1 file. [432.00ms]
 
-- [ ] G5: El floor de git usa la misma puerta: repo ajeno exit 0, repo gobernado sin binario exit 1
+- [x] G5: El floor de git usa la misma puerta: repo ajeno exit 0, repo gobernado sin binario exit 1
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "git floor"
-  EVIDENCE: pending
+  EVIDENCE: 4 expect() calls | Ran 1 test across 1 file. [187.00ms]
 
-- [ ] G6: Un fichero de settings con hooks propios sobrevive byte a byte a init, update y uninstall
+- [x] G6: Un fichero de settings con hooks propios sobrevive byte a byte a init, update y uninstall
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "user hooks survive"
-  EVIDENCE: pending
+  EVIDENCE: 12 expect() calls | Ran 1 test across 1 file. [491.00ms]
 
-- [ ] G7: La tabla de rutas de maquina coincide con la raiz documentada por cada host, con fuente y fecha
+- [x] G7: La tabla de rutas de maquina coincide con la raiz documentada por cada host, con fuente y fecha
   CHECK: bun test tests/surfaces.test.ts -t "machine carrier paths"
-  EVIDENCE: pending
+  EVIDENCE: 16 expect() calls | Ran 1 test across 1 file. [75.00ms]
 
-- [ ] G8: El carrier de OMP carga de verdad en OMP, probado con el binario local y no por existencia
+- [x] G8: El carrier de OMP carga de verdad en OMP, probado con el binario local y no por existencia
   CHECK: sh scripts/proof-carriers.sh
-  EVIDENCE: pending
+  EVIDENCE: G8 evidence: a real omp session's fourth identical call was denied by the carrier — receipt written in the host's own process | ALL CARRIER PROOFS GREEN
 
-- [ ] G9: Un repo gobernado queda con dos carriers y los otros cinco no se escriben en el repo
+- [x] G9: Un repo gobernado queda con dos carriers y los otros cinco no se escriben en el repo
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "two repo carriers"
-  EVIDENCE: pending
+  EVIDENCE: 17 expect() calls | Ran 1 test across 1 file. [295.00ms]
 
 - [ ] G10: Una llamada permitida con --surface cursor emite permission allow y sale 0
   CHECK: bun test tests/surfaces.test.ts -t "cursor allow envelope"
@@ -145,33 +145,33 @@
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "machine round trip"
   EVIDENCE: pending
 
-- [ ] G14: Un clone nuevo nace con el floor y un repo sin config.toml sigue sin politica de git
+- [x] G14: Un clone nuevo nace con el floor y un repo sin config.toml sigue sin politica de git
   CHECK: sh scripts/proof-cli-ux.sh
-  EVIDENCE: pending
+  EVIDENCE: R15 evidence: uninstall project scope kept contract files + global canon | ALL PROOFS GREEN
 
-- [ ] G15: Sin regresion: la suite completa sigue verde
+- [x] G15: Sin regresion: la suite completa sigue verde
   CHECK: bun test
-  EVIDENCE: pending
+  EVIDENCE: 499 expect() calls | Ran 171 tests across 17 files. [7.07s]
 
 - [ ] G16: Deuda cerrada: cache de veredictos con mkdir y session_id saneado, protectedPaths con home(), specOpen sin carrier ajeno
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "debt"
   EVIDENCE: pending
 
-- [ ] G17: Auditoria de seguridad del diff, con findings.json y REPORT.md, y todo hallazgo explotable cerrado o aceptado con su razon
+- [x] G17: Auditoria de seguridad del diff, con findings.json y REPORT.md, y todo hallazgo explotable cerrado o aceptado con su razon
   CHECK: sh -c 'ls .ai-engineering/security/run-*/findings.json >/dev/null'
-  EVIDENCE: pending
+  EVIDENCE: (no output)
 
-- [ ] G18: Las dos reglas nuevas estan en arch.rules.json y el test de arquitectura pasa
+- [x] G18: Las dos reglas nuevas estan en arch.rules.json y el test de arquitectura pasa
   CHECK: bun test tests/arch.spec.ts
-  EVIDENCE: pending
+  EVIDENCE: 57 expect() calls | Ran 22 tests across 1 file. [808.00ms]
 
 - [ ] G19: docs/global-carriers.md existe y el README lo enlaza
   CHECK: sh -c 'test -f docs/global-carriers.md && grep -q "global-carriers.md" README.md'
   EVIDENCE: pending
 
-- [ ] G20: La investigacion del milestone esta citada y commiteada
+- [x] G20: La investigacion del milestone esta citada y commiteada
   CHECK: sh -c 'test -f .ai-engineering/research/004-hooks-global-vs-project.html'
-  EVIDENCE: pending
+  EVIDENCE: (no output)
 
 </pre>
 

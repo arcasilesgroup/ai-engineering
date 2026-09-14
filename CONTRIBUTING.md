@@ -22,7 +22,7 @@ bun install          # dependencies
 bun run build        # compile dist/ai-eng (skills/templates embedded)
 bun test             # unit + adversarial + gates + arch
 bun run lint         # oxlint
-bun run typecheck    # tsgolint
+bun run typecheck    # oxlint --type-aware --type-check
 ```
 
 The binary is the payload: `skills/` and `templates/` travel inside it. If you
@@ -53,8 +53,12 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
 
 - `bun run changeset` → pick bump (patch: fixes · minor: new verbs/flags/skills ·
   major: breaking CLI surface) + one-sentence summary.
-- Merge to `main` → the version workflow opens a Version PR (or publishes npm).
-- Tag `v*` → the release workflow builds the 8 binaries + SBOM + GitHub Release.
+- Merge to `main` → `.github/workflows/version.yml` opens a Version PR that bumps
+  `package.json` and `CHANGELOG.md`; it does not publish.
+- Dispatch `.github/workflows/release.yml` with a channel: `integration` ships a
+  candidate (GitHub prerelease + npm `next`), `production` ships the real one
+  (GitHub release marked latest + npm `latest`). It builds the 8 binaries + SBOM +
+  GitHub Release and publishes npm under OIDC trusted publishing.
 
 ## Reporting bugs and security issues
 

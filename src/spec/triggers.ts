@@ -2,7 +2,7 @@
 // its own condition in the `## Lifecycle` block of its SKILL.md, so nothing here
 // hardcodes a glob or a skill name (§20.1). `spec close` refuses and `doctor` warns
 // when a condition fired and left no artifact behind — the "if it touches UI"
-// sentence that used to be prose nobody could check.
+// sentence, made checkable.
 
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";

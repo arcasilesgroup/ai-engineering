@@ -87,7 +87,7 @@ changing any of it.
    - **Deduced**: the code, a manifest or CI already states it. It goes.
    - **Duplicated**: a nested file repeats its parent, or the parent carries detail only one
      subtree needs. It moves down, or it goes.
-   - **Dead**: a named command no longer runs as written. Run it; the failure is the finding.
+   - **Dead**: a named command does not run as written. Run it; the failure is the finding.
    - **Unrouted**: a zone an agent must work in with nothing saying what to read and what to
      skip. Missing guidance is a finding too, not a blank.
 3. Decide the shape with the test above, out loud. A repo that does not diverge keeps one file,
@@ -98,7 +98,7 @@ changing any of it.
 5. Write the set: edit the root in place, create or trim the nested files, delta only. Never a
    parallel file under another name, and never a section that both a parent and a child carry.
 6. Mirror and align: apply the sibling rule from Steps to every file the audit writes or keeps.
-   An instruction file another tool reads that states what the set no longer says gets the same
+   An instruction file another tool reads that states a rule absent from the set gets the same
    edit, or is named as a finding and left alone.
 7. Verify the result: every command in the set runs as written, no line is carried by both a
    parent and a child, and every file follows the section order above.
@@ -121,8 +121,8 @@ in-session (blueprint §9.2: it is not sacred); `self-protect` only denies the w
 (`.ai-engineering/`, surface settings, git hooks, the global canon, an approved spec.html).
 Edit it when the repo's real state made a rule stale, never to bend a rule this task dislikes:
 
-1. The trigger is evidence: a rule that no longer matches the tree (a command that fails, a
-   convention the code now states by itself, a workflow the team changed). Say what you
+1. The trigger is evidence: a rule that does not match the tree (a command that fails, a
+   convention the code states by itself, a workflow the team changed). Say what you
    observed, at file:line, before touching the file.
 2. Edit, never rewrite: change the stale lines, keep the section order, one idea per line.
    The status convention and the Security section are not yours to delete.

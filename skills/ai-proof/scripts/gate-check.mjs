@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // gate-check.mjs : run the CHECK commands in gate files, flip boxes, record evidence.
-// Zero dependencies. Node 16+. Part of the unlazy skill (v2).
+// Zero dependencies. Node 16+. Part of the unlazy skill.
 //
 // Usage:
 //   node gate-check.mjs [file ...]           run unmet gates' checks, update files

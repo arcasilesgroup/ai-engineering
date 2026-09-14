@@ -6,7 +6,7 @@ import { styleText } from "node:util";
 
 const TEAL = "#00D4AA";
 
-/** The full logo block — the original CLI logo. */
+/** The CLI logo block. */
 export function showLogo(version: string): void {
   const teal = (text: string): string => styleText(TEAL, text);
   process.stdout.write(
@@ -14,7 +14,7 @@ export function showLogo(version: string): void {
       `${teal("┌─")}                                  ${teal("─┐")}`,
       `    ${teal("{")} ${styleText("bold", "ai")} ${teal("}")}   ${teal("e n g i n e e r i n g")}`,
       `${teal("└─")}                                  ${teal("─┘")}`,
-      styleText("dim", `v${version} · AI Governance Framework`),
+      styleText("dim", `v${version} · install · guard · prove`),
     ].join("\n") + "\n",
   );
 }

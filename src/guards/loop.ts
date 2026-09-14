@@ -1,7 +1,7 @@
 // The same call repeated, or the same tool failing over and over with the arguments
 // tweaked each time. Window 6 / repeats 3 / failures 5, thresholds in config.toml.
-// Ported from v1's loop_guard.py (149 LOC). The only bypass is a written override —
-// never a recipe printed to the model that may be obeying injected text.
+// The only bypass is a written override — never a recipe printed to the model that
+// may be obeying injected text.
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";

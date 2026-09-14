@@ -6,12 +6,10 @@
 // Two of them disagree in silence and are gated here:
 //
 //   · the chain bundle — it is what every in-process surface installs as the guard that
-//     runs inside the host (gen-assets.ts:26-37). Measured 2026-09-10: a chain fix
-//     lived in src/ while every installed guard still ran the old code, and doctor
-//     reported the chain green.
-//   · the `.embed` fixture copies — a fixture is the SUBJECT an eval measures, and a
-//     stale copy measures a repo that no longer exists (gen-assets.ts:43-46 records
-//     the shipped bug: an answer key citing files that were never materialized).
+//     runs inside the host (gen-assets.ts:26-37); a bundle that drifts from src/ means
+//     every installed guard runs stale code while doctor reports the chain green.
+//   · the `.embed` fixture copies — a fixture is the SUBJECT an eval measures, so a
+//     stale copy measures a repo that does not exist (gen-assets.ts:43-46).
 //
 // The third, src/assets.ts, is left alone on purpose: a payload file that is missing
 // from it does not fail silently — `embeddedTemplate` throws "template not embedded"

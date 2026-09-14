@@ -1,18 +1,16 @@
-// Adversarial: the uninstall→init deadlock (measured 2026-09-03, ~/repos/tests2).
+// Adversarial: the uninstall→init recovery path.
 // `uninstall` (scope "This project") deletes .ai-engineering/ai-eng.lock but keeps
 // config.toml; init then reads config.toml as "already governed", hands off to
 // update, and update aborts with "no ai-eng.lock — run ai-eng init first".
-// Neither verb can recover the repo. Regression: init --yes must re-install from the
-// recovery state and exit 0. Second check: a canon installed by an older binary has
-// no version.json — the "intact" branch printed "ai-eng unknown" and refused to
-// repair; health must be proven, not guessed from one marker file. Third check:
-// mirrors on a clean machine must receive the links (P0-1: init mkdir'd the mirror
-// PARENT, never the mirror dir, so every symlinkSync failed into the silent catch).
-// Fourth check (2026-09-10): that marker file also carried the REGISTRY version from
-// the notice cache, and nothing measured the canon — "intact · nothing to install"
-// printed over 34 deleted files. Health is now canonDrift(), a byte comparison init
-// and doctor share. Fifth (2026-09-10): the picker offered seven surfaces while only
-// three had a generator — a declaration in config.toml with nothing to enforce it.
+// So: init --yes must re-install from that state and exit 0. Second check: a canon
+// without version.json is intact-looking — health must be proven, not guessed from
+// one marker file. Third check: mirrors on a clean machine must receive the links
+// (a mirror dir whose PARENT is mkdir'd but not the dir itself makes every
+// symlinkSync fail into the silent catch). Fourth check: version.json also holds
+// the REGISTRY version from the notice cache, so health is canonDrift(), a byte
+// comparison init and doctor share, never a version marker. Fifth: the picker
+// offers only surfaces that have a generator — a declaration in config.toml with
+// nothing to enforce it is a governance claim, not a surface.
 import { test, expect, beforeAll, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, lstatSync, readFileSync } from "node:fs";
@@ -32,6 +30,19 @@ function eng(args: string[]): { status: number; stdout: string; stderr: string }
     encoding: "utf8",
     env: { ...process.env, AI_ENG_HOME: engHome, NO_COLOR: "1", CI: "1", AI_ENG_NO_UPDATE_NOTICES: "1" },
     input: "",
+  });
+  return { status: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+}
+
+/** Same run, another repo and another machine home — for the tests whose state is a
+ *  missing canon, which the shared home cannot be (every other test needs it there).
+ *  `input` is the scripted keypress queue src/ui.ts replays into clack's prompts. */
+function engAt(cwd: string, engHomeDir: string, args: string[], input: string): { status: number; stdout: string; stderr: string } {
+  const r = spawnSync(process.execPath, [cli, ...args], {
+    cwd,
+    encoding: "utf8",
+    env: { ...process.env, AI_ENG_HOME: engHomeDir, NO_COLOR: "1", CI: "1", AI_ENG_NO_UPDATE_NOTICES: "1" },
+    input,
   });
   return { status: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
@@ -58,11 +69,15 @@ test("init recovers a repo whose lock was uninstalled (no update↔init deadlock
   expect(run.status).toBe(0);
   expect(existsSync(join(repo, ".ai-engineering", "ai-eng.lock"))).toBe(true);
   expect(existsSync(join(repo, ".git", "hooks", "pre-commit"))).toBe(true);
-  expect(existsSync(join(repo, ".claude", "settings.json"))).toBe(true);
+  // The claude-code carrier is the MACHINE's now: the repo keeps only the two hosts whose
+  // readers live in the checkout, and this one reads from the user's home.
+  expect(existsSync(join(engHome, ".claude", "settings.json"))).toBe(true);
+  expect(existsSync(join(repo, ".claude", "settings.json"))).toBe(false);
 });
 
 test("an intact-looking canon without version.json is repaired, not skipped", () => {
-  // The tests2 symptom: "global canon intact · ai-eng unknown · nothing to install".
+  // A canon with its marker files intact but an empty version.json must be
+  // repaired and given the real version, never reported as "unknown".
   const marker = join(engHome, "skills", "ai-brainstorm", "SKILL.md");
   expect(existsSync(marker)).toBe(true); // intact-looking
   expect(existsSync(join(engHome, "version.json"))).toBe(true); // repaired by run #1
@@ -72,9 +87,8 @@ test("an intact-looking canon without version.json is repaired, not skipped", ()
 });
 
 test("a canon missing payload files is repaired, not called intact", () => {
-  // The 2026-09-10 symptom: init printed "global canon intact · nothing to
-  // install" over a canon with 34 files deleted — it probed one marker file
-  // instead of measuring. Health is now a byte comparison against the payload.
+  // A canon missing payload files must be repaired, not called intact: one marker
+  // file is not a measurement, and health is a byte comparison against the payload.
   rmSync(join(engHome, "skills", "ai-goal"), { recursive: true, force: true });
   const run = eng(["init", "--yes"]);
   expect(run.stdout + run.stderr).toInclude("re-installing");
@@ -84,8 +98,8 @@ test("a canon missing payload files is repaired, not called intact", () => {
 
 test("the intact line never reports a version the canon does not have", () => {
   // version.json doubles as the notice cache, so it can hold the REGISTRY
-  // version. init used to print it as the installed canon's ("ai-eng 3.1.4"
-  // over a 2.0.0 canon, 2026-09-10) and the lie also hid drift.
+  // version. init must report the installed canon's version, never the registry's:
+  // printing the registry version is a lie that also hides drift.
   writeFileSync(join(engHome, "version.json"), JSON.stringify({ version: "9.9.9", ts: Date.now() }));
   const run = eng(["init", "--yes"]);
   const out = run.stdout + run.stderr;
@@ -94,21 +108,22 @@ test("the intact line never reports a version the canon does not have", () => {
 });
 
 test("update in the recovery state tells the truth: no 'unknown', no garden jargon", () => {
-  // Re-enter the state the deadlock created: config.toml, no lock, nothing on disk.
+  // The recovery state: config.toml, no lock, nothing on disk.
   rmSync(join(repo, ".ai-engineering", "ai-eng.lock"), { force: true });
   rmSync(join(repo, ".git", "hooks", "pre-commit"), { force: true });
   rmSync(join(repo, ".claude"), { recursive: true, force: true });
   const run = eng(["update"]);
   const out = run.stdout + run.stderr;
-  // 'unknown' came from previous.version || "unknown": it read as a broken install
-  // when the truth was "nothing recorded yet".
+  // Nothing recorded yet must not read as 'unknown': that names a broken install,
+  // not an empty record.
   expect(out).not.toInclude("unknown");
   expect(out).toInclude("no ai-eng.lock");
   expect(run.status).toBe(0);
 });
 
 test("a clean machine gets real skill mirrors, not zero-count ghosts", () => {
-  // P0-1: mirror dirs were never created; every symlink failed silently.
+  // Mirror dirs must exist before each symlink is created: a missing parent makes
+  // symlinkSync fail silently.
   const link = join(engHome, ".claude", "skills", "ai-debug");
   expect(existsSync(link)).toBe(true);
   expect(lstatSync(link).isSymbolicLink()).toBe(true);
@@ -116,7 +131,7 @@ test("a clean machine gets real skill mirrors, not zero-count ghosts", () => {
 
 test("a surface that cannot deny tools is refused, never declared in config.toml", () => {
   // Zed ships skills and no hot-path hook; declaring it would be a governance claim
-  // with nothing to enforce it (§13, measured 2026-09-10). Pi is NOT in this club —
+  // with nothing to enforce it (§13). Pi is NOT in this club —
   // its tool_call event can block, so it has an adapter.
   const fresh = join(sandbox, "no-adapter-repo");
   mkdirSync(fresh, { recursive: true });
@@ -138,8 +153,8 @@ test("init offers only the surfaces that generate files", () => {
 });
 
 test("config --add in a bare repo says 'run ai-eng init first', not ENOENT", () => {
-  // Measured 2026-09-10: repoRoot() answered yes for a repo with only .git, and
-  // writeFileSync died on the missing .ai-engineering/ with a raw ENOENT.
+  // A repo with only .git counts as a repo, so the missing .ai-engineering/ must
+  // produce "run ai-eng init first", not a raw ENOENT.
   const bare = join(sandbox, "bare-repo");
   mkdirSync(bare, { recursive: true });
   spawnSync("git", ["init", "-q"], { cwd: bare });
@@ -156,10 +171,10 @@ test("config --add in a bare repo says 'run ai-eng init first', not ENOENT", () 
 });
 
 // The protocol seam: update.ts hands install() a `sha256:<hex>` sentinel as
-// "previous ours" (update.ts:147). install() must understand it — when it didn't,
-// "Take the new version everywhere" wrote 0 files, safe version-bump updates
-// became false "patched by you" conflicts, and the rebuilt lock recorded hashes
-// that were never on disk (measured tests2 2026-09-03).
+// "previous ours" (update.ts:147). install() must understand it — treating it as a
+// literal hash makes "Take the new version everywhere" write 0 files, turns safe
+// version-bump updates into false "patched by you" conflicts, and records hashes
+// that exist nowhere on disk.
 import { install, sha256 as sha } from "../../src/install.ts";
 import type { PlanEntry } from "../../src/install.ts";
 
@@ -204,9 +219,9 @@ test('install honors the "sha256:" sentinel: take writes, unedited updates apply
 
 test("update repairs a drifted global canon, not only the repo's assets", () => {
   // The machine side is half of what ai-eng installed, and it is the half a surface
-  // actually reads. A repo whose own assets were current reported "all assets
-  // current — nothing to sync" over a canon with twenty drifted skills; repairing
-  // it was `init --global`'s job alone, which nobody should have to know.
+  // actually reads. A repo whose own assets are current must not report "all assets
+  // current — nothing to sync" over a drifted canon: `update` repairs the global
+  // canon too, not only the repo's assets.
   const installed = join(engHome, "skills", "ai-plan", "SKILL.md");
   expect(eng(["init", "--yes"]).status).toBe(0);
   expect(existsSync(installed)).toBe(true);
@@ -221,12 +236,35 @@ test("update repairs a drifted global canon, not only the repo's assets", () => 
   expect(doctor.stdout + doctor.stderr).toContain("0 drift");
 });
 
+test("a repo with no machine-side canon is offered it, never handed it (§14.5b)", () => {
+  // `uninstall` scope "Everything" removes ~/.ai-engineering and leaves the repo
+  // governed. Running `ai-eng init` inside that repo then installed the machine side
+  // in silence — a whole-home write the human never asked for. §14.5b path 2:
+  // «no global canon — install it now and I continue with the repo, ok?»: offered,
+  // and a "no" leaves the machine untouched.
+  const freshHome = join(sandbox, "offered-home");
+  const freshRepo = join(sandbox, "offered-repo");
+  mkdirSync(freshHome, { recursive: true });
+  mkdirSync(join(freshRepo, ".ai-engineering"), { recursive: true });
+  spawnSync("git", ["init", "-q"], { cwd: freshRepo });
+  writeFileSync(join(freshRepo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+  // Governed and current (installed from the shared home), so the repo phase after a
+  // "yes" has nothing to write and cannot stall on a second question.
+  expect(engAt(freshRepo, engHome, ["init", "--yes", "--surface", "claude-code"], "").status).toBe(0);
+
+  const refused = engAt(freshRepo, freshHome, ["init"], "n\n");
+  expect(refused.stdout + refused.stderr).toInclude("install it now");
+  expect(existsSync(join(freshHome, "skills"))).toBe(false);
+
+  const accepted = engAt(freshRepo, freshHome, ["init"], "y\n");
+  expect(existsSync(join(freshHome, "skills", "ai-debug", "SKILL.md"))).toBe(true);
+  expect(accepted.status).toBe(0);
+});
+
 test("the canon is swept of what we no longer ship, and nothing else is touched", () => {
-  // Renaming an asset inside a skill left the old file in every installed canon
-  // forever: canonDrift only walked the payload, so an orphan was invisible and
-  // doctor reported 101/101 clean with it sitting there (measured 2026-09-11).
-  // The line is the skill folder: inside one we ship, a path the payload no longer
-  // has is stale and gets swept. Anything else in the canon home is somebody's.
+  // The line is the skill folder: inside one we ship, a path the payload does not
+  // have is stale and gets swept, and doctor names it. Anything else in the canon
+  // home is somebody's.
   expect(eng(["init", "--yes"]).status).toBe(0);
   const staleFile = join(engHome, "skills", "ai-visual-recap", "assets", "highlight.js");
   const foreignFile = join(engHome, "skills", "my-own-skill", "SKILL.md");

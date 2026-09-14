@@ -3,8 +3,8 @@ name: e2e
 # this commit — the channel is *ephemeral on purpose*: an Actions artifact dies with
 # the run (7 days at most) and needs a token to download, so no client can pin it.
 # Clients pin the release; this proves the release's payload before it exists (§17).
-# It exists because the installed workflow had never been run by anyone: it installed a
-# package that is not on npm and named a trivy ref that does not exist.
+# Running the installed workflow here is what proves it: the package it installs is on
+# npm and every ref it names exists.
 on: [push, pull_request]
 
 permissions:

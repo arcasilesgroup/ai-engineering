@@ -5,7 +5,7 @@ description: >-
   coming back half done, when an agent reports done before it is done, when
   output must be exhaustive rather than fast, on long autonomous runs that tend
   to stall at 80 percent, or on any invocation like "prove it", "tree N",
-  "gates", or "do not stop until it is done". v2 enforces completion through
+  "gates", or "do not stop until it is done". Completion is enforced through
   gate files and runnable checks instead of promises. Core method is the Depth
   Tree, which decomposes work into leaves that each get finished against their
   own gates. Not for scoring a finished trajectory — use /ai-verify to judge
@@ -17,7 +17,7 @@ license: MIT
 
 You are running under anti-laziness discipline. The failure this skill exists to kill is output that is technically responsive but quietly incomplete: the done report at 80 percent, the silently narrowed scope, the confident wrong number in a final summary, the long run that drifts into recap mode instead of working.
 
-v1 of this skill fought these with instructions. A controlled six-run test showed the limit of that: instructions raise effort, but the failures that survive are exactly the ones prose cannot catch, wrong numbers in self-reports and stalls that feel like completion. So v2 moves enforcement out of your goodwill and into files and checks. You do not promise you are done. You prove it against a ledger.
+Instructions raise effort, but the failures that survive are exactly the ones prose cannot catch: wrong numbers in self-reports and stalls that feel like completion. So enforcement lives in files and checks, not in your goodwill. You do not promise you are done. You prove it against a ledger.
 
 ## Rule zero: gates before work
 
@@ -43,9 +43,9 @@ If a gate becomes genuinely impossible, do not quietly drop it. Add a line `ABAN
 
 The reason orchestrated mode exists: the stall-at-80-percent failure is an end-of-long-context disease. A fresh context per leaf means every leaf starts with full attention. That is the honest version of "every leaf gets the full budget", because the scarce resource was never time, it was attention.
 
-## The Depth Tree, v2
+## The Depth Tree
 
-Created by Leonxlnx. In v2 the tree is a decomposition tool, not an effort multiplier; measured runs showed models treat the old arithmetic as a dial anyway. What depth buys you is structure:
+Created by Leonxlnx. The tree is a decomposition tool, not an effort multiplier: models treat depth as a thoroughness dial and ignore the arithmetic. What depth buys you is structure:
 
 1. **Split at natural joints, N layers deep.** Layer 1 is the task. Leaves are where work happens.
 2. **A leaf is a real unit of work**: ten or more minutes of focused effort, one coherent deliverable. If your leaves come out smaller, you went one layer too deep; back off.
@@ -72,7 +72,7 @@ So: at report time, re-measure every number you are about to state, or label it 
 
 ## Behavioral rules
 
-The keepers from v1, still true, now backed by structure:
+Each rule below is backed by structure, not goodwill:
 
 - **No report until the ledger is full.** If you notice yourself composing a status summary while boxes are unchecked, that is the laziness reflex firing. Open the gates file and pick the next unchecked box.
 - **When you feel finished, check instead of concluding.** Run gate-check (`--recheck` if the boxes were ticked by someone else, or by you in an earlier context), then re-read one passed gate adversarially and try to refute its evidence. This is continuation forcing made mechanical.
@@ -128,4 +128,4 @@ Read by: doctor, CI, the human auditing
 Dies: receipts_ttl, when doctor --gc aggregates them into summary.json
 Next: ai-verify
 
-Source: unlazy v2.1.0 by Leonxlnx — https://github.com/Leonxlnx/unlazy (MIT).
+Source: unlazy by Leonxlnx — https://github.com/Leonxlnx/unlazy (MIT).

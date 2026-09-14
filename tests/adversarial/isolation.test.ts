@@ -1,8 +1,6 @@
 // Adversarial: AI_ENG_HOME must isolate EVERYTHING a test install touches. The
-// canon already honors the override (env.home()); the mirrors did not — a test
-// run rewired the REAL ~/.claude/skills to a /tmp canon (measured 2026-09-01,
-// /tmp/aibrain-demo). Regression: with AI_ENG_HOME set, no symlink outside the
-// override may appear or be rewritten.
+// canon honors the override (env.home()), and so must the mirrors: with
+// AI_ENG_HOME set, no symlink outside the override may appear or be rewritten.
 import { test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";

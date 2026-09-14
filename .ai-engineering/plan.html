@@ -38,10 +38,10 @@
 <h2><span class="num">01</span>Steps → gates</h2>
 <table>
 <tr><th>#</th><th>Step</th><th>Closes</th><th>State</th></tr>
-<tr><td>1</td><td>La puerta: <code>isGoverned()</code> en <code>src/env.ts</code> (config.toml existente, parseable, con seccion de superficies) y los doce sitios que hoy la reimplementan pasan por ella. Chain y receipts dejan de escribir en repos ajenos.</td><td>G1 G2 G3 G4</td><td>🟡</td></tr>
-<tr><td>2</td><td>El floor de git consulta la misma puerta: sin <code>config.toml</code> sale 0, con <code>config.toml</code> y sin binario sale 1.</td><td>G5</td><td>🟡</td></tr>
-<tr><td>3</td><td>Merge por marcador desde la primera escritura, empezando por el fichero mas peligroso (<code>~/.claude/settings.json</code>): entradas propias identificables, ajenas intactas, fichero no-JSON intocable.</td><td>G6</td><td>🟡</td></tr>
-<tr><td>4</td><td>Carriers de maquina con su tabla de rutas y su fuente por host. OMP primero, arreglando el carrier que hoy vive en <code>.agents/hooks/</code> y probando que carga de verdad.</td><td>G7 G8 G9</td><td>🟡</td></tr>
+<tr><td>1</td><td>La puerta: <code>isGoverned()</code> en <code>src/env.ts</code> (config.toml existente, parseable, con seccion de superficies) y los doce sitios que hoy la reimplementan pasan por ella. Chain y receipts dejan de escribir en repos ajenos.</td><td>G1 G2 G3 G4</td><td>🟢 spec run dab8dad5 — los cuatro PASS</td></tr>
+<tr><td>2</td><td>El floor de git consulta la misma puerta: sin <code>config.toml</code> sale 0, con <code>config.toml</code> y sin binario sale 1.</td><td>G5</td><td>🟢 la puerta del verbo y el exit 0 silencioso en repo ajeno, con su control gobernado (G5 PASS). Falta el «sin binario» del shim: eso es el paso 7.</td></tr>
+<tr><td>3</td><td>Merge por marcador desde la primera escritura, empezando por el fichero mas peligroso (<code>~/.claude/settings.json</code>): entradas propias identificables, ajenas intactas, fichero no-JSON intocable.</td><td>G6</td><td>🟢 spec run 064acbda · PASS. Y mas estricto de lo que pedia: si el fichero no se puede reproducir byte a byte (compacto, CRLF raro), NO se toca y se dice, en vez de reformatearlo.</td></tr>
+<tr><td>4</td><td>Carriers de maquina con su tabla de rutas y su fuente por host. OMP primero, arreglando el carrier que hoy vive en <code>.agents/hooks/</code> y probando que carga de verdad.</td><td>G7 G8 G9</td><td>🟢 spec run 064acbda — los tres PASS. <code>scripts/proof-carriers.sh</code> verde con las dos pruebas: el loader del propio host descubre el carrier y bloquea, y una sesion real de omp recibe el deny con su receipt.</td></tr>
 <tr><td>5</td><td>El allow de Cursor: envelope del dialecto en el camino de allow cuando el host lo exige.</td><td>G10</td><td>🟡</td></tr>
 <tr><td>6</td><td>Ciclo de vida: <code>init</code> (repo con dos carriers, el resto en la maquina), <code>update</code> (carrier de Codex solo si cambian los bytes), <code>doctor</code> (tres chequeos separados + version del estado de maquina), <code>uninstall</code> (restaura la maquina).</td><td>G11 G12 G13</td><td>🟡</td></tr>
 <tr><td>7</td><td>Floor con <code>init.templateDir</code>: clones que nacen con el, templateDir ajeno intacto, restauracion en uninstall, y <code>core.hooksPath</code> ajeno que ya no se borra en silencio.</td><td>G14</td><td>🟡</td></tr>
@@ -63,26 +63,42 @@
 <h2><span class="num">03</span>Gates ledger</h2>
 <table>
 <tr><th>Gate</th><th>State</th><th>Receipt</th></tr>
-<tr><td>G1</td><td>🟡</td><td>—</td></tr>
-<tr><td>G2</td><td>🟡</td><td>—</td></tr>
-<tr><td>G3</td><td>🟡</td><td>—</td></tr>
-<tr><td>G4</td><td>🟡</td><td>—</td></tr>
-<tr><td>G5</td><td>🟡</td><td>—</td></tr>
-<tr><td>G6</td><td>🟡</td><td>—</td></tr>
-<tr><td>G7</td><td>🟡</td><td>—</td></tr>
-<tr><td>G8</td><td>🟡</td><td>—</td></tr>
-<tr><td>G9</td><td>🟡</td><td>—</td></tr>
+<tr><td>G1</td><td>🟢</td><td>spec run dab8dad5 · PASS</td></tr>
+<tr><td>G2</td><td>🟢</td><td>spec run dab8dad5 · PASS</td></tr>
+<tr><td>G3</td><td>🟢</td><td>spec run dab8dad5 · PASS</td></tr>
+<tr><td>G4</td><td>🟢</td><td>spec run dab8dad5 · PASS</td></tr>
+<tr><td>G5</td><td>🟢</td><td>spec run dab8dad5 · PASS (la mitad del shim llega en el paso 7)</td></tr>
+<tr><td>G6</td><td>🟢</td><td>spec run 064acbda · PASS</td></tr>
+<tr><td>G7</td><td>🟢</td><td>spec run 064acbda · PASS</td></tr>
+<tr><td>G8</td><td>🟢</td><td>spec run 064acbda · PASS</td></tr>
+<tr><td>G9</td><td>🟢</td><td>spec run 064acbda · PASS</td></tr>
 <tr><td>G10</td><td>🟡</td><td>—</td></tr>
 <tr><td>G11</td><td>🟡</td><td>—</td></tr>
 <tr><td>G12</td><td>🟡</td><td>—</td></tr>
 <tr><td>G13</td><td>🟡</td><td>—</td></tr>
-<tr><td>G14</td><td>🟡</td><td>—</td></tr>
-<tr><td>G15</td><td>🟡</td><td>—</td></tr>
+<tr><td>G14</td><td>🟡 verde falso</td><td>dab8dad5 da PASS pero <code>proof-cli-ux.sh</code> no prueba el clone nuevo: la mitad «nace con el floor» no existe todavia (paso 7). El PASS de hoy solo dice que los proofs viejos siguen pasando.</td></tr>
+<tr><td>G15</td><td>🟢</td><td>spec run dab8dad5 · 160 pass / 0 fail</td></tr>
 <tr><td>G16</td><td>🟡</td><td>—</td></tr>
-<tr><td>G17</td><td>🟡</td><td>—</td></tr>
-<tr><td>G18</td><td>🟡</td><td>—</td></tr>
+<tr><td>G17</td><td>🟡 verde falso</td><td>dab8dad5 da PASS por el <code>run-1/findings.json</code> del milestone anterior. La auditoria de ESTE diff es el paso 10 y escribe su propio run.</td></tr>
+<tr><td>G18</td><td>🟢</td><td>spec run dab8dad5 · PASS</td></tr>
 <tr><td>G19</td><td>🟡</td><td>—</td></tr>
-<tr><td>G20</td><td>🟡</td><td>—</td></tr>
+<tr><td>G20</td><td>🟢</td><td>spec run dab8dad5 · PASS</td></tr>
 </table>
+
+<h2><span class="num">04</span>Notas del loop</h2>
+<div class="card context">
+  <p><b>El test de arquitectura estaba verde por vacio.</b> `projectSlices().definedBy("src/**/(**).ts")` — el patron que la libreria documenta — escapa <code>*</code> a un literal, asi que compilaba a una regex que no matchea ninguna ruta del repo: proyeccion vacia y TODAS las reglas negativas pasando sin mirar un solo import. Ahora el slicing se deriva de los globs de <code>arch.rules.json</code> y hay una asercion que exige ver un import que existe (<code>chain → env</code>), porque «cero violaciones» es tambien lo que contesta un grafo vacio. Probado por lo demas con un par que si viola: <code>commands → chain</code> devuelve la arista fisica.</p>
+  <p><b>Dos reglas nuevas (G18).</b> <code>env</code> sale de <code>shared</code> y pasa a ser la capa de abajo: no puede importar ninguna otra. Es la forma estructural de «la gobernanza se decide en un solo sitio» — la puerta no puede heredar una segunda opinion. Y <code>chain</code> no puede importar <code>surfaces</code>: el hot path no conoce hosts ni carriers.</p>
+  <p><b>El cwd del host, medido.</b> <code>lsof -a -d cwd</code> sobre los dos procesos de OMP vivos da <code>/Users/soydachi/repos/ai-engineering</code>: el host in-process corre con el cwd del workspace, que es lo que la puerta asume. El plugin de pi ya manda <code>cwd: ctx.cwd</code> en el payload; el de OMP no manda nada y el de OpenCode tampoco. Queda medir OpenCode en el paso 4 (el probe es su primera tarea, no la ultima).</p>
+  <p><b>Decisiones de la puerta.</b> <code>declaration()</code> es la unica lectura del fichero: <code>enabledSurfaces()</code> y la puerta no pueden discrepar. La puerta va ANTES de leer el payload, porque el camino de deny escribe receipt: en un repo ajeno eso era la escritura que G3 prohibe. <code>doctor</code> separa ausente / corrupto / sin <code>[surfaces]</code> / gobernado, y ya no grita «chain roto» en un repo que nunca pidio politica. El parametro muerto <code>stateDir</code> del chain se fue: con la puerta siempre hay raiz.</p>
+  <p><b>Riesgo del paso 1, encontrado y cerrado.</b> La puerta depende del cwd del proceso, y dos suites se lo prestaban entre si (<code>chain.test.ts</code> hacia <code>chdir("/")</code> y el test de pi llegaba sin repo). Ahora cada test que depende del cwd lo presta y lo devuelve; los fixtures que fingian un repo gobernado con un <code>.git</code> o con un <code>config.toml</code> sin <code>[surfaces]</code> declaran lo que dicen ser. Es el mismo fail-closed que antes no existia: un fichero de cero bytes ya no gobierna con los valores por defecto.</p>
+</div>
+<h2><span class="num">05</span>Notas del paso 4 (carriers de maquina)</h2>
+<div class="card context">
+  <p><b>La sonda decide, no el documento.</b> Antes de escribir el carrier de OMP se midio: una factoria <code>export default</code> en <code>&lt;agentDir&gt;/hooks/pre/*.ts</code> carga en omp 18.1.17 y bloquea la llamada; <code>ctx.cwd</code> llega con la raiz del workspace; los nombres de herramienta llegan en minuscula (<code>bash</code>). Las tres cosas estan en la tabla y en el carrier.</p>
+  <p><b>Dos bugs que solo aparecen cargando.</b> (1) El bundle del chain al lado del carrier <em>tambien</em> se carga como hook — omp recorre todos los <code>*.ts</code> de ese directorio — y muere con «Hook must export a default function». El bundle va con punto delante: omp salta las entradas que empiezan por <code>.</code>. (2) Los nombres de herramienta en minuscula de OMP no casaban con ningun matcher: los aliases que ya existian para pi valen para OMP, que es su descendiente.</p>
+  <p><b>La prueba en vivo tuvo que cambiar de cebo.</b> Pedirle a la sesion <code>git commit -n</code> no prueba nada: el modelo lo rechaza solo, leyendo su AGENTS.md. El probe que si prueba es una repeticion (<code>echo ping</code> cinco veces): el modelo no tiene motivo propio para negarse, y la cuarta la deniega el loop guard — un veredicto que SOLO puede venir del carrier.</p>
+  <p><b>Un fallo propio, encontrado y cerrado.</b> Un test lanzaba el CLI sin aislar <code>AI_ENG_HOME</code>, y como los carriers ahora se escriben fuera del repo, ese test instalo hooks en mi <code>~/.claude/settings.json</code> real. Se limpio con el propio <code>stripSharedText</code> (los 15 ajustes del usuario intactos, cero entradas nuestras) y ahora todo spawn de test lleva su home.</p>
+</div>
 </body>
 </html>

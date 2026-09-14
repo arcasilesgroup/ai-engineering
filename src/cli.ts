@@ -51,7 +51,7 @@ if (flags.help || !verb) {
   process.stdout.write("\n");
   process.stdout.write("  ai-eng init       install governance (global without a repo; contract inside)\n");
   process.stdout.write("  ai-eng doctor     12 checks + one real adversarial probe + --gc\n");
-  process.stdout.write("  ai-eng config     surfaces and thresholds\n");
+  process.stdout.write("  ai-eng config     add or remove surfaces, and regenerate their adapters\n");
   process.stdout.write("  ai-eng update     rewrite ai-eng's files from the installed binary (zero network)\n");
   process.stdout.write("  ai-eng upgrade    delegate to bun/npm\n");
   process.stdout.write("  ai-eng uninstall  revert ours, keep yours\n\n");

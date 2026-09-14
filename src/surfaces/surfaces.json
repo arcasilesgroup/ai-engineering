@@ -11,7 +11,15 @@
         "loop": "native",
         "loopEvidence": "claude 2.1.251: --permission-mode auto|bypassPermissions|dontAsk with -p, plus --bg, --resume and --agents"
       },
-      "settingsFile": ".claude/settings.json"
+      "carriers": [
+        {
+          "scope": "machine",
+          "kind": "settings",
+          "path": ".claude/settings.json",
+          "source": "research/004 §01 (user scope applies to every project) · anthropics/claude-code#83502: user-scope hooks run without workspace trust",
+          "measured": "2026-09-14"
+        }
+      ]
     },
     {
       "id": "oh-my-pi",
@@ -23,8 +31,17 @@
         "loop": "native",
         "loopEvidence": "omp: --plan-yolo auto-approves the plan and switches to --plan-yolo-into to implement it; --plan=<model> role"
       },
-      "pluginFile": ".agents/hooks/ai-eng.ts",
-      "chainFile": ".agents/hooks/ai-eng-chain.ts"
+      "carriers": [
+        {
+          "scope": "machine",
+          "kind": "module",
+          "path": ".omp/agent/hooks/pre/ai-eng.ts",
+          "chain": ".omp/agent/hooks/pre/.ai-eng-chain.ts",
+          "source": "omp://hooks.md (native hook capability: <configDir>/hooks/pre|post, agent dir is PI_CODING_AGENT_DIR aware) · live probe on omp 18.1.17 2026-09-14: a default-export factory written there loaded and blocked a bash call; the old .agents/hooks/ path loads nothing; the chain bundle is dot-prefixed because omp's hook scanner loads EVERY *.ts in that directory and a bundle is not a hook factory",
+          "measured": "2026-09-14"
+        }
+      ],
+      "note": "the carrier is a hook factory (default export, pi.on), not the extension beforeToolCall shape"
     },
     {
       "id": "opencode",
@@ -36,8 +53,16 @@
         "loop": "native",
         "loopEvidence": "opencode 1.18.29: --auto (auto-approve permissions not explicitly denied) with `opencode run`, --continue and --fork"
       },
-      "pluginFile": ".opencode/plugins/ai-eng.ts",
-      "chainFile": ".opencode/plugins/ai-eng-chain.ts"
+      "carriers": [
+        {
+          "scope": "machine",
+          "kind": "module",
+          "path": ".config/opencode/plugins/ai-eng.ts",
+          "chain": ".config/opencode/plugins/ai-eng-chain.ts",
+          "source": "research/004 §01 (opencode loads plugins from ~/.config/opencode/plugins/)",
+          "measured": "2026-09-14"
+        }
+      ]
     },
     {
       "id": "cursor",
@@ -50,7 +75,15 @@
         "loop": "native",
         "loopEvidence": "cursor-agent: --mode plan plus --force/--yolo (allow commands unless explicitly denied) and --sandbox"
       },
-      "settingsFile": ".cursor/hooks.json",
+      "carriers": [
+        {
+          "scope": "repo",
+          "kind": "settings",
+          "path": ".cursor/hooks.json",
+          "source": "research/003 · cursor.com/docs/cloud-agent: cloud VMs have no access to your local home directory, and the user level loses to the project one",
+          "measured": "2026-09-11"
+        }
+      ],
       "note": "output rewrite: MCP only (blueprint §13)"
     },
     {
@@ -64,8 +97,16 @@
         "loop": "native",
         "loopEvidence": "codex-cli 0.153.4: `codex exec` non-interactively, -s workspace-write, --dangerously-bypass-approvals-and-sandbox, resume/queue"
       },
-      "settingsFile": ".codex/hooks.json",
-      "note": "requires manual /hooks trust (hash-pinned)"
+      "carriers": [
+        {
+          "scope": "machine",
+          "kind": "settings",
+          "path": ".codex/hooks.json",
+          "source": "research/004 §01 (user hooks load even when the project is untrusted) · openai/codex#20321: trust is per hook definition, pinned by hash",
+          "measured": "2026-09-14"
+        }
+      ],
+      "note": "requires manual /hooks trust (hash-pinned): a byte change re-asks, so update writes only on a real change"
     },
     {
       "id": "copilot",
@@ -78,7 +119,22 @@
         "loop": "native",
         "loopEvidence": "GitHub Copilot CLI 1.0.83: --plan ('combine with --mode to implement it autonomously') and a mode that runs 'autonomously without asking questions'"
       },
-      "settingsFile": ".github/hooks/ai-eng.json",
+      "carriers": [
+        {
+          "scope": "repo",
+          "kind": "settings",
+          "path": ".github/hooks/ai-eng.json",
+          "source": "research/003: VS Code Copilot Chat and the cloud agent read the repo copy only",
+          "measured": "2026-09-11"
+        },
+        {
+          "scope": "machine",
+          "kind": "settings",
+          "path": ".copilot/hooks/ai-eng.json",
+          "source": "research/004 §01: Copilot CLI 1.0.83 reads ~/.copilot/hooks/*.json and never fires the repo copy",
+          "measured": "2026-09-14"
+        }
+      ],
       "note": "ephemeral FS: no receipts"
     },
     {
@@ -91,8 +147,16 @@
         "loop": "none",
         "loopEvidence": "pi 0.85.1: --help offers plan mode only 'from plan-mode extension' — nothing built in"
       },
-      "pluginFile": ".pi/extensions/ai-eng.ts",
-      "chainFile": ".pi/extensions/ai-eng-chain.ts",
+      "carriers": [
+        {
+          "scope": "machine",
+          "kind": "module",
+          "path": ".pi/agent/extensions/ai-eng.ts",
+          "chain": ".pi/agent/extensions/ai-eng-chain.ts",
+          "source": "pi.dev/docs/latest/extensions · brainstorm TrustFacts §3: pi has no native user-level HOOKS, only extensions",
+          "measured": "2026-09-14"
+        }
+      ],
       "note": "in-process extension; project-local extensions load once pi trusts the folder"
     },
     {
@@ -105,7 +169,8 @@
         "loop": "none",
         "loopEvidence": "zed: an editor that reads the skills directory; no agent loop to hand a goal to"
       },
-      "note": "honest: skills install, no guards in hot-path"
+      "carriers": [],
+      "note": "honest: skills install, no guards in hot-path — a surface that cannot deny has no carrier to place"
     }
   ]
 }

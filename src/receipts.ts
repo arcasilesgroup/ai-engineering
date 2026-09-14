@@ -1,6 +1,6 @@
-// The receipt — one JSON per execution, append-only. v1 had envelope + check-evidence
-// with HMAC and hash-chain (853 LOC); v2 rescues the concept, not the machinery: the
-// real signature is the Receipt-Id trailer in the commit — git already is the chain.
+// The receipt — one JSON per execution, append-only. No envelope, no HMAC, no
+// hash-chain: the real signature is the Receipt-Id trailer in the commit — git
+// already is the chain.
 
 import { writeFileSync, readFileSync, readdirSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -19,8 +19,8 @@ export type Receipt = {
   ts: string;
 };
 
-export function writeReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | "ts">): Receipt | null {
-  const dir = receiptsDir();
+export function writeReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | "ts">, root?: string | null): Receipt | null {
+  const dir = receiptsDir(root);
   if (!dir) return null; // a stray call with no governed repo writes nothing
   const full: Receipt = {
     schema: "urn:ai-eng:receipt:2",

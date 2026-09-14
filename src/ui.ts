@@ -106,11 +106,10 @@ export function fail(message: string): void {
 
 /** Scripted-pipe stdin: on a non-TTY stdin the whole pipe often arrives as one
  *  chunk, and clack's interactive prompts cannot run on it at all (no raw mode;
- *  a keypress-listener pipeline that never submits — measured 2026-09-01, G4
- *  path1). This wrapper replays the pipe as discrete keypress events on a
- *  PassThrough stream, one per tick: a prompt that opens between two keys finds
- *  the queue waiting instead of a firehose that already fired. Interactive
- *  stdin is passed through untouched. */
+ *  a keypress-listener pipeline that never submits). This wrapper replays the pipe
+ *  as discrete keypress events on a PassThrough stream, one per tick: a prompt that
+ *  opens between two keys finds the queue waiting instead of a firehose that
+ *  already fired. Interactive stdin is passed through untouched. */
 export function scriptedInput(): NodeJS.ReadStream | PassThrough {
   if (process.stdin.isTTY) {
     // clack adds one keypress listener per prompt; a question chain can cross

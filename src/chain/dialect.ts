@@ -2,10 +2,10 @@
 // status where the host reads one. A denial whose text never arrives reads as
 // permission — so the envelope is written and flushed deliberately before exit.
 //
-// MEASURED per host (2026-09-10, docs of the installed versions):
-// - claude: exit 2 + stderr blocks. The JSON blob below is what v2 has always
-//   emitted and what runs today; it is kept byte-for-byte — an unmeasured wire
-//   change on the surface that works is the one change nobody can justify.
+// Per host, per the installed versions' docs:
+// - claude: exit 2 + stderr blocks. The JSON blob below is kept byte-for-byte —
+//   an unmeasured wire change on the surface that works is the one change nobody
+//   can justify.
 // - codex: stdout {"hookSpecificOutput":{...,"permissionDecision":"deny"}}, exit 0.
 //   A non-zero exit is NOT the contract, and `continue: false` is on Codex's
 //   unsupported list — "hook fails, tool proceeds". The wrong envelope fail-opens.
@@ -25,8 +25,8 @@ function writeJsonAndExit(decision: unknown, status: number): never {
   try {
     process.stdout.write(`${JSON.stringify(decision)}\n`);
   } catch {
-    // The stdout write failing must not turn the denial into permission: v1 measured
-    // a closed stdout rewriting exit status 2 into 120 at interpreter shutdown.
+    // The stdout write failing must not turn the denial into permission: a closed
+    // stdout rewrites exit status 2 into 120 at interpreter shutdown.
     process.exit(2);
   }
   process.exit(status);
@@ -77,12 +77,23 @@ export function allowRewrite(command: string, dialect: Dialect = "claude", event
   writeJsonAndExit({ permission: "allow", updatedInput: { command } }, 0);
 }
 
+/** The allowed-call envelope — silence, except where the host's own contract says
+ *  otherwise. Cursor's project template declares `failClosed: true`, so an EMPTY stdout
+ *  is read as a policy error and the call is refused: a permitted call that reads as a
+ *  failure, which is the bug research/003 measured and this branch exists to close.
+ *  Codex documents silence with exit 0 as success, and Claude, Pi and the in-process
+ *  hosts never read stdout for an allow — so they get nothing, on purpose. */
+export function allow(dialect: Dialect = "claude"): void {
+  if (dialect !== "cursor") return;
+  process.stdout.write(`${JSON.stringify({ permission: "allow" })}\n`);
+}
+
 export type Override = { name: string; reason: string; until?: string };
 
 /** Read active overrides — the ONLY mechanism that turns a guard off (§09.1).
  *  `[[guard.off]]` parses to `{ guard: { off: [...] } }`: a TOML dotted key nests,
- *  it never survives as the literal `"guard.off"`. Reading the literal meant every
- *  file yielded `[]` and the switch was dead (measured 2026-09-10). */
+ *  it never survives as the literal `"guard.off"`. Reading the literal yields `[]`
+ *  for every file and leaves the switch dead. */
 export function readOverrides(repoRoot: string | null): Override[] {
   if (!repoRoot) return [];
   try {

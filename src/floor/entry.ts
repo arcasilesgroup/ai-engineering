@@ -1,7 +1,7 @@
 // Entry for `ai-eng git <hook>` — the floor the 3-line shims exec into (§13.2).
 // commit-msg needs the receipt for its trailer; pre-commit/pre-push stay dry and fast.
 
-import { repoRoot } from "../env.ts";
+import { repoRoot, isGoverned } from "../env.ts";
 import { preCommit, commitMsg, prePush } from "./index.ts";
 import { createHash } from "node:crypto";
 import { writeReceipt, summarizeReceipts } from "../receipts.ts";
@@ -9,10 +9,10 @@ import { readOverrides, overrideActive } from "../chain/dialect.ts";
 
 export async function floor(hook: string, msgFile?: string): Promise<number> {
   const root = repoRoot();
-  if (!root) {
-    process.stderr.write("ai-eng git: no governed repo from here.\n");
-    return 2;
-  }
+  // The same gate as the chain, for the same reason: a repo that never declared
+  // itself is not ours to judge, and the shims run in every clone now — a foreign
+  // repo's commit must pass in silence, not pay for policy nobody asked for (G5).
+  if (root === null || !isGoverned(root)) return 0;
   if (hook === "pre-commit") {
     const t0 = Date.now();
     const result = preCommit(root);

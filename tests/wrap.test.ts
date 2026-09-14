@@ -130,7 +130,9 @@ describe("wrap · wrapMain end-to-end", () => {
   beforeAll(() => {
     dir = mkdtempSync(join(tmpdir(), "wrap-e2e-"));
     home = mkdtempSync(join(tmpdir(), "wrap-home-"));
-    mkdirSync(join(dir, ".git")); // a governed root, so the receipt has somewhere to live
+    mkdirSync(join(dir, ".git")); // a .git is not governance; the config below is
+    mkdirSync(join(dir, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(dir, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
     writeFileSync(
       join(dir, "a.test.ts"),
       `import { test, expect } from "bun:test";

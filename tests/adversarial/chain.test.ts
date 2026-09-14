@@ -1,6 +1,5 @@
 // Adversarial suite — the H1 oracle (§18): real attack payloads that must be
-// denied, and the clean controls that must never fire. Ported from v1's
-// tests/adversarial/run.py behavior contract.
+// denied, and the clean controls that must never fire.
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
@@ -10,6 +9,7 @@ import { runChain } from "../../src/chain/mod.ts";
 import { readOverrides, overrideActive, overrideDaysLeft } from "../../src/chain/dialect.ts";
 
 let scratch: string;
+let cwdBefore: string;
 beforeAll(() => {
   scratch = mkdtempSync(join(tmpdir(), "ai-eng-adv-"));
   mkdirSync(join(scratch, ".ai-engineering"), { recursive: true });
@@ -17,16 +17,18 @@ beforeAll(() => {
     join(scratch, ".ai-engineering", "config.toml"),
     '[surfaces]\nenabled = ["claude-code"]\n',
   );
-  // Repurpose AI_ENG_HOME isolation is not enough: chain uses repoRoot(cwd) — chdir.
+  // Repurpose AI_ENG_HOME isolation is not enough: the chain reads the governed repo
+  // from the cwd — chdir, and put back the cwd this file found.
+  cwdBefore = process.cwd();
   process.chdir(scratch);
 });
 afterAll(() => {
-  process.chdir("/");
+  process.chdir(cwdBefore);
   rmSync(scratch, { recursive: true, force: true });
 });
 
 const RUN = (payload: Record<string, unknown>, event = "PreToolUse") =>
-  runChain(payload, event, { inProcess: true, stateDir: join(scratch, ".ai-engineering") });
+  runChain(payload, event, { inProcess: true });
 
 describe("adversarial · no-verify", () => {
   test("git commit -n is denied", () => {
@@ -146,8 +148,8 @@ describe("adversarial · injection", () => {
     const r = RUN({ tool_name: "Read", tool_input: { file_path: join(scratch, "full.md") }, tool_use_id: "i3", session_id: "adv" });
     expect(r.action).toBe("deny");
   });
-  // The shell is the other way to read a file, and it used to walk straight past the
-  // guard (measured 2026-09-10: a model read an injected file with `cat` on Bash).
+  // The shell is the other way to read a file: `cat` on Bash gets the same pre-read
+  // scan as the Read tool.
   test("cat through Bash is denied, same pre-read scan as the Read tool", () => {
     const r = RUN({ tool_name: "Bash", tool_input: { command: `cat ${join(scratch, "evil.md")}` }, tool_use_id: "i4", session_id: "adv" });
     expect(r.action).toBe("deny");
@@ -209,14 +211,14 @@ describe("adversarial · wrap", () => {
 describe("adversarial · chain hard cases", () => {
   test("unparseable payload is denied, not passed", () => {
     // normalise must tolerate or reject garbage — never pass it as a tool call.
-    const r = runChain([1, 2] as never, "PreToolUse", { inProcess: true, stateDir: scratch });
+    const r = runChain([1, 2] as never, "PreToolUse", { inProcess: true });
     expect(r.action).toBe("deny");
   });
   test("crashing guard denies (fail-closed)", () => {
     // tool_input with a getter that throws — reading it must deny, not crash. The
-    // getter has to be ENUMERABLE: normalise copies own enumerable keys, and an
-    // invisible getter left the test passing on the loop guard's state instead of
-    // the crash it claims to exercise (measured 2026-09-10).
+    // getter has to be ENUMERABLE: normalise copies own enumerable keys, so an
+    // invisible getter would leave the test passing on the loop guard's state
+    // instead of the crash it claims to exercise.
     const payload: Record<string, unknown> = { tool_name: "Bash", session_id: "adv-crash" };
     Object.defineProperty(payload, "tool_input", {
       enumerable: true,
@@ -245,10 +247,10 @@ describe("adversarial · chain hard cases", () => {
 // guard is live again, but nothing said so) and no date at all (it never expires,
 // so the guard is off forever). Both are asserted here, not just described.
 describe("adversarial · override expiry", () => {
-  // The reproduction, and the reason this suite exists: `[[guard.off]]` nests in
-  // TOML (`{guard:{off:[…]}}`), and reading the literal key `"guard.off"` matched
-  // nothing — every file yielded [], so the ONLY guard-off switch in the product
-  // (§09.1) was dead while the docs, the template and the denial all pointed at it.
+  // `[[guard.off]]` nests in TOML (`{guard:{off:[…]}}`), so the switch is loaded by
+  // walking the nested table: reading the literal key `"guard.off"` matches nothing
+  // and leaves the ONLY guard-off switch in the product (§09.1) unloaded while the
+  // docs, the template and the denial all point at it.
   test("the documented [[guard.off]] file actually loads", () => {
     const dir = mkdtempSync(join(tmpdir(), "ai-eng-override-"));
     mkdirSync(join(dir, ".ai-engineering"), { recursive: true });

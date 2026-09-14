@@ -4,8 +4,8 @@
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { groupMultiselect, isCancel } from "@clack/prompts";
-import { repoRoot, enabledSurfaces } from "../env.ts";
-import { SURFACES, mirrorTargets, surfaceCanGovern, type Surface } from "../surfaces/adapters.ts";
+import { repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
+import { SURFACES, mirrorTargets, surfaceCanGovern, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
 import { hasAdapter, surfaceOptions } from "./init-shared.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
@@ -15,16 +15,16 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   const input = scriptedInput();
   ui.frame(`Configuration · ai-eng ${VERSION}`);
   const root = repoRoot();
-  // repoRoot() answers for any .git; governance needs .ai-engineering/ on disk.
-  // Without this, `config --add` in a bare repo died on writeFileSync with a raw
-  // ENOENT instead of telling the human to run init (measured 2026-09-10).
-  if (!root || !existsSync(join(root, ".ai-engineering"))) {
+  // The gate, not "there is a .git above us": `config --add` in a bare repo used to
+  // die on writeFileSync with a raw ENOENT instead of telling the human to run init.
+  if (root === null || !isGoverned(root)) {
     ui.fail("you are not in a governed repo — run ai-eng init first");
     ui.end("Nothing changed.");
     return 2;
   }
   const configPath = join(root, ".ai-engineering", "config.toml");
-  const surfacesBefore = existsSync(configPath) ? enabledSurfaces() : [];
+  // Governed means the declaration parsed, so enabledSurfaces() cannot be guessing here.
+  const surfacesBefore = enabledSurfaces();
   let current = surfacesBefore;
   if (flags.add) {
     // Same rule as the picker: no adapter, no declaration.
@@ -83,17 +83,19 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
 function removeSurfaceFiles(root: string, id: string): void {
   const surface = SURFACES.find((s) => s.id === id);
   if (!surface) return;
-  const path = surface.settingsFile ?? surface.pluginFile;
-  if (path) {
-    const absolute = join(root, path);
-    if (existsSync(absolute)) unlinkSync(absolute);
-    ui.ok(`${path} removed (ai-eng entries only)`);
+  const placement = repoCarrier(surface);
+  const files = carrierFiles(id, "repo");
+  if (!placement || !files) return;
+  const absolute = join(root, placement.path);
+  if (existsSync(absolute)) {
+    unlinkSync(absolute);
+    ui.ok(`${placement.path} removed (ai-eng entries only)`);
   }
-  if (surface.chainFile) {
-    const chainPath = join(root, surface.chainFile);
+  if (placement.chain) {
+    const chainPath = join(root, placement.chain);
     if (existsSync(chainPath)) {
       unlinkSync(chainPath);
-      ui.ok(`${surface.chainFile} removed (chain module)`);
+      ui.ok(`${placement.chain} removed (chain module)`);
     }
   }
 }

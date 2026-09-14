@@ -10,11 +10,12 @@ import { spawnSync, execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { select, groupMultiselect, isCancel } from "@clack/prompts";
 import { scriptedInput } from "../ui.ts";
-import { SURFACES, surfaceCanGovern, installCanon, type Surface } from "../surfaces/adapters.ts";
+import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, rememberTemplateDir, type Surface } from "../surfaces/adapters.ts";
+import { installTemplateDir } from "../floor/template.ts";
 import { install, buildLock, lockText, parseLock } from "../install.ts";
 import { canonDrift } from "../embed.ts";
 import { home } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, surfaceOptions } from "./init-shared.ts";
+import { planEntries, contractEntries, hasAdapter, surfaceOptions, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { VERSION } from "../version.ts";
@@ -66,17 +67,28 @@ function scaffoldProject(surfaces: string[]): string[] {
   const report = install(cwd, entries);
   for (const written of report.written) lines.push(`✓ ${written}`);
   for (const conflict of report.conflicts) lines.push(`⚠ ${conflict} — edited by you: 3-way diff required, not touched`);
-  // Hook shims must be executable or git silently ignores them (measured).
+  for (const refused of report.refused) lines.push(refuseLine(refused));
+  // Hook shims must be executable or git silently ignores them.
   for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
     const shimPath = join(cwd, ".git", "hooks", shim);
     if (existsSync(shimPath)) chmodSync(shimPath, 0o755);
   }
   lines.push("✓ git floor → .git/hooks/{pre-commit,commit-msg,pre-push} (marker-managed)");
   // core.hooksPath is NOT redirected: the hooks live in their standard location.
-  try {
-    spawnSync("git", ["-C", cwd, "config", "--unset", "core.hooksPath"]);
-  } catch {
-    /* no custom hooksPath: nothing to clean */
+  // The shims live in .git/hooks, which git only reads while `core.hooksPath` is unset —
+  // so a repo that points it somewhere else (husky, pre-commit) would carry our floor and
+  // never run it. Deleting that setting for the user is not ours to do: it is named, with
+  // the one line that fixes it, and a value we set ourselves in an older release is
+  // cleaned up because it IS ours.
+  const hooksPath = spawnSync("git", ["-C", cwd, "config", "--get", "core.hooksPath"], { encoding: "utf8" });
+  const hooksPathValue = (hooksPath.stdout ?? "").trim();
+  if (hooksPathValue.length > 0) {
+    if (hooksPathValue.includes("ai-eng")) {
+      spawnSync("git", ["-C", cwd, "config", "--unset", "core.hooksPath"]);
+      lines.push(`✓ git core.hooksPath (${hooksPathValue}) unset — it pointed at ai-eng's own floor`);
+    } else {
+      lines.push(`⚠ core.hooksPath is yours (${hooksPathValue}): git will not read .git/hooks, so the ai-eng floor does not run. Keep it and call \`ai-eng git pre-commit\` from your hook, or unset it.`);
+    }
   }
   // A repo that already carries a contract keeps its pin: re-init is not a way to
   // un-approve a milestone (same reason as update.ts).
@@ -97,19 +109,36 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   // Phase 1: global, or missing canon — installs/repairs the machine side either way.
   // home() (not HOME) so AI_ENG_HOME test installs stay isolated. The status
   // line always prints: the user must see the machine is healthy before the
-  // repo work starts (user feedback 2026-09-01 #7).
+  // repo work starts.
   const canonDir = join(home(), "skills");
   // Health is proven, not guessed: every canon file byte-compared to this
   // binary's payload — the same predicate doctor proves. Existence probes and
-  // version.json lied twice (measured 2026-09-10): "global canon intact ·
-  // nothing to install" over a canon with 34 skills deleted, and after an
-  // upgrade, because notice.ts caches the REGISTRY version in the very
-  // version.json that installCanon wrote the INSTALLED version into.
+  // version.json are not enough: a canon reads "global canon intact · nothing to
+  // install" with 34 skills deleted, because notice.ts caches the REGISTRY
+  // version in the very version.json that installCanon wrote the INSTALLED
+  // version into.
   const canon = canonDrift(home());
   const canonHealthy = canon.drift === 0 && canon.missing === 0 && canon.stale === 0;
+  // Did a machine-side write get agreed in this run? The canon install asks once (§14.5b)
+  // and the carriers ride with the same answer — a second question for the same "write
+  // outside the repo" would be noise, and silence would be a write nobody agreed to.
+  const machineAgreed = flags.global === true || flags.yes === true || !canonHealthy;
   if (flags.global || !canonHealthy) {
     const reinstalling: boolean = existsSync(canonDir) && !canonHealthy;
-    const canonLines = installCanon(VERSION, { machineHooks: flags.global === true }).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
+    // §14.5b path 2: a repo on a machine that never had the canon. Writing all of
+    // ~/.ai-engineering is not what "govern this repo" asked for, so it is OFFERED
+    // ("one yes, two phases done") and a no ends the verb with the machine
+    // untouched. Repair of a canon that IS there stays silent: that half is already
+    // ours, and update repairs it without a question too. --global is the explicit
+    // ask; --yes is the zero-prompt CI path.
+    if (!flags.global && inRepo && !reinstalling && flags.yes !== true) {
+      const ok = await confirmWithInput(`No global canon at ${canonDir} — install it now and I continue with the repo?`, true);
+      if (isCancel(ok) || ok === false) {
+        ui.cancelled("Nothing installed. The machine side alone: ai-eng init --global");
+        return 0;
+      }
+    }
+    const canonLines = installCanon(VERSION).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
     ui.section(
       reinstalling ? "global canon outdated or incomplete — re-installing" : "global canon (the machine side)",
       canonLines,
@@ -144,7 +173,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
     // --yes resolves the hand-off question: rewrite ours, never yours. Without
     // it, a non-TTY stdin cancels the select and init exits having installed
     // nothing — the recovery path for a half-uninstalled repo has to exist
-    // even unattended (deadlock, tests2 2026-09-03).
+    // even unattended: "no lock, run init" is a deadlock.
     const action = flags.yes === true ? "update" : await select({
       message: "This project is already governed. What do you want to do?",
       options: [
@@ -170,7 +199,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
     // Grouped by tier, not a flat wall of seven: the header carries the
     // capability class, the hint only the delta. Tab jumps between groups.
     // Only surfaces with an adapter appear — the rest would be a config.toml
-    // claim with nothing to enforce it (§13, measured 2026-09-10).
+    // claim with nothing to enforce it (§13).
     const answer = await groupMultiselect({
       message: "Which agent surfaces is this project governed on? (ticked = detected)",
       options: Object.fromEntries(surfaceOptions().map((group) => [group.title, group.items.map((s) => ({ value: s.id, label: s.label, hint: surfaceHint(s) }))])),
@@ -204,6 +233,38 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   sp.start("Scaffolding governance…");
   const lines = scaffoldProject(picked);
   sp.stop();
+  // The machine side of the declared surfaces: five of the seven hosts read their
+  // carrier from the user's home, so that is where it goes — once per machine, not once
+  // per repo (§13.2). Writing outside the repo is ASKED for (§14.5b); --yes is the
+  // zero-prompt path, and a canon that was just installed under the same permission
+  // already answered it.
+  const machineScoped = picked.filter((id) => {
+    const surface = SURFACES.find((s) => s.id === id);
+    return surface !== undefined && machineCarrier(surface) !== null;
+  });
+  if (machineScoped.length > 0) {
+    const agreed =
+      machineAgreed ||
+      flags.yes === true ||
+      (await confirmWithInput(`${machineScoped.join(", ")} read their hooks from your home — write the machine carriers there?`, true)) === true;
+    if (!agreed) {
+      lines.push("⚠ machine carriers not written — those surfaces will run without guards until you re-run init");
+    } else {
+      const report = installMachineCarriers(machineScoped);
+      for (const path of report.written) lines.push(`✓ ${path} — machine carrier`);
+      for (const path of report.untouched) lines.push(`· ${path} — machine carrier already current`);
+      for (const refused of report.refused) lines.push(refuseLine(refused));
+      // The git floor's second life: new clones of a governed repo are born with the
+      // shims, instead of a CI step rebuilding them after the fact (§13.2).
+      const template = installTemplateDir();
+      if (template.status !== "failed") {
+        rememberTemplateDir(template.previous, template.ours);
+        lines.push(`✓ ${template.line}`);
+      } else {
+        lines.push(`⚠ ${template.line}`);
+      }
+    }
+  }
   // next step — each idea one block, the dim tail carries the why.
   const contract = lines.filter((l) => l.includes("(contract)") || l.startsWith("·") || l.includes("CLAUDE.md"));
   const machine = lines.filter((l) => !contract.includes(l));

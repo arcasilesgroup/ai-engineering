@@ -1,15 +1,9 @@
-# The Depth Tree, v2
+# The Depth Tree
 
-Created by Leonxlnx. v1 stated the tree as arithmetic: split N layers, give
-every leaf the full root budget, effort multiplies as 2^(N-1). A controlled
-six-run test (see the README) measured what models actually do with that
-instruction: they treat depth as a thoroughness dial and ignore the
-arithmetic. tree 6 cost roughly 1.0 to 1.5 times tree 3, never 8 times.
-The dial worked; the math was fiction.
-
-v2 keeps what the tree is genuinely good at, decomposition and structure,
-and moves the effort guarantee to where it can actually be enforced: per-leaf
-gates and fresh per-leaf contexts.
+Created by Leonxlnx. The tree is a decomposition and structure tool, not an
+arithmetic effort multiplier: models treat depth as a thoroughness dial and
+ignore the arithmetic. The effort guarantee lives where it can be enforced —
+per-leaf gates and fresh per-leaf contexts.
 
 ## The rules
 
@@ -36,12 +30,12 @@ gates and fresh per-leaf contexts.
 5. **Effort per leaf comes from the leaf's gates plus the four passes**
    (implement fully, expert re-read, defect hunt, free polish). A leaf is
    finished when its gates are fully met with evidence AND a full pass finds
-   nothing to improve. "Budget spent" is no longer a finish line, because
-   budgets were the part models routinely re-negotiated with themselves.
+   nothing to improve. A spent budget is not a finish line, because budgets
+   are the part models re-negotiate with themselves.
 
-## Where the effort guarantee actually lives now
+## Where the effort guarantee lives
 
-| v1 said | v2 does |
+| prose alone | enforced by the harness |
 |---|---|
 | every leaf gets full budget T | every leaf gets a fresh context and its own gates |
 | effort = 2^(N-1) x T | effort = whatever it takes to check every box with evidence |

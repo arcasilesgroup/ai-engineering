@@ -33,7 +33,7 @@ cheaper model quietly stops finding things.
 | Check-then-write race | move a write outside the transaction or the lock it was inside | The code still checks. It checks at the wrong time. |
 | Missing cache invalidation | delete the `revalidate`/`invalidate` after a write | Nothing errors. Readers just get stale data forever. |
 | Client-side-only validation | delete the server-side re-check, keep the form validation | The happy path is identical, and every test passes. |
-| Swallowed error | `catch { return null }` where it used to rethrow | Failure becomes an empty state instead of an error. |
+| Swallowed error | `catch { return null }` replacing a rethrow | Failure becomes an empty state instead of an error. |
 | Unawaited promise | drop an `await` on a call whose result is not used | Works in dev, drops writes under load. |
 | Silent truncation | lower a limit, or `slice` a result set without saying so | Output looks complete. It is not. |
 | Near-miss substitution | implement an adjacent requirement — a fixed price ID instead of a percentage discount | Both are "pricing". Only one was asked for. This one belongs to `verify-feature`, not to a code lane. |

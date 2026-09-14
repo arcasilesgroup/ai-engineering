@@ -9,23 +9,152 @@ import { createHash } from "node:crypto";
 export type PlanEntry = {
   path: string; // repo-relative, e.g. ".claude/settings.json"
   ours: string; // the new content from the binary's templates
+  /** A file the user also owns (settings, hooks.json). Ours are MERGED in by marker
+   *  and never written whole — the difference between installing a hook and
+   *  overwriting the hooks, permissions and env of somebody's editor (§03). */
+  merge?: boolean;
 };
 
 export type InstallReport = {
   written: string[];
   untouched: string[]; // already ours-current, or the user's own file
   conflicts: string[]; // user-edited AND ours changed: needs the human
+  /** Files we were asked to merge into and could not: not JSON, or not an object.
+   *  Untouched, and named — an installer that quietly skips a surface's carrier
+   *  leaves a repo that believes it is governed and is not (§13). */
+  refused: Array<{ path: string; reason: string }>;
 };
 
 export function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
+/** Every entry we write runs `ai-eng chain`: that is the whole marker, and the only
+ *  thing that distinguishes our hooks from the user's in a file we share. It has to be
+ *  the command ITSELF, not the word anywhere in a string: `my-wrapper.sh -- ai-eng
+ *  chain PreToolUse` is the user's hook, and an uninstall that deletes it takes away
+ *  something we never installed. So the marker matches at the start of a command or
+ *  after a shell separator — the copilot entry guards the call with
+ *  `command -v ai-eng … && ai-eng chain …`, and that `&&` is where ours starts. */
+const MARKER = /(?:^|[;&|]\s*)ai-eng chain/;
+
+function isOurs(value: unknown): boolean {
+  if (typeof value === "string") return MARKER.test(value);
+  if (Array.isArray(value)) return value.some(isOurs);
+  if (value !== null && typeof value === "object") return Object.values(value).some(isOurs);
+  return false;
+}
+
+const isEmptyContainer = (value: unknown): boolean =>
+  Array.isArray(value) ? value.length === 0 : value !== null && typeof value === "object" ? Object.keys(value).length === 0 : false;
+
+/** Merge our entries into a file the user also owns. Objects merge key by key, arrays
+ *  keep every foreign entry and append ours — dropping our own previous ones first,
+ *  which is what makes a second install a no-op — and a scalar from our template is
+ *  ours. Nothing foreign is ever dropped: an entry is ours only when it carries the
+ *  marker command (§03). */
+function mergeValue(existing: unknown, ours: unknown): unknown {
+  if (Array.isArray(ours)) {
+    const kept = Array.isArray(existing) ? existing.filter((entry) => !isOurs(entry)) : [];
+    return [...kept, ...ours];
+  }
+  if (ours !== null && typeof ours === "object") {
+    const base: Record<string, unknown> = existing !== null && typeof existing === "object" && !Array.isArray(existing) ? { ...existing } : {};
+    for (const [key, value] of Object.entries(ours)) base[key] = mergeValue(base[key], value);
+    return base;
+  }
+  return ours;
+}
+
+/** The inverse of the merge — `uninstall`'s half. Our entries come out deepest-first,
+ *  and the containers that existed only to hold them go with them, so a settings file
+ *  a user had before init is one again after uninstall. */
+function stripValue(node: unknown): unknown {
+  if (Array.isArray(node)) {
+    const kept: unknown[] = [];
+    for (const entry of node) {
+      if (isOurs(entry)) continue;
+      const stripped = stripValue(entry);
+      if (isEmptyContainer(stripped) && !isEmptyContainer(entry)) continue;
+      kept.push(stripped);
+    }
+    return kept;
+  }
+  if (node !== null && typeof node === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(node)) {
+      // Our banner, not a hook. Matched by content: a `$comment` we did not write is
+      // the user's and stays.
+      if (key === "$comment" && typeof value === "string" && value.includes("ai-eng")) continue;
+      const stripped = stripValue(value);
+      if (isEmptyContainer(stripped) && !isEmptyContainer(value)) continue;
+      out[key] = stripped;
+    }
+    return out;
+  }
+  return node;
+}
+
+type Shape = { indent: string; crlf: boolean; newline: boolean };
+
+/** Serialize in the file's own shape. The only literal newlines JSON.stringify emits
+ *  are the ones between tokens — everything inside a string is escaped — so the CRLF
+ *  pass is safe. */
+const serialize = (value: unknown, shape: Shape): string => {
+  const text = `${JSON.stringify(value, null, shape.indent)}${shape.newline ? "\n" : ""}`;
+  return shape.crlf ? text.replace(/\n/g, "\r\n") : text;
+};
+
+/** The file's own indentation, line endings and trailing newline — and only when this
+ *  code can reproduce the file's bytes exactly with them. `nada ajeno se toca ni se
+ *  reformatea` (§03): the layout (four spaces, tabs, CRLF, a compact one-liner) is the
+ *  user's, so a file we cannot reproduce is a file we do not merge into. Null means
+ *  exactly that. */
+function shapeOf(text: string, parsed: unknown): Shape | null {
+  const shape: Shape = { indent: /\n([ \t]+)"/.exec(text)?.[1] ?? "  ", crlf: text.includes("\r\n"), newline: text.endsWith("\n") };
+  return serialize(parsed, shape) === text ? shape : null;
+}
+
+export type SharedText = { text: string; changed: boolean } | { refused: "not-json" | "not-object" | "reformat" };
+
+/** Merge our template into the text of a file the user owns. Refuses — and says which
+ *  way — on anything it cannot merge without changing bytes it does not own: a settings
+ *  file with comments or a typo is the user's, and so is one laid out in a style this
+ *  installer would have to rewrite. */
+export function mergeSharedText(current: string, ours: string): SharedText {
+  let existing: unknown;
+  try {
+    existing = JSON.parse(current);
+  } catch {
+    return { refused: "not-json" };
+  }
+  if (existing === null || typeof existing !== "object" || Array.isArray(existing)) return { refused: "not-object" };
+  const shape = shapeOf(current, existing);
+  if (shape === null) return { refused: "reformat" };
+  const text = serialize(mergeValue(existing, JSON.parse(ours)), shape);
+  return { text, changed: text !== current };
+}
+
+/** Our entries out of the text of a file we share, leaving the user's. Null when it
+ *  cannot be read, or cannot be rewritten without reformatting it — the caller never
+ *  rewrites what it cannot parse, and never reformats what the user wrote. */
+export function stripSharedText(current: string): string | null {
+  let existing: unknown;
+  try {
+    existing = JSON.parse(current);
+  } catch {
+    return null;
+  }
+  const shape = shapeOf(current, existing);
+  if (shape === null) return null;
+  return serialize(stripValue(existing), shape);
+}
+
 /** Idempotent install. A file byte-identical to ours is a no-op; a file exactly the
  *  previous version of ours is a safe update; a file the user edited AND that changed
  *  between versions is a conflict, listed — never silently overwritten. `previousOurs`
  *  may answer with the previous text OR with a `sha256:<hex>` sentinel — update.ts
- *  stores hashes in the lock, not bytes (protocol, measured 2026-09-03).
+ *  stores hashes in the lock, not bytes.
  *  `force` is the human's resolved decision (update's "take"): write ours even
  *  over an edit — only a caller that asked may pass it. */
 export function install(
@@ -34,12 +163,30 @@ export function install(
   previousOurs?: (path: string) => string | null,
   force?: (path: string) => boolean,
 ): InstallReport {
-  const report: InstallReport = { written: [], untouched: [], conflicts: [] };
+  const report: InstallReport = { written: [], untouched: [], conflicts: [], refused: [] };
   for (const entry of entries) {
     const absolute = join(repoRoot, entry.path);
     const oursHash = sha256(entry.ours);
     if (existsSync(absolute)) {
       const current = readFileSync(absolute, "utf8");
+      // A file the user also owns never takes the whole-file path: ours go in by
+      // marker and everything else comes out as it went in. The 3-way below cannot
+      // do this — its "the user edited it" branch is a CONFLICT, and a settings file
+      // with the user's own hooks in it is not a conflict, it is Tuesday.
+      if (entry.merge === true) {
+        const merged = mergeSharedText(current, entry.ours);
+        if ("refused" in merged) {
+          report.refused.push({ path: entry.path, reason: merged.refused });
+          continue;
+        }
+        if (!merged.changed) {
+          report.untouched.push(entry.path);
+          continue;
+        }
+        writeFileSync(absolute, merged.text);
+        report.written.push(entry.path);
+        continue;
+      }
       if (sha256(current) === oursHash) {
         report.untouched.push(entry.path);
         continue;
@@ -93,9 +240,9 @@ export function buildLock(
   }
   const lock: Lock = { version, assets };
   // The two contract fields are the milestone's, not the installer's. Rebuilding the
-  // lock used to drop them, so any `update` between `spec approve` and `spec close`
-  // erased the approval and the next `spec run` refused a contract a human had
-  // approved — measured in CI, where update runs before spec run (D-011's pipeline).
+  // lock must not drop them: any `update` between `spec approve` and `spec close`
+  // would erase the approval, and the next `spec run` would refuse a contract a
+  // human approved.
   if (carry.spec_sha256) lock.spec_sha256 = carry.spec_sha256;
   if (carry.base_sha) lock.base_sha = carry.base_sha;
   return lock;
@@ -121,9 +268,9 @@ export function parseLock(text: string): Lock {
   }
   const lock: Lock = { version: typeof doc["version"] === "string" ? doc["version"] : "", assets };
   if (typeof doc["spec_sha256"] === "string") lock.spec_sha256 = doc["spec_sha256"];
-  // A commit id, or nothing. A value beginning with `-` reached `git diff` as an
-  // option and `--output=<path>` overwrote an arbitrary file while the command still
-  // reported success (audit AI-ENG-INJ-001, reproduced).
+  // A commit id, or nothing. A value beginning with `-` reaches `git diff` as an
+  // option, and `--output=<path>` overwrites an arbitrary file while the command
+  // still reports success (audit AI-ENG-INJ-001).
   const base = doc["base_sha"];
   if (typeof base === "string" && /^[0-9a-f]{40}$/.test(base)) lock.base_sha = base;
   return lock;

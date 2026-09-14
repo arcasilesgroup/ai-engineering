@@ -1,11 +1,9 @@
 # Token economy
 
-Thoroughness and cost discipline are not opposites; the six-run test that
-motivated v2 measured both. The tree runs produced deeper work at 1.6 to
-3.9 times the output tokens, but their input-side cost ballooned to tens of
-millions of cached-context tokens because one ever-growing context carried
-everything. These rules keep v2's enforcement nearly free and its deep runs
-affordable.
+Thoroughness and cost discipline are not opposites. Tree runs produce deeper
+work — 1.6 to 3.9 times the output tokens — but a single ever-growing context
+carries the input-side cost: tens of millions of cached-context tokens. These
+rules keep enforcement nearly free and deep runs affordable.
 
 ## Enforcement should cost almost nothing
 
@@ -56,8 +54,8 @@ affordable.
   leaf buys a fresh context. Choose depth by the leaf-size rule in
   method.md, then let the mode decision (solo vs orchestrated) set the
   budget honestly.
-- **Verification is the last thing to cut.** In the motivating test, the
-  cheapest run's only hard failure (content invisible in background tabs)
-  was precisely a missing verification pass, and the fix cost its siblings
-  a few hundred tokens of checking. Cut narration, cut recap, cut log
-  pasting; never cut the check that would have caught the bug.
+- **Verification is the last thing to cut.** Skipping it is the cheapest
+  failure to ship: the defect hides in a state the happy path never
+  exercises, and the check that would have caught it costs a few hundred
+  tokens. Cut narration, cut recap, cut log pasting; never cut the check
+  that would have caught the bug.

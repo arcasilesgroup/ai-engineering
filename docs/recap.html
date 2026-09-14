@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{ai} Engineering — product recap</title>
+<meta name="description" content="What ai-engineering is and how it works: the repository, the guards, the executable contract, the skill canon, the surfaces, CI and the lifecycle.">
+<meta name="color-scheme" content="dark">
+<style>
+  /* ── {ai} Engineering — the artifact design system ─────────────────────────
+     Tokens are the brand's: one hue, dark-only, mono for structure and
+     data. Anything ai-engineering renders as an artifact — spec.html, plan.html,
+     a recap, a research page, a report — inherits this block verbatim.       */
+  :root{
+    --bg:#0B1120; --surface:#121E36; --surface-2:#0E1830;
+    --line:rgba(0,212,170,.15); --line-strong:rgba(0,212,170,.34);
+    --accent:#00D4AA; --accent-dim:#5FE6C6;
+    --text:#F8FAFB; --dim:#B0C2D6; --comment:#9DB3CA;
+    --ok:#4ade80; --bad:#fbb1b1; --warn:#facc15; --purple:#c084fc; --orange:#fb923c;
+    --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+
+    /* type: one scale, tracking and leading set per size, never one value for all */
+    --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+    --fs-h2:26px;      --lh-h2:1.16;      --ls-h2:-.018em;
+    --fs-h3:17px;      --lh-h3:1.32;      --ls-h3:-.006em;
+    --fs-h4:14px;      --lh-h4:1.35;
+    --fs-body:15px;    --lh-body:1.62;
+    --fs-small:13.5px; --lh-small:1.55;
+    --fs-mono:12.5px;  --lh-mono:1.7;
+    --fs-label:10.5px;
+
+    /* space: a 4px rhythm, so nothing lands on an arbitrary number */
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+    --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+  body{
+    background:var(--bg);color:var(--text);font-family:var(--sans);
+    font-size:var(--fs-body);line-height:var(--lh-body);
+    font-synthesis-weight:none;-webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:rgba(0,212,170,.28)}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline;text-underline-offset:3px}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+  .skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);
+        border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;
+        transform:translateY(-160%);transition:transform .15s ease-out}
+  .skip:focus{transform:none}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+  /* ── hero ─────────────────────────────────────────────────────────────── */
+  .hero{
+    position:relative;overflow:hidden;text-align:center;
+    padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);
+    background-image:
+      linear-gradient(var(--line) 1px,transparent 1px),
+      linear-gradient(90deg,var(--line) 1px,transparent 1px),
+      radial-gradient(ellipse 80% 60% at 50% 0%,#16284466,transparent);
+    background-size:32px 32px,32px 32px,100% 100%;
+  }
+  .hero .stamp{
+    display:inline-block;font-family:var(--mono);font-size:var(--fs-label);
+    letter-spacing:.26em;text-transform:uppercase;color:var(--accent);
+    border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;
+    margin-bottom:var(--s5);
+  }
+  .hero h1{font-size:var(--fs-display);line-height:var(--lh-display);
+           letter-spacing:var(--ls-display);font-weight:740}
+  .hero h1 .x{color:var(--accent)}
+  .hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;
+             margin:var(--s4) auto 0}
+  .hero .sub strong{color:var(--text);font-weight:620}
+  .hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);
+              margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+  .hero .meta b{color:var(--accent-dim);font-weight:500}
+  .hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+  .hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+  .hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+  .hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+  .hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+
+  /* ── nav: translucent chrome, content scrolls under it ────────────────── */
+  nav{
+    position:sticky;top:0;z-index:50;
+    display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;
+    padding:var(--s2) var(--s4);
+    background:rgba(11,17,32,.78);backdrop-filter:blur(14px) saturate(150%);
+    border-bottom:1px solid var(--line);
+    font-family:var(--mono);font-size:11px;
+  }
+  nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;
+        white-space:nowrap;transition:color .15s,background .15s}
+  nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,212,170,.06)}
+  nav a.active{color:var(--accent);background:rgba(0,212,170,.1);font-weight:600}
+  nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+  nav a.active b{opacity:1}
+
+  /* ── page ─────────────────────────────────────────────────────────────── */
+  .container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+  section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+  section:last-of-type{border-bottom:none}
+  h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+  h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;
+          letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+  h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);
+     font-weight:640;margin:var(--s6) 0 var(--s3)}
+  h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+  h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+  p{color:var(--dim);max-width:var(--measure);margin-bottom:var(--s3)}
+  p:last-child{margin-bottom:0}
+  p strong,li strong{color:var(--text);font-weight:620}
+  ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
+  li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+  li strong{color:var(--text)}
+  .dim{color:var(--comment)}
+
+  /* ── code ─────────────────────────────────────────────────────────────── */
+  code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);
+       border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);
+       overflow-wrap:anywhere}
+  pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);
+      padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);
+      font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;
+      -webkit-overflow-scrolling:touch}
+  pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+  pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+  pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+  pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{
+    background:var(--line-strong);border-radius:99px}
+  pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+  pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+  pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+  .flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  /* ── panels ───────────────────────────────────────────────────────────── */
+  .bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);
+           border-radius:var(--radius);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+  .bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;
+           border:0 solid var(--accent)}
+  .bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+  .bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+  .bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;
+           font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;
+           text-transform:uppercase;color:var(--accent)}
+  .bracket pre{margin:0;border:none;background:none;padding:0}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+        padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+  .card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+  .card h3,.card h4{min-height:22px;line-height:22px}
+  .card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+  .card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+  .card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+  .card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+
+  .note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+        padding:var(--s5);margin:var(--s5) 0}
+  .note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;
+           text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+  .note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+  .note.ok{border-color:rgba(34,197,94,.3)} .note.ok h4{color:var(--ok)}
+  .note.warn{border-color:rgba(234,179,8,.3)} .note.warn h4{color:var(--warn)}
+  .note.danger{border-color:rgba(251,177,177,.3)} .note.danger h4{color:var(--bad)}
+
+  .grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+  .grid>*{min-width:0}
+  pre{max-width:100%}
+  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+        padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+  .stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+  .stat .v em{font-style:normal;color:var(--accent)}
+  .stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;
+           text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+
+  /* ── tables: a component, not a spill ─────────────────────────────────── */
+  .tbl-wrap{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface-2);
+            overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+  table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+  th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;
+     font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;
+     text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+  td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);
+     vertical-align:top;line-height:var(--lh-small)}
+  tr:last-child td{border-bottom:none}
+  td:first-child{color:var(--text);font-weight:520}
+  @media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(22,40,68,.35)}}
+  td code{overflow-wrap:normal;word-break:keep-all}
+  table{min-width:640px}
+
+  /* ── pills, marks ─────────────────────────────────────────────────────── */
+  .pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;
+        padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+  .p-ok{background:rgba(74,222,128,.13);border:1px solid rgba(74,222,128,.32)}
+  .p-bad{background:rgba(251,177,177,.13);border:1px solid rgba(251,177,177,.34)}
+  .p-warn{background:rgba(250,204,21,.12);border:1px solid rgba(250,204,21,.32)}
+  .p-fix{background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.35)}
+  .p-dim{background:rgba(22,40,68,.6);color:var(--dim);border:1px solid var(--line)}
+  .check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+  .half{color:var(--warn);font-weight:600} .center{text-align:center}
+
+  /* ── pipeline: real boxes, not ASCII ─────────────────────────────────── */
+  .pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+  .pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);
+               border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+  .pipe .stage:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+  .pipe .stage:last-child{border-radius:0 var(--radius) var(--radius) 0}
+  .pipe .stage+.stage{border-left:none}
+  .pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);
+                      color:var(--accent);font-size:13px;z-index:2}
+  .pipe .stage{position:relative}
+  .pipe .stage:last-child::after{content:''}
+  .pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  .pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+  .pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+
+  .tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+  .tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);
+        border-radius:var(--radius);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+  .tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;
+               color:var(--accent);text-transform:uppercase}
+  .tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+  .tier .tbody b{color:var(--text)}
+  .tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+
+  footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);
+         border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
+         color:var(--comment);letter-spacing:.08em;line-height:2.1}
+  footer .x{color:var(--accent)}
+  footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+
+  @media (max-width:900px){
+    .g2,.g3,.g4{grid-template-columns:1fr}
+    .hero{padding:64px var(--s5) 44px}
+    .hero h1{font-size:34px;letter-spacing:-.022em}
+    .hero .sub{font-size:16px}
+    .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius)!important;flex-basis:100%}
+    .pipe .stage+.stage{margin-top:var(--s2)}
+    .pipe .stage::after{content:''}
+    .tier .tlat{text-align:left}
+  }
+  @media (max-width:820px){
+    nav a{padding:14px 8px}
+  }
+  @media (max-width:560px){
+    .container{padding:0 var(--s4)}
+    nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;
+        overflow-x:auto;scrollbar-width:none}
+    nav::-webkit-scrollbar{display:none}
+    nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;
+        background:linear-gradient(90deg,transparent,rgba(11,17,32,.95));pointer-events:none}
+    nav a{padding:14px 8px}
+    table{font-size:13px} th,td{padding:10px var(--s3)}
+    pre{font-size:11.5px;padding:var(--s3) var(--s4)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *{animation:none!important;transition:none!important}
+  }
+  @media (prefers-reduced-transparency:reduce){
+    nav{background:var(--bg);backdrop-filter:none}
+  }
+  @media (prefers-contrast:more){
+    :root{--dim:#CBD8E6;--comment:#B4C4D6}
+    .card,.note,p,li,td{color:var(--dim)}
+    nav a{color:#CBD8E6}
+  }
+  @media print{
+    nav,.skip{display:none}
+    body{background:#fff;color:#111}
+    section{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Product recap · {ai} Engineering</div>
+  <h1><span class="x">{</span>ai<span class="x">}</span> Engineering</h1>
+  <p class="sub">The governance floor under an AI coding agent: <strong>install</strong> the contract, <strong>guard</strong> every tool call, <strong>prove</strong> every claim of done. This page is the product as it stands — the mechanism, the contract and the file behind each behaviour.</p>
+  <p class="meta"><b>1</b> binary · <b>20</b> canon skills · <b>5</b> guards · <b>8</b> surfaces · <b>6</b> human + <b>4</b> machine verbs · <b>4</b> contract files</p>
+</header>
+
+<nav aria-label="Sections">
+  <a href="#s01"><b>01</b>Thesis</a>
+  <a href="#s02"><b>02</b>System</a>
+  <a href="#s03"><b>03</b>Stack</a>
+  <a href="#s04"><b>04</b>Repository</a>
+  <a href="#s05"><b>05</b>After init</a>
+  <a href="#s06"><b>06</b>Contract</a>
+  <a href="#s07"><b>07</b>Guards</a>
+  <a href="#s08"><b>08</b>Skills</a>
+  <a href="#s09"><b>09</b>Governance</a>
+  <a href="#s10"><b>10</b>Hooks</a>
+  <a href="#s11"><b>11</b>CLI</a>
+  <a href="#s12"><b>12</b>wrap</a>
+  <a href="#s13"><b>13</b>Architecture</a>
+  <a href="#s14"><b>14</b>CI</a>
+  <a href="#s15"><b>15</b>Cycle</a>
+  <a href="#s16"><b>16</b>File lifecycle</a>
+  <a href="#s17"><b>17</b>Branding</a>
+</nav>
+
+<main id="main">
+<div class="container">
+<!-- ═══════ 01 THESIS ═══════ -->
+<section id="s01">
+  <h2><span class="num">01</span>Thesis</h2>
+  <p>Generating code stopped being the bottleneck; verifying it is the bottleneck. <code>ai-engineering</code> is the governance floor under an AI coding agent: it writes no product code and never calls a model. It installs the contract the agent works against, runs the guards the surface routes to it, and requires a receipt for every claim of done. The floor is one binary, <code>ai-eng</code>, and it does three things: <strong>install</strong>, <strong>guard</strong>, <strong>prove</strong>.</p>
+
+  <div class="grid g3">
+    <div class="card">
+      <h3><span class="pill p-ok">install</span> The contract lands in your repo</h3>
+      <p><code>ai-eng init</code> writes <code>AGENTS.md</code>, <code>DECISIONS.md</code>, <code>.ai-engineering/{config.toml, overrides.toml, arch.rules.json, ai-eng.lock}</code>, the CI workflow and the git-hook shims, plus the adapter of every surface you pick. <code>ai-eng init --global</code> installs the skill canon once per machine. <code>ai-eng update</code> re-installs this binary's own assets with zero network; <code>ai-eng uninstall</code> reverts ours and keeps yours.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-warn">guard</span> Five guards on every tool call</h3>
+      <p><code>ai-eng chain &lt;event&gt;</code> runs <code>self-protect</code>, <code>no-verify</code>, <code>injection</code>, <code>wrap</code> and <code>loop</code> in one dispatcher and answers in the surface's own denial dialect. <code>ai-eng git &lt;hook&gt;</code> runs the same floor at commit time, outside any agent session. <code>ai-eng wrap</code> reruns a test command and prints failures only.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-fix">prove</span> Receipts, not promises</h3>
+      <p><code>ai-eng spec run</code> executes the milestone's gates and writes a receipt per run; a check that cannot execute is red, never absent. <code>ai-eng doctor</code> runs its twelve checks plus one real adversarial payload, and reports the chain's p50 and p95 latency. Every decision, rewrite and gate run lands in <code>.ai-engineering/receipts/</code>.</p>
+    </div>
+  </div>
+
+  <h3>Five design rules</h3>
+  <ul>
+    <li><strong>Proof beats promise.</strong> The agent shows an executed output, or the task stays <code>pending</code>. A decision that always comes out the same is not delegated to judgement.</li>
+    <li><strong>Governance informs; a security or quality failure blocks.</strong> Everything passes → one line. Something merely annoying → not mentioned. A secret, a layer violation or a broken spec gate <strong>stops the step</strong>: it blocks instead of reporting. See <a href="#s09">§09</a>.</li>
+    <li><strong>Guards ship inside the binary.</strong> Deleting a markdown section turns off no protection. Turning a guard off costs an entry in <code>.ai-engineering/overrides.toml</code> with a written <code>reason</code> and an <code>until</code> date; that reason travels to the receipt, the commit-msg hook requires it, and <code>doctor</code> warns until it expires.</li>
+    <li><strong>Your governance is yours.</strong> The contract, config, rules and hooks live in your repo and version with your code; the canon installs once per machine under <code>~/.ai-engineering/skills</code> and is mirrored by symlink into each surface's discovery path. Nothing is fetched at run time — <code>update</code> reads the assets embedded in the binary.</li>
+    <li><strong>A decision that always comes out the same is code, not a prompt.</strong> The model does not decide whether there are secrets — gitleaks does.</li>
+  </ul>
+
+  <div class="note ok">
+    <h4>What the floor deliberately does not do</h4>
+    <p>No metrics product and no dashboard: the local receipts are the whole telemetry. No model call: the <code>[models]</code> pin in <code>config.toml</code> is a line injected into the surfaces, never a request from <code>ai-eng</code>. No third-party binary installed on your behalf: adopted tools are offered as the exact command for a human to run.</p>
+  </div>
+</section>
+
+<!-- ═══════ 02 THE SYSTEM ═══════ -->
+<section id="s02">
+  <h2><span class="num">02</span>The system in one diagram</h2>
+  <p><code>ai-eng</code> is one binary — Bun <code>--compile</code>, eight cross-compile targets — with three jobs: it <strong>installs</strong> the governance, it <strong>runs</strong> the guards when a surface calls it, and it <strong>diagnoses</strong> from its own receipts. The creative work happens in the agent's own editor; <code>ai-eng</code> only puts a floor under it. Three planes, fastest first:</p>
+
+  <div class="bracket">
+    <span class="tag">One agent edit, end to end</span>
+<div class="flow"><span class="nd">PLANE 1 · AGENT</span>  Claude Code / Oh My Pi / OpenCode / Pi <span class="dim">(+ Cursor / Codex / Copilot — <a href="#s13">§13</a>; Zed installs skills only)</span>
+  <span class="ed">│</span>  the agent attempts Edit / Write / Bash
+  <span class="ed">▼</span>
+<span class="nd">SURFACE HOOK</span>  <span class="dim">(PreToolUse · preToolUse · tool_call — three vocabularies, one contract)</span>
+  <span class="ed">│</span>  <span class="wd">spawn: ai-eng chain PreToolUse &lt; payload-json</span>   <span class="dim">or import in-process (OpenCode / Oh My Pi / Pi)</span>
+  <span class="ed">▼</span>
+<span class="nd">ai-eng chain</span> <span class="dim">(one dispatcher, one verdict cache per physical call, fail-closed on a guard crash)</span>
+  <span class="ed">├─▶</span> <span class="lb">self-protect</span>  <span class="dim">a write to .ai-engineering/, .git/hooks/, the surface wiring, or an approved spec.html? → DENY</span>
+  <span class="ed">├─▶</span> <span class="lb">no-verify</span>     <span class="dim">--no-verify, git commit -n, HUSKY=0, a linter silence, a core.hooksPath redirect? → DENY</span>
+  <span class="ed">├─▶</span> <span class="lb">injection</span>     <span class="dim">instruction-shaped content in a read or a tool result? → DENY before it, CONTAIN after it</span>
+  <span class="ed">├─▶</span> <span class="lb">wrap</span>          <span class="dim">a test command? → rewrite the input to `ai-eng wrap test -- &lt;command&gt;`</span>
+  <span class="ed">└─▶</span> <span class="lb">loop</span>          <span class="dim">3 identical calls or 5 failures in a 6-call window? → DENY</span>
+  <span class="ed">│</span>
+  <span class="ed">├──</span> <span class="dim">receipt →</span> <span class="nd">.ai-engineering/receipts/*.json</span> <span class="dim">(did it run, how long — local, no network)</span>
+  <span class="ed">└──</span> <span class="dim">verdict →</span> <span class="nd">the surface</span> <span class="dim">(deny + reason / rewritten input / allow)</span>
+  <span class="ed">▼</span>
+<span class="nd">PLANE 2 · GIT FLOOR</span>  <span class="dim">.git/hooks/ → ai-eng git …</span>
+  <span class="dim">pre-commit: diff --check + gitleaks --staged · commit-msg: convention + Receipt-Id trailer + the override reason</span>
+  <span class="dim">pre-push: gitleaks over the unpushed history</span>
+  <span class="dim">— independent of every surface: it runs even when you edit outside an agent</span>
+  <span class="ed">▼</span>
+<span class="nd">PLANE 3 · CI GATE</span>  <span class="dim">ai-eng spec run (a check that does not run is red)</span>
+  <span class="dim">· typecheck / lint / test / arch when the project declares them</span>
+  <span class="dim">gitleaks pinned by version + sha256 · semgrep p/ci · trivy vuln,misconfig HIGH,CRITICAL</span></div>
+  </div>
+
+  <div class="note">
+    <h3>Fail-open, said once</h3>
+    <p><strong>A hook timeout is fail-open on every surface:</strong> a hung hook blocks nothing, so guards are written to finish inside the hook's own budget — 5s on Claude Code, 10s on Cursor — and <code>doctor</code> measures the chain receipts' p95 against a 50 ms ceiling. <strong>A crash does not block either</strong>, except where the surface allows it: Cursor ships <code>failClosed:true</code>, and OpenCode, Oh My Pi and Pi run the chain in-process, where a guard that throws denies. Copilot CLI's machine hook fails open when <code>ai-eng</code> is off the PATH, on purpose — a missing binary must not deny every tool call on the machine.</p>
+  </div>
+
+  <h3>2.1 · The autonomous loop: what it does, where it stops, how it reports</h3>
+  <p>A human calls one skill after another as needed. An autonomous agent has no such judgement, so the loop <em>is</em> a skill — <code>ai-goal</code> — and it does not implement the loop: it contracts it. A surface that declares a native goal mode (<code>loop: "native"</code> in the surfaces registry) runs the loop; a surface that declares none runs in facilitator mode, where the skill walks <code>plan.html</code> one step at a time and the human is the clock. Either way <code>ai-goal</code> fixes what the loop must consume (<code>.ai-engineering/plan.html</code>), which gates it must close (<code>ai-eng spec run</code>, receipt attached), and the three stops it may not cross. Guards cannot be skipped from inside the loop because they live below it, in the tool layer.</p>
+<div class="flow"><span class="nd">GOAL</span>  <span class="dim">the human gives the target, not the steps</span>
+  <span class="ed">▼</span>
+<span class="nd">ai-plan</span>  <span class="wd">spec.html (WHAT: gates) + plan.html (HOW: order)</span>  <span class="dim">both are review surfaces (<a href="#s17">§17</a>)</span>
+  <span class="ed">│</span>
+  <span class="ed">▼</span>  <span class="rd">⏸ STOP 1 · the human approves the contract (spec.html + plan.html) — no approval, no loop</span>
+<span class="nd">LOOP</span>  <span class="dim"><b>the surface's native goal mode</b> executes step k of <b>plan.html</b> → gate G-k of <b>spec.html</b></span>
+  <span class="dim">→ <b>ai-proof</b> demands the receipt → next step</span>
+  <span class="ed">├─▶</span> <span class="lb">guards</span>  <span class="dim">chain runs on every edit: DENY with a reason → the agent corrects, it does not negotiate</span>
+  <span class="ed">├─▶</span> <span class="lb">loop guard</span>  <span class="dim">3 identical calls / 5 failures → <span class="rd">⏸ STOP 2 · a loop is a symptom: stop and ask</span></span>
+  <span class="ed">├─▶</span> <span class="lb">destructive</span>  <span class="dim"><code>rm -rf</code>, force-push, drop table, editing overrides.toml → <span class="rd">⏸ STOP 3 · always a human</span></span>
+  <span class="ed">└─▶</span> <span class="lb">budget</span>  <span class="dim">past the <code>[budget]</code> session ceiling in config.toml → stop with what is done, not with what was promised</span>
+  <span class="ed">▼</span>
+<span class="nd">REPORT</span>  <span class="dim">never a paragraph: <b>ai-visual-recap</b> builds <code>.ai-engineering/recap.html</code> with —</span>
+  <span class="ed">├─</span> <span class="lb">gate status</span>  <span class="dim">🟢 with the output pasted · 🟡 pending · 🔴 blocked on you, with the exact question</span>
+  <span class="ed">├─</span> <span class="lb">diff + receipts</span>  <span class="dim">file:line links, not descriptions of the change</span>
+  <span class="ed">├─</span> <span class="lb">screenshots</span>  <span class="dim">if it touched UI: a real screenshot, not "it looks fine"</span>
+  <span class="ed">└─</span> <span class="lb">open decisions</span>  <span class="dim">what the agent did NOT decide — listed, waiting for a human</span></div>
+  <p>The rule that governs the whole loop is KISS/YAGNI: the smallest thing that closes the gate. An agent under this harness can work for hours unattended; it <strong>cannot</strong> widen its own permission, rewrite <code>spec.html</code> once its sha256 is pinned in the lock, or declare done without a receipt. Final responsibility stays with whoever started it.</p>
+</section>
+
+<!-- ═══════ 03 STACK ═══════ -->
+<section id="s03">
+  <h2><span class="num">03</span>Stack and tooling</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>CLI layer</h3>
+      <p><code>@clack/prompts 1.7.0</code> — interactive prompts: <code>text()</code>, <code>select()</code>, <code>confirm()</code>, <code>multiselect()</code>, <code>spinner()</code>, <code>tasks()</code>. Async, cancel-safe through <code>isCancel()</code>, ESM-first, Bun-compatible.<br>
+      <code>@bomb.sh/args 0.3.1</code> — sub-1kB flag parser. Flags first; whatever is missing is asked.<br>
+      <code>@bomb.sh/tab 0.0.22</code> — zsh / bash / fish / powershell completion, installed once with <code>tabRoot.setup()</code> and only when the shell asks for it.</p>
+      <p><strong><code>@bomb.sh/tty</code> is not a dependency.</strong> It exists for full-screen TUIs with a custom layout; a one-shot prompt flow belongs to <code>@clack/prompts</code>.</p>
+    </div>
+    <div class="card">
+      <h3>Runtime</h3>
+      <p><code>Bun 1.4.2</code> (engines <code>&gt;=1.4.0</code>) — runtime, bundler, test runner and <code>bun build --compile --minify --bytecode</code> to one executable.<br>
+      <code>TypeScript</code> strict, with <code>noUncheckedIndexedAccess</code>, <code>exactOptionalPropertyTypes</code>, <code>verbatimModuleSyntax</code> and <code>isolatedModules</code>. The type-aware lint pass is <code>oxlint --type-aware --type-check</code>.<br>
+      Eight cross-compile targets: <code>linux-x64</code>, <code>linux-arm64</code>, <code>linux-musl-x64</code>, <code>linux-musl-arm64</code>, <code>darwin-x64</code>, <code>darwin-arm64</code>, <code>windows-x64</code>, <code>windows-arm64</code>. The macOS legs codesign when the certificate secret is present; every release artifact carries a build-provenance attestation.</p>
+      <p>Three runtime dependencies — <code>@clack/prompts</code>, <code>@bomb.sh/args</code>, <code>@bomb.sh/tab</code>. No Python, no wheel. No metrics of our own: the local receipts are the only telemetry.</p>
+    </div>
+  </div>
+
+  <h3>Ecosystem tools adopted instead of built</h3>
+  <div class="grid g3">
+    <div class="card"><h4><span class="pill p-ok">gitleaks</span> secrets</h4><p>The scanner, not one of ours. Pinned by version and sha256 in the CI template; missing under the git floor is a HARD FAIL, never silent degradation.</p></div>
+    <div class="card"><h4><span class="pill p-fix">oxlint</span> fast lint</h4><p><code>oxlint src tests</code> holds the fast lint position, with the type-aware rules from <code>oxlint-tsgolint 7.0.2001</code> on the stricter pass.</p></div>
+    <div class="card"><h4><span class="pill p-ok">archunit</span> layers</h4><p><code>archunit 2.4.0</code>, run as <code>bun test tests/arch.spec.ts</code>, reads the same <code>.ai-engineering/arch.rules.json</code> the contract declares.</p></div>
+    <div class="card"><h4><span class="pill p-dim">semgrep + trivy</span> CI scanners</h4><p>Semgrep pinned at <code>1.172.0</code> with <code>--config p/ci --metrics=off</code>; trivy pinned by version and sha256, scanning <code>vuln,misconfig</code> at HIGH and CRITICAL with <code>--exit-code 1</code>.</p></div>
+    <div class="card"><h4><span class="pill p-dim">rtk</span> bash output</h4><p>Canon skill <code>ai-rtk</code>: prefix a supported command with <code>rtk</code> and only the part that matters reaches the context. It is offered, never bundled or executed by <code>ai-eng</code>, and it covers the other half from <code>wrap</code> — wrap filters tests, rtk filters everything else.</p></div>
+    <div class="card"><h4><span class="pill p-dim">methods integrated as canon</span></h4><p><code>cloudflare/security-audit-skill</code> (the six-phase adversarial method behind <code>ai-security</code>), unlazy, wayfinder, <code>writing-agent-behavior</code> (the <code>BEHAVIOR.md</code> format), the rtk skill, and the Loop-Engineering, design-orchestrator, graph-engineering and ai-design-audit methods. Each enters verbatim with author, license and source recorded in <code>NOTICE.md</code> and <code>THIRD-PARTY-NOTICES.md</code>.</p></div>
+  </div>
+
+  <h3>Why the init list is short</h3>
+  <p>Every candidate passes three filters: it must <em>complement</em> <code>ai-eng</code> rather than duplicate a live source of truth, its license must be verifiable, and it must not widen the attack surface without a guard covering the new ground. Anything failing a filter is documented and left unoffered.</p>
+  <p>The rule that decides every future case: <strong><code>ai-eng</code> offers, it never installs third-party binaries.</strong> It prints the exact command with the pinned version and the license, and a human runs it. A package manager that executes someone else's code under this project's credibility is <code>curl | sh</code> with a better face. The canon holds twenty <code>ai-*</code> skills; the tools that stay outside it — rtk, caveman, engram, impeccable, hallmark, shadcn, astryx, emil-design-eng, ui-ux-pro-max, tasteskill, tavily, exa, context7, mantis, skill-map — are named as install commands only.</p>
+</section>
+
+<!-- ═══════ 04 REPO ═══════ -->
+<section id="s04">
+  <h2><span class="num">04</span>The repository, file by file</h2>
+  <p>One repository holds the CLI, the skill canon and the templates that <code>init</code> writes into client projects. It is dogfooded: it carries its own <code>AGENTS.md</code>, <code>DECISIONS.md</code>, <code>.ai-engineering/</code> and surface wiring, and its own skills govern work on it.</p>
+  <p><strong>The binary is the payload.</strong> <code>skills/</code> and <code>templates/</code> are embedded into the compiled executable by <code>scripts/gen-assets.ts</code>, so <code>init</code>, <code>update</code> and <code>doctor</code> read every asset from inside the binary — never from disk, never from the network.</p>
+  <p><strong>How to read this tree:</strong> every line carries its reason to exist — what it does and what breaks without it. A file that cannot answer that does not enter.</p>
+
+<pre>ai-engineering/
+├── src/                          # the TypeScript the binary compiles; nothing else is shipped as source
+│   ├── cli.ts                    # flags first: parse → dispatch to one of ten verbs
+│   ├── commands/                 # one thin file per human verb
+│   │   ├── init.ts               # machine canon + repo contract; creates the repo when there is none; first commit
+│   │   ├── init-shared.ts        # the install manifest init and update share: one definition of the payload
+│   │   ├── doctor.ts             # 12 checks + one real adversarial payload + receipt p95 + --gc
+│   │   ├── config.ts             # add or remove surfaces; never writes AGENTS.md or overrides.toml
+│   │   ├── update.ts             # re-installs this binary's assets into the repo, no network
+│   │   ├── upgrade.ts            # shows the changelog, confirms, then delegates to bun/npm
+│   │   └── uninstall.ts          # two scopes; keeps what you edited and names it
+│   ├── chain/
+│   │   ├── mod.ts                # event → guards table; one verdict cache per physical call; fail-closed
+│   │   ├── payload.ts            # normalises each surface's payload into one shape
+│   │   └── dialect.ts            # one denial, one dialect per surface; reads the overrides
+│   ├── guards/
+│   │   ├── no-verify.ts          # hook-skip and verify-skip patterns
+│   │   ├── self-protect.ts       # writes to governing files
+│   │   ├── injection.ts          # instruction-injection catalogue, NFKD-folded, pre-read
+│   │   ├── loop.ts               # repeated identical calls and failure streaks
+│   │   └── wrap.ts               # test-command detector that rewrites the input
+│   ├── floor/
+│   │   ├── index.ts              # pre-commit · commit-msg · pre-push logic
+│   │   └── entry.ts              # `ai-eng git &lt;hook&gt;`; writes the receipt the trailer names
+│   ├── spec/
+│   │   ├── index.ts              # the milestone slot: run · open · approve · close
+│   │   └── triggers.ts           # conditional nodes: a fired trigger without an artifact refuses the close
+│   ├── wrap/
+│   │   ├── index.ts              # runs the real test command, prints only failures, always prints its receipt
+│   │   └── paint.ts              # per-runner painters: vitest JSON plus jest/playwright/bun/generic text
+│   ├── surfaces/
+│   │   ├── surfaces.json         # declared capabilities per surface: deny, rewrite, dialect, tier
+│   │   └── adapters.ts           # generators per surface, canon install, mirrors, slash commands
+│   ├── install.ts                # templates → disk: idempotent, 3-way diff, never overwrites an edit
+│   ├── receipts.ts               # one JSON per execution, append-only, plus the aggregate doctor reads
+│   ├── embed.ts                  # reads skills and templates from the binary payload; drift measurement
+│   ├── assets.ts                 # generated: every embedded skill and template as a file import
+│   ├── env.ts                    # repo root, home, session identity, config reads
+│   ├── ui.ts                     # the frame every human verb presents through
+│   ├── shared-verbs.ts           # the verb list and the typo suggestion
+│   ├── branding.ts               # the logo block; colours from node:util, plain on a non-TTY
+│   ├── notice.ts                 # one version-notice line, cached 24h, silent when offline
+│   ├── skills-lint.ts            # sha256 helper for the canon gates
+│   ├── embedded.d.ts             # ambient types for asset imports
+│   └── version.ts                # reads the version from package.json, the only place it is written
+├── skills/                       # the canon: one flat directory per ai-* skill, no packaging layer
+│   ├── ai-brainstorm/            # interview before creative work
+│   ├── ai-plan/                  # the answer key: every requirement turned into a check
+│   ├── ai-goal/                  # the loop contract: stops, gates, budget
+│   ├── ai-architect/             # approach, stack and prior art
+│   ├── ai-proof/                 # depth-tree execution against gate files
+│   ├── ai-design/                # design orchestration and conflict resolution
+│   ├── ai-verify/                # verification tiers and the eval harness
+│   ├── ai-security/              # six-phase audit with adversarial validation
+│   ├── ai-write/                 # documentation verified against the tree
+│   ├── ai-explore/               # file:line-anchored code exploration
+│   ├── ai-rtk/                   # routes long command output through rtk
+│   ├── ai-debug/ · ai-note/ · ai-issue-report/ · ai-research/   # diagnosis, durable findings, fault reports, external evidence
+│   ├── ai-read-docs/             # reads the versioned docs instead of memory
+│   ├── ai-visual-recap/          # the closing report of a milestone
+│   ├── ai-design-audit/          # defects measured in a real browser
+│   ├── ai-writing-behavior/      # authorship of BEHAVIOR.md
+│   ├── ai-agents-md/             # authorship of AGENTS.md
+│   └── .chain-bundle/            # generated: the self-contained chain module the plugin hosts import
+├── templates/                    # what init scaffolds — never hardcoded in the sources
+│   ├── AGENTS.md.tpl · DECISIONS.md.tpl · spec.html.tpl · plan.html.tpl
+│   ├── config.toml.tpl · overrides.toml.tpl · arch.rules.json.tpl
+│   ├── settings.claude.json.tpl · settings.cursor.json.tpl · settings.codex.json.tpl
+│   │   settings.copilot.json.tpl · settings.copilot.cli.json.tpl · plugin.omp.ts.tpl
+│   ├── plugin.opencode.ts.tpl · plugin.omp.ts.tpl · plugin.pi.ts.tpl
+│   ├── git-pre-commit.tpl · git-commit-msg.tpl · git-pre-push.tpl   # the three floor shims, marker-managed
+│   └── ci.yml.tpl                # the merge gate init installs for every surface set
+├── tests/                        # unit specs beside the adversarial oracle
+│   ├── adversarial/              # payloads that try to walk past each guard: chain, surfaces, lock, init recovery
+│   ├── arch.spec.ts              # layer rules read from arch.rules.json
+│   ├── skills.spec.ts            # the canon gate: frontmatter rules over every SKILL.md
+│   └── spec-lifecycle.test.ts · generated-payload.test.ts · installed-ci.spec.ts
+│       embedded-path.spec.ts · release-flags.spec.ts · cli-ux.test.ts · wrap.test.ts
+├── scripts/
+│   ├── build.ts                  # bun build --compile → dist/ai-eng (or dist/ai-eng-&lt;target&gt;)
+│   ├── gen-assets.ts             # rewrites src/assets.ts from skills/ and templates/
+│   ├── chain-entry.ts            # the entry the chain bundle is built from
+│   ├── toolchain.sh              # installs a scanner by pinned version + sha256
+│   ├── proof-cli-ux.sh           # the six init paths, update idempotence, uninstall, NO_COLOR
+│   ├── proof-installed-ci.sh     # runs the workflow init installs, against a built binary
+│   └── .embed/                   # generated copies of fixture sources that must ship verbatim
+├── .github/workflows/
+│   ├── check.yml                 # typecheck · lint · tests · CLI proofs · arch · build · spec run · doctor · scanners
+│   ├── e2e.yml                   # builds the binary a client would download, proves the installed pipeline
+│   ├── platforms.yml             # init · doctor · uninstall with the real binary on ubuntu, macOS, Windows
+│   ├── version.yml               # changesets: version arithmetic and the Version Packages PR
+│   └── release.yml               # the deployment: build, sign, attest, publish
+├── .ai-engineering/              # this repo's own config.toml, overrides.toml, arch.rules.json, lock and receipts
+├── .agents/ · .claude/           # this repo's own surface wiring: hooks and reviews
+├── AGENTS.md · DECISIONS.md      # the contract this repo gives its own agents
+├── .changeset/                   # the pending version bumps and the changelog config
+├── docs/recap.html · blueprint.html  # this recap, and the original design document
+├── LICENSE · NOTICE.md · THIRD-PARTY-NOTICES.md
+├── SECURITY.md · CONTRIBUTING.md · CODE_OF_CONDUCT.md
+├── CHANGELOG.md · README.md
+└── package.json · tsconfig.json · bunfig.toml · bun.lock</pre>
+
+  <h3>The distribution chain</h3>
+  <p>Four names, and they are not interchangeable: the repository is <code>arcasilesgroup/ai-engineering</code>, the package is <code>ai-engineering</code>, the CLI is <code>ai-eng</code>, and the version lives in <code>package.json</code> alone.</p>
+
+<div class="flow"><span class="nd">1 · THE SOURCE CHECKOUT</span>  <span class="dim">github.com/arcasilesgroup/ai-engineering</span>
+   <span class="dim">bun install → bun run build → dist/ai-eng · bun test · <span class="lb">bun link</span> to put ai-eng on PATH</span>
+   <span class="ed">│</span>  <span class="wd">git push</span>          <span class="dim">← this is git. No ai-eng verb reads or writes a remote.</span>
+   <span class="ed">▼</span>
+<span class="nd">2 · VERSION ARITHMETIC</span>  <span class="dim">version.yml runs changesets and opens the Version Packages PR</span>
+   <span class="ed">│</span>  <span class="dim">merging the PR writes the version into package.json and the changelog</span>
+   <span class="ed">▼</span>
+<span class="nd">3 · THE DEPLOYMENT</span>  <span class="dim">release.yml, dispatched by hand with a channel, behind the release environment</span>
+   <span class="dim">8 targets cross-compiled · macOS codesign · CycloneDX SBOM · sha256 checksums · build-provenance attestation</span>
+   <span class="ed">├──▶</span> <span class="lb">GitHub Releases</span>  <span class="dim">the eight binaries + CHECKSUMS-SHA256.txt + sbom.json + the verification log</span>
+   <span class="ed">└──▶</span> <span class="lb">npm</span>  <span class="nd">ai-engineering</span>  <span class="dim">the package, published with --provenance under the dist-tag the channel names</span>
+   <span class="ed">▼</span>
+<span class="nd">4 · THE CLIENT MACHINE</span>
+   <span class="lb">bun add -g ai-engineering</span>       <span class="dim"># or npm, or the release asset for the platform</span>
+   <span class="lb">cd my-project &amp;&amp; ai-eng init</span>      <span class="dim"># the canon comes out of the binary, not off the network</span>
+   <span class="ed">▼</span>
+<span class="nd">5 · THE CLIENT REPOSITORY</span>  <span class="dim">AGENTS.md · DECISIONS.md · .ai-engineering/ · the installed workflow and hooks</span>
+   <span class="dim">The canon stays on the machine; <span class="lb">ai-eng.lock</span> records the sha256 the repo expects.</span></div>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">What you want</th><th scope="col">The command</th><th scope="col">Who runs it</th></tr></thead>
+    <tbody>
+      <tr><td>Build the binary from the sources</td><td><code>bun install</code> · <code>bun run build</code> → <code>dist/ai-eng</code></td><td>bun</td></tr>
+      <tr><td>Run the local binary in another repository</td><td><code>bun link</code>, then <code>ai-eng init</code> where you want it</td><td>bun. Nothing is published and the global install is untouched</td></tr>
+      <tr><td>Publish a version</td><td>merge the Version Packages PR, then dispatch <code>release.yml</code> with <code>integration</code> or <code>production</code></td><td>CI, behind the <code>release</code> environment. The version decides what the artifact is; the channel declares the intent, and a mismatch fails the run</td></tr>
+      <tr><td>Install it on another machine</td><td><code>bun add -g ai-engineering</code> · <code>npm install -g ai-engineering</code> · or the release asset, checksum and attestation verified</td><td>bun/npm, or you — <code>ai-eng upgrade</code> prints and delegates the same command</td></tr>
+      <tr><td>Refresh the installed assets to the running binary</td><td><code>ai-eng update</code></td><td>ai-eng, with no network: it reads the binary already installed</td></tr>
+      <tr><td>Move ai-eng's own work to the cloud</td><td><code>git push</code></td><td>git</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note danger">
+    <h4>The line ai-eng does not cross: your remote is yours</h4>
+    <p>No command of ai-eng pushes, pulls, clones or rewrites a remote. <code>init</code> runs <code>git init -q</code> when a folder has no repository and there is permission, and commits the contract it installed; everything else stays inside the working tree. The model is two clean channels: <strong>the binary</strong>, and with it the skill canon, arrives through bun or npm, where the registry signs it — <strong>your work</strong> arrives through your git, where you read the diff. Neither can stand in for the other.</p>
+  </div>
+</section>
+
+<!-- ═══════ 05 YOUR PROJECT ═══════ -->
+<section id="s05">
+  <h2><span class="num">05</span>Your project after <code>ai-eng init</code></h2>
+  <p><strong>It works on a bare folder.</strong> With no repository present, <code>init</code> offers <code>git init -q</code> itself (confirmation, or <code>--yes</code>) and closes by committing the contract — <code>chore(ai-eng): install governance</code> with the version, no hooks and no signature. That commit is what gives the lockfile and the <code>Receipt-Id</code> trailer a baseline.</p>
+  <p><strong>Two phases, one command.</strong> The machine side runs first and always: the canon is installed or repaired, and the status line prints whether it was already intact. The project side runs only inside a repository. In a repository that is already governed, <code>init</code> offers <code>update</code>, <code>config</code> or exit instead of scaffolding again.</p>
+  <p><strong>Nothing you edited is overwritten.</strong> A file byte-identical to ours is a no-op; a file that is exactly our previous version is a safe update; a file you edited that also changed on our side is reported as a conflict and left alone for a 3-way diff. The two contract files are written once and are never rewritten by <code>update</code>.</p>
+
+<pre>my-project/
+├── AGENTS.md                     # the canonical contract: rules, layers, commands, session. You edit it.
+├── CLAUDE.md                     # symlink to AGENTS.md, or the one line `@AGENTS.md` where the OS refuses symlinks
+├── DECISIONS.md                  # ADR-lite: one standing decision per entry [Decision → Reason]
+├── .ai-engineering/
+│   ├── config.toml               # surfaces, model pin, guard thresholds, gc caps. You or `ai-eng config` write it; the chain only reads it.
+│   ├── overrides.toml            # the only way to switch a guard off: each exception carries a reason and an end date
+│   ├── arch.rules.json           # your layers, which the import graph cannot state
+│   ├── ai-eng.lock               # sha256 per installed asset, the version, and the pinned spec
+│   ├── receipts/                 # one JSON per execution, append-only; the aggregate doctor reads
+│   ├── research/                 # ai-research: NNN-{name}.html, one file per external-evidence pass
+│   ├── design/                   # ai-design: direction.html before the code; ai-design-audit: audits/NNN-{name}.html
+│   ├── security/                 # ai-security: run-N/ with findings.json and REPORT.md
+│   └── reports/                  # ai-issue-report: NNN-{slug}.html
+├── .github/workflows/ai-eng-check.yml   # the merge gate, installed for every surface set
+├── .git/hooks/pre-commit · commit-msg · pre-push   # marker-managed shims that exec `ai-eng git &lt;hook&gt;`
+└── &lt;the files of each surface you picked&gt;</pre>
+
+  <h3>What each surface adds</h3>
+  <p>Only surfaces that can deny a tool call and have an adapter in this release are offered; a surface declared in the registry with nothing to enforce it is refused at <code>init</code> rather than written into <code>config.toml</code> as a claim.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Surface</th><th scope="col">Tier</th><th scope="col">Files written</th></tr></thead>
+    <tbody>
+      <tr><td><code>claude-code</code></td><td><span class="pill p-ok">core</span></td><td><code>.claude/settings.json</code></td></tr>
+      <tr><td><code>oh-my-pi</code></td><td><span class="pill p-ok">core</span></td><td><code>.agents/hooks/ai-eng.ts</code> · <code>.agents/hooks/ai-eng-chain.ts</code></td></tr>
+      <tr><td><code>opencode</code></td><td><span class="pill p-ok">core</span></td><td><code>.opencode/plugins/ai-eng.ts</code> · <code>.opencode/plugins/ai-eng-chain.ts</code></td></tr>
+      <tr><td><code>pi</code></td><td><span class="pill p-ok">core</span></td><td><code>.pi/extensions/ai-eng.ts</code> · <code>.pi/extensions/ai-eng-chain.ts</code></td></tr>
+      <tr><td><code>cursor</code></td><td><span class="pill p-warn">experimental</span></td><td><code>.cursor/hooks.json</code></td></tr>
+      <tr><td><code>codex</code></td><td><span class="pill p-warn">experimental</span></td><td><code>.codex/hooks.json</code></td></tr>
+      <tr><td><code>copilot</code></td><td><span class="pill p-dim">best-effort</span></td><td><code>.github/hooks/ai-eng.json</code></td></tr>
+      <tr><td><code>zed</code></td><td><span class="pill p-dim">skills only</span></td><td>nothing — no guard runs in its hot path, so <code>init</code> does not offer it</td></tr>
+    </tbody>
+  </table></div>
+  <p>The plugin hosts receive the chain as a self-contained module beside them, so the adapter has no relative import pointing back into the sources. The three hook shims are written into <code>.git/hooks/</code> — the standard location, with <code>core.hooksPath</code> explicitly unset — and are made executable. Each carries a marker, which is how <code>uninstall</code> knows which hooks are ours and leaves every other hook alone.</p>
+
+  <h3>The machine side</h3>
+  <p>The canon is not installed into repositories. It lives once per machine and is mirrored into the path each surface discovers skills in.</p>
+<pre>~/.ai-engineering/
+├── skills/               # the canon: the ai-* skills, one directory each
+└── version.json          # the installed version + the 24h notice cache
+    ↑ mirrors, per surface:
+    ~/.claude/skills/ · ~/.agents/skills/ · ~/.config/opencode/skill/     # symlink, junction, or verified copy
+    ~/.config/opencode/commands/ai-*.md                                   # one slash command per skill
+    ~/.copilot/hooks/ai-eng.json                                          # only with `init --global`</pre>
+
+  <div class="grid g3">
+    <div class="card">
+      <h4>One canon per machine</h4>
+      <p>A skill is instruction, not a dependency of your code: duplicated per repository it becomes as many copies as repositories. Health is measured, not assumed — <code>init</code> and <code>doctor</code> byte-compare every canon file against the binary's payload, so a deleted or stale skill is reported instead of passing an existence check. <code>ai-eng.lock</code> records the sha256 the repository expects, and <code>doctor</code> reports drift between the lock and the canon.</p>
+    </div>
+    <div class="card">
+      <h4>Mirrors: symlink where it works, copy where it does not</h4>
+      <p>macOS and Linux get a symlink — one inode, no drift. Windows gets a junction, and a copy verified by sha256 where the filesystem refuses one. <code>CLAUDE.md</code> follows the same rule against <code>AGENTS.md</code>: a symlink, or a one-line import. One truth, two mechanisms, chosen by the OS at install time and checked by <code>doctor</code>.</p>
+    </div>
+    <div class="card">
+      <h4>What is per project</h4>
+      <p>The hooks in <code>.git/hooks/</code>, the surface settings, the CI workflow, <code>config.toml</code>, <code>overrides.toml</code>, <code>arch.rules.json</code>, <code>ai-eng.lock</code>, the receipts, and the four contract files: <code>AGENTS.md</code>, <code>DECISIONS.md</code>, <code>spec.html</code>, <code>plan.html</code>. Everything the tool executes lives in <code>.ai-engineering/</code>; everything a team reads lives at the root and survives <code>uninstall</code>.</p>
+    </div>
+  </div>
+
+  <h3>What init writes once, and what arrives later</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Written once by init</h4>
+      <p><code>AGENTS.md</code> and <code>DECISIONS.md</code> are rendered from their templates with the version, the detected stack commands and the date. <code>update</code> rewrites hooks, settings and the CI workflow and never touches these two. <code>CLAUDE.md</code> is created only when it is absent.</p>
+    </div>
+    <div class="card">
+      <h4>Written later, by the verb that owns it</h4>
+      <p><code>spec.html</code> and <code>plan.html</code> come from <code>ai-eng spec open</code>, which refuses to open a second contract while one is live and records the commit the milestone starts from. <code>brainstorm.md</code> and <code>recap.html</code> belong to the same slot, and <code>ai-eng spec close</code> deletes all four from the tree — git keeps the history. <code>receipts/</code> fills as guards run. <code>research/</code>, <code>design/</code>, <code>security/</code> and <code>reports/</code> exist once their verb has been used; <code>doctor --gc</code> applies the growth caps in <code>config.toml</code> and aggregates or deletes what no document cites.</p>
+    </div>
+  </div>
+
+  <p class="dim">Bootstrap: with no <code>src/</code> yet, the architecture rules hold off rather than fail on an empty tree — <code>doctor</code> activates them when the directory appears. The next move after <code>init</code> is the one it cannot make for you: trust the workspace in your surface, so the hooks run at all, then <code>ai-eng doctor</code> to prove the chain answers. The layout the CLI installs into a client repository is the payload described in <a href="#s04">04</a>.</p>
+</section>
+
+<!-- ═══════ 06 CONTRACT ═══════ -->
+<section id="s06">
+  <h2><span class="num">06</span>The contract: AGENTS.md + DECISIONS.md + spec.html + plan.html</h2>
+  <p>A binary check says <strong>what</strong> must come out right; it cannot say <strong>why</strong> the alternative was refused. That is why the contract is four files and a receipts folder, each with one job:</p>
+
+  <div class="pipe">
+    <div class="stage"><div class="ph">Intent</div><div class="sk">AGENTS.md</div><div class="q">"How is work done here?" — you edit it.</div></div>
+    <div class="stage"><div class="ph">Memory</div><div class="sk">DECISIONS.md</div><div class="q">"Why this and not that?" — ≤6 lines per decision.</div></div>
+    <div class="stage"><div class="ph">Contract</div><div class="sk">spec.html</div><div class="q">"What, and how will we know it passed?" — executed, not read.</div></div>
+    <div class="stage"><div class="ph">Execution</div><div class="sk">plan.html</div><div class="q">"In what order, at what risk?" — dynamic, marked by the loop.</div></div>
+    <div class="stage"><div class="ph">Proof</div><div class="sk">receipts/</div><div class="q">"Did it hold?" — local evidence of every run.</div></div>
+  </div>
+
+  <h3 id="s06-agents">6.1 · AGENTS.md — sixteen rules under nine headings</h3>
+  <p><code>ai-eng init</code> writes <code>AGENTS.md</code> from <code>templates/AGENTS.md.tpl</code>, stamped with the version. It is a contract file: <code>ai-eng update</code> refreshes hooks, settings and the CI workflow but never touches it — nor <code>DECISIONS.md</code>, nor the spec/plan pair, nor <code>arch.rules.json</code>.</p>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Heading</th><th scope="col">Rules</th></tr></thead>
+    <tbody>
+      <tr><td>Security</td><td>Never bypass a git hook or a check: no <code>--no-verify</code>, no <code>-n</code> on commit, no <code>HUSKY=0</code>. Never silence a linter: no <code>noqa</code>, <code>@ts-ignore</code>, <code>eslint-disable</code>, <code>nosec</code>. No secrets, no personal data, no machine-specific absolute paths in any file.</td></tr>
+      <tr><td>Code style</td><td>KISS, YAGNI, DRY, SOLID, TDD, Clean Code. Explain it so someone who doesn't code can follow along.</td></tr>
+      <tr><td>Build and test commands</td><td>Generated at install time from the project manifest (§6.5) — never hand-written.</td></tr>
+      <tr><td>Workflow</td><td>Green gate before "done", with the proving output shown. A decision that always comes out the same is code, not a prompt. Task status: 🟢 done with the proof pasted · 🟡 pending with the next action named · 🔴 blocked with the exact question.</td></tr>
+      <tr><td>Lifecycle</td><td>Every skill declares lane, artifact and successor in a <code>## Lifecycle</code> block inside its <code>SKILL.md</code>; follow the <code>Next:</code> a skill hands you. Lanes are light (spike and bounded work, no contract), standard (<code>spec.html</code> + <code>plan.html</code>) and full (architectural, with the triggered nodes). Approvals are spoken — the human says approve, ok, go or close, and the agent runs <code>ai-eng spec approve</code> or <code>ai-eng spec close</code> underneath; never on its own initiative.</td></tr>
+      <tr><td>Architecture layers</td><td><code>src/**</code> is editable; the arch-test reads <code>.ai-engineering/arch.rules.json</code>, so a layer change is a PR against that file, never a silent edit to the test (§13).</td></tr>
+      <tr><td>Session hygiene</td><td><code>/clear</code> between tasks · <code>/compact</code> before stopping, not after · batch prompting · check <code>/usage</code> when the context inflates.</td></tr>
+      <tr><td>Pull requests</td><td>Run lint and the full suite before committing. Add or update tests for the code you change. After moving files or changing imports, re-run lint and typecheck. Title format <code>&lt;area&gt;: &lt;imperative summary&gt;</code>. Subject ≤ 50 chars; the body explains WHY when it is not obvious.</td></tr>
+      <tr><td>Anti-drift</td><td>The list holds only what the agent CANNOT deduce from the project. A rule that becomes obvious from reading the code is deleted from the file.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note ok">
+    <h4>User control, no kill-switch</h4>
+    <p><code>AGENTS.md</code> <strong>is not sacred</strong>: reorder it, cut it, add your own rules — the governed agent obeys. It is not wiring, so the self-protect guard does not protect it, and neither <code>AGENTS.md</code>, <code>CLAUDE.md</code> nor <code>DECISIONS.md</code> is in the protected literal list. <code>ai-eng doctor</code> counts the rules and the lines: sixteen bullet rules, nine headings, and a warn once the file passes 80 lines, because the root file loads on every turn.</p>
+    <p>Deleting the "Architecture layers" section does not switch the arch-test off — that guard reads <code>arch.rules.json</code>, not markdown. The only thing you can switch off is a guard, through one mechanism, with a visible cost:</p>
+  </div>
+
+<pre># .ai-engineering/overrides.toml — the ONLY mechanism to turn a guard off
+[[guard.off]]
+name   = "loop"
+reason = "batch migration: 400 identical failures expected this week"
+until  = "2026-09-05"          # every exception expires — there is no infinite date</pre>
+  <p>The <code>reason</code> travels to the receipt, the <code>commit-msg</code> hook writes it into the commit as an <code>Override-Reason:</code> trailer, and <code>doctor</code> reports the override as WARN until it expires. An entry with no usable <code>until</code> never expires, so <code>doctor</code> names it as a finding rather than a neutral value. Real opt-out, not silent disappearance.</p>
+
+  <h3 id="s06-decisions">6.2 · DECISIONS.md — one real block</h3>
+<pre>## D-001 · ai-engineering governs this repo ({{date}})
+**Decision:** {ai} Engineering {{version}} installed (init), global skill canon, local receipts.
+**Reason:** proof &gt; promise — a decision that always comes out the same is code, not a prompt.</pre>
+  <p>The template is <code>templates/DECISIONS.md.tpl</code>: a heading <code>## D-NNN · &lt;title&gt; (date)</code>, then <strong>Decision</strong> — the standing rule, present tense — and <strong>Reason</strong> — why it holds, present tense. One entry is one standing decision, ≤6 lines, not a post-mortem. The pre-commit hook requires a block when the staged diff touches more than 10 files or changes a dependency; a <code>DECISIONS.md</code> with no <code>##</code> block fails the commit. The trigger is deliberately small: a 20-second note gets written, an 80-line ADR does not.</p>
+
+  <h3 id="s06-specplan">6.3 · spec.html + plan.html — executable WHAT and ordered HOW</h3>
+  <p>One pair per milestone, in <code>.ai-engineering/</code>, from <code>templates/spec.html.tpl</code> and <code>templates/plan.html.tpl</code>. They are HTML because a visual surface needs no separate renderer, and they never restate each other.</p>
+  <p><strong><code>spec.html</code> says WHAT and WHY.</strong> Requirements, constraints, data contracts and acceptance gates. The gates live inside <code>&lt;pre id="gates"&gt;</code> in the format owned by <code>skills/ai-proof/references/gates.md</code>: a line <code>- [ ] G1: &lt;outcome&gt;</code>, indented <code>CHECK:</code> and <code>EXPECT:</code> lines, an <code>EVIDENCE:</code> line that starts at <code>pending</code>, <code>ABANDON: G1 &lt;reason&gt;</code> as the honest exit, and an optional <code>Jobs: &lt;n&gt;</code> capping concurrency for checks that are not parallel-safe. Maximum 30 gates per milestone. It is stable: it changes only when the scope changes, and CI executes it.</p>
+  <p><code>ai-eng spec approve</code> pins the spec's sha256 into <code>.ai-engineering/ai-eng.lock</code>; from then on the self-protect guard denies agent writes to it, and <code>ai-eng spec run</code> refuses a spec whose hash does not match. Running the gates ticks the boxes and rewrites the <code>EVIDENCE:</code> lines in that same file, so both are normalized away before the comparison — the act of running never revokes the authorization that allowed the run.</p>
+  <p><strong><code>plan.html</code> says HOW, WHEN and IN WHAT ORDER.</strong> Steps that close gates (step 3 closes G2+G4), their dependencies, the <code>Jobs:</code> that must never run in parallel and the risk points. It is dynamic: the loop marks it every iteration, and CI never executes it. Its derived truth is the receipts of <code>spec.html</code> — a step marked done with no receipt behind its gate is a claim.</p>
+
+  <div class="grid g3">
+    <div class="card"><h4>Generation</h4><p><code>ai-plan</code> writes both files when the milestone opens: <code>spec.html</code> with the acceptance gates and <code>plan.html</code> with the ordered steps. Two files, one truth each — never one file mixing requirements with a schedule.</p></div>
+    <div class="card"><h4>Review</h4><p>The initial review surface is <code>spec.html</code> itself; <code>ai-visual-recap</code> — a skill, not a CLI — writes <code>recap.html</code> when the milestone closes.</p></div>
+    <div class="card"><h4>Execution</h4><p><code>ai-eng spec run</code> executes every <code>CHECK</code> of <code>spec.html</code> through <code>skills/ai-proof/scripts/gate-check.mjs</code> (never reimplemented), writes a receipt and exits non-zero when a check could not run: a check that does not run is red, never green by absence of an executor. No gates at all — the run refuses.</p></div>
+  </div>
+
+  <p>The machine verb has four steps: <code>ai-eng spec run</code>, <code>spec open &lt;milestone&gt;</code> (claims the slot and records the commit the milestone starts from, the base every conditional node is judged against), <code>spec approve</code>, and <code>spec close</code> — the only exit: it requires evidence or an honest ABANDON per gate, checks the contract was not edited after approval, refuses when a fired trigger left no artifact, then archives the pair to git and frees the slot. <code>spec.html</code> and <code>plan.html</code> are two of the four slot files, alongside <code>brainstorm.md</code> and <code>recap.html</code>.</p>
+
+  <h3 id="s06-models">6.4 · The model pin</h3>
+<pre># .ai-engineering/config.toml
+[models]
+decide  = "claude-fable-5"   # architecture, judgment, security review — expensive is fine
+execute = "gpt-5.6-sol"      # end-to-end implementation, mechanical reviews
+verify  = "gpt-5.6-luna"     # binary PASS/FAIL checks — cheap</pre>
+  <p>One tier name per kind of work, and the asymmetry is the point: <strong>cheap to verify, expensive to judge</strong>. The node that decides whether the gauntlet passed is not economized on; the node that runs a binary check is. The values are whatever the installed surfaces resolve natively, and <code>ai-eng</code> never calls or proxies a model — it only reads the pin, and the skills consult it: a verdict on why something broke belongs to <code>decide</code>, a mechanical pass/fail to <code>verify</code>. <code>ai-eng config</code> rewrites only the <code>surfaces</code> key of the file, in place, so the <code>[models]</code>, <code>[guards]</code> and <code>[gc]</code> blocks and their comments survive.</p>
+
+  <h3 id="s06-languages">6.5 · Language detection — the commands come from the project</h3>
+  <p><code>ai-eng init</code> reads the project manifest and renders the "Build and test commands" section of <code>AGENTS.md</code> from it. Detection is ordered, first match wins:</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Project file</th><th scope="col">Typecheck</th><th scope="col">Lint</th><th scope="col">Test</th></tr></thead>
+    <tbody>
+      <tr><td><code>package.json</code></td><td><code>tsc --noEmit</code></td><td><code>oxlint</code></td><td><code>bun test</code> (+ arch: <code>bun test arch.spec.ts</code>)</td></tr>
+      <tr><td><code>Cargo.toml</code></td><td><code>cargo check</code></td><td><code>clippy</code></td><td><code>cargo test</code></td></tr>
+      <tr><td><code>go.mod</code></td><td><code>go vet</code></td><td><code>golangci-lint</code></td><td><code>go test</code></td></tr>
+      <tr><td><code>pyproject.toml</code></td><td><code>mypy</code></td><td><code>ruff</code></td><td><code>pytest</code></td></tr>
+      <tr><td>none of the above</td><td colspan="3"><code>typecheck: (detect your language here) · test: (your runner)</code> — the file says what it does not know instead of guessing.</td></tr>
+    </tbody>
+  </table></div>
+  <p><code>init</code> also writes <code>.github/workflows/ai-eng-check.yml</code> from <code>templates/ci.yml.tpl</code>: it runs the project-declared <code>typecheck</code>, <code>lint</code>, <code>test</code> and <code>arch</code> scripts, but only when <code>package.json</code> exists, then runs <code>ai-eng spec run</code> (§14). <strong>The five guards do not depend on the language</strong> — they match shell command lines and file content, not source syntax, which is why the same chain governs a Rust and a Python repo.</p>
+</section>
+
+<!-- ═══════ 07 GUARDS ═══════ -->
+<section id="s07">
+  <h2><span class="num">07</span>The five guards</h2>
+  <p>The guards are compiled into the binary and dispatched by <code>src/chain/mod.ts</code>. Its <code>TABLE</code> maps event and tool matcher to guards, and it is the only way a hook runs: adding an entry point means adding a row, so there is no way to add a hook without instrumentation. A guard that crashes is a DENY, not a pass — a guard that cannot decide cannot say the action is safe. Measured from the tree: 634 lines across the five guards, plus the 256-line dispatcher that writes a receipt for every governed call.</p>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Guard</th><th scope="col">What it blocks</th><th scope="col">Event</th><th scope="col">Tool matcher</th><th scope="col">LOC</th></tr></thead>
+    <tbody>
+      <tr><td><code>self-protect</code></td><td>Writes to files that govern the agent</td><td>PreToolUse</td><td><code>Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command</code></td><td>247</td></tr>
+      <tr><td><code>no-verify</code></td><td>Hook skips on a command line, linter silences in file content</td><td>PreToolUse</td><td><code>Bash|PowerShell|shell|command|Edit|Write|MultiEdit|NotebookEdit</code></td><td>107</td></tr>
+      <tr><td><code>injection</code></td><td>Instruction-shaped text aimed at the agent</td><td>PreToolUse + PostToolUse</td><td>reads: <code>Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command</code> — fetched: <code>WebFetch|Fetch|WebSearch|mcp__*|tool_result</code></td><td>146</td></tr>
+      <tr><td><code>loop</code></td><td>Repeated identical calls and failure streaks</td><td>PreToolUse + PostToolUse</td><td>every tool</td><td>115</td></tr>
+      <tr><td><code>wrap</code></td><td>Test-runner noise — it rewrites, it does not deny</td><td>PreToolUse</td><td><code>Bash|PowerShell|shell|command</code></td><td>19</td></tr>
+    </tbody>
+  </table></div>
+  <p>Every matcher that names a shell also names <code>PowerShell</code>, <code>shell</code> and <code>command</code>: a matcher that only recognises <code>Bash</code> leaves a governed surface ungoverned without saying so. The PreToolUse table runs in this order — <code>self-protect</code>, <code>no-verify</code>, <code>injection</code>, <code>wrap</code>, <code>loop</code> — and a denial reports the guards that ran up to and including the one that denied.</p>
+
+  <div class="grid g2">
+    <div class="card"><h3>self-protect</h3><p>The protected literals are derived at run time, never copied from a list that could fall behind the wiring: <code>.ai-engineering</code> and its fixed governing children (<code>config.toml</code>, <code>overrides.toml</code>, <code>ai-eng.lock</code>, <code>arch.rules.json</code>), <code>.git/hooks</code>, the surface settings this install wrote (<code>.claude/settings.json</code>, <code>.opencode/plugins/ai-eng.ts</code>, <code>.agents/hooks/ai-eng.ts</code>), the global canon under <code>~/.ai-engineering/**</code> and the home skill mirrors. <code>spec.html</code> joins them only once its sha256 is in the lock — reopening an approved contract costs a human. The prose contracts the user owns (<code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>DECISIONS.md</code>) are not protected, and neither are the agent's workbench files <code>plan.html</code>, <code>brainstorm.md</code> and <code>recap.html</code>.</p></div>
+    <div class="card"><h3>no-verify</h3><p>It also decides <code>core.hooksPath</code> by value, never by verb: a value that resolves to nothing, or to a path outside the repo root, denies — because a hooksPath pointing at a directory that does not exist stops every hook and says nothing. The relative value this install writes resolves to an existing path and passes. The linter half has one narrow exception built into the regex: <code>eslint-disable-next-line prettier</code> is formatting and passes; silencing a quality or security check does not.</p></div>
+    <div class="card"><h3>injection</h3><p>One regex per catalogue entry, matched only against text the agent is about to consume — never text it wrote — and folded to ASCII first with NFKD decomposition, so a fullwidth letterform matches the word it imitates while a homoglyph from another alphabet does not. On a read it pre-reads the target and denies before the model sees anything: prevention. On a fetched page the read already happened, so the block stops the payload being acted on: containment, and the denial says so.</p></div>
+    <div class="card"><h3>loop</h3><p>Window 6, repeats 3, failures 5, overridable in the <code>[guards]</code> block of <code>config.toml</code>; state is per session. It reads only authoritative failure fields from the tool response, never the word "error" in output, so a passing suite that prints one does not fire it. The only way through is a written override — never a recipe printed to the model, which may be obeying injected text.</p></div>
+  </div>
+  <p><code>wrap</code> rewrites a test command to <code>ai-eng wrap test -- &lt;command&gt;</code> before it runs, and the painters in <code>src/wrap/paint.ts</code> print failure blocks only — one shape per runner, grouped by file, with no I/O in the painters (§12).</p>
+
+  <h3 id="s07-deny">7.1 · Anatomy of a real denial</h3>
+  <p>Real code from <code>src/guards/no-verify.ts</code>. The command-side patterns:</p>
+<pre>const SKIPS: Skip[] = [
+  { pattern: /\bgit\b[^|;&amp;]*\b(commit|push|merge|rebase|am)\b[^|;&amp;]*--no-verify/, label: "--no-verify" },
+  { pattern: /\bgit\b[^|;&amp;]*\bcommit\b[^|;&amp;]*(?&lt;![\w-])-[a-zA-Z]*n/, label: "git commit -n" },
+  { pattern: /\bHUSKY=0\b|\bPRE_COMMIT_ALLOW_NO_VERIFY\b|\bSKIP_HOOKS\b/, label: "an environment flag" },
+  { pattern: /\brm\b[^|;&amp;]*\.git\/hooks/, label: "deleting .git/hooks" },
+];</pre>
+  <p>And the file-content patterns, the same rule in the other vocabulary:</p>
+<pre>const SILENCES: RegExp[] = [
+  /\/\/\s*eslint-disable(?!-next-line\s+prettier)/,
+  /@ts-(ignore|expect-error|nocheck)/,
+  /#\s*(noqa|nosec)\b/,
+  /\bNOLINTNEXTLINE\b/,
+  /"\$allow-list"\s*:/,
+];</pre>
+  <p><code>SKIPS</code> runs over the command of a Bash call; <code>SILENCES</code> runs over the content being written by an edit. The dispatch is a tool-name branch, and the denial is the guard's own words:</p>
+<pre>export function runNoVerify(payload: Payload, repoRoot: string | null): GuardResult {
+  if (payload.tool_name === "Bash" || payload.tool_name === "PowerShell") {
+    const command = payload.tool_input["command"];
+    if (typeof command === "string" &amp;&amp; command.length &gt; 0) return checkBash(command, repoRoot);
+    return undefined;
+  }
+  // Edit|Write|MultiEdit|NotebookEdit judge the content being written.
+  const newString = payload.tool_input["new_string"] ?? payload.tool_input["content"] ?? "";
+  if (typeof newString === "string" &amp;&amp; newString.length &gt; 0) return checkContent(newString);
+  return undefined;
+}</pre>
+  <p>The reason string a person actually sees:</p>
+<pre>reason: `${skip.label} skips the git hooks, the floor every agent and every person in this
+repository commits through. Whatever the hooks would have said is what needs fixing.
+Run the command without it.`,</pre>
+  <p>and for content, pointing at the one escape hatch that leaves a trace:</p>
+<pre>reason: "this silences a check (eslint-disable / @ts-ignore / noqa / nosec / NOLINT /
+allow-list). Silencing a check is skipping a hook. If the skip is legitimate,
+.ai-engineering/overrides.toml with a reason — it lands in the receipt and the commit.",</pre>
+  <p>A denial is not printed by the guard. The chain translates one outcome into the host's dialect (<code>src/chain/dialect.ts</code>): <code>exit 2</code> plus stderr for Claude Code; stdout <code>{"hookSpecificOutput":{...,"permissionDecision":"deny"}}</code> with exit 0 for Codex; stdout <code>{"permission":"deny"}</code> with exit 0 for Cursor; stdout <code>{"permissionDecision":"deny","permissionDecisionReason"}</code> with exit 0 for Copilot. OpenCode, Oh My Pi and Pi run the chain in-process and turn the outcome into a throw or a block themselves. <strong>One guard, one denial protocol per surface family, zero duplicated logic.</strong></p>
+
+  <h3 id="s07-receipt">7.2 · The receipt — one signal, zero telemetry</h3>
+  <p>The chain writes one append-only JSON per governed call under <code>.ai-engineering/receipts/</code>, named <code>&lt;timestamp&gt;-&lt;event&gt;-&lt;operation_id&gt;.json</code>. The fields are the type in <code>src/receipts.ts</code>:</p>
+<pre>// .ai-engineering/receipts/2026-08-30T09-14-02-118Z-PreToolUse-7f3a1b2c.json
+{ "schema": "urn:ai-eng:receipt:2", "operation_id": "7f3a1b2c", "event": "PreToolUse",
+  "surface": "claude-code", "tool": "Bash",
+  "guards": { "ran": ["self-protect", "no-verify"], "denied_by": "no-verify" },
+  "latency_ms": 38, "outcome": "deny", "ts": "2026-08-30T09:14:02.118Z" }</pre>
+  <p>An allowed call writes the same record with <code>"outcome": "allow"</code> and <code>"denied_by": null</code>; a rewrite writes <code>"outcome": "allow"</code> too, because the command was not blocked. A second delivery of the same physical call is answered from the verdict cache: an allowed call writes nothing new, a denied one is re-issued in the guard's own words. There is no envelope, no HMAC and no hash-chain: the real signature is the <code>Receipt-Id</code> trailer — the first 8 hex characters of <code>sha256(ts:operation_id)</code> — which the <code>commit-msg</code> hook appends to the commit, so git already is the chain. When an override is active, the same hook appends <code>Override-Reason:</code> beside it.</p>
+  <p><code>doctor</code> aggregates the folder with <code>summarizeReceipts</code>: total runs, denies, p50 and p95 latency, against a 50 ms ceiling applied only to chain receipts — git-floor (<code>git-*</code>, <code>commit-msg</code>) and spec-runner (<code>spec-*</code>) receipts carry their own budgets, and folding them in would make the chain look slow when it is not. Without the aggregate you do not know whether the chain runs at all; a long stretch with zero denies means the product is ceremony, not a guardrail.</p>
+</section>
+
+<!-- ═══════ 08 THE SKILL CANON ═══════ -->
+<section id="s08">
+  <h2><span class="num">08</span>The skill canon</h2>
+  <p>The canon is twenty skills. They install flat — one directory each, no nesting, no bundles — into <code>~/.ai-engineering/skills/</code> during the global phase of <code>ai-eng init</code>. Every installed file is byte-compared against the binary's embedded payload on the next <code>ai-eng doctor</code>: drift, missing and stale entries are named, and a directory that is not ours is reported and left alone.</p>
+
+  <div class="note ok">
+    <h3>One level, one naming rule</h3>
+    <p>Every skill in the canon is called <code>ai-&lt;name&gt;</code>. There are no provenance suffixes, no version suffixes and no numbered siblings: a canon skill has exactly one name, and that is the name every surface and every other skill uses. A skill either belongs to the canon or it does not; once it does, it is ai-engineering's. Lineage — which upstream a method came from — is maintenance information: it lives in <a href="#s08-attribution">attribution</a> and in the skill's own <code>Source:</code> line, never in the name or the path.</p>
+  </div>
+
+  <h3 id="s08-rules">Rules a skill must satisfy</h3>
+  <p>Every rule below is binary and runs as a gate in <code>tests/skills.spec.ts</code>, so <code>bun test</code> in CI turns a canon violation into a red build. A <span class="pill p-bad">load-breaking</span> rule means the skill is invisible: a surface whose loader cannot parse the file never sees it.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Rule</th><th scope="col">What it rejects</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill p-bad">one entry point</span></td><td>More than one <code>SKILL.md</code> per folder, a co-<code>*-SKILL.md</code> companion, a <code>SKILL.md</code> that is not at the folder root, or a <code>corpus.md</code>.</td></tr>
+      <tr><td><span class="pill p-bad">frontmatter that parses</span></td><td>A missing <code>---</code> block, a <code>name</code> that differs from the folder, an empty or too-short <code>description</code>, a <code>license</code> outside the SPDX set (<code>MIT</code>, <code>Apache-2.0</code>, <code>BSD-2-Clause</code>, <code>BSD-3-Clause</code>, <code>ISC</code>, <code>0BSD</code>, <code>Unlicense</code>, <code>CC0-1.0</code>, <code>LicenseRef-Attributed</code>), or an unquoted scalar carrying <code>: </code>. The parse mirrors the strictest surface loader, not a regex.</td></tr>
+      <tr><td>three fields, nothing more</td><td><code>name</code>, <code>description</code>, <code>license</code> — and no <code>metadata:</code> block. Attribution that no consumer reads is debt that rots.</td></tr>
+      <tr><td>written for the matcher</td><td>A description without the use-verbs another agent's matcher fires on ("Use when…", "Trigger for…"), or one broken across lines mid-sentence. The description is read by a machine deciding whether to load the skill, not by a person browsing a catalogue.</td></tr>
+      <tr><td>English only</td><td>Accented Spanish prose anywhere in the skill's markdown. Attribution URLs are the only exception.</td></tr>
+      <tr><td>named, never pathed</td><td>Machine paths (<code>/Users/…</code>, <code>~/…</code>) and install-path claims inside a skill. A skill refers to another skill by name.</td></tr>
+      <tr><td>no context budgets</td><td>Any token- or length-limit statement. A skill that negotiates its own context budget competes with the harness that already owns that number.</td></tr>
+      <tr><td>links resolve</td><td>A relative markdown or script link inside the skill folder that points at a file which does not exist.</td></tr>
+      <tr><td>official names only</td><td>An upstream alias in the <code>name</code> field or the first heading. The skill answers to its canonical name, not to the name it had where it came from.</td></tr>
+    </tbody>
+  </table></div>
+
+  <p>The canon is also a graph, and each skill declares its own node in a <code>## Lifecycle</code> block. The graph is the union of those blocks, so there is no central map to fall out of sync.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Graph rule</th><th scope="col">What it rejects</th></tr></thead>
+    <tbody>
+      <tr><td>a node per skill</td><td>A skill whose <code>## Lifecycle</code> block is missing or omits any of <code>Lane</code>, <code>Writes</code>, <code>Read by</code>, <code>Dies</code>, <code>Next</code>.</td></tr>
+      <tr><td>closed and terminal</td><td>A <code>Next</code> that names something which is not a skill; two skills writing the same artifact that is not one of the four shared slots (<code>.ai-engineering/spec.html</code>, <code>plan.html</code>, <code>brainstorm.md</code>, <code>recap.html</code>); a canon with no terminal node.</td></tr>
+      <tr><td>closed vocabularies</td><td>A lane outside <code>light</code>, <code>standard</code>, <code>full</code>, <code>any</code>; a trigger outside <code>ui</code>, <code>security</code>, <code>open-questions</code>, <code>arch-change</code>, <code>public-interface</code>; a trigger with no condition or no kind; a path trigger that states a sentence instead of globs.</td></tr>
+      <tr><td>the human speaks words</td><td>A stop that does not declare the words a person can say (<code>approve</code>, <code>close</code>, …), what it confirms, and the <code>ai-eng spec</code> command the agent runs. <code>approve</code> and <code>close</code> must exist somewhere in the canon.</td></tr>
+      <tr><td>the lane is named where it is decided</td><td><code>ai-brainstorm</code> failing to route all three lanes: it must name <code>ai-plan</code>, <code>ai-verify</code> and at least one of <code>ai-research</code> / <code>ai-architect</code> in its <code>Next</code>.</td></tr>
+      <tr><td>every condition reaches the planner</td><td>A trigger id declared in the canon that <code>ai-plan</code> never names. A condition the planner cannot see is a condition that never fires.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="s08-installs">What installs</h3>
+  <p>Twenty directories and <code>NOTICE.md</code> sit at the same level under <code>~/.ai-engineering/skills/</code>. The lane and trigger decide when a skill runs; the <code>Writes</code> column is the artifact it owns, taken from its own Lifecycle block.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Skill</th><th scope="col">Lane · trigger</th><th scope="col">Writes</th></tr></thead>
+    <tbody>
+      <tr><td><code>ai-brainstorm</code></td><td>light, standard, full</td><td><code>.ai-engineering/brainstorm.md</code></td></tr>
+      <tr><td><code>ai-plan</code></td><td>standard, full</td><td><code>.ai-engineering/spec.html</code>, <code>.ai-engineering/plan.html</code></td></tr>
+      <tr><td><code>ai-goal</code></td><td>standard, full</td><td><code>.ai-engineering/plan.html</code> — the order the native loop consumes</td></tr>
+      <tr><td><code>ai-architect</code></td><td>full · <code>arch-change</code> (judgment)</td><td><code>.ai-engineering/arch.rules.json</code> — evolved by pull request, never auto-written</td></tr>
+      <tr><td><code>ai-proof</code></td><td>standard, full</td><td><code>.ai-engineering/receipts/*.json</code></td></tr>
+      <tr><td><code>ai-verify</code></td><td>light, standard, full</td><td><code>.ai-engineering/spec.html</code> — the verdicts, per tier</td></tr>
+      <tr><td><code>ai-security</code></td><td>full · <code>security</code> (path)</td><td><code>.ai-engineering/security/run-N/findings.json</code>, <code>REPORT.md</code></td></tr>
+      <tr><td><code>ai-design</code></td><td>full · <code>ui</code> (path)</td><td><code>.ai-engineering/design/direction.html</code> — written before code is touched</td></tr>
+      <tr><td><code>ai-design-audit</code></td><td>full · <code>ui</code> (path)</td><td><code>.ai-engineering/design/audits/NNN-{name}.html</code></td></tr>
+      <tr><td><code>ai-write</code></td><td>standard, full · <code>public-interface</code> (judgment)</td><td><code>README.md</code>, <code>docs/</code> — verified against the tree</td></tr>
+      <tr><td><code>ai-agents-md</code></td><td>any</td><td><code>AGENTS.md</code>, <code>CLAUDE.md</code> — dies when the shape of the repository changes</td></tr>
+      <tr><td><code>ai-explore</code></td><td>any</td><td>nothing — a lens, not an author; its citations land in other skills' artifacts</td></tr>
+      <tr><td><code>ai-read-docs</code></td><td>any</td><td>nothing — the version it read lands in the artifact that cites it</td></tr>
+      <tr><td><code>ai-rtk</code></td><td>any</td><td>nothing — it routes shell commands through the external rtk binary</td></tr>
+      <tr><td><code>ai-debug</code></td><td>any</td><td>nothing — the check it writes becomes a gate in <code>spec.html</code> and outlives it</td></tr>
+      <tr><td><code>ai-note</code></td><td>any</td><td><code>DECISIONS.md</code> — it deliberately owns no file of its own</td></tr>
+      <tr><td><code>ai-issue-report</code></td><td>any</td><td><code>.ai-engineering/reports/NNN-{slug}.html</code></td></tr>
+      <tr><td><code>ai-research</code></td><td>full · <code>open-questions</code> (judgment)</td><td><code>.ai-engineering/research/NNN-{name}.html</code></td></tr>
+      <tr><td><code>ai-visual-recap</code></td><td>standard, full</td><td><code>.ai-engineering/recap.html</code> — the terminal node</td></tr>
+      <tr><td><code>ai-writing-behavior</code></td><td>any</td><td><code>.agents/behaviors/{name}/BEHAVIOR.md</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="s08-thin-layer">The thin layer, worked: <code>ai-proof</code></h3>
+  <p>A skill's method stays where its author put it. The part ai-engineering writes is the entry point a matcher reads and the seam that connects that method to the rest of the system: the frontmatter, a <code>## The ai-engineering seam</code> section, a <code>## Lifecycle</code> block and a <code>Source:</code> trailer. <code>ai-proof</code> is the pattern every other skill follows.</p>
+<pre>---
+name: ai-proof
+description: &gt;-
+  Anti-laziness execution discipline for substantial tasks. Use when work keeps
+  coming back half done, when an agent reports done before it is done, …
+license: Apache-2.0
+---</pre>
+  <p>The method itself ships as files beside that entry point: <code>references/gates.md</code>, <code>method.md</code>, <code>orchestration.md</code>, <code>token-economy.md</code>; <code>scripts/gate-check.mjs</code>, <code>install-hooks.mjs</code>, <code>stop-hook.mjs</code>; <code>templates/PLAN.md</code>, <code>gates-leaf.md</code>, <code>gates-node.md</code>. The seam is four rules:</p>
+  <ol>
+    <li>The milestone's gates file is <code>.ai-engineering/spec.html</code> — not <code>GATES.md</code> in the repository root — because it is the contract CI verifies.</li>
+    <li><code>ai-eng spec run</code> executes each <code>CHECK</code>, matches its <code>EXPECT</code>, writes the receipt, and fails the run when a check could not execute. Green by absence of an executor is impossible.</li>
+    <li>Who verifies is the <code>verify</code> tier of the model pin; in orchestrated mode the judge is the <code>decide</code> tier. Cheap for the binary checks, expensive for the judge.</li>
+    <li>The stop hook installs only on Pi and Zed, through <code>node &lt;this-skill-dir&gt;/scripts/install-hooks.mjs</code>, offered once and never silently; on the core surfaces the loop guard covers the same failure, so the hook is not installed there.</li>
+  </ol>
+  <p>And every skill closes with its node and its attribution, both machine-readable:</p>
+<pre>## Lifecycle
+
+Lane: standard, full
+Writes: .ai-engineering/receipts/*.json
+Read by: doctor, CI, the human auditing
+Dies: receipts_ttl, when doctor --gc aggregates them into summary.json
+Next: ai-verify
+
+Source: unlazy by Leonxlnx — https://github.com/Leonxlnx/unlazy (MIT).</pre>
+
+  <h3 id="s08-attribution">Attribution and licences</h3>
+  <p><code>NOTICE.md</code> is the single truth of attribution: one row per skill with its source, author, SPDX license, source URL and integrated version. The lockfile's sha256 already fixes the exact bytes that were integrated. The frontmatter of a <code>SKILL.md</code> carries no attribution metadata — it carries the three fields the loader reads and nothing else.</p>
+  <p>An upstream that declares no licence is integrated with attribution in <code>NOTICE.md</code> while the licence question stays open, and the open question is named rather than hidden. Four upstreams are in that state:</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Skill</th><th scope="col">Upstream</th><th scope="col">State</th></tr></thead>
+    <tbody>
+      <tr><td><code>ai-goal</code></td><td>Loop-Engineering</td><td><span class="pill p-warn">no licence declared</span> — attributed, no author or URL in the upstream tree</td></tr>
+      <tr><td><code>ai-design</code></td><td>claude-design-skills / design-orchestrator</td><td><span class="pill p-warn">no licence</span> — attributed</td></tr>
+      <tr><td><code>ai-verify</code></td><td>graph-engineering</td><td><span class="pill p-warn">no licence</span> — attributed by README title, no public repository declared</td></tr>
+      <tr><td><code>ai-design-audit</code></td><td>locally installed community skill</td><td><span class="pill p-warn">no known licence</span> — attributed</td></tr>
+    </tbody>
+  </table></div>
+  <p>The skills ai-engineering owns — <code>ai-write</code>, <code>ai-explore</code>, <code>ai-debug</code>, <code>ai-note</code>, <code>ai-issue-report</code>, <code>ai-research</code>, <code>ai-read-docs</code>, <code>ai-visual-recap</code> — are Apache-2.0 under this project's name. The licences that are declared upstream are recorded as <span class="pill p-ok">MIT</span> or <span class="pill p-ok">Apache-2.0</span> and travel with the skill; an integrated method is never re-licensed by being integrated.</p>
+
+  <h3 id="s08-seam">The seam that unites them: one format, one executor, one pin</h3>
+  <p>Three contracts are shared by all twenty skills, and nothing more:</p>
+  <ul>
+    <li><strong>one format</strong> — the gates format (<code>CHECK</code> / <code>EXPECT</code> / <code>EVIDENCE</code> / <code>ABANDON:</code>). <code>ai-plan</code> writes it into <code>spec.html</code>; the CI consumes it; a gate nobody can execute is a failure, not a pass.</li>
+    <li><strong>one executor</strong> — <code>ai-eng spec run</code>, which wraps <code>skills/ai-proof/scripts/gate-check.mjs</code>. One runner for the milestone's gates, in the developer's terminal and in CI, exiting non-zero when a check could not run.</li>
+    <li><strong>one pin</strong> — <code>[models]</code> in <code>.ai-engineering/config.toml</code>: <code>decide</code>, <code>execute</code>, <code>verify</code>. Every skill reads the same table; ai-eng never calls a model, it injects the line and the surface resolves the names natively.</li>
+  </ul>
+  <div class="flow"><span class="nd">ai-brainstorm</span> <span class="ed">──▶</span> <span class="nd">ai-plan</span> <span class="ed">──writes──▶</span> <span class="wd">spec.html + plan.html</span> <span class="dim">(gates: CHECK / EXPECT / EVIDENCE / ABANDON)</span>
+<span class="nd">ai-architect</span> <span class="ed">──proposes──▶</span> <span class="wd">arch.rules.json</span> <span class="dim">(a diff in a pull request; a human approves — never auto-written)</span>
+<span class="wd">config.toml [models]</span> <span class="ed">──read by──▶</span> <span class="nd">every skill</span> <span class="dim">(decide / execute / verify — one pin for the twenty)</span>
+<span class="wd">spec.html</span> <span class="ed">──executed by──▶</span> <span class="lb">gate-check.mjs</span> <span class="dim">(ai-proof) ──▶ exit 0 / ≠ 0 + receipt · CI</span>
+<span class="wd">ai-verify evals</span> <span class="ed">──test──▶</span> <span class="nd">ai-verify</span> <span class="dim">(apply-pack.ts applies known bugs · score.ts measures recall + precision)</span></div>
+  <p>Every run leaves a receipt, and the receipt is the fourth shared thing without being a contract: it is how a gate proves it ran.</p>
+
+  <div class="note">
+    <h4>The duty of grounding</h4>
+    <p><code>ai-brainstorm</code>, <code>ai-research</code>, <code>ai-architect</code> and <code>ai-plan</code> cannot cite a file, an API or a library that <code>ai-explore</code> (code) or <code>ai-read-docs</code> (documentation) has not opened <em>in this session</em>. A requirement in the spec or the plan carries a <code>file:line</code> or the URL of documentation that was actually read. What can be verified by opening a file is a reading, not an opinion — and readings are not hallucinated.</p>
+  </div>
+
+  <h3 id="s08-out">What the canon leaves out, and why</h3>
+  <p>The reasons a thing is absent are rules, not a log: each one tells you what would have to change for the absence to stop being right.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Not a skill</th><th scope="col">Why it stays out</th></tr></thead>
+    <tbody>
+      <tr><td>A pipeline that owns the stage order</td><td>The order is the Lifecycle graph (<code>Next</code> per node) plus the planner's output. The guards run on every tool call whichever skill is active, so skipping a phase disables no protection — and there is nothing for a stage machine to own.</td></tr>
+      <tr><td>A model-tier router (<code>efficient-fable</code>, <code>efficient-frontier</code>)</td><td>The pin in <code>config.toml [models]</code> already routes by kind of work. A skill that restates the table is a second copy of a value that must agree with itself.</td></tr>
+      <tr><td>A plan arbiter</td><td><code>ai-plan</code> owns <code>spec.html</code> and <code>plan.html</code>; a second opinion with no artifact adds a round trip and no coverage.</td></tr>
+      <tr><td>An agent watchdog</td><td>The loop guard denies repeated identical calls and failure streaks in code, and <code>ai-proof</code> owns the gates. A watchdog would restate both, in prose, outside the hot path.</td></tr>
+      <tr><td>A separate visual plan renderer</td><td><code>spec.html</code> and <code>plan.html</code> are already the human review surface. Rendering a second HTML from the same contract creates a second source of truth for it.</td></tr>
+      <tr><td><code>rewind</code></td><td>It depends on one operating system. The product ships on three — the CI matrix is Ubuntu, macOS and Windows — so a one-OS method cannot be a canon rule.</td></tr>
+      <tr><td><code>visual-edit</code></td><td>The surface already carries a browser and a canvas; a skill that reimplements them duplicates its own host and goes stale with it.</td></tr>
+      <tr><td>Session-economy skills (<code>stay-within-limits</code>, <code>plow-ahead</code>, <code>quick-recap</code>)</td><td>Context metres, auto-compaction and a quick recap are the harness's own features, and the real recap is <code>ai-visual-recap</code>. A skill that competes with the surface's telemetry is obsolete at the surface's next release.</td></tr>
+      <tr><td>A bundled anti-slop detector</td><td>Slop checklists exist in several divergent, unversioned copies. <code>ai-design</code> routes to the one the user has installed instead of bundling a fork, and the anti-slop gate stays routed, not shipped.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ═══════ 09 GOVERNANCE ═══════ -->
+<section id="s09">
+  <h2><span class="num">09</span>Governance</h2>
+  <p>The framework improves the process underneath the work; it does not add ceremony on top of it. But informing is the default posture, not the universal rule. <strong>Something that can break you is blocked; something that cannot is a line or silence.</strong> A security or quality failure does not inform — it stops the step.</p>
+
+  <h3 id="s09-classes">The two classes, separated</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4><span class="pill p-bad">BLOCKS</span> security and quality</h4>
+      <p><strong>The git floor.</strong> <code>gitleaks</code> on the staged diff at pre-commit and over the whole unpushed surface at pre-push, plus <code>diff --check</code> and the <code>DECISIONS.md</code> rule on a wide change. The floor is marker-managed shims in <code>.git/hooks/</code>, so it runs for a person committing from an editor too. A missing <code>gitleaks</code> binary is a <span class="pill p-bad">HARD FAIL</span> at the hook — never a silent pass.</p>
+      <p><strong>The commit message.</strong> The convention, the <code>Receipt-Id</code> trailer, and the override reason when one is active are checked before the commit lands.</p>
+      <p><strong>The no-verify guard.</strong> Denies <code>--no-verify</code> and every other hook-skip, a <code>core.hooksPath</code> redirect away from the floor, and check silences (<code>eslint-disable</code>, <code>@ts-ignore</code>, <code>noqa</code>, <code>nosec</code>, <code>NOLINT</code>, allow-lists).</p>
+      <p><strong>The self-protect guard.</strong> Denies writes against the governed files, against a <code>spec.html</code> whose sha256 is pinned in the lock, and against the canon skills.</p>
+      <p><strong>The injection guard.</strong> Instruction-shaped text in what the agent is about to consume is denied before the model reads it; on a page already fetched, the block is containment and says so.</p>
+      <p><strong>The spec runner.</strong> <code>ai-eng spec run</code> — a check that could not execute fails the run, so CI is never green by absence of an executor.</p>
+      <p><strong>CI.</strong> Typecheck, lint, <code>bun test</code>, the architecture test (<code>bun run arch</code>), a live contract enforced with <code>ai-eng spec run</code>, and the scanners: gitleaks, a pinned semgrep, trivy at HIGH+CRITICAL, and <code>bun audit --audit-level=high</code> over the lockfile the repository actually has.</p>
+      <p>The only way past any of it is <code>.ai-engineering/overrides.toml</code> with a reason and an end date. An override lands in the receipt, is required in the commit footer, and shows in <code>doctor</code> until it expires.</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill p-fix">INFORMS</span> everything else — one line or silence</h4>
+      <p><strong>The loop guard.</strong> It denies a repeated identical call (<code>loop_window = 6</code>, <code>loop_repeats = 3</code>) and a failing signature streak (<code>loop_failures = 5</code>), and its message tells a person — not the agent — how to grant an exception.</p>
+      <p><strong>Canon drift.</strong> <code>doctor</code> byte-compares the installed skills against the binary and reports drift, missing, stale and not-ours as WARN.</p>
+      <p><strong>A newer version.</strong> One line at the tail of <code>init</code>, <code>doctor</code> and <code>update</code>, cached for a day, silent offline. Opt out with <code>notices = false</code> or <code>AI_ENG_NO_UPDATE_NOTICES=1</code>.</p>
+      <p><strong>An active override.</strong> WARN until it expires, with the days left; expired entries are named with the fix, because a guard that is live again does not make dead config harmless.</p>
+      <p><strong>Architecture in bootstrap mode.</strong> A project with no <code>src/</code> yet is not lectured about layers — it is a WARN, not a failure.</p>
+      <p><strong>Growth caps.</strong> <code>max_files = 25</code> per NNN folder and <code>receipts_ttl = "30d"</code> in <code>[gc]</code> are WARN thresholds: growth is hygiene, not security.</p>
+    </div>
+  </div>
+
+  <h3 id="s09-normal-day">What a person sees on a normal day</h3>
+  <p>A tool call that passes produces nothing on screen: the verdict is written to a receipt, and the same physical call is never judged twice. Output appears in exactly four situations — a denial, a rewrite, a git-floor failure, and a run that ran long.</p>
+  <div class="flow"><span class="nd">Prompt</span> <span class="ed">──▶</span> <span class="nd">tool call</span> <span class="ed">──▶</span> <span class="nd">the chain decides</span>
+  <span class="ed">├──</span> <span class="dim">allow — receipt written, nothing printed (only a decision past the 200 ms hot-path budget prints one warning)</span>
+  <span class="ed">├──</span> <span class="lb">rewrite — a test command becomes ai-eng wrap test -- &lt;cmd&gt; · the filtered output plus the receipt id</span>
+  <span class="ed">├──</span> <span class="rd">deny — the guard, the reason, and the way out: overrides.toml with reason + until</span>
+  <span class="ed">└──</span> <span class="rd">git floor — gitleaks finding → BLOCKED · a clean commit lands with Receipt-Id</span></div>
+  <pre>[ai-eng] loop: a person — not you — can grant an exception: .ai-engineering/overrides.toml
+         [[guard.off]] with a written reason and an until date.
+gitleaks: secret in the staged files → BLOCKED.
+3 passed · 1 failed · 4.2s
+[ai-eng] chain: hot path over 200 ms (231 ms)</pre>
+  <p>A denial names the guard that fired and the action that unblocks it. A rewrite is the command the agent already asked for, with the noise removed. The git floor speaks only when it blocks. The only line about slowness is the one printed when a decision exceeds its own budget.</p>
+
+  <h3 id="s09-observe">Observe → fix → block</h3>
+  <p>The rule that keeps governance from getting in the way: <strong>the guard works underneath the developer, not above them.</strong> Three levels, and only the last one interrupts.</p>
+  <ul>
+    <li><strong>OBSERVE</strong> — never seen. The chain runs on every tool call and writes its receipt; <code>doctor</code> aggregates the latencies (p50 and p95) against the 50 ms ceiling it also applies to a live adversarial payload. Zero output.</li>
+    <li><strong>FIX</strong> — one line, not a wall. <code>wrap</code> rewrites a test command to the filtered runner without asking, and the model tier for each kind of work is already a value in <code>config.toml</code>, so it is never renegotiated mid-run. The agent never learns there was a problem.</li>
+    <li><strong>BLOCK</strong> — the last resort, and only for security and quality. It interrupts once, with the reason and the exit path attached.</li>
+  </ul>
+  <p>The design test for any new guard is one question: <strong>if this guard is correct, does it pass unnoticed?</strong> A correct guard that speaks in the normal flow is badly designed — observe or fix, do not announce. And the asymmetry is the point: informing what cannot break you, and blocking what can.</p>
+
+  <div class="note ok">
+    <h4>The balance, in one line</h4>
+    <p><strong>You inform what cannot break you; you block what can.</strong> The inverse — blocking trivia and informing the dangerous — is the expensive direction, and it is why the two classes above are separated rather than tuned together.</p>
+  </div>
+</section>
+
+<!-- ═══════ 10 SURFACE HOOKS AND THE GIT FLOOR ═══════ -->
+<section id="s10">
+  <h2><span class="num">10</span>Surface hooks and the git floor</h2>
+  <p>A surface is admitted by capability, not by name. <code>src/surfaces/surfaces.json</code> declares per host whether it can block a tool call, what its output rewrite can do, and which files its adapter writes. <code>init</code> refuses a surface whose <code>can.deny</code> is false — the guards would have nowhere to run — and one with no adapter, which would be a <code>config.toml</code> claim no guard enforces.</p>
+
+  <h3>10.1 · Capability and installed files, per surface</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Surface</th><th scope="col">Tier</th><th scope="col">Block</th><th scope="col">Output rewrite</th><th scope="col">Files the adapter writes</th></tr></thead>
+    <tbody>
+      <tr><td>Claude Code</td><td><span class="pill p-ok">core</span></td><td class="check">✔ exit 2 + JSON on stdout</td><td class="check">✔</td><td><code>.claude/settings.json</code></td></tr>
+      <tr><td>Oh My Pi</td><td><span class="pill p-ok">core</span></td><td class="check">✔ <code>{ block }</code> in-process</td><td class="check">✔</td><td><code>.agents/hooks/ai-eng.ts</code> + <code>ai-eng-chain.ts</code></td></tr>
+      <tr><td>OpenCode</td><td><span class="pill p-ok">core</span></td><td class="check">✔ <code>throw</code> in-process</td><td class="check">✔</td><td><code>.opencode/plugins/ai-eng.ts</code> + <code>ai-eng-chain.ts</code></td></tr>
+      <tr><td>Pi</td><td><span class="pill p-ok">core</span></td><td class="check">✔ <code>{ block: true }</code> in-process</td><td class="check">✔</td><td><code>.pi/extensions/ai-eng.ts</code> + <code>ai-eng-chain.ts</code></td></tr>
+      <tr><td>Cursor</td><td><span class="pill p-warn">experimental</span></td><td class="check">✔ JSON <code>permission: deny</code>, exit 0, <code>failClosed</code></td><td class="cross">✘ <span class="dim">MCP only</span></td><td><code>.cursor/hooks.json</code></td></tr>
+      <tr><td>Codex CLI</td><td><span class="pill p-warn">experimental</span></td><td class="check">✔ JSON <code>permissionDecision: deny</code>, exit 0</td><td class="half">⚠ wholesale replacement</td><td><code>.codex/hooks.json</code> + manual <code>/hooks</code> trust</td></tr>
+      <tr><td>Copilot</td><td><span class="pill p-dim">best-effort</span></td><td class="check">✔ JSON <code>permissionDecision: deny</code>, exit 0</td><td class="check">✔</td><td><code>.github/hooks/ai-eng.json</code>; <code>init --global</code> adds <code>~/.copilot/hooks/ai-eng.json</code> (the CLI reads only the machine copy). Ephemeral cloud FS: no receipts survive.</td></tr>
+      <tr><td>Zed</td><td><span class="pill p-dim">skills-only</span></td><td class="cross">✘</td><td class="cross">✘</td><td>none — never offered by the picker</td></tr>
+    </tbody>
+  </table></div>
+  <p>One pair of hooks is installed per surface, <code>PreToolUse</code> and <code>PostToolUse</code>. JSON hosts get one command entry per event; the in-process hosts get a plugin/extension whose <code>beforeToolCall</code> and <code>afterToolCall</code> call the same chain and turn its outcome into their host's vocabulary. In-process chains are the shipped bundle <code>ai-eng-chain.ts</code>, byte-compared by <code>doctor</code>: an edited bundle is a WARN, never a silent pass.</p>
+
+  <h3>10.2 · Denial and rewrite, per host</h3>
+  <p>A denial whose text never reaches the host reads as permission, so each dialect writes its envelope deliberately before exiting.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Host</th><th scope="col">Denial</th><th scope="col">Rewrite envelope (the <code>wrap</code> arm)</th></tr></thead>
+    <tbody>
+      <tr><td>claude-code</td><td>stderr text plus stdout JSON <code>{ permission: "deny", continue: false, user_message, stop_reason }</code>, <strong>exit 2</strong></td><td><code>{ permission: "allow", updatedInput: { command } }</code></td></tr>
+      <tr><td>codex</td><td><code>{ hookSpecificOutput: { hookEventName, permissionDecision: "deny", permissionDecisionReason } }</code>, exit 0 — a non-zero exit is not the contract</td><td>nested <code>hookSpecificOutput.updatedInput.command</code></td></tr>
+      <tr><td>cursor</td><td><code>{ permission: "deny", user_message, agent_message }</code>, exit 0 — a non-zero exit is a hook <em>error</em> to Cursor</td><td><code>{ permission: "allow", updated_input: { command } }</code></td></tr>
+      <tr><td>copilot</td><td><code>{ permissionDecision: "deny", permissionDecisionReason }</code>, exit 0</td><td><code>{ permission: "allow", modifiedArgs: { command } }</code></td></tr>
+      <tr><td>opencode · oh-my-pi · pi</td><td>the chain returns, the host template throws or returns <code>{ block, reason }</code></td><td>the template mutates <code>input.command</code> on the real call</td></tr>
+    </tbody>
+  </table></div>
+  <p>On Pi the <code>tool_result</code> arm is containment, not prevention: the tool already ran, so a denied result replaces the payload with the guard's reason and marks it an error instead of letting injected text reach the model.</p>
+
+  <h3>10.3 · What the project install receives (Claude Code)</h3>
+  <pre>// .claude/settings.json — generated by init; your own hooks survive the merge
+{ "hooks": {
+    "PreToolUse":  [ { "matcher": "Bash|PowerShell|Edit|Write|MultiEdit|Read|NotebookEdit|NotebookRead",
+                       "hooks": [ { "type": "command", "command": "ai-eng chain PreToolUse", "timeout": 5 } ] } ],
+    "PostToolUse": [ { "matcher": "Bash|Edit|Write|MultiEdit|WebFetch|WebSearch",
+                       "hooks": [ { "type": "command", "command": "ai-eng chain PostToolUse", "timeout": 5 } ] } ]
+} }</pre>
+  <p>Alongside the surface files, every project install writes the contract (<a href="#s06">§06</a>), the CI workflow, the three git shims and <code>.ai-engineering/{config.toml,overrides.toml,arch.rules.json,ai-eng.lock}</code>. The OpenCode plugin is written <strong>locally</strong> (<code>.opencode/plugins/ai-eng.ts</code>) and never declared as an npm plugin: OpenCode installs npm plugins with Bun at boot, so a remote plugin name is arbitrary third-party execution.</p>
+
+  <h3>10.4 · The git floor</h3>
+  <p>Independent of every agent surface — it runs for a person committing from an editor with no agent in the loop. Three executable shims land in their standard location; the logic stays in the binary (<code>src/floor/</code>). <code>core.hooksPath</code> is never redirected: <code>init</code> unsets it, and <code>uninstall</code> reverts it, because moving a repository's hooks out from under it silently is how a governance tool gets removed.</p>
+  <pre>#!/bin/sh
+# .git/hooks/pre-commit — ai-eng git floor shim, marker-managed
+# Logic lives in the binary. Regenerate: ai-eng init / update.
+# Remove: ai-eng uninstall (it deletes only hooks carrying this marker).
+command -v ai-eng &gt;/dev/null 2&gt;&amp;1 &amp;&amp; exec ai-eng git pre-commit
+echo "ai-eng: git floor unavailable — 'ai-eng' not on PATH (hook: pre-commit)" &gt;&amp;2
+exit 1</pre>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Hook</th><th scope="col">What it enforces</th></tr></thead>
+    <tbody>
+      <tr><td><code>pre-commit</code></td><td><code>git diff --cached --check</code>; a secret scan of the staged blobs (each staged file's blob is materialised and scanned — <code>gitleaks git --staged</code> sees zero commits on a fresh HEAD and passes silently); a <code>DECISIONS.md</code> block when the commit touches more than 10 files or changes a dependency manifest (<code>package.json</code>, <code>Cargo.toml</code>, <code>go.mod</code>, <code>pyproject.toml</code>, <code>Gemfile</code>, <code>composer.json</code>, <code>pom.xml</code>, <code>Package.swift</code>, <code>*.csproj</code>).</td></tr>
+      <tr><td><code>commit-msg</code></td><td>Conventional Commits (<code>feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert</code>, optional scope, <code>!</code> for breaking). Appends the <code>Receipt-Id:</code> trailer when the message carries none, plus <code>Override-Reason:</code> when a guard override is active.</td></tr>
+      <tr><td><code>pre-push</code></td><td>A secret scan over the unpushed history (<code>gitleaks git --redact -v</code>).</td></tr>
+    </tbody>
+  </table></div>
+  <p>A missing <code>gitleaks</code> is a HARD FAIL on both hooks, never silent degradation: the fix is <code>brew install gitleaks</code>. Every floor run writes a receipt (<code>git-pre-commit</code>) with the guards that ran, the latency and the outcome, so a blocked commit leaves a trace. A shim whose marker matches is the only thing <code>uninstall</code> deletes.</p>
+  <p>Two steps stay human because no CLI can perform them: trusting the workspace in the surface (without trust the hooks do not run), and — on Codex — opening <code>/hooks</code> once to review and trust each hook, which is hash-pinned. <code>init</code> prints both and <code>doctor</code> reports whether they happened.</p>
+</section>
+
+<!-- ═══════ 11 THE CLI ═══════ -->
+<section id="s11">
+  <h2><span class="num">11</span>The CLI: six human verbs, four machine ones</h2>
+  <p>The binary is <code>ai-eng</code>, declared in <code>package.json</code> and implemented in <code>src/cli.ts</code>. Flags are parsed by <code>@bomb.sh/args</code>; prompts appear only for what the flags did not answer (<code>@clack/prompts</code>); completion is served by <code>@bomb.sh/tab</code>. <code>--version</code> prints <code>ai-eng &lt;version&gt;</code> and exits 0; <code>--help</code> prints the verb list and exits 0; no verb at all prints the same list and exits 2.</p>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Verb</th><th scope="col">Audience</th><th scope="col">Flags accepted</th></tr></thead>
+    <tbody>
+      <tr><td><code>init</code></td><td>human</td><td><code>--yes</code> · <code>--global</code> · <code>--surface &lt;id&gt;</code> (repeatable; comma lists accepted)</td></tr>
+      <tr><td><code>doctor</code></td><td>human</td><td><code>--gc</code></td></tr>
+      <tr><td><code>config</code></td><td>human</td><td><code>--add &lt;id&gt;</code> · <code>--remove &lt;id&gt;</code></td></tr>
+      <tr><td><code>update</code></td><td>human</td><td><code>--yes</code></td></tr>
+      <tr><td><code>upgrade</code></td><td>human</td><td>—</td></tr>
+      <tr><td><code>uninstall</code></td><td>human</td><td>—</td></tr>
+      <tr><td><code>chain &lt;event&gt;</code></td><td>machine</td><td><code>--surface &lt;id&gt;</code></td></tr>
+      <tr><td><code>git &lt;hook&gt; [msgfile]</code></td><td>machine</td><td>—</td></tr>
+      <tr><td><code>wrap test -- &lt;command&gt;</code></td><td>machine</td><td>—</td></tr>
+      <tr><td><code>spec run|open|approve|close</code></td><td>machine</td><td>—</td></tr>
+      <tr><td><code>complete</code></td><td>shell integration</td><td>— (the shell is detected from the environment)</td></tr>
+    </tbody>
+  </table></div>
+  <p>The six human verbs are registered as completion commands. The four machine verbs are the product's programming surface — invoked by surface hooks, git shims and the CI workflow — and appear in neither the completion registration nor <code>--help</code>. An unknown verb prints <code>unknown verb: &lt;typed&gt;</code> plus the closest human verb when one is close enough, and exits 2.</p>
+
+  <h3>11.1 · <code>init</code></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Flag</th><th scope="col">Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>--global</code></td><td>Run phase 1 only and stop: the machine side without touching a repo. Also the only mode that writes a machine-level Copilot CLI hook.</td></tr>
+      <tr><td><code>--yes</code></td><td>Answer every prompt. Outside a bare folder it proceeds with <code>git init -q</code>; inside an already-governed repo it hands off to <code>update</code>; with no <code>--surface</code> it picks <code>claude-code</code>.</td></tr>
+      <tr><td><code>--surface &lt;id&gt;</code></td><td>Skip the picker. Repeatable, and <code>--surface a,b</code> is the same list.</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><strong>Two phases by context, not by flag.</strong> Outside a repo (or with <code>--global</code>) it installs the machine side: the skill canon at <code>~/.ai-engineering/skills/</code>, symlink mirrors at <code>~/.claude/skills</code>, <code>~/.agents/skills</code> and <code>~/.config/opencode/skill</code>, the OpenCode slash-command shims under <code>~/.config/opencode/commands/</code>, and <code>~/.ai-engineering/version.json</code>. Inside a repo it runs both phases: a canon that is missing or drifted is re-installed and the project work continues — it never aborts with "install global first".</li>
+    <li><strong>The contract is written once.</strong> <code>AGENTS.md</code> and <code>DECISIONS.md</code> are skipped when they already exist; <code>CLAUDE.md</code> becomes a symlink to <code>AGENTS.md</code>, or the one line <code>@AGENTS.md</code> where symlinks are unavailable.</li>
+    <li><strong>Governance, then a baseline commit.</strong> The scaffold writes <code>.ai-engineering/{config.toml,overrides.toml,arch.rules.json,ai-eng.lock}</code>, the CI workflow, the three git shims (chmod 755) and the adapters of the chosen surfaces, then commits <code>chore(ai-eng): install governance &lt;version&gt;</code> with <code>--no-verify --no-gpg-sign</code> so the baseline exists before the hooks can judge anything. A commit that does not happen is reported as pending, not hidden. <code>git revert</code> is the rollback.</li>
+    <li><strong>Refusals.</strong> A surface that cannot deny, or that has no adapter, fails and exits 2 before anything is promised. A failed <code>git init</code> aborts with exit 2 — without a repo there is no floor.</li>
+    <li><strong>Bootstrap mode.</strong> No <code>src/</code> yet: arch rules hold off (no failures on empty), and <code>doctor</code> activates them when <code>src/</code> appears.</li>
+  </ul>
+
+  <h3>11.2 · <code>doctor</code></h3>
+  <p>Runs the named checks and one adversarial probe. The probe submits a fabricated <code>git commit -n</code> payload to the real chain; it must come back DENY within 50 ms. A hook that does not deny, or denies slowly, is a FAIL — not a WARN.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Check</th><th scope="col">What it proves</th></tr></thead>
+    <tbody>
+      <tr><td><code>AGENTS.md</code> · <code>CLAUDE.md</code></td><td>The contract exists, carries rules, stays under the 80-line ceiling, and the Claude entry point imports it.</td></tr>
+      <tr><td><code>config.toml</code> · <code>mirrors</code></td><td>The file parses and declares surfaces; each skill mirror carries linked skills.</td></tr>
+      <tr><td><code>canon</code></td><td>Every canon file byte-matches the binary's payload: files verified, drifted, missing, stale, and foreign entries left alone.</td></tr>
+      <tr><td><code>assets</code></td><td>The lock records which binary version installed the repo's files. Binary newer than the lock → <code>ai-eng update</code>; a missing lock is a state, not a non-event.</td></tr>
+      <tr><td><code>git floor</code></td><td>All three marker shims present and <code>gitleaks</code> on PATH (missing is a HARD FAIL).</td></tr>
+      <tr><td><code>chain test</code></td><td>The real denial, under the 50 ms ceiling.</td></tr>
+      <tr><td><code>receipts</code> · <code>overrides</code></td><td>p50/p95 latency from the receipt aggregate; every active override named with the days left, every expired one named with its removal.</td></tr>
+      <tr><td><code>arch</code> · <code>spec slot</code> · <code>triggers</code></td><td>Bootstrap versus active rules; a live contract with its approval pinned, or a clean slot; a fired trigger whose skill left no artifact.</td></tr>
+      <tr><td><code>surface &lt;id&gt;</code> (one per declared surface)</td><td>The settings file exists and, for in-process surfaces, the installed chain is the one this binary ships.</td></tr>
+      <tr><td><code>behaviors</code></td><td>Every <code>.agents/behaviors/*/BEHAVIOR.md</code> has frontmatter whose <code>name</code> matches its folder and whose <code>description</code> is present and within 1024 characters.</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li>Exit code is 2 when any check is FAIL, 0 otherwise; WARN never fails the run.</li>
+    <li><code>--gc</code> collects instead of checking and always exits 0: receipts are aggregated then deleted past their TTL, and numbered artifacts in the audit folders are removed when they are committed to git, older than the configured age, uncited by a permanent governor (<code>DECISIONS.md</code>, <code>NOTICE</code>, <code>arch.rules.json</code>) and beyond the keep-runs cap. Thresholds come from <code>[gc]</code> in <code>config.toml</code> (<code>max_files</code>, <code>receipts_ttl</code>, <code>older_than</code>, <code>keep_runs</code>).</li>
+  </ul>
+
+  <h3>11.3 · <code>config</code></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Flag</th><th scope="col">Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>--add &lt;id&gt;</code></td><td>Requires an adapter behind the id; appends it to the enabled list.</td></tr>
+      <tr><td><code>--remove &lt;id&gt;</code></td><td>Drops it from the list and deletes the files its adapter generated.</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li>With neither flag it opens the grouped picker, ticked for the surfaces already installed; ticking on and off maps to the same add and remove paths.</li>
+    <li>It rewrites only the <code>enabled</code> key of <code>.ai-engineering/config.toml</code>, in place: the comments and the <code>[models]</code>, <code>[guards]</code>, <code>[gc]</code> and <code>[budget]</code> blocks are the user's, and a re-serialisation would delete them.</li>
+    <li>An added surface's files are written by the next <code>ai-eng update</code>, which builds its plan from the enabled list. <code>doctor</code> reports a declared surface whose settings file is missing.</li>
+    <li>It never touches <code>AGENTS.md</code> and never writes overrides — those are manual, with a reason.</li>
+    <li>Run outside a governed repo it fails with "run ai-eng init first" and exits 2, rather than dying on a raw missing file.</li>
+  </ul>
+
+  <h3>11.4 · <code>update</code></h3>
+  <p>Re-installs the assets ai-eng owns from the binary already on the machine. <strong>Zero network requests:</strong> the payload is embedded in the binary, the same one <code>init</code> installs. It syncs both halves — the repo's files and the global canon when it has drifted.</p>
+  <ul>
+    <li><code>--yes</code> answers the two prompts: conflicts resolve to <em>keep mine</em>, and Apply is taken.</li>
+    <li>The sync plan is computed before anything is written and shown as four classes: <em>current</em> (byte-identical to ours or never ours), <em>updates</em> (the exact previous version), <em>fresh</em> (not on disk), <em>conflicts</em> (edited by the user <em>and</em> changed in the new binary).</li>
+    <li>Conflicts are resolved by <strong>one</strong> decision for the whole set: keep mine everywhere, or take the new version everywhere. A kept file leaves the lock — recording our hash for it would make the next update overwrite the edit silently. Taking it is the only channel that overwrites a human's edit, and only a human decision reaches it.</li>
+    <li>What is the user's is never written: <code>AGENTS.md</code>, <code>DECISIONS.md</code>, <code>.ai-engineering/{spec,plan}.html</code>, <code>arch.rules.json</code>, <code>overrides.toml</code>.</li>
+    <li>Freshly written shims are chmod 755; <code>ai-eng.lock</code> is rebuilt with the sha256 of every file this run made ours; the result is committed as <code>chore(ai-eng): assets → &lt;version&gt;</code>, with <code>git revert</code> as the rollback.</li>
+    <li>Outside a governed repo: exit 2. With nothing pending and no conflict: it says so and exits 0 without rewriting the lock.</li>
+  </ul>
+
+  <h3>11.5 · <code>upgrade</code></h3>
+  <p>Upgrades the binary, and delegates the installation instead of reimplementing it. Flags: none.</p>
+  <ul>
+    <li>It reads the latest version from the registry (<code>bun pm view ai-engineering version</code>, falling back to <code>npm view</code>). Offline or an error reads as silence, never a failure.</li>
+    <li>Already latest → it says so and exits 0.</li>
+    <li>It prints what changed: the target version's section of the local <code>CHANGELOG.md</code> when that section exists, otherwise the changelog URL.</li>
+    <li>It offers three choices: <code>bun add -g ai-engineering@&lt;version&gt;</code>, <code>npm install -g ai-engineering@&lt;version&gt;</code>, or print the command and stop. The chosen manager is spawned with inherited stdio and its exit status is propagated; registry trust and checksum are the package manager's job, not ai-eng's.</li>
+    <li>A new binary with old repo assets is a half-chain: upgrade says so and points at <code>ai-eng update</code>. The two verbs touch different things and stay two steps.</li>
+    <li>The version notice is emitted at the tail of <code>init</code>, <code>doctor</code> and <code>update</code> — never as a block, never mid-work. The registry read is cached 24 hours in <code>~/.ai-engineering/version.json</code>, so at most one anonymous request per day, and only from those verbs. It is suppressed by <code>AI_ENG_NO_UPDATE_NOTICES</code> or by <code>notices.enabled = false</code> in <code>config.toml</code>. ai-eng never auto-updates.</li>
+  </ul>
+
+  <h3>11.6 · <code>uninstall</code></h3>
+  <p>Flags: none. It states both scopes before asking, and the confirmation defaults to <em>No</em> — a bare Enter removes nothing.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Scope</th><th scope="col">What goes</th><th scope="col">What stays</th></tr></thead>
+    <tbody>
+      <tr><td>This project only</td><td>Every file the lock declares ai-eng's: hooks, its entries in each surface settings file, adapters, the CI workflow, <code>config</code>, the lock. <code>core.hooksPath</code> is reverted; directories the sweep emptied are pruned. Settings files that cannot be parsed are left alone with a warning — never rewrite what you cannot read.</td><td><code>AGENTS.md</code>, <code>DECISIONS.md</code>, <code>.ai-engineering/{spec,plan}.html</code> — the work.</td></tr>
+      <tr><td>Everything</td><td>The project scope <em>plus</em> the machine side: <code>~/.ai-engineering</code> (canon, mirrors, caches) and the machine hook.</td><td>Its own entries only; a real directory in a mirror stays. Asks twice.</td></tr>
+    </tbody>
+  </table></div>
+  <p>When the lock is gone, the ownership register falls back to the binary's own install plan — same paths, hashes recomputed from the payload — never a hardcoded subset and never a file it did not install.</p>
+
+  <h3>11.7 · <code>chain &lt;event&gt; [--surface &lt;id&gt;]</code></h3>
+  <p>Reads one JSON payload from stdin and writes the verdict. The events are <code>PreToolUse</code> and <code>PostToolUse</code>; the surface defaults to <code>claude-code</code>, and the denial dialect follows from it (<a href="#s10">§10.2</a>). A denial exits 2 in the claude dialect and 0 in the JSON hosts; an allowed rewrite answers with that host's rewrite envelope instead of a denial. A missing event exits 2 with the usage line. This is what every surface hook calls.</p>
+
+  <h3>11.8 · <code>git &lt;hook&gt; [msgfile]</code></h3>
+  <p>The entry point of the three shims (<a href="#s10">§10.4</a>). The logic is here, not in the hook file.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Invocation</th><th scope="col">Contract</th></tr></thead>
+    <tbody>
+      <tr><td><code>ai-eng git pre-commit</code></td><td>The staged diff check, the staged-blob secret scan and the DECISIONS.md rule. Exit 1 when blocked; a receipt either way.</td></tr>
+      <tr><td><code>ai-eng git commit-msg &lt;msgfile&gt;</code></td><td>Reads the message and, when the trailer is absent, rewrites the file in place with <code>Receipt-Id:</code> plus the active <code>Override-Reason:</code>. Exit 1 when the convention is violated. Without a file: exit 2 with the usage line.</td></tr>
+      <tr><td><code>ai-eng git pre-push</code></td><td>The unpushed-history secret scan. Exit 1 when blocked.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Any other hook name, or no governed repo from the working directory, exits 2 with the usage line.</p>
+
+  <h3>11.9 · <code>wrap test -- &lt;command&gt;</code></h3>
+  <p>Runs the real test command and prints only the failures (<a href="#s12">§12</a>). Exit is the runner's status, 124 on the timeout, 2 when no command was given.</p>
+
+  <h3>11.10 · <code>spec run|open|approve|close</code></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Sub-verb</th><th scope="col">Contract</th></tr></thead>
+    <tbody>
+      <tr><td><code>run</code></td><td>Executes every CHECK in the approved <code>spec.html</code> through the canon's <code>gate-check.mjs</code> with <code>--recheck</code>, so a hand-ticked box is re-executed rather than trusted. A missing executor or a spec with no gates exits 2 — green by absence of executor is impossible. Every run writes a receipt.</td></tr>
+      <tr><td><code>open &lt;milestone&gt;</code></td><td>Writes <code>spec.html</code> and <code>plan.html</code> into <code>.ai-engineering/</code>, refuses (exit 2) while a live contract exists, and records the current commit as <code>base_sha</code> in the lock — the base every conditional node is judged against. It ends by naming STOP 1: a human approves with <code>spec approve</code>. A missing name opens <code>unnamed-milestone</code>.</td></tr>
+      <tr><td><code>approve</code></td><td>Pins the normalised spec's sha256 into <code>ai-eng.lock</code>. From that moment the contract is immutable to the agent: editing it is denied by self-protect.</td></tr>
+      <tr><td><code>close</code></td><td>The only exit. Refuses (exit 2) when any gate lacks evidence or an <code>ABANDON: &lt;gate&gt; &lt;reason&gt;</code> of at least 12 characters, when the spec's sha256 no longer matches the approved one, or when a trigger fired and its skill left no artifact. On success it deletes <code>spec.html</code>, <code>plan.html</code>, <code>brainstorm.md</code> and <code>recap.html</code>, clears <code>spec_sha256</code> and <code>base_sha</code>, and leaves the history to git.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Any other sub-verb exits 2 with the usage line.</p>
+
+  <h3>11.11 · <code>complete</code></h3>
+  <p><code>ai-eng complete</code> writes the shell completion script through <code>@bomb.sh/tab</code>, for the shell detected from <code>ZSH_VERSION</code>, <code>BASH_VERSION</code> or <code>FISH_VERSION</code> — bash when none is set. There is no <code>ai-eng tab</code> verb, and <code>complete</code> is not one of the six.</p>
+</section>
+
+<!-- ═══════ 12 WRAP ═══════ -->
+<section id="s12">
+  <h2><span class="num">12</span><code>wrap</code>: test output without the noise</h2>
+  <p>A passing test suite is context spent for nothing, and only the failing tests carry information. The universal primitive is rewriting the command <em>before</em> it runs: the guard cannot depend on a surface being able to rewrite a tool's output, and a payload with the wrong shape is ignored in silence by some hosts.</p>
+
+  <div class="flow"><span class="nd">agent</span> asks for <span class="wd">Bash("npm test")</span>
+   <span class="ed">▼</span>
+<span class="nd">PreToolUse</span> → chain → <span class="lb">wrap</span>: is this a test command?
+   <span class="ed">│</span>  <span class="dim">skipped by: --watch · --ui · --help · -h · --list · --reporter · a trailing &amp; · a pipeline · grep/tail/head</span>
+   <span class="ed">▼</span>
+<span class="lb">rewrite envelope</span> → <span class="wd">Bash("ai-eng wrap test -- npm test")</span>   <span class="dim">same process, filtered output</span></div>
+
+  <h3>12.1 · What the guard detects</h3>
+  <p><code>src/guards/wrap.ts</code> matches the command against one runner pattern and rewrites it, or returns "not a test command" and changes nothing.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Runners matched</th><th scope="col">Skipped</th></tr></thead>
+    <tbody>
+      <tr><td><code>vitest</code> · <code>jest</code> · <code>playwright</code> · <code>bun test</code> · <code>npm test</code> · <code>npm run test</code> · <code>yarn test</code> · <code>pnpm test</code> · <code>turbo run test</code> · <code>pytest</code> · <code>go test</code> · <code>cargo test</code></td><td><code>--watch</code> · <code>--ui</code> · <code>--help</code> · <code>-h</code> · <code>--list</code> · <code>--reporter</code> · a command that backgrounds itself · a command piped into something else · <code>grep</code> · <code>tail</code> · <code>head</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>The rewrite output is exactly <code>ai-eng wrap test -- &lt;original command&gt;</code>. It travels in that host's rewrite envelope (<a href="#s10">§10.2</a>): <code>updatedInput.command</code> on claude-code and codex, <code>updated_input.command</code> on Cursor, <code>modifiedArgs.command</code> on Copilot, and a mutation of <code>input.command</code> on the three in-process hosts. The guard is wired to the shell-shaped tools only (<code>Bash</code>, <code>PowerShell</code>, <code>shell</code>, <code>command</code>), so it never fires on an edit.</p>
+
+  <h3>12.2 · What the wrapper does</h3>
+  <p><code>src/wrap/index.ts</code> parses <code>wrap test -- &lt;command&gt;</code>, runs the real command through <code>/bin/sh -c</code> with no stdin, and paints what comes back. The command is not reimplemented and not sandboxed.</p>
+  <ul>
+    <li>The runner is detected from the command text: <code>vitest</code>, <code>jest</code>, <code>playwright</code>, <code>bun</code>, or <code>generic</code>.</li>
+    <li>Vitest is the one runner whose JSON reporter is free to consume: unless the command already carries <code>--reporter</code>, the wrapper appends <code>--reporter=json</code> and parses counts and failures from the report. Every other runner is painted from its own text.</li>
+    <li>A runner that hangs must not hang the agent: the timeout is 10 minutes and surfaces as exit 124 with <code>TIMEOUT</code> in the receipt line.</li>
+    <li>Output is a sequence of failure blocks — the file, then its failing cases and their details — followed by one summary line: <code>&lt;passed&gt; passed · &lt;failed&gt; failed · &lt;seconds&gt;s</code>. When the summary cannot be parsed the counts print as <code>?</code> and the failed count falls back to the bullets actually painted.</li>
+    <li>It always ends with its own line naming the runner, that the output was filtered, and the receipt id: the trace must not lie about which command ran. The exit status is the runner's, so the surface still sees a failing suite as a failure.</li>
+  </ul>
+
+  <h3>12.3 · The painters</h3>
+  <p><code>src/wrap/paint.ts</code> holds one shape per runner, grouping failures by file. ANSI colour is stripped before matching — runners colourise even when piped.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Runner</th><th scope="col">Reads</th><th scope="col">Emits</th></tr></thead>
+    <tbody>
+      <tr><td>vitest (JSON)</td><td><code>numPassedTests</code>, <code>numFailedTests</code>, per-file <code>assertionResults</code></td><td>Counts plus one block per file: each failed test and the first line of its failure message, cut at 160 characters.</td></tr>
+      <tr><td>vitest / jest (text)</td><td><code>FAIL file</code> and <code>❯ file (N tests | M failed)</code> headers, <code>×</code> cases, <code>→</code> details, <code>file:line:col</code> locators</td><td>Blocks keyed by file with the failing case names and their locations.</td></tr>
+      <tr><td>bun test</td><td><code>file:</code> headers, <code>at (file:line:col)</code> locators that bun prints <em>before</em> the <code>(fail)</code> line, <code>error</code>/<code>expect</code>/<code>Expected</code>/<code>Received</code> lines</td><td>Blocks whose <code>(fail)</code> line flushes the buffered locator and error text — the ordering bun emits.</td></tr>
+      <tr><td>playwright</td><td><code>✘ N [project] › file:line:col › test name</code></td><td>One block per file with the project and test name.</td></tr>
+      <tr><td>generic</td><td>Lines matching fail or error, excluding runner summary lines</td><td>One <code>output</code> block, capped at 10 lines so a crash dump cannot flood the context.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Counts come from the runner's own summary when the JSON report is unavailable: <code>N passed</code>/<code>N passing</code>/<code>N pass</code> and <code>N failed</code>/<code>N failing</code>/<code>N fail</code>.</p>
+
+  <h3>12.4 · The cost, paid in transparency</h3>
+  <p>The executed command is not the one the agent typed. That is the price of a filter the surface cannot avoid, and it is paid by printing it: the receipt line names the runner and the receipt, and the receipt records which guards ran, the latency and whether the outcome was an allow, a deny or an error. A failing suite still exits non-zero, so a surface that reads status sees the truth even when the output was reduced to three blocks.</p>
+</section>
+
+<!-- ═══════ 13 ENFORCED ARCHITECTURE ═══════ -->
+<section id="s13">
+  <h2><span class="num">13</span>Enforced architecture: dynamic in layers, static in rules</h2>
+  <p>ai-engineering imposes no architecture. <code>ai-architect</code> detects the shape of the project and proposes rules; a human approves them. The proposal is a diff of <code>.ai-engineering/arch.rules.json</code> in a pull request — the skill never writes that file. Enforcement has <strong>one source of truth</strong>, and it is projected into the arch test that CI runs.</p>
+
+  <h3 id="s13-contract">13.1 · The contract: <code>.ai-engineering/arch.rules.json</code></h3>
+  <p>The schema is a free-form layer map plus a rule list. Any layer name maps to a glob, so the same JSON carries a clean-architecture split, a feature-based split, a monorepo split or no layers at all — only the globs change.</p>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Clean architecture</h4>
+<pre>"layers": {
+  "presentation":   "src/presentation/**",
+  "application":    "src/application/**",
+  "domain":         "src/domain/**",
+  "infrastructure": "src/infrastructure/**"
+}
+// domain must not import infrastructure;
+// presentation must not import domain directly</pre>
+    </div>
+    <div class="card">
+      <h4>Feature-based</h4>
+<pre>"layers": {
+  "feature": "src/features/**",
+  "shared":  "src/shared/**",
+  "core":    "src/core/**"
+}
+// features do not import each other (except index.ts);
+// shared does not import features</pre>
+    </div>
+    <div class="card">
+      <h4>Monorepo</h4>
+<pre>"layers": {
+  "app":    "packages/app/**",
+  "lib":    "packages/lib/**",
+  "shared": "packages/shared/**"
+}
+// app imports lib and shared; lib does not import app</pre>
+    </div>
+    <div class="card">
+      <h4>No layers</h4>
+<pre>"layers": {
+  "root": "src/**"
+},
+"rules": [
+  { "any": [], "forbid": "cycles" }
+]
+// the minimal contract: anti-circular only,
+// no invented layer</pre>
+    </div>
+  </div>
+
+  <p>The rule vocabulary is <code>from</code> plus <code>mayNotImport</code> (with an optional <code>except</code> glob), and the shape <code>{ "any": [], "forbid": "cycles" }</code>. <code>bootstrap</code> keeps an empty repository from deadlocking: the arch test activates when <code>src/</code> appears.</p>
+  <pre># templates/arch.rules.json.tpl — the file `ai-eng init` installs
+{
+  "layers": {
+    "feature": "src/features/**",
+    "shared":  "src/shared/**",
+    "core":    "src/core/**"
+  },
+  "rules": [
+    { "from": "feature", "mayNotImport": "feature", "except": "*/index.ts" },  // modules expose a public API only
+    { "from": "shared",  "mayNotImport": "feature" },
+    { "any": [], "forbid": "cycles" }
+  ],
+  "bootstrap": "allow-empty-while-files==0"   // an empty repo does not deadlock
+}</pre>
+  <p>This repository governs itself with the same file, declaring its own layers and arcs:</p>
+  <pre># .ai-engineering/arch.rules.json — this repo's live contract
+"layers": { "cli": "src/cli.ts", "commands": "src/commands/**", "guards": "src/guards/**",
+            "chain": "src/chain/**", "floor": "src/floor/**", "spec": "src/spec/**",
+            "wrap": "src/wrap/**", "surfaces": "src/surfaces/**",
+            "shared": "src/shared-*.ts,src/{env,install,receipts,embed,skills-lint}.ts",
+            "templates-assets": "templates/**" }
+"rules": [
+  { "from": "guards", "mayNotImport": "commands" },
+  { "from": "guards", "mayNotImport": "cli" },
+  { "from": "chain",  "mayNotImport": "commands" },
+  { "from": "floor",  "mayNotImport": "commands" },
+  { "from": "shared", "mayNotImport": "commands,guards,chain,floor,spec,wrap,surfaces,cli" },
+  { "any": [], "forbid": "cycles" }
+]</pre>
+
+  <h3 id="s13-projection">13.2 · The projection: one JSON, one executed check</h3>
+  <p><code>tests/arch.spec.ts</code> reads <code>.ai-engineering/arch.rules.json</code> and projects one archunit 2.4.0 check per <code>mayNotImport</code> target, so the JSON is the only place a rule is written. <code>bun run arch</code> runs that test, and the <code>check</code> job of CI calls it.</p>
+  <div class="grid g2">
+    <div class="card">
+      <h4><span class="pill p-bad">the enemy</span> silent green</h4>
+      <p>A typo in a layer glob — <code>src/doamin/**</code> instead of <code>src/domain/**</code> — matches zero files, finds zero violations and passes. The typo disables the protection without a word, and a guardrail that cannot fail is worse than no guardrail.</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill p-ok">the answer</span> empty-test protection</h4>
+      <p>The same suite asserts that every directory under <code>src/</code> is a declared layer and that every rule names declared layers. The typo'd glob matches nothing, the assertion fails, and the suite goes red — a rule that cannot be evaluated is a failure, never silence.</p>
+    </div>
+  </div>
+
+  <h3 id="s13-erosion">13.3 · The five erosion vectors, and what cuts them</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Vector</th><th scope="col">What the agent does</th><th scope="col">What cuts it</th></tr></thead>
+    <tbody>
+      <tr><td><b>Layer violation</b></td><td>a module reaches into another layer's internals</td><td>the direction rules of <code>arch.rules.json</code>, projected into <code>tests/arch.spec.ts</code> and run by <code>bun run arch</code> in CI — <span class="check">✔</span></td></tr>
+      <tr><td><b>Dependency inversion</b></td><td>an arc points the wrong way</td><td>the same <code>from</code> / <code>mayNotImport</code> / <code>except</code> rules, read from one file instead of restated per tool — <span class="check">✔</span></td></tr>
+      <tr><td><b>Pattern divergence</b></td><td>two ways to do the same thing in two modules</td><td><code>ai-verify</code> judges the diff, and the git floor requires a <code>DECISIONS.md</code> block on a commit that touches more than ten files or changes a dependency — <span class="check">✔</span></td></tr>
+      <tr><td><b>Convention break</b></td><td>naming, structure, error shape drift</td><td><code>oxlint</code> (lint) and <code>oxlint --type-aware --type-check</code> (typecheck) in the <code>check</code> job — <span class="check">✔</span></td></tr>
+      <tr><td><b>Framework misuse</b></td><td>a deprecated API, a non-idiomatic use, a package that does not exist</td><td><code>semgrep --config p/ci</code> in the <code>security</code> job, plus <code>ai-architect</code>'s existence-check before the code is written — <span class="half">⚠ partial</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="s13-static">13.4 · Dynamic in layers, static in the floor</h3>
+  <div class="grid g2">
+    <div class="card">
+      <h4><span class="pill p-fix">DYNAMIC</span> it adapts to the project</h4>
+      <p>Which layers exist. What they are called. How the files are organised. Which language it is. Which test command the wrap recognises. All of it enters through <code>arch.rules.json</code> and the project's own toolchain.</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill p-ok">STATIC</span> it holds whatever the project is</h4>
+      <p>No circular imports as a rule · layer direction per your own rules · no secrets (gitleaks at the git floor and in CI) · no hook bypass (the <code>no-verify</code> guard denies <code>--no-verify</code>, <code>git commit -n</code>, <code>HUSKY=0</code>, <code>rm .git/hooks</code> and linter silences) · tests pass · typecheck passes.</p>
+    </div>
+  </div>
+  <p>The default shape when there are modules is a <strong>modular monolith</strong>: exports leave a module only through <code>index.ts</code>, which is the <code>except: "*/index.ts"</code> of the template. The experience is the same for both writers: the developer writes a cross import, <code>bun test</code> fails and CI does not merge; the agent writes the same import, CI fails and the agent fixes it. There is no bypass — the <code>--no-verify</code> path is denied at the guard, not discouraged in prose.</p>
+</section>
+
+<!-- ═══════ 14 CI ═══════ -->
+<section id="s14">
+  <h2><span class="num">14</span>CI in three times</h2>
+  <div class="tiers">
+    <div class="tier"><span class="tname">pre-commit</span><span class="tbody"><b>git diff --cached --check</b> · <b>gitleaks --staged</b> (hard fail when gitleaks is missing) · <b>DECISIONS.md</b> required when the commit touches &gt;10 files or changes a dependency · commit-msg: convention + <b>Receipt-Id</b> trailer + the override reason when an override is active</span><span class="tlat">&lt; 1s</span></div>
+    <div class="tier"><span class="tname">PR fast</span><span class="tbody"><b>oxlint</b> · <b>oxlint --type-aware --type-check</b> · <b>bun test</b> · <b>arch.spec.ts</b> · <b>spec run</b></span><span class="tlat">&lt; 45s</span></div>
+    <div class="tier"><span class="tname">merge gate</span><span class="tbody">full build and test · <b>gitleaks + semgrep + trivy + bun audit</b> (scanners pinned by version and sha256, actions pinned by commit SHA) · <b>platforms</b> ubuntu/macos/windows with the real binary · <b>e2e</b> of the installed pipeline · <b>lockfile vs canon</b> by <code>doctor</code></span><span class="tlat">3–5 min</span></div>
+  </div>
+
+  <h3 id="s14-workflows">14.1 · The workflow set</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Workflow</th><th scope="col">Fires on</th><th scope="col">What it proves</th></tr></thead>
+    <tbody>
+      <tr><td><code>check.yml</code></td><td>push, pull request</td><td>jobs <code>check</code>, <code>security</code> and <code>guards-adversarial</code> (below)</td></tr>
+      <tr><td><code>e2e.yml</code></td><td>push, pull request</td><td>the pipeline that <code>init</code> installs, exercised against the binary built from this commit — <code>scripts/proof-installed-ci.sh</code> runs <code>templates/ci.yml.tpl</code> end to end</td></tr>
+      <tr><td><code>platforms.yml</code></td><td>push to main, pull request</td><td><code>init</code>, <code>doctor</code> and <code>uninstall</code> on ubuntu, macos and windows, against the compiled binary</td></tr>
+      <tr><td><code>version.yml</code></td><td>push to main</td><td>changesets opens the Version Packages PR. It <b>does not publish</b> — versioning and deployment stay separate</td></tr>
+      <tr><td><code>release.yml</code></td><td>manual dispatch only</td><td>the one deployment: <code>channel=integration</code> → GitHub prerelease + npm dist-tag <code>next</code>; <code>channel=production</code> → GitHub release (latest) + npm dist-tag <code>latest</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>The <code>check</code> job</h4>
+  <p>Workflow schema lint (<code>actionlint</code>, including <code>templates/ci.yml.tpl</code>) → typecheck → lint → <code>bun test</code> → the CLI sandbox proofs → <code>bun run arch</code> → build the binary the contract runner executes → <code>./dist/ai-eng update --yes</code> to make the checkout match the binary → <code>spec run</code> → <code>doctor</code>. A live contract is enforced; a lock that pins an approved spec whose <code>spec.html</code> has vanished is a FAIL, because that is a contract somebody deleted. Between milestones there is no live contract and that is a legitimate, green state.</p>
+  <h4>The <code>security</code> job</h4>
+  <p><code>gitleaks detect</code> · <code>semgrep scan --error --config p/ci --metrics=off</code> (never <code>--config auto</code>: a governance gate that phones home is not a governance gate) · <code>trivy fs --severity HIGH,CRITICAL --exit-code 1</code> · <code>bun audit --audit-level=high</code>. Gitleaks and trivy come from <code>scripts/toolchain.sh</code>, where the version and the sha256 live inside this repository.</p>
+  <h4>The <code>guards-adversarial</code> job</h4>
+  <p>Pull requests only, routed by path: it runs <code>bun test tests/adversarial/</code> when the diff touches <code>src/guards</code>, <code>src/chain</code> or <code>src/floor</code>, and skips with a message otherwise. The suite is the product contract — real payloads that must be denied (<code>--no-verify</code>, <code>rm .git/hooks</code>, <code>core.hooksPath</code> hijack, linter silences, writes into <code>.ai-engineering/</code>, prompt injection in a file or a fetched page, NFKD-folded payloads) plus controls that must pass. It is not mutation testing; generating mutants is not part of this workflow set.</p>
+  <h4>The template</h4>
+  <p><code>templates/ci.yml.tpl</code> is the workflow <code>init</code> installs into a governed project, adapted to the language of the project. It pins the governor as the released binary by version + sha256 and verifies the release attestation before installing it, pins every action by commit SHA, and runs <code>spec run</code> — so a CHECK that could not execute is red, never green by absence of an executor.</p>
+
+  <h3 id="s14-tests">14.2 · The test strategy that does not take hours</h3>
+  <p>The rule that orders the tiers: <strong>a tier that does not fit its budget is cut, not abandoned</strong>, and a tier left in the repository with nobody to run it is a guard that is switched off. The budgets are the contract.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Tier</th><th scope="col">What it hunts</th><th scope="col">When it runs</th><th scope="col">Budget</th><th scope="col">Why there and not elsewhere</th></tr></thead>
+    <tbody>
+      <tr><td><b>unit</b></td><td>the logic of one isolated module (dialect, payload, toml, lock)</td><td>every push, every PR</td><td><b>&lt; 45s</b></td><td>the only tier fast enough to run without thinking. Past 45s the problem is the test, not the hardware</td></tr>
+      <tr><td><b>adversarial</b></td><td>that a real payload cannot slip past a guard</td><td>PRs touching <code>guards/</code>, <code>chain/</code> or <code>floor/</code></td><td><b>&lt; 60s</b></td><td>it is the product contract — attempts to break the floor, not tests of a feature. Routed by path: governance untouched, oracle silent</td></tr>
+      <tr><td><b>e2e</b></td><td>that the compiled binary works on three operating systems</td><td>the push and pull-request workflows that build the binary (<code>e2e.yml</code>, <code>platforms.yml</code>) — never the TypeScript tiers</td><td><b>3–5 min</b></td><td>the TypeScript already passed unit and adversarial; only the real artifact knows about codesign, Windows paths and permissions</td></tr>
+      <tr><td><b>evals</b></td><td>that <code>ai-verify</code> finds applied faults and invents none, and that loop trajectories match the repository's <code>BEHAVIOR.md</code> files</td><td>in the ai-engineering repository, not in a governed project</td><td>outside the gate</td><td>it measures a model: non-deterministic and slow. Its green is a trend, never a merge gate</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="s14-release">14.3 · Release</h3>
+  <p>Eight <code>bun build --compile</code> targets, built with <code>--minify --sourcemap --bytecode</code>: linux-x64, linux-arm64, linux-musl-x64, linux-musl-arm64, darwin-x64, darwin-arm64, windows-x64, windows-arm64. The version decides the release flags — <code>scripts/release-flags.ts</code> derives the tag and whether the build is a prerelease from semver alone — and the channel must agree with it: a prerelease cannot ship as production, a final version cannot ship as integration. The macOS binary is codesigned against Gatekeeper when the certificate secret is present. The release carries a CycloneDX SBOM, pinned by version + sha256, and a checksum file. Rollback needs no verb of its own: the binary is a file, the previous version is on npm, the skills are in git.</p>
+</section>
+
+<!-- ═══════ 15 DELIVERY CYCLE ═══════ -->
+<section id="s15">
+  <h2><span class="num">15</span>The delivery cycle: which skill, in what order, what it produces</h2>
+  <p>The order is written once, for both readers: the human who types and the agent that runs. Every step names the skill that executes it, the artifact it leaves on disk, and where the human stops. <strong>Solid means a skill or a verb runs it; conversation means the human decides with the agent.</strong></p>
+
+  <h3 id="s15-order">15.1 · The linear order</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">#</th><th scope="col">Moment</th><th scope="col">Skill / verb</th><th scope="col">What it produces on disk</th><th scope="col">Human stop</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td>Floor</td><td><code>ai-eng init</code></td><td>AGENTS.md · CLAUDE.md · DECISIONS.md · <code>.ai-engineering/</code> · the canon of 20 skills</td><td>trusting the workspace (<a href="#s10">§10</a>)</td></tr>
+      <tr><td>1</td><td>Idea</td><td><code>ai-brainstorm</code></td><td><code>.ai-engineering/brainstorm.md</code> — the interview down to plain language, plus the gap list (transient: it dies when the contract is approved)</td><td>the lane classification (spike / bounded / architectural)</td></tr>
+      <tr><td>2</td><td>Evidence <span class="pill p-dim">optional</span></td><td><code>ai-research</code></td><td><code>.ai-engineering/research/NNN-{name}.html</code> — numbered citations, branding of <a href="#s17">§17</a></td><td>—</td></tr>
+      <tr><td>3</td><td>Does it already exist? <span class="pill p-dim">optional</span></td><td><code>ai-architect</code></td><td>existence-check + prior art; the layer proposal as a diff of <code>arch.rules.json</code></td><td>approving the PR diff (<a href="#s13">§13</a>)</td></tr>
+      <tr><td>4</td><td>Contract</td><td><code>ai-plan</code></td><td><code>.ai-engineering/spec.html</code> (WHAT: gates with CHECK / EXPECT / EVIDENCE, at most 30) + <code>plan.html</code> (HOW: steps → gates, dependencies, nodes)</td><td><span class="pill p-bad">⏸ STOP 1</span> approve spec + plan; <code>ai-eng spec approve</code> pins the spec's sha256 in <code>ai-eng.lock</code>, and without approval the loop does not run (<a href="#s02">§02</a>)</td></tr>
+      <tr><td>5</td><td>Model <span class="pill p-ok">automatic</span></td><td>— (<code>config.toml</code> <code>[models]</code> + the surface's own selector)</td><td>nothing — one pin per kind of work (<code>decide</code>, <code>execute</code>, <code>verify</code>); ai-eng never calls a model, it only states the pin</td><td>the pin is written once, by hand</td></tr>
+      <tr><td>6</td><td>Execution</td><td><strong>the surface's native goal loop</strong> under the <code>ai-goal</code> contract (<a href="#s15-loop">§15.3</a>)</td><td>code + <code>.ai-engineering/receipts/*.json</code> — a receipt is the local proof that a gate <em>ran</em>: no receipt, no green, not in the plan and not in CI; plan.html carries the per-step state</td><td><span class="pill p-bad">⏸ STOP 2</span> loop guard · <span class="pill p-bad">⏸ STOP 3</span> destructive action or budget</td></tr>
+      <tr><td>7</td><td>UI <span class="pill p-dim">if it touches UI</span></td><td><code>ai-design</code> → the routed skill</td><td><strong>before</strong> the code: <code>.ai-engineering/design/direction.html</code> (palette, type, motion, components). The implementation runs in the routed skill, with direction.html as its input. <strong>After</strong>: <code>ai-design-audit</code> measures in a real browser → <code>design/audits/NNN-{name}.html</code></td><td>choosing a direction — no direction.html, no UI ticket</td></tr>
+      <tr><td>8</td><td>Judgement</td><td><code>ai-verify</code></td><td>verdicts land as the EVIDENCE of spec.html plus a receipt; the skill runs in three shapes (standalone, embedded in the chain, chain), the judge at the <code>decide</code> model tier and binary checks at <code>verify</code></td><td>—</td></tr>
+      <tr><td>9</td><td>Security <span class="pill p-dim">if it touches security</span></td><td><code>ai-security</code></td><td><code>.ai-engineering/security/run-N/findings.json</code> + <code>REPORT.md</code>; zero open HIGH findings, schema-validated, is the milestone gate</td><td>— (the validator is not the finder)</td></tr>
+      <tr><td>10</td><td>Proof</td><td><code>ai-proof</code> + <code>ai-eng spec run</code></td><td>a receipt per run; a check that cannot execute exits non-zero and turns CI red</td><td>—</td></tr>
+      <tr><td>11</td><td>Docs</td><td><code>ai-write</code></td><td>README / docs/ of the project, verified against the tree; <code>not-covered:</code> marks what could not be proven</td><td>—</td></tr>
+      <tr><td>12</td><td>Close</td><td><code>ai-visual-recap</code> + git</td><td>the milestone recap HTML; <code>ai-eng spec close</code> archives spec.html, plan.html, brainstorm.md and recap.html to git and deletes them from the tree</td><td>reviewing the recap; the human tags — the binary never touches the remote (<a href="#s04">§04</a>)</td></tr>
+    </tbody>
+  </table></div>
+  <p>The order runs on <strong>three lanes</strong>. <strong>Light</strong> — spike or bounded work: no contract, it explores and throws away what does not serve. <strong>Standard</strong> — the contract: <code>ai-plan</code> writes spec.html + plan.html, the loop runs, <code>ai-eng spec run</code> closes the gates and <code>ai-eng spec close</code> closes the milestone. <strong>Full</strong> — architectural: the same contract plus the nodes their conditions fire (<a href="#s15-lanes">§15.4</a>). The lane is <strong>one-way</strong>: a milestone may climb when the evidence asks for it, never descend silently. Each skill declares its own lane, artifacts, successor and death in a <code>## Lifecycle</code> block inside its SKILL.md, and the canon test fails when a skill declares none — that is what makes the order checkable instead of aspirational. There is deliberately no central router: the skill in front of you already knows what comes next.</p>
+  <p class="dim">Outside the order, when they are needed: <code>ai-explore</code> (where does X live?) before any step that needs the real tree; <code>ai-debug</code> (reproduction + test) as soon as something fails; <code>ai-note</code> for a finding the team must remember; <code>ai-issue-report</code> for a structured incident report; <code>ai-read-docs</code> before using a third-party API; <code>ai-writing-behavior</code> when a recurring trajectory failure deserves written criteria (<a href="#s16-behavior">§16.7</a>). The grounding duty of <a href="#s08">§08</a> binds steps 1→4: no file, API or library is cited that <code>ai-explore</code> or <code>ai-read-docs</code> has not opened in the session — the spec is written from readings, not from memory. Session economy (limits, compaction) belongs to each surface's harness; it is not a skill.</p>
+
+  <h3 id="s15-loop">15.2 · The loop is the surface's native loop</h3>
+  <p>Every supported surface ships its own goal loop, tuned to its own harness. ai-engineering does not implement a loop, and <code>ai-goal</code> is not a second engine: reimplementing one would be worse on every surface at once — a second planning layer for latency, two competing progress bars for the user, and a copy that every surface release breaks. <code>ai-goal</code> pins the <strong>contract</strong>; the surface runs the loop.</p>
+  <div class="grid g2">
+    <div class="card"><h4>The native goal loop provides</h4><p>The engine (iterating until the objective is exhausted), context managed by the harness, model switching, session economy (compaction, usage limits), suspension and resumption with its own state.</p></div>
+    <div class="card"><h4><code>ai-goal</code> provides</h4><p>The exit contract: the loop is fed by <code>plan.html</code>, not by a free interpretation of the objective; every step ends at a gate of <code>spec.html</code> with a receipt (the harness saying "done" counts for nothing without proof); the three stops of <a href="#s02">§02</a> are exit conditions; and the session budget of <code>config.toml</code> is the hard ceiling — the binary does not meter it, the agent honours it at step boundaries. The guards run underneath in the tool layer, so a native loop cannot skip the floor it never sees.</p></div>
+  </div>
+  <p>Which mode applies is decided by the capability the surface declares. A surface with a native goal loop runs <strong>contract mode</strong>: the skill pins the contract and the loop executes it. A surface that declares none is not handed to a loop at all — <code>ai-goal</code> runs <strong>facilitator mode</strong> and walks <code>plan.html</code> one step at a time inside the session, with the same three stops and the same receipts, the human as the clock: one step, its receipt, then stop and wait. No timer, no unattended queue, no implicit approval. On the surfaces that carry no guards in the hot path, the human order of §15.1 remains the honest mode, and facilitator mode is how it is walked.</p>
+
+  <h3 id="s15-lanes">15.3 · The same cycle for design and for business</h3>
+  <p>A milestone can be a design milestone without one piece of the mechanism changing: a gate only has to be binary. "The hero is 72px tall and passes AA contrast" is as executable as "the tests are green". What changes is which skills fill the steps, not the contract.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Lane</th><th scope="col">The human at step 1</th><th scope="col">What fills spec.html (WHAT)</th><th scope="col">What fills plan.html (HOW)</th><th scope="col">Closing the milestone</th></tr></thead>
+    <tbody>
+      <tr><td><b>Engineering</b></td><td>the engineer</td><td>behaviour gates: tests, typecheck, arch</td><td>code steps → gates</td><td>green <code>spec run</code> + recap</td></tr>
+      <tr><td><b>Design</b> — a frontend milestone</td><td>the designer (or the engineer with the skill)</td><td>visual gates: <code>direction.html</code> approved by a human · <code>ai-design-audit</code> measures zero defects · rendered AA contrast · the declared breakpoints hold</td><td>wireframe → tokens → components → pages → <strong>audit</strong>: <code>ai-design</code> routes at each step, and the closing gate is measured in a real browser, not "it looks fine"</td><td>the NNN audit with the measurement attached is the receipt</td></tr>
+      <tr><td><b>Business</b> — product thinker</td><td>the product owner</td><td>writes no gates: <strong>reads and approves</strong> — which is why spec.html is readable HTML under the branding of <a href="#s17">§17</a>, not YAML only a parser sees; STOP 1 is the seat</td><td>does not touch plan.html — the order belongs to the loop</td><td>reads the recap: per-gate state without opening a terminal</td></tr>
+    </tbody>
+  </table></div>
+  <p>A design milestone is not a second-class citizen: its gates run through the same runner, and its audit is a receipt like any test. A framework that governed only code would leave out the work half today's agents actually do — interfaces.</p>
+
+  <div class="flow"><span class="nd">HUMAN MODE</span>  <span class="dim">steps 1→12 of §15.1, one by one</span>        <span class="nd">AUTONOMOUS MODE</span>  <span class="dim">a human contracts the work; the agent runs the loop</span>
+  <span class="dim">every decision is yours, every proof is a receipt</span>
+  <span class="dim">the loop cannot: widen its permission · change spec/plan · say "done" without a receipt</span>
+        <span class="ed">╲</span>                                                    <span class="ed">╱</span>
+                    <span class="wd">the same floor</span>  <span class="dim">— guards on every edit · git floor on every commit · spec run on every PR</span>
+                    <span class="dim">the guards run whatever happens: skipping a phase of the order switches off no protection</span></div>
+  <p class="dim">The test of the map: if at the close of a milestone you cannot point at the receipt that closed each gate, the DECISIONS.md line that justifies each decision, and the plan.html step that ordered each commit — the cycle was improvised, not followed. <code>ai-visual-recap</code> shows exactly those three things, which is why it closes the milestone instead of summarising it.</p>
+</section>
+
+<!-- ═══════ 16 FILE LIFECYCLE ═══════ -->
+<section id="s16">
+  <h2><span class="num">16</span>The lifecycle of every file: who writes it, who reads it, when it dies</h2>
+  <p>The rule that orders the map: <strong>no ai-engineering artifact lives outside <code>.ai-engineering/</code> unless an external convention has to discover it</strong>. AGENTS.md and CLAUDE.md are read by the surfaces by name convention; DECISIONS.md is read whole by the agent every session and survives the tool because it is the team's memory, not the tool's. Everything else lives in the tool's own house. And no file is forever: each is born with a written death, because a framework that accumulates documents becomes a graveyard nobody cleans.</p>
+
+  <h3 id="s16-map">16.1 · The map</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Skill / mechanism</th><th scope="col">Writes</th><th scope="col">Read by</th><th scope="col">Born in</th><th scope="col">Dies in</th></tr></thead>
+    <tbody>
+      <tr><td><code>init</code></td><td>AGENTS.md · CLAUDE.md · DECISIONS.md · the whole <code>.ai-engineering/</code> · the canon mirrors</td><td>the surfaces (AGENTS), the agent (everything), <code>doctor</code></td><td><code>ai-eng init</code></td><td><strong>never</strong> — only <code>uninstall</code> asks; what is yours is kept</td></tr>
+      <tr><td><code>ai-agents-md</code></td><td>AGENTS.md · CLAUDE.md</td><td>the surfaces, by name convention</td><td>when the repository's shape changes</td><td>when the tree changes again — the tree is the source, the file follows</td></tr>
+      <tr><td><code>ai-brainstorm</code></td><td><code>.ai-engineering/brainstorm.md</code></td><td><code>ai-plan</code> (the gap list becomes questions)</td><td>step 1</td><td>STOP 1 approved — what did not fit spec/plan was noise</td></tr>
+      <tr><td><code>ai-research</code></td><td><code>.ai-engineering/research/NNN-{name}.html</code></td><td>humans, <code>ai-architect</code>, <code>ai-plan</code> (citations)</td><td>step 2</td><td><strong>immune while cited</strong> — an NNN is never rewritten; <code>doctor --gc</code> removes what is uncited and old from the tree, and git is the archive (<a href="#s16-gc">§16.5</a>)</td></tr>
+      <tr><td><code>ai-architect</code></td><td>a diff of <code>.ai-engineering/arch.rules.json</code> in a PR</td><td>the arch test, <code>ai-plan</code></td><td>step 3</td><td><strong>permanent</strong> — it evolves by pull request, never auto-written (<a href="#s13">§13</a>)</td></tr>
+      <tr><td><code>ai-plan</code></td><td><code>.ai-engineering/spec.html</code> + <code>plan.html</code></td><td>CI (<code>spec run</code>), <code>ai-goal</code>, <code>ai-proof</code>, the human</td><td>step 4 (<code>ai-eng spec open</code> claims the slot)</td><td><code>ai-eng spec close</code> at step 12 — git keeps the history</td></tr>
+      <tr><td>STOP 1 + lock</td><td>the sha256 of spec.html in <code>ai-eng.lock</code></td><td>the <code>self-protect</code> guard, <code>doctor</code></td><td>the human approves (<code>ai-eng spec approve</code>)</td><td>the milestone close — the next contract takes the entry</td></tr>
+      <tr><td><code>ai-goal</code> (native loop)</td><td>per-step state in <code>plan.html</code></td><td>the human, the next iteration of the loop</td><td>step 6</td><td>with the milestone — plan.html dies with spec.html</td></tr>
+      <tr><td><code>ai-proof</code> / chain / floor</td><td><code>.ai-engineering/receipts/*.json</code></td><td><code>doctor</code> (aggregated), CI, the human auditing</td><td>every gate that runs</td><td><code>receipts_ttl</code> → <code>doctor --gc</code> aggregates them into <code>summary.json</code> and deletes them; the <code>Receipt-Id</code> trailer on the commit is the permanent half</td></tr>
+      <tr><td><code>ai-design</code></td><td><code>.ai-engineering/design/direction.html</code></td><td>the routed implementation skill, <code>ai-design-audit</code>, the human</td><td>step 7, before the code</td><td>when a new decision changes the direction (a DECISIONS.md block) — never per pull request</td></tr>
+      <tr><td><code>ai-design-audit</code></td><td><code>.ai-engineering/design/audits/NNN-{name}.html</code></td><td>the human, the milestone gate</td><td>step 7, after the code</td><td><strong>immune while cited</strong> — an NNN is never rewritten; uncited audits of closed milestones expire to gc</td></tr>
+      <tr><td><code>ai-writing-behavior</code></td><td><code>.agents/behaviors/&lt;name&gt;/BEHAVIOR.md</code></td><td>the <code>decide</code> tier of <code>ai-verify</code> (answer key), human reviewers</td><td>when a recurring trajectory failure deserves written criteria</td><td><strong>immune while an eval consumes it</strong> — without a consumer it is decoration and is deleted</td></tr>
+      <tr><td><code>ai-security</code></td><td><code>.ai-engineering/security/run-N/{findings.json, REPORT.md}</code></td><td>the milestone gate, humans, later runs (known findings are skipped)</td><td>step 9</td><td><strong>the last <code>keep_runs</code> always live</strong> — the known-findings ledger of run N reads the earlier ones; beyond that, gc + git</td></tr>
+      <tr><td><code>ai-verify</code></td><td>verdicts → the EVIDENCE of spec.html + a receipt</td><td>CI, the human</td><td>step 8</td><td>with the milestone — it lives inside spec.html, in no file of its own</td></tr>
+      <tr><td><code>ai-write</code></td><td>README / docs/ of the project (never <code>.ai-engineering/</code>)</td><td>humans and surfaces — it is product, not governance</td><td>step 11</td><td><strong>permanent</strong> — it dies when the code it documents dies</td></tr>
+      <tr><td><code>ai-note</code></td><td>a block in DECISIONS.md, or hands the finding to <code>ai-write</code></td><td>the agent, which reads DECISIONS.md whole</td><td>whenever a finding appears</td><td><strong>permanent</strong> — it deliberately owns no file: a finding with no home in DECISIONS or docs is a finding nobody rereads</td></tr>
+      <tr><td><code>ai-issue-report</code></td><td><code>.ai-engineering/reports/NNN-{slug}.html</code></td><td>the team (incident), humans without session context</td><td>when something happened</td><td><strong>immune while cited</strong> — history is not rewritten; cited by DECISIONS.md it is eternal, uncited it expires to gc</td></tr>
+      <tr><td><code>ai-visual-recap</code></td><td><code>.ai-engineering/recap.html</code></td><td>the human, at the milestone close</td><td>step 12</td><td><code>spec close</code> archives it to git and deletes it from the tree; if nobody does, <code>doctor</code> marks it orphaned</td></tr>
+      <tr><td><code>ai-explore</code> · <code>ai-read-docs</code> · <code>ai-debug</code> · <code>ai-rtk</code></td><td><strong>nothing</strong> — they are lenses, not authors</td><td>—</td><td>—</td><td>— — their output is <code>file:line</code> citations and docs read, which <em>other</em> skills fold into their own artifacts (the grounding duty of <a href="#s08">§08</a>)</td></tr>
+      <tr><td><code>config.toml</code> / <code>overrides.toml</code> / <code>ai-eng.lock</code></td><td>the human or <code>ai-eng config</code> (overrides: the human only, with a reason)</td><td>chain, doctor, init, surfaces</td><td><code>init</code></td><td><strong>permanent</strong> — overrides expire by their <code>until:</code> date, never silently</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <h4>The three classes, one line each</h4>
+    <p><strong>Immune while cited</strong> (research, audits, security runs, reports, DECISIONS, arch.rules, direction, config): they grow by NNN or by block and never rewrite themselves — their value is being history, and a live citation is what protects them from gc. <strong>Per milestone</strong> (spec, plan, brainstorm, recap, the lock's sha256): born with the milestone and dead with it; git is their cemetery, which is what stops the pile of zombie specs. <strong>Disposable</strong> (receipts): they accumulate on their own, aggregate on their own and delete on their own — nobody reads them by hand except <code>doctor</code> aggregating.</p>
+  </div>
+  <p class="dim">Each skill declares this contract in its own SKILL.md, in a <code>## Lifecycle</code> block — lane, artifact, successor, death — and the canon test fails when a skill has none. That is why the map above can be checked, not merely read.</p>
+
+  <h3 id="s16-slot">16.2 · Cleaning and concurrency: one slot per checkout, a worktree per agent</h3>
+  <p>There is exactly <strong>one</strong> spec.html, plan.html, brainstorm.md and recap.html per repository: they are slots, not numbered files. Two questions follow — who cleans, and what happens when two agents want the slot at once.</p>
+  <div class="grid g2">
+    <div class="card"><h4>Cleaning is a ritual with verbs</h4><p><code>ai-eng spec open &lt;milestone&gt;</code> claims the slot and refuses when a live contract already exists; <code>ai-eng spec approve</code> pins the approved spec's sha256 in the lock (STOP 1). <code>ai-eng spec close</code> is the only exit: it verifies that every gate has a receipt or an ABANDON with a reason, that no fired trigger was left without an artifact, archives spec/plan/brainstorm/recap to git, deletes them from the tree and frees the slot. Because human cleaning is forgotten, <code>doctor</code> audits it: a live spec.html whose milestone already has a tag is a FAIL; a brainstorm.md older than the last approval is a WARN with the deletion proposed; receipts past <code>receipts_ttl</code> are aggregated and deleted. The invariant: no file outlives what it documents, and a file that cannot name the live milestone it belongs to is dated rubbish.</p></div>
+    <div class="card"><h4>Concurrency is a slot, not a shared file</h4><p>Two agents writing the same spec.html on the same branch is the one forbidden configuration, and the lock makes it physical: the sha256 pinned at STOP 1 makes the second writer receive a DENY from the <code>self-protect</code> guard. The sanctioned pattern for parallel features is <strong>one <code>git worktree</code> per agent</strong> — each worktree is a governed checkout with its own <code>.ai-engineering/</code>, so it has its own slot, its own receipts, its own plan.html, and two milestones on two branches are two contracts that never touch. When they converge, a merge conflict in spec.html <em>is</em> the gate: git raises it, a human resolves it, <code>ai-plan</code> merges the contracts.</p></div>
+  </div>
+  <p>This adds no human verb and no dependency: <code>open</code>, <code>approve</code>, <code>run</code> and <code>close</code> are subcommands of the machine verb <code>spec</code>, and worktree is git. The binary never touches the remote (<a href="#s04">§04</a>).</p>
+
+  <h3 id="s16-gc">16.3 · Bounded growth: the policy of the NNN folders</h3>
+  <p><code>research/</code>, <code>design/audits/</code>, <code>security/</code>, <code>reports/</code> and <code>receipts/</code> are the only folders without a natural ceiling. Growth is not fought with human discipline — that is forgotten — nor with a second copy inside the repository, which duplicates the version control system. It is fought with one rule and one flag:</p>
+  <div class="bracket">
+    <span class="tag">The rule</span>
+    <p><strong>The working tree is the cache of the living; git is the archive.</strong> An NNN artifact belongs in the tree while (a) a live governing file cites it — DECISIONS.md, the milestone's spec/plan, <code>arch.rules.json</code>, NOTICE — or (b) it fits its folder's budget. Anything else has served its historical purpose and lives better in <code>git log --follow .ai-engineering/research/&lt;nnn&gt;-&lt;name&gt;.html</code> than in the directory. Deleting from the tree loses nothing: the commit that added it is the archive, and the gc message says so.</p>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h4>The mechanism: <code>doctor --gc</code> — a flag, not a new verb</h4><p><code>doctor</code> audits; <code>--gc</code> executes what the audit proposes, in one commit. <strong>(1)</strong> A deterministic citation check — the NNN references found in the live governing files; cited means <em>immune</em>, never touched. <strong>(2)</strong> Uncited and older than <code>older_than</code> and already tracked by git → deleted from the tree. <strong>(3)</strong> Receipts past <code>receipts_ttl</code> → aggregated into <code>receipts/summary.json</code> and deleted; <code>doctor</code> reports from the summary and the permanent signature is the <code>Receipt-Id</code> trailer. <strong>(4)</strong> In security/, the last <code>keep_runs</code> runs always stay live, because the known-findings ledger of a run reads the earlier ones. Without <code>--gc</code> it prints the WARN and the exact command. No new verbs: the six human verbs stay six.</p></div>
+    <div class="card"><h4>The caps, in <code>config.toml</code> (thresholds, not mystery)</h4><pre>[gc]
+max_files    = 25    # per NNN folder — exceeding it is a WARN
+older_than   = "90d" # the minimum age to be a candidate
+keep_runs    = 5     # security/: the last ones always live
+receipts_ttl = "30d" # receipts: aggregate, then delete</pre><p>The caps are WARN, not FAIL — growth is hygiene, not security (<a href="#s09">§09</a>). An NNN is assigned as max+1 at write time; two worktrees that pick the same number collide at the merge, and the merge is the gate — the same rule as §16.2, no new machinery. gc never rewrites history: it only adds revertible deletion commits. The backup of the archive is your remote, which ai-eng never touches.</p></div>
+  </div>
+
+  <h3 id="s16-dogfood">16.4 · Dogfooding: the framework is built with the framework</h3>
+  <p>This repository carries the contract installed in itself — AGENTS.md, DECISIONS.md, <code>.ai-engineering/</code>, and a spec.html + plan.html per milestone — and closes each milestone with a green <code>spec run</code>. Its own receipts are the evidence that the chain runs, and the adversarial suite is the oracle the guards are measured against. The trap is named on purpose: <strong><code>self-protect</code> protects the framework from itself</strong> — the agent developing ai-engineering cannot edit its own guards. That is the point. Development has the same exit as any governed project: a human approves the guard diff, the commit carries the trailer, and the guard stays alive because a test runs it.</p>
+  <div class="grid g3">
+    <div class="card"><h4>The repository eats its own food</h4><p><code>init</code> installed on itself · its spec.html/plan.html per milestone · its receipts · its <code>doctor</code> running in its own CI. A byte changed in <code>skills/ai-*/</code> without updating the shipped payload makes its own doctor report canon drift.</p></div>
+    <div class="card"><h4>The canon travels in the binary</h4><p>The 20 skills are built, tested and pinned by sha256 <em>in this repository</em> (<code>skills/ai-*/</code>); <code>init</code> installs them from the compiled binary. The package a project installs is the one this repository governed.</p></div>
+    <div class="card"><h4>The hard exception, declared</h4><p>The agent does not edit guards without a human — there is no development bypass. If the denies of this repository ever became useless friction, <code>doctor</code> would see it in the receipts, and the guard would be cut with a reason, never in silence.</p></div>
+  </div>
+
+  <h3 id="s16-behavior">16.5 · BEHAVIOR.md: the process criterion, in someone else's format</h3>
+  <p>The framework verifies the <em>result</em> (the gates of spec.html, the binaries, the merge gate) and the <em>security</em> of the process (the compiled guards). What has nowhere else to live is the criterion of <em>behaviour</em>: did the loop ask before spending? did it cite or remember? did it declare done without measuring the render? Those are trajectory questions — not binary, not blockable. The answer is the open <code>braintrustdata/agentbehavior</code> standard (Apache-2.0), adopted in its minimal form, without its platform.</p>
+  <div class="grid g2">
+    <div class="card"><h4>What it is and where it lives</h4><p>A <code>BEHAVIOR.md</code> is frontmatter (<code>name</code> = the folder, <code>description</code>) plus free Markdown describing the recurring expected conduct — suggested dimensions: Intent / Evidence / Decision / Execution / Recovery / Failure modes. It lives in <code>.agents/behaviors/&lt;name&gt;/</code>, <strong>at the repository root, not in <code>.ai-engineering/</code></strong>: human reviewers, eval judges and other tools of the standard read it, and ai-eng only validates it. What the tool executes lives in the tool's house; what the ecosystem reads lives where the ecosystem looks.</p></div>
+    <div class="card"><h4>The line that prevents slop: one file, one meaning</h4><p><strong>spec.html asks "was the milestone met?" (binary, CI). BEHAVIOR.md asks "did the agent behave well?" (scored, a trend, never a gate).</strong> A BEHAVIOR.md that is really a task checklist is a spec.html in disguise and dies in review. The standard draws the line for us: AGENTS.md is runtime instruction; BEHAVIOR.md is the standard evals measure against. Content is not migrated from AGENTS.md to behaviors — different audiences.</p></div>
+  </div>
+  <p>Three pieces carry the cost; the standard does the rest.</p>
+  <ul>
+    <li><strong>Validation: the frontmatter linter, not a new CLI.</strong> The shape agentbehavior requires (name = folder, description ≤1024, strict YAML, unknown fields ignored) is the shape <code>doctor</code> already lints for SKILL.md; the linter is extended to the <code>.agents/behaviors/</code> path. Vendoring a third-party CLI to validate the same shape would be one more dependency for nothing.</li>
+    <li><strong>Authoring: <code>ai-writing-behavior</code>, the standard's own skill, on demand.</strong> Apache-2.0 and self-contained (it carries the spec in <code>references/</code>, no network), with the method that cannot be improvised: decide what deserves a spec — a small, high-impact set, not an inventory of instructions — and calibrate against four trajectories: positive, negative, outside-scope and <strong>lucky-correct</strong>, the lucky ending that hides a wrong process, which is the kind of false green this framework exists to catch.</li>
+    <li><strong>Consumption: one method sentence in <code>ai-verify</code>.</strong> The <code>decide</code> tier reads the repository's BEHAVIOR.md files as the answer key when scoring a trajectory, under the standard's own rule: in an observational eval the agent being judged is <em>blind</em> to the spec — showing it beforehand would measure obedience, not conduct.</li>
+  </ul>
+  <p>The one dogfood spec is <code>.agents/behaviors/ai-goal-loop/BEHAVIOR.md</code>: the native loop under contract — it asks before spending (STOP 3), never declares done without a receipt, cites what it opens (the grounding duty, <a href="#s08">§08</a>), and on the design lane never delivers without measuring the render. One spec per lane, once an eval consumes it; zero "just in case" specs. Nothing else touches <code>.agents/</code>: <code>doctor</code> validates and <code>ai-verify</code> judges.</p>
+</section>
+
+<!-- ═══════ 17 BRANDING ═══════ -->
+<section id="s17">
+  <h2><span class="num">17</span>Branding: Arcasiles + {ai} Engineering</h2>
+  <p>The design system of ai-engineering's own documents — <code>spec.html</code>, <code>plan.html</code> and the <code>research/</code>, <code>design/</code> and <code>security/</code> outputs — inherits from the Arcasiles brand, whose brand repository carries the tokens, the logos and the character. This section is the rule <code>ai-design</code> follows when it renders any ai-engineering output.</p>
+  <div class="grid">
+
+    <div class="card">
+      <h3>Colors</h3>
+      <p><code>#0B1120</code> background &middot; <code>#00D4AA</code> accent &middot; <code>#F8FAFB</code> text &middot; <code>#121E36</code> card surface &middot; <code>#B0C2D6</code> dim &middot; <code>#9DB3CA</code> comment &middot; <code>#5FE6C6</code> code &middot; borders <code>1px solid rgba(0,212,170,.15)</code></p>
+      <p>State colors: <code>#4ade80</code> ok &middot; <code>#fbb1b1</code> bad &middot; <code>#facc15</code> warn &middot; <code>#c084fc</code> purple &middot; <code>#fb923c</code> orange</p>
+    </div>
+    <div class="card">
+      <h3>Rules</h3>
+      <ul>
+        <li><strong>Terminal-Green</strong> — the accent is always <code>#00D4AA</code>, never shifted</li>
+        <li><strong>One-Hue</strong> — a single accent colour, no secondary hues</li>
+        <li><strong>Dark-Only</strong> — no light mode, ever</li>
+        <li><strong>One-Family</strong> — the system font stack, no imported families</li>
+        <li><strong>Lit-Edge</strong> — a 1px accent border glow, no heavy shadows</li>
+        <li><strong>Corner-Bracket</strong> — decorative corner marks on the hero and the header</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Never</h3>
+      <p>SaaS-cream backgrounds &middot; gradient blobs &middot; a second hue &middot; light mode &middot; Inter/Roboto as the default &middot; a centred hero without a purpose &middot; purple-pink gradients &middot; card shadows heavier than 1px</p>
+  </div>
+
+  </div>
+
+  <div class="note ok">
+    <h3>Where the spec and plan templates inherit from</h3>
+    <p><code>templates/spec.html.tpl</code> and <code>templates/plan.html.tpl</code> carry this token block as their <code>:root</code> — <code>--bg:#0B1120</code>, <code>--surface:#121E36</code>, <code>--line:rgba(0,212,170,.15)</code>, <code>--accent:#00D4AA</code>, <code>--text:#F8FAFB</code>, <code>--dim:#B0C2D6</code>, <code>--ok:#4ade80</code>, <code>--bad:#fbb1b1</code>, <code>--warn:#facc15</code> — and every spec.html, plan.html and <code>.ai-engineering/{research,design,security}/….html</code> follows the same design system: dark cards, monospace for code and checks, the same navigation and scroll-spy as this document. The terminal identity follows the same tokens, and degrades to plain text on a non-TTY stdout or under <code>NO_COLOR</code>. The spec is a contract for the AI and a readable document for humans: it has to look like it belongs to ai-engineering, not like a generic markdown file.</p>
+  </div>
+</section>
+</div>
+</main>
+
+<footer>
+  <span class="x">{ai}</span> engineering · the governance floor under an AI coding agent<br>
+  20 canon skills · 5 guards · 8 surfaces · 6 human verbs + 4 machine ones · 4 contract files<br>
+  proof &gt; promise — and proof &gt; ceremony<br>
+  <a href="../README.md">README</a> · <a href="blueprint.html">blueprint.html</a> · <a href="https://github.com/arcasilesgroup/ai-engineering">source</a>
+</footer>
+</body>
+</html>

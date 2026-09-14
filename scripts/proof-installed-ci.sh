@@ -1,9 +1,9 @@
 #!/bin/sh
 # scripts/proof-installed-ci.sh — the pipeline WE INSTALL, exercised end to end on the
 # code of the current commit: the machine side, the workflow, the fail-closed gate,
-# and the pinning rules. It exists because the installed workflow had never been run
-# by anyone: the npm package it installed does not exist, the trivy ref it named does
-# not exist, and three of its steps could not fail (measured 2026-09-10).
+# and the pinning rules. It exists because the installed workflow cannot be trusted
+# untested: the npm package it installs does not exist, the trivy ref it names does
+# not exist, and three of its steps can never fail.
 #
 # AI_ENG_BIN lets CI point at the compiled binary while a developer gets the source:
 #   AI_ENG_BIN="bun dist/ai-eng" sh scripts/proof-installed-ci.sh
@@ -50,8 +50,8 @@ say "P3 evidence: no contract → exit 2, message names it (green by absence is 
 
 # The template's own rules (no fail-open, nothing from npm, every action SHA-pinned,
 # one declared version) are asserted in tests/installed-ci.spec.ts, against the same
-# bytes P2 proved identical to what init installs. Re-checking them here was the same
-# fact in two places, free to drift, and the asset probe that followed could not fail.
+# bytes P2 proved identical to what init installs. Re-checking them here would be the
+# same fact in two places, free to drift, and the asset probe that follows cannot fail.
 
 if [ "$FAILED" = "0" ]; then say "installed-ci: all proofs passed"; else say "installed-ci: FAILED"; fi
 exit $FAILED

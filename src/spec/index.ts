@@ -11,7 +11,7 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { repoRoot, home } from "../env.ts";
+import { repoRoot, home, isGoverned } from "../env.ts";
 import { writeReceipt } from "../receipts.ts";
 import { embeddedTemplate } from "../embed.ts";
 import { parseLock, lockText } from "../install.ts";
@@ -32,8 +32,8 @@ function gitHead(root: string): string | null {
 type GateLine = { id: string; evidence: string | null };
 
 /** The gates as the artifact really writes them: `- [ ] G4: ...` inside `<pre id="gates">`
- *  with an indented EVIDENCE line. The old regex looked for `<div class="gate">`, markup no
- *  spec.html has ever contained — so the check ran against zero gates and never refused. */
+ *  with an indented EVIDENCE line. Markup no spec.html contains: a `<div class="gate">`
+ *  regex matches zero gates and never refuses. */
 function parseGates(spec: string): GateLine[] {
   const block = /<pre id="gates">([\s\S]*?)<\/pre>/.exec(spec)?.[1] ?? spec;
   const gates: GateLine[] = [];
@@ -60,7 +60,7 @@ function abandons(spec: string): Array<{ id: string; reason: string }> {
  *  pinned at approval. Comparing raw bytes meant the act of running the gates broke
  *  the authorisation that allowed the run. Both fields are normalised away, so an
  *  edit to a check or a requirement still breaks the pin and a recorded receipt does
- *  not — and a spec pinned before this change stays valid, because a pristine
+ *  not — and a spec pinned over its pristine form stays valid, because a pristine
  *  contract and its normalised form are the same bytes. */
 export function normalizeSpec(spec: string): string {
   return spec.replace(/^- \[[xX]\]/gm, "- [ ]").replace(/^(\s+EVIDENCE:\s*).*$/gm, "$1pending");
@@ -85,7 +85,7 @@ function specGatePolicyAllowsRun(root: string): boolean {
 /** `spec run` — execute every CHECK in the approved spec.html. */
 export function specRun(): number {
   const root = repoRoot();
-  if (!root) {
+  if (root === null || !isGoverned(root)) {
     process.stderr.write("spec run: you are not in a governed repo.\n");
     return 2;
   }
@@ -110,7 +110,7 @@ export function specRun(): number {
   }
   // A contract with nothing to verify is not a contract — the same wording specClose
   // uses, because two verbs disagreeing about one artifact is how an empty contract
-  // passed the CI step that exists to enforce it (audit LOGIC-002, reproduced).
+  // passes the CI step that exists to enforce it (audit LOGIC-002).
   if (parseGates(readFileSync(specPath, "utf8")).length === 0) {
     process.stderr.write("spec run: no gates found in spec.html — a contract with nothing to verify is not a contract.\n");
     return 2;
@@ -118,8 +118,8 @@ export function specRun(): number {
   const runner = existsSync("/usr/bin/env") ? "bun" : "node"; // mjs needs a JS runtime, not ourselves
   // --recheck: a gate whose box is already ticked is re-executed. Without it the
   // executor trusts the artifact's own ledger, so a committed spec.html with hand-
-  // ticked boxes and typed evidence reported ALL MET having run nothing (audit
-  // LOGIC-001, reproduced).
+  // ticked boxes and typed evidence reports ALL MET having run nothing (audit
+  // LOGIC-001).
   const done = spawnSync(runner, [script, specPath, "--recheck"], { cwd: root, encoding: "utf8", stdio: "inherit" });
   const code = done.status ?? 1;
   const receipt = writeReceipt({
@@ -137,7 +137,7 @@ export function specRun(): number {
 /** `spec open <milestone>` — claim the slot; refuse when a live contract exists (§21.2). */
 export function specOpen(milestone: string): number {
   const root = repoRoot();
-  if (!root) {
+  if (root === null || !isGoverned(root)) {
     process.stderr.write("spec open: you are not in a governed repo.\n");
     return 2;
   }
@@ -171,7 +171,7 @@ export function specOpen(milestone: string): number {
  *  moment the contract becomes immutable for the agent. */
 export function specApprove(): number {
   const root = repoRoot();
-  if (!root) return 2;
+  if (root === null || !isGoverned(root)) return 2;
   const specPath = join(root, ".ai-engineering", "spec.html");
   if (!existsSync(specPath)) {
     process.stderr.write("spec approve: no spec.html to approve.\n");
@@ -190,7 +190,7 @@ export function specApprove(): number {
  *  no fired trigger left without an artifact. Then archive, delete, free the slot (§21.2). */
 export function specClose(): number {
   const root = repoRoot();
-  if (!root) return 2;
+  if (root === null || !isGoverned(root)) return 2;
   const dir = join(root, ".ai-engineering");
   const specPath = join(dir, "spec.html");
   if (!existsSync(specPath)) {
@@ -238,7 +238,7 @@ export function specClose(): number {
   }
 
   // A conditional node that fired and left nothing is the "if it touches UI" sentence
-  // that used to be unenforceable.
+  // made enforceable.
   if (lock.base_sha && gates.length > 0) {
     for (const unmetTrigger of unmetTriggers(root, lock.base_sha, abandoned)) {
       problems.push(

@@ -43,7 +43,7 @@ history a finding records cannot be silently edited.
 6. Searching: `git grep` over `DECISIONS.md` is the whole query engine, and it is enough at
    this size. Read the header of anything you find and check `still_true_when` before you
    act on it.
-7. When a note is no longer true, delete it in a commit that says why. A wrong note is
+7. When a note stops being true, delete it in a commit that says why. A wrong note is
    worse than no note, because it is trusted.
 8. Persistence beyond this repository is not this skill's work and not this framework's.
    The note is committed markdown in the user's own repository, which is where it can be
@@ -119,4 +119,4 @@ Read by: the agent, which reads DECISIONS.md whole
 Dies: never — it deliberately owns no file of its own
 Next: none
 
-Source: ai-engineering v1 (own), Apache-2.0.
+Source: ai-engineering (own), Apache-2.0.

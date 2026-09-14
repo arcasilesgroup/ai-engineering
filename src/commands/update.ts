@@ -11,12 +11,13 @@ import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { select, confirm, isCancel } from "@clack/prompts";
-import { install, buildLock, lockText, parseLock, sha256 } from "../install.ts";
+import { install, buildLock, lockText, parseLock, sha256, mergeSharedText } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
-import { repoRoot, enabledSurfaces, home } from "../env.ts";
+import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
 import { canonDrift } from "../embed.ts";
-import { installCanon } from "../surfaces/adapters.ts";
-import { planEntries } from "./init-shared.ts";
+import { installCanon, installMachineCarriers, rememberTemplateDir, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
+import { installTemplateDir } from "../floor/template.ts";
+import { planEntries, refuseLine } from "./init-shared.ts";
 import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
@@ -42,6 +43,17 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
       plan.verbatim.push(entry.path);
       continue;
     }
+    // A file we share with the user is never a conflict and never "yours, untouched":
+    // install() merges our entries into it by marker, so the merge IS the update —
+    // and a settings file the user already had before init is exactly the file that
+    // must receive our hooks, not the one to walk past (§03). Planned as an update
+    // only when the merge would really change it, so a second update says nothing.
+    if (entry.merge === true) {
+      const merged = mergeSharedText(readFileSync(absolute, "utf8"), entry.ours);
+      if (!("refused" in merged) && merged.changed) plan.updates.push(entry.path);
+      else plan.current.push(entry.path);
+      continue;
+    }
     const recorded = previousAssets[entry.path];
     if (!recorded) {
       plan.current.push(entry.path); // we never installed it: the user's own
@@ -59,14 +71,14 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
 export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> {
   const input = scriptedInput();
   const root = repoRoot();
-  if (!root) {
+  if (root === null || !isGoverned(root)) {
     process.stderr.write("update: you are not in a governed repo.\n");
     return 2;
   }
   const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
   // A missing lock is a recoverable state, not an abort: `uninstall` (project
   // scope) deletes the lock but keeps config.toml, and init then hands off here
-  // — "no lock, run init" was a deadlock (measured tests2 2026-09-03). Empty
+  // — "no lock, run init" is a deadlock. Empty
   // previous assets = nothing recorded as ours: absent files install fresh, any
   // file on disk is treated as the user's, and the lock is rebuilt at the end.
   const previous = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: "", assets: {} };
@@ -75,8 +87,8 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   const plan = syncPlan(entries, root, previous.assets);
   const pending = [...plan.updates, ...plan.fresh];
 
-  // The frame states the repo's state in plain words: "unknown" was a fallback lying
-  // about a recoverable state, and the old internal verb never reached a user anyway.
+  // The frame states the repo's state in plain words: "unknown" would be a fallback
+  // lying about a recoverable state, and no internal verb reaches a user anyway.
   const origin = !existsSync(lockPath)
     ? "no ai-eng.lock here yet: ai-eng will create its files fresh"
     : previous.version
@@ -85,9 +97,9 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   ui.frame(`ai-eng ${VERSION} · ${origin}`);
   // The machine side travels with the repo side. The canon is what a surface
   // actually reads, and it drifts the moment the binary ships different skills —
-  // twenty stale skills reported as "all assets current" was the gap, and
-  // repairing it by hand meant knowing that `init --global` does it (measured
-  // 2026-09-11). Same predicate init and doctor use: health is a measurement.
+  // twenty stale skills reported as "all assets current" is the gap, and
+  // repairing it by hand means knowing that `init --global` does it. Same
+  // predicate init and doctor use: health is a measurement.
   const canon = canonDrift(home());
   const canonHealthy = canon.drift === 0 && canon.missing === 0 && canon.stale === 0;
   if (!canonHealthy) {
@@ -169,18 +181,40 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   }
   const keptPaths = takeAll ? [] : plan.conflicts;
   const keptCount = keptPaths.length;
+  // The other half of every update: the machine carriers of the declared surfaces are
+  // refreshed here, because a repo's carrier now lives with the binary that wrote it,
+  // not with the repo that aged (§13.2). No question: init already asked, and this is
+  // the repair path for a machine that lost them.
+  // The carriers that moved out of the repo in this release come out of it here: a repo
+  // governed before the move still has them, and a hook file nobody reads is the bug this
+  // release exists to end.
+  const moved = sweepMovedRepoCarriers(root);
+  const machineReport = installMachineCarriers(enabledSurfaces());
+  const template = installTemplateDir();
+  if (template.status !== "failed") rememberTemplateDir(template.previous, template.ours);
   const resultRows: ui.Row[] = [
     { mark: "ok", text: `${report.written.length} asset${report.written.length === 1 ? "" : "s"} synced`, dim: "sha256 recorded in ai-eng.lock" },
     ...(keptCount > 0 ? [{ mark: "info", text: "kept yours", dim: keptPaths.join("  ·  ") } satisfies ui.Row] : []),
+    ...machineReport.written.map((path): ui.Row => ({ mark: "ok", text: path, dim: "machine carrier" })),
+    ...moved.removed.map((path): ui.Row => ({ mark: "ok", text: path, dim: "moved to the machine — removed from the repo" })),
+    ...moved.kept.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "not ours any more — review by hand" })),
+    ...(template.status === "created" || template.status === "joined" ? [{ mark: "ok", text: template.line } satisfies ui.Row] : []),
+    ...report.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })),
+    ...machineReport.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })),
   ];
   ui.section("Synced", resultRows, `${plan.conflicts.length} conflict${plan.conflicts.length === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`);
   // The lock is the ownership ledger: it may only claim files this run actually
   // made ours — written now, taken over by explicit human resolution, or
-  // already byte-identical to ours (verbatim). "current" also holds files
-  // install() calls untouched/user's (the no-lock recovery state): recording
-  // those made the next update report a false conflict and uninstall strip a
-  // file the binary never owned (measured 2026-09-03).
-  const oursNow = new Set([...report.written, ...plan.verbatim]);
+  // already byte-identical to ours (verbatim). A MERGED file is ours by entry, not by
+  // hash: the merge is what puts our hooks in it, and uninstall is what takes them back
+  // out, so the lock has to carry the path or the sweep never finds it. A file we could
+  // not merge (not JSON) is not ours and is not claimed. "current" also holds files
+  // install() calls untouched/user's (the no-lock recovery state): recording those make
+  // the next update report a false conflict and uninstall strip a file the binary never
+  // owned.
+  const refused = new Set(report.refused.map((entry) => entry.path));
+  const merged = entries.filter((entry) => entry.merge === true && !refused.has(entry.path)).map((entry) => entry.path);
+  const oursNow = new Set([...report.written, ...plan.verbatim, ...merged]);
   const lock = buildLock(
     entries.filter((entry) => (takeAll || !plan.conflicts.includes(entry.path)) && oursNow.has(entry.path)),
     VERSION,

@@ -1,5 +1,4 @@
-// `ai-eng uninstall` — two scopes, stated plainly (user feedback 2026-09-01 #6,
-// sharpened 2026-09-02): "This project" sweeps EVERY file the lock declares
+// `ai-eng uninstall` — two scopes, stated plainly: "This project" sweeps EVERY file the lock declares
 // ai-eng's (hooks, settings entries, adapters, CI workflow, config, lock) and
 // prunes the dirs that end up empty — nothing that depends on ai-eng is left
 // behind. "Everything" ALSO removes the machine side (~/.ai-engineering: the
@@ -10,9 +9,10 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
-import { SURFACES, removeMachineArtifacts } from "../surfaces/adapters.ts";
-import { repoRoot, home, enabledSurfaces } from "../env.ts";
-import { parseLock, sha256 } from "../install.ts";
+import { SURFACES, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
+import { restoreTemplateDir } from "../floor/template.ts";
+import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
+import { parseLock, sha256, stripSharedText } from "../install.ts";
 import { hashFile } from "../skills-lint.ts";
 import { planEntries } from "./init-shared.ts";
 import { select, isCancel } from "@clack/prompts";
@@ -20,44 +20,23 @@ import * as ui from "../ui.ts";
 import { VERSION } from "../version.ts";
 import { scriptedInput } from "../ui.ts";
 
-const AI_ENG_ENTRIES = ["ai-eng chain"];
-
-/** Our hook entries out of a surface settings file; the user's hooks stay.
- *  Unparseable → left alone with a warn: never rewrite what you cannot read. */
+/** Our hook entries out of a surface settings file; the user's hooks stay. The
+ *  marker logic lives in install.ts beside its inverse, so what init merges in and
+ *  what uninstall takes out can never drift apart. Unparseable → left alone with a
+ *  warn: never rewrite what you cannot read. */
 function stripAiEngHooks(absolute: string, rel: string, removed: ui.Row[]): void {
-  try {
-    type HookGroup = { hooks?: Array<{ command?: string }> };
-    type SettingsShape = { hooks?: Record<string, HookGroup[]>; $comment?: string };
-    const settings = JSON.parse(readFileSync(absolute, "utf8")) as SettingsShape;
-    delete settings.$comment; // ours too: the template's banner
-    if (settings.hooks) {
-      for (const event of Object.keys(settings.hooks)) {
-        const groups = settings.hooks[event] ?? [];
-        const filtered = groups
-          .map((group) => ({
-            ...group,
-            hooks: (group.hooks ?? []).filter((hook) => !AI_ENG_ENTRIES.some((entry) => (hook.command ?? "").includes(entry))),
-          }))
-          .filter((group) => (group.hooks ?? []).length > 0);
-        if (filtered.length > 0) settings.hooks[event] = filtered;
-        else delete settings.hooks[event];
-      }
-    }
-    if (Object.keys(settings.hooks ?? {}).length === 0) {
-      delete settings.hooks;
-      writeFileSync(absolute, `${JSON.stringify(settings, null, 2)}\n`);
-      if (Object.keys(settings).length === 0) {
-        unlinkSync(absolute);
-        removed.push({ mark: "ok", text: `${rel} removed`, dim: "it held only ai-eng entries" });
-        return;
-      }
-    } else {
-      writeFileSync(absolute, `${JSON.stringify(settings, null, 2)}\n`);
-    }
-    removed.push({ mark: "ok", text: `${rel}: removed the ai-eng hook entries, kept yours` });
-  } catch {
-    removed.push({ mark: "warn", text: `${rel} not parseable — leaving it alone (review by hand)` });
+  const stripped = stripSharedText(readFileSync(absolute, "utf8"));
+  if (stripped === null) {
+    removed.push({ mark: "warn", text: `${rel} not rewritten — not JSON this installer can rewrite without reformatting it (review by hand)` });
+    return;
   }
+  if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
+    unlinkSync(absolute);
+    removed.push({ mark: "ok", text: `${rel} removed`, dim: "it held only ai-eng entries" });
+    return;
+  }
+  writeFileSync(absolute, stripped);
+  removed.push({ mark: "ok", text: `${rel}: removed the ai-eng hook entries, kept yours` });
 }
 
 /** Remove a directory only when it is empty — ai-eng created it, the sweep
@@ -78,7 +57,7 @@ export async function uninstallMain(): Promise<number> {
   const input = scriptedInput();
   ui.frame(`Uninstall · ai-eng ${VERSION}`);
   const root = repoRoot();
-  if (!root) {
+  if (root === null || !isGoverned(root)) {
     ui.fail("you are not in a governed repo — nothing of this project to remove");
     ui.end("Nothing done.");
     return 2;
@@ -125,12 +104,15 @@ export async function uninstallMain(): Promise<number> {
     removed.push({ mark: "muted", text: "no lock — swept by the binary's own file list" });
   }
   const settingsByPath = new Map<string, string>();
-  for (const surface of SURFACES) if (typeof surface.settingsFile === "string") settingsByPath.set(surface.settingsFile, surface.label);
+  for (const surface of SURFACES) {
+    const placement = repoCarrier(surface);
+    if (placement?.kind === "settings") settingsByPath.set(placement.path, surface.label);
+  }
   for (const rel of Object.keys(assets)) {
-    // The lock is untrusted input: a crafted key could point outside the repo
-    // (measured PoC 2026-09-03 — a lock entry escaped to $HOME and a matching
-    // hash made the sweep delete it). A path that escapes root is not ours,
-    // no matter what the lock claims: skip it, keep the sweep honest.
+    // The lock is untrusted input: a crafted key can point outside the repo —
+    // a lock entry escaping to $HOME with a matching hash makes the sweep
+    // delete it. A path that escapes root is not ours, no matter what the lock
+    // claims: skip it, keep the sweep honest.
     const absolute = resolve(root, rel);
     if (absolute !== root && !absolute.startsWith(root + sep)) {
       removed.push({ mark: "warn", text: `${rel} kept`, dim: "lock path escapes this repo — not ai-eng's" });
@@ -201,11 +183,20 @@ export async function uninstallMain(): Promise<number> {
     const machineDir = home();
     const confirmedMachine = await ui.confirmDefault(`Delete the machine side ${machineDir} (global skills, mirrors)?`, false, input as never);
     if (confirmedMachine) {
-      // Mirrors, command shims and the machine hook live OUTSIDE ~/.ai-engineering:
-      // sweep ours before the canon they point at disappears.
+      // The carriers first, and by the table: they live in the HOSTS' directories, not
+      // inside the canon home, so removing the canon would leave them behind pointing at a
+      // chain that no longer exists — orphans with a marker.
+      const carriers = removeMachineCarriers(enabledSurfaces());
+      // The git floor first: the recorded state lives inside the canon home this scope is
+      // about to delete, so reading it afterwards would restore nothing.
+      const floorState = readMachineState().templateDir;
+      const floor = floorState === undefined ? null : restoreTemplateDir(floorState.previous, floorState.ours);
       const swept = removeMachineArtifacts();
       rmSync(machineDir, { recursive: true, force: true });
       extra.push({ mark: "warn", text: `${machineDir} deleted`, dim: `global skills and mirrors removed · ${swept} machine artifacts swept` });
+      if (floor !== null) extra.push({ mark: "ok", text: floor });
+      for (const line of carriers.lines) extra.push({ mark: "ok", text: line });
+      for (const path of carriers.refused) extra.push({ mark: "warn", text: `${path} left alone — not JSON this installer can rewrite without reformatting it` });
     } else {
       extra.push({ mark: "ok", text: `kept: ${machineDir}`, dim: "global skills stay installed" });
     }

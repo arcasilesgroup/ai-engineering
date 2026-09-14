@@ -24,9 +24,12 @@ Write the summary in one sentence; the version PR merges it into CHANGELOG.md.
 
 ## Release flow
 
-- Merge to `main` → `.github/workflows/version.yml` opens a **Version PR** (or
-  publishes npm if versions are already bumped). npm publishing uses OIDC trusted
+- Merge to `main` → `.github/workflows/version.yml` opens a **Version PR** that
+  bumps `package.json` and `CHANGELOG.md`. It does not publish.
+- Dispatch `.github/workflows/release.yml` with a channel: **integration** ships a
+  candidate (GitHub prerelease + npm `next`), **production** ships the real one
+  (GitHub release marked latest + npm `latest`). It builds the 8 cross-compiled
+  targets + SBOM + GitHub Release and publishes npm under OIDC trusted
   publishing — no stored token.
-- Binary releases (8 cross-compiled targets + SBOM + GitHub Release) stay
-  tag-driven: push `v2.0.0` → `.github/workflows/release.yml`.
-- Two channels, one owner each: **changesets owns npm**, **tags own binaries**.
+- **changesets owns the version arithmetic**, **`release.yml` owns the
+  deployment** — the only publisher, of npm and of the binaries alike.
