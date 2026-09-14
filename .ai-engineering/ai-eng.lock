@@ -1,10 +1,6 @@
 # ai-eng.lock — sha256 of the global canon this repo expects (§08).
 version = "2.1.0"
 
-spec_sha256 = "40728087b802214fa00e509afa7731656e64d0fb810e9996a4a71712bc811e35"
-
-base_sha = "c33272d3a7ad3d7e1cf857484efed9b926252b1f"
-
 [assets]
 ".ai-engineering/overrides.toml" = "f5d1b428ce0517c4c7787d6aeeeddc168087f68c9d653563fa96c394b03f4f4e"
 ".github/workflows/ai-eng-check.yml" = "16a2db331c0fc1f0789eddf37bc48d7e9c25df130183aaaa376250dbaa2d7a69"
