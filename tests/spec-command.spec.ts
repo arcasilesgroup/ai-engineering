@@ -248,7 +248,7 @@ test("spec run executes the approved gates, ticks the boxes and records a receip
   expect(after).toContain("EVIDENCE: g1 ran");
 
   const receipts = specRunReceipts();
-  expect(receipts.length).toBe(1);
+  expect(receipts).toHaveLength(1);
   expect(receipts[0]!["event"]).toBe("spec-run");
   expect(receipts[0]!["surface"]).toBe("ci");
   expect(receipts[0]!["outcome"]).toBe("allow");

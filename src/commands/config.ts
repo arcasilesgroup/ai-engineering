@@ -63,7 +63,8 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   // in place — the comments and the [models]/[guards]/[gc] blocks the template
   // ships are the user's, and a re-serialize would delete them.
   const raw = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
-  const list = `[${current.map((id) => `"${id}"`).join(", ")}]`;
+  const quoted = current.map((id) => `"${id}"`).join(", ");
+  const list = `[${quoted}]`;
   writeFileSync(configPath, withSurfacesEnabled(raw, list));
   // Declaring a surface and leaving it without a carrier is a governed repo that is not
   // governed on that host. The carriers are written right here, by the same code init uses.
@@ -164,7 +165,7 @@ function installSurfaceFiles(root: string, id: string): void {
   }
   const repo = repoCarrier(surface);
   if (repo !== null) {
-    const report = install(root, planEntries([id]).filter((entry) => entry.path === repo.path || entry.path === repo.chain), undefined, undefined);
+    const report = install(root, planEntries([id]).filter((entry) => entry.path === repo.path || entry.path === repo.chain));
     for (const path of report.written) ui.ok(`${path} written (repo carrier)`);
     for (const refused of report.refused) ui.warn(refuseLine(refused));
   }

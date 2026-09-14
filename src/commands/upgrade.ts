@@ -28,7 +28,7 @@ export function changelogSection(root: string, version: string): string | null {
   const path = join(root, "CHANGELOG.md");
   if (!existsSync(path)) return null;
   const lines = readFileSync(path, "utf8").split("\n");
-  const heading = new RegExp(`^## ${version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+  const heading = new RegExp(`^## ${version.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}`);
   const start = lines.findIndex((line) => heading.test(line));
   if (start < 0) return null;
   const rest = lines.slice(start + 1);

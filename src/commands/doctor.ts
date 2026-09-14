@@ -40,7 +40,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   const agentsPath = root ? join(root, "AGENTS.md") : null;
   if (agentsPath && existsSync(agentsPath)) {
     const content = readFileSync(agentsPath, "utf8");
-    const rules = (content.match(/^\s*(?:\d+\.|-)\s+\S/gm) ?? []).length;
+    const rules = (content.match(/^[ \t]*(?:\d+\.|-)[ \t]+\S/gm) ?? []).length;
     const lines = content.split("\n").length;
     push("AGENTS.md", lines <= 80 && rules >= 6 ? "ok" : "warn", `${rules} rules · ${lines} lines${lines > 80 ? " (over the context ceiling)" : ""}`);
   } else {

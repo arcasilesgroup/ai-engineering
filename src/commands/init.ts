@@ -36,6 +36,14 @@ function detectedSurfaces(cwd: string): string[] {
 /** What the tier header cannot say, in plain words: the delta from the
  *  group's promise. A core surface with full guards gets no hint — the
  *  header already said it. */
+/** The canon's drift in one line — the counts that matter, and only the ones that are
+ *  non-zero beyond the first two. Nested template literals read as arithmetic. */
+function canonSummary(canon: { drift: number; missing: number; stale: number }): string {
+  const parts = [`${canon.drift} drifted`, `${canon.missing} missing`];
+  if (canon.stale > 0) parts.push(`${canon.stale} stale`);
+  return parts.join(" · ");
+}
+
 export function surfaceHint(s: Surface): string {
   const delta: string[] = [];
   if (s.can.deny === "throw") delta.push("blocks by throwing");
@@ -146,7 +154,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
     ui.section(
       reinstalling ? "global canon outdated or incomplete — re-installing" : "global canon (the machine side)",
       canonLines,
-      reinstalling ? `${canon.drift} drifted · ${canon.missing} missing${canon.stale > 0 ? ` · ${canon.stale} stale` : ""}` : home(),
+      reinstalling ? canonSummary(canon) : home(),
     );
   } else {
     ui.section("global canon intact", [{ mark: "ok", text: `${home()} · ai-eng ${VERSION}`, dim: "nothing to install" }]);
