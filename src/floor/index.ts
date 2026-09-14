@@ -92,7 +92,11 @@ function stageSecrets(cwd: string): FloorResult {
     return { ok: true, lines: [] };
   } catch (error) {
     const e = error as { stdout?: unknown; stderr?: unknown; message?: string };
-    const asText = (v: unknown): string => (Buffer.isBuffer(v) ? v.toString() : typeof v === "string" ? v : "");
+    const asText = (v: unknown): string => {
+      if (Buffer.isBuffer(v)) return v.toString();
+      if (typeof v === "string") return v;
+      return "";
+    };
     const out = `${asText(e.stdout)}\n${asText(e.stderr)}`.trim() || (e.message ?? "");
     const findings = out
       .split("\n")

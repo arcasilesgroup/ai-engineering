@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
 import { spawnSync, execFileSync } from "node:child_process";
+import { PassThrough } from "node:stream";
 // `ai-eng init` — one verb, two phases (§14.0a). Outside a repo: phase 1, the
 // machine (canon + mirrors). Inside a repo: both phases — first the canon (missing
 // is installed, never aborts), then the project contract. Idempotent: re-init
@@ -13,7 +14,7 @@ import { scriptedInput } from "../ui.ts";
 import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, rememberTemplateDir, type Surface } from "../surfaces/adapters.ts";
 import { installTemplateDir } from "../floor/template.ts";
 import { install, buildLock, lockText, parseLock } from "../install.ts";
-import { canonDrift } from "../embed.ts";
+import { canonDrift, type CanonDrift } from "../embed.ts";
 import { home } from "../env.ts";
 import { planEntries, contractEntries, hasAdapter, surfaceOptions, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
@@ -112,12 +113,15 @@ function scaffoldProject(surfaces: string[]): string[] {
   return lines;
 }
 
-export async function initMain(flags: { yes?: boolean; global?: boolean; surface?: string[] }): Promise<number> {
-  const input = scriptedInput();
-  const confirmWithInput = (message: string, initial: boolean) => ui.confirmDefault(message, initial, input as never);
-  ui.frame(`{ai} Engineering ${VERSION}`);
-  const cwd = process.cwd();
-  const inRepo = existsSync(join(cwd, ".git")) || existsSync(join(cwd, ".ai-engineering"));
+/** The local confirm closure — one shared prompt helper threaded into the machine/repo steps. */
+type ConfirmInput = (message: string, initial: boolean) => Promise<boolean>;
+
+/** Phase 1 machine side (§14.5b): install/repair the global canon, or report it healthy. */
+async function resolveMachineSide(
+  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  inRepo: boolean,
+  confirmWithInput: ConfirmInput,
+): Promise<number | { machineAgreed: boolean }> {
   // Phase 1: global, or missing canon — installs/repairs the machine side either way.
   // home() (not HOME) so AI_ENG_HOME test installs stay isolated. The status
   // line always prints: the user must see the machine is healthy before the
@@ -135,6 +139,24 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   // and the carriers ride with the same answer — a second question for the same "write
   // outside the repo" would be noise, and silence would be a write nobody agreed to.
   const machineAgreed = flags.global === true || flags.yes === true || !canonHealthy;
+  const canonExit = await installCanonOrReport(flags, inRepo, canonDir, canon, canonHealthy, confirmWithInput);
+  if (canonExit !== null) return canonExit;
+  if (flags.global) {
+    ui.end("Machine side done. Inside a repo, ai-eng init governs the project too.");
+    return 0;
+  }
+  return { machineAgreed };
+}
+
+/** Install or report the global canon, one section either way. Returns an exit code only on the declined-offer path. */
+async function installCanonOrReport(
+  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  inRepo: boolean,
+  canonDir: string,
+  canon: CanonDrift,
+  canonHealthy: boolean,
+  confirmWithInput: ConfirmInput,
+): Promise<number | null> {
   if (flags.global || !canonHealthy) {
     const reinstalling: boolean = existsSync(canonDir) && !canonHealthy;
     // §14.5b path 2: a repo on a machine that never had the canon. Writing all of
@@ -151,18 +173,24 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       }
     }
     const canonLines = installCanon(VERSION).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
-    ui.section(
-      reinstalling ? "global canon outdated or incomplete — re-installing" : "global canon (the machine side)",
-      canonLines,
-      reinstalling ? canonSummary(canon) : home(),
-    );
+    if (reinstalling) {
+      ui.section("global canon outdated or incomplete — re-installing", canonLines, canonSummary(canon));
+    } else {
+      ui.section("global canon (the machine side)", canonLines, home());
+    }
   } else {
     ui.section("global canon intact", [{ mark: "ok", text: `${home()} · ai-eng ${VERSION}`, dim: "nothing to install" }]);
   }
-  if (flags.global) {
-    ui.end("Machine side done. Inside a repo, ai-eng init governs the project too.");
-    return 0;
-  }
+  return null;
+}
+
+/** Outside a repo: init creates the repo itself (confirm, or --yes to proceed). */
+async function ensureRepo(
+  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  inRepo: boolean,
+  cwd: string,
+  confirmWithInput: ConfirmInput,
+): Promise<number | null> {
   // Outside a repo: a bare folder is not a refusal — §14.1 runs init in a bare
   // folder and init creates the repo itself (confirm, or --yes to proceed).
   if (!inRepo) {
@@ -179,7 +207,15 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       return 2;
     }
   }
+  return null;
+}
 
+/** Phase 2 re-init hand-off: already-governed repo routes to update/config/exit. */
+async function reinitHandoff(
+  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  cwd: string,
+  input: NodeJS.ReadStream | PassThrough,
+): Promise<number | null> {
   // ── Phase 2: the repo is governed — idempotent re-init never tramples your work (§14.5b).
   if (existsSync(join(cwd, ".ai-engineering", "config.toml"))) {
     // --yes resolves the hand-off question: rewrite ours, never yours. Without
@@ -204,6 +240,15 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
     // call becomes the chapter line, and the version context rides with it.
     return await updateMain({ yes: flags.yes === true });
   }
+  return null;
+}
+
+/** Pick which surfaces govern this project (ticked = detected, or --surface/--yes). */
+async function pickSurfaces(
+  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  cwd: string,
+  input: NodeJS.ReadStream | PassThrough,
+): Promise<number | string[]> {
   let picked: string[];
   if (flags.yes === true) {
     picked = flags.surface && flags.surface.length > 0 ? flags.surface : ["claude-code"];
@@ -226,6 +271,11 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
     }
     picked = answer;
   }
+  return picked;
+}
+
+/** Refuse a surface this release cannot actually enforce, before any promise is printed. */
+function validateSurfaces(picked: string[]): number | null {
   // Abort before promising what a surface cannot deliver (§13): one that cannot deny
   // has nowhere for the guards to run, and one with no adapter would be declared in
   // config.toml with nothing to enforce it.
@@ -248,10 +298,33 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       return 2;
     }
   }
+  return null;
+}
+
+/** Scaffold the repo, then ride the same machine-side permission for carriers and the git floor. */
+async function scaffoldAndCarriers(
+  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  picked: string[],
+  machineAgreed: boolean,
+  confirmWithInput: ConfirmInput,
+): Promise<string[]> {
   const sp = ui.spinner();
   sp.start("Scaffolding governance…");
   const lines = scaffoldProject(picked);
   sp.stop();
+  await installCarriers(flags, picked, machineAgreed, confirmWithInput, lines);
+  await installTemplate(machineAgreed, confirmWithInput, lines);
+  return lines;
+}
+
+/** Write the machine carriers for the surfaces that read their hooks from the user's home. */
+async function installCarriers(
+  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  picked: string[],
+  machineAgreed: boolean,
+  confirmWithInput: ConfirmInput,
+  lines: string[],
+): Promise<void> {
   // The machine side of the declared surfaces: five of the seven hosts read their
   // carrier from the user's home, so that is where it goes — once per machine, not once
   // per repo (§13.2). Writing outside the repo is ASKED for (§14.5b); --yes is the
@@ -275,6 +348,14 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       for (const refused of report.refused) lines.push(refuseLine(refused));
     }
   }
+}
+
+/** Write the git floor into the global init.templateDir, so new clones are born with it. */
+async function installTemplate(
+  machineAgreed: boolean,
+  confirmWithInput: ConfirmInput,
+  lines: string[],
+): Promise<void> {
   // The git floor's second life, and it is the REPO's floor, not the carriers': a repo
   // whose surfaces all read from the checkout still deserves clones born with the shims,
   // instead of a CI step rebuilding them after the fact (§13.2). It rides the same
@@ -288,17 +369,21 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       lines.push(`⚠ ${template.line}`);
     }
   }
+}
+
+/** Split the scaffold report into contract vs machine, and print both sections. */
+function renderSections(cwd: string, picked: string[], lines: string[]): void {
   // next step — each idea one block, the dim tail carries the why.
   const contract = lines.filter((l) => l.includes("(contract)") || l.startsWith("·") || l.includes("CLAUDE.md"));
   const machine = lines.filter((l) => !contract.includes(l));
-  const toRow = (line: string): ui.Row =>
-    line.startsWith("⚠")
-      ? { mark: "warn", text: line.slice(2) }
-      : line.startsWith("·")
-        ? { mark: "muted", text: line.slice(2) }
-        : { mark: "ok", text: line.replace(/^✓ /, "") };
+  const toRow = (line: string): ui.Row => {
+    if (line.startsWith("⚠")) return { mark: "warn", text: line.slice(2) };
+    if (line.startsWith("·")) return { mark: "muted", text: line.slice(2) };
+    return { mark: "ok", text: line.replace(/^✓ /, "") };
+  };
   if (contract.length > 0) ui.section("Your contract files", contract.map(toRow), "yours to edit — ai-eng never rewrites them");
-  ui.section("Scaffolded", machine.map(toRow), `${picked.length} surface${picked.length === 1 ? "" : "s"}: ${picked.join(", ")}`);
+  const plural = picked.length === 1 ? "" : "s";
+  ui.section("Scaffolded", machine.map(toRow), `${picked.length} surface${plural}: ${picked.join(", ")}`);
   // Bootstrap note (§14.1 mockup): no src/ yet — arch-tests hold off until there is code.
   if (!existsSync(join(cwd, "src"))) {
     ui.section("Bootstrap mode", [
@@ -306,6 +391,10 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       { mark: "sub", text: "doctor activates them automatically when src/ appears." },
     ]);
   }
+}
+
+/** Commit the contract and close the verb. */
+function commitContract(cwd: string): number {
   // The first commit of the contract: the lockfile and the Receipt-Id trailer get
   // their baseline from second zero (§08).
   let commitLine = "contract commit pending (do it yourself with git)";
@@ -319,4 +408,27 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   ui.section("Governance installed", [{ mark: "ok", text: `commit: ${commitLine}`, dim: "git revert is the rollback" }]);
   ui.end("Two steps I can't do for you: 1. Trust the workspace in your surface (without trust, hooks do not run) · 2. ai-eng doctor — verify the chain responds");
   return 0;
+}
+
+export async function initMain(flags: { yes?: boolean; global?: boolean; surface?: string[] }): Promise<number> {
+  const input = scriptedInput();
+  const confirmWithInput: ConfirmInput = (message, initial) => ui.confirmDefault(message, initial, input as never);
+  ui.frame(`{ai} Engineering ${VERSION}`);
+  const cwd = process.cwd();
+  const inRepo = existsSync(join(cwd, ".git")) || existsSync(join(cwd, ".ai-engineering"));
+  const machineSide = await resolveMachineSide(flags, inRepo, confirmWithInput);
+  if (typeof machineSide === "number") return machineSide;
+  const machineAgreed = machineSide.machineAgreed;
+  const repoCode = await ensureRepo(flags, inRepo, cwd, confirmWithInput);
+  if (repoCode !== null) return repoCode;
+  const handoff = await reinitHandoff(flags, cwd, input);
+  if (handoff !== null) return handoff;
+  const pickedResult = await pickSurfaces(flags, cwd, input);
+  if (typeof pickedResult === "number") return pickedResult;
+  const picked = pickedResult;
+  const invalid = validateSurfaces(picked);
+  if (invalid !== null) return invalid;
+  const lines = await scaffoldAndCarriers(flags, picked, machineAgreed, confirmWithInput);
+  renderSections(cwd, picked, lines);
+  return commitContract(cwd);
 }
