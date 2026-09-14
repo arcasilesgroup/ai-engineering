@@ -7,3 +7,5 @@ The carrier moves to where each host reads it, and the repo declares itself: `.a
 Files the user also owns are merged by marker and never written whole; a settings file this installer would have to reformat is refused and named instead of rewritten. `init.templateDir` makes every new clone be born with the git floor, the shim asks the same gate, a foreign `templateDir` keeps its own hooks, and `uninstall` restores what was there. `doctor` separates the machine carrier, the repo declaration and the version state, and names a downgrade and Codex's `/hooks` re-approval instead of assuming green.
 
 What an existing install will notice: `ai-eng update` moves the carriers out of the repo, sweeps the ones that used to live there, writes the machine side, and records which version wrote what in `~/.ai-engineering/machine.json`.
+
+`AI_ENG_HOME` also redirects the one setting the floor writes outside a home: with it set, the global `init.templateDir` lives inside the override instead of the developer's git config, unless the caller already chose a `GIT_CONFIG_GLOBAL` of its own.
