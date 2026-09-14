@@ -143,6 +143,12 @@ y la medicion de que los guards no estan acotados al repo).
 
 ## Open questions for research
 
+0. Niebla que sigue abierta y no cabe en ningun gate (venia de un mapa que estaba fuera del slot, y el slot es
+   este): (a) si los hosts in-process de OMP, OpenCode y Pi llaman `chain()` con cwd igual a la raiz del
+   workspace, que todo el diseno de puerta por cwd asume; (b) que pasa con un equipo donde solo una persona tiene
+   el carrier en su maquina: el repo esta declarado y el companero no tiene nada. La primera se resuelve con un
+   probe dentro del paso 4 del plan; la segunda es una decision de producto que nadie ha tomado todavia.
+
 1. Claude Code ejecuta hooks de user scope en un workspace NO confiado? En `research/004 §05` quedo
    `[unsourced]`. Importa porque decide si el carrier global ahorra el paso de trust o solo lo mueve.
 2. Cursor cloud tiene hoy alguna ruta de maquina para hooks? `research/004` dice que solo dispara hooks de

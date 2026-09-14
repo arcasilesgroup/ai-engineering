@@ -35,9 +35,11 @@ discovery comes first, in this order, before any step is taken:
 3. `.ai-engineering/plan.html` — the HOW. The loop consumes it, takes the first step that is
    not green, and marks it in place as gates close. This file is the agent's workbench and is
    exempt from self-protect; spec.html is not.
-4. `.wayfinder/<slug>/MAP.md` when present — the decisions behind the gates, plus the fog the
-   milestone left open. A step that depends on an open unknown stops and asks; it never
-   invents the answer to keep moving.
+4. `.ai-engineering/brainstorm.md` — the handshake doc behind the gates: the decisions already
+   taken, the ones still open, and what is out of scope. A step that depends on an open unknown
+   stops and asks; it never invents the answer to keep moving. This slot lives beside spec.html
+   and plan.html and dies with them at `spec close`, so the loop reads it while it is live and
+   never writes a second map next to it.
 5. `[budget]` in `.ai-engineering/config.toml` — the ceiling and the stop list. An absent
    section means no pinned ceiling: say it once, then the human is the clock.
 

@@ -29,7 +29,15 @@ The pull to just start building is the signal you've reached the edge of the map
 
 ## The file
 
-Everything lives in **one markdown file**: `.wayfinder/<slug>/MAP.md`. No issue tracker, no ticket files, no dependency graph — one person, one sitting, one effort.
+Everything lives in **one markdown file**. No issue tracker, no ticket files, no dependency
+graph — one person, one sitting, one effort.
+
+In ai-engineering that file is the slot, and it already exists when this skill starts: the
+`ai-brainstorm` handshake doc at `.ai-engineering/brainstorm.md`, which carries the open
+questions, the answers and the fog. Extend it. `.wayfinder/<slug>/MAP.md` is the layout this
+method came from upstream, not a path this repository writes: a map placed there is outside
+the slot, so `spec close` never archives it, `doctor` never audits it and nothing protects it.
+The `## Answers` shape below is still the content contract, wherever the file lives.
 
 ```markdown
 # MAP — <thing>
@@ -167,11 +175,14 @@ If something can only be settled by actually running it, mark it and move on. An
    `.ai-engineering/spec.html` (the WHAT: gates with CHECK / EXPECT / EVIDENCE) plus
    `.ai-engineering/plan.html` (the HOW: steps → gates, dependencies, jobs). `ai-eng
    spec open` claims the milestone slot before any file is written, and `ai-eng spec
-   close` archives both at milestone close.
+   close` archives both at milestone close. Both carry the artifact design system —
+   [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — from the `templates/*.tpl` they are
+   stamped from; a plan written outside that block is restyled before it is approved.
 2. At most 30 gates per milestone — if you need more, the milestone is over-engineered.
    A check that cannot run is a FAIL, never a PASS by inspection.
-3. The upstream `.wayfinder/<slug>/MAP.md` working file and `commands/to-bar.md` emit
-   step are kept as the method; only the final destination of the checks changes.
+3. The upstream `.wayfinder/<slug>/MAP.md` layout and `commands/to-bar.md` emit step are kept
+   as the method; in this repository the working file is the `.ai-engineering/brainstorm.md`
+   slot, and the checks land in spec.html. Never a second map in a second place.
 4. The closed set of routing triggers is five ids, and each one is a hook into another
    node:
 
