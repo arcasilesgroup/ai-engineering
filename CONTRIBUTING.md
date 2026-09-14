@@ -1,6 +1,6 @@
 # Contributing to ai-engineering
 
-Thanks for helping build the governance floor. This document covers the rules
+Thanks for helping build ai-engineering. This document covers the rules
 that are NOT deducible from the code; everything else, the code and
 [AGENTS.md](AGENTS.md) teach.
 
@@ -44,10 +44,11 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
 ## Commit and PR conventions
 
 - Conventional Commits; commit messages must carry the `Receipt-Id` trailer
-  when the git floor requires it (the hook enforces this).
+  when the git hooks require it (the hook enforces this).
 - PR title: `<area>: <imperative summary>` (e.g. `chain: cache verdicts per tool_use_id`).
-- CI runs build, lint, typecheck, the full test suite, and gitleaks — your
-  commit must pass everything it will face there.
+- CI runs build, lint, typecheck, the full test suite, gitleaks, semgrep,
+  trivy, `bun audit`, SonarCloud and Snyk — your commit must pass everything
+  it will face there.
 
 ## Changesets and releases
 

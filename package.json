@@ -1,7 +1,7 @@
 {
   "name": "ai-engineering",
   "version": "2.1.0",
-  "description": "The governance floor under your AI coding agent: install, guard, prove.",
+  "description": "Guardrails for AI coding agents: install a contract, deny destructive calls, prove every run.",
   "license": "Apache-2.0",
   "type": "module",
   "module": "src/cli.ts",

@@ -1,8 +1,7 @@
 # Security Policy
 
-The product is security: `ai-engineering` installs a governance floor under AI
-coding agents, so attacks on the floor itself are vulnerabilities of the
-product.
+The product is security: `ai-engineering` installs guardrails under AI coding
+agents, so attacks on those guardrails are vulnerabilities of the product.
 
 ## Reporting a vulnerability
 

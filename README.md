@@ -7,39 +7,48 @@
     </picture>
   </a>
 
-  <p><strong>Install. Guard. Prove.</strong> — the governance floor under your AI coding agent.</p>
+  <p><strong>Install. Guard. Prove.</strong> — guardrails for the AI coding agent you already run, in any repo and any IDE.</p>
 
   <p>
+    <a href="https://github.com/arcasilesgroup/ai-engineering/actions/workflows/check.yml"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/ci/arcasilesgroup/ai-engineering.svg?workflow=check.yml&amp;branch=main&amp;variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
+      <img alt="CI: build, lint, typecheck, test, gates and security scans" src="https://shieldcn.dev/github/ci/arcasilesgroup/ai-engineering.svg?workflow=check.yml&amp;branch=main&amp;variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
+    </picture></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img alt="SonarCloud quality gate" src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&amp;metric=alert_status"></a>
+    <a href="https://sonarcloud.io/component_measures?id=arcasilesgroup_ai-engineering&amp;metric=coverage"><img alt="SonarCloud coverage" src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&amp;metric=coverage"></a>
+    <a href="https://snyk.io/test/github/arcasilesgroup/ai-engineering"><img alt="Snyk security" src="https://snyk.io/test/github/arcasilesgroup/ai-engineering/badge.svg"></a>
+  </p>
+
+  <p>
+    <a href="https://ai-engineering.arcasiles.com"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/website-ai--engineering.arcasiles.com.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
+      <img alt="website" src="https://shieldcn.dev/badge/website-ai--engineering.arcasiles.com.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
+    </picture></a>
     <a href="https://github.com/arcasilesgroup/ai-engineering/releases"><picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/release-v2.0.0--rc.1.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
       <img alt="release v2.0.0-rc.1" src="https://shieldcn.dev/badge/release-v2.0.0--rc.1.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
-    </picture></a>
-    <a href="https://github.com/arcasilesgroup/ai-engineering/actions/workflows/check.yml"><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/ci/arcasilesgroup/ai-engineering.svg?workflow=check.yml&amp;branch=main&amp;variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
-      <img alt="CI status" src="https://shieldcn.dev/github/ci/arcasilesgroup/ai-engineering.svg?workflow=check.yml&amp;branch=main&amp;variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
     </picture></a>
     <a href="LICENSE"><picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/license-Apache--2.0.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
       <img alt="license Apache-2.0" src="https://shieldcn.dev/badge/license-Apache--2.0.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
     </picture></a>
-    <a href="https://github.com/arcasilesgroup/ai-engineering/stargazers"><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/stars/arcasilesgroup/ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
-      <img alt="GitHub stars" src="https://shieldcn.dev/github/stars/arcasilesgroup/ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
-    </picture></a>
-    <a href="https://bun.sh"><img alt="runtime Bun 1.4+" src="https://shieldcn.dev/badge/runtime-Bun%201.4%2B-00D4AA.svg?variant=secondary&amp;font=geist-mono&amp;size=sm"></a>
   </p>
 
   <p>
-    <a href="skills/"><img alt="20 canon skills" src="https://shieldcn.dev/badge/canon%20skills-20-00D4AA.svg?variant=secondary&amp;font=geist-mono&amp;size=sm"></a>
+    <a href="#skills"><img alt="20 canon skills" src="https://shieldcn.dev/badge/canon%20skills-20-00D4AA.svg?variant=secondary&amp;font=geist-mono&amp;size=sm"></a>
     <a href="#the-five-guards"><img alt="5 guards" src="https://shieldcn.dev/badge/guards-5-00D4AA.svg?variant=secondary&amp;font=geist-mono&amp;size=sm"></a>
     <a href="#surfaces"><img alt="8 agent surfaces" src="https://shieldcn.dev/badge/surfaces-8-00D4AA.svg?variant=secondary&amp;font=geist-mono&amp;size=sm"></a>
     <a href="#usage"><img alt="10 verbs" src="https://shieldcn.dev/badge/verbs-10-00D4AA.svg?variant=secondary&amp;font=geist-mono&amp;size=sm"></a>
   </p>
 </div>
 
-One binary — `ai-eng`, compiled with Bun — puts a governance floor under your AI coding agent: guards that deny a destructive tool call before it runs, a git floor that fires even when the agent is not involved, an executable contract per milestone, and a receipt for every execution. Your agent keeps writing the code in whatever editor it already runs in; `ai-eng` makes its failures expensive and its successes provable.
+Guardrails for AI coding agents: install a contract, deny destructive calls, prove every run.
 
-The floor is not a review of the output. It is a constraint on the run. A guard denial happens before the call executes, the contract refuses to execute until a human approves it, and a check that cannot run is red rather than silently green. Editing a markdown file turns none of it off: the only bypass is an override with a written reason and an expiry date.
+One binary — `ai-eng`, compiled with Bun — puts guardrails under your AI coding agent: guards that deny a destructive tool call before it runs, git hooks that fire even when the agent is not involved, an executable contract per milestone, and a receipt for every execution. Your agent keeps writing the code in whatever editor it already runs in; `ai-eng` makes its failures expensive and its successes provable.
+
+It is not a review of the output. It is a constraint on the run. A guard denial happens before the call executes, the contract refuses to execute until a human approves it, and a check that cannot run is red rather than silently green. Editing a markdown file turns none of it off: the only bypass is an override with a written reason and an expiry date.
+
+Works where you already work: **macOS, Windows and Linux**, one file, no service to run, no hosted control plane. Governs **Claude Code, Oh My Pi, OpenCode, Cursor, Codex CLI, Copilot, Pi and Zed** — the agent keeps its own editor, the rules do not depend on it.
 
 Nothing is hosted: the payload is the binary, and the state is versioned files in your repository and in `~/.ai-engineering/`. The one outbound read is a daily anonymous registry version check, cached for 24 hours, silent when offline, and off with `notices = false` in `config.toml` or `AI_ENG_NO_UPDATE_NOTICES=1`.
 
@@ -51,7 +60,7 @@ Nothing is hosted: the payload is the binary, and the state is versioned files i
 - [Surfaces](#surfaces)
 - [The five guards](#the-five-guards)
 - [The executable contract](#the-executable-contract)
-- [The skill canon](#the-skill-canon)
+- [Skills](#skills)
 - [Security](#security)
 - [Development](#development)
 - [Maintainers](#maintainers)
@@ -61,7 +70,7 @@ Nothing is hosted: the payload is the binary, and the state is versioned files i
 
 ## Why
 
-AI agents write code at machine speed and break things at the same speed: bypassed git hooks, silenced linters, contracts nobody approved, green checks that never ran. Tooling that reviews the output arrives after the damage; the floor sits under the agent's feet while it works.
+AI agents write code at machine speed and break things at the same speed: bypassed git hooks, silenced linters, contracts nobody approved, green checks that never ran. Tooling that reviews the output arrives after the damage; `ai-eng` constrains the run while it happens.
 
 Three verbs carry the product:
 
@@ -77,29 +86,23 @@ Every artifact ai-engineering generates — `spec.html`, `plan.html`, a recap, a
 
 ## Install
 
-The released binary needs no runtime and no package manager. Download the asset for your platform from [Releases](https://github.com/arcasilesgroup/ai-engineering/releases), then verify it before it runs:
+**Bun**
 
 ```bash
-AI_ENG_VERSION=v2.0.0-rc.1
-base="https://github.com/arcasilesgroup/ai-engineering/releases/download/${AI_ENG_VERSION}"
-
-curl -sSfL -o ai-eng "$base/ai-eng-darwin-arm64"        # linux-x64 · linux-arm64
-curl -sSfL -o CHECKSUMS-SHA256.txt "$base/CHECKSUMS-SHA256.txt"   # darwin-x64 · windows-x64.exe · …
-
-awk '$2=="ai-eng-darwin-arm64"{print $1"  ai-eng"}' CHECKSUMS-SHA256.txt | shasum -a 256 -c -
-
-gh attestation verify ai-eng \
-  --repo arcasilesgroup/ai-engineering \
-  --signer-workflow arcasilesgroup/ai-engineering/.github/workflows/release.yml \
-  --source-ref "refs/tags/${AI_ENG_VERSION}" \
-  --deny-self-hosted-runners
-
-install -m 0755 ai-eng "$HOME/.local/bin/ai-eng"
+bun add -g ai-engineering@latest && ai-eng init
 ```
 
-The checksum and the binary travel together, so the checksum alone proves nothing. `gh attestation verify` is what binds those bytes to the commit and the workflow that built them.
+**npm**
 
-Built assets ship for `linux-x64`, `linux-arm64`, `linux-musl-x64`, `linux-musl-arm64`, `darwin-x64`, `darwin-arm64`, `windows-x64`, `windows-arm64`, each with an SBOM and a build-provenance attestation.
+```bash
+npm install -g ai-engineering@latest && ai-eng init
+```
+
+One command, start to finish: it installs the CLI and runs it. `init` writes the machine canon, and inside a repository it writes the contract for that repo — it is idempotent, so run it again in any project whenever you like.
+
+The whole payload arrives with the package: the `ai-eng` binary, the skill canon and the templates. [Bun](https://bun.sh) ≥ 1.4 must be installed, because the package ships a Bun entrypoint.
+
+Want the CLI without running it yet? Same line, without `&& ai-eng init`. To stay current: `ai-eng upgrade` re-runs the install after showing you the changelog, and `ai-eng update` rewrites the installed files from the binary you already have, with no network at all.
 
 <details>
 <summary>Building from source</summary>
@@ -142,7 +145,7 @@ Machine verbs — called by hooks and CI, no human interface:
 | Verb | Does |
 |---|---|
 | `chain <event>` | the guard dispatcher; reads the surface payload on stdin |
-| `git <hook>` | the pre-commit, commit-msg and pre-push floor |
+| `git <hook>` | the pre-commit, commit-msg and pre-push checks |
 | `wrap test -- <cmd>` | test-output filter: failures grouped, noise dropped |
 | `spec run\|open\|approve\|close` | the executable contract |
 
@@ -150,20 +153,22 @@ Machine verbs — called by hooks and CI, no human interface:
 
 ## Surfaces
 
-One canonical payload is mirrored into every enabled surface. A surface's loop capability is measured, and the claim carries its evidence.
+A surface is the agent or editor you already work in. One canonical payload is mirrored into every surface you enable, so the same guard judges the same call whichever client sent it. Each surface's loop capability is measured against the host's own CLI, and the claim carries its evidence in `src/surfaces/surfaces.json`.
 
-| Surface | Tier | Loop |
-|---|---|---|
-| Claude Code | core | native |
-| Oh My Pi | core | native |
-| OpenCode | core | native |
-| Cursor | experimental | native |
-| Codex | experimental | native |
-| GitHub Copilot | best-effort | native |
-| Pi | core | none |
-| Zed | skills-only | none |
+| Surface | Tier | Carrier lands in | Loop |
+|---|---|---|---|
+| Claude Code | core | `.claude/settings.json` (machine) | native |
+| Oh My Pi | core | `.omp/agent/hooks/pre/` (machine) | native |
+| OpenCode | core | `.config/opencode/plugins/` (machine) | native |
+| Pi | core | `.pi/agent/extensions/` (machine) | none |
+| Cursor | experimental | `.cursor/hooks.json` (repo) | native |
+| Codex CLI | experimental | `.codex/hooks.json` (machine) | native |
+| Copilot | best-effort | `.github/hooks/` (repo) + `.copilot/hooks/` (machine) | native |
+| Zed | skills-only | — none: it denies through its own tool permissions | none |
 
-`ai-eng config --add <id>` enables a surface; `--remove <id>` disables it. The registry lives in `src/surfaces/surfaces.json`.
+Tiers decide what a missing carrier means: on `core` it fails `doctor`, on the other tiers it warns. `experimental` denies but its row names what degrades, `best-effort` denies and what survives is the host's deployment, and `skills-only` gets the skill canon with no guards in the hot path. `ai-eng doctor` reports, per surface, whether the carrier is where that host actually reads it.
+
+`ai-eng config --add <id>` enables a surface and regenerates its adapter; `--remove <id>` takes it out and leaves the rest of your files alone.
 
 ## The five guards
 
@@ -188,9 +193,54 @@ The only way to turn a guard off is an entry in `.ai-engineering/overrides.toml`
 
 A contract nobody approved refuses to run: its sha256 must be pinned in `ai-eng.lock` by `ai-eng spec approve`. `ai-eng spec run` executes every gate and refuses an empty gate list, so a tick in a box is never evidence. `ai-eng spec close` re-runs what the artifact claims and closes the milestone.
 
-## The skill canon
+## Skills
 
-Twenty `ai-*` skills ship inside the binary and install once per machine into `~/.ai-engineering/skills/`, symlinked into each surface. They cover the delivery loop end to end — plan, build, verify, document, research — and every skill follows one contract: one `SKILL.md` per folder, English only, no machine paths.
+Twenty `ai-*` skills ship inside the binary and install once per machine into `~/.ai-engineering/skills/`, then get mirrored into `~/.claude/skills`, `~/.agents/skills` and `~/.config/opencode/skill` — plus `/ai-*` slash commands for OpenCode. Every skill follows one contract: one `SKILL.md` per folder, English only, no machine paths.
+
+| Skill | What it does |
+|---|---|
+| `ai-brainstorm` | Pins a fuzzy idea down until it can be explained in plain language, and writes the document the next skill runs on |
+| `ai-research` | Answers questions from outside the repository with numbered citations, or marks a claim `[unsourced]` |
+| `ai-architect` | Chooses the approach, the stack and the tradeoff before the build starts |
+| `ai-plan` | Turns the answers into checks: what "done and right" means, written before the work |
+| `ai-goal` | Writes the loop contract — what it consumes, which gates close it, when it stops |
+| `ai-proof` | Anti-laziness execution: gate files and runnable checks instead of promises |
+| `ai-verify` | Judges finished work against its own standard and reports verdicts with evidence |
+| `ai-security` | Six-phase security audit, validated by an agent that did not write the finding |
+| `ai-write` | Writes the README, the wiki page or the API doc, verified against the tree |
+| `ai-visual-recap` | Turns a diff into an interactive recap: diagrams, file map and annotated diff |
+| `ai-design` | Elects the one design skill a UI request needs and sequences the phases |
+| `ai-design-audit` | Measures a rendered page in a real browser and fixes what the numbers say |
+| `ai-debug` | Names the root cause at `file:line` and writes the check that fails for that reason |
+| `ai-explore` | Answers "where does this live" from the repository, anchored to `file:line` |
+| `ai-note` | Saves a hard-won finding as committed markdown, stamped so staleness is detectable |
+| `ai-issue-report` | Files a governed bug report: scrubbed fields, local draft, nothing sent unconfirmed |
+| `ai-read-docs` | Forces a documentation pass before depending on versioned or external behaviour |
+| `ai-agents-md` | Writes and maintains the `AGENTS.md` a repository owes its coding agents |
+| `ai-writing-behavior` | Authors `BEHAVIOR.md` specs for recurring, judgeable agent conduct |
+| `ai-rtk` | Routes long-output commands — tests, builds, logs — through rtk, so the agent reads 60–90% less |
+
+They work as a chain, and each skill declares its own next step in front matter — so the handoff is a contract, not a convention:
+
+```mermaid
+flowchart LR
+  B[ai-brainstorm] --> R[ai-research]
+  B --> P[ai-plan]
+  R --> A[ai-architect]
+  A --> P
+  P --> G[ai-goal]
+  G --> PR[ai-proof]
+  PR --> V[ai-verify]
+  V --> S[ai-security]
+  V --> W[ai-write]
+  V --> RC[ai-visual-recap]
+  S --> RC
+  W --> RC
+  D[ai-design] --> DA[ai-design-audit]
+  DA --> RC
+```
+
+`ai-plan` opens the loop, `ai-goal` runs it, `ai-proof` closes every step of it, and `ai-verify` decides which trigger fires next: `ai-security` when the security trigger fired, `ai-write` when the public interface changed, `ai-visual-recap` otherwise — which is the terminal node. `ai-explore`, `ai-read-docs`, `ai-note`, `ai-rtk`, `ai-agents-md` and `ai-writing-behavior` run on demand, wherever the work needs them.
 
 Attribution for every upstream skill travels with the payload: [NOTICE.md](NOTICE.md) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
