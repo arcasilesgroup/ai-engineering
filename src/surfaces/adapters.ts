@@ -19,7 +19,11 @@ export type Surface = {
    *  throw/block itself. */
   readonly dialect?: Dialect;
   readonly can: {
-    readonly deny: boolean | "throw";
+    /** `true` we deny · `"throw"` we deny by throwing (in-process hosts) · `"host-only"`
+     *  the HOST can deny through its own permissions and we have no hook to run in — the
+     *  two are different facts, and collapsing them made the picker print "can't block
+     *  tool calls" about a host that can. */
+    readonly deny: boolean | "throw" | "host-only";
     readonly rewriteOut: boolean | "total-replacement";
     /** The native goal loop (§20.3) — "unverified" means plausible but never
      *  measured with a receipt, "none" that the human loop is the honest mode
@@ -134,7 +138,9 @@ export function surfaceDialect(id: string | undefined): Dialect {
 /** init aborts if the chosen surface cannot carry a required guard: better not to
  *  promise than to promise falsely (§13). */
 export function surfaceCanGovern(surface: Surface): boolean {
-  return surface.can.deny !== false;
+  // Only the hosts that RUN us can be governed: a host that denies on its own, without
+  // calling our chain, has nowhere for a guard to stand.
+  return surface.can.deny === true || surface.can.deny === "throw";
 }
 
 /** The tier headers for the grouped surface multiselect (init + config share

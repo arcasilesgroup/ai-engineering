@@ -137,7 +137,7 @@ test("machine carrier paths match each host's documented root, with source and d
   const problems: string[] = [];
   for (const surface of SURFACES) {
     if (surface.carriers.length === 0) {
-      if (surface.can.deny !== false) problems.push(`${surface.id}: can deny but declares no carrier`);
+      if (surface.can.deny === true || surface.can.deny === "throw") problems.push(`${surface.id}: can deny but declares no carrier`);
       continue;
     }
     for (const carrier of surface.carriers) {
@@ -197,7 +197,9 @@ test("a tier's promise never silently contradicts its rows' measurements", () =>
     const rows = SURFACES.filter((surface) => surface.tier === tier);
     for (const surface of rows) {
       if (/rewrite/.test(title) && surface.can.rewriteOut === false) problems.push(`${tier} "${title}" promises a rewrite ${surface.id} does not have`);
-      if (/\bdeny\b/.test(title) && surface.can.deny === false) problems.push(`${tier} "${title}" promises a denial ${surface.id} cannot make`);
+      if (/\bdeny\b/.test(title) && (surface.can.deny === false || surface.can.deny === "host-only")) {
+        problems.push(`${tier} "${title}" promises a denial ${surface.id} does not make`);
+      }
     }
   }
   expect(problems).toEqual([]);

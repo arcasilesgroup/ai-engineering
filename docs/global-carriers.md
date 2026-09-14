@@ -16,7 +16,7 @@ A carrier is the file a host reads to reach `ai-eng chain`. It lives where that 
 | Copilot | repo | `.github/hooks/ai-eng.json` | settings | — | research/003: VS Code Copilot Chat and the cloud agent read the repo copy only | 2026-09-11 |
 | Copilot | machine | `.copilot/hooks/ai-eng.json` | settings | — | research/004 §01: Copilot CLI 1.0.83 reads `~/.copilot/hooks/*.json` and never fires the repo copy | 2026-09-14 |
 | Pi | machine | `.pi/agent/extensions/ai-eng.ts` | module | `.pi/agent/extensions/ai-eng-chain.ts` | pi.dev/docs/latest/extensions · brainstorm TrustFacts §3: pi has no native user-level HOOKS, only extensions | 2026-09-14 |
-| Zed | — | — | — | — | `carriers: []` — honest: skills install, no guards in hot-path — a surface that cannot deny has no carrier to place | — |
+| Zed | — | — | — | — | `carriers: []` — it denies through its OWN tool permissions (`agent.tool_permissions`, `always_deny` regexes) and never by running our chain; its WASM extension API adds languages, themes, debuggers, MCP servers and slash commands, none of which intercepts a tool call, so there is no seat for a guard (`zed.dev/docs/ai/tool-permissions`, measured 2026-09-14 on Zed 1.19.2) | — |
 
 Machine paths are relative to the base every machine-side path hangs off (`machineBase()` in `src/surfaces/adapters.ts`): `AI_ENG_HOME` when a test set it, otherwise the real physical home. A test install must never rewrite the real `~/.claude`, `~/.omp`, `~/.pi` or `~/.config`.
 

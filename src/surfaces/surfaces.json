@@ -165,13 +165,13 @@
       "label": "Zed",
       "tier": "skills-only",
       "can": {
-        "deny": false,
+        "deny": "host-only",
         "rewriteOut": false,
         "loop": "none",
-        "loopEvidence": "zed: an editor that reads the skills directory; no agent loop to hand a goal to"
+        "loopEvidence": "zed 1.19.2 --help (2026-09-11): no unattended goal mode to hand a contract to. Its Agent Panel IS a tool-calling loop, but it takes a prompt, not a goal — re-probe per release"
       },
       "carriers": [],
-      "note": "skills install and nothing else runs in the hot path: a host that cannot deny has no carrier to place"
+      "note": "its WASM extension API can add languages, themes, debuggers, MCP servers and slash commands — none of them intercepts a tool call (zed.dev/docs/extensions, Zed 1.19.2 2026-09-14)"
     }
   ]
 }

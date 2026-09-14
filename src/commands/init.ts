@@ -39,6 +39,7 @@ function detectedSurfaces(cwd: string): string[] {
 export function surfaceHint(s: Surface): string {
   const delta: string[] = [];
   if (s.can.deny === "throw") delta.push("blocks by throwing");
+  else if (s.can.deny === "host-only") delta.push("the host denies through its own permissions; no hook for us to run");
   else if (s.can.deny !== true) delta.push("can't block tool calls");
   if (s.can.rewriteOut === false) delta.push("can't rewrite output");
   else if (typeof s.can.rewriteOut === "string") delta.push("rewrites output wholesale");
