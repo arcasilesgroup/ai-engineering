@@ -187,10 +187,14 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
     described.length === 0 ? "ok" : "warn",
     described.length === 0 ? "none active" : [...rows, ...stale].join(" · "),
   );
-  // 9. arch bootstrap vs active.
+  // 9. arch bootstrap vs active. The rules file is what makes the check a check: a path
+  //    that is only joined is never null, so a repo with src/ and no arch.rules.json used
+  //    to report "ok · active" — the false green this project exists to refuse.
   const archPath = root ? join(root, ".ai-engineering", "arch.rules.json") : null;
+  const hasRules = archPath !== null && existsSync(archPath);
   const hasSrc = root ? existsSync(join(root, "src")) : false;
-  push("arch", !archPath ? "warn" : hasSrc ? "ok" : "warn", !archPath ? "no arch.rules.json" : hasSrc ? "active — src/ present" : "bootstrap mode — src/ empty");
+  if (!hasRules) push("arch", "warn", "no arch.rules.json — nothing enforces the layer rules");
+  else push("arch", hasSrc ? "ok" : "warn", hasSrc ? "active — src/ present" : "bootstrap mode — src/ empty");
   // 10. milestone slots: a live contract, and the artifacts a dead one leaves behind.
   //     A milestone that never opened a contract could never be closed either, so its
   //     brainstorm.md was immortal and doctor called the slot clean (§21.2).

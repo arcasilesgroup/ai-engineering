@@ -294,7 +294,7 @@ describe("doctor · config.toml is the gate", () => {
     process.chdir(tempDir("ai-eng-doc-bare-"));
     const run = await doctor();
     expect(detail(run, "config.toml")).toBe("no repository above this directory");
-    expect(detail(run, "arch")).toBe("no arch.rules.json");
+    expect(detail(run, "arch")).toBe("no arch.rules.json — nothing enforces the layer rules");
     expect(detail(run, "chain test")).toContain("not governed (no-repo)");
     expect(run.code).toBe(2);
   });
