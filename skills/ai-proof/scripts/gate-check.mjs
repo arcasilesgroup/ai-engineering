@@ -245,13 +245,33 @@ for (const state of states) {
         const indent = lines[gate.evidenceLine].match(/^\s*/)[0];
         setLine(gate.evidenceLine, `${indent}EVIDENCE: ${text}`);
       };
-      if (ok) {
+      // A check that exits 0 and says NOTHING is not evidence. Without this, the ledger
+      // carried the string "(no output)" and the box rested on an exit code alone — which
+      // is how three gates in one milestone were ticked by an `ls … >/dev/null`, a `test -f`
+      // and a `grep -q`, none of which a reader could check. A check that proves something
+      // says what it found; the remedy is one line, and the format's EXPECT is the other.
+      //
+      // It does NOT `continue`: the pass/fail accounting below is what turns this into an
+      // UNMET gate, and skipping it once made a gate that stays unticked read as ALL MET.
+      const silent = ok && !gate.expect && res.output.trim().length === 0;
+      if (silent) {
+        const why = "a check that proves something says what it found: print what it matched, or append `&& echo <what you proved>`; an EXPECT is the other way";
+        if (gate.checked) {
+          setEvidence("pending");
+          gate.evidence = "pending";
+        } else {
+          setEvidence(`(no output — ${why})`);
+          gate.evidence = "(no output)";
+        }
+        console.log(`  FAIL ${gate.id}: ${gate.title}${note} — the check printed nothing, and silence is not evidence`);
+      }
+      if (ok && !silent) {
         setLine(gate.line, lines[gate.line].replace(/^- \[ \]/, "- [x]"));
         setEvidence(tail(res.output));
         gate.checked = true;
         gate.evidence = tail(res.output);
         console.log(`  PASS ${gate.id}: ${gate.title}${note}`);
-      } else {
+      } else if (!silent) {
         // A box that was checked and has now failed its own check was a false
         // claim, so the proof is withdrawn: evidence goes back to pending, which
         // makes the gate UNMET by the format's second rule and blocks the

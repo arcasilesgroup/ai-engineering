@@ -46,12 +46,17 @@
 </div>
 
 <h2><span class="num">02</span>Acceptance gates</h2>
-<p style="color:var(--dim)">unlazy gate format, executed by <code>ai-eng spec run</code> (gate-check.mjs). Max 30 per milestone. ABANDON: G&lt;n&gt; &lt;reason&gt; is the honest exit.</p>
+<p style="color:var(--dim)">unlazy gate format, executed by <code>ai-eng spec run</code> (gate-check.mjs). Max 30 per milestone. ABANDON: G&lt;n&gt; &lt;reason&gt; is the honest exit. <b>A check that prints nothing is not evidence</b>: the executor leaves it unticked, because a box resting on an exit code is a green nobody can read. Make it say what it found, or assert the output with <code>EXPECT</code>.</p>
 <pre id="gates">
 # Gates: {{milestone}}
 
 - [ ] G1: <observable outcome>
-  CHECK: test -f README.md
+  CHECK: <a command that PRINTS what it found, e.g. node scripts/report.mjs>
+  EXPECT: <optional: the text, or /regex/, that must appear in that output>
+  EVIDENCE: pending
+
+- [ ] G2: <an outcome only existing artifacts can show>
+  CHECK: sh -c 'test -f README.md && echo "README.md $(wc -c < README.md) bytes"'
   EVIDENCE: pending
 
 </pre>

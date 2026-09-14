@@ -23,6 +23,13 @@ Instructions raise effort, but the failures that survive are exactly the ones pr
 
 Before starting real work, write the acceptance gates to a file. Not in your head, not in prose, in a file — in ai-engineering that file is `.ai-engineering/spec.html` (the milestone's gates, in the format of [templates/gates-leaf.md](templates/gates-leaf.md)), not `GATES.md` (see **The ai-engineering seam** below). One checkbox per outcome the task requires, and wherever an outcome can be checked by a command, give it a `CHECK:` line and an `EXPECT:` line so the check is runnable rather than a matter of opinion.
 
+A check that says nothing is not evidence: `test -f X` and `ls X >/dev/null` exit 0 while
+printing nothing, so the box would rest on an exit code and the EVIDENCE line would carry the
+silence. Such a gate is left **unmet** by the executor, whatever its box says. Two ways to
+satisfy it, and both are one line: make the check print what it found (`test -f X && echo "X
+$(wc -c < X) bytes"`), or assert its output with `EXPECT: <text|/regex/>`. A check that pays
+for itself says which thing it proved, not just that it did not fail.
+
 Why a file: your intentions do not survive a long context, files do. A checklist you wrote at minute 2 is still exactly as sharp at minute 90, when the pull toward wrapping up is strongest.
 
 Done means every box is checked with evidence recorded. Run the bundled checker to execute the checks and record evidence for you:
