@@ -95,31 +95,31 @@
 
 - [x] G1: La gobernanza se decide en un solo sitio y ningun otro modulo la reimplementa
   CHECK: bun test tests/arch.spec.ts
-  EVIDENCE: 57 expect() calls | Ran 22 tests across 1 file. [984.00ms]
+  EVIDENCE: 57 expect() calls | Ran 22 tests across 1 file. [819.00ms]
 
 - [x] G2: Un repo sin .ai-engineering/config.toml recibe allow del chain, exit 0 y cero stdout
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "ungoverned repo allows"
-  EVIDENCE: 8 expect() calls | Ran 2 tests across 1 file. [93.00ms]
+  EVIDENCE: 8 expect() calls | Ran 2 tests across 1 file. [159.00ms]
 
 - [x] G3: Un repo sin carrier no recibe ninguna escritura, ni receipts ni un .ai-engineering/ nuevo
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "no writes in a foreign repo"
-  EVIDENCE: 2 expect() calls | Ran 1 test across 1 file. [213.00ms]
+  EVIDENCE: 2 expect() calls | Ran 1 test across 1 file. [271.00ms]
 
 - [x] G4: Un config.toml ilegible no cuenta como gobernado, y doctor distingue ausente de corrupto
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "unparseable config"
-  EVIDENCE: 11 expect() calls | Ran 1 test across 1 file. [423.00ms]
+  EVIDENCE: 11 expect() calls | Ran 1 test across 1 file. [496.00ms]
 
 - [x] G5: El floor de git usa la misma puerta: repo ajeno exit 0, repo gobernado sin binario exit 1
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "git floor"
-  EVIDENCE: 4 expect() calls | Ran 1 test across 1 file. [236.00ms]
+  EVIDENCE: 4 expect() calls | Ran 1 test across 1 file. [206.00ms]
 
 - [x] G6: Un fichero de settings con hooks propios sobrevive byte a byte a init, update y uninstall
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "user hooks survive"
-  EVIDENCE: 12 expect() calls | Ran 1 test across 1 file. [753.00ms]
+  EVIDENCE: 12 expect() calls | Ran 1 test across 1 file. [553.00ms]
 
 - [x] G7: La tabla de rutas de maquina coincide con la raiz documentada por cada host, con fuente y fecha
   CHECK: bun test tests/surfaces.test.ts -t "machine carrier paths"
-  EVIDENCE: 16 expect() calls | Ran 1 test across 1 file. [74.00ms]
+  EVIDENCE: 16 expect() calls | Ran 1 test across 1 file. [80.00ms]
 
 - [x] G8: El carrier de OMP carga de verdad en OMP, probado con el binario local y no por existencia
   CHECK: sh scripts/proof-carriers.sh
@@ -127,23 +127,23 @@
 
 - [x] G9: Un repo gobernado queda con dos carriers y los otros cinco no se escriben en el repo
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "two repo carriers"
-  EVIDENCE: 17 expect() calls | Ran 1 test across 1 file. [575.00ms]
+  EVIDENCE: 17 expect() calls | Ran 1 test across 1 file. [352.00ms]
 
 - [x] G10: Una llamada permitida con --surface cursor emite permission allow y sale 0
   CHECK: bun test tests/surfaces.test.ts -t "cursor allow envelope"
-  EVIDENCE: 6 expect() calls | Ran 1 test across 1 file. [192.00ms]
+  EVIDENCE: 6 expect() calls | Ran 1 test across 1 file. [195.00ms]
 
 - [x] G11: El carrier de Codex no se reescribe sin cambio de bytes, y cuando cambia doctor nombra /hooks
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "codex carrier"
-  EVIDENCE: 8 expect() calls | Ran 1 test across 1 file. [549.00ms]
+  EVIDENCE: 8 expect() calls | Ran 1 test across 1 file. [531.00ms]
 
 - [x] G12: doctor separa carrier de maquina, declaracion del repo y estado de version, sin verdes por existencia
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "doctor splits"
-  EVIDENCE: 7 expect() calls | Ran 1 test across 1 file. [434.00ms]
+  EVIDENCE: 7 expect() calls | Ran 1 test across 1 file. [432.00ms]
 
 - [x] G13: uninstall restaura la maquina y nunca pisa un init.templateDir ajeno
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "machine round trip"
-  EVIDENCE: 6 expect() calls | Ran 1 test across 1 file. [424.00ms]
+  EVIDENCE: 6 expect() calls | Ran 1 test across 1 file. [429.00ms]
 
 - [x] G14: Un clone nuevo nace con el floor y un repo sin config.toml sigue sin politica de git
   CHECK: sh scripts/proof-cli-ux.sh
@@ -151,27 +151,27 @@
 
 - [x] G15: Sin regresion: la suite completa sigue verde
   CHECK: bun test
-  EVIDENCE: 591 expect() calls | Ran 186 tests across 18 files. [10.65s]
+  EVIDENCE: 594 expect() calls | Ran 187 tests across 18 files. [9.43s]
 
 - [x] G16: Deuda cerrada: cache de veredictos con mkdir y session_id saneado, protectedPaths con home(), specOpen sin carrier ajeno
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "debt"
-  EVIDENCE: 10 expect() calls | Ran 1 test across 1 file. [97.00ms]
+  EVIDENCE: 10 expect() calls | Ran 1 test across 1 file. [96.00ms]
 
 - [x] G17: Auditoria de seguridad del diff, con findings.json y REPORT.md, y todo hallazgo explotable cerrado o aceptado con su razon
-  CHECK: sh -c 'ls .ai-engineering/security/run-*/findings.json >/dev/null'
-  EVIDENCE: pending
+  CHECK: sh scripts/proof-security-audit.sh
+  EVIDENCE: PASS: findings.json valid, REPORT.md present, 8 confirmed findings each closed or accepted with its reason
 
 - [x] G18: Las dos reglas nuevas estan en arch.rules.json y el test de arquitectura pasa
   CHECK: bun test tests/arch.spec.ts
-  EVIDENCE: 57 expect() calls | Ran 22 tests across 1 file. [984.00ms]
+  EVIDENCE: 57 expect() calls | Ran 22 tests across 1 file. [819.00ms]
 
 - [x] G19: docs/global-carriers.md existe y el README lo enlaza
-  CHECK: sh -c 'test -f docs/global-carriers.md && grep -q "global-carriers.md" README.md'
-  EVIDENCE: pending
+  CHECK: sh -c 'test -f docs/global-carriers.md && grep -q "global-carriers.md" README.md && echo "docs/global-carriers.md exists, and README.md links it"'
+  EVIDENCE: docs/global-carriers.md exists, and README.md links it
 
 - [x] G20: La investigacion del milestone esta citada y commiteada
-  CHECK: sh -c 'test -f .ai-engineering/research/004-hooks-global-vs-project.html'
-  EVIDENCE: pending
+  CHECK: sh -c 'f=.ai-engineering/research/004-hooks-global-vs-project.html; test -f "$f" && git ls-files --error-unmatch "$f" >/dev/null 2>&1 && git diff --quiet HEAD -- "$f" && grep -q "004-hooks-global-vs-project" .ai-engineering/plan.html && echo "004 exists, is committed in git, and the milestone plan cites it"'
+  EVIDENCE: 004 exists, is committed in git, and the milestone plan cites it
 
 </pre>
 
