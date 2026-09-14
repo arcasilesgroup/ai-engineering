@@ -73,8 +73,23 @@ jobs:
             bun run --if-present "$check"
           done
 
+      # Between milestones there is no live contract, and that is a legitimate state,
+      # not a failure — but a lock that still pins an approved contract whose spec.html
+      # has vanished is: that is a contract someone deleted. The guard is about the
+      # state, never about a check: when a contract is live it runs, and a check that
+      # cannot run stays a FAIL, never silence (§09.3).
       - name: Spec run (contract gates — the one step that must not be skipped)
-        run: ai-eng spec run
+        run: |
+          set -euo pipefail
+          if [ ! -f .ai-engineering/spec.html ]; then
+            if grep -q spec_sha256 .ai-engineering/ai-eng.lock; then
+              echo "::error::the lock pins an approved contract and spec.html is gone — restore it, or reopen the slot."
+              exit 1
+            fi
+            echo "no live contract — nothing to enforce between milestones"
+            exit 0
+          fi
+          ai-eng spec run
 
   security:
     runs-on: ubuntu-latest
