@@ -408,7 +408,9 @@ function gc(cwd = process.cwd()): string[] {
   // Security runs: the newest keep_runs are always live; beyond that the same rule.
   const security = join(root, ".ai-engineering", "security");
   if (existsSync(security)) {
-    const runs = readdirSync(security).filter((name) => name.startsWith("run-")).sort();
+    const runs = readdirSync(security)
+      .filter((name) => name.startsWith("run-"))
+      .sort((a, b) => a.localeCompare(b, "en"));
     const beyond = runs.slice(0, Math.max(0, runs.length - keepRuns));
     const collected: string[] = [];
     for (const run of beyond) {
