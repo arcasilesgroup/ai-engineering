@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>spec.html — WHAT · global-carriers</title>
+<style>
+  :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#B0C2D6; --ok:#4ade80; --bad:#fbb1b1; --warn:#facc15; --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; padding:48px 32px; }
+  h1 { font-size:28px; letter-spacing:-.5px; } h1 .x { color:var(--accent); }
+  h2 { color:var(--accent); font-family:var(--mono); font-size:13px; text-transform:uppercase; letter-spacing:.2em; margin:32px 0 12px; }
+  h2 .num { color:var(--dim); margin-right:10px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:10px 0; }
+  .meta { display:flex; gap:24px; flex-wrap:wrap; color:var(--dim); font-size:13px; margin:8px 0 0; }
+  .meta b { color:var(--text); font-weight:500; }
+  code, pre { font-family:var(--mono); font-size:12.5px; color:#5FE6C6; }
+  pre { background:#0E1830; border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; color:var(--dim); }
+  .gate .id { font-family:var(--mono); color:var(--accent); font-weight:600; }
+  .gate .status { font-family:var(--mono); font-size:11px; }
+  .gate .check { font-family:var(--mono); font-size:12px; color:var(--dim); display:block; margin-top:6px; }
+  a { color:var(--accent); }
+  .context { font-size:13.5px; color:var(--dim); line-height:1.55; }
+</style>
+</head>
+<body>
+<h1><span class="x">{ai}</span> spec · global-carriers</h1>
+<p style="color:var(--dim)">WHAT and WHY — requirements and acceptance gates. Executed by <code>ai-eng spec run</code>; its sha256 is pinned in <code>ai-eng.lock</code> at approval (STOP 1).</p>
+
+<h2><span class="num">00</span>Context chain</h2>
+<div class="card context">
+  <p>The research this milestone consumes, and the plan that executes it. Keep these links live — the LLM working this milestone reads all three.</p>
+  <div class="meta">
+    <span>Research: <b><a href="research/004-hooks-global-vs-project.html">research/004-hooks-global-vs-project.html</a></b></span>
+    <span>Handshake: <b><a href="brainstorm.md">brainstorm.md</a></b></span>
+    <span>Spec: <b>spec.html (this file)</b></span>
+    <span>Plan: <b><a href="plan.html">plan.html</a></b></span>
+  </div>
+</div>
+
+<h2><span class="num">01</span>Work points</h2>
+<p style="color:var(--dim)">Numbered sections: what must be done. Each point names the gates that prove it done.</p>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">01 · La puerta de repo gobernado</h3>
+  <p class="context">Un solo predicado decide si un repo participa: <code>config.toml</code> existente, parseable y con seccion de superficies. Todo sitio que hoy reimplementa "gobernado" como <code>repoRoot() !== null</code> pasa por el, incluidos el chain, el floor de git y los verbos que hoy salen con exit 2 sobre una raiz no nula. Un repo que no participa no recibe politica ni escrituras: hoy <code>writeReceipt()</code> crea <code>.ai-engineering/receipts/</code> en un repo con solo <code>.git</code>.</p>
+  <p class="context" style="margin-top:8px">Proves: G1, G2, G3, G4, G5</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">02 · Carriers de maquina y las dos excepciones</h3>
+  <p class="context">Cinco superficies escriben su carrier en la ruta de usuario que su host lee de verdad (Claude Code, OpenCode, OMP, Codex, Pi); Cursor y Copilot conservan el suyo en el repo porque su cloud y VS Code Copilot Chat solo leen el repo, y Copilot CLI lee el de maquina. El bug vivo entra aqui: el carrier de OMP vive hoy en <code>.agents/hooks/</code>, que OMP no lee.</p>
+  <p class="context" style="margin-top:8px">Proves: G7, G8, G9</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">03 · Merge por marcador</h3>
+  <p class="context">Ningun carrier se escribe entero sobre un fichero que ya existe, ni en el repo ni en la maquina, y menos en <code>~/.claude/settings.json</code>, que puede tener hooks, permisos y env del usuario. Las entradas propias se reconocen por llevar <code>ai-eng chain</code> en el comando; un fichero ajeno que no sea JSON valido no se toca y se dice.</p>
+  <p class="context" style="margin-top:8px">Proves: G6</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">04 · Ciclo de vida: init, update, doctor, uninstall</h3>
+  <p class="context">El repo queda con contrato, CI, shims de git y dos carriers; el resto vive en la maquina. <code>doctor</code> separa "carrier de maquina correcto" de "repo declarado y lock cuadrado", y avisa cuando el binario es mas viejo que lo que escribio los carriers. <code>uninstall</code> deja la maquina como estaba. El carrier de Codex no se reescribe sin cambio de bytes, porque su trust es por hash.</p>
+  <p class="context" style="margin-top:8px">Proves: G11, G12, G13</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">05 · El allow de Cursor</h3>
+  <p class="context">Una llamada permitida no puede leerse como un fallo. El camino de allow emite el envelope del dialecto cuando el host lo exige (Cursor hoy, con su plantilla declarando <code>failClosed: true</code>); Codex documenta que el silencio es exito, y Claude y Pi bloquean por exit 2.</p>
+  <p class="context" style="margin-top:8px">Proves: G10</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">06 · El floor de git</h3>
+  <p class="context">Los shims siguen siendo los mismos, marker-managed, en <code>.git/hooks</code>; lo que cambia es que un clone nuevo nace con ellos via <code>init.templateDir</code>, que un templateDir que ya existia no se pisa, que <code>uninstall</code> lo restaura, y que el floor respeta la puerta: sin <code>config.toml</code> no hay politica de git. <code>core.hooksPath</code> global no se usa.</p>
+  <p class="context" style="margin-top:8px">Proves: G14</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">07 · La deuda que este trabajo destapa</h3>
+  <p class="context">El cache de veredictos nunca ha funcionado (escribe sin <code>mkdir</code>, y el <code>session_id</code> entra crudo en la ruta: traversal si se arregla a medias); <code>protectedPaths(null)</code> desprotege el canon de HOME y usa <code>homedir()</code> en vez de <code>home()</code>; y <code>specOpen</code> crea <code>.ai-engineering/</code> en repos ajenos. Se cierra aqui porque el plan toca los mismos archivos.</p>
+  <p class="context" style="margin-top:8px">Proves: G16</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">08 · Triggers disparados</h3>
+  <p class="context"><b>security</b> (path: <code>src/chain/**</code>, <code>src/guards/**</code>) dispara, y con razon: el milestone cambia la frontera de confianza (fail-open acotado a la ausencia de carrier) y escribe sobre ficheros que el usuario posee. <b>arch-change</b> y <b>open-questions</b> disparan por juicio. <b>public-interface</b> tambien: cambia el comportamiento documentado de <code>init</code>, <code>doctor</code> y <code>uninstall</code>. <b>ui</b> no dispara: el diff no toca ningun glob de UI (tsx/jsx/css/componentes); la salida del CLI no es superficie de ai-design.</p>
+  <p class="context" style="margin-top:8px">Proves: G17, G18, G19, G20</p>
+</div>
+
+<h2><span class="num">02</span>Acceptance gates</h2>
+<p style="color:var(--dim)">unlazy gate format, executed by <code>ai-eng spec run</code> (gate-check.mjs). Max 30 per milestone. ABANDON: G&lt;n&gt; &lt;reason&gt; is the honest exit.</p>
+<pre id="gates">
+# Gates: global-carriers
+
+- [ ] G1: La gobernanza se decide en un solo sitio y ningun otro modulo la reimplementa
+  CHECK: bun test tests/arch.spec.ts
+  EVIDENCE: pending
+
+- [ ] G2: Un repo sin .ai-engineering/config.toml recibe allow del chain, exit 0 y cero stdout
+  CHECK: bun test tests/adversarial/governance-gate.test.ts -t "ungoverned repo allows"
+  EVIDENCE: pending
+
+- [ ] G3: Un repo sin carrier no recibe ninguna escritura, ni receipts ni un .ai-engineering/ nuevo
+  CHECK: bun test tests/adversarial/governance-gate.test.ts -t "no writes in a foreign repo"
+  EVIDENCE: pending
+
+- [ ] G4: Un config.toml ilegible no cuenta como gobernado, y doctor distingue ausente de corrupto
+  CHECK: bun test tests/adversarial/governance-gate.test.ts -t "unparseable config"
+  EVIDENCE: pending
+
+- [ ] G5: El floor de git usa la misma puerta: repo ajeno exit 0, repo gobernado sin binario exit 1
+  CHECK: bun test tests/adversarial/governance-gate.test.ts -t "git floor"
+  EVIDENCE: pending
+
+- [ ] G6: Un fichero de settings con hooks propios sobrevive byte a byte a init, update y uninstall
+  CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "user hooks survive"
+  EVIDENCE: pending
+
+- [ ] G7: La tabla de rutas de maquina coincide con la raiz documentada por cada host, con fuente y fecha
+  CHECK: bun test tests/surfaces.test.ts -t "machine carrier paths"
+  EVIDENCE: pending
+
+- [ ] G8: El carrier de OMP carga de verdad en OMP, probado con el binario local y no por existencia
+  CHECK: sh scripts/proof-carriers.sh
+  EVIDENCE: pending
+
+- [ ] G9: Un repo gobernado queda con dos carriers y los otros cinco no se escriben en el repo
+  CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "two repo carriers"
+  EVIDENCE: pending
+
+- [ ] G10: Una llamada permitida con --surface cursor emite permission allow y sale 0
+  CHECK: bun test tests/surfaces.test.ts -t "cursor allow envelope"
+  EVIDENCE: pending
+
+- [ ] G11: El carrier de Codex no se reescribe sin cambio de bytes, y cuando cambia doctor nombra /hooks
+  CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "codex carrier"
+  EVIDENCE: pending
+
+- [ ] G12: doctor separa carrier de maquina, declaracion del repo y estado de version, sin verdes por existencia
+  CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "doctor splits"
+  EVIDENCE: pending
+
+- [ ] G13: uninstall restaura la maquina y nunca pisa un init.templateDir ajeno
+  CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "machine round trip"
+  EVIDENCE: pending
+
+- [ ] G14: Un clone nuevo nace con el floor y un repo sin config.toml sigue sin politica de git
+  CHECK: sh scripts/proof-cli-ux.sh
+  EVIDENCE: pending
+
+- [ ] G15: Sin regresion: la suite completa sigue verde
+  CHECK: bun test
+  EVIDENCE: pending
+
+- [ ] G16: Deuda cerrada: cache de veredictos con mkdir y session_id saneado, protectedPaths con home(), specOpen sin carrier ajeno
+  CHECK: bun test tests/adversarial/governance-gate.test.ts -t "debt"
+  EVIDENCE: pending
+
+- [ ] G17: Auditoria de seguridad del diff, con findings.json y REPORT.md, y todo hallazgo explotable cerrado o aceptado con su razon
+  CHECK: sh -c 'ls .ai-engineering/security/run-*/findings.json >/dev/null'
+  EVIDENCE: pending
+
+- [ ] G18: Las dos reglas nuevas estan en arch.rules.json y el test de arquitectura pasa
+  CHECK: bun test tests/arch.spec.ts
+  EVIDENCE: pending
+
+- [ ] G19: docs/global-carriers.md existe y el README lo enlaza
+  CHECK: sh -c 'test -f docs/global-carriers.md && grep -q "global-carriers.md" README.md'
+  EVIDENCE: pending
+
+- [ ] G20: La investigacion del milestone esta citada y commiteada
+  CHECK: sh -c 'test -f .ai-engineering/research/004-hooks-global-vs-project.html'
+  EVIDENCE: pending
+
+</pre>
+
+<h2><span class="num">03</span>Constraints & contracts</h2>
+<div class="card context">
+  <p><b>Una sola puerta.</b> El unico fail-open del sistema es "no hay carrier, no hay politica". Se decide en <code>src/env.ts</code> y ningun otro modulo la reimplementa. Un fail-open decidido por otro sitio es un agujero, no una politica.</p>
+  <p><b>Ningun carrier sin marca.</b> Todo lo que escribimos lleva marca reconocible (<code>ai-eng chain</code> en el comando, el header del shim en los hooks de git); <code>uninstall</code> borra solo lo marcado, y nada ajeno se toca ni se reformatea.</p>
+  <p><b>Nada que no se pueda probar cargando.</b> Una ruta de carrier no se declara por existir: se declara cuando el host la carga. El caso de OMP es la prueba de que existencia y carga son cosas distintas.</p>
+  <p><b>Lo que descartamos, y por que.</b> Nivel Managed/Enterprise (no hay MDM ni dashboard, y fingirlo seria teatro); <code>core.hooksPath</code> global (un <code>hooksPath</code> local gana en silencio); carrier de usuario para Cursor (su cloud solo lee el repo); mover el estado del contrato a la maquina (es del repo). Detalle en <a href="brainstorm.md">brainstorm.md</a>.</p>
+</div>
+
+<h2><span class="num">04</span>EVIDENCE</h2>
+<p style="color:var(--dim)">Verdicts land here as gates run. A gate without receipt or ABANDON keeps the milestone open.</p>
+<pre id="evidence"># EVIDENCE: appended by spec run / ai-verify
+</pre>
+</body>
+</html>
