@@ -196,14 +196,21 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
-          set -uo pipefail
-          out=$(snyk code test --severity-threshold=high -d 2>&1); code=$?
-          printf '%s\n' "$out" | tail -40
-          echo "snyk code test exit=$code"
-          if [ "$code" -eq 0 ]; then exit 0; fi
-          # A plan out of tests is not a vulnerability: name what was skipped and let
-          # the other three scanners (semgrep, trivy, bun audit) keep their verdict.
-          if printf '%s' "$out" | grep -qiE 'test limit|increase your tests|rate.?limit|429|too many requests|authentication (error|failed)|not authori|quota|not enabled|unsupported'; then
+          # The runner's shell is `bash -e`, and a failing command substitution in an
+          # assignment (`out=$(cmd)`) makes -e exit the step on the spot: the first
+          # version of this gate died 59s in with the reason unprinted. Collect through
+          # `if`, which -e does not short-circuit, and print before deciding.
+          if out=$(snyk code test --severity-threshold=high 2>&1); then
+            printf '%s\n' "$out"
+            exit 0
+          else
+            code=$?
+          fi
+          printf '%s\n' "$out"
+          echo "snyk code test exited ${code}"
+          # A plan out of tests, or a Snyk Code that is not provisioned for this org, is
+          # not a vulnerability: name what was skipped and let semgrep keep its verdict.
+          if printf '%s' "$out" | grep -qiE 'test limit|increase your tests|rate.?limit|429|too many requests|authentication (error|failed)|not authori|quota|not enabled|not provisioned|unsupported'; then
             echo "::warning title=Snyk Code non-blocking::snyk code test unavailable — non-blocking; semgrep covers SAST."
             exit 0
           fi
