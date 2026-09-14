@@ -68,6 +68,33 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
   return plan;
 }
 
+/** The machine half is invisible in the sync plan, so every path that reports "the repo
+ *  needed nothing" still has to say what it did to the machine — an update that repaired
+ *  a carrier it never mentions reads as a no-op, and that is how the loop started. */
+function sayMachine(rows: ui.Row[], why: string): void {
+  if (rows.length > 0) ui.section("Synced", rows, why);
+}
+
+/** The machine half of an update: the declared surfaces' carriers, the carriers that
+ *  moved out of the repo in this release, and the git template dir. None of it is a
+ *  repo-side asset, so none of it shows up in the sync plan — and that is exactly why
+ *  it must not sit behind the plan's early returns. `doctor` sends a machine that lost
+ *  its carrier here ("→ ai-eng update"); a repo whose own assets are current is the
+ *  normal shape of that machine, and returning before this made the remedy a no-op. */
+function installMachineSide(root: string): ui.Row[] {
+  const moved = sweepMovedRepoCarriers(root);
+  const machineReport = installMachineCarriers(enabledSurfaces());
+  const template = installTemplateDir();
+  if (template.status !== "failed") rememberTemplateDir(template.previous, template.ours);
+  return [
+    ...machineReport.written.map((path): ui.Row => ({ mark: "ok", text: path, dim: "machine carrier" })),
+    ...moved.removed.map((path): ui.Row => ({ mark: "ok", text: path, dim: "moved to the machine — removed from the repo" })),
+    ...moved.kept.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "not ours any more — review by hand" })),
+    ...(template.status === "created" || template.status === "joined" ? [{ mark: "ok", text: template.line } satisfies ui.Row] : []),
+    ...machineReport.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })),
+  ];
+}
+
 export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> {
   const input = scriptedInput();
   const root = repoRoot();
@@ -109,7 +136,8 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   }
   if (pending.length === 0 && plan.conflicts.length === 0) {
     ui.ok(canonHealthy ? `all ${plan.current.length} assets current — nothing to sync` : "repo assets current — the machine side was the work");
-    ui.end(`Next: ai-eng doctor — verify the chain responds`);
+    sayMachine(installMachineSide(root), "the repo needed nothing — the machine side was the work");
+    ui.end("Next: ai-eng doctor — verify the chain responds");
     return 0;
   }
   // Concept blocks, not line-spam (§14.3 mockup): one block per idea. And a
@@ -154,6 +182,9 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   if (writeCount === 0) {
     // Keep-mine everywhere with nothing else pending: the repo is already
     // exactly as you left it. Say so and close — no lock rewrite, no commit.
+    // The machine half runs anyway: it is not part of the plan, so "the repo needs
+    // nothing" is not the same question as "the machine needs nothing".
+    sayMachine(installMachineSide(root), "the repo needed nothing — the machine side was the work");
     ui.section("Kept", [{ mark: "info", text: "your patches stay", dim: ui.pathList(plan.conflicts) }, { mark: "muted", text: "nothing written — the repo is exactly as you left it" }]);
     ui.end("Next: ai-eng doctor — verify the chain responds");
     return 0;
@@ -181,26 +212,11 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   }
   const keptPaths = takeAll ? [] : plan.conflicts;
   const keptCount = keptPaths.length;
-  // The other half of every update: the machine carriers of the declared surfaces are
-  // refreshed here, because a repo's carrier now lives with the binary that wrote it,
-  // not with the repo that aged (§13.2). No question: init already asked, and this is
-  // the repair path for a machine that lost them.
-  // The carriers that moved out of the repo in this release come out of it here: a repo
-  // governed before the move still has them, and a hook file nobody reads is the bug this
-  // release exists to end.
-  const moved = sweepMovedRepoCarriers(root);
-  const machineReport = installMachineCarriers(enabledSurfaces());
-  const template = installTemplateDir();
-  if (template.status !== "failed") rememberTemplateDir(template.previous, template.ours);
   const resultRows: ui.Row[] = [
     { mark: "ok", text: `${report.written.length} asset${report.written.length === 1 ? "" : "s"} synced`, dim: "sha256 recorded in ai-eng.lock" },
     ...(keptCount > 0 ? [{ mark: "info", text: "kept yours", dim: keptPaths.join("  ·  ") } satisfies ui.Row] : []),
-    ...machineReport.written.map((path): ui.Row => ({ mark: "ok", text: path, dim: "machine carrier" })),
-    ...moved.removed.map((path): ui.Row => ({ mark: "ok", text: path, dim: "moved to the machine — removed from the repo" })),
-    ...moved.kept.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "not ours any more — review by hand" })),
-    ...(template.status === "created" || template.status === "joined" ? [{ mark: "ok", text: template.line } satisfies ui.Row] : []),
+    ...installMachineSide(root),
     ...report.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })),
-    ...machineReport.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })),
   ];
   ui.section("Synced", resultRows, `${plan.conflicts.length} conflict${plan.conflicts.length === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`);
   // The lock is the ownership ledger: it may only claim files this run actually

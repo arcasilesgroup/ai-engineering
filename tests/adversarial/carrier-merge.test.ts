@@ -266,6 +266,25 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     expect(existsSync(join(home, "machine.json"))).toBe(false);
   });
 
+  test("the machine loses its carrier, and update — the remedy doctor names — puts it back", () => {
+    useHome();
+    const repo = join(sandbox, "lost-carrier");
+    mkdirSync(repo, { recursive: true });
+    spawnSync("git", ["init", "-q"], { cwd: repo });
+    expect(run(["init", "--yes", "--surface", "claude-code"], repo).status).toBe(0);
+    const carrier = join(home, ".claude", "settings.json");
+    expect(existsSync(carrier)).toBe(true);
+    // The machine loses it — `uninstall --scope everything` is one way, a wiped home is
+    // another. `doctor` reads that state and answers "→ ai-eng update"; the repo's own
+    // assets are current, which is the normal shape of that machine, so an update that
+    // returns on "nothing to sync" before touching the machine turns the remedy into a
+    // no-op that loops.
+    rmSync(carrier);
+    const out = run(["update", "--yes"], repo);
+    expect(out.status, out.stdout + out.stderr).toBe(0);
+    expect(existsSync(carrier), out.stdout + out.stderr).toBe(true);
+  });
+
   test("user hooks survive init, update and uninstall, and ours leave with us", () => {
     useHome();
     const repo = repoWithUserSettings(USER_SETTINGS);
