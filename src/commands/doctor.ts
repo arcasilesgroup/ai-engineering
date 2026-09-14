@@ -252,9 +252,13 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
           status = surface.tier === "core" ? "fail" : "warn";
           rows.push(`machine carrier ~/${machine.path} missing → ai-eng update`);
         } else if (machine.kind === "module") {
-          const drift =
-            readFileSync(absolute, "utf8") !== files.main ||
-            (machine.chain !== undefined && files.chain !== null && readFileSync(carrierPath(machine, machine.chain), "utf8") !== files.chain);
+          // A missing chain bundle beside a current entry is drift, not a crash: the
+          // half-installed module host is exactly the state this check exists to report,
+          // and a health check that throws on it reports nothing at all (§14.2).
+          const chainPath = machine.chain === undefined ? null : carrierPath(machine, machine.chain);
+          const chainDrift =
+            chainPath !== null && files.chain !== null && (!existsSync(chainPath) || readFileSync(chainPath, "utf8") !== files.chain);
+          const drift = readFileSync(absolute, "utf8") !== files.main || chainDrift;
           if (drift) status = "warn";
           rows.push(drift ? `machine carrier ~/${machine.path} is NOT the one this binary ships → ai-eng update` : `machine carrier ~/${machine.path} matches the binary`);
         } else {

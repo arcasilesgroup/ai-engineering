@@ -64,10 +64,7 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   // ships are the user's, and a re-serialize would delete them.
   const raw = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
   const list = `[${current.map((id) => `"${id}"`).join(", ")}]`;
-  const next = /^enabled\s*=.*$/m.test(raw)
-    ? raw.replace(/^enabled\s*=.*$/m, `enabled = ${list}`)
-    : `${raw.trim() === "" ? "" : `${raw.trimEnd()}\n\n`}[surfaces]\nenabled = ${list}\n`;
-  writeFileSync(configPath, next);
+  writeFileSync(configPath, withSurfacesEnabled(raw, list));
   // Declaring a surface and leaving it without a carrier is a governed repo that is not
   // governed on that host. The carriers are written right here, by the same code init uses.
   for (const id of current.filter((entry) => !surfacesBefore.includes(entry) || entry === addedNow)) installSurfaceFiles(root, id);
@@ -75,7 +72,7 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   const removedSurfaces = surfacesBefore.filter((id) => !current.includes(id));
   const delta: ui.Row[] = [
     ...added.map((id): ui.Row => ({ mark: "ok", text: `+ ${id}`, dim: "adapter + skill mirror written" })),
-    ...removedSurfaces.map((id): ui.Row => ({ mark: "ok", text: `- ${id}`, dim: "adapter + mirror removed" })),
+    ...removedSurfaces.map((id): ui.Row => ({ mark: "ok", text: `- ${id}`, dim: "off in this repo; the machine carrier stays — it serves every governed repo" })),
   ];
   if (delta.length === 0) {
     ui.section("surfaces unchanged", [{ mark: "muted", text: current.join(", ") }], `${current.length} enabled`);
@@ -121,6 +118,35 @@ function removeSurfaceFiles(root: string, id: string): void {
       ui.ok(`${placement.chain} removed (chain module)`);
     }
   }
+}
+
+/** Rewrite the surfaces key in place, and never grow a second `[surfaces]` table.
+ *
+ *  Two shapes used to do exactly that, at exit 0: an `enabled` key indented under an
+ *  existing table (valid TOML the old `/^enabled\s*=/m` missed) and a `[surfaces]`
+ *  table that has no `enabled` key yet. Both appended a fresh header, which makes the
+ *  file unparseable — `declaration()` then reports the repository as undeclared and the
+ *  command that manages governance silently turns it off. That is the one class of bug
+ *  this product exists to prevent (§09.2), so the rewrite is table-aware: the key is
+ *  scoped to `[surfaces]` (a bare `enabled =` also matched the `[notices]` key of the
+ *  same name), and a file with no table gets one, at the end. */
+function withSurfacesEnabled(raw: string, list: string): string {
+  const lines = raw.split("\n");
+  const header = lines.findIndex((line) => /^\s*\[surfaces\]\s*$/.test(line));
+  if (header >= 0) {
+    for (let i = header + 1; i < lines.length; i += 1) {
+      const line = lines[i] ?? "";
+      if (/^\s*\[/.test(line)) break; // the next table: `enabled` belongs to it, not to us
+      if (/^\s*enabled\s*=/.test(line)) {
+        lines[i] = `enabled = ${list}`;
+        return lines.join("\n");
+      }
+    }
+    lines.splice(header + 1, 0, `enabled = ${list}`);
+    return lines.join("\n");
+  }
+  const body = raw.trim() === "" ? "" : `${raw.trimEnd()}\n\n`;
+  return `${body}[surfaces]\nenabled = ${list}\n`;
 }
 
 /** Write the carriers a surface needs, wherever it reads them. `config --add` used to

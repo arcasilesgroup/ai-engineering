@@ -86,6 +86,11 @@ export async function uninstallMain(): Promise<number> {
     return 0;
   }
 
+  // Read the declaration ONCE, before anything removes it. The machine sweep runs after
+  // the project side has deleted config.toml, and `enabledSurfaces()` then reports the
+  // no-config fallback (["claude-code"]): a repo declaring any other surface kept that
+  // host's carrier behind as an orphan pointing at a chain nothing serves.
+  const declared = enabledSurfaces();
   // ── project side ──────────────────────────────────────────────
   // The lock is the ownership register; when it is gone (a half-finished
   // uninstall, a hand-deletion), the binary's own planEntries list is the
@@ -99,7 +104,7 @@ export async function uninstallMain(): Promise<number> {
   let assets: Record<string, string> = hasLock ? parseLock(readFileSync(lockPath, "utf8")).assets : {};
   if (Object.keys(assets).length === 0) {
     assets = Object.fromEntries(
-      planEntries(enabledSurfaces()).map((entry) => [entry.path, sha256(entry.ours)]),
+      planEntries(declared).map((entry) => [entry.path, sha256(entry.ours)]),
     );
     removed.push({ mark: "muted", text: "no lock — swept by the binary's own file list" });
   }
@@ -186,7 +191,7 @@ export async function uninstallMain(): Promise<number> {
       // The carriers first, and by the table: they live in the HOSTS' directories, not
       // inside the canon home, so removing the canon would leave them behind pointing at a
       // chain that no longer exists — orphans with a marker.
-      const carriers = removeMachineCarriers(enabledSurfaces());
+      const carriers = removeMachineCarriers(declared);
       // The git floor first: the recorded state lives inside the canon home this scope is
       // about to delete, so reading it afterwards would restore nothing.
       const floorState = readMachineState().templateDir;

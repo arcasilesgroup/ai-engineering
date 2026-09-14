@@ -18,13 +18,22 @@ export function installCommand(manager: "bun" | "npm", version: string): string 
   return manager === "bun" ? `bun add -g ai-engineering@${version}` : `npm install -g ai-engineering@${version}`;
 }
 
-/** Inline changelog section for a version when the local CHANGELOG.md has it. */
+/** Inline changelog section for a version when the local CHANGELOG.md has it.
+ *
+ *  Split on the headings instead of one regex: `$` under the `m` flag matches the end of
+ *  ANY line, so the old `(?=\n## |$)` lookahead closed the lazy group on the first line
+ *  break — a heading followed by the blank line every changeset writes returned "" and
+ *  `ai-eng upgrade` fell back to the GitHub URL for a section it had in front of it. */
 export function changelogSection(root: string, version: string): string | null {
   const path = join(root, "CHANGELOG.md");
   if (!existsSync(path)) return null;
-  const text = readFileSync(path, "utf8");
-  const match = new RegExp(`^## ${version.replace(/\./g, "\\.")}[^\n]*\n([\\s\\S]*?)(?=\\n## |$)`, "m").exec(text);
-  return match ? match[1]?.trim() ?? null : null;
+  const lines = readFileSync(path, "utf8").split("\n");
+  const heading = new RegExp(`^## ${version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+  const start = lines.findIndex((line) => heading.test(line));
+  if (start < 0) return null;
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((line) => line.startsWith("## "));
+  return (end < 0 ? rest : rest.slice(0, end)).join("\n").trim();
 }
 
 export async function upgradeMain(): Promise<number> {

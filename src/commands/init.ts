@@ -223,7 +223,14 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   // config.toml with nothing to enforce it.
   for (const id of picked) {
     const surface = SURFACES.find((s) => s.id === id);
-    if (!surface) continue;
+    // A typo used to be declared instead of refused: `--surface claud-code` wrote the id
+    // into config.toml, installed no carrier for it, and left a repo calling itself
+    // governed on a surface that does not exist — the declaration is what the gate
+    // reads, so that is a repo governed by nothing.
+    if (!surface) {
+      ui.fail(`"${id}" is not a surface this release knows — nothing would enforce its guards.`);
+      return 2;
+    }
     if (!surfaceCanGovern(surface)) {
       ui.fail(`"${id}" cannot deny tools: the guards have nowhere to run. Use a core surface.`);
       return 2;
