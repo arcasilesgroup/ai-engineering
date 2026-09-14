@@ -70,7 +70,7 @@ export function canonExtras(homeDir: string): { stale: string[]; foreign: string
     }
   };
   walk(join(homeDir, "skills"), "");
-  return { stale: stale.sort(), foreign: foreign.sort() };
+  return { stale: stale.sort((a, b) => a.localeCompare(b, "en")), foreign: foreign.sort((a, b) => a.localeCompare(b, "en")) };
 }
 
 /** Sweep the stale files inside folders we ship, then the directories they leave
