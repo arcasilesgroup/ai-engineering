@@ -207,7 +207,8 @@ test("a tier's promise never silently contradicts its rows' measurements", () =>
     const surface = SURFACES.find((entry) => entry.id === id);
     return surface === undefined ? "" : surfaceHint(surface);
   };
-  expect(caveat("cursor")).toInclude("no output rewrite");
+  expect(caveat("cursor")).toInclude("can't rewrite output");
+  expect(caveat("cursor")).toInclude("research/003"); // and the row carries the source
   expect(caveat("codex")).toInclude("/hooks");
   expect(caveat("copilot")).toInclude("ephemeral");
   // A host with nothing degraded says nothing: an empty hint is the honest answer.
