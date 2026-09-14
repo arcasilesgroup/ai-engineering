@@ -8,7 +8,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodS
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { VERSION } from "../src/version.ts";
-import { home, repoRoot } from "../src/env.ts";
+import { home as moduleHome, repoRoot } from "../src/env.ts";
 
 const roots: string[] = [];
 const savedEnv = { home: process.env["AI_ENG_HOME"], path: process.env["PATH"], opt: process.env["AI_ENG_NO_UPDATE_NOTICES"] };
@@ -18,7 +18,7 @@ const savedCwd = process.cwd();
  *  through the same function the notice uses. A test that hardcodes its sandbox instead
  *  passes on a laptop and fails on a runner whose AI_ENG_HOME is not honoured. */
 function cachePath(): string {
-  return join(home(), "version.json");
+  return join(moduleHome(), "version.json");
 }
 
 function sandbox(prefix: string): string {
@@ -123,7 +123,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
       // instead of a guess about which of these differs on a runner.
       const { registryVersion } = await notice();
       throw new Error(
-        `notice wrote no cache — registry=${registryVersion()} home=${home()} root=${repoRoot()} optOut=${process.env["AI_ENG_NO_UPDATE_NOTICES"]} path=${process.env["PATH"]}`,
+        `notice wrote no cache — registry=${registryVersion()} home=${moduleHome()} root=${repoRoot()} optOut=${process.env["AI_ENG_NO_UPDATE_NOTICES"]} path=${process.env["PATH"]}`,
       );
     }
     expect(JSON.parse(readFileSync(cachePath(), "utf8")).version).toBe("9.9.9");
@@ -136,7 +136,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
       // instead of a guess about which of these differs on a runner.
       const { registryVersion } = await notice();
       throw new Error(
-        `notice wrote no cache — registry=${registryVersion()} home=${home()} root=${repoRoot()} optOut=${process.env["AI_ENG_NO_UPDATE_NOTICES"]} path=${process.env["PATH"]}`,
+        `notice wrote no cache — registry=${registryVersion()} home=${moduleHome()} root=${repoRoot()} optOut=${process.env["AI_ENG_NO_UPDATE_NOTICES"]} path=${process.env["PATH"]}`,
       );
     }
     expect(JSON.parse(readFileSync(cachePath(), "utf8")).version).toBe("9.9.9");
@@ -155,7 +155,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
       // instead of a guess about which of these differs on a runner.
       const { registryVersion } = await notice();
       throw new Error(
-        `notice wrote no cache — registry=${registryVersion()} home=${home()} root=${repoRoot()} optOut=${process.env["AI_ENG_NO_UPDATE_NOTICES"]} path=${process.env["PATH"]}`,
+        `notice wrote no cache — registry=${registryVersion()} home=${moduleHome()} root=${repoRoot()} optOut=${process.env["AI_ENG_NO_UPDATE_NOTICES"]} path=${process.env["PATH"]}`,
       );
     }
     expect(JSON.parse(readFileSync(cachePath(), "utf8")).version).toBe("9.9.9");
