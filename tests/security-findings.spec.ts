@@ -79,3 +79,4 @@ describe("a finding must say where it stands", () => {
     expect(code).not.toBe(0);
     expect(output).toContain('"status" must be one of "open", "fixed"');
   });
+});
