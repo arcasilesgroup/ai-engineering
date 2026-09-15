@@ -24,11 +24,12 @@ jobs:
     # triggered by a push, so an empty one is a scheduled or hand-dispatched run.
     if: github.base_ref == ''
     runs-on: ubuntu-latest
-    # The hard ceiling, not the estimate: a cold campaign has no cache behind it, and
-    # the plugin's inspector stream truncates under load (one spurious failure in seven
-    # dry runs). The measured number from the first real run of this job replaces this
-    # one — plan.html step 6.
-    timeout-minutes: 30
+    # The hard ceiling, not the estimate. Measured: this campaign took 4m29s on the
+    # first real run of the job (59.72% of 1,946 mutants, cold cache, ubuntu-latest)
+    # and 11m21s at `concurrency: 2` on the 8-core laptop that built the tier. The
+    # ceiling covers the slower of the two, with room for the plugin's known flake (one
+    # spurious dry-run failure in seven when the machine is loaded).
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -69,7 +70,9 @@ jobs:
   pull-request:
     if: github.base_ref != ''
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Same ceiling as the nightly: the same campaign, a cold or warm cache depending on
+    # what the base branch left behind.
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
