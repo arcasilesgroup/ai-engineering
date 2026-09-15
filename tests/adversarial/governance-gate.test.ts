@@ -223,3 +223,110 @@ describe("adversarial · the gate (config.toml decides, not .git)", () => {
     }
   });
 });
+
+// The fence is four file names, not the directory. Everything else under .ai-engineering/
+// is the session's own material: the four milestone slots (spec.html and plan.html
+// scaffolded by `spec open` and filled in by the session; brainstorm.md and recap.html with
+// no template at all — `spec close` sweeps all four, and doctor warns about an orphan
+// brainstorm.md precisely because the session that should have written one did not, §21.2),
+// and the artifacts the canon's own nodes promise: ai-research writes
+// research/NNN-{name}.html, ai-security writes security/run-N/, ai-design writes
+// design/direction.html. A directory literal denied every one of them — a guard that stops
+// a session writing what its skill told it to write protects nothing and breaks the loop it
+// governs. What stays protected is what a session could use to unpin, unhook or re-date
+// itself: the four files the chain reads, the directory itself, and the git floor.
+describe("adversarial · self-protect: the session writes its own artifacts, not the machinery", () => {
+  const SLOTS = ["spec.html", "plan.html", "brainstorm.md", "recap.html"];
+
+  /** A governed repo, plus a lock that pins a contract when asked. The pin is the only
+   *  thing that freezes a slot: spec.html stops being a draft the moment its sha256 is
+   *  in the lock (§9.3). */
+  function slotRepo(pinned: boolean): string {
+    const dir = governedRepo();
+    if (pinned) writeFileSync(join(dir, ".ai-engineering", "ai-eng.lock"), `version = "2.2.0"\nspec_sha256 = "${"a".repeat(64)}"\n`);
+    return dir;
+  }
+
+  const write = (root: string, ...parts: string[]) =>
+    runSelfProtect({ tool_name: "Write", tool_input: { file_path: join(root, ".ai-engineering", ...parts), content: "x" } } as never, root);
+
+  test("every artifact a node promises is writable while the milestone is open", () => {
+    const repo = slotRepo(false);
+    try {
+      for (const name of SLOTS) expect(write(repo, name)?.deny ?? false).toBe(false);
+      expect(write(repo, "research", "002-mutation-tier-facts.html")?.deny ?? false).toBe(false);
+      expect(write(repo, "security", "run-3", "findings.json")?.deny ?? false).toBe(false);
+      expect(write(repo, "security", "run-3", "REPORT.md")?.deny ?? false).toBe(false);
+      expect(write(repo, "design", "direction.html")?.deny ?? false).toBe(false);
+      expect(write(repo, "receipts", "x.json")?.deny ?? false).toBe(false);
+      expect(write(repo, "cache", "verdicts", "a.json")?.deny ?? false).toBe(false);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test("the four files the chain itself reads are denied", () => {
+    const repo = slotRepo(false);
+    try {
+      for (const name of ["config.toml", "overrides.toml", "ai-eng.lock", "arch.rules.json"]) {
+        expect(write(repo, name)?.deny).toBe(true);
+      }
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test("an approved contract is frozen, and the other three are not", () => {
+    const repo = slotRepo(true);
+    try {
+      // The pin, not the name: `spec.html` is the one artifact of the four that stops
+      // being a draft the moment a human approves it.
+      expect(write(repo, "spec.html")?.deny).toBe(true);
+      expect(write(repo, "plan.html")?.deny ?? false).toBe(false);
+      expect(write(repo, "brainstorm.md")?.deny ?? false).toBe(false);
+      expect(write(repo, "recap.html")?.deny ?? false).toBe(false);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test("the pin freezes the contract, not every path that spells its name", () => {
+    const repo = slotRepo(true);
+    try {
+      // The rule's criterion is the pinned file itself ("its sha256 sits in the lock").
+      // Matching the substring "spec.html" instead denied `templates/spec.html.tpl` — the
+      // payload every new project's contract is generated from — and would deny a future
+      // `docs/spec.html.md` too, while protecting nothing the pin was meant to protect.
+      const payload = join(repo, "templates", "spec.html.tpl");
+      const file = runSelfProtect({ tool_name: "Write", tool_input: { file_path: payload, content: "x" } } as never, repo);
+      expect(file?.deny ?? false).toBe(false);
+
+      const bash = runSelfProtect({ tool_name: "Bash", tool_input: { command: `sed -i '' 's|a|b|' ${payload}` } } as never, repo);
+      expect(bash?.deny ?? false).toBe(false);
+
+      // …and the contract it was pinned for is still frozen, by both routes.
+      expect(write(repo, "spec.html")?.deny).toBe(true);
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm -rf ${join(repo, ".ai-engineering", "spec.html")}` } } as never, repo)?.deny).toBe(true);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test("a command that names the directory is judged as a whole; its files are not it", () => {
+    const repo = slotRepo(false);
+    try {
+      const bash = (command: string) => runSelfProtect({ tool_name: "Bash", tool_input: { command } } as never, repo);
+      // `rm -rf .ai-engineering` names the directory and nothing else: the layer rules, the
+      // lock, the ledger and the receipts in one word. That stays denied, and so does
+      // naming one of the four files the chain reads.
+      expect(bash(`rm -rf ${join(repo, ".ai-engineering")}`)?.deny).toBe(true);
+      expect(bash(`rm -rf ${join(repo, ".ai-engineering", "ai-eng.lock")}`)?.deny).toBe(true);
+      // Its children are the session's own material, so deleting or moving one is a write
+      // like any other.
+      expect(bash(`rm -rf ${join(repo, ".ai-engineering", "brainstorm.md")}`)?.deny ?? false).toBe(false);
+      expect(bash(`mv ${join(repo, ".ai-engineering", "brainstorm.md")} /tmp/x`)?.deny ?? false).toBe(false);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+});

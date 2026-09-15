@@ -6,21 +6,21 @@
 <title>{ai} Engineering v2 — El plan, tal cual</title>
 <style>
   :root {
-    --bg: #0B1120;
-    --surface: #121E36;
-    --surface-2: #0E1830;
-    --line: #2EB39A47;
-    --line-strong: #2EB39A88;
-    --text: #F8FAFB;
-    --dim: #A9BBD0;
-    --accent: #00D4AA;
-    --accent-dim: #5FE6C6;
-    --ok: #22c55e;
-    --bad: #ef4444;
-    --warn: #eab308;
-    --orange: #f97316;
-    --purple: #a855f7;
-    --comment: #6b87a6;
+    --bg: #001E2B;
+    --surface: #112733;
+    --surface-2: #1C2D38;
+    --line: rgba(61,79,88,.3);
+    --line-strong: rgba(61,79,88,.6);
+    --text: #FFFFFF;
+    --dim: #C1C7C6;
+    --accent: #00ED64;
+    --accent-dim: #71F6BA;
+    --ok: #00ED64;
+    --bad: #FF6960;
+    --warn: #FFC010;
+    --orange: #FFC010;
+    --purple: #B45AF2;
+    --comment: #889397;
     --mono: 'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
     --sans: -apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
   }
@@ -35,7 +35,7 @@
     background-image:
       linear-gradient(var(--line) 1px, transparent 1px),
       linear-gradient(90deg, var(--line) 1px, transparent 1px),
-      radial-gradient(ellipse 80% 60% at 50% 0%, #16284466, transparent);
+      radial-gradient(ellipse 80% 60% at 50% 0%, #11273366, transparent);
     background-size:32px 32px, 32px 32px, 100% 100%;
   }
   .hero .stamp {
@@ -55,12 +55,12 @@
   .hero .br { bottom:18px; right:18px; border-width:0 2px 2px 0; }
 
   nav {
-    position:sticky; top:0; z-index:50; background:#0B1120EE; backdrop-filter:blur(8px);
+    position:sticky; top:0; z-index:50; background:#001E2BEE; backdrop-filter:blur(8px);
     border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11px;
     display:flex; flex-wrap:wrap; justify-content:center; gap:2px 14px; padding:10px 16px;
   }
   nav a { color:var(--dim); text-decoration:none; letter-spacing:.04em; padding:6px 2px; min-height:24px; }
-  nav a.active { color:var(--accent); background:rgba(0,212,170,.08); font-weight:600; }
+  nav a.active { color:var(--accent); background:rgba(0,237,100,.08); font-weight:600; }
   @media (hover:hover) and (pointer:fine) { nav a:hover { color:var(--accent); } }
   nav a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:3px; }
   nav a b { color:var(--accent); font-weight:400; }
@@ -87,15 +87,15 @@
   th { text-align:left; padding:10px 12px; border-bottom:2px solid var(--line-strong); color:var(--accent); font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.12em; font-weight:500; }
   td { padding:10px 12px; border-bottom:1px solid var(--line); color:var(--dim); vertical-align:top; }
   td:first-child { color:var(--text); font-weight:520; }
-  @media (hover:hover) and (pointer:fine) { tr:hover td { background:#16284433; } }
+  @media (hover:hover) and (pointer:fine) { tr:hover td { background:#11273333; } }
   .tbl-wrap { overflow-x:auto; }
 
   .pill { display:inline-block; font-family:var(--mono); font-size:10px; font-weight:600; padding:2px 8px; border-radius:100px; letter-spacing:.06em; white-space:nowrap; }
-  .p-ok   { background:rgba(34,197,94,.14);  color:var(--ok);   border:1px solid rgba(34,197,94,.35); }
-  .p-bad  { background:rgba(239,68,68,.13);  color:var(--bad);  border:1px solid rgba(239,68,68,.35); }
-  .p-warn { background:rgba(234,179,8,.13);  color:var(--warn); border:1px solid rgba(234,179,8,.35); }
-  .p-fix  { background:rgba(0,212,170,.12);  color:var(--accent); border:1px solid rgba(0,212,170,.4); }
-  .p-dim  { background:#16284466; color:var(--dim); border:1px solid var(--line); }
+  .p-ok   { background:rgba(0,237,100,.14);  color:var(--ok);   border:1px solid rgba(0,237,100,.35); }
+  .p-bad  { background:rgba(255,105,96,.13);  color:var(--bad);  border:1px solid rgba(255,105,96,.35); }
+  .p-warn { background:rgba(255,192,16,.13);  color:var(--warn); border:1px solid rgba(255,192,16,.35); }
+  .p-fix  { background:rgba(0,237,100,.12);  color:var(--accent); border:1px solid rgba(0,237,100,.4); }
+  .p-dim  { background:#11273366; color:var(--dim); border:1px solid var(--line); }
 
   .grid { display:grid; gap:14px; margin:20px 0; }
   .g2 { grid-template-columns:1fr 1fr; } .g3 { grid-template-columns:1fr 1fr 1fr; } .g4 { grid-template-columns:repeat(4,1fr); }
@@ -116,7 +116,7 @@
 
   .flow { font-family:var(--mono); font-size:12.5px; line-height:1.75; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:22px; margin:18px 0; white-space:pre; overflow-x:auto; color:var(--dim); }
   .flow .nd { color:var(--accent); font-weight:600; }
-  .flow .ed { color:#3d5273; }
+  .flow .ed { color:#3D4F58; }
   .flow .lb { color:var(--ok); }
   .flow .rd { color:var(--bad); }
   .flow .wd { color:var(--warn); }
@@ -238,12 +238,12 @@
       <p class="src">v4, v5=v9, v22</p>
     </div>
     <div class="card">
-      <h4><span class="pill p-dim" style="border-color:rgba(168,85,247,.4);color:var(--purple)">7 videos</span> Design Skills</h4>
+      <h4><span class="pill p-dim" style="border-color:rgba(180,90,242,.4);color:var(--purple)">7 videos</span> Design Skills</h4>
       <p>Claude Design, shadcn, GSAP, taste presets, anti-slop audit (Hallmark, 58 gates), Meta «Asterisk» (150+ componentes), Kimi K3. El patrón: <strong>force commitment → audit → refine</strong>.</p>
       <p class="src">v2, v6, v15, v18, v24, v25, v27</p>
     </div>
     <div class="card">
-      <h4><span class="pill p-dim" style="border-color:rgba(249,115,22,.4);color:var(--orange)">1 video ×3</span> Model Comparison</h4>
+      <h4><span class="pill p-dim" style="border-color:rgba(255,192,16,.4);color:var(--orange)">1 video ×3</span> Model Comparison</h4>
       <p>GPT 5.6 Sol vs Claude Fable. Reglas: boundaries first, Sol para ejecución, Fable para decisiones (<em>«Fable antes del build, Sol después»</em> [11:16]). Prompt stripping: <strong>−41–66% tokens, +10–15% calidad</strong>.</p>
       <p class="src">v19=v20=v21</p>
     </div>
@@ -312,7 +312,7 @@
         <td>Model routing (advisor + router loop), shell hooks que filtran output, templates de CLAUDE.md &lt;300 líneas. <strong>model_router.py: 61 LOC</strong> — paso→tier→modelo, lee el pin, jamás llama un modelo. <strong>rtk (externo v22): 77.9k⭐ Apache-2.0</strong> — proxy Rust que comprime la salida de bash 60–90%, 100+ comandos, hook de reescritura por superficie; ai-eng no lo bundlea, lo ofrece en init (§14).</td>
       </tr>
       <tr>
-        <td><span class="pill p-dim" style="border-color:rgba(168,85,247,.4);color:var(--purple)">Design Pipeline</span></td>
+        <td><span class="pill p-dim" style="border-color:rgba(180,90,242,.4);color:var(--purple)">Design Pipeline</span></td>
         <td>claude-design-skills, AL-Design, al-design-system, astryx</td>
         <td><strong>18 skills de diseño en total</strong> (1+10+7), con 5 duplicados exactos entre AL-Design y al-design-system. claude-design-skills es <strong>1 router + routing-table + conflicts.md</strong> — el patrón que ai-design copia, no reinventa.</td>
       </tr>
@@ -332,7 +332,7 @@
         <td>Vulnerability scanning, proof-ledger de completion, <strong>graph-engineering: 12 SKILL.md en 3 tiers</strong> (standalone/embedded/chain) — es el esqueleto de ai-verify. <strong>mantis (externo v22): pipeline de 15 etapas de Google</strong> — recon → hipótesis → reproducción → parche; Apache-2.0, 796⭐. Los 3 forks divergentes de ai-slop-detector sin versionar son la prueba viva de por qué hace falta lockfile.</td>
       </tr>
       <tr>
-        <td><span class="pill p-dim" style="border-color:rgba(34,211,238,.4);color:var(--ok)">Context &amp; Reach</span></td>
+        <td><span class="pill p-dim" style="border-color:rgba(4,152,236,.4);color:var(--ok)">Context &amp; Reach</span></td>
         <td>agent-reach, skill-retriever</td>
         <td>Externo v22. <strong>agent-reach: 76.8k⭐ MIT</strong> — un CLI, 16+ plataformas de internet sin cuotas de API; superficie de acción, no gobernanza. <strong>skill-retriever: 7⭐ MIT, incipiente</strong> — selección de skills por embeddings (~11K→2.3K tokens/turno). Ninguno entra en v2: el primero amplía qué puede tocar el agente sin añadir guards; el segundo resuelve un problema que el canon global de 20 skills aún no tiene.</td>
       </tr>
@@ -1897,17 +1897,17 @@ receipts_ttl = "30d" # receipts: agregar y borrar</pre><p style="margin-top:10px
   <div class="grid g2">
     <div class="card">
       <h4>Colors</h4>
-      <p><code style="background:#0B1120;color:#F8FAFB;padding:2px 8px;border-radius:4px">#0B1120</code> background &middot; <code style="background:#00D4AA;color:#0B1120;padding:2px 8px;border-radius:4px">#00D4AA</code> accent &middot; <code style="background:#F8FAFB;color:#0B1120;padding:2px 8px;border-radius:4px">#F8FAFB</code> text</p>
-      <p>State colors: <code>#22c55e</code> ok &middot; <code>#ef4444</code> bad &middot; <code>#eab308</code> warn &middot; <code>#a855f7</code> purple &middot; <code>#f97316</code> orange</p>
+      <p><code style="background:#001E2B;color:#FFFFFF;padding:2px 8px;border-radius:4px">#001E2B</code> background &middot; <code style="background:#00ED64;color:#001E2B;padding:2px 8px;border-radius:4px">#00ED64</code> accent &middot; <code style="background:#FFFFFF;color:#001E2B;padding:2px 8px;border-radius:4px">#FFFFFF</code> text</p>
+      <p>State colors: <code>#00ED64</code> ok &middot; <code>#FF6960</code> bad &middot; <code>#FFC010</code> warn &middot; <code>#B45AF2</code> purple &middot; <code>#FFC010</code> orange</p>
     </div>
     <div class="card">
       <h4>Rules</h4>
       <ul>
-        <li><strong>Terminal-Green</strong> — accent is always #00D4AA, never shifted</li>
-        <li><strong>One-Hue</strong> — single accent color, no secondary hues</li>
+        <li><strong>Spring-Green</strong> — the signal color is always #00ED64, never shifted; small green takes its reading tint #71F6BA</li>
+        <li><strong>One-Signal</strong> — one signal hue; the neutrals stay gray and the state colors mark state</li>
         <li><strong>Dark-Only</strong> — no light mode, ever</li>
-        <li><strong>One-Family</strong> — system font stack, no imported families</li>
-        <li><strong>Lit-Edge</strong> — 1px border accent glow, no heavy shadows</li>
+        <li><strong>Two-Voices</strong> — system sans for prose, system mono for instruments; no imported families</li>
+        <li><strong>Neutral-Edge</strong> — 1px neutral hairline borders, no heavy shadows</li>
         <li><strong>Corner-Bracket</strong> — decorative corner marks on hero/header</li>
       </ul>
     </div>
@@ -1920,14 +1920,14 @@ receipts_ttl = "30d" # receipts: agregar y borrar</pre><p style="margin-top:10px
 
   <div class="note ok">
     <h4>spec.html template</h4>
-    <p>Every spec.html, plan.html and <code>.ai-engineering/{research,design,security}/….html</code> follows this exact design system: <code>#0B1120</code> background, <code>#00D4AA</code> accent for section headers and gate status, <code>#F8FAFB</code> text, dark cards with <code>1px solid rgba(0,212,170,.15)</code> borders, monospace for code/checks, the same nav + scroll-spy as this blueprint. The spec is both a contract for the AI and a readable document for humans — it must look like it belongs to ai-engineering, not like a generic markdown file.</p>
+    <p>Every spec.html, plan.html and <code>.ai-engineering/{research,design,security}/….html</code> follows this exact design system: <code>#001E2B</code> background, <code>#00ED64</code> accent for section headers and gate status, <code>#FFFFFF</code> text, dark cards with <code>1px solid rgba(61,79,88,.3)</code> borders, monospace for code/checks, the same nav + scroll-spy as this blueprint. The spec is both a contract for the AI and a readable document for humans — it must look like it belongs to ai-engineering, not like a generic markdown file.</p>
   </div>
 </section>
 
 <footer>
   <span class="x">{ai}</span> engineering v2 · blueprint v17 · paquete 0.13.0 · 2026-08-31<br>
   22 videos · 37 proyectos + 6 externos verificados · 6 verbos humanos + 4 máquina · 5 guards · canon global de 20 skills (11 core + 9 bajo demanda) · 3 superficies core (+Hermes en medición) · 4 contratos · ≈3,800 LOC propios · Bun + TypeScript<br>
-  <span style="color:#5b7089">proof &gt; promise — y prueba &gt; ceremonia</span>
+  <span style="color:#5C6C75">proof &gt; promise — y prueba &gt; ceremonia</span>
 </footer>
 
 </div>

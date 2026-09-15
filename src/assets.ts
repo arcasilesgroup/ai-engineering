@@ -99,6 +99,9 @@ import askills_ai_read_docs_SKILL_md from "../skills/ai-read-docs/SKILL.md" with
 import askills__chain_bundle_ai_eng_chain_ts from "../skills/.chain-bundle/ai-eng-chain.ts" with { type: "file" };
 import askills_ai_rtk_references_commands_md from "../skills/ai-rtk/references/commands.md" with { type: "file" };
 import askills_ai_rtk_SKILL_md from "../skills/ai-rtk/SKILL.md" with { type: "file" };
+import askills_ai_stress_test_references_tool_selection_md from "../skills/ai-stress-test/references/tool-selection.md" with { type: "file" };
+import askills_ai_stress_test_references_safety_md from "../skills/ai-stress-test/references/safety.md" with { type: "file" };
+import askills_ai_stress_test_SKILL_md from "../skills/ai-stress-test/SKILL.md" with { type: "file" };
 import askills_ai_plan_agents_openai_yaml from "../skills/ai-plan/agents/openai.yaml" with { type: "file" };
 import askills_ai_plan_SKILL_md from "../skills/ai-plan/SKILL.md" with { type: "file" };
 import askills_ai_plan_commands_prototype_md from "../skills/ai-plan/commands/prototype.md" with { type: "file" };
@@ -223,6 +226,9 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/.chain-bundle/ai-eng-chain.ts": askills__chain_bundle_ai_eng_chain_ts as unknown as string,
   "../skills/ai-rtk/references/commands.md": askills_ai_rtk_references_commands_md as unknown as string,
   "../skills/ai-rtk/SKILL.md": askills_ai_rtk_SKILL_md as unknown as string,
+  "../skills/ai-stress-test/references/tool-selection.md": askills_ai_stress_test_references_tool_selection_md as unknown as string,
+  "../skills/ai-stress-test/references/safety.md": askills_ai_stress_test_references_safety_md as unknown as string,
+  "../skills/ai-stress-test/SKILL.md": askills_ai_stress_test_SKILL_md as unknown as string,
   "../skills/ai-plan/agents/openai.yaml": askills_ai_plan_agents_openai_yaml as unknown as string,
   "../skills/ai-plan/SKILL.md": askills_ai_plan_SKILL_md as unknown as string,
   "../skills/ai-plan/commands/prototype.md": askills_ai_plan_commands_prototype_md as unknown as string,

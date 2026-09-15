@@ -28,6 +28,21 @@ Format: skill — source (integrated verbatim) — author — license — URL.
 | ai-writing-behavior | writing-agent-behavior (agentbehavior) | Braintrust + Basis | Apache-2.0 | https://github.com/braintrustdata/agentbehavior |
 | ai-agents-md | agents.md convention + published sample layouts | agents.md (OpenAI/Codex et al.) | MIT | https://agents.md/ · https://github.com/agentsmd/agents.md |
 
+## The brand (§22)
+
+The visual identity is neither a skill nor bundled content: it is a palette.
+`brand/tokens.json` copies the colour families **verbatim** from
+[LeafyGreen UI](https://github.com/mongodb/leafygreen-ui/blob/main/packages/palette/src/palette.ts)
+(`packages/palette/src/palette.ts`) — © MongoDB, Inc., Apache-2.0.
+
+What is adopted is the visual grammar: the palette, the type treatment, the geometry and
+the component shapes. The identity is not. No MongoDB logo, wordmark, leaf glyph or
+stylized name appears anywhere in this repository, and none may be added — those are
+trademarks and Apache-2.0 §7 grants no rights to them. MongoDB's own typefaces (Euclid
+Circular A, MongoDB Value Serif) are commercial and are not shipped; Archivo stands in
+for them, and that substitution is named in the landing site's `DESIGN.md` rather than
+left for a reader to discover.
+
 ## Open H4 issues (upstreams without a license — contact pending)
 - Loop-Engineering (ai-goal): no LICENSE, no author/URL in the tree.
 - claude-design-skills/design-orchestrator (ai-design): no license in the repo.

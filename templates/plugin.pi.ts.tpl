@@ -5,7 +5,7 @@
 // lives in the chain's payload normaliser with the other hosts'. Project-local
 // extensions load once pi trusts the folder (it asks; --approve pre-answers).
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { chain } from "./ai-eng-chain.ts";
+import { chain } from "./.ai-eng-chain.ts";
 
 /** The tool's own output as text: the injection guard's containment arm reads it. */
 function textOf(content: ReadonlyArray<{ type?: string; text?: string }>): string {

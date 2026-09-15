@@ -258,12 +258,14 @@ test("init scaffolds pi's extension where pi reads it: the machine", () => {
   const r = run(["init", "--yes", "--surface", "pi"], fresh);
   expect(r.status).toBe(0);
   const extension = join(home, ".pi", "agent", "extensions", "ai-eng.ts");
-  const bundle = join(home, ".pi", "agent", "extensions", "ai-eng-chain.ts");
+  const bundle = join(home, ".pi", "agent", "extensions", ".ai-eng-chain.ts");
   expect(existsSync(extension)).toBe(true);
   expect(existsSync(bundle)).toBe(true);
   // The relative import must point at the file that ships beside it: a broken pair is
-  // a dead guard, not a compile error anyone would see.
-  expect(readFileSync(extension, "utf8")).toInclude('from "./ai-eng-chain.ts"');
+  // a dead guard, not a compile error anyone would see. The bundle is dot-prefixed
+  // because pi loads EVERY *.ts in extensions/ as a factory and a bundle is not one —
+  // the same failure omp's hook scanner has (surfaces.json oh-my-pi carrier source).
+  expect(readFileSync(extension, "utf8")).toInclude('from "./.ai-eng-chain.ts"');
   expect(existsSync(join(fresh, ".pi"))).toBe(false);
 });
 

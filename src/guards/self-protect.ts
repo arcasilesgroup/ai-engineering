@@ -1,7 +1,16 @@
-// Writes against anything that governs the agent. The first thing an agent obeying
-// injected text does is unhook its guards: .ai-engineering/ governed files, spec.html
-// once its sha256 is pinned in the lock (reopening an approved contract costs a
-// human), canon skills.
+// Writes against the four things that govern the agent, and nothing else: the files the
+// chain itself reads (config.toml, overrides.toml, ai-eng.lock, arch.rules.json), the git
+// floor, spec.html once its sha256 is pinned in the lock (reopening an approved contract
+// costs a human), and the machine-side canon and carriers.
+//
+// Everything else under .ai-engineering/ is the session's to write, and the fence used to
+// be a directory literal — which denied the loop's own artifacts. It denied the slots
+// (brainstorm/spec/plan/recap die at `spec close` and the session is their only writer),
+// and it denied the artifacts the canon's own nodes promise: ai-research writes
+// research/NNN-{name}.html, ai-security writes security/run-N/, ai-design writes
+// design/direction.html. A guard that stops a session writing what its skill told it to
+// write protects nothing and breaks the loop it governs. What stays protected is the
+// machinery a session could use to unpin, unhook or re-date itself — not its own evidence.
 
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
@@ -28,6 +37,10 @@ type GuardResult = { deny: true; reason: string } | { deny: false } | undefined;
 export type ProtectedPaths = {
   literals: string[]; // substring-matched against commands and resolved paths
   specPinned: boolean; // spec.html approved (sha256 in lock) → protected
+  /** Matched as the LAST segment only: the protected directory itself, never a child of
+   *  it. `rm -rf .ai-engineering` names it and nothing else; `.ai-engineering/research/…`
+   *  inside it is the session's own material. */
+  terminal: string[];
 };
 
 function surfacesSettings(repoRoot: string): string[] {
@@ -59,15 +72,22 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json"]) {
     literals.push(join(machineBase(), carrier));
   }
-  if (!repoRoot) return { literals: literals.filter((p) => p.length > 0), specPinned: false };
+  if (!repoRoot) return { literals: literals.filter((p) => p.length > 0), specPinned: false, terminal: [] };
 
   // Prose contracts the user owns: editable by the governed agent (blueprint §9.2
   // "AGENTS.md no es sagrado" / §13.3 "tú lo editas"), so they are NOT literals.
-  // Only machinery below stays protected.
-  literals.push(".ai-engineering");
-  // The governed directory and its fixed governing children.
+  // Only the machinery below stays protected.
+  //
+  // The directory is protected as a TERMINAL match — the last segment, never a prefix: a
+  // command that names `.ai-engineering` is deleting everything the chain owns in one
+  // word, while a file inside it is the session's own material (the four slots, the
+  // research and security artifacts its own nodes write, the receipts). One substring
+  // literal for the directory denied both, which is how a guard ends up stopping the loop
+  // it governs.
   const aiEng = join(repoRoot, ".ai-engineering");
-  literals.push(aiEng);
+  const terminal = [".ai-engineering", aiEng];
+  // The four files the chain itself reads: the ceiling, the guard switches, the pins, the
+  // layer rules.
   for (const name of ["config.toml", "overrides.toml", "ai-eng.lock", "arch.rules.json"]) {
     literals.push(join(aiEng, name));
   }
@@ -77,6 +97,11 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   // (Write/Edit/redirect all allowed).
   literals.push(join(repoRoot, ".git", "hooks"));
   // spec.html is protected ONLY once approved: its sha256 sits in the lock (§9.3).
+  // The fence is that file, not the word. Matching the substring "spec.html" also denied
+  // `templates/spec.html.tpl` — the payload `init` generates every project's contract
+  // from — and any future `docs/spec.html.md`, while the rule's own criterion is the
+  // pinned file. Pushing the path through the literal list keeps the same protection on
+  // the same file, through the same matching the other governed paths already use.
   let specPinned = false;
   try {
     const lock = Bun.TOML.parse(readFileSync(join(aiEng, "ai-eng.lock"), "utf8")) as Record<string, unknown>;
@@ -85,12 +110,13 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   } catch {
     specPinned = false;
   }
+  if (specPinned) literals.push(join(aiEng, "spec.html"));
   // Surface wiring we ourselves wrote.
   literals.push(...surfacesSettings(repoRoot));
   // Global canon and machine state: ~/.ai-engineering/** and the home mirrors. Both are
   // protected above, for the repo-less call as well.
   // Drop empties: the test is substring, and "" is a substring of every command.
-  return { literals: literals.filter((p) => p.length > 0), specPinned };
+  return { literals: literals.filter((p) => p.length > 0), specPinned, terminal };
 }
 
 
@@ -133,11 +159,18 @@ function expandTilde(path: string): string {
  *  EDITABLE by the governed agent (blueprint §9.2: "AGENTS.md no es sagrado";
  *  §13.3: "tú lo editas") — they are instructions, not wiring, and are simply not
  *  in the protected literal list. What must never change from inside a session is
- *  the machinery: .ai-engineering/, surface settings, git hooks, the global canon,
- *  and spec.html once approved. Bare names match as whole path SEGMENTS (never
- *  substrings): "src/AGENTS.md.notes/x.md" is not a contract file. Absolute
- *  literals stay substring. */
+ *  the machinery: the four files the chain reads, surface settings, git hooks, the
+ *  global canon, and spec.html once approved. Bare names match as whole path
+ *  SEGMENTS (never substrings): "src/AGENTS.md.notes/x.md" is not a contract file.
+ *  Absolute literals stay substring. */
 function offendingPath(paths: ProtectedPaths, text: string): string | null {
+  // The directory, as the last segment only. A child of it is the session's material, so
+  // this cannot be a substring test: `.ai-engineering/research/x.html` contains the
+  // directory and is not it.
+  for (const path of paths.terminal) {
+    const segment = new RegExp(`(^|/)${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+    if (segment.test(text)) return path;
+  }
   for (const path of paths.literals) {
     const bare = path === basename(path);
     if (bare) {
@@ -146,9 +179,9 @@ function offendingPath(paths: ProtectedPaths, text: string): string | null {
       if (segment.test(text)) return path;
       continue;
     }
-    if (text.includes(path)) return path;
+    if (!text.includes(path)) continue;
+    return path;
   }
-  if (paths.specPinned && text.includes("spec.html")) return "spec.html (approved contract — sha256 pinned)";
   return null;
 }
 
@@ -178,7 +211,8 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
       }
       canonical = prefix;
     }
-    const found = offendingPath(paths, canonical) ?? offendingPath(paths, resolved) ?? offendingPath(paths, expanded) ?? offendingPath(paths, target);
+    const candidates = [canonical, resolved, expanded, target];
+    const found = candidates.map((form) => offendingPath(paths, form)).find((hit) => hit != null) ?? null;
     if (found) {
       return {
         deny: true,
@@ -235,6 +269,18 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
         }
       }),
       specPinned: paths.specPinned,
+      // The same canon as the literals: an absolute entry left in its raw form never
+      // matches a command whose path tokens were rewritten above. The relative form is
+      // left alone on purpose — realpathSync would resolve it against the process cwd,
+      // not against the repo being judged.
+      terminal: paths.terminal.map((p) => {
+        if (!isAbsolute(p)) return p;
+        try {
+          return realpathSync(p);
+        } catch {
+          return p;
+        }
+      }),
     };
     const expandedCommand = canon(command);
     const pieces = expandedCommand.split(SEPARATORS).filter((p) => p.trim().length > 0);
