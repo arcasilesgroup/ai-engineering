@@ -304,6 +304,18 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(second.value).toBe(0);
     expect(second.out).toInclude("assets current");
     expect(second.out).not.toInclude("assets synced");
+    // Both halves report on a run that changed nothing — an update that answers "all
+    // assets current" and stops cannot be told from one that never looked at the canon,
+    // the carriers or the git floor (cli-ux-14).
+    expect(second.out).toInclude("Machine side");
+    expect(second.out).toInclude("nothing to write");
+    expect(second.out).toInclude("global canon");
+    expect(second.out).toInclude("machine carrier already current");
+    expect(second.out).toInclude("git init.templateDir");
+    expect(second.out).toInclude("Nothing written");
+    // The carrier the first run wrote is current now: reported as checked, never counted
+    // as a write — the module carrier used to be rewritten and reported every run.
+    expect(second.out).not.toInclude("machine carrier · written");
     expect(readFileSync(lockPath, "utf8")).toBe(bytes);
     expect(statSync(lockPath).mtimeMs).toBe(mtime);
   });

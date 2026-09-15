@@ -102,7 +102,7 @@ One command, start to finish: it installs the CLI and runs it. `init` writes the
 
 The whole payload arrives with the package: the `ai-eng` binary, the skill canon and the templates. [Bun](https://bun.sh) ≥ 1.4 must be installed, because the package ships a Bun entrypoint.
 
-Want the CLI without running it yet? Same line, without `&& ai-eng init`. To stay current: `ai-eng upgrade` re-runs the install after showing you the changelog, and `ai-eng update` rewrites the installed files from the binary you already have, with no network at all.
+Want the CLI without running it yet? Same line, without `&& ai-eng init`. To stay current: `ai-eng upgrade` re-runs the install after showing you the changelog, and `ai-eng update` rewrites the installed files from the binary you already have, with no network at all — reporting the repo's assets and the machine's canon, carriers and git floor in one pass, so a run that changed nothing says so.
 
 <details>
 <summary>Building from source</summary>

@@ -567,8 +567,20 @@ describe("carriers on the machine", () => {
     expect(readFileSync(chain, "utf8")).toBe(files.chain!);
     expect(readMachineState().carriers["opencode"]).toBe(sha256(files.main));
 
-    // Ours whole means ours whole: a reinstall rewrites it, it is never merged into.
+    // Ours whole means ours whole: a reinstall never merges into it, and a file a hand
+    // edits is written over. Bytes already ours are not a write at all — the count is
+    // what update's report prints, and a no-op reported as a write is a lie the frame
+    // cannot afford (cli-ux-14).
+    writeFileSync(main, `${files.main}\n// patched by hand\n`);
     expect(installMachineCarriers(["opencode"]).written).toEqual(["~/.config/opencode/plugins/ai-eng.ts"]);
+    expect(readFileSync(main, "utf8")).toBe(files.main);
+
+    expect(installMachineCarriers(["opencode"])).toEqual({ written: [], untouched: ["~/.config/opencode/plugins/ai-eng.ts"], refused: [] });
+    // A missing chain bundle beside an identical main is still a write: half a carrier is
+    // not current.
+    rmSync(chain);
+    expect(installMachineCarriers(["opencode"]).written).toEqual(["~/.config/opencode/plugins/ai-eng.ts"]);
+    expect(readFileSync(chain, "utf8")).toBe(files.chain!);
   });
 
   test("installMachineCarriers honors PI_CODING_AGENT_DIR: the host's directory, not the default one", () => {
