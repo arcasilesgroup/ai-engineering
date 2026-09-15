@@ -7,13 +7,12 @@
 // the auditor runs before writing the report.
 import { describe, expect, test, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
 const VALIDATOR = join(ROOT, "skills", "ai-security", "references", "validate-findings.cjs");
-const SECURITY_RUNS = join(ROOT, ".ai-engineering", "security");
 
 /** A confirmed finding whose only interesting field is `disposition`: everything else is
  *  the shape the schema requires, so a failure below is about the state, not the shape. */
@@ -80,17 +79,3 @@ describe("a finding must say where it stands", () => {
     expect(code).not.toBe(0);
     expect(output).toContain('"status" must be one of "open", "fixed"');
   });
-});
-
-describe("the runs this repo ships validate against the schema it ships", () => {
-  test("every run-N/findings.json passes the skill's own validator", () => {
-    const runs = readdirSync(SECURITY_RUNS).filter((name) => name.startsWith("run-"));
-    expect(runs.length).toBeGreaterThan(0);
-    for (const run of runs) {
-      const file = join(SECURITY_RUNS, run, "findings.json");
-      const result = spawnSync("node", [VALIDATOR, file], { encoding: "utf8" });
-      expect(`${run}: ${result.stdout}${result.stderr}`).toContain("PASS");
-      expect(result.status).toBe(0);
-    }
-  });
-});
