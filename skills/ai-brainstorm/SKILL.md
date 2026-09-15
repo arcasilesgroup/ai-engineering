@@ -235,7 +235,11 @@ period, or `·`.
 
 1. Output path: `.ai-engineering/brainstorm.md` — a slot, not an archive. It dies at STOP 1
    (contract approval): whatever survived into spec/plan was the signal, the rest was
-   noise.
+   noise. It is one of the four milestone slots — `spec.html`, `plan.html`,
+   `brainstorm.md`, `recap.html` — which the session writes, `spec close` sweeps, and
+   `doctor` reports as an orphan if one outlives its contract. Write it with the file
+   tools, or with a redirect: `rm`, `mv` and `tee` into `.ai-engineering/` are denied,
+   because a verb that can act on several paths is judged as a whole command.
 2. The gaps feed ai-plan as files, not chat: "Decisions still open" and "Open questions"
    become ai-plan's question queue.
 3. Grounding duty (§11.6): never cite a file or API you have not opened this session —

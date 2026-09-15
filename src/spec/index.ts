@@ -16,9 +16,9 @@ import { writeReceipt } from "../receipts.ts";
 import { embeddedTemplate } from "../embed.ts";
 import { parseLock, lockText } from "../install.ts";
 import { unmetTriggers } from "./triggers.ts";
+import { SLOT_FILES } from "../shared-slots.ts";
 import { VERSION } from "../version.ts";
 
-const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.md", "recap.html"];
 /** An ABANDON with less than this much reason is a checkbox, not an honest exit. */
 const MIN_ABANDON_REASON = 12;
 

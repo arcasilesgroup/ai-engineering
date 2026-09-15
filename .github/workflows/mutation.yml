@@ -1,0 +1,117 @@
+name: mutation
+# The mutation tier (§17.1) — it asks whether the core's own tests would notice a guard
+# that stopped denying. Off the fast path by construction: nightly, on demand, and on a
+# pull request that touches the governance core. Never on an ordinary push.
+#
+# Every action is GitHub-owned and pinned by SHA: a tag is mutable, a SHA is not.
+on:
+  schedule:
+    # 03:17 UTC — off-peak and fixed, the way scheduled runs should be. Nobody waits.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/guards/**"
+      - "src/chain/**"
+      - "src/floor/**"
+
+permissions:
+  contents: read
+
+jobs:
+  nightly:
+    # `base_ref` is populated only for a pull request, and this workflow is never
+    # triggered by a push, so an empty one is a scheduled or hand-dispatched run.
+    if: github.base_ref == ''
+    runs-on: ubuntu-latest
+    # The hard ceiling, not the estimate: a cold campaign has no cache behind it, and
+    # the plugin's inspector stream truncates under load (one spurious failure in seven
+    # dry runs). The measured number from the first real run of this job replaces this
+    # one — plan.html step 6.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
+      # policy allows GitHub-owned actions plus nine org patterns, and a workflow that
+      # names anything else never starts (startup_failure, no logs). Node is on every
+      # hosted runner, and the registry pins the version's integrity itself.
+      - name: Bun
+        run: npm install -g bun@1.4.2
+      - name: Dependencies
+        run: bun install --frozen-lockfile
+      # Stryker's CLI declares a node shebang and bunx honours it: the campaign runs on
+      # Node, the test children run on Bun. This line is the receipt that the runner is
+      # one Node can run on (research 005 §02).
+      - name: Node the campaign runs on
+        run: node -v
+      - name: Restore the previous campaign's results
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: reports
+          key: stryker-incremental-${{ hashFiles('bun.lock') }}
+          restore-keys: stryker-incremental-
+      # The exit code IS the gate: below thresholds.break the step fails and the
+      # clear-text report names the survivors. Nothing here re-reads the report to
+      # decide — a gate that parses its own output is a gate that can be wrong twice.
+      - name: Mutation campaign
+        run: bunx stryker run
+      # The report is why the red is readable. Enabled on failure too, or the only
+      # artifact of a red run would be an empty step.
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-report-nightly
+          path: reports/
+          if-no-files-found: error
+
+  pull-request:
+    if: github.base_ref != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The step below diffs against origin/<base>: on the default shallow clone
+          # that diff cannot run, which is exactly how the sibling job in check.yml
+          # spent its life reporting "oracle skipped" instead of failing.
+          fetch-depth: 0
+      - name: Bun
+        run: npm install -g bun@1.4.2
+      - name: Dependencies
+        run: bun install --frozen-lockfile
+      - name: Node the campaign runs on
+        run: node -v
+      # Same shape as check.yml: a path-filtered gate names the diff it judged, and
+      # fails hard when it cannot compute it. Here it is also the receipt of which
+      # governance files this pull request moved — the score itself is global, so the
+      # job's own log has to carry what routed it.
+      - name: The governance files this pull request touches
+        env:
+          # A branch name is data: it arrives here as an environment variable and is
+          # quoted at its use site, never interpolated into the script text.
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          if ! CHANGED=$(git diff --name-only "origin/$BASE_REF...HEAD" -- src/guards src/chain src/floor); then
+            echo "::error::cannot compute the diff against origin/$BASE_REF — the campaign would have no verdict to give, so it does not start."
+            exit 1
+          fi
+          printf 'governance files in this pull request:\n%s\n' "$CHANGED"
+      - name: Restore the previous campaign's results
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: reports
+          key: stryker-incremental-${{ hashFiles('bun.lock') }}
+          restore-keys: stryker-incremental-
+      - name: Mutation campaign
+        run: bunx stryker run
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-report-pr
+          path: reports/
+          if-no-files-found: error

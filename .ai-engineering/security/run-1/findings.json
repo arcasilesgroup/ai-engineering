@@ -1,6 +1,10 @@
 [
   {
     "verdict": "confirmed",
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "260bcfba86954aa6962a6b5256cd0baefa575333"
+    },
     "title": "`ai-eng spec run` reports ALL MET without executing a single CHECK when the boxes are pre-ticked",
     "description": "The contract runner (`gate-check.mjs`) skips any gate whose checkbox is `- [x]` and whose EVIDENCE is not `pending` unless it is invoked with `--recheck`, and `specRun` invokes it with only the spec path. Reproduced in a scratch repo: `spec open`, then the `<pre id=\"gates\">` block replaced by hand with a ticked box, `CHECK: touch <marker>` and `EVIDENCE: author typed this`, then `spec approve` and `spec run` printed `ALL MET (2 met)` with exit 0 while the marker file was never created; `gate-check.mjs --recheck` on the same file executed the check and created the marker. The same shape runs in CI: the planted workflow's spec-run step (the one the template calls the step that must not be skipped) reports green with zero commands executed. `spec close` accepts the same self-report and closes the milestone.",
     "root_cause": "specRun in src/spec/index.ts does not pass --recheck to the gate executor, allowing a committed spec.html with hand-ticked boxes and typed evidence to report ALL MET without running any CHECK.",
@@ -78,6 +82,10 @@
   },
   {
     "verdict": "confirmed",
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "260bcfba86954aa6962a6b5256cd0baefa575333"
+    },
     "title": "A repository-committed .env hijacks the gate executor through AI_ENG_HOME",
     "description": "Bun loads a `.env` file from the working directory into the process environment, so a repository can set `AI_ENG_HOME` for the governor that a workflow or a developer runs inside it. `home()` returns that override and `specRun` looks for the gate executor under it, so a committed `.env` pointing at a directory in the repository makes `spec run` execute the repository's own `gate-check.mjs`. Reproduced end to end with the compiled release binary in the planted-CI shape: without the file the real executor reported `FAIL G1` exit 1; with `.env` containing `AI_ENG_HOME=.evil` the same contract printed the hijacked executor's output and `ALL MET` exit 0. Writing to `/tmp/val/evilhome/skills/...` was allowed while the same write to the real `~/.ai-engineering` was denied by self-protect (exit 2) \u2014 the guard anchors on the real home and not on the override.",
     "root_cause": "home() in src/env.ts trusts the AI_ENG_HOME override without checking where it points, allowing a repository to choose the gate executor and the trigger canon that the governor runs.",
@@ -155,6 +163,10 @@
   },
   {
     "verdict": "confirmed",
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "260bcfba86954aa6962a6b5256cd0baefa575333"
+    },
     "title": "A contract with zero gates is ALL MET for `spec run` and not-a-contract for `spec close`",
     "description": "Two verbs disagree about the same artifact. With the gates block emptied, `spec run` printed `no gates found` and `ALL MET (0 met)` with exit 0, while `spec close` on the same file printed `no gates found in spec.html \u2014 a contract with nothing to verify is not a contract` and exited 2. In CI only the first verb runs, so an empty contract is a green contract gate.",
     "root_cause": "the gate executor in skills/ai-proof/scripts/gate-check.mjs treats an empty gate list as success, while specClose in src/spec/index.ts treats it as a refusal, allowing an empty contract to pass the CI step that exists to enforce it.",
@@ -228,6 +240,10 @@
   },
   {
     "verdict": "confirmed",
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "260bcfba86954aa6962a6b5256cd0baefa575333"
+    },
     "title": "Untrusted lock `base_sha` reaches git as an option and overwrites an arbitrary file",
     "description": "The lock file travels in the repository and any PR can edit it. `base_sha` is validated where it is written (`^[0-9a-f]{40}$`) but not where it is read, so a value beginning with `-` is parsed by git as an option. Reproduced: with `base_sha = \"--output=/tmp/val/outside/target.txt\"` in the lock, a 28-byte canary at that absolute path became 8 bytes containing `one.txt`, and `spec close` still printed `contract closed: 1 gate(s) verified` with exit 0. The candidate fix was validated too: `git diff --name-only --end-of-options --output=\u2026` makes git exit 128 and leaves the canary intact.",
     "root_cause": "parseLock in src/install.ts accepts any string for base_sha and triggers.ts passes it to git as an argument, allowing a crafted lock entry to be interpreted as a git option and overwrite a file of the attacker's choosing.",
@@ -304,6 +320,10 @@
   },
   {
     "verdict": "confirmed",
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "260bcfba86954aa6962a6b5256cd0baefa575333"
+    },
     "title": "The client's provenance check pins neither the signer workflow nor the git ref",
     "description": "The planted workflow verifies the downloaded governor with `gh attestation verify ai-eng --repo arcasilesgroup/ai-engineering`. Per the gh manual, `--repo` validates only the certificate's source repository: the signer workflow path and the source ref are unchecked unless `--signer-workflow`, `--cert-identity`, `--source-ref` or `--source-digest` are given. Verified on the real release: `--repo` exit 0, `--signer-workflow \u2026/release.yml` exit 0, `--signer-workflow \u2026/check.yml` exit 1, `--source-ref refs/heads/main` exit 1 with `expected SourceRepositoryRef to be refs/heads/main, got refs/tags/v2.0.0-rc.1`. Combined with replaceable release assets (`immutable: false` on the live release) an actor with Write can mint an attestation for a backdoored digest at their own tag and place those bytes on the tag clients pin.",
     "root_cause": "the governor install step in templates/ci.yml.tpl verifies provenance with --repo alone, allowing an attestation minted by any workflow on any tag of this repository to satisfy the check for a substituted asset.",
@@ -381,6 +401,10 @@
   },
   {
     "verdict": "confirmed",
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "260bcfba86954aa6962a6b5256cd0baefa575333"
+    },
     "title": "Nothing binds a published release to the revision under review",
     "description": "release.yml builds and publishes whatever revision the tag or the dispatch names. The publish job guards only that the tag's base version equals package.json's (both read from the same checkout), and on dispatch it creates the tag at $GITHUB_SHA. The environment approval authorises a job, and the required checks gate merges into main \u2014 neither is compared against the commit being released. Verified live: branch protection requires check, security, guards-adversarial, planted and the three platform jobs with enforce_admins false; the release environment has one required reviewer with can_admins_bypass true; the v* tag ruleset restricts tag creation to one role and one team.",
     "root_cause": "the publish job in .github/workflows/release.yml never compares the released revision with the reviewed default branch, allowing a release to be published for a commit that no required check ever saw.",
@@ -453,6 +477,10 @@
   },
   {
     "verdict": "confirmed",
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "260bcfba86954aa6962a6b5256cd0baefa575333"
+    },
     "title": "The pre-commit secret scan reads the working tree, so a staged secret can be committed",
     "description": "The git floor's pre-commit hook scans the files named by `git diff --cached --name-only` as they exist on disk, not the staged blobs. Reproduced: a private key was staged, then the working copy was overwritten with a placeholder; `ai-eng git pre-commit` reported `pre-commit \u2713` exit 0 and the key reached the commit (`git show HEAD:creds.txt`). The same secret present in both index and worktree is blocked (`secret in the staged files \u2192 BLOCKED`, exit 1), and the pre-push hook catches it later in the unpushed history (`BLOCKED`, exit 1) \u2014 so the commit leaks locally and is stopped at the push.",
     "root_cause": "preCommit in src/floor/index.ts scans working-tree bytes of the staged paths instead of the staged blobs, allowing a secret that is overwritten in the worktree to enter a local commit.",
@@ -526,6 +554,10 @@
   },
   {
     "verdict": "confirmed",
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "260bcfba86954aa6962a6b5256cd0baefa575333"
+    },
     "title": "The planted workflow names an action this project's own policy cannot run",
     "description": "templates/ci.yml.tpl installs Bun with `oven-sh/setup-bun`, which is not GitHub-owned and not among the ten patterns this repository allows. In this repository that means the workflow never starts at all \u2014 startup_failure with no logs, which is exactly how v2's CI was blind for ten days, and the reason the template's neighbours were changed to `npm install -g bun@1.4.2`. A client repository is governed by its own policy, so the defect is portability, not a live vulnerability: where a client's org restricts actions the same way, the entire planted workflow silently never runs, and if the contract step is not required, nothing notices.",
     "root_cause": "the planted workflow in templates/ci.yml.tpl depends on a third-party action not permitted by this project's own action policy, so in any organization with the same restriction the workflow never starts and reports no logs.",

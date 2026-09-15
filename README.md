@@ -177,7 +177,7 @@ Each guard is compiled into the binary and writes a receipt on every denial, car
 | Guard | Denies |
 |---|---|
 | `no-verify` | `--no-verify`, `git commit -n`, `HUSKY=0`, deleting `.git/hooks/`, repointing `core.hooksPath` — and silencing a check: `eslint-disable`, `@ts-ignore`, `# noqa`, `# nosec`, `NOLINTNEXTLINE` |
-| `self-protect` | writes against anything that governs the agent: `.ai-engineering/`, the surface settings, the git hooks, the global canon, and `spec.html` once its sha256 is pinned |
+| `self-protect` | writes against anything that governs the agent: `.ai-engineering/` — except its four milestone slots, which the session owns — the surface settings, the git hooks, the global canon, and `spec.html` once its sha256 is pinned |
 | `injection` | reading a file whose text carries an instruction payload — denied before the model sees it — and acting on a fetched page that carries one |
 | `loop` | the same call repeated, the same edit reverted, the same failure retried with the arguments tweaked; the thresholds live in `config.toml` |
 | `wrap` | nothing: `wrap` rewrites a test command before it runs, so the filter prints the failures and drops the rest |

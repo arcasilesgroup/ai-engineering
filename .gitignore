@@ -10,3 +10,7 @@ dist/
 # the Snyk job builds from package.json (this repository installs from bun.lock).
 coverage/
 package-lock.json
+# Stryker's output and its sandbox: a local campaign writes both, and neither is source.
+# In CI the report is an artifact, never a commit.
+reports/
+.stryker-tmp/

@@ -425,10 +425,9 @@ function protectedPaths(repoRoot) {
     literals.push(join3(machineBase(), carrier));
   }
   if (!repoRoot)
-    return { literals: literals.filter((p) => p.length > 0), specPinned: false };
-  literals.push(".ai-engineering");
+    return { literals: literals.filter((p) => p.length > 0), specPinned: false, terminal: [] };
   const aiEng = join3(repoRoot, ".ai-engineering");
-  literals.push(aiEng);
+  const terminal = [".ai-engineering", aiEng];
   for (const name of ["config.toml", "overrides.toml", "ai-eng.lock", "arch.rules.json"]) {
     literals.push(join3(aiEng, name));
   }
@@ -442,7 +441,7 @@ function protectedPaths(repoRoot) {
     specPinned = false;
   }
   literals.push(...surfacesSettings(repoRoot));
-  return { literals: literals.filter((p) => p.length > 0), specPinned };
+  return { literals: literals.filter((p) => p.length > 0), specPinned, terminal };
 }
 function writesTo(paths, command) {
   const words = command.trim().split(/\s+/).filter((w) => w.length > 0);
@@ -476,6 +475,11 @@ function expandTilde(path) {
   return path;
 }
 function offendingPath(paths, text) {
+  for (const path of paths.terminal) {
+    const segment = new RegExp(`(^|/)${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+    if (segment.test(text))
+      return path;
+  }
   for (const path of paths.literals) {
     const bare = path === basename(path);
     if (bare) {
@@ -484,8 +488,9 @@ function offendingPath(paths, text) {
         return path;
       continue;
     }
-    if (text.includes(path))
-      return path;
+    if (!text.includes(path))
+      continue;
+    return path;
   }
   if (paths.specPinned && text.includes("spec.html"))
     return "spec.html (approved contract \u2014 sha256 pinned)";
@@ -514,7 +519,8 @@ function runSelfProtect(payload, repoRoot) {
       }
       canonical = prefix;
     }
-    const found = offendingPath(paths, canonical) ?? offendingPath(paths, resolved) ?? offendingPath(paths, expanded) ?? offendingPath(paths, target);
+    const candidates = [canonical, resolved, expanded, target];
+    const found = candidates.map((form) => offendingPath(paths, form)).find((hit) => hit != null) ?? null;
     if (found) {
       return {
         deny: true,
@@ -560,7 +566,16 @@ function runSelfProtect(payload, repoRoot) {
           return p;
         }
       }),
-      specPinned: paths.specPinned
+      specPinned: paths.specPinned,
+      terminal: paths.terminal.map((p) => {
+        if (!isAbsolute2(p))
+          return p;
+        try {
+          return realpathSync(p);
+        } catch {
+          return p;
+        }
+      })
     };
     const expandedCommand = canon(command);
     const pieces = expandedCommand.split(SEPARATORS).filter((p) => p.trim().length > 0);

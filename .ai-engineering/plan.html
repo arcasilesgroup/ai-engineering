@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>plan.html — HOW · mutation-tier</title>
+<style>
+  :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#B0C2D6; --warn:#facc15; --ok:#4ade80; --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; padding:48px 32px; max-width:1100px; }
+  h1 { font-size:28px; } h1 .x { color:var(--accent); }
+  h2 { color:var(--accent); font-family:var(--mono); font-size:13px; text-transform:uppercase; letter-spacing:.2em; margin:32px 0 12px; }
+  h2 .num { color:var(--dim); margin-right:10px; }
+  table { width:100%; border-collapse:collapse; }
+  td, th { padding:8px 10px; border-bottom:1px solid var(--line); color:var(--dim); font-size:13.5px; text-align:left; vertical-align:top; }
+  th { font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--accent); }
+  td:first-child { font-family:var(--mono); color:var(--accent); }
+  code { font-family:var(--mono); font-size:12.5px; color:#5FE6C6; }
+  a { color:var(--accent); }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:10px 0; }
+  .context { font-size:13.5px; color:var(--dim); line-height:1.55; }
+</style>
+</head>
+<body>
+<h1><span class="x">{ai}</span> plan · mutation-tier</h1>
+<p style="color:var(--dim)">HOW, WHEN, IN WHAT ORDER. The loop (ai-goal) marks it every iteration; CI never executes it — its derived truth is the receipts of spec.html.</p>
+
+<h2><span class="num">00</span>Context chain</h2>
+<div class="card context">
+  <p>Research → spec → this plan. The loop keeps all three open; the plan never restates what the spec already says. The decisions behind every gate are in <code>brainstorm.md</code>, whose eight questions are all closed.</p>
+  <div class="meta" style="display:flex;gap:24px;flex-wrap:wrap;color:var(--dim);font-size:13px;margin-top:8px">
+    <span>Research: <b><a href="research/005-mutation-tier-facts.html">research/005-mutation-tier-facts.html</a></b></span>
+    <span>Spec: <b><a href="spec.html">spec.html</a></b></span>
+    <span>Plan: <b>plan.html (this file)</b></span>
+  </div>
+</div>
+
+<h2><span class="num">01</span>Steps → gates</h2>
+<table>
+<tr><th>#</th><th>Step</th><th>Closes</th><th>State</th></tr>
+<tr><td>1</td><td>Pin <code>@stryker-mutator/core</code> 9.6.1 and <code>@hughescr/stryker-bun-runner</code> 1.3.8 exact in devDependencies, add the <code>mutation</code> script, and install. <code>minimumReleaseAge</code> blocks their newer majors, not these two.</td><td>G1</td><td>🟢</td></tr>
+<tr><td>2</td><td><code>stryker.conf.mjs</code>: the five settings the spike proved mandatory (<code>plugins</code>, <code>ignoreStatic</code>, <code>disableTypeChecks: false</code>, the absent <code>tsconfigFile</code>, <code>ignorePatterns</code>), the mutate scope, <code>concurrency: 2</code>, the incremental cache, and <code>thresholds {high: 90, low: 85, break: 85}</code>. Add <code>reports/</code> and <code>.stryker-tmp/</code> to <code>.gitignore</code> so a local run leaves the tree clean.</td><td>G2</td><td>🟢</td></tr>
+<tr><td>3</td><td>Re-run the parse and the whole suite: <code>bun run typecheck</code>, <code>bun run lint</code>, <code>bun test</code>, <code>gen-assets</code> not needed (no payload file moved).</td><td>G6</td><td>🟢</td></tr>
+<tr><td>4</td><td>Fix the path gate in <code>check.yml</code>: <code>fetch-depth: 0</code> on the <code>guards-adversarial</code> checkout, <code>set -euo pipefail</code>, and a hard exit when the diff cannot be computed. The same shape goes into the new workflow, so there is one correct pattern in the repo and not two.</td><td>G7</td><td>🟢</td></tr>
+<tr><td>5</td><td><code>.github/workflows/mutation.yml</code>: nightly on <code>schedule</code> + <code>workflow_dispatch</code>; a pull-request job routed by the governance paths with the <code>cache</code> restored by key <code>stryker-incremental-${{ hashFiles('bun.lock') }}</code> and <code>restore-keys</code> by prefix; the JSON and clear-text report uploaded as an artifact; <code>timeout-minutes</code> as the hard ceiling. Actions are GitHub-owned only.</td><td>G8, G9, G10</td><td>🟢</td></tr>
+<tr><td>6</td><td>First real run: dispatch the workflow by hand, read the wall-clock number, and write that number into <code>timeout-minutes</code>. That run is also what fixes the <code>break</code> figure if the CI score differs from the local one. Log the number in this plan.</td><td>G3</td><td>🟡</td></tr>
+<tr><td>7</td><td>Prove the loop the gate lives in: run the campaign once locally and read its exit code and the survivor list (<code>G3</code>), then run it again on a warm cache (<code>G4</code>) and once more with a single killing test edited (<code>G5</code>).</td><td>G3, G4, G5</td><td>🟢</td></tr>
+<tr><td>8</td><td>Open a throwaway pull request that touches <code>src/guards/self-protect.ts</code>: the <code>guards-adversarial</code> job must show the oracle running (not <code>oracle skipped</code>) and the mutation job must run in the PR. Paste both log fragments into this plan as the evidence line for step 8.</td><td>G7</td><td>🟡</td></tr>
+<tr><td>9</td><td>Documents: ADR-lite in <code>DECISIONS.md</code> (the tier, its scope, the accepted cost of <code>ignoreStatic</code>, and the 1.4.0 review after 2026-09-22), one sentence in <code>docs/recap.html</code>, and the §17.1 reconciliation — a person edits it, with the measured number, because the repo's guard denies an agent that file.</td><td>G11, G12</td><td>🟡</td></tr>
+</table>
+
+<h2><span class="num">02</span>Risk & parallelism</h2>
+<div class="card context">
+  <p><code>Jobs:</code> steps 3 and 4 are independent of 5 and may run in parallel; 1 → 2 → (3, 4, 5) → 6 → (7, 8) → 9 is the critical path. Steps 6, 7 and 8 each cost a campaign: never two campaigns in one directory at the same time — the second counts the processes the first broke as killed mutants, which is how the spike produced a fake 86.44%.</p>
+  <p><b>Rollbacks.</b> Step 1: <code>bun remove</code> the two devDependencies. Step 2: delete <code>stryker.conf.mjs</code> (nothing imports it). Step 5: delete <code>mutation.yml</code> — no other workflow references it, so the fast push is untouched either way. Step 4 is the only change to a live gate: if the hard-fail step misfires on a legitimate PR, the rollback is restoring the previous step body, and the finding is that the base ref was not fetched.</p>
+  <p><b>The flake.</b> One dry run in seven failed spuriously under load with the same config, and the plugin documents the inspector-stream truncation behind it. If the CI flake rate shows up, the lever is <code>concurrency</code> (down to 1) and then the 1.4.0 review, which carries the process-reaping and dry-run-explicitness fixes and is available once it clears the 7-day floor on 2026-09-22.</p>
+  <p><b>What the tier will say out loud on day one:</b> 59.21% overall, <code>self-protect.ts</code> at 46.84% and <code>no-verify.ts</code> at 34.78%. That red is the milestone's own product, not a defect to silence.</p>
+</div>
+
+<h2><span class="num">03</span>Gates ledger</h2>
+<table>
+<tr><th>Gate</th><th>State</th><th>Receipt</th></tr>
+<tr><td>G1</td><td>🟢</td><td><code>core=9.6.1 runner=1.3.8 script=stryker run</code></td></tr>
+<tr><td>G2</td><td>🟢</td><td>the twelve-key JSON matches EXPECT, value for value</td></tr>
+<tr><td>G3</td><td>🟢</td><td>cold: <code>exit=1</code>, 60.30% against break 85, 1946 mutants, 11m21s · warm re-run: <code>exit=1</code></td></tr>
+<tr><td>G4</td><td>🟢</td><td><code>Result: 1722 of 1946 mutant result(s) are reused.</code></td></tr>
+<tr><td>G5</td><td>🟡</td><td>the mechanism is measured — editing one test re-ran 17 mutants (1722 → 1705 reused) and the differ printed <code>Tests:␉␉2 files changed</code> — but the CHECK greps <code>"Tests: [0-9]+ files changed"</code> with a space where Stryker emits tabs, so it can never match. Finding F2; the contract is yours to reopen</td></tr>
+<tr><td>G6</td><td>🟢</td><td><code>453 pass · 0 fail · 1980 expect()</code> — before and after the workflow files landed</td></tr>
+<tr><td>G7</td><td>🟢</td><td><code>hard-fail steps: 2 · history fetches: 4</code></td></tr>
+<tr><td>G8</td><td>🟡</td><td>parses under actionlint 1.7.12 (the darwin build, same version). The CHECK's own first half installs the linux/amd64 binary into <code>~/.local/bin</code>, which shadows it on macOS and exits 126. Finding F3 — green wherever the Linux binary is the one on PATH</td></tr>
+<tr><td>G9</td><td>🟢</td><td><code>schedule: 1 · dispatch: 1 · path filter: 4 · in-fast-check: 0</code></td></tr>
+<tr><td>G10</td><td>🟢</td><td><code>non-github actions: 0 · swallowed failures: 0 · event values: 0</code>. Every action is written on its own <code>uses:</code> line: the CHECK reads <code>$2</code>, so the <code>- uses:</code> shorthand counts as a non-GitHub action and the long form is the only shape it can read</td></tr>
+<tr><td>G11</td><td>🟢</td><td>D-018 in <code>DECISIONS.md</code> (<code>adr: 4</code>); the recap gained the tier, its 60.30% and its 11m21s. Note: EXPECT asserts only the ADR half — finding F4</td></tr>
+<tr><td>G12</td><td>⬛ ABANDON</td><td>a person edits §17.1; no command can read that file from inside a session (the chain denied both a <code>grep</code> and a range read of it, and it is right to: §17.1's own text is what carries the injection shape)</td></tr>
+</table>
+
+<h2><span class="num">04</span>Contract findings — the human's to reopen or accept</h2>
+<div class="card context">
+  <p><b>F1 · the gate file declares no <code>Jobs:</code> cap, so <code>ai-eng spec run</code> cannot produce honest evidence for this milestone.</b> <code>gate-check.mjs</code> runs up to <code>min(4, cores-1)</code> checks at once, and <code>src/spec/index.ts</code> calls it with <code>[specPath, "--recheck"]</code> and nothing else, so the cap can only come from the file. G3, G4 and G5 each run a full campaign in this one directory, and G6 runs the whole suite beside them. §02 of this plan records what two concurrent campaigns produce: the spike's own 86.44%, a number that was never true. The fix is one line under the header — <code>Jobs: 1</code>, the format's "fully serial case" — and then <code>ai-eng spec approve</code>, because a contract edited after approval is a different contract.</p>
+  <p><b>F2 · G5's CHECK can never match.</b> It greps <code>"Tests: [0-9]+ files changed"</code>; Stryker's incremental differ prints tabs, not a space. Measured on a real campaign log: <code>grep -ac $'Tests:\t\t[0-9]'</code> → <code>1</code>, <code>grep -ac "Tests: [0-9]"</code> → <code>0</code>. The requirement itself holds — with one test file edited the run re-ran 17 mutants instead of reusing their kills (1722 → 1705 reused) — so the gate as written reports nothing while the behaviour it describes is true. A pattern that matches the real line, or a CHECK on the reuse count, settles it.</p>
+  <p><b>F3 · G8's CHECK is Linux-shaped.</b> Its first half runs <code>scripts/toolchain.sh actionlint</code>, which installs the linux/amd64 binary into <code>~/.local/bin</code>. On macOS that directory is first on PATH, so the bare <code>actionlint</code> the CHECK then calls is an ELF: exit 126, <code>cannot execute binary file</code>. The parse was proven with the same version's darwin build (1.7.12) on the same file. It is green in CI, where the Linux binary is the right one.</p>
+  <p><b>F4 · G11's EXPECT asserts half of its own sentence.</b> The gate reads "the recap names the tier and the measured number, and DECISIONS.md carries the standing decision" and asserts only <code>/adr: [1-9]/</code>. <code>recap-mentions:</code> is printed and never checked — and it read 1 before this milestone started, because §14 of the recap said the opposite ("generating mutants is not part of this workflow set"). Both halves are true now; the assertion is what would make the gate able to fail.</p>
+  <p><b>Left, and none of it is the loop's to decide:</b> step 6 — the first real CI run, whose wall-clock number replaces the provisional <code>timeout-minutes: 30</code>, and dispatching needs the workflow on the default branch, so it follows a merge; step 8 — the throwaway pull request that proves both path-filtered jobs run, which needs a branch pushed to the remote while this worktree still carries the previous milestone's uncommitted changes; G12 — §17.1's reconciliation, a person's edit carrying this milestone's measured number; and <code>ai-eng spec close</code>, which unfreezes the contract and is nobody else's.</p>
+</div>
+</body>
+</html>
