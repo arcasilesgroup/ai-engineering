@@ -48,5 +48,8 @@
     "oxlint": "latest",
     "oxlint-tsgolint": "7.0.2001",
     "typescript": "latest"
+  },
+  "overrides": {
+    "smol-toml": "1.7.2"
   }
 }
