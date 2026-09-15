@@ -1,8 +1,6 @@
-// src/ui.ts — the frame layer (cli-ux-14 work point 01). Every human verb
-// presents through here; machine verbs (chain|git|wrap|spec) never import it:
-// their stdout is a byte-stable contract (§07). Wraps clack 1.7.0 primitives;
 import { intro, outro, log, cancel, spinner as clackSpinner, confirm } from "@clack/prompts";
 import { styleText } from "node:util";
+import { wrapAnsi } from "fast-wrap-ansi";
 import { PassThrough } from "node:stream";
 // Colour names come from brand/tokens.json via src/theme.ts — never typed here.
 import { MARKS as MARK_COLOURS } from "./theme.ts";
@@ -60,13 +58,35 @@ function renderRow(row: Readonly<Row>): string {
   return typeof row.dim === "string" && row.dim.length > 0 ? `${head} ${styleText("dim", `· ${row.dim}`)}` : head;
 }
 
+/** clack's log.message never wraps: a row longer than the terminal hard-wraps
+ *  at column 0, scattering the continuation at the screen edge. Pre-wrap each
+ *  line ANSI-aware so continuation lines carry clack's `│  ` prefix AND an
+ *  indent aligned under the text. */
+function wrappedRow(line: string, indent: string, width: number): string {
+  return wrapAnsi(line, width, { hard: true, trim: false }).split("\n").join(`\n${indent}`);
+}
+
+/** Wrap for a marked row: text starts after `│  ` + mark (5 cols); the
+ *  continuation carries 2 extra spaces so it lands under the text, not at the
+ *  screen edge. */
+function wrapMarked(line: string): string {
+  if (!process.stdout.isTTY) return line;
+  return wrappedRow(line, "  ", Math.max((process.stdout.columns ?? 96) - 5, 80));
+}
+
+/** Wrap for a bare `│  <message>` line: continuation aligns under the text. */
+function wrapMessage(message: string): string {
+  if (!process.stdout.isTTY) return message;
+  return wrappedRow(message, "", Math.max((process.stdout.columns ?? 96) - 3, 82));
+}
+
 /** One concept, one clack block: `│ ◆ Title · note` then the whole body
  *  inside a single log.message — every row rides the same spine line, so a
  *  list of related facts reads as ONE idea, not N staccato events. The mark
  *  grammar stays §14.2: the frame's own glyphs, no emoji. */
 export function section(title: string, rows: readonly Row[] = [], note?: string): void {
   const head = `${styleText("bold", title)}${typeof note === "string" && note.length > 0 ? styleText("dim", `  ·  ${note}`) : ""}`;
-  log.message([head, ...rows.map(renderRow)].join("\n"), { symbol: MARKS.head });
+  log.message([head, ...rows.map((row) => wrapMarked(renderRow(row)))].join("\n"), { symbol: MARKS.head });
 }
 
 /** Compact path list for sub rows: groups by directory so four hook paths
@@ -87,23 +107,23 @@ export function pathList(paths: readonly string[]): string {
 }
 
 export function ok(message: string): void {
-  log.message(message, { symbol: MARKS.ok });
+  log.message(wrapMessage(message), { symbol: MARKS.ok });
 }
 
 /** `│  ◆ <message>` — the action/progress mark; neutral inside the frame. */
 export function info(message: string): void {
-  log.message(message, { symbol: MARKS.info });
+  log.message(wrapMessage(message), { symbol: MARKS.info });
 }
 
 /** `│  ▲ <message>` — attention; the frame holds, only a security or quality
  *  failure blocks the step (§12). */
 export function warn(message: string): void {
-  log.message(message, { symbol: MARKS.warn });
+  log.message(wrapMessage(message), { symbol: MARKS.warn });
 }
 
 /** `│  ✗ <message>` — red error; the one state that blocks. */
 export function fail(message: string): void {
-  log.message(message, { symbol: MARKS.fail });
+  log.message(wrapMessage(message), { symbol: MARKS.fail });
 }
 
 /** Scripted-pipe stdin: on a non-TTY stdin the whole pipe often arrives as one

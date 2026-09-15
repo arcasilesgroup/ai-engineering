@@ -8,6 +8,7 @@
         "@bomb.sh/args": "0.3.1",
         "@bomb.sh/tab": "0.0.22",
         "@clack/prompts": "1.7.0",
+        "fast-wrap-ansi": "0.2.2",
       },
       "devDependencies": {
         "@changesets/changelog-github": "1.0.0",
