@@ -440,6 +440,8 @@ function protectedPaths(repoRoot) {
   } catch {
     specPinned = false;
   }
+  if (specPinned)
+    literals.push(join3(aiEng, "spec.html"));
   literals.push(...surfacesSettings(repoRoot));
   return { literals: literals.filter((p) => p.length > 0), specPinned, terminal };
 }
@@ -492,8 +494,6 @@ function offendingPath(paths, text) {
       continue;
     return path;
   }
-  if (paths.specPinned && text.includes("spec.html"))
-    return "spec.html (approved contract \u2014 sha256 pinned)";
   return null;
 }
 function runSelfProtect(payload, repoRoot) {

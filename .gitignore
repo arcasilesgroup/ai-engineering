@@ -14,3 +14,6 @@ package-lock.json
 # In CI the report is an artifact, never a commit.
 reports/
 .stryker-tmp/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/

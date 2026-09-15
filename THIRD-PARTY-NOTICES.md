@@ -5,6 +5,9 @@ Their licenses and provenance are listed in NOTICE.md; the content itself travel
 inside `skills/ai-*/` with each source preserved byte-for-byte.
 
 Bundled third-party content:
+- LeafyGreen UI (mongodb/leafygreen-ui) — Apache-2.0 — © MongoDB, Inc. — the brand
+  palette, copied verbatim into `brand/tokens.json`. Trademark rights are not granted
+  by Apache-2.0 and are not claimed: no MongoDB logo, wordmark or leaf glyph is used.
 - cloudflare/security-audit-skill — MIT — © Cloudflare
 - unlazy (Leonxlnx) — MIT
 - wayfinder (mattpocock) — MIT

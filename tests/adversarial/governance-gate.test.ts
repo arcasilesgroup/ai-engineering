@@ -290,6 +290,28 @@ describe("adversarial · self-protect: the session writes its own artifacts, not
     }
   });
 
+  test("the pin freezes the contract, not every path that spells its name", () => {
+    const repo = slotRepo(true);
+    try {
+      // The rule's criterion is the pinned file itself ("its sha256 sits in the lock").
+      // Matching the substring "spec.html" instead denied `templates/spec.html.tpl` — the
+      // payload every new project's contract is generated from — and would deny a future
+      // `docs/spec.html.md` too, while protecting nothing the pin was meant to protect.
+      const payload = join(repo, "templates", "spec.html.tpl");
+      const file = runSelfProtect({ tool_name: "Write", tool_input: { file_path: payload, content: "x" } } as never, repo);
+      expect(file?.deny ?? false).toBe(false);
+
+      const bash = runSelfProtect({ tool_name: "Bash", tool_input: { command: `sed -i '' 's|a|b|' ${payload}` } } as never, repo);
+      expect(bash?.deny ?? false).toBe(false);
+
+      // …and the contract it was pinned for is still frozen, by both routes.
+      expect(write(repo, "spec.html")?.deny).toBe(true);
+      expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm -rf ${join(repo, ".ai-engineering", "spec.html")}` } } as never, repo)?.deny).toBe(true);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test("a command that names the directory is judged as a whole; its files are not it", () => {
     const repo = slotRepo(false);
     try {

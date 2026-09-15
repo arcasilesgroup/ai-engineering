@@ -5,28 +5,18 @@
  * design system is the reference every other generator copies from. A token that
  * differs between them is a defect, not a preference: the artifacts are read side
  * by side, and two of them in two palettes read as two products.
+ *
+ * The values are NOT pinned here. The brand declares them once, in
+ * brand/tokens.json, and this test calls the same gate the CLI runs
+ * (`bun scripts/brand.ts artifact`). A test that re-states the palette is a
+ * second palette — which is the thing being tested for.
  */
 import { describe, test, expect } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { artifactDrift, loadTokens } from "../scripts/brand.ts";
 
 const ROOT = join(import.meta.dir, "..");
-const REFERENCE = "skills/ai-design/references/artifact-design.md";
-const TEMPLATES = ["templates/spec.html.tpl", "templates/plan.html.tpl"];
-const read = (path: string): string => readFileSync(join(ROOT, path), "utf8");
-
-/** The `--name: value` declarations of the first `:root` block in a text. */
-function rootTokens(text: string): Record<string, string> {
-  const start = text.indexOf(":root");
-  if (start < 0) throw new Error("no :root block");
-  const open = text.indexOf("{", start);
-  const close = text.indexOf("}", open);
-  const out: Record<string, string> = {};
-  for (const m of text.slice(open + 1, close).matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/g)) {
-    out[m[1]!] = m[2]!.trim();
-  }
-  return out;
-}
 
 /** Every SKILL.md in the canon, so the gate covers a skill added tomorrow. */
 function skillFiles(): string[] {
@@ -42,30 +32,13 @@ function skillFiles(): string[] {
   return out;
 }
 
-const reference = rootTokens(read(REFERENCE));
-
 describe("the artifact design system is the single token source", () => {
-  test("it declares the brand's core tokens", () => {
-    for (const token of ["bg", "surface", "accent", "text", "dim", "ok", "bad", "warn"]) {
-      expect(reference[token], `--${token} is missing`).toBeTruthy();
-    }
-    expect(reference["accent"]).toBe("#00D4AA");
-    expect(reference["bg"]).toBe("#0B1120");
+  test("every artifact token block matches brand/tokens.json", async () => {
+    const { problems } = await artifactDrift(await loadTokens());
+    // Each problem names the file, the token, the value found and the value the
+    // brand declares — so a failure is a diff to apply, not a hunt to run.
+    expect(problems.join("\n")).toBe("");
   });
-
-  for (const template of TEMPLATES) {
-    test(`${template} declares the reference's tokens and no others`, () => {
-      const tokens = rootTokens(read(template));
-      const drift: string[] = [];
-      for (const [name, value] of Object.entries(tokens)) {
-        if (!(name in reference)) drift.push(`--${name} is not in the reference`);
-        else if (reference[name] !== value) drift.push(`--${name}: ${value} vs ${reference[name]}`);
-      }
-      expect(drift).toEqual([]);
-      // A template that loses the accent renders an artifact in no product's colors.
-      expect(tokens["accent"]).toBe(reference["accent"]);
-    });
-  }
 });
 
 describe("every skill that emits an artifact names the design system", () => {

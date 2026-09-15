@@ -8,15 +8,15 @@
 <meta name="color-scheme" content="dark">
 <style>
   /* ── {ai} Engineering — the artifact design system ─────────────────────────
-     Tokens are the brand's: one hue, dark-only, mono for structure and
+     Tokens are the brand's: one signal, dark-only, mono for structure and
      data. Anything ai-engineering renders as an artifact — spec.html, plan.html,
      a recap, a research page, a report — inherits this block verbatim.       */
   :root{
-    --bg:#0B1120; --surface:#121E36; --surface-2:#0E1830;
-    --line:rgba(0,212,170,.15); --line-strong:rgba(0,212,170,.34);
-    --accent:#00D4AA; --accent-dim:#5FE6C6;
-    --text:#F8FAFB; --dim:#B0C2D6; --comment:#9DB3CA;
-    --ok:#4ade80; --bad:#fbb1b1; --warn:#facc15; --purple:#c084fc; --orange:#fb923c;
+    --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+    --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+    --accent:#00ED64; --accent-dim:#71F6BA;
+    --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+    --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
     --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
     --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
 
@@ -41,7 +41,7 @@
     font-size:var(--fs-body);line-height:var(--lh-body);
     font-synthesis-weight:none;-webkit-font-smoothing:antialiased;
   }
-  ::selection{background:rgba(0,212,170,.28)}
+  ::selection{background:rgba(0,237,100,.28)}
   a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline;text-underline-offset:3px}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
@@ -58,7 +58,7 @@
     background-image:
       linear-gradient(var(--line) 1px,transparent 1px),
       linear-gradient(90deg,var(--line) 1px,transparent 1px),
-      radial-gradient(ellipse 80% 60% at 50% 0%,#16284466,transparent);
+      radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);
     background-size:32px 32px,32px 32px,100% 100%;
   }
   .hero .stamp{
@@ -87,14 +87,14 @@
     position:sticky;top:0;z-index:50;
     display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;
     padding:var(--s2) var(--s4);
-    background:rgba(11,17,32,.78);backdrop-filter:blur(14px) saturate(150%);
+    background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);
     border-bottom:1px solid var(--line);
     font-family:var(--mono);font-size:11px;
   }
   nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;
         white-space:nowrap;transition:color .15s,background .15s}
-  nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,212,170,.06)}
-  nav a.active{color:var(--accent);background:rgba(0,212,170,.1);font-weight:600}
+  nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+  nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
   nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
   nav a.active b{opacity:1}
 
@@ -121,7 +121,7 @@
   code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);
        border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);
        overflow-wrap:anywhere}
-  pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);
+  pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);
       padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);
       font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;
       -webkit-overflow-scrolling:touch}
@@ -137,7 +137,7 @@
 
   /* ── panels ───────────────────────────────────────────────────────────── */
   .bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);
-           border-radius:var(--radius);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+           border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
   .bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;
            border:0 solid var(--accent)}
   .bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
@@ -147,7 +147,7 @@
            text-transform:uppercase;color:var(--accent)}
   .bracket pre{margin:0;border:none;background:none;padding:0}
 
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
         padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
   .card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
   .card h3,.card h4{min-height:22px;line-height:22px}
@@ -156,14 +156,14 @@
   .card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
   .card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
 
-  .note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  .note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
         padding:var(--s5);margin:var(--s5) 0}
   .note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;
            text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
   .note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
-  .note.ok{border-color:rgba(34,197,94,.3)} .note.ok h4{color:var(--ok)}
-  .note.warn{border-color:rgba(234,179,8,.3)} .note.warn h4{color:var(--warn)}
-  .note.danger{border-color:rgba(251,177,177,.3)} .note.danger h4{color:var(--bad)}
+  .note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+  .note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+  .note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
 
   .grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
   .grid>*{min-width:0}
@@ -172,7 +172,7 @@
   .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
   .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
   .stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
-  .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
         padding:var(--s4) var(--s5);min-width:132px;text-align:center}
   .stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
   .stat .v em{font-style:normal;color:var(--accent)}
@@ -180,7 +180,7 @@
            text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
 
   /* ── tables: a component, not a spill ─────────────────────────────────── */
-  .tbl-wrap{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface-2);
+  .tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);
             overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
   table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
   th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;
@@ -190,18 +190,18 @@
      vertical-align:top;line-height:var(--lh-small)}
   tr:last-child td{border-bottom:none}
   td:first-child{color:var(--text);font-weight:520}
-  @media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(22,40,68,.35)}}
+  @media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
   td code{overflow-wrap:normal;word-break:keep-all}
   table{min-width:640px}
 
   /* ── pills, marks ─────────────────────────────────────────────────────── */
   .pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;
         padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
-  .p-ok{background:rgba(74,222,128,.13);border:1px solid rgba(74,222,128,.32)}
-  .p-bad{background:rgba(251,177,177,.13);border:1px solid rgba(251,177,177,.34)}
-  .p-warn{background:rgba(250,204,21,.12);border:1px solid rgba(250,204,21,.32)}
-  .p-fix{background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.35)}
-  .p-dim{background:rgba(22,40,68,.6);color:var(--dim);border:1px solid var(--line)}
+  .p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+  .p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+  .p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+  .p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+  .p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
   .check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
   .half{color:var(--warn);font-weight:600} .center{text-align:center}
 
@@ -209,8 +209,8 @@
   .pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
   .pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);
                border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
-  .pipe .stage:first-child{border-radius:var(--radius) 0 0 var(--radius)}
-  .pipe .stage:last-child{border-radius:0 var(--radius) var(--radius) 0}
+  .pipe .stage:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+  .pipe .stage:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
   .pipe .stage+.stage{border-left:none}
   .pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);
                       color:var(--accent);font-size:13px;z-index:2}
@@ -222,7 +222,7 @@
 
   .tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
   .tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);
-        border-radius:var(--radius);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+        border-radius:var(--radius-lg);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
   .tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;
                color:var(--accent);text-transform:uppercase}
   .tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
@@ -240,7 +240,7 @@
     .hero{padding:64px var(--s5) 44px}
     .hero h1{font-size:34px;letter-spacing:-.022em}
     .hero .sub{font-size:16px}
-    .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius)!important;flex-basis:100%}
+    .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}
     .pipe .stage+.stage{margin-top:var(--s2)}
     .pipe .stage::after{content:''}
     .tier .tlat{text-align:left}
@@ -254,7 +254,7 @@
         overflow-x:auto;scrollbar-width:none}
     nav::-webkit-scrollbar{display:none}
     nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;
-        background:linear-gradient(90deg,transparent,rgba(11,17,32,.95));pointer-events:none}
+        background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}
     nav a{padding:14px 8px}
     table{font-size:13px} th,td{padding:10px var(--s3)}
     pre{font-size:11.5px;padding:var(--s3) var(--s4)}
@@ -267,9 +267,9 @@
     nav{background:var(--bg);backdrop-filter:none}
   }
   @media (prefers-contrast:more){
-    :root{--dim:#CBD8E6;--comment:#B4C4D6}
+    :root{--dim:#E8EDEB;--comment:#C1C7C6}
     .card,.note,p,li,td{color:var(--dim)}
-    nav a{color:#CBD8E6}
+    nav a{color:#E8EDEB}
   }
   @media print{
     nav,.skip{display:none}
@@ -1616,14 +1616,14 @@ receipts_ttl = "30d" # receipts: aggregate, then delete</pre><p>The caps are WAR
 
     <div class="card">
       <h3>Colors</h3>
-      <p><code>#0B1120</code> background &middot; <code>#00D4AA</code> accent &middot; <code>#F8FAFB</code> text &middot; <code>#121E36</code> card surface &middot; <code>#B0C2D6</code> dim &middot; <code>#9DB3CA</code> comment &middot; <code>#5FE6C6</code> code &middot; borders <code>1px solid rgba(0,212,170,.15)</code></p>
-      <p>State colors: <code>#4ade80</code> ok &middot; <code>#fbb1b1</code> bad &middot; <code>#facc15</code> warn &middot; <code>#c084fc</code> purple &middot; <code>#fb923c</code> orange</p>
+      <p><code>#001E2B</code> background &middot; <code>#00ED64</code> accent &middot; <code>#FFFFFF</code> text &middot; <code>#112733</code> card surface &middot; <code>#C1C7C6</code> dim &middot; <code>#889397</code> comment &middot; <code>#71F6BA</code> code &middot; borders <code>1px solid rgba(61,79,88,.3)</code></p>
+      <p>State colors: <code>#00ED64</code> ok &middot; <code>#FF6960</code> bad &middot; <code>#FFC010</code> warn &middot; <code>#B45AF2</code> purple &middot; <code>#FFC010</code> orange</p>
     </div>
     <div class="card">
       <h3>Rules</h3>
       <ul>
-        <li><strong>Terminal-Green</strong> — the accent is always <code>#00D4AA</code>, never shifted</li>
-        <li><strong>One-Hue</strong> — a single accent colour, no secondary hues</li>
+        <li><strong>Terminal-Green</strong> — the accent is always <code>#00ED64</code>, never shifted</li>
+        <li><strong>one-signal</strong> — a single accent colour, no secondary hues</li>
         <li><strong>Dark-Only</strong> — no light mode, ever</li>
         <li><strong>One-Family</strong> — the system font stack, no imported families</li>
         <li><strong>Lit-Edge</strong> — a 1px accent border glow, no heavy shadows</li>
@@ -1640,7 +1640,7 @@ receipts_ttl = "30d" # receipts: aggregate, then delete</pre><p>The caps are WAR
 
   <div class="note ok">
     <h3>Where the spec and plan templates inherit from</h3>
-    <p><code>templates/spec.html.tpl</code> and <code>templates/plan.html.tpl</code> carry this token block as their <code>:root</code> — <code>--bg:#0B1120</code>, <code>--surface:#121E36</code>, <code>--line:rgba(0,212,170,.15)</code>, <code>--accent:#00D4AA</code>, <code>--text:#F8FAFB</code>, <code>--dim:#B0C2D6</code>, <code>--ok:#4ade80</code>, <code>--bad:#fbb1b1</code>, <code>--warn:#facc15</code> — and every spec.html, plan.html and <code>.ai-engineering/{research,design,security}/….html</code> follows the same design system: dark cards, monospace for code and checks, the same navigation and scroll-spy as this document. The terminal identity follows the same tokens, and degrades to plain text on a non-TTY stdout or under <code>NO_COLOR</code>. The spec is a contract for the AI and a readable document for humans: it has to look like it belongs to ai-engineering, not like a generic markdown file.</p>
+    <p><code>templates/spec.html.tpl</code> and <code>templates/plan.html.tpl</code> carry this token block as their <code>:root</code> — <code>--bg:#001E2B</code>, <code>--surface:#112733</code>, <code>--line:rgba(61,79,88,.3)</code>, <code>--accent:#00ED64</code>, <code>--text:#FFFFFF</code>, <code>--dim:#C1C7C6</code>, <code>--ok:#00ED64</code>, <code>--bad:#FF6960</code>, <code>--warn:#FFC010</code> — and every spec.html, plan.html and <code>.ai-engineering/{research,design,security}/….html</code> follows the same design system: dark cards, monospace for code and checks, the same navigation and scroll-spy as this document. The terminal identity follows the same tokens, and degrades to plain text on a non-TTY stdout or under <code>NO_COLOR</code>. The spec is a contract for the AI and a readable document for humans: it has to look like it belongs to ai-engineering, not like a generic markdown file.</p>
   </div>
 </section>
 </div>

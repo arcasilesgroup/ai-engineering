@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>spec.html — WHAT · {{milestone}}</title>
 <style>
-  :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#B0C2D6; --ok:#4ade80; --bad:#fbb1b1; --warn:#facc15; --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace; }
+  :root { --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38; --line:rgba(61,79,88,.3); --accent:#00ED64; --accent-dim:#71F6BA; --text:#FFFFFF; --dim:#C1C7C6; --warn:#FFC010; --ok:#00ED64; --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace; }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; padding:48px 32px; }
   h1 { font-size:28px; letter-spacing:-.5px; } h1 .x { color:var(--accent); }
@@ -13,8 +13,8 @@
   .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:10px 0; }
   .meta { display:flex; gap:24px; flex-wrap:wrap; color:var(--dim); font-size:13px; margin:8px 0 0; }
   .meta b { color:var(--text); font-weight:500; }
-  code, pre { font-family:var(--mono); font-size:12.5px; color:#5FE6C6; }
-  pre { background:#0E1830; border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; color:var(--dim); }
+  code, pre { font-family:var(--mono); font-size:12.5px; color:var(--accent-dim); }
+  pre { background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; color:var(--dim); }
   .gate .id { font-family:var(--mono); color:var(--accent); font-weight:600; }
   .gate .status { font-family:var(--mono); font-size:11px; }
   .gate .check { font-family:var(--mono); font-size:12px; color:var(--dim); display:block; margin-top:6px; }

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>plan.html — HOW · {{milestone}}</title>
 <style>
-  :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#B0C2D6; --warn:#facc15; --ok:#4ade80; --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace; }
+  :root { --bg:#001E2B; --surface:#112733; --line:rgba(61,79,88,.3); --accent:#00ED64; --text:#FFFFFF; --dim:#C1C7C6; --warn:#FFC010; --ok:#00ED64; --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace; }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; padding:48px 32px; }
   h1 { font-size:28px; } h1 .x { color:var(--accent); }
@@ -14,7 +14,7 @@
   td, th { padding:8px 10px; border-bottom:1px solid var(--line); color:var(--dim); font-size:13.5px; text-align:left; }
   th { font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--accent); }
   td:first-child { font-family:var(--mono); color:var(--accent); }
-  code { font-family:var(--mono); font-size:12.5px; color:#5FE6C6; }
+  code { font-family:var(--mono); font-size:12.5px; color:#71F6BA; }
   a { color:var(--accent); }
   .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:10px 0; }
   .context { font-size:13.5px; color:var(--dim); line-height:1.55; }

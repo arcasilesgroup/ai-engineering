@@ -537,7 +537,7 @@ describe("carriers on the machine", () => {
     // the entry, and the entry imports it by name.
     const pi = carrierFiles("pi", "machine")!;
     expect(pi.chain).toInclude("ai-eng-chain");
-    expect(pi.main).toInclude('from "./ai-eng-chain.ts"');
+    expect(pi.main).toInclude('from "./.ai-eng-chain.ts"');
     expect(carrierFiles("cursor", "repo")!.main).toInclude('"failClosed": true');
   });
 

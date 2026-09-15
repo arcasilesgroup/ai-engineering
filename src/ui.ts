@@ -4,6 +4,8 @@
 import { intro, outro, log, cancel, spinner as clackSpinner, confirm } from "@clack/prompts";
 import { styleText } from "node:util";
 import { PassThrough } from "node:stream";
+// Colour names come from brand/tokens.json via src/theme.ts — never typed here.
+import { MARKS as MARK_COLOURS } from "./theme.ts";
 // NO_COLOR and non-TTY degrade because clack honors colors, and ui.spinner()
 // covers the cursor-control codes clack emits even under NO_COLOR.
 
@@ -42,12 +44,12 @@ export type Row =
   | { readonly mark: "sub"; readonly text: string };
 
 const MARKS = {
-  ok: styleText("green", "✓"),
-  info: styleText("cyan", "◆"),
-  head: styleText("cyan", "◆"),
-  warn: styleText("yellow", "▲"),
-  fail: styleText("red", "✗"),
-  muted: styleText("dim", "·"),
+  ok: styleText(MARK_COLOURS.ok, "✓"),
+  info: styleText(MARK_COLOURS.info, "◆"),
+  head: styleText(MARK_COLOURS.head, "◆"),
+  warn: styleText(MARK_COLOURS.warn, "▲"),
+  fail: styleText(MARK_COLOURS.fail, "✗"),
+  muted: styleText(MARK_COLOURS.muted, "·"),
   sub: "",
 } as const;
 
@@ -85,23 +87,23 @@ export function pathList(paths: readonly string[]): string {
 }
 
 export function ok(message: string): void {
-  log.message(message, { symbol: styleText("green", "✓") });
+  log.message(message, { symbol: MARKS.ok });
 }
 
 /** `│  ◆ <message>` — the action/progress mark; neutral inside the frame. */
 export function info(message: string): void {
-  log.message(message, { symbol: styleText("cyan", "◆") });
+  log.message(message, { symbol: MARKS.info });
 }
 
 /** `│  ▲ <message>` — attention; the frame holds, only a security or quality
  *  failure blocks the step (§12). */
 export function warn(message: string): void {
-  log.message(message, { symbol: styleText("yellow", "▲") });
+  log.message(message, { symbol: MARKS.warn });
 }
 
 /** `│  ✗ <message>` — red error; the one state that blocks. */
 export function fail(message: string): void {
-  log.message(message, { symbol: styleText("red", "✗") });
+  log.message(message, { symbol: MARKS.fail });
 }
 
 /** Scripted-pipe stdin: on a non-TTY stdin the whole pipe often arrives as one

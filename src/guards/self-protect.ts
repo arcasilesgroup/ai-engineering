@@ -97,6 +97,11 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   // (Write/Edit/redirect all allowed).
   literals.push(join(repoRoot, ".git", "hooks"));
   // spec.html is protected ONLY once approved: its sha256 sits in the lock (§9.3).
+  // The fence is that file, not the word. Matching the substring "spec.html" also denied
+  // `templates/spec.html.tpl` — the payload `init` generates every project's contract
+  // from — and any future `docs/spec.html.md`, while the rule's own criterion is the
+  // pinned file. Pushing the path through the literal list keeps the same protection on
+  // the same file, through the same matching the other governed paths already use.
   let specPinned = false;
   try {
     const lock = Bun.TOML.parse(readFileSync(join(aiEng, "ai-eng.lock"), "utf8")) as Record<string, unknown>;
@@ -105,6 +110,7 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   } catch {
     specPinned = false;
   }
+  if (specPinned) literals.push(join(aiEng, "spec.html"));
   // Surface wiring we ourselves wrote.
   literals.push(...surfacesSettings(repoRoot));
   // Global canon and machine state: ~/.ai-engineering/** and the home mirrors. Both are
@@ -176,7 +182,6 @@ function offendingPath(paths: ProtectedPaths, text: string): string | null {
     if (!text.includes(path)) continue;
     return path;
   }
-  if (paths.specPinned && text.includes("spec.html")) return "spec.html (approved contract — sha256 pinned)";
   return null;
 }
 

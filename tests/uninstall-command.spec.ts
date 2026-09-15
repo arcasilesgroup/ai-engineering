@@ -409,7 +409,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     const report = installMachineCarriers(["pi"]);
     expect(report.written).toEqual(["~/.pi/agent/extensions/ai-eng.ts"]);
     const entry = join(agentDir, "extensions", "ai-eng.ts");
-    const chain = join(agentDir, "extensions", "ai-eng-chain.ts");
+    const chain = join(agentDir, "extensions", ".ai-eng-chain.ts");
     expect(existsSync(entry)).toBe(true);
     expect(existsSync(chain)).toBe(true);
     expect(existsSync(machineStateFile())).toBe(true);
@@ -475,7 +475,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["pi"]\n');
     installMachineCarriers(["pi"]);
     const entry = join(agentDir, "extensions", "ai-eng.ts");
-    const chain = join(agentDir, "extensions", "ai-eng-chain.ts");
+    const chain = join(agentDir, "extensions", ".ai-eng-chain.ts");
     const definition = readMachineState().carriers["pi"];
 
     const { result } = await uninstall([
