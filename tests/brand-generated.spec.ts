@@ -11,12 +11,18 @@
  * So these assertions read the generated files and ask whether they describe the tree.
  */
 import { describe, test, expect } from "bun:test";
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { loadTokens, type Tokens } from "../scripts/brand.ts";
+import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
 const WEB = join(ROOT, "..", "ai-engineering-web");
+/** The sibling web repo is private and is not checked out in CI (nor mounted into
+ *  the mutation sandbox): where its tree is absent these assertions have no subject,
+ *  so they skip instead of failing. Locally the suite still reads the real thing.
+ *  ponytail: brand.ts mutants covered only here survive the local campaign until
+ *  the sandbox mounts ai-engineering-web. */
+const hasWeb = existsSync(join(WEB, ".impeccable", "design.json"));
 const read = (path: string): string => readFileSync(path, "utf8");
 
 /** The `--name: value` declarations of the generated stylesheet's `:root`. */
@@ -57,7 +63,7 @@ const resolve = (t: Tokens, name: string): string => {
 };
 
 describe("the generated stylesheet carries the declared values", () => {
-  test("the accent and the field are what the declaration says they are", async () => {
+  test.skipIf(!hasWeb)("the accent and the field are what the declaration says they are", async () => {
     const tokens = await loadTokens();
     const css = cssTokens();
     expect(css["accent"]).toBe(resolve(tokens, "accent"));
@@ -65,7 +71,7 @@ describe("the generated stylesheet carries the declared values", () => {
     expect(css["font-sans"]).toBe(tokens.typography.families["sans"]!);
   });
 
-  test("it declares every semantic colour, so no component can fall back to nothing", async () => {
+  test.skipIf(!hasWeb)("it declares every semantic colour, so no component can fall back to nothing", async () => {
     const tokens = await loadTokens();
     const css = cssTokens();
     for (const token of ["accent-text", "link", "border", "surface-2", "muted", "text", "danger", "warn"]) {
@@ -75,7 +81,7 @@ describe("the generated stylesheet carries the declared values", () => {
 });
 
 describe("the design record describes the tree it came from", () => {
-  test("it carries one accessibility row per declared pair, and every row passes its level", async () => {
+  test.skipIf(!hasWeb)("it carries one accessibility row per declared pair, and every row passes its level", async () => {
     const tokens = await loadTokens();
     const rows = design().extensions.accessibility.pairs;
     expect(rows.length).toBe(tokens.pairs.length);
@@ -84,13 +90,13 @@ describe("the design record describes the tree it came from", () => {
     }
   });
 
-  test("it carries one colour entry per semantic token", async () => {
+  test.skipIf(!hasWeb)("it carries one colour entry per semantic token", async () => {
     const tokens = await loadTokens();
     const declared = Object.values(tokens.semantic).reduce<number>((n, group) => n + Object.keys(group).length, 0);
     expect(Object.keys(design().extensions.colorMeta).length).toBe(declared);
   });
 
-  test("the breakpoints it lists are the ones the stylesheet actually uses", () => {
+  test.skipIf(!hasWeb)("the breakpoints it lists are the ones the stylesheet actually uses", () => {
     const values = design().extensions.breakpoints.values;
     // An empty list here would mean the derivation stopped reading the CSS, not that the
     // site stopped being responsive.
