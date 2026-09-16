@@ -1,5 +1,29 @@
 # Changelog — ai-engineering
 
+## 2.2.1
+
+### Patch Changes
+
+- [#724](https://github.com/arcasilesgroup/ai-engineering/pull/724) [`a045fa9`](https://github.com/arcasilesgroup/ai-engineering/commit/a045fa9cf172b3edc05d54ca70ad60cd7ea05f16) Thanks [@soydachi](https://github.com/soydachi)! - `ai-security` findings now say where they stand, not only that they were real. A confirmed finding carried `verdict: "confirmed"` and nothing else, so one fixed in the same session kept reading as a live vulnerability: the next audit re-derived it, `REPORT.md` was the only artifact that said "fixed", and the milestone CHECK "zero open HIGH findings" had nothing in the machine-readable half to evaluate.
+  
+  Every confirmed finding now carries a `disposition` — `{"status": "open"}` while the vulnerability is in the tree, or `{"status": "fixed", "landed_in": "<sha>"}` once the fix has landed. The schema refuses `fixed` without the commit that carries it, so no report can claim a fix nobody can resolve. Phase 5 requires the field, and the prior-run ledger reads it: a `fixed` finding is closed ground, an `open` one is where the next run digs.
+  
+  A `findings.json` written before this change is refused by `validate-findings.cjs` until it is stamped, which is the point — the two runs this repository keeps were stamped with the commits that carry their fixes.
+
+- [#724](https://github.com/arcasilesgroup/ai-engineering/pull/724) [`a045fa9`](https://github.com/arcasilesgroup/ai-engineering/commit/a045fa9cf172b3edc05d54ca70ad60cd7ea05f16) Thanks [@soydachi](https://github.com/soydachi)! - The session can write its own artifacts again: `self-protect` was denying the session everything under `.ai-engineering/`.
+  
+  That protection was a plain directory literal, so it covered every child of the directory — the four milestone slots (`spec.html`, `plan.html`, `brainstorm.md`, `recap.html`), the receipts, the cache, and the artifacts the canon's own nodes promise in their `Writes:`: `ai-research` writes `research/NNN-{name}.html`, `ai-security` writes `security/run-N/findings.json` and `REPORT.md`, `ai-design` writes `design/direction.html`. Nothing else writes those files, so the guard denied the only writer there is — a `brainstorm.md` came back as "this file governs you", and a research or security node could not leave the artifact its own contract requires. It also shadowed the pin check: an approved contract is frozen by the sha256 in the lock, and that check was never reached while the directory literal answered first.
+  
+  The fence is now the machinery and only the machinery: the four files the chain itself reads (`config.toml`, `overrides.toml`, `ai-eng.lock`, `arch.rules.json`), the git floor, the machine-side canon and carriers, and `spec.html` once its sha256 is in the lock. Everything else under the directory is the session's own material. The directory itself is matched as a terminal segment, never a prefix — `rm -rf .ai-engineering` names the machinery in one word and stays denied, while `.ai-engineering/research/002.html` is not the directory and is a write like any other.
+  
+  The four slot names still live in one place, `src/shared-slots.ts`, because `spec` sweeps them at `spec close`; the guard no longer needs the list, since it no longer carves an exemption out of a directory literal.
+
+- [#724](https://github.com/arcasilesgroup/ai-engineering/pull/724) [`a045fa9`](https://github.com/arcasilesgroup/ai-engineering/commit/a045fa9cf172b3edc05d54ca70ad60cd7ea05f16) Thanks [@soydachi](https://github.com/soydachi)! - `ai-eng update` reports both halves it owns, and a no-op is no longer printed as a write. The machine half was visible only when something was wrong: a healthy canon, an unchanged git floor and a carrier already at the binary's bytes printed nothing, so a run that verified everything looked exactly like a run that never looked — and the module carriers were rewritten and counted every time, which is how "all 7 assets current — nothing to sync" arrived with a line claiming the machine side was the work.
+  
+  The repo and the machine now each report as one block, every part named with its outcome: `Repo assets` lists the files it holds when there is nothing to write, `Machine side` names the canon, each declared surface's carrier, the git floor and the machine ledger, and the closing line says whether anything was written at all. Identical bytes are skipped rather than rewritten, so `written` means a change.
+  
+  What an existing install will notice: the second `ai-eng update` in a row now ends in "Nothing written — the repo and the machine already match ai-eng <version>" instead of the counts of a run that looked like it had done something.
+
 ## 2.2.0
 
 ### Minor Changes
