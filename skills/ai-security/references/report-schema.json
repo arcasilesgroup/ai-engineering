@@ -184,9 +184,42 @@
             },
             "required": ["score", "reason"],
             "additionalProperties": false
+          },
+          "disposition": {
+            "description": "Where this finding stands in the tree this run leaves behind. `verdict` says the finding is real; `disposition` says whether it is still live — a report that only carries the first becomes an unattributed advisory the moment its fix lands.",
+            "oneOf": [
+              {
+                "type": "object",
+                "description": "The vulnerability is live in the revision this run leaves behind.",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "open"
+                  }
+                },
+                "required": ["status"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "description": "The fix is in the tree. Name the commit that carries it — the schema will not accept `fixed` without one.",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "fixed"
+                  },
+                  "landed_in": {
+                    "type": "string",
+                    "description": "Full 40-character sha of the commit that carries the fix. A short sha is ambiguous and a sha from a squashed branch cannot be resolved from the default branch at all."
+                  }
+                },
+                "required": ["status", "landed_in"],
+                "additionalProperties": false
+              }
+            ]
           }
         },
-        "required": ["verdict", "title", "description", "root_cause", "intended_behavior", "trace", "conditions", "execution", "remediation", "severity", "confidence"],
+        "required": ["verdict", "title", "description", "root_cause", "intended_behavior", "trace", "conditions", "execution", "remediation", "severity", "confidence", "disposition"],
         "additionalProperties": false
       },
       {

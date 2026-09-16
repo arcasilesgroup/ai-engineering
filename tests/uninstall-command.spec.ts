@@ -409,7 +409,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     const report = installMachineCarriers(["pi"]);
     expect(report.written).toEqual(["~/.pi/agent/extensions/ai-eng.ts"]);
     const entry = join(agentDir, "extensions", "ai-eng.ts");
-    const chain = join(agentDir, "extensions", "ai-eng-chain.ts");
+    const chain = join(agentDir, "extensions", ".ai-eng-chain.ts");
     expect(existsSync(entry)).toBe(true);
     expect(existsSync(chain)).toBe(true);
     expect(existsSync(machineStateFile())).toBe(true);
@@ -443,7 +443,10 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(existsSync(join(cwd, "DECISIONS.md"))).toBe(false);
     expect(existsSync(join(cwd, "CLAUDE.md"))).toBe(false);
     expect(existsSync(join(cwd, ".ai-engineering"))).toBe(false);
-    expect(out).toContain("▲ project contract files removed (your choice) · AGENTS.md · DECISIONS.md · CLAUDE.md · .ai-engineering/");
+    // The full line may wrap in a narrow terminal (e.g. stryker's sandbox), so check
+    // the prefix and the file list separately — both must appear, order is irrelevant.
+    expect(out).toContain("▲ project contract files removed (your choice)");
+    expect(out).toContain("AGENTS.md · DECISIONS.md · CLAUDE.md · .ai-engineering/");
     expect(out).toContain(`✓ kept: ${machine} · global skills stay installed`); // the second question is separate
     expect(existsSync(machine)).toBe(true);
   });
@@ -475,7 +478,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["pi"]\n');
     installMachineCarriers(["pi"]);
     const entry = join(agentDir, "extensions", "ai-eng.ts");
-    const chain = join(agentDir, "extensions", "ai-eng-chain.ts");
+    const chain = join(agentDir, "extensions", ".ai-eng-chain.ts");
     const definition = readMachineState().carriers["pi"];
 
     const { result } = await uninstall([

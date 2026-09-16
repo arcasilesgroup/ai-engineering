@@ -95,6 +95,20 @@ say "G7 evidence: lock mtime before=$MTIME1 after=$MTIME2 ($(uname -s))"
 printf '%s\n' "$UPD_OUT" | grep -E 'assets current' | sed 's/^/G7 evidence: /'
 printf '%s\n' "$UPD_OUT" | grep -q 'assets current' || die "G7: short-circuit line missing"
 
+# G7b: the no-op run reports BOTH halves — the repo's assets and the machine's canon,
+# carriers and git floor — and says plainly that nothing was written. A run that answers
+# "all assets current" and stops cannot be told apart from one that never looked, and the
+# module carrier used to be rewritten and counted on every run, which is how the no-op
+# came back with a line claiming the machine side was the work.
+printf '%s\n' "$UPD_OUT" | grep -q 'Machine side' || die "G7b: machine half not reported"
+printf '%s\n' "$UPD_OUT" | grep -q 'global canon' || die "G7b: canon not reported"
+printf '%s\n' "$UPD_OUT" | grep -q 'nothing to write' || die "G7b: machine verdict missing"
+printf '%s\n' "$UPD_OUT" | grep -q 'Nothing written' || die "G7b: write verdict missing"
+if printf '%s\n' "$UPD_OUT" | grep -q 'machine carrier · written'; then
+  die "G7b: a carrier already at the binary's bytes was counted as a write"
+fi
+printf '%s\n' "$UPD_OUT" | grep -E 'Machine side|global canon|Nothing written' | sed 's/^/G7b evidence: /'
+
 # ── G8: user-patched hook survives update with keep-mine default ───────
 printf '\n# my custom bit: pnpm install --frozen\n' >> .git/hooks/pre-commit
 G8_OUT=$(printf '\n' | $CLI update 2>&1)

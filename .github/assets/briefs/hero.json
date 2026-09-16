@@ -1,0 +1,47 @@
+{
+  "goal": "Create the hero image band for the README of ai-engineering, a guardrail layer that sits under AI coding agents",
+  "asset_kind": "repository README hero band",
+  "subject": "An edge-on view of one thin, perfectly rigid lattice plane of fine glowing electric-green lines, standing in a vast obsidian void. No markings on it: just precise geometric line work, like an architectural wireframe seen from the side. Fine luminous dust drifts in from the lower left and stops dead at the plane, settling into a soft cool haze that clings to its surface. Nothing crosses the plane.",
+  "composition": "Wide cinematic band. The glowing plane sits on the right third, running top to bottom with a slight diagonal tilt. Drifting dust enters from the lower left. Deep, quiet empty space across the upper left for text overlay. No centered symmetry, no horizon line",
+  "style": [
+    "cinematic",
+    "architectural minimalism",
+    "dark editorial",
+    "high contrast",
+    "volumetric light in haze",
+    "long exposure",
+    "precise and technical",
+    "premium infrastructure product art",
+    "restrained"
+  ],
+  "brand_tokens": [
+    "obsidian near-black #001E2B background",
+    "electric spring green #00ED64 as the single accent",
+    "deep evergreen #00684A in the shadows",
+    "cool neutral greys for the haze"
+  ],
+  "must_include": [
+    "one clean unbroken boundary plane",
+    "fine glowing green line work",
+    "soft volumetric haze catching the light",
+    "deep negative space on the left",
+    "sharp focus on the boundary"
+  ],
+  "avoid": [
+    "any text, letters, words, numerals, glyphs, runes or symbol-like marks",
+    "matrix code rain or floating characters",
+    "rocks, boulders, dust clumps, rubble, debris chunks",
+    "smoke plumes, explosions, impact bursts",
+    "locks, padlocks, shields or padlock iconography",
+    "robot, brain, neural network or humanoid imagery",
+    "dashboard or UI mockups",
+    "cluttered or busy composition",
+    "oversaturated green wash",
+    "3D render plastic look"
+  ],
+  "notes": "Restrained, expensive, architectural. The green is one luminous accent line, never a flood. The scene must stay legible when darkened and overlaid with white monospace type.",
+  "size": "1536x512",
+  "n": 4,
+  "seed": 811,
+  "guidance": 3.2
+}

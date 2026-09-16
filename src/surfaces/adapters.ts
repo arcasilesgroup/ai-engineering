@@ -338,14 +338,30 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
     const absolute = carrierPath(placement);
     const definition = sha256(files.main);
     if (placement.kind === "module") {
+      // A module carrier is ours whole — never merged into — but rewriting the bytes
+      // already there is not an install. Reporting it as `written` is how an update that
+      // changed nothing came back with a line claiming the machine side was the work
+      // (cli-ux-14): the count has to mean something or the report cannot.
+      const chainPath = placement.chain ? carrierPath(placement, placement.chain) : null;
+      let identical = false;
+      try {
+        identical =
+          readFileSync(absolute, "utf8") === files.main &&
+          (chainPath === null || !files.chain || readFileSync(chainPath, "utf8") === files.chain);
+      } catch {
+        identical = false; // unreadable is not ours to call current — write it
+      }
+      state.carriers[id] = definition;
+      if (identical) {
+        report.untouched.push(`~/${placement.path}`);
+        continue;
+      }
       mkdirSync(dirname(absolute), { recursive: true });
       writeFileSync(absolute, files.main);
-      if (files.chain && placement.chain) {
-        const chainPath = carrierPath(placement, placement.chain);
+      if (files.chain && chainPath) {
         mkdirSync(dirname(chainPath), { recursive: true });
         writeFileSync(chainPath, files.chain);
       }
-      state.carriers[id] = definition;
       report.written.push(`~/${placement.path}`);
       continue;
     }

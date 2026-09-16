@@ -58,10 +58,17 @@ The schema supports two verdict types via `oneOf`:
 - **`confirmed`** — a validated vulnerability with full trace, execution, and remediation
 - **`rejected`** — a finding that was investigated and determined to be factually incorrect
 
+`verdict` says the finding is real; `disposition` says whether it is still live, and every confirmed finding carries one:
+
+- **`{"status": "open"}`** — the vulnerability is in the revision this audit leaves behind.
+- **`{"status": "fixed", "landed_in": "<sha>"}`** — the fix is in the tree, and `landed_in` is the commit that carries it. The schema refuses `fixed` without a sha, so no artifact can claim a fix nobody can resolve.
+
+When you land a fix in this session, editing `REPORT.md` is not enough: set the matching `disposition` and re-run the validator, so the machine-readable half says it too. A run of live `open` findings and a run of fixed ones are the same file otherwise — which is how a fixed finding stays on the record looking like an advisory.
+
 **Before writing `findings.json`:**
 
 1. Read `references/report-schema.json` next to this file. Follow it exactly — `additionalProperties: false` is enforced, so extra fields will make the output invalid.
-2. For each finding, populate every required field. If you cannot fill `trace` with real file paths and line numbers verified against the source, the finding is not sufficiently verified — go back and verify it or reject it. Mind the required fields that aren't self-evident: `intended_behavior` (what the code is *supposed* to do, so the defect is legible), `confidence` (`low`/`medium`/`high`, with a reason), and the `severity` object (`likelihood`/`impact`/`overall_severity`). All `severity` scores use the schema's **lowercase** enum — `informational`/`low`/`medium`/`high`/`critical`; the UPPERCASE tiers in SKILL.md and REPORT.md are prose labels, not valid JSON values.
+2. For each finding, populate every required field. If you cannot fill `trace` with real file paths and line numbers verified against the source, the finding is not sufficiently verified — go back and verify it or reject it. Mind the required fields that aren't self-evident: `intended_behavior` (what the code is *supposed* to do, so the defect is legible), `confidence` (`low`/`medium`/`high`, with a reason), `disposition` (`open`, or `fixed` with the sha of the commit that carries the fix), and the `severity` object (`likelihood`/`impact`/`overall_severity`). All `severity` scores use the schema's **lowercase** enum — `informational`/`low`/`medium`/`high`/`critical`; the UPPERCASE tiers in SKILL.md and REPORT.md are prose labels, not valid JSON values.
 3. Run `node <skill-dir>/references/validate-findings.cjs <output-dir>/findings.json` to validate. It checks required fields, enum values, structural constraints, and `additionalProperties`. This is a structural check only — it confirms the JSON conforms to the schema, not that the findings are correct. Factual verification is Phase 6's job. Fix any failures before proceeding.
 
 ### Phase 6: Independent verification

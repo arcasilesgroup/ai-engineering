@@ -48,7 +48,7 @@ Subagents (Phases 1, 2, 3, 6) do NOT write files — they return results to you 
 Each audit run explores different code paths depending on which agents find what and where they dig. No single run finds everything. Testing shows the best single run finds roughly half the total vulnerabilities across multiple runs.
 
 **If prior runs exist** for the same repo (check `.ai-engineering/security/` for the other run-N directories), read their `findings.json` files before starting Phase 2. Use them to:
-1. **Skip known findings** — don't waste agents re-discovering the same status bypass. Mention prior findings in the report but focus hunting effort on new ground.
+1. **Skip known findings** — don't waste agents re-discovering the same status bypass. `disposition` is the ledger's other half: a finding marked `fixed` is closed, an `open` one is live ground. Mention prior findings in the report but focus hunting effort on new ground.
 2. **Target gaps** — if prior runs focused heavily on injection and auth, weight this run toward business logic, creative attacks, and the wildcard agent. If prior runs missed public endpoints, focus there.
 3. **Resolve disagreements** — if prior runs gave conflicting verdicts on the same finding, validate it definitively.
 
@@ -123,10 +123,14 @@ These are the mistakes that make security audits useless:
 1. Output is pinned to `.ai-engineering/security/run-N/` — `findings.json` validated
    against `references/report-schema.json`, plus `REPORT.md`. The last `keep_runs`
    runs (config.toml) stay alive: run N's ledger of known findings reads the runs
-   before it.
+   before it. Every confirmed finding carries a `disposition` — `open`, or `fixed`
+   with the sha of the commit that carries the fix — so the ledger can tell a live
+   vulnerability from a closed one.
 2. When the milestone includes an audit, its phases become executable gates of the
    spec: "findings validated against the schema" and "zero open HIGH findings" are
-   CHECKs that `ai-eng spec run` executes — not courtesy reading.
+   CHECKs that `ai-eng spec run` executes — not courtesy reading. The second one
+   reads `disposition`: on `verdict` alone every finding stays `confirmed` forever,
+   fixed or not, and the CHECK has nothing to evaluate.
 3. The source's non-negotiable principle is also ai-proof's (§9.3): you only report
    what you can exploit. No demonstrable exploit, no finding.
 4. Who verifies: the `verify` model tier of the pin (§09.4); who judges the

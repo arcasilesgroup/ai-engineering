@@ -1,0 +1,40 @@
+{
+  "brief": ".github/assets/briefs/hero.json",
+  "created_at": "2026-09-15T17:12:47.532067+00:00",
+  "model": "flux-2-klein",
+  "operation": "generate",
+  "outputs": [
+    {
+      "bytes": 557295,
+      "file": "image-01.jpg",
+      "sha256": "0dd5299b733972ae2b552d581c5e2150fbc9a0b3bbde5269ba7320644aeafabe"
+    },
+    {
+      "bytes": 546689,
+      "file": "image-02.jpg",
+      "sha256": "5d98d23231e1503fbe46746670c4f045e19fee2186b86d49c9622b5dd5da3238"
+    },
+    {
+      "bytes": 502542,
+      "file": "image-03.jpg",
+      "sha256": "a23c4e5f3bd3f759afffe47e4bb2bc2bc7b9440075e03c6444ba7335a261143d"
+    },
+    {
+      "bytes": 472777,
+      "file": "image-04.jpg",
+      "sha256": "5162caedbf28c942cb0b530c8d89a59408e0aab02286edda0a9b82a00e3e2b2a"
+    }
+  ],
+  "parameters": {
+    "guidance": 3.2,
+    "n": 4,
+    "seed": 811,
+    "size": "1536x512"
+  },
+  "prompt": "Goal: Create the hero image band for the README of ai-engineering, a guardrail layer that sits under AI coding agents.\nAsset kind: repository README hero band.\nSubject: An edge-on view of one thin, perfectly rigid lattice plane of fine glowing electric-green lines, standing in a vast obsidian void. No markings on it: just precise geometric line work, like an architectural wireframe seen from the side. Fine luminous dust drifts in from the lower left and stops dead at the plane, settling into a soft cool haze that clings to its surface. Nothing crosses the plane..\nComposition: Wide cinematic band. The glowing plane sits on the right third, running top to bottom with a slight diagonal tilt. Drifting dust enters from the lower left. Deep, quiet empty space across the upper left for text overlay. No centered symmetry, no horizon line.\nArt direction: cinematic, architectural minimalism, dark editorial, high contrast, volumetric light in haze, long exposure, precise and technical, premium infrastructure product art, restrained.\nBrand tokens: obsidian near-black #001E2B background, electric spring green #00ED64 as the single accent, deep evergreen #00684A in the shadows, cool neutral greys for the haze.\nMust include: one clean unbroken boundary plane, fine glowing green line work, soft volumetric haze catching the light, deep negative space on the left, sharp focus on the boundary.\nAvoid: any text, letters, words, numerals, glyphs, runes or symbol-like marks, matrix code rain or floating characters, rocks, boulders, dust clumps, rubble, debris chunks, smoke plumes, explosions, impact bursts, locks, padlocks, shields or padlock iconography, robot, brain, neural network or humanoid imagery, dashboard or UI mockups, cluttered or busy composition, oversaturated green wash, 3D render plastic look.\nAdditional constraints: Restrained, expensive, architectural. The green is one luminous accent line, never a flood. The scene must stay legible when darkened and overlaid with white monospace type..",
+  "provider": "nan-builders",
+  "references": [],
+  "schema_version": 1,
+  "chosen": "image-04.jpg",
+  "composited": ".github/assets/hero.jpg (wordmark and tagline set over it with JetBrains Mono)"
+}

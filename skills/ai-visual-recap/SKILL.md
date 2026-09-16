@@ -182,17 +182,20 @@ Then, in order of how often each one is the actual problem:
   Generate the spans; never hand-annotate them. A missed string or a comment that
   swallows the next line is how a recap starts lying about its own code.
 - **One token vocabulary across the whole family**: `c` comment · `k` keyword · `s`
-  string · `n` number · `t` type · `f` call · `b` strong. These are the blueprint's own
-  token classes (§22's stylesheet), so a recap and the design document read as one thing.
+  string · `n` number · `t` type · `f` call · `b` strong. These are the artifact design
+  system's own token classes (`skills/ai-design/references/artifact-design.md`), so a
+  recap and every other generated artifact read as one thing.
 - **The CSS travels with the artifact**, so it renders identically in a browser, in a
-  plan viewer and in a PDF export:
+  plan viewer and in a PDF export. It names the artifact's variables and never a colour
+  literal: a literal here is a sixth copy of the palette that no gate reads, and it goes
+  stale the first time the brand moves.
 
-      pre { background:#0E1830; border:1px solid rgba(0,212,170,.15); border-radius:10px;
-            padding:14px 16px; overflow-x:auto; font-family:'SF Mono',ui-monospace,monospace;
-            font-size:12.5px; line-height:1.65; color:#A9BBD0; }
-      pre .c { color:#6b87a6 } pre .k { color:#00D4AA } pre .s { color:#22c55e }
-      pre .n { color:#f97316 } pre .t { color:#a855f7 } pre .f { color:#7dd3fc }
-      pre .b { color:#F8FAFB; font-weight:600 }
+      pre { background:var(--surface-2); border:1px solid var(--line); border-radius:10px;
+            padding:14px 16px; overflow-x:auto; font-family:'JetBrains Mono',ui-monospace,monospace;
+            font-size:12.5px; line-height:1.65; color:var(--dim); }
+      pre .c { color:var(--comment) } pre .k { color:var(--accent) } pre .s { color:var(--ok) }
+      pre .n { color:var(--orange) } pre .t { color:var(--purple) } pre .f { color:var(--accent-dim) }
+      pre .b { color:var(--text); font-weight:600 }
 
 - **Do not colour twice.** If the renderer colours the block from `language`, do not also
   pre-render spans into it: two colouring paths disagree the first time one changes, and

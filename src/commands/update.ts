@@ -14,8 +14,8 @@ import { select, confirm, isCancel } from "@clack/prompts";
 import { install, buildLock, lockText, parseLock, sha256, mergeSharedText } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
 import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
-import { canonDrift } from "../embed.ts";
-import { installCanon, installMachineCarriers, rememberTemplateDir, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
+import { canonDrift, type CanonDrift } from "../embed.ts";
+import { installCanon, installMachineCarriers, machineStateFile, rememberTemplateDir, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
 import { installTemplateDir } from "../floor/template.ts";
 import { planEntries, refuseLine } from "./init-shared.ts";
 import { VERSION } from "../version.ts";
@@ -68,31 +68,59 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
   return plan;
 }
 
-/** The machine half is invisible in the sync plan, so every path that reports "the repo
- *  needed nothing" still has to say what it did to the machine — an update that repaired
- *  a carrier it never mentions reads as a no-op, and that is how the loop started. */
-function sayMachine(rows: ui.Row[], why: string): void {
-  if (rows.length > 0) ui.section("Synced", rows, why);
-}
-
-/** The machine half of an update: the declared surfaces' carriers, the carriers that
- *  moved out of the repo in this release, and the git template dir. None of it is a
- *  repo-side asset, so none of it shows up in the sync plan — and that is exactly why
+/** The machine half of an update: the global canon, the declared surfaces' carriers, the
+ *  carriers that moved out of the repo in this release, and the git floor. None of it is
+ *  a repo-side asset, so none of it shows up in the sync plan — and that is exactly why
  *  it must not sit behind the plan's early returns. `doctor` sends a machine that lost
  *  its carrier here ("→ ai-eng update"); a repo whose own assets are current is the
- *  normal shape of that machine, and returning before this made the remedy a no-op. */
-function installMachineSide(root: string): ui.Row[] {
-  const moved = sweepMovedRepoCarriers(root);
+ *  normal shape of that machine, and returning before this made the remedy a no-op.
+ *
+ *  Every part reports, changed or not. A half that stays silent about the canon it just
+ *  verified reads as a half that never looked, and "all 7 assets current" then buries the
+ *  only question the run was asked. The rows carry the outcome, so there is no need for
+ *  two kinds of proof: `written` for a change, `muted` for a part that checked out. */
+function installMachineSide(root: string, canon: CanonDrift, canonRepair: string[]): { rows: ui.Row[]; written: number } {
+  const rows: ui.Row[] = [];
+  let written = 0;
+  if (canonRepair.length > 0) {
+    written += 1;
+    const counts: Array<[number, string]> = [[canon.drift, "drifted"], [canon.missing, "missing"], [canon.stale, "stale"]];
+    const why = counts.filter(([count]) => count > 0).map(([count, word]) => `${count} ${word}`).join(" · ");
+    rows.push({ mark: "ok", text: "global canon outdated or incomplete — re-installed", dim: why });
+    rows.push(...canonRepair.map((line): ui.Row => ({ mark: "sub", text: line.replace(/^✓ /, "") })));
+  } else {
+    rows.push({ mark: "muted", text: `global canon · ${canon.verified} files match ai-eng ${VERSION}` });
+  }
   const machineReport = installMachineCarriers(enabledSurfaces());
+  written += machineReport.written.length;
+  rows.push(...machineReport.written.map((path): ui.Row => ({ mark: "ok", text: path, dim: "machine carrier · written" })));
+  rows.push(...machineReport.untouched.map((path): ui.Row => ({ mark: "muted", text: `${path} · machine carrier already current` })));
+  rows.push(...machineReport.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })));
+  const moved = sweepMovedRepoCarriers(root);
+  written += moved.removed.length;
+  rows.push(...moved.removed.map((path): ui.Row => ({ mark: "ok", text: path, dim: "moved to the machine — removed from the repo" })));
+  rows.push(...moved.kept.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "not ours any more — review by hand" })));
   const template = installTemplateDir();
   if (template.status !== "failed") rememberTemplateDir(template.previous, template.ours);
-  return [
-    ...machineReport.written.map((path): ui.Row => ({ mark: "ok", text: path, dim: "machine carrier" })),
-    ...moved.removed.map((path): ui.Row => ({ mark: "ok", text: path, dim: "moved to the machine — removed from the repo" })),
-    ...moved.kept.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "not ours any more — review by hand" })),
-    ...(template.status === "created" || template.status === "joined" ? [{ mark: "ok", text: template.line } satisfies ui.Row] : []),
-    ...machineReport.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })),
-  ];
+  if (template.status === "created" || template.status === "joined") {
+    written += 1;
+    rows.push({ mark: "ok", text: template.line });
+  } else if (template.status === "current") {
+    rows.push({ mark: "muted", text: template.line });
+  } else {
+    rows.push({ mark: "warn", text: template.line });
+  }
+  // The ledger this half is written into: version + the hash of every carrier. Named
+  // because it is the file a later `uninstall` reads, and an unreported write is the
+  // question this report exists to answer.
+  rows.push({ mark: "muted", text: `${machineStateFile()} · version + carrier hashes` });
+  return { rows, written };
+}
+
+/** The block the machine half prints as — the same one in every path, so "nothing to
+ *  write" and "3 written" are the same sentence with a different count. */
+function machineSection(machine: { rows: ui.Row[]; written: number }): void {
+  ui.section("Machine side", machine.rows, machine.written === 0 ? "nothing to write" : `${machine.written} written`);
 }
 
 export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> {
@@ -127,17 +155,27 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // twenty stale skills reported as "all assets current" is the gap, and
   // repairing it by hand means knowing that `init --global` does it. Same
   // predicate init and doctor use: health is a measurement.
+  //
+  // Repaired here, reported with the rest of the machine half: one block, printed
+  // once. A canon section of its own printed before the questions left the run
+  // looking like two unrelated commands (cli-ux-14).
   const canon = canonDrift(home());
-  const canonHealthy = canon.drift === 0 && canon.missing === 0 && canon.stale === 0;
-  if (!canonHealthy) {
-    const rows = installCanon(VERSION).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
-    const why = [`${canon.drift} drifted`, `${canon.missing} missing`, ...(canon.stale > 0 ? [`${canon.stale} stale`] : [])].join(" · ");
-    ui.section("global canon outdated or incomplete — re-installing", rows, why);
-  }
+  const canonRepair = canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? [] : installCanon(VERSION);
   if (pending.length === 0 && plan.conflicts.length === 0) {
-    ui.ok(canonHealthy ? `all ${plan.current.length} assets current — nothing to sync` : "repo assets current — the machine side was the work");
-    sayMachine(installMachineSide(root), "the repo needed nothing — the machine side was the work");
-    ui.end("Next: ai-eng doctor — verify the chain responds");
+    // The repo half reports what it holds, not only how many: "all 7 assets current"
+    // is exactly the phrase that hid the gap this block exists to close, and a count
+    // cannot say whether anything was verified (cli-ux-14).
+    ui.section("Repo assets", [
+      { mark: "muted", text: `all ${plan.current.length} assets current — nothing to sync` },
+      ...(plan.current.length > 0 ? [{ mark: "sub", text: ui.pathList(plan.current) } satisfies ui.Row] : []),
+    ]);
+    const machine = installMachineSide(root, canon, canonRepair);
+    machineSection(machine);
+    ui.end(
+      machine.written === 0
+        ? `Nothing written — the repo and the machine already match ai-eng ${VERSION} · Next: ai-eng doctor`
+        : `Machine side updated to ai-eng ${VERSION} · the repo already matched · Next: ai-eng doctor`,
+    );
     return 0;
   }
   // Concept blocks, not line-spam (§14.3 mockup): one block per idea. And a
@@ -152,7 +190,10 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     if (plan.current.length > 0) {
       rows.push({ mark: "sub", text: ui.pathList(plan.current) }, { mark: "muted", text: `${plan.current.length} already current or yours — untouched` });
     }
-    ui.section("What needs to sync", rows, `${pending.length} update${pending.length === 1 ? "" : "s"}`);
+    ui.section("What needs to sync", rows, [
+      plan.updates.length > 0 ? `${plan.updates.length} update${plan.updates.length === 1 ? "" : "s"}` : "",
+      plan.fresh.length > 0 ? `${plan.fresh.length} new` : "",
+    ].filter((part) => part.length > 0).join(" · "));
   }
 
   // Conflict resolution BEFORE any write: ONE decision for the whole set —
@@ -184,9 +225,14 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     // exactly as you left it. Say so and close — no lock rewrite, no commit.
     // The machine half runs anyway: it is not part of the plan, so "the repo needs
     // nothing" is not the same question as "the machine needs nothing".
-    sayMachine(installMachineSide(root), "the repo needed nothing — the machine side was the work");
     ui.section("Kept", [{ mark: "info", text: "your patches stay", dim: ui.pathList(plan.conflicts) }, { mark: "muted", text: "nothing written — the repo is exactly as you left it" }]);
-    ui.end("Next: ai-eng doctor — verify the chain responds");
+    const machine = installMachineSide(root, canon, canonRepair);
+    machineSection(machine);
+    ui.end(
+      machine.written === 0
+        ? `Nothing written — the repo and the machine already match ai-eng ${VERSION} · Next: ai-eng doctor`
+        : `Machine side updated to ai-eng ${VERSION} · your patches stayed · Next: ai-eng doctor`,
+    );
     return 0;
   }
   const apply = opts.yes === true ? true : await confirm({ message: `Apply? ${writeCount} write${writeCount === 1 ? "" : "s"}${plan.conflicts.length > 0 && takeCount === 0 ? " · your patches stay untouched" : ""}`, initialValue: true, input: input as never });
@@ -215,10 +261,12 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   const resultRows: ui.Row[] = [
     { mark: "ok", text: `${report.written.length} asset${report.written.length === 1 ? "" : "s"} synced`, dim: "sha256 recorded in ai-eng.lock" },
     ...(keptCount > 0 ? [{ mark: "info", text: "kept yours", dim: keptPaths.join("  ·  ") } satisfies ui.Row] : []),
-    ...installMachineSide(root),
     ...report.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })),
   ];
-  ui.section("Synced", resultRows, `${plan.conflicts.length} conflict${plan.conflicts.length === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`);
+  ui.section("Synced", resultRows, plan.conflicts.length > 0
+    ? `${plan.conflicts.length} conflict${plan.conflicts.length === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`
+    : "nothing of yours touched");
+  machineSection(installMachineSide(root, canon, canonRepair));
   // The lock is the ownership ledger: it may only claim files this run actually
   // made ours — written now, taken over by explicit human resolution, or
   // already byte-identical to ours (verbatim). A MERGED file is ours by entry, not by
@@ -246,6 +294,6 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     /* git absent or refused — the hand-commit note above stands */
   }
   ui.section("Recorded", [{ mark: "ok", text: `ai-eng.lock · ${Object.keys(lock.assets).length} assets with sha256` }, { mark: "ok", text: `commit: ${commitLine}` }]);
-  ui.end(`Next: ai-eng doctor — verify the chain still works with the new hooks`);
+  ui.end(`Repo and machine now match ai-eng ${VERSION} · Next: ai-eng doctor — verify the chain responds`);
   return 0;
 }

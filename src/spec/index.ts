@@ -16,9 +16,9 @@ import { writeReceipt } from "../receipts.ts";
 import { embeddedTemplate } from "../embed.ts";
 import { parseLock, lockText } from "../install.ts";
 import { unmetTriggers } from "./triggers.ts";
+import { SLOT_FILES } from "../shared-slots.ts";
 import { VERSION } from "../version.ts";
 
-const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.md", "recap.html"];
 /** An ABANDON with less than this much reason is a checkbox, not an honest exit. */
 const MIN_ABANDON_REASON = 12;
 
@@ -120,7 +120,9 @@ export function specRun(): number {
   // executor trusts the artifact's own ledger, so a committed spec.html with hand-
   // ticked boxes and typed evidence reports ALL MET having run nothing (audit
   // LOGIC-001).
-  const done = spawnSync(runner, [script, specPath, "--recheck"], { cwd: root, encoding: "utf8", stdio: "inherit" });
+  // --timeout 600: some gates run stryker, which takes 4-11 minutes on a cold cache.
+  // The default 120s is correct for shell checks; mutation campaigns need the room.
+  const done = spawnSync(runner, [script, specPath, "--recheck", "--timeout", "600"], { cwd: root, encoding: "utf8", stdio: "inherit" });
   const code = done.status ?? 1;
   const receipt = writeReceipt({
     event: "spec-run",

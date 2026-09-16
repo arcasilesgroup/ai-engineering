@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 730" width="1360" height="730" role="img">
+<title>ai-engineering - the skill chain</title>
+<defs>
+<marker id="head" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="#00684A"/></marker>
+</defs>
+<rect width="1360" height="730" fill="#FFFFFF"/>
+<text x="40" y="50" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="24" fill="#001E2B" font-weight="700" text-anchor="start">{ai} engineering · the skill chain</text>
+<text x="40" y="78" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#5C6C75" font-weight="400" text-anchor="start">Twenty skills run as one pipeline. Each one declares its next step in front matter,</text>
+<text x="40" y="98" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#5C6C75" font-weight="400" text-anchor="start">so the handoff is a contract the next skill can read — not a convention in somebody's head.</text>
+<text x="40" y="142" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" text-anchor="start" letter-spacing="2">LANES</text>
+<rect x="128" y="152" width="98" height="24" rx="6" fill="#F4F7F6" stroke="#E8EDEB"/>
+<text x="177" y="168" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#00684A" font-weight="700" text-anchor="middle">light</text>
+<text x="238" y="168" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" fill="#5C6C75" font-weight="400" text-anchor="start">ai-brainstorm → ai-verify  ·  no contract written</text>
+<rect x="128" y="186" width="98" height="24" rx="6" fill="#F4F7F6" stroke="#E8EDEB"/>
+<text x="177" y="202" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#00684A" font-weight="700" text-anchor="middle">standard</text>
+<text x="238" y="202" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" fill="#5C6C75" font-weight="400" text-anchor="start">ai-brainstorm → ai-plan → ai-goal ⇄ ai-proof → ai-verify → the close</text>
+<rect x="128" y="220" width="98" height="24" rx="6" fill="#F4F7F6" stroke="#E8EDEB"/>
+<text x="177" y="236" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#00684A" font-weight="700" text-anchor="middle">full</text>
+<text x="238" y="236" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" fill="#5C6C75" font-weight="400" text-anchor="start">the same, plus ai-research · ai-architect · ai-design · ai-security on their triggers</text>
+<text x="42" y="288" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" text-anchor="start" letter-spacing="1.6">01 · FRAME</text>
+<text x="312" y="288" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" text-anchor="start" letter-spacing="1.6">02 · CONTRACT</text>
+<text x="582" y="288" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" text-anchor="start" letter-spacing="1.6">03 · THE LOOP</text>
+<text x="852" y="288" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" text-anchor="start" letter-spacing="1.6">04 · VERDICT</text>
+<text x="1122" y="288" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" text-anchor="start" letter-spacing="1.6">05 · THE CLOSE</text>
+<rect x="40" y="304" width="236" height="132" rx="12" fill="#FFFFFF" stroke="#E8EDEB" stroke-width="1.25"/>
+<text x="58" y="346" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="20" fill="#001E2B" font-weight="700" text-anchor="start">ai-brainstorm</text>
+<text x="58" y="374" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#5C6C75" font-weight="400" text-anchor="start">the idea, said in plain</text>
+<text x="58" y="392" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#5C6C75" font-weight="400" text-anchor="start">language</text>
+<text x="58" y="418" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#00A35C" font-weight="400" text-anchor="start">writes brainstorm.md</text>
+<rect x="310" y="304" width="236" height="132" rx="12" fill="#FFFFFF" stroke="#E8EDEB" stroke-width="1.25"/>
+<text x="328" y="346" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="20" fill="#001E2B" font-weight="700" text-anchor="start">ai-plan</text>
+<text x="328" y="374" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#5C6C75" font-weight="400" text-anchor="start">what must hold, and the</text>
+<text x="328" y="392" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#5C6C75" font-weight="400" text-anchor="start">check that proves it</text>
+<text x="328" y="418" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#00A35C" font-weight="400" text-anchor="start">writes spec.html · plan.html</text>
+<rect x="580" y="304" width="236" height="60" rx="12" fill="#FFFFFF" stroke="#E8EDEB" stroke-width="1.25"/>
+<text x="598" y="333" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="18" fill="#001E2B" font-weight="700" text-anchor="start">ai-goal</text>
+<text x="598" y="353" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#5C6C75" font-weight="400" text-anchor="start">runs the plan, step by step</text>
+<rect x="580" y="376" width="236" height="60" rx="12" fill="#FFFFFF" stroke="#E8EDEB" stroke-width="1.25"/>
+<text x="598" y="405" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="18" fill="#001E2B" font-weight="700" text-anchor="start">ai-proof</text>
+<text x="598" y="425" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#5C6C75" font-weight="400" text-anchor="start">one receipt per gate</text>
+<path d="M 638 367 L 638 373" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<path d="M 758 373 L 758 367" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<rect x="850" y="304" width="236" height="132" rx="12" fill="#FFFFFF" stroke="#E8EDEB" stroke-width="1.25"/>
+<text x="868" y="346" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="20" fill="#001E2B" font-weight="700" text-anchor="start">ai-verify</text>
+<text x="868" y="374" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#5C6C75" font-weight="400" text-anchor="start">judges the work against</text>
+<text x="868" y="392" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#5C6C75" font-weight="400" text-anchor="start">the standard it was given</text>
+<text x="868" y="418" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#00A35C" font-weight="400" text-anchor="start">reads spec.html</text>
+<rect x="1120" y="304" width="236" height="40" rx="12" fill="#FFFFFF" stroke="#E8EDEB" stroke-width="1.25"/>
+<text x="1136" y="323" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#001E2B" font-weight="700" text-anchor="start">ai-security</text>
+<text x="1136" y="338" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#5C6C75" font-weight="400" text-anchor="start">the trigger fired</text>
+<rect x="1120" y="350" width="236" height="40" rx="12" fill="#FFFFFF" stroke="#E8EDEB" stroke-width="1.25"/>
+<text x="1136" y="369" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#001E2B" font-weight="700" text-anchor="start">ai-write</text>
+<text x="1136" y="384" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#5C6C75" font-weight="400" text-anchor="start">the interface changed</text>
+<rect x="1120" y="396" width="236" height="40" rx="12" fill="#FFFFFF" stroke="#E8EDEB" stroke-width="1.25"/>
+<text x="1136" y="415" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#001E2B" font-weight="700" text-anchor="start">ai-visual-recap</text>
+<text x="1136" y="430" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#5C6C75" font-weight="400" text-anchor="start">the terminal node</text>
+<path d="M 280 370.0 L 304 370.0" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<path d="M 550 370.0 L 574 370.0" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<path d="M 820 370.0 L 844 370.0" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<path d="M 1090 370 L 1098 370 L 1098 324.0 L 1114 324.0" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<path d="M 1090 370 L 1098 370 L 1098 370.0 L 1114 370.0" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<path d="M 1090 370 L 1098 370 L 1098 416.0 L 1114 416.0" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<rect x="328" y="450" width="200" height="26" rx="6" fill="none" stroke="#00684A" stroke-dasharray="4 3"/>
+<text x="338" y="468" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12.5" fill="#00684A" font-weight="700" text-anchor="start">STOP · a human approves</text>
+<rect x="598" y="450" width="200" height="26" rx="6" fill="none" stroke="#00684A" stroke-dasharray="4 3"/>
+<text x="608" y="468" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12.5" fill="#00684A" font-weight="700" text-anchor="start">ai-eng spec run</text>
+<rect x="1138" y="450" width="200" height="26" rx="6" fill="none" stroke="#00684A" stroke-dasharray="4 3"/>
+<text x="1148" y="468" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12.5" fill="#00684A" font-weight="700" text-anchor="start">ai-eng spec close</text>
+<text x="40" y="524" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" text-anchor="start" letter-spacing="1.6">FEEDS THE CONTRACT</text>
+<rect x="310" y="538" width="236" height="58" rx="12" fill="#F9FBFA" stroke="#E8EDEB" stroke-width="1.25" stroke-dasharray="5 4"/>
+<text x="326" y="562" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700" text-anchor="start">ai-research</text>
+<text x="326" y="582" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#5C6C75" font-weight="400" text-anchor="start">answers what the repo cannot</text>
+<rect x="570" y="538" width="236" height="58" rx="12" fill="#F9FBFA" stroke="#E8EDEB" stroke-width="1.25" stroke-dasharray="5 4"/>
+<text x="586" y="562" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700" text-anchor="start">ai-architect</text>
+<text x="586" y="582" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#5C6C75" font-weight="400" text-anchor="start">pins the layer rules</text>
+<rect x="850" y="538" width="300" height="58" rx="12" fill="#F9FBFA" stroke="#E8EDEB" stroke-width="1.25" stroke-dasharray="5 4"/>
+<text x="866" y="562" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700" text-anchor="start">ai-design → ai-design-audit</text>
+<text x="866" y="582" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#5C6C75" font-weight="400" text-anchor="start">the UI lane, on the ui trigger</text>
+<path d="M 420 536 L 420 480" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)" stroke-dasharray="4 3"/>
+<path d="M 680 536 L 680 480" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)" stroke-dasharray="4 3"/>
+<path d="M 990 536 L 990 484" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)" stroke-dasharray="4 3"/>
+<rect x="40" y="624" width="1280" height="76" rx="12" fill="#F4F7F6" stroke="#E8EDEB"/>
+<text x="64" y="654" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12.5" fill="#00684A" font-weight="700" text-anchor="start" letter-spacing="1.6">ON DEMAND · anywhere in the chain, no rung of it</text>
+<rect x="64" y="666" width="100.0" height="24" rx="6" fill="#FFFFFF" stroke="#B8C4C0"/>
+<text x="114.0" y="682" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="400" text-anchor="middle">ai-explore</text>
+<rect x="176.0" y="666" width="117.19999999999999" height="24" rx="6" fill="#FFFFFF" stroke="#B8C4C0"/>
+<text x="234.6" y="682" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="400" text-anchor="middle">ai-read-docs</text>
+<rect x="305.2" y="666" width="74.19999999999999" height="24" rx="6" fill="#FFFFFF" stroke="#B8C4C0"/>
+<text x="342.29999999999995" y="682" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="400" text-anchor="middle">ai-note</text>
+<rect x="391.4" y="666" width="82.8" height="24" rx="6" fill="#FFFFFF" stroke="#B8C4C0"/>
+<text x="432.79999999999995" y="682" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="400" text-anchor="middle">ai-debug</text>
+<rect x="486.2" y="666" width="65.6" height="24" rx="6" fill="#FFFFFF" stroke="#B8C4C0"/>
+<text x="519.0" y="682" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="400" text-anchor="middle">ai-rtk</text>
+<rect x="563.8" y="666" width="117.19999999999999" height="24" rx="6" fill="#FFFFFF" stroke="#B8C4C0"/>
+<text x="622.4" y="682" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="400" text-anchor="middle">ai-agents-md</text>
+<rect x="693.0" y="666" width="177.4" height="24" rx="6" fill="#FFFFFF" stroke="#B8C4C0"/>
+<text x="781.7" y="682" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="400" text-anchor="middle">ai-writing-behavior</text>
+<rect x="882.4" y="666" width="143.0" height="24" rx="6" fill="#FFFFFF" stroke="#B8C4C0"/>
+<text x="953.9" y="682" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="400" text-anchor="middle">ai-issue-report</text>
+</svg>

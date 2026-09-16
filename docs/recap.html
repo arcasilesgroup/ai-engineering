@@ -8,15 +8,15 @@
 <meta name="color-scheme" content="dark">
 <style>
   /* ── {ai} Engineering — the artifact design system ─────────────────────────
-     Tokens are the brand's: one hue, dark-only, mono for structure and
+     Tokens are the brand's: one signal, dark-only, mono for structure and
      data. Anything ai-engineering renders as an artifact — spec.html, plan.html,
      a recap, a research page, a report — inherits this block verbatim.       */
   :root{
-    --bg:#0B1120; --surface:#121E36; --surface-2:#0E1830;
-    --line:rgba(0,212,170,.15); --line-strong:rgba(0,212,170,.34);
-    --accent:#00D4AA; --accent-dim:#5FE6C6;
-    --text:#F8FAFB; --dim:#B0C2D6; --comment:#9DB3CA;
-    --ok:#4ade80; --bad:#fbb1b1; --warn:#facc15; --purple:#c084fc; --orange:#fb923c;
+    --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+    --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+    --accent:#00ED64; --accent-dim:#71F6BA;
+    --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+    --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
     --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
     --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
 
@@ -41,7 +41,7 @@
     font-size:var(--fs-body);line-height:var(--lh-body);
     font-synthesis-weight:none;-webkit-font-smoothing:antialiased;
   }
-  ::selection{background:rgba(0,212,170,.28)}
+  ::selection{background:rgba(0,237,100,.28)}
   a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline;text-underline-offset:3px}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
@@ -58,7 +58,7 @@
     background-image:
       linear-gradient(var(--line) 1px,transparent 1px),
       linear-gradient(90deg,var(--line) 1px,transparent 1px),
-      radial-gradient(ellipse 80% 60% at 50% 0%,#16284466,transparent);
+      radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);
     background-size:32px 32px,32px 32px,100% 100%;
   }
   .hero .stamp{
@@ -87,14 +87,14 @@
     position:sticky;top:0;z-index:50;
     display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;
     padding:var(--s2) var(--s4);
-    background:rgba(11,17,32,.78);backdrop-filter:blur(14px) saturate(150%);
+    background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);
     border-bottom:1px solid var(--line);
     font-family:var(--mono);font-size:11px;
   }
   nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;
         white-space:nowrap;transition:color .15s,background .15s}
-  nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,212,170,.06)}
-  nav a.active{color:var(--accent);background:rgba(0,212,170,.1);font-weight:600}
+  nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+  nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
   nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
   nav a.active b{opacity:1}
 
@@ -121,7 +121,7 @@
   code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);
        border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);
        overflow-wrap:anywhere}
-  pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);
+  pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);
       padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);
       font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;
       -webkit-overflow-scrolling:touch}
@@ -137,7 +137,7 @@
 
   /* ── panels ───────────────────────────────────────────────────────────── */
   .bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);
-           border-radius:var(--radius);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+           border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
   .bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;
            border:0 solid var(--accent)}
   .bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
@@ -147,7 +147,7 @@
            text-transform:uppercase;color:var(--accent)}
   .bracket pre{margin:0;border:none;background:none;padding:0}
 
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
         padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
   .card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
   .card h3,.card h4{min-height:22px;line-height:22px}
@@ -156,14 +156,14 @@
   .card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
   .card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
 
-  .note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  .note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
         padding:var(--s5);margin:var(--s5) 0}
   .note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;
            text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
   .note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
-  .note.ok{border-color:rgba(34,197,94,.3)} .note.ok h4{color:var(--ok)}
-  .note.warn{border-color:rgba(234,179,8,.3)} .note.warn h4{color:var(--warn)}
-  .note.danger{border-color:rgba(251,177,177,.3)} .note.danger h4{color:var(--bad)}
+  .note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+  .note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+  .note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
 
   .grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
   .grid>*{min-width:0}
@@ -172,7 +172,7 @@
   .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
   .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
   .stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
-  .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
         padding:var(--s4) var(--s5);min-width:132px;text-align:center}
   .stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
   .stat .v em{font-style:normal;color:var(--accent)}
@@ -180,7 +180,7 @@
            text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
 
   /* ── tables: a component, not a spill ─────────────────────────────────── */
-  .tbl-wrap{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface-2);
+  .tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);
             overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
   table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
   th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;
@@ -190,18 +190,18 @@
      vertical-align:top;line-height:var(--lh-small)}
   tr:last-child td{border-bottom:none}
   td:first-child{color:var(--text);font-weight:520}
-  @media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(22,40,68,.35)}}
+  @media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
   td code{overflow-wrap:normal;word-break:keep-all}
   table{min-width:640px}
 
   /* ── pills, marks ─────────────────────────────────────────────────────── */
   .pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;
         padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
-  .p-ok{background:rgba(74,222,128,.13);border:1px solid rgba(74,222,128,.32)}
-  .p-bad{background:rgba(251,177,177,.13);border:1px solid rgba(251,177,177,.34)}
-  .p-warn{background:rgba(250,204,21,.12);border:1px solid rgba(250,204,21,.32)}
-  .p-fix{background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.35)}
-  .p-dim{background:rgba(22,40,68,.6);color:var(--dim);border:1px solid var(--line)}
+  .p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+  .p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+  .p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+  .p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+  .p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
   .check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
   .half{color:var(--warn);font-weight:600} .center{text-align:center}
 
@@ -209,8 +209,8 @@
   .pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
   .pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);
                border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
-  .pipe .stage:first-child{border-radius:var(--radius) 0 0 var(--radius)}
-  .pipe .stage:last-child{border-radius:0 var(--radius) var(--radius) 0}
+  .pipe .stage:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+  .pipe .stage:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
   .pipe .stage+.stage{border-left:none}
   .pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);
                       color:var(--accent);font-size:13px;z-index:2}
@@ -222,7 +222,7 @@
 
   .tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
   .tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);
-        border-radius:var(--radius);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+        border-radius:var(--radius-lg);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
   .tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;
                color:var(--accent);text-transform:uppercase}
   .tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
@@ -240,7 +240,7 @@
     .hero{padding:64px var(--s5) 44px}
     .hero h1{font-size:34px;letter-spacing:-.022em}
     .hero .sub{font-size:16px}
-    .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius)!important;flex-basis:100%}
+    .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}
     .pipe .stage+.stage{margin-top:var(--s2)}
     .pipe .stage::after{content:''}
     .tier .tlat{text-align:left}
@@ -254,7 +254,7 @@
         overflow-x:auto;scrollbar-width:none}
     nav::-webkit-scrollbar{display:none}
     nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;
-        background:linear-gradient(90deg,transparent,rgba(11,17,32,.95));pointer-events:none}
+        background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}
     nav a{padding:14px 8px}
     table{font-size:13px} th,td{padding:10px var(--s3)}
     pre{font-size:11.5px;padding:var(--s3) var(--s4)}
@@ -267,9 +267,9 @@
     nav{background:var(--bg);backdrop-filter:none}
   }
   @media (prefers-contrast:more){
-    :root{--dim:#CBD8E6;--comment:#B4C4D6}
+    :root{--dim:#E8EDEB;--comment:#C1C7C6}
     .card,.note,p,li,td{color:var(--dim)}
-    nav a{color:#CBD8E6}
+    nav a{color:#E8EDEB}
   }
   @media print{
     nav,.skip{display:none}
@@ -540,7 +540,8 @@
 │   ├── e2e.yml                   # builds the binary a client would download, proves the installed pipeline
 │   ├── platforms.yml             # init · doctor · uninstall with the real binary on ubuntu, macOS, Windows
 │   ├── version.yml               # changesets: version arithmetic and the Version Packages PR
-│   └── release.yml               # the deployment: build, sign, attest, publish
+│   ├── release.yml               # the deployment: build, sign, attest, publish
+│   └── mutation.yml              # the mutation tier: nightly, and the PR that touches the core
 ├── .ai-engineering/              # this repo's own config.toml, overrides.toml, arch.rules.json, lock and receipts
 ├── .agents/ · .claude/           # this repo's own surface wiring: hooks and reviews
 ├── AGENTS.md · DECISIONS.md      # the contract this repo gives its own agents
@@ -778,7 +779,7 @@ verify  = "gpt-5.6-luna"     # binary PASS/FAIL checks — cheap</pre>
   <p>Every matcher that names a shell also names <code>PowerShell</code>, <code>shell</code> and <code>command</code>: a matcher that only recognises <code>Bash</code> leaves a governed surface ungoverned without saying so. The PreToolUse table runs in this order — <code>self-protect</code>, <code>no-verify</code>, <code>injection</code>, <code>wrap</code>, <code>loop</code> — and a denial reports the guards that ran up to and including the one that denied.</p>
 
   <div class="grid g2">
-    <div class="card"><h3>self-protect</h3><p>The protected literals are derived at run time, never copied from a list that could fall behind the wiring: <code>.ai-engineering</code> and its fixed governing children (<code>config.toml</code>, <code>overrides.toml</code>, <code>ai-eng.lock</code>, <code>arch.rules.json</code>), <code>.git/hooks</code>, the surface settings this install wrote (<code>.claude/settings.json</code>, <code>.opencode/plugins/ai-eng.ts</code>, <code>.agents/hooks/ai-eng.ts</code>), the global canon under <code>~/.ai-engineering/**</code> and the home skill mirrors. <code>spec.html</code> joins them only once its sha256 is in the lock — reopening an approved contract costs a human. The prose contracts the user owns (<code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>DECISIONS.md</code>) are not protected, and neither are the agent's workbench files <code>plan.html</code>, <code>brainstorm.md</code> and <code>recap.html</code>.</p></div>
+    <div class="card"><h3>self-protect</h3><p>The protected literals are derived at run time, never copied from a list that could fall behind the wiring: <code>.ai-engineering</code> and its fixed governing children (<code>config.toml</code>, <code>overrides.toml</code>, <code>ai-eng.lock</code>, <code>arch.rules.json</code>), <code>.git/hooks</code>, the surface settings this install wrote (<code>.claude/settings.json</code>, <code>.opencode/plugins/ai-eng.ts</code>, <code>.agents/hooks/ai-eng.ts</code>), the global canon under <code>~/.ai-engineering/**</code> and the home skill mirrors. The four milestone slots are the one thing inside that directory the session owns, and the guard matches them by exact name, never by prefix. Of those, <code>spec.html</code> joins the protected list only once its sha256 is in the lock — reopening an approved contract costs a human. The prose contracts the user owns (<code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>DECISIONS.md</code>) are not protected, and neither are the agent's workbench files <code>plan.html</code>, <code>brainstorm.md</code> and <code>recap.html</code>.</p></div>
     <div class="card"><h3>no-verify</h3><p>It also decides <code>core.hooksPath</code> by value, never by verb: a value that resolves to nothing, or to a path outside the repo root, denies — because a hooksPath pointing at a directory that does not exist stops every hook and says nothing. The relative value this install writes resolves to an existing path and passes. The linter half has one narrow exception built into the regex: <code>eslint-disable-next-line prettier</code> is formatting and passes; silencing a quality or security check does not.</p></div>
     <div class="card"><h3>injection</h3><p>One regex per catalogue entry, matched only against text the agent is about to consume — never text it wrote — and folded to ASCII first with NFKD decomposition, so a fullwidth letterform matches the word it imitates while a homoglyph from another alphabet does not. On a read it pre-reads the target and denies before the model sees anything: prevention. On a fetched page the read already happened, so the block stops the payload being acted on: containment, and the denial says so.</p></div>
     <div class="card"><h3>loop</h3><p>Window 6, repeats 3, failures 5, overridable in the <code>[guards]</code> block of <code>config.toml</code>; state is per session. It reads only authoritative failure fields from the tool response, never the word "error" in output, so a passing suite that prints one does not fire it. The only way through is a written override — never a recipe printed to the model, which may be obeying injected text.</p></div>
@@ -1434,6 +1435,7 @@ exit 1</pre>
     <thead><tr><th scope="col">Workflow</th><th scope="col">Fires on</th><th scope="col">What it proves</th></tr></thead>
     <tbody>
       <tr><td><code>check.yml</code></td><td>push, pull request</td><td>jobs <code>check</code>, <code>security</code> and <code>guards-adversarial</code> (below)</td></tr>
+      <tr><td><code>mutation.yml</code></td><td>nightly, manual dispatch, and pull requests touching <code>src/guards</code>, <code>src/chain</code> or <code>src/floor</code></td><td>that the core's tests would notice a guard which stopped denying: the campaign's exit code is the merge gate, its report names the survivors, and <code>thresholds.break</code> is 85 — a floor and a ratchet, red from the first run until the core reaches it</td></tr>
       <tr><td><code>e2e.yml</code></td><td>push, pull request</td><td>the pipeline that <code>init</code> installs, exercised against the binary built from this commit — <code>scripts/proof-installed-ci.sh</code> runs <code>templates/ci.yml.tpl</code> end to end</td></tr>
       <tr><td><code>platforms.yml</code></td><td>push to main, pull request</td><td><code>init</code>, <code>doctor</code> and <code>uninstall</code> on ubuntu, macos and windows, against the compiled binary</td></tr>
       <tr><td><code>version.yml</code></td><td>push to main</td><td>changesets opens the Version Packages PR. It <b>does not publish</b> — versioning and deployment stay separate</td></tr>
@@ -1446,7 +1448,7 @@ exit 1</pre>
   <h4>The <code>security</code> job</h4>
   <p><code>gitleaks detect</code> · <code>semgrep scan --error --config p/ci --metrics=off</code> (never <code>--config auto</code>: a governance gate that phones home is not a governance gate) · <code>trivy fs --severity HIGH,CRITICAL --exit-code 1</code> · <code>bun audit --audit-level=high</code>. Gitleaks and trivy come from <code>scripts/toolchain.sh</code>, where the version and the sha256 live inside this repository.</p>
   <h4>The <code>guards-adversarial</code> job</h4>
-  <p>Pull requests only, routed by path: it runs <code>bun test tests/adversarial/</code> when the diff touches <code>src/guards</code>, <code>src/chain</code> or <code>src/floor</code>, and skips with a message otherwise. The suite is the product contract — real payloads that must be denied (<code>--no-verify</code>, <code>rm .git/hooks</code>, <code>core.hooksPath</code> hijack, linter silences, writes into <code>.ai-engineering/</code>, prompt injection in a file or a fetched page, NFKD-folded payloads) plus controls that must pass. It is not mutation testing; generating mutants is not part of this workflow set.</p>
+  <p>Pull requests only, routed by path: it runs <code>bun test tests/adversarial/</code> when the diff touches <code>src/guards</code>, <code>src/chain</code> or <code>src/floor</code>, and skips with a message otherwise — the diff is fetched with history and a diff that cannot be computed fails the job, because a path-filtered gate that reports "skipped" on a shallow clone has spent its life green without running (measured). The suite is the product contract — real payloads that must be denied (<code>--no-verify</code>, <code>rm .git/hooks</code>, <code>core.hooksPath</code> hijack, linter silences, writes into <code>.ai-engineering/</code>, prompt injection in a file or a fetched page, NFKD-folded payloads) plus controls that must pass. It is not the mutation tier: that one is its own workflow (<code>mutation.yml</code>) and asks a different question — not "does a payload get through" but "would a test notice if a guard stopped denying".</p>
   <h4>The template</h4>
   <p><code>templates/ci.yml.tpl</code> is the workflow <code>init</code> installs into a governed project, adapted to the language of the project. It pins the governor as the released binary by version + sha256 and verifies the release attestation before installing it, pins every action by commit SHA, and runs <code>spec run</code> — so a CHECK that could not execute is red, never green by absence of an executor.</p>
 
@@ -1457,6 +1459,7 @@ exit 1</pre>
     <tbody>
       <tr><td><b>unit</b></td><td>the logic of one isolated module (dialect, payload, toml, lock)</td><td>every push, every PR</td><td><b>&lt; 45s</b></td><td>the only tier fast enough to run without thinking. Past 45s the problem is the test, not the hardware</td></tr>
       <tr><td><b>adversarial</b></td><td>that a real payload cannot slip past a guard</td><td>PRs touching <code>guards/</code>, <code>chain/</code> or <code>floor/</code></td><td><b>&lt; 60s</b></td><td>it is the product contract — attempts to break the floor, not tests of a feature. Routed by path: governance untouched, oracle silent</td></tr>
+      <tr><td><b>mutation</b></td><td>whether the core's own tests would notice a guard that stopped denying</td><td>nightly, on demand, and on the pull request that touches <code>src/guards</code>, <code>src/chain</code> or <code>src/floor</code> — never on an ordinary push</td><td><b>4m 29s</b> and <b>59.72%</b> on the tier's first real CI run, cold cache</td><td>the slowest tier here, and the only one that is allowed to be red for a long time: of 1,946 mutants the core kills 59.72% on a ubuntu-latest runner and 60.30% on the laptop that built it, so <code>thresholds.break = 85</code> makes it red from its first run and it stays red until the core climbs. A floor and a ratchet, never a baseline file somebody has to regenerate. The cache is not free and not a lie: an edit to a test invalidates the cached kills it produced (measured — one edited test re-ran 17 mutants)</td></tr>
       <tr><td><b>e2e</b></td><td>that the compiled binary works on three operating systems</td><td>the push and pull-request workflows that build the binary (<code>e2e.yml</code>, <code>platforms.yml</code>) — never the TypeScript tiers</td><td><b>3–5 min</b></td><td>the TypeScript already passed unit and adversarial; only the real artifact knows about codesign, Windows paths and permissions</td></tr>
       <tr><td><b>evals</b></td><td>that <code>ai-verify</code> finds applied faults and invents none, and that loop trajectories match the repository's <code>BEHAVIOR.md</code> files</td><td>in the ai-engineering repository, not in a governed project</td><td>outside the gate</td><td>it measures a model: non-deterministic and slow. Its green is a trend, never a merge gate</td></tr>
     </tbody>
@@ -1613,14 +1616,14 @@ receipts_ttl = "30d" # receipts: aggregate, then delete</pre><p>The caps are WAR
 
     <div class="card">
       <h3>Colors</h3>
-      <p><code>#0B1120</code> background &middot; <code>#00D4AA</code> accent &middot; <code>#F8FAFB</code> text &middot; <code>#121E36</code> card surface &middot; <code>#B0C2D6</code> dim &middot; <code>#9DB3CA</code> comment &middot; <code>#5FE6C6</code> code &middot; borders <code>1px solid rgba(0,212,170,.15)</code></p>
-      <p>State colors: <code>#4ade80</code> ok &middot; <code>#fbb1b1</code> bad &middot; <code>#facc15</code> warn &middot; <code>#c084fc</code> purple &middot; <code>#fb923c</code> orange</p>
+      <p><code>#001E2B</code> background &middot; <code>#00ED64</code> accent &middot; <code>#FFFFFF</code> text &middot; <code>#112733</code> card surface &middot; <code>#C1C7C6</code> dim &middot; <code>#889397</code> comment &middot; <code>#71F6BA</code> code &middot; borders <code>1px solid rgba(61,79,88,.3)</code></p>
+      <p>State colors: <code>#00ED64</code> ok &middot; <code>#FF6960</code> bad &middot; <code>#FFC010</code> warn &middot; <code>#B45AF2</code> purple &middot; <code>#FFC010</code> orange</p>
     </div>
     <div class="card">
       <h3>Rules</h3>
       <ul>
-        <li><strong>Terminal-Green</strong> — the accent is always <code>#00D4AA</code>, never shifted</li>
-        <li><strong>One-Hue</strong> — a single accent colour, no secondary hues</li>
+        <li><strong>Terminal-Green</strong> — the accent is always <code>#00ED64</code>, never shifted</li>
+        <li><strong>one-signal</strong> — a single accent colour, no secondary hues</li>
         <li><strong>Dark-Only</strong> — no light mode, ever</li>
         <li><strong>One-Family</strong> — the system font stack, no imported families</li>
         <li><strong>Lit-Edge</strong> — a 1px accent border glow, no heavy shadows</li>
@@ -1637,7 +1640,7 @@ receipts_ttl = "30d" # receipts: aggregate, then delete</pre><p>The caps are WAR
 
   <div class="note ok">
     <h3>Where the spec and plan templates inherit from</h3>
-    <p><code>templates/spec.html.tpl</code> and <code>templates/plan.html.tpl</code> carry this token block as their <code>:root</code> — <code>--bg:#0B1120</code>, <code>--surface:#121E36</code>, <code>--line:rgba(0,212,170,.15)</code>, <code>--accent:#00D4AA</code>, <code>--text:#F8FAFB</code>, <code>--dim:#B0C2D6</code>, <code>--ok:#4ade80</code>, <code>--bad:#fbb1b1</code>, <code>--warn:#facc15</code> — and every spec.html, plan.html and <code>.ai-engineering/{research,design,security}/….html</code> follows the same design system: dark cards, monospace for code and checks, the same navigation and scroll-spy as this document. The terminal identity follows the same tokens, and degrades to plain text on a non-TTY stdout or under <code>NO_COLOR</code>. The spec is a contract for the AI and a readable document for humans: it has to look like it belongs to ai-engineering, not like a generic markdown file.</p>
+    <p><code>templates/spec.html.tpl</code> and <code>templates/plan.html.tpl</code> carry this token block as their <code>:root</code> — <code>--bg:#001E2B</code>, <code>--surface:#112733</code>, <code>--line:rgba(61,79,88,.3)</code>, <code>--accent:#00ED64</code>, <code>--text:#FFFFFF</code>, <code>--dim:#C1C7C6</code>, <code>--ok:#00ED64</code>, <code>--bad:#FF6960</code>, <code>--warn:#FFC010</code> — and every spec.html, plan.html and <code>.ai-engineering/{research,design,security}/….html</code> follows the same design system: dark cards, monospace for code and checks, the same navigation and scroll-spy as this document. The terminal identity follows the same tokens, and degrades to plain text on a non-TTY stdout or under <code>NO_COLOR</code>. The spec is a contract for the AI and a readable document for humans: it has to look like it belongs to ai-engineering, not like a generic markdown file.</p>
   </div>
 </section>
 </div>
