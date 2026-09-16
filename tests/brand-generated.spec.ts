@@ -72,7 +72,6 @@ describe("the generated stylesheet carries the declared values", () => {
   });
 
   test.skipIf(!hasWeb)("it declares every semantic colour, so no component can fall back to nothing", async () => {
-    const tokens = await loadTokens();
     const css = cssTokens();
     for (const token of ["accent-text", "link", "border", "surface-2", "muted", "text", "danger", "warn"]) {
       expect(css[token], `--${token} is missing from the generated stylesheet`).toBeDefined();
