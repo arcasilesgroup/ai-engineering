@@ -258,7 +258,12 @@ jobs:
           # Immutable releases lock the assets when the release is published, so the
           # documented order is the one used here: draft → attach everything → publish.
           # A half-attached release is not a state anyone can finish by hand.
-          gh release create "$TAG" --draft --title "$TAG" --generate-notes --target "$GITHUB_SHA"
+          # The tag already exists (pushed by the release owner: the v* ruleset
+          # restricts tag creation to humans with bypass, and GITHUB_TOKEN cannot
+          # bypass repo rulesets). --verify-tag attaches the draft to that ref
+          # instead of asking GitHub to create it — a ruleset 422 cannot leave a
+          # draft half-published.
+          gh release create "$TAG" --verify-tag --draft --title "$TAG" --generate-notes
           gh release upload "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json attestation-verify.log publish-proof.txt
           published_flags=()
           if [ "$PRERELEASE" = "true" ]; then published_flags+=(--prerelease); fi
