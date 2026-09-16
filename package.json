@@ -1,6 +1,6 @@
 {
   "name": "ai-engineering",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "Guardrails for AI coding agents: install a contract, deny destructive calls, prove every run.",
   "license": "Apache-2.0",
   "type": "module",
