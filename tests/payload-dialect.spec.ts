@@ -116,7 +116,7 @@ describe("normalise — one shape out of every host spelling", () => {
 
   test("non-string tool_name is never aliased (the typeof arm actually ran)", () => {
     const p = normalise({ tool_name: 42 }, "cursor");
-    expect(p.tool_name).toBe(42);
+    expect(p.tool_name as unknown).toBe(42);
   });
 
   test("fingerprint — the same physical call is one call", () => {

@@ -160,7 +160,7 @@ describe("floor gates — git() plumbing and the diff --check branch", () => {
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toBe("diff --check found whitespace problems:");
     expect(result.lines[1]).toBe((done.stderr ?? "").trim());
-    expect(result.lines[1].length).toBeGreaterThan(0);
+    expect(result.lines[1]!.length).toBeGreaterThan(0);
   });
 
   test("a clean small commit in a governed repo returns ok with exactly no lines", () => {
@@ -338,7 +338,7 @@ describe("floor gates — the staged-secret scan contract", () => {
     const result = prePush(repo);
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toBe("gitleaks in pre-push: secret in the unpushed history → BLOCKED.");
-    expect(result.lines[1].length).toBe(2000);
+    expect(result.lines[1]!.length).toBe(2000);
     expect(result.lines[1]).toBe(long.slice(0, 2000));
   });
 });

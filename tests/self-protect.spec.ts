@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { protectedPaths, writesTo, runSelfProtect } from "../src/guards/self-protect.ts";
+import { protectedPaths, writesTo, runSelfProtect, type ProtectedPaths } from "../src/guards/self-protect.ts";
 
 const roots: string[] = [];
 const HOME_BEFORE = process.env.AI_ENG_HOME;
@@ -258,7 +258,10 @@ describe("runSelfProtect — file targets", () => {
     expect(runSelfProtect({ tool_name: "Write", tool_input: { file_path: "~" } }, null)?.deny).toBe(true);
     expect(runSelfProtect({ tool_name: "Write", tool_input: { file_path: "~/skills/x.md" } }, null)?.deny).toBe(true);
     expect(runSelfProtect({ tool_name: "Edit", tool_input: { path: "~/skills/x.md" } }, null)?.deny).toBe(true);
-    expect(runSelfProtect({ tool_name: "Write", tool_input: { file_path: "~" } }, null)!.reason).toBe(
+    const tilde = runSelfProtect({ tool_name: "Write", tool_input: { file_path: "~" } }, null);
+    expect(tilde?.deny).toBe(true);
+    if (!tilde?.deny) throw new Error("tilde expansion must deny");
+    expect(tilde.reason).toBe(
       FILE_REASON("~"),
     );
   });
