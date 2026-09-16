@@ -11,6 +11,7 @@
   "files": [
     "src",
     "skills",
+    "scripts/.embed",
     "templates",
     "NOTICE.md",
     "THIRD-PARTY-NOTICES.md",
