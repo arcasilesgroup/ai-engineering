@@ -1,5 +1,11 @@
 # Changelog — ai-engineering
 
+## 2.2.3
+
+### Patch Changes
+
+- [#727](https://github.com/arcasilesgroup/ai-engineering/pull/727) [`7504041`](https://github.com/arcasilesgroup/ai-engineering/commit/75040413fc3e0877fba4948d8a4ce77ac07779e5) Thanks [@soydachi](https://github.com/soydachi)! - `ai-eng` crashed on startup under Bun 1.3.x: the banner frame painted the brand hex `#00ED64` through `styleText` (node:util), whose runtime validation accepts only named formats — strict runtimes threw `ERR_INVALID_ARG_VALUE` on the first render, and lenient ones (Bun 1.4, Node ≥ 24.1) silently dropped the colour, so the banner shipped unpainted there. The banner now emits the truecolor SGR sequence for the declared hex itself, degrading to plain text under `NO_COLOR` or a non-TTY stdout — the same rule the rest of the frame follows. `BANNER_META` keeps its named format through `styleText`.
+
 ## 2.2.2
 
 ### Patch Changes
