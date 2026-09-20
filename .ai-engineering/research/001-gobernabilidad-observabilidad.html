@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research 001 — Governance by observability, not by more stoppers</title>
+<style>
+/* ── {ai} Engineering — the artifact design system ─────────────────────────
+   Tokens are the brand's, at system stacks so an artifact renders offline:
+   one signal green, neutral borders, the reading tint for small green,
+   dark-only. Anything ai-engineering renders as an artifact — spec.html,
+   plan.html, a recap, a research page, a report — inherits this block
+   verbatim.                                                                */
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+
+  /* type: one scale, tracking and leading set per size, never one value for all */
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px;      --lh-h2:1.16;      --ls-h2:-.018em;
+  --fs-h3:17px;      --lh-h3:1.32;      --ls-h3:-.006em;
+  --fs-h4:14px;      --lh-h4:1.35;
+  --fs-body:15px;    --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px;  --lh-mono:1.7;
+  --fs-label:10.5px;
+
+  /* space: a 4px rhythm, so nothing lands on an arbitrary number */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:var(--fs-body);line-height:var(--lh-body);
+  font-synthesis-weight:none;-webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);
+      border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;
+      transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+.hero{
+  position:relative;overflow:hidden;text-align:center;
+  padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);
+  background-image:
+    linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px),
+    radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);
+  background-size:32px 32px,32px 32px,100% 100%;
+}
+.hero .stamp{
+  display:inline-block;font-family:var(--mono);font-size:var(--fs-label);
+  letter-spacing:.26em;text-transform:uppercase;color:var(--accent);
+  border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;
+  margin-bottom:var(--s5);
+}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);
+         letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;
+           margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);
+            margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+
+/* ── nav ──────────────────────────────────────────────────────────────── */
+nav{
+  position:sticky;top:0;z-index:50;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;
+  padding:var(--s2) var(--s4);
+  background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);
+  border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;
+}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;
+      white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+
+/* ── page ─────────────────────────────────────────────────────────────── */
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;
+        letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);
+   font-weight:640;margin:var(--s6) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);max-width:var(--measure);margin-bottom:var(--s3)}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+
+/* ── code ─────────────────────────────────────────────────────────────── */
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);
+     border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);
+     overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+    padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);
+    font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;
+    -webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{
+  background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ── panels ───────────────────────────────────────────────────────────── */
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);
+         border-radius:12px;padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;
+         border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;
+         font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;
+         text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+      padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+.card h3,.card h4{min-height:22px;line-height:22px}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+
+.note{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+      padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;
+         text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+pre{max-width:100%}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+      padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;
+         text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+
+/* ── tables ───────────────────────────────────────────────────────────── */
+.tbl-wrap{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);
+          overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;
+   font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;
+   text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);
+   vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+
+/* ── pills, marks ─────────────────────────────────────────────────────── */
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;
+      padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+
+/* ── pipeline ─────────────────────────────────────────────────────────── */
+.pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+.pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);
+             border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+.pipe .stage:first-child{border-radius:12px 0 0 12px}
+.pipe .stage:last-child{border-radius:0 12px 12px 0}
+.pipe .stage+.stage{border-left:none}
+.pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);
+                    color:var(--accent);font-size:13px;z-index:2}
+.pipe .stage{position:relative}
+.pipe .stage:last-child::after{content:''}
+.pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+.pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+
+.tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);
+      border-radius:12px;padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+.tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;
+             color:var(--accent);text-transform:uppercase}
+.tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+.tier .tbody b{color:var(--text)}
+.tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);
+       border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
+       color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+
+@media (max-width:900px){
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .hero{padding:64px var(--s5) 44px}
+  .hero h1{font-size:34px;letter-spacing:-.022em}
+  .hero .sub{font-size:16px}
+  .pipe .stage{border-left:1px solid var(--line);border-radius:12px!important;flex-basis:100%}
+  .pipe .stage+.stage{margin-top:var(--s2)}
+  .pipe .stage::after{content:''}
+  .tier .tlat{text-align:left}
+}
+@media (max-width:820px){
+  nav a{padding:14px 8px}
+}
+@media (max-width:560px){
+  .container{padding:0 var(--s4)}
+  nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;
+      overflow-x:auto;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;
+      background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}
+  nav a{padding:14px 8px}
+  table{font-size:13px} th,td{padding:10px var(--s3)}
+  pre{font-size:11.5px;padding:var(--s3) var(--s4)}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation:none!important;transition:none!important}
+}
+@media (prefers-reduced-transparency:reduce){
+  nav{background:var(--bg);backdrop-filter:none}
+}
+@media (prefers-contrast:more){
+  :root{--dim:#E8EDEB;--comment:#C1C7C6}
+  .card,.note,p,li,td{color:var(--dim)}
+  nav a{color:#E8EDEB}
+}
+@media print{
+  nav,.skip{display:none}
+  body{background:#fff;color:#111}
+  section{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Research · 001 · 2026-09-20</div>
+  <h1>Governance by <span class="x">observability</span>,<br>not by more stoppers</h1>
+  <p class="sub">The audit found the framework's <strong>least-agency half finished</strong> and its
+  <strong>observability half a counter</strong>. OWASP's 2026 agentic Top 10 names exactly this pair as
+  first principles — and the receipts already hold the data the baseline is missing.</p>
+  <div class="meta">tools used: <b>tavily (tvly)</b> · <b>ctx7</b> · repo grep/read<br>
+  degraded-tool: <b>notebooklm</b> (doctor exit 0, auth expired at first write — named, not blocking) · <b>exa</b> (not installed)</div>
+</header>
+<nav>
+  <a href="#s1"><b>01</b>State</a>
+  <a href="#s2"><b>02</b>Gap vs OWASP</a>
+  <a href="#s3"><b>03</b>Evidence</a>
+  <a href="#s4"><b>04</b>Directions</a>
+  <a href="#s5"><b>05</b>Rejected</a>
+  <a href="#s6"><b>06</b>Sources</a>
+</nav>
+<main id="main">
+
+<section id="s1">
+  <div class="container">
+  <h2><span class="num">01</span>What governance exists today — the inventory</h2>
+  <p>Followed end to end, the chain is a deny machine with good evidence hygiene. One process per
+  tool call, one table, fail-closed:</p>
+  <div class="tiers">
+    <div class="tier"><span class="tname">dispatcher</span><span class="tbody"><b>src/chain/mod.ts:33–45</b> — the event→guard table is the only entry point; <b>:119–193</b> fail-closed on unreadable payload (<b>:132,141</b>) and on guard crash (<b>:219–226</b>); one fail-open, bounded: ungoverned repo → allow, nothing written (<b>:130</b>).</span></div>
+    <div class="tier"><span class="tname">5 guards</span><span class="tbody"><b>self-protect</b> (governance files, derived not copied, <code>src/guards/self-protect.ts:59–120</code>) · <b>no-verify</b> · <b>injection</b> (IOC regex, NFKD-folded, pre-read deny + post-fetch containment, <code>src/guards/injection.ts:1–4</code>) · <b>loop</b> (window 6 / repeats 3 / failures 5, <code>src/guards/loop.ts:1–2</code>) · <b>wrap</b> (test-runner rewrite).</span></div>
+    <div class="tier"><span class="tname">git floor</span><span class="tbody"><b>src/floor/index.ts:19–57</b> — gitleaks on staged diff (missing gitleaks = hard fail, <b>:36–39</b>), DECISIONS.md gate, Receipt-Id trailer (<b>:111–139</b>); runs for a human committing from Vim.</span></div>
+    <div class="tier"><span class="tname">provenance</span><span class="tbody"><b>src/embed.ts:34–123</b> canon sha256 drift · <code>ai-eng.lock</code> pins the canon the repo expects · <b>.github/workflows/ai-eng-check.yml</b> installs the governor from a release with checksum <em>plus</em> <code>gh attestation verify --deny-self-hosted-runners</code>, every action pinned by SHA.</span></div>
+    <div class="tier"><span class="tname">exception</span><span class="tbody"><b>.ai-engineering/overrides.toml</b> — the only off-switch: reason + expiry mandatory, permanent doctor WARN until it lapses (<code>src/commands/doctor.ts:193–215</code>).</span></div>
+    <div class="tier"><span class="tname">proof</span><span class="tbody"><b>doctor</b> executes a real adversarial payload and measures — a hook that doesn't deny, or denies slow, is FAIL (<code>src/commands/doctor.ts:1–3</code>), ceiling 50 ms (<b>:20</b>). CI runs it on every push.</span></div>
+  </div>
+  <h3>The observability that exists today, in full</h3>
+  <div class="stats">
+    <div class="stat"><div class="v"><em>3 663</em></div><div class="l">receipts on disk today</div></div>
+    <div class="stat"><div class="v"><em>103</em></div><div class="l">denies recorded</div></div>
+    <div class="stat"><div class="v">4</div><div class="l">numbers doctor shows</div></div>
+    <div class="stat"><div class="v">30 d</div><div class="l">then raw receipts deleted</div></div>
+  </div>
+  <p>The whole signal surface is <code>summarizeReceipts()</code> (<b>src/receipts.ts:58–86</b>):
+  <code>{ total, denies, p50, p95 }</code>. The raw receipts carry more (<code>surface</code>,
+  <code>tool</code>, <code>guards.ran</code>, <code>denied_by</code>, <code>ts</code>), but gc's
+  <code>summary.json</code> keeps only the four numbers (<b>src/commands/doctor.ts:421–437</b>) —
+  so the long-term memory of the system is a latency histogram. This is by explicit design:
+  <em>«Sin observabilidad propia: ai-engineering NO construye métricas… Nosotros solo receipts
+  locales (§10)»</em> (<b>docs/blueprint.html:452</b>).</p>
+  <div class="note warn">
+    <h4>Two small facts the audit caught</h4>
+    <p><b>1.</b> A deny from a payload that failed to normalise records <code>tool: "unknown"</code>
+    (<b>src/chain/mod.ts:242</b>) — the unreadable-payload deny is invisible to any per-tool analysis
+    until someone groups it. <b>2.</b> Receipts are gitignored (<code>.gitignore:7</code>): the trail
+    is machine-local, never shared, so a teammate's attack is nobody's signal but their doctor's.</p>
+  </div>
+  </div>
+</section>
+
+<section id="s2">
+  <div class="container">
+  <h2><span class="num">02</span>The gap, against the framework the market converged on</h2>
+  <p>OWASP's Top 10 for Agentic Applications 2026 (published 2025-12-09 [1]) foregrounds exactly two
+  design principles before any of its ten items: <strong>least agency</strong> and
+  <strong>strong observability</strong> [2]. Their one-line verdict is the thesis of this report:</p>
+  <div class="bracket"><span class="tag">OWASP, first principles</span>
+  <p style="font-family:var(--mono);font-size:var(--fs-mono);color:var(--accent-dim);max-width:none">"Least agency without observability is blind risk reduction…<br>Observability without least agency is just surveillance."</p></div>
+  <p>ai-engineering has the first half nearly complete and the second half as a counter. Cross-check
+  of the ten ASI risks against what this repo actually does:</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Risk</th><th>Stopper today (file:line)</th><th>Advance signal today</th></tr></thead>
+    <tbody>
+      <tr><td>ASI01 Goal hijack</td><td class="half">partial — injection guard blocks the payload (<code>injection.ts:111–146</code>)</td><td class="cross">none — no "same intent denied repeatedly across sessions" view</td></tr>
+      <tr><td>ASI02 Tool misuse</td><td class="check">loop + no-verify + self-protect</td><td class="cross">none — per-tool counts exist in receipts but nothing aggregates them</td></tr>
+      <tr><td>ASI03 Identity/privilege</td><td class="check">fail-closed chain, ungoverned repos untouched</td><td class="half">weak — deny receipt from a bad payload loses the tool (<code>chain/mod.ts:242</code>)</td></tr>
+      <tr><td>ASI04 Supply chain</td><td class="check">canon sha256 + lock + CI attestation + SHA-pinned actions</td><td class="check">yes — drift → doctor WARN with the fix named (<code>doctor.ts:107–116</code>)</td></tr>
+      <tr><td>ASI05 RCE</td><td class="half">partial — pattern-based injection guard; <code>injection.ts:35–40</code> admits homoglyphs from other alphabets do <b>not</b> match</td><td class="cross">the miss is silent by design (fold ≠ raw is never logged)</td></tr>
+      <tr><td>ASI06 Memory poisoning</td><td class="half">partial — self-protect fences spec/config/lock</td><td class="cross">none — OWASP's signature is "repeated adversarial behaviour <em>across sessions</em>" [2]; the loop state is per-session, keyed by hashed session id (<code>loop.ts:21–27</code>)</td></tr>
+      <tr><td>ASI08 Cascading failure</td><td class="check">loop guard denies the third identical call</td><td class="half">the denial count is stored per-session (<code>loop.ts:18</code>) and dies with the gc window</td></tr>
+      <tr><td>ASI09 Trust exploitation</td><td class="check">approvals are spoken + <code>spec approve</code>; sha256-pinned spec reopen = deny</td><td class="check">override reason forced into the commit footer</td></tr>
+      <tr><td>ASI10 Rogue agents</td><td class="half">partial — bounds what it may do</td><td class="cross">no baseline — "actions look legitimate in isolation; only behaviour-over-time catches them" [2] is precisely what 4 numbers cannot say</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>The pattern:</strong> every missing signal is a question that <em>already has its raw
+  data</em> in <code>.ai-engineering/receipts/</code> — guard name, tool, surface, ts, outcome. The
+  framework doesn't need new sensors; it needs the sensors it already has to outlive the 30-day delete.</p>
+  </div>
+</section>
+
+<section id="s3">
+  <div class="container">
+  <h2><span class="num">03</span>External evidence — what the 2026 state of the art does</h2>
+  <ul>
+    <li><strong>OWASP Agentic Top 10 (2025-12-09)</strong> [1][2]: least agency + observability as the
+    two first principles; ASI06 defines memory poisoning as a <em>cross-session</em> detection problem,
+    ASI10 rogue behaviour as a <em>baseline-deviation</em> problem. Detection language for defenders is
+    explicit: "spike in API usage, unexpected tool chaining" = ASI02 [2].</li>
+    <li><strong>The market moved from guardrails to ADR.</strong> Miggo launched "Agentic Observability,
+    Detection and Response" as runtime defense [3]; Sweet Security sells "AI runtime monitoring: beyond
+    APM and pre-deployment testing" [4]; Metoro monitors agents via eBPF at the syscall layer [5]. Note
+    [5]: the observability community is <em>abandoning</em> content-pattern matching — the exact class
+    <code>injection.ts</code> belongs to — for system-level signals, because patterns are the weakest
+    rung. This is the case for ai-eng keeping its patterns but adding the behavioural layer beneath them.</li>
+    <li><strong>Academia agrees the stopper alone is a losing game.</strong> CaMeL (arXiv:2503.18813,
+    Google DeepMind) secures agents by <em>system design</em> — control/data-flow extraction plus
+    capabilities at the tool-call boundary — because no input filter reliably catches injection [6].
+    LlamaFirewall (arXiv:2505.03574, Meta) is a <em>layered</em> runtime scanner (prompt/probing/alignment
+    — the alignment monitor reads the agent's own reasoning trace, a behavioural signal) [7]. Neither
+    paper suggests longer pattern lists.</li>
+    <li><strong>OTel GenAI conventions</strong> [8]: third-party agent dashboards (the blueprint's own
+    named outsources — AgentsView, Phoenix/Langfuse) consume <code>gen_ai.*</code> attribute names over
+    OTLP. The conventions were being restructured into their own repo at time of check (ctx7 result was
+    marked <code>deprecated</code>), i.e. still a moving target — see R3.</li>
+  </ul>
+  </div>
+</section>
+
+<section id="s4">
+  <div class="container">
+  <h2><span class="num">04</span>Three directions worth taking — cited, small, invisible</h2>
+
+  <h3>R1 · Aggregate what gc throws away <span class="pill p-fix">~15 LOC · src/receipts.ts</span></h3>
+  <p><em>Catches: ASI02, ASI10. Kills: blind risk reduction.</em> Extend
+  <code>summarizeReceipts()</code> (<b>receipts.ts:58–86</b>) from 4 numbers to the ones already in every
+  receipt: <code>per_guard_denies</code>, <code>per_tool</code>, <code>per_surface</code>, and a 7-day
+  day-by-day deny series. <code>doctor --gc</code> writes the richer summary into
+  <code>summary.json</code> (<b>doctor.ts:432–434</b>) instead of the flat four — the aggregate outlives
+  the raw files, so the baseline survives every 30-day sweep. Doctor's <code>receipts</code> check adds
+  one deviation rule: <em>7-day deny series &gt; 3× the prior mean → WARN naming the guard</em>. The
+  ceremony stays zero: all computation happens inside the gc pass the user already opted into; a quiet
+  repo sees one unchanged line. Same pass fixes fact 1 above — count <code>tool:"unknown"</code> denies
+  as their own bucket.</p>
+
+  <p>```mermaid
+flowchart LR
+  A[runChain] -->|every call| B[receipts/*.json]
+  B -->|doctor --gc today: 4 numbers| C[summary.json]
+  B -->|R1: richer aggregate| C
+  C -->|R2: fingerprint ledger<br/>survives gc| D[(denies.json)]
+  D -->|deny annotation| A
+  C -->|R1 deviation WARN| E[doctor]
+  C -.->|R3 opt-in shim| F[AgentsView / Phoenix]
+  ```</p>
+
+  <h3>R2 · A cross-session deny ledger, one file <span class="pill p-fix">~10 LOC net · src/chain/mod.ts</span></h3>
+  <p><em>Catches: ASI01, ASI06, ASI08. Kills: the "across sessions" blind spot OWASP names for both.</em>
+  The fingerprint already exists (<code>fingerprint(payload)</code>, <b>chain/mod.ts:146</b>) and the loop
+  guard already counts denials per session (<code>loop.ts:18</code>). On every deny, add
+  <code>fp → count</code> to <code>.ai-engineering/receipts/denies.json</code> (gitignored, gc-safe: it
+  <em>is</em> the aggregate). When a fresh deny's fp has count &gt; 0, the receipt gets
+  <code>"repeat": N</code> and the human-facing message appends one clause: <em>"this exact call has been
+  denied N times before"</em>. It changes no verdict — pure signal, so it cannot break the loop its own
+  guards govern (the failure mode the self-protect header at <b>:1–13</b> warns about). A memory-poisoning
+  campaign that retries the same exfiltration call from a new session is now visible for the first time.</p>
+
+  <h3>R3 · Make the receipts readable by the tools the blueprint already points at <span class="pill p-dim">~40 LOC · optional</span></h3>
+  <p><em>Catches: nothing new; buys the whole ADR ecosystem without owning it.</em> The blueprint's
+  "no observability of our own" stance (<b>blueprint.html:452</b>) stays intact — it just stops costing
+  optionality. Bump <code>schema: "urn:ai-eng:receipt:2"</code> → 3 aliasing the field names to the OTel
+  GenAI conventions (<code>tool</code> → <code>gen_ai.tool.name</code>, <code>surface</code> →
+  <code>gen_ai.agent.name</code>) [8], plus one <code>config.toml</code> line: <code>[observe] otlp_endpoint</code>,
+  off by default, ~20-line POST shim on the gc pass (batch, never hot path — the 50 ms ceiling is
+  untouched). Users who never set it see nothing; users who did get their guard chain inside AgentsView
+  or Phoenix for free. Caveat dated 2026-09-20: the GenAI conventions were mid-repo-move at check time,
+  so alias now and verify against <code>semantic-conventions-genai</code> before shipping.</p>
+
+  <div class="note">
+    <h4>Honourable mention — the silent fold miss, ~6 LOC</h4>
+    <p><code>injection.ts:35–40</code> matches only the ASCII-folded text and the file says a
+    non-ASCII-alphabet homoglyph won't match. Cheap observability: when the <em>raw</em> text hits a
+    pattern the <em>folded</em> text missed, log one line into the gc'd daily aggregate. Evasion attempts
+    become visible as a trend without ever changing a verdict — the "see overreach, don't re-scan" move
+    the eBPF crowd makes with far more machinery [5].</p>
+  </div>
+  </div>
+</section>
+
+<section id="s5">
+  <div class="container">
+  <h2><span class="num">05</span>Rejected — and the line that made it easy</h2>
+  <p>The design brief: <em>quality/security/governance that doesn't look like it's there</em>. Test each
+  rejected item: does it add a stopper the agent can collide with, a runtime dependency, or a UI? All
+  three rejections fail that test:</p>
+  <ul>
+    <li><strong>OTel SDK as a dependency / full tracing exporter</strong> — ai-engineering is one binary,
+    zero runtime deps (blueprint §"Sin dependencias de runtime"). R3's plain-JSON POST keeps the door
+    open without walking through it. Revisit when someone actually pipes receipts to a dashboard and
+    the shim chokes.</li>
+    <li><strong>An LLM alignment monitor (LlamaFirewall-style, [7])</strong> — a second model in the hot
+    path breaks the 50 ms ceiling (<code>doctor.ts:20</code>) and the zero-deps rule, and the repo already
+    routes judgment to a stronger model where judgment belongs: <code>ai-verify</code>, <code>ai-security</code>,
+    the <code>decide</code> tier pin. The behavioral layer in this framework is the skills, not a service.</li>
+    <li><strong>A new <code>ai-eng observe</code> verb / dashboards / a metrics server</strong> — anti-DRY
+    and against the closed CLI-verb list; doctor is the only read surface by design. If R1+R2 signals ever
+    outgrow a WARN line, the right move is ai-visual-recap drawing them, not a new command.</li>
+  </ul>
+  <h3>When this recommendation becomes wrong</h3>
+  <p>If the dogfooded repo's deny rate stays flat at ~3% forever (103/3663 today), R1's deviation check
+  is ceremony and the honest move is blueprint §10.2's own pre-committed cut: <em>«si a los 3 meses los
+  denies son 0, el producto es ceremonia»</em> — shrink the guards, not the dashboard. Conversely, the
+  moment ai-eng governs repos shared by many humans (the receipts become cross-org), gitignored local
+  JSON stops being an audit trail and R3 stops being optional — ship the OTLP path then, with retention
+  and redaction handled as a real data-policy question, not a shim.</p>
+  </div>
+</section>
+
+<section id="s6">
+  <div class="container">
+  <h2><span class="num">06</span>Sources</h2>
+  <ol style="font-size:13.5px">
+    <li>[1] OWASP GenAI Security Project — <em>OWASP Top 10 for Agentic Applications for 2026</em>, published 2025-12-09. <a href="https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/">genai.owasp.org</a></li>
+    <li>[2] HUMAN Security (T. Elias) — <em>The OWASP Top 10 for Agentic Applications: What It Means for Defenders</em>, 2025-12-10. ASI table + first-principles quote. <a href="https://www.humansecurity.com/learn/blog/owasp-top-10-agentic-applications">humansecurity.com</a></li>
+    <li>[3] Markets Insider / Yahoo Finance — <em>Miggo Security Extends Runtime Defense for AI and Agentic Observability, Detection and Response</em> (n.d., observed 2026-09-20). <a href="https://markets.businessinsider.com/news/stocks/miggo-security-extends-runtime-defense-for-ai-and-agentic-observability-detection-and-response-1035958116">businessinsider.com</a></li>
+    <li>[4] Sweet Security — <em>AI Runtime Monitoring: Beyond APM and Pre-Deployment Testing</em> (n.d., observed 2026-09-20). <a href="https://www.sweet.security/agent-security/ai-runtime-monitoring">sweet.security</a></li>
+    <li>[5] Metoro — <em>AI Agent Monitoring with eBPF</em> (n.d., observed 2026-09-20). <a href="https://metoro.io/features/ai-agent-monitoring">metoro.io</a></li>
+    <li>[6] arXiv:2503.18813 — <em>CaMeL: Defying Prompt Injection (with a System Layer)</em>, Google DeepMind. Abstract fetched 2026-09-20. <a href="https://arxiv.org/abs/2503.18813">arxiv.org/abs/2503.18813</a></li>
+    <li>[7] arXiv:2505.03574 — <em>LlamaFirewall: An open source guardrail system for building secure AI agents</em>, Meta. Abstract fetched 2026-09-20. <a href="https://arxiv.org/abs/2505.03574">arxiv.org/abs/2505.03574</a></li>
+    <li>[8] OpenTelemetry — GenAI semantic conventions (moved to <code>semantic-conventions-genai</code>; attribute names verified via ctx7 on 2026-09-20, still <code>development</code> stability). <a href="https://github.com/open-telemetry/semantic-conventions-genai">github.com/open-telemetry</a></li>
+  </ol>
+  <p class="dim" style="margin-top:var(--s5)">Local evidence: this repository at HEAD, 2026-09-20 — receipt
+  counts measured on the dogfood install (3 663 files / 103 denies, <code>jq</code>-counted). NotebookLM deep
+  research not run (auth expired); Exa not installed; claims that would have needed them are absent, not marked.</p>
+  </div>
+</section>
+
+</main>
+<footer>
+  <span class="x">{ai}</span> Engineering · research/001 · governed by its own chain — the guard that read this file's path is the one that wrote it
+</footer>
+</body>
+</html>
