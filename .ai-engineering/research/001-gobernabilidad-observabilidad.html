@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Research 001 — Governance by observability, not by more stoppers</title>
 <style>
@@ -307,8 +308,8 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <p>Followed end to end, the chain is a deny machine with good evidence hygiene. One process per
   tool call, one table, fail-closed:</p>
   <div class="tiers">
-    <div class="tier"><span class="tname">dispatcher</span><span class="tbody"><b>src/chain/mod.ts:33–45</b> — the event→guard table is the only entry point; <b>:119–193</b> fail-closed on unreadable payload (<b>:132,141</b>) and on guard crash (<b>:219–226</b>); one fail-open, bounded: ungoverned repo → allow, nothing written (<b>:130</b>).</span></div>
-    <div class="tier"><span class="tname">5 guards</span><span class="tbody"><b>self-protect</b> (governance files, derived not copied, <code>src/guards/self-protect.ts:59–120</code>) · <b>no-verify</b> · <b>injection</b> (IOC regex, NFKD-folded, pre-read deny + post-fetch containment, <code>src/guards/injection.ts:1–4</code>) · <b>loop</b> (window 6 / repeats 3 / failures 5, <code>src/guards/loop.ts:1–2</code>) · <b>wrap</b> (test-runner rewrite).</span></div>
+    <div class="tier"><span class="tname">dispatcher</span><span class="tbody"><b>src/chain/mod.ts:34–46</b> — the event→guard table is the only entry point; <b>:121–195</b> fail-closed on unreadable payload (<b>:134,143</b>) and on guard crash (<b>:227–234</b>); one fail-open, bounded: ungoverned repo → allow, nothing written (<b>:132</b>).</span></div>
+    <div class="tier"><span class="tname">6 guards</span><span class="tbody"><b>self-protect</b> (governance files, derived not copied, <code>src/guards/self-protect.ts:59–120</code>) · <b>no-verify</b> · <b>policy</b> (command-scope matrix — system/external/network/workspace × r/w/x as four octal digits — port of bash-guard's policy.rs, oracle-verified against the original, TABLE row <code>chain/mod.ts:38</code>) · <b>injection</b> (IOC regex, NFKD-folded, pre-read deny + post-fetch containment, <code>src/guards/injection.ts:1–4</code>) · <b>loop</b> (window 6 / repeats 3 / failures 5, <code>src/guards/loop.ts:1–2</code>) · <b>wrap</b> (test-runner rewrite).</span></div>
     <div class="tier"><span class="tname">git floor</span><span class="tbody"><b>src/floor/index.ts:19–57</b> — gitleaks on staged diff (missing gitleaks = hard fail, <b>:36–39</b>), DECISIONS.md gate, Receipt-Id trailer (<b>:111–139</b>); runs for a human committing from Vim.</span></div>
     <div class="tier"><span class="tname">provenance</span><span class="tbody"><b>src/embed.ts:34–123</b> canon sha256 drift · <code>ai-eng.lock</code> pins the canon the repo expects · <b>.github/workflows/ai-eng-check.yml</b> installs the governor from a release with checksum <em>plus</em> <code>gh attestation verify --deny-self-hosted-runners</code>, every action pinned by SHA.</span></div>
     <div class="tier"><span class="tname">exception</span><span class="tbody"><b>.ai-engineering/overrides.toml</b> — the only off-switch: reason + expiry mandatory, permanent doctor WARN until it lapses (<code>src/commands/doctor.ts:193–215</code>).</span></div>
@@ -331,7 +332,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <div class="note warn">
     <h4>Two small facts the audit caught</h4>
     <p><b>1.</b> A deny from a payload that failed to normalise records <code>tool: "unknown"</code>
-    (<b>src/chain/mod.ts:242</b>) — the unreadable-payload deny is invisible to any per-tool analysis
+    (<b>src/chain/mod.ts:250</b>) — the unreadable-payload deny is invisible to any per-tool analysis
     until someone groups it. <b>2.</b> Receipts are gitignored (<code>.gitignore:7</code>): the trail
     is machine-local, never shared, so a teammate's attack is nobody's signal but their doctor's.</p>
   </div>
@@ -352,10 +353,10 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <thead><tr><th>Risk</th><th>Stopper today (file:line)</th><th>Advance signal today</th></tr></thead>
     <tbody>
       <tr><td>ASI01 Goal hijack</td><td class="half">partial — injection guard blocks the payload (<code>injection.ts:111–146</code>)</td><td class="cross">none — no "same intent denied repeatedly across sessions" view</td></tr>
-      <tr><td>ASI02 Tool misuse</td><td class="check">loop + no-verify + self-protect</td><td class="cross">none — per-tool counts exist in receipts but nothing aggregates them</td></tr>
-      <tr><td>ASI03 Identity/privilege</td><td class="check">fail-closed chain, ungoverned repos untouched</td><td class="half">weak — deny receipt from a bad payload loses the tool (<code>chain/mod.ts:242</code>)</td></tr>
+      <tr><td>ASI02 Tool misuse</td><td class="check">loop + no-verify + self-protect + policy (scope matrix incl. network verbs)</td><td class="cross">none — per-tool counts exist in receipts but nothing aggregates them</td></tr>
+      <tr><td>ASI03 Identity/privilege</td><td class="check">fail-closed chain, ungoverned repos untouched</td><td class="half">weak — deny receipt from a bad payload loses the tool (<code>chain/mod.ts:250</code>)</td></tr>
       <tr><td>ASI04 Supply chain</td><td class="check">canon sha256 + lock + CI attestation + SHA-pinned actions</td><td class="check">yes — drift → doctor WARN with the fix named (<code>doctor.ts:107–116</code>)</td></tr>
-      <tr><td>ASI05 RCE</td><td class="half">partial — pattern-based injection guard; <code>injection.ts:35–40</code> admits homoglyphs from other alphabets do <b>not</b> match</td><td class="cross">the miss is silent by design (fold ≠ raw is never logged)</td></tr>
+      <tr><td>ASI05 RCE</td><td class="check">policy guard now denies the destructive classes by scope — rm -rf /, system paths, sensitive files, device writes (<code>policy.ts:1–7</code>); injection guard still pattern-based: <code>injection.ts:35–40</code> admits homoglyphs from other alphabets do <b>not</b> match</td><td class="cross">the miss is silent by design (fold ≠ raw is never logged; policy-probe counts unaggregated — see §04 addendum)</td></tr>
       <tr><td>ASI06 Memory poisoning</td><td class="half">partial — self-protect fences spec/config/lock</td><td class="cross">none — OWASP's signature is "repeated adversarial behaviour <em>across sessions</em>" [2]; the loop state is per-session, keyed by hashed session id (<code>loop.ts:21–27</code>)</td></tr>
       <tr><td>ASI08 Cascading failure</td><td class="check">loop guard denies the third identical call</td><td class="half">the denial count is stored per-session (<code>loop.ts:18</code>) and dies with the gc window</td></tr>
       <tr><td>ASI09 Trust exploitation</td><td class="check">approvals are spoken + <code>spec approve</code>; sha256-pinned spec reopen = deny</td><td class="check">override reason forced into the commit footer</td></tr>
@@ -425,7 +426,7 @@ flowchart LR
 
   <h3>R2 · A cross-session deny ledger, one file <span class="pill p-fix">~10 LOC net · src/chain/mod.ts</span></h3>
   <p><em>Catches: ASI01, ASI06, ASI08. Kills: the "across sessions" blind spot OWASP names for both.</em>
-  The fingerprint already exists (<code>fingerprint(payload)</code>, <b>chain/mod.ts:146</b>) and the loop
+  The fingerprint already exists (<code>fingerprint(payload)</code>, <b>chain/mod.ts:148</b>) and the loop
   guard already counts denials per session (<code>loop.ts:18</code>). On every deny, add
   <code>fp → count</code> to <code>.ai-engineering/receipts/denies.json</code> (gitignored, gc-safe: it
   <em>is</em> the aggregate). When a fresh deny's fp has count &gt; 0, the receipt gets
@@ -452,6 +453,14 @@ flowchart LR
     pattern the <em>folded</em> text missed, log one line into the gc'd daily aggregate. Evasion attempts
     become visible as a trend without ever changing a verdict — the "see overreach, don't re-scan" move
     the eBPF crowd makes with far more machinery [5].</p>
+  </div>
+
+  <div class="note ok">
+    <h4>Addendum — later the same day: the policy guard landed (parallel session)</h4>
+    <p>While this report was being written, <b>src/guards/policy.ts</b> (~150 LOC, pure function) merged: the classification core of bash-guard's <code>policy.rs</code>, ported and oracle-verified against the original, inheriting dialects, receipts, verdict cache, overrides and fail-closed from one <code>TABLE.PreToolUse</code> row (<b>chain/mod.ts:38</b>). It strengthens the thesis and moves three facts:</p>
+    <p><strong>1.</strong> ASI05's stopper went from content-pattern to <em>system-level scope</em> — the move report [5] says is the strong rung, in 150 lines with no binary. The mode (<code>guards.policy_mode</code>, default 0467, unusable → 0000 fail-closed, <b>policy.ts:52–54</b>) lives in config.toml, which self-protect fences: widening it is human-only, and the git diff of that file <em>is</em> the permission-change trail.</p>
+    <p><strong>2.</strong> R2 needs a caveat: a <em>policy-probe campaign</em> is N distinct commands (rm -rf /var, then /usr, then /etc), and exact-fingerprint sees each variant as new. R2 still catches the exfiltration-retry pattern (ASI01/ASI06); for ASI02-with-variants the net is R1's <code>per_guard_denies</code> plus a daily <code>policy</code> count — a policy-deny spike over baseline is a boundary probe, and its raw data already sits in the receipts gc deletes.</p>
+    <p><strong>3.</strong> The port is the pattern §05's rejections assume: existence-check first, port the classification you need, ship no Rust binary, no brew tap, no new CLI verb. R3 and the rejections stand unchanged. Mutation scope <code>stryker.conf.mjs:17</code> already covers <code>src/guards/**</code>, so R1/R2's ~25 LOC land inside the tier <code>policy-guard.spec.ts</code> proves — they will need tests that kill the mutants, not just pass.</p>
   </div>
   </div>
 </section>
