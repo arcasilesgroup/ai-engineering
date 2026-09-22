@@ -80,7 +80,7 @@ canon, the templates) travels inside the package.
 Ask it how it is doing:
 
 ```bash
-ai-eng doctor        # every check it knows, one real adversarial payload fired at the chain, receipt stats
+ai-eng doctor        # every check it knows, one real adversarial payload fired at the chain, receipt stats: denies per guard/tool, the 90-day series, a spike WARN
 ```
 
 ## What it stops
@@ -217,7 +217,6 @@ loud. Either way: a gate or an `ABANDON`, never silence.
 | `ai-read-docs` | Forces a documentation pass before depending on versioned or external behaviour |
 | `ai-agents-md` | Writes and maintains the `AGENTS.md` a repository owes its coding agents |
 | `ai-writing-behavior` | Authors `BEHAVIOR.md` specs for recurring, judgeable agent conduct |
-| `ai-rtk` | Routes long-output commands through rtk, so the agent reads 60–90% less |
 
 </details>
 

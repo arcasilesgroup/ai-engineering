@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recap — gobernar por observabilidad, no por más frenos</title>
+<style>
+/* ── {ai} Engineering — the artifact design system ─────────────────────────
+   Tokens are the brand's, at system stacks so an artifact renders offline:
+   one signal green, neutral borders, the reading tint for small green,
+   dark-only. Anything ai-engineering renders as an artifact — spec.html,
+   plan.html, a recap, a research page, a report — inherits this block
+   verbatim.                                                                */
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px;      --lh-h2:1.16;      --ls-h2:-.018em;
+  --fs-h3:17px;      --lh-h3:1.32;      --ls-h3:-.006em;
+  --fs-h4:14px;      --lh-h4:1.35;
+  --fs-body:15px;    --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px;  --lh-mono:1.7;
+  --fs-label:10.5px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:var(--fs-body);line-height:var(--lh-body);
+  font-synthesis-weight:none;-webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);
+      border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;
+      transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.hero{
+  position:relative;overflow:hidden;text-align:center;
+  padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);
+  background-image:
+    linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px),
+    radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);
+  background-size:32px 32px,32px 32px,100% 100%;
+}
+.hero .stamp{
+  display:inline-block;font-family:var(--mono);font-size:var(--fs-label);
+  letter-spacing:.26em;text-transform:uppercase;color:var(--accent);
+  border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;
+  margin-bottom:var(--s5);
+}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);
+         letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;
+           margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);
+            margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:2px 2px 0 0}
+nav{
+  position:sticky;top:0;z-index:50;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;
+  padding:var(--s2) var(--s4);
+  background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);
+  border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;
+}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;
+      white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;
+        letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);
+   font-weight:640;margin:var(--s6) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);max-width:var(--measure);margin-bottom:var(--s3)}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);
+     border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);
+     overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+    padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);
+    font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;
+    -webkit-overflow-scrolling:touch;max-width:100%}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{
+  background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+pre .f{color:var(--accent-dim)}
+pre .add{color:var(--ok)} pre .del{color:var(--bad)}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto}
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);
+         border-radius:12px;padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;
+         border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;
+         font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;
+         text-transform:uppercase;color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+      padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h4{margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+      padding:var(--s5);margin:var(--s5) 0}
+.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;
+         text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+      padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;
+         text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+.tbl-wrap{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);
+          overflow-x:auto;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small);min-width:640px}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;
+   font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;
+   text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);
+   vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+td code{overflow-wrap:normal;word-break:keep-all}
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;
+      padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);
+       border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
+       color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+@media (max-width:900px){
+  .g2,.g3{grid-template-columns:1fr}
+  .hero{padding:64px var(--s5) 44px}
+  .hero h1{font-size:34px;letter-spacing:-.022em}
+  .hero .sub{font-size:16px}
+}
+@media (max-width:560px){
+  .container{padding:0 var(--s4)}
+  nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;
+      overflow-x:auto;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  table{font-size:13px} th,td{padding:10px var(--s3)}
+  pre{font-size:11.5px;padding:var(--s3) var(--s4)}
+}
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} *{animation:none!important;transition:none!important} }
+@media (prefers-reduced-transparency:reduce){ nav{background:var(--bg);backdrop-filter:none} }
+@media print{ nav,.skip{display:none} body{background:#fff;color:#111} section{page-break-inside:avoid} }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Recap · Milestone · 2026-09-21</div>
+  <h1>Gobernar por <span class="x">observabilidad</span>,<br>no por más frenos</h1>
+  <p class="sub">El gc que ya tritura los receipts ahora <strong>conserva la historia</strong> (por guard,
+  herramienta, superficie, serie diaria de 90 días) y un <strong>ledger cross-sesión</strong> hace visible
+  el reintento ya-negado en el propio aviso. Señal pura: cero veredictos nuevos. La auditoría de este
+  mismo diff encontró 6 defectos en su propio código; los 6 se corrigieron dentro del árbol con tests.</p>
+  <div class="meta">milestone <b>gobernabilidad-observabilidad</b> · base <b>dd6cb944</b> · 21/21 gates <b>ALL MET</b>
+  · <b>735</b> tests pass / 0 fail · research/001 → brainstorm → spec.html (sha fa8ee2989d8d)</div>
+</header>
+<nav>
+  <a href="#s1"><b>01</b>Story</a>
+  <a href="#s2"><b>02</b>Data</a>
+  <a href="#s3"><b>03</b>Files</a>
+  <a href="#s4"><b>04</b>Key diffs</a>
+  <a href="#s5"><b>05</b>Audit</a>
+  <a href="#s6"><b>06</b>Proof</a>
+</nav>
+<main id="main">
+
+<section id="s1">
+  <div class="container">
+  <h2><span class="num">01</span>Qué cambió y por qué</h2>
+  <p>La cadena era una máquina de denegar con buena higiene de evidencia: cada tool call dejaba un
+  receipt con quién lo negó, con qué herramienta y cuándo. El <code>doctor --gc</code> de cada mes
+  trituraba los crudos y salvaba exactamente 4 números: la memoria de largo plazo del sistema era un
+  histograma de latencia. OWASP Top 10 agéntico 2026 llama a esto "blind risk reduction": least agency
+  sin observabilidad. Este milestone cerró ese hueco sin añadir ni un freno nuevo al agente.</p>
+  <p>Dos señales compradas por contrato. <strong>En vivo:</strong> cuando un agente reintenta una
+  llamada exacta ya-negada desde otra sesión, el mensaje del deny dice ahora
+  <code>· this exact call has been denied N times before</code>; un ataque de exfiltración reintentado
+  por sesión nueva es visible por primera vez. <strong>En reposo:</strong> la línea <code>receipts</code>
+  de doctor deja de ser 4 números y muestra el guard/herramienta que más niega, los repeats del ledger y
+  una WARN de desviación (3× sobre la semana previa, fija en código) que se calla sin línea base
+  honesta.</p>
+  <p>Tres decisiones de diseño que el diff hace visibles: la clave del ledger es <code>loopExact</code>
+  (tool + input completo, sin sesión), no el <code>fingerprint</code> que proponía el research, porque
+  aquel incluye <code>session_id</code> y nunca vería un repeat; el ledger se poda <em>por contenido</em>
+  en el gc que ya existía (90 días de vida + techo de 500), nunca por mtime; y la señal de muerte quedó
+  pre-comprometida en DECISIONS.md: 90 días sin repeats ni desviaciones, y esta capa se retira.</p>
+  <div class="note warn">
+    <h4>Dos hallazgos del propio código que reescribieron el plan</h4>
+    <p><strong>1.</strong> <code>denyOutcome</code> fijaba <code>tool:"unknown"</code> en TODOS los
+    denies: los 103 históricos del repo eran invisibles para cualquier análisis por herramienta. Se
+    hiló el tool real (3 call sites); el fail-closed de payload ilegible conserva "unknown" como cubo
+    honesto. <strong>2.</strong> El contador "fold-miss" que vendía el research es indetectable con el
+    plegado actual (NFKD + borrar no-ASCII): si el crudo toca un patrón ASCII, el plegado lo toca
+    también. Cayó del alcance con la cuenta escrita, no en silencio.</p>
+  </div>
+  </div>
+</section>
+
+<section id="s2">
+  <div class="container">
+  <h2><span class="num">02</span>Los dos artefactos de estado que nacieron</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h4>summary.json <span class="pill p-ok">modificado</span></h4>
+      <p>Antes: <code>{total, denies, p50, p95, gc}</code>. Ahora además <code>per_guard</code>,
+      <code>per_tool</code>, <code>per_surface</code> (claves ya pasadas por <code>printable()</code>)
+      y <code>daily:{ISO → {runs,denies}}</code>. El gc hace <strong>merge por clave de día</strong>
+      (la ventana cruda manda) en vez de sobrescribir, y poda días &gt; 90d. El archivo sobrevive su
+      propio barrido: es memoria, no basura.</p>
+    </div>
+    <div class="card">
+      <h4>receipts/denies.json <span class="pill p-ok">nuevo</span></h4>
+      <p>Mapa <code>loopExact-hash → {n, last_seen}</code>. Escrito solo en denies reales de guard
+      (jamás en allows, rewrites ni en el fail-closed sin payload), read-modify-write con cap
+      hot-path de 500 entradas bien-formadas: un ledger plantado de 16 MB deja de ser plantado en el
+      primer deny. Es campana, no evidencia forense: pierde carreras, no veredictos.</p>
+    </div>
+  </div>
+  <div class="bracket"><span class="tag">flujo de la señal</span>
+  <div class="flow"> runChain ──deny──▶ writeReceipt ──────────────┐
+     │                    upsertDenyLedger(loopExact)      │
+     │                       │ n≥2 ⇒ cláusula en reason    │
+     ▼                       ▼                             ▼
+ host (dialect)      receipts/denies.json          receipts/*.json
+                     (cap 500 · gc prune 90d)            │
+                              ┌──────────────────────────┘
+                              ▼  doctor --gc: merge day-key + prune
+                       summary.json ──▶ doctor check 7: top guard/tool ·
+                                          repeats · spike 3× (solo crudos)
+                       receipts crudos ──▶ borrados a los 30 d (igual que antes)</div>
+  </div>
+  <p class="dim">Nota de contrato: la regla del spike NO lee summary.json — lee los receipts crudos
+  (su TTL de 30 d cubre la ventana de 14). Lo encontró la auditoría: una línea de agregado que el
+  sujeto observado puede reescribir no es línea base. Ver §05.</p>
+  </div>
+</section>
+
+<section id="s3">
+  <div class="container">
+  <h2><span class="num">03</span>Mapa de archivos <span class="dim">(solo el trabajo de este milestone; el guard policy.ts sin commitear es de la sesión paralela D-002 y aquí aparece cableado, no escrito)</span></h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Archivo</th><th>Cambio</th><th>Qué cuenta</th></tr></thead>
+    <tbody>
+      <tr><td>src/receipts.ts</td><td><span class="check">+127 −5</span></td><td>summary enriquecido + <code>mergeDaily</code> + ledger (<code>upsertDenyLedger</code>, <code>pruneDenyLedger</code>, <code>LEDGER_CAP</code>); claves sanitizadas con <code>printable()</code></td></tr>
+      <tr><td>src/chain/mod.ts</td><td><span class="check">+33 −10</span></td><td>tool real en todo deny; cláusula de repeat keyed por <code>loopExact</code>; un rewrite jamás se cachea como deny (fix F6); (la fila <code>policy</code> en TABLE: sesión paralela)</td></tr>
+      <tr><td>src/commands/doctor.ts</td><td><span class="check">+81 −7</span></td><td>check 7 enriquecido + WARN de desviación 3× sobre crudos; gc merge + poda de ledger + barrido solo-archivos (fix F4)</td></tr>
+      <tr><td>tests/deny-ledger.spec.ts</td><td><span class="pill p-ok">nuevo</span></td><td>G8-G12 + 2 regresiones de auditoría (plant de 600 claves, bomb.json directorio)</td></tr>
+      <tr><td>tests/receipts-summary.spec.ts</td><td><span class="pill p-ok">nuevo</span></td><td>G2-G7: agregados, merge, prune, denies.json invisible al conteo</td></tr>
+      <tr><td>tests/chain-deny-tool.spec.ts</td><td><span class="pill p-ok">nuevo</span></td><td>G1: deny con tool real; fail-closed conserva "unknown"</td></tr>
+      <tr><td>tests/doctor-command.spec.ts</td><td><span class="check">+101</span></td><td>pins de formato movidos con la línea nueva (no borrados) + 4 tests: desviación, forged-summary, canary de inyección, repeats NaN</td></tr>
+      <tr><td>tests/chain-dispatch.spec.ts</td><td><span class="check">+9</span></td><td>regresión F6: reentrega de un wrapped call reescribe otra vez</td></tr>
+      <tr><td>docs/blueprint.html · DECISIONS.md · README.md · .changeset/</td><td><span class="check">4 + · 3 ± · 1 +</span></td><td>§10 enmendado a "signal inside the gc"; D-003 con la señal de muerte de 90 días; línea de doctor en README; changeset minor</td></tr>
+      <tr><td>skills/.chain-bundle/ai-eng-chain.ts</td><td><span class="check">regen</span></td><td>el bundle embebido = byte a byte de src/ (test lo pinnea); regenerado tras cada paso</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</section>
+
+<section id="s4">
+  <div class="container">
+  <h2><span class="num">04</span>Key changes <span class="dim" style="font-size:12px;font-weight:400">(hunks reales de <code>git diff dd6cb944 -U2</code>, spans generados por assets/highlight.mjs)</span></h2>
+    <h3>src/chain/mod.ts — cache guard (F6) y denyOutcome: el único embudo de todos los denies</h3>
+    <pre>     <span class="k">const</span> outcome = <span class="f">dispatchGuard</span>(row.name, payload, ctx);
+     <span class="k">if</span> (outcome !== <span class="k">undefined</span> &amp;&amp; outcome.deny) {
+-      <span class="k">if</span> (dedup) <span class="f">rememberVerdict</span>(cacheFile, fp, { deny: <span class="k">true</span>, by: row.name, message: outcome.reason });
++      <span class="c">// A rewrite must never be cached as a hard denial: the verdict-cache shape only</span>
++      <span class="c">// knows deny/allow, and a replayed rewrite entry would flip the second delivery</span>
++      <span class="c">// of the same physical call from rewrite to deny (audit run-1). Uncached, the</span>
++      <span class="c">// redelivery simply re-runs the guards and rewrites again.</span>
++      <span class="k">if</span> (dedup &amp;&amp; outcome.rewriteTo === <span class="k">undefined</span>) <span class="f">rememberVerdict</span>(cacheFile, fp, { deny: <span class="k">true</span>, by: row.name, message: outcome.reason });
+       <span class="k">if</span> (outcome.rewriteTo) {
+         <span class="k">return</span> <span class="f">rewriteOutcome</span>(outcome.rewriteTo, ran, event, options, started, root);
+       }
+-      <span class="k">return</span> <span class="f">denyOutcome</span>(row.name, outcome.reason, ran, event, options, started, root);
++      <span class="k">return</span> <span class="f">denyOutcome</span>(row.name, outcome.reason, ran, event, options, started, root, tool, <span class="f">loopExact</span>(payload));
+     }
+   }
+   started: <span class="t">number</span>,
+   root: <span class="t">string</span>,
++  tool: <span class="t">string</span>,
++  loopKey?: <span class="t">string</span>,
+ ): ChainOutcome {
+   <span class="k">const</span> latency = <span class="t">Math</span>.<span class="f">max</span>(<span class="n">1</span>, <span class="t">Date</span>.<span class="f">now</span>() - started);
++  <span class="c">// The cross-session ledger ticks once per real denial — here, never on a cached</span>
++  <span class="c">// replay of the same physical call, which would count one denial twice. The upsert</span>
++  <span class="c">// returns how many times this exact call was denied BEFORE this one; a repeat gets</span>
++  <span class="c">// one clause on the human-facing message. It never touches the verdict, and the</span>
++  <span class="c">// helper swallows every write failure for the same reason.</span>
++  <span class="k">if</span> (loopKey !== <span class="k">undefined</span>) {
++    <span class="k">const</span> repeats = <span class="f">upsertDenyLedger</span>(<span class="f">receiptsDir</span>(root), loopKey);
++    <span class="k">if</span> (repeats &gt; <span class="n">0</span>) reason += <span class="s">` · this exact call has been denied ${repeats} times before`</span>;
++  }
+   <span class="k">const</span> receipt = <span class="f">writeReceipt</span>({
+     event,
+     surface: options.surface ?? <span class="s">"unknown"</span>,
+-    tool: <span class="s">"unknown"</span>,
++    tool,
+     guards: { ran, denied_by: by },
+     latency_ms: latency,</pre>
+    <p class="dim">El cached-replay pasa el tool pero no loopKey: una misma llamada física entregada dos veces cuenta un solo deny (ejecutado: counts [1] tras dos entregas). El fix F6: un rewrite jamás entra al veredict-cache, porque el shape del cache solo conoce deny/allow y la reentrega volteaba rewrite→deny.</p>
+
+    <h3>src/receipts.ts — summary enriquecido, claves sanitizadas, ledger con cap en el hot path</h3>
+    <pre>   p50: <span class="t">number</span>;
+   p95: <span class="t">number</span>;
++  <span class="c">/** deny counts by guards.denied_by, by tool, by surface — the "unknown" tool of the
++   *  unreadable-payload deny is its own honest bucket, never merged into a real one. */</span>
++  per_guard: <span class="t">Record</span>&lt;<span class="t">string</span>, <span class="t">number</span>&gt;;
++  per_tool: <span class="t">Record</span>&lt;<span class="t">string</span>, <span class="t">number</span>&gt;;
++  per_surface: <span class="t">Record</span>&lt;<span class="t">string</span>, <span class="t">number</span>&gt;;
++  <span class="c">/** ISO-date → activity of that day, from the receipts' own ts. */</span>
++  daily: <span class="t">Record</span>&lt;<span class="t">string</span>, DailyPoint&gt;;
+ };
+ 
+   <span class="k">let</span> total = <span class="n">0</span>;
+   <span class="k">let</span> denies = <span class="n">0</span>;
++  <span class="k">const</span> per: <span class="t">Record</span>&lt;<span class="s">"per_guard"</span> | <span class="s">"per_tool"</span> | <span class="s">"per_surface"</span>, <span class="t">Record</span>&lt;<span class="t">string</span>, <span class="t">number</span>&gt;&gt; = {
++    per_guard: {}, per_tool: {}, per_surface: {},
++  };
++  <span class="k">const</span> daily: <span class="t">Record</span>&lt;<span class="t">string</span>, DailyPoint&gt; = {};
+   <span class="k">if</span> (target) {
+     <span class="k">try</span> {
+   <span class="k">return</span> <span class="f">createHash</span>(<span class="s">"sha256"</span>).<span class="f">update</span>(<span class="s">`${receipt.ts}:${receipt.operation_id}`</span>).<span class="f">digest</span>(<span class="s">"hex"</span>).<span class="f">slice</span>(<span class="n">0</span>, <span class="n">8</span>);
+ }
++
++<span class="c">/** The cross-session deny ledger (research/001 R2): key → {times denied, last seen}.
++ *  One small file in the receipts folder that the gc prunes instead of sweeping.
++ *  Ponytail: read-modify-write races between concurrent hook processes lose an
++ *  increment; this is a bell, not enforcement, and a lost count changes a clause's
++ *  number, never a verdict. */</span>
++<span class="k">export</span> <span class="k">type</span> DenyLedger = <span class="t">Record</span>&lt;<span class="t">string</span>, { n: <span class="t">number</span>; last_seen: <span class="t">string</span> }&gt;;
++
++<span class="c">/** Cap shared by the hot-path upsert and the gc prune: a forged oversized ledger
++ *  stops being oversized at the very next denial (audit run-1: the file is
++ *  attacker-writable and read+rewritten on the deny hot path). */</span>
++<span class="k">export</span> <span class="k">const</span> LEDGER_CAP = <span class="n">500</span>;
++
++<span class="c">/** Record one denial of an exact call; returns how many denials of that key were
++ *  ALREADY there (0 = the first, so the caller knows whether to say "seen before").
++ *  Every failure mode returns 0 and moves on: signal must never break the chain,
++ *  and an unwritable or corrupt ledger must not change what the guard answers. */</span>
++<span class="k">export</span> <span class="k">function</span> <span class="f">upsertDenyLedger</span>(dir: <span class="t">string</span> | <span class="k">null</span>, key: <span class="t">string</span>): <span class="t">number</span> {
++  <span class="k">if</span> (!dir) <span class="k">return</span> <span class="n">0</span>;
++  <span class="k">try</span> {
++    <span class="k">const</span> file = <span class="f">join</span>(dir, <span class="s">"denies.json"</span>);
++    <span class="k">let</span> ledger: DenyLedger = {};
++    <span class="k">try</span> {
++      ledger = <span class="t">JSON</span>.<span class="f">parse</span>(<span class="f">readFileSync</span>(file, <span class="s">"utf8"</span>)) <span class="k">as</span> DenyLedger;
++    } <span class="k">catch</span> {
++      <span class="c">/* first entry, or a torn file — both mean no prior */</span>
++    }
++    <span class="k">const</span> prior = <span class="k">typeof</span> ledger[key]?.n === <span class="s">"number"</span> &amp;&amp; <span class="t">Number</span>.<span class="f">isFinite</span>(ledger[key]!.n) ? <span class="t">Math</span>.<span class="f">max</span>(<span class="n">0</span>, <span class="t">Math</span>.<span class="f">floor</span>(ledger[key]!.n)) : <span class="n">0</span>;
++    ledger[key] = { n: prior + <span class="n">1</span>, last_seen: <span class="k">new</span> <span class="t">Date</span>().<span class="f">toISOString</span>() };
++    <span class="f">mkdirSync</span>(dir, { recursive: <span class="k">true</span> });
++    <span class="c">// Re-emit at most the newest LEDGER_CAP well-formed entries: attacker-planted</span>
++    <span class="c">// bulk and hostile shapes never survive the round-trip on the hot path.</span>
++    <span class="k">const</span> fresh = <span class="t">Object</span>.<span class="f">entries</span>(ledger)
++      .<span class="f">filter</span>(([, entry]) =&gt; <span class="k">typeof</span> entry?.last_seen === <span class="s">"string"</span> &amp;&amp; <span class="t">Number</span>.<span class="f">isFinite</span>(entry?.n))
++      .<span class="f">sort</span>((a, b) =&gt; (a[<span class="n">1</span>].last_seen &lt; b[<span class="n">1</span>].last_seen ? <span class="n">1</span> : -<span class="n">1</span>))
++      .<span class="f">slice</span>(<span class="n">0</span>, LEDGER_CAP);
++    <span class="k">const</span> kept: DenyLedger = {};
++    <span class="k">for</span> (<span class="k">const</span> [k, entry] <span class="k">of</span> fresh) kept[k] = { n: <span class="t">Math</span>.<span class="f">max</span>(<span class="n">1</span>, <span class="t">Math</span>.<span class="f">floor</span>(entry.n)), last_seen: entry.last_seen };
++    <span class="f">writeFileSync</span>(file, <span class="t">JSON</span>.<span class="f">stringify</span>(kept));
++    <span class="k">return</span> prior;
++  } <span class="k">catch</span> {
++    <span class="k">return</span> <span class="n">0</span>;
++  }
++}
++
++<span class="c">/** The gc's ledger pass: entries nobody has seen in ttlDays fall off, and the file
++ *  is capped at the newest `cap` keys by last_seen. The ledger IS the aggregate —
++ *  the sweep must never delete it by mtime, which is why it prunes by content. */</span>
++<span class="k">export</span> <span class="k">function</span> <span class="f">pruneDenyLedger</span>(file: <span class="t">string</span>, ttlDays = <span class="n">90</span>, cap = LEDGER_CAP, now = <span class="t">Date</span>.<span class="f">now</span>()): <span class="k">void</span> {
++  <span class="k">try</span> {
++    <span class="k">const</span> ledger = <span class="t">JSON</span>.<span class="f">parse</span>(<span class="f">readFileSync</span>(file, <span class="s">"utf8"</span>)) <span class="k">as</span> DenyLedger;
++    <span class="k">const</span> cutoff = <span class="k">new</span> <span class="t">Date</span>(now - ttlDays * <span class="n">86_400_000</span>).<span class="f">toISOString</span>();
++    <span class="k">const</span> fresh = <span class="t">Object</span>.<span class="f">entries</span>(ledger)
++      .<span class="f">filter</span>(([, entry]) =&gt; <span class="k">typeof</span> entry?.last_seen === <span class="s">"string"</span> &amp;&amp; entry.last_seen &gt;= cutoff)
++      .<span class="f">sort</span>((a, b) =&gt; (a[<span class="n">1</span>].last_seen &lt; b[<span class="n">1</span>].last_seen ? <span class="n">1</span> : -<span class="n">1</span>))
++      .<span class="f">slice</span>(<span class="n">0</span>, cap);
++    <span class="k">const</span> kept: DenyLedger = {};
++    <span class="k">for</span> (<span class="k">const</span> [key, entry] <span class="k">of</span> fresh) kept[key] = entry;
++    <span class="f">writeFileSync</span>(file, <span class="t">JSON</span>.<span class="f">stringify</span>(kept));
++  } <span class="k">catch</span> {
++    <span class="c">/* a ledger that cannot be read cannot be pruned; the chain keeps writing it */</span>
++  }
++}</pre>
+    <p class="dim"><code>printable()</code> (el strip de control/format que el repo ya usaba en loop.ts) entra en el origen del agregado: ninguna fila humana puede ser falsificada desde un receipt plantado (fix F3). El cap de 500 en el propio upsert acota lo que cada deny lee y reescribe (fix F5).</p>
+
+    <h3>src/commands/doctor.ts — denySpike, línea rica y gc que no se come su memoria</h3>
+    <pre>
+ }
+ 
++<span class="c">/** The deviation rule (R1): the last 7 days of denies over 3x the preceding 7. Both
++ *  windows are 7 days, so comparing sums is comparing daily means; 3x is fixed in
++ *  code — a knob needs a band to calibrate against and there is one.
++ *  The series comes from the RAW receipts (their 30-day TTL always covers the
++ *  14-day window), never from summary.json: the aggregate is attacker-writable
++ *  inside the repo like every local file, and a forged or deleted baseline is how
++ *  run-1's audit found the WARN silenced while the line printed ok. A young repo
++ *  (no runs at all in the prior week) has no baseline and stays SILENT — that is
++ *  the honest absence of history, not a forgery.
++ *  ponytail: names the dominant guard of the whole live window, not of the spike
++ *  week per day — upgrade only if it ever misnames a real one. */</span>
++<span class="k">function</span> <span class="f">denySpike</span>(dir: <span class="t">string</span> | <span class="k">null</span>): { last7: <span class="t">number</span>; prior7: <span class="t">number</span>; guard: <span class="t">string</span> } | <span class="k">null</span> {
++  <span class="k">if</span> (!dir) <span class="k">return</span> <span class="k">null</span>;
++  <span class="k">const</span> live = <span class="f">summarizeReceipts</span>(dir);
++  <span class="k">const</span> day = (offset: <span class="t">number</span>) =&gt; <span class="k">new</span> <span class="t">Date</span>(<span class="t">Date</span>.<span class="f">now</span>() - offset * <span class="n">86_400_000</span>).<span class="f">toISOString</span>().<span class="f">slice</span>(<span class="n">0</span>, <span class="n">10</span>);
++  <span class="k">let</span> last7 = <span class="n">0</span>;
++  <span class="k">let</span> prior7 = <span class="n">0</span>;
++  <span class="k">let</span> priorRuns = <span class="n">0</span>;
++  <span class="k">for</span> (<span class="k">let</span> i = <span class="n">0</span>; i &lt; <span class="n">7</span>; i += <span class="n">1</span>) last7 += live.daily[<span class="f">day</span>(i)]?.denies ?? <span class="n">0</span>;
++  <span class="k">for</span> (<span class="k">let</span> i = <span class="n">7</span>; i &lt; <span class="n">14</span>; i += <span class="n">1</span>) {
++    prior7 += live.daily[<span class="f">day</span>(i)]?.denies ?? <span class="n">0</span>;
++    priorRuns += live.daily[<span class="f">day</span>(i)]?.runs ?? <span class="n">0</span>;
++  }
++  <span class="k">if</span> (priorRuns === <span class="n">0</span>) <span class="k">return</span> <span class="k">null</span>; <span class="c">// no baseline in the raw trail: silent, not forgeable-by-absence</span>
++  <span class="c">// A storm, not a blip: the rule needs 3+ denies over the band. Without the floor,</span>
++  <span class="c">// doctor's own chain-test deny would out-shout a quiet prior week (1 vs 0) and the</span>
++  <span class="c">// row would WARN on every repo the human touches.</span>
++  <span class="k">if</span> (last7 &lt; <span class="n">3</span> || last7 &lt;= <span class="n">3</span> * prior7) <span class="k">return</span> <span class="k">null</span>;
++  <span class="k">const</span> top = <span class="t">Object</span>.<span class="f">entries</span>(live.per_guard).<span class="f">sort</span>((a, b) =&gt; b[<span class="n">1</span>] - a[<span class="n">1</span>])[<span class="n">0</span>]?.[<span class="n">0</span>] ?? <span class="s">"chain"</span>;
++  <span class="k">return</span> { last7, prior7, guard: top };
++}
++
+ <span class="k">function</span> <span class="f">checkReceipts</span>(): CheckResult {
+-  <span class="c">// 7. receipts aggregate vs budget.</span>
+-  <span class="k">const</span> summary = <span class="f">summarizeReceipts</span>();
+-  <span class="k">return</span> { name: <span class="s">"receipts"</span>, status: summary.p95 &lt;= CEILING_MS ? <span class="s">"ok"</span> : <span class="s">"warn"</span>, detail: <span class="s">`${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`</span> };
++  <span class="c">// 7. receipts aggregate vs budget — and no longer only four numbers: the top</span>
++  <span class="c">// denier, the ledger's repeats and the 7-day deviation ride on the same line.</span>
++  <span class="k">const</span> dir = <span class="f">receiptsDir</span>();
++  <span class="k">const</span> summary = <span class="f">summarizeReceipts</span>(dir ?? <span class="k">undefined</span>);
++  <span class="k">let</span> detail = <span class="s">`${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`</span>;
++  <span class="k">if</span> (summary.denies &gt; <span class="n">0</span>) {
++    <span class="k">const</span> topOf = (m: <span class="t">Record</span>&lt;<span class="t">string</span>, <span class="t">number</span>&gt;) =&gt; <span class="t">Object</span>.<span class="f">entries</span>(m).<span class="f">sort</span>((a, b) =&gt; b[<span class="n">1</span>] - a[<span class="n">1</span>])[<span class="n">0</span>]?.[<span class="n">0</span>] ?? <span class="s">"-"</span>;
++    detail += <span class="s">` · top ${topOf(summary.per_guard)}/${topOf(summary.per_tool)}`</span>;
++  }
++  <span class="k">let</span> repeats = <span class="n">0</span>;
++  <span class="k">try</span> {
++    <span class="k">const</span> ledger = <span class="t">JSON</span>.<span class="f">parse</span>(<span class="f">readFileSync</span>(<span class="f">join</span>(dir!, <span class="s">"denies.json"</span>), <span class="s">"utf8"</span>)) <span class="k">as</span> DenyLedger;
++    <span class="c">// Forged shapes (string n, NaN, object) coerce to 0, never NaN — the repeats</span>
++    <span class="c">// count a human reads cannot be made to vanish or inflate by writing the file</span>
++    <span class="c">// (audit run-1 F2b).</span>
++    repeats = <span class="t">Object</span>.<span class="f">values</span>(ledger).<span class="f">reduce</span>((sum, e) =&gt; {
++      <span class="k">const</span> n = <span class="k">typeof</span> e?.n === <span class="s">"number"</span> &amp;&amp; <span class="t">Number</span>.<span class="f">isFinite</span>(e.n) ? <span class="t">Math</span>.<span class="f">floor</span>(e.n) : <span class="n">0</span>;
++      <span class="k">return</span> sum + <span class="t">Math</span>.<span class="f">max</span>(<span class="n">0</span>, n - <span class="n">1</span>);
++    }, <span class="n">0</span>);
++  } <span class="k">catch</span> {
++    <span class="c">/* no ledger yet */</span>
++  }
++  <span class="k">if</span> (repeats &gt; <span class="n">0</span>) detail += <span class="s">` · repeats ${repeats}`</span>;
++  <span class="k">const</span> spike = <span class="f">denySpike</span>(dir);
++  <span class="k">if</span> (spike) detail += <span class="s">` · spike ${spike.last7} vs ${spike.prior7} the week before (${spike.guard})`</span>;
++  <span class="k">return</span> { name: <span class="s">"receipts"</span>, status: summary.p95 &lt;= CEILING_MS &amp;&amp; spike === <span class="k">null</span> ? <span class="s">"ok"</span> : <span class="s">"warn"</span>, detail };
+ }
+ 
+ <span class="k">function</span> <span class="f">gcReceipts</span>(receipts: <span class="t">string</span>, ttlDays: <span class="t">number</span>): <span class="t">string</span>[] {
+   <span class="c">// Receipts: aggregate, then delete. They carry no citation to respect — their</span>
+-  <span class="c">// permanent half is the Receipt-Id trailer on the commit.</span>
++  <span class="c">// permanent half is the Receipt-Id trailer on the commit. Two files are the gc's</span>
++  <span class="c">// own memory, not its trash: summary.json (the series) and denies.json (the</span>
++  <span class="c">// ledger). The mtime sweep skips both — leaving summary.json to age out was</span>
++  <span class="c">// eating the only long-term memory on the second quiet month — and each is</span>
++  <span class="c">// pruned by its own contents instead: the series by day-age, the ledger by</span>
++  <span class="c">// last_seen and count.</span>
+   <span class="k">const</span> lines: <span class="t">string</span>[] = [];
+   <span class="k">if</span> (!<span class="f">existsSync</span>(receipts)) <span class="k">return</span> lines;
+   <span class="k">const</span> summary = <span class="f">summarizeReceipts</span>(receipts);
+   <span class="k">const</span> cut = <span class="t">Date</span>.<span class="f">now</span>() - ttlDays * <span class="n">86_400_000</span>;
++  <span class="c">// Files only: a planted DIRECTORY named like a receipt (`mkdir bomb.json`) made</span>
++  <span class="c">// unlinkSync throw EISDIR/EPERM before the summary write, bricking the gc on</span>
++  <span class="c">// every future run and freezing the spike baseline at the forged state</span>
++  <span class="c">// (audit run-1 F4). A directory in the receipts folder is not a receipt.</span>
+   <span class="k">const</span> stale = <span class="f">readdirSync</span>(receipts)
++    .<span class="f">filter</span>((name) =&gt; name !== <span class="s">"summary.json"</span> &amp;&amp; name !== <span class="s">"denies.json"</span> &amp;&amp; <span class="f">lstatSync</span>(<span class="f">join</span>(receipts, name)).<span class="f">isFile</span>())
+     .<span class="f">map</span>((name) =&gt; ({ name, ts: <span class="f">statMtime</span>(<span class="f">join</span>(receipts, name)) }))
+     .<span class="f">filter</span>((entry) =&gt; entry.ts &lt; cut);
+   <span class="k">for</span> (<span class="k">const</span> entry <span class="k">of</span> stale) <span class="f">unlinkSync</span>(<span class="f">join</span>(receipts, entry.name));
+   <span class="k">if</span> (stale.length &gt; <span class="n">0</span>) {
+-    <span class="f">writeFileSync</span>(<span class="f">join</span>(receipts, <span class="s">"summary.json"</span>), <span class="t">JSON</span>.<span class="f">stringify</span>({ ...summary, gc: <span class="k">new</span> <span class="t">Date</span>().<span class="f">toISOString</span>() }));
++    <span class="k">let</span> prior: { daily?: <span class="t">Record</span>&lt;<span class="t">string</span>, DailyPoint&gt; } | <span class="k">null</span> = <span class="k">null</span>;
++    <span class="k">try</span> {
++      prior = <span class="t">JSON</span>.<span class="f">parse</span>(<span class="f">readFileSync</span>(<span class="f">join</span>(receipts, <span class="s">"summary.json"</span>), <span class="s">"utf8"</span>)) <span class="k">as</span> { daily?: <span class="t">Record</span>&lt;<span class="t">string</span>, DailyPoint&gt; };
++    } <span class="k">catch</span> {
++      <span class="c">/* no prior summary, or a torn one: the live window starts the series */</span>
++    }
++    <span class="k">const</span> merged = { ...summary, daily: <span class="f">mergeDaily</span>(prior?.daily, summary.daily), gc: <span class="k">new</span> <span class="t">Date</span>().<span class="f">toISOString</span>() };
++    <span class="f">writeFileSync</span>(<span class="f">join</span>(receipts, <span class="s">"summary.json"</span>), <span class="t">JSON</span>.<span class="f">stringify</span>(merged));
+     lines.<span class="f">push</span>(<span class="s">`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`</span>);
+   }
++  <span class="k">const</span> ledger = <span class="f">join</span>(receipts, <span class="s">"denies.json"</span>);
++  <span class="k">if</span> (<span class="f">existsSync</span>(ledger)) <span class="f">pruneDenyLedger</span>(ledger);
+   <span class="k">return</span> lines;
+ }
+</pre>
+    <p class="dim">Tres fixes de auditoría visibles en estos hunks: F1 (la línea base del spike sale de los receipts crudos, no del summary forjable; silencio sin baseline, suelo de tormenta en 3), F2 (coacción de tipos en mergeDaily), F4 (el barrido solo toca archivos: un directorio plantado <code>bomb.json</code> brickiaba el gc antes de escribir la suma).</p>
+  </div>
+  </section>
+
+<section id="s5">
+  <div class="container">
+  <h2><span class="num">05</span>La auditoría del trigger security (run-1): 11 hallazgos, 6 de ellos propios</h2>
+  <p>El disparador <code>security</code> prendió por path (<code>src/chain/**</code>) y se descargó con
+  su artefacto completo: <code>.ai-engineering/security/run-1/</code> (findings.json validado contra el
+  schema, PASS 11; REPORT.md; FINDINGS-DETAIL.md). Cuatro hunters paralelos + verificación adversarial
+  independiente (VerifyPolicy: 4/4 reproducidos, 3 anclas de traza corregidas en el artefacto). El
+  criterio del método: solo se reporta lo explotable, ejecutado contra el código real.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>Hallazgo</th><th>Severidad</th><th>Estado en el árbol</th></tr></thead>
+    <tbody>
+      <tr><td>F1</td><td>summary.json forjado silenciaba el WARN de desviación para siempre mientras la línea imprimía ✓</td><td><span class="pill p-bad">high</span></td><td><span class="pill p-fix">fixed in-tree</span> la regla lee crudos; test de forged-summary pinneado</td></tr>
+      <tr><td>F3</td><td><code>\n</code>/ANSI en claves de receipt falsificaban filas completas (✓ fake) dentro del frame de doctor</td><td><span class="pill p-bad">high</span></td><td><span class="pill p-fix">fixed in-tree</span> <code>printable()</code> en el origen; canary test</td></tr>
+      <tr><td>F2</td><td>sumas sin coacción de tipo: <code>denies:"999999"</code> fabricaba el spike; <code>n:{}</code> borraba repeats vía NaN</td><td><span class="pill p-warn">medium</span></td><td><span class="pill p-fix">fixed in-tree</span> <code>count()</code> + reduce coaccionado</td></tr>
+      <tr><td>F4</td><td>directorio plantado <code>bomb.json</code> tiraba el gc antes de escribir el summary (brick permanente)</td><td><span class="pill p-warn">medium</span></td><td><span class="pill p-fix">fixed in-tree</span> barrido solo-archivos</td></tr>
+      <tr><td>F5</td><td>ledger forjado de 16 MB leído+reescrito en cada deny (49,7-78,5 ms medidos)</td><td><span class="pill p-warn">medium</span></td><td><span class="pill p-fix">fixed in-tree</span> cap 500 en el propio upsert</td></tr>
+      <tr><td>F6</td><td>rewrap de wrap cacheado como deny: la reentrega volteaba rewrite→deny (pre-existente en la base)</td><td><span class="pill p-warn">medium</span></td><td><span class="pill p-fix">fixed in-tree</span> un rewrite jamás entra al cache</td></tr>
+      <tr><td>P1-P4</td><td>matriz 0467: <code>rm -rf ~</code> permitido, rutas con <code>$</code> blanqueadas a WORKSPACE, <code>curl…|sh</code> sin espacio y <code>bash &lt;(curl…)</code> ejecutan código remoto, dos-pasos con symlink</td><td><span class="pill p-bad">high ×3 · medium ×1</span></td><td><span class="pill p-dim">open → dueño: policy guard (D-002, sin commitear)</span> los 12 veredictos reproducidos con runPolicy directo</td></tr>
+      <tr><td>S1</td><td>la cerca textual de self-protect evade <code>f=.ai-engineering/config.toml; &gt;&gt; $f</code> (pre-existente)</td><td><span class="pill p-warn">medium</span></td><td><span class="pill p-dim">open → dueño: guard owner</span> backstop real: config está en git, el diff es la trail</td></tr>
+    </tbody>
+  </table></div>
+  <p class="dim">Todos los confirmed llevan <code>disposition: open</code>: los fixes viven en el árbol de
+  trabajo sin commitear, y el schema pide sha de landing para marcar <code>fixed</code>. Al commitear
+  este milestone, volcar las 6 dispositions propias y revalidar. Los P1-P4/S1 no son de este contrato:
+  se reportan para su dueño, con payloads exactos.</p>
+  <div class="note ok">
+    <h4>Lo que la auditoría no pudo romper</h4>
+    <p>Ningún camino de ledger cambió un veredicto byte (corrupto, no-escribible, 16 MB): los allows no
+    leen el archivo, el cached-replay no duplica cuentas, y la cláusula solo interpola un entero. La
+    disciplina fail-closed aguantó todo lo lanzado. El patrón positivo del informe: cuando el repo ya
+    tenía el sanitizador correcto (<code>printable()</code>), el defecto era de cableado, no de diseño.</p>
+  </div>
+  </div>
+</section>
+
+<section id="s6">
+  <div class="container">
+  <h2><span class="num">06</span>Prueba y cierre</h2>
+  <div class="stats">
+    <div class="stat"><div class="v"><em>21/21</em></div><div class="l">gates ALL MET (spec run)</div></div>
+    <div class="stat"><div class="v"><em>735</em></div><div class="l">tests pass · 0 fail</div></div>
+    <div class="stat"><div class="v">0</div><div class="l">errores typecheck · lint limpio</div></div>
+    <div class="stat"><div class="v">G13 ✓</div><div class="l">loop.ts idéntico a la base</div></div>
+    <div class="stat"><div class="v">fa8ee29…</div><div class="l">sha256 del contrato aprobado</div></div>
+  </div>
+  <ul>
+    <li><strong>Gate mayor 0:</strong> el contrato aprobó con 21 gates; ninguna se reescribió tras el pin (self-protect denegó a esta sesión tocar spec.html — se probó solo, ver el deny recibido al intentar enlazar el artefacto security en el contexto).</li>
+    <li><strong>Trampas del contrato que pagaron:</strong> los <code>-t</code> de bun salen non-zero si no enganchan test (medido antes de escribir las gates); <code>denies.json</code> necesitaba las dos exclusiones explícitas o el sistema se comía su memoria; el fixture de "todo verde" de doctor ya contenía un deny real (su propio payload adversarial), lo que descubrió el suelo de tormenta que la regla necesitaba.</li>
+    <li><strong>Presupuesto del contrato:</strong> 90 días sin repeats y sin desviaciones en el repo de dogfood → la capa se retira. Escrito en D-003 junto a la enmienda del blueprint §10.</li>
+  </ul>
+  <div class="note">
+    <h4>Pendiente para el humano</h4>
+    <p>El cierre es tuyo: <code>ai-eng spec close</code> archiva spec/plan/recap y libera el slot (lo
+    corre una persona, nunca el loop). Antes de eso: los verificadores independientes de fase-6 y
+    requirement-level pueden devolver correcciones que volcar aquí y en findings.json; y recordar que
+    el árbol arrastra el trabajo sin commitear de la sesión paralela (policy guard + 25 archivos), que
+    este milestone no tocó ni toca.</p>
+  </div>
+  </div>
+</section>
+
+</main>
+<footer>
+  <span class="x">{ai}</span> Engineering · recap de la milestone · gobernada por la cadena que ella misma observó —
+  el deny que recibió esta sesión al intentar editar spec.html es la prueba
+</footer>
+</body>
+</html>

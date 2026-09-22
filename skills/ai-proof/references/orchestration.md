@@ -41,12 +41,12 @@ plan, dispatch, verify, and integrate.
    self-certified gate is taken on trust and its command never runs, which
    makes this whole step decorative. And naming the file matters: a bare
    `gate-check` globs the milestone gates file (`.ai-engineering/spec.html` in
-   ai-engineering, historically `GATES.md`) plus all of `gates/*.md`, so verifying one
-   leaf would re-run the entire tree's checks, once per leaf, for the whole
-   build. A failed `--recheck` withdraws that gate's evidence back to
-   `pending`, which makes it unmet by the format's second rule and blocks the
-   stop-hook; the box stays as the leaf set it, because a checkbox is the
-   leaf's claim and voiding the proof under it is enough. Send it back with
+   ai-engineering) plus all of `gates/*.md`, so verifying one leaf would
+   re-run the entire tree's checks, once per leaf, for the whole build. A failed
+   `--recheck` withdraws that gate's evidence back to `pending`, which makes
+   it unmet by the format's second rule and blocks the stop-hook; the box
+   stays as the leaf set it, because a checkbox is the leaf's claim and
+   voiding the proof under it is enough. Send it back with
    the specific unmet gates named.
 
    Two limits to hold in mind. `--recheck` can only re-run commands, so a

@@ -64,10 +64,7 @@ into the always-loaded one; `doctor` warns once the root passes 80 lines.
    Every command you write must exist — run it or read it, do not recall it.
 2. Decide root-only versus nested from the shape test above.
 3. Write the file (or the deltas) against the section order. One idea per line. If the
-   repository already has an AGENTS.md, edit it — never start a parallel one. Every
-   `AGENTS.md` gets its sibling `CLAUDE.md`: a relative symlink to `AGENTS.md` in the same
-   directory, the mechanism `ai-eng init` uses, or a one-line `@AGENTS.md` import where the
-   OS refuses a symlink.
+   repository already has an AGENTS.md, edit it — never start a parallel one.
 4. Verify every named command by running it. A command that fails as written is a finding
    against the file, not against the repo.
 5. Hand the prose to /ai-write when the repository has adopted the ai-engineering writing
@@ -80,9 +77,9 @@ with it, and the instruction files other tools read. Audit the set against the t
 changing any of it.
 
 1. Inventory, from the tree and never from memory: every file named `AGENTS.md` under the root,
-   and every instruction file the repo ships today (`CLAUDE.md`, a Cursor rules directory, a
-   Copilot instructions file). State the shape in one sentence: root only, or root plus N
-   nested.
+   and every instruction file the repo ships today (a `CLAUDE.md` shim, a Cursor rules
+   directory, a Copilot instructions file). State the shape in one sentence: root only, or
+   root plus N nested.
 2. Judge every line of every file by four findings, and quote the line when you report one:
    - **Deduced**: the code, a manifest or CI already states it. It goes.
    - **Duplicated**: a nested file repeats its parent, or the parent carries detail only one
@@ -97,9 +94,8 @@ changing any of it.
    These files are prose the team owns; the audit earns the edit by showing what it changes.
 5. Write the set: edit the root in place, create or trim the nested files, delta only. Never a
    parallel file under another name, and never a section that both a parent and a child carry.
-6. Mirror and align: apply the sibling rule from Steps to every file the audit writes or keeps.
-   An instruction file another tool reads that states a rule absent from the set gets the same
-   edit, or is named as a finding and left alone.
+6. Align: an instruction file another tool reads that states a rule absent from the set
+   gets the same edit, or is named as a finding and left alone.
 7. Verify the result: every command in the set runs as written, no line is carried by both a
    parent and a child, and every file follows the section order above.
 
@@ -109,8 +105,7 @@ changing any of it.
 - The file states only what the tree cannot tell the agent.
 - Root-only or root+nested is a decision the tree shape justifies, and nested files carry
   deltas only.
-- The file lives at the root (and only where needed below), named exactly `AGENTS.md`, with its
-  sibling `CLAUDE.md` resolving to it.
+- The file lives at the root (and only where needed below), named exactly `AGENTS.md`.
 - A repo that arrived with a set was audited, not overwritten: every surviving line is a
   decision the tree justifies, and nothing was written before the proposal was approved.
 
@@ -146,7 +141,7 @@ Edit it when the repo's real state made a rule stale, never to bend a rule this 
 ## Lifecycle
 
 Lane: any
-Writes: AGENTS.md, CLAUDE.md
+Writes: AGENTS.md
 Read by: the surfaces, by name convention
 Dies: when the shape of the repository changes — the tree is the source and the file follows it
 Next: none

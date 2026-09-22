@@ -101,33 +101,26 @@ export function carrierPath(placement: Carrier, relative?: string): string {
   return join(base, rel.replace(/^\.(omp|pi)\/agent\//, ""));
 }
 
-/** The bytes of one surface's carrier at one placement: the entry file and, for the
- *  in-process hosts, the chain bundle that must sit beside it. Null for a surface with
- *  no generator (§13: no adapter, no offer). */
+/** surface id → the entry template and whether the host needs the chain bundle
+ *  beside it. Copilot is the one scope-dependent row: the CLI reads the machine file
+ *  and never the repo one, and it fails CLOSED on a missing binary — so the machine
+ *  template guards the call with `command -v`. Null for a surface with no generator
+ *  (§13: no adapter, no offer). */
+const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; cli?: string }> = {
+  "claude-code": { main: "settings.claude.json.tpl", chain: false },
+  "oh-my-pi": { main: "plugin.omp.ts.tpl", chain: true },
+  opencode: { main: "plugin.opencode.ts.tpl", chain: true },
+  pi: { main: "plugin.pi.ts.tpl", chain: true },
+  codex: { main: "settings.codex.json.tpl", chain: false },
+  cursor: { main: "settings.cursor.json.tpl", chain: false },
+  copilot: { main: "settings.copilot.json.tpl", chain: false, cli: "settings.copilot.cli.json.tpl" },
+};
+
 export function carrierFiles(id: string, scope: Carrier["scope"]): { main: string; chain: string | null } | null {
-  switch (id) {
-    case "claude-code":
-      return { main: embeddedTemplate("settings.claude.json.tpl"), chain: null };
-    case "oh-my-pi":
-      return { main: embeddedTemplate("plugin.omp.ts.tpl"), chain: embeddedChainBundle() };
-    case "opencode":
-      return { main: embeddedTemplate("plugin.opencode.ts.tpl"), chain: embeddedChainBundle() };
-    case "pi":
-      return { main: embeddedTemplate("plugin.pi.ts.tpl"), chain: embeddedChainBundle() };
-    case "codex":
-      return { main: embeddedTemplate("settings.codex.json.tpl"), chain: null };
-    case "cursor":
-      return { main: embeddedTemplate("settings.cursor.json.tpl"), chain: null };
-    case "copilot":
-      // The CLI reads the machine file and never the repo one, and it fails CLOSED on
-      // a missing binary — so the machine template guards the call with `command -v`.
-      return {
-        main: embeddedTemplate(scope === "machine" ? "settings.copilot.cli.json.tpl" : "settings.copilot.json.tpl"),
-        chain: null,
-      };
-    default:
-      return null;
-  }
+  const row = CARRIER_TEMPLATES[id];
+  if (!row) return null;
+  const main = scope === "machine" && row.cli ? row.cli : row.main;
+  return { main: embeddedTemplate(main), chain: row.chain ? embeddedChainBundle() : null };
 }
 
 /** What the chain must write when this surface denies. Default: claude. */
@@ -146,13 +139,9 @@ export function surfaceCanGovern(surface: Surface): boolean {
 /** The tier headers for the grouped surface multiselect (init + config share
  *  them): the group carries the capability class, the option hint the delta. */
 /** The picker's group headers. Each one states what holds for EVERY row under it — the
- *  per-row degradation belongs to the row, from the measured fields beside it.
- *
- *  This used to read "experimental — rewrite may be partial", which was true of neither
- *  row under it (Cursor has no rewrite at all, Codex replaces the whole input) and
- *  "best-effort — cloud FS: receipts may not survive", vaguer than the measurement behind
- *  it. research/003 puts the rule: "the label is the promise; the fields are the
- *  measurement. They are allowed to disagree — but not silently". */
+ *  per-row degradation belongs to the row, from the measured fields beside it. research/003
+ *  puts the rule: "the label is the promise; the fields are the measurement. They are
+ *  allowed to disagree — but not silently". */
 export const SURFACE_TIERS: ReadonlyArray<readonly [string, string]> = [
   ["core", "core — deny + rewrite"],
   ["experimental", "experimental — deny yes; the row names what degrades"],
@@ -160,11 +149,10 @@ export const SURFACE_TIERS: ReadonlyArray<readonly [string, string]> = [
   ["skills-only", "skills only — no guards in hot-path"],
 ];
 
-export type MirrorTarget = { dir: string; label: string };
+type MirrorTarget = { dir: string; label: string };
 
 /** Re-exported for the callers that already know the surfaces layer: the definition is
  *  in env.ts, where the guards can reach it without dragging the templates in. */
-export { machineBase } from "../env.ts";
 
 /** Where each surface discovers skills (§08): one canon, three mirrors beside the
  *  canon. Without the override the base is the physical home and the paths are
@@ -206,11 +194,10 @@ export function installCanon(version: string): string[] {
   return lines;
 }
 
-/** Carriers that moved from the repo to the machine in 2.2.0, by the path they used to
- *  have. A repo governed before the move still carries them — and a hook file nobody
- *  reads is the exact bug this release exists to end, so the refresh has to take them
- *  out rather than leave them behind as ghosts with our marker in them. This is history,
- *  not a second source of truth: nothing current is computed from it. */
+/** The pre-2.2.0 repo paths of the carriers that now live on the machine, keyed to the
+ *  surface that owned them. The refresh sweeps these so an old install does not keep
+ *  ghost carriers — a hook file nobody reads is the exact bug 2.2.0 exists to end. This
+ *  map is history, not a second source of truth: nothing current is computed from it. */
 const MOVED_REPO_CARRIERS: Record<string, string> = {
   ".claude/settings.json": "claude-code",
   ".opencode/plugins/ai-eng.ts": "opencode",
@@ -523,15 +510,8 @@ function installCommands(canonDir: string): { count: number } {
  *  string, cut at a word boundary so the list stays readable. */
 function skillDescription(markdown: string): string {
   const block = /^---\n([\s\S]*?)\n---/.exec(markdown)?.[1] ?? "";
-  const first = /^description:[ \t]*(.*)$/m.exec(block);
-  const head = (first?.[1] ?? "").trim();
-  const folded = head === "" || /^[>|]-?$/.test(head);
-  // A folded value (`description: >-`) lives in the indented lines after the key, up
-  // to the next unindented line — the next frontmatter key.
-  const continuation = folded
-    ? block.slice((first?.index ?? 0) + (first?.[0].length ?? 0)).split(/\n(?=\S)/)[0]!.replace(/\n\s*/g, " ")
-    : head;
-  const text = continuation.replace(/\s+/g, " ").trim();
+  const raw = (Bun.YAML.parse(block) as { description?: unknown } | null)?.description;
+  const text = typeof raw === "string" ? raw.replace(/\s+/g, " ").trim() : "";
   return text.length <= 200 ? text : `${text.slice(0, 200).replace(/\s\S*$/, "")}…`;
 }
 

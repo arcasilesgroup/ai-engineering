@@ -15,7 +15,7 @@ review skill against them, and scores the report on the two numbers that matter:
 Both numbers, always. A skill tuned only for recall reports everything and gets ignored; a
 skill tuned only for precision reports nothing and looks clean. The pair is the signal.
 
-Python 3.8+, stdlib only. Nothing to install.
+Bun. Nothing to install beyond it.
 
 ---
 

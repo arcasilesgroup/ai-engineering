@@ -3,14 +3,14 @@
 // floor, spec.html once its sha256 is pinned in the lock (reopening an approved contract
 // costs a human), and the machine-side canon and carriers.
 //
-// Everything else under .ai-engineering/ is the session's to write, and the fence used to
-// be a directory literal — which denied the loop's own artifacts. It denied the slots
-// (brainstorm/spec/plan/recap die at `spec close` and the session is their only writer),
-// and it denied the artifacts the canon's own nodes promise: ai-research writes
-// research/NNN-{name}.html, ai-security writes security/run-N/, ai-design writes
-// design/direction.html. A guard that stops a session writing what its skill told it to
-// write protects nothing and breaks the loop it governs. What stays protected is the
-// machinery a session could use to unpin, unhook or re-date itself — not its own evidence.
+// Everything else under .ai-engineering/ is the session's to write — the fence protects
+// the machinery, not the session's own evidence. The slots (brainstorm/spec/plan/recap
+// die at `spec close` and the session is their only writer) and the artifacts the
+// canon's own nodes promise (ai-research writes research/NNN-{name}.html, ai-security
+// writes security/run-N/, ai-design writes design/direction.html) all have to pass, and
+// a guard that stops a session writing what its skill told it to write protects nothing
+// and breaks the loop it governs. What stays protected is the machinery a session could
+// use to unpin, unhook or re-date itself.
 
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
@@ -155,7 +155,7 @@ function expandTilde(path: string): string {
 
 /** The governed file or path this text offends, or null.
  *
- *  The prose contracts the user owns (AGENTS.md, CLAUDE.md, DECISIONS.md) are
+ *  The prose contracts the user owns (AGENTS.md, DECISIONS.md) are
  *  EDITABLE by the governed agent (blueprint §9.2: "AGENTS.md no es sagrado";
  *  §13.3: "tú lo editas") — they are instructions, not wiring, and are simply not
  *  in the protected literal list. What must never change from inside a session is

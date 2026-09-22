@@ -39,41 +39,24 @@ const bash = (command: string, id = "u1"): Record<string, unknown> =>
 const writeTool = (path: string, id = "u1"): Record<string, unknown> =>
   ({ tool_name: "Write", tool_input: { file_path: path, content: "x" }, tool_use_id: id, session_id: "dispatch" });
 
-describe("TABLE — the routing table is the instrumentation", () => {
-  test("every PreToolUse guard row matches the tools that run it", () => {
-    const rows = TABLE.PreToolUse!;
-    const names = rows.map((r) => r.name);
-    expect(names).toContain("self-protect");
-    expect(names).toContain("no-verify");
-    expect(names).toContain("injection");
-    expect(names).toContain("wrap");
-    expect(names).toContain("loop");
-    for (const row of rows) {
-      // Every matcher is anchored: a prefix of a tool name must not sneak through.
-      expect(row.matcher.source.startsWith("^")).toBe(true);
-      expect(row.matcher.source.endsWith("$")).toBe(true);
+describe("TABLE — the routing invariants the outcomes cannot show", () => {
+  test("every matcher is anchored: a prefix of a tool name must not sneak through", () => {
+    for (const rows of [TABLE.PreToolUse!, TABLE.PostToolUse!]) {
+      for (const row of rows) {
+        expect(row.matcher.source.startsWith("^")).toBe(true);
+        expect(row.matcher.source.endsWith("$")).toBe(true);
+      }
     }
   });
+});
 
-  test("PostToolUse routes only injection and loop, on fetch-shaped tools", () => {
-    const rows = TABLE.PostToolUse!;
-    expect(rows.map((r) => r.name).sort()).toEqual(["injection", "loop"]);
-    for (const row of rows) {
-      expect(row.matcher.test("WebFetch") || row.matcher.source === "^.*$").toBe(true);
-    }
-    // Self-protect and no-verify never run after the call: there is nothing left to protect.
-    expect(rows.some((r) => r.name === "self-protect")).toBe(false);
-    expect(rows.some((r) => r.name === "no-verify")).toBe(false);
-  });
-
+describe("runChain — routing observed through outcomes", () => {
   test("an unknown event has no rows: nothing runs", () => {
     const outcome = RUN(bash("git commit -n -m x"), "SessionStart");
     expect(outcome.action).toBe("allow");
     if (outcome.action === "allow") expect(outcome.guards).toEqual([]);
   });
-});
 
-describe("runChain — routing observed through outcomes", () => {
   test("a governed allow names every guard that ran", () => {
     const outcome = RUN(bash("git commit -m 'feat: ok'"));
     expect(outcome.action).toBe("allow");
@@ -123,6 +106,15 @@ describe("runChain — routing observed through outcomes", () => {
       expect(outcome.command).toBe("ai-eng wrap test -- bun test");
       expect(outcome.guards).toContain("wrap");
     }
+  });
+
+  test("a redelivered wrapped call rewrites again — a rewrite is never cached as a deny", () => {
+    // Pre-fix, rememberVerdict stored wrap's deny:true shape and the second delivery
+    // of the same physical call replayed it as a hard deny (audit run-1).
+    const first = RUN(bash("bun test", "u-rewrite"));
+    expect(first.action).toBe("rewrite");
+    const second = RUN(bash("bun test", "u-rewrite"));
+    expect(second.action).toBe("rewrite");
   });
 
   test("a tool no row matches runs loop only", () => {

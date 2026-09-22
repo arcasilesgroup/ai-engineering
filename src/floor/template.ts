@@ -1,8 +1,9 @@
 // The git floor's second life: `init.templateDir` makes every NEW clone of a governed
 // repo be born with the three shims. The shims stay in `.git/hooks/` — same place, same
-// marker — so the sweep, the coexistence with husky and the contract do not change; what
-// changes is that a clone no longer starts unguarded (.github/workflows/check.yml existed
-// to rebuild them after the fact, which is the symptom of a carrier in the wrong place).
+// marker — so the sweep, the coexistence with husky and the contract do not change; a
+// clone starts guarded because the floor ships via init.templateDir, and
+// .github/workflows/check.yml rebuilds the floor on a checkout that predates it
+// (.git/hooks is not versioned, so every fresh clone starts without it).
 //
 // `core.hooksPath` global stays discarded, with its measured reason: a LOCAL hooksPath
 // (husky, pre-commit) beats the global one and silently leaves the repo ungoverned.
@@ -23,7 +24,7 @@ export const SHIMS = ["pre-commit", "commit-msg", "pre-push"] as const;
 
 const MARKER = "ai-eng git floor shim";
 
-export type TemplateReport = { line: string; status: "created" | "joined" | "current" | "failed" };
+type TemplateReport = { line: string; status: "created" | "joined" | "current" | "failed" };
 
 /** Git's own home for the config this module writes.
  *

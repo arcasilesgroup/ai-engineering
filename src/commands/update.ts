@@ -68,12 +68,14 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
   return plan;
 }
 
-/** The machine half of an update: the global canon, the declared surfaces' carriers, the
- *  carriers that moved out of the repo in this release, and the git floor. None of it is
- *  a repo-side asset, so none of it shows up in the sync plan — and that is exactly why
- *  it must not sit behind the plan's early returns. `doctor` sends a machine that lost
- *  its carrier here ("→ ai-eng update"); a repo whose own assets are current is the
- *  normal shape of that machine, and returning before this made the remedy a no-op.
+/** The machine half of an update: the global canon, the declared surfaces' carriers,
+ *  the sweep of pre-2.2.0 repo carriers, and the git floor. Carriers live on the
+ *  machine — at the home path each host actually reads (the carrier table in
+ *  surfaces/adapters.ts), not in the repo checkout — so none of it is a repo-side
+ *  asset, and that is exactly why it must not sit behind the plan's early returns.
+ *  `doctor` sends a machine that lost its carrier here ("→ ai-eng update"); a repo
+ *  whose own assets are current is the normal shape of that machine, and returning
+ *  before this made the remedy a no-op.
  *
  *  Every part reports, changed or not. A half that stays silent about the canon it just
  *  verified reads as a half that never looked, and "all 7 assets current" then buries the
@@ -162,9 +164,8 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   const canon = canonDrift(home());
   const canonRepair = canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? [] : installCanon(VERSION);
   if (pending.length === 0 && plan.conflicts.length === 0) {
-    // The repo half reports what it holds, not only how many: "all 7 assets current"
-    // is exactly the phrase that hid the gap this block exists to close, and a count
-    // cannot say whether anything was verified (cli-ux-14).
+    // The repo half reports what it holds, not only how many: a bare "all 7 assets
+    // current" cannot say whether anything was verified (cli-ux-14).
     ui.section("Repo assets", [
       { mark: "muted", text: `all ${plan.current.length} assets current — nothing to sync` },
       ...(plan.current.length > 0 ? [{ mark: "sub", text: ui.pathList(plan.current) } satisfies ui.Row] : []),

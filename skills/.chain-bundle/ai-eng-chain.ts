@@ -1,8 +1,8 @@
 // @bun
 // src/chain/mod.ts
-import { readFileSync as readFileSync7, writeFileSync as writeFileSync3, mkdirSync as mkdirSync3 } from "fs";
+import { readFileSync as readFileSync8, writeFileSync as writeFileSync3, mkdirSync as mkdirSync3 } from "fs";
 import { createHash as createHash4 } from "crypto";
-import { dirname, join as join6 } from "path";
+import { dirname, join as join7 } from "path";
 
 // src/env.ts
 import { homedir } from "os";
@@ -594,8 +594,188 @@ function runSelfProtect(payload, repoRoot) {
   return;
 }
 
+// src/guards/policy.ts
+import { readFileSync as readFileSync4, realpathSync as realpathSync2 } from "fs";
+import { join as join4 } from "path";
+import { tmpdir } from "os";
+var DEFAULT_MODE = "0467";
+var SCOPE_SYSTEM = 8;
+var SCOPE_EXTERNAL = 4;
+var SCOPE_NETWORK = 2;
+var SCOPE_WORKSPACE = 1;
+var PERM_READ = 4;
+var PERM_WRITE = 2;
+var PERM_EXECUTE = 1;
+var RE_ROOT_DELETE = /(^|[\s;|&])rm\s+-[^\s]*[rf][^\s]*\s+\/(\s|$|[*])/i;
+var RE_SYSTEM_PATH = /(^|[\s"'`])(\/etc|\/usr|\/bin|\/sbin|\/var|\/library|\/system|\/dev)(\/|[\s"'`]|$)/i;
+var RE_SENSITIVE_PATH = /(^|[\s"'`])(~|\$home)\/(\.ssh|\.gnupg|\.aws|\.docker)(\/|[\s"'`]|$)|(^|[\s"'`])([^\s"'`]*\.(env|pem|key)|[^\s"'`]*(token|credential|secret)[^\s"'`]*)/i;
+var RE_EXTERNAL_PATH = /(^|[\s"'`])(~|\$home)(\/|[\s"'`]|$)|(^|[\s"'`])\/[A-Za-z0-9._-]/i;
+var RE_DEVICE_WRITE = /(^|[\s])(of=|>|1>|>>|1>>)\s*\/dev\/(sd[a-z][0-9]*|disk[0-9]+|rdisk[0-9]+|nvme[0-9]+n[0-9]+(p[0-9]+)?|vd[a-z][0-9]*|xvd[a-z][0-9]*|hd[a-z][0-9]*)([\s]|$)/i;
+var TEMP_ROOTS = [...new Set([tmpdir(), realpathSync2(tmpdir())])].map((r) => r.replace(/\/$/, "").toLowerCase());
+function isTempPath(resolved) {
+  return resolved === "/tmp" || resolved.startsWith("/tmp/") || TEMP_ROOTS.some((root) => resolved === root || resolved.startsWith(`${root}/`));
+}
+function normalizeMode(mode, fallback = DEFAULT_MODE) {
+  const value = mode !== undefined && mode.length > 0 ? mode : fallback;
+  if (value.length === 4 && [...value].every((c) => c >= "0" && c <= "7"))
+    return value;
+  return "0000";
+}
+function modeAllows(allowedMode, requiredMode) {
+  const allowed = Number.parseInt(normalizeMode(allowedMode, "0000"), 8) || 0;
+  const required = Number.parseInt(normalizeMode(requiredMode, "0000"), 8) || 0;
+  return (required & (4095 ^ allowed)) === 0;
+}
+function denialReason(requiredMode, allowedMode) {
+  return `blocked by the command-scope policy: this command needs ${requiredMode} and the mode allows ${allowedMode} ` + "(mode = system/external/network/workspace, bits = 4:read 2:write 1:execute). " + "A person widens guards.policy_mode in .ai-engineering/config.toml, in a reviewed diff.";
+}
+function policyModeFor(root) {
+  if (!root)
+    return DEFAULT_MODE;
+  try {
+    const doc = Bun.TOML.parse(readFileSync4(join4(root, ".ai-engineering", "config.toml"), "utf8"));
+    const guards = doc["guards"];
+    const mode = guards !== null && typeof guards === "object" && !Array.isArray(guards) ? guards["policy_mode"] : undefined;
+    return typeof mode === "string" ? mode : DEFAULT_MODE;
+  } catch {
+    return DEFAULT_MODE;
+  }
+}
+function addMode(mask, scopes, permissions) {
+  let bits = 0;
+  if ((scopes & SCOPE_SYSTEM) !== 0)
+    bits |= permissions << 9;
+  if ((scopes & SCOPE_EXTERNAL) !== 0)
+    bits |= permissions << 6;
+  if ((scopes & SCOPE_NETWORK) !== 0)
+    bits |= permissions << 3;
+  if ((scopes & SCOPE_WORKSPACE) !== 0)
+    bits |= permissions;
+  mask.value |= bits;
+}
+function resolvePath(rawPath, cwd) {
+  const path = rawPath.replace(/^["']+|["']+$/g, "").replace(/^of=/, "").replace(/[;,)]+$/, "");
+  if (path.length === 0)
+    return "";
+  if (path.startsWith("/") || path.startsWith("~"))
+    return path;
+  if (cwd.length === 0)
+    return path;
+  if (path.startsWith("./") || path.startsWith("../")) {
+    if (path.includes(".."))
+      return path;
+    return `${cwd}/${path.replace(/^\.+/, "")}`;
+  }
+  return `${cwd}/${path}`;
+}
+function addPath(mask, rawPath, permissions, cwd) {
+  const resolved = resolvePath(rawPath, cwd);
+  if (resolved.length === 0 || isTempPath(resolved) || resolved === "/dev/null" || resolved.startsWith("&")) {
+    return;
+  }
+  const scope = resolved.startsWith("/dev/tcp") ? SCOPE_NETWORK : resolved === "/" || resolved === "/*" || RE_SENSITIVE_PATH.test(resolved) || RE_SYSTEM_PATH.test(resolved) ? SCOPE_SYSTEM : cwd.length > 0 && (resolved === cwd || resolved.startsWith(`${cwd}/`)) ? SCOPE_WORKSPACE : RE_EXTERNAL_PATH.test(resolved) || resolved.includes("..") ? SCOPE_EXTERNAL : SCOPE_WORKSPACE;
+  addMode(mask, scope, permissions);
+}
+var NETWORK_READ = (segment) => segment.includes("curl ") || segment.includes("wget ") || segment.includes("http ") || segment.includes("https://") || segment.includes("http://") || segment.startsWith("git clone") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git ls-remote");
+var NETWORK_WRITE = (segment) => segment.startsWith("git push") || segment.includes("scp ") || segment.includes("curl -d ") || segment.includes("curl --data") || segment.includes("curl -f ") || segment.includes("curl -t ");
+var NETWORK_EXECUTE = (segment) => (segment.includes("| bash") || segment.includes("| sh") || segment.includes("eval ") || segment.includes("source <(") || segment.includes("bash -c $(") || segment.includes("sh -c $(")) && (segment.includes("curl ") || segment.includes("wget ") || segment.includes("http://") || segment.includes("https://"));
+var SYSTEM_EXECUTE = (segment) => /^(sudo|su|doas)(\s|$)/.test(segment) || /^(shutdown|reboot|halt|poweroff)/.test(segment);
+var SYSTEM_WRITE = (segment) => /^(mkfs|fdisk|diskutil)/.test(segment) || /^mount |^umount /.test(segment);
+var WORKSPACE_EXECUTE = (segment) => segment.startsWith("./") || segment.startsWith("bash ") || segment.startsWith("sh ") || segment.startsWith("zsh ") || segment.startsWith("python") || segment.startsWith("node ") || segment.startsWith("ruby ") || segment.startsWith("perl ") || segment.startsWith("npm test") || segment.startsWith("npm run") || segment.startsWith("make") || segment.startsWith("cargo test") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("git cherry-pick") || segment.includes("function ") || segment.includes("()") || segment.includes("{") || segment.includes(" if ") || segment.startsWith("if ") || segment.includes(" for ") || segment.startsWith("for ") || segment.includes(" while ") || segment.startsWith("while ") || segment.includes(" case ") || segment.startsWith("case ") || segment.includes(":(){:|:&};:");
+var WRITES = (segment) => segment.includes(">") || segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
+function scanSegment(mask, segment, cwd) {
+  if (SYSTEM_EXECUTE(segment))
+    addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
+  if (SYSTEM_WRITE(segment))
+    addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
+  if (NETWORK_READ(segment))
+    addMode(mask, SCOPE_NETWORK, PERM_READ);
+  if (NETWORK_WRITE(segment)) {
+    addMode(mask, SCOPE_NETWORK, PERM_WRITE);
+  } else if (NETWORK_EXECUTE(segment)) {
+    addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
+  }
+  if (RE_ROOT_DELETE.test(segment) || RE_DEVICE_WRITE.test(segment)) {
+    addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
+  }
+  if (WORKSPACE_EXECUTE(segment))
+    addMode(mask, SCOPE_WORKSPACE, PERM_EXECUTE);
+  let pathPermissions = PERM_READ;
+  let flags = 0;
+  let redirectPermissions = 0;
+  if (WRITES(segment)) {
+    pathPermissions = PERM_READ | PERM_WRITE;
+    flags = 1;
+  }
+  for (const token of segment.split(/\s+/)) {
+    if (redirectPermissions !== 0) {
+      addPath(mask, token, redirectPermissions, cwd);
+      flags = 3;
+      redirectPermissions = 0;
+    } else if (token === ">" || token === ">>" || token === "1>" || token === "1>>") {
+      redirectPermissions = PERM_WRITE;
+    } else if (token === "<>") {
+      redirectPermissions = PERM_READ | PERM_WRITE;
+    } else if (token.startsWith("2>")) {} else if (token.startsWith(">")) {
+      addPath(mask, token.replace(/^>+/, ""), PERM_WRITE, cwd);
+      flags = 3;
+    } else if (token.startsWith("<>")) {
+      addPath(mask, token.slice(2), PERM_READ | PERM_WRITE, cwd);
+      flags = 3;
+    } else if (token.startsWith("/") || token.startsWith("./") || token.startsWith("../") || token.startsWith("~/") || RE_SENSITIVE_PATH.test(token)) {
+      addPath(mask, token, pathPermissions, cwd);
+      flags = 3;
+    } else if (token.includes("/") && !token.startsWith("-")) {
+      const isUrl = token.startsWith("http://") || token.startsWith("https://") || token.startsWith("ftp://") || token.includes("://") || token.includes(":/");
+      const isPath = !isUrl && !token.endsWith(".exe") && !token.endsWith(".sh") && !token.includes("git") && !token.includes("npm") && !token.includes("cargo") && !token.includes("python") && !token.includes("node");
+      if (isPath) {
+        addPath(mask, token, pathPermissions, cwd);
+        flags = 3;
+      }
+    }
+  }
+  if (flags === 1 && !segment.includes("/tmp/"))
+    addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
+}
+function scanScript(script, cwd) {
+  const mask = { value: 0 };
+  const joined = script.replace(/\\\n/g, " ");
+  if (joined.includes("/dev/tcp"))
+    addMode(mask, SCOPE_NETWORK, PERM_READ | PERM_WRITE);
+  const normalized = joined.replaceAll("&&", `
+`).replaceAll("||", `
+`).replaceAll(";", `
+`);
+  for (const segment of normalized.split(`
+`).map((s) => s.trim())) {
+    if (segment.length > 0)
+      scanSegment(mask, segment, cwd);
+  }
+  return mask.value;
+}
+function maskToMode(mask) {
+  return `${mask >> 9 & 7}${mask >> 6 & 7}${mask >> 3 & 7}${mask & 7}`;
+}
+function classifyRequiredMode(command, cwd) {
+  if (command.length === 0)
+    return "0000";
+  const mask = scanScript(command.toLowerCase(), cwd.toLowerCase());
+  return maskToMode(mask === 0 ? PERM_READ : mask);
+}
+function evaluate(command, cwd, allowedMode) {
+  const required = classifyRequiredMode(command, cwd);
+  const allowed = normalizeMode(allowedMode, DEFAULT_MODE);
+  return { allowed: modeAllows(allowed, required), required, allowedMode: allowed };
+}
+function runPolicy(command, cwd, allowedMode) {
+  const decision = evaluate(command, cwd, allowedMode);
+  if (decision.allowed)
+    return;
+  return { deny: true, reason: denialReason(decision.required, decision.allowedMode) };
+}
+
 // src/guards/injection.ts
-import { readFileSync as readFileSync4 } from "fs";
+import { readFileSync as readFileSync5 } from "fs";
 import { isAbsolute as isAbsolute3, resolve as resolve4 } from "path";
 var MAX_BYTES = 400000;
 var IOC_PATTERNS = [
@@ -689,7 +869,7 @@ function scanPath(target, cwd) {
   const resolved = isAbsolute3(target) ? target : resolve4(base, target);
   let text;
   try {
-    text = readFileSync4(resolved, "utf8").slice(0, MAX_BYTES);
+    text = readFileSync5(resolved, "utf8").slice(0, MAX_BYTES);
   } catch {
     return null;
   }
@@ -737,16 +917,16 @@ function runInjection(payload) {
 }
 
 // src/guards/loop.ts
-import { readFileSync as readFileSync5, writeFileSync, mkdirSync } from "fs";
+import { readFileSync as readFileSync6, writeFileSync, mkdirSync } from "fs";
 import { createHash as createHash2 } from "crypto";
-import { join as join4 } from "path";
+import { join as join5 } from "path";
 var SIGNATURES_KEPT = 20;
 function stateFile() {
-  return join4(home(), "cache", "loop", `${createHash2("sha256").update(sessionId()).digest("hex").slice(0, 32)}.json`);
+  return join5(home(), "cache", "loop", `${createHash2("sha256").update(sessionId()).digest("hex").slice(0, 32)}.json`);
 }
 function loadState() {
   try {
-    const parsed = JSON.parse(readFileSync5(stateFile(), "utf8"));
+    const parsed = JSON.parse(readFileSync6(stateFile(), "utf8"));
     return {
       recent: Array.isArray(parsed.recent) ? parsed.recent : [],
       failures: parsed.failures ?? {},
@@ -759,7 +939,7 @@ function loadState() {
 function saveState(state) {
   try {
     const file = stateFile();
-    mkdirSync(join4(file, ".."), { recursive: true });
+    mkdirSync(join5(file, ".."), { recursive: true });
     writeFileSync(file, JSON.stringify(state));
   } catch {}
 }
@@ -836,8 +1016,8 @@ function rewrite(command) {
 }
 
 // src/receipts.ts
-import { writeFileSync as writeFileSync2, readFileSync as readFileSync6, readdirSync, mkdirSync as mkdirSync2 } from "fs";
-import { join as join5 } from "path";
+import { writeFileSync as writeFileSync2, readFileSync as readFileSync7, readdirSync, mkdirSync as mkdirSync2 } from "fs";
+import { join as join6 } from "path";
 import { createHash as createHash3, randomUUID } from "crypto";
 function writeReceipt(receipt, root) {
   const dir = receiptsDir(root);
@@ -852,10 +1032,33 @@ function writeReceipt(receipt, root) {
   try {
     mkdirSync2(dir, { recursive: true });
     const stamp = full.ts.replace(/[:.]/g, "-");
-    writeFileSync2(join5(dir, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full));
+    writeFileSync2(join6(dir, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full));
     return full;
   } catch {
     return null;
+  }
+}
+var LEDGER_CAP = 500;
+function upsertDenyLedger(dir, key) {
+  if (!dir)
+    return 0;
+  try {
+    const file = join6(dir, "denies.json");
+    let ledger = {};
+    try {
+      ledger = JSON.parse(readFileSync7(file, "utf8"));
+    } catch {}
+    const prior = typeof ledger[key]?.n === "number" && Number.isFinite(ledger[key].n) ? Math.max(0, Math.floor(ledger[key].n)) : 0;
+    ledger[key] = { n: prior + 1, last_seen: new Date().toISOString() };
+    mkdirSync2(dir, { recursive: true });
+    const fresh = Object.entries(ledger).filter(([, entry]) => typeof entry?.last_seen === "string" && Number.isFinite(entry?.n)).sort((a, b) => a[1].last_seen < b[1].last_seen ? 1 : -1).slice(0, LEDGER_CAP);
+    const kept = {};
+    for (const [k, entry] of fresh)
+      kept[k] = { n: Math.max(1, Math.floor(entry.n)), last_seen: entry.last_seen };
+    writeFileSync2(file, JSON.stringify(kept));
+    return prior;
+  } catch {
+    return 0;
   }
 }
 
@@ -864,6 +1067,7 @@ var TABLE = {
   PreToolUse: [
     { name: "self-protect", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "no-verify", matcher: /^(Bash|PowerShell|shell|command|Edit|Write|MultiEdit|NotebookEdit)$/ },
+    { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ }
@@ -879,7 +1083,7 @@ function selected(event, tool) {
 }
 function cachedVerdict(file, fp) {
   try {
-    const book = JSON.parse(readFileSync7(file, "utf8"));
+    const book = JSON.parse(readFileSync8(file, "utf8"));
     const entry = book[fp];
     if (!entry || typeof entry.deny !== "boolean")
       return null;
@@ -894,7 +1098,7 @@ function rememberVerdict(file, fp, verdict) {
   try {
     let book = {};
     try {
-      book = JSON.parse(readFileSync7(file, "utf8"));
+      book = JSON.parse(readFileSync8(file, "utf8"));
     } catch {}
     mkdirSync3(dirname(file), { recursive: true });
     book[fp] = verdict;
@@ -921,13 +1125,13 @@ function runChain(rawPayload, event, options = {}) {
   if (root === null || !isGoverned(root))
     return { action: "allow", guards: [], receiptId: null };
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root);
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
   }
   let payload;
   try {
     payload = normalise(rawPayload, options.surface);
   } catch {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root);
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
   }
   adoptSession(payload.session_id);
   payload._event = event;
@@ -936,12 +1140,12 @@ function runChain(rawPayload, event, options = {}) {
   const overrides = readOverrides(root);
   const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
   const dedup = deduplicable(payload) && event === "PreToolUse";
-  const cacheFile = join6(root, ".ai-engineering", "cache", "verdicts", `${createHash4("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
+  const cacheFile = join7(root, ".ai-engineering", "cache", "verdicts", `${createHash4("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {
       if (verdict.deny) {
-        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root);
+        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root, tool);
       }
       return { action: "allow", guards: [], receiptId: null };
     }
@@ -951,12 +1155,12 @@ function runChain(rawPayload, event, options = {}) {
     ran.push(row.name);
     const outcome = dispatchGuard(row.name, payload, ctx);
     if (outcome !== undefined && outcome.deny) {
-      if (dedup)
+      if (dedup && outcome.rewriteTo === undefined)
         rememberVerdict(cacheFile, fp, { deny: true, by: row.name, message: outcome.reason });
       if (outcome.rewriteTo) {
         return rewriteOutcome(outcome.rewriteTo, ran, event, options, started, root);
       }
-      return denyOutcome(row.name, outcome.reason, ran, event, options, started, root);
+      return denyOutcome(row.name, outcome.reason, ran, event, options, started, root, tool, loopExact(payload));
     }
   }
   if (dedup)
@@ -991,6 +1195,13 @@ function dispatchGuard(name, payload, ctx) {
           return runSelfProtect(payload, ctx.repoRoot);
         case "no-verify":
           return runNoVerify(payload, ctx.repoRoot);
+        case "policy": {
+          const command = payload.tool_input["command"];
+          if (typeof command !== "string" || command.length === 0)
+            return;
+          const cwd = typeof payload["cwd"] === "string" && payload["cwd"].length > 0 ? payload["cwd"] : process.cwd();
+          return runPolicy(command, cwd, policyModeFor(ctx.repoRoot));
+        }
         case "injection":
           return runInjection(payload);
         default:
@@ -1005,12 +1216,17 @@ function dispatchGuard(name, payload, ctx) {
     };
   }
 }
-function denyOutcome(by, reason, ran, event, options, started, root) {
+function denyOutcome(by, reason, ran, event, options, started, root, tool, loopKey) {
   const latency = Math.max(1, Date.now() - started);
+  if (loopKey !== undefined) {
+    const repeats = upsertDenyLedger(receiptsDir(root), loopKey);
+    if (repeats > 0)
+      reason += ` \xB7 this exact call has been denied ${repeats} times before`;
+  }
   const receipt = writeReceipt({
     event,
     surface: options.surface ?? "unknown",
-    tool: "unknown",
+    tool,
     guards: { ran, denied_by: by },
     latency_ms: latency,
     outcome: "deny"

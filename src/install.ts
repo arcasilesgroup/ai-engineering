@@ -29,6 +29,12 @@ export function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
+/** The same hash over a file on disk — the canon gates compare installed files
+ *  against the binary's embedded payload by digest, not by text (paths differ). */
+export function hashFile(path: string): string {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
 /** Every entry we write runs `ai-eng chain`: that is the whole marker, and the only
  *  thing that distinguishes our hooks from the user's in a file we share. It has to be
  *  the command ITSELF, not the word anywhere in a string: `my-wrapper.sh -- ai-eng
@@ -123,7 +129,7 @@ function shapeOf(text: string, parsed: unknown): Shape | null {
   return serialize(parsed, shape) === text ? shape : null;
 }
 
-export type SharedText = { text: string; changed: boolean } | { refused: "not-json" | "not-object" | "reformat" };
+type SharedText = { text: string; changed: boolean } | { refused: "not-json" | "not-object" | "reformat" };
 
 /** Merge our template into the text of a file the user owns. Refuses — and says which
  *  way — on anything it cannot merge without changing bytes it does not own: a settings

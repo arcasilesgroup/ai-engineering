@@ -1,6 +1,6 @@
 ---
 name: ai-write
-description: "Writes technical documentation for this repository: a README, a wiki page, product documentation, API docs or a technical post. Applies the framework's single writing standard (`references/documentation-writer.md`, spec 039) and verifies every document against the tree. Trigger for \"write the README\", \"update the wiki\", \"document this API\", \"write a technical post about\", \"refresh the docs\". Not for the changelog. Not for a spec or a plan — use /ai-plan. Not for a finding — use /ai-note. Not for an issue or incident report — use /ai-issue-report."
+description: "Writes technical documentation for this repository: a README, a wiki page, product documentation, API docs or a technical post. Applies the framework's single writing standard (`references/documentation-writer.md`) and verifies every document against the tree. Trigger for \"write the README\", \"update the wiki\", \"document this API\", \"write a technical post about\", \"refresh the docs\". Not for the changelog. Not for a spec or a plan — use /ai-plan. Not for a finding — use /ai-note. Not for an issue or incident report — use /ai-issue-report."
 license: Apache-2.0
 ---
 
@@ -15,7 +15,7 @@ a checkable completion criterion. A document that cannot be verified exits `not-
 
 ## Steps
 
-1. Read the writing standard (spec 039): [references/documentation-writer.md](references/documentation-writer.md)
+1. Read the writing standard: [references/documentation-writer.md](references/documentation-writer.md)
    in this skill's folder. If it is missing, stop and say `INCOMPLETE: writing standard absent`.
    Then read the reference for the artifact at hand: [references/readme-writer.md](references/readme-writer.md)
    for a README, [references/contributing-writer.md](references/contributing-writer.md) for

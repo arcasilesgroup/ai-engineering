@@ -97,8 +97,6 @@ import askills_ai_design_audit_SKILL_md from "../skills/ai-design-audit/SKILL.md
 import askills_ai_note_SKILL_md from "../skills/ai-note/SKILL.md" with { type: "file" };
 import askills_ai_read_docs_SKILL_md from "../skills/ai-read-docs/SKILL.md" with { type: "file" };
 import askills__chain_bundle_ai_eng_chain_ts from "../skills/.chain-bundle/ai-eng-chain.ts" with { type: "file" };
-import askills_ai_rtk_references_commands_md from "../skills/ai-rtk/references/commands.md" with { type: "file" };
-import askills_ai_rtk_SKILL_md from "../skills/ai-rtk/SKILL.md" with { type: "file" };
 import askills_ai_stress_test_references_tool_selection_md from "../skills/ai-stress-test/references/tool-selection.md" with { type: "file" };
 import askills_ai_stress_test_references_safety_md from "../skills/ai-stress-test/references/safety.md" with { type: "file" };
 import askills_ai_stress_test_SKILL_md from "../skills/ai-stress-test/SKILL.md" with { type: "file" };
@@ -116,6 +114,7 @@ import atemplates_git_pre_push_tpl from "../templates/git-pre-push.tpl" with { t
 import atemplates_plugin_opencode_ts_tpl from "../templates/plugin.opencode.ts.tpl" with { type: "file" };
 import atemplates_settings_copilot_cli_json_tpl from "../templates/settings.copilot.cli.json.tpl" with { type: "file" };
 import atemplates_AGENTS_md_tpl from "../templates/AGENTS.md.tpl" with { type: "file" };
+import atemplates_gitignore_tpl from "../templates/gitignore.tpl" with { type: "file" };
 import atemplates_git_commit_msg_tpl from "../templates/git-commit-msg.tpl" with { type: "file" };
 import atemplates_git_pre_commit_tpl from "../templates/git-pre-commit.tpl" with { type: "file" };
 import atemplates_spec_html_tpl from "../templates/spec.html.tpl" with { type: "file" };
@@ -224,8 +223,6 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-note/SKILL.md": askills_ai_note_SKILL_md as unknown as string,
   "../skills/ai-read-docs/SKILL.md": askills_ai_read_docs_SKILL_md as unknown as string,
   "../skills/.chain-bundle/ai-eng-chain.ts": askills__chain_bundle_ai_eng_chain_ts as unknown as string,
-  "../skills/ai-rtk/references/commands.md": askills_ai_rtk_references_commands_md as unknown as string,
-  "../skills/ai-rtk/SKILL.md": askills_ai_rtk_SKILL_md as unknown as string,
   "../skills/ai-stress-test/references/tool-selection.md": askills_ai_stress_test_references_tool_selection_md as unknown as string,
   "../skills/ai-stress-test/references/safety.md": askills_ai_stress_test_references_safety_md as unknown as string,
   "../skills/ai-stress-test/SKILL.md": askills_ai_stress_test_SKILL_md as unknown as string,
@@ -243,6 +240,7 @@ export const EMBEDDED: Record<string, string> = {
   "../templates/plugin.opencode.ts.tpl": atemplates_plugin_opencode_ts_tpl as unknown as string,
   "../templates/settings.copilot.cli.json.tpl": atemplates_settings_copilot_cli_json_tpl as unknown as string,
   "../templates/AGENTS.md.tpl": atemplates_AGENTS_md_tpl as unknown as string,
+  "../templates/gitignore.tpl": atemplates_gitignore_tpl as unknown as string,
   "../templates/git-commit-msg.tpl": atemplates_git_commit_msg_tpl as unknown as string,
   "../templates/git-pre-commit.tpl": atemplates_git_pre_commit_tpl as unknown as string,
   "../templates/spec.html.tpl": atemplates_spec_html_tpl as unknown as string,

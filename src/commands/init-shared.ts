@@ -94,10 +94,13 @@ export function surfaceOptions(): Array<{ title: string; items: Surface[] }> {
   return SURFACE_TIERS.map(([tier, title]) => ({ title, items: SURFACES.filter((s) => s.tier === tier && hasAdapter(s.id)) })).filter((group) => group.items.length > 0);
 }
 
-/** The contract files init writes ONCE (untouchable by update). */
+/** The contract files init writes ONCE (untouchable by update). The .gitignore rides
+ *  with them: a project that already owns one keeps it (`install()` reports it as
+ *  "yours, untouched"), and uninstall's project sweep never takes it back. */
 export function contractEntries(date: string): PlanEntry[] {
   return [
     { path: "AGENTS.md", ours: render(embeddedTemplate("AGENTS.md.tpl"), { version: VERSION, commands: detectCommands() }) },
     { path: "DECISIONS.md", ours: render(embeddedTemplate("DECISIONS.md.tpl"), { date, version: VERSION }) },
+    { path: ".gitignore", ours: embeddedTemplate("gitignore.tpl") },
   ];
 }

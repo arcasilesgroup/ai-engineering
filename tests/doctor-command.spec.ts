@@ -9,7 +9,7 @@
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { doctorMain } from "../src/commands/doctor.ts";
@@ -121,7 +121,7 @@ function receipt(latency: number, outcome: "allow" | "deny", event = "PreToolUse
 }
 
 /** Write the machine carrier this binary ships for claude-code, where the host reads it. */
-function shipClaudeCarrier(home: string): void {
+function shipClaudeCarrier(_home: string): void {
   const placement = machineCarrier(SURFACES.find((surface) => surface.id === "claude-code")!)!;
   const target = carrierPath(placement);
   mkdirSync(join(target, ".."), { recursive: true });
@@ -130,10 +130,9 @@ function shipClaudeCarrier(home: string): void {
 
 /** A repo where every check the caller did not deliberately break is green: the
  *  contract installed, the canon materialized, the floor wired, the carrier shipped. */
-function healthy(config = GOVERNED): { home: string; root: string } {
+function healthy(config = GOVERNED): { home: string } {
   const box = sandbox(config);
   writeFileSync(join(box.root, "AGENTS.md"), agentsMd(6, 20));
-  symlinkSync("AGENTS.md", join(box.root, "CLAUDE.md"));
   writeFloor(box.root);
   gitleaks(0);
   installCanon(VERSION);
@@ -174,14 +173,13 @@ describe("doctor · a repo where everything is green", () => {
     expect(run.out).not.toContain("FAIL — the chain is broken here");
     expect(run.out).toContain("Chain verified. Next: keep working.");
     expect(detail(run, "AGENTS.md")).toBe("6 rules · 20 lines");
-    expect(detail(run, "CLAUDE.md")).toBe("imports AGENTS.md");
     expect(detail(run, "config.toml")).toBe("governed · surfaces: claude-code");
     expect(detail(run, "mirrors")).toBe("3/3 mirrors carry linked skills");
     expect(detail(run, "canon")).toMatch(/^\d+\/\d+ files verified · 0 drift · 0 missing$/);
     expect(detail(run, "assets")).toBe(`installed by ${VERSION}`);
     expect(detail(run, "git floor")).toBe("marker hooks in .git/hooks/ · gitleaks present");
     expect(detail(run, "chain test")).toMatch(/^adversarial payload \(git commit -n\) → DENY in \d+ms$/);
-    expect(detail(run, "receipts")).toMatch(/^\d+ runs · \d+ denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)$/);
+    expect(detail(run, "receipts")).toMatch(/^\d+ runs · \d+ denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)( · top [^ ]+)?$/);
     expect(detail(run, "overrides")).toBe("none active");
     expect(detail(run, "arch")).toBe("active — src/ present");
     expect(detail(run, "spec slot")).toBe("clean slot: 0 zombie contracts");
@@ -206,7 +204,7 @@ describe("doctor · a repo where everything is green", () => {
   });
 });
 
-describe("doctor · AGENTS.md and CLAUDE.md", () => {
+describe("doctor · AGENTS.md", () => {
   test("no AGENTS.md is a FAIL, and the frame says the chain is broken", async () => {
     sandbox();
     const run = await doctor();
@@ -234,36 +232,6 @@ describe("doctor · AGENTS.md and CLAUDE.md", () => {
     run = await doctor();
     expect(row(run, "AGENTS.md")).toContain("▲");
     expect(detail(run, "AGENTS.md")).toBe("3 rules · 40 lines");
-  });
-
-  test("CLAUDE.md: a symlink or an @AGENTS.md import passes, a plain file warns, absence warns", async () => {
-    const { root } = sandbox();
-    writeFileSync(join(root, "AGENTS.md"), agentsMd(6, 20));
-    symlinkSync("AGENTS.md", join(root, "CLAUDE.md"));
-    let run = await doctor();
-    expect(detail(run, "CLAUDE.md")).toBe("imports AGENTS.md");
-
-    rmSync(join(root, "CLAUDE.md"));
-    writeFileSync(join(root, "CLAUDE.md"), "# Project\n\n@AGENTS.md\n");
-    run = await doctor();
-    expect(row(run, "CLAUDE.md")).toContain("✓");
-    expect(detail(run, "CLAUDE.md")).toBe("imports AGENTS.md");
-
-    writeFileSync(join(root, "CLAUDE.md"), "# Project\n\nno import here\n");
-    run = await doctor();
-    expect(row(run, "CLAUDE.md")).toContain("▲");
-    expect(detail(run, "CLAUDE.md")).toBe("does not reference AGENTS.md");
-
-    rmSync(join(root, "CLAUDE.md"));
-    run = await doctor();
-    expect(row(run, "CLAUDE.md")).toContain("▲");
-    expect(detail(run, "CLAUDE.md")).toBe("absent");
-
-    // A CLAUDE.md that cannot be read as text (here, a directory) is not an import.
-    mkdirSync(join(root, "CLAUDE.md"));
-    run = await doctor();
-    expect(row(run, "CLAUDE.md")).toContain("▲");
-    expect(detail(run, "CLAUDE.md")).toBe("does not reference AGENTS.md");
   });
 });
 
@@ -409,14 +377,109 @@ describe("doctor · receipts and overrides", () => {
     writeFileSync(join(receipts, "fast.json"), receipt(2, "allow"));
     let run = await doctor();
     expect(row(run, "receipts")).toContain("✓");
-    expect(detail(run, "receipts")).toMatch(/^2 runs · 1 denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)$/);
+    expect(detail(run, "receipts")).toMatch(/^2 runs · 1 denies · p50 \d+ms · p95 \d+ms \(ceiling 50\) · top no-verify\/Bash$/);
 
     writeFileSync(join(receipts, "slow.json"), receipt(400, "deny"));
     run = await doctor();
     expect(row(run, "receipts")).toContain("▲");
-    expect(detail(run, "receipts")).toMatch(/^\d+ runs · \d+ denies · p50 \d+ms · p95 400ms \(ceiling 50\)$/);
+    expect(detail(run, "receipts")).toMatch(/^\d+ runs · \d+ denies · p50 \d+ms · p95 400ms \(ceiling 50\)( · top .*)?$/);
   });
 
+  test("deviation: the receipts row WARNs with the spike named when 7-day denies pass 3x the prior week", async () => {
+    const { root } = sandbox();
+    const receipts = join(root, ".ai-engineering", "receipts");
+    mkdirSync(receipts, { recursive: true });
+    const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString();
+    // A real baseline: last week happened, with one deny in the prior 7-day window.
+    // The raw trail, not a summary file: the rule's baseline must be something the
+    // adversary cannot rewrite (audit run-1 F1).
+    writeFileSync(join(receipts, "p1.json"), denyReceipt("injection", day(9)));
+    writeFileSync(join(receipts, "p2.json"), allowReceipt(day(9)));
+    for (let i = 0; i < 4; i++) writeFileSync(join(receipts, `d${i}.json`), denyReceipt("injection"));
+    const run = await doctor();
+    expect(row(run, "receipts")).toContain("▲");
+    // last7 counts the fixture's 4 plus this doctor run's own adversarial deny.
+    expect(detail(run, "receipts")).toMatch(/spike [2-9]\d* vs 1 the week before \(injection\)/);
+  });
+
+  test("deviation: a forged summary.json can neither silence nor fake the spike the way receipts can", async () => {
+    const { root } = sandbox();
+    const receipts = join(root, ".ai-engineering", "receipts");
+    mkdirSync(receipts, { recursive: true });
+    const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString();
+    writeFileSync(join(receipts, "p1.json"), denyReceipt("injection", day(9)));
+    for (let i = 0; i < 4; i++) writeFileSync(join(receipts, `d${i}.json`), denyReceipt("injection"));
+    // The old attack: inflate the prior window in the aggregate the rule read.
+    writeFileSync(join(receipts, "summary.json"), JSON.stringify({ daily: { [day(9).slice(0, 10)]: { runs: 5, denies: 100_000_000 } } }));
+    let run = await doctor();
+    expect(detail(run, "receipts")).toContain("spike"); // summary.json is not the baseline
+    // And it cannot manufacture a spike either: empty today + giant string in summary.
+    rmSync(join(receipts, "summary.json"));
+    for (const f of ["p1.json", "d0.json", "d1.json", "d2.json", "d3.json"]) rmSync(join(receipts, f), { force: true });
+    writeFileSync(join(receipts, "summary.json"), JSON.stringify({ daily: { [day(3).slice(0, 10)]: { runs: 0, denies: "999999" } } }));
+    run = await doctor();
+    expect(detail(run, "receipts")).not.toContain("spike"); // only the chain's own receipts count
+  });
+
+  test("the receipts line strips forged control bytes from attacker-written receipt keys", async () => {
+    const { root } = sandbox();
+    const receipts = join(root, ".ai-engineering", "receipts");
+    mkdirSync(receipts, { recursive: true });
+    // An agent inside the repo may write receipts/*.json (self-protect fences the
+    // directory itself, not its session material). Its keys reach the human line.
+    writeFileSync(join(receipts, "x.json"), JSON.stringify({
+      schema: "urn:ai-eng:receipt:2", operation_id: "deadbe01", event: "PreToolUse", surface: "claude-code",
+      tool: "Write", guards: { ran: [], denied_by: "self-protect\n│  ✗ CANARY-injected-row" },
+      outcome: "deny", latency_ms: 1, ts: new Date().toISOString(),
+    }));
+    const run = await doctor();
+    const canary = run.out.split("\n").filter((l) => l.includes("CANARY-injected-row"));
+    expect(canary.length).toBe(1); // no second row was forged…
+    expect(canary[0]).toContain("receipts ·"); // …the key stayed inside the receipts line
+  });
+
+  test("repeats: the ledger count rides the line, and forged shapes coerce to zero not NaN", async () => {
+    const { root } = sandbox();
+    const receipts = join(root, ".ai-engineering", "receipts");
+    mkdirSync(receipts, { recursive: true });
+    writeFileSync(join(receipts, "denies.json"), JSON.stringify({
+      a: { n: 3, last_seen: new Date().toISOString() },
+      b: { n: "999", last_seen: new Date().toISOString() },
+      c: { n: {}, last_seen: new Date().toISOString() },
+    }));
+    const run = await doctor();
+    expect(detail(run, "receipts")).toContain("repeats 2"); // only the well-formed entry counts
+  });
+
+  test("no prior series means the deviation rule is silent: a repo that never collected still reports ok", async () => {
+    const { root } = sandbox();
+    const receipts = join(root, ".ai-engineering", "receipts");
+    mkdirSync(receipts, { recursive: true });
+    writeFileSync(join(receipts, "d0.json"), denyReceipt("injection"));
+    const run = await doctor();
+    expect(row(run, "receipts")).toContain("✓");
+    expect(detail(run, "receipts")).not.toContain("spike");
+  });
+  function denyReceipt(by: string, ts = new Date().toISOString()): string {
+    return JSON.stringify({
+      schema: "urn:ai-eng:receipt:2",
+      operation_id: "deny0001",
+      event: "PreToolUse",
+      surface: "claude-code",
+      tool: "Bash",
+      guards: { ran: [by], denied_by: by },
+      latency_ms: 2,
+      outcome: "deny",
+      ts,
+    });
+  }
+
+  function allowReceipt(ts = new Date().toISOString()): string {
+    return JSON.stringify({
+      schema: "urn:ai-eng:receipt:2", operation_id: "allow01", event: "PreToolUse", surface: "claude-code",
+      tool: "Bash", guards: { ran: [], denied_by: null }, latency_ms: 2, outcome: "allow", ts,
+    });
+  }
   test("overrides: none is ok, and active, dateless and expired entries are each named", async () => {
     const { home, root } = sandbox();
     writeFileSync(join(root, "AGENTS.md"), agentsMd(6, 20));

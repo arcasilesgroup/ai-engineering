@@ -30,7 +30,7 @@ history a finding records cannot be silently edited.
    ```yaml
    found: 2026-08-08
    commit: 4f2a91c
-   describes: ["src/ai_engineering/wiring.py", "policy/surfaces.toml"]
+   describes: ["src/chain/mod.ts", "src/surfaces/surfaces.json"]
    still_true_when: "the settings writers still merge rather than replace"
    ```
 3. Write the note in three parts and no more: what you expected, what actually happened,

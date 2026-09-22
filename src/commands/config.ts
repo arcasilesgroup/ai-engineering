@@ -86,8 +86,8 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   const input = scriptedInput();
   ui.frame(`Configuration · ai-eng ${VERSION}`);
   const root = repoRoot();
-  // The gate, not "there is a .git above us": `config --add` in a bare repo used to
-  // die on writeFileSync with a raw ENOENT instead of telling the human to run init.
+  // The gate, not "there is a .git above us": `config --add` in a bare repo would die
+  // on writeFileSync with a raw ENOENT instead of telling the human to run init.
   if (root === null || !isGoverned(root)) {
     ui.fail("you are not in a governed repo — run ai-eng init first");
     ui.end("Nothing changed.");
@@ -160,9 +160,9 @@ function removeSurfaceFiles(root: string, id: string): void {
 
 /** Rewrite the surfaces key in place, and never grow a second `[surfaces]` table.
  *
- *  Two shapes used to do exactly that, at exit 0: an `enabled` key indented under an
- *  existing table (valid TOML the old `/^enabled\s*=/m` missed) and a `[surfaces]`
- *  table that has no `enabled` key yet. Both appended a fresh header, which makes the
+ *  Two shapes would do exactly that, at exit 0: an `enabled` key indented under an
+ *  existing table (valid TOML a blind `/^enabled\s*=/m` misses) and a `[surfaces]`
+ *  table that has no `enabled` key yet. Each appends a fresh header, which makes the
  *  file unparseable — `declaration()` then reports the repository as undeclared and the
  *  command that manages governance silently turns it off. That is the one class of bug
  *  this product exists to prevent (§09.2), so the rewrite is table-aware: the key is
@@ -187,9 +187,9 @@ function withSurfacesEnabled(raw: string, list: string): string {
   return `${body}[surfaces]\nenabled = ${list}\n`;
 }
 
-/** Write the carriers a surface needs, wherever it reads them. `config --add` used to
- *  declare the surface and write nothing: config.toml claimed governance while the host
- *  had no hook at all, and the summary said the adapter was written. */
+/** Write the carriers a surface needs, wherever it reads them. A `config --add` that
+ *  only declared the surface would leave config.toml claiming governance while the host
+ *  had no hook at all — with the summary still saying the adapter was written. */
 function installSurfaceFiles(root: string, id: string): void {
   const surface = SURFACES.find((s) => s.id === id);
   if (!surface) return;

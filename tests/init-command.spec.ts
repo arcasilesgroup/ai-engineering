@@ -16,11 +16,9 @@ import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readlinkSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -216,9 +214,9 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     expect(hasAdapter("nothing-by-that-name")).toBe(false);
   });
 
-  test("contractEntries renders both contract files and leaves no placeholder behind", () => {
+  test("contractEntries renders the contract files and leaves no placeholder behind", () => {
     const entries = contractEntries("2026-01-02");
-    expect(entries.map((e) => e.path)).toEqual(["AGENTS.md", "DECISIONS.md"]);
+    expect(entries.map((e) => e.path)).toEqual(["AGENTS.md", "DECISIONS.md", ".gitignore"]);
     const agents = entries[0]?.ours ?? "";
     expect(agents).toContain(`governed by {ai} Engineering (${VERSION})`);
     expect(agents).toContain("typecheck: tsc --noEmit");
@@ -227,6 +225,14 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     expect(decisions).toContain("(2026-01-02)");
     expect(decisions).toContain(VERSION);
     expect(decisions).not.toContain("{{");
+    // The runtime state the chain creates must not dirty the user's git status (§08).
+    const gitignore = entries[2]?.ours ?? "";
+    expect(gitignore).toContain(".DS_Store");
+    expect(gitignore).toContain(".ai-engineering/receipts/");
+    expect(gitignore).toContain(".ai-engineering/cache/");
+    // Never ignore what ai-eng installs INTO the checkout.
+    expect(gitignore).not.toContain(".github/");
+    expect(gitignore).not.toContain(".cursor/");
   });
 });
 
@@ -275,9 +281,20 @@ describe("init · initMain, phase 1 and phase 2", () => {
 
   test("--yes in a bare folder creates the repo and scaffolds the whole contract", async () => {
     const { cwd, machine: home } = sandboxed();
+    // OS droppings present BEFORE init: the baseline commit must not carry them.
+    mkdirSync(join(cwd, "node_modules", "dep"), { recursive: true });
+    writeFileSync(join(cwd, ".DS_Store"), "junk");
+    writeFileSync(join(cwd, "node_modules", "dep", "index.js"), "junk");
     for (const name of GIT_IDENTITY) process.env[name] = name === "GIT_AUTHOR_EMAIL" || name === "GIT_COMMITTER_EMAIL" ? "test@example.com" : "Test";
     const { result, out } = await capture(() => initMain({ yes: true }));
     expect(result).toBe(0);
+    expect(existsSync(join(cwd, ".gitignore"))).toBe(true); // written once, like AGENTS.md
+    expect(gitIn(["ls-files"], cwd)).not.toContain(".DS_Store");
+    expect(gitIn(["ls-files"], cwd)).not.toContain("node_modules/dep/index.js");
+    // The chain's runtime state, dropped after install, stays out of git status too.
+    mkdirSync(join(cwd, ".ai-engineering", "receipts"), { recursive: true });
+    writeFileSync(join(cwd, ".ai-engineering", "receipts", "r.json"), "{}");
+    expect(gitIn(["status", "--porcelain"], cwd)).toBe("");
 
     expect(existsSync(join(cwd, ".git"))).toBe(true); // it created the repo itself (§14.1)
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true);
@@ -286,10 +303,8 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
     expect(config).toContain('enabled = ["claude-code"]');
 
-    // CLAUDE.md is a symlink where the OS allows one, an import line where it does not.
-    const claude = join(cwd, "CLAUDE.md");
-    if (lstatSync(claude).isSymbolicLink()) expect(readlinkSync(claude)).toBe("AGENTS.md");
-    else expect(readFileSync(claude, "utf8")).toBe("@AGENTS.md\n");
+    // Claude Code reads AGENTS.md natively now — no CLAUDE.md shim is written.
+    expect(existsSync(join(cwd, "CLAUDE.md"))).toBe(false);
 
     // The lock is the ownership ledger: the floor and the carriers, never the contract.
     const lock = parseLock(readFileSync(join(cwd, ".ai-engineering", "ai-eng.lock"), "utf8"));

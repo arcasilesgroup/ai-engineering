@@ -8,13 +8,6 @@
 # `ai-eng config` rewrites this list and installs/removes each surface's adapter files.
 enabled = [{{surfaces}}]
 
-[models]
-# The model pin (§9.4): one tier name per kind of work. Cheap for verifying,
-# expensive for judging — never the reverse. Values are whatever your surfaces
-# resolve natively; ai-eng never calls a model, it only injects this line.
-decide  = "claude-fable-5"   # architecture, judgment, security review — expensive is fine
-execute = "gpt-5.6-sol"      # end-to-end implementation, mechanical reviews
-verify  = "gpt-5.6-luna"     # binary PASS/FAIL checks — cheap
 
 [guards]
 # Loop guard thresholds: identical-call repetition and failure streaks (§10).
@@ -22,15 +15,17 @@ loop_window = 6    # remembered calls
 loop_repeats = 3   # same exact call → deny
 loop_failures = 5  # same signature failing → deny
 
+# Command-scope policy (ported from bash-guard): four octal digits, left to
+# right system/external/network/workspace, bits 4:read 2:write 1:execute.
+# Default 0467 — workspace everything, network read+write, external read,
+# system nothing. An invalid value fails closed as 0000.
+# policy_mode = "0467"
+
 [gc]
 # Growth caps for the NNN folders (research/, audits/, security/, reports/,
 # receipts/). WARN thresholds, not FAIL — growth is hygiene, not security (§12.1).
 max_files = 25        # per NNN folder — exceeding → WARN
 receipts_ttl = "30d"  # receipts: aggregate then delete
 
-[budget]
-# The session ceiling the agent honours at step boundaries: four hours (§5.1).
-# Nothing in the binary measures it — it is a contract the agent keeps, not a meter.
-session_minutes = 240
 
 # notices = false   # opt out of the new-version notice (or AI_ENG_NO_UPDATE_NOTICES=1)

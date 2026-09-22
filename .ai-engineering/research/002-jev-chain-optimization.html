@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research 002 — ¿Puede Jev mejorar de verdad ai-engineering? Optimización de la cadena</title>
+<style>
+  :root {
+    --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+    --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+    --accent:#00ED64; --accent-dim:#71F6BA;
+    --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+    --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+    --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+    --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+    --fs-h2:26px; --lh-h2:1.16; --ls-h2:-.018em;
+    --fs-h3:17px; --lh-h3:1.32;
+    --fs-body:15px; --lh-body:1.62;
+    --fs-small:13.5px; --lh-small:1.55;
+    --fs-mono:12.5px; --lh-mono:1.7;
+    --fs-label:10.5px;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+    --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} *{animation:none !important; transition:none !important;} }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:var(--fs-body); line-height:var(--lh-body); }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:3px; }
+
+  .hero { position:relative; overflow:hidden; text-align:center; padding:88px var(--s6) 56px; border-bottom:1px solid var(--line);
+    background-image: linear-gradient(var(--line) 1px,transparent 1px), linear-gradient(90deg,var(--line) 1px,transparent 1px),
+      radial-gradient(ellipse 80% 60% at 50% 0%, #11273366, transparent);
+    background-size:32px 32px, 32px 32px, 100% 100%; }
+  .hero .stamp { display:inline-block; font-family:var(--mono); font-size:var(--fs-label); letter-spacing:.26em; text-transform:uppercase;
+    color:var(--accent); border:1px solid var(--line-strong); border-radius:3px; padding:6px 14px; margin-bottom:var(--s5); }
+  .hero h1 { font-size:var(--fs-display); line-height:var(--lh-display); letter-spacing:var(--ls-display); font-weight:740; }
+  .hero h1 .x { color:var(--accent); }
+  .hero .sub { font-size:17px; line-height:1.6; color:var(--dim); max-width:62ch; margin:var(--s4) auto 0; }
+  .hero .sub strong { color:var(--text); font-weight:620; }
+  .hero .meta { font-family:var(--mono); font-size:11.5px; line-height:1.6; color:var(--dim); margin:var(--s5) auto 0; max-width:66ch; letter-spacing:.02em; }
+  .hero .meta b { color:var(--accent-dim); font-weight:500; }
+
+  nav { position:sticky; top:0; z-index:50; background:#001E2BEE; backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
+    font-family:var(--mono); font-size:11px; display:flex; flex-wrap:wrap; justify-content:center; gap:2px 10px; padding:10px var(--s4); }
+  nav a { color:var(--dim); letter-spacing:.03em; padding:6px 9px; border-radius:999px; text-decoration:none; }
+  nav a:hover { color:var(--accent); text-decoration:none; background:rgba(0,237,100,.06); }
+
+  .container { max-width:var(--container); margin:0 auto; padding:0 var(--s5); }
+  section { padding:64px 0 52px; border-bottom:1px solid var(--line); scroll-margin-top:88px; }
+  section:last-of-type { border-bottom:none; }
+  h2 { font-size:var(--fs-h2); line-height:var(--lh-h2); letter-spacing:var(--ls-h2); font-weight:730; margin-bottom:var(--s3); }
+  h2 .num { font-family:var(--mono); color:var(--accent); font-size:12px; font-weight:400; display:block; margin-bottom:6px; letter-spacing:.2em; }
+  h3 { font-size:var(--fs-h3); line-height:var(--lh-h3); font-weight:660; margin:36px 0 10px; }
+  p { color:var(--dim); margin-bottom:14px; max-width:var(--measure); }
+  p strong, li strong { color:var(--text); }
+  ul, ol { margin:10px 0 20px 22px; }
+  li { margin-bottom:8px; color:var(--dim); font-size:var(--fs-small); line-height:var(--lh-small); max-width:var(--measure); }
+  code { font-family:var(--mono); font-size:var(--fs-mono); background:var(--surface-2); border:1px solid var(--line); padding:1px 6px; border-radius:5px; color:var(--accent-dim); }
+  pre { background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; overflow-x:auto;
+    font-family:var(--mono); font-size:var(--fs-mono); line-height:var(--lh-mono); color:var(--dim); margin:16px 0; }
+  pre code { background:none; border:none; padding:0; color:inherit; }
+  table { width:100%; border-collapse:collapse; margin:20px 0; font-size:var(--fs-small); }
+  th { text-align:left; padding:10px 12px; border-bottom:2px solid var(--line-strong); color:var(--accent); font-family:var(--mono);
+    font-size:var(--fs-label); text-transform:uppercase; letter-spacing:.12em; font-weight:500; }
+  td { padding:10px 12px; border-bottom:1px solid var(--line); color:var(--dim); vertical-align:top; }
+  td:first-child { color:var(--text); font-weight:520; }
+  .tbl-wrap { overflow-x:auto; }
+
+  .pill { display:inline-block; font-family:var(--mono); font-size:10px; font-weight:600; padding:2px 8px; border-radius:100px; letter-spacing:.06em; white-space:nowrap; }
+  .p-ok { background:rgba(0,237,100,.14); color:var(--ok); border:1px solid rgba(0,237,100,.35); }
+  .p-bad { background:rgba(255,105,96,.13); color:var(--bad); border:1px solid rgba(255,105,96,.35); }
+  .p-warn { background:rgba(255,192,16,.13); color:var(--warn); border:1px solid rgba(255,192,16,.35); }
+  .p-dim { background:#11273366; color:var(--dim); border:1px solid var(--line); }
+
+  .stats { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin:26px 0; }
+  .stat { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 22px; min-width:140px; text-align:center; }
+  .stat .v { font-size:24px; font-weight:740; font-family:var(--mono); color:var(--text); }
+  .stat .v em { font-style:normal; color:var(--accent); }
+  .stat .l { font-size:10.5px; color:var(--dim); text-transform:uppercase; letter-spacing:.14em; margin-top:2px; font-family:var(--mono); }
+
+  .note { background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:0 10px 10px 0;
+    padding:18px 22px; margin:22px 0; }
+  .note.danger { border-left-color:var(--bad); } .note.warn { border-left-color:var(--warn); } .note.ok { border-left-color:var(--ok); }
+  .note h4 { margin-bottom:6px; } .note p { margin-bottom:0; font-size:14px; }
+
+  .cite { font-family:var(--mono); font-size:11px; color:var(--accent-dim); vertical-align:super; text-decoration:none; }
+  .src-list { font-size:var(--fs-small); color:var(--dim); }
+  .src-list li { margin-bottom:6px; }
+  footer { text-align:center; padding:56px 20px 44px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px;
+    color:var(--dim); letter-spacing:.1em; line-height:2.1; }
+  footer .x { color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <span class="stamp">Research 002 · floor local + web · 2026-09-20</span>
+  <h1><span class="x">¿Puede</span> Jev mejorar de verdad <span class="x">ai-engineering?</span></h1>
+  <p class="sub">La decisión detrás de esta investigación: <strong>abrir (o no) un milestone de integración
+  TypeSafe Jev, y añadir (o no) dependencias</strong>, después de medir la cadena real — 1.978 receipts de
+  PreToolUse, bench por guard y coste de spawn — y contrastar con benchmarks independientes, no solo con
+  el vendor.</p>
+  <p class="meta"><b>3.884</b> receipts analizados · <b>5</b> guards benchados · <b>2</b> benchmarks independientes de Jev ·
+  <b>1</b> evaluador con oráculo humano (LangChain) · veredicto: <b>sí, fuera del hot path</b></p>
+</div>
+
+<nav aria-label="Secciones">
+  <a href="#s01"><b>01</b> Herramientas</a>
+  <a href="#s02"><b>02</b> La cadena medida</a>
+  <a href="#s03"><b>03</b> Jev medido por terceros</a>
+  <a href="#s04"><b>04</b> Contexto guardrails</a>
+  <a href="#s05"><b>05</b> Veredicto</a>
+  <a href="#s06"><b>06</b> Dependencias</a>
+  <a href="#s07"><b>07</b> Direcciones</a>
+  <a href="#s08"><b>08</b> Fuentes</a>
+  <a href="#s09"><b>09</b> NotebookLM</a>
+</nav>
+
+<div class="container">
+
+<!-- ═══════ 01 HERRAMIENTAS ═══════ -->
+<section id="s01">
+  <h2><span class="num">01</span>Herramientas usadas y ausentes</h2>
+  <p>La escalera del skill, inventariada. Lo que faltó forma parte de la evidencia.</p>
+  <table>
+    <thead><tr><th>Rung</th><th>Estado</th><th>Qué dio</th></tr></thead>
+    <tbody>
+      <tr><td>Floor local</td><td><span class="pill p-ok">COMPLETO</span></td><td>3.884 receipts de este repo, bench por guard, coste de spawn del binario, outliers PostToolUse, denials por guard</td></tr>
+      <tr><td>Web search + fetch</td><td><span class="pill p-ok">COMPLETO</span></td><td>Benchmarks independientes (WotAI, Novel Cognition), docs del vendor (models.md, api.md, confidence, jaggedness), docs de hooks de Claude Code, benchmarks de Llama Guard, experimento de LangChain</td></tr>
+      <tr><td>NotebookLM deep research</td><td><span class="pill p-ok">COMPLETADO (2ª pasada)</span></td><td>En la primera pasada falló con auth caducada (registrada abajo); re-lanzada el mismo día tras <code>notebooklm login</code>: 35 fuentes importadas, cosecha en §09. El reporte integra ambas pasadas</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <h4>Lo que cambiaría según la respuesta</h4>
+    <p>Si Jev ayuda solo en teoría (vendor) y no en medición independiente → se archiva y no se abre milestone.
+    Si ayuda con matices medidos → se abre por partes (evals CI primero, shadow después) con calibración humana obligatoria.
+    Si la cadena tuviera cuellos de botella propios → la optimización sería código puro, sin Jev. <strong>La medición local dice lo tercero para la cadena y lo segundo para Jev.</strong></p>
+  </div>
+</section>
+
+<!-- ═══════ 02 LA CADENA MEDIDA ═══════ -->
+<section id="s02">
+  <h2><span class="num">02</span>La cadena, medida con sus propios receipts</h2>
+  <p>No opinion: los receipts que el propio framework lleva escribiendo desde el 15 de septiembre. Distribución de
+  latencia de <code>runChain</code> sobre <strong>1.978 llamadas reales de PreToolUse</strong> y 1.883 de PostToolUse:</p>
+
+  <div class="stats">
+    <div class="stat"><div class="v"><em>1 ms</em></div><div class="l">p50 PreToolUse</div></div>
+    <div class="stat"><div class="v"><em>5 ms</em></div><div class="l">p95 PreToolUse</div></div>
+    <div class="stat"><div class="v">142 ms</div><div class="l">máx · 0 sobre 200 ms</div></div>
+    <div class="stat"><div class="v">39–48 ms</div><div class="l">spawn real por hook</div></div>
+  </div>
+
+  <h3>2.1 · Bench por guard (500 llamadas c/u, este repo, hoy)</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Guard</th><th>Coste medido</th><th>Lectura</th></tr></thead>
+    <tbody>
+      <tr><td>no-verify</td><td>0.002 ms</td><td>Gratis. Y es el que más niega: 52 denials históricos</td></tr>
+      <tr><td>injection</td><td>0.008 ms</td><td>Gratis (regex IOC plegadas NFKD)</td></tr>
+      <tr><td>policy (ámbitos)</td><td>0.020 ms</td><td>Gratis</td></tr>
+      <tr><td>loop</td><td>0.100 ms</td><td>IO de estado (load/save JSON) domina</td></tr>
+      <tr><td>self-protect</td><td>0.278 ms</td><td>El más caro y sigue siendo ruido</td></tr>
+      <tr><td><strong>Cadena completa in-process</strong></td><td><strong>p50 1 ms · p95 5 ms</strong></td><td>Incluye escritura de receipt</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note ok">
+    <h4>Conclusión 1 — los guards no tienen nada que optimizar</h4>
+    <p>Los cinco guards suman ≈ 0,4 ms. Cualquier "optimización" de la lógica de los guards es micro-optimización
+    sin paciente. <strong>El 95% de la latencia real de un hook es el spawn del proceso</strong>: 39–48 ms medidos
+    de punta a punta (<code>echo payload | ai-eng chain PreToolUse</code>) contra ~1 ms de decisión. Ese coste es
+    del arranque de Bun/binario, no de la gobernanza. Un daemon persistente lo bajaría a &lt;1 ms — y no conviene
+    construirlo: 40 ms por llamada de herramienta es imperceptible y un daemon es un nuevo componente que falla,
+    se cuelga y hay que gobernar. YAGNI con dato.</p>
+  </div>
+
+  <h3>2.2 · El outlier que sí importa</h3>
+  <p>PostToolUse tiene 13 recibos sobre 200 ms y varios extremos de <strong>7–75 segundos</strong>
+  (noche del 15-sep, tools <code>bun</code> y <code>generic</code>). Patrón de máquinas dormidas y arranques en
+  frío, no de la cadena: la misma llamada cuesta 1 ms despierta. El presupuesto de 200 ms
+  (<code>src/chain/mod.ts:57</code>) solo advierte a stderr; doctor mide el p95 de la cadena contra 50 ms
+  (<code>src/receipts.ts:55–57</code>). Un stall ambiental de 75 s engorda el p95 del doctor aunque la cadena
+  sea inocente — candidato a excluir stalls &gt;1 s del agregado o marcarlos aparte.</p>
+
+  <h3>2.3 · El timeout de la plataforma no es el límite — el nuestro sí</h3>
+  <p>El timeout default de un hook <code>command</code> en Claude Code es <strong>600 segundos</strong>
+  <a class="cite" href="#f6">[6]</a>. La plataforma permitiría un Jev síncrono de 455 ms sin rechistar.
+  El presupuesto de 200 ms / p50 ≤ 50 ms es <strong>una decisión de producto de este framework</strong>: cada
+  llamada de herramienta paga la latencia del guard. Mantenerla es correcto — es lo que hace que gobernar no
+  se sienta — pero conviene decirlo en el blueprint con ese nombre: auto-impuesto, no de plataforma.</p>
+</section>
+
+<!-- ═══════ 03 JEV MEDIDO POR TERCEROS ═══════ -->
+<section id="s03">
+  <h2><span class="num">03</span>Jev medido por terceros, no por TypeSafe</h2>
+  <p>La sesión anterior verificó las afirmaciones del vendor <a class="cite" href="#f1">[1]</a>. Esta las contrasta con dos
+  mediciones independientes y una crítica metodológica:</p>
+
+  <h3>3.1 · WotAI — 16 modelos, 399 filas, 2.400 llamadas <a class="cite" href="#f2">[2]</a></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Dato</th><th>WotAI midió</th><th>Vendor decía</th></tr></thead>
+    <tbody>
+      <tr><td>Latencia p50</td><td><strong>455 ms</strong> (el más rápido de 16)</td><td>"70–500 ms"</td></tr>
+      <tr><td>Calibración (ECE) en banda sub-segundo</td><td><strong>0.121</strong> — la mejor de las 3 rápidas</td><td>"calibrado"</td></tr>
+      <tr><td>Admite incertidumbre (banda 0.35–0.65)</td><td><strong>34.7%</strong> vs 2.7% Haiku, 0.7% GPT-5</td><td>implícito en "confidence"</td></tr>
+      <tr><td>Accuracy</td><td>66% (gama media; Sonnet 5: 71.3% con ECE 0.062, a 1.674 ms)</td><td>no es el claim</td></tr>
+      <tr><td>Speedup real vs alternativas</td><td><strong>1.4–3.7×</strong></td><td>"20–200×" <span class="pill p-warn">no reproducido</span></td></tr>
+    </tbody>
+  </table></div>
+  <p>El hallazgo de WotAI que importa para nosotros: <strong>Jev es el único modelo sub-segundo que fiablemente dice
+  "no lo sé"</strong>. Los otros quince responden siempre con números redondos; el "confidence" que pides a un LLM
+  generativo "produce a round number that looks like one" <a class="cite" href="#f2">[2]</a>. En un patrón de routing
+  (incierto → humano), eso es toda la diferencia: Haiku pasaría de largo el 97,3% de los casos ambiguos con
+  alta confianza; Jev los marca.</p>
+
+  <h3>3.2 · Novel Cognition — qué mide realmente el benchmark del vendor <a class="cite" href="#f3">[3]</a></h3>
+  <p>Los titulares "193.6× más rápido, 444.6× más barato" vienen de evals propios que miden <strong>concordancia con
+  GPT-6 Astra y Fable 5.1</strong>, no corrección — el propio vendor lo declara ("biases answers towards OpenAI and
+  Anthropic's models") y añade que espera que esas cifras sean "the higher end of real world gains". Un vendor que
+  publica la advertencia que debilita su demo se porta mejor que la mayoría; la advertencia igual tiene que viajar
+  con el número. Hasta el 16-sep no existía benchmark independiente <a class="cite" href="#f3">[3]</a>; el de WotAI
+  (18-sep) es el primero serio <a class="cite" href="#f2">[2]</a>.</p>
+
+  <h3>3.3 · LangChain — el único con oráculo humano <a class="cite" href="#f4">[4]</a></h3>
+  <p>500 decisiones binarias contra etiquetas humanas: Jev acertó el 100%, varianza 0.0000149 (92–913× menor que
+  jueces LLM), $0.00035/llamada, ~0.44 s. Su propia advertencia: <em>"low cost can amplify mistakes — a
+  consistently wrong evaluator can produce bad feedback at scale"</em>. Es un experimento de 5 casos de un agente:
+  señal fuerte, no prueba.</p>
+
+  <div class="note warn">
+    <h4>Conflicto de fuentes, resuelto a favor de</h4>
+    <p>WotAI (18-sep) dice que el vendor no publica precio ("/pricing 404"). Los <code>docs.typesafe.ai/models.md</code>
+    que verifiqué directamente hoy (20-sep) <strong>sí</strong> listan $42/Btok = $0.042/Mtok <a class="cite" href="#f1">[1]</a>.
+    Actúo sobre models.md (fuente primaria, más reciente que la observación de WotAI) — y lo anoto porque el precio
+    móvil sin página estable es en sí un riesgo para un pin de coste.</p>
+  </div>
+</section>
+
+<!-- ═══════ 04 CONTEXTO GUARDRAILS ═══════ -->
+<section id="s04">
+  <h2><span class="num">04</span>Contexto: los guardrails semánticos ya viven fuera del hot path</h2>
+  <p>La práctica estándar de la industria con modelos guardián (Llama Guard 3: 50–200 ms en GPU para 8B,
+  20–40 ms para 1B) es la <strong>arquitectura en capas</strong>: screening ligero síncrono, clasificación pesada
+  asíncrona o por muestreo <a class="cite" href="#f5">[5]</a>. Un gate de 1,7 s "delante de tráfico 100% no es un
+  gate, es un tax" <a class="cite" href="#f2">[2]</a>. Nuestro diseño propuesto (regex/ámbitos síncronos + Jev
+  asíncrono en shadow + brazo PostToolUse tras calibrar) es exactamente ese patrón — confirmado desde fuera, no
+  inventado.</p>
+  <p>Lo que el patrón industry NO hace: dejar que el clasificador pesado produzca el allow. En todas las
+  arquitecturas citadas el piso determinista decide; el modelo semántico añade señal o escala a humano. Coincide
+  con nuestro fail-closed y con la corrección al precedente bash-guard (que sí sustituye la política local por Jev
+  en el camino feliz — nuestro diseño debe ser más estricto que el proyecto del que porteamos la clasificación).</p>
+</section>
+
+<!-- ═══════ 05 VEREDICTO ═══════ -->
+<section id="s05">
+  <h2><span class="num">05</span>Veredicto: dónde ayuda Jev de verdad y dónde no</h2>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Colocación</th><th>Veredicto</th><th>Evidencia</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Síncrono en PreToolUse (segunda opinión)</td>
+        <td><span class="pill p-bad">NO</span></td>
+        <td>p50 medido independiente 455 ms <a class="cite" href="#f2">[2]</a> contra cadena p50 1 ms y objetivo propio ≤50 ms (§2.1). Ni el mejor caso del vendor (70 ms) entra. Sin respuesta limpia al presupuesto</td>
+      </tr>
+      <tr>
+        <td>Optimizar los guards con Jev (o sin él)</td>
+        <td><span class="pill p-bad">NO HAY PACIENTE</span></td>
+        <td>Los 5 guards suman 0,4 ms medidos (§2.1). El 95% de la latencia de hook es spawn del proceso — y ni eso molesta (§2.1 nota)</td>
+      </tr>
+      <tr>
+        <td>Evals de skills en CI (Jev-as-judge)</td>
+        <td><span class="pill p-ok">SÍ — primero</span></td>
+        <td>LangChain: 500/500 vs oráculo humano, varianza 92–913× menor, $0.00035/llamada <a class="cite" href="#f4">[4]</a>. Cero presupuesto de latencia. El diferencial de Jev (decir "no lo sé") no importa aquí tanto como el precio/varianza; el muestreo humano obligatorio cubre el "juez equivocado barato"</td>
+      </tr>
+      <tr>
+        <td>Shadow mode asíncrono (sidecar detachado)</td>
+        <td><span class="pill p-ok">SÍ — segundo</span></td>
+        <td>Cadena p50 1 ms no se toca (spawn detachado, no await — <code>chainMain</code> hace <code>process.exit(0)</code>). El 34,7% de "unsure" de Jev <a class="cite" href="#f2">[2]</a> es justo lo que hace útil el dataset: marca los casos grises que Haiku/GPT pasarían de largo. $0.00002/llamada con estado pequeño</td>
+      </tr>
+      <tr>
+        <td>Brazo semántico PostToolUse (inyección)</td>
+        <td><span class="pill p-warn">SÍ — tras calibrar, con candados</span></td>
+        <td>Patrón industry de capas <a class="cite" href="#f5">[5]</a>. Pero jaggedness #6: el state no es hostil para Jev — el contenido inyectado lo mueve <a class="cite" href="#f1">[1]</a>. Nunca deny automático en solitario; solo endurece contención o escala a humano</td>
+      </tr>
+      <tr>
+        <td>Sustituir la política local (camino feliz de bash-guard)</td>
+        <td><span class="pill p-bad">NUNCA</span></td>
+        <td>Accuracy de gama media: 66% <a class="cite" href="#f2">[2]</a>. El piso determinista es el producto; el vendor evalúa contra LLMs, no contra verdad <a class="cite" href="#f3">[3]</a></td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <div class="note">
+    <h4>La respuesta directa a la pregunta</h4>
+    <p>Sí — typesafe.ai puede ayudar de verdad a ai-engineering, pero <strong>no donde la intuición lo pone</strong>.
+    No optimiza la cadena (no tiene nada que optimizar: 1 ms medido) ni cabe en el hook síncrono (455 ms medidos
+    por terceros). Ayuda en <strong>(1) los evals de skills en CI</strong> — un juez 92–913× más consistente y
+    ~140× más barato que un juez LLM, con oráculo humano periódico — y <strong>(2) como capa de observabilidad
+    semántica</strong> (shadow + PostToolUse calibrado) cuyo valor real, confirmado por el benchmark independiente,
+    es <em>marcar la incertidumbre que los otros modelos esconden</em>. En ambos casos Jev opina; el piso
+    determinista decide siempre.</p>
+  </div>
+</section>
+
+<!-- ═══════ 06 DEPENDENCIAS ═══════ -->
+<section id="s06">
+  <h2><span class="num">06</span>La pregunta de dependencias</h2>
+  <p><code>@typesafe-ai/sdk</code> 0.6.0: <strong>209 KB desempaquetados, cero dependencias transitivas</strong> (npm
+  view, hoy). Técnicamente inocua. La recomendación no cambia:</p>
+  <ul>
+    <li><strong>Binario (guards, chain, sidecar)</strong>: fetch crudo (~40 líneas). El POST es una llamada;
+      fallar = política local = gratis; no necesitamos el retry/backoff del SDK en el camino del veredicto. El
+      stack del binario sigue en 3 dependencias de runtime — es un pin de diseño, no de capacidad.</li>
+    <li><strong>Eval harness en CI</strong>: aquí sí puede entrar el SDK, como <code>devDependency</code>: el
+      <code>retry-after</code> de 429/529 importa cuando un job de CI evalúa cientos de casos, y CI no es el binario
+      single-file. Si el equipo prefiere cero deps también ahí, un fetch con backoff de 10 líneas cubre.</li>
+    <li>El riesgo real de dependencia no es el paquete: es <strong>que el proveedor mueva precio, límites o
+      latencia sin aviso</strong> (el propio docs advierte "can change without notice" <a class="cite" href="#f1">[1]</a>;
+      WotAI no encontró página de precio estable <a class="cite" href="#f2">[2]</a>). Ese riesgo se gobierna con el
+      pin de versión en config.toml y con que todo el camino Jev sea apagable con una línea.</li>
+  </ul>
+</section>
+
+<!-- ═══════ 07 DIRECCIONES ═══════ -->
+<section id="s07">
+  <h2><span class="num">07</span>Tres direcciones accionables (cada una con cita)</h2>
+  <ol>
+    <li><strong>Abrir el milestone de evals con Jev-as-judge en CI</strong> — el único encaje sin restricción de
+      latencia, con el mejor dato independiente disponible (500/500 vs oráculo humano, varianza 92–913× menor,
+      $0.00035/llamada <a class="cite" href="#f4">[4]</a>) y con muestreo humano periódico como gate: un juez
+      consistentemente equivocado escala el error barato — es la advertencia del propio experimento.
+      SDK como devDependency permitida aquí.</li>
+    <li><strong>Abrir después el milestone de shadow sidecar</strong> — spawn detachado tras el veredicto, journal
+      <code>jev-shadow.jsonl</code> unido por op_id, comando sanitizado antes de salir de la máquina (la lista de
+      marcadores de bash-guard como mínimo, <code>src/jev.rs:157–185</code> del original). El dataset sirve para
+      calibrar los casos grises que hoy acaban en loop-guard (19 denials) o en silencio; el 34,7% de "unsure" de
+      Jev <a class="cite" href="#f2">[2]</a> es el mecanismo que los señala. Pin <code>jev-1.13.0</code> en
+      config.toml, nunca el alias <a class="cite" href="#f1">[1]</a>.</li>
+    <li><strong>Optimizar lo medible que no es Jev: los outliers del p95</strong> — los stalls ambientales de
+      7–75 s en PostToolUse (§2.2) contaminan el agregado que doctor usa para decir si la cadena está sana.
+      Excluir o marcar aparte los recibos &gt;1 s en <code>summarizeReceipts</code> es un cambio de diez líneas
+      con el paciente identificado. Los guards y el spawn: no tocar (YAGNI medido, §2.1).</li>
+  </ol>
+</section>
+
+<!-- ═══════ 08 FUENTES ═══════ -->
+<section id="s08">
+  <h2><span class="num">08</span>Fuentes</h2>
+  <ol class="src-list">
+    <li id="f1"><strong>[1]</strong> TypeSafe — docs primarias, verificadas por fetch directo 2026-09-20:
+      <a href="https://docs.typesafe.ai/models.md">models.md</a> (precio $42/Btok, límites 250k tok/s · 1.200 req/min
+      "can change without notice", contexto 64k/32k, aviso de pin vs alias),
+      <a href="https://docs.typesafe.ai/api.md">api.md</a> (contrato de primitivas, 429/529),
+      <a href="https://docs.typesafe.ai/confidence.md">confidence.md</a> (confidence = concentración de distribución;
+      Noul no lleva confidence),
+      <a href="https://docs.typesafe.ai/model-jaggedness/jev-1.13.md">model-jaggedness/jev-1.13.md</a> (9 modos de fallo
+      publicados por el vendor; #6: el state no es hostil),
+      <a href="https://docs.typesafe.ai/cookbooks/parallel_questions.md">cookbooks/parallel_questions.md</a>
+      (batching 12,2× más barato, 10,0× más rápido, mismas respuestas).</li>
+    <li id="f2"><strong>[2]</strong> WotAI — benchmark independiente, 2026-09-18: 16 modelos, 399 filas, 2.400 llamadas.
+      <a href="https://wotai.co/blog/typesafe-jev-vs-claude-haiku-tested">"Jev is the only sub-second model that will
+      tell you it doesn't know"</a> — p50 455 ms, ECE 0.121, unsure 34.7%, accuracy 66%, speedup real 1.4–3.7×,
+      multiplicadores de marketing no reproducidos.</li>
+    <li id="f3"><strong>[3]</strong> Novel Cognition — análisis metodológico, 2026-09: <a href="https://jev.novcog.us.com/the-evals">
+      "The Evals: Measured Against Two Models, Not Against Truth"</a> — los evals del vendor miden concordancia con
+      GPT-6 Astra + Fable 5.1, no corrección; el vendor lo declara. Sin benchmark independiente hasta el 16-sep-2026.</li>
+    <li id="f4"><strong>[4]</strong> LangChain — <a href="https://www.langchain.com/blog/jev-agent-evals-langsmith">
+      "Can Jev Be a Better Agent Evaluator?"</a> (Daniel Shea, Seán Roche), 2026-09: 500 decisiones vs oráculo humano,
+      100% agreement, varianza 0.0000149 (92–913× menor), $0.00035/llamada, ~0.44 s. Advertencia propia: juez barato
+      y equivocado escala el error barato.</li>
+    <li id="f5"><strong>[5]</strong> Guardrails inline, latencia medida por terceros (2025–2026):
+      <a href="https://aimoderationtools.com/posts/llama-guard-benchmark-review/">Llama Guard benchmark review</a>
+      (8B: 50–200 ms GPU; 1B: 20–40 ms),
+      <a href="https://randomcommits.com/llama-guard-safety-filtering/">multi-stage safety filtering</a> y
+      <a href="https://contracollective.com/blog/local-guardrail-safety-classifier-latency-m5-max-mlx-2026">guardrail
+      local en M5 Max (58–121 ms input, 190 ms output)</a> — el patrón capa-ligera-síncrona + capa-pesada-asíncrona
+      es la práctica estándar.</li>
+    <li id="f6"><strong>[6]</strong> Claude Code — docs oficiales de hooks, verificadas 2026-09-20:
+      <a href="https://code.claude.com/docs/en/hooks.md">code.claude.com/docs/en/hooks.md</a> — timeout default de
+      hooks <code>command</code>: 600 s. El presupuesto de 200 ms de ai-engineering es auto-impuesto (producto), no de plataforma.</li>
+    <li id="f7"><strong>[7]</strong> Floor local (este repo, 2026-09-20): 3.884 receipts en
+      <code>.ai-engineering/receipts/</code> — PreToolUse n=1978 p50 1 ms p95 5 ms máx 142 ms, 0 sobre 200 ms;
+      bench por guard con Bun (500 llamadas c/u); spawn <code>ai-eng chain</code> 39–48 ms de punta a punta;
+      outliers PostToolUse 7–75 s (noche del 15-sep); denials históricos: no-verify 52, loop 19, chain 15, injection 4,
+      wrap 4, self-protect 2.</li>
+    <li id="f8"><strong>[8]</strong> bash-guard (precedente, MIT): <code>src/jev.rs</code> + <code>src/main.rs</code> de
+      github.com/lloydzhou/bash-guard, leídos en clon 2026-09-20 — timeout 4.000 ms, sanitize() de secretos antes de
+      enviar, y Jev sustituye a la política local en el camino feliz (nuestro diseño debe ser más estricto).</li>
+    <li id="f9"><strong>[9]</strong> NotebookLM deep research (re-lanzado 2026-09-20 tras auth caducada en la primera
+      pasada; 35 fuentes importadas; síntesis cosechada con <code>notebooklm ask</code>, notebook
+      <code>jev-guardrails-optimization</code>). Añade: revisión del workflow eval del vendor (711 casos, 67,8%
+      accuracy media), test de Every/Mike Taylor vía Kingy AI (777 juicios &lt;0,7 s, 6/7 defectos, $0.0025),
+      benchmark académico (256 ms mediana, $0.00008/doc en 1.018 papers), presupuestos publicados de rails
+      (input &lt;100 ms p50, tool-call &lt;100 ms), tabla fail-open/fail-closed de AxonFlow/Claude Code/Copilot/Qwen
+      hooks, y la ausencia de ECE independiente hasta WotAI. Las fuentes subyacentes viven en el notebook;
+      los números del vendor citados por terceros se marcan como tales.</li>
+  </ol>
+</section>
+
+<!-- ═══════ 09 COSECHA NOTEBOOKLM ═══════ -->
+<section id="s09">
+  <h2><span class="num">09</span>Cosecha NotebookLM (deep research, 35 fuentes) <a class="cite" href="#f9">[9]</a></h2>
+  <p>Deep research re-lanzado tras re-autenticar. Lo que añade sobre las fast rungs:</p>
+
+  <h3>9.1 · Un cuarto benchmark independiente, y confirma el techo de accuracy</h3>
+  <ul>
+    <li><strong>Workflow eval del vendor revisado por terceros (711 casos, 4 workflows)</strong>:
+      <strong>67,8% accuracy media</strong> (Security Incidents 61,7% · Observability 71,6% · Invoice 61,8% ·
+      Customer Service 76,0%) — consistente con el 66% de WotAI <a class="cite" href="#f2">[2]</a>. La lectura
+      "accuracy de gama media" ya no es un solo dato: son dos mediciones independientes en el mismo rango.</li>
+    <li><strong>Every (Mike Taylor), vía Kingy AI</strong>: 777 juicios sobre 37 documentos en &lt;0,7 s, ~25× más
+      rápido que Fable 5.1, <strong>6/7 defectos detectados</strong> (Fable: 7/7), $0.0025 total.</li>
+    <li><strong>Benchmark académico citado por la síntesis</strong>: 256 ms mediana, ~0,32 s end-to-end,
+      $0.00008/documento sobre 1.018 papers. Rango global de medidas independientes: <strong>256–455 ms</strong>
+      — ninguna por debajo de 200 ms. Refuerza el descarte síncrono (§5).</li>
+    <li><strong>Calibración</strong>: hasta WotAI no existía ECE independiente publicado; la síntesis recomienda
+      validar empíricamente en holdouts del dominio con umbrales por riesgo (&gt;0.70 lecturas, &gt;0.90 acciones
+      destructivas) — mismo shape que nuestro plan de calibración (§6 del doc hermano).</li>
+  </ul>
+
+  <h3>9.2 · Los presupuestos de latencia de la industria confirman el nuestro</h3>
+  <p>Presupuestos publicados para rails de agentes: input &lt;100 ms p50 / &lt;150 ms p99 · tool-call rail
+  &lt;100 ms p50 · retrieval &lt;80 ms · output &lt;150/250 ms. Nuestros 200 ms con p50 objetivo ≤50 ms
+  están dentro del estándar — y el patrón en capas es idéntico: pre-filtros deterministas &lt;10 ms
+  (regex, redactores PII, CBAC) delante de clasificadores ML en cascada <a class="cite" href="#f9">[9]</a>.</p>
+
+  <h3>9.3 · Fail-open vs fail-closed: lo que hacen los otros, y lo que hacemos nosotros</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Framework</th><th>Comportamiento documentado</th></tr></thead>
+    <tbody>
+      <tr><td>AxonFlow (Claude Code)</td><td>Fail-<strong>open</strong> ante caída de la API remota (ejecuta y registra audit sin verificar)</td></tr>
+      <tr><td>Claude Code hooks nativos</td><td>exit 2 = fail-closed; <strong>timeout = fail-open</strong></td></tr>
+      <tr><td>GitHub Copilot CLI hooks</td><td>exit 2 / crash = fail-closed; <strong>timeout siempre fail-open</strong></td></tr>
+      <tr><td>Qwen Code hooks</td><td>errores HTTP/conexión = fail-open</td></tr>
+      <tr><td><strong>ai-engineering (nuestro)</strong></td><td><strong>Fail-closed en crash y en decisión</strong>; el timeout es la excepción documentada (§05 del blueprint)</td></tr>
+    </tbody>
+  </table></div>
+  <p>El patrón "action impact" que la síntesis recomienda a la industria (fail-closed solo en destructivas,
+  fail-open con log en lecturas) es <strong>más débil que el nuestro</strong>: nosotros deny-crash en todo el
+  dominio gobernado. Es una decisión de producto deliberada — más fricción, cero conversión silenciosa de un
+  guard roto en un allow. Cabe relajarla por clases de riesgo algún día; sería un cambio de contrato, no un
+  detalle. Y la lección de AxonFlow es la contra-evidencia útil: es exactamente el fail-open que nuestro diseño
+  rechaza para Jev — su caída = política local, nunca allow por ausencia de opinión.</p>
+
+  <div class="note ok">
+    <h4>Lo que la cosecha cambia del veredicto</h4>
+    <p>Nada en las decisiones; refuerza las tres. El techo de accuracy de Jev está confirmado por dos
+    mediciones independientes (66% / 67,8%), el rango de latencia medido es 256–455 ms (peor que el mejor caso
+    del vendor), y el patrón en capas con piso determinista es el estándar de la industria — con nuestro
+    fail-closed siendo más estricto que la media. El plan (evals CI → shadow → PostToolUse calibrado) queda
+    como estaba, con mejor base.</p>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  research/002 · {ai} engineering · floor local + web + NotebookLM deep research (35 fuentes)<br>
+  pasada 1 de NotebookLM: auth caducada (registrada) · pasada 2: completada y cosechada en §09<br>
+  generado 2026-09-20
+</footer>
+
+</body>
+</html>

@@ -7,18 +7,19 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
-import { repoRoot, isGoverned, adoptSession } from "../env.ts";
-import { normalise, deduplicable, fingerprint } from "./payload.ts";
+import { repoRoot, isGoverned, adoptSession, receiptsDir } from "../env.ts";
+import { normalise, deduplicable, fingerprint, loopExact } from "./payload.ts";
 import type { Payload } from "./payload.ts";
 import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
+import { policyModeFor, runPolicy } from "../guards/policy.ts";
 import { runInjection } from "../guards/injection.ts";
 import { runLoopGuard } from "../guards/loop.ts";
 import { isTestCommand, rewrite } from "../guards/wrap.ts";
-import { writeReceipt } from "../receipts.ts";
+import { writeReceipt, upsertDenyLedger } from "../receipts.ts";
 
-export type GuardName = "self-protect" | "no-verify" | "injection" | "loop" | "wrap";
+export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap";
 
 type GuardRow = { name: GuardName; matcher: RegExp };
 type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | undefined;
@@ -34,6 +35,7 @@ export const TABLE: Record<string, GuardRow[]> = {
   PreToolUse: [
     { name: "self-protect", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "no-verify", matcher: /^(Bash|PowerShell|shell|command|Edit|Write|MultiEdit|NotebookEdit)$/ },
+    { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
@@ -129,7 +131,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   // asked in one place (§A). Everything below assumes a repo that asked for policy.
   if (root === null || !isGoverned(root)) return { action: "allow", guards: [], receiptId: null };
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root);
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
   }
   // The payload boundary is fail-closed like every guard: an object that throws while
   // being read (an in-process host can hand us one) must deny, never escape as an
@@ -138,7 +140,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   try {
     payload = normalise(rawPayload, options.surface);
   } catch {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root);
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
   }
   adoptSession(payload.session_id);
   payload._event = event;
@@ -160,7 +162,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {
       if (verdict.deny) {
-        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root);
+        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root, tool);
       }
       return { action: "allow", guards: [], receiptId: null };
     }
@@ -171,11 +173,15 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     ran.push(row.name);
     const outcome = dispatchGuard(row.name, payload, ctx);
     if (outcome !== undefined && outcome.deny) {
-      if (dedup) rememberVerdict(cacheFile, fp, { deny: true, by: row.name, message: outcome.reason });
+      // A rewrite must never be cached as a hard denial: the verdict-cache shape only
+      // knows deny/allow, and a replayed rewrite entry would flip the second delivery
+      // of the same physical call from rewrite to deny (audit run-1). Uncached, the
+      // redelivery simply re-runs the guards and rewrites again.
+      if (dedup && outcome.rewriteTo === undefined) rememberVerdict(cacheFile, fp, { deny: true, by: row.name, message: outcome.reason });
       if (outcome.rewriteTo) {
         return rewriteOutcome(outcome.rewriteTo, ran, event, options, started, root);
       }
-      return denyOutcome(row.name, outcome.reason, ran, event, options, started, root);
+      return denyOutcome(row.name, outcome.reason, ran, event, options, started, root, tool, loopExact(payload));
     }
   }
 
@@ -209,6 +215,12 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
           return runSelfProtect(payload, ctx.repoRoot);
         case "no-verify":
           return runNoVerify(payload, ctx.repoRoot);
+        case "policy": {
+          const command = payload.tool_input["command"];
+          if (typeof command !== "string" || command.length === 0) return undefined;
+          const cwd = typeof payload["cwd"] === "string" && payload["cwd"].length > 0 ? payload["cwd"] : process.cwd();
+          return runPolicy(command, cwd, policyModeFor(ctx.repoRoot));
+        }
         case "injection":
           return runInjection(payload);
         default:
@@ -234,12 +246,23 @@ function denyOutcome(
   options: ChainOptions,
   started: number,
   root: string,
+  tool: string,
+  loopKey?: string,
 ): ChainOutcome {
   const latency = Math.max(1, Date.now() - started);
+  // The cross-session ledger ticks once per real denial — here, never on a cached
+  // replay of the same physical call, which would count one denial twice. The upsert
+  // returns how many times this exact call was denied BEFORE this one; a repeat gets
+  // one clause on the human-facing message. It never touches the verdict, and the
+  // helper swallows every write failure for the same reason.
+  if (loopKey !== undefined) {
+    const repeats = upsertDenyLedger(receiptsDir(root), loopKey);
+    if (repeats > 0) reason += ` · this exact call has been denied ${repeats} times before`;
+  }
   const receipt = writeReceipt({
     event,
     surface: options.surface ?? "unknown",
-    tool: "unknown",
+    tool,
     guards: { ran, denied_by: by },
     latency_ms: latency,
     outcome: "deny",

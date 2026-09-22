@@ -52,9 +52,11 @@ If they say yes, run `grill-me` and carry what comes out of it into the next ste
 
 ## 3. Build the mock
 
-Run `functional-ui`. It reads the real app and the whole-app clone at
-`mocks/app.html`, then derives this feature's own mock into
-`features/<feature-name>/app.html`, covering every role the feature serves.
+If the `functional-ui` method is installed in this repo, run it. It reads the real app and
+the whole-app clone at `mocks/app.html`, then derives this feature's own mock into
+`features/<feature-name>/app.html`, covering every role the feature serves. If it is not
+installed, derive the mock yourself by the same standard: the interface is specified as
+observable state — what the user sees and can do per role — never as implementation.
 
 **The feature needs its own hash route in that mock** (`#/admin/day-view`), because
 that hash is how the spec points at the thing it owns. A screen with no stable

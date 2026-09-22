@@ -1,4 +1,4 @@
-# AGENTS.md — governed by {ai} Engineering (2.2.0)
+# AGENTS.md — governed by {ai} Engineering (`ai-eng --version`)
 
 Guidance for AI coding agents working in this repository. Human teammates should be able to follow every line too. Only rules an agent CANNOT deduce from the code live here; if a rule becomes obvious from reading the code, delete it from this file.
 
@@ -12,7 +12,7 @@ Guidance for AI coding agents working in this repository. Human teammates should
 - Explain it so someone who doesn't code can follow along.
 
 ## Build and test commands
-typecheck: tsc --noEmit · lint: oxlint · test: bun test · arch: bun test arch.spec.ts
+typecheck: bun run typecheck (oxlint --type-aware --type-check) · lint: bun run lint (oxlint) · test: bun test · arch: bun test tests/arch.spec.ts
 
 ## Workflow
 - Green gate before "done": show the output of the check that proves it.

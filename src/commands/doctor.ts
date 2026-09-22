@@ -5,12 +5,12 @@ import { canonDrift } from "../embed.ts";
 import { existsSync, readFileSync, readdirSync, lstatSync, unlinkSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces } from "../env.ts";
-import { summarizeReceipts } from "../receipts.ts";
+import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
+import { mergeDaily, pruneDenyLedger, summarizeReceipts, type DailyPoint, type DenyLedger } from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
 import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, readMachineState } from "../surfaces/adapters.ts";
 import { unmetTriggers } from "../spec/triggers.ts";
-import { VERSION } from "../version.ts";
+import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
 import { readOverrides, overrideDaysLeft } from "../chain/dialect.ts";
 import * as ui from "../ui.ts";
@@ -19,17 +19,6 @@ export type CheckResult = { readonly name: string; readonly status: "ok" | "warn
 
 const CEILING_MS = 50;
 
-/** Numeric segment compare: "2.10.0" is newer than "2.9.0", which a string compare gets
- *  wrong in exactly the release where it matters. */
-function compareVersions(a: string, b: string): number {
-  const left = a.split(".").map((part) => Number.parseInt(part, 10) || 0);
-  const right = b.split(".").map((part) => Number.parseInt(part, 10) || 0);
-  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
-    const diff = (left[i] ?? 0) - (right[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
 
 function checkAgents(root: string | null): CheckResult {
   // 1. AGENTS.md present, rule-bearing, under the context ceiling.
@@ -41,36 +30,18 @@ function checkAgents(root: string | null): CheckResult {
   return { name: "AGENTS.md", status: lines <= 80 && rules >= 6 ? "ok" : "warn", detail: `${rules} rules · ${lines} lines${lines > 80 ? " (over the context ceiling)" : ""}` };
 }
 
-function checkClaude(root: string | null): CheckResult {
-  // 2. CLAUDE.md imports AGENTS.md or is a symlink.
-  const claudePath = root ? join(root, "CLAUDE.md") : null;
-  if (!claudePath || !existsSync(claudePath)) return { name: "CLAUDE.md", status: "warn", detail: "absent" };
-  let ok = false;
-  try {
-    ok = lstatSync(claudePath).isSymbolicLink() || readFileSync(claudePath, "utf8").includes("@AGENTS.md");
-  } catch {
-    ok = false;
-  }
-  return { name: "CLAUDE.md", status: ok ? "ok" : "warn", detail: ok ? "imports AGENTS.md" : "does not reference AGENTS.md" };
-}
-
 function checkConfig(gap: string | null, surfaces: string[]): CheckResult {
   // 3. config.toml — this IS the gate. Absent, corrupt and declared are three
   //    different states, and "I could not read it" must never read as ok: the chain
   //    treats an unreadable file as an undeclared repo, so a green here would be a
   //    lie about the exact file the policy hangs on (F2).
-  let detail: string;
-  if (gap === null) {
-    detail = `governed · surfaces: ${surfaces.length > 0 ? surfaces.join(", ") : "none declared"}`;
-  } else if (gap === "no-config") {
-    detail = "absent — the gate reads this file; without it this repo is not governed";
-  } else if (gap === "corrupt-config") {
-    detail = "unparseable — the chain treats this repo as ungoverned; fix the TOML or re-run ai-eng init";
-  } else if (gap === "no-surfaces") {
-    detail = "no [surfaces] enabled list — the gate needs the declaration, not just the file";
-  } else {
-    detail = "no repository above this directory";
-  }
+  const detail = gap === null
+    ? `governed · surfaces: ${surfaces.length > 0 ? surfaces.join(", ") : "none declared"}`
+    : ({
+        "no-config": "absent — the gate reads this file; without it this repo is not governed",
+        "corrupt-config": "unparseable — the chain treats this repo as ungoverned; fix the TOML or re-run ai-eng init",
+        "no-surfaces": "no [surfaces] enabled list — the gate needs the declaration, not just the file",
+      } as Record<string, string>)[gap] ?? "no repository above this directory";
   return { name: "config.toml", status: gap === null ? "ok" : "fail", detail };
 }
 
@@ -171,11 +142,8 @@ function checkChainTest(gap: string | null): CheckResult {
   if (gap !== null) {
     status = "warn";
     detail = `not governed (${gap}) — the chain applies no policy here, so an allow is the gate working`;
-  } else if (outcome.action === "deny" && ms <= CEILING_MS) {
-    status = "ok";
-    detail = `adversarial payload (git commit -n) → DENY in ${ms}ms`;
   } else if (outcome.action === "deny") {
-    status = "warn";
+    status = ms <= CEILING_MS ? "ok" : "warn";
     detail = `adversarial payload (git commit -n) → DENY in ${ms}ms`;
   } else {
     status = "fail";
@@ -184,10 +152,65 @@ function checkChainTest(gap: string | null): CheckResult {
   return { name: "chain test", status, detail };
 }
 
+/** The deviation rule (R1): the last 7 days of denies over 3x the preceding 7. Both
+ *  windows are 7 days, so comparing sums is comparing daily means; 3x is fixed in
+ *  code — a knob needs a band to calibrate against and there is one.
+ *  The series comes from the RAW receipts (their 30-day TTL always covers the
+ *  14-day window), never from summary.json: the aggregate is attacker-writable
+ *  inside the repo like every local file, and a forged or deleted baseline is how
+ *  run-1's audit found the WARN silenced while the line printed ok. A young repo
+ *  (no runs at all in the prior week) has no baseline and stays SILENT — that is
+ *  the honest absence of history, not a forgery.
+ *  ponytail: names the dominant guard of the whole live window, not of the spike
+ *  week per day — upgrade only if it ever misnames a real one. */
+function denySpike(dir: string | null): { last7: number; prior7: number; guard: string } | null {
+  if (!dir) return null;
+  const live = summarizeReceipts(dir);
+  const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
+  let last7 = 0;
+  let prior7 = 0;
+  let priorRuns = 0;
+  for (let i = 0; i < 7; i += 1) last7 += live.daily[day(i)]?.denies ?? 0;
+  for (let i = 7; i < 14; i += 1) {
+    prior7 += live.daily[day(i)]?.denies ?? 0;
+    priorRuns += live.daily[day(i)]?.runs ?? 0;
+  }
+  if (priorRuns === 0) return null; // no baseline in the raw trail: silent, not forgeable-by-absence
+  // A storm, not a blip: the rule needs 3+ denies over the band. Without the floor,
+  // doctor's own chain-test deny would out-shout a quiet prior week (1 vs 0) and the
+  // row would WARN on every repo the human touches.
+  if (last7 < 3 || last7 <= 3 * prior7) return null;
+  const top = Object.entries(live.per_guard).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "chain";
+  return { last7, prior7, guard: top };
+}
+
 function checkReceipts(): CheckResult {
-  // 7. receipts aggregate vs budget.
-  const summary = summarizeReceipts();
-  return { name: "receipts", status: summary.p95 <= CEILING_MS ? "ok" : "warn", detail: `${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})` };
+  // 7. receipts aggregate vs budget — four numbers plus the top denier, the
+  // ledger's repeats and the 7-day deviation, all on the same line.
+  const dir = receiptsDir();
+  const summary = summarizeReceipts(dir ?? undefined);
+  let detail = `${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`;
+  if (summary.denies > 0) {
+    const topOf = (m: Record<string, number>) => Object.entries(m).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
+    detail += ` · top ${topOf(summary.per_guard)}/${topOf(summary.per_tool)}`;
+  }
+  let repeats = 0;
+  try {
+    const ledger = JSON.parse(readFileSync(join(dir!, "denies.json"), "utf8")) as DenyLedger;
+    // Forged shapes (string n, NaN, object) coerce to 0, never NaN — the repeats
+    // count a human reads cannot be made to vanish or inflate by writing the file
+    // (audit run-1 F2b).
+    repeats = Object.values(ledger).reduce((sum, e) => {
+      const n = typeof e?.n === "number" && Number.isFinite(e.n) ? Math.floor(e.n) : 0;
+      return sum + Math.max(0, n - 1);
+    }, 0);
+  } catch {
+    /* no ledger yet */
+  }
+  if (repeats > 0) detail += ` · repeats ${repeats}`;
+  const spike = denySpike(dir);
+  if (spike) detail += ` · spike ${spike.last7} vs ${spike.prior7} the week before (${spike.guard})`;
+  return { name: "receipts", status: summary.p95 <= CEILING_MS && spike === null ? "ok" : "warn", detail };
 }
 
 function checkOverrides(root: string | null): CheckResult {
@@ -216,8 +239,8 @@ function checkOverrides(root: string | null): CheckResult {
 
 function checkArch(root: string | null): CheckResult {
   // 9. arch bootstrap vs active. The rules file is what makes the check a check: a path
-  //    that is only joined is never null, so a repo with src/ and no arch.rules.json used
-  //    to report "ok · active" — the false green this project exists to refuse.
+  //    that is only joined is never null, so a repo with src/ and no arch.rules.json
+  //    would report "ok · active" — the false green this project exists to refuse.
   const archPath = root ? join(root, ".ai-engineering", "arch.rules.json") : null;
   const hasRules = archPath !== null && existsSync(archPath);
   const hasSrc = root ? existsSync(join(root, "src")) : false;
@@ -227,8 +250,9 @@ function checkArch(root: string | null): CheckResult {
 
 function checkSpecSlot(root: string | null): CheckResult {
   // 10. milestone slots: a live contract, and the artifacts a dead one leaves behind.
-  //     A milestone that never opened a contract could never be closed either, so its
-  //     brainstorm.md was immortal and doctor called the slot clean (§21.2).
+  //     A milestone that never opened a contract has no live contract to close, so its
+  //     brainstorm.md would stay immortal and doctor would call the slot clean (§21.2) —
+  //     which is why orphans are reported.
   const specPath = root ? join(root, ".ai-engineering", "spec.html") : null;
   const hasContract = specPath !== null && existsSync(specPath);
   if (hasContract) {
@@ -298,14 +322,14 @@ function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
     if (repo) {
       const present = root !== null && existsSync(join(root, repo.path));
       if (!present) {
-        if (status === "fail") status = "fail";
-        else if (surface.tier === "best-effort") status = "warn";
-        else status = "fail";
+        if (status !== "fail" && surface.tier !== "best-effort") status = "fail";
+        else if (status === "ok" && surface.tier === "best-effort") status = "warn";
       }
       parts.push(present ? `repo carrier ${repo.path} present` : `repo carrier ${repo.path} missing → ai-eng update`);
     }
     if (parts.length === 0) parts.push("no carrier: guard wiring is not implemented for this host");
-    // The row's own caveat, from one place: doctor no longer guesses it from a substring.
+    // The row's own caveat, from one place: the surface's measured `note` field,
+    // not a substring guess by the row printer.
     if (surface.note !== undefined) parts.push(surface.note);
     rows.push({ name: `surface ${id}`, status, detail: parts.join(" · ") });
   }
@@ -361,7 +385,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   const root = repoRoot(cwd);
   const gap = governanceGap(root);
   const surfaces = gap === null ? enabledSurfaces() : [];
-  const results: CheckResult[] = [checkAgents(root), checkClaude(root), checkConfig(gap, surfaces)];
+  const results: CheckResult[] = [checkAgents(root), checkConfig(gap, surfaces)];
   const mirrors = await checkMirrors(root);
   if (mirrors) results.push(mirrors);
   results.push(checkCanon());
@@ -420,19 +444,38 @@ function committedAgeDays(root: string, path: string): number | null {
 /** `doctor --gc` — execute what the audit proposes, in one commit (§21.3). */
 function gcReceipts(receipts: string, ttlDays: number): string[] {
   // Receipts: aggregate, then delete. They carry no citation to respect — their
-  // permanent half is the Receipt-Id trailer on the commit.
+  // permanent half is the Receipt-Id trailer on the commit. Two files are the gc's
+  // own memory, not its trash: summary.json (the series) and denies.json (the
+  // ledger). The mtime sweep skips both — leaving summary.json to age out was
+  // eating the only long-term memory on the second quiet month — and each is
+  // pruned by its own contents instead: the series by day-age, the ledger by
+  // last_seen and count.
   const lines: string[] = [];
   if (!existsSync(receipts)) return lines;
   const summary = summarizeReceipts(receipts);
   const cut = Date.now() - ttlDays * 86_400_000;
+  // Files only: a planted DIRECTORY named like a receipt (`mkdir bomb.json`) made
+  // unlinkSync throw EISDIR/EPERM before the summary write, bricking the gc on
+  // every future run and freezing the spike baseline at the forged state
+  // (audit run-1 F4). A directory in the receipts folder is not a receipt.
   const stale = readdirSync(receipts)
+    .filter((name) => name !== "summary.json" && name !== "denies.json" && lstatSync(join(receipts, name)).isFile())
     .map((name) => ({ name, ts: statMtime(join(receipts, name)) }))
     .filter((entry) => entry.ts < cut);
   for (const entry of stale) unlinkSync(join(receipts, entry.name));
   if (stale.length > 0) {
-    writeFileSync(join(receipts, "summary.json"), JSON.stringify({ ...summary, gc: new Date().toISOString() }));
+    let prior: { daily?: Record<string, DailyPoint> } | null = null;
+    try {
+      prior = JSON.parse(readFileSync(join(receipts, "summary.json"), "utf8")) as { daily?: Record<string, DailyPoint> };
+    } catch {
+      /* no prior summary, or a torn one: the live window starts the series */
+    }
+    const merged = { ...summary, daily: mergeDaily(prior?.daily, summary.daily), gc: new Date().toISOString() };
+    writeFileSync(join(receipts, "summary.json"), JSON.stringify(merged));
     lines.push(`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
   }
+  const ledger = join(receipts, "denies.json");
+  if (existsSync(ledger)) pruneDenyLedger(ledger);
   return lines;
 }
 
@@ -534,12 +577,7 @@ export async function doctorMain(flags: { gc?: boolean }): Promise<number> {
   ui.frame(`Health check · ${root.split("/").pop()} · ${runtime} · ai-eng ${VERSION}`);
   // One block per status — the eye scans three ideas, not twelve lines
   // (the ✓/▲/✗ families of §14.2).
-  const markOf = (status: CheckResult["status"]): "ok" | "warn" | "fail" => {
-    if (status === "ok") return "ok";
-    if (status === "warn") return "warn";
-    return "fail";
-  };
-  const toRow = (r: CheckResult): ui.Row => ({ mark: markOf(r.status), text: `${r.name} · ${r.detail}` });
+  const toRow = (r: CheckResult): ui.Row => ({ mark: r.status, text: `${r.name} · ${r.detail}` });
   const oks = results.filter((r) => r.status === "ok");
   const warns = results.filter((r) => r.status === "warn");
   const fails = results.filter((r) => r.status === "fail");

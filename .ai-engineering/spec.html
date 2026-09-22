@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spec.html — WHAT · gobernabilidad-observabilidad</title>
+<style>
+  :root { --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38; --line:rgba(61,79,88,.3); --accent:#00ED64; --accent-dim:#71F6BA; --text:#FFFFFF; --dim:#C1C7C6; --warn:#FFC010; --ok:#00ED64; --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; padding:48px 32px; }
+  h1 { font-size:28px; letter-spacing:-.5px; } h1 .x { color:var(--accent); }
+  h2 { color:var(--accent); font-family:var(--mono); font-size:13px; text-transform:uppercase; letter-spacing:.2em; margin:32px 0 12px; }
+  h2 .num { color:var(--dim); margin-right:10px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:10px 0; }
+  .meta { display:flex; gap:24px; flex-wrap:wrap; color:var(--dim); font-size:13px; margin:8px 0 0; }
+  .meta b { color:var(--text); font-weight:500; }
+  code, pre { font-family:var(--mono); font-size:12.5px; color:var(--accent-dim); }
+  pre { background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; color:var(--dim); }
+  a { color:var(--accent); }
+  .context { font-size:13.5px; color:var(--dim); line-height:1.55; }
+</style>
+</head>
+<body>
+<h1><span class="x">{ai}</span> spec · gobernabilidad-observabilidad</h1>
+<p style="color:var(--dim)">WHAT and WHY — requirements and acceptance gates. Executed by <code>ai-eng spec run</code>; its sha256 is pinned in <code>ai-eng.lock</code> at approval (STOP 1).</p>
+
+<h2><span class="num">00</span>Context chain</h2>
+<div class="card context">
+  <p>Brainstorm (read-back grilled, approach A approved): <b>.ai-engineering/brainstorm.md</b>. The research this milestone consumes, and the plan that executes it. Keep these links live — the LLM working this milestone reads all three.</p>
+  <div class="meta">
+    <span>Research: <b><a href="research/001-gobernabilidad-observabilidad.html">research/001 · governance by observability</a></b></span>
+    <span>Spec: <b>spec.html (this file)</b></span>
+    <span>Plan: <b><a href="plan.html">plan.html</a></b></span>
+  </div>
+</div>
+
+<h2><span class="num">01</span>Work points</h2>
+<p style="color:var(--dim)">Numbered sections: what must be done. Each point names the gates that prove it done.</p>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">01 · Every deny knows its tool</h3>
+  <p class="context"><code>denyOutcome</code> hardcodes <code>tool: "unknown"</code> for every deny (<code>src/chain/mod.ts:250</code>) while <code>runChain</code> holds the real one. Thread it. The unreadable-payload fail-closed keeps "unknown" as its own bucket — it genuinely has no tool. Without this, per-tool analysis of the 103 historical denies is a lie.</p>
+  <p class="context" style="margin-top:8px">Proves: G1</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">02 · The gc summary stops throwing the story away</h3>
+  <p class="context"><code>summarizeReceipts</code> grows <code>per_guard</code> (denies by <code>guards.denied_by</code>), <code>per_tool</code>, <code>per_surface</code> and a daily <code>{date: {runs, denies}}</code> series. <code>gcReceipts</code> merges the series day-key by day-key (the raw window of the current run wins) instead of overwriting <code>summary.json</code> whole, and prunes days older than 90. Both new files (<code>summary.json</code> already, <code>denies.json</code> now) stay invisible to receipt counting.</p>
+  <p class="context" style="margin-top:8px">Proves: G2, G3, G4, G5, G6, G7</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">03 · A cross-session deny ledger: one file, no verdicts</h3>
+  <p class="context">On every guard-deny (never on fail-closed payload-illegible, which has no payload to key, and never on allow), upsert <code>loopExact(payload) → {n, last_seen}</code> in <code>.ai-engineering/receipts/denies.json</code>. When the key was already there (n ≥ 1), the human-facing reason gains the exact clause <code>" · this exact call has been denied N times before"</code> (N = prior count). The verdict is otherwise unchanged; a corrupt or unwritable ledger must never change what the chain answers. The loop guard itself is not touched.</p>
+  <p class="context" style="margin-top:8px">Proves: G8, G9, G10, G11</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">04 · Doctor reads the baseline, flags the spike, and prunes</h3>
+  <p class="context">Check 7 grows the denies-per-guard/tool top and the repeat count from the ledger, and WARNs when the last 7 days of the deny series exceed 3× the daily mean of the prior 7 days, naming the guard with the most denies in the window. No prior series (first gc run) means the rule cannot fire — silence, not a false alarm. The 3× is fixed in code; no config knob. The p50/p95/ceiling semantics stay (the format pins in <code>tests/doctor-command.spec.ts</code> move with the line, they do not vanish). The same gc pass prunes the ledger: entries with <code>last_seen</code> older than 90 days and everything past the newest 500 go; the sweep never touches either special file's mtime deletion path.</p>
+  <p class="context" style="margin-top:8px">Proves: G12, G13, G14, G15, G16</p>
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px;color:var(--accent);font-family:var(--mono)">05 · The contract paperwork the decisions demand</h3>
+  <p class="context">Blueprint §10 is amended to say "no observability <em>system</em>; signal inside the gc that already exists", the 90-day death signal is written into DECISIONS.md next to it, the README receipt-stats sentence follows the new doctor line, and a changeset records the release. The <code>security</code> path trigger fires on <code>src/chain/**</code> regardless of who wrote the pending policy guard — the run happens on this milestone's diff.</p>
+  <p class="context" style="margin-top:8px">Proves: G17, G18, G19</p>
+</div>
+
+<h2><span class="num">02</span>Acceptance gates</h2>
+<p style="color:var(--dim)">unlazy gate format, executed by <code>ai-eng spec run</code> (gate-check.mjs). Max 30 per milestone. ABANDON: G&lt;n&gt; &lt;reason&gt; is the honest exit. <b>A check that prints nothing is not evidence</b>: the executor leaves it unticked, because a box resting on an exit code is a green nobody can read. Make it say what it found, or assert the output with <code>EXPECT</code>. The <code>run N passed</code> shape is deliberate: a <code>-t</code> that matched no test exits 1 through the grep, so a vacuous suite cannot print green.</p>
+<pre id="gates">
+# Gates: gobernabilidad-observabilidad
+
+- [x] G1: a guard-deny receipt carries the tool that was denied, and the unreadable-payload deny still records "unknown"
+  CHECK: bun test tests/chain-deny-tool.spec.ts 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G2: summary.json counts denies per guard (fixture: 3 self-protect + 1 loop)
+  CHECK: bun test tests/receipts-summary.spec.ts -t "per_guard" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G3: summary.json counts denies per tool and per surface, with tool "unknown" its own bucket
+  CHECK: bun test tests/receipts-summary.spec.ts -t "per_tool and per_surface" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G4: summary.json carries a daily series {date: {runs, denies}} built from the receipts' ts
+  CHECK: bun test tests/receipts-summary.spec.ts -t "daily series" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G5: two gc passes merge the daily series day-key by day-key (older days survive; the day being re-summarized takes the fresh numbers)
+  CHECK: bun test tests/receipts-summary.spec.ts -t "merge" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G6: days older than 90 are pruned from the summary's series by the gc
+  CHECK: bun test tests/receipts-summary.spec.ts -t "prunes days" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G7: denies.json is never counted as a receipt by summarizeReceipts (total unchanged)
+  CHECK: bun test tests/receipts-summary.spec.ts -t "not counted" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G8: the first deny of a call records no clause; the second identical deny (fresh session id) carries exactly " · this exact call has been denied 1 times before" and its ledger count is 2
+  CHECK: bun test tests/deny-ledger.spec.ts -t "clause" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G9: allows, rewrites and the unreadable-payload fail-closed never touch denies.json
+  CHECK: bun test tests/deny-ledger.spec.ts -t "never touch" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G10: an unwritable or corrupt denies.json changes no verdict and no reason byte
+  CHECK: bun test tests/deny-ledger.spec.ts -t "broken ledger" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G11: doctor --gc never deletes denies.json however old its mtime
+  CHECK: bun test tests/deny-ledger.spec.ts -t "sweep" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G12: ledger gc prunes entries with last_seen older than 90 days and keeps at most the newest 500
+  CHECK: bun test tests/deny-ledger.spec.ts -t "prunes the ledger" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G13: the loop guard file is byte-identical to the milestone base (no silent change to what it decides)
+  CHECK: sh -c 'git diff --quiet dd6cb944 -- src/guards/loop.ts && echo "loop.ts untouched since base"'
+  EXPECT: /untouched/
+  EVIDENCE: loop.ts untouched since base
+
+- [x] G14: doctor WARNs when the last 7 days of denies exceed 3x the prior 7-day daily mean, naming the dominant guard
+  CHECK: bun test tests/doctor-command.spec.ts -t "deviation" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G15: with no prior series (first gc run) the deviation rule stays silent — the receipts check reports ok
+  CHECK: bun test tests/doctor-command.spec.ts -t "no prior series" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G16: the whole doctor suite is green on the new receipts-line format (the ceiling pins moved with the line; none deleted)
+  CHECK: bun test tests/doctor-command.spec.ts 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G17: docs/blueprint.html §10 carries the amended signal-inside-the-gc sentence and DECISIONS.md carries the D-block with the 90-day death signal
+  CHECK: sh -c 'test "$(grep -c "signal inside" docs/blueprint.html)" -ge 1 && test "$(grep -c "90 days" DECISIONS.md)" -ge 1 && echo "blueprint amended + DECISIONS block present"'
+  EXPECT: /amended/
+  EVIDENCE: blueprint amended + DECISIONS block present
+
+- [x] G18: README's doctor description reflects the richer receipts line and a changeset entry exists
+  CHECK: sh -c 'test -n "$(ls .changeset/*.md 2>/dev/null)" && echo "changeset $(ls .changeset/*.md | head -1)" && grep -i "per guard\|denies per" README.md | head -2'
+  EXPECT: /changeset/
+  EVIDENCE: changeset .changeset/observability-signal-in-gc.md | ai-eng doctor        # every check it knows, one real adversarial payload fired at the chain, receipt stats: denies per guard/tool, the 90-day seri
+
+- [x] G19: the fired security trigger left its artifact for this milestone's diff, or an ABANDON names why
+  CHECK: sh -c 'f=$(ls .ai-engineering/security/run-*/findings.json 2>/dev/null | tail -1); if [ -n "$f" ]; then echo "artifact: $f"; else grep -m1 "ABANDON: security" .ai-engineering/spec.html; fi'
+  EVIDENCE: artifact: .ai-engineering/security/run-1/findings.json
+
+- [x] G20: full green gate: the whole test suite reports zero failures
+  CHECK: bun test 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
+  EXPECT: / 0 fail/
+  EVIDENCE: 0 fail
+
+- [x] G21: typecheck, lint and the arch test all exit clean
+  CHECK: sh -c 'bun run typecheck >/dev/null 2>&1 && bun run lint >/dev/null 2>&1 && bun run arch >/dev/null 2>&1 && echo "typecheck+lint+arch clean"'
+  EXPECT: /clean/
+  EVIDENCE: typecheck+lint+arch clean
+
+</pre>
+
+<h2><span class="num">03</span>Constraints &amp; contracts</h2>
+<div class="card context">
+  <p><b>Zero runtime dependencies</b> stays true (package.json untouched by this milestone). <b>The 50 ms hot-path ceiling</b> is untouched: the only new hot-path work is one small read + one small write on the deny branch, outside every measured allow. <b>No new config keys, no new CLI verbs, no new read surface</b> — doctor is still the only one (research/001 §05 rejections hold). <b>Death signal, pre-committed:</b> 90 days after this ships, if the ledger has recorded zero repeats and doctor has flagged zero deviations on the dogfood repo, the observability layer is removed — the cut mirrors blueprint §10.2's own rule for the guards. <b>Out of scope and worse if added:</b> OTLP/OTel aliasing (R3), the injection fold-miss counter (undetectable without a confusables table; see brainstorm "Cuatro correcciones"), per-guard deviation bands, machine-global ledger, confusables detection.</p>
+  <p class="context" style="margin-top:8px"><b>Test-name contract:</b> the gate <code>-t</code> filters ("per_guard", "merge", "prunes days", "not counted", "clause", "never touch", "broken ledger", "sweep", "prunes the ledger", "deviation", "no prior series", "per_tool and per_surface", "daily series") are names the implementing steps must give their tests. A missing name fails its gate at run time, not by silence — bun exits non-zero when a filter matches nothing, and the grep turns that into a red line.</p>
+  <p class="context" style="margin-top:8px"><b>Triggers, declared up front:</b> <code>security</code> fires by path (src/chain/** in the diff) — G19 discharges it. <code>public-interface</code> fires by judgment (doctor's user-facing line is documented in README) — G18 discharges it. <code>ui</code>, <code>open-questions</code>, <code>arch-change</code>: not fired (no UI globs, brainstorm closed its questions, no layer contract moves).</p>
+  <p class="context" style="margin-top:8px"><b>Known tree state:</b> <code>src/guards/policy.ts</code> is uncommitted work from a parallel session. This milestone's edits touch <code>src/chain/mod.ts</code>, <code>src/receipts.ts</code>, <code>src/commands/doctor.ts</code>, tests and docs only — and G13 proves the one guard nobody may silently change stays whole.</p>
+</div>
+
+<h2><span class="num">04</span>EVIDENCE</h2>
+<p style="color:var(--dim)">Verdicts land here as gates run. A gate without receipt or ABANDON keeps the milestone open.</p>
+<pre id="evidence"># EVIDENCE: appended by spec run / ai-verify
+</pre>
+</body>
+</html>

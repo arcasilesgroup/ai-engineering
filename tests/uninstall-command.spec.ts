@@ -17,7 +17,7 @@
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { uninstallMain } from "../src/commands/uninstall.ts";
@@ -97,11 +97,6 @@ function setGlobalTemplateDir(dir: string): void {
 function initShaped(surfaces: string[]): string[] {
   const cwd = process.cwd();
   install(cwd, contractEntries("2026-09-14"));
-  try {
-    symlinkSync("AGENTS.md", join(cwd, "CLAUDE.md"));
-  } catch {
-    writeFileSync(join(cwd, "CLAUDE.md"), "@AGENTS.md\n");
-  }
   const entries = planEntries(surfaces);
   install(cwd, entries);
   for (const shim of SHIMS) {
@@ -441,14 +436,30 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(result).toBe(0);
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(false);
     expect(existsSync(join(cwd, "DECISIONS.md"))).toBe(false);
-    expect(existsSync(join(cwd, "CLAUDE.md"))).toBe(false);
+    expect(existsSync(join(cwd, "CLAUDE.md"))).toBe(false); // no shim is written anymore
+    expect(existsSync(join(cwd, ".gitignore"))).toBe(false); // still the template we installed
     expect(existsSync(join(cwd, ".ai-engineering"))).toBe(false);
     // The full line may wrap in a narrow terminal (e.g. stryker's sandbox), so check
     // the prefix and the file list separately — both must appear, order is irrelevant.
     expect(out).toContain("▲ project contract files removed (your choice)");
-    expect(out).toContain("AGENTS.md · DECISIONS.md · CLAUDE.md · .ai-engineering/");
+    expect(out).toContain("AGENTS.md · DECISIONS.md · .gitignore · .ai-engineering/");
     expect(out).toContain(`✓ kept: ${machine} · global skills stay installed`); // the second question is separate
     expect(existsSync(machine)).toBe(true);
+  });
+
+  test("an edited .gitignore survives even the Everything scope", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    writeFileSync(join(cwd, ".gitignore"), ".DS_Store\nmy-own-rule\n");
+
+    const { result, out } = await uninstall(everythingScope("y", "n"));
+
+    expect(result).toBe(0);
+    expect(readFileSync(join(cwd, ".gitignore"), "utf8")).toBe(".DS_Store\nmy-own-rule\n");
+    expect(out).toContain("▲ project contract files removed (your choice)");
+    // The dim line names what went: .gitignore is not claimed while it carries the user's rule.
+    expect(out).toContain("AGENTS.md · DECISIONS.md · .ai-engineering/");
   });
 
   test("a machine settings carrier is stripped of our entries, and said", async () => {
@@ -508,7 +519,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(result).toBe(0);
     expect(existsSync(join(machine, "skills", "a-skill", "SKILL.md"))).toBe(true);
     expect(out).toContain(`✓ kept: ${machine} · global skills stay installed`);
-    expect(out).toContain("✓ kept: AGENTS.md, DECISIONS.md, .ai-engineering/");
+    expect(out).toContain("✓ kept: AGENTS.md, DECISIONS.md, .gitignore, .ai-engineering/");
     expect(existsSync(join(cwd, ".ai-engineering", "config.toml"))).toBe(false); // the repo side still ran
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true);
   });

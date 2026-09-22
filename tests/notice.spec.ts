@@ -48,6 +48,16 @@ async function notice(): Promise<typeof import("../src/notice.ts")> {
   return import("../src/notice.ts");
 }
 
+/** The state that explains a silent notice, in the failure itself: one CI cycle
+ *  instead of a guess about which of these differs on a runner. */
+async function assertCacheWritten(): Promise<void> {
+  if (existsSync(cachePath())) return;
+  const { registryVersion } = await notice();
+  throw new Error(
+    `notice wrote no cache — registry=${registryVersion()} home=${moduleHome()} root=${repoRoot()} optOut=${process.env["AI_ENG_NO_UPDATE_NOTICES"]} path=${process.env["PATH"]}`,
+  );
+}
+
 /** Capture what the notice writes. clack's logger picks its stream from whether stdout is
  *  a TTY: a terminal gets it on stdout, CI gets it on stderr — so both are watched, and
  *  the test passes in either environment for the same reason. */
@@ -119,27 +129,13 @@ describe("maybeNotice — silent unless there is something to say", () => {
     const { maybeNotice } = await notice();
 
     maybeNotice();
-    if (!existsSync(cachePath())) {
-      // The state that explains a silent notice, in the failure itself: one CI cycle
-      // instead of a guess about which of these differs on a runner.
-      const { registryVersion } = await notice();
-      throw new Error(
-        `notice wrote no cache — registry=${registryVersion()} home=${moduleHome()} root=${repoRoot()} optOut=${process.env["AI_ENG_NO_UPDATE_NOTICES"]} path=${process.env["PATH"]}`,
-      );
-    }
+    await assertCacheWritten();
     expect(JSON.parse(readFileSync(cachePath(), "utf8")).version).toBe("9.9.9");
 
     // The cache answers now: a PATH that would say something else must not be consulted.
     process.env["PATH"] = pathWithRegistryShim("9.9.8");
     maybeNotice();
-    if (!existsSync(cachePath())) {
-      // The state that explains a silent notice, in the failure itself: one CI cycle
-      // instead of a guess about which of these differs on a runner.
-      const { registryVersion } = await notice();
-      throw new Error(
-        `notice wrote no cache — registry=${registryVersion()} home=${moduleHome()} root=${repoRoot()} optOut=${process.env["AI_ENG_NO_UPDATE_NOTICES"]} path=${process.env["PATH"]}`,
-      );
-    }
+    await assertCacheWritten();
     expect(JSON.parse(readFileSync(cachePath(), "utf8")).version).toBe("9.9.9");
   });
 
@@ -152,14 +148,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
     const { maybeNotice } = await notice();
 
     maybeNotice();
-    if (!existsSync(cachePath())) {
-      // The state that explains a silent notice, in the failure itself: one CI cycle
-      // instead of a guess about which of these differs on a runner.
-      const { registryVersion } = await notice();
-      throw new Error(
-        `notice wrote no cache — registry=${registryVersion()} home=${moduleHome()} root=${repoRoot()} optOut=${process.env["AI_ENG_NO_UPDATE_NOTICES"]} path=${process.env["PATH"]}`,
-      );
-    }
+    await assertCacheWritten();
     expect(JSON.parse(readFileSync(cachePath(), "utf8")).version).toBe("9.9.9");
   });
 

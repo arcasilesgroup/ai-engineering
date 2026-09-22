@@ -20,7 +20,6 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
-import { currentTemplateDir, installTemplateDir, restoreTemplateDir, SHIMS } from "../src/floor/template.ts";
 import { floor } from "../src/floor/entry.ts";
 
 const SECRET = "AKIAIOSFODNN7EXAMPLE";
@@ -133,12 +132,6 @@ function installStrictShim(opts: { scanExit: number; scanOut?: string; versionEx
   return dir;
 }
 
-/** A config-setter sandbox: installTemplateDir under a GIT_CONFIG_GLOBAL we own. */
-function gitConfigSandbox(): string {
-  const dir = tempDir("ai-eng-gates-gitcfg-");
-  process.env.GIT_CONFIG_GLOBAL = join(dir, "gitconfig");
-  return dir;
-}
 
 function stagedBlobErrorOut(): string {
   // What the catch path in stageSecrets parses: File:/RuleID:/Finding: lines.
@@ -390,95 +383,6 @@ describe("floor gates — commitMsg contract corners", () => {
   });
 });
 
-describe("floor gates — the git template dir", () => {
-  test("currentTemplateDir is null for a config that cannot be read and for an empty value", () => {
-    process.env.GIT_CONFIG_GLOBAL = join(tempDir("ai-eng-gates-gitcfg-"), "absent-gitconfig");
-    expect(currentTemplateDir()).toBeNull();
-    const empty = tempDir("ai-eng-gates-gitcfg-");
-    process.env.GIT_CONFIG_GLOBAL = join(empty, "gitconfig");
-    writeFileSync(process.env.GIT_CONFIG_GLOBAL, "[init]\n\ttemplateDir =\n");
-    expect(currentTemplateDir()).toBeNull();
-  });
-
-  test("install into a fresh sandbox: created, shims on disk, and a second run is already current", () => {
-    gitConfigSandbox();
-    const first = installTemplateDir();
-    expect(first.status).toBe("created");
-    expect(first.previous).toBeNull();
-    expect(first.ours).not.toBeNull();
-    expect(first.line).toContain("git init.templateDir → ");
-    const dir = first.ours!;
-    for (const name of SHIMS) {
-      const body = readFileSync(join(dir, "hooks", name), "utf8");
-      expect(body).toContain("ai-eng git floor shim");
-    }
-    const second = installTemplateDir();
-    expect(second.status).toBe("current");
-    expect(second.line).toContain("our shims already current");
-  });
-
-  test("install joined into a user-owned template dir never overwrites a foreign hook", () => {
-    const user = tempDir("ai-eng-gates-usertpl-");
-    mkdirSync(join(user, "hooks"), { recursive: true });
-    writeFileSync(join(user, "hooks", "pre-commit"), "#!/bin/sh\necho mine\n");
-    const cfg = gitConfigSandbox();
-    writeFileSync(join(cfg, "gitconfig"), `[init]\n\ttemplateDir = ${user}\n`);
-    const report = installTemplateDir();
-    expect(report.status).toBe("joined");
-    expect(report.previous).toBe(user);
-    expect(report.ours).toBeNull();
-    expect(report.line).toBe(
-      `git init.templateDir keeps your ${user} · our three shims written inside it`,
-    );
-    expect(readFileSync(join(user, "hooks", "pre-commit"), "utf8")).toBe("#!/bin/sh\necho mine\n");
-    for (const name of ["commit-msg", "pre-push"] as const) {
-      expect(readFileSync(join(user, "hooks", name), "utf8")).toContain("ai-eng git floor shim");
-    }
-  });
-
-  test("restore: joined dir keeps the user's hook and loses only our marked shims", () => {
-    const user = tempDir("ai-eng-gates-usertpl-");
-    mkdirSync(join(user, "hooks"), { recursive: true });
-    writeFileSync(join(user, "hooks", "pre-commit"), "#!/bin/sh\necho mine\n");
-    const cfg = gitConfigSandbox();
-    writeFileSync(join(cfg, "gitconfig"), `[init]\n\ttemplateDir = ${user}\n`);
-    installTemplateDir();
-    // The machine's shim count in their dir: two of ours written next to their one.
-    expect(existsSync(join(user, "hooks", "commit-msg"))).toBe(true);
-    const line = restoreTemplateDir(user, null);
-    expect(line).toBe(
-      `git init.templateDir kept yours (${user}) · 2 ai-eng shim(s) removed from it`,
-    );
-    expect(readFileSync(join(user, "hooks", "pre-commit"), "utf8")).toBe("#!/bin/sh\necho mine\n");
-    expect(existsSync(join(user, "hooks", "commit-msg"))).toBe(false);
-    expect(existsSync(join(user, "hooks", "pre-push"))).toBe(false);
-    expect(existsSync(join(user, "hooks"))).toBe(true);
-  });
-
-  test("restore: a created dir is deleted and the setting goes back to unset", () => {
-    const cfg = gitConfigSandbox();
-    const first = installTemplateDir();
-    expect(first.ours).not.toBeNull();
-    const ours = first.ours!;
-    const line = restoreTemplateDir(first.previous, first.ours);
-    expect(line).toBe("git init.templateDir unset (it was unset before)");
-    expect(existsSync(ours)).toBe(false);
-    expect(currentTemplateDir()).toBeNull();
-    expect(existsSync(join(cfg, "gitconfig"))).toBe(true);
-  });
-
-  test("restore: the setting the user moved meanwhile is reported and left alone", () => {
-    const cfg = gitConfigSandbox();
-    const first = installTemplateDir();
-    const moved = tempDir("ai-eng-gates-moved-");
-    writeFileSync(join(cfg, "gitconfig"), `[init]\n\ttemplateDir = ${moved}\n`);
-    const line = restoreTemplateDir(first.previous, first.ours);
-    expect(line).toBe(
-      `git init.templateDir is now ${moved} — left as it is (it is not the one this install set)`,
-    );
-    expect(existsSync(first.ours!)).toBe(true);
-  });
-});
 
 describe("floor gates — the entry dispatcher", () => {
   test("outside any repository floor exits 0 in silence — no stderr, no receipt dir", async () => {

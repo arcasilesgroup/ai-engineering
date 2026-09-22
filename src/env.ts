@@ -35,7 +35,7 @@ export function repoRoot(start?: string): string | null {
 const configPath = (root: string) => join(root, ".ai-engineering", "config.toml");
 
 /** Why a repo is not governed, or null when it is. */
-export type GovernanceGap = "no-repo" | "no-config" | "corrupt-config" | "no-surfaces";
+type GovernanceGap = "no-repo" | "no-config" | "corrupt-config" | "no-surfaces";
 
 /** What a repo declared, or why it declared nothing. THE order the gate is decided
  *  in — and the only read of the declaration, so `enabledSurfaces()` and the gate

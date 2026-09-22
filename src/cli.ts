@@ -1,11 +1,8 @@
 #!/usr/bin/env bun
-// src/cli.ts — flags first (@bomb.sh/args), prompts only for what's missing
-// (@clack/prompts), TAB everywhere (@bomb.sh/tab). Six human verbs; the four
-// machine verbs (chain|git|wrap|spec) are the product's programming surface (§07)
-// and appear in neither TAB nor --help.
+// src/cli.ts — raw argv, prompts only for what's missing (@clack/prompts). Six
+// human verbs; the four machine verbs (chain|git|wrap|spec) are the product's
+// programming surface (§07) and appear in --help only.
 
-import { parse } from "@bomb.sh/args";
-import tabRoot from "@bomb.sh/tab";
 import { VERSION } from "./version.ts";
 import { showLogo } from "./branding.ts";
 import { maybeNotice } from "./notice.ts";
@@ -22,25 +19,32 @@ import { specMain } from "./spec/index.ts";
 import { floor } from "./floor/entry.ts";
 import { suggestVerb } from "./shared-verbs.ts";
 
-const HUMAN = ["init", "doctor", "config", "update", "upgrade", "uninstall"];
 
-function detectShell(): string {
-  if (process.env["ZSH_VERSION"]) return "zsh";
-  if (process.env["BASH_VERSION"]) return "bash";
-  if (process.env["FISH_VERSION"]) return "fish";
-  return "bash";
+const argv = process.argv.slice(2);
+const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true };
+const boolFlags: Record<string, true> = {};
+const valueFlags: Record<string, string> = {};
+const positionals: string[] = [];
+const surfaceList: string[] = [];
+for (let i = 0; i < argv.length; i++) {
+  const arg = argv[i]!;
+  if (arg === "--surface" || arg.startsWith("--surface=")) {
+    const value = arg === "--surface" ? (argv[++i] ?? "") : arg.slice("--surface=".length);
+    surfaceList.push(...value.split(",").filter(Boolean));
+  } else if (arg.startsWith("--") && BOOLS[arg.slice(2)]) {
+    boolFlags[arg.slice(2)] = true;
+  } else if (arg.startsWith("--")) {
+    valueFlags[arg.slice(2)] = argv[++i] ?? "";
+  } else {
+    positionals.push(arg);
+  }
 }
-
-for (const verb of HUMAN) tabRoot.command(verb, `ai-eng ${verb}`);
-// Completion script only when the shell asks for it — never on every invocation.
-if (process.argv[2] === "complete") tabRoot.setup("ai-eng", "ai-eng", detectShell());
-
-const flags = parse(process.argv.slice(2), {
-  boolean: ["yes", "global", "help", "version", "gc"],
-  string: ["surface"],
-});
-
-const verb = flags._[0];
+const flags: { _: string[] } & Record<string, string | boolean | undefined> = Object.assign(
+  { _: positionals } as { _: string[] } & Record<string, string | boolean | undefined>,
+  boolFlags,
+  valueFlags,
+);
+const verb = positionals[0];
 
 if (flags.version) {
   process.stdout.write(`ai-eng ${VERSION}\n`);
@@ -59,16 +63,6 @@ if (flags.help || !verb) {
   process.exit(flags.help ? 0 : 2);
 }
 
-// --surface accepts repetition AND comma lists: "--surface a --surface b" and
-// "--surface a,b" both reach initMain as ["a","b"]. @bomb.sh/args collapses
-// repeated string flags to the last value; raw argv is the only truth.
-const surfaceList: string[] = process.argv
-  .slice(2)
-  .flatMap((arg, i, argv) => {
-    if (arg === "--surface") return (argv[i + 1] ?? "").split(",").filter(Boolean);
-    if (arg.startsWith("--surface=")) return arg.slice("--surface=".length).split(",").filter(Boolean);
-    return [];
-  });
 
 async function main(): Promise<number> {
   switch (verb) {

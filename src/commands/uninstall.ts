@@ -13,7 +13,8 @@ import { SURFACES, removeMachineArtifacts, removeMachineCarriers, repoCarrier, r
 import { restoreTemplateDir } from "../floor/template.ts";
 import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
 import { parseLock, sha256, stripSharedText } from "../install.ts";
-import { hashFile } from "../skills-lint.ts";
+import { hashFile } from "../install.ts";
+import { embeddedTemplate } from "../embed.ts";
 import { planEntries } from "./init-shared.ts";
 import { select, isCancel } from "@clack/prompts";
 import * as ui from "../ui.ts";
@@ -140,16 +141,20 @@ async function removeEverything(root: string, input: unknown, declared: string[]
   const extra: ui.Row[] = [];
   const agents = join(root, "AGENTS.md");
   const decisions = join(root, "DECISIONS.md");
-  const confirmedAll = await ui.confirmDefault("Delete this project's AGENTS.md, DECISIONS.md and .ai-engineering/ too? They hold your work.", false, input as never);
+  const confirmedAll = await ui.confirmDefault("Delete this project's AGENTS.md, DECISIONS.md, .gitignore and .ai-engineering/ too? They hold your work.", false, input as never);
   if (confirmedAll) {
     if (existsSync(agents)) unlinkSync(agents);
     if (existsSync(decisions)) unlinkSync(decisions);
-    const claude = join(root, "CLAUDE.md");
-    if (existsSync(claude)) unlinkSync(claude);
+    // A .gitignore is the one scaffold file a project very often already owned before
+    // init: ours goes only while it is byte-identical to the template — an edited one
+    // holds the user's rules and stays, named.
+    const gitignore = join(root, ".gitignore");
+    const ours = existsSync(gitignore) && hashFile(gitignore) === sha256(embeddedTemplate("gitignore.tpl"));
+    if (ours) unlinkSync(gitignore);
     rmSync(join(root, ".ai-engineering"), { recursive: true, force: true });
-    extra.push({ mark: "warn", text: "project contract files removed (your choice)", dim: "AGENTS.md · DECISIONS.md · CLAUDE.md · .ai-engineering/" });
+    extra.push({ mark: "warn", text: "project contract files removed (your choice)", dim: `AGENTS.md · DECISIONS.md${ours ? " · .gitignore" : ""} · .ai-engineering/` });
   } else {
-    extra.push({ mark: "ok", text: "kept: AGENTS.md, DECISIONS.md, .ai-engineering/" });
+    extra.push({ mark: "ok", text: "kept: AGENTS.md, DECISIONS.md, .gitignore, .ai-engineering/" });
   }
   // The machine side: the global canon this binary installed.
   const machineDir = home();

@@ -35,8 +35,8 @@ guess.
    that exists:
 
    ```
-   settings.json ──> chain.py ──> self_protect ──> exit 2
-                        └───────> loop_guard
+settings.json ──> src/chain/mod.ts ──> self-protect ──> exit 2
+                       └────────> loop guard (src/guards/loop.ts)
    ```
 6. Explain what is here, not the pattern in general. If a textbook name applies, one clause
    is enough; the reader came for this codebase.

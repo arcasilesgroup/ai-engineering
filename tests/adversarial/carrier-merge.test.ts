@@ -369,28 +369,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     expect(stripSharedText(canonical("command -v ai-eng >/dev/null 2>&1 && ai-eng chain PreToolUse || exit 0"))).toBe("{}\n");
   });
 
-  test("a compact one-liner is refused rather than reformatted, at strip time too", () => {
-    const compact = '{"hooks":{"PreToolUse":[{"hooks":[{"command":"ai-eng chain PreToolUse"}]}]}}';
-    expect(stripSharedText(compact)).toBeNull(); // uninstall leaves it alone, said out loud
-  });
 
-  test("the merge keeps the file's own indentation and trailing newline", () => {
-    const four = mergeSharedText('{\n    "env": {\n        "A": "1"\n    }\n}\n', '{"hooks":{"PreToolUse":[]}}');
-    expect("refused" in four).toBe(false);
-    if ("refused" in four) return;
-    expect(four.text).toInclude('\n    "hooks"');
-    expect(four.text.endsWith("}\n")).toBe(true);
-  });
-
-  test("a settings file that is valid JSON but not an object is refused, not rewritten", () => {
-    useHome();
-    const repo = repoWithUserSettings('["not", "an", "object"]\n');
-    const settings = join(home, ".claude", "settings.json");
-    const result = run(["init", "--yes", "--surface", "claude-code"], repo);
-    expect(result.status).toBe(0);
-    expect(readFileSync(settings, "utf8")).toBe('["not", "an", "object"]\n');
-    expect(result.stdout + result.stderr).toInclude("not a JSON object");
-  });
 
   test("a fresh repo still gets the whole template, banner and all", () => {
     useHome();

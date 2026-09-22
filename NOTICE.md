@@ -18,7 +18,6 @@ Format: skill — source (integrated verbatim) — author — license — URL.
 | ai-write | original | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/ai-engineering |
 | ai-explore | original | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/ai-engineering |
 | ai-read-docs | read-the-damn-docs | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/skills |
-| ai-rtk | rtk SKILL.md (thin layer over an external binary) | autometa / Hermes Agent | MIT | https://github.com/autometa/rtk |
 | ai-debug | original | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/ai-engineering |
 | ai-note | original | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/ai-engineering |
 | ai-issue-report | original | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/ai-engineering |
@@ -27,6 +26,7 @@ Format: skill — source (integrated verbatim) — author — license — URL.
 | ai-design-audit | installed skill (SKILL.md, scripts/audit.mjs, references/) | community | no license — attribution (H4) | installed locally |
 | ai-writing-behavior | writing-agent-behavior (agentbehavior) | Braintrust + Basis | Apache-2.0 | https://github.com/braintrustdata/agentbehavior |
 | ai-agents-md | agents.md convention + published sample layouts | agents.md (OpenAI/Codex et al.) | MIT | https://agents.md/ · https://github.com/agentsmd/agents.md |
+| ai-stress-test | original | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/ai-engineering |
 
 ## The brand (§22)
 

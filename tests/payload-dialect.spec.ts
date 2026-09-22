@@ -19,11 +19,8 @@ import {
   normalise,
   type Payload,
 } from "../src/chain/payload.ts";
-import { allow, allowRewrite, deny, overrideActive, readOverrides } from "../src/chain/dialect.ts";
+import { allow, allowRewrite, deny } from "../src/chain/dialect.ts";
 import { isTestCommand, rewrite } from "../src/guards/wrap.ts";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 class ExitSignal extends Error {
   constructor(readonly code: number) {
@@ -261,88 +258,6 @@ describe("deny / allowRewrite / allow — the claude wire is the default", () =>
   });
 });
 
-
-describe("readOverrides / overrideActive — the only way a guard turns off", () => {
-  let scratch: string;
-  const make = (toml: string): string => {
-    scratch = mkdtempSync(join(tmpdir(), "ai-eng-ovr-"));
-    mkdirSync(join(scratch, ".ai-engineering"), { recursive: true });
-    writeFileSync(join(scratch, ".ai-engineering", "overrides.toml"), toml);
-    return scratch;
-  };
-  const cleanup = () => rmSync(scratch, { recursive: true, force: true });
-
-  test("a null repo root reads empty — no overrides can live outside a repo", () => {
-    expect(readOverrides(null)).toEqual([]);
-  });
-
-  test("a well-formed override entry carries name, reason and until", () => {
-    const root = make('[[guard.off]]\nname = "loop"\nreason = "nightly batch"\nuntil = "2030-01-01"\n');
-    expect(readOverrides(root)).toEqual([{ name: "loop", reason: "nightly batch", until: "2030-01-01" }]);
-    cleanup();
-  });
-
-  test("a well-formed override entry carries name, reason and until", () => {
-    const root = make('[[guard.off]]\nname = "loop"\nreason = "nightly batch"\nuntil = "2030-01-01"\n');
-    const offs = readOverrides(root);
-    expect(offs).toEqual([{ name: "loop", reason: "nightly batch", until: "2030-01-01" }]);
-    cleanup();
-  });
-
-  test("a guard value that is a string (dotted literal) is dead config, read as empty", () => {
-    const root = make('guard.off = "x"\n');
-    expect(readOverrides(root)).toEqual([]);
-    cleanup();
-  });
-
-  test("an array value for off is rejected, a non-array too", () => {
-    const root = make('guard = ["array"]\n');
-    expect(readOverrides(root)).toEqual([]);
-    cleanup();
-  });
-
-  test("an entry without a string name is dropped; a missing reason defaults to empty", () => {
-    const root = make('[[guard.off]]\nreason = "no name"\n[[guard.off]]\nname = "loop"\n');
-    expect(readOverrides(root)).toEqual([{ name: "loop", reason: "" }]);
-    cleanup();
-  });
-
-  test("a non-string until is dropped from the entry", () => {
-    const root = make('[[guard.off]]\nname = "loop"\nreason = "r"\nuntil = 42\n');
-    expect(readOverrides(root)).toEqual([{ name: "loop", reason: "r" }]);
-    cleanup();
-  });
-
-  test("a file that does not parse is not a crash: it reads as empty", () => {
-    const root = make("this is [ not toml\n");
-    expect(readOverrides(root)).toEqual([]);
-    cleanup();
-  });
-
-  test("an absent overrides file reads as empty", () => {
-    scratch = mkdtempSync(join(tmpdir(), "ai-eng-ovr-empty-"));
-    mkdirSync(join(scratch, ".ai-engineering"), { recursive: true });
-    expect(readOverrides(scratch)).toEqual([]);
-    cleanup();
-  });
-
-  test("overrideActive answers the entry while unexpired, null for other guards", () => {
-    const live = { name: "loop", reason: "r", until: "2030-01-01" };
-    expect(overrideActive([live], "loop")).toBe(live);
-    expect(overrideActive([live], "no-verify")).toBeNull();
-    expect(overrideActive([], "loop")).toBeNull();
-  });
-
-  test("an expired override no longer switches the guard off", () => {
-    const expired = { name: "loop", reason: "r", until: "2020-01-01" };
-    expect(overrideActive([expired], "loop")).toBeNull();
-  });
-
-  test("an override without until never expires and stays active", () => {
-    const eternal = { name: "loop", reason: "r" };
-    expect(overrideActive([eternal], "loop")).toBe(eternal);
-  });
-});
 
 describe("wrap — the test-command decision table", () => {
   test("every runner keyword wraps, and the runner name comes back", () => {

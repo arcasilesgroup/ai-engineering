@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{ai} Engineering — product recap</title>
 <meta name="description" content="What ai-engineering is and how it works: the repository, the guards, the executable contract, the skill canon, the surfaces, CI and the lifecycle.">
@@ -433,13 +434,12 @@
     <div class="card"><h4><span class="pill p-fix">oxlint</span> fast lint</h4><p><code>oxlint src tests</code> holds the fast lint position, with the type-aware rules from <code>oxlint-tsgolint 7.0.2001</code> on the stricter pass.</p></div>
     <div class="card"><h4><span class="pill p-ok">archunit</span> layers</h4><p><code>archunit 2.4.0</code>, run as <code>bun test tests/arch.spec.ts</code>, reads the same <code>.ai-engineering/arch.rules.json</code> the contract declares.</p></div>
     <div class="card"><h4><span class="pill p-dim">semgrep + trivy</span> CI scanners</h4><p>Semgrep pinned at <code>1.172.0</code> with <code>--config p/ci --metrics=off</code>; trivy pinned by version and sha256, scanning <code>vuln,misconfig</code> at HIGH and CRITICAL with <code>--exit-code 1</code>.</p></div>
-    <div class="card"><h4><span class="pill p-dim">rtk</span> bash output</h4><p>Canon skill <code>ai-rtk</code>: prefix a supported command with <code>rtk</code> and only the part that matters reaches the context. It is offered, never bundled or executed by <code>ai-eng</code>, and it covers the other half from <code>wrap</code> — wrap filters tests, rtk filters everything else.</p></div>
-    <div class="card"><h4><span class="pill p-dim">methods integrated as canon</span></h4><p><code>cloudflare/security-audit-skill</code> (the six-phase adversarial method behind <code>ai-security</code>), unlazy, wayfinder, <code>writing-agent-behavior</code> (the <code>BEHAVIOR.md</code> format), the rtk skill, and the Loop-Engineering, design-orchestrator, graph-engineering and ai-design-audit methods. Each enters verbatim with author, license and source recorded in <code>NOTICE.md</code> and <code>THIRD-PARTY-NOTICES.md</code>.</p></div>
+    <div class="card"><h4><span class="pill p-dim">methods integrated as canon</span></h4><p><code>cloudflare/security-audit-skill</code> (the six-phase adversarial method behind <code>ai-security</code>), unlazy, wayfinder, <code>writing-agent-behavior</code> (the <code>BEHAVIOR.md</code> format), and the Loop-Engineering, design-orchestrator, graph-engineering and ai-design-audit methods. Each enters verbatim with author, license and source recorded in <code>NOTICE.md</code> and <code>THIRD-PARTY-NOTICES.md</code>.</p></div>
   </div>
 
   <h3>Why the init list is short</h3>
   <p>Every candidate passes three filters: it must <em>complement</em> <code>ai-eng</code> rather than duplicate a live source of truth, its license must be verifiable, and it must not widen the attack surface without a guard covering the new ground. Anything failing a filter is documented and left unoffered.</p>
-  <p>The rule that decides every future case: <strong><code>ai-eng</code> offers, it never installs third-party binaries.</strong> It prints the exact command with the pinned version and the license, and a human runs it. A package manager that executes someone else's code under this project's credibility is <code>curl | sh</code> with a better face. The canon holds twenty <code>ai-*</code> skills; the tools that stay outside it — rtk, caveman, engram, impeccable, hallmark, shadcn, astryx, emil-design-eng, ui-ux-pro-max, tasteskill, tavily, exa, context7, mantis, skill-map — are named as install commands only.</p>
+  <p>The rule that decides every future case: <strong><code>ai-eng</code> offers, it never installs third-party binaries.</strong> It prints the exact command with the pinned version and the license, and a human runs it. A package manager that executes someone else's code under this project's credibility is <code>curl | sh</code> with a better face. The canon holds twenty <code>ai-*</code> skills; the tools that stay outside it — caveman, engram, impeccable, hallmark, shadcn, astryx, emil-design-eng, ui-ux-pro-max, tasteskill, tavily, exa, context7, mantis, skill-map — are named as install commands only.</p>
 </section>
 
 <!-- ═══════ 04 REPO ═══════ -->
@@ -503,9 +503,9 @@
 │   ├── ai-design/                # design orchestration and conflict resolution
 │   ├── ai-verify/                # verification tiers and the eval harness
 │   ├── ai-security/              # six-phase audit with adversarial validation
+│   ├── ai-stress-test/           # finds the breaking point under load, with the load that caused it
 │   ├── ai-write/                 # documentation verified against the tree
 │   ├── ai-explore/               # file:line-anchored code exploration
-│   ├── ai-rtk/                   # routes long command output through rtk
 │   ├── ai-debug/ · ai-note/ · ai-issue-report/ · ai-research/   # diagnosis, durable findings, fault reports, external evidence
 │   ├── ai-read-docs/             # reads the versioned docs instead of memory
 │   ├── ai-visual-recap/          # the closing report of a milestone
@@ -597,12 +597,13 @@
   <h2><span class="num">05</span>Your project after <code>ai-eng init</code></h2>
   <p><strong>It works on a bare folder.</strong> With no repository present, <code>init</code> offers <code>git init -q</code> itself (confirmation, or <code>--yes</code>) and closes by committing the contract — <code>chore(ai-eng): install governance</code> with the version, no hooks and no signature. That commit is what gives the lockfile and the <code>Receipt-Id</code> trailer a baseline.</p>
   <p><strong>Two phases, one command.</strong> The machine side runs first and always: the canon is installed or repaired, and the status line prints whether it was already intact. The project side runs only inside a repository. In a repository that is already governed, <code>init</code> offers <code>update</code>, <code>config</code> or exit instead of scaffolding again.</p>
-  <p><strong>Nothing you edited is overwritten.</strong> A file byte-identical to ours is a no-op; a file that is exactly our previous version is a safe update; a file you edited that also changed on our side is reported as a conflict and left alone for a 3-way diff. The two contract files are written once and are never rewritten by <code>update</code>.</p>
+  <p><strong>Nothing you edited is overwritten.</strong> A file byte-identical to ours is a no-op; a file that is exactly our previous version is a safe update; a file you edited that also changed on our side is reported as a conflict and left alone for a 3-way diff. <code>AGENTS.md</code>, <code>DECISIONS.md</code> and the scaffolded <code>.gitignore</code> are written once and are never rewritten by <code>update</code>.</p>
 
 <pre>my-project/
 ├── AGENTS.md                     # the canonical contract: rules, layers, commands, session. You edit it.
 ├── CLAUDE.md                     # symlink to AGENTS.md, or the one line `@AGENTS.md` where the OS refuses symlinks
 ├── DECISIONS.md                  # ADR-lite: one standing decision per entry [Decision → Reason]
+├── .gitignore                    # the ai-engineering standard: OS droppings, IDEs, secrets, the common languages + the chain's receipts/ and cache/. Written once — if you already had one, it is yours and we never touch it.
 ├── .ai-engineering/
 │   ├── config.toml               # surfaces, model pin, guard thresholds, gc caps. You or `ai-eng config` write it; the chain only reads it.
 │   ├── overrides.toml            # the only way to switch a guard off: each exception carries a reason and an end date
@@ -889,11 +890,10 @@ allow-list). Silencing a check is skipping a hook. If the skip is legitimate,
       <tr><td><code>ai-security</code></td><td>full · <code>security</code> (path)</td><td><code>.ai-engineering/security/run-N/findings.json</code>, <code>REPORT.md</code></td></tr>
       <tr><td><code>ai-design</code></td><td>full · <code>ui</code> (path)</td><td><code>.ai-engineering/design/direction.html</code> — written before code is touched</td></tr>
       <tr><td><code>ai-design-audit</code></td><td>full · <code>ui</code> (path)</td><td><code>.ai-engineering/design/audits/NNN-{name}.html</code></td></tr>
+      <tr><td><code>ai-stress-test</code></td><td>standard</td><td><code>performance-report.md</code> — the breaking point, the metric that failed first, the safe ceiling</td></tr>
       <tr><td><code>ai-write</code></td><td>standard, full · <code>public-interface</code> (judgment)</td><td><code>README.md</code>, <code>docs/</code> — verified against the tree</td></tr>
       <tr><td><code>ai-agents-md</code></td><td>any</td><td><code>AGENTS.md</code>, <code>CLAUDE.md</code> — dies when the shape of the repository changes</td></tr>
       <tr><td><code>ai-explore</code></td><td>any</td><td>nothing — a lens, not an author; its citations land in other skills' artifacts</td></tr>
-      <tr><td><code>ai-read-docs</code></td><td>any</td><td>nothing — the version it read lands in the artifact that cites it</td></tr>
-      <tr><td><code>ai-rtk</code></td><td>any</td><td>nothing — it routes shell commands through the external rtk binary</td></tr>
       <tr><td><code>ai-debug</code></td><td>any</td><td>nothing — the check it writes becomes a gate in <code>spec.html</code> and outlives it</td></tr>
       <tr><td><code>ai-note</code></td><td>any</td><td><code>DECISIONS.md</code> — it deliberately owns no file of its own</td></tr>
       <tr><td><code>ai-issue-report</code></td><td>any</td><td><code>.ai-engineering/reports/NNN-{slug}.html</code></td></tr>
@@ -1139,7 +1139,7 @@ exit 1</pre>
   </table></div>
   <ul>
     <li><strong>Two phases by context, not by flag.</strong> Outside a repo (or with <code>--global</code>) it installs the machine side: the skill canon at <code>~/.ai-engineering/skills/</code>, symlink mirrors at <code>~/.claude/skills</code>, <code>~/.agents/skills</code> and <code>~/.config/opencode/skill</code>, the OpenCode slash-command shims under <code>~/.config/opencode/commands/</code>, and <code>~/.ai-engineering/version.json</code>. Inside a repo it runs both phases: a canon that is missing or drifted is re-installed and the project work continues — it never aborts with "install global first".</li>
-    <li><strong>The contract is written once.</strong> <code>AGENTS.md</code> and <code>DECISIONS.md</code> are skipped when they already exist; <code>CLAUDE.md</code> becomes a symlink to <code>AGENTS.md</code>, or the one line <code>@AGENTS.md</code> where symlinks are unavailable.</li>
+    <li><strong>The contract is written once.</strong> <code>AGENTS.md</code>, <code>DECISIONS.md</code> and the <code>.gitignore</code> are skipped when they already exist — the project's own ignore rules are never merged into; <code>CLAUDE.md</code> becomes a symlink to <code>AGENTS.md</code>, or the one line <code>@AGENTS.md</code> where symlinks are unavailable.</li>
     <li><strong>Governance, then a baseline commit.</strong> The scaffold writes <code>.ai-engineering/{config.toml,overrides.toml,arch.rules.json,ai-eng.lock}</code>, the CI workflow, the three git shims (chmod 755) and the adapters of the chosen surfaces, then commits <code>chore(ai-eng): install governance &lt;version&gt;</code> with <code>--no-verify --no-gpg-sign</code> so the baseline exists before the hooks can judge anything. A commit that does not happen is reported as pending, not hidden. <code>git revert</code> is the rollback.</li>
     <li><strong>Refusals.</strong> A surface that cannot deny, or that has no adapter, fails and exits 2 before anything is promised. A failed <code>git init</code> aborts with exit 2 — without a repo there is no floor.</li>
     <li><strong>Bootstrap mode.</strong> No <code>src/</code> yet: arch rules hold off (no failures on empty), and <code>doctor</code> activates them when <code>src/</code> appears.</li>
@@ -1551,8 +1551,7 @@ exit 1</pre>
       <tr><td><code>ai-write</code></td><td>README / docs/ of the project (never <code>.ai-engineering/</code>)</td><td>humans and surfaces — it is product, not governance</td><td>step 11</td><td><strong>permanent</strong> — it dies when the code it documents dies</td></tr>
       <tr><td><code>ai-note</code></td><td>a block in DECISIONS.md, or hands the finding to <code>ai-write</code></td><td>the agent, which reads DECISIONS.md whole</td><td>whenever a finding appears</td><td><strong>permanent</strong> — it deliberately owns no file: a finding with no home in DECISIONS or docs is a finding nobody rereads</td></tr>
       <tr><td><code>ai-issue-report</code></td><td><code>.ai-engineering/reports/NNN-{slug}.html</code></td><td>the team (incident), humans without session context</td><td>when something happened</td><td><strong>immune while cited</strong> — history is not rewritten; cited by DECISIONS.md it is eternal, uncited it expires to gc</td></tr>
-      <tr><td><code>ai-visual-recap</code></td><td><code>.ai-engineering/recap.html</code></td><td>the human, at the milestone close</td><td>step 12</td><td><code>spec close</code> archives it to git and deletes it from the tree; if nobody does, <code>doctor</code> marks it orphaned</td></tr>
-      <tr><td><code>ai-explore</code> · <code>ai-read-docs</code> · <code>ai-debug</code> · <code>ai-rtk</code></td><td><strong>nothing</strong> — they are lenses, not authors</td><td>—</td><td>—</td><td>— — their output is <code>file:line</code> citations and docs read, which <em>other</em> skills fold into their own artifacts (the grounding duty of <a href="#s08">§08</a>)</td></tr>
+      <tr><td><code>ai-explore</code> · <code>ai-read-docs</code> · <code>ai-debug</code></td><td><strong>nothing</strong> — they are lenses, not authors</td><td>—</td><td>—</td><td>— — their output is <code>file:line</code> citations and docs read, which <em>other</em> skills fold into their own artifacts (the grounding duty of <a href="#s08">§08</a>)</td></tr>
       <tr><td><code>config.toml</code> / <code>overrides.toml</code> / <code>ai-eng.lock</code></td><td>the human or <code>ai-eng config</code> (overrides: the human only, with a reason)</td><td>chain, doctor, init, surfaces</td><td><code>init</code></td><td><strong>permanent</strong> — overrides expire by their <code>until:</code> date, never silently</td></tr>
     </tbody>
   </table></div>

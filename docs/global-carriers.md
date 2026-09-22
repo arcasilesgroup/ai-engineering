@@ -4,7 +4,7 @@ A carrier is the file a host reads to reach `ai-eng chain`. It lives where that 
 
 ## The carrier table
 
-`src/surfaces/surfaces.json` is the registry. Every path carries its `source` and the date it was read, so a stale claim is a delta against a recorded measurement instead of against somebody's memory. A path claimed from memory is the failure this table exists to end: ai-engineering wrote the OMP carrier into `.agents/hooks/`, which OMP never reads, and `doctor` called it green.
+`src/surfaces/surfaces.json` is the registry. Every path carries its `source` and the date it was read, so a stale claim is a delta against a recorded measurement instead of against somebody's memory. A path claimed from memory is the failure this table exists to end: a carrier in a directory the host never reads leaves the repo ungoverned while `doctor` reports green (the OMP carrier once sat in `.agents/hooks/` for exactly that reason — the miss is why every row is measured).
 
 | Surface | Scope | Path | Kind | Chain bundle | Evidence source | Measured |
 |---|---|---|---|---|---|---|
@@ -50,7 +50,7 @@ Three questions, and they are separate on purpose.
 | `surface <id>` (check 11, row b) | the repo carrier: for the hosts whose readers live in the checkout, is their carrier in the repo? | present, or missing (fail, warn for best-effort) |
 | `machine state` (check 11b) | which binary wrote the carriers, and is this one older than that record? | a downgrade warns; a changed definition warns and names the surfaces |
 
-Existence is not the question for check 11, row a: the OMP carrier sat in `.agents/hooks/` for a year, absent from nothing and read by nobody. Row b is the declaration, and no file answers the third question: a downgrade is not cosmetic, because the carrier is the new binary's and the chain it calls would be the old one, which has no gate — the policy would fall back onto repos that never asked for it. Codex re-asks for trust in `/hooks` after any byte change, so a changed definition is the only way to know that happened. A surface with no carrier row gets `no carrier: guard wiring is not implemented for this host`.
+Existence is not the question for check 11, row a: a carrier only counts where its host reads it, and a file in an unread directory means an ungoverned repo with a green `doctor` (the OMP surface's `.agents/hooks/` miss is the lesson that question exists to repeat). Row b is the declaration, and no file answers the third question: a downgrade is not cosmetic, because the carrier is the new binary's and the chain it calls would be the old one, which has no gate — the policy would fall back onto repos that never asked for it. Codex re-asks for trust in `/hooks` after any byte change, so a changed definition is the only way to know that happened. A surface with no carrier row gets `no carrier: guard wiring is not implemented for this host`.
 
 ## The git hooks
 
@@ -75,12 +75,10 @@ exit 1
 
 ## The proofs
 
+
 ```sh
-sh scripts/proof-carriers.sh   # G8: the OMP carrier loads, proved with the host itself
 sh scripts/proof-cli-ux.sh     # R16: the hooks reach new clones, and a repo without config.toml is not policed
 ```
-
-`proof-carriers.sh` runs two proofs, strongest first: the host's own loader — `discoverAndLoadHooks` from the installed omp package — discovers the carrier at `<agentDir>/hooks/pre/`, binds its handlers, and the handler blocks an adversarial call while writing a receipt in the governed repo; then a real headless `omp` session, when the binary is on PATH. Both run inside a sandbox `AI_ENG_HOME` with `PI_CODING_AGENT_DIR` pointed at the same directory, so the proof never touches the developer's `~/.omp`. A carrier that is present everywhere and loaded nowhere is worse than no carrier, because it reports green.
 
 `proof-cli-ux.sh` covers the git hooks under R16: it owns the global git config for its run and puts it back, then checks that `init` sets `init.templateDir`, that a fresh clone is born with the three shims and that a commit there reaches the hooks, that the shim copied into a repo without `config.toml` exits 0 in silence, and that a governed repo with no `ai-eng` on PATH exits 1.
 
@@ -89,4 +87,4 @@ sh scripts/proof-cli-ux.sh     # R16: the hooks reach new clones, and a repo wit
 1. A row in `src/surfaces/surfaces.json`: `id`, `label`, `tier`, `can`, and `carriers` with `scope`, `kind`, `path`, `source` and `measured`. The `source` names the document or probe the path was read from, with its date. `carriers: []` is a valid answer — a surface that cannot deny has no carrier to place — and `can.deny: false` makes `init` refuse it rather than promise falsely.
 2. `carrierFiles(id, scope)` in `src/surfaces/adapters.ts`: a case returning the entry template and, for an in-process host, the chain bundle. No case means no adapter, and no offer at init.
 3. A template under `templates/` (`settings.<id>.json.tpl` for a settings host, `plugin.<id>.ts.tpl` for a module host). Then regenerate the payload: `bun scripts/gen-assets.ts` is not optional after touching `templates/`, because the binary carries `src/assets.ts` and a file that is not in it does not ship.
-4. A load proof. A path is declared when the host loads it, not when it exists; `scripts/proof-carriers.sh` is the shape to copy — drive the host's own loader, assert the handler blocks, and check the receipt the chain wrote.
+4. A load proof. A path is declared when the host loads it, not when it exists: add a proof script alongside `scripts/proof-cli-ux.sh` — drive the host's own loader, assert the handler blocks, and check the receipt the chain wrote.

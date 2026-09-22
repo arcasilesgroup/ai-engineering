@@ -257,8 +257,7 @@ pinned bottom bars, real product content, before/after comparability, the right
 `surface` preset, `--wf-*` tokens instead of hex, and no `<html>`/`<style>`/font
 tags. Before authoring ANY wireframe / `<Screen>` / `WireframeBlock`, READ
 `references/wireframe.md` in this skill directory — it is the single source of
-truth for HTML wireframe quality, shared word for word with the upstream
-`/visual-plan` skill and with ai-visual-recap. Do not author wireframes from memory.
+truth for HTML wireframe quality in this skill. Do not author wireframes from memory.
 
 Use the standard `WireframeBlock` / `<Screen>` format so the Plan viewer owns the
 surface frame, theme, and sketchy/clean toggle. HTML wireframes are appropriate
@@ -601,10 +600,11 @@ skills; consult them only where that collection is present:
 - **visual-plan** — the forward-planning counterpart and the source of the
   shared Wireframe & Canvas and Document Quality cores; a recap follows the
   same block discipline in reverse.
-- **comment anchors** — recap comments use the same anchor rules as forward
-  plans; see "Interpreting comment anchors" in the visual-plan skill for
-  coordinate frames, wireframe node ids, text-quote resolution, detached
-  threads, routing via `resolutionTarget`, and two-axis consumed/resolved state.
+- **comment anchors** — recap comments resolve the same way forward-plan
+  comments do: each anchor names a coordinate frame (wireframe node id or
+  text quote), a detached thread carries no live coordinate and routes via
+  its `resolutionTarget`, and a comment is consumed when its anchor no
+  longer resolves and resolved when its thread's resolution is recorded.
 - **security** — data scoping, secret handling, and the hardcoded-secret rule the
   recap's redaction and visibility gating mirror.
 - **sharing** — org/login-gated visibility for the plan that holds the recap.

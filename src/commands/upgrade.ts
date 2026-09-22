@@ -21,9 +21,10 @@ export function installCommand(manager: "bun" | "npm", version: string): string 
 /** Inline changelog section for a version when the local CHANGELOG.md has it.
  *
  *  Split on the headings instead of one regex: `$` under the `m` flag matches the end of
- *  ANY line, so the old `(?=\n## |$)` lookahead closed the lazy group on the first line
- *  break — a heading followed by the blank line every changeset writes returned "" and
- *  `ai-eng upgrade` fell back to the GitHub URL for a section it had in front of it. */
+ *  ANY line, so a lookahead like `(?=\n## |$)` closes the lazy group on the first line
+ *  break — the blank line every changeset writes after a heading makes such a match
+ *  return "" for a section the file holds. Line-splitting keeps the section the file
+ *  actually carries, headings and all. */
 export function changelogSection(root: string, version: string): string | null {
   const path = join(root, "CHANGELOG.md");
   if (!existsSync(path)) return null;

@@ -39,19 +39,18 @@ Run these from the repository root.
 | `bun scripts/brand.ts parity` | Does what is committed still match the tokens? Fails when someone edited a generated file by hand — and when the `theme-color` meta tag, the one palette value that lives in hand-written markup, has gone stale. |
 | `bun scripts/brand.ts contrast` | Is every text-on-surface pair legible? Prints each measured WCAG 2.1 ratio and the level it must reach. |
 | `bun scripts/brand.ts artifact` | Do the inline token blocks in the generated artifacts still match the brand? |
-| `bun scripts/brand.ts legacy` | Has the previous palette really gone from both repositories? |
 
 ## What keeps the gates honest
 
 A gate that only ever says yes is indistinguishable from one that stopped checking. Three
-components here had that property until they were given an oracle, and each one turned out to
-be wrong in a way nothing else could see:
+test suites here hold the tooling to an oracle, so a checker that silently stops checking
+is itself a failing build:
 
-| Test | What it defends | What it found |
+| Test | What it defends | How the oracle works |
 |---|---|---|
-| `tests/brand-check.spec.ts` | the validator, fed a declaration that breaks each rule | the validator **crashed** on a malformed entry instead of reporting it, and a later version of it demanded the wrong type for `lineHeight` — a validator that breaks the build on a valid file |
-| `tests/brand-contrast.spec.ts` | the WCAG maths, against published values (`#767676` passes AA on white, `#777777` does not) | pins the border decision: `#5C6C75` measured 2.76:1 on a raised surface, which is why `--border` is `gray.base` |
-| `tests/brand-generated.spec.ts` | that `gen` computes the *right* thing, not merely a stable thing | a broken breakpoint derivation left `design.json` claiming the site has no responsive thresholds — with `parity` still green |
+| `tests/brand-check.spec.ts` | the validator, fed a declaration that breaks each rule | a validator must **report** a malformed entry, never crash on it, and must accept the declared `lineHeight` type — a build that fails on a valid file is a bug the suite catches |
+| `tests/brand-contrast.spec.ts` | the WCAG maths, against published values (`#767676` passes AA on white, `#777777` does not) | pins the border decision: `--border` is `gray.base` because `#5C6C75` measures 2.76:1 on a raised surface, below the level a border pair must reach |
+| `tests/brand-generated.spec.ts` | that `gen` computes the *right* thing, not merely a stable thing | a breakpoint derivation that leaves `design.json` claiming the site has no responsive thresholds fails here even with `parity` green |
 
 Run them with `bun test tests/brand-*.spec.ts`, or as part of `bun test`.
 

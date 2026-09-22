@@ -1,7 +1,7 @@
-# Documentation writer — the framework's documentation discipline (spec 039 / B-039-1)
+# Documentation writer — the framework's documentation discipline
 
 Loaded only when a document is being written (spec, plan, corpus, skill, ADR, page) —
-never always-loaded (context economy, spec 033). It is the single source of the discipline;
+never always-loaded (context economy, see AGENTS.md). It is the single source of the discipline;
 a spec, plan, corpus or skill is read against it when authored and when reviewed. Two
 halves: **writing for the agent** (writing-for-agents) and **writing in controlled
 language** (ASD-STE100).

@@ -1,18 +1,18 @@
-// Arch test (H5) — the single source of truth is .ai-engineering/arch.rules.json,
-// projected here via archunit 2.4.0 (npm real name; "ArchUnitTS" 404s). Empty Test
-// Protection: a typo in a layer glob yields an EMPTY slice and the slice-must-match
+// Arch test (H5) — the single source of truth is .ai-engineering/arch.rules.json.
+// The import graph is scanned directly (Glob over src + the relative `from "…"`
+// lines): archunit's pattern language cannot express these layer globs, so the
+// library ended up as a thin pass-through over a hand-rolled map anyway.
+// Empty Test Protection: a typo in a layer glob yields an EMPTY slice and the
 // assertions below fail the suite — never a silent green (§16.2).
 import { describe, test, expect } from "bun:test";
-import { projectSlices, type MapFunction } from "archunit";
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, resolve, dirname } from "node:path";
+import { Glob } from "bun";
 
 interface ArchRule {
   from: string;
   mayNotImport: string;
-  except?: string;
 }
-
 interface ArchConfig {
   layers: Record<string, string>;
   rules: ArchRule[];
@@ -45,39 +45,42 @@ const LAYERS = Object.entries(config.layers).map(([name, glob]) => ({ name, re: 
 
 const layerOf = (file: string): string | undefined => LAYERS.find((layer) => layer.re.test(file))?.name;
 
-/** A whole-file path inside its declared layer. Self-edges and files no layer claims
- *  are dropped: this projects architecture, it does not audit coverage. */
-const mapEdge: MapFunction = (edge) => {
-  if (edge.external) return undefined;
-  const source = layerOf(edge.source);
-  const target = layerOf(edge.target);
-  if (source === undefined || target === undefined || source === target) return undefined;
-  return { sourceLabel: source, targetLabel: target };
+/** The real import graph: every src TypeScript file, every relative `from` edge,
+ *  projected into layer labels. Self-edges and files no layer claims are dropped:
+ *  this projects architecture, it does not audit coverage. */
+const SRC = resolve(import.meta.dir, "..", "src");
+const edges = (): Array<{ from: string; to: string }> => {
+  const out: Array<{ from: string; to: string }> = [];
+  for (const path of new Glob("**/*.ts").scanSync({ cwd: SRC })) {
+    const source = layerOf("src/" + path.replace(/\\/g, "/"));
+    if (source === undefined) continue;
+    const text = readFileSync(join(SRC, path), "utf8");
+    for (const m of text.matchAll(/from\s+["'](\.[^"']+)["']/g)) {
+      const resolved = relative(SRC, resolve(dirname(join(SRC, path)), m[1]!));
+      const target = layerOf("src/" + resolved.replace(/\\/g, "/"));
+      if (target !== undefined && target !== source) out.push({ from: source, to: target });
+    }
+  }
+  return out;
 };
 
-const slices = () => {
-  const builder = projectSlices();
-  builder.mapFunction = mapEdge;
-  return builder;
-};
-
-/** One archunit check per mayNotImport target in the JSON (projected rules). */
+/** One check per mayNotImport target in the JSON (projected rules). */
 describe("architecture (arch.rules.json — single source of truth, §16.2)", () => {
   const known = Object.keys(config.layers);
+  const graph = edges();
   for (const rule of config.rules) {
     if (!rule.mayNotImport || rule.mayNotImport === "cycles") continue;
     for (const target of rule.mayNotImport.split(",").map((layer) => layer.trim())) {
       // A rule naming a layer the config does not declare tests nothing; the
       // protection test below is what turns that into a red suite.
       if (!known.includes(rule.from) || !known.includes(target)) continue;
-      test(`${rule.from} must not import ${target}`, async () => {
-        const violations = await slices().shouldNot().containDependency(rule.from, target).check();
-        expect(violations).toEqual([]);
+      test(`${rule.from} must not import ${target}`, () => {
+        expect(graph.filter((edge) => edge.from === rule.from && edge.to === target)).toEqual([]);
       });
     }
   }
 
-  test("slices matched real files and real imports (empty-test protection)", async () => {
+  test("slices matched real files and real imports (empty-test protection)", () => {
     // A typo'd glob would project an EMPTY slice and the negative rules above would
     // pass trivially — so every layer glob must map to a real src directory, and the
     // rules file must declare every code directory the repo actually has.
@@ -90,10 +93,9 @@ describe("architecture (arch.rules.json — single source of truth, §16.2)", ()
       expect(known).toContain(rule.from);
       for (const layer of rule.mayNotImport.split(",")) expect(known).toContain(layer.trim());
     }
-    // And the projection must SEE an import that exists. "No violations" is what an
+    // And the graph must SEE an import that exists. "No violations" is what an
     // empty graph answers too, so a known-true edge is the only thing that tells the
     // two apart: the chain reads the governed repo through src/env.ts.
-    const seen = await slices().shouldNot().containDependency("chain", "env").check();
-    expect(seen.length).toBeGreaterThan(0);
+    expect(graph.filter((edge) => edge.from === "chain" && edge.to === "env").length).toBeGreaterThan(0);
   });
 });

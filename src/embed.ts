@@ -5,7 +5,7 @@ import { EMBEDDED } from "./assets.ts";
 import { writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, unlinkSync, rmdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { hashFile } from "./skills-lint.ts";
+import { hashFile } from "./install.ts";
 
 /** Every embedded path under a prefix (e.g. "skills/" or "templates/"). Keys are
  *  normalized: generated as "../skills/..." relative to src/, stripped to "skills/...". */

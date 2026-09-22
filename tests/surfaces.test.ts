@@ -10,7 +10,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { removeMachineArtifacts, SURFACES, SURFACE_TIERS, machineCarrier, repoCarrier, machineBase } from "../src/surfaces/adapters.ts";
+import { removeMachineArtifacts, SURFACES, SURFACE_TIERS, machineCarrier, repoCarrier } from "../src/surfaces/adapters.ts";
+import { machineBase } from "../src/env.ts";
 import { surfaceHint } from "../src/commands/init.ts";
 import { runChain } from "../src/chain/mod.ts";
 

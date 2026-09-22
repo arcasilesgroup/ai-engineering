@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { spawnSync, execFileSync } from "node:child_process";
 import { PassThrough } from "node:stream";
 // `ai-eng init` — one verb, two phases (§14.0a). Outside a repo: phase 1, the
@@ -65,17 +65,6 @@ function scaffoldProject(surfaces: string[]): string[] {
   const contractReport = install(cwd, contractEntries(new Date().toISOString().slice(0, 10)));
   for (const written of contractReport.written) lines.push(`✓ ${written} (contract)`);
   for (const untouched of contractReport.untouched) lines.push(`· ${untouched} — yours, untouched`);
-  // CLAUDE.md: symlink to AGENTS.md where the OS allows, one-line import where not.
-  const claudePath = join(cwd, "CLAUDE.md");
-  if (!existsSync(claudePath)) {
-    try {
-      symlinkSync("AGENTS.md", claudePath);
-      lines.push("✓ CLAUDE.md → symlink to AGENTS.md");
-    } catch {
-      writeFileSync(claudePath, "@AGENTS.md\n");
-      lines.push("✓ CLAUDE.md → @AGENTS.md (symlink unsupported)");
-    }
-  }
   const entries = planEntries(surfaces);
   const report = install(cwd, entries);
   for (const written of report.written) lines.push(`✓ ${written}`);
@@ -281,10 +270,10 @@ function validateSurfaces(picked: string[]): number | null {
   // config.toml with nothing to enforce it.
   for (const id of picked) {
     const surface = SURFACES.find((s) => s.id === id);
-    // A typo used to be declared instead of refused: `--surface claud-code` wrote the id
-    // into config.toml, installed no carrier for it, and left a repo calling itself
-    // governed on a surface that does not exist — the declaration is what the gate
-    // reads, so that is a repo governed by nothing.
+    // An unknown surface id is refused here, not declared: the declaration is what the
+    // gate reads, so a typo like `--surface claud-code` in config.toml would be a repo
+    // calling itself governed on a surface that does not exist — with no carrier behind
+    // it, governed by nothing.
     if (!surface) {
       ui.fail(`"${id}" is not a surface this release knows — nothing would enforce its guards.`);
       return 2;
@@ -374,7 +363,7 @@ async function installTemplate(
 /** Split the scaffold report into contract vs machine, and print both sections. */
 function renderSections(cwd: string, picked: string[], lines: string[]): void {
   // next step — each idea one block, the dim tail carries the why.
-  const contract = lines.filter((l) => l.includes("(contract)") || l.startsWith("·") || l.includes("CLAUDE.md"));
+  const contract = lines.filter((l) => l.includes("(contract)") || l.startsWith("·"));
   const machine = lines.filter((l) => !contract.includes(l));
   const toRow = (line: string): ui.Row => {
     if (line.startsWith("⚠")) return { mark: "warn", text: line.slice(2) };

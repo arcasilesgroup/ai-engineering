@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{ai} Engineering v2 — El plan, tal cual</title>
 <style>
@@ -156,10 +157,10 @@
 
 <div class="hero">
   <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Blueprint v17 · El plan, tal cual · 2026-08-31</div>
+  <div class="stamp">Blueprint v17 · El plan, tal cual · paquete 2.2.3 · 2026-09-22</div>
   <h1><span class="x">{ai}</span> Engineering v2</h1>
   <p class="sub">Empezamos de cero. Este documento muestra <strong>exactamente cómo queda</strong>: la evidencia que lo justifica, las carpetas y ficheros archivo por archivo, el contrato, <strong>el mapa de skills — cómo cada fuente se integra en un skill ai-* propio, qué son las ≤60 líneas de costura y cómo se conectan entre sí y con los guards</strong>, los hooks, los git hooks, el CLI, la arquitectura forzada, la CI y el plan. Listo para que un LLM lo coja y lo implemente sin preguntar nada.</p>
-  <p class="meta"><b>22</b> videos · <b>37</b> proyectos · <b>6</b> verbos · <b>5</b> guards · <b>11</b> core + <b>9</b> bajo demanda · <b>3</b> superficies core · <b>4</b> contratos · <b>0.13.0</b> · Bun · 2026-08-31</p>
+  <p class="meta"><b>22</b> videos · <b>37</b> proyectos · <b>6</b> verbos · <b>5</b> guards · <b>11</b> core + <b>9</b> bajo demanda · <b>4</b> superficies core · <b>4</b> contratos · <b>2.2.3</b> · Bun · 2026-09-22</p>
 </div>
 
 <nav aria-label="Secciones del blueprint">
@@ -309,7 +310,7 @@
       <tr>
         <td><span class="pill p-fix">Token Efficiency</span></td>
         <td>tokens-savings, make-claude-code-last-longer, model-router, rtk</td>
-        <td>Model routing (advisor + router loop), shell hooks que filtran output, templates de CLAUDE.md &lt;300 líneas. <strong>model_router.py: 61 LOC</strong> — paso→tier→modelo, lee el pin, jamás llama un modelo. <strong>rtk (externo v22): 77.9k⭐ Apache-2.0</strong> — proxy Rust que comprime la salida de bash 60–90%, 100+ comandos, hook de reescritura por superficie; ai-eng no lo bundlea, lo ofrece en init (§14).</td>
+        <td>Model routing (advisor + router loop), shell hooks que filtran output, templates de CLAUDE.md &lt;300 líneas. <strong>model_router.py: 61 LOC</strong> — paso→tier→modelo, lee el pin, jamás llama un modelo. <strong>rtk (externo v22): 77.9k⭐ Apache-2.0</strong> — proxy Rust que comprime la salida de bash 60–90%, 100+ comandos, hook de reescritura por superficie; ai-eng no lo bundlea ni lo ejecuta.</td>
       </tr>
       <tr>
         <td><span class="pill p-dim" style="border-color:rgba(180,90,242,.4);color:var(--purple)">Design Pipeline</span></td>
@@ -361,7 +362,7 @@
       <tr><td>Loop Engineering</td><td>v4, v5=v9, v22 — 50+ min</td><td>loop-engineering, Loop-Engineering</td><td><span class="pill p-ok">CUBIERTO</span> el gauntlet falla sin críticos aislados → los guards son <strong>código compilado</strong>, no prompts (§10)</td></tr>
       <tr><td>Design Skills</td><td>7 videos, el tema más repetido</td><td>18 skills en 4 packs, 5 duplicados exactos</td><td><span class="pill p-warn">OVERLAP</span> el problema real es dedupe/sync, no volumen → <code>ai-design</code> rutea a lo instalado, <strong>nunca bundlea</strong> (§11)</td></tr>
       <tr><td>Token Economy</td><td>v1 (24 tips)</td><td>tokens-savings, make-claude-code-last-longer</td><td><span class="pill p-ok">CUBIERTO</span> los proyectos son más pragmáticos → el filtro de tests entra bundled como <code>wrap</code> (§15)</td></tr>
-      <tr><td>Saturación de contexto</td><td>v22 (6 sistemas)</td><td>planning-with-files, rtk, skill-retriever, delegate-skills</td><td><span class="pill p-ok">CUBIERTO</span> reducir ruido → <code>wrap</code> + <a href="#s14">rtk opcional en init</a>; persistir fuera → <code>spec.html</code> + <code>DECISIONS.md</code> en disco, <code>ai-eng recap</code> tras compact; offload → <code>ai-verify</code> rutea a cheap, el nodo que juzga es caro. con 20 skills en canon (~2K tokens), skill-retriever sigue sin valer la pena; lo incorporamos cuando el canon crezca a 30+ como feature built-in</td></tr>
+      <tr><td>Saturación de contexto</td><td>v22 (6 sistemas)</td><td>planning-with-files, rtk, skill-retriever, delegate-skills</td><td><span class="pill p-ok">CUBIERTO</span> reducir ruido → <code>wrap</code>; persistir fuera → <code>spec.html</code> + <code>DECISIONS.md</code> en disco, <code>ai-eng recap</code> tras compact; offload → <code>ai-verify</code> rutea a cheap, el nodo que juzga es caro. con 20 skills en canon (~2K tokens), skill-retriever sigue sin valer la pena; lo incorporamos cuando el canon crezca a 30+ como feature built-in</td></tr>
       <tr><td>Model Routing</td><td>v19–21</td><td>model-router (61 LOC)</td><td><span class="pill p-ok">CUBIERTO</span> implementa exactamente lo que los videos recomiendan → se porta tal cual, no se reescribe desde cero (§09)</td></tr>
       <tr><td>Proof / Verification</td><td>v3, v5/v9, v14</td><td>unlazy, wayfinder, graph-engineering</td><td><span class="pill p-ok">CUBIERTO</span> proof ledger + answer-key de wayfinder → spec.html con <strong>runner obligatorio</strong>: sin ejecutor, el verde es mentira (§09)</td></tr>
       <tr><td>Multi-Agent / Fleet</td><td>v8/v12, v17</td><td>ClaudeAgents, claude-os</td><td><span class="pill p-warn">PARCIAL</span> no hay skill de fleet engineering → fuera de v2.0, declarado (§18 abierto)</td></tr>
@@ -384,7 +385,7 @@
 
   <div class="bracket">
     <span class="tag">Una edición del agente, de punta a punta</span>
-<div class="flow"><span class="nd">PLANO 1 · AGENTE</span>  Claude Code / OpenCode / Oh My Pi <span class="dim">(+ Hermes desktop / Cursor / Codex — §13)</span>
+<div class="flow"><span class="nd">PLANO 1 · AGENTE</span>  Claude Code / OpenCode / Oh My Pi / Pi <span class="dim">(+ Cursor / Codex — §13)</span>
   <span class="ed">│</span>  el agente intenta Edit / Write / Bash
   <span class="ed">▼</span>
 <span class="nd">HOOK de superficie</span>  <span class="dim">(PreToolUse · tool.execute.before · tool_call — 3 vocabularios, 1 contrato)</span>
@@ -449,7 +450,7 @@
       <code>TypeScript</code> estricto, sin <code>any</code> (regla 10, verificada por tsgolint).<br>
       <code>single-file</code> — 8 targets cross-compile; macOS con codesign, Windows sin symlinks.</p>
       <p>Sin dependencias de runtime además de las tres de arriba. Sin Python. Sin wheel.</p>
-      <p style="font-size:13px"><strong>Sin observabilidad propia:</strong> ai-engineering NO construye métricas. Referencia AgentsView (un binario, un SQLite) para métricas de agentes; Phoenix/Langfuse para OTLP si algún día se necesita. Nosotros solo receipts locales (§10).</p>
+      <p style="font-size:13px"><strong>Sin sistema de observabilidad propio:</strong> ai-engineering NO construye un servicio, ni un dashboard, ni dependencias de runtime de métricas. Referencia AgentsView (un binario, un SQLite) para métricas de agentes; Phoenix/Langfuse para OTLP si algún día se necesita. Lo que sí construye es <em>signal inside the gc</em> (§10, research/001 R1+R2, D-003): el agregado de <code>doctor --gc</code> conserva por guard/herramienta/superficie y una serie diaria de 90 días, y el ledger <code>receipts/denies.json</code> hace visible el reintento ya-negado a través de sesiones — señal pura, jamás un veredicto nuevo. Si a los 90 días no marcó ni un repeat ni una desviación, la capa se retira (§10.2).</p>
     </div>
   </div>
 
@@ -463,7 +464,6 @@
     <div class="card"><h4><span class="pill p-dim">Unslop</span> prosa</h4><p>Anti-AI-tells para prosa: 31 patrones. Complementa <code>ai-write</code> (estructura) con voz. Solo para output humano-facing; <strong>no se bundlea</strong> — se referencia como skill de comunidad.</p></div>
     <div class="card"><h4><span class="pill p-dim">Emulate</span> mocks SaaS</h4><p>14 emuladores de API (GitHub, Stripe, Slack). No bundlear — dependencia opcional de <code>ai-verify</code> para lanes embedded sin credenciales reales.</p></div>
     <div class="card"><h4><span class="pill p-ok">gitleaks</span> secretos</h4><p>El escáner, no uno nuestro (regla 12). Versión pinneada con sha256 en CI, patrón rescatado de v1. HARD FAIL si falta bajo gestión ai-eng.</p></div>
-    <div class="card"><h4><span class="pill p-dim">rtk</span> salida de bash</h4><p>77.9k⭐ Apache-2.0. Proxy Rust que comprime la salida de 100+ comandos antes de que llegue al contexto (60–90% menos tokens de terminal). <strong>No se bundlea ni se ejecuta desde ai-eng</strong>: <code>init</code> lo ofrece y da el comando exacto (§14.1). Encaja porque <code>wrap</code> filtra tests y rtk filtra el resto — cubren mitades distintas, no la misma.</p><p class="src">brew install rtk · rtk init</p></div>
     <div class="card"><h4><span class="pill p-ok">archunit + cruiser</span> capas</h4><p><code>archunit</code> 2.4.0 (el nombre npm real — «ArchUnitTS» 404ea) con Empty Test Protection nativa + dependency-cruiser 18.2 como puerta CI. Los dos leen el mismo <code>arch.rules.json</code> (§16).</p></div>
   </div>
   <h3>Qué más se podría ofrecer en <code>init</code> — y por qué la lista es corta</h3>
@@ -471,9 +471,8 @@
   <div class="tbl-wrap"><table>
     <thead><tr><th>Proyecto</th><th>Medido</th><th>Qué aporta</th><th>Decisión</th></tr></thead>
     <tbody>
-      <tr><td><code>rtk</code></td><td>77.9k⭐ · Apache-2.0 · Rust</td><td>Compresión de salida de bash</td><td><span class="pill p-ok">SE OFRECE</span> — cero solapamiento con los guards, ganancia inmediata de contexto</td></tr>
       <tr><td><code>planning-with-files</code></td><td>26.4k⭐ · MIT</td><td>Plan en 3 ficheros reinyectados cada turno</td><td><span class="pill p-warn">NO SE OFRECE</span> — <code>spec.html</code> + <code>DECISIONS.md</code> + el recap (<code>ai-visual-recap</code>) ya son esto, con contrato y ejecutor. Ofrecer los dos es partir la fuente de verdad. Lo que sí se ofrece de esa familia: <code>engram</code> (memoria persistente entre sesiones, que spec.html no cubre)</td></tr>
-      <tr><td><code>caveman</code></td><td>MIT · compresión de comunicación</td><td>Salida del subagente −60–65% tokens sin perder precisión</td><td><span class="pill p-ok">SE OFRECE</span> — complementa a <code>wrap</code> (tests) y <code>rtk</code> (bash): caveman comprime el <em>texto</em> del agente; cero solapamiento</td></tr>
+      <tr><td><code>caveman</code></td><td>MIT · compresión de comunicación</td><td>Salida del subagente −60–65% tokens sin perder precisión</td><td><span class="pill p-ok">SE OFRECE</span> — complementa a <code>wrap</code> (tests): caveman comprime el <em>texto</em> del agente; cero solapamiento</td></tr>
       <tr><td><code>impeccable</code> · <code>hallmark</code> · <code>ui-ux-pro-max</code> · <code>tasteskill</code> · <code>shadcn</code> · <code>emil-design-eng</code> · <code>astryx</code></td><td>comunidad (licencias variadas; shadcn MIT; <strong>astryx: MIT, facebook/astryx — el design system de Meta, 150+ componentes, CLI + MCP agent-ready</strong>)</td><td>Frontend de alto nivel: shape, auditoría anti-slop (58 gates), dirección UX, presets de gusto, registro de componentes, pulido de detalle; astryx añade el design system completo con docs generadas para agentes (<code>npx @astryxdesign/cli init --features agents</code> — genera AGENTS.md + contexto por herramienta, y su MCP sirve docs sin CLI)</td><td><span class="pill p-ok">SE OFRECE</span> — init imprime el comando exacto. <strong>No se bundlean:</strong> <code>ai-design</code> es router y rutea a lo instalado (§11); bundlear 7 packs con 5 duplicados conocidos (§03) recrearía el drift que el lockfile existe para matar. astryx encaja doble: es a la vez booster de diseño y el patrón que <code>ai-design</code> imita (docs + CLI + MCP desde la misma fuente)</td></tr>
       <tr><td><code>skill-map</code> (@skill-map/cli)</td><td>CLI open-source · <code>npm i -g @skill-map/cli</code></td><td>Mapa determinístico del harness: colisiones de trigger, skills huérfanos, referencias rotas, peso en tokens por nodo, deps externas — análisis estático en ms + jobs semánticos opcionales</td><td><span class="pill p-ok">SE OFRECE</span> — es el espejo externo de lo que <code>doctor</code> comprueba por dentro: doctor verifica el <em>canon ai-eng</em> (sha256, espejos, description lint); skill-map audita <em>todo tu harness</em> incluido lo que ai-eng no instala. Complemento, no duplicado — y su análisis de colisiones de trigger es el test de que las descripciones de §11.1 regla 3 matchean de verdad</td></tr>
       <tr><td><code>tavily</code> · <code>exa</code> · <code>context7</code></td><td>CLI/MCP de investigación (licencias de cada paquete)</td><td>Búsqueda web con extracción completa, descubrimiento semántico, docs version-aware de librerías</td><td><span class="pill p-ok">SE OFRECE</span> — alimentan el existence-check y el prior-art de <code>ai-architect</code>/<code>ai-research</code> con evidencia real en vez de memoria del modelo. Necesitan API key del usuario: ai-eng solo imprime el comando</td></tr>
@@ -560,11 +559,11 @@
 │   ├── ai-security/                     <span class="c"># audit 6 fases con validación adversarial (Cloudflare security-audit, MIT)</span>
 │   ├── ai-write/                        <span class="c"># documentation verified against tree (Apache-2.0 propio)</span>
 │   ├── ai-explore/                      <span class="c"># file:line-anchored code exploration — deber de grounding (§11.6)</span>
-│   ├── ai-rtk/                          <span class="c"># shell output por rtk: −60–90% tokens (MIT, autometa/Hermes)</span>
 │   ├── ai-debug/ · ai-note/ · ai-issue-report/ · ai-research/   <span class="c"># bajo demanda: fijar → finding → reporte → evidencia (research/NNN-{name}.html)</span>
 │   ├── ai-read-docs/                      <span class="c"># read-the-damn-docs renombrado: docs leídas del árbol, no de memoria</span>
 │   ├── ai-visual-recap/ · ai-design-audit/  <span class="c"># recap HTML al cerrar hito · audit medido en browser → design/audits/</span>
 │   ├── ai-writing-behavior/               <span class="c"># autoría de BEHAVIOR.md (braintrustdata/agentbehavior, Apache-2.0 — §21.5)</span>
+│   ├── ai-stress-test/                    <span class="c"># breaking point bajo carga: k6/JMeter/Locust, techo seguro (propio, Apache-2.0)</span>
 │   ├── …                                  <span class="c"># el canon completo son 20 (11 core + 9 bajo demanda) — §11.2 es la lista, siempre al día</span>
 │                                          <span class="c"># cada skill integra el método fuente tal cual; atribución en NOTICE.md (§11.4)</span>
 ├── templates/                           <span class="c"># what init scaffolds (never hardcoded in code)</span>
@@ -595,19 +594,19 @@
   </div>
 
   <h3>7.1 · Dónde vive esto: la cadena de distribución completa</h3>
-  <p>El blueprint hablaba de «<code>git pull</code>» sin decir de dónde. Aquí está el mapa entero, con los nombres reales: el repo es <code>arcasilesgroup/ai-engineering</code>, el paquete es <code>ai-engineering</code>, el CLI es <code>ai-eng</code>, y la versión es <strong>0.13.0</strong>. Ojo con el número: el wheel de Python de v1 llegó a <strong>1.0.0 en PyPI</strong> (tags hasta 0.9.2); este es <strong>otro artefacto en otro registry</strong>, y los dos números no tienen relación. v2 arranca en la línea 0.x a propósito — un binario que aún cambia su superficie de hooks cada pocas semanas no debe prometer compatibilidad 1.0.</p>
+  <p>El blueprint hablaba de «<code>git pull</code>» sin decir de dónde. Aquí está el mapa entero, con los nombres reales: el repo es <code>arcasilesgroup/ai-engineering</code>, el paquete es <code>ai-engineering</code>, el CLI es <code>ai-eng</code>, y la versión es <strong>2.2.3</strong>. Ojo con el número: el wheel de Python de v1 llegó a <strong>1.0.0 en PyPI</strong> (tags hasta 0.9.2); este es <strong>otro artefacto en otro registry</strong>, y los dos números no tienen relación. v2 arrancó en la línea 0.x a propósito — un binario que aún cambiaba su superficie de hooks cada pocas semanas no debía prometer compatibilidad 1.0.</p>
 
 <div class="flow"><span class="nd">1 · TU MÁQUINA (dev)</span>  <span class="dim">~/repos/ai-engineering  ←  https://github.com/arcasilesgroup/ai-engineering.git</span>
    <span class="dim">bun run build → bun test → ai-eng (el binario local, con <span class="lb">bun link</span> para probarlo en otros repos)</span>
    <span class="ed">│</span>  <span class="wd">git push origin main</span>          <span class="c">← esto es git, no ai-eng. El CLI jamás toca tu remoto.</span>
    <span class="ed">▼</span>
 <span class="nd">2 · GITHUB</span>  <span class="dim">arcasilesgroup/ai-engineering</span>
-   <span class="ed">│</span>  <span class="dim">tag <span class="lb">v0.13.0</span> → dispara <span class="nd">release.yml</span></span>
+   <span class="ed">│</span>  <span class="dim">tag <span class="lb">v2.2.3</span> → dispara <span class="nd">release.yml</span></span>
    <span class="ed">▼</span>
 <span class="nd">3 · CI DE RELEASE</span>  <span class="dim">8 binarios cross-compiled · codesign macOS · SBOM · CHANGELOG</span>
    <span class="ed">│</span>  <span class="dim">publica en dos sitios, y son cosas distintas:</span>
    <span class="ed">├──▶</span> <span class="lb">GitHub Releases</span>   <span class="dim">los 8 binarios sueltos + SBOM  ← para quien no usa bun/npm</span>
-   <span class="ed">└──▶</span> <span class="lb">npm</span> <span class="nd">ai-engineering@0.13.0</span>   <span class="dim">el paquete con el binario dentro  ← el canal normal</span>
+   <span class="ed">└──▶</span> <span class="lb">npm</span> <span class="nd">ai-engineering@2.2.3</span>   <span class="dim">el paquete con el binario dentro  ← el canal normal</span>
    <span class="ed">▼</span>
 <span class="nd">4 · OTRA MÁQUINA (uso)</span>
    <span class="lb">bun add -g ai-engineering</span>        <span class="c"># → `ai-eng` en PATH. Un solo archivo, cero dependencias de runtime.</span>
@@ -621,7 +620,7 @@
   <div class="tbl-wrap"><table>
     <thead><tr><th>Qué quieres hacer</th><th>El comando</th><th>Quién lo ejecuta</th></tr></thead>
     <tbody>
-      <tr><td>Subir mi trabajo de ai-eng a la nube</td><td><code>git push origin main</code> · <code>git tag v0.13.0 && git push --tags</code></td><td><strong>git.</strong> ai-eng no tiene opinión sobre tu remoto</td></tr>
+      <tr><td>Subir mi trabajo de ai-eng a la nube</td><td><code>git push origin main</code> · <code>git tag v2.2.3 && git push --tags</code></td><td><strong>git.</strong> ai-eng no tiene opinión sobre tu remoto</td></tr>
       <tr><td>Publicar la versión</td><td>el tag dispara <code>release.yml</code> → binarios + <code>bun publish</code></td><td>CI. Con <code>--provenance</code>: la firma la genera el runner, no tu portátil</td></tr>
       <tr><td>Instalarlo en otra máquina</td><td><code>bun add -g ai-engineering</code> (o descarga el binario de Releases)</td><td>bun/npm — y <code>ai-eng upgrade</code> es un envoltorio de esto (§14.4)</td></tr>
       <tr><td>Probar el binario local en otro repo</td><td><code>bun link</code> en el repo de ai-eng → <code>ai-eng init</code> donde quieras</td><td>bun. Sin publicar nada, sin tocar el global</td></tr>
@@ -645,6 +644,7 @@
 ├── AGENTS.md                 <span class="c"># canónico, tú lo editas — 12 reglas + capas + comandos + sesión (CLAUDE.md lo importa)</span>
 ├── CLAUDE.md                 <span class="c"># symlink → AGENTS.md en macOS/Linux; una línea `@AGENTS.md` en Windows — init elige por SO</span>
 ├── DECISIONS.md              <span class="c"># ADR-lite: bloques de ≤6 líneas [Problema → Decisión → Razón] — raíz a propósito: memoria del equipo, sobrevive a la herramienta</span>
+├── .gitignore                <span class="c"># el estándar ai-engineering: OS droppings (.DS_Store), IDEs, secrets, los lenguajes habituales + receipts/ y cache/ del chain — se escribe una vez; si ya tenías uno, es tuyo y no lo tocamos</span>
 ├── .ai-engineering/
 │   ├── spec.html             <span class="c"># QUÉ: el contrato del hito — ≤30 gates, ejecutados por el runner en CI; su sha256 se fija al aprobarse (PARADA 1)</span>
 │   ├── plan.html             <span class="c"># CÓMO: orden del mismo hito — pasos → gates, dependencias, riesgos; lo marca ai-goal, no lo ejecuta la CI</span>
@@ -869,7 +869,6 @@ verify  = <span class="s">"gpt-5.6-luna"</span>     <span class="c"># checks bin
       <tr><td>ai-write · ai-explore · ai-goal · ai-note · ai-issue-report · ai-debug · ai-research</td><td>v1 propios</td><td><span class="pill p-ok">Apache-2.0</span></td><td>integrados en skills/ai-*/</td></tr>
       <tr><td><code>ai-writing-behavior</code></td><td>braintrustdata/agentbehavior (Braintrust + Basis)</td><td><span class="pill p-ok">Apache-2.0</span></td><td>método íntegro con sus 3 <code>references/</code> (spec embebida, decidir-qué-guardar, calibrar-con-trayectorias); NOTICE.md</td></tr>
       <tr><td>ai-brainstorm · ai-plan · ai-design · ai-verify · ai-design-audit</td><td>comunidad sin licencia</td><td><span class="pill p-dim">sin licencia</span></td><td>integrado con atribución — issues abiertos (§11.5)</td></tr>
-      <tr><td><code>ai-rtk</code></td><td>rtk (autometa/Hermes Agent)</td><td><span class="pill p-ok">MIT</span></td><td>capa fina sobre binario externo — SKILL.md medido en <code>~/Downloads/rtk/</code></td></tr>
       <tr><td><code>ai-read-docs</code> · <code>ai-visual-recap</code></td><td>~/repos/skills (propios)</td><td><span class="pill p-ok">Apache-2.0</span></td><td>renombrados al prefijo canónico; método íntegro (§11.7)</td></tr>
       <tr><td><code>ai-security</code></td><td>cloudflare/security-audit-skill</td><td><span class="pill p-ok">MIT</span></td><td>integrado como método de ai-security; validate-findings.cjs + report-schema.json viajan íntegros; NOTICE.md</td></tr>
       <tr><td><code>ai-design-audit</code></td><td>skill instalado (comunidad)</td><td><span class="pill p-dim">sin licencia</span></td><td>integrado con atribución — issue abierto (H4)</td></tr>
@@ -888,11 +887,11 @@ verify  = <span class="s">"gpt-5.6-luna"</span>     <span class="c"># checks bin
 ├── ai-design/SKILL.md                   <span class="c"># ¿qué estética? → router; escribe design/direction.html antes del código</span>
 ├── ai-verify/SKILL.md                   <span class="c"># ¿está bien? → 3 tiers, el juez caro</span>
 ├── ai-security/SKILL.md                 <span class="c"># ¿es explotable? → audit de 6 fases, validación adversarial (MIT, Cloudflare)</span>
+├── ai-stress-test/SKILL.md             <span class="c"># ¿dónde se rompe? → breaking point con la carga que lo causó, métrica real, techo seguro</span>
 ├── ai-write/SKILL.md                    <span class="c"># ¿se entiende? → docs verificadas contra el árbol</span>
 ├── ai-agents-md/SKILL.md                <span class="c"># ¿cómo se gobierna este repo? → crea/mantiene AGENTS.md (convención agents.md, §9.2)</span>
 ├── ai-explore/SKILL.md                  <span class="c"># ¿dónde vive X? → anclado a file:line — deber de grounding (§11.6)</span>
 ├── ai-read-docs/SKILL.md                <span class="c"># ¿qué dice la documentación? → deber en brainstorm/research/architect/plan (§11.6)</span>
-├── ai-rtk/SKILL.md                      <span class="c"># route shell commands through rtk → 60–90% fewer tokens (MIT)</span>
 ├── ai-debug/SKILL.md                    <span class="c"># ¿por qué falla? → reproducción + fix con test</span>
 ├── ai-note/SKILL.md                     <span class="c"># ¿qué descubrimos? → finding persistente para el equipo</span>
 ├── ai-issue-report/SKILL.md             <span class="c"># ¿qué pasó? → reporte técnico estructurado (issue/incidente)</span>
@@ -942,7 +941,7 @@ license: Apache-2.0
   <div class="tbl-wrap"><table>
     <thead><tr><th>Skill v2</th><th>Fuente (íntegra)</th><th>Lo que trae la fuente — <em>no se toca</em></th><th>La costura ai-eng (≤60 líneas)</th></tr></thead>
     <tbody>
-      <tr><td><code>ai-brainstorm</code></td><td><strong>handshake</strong> 134ln + <strong>obra/superpowers brainstorming</strong> <span class="pill p-dim">attributed</span></td><td>Entrevista hasta «explicarlo a un niño» + 5 patrones de obra: <strong>3-path classification</strong> (spike/bounded/architectural), <strong>hard gate</strong> (no code before approval), <strong>red flags table</strong> (anti-patterns), <strong>decomposition awareness</strong> (flag multi-subsystem requests), <strong>spec self-review</strong> (placeholders, contradictions, scope, ambiguity check)</td><td>Salida fijada a <code>.ai-engineering/brainstorm.md</code> — un camino de filesystem común a las 3 superficies, no un artefacto interno de un harness (v17 corrigió el <code>local://</code> de OMP); muere al aprobarse el contrato (§21). El «¿ya existe?» se delega a ai-architect; puntero al formato de spec.html (§11.6). El doc es SPEC, no task_plan</td></tr>
+      <tr><td><code>ai-brainstorm</code></td><td><strong>handshake</strong> 134ln + <strong>obra/superpowers brainstorming</strong> <span class="pill p-dim">attributed</span></td><td>Entrevista hasta «explicarlo a un niño» + 5 patrones de obra: <strong>3-path classification</strong> (spike/bounded/architectural), <strong>hard gate</strong> (no code before approval), <strong>red flags table</strong> (anti-patterns), <strong>decomposition awareness</strong> (flag multi-subsystem requests), <strong>spec self-review</strong> (placeholders, contradictions, scope, ambiguity check)</td><td>Salida fijada a <code>.ai-engineering/brainstorm.md</code> — un camino de filesystem común a las 4 superficies core, no un artefacto interno de un harness (v17 corrigió el <code>local://</code> de OMP); muere al aprobarse el contrato (§21). El «¿ya existe?» se delega a ai-architect; puntero al formato de spec.html (§11.6). El doc es SPEC, no task_plan</td></tr>
       <tr><td><code>ai-plan</code></td><td><strong>wayfinder</strong> 406ln en 6 ficheros <span class="pill p-dim">attributed</span></td><td>El árbol de diseño con rondas frontier, el formato ❓Q/️recomendación, «las decisiones son del usuario — nunca respondas tú», <code>commands/{grill,to-bar,prototype}.md</code> completos, la niebla como CANNOT JUDGE</td><td>Los checks salen en formato gates de unlazy con nombre <strong>spec.html</strong> (QUÉ); el árbol frontier se traduce a <strong>plan.html</strong> (orden de pasos → gates, dependencias, Jobs); ≤30 gates por hito; «check que no corre = FAIL»</td></tr>
       <tr><td><code>ai-goal</code></td><td><strong>loop-engineering</strong> (goal + gauntlet) + <strong>graph-engineering</strong> (tiers de verificación)</td><td>El bucle «corre hasta hecho», el gauntlet con su <em>fallo documentado</em> (sin críticos aislados degenera), la parada por presupuesto</td><td>Decisión v17: el bucle <strong>no se reimplementa</strong> — lo corre el goal nativo de cada superficie (§20.3). <code>ai-goal</code> fija el contrato: consume el orden de <code>plan.html</code>, cierra gates de <code>spec.html</code> con receipt, las tres paradas del §5.1 como condiciones de salida, presupuesto de config.toml, el reporte es <code>ai-visual-recap</code> no prosa, <code>ponytail</code>/KISS como criterio de «suficiente»</td></tr>
       <tr><td><code>ai-architect</code></td><td><strong>headstart</strong> 555ln <span class="pill p-ok">MIT</span></td><td>El research loop pre/mid/post-build, los gates (no trendy-stack, no números inventados), el deep-dive de prior-art en arXiv con su puerta de coste</td><td>La propuesta de capas se expresa como diff de <code>arch.rules.json</code> en un PR — nunca auto-escribe (§16); los tiers de modelo del §09.4</td></tr>
@@ -958,7 +957,6 @@ license: Apache-2.0
       <tr><td><code>ai-design-audit</code></td><td><strong>ai-design-audit</strong> (instalado, medidas sobre navegador real)</td><td>Audit visual medido — alineación, targets táctiles, contraste renderizado — no opiniones</td><td>Es el gate anti-slop ejecutable que <code>ai-design</code> rutea; resultado en formato gates (§11.6)</td></tr>
       <tr><td><code>ai-writing-behavior</code></td><td><strong>writing-agent-behavior</strong> (braintrustdata/agentbehavior) <span class="pill p-ok">Apache-2.0</span></td><td>El método íntegro: partir de evidencia de traza, decidir qué merece spec (set escaso de alto impacto, no inventario), elegir unidad (agrupar/split), calibrar contra trayectorias positive/negative/outside-scope/<strong>lucky-correct</strong>, y mantener conducta observada separada de instrucción (agente ciego al spec en eval observacional) — con la spec del formato embebida en <code>references/</code>: cero red, cero dependencia del repo fuente</td><td>El rename (§11.7); la salida se fija en <code>.agents/behaviors/&lt;name&gt;/BEHAVIOR.md</code> — raíz, no <code>.ai-engineering/</code>: lo lee medio mundo y ai-eng solo valida (§21.5); el validator es el linter de frontmatter de §11.1 extendido, no el CLI de terceros</td></tr>
       <tr><td><code>ai-security</code></td><td><strong>cloudflare/security-audit-skill</strong> <span class="pill p-ok">MIT</span> — 3,2k⭐, el harness que sembró el descubrimiento de vulnerabilidades de Cloudflare</td><td>El pipeline de 6 fases (recon → hunt paralelo por clases de ataque → <strong>validación adversarial</strong>: el agente que comprueba jamás es el que encontró → report → findings.json contra schema → verificación independiente), las 8 familias de ataque, el principio «solo reportas lo que puedes explotar», y <code>validate-findings.cjs</code> — todo íntegro</td><td>La salida se fija en <code>.ai-engineering/security/run-N/</code> (findings.json + REPORT.md); cuando el hito incluye un audit, sus fases se expresan como gates de spec.html («findings.json valida contra schema» es un CHECK); el tier <code>decide</code> juzga, el tier <code>verify</code> corre los checks; los demás packs de seguridad (mantis, secskills, Anthropic-Cybersecurity-Skills) se <strong>ofrecen como boosters</strong>, no se bundleean — son librerías de conocimiento, no método de completion (§06)</td></tr>
-      <tr><td><code>ai-rtk</code></td><td><strong>rtk</strong> (autometa/Hermes Agent) <span class="pill p-ok">MIT</span> — SKILL.md en <code>~/Downloads/rtk/</code></td><td>El proxy Rust y sus patrones de reescritura por superficie: el método de compresión es de su autor, palabra por palabra</td><td>La costura: rtk es binario ajeno — ai-eng lo ofrece en init (§06) y la capa fina routea los comandos; el hook de reescritura se instala por superficie, nunca se ejecuta desde ai-eng</td></tr>
       <tr><td><code>ai-agents-md</code></td><td><strong>agents.md</strong> (convención abierta, agents.md/) <span class="pill p-ok">Apache-2.0</span></td><td>Crear/mantener el AGENTS.md que un repo le debe a sus agentes: raíz vs anidado según la forma real, entrevistar al árbol (no al usuario) para comandos de build/test/lint, escribir solo lo que un agente no puede deducir del código — y el mantenimiento en sesión (editar AGENTS.md directamente, §9.2: no es sagrado)</td><td>La salida vive en la raíz (AGENTS.md), donde las superficies la descubren por convención; <code>doctor</code> valida que cada regla siga siendo "indecible" (§9.2 regla anti-deriva)</td></tr>
     </tbody>
   </table></div>
@@ -1004,7 +1002,6 @@ license: Apache-2.0
       <tr><td>ai-design</td><td>skills de diseño instalados · <code>.ai-engineering/design/</code></td><td>El orquestador elige con su routing-table y resuelve con su escalera de conflictos; <strong>escribe la dirección elegida en <code>design/direction.html</code> antes de que se toque el código</strong>; la implementación la hace el skill ruteado con esa dirección como input; <code>ai-design-audit</code> mide el resultado y lo guarda en <code>design/audits/NNN-{name}.html</code></td></tr>
       <tr><td>ai-verify</td><td>ai-proof</td><td>Las verificaciones alimentan el ledger de gates</td></tr>
       <tr><td><code>.agents/behaviors/*/BEHAVIOR.md</code></td><td>ai-verify (tier <code>decide</code>)</td><td>El juez caro puntúa trayectorias contra el criterio escrito — en modo observacional el agente evaluado está ciego al spec (§21.5); salida tendencial, jamás gate (§17.1)</td></tr>
-      <tr><td>ai-rtk</td><td>rtk (binario externo, ofrecido en init)</td><td>Rutea comandos de shell por rtk: −60–90% tokens de output — la capa fina añade la costura ai-eng (§11.5)</td></tr>
       <tr><td>ai-debug</td><td>ai-proof</td><td>El fix no es «hecho» sin el test que lo reproduce y pasa</td></tr>
       <tr><td>ai-research</td><td>ai-architect</td><td>Evidencia externa para el existence-check y el prior-art — guardada en <code>.ai-engineering/research/NNN-{name}.html</code></td></tr>
       <tr><td>ai-write</td><td>el árbol real</td><td>Docs verificadas contra ficheros y comandos existentes</td></tr>
@@ -1140,7 +1137,7 @@ license: Apache-2.0
 
   <p>Los que tú tecleas: <code>init · doctor · config · update · upgrade · uninstall</code>. Flags primero (<code>@bomb.sh/args</code>), prompts solo para lo que falte (<code>@clack/prompts</code>), TAB en todo (<code>@bomb.sh/tab</code>). El binario expone además <strong>cuatro verbos que no son para el humano</strong> — los invocan los hooks de superficie, los shims de git y la plantilla de CI: <code>ai-eng chain &lt;evento&gt;</code> (stdin→stdout, exit 2 = deny), <code>ai-eng git &lt;hook&gt;</code>, <code>ai-eng wrap test -- &lt;cmd&gt;</code> y <code>ai-eng spec run|open|close</code>. No aparecen en el TAB ni en <code>--help</code> como verbos de usuario: son la superficie de programación del propio producto (§07).</p>
 
-  <p><strong>El paquete es <code>ai-engineering@0.13.0</code></strong> — otro artefacto en otro registry que el wheel de Python de v1 (que llegó a 1.0.0 en PyPI); los dos números no tienen relación. v2 arranca en la línea 0.x a propósito: un binario que aún cambia su superficie de hooks cada pocas semanas no debe una promesa de compatibilidad 1.0. Las versiones de abajo (0.13.0 instalado, 0.14.0 disponible) son las que vería <code>ai-eng --version</code>. La cadena de distribución completa —repo, CI de release, npm, GitHub Releases— está en <a href="#s07">§7.1</a>.</p>
+  <p><strong>El paquete es <code>ai-engineering@2.2.3</code></strong> — otro artefacto en otro registry que el wheel de Python de v1 (que llegó a 1.0.0 en PyPI); los dos números no tienen relación. v2 arrancó en la línea 0.x a propósito: un binario que aún cambiaba su superficie de hooks cada pocas semanas no debía una promesa de compatibilidad 1.0. Las versiones de abajo (2.2.3 instalado, 2.3.0 disponible) son las que vería <code>ai-eng --version</code>. La cadena de distribución completa —repo, CI de release, npm, GitHub Releases— está en <a href="#s07">§7.1</a>.</p>
 
   <div class="note ok">
     <h4>Qué son <code>update</code> y <code>upgrade</code> — y por qué no rompen la regla de seguridad</h4>
@@ -1153,14 +1150,14 @@ license: Apache-2.0
   <h3>14.0 · Cómo te enteras de que hay versión nueva (sin que nadie te empuje)</h3>
   <div class="grid g3">
     <div class="card"><h4>Comprobación cacheada</h4><p>Al arrancar cualquier comando, si la caché <code>~/.ai-engineering/cache/version.json</code> tiene &gt;24h, se hace <strong>una</strong> petición anónima al registry (equivalente a <code>bun pm view ai-engineering version</code>). Offline o error → silencio, nunca un fallo. Cero identificadores, cero telemetría: es la única red que hace el CLI fuera de <code>upgrade</code>.</p></div>
-    <div class="card"><h4>Una línea, al final</h4><p><code>⚠ 0.14.0 disponible → ai-eng upgrade · changelog: CHANGELOG.md</code>. Aparece al final de <code>init</code>/<code>doctor</code>/<code>update</code> — nunca como bloque, nunca a mitad de trabajo. Y <code>doctor</code> la repite como WARN permanente hasta que la actualices o la declares intencional.</p></div>
+    <div class="card"><h4>Una línea, al final</h4><p><code>⚠ 2.3.0 disponible → ai-eng upgrade · changelog: CHANGELOG.md</code>. Aparece al final de <code>init</code>/<code>doctor</code>/<code>update</code> — nunca como bloque, nunca a mitad de trabajo. Y <code>doctor</code> la repite como WARN permanente hasta que la actualices o la declares intencional.</p></div>
     <div class="card"><h4>Opt-out civilizado</h4><p><code>notices = false</code> en <code>.ai-engineering/config.toml</code> o <code>AI_ENG_NO_UPDATE_NOTICES=1</code> (la convención de env-var que ya usan npm/pip — los CI la ponen solos). Nunca auto-update: ai-eng propone, el humano dispone.</p></div>
   </div>
 
   <h3>14.0b · <code>ai-eng init</code> fase 1 — global, sin repo</h3>
 <pre>$ cd ~ &amp;&amp; ai-eng init
 
-<span class="s">┌</span>  <span class="b">{ai} Engineering 0.13.0</span>
+<span class="s">┌</span>  <span class="b">{ai} Engineering 2.2.3</span>
 <span class="s">│</span>
 <span class="s">◆</span>  <span class="t">Which agent surfaces do you use?</span>
 <span class="s">│</span>   <span class="k">◉</span> Claude Code        <span class="c">✔ core — deny + rewrite input/output</span>
@@ -1171,30 +1168,6 @@ license: Apache-2.0
 <span class="s">│</span>   <span class="k">○</span> Copilot            <span class="c">best-effort — ephemeral FS: deny only, no receipts</span>
 <span class="s">│</span>   <span class="k">○</span> Pi                 <span class="c">core — in-process extension (deny + rewrite)</span>
 <span class="s">│</span>   <span class="k">○</span> Zed                <span class="c">skills only — no guards in hot-path</span>
-<span class="s">│</span>
-<span class="s">◆</span>  <span class="t">Optional third-party harness boosters?</span>  <span class="c">grouped multiselect — p.group() of @clack/prompts · ai-eng prints commands, never installs</span>
-<span class="s">│</span>  <span class="wd">▿ Contexto — menos tokens por turno</span>
-<span class="s">│</span>   <span class="k">○</span> rtk                compress bash output (60–90% fewer tokens)   <span class="c">brew install rtk && rtk init</span>
-<span class="s">│</span>   <span class="k">○</span> caveman            ultra-compressed agent output (−65% tokens)   <span class="c">npx skills add caveman</span>
-<span class="s">│</span>   <span class="k">○</span> engram             persistent agent memory across sessions   <span class="c">npx skills add engram</span>
-<span class="s">│</span>  <span class="wd">▿ Diseño — UI que no parezca generada por IA</span>
-<span class="s">│</span>   <span class="k">○</span> impeccable         frontend design + redesign with taste   <span class="c">npx skills add impeccable</span>
-<span class="s">│</span>   <span class="k">○</span> hallmark           anti-AI-slop audit (58 gates)   <span class="c">npx skills add hallmark</span>
-<span class="s">│</span>   <span class="k">○</span> shadcn             component registry with tokens   <span class="c">npx shadcn@latest init</span>
-<span class="s">│</span>   <span class="k">○</span> astryx             Meta design system — 150+ componentes agent-ready   <span class="c">npx @astryxdesign/cli init --features agents</span>
-<span class="s">│</span>   <span class="k">○</span> emil-design-eng    fluid UI polish &amp; invisible details   <span class="c">npx skills add emil-design-eng</span>
-<span class="s">│</span>   <span class="k">○</span> ui-ux-pro-max      premium UX/UI direction   <span class="c">npx skills add ui-ux-pro-max</span>
-<span class="s">│</span>   <span class="k">○</span> tasteskill         design taste presets   <span class="c">npx skills add tasteskill</span>
-<span class="s">│</span>  <span class="wd">▿ Investigación — evidencia real, no memoria</span>
-<span class="s">│</span>   <span class="k">○</span> tavily             current web search &amp; extraction   <span class="c">npx skills add tavily</span>
-<span class="s">│</span>   <span class="k">○</span> exa                semantic web discovery   <span class="c">npx skills add exa</span>
-<span class="s">│</span>   <span class="k">○</span> context7           version-aware library docs   <span class="c">npx skills add context7</span>
-<span class="s">│</span>  <span class="wd">▿ Seguridad</span>
-<span class="s">│</span>   <span class="k">○</span> mantis             15-stage security review pipeline (Google)   <span class="c">npx skills add google/mantis</span>
-<span class="s">│</span>  <span class="wd">▿ Diagnóstico del harness</span>
-<span class="s">│</span>   <span class="k">○</span> skill-map          mapa de skills/hooks/agents: colisiones, huérfanos, tokens   <span class="c">npm i -g @skill-map/cli && sm scan</span>
-<span class="s">│</span>  <span class="c">nothing selected by default · space = toggle · tab = jump between groups · ⏎ confirm — "none" is just Enter</span>
-<span class="s">│</span>
 <span class="s">◇</span>  Installing global canon
 <span class="s">│</span>  <span class="k">✓</span> ~/.ai-engineering/skills/ — 20 ai-* skills installed (11 core + 9 bajo demanda; flat, no vendor)
 <span class="s">│</span>  <span class="k">✓</span> ~/.ai-engineering/version.json — version + 24h cache for update check
@@ -1213,7 +1186,7 @@ license: Apache-2.0
   <h3>14.1 · <code>ai-eng init</code> fase 2 — project scaffold</h3>
 <pre>$ mkdir demo &amp;&amp; cd demo &amp;&amp; ai-eng init        <span class="c"># no hace falta `git init` antes: init lo detecta y lo crea</span>
 
-<span class="s">┌</span>  <span class="b">{ai} Engineering 0.13.0</span>
+<span class="s">┌</span>  <span class="b">{ai} Engineering 2.2.3</span>
 <span class="s">│</span>
 <span class="s">◆</span>  <span class="t">No git repo here. Create one? (git init -q)</span>  <span class="k">●</span> Sí   <span class="k">○</span> No, salir
 <span class="s">│</span>
@@ -1227,31 +1200,6 @@ license: Apache-2.0
 <span class="s">│</span>   <span class="k">○</span> Pi                <span class="c">core — extension in-process (deny + rewrite)</span>
 <span class="s">│</span>   <span class="k">○</span> Zed               <span class="c">skills only — no guards in hot-path</span>
 <span class="s">│</span>
-<span class="s">◆</span>  <span class="t">¿Añades potenciadores de harness de terceros?</span>  <span class="c">multiselect agrupado — p.group() de @clack/prompts · ai-eng imprime el comando, nunca instala</span>
-<span class="s">│</span>  <span class="wd">▿ Contexto — menos tokens por turno</span>
-<span class="s">│</span>   <span class="k">○</span> rtk                filtra la salida de bash (60–90% menos tokens) <span class="c">brew install rtk · rtk init</span>
-<span class="s">│</span>   <span class="k">○</span> caveman            salida ultra-compacta del agente (−65%) <span class="c">npx skills add caveman</span>
-<span class="s">│</span>   <span class="k">○</span> engram             memoria persistente entre sesiones <span class="c">npx skills add engram</span>
-<span class="s">│</span>  <span class="wd">▿ Diseño — UI que no parezca generada por IA</span>
-<span class="s">│</span>   <span class="k">○</span> impeccable         frontend y rediseño con gusto <span class="c">npx skills add impeccable</span>
-<span class="s">│</span>   <span class="k">○</span> hallmark           audit anti-AI-slop (58 gates) <span class="c">npx skills add hallmark</span>
-<span class="s">│</span>   <span class="k">○</span> shadcn             registro de componentes con tokens <span class="c">npx shadcn@latest init</span>
-<span class="s">│</span>   <span class="k">○</span> astryx             design system de Meta — agent-ready <span class="c">npx @astryxdesign/cli init --features agents</span>
-<span class="s">│</span>   <span class="k">○</span> emil-design-eng    pulido UI y detalles invisibles <span class="c">npx skills add emil-design-eng</span>
-<span class="s">│</span>   <span class="k">○</span> ui-ux-pro-max      dirección UX/UI premium <span class="c">npx skills add ui-ux-pro-max</span>
-<span class="s">│</span>   <span class="k">○</span> tasteskill         presets de gusto <span class="c">npx skills add tasteskill</span>
-<span class="s">│</span>  <span class="wd">▿ Investigación — evidencia real, no memoria</span>
-<span class="s">│</span>   <span class="k">○</span> tavily             búsqueda web actual y extracción <span class="c">npx skills add tavily</span>
-<span class="s">│</span>   <span class="k">○</span> exa                descubrimiento semántico web <span class="c">npx skills add exa</span>
-<span class="s">│</span>   <span class="k">○</span> context7           docs version-aware de librerías <span class="c">npx skills add context7</span>
-<span class="s">│</span>  <span class="wd">▿ Seguridad</span>
-<span class="s">│</span>   <span class="k">○</span> mantis             security review de 15 etapas (Google) <span class="c">npx skills add google/mantis</span>
-<span class="s">│</span>  <span class="wd">▿ Diagnóstico del harness</span>
-<span class="s">│</span>   <span class="k">○</span> skill-map          mapa de skills/hooks: colisiones, huérfanos, tokens <span class="c">npm i -g @skill-map/cli && sm scan</span>
-<span class="s">│</span>  <span class="c">nada marcado por defecto · espacio = marcar · tab = saltar de grupo · ⏎ confirma — "ninguno" es solo dar al Enter</span>
-<span class="s">│</span>  <span class="c">ai-eng no bundlea binarios de terceros ni los ejecuta: imprime el comando y la</span>
-<span class="s">│</span>  <span class="c">versión pinneada. Lo que no pide permiso, no se instala.</span>
-<span class="s">│</span>
 <span class="s">│</span>  <span class="c">⚠  No code yet → arch-tests in bootstrap mode (no failures on empty).</span>
 <span class="s">│</span>     <span class="c">doctor activates them automatically when src/ appears.</span>
 <span class="s">│</span>
@@ -1259,8 +1207,9 @@ license: Apache-2.0
 <span class="s">│</span>  <span class="k">✓</span> git init + primer commit del contrato <span class="c">(AGENTS/DECISIONS/spec+plan/.ai-engineering → base del lockfile)</span>
 <span class="s">│</span>  <span class="k">✓</span> AGENTS.md <span class="c">(12 reglas + capas + comandos + sesión — tú lo editas)</span>
 <span class="s">│</span>  <span class="k">✓</span> CLAUDE.md <span class="c">→ symlink a AGENTS.md (macOS/Linux) · una línea `@AGENTS.md` (Windows)</span>
+<span class="s">│</span>  <span class="k">✓</span> .gitignore <span class="c">(el estándar: .DS_Store, IDEs, secrets, lenguajes + receipts/cache del chain — uno tuyo, sin tocar)</span>
 <span class="s">│</span>  <span class="k">✓</span> .ai-engineering/{config,overrides,lock,arch.rules} <span class="c">— sin skills/: el canon es global (§08)</span>
-<span class="s">│</span>  <span class="k">✓</span> skills: canon global <span class="s">19</span> en ~/.ai-engineering/skills/ · <span class="c">symlink a .claude/skills/ + .agents/skills/</span>
+<span class="s">│</span>  <span class="k">✓</span> skills: canon global <span class="s">20</span> en ~/.ai-engineering/skills/ · <span class="c">symlink a .claude/skills/ + .agents/skills/</span>
 <span class="s">│</span>  <span class="k">✓</span> hooks → .claude/settings.json <span class="c">(chain, 4 eventos)</span>
 <span class="s">│</span>  <span class="k">✓</span> git floor → .git/hooks/{pre-commit,commit-msg,pre-push} (marker-managed) · wrap de tests · workflow CI
 <span class="s">│</span>
@@ -1272,28 +1221,28 @@ license: Apache-2.0
   <h3>14.2 · <code>ai-eng doctor</code> — 12 checks y una prueba real</h3>
 <pre>$ ai-eng doctor
 
-<span class="s">┌</span>  Health check <span class="dim">· demo · bun 1.4.0 · ai-eng 0.13.0</span>
+<span class="s">┌</span>  Health check <span class="dim">· demo · bun 1.4.0 · ai-eng 2.2.3</span>
 <span class="s">│</span>  <span class="k">✓</span>  AGENTS.md · 12 reglas · 41 líneas <span class="c">(under the context ceiling)</span>
 <span class="s">│</span>  <span class="k">✓</span>  CLAUDE.md importa @AGENTS.md
 <span class="s">│</span>  <span class="k">✓</span>  .ai-engineering/config.toml parseable · superficies: claude-code, oh-my-pi
-<span class="s">│</span>  <span class="k">✓</span>  canon global 20/20 sha256 · <code>skills_min = "0.13.0"</code> cumplido · espejos symlink intactos
+<span class="s">│</span>  <span class="k">✓</span>  canon global 20/20 sha256 · <code>skills_min = "2.2.3"</code> cumplido · espejos symlink intactos
 <span class="s">│</span>  <span class="k">✓</span>  git floor · marker hooks en .git/hooks/ · gitleaks 8.30 · oxlint en PATH
 <span class="s">│</span>  <span class="k">✓</span>  <span class="b">chain test</span>: payload adversarial <span class="c">(git commit -n)</span> → DENY en 41ms
 <span class="s">│</span>  <span class="k">✓</span>  receipts: 1,204 ejecuciones · 7 denies · p50 38ms · <span class="b">p95 44ms</span> <span class="c">(techo 50)</span>
 <span class="s">│</span>  <span class="n">⚠</span>  research/: 27 archivos &gt; max_files=25 · 9 no citados &gt; 90d → <code>ai-eng doctor --gc</code> (§21.3)
 <span class="s">│</span>  <span class="n">⚠</span>  1 guard en override: loop — «migración por lotes» (vence en 3d)
 <span class="s">│</span>  <span class="n">⚠</span>  arch.rules.json en modo bootstrap — src/ vacío
-<span class="s">│</span>  <span class="n">⚠</span>  <span class="b">assets outdated</span>: el binario es 0.13.0, los hooks instalados son de 0.12.0 <span class="c">→ ai-eng update</span>
+<span class="s">│</span>  <span class="n">⚠</span>  <span class="b">assets outdated</span>: el binario es 2.2.3, los hooks instalados son de 2.2.2 <span class="c">→ ai-eng update</span>
 <span class="s">│</span>  <span class="k">✓</span>  SPEC: 11/11 checks ejecutables <span class="c">(0 verde-falso) · slot limpio: 0 contratos zombi (§21.2)</span>
 <span class="s">│</span>  <span class="k">✓</span>  claude-code 4/4 eventos respondiendo · oh-my-pi plugin cargado
 <span class="s">│</span>
-<span class="s">└</span>  <span class="s">12 checks: 9 OK · 3 WARN · 0 FAIL</span>   <span class="n">⚠</span> ai-eng <span class="b">0.14.0</span> disponible <span class="c">→ ai-eng upgrade · CHANGELOG.md</span></pre>
+<span class="s">└</span>  <span class="s">12 checks: 9 OK · 3 WARN · 0 FAIL</span>   <span class="n">⚠</span> ai-eng <span class="b">2.3.0</span> disponible <span class="c">→ ai-eng upgrade · CHANGELOG.md</span></pre>
   <p>La diferencia con un doctor de teatro: este <strong>ejecuta</strong> un payload adversarial y mide latencia real. Si el hook no niega, o niega lento, es FAIL — no WARN. v1 tenía 26 checks en 6 familias; 12 en una familia basta, y con una prueba de verdad vale más que 26 comprobaciones de existencia. Nota los dos WARN de versión: <strong>«hay binario nuevo»</strong> y <strong>«tus assets instalados son de un binario viejo»</strong> son cosas distintas, y solo la segunda se arregla con <code>update</code>.</p>
 
   <h3>14.3 · <code>ai-eng update</code> — sync assets from the installed binary (zero network)</h3>
 <pre>$ ai-eng update
 
-<span class="s">┌</span>  <span class="b">ai-eng 0.13.0 · assets instalados: 0.12.0</span>
+<span class="s">┌</span>  <span class="b">ai-eng 2.2.3 · assets instalados: 2.2.2</span>
 <span class="s">│</span>  <span class="c">Read from the installed binary — zero network requests, no skills downloaded.</span>
 <span class="s">│</span>
 <span class="s">◆</span>  <span class="t">What needs to sync</span>
@@ -1313,7 +1262,7 @@ license: Apache-2.0
 <span class="s">│</span>
 <span class="s">◇</span>  Syncing
 <span class="s">│</span>  <span class="k">✓</span> 5 assets synced · 1 conflicto resuelto a mano · 0 archivos tuyos tocados
-<span class="s">│</span>  <span class="k">✓</span> ai-eng.lock re-escrito <span class="c">(sha256 nuevos)</span> · <span class="b">commit 7f3a: chore(ai-eng): assets → 0.13.0</span>
+<span class="s">│</span>  <span class="k">✓</span> ai-eng.lock re-escrito <span class="c">(sha256 nuevos)</span> · <span class="b">commit 7f3a: chore(ai-eng): assets → 2.2.3</span>
 <span class="s">│</span>
 <span class="s">└</span>  Siguiente: <span class="k">ai-eng doctor</span> — verify the chain still works with the new hooks</pre>
   <p>Los criterios que hacen <code>update</code> seguro, no un <code>curl | sh</code>: <strong>(1)</strong> el payload sale del binario que ya instalaste tú, nunca de la red; <strong>(2)</strong> solo escribe lo que ai-eng posee — el lockfile declara la propiedad, así que la pregunta «¿esto es mío o tuyo?» tiene respuesta mecánica; <strong>(3)</strong> un hook que parcheaste a mano genera diff 3-vías y <em>pregunta</em>, nunca se sobrescribe en silencio; <strong>(4)</strong> el resultado es un commit, con <code>git revert</code> como rollback. Y si prefieres el canal de equipo: <code>git pull</code> sigue trayendo los mismos bytes, porque vienen del mismo binario versionado.</p>
@@ -1321,21 +1270,21 @@ license: Apache-2.0
   <h3>14.4 · <code>ai-eng upgrade</code> — el binario, vía tu gestor de paquetes</h3>
 <pre>$ ai-eng upgrade
 
-<span class="s">┌</span>  <span class="b">ai-eng</span> · instalado <span class="t">0.13.0</span> · último <span class="k">0.14.0</span>
-<span class="s">│</span>  <span class="c">CHANGELOG 0.14.0 — 2026-09-12</span>
+<span class="s">┌</span>  <span class="b">ai-eng</span> · instalado <span class="t">2.2.3</span> · último <span class="k">2.3.0</span>
+<span class="s">│</span>  <span class="c">CHANGELOG 2.3.0 — 2026-09-12</span>
 <span class="s">│</span>    · guard injection: catálogo ampliado con 14 IOC de tool-result poisoning
 <span class="s">│</span>    · ai-verify: lane nueva <span class="s">a11y-contrast</span>
 <span class="s">│</span>    · ⚠ breaking: el matcher de Claude Code pasa a requerir PowerShell — <span class="b">corre ai-eng update después</span>
 <span class="s">│</span>
 <span class="s">◆</span>  <span class="t">¿Cómo lo actualizo?</span>
-<span class="s">│</span>   <span class="k">●</span> bun add -g ai-engineering@0.14.0      <span class="c">← lo ejecuta bun: registry, checksum, sustitución</span>
-<span class="s">│</span>   <span class="k">○</span> npm install -g ai-engineering@0.14.0
+<span class="s">│</span>   <span class="k">●</span> bun add -g ai-engineering@2.3.0      <span class="c">← lo ejecuta bun: registry, checksum, sustitución</span>
+<span class="s">│</span>   <span class="k">○</span> npm install -g ai-engineering@2.3.0
 <span class="s">│</span>   <span class="k">○</span> Just print the command, I'll run it myself
 <span class="s">│</span>
 <span class="s">◇</span>  Syncing binario
-<span class="s">│</span>  <span class="k">✓</span> bun: + ai-engineering@0.14.0 · <span class="c">la confianza la firma el registry, no ai-eng</span>
-<span class="s">│</span>  <span class="k">✓</span> <span class="b">ai-eng 0.14.0</span> · verified with --version
-<span class="s">│</span>  <span class="n">⚠</span>  this repo's assets are still from 0.13.0 → <span class="k">ai-eng update</span>
+<span class="s">│</span>  <span class="k">✓</span> bun: + ai-engineering@2.3.0 · <span class="c">la confianza la firma el registry, no ai-eng</span>
+<span class="s">│</span>  <span class="k">✓</span> <span class="b">ai-eng 2.3.0</span> · verified with --version
+<span class="s">│</span>  <span class="n">⚠</span>  this repo's assets are still from 2.2.3 → <span class="k">ai-eng update</span>
 <span class="s">└</span>  upgrade changes the binary · update syncs the scaffolded files. Two steps by design.</pre>
   <p><code>upgrade</code> es deliberadamente aburrido: leer la versión remota, imprimir el changelog, preguntar, y <strong>delegar la instalación en bun o npm</strong>. Diez líneas de spawn. Reimplementar la descarga, la verificación de integridad y la sustitución del propio ejecutable en ejecución es inventar npm con menos pruebas encima — y era exactamente el fallo que el consejo señaló. La separación en dos pasos es la que hace visible el peligro real: un binario nuevo con hooks viejos es una cadena a medias, y por eso <code>doctor</code> lo marca como WARN hasta que corre <code>update</code>.</p>
 
@@ -1344,7 +1293,7 @@ license: Apache-2.0
 
 <pre>$ ai-eng config
 
-<span class="s">┌</span>  <span class="b">Configuration</span> <span class="dim">· demo · ai-eng 0.13.0</span>
+<span class="s">┌</span>  <span class="b">Configuration</span> <span class="dim">· demo · ai-eng 2.2.3</span>
 <span class="s">│</span>
 <span class="s">◆</span>  <span class="t">Which agent surfaces do you use?</span>
 <span class="s">│</span>   <span class="k">◉</span> Claude Code        <span class="c">✔ installed</span>
@@ -1361,7 +1310,7 @@ license: Apache-2.0
 
 <pre>$ ai-eng uninstall
 
-<span class="s">┌</span>  <span class="b">Uninstall</span> <span class="dim">· demo · ai-eng 0.13.0</span>
+<span class="s">┌</span>  <span class="b">Uninstall</span> <span class="dim">· demo · ai-eng 2.2.3</span>
 <span class="s">│</span>
 <span class="s">│</span>  <span class="t">This will remove ai-eng governance from this project:</span>
 <span class="s">│</span>
@@ -1395,7 +1344,7 @@ license: Apache-2.0
     <tbody>
       <tr><td><b>Solo quiere las skills</b> (sin proyecto)</td><td><code>ai-eng init</code> en <code>~</code></td><td>Fase 1: instala el canon global + espejos. Termina con una línea: <code>en un repo, corre ai-eng init otra vez para gobernarlo</code> — y el hook de SessionStart se lo recordará dentro de cada repo no iniciado (§14.0a).</td></tr>
       <tr><td><b>Al revés: va directo a su repo</b></td><td><code>cd mi-app &amp;&amp; ai-eng init</code></td><td>Detecta que falta la fase 1 y <em>no aborta</em>: <code>«no hay canon global en ~/.ai-engineering/skills — install it now y sigo con el repo, ¿ok?»</code>. One yes, two phases done.</td></tr>
-      <tr><td><b>Re-inicia un repo ya iniciado</b></td><td><code>ai-eng init</code> (otra vez)</td><td>Idempotencia real: <code>«esto ya está gobernanado (0.13.0). ¿Reinstalar assets [update], añadir superficie [config], o salir?»</code>. Nunca pisa un AGENTS.md editado — diff 3-vías o nada.</td></tr>
+      <tr><td><b>Re-inicia un repo ya iniciado</b></td><td><code>ai-eng init</code> (otra vez)</td><td>Idempotencia real: <code>«esto ya está gobernanado (2.2.3). ¿Reinstalar assets [update], añadir superficie [config], o salir?»</code>. Nunca pisa un AGENTS.md editado — diff 3-vías o nada.</td></tr>
       <tr><td><b>CI / script sin humano</b></td><td><code>ai-eng init --yes --surface claude-code</code></td><td>Cero prompts. Flags obligatorios si faltan datos: <code>--surface</code> es requerido con <code>--yes</code> (adivinar superficies en CI es la receta para un repo sin guards y un pipeline verde). Exit ≠ 0 si la superficie elegida no puede negar.</td></tr>
       <tr><td><b>Añade un IDE nuevo a mitad</b></td><td><code>ai-eng config --add opencode</code></td><td>Re-genera solo ese adapter y su espejo de skills; imprime el diff de lo que escribe. Quitar: <code>--remove cursor</code> borra <em>solo</em> sus entradas de settings, no las tuyas.</td></tr>
       <tr><td><b>Se arrepiente</b></td><td><code>ai-eng uninstall</code></td><td>Revierte <code>core.hooksPath</code>, quita sus entradas, deja AGENTS.md / DECISIONS.md / .ai-engineering/{spec,plan}.html / arch.rules.json y el canon global. <code>«gobernanza retirada; tus 4 archivos de contrato siguen ahí»</code>.</td></tr>
@@ -1418,7 +1367,7 @@ license: Apache-2.0
 <span class="k">if</span> (!env.AI_ENG_NO_UPDATE_NOTICES &amp;&amp; !f.checkOnly) maybeNotice();   <span class="c">// ⚠ 0.14.0 disponible → ai-eng upgrade</span>
 
 <span class="k">if</span> (f._[<span class="n">0</span>] === <span class="s">"init"</span>) {
-  intro(<span class="s">"{ai} Engineering 0.13.0"</span>);
+  intro(<span class="s">"{ai} Engineering 2.2.3"</span>);
   <span class="c">// ── fase 1: fuera de repo (o --global) → canon global + espejos, y fuera (§14.0a)</span>
   <span class="k">if</span> (f.global || !isGitRepo(<span class="k">true</span>)) {          <span class="c">// true = busca hacia arriba, como git</span>
     <span class="k">await</span> installCanon();                          <span class="c">// ~/.ai-engineering/skills + symlinks por superficie</span>
@@ -1432,7 +1381,7 @@ license: Apache-2.0
     <span class="k">await</span> installCanon();
   }
   <span class="k">if</span> (isGoverned()) {                                <span class="c">// idempotencia: re-init no pisa tu trabajo</span>
-    <span class="k">const</span> a = <span class="k">await</span> select({ message: <span class="s">"Esto ya está gobernanado (0.13.0)."</span>, options: [
+    <span class="k">const</span> a = <span class="k">await</span> select({ message: <span class="s">"Esto ya está gobernanado (2.2.3)."</span>, options: [
       { value: <span class="s">"update"</span>, label: <span class="s">"Reinstalar assets"</span> }, { value: <span class="s">"config"</span>, label: <span class="s">"Añadir/quitar superficie"</span> },
       { value: <span class="s">"exit"</span>, label: <span class="s">"Salir"</span> }] });
     <span class="k">if</span> (a === <span class="s">"exit"</span> || isCancel(a)) process.exit(<span class="n">0</span>);
@@ -1450,20 +1399,6 @@ license: Apache-2.0
     required: <span class="k">true</span>,
   });
   <span class="k">if</span> (isCancel(picked)) process.exit(<span class="n">0</span>);
-
-  <span class="c">// potenciadores de terceros: se OFRECEN, no se instalan (§14.1). ai-eng no ejecuta binarios ajenos.</span>
-  <span class="c">// multiselect AGRUPADO: p.group() de @clack/prompts 1.7.0 — cabeceras no seleccionables, tab salta de grupo</span>
-  <span class="k">if</span> (!f.yes) {
-    <span class="k">const</span> g = p.group();
-    <span class="k">const</span> boost = <span class="k">await</span> multiselect({
-      message: <span class="s">"¿Potenciadores de harness? (opcionales)"</span>, required: <span class="k">false</span>,
-      options: Object.values(BOOSTER_GROUPS).flatMap(gr =&gt; [
-        g.header(gr.title),
-        ...gr.items.map(b =&gt; ({ value: b.id, label: b.name, hint: b.cmd })),
-      ]),
-    });   <span class="c">// Contexto: rtk·caveman·engram | Diseño: impeccable·hallmark·shadcn·astryx·emil·uiux·taste | Investigación: tavily·exa·context7 | Seguridad: mantis | Diagnóstico: skill-map</span>
-    <span class="k">if</span> (!isCancel(boost) &amp;&amp; boost.length) printInstallCommands(boost);   <span class="c">// comando exacto + versión pinneada + licencia</span>
-  }
 
   <span class="k">for</span> (<span class="k">const</span> id <span class="k">of</span> picked) {                             <span class="c">// aborta antes de prometer lo que no puede cumplir</span>
     <span class="k">const</span> s = SURFACES.find(x =&gt; x.id === id)!;
@@ -1785,7 +1720,7 @@ license: Apache-2.0
   <p class="dim">La prueba de que este mapa es el correcto: si al cerrar un hito no puedes señalar qué receipt cerró cada gate, qué línea de DECISIONS.md justifica cada decisión, y qué paso de plan.html ordenó cada commit — el ciclo no se siguió; se improvisó. <code>ai-visual-recap</code> muestra exactamente esas tres cosas, y por eso es el cierre, no un resumen.</p>
 
   <h3>20.3 · Por qué el bucle es el nativo de la superficie, no un bucle nuestro (decisión v17)</h3>
-  <p>Cada superficie que soportamos ya tiene su goal loop afinado con su propio harness: Claude Code corre su modo autónomo con su plan tool y su «/tokens»; OMP abre su app de usage con tracker de límites 5h/semana integrado; OpenCode tiene su loop con sus hooks. Reimplementar el bucle en una skill sería <strong>peor en las tres superficies a la vez</strong>: peor latencia (doble capa de planificación), peor UX (dos barras de progreso compitiendo) y obsolescencia garantizada — cada release de la superficie rompería nuestra copia. La regla 12 lo decide: lo que la superficie ya hace bien, no se reescribe.</p>
+<p>Cada superficie que soportamos ya tiene su goal loop afinado con su propio harness: Claude Code corre su modo autónomo con su plan tool y su «/tokens»; OMP abre su app de usage con tracker de límites 5h/semana integrado; OpenCode tiene su loop con sus hooks; Pi corre el suyo in-process. Reimplementar el bucle en una skill sería <strong>peor en las cuatro superficies core a la vez</strong>: peor latencia (doble capa de planificación), peor UX (dos barras de progreso compitiendo) y obsolescencia garantizada — cada release de la
   <p>Lo que la superficie <em>no</em> puede hacer por sí sola es exactamente lo que <code>ai-goal</code> añade, y por eso la skill sigue existiendo — como contrato, no como motor:</p>
   <div class="grid g2">
     <div class="card"><h4>El goal nativo pone</h4><p>El motor del bucle (iterar hasta agotar el objetivo), el contexto gestionado por el harness, el cambio de modelo (selector + nuestro pin inyectado), la economía de sesión (compact, /usage, límites), la suspensión y reanudación con su propio estado.</p></div>
@@ -1832,7 +1767,6 @@ license: Apache-2.0
       <tr><td><code>ai-note</code></td><td>bloque en DECISIONS.md, o lo entrega a <code>ai-write</code></td><td>el agente (lee DECISIONS entero)</td><td>cuando toca</td><td><strong>permanente</strong> — no crea archivo propio a propósito: un hallazgo sin casa en DECISIONS/docs es un hallazgo que nadie releerá</td></tr>
       <tr><td><code>ai-issue-report</code></td><td><code>.ai-engineering/reports/NNN-{slug}.html</code></td><td>el equipo (incidente), humanos sin contexto de sesión</td><td>cuando algo pasó</td><td><strong>inmune mientras se cite</strong> — la historia no se reescribe; citada por DECISIONS.md es eterna, sin cita caduca a gc (§21.3)</td></tr>
       <tr><td><code>ai-visual-recap</code></td><td><code>.ai-engineering/recap.html</code></td><td>el humano (cierre del hito)</td><td>paso 12</td><td><code>spec close</code> lo archiva a git y lo borra del árbol; si nadie lo borra, <code>doctor</code> lo marca huérfano (§21.2)</td></tr>
-      <tr><td><code>ai-explore</code> · <code>ai-read-docs</code> · <code>ai-debug</code> · <code>ai-rtk</code></td><td><strong>nada</strong> — son lentes, no autores</td><td>—</td><td>—</td><td>— (su output son citas file:line / docs leídas que <em>otros</em> incorporan a sus archivos; el deber de grounding §11.6)</td></tr>
       <tr><td><code>config.toml</code> / <code>overrides.toml</code> / <code>ai-eng.lock</code></td><td>el humano o <code>ai-eng config</code> (overrides: solo humano, con reason)</td><td>chain, doctor, install, surfaces</td><td>init</td><td><strong>permanente</strong> — overrides caducan por <code>until:</code>, nunca en silencio</td></tr>
     </tbody>
   </table></div>
@@ -1925,8 +1859,8 @@ receipts_ttl = "30d" # receipts: agregar y borrar</pre><p style="margin-top:10px
 </section>
 
 <footer>
-  <span class="x">{ai}</span> engineering v2 · blueprint v17 · paquete 0.13.0 · 2026-08-31<br>
-  22 videos · 37 proyectos + 6 externos verificados · 6 verbos humanos + 4 máquina · 5 guards · canon global de 20 skills (11 core + 9 bajo demanda) · 3 superficies core (+Hermes en medición) · 4 contratos · ≈3,800 LOC propios · Bun + TypeScript<br>
+  <span class="x">{ai}</span> engineering v2 · blueprint v17 · paquete 2.2.3 · 2026-09-22<br>
+  22 videos · 37 proyectos + 6 externos verificados · 6 verbos humanos + 4 máquina · 5 guards · canon global de 20 skills (11 core + 9 bajo demanda) · 4 superficies core · 4 contratos · ≈3,800 LOC propios · Bun + TypeScript<br>
   <span style="color:#5C6C75">proof &gt; promise — y prueba &gt; ceremonia</span>
 </footer>
 

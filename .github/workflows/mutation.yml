@@ -19,20 +19,28 @@ permissions:
   contents: read
 
 jobs:
-  nightly:
+  campaign:
     # `base_ref` is populated only for a pull request, and this workflow is never
-    # triggered by a push, so an empty one is a scheduled or hand-dispatched run.
-    if: github.base_ref == ''
+    # triggered by a push, so an empty one means the nightly (scheduled or hand-dispatched)
+    # leg; a pull_request trigger lands on the pr leg. One body, two names.
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        leg: [nightly, pr]
     # The hard ceiling, not the estimate. Measured: this campaign took 4m29s on the
     # first real run of the job (59.72% of 1,946 mutants, cold cache, ubuntu-latest)
     # and 11m21s at `concurrency: 2` on the 8-core laptop that built the tier. The
     # ceiling covers the slower of the two, with room for the plugin's known flake (one
     # spurious dry-run failure in seven when the machine is loaded).
     timeout-minutes: 15
+    if: (matrix.leg == 'nightly') == (github.base_ref == '')
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The pr leg's diff step below needs history against origin/<base>; the
+          # nightly's checkout is the same shape so one body serves both legs.
+          fetch-depth: 0
       # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
       # policy allows GitHub-owned actions plus nine org patterns, and a workflow that
       # names anything else never starts (startup_failure, no logs). Node is on every
@@ -46,52 +54,11 @@ jobs:
       # one Node can run on (research 005 §02).
       - name: Node the campaign runs on
         run: node -v
-      - name: Restore the previous campaign's results
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: reports
-          key: stryker-incremental-${{ hashFiles('bun.lock') }}
-          restore-keys: stryker-incremental-
-      # The exit code IS the gate: below thresholds.break the step fails and the
-      # clear-text report names the survivors. Nothing here re-reads the report to
-      # decide — a gate that parses its own output is a gate that can be wrong twice.
-      - name: Mutation campaign
-        run: bunx stryker run
-      # The report is why the red is readable. Enabled on failure too, or the only
-      # artifact of a red run would be an empty step.
-      - name: Upload the report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: mutation-report-nightly
-          path: reports/
-          if-no-files-found: error
-
-  pull-request:
-    if: github.base_ref != ''
-    runs-on: ubuntu-latest
-    # Same ceiling as the nightly: the same campaign, a cold or warm cache depending on
-    # what the base branch left behind.
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # The step below diffs against origin/<base>: on the default shallow clone
-          # that diff cannot run, which is exactly how the sibling job in check.yml
-          # spent its life reporting "oracle skipped" instead of failing.
-          fetch-depth: 0
-      - name: Bun
-        run: npm install -g bun@1.4.2
-      - name: Dependencies
-        run: bun install --frozen-lockfile
-      - name: Node the campaign runs on
-        run: node -v
-      # Same shape as check.yml: a path-filtered gate names the diff it judged, and
-      # fails hard when it cannot compute it. Here it is also the receipt of which
-      # governance files this pull request moved — the score itself is global, so the
-      # job's own log has to carry what routed it.
+      # PR only: name the diff the campaign was routed on, and fail hard when it
+      # cannot be computed — a shallow checkout once made the sibling job in check.yml
+      # spend its life reporting "oracle skipped" instead of failing.
       - name: The governance files this pull request touches
+        if: matrix.leg == 'pr'
         env:
           # A branch name is data: it arrives here as an environment variable and is
           # quoted at its use site, never interpolated into the script text.
@@ -109,12 +76,18 @@ jobs:
           path: reports
           key: stryker-incremental-${{ hashFiles('bun.lock') }}
           restore-keys: stryker-incremental-
+      # The exit code IS the gate: below thresholds.break the step fails and the
+      # clear-text report names the survivors. Nothing here re-reads the report to
+      # decide — a gate that parses its own output is a gate that can be wrong twice.
       - name: Mutation campaign
         run: bunx stryker run
+      # The report is why the red is readable. Enabled on failure too, or the only
+      # artifact of a red run would be an empty step.
       - name: Upload the report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: mutation-report-pr
+          name: mutation-report-${{ matrix.leg }}
           path: reports/
           if-no-files-found: error
+

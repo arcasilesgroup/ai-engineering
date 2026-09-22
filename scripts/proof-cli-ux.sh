@@ -96,10 +96,9 @@ printf '%s\n' "$UPD_OUT" | grep -E 'assets current' | sed 's/^/G7 evidence: /'
 printf '%s\n' "$UPD_OUT" | grep -q 'assets current' || die "G7: short-circuit line missing"
 
 # G7b: the no-op run reports BOTH halves — the repo's assets and the machine's canon,
-# carriers and git floor — and says plainly that nothing was written. A run that answers
-# "all assets current" and stops cannot be told apart from one that never looked, and the
-# module carrier used to be rewritten and counted on every run, which is how the no-op
-# came back with a line claiming the machine side was the work.
+# and says plainly that nothing was written. The no-op must be distinguishable from a
+# run that never looked — and a module carrier rewritten and counted on every run would
+# make the no-op come back with a line claiming the machine side was the work.
 printf '%s\n' "$UPD_OUT" | grep -q 'Machine side' || die "G7b: machine half not reported"
 printf '%s\n' "$UPD_OUT" | grep -q 'global canon' || die "G7b: canon not reported"
 printf '%s\n' "$UPD_OUT" | grep -q 'nothing to write' || die "G7b: machine verdict missing"

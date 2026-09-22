@@ -14,7 +14,17 @@ The artifact is read next to the others, often in one review. Four artifacts in
 four invented styles read as four products, and the reader spends attention on
 the difference instead of the content. So the block below is copied **verbatim**
 into the artifact's `<style>`, and the vocabulary is chosen from, never
-invented around it.
+introduced around it. So every artifact also carries the `{ai}` favicon as an
+inline data URI in its `<head>`, before `<style>`:
+
+```html
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+```
+
+Inline, never a file: an artifact is one self-contained page opened from
+`file://` — no sibling asset can be assumed to travel with it. The URI is a
+single source in this document; when the `{ai}` mark changes, re-cut every
+carrier of this line (the two shipped templates and this document).
 
 ## The tokens
 

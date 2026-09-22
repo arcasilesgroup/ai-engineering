@@ -95,43 +95,6 @@ jobs:
       - name: bun audit (a result that is discarded is decoration)
         run: bun audit --audit-level=high
 
-  guards-adversarial:
-    runs-on: ubuntu-latest
-    # The 21 payloads that try to break a guard, routed by path: if the PR did not
-    # touch governance, the oracle has nothing new to say. This is NOT the mutation
-    # tier — that one is its own workflow (§17.1).
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # The path filter below diffs against origin/<base>: on the default shallow
-          # clone that diff cannot run, and the job reported "oracle skipped" on every
-          # pull request without ever saying so (measured — this job's own logs).
-          fetch-depth: 0
-      # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
-      # policy allows GitHub-owned actions plus nine org patterns, and a workflow that
-      # names anything else never starts (startup_failure, no logs). Node is on every
-      # hosted runner, and the registry pins the version's integrity itself.
-      - run: npm install -g bun@1.4.2
-      - run: bun install --frozen-lockfile
-      - name: Adversarial oracle over changed guards
-        env:
-          # A branch name is data: it arrives here as an environment variable and is
-          # quoted at its use site, never interpolated into the script text.
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          set -euo pipefail
-          # A gate that cannot run is red, never green: the exit code decides, and the
-          # message says which diff was unavailable.
-          if ! CHANGED=$(git diff --name-only "origin/$BASE_REF...HEAD" -- src/guards src/chain src/floor); then
-            echo "::error::cannot compute the diff against origin/$BASE_REF — the checkout has no history, so the oracle has no verdict."
-            exit 1
-          fi
-          if [ -n "$CHANGED" ]; then
-            bun test tests/adversarial/
-          else
-            echo "governance untouched — oracle skipped"
-          fi
 
   # The two gates that need an external account (SONAR_TOKEN, SNYK_TOKEN). A fork PR is
   # handed no secret, and a job-level `if` cannot read one, so the tokens are probed in

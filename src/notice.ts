@@ -4,10 +4,9 @@
 // Opt-out: notices = false in config.toml or AI_ENG_NO_UPDATE_NOTICES=1.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { home, repoRoot, loadConfig } from "./env.ts";
-import { VERSION } from "./version.ts";
+import { repoRoot, loadConfig, versionFile } from "./env.ts";
+import { VERSION, compareVersions } from "./version.ts";
 import * as ui from "./ui.ts";
 
 const TTL_MS = 24 * 60 * 60 * 1000;
@@ -44,7 +43,7 @@ export function maybeNotice(): void {
     const config = loadConfig();
     if (config["notices"]?.["enabled"] === false) return;
   }
-  const cachePath = join(home(), "version.json");
+  const cachePath = versionFile();
   const cached = cachedVersion(cachePath);
   const latest = cached.fresh ? cached.version : registryVersion();
   if (!latest) return; // offline: silence, never a failure
@@ -55,6 +54,6 @@ export function maybeNotice(): void {
       /* unwritable cache: notice still works this run */
     }
   }
-  if (latest === VERSION) return;
+  if (latest === VERSION || compareVersions(latest, VERSION) < 0) return;
   ui.warn(`${latest} available → ai-eng upgrade · changelog: CHANGELOG.md (current: ${VERSION})`);
 }
