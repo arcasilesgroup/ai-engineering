@@ -6,7 +6,7 @@ import { existsSync, readFileSync, readdirSync, lstatSync, statSync, unlinkSync,
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
-import { mergeDaily, pruneDenyLedger, summarizeReceipts, type DailyPoint, type DenyLedger } from "../receipts.ts";
+import { mergeDaily, pruneDenyLedger, summarizeReceipts, type DailyPoint, type DenyLedger, type ReceiptSummary } from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
 import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, readMachineState } from "../surfaces/adapters.ts";
 import { unmetTriggers } from "../spec/triggers.ts";
@@ -473,6 +473,18 @@ function committedAgeDays(root: string, path: string): number | null {
 }
 
 /** `doctor --gc` — execute what the audit proposes, in one commit (§21.3). */
+/** Merge the live summary with any prior summary.json and write it back. */
+function mergeAndWriteSummary(receipts: string, summary: ReceiptSummary): void {
+  let prior: { daily?: Record<string, DailyPoint> } | null = null;
+  try {
+    prior = JSON.parse(readFileSync(join(receipts, "summary.json"), "utf8")) as { daily?: Record<string, DailyPoint> };
+  } catch {
+    /* no prior summary, or a torn one: the live window starts the series */
+  }
+  const merged = { ...summary, daily: mergeDaily(prior?.daily, summary.daily), gc: new Date().toISOString() };
+  writeFileSync(join(receipts, "summary.json"), JSON.stringify(merged));
+}
+
 function gcReceipts(receipts: string, ttlDays: number): string[] {
   // Receipts: aggregate, then delete. They carry no citation to respect — their
   // permanent half is the Receipt-Id trailer on the commit. Two files are the gc's
@@ -495,19 +507,21 @@ function gcReceipts(receipts: string, ttlDays: number): string[] {
     .filter((entry) => entry.ts < cut);
   for (const entry of stale) unlinkSync(join(receipts, entry.name));
   if (stale.length > 0) {
-    let prior: { daily?: Record<string, DailyPoint> } | null = null;
-    try {
-      prior = JSON.parse(readFileSync(join(receipts, "summary.json"), "utf8")) as { daily?: Record<string, DailyPoint> };
-    } catch {
-      /* no prior summary, or a torn one: the live window starts the series */
-    }
-    const merged = { ...summary, daily: mergeDaily(prior?.daily, summary.daily), gc: new Date().toISOString() };
-    writeFileSync(join(receipts, "summary.json"), JSON.stringify(merged));
+    mergeAndWriteSummary(receipts, summary);
     lines.push(`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
   }
   const ledger = join(receipts, "denies.json");
   if (existsSync(ledger)) pruneDenyLedger(ledger);
   return lines;
+}
+
+/** Should this entry be collected (deleted) during gc? Returns "immune" if cited
+ *  by a governor, "collect" if old enough and tracked by git, "skip" otherwise. */
+function collectVerdict(root: string, folder: string, dir: string, name: string, olderDays: number): "immune" | "collect" | "skip" {
+  if (citedByGovernor(root, folder, name)) return "immune";
+  const age = committedAgeDays(root, join(dir, name));
+  if (age === null || age < olderDays || !trackedByGit(root, join(dir, name))) return "skip";
+  return "collect";
 }
 
 function gcFolder(root: string, folder: string, maxFiles: number, olderDays: number): string[] {
@@ -520,14 +534,10 @@ function gcFolder(root: string, folder: string, maxFiles: number, olderDays: num
   const collected: string[] = [];
   let immune = 0;
   for (const name of entries) {
-    const path = join(dir, name);
-    if (citedByGovernor(root, folder, name)) {
-      immune += 1;
-      continue;
-    }
-    const age = committedAgeDays(root, path);
-    if (age === null || age < olderDays || !trackedByGit(root, path)) continue;
-    unlinkSync(path);
+    const verdict = collectVerdict(root, folder, dir, name, olderDays);
+    if (verdict === "immune") { immune += 1; continue; }
+    if (verdict === "skip") continue;
+    unlinkSync(join(dir, name));
     collected.push(`${folder}/${name}`);
   }
   if (collected.length > 0) lines.push(`✓ ${folder}/: archived ${collected.length} in git and deleted (${collected.join(", ")})`);
@@ -535,6 +545,15 @@ function gcFolder(root: string, folder: string, maxFiles: number, olderDays: num
   const remaining = readdirSync(dir).length;
   if (remaining > maxFiles) lines.push(`⚠ ${folder}/: ${remaining} > max_files=${maxFiles} — review before the next pass`);
   return lines;
+}
+
+/** Should this security run be pruned during gc? True if not cited by a governor,
+ *  old enough, and already tracked by git. */
+function shouldPruneRun(root: string, security: string, run: string, olderDays: number): boolean {
+  if (citedByGovernor(root, "security", run)) return false;
+  const age = committedAgeDays(root, join(security, run));
+  if (age === null || age < olderDays || !trackedByGit(root, join(security, run))) return false;
+  return true;
 }
 
 function gcSecurity(root: string, security: string, olderDays: number, keepRuns: number): string[] {
@@ -547,11 +566,8 @@ function gcSecurity(root: string, security: string, olderDays: number, keepRuns:
   const beyond = runs.slice(0, Math.max(0, runs.length - keepRuns));
   const collected: string[] = [];
   for (const run of beyond) {
-    const path = join(security, run);
-    if (citedByGovernor(root, "security", run)) continue;
-    const age = committedAgeDays(root, path);
-    if (age === null || age < olderDays || !trackedByGit(root, path)) continue;
-    rmSync(path, { recursive: true, force: true });
+    if (!shouldPruneRun(root, security, run, olderDays)) continue;
+    rmSync(join(security, run), { recursive: true, force: true });
     collected.push(`security/${run}`);
   }
   if (collected.length > 0) lines.push(`✓ security/: archived ${collected.length} in git and deleted (keeping the last ${keepRuns})`);
