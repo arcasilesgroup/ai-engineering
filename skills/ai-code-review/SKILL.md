@@ -120,10 +120,7 @@ Check findings against these AGENTS.md rules. Cite the violated rule in each fin
 ## Lifecycle
 
 Lane: light
-Trigger: code
-Trigger kind: command
-Trigger when: review code, code review, find over-engineering, simplify review,
-  what can we delete, collect debt, collect debt, list deferred shortcuts
 Writes: nothing
 Read by: humans
 Dies: on completion
+Next: none — the user decides what to fix

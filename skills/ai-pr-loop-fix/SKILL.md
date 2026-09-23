@@ -80,6 +80,8 @@ Max 5 iterations. Hard cap. After 5:
 
 Lane: light
 Writes: nothing
+Read by: humans
 Dies: on completion
+Next: none — the user handles merge
 
 Source: ai-engineering (own), Apache-2.0.

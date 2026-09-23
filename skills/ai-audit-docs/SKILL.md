@@ -41,8 +41,8 @@ severity, and the broken claim.
 
 2. **Read every target doc.** Extract all of these per file:
 
-   - **File links:** markdown links pointing at local paths (`[text](./path)`,
-     `[text](../path)`, `[text](path/to/file)`). Skip anchors (`#section`) and
+   - **File links:** markdown links pointing at local paths (e.g. `./path`,
+     `../path`, `path/to/file`). Skip anchors (`#section`) and
      bare URLs — those are checked in step 3.
    - **External URLs:** bare `http://` / `https://` links. Collect for batch HEAD-check.
    - **Command references:** inline code or code blocks containing shell commands
