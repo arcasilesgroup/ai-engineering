@@ -1,5 +1,0 @@
----
-"ai-engineering": patch
----
-
-Docs, comments and specs now describe the product as it is, not as it was. The canon carried ghosts of the v1 Python era and the deleted ai-rtk skill: `ai-verify`'s eval harness claimed "Python 3.8+" while running on Bun, `ai-explore`'s example diagram cited a `chain.py` that does not exist, `ai-write` cited "spec 039/033" from the dead v1 spec-number registry, `ai-visual-recap` routed readers to the out-of-canon visual-plan skill, and `blueprint.html`/`recap.html` still listed ai-rtk in the canon trees, lineage and lifecycle tables and pinned version 0.13.0. Root docs drifted too: `AGENTS.md` pinned 2.2.0 and the retired `tsc --noEmit`, `THIRD-PARTY-NOTICES.md` listed dependencies package.json does not carry, `brand/README.md` documented a nonexistent `brand.ts legacy` subcommand, and `NOTICE.md` omitted the shipping ai-stress-test. Source comments narrating past bugs ("used to…", "no longer…") were rewritten to state the present rule; blueprint stamps now read 2.2.3, and ai-stress-test is listed where the canon is enumerated. No behavior changed — every diff is prose, verified against the tree.
