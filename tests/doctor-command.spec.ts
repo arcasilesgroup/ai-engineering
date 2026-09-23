@@ -422,20 +422,35 @@ describe("doctor · receipts and overrides", () => {
   });
 
   test("the receipts line strips forged control bytes from attacker-written receipt keys", async () => {
-    const { root } = sandbox();
-    const receipts = join(root, ".ai-engineering", "receipts");
-    mkdirSync(receipts, { recursive: true });
-    // An agent inside the repo may write receipts/*.json (self-protect fences the
-    // directory itself, not its session material). Its keys reach the human line.
-    writeFileSync(join(receipts, "x.json"), JSON.stringify({
+    // Build a minimal governed repo with a receipt — no sandbox(), no process.chdir().
+    // doctorMain({ cwd }) passes cwd to runChecks which passes it to repoRoot.
+    const root = tempDir("ai-eng-canary-");
+    mkdirSync(join(root, ".git", "hooks"), { recursive: true });
+    mkdirSync(join(root, ".ai-engineering", "receipts"), { recursive: true });
+    writeFileSync(join(root, ".ai-engineering", "config.toml"), GOVERNED);
+    writeFileSync(join(root, ".ai-engineering", "receipts", "x.json"), JSON.stringify({
       schema: "urn:ai-eng:receipt:2", operation_id: "deadbe01", event: "PreToolUse", surface: "claude-code",
       tool: "Write", guards: { ran: [], denied_by: "self-protect\n│  ✗ CANARY-injected-row" },
       outcome: "deny", latency_ms: 1, ts: new Date().toISOString(),
     }));
-    const run = await doctor({ cwd: root });
-    const canary = run.out.split("\n").filter((l) => l.includes("CANARY-injected-row"));
-    expect(canary.length).toBe(1); // no second row was forged…
-    expect(canary[0]).toContain("receipts ·"); // …the key stayed inside the receipts line
+    const chunks: string[] = [];
+    const stdout = spyOn(process.stdout, "write").mockImplementation(((chunk: unknown) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as never);
+    const log = spyOn(console, "log").mockImplementation(((...args: unknown[]) => {
+      chunks.push(`${args.map(String).join(" ")}\n`);
+    }) as never);
+    try {
+      const code = await doctorMain({ cwd: root });
+      const out = chunks.join("").replace(/\u001b\[[0-9;]*[A-Za-z]/g, "");
+      const canary = out.split("\n").filter((l) => l.includes("CANARY-injected-row"));
+      expect(canary.length).toBe(1);
+      expect(canary[0]).toContain("receipts ·");
+    } finally {
+      stdout.mockRestore();
+      log.mockRestore();
+    }
   });
 
   test("repeats: the ledger count rides the line, and forged shapes coerce to zero not NaN", async () => {
