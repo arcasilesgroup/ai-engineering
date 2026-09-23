@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research 005 — Skill pattern analysis: 90 sessions, 1 month</title>
+<style>
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px; --lh-h2:1.16; --ls-h2:-.018em;
+  --fs-h3:17px; --lh-h3:1.32; --ls-h3:-.006em;
+  --fs-h4:14px; --lh-h4:1.35;
+  --fs-body:15px; --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px; --lh-mono:1.7;
+  --fs-label:10.5px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--fs-body);line-height:var(--lh-body);font-synthesis-weight:none;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
+.hero{position:relative;overflow:hidden;text-align:center;padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);background-size:32px 32px,32px 32px,100% 100%}
+.hero .stamp{display:inline-block;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.26em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;margin-bottom:var(--s5)}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+nav{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:var(--s2) var(--s4);background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:640;margin:var(--s6) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);max-width:var(--measure);margin-bottom:var(--s3)}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+li strong{color:var(--text)}
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;-webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+.card h3,.card h4{min-height:22px;line-height:22px}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+.tbl-wrap{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+@media (max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px;letter-spacing:-.022em}.hero .sub{font-size:16px}}
+@media (max-width:820px){nav a{padding:14px 8px}}
+@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}table{font-size:13px}th,td{padding:10px var(--s3)}pre{font-size:11.5px;padding:var(--s3) var(--s4)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
+@media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
+@media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Research · 005 · 2026-09-23</div>
+  <h1>Skill pattern <span class="x">analysis</span><br>90 sessions, 1 month</h1>
+  <p class="sub">Análisis de <strong>90 sesiones</strong> de <code>ai_engineering</code> en agentsview (último mes) para detectar patrones de uso repetitivos, automatizaciones posibles, y candidatos a skill nueva o adaptada.</p>
+  <div class="meta">tools used: <b>agentsview CLI</b> (session list, session messages) · <b>eval Python</b> (metadata extraction) · <b>SQLite direct read</b> (sessions.db) · repo grep/read<br>
+  degraded-tool: <b>notebooklm</b> (no configurado) · <b>tavily</b> (no configurado) · <b>exa</b> (no instalado)</div>
+</header>
+<nav>
+  <a href="#s1"><b>01</b>Dataset</a>
+  <a href="#s2"><b>02</b>Patrones</a>
+  <a href="#s3"><b>03</b>Skill candidates</a>
+  <a href="#s4"><b>04</b>Skills existentes</a>
+  <a href="#s5"><b>05</b>Gaps</a>
+  <a href="#s6"><b>06</b>Direcciones</a>
+</nav>
+<main id="main">
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s1">
+<h2><span class="num">01</span>Dataset</h2>
+<div class="stats">
+  <div class="stat"><div class="v"><em>90</em></div><div class="l">sesiones</div></div>
+  <div class="stat"><div class="v"><em>30,709</em></div><div class="l">mensajes</div></div>
+  <div class="stat"><div class="v"><em>18.4M</em></div><div class="l">output tokens</div></div>
+  <div class="stat"><div class="v"><em>341</em></div><div class="l">msgs/sesión</div></div>
+  <div class="stat"><div class="v"><em>49%</em></div><div class="l">con compaction</div></div>
+  <div class="stat"><div class="v"><em>3.6</em></div><div class="l">compactions/sesión</div></div>
+</div>
+<p>Fuente: <code>~/.agentsview/sessions.db</code> — tabla <code>sessions</code> (metadata, health, compaction, outcome) + <code>messages</code> (transcript completo) + <code>tool_calls</code> (uso de herramientas). Filtro: <code>project='ai_engineering', started_at >= 2026-08-23</code>. Agentes: omp: 76, pi: 7, zed: 4, claude: 3. Todas completadas (100% success rate).<sup>[1]</sup></p>
+
+<div class="bracket"><span class="tag">Distribución por agente</span>
+<pre><span class="b">omp</span>     76 sesiones  (84%)  — workhorse principal
+<span class="b">pi</span>       7 sesiones  ( 8%)  — debugging de plataforma
+<span class="b">zed</span>      4 sesiones  ( 4%)  — investigación alternativa
+<span class="b">claude</span>   3 sesiones  ( 3%)  — goal loops masivos</pre>
+</div>
+
+<p>La sesión más grande: 7,702 mensajes, 5M tokens, 11 compactions — un goal loop autónomo con Claude que implementó evolution-proposal completa.<sup>[2]</sup> La sesión con más compactions: 930 mensajes, 42 compactions — fix de bun dependency con contexto que se saturaba repetidamente.<sup>[3]</sup></p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s2">
+<h2><span class="num">02</span>Patrones detectados</h2>
+
+<h3>2.1 — El loop /ai-goal consume masivo de tokens</h3>
+<p><strong>Frecuencia:</strong> 9/30 sesiones top (batch 1) + 5/27 sesiones (batch 3). Patrón dominante.</p>
+<p>El usuario invoca <code>/ai-goal</code> con una lista de repos o un spec → el agente planifica sub-goals → el loop ejecuta. El planning consume la mayoría de tokens. En session #13 (508 msgs), el usuario documenta frustración: <em>"el llm me esta engañando y no está implementando todo lo que en research, spec, plan y sobre todos me prometió en goal"</em>.<sup>[4]</sup></p>
+<p><strong>Problema:</strong> El agente dice que va a hacer X pero no lo implementa completamente. No hay verificación post-loop que compare "claimed done" vs "actually changed".</p>
+<div class="note warn"><h4>Oportunidad de automatización</h4><p>Pre-flight validation: verificar que el plan mapea a los gates del spec. Post-loop diff check: comparar deliverables declarados vs archivos realmente cambiados.</p></div>
+
+<h3>2.2 — Continuación de sesiones: "okay, seguimos así"</h3>
+<p><strong>Frecuencia:</strong> 20/90 sesiones necesitan "continua" o "como vamos?" manual.</p>
+<p>La mayoría de sesiones son continuaciones de trabajo previo, no starts frescos. El agente reconstruye el estado completo desde cero cada vez — re-lee specs, planes, contexto. Los thinking blocks muestran al agente redescubriendo cosas que ya debería saber.<sup>[5]</sup></p>
+<p><strong>Problema:</strong> Cada continuación gasta 30-50 mensajes reconstruyendo estado. Session 0 (spec 010) consumió 7,702 mensajes solo para reportar el estado de un spec.<sup>[2]</sup></p>
+
+<h3>2.3 — "Como vamos?" spam en sesiones largas</h3>
+<p><strong>Frecuencia:</strong> 5+ veces en una sesión (session #2 con 731 msgs).</p>
+<p>El usuario pregunta "como vamos?" repetidamente porque no hay progress reporting automático. La sesión más larga con 42 compactions (session #2, 930 msgs) muestra al usuario inyectando file paths mid-run para mantener al agente encarrilado.<sup>[3]</sup></p>
+
+<h3>2.4 — Subagentes "Complete assignment thoroughly"</h3>
+<p><strong>Frecuencia:</strong> 346 subagentes dispatchados con UNO solo prompt template a través de 53 parents.<sup>[6]</sup></p>
+<p>El patrón es siempre el mismo: una sesión madre lanza subagentes con instrucciones de tipo <code>Complete assignment thoroughy: # Target ... # Files ... # Do NOT edit</code>. Cada subagente hace su trabajo y entrega findings. Incluye: prose audits, comment audits, code audits, doc rewrites.</p>
+<p><strong>Problema:</strong> Esto es exactamente lo que debería hacer un skill automatizado, no cadenas manuales de subagentes.</p>
+
+<h3>2.5 — Skills desde ~/Downloads</h3>
+<p><strong>Frecuencia:</strong> 3+ sesiones con <code>Usa skill: /Users/soydachi/Downloads/X/SKILL.md</code>.</p>
+<p>El usuario tiene skills "en borrador" que nunca formaliza: unlazy, handshake, model-router. Cada vez que los quiere usar, los lee de ~/Downloads manualmente.<sup>[7]</sup></p>
+
+<h3>2.6 — CI/CD loops manuales</h3>
+<p><strong>Frecuencia:</strong> 5+ sesiones con fix → commit → push → PR → loop green → merge.</p>
+<p>Sesión #6 (496 msgs) muestra 316 bash calls, con CI polling vía <code>sleep 60/75/90; gh run…</code> repetido decenas de veces. El release v2.0.0-rc.1 tuvo que hacer tag → prerelease → npm publish → GH environment release con required reviewers — todo manual.<sup>[8]</sup></p>
+
+<h3>2.7 — Auditoría de docs manual</h3>
+<p><strong>Frecuencia:</strong> 7/27 sesiones (batch 3) son audits de status/architecture.</p>
+<p>El usuario pregunta "¿qué tiene este proyecto?", "audita", "verifica" repetidamente. Cada sesión lee los mismos 5-10 archivos core (CONSTITUTION.md, AGENTS.md, blueprint.html, justfile, chain/mod.ts). Session #6 (790 msgs) mapeó manualmente CLI output vs blueprint mockup — 29 tool calls, 45k tokens.<sup>[9]</sup></p>
+
+<h3>2.8 — Porting inter-plataforma</h3>
+<p><strong>Frecuencia:</strong> 3+ sesiones (Graft hooks to Pi, Graft statuline, secret classifier port).</p>
+<p>El usuario evalúa constantemente si features de un platform funcionan en otro. Sesión #17 (478 msgs) instaló Graft globalmente across omp/pi/claude y creó PR. Sesión #28 (314 msgs) debugueó por qué Graft statuline no aparecía en omp.<sup>[10]</sup></p>
+
+<h3>2.9 — Claimed-vs-done friction</h3>
+<p><strong>Frecuencia:</strong> Múltiples sesiones.</p>
+<p>"estas cosas los hiciste o lo estás proponiendo?" — el usuario no puede distinguir entre lo que el agente planeó vs lo que realmente implementó. Sesión #14 documenta esto explícitamente: el agente decía "hecho" pero los archivos no cambiaban.<sup>[4]</sup></p>
+
+<h3>2.10 — Skill shopping cost</h3>
+<p><strong>Frecuencia:</strong> 1 sesión con 10+ skills probados.</p>
+<p>Sesión #8 (mega design, 363 msgs) usó impeccable, apple-design, ai-design, ai-design-audit, ai-visual-recap, shieldcn-badges, watch, ai-write… — 10+ skills en una sesión porque el router no elige bien en el primer intento.<sup>[11]</sup></p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s3">
+<h2><span class="num">03</span>Skill candidates</h2>
+<p>Cada candidato lleva: <em>qué hace</em>, <em>por qué</em> (sesiones que lo sugieren), y <em>impacto estimado</em>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>#</th><th>Skill</th><th>Descripción</th><th>Sesiones</th><th>Impacto</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>ai-session-inspector</code></td><td>Analiza sessions de agentsview → detecta patrones de uso, skills más usados, errores frecuentes, oportunidades de automatización. Ejecutable cada semana.</td><td>Todas (es el mismo análisis que este reporte)</td><td><span class="pill p-ok">Muy alto</span></td></tr>
+<tr><td>2</td><td><code>ai-release</code></td><td>Automatiza: build → test → bump version → changelog → tag → push npm → create GitHub release. Los 7 pasos manuales del release loop.</td><td>#2 (930), #6 (496), #22 (404), #36 (241)</td><td><span class="pill p-ok">Muy alto</span></td></tr>
+<tr><td>3</td><td><code>ai-audit-docs</code></td><td>Audita docs contra repo actual: ref muertas, claims falsos, versions obsoletas, commands que no existen. Los "Complete assignment thoroughly" subagentes automatizados.</td><td>#3 (922), #4 (906), #21 (271), batch3×7</td><td><span class="pill p-ok">Alto</span></td></tr>
+<tr><td>4</td><td><code>ai-nuke-dead-code</code></td><td>Auto-detecta código muerto, imports sin uso, funciones no referenciadas, tests huérfanos. Ponytail-audit en modo auto-fix.</td><td>#16 (485), #44 (176)</td><td><span class="pill p-warn">Medio</span></td></tr>
+<tr><td>5</td><td><code>ai-skill-craft</code></td><td>Crea skills completos: SKILL.md + corpus.md + auto-verify + registro en canon. Elimina el learning cost de la estructura de skill.</td><td>#6 (blog skill), #19 (stress test), #16 (agents-md)</td><td><span class="pill p-warn">Medio-Alto</span></td></tr>
+<tr><td>6</td><td><code>ai-init-verify</code></td><td>Diagnostic post-install: check global canon, per-project install, file completeness, drift detection. Responde "se ha perdido todo tras reinstalar".</td><td>#2 (930), #22 (404), #35 (249)</td><td><span class="pill p-ok">Alto</span></td></tr>
+<tr><td>7</td><td><code>ai-blueprint-sync</code></td><td>Auto-update blueprint.html, recap.html contra estado real del repo. Elimina la divergencia spec-vs-código.</td><td>#6 (790), #33 (258)</td><td><span class="pill p-warn">Medio-Alto</span></td></tr>
+<tr><td>8</td><td><code>ai-platform-port</code></td><td>Dada una feature de X platform, genera adapter para Y. Catálogo de surface API mappings.</td><td>#17 (478), #28 (314), #27 (322)</td><td><span class="pill p-warn">Medio</span></td></tr>
+<tr><td>9</td><td><code>ai-cicp</code></td><td>CI fix loop: auto-fix + push + verify until green, then merge. Elimina el "sleep 60; gh run" manual.</td><td>#4 (906), #15 (496), #48 (165)</td><td><span class="pill p-warn">Medio</span></td></tr>
+<tr><td>10</td><td><code>ai-spike</code></td><td>Medición aislada: crear worktree, ejecutar hypothesis test, reportar facts. Para "¿funciona esto?" sin contaminar el repo.</td><td>#20 (Qwen vs GLM), #34 (255)</td><td><span class="pill p-dim">Bajo-Medio</span></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s4">
+<h2><span class="num">04</span>Skills existentes más usados</h2>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Skill</th><th>Sesiones</th><th>Patrón</th><th>Mejora sugerida</th></tr></thead>
+<tbody>
+<tr><td><code>ai-explore</code></td><td>~12/27 (batch3), presente en todos los batches</td><td>Default first step en casi toda sesión</td><td>Agregar auto-memory de hallazgos previos</td></tr>
+<tr><td><code>ai-goal</code></td><td>9/30 (batch1)</td><td>Autonomous loop execution</td><td>Agregar <code>--check-progress</code> para verificar implementación real vs promesa</td></tr>
+<tr><td><code>ai-research</code></td><td>4/30 (batch1), 3/27 (batch3)</td><td>Evidence gathering</td><td>Auto-memory de hallazgos entre sesiones (no empezar desde cero)</td></tr>
+<tr><td><code>ai-brainstorm</code></td><td>~4 sesiones</td><td>Feature scoping / interview</td><td>Sin cambios necesarios</td></tr>
+<tr><td><code>ponytail-audit</code></td><td>~4 sesiones</td><td>One-shot code simplification</td><td>Agregar modo <code>--apply</code> automático (no solo report)</td></tr>
+<tr><td><code>ai-cycle</code></td><td>~5 sesiones</td><td>Spec lifecycle execution</td><td>Auto-skip fases ya completadas</td></tr>
+<tr><td><code>ai-plan</code></td><td>~5 sesiones</td><td>Planning and design</td><td>Sin cambios necesarios</td></tr>
+<tr><td><code>ai-verify</code></td><td>~3 sesiones</td><td>Code review + security</td><td>Auto-generate verification scripts from diffs</td></tr>
+<tr><td><code>ai-debug</code></td><td>~3 sesiones</td><td>Bug investigation</td><td>Auto-generate repro case</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok"><h4>Modelo a seguir: ponytail-audit</h4><p>Ponytail-audit funciona exactamente como debería: one-shot, ranked findings, actionable. Es el estándar que los otros skills deberían emular. No necesita mejoras.<sup>[12]</sup></p></div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s5">
+<h2><span class="num">05</span>Gaps críticos</h2>
+
+<div class="grid g2">
+<div class="card">
+<h4>Sin progress reporting</h4>
+<p>"como vamos?" spam (10+ veces en sesiones largas). El usuario no tiene visibilidad del progreso del agente. Solución: skill de status reporting automático.</p>
+</div>
+<div class="card">
+<h4>Sin handoff entre sesiones</h4>
+<p>Conclusions se pierden. "okay, seguimos así" implica continuidad pero el agente no tiene acceso estructurado al estado previo. Solución: state-pull skill.</p>
+</div>
+<div class="card">
+<h4>Sin claimed-vs-done distinction</h4>
+<p>El agente dice "hecho" pero los archivos no cambiaron. No hay verificación post-claim. Solución: diff-based proof skill.</p>
+</div>
+<div class="card">
+<h4>Sin skill router óptimo</h4>
+<p>10+ skills probados en una sesión porque el router no elige bien. Solución: model-portfolio + router tuning.</p>
+</div>
+<div class="card">
+<h4>Sin project health check unificado</h4>
+<p>Cada audit session re-invents la rueda. 7 sesiones lean los mismos 5 archivos core. Solución: ai-audit skill.</p>
+</div>
+<div class="card">
+<h4>Sin skill lifecycle manager</h4>
+<p>Skills en ~/Downloads nunca se formalizan. No hay registry con lifecycle tracking (active/stale/dead). Solución: ai-skill-craft + registry.</p>
+</div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s6">
+<h2><span class="num">06</span>Direcciones</h2>
+
+<h3>Dirección 1: Automatizar el overhead de sesiones</h3>
+<p>Los 3 candidatos de mayor ROI atacan el mismo problema: el usuario gasta tiempo en tareas repetitivas que el agente debería hacer automáticamente.</p>
+<ul>
+<li><strong>ai-session-inspector</strong> — automatiza este mismo análisis semanalmente</li>
+<li><strong>ai-release</strong> — elimina 7 pasos manuales de release</li>
+<li><strong>ai-cicp</strong> — elimina CI polling manual</li>
+</ul>
+<p><strong>Acción:</strong> Diseñar spec/plan de <code>ai-release</code> como primer candidato (mayor ROI inmediato, implementación media).</p>
+
+<h3>Dirección 2: Cerrar el gap claimed-vs-done</h3>
+<p>El problema #1 de satisfacción del usuario es que el agente "miente" sobre implementación. Esto erosiona confianza.</p>
+<ul>
+<li><strong>Pre-flight:</strong> verificar plan mapea a gates del spec</li>
+<li><strong>Post-loop:</strong> diff-based verification de deliverables declarados vs archivos cambiados</li>
+<li><strong>Progress reporting:</strong> updates automáticos sin que el usuario pregunte</li>
+</ul>
+<p><strong>Acción:</strong> Integrar verificación post-loop en <code>ai-goal</code> existente (no skill nuevo, mejora al skill actual).</p>
+
+<h3>Dirección 3: Formalizar el ecosistema de skills</h3>
+<p>Las skills en ~/Downloads nunca se formalizan. El ecosistema crece sin lifecycle tracking.</p>
+<ul>
+<li><strong>ai-skill-craft</strong> — scaffold automático de skills</li>
+<li><strong>ai-skills-lifecycle-manager</strong> — registry + lifecycle tracking</li>
+<li><strong>ai-init-verify</strong> — diagnostic post-install</li>
+</ul>
+<p><strong>Acción:</strong> Diseñar <code>ai-skill-craft</code> como segundo candidato (habilita la creación eficiente de los otros skills).</p>
+
+<div class="bracket"><span class="tag">Resumen ejecutivo</span>
+<pre>90 sesiones → 10 patrones → 10 skill candidates → 3 direcciones
+
+ROI inmediato:
+  1. ai-release          (7 pasos manuales → 1 comando)
+  2. ai-goal improvement (claimed-vs-done verification)
+  3. ai-skill-craft      (habilita creación de otros skills)
+
+El gap más peligroso:
+  El agente "miente" sobre implementación → erosiona confianza
+  Solución: diff-based proof + progress reporting automático</pre>
+</div>
+</section>
+
+</div>
+</main>
+<footer>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Research 005 · 2026-09-23<br>
+  tools used: agentsview CLI, eval Python, SQLite direct read, repo grep/read<br>
+  degraded-tool: notebooklm, tavily, exa<br>
+  <a href="#main">↑ top</a>
+</footer>
+</body>
+</html>
