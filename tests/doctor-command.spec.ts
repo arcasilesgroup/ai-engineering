@@ -551,14 +551,14 @@ describe("doctor · arch, the spec slot and the triggers", () => {
     expect(detail(run, "spec slot")).toBe("live spec.html WITHOUT approval — STOP 1 pending or zombie contract");
 
     rmSync(spec);
-    writeFileSync(join(root, ".ai-engineering", "brainstorm.md"), "# brainstorm\n");
+    writeFileSync(join(root, ".ai-engineering", "brainstorm.html"), "# brainstorm\n");
     writeFileSync(join(root, ".ai-engineering", "recap.html"), "<html>recap</html>");
     run = await doctor();
-    expect(detail(run, "spec slot")).toContain("orphan brainstorm.md + recap.html with no live contract");
+    expect(detail(run, "spec slot")).toContain("orphan brainstorm.html + recap.html with no live contract");
 
     rmSync(join(root, ".ai-engineering", "recap.html"));
     run = await doctor();
-    expect(detail(run, "spec slot")).toContain("orphan brainstorm.md with no live contract");
+    expect(detail(run, "spec slot")).toContain("orphan brainstorm.html with no live contract");
   });
 
   test("triggers: no base_sha cannot judge, a base_sha with nothing changed is ok", async () => {
