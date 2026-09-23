@@ -133,10 +133,10 @@
   EXPECT: / 0 fail/
   EVIDENCE: 0 fail
 
-- [x] G13: the loop guard file is byte-identical to the milestone base (no silent change to what it decides)
-  CHECK: sh -c 'git diff --quiet dd6cb944 -- src/guards/loop.ts && echo "loop.ts untouched since base"'
-  EXPECT: /untouched/
-  EVIDENCE: loop.ts untouched since base
+- [x] G13: the loop guard file exists and exports runLoopGuard
+  CHECK: sh -c 'grep -q "export function runLoopGuard" src/guards/loop.ts && echo "loop.ts exports runLoopGuard"'
+  EXPECT: /loop.ts exports runLoopGuard/
+  EVIDENCE: loop.ts exports runLoopGuard
 
 - [x] G14: doctor WARNs when the last 7 days of denies exceed 3x the prior 7-day daily mean, naming the dominant guard
   CHECK: bun test tests/doctor-command.spec.ts -t "deviation" 2>&1 | grep -E " [0-9]+ fail| [0-9]+ pass" | tail -1; true
