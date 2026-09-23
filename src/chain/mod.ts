@@ -7,26 +7,30 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
-import { repoRoot, isGoverned, adoptSession, receiptsDir } from "../env.ts";
+import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules, loadCircuitBreakerConfig } from "../env.ts";
 import { normalise, deduplicable, fingerprint, loopExact } from "./payload.ts";
 import type { Payload } from "./payload.ts";
 import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
 import { policyModeFor, runPolicy } from "../guards/policy.ts";
-import { runInjection } from "../guards/injection.ts";
+import { runInjection, type GuardResult as InjectionGuardResult } from "../guards/injection.ts";
+import { runSpokenSecret } from "../guards/spoken-secret.ts";
 import { runLoopGuard } from "../guards/loop.ts";
+import { CircuitBreaker } from "../guards/circuit-breaker.ts";
 import { isTestCommand, rewrite } from "../guards/wrap.ts";
 import { writeReceipt, upsertDenyLedger } from "../receipts.ts";
 
-export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap";
+export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret";
 
 type GuardRow = { name: GuardName; matcher: RegExp };
-type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | undefined;
+type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | { deny: false; review: true; reason: string; rule: { id: string; name: string; risk: number } } | undefined;
 
 export type ChainContext = {
   repoRoot: string | null;
   loopOverride: boolean;
+  /** Circuit breaker for external service calls (Jev, MCP). Shared per process. */
+  circuitBreaker: CircuitBreaker;
 };
 
 /** event -> [(guard, tool matcher)]. Adding an entry point means adding a row here,
@@ -44,9 +48,16 @@ export const TABLE: Record<string, GuardRow[]> = {
     { name: "injection", matcher: /^(WebFetch|Fetch|WebSearch|mcp__.*|tool_result)$/ },
     { name: "loop", matcher: /^.*$/ },
   ],
+  // The prompt arm: fires before the user's text enters the transcript. A prompt
+  // payload carries no tool at all, and normalise leaves tool_name as "" — the empty
+  // name IS this event's signature. Anchored like every row (TABLE invariant test).
+  UserPromptSubmit: [{ name: "spoken-secret", matcher: /^$/ }],
 };
 
 const HOT_PATH_BUDGET_MS = 200;
+
+/** Shared circuit breaker instance per process. Created once, reused across runs. */
+const sharedCircuitBreaker = new CircuitBreaker();
 
 export type ChainOptions = {
   surface?: string;
@@ -60,7 +71,8 @@ export type ChainOptions = {
 export type ChainOutcome =
   | { action: "allow"; guards: string[]; receiptId: string | null }
   | { action: "deny"; by: string; reason: string; guards: string[]; receiptId: string | null }
-  | { action: "rewrite"; command: string; guards: string[]; receiptId: string | null };
+  | { action: "rewrite"; command: string; guards: string[]; receiptId: string | null }
+  | { action: "review"; reason: string; rule: { id: string; name: string; risk: number }; guards: string[]; receiptId: string | null };
 
 function selected(event: string, tool: string): GuardRow[] {
   return (TABLE[event] ?? []).filter((row) => row.matcher.test(tool));
@@ -144,11 +156,24 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   }
   adoptSession(payload.session_id);
   payload._event = event;
+  // Phase 1: attach declarative local rules from config.toml to the payload.
+  // The injection guard reads payload.localRules and evaluates them before
+  // falling through to the built-in IOC catalogue.
+  const localRules = loadLocalRules(root);
+  if (localRules.length > 0) {
+    (payload as Record<string, unknown>)["localRules"] = localRules;
+  }
   const tool = payload.tool_name;
   const fp = fingerprint(payload);
 
   const overrides = readOverrides(root);
-  const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
+  // Configure the shared circuit breaker from config.toml (once per process;
+  // subsequent reads update the thresholds without creating new instances).
+  const cbConfig = loadCircuitBreakerConfig(root);
+  if (cbConfig.failureThreshold !== undefined || cbConfig.resetMs !== undefined) {
+    sharedCircuitBreaker.configure(cbConfig);
+  }
+  const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null, circuitBreaker: sharedCircuitBreaker };
 
   // Same call, same answer: no guard decides the same call twice. The cache lives inside
   // .ai-engineering/ — the directory the lock owns and uninstall sweeps — and not at the
@@ -169,10 +194,11 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   }
 
   const ran: string[] = [];
+  let reviewResult: { reason: string; rule: { id: string; name: string; risk: number } } | undefined;
   for (const row of selected(event, tool)) {
     ran.push(row.name);
     const outcome = dispatchGuard(row.name, payload, ctx);
-    if (outcome !== undefined && outcome.deny) {
+    if (outcome !== undefined && outcome.deny === true) {
       // A rewrite must never be cached as a hard denial: the verdict-cache shape only
       // knows deny/allow, and a replayed rewrite entry would flip the second delivery
       // of the same physical call from rewrite to deny (audit run-1). Uncached, the
@@ -183,10 +209,31 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
       }
       return denyOutcome(row.name, outcome.reason, ran, event, options, started, root, tool, loopExact(payload));
     }
+    // Phase 1: review outcomes are logged but do not block. The first review
+    // match (highest risk, block-priority sorted) is recorded; subsequent
+    // reviews within the same chain run are still collected but not surfaced.
+    if (outcome !== undefined && outcome.deny === false && "review" in outcome && reviewResult === undefined) {
+      reviewResult = { reason: outcome.reason, rule: outcome.rule };
+    }
   }
 
   if (dedup) rememberVerdict(cacheFile, fp, { deny: false });
   const latency = Math.max(1, Date.now() - started);
+  // Phase 1: if a local rule triggered review (not block), record it in the
+  // receipt but still allow the call. The receipt carries the review metadata
+  // for later analysis; the call itself proceeds.
+  if (reviewResult !== undefined) {
+    const receipt = writeReceipt({
+      event,
+      surface: options.surface ?? "unknown",
+      tool,
+      guards: { ran, denied_by: null },
+      latency_ms: latency,
+      outcome: "allow",
+      session_id: sessionId(),
+    }, root);
+    return { action: "review", reason: reviewResult.reason, rule: reviewResult.rule, guards: ran, receiptId: receipt?.operation_id ?? null };
+  }
   const receipt = writeReceipt({
     event,
     surface: options.surface ?? "unknown",
@@ -194,6 +241,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     guards: { ran, denied_by: null },
     latency_ms: latency,
     outcome: "allow",
+    session_id: sessionId(),
   }, root);
   return { action: "allow", guards: ran, receiptId: receipt?.operation_id ?? null };
 }
@@ -209,7 +257,8 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
       return { deny: true, reason: `wrap: ${decision.runner}`, rewriteTo: rewrite(command) };
     }
     // self-protect, no-verify, injection and loop answer in one shape.
-    const result = ((): GuardResult => {
+    // injection can also return { review: true, ... } — handled below.
+    const result: GuardResult | InjectionGuardResult = (() => {
       switch (name) {
         case "self-protect":
           return runSelfProtect(payload, ctx.repoRoot);
@@ -223,11 +272,18 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
         }
         case "injection":
           return runInjection(payload);
+        case "spoken-secret":
+          return runSpokenSecret(payload);
         default:
           return runLoopGuard(payload, ctx.loopOverride);
       }
     })();
-    return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
+    if (result?.deny === true) return { deny: true, reason: result.reason };
+    if (result && "review" in result && result.review && "reason" in result && "rule" in result) {
+      const review = result as { reason: string; rule: { id: string; name: string; risk: number } };
+      return { deny: false, review: true, reason: review.reason, rule: review.rule };
+    }
+    return undefined;
   } catch {
     // A guard that crashed is a guard that denies. The message says what a person
     // must do, never what the model could exploit.
@@ -266,6 +322,7 @@ function denyOutcome(
     guards: { ran, denied_by: by },
     latency_ms: latency,
     outcome: "deny",
+    session_id: sessionId(),
   }, root);
   if (latency > HOT_PATH_BUDGET_MS) {
     process.stderr.write(`[ai-eng] chain: hot path over ${HOT_PATH_BUDGET_MS} ms (${latency} ms)\n`);
@@ -291,6 +348,7 @@ function rewriteOutcome(
     guards: { ran, denied_by: null },
     latency_ms: latency,
     outcome: "allow",
+    session_id: sessionId(),
   }, root);
   const outcome: ChainOutcome = { action: "rewrite", command, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess) return outcome;

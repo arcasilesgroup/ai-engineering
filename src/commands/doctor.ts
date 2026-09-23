@@ -2,7 +2,7 @@
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
 import { canonDrift } from "../embed.ts";
-import { existsSync, readFileSync, readdirSync, lstatSync, unlinkSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, lstatSync, statSync, unlinkSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
@@ -161,7 +161,7 @@ function checkChainTest(gap: string | null): CheckResult {
  *  run-1's audit found the WARN silenced while the line printed ok. A young repo
  *  (no runs at all in the prior week) has no baseline and stays SILENT — that is
  *  the honest absence of history, not a forgery.
- *  ponytail: names the dominant guard of the whole live window, not of the spike
+ *  todo: names the dominant guard of the whole live window, not of the spike
  *  week per day — upgrade only if it ever misnames a real one. */
 function denySpike(dir: string | null): { last7: number; prior7: number; guard: string } | null {
   if (!dir) return null;
@@ -251,20 +251,50 @@ function checkArch(root: string | null): CheckResult {
 function checkSpecSlot(root: string | null): CheckResult {
   // 10. milestone slots: a live contract, and the artifacts a dead one leaves behind.
   //     A milestone that never opened a contract has no live contract to close, so its
-  //     brainstorm.md would stay immortal and doctor would call the slot clean (§21.2) —
+  //     brainstorm.html would stay immortal and doctor would call the slot clean (§21.2) —
   //     which is why orphans are reported.
   const specPath = root ? join(root, ".ai-engineering", "spec.html") : null;
   const hasContract = specPath !== null && existsSync(specPath);
   if (hasContract) {
     const lockPath = join(root ?? "", ".ai-engineering", "ai-eng.lock");
     const pinned = existsSync(lockPath) ? Boolean(parseLock(readFileSync(lockPath, "utf8")).spec_sha256) : false;
+    // A pre-rename brainstorm.md under a live contract is stale slot material: the
+    // slot is brainstorm.html since the artifact design landed (§21.2). Name it so
+    // the session deletes or migrates it instead of leaving it immortal.
+    const legacy = root && existsSync(join(root, ".ai-engineering", "brainstorm.md"));
+    if (pinned && legacy) return { name: "spec slot", status: "warn", detail: "contract approved (sha256 in lock) · legacy brainstorm.md present — migrate to brainstorm.html or delete it" };
     return { name: "spec slot", status: pinned ? "ok" : "warn", detail: pinned ? "contract approved (sha256 in lock)" : "live spec.html WITHOUT approval — STOP 1 pending or zombie contract" };
   }
   const orphans = root
-    ? ["brainstorm.md", "recap.html"].filter((name) => existsSync(join(root, ".ai-engineering", name)))
+    ? ["brainstorm.html", "recap.html"].filter((name) => existsSync(join(root, ".ai-engineering", name)))
     : [];
   if (orphans.length === 0) return { name: "spec slot", status: "ok", detail: "clean slot: 0 zombie contracts" };
   return { name: "spec slot", status: "warn", detail: `orphan ${orphans.join(" + ")} with no live contract — the milestone it belongs to is closed: delete it (git keeps the history)` };
+}
+
+function checkResearchCache(root: string | null): CheckResult {
+  const cacheDir = root ? join(root, ".ai-engineering", "research-cache") : null;
+  if (!cacheDir || !existsSync(cacheDir)) return { name: "research cache", status: "ok", detail: "no cache directory (created on first research run)" };
+  const files = readdirSync(cacheDir).filter((f) => f.endsWith(".md"));
+  if (files.length === 0) return { name: "research cache", status: "ok", detail: "empty cache" };
+  const now = Date.now();
+  const stale: string[] = [];
+  const fresh: string[] = [];
+  for (const file of files) {
+    const filePath = join(cacheDir, file);
+    try {
+      const ageMs = now - statSync(filePath).mtimeMs;
+      const ageDays = Math.floor(ageMs / 86_400_000);
+      if (ageDays > 30) stale.push(`${file} (${ageDays}d)`);
+      else fresh.push(file);
+    } catch {
+      fresh.push(file);
+    }
+  }
+  const lines: string[] = [`${files.length} files`];
+  if (stale.length > 0) lines.push(`${stale.length} stale (>30d): ${stale.join(", ")}`);
+  if (fresh.length > 0) lines.push(`${fresh.length} fresh`);
+  return { name: "research cache", status: stale.length > 0 ? "warn" : "ok", detail: lines.join(" · ") };
 }
 
 async function checkTriggers(root: string | null): Promise<CheckResult | null> {
@@ -398,6 +428,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   results.push(checkOverrides(root));
   results.push(checkArch(root));
   results.push(checkSpecSlot(root));
+  results.push(checkResearchCache(root));
   const triggers = await checkTriggers(root);
   if (triggers) results.push(triggers);
   results.push(...checkSurfaces(root, surfaces));
@@ -408,7 +439,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
 }
 
 /** The files whose citation protects an artifact from gc. spec.html, plan.html and
- *  brainstorm.md die at close, so immunity they granted would die with them (§21.3). */
+ *  brainstorm.html die at close, so immunity they granted would die with them (§21.3). */
 const PERMANENT_GOVERNORS = ["DECISIONS.md", "NOTICE", join(".ai-engineering", "arch.rules.json")];
 
 /** Cited by a working file that outlives the milestone — the only immunity there is.
@@ -528,6 +559,29 @@ function gcSecurity(root: string, security: string, olderDays: number, keepRuns:
   return lines;
 }
 
+function gcResearchCache(root: string, olderDays: number): string[] {
+  const cacheDir = join(root, ".ai-engineering", "research-cache");
+  if (!existsSync(cacheDir)) return [];
+  const files = readdirSync(cacheDir).filter((f) => f.endsWith(".md"));
+  const now = Date.now();
+  const deleted: string[] = [];
+  for (const file of files) {
+    const filePath = join(cacheDir, file);
+    try {
+      const ageMs = now - statSync(filePath).mtimeMs;
+      const ageDays = Math.floor(ageMs / 86_400_000);
+      if (ageDays > olderDays) {
+        unlinkSync(filePath);
+        deleted.push(`${file} (${ageDays}d)`);
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  if (deleted.length > 0) return [`✓ research-cache/: pruned ${deleted.length} stale entries: ${deleted.join(", ")}`];
+  return [];
+}
+
 function gc(cwd = process.cwd()): string[] {
   const root = repoRoot(cwd);
   const lines: string[] = [];
@@ -542,6 +596,7 @@ function gc(cwd = process.cwd()): string[] {
   for (const folder of ["research", "reports", join("design", "audits")]) {
     lines.push(...gcFolder(root, folder, maxFiles, olderDays));
   }
+  lines.push(...gcResearchCache(root, olderDays));
   lines.push(...gcSecurity(root, join(root, ".ai-engineering", "security"), olderDays, keepRuns));
   if (lines.length === 0) lines.push("✓ gc: nothing to collect");
   return lines;

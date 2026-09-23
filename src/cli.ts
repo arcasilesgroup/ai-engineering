@@ -14,6 +14,7 @@ import { updateMain } from "./commands/update.ts";
 import { upgradeMain } from "./commands/upgrade.ts";
 import { uninstallMain } from "./commands/uninstall.ts";
 import { configMain } from "./commands/config.ts";
+import { generateBriefing, formatBriefing } from "./commands/briefing.ts";
 import { wrapMain } from "./wrap/index.ts";
 import { specMain } from "./spec/index.ts";
 import { floor } from "./floor/entry.ts";
@@ -21,7 +22,7 @@ import { suggestVerb } from "./shared-verbs.ts";
 
 
 const argv = process.argv.slice(2);
-const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true };
+const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, json: true };
 const boolFlags: Record<string, true> = {};
 const valueFlags: Record<string, string> = {};
 const positionals: string[] = [];
@@ -58,7 +59,8 @@ if (flags.help || !verb) {
   process.stdout.write("  ai-eng config     add or remove surfaces, and regenerate their adapters\n");
   process.stdout.write("  ai-eng update     rewrite ai-eng's files from the installed binary (zero network)\n");
   process.stdout.write("  ai-eng upgrade    delegate to bun/npm\n");
-  process.stdout.write("  ai-eng uninstall  revert ours, keep yours\n\n");
+  process.stdout.write("  ai-eng uninstall  revert ours, keep yours\n");
+  process.stdout.write("  ai-eng briefing   session handoff — auto-generate state for the next agent\n\n");
   process.stdout.write("Machine verbs (hooks/CI): chain · git · wrap · spec\n");
   process.exit(flags.help ? 0 : 2);
 }
@@ -99,6 +101,15 @@ async function main(): Promise<number> {
       return upgradeMain();
     case "uninstall":
       return uninstallMain();
+    case "briefing": {
+      const briefing = generateBriefing();
+      if (flags.json) {
+        process.stdout.write(JSON.stringify(briefing, null, 2) + "\n");
+      } else {
+        process.stdout.write(formatBriefing(briefing) + "\n");
+      }
+      return 0;
+    }
     default: {
       const typed = String(verb);
       const suggestion = suggestVerb(typed);

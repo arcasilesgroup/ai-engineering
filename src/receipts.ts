@@ -17,6 +17,10 @@ export type Receipt = {
   latency_ms: number;
   outcome: "allow" | "deny" | "error";
   ts: string;
+  /** The session this receipt belongs to. Present when the surface sent a session
+   *  id; absent in legacy receipts and git-floor writes. Groupable via
+   *  summarizeBySession(). */
+  session_id?: string;
 };
 
 export function writeReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | "ts">, root?: string | null): Receipt | null {
@@ -119,6 +123,65 @@ export function summarizeReceipts(dir?: string): ReceiptSummary {
   return { total, denies, p50: pick(0.5), p95: pick(0.95), ...per, daily };
 }
 
+export type SessionSummary = {
+  session_id: string;
+  runs: number;
+  denies: number;
+  first_ts: string;
+  last_ts: string;
+  tools: string[];
+  guards_denied: string[];
+};
+
+/** Group receipts by session_id. Sessions without a session_id are grouped under
+ *  "unknown". Returns sessions sorted by last_ts descending (most recent first). */
+export function summarizeBySession(dir?: string): SessionSummary[] {
+  const target = dir ?? receiptsDir();
+  const sessions = new Map<string, { runs: number; denies: number; first_ts: string; last_ts: string; tools: Set<string>; guards_denied: Set<string> }>();
+  if (target) {
+    try {
+      for (const name of readdirSync(target)) {
+        if (!name.endsWith(".json")) continue;
+        if (name === "summary.json" || name === "denies.json") continue;
+        try {
+          const receipt = JSON.parse(readFileSync(join(target, name), "utf8")) as Receipt;
+          const sid = receipt.session_id ?? "unknown";
+          const existing = sessions.get(sid);
+          const tools = existing?.tools ?? new Set<string>();
+          const guards_denied = existing?.guards_denied ?? new Set<string>();
+          if (typeof receipt.tool === "string") tools.add(printable(receipt.tool));
+          if (receipt.outcome === "deny" && typeof receipt.guards?.denied_by === "string") {
+            guards_denied.add(printable(receipt.guards.denied_by));
+          }
+          sessions.set(sid, {
+            runs: (existing?.runs ?? 0) + 1,
+            denies: (existing?.denies ?? 0) + (receipt.outcome === "deny" ? 1 : 0),
+            first_ts: existing?.first_ts ?? (typeof receipt.ts === "string" ? receipt.ts : ""),
+            last_ts: typeof receipt.ts === "string" ? receipt.ts : (existing?.last_ts ?? ""),
+            tools,
+            guards_denied,
+          });
+        } catch {
+          /* torn write */
+        }
+      }
+    } catch {
+      /* no receipts */
+    }
+  }
+  return [...sessions.entries()]
+    .map(([session_id, s]) => ({
+      session_id,
+      runs: s.runs,
+      denies: s.denies,
+      first_ts: s.first_ts,
+      last_ts: s.last_ts,
+      tools: [...s.tools],
+      guards_denied: [...s.guards_denied],
+    }))
+    .sort((a, b) => b.last_ts.localeCompare(a.last_ts));
+}
+
 /** A summand from a file an adversary may have written: finite, non-negative, whole,
  *  or zero. Hostile shapes (string, NaN, boolean, object) never reach a human sum. */
 const count = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
@@ -151,7 +214,7 @@ export function receiptId(receipt: Receipt): string {
 
 /** The cross-session deny ledger (research/001 R2): key → {times denied, last seen}.
  *  One small file in the receipts folder that the gc prunes instead of sweeping.
- *  Ponytail: read-modify-write races between concurrent hook processes lose an
+ *  todo: read-modify-write races between concurrent hook processes lose an
  *  increment; this is a bell, not enforcement, and a lost count changes a clause's
  *  number, never a verdict. */
 export type DenyLedger = Record<string, { n: number; last_seen: string }>;
