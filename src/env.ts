@@ -155,3 +155,69 @@ function intOr(value: TomlValue | undefined, fallback: number): number {
 export function printable(text: string): string {
   return text.replace(/[\p{C}]/gu, "").slice(0, 200);
 }
+
+// Phase 1: Local rules — declarative injection rules from config.toml.
+// TOML array of tables: [[guards.local_rules]] → parsed as an array of objects.
+
+export interface LocalRuleConfig {
+  id: string;
+  name: string;
+  description?: string;
+  enabled: boolean;
+  scope: "all_text" | "tool_name" | "raw_json";
+  match: "contains" | "equals";
+  pattern: string;
+  case_sensitive?: boolean;
+  action: "block" | "review";
+  risk: number;
+}
+
+/** Circuit breaker settings from config.toml. */
+export interface CircuitBreakerConfig {
+  failureThreshold?: number;
+  resetMs?: number;
+}
+
+/** Load circuit breaker settings from config.toml. Returns defaults when absent. */
+export function loadCircuitBreakerConfig(root?: string | null): CircuitBreakerConfig {
+  const resolved = root === undefined ? repoRoot() : root;
+  if (!resolved) return {};
+  const path = configPath(resolved);
+  if (!existsSync(path)) return {};
+  try {
+    const doc = Bun.TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    const guards = doc["guards"];
+    if (!guards || typeof guards !== "object" || Array.isArray(guards)) return {};
+    const cb = (guards as Record<string, unknown>)["circuit_breaker"];
+    if (!cb || typeof cb !== "object" || Array.isArray(cb)) return {};
+    const cfg = cb as Record<string, unknown>;
+    const result: CircuitBreakerConfig = {};
+    if (typeof cfg["failure_threshold"] === "number") result.failureThreshold = cfg["failure_threshold"];
+    if (typeof cfg["reset_ms"] === "number") result.resetMs = cfg["reset_ms"];
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+/** Load local rules from the repo's config.toml. Returns [] when absent or unparseable. */
+export function loadLocalRules(root?: string | null): LocalRuleConfig[] {
+  const resolved = root === undefined ? repoRoot() : root;
+  if (!resolved) return [];
+  const path = configPath(resolved);
+  if (!existsSync(path)) return [];
+  try {
+    const doc = Bun.TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    const guards = doc["guards"];
+    if (!guards || typeof guards !== "object" || Array.isArray(guards)) return [];
+    const localRules = (guards as Record<string, unknown>)["local_rules"];
+    if (!Array.isArray(localRules)) return [];
+    return localRules.filter((r): r is LocalRuleConfig =>
+      r !== null && typeof r === "object" && !Array.isArray(r)
+      && typeof (r as Record<string, unknown>)["id"] === "string"
+      && typeof (r as Record<string, unknown>)["pattern"] === "string"
+    );
+  } catch {
+    return [];
+  }
+}

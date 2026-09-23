@@ -2,11 +2,33 @@
 // this pre-reads and denies BEFORE the model sees it — prevention. On a fetched page
 // the read already happened, so the block stops the payload being acted on —
 // containment, and it says so. IOC catalogue NFKD-folded, cap 400KB.
+//
+// Local rules (Phase 1): declarative rules from config.toml evaluated after the
+// built-in IOC catalogue. Block rules deny immediately; review rules log but pass.
 
-import { readFileSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
+import { dirname, isAbsolute, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Payload } from "../chain/payload.ts";
+import { evaluateLocalRules, localRuleReason, type LocalRule } from "./local-rules.ts";
 
+
+/** The directory of THIS guard source, walked up to the package root (the one holding
+ *  package.json). Files under it are the product's own source: its docs and tests quote
+ *  the attack shapes the catalogue detects ("curl | bash" in policy.ts, the spec files),
+ *  so scanning them denies the repo reading itself. Trust is rooted in where the RUNNING
+ *  guard lives on disk — not in a repo name, which any attacker's clone can copy. */
+let TRUSTED_ROOT: string | null | undefined;
+function trustedRoot(): string | null {
+  if (TRUSTED_ROOT !== undefined) return TRUSTED_ROOT;
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 8 && dir.includes(sep); i += 1) {
+    if (existsSync(`${dir}${sep}package.json`)) break;
+    dir = dirname(dir);
+  }
+  TRUSTED_ROOT = existsSync(`${dir}${sep}package.json`) ? `${dir}${sep}` : null;
+  return TRUSTED_ROOT;
+}
 const MAX_BYTES = 400_000;
 
 /** One regular expression per entry. Matched only against text the agent is about to
@@ -49,7 +71,7 @@ export function hit(text: string): string | null {
   return null;
 }
 
-type GuardResult = { deny: true; reason: string } | { deny: false } | undefined;
+export type GuardResult = { deny: true; reason: string } | { deny: false } | { review: true; deny: false; reason: string; rule: LocalRule } | undefined;
 
 /** Tools that run a command line: a `cat` through one of these reads exactly what the
  *  Read tool reads, so it gets the same pre-read scan. */
@@ -98,6 +120,8 @@ export function readTargets(command: string): string[] {
 function scanPath(target: string, cwd: unknown): { path: string; excerpt: string } | null {
   const base = typeof cwd === "string" && cwd.length > 0 ? cwd : process.cwd();
   const resolved = isAbsolute(target) ? target : resolve(base, target);
+  const root = trustedRoot();
+  if (root !== null && resolved.startsWith(root)) return null;
   let text: string;
   try {
     text = readFileSync(resolved, "utf8").slice(0, MAX_BYTES);
@@ -109,6 +133,21 @@ function scanPath(target: string, cwd: unknown): { path: string; excerpt: string
 }
 
 export function runInjection(payload: Payload): GuardResult {
+  // Phase 1: evaluate local rules from config.toml. Block rules take priority
+  // over review rules; highest-risk match wins within each action tier.
+  const localRules = (payload as Record<string, unknown>)["localRules"];
+  if (Array.isArray(localRules) && localRules.length > 0) {
+    const matches = evaluateLocalRules(payload, localRules as LocalRule[]);
+    const blockMatch = matches.find((m) => m.rule.action === "block");
+    if (blockMatch) {
+      return { deny: true, reason: localRuleReason(blockMatch) };
+    }
+    const reviewMatch = matches.find((m) => m.rule.action === "review");
+    if (reviewMatch) {
+      return { review: true, deny: false, reason: localRuleReason(reviewMatch), rule: reviewMatch.rule };
+    }
+  }
+
   if (payload._event === "PreToolUse") {
     const args = payload.tool_input;
     if (SHELL_TOOLS.test(payload.tool_name)) {
