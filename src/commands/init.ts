@@ -385,6 +385,30 @@ function renderSections(cwd: string, picked: string[], lines: string[]): void {
   }
 }
 
+/** Resolve every pre-scaffold step in one place — machine side, repo, re-init handoff,
+ *  surface pick, and validation. Returns either an exit code (early-return) or the
+ *  resolved values the scaffold phase needs. */
+async function resolvePhase(
+  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  cwd: string,
+  inRepo: boolean,
+  input: NodeJS.ReadStream | PassThrough,
+  confirmWithInput: ConfirmInput,
+): Promise<number | { machineAgreed: boolean; picked: string[] }> {
+  const machineSide = await resolveMachineSide(flags, inRepo, confirmWithInput);
+  if (typeof machineSide === "number") return machineSide;
+  const machineAgreed = machineSide.machineAgreed;
+  const repoCode = await ensureRepo(flags, inRepo, cwd, confirmWithInput);
+  if (repoCode !== null) return repoCode;
+  const handoff = await reinitHandoff(flags, cwd, input);
+  if (handoff !== null) return handoff;
+  const pickedResult = await pickSurfaces(flags, cwd, input);
+  if (typeof pickedResult === "number") return pickedResult;
+  const invalid = validateSurfaces(pickedResult);
+  if (invalid !== null) return invalid;
+  return { machineAgreed, picked: pickedResult };
+}
+
 /** Commit the contract and close the verb. */
 function commitContract(cwd: string): number {
   // The first commit of the contract: the lockfile and the Receipt-Id trailer get
@@ -408,19 +432,9 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   ui.frame(`{ai} Engineering ${VERSION}`);
   const cwd = process.cwd();
   const inRepo = existsSync(join(cwd, ".git")) || existsSync(join(cwd, ".ai-engineering"));
-  const machineSide = await resolveMachineSide(flags, inRepo, confirmWithInput);
-  if (typeof machineSide === "number") return machineSide;
-  const machineAgreed = machineSide.machineAgreed;
-  const repoCode = await ensureRepo(flags, inRepo, cwd, confirmWithInput);
-  if (repoCode !== null) return repoCode;
-  const handoff = await reinitHandoff(flags, cwd, input);
-  if (handoff !== null) return handoff;
-  const pickedResult = await pickSurfaces(flags, cwd, input);
-  if (typeof pickedResult === "number") return pickedResult;
-  const picked = pickedResult;
-  const invalid = validateSurfaces(picked);
-  if (invalid !== null) return invalid;
-  const lines = await scaffoldAndCarriers(flags, picked, machineAgreed, confirmWithInput);
-  renderSections(cwd, picked, lines);
+  const resolved = await resolvePhase(flags, cwd, inRepo, input, confirmWithInput);
+  if (typeof resolved === "number") return resolved;
+  const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.machineAgreed, confirmWithInput);
+  renderSections(cwd, resolved.picked, lines);
   return commitContract(cwd);
 }
