@@ -621,13 +621,13 @@ function lintBehavior(content: string, folder: string): string | null {
   return null;
 }
 
-export async function doctorMain(flags: { gc?: boolean }): Promise<number> {
+export async function doctorMain(flags: { gc?: boolean; cwd?: string }): Promise<number> {
   if (flags.gc) {
     for (const line of gc()) process.stdout.write(`${line}\n`);
     return 0;
   }
-  const root = repoRoot() ?? process.cwd();
-  const { results, fail } = await runChecks();
+  const root = repoRoot(flags.cwd) ?? flags.cwd ?? process.cwd();
+  const { results, fail } = await runChecks(flags.cwd);
   const runtime = `bun ${typeof Bun !== "undefined" ? Bun.version : "?"}`;
   ui.frame(`Health check · ${root.split("/").pop()} · ${runtime} · ai-eng ${VERSION}`);
   // One block per status — the eye scans three ideas, not twelve lines

@@ -40,7 +40,7 @@ type Run = { code: number; out: string };
 /** doctorMain writes through clack, which writes to process.stdout — so both the
  *  stream and console.log are captured, and the ANSI a real terminal would show is
  *  stripped: the assertion is about the words, not the paint. */
-async function doctor(flags: { gc?: boolean } = {}): Promise<Run> {
+async function doctor(flags: { gc?: boolean; cwd?: string } = {}): Promise<Run> {
   const chunks: string[] = [];
   const stdout = spyOn(process.stdout, "write").mockImplementation(((chunk: unknown) => {
     chunks.push(String(chunk));
@@ -432,7 +432,7 @@ describe("doctor · receipts and overrides", () => {
       tool: "Write", guards: { ran: [], denied_by: "self-protect\n│  ✗ CANARY-injected-row" },
       outcome: "deny", latency_ms: 1, ts: new Date().toISOString(),
     }));
-    const run = await doctor();
+    const run = await doctor({ cwd: root });
     const canary = run.out.split("\n").filter((l) => l.includes("CANARY-injected-row"));
     expect(canary.length).toBe(1); // no second row was forged…
     expect(canary[0]).toContain("receipts ·"); // …the key stayed inside the receipts line
