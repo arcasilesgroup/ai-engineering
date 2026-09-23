@@ -99,7 +99,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  for (const name of ["spec.html", "plan.html", "brainstorm.md", "recap.html", "ai-eng.lock"]) {
+  for (const name of ["spec.html", "plan.html", "brainstorm.html", "recap.html", "ai-eng.lock"]) {
     rmSync(join(repo, ".ai-engineering", name), { force: true });
   }
 });
@@ -166,10 +166,10 @@ test("spec run's own bookkeeping does not invalidate the approved pin", () => {
 });
 
 test("doctor warns on an orphan brainstorm with no live contract", () => {
-  writeFileSync(join(repo, ".ai-engineering", "brainstorm.md"), "# Handshake\n");
+  writeFileSync(join(repo, ".ai-engineering", "brainstorm.html"), "# Handshake\n");
   const orphaned = eng(["doctor"]);
-  expect(orphaned.output).toContain("orphan brainstorm.md");
-  rmSync(join(repo, ".ai-engineering", "brainstorm.md"), { force: true });
+  expect(orphaned.output).toContain("orphan brainstorm.html");
+  rmSync(join(repo, ".ai-engineering", "brainstorm.html"), { force: true });
   const clean = eng(["doctor"]);
   expect(clean.output).toContain("clean slot");
 });
