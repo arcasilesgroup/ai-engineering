@@ -184,10 +184,10 @@ function denySpike(dir: string | null): { last7: number; prior7: number; guard: 
   return { last7, prior7, guard: top };
 }
 
-function checkReceipts(): CheckResult {
+function checkReceipts(root: string | null): CheckResult {
   // 7. receipts aggregate vs budget — four numbers plus the top denier, the
   // ledger's repeats and the 7-day deviation, all on the same line.
-  const dir = receiptsDir();
+  const dir = receiptsDir(root);
   const summary = summarizeReceipts(dir ?? undefined);
   let detail = `${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`;
   if (summary.denies > 0) {
@@ -424,7 +424,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   const floor = checkGitFloor(root);
   if (floor) results.push(floor);
   results.push(checkChainTest(gap));
-  results.push(checkReceipts());
+  results.push(checkReceipts(root));
   results.push(checkOverrides(root));
   results.push(checkArch(root));
   results.push(checkSpecSlot(root));
