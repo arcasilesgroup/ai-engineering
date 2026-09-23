@@ -1,5 +1,17 @@
 # Changelog — ai-engineering
 
+## 2.3.0
+
+### Minor Changes
+
+- [`83b942f`](https://github.com/arcasilesgroup/ai-engineering/commit/83b942fbe86d6f39852df4a9c75924115946ba60) Thanks [@soydachi](https://github.com/soydachi)! - Governance by observability, not by more stoppers (research/001 R1+R2). `doctor`'s receipts line is no longer four numbers: it names the top denier guard/tool, the ledger's repeat count, and WARNs when the last 7 days of denies pass 3x the prior week. The gc that already collects receipts now merges a 90-day daily series into `summary.json` instead of overwriting it, and prunes the new `receipts/denies.json` ledger (age + newest-500) instead of deleting it. The ledger is the cross-session memory OWASP ASI01/ASI06 need: when a guard denies a call this exact machine already denied, the human message says `· this exact call has been denied N times before`. Signal only — no verdict, no new config, no dependency; deny receipts finally carry their real tool instead of `unknown`.
+
+- [`57efe8e`](https://github.com/arcasilesgroup/ai-engineering/commit/57efe8ea66aedd7ed46296d371a6faa9669c02a5) Thanks [@soydachi](https://github.com/soydachi)! - Session handoff improvements (research 006 R1/R2/R3). `ai-eng briefing` generates a session handoff briefing with spec gates, plan step, recent denies, and receipt summary — closing the "rebuild state from scratch" gap (20/90 sessions needed manual "continua"). Receipts now carry `session_id` and `summarizeBySession()` groups them for per-session queries. Research cache (`research-cache/`) persists findings between sessions with doctor reporting and gc auto-prune for entries >30d.
+
+### Patch Changes
+
+- [`83b942f`](https://github.com/arcasilesgroup/ai-engineering/commit/83b942fbe86d6f39852df4a9c75924115946ba60) Thanks [@soydachi](https://github.com/soydachi)! - Docs, comments and specs now describe the product as it is, not as it was. The canon carried ghosts of the v1 Python era and the deleted ai-rtk skill: `ai-verify`'s eval harness claimed "Python 3.8+" while running on Bun, `ai-explore`'s example diagram cited a `chain.py` that does not exist, `ai-write` cited "spec 039/033" from the dead v1 spec-number registry, `ai-visual-recap` routed readers to the out-of-canon visual-plan skill, and `blueprint.html`/`recap.html` still listed ai-rtk in the canon trees, lineage and lifecycle tables and pinned version 0.13.0. Root docs drifted too: `AGENTS.md` pinned 2.2.0 and the retired `tsc --noEmit`, `THIRD-PARTY-NOTICES.md` listed dependencies package.json does not carry, `brand/README.md` documented a nonexistent `brand.ts legacy` subcommand, and `NOTICE.md` omitted the shipping ai-stress-test. Source comments narrating past bugs ("used to…", "no longer…") were rewritten to state the present rule; blueprint stamps now read 2.2.3, and ai-stress-test is listed where the canon is enumerated. No behavior changed — every diff is prose, verified against the tree.
+
 ## 2.2.3
 
 ### Patch Changes
