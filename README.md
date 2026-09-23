@@ -51,6 +51,11 @@ bun add -g ai-engineering@latest && ai-eng init    # or: npm install -g ai-engin
 One command. `init` asks which agents to govern, installs the canon on your machine, and writes
 the contract into this repository. It is idempotent — run it again whenever you like.
 
+`npm install` needs no runtime on your machine: the package ships a compiled binary for your
+platform as an optional dependency (`ai-engineing-<platform>`, eight targets, musl included)
+and the `ai-eng` launcher picks it up. Bun remains the path for `bun add -g` and for
+development — where bun is present, the launcher runs the source.
+
 <p align="center">
   <img src=".github/assets/cli-tour.gif" alt="ai-eng in a real terminal: the verb list, init installing the canon and picking surfaces, doctor running 17 checks, config adding a surface, update reporting what it rewrote" width="900">
   <br/><sub>a real session, 43 seconds, sped up: install → govern → verify → add a surface → update</sub>
@@ -182,7 +187,7 @@ node — `ai-eng spec close` archives it into git and frees the slot.
 
 | Trigger | Kind | Routes to | Fires when |
 |---|---|---|---|
-| `ui` | path | `ai-design` → `ai-design-audit` | the diff touches `**/*.tsx`, `**/*.css`, `**/components/**`, a Tailwind config… |
+| `ui` | path | `ai-design` → `ai-audit-design` | the diff touches `**/*.tsx`, `**/*.css`, `**/components/**`, a Tailwind config… |
 | `security` | path | `ai-security` | the diff touches `**/auth/**`, `**/*.sql`, `**/migrations/**`, `.github/workflows/**`… |
 | `open-questions` | judgment | `ai-research` | the brainstorm lists open questions, or the plan cites an external API |
 | `arch-change` | judgment | `ai-architect` | the milestone adds a subsystem or moves a layer contract |
@@ -210,7 +215,7 @@ loud. Either way: a gate or an `ABANDON`, never silence.
 | `ai-write` | Writes the README, the wiki page or the API doc, verified against the tree |
 | `ai-visual-recap` | Turns a diff into an interactive recap: diagrams, file map, annotated diff |
 | `ai-design` | Elects the one design skill a UI request needs and sequences the phases |
-| `ai-design-audit` | Measures a rendered page in a real browser and fixes what the numbers say |
+| `ai-audit-design` | Measures a rendered page in a real browser and fixes what the numbers say |
 | `ai-explore` | Answers "where does this live" from the repository, anchored to `file:line` |
 | `ai-note` | Saves a hard-won finding as committed markdown, stamped so staleness is detectable |
 | `ai-issue-report` | Files a governed bug report: scrubbed fields, local draft, nothing sent unconfirmed |

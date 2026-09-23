@@ -33,7 +33,7 @@ Everything lives in **one markdown file**. No issue tracker, no ticket files, no
 graph — one person, one sitting, one effort.
 
 In ai-engineering that file is the slot, and it already exists when this skill starts: the
-`ai-brainstorm` handshake doc at `.ai-engineering/brainstorm.md`, which carries the open
+`ai-brainstorm` handshake doc at `.ai-engineering/brainstorm.html`, which carries the open
 questions, the answers and the fog. Extend it. `.wayfinder/<slug>/MAP.md` is the layout this
 method came from upstream, not a path this repository writes: a map placed there is outside
 the slot, so `spec close` never archives it, `doctor` never audits it and nothing protects it.
@@ -181,14 +181,14 @@ If something can only be settled by actually running it, mark it and move on. An
 2. At most 30 gates per milestone — if you need more, the milestone is over-engineered.
    A check that cannot run is a FAIL, never a PASS by inspection.
 3. The upstream `.wayfinder/<slug>/MAP.md` layout and `commands/to-bar.md` emit step are kept
-   as the method; in this repository the working file is the `.ai-engineering/brainstorm.md`
+   as the method; in this repository the working file is the `.ai-engineering/brainstorm.html`
    slot, and the checks land in spec.html. Never a second map in a second place.
 4. The closed set of routing triggers is five ids, and each one is a hook into another
    node:
 
    | Trigger | Kind | Node it routes to |
    |---|---|---|
-   | `ui` | path | ai-design, then ai-design-audit |
+   | `ui` | path | ai-design, then ai-audit-design |
    | `security` | path | ai-security |
    | `open-questions` | judgment | ai-research |
    | `arch-change` | judgment | ai-architect |

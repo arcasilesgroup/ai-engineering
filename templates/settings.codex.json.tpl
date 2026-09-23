@@ -23,6 +23,18 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ai-eng chain UserPromptSubmit --surface codex",
+            "timeout": 10,
+            "statusMessage": "ai-eng guards"
+          }
+        ]
+      }
     ]
   }
 }

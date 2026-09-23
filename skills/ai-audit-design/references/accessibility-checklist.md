@@ -1,6 +1,6 @@
 # Accessibility checklist reference
 
-The a11y pass in `ai-design-audit` checks HTML rendered in a browser. This reference covers what it cannot reach: downloadable documents, screen-reader behaviour, orientation lock, and non-text contrast.
+The a11y pass in `ai-audit-design` checks HTML rendered in a browser. This reference covers what it cannot reach: downloadable documents, screen-reader behaviour, orientation lock, and non-text contrast.
 
 ## How to interpret the a11y audit output
 
@@ -78,7 +78,7 @@ The a11y pass cannot evaluate PDF, Word, or PPTX files — these do not render i
 
 ## Non-text contrast
 
-WCAG 2.5.8 (Target Size) and 1.4.11 (Non-text Contrast) require a 3:1 ratio against adjacent colours for UI components and graphical objects. The `contrast` pass in `ai-design-audit` only measures text against its immediate background. Non-text contrast on icons, dividers, form borders, and focus rings is not measured.
+WCAG 2.5.8 (Target Size) and 1.4.11 (Non-text Contrast) require a 3:1 ratio against adjacent colours for UI components and graphical objects. The `contrast` pass in `ai-audit-design` only measures text against its immediate background. Non-text contrast on icons, dividers, form borders, and focus rings is not measured.
 
 **How to check:** open DevTools, pick the element, inspect `background` and `border` / `outline` colours, compute the ratio with any contrast checker. If a UI element (button outline, tab border, input border) is indistinguishable on a white background without colour, it fails.
 

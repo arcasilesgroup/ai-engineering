@@ -4,8 +4,9 @@
 // behind in the cwd and Bun never sweeps one from an earlier run (invisible
 // because .gitignore hides it). Sweep before and after: the scratch either gets
 // renamed away or it does not outlive this script.
-import { readdirSync, rmSync } from "node:fs";
+import { readdirSync, existsSync, rmSync, unlinkSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { join } from "node:path";
 
 const args = process.argv.slice(2);
 
@@ -49,5 +50,22 @@ const done = spawnSync(
 );
 
 const left = sweep();
-if (left > 0) console.log(`build: swept ${left} scratch file(s) this build left behind`);
+
+// A plain build (`bun run build`) emits dist/ai-eng, but bin/ai-eng.js prefers
+// dist/ai-eng-<platform> when one exists — so a stale platform binary keeps running
+// old code while the developer believes the fresh build shipped. Removing it sends
+// the launcher to the binary this build just wrote (or the bun source path). A
+// --target build never deletes: it IS the platform refresh.
+if (!args.includes("--target") && !args.some((flag) => flag.startsWith("--target="))) {
+  const target = process.platform === "darwin" ? `darwin-${process.arch}`
+    : process.platform === "win32" ? "windows-x64" : `${process.platform}-${process.arch}`;
+  const platformBin = join("dist", `ai-eng-${target}`);
+  if (existsSync(platformBin)) {
+    unlinkSync(platformBin);
+    console.log(`build: removed stale ${platformBin} — bin/ai-eng.js was preferring it over dist/ai-eng`);
+  }
+}
+
 process.exit(done.status ?? 1);
+
+

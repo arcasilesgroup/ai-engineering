@@ -102,10 +102,20 @@ jobs:
           # the glob carries the extension Windows adds (ai-eng-windows-x64.exe):
           # a bare path fails with "Could not find subject at path dist/ai-eng-windows-x64"
           subject-path: dist/ai-eng-${{ matrix.target }}*
+      # The binary packed for npm: the platform package release.yml publishes
+      # (ai-engineing-<target>@<version>). Staging here puts it in the same
+      # artifact the publish job uploads — one channel per artifact, binaries
+      # and the packages that carry them built by the same leg.
+      - run: bun scripts/build-platform-package.ts --target "bun-$TARGET"
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ai-eng-${{ matrix.target }}
-          path: dist/ai-eng-*
+          path: |
+            dist/ai-eng-*
+            dist/ai-engineering-${{ matrix.target }}
 
   publish:
     needs: build
@@ -222,10 +232,22 @@ jobs:
           npm install -g npm@11.19.1 --prefix "$HOME/.local"
           export PATH="$HOME/.local/bin:$PATH"
           if [ "$CHANNEL" = "production" ]; then dist_tag=latest; else dist_tag=next; fi
+          # The platform packages carry this version by definition — write the
+          # optionalDependencies in, publish, restore the working tree.
+          cp package.json package.json.pre-publish
+          bun scripts/set-platform-deps.ts
+          trap 'mv package.json.pre-publish package.json' EXIT
           npm publish --provenance --tag "$dist_tag"
+          # The eight binary carriers: published WITH the main package, so a
+          # package that names a binary it does not carry cannot exist (the
+          # one-channel-per-artifact rule, release.yml header).
+          for staged in dist-artifacts/ai-eng-*/ai-engineering-*/; do
+            (cd "$staged" && npm publish --provenance)
+          done
           {
             echo "npm publish completed (OIDC trusted publishing)"
             echo "Package: ai-engineering@$(node -p 'require("./package.json").version')"
+            echo "Platform packages: $(find dist-artifacts -maxdepth 3 -name 'ai-engineering-*' -type d | wc -l | tr -d ' ') published"
             echo "dist-tag: $dist_tag"
             echo "CI run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } | tee publish-proof.txt

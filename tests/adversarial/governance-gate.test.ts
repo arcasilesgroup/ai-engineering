@@ -226,9 +226,9 @@ describe("adversarial · the gate (config.toml decides, not .git)", () => {
 
 // The fence is four file names, not the directory. Everything else under .ai-engineering/
 // is the session's own material: the four milestone slots (spec.html and plan.html
-// scaffolded by `spec open` and filled in by the session; brainstorm.md and recap.html with
+// scaffolded by `spec open` and filled in by the session; brainstorm.html and recap.html with
 // no template at all — `spec close` sweeps all four, and doctor warns about an orphan
-// brainstorm.md precisely because the session that should have written one did not, §21.2),
+// brainstorm.html precisely because the session that should have written one did not, §21.2),
 // and the artifacts the canon's own nodes promise: ai-research writes
 // research/NNN-{name}.html, ai-security writes security/run-N/, ai-design writes
 // design/direction.html. A directory literal denied every one of them — a guard that stops
@@ -236,7 +236,7 @@ describe("adversarial · the gate (config.toml decides, not .git)", () => {
 // governs. What stays protected is what a session could use to unpin, unhook or re-date
 // itself: the four files the chain reads, the directory itself, and the git floor.
 describe("adversarial · self-protect: the session writes its own artifacts, not the machinery", () => {
-  const SLOTS = ["spec.html", "plan.html", "brainstorm.md", "recap.html"];
+  const SLOTS = ["spec.html", "plan.html", "brainstorm.html", "recap.html"];
 
   /** A governed repo, plus a lock that pins a contract when asked. The pin is the only
    *  thing that freezes a slot: spec.html stops being a draft the moment its sha256 is
@@ -283,7 +283,7 @@ describe("adversarial · self-protect: the session writes its own artifacts, not
       // being a draft the moment a human approves it.
       expect(write(repo, "spec.html")?.deny).toBe(true);
       expect(write(repo, "plan.html")?.deny ?? false).toBe(false);
-      expect(write(repo, "brainstorm.md")?.deny ?? false).toBe(false);
+      expect(write(repo, "brainstorm.html")?.deny ?? false).toBe(false);
       expect(write(repo, "recap.html")?.deny ?? false).toBe(false);
     } finally {
       rmSync(repo, { recursive: true, force: true });
@@ -323,8 +323,8 @@ describe("adversarial · self-protect: the session writes its own artifacts, not
       expect(bash(`rm -rf ${join(repo, ".ai-engineering", "ai-eng.lock")}`)?.deny).toBe(true);
       // Its children are the session's own material, so deleting or moving one is a write
       // like any other.
-      expect(bash(`rm -rf ${join(repo, ".ai-engineering", "brainstorm.md")}`)?.deny ?? false).toBe(false);
-      expect(bash(`mv ${join(repo, ".ai-engineering", "brainstorm.md")} /tmp/x`)?.deny ?? false).toBe(false);
+      expect(bash(`rm -rf ${join(repo, ".ai-engineering", "brainstorm.html")}`)?.deny ?? false).toBe(false);
+      expect(bash(`mv ${join(repo, ".ai-engineering", "brainstorm.html")} /tmp/x`)?.deny ?? false).toBe(false);
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

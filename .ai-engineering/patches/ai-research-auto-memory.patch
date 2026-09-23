@@ -1,0 +1,54 @@
+# ai-research modification: add auto-memory between sessions
+# Apply manually: add this section to ~/.agents/skills/ai-research/SKILL.md
+# Insert after "## Steps" (before "## What it produces")
+
+## New section: Auto-memory between sessions
+
+## Auto-memory
+
+Before starting research, check for existing cache:
+```
+ls .ai-engineering/research-cache/ 2>/dev/null
+```
+If a file matching the current topic exists (fuzzy name match), read it first. These are
+findings from prior sessions — treat them as starting points, not final answers. Verify
+they're still current (date everything), then build on them rather than re-discovering.
+
+At the end of every research session, persist key findings:
+```
+mkdir -p .ai-engineering/research-cache
+```
+Write `.ai-engineering/research-cache/<topic-slug>.md` with:
+- Topic and date
+- Key findings (numbered, with citations)
+- Sources used and sources absent
+- Three directions worth taking
+
+Format:
+```markdown
+# Research cache: <topic>
+Date: YYYY-MM-DD
+Session: <session id if available>
+
+## Findings
+1. [finding with citation]
+2. ...
+
+## Sources used
+- [source 1]
+- ...
+
+## Sources absent (degraded)
+- tool: <name> — reason
+
+## Directions
+1. [cited direction]
+2. ...
+```
+
+The cache is a starting point, not a conclusion. Always verify cached findings are still
+current before citing them. If a cached finding is stale, note it and re-research.
+
+## Update "## What it produces" section:
+# Add after the existing content:
+# Plus one cache file per topic: `.ai-engineering/research-cache/<topic-slug>.md`

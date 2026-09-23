@@ -11,6 +11,12 @@
         "loop": "native",
         "loopEvidence": "claude 2.1.251: --permission-mode auto|bypassPermissions|dontAsk with -p, plus --bg, --resume and --agents"
       },
+      "promptHook": {
+        "supported": true,
+        "event": "UserPromptSubmit",
+        "source": "code.claude.com/docs/en/hooks: UserPromptSubmit fires before the prompt is processed; exit 2 blocks it and erases the prompt",
+        "measured": "2026-09-22"
+      },
       "carriers": [
         {
           "scope": "machine",
@@ -30,6 +36,11 @@
         "rewriteOut": true,
         "loop": "native",
         "loopEvidence": "omp: --plan-yolo auto-approves the plan and switches to --plan-yolo-into to implement it; --plan=<model> role"
+      },
+      "promptHook": {
+        "supported": false,
+        "source": "omp://hooks.md (2026-09-22): before_agent_start can inject a message but nothing blocks or inspects the raw user prompt before it enters the transcript — wiring needs a live probe and a template change (templates/plugin.omp.ts.tpl)",
+        "measured": "2026-09-22"
       },
       "carriers": [
         {
@@ -53,6 +64,11 @@
         "loop": "native",
         "loopEvidence": "opencode 1.18.29: --auto (auto-approve permissions not explicitly denied) with `opencode run`, --continue and --fork"
       },
+      "promptHook": {
+        "supported": false,
+        "source": "opencode.ai/docs/plugins (2026-09-22): the plugin API exposes beforeToolCall/afterToolCall — no prompt-submission hook exists to attach",
+        "measured": "2026-09-22"
+      },
       "carriers": [
         {
           "scope": "machine",
@@ -74,6 +90,11 @@
         "rewriteOut": false,
         "loop": "native",
         "loopEvidence": "cursor-agent: --mode plan plus --force/--yolo (allow commands unless explicitly denied) and --sandbox"
+      },
+      "promptHook": {
+        "supported": false,
+        "source": "cursor.com/docs/hooks (2026-09-22): hooks.json exposes preToolUse/postToolUse only — no prompt event to attach",
+        "measured": "2026-09-22"
       },
       "carriers": [
         {
@@ -97,6 +118,12 @@
         "loop": "native",
         "loopEvidence": "codex-cli 0.153.4: `codex exec` non-interactively, -s workspace-write, --dangerously-bypass-approvals-and-sandbox, resume/queue"
       },
+      "promptHook": {
+        "supported": true,
+        "event": "UserPromptSubmit",
+        "source": "developers.openai.com/codex/hooks (2026-09-22): UserPromptSubmit fires on prompt submission and ignores matchers; openai/codex#14626 added it",
+        "measured": "2026-09-22"
+      },
       "carriers": [
         {
           "scope": "machine",
@@ -118,6 +145,11 @@
         "rewriteOut": true,
         "loop": "native",
         "loopEvidence": "GitHub Copilot CLI 1.0.83: --plan ('combine with --mode to implement it autonomously') and a mode that runs 'autonomously without asking questions'"
+      },
+      "promptHook": {
+        "supported": false,
+        "source": "docs.github.com/en/copilot/reference/hooks-reference (2026-09-22): the event exists (userPromptSubmitted) but its OUTPUT IS IGNORED for CLI hooks — modifiedPrompt is SDK-only — so it cannot block or warn",
+        "measured": "2026-09-22"
       },
       "carriers": [
         {
@@ -146,6 +178,11 @@
         "rewriteOut": true,
         "loop": "none",
         "loopEvidence": "pi 0.85.1: --help offers plan mode only 'from plan-mode extension' — nothing built in"
+      },
+      "promptHook": {
+        "supported": false,
+        "source": "pi.dev/docs extensions (2026-09-22): extensions expose tool_call/tool_result only — no prompt-submission event to attach",
+        "measured": "2026-09-22"
       },
       "carriers": [
         {

@@ -304,7 +304,7 @@ test("spec close accepts an honest ABANDON, prints it and frees the slot", () =>
   commitAll("chore: fixture base");
   const reason = "the check needs a network the CI does not have";
   writeLock({ spec_sha256: writeSpec(contract(`${PENDING_GATES}ABANDON: G1 ${reason}\n`)), base_sha: git(["rev-parse", "HEAD"]).out.trim() });
-  writeFileSync(join(repo, ".ai-engineering", "brainstorm.md"), "# Handshake\n");
+  writeFileSync(join(repo, ".ai-engineering", "brainstorm.html"), "# Handshake\n");
   writeFileSync(join(repo, ".ai-engineering", "recap.html"), "<html></html>\n");
 
   const closed = capture(() => specClose());
@@ -312,7 +312,7 @@ test("spec close accepts an honest ABANDON, prints it and frees the slot", () =>
   expect(closed.out).toContain(`  ABANDON: G1 — ${reason}`);
   expect(closed.out).toContain("✓ contract closed: 1 gate(s) verified, spec/plan/brainstorm/recap dead from the tree");
 
-  for (const name of ["spec.html", "plan.html", "brainstorm.md", "recap.html"]) {
+  for (const name of ["spec.html", "plan.html", "brainstorm.html", "recap.html"]) {
     expect(existsSync(join(repo, ".ai-engineering", name))).toBe(false);
   }
   const lock = readFileSync(lockPath(), "utf8");

@@ -148,7 +148,7 @@ The interface must work in any viewport, any orientation, any zoom.
 
 **Decision at direction phase (Step 1):** choose the conformance target before any code. Default is AA. AAA on contrast (7:1, 4.5:1 large) and target size (44px) when the interface is text-heavy or legally required (public sector, education).
 
-**Measurement:** run `ai-design-audit --checks a11y contrast --widths 320 390 820 1440` after Build. Use `--aa` to relax contrast to AA thresholds.
+**Measurement:** run `ai-audit-design --checks a11y contrast --widths 320 390 820 1440` after Build. Use `--aa` to relax contrast to AA thresholds.
 
 **Document audit:** PDFs and Office files must be checked separately (outside the browser). Use the document checklists above, or an automated tool like Ally itself, `pdfjs` with tags inspection, or `mammoth.js` for DOCX structure.
 

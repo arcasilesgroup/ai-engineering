@@ -21,6 +21,29 @@ loop_failures = 5  # same signature failing → deny
 # system nothing. An invalid value fails closed as 0000.
 # policy_mode = "0467"
 
+# Local rules — declarative injection rules evaluated by the injection guard.
+# Each rule matches against a scope (all_text, tool_name, or raw_json) with
+# contains or equals semantics. Actions: "block" (deny immediately) or "review"
+# (log but allow). Risk 0–1 determines priority (higher = checked first).
+# Rules are sorted: block before review, highest risk first.
+# Example:
+# [[guards.local_rules]]
+# id = "no-curl-bash"
+# name = "No curl pipe to shell"
+# enabled = true
+# scope = "all_text"
+# match = "contains"
+# pattern = "curl.*\\|.*(bash|sh|zsh)"
+# action = "block"
+# risk = 0.9
+
+# Circuit breaker — protects against external service failures (Jev, MCP).
+# After failure_threshold consecutive failures, the circuit opens and rejects
+# immediately for reset_ms milliseconds, then tries once to recover.
+# [guards.circuit_breaker]
+# failure_threshold = 5   # consecutive failures before opening (default: 5)
+# reset_ms = 30000        # milliseconds before half-open recovery (default: 30000)
+
 [gc]
 # Growth caps for the NNN folders (research/, audits/, security/, reports/,
 # receipts/). WARN thresholds, not FAIL — growth is hygiene, not security (§12.1).

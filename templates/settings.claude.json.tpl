@@ -24,6 +24,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ai-eng chain UserPromptSubmit",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

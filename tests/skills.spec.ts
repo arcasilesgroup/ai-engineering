@@ -217,7 +217,7 @@ const TRIGGER_IDS = ["ui", "security", "open-questions", "arch-change", "public-
 const REQUIRED_KEYS = ["Lane", "Writes", "Read by", "Dies", "Next"];
 /** The four slot files are shared by design — several nodes write into one milestone
  *  slot (states, evidence), so ownership is exclusive for everything BUT these. */
-const SLOTS = ["spec.html", "plan.html", "brainstorm.md", "recap.html"];
+const SLOTS = ["spec.html", "plan.html", "brainstorm.html", "recap.html"];
 
 function skillName(dir: string): string {
   return dir.split("/").pop()!;

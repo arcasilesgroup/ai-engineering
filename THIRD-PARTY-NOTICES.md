@@ -13,7 +13,7 @@ Bundled third-party content:
 - wayfinder (mattpocock) — MIT
 - writing-agent-behavior (braintrustdata/agentbehavior) — Apache-2.0 — © Braintrust + Basis
 - Loop-Engineering, design-orchestrator (claude-design-skills), graph-engineering,
-  ai-design-audit — integrated with attribution; license issues open (H4)
+  ai-audit-design — integrated with attribution; license issues open (H4)
 
 Not bundled (offered as install commands only, §14.1): caveman, engram,
 impeccable, hallmark, shadcn, astryx, emil-design-eng, ui-ux-pro-max, tasteskill,

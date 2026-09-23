@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research 004 — CodeGraph + ai-engineering Integration</title>
+<style>
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px; --lh-h2:1.16; --ls-h2:-.018em;
+  --fs-h3:17px; --lh-h3:1.32; --ls-h3:-.006em;
+  --fs-h4:14px; --lh-h4:1.35;
+  --fs-body:15px; --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px; --lh-mono:1.7;
+  --fs-label:10.5px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--fs-body);line-height:var(--lh-body);font-synthesis-weight:none;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
+.hero{position:relative;overflow:hidden;text-align:center;padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);background-size:32px 32px,32px 32px,100% 100%}
+.hero .stamp{display:inline-block;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.26em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;margin-bottom:var(--s5)}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+nav{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:var(--s2) var(--s4);background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:56px 0 44px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:660;margin:var(--s5) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);margin:0 auto var(--s3);text-align:justify;hyphens:auto}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul{margin:var(--s3) 0 var(--s5) var(--s5);text-align:left}
+ol{margin:var(--s3) 0 var(--s5);text-align:left;list-style:none;padding-left:0;counter-reset:ref}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s3);padding-left:var(--s2)}
+ol li{counter-increment:ref;padding-left:2.4em;position:relative}
+ol li::before{content:counter(ref) ".";position:absolute;left:0;color:var(--comment);font-family:var(--mono);font-size:12px;width:2em;text-align:right}
+li strong{color:var(--text)}
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;max-width:100%;-webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+.card h3,.card h4{min-height:22px;line-height:22px}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0;text-align:left}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+.tbl-wrap{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+.btn{display:inline-block;border:1px solid rgba(0,237,100,.35);border-radius:999px;padding:8px 18px;margin:var(--s2) 0;color:var(--accent);font-family:var(--mono);font-size:12px;text-decoration:none;transition:background .15s}
+.btn:hover{background:rgba(0,237,100,.08);text-decoration:none}
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+@media (max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px;letter-spacing:-.022em}.hero .sub{font-size:16px}}
+@media (max-width:820px){nav a{padding:14px 8px}}
+@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}table{font-size:13px}th,td{padding:10px var(--s3)}pre{font-size:11.5px;padding:var(--s3) var(--s4)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
+@media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
+@media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Research · 004 · 2026-09-23</div>
+  <h1>CodeGraph + <span class="x">ai-engineering</span><br>Integration Analysis</h1>
+  <p class="sub"><strong>CodeGraph</strong> builds a semantic graph of your codebase and exposes it via MCP. This report analyzes whether and how it fits into ai-engineering's architecture — the seam, the tradeoffs, and the recommended integration path.</p>
+  <div class="meta">tools used: <b>web search</b> (Google) · <b>local repo analysis</b> (src/) · <b>subagent research</b> (3 scouts)<br>
+  degraded-tool: <b>notebooklm</b> (no configurado) · <b>tavily</b> (no configurado) · <b>exa</b> (no instalado)</div>
+</header>
+<nav>
+  <a href="#s1"><b>01</b>What is CodeGraph</a>
+  <a href="#s2"><b>02</b>vs find/grep</a>
+  <a href="#s3"><b>03</b>The seam</a>
+  <a href="#s4"><b>04</b>Integration strategy</a>
+  <a href="#s5"><b>05</b>Skill design</a>
+  <a href="#s6"><b>06</b>What this changes</a>
+  <a href="#s7"><b>07</b>Directions</a>
+</nav>
+<main id="main">
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s1">
+<h2><span class="num">01</span>What is CodeGraph</h2>
+
+<p>CodeGraph (colbymchenry/codegraph, ~71k stars, MIT) is a local-first code-intelligence MCP server. A Rust kernel + tree-sitter parse the repo into a SQLite knowledge graph (symbols, typed edges, FTS5), auto-synced by a file watcher. It exposes <strong>one default tool</strong> — <code>codegraph_explore</code> — which returns verbatim line-numbered source of relevant symbols grouped by file, plus call paths and blast-radius summaries. [1]</p>
+
+<p>It is <strong>not</strong> an LLM, not cloud-dependent, not embedding-based. It is a deterministic AST-extraction tool that answers "how does X work" and "what calls Y" without grep patterns. [2]</p>
+
+<div class="bracket"><span class="tag">Live schema — this repo</span>
+<pre>.codegraph/codegraph.db:
+  117 files · 2,153 nodes · 9,503 edges
+  edges: calls 5,983 / contains 2,048 / imports 878 / references 592 / instantiates 2
+  + nodes_fts (FTS5) · 11,430 unresolved_refs</pre>
+</div>
+
+<p>Nodes carry: id, kind, name, qualified_name, file_path, language, line/col spans, signature, docstring, visibility, decorators, return_type. Edges carry: source, target, kind, metadata JSON, provenance. [3]</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s2">
+<h2><span class="num">02</span>CodeGraph vs find/grep</h2>
+
+<p>The honest comparison — when each wins and when it doesn't matter:</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Dimension</th><th>CodeGraph</th><th>find / grep</th></tr></thead>
+<tbody>
+<tr><td>Call chains</td><td><span class="pill p-ok">wins</span> follows dynamic dispatch, imports, inheritance</td><td>Literal text match only — misses polymorphic calls</td></tr>
+<tr><td>Blast radius</td><td><span class="pill p-ok">wins</span> "if I change X, what breaks?" in one call</td><td>Manual grep + guesswork across files</td></tr>
+<tr><td>Symbol search</td><td><span class="pill p-ok">wins</span> FTS5 + graph traversal, cross-file</td><td>Regex on text — works for exact names, misses structure</td></tr>
+<tr><td>Raw text search</td><td>Not designed for it — agent correctly declines</td><td><span class="pill p-ok">wins</span> "find all TODOs", "grep for this string"</td></tr>
+<tr><td>Tool calls per question</td><td>-58% fewer (vendor A/B) / -55% (independent) [4]</td><td>Baseline, more calls for same answer</td></tr>
+<tr><td>Latency</td><td>-22% faster (vendor) / -20% (independent) [4]</td><td>Baseline</td></tr>
+<tr><td>Cost (tokens)</td><td>Scale-dependent: saves on large repos, +6.8% on small (~280 files) [4]</td><td>Baseline</td></tr>
+<tr><td>Residual context</td><td><span class="pill p-bad">worse</span> 82% more resident after 3-turn sessions (67k vs 18k tokens) [5]</td><td>Smaller payloads, less context bloat</td></tr>
+<tr><td>Setup</td><td><code>npm i -g codegraph && codegraph init</code></td><td>Zero setup, always available</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>2.1 — The residual context trap</h3>
+
+<p>CodeGraph's own docs admit: <strong>82% more context stays resident after multi-turn sessions</strong>. In a 3-turn Sonnet session on VS Code, CodeGraph leaves 67k tokens vs 18k stock. The tool-call savings (-58%) are real, but the per-call payload is larger — so total context consumed per question may be higher. [5]</p>
+
+<div class="note warn"><h4>Implication for ai-engineering</h4><p>CodeGraph is a <em>supplement</em> for graph queries, not a replacement for find/grep on simple lookups. The agent should reach for CodeGraph when the question involves call chains, blast radius, or cross-file symbol relationships — not for "find this string" or "list files matching X".</p></div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s3">
+<h2><span class="num">03</span>CodeGraph + ai-engineering: The seam</h2>
+
+<h3>3.1 — What ai-engineering already does with MCP</h3>
+
+<p>The injection guard (<code>src/guards/injection.ts:157</code>) already scans MCP tool responses for instruction-shaped text:</p>
+
+<pre><span class="c">// PostToolUse: WebFetch / MCP / search results — containment, not prevention.</span>
+<span class="k">const</span> response = payload.tool_response;
+<span class="k">const</span> text = <span class="k">typeof</span> response === <span class="s">"string"</span> ? response : JSON.stringify(response ?? <span class="s">""</span>);
+<span class="k">const</span> found = hit(text.slice(<span class="n">0</span>, MAX_BYTES));</pre>
+
+<p>Tools matching <code>/^mcp__.*$/</code> are caught by the PostToolUse injection matcher (<code>src/chain/mod.ts:45</code>). CodeGraph's MCP tools (<code>mcp__codegraph__codegraph_explore</code>) will be scanned automatically. No chain changes needed. [6]</p>
+
+<h3>3.2 — What ai-engineering does NOT do</h3>
+
+<p>There is <strong>no mechanism for installing external MCP servers</strong> in <code>src/</code> — the installer writes hook carriers (settings files, TS modules), not MCP server configs. The surface registry (<code>src/surfaces/surfaces.json</code>) tracks hook capabilities, not MCP tool registrations. [7]</p>
+
+<p>This is the gap: ai-engineering governs the <em>hooks</em> (guard chain), but CodeGraph is an MCP <em>tool server</em> — a different integration point.</p>
+
+<h3>3.3 — Compatibility with omp and pi.dev</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Surface</th><th>Official installer</th><th>Actual path</th><th>Tier</th></tr></thead>
+<tbody>
+<tr><td>Claude Code</td><td><span class="pill p-ok">yes</span></td><td><code>~/.claude.json</code> → mcpServers.codegraph</td><td>core</td></tr>
+<tr><td>Cursor</td><td><span class="pill p-ok">yes</span></td><td><code>~/.cursor/mcp.json</code> → mcpServers.codegraph</td><td>experimental</td></tr>
+<tr><td>Copilot (VS Code)</td><td><span class="pill p-ok">yes</span></td><td><code>.vscode/mcp.json</code> → servers.codegraph</td><td>best-effort</td></tr>
+<tr><td>Copilot (CLI)</td><td><span class="pill p-ok">yes</span></td><td><code>~/.copilot/mcp-config.json</code></td><td>best-effort</td></tr>
+<tr><td>Copilot (JetBrains)</td><td><span class="pill p-ok">yes</span></td><td><code>~/.config/github-copilot/intellij/mcp.json</code></td><td>best-effort</td></tr>
+<tr><td>opencode</td><td><span class="pill p-ok">yes</span></td><td><code>~/.config/opencode/opencode.jsonc</code> → mcp.servers</td><td>core</td></tr>
+<tr><td>OMP</td><td><span class="pill p-bad">no</span> <sup>[8]</sup></td><td>OMP imports Claude/Cursor MCP configs; manual setup</td><td>core</td></tr>
+<tr><td>Pi</td><td><span class="pill p-bad">no</span> <sup>[8]</sup></td><td>Third-party packages (pi-codegraph-extension, @isac322/pi-codegraph)</td><td>core</td></tr>
+<tr><td>Zed</td><td><span class="pill p-bad">no</span></td><td>Zed's WASM extension API can add MCP servers</td><td>skills-only</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>OMP/Pi situation:</strong> The official colbymchenry installer has no omp or pi target (issue #184, closed as community-tracked). OMP can import Claude/Cursor MCP configs. Pi has third-party packages. The <code>lzehrung/codegraph</code> fork ships an omp target. [8]</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s4">
+<h2><span class="num">04</span>Integration strategy</h2>
+
+<h3>4.1 — What NOT to do</h3>
+
+<ul>
+<li><strong>Do not add CodeGraph to <code>src/surfaces/surfaces.json</code></strong> — surfaces are hook carriers, not MCP servers. CodeGraph is a tool server, not a guard chain participant.</li>
+<li><strong>Do not add it to <code>ai-eng init</code></strong> — init installs governance hooks. MCP server installation is a different concern. Mixing them couples two independent lifecycles.</li>
+<li><strong>Do not write a new guard for CodeGraph</strong> — the injection guard already scans MCP responses. No chain changes needed.</li>
+</ul>
+
+<h3>4.2 — What TO do</h3>
+
+<div class="grid g2">
+<div class="card">
+<h4>Option A: Skill <span class="pill p-ok">recommended</span></h4>
+<p>Create <code>skills/ai-codegraph/SKILL.md</code> — detects install, starts daemon, documents MCP config per surface, provides usage guidance. Follows the pattern of <code>ai-tavily</code>, <code>ai-exa</code>, <code>ai-context7</code>. The agent reads it when the question involves graph queries.</p>
+</div>
+<div class="card">
+<h4>Option B: Surface carrier <span class="pill p-bad">not recommended</span></h4>
+<p>Add CodeGraph to the surface registry as an MCP carrier. This couples CodeGraph's lifecycle to ai-engineering's and mixes governance hooks with tool server config. Wrong layer.</p>
+</div>
+</div>
+
+<p>Skill is the right layer because: skills are the extension mechanism for tools <em>adjacent</em> to governance but not part of it. It does not couple CodeGraph's lifecycle to ai-engineering's. The agent can choose to use it or not based on the task.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s5">
+<h2><span class="num">05</span>The skill design</h2>
+
+<h3>5.1 — <code>skills/ai-codegraph/SKILL.md</code></h3>
+
+<div class="bracket"><span class="tag">SKILL.md</span>
+<pre># ai-codegraph — semantic code intelligence via MCP
+
+## What it is
+CodeGraph builds a semantic graph of your codebase (functions, classes, imports, call
+chains) and exposes it via MCP. One tool: codegraph_explore.
+
+## When to use
+- "How does X work?" → codegraph_explore (follows call chains, not text)
+- "What calls Y?" → codegraph_explore (graph traversal)
+- "If I change X, what breaks?" → codegraph_explore (blast radius)
+- "Find all TODOs" → use find/grep (CodeGraph is not for text search)
+
+## Lifecycle
+Lane: light
+Writes: nothing (read-only tool server)
+Read by: any agent that needs graph queries
+Next: none — the agent decides when to use it
+
+## Setup
+1. Check: codegraph --version
+2. If missing: npm i -g @colbymchenry/codegraph
+3. Check daemon: test -S .codegraph/daemon.sock
+4. If not running: codegraph serve --mcp &
+5. If not indexed: codegraph init
+
+## Per-surface MCP config
+- Claude Code: ~/.claude.json → mcpServers.codegraph
+- Cursor: ~/.cursor/mcp.json → mcpServers.codegraph
+- Copilot: .vscode/mcp.json → servers.codegraph
+- opencode: ~/.config/opencode/opencode.jsonc → mcp.servers
+- OMP: manual — import from ~/.claude.json or add to OMP config
+- Pi: npm i pi-codegraph-extension
+
+## Anti-patterns
+- Do NOT use for literal text search (grep is faster)
+- Do NOT use for "find all files matching X" (glob is faster)
+- DO use for: call chains, blast radius, cross-file symbol relationships</pre>
+</div>
+
+<h3>5.2 — What the agent should learn</h3>
+
+<p>The decision matrix for the agent:</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Question type</th><th>Tool</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>"Where is X defined?"</td><td><code>find</code></td><td>Simple path lookup, no graph needed</td></tr>
+<tr><td>"What calls function Y?"</td><td><code>codegraph_explore</code></td><td>Graph traversal, follows polymorphism</td></tr>
+<tr><td>"How does the auth flow work?"</td><td><code>codegraph_explore</code></td><td>Multi-file call chain</td></tr>
+<tr><td>"Find all files importing X"</td><td><code>grep</code></td><td>Literal text search, fast</td></tr>
+<tr><td>"If I change this interface, what breaks?"</td><td><code>codegraph_explore</code></td><td>Blast radius via edge traversal</td></tr>
+<tr><td>"Show me the test for this function"</td><td><code>find</code> + <code>grep</code></td><td>Convention-based lookup</td></tr>
+<tr><td>"What does this module depend on?"</td><td><code>codegraph_explore</code></td><td>Import edges in the graph</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s6">
+<h2><span class="num">06</span>What this changes</h2>
+
+<div class="grid g3">
+<div class="card">
+<h4>For the agent</h4>
+<p>When CodeGraph is available, prefer <code>codegraph_explore</code> for graph queries (call chains, blast radius, cross-file dependencies) and keep <code>find</code>/<code>grep</code> for simple lookups. The injection guard already scans MCP responses — no security gap.</p>
+</div>
+<div class="card">
+<h4>For the user</h4>
+<p>The daemon needs to be started. The skill documents this. The MCP config needs to be added per-surface. The skill documents this too.</p>
+</div>
+<div class="card">
+<h4>For ai-engineering</h4>
+<p>No changes to the core. The skill is optional — agents that don't need graph queries don't load it. The lifecycle is independent.</p>
+</div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s7">
+<h2><span class="num">07</span>Three directions worth taking</h2>
+
+<div class="grid g3">
+<div class="card">
+<h4>1. Create the skill</h4>
+<p>Write <code>skills/ai-codegraph/SKILL.md</code> following the pattern of <code>ai-tavily</code> and <code>ai-exa</code>. One file, no code. The agent reads it when the question involves graph queries. <strong>Cited:</strong> [1] codegraph README, [7] src/surfaces/surfaces.json.</p>
+</div>
+<div class="card">
+<h4>2. Test the OMP integration</h4>
+<p>OMP imports Claude/Cursor MCP configs. Verify: does OMP actually pick up <code>~/.claude.json</code> mcpServers? If not, document the manual path. The <code>lzehrung/codegraph</code> fork has an omp target — evaluate whether it works. <strong>Cited:</strong> [8] ResearchCodeGraphMCP agent findings.</p>
+</div>
+<div class="card">
+<h4>3. Measure residual context</h4>
+<p>The vendor's own data shows 82% more context resident after multi-turn sessions. Run a controlled test: 5 questions with CodeGraph enabled vs disabled on this codebase. Measure token usage. <strong>Cited:</strong> [5] residual-context-occupancy.md, [4] harrisonsec.com benchmark.</p>
+</div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s8">
+<h2><span class="num">08</span>Sources</h2>
+
+<ol>
+<li><a href="https://github.com/colbymchenry/codegraph">colbymchenry/codegraph</a> — README, tool list, benchmark tables</li>
+<li><a href="https://colbymchenry.github.io/codegraph/getting-started/introduction/">CodeGraph docs intro</a> — graph contents, deterministic AST extraction</li>
+<li><code>.codegraph/codegraph.db</code> — live evidence in this workspace (117 files, 2153 nodes, 9503 edges)</li>
+<li><a href="https://harrisonsec.com/blog/i-tested-codegraph-on-hono-benchmark/">Independent benchmark on Hono</a> — -55% tool calls reproduces, cost does NOT (+6.8%)</li>
+<li><a href="https://github.com/colbymchenry/codegraph/blob/main/docs/benchmarks/residual-context-occupancy.md">Vendor's own counter-benchmark</a> — 82% higher residual context in multi-turn sessions</li>
+<li><code>src/guards/injection.ts:157</code> — PostToolUse MCP scanning</li>
+<li><code>src/surfaces/surfaces.json</code> — surface registry (no MCP server mechanism)</li>
+<li>ResearchCodeGraphMCP agent findings — official installer targets, no omp/pi target, third-party packages</li>
+</ol>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Research 004 · 2026-09-23<br>
+  tools: web search, local repo analysis, subagent research &nbsp;·&nbsp; degraded: NotebookLM, Tavily, Exa
+</footer>
+</body>
+</html>

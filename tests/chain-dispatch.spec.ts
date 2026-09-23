@@ -41,12 +41,38 @@ const writeTool = (path: string, id = "u1"): Record<string, unknown> =>
 
 describe("TABLE — the routing invariants the outcomes cannot show", () => {
   test("every matcher is anchored: a prefix of a tool name must not sneak through", () => {
-    for (const rows of [TABLE.PreToolUse!, TABLE.PostToolUse!]) {
+    for (const rows of [TABLE.PreToolUse!, TABLE.PostToolUse!, TABLE.UserPromptSubmit!]) {
       for (const row of rows) {
         expect(row.matcher.source.startsWith("^")).toBe(true);
         expect(row.matcher.source.endsWith("$")).toBe(true);
       }
     }
+  });
+});
+
+describe("UserPromptSubmit — the spoken-secret arm", () => {
+  const promptRun = (prompt: string): ChainOutcome =>
+    RUN({ prompt, session_id: "prompt-arm" }, "UserPromptSubmit");
+
+  test("a prompt carrying a spoken credential is denied, by name and never by value", () => {
+    const outcome = promptRun("my staging password is velvet-anchor-thistle-21");
+    expect(outcome.action).toBe("deny");
+    if (outcome.action === "deny") {
+      expect(outcome.by).toBe("spoken-secret");
+      expect(outcome.reason).toInclude("prompt-staging-password");
+      expect(outcome.reason).not.toInclude("velvet-anchor-thistle-21");
+    }
+  });
+
+  test("an ordinary prompt passes with the guard in the ran list", () => {
+    const outcome = promptRun("add a dark mode toggle to the settings page");
+    expect(outcome.action).toBe("allow");
+    if (outcome.action === "allow") expect(outcome.guards).toEqual(["spoken-secret"]);
+  });
+
+  test("a payload with no prompt field is out of scope: nothing runs on it", () => {
+    const outcome = RUN({ session_id: "no-prompt" }, "UserPromptSubmit");
+    expect(outcome.action).toBe("allow");
   });
 });
 

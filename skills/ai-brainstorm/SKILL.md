@@ -214,6 +214,23 @@ Status: draft, interview in progress | complete · <date> | incomplete · <date>
 <pointers for the planner: suggested order, dependencies, relevant files>
 ```
 
+The heading structure above is the CONTENT contract. The file is one self-contained
+HTML page at `.ai-engineering/brainstorm.html`, rendered with the artifact design
+system — [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — so it reads as
+one family with spec.html, plan.html and the recap:
+
+- `<header class="hero">` with the `{ai}` favicon, stamp `Brainstorm · <idea>`, h1
+  `<idea name>`, `.sub` carrying the read-back that passed, `.meta` with the status
+  line (`draft · interview in progress` / `complete · <date>` / `grilled · <date>`).
+- One `<section>` per markdown heading above, each with `h2 .num` (`01`–`11`), in the
+  same order. "Decisions already made" and "Decisions still open" use `note ok` /
+  `note warn`; "Open questions for research" is a numbered `ol` (the numbers are what
+  ai-plan cites); "Out of scope" uses `note danger`.
+- Sticky `<nav>` with one `<a>` per section, `<main id="main">`, `<footer>` with the
+  `{ai}` mark and the status.
+- Draft is a living page: update the sections in place as answers land, never rewrite
+  from scratch.
+
 Writing rules: **self-contained** (the reader has none of this conversation); written in
 the language the user used most; never use em dashes (`—`, `–`, `--`) — use a comma, a
 period, or `·`.
@@ -233,13 +250,18 @@ period, or `·`.
 
 ## The ai-engineering seam
 
-1. Output path: `.ai-engineering/brainstorm.md` — a slot, not an archive. It dies at STOP 1
+1. Output path: `.ai-engineering/brainstorm.html` — a slot, not an archive. It dies at STOP 1
    (contract approval): whatever survived into spec/plan was the signal, the rest was
    noise. It is one of the four milestone slots — `spec.html`, `plan.html`,
-   `brainstorm.md`, `recap.html` — which the session writes, `spec close` sweeps, and
+   `brainstorm.html`, `recap.html` — which the session writes, `spec close` sweeps, and
    `doctor` reports as an orphan if one outlives its contract. Write it with the file
    tools, or with a redirect: `rm`, `mv` and `tee` into `.ai-engineering/` are denied,
    because a verb that can act on several paths is judged as a whole command.
+   Render it with the artifact design system —
+   [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md):
+   tokens in verbatim, same family as spec.html, plan.html and the recap. The markdown
+   structure in §Doc structure maps to sections of that page; the file is HTML only,
+   no `.md` twin.
 2. The gaps feed ai-plan as files, not chat: "Decisions still open" and "Open questions"
    become ai-plan's question queue.
 3. Grounding duty (§11.6): never cite a file or API you have not opened this session —
@@ -253,13 +275,13 @@ period, or `·`.
 
 In scope: fuzzy ideas needing alignment, pre-build design, feasibility spikes, vision
 capture. Not for: evidence from outside the repo (/ai-research), turning an aligned idea
-into executable checks (/ai-plan), running the build loop (/ai-goal), diagnosing failures
-(/ai-debug).
+into executable checks (/ai-plan), running the build loop (/ai-goal), diagnosing
+failures (/ai-debug).
 
 ## Lifecycle
 
 Lane: light, standard, full
-Writes: .ai-engineering/brainstorm.md
+Writes: .ai-engineering/brainstorm.html
 Read by: ai-plan, the agent that opens the next session
 Dies: the approval stop, when the contract exists, or ai-eng spec close
 Next: ai-research when questions are still open; ai-architect on the architectural lane; ai-plan on the standard lane; ai-verify on the light lane, with no contract written

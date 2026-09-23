@@ -62,7 +62,7 @@ export async function upgradeMain(): Promise<number> {
     message: "How do you want to update?",
     options: [
       { value: "bun", label: installCommand("bun", latest), hint: "registry, checksum, substitution — by bun" },
-      { value: "npm", label: installCommand("npm", latest), hint: "registry, checksum, substitution — by npm" },
+      { value: "npm", label: installCommand("npm", latest), hint: "no runtime needed — ships the compiled binary" },
       { value: "print", label: "Just print the command, I'll run it myself" },
     ],
   });

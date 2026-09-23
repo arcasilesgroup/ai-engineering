@@ -12,7 +12,7 @@ description: >-
   plausibly apply, or when the request names no skill at all. Triggers on
   build a page, design this, make this look good, redesign, add motion, review
   this screen, which skill should I use, match this reference. Not for
-  measuring an already-built page — use /ai-design-audit.
+  measuring an already-built page — use /ai-audit-design.
 license: MIT
 ---
 
@@ -318,7 +318,7 @@ Bundled with this skill:
 - `references/accessibility.md` — Ally-checklist-based accessibility reference: WCAG 2.2 AA/AAA conformance, semantic code and ARIA, downloadable documents, responsive design
 - `references/conflicts.md` — precedence rules in full
 - `references/plans.md` — worked plans for the twelve common request shapes
-- `../ai-design-audit/references/accessibility-checklist.md` — downloadable-document checklists (PDF, Word, PPTX); non-text contrast / orientation lock / screen reader testing items
+- `../ai-audit-design/references/accessibility-checklist.md` — downloadable-document checklists (PDF, Word, PPTX); non-text contrast / orientation lock / screen reader testing items
 - `references/skill-purposes.md` — what every skill is *for*; the routing model
 - `references/routing-table.md` — which part of a skill to open, once elected
 
@@ -336,7 +336,7 @@ Bundled with this skill:
 4. The conflict ladder in `references/conflicts.md` stays intact and owns
    precedence between skills.
 5. The accessibility gates run as an executable audit (not a manual checklist):
-   `ai-design-audit` with `--checks a11y contrast` measures semantic code,
+   `ai-audit-design` with `--checks a11y contrast` measures semantic code,
    ARIA, zoom/viewport, and contrast at both AA and AAA targets against the
    built output.
 
@@ -348,9 +348,9 @@ Trigger kind: path
 Trigger when: **/*.tsx, **/*.jsx, **/*.css, **/*.scss, **/*.sass, **/*.less, **/*.vue, **/*.svelte, **/components/**, **/tailwind.config.*
 Trigger excludes: docs/**, .ai-engineering/**
 Writes: .ai-engineering/design/direction.html
-Read by: the routed skill, as its implementation input; ai-design-audit; humans
+Read by: the routed skill, as its implementation input; ai-audit-design; humans
 Dies: when a new decision changes the direction, never per pull request
-Next: ai-design-audit, after the code exists
+Next: ai-audit-design, after the code exists
 
 Source: design-orchestrator from the claude-design-skills collection (attributed;
 no license — upstream issue H4).

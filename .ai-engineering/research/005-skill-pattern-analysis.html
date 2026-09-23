@@ -54,18 +54,21 @@ nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
 nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
 nav a.active b{opacity:1}
 .container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
-section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section{padding:56px 0 44px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
 section:last-of-type{border-bottom:none}
 h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
 h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
-h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:640;margin:var(--s6) 0 var(--s3)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:660;margin:var(--s5) 0 var(--s3)}
 h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
 h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
-p{color:var(--dim);max-width:var(--measure);margin-bottom:var(--s3)}
+p{color:var(--dim);margin:0 auto var(--s3);text-align:justify;hyphens:auto}
 p:last-child{margin-bottom:0}
 p strong,li strong{color:var(--text);font-weight:620}
-ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
-li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+ul{margin:var(--s3) 0 var(--s5) var(--s5)}
+ol{margin:var(--s3) 0 var(--s5);text-align:left;list-style:none;padding-left:0;counter-reset:ref}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s3);padding-left:var(--s2)}
+ol li{counter-increment:ref;padding-left:2.4em;position:relative}
+ol li::before{content:counter(ref) ".";position:absolute;left:0;color:var(--comment);font-family:var(--mono);font-size:12px;width:2em;text-align:right}
 li strong{color:var(--text)}
 code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
 pre{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;-webkit-overflow-scrolling:touch}
@@ -92,7 +95,7 @@ pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text)
 .card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
 .note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);margin:var(--s5) 0}
 .note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
-.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0;text-align:left}
 .note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
 .note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
 .note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
@@ -226,7 +229,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 
 <h3>2.10 — Skill shopping cost</h3>
 <p><strong>Frecuencia:</strong> 1 sesión con 10+ skills probados.</p>
-<p>Sesión #8 (mega design, 363 msgs) usó impeccable, apple-design, ai-design, ai-design-audit, ai-visual-recap, shieldcn-badges, watch, ai-write… — 10+ skills en una sesión porque el router no elige bien en el primer intento.<sup>[11]</sup></p>
+<p>Sesión #8 (mega design, 363 msgs) usó impeccable, apple-design, ai-design, ai-audit-design, ai-visual-recap, shieldcn-badges, watch, ai-write… — 10+ skills en una sesión porque el router no elige bien en el primer intento.<sup>[11]</sup></p>
 </section>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->

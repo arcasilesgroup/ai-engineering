@@ -50,15 +50,18 @@
   nav a:hover { color:var(--accent); text-decoration:none; background:rgba(0,237,100,.06); }
 
   .container { max-width:var(--container); margin:0 auto; padding:0 var(--s5); }
-  section { padding:64px 0 52px; border-bottom:1px solid var(--line); scroll-margin-top:88px; }
+  section { padding:56px 0 44px; border-bottom:1px solid var(--line); scroll-margin-top:88px; }
   section:last-of-type { border-bottom:none; }
   h2 { font-size:var(--fs-h2); line-height:var(--lh-h2); letter-spacing:var(--ls-h2); font-weight:730; margin-bottom:var(--s3); }
   h2 .num { font-family:var(--mono); color:var(--accent); font-size:12px; font-weight:400; display:block; margin-bottom:6px; letter-spacing:.2em; }
   h3 { font-size:var(--fs-h3); line-height:var(--lh-h3); font-weight:660; margin:36px 0 10px; }
-  p { color:var(--dim); margin-bottom:14px; max-width:var(--measure); }
+  p { color:var(--dim); margin:0 auto 14px; text-align:justify; hyphens:auto; }
   p strong, li strong { color:var(--text); }
   ul, ol { margin:10px 0 20px 22px; }
-  li { margin-bottom:8px; color:var(--dim); font-size:var(--fs-small); line-height:var(--lh-small); max-width:var(--measure); }
+  ol { list-style:none; padding-left:0; counter-reset:ref; }
+  ol li { counter-increment:ref; padding-left:2.4em; position:relative; }
+  ol li::before { content:counter(ref) "."; position:absolute; left:0; color:var(--comment); font-family:var(--mono); font-size:12px; width:2em; text-align:right; }
+  li { margin-bottom:12px; color:var(--dim); font-size:var(--fs-small); line-height:var(--lh-small); }
   code { font-family:var(--mono); font-size:var(--fs-mono); background:var(--surface-2); border:1px solid var(--line); padding:1px 6px; border-radius:5px; color:var(--accent-dim); }
   pre { background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; overflow-x:auto;
     font-family:var(--mono); font-size:var(--fs-mono); line-height:var(--lh-mono); color:var(--dim); margin:16px 0; }

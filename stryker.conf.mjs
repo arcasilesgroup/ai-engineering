@@ -17,7 +17,7 @@ export default {
   mutate: ["src/guards/**/*.ts", "src/chain/**/*.ts", "src/floor/**/*.ts"],
   // Two, not four: the gate runs on a slower runner than the laptop that measured it,
   // and the plugin's inspector stream truncates under load (one spurious dry-run
-  // failure in seven). ponytail: one config for both jobs; the lever if CI flakes is
+  // failure in seven). todo: one config for both jobs; the lever if CI flakes is
   // this number, then @hughescr/stryker-bun-runner 1.4.0 once it clears the 7-day floor.
   concurrency: 2,
   // 223 of 1,927 mutants are static and take 81% of the time. They decide nothing a

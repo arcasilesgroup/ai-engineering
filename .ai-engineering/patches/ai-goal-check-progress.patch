@@ -1,0 +1,22 @@
+# ai-goal modification: add post-loop verification
+# Apply manually: add this section to the closing chain in ~/.agents/skills/ai-goal/SKILL.md
+# Insert after "2. Read the greens" and before "3. ai-verify"
+
+## New step 3 for the closing chain:
+
+3. **Diff-based proof.** Compare claimed deliverables vs files actually changed. Run
+   `git diff --name-only <base>` against the milestone base. For every work point in
+   spec.html that claims completion, verify at least one file in its scope was modified.
+   If a work point claims done but no files changed, flag it UNVERIFIED and report to
+   the human. This catches the #1 trust problem: the agent said "done" but nothing moved.
+   This runs BEFORE ai-verify because it checks the physical delta, not the requirements.
+
+## Renumber existing steps 3-6 to 4-7
+
+## Update Lifecycle section:
+# Old: Next: ai-proof after each step, then the closing chain — ai-verify, the fired triggers and ai-visual-recap — once plan.html is fully green (see The closing chain)
+# New: Next: ai-proof after each step, then the closing chain — diff-based proof, ai-verify, the fired triggers and ai-visual-recap — once plan.html is fully green (see The closing chain)
+
+## Update "The ai-engineering seam" step 5:
+# Old: 5. The closing report is produced by ai-visual-recap (`.ai-engineering/recap.html`) — step 5 of the closing chain below
+# New: 5. The closing report is produced by ai-visual-recap (`.ai-engineering/recap.html`) — step 6 of the closing chain below

@@ -21,7 +21,7 @@ import { VERSION } from "../version.ts";
 /** The four artifacts of a milestone. `spec open` scaffolds two, `spec close` sweeps
  *  all four — the guard's fence leaves them to the session, so this verb is their
  *  only consumer. */
-const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.md", "recap.html"] as const;
+const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.html", "recap.html"] as const;
 
 /** An ABANDON with less than this much reason is a checkbox, not an honest exit. */
 const MIN_ABANDON_REASON = 12;

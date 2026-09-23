@@ -10,6 +10,15 @@ Guidance for AI coding agents working in this repository. Human teammates should
 ## Code style
 - KISS, YAGNI, DRY, SOLID, TDD, Clean Code.
 - Explain it so someone who doesn't code can follow along.
+- **Readable code** (Boswell & Foucher): minimize the time it takes someone else to understand your code.
+  - Names say purpose or value; no generic names (`data`, `temp`, `helper` are forbidden).
+  - Prefix booleans (`is`, `has`, `can`, `should`); prefix limits (`max`, `min`).
+  - Use positive conditions (`if (isValid)` over `if (!isInvalid)`).
+  - Early returns over deep nesting; flat control flow wins.
+  - Comments explain *why*, not *what*; never repeat the function signature in prose.
+  - Explain "huh?" moments; skip the obvious.
+  - One function, one job. Extract unrelated subproblems.
+  - Write less code: rethink requirements, use stdlib, prune unused code.
 
 ## Build and test commands
 typecheck: bun run typecheck (oxlint --type-aware --type-check) · lint: bun run lint (oxlint) · test: bun test · arch: bun test tests/arch.spec.ts

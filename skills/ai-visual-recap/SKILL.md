@@ -618,6 +618,37 @@ skills; consult them only where that collection is present:
    and deletes it from the working tree. A self-contained HTML recap is rendered by
    the artifact design system — [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — the same tokens,
    components and rules every other artifact carries.
+4. **Visuals are mandatory when they explain.** The same coverage pass that mandates
+   wireframes for UI diffs applies to every artifact surface the recap renders: a
+   section whose story is visual (a wireframe, a diagram, a terminal capture, a
+   before/after pair) shows the visual, not prose describing it. When a browser
+   tool is available, capture real screenshots of the built output (`file://` pages,
+   localhost surfaces) and embed them as base64 `data:` URIs — self-contained, no
+   sibling assets. A screenshot of a thing the diff built beats a paragraph about
+   the thing; take it at the width the reader will open (1440 desktop, 390 mobile
+   when the change is responsive). When no browser tool is available, use
+   HTML wireframes (`references/wireframe.md`) and say the capture was wireframe,
+   not pixels.
+5. **Owner actions are buttons, never vibes.** If closing the milestone requires
+   the human to do anything outside the repo (approve a release, rotate a key,
+   flip a setting in a vendor dashboard, merge a PR with required reviewers),
+   the recap carries a final `Acciones requeridas` section — one `.note warn` per
+   action, each with:
+   - a **button** (`<a class="btn" href="<exact URL>">…</a>`) pointing at the exact
+     place the action happens (the PR, the settings page, the release tab) — never
+     a vague "go to the dashboard";
+   - a numbered, copy-pasteable step list of what to do once there, in the language
+     the user used most;
+   - one line of **why**: what breaks or stays blocked if nobody does it.
+   An action without a URL is a defect: find the URL (gh CLI, the vendor docs, the
+   repo settings) or say honestly that no URL exists and give the exact navigation
+   path instead. When nothing is required of the human, the section is omitted —
+   an empty actions section is noise.
+   The button style ships with the artifact design system: `.btn` renders as a
+   bordered, accent-tinted pill (`a.btn{display:inline-block;border:1px solid
+   rgba(0,237,100,.35);border-radius:999px;padding:8px 18px;margin:var(--s2) 0;
+   color:var(--accent);font-family:var(--mono);font-size:12px}`) — added to the
+   design-system block, not invented per recap.
 
 ## Lifecycle
 

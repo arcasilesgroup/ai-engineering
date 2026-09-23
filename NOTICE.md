@@ -23,7 +23,7 @@ Format: skill — source (integrated verbatim) — author — license — URL.
 | ai-issue-report | original | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/ai-engineering |
 | ai-research | original | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/ai-engineering |
 | ai-visual-recap | visual-recap | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/skills |
-| ai-design-audit | installed skill (SKILL.md, scripts/audit.mjs, references/) | community | no license — attribution (H4) | installed locally |
+| ai-audit-design | installed skill (SKILL.md, scripts/audit.mjs, references/) | community | no license — attribution (H4) | installed locally |
 | ai-writing-behavior | writing-agent-behavior (agentbehavior) | Braintrust + Basis | Apache-2.0 | https://github.com/braintrustdata/agentbehavior |
 | ai-agents-md | agents.md convention + published sample layouts | agents.md (OpenAI/Codex et al.) | MIT | https://agents.md/ · https://github.com/agentsmd/agents.md |
 | ai-stress-test | original | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/ai-engineering |
@@ -47,7 +47,7 @@ left for a reader to discover.
 - Loop-Engineering (ai-goal): no LICENSE, no author/URL in the tree.
 - claude-design-skills/design-orchestrator (ai-design): no license in the repo.
 - graph-engineering (ai-verify): no license; attribution by README title.
-- ai-design-audit (locally installed skill): no known license.
+- ai-audit-design (locally installed skill): no known license.
 
 Integration follows one rule: upstream content enters verbatim, the skill is
 authored for the canon on top of it, and NOTICE.md plus this table are the

@@ -6,9 +6,10 @@
   "type": "module",
   "module": "src/cli.ts",
   "bin": {
-    "ai-eng": "src/cli.ts"
+    "ai-eng": "bin/ai-eng.js"
   },
   "files": [
+    "bin",
     "src",
     "skills",
     "scripts/.embed",
@@ -49,5 +50,15 @@
   },
   "overrides": {
     "smol-toml": "1.7.2"
+  },
+  "optionalDependencies": {
+    "ai-engineering-darwin-arm64": "2.2.3",
+    "ai-engineering-darwin-x64": "2.2.3",
+    "ai-engineering-linux-x64": "2.2.3",
+    "ai-engineering-linux-arm64": "2.2.3",
+    "ai-engineering-linux-musl-x64": "2.2.3",
+    "ai-engineering-linux-musl-arm64": "2.2.3",
+    "ai-engineering-windows-x64": "2.2.3",
+    "ai-engineering-windows-arm64": "2.2.3"
   }
 }

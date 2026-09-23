@@ -8,44 +8,19 @@
     "spec": "src/spec/**",
     "wrap": "src/wrap/**",
     "surfaces": "src/surfaces/**",
-    "sidecar": "src/sidecar/**",
     "shared": "src/shared-*.ts,src/{install,receipts,embed,skills-lint}.ts",
     "env": "src/env.ts",
     "templates-assets": "templates/**"
   },
   "rules": [
-    {
-      "from": "guards",
-      "mayNotImport": "commands"
-    },
-    {
-      "from": "guards",
-      "mayNotImport": "cli"
-    },
-    {
-      "from": "chain",
-      "mayNotImport": "commands"
-    },
-    {
-      "from": "floor",
-      "mayNotImport": "commands"
-    },
-    {
-      "from": "shared",
-      "mayNotImport": "commands,guards,chain,floor,spec,wrap,surfaces,cli"
-    },
-    {
-      "from": "env",
-      "mayNotImport": "commands,guards,chain,floor,spec,wrap,surfaces,cli"
-    },
-    {
-      "from": "chain",
-      "mayNotImport": "surfaces"
-    },
-    {
-      "any": [],
-      "forbid": "cycles"
-    }
+    { "from": "guards", "mayNotImport": "commands" },
+    { "from": "guards", "mayNotImport": "cli" },
+    { "from": "chain", "mayNotImport": "commands" },
+    { "from": "floor", "mayNotImport": "commands" },
+    { "from": "shared", "mayNotImport": "commands,guards,chain,floor,spec,wrap,surfaces,cli" },
+    { "from": "env", "mayNotImport": "commands,guards,chain,floor,spec,wrap,surfaces,cli" },
+    { "from": "chain", "mayNotImport": "surfaces" },
+    { "any": [], "forbid": "cycles" }
   ],
   "bootstrap": "allow-empty-while-files==0"
 }

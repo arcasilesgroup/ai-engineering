@@ -136,6 +136,19 @@ These are the mistakes that make security audits useless:
 4. Who verifies: the `verify` model tier of the pin (§09.4); who judges the
    conclusions: `decide`. The validator is never the finder — adversarial validation
    is non-negotiable.
+5. The framework's own controls are the bar a finding or a control is measured
+   against, and they are code, not prose — cite file:line when you invoke them:
+   - **The gate that cannot run denies** (`src/floor/index.ts:63`, `:145`): gitleaks
+     missing is a HARD FAIL at pre-commit and pre-push, never a skip. A control that
+     cannot finish its scan is a denial, never clean.
+   - **A guard that cannot decide denies** (`src/chain/mod.ts:243`): any guard crash
+     is a deny, so a broken check never reads as a pass.
+   - **The boundary is stated before the promise** (`src/guards/spoken-secret.ts:14`,
+     `src/surfaces/surfaces.json` → per-surface `promptHook.supported` with a dated
+     source): a control says what it does NOT cover — and where the host cannot
+     carry it, the exclusion is recorded with cause, not assumed.
+   When you judge a finding or write a control, hold it to the same three: can it
+   fail closed, is its failure per-case enumerable, and does it name its own limit.
 
 ## Lifecycle
 

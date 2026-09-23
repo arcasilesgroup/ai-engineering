@@ -1,5 +1,5 @@
 ---
-name: ai-design-audit
+name: ai-audit-design
 description: >-
   Use when a web interface needs its visual defects found and fixed with
   measurements rather than opinions — misaligned rows, ragged card interiors,
@@ -11,7 +11,7 @@ description: >-
 license: LicenseRef-Attributed
 ---
 
-# ai-design-audit
+# ai-audit-design
 
 A stylesheet is a claim. A painted pixel is the evidence. Everything here measures the second, because the defects that survive review are exactly the ones no declaration predicts: contrast against a gradient with grain over it, a row whose two cards start reading 68px apart, a label printing over another label at 320px, a card grid that groups the wrong things.
 

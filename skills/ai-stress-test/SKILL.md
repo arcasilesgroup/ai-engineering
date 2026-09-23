@@ -7,7 +7,7 @@ description: >-
   explicit approval. Trigger for "stress test", "load test until it breaks", "find the
   breaking point", "capacity test", "spike test", "how much traffic can we handle",
   "system limits", "what's our max load". Not for frontend performance or Core Web
-  Vitals — use /ai-design-audit. Not for general load testing to validate expected
+  Vitals — use /ai-audit-design. Not for general load testing to validate expected
   traffic — use /ai-verify with existing benchmarks. Not for diagnosing a performance
   failure — use /ai-debug.
 license: Apache-2.0
@@ -170,7 +170,7 @@ Produce a concise report with:
   performance opinions.
 - "DDoS my production" — hard no, always.
 - Load testing for expected traffic — that is /ai-verify with existing benchmarks.
-- Frontend performance or Core Web Vitals — that is /ai-design-audit.
+- Frontend performance or Core Web Vitals — that is /ai-audit-design.
 - Diagnosing why something is slow — that is /ai-debug. This skill finds WHERE it breaks,
   not WHY.
 
@@ -184,7 +184,7 @@ In scope:
 
 Not for:
 
-- Frontend performance, Core Web Vitals, page load metrics — use /ai-design-audit.
+- Frontend performance, Core Web Vitals, page load metrics — use /ai-audit-design.
 - Diagnosing a performance regression — use /ai-debug.
 - General load testing to validate expected traffic works — use /ai-verify.
 - Deciding what to build — use /ai-plan.
