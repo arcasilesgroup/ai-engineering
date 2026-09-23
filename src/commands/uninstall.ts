@@ -40,6 +40,71 @@ function stripAiEngHooks(absolute: string, rel: string, removed: ui.Row[]): void
   removed.push({ mark: "ok", text: `${rel}: removed the ai-eng hook entries, kept yours` });
 }
 
+/** Read the declared surfaces and build the asset map from the lock, falling
+ *  back to the binary's own file list when the lock is missing or empty. The
+ *  declaration must be read ONCE, before anything removes config.toml. */
+function readAssetsFromLock(
+  root: string,
+  declared: string[],
+  removed: ui.Row[],
+): { assets: Record<string, string>; hasLock: boolean } {
+  // The lock is the ownership register; when it is gone (a half-finished
+  // uninstall, a hand-deletion), the binary's own planEntries list is the
+  // fallback — same paths, hashes recomputed from the payload it installs.
+  // Never a hardcoded subset, never a file it did not install.
+  const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
+  const hasLock = existsSync(lockPath);
+  let assets: Record<string, string> = hasLock ? parseLock(readFileSync(lockPath, "utf8")).assets : {};
+  if (Object.keys(assets).length === 0) {
+    assets = Object.fromEntries(
+      planEntries(declared).map((entry) => [entry.path, sha256(entry.ours)]),
+    );
+    removed.push({ mark: "muted", text: "no lock — swept by the binary's own file list" });
+  }
+  return { assets, hasLock };
+}
+
+/** Sweep every declared asset from the project tree and prune empty dirs. */
+function sweepProjectSide(
+  root: string,
+  declared: string[],
+  removed: ui.Row[],
+): void {
+  const { assets, hasLock } = readAssetsFromLock(root, declared, removed);
+  const settingsByPath = collectSettingsByPath();
+  for (const rel of Object.keys(assets)) {
+    sweepAsset(root, rel, assets, settingsByPath, removed);
+  }
+  if (hasLock) {
+    unlinkSync(join(root, ".ai-engineering", "ai-eng.lock"));
+    removed.push({ mark: "ok", text: "ai-eng.lock deleted", dim: `${Object.keys(assets).length} owned files swept` });
+  } else {
+    removed.push({ mark: "muted", text: `${Object.keys(assets).length} owned files swept` });
+  }
+  pruneCreatedDirs(root, removed);
+}
+
+/** Show the scope picker and the "are you sure?" confirmation. Returns the
+ *  chosen scope, or null when the user cancelled. */
+async function confirmUninstall(input: unknown): Promise<"project" | "everything" | null> {
+  ui.section("Two scopes", [
+    { mark: "info", text: "This project", dim: "sweeps every file the lock says ai-eng owns: hooks, settings entries, adapters, CI workflow, config, lock. Keeps AGENTS.md, DECISIONS.md, spec/plan." },
+    { mark: "warn", text: "Everything", dim: `the project side ABOVE, plus the machine side: deletes ${home()} (global skills, mirrors, caches). Asks twice.` },
+  ]);
+  const scope = await pickScope(input);
+  if (scope === null) {
+    ui.cancelled("Nothing removed.");
+    return null;
+  }
+  // Default is No: uninstall is destructive, a bare Enter must not raze the repo.
+  const confirmed = await ui.confirmDefault("Confirm?", false, input as never);
+  if (confirmed === false) {
+    ui.cancelled("Nothing removed.");
+    return null;
+  }
+  return scope;
+}
+
 /** Remove a directory only when it is empty — ai-eng created it, the sweep
  *  emptied it, and an empty scaffold is noise. */
 function pruneIfEmpty(dir: string): boolean {
@@ -189,21 +254,8 @@ export async function uninstallMain(): Promise<number> {
     ui.end("Nothing done.");
     return 2;
   }
-  ui.section("Two scopes", [
-    { mark: "info", text: "This project", dim: "sweeps every file the lock says ai-eng owns: hooks, settings entries, adapters, CI workflow, config, lock. Keeps AGENTS.md, DECISIONS.md, spec/plan." },
-    { mark: "warn", text: "Everything", dim: `the project side ABOVE, plus the machine side: deletes ${home()} (global skills, mirrors, caches). Asks twice.` },
-  ]);
-  const scope = await pickScope(input);
-  if (scope === null) {
-    ui.cancelled("Nothing removed.");
-    return 0;
-  }
-  // Default is No: uninstall is destructive, a bare Enter must not raze the repo.
-  const confirmed = await ui.confirmDefault("Confirm?", false, input as never);
-  if (confirmed === false) {
-    ui.cancelled("Nothing removed.");
-    return 0;
-  }
+  const scope = await confirmUninstall(input);
+  if (scope === null) return 0;
 
   // Read the declaration ONCE, before anything removes it. The machine sweep runs after
   // the project side has deleted config.toml, and `enabledSurfaces()` then reports the
@@ -211,33 +263,10 @@ export async function uninstallMain(): Promise<number> {
   // host's carrier behind as an orphan pointing at a chain nothing serves.
   const declared = enabledSurfaces();
   // ── project side ──────────────────────────────────────────────
-  // The lock is the ownership register; when it is gone (a half-finished
-  // uninstall, a hand-deletion), the binary's own planEntries list is the
-  // fallback — same paths, hashes recomputed from the payload it installs.
-  // Never a hardcoded subset, never a file it did not install.
   const removed: ui.Row[] = [];
   spawnSync("git", ["-C", root, "config", "--unset", "core.hooksPath"]);
   removed.push({ mark: "ok", text: "git: core.hooksPath reverted to default" });
-  const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
-  const hasLock = existsSync(lockPath);
-  let assets: Record<string, string> = hasLock ? parseLock(readFileSync(lockPath, "utf8")).assets : {};
-  if (Object.keys(assets).length === 0) {
-    assets = Object.fromEntries(
-      planEntries(declared).map((entry) => [entry.path, sha256(entry.ours)]),
-    );
-    removed.push({ mark: "muted", text: "no lock — swept by the binary's own file list" });
-  }
-  const settingsByPath = collectSettingsByPath();
-  for (const rel of Object.keys(assets)) {
-    sweepAsset(root, rel, assets, settingsByPath, removed);
-  }
-  if (hasLock) {
-    unlinkSync(lockPath);
-    removed.push({ mark: "ok", text: "ai-eng.lock deleted", dim: `${Object.keys(assets).length} owned files swept` });
-  } else {
-    removed.push({ mark: "muted", text: `${Object.keys(assets).length} owned files swept` });
-  }
-  pruneCreatedDirs(root, removed);
+  sweepProjectSide(root, declared, removed);
   // Rendered as one block: what went, at a glance.
   ui.section("Removed", removed);
   if (scope === "everything") {
