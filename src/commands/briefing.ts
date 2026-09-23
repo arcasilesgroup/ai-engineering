@@ -50,7 +50,7 @@ function parsePlanCurrentStep(html: string): string {
   const stepRegex = /- \[ \] (.+)/g;
   let match;
   while ((match = stepRegex.exec(html)) !== null) {
-    return match[1];
+    return match[1]!;
   }
   return "all green";
 }
@@ -80,7 +80,7 @@ export function generateBriefing(root?: string | null): Briefing {
   const specContent = specPath ? readTextSafe(specPath) : null;
   const specExists = specContent !== null;
   const specApproved = specContent?.includes("sha256 in lock") ?? false;
-  const specGates: string | undefined = specContent ? parseSpecGates(specContent) : undefined;
+  const specGates = specContent ? parseSpecGates(specContent) : null;
 
   // Plan
   const planPath = resolved ? join(resolved, ".ai-engineering", "plan.html") : null;
@@ -134,7 +134,7 @@ export function generateBriefing(root?: string | null): Briefing {
   return {
     ts: new Date().toISOString(),
     governed,
-    spec: { exists: specExists, approved: specApproved, gates: specGates },
+    spec: { exists: specExists, approved: specApproved, ...(specGates ? { gates: specGates } : {}) },
     plan: { exists: planExists, current_step: planCurrentStep },
     recent_denies: recentDenies,
     receipts,
