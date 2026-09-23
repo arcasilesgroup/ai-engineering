@@ -82,6 +82,34 @@ function deltaRows(added: string[], removedSurfaces: string[]): ui.Row[] {
   ];
 }
 
+function writeConfigSurfaces(configPath: string, surfaces: string[]): void {
+  // The config file holds what cannot be deduced: rewrite only the surfaces key,
+  // in place — the comments and the [models]/[guards]/[gc] blocks the template
+  // ships are the user's, and a re-serialize would delete them.
+  const raw = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
+  const list = `[${surfaces.map((id) => `"${id}"`).join(", ")}]`;
+  writeFileSync(configPath, withSurfacesEnabled(raw, list));
+}
+
+function installNewSurfaces(root: string, current: string[], before: string[], addedNow: string | null): void {
+  // Declaring a surface and leaving it without a carrier is a governed repo that is not
+  // governed on that host. The carriers are written right here, by the same code init uses.
+  for (const id of current) {
+    if (!before.includes(id) || id === addedNow) installSurfaceFiles(root, id);
+  }
+}
+
+function showSurfaceDelta(current: string[], before: string[]): void {
+  const added = current.filter((id) => !before.includes(id));
+  const removed = before.filter((id) => !current.includes(id));
+  const delta = deltaRows(added, removed);
+  if (delta.length === 0) {
+    ui.section("surfaces unchanged", [{ mark: "muted", text: current.join(", ") }], `${current.length} enabled`);
+  } else {
+    ui.section("Surfaces changed", delta, `${current.length} enabled: ${current.join(", ")}`);
+  }
+}
+
 export async function configMain(flags: { add?: string; remove?: string }): Promise<number> {
   const input = scriptedInput();
   ui.frame(`Configuration · ai-eng ${VERSION}`);
@@ -93,30 +121,14 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
     ui.end("Nothing changed.");
     return 2;
   }
-  const configPath = join(root, ".ai-engineering", "config.toml");
   // Governed means the declaration parsed, so enabledSurfaces() cannot be guessing here.
   const surfacesBefore = enabledSurfaces();
   const resolved = await resolveSurfaces(input, flags, root, surfacesBefore);
   if (resolved.kind === "exit") return resolved.code;
   const { current, addedNow } = resolved;
-  // The config file holds what cannot be deduced: rewrite only the surfaces key,
-  // in place — the comments and the [models]/[guards]/[gc] blocks the template
-  // ships are the user's, and a re-serialize would delete them.
-  const raw = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
-  const quoted = current.map((id) => `"${id}"`).join(", ");
-  const list = `[${quoted}]`;
-  writeFileSync(configPath, withSurfacesEnabled(raw, list));
-  // Declaring a surface and leaving it without a carrier is a governed repo that is not
-  // governed on that host. The carriers are written right here, by the same code init uses.
-  for (const id of current.filter((entry) => !surfacesBefore.includes(entry) || entry === addedNow)) installSurfaceFiles(root, id);
-  const added = current.filter((id) => !surfacesBefore.includes(id));
-  const removedSurfaces = surfacesBefore.filter((id) => !current.includes(id));
-  const delta = deltaRows(added, removedSurfaces);
-  if (delta.length === 0) {
-    ui.section("surfaces unchanged", [{ mark: "muted", text: current.join(", ") }], `${current.length} enabled`);
-  } else {
-    ui.section("Surfaces changed", delta, `${current.length} enabled: ${current.join(", ")}`);
-  }
+  writeConfigSurfaces(join(root, ".ai-engineering", "config.toml"), current);
+  installNewSurfaces(root, current, surfacesBefore, addedNow);
+  showSurfaceDelta(current, surfacesBefore);
   const mirrors = mirrorTargets().length;
   ui.section("Mirrors verified", [{ mark: "ok", text: `${mirrors} targets` }], "model tier thresholds: edit .ai-engineering/config.toml directly, or ask your AI assistant");
   ui.end("Done. Run ai-eng doctor to verify.");

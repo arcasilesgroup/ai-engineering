@@ -45,15 +45,18 @@ function canonSummary(canon: { drift: number; missing: number; stale: number }):
   return parts.join(" · ");
 }
 
+const DENY_HINTS: Record<string, string> = {
+  throw: "blocks by throwing",
+  "host-only": "the host denies through its own permissions; no hook for us to run",
+};
+const CAN_BLOCK = "can't block tool calls";
+
 export function surfaceHint(s: Surface): string {
   const delta: string[] = [];
-  if (s.can.deny === "throw") delta.push("blocks by throwing");
-  else if (s.can.deny === "host-only") delta.push("the host denies through its own permissions; no hook for us to run");
-  else if (s.can.deny !== true) delta.push("can't block tool calls");
+  const denyHint = s.can.deny === true ? null : (DENY_HINTS[String(s.can.deny)] ?? CAN_BLOCK);
+  if (denyHint) delta.push(denyHint);
   if (s.can.rewriteOut === false) delta.push("can't rewrite output");
   else if (typeof s.can.rewriteOut === "string") delta.push("rewrites output wholesale");
-  // The caveat is the row's own, because a group header cannot state a fact two rows do not
-  // share — and because a promise that disagrees with its measurement may not do it quietly.
   if (s.note !== undefined) delta.push(s.note);
   return delta.join(" · ");
 }
