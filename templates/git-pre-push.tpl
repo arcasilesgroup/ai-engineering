@@ -11,6 +11,8 @@
 # whether the push targets main and block it locally.
 AI_ENG_PUSH_REFS="$(cat)"
 export AI_ENG_PUSH_REFS
+# Point gitleaks at the path-based allowlist so test fixtures are not flagged.
+export GITLEAKS_CONFIG="$(git rev-parse --show-toplevel)/.gitleaksrc.toml"
 command -v ai-eng >/dev/null 2>&1 && exec ai-eng git pre-push
 echo "ai-eng: this repo is governed but 'ai-eng' is not on PATH — install it, or remove .ai-engineering/config.toml to stop being governed (hook: pre-push)" >&2
 exit 1
