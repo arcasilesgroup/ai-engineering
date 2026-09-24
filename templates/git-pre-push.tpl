@@ -7,6 +7,10 @@
 # This shim is born with every clone now (init.templateDir), so it must pass in silence
 # where nobody asked for policy.
 [ -f .ai-engineering/config.toml ] || exit 0
+# Capture stdin (the push refs) before exec consumes it, so the binary can check
+# whether the push targets main and block it locally.
+AI_ENG_PUSH_REFS="$(cat)"
+export AI_ENG_PUSH_REFS
 command -v ai-eng >/dev/null 2>&1 && exec ai-eng git pre-push
 echo "ai-eng: this repo is governed but 'ai-eng' is not on PATH — install it, or remove .ai-engineering/config.toml to stop being governed (hook: pre-push)" >&2
 exit 1

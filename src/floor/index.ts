@@ -144,10 +144,10 @@ export function commitMsg(msgFile: string, receiptId: string, overrideReason: st
 export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const lines: string[] = [];
   // Block direct pushes to main: every change goes through a PR.
-  // stdin carries lines of "<local ref> <local sha> <remote ref> <remote sha>".
-  let stdin = "";
-  try { stdin = readFileSync(0, "utf8"); } catch { /* no stdin — nothing to block */ }
-  for (const line of stdin.split("\n")) {
+  // The pre-push hook shim captures stdin into AI_ENG_PUSH_REFS before calling us,
+  // so we read it from the environment instead of fd 0 (which may already be consumed).
+  const refs = (process.env.AI_ENG_PUSH_REFS ?? "").split("\n");
+  for (const line of refs) {
     const remoteRef = line.trim().split(/\s+/)[2];
     if (remoteRef === "refs/heads/main") {
       return { ok: false, lines: ["direct push to main is not allowed — open a PR instead."] };
