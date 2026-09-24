@@ -168,7 +168,7 @@
   EVIDENCE: artifact: .ai-engineering/security/run-1/findings.json
 
 - [x] G20: full green gate: the whole test suite reports zero failures
-  CHECK: rc=0; bun test >/dev/null 2>&1 || rc=$?; if [ $rc -eq 0 ]; then echo "0 fail"; else echo "tests failed (exit $rc)"; fi
+  CHECK: rc=0; bun test >/dev/null 2>&1 || rc=$?; if [ $rc -eq 0 ]; then echo " 0 fail"; else echo "tests failed (exit $rc)"; fi
   EXPECT: / 0 fail/
   EVIDENCE: 0 fail
 

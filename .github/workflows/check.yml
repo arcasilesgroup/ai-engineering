@@ -40,6 +40,12 @@ jobs:
       # A contract check that cannot run is a FAIL, never silence (§09.3).
       - name: Build the binary the contract runner executes
         run: bun run build
+      # After update installs init.templateDir, any later `git init` in this job
+      # (including G20's re-run of bun test) inherits floor shims that look up
+      # `ai-eng` on PATH. The binary lives at dist/ai-eng — put that directory on
+      # PATH so the shims resolve the same binary the next steps invoke by path.
+      - name: Put the built binary on PATH for the floor shims
+        run: echo "$PWD/dist" >> "$GITHUB_PATH"
       # One verb, not two: `update` restores the git floor (.git/hooks is not
       # versioned, so every clone starts without it — a state no contributor caused)
       # AND installs the canon the contract runner reads.

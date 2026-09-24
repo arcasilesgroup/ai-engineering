@@ -136,6 +136,14 @@ beforeEach(() => {
   mkdirSync(join(engHome, "skills"), { recursive: true });
   mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
   writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+  // Own the global git config for this fixture. After `ai-eng update` (and in CI
+  // after the check job installs the floor), the developer's init.templateDir
+  // points at hook shims that need `ai-eng` + gitleaks on PATH — without this,
+  // `git init` inherits those shims and every commit in the fixture fails,
+  // which is exactly how G20 went red after update while the earlier `bun test`
+  // step stayed green.
+  process.env["GIT_CONFIG_GLOBAL"] = join(sandbox, "gitconfig");
+  writeFileSync(process.env["GIT_CONFIG_GLOBAL"], "");
   spawnSync("git", ["init", "-q"], { cwd: repo, stdio: "ignore" });
   process.env["AI_ENG_HOME"] = engHome;
   process.chdir(repo);
@@ -144,6 +152,7 @@ beforeEach(() => {
 afterEach(() => {
   process.chdir(cwd);
   delete process.env["AI_ENG_HOME"];
+  delete process.env["GIT_CONFIG_GLOBAL"];
   rmSync(sandbox, { recursive: true, force: true });
 });
 

@@ -36,23 +36,14 @@ function readTextSafe(path: string): string | null {
 }
 
 function parseSpecGates(html: string): string | undefined {
-  // Extract the first non-green gate from spec.html
-  const gateRegex = /- \[ \] (G\d+): (.+)/g;
-  let match;
-  while ((match = gateRegex.exec(html)) !== null) {
-    return `${match[1]}: ${match[2]}`;
-  }
-  return undefined;
+  // First pending gate only — RegExp.exec (Sonar S6594), not String.match.
+  const match = /- \[ \] (G\d+): (.+)/.exec(html);
+  return match ? `${match[1]}: ${match[2]}` : undefined;
 }
 
 function parsePlanCurrentStep(html: string): string {
-  // Extract the first non-green step from plan.html
-  const stepRegex = /- \[ \] (.+)/g;
-  let match;
-  while ((match = stepRegex.exec(html)) !== null) {
-    return match[1]!;
-  }
-  return "all green";
+  const match = /- \[ \] (.+)/.exec(html);
+  return match?.[1] ?? "all green";
 }
 
 function loadOverrides(root: string): string[] {
@@ -100,9 +91,8 @@ export function generateBriefing(root?: string | null): Briefing {
       try {
         const files = readdirSync(receiptsDir)
           .filter((f) => f.endsWith(".json") && f !== "summary.json" && f !== "denies.json")
-          .sort()
-          .reverse()
-          .slice(0, 50); // last 50 files
+          .sort((left, right) => right.localeCompare(left))
+          .slice(0, 50); // newest names first
         for (const file of files) {
           if (recentDenies.length >= 10) break;
           try {

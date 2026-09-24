@@ -11,7 +11,7 @@
 //
 // Usage: bun scripts/build-platform-package.ts --target bun-linux-x64 [--out dist]
 
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const args = process.argv.slice(2);
@@ -40,14 +40,21 @@ const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
 };
 const binName = suffix.startsWith("windows-") ? "ai-eng.exe" : "ai-eng";
 
-const binary = join(outDir, `ai-eng-${suffix}`);
+// Bun's Windows compile appends `.exe` even when --outfile omits it (release.yml
+// attests via `dist/ai-eng-${target}*`). Prefer the bare name, then the .exe.
+const bareBinary = join(outDir, `ai-eng-${suffix}`);
+const binary = existsSync(bareBinary)
+  ? bareBinary
+  : suffix.startsWith("windows-")
+    ? `${bareBinary}.exe`
+    : bareBinary;
 const stage = join(outDir, packageName);
 
 let binaryBytes: Buffer;
 try {
   binaryBytes = readFileSync(binary);
 } catch {
-  process.stderr.write(`build-platform-package: ${binary} not found — run \`bun run build --target ${target}\` first\n`);
+  process.stderr.write(`build-platform-package: ${bareBinary} (or .exe) not found — run \`bun run build --target ${target}\` first\n`);
   process.exit(1);
 }
 // A real compile is ~59-85 MB; anything smaller is a truncated or placeholder

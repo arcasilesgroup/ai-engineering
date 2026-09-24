@@ -14,22 +14,26 @@ import { runChain, type ChainOutcome } from "../src/chain/mod.ts";
 import type { Payload } from "../src/chain/payload.ts";
 
 let scratch: string;
+let engHome: string;
 let cwdBefore: string;
 let homeBefore: string | undefined;
 beforeEach(() => {
   if (!scratch) {
     scratch = mkdtempSync(join(tmpdir(), "ai-eng-local-rules-"));
+    engHome = join(scratch, "home");
     cwdBefore = process.cwd();
     homeBefore = process.env.AI_ENG_HOME;
-    process.chdir(scratch);
+    mkdirSync(join(scratch, "repo"), { recursive: true });
+    process.chdir(join(scratch, "repo"));
   }
-  // Sandbox AI_ENG_HOME so the loop guard's state file and the deny ledger
-  // stay inside the test scratch dir instead of accumulating in the real home.
-  process.env.AI_ENG_HOME = scratch;
-  rmSync(join(scratch, ".ai-engineering"), { recursive: true, force: true });
-  mkdirSync(join(scratch, ".ai-engineering"), { recursive: true });
-  mkdirSync(join(scratch, ".ai-engineering", "cache", "verdicts"), { recursive: true });
-  writeFileSync(join(scratch, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+  // Machine home MUST sit outside the governed repo. home() refuses an
+  // AI_ENG_HOME that resolves inside the repo (LOGIC-003), and falling through
+  // to ~/.ai-engineering lets the loop guard accumulate denials across the
+  // suite — which is how these runChain cases went red after a polluted cache.
+  process.env.AI_ENG_HOME = engHome;
+  rmSync(join(process.cwd(), ".ai-engineering"), { recursive: true, force: true });
+  mkdirSync(join(process.cwd(), ".ai-engineering", "cache", "verdicts"), { recursive: true });
+  writeFileSync(join(process.cwd(), ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
 });
 afterAll(() => {
   if (cwdBefore) process.chdir(cwdBefore);
@@ -197,7 +201,7 @@ describe("runChain — review outcome at chain level", () => {
   test("review outcome when a local rule matches review action", () => {
     // Add local rules to config.toml. policy_mode = "0777" allows all commands
     // so the policy guard doesn't deny before injection runs.
-    writeFileSync(join(scratch, ".ai-engineering", "config.toml"), `
+    writeFileSync(join(process.cwd(), ".ai-engineering", "config.toml"), `
 [surfaces]
 enabled = ["claude-code"]
 
@@ -224,7 +228,7 @@ risk = 0.5
   });
 
   test("block outcome when a local rule matches block action", () => {
-    writeFileSync(join(scratch, ".ai-engineering", "config.toml"), `
+    writeFileSync(join(process.cwd(), ".ai-engineering", "config.toml"), `
 [surfaces]
 enabled = ["claude-code"]
 
@@ -250,7 +254,7 @@ risk = 0.9
   });
 
   test("allow when no local rules match", () => {
-    writeFileSync(join(scratch, ".ai-engineering", "config.toml"), `
+    writeFileSync(join(process.cwd(), ".ai-engineering", "config.toml"), `
 [surfaces]
 enabled = ["claude-code"]
 
@@ -273,7 +277,7 @@ risk = 0.5
 
   test("allow when no local rules configured", () => {
     // Write a config with policy_mode = "0777" but no local_rules section.
-    writeFileSync(join(scratch, ".ai-engineering", "config.toml"), `
+    writeFileSync(join(process.cwd(), ".ai-engineering", "config.toml"), `
 [surfaces]
 enabled = ["claude-code"]
 
