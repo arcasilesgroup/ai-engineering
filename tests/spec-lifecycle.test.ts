@@ -67,6 +67,12 @@ beforeAll(() => {
   repo = join(sandbox, "repo");
   mkdirSync(join(engHome, "skills", "ai-design"), { recursive: true });
   mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
+  // Own the global git config so a machine that already ran `ai-eng update`
+  // (CI's check job does, before G20 re-runs this suite) does not inject floor
+  // shims into this fixture via init.templateDir. The floor itself is covered
+  // by floor-gates / floor-hooks; this file is about the lifecycle verbs.
+  process.env["GIT_CONFIG_GLOBAL"] = join(sandbox, "gitconfig");
+  writeFileSync(process.env["GIT_CONFIG_GLOBAL"], "");
   // A canon that declares one conditional node: touching a stylesheet fires it.
   writeFileSync(
     join(engHome, "skills", "ai-design", "SKILL.md"),
@@ -93,8 +99,9 @@ beforeAll(() => {
   // A base commit: base_sha is a commit, so a repo without one has no milestone base.
   spawnSync("git", ["add", "-A"], { cwd: repo, stdio: "ignore" });
   // A conventional message on purpose: this fixture declares itself governed, and the
-  // floor judges commit messages — including through the global init.templateDir that
-  // makes a fresh repo be born with the shims.
+  // floor judges commit messages when the shims are present. With GIT_CONFIG_GLOBAL
+  // above, this commit is clean of the machine's templateDir — the message shape still
+  // matches what the floor would accept.
   spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "chore: fixture base"], { cwd: repo, stdio: "ignore" });
 });
 
@@ -105,6 +112,7 @@ beforeEach(() => {
 });
 
 afterAll(() => {
+  delete process.env["GIT_CONFIG_GLOBAL"];
   rmSync(sandbox, { recursive: true, force: true });
 });
 
