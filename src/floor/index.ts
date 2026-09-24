@@ -138,9 +138,21 @@ export function commitMsg(msgFile: string, receiptId: string, overrideReason: st
   return { ok: true, lines };
 }
 
-/** pre-push: gitleaks over the whole unpushed surface + expiry of dated overrides. */
+/** pre-push: block direct pushes to main + gitleaks over the whole unpushed surface
+ *  + expiry of dated overrides. The branch protection rule (PR required) lives on
+ *  GitHub, but admins can bypass it — this local guard catches that. */
 export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const lines: string[] = [];
+  // Block direct pushes to main: every change goes through a PR.
+  // stdin carries lines of "<local ref> <local sha> <remote ref> <remote sha>".
+  let stdin = "";
+  try { stdin = readFileSync(0, "utf8"); } catch { /* no stdin — nothing to block */ }
+  for (const line of stdin.split("\n")) {
+    const remoteRef = line.trim().split(/\s+/)[2];
+    if (remoteRef === "refs/heads/main") {
+      return { ok: false, lines: ["direct push to main is not allowed — open a PR instead."] };
+    }
+  }
   const gitleaks = whichGitleaks();
   if (!gitleaks) {
     return { ok: false, lines: ["gitleaks is not installed — HARD FAIL (§12.1). brew install gitleaks"] };
