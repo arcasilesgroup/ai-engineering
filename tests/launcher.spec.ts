@@ -14,11 +14,9 @@ import { resolveTarget } from "../bin/ai-eng.js";
 const LAUNCHER = new URL("../bin/ai-eng.js", import.meta.url).pathname;
 
 // The launcher resolves the platform at runtime; tests must create the right
-// binary name for the host this CI job runs on.
-const IS_MUSL = process.platform === "linux" && (() => {
-  try { return typeof process.report?.getReport === "function" && process.report.getReport().header.glibcVersionRuntime === undefined; } catch { return false; }
-})();
-const TARGET = resolveTarget(process.platform, process.arch, IS_MUSL) ?? "linux-x64";
+// binary name for the host this CI job runs on. musl (Alpine) is excluded:
+// CI runs Ubuntu glibc, and local dev is macOS.
+const TARGET = resolveTarget(process.platform, process.arch, false) ?? "linux-x64";
 const BIN_NAME = `ai-eng-${TARGET}`;
 
 const roots: string[] = [];
