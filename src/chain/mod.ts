@@ -74,8 +74,14 @@ export type ChainOutcome =
   | { action: "rewrite"; command: string; guards: string[]; receiptId: string | null }
   | { action: "review"; reason: string; rule: { id: string; name: string; risk: number }; guards: string[]; receiptId: string | null };
 
+type EventName = keyof typeof TABLE;
+
 function selected(event: string, tool: string): GuardRow[] {
-  return (TABLE[event] ?? []).filter((row) => row.matcher.test(tool));
+  // The TABLE keys are fixed; the event arrives from the hook payload, not from
+  // user-controlled text that could influence which regex runs.
+  if (!(event in TABLE)) return [];
+  const key: EventName = event;
+  return TABLE[key]!.filter((row) => row.matcher.test(tool));
 }
 
 type Verdict = { deny: boolean; by?: string; message?: string };
