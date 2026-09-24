@@ -1,0 +1,6 @@
+[allowlist]
+  paths = [
+    "tests/spoken-secret.spec.ts",
+    "tests/unit/security/test_redactor.py",
+    "tests/unit/hooks/test_runtime_state.py",
+  ]

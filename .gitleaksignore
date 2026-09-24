@@ -1,14 +1,7 @@
 # Gitleaks fingerprint allowlist — synthetic/historical findings only.
 # None of these are live credentials; see DECISIONS.md in v1 history.
+# Test fixtures with fake values are allowlisted in .gitleaksrc.toml (path-based).
 .ai-engineering/policies/.signatures.json:jwt:3
 0b4827d003e5d1aeb42332262336cc1ba59bf844:.gitleaksignore:generic-api-key:12
 077ea12ed3df5fbfd0fb3feb70f618714c166de6:stacks/dotnet/security.md:generic-api-key:333
 077ea12ed3df5fbfd0fb3feb70f618714c166de6:stacks/python/security.md:generic-api-key:211
-tests/unit/security/test_redactor.py:generic-api-key:345
-tests/unit/hooks/test_runtime_state.py:generic-api-key:85
-# Test fixtures with fake REDACTED values, not real credentials
-5be86d297d771c602c3e8029e68055fa29edbb6a:tests/spoken-secret.spec.ts:generic-api-key:19
-5be86d297d771c602c3e8029e68055fa29edbb6a:tests/spoken-secret.spec.ts:generic-api-key:35
-5be86d297d771c602c3e8029e68055fa29edbb6a:tests/spoken-secret.spec.ts:generic-api-key:59
-5be86d297d771c602c3e8029e68055fa29edbb6a:tests/spoken-secret.spec.ts:stripe-access-token:17
-5be86d297d771c602c3e8029e68055fa29edbb6a:tests/spoken-secret.spec.ts:generic-api-key:77

@@ -13,6 +13,14 @@ import { resolveTarget } from "../bin/ai-eng.js";
 
 const LAUNCHER = new URL("../bin/ai-eng.js", import.meta.url).pathname;
 
+// The launcher resolves the platform at runtime; tests must create the right
+// binary name for the host this CI job runs on.
+const IS_MUSL = process.platform === "linux" && (() => {
+  try { return typeof process.report?.getReport === "function" && process.report.getReport().header.glibcVersionRuntime === undefined; } catch { return false; }
+})();
+const TARGET = resolveTarget(process.platform, process.arch, IS_MUSL) ?? "linux-x64";
+const BIN_NAME = `ai-eng-${TARGET}`;
+
 const roots: string[] = [];
 const PATH_BEFORE = process.env.PATH ?? "";
 
@@ -69,7 +77,7 @@ describe("resolveTarget", () => {
 describe("launcher resolution order", () => {
   test("runs the platform package binary when it is installed", () => {
     const { root, launcher } = stagedLauncher("ai-eng-launcher-pkg-");
-    const pkgDir = join(root, "ai-engineing", "node_modules", "ai-engineering-darwin-arm64");
+    const pkgDir = join(root, "ai-engineing", "node_modules", `ai-engineering-${TARGET}`);
     mkdirSync(join(pkgDir, "bin"), { recursive: true });
     // The launcher resolves `ai-engineing-<target>/package.json` — without a
     // package.json the subpath resolve misses, exactly like a broken install.
@@ -86,8 +94,8 @@ describe("launcher resolution order", () => {
     const { launcher } = stagedLauncher("ai-eng-launcher-dist-");
     const dist = join(dirname(dirname(launcher)), "dist");
     mkdirSync(dist, { recursive: true });
-    writeFileSync(join(dist, "ai-eng-darwin-arm64"), "#!/bin/sh\necho from-dist \"$@\"\n");
-    chmodSync(join(dist, "ai-eng-darwin-arm64"), 0o755);
+    writeFileSync(join(dist, BIN_NAME), "#!/bin/sh\necho from-dist \"$@\"\n");
+    chmodSync(join(dist, BIN_NAME), 0o755);
 
     const { status, stdout } = run(launcher, ["--version"]);
     expect(status).toBe(0);
@@ -96,15 +104,15 @@ describe("launcher resolution order", () => {
 
   test("prefers the platform package over the dist build", () => {
     const { root, launcher } = stagedLauncher("ai-eng-launcher-both-");
-    const pkgDir = join(root, "ai-engineing", "node_modules", "ai-engineering-darwin-arm64");
+    const pkgDir = join(root, "ai-engineing", "node_modules", `ai-engineering-${TARGET}`);
     mkdirSync(join(pkgDir, "bin"), { recursive: true });
     writeFileSync(join(pkgDir, "package.json"), '{"name":"fake","version":"0.0.0"}\n');
     writeFileSync(join(pkgDir, "bin", "ai-eng"), '#!/bin/sh\necho from-platform-package\n');
     chmodSync(join(pkgDir, "bin", "ai-eng"), 0o755);
     const dist = join(dirname(dirname(launcher)), "dist");
     mkdirSync(dist, { recursive: true });
-    writeFileSync(join(dist, "ai-eng-darwin-arm64"), "#!/bin/sh\necho from-dist\n");
-    chmodSync(join(dist, "ai-eng-darwin-arm64"), 0o755);
+    writeFileSync(join(dist, BIN_NAME), "#!/bin/sh\necho from-dist\n");
+    chmodSync(join(dist, BIN_NAME), 0o755);
 
     const { stdout } = run(launcher, ["--version"]);
     expect(stdout).toContain("from-platform-package");
@@ -119,7 +127,7 @@ describe("launcher resolution order", () => {
       env: { ...process.env, PATH: "/usr/bin:/bin" },
     });
     expect(status).toBe(1);
-    expect(stderr).toContain("no prebuilt binary for darwin-arm64");
+    expect(stderr).toContain("no prebuilt binary for");
     expect(stderr).not.toContain("Error");
   });
 
@@ -129,8 +137,8 @@ describe("launcher resolution order", () => {
     symlinkSync(launcher, link);
     const dist = join(dirname(dirname(launcher)), "dist");
     mkdirSync(dist, { recursive: true });
-    writeFileSync(join(dist, "ai-eng-darwin-arm64"), "#!/bin/sh\necho via-symlink \"$@\"\n");
-    chmodSync(join(dist, "ai-eng-darwin-arm64"), 0o755);
+    writeFileSync(join(dist, BIN_NAME), "#!/bin/sh\necho via-symlink \"$@\"\n");
+    chmodSync(join(dist, BIN_NAME), 0o755);
 
     const { status, stdout } = run(link, ["--version"]);
     expect(status).toBe(0);
