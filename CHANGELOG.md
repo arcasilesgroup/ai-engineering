@@ -1,5 +1,11 @@
 # Changelog — ai-engineering
 
+## 2.4.0
+
+### Minor Changes
+
+- [`d5fe006`](https://github.com/arcasilesgroup/ai-engineering/commit/d5fe006a2ee2f883b7a6446039be6a7108308659) Thanks [@soydachi](https://github.com/soydachi)! - Block direct pushes to main via pre-push hook, security fixes (ReDoS, Snyk taint chain), and cognitive complexity refactors across doctor/init/uninstall/commands
+
 ## 2.3.0
 
 ### Minor Changes
