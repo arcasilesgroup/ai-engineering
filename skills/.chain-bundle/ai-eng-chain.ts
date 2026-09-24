@@ -1399,7 +1399,10 @@ var TABLE = {
 var HOT_PATH_BUDGET_MS = 200;
 var sharedCircuitBreaker = new CircuitBreaker;
 function selected(event, tool) {
-  return (TABLE[event] ?? []).filter((row) => row.matcher.test(tool));
+  if (!(event in TABLE))
+    return [];
+  const key = event;
+  return TABLE[key].filter((row) => row.matcher.test(tool));
 }
 function cachedVerdict(file, fp) {
   try {

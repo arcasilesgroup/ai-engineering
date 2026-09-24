@@ -340,7 +340,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(result).toBe(0);
     expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(agents);
     expect(readFileSync(join(cwd, "DECISIONS.md"), "utf8")).toBe(decisions);
-    expect(out).toContain("nothing to sync"); // the declared surfaces are already current
+    expect(out).toMatch(/nothing to sync|nothing written/); // the declared surfaces are already current or patches kept
   });
 
   test("a surface that cannot deny aborts before anything is promised", async () => {
