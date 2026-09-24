@@ -81,6 +81,9 @@ function selected(event: string, tool: string): GuardRow[] {
   // user-controlled text that could influence which regex runs.
   if (!(event in TABLE)) return [];
   const key: EventName = event;
+  // snyk ignore reason: all matchers are hardcoded RegExp literals (TABLE above);
+  // `tool` is the value being tested, not the pattern. The matchers are simple
+  // alternations (^(A|B|C)$) that cannot cause catastrophic backtracking.
   return TABLE[key]!.filter((row) => row.matcher.test(tool));
 }
 

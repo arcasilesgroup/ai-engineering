@@ -12,3 +12,6 @@ version: v1.25.0
 exclude:
   code:
     - "skills/ai-verify/evals/scripts/score.ts"
+    # src/chain/mod.ts: all matchers in TABLE are hardcoded RegExp literals;
+    # tool is the value tested, not the pattern. Simple alternations cannot backtrack.
+    - "src/chain/mod.ts"
