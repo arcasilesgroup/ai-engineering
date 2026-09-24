@@ -161,7 +161,7 @@
 - [x] G18: README's doctor description reflects the richer receipts line and a changeset entry exists
   CHECK: sh -c 'test -n "$(ls .changeset/*.md 2>/dev/null)" && echo "changeset $(ls .changeset/*.md | head -1)" && grep -i "per guard\|denies per" README.md | head -2'
   EXPECT: /changeset/
-  EVIDENCE: changeset .changeset/README.md | ai-eng doctor        # every check it knows, one real adversarial payload fired at the chain, receipt stats: denies per guard/tool, the 90-day series, a spike WARN
+  EVIDENCE: changeset .changeset/observability-signal-in-gc.md | ai-eng doctor        # every check it knows, one real adversarial payload fired at the chain, receipt stats: denies per guard/tool, the 90-day seri
 
 - [x] G19: the fired security trigger left its artifact for this milestone's diff, or an ABANDON names why
   CHECK: sh -c 'f=$(ls .ai-engineering/security/run-*/findings.json 2>/dev/null | tail -1); if [ -n "$f" ]; then echo "artifact: $f"; else grep -m1 "ABANDON: security" .ai-engineering/spec.html; fi'
