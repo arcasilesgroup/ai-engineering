@@ -36,13 +36,13 @@ function readTextSafe(path: string): string | null {
 }
 
 function parseSpecGates(html: string): string | undefined {
-  // First pending gate only — `.match` not a loop that returns on the first hit.
-  const match = html.match(/- \[ \] (G\d+): (.+)/);
+  // First pending gate only — RegExp.exec (Sonar S6594), not String.match.
+  const match = /- \[ \] (G\d+): (.+)/.exec(html);
   return match ? `${match[1]}: ${match[2]}` : undefined;
 }
 
 function parsePlanCurrentStep(html: string): string {
-  const match = html.match(/- \[ \] (.+)/);
+  const match = /- \[ \] (.+)/.exec(html);
   return match?.[1] ?? "all green";
 }
 
