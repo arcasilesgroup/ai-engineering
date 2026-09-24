@@ -158,7 +158,7 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
     return { ok: false, lines: ["gitleaks is not installed — HARD FAIL (§12.1). brew install gitleaks"] };
   }
   try {
-    execFileSync(gitleaks, ["git", "--redact", "-v"], { cwd, stdio: "pipe" });
+    execFileSync(gitleaks, ["git", "--redact", "-v", "-c", join(cwd, ".gitleaksrc.toml")], { cwd, stdio: "pipe" });
   } catch (error) {
     const out = (error as { stdout?: string }).stdout ?? "";
     return { ok: false, lines: ["gitleaks in pre-push: secret in the unpushed history → BLOCKED.", out.toString().slice(0, 2000)] };
