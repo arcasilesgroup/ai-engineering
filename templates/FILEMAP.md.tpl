@@ -19,7 +19,7 @@ PERMISSIONS.md                 Endpoint × role access matrix (n/a until the pro
 skills/                        Installed skill canon
 agents/                        Specialist agents for the feature workflow
 prototypes/                    /ai-prototype HTML mockups + <name>.states.json scenarios
-.playwright/                   Sign-in sessions and review screenshots (gitignored)
+.ai-engineering/workflow/playwright/  Sign-in sessions and review screenshots (gitignored)
 ```
 
 <!-- Add the app's own files below as they're created. -->

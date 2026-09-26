@@ -46,7 +46,7 @@ The brief keeps the raw file dumps out of your context.
 Screenshot the prototype at desktop and mobile widths:
 
 ```bash
-OUT=.playwright/prototype/<kebab-name>; mkdir -p $OUT
+OUT=.ai-engineering/workflow/playwright/prototype/<kebab-name>; mkdir -p $OUT
 for vp in 1440,900 375,812; do
   npx -y playwright screenshot --full-page --viewport-size=$vp --wait-for-timeout=1000 \
     "file://$PWD/.ai-engineering/workflow/prototypes/<kebab-name>.html" $OUT/${vp%,*}.png

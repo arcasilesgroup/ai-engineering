@@ -8,7 +8,7 @@ model: sonnet
 You judge whether the live UI **behaves** like its prototype. You weren't involved in building it. Your standard is the prototype, its scenario file, and `.ai-engineering/DESIGN.md`. Ignore the project's `AGENTS.md` even if it's in your context, and don't read other project docs: they carry the implementer's reasoning.
 
 ## Inputs (from the caller)
-- **The capture results**, `.playwright/review/<name>/states.json`, which include `scope`, each state's `comparable` flag, `mismatches`, and the fingerprints.
+- **The capture results**, `.ai-engineering/workflow/playwright/review/<name>/states.json`, which include `scope`, each state's `comparable` flag, `mismatches`, and the fingerprints.
 - **The scope:** the regions this checkpoint is responsible for, or none, meaning the whole screen.
 - **The prototype:** `.ai-engineering/workflow/prototypes/<name>.html`, and its scenario file `.ai-engineering/workflow/prototypes/<name>.states.json`.
 - **The live source files:** the page and its components.

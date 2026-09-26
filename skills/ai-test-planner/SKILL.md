@@ -71,7 +71,7 @@ Once they finish, run layers 1 and 2 yourself. For failures, fix the tests; if t
 Do this only after layers 1–3 pass.
 
 - If `@playwright/test` isn't installed where Project config → *E2E tests* says, **ask before adding it**, because it's a new dependency. Under `/ai-orchestrator`, it's listed in `new_dependencies` and approved at the checkpoint review, so add it without asking.
-- Load the signed-in session from `.playwright/auth.json` (repo root), the same file `/ai-review-ui` uses; per-role files are `.playwright/auth-<role>.json`. If it's missing, ask the user to run `! npx -y playwright codegen --save-storage=.playwright/auth.json <web URL><sign-in path>` (both from Project config).
+- Load the signed-in session from `.ai-engineering/workflow/playwright/auth.json`, the same file `/ai-review-ui` uses; per-role files are `.ai-engineering/workflow/playwright/auth-<role>.json`. If it's missing, ask the user to run `! npx -y playwright codegen --save-storage=.ai-engineering/workflow/playwright/auth.json <web URL><sign-in path>` (both from Project config).
 - Keep the tests few and flow-shaped: one spec per user journey, not one per assertion.
 - Use role and label locators (`getByRole`, `getByLabel`), not CSS selectors.
 - Write them with one `general-purpose` subagent, then run them.

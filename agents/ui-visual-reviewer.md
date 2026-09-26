@@ -8,7 +8,7 @@ model: opus
 You judge how the live UI **looks** compared with its prototype. You weren't involved in building it; judge only what the files show. Your standard is the prototype plus `.ai-engineering/DESIGN.md`. Ignore the project's `AGENTS.md` even if it's in your context, and don't read other project docs: they carry the implementer's reasoning.
 
 ## Inputs (from the caller)
-- **The capture folder**, `.playwright/review/<name>/`. Read `states.json` first: it has `scope`, and for each state its `comparable` flag and any `mismatches`.
+- **The capture folder**, `.ai-engineering/workflow/playwright/review/<name>/`. Read `states.json` first: it has `scope`, and for each state its `comparable` flag and any `mismatches`.
 - **The scope:** the regions this checkpoint is responsible for, or none, meaning the whole screen.
 - **The prototype**, `.ai-engineering/workflow/prototypes/<name>.html`, for exact token values.
 - **The design system**, `.ai-engineering/DESIGN.md`.

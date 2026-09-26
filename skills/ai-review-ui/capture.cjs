@@ -5,7 +5,7 @@
 // Run from the repo root:
 //   npx -y -p playwright sh -c 'NODE_PATH="$(dirname "$(command -v playwright)")/.." node skills/ai-review-ui/capture.cjs <name> [baseUrl]'
 // Reads   .ai-engineering/workflow/prototypes/<name>.states.json
-// Writes  .playwright/review/<name>/<state>-<width>-{proto,live}.png and states.json
+// Writes  .ai-engineering/workflow/playwright/review/<name>/<state>-<width>-{proto,live}.png and states.json
 const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
@@ -20,12 +20,12 @@ if (!name) { console.error("usage: skills/ai-review-ui/capture.cjs <prototype-na
 const root = process.cwd();
 const scenarioPath = path.join(root, ".ai-engineering", "workflow", "prototypes", `${name}.states.json`);
 const sc = JSON.parse(fs.readFileSync(scenarioPath, "utf8"));
-const out = path.join(root, ".playwright", "review", name);
+const out = path.join(root, ".ai-engineering", "workflow", "playwright", "review", name);
 fs.mkdirSync(out, { recursive: true });
 
 const viewports = sc.viewports || [[1440, 900], [375, 812]];
 const now = new Date(sc.now || "2026-10-01T10:00:00");
-const auth = path.join(root, sc.auth || ".playwright/auth.json");
+const auth = path.join(root, sc.auth || ".ai-engineering/workflow/playwright/auth.json");
 const login = sc.login || "/login"; // sign-in path; a redirect here means the saved session expired
 const localLive = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(base);
 const FREEZE = "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}";

@@ -43,7 +43,7 @@ Everywhere else, decide and keep going:
 Every step that changes files ends with a commit on the feature branch, so the git history is a full, resumable record of the run. You make the commits yourself with Bash; the output is small.
 
 - **Branch:** Phase 0 runs `git switch -c feat/<slug>` (or `git switch feat/<slug>` on resume). This doesn't touch the working tree. Everything is committed there, and `main` gets one squashed commit per feature at the app review, per the `AGENTS.md` git workflow.
-- **Stage explicit paths only.** Never use `git add -A` or `git add .`, because other sessions share this tree. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage `.playwright/`, `.env*` or files that were in the Phase 0 baseline.
+- **Stage explicit paths only.** Never use `git add -A` or `git add .`, because other sessions share this tree. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage `.ai-engineering/workflow/playwright/`, `.env*` or files that were in the Phase 0 baseline.
 - **When to commit, and with which message.** Each message ends with the co-author trailer.
 
 | After | Message |
@@ -78,13 +78,13 @@ Delegate this to one `general-purpose` subagent, which reports ready or blocked:
 
 - the local DB is up, if the project has one (Project config → *DB status*; if it's down, run *DB start/reset* to apply migrations and the seed);
 - the API health check and the web URL both answer (if not, run the *Dev server* command from the repo root in the background);
-- `.playwright/auth.json` exists, if the app has signed-in pages. If it's missing, the subagent creates it without the user when Project config → *Automated sign-in* describes a way (e.g. a demo-login button or seeded test credentials): it scripts a Playwright sign-in and saves `context.storageState({ path: '.playwright/auth.json' })`, using `npx -y -p playwright node <script>` with the script in the scratchpad. It saves one file per role listed under *Roles* (`.playwright/auth-<role>.json`), with `auth.json` as a copy of the most privileged one;
+- `.ai-engineering/workflow/playwright/auth.json` exists, if the app has signed-in pages. If it's missing, the subagent creates it without the user when Project config → *Automated sign-in* describes a way (e.g. a demo-login button or seeded test credentials): it scripts a Playwright sign-in and saves `context.storageState({ path: '.ai-engineering/workflow/playwright/auth.json' })`, using `npx -y -p playwright node <script>` with the script in the scratchpad. It saves one file per role listed under *Roles* (`.ai-engineering/workflow/playwright/auth-<role>.json`), with `auth.json` as a copy of the most privileged one;
 - the git tree state (`git status --porcelain`), recorded as a baseline so the feature's files can be told apart from others' work, plus the current branch name (the merge target later);
 - the feature branch `feat/<slug>`: switch to it, creating it if it doesn't exist (see Commits).
 
 Only if automatic sign-in is impossible (Project config gives no way), add the manual step to the Phase 1 checkpoint review, so the user handles it in the same stop:
 ```
-! npx -y playwright codegen --save-storage=.playwright/auth.json <web URL><sign-in path>
+! npx -y playwright codegen --save-storage=.ai-engineering/workflow/playwright/auth.json <web URL><sign-in path>
 ```
 
 ## Phase 1: Plan

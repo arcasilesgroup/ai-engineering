@@ -22,11 +22,11 @@ If the route isn't obvious from the prototype name, send an `Explore` subagent t
 ## 2. Make sure the app is reachable
 
 - Run `curl -s -o /dev/null -w '%{http_code}' <web URL>` (Project config → *Web URL*). If nothing answers, run the *Dev server* command from the repo root in the background and wait until it responds.
-- Signed-in pages need a saved session. If `.playwright/auth.json` is missing, stop and ask the user to run the command below, sign in, and close the window:
+- Signed-in pages need a saved session. If `.ai-engineering/workflow/playwright/auth.json` is missing, stop and ask the user to run the command below, sign in, and close the window:
   ```
-  ! npx -y playwright codegen --save-storage=.playwright/auth.json <web URL><sign-in path>
+  ! npx -y playwright codegen --save-storage=.ai-engineering/workflow/playwright/auth.json <web URL><sign-in path>
   ```
-  `.playwright/` is gitignored. If the screenshots come back showing the login page, the session has expired; ask the user to run the same command again.
+  `.ai-engineering/workflow/playwright/` is gitignored. If the screenshots come back showing the login page, the session has expired; ask the user to run the same command again.
 
 ## 3. Capture both sides in the same state
 
@@ -59,7 +59,7 @@ Never compare a prototype in one state with the live page in another, like an em
 - **`login`** is the sign-in path from Project config (default `/login`). Landing there means the saved session expired. Without `--scope`, every state runs and the whole screen is compared (standalone mode, or the final checkpoint for a screen).
 
 - **Steps:** `fill`/`select`/`check` target a field by its visible label. `click` targets a button by its name (add `"role"` for links or tabs). There's also `press`, `waitFor` (text) and `wait` (ms). The same steps run on both sides, so the prototype and the live page must use the same labels and button text; a step that works on only one side is a finding in itself.
-- **Data states:** loading, error and empty lists are reached on the prototype with `proto_query`, and on live with `live_query` or a different role's session (`"auth": ".playwright/auth-<role>.json"`). If live can't reproduce the state, set `"live": false`. That state is then reviewed on the prototype alone and never compared.
+- **Data states:** loading, error and empty lists are reached on the prototype with `proto_query`, and on live with `live_query` or a different role's session (`"auth": ".ai-engineering/workflow/playwright/auth-<role>.json"`). If live can't reproduce the state, set `"live": false`. That state is then reviewed on the prototype alone and never compared.
 - **Mutating states** (`"mutates": true`) run on live only when the base URL is localhost. List them last.
 - **Viewports:** both sides use the same viewports (default 1440×900 and 375×812), the same frozen clock (`now`), reduced motion, and no animations.
 
@@ -68,7 +68,7 @@ Run from the repo root:
 npx -y -p playwright sh -c 'NODE_PATH="$(dirname "$(command -v playwright)")/.." node skills/ai-review-ui/capture.cjs <name> <web URL> [--scope a,b]'
 ```
 
-The script writes `.playwright/review/<name>/<state>-<width>-{proto,live}.png`, plus `states.json`.
+The script writes `.ai-engineering/workflow/playwright/review/<name>/<state>-<width>-{proto,live}.png`, plus `states.json`.
 
 Before taking each pair of screenshots, it **fingerprints the UI state on both sides**: field values by label, open dialogs, alert or status messages, and invalid fields. Each pair is marked `match`, `MISMATCH` (with the reasons) or `proto-only`.
 
@@ -84,7 +84,7 @@ Hand the comparison to reviewers with fresh context, so they judge the screensho
 - tell them to ignore `AGENTS.md`, so they judge against the prototype and `.ai-engineering/DESIGN.md` without the implementer's reasoning. Don't pass them the checkpoint's goal, tasks or implementation notes either.
 
 Give each one only:
-- the capture folder `.playwright/review/<name>/`;
+- the capture folder `.ai-engineering/workflow/playwright/review/<name>/`;
 - the scope (`ui.scope`, or "whole screen");
 - `.ai-engineering/workflow/prototypes/<name>.html`, plus `.ai-engineering/workflow/prototypes/<name>.states.json` for the behavior reviewer;
 - the live source paths (the page and its components).
