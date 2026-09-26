@@ -5,7 +5,7 @@
 // the original refuses, byte for byte.
 
 import { describe, expect, test } from "bun:test";
-import { candidates, judge, slug } from "../src/guards/spoken-secret.ts";
+import { candidates, judge, runSpokenSecret, slug } from "../src/guards/spoken-secret.ts";
 
 describe("judge — registers real secrets", () => {
   const registers = (key: string, value: string) => {
@@ -96,5 +96,92 @@ describe("candidates — prompt extraction", () => {
   test("slug keeps its length cap and fallback", () => {
     expect(slug("!!!")).toBe("value");
     expect(slug("a very long label name that goes on and on and on")).toBe("a-very-long-label-name-that-goes-on-and-on-and-o");
+  });
+});
+
+describe("judge — every refusal names its reason, byte for byte", () => {
+  test("unkeyed key name", () => expect(judge("PORT", "3000").reason).toBe("key name does not look like a secret"));
+  test("public-by-design key name", () =>
+    expect(judge("NEXT_PUBLIC_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9").reason).toBe("public-by-design key name"));
+  test("placeholder or non-secret value", () => expect(judge("DB_PASSWORD", "changeme").reason).toBe("placeholder or non-secret value"));
+  test("numeric value under a secret-shaped key: the value itself is read", () =>
+    expect(judge("PASSWORD", "12345678").reason).toBe("numeric value"));
+  test("filesystem path under a secret-shaped key", () => expect(judge("PASSWORD", "/var/log/app.log").reason).toBe("filesystem path"));
+  test("below the 4-byte floor", () => expect(judge("TOKEN", "ab").reason).toBe("2 bytes: too short for any rule"));
+  test("between the floors: handled by hand, never by rule", () =>
+    expect(judge("TOKEN", "abcde").reason).toBe("5 bytes: below the 8-byte floor; handle by hand"));
+});
+
+describe("candidates — the extracted value and label are exact", () => {
+  test("a quoted passphrase yields the inner text, quotes stripped", () => {
+    const { auto } = candidates('the admin password is "copper lantern thicket" ok?');
+    expect(auto.length).toBe(1);
+    expect(auto[0]!.value).toBe("copper lantern thicket");
+  });
+
+  test("trailing sentence punctuation is not part of the value", () => {
+    const { auto } = candidates("note the password is hunter2-delta-9.");
+    expect(auto.length).toBe(1);
+    expect(auto[0]!.value).toBe("hunter2-delta-9");
+  });
+
+  test("an assignment key names its own label", () => {
+    expect(candidates("ADMIN_PASSWORD=hunter-and-friends").auto[0]!.label).toBe("prompt-admin-password");
+  });
+
+  test("digits alone are never auto-registered, and never handed to the agent", () => {
+    expect(candidates("set TOKEN=12345678")).toEqual({ auto: [], manual: [] });
+  });
+
+  test("slug strips leading and trailing punctuation runs", () => {
+    expect(slug("!!hello!!")).toBe("hello");
+    expect(slug("Hello, World!")).toBe("hello-world");
+  });
+});
+
+describe("runSpokenSecret — the denial text is the contract", () => {
+  const run = (prompt?: string) =>
+    runSpokenSecret({ tool_name: "Bash", tool_input: {}, ...(prompt === undefined ? {} : { prompt }) });
+
+  const reasonOf = (prompt: string): string => {
+    const out = run(prompt);
+    if (!out || out.deny !== true) throw new Error("expected the prompt to be denied");
+    return out.reason;
+  };
+
+  test("one auto secret: singular, its label, and the exact guidance", () => {
+    const reason = reasonOf("my new staging password is velvet-anchor-thistle-21");
+    expect(reason).toContain("the prompt carries 1 probable credential (label: prompt-staging-password).");
+    expect(reason).toContain(
+      "Do not write the value into code, .env or a commit: put it in a gitignored file (or the user's secret store) and refer to it by label.",
+    );
+  });
+
+  test("two auto secrets: plural, labels comma-joined in prompt order", () => {
+    const reason = reasonOf("set ADMIN_PASSWORD=hunter-and-friends and MY_TOKEN=velvet-anchor-thistle-21");
+    expect(reason).toContain("the prompt carries 2 probable credentials (labels: prompt-admin-password, prompt-token).");
+  });
+
+  test("a free-text clause names its key and carries the hand-off sentence", () => {
+    const reason = reasonOf("the admin password is purple monkey dishwasher");
+    expect(reason).toContain("the prompt names a credential (the admin password) as free text whose exact value cannot be pinned automatically.");
+    expect(reason).toContain(
+      "Ask the user to move it to a gitignored file or a secret store before acting on anything else in this prompt.",
+    );
+  });
+
+  test("two free-text clauses are comma-joined, never concatenated", () => {
+    const reason = reasonOf("my password is purple monkey dishwasher; my token is red velvet cake dessert");
+    expect(reason).toContain("(my password, my token)");
+  });
+
+  test("auto and manual halves meet at a single space", () => {
+    const reason = reasonOf("set ADMIN_PASSWORD=hunter-and-friends; my password is purple monkey dishwasher");
+    expect(reason).toContain("refer to it by label. the prompt names a credential");
+  });
+
+  test("no prompt field, or nothing to protect, stays silent", () => {
+    expect(run()).toBeUndefined();
+    expect(run("add a dark mode toggle to the settings page")).toBeUndefined();
   });
 });

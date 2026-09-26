@@ -6,6 +6,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
+import { parse } from "smol-toml";
 import { repoRoot } from "../env.ts";
 
 type FloorResult = { ok: boolean; lines: string[] };
@@ -56,6 +57,31 @@ function decisionsBlock(cwd: string): FloorResult {
   return { ok: true, lines: [] };
 }
 
+/** The staged scan's one exception: the allowlist `paths` exactly as they exist in
+ *  HEAD's .gitleaksrc.toml — the reviewed baseline. A commit can widen the list and
+ *  exploit it only in a LATER commit, never in the one that lands the widening, and
+ *  only `paths` ever travels: this gate must not become a general trust in whatever
+ *  config the working tree carries (pre-push loads the full file; this one stays
+ *  narrow). No HEAD config, no parse, no paths → no exception: the default rules
+ *  decide, which is the fail-narrow direction. The argv never changes — the
+ *  contract test pins `dir --redact --no-banner --exit-code 1 <dir>` byte-exact. */
+function headAllowlistEnv(cwd: string, scratch: string): NodeJS.ProcessEnv | undefined {
+  const head = git(["show", "HEAD:.gitleaksrc.toml"], cwd);
+  if (head.code !== 0) return undefined;
+  try {
+    const parsed = parse(head.out) as unknown as { allowlist?: { paths?: unknown } };
+    const paths = Array.isArray(parsed.allowlist?.paths)
+      ? (parsed.allowlist.paths as unknown[]).filter((entry): entry is string => typeof entry === "string")
+      : [];
+    if (paths.length === 0) return undefined;
+    const config = join(scratch, ".gitleaksrc.toml");
+    writeFileSync(config, `[allowlist]\npaths = ${JSON.stringify(paths)}\n`);
+    return { ...process.env, GITLEAKS_CONFIG: config };
+  } catch {
+    return undefined;
+  }
+}
+
 function stageSecrets(cwd: string): FloorResult {
   const gitleaks = whichGitleaks();
   if (!gitleaks) {
@@ -88,7 +114,7 @@ function stageSecrets(cwd: string): FloorResult {
     }
     if (present.length === 0) return { ok: true, lines: [] };
     const args = ["dir", "--redact", "--no-banner", "--exit-code", "1", scratch];
-    execFileSync(gitleaks, args, { cwd, stdio: "pipe" });
+    execFileSync(gitleaks, args, { cwd, stdio: "pipe", env: headAllowlistEnv(cwd, scratch) });
     return { ok: true, lines: [] };
   } catch (error) {
     const e = error as { stdout?: unknown; stderr?: unknown; message?: string };
