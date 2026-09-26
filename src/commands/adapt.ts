@@ -29,7 +29,7 @@ const OWNED_BY_PROJECT = [
 
 export function proposalPayload(files: Record<string, string>): string {
   const ordered: Record<string, string> = {};
-  for (const key of Object.keys(files).sort()) ordered[key] = files[key]!;
+  for (const key of Object.keys(files).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))) ordered[key] = files[key]!;
   return JSON.stringify(ordered).replace(/</g, "\\u003c");
 }
 
