@@ -30,11 +30,18 @@ typecheck: bun run typecheck (oxlint --type-aware --type-check) · lint: bun run
 
 ## Lifecycle
 - Every skill declares its own contract — lane, artifact, successor — in a `## Lifecycle` block inside its SKILL.md: follow the `Next:` a skill hands you instead of asking what comes first.
-- The lanes are light (spike and bounded work — no contract), standard (`spec.html` + `plan.html`) and full (architectural, with the triggered nodes).
+- The lanes are light (spike and bounded work — no contract), standard (`ai-brainstorm` then `ai-orchestrator`) and full (architectural, with the triggered nodes).
 - Approvals are spoken: the human says approve, ok, go or close, and **you** run `ai-eng spec approve` or `ai-eng spec close` underneath. Never ask the human to type a command; never run an approval on your own initiative.
 
 ## Architecture layers
 You may edit `src/**` freely; the arch-test reads `.ai-engineering/arch.rules.json` — propose layer changes there via PR, never by editing the test in silence.
+
+## Voice
+Replies to a person, and handoffs to another agent, follow the voice standard in the `ai-write` skill (`references/voice.md`). The file ships in the binary and is installed with the skill canon; this section is the part that has to be in context:
+- First line is the action.
+- More than one step is a numbered list, one action per step.
+- Last line is one next action that takes under two minutes.
+- Say which step just finished before starting the next.
 
 ## Session hygiene (context economy)
 `/clear` between tasks · `/compact` before stopping, not after · batch prompting · check `/usage` when the context inflates.

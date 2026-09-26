@@ -128,11 +128,10 @@ These are the mistakes that make security audits useless:
    vulnerability from a closed one.
 2. When the milestone includes an audit, its phases become executable gates of the
    spec: "findings validated against the schema" and "zero open HIGH findings" are
-   CHECKs that `ai-eng spec run` executes — not courtesy reading. The second one
+   gates `ai-eng spec close` checks — not courtesy reading. The second one
    reads `disposition`: on `verdict` alone every finding stays `confirmed` forever,
    fixed or not, and the CHECK has nothing to evaluate.
-3. The source's non-negotiable principle is also ai-proof's (§9.3): you only report
-   what you can exploit. No demonstrable exploit, no finding.
+3. You only report what you can exploit. No demonstrable exploit, no finding.
 4. Who verifies: the `verify` model tier of the pin (§09.4); who judges the
    conclusions: `decide`. The validator is never the finder — adversarial validation
    is non-negotiable.
@@ -159,6 +158,6 @@ Trigger when: **/auth/**, **/authz/**, **/session/**, **/crypto/**, **/secrets/*
 Writes: .ai-engineering/security/run-N/findings.json, .ai-engineering/security/run-N/REPORT.md
 Read by: the milestone gate, humans, later runs that skip the known findings
 Dies: the last keep_runs are always live; doctor --gc beyond that
-Next: ai-visual-recap
+Next: none
 
 Source: cloudflare/security-audit-skill — https://github.com/cloudflare/security-audit-skill (MIT).

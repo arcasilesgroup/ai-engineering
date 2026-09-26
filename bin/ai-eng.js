@@ -1,16 +1,21 @@
 #!/usr/bin/env node
-// bin/ai-eng.js — the npm entry. Resolution order:
+// bin/ai-eng.js — the npm entry. Two layouts, two orders:
 //
-//   1. the compiled binary from the platform package (ai-engineing-<target>, an
-//      optional dependency) — npm installs with no runtime at all;
-//   2. the TypeScript source under bun, which is what the package did before the
-//      platform packages existed — so `bun add -g` and `bun link` keep working
-//      even on a dev checkout where the platform packages are not published.
+//   Dev checkout (scripts/build.ts is here; it is not in the published tarball):
+//     1. dist/ai-eng-<target> or dist/ai-eng from `bun run build`;
+//     2. the TypeScript source, via bun.
+//     The optional platform package is ignored. `bun link` must run this
+//     checkout, not a previously published binary sitting in node_modules.
+//
+//   Published install (npm / bun add, no scripts/build.ts):
+//     1. the compiled binary from the platform package (ai-engineering-<target>,
+//        an optionalDependency npm installs for this os+cpu);
+//     2. the TypeScript source under bun, when the platform package is absent.
 //
 // No binary and no bun: an honest error, never a stack trace. This file is plain
 // Node-compatible JS on purpose: it runs under node (npm path) and bun (fallback),
-// and must not import anything from src/ statically — the source path is a dynamic
-// import only bun can serve.
+// and must not import anything from src/ statically — the source path is spawned
+// through bun, which is the one runtime that can load it.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
@@ -66,32 +71,73 @@ function runBinary(bin) {
   process.exit(run.status ?? 1);
 }
 
+function packageRoot() {
+  return join(dirname(fileURLToPath(import.meta.url)), "..");
+}
+
+/** scripts/build.ts ships in the repo and not in the npm tarball (`files` lists
+ *  scripts/.embed only). Its presence is the dev checkout, including `bun link`. */
+function isDevCheckout(root) {
+  return existsSync(join(root, "scripts", "build.ts"));
+}
+
+/** A local compile, if one exists. The target-named file is a `bun run build
+ *  --target` for this host; `dist/ai-eng` is what a plain `bun run build` writes.
+ *  Windows may add `.exe` to either name. */
+function localBinary(root, target) {
+  const names = [];
+  if (target) names.push(`ai-eng-${target}`, `ai-eng-${target}.exe`);
+  names.push("ai-eng", "ai-eng.exe");
+  for (const name of names) {
+    const path = join(root, "dist", name);
+    if (existsSync(path)) return path;
+  }
+  return null;
+}
+
+function platformBinary(target) {
+  if (!target) return null;
+  let pkgDir = null;
+  try {
+    pkgDir = dirname(createRequire(import.meta.url).resolve(`ai-engineering-${target}/package.json`));
+  } catch {
+    return null;
+  }
+  const bin = join(pkgDir, "bin", binaryName(process.platform));
+  return existsSync(bin) ? bin : null;
+}
+
+/** The checkout's source, through bun, even when this launcher itself is node
+ *  (the npm shebang). Never returns. */
+function runSource(root) {
+  const cli = join(root, "src", "cli.ts");
+  const run = spawnSync("bun", [cli, ...process.argv.slice(2)], { stdio: "inherit" });
+  if (run.error) {
+    process.stderr.write(
+      "ai-eng: this checkout has no dist/ai-eng and bun is not on PATH.\n" +
+        "  bun run build\n" +
+        "  or install bun: https://bun.com\n",
+    );
+    process.exit(1);
+  }
+  process.exit(run.status ?? 1);
+}
+
 async function main() {
   const musl = process.platform === "linux" ? isMusl() : false;
   const target = resolveTarget(process.platform, process.arch, musl);
-  if (target) {
-    let pkgDir = null;
-    try {
-      pkgDir = dirname(createRequire(import.meta.url).resolve(`ai-engineering-${target}/package.json`));
-    } catch {
-      /* the platform package is not installed — fall through */
-    }
-    if (pkgDir) {
-      const bin = join(pkgDir, "bin", binaryName(process.platform));
-      if (existsSync(bin)) {
-        runBinary(bin);
-      }
-    }
+  const root = packageRoot();
+  if (isDevCheckout(root)) {
+    const local = localBinary(root, target);
+    if (local) runBinary(local);
+    runSource(root);
   }
-  // Dev checkout with a fresh build: dist/ai-eng-darwin-arm64 exists and
-  // matches this machine even though the platform package was never installed.
-  if (target) {
-    const local = join(dirname(fileURLToPath(import.meta.url)), "..", "dist", `ai-eng-${target}`);
-    if (existsSync(local)) runBinary(local);
-  }
+  const packed = platformBinary(target);
+  if (packed) runBinary(packed);
+  const local = localBinary(root, target);
+  if (local) runBinary(local);
   if (process.versions.bun) {
-    // cli.ts reads process.argv and exits on its own — importing it is running it.
-    await import(join(dirname(fileURLToPath(import.meta.url)), "..", "src", "cli.ts"));
+    await import(join(root, "src", "cli.ts"));
     return;
   }
   process.stderr.write(

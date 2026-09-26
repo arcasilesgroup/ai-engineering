@@ -13,7 +13,7 @@ description: >-
   solved this", "what's the state of the art", "check prior art", "how should I
   build this", or "am I about to rebuild something that already exists". Not
   for narrow single-bug debugging or isolated file edits — use /ai-debug — nor
-  for deciding what to build — use /ai-plan.
+  for deciding what to build — use /ai-orchestrator.
 license: MIT
 ---
 
@@ -475,9 +475,9 @@ Trigger: arch-change
 Trigger kind: judgment
 Trigger when: the milestone adds a subsystem, changes a layer contract, or points a dependency a different way
 Writes: .ai-engineering/arch.rules.json
-Read by: the arch test, ai-plan
+Read by: the arch test, ai-orchestrator
 Dies: never — it evolves by pull request and is never auto-written
-Next: ai-plan
+Next: ai-orchestrator
 
 Source: headstart (MIT; license declared in its upstream metadata, no LICENSE file in the
 source). Attribution: headstart by the claude-design-skills collection.

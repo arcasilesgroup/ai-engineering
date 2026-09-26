@@ -1,38 +1,54 @@
-# Changelog — ai-engineering
+# Changelog
 
-## 2.4.0
+All notable changes, written for someone reading what changed, not how. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-### Minor Changes
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Checkpoint viewer: a missing or broken plan now shows the empty drop with an offline badge and an “Open a feature plan” h1; the journey row fits at 320px without sideways scroll; Technical details clears a 44px tap target; template and planted viewer stay byte-identical.
+
+### Removed
+
+- `ai-eng spec run` and the `ai-proof` skill. Checkpoints run the feature. `spec open`, `spec approve` and `spec close` stay.
+
+## [2.4.0]
+
+### Changed
 
 - [`d5fe006`](https://github.com/arcasilesgroup/ai-engineering/commit/d5fe006a2ee2f883b7a6446039be6a7108308659) Thanks [@soydachi](https://github.com/soydachi)! - Block direct pushes to main via pre-push hook, security fixes (ReDoS, Snyk taint chain), and cognitive complexity refactors across doctor/init/uninstall/commands
 
-## 2.3.0
+## [2.3.0]
 
-### Minor Changes
+### Changed
 
 - [`83b942f`](https://github.com/arcasilesgroup/ai-engineering/commit/83b942fbe86d6f39852df4a9c75924115946ba60) Thanks [@soydachi](https://github.com/soydachi)! - Governance by observability, not by more stoppers (research/001 R1+R2). `doctor`'s receipts line is no longer four numbers: it names the top denier guard/tool, the ledger's repeat count, and WARNs when the last 7 days of denies pass 3x the prior week. The gc that already collects receipts now merges a 90-day daily series into `summary.json` instead of overwriting it, and prunes the new `receipts/denies.json` ledger (age + newest-500) instead of deleting it. The ledger is the cross-session memory OWASP ASI01/ASI06 need: when a guard denies a call this exact machine already denied, the human message says `· this exact call has been denied N times before`. Signal only — no verdict, no new config, no dependency; deny receipts finally carry their real tool instead of `unknown`.
 
 - [`57efe8e`](https://github.com/arcasilesgroup/ai-engineering/commit/57efe8ea66aedd7ed46296d371a6faa9669c02a5) Thanks [@soydachi](https://github.com/soydachi)! - Session handoff improvements (research 006 R1/R2/R3). `ai-eng briefing` generates a session handoff briefing with spec gates, plan step, recent denies, and receipt summary — closing the "rebuild state from scratch" gap (20/90 sessions needed manual "continua"). Receipts now carry `session_id` and `summarizeBySession()` groups them for per-session queries. Research cache (`research-cache/`) persists findings between sessions with doctor reporting and gc auto-prune for entries >30d.
 
-### Patch Changes
+### Fixed
 
 - [`83b942f`](https://github.com/arcasilesgroup/ai-engineering/commit/83b942fbe86d6f39852df4a9c75924115946ba60) Thanks [@soydachi](https://github.com/soydachi)! - Docs, comments and specs now describe the product as it is, not as it was. The canon carried ghosts of the v1 Python era and the deleted ai-rtk skill: `ai-verify`'s eval harness claimed "Python 3.8+" while running on Bun, `ai-explore`'s example diagram cited a `chain.py` that does not exist, `ai-write` cited "spec 039/033" from the dead v1 spec-number registry, `ai-visual-recap` routed readers to the out-of-canon visual-plan skill, and `blueprint.html`/`recap.html` still listed ai-rtk in the canon trees, lineage and lifecycle tables and pinned version 0.13.0. Root docs drifted too: `AGENTS.md` pinned 2.2.0 and the retired `tsc --noEmit`, `THIRD-PARTY-NOTICES.md` listed dependencies package.json does not carry, `brand/README.md` documented a nonexistent `brand.ts legacy` subcommand, and `NOTICE.md` omitted the shipping ai-stress-test. Source comments narrating past bugs ("used to…", "no longer…") were rewritten to state the present rule; blueprint stamps now read 2.2.3, and ai-stress-test is listed where the canon is enumerated. No behavior changed — every diff is prose, verified against the tree.
 
-## 2.2.3
+## [2.2.3]
 
-### Patch Changes
+### Fixed
 
 - [#727](https://github.com/arcasilesgroup/ai-engineering/pull/727) [`7504041`](https://github.com/arcasilesgroup/ai-engineering/commit/75040413fc3e0877fba4948d8a4ce77ac07779e5) Thanks [@soydachi](https://github.com/soydachi)! - `ai-eng` crashed on startup under Bun 1.3.x: the banner frame painted the brand hex `#00ED64` through `styleText` (node:util), whose runtime validation accepts only named formats — strict runtimes threw `ERR_INVALID_ARG_VALUE` on the first render, and lenient ones (Bun 1.4, Node ≥ 24.1) silently dropped the colour, so the banner shipped unpainted there. The banner now emits the truecolor SGR sequence for the declared hex itself, degrading to plain text under `NO_COLOR` or a non-TTY stdout — the same rule the rest of the frame follows. `BANNER_META` keeps its named format through `styleText`.
 
-## 2.2.2
+## [2.2.2]
 
-### Patch Changes
+### Fixed
 
 - [`c46c261`](https://github.com/arcasilesgroup/ai-engineering/commit/c46c26132bb2336a41e65ec1c82c5d97d134ecb3) Thanks [@soydachi](https://github.com/soydachi)! - npm install -g ai-engineering@2.2.1 was broken: `src/assets.ts` imports seven fixture scripts with `with { type: "file" }` from `scripts/.embed/`, but the npm `files` whitelist did not include it, so the tarball shipped without them and `ai-eng` aborted on first run ("Cannot find module '../scripts/.embed/..."). The whitelist now ships `scripts/.embed`; verified by installing the packed tarball and running `ai-eng --version` + `doctor`.
 
-## 2.2.1
+## [2.2.1]
 
-### Patch Changes
+### Fixed
 
 - [#724](https://github.com/arcasilesgroup/ai-engineering/pull/724) [`a045fa9`](https://github.com/arcasilesgroup/ai-engineering/commit/a045fa9cf172b3edc05d54ca70ad60cd7ea05f16) Thanks [@soydachi](https://github.com/soydachi)! - `ai-security` findings now say where they stand, not only that they were real. A confirmed finding carried `verdict: "confirmed"` and nothing else, so one fixed in the same session kept reading as a live vulnerability: the next audit re-derived it, `REPORT.md` was the only artifact that said "fixed", and the milestone CHECK "zero open HIGH findings" had nothing in the machine-readable half to evaluate.
   
@@ -54,9 +70,9 @@
   
   What an existing install will notice: the second `ai-eng update` in a row now ends in "Nothing written — the repo and the machine already match ai-eng <version>" instead of the counts of a run that looked like it had done something.
 
-## 2.2.0
+## [2.2.0]
 
-### Minor Changes
+### Changed
 
 - [#720](https://github.com/arcasilesgroup/ai-engineering/pull/720) [`793714f`](https://github.com/arcasilesgroup/ai-engineering/commit/793714fba0956ea0bdba29dba746e721b3c6c88a) Thanks [@soydachi](https://github.com/soydachi)! - A gate whose check prints nothing is no longer ticked: `test -f X` and `ls X >/dev/null` exit 0 while saying nothing, so the box rested on an exit code and the ledger carried the silence as evidence. The executor now leaves such a gate UNMET and writes the remedy into its `EVIDENCE` line, and `templates/spec.html.tpl` + the ai-proof canon teach the alternative in place of the existence probe they used to show.
   
@@ -70,7 +86,7 @@
   
   `AI_ENG_HOME` also redirects the one setting the floor writes outside a home: with it set, the global `init.templateDir` lives inside the override instead of the developer's git config, unless the caller already chose a `GIT_CONFIG_GLOBAL` of its own.
 
-### Patch Changes
+### Fixed
 
 - [#720](https://github.com/arcasilesgroup/ai-engineering/pull/720) [`793714f`](https://github.com/arcasilesgroup/ai-engineering/commit/793714fba0956ea0bdba29dba746e721b3c6c88a) Thanks [@soydachi](https://github.com/soydachi)! - ai-goal finds the milestone on its own: Step 0 reads the spec slot from `ai-eng doctor`, then spec.html's context chain, plan.html, the handshake doc at `.ai-engineering/brainstorm.md` and the `[budget]` section, so a fresh session is launched as `/ai-goal` with no briefing prompt. ai-plan says where its working file lives: the slot, never a `.wayfinder/` map beside it.
 
@@ -84,9 +100,9 @@
   
   What an existing install will notice: on a machine that lost a carrier (a wiped home, or `uninstall` at machine scope), `ai-eng update` now rewrites it and says which file it wrote, instead of reporting that nothing needed doing.
 
-## 2.1.0
+## [2.1.0]
 
-### Minor Changes
+### Changed
 
 - [`f2e5ee1`](https://github.com/arcasilesgroup/ai-engineering/commit/f2e5ee196ad65ede7339477d619afe64f25cd678) Thanks [@soydachi](https://github.com/soydachi)! - skills: ai-agents-md gains the audit path. A repo that already ships an AGENTS.md set is
   inspected before anything is written: a rule the code already states, a child that repeats its
@@ -96,7 +112,7 @@
   README, CONTRIBUTING and SECURITY references instead of shipping them unread, and the
   unreferenced `agents-md-writer` reference is gone.
 
-### Patch Changes
+### Fixed
 
 - [`1f862ef`](https://github.com/arcasilesgroup/ai-engineering/commit/1f862ef3c43cb5d5d65e0c88bbf6ac13167cfb29) Thanks [@soydachi](https://github.com/soydachi)! - fix(chain): overrides.toml now loads — the only guard-off switch had never worked
   
@@ -123,7 +139,7 @@ All notable versions land here. The only notification channel for versions: no
 push, no auto-update (§07). Versioning and changelog automation: changesets
 (see [.changeset/README.md](.changeset/README.md)).
 
-## 2.0.0 — 2026-09-01
+## [2.0.0] - 2026-09-01
 
 First v2 stable line (blueprint v17). Version bumps and the changelog now flow
 through changesets; tag pushes still build the 8 cross-compiled binaries + SBOM.

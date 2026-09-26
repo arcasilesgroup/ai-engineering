@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-// src/cli.ts — raw argv, prompts only for what's missing (@clack/prompts). Six
-// human verbs; the four machine verbs (chain|git|wrap|spec) are the product's
-// programming surface (§07) and appear in --help only.
+// src/cli.ts — raw argv, prompts only for what's missing (@clack/prompts). Human
+// verbs get a line in --help. Machine verbs (chain|git|wrap|spec|adapt|briefing)
+// are named on one line: agents and hooks type them, people do not.
 
 import { VERSION } from "./version.ts";
 import { showLogo } from "./branding.ts";
@@ -14,6 +14,7 @@ import { updateMain } from "./commands/update.ts";
 import { upgradeMain } from "./commands/upgrade.ts";
 import { uninstallMain } from "./commands/uninstall.ts";
 import { configMain } from "./commands/config.ts";
+import { adaptMain } from "./commands/adapt.ts";
 import { generateBriefing, formatBriefing } from "./commands/briefing.ts";
 import { wrapMain } from "./wrap/index.ts";
 import { specMain } from "./spec/index.ts";
@@ -59,9 +60,8 @@ if (flags.help || !verb) {
   process.stdout.write("  ai-eng config     add or remove surfaces, and regenerate their adapters\n");
   process.stdout.write("  ai-eng update     rewrite ai-eng's files from the installed binary (zero network)\n");
   process.stdout.write("  ai-eng upgrade    delegate to bun/npm\n");
-  process.stdout.write("  ai-eng uninstall  revert ours, keep yours\n");
-  process.stdout.write("  ai-eng briefing   session handoff — auto-generate state for the next agent\n\n");
-  process.stdout.write("Machine verbs (hooks/CI): chain · git · wrap · spec\n");
+  process.stdout.write("  ai-eng uninstall  revert ours, keep yours\n\n");
+  process.stdout.write("Machine verbs (hooks/CI/agents): chain · git · wrap · spec · adapt · briefing\n");
   process.exit(flags.help ? 0 : 2);
 }
 
@@ -95,6 +95,8 @@ async function main(): Promise<number> {
       if (typeof flags.remove === "string") configFlags.remove = flags.remove;
       return configMain(configFlags);
     }
+    case "adapt":
+      return adaptMain(flags._.slice(1).map(String));
     case "update":
       { const code = await updateMain({ yes: flags.yes === true }); if (code === 0) maybeNotice(); return code; }
     case "upgrade":
@@ -117,7 +119,7 @@ async function main(): Promise<number> {
       process.stderr.write(
         suggestion
           ? `did you mean \`ai-eng ${suggestion}\`? run \`ai-eng --help\` for the rest.\n`
-          : "run `ai-eng --help` for the six human verbs and the four machine ones.\n",
+          : "run `ai-eng --help` for the human verbs and the machine ones.\n",
       );
       return 2;
     }

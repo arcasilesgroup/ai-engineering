@@ -7,9 +7,9 @@ import { existsSync, readFileSync } from "node:fs";
 
 /** AI_ENG_HOME for tests; ~/.ai-engineering in the wild. An override that resolves
  *  inside the governed repository is refused: Bun loads a committed `.env` into the
- *  process environment, so honouring one would let a repository point the gate
- *  executor at its own `gate-check.mjs` and report ALL MET — arbitrary code as the
- *  governor, in a client's CI (audit LOGIC-003). */
+ *  process environment, so honouring one would let a repository supply the canon
+ *  the binary executes — the governor running the repo's own code, in a client's CI
+ *  (audit LOGIC-003). */
 export function home(): string {
   const override = process.env.AI_ENG_HOME;
   if (override) {
@@ -33,6 +33,12 @@ export function repoRoot(start?: string): string | null {
 }
 
 const configPath = (root: string) => join(root, ".ai-engineering", "config.toml");
+
+const SURFACE_ALIASES: Record<string, string> = { copilot: "copilot-cli" };
+
+export function canonicalSurfaceId(id: string): string {
+  return SURFACE_ALIASES[id] ?? id;
+}
 
 /** Why a repo is not governed, or null when it is. */
 type GovernanceGap = "no-repo" | "no-config" | "corrupt-config" | "no-surfaces";
@@ -60,7 +66,7 @@ export function declaration(root: string | null = repoRoot()): { surfaces: strin
   if (surfaces === null || typeof surfaces !== "object" || Array.isArray(surfaces)) return { gap: "no-surfaces" };
   const enabled = (surfaces as Record<string, unknown>)["enabled"];
   if (!Array.isArray(enabled)) return { gap: "no-surfaces" };
-  return { surfaces: enabled.filter((item): item is string => typeof item === "string") };
+  return { surfaces: enabled.filter((item): item is string => typeof item === "string").map(canonicalSurfaceId) };
 }
 
 /** The gate: null when this repo participates, otherwise the reason it does not. */

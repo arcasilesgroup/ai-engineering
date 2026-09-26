@@ -1,0 +1,391 @@
+{
+  "feature": "Shopify workflow kit in ai-engineering",
+  "slug": "workflow-kit",
+  "summary": "Ship the kit's seven skills, five agents, checkpoint gate beside the chain, root standing files, restyled viewer, and orchestrator as the feature path — without replacing the chain or rewriting existing DECISIONS/CHANGELOG.",
+  "plain_summary": "After install and init, any machine or repo can run the same step-by-step feature build with two human stops.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Copy seven kit skills with path rewrites",
+      "simple": "Add the build playbooks",
+      "size": "xs",
+      "goal": "skills/ holds ai-orchestrator, ai-test-planner, ai-prototype, ai-review-ui, ai-adversarial-loop, ai-design-md-planner, and ai-make-design-md with AGENTS.md and .ai-engineering/workflow paths; phase prose unchanged; gate script and capture.cjs live inside the skill dirs; assets embed them.",
+      "plain": {
+        "what": "The package carries the kit's how-to guides for building a feature step by step.",
+        "why": "Without them, install has nothing to hand editors for the new build loop.",
+        "check": "Nothing to see on screen yet. This step is behind the scenes."
+      },
+      "builds_on": [],
+      "tasks": [
+        "Copy kit skills orchestrator, test-planner, prototype, review-ui, adversarial-loop, and design-md-planner into skills/ai-* (ai- prefix on folder and frontmatter name).",
+        "Add skills/ai-make-design-md/SKILL.md that writes .ai-engineering/DESIGN.md (same markdown contract as ai-design-md-planner; brainstorm adds this skill).",
+        "Rewrite strings only: CLAUDE.md → AGENTS.md; docs/checkpoints → .ai-engineering/workflow/checkpoints; docs/test-plans → .ai-engineering/workflow/test-plans; docs/reviews → .ai-engineering/workflow/reviews; docs/PRD.md → .ai-engineering/PRD.html; docs/LEARNINGS.md|FILEMAP.md|PERMISSIONS.md|CHANGELOG.md → root paths; .claude/skills/<name> → skills/ai-<name> or skill slash names; leave phase text intact.",
+        "Place checkpoint-gate.py in scripts/ and test_checkpoint_gate.py in tests/; place capture.cjs inside skills/ai-review-ui/; update gate plan glob to .ai-engineering/workflow/checkpoints/*.json.",
+        "Register every new skill file in src/assets.ts EMBEDDED so materializeSkills ships them."
+      ],
+      "files": [
+        "skills/ai-orchestrator/SKILL.md",
+        "scripts/checkpoint-gate.py",
+        "tests/test_checkpoint_gate.py",
+        "skills/ai-test-planner/SKILL.md",
+        "skills/ai-prototype/SKILL.md",
+        "skills/ai-review-ui/SKILL.md",
+        "skills/ai-review-ui/capture.cjs",
+        "skills/ai-adversarial-loop/SKILL.md",
+        "skills/ai-design-md-planner/SKILL.md",
+        "skills/ai-design-md-planner/references/",
+        "skills/ai-design-md-planner/assets/",
+        "skills/ai-make-design-md/SKILL.md",
+        "src/assets.ts"
+      ],
+      "acceptance": [
+        "Seven ai-* skill directories exist under skills/ with SKILL.md each.",
+        "scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py exist; skills/ai-review-ui/capture.cjs exists.",
+        "No CLAUDE.md or docs/checkpoints|docs/PRD.md|docs/LEARNINGS.md|docs/FILEMAP.md|docs/PERMISSIONS.md|docs/CHANGELOG.md path strings remain under those seven skill trees.",
+        "src/assets.ts embeds the new skill payload paths."
+      ],
+      "verify": [
+        "test -f skills/ai-orchestrator/SKILL.md && test -f scripts/checkpoint-gate.py && test -f tests/test_checkpoint_gate.py && test -f skills/ai-review-ui/capture.cjs && test -f skills/ai-make-design-md/SKILL.md",
+        "! rg -q 'CLAUDE\\.md|docs/checkpoints|docs/PRD\\.md|docs/LEARNINGS\\.md|docs/FILEMAP\\.md|docs/PERMISSIONS\\.md|docs/CHANGELOG\\.md' skills/ai-orchestrator skills/ai-test-planner skills/ai-prototype skills/ai-review-ui skills/ai-adversarial-loop skills/ai-design-md-planner skills/ai-make-design-md",
+        "rg -q 'AGENTS\\.md' skills/ai-orchestrator/SKILL.md && rg -q '\\.ai-engineering/workflow/checkpoints' skills/ai-orchestrator/SKILL.md scripts/checkpoint-gate.py",
+        "rg -q 'skills/ai-orchestrator' src/assets.ts && rg -q 'skills/ai-make-design-md' src/assets.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["fixed runnable paths and kit spelling"] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 2,
+      "title": "Add agents canon and installCanon agents mirror",
+      "simple": "Install the five helpers",
+      "size": "s",
+      "goal": "Repo agents/ holds the five kit markdown files unchanged in name; installCanon materializes ~/.ai-engineering/agents, symlinks ~/.claude/agents (and other vendor dirs only when documented), and copies when symlink fails.",
+      "plain": {
+        "what": "Each computer gets the five specialist helpers linked into the editors that can load them.",
+        "why": "Without this, the build playbooks call helpers that never appear on the machine.",
+        "check": "Nothing to see on screen yet. This step is behind the scenes."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "Add agents/{checkpoint-planner,adversarial-reviewer,fixer,ui-visual-reviewer,ui-behavior-reviewer}.md copied from the kit with names unchanged; rewrite internal path strings to AGENTS.md and .ai-engineering/workflow/ like the skills.",
+        "Extend src/embed.ts and src/assets.ts so agents/* are embedded and materializable.",
+        "Extend installCanon in src/surfaces/adapters.ts to write ~/.ai-engineering/agents, symlink ~/.claude/agents → that canon, and on refused symlink copy files and report the mirror (same pattern as skill link failure / doctor naming).",
+        "Add agents to package.json files so releases ship the source tree.",
+        "Extend tests/carriers-install.spec.ts for agents materialize + symlink (and copy fallback)."
+      ],
+      "files": [
+        "agents/checkpoint-planner.md",
+        "agents/adversarial-reviewer.md",
+        "agents/fixer.md",
+        "agents/ui-visual-reviewer.md",
+        "agents/ui-behavior-reviewer.md",
+        "src/surfaces/adapters.ts",
+        "src/embed.ts",
+        "src/assets.ts",
+        "package.json",
+        "tests/carriers-install.spec.ts"
+      ],
+      "acceptance": [
+        "Five agent markdown files exist under agents/ with kit names.",
+        "installCanon reports agents installed and ~/.claude/agents linked (or mirrored by copy).",
+        "carriers-install tests cover agents materialize."
+      ],
+      "verify": [
+        "test -f agents/checkpoint-planner.md && test -f agents/adversarial-reviewer.md && test -f agents/fixer.md && test -f agents/ui-visual-reviewer.md && test -f agents/ui-behavior-reviewer.md",
+        "bun test tests/agents-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["fixed dangling symlink and added install coverage"] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 3,
+      "title": "Register checkpoint-gate beside chain on deny carriers",
+      "simple": "Add the step lock",
+      "size": "m",
+      "goal": "Every carrier that can deny runs checkpoint-gate beside ai-eng chain; each dialect has a stdin normalizer; plan path is .ai-engineering/workflow/checkpoints/*.json; chain is unchanged.",
+      "plain": {
+        "what": "Editors that can block a tool call also block skipping ahead in a feature's steps.",
+        "why": "Without the lock, a helper could mark work done before earlier steps finished.",
+        "check": "Nothing to see on screen yet. This step is behind the scenes."
+      },
+      "builds_on": [2],
+      "tasks": [
+        "Keep scripts/checkpoint-gate.py as the rule engine; plan glob .ai-engineering/workflow/checkpoints/*.json only.",
+        "Add a stdin normalizer per denying surface dialect (Claude, Cursor, Codex, Copilot, OpenCode, OMP, Pi) that feeds the gate without replacing ai-eng chain.",
+        "Extend machine and repo carrier templates (templates/settings.*.tpl, plugin.*.tpl, Cursor/Copilot repo carriers) so checkpoint-gate runs beside the existing ai-eng chain command on PreToolUse/Stop where the surface can deny.",
+        "Do not register a gate on Zed (deny host-only); leave chain registration as-is everywhere.",
+        "Add tests/checkpoint-gate-carrier.spec.ts (or extend carriers-install / surfaces tests) proving carriers mention both chain and checkpoint-gate, and python3 tests/test_checkpoint_gate.py stays green with the new plan path."
+      ],
+      "files": [
+        "scripts/checkpoint-gate.py",
+        "tests/test_checkpoint_gate.py",
+        "src/surfaces/adapters.ts",
+        "src/surfaces/surfaces.json",
+        "templates/settings.claude.json.tpl",
+        "templates/settings.cursor.json.tpl",
+        "templates/settings.codex.json.tpl",
+        "templates/settings.copilot.json.tpl",
+        "templates/settings.copilot.cli.json.tpl",
+        "templates/plugin.opencode.ts.tpl",
+        "templates/plugin.omp.ts.tpl",
+        "templates/plugin.pi.ts.tpl",
+        "tests/checkpoint-gate-carrier.spec.ts",
+        "tests/carriers-install.spec.ts",
+        "tests/surfaces.test.ts"
+      ],
+      "acceptance": [
+        "Denying-surface carrier templates invoke checkpoint-gate beside ai-eng chain.",
+        "Zed still has no carrier gate.",
+        "python3 tests/test_checkpoint_gate.py passes against .ai-engineering/workflow/checkpoints paths.",
+        "ai-eng chain behavior and existing chain tests remain green."
+      ],
+      "verify": [
+        "python3 tests/test_checkpoint_gate.py",
+        "bun test tests/checkpoint-gate-carrier.spec.ts",
+        "bun test tests/carriers-install.spec.ts",
+        "bun test tests/surfaces.test.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["carrier tests keep the chain and add the gate; Zed has no carrier"] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 4,
+      "title": "Extend AGENTS template sections and doctor ceiling",
+      "simple": "Teach the instruction file",
+      "size": "m",
+      "goal": "ai-agents-md and templates/AGENTS.md.tpl include Project config, Architecture rules, Shared helpers (codegraph), and Git workflow; doctor AGENTS.md line ceiling is raised; update never overwrites an existing AGENTS.md.",
+      "plain": {
+        "what": "New projects get a fuller instruction file that names build commands, layout rules, shared helpers, and git habits.",
+        "why": "Without those sections, workers guess where things live and how to check work.",
+        "check": "Nothing to see on screen yet. This step is behind the scenes."
+      },
+      "builds_on": [3],
+      "tasks": [
+        "Extend templates/AGENTS.md.tpl with Project config, Architecture rules, Shared helpers (codegraph), and Git workflow sections (keep Security and existing sections).",
+        "Extend skills/ai-agents-md/SKILL.md section guidance to match.",
+        "Raise the AGENTS.md line ceiling in src/commands/doctor.ts (and doctor-command.spec.ts) so Project config does not warn.",
+        "Confirm init/update paths still never overwrite an existing AGENTS.md (init-shared / update tests)."
+      ],
+      "files": [
+        "templates/AGENTS.md.tpl",
+        "skills/ai-agents-md/SKILL.md",
+        "src/commands/doctor.ts",
+        "tests/doctor-command.spec.ts",
+        "tests/init-command.spec.ts"
+      ],
+      "acceptance": [
+        "templates/AGENTS.md.tpl contains Project config, Architecture rules, Shared helpers, Git workflow.",
+        "Doctor treats a longer AGENTS.md with those sections as under ceiling.",
+        "Init/update tests still prove existing AGENTS.md is not overwritten."
+      ],
+      "verify": [
+        "rg -q 'Project config' templates/AGENTS.md.tpl && rg -q 'Architecture rules' templates/AGENTS.md.tpl && rg -q 'Shared helpers' templates/AGENTS.md.tpl && rg -q 'Git workflow' templates/AGENTS.md.tpl",
+        "bun test tests/agents-md-sections.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["section test covers the four headings and the 120 ceiling"] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 5,
+      "title": "Init plants standing files and restyle viewer",
+      "simple": "Plant files and progress page",
+      "size": "l",
+      "goal": "Init creates missing LEARNINGS.md, FILEMAP.md, PERMISSIONS.md, CHANGELOG.md (only if absent), .ai-engineering/PRD.html, and .ai-engineering/workflow/checkpoints/viewer.html; viewer restyled to artifact design; existing DECISIONS.md and CHANGELOG.md untouched; DECISIONS stay ## D-NNN at repo root.",
+      "plain": {
+        "what": "A new project gets the standing notes files and a live progress page that matches the product look.",
+        "why": "Without them, a feature run has nowhere to record rules or show progress to the owner.",
+        "check": "Open the progress page in a browser and confirm it looks like the other product pages and refreshes."
+      },
+      "builds_on": [4],
+      "tasks": [
+        "Add templates for LEARNINGS.md, FILEMAP.md, PERMISSIONS.md, Keep-a-Changelog CHANGELOG (absent only), PRD.html (artifact design), and workflow/checkpoints/viewer.html.",
+        "Extend init (src/commands/init.ts / init-shared.ts) to plant each path only when missing; never rewrite existing DECISIONS.md or CHANGELOG.md; keep DECISIONS ## D-NNN at repo root.",
+        "Restyle viewer from kit English copy to artifact design (skills/ai-design/references/artifact-design.md); keep setInterval polling of ?plan=<slug> JSON.",
+        "Embed new templates in src/assets.ts; extend tests/init-command.spec.ts for plant-if-absent behavior."
+      ],
+      "files": [
+        "templates/LEARNINGS.md.tpl",
+        "templates/FILEMAP.md.tpl",
+        "templates/PERMISSIONS.md.tpl",
+        "templates/CHANGELOG.md.tpl",
+        "templates/PRD.html.tpl",
+        "templates/viewer.html.tpl",
+        "src/commands/init.ts",
+        "src/commands/init-shared.ts",
+        "src/assets.ts",
+        "tests/init-command.spec.ts",
+        ".ai-engineering/PRD.html",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        "LEARNINGS.md",
+        "FILEMAP.md",
+        "PERMISSIONS.md"
+      ],
+      "acceptance": [
+        "Init on an empty tree creates the four root files (CHANGELOG only if absent), PRD.html, and viewer.html under workflow/checkpoints.",
+        "Init on this repo does not rewrite existing DECISIONS.md or CHANGELOG.md.",
+        "Viewer uses artifact design tokens and still polls plan JSON every few seconds.",
+        "UI regions match the prototype scope."
+      ],
+      "verify": [
+        "bun test tests/init-command.spec.ts",
+        "rg -q 'setInterval' templates/viewer.html.tpl .ai-engineering/workflow/checkpoints/viewer.html",
+        "rg -q '--accent|#00ED64|#001E2B' templates/viewer.html.tpl .ai-engineering/workflow/checkpoints/viewer.html",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": {
+        "route": "/.ai-engineering/workflow/checkpoints/viewer.html?plan=workflow-kit",
+        "prototype": ".ai-engineering/workflow/prototypes/workflow-kit-viewer.html",
+        "scope": ["page-header", "status-banner", "journey", "checkpoint-card", "plain-summary"],
+        "states": ["empty", "running", "done", "halted"]
+      },
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "passed", "attempts": 1, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["viewer matches prototype regions, tokens, and 3s poll"] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 6,
+      "title": "Point ai-plan and ai-goal at ai-orchestrator",
+      "simple": "Send features to the builder",
+      "size": "l",
+      "goal": "ai-plan and ai-goal Lifecycle Next lines hand feature work to ai-orchestrator; src/spec/index.ts and ai-proof checker still compile and spec run still works.",
+      "plain": {
+        "what": "When someone starts a feature, the usual planning skills now hand off to the step-by-step builder.",
+        "why": "Without the handoff, teams keep two conflicting ways to run the same work.",
+        "check": "Nothing to see on screen yet. This step is behind the scenes."
+      },
+      "builds_on": [5],
+      "tasks": [
+        "Update skills/ai-plan/SKILL.md ## Lifecycle Next to ai-orchestrator for feature work on standard/full lanes.",
+        "Update skills/ai-goal/SKILL.md ## Lifecycle (and feature-batch / new-feature children if they own Next) to point at ai-orchestrator for feature work.",
+        "Leave src/spec/index.ts, ai-eng spec run, and skills/ai-proof compiling and callable; do not delete the checker in this cut.",
+        "Add or extend a small skill/lifecycle test or rg-backed assertion in an existing spec if the repo already tests skill Next lines; otherwise verify by rg + typecheck."
+      ],
+      "files": [
+        "skills/ai-plan/SKILL.md",
+        "skills/ai-goal/SKILL.md",
+        "skills/ai-goal/new-feature/SKILL.md",
+        "skills/ai-goal/feature-batch/SKILL.md",
+        "src/spec/index.ts",
+        "skills/ai-proof/SKILL.md"
+      ],
+      "acceptance": [
+        "ai-plan and ai-goal Lifecycle name ai-orchestrator as the feature successor.",
+        "bun run typecheck still passes with src/spec/index.ts present.",
+        "ai-eng spec --help or existing spec tests still run."
+      ],
+      "verify": [
+        "rg -q 'ai-orchestrator' skills/ai-plan/SKILL.md skills/ai-goal/SKILL.md",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/launcher.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["handoff names ai-orchestrator and keeps the closing chain"] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 7,
+      "title": "Prove gate, viewer poll, and doctor surface truth",
+      "simple": "Prove the kit works",
+      "size": "xl",
+      "goal": "Gate unit test green; viewer still polls; doctor reports Zed gate unenforced and at least one denying surface still runs the chain; phase path rewrite diff is only the agreed strings.",
+      "plain": {
+        "what": "You can trust the lock, the progress page refresh, and the health check's honest report per editor.",
+        "why": "Without this proof, a broken lock or a lying health check would ship quietly.",
+        "check": "Run the health check and open the progress page against a sample plan file."
+      },
+      "builds_on": [6],
+      "tasks": [
+        "Keep python3 tests/test_checkpoint_gate.py green.",
+        "Add or extend a check that viewer.html still contains setInterval polling (and optionally a fixture JSON under .ai-engineering/workflow/checkpoints/).",
+        "Extend doctor so Zed reports checkpoint gate unenforced; a denying surface (e.g. claude-code or cursor) still shows chain active.",
+        "Confirm no new npm dependencies were added; run arch + full lint/typecheck."
+      ],
+      "files": [
+        "tests/test_checkpoint_gate.py",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        "src/commands/doctor.ts",
+        "tests/doctor-command.spec.ts",
+        "tests/checkpoint-gate-carrier.spec.ts",
+        "package.json"
+      ],
+      "acceptance": [
+        "Gate test exits 0.",
+        "Viewer poll check passes.",
+        "Doctor output names Zed gate as unenforced and a denying surface as still running the chain.",
+        "package.json dependencies unchanged aside from no new packages."
+      ],
+      "verify": [
+        "python3 tests/test_checkpoint_gate.py",
+        "rg -q 'setInterval\\(tick' .ai-engineering/workflow/checkpoints/viewer.html",
+        "bun test tests/doctor-command.spec.ts",
+        "bun test tests/checkpoint-gate-carrier.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["doctor names Zed unenforced and a denying surface still on the chain"] }
+      },
+      "status": "passed"
+    }
+  ],
+  "assumptions": [
+    "Plan JSON lives under .ai-engineering/workflow/checkpoints/workflow-kit.json, not docs/checkpoints/ (brainstorm section 06 run-state move; path override in the request).",
+    "Zed gets skills but the gate stays off; Codex agent files wait on vendor docs (brainstorm section 07).",
+    "Doctor AGENTS.md line ceiling rises from 80 to 120 so Project config fits without a warning (brainstorm section 07).",
+    "ai-make-design-md is a new thin skill that writes .ai-engineering/DESIGN.md; the kit tree only had design-md-planner (brainstorm section 06).",
+    "Agent mirrors beyond ~/.claude/agents wait on vendor docs; Cursor shares ~/.claude/agents (brainstorm section 11).",
+    "No new npm dependencies; capture.cjs and the gate stay stdlib/Python as in the kit (request constraint)."
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "spec run and ai-proof are retired. spec open, approve and close stay (brainstorm section 08)."
+    "ai-verify, ai-security, ai-audit-design stay callable and stay out of Phase 2; ai-visual-recap stays a separate page from the viewer.",
+    "No CLAUDE.md shim; no docs/decisions/; no second changelog; DECISIONS stay ## D-NNN at repo root.",
+    "Do not replace ai-eng chain; gate is added beside it.",
+    "DESIGN.md is written by design skills, not by init."
+  ]
+}

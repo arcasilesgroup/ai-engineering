@@ -287,6 +287,7 @@
   <span class="corner bl"></span><span class="corner br"></span>
   <div class="stamp">Product recap · {ai} Engineering</div>
   <h1><span class="x">{</span>ai<span class="x">}</span> Engineering</h1>
+  <p class="sub">The feature path now is ai-research, then ai-brainstorm, then ai-orchestrator. ai-plan, ai-goal, ai-proof and spec run are retired. Sections below that still name them describe an older release, not the loop to run.</p>
   <p class="sub">The governance floor under an AI coding agent: <strong>install</strong> the contract, <strong>guard</strong> every tool call, <strong>prove</strong> every claim of done. This page is the product as it stands — the mechanism, the contract and the file behind each behaviour.</p>
   <p class="meta"><b>1</b> binary · <b>20</b> canon skills · <b>5</b> guards · <b>8</b> surfaces · <b>6</b> human + <b>4</b> machine verbs · <b>4</b> contract files</p>
 </header>
@@ -1651,5 +1652,32 @@ receipts_ttl = "30d" # receipts: aggregate, then delete</pre><p>The caps are WAR
   proof &gt; promise — and proof &gt; ceremony<br>
   <a href="../README.md">README</a> · <a href="blueprint.html">blueprint.html</a> · <a href="https://github.com/arcasilesgroup/ai-engineering">source</a>
 </footer>
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
 </body>
 </html>

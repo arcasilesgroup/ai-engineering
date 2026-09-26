@@ -1,0 +1,266 @@
+{
+  "feature": "Shopify workflow kit in ai-engineering",
+  "slug": "workflow-kit",
+  "order": ["unit", "api", "cli", "ui"],
+  "gating": "Run layers in order. Do not run a layer until every case in the layer before it passes.",
+  "layers": {
+    "unit": [
+      {
+        "id": "U1",
+        "case": "seven kit skills ship SKILL.md under skills/ai-* with valid frontmatter",
+        "file": "tests/skills.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U2",
+        "case": "kit skill trees contain no CLAUDE.md or docs/checkpoints|PRD|LEARNINGS|FILEMAP|PERMISSIONS|CHANGELOG path strings",
+        "file": "tests/skills.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U3",
+        "case": "embedded payload includes ai-orchestrator and ai-make-design-md skill paths",
+        "file": "tests/embed-canon.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U4",
+        "case": "installCanon materializes agents canon and symlinks ~/.claude/agents (copy fallback when symlink refused)",
+        "file": "tests/carriers-install.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U5",
+        "case": "checkpoint-gate allows current checkpoint work and blocks skip-ahead or out-of-order gates",
+        "file": "tests/test_checkpoint_gate.py",
+        "checkpoint": 3
+      },
+      {
+        "id": "U6",
+        "case": "denying-surface carriers invoke checkpoint-gate beside ai-eng chain",
+        "file": "tests/checkpoint-gate-carrier.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U7",
+        "case": "Zed carrier has no checkpoint-gate registration",
+        "file": "tests/checkpoint-gate-carrier.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U8",
+        "case": "gate plan glob resolves .ai-engineering/workflow/checkpoints/*.json",
+        "file": "tests/test_checkpoint_gate.py",
+        "checkpoint": 3
+      },
+      {
+        "id": "U9",
+        "case": "doctor treats AGENTS.md at the raised ceiling as under limit when rule count is ok",
+        "file": "tests/doctor-command.spec.ts",
+        "checkpoint": 4
+      },
+      {
+        "id": "U10",
+        "case": "init/update leave an existing AGENTS.md byte-identical",
+        "file": "tests/init-command.spec.ts",
+        "checkpoint": 4
+      },
+      {
+        "id": "U11",
+        "case": "init plants LEARNINGS.md, FILEMAP.md, PERMISSIONS.md, CHANGELOG.md, PRD.html, and viewer.html only when absent",
+        "file": "tests/init-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U12",
+        "case": "init never rewrites existing DECISIONS.md or CHANGELOG.md",
+        "file": "tests/init-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U13",
+        "case": "ai-plan Lifecycle Next names ai-orchestrator for feature work",
+        "file": "tests/skills.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U14",
+        "case": "ai-goal Lifecycle Next names ai-orchestrator for feature work",
+        "file": "tests/skills.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U15",
+        "case": "checkpoint-gate unit suite still exits 0 after the workflow path rewrite",
+        "file": "tests/test_checkpoint_gate.py",
+        "checkpoint": 7
+      },
+      {
+        "id": "U16",
+        "case": "doctor reports Zed checkpoint gate as unenforced",
+        "file": "tests/doctor-command.spec.ts",
+        "checkpoint": 7
+      },
+      {
+        "id": "U17",
+        "case": "doctor reports a denying surface still runs the chain",
+        "file": "tests/doctor-command.spec.ts",
+        "checkpoint": 7
+      },
+      {
+        "id": "U18",
+        "case": "package.json gains no new runtime dependencies for the kit",
+        "file": "tests/arch.spec.ts",
+        "checkpoint": 7
+      }
+    ],
+    "api": [],
+    "cli": [
+      {
+        "id": "C1",
+        "case": "kit skill files and gate/capture assets exist on disk",
+        "command": "test -f skills/ai-orchestrator/SKILL.md && test -f scripts/checkpoint-gate.py && test -f tests/test_checkpoint_gate.py && test -f skills/ai-review-ui/capture.cjs && test -f skills/ai-make-design-md/SKILL.md",
+        "checkpoint": 1
+      },
+      {
+        "id": "C2",
+        "case": "typecheck passes after skill embed",
+        "command": "bun run typecheck",
+        "checkpoint": 1
+      },
+      {
+        "id": "C3",
+        "case": "lint passes after skill embed",
+        "command": "bun run lint",
+        "checkpoint": 1
+      },
+      {
+        "id": "C4",
+        "case": "five agent markdown files exist under agents/",
+        "command": "test -f agents/checkpoint-planner.md && test -f agents/adversarial-reviewer.md && test -f agents/fixer.md && test -f agents/ui-visual-reviewer.md && test -f agents/ui-behavior-reviewer.md",
+        "checkpoint": 2
+      },
+      {
+        "id": "C5",
+        "case": "typecheck passes after agents install",
+        "command": "bun run typecheck",
+        "checkpoint": 2
+      },
+      {
+        "id": "C6",
+        "case": "lint passes after agents install",
+        "command": "bun run lint",
+        "checkpoint": 2
+      },
+      {
+        "id": "C7",
+        "case": "surfaces registry and carriers stay consistent with gate registration",
+        "command": "bun test tests/surfaces.test.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "C8",
+        "case": "typecheck passes after gate carrier wiring",
+        "command": "bun run typecheck",
+        "checkpoint": 3
+      },
+      {
+        "id": "C9",
+        "case": "lint passes after gate carrier wiring",
+        "command": "bun run lint",
+        "checkpoint": 3
+      },
+      {
+        "id": "C10",
+        "case": "AGENTS.md.tpl names Project config, Architecture rules, Shared helpers, and Git workflow",
+        "command": "rg -q 'Project config' templates/AGENTS.md.tpl && rg -q 'Architecture rules' templates/AGENTS.md.tpl && rg -q 'Shared helpers' templates/AGENTS.md.tpl && rg -q 'Git workflow' templates/AGENTS.md.tpl",
+        "checkpoint": 4
+      },
+      {
+        "id": "C11",
+        "case": "typecheck passes after AGENTS template and doctor ceiling",
+        "command": "bun run typecheck",
+        "checkpoint": 4
+      },
+      {
+        "id": "C12",
+        "case": "lint passes after AGENTS template and doctor ceiling",
+        "command": "bun run lint",
+        "checkpoint": 4
+      },
+      {
+        "id": "C13",
+        "case": "viewer template and planted viewer contain setInterval plan polling",
+        "command": "rg -q 'setInterval' templates/viewer.html.tpl .ai-engineering/workflow/checkpoints/viewer.html",
+        "checkpoint": 5
+      },
+      {
+        "id": "C14",
+        "case": "viewer template and planted viewer use artifact design tokens",
+        "command": "rg -q '--accent|#00ED64|#001E2B' templates/viewer.html.tpl .ai-engineering/workflow/checkpoints/viewer.html",
+        "checkpoint": 5
+      },
+      {
+        "id": "C15",
+        "case": "typecheck passes after standing-file init and viewer restyle",
+        "command": "bun run typecheck",
+        "checkpoint": 5
+      },
+      {
+        "id": "C16",
+        "case": "lint passes after standing-file init and viewer restyle",
+        "command": "bun run lint",
+        "checkpoint": 5
+      },
+      {
+        "id": "C17",
+        "case": "launcher/spec still runs after Lifecycle handoff",
+        "command": "bun test tests/launcher.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "C18",
+        "case": "typecheck passes with spec checker retained",
+        "command": "bun run typecheck",
+        "checkpoint": 6
+      },
+      {
+        "id": "C19",
+        "case": "lint passes after Lifecycle handoff",
+        "command": "bun run lint",
+        "checkpoint": 6
+      },
+      {
+        "id": "C20",
+        "case": "planted viewer still polls via setInterval(tick",
+        "command": "rg -q 'setInterval\\(tick' .ai-engineering/workflow/checkpoints/viewer.html",
+        "checkpoint": 7
+      },
+      {
+        "id": "C21",
+        "case": "arch layer rules still pass",
+        "command": "bun test tests/arch.spec.ts",
+        "checkpoint": 7
+      },
+      {
+        "id": "C22",
+        "case": "typecheck passes on final kit proof",
+        "command": "bun run typecheck",
+        "checkpoint": 7
+      },
+      {
+        "id": "C23",
+        "case": "lint passes on final kit proof",
+        "command": "bun run lint",
+        "checkpoint": 7
+      }
+    ],
+    "ui": []
+  },
+  "not_tested": [
+    "Browser e2e of viewer.html — CLI package has no browser app; poll and design tokens are file/content checks (C13, C14, C20).",
+    "HTTP API, DB constraints, and role/permission matrices — none in this package (api layer empty).",
+    "Codex agent mirrors beyond ~/.claude/agents — blocked on vendor docs (checkpoint assumptions).",
+    "spec run and ai-proof — retired in this cut."
+  ]
+}

@@ -30,7 +30,7 @@ die() { printf 'PROOF FAIL: %s\n' "$*" >&2; FAILED=1; }
 # ── P1: the machine side installs with no repo in sight (the template's own step) ──
 P1DIR="$(mktemp -d)"; cd "$P1DIR" || exit 1
 $AI_ENG_BIN init --global --yes >/dev/null 2>&1 || die "P1: init --global exited non-zero"
-[ -f "$AI_ENG_HOME/skills/ai-proof/scripts/gate-check.mjs" ] || die "P1: the contract runner the installed gate needs is absent"
+[ -f "$AI_ENG_HOME/skills/ai-orchestrator/SKILL.md" ] || die "P1: the installed canon is missing ai-orchestrator"
 [ ! -d "$P1DIR/.ai-engineering" ] || die "P1: init --global wrote into the cwd"
 say "P1 evidence: canon installed under AI_ENG_HOME, cwd untouched"
 
@@ -42,11 +42,11 @@ INSTALLED="$P2DIR/.github/workflows/ai-eng-check.yml"
 cmp -s "$INSTALLED" "$TEMPLATE" || die "P2: the installed workflow differs from $TEMPLATE"
 say "P2 evidence: workflow installed, byte-identical to $TEMPLATE"
 
-# ── P3: the installed gate is fail-closed, and says why ─────────────────────────
-P3OUT=$($AI_ENG_BIN spec run 2>&1); P3CODE=$?
-[ "$P3CODE" = "2" ] || die "P3: spec run with no contract exited $P3CODE (expected 2)"
-printf '%s' "$P3OUT" | grep -q 'no spec.html' || die "P3: spec run did not name the missing contract"
-say "P3 evidence: no contract → exit 2, message names it (green by absence is impossible)"
+# ── P3: close with no contract is fail-closed, and says why ─────────────────────
+P3OUT=$($AI_ENG_BIN spec close 2>&1); P3CODE=$?
+[ "$P3CODE" = "2" ] || die "P3: spec close with no contract exited $P3CODE (expected 2)"
+printf '%s' "$P3OUT" | grep -q 'no live contract' || die "P3: spec close did not name the missing contract"
+say "P3 evidence: no contract → exit 2, message names it"
 
 # The template's own rules (no fail-open, nothing from npm, every action SHA-pinned,
 # one declared version) are asserted in tests/installed-ci.spec.ts, against the same

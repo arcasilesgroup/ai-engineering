@@ -235,7 +235,10 @@ describe("ai-eng config · --add and --remove", () => {
 
     const { result: code, out } = await answer;
     expect(code).toBe(0);
-    expect(out).toContain("Which agent surfaces is this project governed on? (ticked = installed)");
+    expect(out).toContain("Which agent surfaces is this project governed on?");
+    expect(out).not.toContain("core — deny");
+    expect(out).not.toContain("experimental —");
+    expect(out).not.toContain("best-effort —");
     expect(out).toContain("└  Nothing changed.");
     expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "cursor"]\n');
     expect(readFileSync(join(repo, ".cursor", "hooks.json"), "utf8")).toBe('{ "mine": true }\n');

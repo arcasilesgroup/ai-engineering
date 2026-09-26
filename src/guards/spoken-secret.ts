@@ -148,7 +148,7 @@ export function candidates(prompt: string): Candidates {
 export type GuardResult = { deny: true; reason: string } | { deny: false } | undefined;
 
 /** Chain entry: the UserPromptSubmit arm. Reads the host's `prompt` field (Claude
- *  Code and Codex both send it; Copilot's `userPromptSubmitted` names it the same).
+ *  Code and Codex both send it; Copilot CLI's `userPromptSubmitted` names it the same).
  *  A hit never echoes the value back — the message names the SHAPE and what to do,
  *  and returns deny so the prompt cannot enter the transcript carrying a secret the
  *  agent has not been told to protect. */

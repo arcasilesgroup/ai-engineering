@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research 007 — Portal, Jev router y el pin</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px;      --lh-h2:1.16;      --ls-h2:-.018em;
+  --fs-h3:17px;      --lh-h3:1.32;      --ls-h3:-.006em;
+  --fs-h4:14px;      --lh-h4:1.35;
+  --fs-body:15px;    --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px;  --lh-mono:1.7;
+  --fs-label:10.5px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --radius-lg:16px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--fs-body);line-height:var(--lh-body);font-synthesis-weight:none;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:14px 18px;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+.skip:focus{clip-path:none;width:auto;height:auto}
+.hero{position:relative;overflow:hidden;text-align:center;padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);
+  background-size:32px 32px,32px 32px,100% 100%}
+.hero .stamp{display:inline-block;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.26em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;margin-bottom:var(--s5)}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+nav{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:var(--s2) var(--s4);background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;white-space:nowrap}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:640;margin:var(--s6) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+p{color:var(--dim);max-width:var(--measure);margin:0 auto var(--s3);text-align:center}
+p strong,li strong{color:var(--text);font-weight:620}
+ul,ol{margin:var(--s3) auto var(--s5);max-width:var(--measure)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2)}
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0}
+pre code{background:none;border:none;padding:0;color:inherit}
+.flow{white-space:pre;font-family:var(--mono);font-size:12px;line-height:1.75;overflow-x:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);margin:var(--s4) 0}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);margin:var(--s5) 0}
+.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0;text-align:left}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);overflow-x:auto;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small);min-width:640px}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32);color:var(--ok)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34);color:var(--bad)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32);color:var(--warn)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.cite{font-family:var(--mono);font-size:11px;color:var(--accent-dim);vertical-align:super;text-decoration:none}
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+@media (max-width:900px){.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#s01">Saltar al contenido</a>
+<header class="hero">
+  <span class="stamp">Research 007 · 2026-09-24</span>
+  <h1>Tres ideas de <span class="x">ahorro</span>. Un pin que ya decide.</h1>
+  <p class="sub">La decisión: <strong>qué de Portal shunt, de jev-model-router y de un estilo de salida entra en ai-engineering</strong>, y qué se queda en el host. El binario no llama a un modelo. El pin <code>[models]</code> ya reparte el trabajo.</p>
+  <p class="meta">floor local + web · NotebookLM lanzado, cosecha pendiente · prior-art arXiv: <b>no corrido</b> (hace falta un sí) · comunidad X/Reddit/YouTube: <b>no pedida</b></p>
+</header>
+<nav aria-label="Secciones">
+  <a href="#s01"><b>01</b> Herramientas</a>
+  <a href="#s02"><b>02</b> Qué cambia</a>
+  <a href="#s03"><b>03</b> Portal</a>
+  <a href="#s04"><b>04</b> Jev router</a>
+  <a href="#s05"><b>05</b> Este repo</a>
+  <a href="#s06"><b>06</b> Estilo ADHD</a>
+  <a href="#s07"><b>07</b> Direcciones</a>
+  <a href="#s08"><b>08</b> Fuentes</a>
+</nav>
+<main class="container">
+
+<section id="s01">
+  <h2><span class="num">01</span>Herramientas usadas y ausentes</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Rung</th><th scope="col">Estado</th><th scope="col">Qué dio</th></tr></thead>
+    <tbody>
+      <tr><td>Floor local</td><td><span class="pill p-ok">completo</span></td><td><code>README.md</code>, <code>src/chain/mod.ts</code> TABLE, <code>docs/recap.html</code>, <code>docs/jev-proposal.md</code>, research 002, <code>skills/ai-proof/references/orchestration.md</code></td></tr>
+      <tr><td>WebSearch + WebFetch</td><td><span class="pill p-ok">completo</span></td><td>Artículo de Spotify, README de shunt, API de GitHub, <code>docs.typesafe.ai/models.md</code>, README upstream de jev-model-router</td></tr>
+      <tr><td>Tavily / Exa</td><td><span class="pill p-dim">degraded-tool</span></td><td>No invocados. La búsqueda fue la del IDE.</td></tr>
+      <tr><td>NotebookLM</td><td><span class="pill p-warn">lanzado, sin cosecha</span></td><td><code>notebooklm doctor</code> pasó. Notebook <code>3bbfa0fa-beb0-4e68-8109-4c0306971211</code>, task <code>3f17bf3c-4693-434e-a371-c262e88d6dcc</code>, status <code>in_progress</code> al cerrar este archivo. Una pasada posterior puede cosechar.</td></tr>
+      <tr><td>arXiv prior-art</td><td><span class="pill p-dim">saltado</span></td><td>El mecanismo (routing de modelo y de contexto) cumpliría el gate, y el enfoque está abierto. El skill pide confirmación antes de 12–20 lecturas. No se pidió.</td></tr>
+      <tr><td>X / Reddit / YouTube</td><td><span class="pill p-dim">no pedido</span></td><td>Docs, repos y el artículo bastan. Un hilo de anuncio no se usó como evidencia.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="s02">
+  <h2><span class="num">02</span>Qué cambiaría según la respuesta</h2>
+  <p>Si el 90% fuera el coste de la sesión entera, valdría un guard nuevo en la cadena. Si es solo la lectura masiva, el patrón se copia en local y Portal no entra. Si jev-model-router pudiera bajar el modelo del driver a mitad de sesión, chocaría con el pin y con la caché. Si el estilo ADHD fuera gobernanza, entraría en el canon de skills. <strong>Ninguna de las tres es cierta.</strong></p>
+</section>
+
+<section id="s03">
+  <h2><span class="num">03</span>Portal shunt: el 90% es de lecturas, no de la factura</h2>
+  <p>Dimitri Mazmanov, Spotify Engineering, describe dos modos AiKA (<code>bulk-reader</code>, <code>code-writer</code>) y un plugin Claude Code, <strong>shunt</strong>, que bloquea un <code>Read</code> por encima de un umbral y manda el corpus a un worker <a class="cite" href="#f1">[1]</a>. El README del plugin, leído el 2026-09-24, pone la cifra en una tabla de cuatro escenarios sobre un monorepo Java de 162k líneas <a class="cite" href="#f2">[2]</a>.</p>
+  <div class="stats">
+    <div class="stat"><div class="v"><em>82%</em></div><div class="l">1 archivo · 4.014 líneas</div></div>
+    <div class="stat"><div class="v"><em>94%</em></div><div class="l">par source+test</div></div>
+    <div class="stat"><div class="v"><em>94%</em></div><div class="l">cruce de servicios</div></div>
+    <div class="stat"><div class="v">90%</div><div class="l">media bulk-read</div></div>
+  </div>
+  <p>La fila code-write no entra en esa media: 40.614 tokens más la generación, contra 833 líneas escritas a disco <a class="cite" href="#f2">[2]</a>. Dos lecturas secundarias del mismo mes dicen lo mismo sobre el denominador: el ahorro es de bulk-read, no de la sesión <a class="cite" href="#f3">[3]</a> <a class="cite" href="#f4">[4]</a>. El artículo también dice que el worker no vio un bug de thread-safety que el modelo caro sí vio, y que no se puede delegar la edición <a class="cite" href="#f1">[1]</a>.</p>
+  <div class="note warn">
+    <h4>Desacuerdo de timeout</h4>
+    <p>El artículo dice que Portal capa una invocación a 30 segundos y que la respuesta tarda 10–30 s <a class="cite" href="#f1">[1]</a>. El README del plugin capa la acción en <code>SHUNT_TIMEOUT_SECONDS</code>, default 180 <a class="cite" href="#f2">[2]</a>. Actúo sobre el README para lo que hace el plugin, y dejo el 30 s como el tope que el autor observó en Portal. No son el mismo número.</p>
+  </div>
+  <p>Repo <a href="https://github.com/spotify/portal-ai-plugins">spotify/portal-ai-plugins</a>, API de GitHub leída el 2026-09-24: creado 2026-07-23, último push 2026-08-17, <strong>2.243 estrellas, 182 forks</strong>, licencia Apache-2.0, 9 issues abiertos <a class="cite" href="#f5">[5]</a>. Una búsqueda previa mostró “3 estrellas”; esa cifra se descarta. El plugin exige <code>jq</code>, el plugin <code>portal</code>, y una instancia Portal con AiKA. Sin Portal no hay worker <a class="cite" href="#f2">[2]</a> <a class="cite" href="#f4">[4]</a>. El código del proyecto sale de la máquina en cada delegación.</p>
+  <h3>Qué se transfiere</h3>
+  <ul>
+    <li>El gancho duro: un <code>Read</code> completo por encima de N líneas se rechaza; un <code>Read</code> con offset/limit pasa. <code>cat</code> sin pipe también; <code>cat | grep</code> pasa <a class="cite" href="#f2">[2]</a>.</li>
+    <li>El corpus no debe entrar en el contexto del modelo caro. El sustituto puede ser local.</li>
+    <li>No se delega depuración, edición ni decisión de arquitectura <a class="cite" href="#f1">[1]</a>.</li>
+  </ul>
+  <h3>Qué no se copia</h3>
+  <ul>
+    <li>Portal, AiKA, Gemini Flash, ni un segundo proveedor de modelos dentro del binario.</li>
+    <li>Escribir código a disco sin que el modelo gobernado lo vea. El propio plugin admite que code-writer no tiene hook: solo el skill <a class="cite" href="#f2">[2]</a>.</li>
+    <li>Un PreToolUse que, si el worker cae, deja al agente sin poder leer el archivo. Eso es un deny de comprensión, no un deny de seguridad.</li>
+  </ul>
+</section>
+
+<section id="s04">
+  <h2><span class="num">04</span>jev-model-router: política buena, sitio equivocado</h2>
+  <p>El README en <code>davila7/claude-code-templates</code>, path <code>cli-tool/components/mods/productivity/jev-model-router/README.md</code>, coincide con el texto pegado en esta sesión. Último commit de esa carpeta: 2026-09-19, <code>666c061</code>, arreglo del header de protocolo del Gateway <a class="cite" href="#f6">[6]</a> <a class="cite" href="#f7">[7]</a>. Hay otro proyecto con el mismo nombre (un MCP de catálogo de modelos). No es este. Este es el mod de function hooks.</p>
+  <p>Clasifica en <code>prompt.submit</code> con tres preguntas en paralelo (<code>tier</code> choice, <code>effort</code> score, <code>risky</code> noul) y aplica la decisión al primer request del turno. Defaults: subagente sí, esfuerzo del loop principal sí, <strong>modelo del loop principal no</strong>. Timeout 800 ms. Un fallo deja el request como lo armó el motor <a class="cite" href="#f6">[6]</a>.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Regla del mod</th><th scope="col">Default</th><th scope="col">Lectura para este framework</th></tr></thead>
+    <tbody>
+      <tr><td>Subir de tier</td><td>confianza ≥ 0.3</td><td>Equivocarse cuesta dinero. Barra baja.</td></tr>
+      <tr><td>Bajar de tier</td><td>confianza ≥ 0.6</td><td>Equivocarse entrega el trabajo a un modelo chico. Barra alta.</td></tr>
+      <tr><td><code>risky</code> &gt; 0.7</td><td>fuerza tier deep</td><td>No es una pregunta de confianza. Choca con “verify nunca baja” si se aplica a una hoja de verificación.</td></tr>
+      <tr><td>Sin confianza</td><td>solo puede subir</td><td>El clasificador built-in y el Gateway sin distribución. Gastar menos a ciegas está prohibido.</td></tr>
+      <tr><td><code>routeMainModel</code></td><td>off</td><td>Cambiar el modelo a mitad de sesión invalida la caché. El propio README lo dice.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn">
+    <h4>El README dice “calibrated”. La doc del vendor no</h4>
+    <p>El README llama “calibrated confidence” al número de TypeSafe <a class="cite" href="#f6">[6]</a>. <code>docs.typesafe.ai</code> define <code>confidence</code> como un estadístico de la distribución, no como probabilidad de estar en lo cierto, y dice que los umbrales se calibran con datos propios. El alias <code>jev-latest</code> se mueve; si afinaste umbrales, pinéas la versión <a class="cite" href="#f8">[8]</a>. Research 002 ya midió lo independiente: accuracy ~66–67,8%, latencia 256–455 ms, ECE 0.121 en WotAI <a class="cite" href="#f9">[9]</a>. Actúo sobre la doc del vendor y sobre 002, no sobre el adjetivo del README. El mod, además, manda <code>jev-latest</code> por defecto <a class="cite" href="#f6">[6]</a>. Nuestro pin de propuesta es <code>jev-1.13.0</code> <a class="cite" href="#f10">[10]</a>.</p>
+  </div>
+  <p>El commit del 19 de septiembre documenta un fallo real del backend Gateway: sin el header de protocolo la API devolvía 400, el mod logueaba <code>ready on gateway</code> y <strong>no enrutaba nada</strong>, porque un no-2xx deja el request intacto <a class="cite" href="#f7">[7]</a>. Fail-open de enrutado, silencioso si no lees la línea del 400. Precio vigente de Jev 1.13, verificado hoy en models.md: <strong>$0.042 / Mtok de entrada, salida gratis</strong>; límites “can change without notice” <a class="cite" href="#f8">[8]</a>.</p>
+  <p>Con key, el texto del prompt sale de la máquina. Sin key, el mod usa <code>$.model.classify</code> del motor y no puede bajar de tier <a class="cite" href="#f6">[6]</a>. Latencia de ejemplo en el propio README: 210–249 ms. Nuestro presupuesto de cadena es 200 ms con p50 medido de 1 ms <a class="cite" href="#f9">[9]</a>. Este mod no vive en PreToolUse de herramientas; vive en <code>prompt.submit</code>, <code>turn.step</code> y <code>agent.spawn</code>. Aun así, 800 ms de presupuesto por turno es una espera delante de cada prompt, no un guard de 1 ms.</p>
+</section>
+
+<section id="s05">
+  <h2><span class="num">05</span>Dónde está cada cosa en este repositorio</h2>
+  <p>El binario no llama a un modelo. El pin se inyecta; la superficie resuelve el nombre <a class="cite" href="#f11">[11]</a>.</p>
+  <div class="flow">config.toml [models]          decide / execute / verify
+        │  leído por las skills, escrito a mano una vez
+        ▼
+skills/ai-proof/orchestration.md   el driver se queda en el modelo fuerte
+        │                          verificar no baja de tier
+        ▼
+src/chain/mod.ts:38 TABLE
+  PreToolUse Read  →  injection + loop
+                      no hay guard de tamaño
+  presupuesto      →  HOT_PATH_BUDGET_MS = 200   (línea 57)
+
+docs/recap.html                  un router de tiers queda fuera del canon
+docs/jev-proposal.md §8          model routing de [models] descartado</div>
+  <p>La tabla de guards, <code>src/chain/mod.ts:38-54</code>: <code>Read</code> entra en <code>injection</code> y en <code>loop</code>. No hay matcher de tamaño. <code>HOT_PATH_BUDGET_MS</code> está en la línea 57. El recap deja fuera “a model-tier router” porque el pin ya reparte por tipo de trabajo y una segunda tabla tendría que coincidir consigo misma <a class="cite" href="#f12">[12]</a>. La propuesta Jev descarta el routing de <code>[models]</code> con la misma razón: Jev opina, no programa <a class="cite" href="#f10">[10]</a>. <code>orchestration.md</code> añade dos candados: el driver no baja, y la verificación no baja <a class="cite" href="#f13">[13]</a>. <code>token-economy.md</code> apunta a un skill <code>model-router</code> que <strong>no está en <code>skills/</code></strong> <a class="cite" href="#f14">[14]</a>. Es una referencia colgante, no un router.</p>
+  <p>El estilo <code>i-have-adhd</code> no aparece en el árbol. El recap ya deja fuera los skills de economía de sesión y un detector anti-slop empaquetado: compiten con el host o con una copia que el usuario ya tiene <a class="cite" href="#f12">[12]</a>.</p>
+</section>
+
+<section id="s06">
+  <h2><span class="num">06</span>El estilo ADHD no es gobernanza</h2>
+  <p>El texto pegado es un skill de forma de salida: primera línea accionable, pasos numerados, una sola acción al final, sin preámbulo. <code>disable-model-invocation: true</code>, MIT, se invoca y se apaga con una frase. No clasifica herramientas, no elige modelo, no escribe un receipt.</p>
+  <p>El solapamiento real con este repo es una frase que ya está en <code>token-economy.md</code>: cortar narración y recap, no cortar el check <a class="cite" href="#f14">[14]</a>. Meter el skill entero en el binario vía <code>gen-assets</code> lo convertiría en canon para todo proyecto gobernado. Es preferencia de una persona. Vive en el directorio personal de skills del host.</p>
+</section>
+
+<section id="s07">
+  <h2><span class="num">07</span>Tres direcciones</h2>
+  <ol>
+    <li><strong>Dejar el pin donde está y no instalar jev-model-router dentro de ai-eng.</strong> Si una persona lo instala en Claude Code, los tres candados ya escritos mandan: <code>routeMainModel</code> sigue en off <a class="cite" href="#f6">[6]</a>, <code>decide</code> y <code>verify</code> no bajan <a class="cite" href="#f13">[13]</a>, y el modelo de Jev va pinneado, no en <code>jev-latest</code> <a class="cite" href="#f8">[8]</a> <a class="cite" href="#f10">[10]</a>. El mod es un plugin del host. El binario sigue sin llamar a la red con el prompt.</li>
+    <li><strong>Copiar el umbral de shunt en local, sin Portal.</strong> Un <code>Read</code> completo por encima de N líneas es el paciente del 82–94% <a class="cite" href="#f2">[2]</a>. El sustituto que ya existe en la sesión es una lectura por símbolo o un <code>Read</code> con offset, no un worker remoto. Un guard nuevo en <code>TABLE</code> solo tiene sentido si mide receipts de este repo y si, al fallar, deja pasar la lectura. Hoy <code>Read</code> solo paga injection y loop <a class="cite" href="#f15">[15]</a>.</li>
+    <li><strong>No canonizar <code>i-have-adhd</code>.</strong> El recap ya rechazó empaquetar economía de sesión y anti-slop <a class="cite" href="#f12">[12]</a>. El skill se invoca en el host. Lo único que este repo debe conservar es la regla que ya tiene: el check no se recorta <a class="cite" href="#f14">[14]</a>.</li>
+  </ol>
+  <div class="note ok">
+    <h4>Cuándo esta lectura se vuelve falsa</h4>
+    <p>Si el equipo opera Portal con AiKA, shunt pasa de “diseño para leer” a “plugin instalable”, y el egress de código es una decisión de empresa, no de este binario. Si una medición de sesiones propias muestra que bajar el modelo del driver ahorra más de lo que cuesta rellenar la caché, <code>routeMainModel</code> se reabre — el README pide exactamente esa medición antes de encenderlo <a class="cite" href="#f6">[6]</a>. Si research 002 se revoca y Jev cabe en 50 ms con accuracy de piso, el descarte síncrono cae. Hoy no.</p>
+  </div>
+</section>
+
+<section id="s08">
+  <h2><span class="num">08</span>Fuentes</h2>
+  <ol>
+    <li id="f1"><strong>[1]</strong> Spotify Engineering, Dimitri Mazmanov, “Portal by Spotify cut my Claude Code token usage by 90%”, fetch 2026-09-24. <a href="https://engineering.atspotify.com/2026/9/portal-by-spotify-cut-my-claude-code-token-usage-by-90">engineering.atspotify.com/2026/9/…</a>. Dos modos, hooks PreToolUse, 90% como media de bulk-read, worker que no vio un bug de concurrencia, tope de 30 s narrado por el autor.</li>
+    <li id="f2"><strong>[2]</strong> <a href="https://github.com/spotify/portal-ai-plugins/blob/main/plugins/shunt/README.md">plugins/shunt/README.md</a>, fetch 2026-09-24. Tabla: 82% / 94% / 94%, media bulk-read 90%, code-write aparte. <code>SHUNT_MIN_LINES</code> 350, <code>SHUNT_TIMEOUT_SECONDS</code> 180. Code-writer sin hook. Prerrequisito: Portal + AiKA.</li>
+    <li id="f3"><strong>[3]</strong> Abdessalam Alaoui, Musthave.AI, 2026-09-05. <a href="https://musthave.ai/spotify-shunt-claude-code-token-savings/">“Spotify Shunt cuts Claude Code bulk-read tokens”</a>. Secundaria: el 90% no es la factura de la sesión.</li>
+    <li id="f4"><strong>[4]</strong> devaireviews, sin fecha de día en el fetch. <a href="https://devaireviews.com/blog/spotify-shunt-claude-code-90-percent/">“Spotify's 90% Claude Code saving”</a>. Secundaria: sin Portal el plugin no corre. Fecha de publicación no verificada en la página.</li>
+    <li id="f5"><strong>[5]</strong> GitHub API <code>repos/spotify/portal-ai-plugins</code>, 2026-09-24: created 2026-07-23, pushed 2026-08-17, stars 2243, forks 182, license Apache-2.0, open_issues 9.</li>
+    <li id="f6"><strong>[6]</strong> README upstream, fetch 2026-09-24. <a href="https://github.com/davila7/claude-code-templates/blob/main/cli-tool/components/mods/productivity/jev-model-router/README.md">jev-model-router/README.md</a>. Defaults, barras 0.3/0.6, <code>risky</code> 0.7, <code>jev-latest</code>, timeout 800 ms, fail deja el request, prompt sale de la máquina si hay key.</li>
+    <li id="f7"><strong>[7]</strong> Commit <a href="https://github.com/davila7/claude-code-templates/commit/666c061338aa505760152ebb08a5ee6286bd7cfc">666c061</a>, 2026-09-19. El Gateway devolvía 400 sin el header de protocolo; el mod parecía listo y no enrutaba.</li>
+    <li id="f8"><strong>[8]</strong> TypeSafe, <a href="https://docs.typesafe.ai/models.md">models.md</a>, fetch 2026-09-24. Jev 1.13.0 a $42/Btok ($0.042/Mtok), límites que pueden cambiar sin aviso, alias <code>jev-latest</code> apunta a <code>jev-1.13.0</code>, pin si hay umbrales afinados.</li>
+    <li id="f9"><strong>[9]</strong> Research local <a href="002-jev-chain-optimization.html">002-jev-chain-optimization.html</a>, 2026-09-20. Cadena p50 1 ms / p95 5 ms. Jev independiente: 256–455 ms, accuracy 66% y 67,8%, ECE 0.121. Colocación síncrona en PreToolUse descartada.</li>
+    <li id="f10"><strong>[10]</strong> <code>docs/jev-proposal.md</code> §1 y §8, más addendum del spike 2026-09-20 (p50 294 ms en 31 comandos). Model routing de <code>[models]</code> descartado. Pin propuesto <code>jev-1.13.0</code>.</li>
+    <li id="f11"><strong>[11]</strong> <code>README.md</code> “Under the hood”: <code>ai-eng</code> never calls a model. El pin vive en <code>config.toml</code>.</li>
+    <li id="f12"><strong>[12]</strong> <code>docs/recap.html</code>, “What the canon leaves out”: router de tiers, skills de economía de sesión, anti-slop empaquetado. Pin en §6.4: decide / execute / verify.</li>
+    <li id="f13"><strong>[13]</strong> <code>skills/ai-proof/references/orchestration.md</code>, “Model and effort tiering”: el driver se queda en el modelo fuerte; la verificación no baja.</li>
+    <li id="f14"><strong>[14]</strong> <code>skills/ai-proof/references/token-economy.md</code>. Apunta a un skill model-router que no está en el árbol. “Cut narration, cut recap, cut log pasting; never cut the check.”</li>
+    <li id="f15"><strong>[15]</strong> <code>src/chain/mod.ts:38-57</code>. TABLE PreToolUse. <code>Read</code> matchea injection y loop. <code>HOT_PATH_BUDGET_MS = 200</code>.</li>
+  </ol>
+</section>
+</main>
+<footer>
+  research/007 · <span class="x">{ai}</span> engineering · 2026-09-24<br>
+  NotebookLM <code>3bbfa0fa-beb0-4e68-8109-4c0306971211</code> · task <code>3f17bf3c-4693-434e-a371-c262e88d6dcc</code> · in_progress al generar<br>
+  arXiv no consultado · Tavily y Exa no invocados
+</footer>
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>

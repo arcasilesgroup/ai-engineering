@@ -17,16 +17,6 @@
         "oxlint": "latest",
         "oxlint-tsgolint": "7.0.2001",
       },
-      "optionalDependencies": {
-        "ai-engineering-darwin-arm64": "2.2.3",
-        "ai-engineering-darwin-x64": "2.2.3",
-        "ai-engineering-linux-arm64": "2.2.3",
-        "ai-engineering-linux-musl-arm64": "2.2.3",
-        "ai-engineering-linux-musl-x64": "2.2.3",
-        "ai-engineering-linux-x64": "2.2.3",
-        "ai-engineering-windows-arm64": "2.2.3",
-        "ai-engineering-windows-x64": "2.2.3",
-      },
     },
   },
   "overrides": {

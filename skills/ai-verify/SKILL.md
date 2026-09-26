@@ -37,7 +37,7 @@ Setup guide and entry router → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETU
 ## Lifecycle
 
 Lane: light, standard, full
-Writes: .ai-engineering/spec.html
+Writes: the verdict, and the open checkpoint's review notes when one exists
 Read by: CI, the human
 Dies: with the milestone
 Next: ai-security when the security trigger fired; ai-write when the public interface changed; ai-visual-recap otherwise
@@ -49,6 +49,6 @@ Source: Graph Engineering — Verification Skills (skills from the video, genera
 1. The router picks the tier using the source's taxonomy.
 2. The judge runs at tier `decide`; the model comes from the ai-engineering `config.toml` pin. Binary checks run at tier `verify`.
 3. The evals (`apply-pack.ts`/`score.ts`) run in ai-engineering's own CI, not in the user's project.
-4. Outputs: verdicts land in the EVIDENCE section of `.ai-engineering/spec.html`, plus a
-   receipt. That file was written by [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — verdicts are
-   appended into its structure, never re-styled around it.
+4. Outputs: the verdict is the report. When a checkpoint is open, the same verdict
+   is written into that checkpoint's review notes. Style follows
+   [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md).

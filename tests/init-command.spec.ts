@@ -157,6 +157,18 @@ const byId = (id: string): Surface => {
 };
 
 describe("init · the plan seams (src/commands/init-shared.ts)", () => {
+  test("detectCommands reads the target tree", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-eng-py-"));
+    try {
+      writeFileSync(join(dir, "pyproject.toml"), "[project]\nname = \"sample\"\n");
+      const line = detectCommands(dir);
+      expect(line).toContain("pytest");
+      expect(line).not.toContain("oxlint");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("repoTemplateRoot is this checkout, and detectCommands names its commands", () => {
     const root = repoTemplateRoot();
     expect(root).toBe(resolve(root));
@@ -202,14 +214,12 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     expect(planEntries(["zed"]).map((e) => e.path)).toEqual(paths.filter((p) => p !== ".cursor/hooks.json"));
   });
 
-  test("surfaceOptions offers only surfaces with an adapter behind them, grouped by tier", () => {
-    const groups = surfaceOptions();
-    expect(groups.length).toBeGreaterThan(0);
-    for (const group of groups) expect(group.items.length).toBeGreaterThan(0);
-    const ids = groups.flatMap((g) => g.items.map((s) => s.id));
-    expect([...ids].sort()).toEqual(["claude-code", "codex", "copilot", "cursor", "oh-my-pi", "opencode", "pi"]);
+  test("surfaceOptions offers only surfaces with an adapter behind them", () => {
+    const options = surfaceOptions();
+    const ids = options.map((s) => s.id);
+    expect([...ids].sort()).toEqual(["claude-code", "codex", "copilot-cli", "cursor", "oh-my-pi", "opencode", "pi"]);
     expect(ids).not.toContain("zed"); // declared, but nothing generates for it
-    for (const group of groups) for (const surface of group.items) expect(hasAdapter(surface.id)).toBe(true);
+    for (const surface of options) expect(hasAdapter(surface.id)).toBe(true);
     expect(hasAdapter("zed")).toBe(false);
     expect(hasAdapter("nothing-by-that-name")).toBe(false);
   });
@@ -222,7 +232,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     expect(agents).toContain("typecheck: tsc --noEmit");
     expect(agents).not.toContain("{{");
     const decisions = entries[1]?.ours ?? "";
-    expect(decisions).toContain("(2026-01-02)");
+    expect(decisions).toContain("Date: 2026-01-02");
     expect(decisions).toContain(VERSION);
     expect(decisions).not.toContain("{{");
     // The runtime state the chain creates must not dirty the user's git status (§08).
@@ -236,20 +246,21 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
   });
 });
 
-describe("init · surfaceHint states the row's delta, not the group's promise", () => {
-  test("a core surface with full guards adds nothing to the header", () => {
-    expect(surfaceHint(byId("claude-code"))).toBe("");
+describe("init · surfaceHint states the row's own delta", () => {
+  test("a surface hint describes only its own capabilities", () => {
+    expect(surfaceHint(byId("claude-code"))).toContain("can't rewrite output");
   });
 
   test("each deny class is named in the row's own words", () => {
     expect(surfaceHint(byId("opencode"))).toContain("blocks by throwing");
     expect(surfaceHint(byId("zed"))).toContain("the host denies through its own permissions; no hook for us to run");
-    const cannotBlock = { ...byId("claude-code"), can: { ...byId("claude-code").can, deny: false }, note: undefined } as unknown as Surface;
+    const cannotBlock = { ...byId("claude-code"), can: { ...byId("claude-code").can, deny: false, rewriteOut: true }, note: undefined } as unknown as Surface;
     expect(surfaceHint(cannotBlock)).toBe("can't block tool calls");
   });
 
   test("a rewrite that is absent, wholesale or total is stated", () => {
-    expect(surfaceHint(byId("cursor"))).toContain("can't rewrite output");
+    expect(surfaceHint(byId("zed"))).toContain("can't rewrite output");
+    expect(surfaceHint(byId("cursor"))).not.toContain("can't rewrite output");
     expect(surfaceHint(byId("codex"))).toContain("rewrites output wholesale");
   });
 
@@ -258,7 +269,8 @@ describe("init · surfaceHint states the row's delta, not the group's promise", 
     expect(note.length).toBeGreaterThan(0);
     expect(surfaceHint(byId("codex"))).toContain(note);
     const hint = surfaceHint(byId("cursor"));
-    expect(hint.split(" · ").length).toBeGreaterThan(1);
+    expect(hint).toContain("research/003");
+    expect(hint).toContain("a shell's output is not replaced");
   });
 });
 
@@ -299,7 +311,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(existsSync(join(cwd, ".git"))).toBe(true); // it created the repo itself (§14.1)
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true);
     const decisions = readFileSync(join(cwd, "DECISIONS.md"), "utf8");
-    expect(decisions).toContain(`(${new Date().toISOString().slice(0, 10)})`);
+    expect(decisions).toContain(`Date: ${new Date().toISOString().slice(0, 10)}`);
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
     expect(config).toContain('enabled = ["claude-code"]');
 
@@ -390,6 +402,14 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(result).toBe(0);
     expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toBe(userSettings);
     expect(out).toContain("not valid JSON");
+  });
+
+  test("closing line names /ai-config-to-project", async () => {
+    const { cwd } = sandboxed();
+    gitIn(["init", "-q"], cwd);
+    const { result, out } = await capture(() => initMain({ yes: true }));
+    expect(result).toBe(0);
+    expect(out).toContain("/ai-config-to-project");
   });
 });
 

@@ -89,10 +89,10 @@ test("an intact-looking canon without version.json is repaired, not skipped", ()
 test("a canon missing payload files is repaired, not called intact", () => {
   // A canon missing payload files must be repaired, not called intact: one marker
   // file is not a measurement, and health is a byte comparison against the payload.
-  rmSync(join(engHome, "skills", "ai-goal"), { recursive: true, force: true });
+  rmSync(join(engHome, "skills", "ai-orchestrator"), { recursive: true, force: true });
   const run = eng(["init", "--yes"]);
   expect(run.stdout + run.stderr).toInclude("re-installing");
-  expect(existsSync(join(engHome, "skills", "ai-goal", "SKILL.md"))).toBe(true);
+  expect(existsSync(join(engHome, "skills", "ai-orchestrator", "SKILL.md"))).toBe(true);
   expect(run.status).toBe(0);
 });
 
@@ -148,8 +148,8 @@ test("a surface that cannot deny tools is refused, never declared in config.toml
 });
 
 test("init offers only the surfaces that generate files", () => {
-  const offered = surfaceOptions().flatMap((group) => group.items.map((s) => s.id));
-  expect(offered).toEqual(["claude-code", "oh-my-pi", "opencode", "pi", "cursor", "codex", "copilot"]);
+  const offered = surfaceOptions().map((surface) => surface.id);
+  expect(offered).toEqual(["claude-code", "oh-my-pi", "opencode", "cursor", "codex", "copilot-cli", "pi"]);
 });
 
 test("config --add in a bare repo says 'run ai-eng init first', not ENOENT", () => {
@@ -222,7 +222,7 @@ test("update repairs a drifted global canon, not only the repo's assets", () => 
   // actually reads. A repo whose own assets are current must not report "all assets
   // current — nothing to sync" over a drifted canon: `update` repairs the global
   // canon too, not only the repo's assets.
-  const installed = join(engHome, "skills", "ai-plan", "SKILL.md");
+  const installed = join(engHome, "skills", "ai-brainstorm", "SKILL.md");
   expect(eng(["init", "--yes"]).status).toBe(0);
   expect(existsSync(installed)).toBe(true);
   const original = readFileSync(installed, "utf8");

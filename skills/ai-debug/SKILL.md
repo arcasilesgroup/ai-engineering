@@ -7,7 +7,7 @@ description: >-
   used to work", "I'm getting an error", "CI is failing", "why is X happening", "I have
   conflicts", "the rebase failed". Not for adding test coverage to working code — use
   /ai-verify. Not for exploring an unfamiliar area — use /ai-explore. Not for designing the
-  fix — once the cause is named, use /ai-plan. Not for reporting the fault to outsiders —
+  fix — once the cause is named, use /ai-orchestrator. Not for reporting the fault to outsiders —
   use /ai-issue-report.
 license: Apache-2.0
 ---
@@ -55,9 +55,8 @@ meant different things, that is a conversation, not a resolution.
 
 ## The ai-engineering seam
 
-1. The failing check you write in step 4 is a gate candidate: if the milestone's
-   `.ai-engineering/spec.html` exists, add it there (`G<n>: <what holds>` + `CHECK:`) so
-   `ai-eng spec run` proves the fix forever, not just today.
+1. The failing check you write in step 4 is the proof the fix holds. If a checkpoint
+   plan is open, add that check as a verify command on the checkpoint.
 2. Long-running reproduction (a dev server, a watcher, a REPL) belongs to a supervised
    process, never a fire-and-forget shell call: name it, drive it over stdin, and stop it
    when the diagnosis ends.
@@ -71,7 +70,7 @@ meant different things, that is a conversation, not a resolution.
 
 In scope: broken behaviour with a reproducible symptom, failing CI, merge/rebase conflicts.
 Not for: no diagnosis yet but the fault must reach outsiders (/ai-issue-report), the fix
-needs a design (/ai-plan), the fix needs proof it satisfies the ask (/ai-verify), a
+needs a design (/ai-orchestrator), the fix needs proof it satisfies the ask (/ai-verify), a
 recurring pitfall worth remembering (/ai-note).
 
 ## Lifecycle
@@ -79,7 +78,7 @@ recurring pitfall worth remembering (/ai-note).
 Lane: any
 Writes: nothing
 Read by: n/a
-Dies: n/a — the check it writes becomes a gate in spec.html and outlives it
+Dies: n/a — the check it writes outlives the session
 Next: none
 
 Source: ai-engineering (own), Apache-2.0.

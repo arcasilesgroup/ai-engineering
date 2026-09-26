@@ -7,7 +7,7 @@
       "dialect": "claude",
       "can": {
         "deny": true,
-        "rewriteOut": true,
+        "rewriteOut": false,
         "loop": "native",
         "loopEvidence": "claude 2.1.251: --permission-mode auto|bypassPermissions|dontAsk with -p, plus --bg, --resume and --agents"
       },
@@ -83,18 +83,18 @@
     {
       "id": "cursor",
       "label": "Cursor",
-      "tier": "experimental",
+      "tier": "core",
       "dialect": "cursor",
       "can": {
         "deny": true,
-        "rewriteOut": false,
+        "rewriteOut": true,
         "loop": "native",
         "loopEvidence": "cursor-agent: --mode plan plus --force/--yolo (allow commands unless explicitly denied) and --sandbox"
       },
       "promptHook": {
         "supported": false,
-        "source": "cursor.com/docs/hooks (2026-09-22): hooks.json exposes preToolUse/postToolUse only — no prompt event to attach",
-        "measured": "2026-09-22"
+        "source": "cursor.com/docs/hooks (2026-09-25): beforeSubmitPrompt can block with continue false. research/009 did not fire it, so it stays unwired",
+        "measured": "2026-09-25"
       },
       "carriers": [
         {
@@ -105,7 +105,7 @@
           "measured": "2026-09-11"
         }
       ],
-      "note": "keeps its carrier in the repo because its user level loses to the project and its cloud VMs never read your home (research/003)"
+      "note": "keeps its carrier in the repo because its user level loses to the project and its cloud VMs never read your home (research/003). a shell's output is not replaced: postToolUse can add context, and only an MCP result can be swapped (research/009, Cursor 3.21.18, 2026-09-25)"
     },
     {
       "id": "codex",
@@ -136,8 +136,8 @@
       "note": "needs a one-time /hooks approval: trust is pinned to these exact bytes, so a change re-asks"
     },
     {
-      "id": "copilot",
-      "label": "Copilot",
+      "id": "copilot-cli",
+      "label": "Copilot CLI",
       "tier": "best-effort",
       "dialect": "copilot",
       "can": {
@@ -156,18 +156,18 @@
           "scope": "repo",
           "kind": "settings",
           "path": ".github/hooks/ai-eng.json",
-          "source": "research/003: VS Code Copilot Chat and the cloud agent read the repo copy only",
-          "measured": "2026-09-11"
+          "source": "GitHub Docs hooks reference (2026-09-25): cloud agent loads .github/hooks/*.json; VS Code support is not documented",
+          "measured": "2026-09-25"
         },
         {
           "scope": "machine",
           "kind": "settings",
           "path": ".copilot/hooks/ai-eng.json",
-          "source": "research/004 §01: Copilot CLI 1.0.83 reads ~/.copilot/hooks/*.json and never fires the repo copy",
-          "measured": "2026-09-14"
+          "source": "GitHub Docs hooks reference (2026-09-25): Copilot CLI combines repository and user hooks; user path is ~/.copilot/hooks/*.json",
+          "measured": "2026-09-25"
         }
       ],
-      "note": "its cloud agent is an ephemeral sandbox destroyed per job: it reads only the repo copy and discards what hooks write (research/003)"
+      "note": "Copilot CLI only: command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; cloud/VS Code are intentionally outside this surface"
     },
     {
       "id": "pi",

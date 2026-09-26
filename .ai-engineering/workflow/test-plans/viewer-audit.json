@@ -1,0 +1,167 @@
+{
+  "feature": "Viewer audit fixes",
+  "slug": "viewer-audit",
+  "order": ["unit", "api", "cli", "ui"],
+  "gating": "Run layers in order. Do not run a layer until every case in the layer before it passes.",
+  "layers": {
+    "unit": [
+      {
+        "id": "U1",
+        "case": "load() returns false when JSON.parse throws and shows #empty",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U2",
+        "case": "servedInit sets #live textContent to offline (not live) when load fails or fetch throws",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U3",
+        "case": "templates/viewer.html.tpl and .ai-engineering/workflow/checkpoints/viewer.html are byte-identical",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U4",
+        "case": "empty drop title is h1 Open a feature plan",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U5",
+        "case": ".drop input has min-height 44px",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U6",
+        "case": ".drop uses overflow-wrap anywhere",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U7",
+        "case": "in-card section labels are h2 (not h3); page title stays h1",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U8",
+        "case": "#empty has data-region empty-drop",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U9",
+        "case": "template===planted still holds after empty/heading edits",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U10",
+        "case": ".journey .line has min-width 4px",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U11",
+        "case": ".tech>summary has padding-block 13px",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U12",
+        "case": "journey diameters stay 27/32/37/42/47 and are not grown to 44",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U13",
+        "case": "Technical details details element has data-region tech-details",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U14",
+        "case": "template===planted still holds after journey/tech edits",
+        "file": "tests/viewer-audit.spec.ts",
+        "checkpoint": 3
+      }
+    ],
+    "api": [],
+    "cli": [
+      {
+        "id": "C1",
+        "case": "typecheck passes",
+        "command": "bun run typecheck",
+        "checkpoint": 1
+      },
+      {
+        "id": "C2",
+        "case": "lint passes",
+        "command": "bun run lint",
+        "checkpoint": 1
+      },
+      {
+        "id": "C3",
+        "case": "typecheck passes after empty/heading fixes",
+        "command": "bun run typecheck",
+        "checkpoint": 2
+      },
+      {
+        "id": "C4",
+        "case": "lint passes after empty/heading fixes",
+        "command": "bun run lint",
+        "checkpoint": 2
+      },
+      {
+        "id": "C5",
+        "case": "typecheck passes after journey/tech fixes",
+        "command": "bun run typecheck",
+        "checkpoint": 3
+      },
+      {
+        "id": "C6",
+        "case": "lint passes after journey/tech fixes",
+        "command": "bun run lint",
+        "checkpoint": 3
+      }
+    ],
+    "ui": [
+      {
+        "id": "E1",
+        "case": "empty state: badge offline, h1 empty title, wrapping path, 44px file control",
+        "file": ".ai-engineering/workflow/checkpoints/viewer.html",
+        "checkpoint": 2,
+        "why_ui": "Rendered empty-drop layout and badge paint only exist in the browser; static CSS cannot prove the empty state at phone width. Compare prototype state empty vs live viewer.",
+        "prototype": ".ai-engineering/workflow/prototypes/viewer-audit.html",
+        "states": ["empty"]
+      },
+      {
+        "id": "E2",
+        "case": "journey state: seven dots fit at 320 with no document sideways scroll",
+        "file": ".ai-engineering/workflow/checkpoints/viewer.html",
+        "checkpoint": 3,
+        "why_ui": "scrollWidth===clientWidth is a layout outcome; unit can only assert min-width 4px in source. Compare prototype state journey vs live.",
+        "prototype": ".ai-engineering/workflow/prototypes/viewer-audit.html",
+        "states": ["journey"]
+      },
+      {
+        "id": "E3",
+        "case": "open state: Technical details summary hit box is at least 44px tall",
+        "file": ".ai-engineering/workflow/checkpoints/viewer.html",
+        "checkpoint": 3,
+        "why_ui": "Rendered summary height depends on padding plus line-box; only the browser proves ≥44px. Compare prototype state open vs live.",
+        "prototype": ".ai-engineering/workflow/prototypes/viewer-audit.html",
+        "states": ["open"]
+      }
+    ]
+  },
+  "not_tested": [
+    "HTTP API, DB, and role matrices — none in this package (api layer empty).",
+    "Browser Playwright e2e suite — no new dependencies; UI cases are satisfied by the checkpoint ui gate (prototype states empty/journey/open vs planted viewer.html), not a new e2e runner.",
+    "Runtime fetch against a live HTTP server — offline/load contracts are proven by static assertions on the template source (U1–U2)."
+  ]
+}

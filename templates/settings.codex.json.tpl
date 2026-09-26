@@ -9,6 +9,12 @@
             "command": "ai-eng chain PreToolUse --surface codex",
             "timeout": 10,
             "statusMessage": "ai-eng guards"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface codex",
+            "timeout": 10,
+            "statusMessage": "checkpoint-gate"
           }
         ]
       }

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research 009 · Cursor hooks</title>
+<style>
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px; --lh-h2:1.16; --ls-h2:-.018em;
+  --fs-h3:17px; --lh-h3:1.32; --ls-h3:-.006em;
+  --fs-h4:14px; --lh-h4:1.35;
+  --fs-body:15px; --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px; --lh-mono:1.7;
+  --fs-label:10.5px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--fs-body);line-height:var(--lh-body);font-synthesis-weight:none;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
+.hero{position:relative;overflow:hidden;text-align:center;padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);background-size:32px 32px,32px 32px,100% 100%}
+.hero .stamp{display:inline-block;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.26em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;margin-bottom:var(--s5)}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display);font-weight:740}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+nav{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:var(--s2) var(--s4);background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:640;margin:var(--s6) 0 var(--s3)}
+p{color:var(--dim);max-width:var(--measure);margin:0 auto var(--s3);text-align:center}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ol,ul{margin:var(--s3) auto var(--s5);max-width:var(--measure);padding-left:var(--s5)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2)}
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);margin:var(--s5) auto;max-width:var(--measure)}
+.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0;text-align:left;max-width:none}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+.tbl-wrap{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);overflow-x:auto;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small);min-width:720px}
+th{text-align:left;padding:12px var(--s4) 10px;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600} .half{color:var(--warn);font-weight:600}
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+@media (max-width:900px){.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px}}
+@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}table{font-size:13px}th,td{padding:10px var(--s3)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
+@media print{nav,.skip{display:none}body{background:#fff;color:#111}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Research · 009</div>
+  <h1>Cursor ya niega y ya reescribe el comando.</h1>
+  <p class="sub">Los hosts que gobernamos tienen un gancho, con otro nombre. En Cursor <strong>3.21.18</strong>, medido el 2026-09-25, un <code>preToolUse</code> con exit 0 bloqueó el shell y <code>updated_input</code> cambió el comando que corrió. Sustituir la salida de un shell sigue fuera del host.</p>
+  <div class="meta">2026-09-25 · Context7 · Exa · sonda en vivo · <b>notebooklm no lanzado</b></div>
+</header>
+<nav>
+  <a href="#decision"><b>01</b>Qué cambia</a>
+  <a href="#tools"><b>02</b>Herramientas</a>
+  <a href="#matrix"><b>03</b>Ganchos</a>
+  <a href="#receipt"><b>04</b>Recibo</a>
+  <a href="#gap"><b>05</b>Qué falta</a>
+  <a href="#disagree"><b>06</b>Desacuerdos</a>
+  <a href="#dirs"><b>07</b>Tres caminos</a>
+  <a href="#sources"><b>08</b>Fuentes</a>
+</nav>
+<main id="main">
+<div class="container">
+
+<section id="decision">
+  <h2><span class="num">01</span>Qué cambia según la respuesta</h2>
+  <p>Si Cursor aplica <code>updated_input</code>, la fila experimental miente al decir “can't rewrite output” para el brazo wrap, y el tier puede subir a core. Si no lo aplica, experimental es honesto. La sonda dice que sí lo aplica. Lo que no puede subir es “el mismo reemplazo de resultado que Pi y Oh My Pi”: el stdout del shell llegó intacto.</p>
+</section>
+
+<section id="tools">
+  <h2><span class="num">02</span>Herramientas</h2>
+  <ul>
+    <li><strong>Context7</strong> (<code>ctx7 docs</code>, red abierta). <code>ctx7 whoami</code> dijo “Not logged in” y las consultas igual respondieron. Índices: <code>/websites/cursor</code> (índice 2026-09-20), <code>/websites/code_claude</code> (2026-09-23), <code>/websites/opencode_ai_plugins</code> (2026-09-11), <code>/earendil-works/pi</code> (2026-09-20), <code>/openai/codex</code> (2026-09-24), <code>/github/copilot-cli</code> (2026-09-24), <code>/websites/zed_dev</code> (2026-09-05).</li>
+    <li><strong>Exa</strong> <code>web_search_exa</code> contra <code>https://mcp.exa.ai/mcp</code>. Este Cursor no tiene el MCP de Exa en su catálogo. La llamada usó el endpoint del plugin, con la clave ya presente en el entorno. No se imprime.</li>
+    <li><strong>Sonda</strong> en este agente, Cursor <code>3.21.18</code>, <code>.cursor/hooks.json</code> temporal. Borrada al cerrar el informe.</li>
+    <li><strong>not-used: notebooklm</strong>. <code>notebooklm doctor</code> pasó. No se creó cuaderno: el pedido nombró Context7 y Exa.</li>
+  </ul>
+</section>
+
+<section id="matrix">
+  <h2><span class="num">03</span>Hay gancho en cada host que gobernamos</h2>
+  <p>Zed es la excepción: niega con sus propios permisos y una extensión no intercepta la llamada. <a href="#f8">[8]</a></p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Host</th><th>Cómo se engancha</th><th>Negar</th><th>Reescribir el comando antes</th><th>Sustituir el resultado</th><th>Parar el prompt</th></tr></thead>
+    <tbody>
+      <tr><td>Claude Code</td><td><code>settings.json</code> hooks</td><td class="check">exit 2</td><td class="check"><code>updatedInput</code></td><td class="half">PostToolUse no deshace la acción <a href="#f3">[3]</a></td><td class="check"><code>UserPromptSubmit</code></td></tr>
+      <tr><td>Oh My Pi</td><td>factory <code>tool_call</code></td><td class="check"><code>{ block: true }</code></td><td class="check">devuelve <code>input</code></td><td class="check"><code>tool_result</code> cambia <code>content</code> <a href="#f6">[6]</a></td><td class="cross"><code>before_agent_start</code> inyecta, no bloquea el texto crudo</td></tr>
+      <tr><td>OpenCode</td><td>plugin <code>tool.execute.before</code></td><td class="check">throw</td><td class="check">muta <code>output.args</code> <a href="#f4">[4]</a></td><td class="half">el plugin nuestro tira en el after. El doc no muestra un reemplazo del texto</td><td class="cross">sin evento de prompt en el doc consultado</td></tr>
+      <tr><td>Pi</td><td>extension <code>tool_call</code></td><td class="check"><code>{ block: true }</code></td><td class="check">muta <code>event.input</code></td><td class="check"><code>tool_result</code> parchea <code>content</code> <a href="#f5">[5]</a></td><td class="cross">sin evento de prompt en el doc consultado</td></tr>
+      <tr><td>Cursor</td><td><code>.cursor/hooks.json</code></td><td class="check">medido <a href="#f2">[2]</a></td><td class="check">medido <a href="#f2">[2]</a></td><td class="cross">stdout intacto. <code>additional_context</code> sí llegó. Reemplazo solo MCP <a href="#f1">[1]</a></td><td class="half">el doc dice <code>beforeSubmitPrompt</code>. Esta sesión no lo disparó</td></tr>
+      <tr><td>Codex CLI</td><td><code>hooks.json</code> + trust por hash</td><td class="check"><code>permissionDecision: deny</code></td><td class="check"><code>updatedInput.command</code> <a href="#f7">[7]</a></td><td class="half">PostToolUse no deshace el efecto. Puede tapar el resultado que ve el modelo</td><td class="check"><code>UserPromptSubmit</code> existe en el runtime <a href="#f7">[7]</a></td></tr>
+      <tr><td>Copilot CLI</td><td>hooks de comando</td><td class="check"><code>permissionDecision</code> y exit 2</td><td class="check"><code>modifiedArgs</code> <a href="#f9">[9]</a></td><td class="check"><code>postToolUse</code> puede modificar el resultado</td><td class="cross">el evento existe. La salida de un hook de comando se descarta <a href="#f9">[9]</a></td></tr>
+      <tr><td>Zed</td><td>sin hook nuestro</td><td class="half"><code>always_deny</code> del host</td><td class="cross">sin gancho</td><td class="cross">sin gancho</td><td class="cross">sin gancho</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="receipt">
+  <h2><span class="num">04</span>Recibo, Cursor 3.21.18, 2026-09-25</h2>
+  <p>Sonda temporal en <code>.cursor/hooks.json</code>. El script respondía allow a todo salvo tres centinelas. El payload traía <code>cursor_version: 3.21.18</code>. <a href="#f2">[2]</a></p>
+  <div class="note ok">
+    <h4>Negar</h4>
+    <p>Un shell cuyo texto contenía el centinela de deny recibió <code>{ permission: "deny", user_message: "probe deny", agent_message: "AI_ENG_PROBE_DENIED" }</code> y exit 0. La herramienta volvió “Rejected: probe deny”. En el log hay <code>preToolUse</code> y no hay <code>postToolUse</code> de esa llamada. El contrato que ya escribe <code>src/chain/dialect.ts</code> es el que el host aplicó.</p>
+  </div>
+  <div class="note ok">
+    <h4>Reescribir el comando</h4>
+    <p>Se pidió <code>printf 'AI_ENG_PROBE_REWRITE\n'</code>. El hook devolvió <code>updated_input.command</code> = <code>printf 'AI_ENG_PROBE_REWRITTEN\n'</code>. La salida fue <code>AI_ENG_PROBE_REWRITTEN</code>. El <code>postToolUse</code> vio ya el comando reescrito. <code>rewriteOut: false</code> en <code>surfaces.json</code> queda desmentido para este brazo.</p>
+  </div>
+  <div class="note warn">
+    <h4>Salida y prompt</h4>
+    <p>Se pidió <code>printf 'AI_ENG_PROBE_POST\n'</code>. La salida siguió siendo <code>AI_ENG_PROBE_POST</code>. El <code>additional_context</code> con el nonce <code>AI_ENG_NONCE_7f3a</code> sí entró al contexto del modelo. <code>beforeSubmitPrompt</code> no aparece ni una vez en el log: esta sesión no envió un prompt nuevo, y un <code>cursor-agent -p</code> aparte no se ejecutó.</p>
+  </div>
+</section>
+
+<section id="gap">
+  <h2><span class="num">05</span>Qué es soporte al nivel de los cuatro core</h2>
+  <p>La promesa del grupo core es negar y reescribir. Cursor ya hace las dos, medidas. Igualar a Pi y a Oh My Pi en el reemplazo del resultado no está en el host: el doc limita <code>updated_mcp_tool_output</code> a MCP, y la sonda lo confirmó en un shell. <a href="#f1">[1]</a> <a href="#f2">[2]</a> El hook de prompt del doc (<code>continue: false</code>) igualaría a Claude Code, no a Oh My Pi, OpenCode ni Pi, que no lo cablean. El carrier sigue en el repo: un cloud agent no lee el hooks del home. <a href="#f1">[1]</a></p>
+</section>
+
+<section id="disagree">
+  <h2><span class="num">06</span>Desacuerdos</h2>
+  <ul>
+    <li>El registro (2026-09-22) dice que Cursor no tiene evento de prompt. Context7 sobre cursor.com/docs/hooks (índice 2026-09-20) documenta <code>beforeSubmitPrompt</code>. <a href="#f1">[1]</a> Sin recibo de bloqueo, el registro no se corrige todavía.</li>
+    <li>Context7 sobre <code>/github/copilot-cli</code> <code>_autodocs</code> dice que <code>userPromptSubmitted</code> puede devolver <code>modifiedPrompt</code>. La página oficial dice que un hook de comando tira esa salida, y que <code>modifiedPrompt</code> solo vale en hooks de SDK. Se actúa la página oficial. <a href="#f9">[9]</a> El registro de Copilot, en ese punto, sigue en pie.</li>
+    <li>El selector dice “can't rewrite output”. La sonda reescribió el input y no la salida. El nombre del campo <code>rewriteOut</code> mezcla las dos cosas. Para el brazo wrap, que es lo que los cuatro core llaman rewrite, el campo debería ser verdadero. Para el reemplazo del resultado, la nota de la fila tiene que seguir diciendo que un shell no se sustituye.</li>
+  </ul>
+</section>
+
+<section id="dirs">
+  <h2><span class="num">07</span>Tres caminos</h2>
+  <ol>
+    <li><strong>Subir Cursor a core por el recibo del wrap.</strong> <code>rewriteOut: true</code>, tier <code>core</code>, y una nota de que el resultado de un shell no se reemplaza, con la versión 3.21.18 y la fecha. <a href="#f2">[2]</a> Es el cambio que el selector puede jurar mañana.</li>
+    <li><strong>Contención por <code>additional_context</code>, no por reemplazo.</strong> El nonce llegó. Un guard de post puede adjuntar la razón al lado del resultado. No puede borrar el stdout. <a href="#f1">[1]</a> <a href="#f2">[2]</a></li>
+    <li><strong>Dejar <code>beforeSubmitPrompt</code> sin cablear</strong> hasta un recibo de <code>continue: false</code>. El doc ya lo describe. Esta sesión no lo vio correr. <a href="#f1">[1]</a></li>
+  </ol>
+</section>
+
+<section id="sources">
+  <h2><span class="num">08</span>Fuentes</h2>
+  <ol>
+    <li id="f1"><a href="https://cursor.com/docs/hooks">cursor.com/docs/hooks</a>, vía Context7 <code>/websites/cursor</code>, generación 2026-09-20. <code>preToolUse</code> devuelve <code>permission</code> y <code>updated_input</code>. <code>postToolUse</code> reemplaza salida solo con <code>updated_mcp_tool_output</code>. <code>additional_context</code> se inyecta. <code>beforeSubmitPrompt</code> usa <code>continue</code>. Exit 0 aplica el JSON. Exit 2 bloquea. El home no lo leen los cloud agents.</li>
+    <li id="f2">Sonda en este agente, Cursor 3.21.18, 2026-09-25. Deny con exit 0. Rewrite de <code>printf</code> aplicado antes de correr. Stdout de post intacto. Nonce de <code>additional_context</code> visible para el modelo. Cero eventos <code>beforeSubmitPrompt</code>. Archivos de sonda borrados.</li>
+    <li id="f3"><a href="https://code.claude.com/docs/en/hooks-guide">code.claude.com/docs/en/hooks-guide</a>, vía Context7 <code>/websites/code_claude</code>, generación 2026-09-23. Exit 2 bloquea. <code>updatedInput</code> reescribe. PostToolUse no deshace la acción.</li>
+    <li id="f4"><a href="https://opencode.ai/docs/plugins">opencode.ai/docs/plugins</a>, vía Context7 <code>/websites/opencode_ai_plugins</code>, índice 2026-09-11. <code>tool.execute.before</code> puede tirar y mutar <code>output.args</code>.</li>
+    <li id="f5"><a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md">pi extensions.md</a>, vía Context7 <code>/earendil-works/pi</code>, generación 2026-09-20. <code>tool_call</code> bloquea y muta <code>event.input</code>. <code>tool_result</code> parchea <code>content</code>.</li>
+    <li id="f6"><a href="https://github.com/can1357/oh-my-pi/blob/main/docs/hooks.md">oh-my-pi docs/hooks.md</a>, vía Exa <code>web_search_exa</code>, 2026-09-25. <code>tool_call</code> puede <code>{ block: true }</code> o devolver <code>input</code>. <code>tool_result</code> puede cambiar <code>content</code>.</li>
+    <li id="f7"><a href="https://developers.openai.com/codex/hooks">developers.openai.com/codex/hooks</a>, vía Exa, 2026-09-25. <code>PreToolUse</code> niega y reescribe con <code>updatedInput</code>. Trust por hash. <code>UserPromptSubmit</code> está en el runtime. PostToolUse no deshace el efecto.</li>
+    <li id="f8"><a href="https://zed.dev/docs/ai/tool-permissions">zed.dev/docs/ai/tool-permissions</a>, vía Context7 <code>/websites/zed_dev</code>, índice 2026-09-05. <code>always_deny</code> bloquea en el host. Sin gancho de extensión en esa página.</li>
+    <li id="f9"><a href="https://docs.github.com/en/copilot/reference/hooks-reference">docs.github.com/en/copilot/reference/hooks-reference</a>, fetch 2026-09-25. <code>preToolUse</code> usa <code>permissionDecision</code> y <code>modifiedArgs</code>. <code>postToolUse</code> puede modificar el resultado. <code>modifiedPrompt</code> de <code>userPromptSubmitted</code> solo lo honra el SDK. Un hook de comando tira esa salida.</li>
+  </ol>
+</section>
+
+</div>
+</main>
+<footer>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Research 009 · Cursor hooks<br>
+  2026-09-25 · sonda borrada
+  <a href="#main">↑ top</a>
+</footer>
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>

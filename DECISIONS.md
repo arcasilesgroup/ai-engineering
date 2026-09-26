@@ -1,17 +1,87 @@
-# DECISIONS.md — ADR-lite: one standing decision per entry [Decision → Reason]
+# DECISIONS.md
 
-## D-001 · ai-engineering governs this repo (2026-09-15)
-**Decision:** {ai} Engineering 2.2.0 installed (init), global skill canon, local receipts.
-**Reason:** proof > promise — a decision that always comes out the same is code, not a prompt.
+One standing decision per block. Read the one that covers an area before changing it. To reverse a decision, add a new block that supersedes it. Do not edit the old block.
 
-## D-002 · Governance improves by observability, not by more stoppers (2026-09-20)
-**Decision:** the policy guard (bash-guard port) completed the command-scope half of least-agency; the next milestone takes research/001's R1 (richer gc aggregate: per-guard/tool/surface + daily series + baseline-deviation WARN), R2 (cross-session deny ledger — signal only, never a verdict; guard-level count for variant probes) and optionally R3 (OTLP alias, off by default). Evidence, ASI cross-check and rejections in research/001.
-**Reason:** OWASP 2026: "least agency without observability is blind risk reduction" — the receipts already carry the signal; the 30-day gc window is what throws it away.
+## D-001: ai-engineering governs this repo
 
-## D-003 · Observability ships as signal inside the gc (2026-09-21)
-**Decision:** research/001 R1+R2 built (richer summary.json + denies.json ledger + deviation WARN at 3x, fixed); R3 (OTLP alias) and the injection fold-miss stay out until real demand. blueprint §10 amended to match.
-**Reason:** the receipts already carry the story; the 30-day sweep threw it away. Pre-committed cut: if after 90 days the ledger recorded zero repeats and doctor flagged zero deviations on this repo, the layer is removed — ceremony fails the same §10.2 test the guards face.
+Status: Accepted · Date: 2026-09-15
 
-## D-004 · The prompt is the one leak surface gitleaks cannot see (2026-09-22)
-**Decision:** the spoken-secret guard (src/guards/spoken-secret.ts, verified against the original pack's test contract) joined the chain as the UserPromptSubmit arm (src/chain/mod.ts TABLE): a prompt that carries a low-entropy credential is blocked with advice, never echoing the value. Wired where the host actually exposes the event (Claude Code, Codex — src/surfaces/surfaces.json promptHook, measured 2026-09-22); excluded with cause where it does not (Copilot: output ignored; Cursor/omp/opencode/pi: no prompt event). ai-security's seam (§5) now measures findings against the three implemented controls — floor gitleaks HARD FAIL, chain fail-closed on guard crash, boundaries stated in the artifact — instead of citing an external standard.
-**Reason:** gitleaks sees shaped keys in commits; the floor already blocks those. The secret a person TYPES enters the transcript before any commit exists — the classifier must run at prompt time, and the same turn is the only window: once the turn ends, reverting does not take the bytes out of the history.
+### Context
+
+A repo with no contract leaves every agent to invent its own rules. The same decision, made the same way every time, belongs in code.
+
+### Decision
+
+{ai} Engineering 2.2.0 is installed here: global skill canon, local receipts, git floor on.
+
+### Consequences
+
+- Init, doctor, and the chain are the contract.
+- A machine without the canon is not governed.
+
+### Alternatives considered
+
+- **Per-repo copies of the skills:** they drift. Rejected.
+
+## D-002: Governance improves by observability, not by more stoppers
+
+Status: Accepted · Date: 2026-09-20
+
+### Context
+
+The policy guard finished the command-scope half of least agency. Least agency without a record of what was denied is blind. Evidence is in research/001.
+
+### Decision
+
+The next milestone takes research/001 R1 (richer gc aggregate: per guard, tool, and surface, plus a daily series and a baseline-deviation warning) and R2 (a cross-session deny ledger that is signal only, never a verdict). R3, an OTLP alias, stays off unless there is real demand.
+
+### Consequences
+
+- Receipts keep the signal the 30-day sweep used to throw away.
+- A repeated deny is reported. It does not become an automatic block.
+
+### Alternatives considered
+
+- **More stoppers:** they hide the pattern. Rejected.
+
+## D-003: Observability ships as signal inside the gc
+
+Status: Accepted · Date: 2026-09-21
+
+### Context
+
+Receipts already carried the story. The 30-day sweep deleted it.
+
+### Decision
+
+R1 and R2 are built: a richer summary.json, a denies.json ledger, and a deviation warning at 3x. R3 (OTLP) and the injection fold-miss stay out until real demand. If after 90 days the ledger recorded zero repeats and doctor flagged zero deviations on this repo, the layer is removed.
+
+### Consequences
+
+- Doctor can say what is being denied, and how often.
+- A layer that never fires does not stay as ceremony.
+
+### Alternatives considered
+
+- **Ship OTLP now:** no consumer asked. Rejected.
+
+## D-004: The prompt is the one leak surface gitleaks cannot see
+
+Status: Accepted · Date: 2026-09-22
+
+### Context
+
+Gitleaks sees shaped keys in commits. The floor already blocks those. A secret a person types enters the transcript before any commit exists. After the turn ends, reverting does not take the bytes out of the history.
+
+### Decision
+
+The spoken-secret guard blocks a prompt that carries a low-entropy credential, with advice, and never echoes the value. It runs on UserPromptSubmit where the host exposes that event (Claude Code, Codex). It stays off, with the cause named, where the host ignores the output or has no prompt event (Copilot, Cursor, Oh My Pi, OpenCode, Pi).
+
+### Consequences
+
+- The only window that works is the turn the secret is typed.
+- Hosts without a prompt hook are named, not pretended.
+
+### Alternatives considered
+
+- **Scan the transcript later:** the bytes are already stored. Rejected.

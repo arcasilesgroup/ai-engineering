@@ -1,15 +1,13 @@
-// `ai-eng spec run|open|approve|close` and the conditional-node evaluator, driven
-// in-process against a real repository: the sha256 pinned at approval is what makes a
-// contract executable, a gate that cannot run is red, a fired trigger that left no
-// artifact blocks the close. The trigger reader decides all of that from the canon's
-// own `## Lifecycle` blocks — never from a list in the source.
+// `ai-eng spec open|approve|close` and the conditional-node evaluator, driven
+// in-process against a real repository: the sha256 pinned at approval is what
+// close checks, and a fired trigger that left no artifact blocks the close.
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { normalizeSpec, specApprove, specClose, specMain, specOpen, specRun } from "../src/spec/index.ts";
+import { normalizeSpec, specApprove, specClose, specMain, specOpen } from "../src/spec/index.ts";
 import {
   artifactExists,
   artifactPattern,
@@ -28,7 +26,6 @@ let cwd: string;
 
 const specPath = (): string => join(repo, ".ai-engineering", "spec.html");
 const lockPath = (): string => join(repo, ".ai-engineering", "ai-eng.lock");
-const receiptsPath = (): string => join(repo, ".ai-engineering", "receipts");
 
 function git(args: string[]): { status: number; out: string } {
   const run = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
@@ -83,14 +80,6 @@ function writeLock(fields: { spec_sha256?: string; base_sha?: string }): void {
 function writeSkill(name: string, body: string): void {
   mkdirSync(join(engHome, "skills", name), { recursive: true });
   writeFileSync(join(engHome, "skills", name, "SKILL.md"), body);
-}
-
-function specRunReceipts(): Array<Record<string, unknown>> {
-  const dir = receiptsPath();
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((name) => name.includes("spec-run"))
-    .map((name) => JSON.parse(readFileSync(join(dir, name), "utf8")) as Record<string, unknown>);
 }
 
 const PENDING_GATES = '# Gates: fixture\n\n- [ ] G1: the one thing\n  CHECK: echo "g1 ran"\n  EVIDENCE: pending\n';
@@ -159,7 +148,7 @@ afterEach(() => {
 test("specMain refuses an unknown verb with usage", () => {
   const usage = capture(() => specMain(["stop"]));
   expect(usage.code).toBe(2);
-  expect(usage.out).toBe("usage: ai-eng spec run|open|approve|close\n");
+  expect(usage.out).toBe("usage: ai-eng spec open|approve|close\n");
 });
 
 test("spec open writes the contract pair, records the base commit and refuses a second slot", () => {
@@ -191,9 +180,6 @@ test("spec open without a commit records no base and invents no lock", () => {
 
 test("every spec verb refuses outside a governed repo", () => {
   process.chdir(sandbox);
-  const run = capture(() => specRun());
-  expect(run.code).toBe(2);
-  expect(run.out).toContain("spec run: you are not in a governed repo.");
   const open = capture(() => specOpen("M1"));
   expect(open.code).toBe(2);
   expect(open.out).toContain("spec open: you are not in a governed repo.");
@@ -203,9 +189,15 @@ test("every spec verb refuses outside a governed repo", () => {
   // A repo that has a root but never declared its surfaces is not governed either.
   process.chdir(repo);
   rmSync(join(repo, ".ai-engineering", "config.toml"));
-  const undeclared = capture(() => specMain(["run"]));
+  const undeclared = capture(() => specMain(["open", "M1"]));
   expect(undeclared.code).toBe(2);
   expect(undeclared.out).toContain("you are not in a governed repo.");
+});
+
+test("spec run is retired", () => {
+  const retired = capture(() => specMain(["run"]));
+  expect(retired.code).toBe(2);
+  expect(retired.out).toContain("spec run: retired.");
 });
 
 test("spec approve pins the normalised sha256 of the contract", () => {
@@ -218,62 +210,6 @@ test("spec approve pins the normalised sha256 of the contract", () => {
   expect(approved.code).toBe(0);
   expect(approved.out).toContain(`✓ STOP 1: spec sha256 pinned in ai-eng.lock (${sha.slice(0, 12)}…)`);
   expect(readFileSync(lockPath(), "utf8")).toContain(`spec_sha256 = "${sha}"`);
-});
-
-test("spec run refuses a contract nobody approved", () => {
-  const noContract = capture(() => specRun());
-  expect(noContract.code).toBe(2);
-  expect(noContract.out).toContain("spec run: no spec.html in .ai-engineering/ — no live contract.");
-
-  writeSpec(contract(PENDING_GATES));
-  const noLock = capture(() => specRun());
-  expect(noLock.code).toBe(2);
-  expect(noLock.out).toContain("spec run: spec.html is not approved (sha256 missing or different in ai-eng.lock)");
-
-  writeLock({ base_sha: "0".repeat(40) }); // a lock that carries no pin
-  expect(capture(() => specRun()).code).toBe(2);
-
-  writeLock({ spec_sha256: "0".repeat(64) }); // a pin for a different contract
-  expect(capture(() => specRun()).code).toBe(2);
-
-  expect(specRunReceipts()).toEqual([]); // nothing ran, so nothing was recorded
-});
-
-test("spec run refuses a contract with nothing to verify", () => {
-  writeLock({ spec_sha256: writeSpec(contract("# Gates: fixture\n")) });
-  const empty = capture(() => specRun());
-  expect(empty.code).toBe(2);
-  expect(empty.out).toContain("spec run: no gates found in spec.html — a contract with nothing to verify is not a contract.");
-  expect(specRunReceipts()).toEqual([]);
-});
-
-test("spec run executes the approved gates, ticks the boxes and records a receipt", () => {
-  writeLock({ spec_sha256: writeSpec(contract(PENDING_GATES)) });
-  const ran = capture(() => specMain(["run"]));
-  expect(ran.code).toBe(0);
-
-  const after = readFileSync(specPath(), "utf8");
-  expect(after).toContain("- [x] G1: the one thing");
-  expect(after).toContain("EVIDENCE: g1 ran");
-
-  const receipts = specRunReceipts();
-  expect(receipts).toHaveLength(1);
-  expect(receipts[0]!["event"]).toBe("spec-run");
-  expect(receipts[0]!["surface"]).toBe("ci");
-  expect(receipts[0]!["outcome"]).toBe("allow");
-  expect(typeof receipts[0]!["latency_ms"]).toBe("number");
-});
-
-test("spec run turns a gate whose check cannot run red", () => {
-  const broken = '# Gates: fixture\n\n- [ ] G1: the one thing\n  CHECK: no-such-command-ai-eng --version\n  EVIDENCE: pending\n';
-  writeLock({ spec_sha256: writeSpec(contract(broken)) });
-  const ran = capture(() => specRun());
-  expect(ran.code).toBe(1);
-  expect(ran.out).toMatch(/spec run: FAILURE \(receipt [0-9a-f]{8}\) — a check that does not run is not green, it is red\./);
-
-  const after = readFileSync(specPath(), "utf8");
-  expect(after).toContain("- [ ] G1: the one thing"); // never ticked by a failing gate
-  expect(specRunReceipts()[0]!["outcome"]).toBe("deny");
 });
 
 test("spec close refuses a contract edited after approval", () => {
@@ -375,7 +311,7 @@ test("canonSkillsDir prefers the installed canon and falls back to this repo's s
   rmSync(join(engHome, "skills"), { recursive: true, force: true });
   const fallback = canonSkillsDir();
   expect(fallback).toBe(join(import.meta.dir, "..", "skills"));
-  expect(existsSync(join(fallback!, "ai-proof", "SKILL.md"))).toBe(true);
+  expect(existsSync(join(fallback!, "ai-orchestrator", "SKILL.md"))).toBe(true);
 });
 
 test("lifecycleBlock and blockFields read a node's own condition out of its SKILL.md", () => {

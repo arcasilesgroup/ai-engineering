@@ -5,10 +5,10 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { install, stripSharedText } from "../install.ts";
 import { join } from "node:path";
-import { groupMultiselect, isCancel } from "@clack/prompts";
-import { repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
+import { multiselect, isCancel } from "@clack/prompts";
+import { canonicalSurfaceId, repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
 import { SURFACES, mirrorTargets, surfaceCanGovern, repoCarrier, machineCarrier, installMachineCarriers, type Surface } from "../surfaces/adapters.ts";
-import { hasAdapter, planEntries, refuseLine, surfaceOptions } from "./init-shared.ts";
+import { hasAdapter, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions } from "./init-shared.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -29,6 +29,7 @@ async function resolveSurfaces(
   let addedNow: string | null = null;
   let current = surfacesBefore;
   if (flags.add) {
+    flags.add = canonicalSurfaceId(flags.add);
     // Same rule as the picker: no adapter, no declaration.
     if (!hasAdapter(flags.add)) {
       ui.fail(`"${flags.add}" has no adapter in this release — nothing would enforce its guards.`);
@@ -40,6 +41,7 @@ async function resolveSurfaces(
       addedNow = flags.add;
     }
   } else if (flags.remove) {
+    flags.remove = canonicalSurfaceId(flags.remove);
     current = current.filter((id) => id !== flags.remove);
     removeSurfaceFiles(root, flags.remove);
   } else {
@@ -57,12 +59,11 @@ async function pickSurfaces(
   current: string[],
   root: string,
 ): Promise<string[] | null> {
-  const picked = await groupMultiselect({
-    message: "Which agent surfaces is this project governed on? (ticked = installed)",
-    options: Object.fromEntries(surfaceOptions().map((group) => [group.title, group.items.map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) }))])),
+  const picked = await multiselect({
+    message: SURFACE_PICK_MESSAGE,
+    options: surfaceOptions().map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) })),
     initialValues: current.filter((id) => SURFACES.some((s) => s.id === id)),
     required: true,
-    selectableGroups: false,
     input: input as never,
   });
   if (isCancel(picked)) {

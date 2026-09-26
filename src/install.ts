@@ -35,14 +35,16 @@ export function hashFile(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-/** Every entry we write runs `ai-eng chain`: that is the whole marker, and the only
- *  thing that distinguishes our hooks from the user's in a file we share. It has to be
- *  the command ITSELF, not the word anywhere in a string: `my-wrapper.sh -- ai-eng
- *  chain PreToolUse` is the user's hook, and an uninstall that deletes it takes away
- *  something we never installed. So the marker matches at the start of a command or
- *  after a shell separator — the copilot entry guards the call with
- *  `command -v ai-eng … && ai-eng chain …`, and that `&&` is where ours starts. */
-const MARKER = /(?:^|[;&|]\s*)ai-eng chain/;
+/** Every entry we write runs `ai-eng chain` or the checkpoint-gate beside it: that is
+ *  the whole marker, and the only thing that distinguishes our hooks from the user's
+ *  in a file we share. It has to be the command ITSELF, not the word anywhere in a
+ *  string: `my-wrapper.sh -- ai-eng chain PreToolUse` is the user's hook, and an
+ *  uninstall that deletes it takes away something we never installed. So the marker
+ *  matches at the start of a command or after a shell separator — the Copilot CLI
+ *  entry guards the call with `command -v ai-eng … && ai-eng chain …`, and that `&&`
+ *  is where ours starts. `checkpoint-gate.py` marks the gate hook that runs beside
+ *  the chain without replacing it. */
+const MARKER = /(?:^|[;&|]\s*)ai-eng chain|checkpoint-gate\.py/;
 
 function isOurs(value: unknown): boolean {
   if (typeof value === "string") return MARKER.test(value);
@@ -255,8 +257,7 @@ export function buildLock(
   const lock: Lock = { version, assets };
   // The two contract fields are the milestone's, not the installer's. Rebuilding the
   // lock must not drop them: any `update` between `spec approve` and `spec close`
-  // would erase the approval, and the next `spec run` would refuse a contract a
-  // human approved.
+  // would erase the approval, and spec close would treat a pinned contract as unpinned.
   if (carry.spec_sha256) lock.spec_sha256 = carry.spec_sha256;
   if (carry.base_sha) lock.base_sha = carry.base_sha;
   return lock;

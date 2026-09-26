@@ -8,7 +8,7 @@ description: >-
   request classified (spike / bounded / architectural), the design approved, and the result
   captured in a self-contained doc that a researcher agent and a planner agent can run with
   without asking anything. Includes an optional spec self-review pass. Not for turning an
-  aligned idea into checks and gates — use /ai-plan. Not for external evidence — use
+  aligned idea into a build — use /ai-orchestrator. Not for external evidence — use
   /ai-research.
 license: MIT
 ---
@@ -55,7 +55,7 @@ downgrades mid-task.
 The path picks the lane you start in: **spike → light, bounded → light, architectural → full**.
 Bounded is the one that steps up — the moment it stops being one sitting (it touches an
 interface others depend on, or produces receipts somebody else has to read) it takes the
-**standard** lane, and ai-plan turns the design into `spec.html` + `plan.html`. Architectural is
+**standard** lane, and ai-orchestrator builds it. Architectural is
 always a contract, from the first question. On the light lane nothing is written to a slot at
 all: a spike ends at ai-verify with its answer, and a bounded change ends at ai-verify with its
 diff.
@@ -180,8 +180,11 @@ problems during planning; approve unless there are serious gaps.
 
 ## User review gate
 
-Ask the user to review the written doc before planning. If they request changes, make them
-and re-run the self-review. Only proceed once the user approves.
+When the page is written, stop. The last line to the user is: the interview is in `.ai-engineering/brainstorm.html`. Say approve, or say what to change. Do not start `ai-orchestrator` in this turn.
+
+If they request changes, make them and re-run the self-review, then ask again.
+
+When they approve, do step 5 of the seam, then stop again. The last line is: next step is `/ai-orchestrator`. That call starts the build. Do not open checkpoints in this turn.
 
 ## Doc structure
 
@@ -216,16 +219,20 @@ Status: draft, interview in progress | complete · <date> | incomplete · <date>
 
 The heading structure above is the CONTENT contract. The file is one self-contained
 HTML page at `.ai-engineering/brainstorm.html`, rendered with the artifact design
-system — [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — so it reads as
-one family with spec.html, plan.html and the recap:
+system — [references/artifact-design.md](references/artifact-design.md) — so it reads as
+one family with the research pages and the recap:
 
 - `<header class="hero">` with the `{ai}` favicon, stamp `Brainstorm · <idea>`, h1
   `<idea name>`, `.sub` carrying the read-back that passed, `.meta` with the status
-  line (`draft · interview in progress` / `complete · <date>` / `grilled · <date>`).
+  line (`draft · interview in progress` / `complete · YYYY-MM-DD`).
+- Two meta tags in `<head>`, so a later run can tell this interview from an older one:
+  `<meta name="ai-feature" content="<slug>">` and, only after approval,
+  `<meta name="ai-approved" content="YYYY-MM-DD">`. The slug is the kebab-case name
+  of this idea, the same slug `ai-orchestrator` will use for `feat/<slug>`.
 - One `<section>` per markdown heading above, each with `h2 .num` (`01`–`11`), in the
   same order. "Decisions already made" and "Decisions still open" use `note ok` /
   `note warn`; "Open questions for research" is a numbered `ol` (the numbers are what
-  ai-plan cites); "Out of scope" uses `note danger`.
+  ai-orchestrator cites); "Out of scope" uses `note danger`.
 - Sticky `<nav>` with one `<a>` per section, `<main id="main">`, `<footer>` with the
   `{ai}` mark and the status.
 - Draft is a living page: update the sections in place as answers land, never rewrite
@@ -250,41 +257,46 @@ period, or `·`.
 
 ## The ai-engineering seam
 
-1. Output path: `.ai-engineering/brainstorm.html` — a slot, not an archive. It dies at STOP 1
-   (contract approval): whatever survived into spec/plan was the signal, the rest was
-   noise. It is one of the four milestone slots — `spec.html`, `plan.html`,
-   `brainstorm.html`, `recap.html` — which the session writes, `spec close` sweeps, and
-   `doctor` reports as an orphan if one outlives its contract. Write it with the file
+1. Output path: `.ai-engineering/brainstorm.html`. Approval does not delete it.
+   `ai-orchestrator` reads it for the whole build. `spec close` sweeps it when the
+   feature is finished, along with `recap.html`. Write it with the file
    tools, or with a redirect: `rm`, `mv` and `tee` into `.ai-engineering/` are denied,
    because a verb that can act on several paths is judged as a whole command.
    Render it with the artifact design system —
-   [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md):
-   tokens in verbatim, same family as spec.html, plan.html and the recap. The markdown
+   [references/artifact-design.md](references/artifact-design.md):
+   tokens in verbatim, same family as the research pages and the recap. Before
+   `</body>`, copy that file's scroll-spy script verbatim (it is already in
+   `templates/brainstorm.html.tpl`): it marks the nav link for the section in view.
+   The markdown
    structure in §Doc structure maps to sections of that page; the file is HTML only,
    no `.md` twin.
-2. The gaps feed ai-plan as files, not chat: "Decisions still open" and "Open questions"
-   become ai-plan's question queue.
+2. The gaps feed ai-orchestrator as files, not chat: "Decisions still open" and "Open questions"
+   become the orchestrator's question queue.
 3. Grounding duty (§11.6): never cite a file or API you have not opened this session —
    /ai-explore and /ai-read-docs are the lenses.
 4. The approval gate here IS blueprint STOP 0; the plan approval downstream is STOP 1. One
    idea, two stops, both human.
-5. Handoff: after approval, /ai-plan turns the doc into checks and gates
-   (`.ai-engineering/spec.html` + `plan.html`). This skill never writes those files.
+5. After approval, set `ai-approved` to today's date and the status line to `complete · YYYY-MM-DD`. Copy only the conclusions into `.ai-engineering/PRD.html`: Problem (why it matters), Goal (what success looks like), Users & roles, the Feature plus its Rules (decisions already made), and Out of scope. Leave the interview in `brainstorm.html`. If the PRD already has other features, update the matching one and leave the others. This skill never writes spec.html or plan.html.
+6. Handoff, said out loud after approval: next step is `/ai-orchestrator`. That is the start of the build. This turn does not run it.
 
 ## Routing
 
 In scope: fuzzy ideas needing alignment, pre-build design, feasibility spikes, vision
 capture. Not for: evidence from outside the repo (/ai-research), turning an aligned idea
-into executable checks (/ai-plan), running the build loop (/ai-goal), diagnosing
+into a build (/ai-orchestrator), diagnosing
 failures (/ai-debug).
 
 ## Lifecycle
 
 Lane: light, standard, full
-Writes: .ai-engineering/brainstorm.html
-Read by: ai-plan, the agent that opens the next session
-Dies: the approval stop, when the contract exists, or ai-eng spec close
-Next: ai-research when questions are still open; ai-architect on the architectural lane; ai-plan on the standard lane; ai-verify on the light lane, with no contract written
+Writes: .ai-engineering/brainstorm.html, .ai-engineering/PRD.html
+Read by: ai-orchestrator, the agent that opens the next session
+Dies: when a brainstorm for a different feature replaces it, or ai-eng spec close
+Next: ai-research when questions are still open; ai-architect on the architectural lane; ai-orchestrator on the standard lane; ai-verify on the light lane
+Stop: interview
+Stop words: approve, ok, go, adelante
+Stop confirms: the brainstorm
+Stop runs: write the PRD conclusions, then tell the user the next step is /ai-orchestrator
 
 Source: handshake by obra (https://obra.sh, MIT; obra/superpowers attributed by URL) +
 brainstorming from obra/superpowers

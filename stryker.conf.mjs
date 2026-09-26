@@ -34,7 +34,9 @@ export default {
   // This test rebuilds the bundle with `bun build` and compares bytes: inside the
   // sandbox src/ is instrumented, so it can never match. It imports nothing mutated,
   // so it can kill no mutant either. Excluded by pattern, auto-discovery intact.
-  ignorePatterns: ["tests/generated-payload.test.ts"],
+  // `.codegraph/daemon.sock` is a machine-local UNIX socket: copyfile() cannot clone
+  // it into the sandbox, and CI never has the directory.
+  ignorePatterns: ["tests/generated-payload.test.ts", ".codegraph/**"],
   // The cache is what makes the pull-request job cheap: ~35s warm against ~8min cold.
   // A cached kill survives only while its killing test is unchanged (research 005 §01).
   incremental: true,

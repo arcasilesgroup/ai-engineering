@@ -23,6 +23,26 @@ Guidance for AI coding agents working in this repository. Human teammates should
 ## Build and test commands
 {{commands}}
 
+## Project config
+- Domain: n/a
+- Roles: n/a
+- Paths: n/a
+- Commands: n/a
+- URLs: n/a
+- Sign-in: n/a
+
+## Architecture rules
+Lines the critic treats as blockers. Fill in project-specific rules here; leave empty when none apply yet.
+
+## Shared helpers
+- codegraph — use for call chains and blast-radius before editing across modules.
+
+## Git workflow
+- Commit as you go on `feat/<slug>`.
+- Stage explicit paths only.
+- Do not use `--no-verify`.
+- Do not push unless asked.
+
 ## Workflow
 - Green gate before "done": show the output of the check that proves it.
 - A decision that always comes out the same is code, not a prompt.
@@ -30,11 +50,18 @@ Guidance for AI coding agents working in this repository. Human teammates should
 
 ## Lifecycle
 - Every skill declares its own contract — lane, artifact, successor — in a `## Lifecycle` block inside its SKILL.md: follow the `Next:` a skill hands you instead of asking what comes first.
-- The lanes are light (spike and bounded work — no contract), standard (`spec.html` + `plan.html`) and full (architectural, with the triggered nodes).
+- The lanes are light (spike and bounded work — no contract), standard (`ai-brainstorm` then `ai-orchestrator`) and full (architectural, with the triggered nodes).
 - Approvals are spoken: the human says approve, ok, go or close, and **you** run `ai-eng spec approve` or `ai-eng spec close` underneath. Never ask the human to type a command; never run an approval on your own initiative.
 
 ## Architecture layers
 You may edit `src/**` freely; the arch-test reads `.ai-engineering/arch.rules.json` — propose layer changes there via PR, never by editing the test in silence.
+
+## Voice
+Replies to a person, and handoffs to another agent, follow the voice standard in the `ai-write` skill (`references/voice.md`). The file ships in the binary and is installed with the skill canon; this section is the part that has to be in context:
+- First line is the action.
+- More than one step is a numbered list, one action per step.
+- Last line is one next action that takes under two minutes.
+- Say which step just finished before starting the next.
 
 ## Session hygiene (context economy)
 `/clear` between tasks · `/compact` before stopping, not after · batch prompting · check `/usage` when the context inflates.

@@ -484,3 +484,65 @@ describe("floor gates — the entry dispatcher", () => {
     expect(id).not.toBe("e3b0c442"); // sha256("") first 8 hex — the killed mutant's constant
   });
 });
+
+describe("floor gates — the staged scan's exception is HEAD's allowlist paths, nothing else", () => {
+  /** A gitleaks shim that records the GITLEAKS_CONFIG it was handed (and copies the
+   *  config's bytes out before the floor's scratch is cleaned), then passes the scan. */
+  const installEnvShim = (record: string): void => {
+    const dir = tempDir("ai-eng-gates-env-");
+    const shim = join(dir, "gitleaks");
+    writeFileSync(
+      shim,
+      [
+        "#!/bin/sh",
+        'if [ "$1" = "version" ]; then echo "8.18.0"; exit 0; fi',
+        `printf '%s' "\${GITLEAKS_CONFIG-unset}" > "${record}"`,
+        `if [ -n "\${GITLEAKS_CONFIG-}" ]; then cp "$GITLEAKS_CONFIG" "${record}.copy"; fi`,
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(shim, "0755");
+    process.env.PATH = `${dir}:${PATH_BEFORE}`;
+  };
+
+  const committedAllowlist = (repo: string, paths: string[]): void => {
+    writeFileSync(join(repo, ".gitleaksrc.toml"), `[allowlist]\npaths = ${JSON.stringify(paths)}\n`);
+    run("git", repo, ["add", ".gitleaksrc.toml"]);
+    run("git", repo, ["commit", "-q", "-m", "chore: pin the fixture allowlist"]);
+  };
+
+  test("the scan carries the committed allowlist as GITLEAKS_CONFIG", () => {
+    const repo = tempRepo(true);
+    committedAllowlist(repo, ["tests/spoken-secret.spec.ts"]);
+    const record = join(tempDir("ai-eng-gates-rec-"), "env");
+    installEnvShim(record);
+    stage(repo, { "clean.txt": "clean\n" });
+    expect(preCommit(repo)).toEqual({ ok: true, lines: [] });
+    expect(readFileSync(record, "utf8")).not.toBe("unset");
+    const trusted = readFileSync(`${record}.copy`, "utf8");
+    expect(trusted).toContain("[allowlist]\npaths = ");
+    expect(trusted).toContain("tests/spoken-secret.spec.ts");
+  });
+
+  test("an allowlist widened in this very commit is not the one the scan trusts", () => {
+    const repo = tempRepo(true);
+    committedAllowlist(repo, ["tests/only-head.ts"]);
+    const record = join(tempDir("ai-eng-gates-rec-"), "env");
+    installEnvShim(record);
+    stage(repo, { ".gitleaksrc.toml": `[allowlist]\npaths = ["*"]\n`, "clean.txt": "clean\n" });
+    expect(preCommit(repo)).toEqual({ ok: true, lines: [] });
+    const trusted = readFileSync(`${record}.copy`, "utf8");
+    expect(trusted).toContain("tests/only-head.ts");
+    expect(trusted).not.toContain('"*"');
+  });
+
+  test("no committed config means no exception: the default rules decide", () => {
+    const repo = tempRepo(true);
+    const record = join(tempDir("ai-eng-gates-rec-"), "env");
+    installEnvShim(record);
+    stage(repo, { "clean.txt": "clean\n" });
+    expect(preCommit(repo)).toEqual({ ok: true, lines: [] });
+    expect(readFileSync(record, "utf8")).toBe("unset");
+  });
+});

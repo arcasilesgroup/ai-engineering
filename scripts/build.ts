@@ -51,11 +51,11 @@ const done = spawnSync(
 
 const left = sweep();
 
-// A plain build (`bun run build`) emits dist/ai-eng, but bin/ai-eng.js prefers
-// dist/ai-eng-<platform> when one exists — so a stale platform binary keeps running
-// old code while the developer believes the fresh build shipped. Removing it sends
-// the launcher to the binary this build just wrote (or the bun source path). A
-// --target build never deletes: it IS the platform refresh.
+// A plain build (`bun run build`) emits dist/ai-eng. A leftover
+// dist/ai-eng-<this host> is from an older --target run and would win over the
+// file this build just wrote, so a dev checkout would keep running stale code.
+// Removing it leaves dist/ai-eng, which bin/ai-eng.js runs. A --target build
+// never deletes: that file is the platform refresh.
 if (!args.includes("--target") && !args.some((flag) => flag.startsWith("--target="))) {
   const target = process.platform === "darwin" ? `darwin-${process.arch}`
     : process.platform === "win32" ? "windows-x64" : `${process.platform}-${process.arch}`;

@@ -12,6 +12,7 @@
     "bin",
     "src",
     "skills",
+    "agents",
     "scripts/.embed",
     "templates",
     "NOTICE.md",

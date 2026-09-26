@@ -31,7 +31,7 @@
 </head>
 <body>
 <h1><span class="x">{ai}</span> spec · {{milestone}}</h1>
-<p style="color:var(--dim)">WHAT and WHY — requirements and acceptance gates. Executed by <code>ai-eng spec run</code>; its sha256 is pinned in <code>ai-eng.lock</code> at approval (STOP 1).</p>
+<p style="color:var(--dim)">WHAT and WHY — requirements and acceptance gates. Its sha256 is pinned in <code>ai-eng.lock</code> at approval (STOP 1). <code>ai-eng spec close</code> checks the evidence.</p>
 
 <h2><span class="num">00</span>Context chain</h2>
 <div class="card context">
@@ -53,7 +53,7 @@
 </div>
 
 <h2><span class="num">02</span>Acceptance gates</h2>
-<p style="color:var(--dim)">unlazy gate format, executed by <code>ai-eng spec run</code> (gate-check.mjs). Max 30 per milestone. ABANDON: G&lt;n&gt; &lt;reason&gt; is the honest exit. <b>A check that prints nothing is not evidence</b>: the executor leaves it unticked, because a box resting on an exit code is a green nobody can read. Make it say what it found, or assert the output with <code>EXPECT</code>.</p>
+<p style="color:var(--dim)">One box per outcome. Max 30 per milestone. ABANDON: G&lt;n&gt; &lt;reason&gt; is the honest exit. Evidence is a sentence of what the check found. <code>ai-eng spec close</code> refuses a gate whose evidence is still pending.</p>
 <pre id="gates">
 # Gates: {{milestone}}
 
@@ -73,7 +73,7 @@
 
 <h2><span class="num">04</span>EVIDENCE</h2>
 <p style="color:var(--dim)">Verdicts land here as gates run. A gate without receipt or ABANDON keeps the milestone open.</p>
-<pre id="evidence"># EVIDENCE: appended by spec run / ai-verify
+<pre id="evidence"># EVIDENCE: written by the session / ai-verify
 </pre>
 </body>
 </html>

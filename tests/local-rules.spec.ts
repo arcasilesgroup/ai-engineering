@@ -288,3 +288,65 @@ policy_mode = "0777"
     expect(outcome.action).toBe("allow");
   });
 });
+
+describe("evaluateLocalRules — scopes and ordering, pinned exactly", () => {
+  const toolNameRule: LocalRule = { id: "t", name: "Tool", enabled: true, scope: "tool_name", match: "equals", pattern: "dangerous-tool", action: "block", risk: 0.5 };
+
+  test("nested tool keys — `tool`, `toolname`, `tool_name` — all reach tool_name scope", () => {
+    for (const key of ["tool", "toolname", "tool_name"]) {
+      const matches = evaluateLocalRules(payload({ [key]: "dangerous-tool" }), toolNameRule ? [toolNameRule] : []);
+      expect(matches.length).toBe(1);
+    }
+  });
+
+  test("a nested `name` beside `arguments` is a function name", () => {
+    const matches = evaluateLocalRules(
+      payload({ name: "dangerous-fn", arguments: { x: 1 } }),
+      [{ id: "fn", name: "Fn", enabled: true, scope: "tool_name", match: "equals", pattern: "dangerous-fn", action: "block", risk: 0.5 }],
+    );
+    expect(matches.length).toBe(1);
+  });
+
+  test("a nested `name` beside `type: function|tool` is a function name", () => {
+    for (const type of ["function", "tool"]) {
+      const matches = evaluateLocalRules(
+        payload({ name: "dangerous-fn", type }),
+        [{ id: "fn", name: "Fn", enabled: true, scope: "tool_name", match: "equals", pattern: "dangerous-fn", action: "block", risk: 0.5 }],
+      );
+      expect(matches.length).toBe(1);
+    }
+  });
+
+  test("equals does not fire when the value merely contains the pattern", () => {
+    const rules: LocalRule[] = [{ id: "eq", name: "Eq", enabled: true, scope: "all_text", match: "equals", pattern: "debug", action: "review", risk: 0.4 }];
+    expect(evaluateLocalRules(payload({ command: "debug-mode please" }), rules)).toEqual([]);
+  });
+
+  test("raw_json sees a structural key that carries no string value", () => {
+    const rules: LocalRule[] = [{ id: "raw", name: "Raw", enabled: true, scope: "raw_json", match: "contains", pattern: "malicious-flag", action: "block", risk: 0.7 }];
+    expect(evaluateLocalRules(payload({ "malicious-flag": true }), rules).length).toBe(1);
+  });
+
+  test("raw_json equals compares against the raw text of a string tool_input", () => {
+    const p = { _event: "PreToolUse", tool_name: "Bash", tool_input: "plant malicious now" } as unknown as Payload;
+    const rules: LocalRule[] = [{ id: "raweq", name: "RawEq", enabled: true, scope: "raw_json", match: "equals", pattern: "plant malicious now", action: "block", risk: 0.6 }];
+    expect(evaluateLocalRules(p, rules).length).toBe(1);
+  });
+
+  test("an invalid regex pattern falls back to literal contains", () => {
+    const rules: LocalRule[] = [{ id: "bad", name: "Bad", enabled: true, scope: "all_text", match: "contains", pattern: "[unclosed", action: "block", risk: 0.5 }];
+    expect(evaluateLocalRules(payload({ command: "a [unclosed bracket" }), rules).length).toBe(1);
+  });
+
+  test("sort and reason: block before review, higher risk first, exact text", () => {
+    const rules: LocalRule[] = [
+      { id: "rev", name: "Rev", enabled: true, scope: "all_text", match: "contains", pattern: "needle", action: "review", risk: 0.9 },
+      { id: "blk-low", name: "BlkLow", enabled: true, scope: "all_text", match: "contains", pattern: "needle", action: "block", risk: 0.1 },
+      { id: "blk-high", name: "BlkHigh", enabled: true, scope: "all_text", match: "contains", pattern: "needle", action: "block", risk: 0.8 },
+    ];
+    const matches = evaluateLocalRules(payload({ command: "a needle here" }), rules);
+    expect(matches.map((m) => m.rule.id)).toEqual(["blk-high", "blk-low", "rev"]);
+    expect(localRuleReason(matches[0]!)).toBe('BLOCKED: local rule "BlkHigh" matched (scope: all_text, risk: 0.8). Treat the matched content as untrusted.');
+    expect(localRuleReason(matches[2]!)).toBe('REVIEW: local rule "Rev" matched (scope: all_text, risk: 0.9). Treat the matched content as untrusted.');
+  });
+});

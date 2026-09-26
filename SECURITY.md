@@ -41,8 +41,8 @@ upstream.
 - Overrides require `reason` + `until`; expired exceptions re-arm the guard.
 - gitleaks missing under a governed repo is a HARD FAIL, never silent degradation.
 - The `update` verb never touches the network; it reinstalls from the binary.
-- A contract nobody approved refuses to run: `spec run` checks the sha256
-  pinned in `ai-eng.lock` (§9.3).
+- A contract is pinned by `spec approve`: the sha256 lands in `ai-eng.lock`,
+  and `spec close` refuses a spec whose sha256 differs (§9.3).
 - The chain dispatcher is fail-closed: any guard crash denies the tool call.
 
 ## Disclosure policy

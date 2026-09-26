@@ -178,13 +178,17 @@ describe("runChain — fail-closed boundaries", () => {
   test("an array payload is not an object the guards can read: denied", () => {
     const outcome = runChain([bash("x")] as unknown as Record<string, unknown>, "PreToolUse", { inProcess: true });
     expect(outcome.action).toBe("deny");
-    if (outcome.action === "deny") expect(outcome.by).toBe("chain");
+    if (outcome.action === "deny") {
+      expect(outcome.by).toBe("chain");
+      expect(outcome.reason).toBe("BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.");
+    }
   });
 
   test("a payload that throws while being normalized is denied, never escaped", () => {
     const hostile = { get tool_name(): string { throw new Error("getter boom"); } };
     const outcome = runChain(hostile as unknown as Record<string, unknown>, "PreToolUse", { inProcess: true });
     expect(outcome.action).toBe("deny");
+    if (outcome.action === "deny") expect(outcome.reason).toBe("BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.");
   });
 
   test("a missing tool_name normalises to empty and still routes loop", () => {

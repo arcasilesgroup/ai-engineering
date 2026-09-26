@@ -5,12 +5,13 @@
 // It lives here rather than in cli.ts because cli.ts runs main() on import and so
 // cannot be a pure seam — and the suggestion is the part worth testing.
 
-/** Every verb the binary answers to. The four machine verbs stay out of TAB and
- *  --help (§14) — but a human who types `ai-eng chian` still deserves the answer. */
+/** Every verb the binary answers to. The machine verbs stay off the human list
+ *  in --help — but a human who types `ai-eng chian` still deserves the answer. */
 export const ALL_VERBS: readonly string[] = [
   "init",
   "doctor",
   "config",
+  "adapt",
   "update",
   "upgrade",
   "uninstall",
@@ -18,6 +19,7 @@ export const ALL_VERBS: readonly string[] = [
   "git",
   "wrap",
   "spec",
+  "briefing",
 ];
 
 /** Levenshtein, two rows. The inputs are short and there is no dependency to add. */
