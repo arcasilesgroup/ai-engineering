@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research 008 — Init copia este repo. El proyecto todavía no es el suyo.</title>
+<style>
+/* ── {ai} Engineering — the artifact design system ─────────────────────────
+   Tokens are the brand's, at system stacks so an artifact renders offline:
+   one signal green, neutral borders, the reading tint for small green,
+   dark-only. Anything ai-engineering renders as an artifact — spec.html,
+   plan.html, a recap, a research page, a report — inherits this block
+   verbatim.                                                                */
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+
+  /* type: one scale, tracking and leading set per size, never one value for all */
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px;      --lh-h2:1.16;      --ls-h2:-.018em;
+  --fs-h3:17px;      --lh-h3:1.32;      --ls-h3:-.006em;
+  --fs-h4:14px;      --lh-h4:1.35;
+  --fs-body:15px;    --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px;  --lh-mono:1.7;
+  --fs-label:10.5px;
+
+  /* space: a 4px rhythm, so nothing lands on an arbitrary number */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:var(--fs-body);line-height:var(--lh-body);
+  font-synthesis-weight:none;-webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);
+      border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:14px 18px;
+      clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+.skip:focus{clip-path:none;width:auto;height:auto}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+.hero{
+  position:relative;overflow:hidden;text-align:center;
+  padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);
+  background-image:
+    linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px),
+    radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);
+  background-size:32px 32px,32px 32px,100% 100%;
+}
+.hero .stamp{
+  display:inline-block;font-family:var(--mono);font-size:var(--fs-label);
+  letter-spacing:.26em;text-transform:uppercase;color:var(--accent);
+  border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;
+  margin-bottom:var(--s5);
+}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);
+         letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;
+           margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);
+            margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+
+/* ── nav: translucent chrome, content scrolls under it ────────────────── */
+nav{
+  position:sticky;top:0;z-index:50;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;
+  padding:var(--s2) var(--s4);
+  background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);
+  border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;
+}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;
+      white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+
+/* ── page ─────────────────────────────────────────────────────────────── */
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;
+        letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);
+   font-weight:640;margin:var(--s6) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);max-width:var(--measure);margin:0 auto var(--s3);text-align:center}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+
+/* ── code ─────────────────────────────────────────────────────────────── */
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);
+     border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);
+     overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);
+    padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);
+    font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;
+    -webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{
+  background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ── panels ───────────────────────────────────────────────────────────── */
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);
+         border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;
+         border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;
+         font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;
+         text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.card h3,.card h4{min-height:1.6em}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;
+         text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+pre{max-width:100%}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;
+         text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+
+/* ── tables: a component, not a spill ─────────────────────────────────── */
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);
+          overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;
+   font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;
+   text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);
+   vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+
+/* ── pills, marks ─────────────────────────────────────────────────────── */
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;
+      padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+
+/* ── pipeline: real boxes, not ASCII ─────────────────────────────────── */
+.pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+.pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);
+             border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+.pipe .stage:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+.pipe .stage:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+.pipe .stage+.stage{border-left:none}
+.pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);
+                    color:var(--accent);font-size:13px;z-index:2}
+.pipe .stage{position:relative}
+.pipe .stage:last-child::after{content:''}
+.pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+.pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+
+.tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);
+      border-radius:var(--radius-lg);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+.tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;
+             color:var(--accent);text-transform:uppercase}
+.tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+.tier .tbody b{color:var(--text)}
+.tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);
+       border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
+       color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+
+@media (max-width:900px){
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .hero{padding:64px var(--s5) 44px}
+  .hero h1{font-size:34px;letter-spacing:-.022em}
+  .hero .sub{font-size:16px}
+  section{padding:var(--s7) 0 var(--s6)}
+  .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}
+  .pipe .stage+.stage{margin-top:var(--s2)}
+  .pipe .stage::after{content:''}
+  .tier .tlat{text-align:left}
+}
+@media (max-width:560px){
+  .container{padding:0 var(--s4)}
+  nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;
+      overflow-x:auto;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;
+      background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}
+  nav a{padding:14px 8px}
+  table{font-size:13px} th,td{padding:10px var(--s3)}
+  pre{font-size:11.5px;padding:var(--s3) var(--s4)}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation:none!important;transition:none!important}
+}
+@media (prefers-reduced-transparency:reduce){
+  nav{background:var(--bg);backdrop-filter:none}
+}
+@media (prefers-contrast:more){
+  :root{--dim:#E8EDEB;--comment:#C1C7C6}
+  .card,.note,p,li,td{color:var(--dim)}
+  nav a{color:#E8EDEB}
+}
+@media print{
+  nav,.skip{display:none}
+  body{background:#fff;color:#111}
+  section{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#s01">Saltar al contenido</a>
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <span class="stamp">Research 008 · 2026-09-24</span>
+  <h1>Init copia <span class="x">este</span> repo. El proyecto todavía no es el suyo.</h1>
+  <p class="sub">La decisión que esta lectura prepara: <strong>después de <code>ai-eng init</code>, una skill manual adapta las reglas al árbol de verdad</strong>, con una página para leer el cambio y un registro de quién lo aprobó. La valla de gobernanza se queda.</p>
+  <p class="meta">floor local + Tavily + WebFetch · NotebookLM <b>en curso, sin cosecha</b> · Exa: <b>degraded-tool</b> · kernel.org: bloqueado, sustituido por la DCO</p>
+</header>
+<nav aria-label="Secciones">
+  <a href="#s01"><b>01</b> Herramientas</a>
+  <a href="#s02"><b>02</b> Qué cambia</a>
+  <a href="#s03"><b>03</b> La copia</a>
+  <a href="#s04"><b>04</b> Qué se queda</a>
+  <a href="#s05"><b>05</b> La valla</a>
+  <a href="#s06"><b>06</b> Quién aprobó</a>
+  <a href="#s07"><b>07</b> Direcciones</a>
+  <a href="#s08"><b>08</b> Fuentes</a>
+</nav>
+<main class="container">
+
+<section id="s01">
+  <h2><span class="num">01</span>Herramientas usadas y ausentes</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Rung</th><th scope="col">Estado</th><th scope="col">Qué dio</th></tr></thead>
+    <tbody>
+      <tr><td>Floor local</td><td><span class="pill p-ok">completo</span></td><td>Plantillas de init, <code>self-protect</code>, <code>update</code>, <code>spec approve</code>, skills <code>ai-agents-md</code> y <code>ai-architect</code>, el árbol de <code>brand</code></td></tr>
+      <tr><td>Tavily</td><td><span class="pill p-ok">extract</span></td><td><code>git-config</code>, <code>git-commit</code>, <code>git-interpret-trailers</code>, guía de ArchUnit, rules-reference de dependency-cruiser. Fetch 2026-09-24</td></tr>
+      <tr><td>WebFetch</td><td><span class="pill p-ok">completo</span></td><td>agents.md, DCO 1.1, Thoughtworks Radar, CODEOWNERS, Cursor Rules, skills de Claude Code</td></tr>
+      <tr><td>Exa</td><td><span class="pill p-dim">degraded-tool: exa</span></td><td>El MCP no está en esta sesión. No se inventó una llamada.</td></tr>
+      <tr><td>NotebookLM</td><td><span class="pill p-warn">lanzado, sin cosecha</span></td><td><code>notebooklm doctor</code> pasó. Notebook <code>a93b1503-1ae5-48cc-a73c-cd508a184ee2</code>, task <code>b699469a-fc70-42f1-9b05-0cca805c3b55</code>, status <code>in_progress</code>, 0 fuentes al cerrar. Una pasada posterior puede cosechar.</td></tr>
+      <tr><td>kernel.org</td><td><span class="pill p-dim">no leído</span></td><td>El fetch de submitting-patches fue bloqueado. La certificación Signed-off-by se cita desde developercertificate.org y los trailers desde git-scm.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="s02">
+  <h2><span class="num">02</span>Qué cambiaría según la respuesta</h2>
+  <p>Si las capas de ai-engineering fueran un esqueleto válido para cualquier repo, <code>init</code> podría seguir copiándolas. No lo son. Si un agente pudiera editar <code>arch.rules.json</code> con la herramienta de escribir, la valla que existe para eso no serviría. Si <code>user.name</code> autenticara a la persona, bastaría leer <code>git config</code>. Git dice que ese campo es el nombre que quieres ver en el commit, y manda las credenciales a otra clave.</p>
+  <p>Lo que sí cambia el diseño: la plantilla de init, el último renglón del CLI, y una skill que solo arranca cuando la persona la nombra. La skill enseña el diff en una página de la casa, espera un sí hablado, y el binario escribe. <code>self-protect</code> no gana un agujero nuevo.</p>
+</section>
+
+<section id="s03">
+  <h2><span class="num">03</span>Lo que <code>init</code> dejó en brand</h2>
+  <p><code>brand/.ai-engineering/arch.rules.json</code> es byte a byte la plantilla de este repo. El commit que lo puso es <code>013f77c6</code>, 2026-09-24, mensaje <code>chore(ai-eng): install governance 2.2.3</code> — el mismo mensaje que <code>commitContract</code> escribe. <code>AGENTS.md</code> de brand no se tocó: su último commit es del 2026-07-29. El instalador trata el contrato de prosa como del proyecto y las capas como un asset suyo.</p>
+  <div class="stats">
+    <div class="stat"><div class="v">11</div><div class="l">capas copiadas</div></div>
+    <div class="stat"><div class="v">0</div><div class="l">src/cli.ts en brand</div></div>
+    <div class="stat"><div class="v">2</div><div class="l">raíces reales</div></div>
+  </div>
+  <p>Las once capas apuntan a <code>src/cli.ts</code>, <code>src/guards/**</code>, <code>src/chain/**</code>. Brand no tiene <code>src/</code> en la raíz. El código vive en <code>kit/src</code> y <code>web/src</code> (<code>kit/src/Button.tsx</code> existe). <code>doctor</code> mira solo <code>src/</code> en la raíz: sin esa carpeta declara modo bootstrap aunque el repo esté lleno.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Qué pide la plantilla</th><th scope="col">Qué hay en brand</th></tr></thead>
+    <tbody>
+      <tr><td><code>cli → src/cli.ts</code></td><td>No existe <code>src/cli.ts</code></td></tr>
+      <tr><td><code>guards</code>, <code>chain</code>, <code>floor</code></td><td>Un kit de marca y un sitio, no una cadena de guards</td></tr>
+      <tr><td><code>doctor</code>: activo si hay <code>src/</code></td><td>No hay <code>src/</code> raíz. <code>kit/src</code> y <code>web/src</code> no cuentan</td></tr>
+      <tr><td>Comandos de <code>AGENTS.md</code> vía <code>detectCommands()</code></td><td>La función lee la raíz del framework (tres niveles sobre <code>src/commands</code>), no el cwd del proyecto. El test fija la cadena bun/oxlint de este repo</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn">
+    <h4>El comentario y el blueprint no coinciden con el código</h4>
+    <p>El comentario de <code>update.ts</code> y el mockup §14.3 dicen que <code>arch.rules.json</code> es del usuario y no se toca. <code>planEntries</code> lo incluye, y <code>syncPlan</code> lo reescribe cuando el hash en disco sigue siendo el del install anterior. Si brand no edita el archivo, el próximo <code>update</code> que cambie la plantilla pisa esas capas. Cuando el archivo ya fue editado, pasa a conflicto y el default es quedarse con lo del usuario. Actúo sobre el código: mientras nadie lo edita, sigue siendo asset del binario.</p>
+  </div>
+  <p>El cierre de <code>init</code> hoy nombra dos pasos: confiar el workspace y correr <code>ai-eng doctor</code>. No dice que hay que abrir el IDE y adaptar el proyecto. Ese renglón es el sitio del aviso.</p>
+</section>
+
+<section id="s04">
+  <h2><span class="num">04</span>Qué se queda de AGENTS.md, y qué sale</h2>
+  <p>La convención abierta no exige secciones: es markdown, el archivo más cercano gana, y se reescribe cuando el repo cambia. Cursor dice lo mismo y añade el corte: no copies una guía de estilo, usa el linter; no documentes comandos que el agente ya conoce; no dupliques lo que el código ya dice. <code>ai-agents-md</code> es más estricto que la convención, y es el contrato de este framework: una regla always nombra el mecanismo que la sostiene, y se para a proponer antes de escribir. Las dos fuentes no dicen lo mismo. Para este diseño mando el contrato local, y dejo la convención como el suelo (raíz, anidado solo si el paquete diverge, vivo).</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Bloque de la plantilla</th><th scope="col">En una segunda pasada</th><th scope="col">Por qué</th></tr></thead>
+    <tbody>
+      <tr><td>Security: no saltar hooks, no silenciar el linter, no secretos ni rutas de máquina</td><td><span class="pill p-ok">se queda</span></td><td>El mecanismo son los hooks y el floor. Borrarlo deja al agente sin la prohibición que el código no puede deducir</td></tr>
+      <tr><td>Lifecycle: el sí es hablado y el agente corre el comando</td><td><span class="pill p-ok">se queda</span></td><td>Es el protocolo de <code>spec approve</code>. Sin esa frase el agente le pide a la persona que teclee</td></tr>
+      <tr><td>Anti-drift, y una frase que apunta a <code>arch.rules.json</code></td><td><span class="pill p-ok">se queda</span></td><td>La lista de capas vive en el JSON. Repetirla en prosa es la copia que brand ya sufre al revés</td></tr>
+      <tr><td>Voice: puntero a <code>ai-write</code></td><td><span class="pill p-ok">se queda</span></td><td>El estándar viaja con el canon. La sección es el trozo que tiene que estar en contexto</td></tr>
+      <tr><td>Session hygiene</td><td><span class="pill p-warn">se queda salvo que el repo tenga la suya</span></td><td>Es convención del framework, corta. Si el proyecto ya escribió la suya, manda la del proyecto</td></tr>
+      <tr><td>KISS, YAGNI, DRY, SOLID, Clean Code, como eslogan</td><td><span class="pill p-bad">sale o se vuelve un check</span></td><td>Una fitness function es una comprobación objetiva, no un adjetivo. ArchUnit expresa capas como test. dependency-cruiser expresa un <code>forbidden</code> con <code>from</code>/<code>to</code>. El radar de Thoughtworks define eso en 2017 y avisa, el 2018-05-15, que el blip ya no está en la edición vigente. La idea sigue siendo la que este repo implementa en <code>arch.rules.json</code>; la vigencia del blip no se da por renovada</td></tr>
+      <tr><td>Build and test commands</td><td><span class="pill p-fix">se redetectan en el cwd</span></td><td><code>ai-agents-md</code> exige que cada comando exista. <code>detectCommands()</code> no mira el proyecto</td></tr>
+      <tr><td>«You may edit <code>src/**</code>»</td><td><span class="pill p-bad">sale</span></td><td>En brand esa frase miente. Las raíces salen del árbol (<code>kit/src</code>, <code>web/src</code>)</td></tr>
+    </tbody>
+  </table></div>
+  <p>La skill no sustituye a <code>ai-agents-md</code>. Corre la misma auditoría (deducido, duplicado, muerto, sin ruta) y se detiene. Lo nuevo es que, con el sí, también puede proponer los cuatro archivos que la sesión no puede tocar con Edit/Write. <code>ai-architect</code> sigue proponiendo capas y sigue sin auto-escribirlas. El desacuerdo con su lifecycle («nunca se auto-escribe, evoluciona por PR») se resuelve así: escribir tras un sí hablado, por el CLI, no es auto-escribir. El PR sigue siendo la puerta cuando el repo exige revisión de otra persona.</p>
+  <div class="note">
+    <h4>Lo que brand ya hizo bien</h4>
+    <p><code>AGENTS.md</code> de brand no es la plantilla. Apunta a <code>CONSTITUTION.md</code>, a un manifiesto y a raíces propias. La skill, en una segunda pasada, audita ese archivo. No lo reemplaza por las 57 líneas del template.</p>
+  </div>
+</section>
+
+<section id="s05">
+  <h2><span class="num">05</span>Cómo se escribe lo prohibido sin abrir la valla</h2>
+  <p><code>self-protect</code> niega Edit y Write sobre <code>config.toml</code>, <code>overrides.toml</code>, <code>ai-eng.lock</code> y <code>arch.rules.json</code>, y niega un comando de shell cuyo texto nombra esas rutas. El motivo que devuelve es el diseño: lo cambia una persona, en un diff. <code>AGENTS.md</code> y <code>DECISIONS.md</code> no están en esa lista. El blueprint todavía los pone dentro de la valla. Manda el código: la prosa se edita en sesión; la maquinaria, no.</p>
+  <p>El hueco que ya existe, y que hay que reutilizar, es <code>ai-eng spec approve</code>. El agente no escribe el lock con la herramienta de editar. Corre el binario. El comando no contiene la ruta <code>ai-eng.lock</code>, así que el guard de texto no lo ve, y el binario escribe el pin. La skill nueva hace lo mismo: la página de propuesta vive en <code>.ai-engineering/config-proposal.html</code>, que es material de la sesión (un hijo del directorio, no el directorio), y el sí hablado dispara un verbo del CLI que escribe los archivos y refresca los hashes del lock.</p>
+  <div class="pipe" role="list">
+    <div class="stage"><div class="ph">1 · init</div><div class="sk">Plantilla vacía</div><div class="q">capas <code>{}</code>, no las de este repo</div></div>
+    <div class="stage"><div class="ph">2 · IDE</div><div class="sk">/ai-config-to-project</div><div class="q">solo si la persona la nombra</div></div>
+    <div class="stage"><div class="ph">3 · página</div><div class="sk">config-proposal.html</div><div class="q">diff, peligro, qué se queda</div></div>
+    <div class="stage"><div class="ph">4 · sí</div><div class="sk">verbo del CLI</div><div class="q">escribe y sella el hash</div></div>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col">Archivo</th><th scope="col">¿La skill puede cambiarlo?</th><th scope="col">Condición</th></tr></thead>
+    <tbody>
+      <tr><td><code>arch.rules.json</code></td><td><span class="pill p-ok">sí, vía CLI</span></td><td>Capas leídas del árbol. El test de arquitectura lee este archivo, no el markdown</td></tr>
+      <tr><td><code>config.toml</code></td><td><span class="pill p-ok">sí, vía CLI</span></td><td>Umbrales y pines. Las superficies ya las reescribe <code>ai-eng config</code>. El encabezado del archivo dice que la cadena no lo edita: el verbo nuevo es un comando de la persona, no un guard</td></tr>
+      <tr><td><code>overrides.toml</code></td><td><span class="pill p-warn">sí, en rojo</span></td><td>Cada apagado lleva <code>name</code>, <code>reason</code> y <code>until</code>, que es lo que el propio archivo exige. Sin fecha de fin, el CLI no escribe</td></tr>
+      <tr><td><code>ai-eng.lock</code></td><td><span class="pill p-warn">solo el libro</span></td><td>Hashes de lo que el CLI acaba de hacer nuestro. No es una palanca de política</td></tr>
+      <tr><td><code>AGENTS.md</code></td><td><span class="pill p-ok">sí, tras la página</span></td><td>No está en la valla. Aun así la skill propone y espera. Una pasada posterior parte del archivo que ya existe</td></tr>
+      <tr><td>hooks, canon global, <code>spec.html</code> pinneado, settings de superficie</td><td><span class="pill p-bad">no</span></td><td>Eso desarma la sesión. <code>ai-eng config</code> ya cubre las superficies. Un spec aprobado se reabre con <code>spec open</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Claude Code documenta <code>disable-model-invocation: true</code> para un workflow con efecto lateral: solo la persona lo dispara con <code>/nombre</code>, el modelo no lo carga solo. El ejemplo que dan es deploy. Esta skill es de ese tipo. Si Cursor, Pi o Codex honran ese campo es [unsourced] en esta pasada. El texto de la skill lleva un segundo pestillo, independiente del host: si la persona no la invocó, se detiene y no escribe nada.</p>
+  <p>CODEOWNERS no sustituye ese sí local. Pide revisión de quien posee el path cuando la rama protegida exige «review from Code Owners», y una aprobación de cualquiera de los dueños de la línea basta. El recibo de la máquina dice quién aplicó el cambio aquí. La protección de rama dice si otra persona tiene que verlo antes del merge. Las dos caben.</p>
+</section>
+
+<section id="s06">
+  <h2><span class="num">06</span>Quién lo ejecutó y quién lo aprobó</h2>
+  <p><code>user.name</code> y <code>user.email</code> son lo que Git mete en author y committer. Se pisan con <code>GIT_AUTHOR_NAME</code> y las variables hermanas. La misma página aparta la autenticación: si buscas credenciales, la clave es <code>credential.username</code>, no <code>user.name</code>. Git no tiene un campo de apellidos. El nombre es una sola cadena. Partirla en nombre y apellidos inventa estructura que la herramienta no guarda.</p>
+  <p>Una firma <code>--gpg-sign</code> es otra cosa: firma el commit con la identidad del committer, o con la clave que se pasa. <code>commit.gpgSign</code> lo hace en cada commit. Eso ata el commit a una clave. El trailer no. <code>git interpret-trailers</code> añade líneas tipo cabecera RFC 822 al final del mensaje — <code>Signed-off-by</code>, <code>Reviewed-by</code>, <code>Acked-by</code> — y puede rellenar un Signed-off-by con los datos del autor si no hay uno. La Developer Certificate of Origin 1.1 es el texto legal de esa línea: certificas el derecho a contribuir, y aceptas que el registro (incluido el sign-off) se conserva. No es una prueba criptográfica. Tratar <code>user.email</code> como prueba de identidad sería afirmar lo que Git niega.</p>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Lo que el CLI graba</h3>
+      <p><code>user.name</code> tal cual, <code>user.email</code>, hora UTC, sha256 de la página aprobada, y un trailer <code>Approved-by:</code> en el commit del cambio. Si <code>user.name</code> o <code>user.email</code> están vacíos, no aplica.</p>
+    </div>
+    <div class="card">
+      <h3>Lo que el CLI dice en voz alta</h3>
+      <p>Atribución, no autenticación. Si el repo firma commits, ese commit va firmado. Si no, el recibo dice <code>unsigned</code>. El commit pasa por el hook <code>commit-msg</code>. No usa <code>--no-verify</code>: esa excepción es solo el commit de install.</p>
+    </div>
+  </div>
+  <p>Ejecutor y aprobador, en este diseño, son la misma persona: la que invocó la skill y dijo el sí. El agente no tiene nombre en <code>git config</code>. Guardar la frase «el usuario dijo approve» no añade prueba. La prueba es que el verbo corrió, que el hash de la página coincide con lo que se mostró, y que el commit lleva el trailer. Si alguien cambia la página después del sí, el hash no coincide y el CLI no escribe.</p>
+</section>
+
+<section id="s07">
+  <h2><span class="num">07</span>Tres direcciones</h2>
+  <ol>
+    <li><strong>Vaciar la plantilla y cambiar el último renglón de <code>init</code>.</strong> <code>arch.rules.json.tpl</code> sale con <code>layers</code> vacío, <code>rules</code> vacío y el bootstrap que ya existe, no con <code>cli</code>/<code>guards</code>/<code>chain</code>. El cierre de <code>commitContract</code> añade el tercer paso: abre el IDE y carga <code>/ai-config-to-project</code> para adaptar el proyecto. <code>doctor</code> deja de tratar «no hay <code>src/</code> raíz» como «no hay código» cuando el árbol tiene otras raíces. Hecho eso, un init nuevo no repite el commit <code>013f77c6</code> de brand.</li>
+    <li><strong>Escribir la skill manual, no un agujero en <code>self-protect</code>.</strong> Frontmatter <code>disable-model-invocation: true</code>, más el pestillo en el texto. Entrevista el cwd, audita el <code>AGENTS.md</code> que ya esté, y escribe <code>.ai-engineering/config-proposal.html</code> con el shell de artifact (favicon, tokens, scroll-spy). Se detiene. El sí hablado corre un verbo nuevo del CLI, el mismo patrón que <code>spec approve</code>. Ese verbo es el único que escribe <code>arch.rules.json</code>, <code>config.toml</code> y <code>overrides.toml</code>, y actualiza los hashes. Una segunda invocación, cuando el proyecto cambie, parte de los archivos editados y vuelve a proponer. No restaura la plantilla del framework.</li>
+    <li><strong>Sellar atribución, y decir que no es identidad.</strong> <code>Approved-by:</code> con la cadena <code>user.name</code> y el email, más el sha256 de la propuesta, vía el mecanismo de trailers de Git. Firma GPG solo si el repo ya firma. <code>overrides.toml</code> sin <code>until</code> no se aplica. CODEOWNERS queda como la revisión de otra persona en GitHub; el trailer es el registro local. No partir el nombre en apellidos: Git no tiene ese campo.</li>
+  </ol>
+  <div class="note ok">
+    <h4>Siguiente skill</h4>
+    <p>Esto es evidencia para un plan, no el plan. El siguiente paso del ciclo es <code>ai-brainstorm</code> y después <code>ai-orchestrator</code>.</p>
+  </div>
+</section>
+
+<section id="s08">
+  <h2><span class="num">08</span>Fuentes</h2>
+  <ol>
+    <li id="f1"><strong>[1]</strong> <code>brand/.ai-engineering/arch.rules.json</code>, idéntico a <code>templates/arch.rules.json.tpl</code>. Commit <code>013f77c6</code>, 2026-09-24, <code>chore(ai-eng): install governance 2.2.3</code>. No existe <code>brand/src/cli.ts</code>. Sí existe <code>brand/kit/src/Button.tsx</code>. <code>AGENTS.md</code> de brand, commit <code>61b745e9</code>, 2026-07-29.</li>
+    <li id="f2"><strong>[2]</strong> <code>src/commands/init-shared.ts</code>: <code>planEntries</code> instala la plantilla de <code>arch.rules.json</code>; <code>detectCommands</code> llama a <code>repoTemplateRoot()</code> (tres niveles sobre <code>src/commands</code>), no al cwd. <code>tests/init-command.spec.ts</code> fija la cadena bun/oxlint.</li>
+    <li id="f3"><strong>[3]</strong> <code>src/commands/init.ts</code> <code>commitContract</code>: el commit de install usa ese mensaje, y <code>ui.end</code> nombra solo trust del workspace y <code>ai-eng doctor</code>.</li>
+    <li id="f4"><strong>[4]</strong> <code>src/guards/self-protect.ts</code>: los cuatro archivos, la exclusión explícita de <code>AGENTS.md</code> y <code>DECISIONS.md</code>, y el motivo de deny. Un comando se juzga por el texto, no por lo que el binario escribe después.</li>
+    <li id="f5"><strong>[5]</strong> <code>src/commands/update.ts</code> líneas 1–3 y <code>syncPlan</code>: el comentario dice que <code>arch.rules</code> no se toca; el plan lo actualiza si el hash sigue siendo el del install. Conflicto editado → keep-yours por defecto.</li>
+    <li id="f6"><strong>[6]</strong> <code>src/spec/index.ts</code> <code>specApprove</code>: el sí humano pinnea el sha256 en <code>ai-eng.lock</code> escribiendo desde el binario.</li>
+    <li id="f7"><strong>[7]</strong> <code>skills/ai-agents-md/SKILL.md</code>: auditar, parar, proponer. Una regla always nombra su mecanismo. Comandos detectados del árbol y ejecutados.</li>
+    <li id="f8"><strong>[8]</strong> <code>skills/ai-architect/SKILL.md</code> lifecycle: propone el diff de <code>arch.rules.json</code> y no lo auto-escribe.</li>
+    <li id="f9"><strong>[9]</strong> <code>templates/AGENTS.md.tpl</code> y <code>templates/overrides.toml.tpl</code>: secciones de la plantilla; un override pide <code>reason</code> y <code>until</code>.</li>
+    <li id="f10"><strong>[10]</strong> <code>src/commands/doctor.ts</code> check arch: ok si hay <code>src/</code> raíz, warn de bootstrap si no. <code>brand</code> no tiene esa carpeta.</li>
+    <li id="f11"><strong>[11]</strong> <code>docs/blueprint.html</code> §14.3 y la fila de <code>self-protect</code>: dicen que <code>arch.rules</code> es intocable y que <code>AGENTS.md</code> está dentro de la valla. El código de [4] y [5] dice otra cosa. Se actúa sobre el código.</li>
+    <li id="f12"><strong>[12]</strong> <code>brand/.ai-engineering/config.toml</code> líneas 1–3: la cadena lee el archivo y no lo edita; las superficies van por <code>ai-eng config</code>.</li>
+    <li id="f13"><strong>[13]</strong> AGENTS.md, convención abierta, fetch 2026-09-24. <a href="https://agents.md/">agents.md</a>. Sin campos obligatorios. El archivo más cercano gana. Anidado en monorepos. Se actualiza. Steward: Agentic AI Foundation, Linux Foundation. La página no trae fecha de revisión.</li>
+    <li id="f14"><strong>[14]</strong> Thoughtworks Technology Radar, «Architectural fitness function». Publicado 2017-11-30, última actualización de la página 2018-05-15, marcado «not on the current edition». <a href="https://www.thoughtworks.com/radar/techniques/architectural-fitness-function">thoughtworks.com/radar/techniques/architectural-fitness-function</a>. Definición tomada de <em>Building Evolutionary Architectures</em>: una comprobación objetiva de una característica de arquitectura.</li>
+    <li id="f15"><strong>[15]</strong> ArchUnit user guide, fetch 2026-09-24. <a href="https://www.archunit.org/userguide/html/000_Index.html">archunit.org/userguide</a>. <code>layeredArchitecture()</code> con capas y <code>mayOnlyBeAccessedByLayers</code>. La guía no mostró fecha de versión en el extract.</li>
+    <li id="f16"><strong>[16]</strong> dependency-cruiser, <code>doc/rules-reference.md</code>, fetch 2026-09-24. <a href="https://github.com/sverweij/dependency-cruiser/blob/main/doc/rules-reference.md">rules-reference.md</a>. Reglas <code>forbidden</code> con <code>from</code>/<code>to</code>, ciclos, y una regla de dependencias estables. Fecha de commit no leída.</li>
+    <li id="f17"><strong>[17]</strong> git-config, fetch 2026-09-24. <a href="https://git-scm.com/docs/git-config">git-scm.com/docs/git-config</a>. <code>user.name</code> y <code>user.email</code> llenan author y committer; se anulan con variables de entorno; para credenciales la página remite a <code>credential.username</code>.</li>
+    <li id="f18"><strong>[18]</strong> git-commit, fetch 2026-09-24. <a href="https://git-scm.com/docs/git-commit">git-scm.com/docs/git-commit</a>. <code>--gpg-sign</code> firma con la identidad del committer. <code>commit.gpgSign</code> firma todos los commits.</li>
+    <li id="f19"><strong>[19]</strong> git-interpret-trailers, fetch 2026-09-24. <a href="https://git-scm.com/docs/git-interpret-trailers">git-scm.com/docs/git-interpret-trailers</a>. Trailers al estilo RFC 822: <code>Signed-off-by</code>, <code>Reviewed-by</code>, <code>Acked-by</code>. Un trailer <code>sign</code> puede rellenar Signed-off-by con el autor.</li>
+    <li id="f20"><strong>[20]</strong> Developer Certificate of Origin 1.1. <a href="https://developercertificate.org/">developercertificate.org</a>. Copyright 2004, 2006, The Linux Foundation. El sign-off es una certificación y un registro, no una firma criptográfica. El texto no trae fecha de página.</li>
+    <li id="f21"><strong>[21]</strong> GitHub Docs, «About code owners», fetch 2026-09-24. <a href="https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners">docs.github.com › about-code-owners</a>. Con «Require review from Code Owners», basta la aprobación de uno de los dueños de la línea. La página no mostró fecha de revisión en el fetch.</li>
+    <li id="f22"><strong>[22]</strong> Cursor Rules, fetch 2026-09-24. <a href="https://cursor.com/docs/rules">cursor.com/docs/rules</a>. <code>AGENTS.md</code> en raíz y anidado. Regla manual cuando no hay <code>alwaysApply</code>, ni description, ni globs. «Avoid vague guidance», «Copying entire style guides: Use a linter instead». La página no mostró fecha.</li>
+    <li id="f23"><strong>[23]</strong> Claude Code, Skills, fetch 2026-09-24. <a href="https://code.claude.com/docs/en/skills">code.claude.com/docs/en/skills</a>. <code>disable-model-invocation: true</code> impide que el modelo cargue la skill; se invoca con <code>/nombre</code>. El ejemplo es un deploy. Si otros hosts leen ese campo: [unsourced].</li>
+    <li id="f24"><strong>[24]</strong> <code>skills/ai-design/references/artifact-design.md</code> en este repo: tokens, favicon inline, scroll-spy. Es el shell que la página de propuesta tiene que copiar.</li>
+    <li id="f25"><strong>[25]</strong> NotebookLM, sin cosecha. Notebook <code>a93b1503-1ae5-48cc-a73c-cd508a184ee2</code>, task <code>b699469a-fc70-42f1-9b05-0cca805c3b55</code>, <code>in_progress</code> el 2026-09-24. No aporta una afirmación a este informe.</li>
+  </ol>
+</section>
+
+</main>
+<footer><span class="x">{ai}</span> Engineering · research 008 · 2026-09-24 · local + Tavily + WebFetch · NotebookLM pendiente</footer>
+
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>

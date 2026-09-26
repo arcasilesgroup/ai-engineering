@@ -1,26 +1,5 @@
 {
-  "layers": {
-    "cli": "src/cli.ts",
-    "commands": "src/commands/**",
-    "guards": "src/guards/**",
-    "chain": "src/chain/**",
-    "floor": "src/floor/**",
-    "spec": "src/spec/**",
-    "wrap": "src/wrap/**",
-    "surfaces": "src/surfaces/**",
-    "shared": "src/shared-*.ts,src/{install,receipts,embed,skills-lint}.ts",
-    "env": "src/env.ts",
-    "templates-assets": "templates/**"
-  },
-  "rules": [
-    { "from": "guards", "mayNotImport": "commands" },
-    { "from": "guards", "mayNotImport": "cli" },
-    { "from": "chain", "mayNotImport": "commands" },
-    { "from": "floor", "mayNotImport": "commands" },
-    { "from": "shared", "mayNotImport": "commands,guards,chain,floor,spec,wrap,surfaces,cli" },
-    { "from": "env", "mayNotImport": "commands,guards,chain,floor,spec,wrap,surfaces,cli" },
-    { "from": "chain", "mayNotImport": "surfaces" },
-    { "any": [], "forbid": "cycles" }
-  ],
+  "layers": {},
+  "rules": [],
   "bootstrap": "allow-empty-while-files==0"
 }

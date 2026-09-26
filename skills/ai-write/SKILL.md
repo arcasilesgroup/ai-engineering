@@ -1,6 +1,6 @@
 ---
 name: ai-write
-description: "Writes technical documentation for this repository: a README, a wiki page, product documentation, API docs or a technical post. Applies the framework's single writing standard (`references/documentation-writer.md`) and verifies every document against the tree. Trigger for \"write the README\", \"update the wiki\", \"document this API\", \"write a technical post about\", \"refresh the docs\". Not for the changelog. Not for a spec or a plan — use /ai-plan. Not for a finding — use /ai-note. Not for an issue or incident report — use /ai-issue-report."
+description: "Writes technical documentation for this repository: a README, a wiki page, product documentation, API docs or a technical post. Applies the framework's single writing standard (`references/documentation-writer.md`) and verifies every document against the tree. Trigger for \"write the README\", \"update the wiki\", \"document this API\", \"write a technical post about\", \"refresh the docs\". Not for the changelog. Not for a feature plan — use /ai-orchestrator. Not for a finding — use /ai-note. Not for an issue or incident report — use /ai-issue-report."
 license: Apache-2.0
 ---
 
@@ -15,8 +15,10 @@ a checkable completion criterion. A document that cannot be verified exits `not-
 
 ## Steps
 
-1. Read the writing standard: [references/documentation-writer.md](references/documentation-writer.md)
-   in this skill's folder. If it is missing, stop and say `INCOMPLETE: writing standard absent`.
+1. Read the voice: [references/voice.md](references/voice.md). The reply to the
+   person, and the opening of the document, follow it. Then read the writing
+   standard: [references/documentation-writer.md](references/documentation-writer.md).
+   If either file is missing, stop and say `INCOMPLETE: writing standard absent`.
    Then read the reference for the artifact at hand: [references/readme-writer.md](references/readme-writer.md)
    for a README, [references/contributing-writer.md](references/contributing-writer.md) for
    CONTRIBUTING, a code of conduct or a release flow, and
@@ -36,7 +38,7 @@ a checkable completion criterion. A document that cannot be verified exits `not-
 
 ## What this is not
 
-Not the changelog; not a spec or plan (/ai-plan); not a finding (/ai-note); not an issue
+Not the changelog; not a feature plan (/ai-orchestrator); not a finding (/ai-note); not an issue
 or incident report (/ai-issue-report). And it is not a licence to repeat the environment: a
 document that restates `--help` or the config is a cache, and a cache earns its load only
 when the lookup is expensive.
@@ -55,10 +57,11 @@ the tree is the evidence.
 
 ## The ai-engineering seam
 
-1. The writing standard itself ([references/documentation-writer.md](references/documentation-writer.md))
-   is the prose standard for every ai-engineering surface that writes for humans: incident
+1. Two files, two jobs. [references/voice.md](references/voice.md) is how a reply
+   or a handoff is shaped. [references/documentation-writer.md](references/documentation-writer.md)
+   is the prose standard for every surface that writes for humans: incident
    reports (/ai-issue-report), AGENTS.md authoring (/ai-agents-md), and any README the
-   framework installs.
+   framework installs. Voice does not relax a checkable completion criterion.
 2. ai-write never writes into `.ai-engineering/` — governance artifacts are not product
    docs. Its home is the tree the user names: README.md, docs/, a wiki directory.
 3. The verdict on whether a draft is good belongs to the `decide` tier; the mechanical
@@ -74,4 +77,4 @@ Trigger when: the diff changes a public interface, a documented behaviour or a c
 Writes: README.md, docs/
 Read by: humans and the surfaces
 Dies: when the code it documents dies
-Next: ai-visual-recap
+Next: none

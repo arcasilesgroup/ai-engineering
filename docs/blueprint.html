@@ -159,6 +159,7 @@
   <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
   <div class="stamp">Blueprint v17 · El plan, tal cual · paquete 2.2.3 · 2026-09-22</div>
   <h1><span class="x">{ai}</span> Engineering v2</h1>
+  <p class="sub">The feature path now is ai-research, then ai-brainstorm, then ai-orchestrator. ai-plan, ai-goal, ai-proof and spec run are retired. Sections below that still name them are the v2 design record, not the loop to run.</p>
   <p class="sub">Empezamos de cero. Este documento muestra <strong>exactamente cómo queda</strong>: la evidencia que lo justifica, las carpetas y ficheros archivo por archivo, el contrato, <strong>el mapa de skills — cómo cada fuente se integra en un skill ai-* propio, qué son las ≤60 líneas de costura y cómo se conectan entre sí y con los guards</strong>, los hooks, los git hooks, el CLI, la arquitectura forzada, la CI y el plan. Listo para que un LLM lo coja y lo implemente sin preguntar nada.</p>
   <p class="meta"><b>22</b> videos · <b>37</b> proyectos · <b>6</b> verbos · <b>5</b> guards · <b>11</b> core + <b>9</b> bajo demanda · <b>4</b> superficies core · <b>4</b> contratos · <b>2.2.3</b> · Bun · 2026-09-22</p>
 </div>
@@ -1866,20 +1867,31 @@ receipts_ttl = "30d" # receipts: agregar y borrar</pre><p style="margin-top:10px
 
 </div>
 <script>
-// Scroll-spy: highlight current section in nav
-const sections = document.querySelectorAll('section[id]');
-const navLinks = document.querySelectorAll('nav a');
-function updateNav() {
-  let current = '';
-  sections.forEach(s => {
-    if (window.scrollY >= s.offsetTop - 100) current = s.id;
-  });
-  navLinks.forEach(a => {
-    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
-  });
-}
-window.addEventListener('scroll', updateNav, { passive: true });
-updateNav();
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
 </script>
 </body>
 </html>

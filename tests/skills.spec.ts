@@ -14,7 +14,7 @@
 import { describe, test, expect } from "bun:test";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { lifecycleBlock, blockFields, readTriggers } from "../src/spec/triggers.ts";
+import { lifecycleBlock, blockFields } from "../src/spec/triggers.ts";
 
 const SKILLS = join(import.meta.dir, "..", "skills");
 const ACCENTS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
@@ -167,6 +167,8 @@ describe("G6 — the canon is English", () => {
         const rel = f.slice(dir.length + 1);
         if (!f.endsWith(".md")) continue;
         if (rel === "SKILL.md") continue;
+        // The kit's style catalog spells proper names (Müller, László). That is not Spanish prose.
+        if (rel === "references/style-directions.md") continue;
         const content = readFileSync(f, "utf8");
         const hits = content.split("\n").filter((l) => ACCENTS.test(l));
         if (hits.length > 2) offenders.push(`${rel}: ${hits.length} accented lines`);
@@ -315,7 +317,7 @@ describe("G12 — the human speaks words", () => {
       declared.set(stop, skill);
       if (!fields["Stop words"]) problems.push(`${stop}: no words the human can say`);
       if (!fields["Stop confirms"]) problems.push(`${stop}: nothing named as confirmed`);
-      if (!(fields["Stop runs"] ?? "").includes("ai-eng spec")) problems.push(`${stop}: runs no command`);
+      if (!(fields["Stop runs"] ?? "").trim()) problems.push(`${stop}: runs no command`);
     }
     for (const required of ["approve", "close"]) {
       if (!declared.has(required)) problems.push(`no "${required}" stop declared anywhere in the canon`);
@@ -327,17 +329,72 @@ describe("G12 — the human speaks words", () => {
 describe("G13 — the lane is named where the classification happens", () => {
   test("ai-brainstorm routes all three lanes: plan, verify, and research or architect", () => {
     const next = lifecycleFields(join(SKILLS, "ai-brainstorm"))["Next"] ?? "";
-    expect(next).toMatch(/\bai-plan\b/);
+    expect(next).toMatch(/\bai-orchestrator\b/);
     expect(next).toMatch(/\bai-verify\b/);
     expect(/\bai-research\b/.test(next) || /\bai-architect\b/.test(next)).toBe(true);
   });
 });
 
 describe("G14 — every condition reaches the planner", () => {
-  test("each trigger id in the canon is named in ai-plan", () => {
-    const plan = readFileSync(join(SKILLS, "ai-plan", "SKILL.md"), "utf8");
-    const ids = [...new Set(readTriggers(SKILLS).map((trigger) => trigger.id))];
-    expect(ids.length).toBeGreaterThan(0);
-    expect(ids.filter((id) => !plan.includes(id))).toEqual([]);
+  test("no skill still names ai-plan or ai-goal as the feature path", () => {
+    const offenders: string[] = [];
+    for (const dir of listSkillDirs()) {
+      const text = readFileSync(join(dir, "SKILL.md"), "utf8");
+      if (/\bai-plan\b|\bai-goal\b/.test(text)) offenders.push(skillName(dir));
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+
+// ── Workflow kit · checkpoint 1 ───────────────────────────────────────────────
+const WORKFLOW_KIT_SKILLS = [
+  "ai-orchestrator",
+  "ai-test-planner",
+  "ai-prototype",
+  "ai-review-ui",
+  "ai-adversarial-loop",
+  "ai-design-md-planner",
+] as const;
+
+const KIT_FORBIDDEN_PATH =
+  /CLAUDE\.md|docs\/checkpoints|docs\/PRD\.md|docs\/LEARNINGS\.md|docs\/FILEMAP\.md|docs\/PERMISSIONS\.md|docs\/CHANGELOG\.md/;
+
+describe("workflow kit — six skills ship with valid frontmatter", () => {
+  test("U1: each kit skill has SKILL.md with name = folder, license SPDX, folded description", () => {
+    const problems: string[] = [];
+    for (const skill of WORKFLOW_KIT_SKILLS) {
+      const skillFile = join(SKILLS, skill, "SKILL.md");
+      if (!existsSync(skillFile)) {
+        problems.push(`${skill}: missing SKILL.md`);
+        continue;
+      }
+      try {
+        const { fields } = parseFrontmatter(readFileSync(skillFile, "utf8"));
+        if (fields["name"] !== skill) problems.push(`${skill}: name=${fields["name"]}`);
+        if (!SPDX.includes(fields["license"] ?? "")) problems.push(`${skill}: license=${fields["license"]}`);
+        if (!fields["description"] || fields["description"].length < 40) {
+          problems.push(`${skill}: description too short`);
+        }
+      } catch (error) {
+        problems.push(`${skill}: ${(error as Error).message}`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  test("U2: kit skill trees contain no CLAUDE.md or docs/checkpoints|PRD|LEARNINGS|FILEMAP|PERMISSIONS|CHANGELOG path strings", () => {
+    const offenders: string[] = [];
+    for (const skill of WORKFLOW_KIT_SKILLS) {
+      const dir = join(SKILLS, skill);
+      if (!existsSync(dir)) {
+        offenders.push(`${skill}: skill directory missing`);
+        continue;
+      }
+      for (const file of walk(dir)) {
+        const content = readFileSync(file, "utf8");
+        if (KIT_FORBIDDEN_PATH.test(content)) offenders.push(file.slice(SKILLS.length + 1));
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

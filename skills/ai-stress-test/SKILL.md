@@ -187,7 +187,7 @@ Not for:
 - Frontend performance, Core Web Vitals, page load metrics — use /ai-audit-design.
 - Diagnosing a performance regression — use /ai-debug.
 - General load testing to validate expected traffic works — use /ai-verify.
-- Deciding what to build — use /ai-plan.
+- Deciding what to build — use /ai-orchestrator.
 - DoS or unauthorized traffic generation — refused.
 
 ## Lifecycle

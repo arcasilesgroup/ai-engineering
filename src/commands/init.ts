@@ -9,14 +9,14 @@ import { PassThrough } from "node:stream";
 // whole flow (cli-ux-14 work point 02).
 
 import { join } from "node:path";
-import { select, groupMultiselect, isCancel } from "@clack/prompts";
+import { select, multiselect, isCancel } from "@clack/prompts";
 import { scriptedInput } from "../ui.ts";
 import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, rememberTemplateDir, type Surface } from "../surfaces/adapters.ts";
 import { installTemplateDir } from "../floor/template.ts";
 import { install, buildLock, lockText, parseLock } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
-import { home } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, surfaceOptions, refuseLine } from "./init-shared.ts";
+import { canonicalSurfaceId, home } from "../env.ts";
+import { planEntries, contractEntries, hasAdapter, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { VERSION } from "../version.ts";
@@ -34,9 +34,6 @@ function detectedSurfaces(cwd: string): string[] {
   return detected;
 }
 
-/** What the tier header cannot say, in plain words: the delta from the
- *  group's promise. A core surface with full guards gets no hint — the
- *  header already said it. */
 /** The canon's drift in one line — the counts that matter, and only the ones that are
  *  non-zero beyond the first two. Nested template literals read as arithmetic. */
 function canonSummary(canon: { drift: number; missing: number; stale: number }): string {
@@ -51,6 +48,7 @@ const DENY_HINTS: Record<string, string> = {
 };
 const CAN_BLOCK = "can't block tool calls";
 
+/** The row's own delta. A surface with nothing degraded gets an empty hint. */
 export function surfaceHint(s: Surface): string {
   const delta: string[] = [];
   const denyHint = s.can.deny === true ? null : (DENY_HINTS[String(s.can.deny)] ?? CAN_BLOCK);
@@ -65,7 +63,7 @@ function scaffoldProject(surfaces: string[]): string[] {
   const cwd = process.cwd();
   const lines: string[] = [];
   // Contract files: written ONCE. install() skips anything the user already has.
-  const contractReport = install(cwd, contractEntries(new Date().toISOString().slice(0, 10)));
+  const contractReport = install(cwd, contractEntries(new Date().toISOString().slice(0, 10), cwd));
   for (const written of contractReport.written) lines.push(`✓ ${written} (contract)`);
   for (const untouched of contractReport.untouched) lines.push(`· ${untouched} — yours, untouched`);
   const entries = planEntries(surfaces);
@@ -235,7 +233,7 @@ async function reinitHandoff(
   return null;
 }
 
-/** Pick which surfaces govern this project (ticked = detected, or --surface/--yes). */
+/** Pick which surfaces govern this project. Detected hosts start ticked; --yes and --surface skip the prompt. */
 async function pickSurfaces(
   flags: { yes?: boolean; global?: boolean; surface?: string[] },
   cwd: string,
@@ -245,16 +243,11 @@ async function pickSurfaces(
   if (flags.yes === true) {
     picked = flags.surface && flags.surface.length > 0 ? flags.surface : ["claude-code"];
   } else {
-    // Grouped by tier, not a flat wall of seven: the header carries the
-    // capability class, the hint only the delta. Tab jumps between groups.
-    // Only surfaces with an adapter appear — the rest would be a config.toml
-    // claim with nothing to enforce it (§13).
-    const answer = await groupMultiselect({
-      message: "Which agent surfaces is this project governed on? (ticked = detected)",
-      options: Object.fromEntries(surfaceOptions().map((group) => [group.title, group.items.map((s) => ({ value: s.id, label: s.label, hint: surfaceHint(s) }))])),
+    const answer = await multiselect({
+      message: SURFACE_PICK_MESSAGE,
+      options: surfaceOptions().map((s) => ({ value: s.id, label: s.label, hint: surfaceHint(s) })),
       initialValues: detectedSurfaces(cwd),
       required: true,
-      selectableGroups: false,
       input: input as never,
     });
     if (isCancel(answer)) {
@@ -263,7 +256,7 @@ async function pickSurfaces(
     }
     picked = answer;
   }
-  return picked;
+  return picked.map(canonicalSurfaceId);
 }
 
 /** Refuse a surface this release cannot actually enforce, before any promise is printed. */
@@ -422,7 +415,7 @@ function commitContract(cwd: string): number {
     /* nothing staged or git refused — the pending note stands */
   }
   ui.section("Governance installed", [{ mark: "ok", text: `commit: ${commitLine}`, dim: "git revert is the rollback" }]);
-  ui.end("Two steps I can't do for you: 1. Trust the workspace in your surface (without trust, hooks do not run) · 2. ai-eng doctor — verify the chain responds");
+  ui.end("Three steps I can't do for you: 1. Trust the workspace in your surface (without trust, hooks do not run) · 2. ai-eng doctor — verify the chain responds · 3. Open the IDE and load /ai-config-to-project — adapt this project's rules");
   return 0;
 }
 

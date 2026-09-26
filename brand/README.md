@@ -24,7 +24,7 @@ Two deliberate substitutions, both stated rather than hidden:
 - **Type.** MongoDB's own faces (Euclid Circular A, and the condensed display face on
   mongodb.com) are commercial and are not shipped. Archivo stands in for the language,
   JetBrains Mono keeps the instruments. See `DESIGN.md` in the landing site.
-- **Artifacts.** The generated HTML artifacts (`spec.html`, `plan.html`, a recap) name
+- **Artifacts.** The generated HTML artifacts (a brainstorm, a research page, a recap, the checkpoint viewer) name
   system font stacks instead of the brand's, because an artifact has to render when it
   is opened from a folder with no network and no installed webfont.
 

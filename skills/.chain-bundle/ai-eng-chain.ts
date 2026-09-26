@@ -30,6 +30,10 @@ function repoRoot(start) {
   }
 }
 var configPath = (root) => join(root, ".ai-engineering", "config.toml");
+var SURFACE_ALIASES = { copilot: "copilot-cli" };
+function canonicalSurfaceId(id) {
+  return SURFACE_ALIASES[id] ?? id;
+}
 function declaration(root = repoRoot()) {
   if (root === null)
     return { gap: "no-repo" };
@@ -48,7 +52,7 @@ function declaration(root = repoRoot()) {
   const enabled = surfaces["enabled"];
   if (!Array.isArray(enabled))
     return { gap: "no-surfaces" };
-  return { surfaces: enabled.filter((item) => typeof item === "string") };
+  return { surfaces: enabled.filter((item) => typeof item === "string").map(canonicalSurfaceId) };
 }
 function isGoverned(root = repoRoot()) {
   return "surfaces" in declaration(root);

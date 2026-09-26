@@ -163,10 +163,10 @@ test("spec close refuses when a fired trigger left no artifact", () => {
   expect(satisfied.output).toContain("contract closed");
 });
 
-test("spec run's own bookkeeping does not invalidate the approved pin", () => {
+test("ticked boxes and evidence do not invalidate the approved pin", () => {
   const pristine = writeContract(GATES);
   writeLock({ spec_sha256: pristine });
-  // What `ai-eng spec run` writes back into that same file: a ticked box, the receipt.
+  // Evidence written into the same file: a ticked box and the receipt line.
   writeContract(GATES.replace("- [ ] G1", "- [x] G1").replace("EVIDENCE: pending", "EVIDENCE: exit 0"));
   const closed = eng(["spec", "close"]);
   expect(closed.status).toBe(0);
@@ -227,9 +227,8 @@ test("gc does not count its own summary as a receipt", () => {
 
 test("update does not invalidate the approved pin", () => {
   // The lock is rebuilt on every update, and the two contract fields are not the
-  // installer's to drop: dropping them erases an approval, so `spec run` refuses a
-  // contract a human approved and the milestone cannot close (update runs before
-  // spec run in CI).
+  // installer's to drop: dropping them erases an approval, and close would
+  // treat a pinned contract as a different one.
   const pristine = writeContract(GATES);
   writeLock({ spec_sha256: pristine, base_sha: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" });
   // The gate runs and writes its verdict, which normalises back to the pinned hash.

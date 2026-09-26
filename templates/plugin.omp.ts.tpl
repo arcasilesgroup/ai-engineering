@@ -2,8 +2,13 @@
 // OMP discovers <agentDir>/hooks/pre/*.ts and loads the module's DEFAULT export as the
 // factory (omp://hooks.md, and a live probe on omp 18.1.17 — this path loads and blocks,
 // `.agents/hooks/` loads nothing). deny = { block: true, reason }, argument mutation =
-// rewrite, zero spawn. It sits on the machine, so it governs every repo that declares
-// itself, and no repo carries a copy.
+// rewrite, zero spawn for the chain. checkpoint-gate.py runs beside the chain (not instead).
+// It sits on the machine, so it governs every repo that declares itself, and no repo
+// carries a copy.
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { chain } from "./.ai-eng-chain.ts";
 
 type ToolCall = { toolName: string; input: Record<string, unknown>; sessionID?: string; callID?: string };
@@ -14,15 +19,27 @@ function textOf(content: ReadonlyArray<Part> | undefined): string {
   return (content ?? []).map((part) => (typeof part.text === "string" ? part.text : "")).join("\n");
 }
 
+function checkpointGate(payload: Record<string, unknown>): { block: true; reason: string } | undefined {
+  const script = join(homedir(), ".ai-engineering", "scripts", "checkpoint-gate.py");
+  // Beside the chain, never instead: a missing script is no gate, not a denial.
+  if (!existsSync(script)) return undefined;
+  const run = spawnSync("python3", [script, "--surface", "oh-my-pi"], { input: JSON.stringify(payload), encoding: "utf8" });
+  if (run.status === 2) return { block: true, reason: `[checkpoint-gate] ${(run.stderr || "blocked").trim()}` };
+  return undefined;
+}
+
 export default function (pi: { on: (event: string, handler: (event: never, ctx: never) => unknown) => void }): void {
   pi.on("tool_call", (event, ctx) => {
     const call = event as unknown as ToolCall;
     const context = ctx as unknown as { cwd?: string };
+    const payload = { tool_name: call.toolName, tool_input: call.input, session_id: call.sessionID, tool_use_id: call.callID, cwd: context.cwd };
+    const gated = checkpointGate(payload);
+    if (gated) return gated;
     const outcome = chain(
       "PreToolUse",
       // The host's own cwd rides along: the gate asks the repo that is actually being
       // worked in, not the one this process happens to sit in.
-      { tool_name: call.toolName, tool_input: call.input, session_id: call.sessionID, tool_use_id: call.callID, cwd: context.cwd },
+      payload,
       { surface: "oh-my-pi" },
     );
     if (outcome.action === "deny") return { block: true, reason: `[ai-eng] ${outcome.by}: ${outcome.reason}` };

@@ -6,7 +6,7 @@ description: >-
   commit and the file patterns it describes so that it can be detected as stale later.
   Searches those notes too. Trigger for "save this", "note that", "remember this", "we
   worked this out the hard way", "do we have notes on", "what did we find about". Not for
-  project decisions — use /ai-plan, which is where a decision has its context. Not for
+  project decisions — use /ai-brainstorm, which is where a decision has its context. Not for
   documentation somebody reads to learn the system — use /ai-write, which is where a
   document gets written against the tree.
 license: Apache-2.0
@@ -16,26 +16,37 @@ license: Apache-2.0
 
 ## What it produces
 
-A block in the repository's `DECISIONS.md`, committed, with a header that lets rot be
-detected — or, when the finding belongs in the docs, prose handed to ai-write. This skill
-creates no file of its own. A note is appended to with a fresh date, never rewritten — the
-history a finding records cannot be silently edited.
+A block in the repository's `DECISIONS.md`. One decision, one `## D-NNN` block, with the sections below. Or, when the finding belongs in the docs, prose handed to ai-write. This skill creates no file of its own.
 
 ## Steps
 
 1. The bar is thirty minutes. If it took less than that to work out, it will take less than
    that again, and a note about it is noise that hides the ones that matter.
-2. Write the header first — it is what makes the note checkable later:
+2. Append one block. Do not rewrite an older block. The heading is the id the git floor counts:
 
-   ```yaml
-   found: 2026-08-08
-   commit: 4f2a91c
-   describes: ["src/chain/mod.ts", "src/surfaces/surfaces.json"]
-   still_true_when: "the settings writers still merge rather than replace"
-   ```
-3. Write the note in three parts and no more: what you expected, what actually happened,
-   and what to do about it. The middle one is the value; the first one is why anybody will
-   believe you.
+    ```markdown
+    ## D-NNN: <what we do, in one line>
+
+    Status: Accepted · Date: YYYY-MM-DD
+
+    ### Context
+
+    What forced the choice. Include `found`, `commit`, the files it describes, and `still_true_when`, so a later reader can tell if it rotted.
+
+    ### Decision
+
+    What we do, specific enough to check in the code.
+
+    ### Consequences
+
+    - What this makes easy
+    - What this rules out
+
+    ### Alternatives considered
+
+    - **<Option>:** why not
+    ```
+3. The Decision is the value. Context is why anybody will believe it.
 4. Point at the evidence. The command you ran, its output, the line in the vendor's source.
    A note whose claim cannot be re-checked becomes folklore within a quarter.
 5. If the note is a workaround, say what would remove the need for it, and where that fix
@@ -88,7 +99,7 @@ Not for:
 
 - "and turn that into a section of the handbook" — use /ai-write, because the note stays a
   finding and the handbook gets a document written against the tree.
-- "write down the decision and the options we turned down" — use /ai-plan, because a
+- "write down the decision and the options we turned down" — use /ai-brainstorm, because a
   decision needs its evidence, its two real options and its authority, and a note is a
   finding, not a decision.
 - "onboard me on this module" — use /ai-explore, because that is a tour read out of the

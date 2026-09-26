@@ -67,7 +67,7 @@ keep this skill's gate as the last step before publishing.
 
 1. The governed post-mortem lives at `.ai-engineering/reports/NNN-{slug}.html` — readable
    without session context; the NNN numbering is never rewritten. It is styled by the
-   artifact design system — [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — never by a
+   artifact design system — [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md) — never by a
    stylesheet invented for the report.
 2. It is immune while DECISIONS.md cites it; uncited, it expires to gc (§21.3) — history is
    not rewritten, it is archived in git.
@@ -79,7 +79,7 @@ keep this skill's gate as the last step before publishing.
 
 In scope: reproducible faults bound for a team, an upstream project, or an incident review.
 Not for: undiagnosed faults (/ai-debug), internal findings worth remembering (/ai-note),
-decisions (/ai-plan), the docs themselves (/ai-write).
+decisions (/ai-brainstorm), the docs themselves (/ai-write).
 
 ## Lifecycle
 

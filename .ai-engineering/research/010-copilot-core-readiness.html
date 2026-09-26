@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research 010 - Copilot core readiness</title>
+<style>
+:root{--bg:#001E2B;--surface:#112733;--surface-2:#1C2D38;--line:rgba(61,79,88,.45);--accent:#00ED64;--accent-dim:#71F6BA;--text:#FFF;--dim:#C1C7C6;--bad:#FF6960;--warn:#FFC010;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 var(--sans)}main{max-width:1050px;margin:auto;padding:64px 24px}h1,h2{line-height:1.15}h1{font-size:42px;margin:0 0 12px}h2{font-size:24px;margin:44px 0 14px;border-top:1px solid var(--line);padding-top:18px}p,li{color:var(--dim)}strong{color:var(--text)}code{font:13px var(--mono);color:var(--accent-dim);background:var(--surface-2);padding:2px 5px;border-radius:4px}a{color:var(--accent)}.meta{font:12px/1.7 var(--mono);color:var(--accent-dim)}.callout{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);padding:16px 18px;margin:20px 0}.status{font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase}.closed{color:var(--accent)}.open{color:var(--bad)}.unknown{color:var(--warn)}table{width:100%;border-collapse:collapse;background:var(--surface);margin:16px 0 24px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:11px 12px}th{color:var(--accent-dim);font:12px var(--mono)}td{color:var(--dim)}td:first-child{color:var(--text);font-weight:600}ol{padding-left:24px}.small{font-size:13px}
+</style>
+</head>
+<body><main>
+<p class="meta">RESEARCH 010 / CONSULTA 2026-09-25 / DECISION: NO PROMOTE TO CORE</p>
+<h1>Copilot: sigue en best-effort</h1>
+<p>Pregunta: si el contrato de <code>ai-engineering</code> exige deny que el host obedece, rewrite de salida que el host aplica, prompt hook capaz de bloquear o reescribir, carrier realmente leído y receipts que sobreviven el turno, ¿puede Copilot subir a <code>core</code>?</p>
+<div class="callout"><strong>Veredicto:</strong> <span class="status open">no</span>. El CLI sí cierra deny, rewrite de argumentos y lectura de ambos carriers. Pero la salida de <code>userPromptSubmitted</code> de un hook command/HTTP sigue descartada, el cloud agent descarta lo que escriben los hooks y la documentación consultada no atribuye este contrato a Copilot en VS Code. Una brecha abierta basta para mantener el tier en best-effort.</div>
+
+<h2>Resultados por producto</h2>
+<table><thead><tr><th>Producto</th><th>Deny / tool input</th><th>Prompt</th><th>Carrier</th><th>Persistencia</th></tr></thead><tbody>
+<tr><td>Copilot CLI</td><td><span class="status closed">cerrado</span><br><code>preToolUse</code> acepta <code>permissionDecision: deny</code> y <code>modifiedArgs</code>; los command hooks fallan cerrado ante errores no temporales. [1]</td><td><span class="status open">abierta</span><br><code>userPromptSubmitted</code> existe, pero <code>modifiedPrompt</code> solo se honra en hooks SDK programáticos; command/HTTP descarta la salida. [1]</td><td><span class="status closed">cerrado</span><br>La documentación actual combina hooks de política, repositorio <code>.github/hooks/*.json</code>, usuario <code>~/.copilot/hooks/*.json</code>, settings y plugins. [1]</td><td><span class="status unknown">doc no lo dice</span><br>El CLI corre en la máquina local; la referencia no promete durabilidad de receipts entre sesiones. [1]</td></tr>
+<tr><td>Copilot cloud agent</td><td><span class="status closed">cerrado</span><br><code>preToolUse</code> puede permitir, denegar o modificar; <code>ask</code> se trata como deny porque no hay usuario. <code>postToolUse</code> puede modificar el resultado o inyectar contexto. [1]</td><td><span class="status open">abierta</span><br>El hook command/HTTP de <code>userPromptSubmitted</code> no puede usar <code>modifiedPrompt</code>; <code>userPromptTransformed</code> puede reescribir el contenido model-facing, pero no bloquear el turno. [1]</td><td><span class="status closed">cerrado</span><br>Lee <code>.github/hooks/*.json</code> del repositorio clonado; no recibe los hooks de usuario de la máquina. [1][2]</td><td><span class="status open">abierta</span><br>El sandbox es efímero y los archivos escritos por hooks, incluidos logs y transcripts, se descartan al terminar el job. La propia doc indica que para retener output hay que enviarlo por un hook HTTP. [1]</td></tr>
+<tr><td>Copilot en VS Code</td><td><span class="status unknown">doc no lo dice</span><br>La referencia oficial consultada define hooks para CLI y cloud agent, no para Copilot Chat en VS Code. No se puede transferir un sí de otro producto. [1][2]</td><td><span class="status unknown">doc no lo dice</span><br>No hay en las páginas primarias consultadas un contrato de <code>userPromptSubmitted</code>/<code>modifiedPrompt</code> para VS Code. [1][2]</td><td><span class="status unknown">doc no lo dice</span><br>El informe local 003 midió lectura de <code>.github/hooks</code> en VS Code, pero eso es evidencia histórica del repo, no una garantía posterior de GitHub para el contrato completo. [3][4]</td><td><span class="status unknown">doc no lo dice</span><br>No hay garantía primaria consultada sobre receipts de hooks en VS Code. [1][2]</td></tr>
+</tbody></table>
+
+<h2>Brechas que deciden el tier</h2>
+<ol>
+<li><strong>Prompt hook: sigue abierta para CLI y cloud agent.</strong> Para cerrar la brecha, GitHub tendría que hacer que la salida del hook command/HTTP de <code>userPromptSubmitted</code> sea aplicada por el host, con una semántica documentada de bloqueo y/o sustitución de prompt. <code>userPromptTransformed</code> solo cubre reescritura model-facing y es mutation-only. [1]</li>
+<li><strong>Carriers: cerrada solo dentro del CLI; no unifica los tres productos.</strong> El CLI ya combina repositorio y usuario. El cloud agent intencionalmente solo carga la copia del repo. Para una garantía común, VS Code necesitaría una superficie documentada y observable con el mismo carrier y contrato. [1][2]</li>
+<li><strong>Persistencia cloud: sigue abierta.</strong> Un hook que escribe <code>.ai-engineering/receipts</code> o cualquier archivo del sandbox no deja un registro al acabar el job. Para cerrar la brecha hace falta una salida persistente que el host garantice, por ejemplo un mecanismo documentado de publicación/commit del output del hook; la referencia actual solo menciona HTTP para retenerlo. [1]</li>
+</ol>
+
+<h2>Tres direcciones</h2>
+<ol>
+<li><strong>CLI real:</strong> medir en una instalación vigente un hook de repo y otro de <code>~/.copilot/hooks</code> que, por separado, denieguen, devuelvan <code>modifiedArgs</code>, escriban un receipt y prueben <code>userPromptSubmitted</code>. La doc ya afirma el contrato de deny/rewrite y la lectura combinada; la sonda debe comprobar la versión concreta y la durabilidad local. [1]</li>
+<li><strong>VS Code:</strong> medir por separado el runtime de Copilot Chat con un hook de <code>.github/hooks</code>: carga, deny, rewrite de input, rewrite de output, prompt y receipt. La documentación primaria consultada no cubre esta superficie, así que no usar el resultado del CLI como proxy. [1][2]</li>
+<li><strong>Dejar en best-effort:</strong> cloud agent y cualquier prompt guard basado en command/HTTP mientras GitHub no aplique <code>modifiedPrompt</code> y no haga persistente el output escrito por hooks. La recomendación está directamente limitada por esas dos capacidades documentadas como ausentes. [1]</li>
+</ol>
+
+<h2>Herramientas y límites</h2>
+<ul>
+<li>Floor local: árbol del repo, <code>surfaces.json</code>, dialecto Copilot, fila del README y reports 003/004/009. [3][4][5]</li>
+<li>Usados: GitHub Docs vía Jina Reader de <code>agent-reach</code>, Context7 CLI (<code>/websites/github_en_copilot</code>) y NotebookLM deep research iniciado el 2026-09-25.</li>
+<li><code>degraded-tool: Exa</code>: configurado pero no verificado por <code>agent-reach doctor</code>; no sostiene ningún veredicto.</li>
+<li>La fuente markdown primaria no expone una fecha de actualización del artículo; todas las comprobaciones web de este informe son de 2026-09-25. Las fechas de página no publicadas quedan <strong>[unsourced]</strong>.</li>
+</ul>
+
+<h2>Fuentes</h2>
+<ol class="small">
+<li id="f1"><a href="https://docs.github.com/en/copilot/reference/hooks-reference">GitHub Copilot hooks reference</a>. Consulta 2026-09-25. Contrato de <code>preToolUse</code>, <code>postToolUse</code>, <code>userPromptSubmitted</code>, <code>userPromptTransformed</code>, locations y sandbox cloud.</li>
+<li id="f2"><a href="https://docs.github.com/en/copilot/concepts/agents/hooks">About hooks for GitHub Copilot</a>. Consulta 2026-09-25. Enumera explícitamente Copilot cloud agent y Copilot CLI como superficies soportadas.</li>
+<li id="f3"><a href="../../src/surfaces/surfaces.json">src/surfaces/surfaces.json</a>. Estado local consultado 2026-09-25: Copilot best-effort, prompt hook false y dos carriers.</li>
+<li id="f4"><a href="003-agit-secret-guard-agent-git-al-design.html">Research 003</a>. Medición local del 2026-09-11: lectura del carrier de repo y efimeridad observada en cloud.</li>
+<li id="f5"><a href="009-cursor-hooks-soporte.html">Research 009</a>. Consulta local del 2026-09-25 que conserva la medición previa de Copilot CLI y la autoridad de la página oficial frente a índices secundarios.</li>
+</ol>
+</main></body></html>

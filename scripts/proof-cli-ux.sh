@@ -127,7 +127,8 @@ printf '%s\n' "$REI_OUT" | grep -E 'assets current|assets synced' | head -1 | se
 
 # ── R15-2: config preselects installed surfaces and prints the delta ──
 CFG_OUT=$(printf '\n' | $CLI config 2>&1)
-printf '%s\n' "$CFG_OUT" | grep -q 'ticked = installed' || die "R15-2: preselect wording missing"
+printf '%s\n' "$CFG_OUT" | grep -q 'Which agent surfaces is this project governed on?' || die "R15-2: surface prompt missing"
+printf '%s\n' "$CFG_OUT" | grep -q 'core — deny' && die "R15-2: tier classification still in the picker"
 printf '%s\n' "$CFG_OUT" | grep -q 'surfaces unchanged' || die "R15-2: delta output missing"
 printf '%s\n' "$CFG_OUT" | grep 'surfaces unchanged' | sed 's/^/R15 evidence: config /'
 
