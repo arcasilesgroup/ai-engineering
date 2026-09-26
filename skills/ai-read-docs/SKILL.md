@@ -134,7 +134,7 @@ types if available, and avoid presenting the result as confirmed-current.
 
 1. Name change only: this is BuilderIO's read-the-damn-docs method, kept intact
    under the official ai-engineering name. Docs reading is a duty in
-   ai-brainstorm, ai-research, ai-architect and ai-plan (blueprint §11.6), which
+   ai-brainstorm, ai-research, ai-architect and ai-orchestrator (blueprint §11.6), which
    cite this skill rather than re-stating its triggers.
 
 ## Lifecycle

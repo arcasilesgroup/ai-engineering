@@ -122,6 +122,14 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
   });
 });
 
+describe("workflow kit — embedded payload includes kit skill paths", () => {
+  test("U3: embedded payload includes ai-orchestrator and ai-design-md-planner skill paths", () => {
+    const paths = [...canonSkills().keys()];
+    expect(paths.some((path) => path.startsWith("skills/ai-orchestrator/"))).toBe(true);
+    expect(paths.some((path) => path.startsWith("skills/ai-design-md-planner/"))).toBe(true);
+  });
+});
+
 describe("drift is a measurement, not a claim", () => {
   test("a freshly materialized canon is intact: nothing missing, nothing drifted, nothing stale", () => {
     const home = sandbox();

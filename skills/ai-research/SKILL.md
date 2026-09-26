@@ -9,7 +9,7 @@ description: >-
   worth taking. Trigger for "what does the state of the art say", "compare the options
   for", "find sources on", "is this still true", "what do the docs say about". Not for
   questions whose answer is in this repository — use /ai-explore. Not for diagnosing a
-  failure — use /ai-debug. Not for deciding what to build — use /ai-plan.
+  failure — use /ai-debug. Not for deciding what to build — use /ai-orchestrator.
 license: Apache-2.0
 ---
 
@@ -116,7 +116,7 @@ Not for:
   `file:line`.
 - "CI is failing and I can't tell why" — use /ai-debug, because that is broken behaviour
   here with a cause at `file:line`, not a question about the world.
-- "which of these two approaches should we build" — use /ai-plan, because deciding what to
+- "which of these two approaches should we build" — use /ai-orchestrator, because deciding what to
   build needs options, a recommendation and the authority to proceed; research supplies
   the evidence a plan cites and stops there.
 - "save what we just worked out about the vendor's rate limit so we don't lose it" — use
@@ -128,8 +128,10 @@ Not for:
 ## The ai-engineering seam
 
 1. Output goes to `.ai-engineering/research/NNN-section.html` with numbered citations,
-   styled by the artifact design system — [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md): the tokens go
-   in verbatim, so the report reads as one family with spec.html and the recap. The
+   styled by the artifact design system — [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md): the tokens go
+   in verbatim, so the report reads as one family with the brainstorm and the recap. Before
+   `</body>`, copy that file's scroll-spy script verbatim: it marks the nav link for
+   the section in view, and tokens alone leave the nav unselected. The
    folder is flat: a three-digit `NNN`, never a subfolder.
 2. Feed ai-architect's existence-check and prior-art review: this evidence is what an
    architecture PR cites before building something that already exists.
@@ -141,8 +143,8 @@ Trigger: open-questions
 Trigger kind: judgment
 Trigger when: the brainstorm lists open questions, or the plan cites an external API or version
 Writes: .ai-engineering/research/NNN-{name}.html
-Read by: ai-architect, ai-plan, humans
+Read by: ai-architect, ai-orchestrator, humans
 Dies: immune while a permanent governor cites it; doctor --gc after older_than when nothing cites it
-Next: ai-architect when the milestone restructures components; ai-plan otherwise
+Next: ai-architect when the milestone restructures components; ai-orchestrator otherwise
 
 Source: ai-engineering (own), Apache-2.0.

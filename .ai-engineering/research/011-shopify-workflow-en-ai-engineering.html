@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research 011 · El kit entra entero</title>
+<style>
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px; --lh-h2:1.16; --ls-h2:-.018em;
+  --fs-h3:17px; --lh-h3:1.32; --ls-h3:-.006em;
+  --fs-h4:14px; --lh-h4:1.35;
+  --fs-body:15px; --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px; --lh-mono:1.7;
+  --fs-label:10.5px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--fs-body);line-height:var(--lh-body);font-synthesis-weight:none;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
+.hero{position:relative;overflow:hidden;text-align:center;padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);background-size:32px 32px,32px 32px,100% 100%}
+.hero .stamp{display:inline-block;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.26em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;margin-bottom:var(--s5)}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+nav{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:var(--s2) var(--s4);background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:640;margin:var(--s6) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);max-width:var(--measure);margin:0 auto var(--s3);text-align:center}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;-webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+.card h3,.card h4{min-height:22px;line-height:22px}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+.tbl-wrap{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+@media (max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px;letter-spacing:-.022em}.hero .sub{font-size:16px}}
+@media (max-width:820px){nav a{padding:14px 8px}}
+@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}table{font-size:13px}th,td{padding:10px var(--s3)}pre{font-size:11.5px;padding:var(--s3) var(--s4)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
+@media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
+@media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Research · 011 · 2026-09-25</div>
+  <h1>El kit entra entero. El borde del host es lo único que se adapta.</h1>
+  <p class="sub">La pregunta que esto cambia: qué de ai-engineering sigue siendo el contrato de una feature, y qué se aparta para que el workflow del kit corra con las mismas fases, las mismas puertas y los mismos textos.</p>
+  <div class="meta">Fuentes locales leídas hoy · docs de host consultadas el 2026-09-25 · NotebookLM deep research <b>cosechado, 65 fuentes</b> · camino arquitectónico</div>
+</header>
+
+<nav>
+  <a href="#s1"><b>01</b>Qué cambia</a>
+  <a href="#s2"><b>02</b>Herramientas</a>
+  <a href="#s3"><b>03</b>El kit</a>
+  <a href="#s4"><b>04</b>Qué se congela</a>
+  <a href="#s5"><b>05</b>Dónde viven los docs</a>
+  <a href="#s6"><b>06</b>Skills</a>
+  <a href="#s7"><b>07</b>El gancho</a>
+  <a href="#s8"><b>08</b>Agentes</a>
+  <a href="#s9"><b>09</b>DESIGN.md</a>
+  <a href="#s10"><b>10</b>El visor</a>
+  <a href="#s11"><b>11</b>Desacuerdos</a>
+  <a href="#s12"><b>12</b>Tres caminos</a>
+  <a href="#s14"><b>14</b>Layout</a>
+  <a href="#s13"><b>13</b>Fuentes</a>
+</nav>
+
+<main id="main">
+<div class="container">
+
+<section id="s1">
+  <h2><span class="num">01</span>Qué cambia según la respuesta</h2>
+  <div class="note warn">
+    <h4>Superseded in part, 2026-09-25</h4>
+    <p>The approval document is the brainstorm. Where this page still says <code>CLAUDE.md</code>, <code>docs/</code>, or <code>prd.html</code>, the brainstorm wins. Decided since this page was drafted: all surfaces, English, <code>AGENTS.md</code> only, spec at <code>.ai-engineering/PRD.html</code>, run state in <code>.ai-engineering/workflow/</code>, standing files at the repo root, skills and agents from a global canon via symlink. This page stays the evidence for the kit inventory and the host docs.</p>
+  </div>
+  <p>Si el kit ya es el bucle, <code>spec.html</code>, <code>plan.html</code> y <code>ai-goal</code> dejan de ser el contrato de una feature. Si no lo es, borrarlos deja el repo sin plan ejecutable. <a href="#f1">[1]</a> <a href="#f2">[2]</a></p>
+  <p>Si el gancho solo bloquea en Claude Code, copiar el kit “tal cual” a los ocho hosts de <code>surfaces.json</code> promete una puerta que varios hosts no pueden cerrar. La respuesta decide si el primer corte es cross-host o Claude más Cursor, que ya leen los mismos agentes. <a href="#f3">[3]</a> <a href="#f4">[4]</a></p>
+</section>
+
+<section id="s2">
+  <h2><span class="num">02</span>Herramientas</h2>
+  <ul>
+    <li><strong>Local, siempre.</strong> El kit (39 archivos), el canon <code>skills/</code> de este repo, <code>src/surfaces/surfaces.json</code>, <code>src/spec/index.ts</code>, <code>src/surfaces/adapters.ts</code>, research 009 y 010. <a href="#f1">[1]</a> <a href="#f2">[2]</a> <a href="#f3">[3]</a></li>
+    <li><strong>Web.</strong> Búsqueda de Cursor contra la doc de Claude Code, Cursor hooks, Cursor subagents. Fecha de consulta: 2026-09-25. <a href="#f4">[4]</a> <a href="#f5">[5]</a> <a href="#f6">[6]</a></li>
+    <li><strong>NotebookLM.</strong> <code>notebooklm doctor</code> pasó. Deep research del notebook <code>38662bbb-9a13-4153-afbf-1106469a547d</code>, task <code>fb5294f5-5820-4b6a-9df4-6aab3df1bce1</code>, cosechado al cerrar: estado <code>completed</code>, 65 fuentes, informe de 38 KB. Es una síntesis. Donde discrepa de una página de vendor abierta en esta sesión, manda la página. <a href="#f24">[24]</a></li>
+    <li><strong>degraded-tool: exa.</strong> No está en el catálogo MCP de esta sesión.</li>
+    <li><strong>degraded-tool: tavily.</strong> No se usó. La doc de vendor salió por la búsqueda de Cursor.</li>
+  </ul>
+</section>
+
+<section id="s3">
+  <h2><span class="num">03</span>Qué es el kit, leído del árbol</h2>
+  <p>No es una app Shopify. Es un kit agnóstico de stack: skills, agentes, un gancho y docs plantilla. El README dice copiarlo a un proyecto, no trabajar dentro de la carpeta. <a href="#f1">[1]</a></p>
+  <div class="stats">
+    <div class="stat"><div class="v">6</div><div class="l">skills</div></div>
+    <div class="stat"><div class="v">5</div><div class="l">agentes</div></div>
+    <div class="stat"><div class="v">2</div><div class="l">paradas humanas</div></div>
+    <div class="stat"><div class="v">3</div><div class="l">puertas por paso</div></div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th scope="col">Pieza</th><th scope="col">Qué hace</th><th scope="col">Dónde queda el estado</th></tr></thead>
+      <tbody>
+        <tr><td>orchestrator</td><td>Coordina. No lee código, diffs, tests ni capturas. Cada trabajo va a un subagente nuevo.</td><td><code>docs/checkpoints/&lt;slug&gt;.json</code></td></tr>
+        <tr><td>checkpoint-planner</td><td>Parte la feature en 3 a 7 pasos, de <code>xs</code> a <code>xl</code>, cada uno entregable.</td><td>El mismo JSON</td></tr>
+        <tr><td>test-planner</td><td>Pruebas de abajo arriba. UI e2e al final.</td><td><code>docs/test-plans/&lt;slug&gt;.json</code></td></tr>
+        <tr><td>prototype</td><td>Un HTML clicable más <code>states.json</code>.</td><td><code>.ai-engineering/workflow/prototypes/</code></td></tr>
+        <tr><td>review-ui</td><td>Captura prototipo y página viva en el mismo estado. Dos revisores en paralelo.</td><td><code>.playwright/</code></td></tr>
+        <tr><td>adversarial-loop</td><td>Crítico contra fixer, hasta 4 rondas, árbitro si hay empate.</td><td><code>docs/reviews/</code></td></tr>
+        <tr><td>design-md-planner</td><td>Entrevista o extrae, escribe DESIGN.md en formato Google, pasa el lint de <code>@google/design.md</code>.</td><td><code>docs/DESIGN.md</code></td></tr>
+        <tr><td>checkpoint-gate.py</td><td>PreToolUse en Agent, Task, Write, Edit, Bash. Stop si un paso quedó a medias.</td><td>Lee el JSON, no lo escribe</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>El humano para dos veces: aprobar el plan, y probar la app. En medio, el orquestador decide. Si una puerta falla 3 veces, parte el paso. Si el paso partido también falla 3 veces, escribe <code>halted</code> y para. <a href="#f2">[2]</a></p>
+  <p>Cada paso que toca archivos hace commit en <code>feat/&lt;slug&gt;</code>, con mensajes fijos (<code>plan</code>, <code>test</code>, <code>feat</code>, <code>gate</code>, <code>fix</code>, <code>docs</code>, <code>wip</code>). Al aprobar, un squash a la rama base. No hace push. <a href="#f2">[2]</a></p>
+</section>
+
+<section id="s4">
+  <h2><span class="num">04</span>Qué se congela y qué obliga el prefijo</h2>
+  <p>El pedido cierra el texto, las fases, las puertas, el JSON, la tabla de commits y los nombres de agente. El prefijo <code>ai-</code> obliga a tocar solo las cuerdas que nombran el skill. Si esas cuerdas no cambian, el gancho de Stop no reconoce la sesión y el visor de rutas del skill no encuentra el archivo. <a href="#f7">[7]</a></p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th scope="col">Nombre en el kit</th><th scope="col">Nombre en el canon</th><th scope="col">Agente que llama</th></tr></thead>
+      <tbody>
+        <tr><td>orchestrator</td><td>ai-orchestrator</td><td>checkpoint-planner, general-purpose</td></tr>
+        <tr><td>test-planner</td><td>ai-test-planner</td><td>general-purpose</td></tr>
+        <tr><td>prototype</td><td>ai-prototype</td><td>general-purpose, o él mismo si ya es subagente</td></tr>
+        <tr><td>review-ui</td><td>ai-review-ui</td><td>ui-visual-reviewer, ui-behavior-reviewer</td></tr>
+        <tr><td>adversarial-loop</td><td>ai-adversarial-loop</td><td>adversarial-reviewer, fixer</td></tr>
+        <tr><td>design-md-planner</td><td>ai-design-md-planner</td><td>ninguno propio</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Cuerdas que hay que reescribir porque llevan el nombre viejo, y nada más: el <code>name:</code> del frontmatter, cada <code>/orchestrator</code> y hermanos, las rutas <code>.claude/skills/&lt;nombre&gt;/SKILL.md</code>, el comando <code>node .claude/skills/review-ui/capture.cjs</code>, y el regex del gancho que busca <code>"skill": "orchestrator"</code> o <code>/orchestrator</code>. El test del gancho fija esa cuerda. <a href="#f7">[7]</a> <a href="#f8">[8]</a></p>
+  <div class="note warn">
+    <h4>Por qué la copia tiene que vivir en el proyecto</h4>
+    <p>ai-engineering instala skills en el canon de la máquina y los espeja a <code>~/.claude/skills</code>. El kit no. Sus skills se leen con ruta relativa al repo: <code>.claude/skills/test-planner/SKILL.md</code> y <code>.claude/hooks/checkpoint-gate.py</code> con <code>CLAUDE_PROJECT_DIR</code>. Si solo viven en el home, el orquestador abre un archivo que no está. El canon sirve para que <code>ai-eng update</code> tenga la fuente. El proyecto gobernado necesita además la copia en <code>.claude/skills/ai-*</code> y <code>.claude/hooks/</code>. <a href="#f1">[1]</a> <a href="#f9">[9]</a></p>
+  </div>
+  <p>Los cinco agentes no llevan prefijo. Sus <code>name:</code> se quedan: <code>checkpoint-planner</code>, <code>adversarial-reviewer</code>, <code>fixer</code>, <code>ui-visual-reviewer</code>, <code>ui-behavior-reviewer</code>. <a href="#f10">[10]</a></p>
+</section>
+
+<section id="s5">
+  <h2><span class="num">05</span>Dos casas de documentos, y no son la misma</h2>
+  <p><code>.ai-engineering/*.html</code> es el contrato de un hito. <code>spec close</code> lo barre. <code>docs/</code> del kit es la verdad del producto, y sobrevive al hito. Meter PRD, permisos y aprendizajes en el slot HTML haría que un close borre el producto. <a href="#f1">[1]</a> <a href="#f11">[11]</a></p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th scope="col">Archivo del kit</th><th scope="col">Para qué lo leen los skills</th><th scope="col">Equivalente hoy en ai-engineering</th></tr></thead>
+      <tbody>
+        <tr><td><code>CLAUDE.md</code> · Project config, Architecture rules, Shared helpers, Git workflow</td><td>Comandos, URLs, roles, reglas que el crítico trata como blocker</td><td><code>AGENTS.md</code>, que no tiene esos encabezados</td></tr>
+        <tr><td><code>docs/PRD.md</code></td><td>De aquí sale la respuesta cuando el pedido es ambiguo</td><td>No hay. <code>brainstorm.html</code> hace la entrevista y muere</td></tr>
+        <tr><td><code>docs/PERMISSIONS.md</code></td><td>Matriz endpoint × rol. El crítico la compara</td><td>No hay</td></tr>
+        <tr><td><code>docs/DESIGN.md</code></td><td>Tokens. Lo escribe design-md-planner. Lo leen prototipo, UI y crítico</td><td><code>.ai-engineering/design/direction.html</code>, otro formato y otro público</td></tr>
+        <tr><td><code>docs/LEARNINGS.md</code></td><td>Rules + log. Todo worker lo lee antes de empezar</td><td>No hay. <code>ai-note</code> escribe <code>DECISIONS.md</code></td></tr>
+        <tr><td><code>docs/decisions/</code></td><td>Una decisión, un archivo. Revertir es un archivo nuevo</td><td><code>DECISIONS.md</code> y <code>ai-note</code></td></tr>
+        <tr><td><code>docs/FILEMAP.md</code>, <code>docs/CHANGELOG.md</code></td><td>Se actualizan en el cierre de cada feature</td><td><code>ai-write</code> escribe README y docs, no estos dos por contrato del kit</td></tr>
+        <tr><td><code>docs/checkpoints/</code>, <code>test-plans/</code>, <code>reviews/</code></td><td>El plan vivo, las pruebas, el debate</td><td><code>plan.html</code>, <code>spec.html</code>, receipts de <code>ai-proof</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Los skills nombran <code>CLAUDE.md</code> por ese nombre. Cambiarlo a <code>AGENTS.md</code> dentro del skill es un cambio de texto. La vía que conserva el texto es instalar los dos: <code>AGENTS.md</code> sigue siendo el contrato del harness, y <code>CLAUDE.md</code> lleva los cuatro encabezados que el kit busca. El agente abre <code>CLAUDE.md</code> porque el skill se lo pide, también en un host que de entrada solo carga <code>AGENTS.md</code>. <a href="#f12">[12]</a></p>
+  <p>Instalar docs de proyecto con la regla del kit: no pisar un archivo que ya existe (<code>cp -n</code>). La excepción que el propio README marca es <code>docs/checkpoints/viewer.html</code>, que sí se reescribe al actualizar. <a href="#f1">[1]</a></p>
+</section>
+
+<section id="s6">
+  <h2><span class="num">06</span>Cada skill de ai-engineering contra el kit</h2>
+  <p>El crítico del kit ataca reglas de arquitectura, seguridad de acceso (rol, IDOR, secretos), corrección, tests, consistencia, y en UI tokens más accesibilidad básica. No corre una auditoría WCAG 2.2, ni perf, ni el audit de seis fases de <code>ai-security</code>, ni mide píxeles sin prototipo. <a href="#f13">[13]</a></p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th scope="col">Skill</th><th scope="col">Choque con el kit</th><th scope="col">Recomendación</th></tr></thead>
+      <tbody>
+        <tr><td>ai-brainstorm</td><td>Entrevista una idea borrosa y escribe <code>brainstorm.html</code>. El orquestador no pregunta: responde desde el PRD.</td><td><span class="pill p-warn">slot muere</span> El skill puede quedarse como el que rellena <code>docs/PRD.md</code> antes de que exista una feature nombrable. El HTML deja de ser el contrato.</td></tr>
+        <tr><td>ai-plan</td><td>Escribe <code>spec.html</code> + <code>plan.html</code>. El planner del kit escribe el JSON de checkpoints.</td><td><span class="pill p-bad">sale del camino de feature</span> No reescribir el kit para que emita spec.html.</td></tr>
+        <tr><td>ai-goal y sus tres hijos</td><td>El bucle lee spec, plan y brainstorm, y marca casillas. El orquestador es ese bucle, con otras casillas.</td><td><span class="pill p-bad">sale</span> <code>feature-batch</code> trae otro agente <code>adversary</code>. No es <code>adversarial-reviewer</code>. No mezclarlos.</td></tr>
+        <tr><td>ai-proof</td><td>Gates en spec.html y receipts. <code>ai-eng spec run</code> llamaba a <code>gate-check.mjs</code>.</td><td><span class="pill p-bad">retirado</span> El ciclo de feature no escribe spec.html. <code>spec run</code> y el skill se fueron. <code>spec open</code>, <code>approve</code> y <code>close</code> se quedan.</td></tr>
+        <tr><td>ai-verify y sus lanes</td><td>Behavior del kit cubre unit, API, lint, build, e2e. Review cubre el diff del paso. No cubre a11y completo, perf, ni “¿construimos lo pedido?” contra un spec de conversación.</td><td><span class="pill p-ok">se queda, fuera del bucle</span> Meter esos lanes dentro de la Fase 2 cambia el workflow. Se invocan cuando alguien los pide.</td></tr>
+        <tr><td>ai-design</td><td>Elige un skill de gusto y escribe <code>direction.html</code>. design-md-planner escribe <code>docs/DESIGN.md</code> y también dice “úsame cuando quieran que se vea bien”.</td><td><span class="pill p-warn">pendiente, recomendado: se queda</span> DESIGN.md gana en tokens del producto. ai-design no lidera cuando el pedido es una feature orquestada o un sistema de diseño.</td></tr>
+        <tr><td>ai-audit-design</td><td>Mide píxeles de una página ya construida, sin prototipo. review-ui compara contra el prototipo.</td><td><span class="pill p-ok">se queda</span> Trabajos distintos. No sustituye la puerta UI ni al revés.</td></tr>
+        <tr><td>ai-codegraph</td><td>El orquestador prohíbe que el coordinador lea código. Los workers hoy buscan con grep.</td><td><span class="pill p-ok">se queda</span> No se mete una frase nueva en el skill. Se rellena Shared helpers de <code>CLAUDE.md</code>, que el kit ya manda leer, con codegraph como forma de leer el grafo. <a href="#f14">[14]</a></td></tr>
+        <tr><td>ai-security</td><td>Auditoría de todo el repo. El crítico mira el diff del paso.</td><td><span class="pill p-ok">se queda, fuera del bucle</span></td></tr>
+        <tr><td>ai-code-review, ai-audit-code</td><td>Revisión de un diff o de deuda, sin el hilo de debate del kit.</td><td><span class="pill p-ok">se quedan</span> Para un PR que no nació en el orquestador.</td></tr>
+        <tr><td>ai-visual-recap</td><td>Recap de un PR al cerrar. El visor es el progreso en vivo del plan.</td><td><span class="pill p-ok">se queda</span> No es <code>viewer.html</code>.</td></tr>
+        <tr><td>ai-note</td><td>Añade a <code>DECISIONS.md</code>. El kit separa decisión (<code>docs/decisions/</code>) y fallo (<code>docs/LEARNINGS.md</code>).</td><td><span class="pill p-warn">se adapta el destino</span> Una decisión de producto va a <code>docs/decisions/</code>. LEARNINGS no se fusiona: es otro molde, append-only, lo escribe el orquestador.</td></tr>
+        <tr><td>ai-agents-md</td><td>Dueño de <code>AGENTS.md</code>.</td><td><span class="pill p-ok">se queda</span> No absorbe los cuatro encabezados del kit. Esos viven en <code>CLAUDE.md</code>.</td></tr>
+        <tr><td>ai-write</td><td>README y docs de cara al lector.</td><td><span class="pill p-ok">se queda</span> Durante una corrida, changelog y filemap los actualiza el orquestador, no este skill.</td></tr>
+        <tr><td>ai-research, ai-explore, ai-debug, ai-read-docs, ai-architect</td><td>Lentes o arquitectura del harness. El kit no los reemplaza.</td><td><span class="pill p-ok">se quedan</span> El coordinador sigue sin leer el árbol. Un worker puede usar explore o codegraph.</td></tr>
+        <tr><td>ai-config-to-project, ai-issue-report, ai-pr-loop-fix, ai-stress-test, ai-writing-behavior, ai-audit-docs</td><td>Ninguno está dentro de las fases del kit. pr-loop-fix mira CI. El kit no hace push.</td><td><span class="pill p-ok">se quedan</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note ok">
+    <h4>Lo que el usuario ya sospechaba, con el matiz</h4>
+    <p><code>brainstorm.html</code>, <code>spec.html</code> y <code>plan.html</code> dejan de ser el contrato de feature. <code>ai-goal</code>, <code>ai-plan</code> y <code>ai-proof</code> salieron de ese camino. <code>spec open</code>, <code>approve</code> y <code>close</code> se quedan para el slot. <code>ai-verify</code> sigue como herramienta suelta.</p>
+  </div>
+</section>
+
+<section id="s7">
+  <h2><span class="num">07</span>El gancho, host por host</h2>
+  <p>La lógica de <code>checkpoint-gate.py</code> se queda: etapas <code>tests implement behavior ui review fix</code>, puertas <code>behavior → ui → review</code>, Bash no puede escribir el JSON, Stop no deja cerrar el turno con un paso abierto salvo <code>halted</code>, interrupción, pregunta al usuario, o 3 bloqueos seguidos. Lo que cambia por host es el JSON que entra por stdin. Un normalizador lo traduce a la forma que el script ya entiende. El script no aprende hosts. <a href="#f7">[7]</a></p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th scope="col">Host</th><th scope="col">Bloquear tool</th><th scope="col">Negarse a terminar el turno</th><th scope="col">Agentes en disco</th></tr></thead>
+      <tbody>
+        <tr><td>Claude Code</td><td class="check">PreToolUse, exit 2. Doc oficial. <a href="#f4">[4]</a></td><td class="check">Stop, exit 2, la conversación sigue. <a href="#f4">[4]</a></td><td class="check"><code>.claude/agents/*.md</code> <a href="#f6">[6]</a></td></tr>
+        <tr><td>Cursor</td><td class="check">preToolUse, exit 2 = deny. Task, Shell, Write. Edit de Claude se mapea a Write. <a href="#f5">[5]</a></td><td class="check"><code>stop</code> con <code>followup_message</code>. <a href="#f5">[5]</a></td><td class="check">Lee <code>.claude/agents/</code> además de <code>.cursor/agents/</code>. <a href="#f15">[15]</a></td></tr>
+        <tr><td>Codex CLI</td><td class="check">PreToolUse niega y reescribe, ya citado en research 009. <a href="#f16">[16]</a></td><td class="half">Stop equivalente: no verificado en doc de vendor en esta sesión</td><td class="half">Desacuerdo. Ver §11</td></tr>
+        <tr><td>Copilot CLI</td><td class="check">preToolUse puede deny. Research 010, tier best-effort. <a href="#f17">[17]</a></td><td class="cross">El prompt hook de command no bloquea. Un Stop de turno no está cerrado en 010. <a href="#f17">[17]</a></td><td>[unsourced] carpeta de agentes en la doc primaria de esta sesión</td></tr>
+        <tr><td>Pi, Oh My Pi, OpenCode</td><td class="check">Niegan tool calls. El carrier ya está en surfaces.json. <a href="#f3">[3]</a></td><td>[unsourced] evento Stop equivalente, en la doc primaria de esta sesión</td><td>[unsourced] si aceptan el markdown de Claude sin traducción</td></tr>
+        <tr><td>Zed</td><td class="cross">skills-only. Ningún gancho intercepta un tool call. <a href="#f3">[3]</a></td><td class="cross">no</td><td class="cross">la puerta no puede cumplirse</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Cursor ya documenta el mapa: Bash→Shell, Edit→Write, Task→Task, Stop→stop, exit 2 bloquea. Una copia de agentes en <code>.claude/agents/</code> la ven Claude Code y Cursor. <a href="#f5">[5]</a> <a href="#f15">[15]</a></p>
+  <p>Zed puede recibir los skills y no la puerta. Hay que decirlo en el doctor, no fingir que el workflow corre igual. <a href="#f3">[3]</a></p>
+</section>
+
+<section id="s8">
+  <h2><span class="num">08</span>Agentes</h2>
+  <p>Hoy el binario no instala un catálogo de agentes. Algunos skills traen <code>agents/openai.yaml</code>, que es otra cosa. Los cinco markdown del kit son nuevos en el canon. <a href="#f9">[9]</a></p>
+  <p>Identidad por el campo <code>name</code>, no por la carpeta. Claude Code lo dice así, y desde v2.1.198 el comando <code>/agents</code> ya no abre un asistente: el archivo se edita a mano. <a href="#f6">[6]</a></p>
+  <p>El orquestador llama <code>general-purpose</code> para preflight, tests, implementación y la puerta de behavior. Esos no son archivos del kit. El host tiene que ofrecer ese subagente, o el texto que dice <code>general-purpose</code> no arranca. En Claude Code existe. En otros hosts hay que comprobar el nombre antes de prometer la Fase 0. <a href="#f2">[2]</a> <a href="#f6">[6]</a></p>
+</section>
+
+<section id="s9">
+  <h2><span class="num">09</span>Dos formas de escribir DESIGN.md</h2>
+  <p><code>design-md-planner</code> escribe <code>docs/DESIGN.md</code> en el formato de Google (frontmatter YAML de tokens más prosa), y no para hasta que <code>npx @google/design.md lint</code> queda limpio. Tiene dos modos: inventar un sistema, o extraer el que ya hay y juzgarlo. El modo extraer no copia el slop: lo nombra y propone un reemplazo. <a href="#f18">[18]</a></p>
+  <p><code>make-design-md</code> hace otro trabajo. Lee el código que ya está, no diseña, no normaliza, no arregla en silencio, y escribe <code>design/design.md</code>. Cada valor tiene que salir del repo. <a href="#f19">[19]</a></p>
+  <div class="note warn">
+    <h4>No son intercambiables</h4>
+    <p>Sustituir design-md-planner por make-design-md recorta el kit: se pierde la entrevista, el lint de Google, el catálogo anti-slop y la ruta <code>docs/DESIGN.md</code> que leen prototipo, review-ui y el crítico. Conservar los dos y cambiar solo la ruta de salida de make-design-md a <code>docs/DESIGN.md</code> cumple las dos frases del pedido: el workflow no se recorta, y para reflejar un sistema ya construido se usa make-design-md. Si los dos fueran a escribir el archivo a la vez, manda ai-design-md-planner, porque es el que el resto del kit nombra.</p>
+  </div>
+  <p>El sistema visual de los artefactos de ai-engineering no es el DESIGN.md del producto. El propio documento lo dice: una cosa es cómo habla el framework, otra cómo se ve el producto. <a href="#f20">[20]</a></p>
+</section>
+
+<section id="s10">
+  <h2><span class="num">10</span>El visor</h2>
+  <p><code>docs/checkpoints/viewer.html</code> es cromo del framework que se copia al proyecto. El README deja cambiarle la paleta. El pedido de esta sesión fija esa paleta: la de los artefactos de ai-engineering. El comportamiento se queda. <a href="#f1">[1]</a> <a href="#f20">[20]</a> <a href="#f21">[21]</a></p>
+  <ul>
+    <li>Se queda el script: poll cada 3 s, <code>?plan=</code>, selector si hay varios JSON, drag-and-drop si se abre por <code>file://</code>, puntos de tamaño según <code>xs…xl</code>, puertas con las etiquetas Works / Looks right / Code review, assumptions, detalles técnicos, enlace al prototipo, unión con <code>docs/test-plans/&lt;slug&gt;.json</code>.</li>
+    <li>Se queda el copy en inglés. Es texto del workflow.</li>
+    <li>Se va la hoja de Google Fonts (Public Sans, IBM Plex Mono). El artefacto usa pilas de sistema para abrir offline.</li>
+    <li>Entran los tokens del artefacto, el favicon <code>{ai}</code>, y el scroll-spy del nav si el visor pasa a tener nav. La lógica de render no se reescribe para “limpiarla”.</li>
+  </ul>
+</section>
+
+<section id="s11">
+  <h2><span class="num">11</span>Desacuerdos</h2>
+  <ol>
+    <li><strong>¿PreToolUse bloquea de verdad un Agent o un Task?</strong> La doc de Claude Code, consultada el 2026-09-25, dice que exit 2 en PreToolUse bloquea la tool call, y que exit 2 en Stop impide parar. Issues del tracker dicen que el resultado del hook para Agent/Task se mira después de que el subagente ya corrió, o que el deny no se aplica. No verifiqué si un release posterior los cerró. Actuaría por la doc como contrato, y no llamaría “impuesta” la puerta de subagentes hasta una sonda en la versión que corre aquí. La puerta de Write/Edit/Bash y el Stop siguen siendo el respaldo aunque el Agent se cuele. <a href="#f4">[4]</a> <a href="#f22">[22]</a></li>
+    <li><strong>Formato de agentes en Codex.</strong> La doc de Cursor dice que lee markdown en <code>.codex/agents/</code>. Un handbook de terceros dice TOML. NotebookLM dice que Codex declara agentes en <code>config.toml</code> bajo <code>[agents]</code> o en <code>AGENTS.md</code>, no en una carpeta markdown. Pueden ser las dos cosas: el CLI guarda la config en TOML, y Cursor acepta markdown en esa carpeta por compatibilidad. No generaría TOML hasta abrir la doc de OpenAI o probar el CLI. <a href="#f15">[15]</a> <a href="#f23">[23]</a> <a href="#f24">[24]</a></li>
+    <li><strong>¿El stop de Cursor obliga a seguir?</strong> NotebookLM dice que el <code>stop</code> de Cursor sirve para auditar y no tiene un exit 2 que devuelva al modelo al bucle. La página de hooks de Cursor, bajada en esta sesión, dice que <code>followup_message</code> en <code>stop</code> se envía como el siguiente mensaje del usuario. Actuaría por esa página: el adaptador de Cursor usa <code>followup_message</code>, no un exit 2. <a href="#f5">[5]</a> <a href="#f24">[24]</a></li>
+    <li><strong>Dónde viven los agentes de Cursor.</strong> NotebookLM dice <code>.cursor/subagents/</code>. La doc de Cursor dice <code>.cursor/agents/</code> y también <code>.claude/agents/</code>. Actuaría por la doc de Cursor. Una copia en <code>.claude/agents/</code> sigue siendo la que cubre Claude y Cursor. <a href="#f15">[15]</a> <a href="#f24">[24]</a></li>
+    <li><strong>Stop en Pi y OpenCode.</strong> NotebookLM marca los dos: la doc de Pi no trae un stop de turno, y OpenCode no trae un hook que rechace el cierre y obligue a seguir. Oh My Pi sí: <code>turn_end</code> puede inyectar un mensaje. No abrí esas páginas yo. La marca queda como síntesis, y la pregunta 3 del handshake sigue abierta hasta una lectura directa. <a href="#f24">[24]</a></li>
+    <li><strong>Research 009 y el prompt hook de Cursor.</strong> 009 no vio dispararse <code>beforeSubmitPrompt</code>, así que sigue sin cablear. La doc de hooks sí lista <code>stop</code> y <code>preToolUse</code>. Este informe usa esos dos, no el prompt hook. No contradice 009. <a href="#f16">[16]</a> <a href="#f5">[5]</a></li>
+  </ol>
+</section>
+
+<section id="s12">
+  <h2><span class="num">12</span>Tres caminos</h2>
+  <div class="grid g3">
+    <article class="card">
+      <h3>1 · Canon más adaptador</h3>
+      <p>Skills con prefijo <code>ai-</code>, agentes con su nombre, gancho igual detrás de un normalizador de stdin, docs en <code>docs/</code>, visor con los tokens del artefacto. Es el que conserva el workflow y cabe en el binario. <a href="#f1">[1]</a> <a href="#f5">[5]</a></p>
+    </article>
+    <article class="card">
+      <h3>2 · Solo Claude</h3>
+      <p>Copiar <code>.claude/</code> y parar. Más corto. Rompe la promesa cross-host que este repo ya midió en surfaces.json, y Cursor ni siquiera necesita un segundo formato de agente. <a href="#f3">[3]</a> <a href="#f15">[15]</a></p>
+    </article>
+    <article class="card">
+      <h3>3 · Traducir a spec.html</h3>
+      <p>Encajar las puertas en el contrato viejo. Cambia el proceso, el texto y el archivo de estado. Es el camino que el pedido prohíbe. <a href="#f2">[2]</a></p>
+    </article>
+  </div>
+  <p>Mañana, el paso de menos de dos minutos es leer el handshake y decir si el corte de skills de la sección 06 es el que vale.</p>
+</section>
+
+<section id="s14">
+  <h2><span class="num">14</span>The layout the brainstorm will build</h2>
+  <p>Recorded so this evidence file and the approval page name the same places. The trees are the decision. The brainstorm is the page to approve.</p>
+  <h3>Another machine, after the binary and init</h3>
+  <pre>~/.ai-engineering/skills/          canon, one copy
+~/.ai-engineering/agents/          canon, five agent files, no ai- prefix
+~/.claude/skills/                  symlink to the canon
+~/.agents/skills/                  symlink to the canon
+~/.config/opencode/skill/          symlink to the canon
+~/.claude/agents/                  symlink to the agent canon
+machine carriers                   chain, and the checkpoint gate beside it</pre>
+  <p>If a symlink is refused, that mirror becomes a copy and doctor says so. Today <code>linkSkills</code> only symlinks and leaves a refused mirror empty. The copy is new work. <a href="#f9">[9]</a></p>
+  <h3>Another project, after init in that repo</h3>
+  <pre>AGENTS.md
+DECISIONS.md                       ## D-NNN, the git floor already checks this
+CHANGELOG.md                       only planted when the repo has none
+LEARNINGS.md                       planted when absent
+FILEMAP.md                         planted when absent
+PERMISSIONS.md                     planted when absent, n/a if no endpoints
+.ai-engineering/PRD.html
+.ai-engineering/DESIGN.md          written later by the design skills
+.ai-engineering/workflow/checkpoints/viewer.html
+.ai-engineering/config.toml
+.git hooks                         ai-eng git
+.cursor/hooks.json                 only because Cursor reads the repo, not the home</pre>
+  <p>Run files (<code>checkpoints/*.json</code>, <code>test-plans/</code>, <code>reviews/</code>) appear when an orchestrator run starts. They are not copied from the machine. Skills and agents are not copied into the repo.</p>
+</section>
+
+<section id="s13">
+  <h2><span class="num">13</span>Fuentes</h2>
+  <ol>
+    <li id="f1">Kit, <code>README.md</code>, <code>CLAUDE.md</code>, <code>docs/FILEMAP.md</code>. Leídos el 2026-09-25. Inventario: 6 skills, 5 agentes, gancho PreToolUse+Stop, docs plantilla.</li>
+    <li id="f2">Kit, <code>.claude/skills/orchestrator/SKILL.md</code>. Fases 0 a 4, dos paradas, tabla de commits, marcador <code>[checkpoint slug#id stage]</code>.</li>
+    <li id="f3"><code>src/surfaces/surfaces.json</code> de este repo. Ocho hosts. Zed en <code>skills-only</code>. Mediciones de 2026-09-11 a 2026-09-25 citadas dentro del archivo.</li>
+    <li id="f4"><a href="https://code.claude.com/docs/en/hooks.md">code.claude.com/docs/en/hooks</a>, página bajada el 2026-09-25. PreToolUse y Stop bloquean con exit 2.</li>
+    <li id="f5"><a href="https://cursor.com/docs/hooks">cursor.com/docs/hooks</a> y <a href="https://cursor.com/docs/reference/third-party-hooks">third-party hooks</a>, bajadas el 2026-09-25. Mapa Claude→Cursor, exit 2, <code>followup_message</code> en <code>stop</code>.</li>
+    <li id="f6"><a href="https://code.claude.com/docs/en/sub-agents">code.claude.com/docs/en/sub-agents</a>, bajada el 2026-09-25. <code>.claude/agents/</code>, identidad por <code>name</code>, nota de v2.1.198.</li>
+    <li id="f7">Kit, <code>.claude/hooks/checkpoint-gate.py</code>. Regex del marcador, stages, Stop, bloqueo de Bash contra el JSON.</li>
+    <li id="f8">Kit, <code>.claude/hooks/test_checkpoint_gate.py</code> línea del transcript de prueba: <code>"skill": "orchestrator"</code>.</li>
+    <li id="f9"><code>src/surfaces/adapters.ts</code> <code>mirrorTargets</code>: canon y espejos <code>~/.claude/skills</code>, <code>~/.agents/skills</code>. <code>src/spec/index.ts</code> llama a <code>gate-check.mjs</code>.</li>
+    <li id="f10">Frontmatter <code>name:</code> de los cinco archivos en <code>.claude/agents/</code> del kit.</li>
+    <li id="f11"><code>src/spec/index.ts</code>. <code>SLOT_FILES</code> = spec, plan, brainstorm, recap. <code>spec run</code> quedó retirado; <code>open</code>, <code>approve</code> y <code>close</code> siguen.</li>
+    <li id="f12">Menciones de <code>CLAUDE.md</code> en los SKILL.md del kit (orchestrator, test-planner, prototype, review-ui, adversarial-loop) y en los agentes.</li>
+    <li id="f13">Kit, <code>.claude/agents/adversarial-reviewer.md</code>, sección “What to attack”.</li>
+    <li id="f14"><code>skills/ai-codegraph/SKILL.md</code> de este repo, y research 004 en <code>.ai-engineering/research/</code>. El kit no nombra codegraph.</li>
+    <li id="f15"><a href="https://cursor.com/docs/subagents.md">cursor.com/docs/subagents</a>, bajada el 2026-09-25. También carga <code>.claude/agents/</code> y <code>.codex/agents/</code>.</li>
+    <li id="f16">Research 009, <code>.ai-engineering/research/009-cursor-hooks-soporte.html</code>, 2026-09-25. Cursor niega y reescribe el comando. Codex citado vía su doc de hooks.</li>
+    <li id="f17">Research 010, <code>.ai-engineering/research/010-copilot-core-readiness.html</code>, 2026-09-25. Copilot CLI se queda en best-effort.</li>
+    <li id="f18">Kit, <code>.claude/skills/design-md-planner/SKILL.md</code> y <code>references/designmd-spec.md</code>. Salida <code>docs/DESIGN.md</code>, lint <code>@google/design.md</code>.</li>
+    <li id="f19"><code>make-design-md/SKILL.md</code> (AL-Design). Salida <code>design/design.md</code>. Espejo del código, sin diseñar.</li>
+    <li id="f20"><code>skills/ai-design/references/artifact-design.md</code>. El sistema del artefacto no es el del producto. Tokens y favicon que el visor debe copiar.</li>
+    <li id="f21">Kit, <code>docs/checkpoints/viewer.html</code>. Script de poll, estados, copy en inglés, fuentes de Google.</li>
+    <li id="f22">Issues <a href="https://github.com/anthropics/claude-code/issues/83195">83195</a>, <a href="https://github.com/anthropics/claude-code/issues/40580">40580</a>, <a href="https://github.com/anthropics/claude-code/issues/44534">44534</a>. Consultados el 2026-09-25. No verifiqué si siguen abiertos.</li>
+    <li id="f23"><a href="https://danielmeppiel.github.io/agentic-sdlc-handbook/handbook/appendix-a-cross-harness-reference.html">Agentic SDLC Handbook, appendix A</a>. Terceros, no es doc de OpenAI. Dice TOML para agentes de Codex. En desacuerdo con <a href="#f15">[15]</a>.</li>
+    <li id="f24">NotebookLM, notebook <code>38662bbb-9a13-4153-afbf-1106469a547d</code>, task <code>fb5294f5-5820-4b6a-9df4-6aab3df1bce1</code>, cosechado el 2026-09-25. Informe “Comparative Technical Report on AI Agent Host Extensibility”, 65 fuentes. Síntesis, no página de vendor. Donde choca con <a href="#f5">[5]</a> o <a href="#f15">[15]</a>, mandan esas dos.</li>
+  </ol>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Research 011 · kit dentro del canon<br>
+  NotebookLM 38662bbb-9a13-4153-afbf-1106469a547d · deep research cosechado, 65 fuentes<br>
+  <a href="#main">↑ top</a>
+</footer>
+
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>

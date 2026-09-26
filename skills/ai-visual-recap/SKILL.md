@@ -183,7 +183,7 @@ Then, in order of how often each one is the actual problem:
   swallows the next line is how a recap starts lying about its own code.
 - **One token vocabulary across the whole family**: `c` comment · `k` keyword · `s`
   string · `n` number · `t` type · `f` call · `b` strong. These are the artifact design
-  system's own token classes (`skills/ai-design/references/artifact-design.md`), so a
+  system's own token classes (`skills/ai-brainstorm/references/artifact-design.md`), so a
   recap and every other generated artifact read as one thing.
 - **The CSS travels with the artifact**, so it renders identically in a browser, in a
   plan viewer and in a PDF export. It names the artifact's variables and never a colour
@@ -616,8 +616,10 @@ skills; consult them only where that collection is present:
    flow), not on demand.
 3. Output: `.ai-engineering/recap.html`; `ai-eng spec close` archives it to git
    and deletes it from the working tree. A self-contained HTML recap is rendered by
-   the artifact design system — [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — the same tokens,
-   components and rules every other artifact carries.
+   the artifact design system — [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md) — the same tokens,
+   components and rules every other artifact carries. Before `</body>`, keep that
+   file's scroll-spy script verbatim (it is already in `templates/recap.html.tpl`):
+   it marks the nav link for the section in view.
 4. **Visuals are mandatory when they explain.** The same coverage pass that mandates
    wireframes for UI diffs applies to every artifact surface the recap renders: a
    section whose story is visual (a wireframe, a diagram, a terminal capture, a

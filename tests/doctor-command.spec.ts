@@ -549,6 +549,17 @@ describe("doctor · arch, the spec slot and the triggers", () => {
     expect(detail(run, "arch")).toBe("active — src/ present");
   });
 
+  test("arch active when code lives outside src", async () => {
+    const { root } = sandbox();
+    writeFileSync(join(root, ".ai-engineering", "arch.rules.json"), "{}");
+    mkdirSync(join(root, "kit", "src"), { recursive: true });
+    writeFileSync(join(root, "kit", "src", "Button.tsx"), "export {}\n");
+    const run = await doctor();
+    expect(row(run, "arch")).toContain("✓");
+    expect(detail(run, "arch")).toBe("active — source outside src/");
+    expect(detail(run, "arch")).not.toBe("bootstrap mode — src/ empty");
+  });
+
   test("spec slot: approved is ok, unapproved warns, orphans name the artifact", async () => {
     const { root } = sandbox();
     const spec = join(root, ".ai-engineering", "spec.html");
@@ -605,7 +616,7 @@ describe("doctor · arch, the spec slot and the triggers", () => {
 
     const run = await doctor();
     expect(row(run, "triggers")).toContain("▲");
-    expect(detail(run, "triggers")).toContain("ui fired on app.css → ai-design left no artifact");
+    expect(detail(run, "triggers")).toContain("ui fired on app.css → ai-audit-design left no artifact");
   });
 
   test("triggers: an ABANDON id silences the node it abandons", async () => {
@@ -665,14 +676,14 @@ describe("doctor · surface carriers", () => {
   });
 
   test("a repo carrier is required for cursor, best-effort for copilot, and absent for zed", async () => {
-    const { root } = sandbox('[surfaces]\nenabled = ["cursor", "copilot", "zed"]\n');
+    const { root } = sandbox('[surfaces]\nenabled = ["cursor", "copilot-cli", "zed"]\n');
     let run = await doctor();
     expect(row(run, "surface cursor")).toContain("✗");
     expect(detail(run, "surface cursor")).toContain("repo carrier .cursor/hooks.json missing → ai-eng update");
-    expect(row(run, "surface copilot")).toContain("▲");
-    expect(detail(run, "surface copilot")).toContain("machine carrier ~/.copilot/hooks/ai-eng.json missing → ai-eng update");
-    expect(detail(run, "surface copilot")).toContain("repo carrier .github/hooks/ai-eng.json missing → ai-eng update");
-    expect(detail(run, "surface copilot")).toContain("its cloud agent is an ephemeral sandbox");
+    expect(row(run, "surface copilot-cli")).toContain("▲");
+    expect(detail(run, "surface copilot-cli")).toContain("machine carrier ~/.copilot/hooks/ai-eng.json missing → ai-eng update");
+    expect(detail(run, "surface copilot-cli")).toContain("repo carrier .github/hooks/ai-eng.json missing → ai-eng update");
+    expect(detail(run, "surface copilot-cli")).toContain("its cloud agent is an ephemeral sandbox");
     expect(row(run, "surface zed")).toContain("✓");
     expect(detail(run, "surface zed")).toContain("no carrier: guard wiring is not implemented for this host");
     expect(run.code).toBe(2);

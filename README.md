@@ -78,9 +78,9 @@ canon, the templates) travels inside the package.
 
 | | Verb | What it does | What it leaves behind |
 |---|---|---|---|
-| **1** | `ai-eng init` | asks which agents to govern, then installs | `AGENTS.md`, `DECISIONS.md`, `config.toml`, the git hooks, `spec.html` + `plan.html` |
+| **1** | `ai-eng init` | asks which agents to govern, then installs. Open the IDE and load `/ai-config-to-project` to adapt the rules to this tree | `AGENTS.md`, `DECISIONS.md`, `config.toml`, the git hooks |
 | **2** | `ai-eng chain` | screens every tool call the agent makes, fail-closed | allow, deny or a rewritten command — plus a receipt for each |
-| **3** | `ai-eng spec run` | executes the gates of the contract you approved | evidence per gate, or a red run that names what is missing |
+| **3** | `ai-eng spec approve` then `spec close` | a person pins the contract; close checks evidence and frees the slot | the sha256 in the lock, then an empty slot |
 
 Ask it how it is doing:
 
@@ -111,7 +111,7 @@ the real binary:
 | Guard | Denies |
 |---|---|
 | `no-verify` | `--no-verify`, `git commit -n`, `HUSKY=0`, deleting `.git/hooks/`, repointing `core.hooksPath` — and silencing a check: an ESLint disable comment, a TypeScript ignore pragma, Python's `noqa` and `nosec`, clang's `NOLINT` |
-| `self-protect` | writes against anything that governs the agent: `.ai-engineering/` (except the four milestone slots the session owns), the surface settings, the git hooks, the global canon, and `spec.html` once its sha256 is pinned |
+| `self-protect` | writes against anything that governs the agent: `.ai-engineering/` (except the milestone slots the session owns), the surface settings, the git hooks, and the global canon |
 | `injection` | reading a file whose text carries an instruction payload, and acting on a fetched page that carries one |
 | `loop` | the same call repeated, the same edit reverted, the same failure retried with the arguments tweaked — thresholds in `config.toml` |
 | `wrap` | nothing: it rewrites a test command before it runs, so the filter prints the failures and drops the rest |
@@ -120,28 +120,11 @@ A guard that crashes denies. A guard that cannot decide denies. The only bypass 
 `.ai-engineering/overrides.toml` with a `reason` and an `until` date — `doctor` reports every
 active one with the time it has left, and an expired entry re-arms the guard.
 
-## The contract
+## The feature
 
-Two files per milestone, pinned by sha256:
+`ai-research` brings the evidence, `ai-brainstorm` pins the idea, `ai-orchestrator` builds it in gated checkpoints. You approve the plan, then the app.
 
-- `spec.html` — **what** must hold: requirements, data contracts, acceptance gates.
-- `plan.html` — **how** it gets there: ordered steps, dependencies, risk points.
-
-```bash
-ai-eng spec approve   # STOP 1: a person pins the contract; the session can no longer edit it
-ai-eng spec run       # every gate executes; a check that prints nothing is not evidence
-ai-eng spec close     # verify the claims, archive the recap, free the slot
-```
-
-<p align="center">
-  <img src=".github/assets/contract.gif" alt="The contract lifecycle: an unapproved spec refuses to run, approve pins its sha256, two gates go red, the implementation lands, both gates go green, and close frees the slot" width="880">
-  <br/><sub>unapproved → pinned → red → implemented → green → closed, with a receipt per run</sub>
-</p>
-
-A gate whose check prints nothing stays **unticked** — a box resting on an exit code is a green
-nobody can read. `ABANDON: G3 <reason>` is the honest exit, and it goes in the receipt.
-
-## Skills: twenty-one of them, one pipeline
+## Skills: one pipeline
 
 Each skill declares in front matter what it writes, who reads it, when it dies, and **what runs
 next** — so the handoff is a contract, not a convention.
@@ -149,7 +132,7 @@ next** — so the handoff is a contract, not a convention.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/skill-chain-dark.svg">
-    <img src=".github/assets/skill-chain-light.svg" alt="The skill chain: brainstorming frames the idea, planning writes the contract a human approves, the goal loop runs it while proof writes a receipt per gate, verification decides, and the close routes to security, writing or the visual recap — with research, architecture and design feeding the contract, and eight on-demand skills usable anywhere" width="100%">
+    <img src=".github/assets/skill-chain-light.svg" alt="The skill chain: research brings evidence, brainstorm pins the idea, the orchestrator builds it in checkpoints you approve, verification decides, and the close routes to security, writing or the visual recap" width="100%">
   </picture>
 </p>
 
@@ -157,14 +140,11 @@ next** — so the handoff is a contract, not a convention.
 flowchart LR
   B[ai-brainstorm] -->|open questions| R[ai-research]
   B -->|architectural lane| A[ai-architect]
-  B -->|standard lane| P[ai-plan]
+  B -->|standard lane| O[ai-orchestrator]
   R --> A
-  R --> P
-  A --> P
-  P -->|STOP: a human approves| G[ai-goal]
-  G --> PR[ai-proof]
-  PR --> G
-  G -->|plan is green| V[ai-verify]
+  R --> O
+  A --> O
+  O -->|you approve the plan, then the app| V[ai-verify]
   V -->|security trigger fired| S[ai-security]
   V -->|public interface changed| W[ai-write]
   V -->|otherwise| RC[ai-visual-recap]
@@ -173,21 +153,19 @@ flowchart LR
   RC -->|ai-eng spec close| D[Done]
 ```
 
-**Lanes** decide how much of it runs. `ai-plan` opens the loop, `ai-goal` runs it, `ai-proof`
-closes every step of it, `ai-verify` picks what fires next, and `ai-visual-recap` is the terminal
-node — `ai-eng spec close` archives it into git and frees the slot.
+**Lanes** decide how much of it runs. `ai-brainstorm` pins the idea and `ai-orchestrator` builds it. The checkpoint viewer is the live state. `ai-visual-recap` is a picture of a diff, when you ask for one.
 
 | Lane | What runs | What you get |
 |---|---|---|
 | **light** | `ai-brainstorm` → `ai-verify` | A verdict with evidence. No contract, because the work does not need one |
-| **standard** | `ai-brainstorm` → `ai-plan` → `ai-goal` ⇄ `ai-proof` → `ai-verify` → the close | The contract, a receipt per gate, the recap |
-| **full** | standard plus `ai-research`, `ai-architect`, `ai-design`, `ai-security` on their triggers | The same, with the decisions that needed evidence written down first |
+| **standard** | `ai-brainstorm` → `ai-orchestrator` | The feature, three gates per step |
+| **full** | standard plus `ai-research`, `ai-architect`, and `ai-security` plus `ai-write` when their triggers fire | The same, with the evidence and the docs the change owed |
 
 **Five triggers**, and the set is closed:
 
 | Trigger | Kind | Routes to | Fires when |
 |---|---|---|---|
-| `ui` | path | `ai-design` → `ai-audit-design` | the diff touches `**/*.tsx`, `**/*.css`, `**/components/**`, a Tailwind config… |
+| `ui` | path | `ai-audit-design` | the diff touches `**/*.tsx`, `**/*.css`, `**/components/**`, a Tailwind config… |
 | `security` | path | `ai-security` | the diff touches `**/auth/**`, `**/*.sql`, `**/migrations/**`, `.github/workflows/**`… |
 | `open-questions` | judgment | `ai-research` | the brainstorm lists open questions, or the plan cites an external API |
 | `arch-change` | judgment | `ai-architect` | the milestone adds a subsystem or moves a layer contract |
@@ -198,23 +176,21 @@ milestone's diff. A **judgment** trigger cannot be read from a diff, so it is as
 loud. Either way: a gate or an `ABANDON`, never silence.
 
 <details>
-<summary><b>The twenty-one</b></summary>
+<summary><b>The skills</b></summary>
 
 | Skill | What it does |
 |---|---|
 | `ai-brainstorm` | Pins a fuzzy idea down until it can be explained in plain language |
 | `ai-research` | Answers from outside the repository with numbered citations, or marks a claim `[unsourced]` |
 | `ai-architect` | Chooses the approach, the stack and the tradeoff before the build starts |
-| `ai-plan` | Turns the answers into checks: what "done and right" means, written before the work |
-| `ai-goal` | Writes the loop contract — what it consumes, which gates close it, when it stops |
-| `ai-proof` | Gate files and runnable checks instead of promises |
+| `ai-orchestrator` | Builds a feature in gated checkpoints. You approve the plan, then the app |
 | `ai-verify` | Judges finished work against its own standard, verdicts with evidence |
 | `ai-debug` | Names the root cause at `file:line` and writes the check that fails for that reason |
 | `ai-security` | Six-phase audit, validated by an agent that did not write the finding |
 | `ai-stress-test` | Finds the breaking point under load, with the load that caused it |
 | `ai-write` | Writes the README, the wiki page or the API doc, verified against the tree |
 | `ai-visual-recap` | Turns a diff into an interactive recap: diagrams, file map, annotated diff |
-| `ai-design` | Elects the one design skill a UI request needs and sequences the phases |
+| `ai-design-md-planner` | Writes `.ai-engineering/DESIGN.md` for the product, from the code or from an interview |
 | `ai-audit-design` | Measures a rendered page in a real browser and fixes what the numbers say |
 | `ai-explore` | Answers "where does this live" from the repository, anchored to `file:line` |
 | `ai-note` | Saves a hard-won finding as committed markdown, stamped so staleness is detectable |
@@ -240,9 +216,9 @@ the evidence lives in `src/surfaces/surfaces.json`.
 | Oh My Pi | core | `.omp/agent/hooks/pre/` (machine) |
 | OpenCode | core | `.config/opencode/plugins/` (machine) |
 | Pi | core | `.pi/agent/extensions/` (machine) |
-| Cursor | experimental | `.cursor/hooks.json` (repo) |
+| Cursor | core | `.cursor/hooks.json` (repo) |
 | Codex CLI | experimental | `.codex/hooks.json` (machine) |
-| Copilot | best-effort | `.github/hooks/` (repo) + `.copilot/hooks/` (machine) |
+| Copilot CLI | best-effort | `.github/hooks/` (repo) + `.copilot/hooks/` (machine) |
 | Zed | skills-only | none — it denies through its own tool permissions |
 
 `ai-eng config` ticks them on and off (`--add <id>`, `--remove <id>`) and regenerates the adapters.
@@ -258,7 +234,7 @@ them:
 echo "$PAYLOAD" | ai-eng chain PreToolUse   # the guard dispatcher: reads the host's payload on stdin
 ai-eng git pre-commit                       # the pre-commit, commit-msg and pre-push checks
 ai-eng wrap test -- bun test                # test-output filter: failures grouped, noise dropped
-ai-eng spec run | approve | close           # the executable contract
+ai-eng spec open | approve | close        # the milestone slot
 ```
 
 `chain` answers in the dialect of the surface that called it — Claude Code's `permission` /

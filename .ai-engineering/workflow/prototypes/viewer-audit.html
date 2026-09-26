@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viewer audit — before and after</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-h3:17px; --lh-h3:1.32;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-label:10.5px;
+  --radius:12px; --radius-sm:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased;
+}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.switch{
+  position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+  padding:12px 16px;background:rgba(0,30,43,.92);border-bottom:1px solid var(--line);
+}
+.switch button{
+  font-family:var(--mono);font-size:12px;color:var(--dim);background:transparent;
+  border:1px solid var(--line-strong);border-radius:999px;padding:10px 14px;cursor:pointer;min-height:44px;
+}
+.switch button[aria-pressed="true"]{color:#001E2B;background:var(--accent);border-color:var(--accent);font-weight:700}
+.pair{display:grid;gap:24px;justify-content:center;padding:24px 16px 64px}
+@media (min-width:720px){.pair{grid-template-columns:repeat(2,320px)}}
+.pane{min-width:0}
+.pane h2{font-family:var(--mono);font-size:var(--fs-label);font-weight:600;letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px}
+.pane.before h2{color:var(--bad)}
+.pane.after h2{color:var(--accent)}
+.pane .why{color:var(--dim);font-size:var(--fs-small);line-height:var(--lh-small);margin-bottom:12px}
+.phone{width:min(320px,100%);margin:0 auto;background:var(--bg);border:1px solid var(--line-strong);border-radius:16px;overflow:hidden}
+.screen{padding:32px 16px 28px}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.eyebrow{font-family:var(--mono);font-size:var(--fs-label);font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.live{font-family:var(--mono);font-size:11.5px;color:var(--comment);display:inline-flex;gap:6px;align-items:center}
+.live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.live.off::before{background:var(--line-strong)}
+select{font:inherit;font-family:var(--mono);font-size:12px;background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:6px;padding:4px 8px;max-width:120px}
+.screen h1{font-size:22px;line-height:1.16;letter-spacing:-.018em;font-weight:700;margin:8px 0}
+.drop h1{font-size:17px;line-height:1.32;font-weight:640;margin:0 auto 8px}
+.jdot[aria-pressed="true"]{box-shadow:0 0 0 3px var(--text)}
+.lede{font-size:var(--fs-h3);line-height:var(--lh-h3);color:var(--dim);margin:0}
+.banner{margin:24px 0 0;padding:14px 16px;border-radius:var(--radius-sm);font-weight:600;display:flex;gap:10px;align-items:center;border:1px solid;background:rgba(0,237,100,.13);color:var(--ok);border-color:rgba(0,237,100,.32)}
+.banner .dot{width:10px;height:10px;border-radius:50%;background:currentColor;flex:none}
+.journey{display:flex;align-items:center;margin:32px 0 8px}
+.journey .line{flex:1;height:2px;background:var(--accent)}
+.pane.before .journey .line{min-width:8px}
+.pane.after .journey .line{min-width:4px}
+.jdot{border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;flex:none;border:2px solid var(--accent);background:var(--accent);color:#001E2B;padding:0;font-family:var(--sans);cursor:pointer}
+.caption{font-size:var(--fs-small);color:var(--comment);margin:0 0 24px}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin:12px 0}
+.step>summary{list-style:none;cursor:pointer;padding:16px;display:grid;grid-template-columns:36px 1fr;gap:12px}
+.step>summary::-webkit-details-marker{display:none}
+.num{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--accent);color:#001E2B;font-family:var(--mono);font-size:13px}
+.status{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ok)}
+.what{font-size:var(--fs-h3);font-weight:640;line-height:var(--lh-h3);margin:2px 0 10px}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.chk{font-size:13px;padding:3px 10px;border-radius:999px;border:1px solid rgba(0,237,100,.32);background:rgba(0,237,100,.13);color:var(--ok)}
+.chk.na{background:transparent;border-style:dashed;border-color:var(--line);color:var(--comment)}
+.more{font-size:13px;color:var(--accent-dim);margin-top:10px}
+.step[open] .more{display:none}
+.body{padding:0 16px 16px}
+.kicker{font-family:var(--mono);font-size:var(--fs-label);font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:14px 0 4px}
+.body p{margin:0;color:var(--dim);font-size:var(--fs-small);line-height:var(--lh-small)}
+.tech{margin-top:16px;border-top:1px dashed var(--line);padding-top:10px}
+.pane.before .tech>summary{cursor:pointer;color:var(--comment);font-family:var(--mono);font-size:12px}
+.pane.after .tech>summary{cursor:pointer;color:var(--comment);font-family:var(--mono);font-size:12px;padding-block:13px}
+.finding{border-left:3px solid var(--bad);background:rgba(255,105,96,.12);padding:6px 10px;margin:6px 0;font-family:var(--mono);font-size:12px;color:var(--dim)}
+.drop{border:2px dashed var(--line-strong);border-radius:var(--radius);padding:48px 16px;text-align:center;background:var(--surface);margin-top:24px}
+.pane.after .drop{overflow-wrap:anywhere}
+.drop .title{font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:640;margin:0 auto 8px}
+.drop p{margin:0 auto 8px;max-width:48ch;color:var(--dim);font-size:var(--fs-small);line-height:var(--lh-small)}
+.drop .path{font-family:var(--mono);font-size:12.5px;color:var(--accent-dim)}
+.pane.before .drop .path{white-space:nowrap}
+.drop input{max-width:100%}
+.pane.after .drop input{min-height:44px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="switch" data-region="state-switch" role="toolbar" aria-label="Which change to compare">
+  <button type="button" data-state="journey" aria-pressed="true">Journey at 320</button>
+  <button type="button" data-state="empty" aria-pressed="false">Broken plan</button>
+  <button type="button" data-state="open" aria-pressed="false">Open step</button>
+</div>
+<div class="pair" id="pair">
+  <section class="pane before" data-region="before-pane">
+    <h2>Before</h2>
+    <p class="why" id="why-before"></p>
+    <div class="phone"><div class="screen" id="before"></div></div>
+  </section>
+  <section class="pane after" data-region="after-pane">
+    <h2>After</h2>
+    <p class="why" id="why-after"></p>
+    <div class="phone"><div class="screen" id="after"></div></div>
+  </section>
+</div>
+<script>
+const STEPS = [
+  ["xs", 27, "Add the build playbooks"],
+  ["s", 32, "Install the five helpers"],
+  ["m", 37, "Add the step lock"],
+  ["m", 37, "Teach the instruction file"],
+  ["l", 42, "Plant files and progress page"],
+  ["l", 42, "Send features to the builder"],
+  ["xl", 47, "Prove the kit works"],
+];
+const COPY = {
+  journey: {
+    before: "Lines refused to shrink under 8px. The last dot left the screen and the page scrolled 11px.",
+    after: "Lines can be 4px. Seven dots sit in the 288px row. The page does not scroll.",
+  },
+  empty: {
+    before: "The plan failed to parse. The badge still said live, and the long path widened the page.",
+    after: "The badge says offline. The title is a heading. The path wraps. The file control is 44px tall.",
+  },
+  open: {
+    before: "Technical details was about 19px tall. The section label was an h3 under the page title.",
+    after: "13px of padding above and below, so the tap target clears 44px. The label is an h2 and the paint is the same.",
+  },
+};
+function dots(side) {
+  return STEPS.map((s, i) => `${i ? `<span class="line"></span>` : ""}<button type="button" class="jdot" style="width:${s[1]}px;height:${s[1]}px" aria-label="Go to step ${i + 1}" data-side="${side}" data-go="${i + 1}">✓</button>`).join("");
+}
+function card(n, open, side) {
+  const s = STEPS[n];
+  const label = side === "after" ? "h2" : "h3";
+  const body = `<div class="body">
+      <${label} class="kicker">What you get</${label}>
+      <p>The package carries the kit's how-to guides for building a feature step by step.</p>
+      <${label} class="kicker">Why it matters</${label}>
+      <p>Without them, install has nothing to hand editors for the new build loop.</p>
+      <details class="tech" data-region="tech-details">
+        <summary>Technical details</summary>
+        <div class="finding">Code review: fixed runnable paths and kit spelling</div>
+      </details>
+    </div>`;
+  return `<details class="step" id="step-${side}-${n + 1}" ${open ? "open" : ""}>
+    <summary>
+      <span class="num">✓</span>
+      <span>
+        <span class="status">Step ${n + 1} · Done</span>
+        <div class="what">${s[2]}</div>
+        <div class="checks"><span class="chk">✓ Works</span><span class="chk na">Looks right: no screen</span><span class="chk">✓ Code review</span></div>
+        <div class="more">Show more ▾</div>
+      </span>
+    </summary>${body}</details>`;
+}
+function loaded(open, side) {
+  const cards = open ? card(0, true, side) : STEPS.slice(0, 2).map((_, i) => card(i, false, side)).join("");
+  return `<div class="top" data-region="page-header"><span class="eyebrow">Feature progress</span><span class="row"><select aria-label="Choose a feature"><option selected>workflow-kit</option></select><span class="live">live</span></span></div>
+    <h1>Shopify workflow kit in ai-engineering</h1>
+    <p class="lede" data-region="plain-summary">After install and init, any machine or repo can run the same step-by-step feature build with two human stops.</p>
+    <div class="banner" role="status" data-region="status-banner"><span class="dot"></span>All 7 steps done. Ready for you to try it.</div>
+    <div class="journey" data-region="journey" aria-label="Steps overview">${dots(side)}</div>
+    <p class="caption">Small steps first, each one a little bigger. A step must pass all its checks before the next one starts.</p>
+    <div data-region="checkpoint-card">${cards}</div>`;
+}
+function empty(kind) {
+  const live = kind === "before" ? `<span class="live">live</span>` : `<span class="live off">offline</span>`;
+  const title = kind === "before" ? `<p class="title"><strong>Open a feature plan</strong></p>` : `<h1>Open a feature plan</h1>`;
+  return `<div class="top" data-region="page-header"><span class="eyebrow">Feature progress</span>${live}</div>
+    <section class="drop" data-region="empty-drop">
+      ${title}
+      <p>Drop a file from <span class="path">.ai-engineering/workflow/checkpoints/</span> here, or choose one:</p>
+      <input type="file" aria-label="Feature plan file" accept=".json,application/json">
+      <p>For live updates, serve the repo root over HTTP and open <span class="path">.ai-engineering/workflow/checkpoints/viewer.html?plan=&lt;slug&gt;</span></p>
+    </section>`;
+}
+function paint(state) {
+  document.getElementById("why-before").textContent = COPY[state].before;
+  document.getElementById("why-after").textContent = COPY[state].after;
+  const before = document.getElementById("before");
+  const after = document.getElementById("after");
+  if (state === "empty") { before.innerHTML = empty("before"); after.innerHTML = empty("after"); }
+  else if (state === "open") { before.innerHTML = loaded(true, "before"); after.innerHTML = loaded(true, "after"); }
+  else { before.innerHTML = loaded(false, "before"); after.innerHTML = loaded(false, "after"); }
+  document.querySelectorAll(".jdot").forEach((b) => {
+    b.addEventListener("click", () => {
+      const root = b.closest(".screen");
+      const card = root.querySelector("#step-" + b.dataset.side + "-" + b.dataset.go);
+      root.querySelectorAll(".jdot").forEach((d) => d.setAttribute("aria-pressed", "false"));
+      b.setAttribute("aria-pressed", "true");
+      if (card) {
+        card.open = true;
+        card.scrollIntoView({ block: "nearest" });
+      }
+    });
+  });
+}
+const buttons = [...document.querySelectorAll(".switch button")];
+function apply(state, push) {
+  const name = COPY[state] ? state : "journey";
+  buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.state === name)));
+  paint(name);
+  if (push) history.replaceState(null, "", "?state=" + name);
+}
+buttons.forEach((b) => b.addEventListener("click", () => apply(b.dataset.state, true)));
+apply(new URLSearchParams(location.search).get("state") || "journey", false);
+</script>
+</body>
+</html>

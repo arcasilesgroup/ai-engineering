@@ -6,7 +6,8 @@ import { join } from "node:path";
 import type { PlanEntry } from "../install.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate } from "../embed.ts";
-import { SURFACES, SURFACE_TIERS, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
+import { SURFACES, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
+import { plantWorkflowFiles } from "./plant-workflow.ts";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
@@ -32,8 +33,10 @@ function render(template: string, vars: Record<string, string>): string {
   return out;
 }
 
-export function detectCommands(): string {
-  const root = repoTemplateRoot();
+/** Commands for the tree being governed. The default is this framework's own
+ *  checkout, which is what the unit seam asserts. `init` passes the target cwd:
+ *  a Python project must not inherit this repo's bun/oxlint line. */
+export function detectCommands(root: string = repoTemplateRoot()): string {
   if (existsSync(join(root, "package.json"))) return "typecheck: tsc --noEmit · lint: oxlint · test: bun test · arch: bun test arch.spec.ts";
   if (existsSync(join(root, "Cargo.toml"))) return "typecheck: cargo check · lint: clippy · test: cargo test";
   if (existsSync(join(root, "go.mod"))) return "typecheck: go vet · lint: golangci-lint · test: go test";
@@ -57,7 +60,7 @@ export function planEntries(surfaces: string[]): PlanEntry[] {
     { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
     { path: ".ai-engineering/config.toml", ours: render(embeddedTemplate("config.toml.tpl"), { surfaces: surfaces.map((s) => `"${s}"`).join(", ") }) },
     // The merge gate belongs to the project, not to one editor: it hung off the
-    // claude-code case, so choosing OpenCode/OMP/Codex/Cursor/Copilot/Pi installed
+    // claude-code case, so choosing OpenCode/OMP/Codex/Cursor/Copilot CLI/Pi installed
     // guards and adapters with no workflow at all, and nothing said so (§17).
     { path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") },
     ...gitHookEntries(),
@@ -66,7 +69,7 @@ export function planEntries(surfaces: string[]): PlanEntry[] {
 }
 
 /** The files ONE surface generates INSIDE the repo: only the carriers whose readers
- *  live in the checkout (Cursor cloud, VS Code Copilot Chat). The other five hosts read
+ *  live in the checkout (Cursor cloud). The other hosts read
  *  from the user's home, and `installMachineCarriers()` writes those once per machine —
  *  a repo that still carried them would be carrying a hook file nobody reads (§13.2).
  *
@@ -88,18 +91,21 @@ export function hasAdapter(id: string): boolean {
   return carrierFiles(id, "repo") !== null;
 }
 
-/** The picker's groups (init and config share them): tier header → the surfaces
- *  that can actually be scaffolded, empty tiers dropped. */
-export function surfaceOptions(): Array<{ title: string; items: Surface[] }> {
-  return SURFACE_TIERS.map(([tier, title]) => ({ title, items: SURFACES.filter((s) => s.tier === tier && hasAdapter(s.id)) })).filter((group) => group.items.length > 0);
+/** The question init and config ask. Options sit on the next lines, with no tier headers. */
+export const SURFACE_PICK_MESSAGE = "Which agent surfaces is this project governed on?";
+
+/** The flat picker options shared by init and config. */
+export function surfaceOptions(): Surface[] {
+  return SURFACES.filter((surface) => hasAdapter(surface.id));
 }
 
 /** The contract files init writes ONCE (untouchable by update). The .gitignore rides
  *  with them: a project that already owns one keeps it (`install()` reports it as
  *  "yours, untouched"), and uninstall's project sweep never takes it back. */
-export function contractEntries(date: string): PlanEntry[] {
+export function contractEntries(date: string, root: string = repoTemplateRoot()): PlanEntry[] {
+  plantWorkflowFiles(root);
   return [
-    { path: "AGENTS.md", ours: render(embeddedTemplate("AGENTS.md.tpl"), { version: VERSION, commands: detectCommands() }) },
+    { path: "AGENTS.md", ours: render(embeddedTemplate("AGENTS.md.tpl"), { version: VERSION, commands: detectCommands(root) }) },
     { path: "DECISIONS.md", ours: render(embeddedTemplate("DECISIONS.md.tpl"), { date, version: VERSION }) },
     { path: ".gitignore", ours: embeddedTemplate("gitignore.tpl") },
   ];

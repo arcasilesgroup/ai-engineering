@@ -1,18 +1,15 @@
-// `ai-eng spec run|open|approve|close` — the machine verb the CI and the loop call.
-// run: wrapper over ai-proof's gate-check.mjs + receipt per run + exit ≠ 0 when a
-// CHECK could not execute (green-by-absence-of-executor is impossible, §09.3).
+// `ai-eng spec open|approve|close` — the slot verbs.
 // open: claims the slot and records the commit the milestone starts from, which is
 // what gives the conditional nodes a diff to judge. close: verifies every gate has
 // evidence or an honest ABANDON, checks the contract was not edited after approval,
 // refuses when a fired trigger left no artifact, archives to git and frees the slot
-// (§21.2).
+// (§21.2). The feature cycle does not execute spec.html; checkpoints do that work.
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { repoRoot, home, isGoverned } from "../env.ts";
-import { writeReceipt } from "../receipts.ts";
+import { repoRoot, isGoverned } from "../env.ts";
 import { embeddedTemplate } from "../embed.ts";
 import { parseLock, lockText } from "../install.ts";
 import { unmetTriggers } from "./triggers.ts";
@@ -59,85 +56,18 @@ function abandons(spec: string): Array<{ id: string; reason: string }> {
   return [...spec.matchAll(/^ABANDON:\s*(\S+)[ \t]*(.*)$/gm)].map((m) => ({ id: m[1]!, reason: (m[2] ?? "").trim() }));
 }
 
-/** The contract the human approved is the WHAT, not the bookkeeping: `ai-eng spec run`
- *  ticks the boxes and fills the EVIDENCE lines in the very file whose sha256 was
- *  pinned at approval. Comparing raw bytes meant the act of running the gates broke
- *  the authorisation that allowed the run. Both fields are normalised away, so an
- *  edit to a check or a requirement still breaks the pin and a recorded receipt does
- *  not — and a spec pinned over its pristine form stays valid, because a pristine
- *  contract and its normalised form are the same bytes. */
+/** The contract the human approved is the WHAT, not the bookkeeping. Ticked boxes
+ *  and EVIDENCE lines land in the same file whose sha256 was pinned at approval.
+ *  Comparing raw bytes meant recording evidence broke that approval. Both fields
+ *  are normalised away, so an edit to a check or a requirement still breaks the pin
+ *  and a recorded receipt does not — and a spec pinned over its pristine form stays
+ *  valid, because a pristine contract and its normalised form are the same bytes. */
 export function normalizeSpec(spec: string): string {
   return spec.replace(/^- \[[xX]\]/gm, "- [ ]").replace(/^(\s+EVIDENCE:\s*).*$/gm, "$1pending");
 }
 
 function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
-}
-
-function specGatePolicyAllowsRun(root: string): boolean {
-  // A contract nobody approved does not run: the sha256 pinned in the lock at
-  // STOP 1 is what makes the contract executable (H6 criterion).
-  const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
-  if (!existsSync(lockPath)) return false;
-  const lock = parseLock(readFileSync(lockPath, "utf8"));
-  if (!lock.spec_sha256) return false;
-  const specPath = join(root, ".ai-engineering", "spec.html");
-  if (!existsSync(specPath)) return false;
-  return sha256(normalizeSpec(readFileSync(specPath, "utf8"))) === lock.spec_sha256;
-}
-
-/** `spec run` — execute every CHECK in the approved spec.html. */
-export function specRun(): number {
-  const root = repoRoot();
-  if (root === null || !isGoverned(root)) {
-    process.stderr.write("spec run: you are not in a governed repo.\n");
-    return 2;
-  }
-  const specPath = join(root, ".ai-engineering", "spec.html");
-  if (!existsSync(specPath)) {
-    process.stderr.write("spec run: no spec.html in .ai-engineering/ — no live contract.\n");
-    return 2;
-  }
-  if (!specGatePolicyAllowsRun(root)) {
-    process.stderr.write("spec run: spec.html is not approved (sha256 missing or different in ai-eng.lock) — a contract nobody approved does not run (§9.3).\n");
-    return 2;
-  }
-  // The real executor is ai-proof's gate-check.mjs — never reimplemented (§11.3).
-  const gateCheck = join(home(), "skills", "ai-proof", "scripts", "gate-check.mjs");
-  const fallback = join(import.meta.dir, "..", "..", "skills", "ai-proof", "scripts", "gate-check.mjs");
-  const script = existsSync(gateCheck) ? gateCheck : existsSync(fallback) ? fallback : null;
-  const t0 = Date.now();
-  if (!script) {
-    // A check that cannot run is red, never green by absence of executor (§09.3).
-    process.stderr.write("spec run: gate-check.mjs not found (canon missing) — run ai-eng init, then retry.\n");
-    return 2;
-  }
-  // A contract with nothing to verify is not a contract — the same wording specClose
-  // uses, because two verbs disagreeing about one artifact is how an empty contract
-  // passes the CI step that exists to enforce it (audit LOGIC-002).
-  if (parseGates(readFileSync(specPath, "utf8")).length === 0) {
-    process.stderr.write("spec run: no gates found in spec.html — a contract with nothing to verify is not a contract.\n");
-    return 2;
-  }
-  const runner = existsSync("/usr/bin/env") ? "bun" : "node"; // mjs needs a JS runtime, not ourselves
-  // --recheck: a gate whose box is already ticked is re-executed. Without it the
-  // executor trusts the artifact's own ledger, so a committed spec.html with hand-
-  // ticked boxes and typed evidence reports ALL MET having run nothing (audit
-  // LOGIC-001).
-  // --timeout 600: some gates run stryker, which takes 4-11 minutes on a cold cache.
-  // The default 120s is correct for shell checks; mutation campaigns need the room.
-  const done = spawnSync(runner, [script, specPath, "--recheck", "--timeout", "600"], { cwd: root, encoding: "utf8", stdio: "inherit" });
-  const code = done.status ?? 1;
-  const receipt = writeReceipt({
-    event: "spec-run",
-    surface: "ci",
-    tool: "spec",
-    guards: { ran: ["spec"], denied_by: null },
-    latency_ms: Date.now() - t0,
-    outcome: code === 0 ? "allow" : "deny",
-  });
-  if (code !== 0) process.stderr.write(`spec run: FAILURE (receipt ${receipt?.operation_id ?? "n/a"}) — a check that does not run is not green, it is red.\n`);
-  return code;
 }
 
 /** `spec open <milestone>` — claim the slot; refuse when a live contract exists (§21.2). */
@@ -188,7 +118,7 @@ export function specApprove(): number {
   const sha = sha256(normalizeSpec(readFileSync(specPath, "utf8")));
   lock.spec_sha256 = sha;
   writeFileSync(lockPath, lockText(lock));
-  process.stdout.write(`✓ STOP 1: spec sha256 pinned in ai-eng.lock (${sha.slice(0, 12)}…) — the contract is executable and self-protect now blocks its edits.\n`);
+  process.stdout.write(`✓ STOP 1: spec sha256 pinned in ai-eng.lock (${sha.slice(0, 12)}…) — the contract is pinned and self-protect now blocks its edits.\n`);
   return 0;
 }
 
@@ -236,7 +166,7 @@ export function specClose(): number {
   if (unmet.length > 0) {
     const ids = unmet.map((gate) => gate.id).join(", ");
     problems.push(
-      `spec close: ${unmet.length} gate(s) without evidence or ABANDON (${ids}) — run ai-eng spec run, or declare ABANDON: <gate> <reason>.`,
+      `spec close: ${unmet.length} gate(s) without evidence or ABANDON (${ids}) — write the evidence, or declare ABANDON: <gate> <reason>.`,
     );
   }
   if (abandoned.size > 0) {
@@ -279,13 +209,16 @@ export function specClose(): number {
 
 export function specMain(args: string[]): number {
   const sub = args[0];
-  if (sub === "run") return specRun();
+  if (sub === "run") {
+    process.stderr.write("spec run: retired. The feature cycle is ai-research, ai-brainstorm, ai-orchestrator. spec open, approve and close remain.\n");
+    return 2;
+  }
   if (sub === "open") {
     const milestone = args.slice(1).join(" ") || "unnamed-milestone";
     return specOpen(milestone);
   }
   if (sub === "approve") return specApprove();
   if (sub === "close") return specClose();
-  process.stderr.write("usage: ai-eng spec run|open|approve|close\n");
+  process.stderr.write("usage: ai-eng spec open|approve|close\n");
   return 2;
 }

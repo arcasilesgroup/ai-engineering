@@ -2,12 +2,12 @@
 // or TS module (OpenCode/OMP). Surface = ~150 LOC of adapter + its proof (§13).
 
 import surfacesJson from "./surfaces.json";
-import { writeFileSync, mkdirSync, symlinkSync, unlinkSync, readdirSync, lstatSync, existsSync, readFileSync, rmSync, realpathSync, rmdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, symlinkSync, unlinkSync, readdirSync, lstatSync, existsSync, readFileSync, rmSync, realpathSync, rmdirSync, copyFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
 import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
-import { materializeSkills, embeddedTemplate, embeddedChainBundle, removeStaleCanonFiles } from "../embed.ts";
+import { materializeSkills, materializeAgents, materializeScripts, embeddedTemplate, embeddedChainBundle, removeStaleCanonFiles } from "../embed.ts";
 import type { Dialect } from "../chain/dialect.ts";
 
 export type Surface = {
@@ -117,7 +117,8 @@ const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; cli?: st
 };
 
 export function carrierFiles(id: string, scope: Carrier["scope"]): { main: string; chain: string | null } | null {
-  const row = CARRIER_TEMPLATES[id];
+  // The surface id is copilot-cli; the template row kept the short name.
+  const row = CARRIER_TEMPLATES[id] ?? (id === "copilot-cli" ? CARRIER_TEMPLATES["copilot"] : undefined);
   if (!row) return null;
   const main = scope === "machine" && row.cli ? row.cli : row.main;
   return { main: embeddedTemplate(main), chain: row.chain ? embeddedChainBundle() : null };
@@ -191,6 +192,47 @@ export function installCanon(version: string): string[] {
   }
   const commands = installCommands(canonDir);
   if (commands.count > 0) lines.push(`✓ ~/.config/opencode/commands/ — ${commands.count} slash commands (/ai-*)`);
+  lines.push(...installAgentsCanon());
+  const scriptLines = materializeScripts(join(home(), "scripts"));
+  if (scriptLines.length > 0) lines.push(`✓ ~/.ai-engineering/scripts/ — checkpoint gate`);
+  return lines;
+}
+
+/** Materialize ~/.ai-engineering/agents and mirror it at ~/.claude/agents (symlink, or copy).
+ *  Exported so tests can drive the mirror under AI_ENG_HOME without writing the real home. */
+export function installAgentsCanon(): string[] {
+  const agentsCanon = join(home(), "agents");
+  materializeAgents(agentsCanon);
+  const agentFiles = readdirSync(agentsCanon).filter((name) => name.endsWith(".md"));
+  const lines = [`✓ ~/.ai-engineering/agents/ — ${agentFiles.length} agents installed`];
+  const agentsMirror = join(machineBase(), ".claude", "agents");
+  mkdirSync(dirname(agentsMirror), { recursive: true });
+  // Same as linkSkills: lstat + unlink any symlink (including dangling). existsSync is
+  // false for a broken link, so skipping the unlink lets symlinkSync throw EEXIST and
+  // abort installCanon. A real directory is not ours to replace — copy into it instead.
+  try {
+    if (lstatSync(agentsMirror).isSymbolicLink()) {
+      unlinkSync(agentsMirror);
+    } else {
+      for (const name of agentFiles) {
+        copyFileSync(join(agentsCanon, name), join(agentsMirror, name));
+      }
+      lines.push("✓ Copy → ~/.claude/agents (copy)");
+      return lines;
+    }
+  } catch {
+    /* absent: create the symlink below */
+  }
+  try {
+    symlinkSync(agentsCanon, agentsMirror, "dir");
+    lines.push("✓ Symlink → ~/.claude/agents");
+  } catch {
+    mkdirSync(agentsMirror, { recursive: true });
+    for (const name of agentFiles) {
+      copyFileSync(join(agentsCanon, name), join(agentsMirror, name));
+    }
+    lines.push("✓ Copy → ~/.claude/agents (copy)");
+  }
   return lines;
 }
 

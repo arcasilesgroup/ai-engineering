@@ -77,7 +77,7 @@ Not for:
 - Diagnosing a failure — use /ai-debug, which names a cause at `file:line` and writes the
   check that fails for it.
 - Judging a diff — use /ai-verify, which passes verdicts on completed work, not tours.
-- Deciding what to build — use /ai-plan, which needs options, a recommendation and the
+- Deciding what to build — use /ai-orchestrator, which needs options, a recommendation and the
   authority to proceed.
 - Saving a finding we just made — use /ai-note, which records what we learned; exploring
   only reads.

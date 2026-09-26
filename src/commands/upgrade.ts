@@ -30,7 +30,8 @@ export function changelogSection(root: string, version: string): string | null {
   if (!existsSync(path)) return null;
   const lines = readFileSync(path, "utf8").split("\n");
   const prefix = `## ${version}`;
-  const start = lines.findIndex((line) => line.startsWith(prefix));
+  const bracket = `## [${version}]`;
+  const start = lines.findIndex((line) => line.startsWith(prefix) || line.startsWith(bracket));
   if (start < 0) return null;
   const rest = lines.slice(start + 1);
   const end = rest.findIndex((line) => line.startsWith("## "));

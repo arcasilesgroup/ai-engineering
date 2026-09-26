@@ -471,7 +471,7 @@ describe("carriers on the machine", () => {
   test("surfaceDialect falls back to claude; surfaceCanGovern refuses a host with nowhere for a guard", () => {
     expect(surfaceDialect("cursor")).toBe("cursor");
     expect(surfaceDialect("codex")).toBe("codex");
-    expect(surfaceDialect("copilot")).toBe("copilot");
+    expect(surfaceDialect("copilot-cli")).toBe("copilot");
     // In-process hosts run the chain themselves: no dialect, so claude's is the default.
     expect(surfaceDialect("oh-my-pi")).toBe("claude");
     expect(surfaceDialect("pi")).toBe("claude");
@@ -525,13 +525,18 @@ describe("carriers on the machine", () => {
   });
 
   test("carrierFiles: the machine copy and the repo copy are different files, and the in-process hosts ship a bundle", () => {
-    // Copilot's CLI reads the machine file and fails CLOSED on a missing binary, so the
-    // machine template guards the call; the repo copy the editors read has no such guard.
-    const cli = carrierFiles("copilot", "machine")!;
+    // Copilot's CLI combines repo and machine hooks and fails CLOSED on a missing binary,
+    // so the machine template guards the call; the repo copy has no such guard.
+    const cli = carrierFiles("copilot-cli", "machine")!;
     expect(cli.main).toInclude("command -v ai-eng");
-    expect(cli.main).toInclude("--surface copilot");
+    expect(cli.main).toInclude("--surface copilot-cli");
+    expect(cli.main).toInclude('"preToolUse"');
+    expect(cli.main).toInclude('"postToolUse"');
     expect(cli.chain).toBeNull();
-    expect(carrierFiles("copilot", "repo")!.main).not.toInclude("command -v ai-eng");
+    const repo = carrierFiles("copilot-cli", "repo")!;
+    expect(repo.main).not.toInclude("command -v ai-eng");
+    expect(repo.main).toInclude('"preToolUse"');
+    expect(repo.main).toInclude('"postToolUse"');
 
     // An in-process host is imported by the host itself: the chain bundle must sit beside
     // the entry, and the entry imports it by name.
@@ -737,7 +742,7 @@ describe("installCanon and what leaves with it", () => {
     const long = Array.from({ length: 40 }, (_, i) => `palabra${i}`).join(" ");
     write(join(base, "skills", "ai-long", "SKILL.md"), `---\nname: ai-long\ndescription: ${long}\n---\n\nbody\n`);
     // A real directory a person put in a mirror is not ours to replace.
-    write(join(base, ".claude", "skills", "ai-goal", "SKILL.md"), "mine\n");
+    write(join(base, ".claude", "skills", "kept-skill", "SKILL.md"), "mine\n");
 
     const lines = installCanon("2.2.0");
     const canonDirs = readdirSync(join(base, "skills"), { withFileTypes: true })
@@ -760,7 +765,7 @@ describe("installCanon and what leaves with it", () => {
       expect(lstatSync(join(target.dir, "ai-debug")).isSymbolicLink()).toBe(true);
     }
     // Their real directory survives the mirror, file and all.
-    expect(readFileSync(join(base, ".claude", "skills", "ai-goal", "SKILL.md"), "utf8")).toBe("mine\n");
+    expect(readFileSync(join(base, ".claude", "skills", "kept-skill", "SKILL.md"), "utf8")).toBe("mine\n");
 
     // One command per skill, out of the canon: a folded description collapsed to one line…
     const folded = readFileSync(join(base, ".config", "opencode", "commands", "ai-folded.md"), "utf8");
@@ -778,12 +783,12 @@ describe("installCanon and what leaves with it", () => {
 
   test("installCanon sweeps a page this binary no longer ships", () => {
     const base = useHome("canon-sweep");
-    write(join(base, "skills", "ai-goal", "a-page-that-was-renamed.md"), "old\n");
+    write(join(base, "skills", "ai-brainstorm", "a-page-that-was-renamed.md"), "old\n");
 
     const lines = installCanon("2.2.0");
-    expect(lines).toContain("✓ swept 1 file(s) this binary no longer ships: skills/ai-goal/a-page-that-was-renamed.md");
-    expect(existsSync(join(base, "skills", "ai-goal", "a-page-that-was-renamed.md"))).toBe(false);
-    expect(existsSync(join(base, "skills", "ai-goal", "SKILL.md"))).toBe(true);
+    expect(lines).toContain("✓ swept 1 file(s) this binary no longer ships: skills/ai-brainstorm/a-page-that-was-renamed.md");
+    expect(existsSync(join(base, "skills", "ai-brainstorm", "a-page-that-was-renamed.md"))).toBe(false);
+    expect(existsSync(join(base, "skills", "ai-brainstorm", "SKILL.md"))).toBe(true);
   });
 
   test("removeMachineArtifacts removes only what points into the canon, and prunes what it emptied", () => {

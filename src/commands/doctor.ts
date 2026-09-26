@@ -13,6 +13,7 @@ import { unmetTriggers } from "../spec/triggers.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
 import { readOverrides, overrideDaysLeft } from "../chain/dialect.ts";
+import { checkpointGateReportLines } from "./checkpoint-gate-report.ts";
 import * as ui from "../ui.ts";
 
 export type CheckResult = { readonly name: string; readonly status: "ok" | "warn" | "fail"; readonly detail: string };
@@ -27,7 +28,7 @@ function checkAgents(root: string | null): CheckResult {
   const content = readFileSync(agentsPath, "utf8");
   const rules = (content.match(/^[ \t]*(?:\d+\.|-)[ \t]+\S/gm) ?? []).length;
   const lines = content.split("\n").length;
-  return { name: "AGENTS.md", status: lines <= 80 && rules >= 6 ? "ok" : "warn", detail: `${rules} rules · ${lines} lines${lines > 80 ? " (over the context ceiling)" : ""}` };
+  return { name: "AGENTS.md", status: lines <= 120 && rules >= 6 ? "ok" : "warn", detail: `${rules} rules · ${lines} lines${lines > 120 ? " (over the context ceiling)" : ""}` };
 }
 
 function checkConfig(gap: string | null, surfaces: string[]): CheckResult {
@@ -237,15 +238,34 @@ function checkOverrides(root: string | null): CheckResult {
   return { name: "overrides", status: described.length === 0 ? "ok" : "warn", detail };
 }
 
+/** A source tree is `src/` at the root, or `<package>/src/` one level down
+ *  (`kit/src`, `web/src`). An empty `src/` still counts: the check is "code can
+ *  live here", and the existing doctor pin is that directory's presence. */
+function hasSourceTree(root: string): boolean {
+  if (existsSync(join(root, "src"))) return true;
+  let names: string[] = [];
+  try {
+    names = readdirSync(root);
+  } catch {
+    return false;
+  }
+  for (const name of names) {
+    if (name.startsWith(".") || name === "node_modules") continue;
+    if (existsSync(join(root, name, "src"))) return true;
+  }
+  return false;
+}
+
 function checkArch(root: string | null): CheckResult {
   // 9. arch bootstrap vs active. The rules file is what makes the check a check: a path
   //    that is only joined is never null, so a repo with src/ and no arch.rules.json
   //    would report "ok · active" — the false green this project exists to refuse.
   const archPath = root ? join(root, ".ai-engineering", "arch.rules.json") : null;
   const hasRules = archPath !== null && existsSync(archPath);
-  const hasSrc = root ? existsSync(join(root, "src")) : false;
   if (!hasRules) return { name: "arch", status: "warn", detail: "no arch.rules.json — nothing enforces the layer rules" };
-  return { name: "arch", status: hasSrc ? "ok" : "warn", detail: hasSrc ? "active — src/ present" : "bootstrap mode — src/ empty" };
+  if (!root || !hasSourceTree(root)) return { name: "arch", status: "warn", detail: "bootstrap mode — src/ empty" };
+  const atRoot = existsSync(join(root, "src"));
+  return { name: "arch", status: "ok", detail: atRoot ? "active — src/ present" : "active — source outside src/" };
 }
 
 function checkSpecSlot(root: string | null): CheckResult {
@@ -432,6 +452,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   const triggers = await checkTriggers(root);
   if (triggers) results.push(triggers);
   results.push(...checkSurfaces(root, surfaces));
+  results.push({ name: "checkpoint gate", status: "ok", detail: checkpointGateReportLines(SURFACES, Object.fromEntries(SURFACES.flatMap((s) => { const files = carrierFiles(s.id, "machine") ?? carrierFiles(s.id, "repo"); return files ? [[s.id, files.main] as const] : []; }))).join(" · ") });
   const state = checkMachineState(surfaces);
   if (state) results.push(state);
   results.push(checkBehaviors(root));

@@ -11,7 +11,7 @@ description: >-
   made a rule stale. Trigger for "create AGENTS.md", "update AGENTS.md", "audit AGENTS.md",
   "split AGENTS.md", "AGENTS.md is too long", "the agent reads the wrong file", "the agent
   ignores our conventions", "set up agent instructions", "edit AGENTS.md". Not for runtime
-  agent contracts (goals, gates, budgets) — use /ai-goal. Not for documentation users read —
+  agent contracts (goals, gates, budgets) — use /ai-orchestrator. Not for documentation users read —
   use /ai-write.
 license: Apache-2.0
 ---
@@ -45,9 +45,13 @@ Sections that earn their place, in this order when present:
 2. **Code style** — only the rules the linter cannot check (the linter checks its own).
 3. **Build and test commands** — the exact commands, detected from the tree (package.json
    scripts, Cargo.toml, go.mod, pyproject.toml...), never from memory.
-4. **Workflow** — the definition of done: green gate before "done", status conventions.
-5. **Pull requests** — title format, pre-commit checks, test expectations.
-6. **Session hygiene** — context-economy conventions the repo expects.
+4. **Project config** — short fill-in (domain, roles, paths, commands, URLs, sign-in; n/a when absent).
+5. **Architecture rules** — lines the critic treats as blockers.
+6. **Shared helpers** — codegraph for call chains and other project helpers.
+7. **Git workflow** — commit-as-you-go on feat/<slug>, explicit paths, no --no-verify, no push unless asked.
+8. **Workflow** — the definition of done: green gate before "done", status conventions.
+9. **Pull requests** — title format, pre-commit checks, test expectations.
+10. **Session hygiene** — context-economy conventions the repo expects.
 
 Never include: anything `--help` or a config file already says; a tutorial; rules a
 newcomer can deduce from one look at the tree. Anti-drift rule: if a line becomes obvious
@@ -113,7 +117,7 @@ changing any of it.
 
 `AGENTS.md` is a prose contract the team owns — NOT machinery. A governed agent may edit it
 in-session (blueprint §9.2: it is not sacred); `self-protect` only denies the wiring
-(`.ai-engineering/`, surface settings, git hooks, the global canon, an approved spec.html).
+(`.ai-engineering/` wiring, surface settings, git hooks, and the global canon).
 Edit it when the repo's real state made a rule stale, never to bend a rule this task dislikes:
 
 1. The trigger is evidence: a rule that does not match the tree (a command that fails, a

@@ -100,7 +100,7 @@ describe("launcher resolution order", () => {
     expect(stdout).toContain("from-dist");
   });
 
-  test("prefers the platform package over the dist build", () => {
+  test("a published install prefers the platform package over a stray dist build", () => {
     const { root, launcher } = stagedLauncher("ai-eng-launcher-both-");
     const pkgDir = join(root, "ai-engineing", "node_modules", `ai-engineering-${TARGET}`);
     mkdirSync(join(pkgDir, "bin"), { recursive: true });
@@ -114,6 +114,48 @@ describe("launcher resolution order", () => {
 
     const { stdout } = run(launcher, ["--version"]);
     expect(stdout).toContain("from-platform-package");
+  });
+
+  test("a dev checkout runs dist/ai-eng, not the installed platform package", () => {
+    // `bun link` of this repo. scripts/build.ts is the marker that is not in
+    // the published tarball, and `bun run build` writes dist/ai-eng.
+    const { root, launcher } = stagedLauncher("ai-eng-launcher-dev-");
+    const pkgRoot = dirname(dirname(launcher));
+    mkdirSync(join(pkgRoot, "scripts"), { recursive: true });
+    writeFileSync(join(pkgRoot, "scripts", "build.ts"), "// dev checkout marker\n");
+    const pkgDir = join(root, "ai-engineing", "node_modules", `ai-engineering-${TARGET}`);
+    mkdirSync(join(pkgDir, "bin"), { recursive: true });
+    writeFileSync(join(pkgDir, "package.json"), '{"name":"fake","version":"0.0.0"}\n');
+    writeFileSync(join(pkgDir, "bin", "ai-eng"), '#!/bin/sh\necho from-platform-package\n');
+    chmodSync(join(pkgDir, "bin", "ai-eng"), 0o755);
+    const dist = join(pkgRoot, "dist");
+    mkdirSync(dist, { recursive: true });
+    writeFileSync(join(dist, "ai-eng"), "#!/bin/sh\necho from-dist-plain\n");
+    chmodSync(join(dist, "ai-eng"), 0o755);
+
+    const { status, stdout } = run(launcher, ["--version"]);
+    expect(status).toBe(0);
+    expect(stdout).toContain("from-dist-plain");
+  });
+
+  test("a dev checkout with no dist runs the source through bun", () => {
+    const { root, launcher } = stagedLauncher("ai-eng-launcher-source-");
+    const pkgRoot = dirname(dirname(launcher));
+    mkdirSync(join(pkgRoot, "scripts"), { recursive: true });
+    writeFileSync(join(pkgRoot, "scripts", "build.ts"), "// dev checkout marker\n");
+    mkdirSync(join(pkgRoot, "src"), { recursive: true });
+    writeFileSync(join(pkgRoot, "src", "cli.ts"), "// not executed: the fake bun answers\n");
+    const fakeBin = join(root, "fake-bin");
+    mkdirSync(fakeBin, { recursive: true });
+    writeFileSync(join(fakeBin, "bun"), "#!/bin/sh\necho from-bun-source\n");
+    chmodSync(join(fakeBin, "bun"), 0o755);
+
+    const done = spawnSync(NODE, [launcher, "--version"], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH ?? ""}` },
+    });
+    expect(done.status).toBe(0);
+    expect(done.stdout ?? "").toContain("from-bun-source");
   });
 
   test("with no binary anywhere, exits 1 with the honest error — never a stack trace", () => {

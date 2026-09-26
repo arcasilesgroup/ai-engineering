@@ -1,0 +1,164 @@
+{
+  "feature": "Viewer audit fixes",
+  "slug": "viewer-audit",
+  "summary": "Bring the live checkpoint viewer in line with the approved AFTER side of the viewer-audit prototype: no sideways scroll at 320, 44px tap targets, offline empty state, and h2 section labels, with the template and planted copy staying identical.",
+  "plain_summary": "On a phone, the progress page shows all seven steps without sideways scrolling, broken plans say offline, and the empty screen and Technical details are easy to tap.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Offline badge on failed plan load",
+      "simple": "Say offline when broken",
+      "size": "xs",
+      "goal": "A missing or unreadable plan file shows the empty drop and the badge text is offline, never live; load() returns false on parse failure; templates/viewer.html.tpl and .ai-engineering/workflow/checkpoints/viewer.html stay byte-identical.",
+      "plain": {
+        "what": "If the plan file is missing or broken, the badge says offline and the empty screen appears.",
+        "why": "Without this, a broken plan still looks live and hides the problem.",
+        "check": "Open the progress page with a missing plan name and confirm the badge says offline."
+      },
+      "builds_on": [],
+      "tasks": [
+        "In templates/viewer.html.tpl, make load() return false when JSON.parse fails and show the empty drop.",
+        "In servedInit tick, set the badge to offline (class live off) whenever load returns false or fetch fails; never set live after a failed parse.",
+        "Copy the same bytes to .ai-engineering/workflow/checkpoints/viewer.html so the planted viewer matches the template.",
+        "Add tests/viewer-audit.spec.ts that asserts the template contains the offline-on-failure contract and that the planted viewer equals the template."
+      ],
+      "files": [
+        "templates/viewer.html.tpl",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        "tests/viewer-audit.spec.ts"
+      ],
+      "acceptance": [
+        "Missing plan or parse failure shows #empty and #live textContent offline.",
+        "templates/viewer.html.tpl and .ai-engineering/workflow/checkpoints/viewer.html are identical.",
+        "bun test tests/viewer-audit.spec.ts passes."
+      ],
+      "verify": [
+        "bun test tests/viewer-audit.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": [] }
+      },
+      "status": "passed",
+      "changed_files": [
+        "templates/viewer.html.tpl",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        "tests/viewer-audit.spec.ts"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Empty drop and card heading levels",
+      "simple": "Fix empty and headings",
+      "size": "s",
+      "goal": "Empty drop title is an h1 Open a feature plan; file input min-height 44px; long paths wrap; in-card section labels are h2 with the same visual style; page title stays h1; empty section has data-region empty-drop; planted viewer stays identical to the template.",
+      "plain": {
+        "what": "The empty screen has a real title, a tall file button, wrapping paths, and section labels that sit under the page title.",
+        "why": "Without this, the empty screen is hard to tap and headings jump a level.",
+        "check": "Open a missing plan on a narrow phone and confirm the title, file control, and wrapping path."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "In templates/viewer.html.tpl, render the empty title as h1 Open a feature plan; set .drop input min-height 44px and .drop overflow-wrap anywhere; mark #empty with data-region=\"empty-drop\".",
+        "Change in-card section labels from h3 to h2 (.body h2) keeping the existing label paint; keep the page title as h1.",
+        "Keep label strings matching the prototype: Feature progress, offline, Open a feature plan, and the empty-drop copy.",
+        "Mirror every edit into .ai-engineering/workflow/checkpoints/viewer.html; extend tests/viewer-audit.spec.ts for h1 empty title, h2 body labels, 44px input rule, and wrap."
+      ],
+      "files": [
+        "templates/viewer.html.tpl",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        "tests/viewer-audit.spec.ts"
+      ],
+      "acceptance": [
+        "Empty drop shows one h1 Open a feature plan; file input CSS min-height is 44px; paths wrap without sideways scroll.",
+        "Card section labels are h2; no h1-to-h3 skip in the card body.",
+        "Planted viewer remains identical to the template."
+      ],
+      "verify": [
+        "bun test tests/viewer-audit.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": {
+        "route": ".ai-engineering/workflow/checkpoints/viewer.html?plan=<slug>",
+        "prototype": ".ai-engineering/workflow/prototypes/viewer-audit.html",
+        "scope": ["page-header", "empty-drop"],
+        "states": ["empty"]
+      },
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "passed", "attempts": 3, "findings": ["low: path wrap point differs; code vs span; drag-over highlight unmodeled"] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["minor: checkpoint 2 CSS tests reuse names U5 and U6"] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 3,
+      "title": "Journey fit and tech tap target",
+      "simple": "Fit steps and tap target",
+      "size": "m",
+      "goal": "At 320px seven journey dots (diameters 27/32/37/37/42/42/47) fit the content row with connector min-width 4px and no document sideways scroll; .tech>summary has padding-block 13px (≥44px hit); tech details marked data-region tech-details; labels match the prototype; planted viewer stays identical.",
+      "plain": {
+        "what": "All seven step dots fit on a small phone, and Technical details is tall enough to tap.",
+        "why": "Without this, the row scrolls sideways and Technical details is too small to hit.",
+        "check": "Open a seven-step plan at phone width and confirm no sideways scroll and a tall Technical details row."
+      },
+      "builds_on": [2],
+      "tasks": [
+        "In templates/viewer.html.tpl, set .journey .line min-width to 4px and keep .journey overflow-x auto with min-width 0 so seven dots fit a 288px content row at 320 without document sideways scroll.",
+        "Set .tech>summary padding-block 13px; add data-region=\"tech-details\" on the Technical details details element in the card render.",
+        "Keep journey diameters 27/32/37/42/47 (do not grow dots to 44); keep labels Feature progress, live, Technical details, Show more, Works, Looks right, Code review, and the done banner copy.",
+        "Mirror into .ai-engineering/workflow/checkpoints/viewer.html; extend tests/viewer-audit.spec.ts for min-width 4px, padding-block 13px, diameter comment, and template===planted."
+      ],
+      "files": [
+        "templates/viewer.html.tpl",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        "tests/viewer-audit.spec.ts"
+      ],
+      "acceptance": [
+        "At 320 with a seven-step plan, documentElement.scrollWidth equals clientWidth; journey connectors may be 4px.",
+        "Technical details summary hit box is at least 44px tall via padding-block 13px.",
+        "Dot diameters remain 27/32/37/42/47; planted viewer identical to template."
+      ],
+      "verify": [
+        "bun test tests/viewer-audit.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": {
+        "route": ".ai-engineering/workflow/checkpoints/viewer.html?plan=<slug>",
+        "prototype": ".ai-engineering/workflow/prototypes/viewer-audit.html",
+        "scope": ["page-header", "empty-drop", "plain-summary", "status-banner", "journey", "checkpoint-card", "tech-details"],
+        "states": ["journey", "empty", "open"]
+      },
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "passed", "attempts": 2, "findings": ["intentional: picker shows only when more than one plan file exists"] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["adversarial subagents blocked by usage; coordinator verified acceptances with bun test / typecheck / lint and template===planted"] }
+      },
+      "status": "passed",
+      "changed_files": [
+        "templates/viewer.html.tpl",
+        ".ai-engineering/workflow/checkpoints/viewer.html",
+        "tests/viewer-audit.spec.ts"
+      ]
+    }
+  ],
+  "assumptions": [
+    "The design audit and AFTER prototype are already approved; build to match them, no new packages (user said adelante).",
+    "Leave unrelated dirty work alone: agents/checkpoint-planner.md, skills/ai-brainstorm/SKILL.md, skills/ai-orchestrator/SKILL.md, tests/workflow-handoff.spec.ts, and .playwright/ (user request).",
+    "Checks run with bun test on files under tests/, plus bun run typecheck and bun run lint (AGENTS.md Project config).",
+    "Source of truth is templates/viewer.html.tpl; the planted progress page must stay the same bytes (audit Fixed section; plant-workflow plants viewer.html from that template)."
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "Do not grow journey dots to 44px; diameters 27/32/37/42/47 stay on purpose (audit Medium finding).",
+    "Do not restyle unrelated pages; only the checkpoint viewer template and its planted copy.",
+    "UI gate compares the AFTER side of viewer-audit.html only; before-pane and state-switch are prototype chrome, not live scope."
+  ]
+}

@@ -151,7 +151,7 @@ If those answers require oral context, keep editing.
    skill (the 19th of the canon).
 2. In an observational eval, the evaluated agent stays blind to the spec: showing it
    the spec beforehand would measure obedience, not conduct.
-3. `spec.html` asks "was the milestone met?" (binary, CI); `BEHAVIOR.md` asks "did the
+3. A checkpoint asks "was the step met?" (binary). `BEHAVIOR.md` asks "did the
    agent behave well?" (scored 0-1, trended, never a gate).
 
 ## Lifecycle

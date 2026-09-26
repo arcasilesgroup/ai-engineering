@@ -63,7 +63,7 @@ Downloadable documents — PDFs, Word files, PPTX decks — cannot be audited in
    pointing at what is installed at runtime.
 2. Result: `.ai-engineering/design/audits/NNN-{name}.html` — measurements, not
    opinions; the `NNN` prefix is never rewritten once issued. Render it with the
-   artifact design system — [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — so the
+   artifact design system — [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md) — so the
    measurements are presented, not decorated.
 3. Output format: gates (CHECK / EXPECT / EVIDENCE).
 
@@ -77,7 +77,7 @@ Trigger excludes: docs/**, .ai-engineering/**
 Writes: .ai-engineering/design/audits/NNN-{name}.html
 Read by: the human, the milestone gate
 Dies: immune while a permanent governor cites it; doctor --gc after older_than when nothing cites it
-Next: ai-visual-recap
+Next: none
 
 Source: community-installed skill, no license (upstream contacted, issue H4) —
 integrated with attribution until one arrives.

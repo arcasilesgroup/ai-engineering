@@ -126,12 +126,26 @@ export function canonDrift(homeDir: string): CanonDrift {
  *  absolute paths at runtime — Bun rewrites the import to the asset's real location,
  *  and in a compiled binary it is the virtualized copy inside the executable. */
 export function materializeSkills(destRoot: string): string[] {
+  return materializePrefix("skills/", destRoot);
+}
+
+/** Materialize embedded agents/*.md into a target directory (workflow-kit agents canon). */
+export function materializeAgents(destRoot: string): string[] {
+  return materializePrefix("agents/", destRoot);
+}
+
+/** Materialize the checkpoint-gate scripts into ~/.ai-engineering/scripts. */
+export function materializeScripts(destRoot: string): string[] {
+  return materializePrefix("scripts/", destRoot);
+}
+
+function materializePrefix(prefix: string, destRoot: string): string[] {
   const lines: string[] = [];
   const executablePattern = /\.(mjs|sh)$/;
   mkdirSync(destRoot, { recursive: true });
   let count = 0;
-  for (const [path, ref] of canonSkills()) {
-    const dest = join(destRoot, path.slice("skills/".length));
+  for (const [path, ref] of embeddedUnder(prefix)) {
+    const dest = join(destRoot, path.slice(prefix.length));
     const pathname = embeddedPath(ref);
     if (!existsSync(pathname)) {
       // Inside a compiled binary the asset lives at its ORIGINAL absolute path —
