@@ -7,6 +7,7 @@
 // extensions load once pi trusts the folder (it asks; --approve pre-answers).
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { chain } from "./.ai-eng-chain.ts";
@@ -18,6 +19,9 @@ function textOf(content: ReadonlyArray<{ type?: string; text?: string }>): strin
 
 function checkpointGate(payload: Record<string, unknown>): { block: true; reason: string } | undefined {
   const script = join(homedir(), ".ai-engineering", "scripts", "checkpoint-gate.py");
+  // The gate runs beside the chain, never instead: without its script there is no
+  // gate to ask, and python's exit 2 for a missing file must not read as a denial.
+  if (!existsSync(script)) return undefined;
   const run = spawnSync("python3", [script, "--surface", "pi"], { input: JSON.stringify(payload), encoding: "utf8" });
   if (run.status === 2) return { block: true, reason: `[checkpoint-gate] ${(run.stderr || "blocked").trim()}` };
   return undefined;

@@ -232,7 +232,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     expect(agents).toContain("typecheck: tsc --noEmit");
     expect(agents).not.toContain("{{");
     const decisions = entries[1]?.ours ?? "";
-    expect(decisions).toContain("(2026-01-02)");
+    expect(decisions).toContain("Date: 2026-01-02");
     expect(decisions).toContain(VERSION);
     expect(decisions).not.toContain("{{");
     // The runtime state the chain creates must not dirty the user's git status (§08).
@@ -311,7 +311,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(existsSync(join(cwd, ".git"))).toBe(true); // it created the repo itself (§14.1)
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true);
     const decisions = readFileSync(join(cwd, "DECISIONS.md"), "utf8");
-    expect(decisions).toContain(`(${new Date().toISOString().slice(0, 10)})`);
+    expect(decisions).toContain(`Date: ${new Date().toISOString().slice(0, 10)}`);
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
     expect(config).toContain('enabled = ["claude-code"]');
 

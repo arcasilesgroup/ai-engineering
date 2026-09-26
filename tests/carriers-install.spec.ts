@@ -751,7 +751,7 @@ describe("installCanon and what leaves with it", () => {
     const withSkillFile = canonDirs.filter((name) => existsSync(join(base, "skills", name, "SKILL.md")));
 
     expect(lines).toContain(`✓ ${base}/skills/ — ${canonDirs.length} ai-* skills installed`);
-    expect(lines).toContain(`✓ Symlink → ~/.claude/skills (${canonDirs.length - 1} skills)`);
+    expect(lines).toContain(`✓ Symlink → ~/.claude/skills (${canonDirs.length} skills)`);
     expect(lines).toContain(`✓ Symlink → ~/.agents/skills (${canonDirs.length} skills)`);
     expect(lines).toContain(`✓ Symlink → ~/.config/opencode/skill (${canonDirs.length} skills)`);
     expect(lines).toContain(`✓ ~/.config/opencode/commands/ — ${withSkillFile.length} slash commands (/ai-*)`);

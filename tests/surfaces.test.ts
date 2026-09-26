@@ -76,7 +76,7 @@ test("cursor: permission envelope on stdout, exit 0 (non-zero is a hook error th
 });
 
 test("copilot: permissionDecision on stdout, exit 0", () => {
-  const r = chain("copilot", DENYING);
+  const r = chain("copilot-cli", DENYING);
   expect(r.status).toBe(0);
   const body = JSON.parse(r.stdout) as { permissionDecision?: string; permissionDecisionReason?: string };
   expect(body.permissionDecision).toBe("deny");

@@ -223,10 +223,10 @@ describe("doctor · AGENTS.md", () => {
     expect(row(run, "AGENTS.md")).toContain("✓");
     expect(detail(run, "AGENTS.md")).toBe("6 rules · 20 lines");
 
-    writeFileSync(contract, agentsMd(6, 95));
+    writeFileSync(contract, agentsMd(6, 125));
     run = await doctor();
     expect(row(run, "AGENTS.md")).toContain("▲");
-    expect(detail(run, "AGENTS.md")).toBe("6 rules · 95 lines (over the context ceiling)");
+    expect(detail(run, "AGENTS.md")).toBe("6 rules · 125 lines (over the context ceiling)");
 
     writeFileSync(contract, agentsMd(3, 40));
     run = await doctor();
@@ -683,7 +683,7 @@ describe("doctor · surface carriers", () => {
     expect(row(run, "surface copilot-cli")).toContain("▲");
     expect(detail(run, "surface copilot-cli")).toContain("machine carrier ~/.copilot/hooks/ai-eng.json missing → ai-eng update");
     expect(detail(run, "surface copilot-cli")).toContain("repo carrier .github/hooks/ai-eng.json missing → ai-eng update");
-    expect(detail(run, "surface copilot-cli")).toContain("its cloud agent is an ephemeral sandbox");
+    expect(detail(run, "surface copilot-cli")).toContain("cloud/VS Code are intentionally outside this surface");
     expect(row(run, "surface zed")).toContain("✓");
     expect(detail(run, "surface zed")).toContain("no carrier: guard wiring is not implemented for this host");
     expect(run.code).toBe(2);

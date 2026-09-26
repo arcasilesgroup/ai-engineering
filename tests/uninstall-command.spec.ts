@@ -470,7 +470,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     // lock predates, so the project sweep keeps it as the user's and the declaration is
     // still readable when the machine side runs.
     writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["copilot"]\n');
-    expect(installMachineCarriers(["copilot"]).written).toEqual(["~/.copilot/hooks/ai-eng.json"]);
+    expect(installMachineCarriers(["copilot-cli"]).written).toEqual(["~/.copilot/hooks/ai-eng.json"]);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 

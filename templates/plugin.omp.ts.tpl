@@ -6,6 +6,7 @@
 // It sits on the machine, so it governs every repo that declares itself, and no repo
 // carries a copy.
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { chain } from "./.ai-eng-chain.ts";
@@ -20,6 +21,8 @@ function textOf(content: ReadonlyArray<Part> | undefined): string {
 
 function checkpointGate(payload: Record<string, unknown>): { block: true; reason: string } | undefined {
   const script = join(homedir(), ".ai-engineering", "scripts", "checkpoint-gate.py");
+  // Beside the chain, never instead: a missing script is no gate, not a denial.
+  if (!existsSync(script)) return undefined;
   const run = spawnSync("python3", [script, "--surface", "oh-my-pi"], { input: JSON.stringify(payload), encoding: "utf8" });
   if (run.status === 2) return { block: true, reason: `[checkpoint-gate] ${(run.stderr || "blocked").trim()}` };
   return undefined;

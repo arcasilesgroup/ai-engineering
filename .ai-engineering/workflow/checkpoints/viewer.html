@@ -204,7 +204,7 @@ function render() {
 
   $("journey").innerHTML = cps.map((cp, i) => {
     const s = stepState(cp, current?.id), d = 22 + (SIZES[cp.size] || 1) * 5;
-    return `${i ? `<span class="line ${cp.status === "passed" || s !== "pending" ? "on" : ""}"></span>` : ""}<button class="jdot ${s}" style="width:${d}px;height:${d}px" data-go="${cp.id}" title="Step ${cp.id}: ${cp.simple ? esc(cp.simple) + " · " : ""}${esc(STATUS[s])}" aria-label="Go to step ${cp.id}">${s === "passed" ? "✓" : cp.id}</button>`;
+    return `${i ? `<span class="line ${cp.status === "passed" || s !== "pending" ? "on" : ""}"></span>` : ""}<button class="jdot ${s}" style="width:${d}px;height:${d}px" data-go="${esc(cp.id)}" title="Step ${esc(cp.id)}: ${cp.simple ? esc(cp.simple) + " · " : ""}${esc(STATUS[s])}" aria-label="Go to step ${esc(cp.id)}">${s === "passed" ? "✓" : esc(cp.id)}</button>`;
   }).join("");
   document.querySelectorAll("[data-go]").forEach((el) => el.onclick = () => {
     const go = +el.dataset.go;
@@ -230,17 +230,17 @@ function stepCard(cp, currentId) {
     if (st === "pending" && s === "running" && activity(cp).startsWith(CHECKS.find(([kk]) => kk === k)[2])) st = "running";
     const icon = { passed: "✓", failed: "✕", running: "…", pending: "○" }[st];
     const t = tries(cp, k);
-    return `<span class="chk ${st}">${icon} ${label}${t ? ` · ${t} ${t === 1 ? "retry" : "retries"}` : ""}</span>`;
+    return `<span class="chk ${esc(st)}">${icon} ${label}${t ? ` · ${esc(t)} ${t === 1 ? "retry" : "retries"}` : ""}</span>`;
   }).join("");
 
   const problems = CHECKS.flatMap(([k, label]) => (cp.gates?.[k]?.findings || []).map((f) => `<div class="finding"><b>${label}:</b> ${esc(typeof f === "string" ? f : JSON.stringify(f))}</div>`)).join("");
   const cpTests = tests ? ["unit", "api", "cli", "ui"].flatMap((l) => (tests.layers?.[l] || []).filter((t) => t.checkpoint === cp.id).map((t) => `<li><span class="mono">${l}</span> ${esc(t.case)}</li>`)).join("") : "";
 
-  return `<details class="step ${s} ${cp.id === currentId ? "current" : ""}" id="step-${cp.id}" data-id="${cp.id}" ${openIds.has(cp.id) ? "open" : ""}>
+  return `<details class="step ${s} ${cp.id === currentId ? "current" : ""}" id="step-${esc(cp.id)}" data-id="${esc(cp.id)}" ${openIds.has(cp.id) ? "open" : ""}>
     <summary>
-      <span class="num">${s === "passed" ? "✓" : cp.id}</span>
+      <span class="num">${s === "passed" ? "✓" : esc(cp.id)}</span>
       <span>
-        <span class="status">Step ${cp.id} · ${STATUS[s]}</span>
+        <span class="status">Step ${esc(cp.id)} · ${STATUS[s]}</span>
         <div class="what">${esc(cp.simple || p.what || cp.goal || cp.title)}</div>
         <div class="checks">${checks}</div>
         <div class="more">Show more ▾</div>
@@ -254,7 +254,7 @@ function stepCard(cp, currentId) {
       ${problems ? `<h2>Problems being fixed</h2><p>The automatic checks found ${nProblems(cp)} ${nProblems(cp) === 1 ? "problem" : "problems"}. The agent is fixing ${nProblems(cp) === 1 ? "it" : "them"} by itself, so you don't need to do anything.</p>` : ""}
       <details class="tech" data-region="tech-details"><summary>Technical details</summary>
         ${problems ? `<h2>Problems found</h2>${problems}` : ""}
-        <p><b>${esc(cp.title)}</b> · size ${esc(cp.size)}${cp.builds_on?.length ? ` · builds on step ${cp.builds_on.join(", ")}` : ""}</p>
+        <p><b>${esc(cp.title)}</b> · size ${esc(cp.size)}${cp.builds_on?.length ? ` · builds on step ${cp.builds_on.map(esc).join(", ")}` : ""}</p>
         ${cp.goal ? `<p>${esc(cp.goal)}</p>` : ""}
         ${cp.acceptance?.length ? `<h2>Done when</h2><ul>${cp.acceptance.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
         ${cp.tasks?.length ? `<h2>Tasks</h2><ul>${cp.tasks.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
@@ -307,7 +307,10 @@ async function fetchText(url) { const r = await fetch(url, { cache: "no-store" }
 async function servedInit() {
   let files = [];
   try { files = [...(await fetchText("./")).matchAll(/href="([^"?/]+\.json)"/g)].map((m) => decodeURIComponent(m[1])); } catch {}
-  const slug = new URLSearchParams(location.search).get("plan") || files[0]?.replace(/\.json$/, "");
+  const raw = new URLSearchParams(location.search).get("plan") || files[0]?.replace(/\.json$/, "");
+  // A plan name is a flat file name, never a path: the URL is untrusted input
+  // and the fetched JSON gets rendered, so no slashes or traversal reach fetch.
+  const slug = raw && /^[\w.-]+$/.test(raw) ? raw : null;
   const canPick = files.length > 1;
   if (!slug) {
     $("empty").hidden = false;

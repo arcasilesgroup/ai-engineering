@@ -3,6 +3,7 @@
 // `"plugin": ["package"]` is arbitrary third-party execution (§13). Import in-process,
 // zero spawn, deny = throw. checkpoint-gate.py runs beside the chain (not instead).
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { chain } from "./ai-eng-chain.ts";
@@ -11,6 +12,8 @@ type ToolCall = { tool: string; input: Record<string, unknown>; sessionID?: stri
 
 function checkpointGate(payload: Record<string, unknown>): void {
   const script = join(homedir(), ".ai-engineering", "scripts", "checkpoint-gate.py");
+  // Beside the chain, never instead: a missing script is no gate, not a denial.
+  if (!existsSync(script)) return;
   const run = spawnSync("python3", [script, "--surface", "opencode"], { input: JSON.stringify(payload), encoding: "utf8" });
   if (run.status === 2) throw new Error(`[checkpoint-gate] ${(run.stderr || "blocked").trim()}`);
 }
