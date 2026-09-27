@@ -1,4 +1,4 @@
-// tests/git-cleanup-analyze.spec.ts — unit layer of the ai-git-cleanup test plan (checkpoint 1):
+// tests/git-cleanup-analyze.spec.ts — unit layer of the ai-git-cleanup test plan (checkpoints 1-2):
 // analyze.mjs classification logic driven through real temp repositories (the script builds its
 // own survey from git plumbing, so fixtures are the only honest input). Sandbox rides on the
 // environment the child git inherits; GIT_CONFIG_GLOBAL points at an empty file so the machine's
@@ -47,11 +47,13 @@ interface WorktreeEntry {
 interface Report {
   fetchStatus?: string;
   defaultBranch?: string;
+  currentBranch?: string;
   deleteCandidates?: BranchEntry[];
   needsReview?: BranchEntry[];
   keep?: BranchEntry[];
   worktrees?: WorktreeEntry[];
   unanalyzed?: BranchEntry[];
+  postSync?: Record<string, unknown>;
 }
 
 afterAll(() => {
@@ -101,6 +103,42 @@ function names(entries: BranchEntry[] | undefined): string[] {
 
 function entryFor(entries: BranchEntry[] | undefined, branch: string): BranchEntry | undefined {
   return (entries ?? []).find((entry) => entry.branch === branch);
+}
+
+// Every key/value pair in the document at any depth: conditional-field checks run over
+// the whole emitted structure, so they hold wherever a section lands (R2).
+function deepPairs(value: unknown, key = ""): [string, unknown][] {
+  if (Array.isArray(value)) return value.flatMap((item) => deepPairs(item, key));
+  if (value !== null && typeof value === "object") {
+    const pairs: [string, unknown][] = [];
+    for (const [childKey, child] of Object.entries(value)) {
+      pairs.push([childKey, child], ...deepPairs(child, childKey));
+    }
+    return pairs;
+  }
+  return [[key, value]];
+}
+
+// Command-bearing fields: values under command/verifyWith keys plus any string a shell
+// could execute. The postSync commands qualify wherever they live, so no section rename
+// can hide a command from the invariant scans (R3).
+function commandStrings(value: unknown): string[] {
+  return deepPairs(value).flatMap(([key, entry]) =>
+    typeof entry === "string" && (key.includes("command") || key.includes("verifyWith") || entry.startsWith("git "))
+      ? [entry]
+      : [],
+  );
+}
+
+// Local-file remote for the postSync fixtures: main pushed with its upstream configured,
+// so level/behind/ahead states come from origin/main alone — no network involved.
+function fixtureWithOrigin(name: string): string {
+  const repo = fixtureRepo(name, "main");
+  const origin = join(sandboxRoot, `${name}-origin.git`);
+  git(["init", "-q", "-b", "main", "--bare", origin], sandboxRoot);
+  git(["remote", "add", "origin", origin], repo);
+  git(["push", "-q", "-u", "origin", "main"], repo);
+  return repo;
 }
 
 describe("analyze.mjs", () => {
@@ -410,6 +448,97 @@ describe("analyze.mjs", () => {
     expect(entryFor(report.keep, "feature/local")?.reason).toBe("LOCAL_WORK");
   });
 
+  test("prune: a queued worktree removal surfaces the exact git worktree prune command in the plan", () => {
+    const repo = fixtureRepo("prune-queued", "main");
+    git(["checkout", "-q", "-b", "feature/clean-wt"], repo);
+    commit(repo, "c.md", "clean worktree work");
+    git(["checkout", "-q", "main"], repo);
+    git(["merge", "-q", "--no-ff", "feature/clean-wt"], repo);
+    git(["worktree", "add", "-q", join(sandboxRoot, "wt-prune-queued"), "feature/clean-wt"], repo);
+    const report = analyze(repo);
+    expect(Object.keys(report)).toContain("fetchStatus");
+    expect(report.fetchStatus).toBe("ok");
+    // The qualifying configuration: a removal is really queued for this worktree...
+    const queued = (report.worktrees ?? []).find((worktree) => worktree.branch === "feature/clean-wt");
+    expect(queued?.stale).toBe(true);
+    expect(queued?.command).toBe(`git worktree remove '${queued?.path}'`);
+    // ...and only then does the sync section exist and carry the exact prune command.
+    expect(Object.hasOwn(report, "postSync")).toBe(true);
+    expect(commandStrings(report)).toContain("git worktree prune");
+  });
+
+  test("prune: a refused dirty worktree queues no removal, so no git worktree prune command exists", () => {
+    const repo = fixtureRepo("prune-refused", "main");
+    // L10: create the branch without checking it out — the linked worktree holds it.
+    git(["branch", "feature/wip-wt"], repo);
+    const path = join(sandboxRoot, "wt-prune-refused");
+    git(["worktree", "add", "-q", path, "feature/wip-wt"], repo);
+    writeFileSync(join(path, "uncommitted.md"), "work in progress\n");
+    const report = analyze(repo);
+    expect(Object.keys(report)).toContain("fetchStatus");
+    expect(report.fetchStatus).toBe("ok");
+    expect(Object.hasOwn(report, "postSync")).toBe(true);
+    // The refusal stands between the dirty worktree and every command: a worktree exists
+    // but none is queued, so the prune conditional must not fire (R3).
+    const held = (report.worktrees ?? []).find((worktree) => worktree.branch === "feature/wip-wt");
+    expect(held?.dirty).toBe(true);
+    expect(held?.command).toBeUndefined();
+    expect(commandStrings(report).some((command) => command.includes("worktree prune"))).toBe(false);
+  });
+
+  test("pull: a default branch behind its upstream carries git pull --ff-only with the upstream name and behind count", () => {
+    const repo = fixtureWithOrigin("pull-behind");
+    commit(repo, "b.md", "upstream work");
+    commit(repo, "b2.md", "more upstream work");
+    git(["push", "-q", "origin", "main"], repo);
+    // The local tip rewinds, so origin/main holds exactly the two commits this clone
+    // lacks: behind 2, ahead 0, measured against the configured upstream.
+    git(["reset", "-q", "--hard", "HEAD~2"], repo);
+    const report = analyze(repo);
+    expect(Object.keys(report)).toContain("fetchStatus");
+    expect(report.fetchStatus).toBe("ok");
+    expect(Object.hasOwn(report, "postSync")).toBe(true);
+    const pull = commandStrings(report).find((command) => command.startsWith("git pull --ff-only"));
+    expect(pull).toBeDefined();
+    expect(pull).toContain("origin");
+    // The behind count the gate shows, exact against the commits this fixture created.
+    const behind = deepPairs(report)
+      .filter(([key]) => /behind/i.test(key))
+      .map(([, value]) => value);
+    expect(behind.map(Number)).toContain(2);
+    // Classification stays conservative: a behind default branch is never deletable.
+    expect(names(report.deleteCandidates)).not.toContain("main");
+  });
+
+  test("pull: a level default branch carries no git pull --ff-only command", () => {
+    const repo = fixtureWithOrigin("pull-level");
+    const report = analyze(repo);
+    expect(Object.keys(report)).toContain("fetchStatus");
+    expect(report.fetchStatus).toBe("ok");
+    expect(Object.hasOwn(report, "postSync")).toBe(true);
+    expect(commandStrings(report).some((command) => command.startsWith("git pull --ff-only"))).toBe(false);
+  });
+
+  test("ahead: a default branch ahead of its upstream is report-only — ahead count emitted, never a push command", () => {
+    const repo = fixtureWithOrigin("ahead-default");
+    commit(repo, "ahead.md", "local ahead work");
+    commit(repo, "ahead2.md", "more local ahead work");
+    const report = analyze(repo);
+    expect(Object.keys(report)).toContain("fetchStatus");
+    expect(report.fetchStatus).toBe("ok");
+    expect(Object.hasOwn(report, "postSync")).toBe(true);
+    const commands = commandStrings(report);
+    // Report-only: being ahead must not fire the pull conditional, and no command
+    // anywhere in the document may push — the invariant holds unconditionally (R3).
+    expect(commands.some((command) => command.startsWith("git pull --ff-only"))).toBe(false);
+    expect(commands.some((command) => command.includes("push"))).toBe(false);
+    // The emitted ahead count, exact against the two commits this fixture created.
+    const ahead = deepPairs(report)
+      .filter(([key]) => /ahead/i.test(key))
+      .map(([, value]) => value);
+    expect(ahead.map(Number)).toContain(2);
+  });
+
   test("single view: the report carries every command, guard, and back-link the one gate renders", () => {
     const repo = fixtureRepo("single view", "main");
     git(["checkout", "-q", "-b", "feature/merged"], repo);
@@ -426,6 +555,17 @@ describe("analyze.mjs", () => {
     expect(Object.keys(report)).toContain("fetchStatus");
     expect(report.fetchStatus).toBe("ok");
     expect(report.defaultBranch).toBe("main");
+
+    // Every bucket and the checkout the merged view renders, present with this fixture's
+    // exact contents (R2/L11): nothing the gate reads may be missing from the report.
+    expect(Object.hasOwn(report, "currentBranch")).toBe(true);
+    expect(report.currentBranch).toBe("main");
+    expect(Object.hasOwn(report, "keep")).toBe(true);
+    expect(Object.hasOwn(report, "needsReview")).toBe(true);
+    expect(Object.hasOwn(report, "unanalyzed")).toBe(true);
+    expect(names(report.keep)).toEqual(["main"]);
+    expect(report.needsReview).toEqual([]);
+    expect(report.unanalyzed).toEqual([]);
 
     const candidates = report.deleteCandidates ?? [];
     expect(candidates).toHaveLength(2);

@@ -1,11 +1,12 @@
 // tests/git-cleanup-flow.spec.ts — unit layer of the ai-git-cleanup test plan (checkpoint 2):
 // one fixture repository run end to end through analyze.mjs, asserting the WHOLE emitted
 // command plan (U15-U17): single-quoting, an ancestry guard on every git branch -d, no
-// protected/current/default branch in any delete, dirty-worktree refusal with removals
-// paired before branch deletes, and the always-present unanalyzed bucket. The script builds
-// its own survey from git plumbing, so the fixture is the spec. GIT_CONFIG_GLOBAL points at
-// an empty file so the machine's ~/.gitconfig cannot decide what any child git does; remotes
-// are local paths, so nothing here touches a network.
+// protected/current/default branch in any delete, the postSync sync commands under the
+// same scan (prune only with a queued removal, never a push), dirty-worktree refusal with
+// removals paired before branch deletes, and the always-present unanalyzed bucket. The
+// script builds its own survey from git plumbing, so the fixture is the spec.
+// GIT_CONFIG_GLOBAL points at an empty file so the machine's ~/.gitconfig cannot decide
+// what any child git does; remotes are local paths, so nothing here touches a network.
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -43,6 +44,7 @@ interface WorktreeEntry {
 }
 
 interface Report {
+  fetchStatus?: string;
   defaultBranch?: string;
   currentBranch?: string;
   deleteCandidates?: BranchEntry[];
@@ -50,6 +52,7 @@ interface Report {
   keep?: BranchEntry[];
   worktrees?: WorktreeEntry[];
   unanalyzed?: BranchEntry[];
+  postSync?: Record<string, unknown>;
 }
 
 // Every branch the fixture creates; U17 proves each lands in exactly one bucket.
@@ -86,6 +89,31 @@ function names(entries: BranchEntry[] | undefined): string[] {
 
 function entryFor(entries: BranchEntry[] | undefined, branch: string): BranchEntry | undefined {
   return (entries ?? []).find((entry) => entry.branch === branch);
+}
+
+// Every key/value pair in the document at any depth, so conditional-field checks hold
+// wherever a section lands (R2).
+function deepPairs(value: unknown, key = ""): [string, unknown][] {
+  if (Array.isArray(value)) return value.flatMap((item) => deepPairs(item, key));
+  if (value !== null && typeof value === "object") {
+    const pairs: [string, unknown][] = [];
+    for (const [childKey, child] of Object.entries(value)) {
+      pairs.push([childKey, child], ...deepPairs(child, childKey));
+    }
+    return pairs;
+  }
+  return [[key, value]];
+}
+
+// Command-bearing fields: values under command/verifyWith keys plus any string a shell
+// could execute. The postSync commands qualify wherever they live, so no section rename
+// can hide a command from the invariant scans (R3).
+function commandStrings(value: unknown): string[] {
+  return deepPairs(value).flatMap(([key, entry]) =>
+    typeof entry === "string" && (key.includes("command") || key.includes("verifyWith") || entry.startsWith("git "))
+      ? [entry]
+      : [],
+  );
 }
 
 // One fixture, one spawn, shared read-only by the three cases: each asserts a different
@@ -215,10 +243,27 @@ describe("analyze.mjs flow fixture", () => {
     }
     // SAFE_TO_DELETE is pinned to -d; -D never appears in the document.
     expect(stdout).not.toContain("branch -D");
+    // The post-cleanup sync joins the same plan scan (U15): the section always surfaces,
+    // and this fixture queues a removal, so the exact prune command must be there.
+    expect(Object.hasOwn(report, "postSync")).toBe(true);
+    const commands = commandStrings(report);
+    expect(commands).toContain("git worktree prune");
+    // The default branch is ahead of origin (never behind), so no pull may fire.
+    expect(commands.some((command) => command.startsWith("git pull --ff-only"))).toBe(false);
+    // Push, reflog GC and git gc are out of scope forever: no emitted command may carry
+    // them, and the printed document never names them at all (the bare word "push" only
+    // ever appears inside branch names like feature/unpushed, so it is command-scoped).
+    for (const command of commands) {
+      expect(command).not.toContain("push");
+    }
+    expect(stdout).not.toContain("git push");
+    expect(stdout).not.toContain("push --delete");
+    expect(stdout).not.toContain("git gc");
+    expect(stdout).not.toContain("reflog");
   });
 
   test("refusals: the dirty worktree is refused, and every queued worktree removal pairs with the branch delete it must precede", () => {
-    const { report } = flow();
+    const { stdout, report } = flow();
     const worktrees = report.worktrees ?? [];
     const deletes = report.deleteCandidates ?? [];
     const dirty = worktrees.find((worktree) => worktree.branch === "feature/dirty-wt");
@@ -233,7 +278,7 @@ describe("analyze.mjs flow fixture", () => {
     expect(clean?.dirty).toBe(false);
     expect(clean?.stale).toBe(true);
     expect(clean?.command).toBe(`git worktree remove '${clean?.path}'`);
-    // Ordering data gate 2 executes: every queued removal belongs to a branch the plan
+    // Ordering data the single gate executes: every queued removal belongs to a branch the plan
     // will delete, and the candidate points back at the holding worktree — so removals
     // are always available to print (and run) before their branch delete. Conversely,
     // every delete candidate held by a worktree has its removal queued unless the
@@ -255,6 +300,13 @@ describe("analyze.mjs flow fixture", () => {
         expect(held.command).toBe(`git worktree remove '${held.path}'`);
       }
     }
+    // The merged single plan: fetch banner and postSync surface in the same emitted
+    // document as the pairing data (U16), own-property on the parsed report plus the raw
+    // key from what the script actually printed.
+    expect(Object.hasOwn(report, "fetchStatus")).toBe(true);
+    expect(report.fetchStatus).toBe("ok");
+    expect(Object.hasOwn(report, "postSync")).toBe(true);
+    expect(stdout).toContain('"postSync"');
   });
 
   test("unanalyzed: the bucket always surfaces in the emitted plan and every fixture branch is accounted for", () => {
