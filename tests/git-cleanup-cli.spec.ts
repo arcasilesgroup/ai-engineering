@@ -84,7 +84,12 @@ describe("analyze.mjs CLI contract", () => {
     const repo = fixtureRepo("no-origin", "trunk");
     const analysis = runAnalyze([repo], sandboxRoot);
     expect(analysis.status).toBe(0);
-    expect(JSON.parse(analysis.stdout)).toBeObject();
+    // Parsing the whole stdout doubles as the single-JSON-document check: stray output
+    // or a second document fails to parse. No remote exists, so no remote-derived state
+    // could be stale and fetchStatus must be exactly `ok`.
+    const report = JSON.parse(analysis.stdout) as Record<string, unknown>;
+    expect(report).toBeObject();
+    expect(report.fetchStatus).toBe("ok");
   });
 
   test("the default branch comes from origin/HEAD when it exists", () => {
@@ -107,8 +112,29 @@ describe("analyze.mjs CLI contract", () => {
     git(["remote", "add", "origin", join(sandboxRoot, "missing-origin.git")], repo);
     const analysis = runAnalyze([repo], sandboxRoot);
     expect(analysis.status).toBe(0);
-    expect(JSON.parse(analysis.stdout)).toBeObject();
+    // Parsing the whole stdout doubles as the single-JSON-document check: a corrupted
+    // stdout would fail to parse here.
+    const report = JSON.parse(analysis.stdout) as Record<string, unknown>;
+    expect(report).toBeObject();
     expect(analysis.stdout).toContain("trunk");
+    // The failure must surface as `failed: <first stderr line, trimmed>`. The exact line
+    // comes from replaying the identical fetch against the identical fixture, so the
+    // reason is pinned without hardcoding a machine-specific path into the test.
+    const fetch = spawnSync("git", ["fetch", "--prune", "origin"], {
+      cwd: repo,
+      encoding: "utf8",
+      env: childEnv,
+    });
+    expect(fetch.status).not.toBe(0);
+    const firstStderrLine = (fetch.stderr ?? "")
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.length > 0);
+    expect(firstStderrLine).toBeString();
+    expect(report.fetchStatus).toBe(`failed: ${firstStderrLine}`);
+    // Conservative classification intact under a broken remote: the fallback derivation
+    // still runs and no delete candidate is fabricated from stale remote state.
+    expect(report.deleteCandidates).toEqual([]);
   });
 
   test("a path outside any git repository exits non-zero with a repo error", () => {

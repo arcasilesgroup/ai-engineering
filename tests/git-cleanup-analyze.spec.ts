@@ -44,6 +44,7 @@ interface WorktreeEntry {
 }
 
 interface Report {
+  fetchStatus?: string;
   defaultBranch?: string;
   deleteCandidates?: BranchEntry[];
   needsReview?: BranchEntry[];
@@ -326,8 +327,8 @@ describe("analyze.mjs", () => {
     expect(clean).toBeDefined();
     expect(clean?.dirty).toBe(false);
     expect(clean?.stale).toBe(true);
-    // The delete candidate carries the holding worktree's path, so gate 2 can
-    // order the worktree removal before the branch delete.
+    // The delete candidate carries the holding worktree's path, so the single
+    // approved plan can order the worktree removal before the branch delete.
     expect(entryFor(report.deleteCandidates, "feature/clean-wt")?.worktreePath).toBe(clean?.path);
   });
 
@@ -350,5 +351,103 @@ describe("analyze.mjs", () => {
     } else {
       expect(run.stdout).not.toContain("SAFE_TO_DELETE");
     }
+  });
+
+  test('fetchStatus: a working origin yields exactly "ok" as its own top-level property in one JSON document', () => {
+    const origin = join(sandboxRoot, "fetch-ok-origin.git");
+    git(["init", "-q", "-b", "main", "--bare", origin], sandboxRoot);
+    const repo = fixtureRepo("fetch ok", "main");
+    git(["remote", "add", "origin", origin], repo);
+    git(["push", "-q", "origin", "main"], repo);
+    const run = runAnalyze([repo], sandboxRoot);
+    expect(run.status).toBe(0);
+    // Parsing the whole stdout doubles as the single-JSON-document check: anything
+    // printed outside the one document would make this parse throw.
+    const report = JSON.parse(run.stdout) as Report;
+    expect(Object.keys(report)).toContain("fetchStatus");
+    expect(report.fetchStatus).toBe("ok");
+  });
+
+  test('fetchStatus: with no origin the fetch is skipped and the field is still exactly "ok"', () => {
+    const repo = fixtureRepo("fetch no origin", "main");
+    const run = runAnalyze([repo], sandboxRoot);
+    expect(run.status).toBe(0);
+    const report = JSON.parse(run.stdout) as Report;
+    expect(Object.keys(report)).toContain("fetchStatus");
+    expect(report.fetchStatus).toBe("ok");
+  });
+
+  test('fetchStatus: a broken origin surfaces "failed: <first stderr line, trimmed>" and classification stays conservative', () => {
+    const repo = fixtureRepo("fetch failed", "main");
+    git(["remote", "add", "origin", join(sandboxRoot, "missing-fetch-origin.git")], repo);
+    git(["checkout", "-q", "-b", "feature/local"], repo);
+    commit(repo, "local.md", "local work");
+    git(["checkout", "-q", "main"], repo);
+    // The exact reason comes from replaying the identical fetch against the identical
+    // fixture, so the field is pinned without hardcoding git's wording or a
+    // machine-specific path into the test.
+    const fetch = spawnSync("git", ["fetch", "--prune", "origin"], {
+      cwd: repo,
+      encoding: "utf8",
+      env: childEnv,
+    });
+    expect(fetch.status).not.toBe(0);
+    const firstStderrLine = (fetch.stderr ?? "")
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.length > 0);
+    expect(firstStderrLine).toBeString();
+    const run = runAnalyze([repo], sandboxRoot);
+    expect(run.status).toBe(0);
+    const report = JSON.parse(run.stdout) as Report;
+    expect(Object.keys(report)).toContain("fetchStatus");
+    expect(report.fetchStatus).toBe(`failed: ${firstStderrLine}`);
+    // Conservative classification under a failed fetch: the fallback default branch
+    // still resolves, and nothing is fabricated into a delete plan.
+    expect(report.defaultBranch).toBe("main");
+    expect(report.deleteCandidates).toEqual([]);
+    expect(entryFor(report.keep, "feature/local")?.reason).toBe("LOCAL_WORK");
+  });
+
+  test("single view: the report carries every command, guard, and back-link the one gate renders", () => {
+    const repo = fixtureRepo("single view", "main");
+    git(["checkout", "-q", "-b", "feature/merged"], repo);
+    commit(repo, "m.md", "merged work");
+    git(["checkout", "-q", "main"], repo);
+    git(["merge", "-q", "--no-ff", "feature/merged"], repo);
+    git(["checkout", "-q", "-b", "feature/clean-wt"], repo);
+    commit(repo, "c.md", "clean worktree work");
+    git(["checkout", "-q", "main"], repo);
+    git(["merge", "-q", "--no-ff", "feature/clean-wt"], repo);
+    git(["worktree", "add", "-q", join(sandboxRoot, "wt-single-view"), "feature/clean-wt"], repo);
+    const report = analyze(repo);
+    // The gate's fetch banner reads from the same document as everything else.
+    expect(Object.keys(report)).toContain("fetchStatus");
+    expect(report.fetchStatus).toBe("ok");
+    expect(report.defaultBranch).toBe("main");
+
+    const candidates = report.deleteCandidates ?? [];
+    expect(candidates).toHaveLength(2);
+    expect(names(candidates)).toContain("feature/merged");
+    expect(names(candidates)).toContain("feature/clean-wt");
+    // Per-row plan: the exact delete command and ancestry guard on every candidate.
+    for (const entry of candidates) {
+      expect(entry.command).toBe(`git branch -d '${entry.branch}'`);
+      expect(entry.verifyWith).toBe(`git merge-base --is-ancestor 'refs/heads/${entry.branch}' 'main'`);
+    }
+
+    const stale = (report.worktrees ?? []).filter((worktree) => worktree.stale === true);
+    expect(stale).toHaveLength(1);
+    const staleEntry = stale[0];
+    expect(staleEntry).toBeDefined();
+    const stalePath = staleEntry?.path ?? "";
+    expect(stalePath).not.toBe("");
+    expect(staleEntry?.command).toBe(`git worktree remove '${stalePath}'`);
+
+    // Back-link: the held candidate names the worktree entry that must be removed first.
+    const held = entryFor(candidates, "feature/clean-wt");
+    expect(held?.worktreePath).toBe(stalePath);
+    expect(staleEntry?.branch).toBe("feature/clean-wt");
+    expect(entryFor(candidates, "feature/merged")?.worktreePath).toBeUndefined();
   });
 });
