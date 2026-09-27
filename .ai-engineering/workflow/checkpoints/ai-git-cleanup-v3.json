@@ -160,6 +160,7 @@
     }
   ],
   "assumptions": [
+    "Worktree-batch clarification (resolves acceptance-3 vs test-plan U15/U19): a linked worktree's branch reaches the batch WITH its worktreePath back-link when the worktree is CLEAN and stale (phase 3 removes the worktree first, then deletes — the one ask covers both); a DIRTY worktree's branch never reaches the batch (requiresAcknowledgment, drops to KEEP). Acceptance-3 forbids batched worktree-held branches only in the dirty/unacknowledged sense.",
     "Scope is git only, the skill keeps the name ai-git-cleanup, and automation is auto with one batch confirmation — user decisions already made (feature request).",
     "Phase 0's pull failure only WARNs and cleanup continues: the reference's STOP is a deviation the feature request logged as an assumption, because cleanup does not need a synced default (feature request).",
     "The old postSync pull is absorbed into phase 0 rather than kept as a post-cleanup step: the pull now runs with HEAD already on the default branch, which is the R4/L17 fix — the analyzer emits it as migration-plan data, and post-cleanup keeps only worktree prune (feature request item 4; decide-and-log).",

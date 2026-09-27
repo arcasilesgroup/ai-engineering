@@ -144,11 +144,32 @@ describe("analyze.mjs CLI contract", () => {
     expect(analysis.status).not.toBe(0);
     expect(analysis.stderr).toMatch(/not a git repo/i);
   });
+
+  test("a failing fetch: fetchStatus surfaces the failure and classification stays conservative", () => {
+    const repo = fixtureRepo("broken-origin-conservative", "trunk");
+    git(["remote", "add", "origin", join(sandboxRoot, "missing-origin.git")], repo);
+    const doc = analyzeDoc(["--all", repo], sandboxRoot);
+    // fetchStatus still surfaces the failure inside the one parseable document.
+    expect(String(doc.fetchStatus)).toContain("failed: ");
+    // Conservative under a broken remote: nothing fabricated into the batch, and no
+    // delete command anywhere in the document.
+    expect(doc.batch).toEqual([]);
+    expect(commandStrings(doc).filter((command) => /branch -[dD]/.test(command))).toEqual([]);
+  });
 });
 
-// Checkpoint 2 (ai-git-cleanup-v2): subprocess-level proof of the post-cleanup sync
-// plan against real upstream states. Every remote is a local path, so an "upstream"
-// here is just another checkout of the same sandbox — no network anywhere.
+// Checkpoint 1 (ai-git-cleanup-v3): mode flags, migration plan pinned to the default
+// branch, and classification on real fixtures — all subprocess-level. Every remote is
+// a local path, so nothing here touches a network.
+
+// Every string in the document that looks like a git command — the exact strings a
+// consumer would execute, wherever in the JSON they are nested.
+function commandStrings(value: unknown): string[] {
+  if (typeof value === "string") return value.includes("git ") ? [value] : [];
+  if (Array.isArray(value)) return value.flatMap(commandStrings);
+  if (value && typeof value === "object") return Object.values(value).flatMap(commandStrings);
+  return [];
+}
 
 function bareOrigin(name: string): string {
   const origin = join(sandboxRoot, `${name}.git`);
@@ -171,172 +192,251 @@ function commitOn(disk: string, file: string, content: string, message: string):
   git(["commit", "-q", "-m", message], disk);
 }
 
-// Fixture precondition, asserted by the tests themselves: the fixture must really be
-// in the named upstream state or the assertion below proves nothing (R3).
-function aheadBehind(repo: string): { ahead: number; behind: number } {
-  const counts = spawnSync(
-    "git",
-    ["rev-list", "--left-right", "--count", "trunk...origin/trunk"],
-    { cwd: repo, encoding: "utf8", env: childEnv },
-  );
-  if (counts.status !== 0) throw new Error(`upstream count failed: ${counts.stderr}`);
-  const cells = counts.stdout.trim().split("\t").map(Number);
-  const [ahead, behind] = [cells[0], cells[1]];
-  // Narrow before use: a malformed count line fails the precondition loudly.
-  if (ahead === undefined || behind === undefined || !Number.isFinite(ahead) || !Number.isFinite(behind)) {
-    throw new Error(`unexpected upstream counts: ${counts.stdout.trim()}`);
-  }
-  return { ahead, behind };
-}
-
-// Several tests build the same state, so every fixture call needs its own directory:
-// re-running git init plus commit in an existing repo finds nothing to commit and fails.
 let fixtureSeq = 0;
 function nextBase(name: string): string {
   fixtureSeq += 1;
-  return `postsync-${name}-${fixtureSeq}`;
+  return `cli-${name}-${fixtureSeq}`;
 }
 
-// A default branch whose upstream is one commit ahead: local trunk is behind 1.
-function behindFixture(): string {
-  const base = nextBase("behind");
+// A repo with a local origin: trunk pushed, origin/HEAD set, HEAD moved to a feature
+// branch so current !== default — the configuration the R4 pull pin requires.
+function currentNotDefaultFixture(name: string): string {
+  const base = nextBase(name);
   const repo = fixtureRepo(base, "trunk");
   const origin = bareOrigin(base);
   git(["remote", "add", "origin", origin], repo);
   git(["push", "-q", "-u", "origin", "HEAD"], repo);
-  const other = cloneOf(origin, `${base}-other`);
-  commitOn(other, "remote.md", "# advanced remotely\n", "remote-only commit");
-  git(["push", "-q", "origin", "HEAD"], other);
-  // The precondition reads origin/trunk, so the tracking ref must already be fresh
-  // here; analyze would fetch anyway, but the fixture proves its own state first.
-  git(["fetch", "-q", "origin"], repo);
+  git(["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk"], repo);
+  git(["switch", "-q", "-c", "feature/work"], repo);
   return repo;
 }
 
-// Local trunk and its upstream at the same commit: level.
-function levelFixture(): string {
-  const base = nextBase("level");
-  const repo = fixtureRepo(base, "trunk");
-  const origin = bareOrigin(base);
-  git(["remote", "add", "origin", origin], repo);
-  git(["push", "-q", "-u", "origin", "HEAD"], repo);
-  return repo;
+function analyzeDoc(args: string[], cwd: string): Record<string, unknown> {
+  const run = runAnalyze(args, cwd);
+  expect(run.status).toBe(0);
+  // JSON.parse of the whole stdout doubles as the one-JSON-document check.
+  return JSON.parse(run.stdout) as Record<string, unknown>;
 }
 
-// A local commit never pushed: trunk ahead 1.
-function aheadFixture(): string {
-  const base = nextBase("ahead");
-  const repo = fixtureRepo(base, "trunk");
-  const origin = bareOrigin(base);
-  git(["remote", "add", "origin", origin], repo);
-  git(["push", "-q", "-u", "origin", "HEAD"], repo);
-  commitOn(repo, "local.md", "# local only\n", "local-only commit");
-  return repo;
-}
-
-// A clean linked worktree on a branch that is already an ancestor of trunk: the
-// branch queues as SAFE_TO_DELETE and its worktree as stale (L10: the branch is
-// created with `git branch` while trunk stays checked out, never checked out twice).
-function staleWorktreeFixture(): string {
-  const base = nextBase("stale-wt");
-  const repo = fixtureRepo(base, "trunk");
-  git(["branch", "feature/done"], repo);
-  git(["worktree", "add", "-q", join(sandboxRoot, `${base}-linked`), "feature/done"], repo);
-  return repo;
-}
-
-// Every string in the document that looks like a git command — the exact strings a
-// consumer would execute, wherever in the JSON they are nested.
-function commandStrings(value: unknown): string[] {
-  if (typeof value === "string") return value.includes("git ") ? [value] : [];
-  if (Array.isArray(value)) return value.flatMap(commandStrings);
-  if (value && typeof value === "object") return Object.values(value).flatMap(commandStrings);
-  return [];
-}
-
-function analyzeFixture(repo: string): Record<string, unknown> {
-  const analysis = runAnalyze([repo], sandboxRoot);
-  expect(analysis.status).toBe(0);
-  return JSON.parse(analysis.stdout) as Record<string, unknown>;
-}
-
-describe("analyze.mjs CLI post-cleanup sync plan", () => {
-  test("behind default: the plan includes git pull --ff-only for the default branch", () => {
-    const repo = behindFixture();
-    expect(aheadBehind(repo)).toEqual({ ahead: 0, behind: 1 });
-    const report = analyzeFixture(repo);
-    expect(report.defaultBranch).toBe("trunk");
-    const pulls = commandStrings(report).filter((command) => command.includes("pull --ff-only"));
-    expect(pulls).toHaveLength(1);
-    expect(pulls[0]).toContain("git pull --ff-only");
-    // The pull names its upstream: the plan tells the gate what it syncs from.
-    expect(JSON.stringify(report)).toContain("origin/trunk");
+describe("analyze.mjs mode flags", () => {
+  test("--sync emits only the migration plan: classification, batch and report sections absent", () => {
+    const repo = currentNotDefaultFixture("mode-sync");
+    const doc = analyzeDoc(["--sync", repo], sandboxRoot);
+    expect(doc).toBeObject();
+    // Own-property checks, not truthiness: an empty-but-present section must not pass
+    // as absent, and a missing section must not pass as present (R2).
+    expect(doc).toHaveProperty("migration");
+    expect("classification" in doc).toBe(false);
+    expect("batch" in doc).toBe(false);
+    expect("report" in doc).toBe(false);
+    // No delete command of any kind leaks into the sync-only document.
+    expect(commandStrings(doc).filter((command) => /branch -[dD]/.test(command))).toEqual([]);
   });
 
-  test("level default: no pull command is emitted", () => {
-    const repo = levelFixture();
-    expect(aheadBehind(repo)).toEqual({ ahead: 0, behind: 0 });
-    const report = analyzeFixture(repo);
-    expect(commandStrings(report).filter((command) => command.includes("pull"))).toEqual([]);
+  test("--branches emits classification, batch and report with migration, stash and pull sections absent", () => {
+    const repo = currentNotDefaultFixture("mode-branches");
+    const doc = analyzeDoc(["--branches", repo], sandboxRoot);
+    expect(doc).toBeObject();
+    expect("migration" in doc).toBe(false);
+    expect(doc).toHaveProperty("classification");
+    expect(doc).toHaveProperty("batch");
+    expect(doc).toHaveProperty("report");
+    // The whole document carries no pull or stash command: migration cannot hide here.
+    expect(commandStrings(doc).filter((command) => command.includes("pull") || command.includes("stash"))).toEqual([]);
   });
 
-  test("ahead default: the ahead count is reported and no push is emitted", () => {
-    const repo = aheadFixture();
-    expect(aheadBehind(repo)).toEqual({ ahead: 1, behind: 0 });
-    const report = analyzeFixture(repo);
-    const postSync = report.postSync;
-    expect(postSync).toBeObject();
-    // Report-only marker: the ahead count travels in the plan, never a push command.
-    expect(JSON.stringify(postSync)).toMatch(/"ahead"\s*:\s*1/);
-    expect(commandStrings(report).filter((command) => command.includes("push"))).toEqual([]);
+  test("mode default: no flag equals explicit --all and every invocation parses as one JSON document", () => {
+    const repo = currentNotDefaultFixture("mode-default");
+    const explicit = runAnalyze(["--all", repo], sandboxRoot);
+    const implicit = runAnalyze([repo], sandboxRoot);
+    const branches = runAnalyze(["--branches", repo], sandboxRoot);
+    expect(explicit.status).toBe(0);
+    expect(implicit.status).toBe(0);
+    expect(branches.status).toBe(0);
+    const allDoc = JSON.parse(explicit.stdout) as Record<string, unknown>;
+    const noFlagDoc = JSON.parse(implicit.stdout) as Record<string, unknown>;
+    JSON.parse(branches.stdout);
+    expect(noFlagDoc).toEqual(allDoc);
+    // The default mode is --all: migration, classification, batch and report all present.
+    expect(allDoc).toHaveProperty("migration");
+    expect(allDoc).toHaveProperty("classification");
+    expect(allDoc).toHaveProperty("batch");
+    expect(allDoc).toHaveProperty("report");
   });
+});
 
-  test("a queued worktree removal adds git worktree prune", () => {
-    const repo = staleWorktreeFixture();
-    const report = analyzeFixture(repo);
-    // Fixture precondition: the worktree really is queued for removal.
-    expect(commandStrings(report).filter((command) => command.includes("worktree remove"))).toHaveLength(1);
-    const prunes = commandStrings(report).filter((command) => command.includes("worktree prune"));
-    expect(prunes).toHaveLength(1);
-    expect(prunes[0]).toContain("git worktree prune");
-  });
-
-  test("no worktree removal: no prune command", () => {
-    const repo = levelFixture();
-    const report = analyzeFixture(repo);
-    // Prove the "none removed" configuration holds, or the absence check is vacuous.
-    expect(commandStrings(report).filter((command) => command.includes("worktree remove"))).toEqual([]);
-    expect(commandStrings(report).filter((command) => command.includes("prune"))).toEqual([]);
-  });
-
-  test("every emitted git command in the whole plan is push-free", () => {
-    // The exact configuration where a push could hide: local work ahead of upstream
-    // with real queued deletions in the same document (R3).
-    const repo = aheadFixture();
+describe("analyze.mjs classification on real fixtures", () => {
+  test("a branch merged into default lands in the batch as -d with its exact command", () => {
+    const repo = fixtureRepo("cli-merged", "trunk");
     git(["branch", "feature/merged"], repo);
-    git(["worktree", "add", "-q", join(sandboxRoot, "postsync-scan-linked"), "feature/merged"], repo);
-    const report = analyzeFixture(repo);
-    const commands = commandStrings(report);
+    commitOn(repo, "trunk-only.md", "# trunk moved on\n", "trunk commit after branch");
+    const doc = analyzeDoc(["--all", repo], sandboxRoot);
+    const batch = doc.batch as Array<Record<string, unknown>>;
+    const entry = batch.find((item) => item.branch === "feature/merged");
+    expect(entry).toBeObject();
+    expect(entry?.action).toBe("-d");
+    // The exact string a consumer executes, quoting included (L13).
+    expect(String(entry?.command)).toContain("git branch -d 'feature/merged'");
+  });
+
+  test("a tree-identical branch lands in the batch as -D with empty-diff evidence", () => {
+    const repo = fixtureRepo("cli-tree-identical", "trunk");
+    // Different commit than trunk, identical tree: make a change, then revert it, so
+    // git diff trunk..<branch> is empty while the tip is not an ancestor — the exact
+    // -D configuration.
+    git(["switch", "-q", "-c", "feature/same-tree"], repo);
+    commitOn(repo, "scratch.md", "# temporary\n", "temporary change");
+    git(["rm", "-q", "scratch.md"], repo);
+    git(["commit", "-q", "-m", "revert the temporary change"], repo);
+    const doc = analyzeDoc(["--all", repo], sandboxRoot);
+    // Fixture precondition: the tree really is identical to trunk (R3).
+    const diff = spawnSync("git", ["diff", "--quiet", "trunk..feature/same-tree"], {
+      cwd: repo,
+      encoding: "utf8",
+      env: childEnv,
+    });
+    expect(diff.status).toBe(0);
+    const batch = doc.batch as Array<Record<string, unknown>>;
+    const entry = batch.find((item) => item.branch === "feature/same-tree");
+    expect(entry).toBeObject();
+    expect(entry?.action).toBe("-D");
+    expect(entry?.evidence).toBe("empty diff vs default");
+    expect(String(entry?.command)).toContain("git branch -D 'feature/same-tree'");
+  });
+
+  test("[gone] upstream with a divergent diff stays KEEP: absent from the batch, surfaced in the report", () => {
+    const base = nextBase("gone-divergent");
+    const repo = fixtureRepo(base, "trunk");
+    const origin = bareOrigin(base);
+    git(["remote", "add", "origin", origin], repo);
+    git(["push", "-q", "-u", "origin", "HEAD"], repo);
+    git(["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk"], repo);
+    // Push a feature branch, delete it on the origin, then keep committing locally:
+    // upstream [gone] AND a non-empty diff — the KEEP (needs review) configuration.
+    git(["switch", "-q", "-c", "feature/gone"], repo);
+    commitOn(repo, "gone.md", "# local divergence\n", "local-only commit");
+    git(["push", "-q", "-u", "origin", "feature/gone"], repo);
+    git(["push", "origin", "--delete", "feature/gone"], repo);
+    commitOn(repo, "gone-more.md", "# more local work\n", "another local commit");
+    const doc = analyzeDoc(["--all", repo], sandboxRoot);
+    // Fixture precondition asserted against the emitted document itself (R3).
+    expect(String(doc.fetchStatus)).toBe("ok");
+    const batch = doc.batch as Array<Record<string, unknown>>;
+    expect(batch.map((entry) => entry.branch)).not.toContain("feature/gone");
+    // Not silently dropped: the branch still appears in the document for review.
+    expect(JSON.stringify(doc)).toContain("feature/gone");
+  });
+
+  test("a PROTECTED-regex branch never reaches the batch", () => {
+    const repo = fixtureRepo("cli-protected", "trunk");
+    // `staging` is PROTECTED and not a KNOWN_DEFAULTS name, so protection alone (not
+    // default-branch detection) must keep it out of the batch.
+    git(["branch", "staging"], repo);
+    commitOn(repo, "staging-work.md", "# staging-only work\n", "staging commit");
+    const doc = analyzeDoc(["--all", repo], sandboxRoot);
+    const batch = doc.batch as Array<Record<string, unknown>>;
+    expect(batch.map((entry) => entry.branch)).not.toContain("staging");
+    // The branch is still reported, never silently dropped.
+    expect(JSON.stringify(doc)).toContain("staging");
+  });
+});
+
+describe("analyze.mjs migration plan at the CLI boundary", () => {
+  // Local-only behind state: the origin gains a commit trunk does not have, so the
+  // default is behind — the configuration under which the pull must be emitted
+  // regardless of the implementer's level-with-upstream emission policy.
+  function behindCurrentNotDefault(name: string): string {
+    const repo = currentNotDefaultFixture(name);
+    const originUrl = spawnSync("git", ["remote", "get-url", "origin"], {
+      cwd: repo,
+      encoding: "utf8",
+      env: childEnv,
+    });
+    if (originUrl.status !== 0) throw new Error(`origin url failed: ${originUrl.stderr}`);
+    const other = cloneOf(originUrl.stdout.trim(), `${name}-other`);
+    commitOn(other, "remote.md", "# advanced remotely\n", "remote-only commit");
+    git(["push", "-q", "origin", "HEAD"], other);
+    git(["fetch", "-q", "origin"], repo);
+    return repo;
+  }
+
+  test("the emitted pull names the default branch while HEAD is on a feature branch", () => {
+    const repo = behindCurrentNotDefault("pull-pin");
+    const doc = analyzeDoc(["--all", repo], sandboxRoot);
+    expect(doc).toHaveProperty("migration");
+    const commands = commandStrings(doc);
+    const pulls = commands.filter((command) => command.includes("pull --ff-only"));
+    expect(pulls).toHaveLength(1);
+    // R4/L17: exact default-pinned destination, never HEAD, never the current branch.
+    expect(pulls[0]).toBe("git pull --ff-only 'origin' 'trunk'");
+    // The pre-migration current branch is recorded for the report.
+    expect(JSON.stringify(doc.migration)).toContain("feature/work");
+    // Read-only proof: the analyzer emitted the commands but did not run them — HEAD
+    // is still on the feature branch and no stash exists (R1).
+    const head = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+      cwd: repo,
+      encoding: "utf8",
+      env: childEnv,
+    });
+    expect(head.stdout.trim()).toBe("feature/work");
+    const stashes = spawnSync("git", ["stash", "list"], {
+      cwd: repo,
+      encoding: "utf8",
+      env: childEnv,
+    });
+    expect(stashes.stdout.trim()).toBe("");
+  });
+
+  test("every emitted git command in a real --all document is push-free", () => {
+    // The exact configuration where a push could hide: default ahead of its upstream,
+    // a queued deletion, and migration in one document (R3), worktree clean so no
+    // stash command muddies the scan.
+    const base = nextBase("push-scan");
+    const repo = fixtureRepo(base, "trunk");
+    const origin = bareOrigin(base);
+    git(["remote", "add", "origin", origin], repo);
+    git(["push", "-q", "-u", "origin", "HEAD"], repo);
+    git(["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk"], repo);
+    git(["branch", "feature/merged"], repo);
+    commitOn(repo, "local.md", "# local only\n", "local-only commit");
+    git(["switch", "-q", "-c", "feature/work"], repo);
+    const doc = analyzeDoc(["--all", repo], sandboxRoot);
+    const commands = commandStrings(doc);
     expect(commands.length).toBeGreaterThan(0);
     expect(commands.filter((command) => /push/.test(command))).toEqual([]);
   });
 
-  test("fetchStatus and postSync coexist in one document", () => {
-    const repo = behindFixture();
-    const report = analyzeFixture(repo);
-    expect(report.fetchStatus).toBe("ok");
-    expect(report.postSync).toBeObject();
-    expect(JSON.stringify(report.postSync)).toContain("git pull --ff-only");
+  test("a queued worktree removal adds git worktree prune", () => {
+    const repo = fixtureRepo("cli-prune-present", "trunk");
+    git(["branch", "feature/done"], repo);
+    git(["worktree", "add", "-q", join(sandboxRoot, "cli-prune-linked"), "feature/done"], repo);
+    const doc = analyzeDoc(["--all", repo], sandboxRoot);
+    const commands = commandStrings(doc);
+    // Fixture precondition: the removal really is queued, or the prune claim is vacuous.
+    expect(commands.filter((command) => command.includes("worktree remove"))).toHaveLength(1);
+    const prunes = commands.filter((command) => command.includes("worktree prune"));
+    expect(prunes).toHaveLength(1);
+    expect(prunes[0]).toContain("git worktree prune");
   });
 
-  test("stdout stays a single JSON document when postSync is present", () => {
-    const repo = staleWorktreeFixture();
-    const analysis = runAnalyze([repo], sandboxRoot);
-    expect(analysis.status).toBe(0);
+  test("no queued worktree removal: no prune command", () => {
+    const repo = fixtureRepo("cli-prune-absent", "trunk");
+    git(["switch", "-q", "-c", "feature/work"], repo);
+    const doc = analyzeDoc(["--all", repo], sandboxRoot);
+    // Prove the "none queued" configuration holds, or the absence check is vacuous (R3).
+    const commands = commandStrings(doc);
+    expect(commands.filter((command) => command.includes("worktree remove"))).toEqual([]);
+    expect(commands.filter((command) => command.includes("prune"))).toEqual([]);
+  });
+
+  test("stdout stays a single JSON document with the migration plan present", () => {
+    const repo = currentNotDefaultFixture("single-json");
+    const run = runAnalyze(["--all", repo], sandboxRoot);
+    expect(run.status).toBe(0);
     // JSON.parse of the whole stdout doubles as the single-document check: stray
     // output or a second document fails to parse.
-    const report = JSON.parse(analysis.stdout) as Record<string, unknown>;
-    expect(report).toBeObject();
-    expect(report.postSync).toBeObject();
+    const doc = JSON.parse(run.stdout) as Record<string, unknown>;
+    expect(doc).toBeObject();
+    expect(doc).toHaveProperty("migration");
   });
 });
