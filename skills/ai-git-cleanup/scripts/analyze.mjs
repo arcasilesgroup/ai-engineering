@@ -100,8 +100,21 @@ function main() {
     .map((line) => line.trim())
     .filter(Boolean);
   // Best-effort prune before origin/HEAD is read: stale remote-tracking refs must not
-  // decide the default branch, and a dead or absent origin skips cleanly.
-  if (remotes.includes("origin")) runGit(["fetch", "--prune", "origin"], repo);
+  // decide the default branch. The outcome travels as fetchStatus so the approval gate
+  // can show a failed fetch instead of silently leaving remote-derived state stale; with
+  // no origin nothing remote-derived can be stale, so the status is ok without a fetch.
+  const hasOrigin = remotes.includes("origin");
+  let fetchStatus = "ok";
+  if (hasOrigin) {
+    const fetched = runGit(["fetch", "--prune", "origin"], repo);
+    if (fetched.status !== 0) {
+      const firstStderrLine = (fetched.stderr ?? "")
+        .split("\n")
+        .map((line) => line.trim())
+        .find((line) => line.length > 0);
+      fetchStatus = `failed: ${firstStderrLine ?? `git fetch exited ${fetched.status}`}`;
+    }
+  }
 
   const inventory = runGit(
     ["for-each-ref", "--format=%(refname:short)%09%(objectname)%09%(upstream:short)%09%(upstream:track)", "refs/heads"],
@@ -207,9 +220,9 @@ function main() {
       keep.push({ branch, reason: "CURRENT_BRANCH", evidence: "checked out in this worktree; tip " + tip });
       continue;
     }
-    // The ancestry guard gate 2 runs again immediately before the delete. It names
-    // refs/heads/<branch> rather than the reported sha, so it cannot pass on a stale
-    // or transposed commit while the branch itself was never merged.
+    // The ancestry guard the approval plan prints runs again immediately before the
+    // delete. It names refs/heads/<branch> rather than the reported sha, so it cannot
+    // pass on a stale or transposed commit while the branch itself was never merged.
     const guard = runGit(["merge-base", "--is-ancestor", `refs/heads/${branch}`, defaultBranch], repo);
     if (guard.status === 0) {
       deleteCandidates.push({
@@ -268,7 +281,38 @@ function main() {
     unanalyzed.push({ branch: ref, reason: "BROKEN_REF", evidence: "ref file does not hold a sha" });
   }
 
+  // Post-cleanup sync, part of the one approved plan. Every command appears only
+  // in its qualifying configuration, detected locally against the remote-tracking
+  // ref — no network beyond the best-effort fetch above. Ahead is a report, never
+  // a push: pushing is out of scope, not a follow-up.
+  const postSync = {};
+  if (worktreeEntries.some((worktree) => worktree.stale === true)) {
+    postSync.prune = "git worktree prune";
+  }
+  const defaultRow = rows.find((row) => row.branch === defaultBranch);
+  const upstream = defaultRow?.upstream ?? "";
+  if (defaultBranch && upstream) {
+    const counts = runGit(["rev-list", "--left-right", "--count", `${defaultBranch}...${upstream}`], repo);
+    if (counts.status === 0) {
+      const [ahead, behind] = counts.stdout.trim().split("\t").map((value) => Number(value));
+      postSync.upstream = upstream;
+      postSync.ahead = ahead;
+      postSync.behind = behind;
+      if (behind > 0) {
+        // branch.<name>.remote/.merge are the exact pull targets the configured
+        // upstream was built from; a missing config fails closed to no pull.
+        const remote = runGit(["config", "--get", `branch.${defaultBranch}.remote`], repo);
+        const merge = runGit(["config", "--get", `branch.${defaultBranch}.merge`], repo);
+        if (remote.status === 0 && merge.status === 0) {
+          const target = merge.stdout.trim().replace(/^refs\/heads\//, "");
+          postSync.pull = `git pull --ff-only ${shellQuote(remote.stdout.trim())} ${shellQuote(target)}`;
+        }
+      }
+    }
+  }
+
   const report = {
+    fetchStatus,
     defaultBranch,
     currentBranch,
     deleteCandidates,
@@ -276,6 +320,7 @@ function main() {
     keep,
     worktrees: worktreeEntries,
     unanalyzed,
+    postSync,
   };
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }

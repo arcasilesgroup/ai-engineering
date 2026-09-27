@@ -1,5 +1,5 @@
 # ai-eng.lock — sha256 of the global canon this repo expects (§08).
-version = "2.3.0"
+version = "2.4.0"
 
 spec_sha256 = "8290cec674c88ecbe0df7b061fd49d0d7af24826dfc5bdc35430f815b78f4f6a"
 
@@ -7,7 +7,9 @@ base_sha = "dd6cb944321c14b7f14520538462aeab57933055"
 
 [assets]
 ".ai-engineering/overrides.toml" = "f5d1b428ce0517c4c7787d6aeeeddc168087f68c9d653563fa96c394b03f4f4e"
-".ai-engineering/config.toml" = "db50799fb42810467fd690d703e13fbe2ff68674723c91c39631fab4879ce332"
+".ai-engineering/config.toml" = "259c10027deec408e2fbcf4648420ffbc8a0888201f0d437ae6325d3fbeb4b2c"
 ".git/hooks/pre-commit" = "7c3dc68bf6a015ce991ed39c1db71b250839f1fddf28430fe26e71593046b1e6"
 ".git/hooks/commit-msg" = "0c79d03aeb95767252b86a6597b5a4daaf64f679ada4e0b6352d3f8769c09a59"
-".git/hooks/pre-push" = "78a84047b6c5d55a44405334b5e10d68d51ceaf4ed4bd32cb7c6f98748465f8e"
+".git/hooks/pre-push" = "000cbccfe49dc528cc167f62462fe568fe1a10872d6d84cb57eef1f3e6fe59e3"
+".cursor/hooks.json" = "9e27d4ed3b1462ad379e82e894d27319fe5a404dba52ad2047e18dc8e269f239"
+".github/hooks/ai-eng.json" = "3f5a845f425812bb8e7794d492494634a1be42d744dfcf30589efcb3cda98cbf"

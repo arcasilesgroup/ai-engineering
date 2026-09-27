@@ -7,6 +7,7 @@ All notable changes, written for someone reading what changed, not how. Format: 
 ### Added
 
 - `ai-git-cleanup` skill: list finished local branches and worktrees with the evidence behind each recommendation, then remove only what a person approves at two confirmation gates — local git only.
+- `ai-git-cleanup` v2: the two gates become one — a single view shows the full analysis table with its per-row command plan, the `fetchStatus` of the initial best-effort fetch, and the `postSync` post-cleanup sync (`git worktree prune` only when a worktree removal is queued, `git pull --ff-only` on the default branch only when it is behind its upstream, the ahead count reported — never pushed), and that one approval covers deletions and sync alike — local git only, still never zero confirmations.
 
 ### Changed
 
