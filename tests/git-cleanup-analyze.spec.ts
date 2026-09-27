@@ -41,6 +41,7 @@ interface WorktreeEntry {
   branch?: string;
   dirty?: boolean;
   stale?: boolean;
+  command?: string;
 }
 
 interface Report {
