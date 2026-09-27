@@ -6,6 +6,8 @@ All notable changes, written for someone reading what changed, not how. Format: 
 
 ### Added
 
+- `ai-git-cleanup` skill: list finished local branches and worktrees with the evidence behind each recommendation, then remove only what a person approves at two confirmation gates — local git only.
+
 ### Changed
 
 ### Fixed

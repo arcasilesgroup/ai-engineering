@@ -248,10 +248,11 @@ describe("analyze.mjs flow fixture", () => {
       if (!candidate.worktreePath) continue;
       const held = worktrees.find((worktree) => worktree.path === candidate.worktreePath);
       expect(held).toBeDefined();
-      if (held?.dirty) {
+      if (!held) continue;
+      if (held.dirty) {
         expect(held.command).toBeUndefined();
       } else {
-        expect(held?.command).toBe(`git worktree remove '${held.path}'`);
+        expect(held.command).toBe(`git worktree remove '${held.path}'`);
       }
     }
   });

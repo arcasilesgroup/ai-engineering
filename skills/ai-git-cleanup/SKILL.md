@@ -51,10 +51,14 @@ that still holds the only copy of work.
 1. **Analyze, read-only.** Run [scripts/analyze.mjs](scripts/analyze.mjs) with
    an optional repo path (`node scripts/analyze.mjs [repo-path]`, defaulting to
    the current directory). It prints one JSON document: `deleteCandidates`
-   (reason, evidence, command, `verifyWith` for `SAFE_TO_DELETE`), `needsReview`,
-   `keep` (including `PROTECTED`), `worktrees`, `unanalyzed`, `defaultBranch`,
+   (reason, evidence, command, `verifyWith` for `SAFE_TO_DELETE`, and
+   `worktreePath` when a linked worktree holds the branch), `needsReview`,
+   `keep` (including `PROTECTED`), `worktrees` (path, branch, dirty, dirtyFiles,
+   stale, and `command` when stale), `unanalyzed`, `defaultBranch`,
    `currentBranch`; branch names that form a related group in any bucket also
-   carry an informational `cluster`. It never mutates the repository.
+   carry an informational `cluster`. An empty `defaultBranch` means no anchor
+   was found: every branch fails closed to `unanalyzed` with reason
+   `NO_DEFAULT_BRANCH`, never to a delete. It never mutates the repository.
 
 2. **Investigate what git cannot prove, read-only.** Branches in `needsReview`
    or `unanalyzed`, and any squash-merged or superseded claim, go to read-only
