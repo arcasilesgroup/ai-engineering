@@ -122,11 +122,24 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "PASS attempt 1: flow 3/3, analyze 25/25, cli 14/14, skills 19/19, handoff 2/2, arch 22/22, embed-canon 13/13, rg CHANGELOG ok, typecheck 0, lint 0; full sweep 912/912. Spot-check: behind → git pull --ff-only present, ahead → report-only, zero 'push' in any emitted command, single-JSON stdout, exit 0."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "adversarial loop PASS in 1 round, no fixer (thread .ai-engineering/workflow/reviews/ai-git-cleanup-v2-2.md); no-push invariant attacked via all command-bearing paths, none landed.",
+            "MINOR deferred F1: analyze.mjs:265 deletable.has guard untested in its exact config (clean worktree on keep-branch); mutation stale=!dirty would pass today. CODE IS CORRECT NOW — regression tripwire missing. Presented at app review."
+          ]
+        }
       },
-      "status": "pending"
+      "status": "passed"
     }
   ],
   "assumptions": [
