@@ -132,8 +132,12 @@ function main() {
   const originDefault =
     originHead.status === 0 ? normalizeLocalBranch(originHead.stdout.trim(), remotes) : "";
   const localNames = new Set(rows.map((row) => row.branch));
+  // The checked-out branch is never an anchor: with HEAD on a feature branch over
+  // an unchanged custom default it would declare the true default deletable. With
+  // no origin/HEAD and no known default name, defaultBranch stays "" and every
+  // branch fails closed to NO_DEFAULT_BRANCH instead of guessing.
   const defaultBranch =
-    [originDefault, ...KNOWN_DEFAULTS, currentBranch].find((name) => name && localNames.has(name)) ?? "";
+    [originDefault, ...KNOWN_DEFAULTS].find((name) => name && localNames.has(name)) ?? "";
 
   // A git command that fails (or a missing default anchor) yields null: the caller
   // moves the branch to unanalyzed rather than guessing.

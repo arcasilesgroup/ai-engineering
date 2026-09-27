@@ -53,7 +53,8 @@ that still holds the only copy of work.
    the current directory). It prints one JSON document: `deleteCandidates`
    (reason, evidence, command, `verifyWith` for `SAFE_TO_DELETE`), `needsReview`,
    `keep` (including `PROTECTED`), `worktrees`, `unanalyzed`, `defaultBranch`,
-   `currentBranch`. It never mutates the repository.
+   `currentBranch`; branch names that form a related group in any bucket also
+   carry an informational `cluster`. It never mutates the repository.
 
 2. **Investigate what git cannot prove, read-only.** Branches in `needsReview`
    or `unanalyzed`, and any squash-merged or superseded claim, go to read-only

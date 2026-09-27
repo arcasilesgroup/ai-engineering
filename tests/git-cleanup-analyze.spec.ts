@@ -30,8 +30,10 @@ interface AnalyzeRun {
 interface BranchEntry {
   branch?: string;
   reason?: string;
+  command?: string;
   verifyWith?: string;
   cluster?: string;
+  worktreePath?: string;
 }
 
 interface WorktreeEntry {
@@ -42,11 +44,12 @@ interface WorktreeEntry {
 }
 
 interface Report {
+  defaultBranch?: string;
   deleteCandidates?: BranchEntry[];
   needsReview?: BranchEntry[];
   keep?: BranchEntry[];
   worktrees?: WorktreeEntry[];
-  unanalyzed?: unknown[];
+  unanalyzed?: BranchEntry[];
 }
 
 afterAll(() => {
@@ -134,16 +137,37 @@ describe("analyze.mjs", () => {
     }
   });
 
-  test("default branch: a non-standard default resolved by name is never deletable", () => {
+  test("default branch: origin/HEAD normalizes a non-standard default that is never deletable", () => {
     const repo = fixtureRepo("default branch mainline", "mainline");
+    // A non-standard default name is only provable through origin/HEAD; without
+    // that anchor the analyzer must fail closed rather than guess from the HEAD.
+    const origin = join(sandboxRoot, "mainline-origin.git");
+    git(["init", "-q", "-b", "mainline", "--bare", origin], sandboxRoot);
+    git(["remote", "add", "origin", origin], repo);
+    git(["push", "-q", "origin", "mainline"], repo);
+    git(["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/mainline"], repo);
     git(["checkout", "-q", "-b", "feature/done"], repo);
     commit(repo, "done.md", "finished work");
     git(["checkout", "-q", "mainline"], repo);
     git(["merge", "-q", "--no-ff", "feature/done"], repo);
     const report = analyze(repo);
+    expect(report.defaultBranch).toBe("mainline");
     expect(names(report.deleteCandidates)).toContain("feature/done");
     expect(names(report.deleteCandidates)).not.toContain("mainline");
     expect(names(report.keep)).toContain("mainline");
+  });
+
+  test("no default anchor: without origin/HEAD or a known default, nothing is deletable", () => {
+    const repo = fixtureRepo("no default anchor", "mainline");
+    // HEAD sits on a feature branch that fully contains mainline: resolving the
+    // default from the checked-out branch would declare the true default safe to
+    // delete, so the run must fail closed instead.
+    git(["checkout", "-q", "-b", "feature/x"], repo);
+    const report = analyze(repo);
+    expect(report.defaultBranch).toBe("");
+    expect(report.deleteCandidates).toEqual([]);
+    expect(entryFor(report.unanalyzed, "mainline")?.reason).toBe("NO_DEFAULT_BRANCH");
+    expect(entryFor(report.unanalyzed, "feature/x")?.reason).toBe("NO_DEFAULT_BRANCH");
   });
 
   test("current branch: the checked-out branch is keep, never a delete candidate", () => {
@@ -153,6 +177,20 @@ describe("analyze.mjs", () => {
     const report = analyze(repo);
     expect(names(report.keep)).toContain("feature/checked-out");
     expect(names(report.deleteCandidates)).not.toContain("feature/checked-out");
+  });
+
+  test("current branch: a merged branch left checked out is CURRENT_BRANCH keep at unique zero", () => {
+    const repo = fixtureRepo("current branch merged", "main");
+    git(["checkout", "-q", "-b", "feature/merged"], repo);
+    commit(repo, "m.md", "merged work");
+    git(["checkout", "-q", "main"], repo);
+    git(["merge", "-q", "--no-ff", "feature/merged"], repo);
+    git(["checkout", "-q", "feature/merged"], repo);
+    const report = analyze(repo);
+    // Zero unique commits against main: only the checked-out guard stands between
+    // this branch and the merge-base delete gate below it.
+    expect(entryFor(report.keep, "feature/merged")?.reason).toBe("CURRENT_BRANCH");
+    expect(names(report.deleteCandidates)).not.toContain("feature/merged");
   });
 
   test("cluster: two-segment clusters group siblings without absorbing other one-segment names", () => {
@@ -184,6 +222,8 @@ describe("analyze.mjs", () => {
     expect(entry?.reason).toBe("SAFE_TO_DELETE");
     // The guard names the default branch itself, never an upstream remote ref.
     expect(entry?.verifyWith).toBe("git merge-base --is-ancestor 'refs/heads/feature/merged' 'main'");
+    // Pinned to -d, single-quoted: a -D or unquoted refname would slip past the guard.
+    expect(entry?.command).toBe("git branch -d 'feature/merged'");
   });
 
   test("UNPUSHED_WORK: commits ahead of the upstream are keep", () => {
@@ -286,6 +326,9 @@ describe("analyze.mjs", () => {
     expect(clean).toBeDefined();
     expect(clean?.dirty).toBe(false);
     expect(clean?.stale).toBe(true);
+    // The delete candidate carries the holding worktree's path, so gate 2 can
+    // order the worktree removal before the branch delete.
+    expect(entryFor(report.deleteCandidates, "feature/clean-wt")?.worktreePath).toBe(clean?.path);
   });
 
   test("unanalyzed: the bucket is present even when every branch classifies", () => {
@@ -293,6 +336,7 @@ describe("analyze.mjs", () => {
     git(["branch", "feature/only"], repo);
     const report = analyze(repo);
     expect(report.unanalyzed).toBeArray();
+    expect(report.unanalyzed).toHaveLength(0);
   });
 
   test("malformed: a broken ref inventory fails closed, never a delete plan", () => {
