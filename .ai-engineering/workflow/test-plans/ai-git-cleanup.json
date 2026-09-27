@@ -1,0 +1,253 @@
+{
+  "feature": "Local git branch and worktree cleanup",
+  "slug": "ai-git-cleanup",
+  "order": ["unit", "api", "cli", "ui"],
+  "gating": "Run layers in order. Do not run a layer until every case in the layer before it passes.",
+  "layers": {
+    "unit": [
+      {
+        "id": "U1",
+        "case": "survey parsing: one JSON document built from for-each-ref inventory, worktree list --porcelain and rev-list ahead/behind counts, buckets present",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t survey",
+        "checkpoint": 1
+      },
+      {
+        "id": "U2",
+        "case": "PROTECTED regex filter: main/master/develop and release/* never appear in any delete bucket",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t PROTECTED",
+        "checkpoint": 1
+      },
+      {
+        "id": "U3",
+        "case": "non-standard default branch: origin/HEAD normalizes to the local default (e.g. trunk) and that branch is never deletable",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'default branch'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U4",
+        "case": "current branch is always keep and never listed as deletable",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'current branch'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U5",
+        "case": "two-segment clustering: branch names like feat/login group with their cluster and are still individually classified",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t cluster",
+        "checkpoint": 1
+      },
+      {
+        "id": "U6",
+        "case": "triage: merged branch → SAFE_TO_DELETE carrying verifyWith git merge-base --is-ancestor 'refs/heads/<branch>' '<default>' (default branch, not an upstream)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t SAFE_TO_DELETE",
+        "checkpoint": 1
+      },
+      {
+        "id": "U7",
+        "case": "triage: branch with unpushed commits → UNPUSHED_WORK keep",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t UNPUSHED_WORK",
+        "checkpoint": 1
+      },
+      {
+        "id": "U8",
+        "case": "triage: [gone] remote branch → ambiguous/needs-investigation, never deletable",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t gone",
+        "checkpoint": 1
+      },
+      {
+        "id": "U9",
+        "case": "triage: branch tracked and level with a live remote → SYNCED keep",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t SYNCED",
+        "checkpoint": 1
+      },
+      {
+        "id": "U10",
+        "case": "triage: local-only branch → LOCAL_WORK keep",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t LOCAL_WORK",
+        "checkpoint": 1
+      },
+      {
+        "id": "U11",
+        "case": "refname single-quoting: every emitted refname and path is quoted, including names containing $(...), backticks and single quotes",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t quot",
+        "checkpoint": 1
+      },
+      {
+        "id": "U12",
+        "case": "worktree dirty flagging: a dirty worktree is flagged refused, never queued for removal",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t dirty",
+        "checkpoint": 1
+      },
+      {
+        "id": "U13",
+        "case": "unanalyzed surfacing: the unanalyzed bucket is always present, even when every branch classifies",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t unanalyzed",
+        "checkpoint": 1
+      },
+      {
+        "id": "U14",
+        "case": "fail-closed on malformed survey input: error or empty delete list, never a delete plan",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t malformed",
+        "checkpoint": 1
+      },
+      {
+        "id": "U15",
+        "case": "flow fixture full command plan end to end: every refname/path single-quoted, an ancestry guard before each git branch -d, no protected/current/default branch in any delete",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t 'command plan'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U16",
+        "case": "flow fixture: dirty worktree listed as refused and worktree removals ordered before branch deletions",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t refus",
+        "checkpoint": 2
+      },
+      {
+        "id": "U17",
+        "case": "flow fixture: unanalyzed bucket surfaces in the emitted plan",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t unanalyzed",
+        "checkpoint": 2
+      }
+    ],
+    "api": [],
+    "cli": [
+      {
+        "id": "C1",
+        "case": "skills gates cover the new skill: frontmatter (name, LicenseRef-Attributed, folded description), Lifecycle block, links, English, no machine paths",
+        "command": "bun test tests/skills.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "C2",
+        "case": "regenerated src/assets.ts embeds the new skill files and embed-canon stays green",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "C3",
+        "case": "attribution: NOTICE.md row and THIRD-PARTY-NOTICES.md line name ai-git-cleanup, Trail of Bits and CC BY-SA 4.0",
+        "command": "rg -q 'ai-git-cleanup' NOTICE.md && rg -q 'CC BY-SA 4.0' NOTICE.md && rg -q 'ai-git-cleanup' THIRD-PARTY-NOTICES.md && rg -q 'CC BY-SA 4.0' THIRD-PARTY-NOTICES.md",
+        "checkpoint": 1
+      },
+      {
+        "id": "C4",
+        "case": "attribution: SKILL.md carries the Source: line naming CC BY-SA 4.0",
+        "command": "rg -q 'Source:' skills/ai-git-cleanup/SKILL.md && rg -q 'CC BY-SA 4.0' skills/ai-git-cleanup/SKILL.md",
+        "checkpoint": 1
+      },
+      {
+        "id": "C5",
+        "case": "typecheck passes after the skill and script land",
+        "command": "bun run typecheck",
+        "checkpoint": 1
+      },
+      {
+        "id": "C6",
+        "case": "lint passes after the skill and script land",
+        "command": "bun run lint",
+        "checkpoint": 1
+      },
+      {
+        "id": "C7",
+        "case": "skills sweep still green with the finished skill",
+        "command": "bun test tests/skills.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C8",
+        "case": "workflow-handoff spec not broken by the new skill",
+        "command": "bun test tests/workflow-handoff.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C9",
+        "case": "arch layer rules not broken by the new skill files",
+        "command": "bun test tests/arch.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C10",
+        "case": "embed-canon sweep still green after hardening changes",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C11",
+        "case": "CHANGELOG Unreleased Added line and minor changeset ship with the skill",
+        "command": "rg -q 'ai-git-cleanup' CHANGELOG.md && test -f .changeset/ai-git-cleanup.md && rg -q 'minor' .changeset/ai-git-cleanup.md",
+        "checkpoint": 2
+      },
+      {
+        "id": "C12",
+        "case": "SKILL.md declares the out-of-scope list (no CI, no auto-deletion, no remote deletion, no reflog GC)",
+        "command": "rg -qi 'out of scope' skills/ai-git-cleanup/SKILL.md",
+        "checkpoint": 2
+      },
+      {
+        "id": "C13",
+        "case": "typecheck passes on the final sweep",
+        "command": "bun run typecheck",
+        "checkpoint": 2
+      },
+      {
+        "id": "C14",
+        "case": "lint passes on the final sweep",
+        "command": "bun run lint",
+        "checkpoint": 2
+      }
+    ],
+    "ui": []
+  },
+  "verify": [
+    {
+      "checkpoint": 1,
+      "commands": [
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "rg -q 'ai-git-cleanup' NOTICE.md && rg -q 'CC BY-SA 4.0' NOTICE.md && rg -q 'ai-git-cleanup' THIRD-PARTY-NOTICES.md && rg -q 'CC BY-SA 4.0' THIRD-PARTY-NOTICES.md",
+        "rg -q 'Source:' skills/ai-git-cleanup/SKILL.md && rg -q 'CC BY-SA 4.0' skills/ai-git-cleanup/SKILL.md",
+        "bun run typecheck",
+        "bun run lint"
+      ]
+    },
+    {
+      "checkpoint": 2,
+      "commands": [
+        "bun test tests/git-cleanup-flow.spec.ts",
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "rg -q 'ai-git-cleanup' CHANGELOG.md && test -f .changeset/ai-git-cleanup.md && rg -q 'minor' .changeset/ai-git-cleanup.md",
+        "bun run typecheck",
+        "bun run lint"
+      ]
+    }
+  ],
+  "not_tested": [
+    "UI layer — feature has no UI; every checkpoint gate.ui is n/a (feature request).",
+    "API layer — no server, no HTTP endpoints, no DB (api layer empty).",
+    "Full `bun test` sweep — excluded by baseline: 2 pre-existing unrelated gitleaks-allowlist failures.",
+    "FILEMAP.md/AGENTS.md/LEARNINGS.md/README.md staying unchanged (checkpoint 2 task) — a git-diff review item, no test command.",
+    "In-session behavior (ask gates, read-only investigators capped at five, non-nested refuters, fail-closed refutation) — exercised by the behavior/review gates, not script-level tests.",
+    "AGENTS.md has no `Project config` section; unit commands inferred from the Build and test commands line (`bun test`) and existing test plans."
+  ]
+}

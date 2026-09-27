@@ -1,0 +1,134 @@
+{
+  "feature": "Local git branch and worktree cleanup",
+  "slug": "ai-git-cleanup",
+  "summary": "Add the ai-git-cleanup skill: a read-only analyzer script plus a two-gate flow that removes finished local branches and worktrees with named evidence, adapted from Trail of Bits' git-cleanup plugin.",
+  "plain_summary": "When a feature is finished, the skill lists the leftover branches and worktrees, shows which are safe to remove and why, and deletes only what you approve twice.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Ship the analyzer script and skill files",
+      "simple": "Build the branch cleanup skill",
+      "size": "m",
+      "goal": "skills/ai-git-cleanup/ holds SKILL.md, scripts/analyze.mjs and references/merge-evidence.md: the script prints one JSON document with every bucket, exclusion and single-quoted command plan carrying merge-base ancestry guards, attribution lands in NOTICE.md and THIRD-PARTY-NOTICES.md, assets are regenerated, and every skills gate passes.",
+      "plain": {
+        "what": "The system can list every leftover branch and worktree and mark what is safe to remove, with proof.",
+        "why": "Without it, cleanup would guess, and a guess can delete work nobody merged.",
+        "check": "Nothing to see yet. This step is behind the scenes."
+      },
+      "builds_on": [],
+      "tasks": [
+        "Write skills/ai-git-cleanup/scripts/analyze.mjs: optional repo path argument (default cwd); best-effort `git fetch --prune` when an origin exists, skipped otherwise; inventory from `git for-each-ref`, `git worktree list --porcelain` and rev-list ahead/behind counts; normalize origin/HEAD and the current branch to local names; classify into PROTECTED keep (regex), safe delete with verifyWith `git merge-base --is-ancestor 'refs/heads/<branch>' '<default>'`, keep (unpushed, level with a live remote, current, default), needs-investigation (ambiguous and [gone] remotes) and an always-present unanalyzed bucket; emit the exact single-quoted command plan gate 2 will show; JSON on stdout, read-only against the repo.",
+        "Write tests/git-cleanup-analyze.spec.ts: build temp git repositories covering merged, PROTECTED, unpushed, [gone], dirty-worktree and linked-worktree cases; run analyze.mjs as a subprocess; assert the buckets, the exclusion of current/default/PROTECTED from deletes, verifyWith ancestry against the default branch (not an upstream), single quoting of every refname and path, and that unanalyzed is always present.",
+        "Write skills/ai-git-cleanup/SKILL.md: frontmatter (name ai-git-cleanup, license LicenseRef-Attributed, folded >- description, disable-model-invocation: true); body with two ask gates (gate 1 = the full analysis table, gate 2 = exact commands plus explicit yes), read-only investigators capped at five, refuters spawned by the main session and never nested, fail-closed refutation, named evidence for every force delete, PROTECTED/default/current never deletable, single quoting of every refname/path, `git merge-base --is-ancestor` immediately before each `git branch -d`, dirty-worktree removal refused without explicit data-loss acknowledgment, unanalyzed always surfaced, deletions only in the main session, optional repo path, and the out-of-scope list; Lifecycle block (Lane: light, Writes: nothing, Read by: agents, Dies: on completion, Next: none); Source: line.",
+        "Write skills/ai-git-cleanup/references/merge-evidence.md adapted from Trail of Bits' merge-evidence reference, stating what counts as proof a branch is merged and how git branch -d actually decides, with attribution inside the file.",
+        "Add the attribution row to NOTICE.md (ai-git-cleanup | git-cleanup plugin (README, workflows/analyze-branches.js, references/merge-evidence.md) | Trail of Bits | CC BY-SA 4.0 | the plugin URL) and the bundled-content line to THIRD-PARTY-NOTICES.md.",
+        "Run bun scripts/gen-assets.ts so src/assets.ts embeds the new skill files, then run the verify commands."
+      ],
+      "files": [
+        "skills/ai-git-cleanup/SKILL.md",
+        "skills/ai-git-cleanup/scripts/analyze.mjs",
+        "skills/ai-git-cleanup/references/merge-evidence.md",
+        "NOTICE.md",
+        "THIRD-PARTY-NOTICES.md",
+        "src/assets.ts",
+        "tests/git-cleanup-analyze.spec.ts"
+      ],
+      "acceptance": [
+        "bun test tests/git-cleanup-analyze.spec.ts passes against temp git repositories.",
+        "The script's JSON always carries an unanalyzed bucket and never lists the current, default or PROTECTED branch as deletable.",
+        "Every emitted delete is single-quoted and every safe delete carries a merge-base ancestry guard naming refs/heads/<branch> and the default branch.",
+        "bun test tests/skills.spec.ts passes with the new folder: frontmatter, Lifecycle, links, English, no machine paths.",
+        "NOTICE.md and THIRD-PARTY-NOTICES.md name Trail of Bits, the plugin URL and CC BY-SA 4.0; SKILL.md carries the Source: line.",
+        "src/assets.ts embeds the new skill files and bun test tests/embed-canon.spec.ts passes."
+      ],
+      "verify": [
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Prove safety invariants and close docs",
+      "simple": "Prove deletions stay safe",
+      "size": "m",
+      "goal": "A fixture-repository test proves the whole emitted command plan end to end (quoting, ancestry guards, protected exclusions, dirty-worktree refusal, unanalyzed surfacing), any gap it exposes is fixed in the script or skill text, and the feature closes with CHANGELOG, a changeset and a green sweep across skills, handoff, arch and embed gates.",
+      "plain": {
+        "what": "The cleanup's commands are proven safe against a fake repository before it ever touches real work.",
+        "why": "Without that proof, one small mistake could delete an unmerged branch unnoticed.",
+        "check": "Run the test file; it fails if a protected branch could be deleted."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "Write tests/git-cleanup-flow.spec.ts: build a fixture repository (default branch, protected branch, merged, squash-merged, [gone] and unpushed branches, a linked worktree, a dirty worktree); spawn skills/ai-git-cleanup/scripts/analyze.mjs; assert the full command plan: every refname and path single-quoted, an ancestry guard before each git branch -d, no protected/current/default branch in any delete, dirty worktrees listed as refused, worktree removals ordered before branch deletions, unanalyzed always present.",
+        "Harden scripts/analyze.mjs and SKILL.md wherever the fixture proves a gap: the fixture is the spec.",
+        "Add the CHANGELOG.md [Unreleased] Added line for the skill and a .changeset/ai-git-cleanup.md minor changeset (a new skill is user-visible).",
+        "Confirm FILEMAP.md, AGENTS.md, LEARNINGS.md and README.md stay unchanged: they index skills as a whole or as curated lists, with no per-skill line.",
+        "Run the full verify sweep in order: both new specs, skills, workflow-handoff, arch, embed-canon, then typecheck and lint."
+      ],
+      "files": [
+        "tests/git-cleanup-flow.spec.ts",
+        "skills/ai-git-cleanup/scripts/analyze.mjs",
+        "skills/ai-git-cleanup/SKILL.md",
+        "CHANGELOG.md",
+        ".changeset/ai-git-cleanup.md"
+      ],
+      "acceptance": [
+        "bun test tests/git-cleanup-flow.spec.ts passes and fails if any invariant (quoting, guards, exclusions, refusals) is broken.",
+        "The fixture proves the dirty-worktree refusal and the always-present unanalyzed bucket.",
+        "CHANGELOG.md names the skill under Unreleased Added; .changeset/ai-git-cleanup.md exists with a minor bump.",
+        "tests/skills.spec.ts, tests/workflow-handoff.spec.ts, tests/arch.spec.ts, tests/embed-canon.spec.ts, bun run typecheck and bun run lint all pass.",
+        "No CI integration, auto-deletion, remote branch deletion or reflog GC exists anywhere in the skill."
+      ],
+      "verify": [
+        "bun test tests/git-cleanup-flow.spec.ts",
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "rg -q 'ai-git-cleanup' CHANGELOG.md",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    }
+  ],
+  "assumptions": [
+    "The skill folder needs its SKILL.md the moment it exists, so the script and the skill files land together in checkpoint 1 (tests/skills.spec.ts G1).",
+    "The source repo is CC BY-SA 4.0, which the frontmatter license allowlist does not include, so the skill declares LicenseRef-Attributed and names CC BY-SA 4.0 in its Source line and NOTICE row (trailofbits/skills LICENSE; tests/skills.spec.ts SPDX list).",
+    "The parts git can prove run as one script emitting JSON; the judgment parts run as read-only subagents the main session spawns, never nested (AGENTS.md Workflow rule; omp has no nested subagents).",
+    "No UI anywhere in this feature, so every checkpoint has ui null and gates.ui n/a (feature request).",
+    "Test counts per layer belong to .ai-engineering/workflow/test-plans/ai-git-cleanup.json, which the orchestrator's test-plan step writes; the checkpoint plan schema has no test-count field (agents/checkpoint-planner.md; viewer.html).",
+    "Verify uses targeted specs plus typecheck, lint and arch instead of the full bun test run, which carries 2 pre-existing gitleaks-allowlist failures that are not ours (feature baseline).",
+    "FILEMAP.md indexes skills/ as one line and README's skills table is a curated 18 of 28, so neither gets a per-skill entry; AGENTS.md registers no skills by name (FILEMAP.md; README.md; AGENTS.md).",
+    "The PRD is still the unfilled template and decisions D-001 to D-004 add no constraint, so the feature request plus skill conventions are the whole spec (.ai-engineering/PRD.html; DECISIONS.md).",
+    "The script prunes stale remote refs before reading origin's default branch, best-effort and skipped when no origin exists, fixing the weakness Trail of Bits left open (feature research).",
+    "The skill runs only when a person asks for it: frontmatter carries disable-model-invocation, matching ai-config-to-project (trailofbits README; skills/ai-config-to-project/SKILL.md).",
+    "Scope stays inside local git: no CI, no auto-deletion, no remote branch deletion, no reflog GC; the optional repo path argument defaults to the current directory (feature request).",
+    "A changeset file ships with this work because a new skill is user-visible (.changeset/README.md)."
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "Both confirmation gates, every refusal and every delete run in the main session via ask; analysis agents are strictly read-only (feature research).",
+    "Trail of Bits' source is CC BY-SA 4.0 (ShareAlike); the adaptation keeps that license in its Source line and NOTICE row, not Apache-2.0 (trailofbits/skills LICENSE).",
+    "Nothing points at this skill yet; it is invoked directly when a feature is finished, same as the upstream plugin.",
+    "Fail-closed refutation: an unreachable refuter downgrades the candidate to needs-review, never to deletable (feature research)."
+  ]
+}
