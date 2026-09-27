@@ -288,6 +288,32 @@ describe("commitMsg — the convention, the Receipt-Id trailer, the override rea
 });
 
 describe("prePush — the whole unpushed surface, and dated overrides", () => {
+  // The refs arrive through AI_ENG_PUSH_REFS: the shim captures pre-push stdin before
+  // exec eats it (src/floor/index.ts:167). No gitleaks on PATH here on purpose — if the
+  // branch check ever moves behind the scan, this test fails on the HARD FAIL line.
+  test("blocks a push targeting main before any scan runs", () => {
+    const repo = tempRepo(true);
+    process.env.AI_ENG_PUSH_REFS = "refs/heads/main 0123456789abcdef refs/heads/main 0123456789abcdef";
+    try {
+      const result = prePush(repo);
+      expect(result).toEqual({ ok: false, lines: ["direct push to main is not allowed — open a PR instead."] });
+    } finally {
+      delete process.env.AI_ENG_PUSH_REFS;
+    }
+  });
+
+  test("any other ref keeps the gate on the scan, not the branch", () => {
+    const repo = tempRepo(true);
+    installGitleaksShim();
+    write(repo, "app.ts", "export const name = 'clean';\n");
+    process.env.AI_ENG_PUSH_REFS = "refs/heads/feat1234 abcdef1234 refs/heads/feat1234 abcdef1234";
+    try {
+      expect(prePush(repo)).toEqual({ ok: true, lines: [] });
+    } finally {
+      delete process.env.AI_ENG_PUSH_REFS;
+    }
+  });
+
   test("passes a surface with nothing to leak", () => {
     const repo = tempRepo(true);
     installGitleaksShim();
