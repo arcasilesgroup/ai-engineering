@@ -117,11 +117,26 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "PASS attempt 1: flow 3/3, analyze 16/16, cli 6/6 (25 unit), skills 19/19, workflow-handoff 2/2, arch 22/22, embed-canon 13/13 (56 cli/docs), rg CHANGELOG match, typecheck 0, lint 0 — 81 tests green, sequential runs."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "adversarial loop PASS in 1 round, no fixer (thread .ai-engineering/workflow/reviews/ai-git-cleanup-2.md).",
+            "MINOR deferred F1: flow spec quoting assertion mirrors the template; escaping covered by analyze spec 'quot' (unit).",
+            "MINOR deferred F2: protected-exclusion fixture names 3 branches; PROTECTED regex breadth (~20 patterns) tested only implicitly — a regex mutation for hotfix/staging/canary would slip the flow spec.",
+            "MINOR deferred F3: execution ORDER (worktrees before branch deletes) is textual in SKILL.md L84+L92 by design (main-session execution), untestable as code."
+          ]
+        }
       },
-      "status": "pending"
+      "status": "passed"
     }
   ],
   "assumptions": [
