@@ -267,7 +267,9 @@ describe("analyze.mjs", () => {
     commit(repo, "c.md", "merged work");
     git(["checkout", "-q", "main"], repo);
     git(["merge", "-q", "--no-ff", "feature/clean-wt"], repo);
-    git(["checkout", "-q", "-b", "feature/dirty-wt"], repo);
+    // Create the branch without checking it out: git refuses to add a linked
+    // worktree for a branch the main worktree already holds.
+    git(["branch", "feature/dirty-wt"], repo);
     const cleanPath = join(sandboxRoot, "wt-clean");
     const dirtyPath = join(sandboxRoot, "wt-dirty");
     git(["worktree", "add", "-q", cleanPath, "feature/clean-wt"], repo);
