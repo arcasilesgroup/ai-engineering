@@ -1,0 +1,308 @@
+// tests/git-cleanup-analyze.spec.ts — unit layer of the ai-git-cleanup test plan (checkpoint 1):
+// analyze.mjs classification logic driven through real temp repositories (the script builds its
+// own survey from git plumbing, so fixtures are the only honest input). Sandbox rides on the
+// environment the child git inherits; GIT_CONFIG_GLOBAL points at an empty file so the machine's
+// ~/.gitconfig cannot decide what any child git does.
+
+import { afterAll, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+const script = join(import.meta.dir, "..", "skills", "ai-git-cleanup", "scripts", "analyze.mjs");
+const sandboxRoot = mkdtempSync(join(tmpdir(), "ai-eng-git-cleanup-analyze-"));
+const emptyGitConfig = join(sandboxRoot, "empty-gitconfig");
+writeFileSync(emptyGitConfig, "");
+
+const childEnv: NodeJS.ProcessEnv = {
+  ...process.env,
+  GIT_CONFIG_GLOBAL: emptyGitConfig,
+  GIT_TERMINAL_PROMPT: "0",
+};
+
+interface AnalyzeRun {
+  status: number;
+  stdout: string;
+  stderr: string;
+}
+
+interface BranchEntry {
+  branch?: string;
+  reason?: string;
+  verifyWith?: string;
+  cluster?: string;
+}
+
+interface WorktreeEntry {
+  path?: string;
+  branch?: string;
+  dirty?: boolean;
+  stale?: boolean;
+}
+
+interface Report {
+  deleteCandidates?: BranchEntry[];
+  needsReview?: BranchEntry[];
+  keep?: BranchEntry[];
+  worktrees?: WorktreeEntry[];
+  unanalyzed?: unknown[];
+}
+
+afterAll(() => {
+  rmSync(sandboxRoot, { recursive: true, force: true });
+});
+
+function git(args: string[], cwd: string): void {
+  const done = spawnSync("git", args, { cwd, encoding: "utf8", env: childEnv });
+  if (done.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${done.stderr}`);
+}
+
+function runAnalyze(args: string[], cwd: string): AnalyzeRun {
+  const done = spawnSync(process.execPath, [script, ...args], { cwd, encoding: "utf8", env: childEnv });
+  return { status: done.status ?? 1, stdout: done.stdout ?? "", stderr: done.stderr ?? "" };
+}
+
+function fixtureRepo(name: string, branch: string): string {
+  const root = join(sandboxRoot, name);
+  mkdirSync(root, { recursive: true });
+  git(["init", "-q", "-b", branch], root);
+  git(["config", "user.name", "Ada Lovelace"], root);
+  git(["config", "user.email", "ada@example.com"], root);
+  git(["config", "commit.gpgsign", "false"], root);
+  writeFileSync(join(root, "notes.md"), `# ${name}\n`);
+  git(["add", "-A"], root);
+  git(["commit", "-q", "-m", "fixture base"], root);
+  return root;
+}
+
+// Every case funnels through here: exit 0 and one parseable JSON document, else the test
+// fails on the script's absence/misbehaviour instead of on a half-read report.
+function analyze(repo: string): Report {
+  const run = runAnalyze([repo], sandboxRoot);
+  expect(run.status).toBe(0);
+  return JSON.parse(run.stdout) as Report;
+}
+
+function commit(repo: string, file: string, text: string): void {
+  writeFileSync(join(repo, file), text);
+  git(["add", "-A"], repo);
+  git(["commit", "-q", "-m", `add ${file}`], repo);
+}
+
+function names(entries: BranchEntry[] | undefined): string[] {
+  return (entries ?? []).map((entry) => entry.branch ?? "");
+}
+
+function entryFor(entries: BranchEntry[] | undefined, branch: string): BranchEntry | undefined {
+  return (entries ?? []).find((entry) => entry.branch === branch);
+}
+
+describe("analyze.mjs", () => {
+  test("survey: one JSON document carries every bucket from a real repo inventory", () => {
+    const repo = fixtureRepo("survey", "main");
+    git(["checkout", "-q", "-b", "feature/merged"], repo);
+    commit(repo, "a.md", "work");
+    git(["checkout", "-q", "main"], repo);
+    git(["merge", "-q", "--no-ff", "feature/merged"], repo);
+    const report = analyze(repo);
+    expect(report.deleteCandidates).toBeArray();
+    expect(report.needsReview).toBeArray();
+    expect(report.keep).toBeArray();
+    expect(report.worktrees).toBeArray();
+    expect(report.unanalyzed).toBeArray();
+    // The inventory saw the merged branch: it is classified, not dropped.
+    expect(names(report.deleteCandidates)).toContain("feature/merged");
+  });
+
+  test("PROTECTED regex: main/master/develop/staging/production/release-*/hotfix-* are never deletable", () => {
+    const repo = fixtureRepo("protected", "main");
+    // Each protected sibling sits on main with no extra work, so only the PROTECTED
+    // rule can be what keeps them out of deleteCandidates. A merged non-protected
+    // branch proves the bucket itself is reachable.
+    for (const branch of ["master", "develop", "staging", "production", "release-2026.09", "hotfix-1"]) {
+      git(["branch", branch], repo);
+    }
+    git(["checkout", "-q", "-b", "feature/done"], repo);
+    commit(repo, "done.md", "finished work");
+    git(["checkout", "-q", "main"], repo);
+    git(["merge", "-q", "--no-ff", "feature/done"], repo);
+    const report = analyze(repo);
+    expect(names(report.deleteCandidates)).toContain("feature/done");
+    for (const branch of ["main", "master", "develop", "staging", "production", "release-2026.09", "hotfix-1"]) {
+      expect(names(report.deleteCandidates)).not.toContain(branch);
+    }
+  });
+
+  test("default branch: a non-standard default resolved by name is never deletable", () => {
+    const repo = fixtureRepo("default branch mainline", "mainline");
+    git(["checkout", "-q", "-b", "feature/done"], repo);
+    commit(repo, "done.md", "finished work");
+    git(["checkout", "-q", "mainline"], repo);
+    git(["merge", "-q", "--no-ff", "feature/done"], repo);
+    const report = analyze(repo);
+    expect(names(report.deleteCandidates)).toContain("feature/done");
+    expect(names(report.deleteCandidates)).not.toContain("mainline");
+    expect(names(report.keep)).toContain("mainline");
+  });
+
+  test("current branch: the checked-out branch is keep, never a delete candidate", () => {
+    const repo = fixtureRepo("current branch", "main");
+    git(["checkout", "-q", "-b", "feature/checked-out"], repo);
+    commit(repo, "wip.md", "in flight");
+    const report = analyze(repo);
+    expect(names(report.keep)).toContain("feature/checked-out");
+    expect(names(report.deleteCandidates)).not.toContain("feature/checked-out");
+  });
+
+  test("cluster: two-segment clusters group siblings without absorbing other one-segment names", () => {
+    const repo = fixtureRepo("cluster", "main");
+    // All three feature/api branches are merged (no extra commits), so clustering is
+    // the only thing that can tie them together; feature/login shares only "feature".
+    for (const branch of ["feature/api", "feature/api-v2", "feature/api-refactor", "feature/login"]) {
+      git(["branch", branch], repo);
+    }
+    const report = analyze(repo);
+    const all = [...(report.deleteCandidates ?? []), ...(report.keep ?? []), ...(report.needsReview ?? [])];
+    const apiCluster = entryFor(all, "feature/api")?.cluster;
+    expect(apiCluster).toBeString();
+    expect(apiCluster).not.toBe("");
+    expect(entryFor(all, "feature/api-v2")?.cluster).toBe(apiCluster as string);
+    expect(entryFor(all, "feature/api-refactor")?.cluster).toBe(apiCluster as string);
+    expect(entryFor(all, "feature/login")?.cluster).not.toBe(apiCluster as string);
+  });
+
+  test("SAFE_TO_DELETE: a merged branch carries a merge-base ancestry guard against the default branch", () => {
+    const repo = fixtureRepo("SAFE_TO_DELETE", "main");
+    git(["checkout", "-q", "-b", "feature/merged"], repo);
+    commit(repo, "m.md", "merged work");
+    git(["checkout", "-q", "main"], repo);
+    git(["merge", "-q", "--no-ff", "feature/merged"], repo);
+    const report = analyze(repo);
+    const entry = entryFor(report.deleteCandidates, "feature/merged");
+    expect(entry).toBeDefined();
+    expect(entry?.reason).toBe("SAFE_TO_DELETE");
+    // The guard names the default branch itself, never an upstream remote ref.
+    expect(entry?.verifyWith).toBe("git merge-base --is-ancestor 'refs/heads/feature/merged' 'main'");
+  });
+
+  test("UNPUSHED_WORK: commits ahead of the upstream are keep", () => {
+    const origin = join(sandboxRoot, "unpushed-origin.git");
+    git(["init", "-q", "-b", "main", "--bare", origin], sandboxRoot);
+    const repo = fixtureRepo("UNPUSHED_WORK", "main");
+    git(["remote", "add", "origin", origin], repo);
+    git(["push", "-q", "origin", "main"], repo);
+    git(["checkout", "-q", "-b", "feature/wip"], repo);
+    commit(repo, "p.md", "pushed work");
+    git(["push", "-q", "-u", "origin", "feature/wip"], repo);
+    // One commit lands after the push: ahead of the upstream, so unpushed > 0.
+    commit(repo, "wip.md", "unpushed work");
+    const report = analyze(repo);
+    expect(names(report.keep)).toContain("feature/wip");
+    expect(entryFor(report.keep, "feature/wip")?.reason).toBe("UNPUSHED_WORK");
+    expect(names(report.deleteCandidates)).not.toContain("feature/wip");
+  });
+
+  test("gone: a [gone] upstream lands in needsReview and never in deleteCandidates", () => {
+    const origin = join(sandboxRoot, "gone-origin.git");
+    git(["init", "-q", "-b", "main", "--bare", origin], sandboxRoot);
+    const repo = fixtureRepo("gone", "main");
+    git(["remote", "add", "origin", origin], repo);
+    git(["checkout", "-q", "-b", "feature/pushed"], repo);
+    commit(repo, "p.md", "pushed work");
+    git(["push", "-q", "-u", "origin", "feature/pushed"], repo);
+    git(["push", "-q", "origin", "main"], repo);
+    // The remote branch disappears; the analyzer's prune turns the upstream into [gone].
+    git(["push", "origin", "--delete", "feature/pushed"], repo);
+    const report = analyze(repo);
+    expect(names(report.deleteCandidates)).not.toContain("feature/pushed");
+    expect(names(report.needsReview)).toContain("feature/pushed");
+  });
+
+  test("SYNCED: a tracked branch level with a live remote is keep", () => {
+    const origin = join(sandboxRoot, "synced-origin.git");
+    git(["init", "-q", "-b", "main", "--bare", origin], sandboxRoot);
+    const repo = fixtureRepo("SYNCED", "main");
+    git(["remote", "add", "origin", origin], repo);
+    git(["checkout", "-q", "-b", "feature/synced"], repo);
+    commit(repo, "s.md", "synced work");
+    git(["push", "-q", "-u", "origin", "feature/synced"], repo);
+    git(["push", "-q", "origin", "main"], repo);
+    const report = analyze(repo);
+    expect(names(report.keep)).toContain("feature/synced");
+    expect(entryFor(report.keep, "feature/synced")?.reason).toBe("SYNCED_WITH_REMOTE");
+    expect(names(report.deleteCandidates)).not.toContain("feature/synced");
+  });
+
+  test("LOCAL_WORK: a local-only branch with unique work is keep", () => {
+    const repo = fixtureRepo("LOCAL_WORK", "main");
+    git(["checkout", "-q", "-b", "feature/local"], repo);
+    commit(repo, "l.md", "local experiment");
+    const report = analyze(repo);
+    expect(names(report.keep)).toContain("feature/local");
+    expect(entryFor(report.keep, "feature/local")?.reason).toBe("LOCAL_WORK");
+    expect(names(report.deleteCandidates)).not.toContain("feature/local");
+  });
+
+  test("quot: hostile refnames are emitted single-quoted with apostrophe escaping", () => {
+    const repo = fixtureRepo("quot", "main");
+    // Valid git refname carrying every shell metacharacter that must stay inert.
+    const hostile = "evil/$(id)`x`;|&'ref";
+    git(["branch", hostile], repo);
+    const report = analyze(repo);
+    const quoted = `'refs/heads/${hostile.replaceAll("'", "''")}'`;
+    const expected = `git merge-base --is-ancestor ${quoted} 'main'`;
+    // The hostile branch sits on main with no extra work, so it must reach a
+    // delete candidate whose guard is the quoted form — never a bare refname.
+    const entry = entryFor(report.deleteCandidates, hostile);
+    expect(entry).toBeDefined();
+    expect(entry?.verifyWith).toBe(expected);
+    // No unquoted reference to the hostile refname anywhere in the document.
+    expect(JSON.stringify(report).includes(`refs/heads/${hostile}`)).toBe(false);
+  });
+
+  test("dirty: a dirty worktree is flagged and never stale; a clean deletable one is stale", () => {
+    const repo = fixtureRepo("dirty", "main");
+    git(["checkout", "-q", "-b", "feature/clean-wt"], repo);
+    commit(repo, "c.md", "merged work");
+    git(["checkout", "-q", "main"], repo);
+    git(["merge", "-q", "--no-ff", "feature/clean-wt"], repo);
+    git(["checkout", "-q", "-b", "feature/dirty-wt"], repo);
+    const cleanPath = join(sandboxRoot, "wt-clean");
+    const dirtyPath = join(sandboxRoot, "wt-dirty");
+    git(["worktree", "add", "-q", cleanPath, "feature/clean-wt"], repo);
+    git(["worktree", "add", "-q", dirtyPath, "feature/dirty-wt"], repo);
+    // Uncommitted change: status is non-empty, so the worktree must be refused.
+    writeFileSync(join(dirtyPath, "uncommitted.md"), "work in progress\n");
+    const report = analyze(repo);
+    const dirty = (report.worktrees ?? []).find((wt) => wt.branch === "feature/dirty-wt");
+    expect(dirty).toBeDefined();
+    expect(dirty?.dirty).toBe(true);
+    expect(dirty?.stale).not.toBe(true);
+    // Stale only when the worktree is clean and its branch is deletable.
+    const clean = (report.worktrees ?? []).find((wt) => wt.branch === "feature/clean-wt");
+    expect(clean).toBeDefined();
+    expect(clean?.dirty).toBe(false);
+    expect(clean?.stale).toBe(true);
+  });
+
+  test("unanalyzed: the bucket is present even when every branch classifies", () => {
+    const repo = fixtureRepo("unanalyzed", "main");
+    git(["branch", "feature/only"], repo);
+    const report = analyze(repo);
+    expect(report.unanalyzed).toBeArray();
+  });
+
+  test("malformed: a broken ref inventory fails closed, never a delete plan", () => {
+    const repo = fixtureRepo("malformed", "main");
+    // A ref that is not a SHA breaks the inventory survey mid-read.
+    writeFileSync(join(repo, ".git", "refs", "heads", "broken"), "not-a-sha\n");
+    const run = runAnalyze([repo], sandboxRoot);
+    if (run.status === 0) {
+      const report = JSON.parse(run.stdout) as Report;
+      expect(report.deleteCandidates ?? []).toEqual([]);
+    } else {
+      expect(run.stdout).not.toContain("SAFE_TO_DELETE");
+    }
+  });
+});
