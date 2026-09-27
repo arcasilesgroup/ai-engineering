@@ -75,6 +75,13 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Tags:** review, viewer
 
 
+### L10 · 2026-09-27 · ai-git-cleanup #1 · behavior
+- **Failure:** Unit layer failed: the dirty-worktree case aborted in fixture setup with `fatal: 'feature/dirty-wt' is already used by worktree` (13 pass, 1 fail).
+- **Root cause:** The fixture checked out `feature/dirty-wt` in the main worktree, so `git worktree add` for that same branch was always refused before analyze() ran.
+- **Fix:** Created the branch with `git branch feature/dirty-wt` while main stayed checked out; assertions unchanged, 14/14 green.
+- **Lesson:** When a fixture needs a branch held by a linked worktree, create it without checking it out in the main worktree — git never allows the same branch checked out in two worktrees.
+- **Tags:** tests, git, worktree
+
 <!--
 ### L<n> · YYYY-MM-DD · <feature-slug> #<checkpoint> · <gate: behavior|ui|review|human|circuit-breaker>
 - **Failure:** what failed, as the gate reported it

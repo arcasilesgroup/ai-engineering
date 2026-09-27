@@ -51,7 +51,13 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "unit: tests/git-cleanup-analyze.spec.ts case 'dirty: a dirty worktree is flagged and never stale; a clean deletable one is stale' — fixture bug at :266-274: checks out feature/dirty-wt in the main worktree then 'git worktree add wt-dirty feature/dirty-wt', which git always refuses ('already used by worktree'); 13 pass, 1 fail, aborts before assertions. Test bug, not code."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
