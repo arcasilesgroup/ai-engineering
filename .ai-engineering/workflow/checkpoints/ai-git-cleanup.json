@@ -52,16 +52,24 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "failed",
+          "status": "passed",
           "attempts": 1,
           "findings": [
-            "unit: tests/git-cleanup-analyze.spec.ts case 'dirty: a dirty worktree is flagged and never stale; a clean deletable one is stale' — fixture bug at :266-274: checks out feature/dirty-wt in the main worktree then 'git worktree add wt-dirty feature/dirty-wt', which git always refuses ('already used by worktree'); 13 pass, 1 fail, aborts before assertions. Test bug, not code."
+            "unit: tests/git-cleanup-analyze.spec.ts case 'dirty: a dirty worktree is flagged and never stale; a clean deletable one is stale' — fixture bug at :266-274: checks out feature/dirty-wt in the main worktree then 'git worktree add wt-dirty feature/dirty-wt', which git always refuses ('already used by worktree'); 13 pass, 1 fail, aborts before assertions. Test bug, not code.",
+            "attempt 2 PASS: analyze+cli 20/20, skills 19/19, embed-canon 13/13, workflow-handoff 2/2, typecheck exit 0, lint exit 0 (pre-existing warnings only)."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "adversarial loop PASS after 2 rounds (thread .ai-engineering/workflow/reviews/ai-git-cleanup-1.md): F1-F5 + 1 suspicion all resolved; real safety bug found and fixed (defaultBranch anchored to HEAD could list the true default as SAFE_TO_DELETE → fail-closed NO_DEFAULT_BRANCH). Fixer changed code → Gate 1 re-run PASS (attempt 3), incl. no-origin spot-check.",
+            "MINOR deferred: none."
+          ]
+        }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 2,
