@@ -51,11 +51,25 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "PASS attempt 1: analyze 20/20, cli 6/6, skills 19/19, embed-canon 13/13, typecheck 0, lint 0; non-gating handoff 2/2 + flow 3/3; spot-check bogus remote → fetchStatus 'failed: …' + deleteCandidates [], no remote → 'ok'."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "adversarial loop PASS in 1 round, no fixer (thread .ai-engineering/workflow/reviews/ai-git-cleanup-v2-1.md); one-approval floor verified intact, no stale two-gate text in changed files.",
+            "MINOR deferred F1: stale 'gate 2' comment in tests/git-cleanup-flow.spec.ts:236 — file outside cp1 scope, fixed by cp2's flow-spec rework.",
+            "MINOR deferred F2: single-view test asserts 5 fields but not keep/needsReview/unanalyzed/currentBranch presence — fed to cp2 test writer (R2)."
+          ]
+        }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 2,
