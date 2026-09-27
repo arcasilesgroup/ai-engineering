@@ -90,6 +90,9 @@ import askills_ai_note_SKILL_md from "../skills/ai-note/SKILL.md" with { type: "
 import askills_ai_read_docs_SKILL_md from "../skills/ai-read-docs/SKILL.md" with { type: "file" };
 import askills__chain_bundle_ai_eng_chain_ts from "../skills/.chain-bundle/ai-eng-chain.ts" with { type: "file" };
 import askills_ai_prototype_SKILL_md from "../skills/ai-prototype/SKILL.md" with { type: "file" };
+import askills_ai_git_cleanup_references_merge_evidence_md from "../skills/ai-git-cleanup/references/merge-evidence.md" with { type: "file" };
+import askills_ai_git_cleanup_scripts_analyze_mjs from "../skills/ai-git-cleanup/scripts/analyze.mjs" with { type: "file" };
+import askills_ai_git_cleanup_SKILL_md from "../skills/ai-git-cleanup/SKILL.md" with { type: "file" };
 import askills_ai_stress_test_references_tool_selection_md from "../skills/ai-stress-test/references/tool-selection.md" with { type: "file" };
 import askills_ai_stress_test_references_safety_md from "../skills/ai-stress-test/references/safety.md" with { type: "file" };
 import askills_ai_stress_test_SKILL_md from "../skills/ai-stress-test/SKILL.md" with { type: "file" };
@@ -226,6 +229,9 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-read-docs/SKILL.md": askills_ai_read_docs_SKILL_md as unknown as string,
   "../skills/.chain-bundle/ai-eng-chain.ts": askills__chain_bundle_ai_eng_chain_ts as unknown as string,
   "../skills/ai-prototype/SKILL.md": askills_ai_prototype_SKILL_md as unknown as string,
+  "../skills/ai-git-cleanup/references/merge-evidence.md": askills_ai_git_cleanup_references_merge_evidence_md as unknown as string,
+  "../skills/ai-git-cleanup/scripts/analyze.mjs": askills_ai_git_cleanup_scripts_analyze_mjs as unknown as string,
+  "../skills/ai-git-cleanup/SKILL.md": askills_ai_git_cleanup_SKILL_md as unknown as string,
   "../skills/ai-stress-test/references/tool-selection.md": askills_ai_stress_test_references_tool_selection_md as unknown as string,
   "../skills/ai-stress-test/references/safety.md": askills_ai_stress_test_references_safety_md as unknown as string,
   "../skills/ai-stress-test/SKILL.md": askills_ai_stress_test_SKILL_md as unknown as string,
