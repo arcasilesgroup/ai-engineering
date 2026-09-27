@@ -1,0 +1,227 @@
+{
+  "feature": "ai-git-cleanup v2: one gate, fetch status, post-cleanup sync",
+  "slug": "ai-git-cleanup-v2",
+  "order": ["unit", "api", "cli", "ui"],
+  "gating": "Run layers in order. Do not run a layer until every case in the layer before it passes.",
+  "layers": {
+    "unit": [
+      {
+        "id": "U1",
+        "case": "fetchStatus: `ok` after a successful fetch with a working origin — exact value, own top-level property, stdout still one single JSON document (R2)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t fetchStatus",
+        "checkpoint": 1
+      },
+      {
+        "id": "U2",
+        "case": "fetchStatus: `ok` with no origin — best-effort fetch skipped, run exits 0, field present with exact value (R3 configuration: absent remote)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t fetchStatus",
+        "checkpoint": 1
+      },
+      {
+        "id": "U3",
+        "case": "fetchStatus: `failed: <first stderr line, trimmed>` with a broken origin — exact prefix and actionable reason, stdout uncorrupted single JSON (JSON.parse of whole stdout succeeds), and classification stays conservative (fallback default path, no fabricated delete candidates)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t fetchStatus",
+        "checkpoint": 1
+      },
+      {
+        "id": "U4",
+        "case": "single-view payload completeness (R2): every deleteCandidate carries its exact `command` (`git branch -d '<branch>'`) and `verifyWith` guard, every stale worktree carries its exact `git worktree remove '<path>'` command, candidate worktreePath equals the worktree entry path (L14 back-link), fetchStatus top-level — everything the one gate view renders comes from the report, not prose",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'single view'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U5",
+        "case": "regression: the 16 pre-existing analyze.spec cases stay green with fetchStatus added (additive top-level field, no whole-document equality exists)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U6",
+        "case": "postSync.prune field-presence conditional (R3): exact `git worktree prune` present only when a worktree removal is queued; absent in a fixture with no removal — fetchStatus still present in the same document (R2)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t prune",
+        "checkpoint": 2
+      },
+      {
+        "id": "U7",
+        "case": "postSync.pull field-presence conditional (R3): exact `git pull --ff-only` command with upstream name and behind count present only when the default branch is behind its upstream; absent when level or ahead",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t pull",
+        "checkpoint": 2
+      },
+      {
+        "id": "U8",
+        "case": "ahead default branch is report-only: ahead count emitted, postSync.pull absent, and no `push` substring in ANY command field of the emitted document (scan every command-bearing field, R3 invariant)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t ahead",
+        "checkpoint": 2
+      },
+      {
+        "id": "U9",
+        "case": "flow command plan (existing case, CHANGED): every emitted command single-quoted with an ancestry guard before each `git branch -d`, no protected/current/default deleted, postSync commands now included in the scan, and no `push` in any emitted command",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t 'command plan'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U10",
+        "case": "flow pairing contract (existing case, CHANGED — U16): every queued worktree removal precedes its branch delete with the candidate↔worktree back-link intact under the merged single-plan format; dirty refusal outranks ordering; fetchStatus and postSync present in the same document",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t refus",
+        "checkpoint": 2
+      },
+      {
+        "id": "U11",
+        "case": "flow unanalyzed bucket surfaces in the emitted plan (existing case, STAYS)",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t unanalyzed",
+        "checkpoint": 2
+      }
+    ],
+    "api": [],
+    "cli": [
+      {
+        "id": "C1",
+        "case": "no-origin CLI run exits 0 with a single JSON document and fetchStatus exactly `ok` (existing case, CHANGED — extended)",
+        "command": "bun test tests/git-cleanup-cli.spec.ts -t 'no origin'",
+        "checkpoint": 1
+      },
+      {
+        "id": "C2",
+        "case": "broken-origin CLI run: fetchStatus `failed: <reason>` surfaced with an actionable first stderr line, stdout not corrupted (whole stdout parses as one JSON doc), conservative fallback/derivation intact (existing case, CHANGED — extended)",
+        "command": "bun test tests/git-cleanup-cli.spec.ts -t 'failing fetch'",
+        "checkpoint": 1
+      },
+      {
+        "id": "C3",
+        "case": "regression: the other 4 cli.spec cases stay green (explicit path, cwd, origin/HEAD default, non-repo exit); gate-2 comments updated for truthfulness, no assertion change",
+        "command": "bun test tests/git-cleanup-cli.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "C4",
+        "case": "skills structure gates pass after the single-gate SKILL.md rewrite (frontmatter, Lifecycle, links, description fold) — SKILL.md text covered by structure gates only, no source-text behavioral assertions (R1)",
+        "command": "bun test tests/skills.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "C5",
+        "case": "regenerated src/assets.ts embeds the edited skill and embed-canon stays green after `bun scripts/gen-assets.ts`",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 1
+      },
+      { "id": "C6", "case": "typecheck passes after the skill and script edits", "command": "bun run typecheck", "checkpoint": 1 },
+      { "id": "C7", "case": "lint passes after the skill and script edits (3 pre-existing doctor-command warnings allowed)", "command": "bun run lint", "checkpoint": 1 },
+      {
+        "id": "C8",
+        "case": "skills structure sweep still green with the finished single-gate skill",
+        "command": "bun test tests/skills.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C9",
+        "case": "workflow-handoff spec not broken by the postSync/SKILL.md changes",
+        "command": "bun test tests/workflow-handoff.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C10",
+        "case": "arch layer rules not broken by the skill files",
+        "command": "bun test tests/arch.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C11",
+        "case": "embed-canon sweep still green after gen-assets re-run",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C12",
+        "case": "CHANGELOG Unreleased names the single-gate flow and the still-present changeset is amended minor (not duplicated)",
+        "command": "rg -q 'ai-git-cleanup' CHANGELOG.md && test -f .changeset/ai-git-cleanup.md && rg -q 'minor' .changeset/ai-git-cleanup.md",
+        "checkpoint": 2
+      },
+      { "id": "C13", "case": "typecheck passes on the final sweep", "command": "bun run typecheck", "checkpoint": 2 },
+      { "id": "C14", "case": "lint passes on the final sweep (3 pre-existing doctor-command warnings allowed)", "command": "bun run lint", "checkpoint": 2 },
+      {
+        "id": "C15",
+        "case": "full suite green — baseline 895/895 before the new cases; count grows by the cases this plan adds",
+        "command": "bun test",
+        "checkpoint": 2
+      }
+    ],
+    "ui": []
+  },
+  "regressions": [
+    {
+      "spec": "tests/git-cleanup-analyze.spec.ts",
+      "baseline": 16,
+      "changes": [],
+      "stays": "all 16 (survey, PROTECTED, default branch ×2, current branch ×2, cluster, SAFE_TO_DELETE, UNPUSHED_WORK, gone, SYNCED, LOCAL_WORK, quot, dirty, unanalyzed, malformed) — fetchStatus and postSync are additive top-level fields and no case asserts the whole document with toEqual, so none breaks; only comments naming gate 2 are reworded"
+    },
+    {
+      "spec": "tests/git-cleanup-cli.spec.ts",
+      "baseline": 6,
+      "changes": [
+        "with no origin the fetch step is skipped instead of failing the run — extended with exact fetchStatus `ok`",
+        "a failing fetch and a missing origin/HEAD fall back without corrupting stdout — extended with exact fetchStatus `failed: <reason>`; existing single-JSON and fallback assertions kept"
+      ],
+      "stays": "4 (explicit path exits 0 single JSON, cwd equals explicit, origin/HEAD default, non-repo non-zero exit); gate-2 comments rewritten for truthfulness, no assertion change"
+    },
+    {
+      "spec": "tests/git-cleanup-flow.spec.ts",
+      "baseline": 3,
+      "changes": [
+        "command plan — postSync commands added to the emitted-command scan, no-`push` assertion added",
+        "refusals — pairing contract re-asserted as data under the merged single-plan format (removal precedes delete, back-link), fetchStatus/postSync presence added, dirty-refusal-outranks-ordering kept"
+      ],
+      "stays": ["unanalyzed"]
+    }
+  ],
+  "verify": [
+    {
+      "checkpoint": 1,
+      "commands": [
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/git-cleanup-cli.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "additions": []
+    },
+    {
+      "checkpoint": 2,
+      "commands": [
+        "bun test tests/git-cleanup-flow.spec.ts",
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/git-cleanup-cli.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun test",
+        "rg -q 'ai-git-cleanup' CHANGELOG.md && test -f .changeset/ai-git-cleanup.md && rg -q 'minor' .changeset/ai-git-cleanup.md",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "additions": ["bun test"]
+    }
+  ],
+  "not_tested": [
+    "UI layer — feature has no UI; every checkpoint gate.ui is n/a (feature request).",
+    "API layer — no server, no HTTP endpoints, no DB (api layer empty).",
+    "SKILL.md single-gate prose (one-ask wording, fetch-status callout, execution-order text, no-push prose) — no source-text behavioral assertions per LEARNINGS R1; structure covered by skills.spec gates (C4/C8), prose by the review gate.",
+    "In-session behavior (the single ask itself: delete-all / pick / stop, stop before the ask leaves everything untouched, guard immediately before each -d during execution) — exercised by the behavior/review gates, not script-level tests.",
+    "package.json gaining no dependency and FILEMAP/AGENTS/LEARNINGS/README staying unchanged — git-diff review items in the checkpoint gates, no test command.",
+    "Exact full-suite count — baseline is 895/895 green; C15 asserts green, since this plan's new cases raise the count.",
+    "postSync field names pinned to the checkpoint wording (postSync.prune, postSync.pull, ahead count) — if the implementer renames a field, the U6–U8 case texts follow the emitted names; assert exact emitted strings, not the plan's placeholder names."
+  ]
+}
