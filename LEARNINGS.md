@@ -7,7 +7,9 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 
 ## Rules
 
-<!-- - R1: <imperative rule>. (from L3, L7) -->
+- R1: Assert behaviour and exact contents, never a proxy such as source text or a bare type check. (from L2, L11)
+- R2: Assert every field and linkage a consumer relies on, not only the one you happened to read. (from L13, L14)
+- R3: Cover every acceptance branch, and test each guard in the exact configuration where it alone stands between the input and the harmful path. (from L7, L12)
 
 ## Log
 
