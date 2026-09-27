@@ -1,5 +1,8 @@
 [test]
 coverage = false
+# ./tests/preload.ts pins stdin/stdout isTTY off: the suite's prompt-driving and
+# rendering assertions assume a piped runner, not the terminal `bun test` was typed in.
+preload = ["./tests/preload.ts"]
 
 [install]
 exact = true
