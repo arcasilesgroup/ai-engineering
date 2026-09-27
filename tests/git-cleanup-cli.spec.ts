@@ -180,7 +180,12 @@ function aheadBehind(repo: string): { ahead: number; behind: number } {
     { cwd: repo, encoding: "utf8", env: childEnv },
   );
   if (counts.status !== 0) throw new Error(`upstream count failed: ${counts.stderr}`);
-  const [ahead, behind] = counts.stdout.trim().split("\t").map(Number);
+  const cells = counts.stdout.trim().split("\t").map(Number);
+  const [ahead, behind] = [cells[0], cells[1]];
+  // Narrow before use: a malformed count line fails the precondition loudly.
+  if (ahead === undefined || behind === undefined || !Number.isFinite(ahead) || !Number.isFinite(behind)) {
+    throw new Error(`unexpected upstream counts: ${counts.stdout.trim()}`);
+  }
   return { ahead, behind };
 }
 

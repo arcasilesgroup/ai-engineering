@@ -3,9 +3,10 @@ name: ai-git-cleanup
 description: >-
   Evidence-gated cleanup of finished local git branches and worktrees. Runs the
   read-only analyzer, presents every delete recommendation with its evidence and
-  exact command in one approval view, and removes only what a person approves
-  there — one explicit ask, never zero. Manual only: invoke by name when a
-  feature is finished. Never touches remote branches, CI or protected branches.
+  exact command — plus the post-cleanup sync — in one approval view, and
+  executes only what a person approves there — one explicit ask, never zero.
+  Manual only: invoke by name when a feature is finished. Never touches remote
+  branches, CI or protected branches, and never pushes.
 disable-model-invocation: true
 license: LicenseRef-Attributed
 ---
@@ -17,16 +18,17 @@ this conversation, stop: do not analyze, do not delete.
 
 ## What it produces
 
-One view holding the full analysis table with its per-row command plan and the
-fetch status, and at most the removals that one approval releases: finished
-branches and worktrees gone, every refusal visible, nothing deleted that still
-holds the only copy of work.
+One view holding the full analysis table with its per-row command plan, the
+fetch status and the `postSync` post-cleanup sync, and at most the removals
+and sync commands that one approval releases: finished branches and worktrees
+gone, the default branch pulled only when it is behind, every refusal visible,
+nothing deleted that still holds the only copy of work, nothing pushed.
 
 ## Safety invariants
 
 - **One explicit approval is the hard floor.** Exactly one `ask` precedes any
-  change — never zero, never auto-deletion. Stop before it and the repository
-  is untouched.
+  change — deletion or `postSync` sync alike — never zero, never
+  auto-deletion. Stop before it and the repository is untouched.
 - **PROTECTED, the default branch and the current branch are never deletable.**
   The analyzer enforces this with a regex and by name. Any recommendation that
   names one of them is a bug: stop and report it.
@@ -61,7 +63,12 @@ holds the only copy of work.
    `worktreePath` when a linked worktree holds the branch), `needsReview`,
    `keep` (including `PROTECTED`), `worktrees` (path, branch, dirty, dirtyFiles,
    stale, and `command` when stale), `unanalyzed`, `defaultBranch`,
-   `currentBranch`; branch names that form a related group in any bucket also
+   `currentBranch`, and `postSync` — the post-cleanup sync, where each field
+   appears only in its qualifying configuration: `prune` (`git worktree prune`)
+   only when a worktree removal is queued, `upstream`, `ahead` and `behind`
+   counts when the default branch tracks one, and `pull` (`git pull --ff-only`)
+   only when `behind` is greater than zero — `ahead` is report-only, never a
+   push; branch names that form a related group in any bucket also
    carry an informational `cluster`. An empty `defaultBranch` means no anchor
    was found: every branch fails closed to `unanalyzed` with reason
    `NO_DEFAULT_BRANCH`, never to a delete. It never mutates the repository.
@@ -96,18 +103,29 @@ holds the only copy of work.
      branch -d '<branch>'`). `SAFE_TO_DELETE` is pinned to `-d`; `-D` appears
      only for a claim that named its PR or commit and survived step 3, with
      that evidence on screen.
+   - Then the post-cleanup sync from `postSync`, in execution order after the
+     approved deletions: `git worktree prune` only when a removal is queued,
+     then `git pull --ff-only '<remote>' '<branch>'` on the default branch
+     only when `postSync.behind` is greater than zero (the upstream it syncs
+     from is named in `postSync.upstream`), then the `postSync.ahead` count as
+     a report — ahead is never a push.
 
-   Then one `ask`: delete all recommended, pick, or stop. Nothing runs before
+   Then one `ask`: delete all recommended, pick, or stop. The one approval
+   covers the whole plan above — deletions and sync alike. Nothing runs before
    that approval; any other answer stops the run with the repository untouched.
 
 5. **Execute in the main session.** Run the plan yourself, in order: worktrees
    before branches, guard before every `-d`, skip and report any guard that
-   fails. A subagent never executes a deletion and never asks the person
-   anything.
+   fails; once the deletions are done, `git worktree prune` if a removal was
+   queued, then the ff-only pull if the plan has one; report `ahead` without
+   ever pushing. A subagent never executes a deletion and never asks the
+   person anything.
 
 ## Out of scope
 
-- Remote branches: no `git push origin --delete`, ever. Local git only.
+- Remote branches: no `git push origin --delete`, ever — and no plain
+  `git push` either: an ahead default branch is reported in the plan, never
+  pushed. Local git only.
 - No reflog GC, no `git gc`, no CI, no auto-deletion: the one explicit approval
   is the hard floor, never zero.
 - Not a branching model: this cleans up branches another process created.
