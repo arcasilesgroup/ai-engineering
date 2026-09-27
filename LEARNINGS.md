@@ -9,7 +9,8 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 
 - R1: Assert behaviour and exact contents, never a proxy such as source text or a bare type check. (from L2, L11)
 - R2: Assert every field and linkage a consumer relies on, not only the one you happened to read. (from L13, L14)
-- R3: Cover every acceptance branch, and test each guard in the exact configuration where it alone stands between the input and the harmful path. (from L7, L12)
+- R3: Cover every acceptance branch, and test each guard in the exact configuration where it alone stands between the input and the harmful path. (from L7, L12, L18)
+- R4: Emit only commands whose target is unambiguous — pin the ref or worktree a sync command mutates, never rely on HEAD. (from L17; the cp2 adversarial review and behavior spot-check both passed it — run emitted commands in the current≠default configuration)
 
 ## Log
 
@@ -125,6 +126,20 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Removed currentBranch from the anchor list; empty anchor fails closed to unanalyzed NO_DEFAULT_BRANCH, pinned by a new test.
 - **Lesson:** Never anchor default to mutable state like HEAD — moving the checkout would turn the repository's real default branch into a delete candidate.
 - **Tags:** review, git, safety
+
+### L17 · 2026-09-27 · ai-git-cleanup-v2 (live run) · human
+- **Failure:** postSync emitted `git pull --ff-only 'origin' 'main'` while HEAD sat on feat/ai-git-cleanup-v2 — the command would mutate the CURRENT branch, not main; the person chose skip-sync instead of running it.
+- **Root cause:** `git pull <remote> <branch>` always merges into HEAD; the emitter pinned the source ref but not the destination worktree/branch.
+- **Fix:** (deferred to follow-up) emit a destination-pinned form or withhold the pull when current ≠ default.
+- **Lesson:** Emit only commands whose target is unambiguous — a pull applies to HEAD, so a default-branch sync must pin the branch or worktree it mutates.
+- **Tags:** human, git, safety, sync
+
+### L18 · 2026-09-27 · ai-git-cleanup-v2 (live run) · human
+- **Failure:** The current branch (feat/ai-git-cleanup-v2, upstream [gone]) landed in needsReview instead of the PROTECTED keep bucket; the skill's text claims the analyzer excludes current-by-name before analysis.
+- **Root cause:** protection-by-name does not short-circuit the remoteGone/ambiguous triage path; the CURRENT_BRANCH guard only covers the merged/unique===0 configuration (the config the cp1 test pinned).
+- **Fix:** (deferred to follow-up) apply the current/default protection filter before triage categorization, and pin with a test in the remoteGone configuration.
+- **Lesson:** A protection filter must run before every categorization path, not only inside the one configuration a test pinned.
+- **Tags:** human, git, safety, tests
 
 <!--
 ### L<n> · YYYY-MM-DD · <feature-slug> #<checkpoint> · <gate: behavior|ui|review|human|circuit-breaker>
