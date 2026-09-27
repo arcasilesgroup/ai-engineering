@@ -2,10 +2,10 @@
 name: ai-git-cleanup
 description: >-
   Evidence-gated cleanup of finished local git branches and worktrees. Runs the
-  read-only analyzer, shows every delete recommendation with its evidence, and
-  removes only what a person approves at two confirmation gates. Manual only:
-  invoke by name when a feature is finished. Never touches remote branches, CI
-  or protected branches.
+  read-only analyzer, presents every delete recommendation with its evidence and
+  exact command in one approval view, and removes only what a person approves
+  there — one explicit ask, never zero. Manual only: invoke by name when a
+  feature is finished. Never touches remote branches, CI or protected branches.
 disable-model-invocation: true
 license: LicenseRef-Attributed
 ---
@@ -17,12 +17,16 @@ this conversation, stop: do not analyze, do not delete.
 
 ## What it produces
 
-A full analysis table at gate 1, and at most the approved removals at gate 2:
-finished branches and worktrees gone, every refusal visible, nothing deleted
-that still holds the only copy of work.
+One view holding the full analysis table with its per-row command plan and the
+fetch status, and at most the removals that one approval releases: finished
+branches and worktrees gone, every refusal visible, nothing deleted that still
+holds the only copy of work.
 
 ## Safety invariants
 
+- **One explicit approval is the hard floor.** Exactly one `ask` precedes any
+  change — never zero, never auto-deletion. Stop before it and the repository
+  is untouched.
 - **PROTECTED, the default branch and the current branch are never deletable.**
   The analyzer enforces this with a regex and by name. Any recommendation that
   names one of them is a bug: stop and report it.
@@ -50,7 +54,9 @@ that still holds the only copy of work.
 
 1. **Analyze, read-only.** Run [scripts/analyze.mjs](scripts/analyze.mjs) with
    an optional repo path (`node scripts/analyze.mjs [repo-path]`, defaulting to
-   the current directory). It prints one JSON document: `deleteCandidates`
+   the current directory). It prints one JSON document: `fetchStatus` (`ok`, or
+   `failed: <first stderr line, trimmed>` after the best-effort
+   `git fetch --prune origin`), `deleteCandidates`
    (reason, evidence, command, `verifyWith` for `SAFE_TO_DELETE`, and
    `worktreePath` when a linked worktree holds the branch), `needsReview`,
    `keep` (including `PROTECTED`), `worktrees` (path, branch, dirty, dirtyFiles,
@@ -74,22 +80,27 @@ that still holds the only copy of work.
    failed agent: needs review. `SAFE_TO_DELETE` skips this only because step 5
    re-proves it with `merge-base` immediately before the delete.
 
-4. **Gate 1 — the full analysis table, then `ask`.** Show every bucket as a
-   table with evidence columns: delete candidates (reason, evidence,
-   `verifyWith`), needs review, keep, worktrees (dirty, stale, dirty files),
-   and `unanalyzed` — always, even when it is empty. Then `ask`: delete all
-   recommended, pick, or stop. Nothing is deleted before that answer.
+4. **The gate — one view, then one `ask`.** Present everything in a single
+   view, in execution order:
 
-5. **Gate 2 — exact commands, explicit yes, then `ask`.** Print the exact
-   command plan in execution order: worktree removals first
-   (`git worktree remove '<path>'`), then each guard paired with its delete
-   (`git merge-base --is-ancestor 'refs/heads/<branch>' '<default>' && git
-   branch -d '<branch>'`). `SAFE_TO_DELETE` is pinned to `-d`; `-D` appears only
-   for a claim that named its PR or commit and survived step 3, with that
-   evidence on screen. Then `ask` for an explicit `yes`. Anything but `yes`
-   stops the run.
+   - `fetchStatus` from the analysis run: `ok`, or `failed: <reason>`. A failed
+     fetch means remote-derived states may be stale — classification already
+     errs toward keep and needs review, but the failure must be visible on
+     screen, never silent.
+   - Every bucket as a table with evidence columns: delete candidates (reason,
+     evidence, `verifyWith`), needs review, keep, worktrees (dirty, stale, dirty
+     files), and `unanalyzed` — always, even when it is empty.
+   - The exact command plan, row for row: worktree removals first
+     (`git worktree remove '<path>'`), then each guard paired with its delete
+     (`git merge-base --is-ancestor 'refs/heads/<branch>' '<default>' && git
+     branch -d '<branch>'`). `SAFE_TO_DELETE` is pinned to `-d`; `-D` appears
+     only for a claim that named its PR or commit and survived step 3, with
+     that evidence on screen.
 
-6. **Execute in the main session.** Run the plan yourself, in order: worktrees
+   Then one `ask`: delete all recommended, pick, or stop. Nothing runs before
+   that approval; any other answer stops the run with the repository untouched.
+
+5. **Execute in the main session.** Run the plan yourself, in order: worktrees
    before branches, guard before every `-d`, skip and report any guard that
    fails. A subagent never executes a deletion and never asks the person
    anything.
@@ -97,7 +108,8 @@ that still holds the only copy of work.
 ## Out of scope
 
 - Remote branches: no `git push origin --delete`, ever. Local git only.
-- No reflog GC, no `git gc`, no CI, no auto-deletion without both gates.
+- No reflog GC, no `git gc`, no CI, no auto-deletion: the one explicit approval
+  is the hard floor, never zero.
 - Not a branching model: this cleans up branches another process created.
 
 ## Lifecycle

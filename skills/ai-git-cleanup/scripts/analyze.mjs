@@ -100,8 +100,21 @@ function main() {
     .map((line) => line.trim())
     .filter(Boolean);
   // Best-effort prune before origin/HEAD is read: stale remote-tracking refs must not
-  // decide the default branch, and a dead or absent origin skips cleanly.
-  if (remotes.includes("origin")) runGit(["fetch", "--prune", "origin"], repo);
+  // decide the default branch. The outcome travels as fetchStatus so the approval gate
+  // can show a failed fetch instead of silently leaving remote-derived state stale; with
+  // no origin nothing remote-derived can be stale, so the status is ok without a fetch.
+  const hasOrigin = remotes.includes("origin");
+  let fetchStatus = "ok";
+  if (hasOrigin) {
+    const fetched = runGit(["fetch", "--prune", "origin"], repo);
+    if (fetched.status !== 0) {
+      const firstStderrLine = (fetched.stderr ?? "")
+        .split("\n")
+        .map((line) => line.trim())
+        .find((line) => line.length > 0);
+      fetchStatus = `failed: ${firstStderrLine ?? `git fetch exited ${fetched.status}`}`;
+    }
+  }
 
   const inventory = runGit(
     ["for-each-ref", "--format=%(refname:short)%09%(objectname)%09%(upstream:short)%09%(upstream:track)", "refs/heads"],
@@ -207,9 +220,9 @@ function main() {
       keep.push({ branch, reason: "CURRENT_BRANCH", evidence: "checked out in this worktree; tip " + tip });
       continue;
     }
-    // The ancestry guard gate 2 runs again immediately before the delete. It names
-    // refs/heads/<branch> rather than the reported sha, so it cannot pass on a stale
-    // or transposed commit while the branch itself was never merged.
+    // The ancestry guard the approval plan prints runs again immediately before the
+    // delete. It names refs/heads/<branch> rather than the reported sha, so it cannot
+    // pass on a stale or transposed commit while the branch itself was never merged.
     const guard = runGit(["merge-base", "--is-ancestor", `refs/heads/${branch}`, defaultBranch], repo);
     if (guard.status === 0) {
       deleteCandidates.push({
@@ -269,6 +282,7 @@ function main() {
   }
 
   const report = {
+    fetchStatus,
     defaultBranch,
     currentBranch,
     deleteCandidates,
