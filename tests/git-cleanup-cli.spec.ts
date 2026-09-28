@@ -290,6 +290,10 @@ describe("analyze.mjs classification on real fixtures", () => {
     commitOn(repo, "scratch.md", "# temporary\n", "temporary change");
     git(["rm", "-q", "scratch.md"], repo);
     git(["commit", "-q", "-m", "revert the temporary change"], repo);
+    // Back on trunk before the run: -D applies to a NON-current branch. A checked-out
+    // tree-identical branch is the current-branch protection's keep configuration and
+    // is pinned as CURRENT_BRANCH in the analyze spec (R3/L18).
+    git(["switch", "-q", "trunk"], repo);
     const doc = analyzeDoc(["--all", repo], sandboxRoot);
     // Fixture precondition: the tree really is identical to trunk (R3).
     const diff = spawnSync("git", ["diff", "--quiet", "trunk..feature/same-tree"], {

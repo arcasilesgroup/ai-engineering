@@ -485,6 +485,32 @@ describe("analyze.mjs", () => {
     expect(entry?.command).toBe("git branch -D 'feature/treesame'");
   });
 
+  test("current branch: a tree-identical branch left checked out is CURRENT_BRANCH keep, never -D", () => {
+    const repo = fixtureRepo("current empty diff", "main");
+    // Same squash-twin premise as the -D case, but HEAD stays on the twin: only the
+    // checked-out protection stands between this branch and the -D batch (R3/L18).
+    git(["checkout", "-q", "-b", "feature/treesame"], repo);
+    commit(repo, "t.md", "same content");
+    git(["checkout", "-q", "main"], repo);
+    git(["cherry-pick", "--no-commit", "feature/treesame"], repo);
+    git(["commit", "-q", "-m", "pick: same content"], repo);
+    git(["checkout", "-q", "feature/treesame"], repo);
+    // Fixture premises proven against the real git state before asserting the
+    // classification (L19): HEAD sits on the branch, it is not merged, diff is empty.
+    expect(gitOut(["symbolic-ref", "--short", "HEAD"], repo)).toBe("feature/treesame");
+    expect(gitOut(["branch", "--merged", "main"], repo)).not.toContain("feature/treesame");
+    expect(
+      spawnSync("git", ["diff", "--quiet", "main..feature/treesame"], { cwd: repo, encoding: "utf8", env: childEnv })
+        .status,
+    ).toBe(0);
+    const report = analyze(repo);
+    expect(entryFor(report.keep, "feature/treesame")?.reason).toBe("CURRENT_BRANCH");
+    expect(report.batch).toBeArray();
+    expect(names(report.batch)).not.toContain("feature/treesame");
+    // No emitted command anywhere may target the checked-out branch (R1: exact contents).
+    expect(commandStrings(report).some((command) => command.includes("feature/treesame"))).toBe(false);
+  });
+
   // The double space in this title is deliberate: the plan's `-t 'gone + empty diff'`
   // filter compiles as a regex — "gone", one-or-more spaces, a literal space, then
   // "empty diff" — so a literal "+" in the title would match nothing.
