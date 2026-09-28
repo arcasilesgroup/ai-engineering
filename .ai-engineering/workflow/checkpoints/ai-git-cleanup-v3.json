@@ -46,7 +46,19 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "unit analyze.spec 25/30: :472 tree-identical + :502 gone-empty — cherry-pick same-second sha collision makes tips identical to main so branches are genuinely --merged (code right, fixture premise broken; fix: differing pick via amended message or distinct GIT_COMMITTER_DATE).",
+            "unit :524 gone-nonempty — fixture never checks out back to main (HEAD=feature/pushed at analyze time) so CURRENT_BRANCH is correct (protection-before-triage, :340 pin authoritative; fix: checkout main before analyze).",
+            "unit :693 worktree prune toEqual — spec's deepPairs helper double-emits every string leaf (object loop pushes primitive child, leaf return re-emits; fix: don't push primitives).",
+            "unit :742 report ahead — fixture truth rev-list origin/main..main = 4 (merge --no-ff added 2 before the 2 explicit commits; fix: expect 4).",
+            "cli :137 — stale v2 key report.deleteCandidates (fix: report.batch; sibling :157 already asserts batch).",
+            "cli :241/:262 CONFLICT — cli.spec demands a 'classification' section (plan task 21 wording) vs analyze-spec header pin (batch/keep/unanalyzed ARE the classification, no separate section). ORCHESTRATOR RULING: the analyze-spec header pin is authoritative; no classification section — rewrite the two mode-scoping assertions against the pinned sections (batch/report present, migration absent for --branches; migration present for --all/default).",
+            "flow.spec 0/3 confirmed but NOT gating (not in cp1 verify; plan's regressions map retires old shape in cp2 flow rework)."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },

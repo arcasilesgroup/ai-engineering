@@ -141,6 +141,13 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** A protection filter must run before every categorization path, not only inside the one configuration a test pinned.
 - **Tags:** human, git, safety, tests
 
+### L19 · 2026-09-28 · ai-git-cleanup-v3 #1 · behavior
+- **Failure:** Behavior gate failed at unit: analyze 25/30, cli 16/19 — fixtures held none of their premises (identical-sha cherry-picks landed in --merged, HEAD never returned to main so CURRENT_BRANCH was correct, deepPairs double-counted string leaves, ahead truth was 4 not 2), plus two assertions still speaking v2 vocabulary (`deleteCandidates`, a nonexistent `classification` section).
+- **Root cause:** The tests asserted the classification they imagined instead of proving the git state (sha, HEAD, count) the code derives it from; two names came from loose plan wording rather than the authoritative shape pin.
+- **Fix:** Message-distinct cherry-picks, checkout main before analyze, deepPairs skips primitives, ahead asserted 4, batch key, mode tests rewritten against the pinned sections (ruling: batch/keep/unanalyzed ARE the classification).
+- **Lesson:** A test fixture must hold its premise against the real git state it creates — prove the input (sha, HEAD, count) before asserting the classification the code derives from it.
+- **Tags:** tests, git, fixtures
+
 <!--
 ### L<n> · YYYY-MM-DD · <feature-slug> #<checkpoint> · <gate: behavior|ui|review|human|circuit-breaker>
 - **Failure:** what failed, as the gate reported it
