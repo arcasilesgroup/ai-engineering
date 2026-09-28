@@ -506,7 +506,7 @@ describe("analyze.mjs flow fixture", () => {
     // One row per branch, every field asserted, nothing extra on the row (R2):
     // action (-d/-D/keep), reason, upstream, ahead, behind — exact fixture truth.
     const rows = doc?.branches ?? [];
-    expect(rows.map((row) => row.branch).sort()).toEqual([...fixtureBranches].sort());
+    expect(rows.map((row) => row.branch ?? "").sort()).toEqual([...fixtureBranches].sort());
     const expected: Record<
       string,
       { action: string; reason: string; upstream: string; ahead: number | null; behind: number | null }
@@ -535,7 +535,10 @@ describe("analyze.mjs flow fixture", () => {
     };
     expect(Object.keys(expected).sort()).toEqual([...fixtureBranches].sort());
     for (const row of rows) {
-      expect(row).toEqual({ branch: row.branch, ...expected[row.branch] });
+      // A missing branch coerces to a key `expected` never has: the row then fails
+      // equality instead of indexing with `undefined`.
+      const branch = row.branch ?? "";
+      expect(row).toEqual({ branch, ...expected[branch] });
     }
 
     // Decision linkage (refusal/skip visibility): every bucketed branch's row carries
