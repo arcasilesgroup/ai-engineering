@@ -163,7 +163,10 @@ function deepPairs(value: unknown, key = ""): [string, unknown][] {
   if (value !== null && typeof value === "object") {
     const pairs: [string, unknown][] = [];
     for (const [childKey, child] of Object.entries(value)) {
-      pairs.push([childKey, child], ...deepPairs(child, childKey));
+      // Primitive children come back from the leaf return below — pushing them here too
+      // would double-count every string leaf (e.g. one prune command emitted twice).
+      if (child !== null && typeof child === "object") pairs.push([childKey, child]);
+      pairs.push(...deepPairs(child, childKey));
     }
     return pairs;
   }
@@ -467,7 +470,12 @@ describe("analyze.mjs", () => {
     git(["checkout", "-q", "-b", "feature/treesame"], repo);
     commit(repo, "t.md", "same content");
     git(["checkout", "-q", "main"], repo);
-    git(["cherry-pick", "feature/treesame"], repo);
+    // The pick must differ from the original: a same-second, same-message cherry-pick
+    // re-creates the identical sha (same parent, tree, message, author/committer), which
+    // would make feature/treesame an ancestor and hand the code the -d path. A distinct
+    // message keeps the tip a different sha while the trees stay identical.
+    git(["cherry-pick", "--no-commit", "feature/treesame"], repo);
+    git(["commit", "-q", "-m", "pick: same content"], repo);
     const report = analyze(repo);
     expect(gitOut(["branch", "--merged", "main"], repo)).not.toContain("feature/treesame");
     const entry = entryFor(report.batch, "feature/treesame");
@@ -493,7 +501,11 @@ describe("analyze.mjs", () => {
     git(["checkout", "-q", "-b", "feature/gone-empty"], repo);
     commit(repo, "t.md", "same content");
     git(["checkout", "-q", "main"], repo);
-    git(["cherry-pick", "feature/gone-empty"], repo);
+    // Same distinct-message pick as the tree-identical sibling: an identical-sha pick
+    // would land feature/gone-empty on the merged list and yield -d instead of the
+    // [gone] + empty diff -D this case pins.
+    git(["cherry-pick", "--no-commit", "feature/gone-empty"], repo);
+    git(["commit", "-q", "-m", "pick: same content"], repo);
     git(["push", "-q", "-u", "origin", "feature/gone-empty"], repo);
     git(["push", "origin", "--delete", "feature/gone-empty"], repo);
     const report = analyze(repo);
@@ -517,6 +529,10 @@ describe("analyze.mjs", () => {
     commit(repo, "p.md", "pushed work");
     git(["push", "-q", "-u", "origin", "feature/pushed"], repo);
     git(["push", "origin", "--delete", "feature/pushed"], repo);
+    // Return HEAD to main so the protection filter cannot swallow this case: the triage
+    // path itself must produce REMOTE_GONE here (the CURRENT_BRANCH pin at the
+    // protected-before-triage test covers the HEAD-on-feature configuration).
+    git(["checkout", "-q", "main"], repo);
     const report = analyze(repo);
     expect(names(report.batch)).not.toContain("feature/pushed");
     const kept = entryFor(report.keep, "feature/pushed");
@@ -719,7 +735,8 @@ describe("analyze.mjs", () => {
     git(["checkout", "-q", "-b", "feature/local"], repo);
     commit(repo, "l.md", "local work");
     git(["checkout", "-q", "main"], repo);
-    // Two commits land locally without a push: the default is ahead 2, report-only.
+    // The --no-ff merge carried 2 commits and 2 more land locally without a push:
+    // the default is ahead 4 (rev-list origin/main..main), report-only.
     commit(repo, "ahead.md", "local ahead work");
     commit(repo, "ahead2.md", "more local ahead work");
     const report = analyze(repo);
@@ -739,7 +756,7 @@ describe("analyze.mjs", () => {
     // The default's ahead/behind counts are report data, exact against the fixture.
     const mainRow = rows.find((row) => row.branch === "main");
     expect(mainRow?.upstream).toBe("origin/main");
-    expect(mainRow?.ahead).toBe(2);
+    expect(mainRow?.ahead).toBe(4);
     expect(mainRow?.behind).toBe(0);
     expect(mainRow?.action).toBe("keep");
     const mergedRow = rows.find((row) => row.branch === "feature/merged");

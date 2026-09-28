@@ -133,8 +133,8 @@ describe("analyze.mjs CLI contract", () => {
     expect(firstStderrLine).toBeString();
     expect(report.fetchStatus).toBe(`failed: ${firstStderrLine}`);
     // Conservative classification intact under a broken remote: the fallback derivation
-    // still runs and no delete candidate is fabricated from stale remote state.
-    expect(report.deleteCandidates).toEqual([]);
+    // still runs and no delete candidate is fabricated into the batch from stale remote state.
+    expect(report.batch).toEqual([]);
   });
 
   test("a path outside any git repository exits non-zero with a repo error", () => {
@@ -233,13 +233,15 @@ describe("analyze.mjs mode flags", () => {
     expect(commandStrings(doc).filter((command) => /branch -[dD]/.test(command))).toEqual([]);
   });
 
-  test("--branches emits classification, batch and report with migration, stash and pull sections absent", () => {
+  test("--branches emits batch, keep and report with migration, stash and pull sections absent", () => {
     const repo = currentNotDefaultFixture("mode-branches");
     const doc = analyzeDoc(["--branches", repo], sandboxRoot);
     expect(doc).toBeObject();
     expect("migration" in doc).toBe(false);
-    expect(doc).toHaveProperty("classification");
+    // batch/keep ARE the classification (no separate section exists) — the analyze-spec
+    // header pin is authoritative; keep the mode-scoping intent: triage here, no migration.
     expect(doc).toHaveProperty("batch");
+    expect(doc).toHaveProperty("keep");
     expect(doc).toHaveProperty("report");
     // The whole document carries no pull or stash command: migration cannot hide here.
     expect(commandStrings(doc).filter((command) => command.includes("pull") || command.includes("stash"))).toEqual([]);
@@ -257,10 +259,10 @@ describe("analyze.mjs mode flags", () => {
     const noFlagDoc = JSON.parse(implicit.stdout) as Record<string, unknown>;
     JSON.parse(branches.stdout);
     expect(noFlagDoc).toEqual(allDoc);
-    // The default mode is --all: migration, classification, batch and report all present.
+    // The default mode is --all: migration, batch, keep and report all present.
     expect(allDoc).toHaveProperty("migration");
-    expect(allDoc).toHaveProperty("classification");
     expect(allDoc).toHaveProperty("batch");
+    expect(allDoc).toHaveProperty("keep");
     expect(allDoc).toHaveProperty("report");
   });
 });
