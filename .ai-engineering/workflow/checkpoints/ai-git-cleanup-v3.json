@@ -181,11 +181,25 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "PASS attempt 1: verify array all green (flow 7, analyze 32, cli 19, skills 19, handoff 2, arch 22, embed 13, rg CHANGELOG v3 line, typecheck 0, lint 0) + full sweep 928/928. Report spot-check: 4 rows exact (merged/-d, unpushed/keep, dirty-worktree-held/keep, default/keep), every branch exactly once, stashState ⟺ migration.stash both directions. Docs spot-check: attribution rows + Source line + v3 CHANGELOG line + minor changeset all present."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "adversarial loop PASS in 1 round, no fixer (thread .ai-engineering/workflow/reviews/ai-git-cleanup-v3-3.md): no dangling merge-evidence reference, attribution sufficient under CC BY-SA §4(a), U23 sweep attacks (case/spaces/dynamic construction/scripts recursion) without landing, 928/928 re-confirmed.",
+            "3 minors ACCEPTED as by-design: U22 toEqual brittleness (R2-compliant), U23 negated-line heuristic (non-vacuity probe proves it), CHANGELOG line completeness (verified).",
+            "Carried from cp2: MINOR pick-semantics note (SKILL.md:159) deferred to app review."
+          ]
+        }
       },
-      "status": "pending"
+      "status": "passed"
     }
   ],
   "assumptions": [
