@@ -111,11 +111,24 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "PASS attempt 1: flow 5/5, analyze 32/32, cli 19/19, skills 19/19, handoff 2/2, embed 13/13, arch 22/22 (supplemental), typecheck 0, lint 0. Spot-check: worktree-held merged branch → batched MERGED/-d/guard/worktreePath; dirtied → keep WORKTREE_HELD + requiresAcknowledgment. SKILL.md greps: no disable-model-invocation, flags documented, hard-floor sentence, push mentions are prohibitions."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "adversarial loop PASS in 1 round, no fixer (thread .ai-engineering/workflow/reviews/ai-git-cleanup-v3-2.md); phase-0 failure paths, trigger surface, flag partitioning, invariants truth all attacked without landing.",
+            "MINOR deferred F1: SKILL.md:159 'pick' semantics undefined — worst case is an extra (safe) prompt or a numbered menu as THE one ask; not a data-loss path. Presented at app review."
+          ]
+        }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 3,
