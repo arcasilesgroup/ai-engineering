@@ -10,7 +10,9 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R1: Assert behaviour and exact contents, never a proxy such as source text or a bare type check. (from L2, L11)
 - R2: Assert every field and linkage a consumer relies on, not only the one you happened to read. (from L13, L14)
 - R3: Cover every acceptance branch, and test each guard in the exact configuration where it alone stands between the input and the harmful path. (from L7, L12, L18)
-- R4: Emit only commands whose target is unambiguous — pin the ref or worktree a sync command mutates, never rely on HEAD. (from L17; the cp2 adversarial review and behavior spot-check both passed it — run emitted commands in the current≠default configuration)
+- R4: Emit only commands whose target is unambiguous — pin the ref or worktree a command mutates, and never anchor what a command targets (default-branch selection during analysis included) to mutable HEAD. (from L16, L17; the cp2 adversarial review and behavior spot-check both passed it — run emitted commands in the current≠default configuration)
+- R5: A test fixture must hold its premise against the real git state it creates — prove the input (sha, HEAD, count) before asserting the classification the code derives from it, and never let a fixture sit on the guarded branch, or it pins the bug it claims to forbid. (from L19, L20)
+- R6: Enforce protection at the one choke point every categorization funnels through, not per path — a guard placed only where a test pinned one configuration is forgotten by the next path. (from L18, L20)
 
 ## Log
 
