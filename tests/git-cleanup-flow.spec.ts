@@ -12,7 +12,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -487,5 +487,156 @@ describe("analyze.mjs flow fixture", () => {
       ...names(report.unanalyzed),
     ].sort();
     expect(classified).toEqual([...fixtureBranches].sort());
+  });
+
+  test("report: the run ends with default and previous branch, stash state and a complete row for every branch", () => {
+    const { stdout, report } = flow();
+    // Contract head: the default and the pre-migration branch the report names back.
+    expect(report.defaultBranch).toBe("main");
+    expect(Object.hasOwn(report, "report")).toBe(true);
+    expect(stdout).toContain('"report"');
+    const doc = report.report;
+    expect(doc).toBeDefined();
+    expect(doc?.previousBranch).toBe("main");
+    // Fixture premise: the main worktree is clean, so this run plans no auto-stash —
+    // and the report says exactly that instead of a fabricated stash name.
+    expect(report.migration?.stash).toBeUndefined();
+    expect(doc?.stashState).toBe("none");
+
+    // One row per branch, every field asserted, nothing extra on the row (R2):
+    // action (-d/-D/keep), reason, upstream, ahead, behind — exact fixture truth.
+    const rows = doc?.branches ?? [];
+    expect(rows.map((row) => row.branch).sort()).toEqual([...fixtureBranches].sort());
+    const expected: Record<
+      string,
+      { action: string; reason: string; upstream: string; ahead: number | null; behind: number | null }
+    > = {
+      main: { action: "keep", reason: "DEFAULT_BRANCH", upstream: "", ahead: null, behind: null },
+      develop: { action: "keep", reason: "PROTECTED", upstream: "", ahead: null, behind: null },
+      "release/2026.09": { action: "keep", reason: "PROTECTED", upstream: "", ahead: null, behind: null },
+      "feature/merged": { action: "-d", reason: "MERGED", upstream: "", ahead: null, behind: null },
+      "feature/squashed": { action: "keep", reason: "LOCAL_WORK", upstream: "", ahead: null, behind: null },
+      "feature/gone": {
+        action: "keep",
+        reason: "REMOTE_GONE",
+        upstream: "origin/feature/gone",
+        ahead: null,
+        behind: null,
+      },
+      "feature/unpushed": {
+        action: "keep",
+        reason: "UNPUSHED_WORK",
+        upstream: "origin/feature/unpushed",
+        ahead: 1,
+        behind: 0,
+      },
+      "feature/clean-wt": { action: "-D", reason: "EMPTY_DIFF", upstream: "", ahead: null, behind: null },
+      "feature/dirty-wt": { action: "keep", reason: "WORKTREE_HELD", upstream: "", ahead: null, behind: null },
+    };
+    expect(Object.keys(expected).sort()).toEqual([...fixtureBranches].sort());
+    for (const row of rows) {
+      expect(row).toEqual({ branch: row.branch, ...expected[row.branch] });
+    }
+
+    // Decision linkage (refusal/skip visibility): every bucketed branch's row carries
+    // the same decision the batch/keep/unanalyzed entry carries — a refused delete
+    // (the dirty worktree) surfaces as keep+reason in the report, never a silent drop.
+    for (const entry of report.keep ?? []) {
+      const row = rows.find((candidate) => candidate.branch === entry.branch);
+      expect(row?.action).toBe("keep");
+      expect(row?.reason).toBe(entry.reason);
+    }
+    for (const entry of report.unanalyzed ?? []) {
+      const row = rows.find((candidate) => candidate.branch === entry.branch);
+      expect(row?.action).toBe("keep");
+      expect(row?.reason).toBe(entry.reason);
+    }
+    for (const entry of report.batch ?? []) {
+      const row = rows.find((candidate) => candidate.branch === entry.branch);
+      expect(row?.action).toBe(entry.action);
+      expect(row?.reason).toBe(entry.category);
+    }
+    expect(rows.find((row) => row.branch === "feature/dirty-wt")?.reason).toBe("WORKTREE_HELD");
+    // Ahead is report-only: the count lands in the row, no command anywhere acts on it.
+    expect(rows.find((row) => row.branch === "feature/unpushed")?.ahead).toBe(1);
+    expect(commandStrings(report).filter((command) => command.includes("push"))).toEqual([]);
+
+    // Stash-state identity in the exact configuration that has one: with a dirty main
+    // worktree the plan carries a stash step, and stashState names THAT stash — the
+    // name phase 3 reads back off `git stash list` (R2 linkage, not a constant).
+    const stashRepo = join(sandboxRoot, "report-stash-repo");
+    mkdirSync(stashRepo, { recursive: true });
+    git(["init", "-q", "-b", "main"], stashRepo);
+    git(["config", "user.name", "Ada Lovelace"], stashRepo);
+    git(["config", "user.email", "ada@example.com"], stashRepo);
+    git(["config", "commit.gpgsign", "false"], stashRepo);
+    commit(stashRepo, "notes.md", "# stash report fixture\n");
+    writeFileSync(join(stashRepo, "wip.md"), "uncommitted\n");
+    const stashRun = runAnalyze(stashRepo);
+    const stashCommand = stashRun.report.migration?.stash?.command ?? "";
+    expect(stashCommand.startsWith("git stash push -m ")).toBe(true);
+    expect(stashRun.report.report?.stashState).toBe(stashCommand.slice("git stash push -m ".length));
+    expect(stashRun.report.report?.stashState).toMatch(/^cleanup-auto-stash-\d+$/);
+    expect(stashRun.report.report?.previousBranch).toBe("main");
+  });
+});
+
+// Forbidden operations as concrete command shapes (R3): a violation is one of these
+// patterns sitting on a line that does not negate it — the skill's safety prose names
+// the forbidden commands verbatim ("no `git gc`, ever"), an instruction line does not.
+// The probe at the bottom of the test keeps the filter honest: a bare command line
+// must trip the same sweep that passes the folder.
+const forbiddenPatterns: [RegExp, string][] = [
+  [/git push/, "git push"],
+  [/push --delete/, "push --delete"],
+  [/git reflog|reflog --expire|reflog expire/, "reflog GC"],
+  [/git gc/, "git gc"],
+  [/branch -rd|branch -dr/, "remote branch deletion"],
+  [/gh workflow|gh run |workflow_dispatch|\.github\/workflows/, "CI invocation"],
+];
+
+function forbiddenOnLine(line: string): string[] {
+  if (/\b(no|never|not|without|forbidden|refuse[sd]?)\b/i.test(line)) return [];
+  return forbiddenPatterns.filter(([pattern]) => pattern.test(line)).map(([, name]) => name);
+}
+
+function skillTextFiles(dir: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...skillTextFiles(full));
+    else if (entry.isFile()) files.push(full);
+  }
+  return files;
+}
+
+describe("forbidden command sweep", () => {
+  test("forbidden: no push, reflog GC, git gc, remote deletion or CI command exists in the skill folder or emitted fields", () => {
+    const { report } = flow();
+    // Emitted side: executable strings, zero tolerance — no negation room for a command.
+    const commands = commandStrings(report);
+    expect(commands.length).toBeGreaterThan(0);
+    for (const command of commands) {
+      expect(forbiddenPatterns.filter(([pattern]) => pattern.test(command)).map(([, name]) => name)).toEqual([]);
+    }
+    // Folder side: every text file under the skill folder, line by line; hits are
+    // reported relative to the folder so the failure names file and line, never a
+    // machine-absolute path.
+    const skillRoot = join(import.meta.dir, "..", "skills", "ai-git-cleanup");
+    const files = skillTextFiles(skillRoot);
+    expect(files.length).toBeGreaterThan(0);
+    const hits: string[] = [];
+    for (const file of files) {
+      const lines = readFileSync(file, "utf8").split("\n");
+      for (const [index, line] of lines.entries()) {
+        for (const name of forbiddenOnLine(line)) {
+          hits.push(`${file.slice(skillRoot.length + 1)}:${index + 1}: ${name}`);
+        }
+      }
+    }
+    expect(hits).toEqual([]);
+    // Non-vacuity: the sweep fails an un-negated command line and passes a prohibition.
+    expect(forbiddenOnLine("Run `git push origin main` to sync.")).toEqual(["git push"]);
+    expect(forbiddenOnLine("- **No push, no `git gc`, ever.**")).toEqual([]);
   });
 });
