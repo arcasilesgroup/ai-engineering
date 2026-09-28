@@ -282,9 +282,11 @@ function main() {
           ? new Set(
               merged.stdout
                 .split("\n")
-                // The current branch is marked "* name": the marker is not part of
-                // the refname, and leaving it would hide a checked-out merged branch.
-                .map((line) => line.trim().replace(/^\*\s*/, ""))
+                // Markers are not part of refnames: "* name" is the current branch and
+                // "+ name" a branch held by a linked worktree. Stripping only "*"
+                // dropped worktree-held merged branches from this set, sending the
+                // central worktree case down the empty-diff path instead of MERGED.
+                .map((line) => line.trim().replace(/^[*+]\s*/, ""))
                 .filter(Boolean),
             )
           : null;

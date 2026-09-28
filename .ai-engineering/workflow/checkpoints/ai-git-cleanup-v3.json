@@ -176,6 +176,8 @@
     }
   ],
   "assumptions": [
+    "Test-plan deviation (accepted, orchestrator): cp2 unit cases U20/U21 as drafted asserted countable source-text facts in SKILL.md — dropped per R1 (no source-text behavioral assertions); skills.spec structure gates + the review gate own the SKILL.md rewrite. The test plan's not_tested line claiming U20 covers those facts is superseded by this note.",
+    "cp2 implement also carries a test-writer-found engine bug: analyze.mjs's `git branch --merged` parse strips only '* ' but worktree-checked branches are marked '+ name', so worktree-held merged branches miss the merged set (fail-safe today — -D/keep/park variants, no data-loss — but wrong category for the skill's central worktree case). Fix: strip '+' too + cp1-shape exact-config test (worktree-held merged → guarded -d with worktreePath).",
     "Worktree-batch clarification (resolves acceptance-3 vs test-plan U15/U19): a linked worktree's branch reaches the batch WITH its worktreePath back-link when the worktree is CLEAN and stale (phase 3 removes the worktree first, then deletes — the one ask covers both); a DIRTY worktree's branch never reaches the batch (requiresAcknowledgment, drops to KEEP). Acceptance-3 forbids batched worktree-held branches only in the dirty/unacknowledged sense.",
     "Scope is git only, the skill keeps the name ai-git-cleanup, and automation is auto with one batch confirmation — user decisions already made (feature request).",
     "Phase 0's pull failure only WARNs and cleanup continues: the reference's STOP is a deviation the feature request logged as an assumption, because cleanup does not need a synced default (feature request).",

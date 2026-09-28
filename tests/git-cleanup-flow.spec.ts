@@ -398,10 +398,11 @@ describe("analyze.mjs flow fixture", () => {
       if (!candidate.worktreePath) continue;
       const held = worktrees.find((worktree) => worktree.path === candidate.worktreePath);
       expect(held).toBeDefined();
-      if (held?.dirty) {
+      if (!held) throw new Error(`worktree entry missing for ${candidate.worktreePath}`);
+      if (held.dirty) {
         expect(held.command).toBeUndefined();
       } else {
-        expect(held?.command).toBe(`git worktree remove '${held.path}'`);
+        expect(held.command).toBe(`git worktree remove '${held.path}'`);
       }
     }
     // Post-cleanup joins the same document (kept claim): a removal IS queued here, so

@@ -748,6 +748,36 @@ describe("analyze.mjs", () => {
     expect(names(refused.batch)).not.toContain("feature/wip-wt");
   });
 
+  test("merged worktree-held: the '+' marker on the merged list still classifies MERGED with a guarded -d", () => {
+    const repo = fixtureRepo("merged worktree-held", "main");
+    git(["checkout", "-q", "-b", "feature/wt-merged"], repo);
+    commit(repo, "w.md", "merged worktree work");
+    git(["checkout", "-q", "main"], repo);
+    git(["merge", "-q", "--no-ff", "feature/wt-merged"], repo);
+    // L10: the branch cannot be checked out in the main worktree while the linked
+    // worktree holds it; HEAD stays on main so only the "+ " marker distinguishes
+    // this from the plain merged case.
+    const heldPath = join(sandboxRoot, "wt-merged-held");
+    git(["worktree", "add", "-q", heldPath, "feature/wt-merged"], repo);
+    // Exact configuration (R3): git marks a worktree-checked branch with "+ name" on
+    // `git branch --merged` — a parse that strips only "* " never matches the branch
+    // and drops it to the empty-diff -D path instead of MERGED.
+    expect(gitOut(["branch", "--merged", "main"], repo)).toContain("+ feature/wt-merged");
+    const report = analyze(repo);
+    const entry = entryFor(report.batch, "feature/wt-merged");
+    expect(entry).toBeDefined();
+    expect(entry?.category).toBe("MERGED");
+    expect(entry?.action).toBe("-d");
+    expect(entry?.command).toBe(
+      "git merge-base --is-ancestor 'refs/heads/feature/wt-merged' 'main' && git branch -d 'feature/wt-merged'",
+    );
+    // Back-link to the clean worktree the ask removes first (L14).
+    const held = (report.worktrees ?? []).find((worktree) => worktree.branch === "feature/wt-merged");
+    expect(held?.dirty).toBe(false);
+    expect(entry?.worktreePath).toBe(held?.path);
+    expect(entry?.worktreePath).toBeString();
+  });
+
   test("report: per-branch rows are inventory-complete with action, reason, upstream and ahead-behind", () => {
     const repo = fixtureRepo("report", "main");
     const origin = join(sandboxRoot, "report-origin.git");
