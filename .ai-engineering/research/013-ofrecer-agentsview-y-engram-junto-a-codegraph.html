@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>013 · ¿Ofrecer agentsview y engram junto a codegraph?</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23001E2B'/%3E%3Crect x='0.5' y='0.5' width='31' height='31' rx='6.5' fill='none' stroke='%2300ED64' stroke-opacity='0.35'/%3E%3Ctext x='16' y='17' text-anchor='middle' dominant-baseline='central' font-family='ui-monospace, Menlo, Consolas, DejaVu Sans Mono, monospace' font-size='14' font-weight='700' letter-spacing='-1'%3E%3Ctspan fill='%2300ED64'%3E%7B%3C/tspan%3E%3Ctspan fill='%23E8EEF7'%3Eai%3C/tspan%3E%3Ctspan fill='%2300ED64'%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<style>
+/* ── {ai} Engineering — the artifact design system ─────────────────────────
+   Tokens are the brand's, at system stacks so an artifact renders offline:
+   one signal green, neutral borders, the reading tint for small green,
+   dark-only. Anything ai-engineering renders as an artifact — spec.html,
+   plan.html, a recap, a research page, a report — inherits this block
+   verbatim.                                                                */
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+
+  /* type: one scale, tracking and leading set per size, never one value for all */
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px;      --lh-h2:1.16;      --ls-h2:-.018em;
+  --fs-h3:17px;      --lh-h3:1.32;      --ls-h3:-.006em;
+  --fs-h4:14px;      --lh-h4:1.35;
+  --fs-body:15px;    --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px;  --lh-mono:1.7;
+  --fs-label:10.5px;
+
+  /* space: a 4px rhythm, so nothing lands on an arbitrary number */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:var(--fs-body);line-height:var(--lh-body);
+  font-synthesis-weight:none;-webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);
+      border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:14px 18px;
+      clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+.skip:focus{clip-path:none;width:auto;height:auto}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+.hero{
+  position:relative;overflow:hidden;text-align:center;
+  padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);
+  background-image:
+    linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px),
+    radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);
+  background-size:32px 32px,32px 32px,100% 100%;
+}
+.hero .stamp{
+  display:inline-block;font-family:var(--mono);font-size:var(--fs-label);
+  letter-spacing:.26em;text-transform:uppercase;color:var(--accent);
+  border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;
+  margin-bottom:var(--s5);
+}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);
+         letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;
+           margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);
+            margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+
+/* ── nav: translucent chrome, content scrolls under it ────────────────── */
+nav{
+  position:sticky;top:0;z-index:50;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;
+  padding:var(--s2) var(--s4);
+  background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);
+  border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;
+}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;
+      white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+
+/* ── page ─────────────────────────────────────────────────────────────── */
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;
+        letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);
+   font-weight:640;margin:var(--s6) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);max-width:var(--measure);margin:0 auto var(--s3);text-align:center}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+
+/* ── code ─────────────────────────────────────────────────────────────── */
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);
+     border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);
+     overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);
+    padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);
+    font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;
+    -webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{
+  background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ── panels ───────────────────────────────────────────────────────────── */
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);
+         border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;
+         border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;
+         font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;
+         text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.card h3,.card h4{min-height:1.6em}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;
+         text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+pre{max-width:100%}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;
+         text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+
+/* ── tables: a component, not a spill ─────────────────────────────────── */
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);
+          overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;
+   font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;
+   text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);
+   vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+
+/* ── pills, marks ─────────────────────────────────────────────────────── */
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;
+      padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+
+/* ── pipeline: real boxes, not ASCII ─────────────────────────────────── */
+.pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+.pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);
+             border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+.pipe .stage:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+.pipe .stage:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+.pipe .stage+.stage{border-left:none}
+.pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);
+                    color:var(--accent);font-size:13px;z-index:2}
+.pipe .stage{position:relative}
+.pipe .stage:last-child::after{content:''}
+.pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+.pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+
+.tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);
+      border-radius:var(--radius-lg);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+.tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;
+             color:var(--accent);text-transform:uppercase}
+.tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+.tier .tbody b{color:var(--text)}
+.tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);
+       border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
+       color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+
+@media (max-width:900px){
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .hero{padding:64px var(--s5) 44px}
+  .hero h1{font-size:34px;letter-spacing:-.022em}
+  .hero .sub{font-size:16px}
+  section{padding:var(--s7) 0 var(--s6)}
+  .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}
+  .pipe .stage+.stage{margin-top:var(--s2)}
+  .pipe .stage::after{content:''}
+  .tier .tlat{text-align:left}
+}
+@media (max-width:560px){
+  .container{padding:0 var(--s4)}
+  nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;
+      overflow-x:auto;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;
+      background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}
+  nav a{padding:14px 8px}
+  table{font-size:13px} th,td{padding:10px var(--s3)}
+  pre{font-size:11.5px;padding:var(--s3) var(--s4)}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation:none!important;transition:none!important}
+}
+@media (prefers-reduced-transparency:reduce){
+  nav{background:var(--bg);backdrop-filter:none}
+}
+@media (prefers-contrast:more){
+  :root{--dim:#E8EDEB;--comment:#C1C7C6}
+  .card,.note,p,li,td{color:var(--dim)}
+  nav a{color:#E8EDEB}
+}
+@media print{
+  nav,.skip{display:none}
+  body{background:#fff;color:#111}
+  section{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Research 013 · viabilidad</div>
+  <h1>¿Ofrecer <span class="x">agentsview</span> y <span class="x">engram</span> junto a codegraph?</h1>
+  <p class="sub">Sí a <strong>engram</strong> (ya aprobado), <strong>sí a codegraph</strong> pero antes hay que meterlo en la tabla que lo audita, y <strong>no a agentsview todavía</strong> — falla el filtro 3 del propio proyecto. Y un hallazgo anterior a todo eso: <strong>este repo prohíbe que <code>ai-eng</code> instale binarios de terceros</strong>, así que «ofrecer» significa imprimir el comando, nunca ejecutarlo.</p>
+  <div class="meta">tools: <b>floor local</b> (blueprint, recap, THIRD-PARTY-NOTICES, skills, config de agente) · <b>README primario</b> de ambos proyectos · <b>API de GitHub</b> · <b>sondeos medidos</b> en esta máquina<br>
+  degraded-tool: <b>notebooklm</b> (lanzada, task <code>aa01c42a</code>, no cosechable: el CLI no desambigua 2 tareas en un cuaderno compartido) · <b>exa</b> · <b>tavily</b> &nbsp;·&nbsp; medido el <b>2026-09-28</b></div>
+</header>
+
+<nav aria-label="Secciones">
+  <a href="#s1"><b>01</b>La decisión</a>
+  <a href="#s2"><b>02</b>Herramientas</a>
+  <a href="#s3"><b>03</b>Identidad</a>
+  <a href="#s4"><b>04</b>Tres filtros</a>
+  <a href="#s5"><b>05</b>La regla que falta</a>
+  <a href="#s6"><b>06</b>Coste apilado</a>
+  <a href="#s7"><b>07</b>Cómo sería</a>
+  <a href="#s8"><b>08</b>Tres direcciones</a>
+  <a href="#s9"><b>09</b>Fuentes</a>
+</nav>
+
+<main id="main">
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s1">
+<h2><span class="num">01</span>La decisión que cambia esto</h2>
+
+<p>Sin este informe la respuesta sería «sí, los tres van en el mismo prompt». Con él, la respuesta es <strong>«los tres van en la misma <em>impresión</em>, y uno de ellos no va todavía»</strong> — porque cambia el mecanismo, y al cambiar el mecanismo desaparece toda la complejidad que arrastraba la propuesta anterior.</p>
+
+<div class="grid g3">
+<div class="card">
+<h3>Cambia: instalar vs imprimir</h3>
+<p>El propio repo prohíbe que <code>ai-eng</code> instale binarios de terceros. Mi propuesta del turno anterior ejecutaba <code>npm i -g</code> — <strong>viola la regla</strong>. Imprimir el comando no la viola, y no tiene coste, red ni caso de CI. <span class="src">[1] [14]</span></p>
+</div>
+<div class="card">
+<h3>Cambia: si agentsview pasa el filtro 3</h3>
+<p><code>agentsview serve</code> abre <code>127.0.0.1:8080</code> con <strong>auth opt-in</strong> (<code>--require-auth</code>) y sirve todas las transcripciones. Ninguna guarda de ai-eng cubre un listener. <span class="src">[9]</span></p>
+</div>
+<div class="card">
+<h3>Cambia: codegraph no está auditado</h3>
+<p>Está en el <strong>contrato</strong> (<code>AGENTS.md</code>) y en su skill, pero <strong>0 apariciones</strong> en el blueprint, NOTICE y THIRD-PARTY-NOTICES: nunca pasó por los filtros. <span class="src">[15] [18]</span></p>
+</div>
+</div>
+
+<div class="note ok">
+<h4>Veredicto</h4>
+<p><strong>engram: sí</strong> — ya está aprobado en la tabla (<em>SE OFRECE</em>) y en THIRD-PARTY-NOTICES; sólo falta que algo imprima el comando. <strong>codegraph: sí, primero en la tabla</strong> — es una fila del blueprint, no código nuevo. <strong>agentsview: no todavía</strong> — tiene rol asignado (la referencia externa de observabilidad, §07), pero no es una oferta y su instalador canónico es <code>curl | sh</code>, que la cadena de ai-eng ya deniega. Y <strong>no van juntos en un prompt</strong>: son tres categorías y sólo una de las tres necesita decisión. <span class="src">[2] [3] [4] [14]</span></p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s2">
+<h2><span class="num">02</span>Herramientas usadas y ausentes</h2>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th scope="col">Rung</th><th scope="col">Herramienta</th><th scope="col">Estado</th><th scope="col">Qué aportó</th></tr></thead>
+<tbody>
+<tr><td>Local</td><td><code>docs/blueprint.html</code>, <code>docs/recap.html</code></td><td><span class="pill p-ok">usado</span></td><td>Los tres filtros de oferta, la tabla de 16 candidatos y el rol de AgentsView</td></tr>
+<tr><td>Local</td><td><code>THIRD-PARTY-NOTICES.md</code>, <code>NOTICE.md</code></td><td><span class="pill p-ok">usado</span></td><td>Qué está declarado y qué no — la ausencia de codegraph</td></tr>
+<tr><td>Local</td><td>Config de agente en vivo</td><td><span class="pill p-ok">usado</span></td><td>Qué está cableado de verdad: carrier, plugin, MCP, daemon</td></tr>
+<tr><td>Primario</td><td>README de <code>Gentleman-Programming/engram</code></td><td><span class="pill p-ok">usado</span></td><td>Comando de instalación, los 14 agentes de <code>engram setup</code>, aviso de divergencia de versión</td></tr>
+<tr><td>Primario</td><td>README de <code>kenn-io/agentsview</code></td><td><span class="pill p-ok">usado</span></td><td>Instalador canónico <code>curl | sh</code> y alternativas (cask, Docker)</td></tr>
+<tr><td>Primario</td><td><code>--help</code> de ambos CLI</td><td><span class="pill p-ok">usado</span></td><td>Superficie real de red, puertos, flags de auth, <code>setup</code>/<code>init</code></td></tr>
+<tr><td>Primario</td><td>API de GitHub (repos + commits)</td><td><span class="pill p-ok">usado</span></td><td>Resolución de identidad entre forks y licencias</td></tr>
+<tr><td>Sonda</td><td>Sondeos medidos aquí</td><td><span class="pill p-ok">usado</span></td><td>Latencia por prompt de engram, versiones instaladas, estado del daemon</td></tr>
+<tr><td>Deep</td><td><b>NotebookLM</b></td><td><span class="pill p-warn">no cosechable</span></td><td>Lanzada (task <code>aa01c42a-deb2…</code>) sobre el cuaderno <code>0e5da800</code>, compartido con otra sesión: el CLI devuelve <em>«2 research tasks are in flight… pass task_id»</em> y <code>research status</code> no acepta <code>--task-id</code>. Registrado, no cosechado. <span class="src">[16]</span></td></tr>
+<tr><td>Web</td><td><b>Exa</b> · <b>Tavily</b></td><td><span class="pill p-dim">degraded-tool</span></td><td>No configurados — sustituidos por README crudo y API de GitHub</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+<h3>Lo que no se pudo comprobar</h3>
+<p>No ejecuté <code>engram setup</code> ni <code>engram init</code> — escriben config de agentes y <code>.engram/</code> en el repo, y el objetivo era auditar, no mutar. Queda <span class="dim">[unsourced: qué ficheros exactos escribe <code>engram setup claude-code</code> — el README manda por plugin, no por settings.json, pero no lo verifiqué ejecutándolo]</span>. Tampoco medí la latencia del hook de engram con el daemon caído. <span class="src">[10]</span></p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s3">
+<h2><span class="num">03</span>Identidad: dos nombres con forks</h2>
+
+<p>Ambos nombres devuelven varios repos. La identidad no se resuelve por estrellas: se resuelve porque <strong>los cinco repos de agentsview comparten el mismo commit</strong> (<code>a902515a</code>, el del binario instalado) — son forks, y la API de GitHub redirige a uno solo. <span class="src">[5] [11]</span></p>
+
+<div class="grid g2">
+<div class="card">
+<h3>agentsview → <code>kenn-io/agentsview</code></h3>
+<p><code>wesm/</code>, <code>joceqo/</code>, <code>arbing/</code> y <code>getpoweredbyai/</code> redirigen todos a él. <strong>MIT</strong> · 6 009★ · creado 2026-02-19 · último push <strong>2026-09-28</strong> · no archivado. Instalado aquí: <code>v0.41.1</code> (commit <code>a902515a</code>, 2026-08-18) en <code>~/.local/bin</code>, <strong>no</strong> vía pip. <span class="src">[5] [11]</span></p>
+</div>
+<div class="card">
+<h3>engram → <code>Gentleman-Programming/engram</code></h3>
+<p><strong>MIT</strong> · 6 910★ · creado 2026-02-16 · último push <strong>2026-09-28</strong> · no archivado. Instalado aquí: <code>v2.0.0</code> vía tap <code>gentleman-programming/tap</code> (19,7 MB, 4 ficheros). El CLI anuncia <code>2.0.0 → 2.2.1</code> en cada invocación. <span class="src">[6] [7] [11]</span></p>
+</div>
+</div>
+
+<div class="note warn">
+<h4>Un error que evité por poco</h4>
+<p>Mi primera comprobación fue <code>grep -c agentsview</code> sobre el blueprint y devolvió <strong>0</strong>. Es un falso negativo: el blueprint lo escribe con mayúscula, <code>AgentsView</code>. Con <code>grep -ci</code> aparece <strong>1</strong>, y esa línea cambia el veredicto — agentsview <em>sí</em> está evaluado, con otro rol. Las cifras de este informe son case-insensitive. <span class="src">[2]</span></p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s4">
+<h2><span class="num">04</span>Los tres filtros del proyecto, aplicados</h2>
+
+<p>El recap de este repo fija los filtros que todo candidato debe pasar: <em>complementa sin duplicar una fuente de verdad viva</em>, <em>licencia verificable</em>, y <em>no ensancha la superficie de ataque sin una guarda que cubra el nuevo terreno</em>. Y la consecuencia: <em>lo que falla un filtro se documenta y queda sin ofrecer</em>. <span class="src">[1]</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th scope="col">Candidato</th><th scope="col">Filtro 1 · complementa</th><th scope="col">Filtro 2 · licencia</th><th scope="col">Filtro 3 · superficie</th><th scope="col">Veredicto</th></tr></thead>
+<tbody>
+<tr>
+<td><strong>engram</strong></td>
+<td><span class="check">pasa</span> — memoria de largo plazo; el propio blueprint ya descartó <code>planning-with-files</code> por duplicar y dejó en pie a engram por no duplicar <span class="src">[3]</span></td>
+<td><span class="check">MIT</span>, repo activo <span class="src">[6]</span></td>
+<td><span class="check">pasa</span> — sus hooks viven en el <strong>plugin</strong> (<code>plugins/…/claude-code/hooks/hooks.json</code>), no en <code>~/.claude/settings.json</code>: <strong>no toca el carrier de ai-eng</strong> <span class="src">[12] [13]</span></td>
+<td><span class="pill p-ok">SE OFRECE ya</span> — en tabla y en THIRD-PARTY-NOTICES <span class="src">[3] [4]</span></td>
+</tr>
+<tr>
+<td><strong>codegraph</strong></td>
+<td><span class="check">pasa</span> — grafo de llamadas; ni <code>receipts</code> ni <code>doctor</code> lo hacen</td>
+<td><span class="half">MIT, pero sin declarar</span> — <strong>0 apariciones</strong> en NOTICE ni THIRD-PARTY-NOTICES <span class="src">[18]</span></td>
+<td><span class="half">riesgo conocido</span> — <strong>sí</strong> escribe <code>~/.claude/settings.json</code> (permiso + prompt-hook); medido en research 012 <span class="src">[13] [14]</span></td>
+<td><span class="pill p-warn">no en la tabla</span> — prometido por el contrato, nunca auditado <span class="src">[15] [18]</span></td>
+</tr>
+<tr>
+<td><strong>agentsview</strong></td>
+<td><span class="half">parcial</span> — ya se le asignó rol: <em>«ai-engineering NO construye un servicio, ni un dashboard… Referencia AgentsView»</em> <span class="src">[2]</span></td>
+<td><span class="check">MIT</span>, repo activo <span class="src">[5]</span></td>
+<td><span class="cross">falla</span> — <code>serve</code> con <code>--host 127.0.0.1 --port 8080</code> y <strong>auth opt-in</strong> (<code>--require-auth</code>); update-check de red activo por defecto (<code>--no-update-check</code> existe). <strong>Ninguna guarda de ai-eng cubre un listener</strong> <span class="src">[9]</span></td>
+<td><span class="pill p-bad">no ofrecer aún</span> — y su instalador canónico es <code>curl | sh</code>, denegado por la cadena <span class="src">[8] [14]</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h3>4.1 — La huella que cada uno deja en la máquina</h3>
+
+<div class="flow">engram       ~/.engram/engram.db · HTTP 7437 · MCP stdio (18-22 tools) · plugin de Claude
+               ├─ 333 sesiones · 1 197 observaciones · 110 prompts (aquí, en uso real)
+               └─ daemon vivo pid 855 · plugin deshabilitado (engram@engram = false)
+agentsview   ~/.agentsview/sessions.db · listener 127.0.0.1:8080 sin token por defecto
+               └─ daemon NO corriendo (verificado: "No agentsview server is running")
+codegraph    ~/.codegraph/ (278 MB) · MCP stdio · ~/.claude/settings.json = permiso + hook
+               └─ cableado en los 6 MCP configs de agentes (verificado en 012)</div>
+
+<p>Tres perfiles distintos: engram escribe memoria y ya está en uso; agentsview sólo lee y su daemon está parado; codegraph escribe config de agente. <strong>El que más toca es el que menos se ofrece hoy.</strong> <span class="src">[11] [13]</span></p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s5">
+<h2><span class="num">05</span>La regla que invalida la propuesta anterior</h2>
+
+<div class="bracket">
+<span class="tag">docs/recap.html §03 · la regla permanente</span>
+<pre>The rule that decides every future case: <span class="k">ai-eng offers, it never installs
+third-party binaries.</span> It prints the exact command with the pinned version and
+the license, and a human runs it. A package manager that executes someone
+else's code under this project's credibility is <span class="s">curl | sh with a better face.</span></pre>
+</div>
+
+<p>Mi propuesta del turno anterior terminaba en <code>execFileSync("npm", ["i", "-g", "@colbymchenry/codegraph"])</code>. Eso es exactamente lo que la regla prohíbe. <strong>La retiro.</strong> <span class="src">[1]</span></p>
+
+<div class="grid g2">
+<div class="card">
+<h3>Lo que se pierde al imprimir en vez de instalar</h3>
+<p>Nada comprobable: el instalador <code>curl | sh</code> de codegraph ya lo deniega la cadena (<em>«needs 0050»</em>), así que la vía automatizable no existía de todos modos. Y <code>codegraph install --yes</code> se salta la instalación del CLI: <strong>no habría funcionado aunque lo intentáramos</strong>. <span class="src">[14]</span></p>
+</div>
+<div class="card">
+<h3>Lo que se gana</h3>
+<p>Desaparece el prompt, desaparecen <code>--codegraph</code>/<code>--no-codegraph</code>, desaparece el problema de CI (<em>«init --global --yes en cada runner»</em>) y desaparece la decisión de telemetría. <strong>Imprimir es idempotente, sin red y sin estado.</strong> El YAGNI se come toda la complejidad del turno anterior. <span class="src">[14]</span></p>
+</div>
+</div>
+
+<div class="note">
+<h4>El precedente ya está en el código</h4>
+<p>ai-eng ya hace exactamente esto con gitleaks: no lo instala, lo detecta ausente e imprime — <em>«gitleaks is not installed — HARD FAIL… Install it: brew install gitleaks»</em>. Es el patrón de la casa, escrito en <code>src/floor/index.ts:90</code> y <code>:184</code>. No hay que inventar nada: hay que generalizar lo que ya funciona para un tercer caso. <span class="src">[17]</span></p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s6">
+<h2><span class="num">06</span>Coste apilado por prompt</h2>
+
+<p>Lo que no se ve al instalar es lo que se paga en cada turno. Medido aquí, con el daemon de engram vivo: <span class="src">[11] [14]</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th scope="col">Hook en <code>UserPromptSubmit</code></th><th scope="col">Latencia medida</th><th scope="col">Inyecta</th></tr></thead>
+<tbody>
+<tr><td><code>ai-eng chain UserPromptSubmit</code></td><td>0,077 – 0,082 s</td><td>veredicto de la cadena</td></tr>
+<tr><td><code>codegraph prompt-hook</code> · no estructural</td><td>0,079 – 0,091 s</td><td>0 bytes</td></tr>
+<tr><td><code>codegraph prompt-hook</code> · estructural</td><td>0,26 – 0,57 s</td><td>bloque <code>&lt;codegraph_context&gt;</code></td></tr>
+<tr><td><strong><code>engram user-prompt-submit.sh</code></strong></td><td><strong>0,35 – 0,60 s</strong></td><td>179 bytes de contexto de memoria</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="stats">
+<div class="stat"><div class="v"><em>0,08</em> s</div><div class="l">ai-eng sólo</div></div>
+<div class="stat"><div class="v"><em>0,5–1,2</em> s</div><div class="l">los tres apilados</div></div>
+<div class="stat"><div class="v"><em>3</em></div><div class="l">inyecciones de contexto</div></div>
+</div>
+
+<div class="note warn">
+<h3>Apilarlos es la decisión real</h3>
+<p>Por separado, cada uno cabe en el presupuesto de hooks de Claude (timeout 2 s el de engram, 10 s el de <code>SessionStart</code>). Juntos, cada prompt paga <strong>0,5–1,2 s</strong> y recibe <strong>tres</strong> bloques de contexto inyectados. Ese es el argumento fuerte contra «los tres juntos en un mismo offer»: no es sólo ruido de UI, es coste acumulado por turno. <span class="src">[11] [12] [14]</span></p>
+</div>
+
+<p>Dato menor pero real: engram imprime <em>«Update available: 2.0.0 → 2.2.1»</em> en cada invocación — una comprobación de red con aviso, frente a la política de ai-eng de <em>offline: silence, never a failure</em>. <span class="src">[11]</span></p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s7">
+<h2><span class="num">07</span>Cómo sería</h2>
+
+<p>Una tabla de datos y una función que imprime. Ni prompts, ni subprocess, ni flags, ni estado. <span class="src">[1] [17]</span></p>
+
+<div class="bracket">
+<span class="tag">ofertas · todo lo que cambia es una fila</span>
+<pre><span class="c">/** Ofertas de terceros: ai-eng imprime el comando, nunca lo ejecuta (recap §03).</span>
+<span class="c"> *  `surfaces` filtra por lo que el usuario acaba de elegir; null = agnóstico.</span>
+<span class="c"> *  agentsview no está: su instalador es `curl | sh` (la cadena lo deniega) y</span>
+<span class="c"> *  `serve` abre un listener sin auth que ninguna guarda cubre — research/013 §04. */</span>
+const OFFERS = [
+  { id: <span class="s">"codegraph"</span>, what: <span class="s">"call chains y blast radius"</span>,
+    cmd: <span class="s">"npm i -g @colbymchenry/codegraph"</span>, license: <span class="s">"MIT"</span>,
+    surfaces: [<span class="s">"claude-code"</span>, <span class="s">"cursor"</span>, <span class="s">"codex"</span>, <span class="s">"opencode"</span>, <span class="s">"copilot-cli"</span>] },
+  { id: <span class="s">"engram"</span>, what: <span class="s">"memoria persistente entre sesiones"</span>,
+    cmd: <span class="s">"brew install gentleman-programming/tap/engram"</span>, license: <span class="s">"MIT"</span>,
+    surfaces: <span class="k">null</span> },
+] <span class="k">as const</span>;
+
+function printOffers(picked: string[]): void {
+  const rows = OFFERS.filter((o) =&gt; o.surfaces === <span class="k">null</span> || o.surfaces.some((s) =&gt; picked.includes(s)));
+  if (rows.length === 0) <span class="k">return</span>;
+  ui.section(<span class="s">"Third-party offers — you run them, ai-eng never installs"</span>,
+    rows.map((o) =&gt; ({ mark: <span class="s">"muted"</span>, text: `${o.id} · ${o.what}`,
+                       dim: `${o.cmd} · ${o.license}` })));
+}</pre>
+</div>
+
+<div class="grid g4">
+<div class="card">
+<h3>KISS</h3>
+<p>Sin pregunta, sin <code>--yes</code>, sin rama de CI. Una sección al final de init que ya tiene una sección de <em>«Two steps I can't do for you»</em>: se añade una tercera línea, no un flujo.</p>
+</div>
+<div class="card">
+<h3>YAGNI</h3>
+<p>Sin <code>--codegraph</code> (no hay nada que habilitar), sin chequeo de <code>doctor</code> (no hay instalación que comprobar), sin <code>codegraph init</code> ni <code>engram init</code> — indexar o crear <code>.engram/</code> a ciegas es coste por repos que no preguntarán.</p>
+</div>
+<div class="card">
+<h3>DRY</h3>
+<p>La misma tabla absorbe los 13 candidatos ya documentados. El patrón de <em>detectar ausente → imprimir comando</em> ya existe para gitleaks: es el segundo uso, no un sistema nuevo.</p>
+</div>
+<div class="card">
+<h3>SOLID / Clean Code</h3>
+<p><strong>O</strong>: añadir herramienta = una fila. <strong>D</strong>: la lista es dato, no flujo de control. <strong>S</strong>: imprime y nada más. El nombre dice el qué; sin anidamiento; el comentario explica las tres exclusiones.</p>
+</div>
+</div>
+
+<div class="note danger">
+<h4>La prohibición que hay que escribir en el comentario</h4>
+<p>Si mañana alguien añade <code>execFileSync("npm", …)</code> a esta función, el comentario tiene que ser el motivo: <em>«imprimir, nunca ejecutar — recap §03; un paquete que ejecuta código ajeno bajo la credibilidad de este proyecto es <code>curl | sh</code> con mejor cara»</em>. Es la única parte del comentario que explica un <em>porqué</em> que no se deduce del código. <span class="src">[1]</span></p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s8">
+<h2><span class="num">08</span>Tres direcciones que valen la pena mañana</h2>
+
+<div class="grid g3">
+<div class="card">
+<h3>1 · Meter codegraph en la tabla antes que nada <span class="pill p-ok">recomendada</span></h3>
+<p>Una fila en la tabla de candidatos del blueprint con los tres filtros escritos y una línea en <code>THIRD-PARTY-NOTICES</code>. Es un documento, no código: arregla que el contrato prometa algo que ningún documento audita, y deja la impresión como paso siguiente. <strong>Citado:</strong> [18] ausencia medida en los cuatro documentos · [15] el contrato que lo nombra.</p>
+</div>
+<div class="card">
+<h3>2 · La función de impresión con las dos filas <span class="pill p-ok">recomendada</span></h3>
+<p><code>OFFERS</code> + <code>printOffers(picked)</code> al final de init, con el comentario que fija la regla de imprimir-nunca-instalar. Dos filas hoy; agentsview entra cuando su fila exista. Dos tests: <code>pi</code>/<code>oh-my-pi</code>/<code>zed</code> no arrastran a codegraph, y la función no invoca ningún binario externo. <strong>Citado:</strong> [1] la regla · [17] el precedente de gitleaks.</p>
+</div>
+<div class="card">
+<h3>3 · agentsview: resolver el filtro 3, no la feature <span class="pill p-dim">diferible</span></h3>
+<p>Antes de ofrecerlo, decidir en la tabla cómo se cubre el listener: imprimir <code>--require-auth</code> como parte del comando, o imprimir el modo <code>sync</code> (sin servidor). Sin esa decisión no hay fila, y sin fila no hay impresión. <strong>Citado:</strong> [9] <code>--require-auth</code> es opt-in · [2] su rol ya asignado como referencia.</p>
+</div>
+</div>
+
+<div class="note warn">
+<h4>El orden importa: 1 antes que 2</h4>
+<p>La dirección 2 es código pequeño, pero si se hace antes que 1 el código imprime una herramienta que ningún documento ha pasado por los filtros — exactamente el hueco que la dirección 1 cierra. Y la dirección 3 no se salta: queda registrada como <em>documentada y sin ofrecer</em>, que es lo que el recap manda hacer con lo que falla un filtro. <span class="src">[1]</span></p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s9">
+<h2><span class="num">09</span>Fuentes</h2>
+
+<ol>
+<li id="f1"><code>docs/recap.html</code> §03 — los tres filtros de candidato y la regla permanente: <em>«ai-eng offers, it never installs third-party binaries… curl | sh with a better face»</em>. Leído 2026-09-28.</li>
+<li id="f2"><code>docs/blueprint.html:454</code> — <em>«Sin sistema de observabilidad propio… Referencia AgentsView (un binario, un SQLite) para métricas de agentes»</em>. El único sitio donde aparece, en mayúsculas.</li>
+<li id="f3"><code>docs/blueprint.html</code> tabla de candidatos (16 filas) — <code>engram</code> = <strong>SE OFRECE</strong> (línea 480) por no duplicar una fuente de verdad viva; <code>planning-with-files</code> = NO SE OFRECE por duplicar. <code>codegraph</code> y <code>agentsview</code> no están en la tabla.</li>
+<li id="f4"><code>THIRD-PARTY-NOTICES.md:21</code> — <em>«Not bundled (offered as install commands only, §14.1): caveman, engram, impeccable, hallmark, shadcn, astryx, emil-design-eng, ui-ux-pro-max, tasteskill, tavily, exa, context7, mantis, skill-map»</em>.</li>
+<li id="f5">API de GitHub, <code>kenn-io/agentsview</code> — MIT, 6 009★, <code>created_at</code> 2026-02-19, <code>pushed_at</code> 2026-09-28, <code>archived=false</code>. <code>wesm/agentsview</code>, <code>joceqo/</code>, <code>arbing/</code> y <code>getpoweredbyai/</code> devuelven el mismo <code>full_name</code>: redirección al canónico.</li>
+<li id="f6">API de GitHub, <code>Gentleman-Programming/engram</code> — MIT, 6 910★, <code>created_at</code> 2026-02-16, <code>pushed_at</code> 2026-09-28, <code>archived=false</code>.</li>
+<li id="f7"><a href="https://github.com/Gentleman-Programming/engram">README de engram</a>, sección <em>Install</em> — releases estables desde GitHub Releases, <code>brew install gentleman-programming/tap/engram</code> con aviso de <em>«Homebrew remains on the stable v1.20.0 line»</em>, y la tabla de <code>engram setup &lt;agent&gt;</code> con 14 agentes (incluye <code>pi</code> y <code>claude-code</code>). Descargado 2026-09-28.</li>
+<li id="f8"><a href="https://github.com/kenn-io/agentsview">README de agentsview</a>, sección <em>Install</em> — <code>curl -fsSL https://agentsview.io/install.sh | bash</code> como canónico de macOS/Linux, <code>brew install --cask agentsview</code> y la imagen Docker con <code>-p 127.0.0.1:8080:8080</code>. Descargado 2026-09-28.</li>
+<li id="f9"><code>agentsview serve --help</code> — <code>--host</code> por defecto <code>127.0.0.1</code>, <code>--port 8080</code>, <code>--require-auth</code> (opt-in), <code>--no-update-check</code> (el update-check está activo por defecto), <code>--allowed-subnet</code>, <code>--proxy caddy</code> con <code>--proxy-bind-host 0.0.0.0</code>. Ejecutado 2026-09-28.</li>
+<li id="f10"><code>engram --help</code> — <code>serve</code> (HTTP 7437), <code>mcp</code> (18–22 tools), <code>setup &lt;agent&gt;</code>, <code>init</code> (crea <code>.engram/config.json</code> en el directorio), <code>sync</code>/<code>cloud</code> (opt-in), <code>ENGRAM_DATA_DIR</code>/<code>ENGRAM_PORT</code>. Ejecutado 2026-09-28.</li>
+<li id="f11">Sondeos medidos en esta máquina, 2026-09-28 — versiones (<code>engram 2.0.0</code>, <code>agentsview v0.41.1</code>), <code>brew info engram</code> (tap, MIT, 19,7 MB), latencia del hook de engram (0,35–0,60 s, 179 bytes), <code>engram stats</code> (333 sesiones, 1 197 observaciones, 110 prompts), <code>agentsview serve status</code> (daemon parado), daemon <code>engram serve</code> vivo (pid 855), aviso <code>2.0.0 → 2.2.1</code> en cada invocación.</li>
+<li id="f12"><code>~/.claude/plugins/marketplaces/engram/plugin/claude-code/hooks/hooks.json</code> — los hooks de engram viven en el plugin: <code>SessionStart</code> (10 s), <code>UserPromptSubmit</code> (2 s), <code>SubagentStop</code> y <code>Stop</code> (async). Leído 2026-09-28.</li>
+<li id="f13">Config de agente en vivo — <code>~/.claude/settings.json</code> lleva <code>mcp__codegraph__*</code> y <code>codegraph prompt-hook</code>, y <strong>ninguna</strong> entrada de engram ni de agentsview; <code>enabledPlugins["engram@engram"] = false</code> con fuente <code>Gentleman-Programming/engram</code>; <code>~/.claude.json</code> tiene <code>mcpServers</code> = pencil, arcasiles-brand, exa, codegraph.</li>
+<li id="f14"><a href="012-instalar-codegraph-desde-ai-eng-init.html">Research 012 — Instalar CodeGraph desde ai-eng init</a> (2026-09-28) — colisión de <code>AGENTS.md</code> en ambas direcciones, defaults de <code>codegraph install --yes</code>, y la sonda de la cadena: 6 <em>allow</em>, 1 <em>DENY</em> para <code>curl | sh</code> («needs 0050»).</li>
+<li id="f15"><code>templates/AGENTS.md.tpl:37-38</code> (<em>Shared helpers — codegraph</em>) y <code>skills/ai-codegraph/SKILL.md</code> — el contrato nombra codegraph y su skill manda <code>npm i -g @colbymchenry/codegraph</code> si falta. Ambos fijados por <code>tests/agents-md-sections.spec.ts:28</code>.</li>
+<li id="f16">NotebookLM deep research, task <code>aa01c42a-deb2-45df-95f6-96cb3483aaf0</code> sobre el cuaderno <code>0e5da800-5bc9-4b76-9d8b-62c9d65d6eb8</code> — lanzada, no cosechable: el CLI devuelve <em>«ResearchAPI poll… ambiguous: 2 research tasks are in flight… Pass task_id»</em> y <code>research status</code>/<code>research wait</code> no aceptan <code>--task-id</code>. El cuaderno estaba compartido con otra sesión.</li>
+<li id="f17"><code>src/floor/index.ts:90</code> y <code>:184</code> — el precedente de la casa: <em>«gitleaks is not installed — HARD FAIL, never silent degradation. Install it: brew install gitleaks»</em>. Detectar ausente, imprimir el comando, no instalar.</li>
+<li id="f18">Presencia case-insensitive en los cuatro documentos de gobernanza, medidas 2026-09-28 — <code>codegraph</code>: <strong>0</strong> en blueprint, recap, NOTICE y THIRD-PARTY-NOTICES · <code>agentsview</code>: <strong>1</strong> (blueprint, mayúsculas) · <code>engram</code>: <strong>3</strong> blueprint + 1 recap + 1 THIRD-PARTY.</li>
+</ol>
+
+<p class="dim">Lo marcado con <span class="dim">[unsourced]</span> permanece así: los ficheros exactos que escribe <code>engram setup claude-code</code> (no ejecutado, para no mutar la config) y la latencia del hook de engram con el daemon caído.</p>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Research 013 · 2026-09-28<br>
+  tools: floor local · README primario · API de GitHub · sondeos medidos &nbsp;·&nbsp; degraded: notebooklm (task aa01c42a, no cosechable), exa, tavily
+</footer>
+
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>
