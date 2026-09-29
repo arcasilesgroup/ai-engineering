@@ -1,0 +1,233 @@
+{
+  "feature": "ai-git-cleanup v3: action-first cleanup with one batch confirmation",
+  "slug": "ai-git-cleanup-v3",
+  "summary": "Rework the shipped ai-git-cleanup skill from analysis-first with interactive gates into action-first automatic cleanup: phase 0 safely migrates to the default branch (auto-stash, ff-only pull on the default branch with HEAD already there), phase 1 classifies branches deterministically in code, phase 2 asks exactly once per delete batch, phase 3 executes and prints the per-branch report — local git only, never zero confirmations.",
+  "plain_summary": "Say the cleanup phrase and it gets things ready by itself, shows you one list of what it will remove, asks you once, then removes it and tells you what happened.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Restructure analyze.mjs into migration plan, deterministic classification and batch data",
+      "simple": "Work out what gets cleaned",
+      "size": "s",
+      "goal": "analyze.mjs stays the read-only deterministic engine but emits the v3 shape — a phase-0 migration plan (default-branch detection, dirty/stash steps, ff-only pull pinned to the default branch), protection-filtered classification, the one delete batch with category and evidence, and report data — with the unit and CLI specs reworked to pin the new behavior in its exact configurations.",
+      "plain": {
+        "what": "The system works out the whole cleanup on its own, including getting ready first.",
+        "why": "Without it, cleanup guesses, or asks a model to judge what git can prove.",
+        "check": "Nothing to see yet, behind the scenes."
+      },
+      "builds_on": [],
+      "tasks": [
+        "skills/ai-git-cleanup/scripts/analyze.mjs: accept a mode argument (`--all` default, `--sync`, `--branches`) and emit one JSON document containing: `fetchStatus` (unchanged), a `migration` plan (detect default via `git symbolic-ref refs/remotes/origin/HEAD` with main fallback, recorded current branch for the report, auto-stash command `git stash push -m cleanup-auto-stash-<ts>` only when dirty, `git switch <default>`, `git pull --ff-only origin <default>` pinned to the default branch name — never HEAD — and the `git stash pop` step, each with a on-failure WARN-and-continue annotation), the classification/batch/report sections the mode needs; stdout stays a single JSON document.",
+        "skills/ai-git-cleanup/scripts/analyze.mjs: rewrite classification — run `git fetch --prune origin` first (fetchStatus as today); protection filter (PROTECTED regex + default branch; never a branch checked out in a linked worktree) runs BEFORE every classification path (L18/R3 fix); then: `git branch --merged <default>` → batch as `-d`; else empty `git diff <default>..<branch>` (tree-identical) → `-D` with evidence 'empty diff vs default'; `[gone]` upstream AND empty diff → `-D` with evidence '[gone] + empty diff'; `[gone]` AND non-empty diff → KEEP (needs review); tracked not-merged → KEEP; local-only → KEEP; any error or uncertainty → KEEP fail-closed, surfaced in the report. Each batch entry carries branch, category, action (`-d`/`-D`), reason/evidence (tip sha or the named evidence), the single-quoted guarded command (`git merge-base --is-ancestor 'refs/heads/<b>' '<default>' && git branch -d '<b>'` for `-d`; `-D` for the empty-diff classes), and its worktreePath.",
+        "skills/ai-git-cleanup/scripts/analyze.mjs: absorb the old postSync pull — the phase-0 migration plan carries the ff-only pull pinned to the default branch (R4/L17 fix), post-cleanup keeps only `git worktree prune` (present only when a removal is queued); ahead/behind counts of the default stay report-only, no push ever. Worktree entries keep path/branch/dirty/dirtyFiles/stale/command; dirty worktrees never queue a removal and are flagged as requiring explicit data-loss acknowledgment.",
+        "tests/git-cleanup-analyze.spec.ts: rework the classification cases to the new buckets in their exact configurations (R3): merged → `-d`; tree-identical local branch → `-D` 'empty diff vs default'; `[gone]` + empty diff → `-D`; `[gone]` + non-empty diff → KEEP; tracked not-merged → KEEP; local-only → KEEP; protection filter runs before each path (a PROTECTED name that would otherwise match every rule stays keep PROTECTED); default/current/linked-worktree-checked-out never in the batch; fail-closed on broken inventory and missing default; assert every emitted field the consumer relies on (R2) and exact quoted commands (L13).",
+        "tests/git-cleanup-analyze.spec.ts: new migration-plan cases — pull command targets the default branch name in a current≠default configuration (R4 pin), stash steps present only when dirty, WARN annotations present for pull-failure and stash-pop-conflict paths, no push string in any command field.",
+        "tests/git-cleanup-cli.spec.ts: keep the CLI-contract and fetchStatus cases; replace the old postSync sync-plan describe with mode cases (`--sync` emits migration only, `--branches` skips migration, `--all` default), single-JSON stdout, push-free command scan.",
+        "Run bun scripts/gen-assets.ts only if SKILL.md changed (it has not in this checkpoint), then the verify list."
+      ],
+      "files": [
+        "skills/ai-git-cleanup/scripts/analyze.mjs",
+        "tests/git-cleanup-analyze.spec.ts",
+        "tests/git-cleanup-cli.spec.ts"
+      ],
+      "acceptance": [
+        "One JSON document per run: fetchStatus, migration plan (pull pinned to the default branch, never HEAD), protection-filtered classification, one batch with per-entry category/evidence/guarded single-quoted command, worktrees, and report data.",
+        "Every classification branch from the feature spec lands in its exact configuration; any error or uncertainty fails closed to KEEP and appears in the report (R3/R2).",
+        "The protection filter runs before every classification path: no PROTECTED, default, or linked-worktree-checked-out branch ever reaches the batch.",
+        "No `git push`, reflog GC or remote deletion appears in any emitted command; `-d` entries always carry the merge-base guard.",
+        "bun test tests/git-cleanup-analyze.spec.ts and tests/git-cleanup-cli.spec.ts pass; bun run typecheck and bun run lint are clean (only the 3 pre-existing doctor-command warnings)."
+      ],
+      "verify": [
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/git-cleanup-cli.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": {
+          "status": "passed",
+          "attempts": 1,
+          "findings": [
+            "attempt 1 FAIL (fixtures held no premise — L19): analyze 25/30, cli 16/19; 8 cases adjudicated test-side + 1 shape conflict ruled (no classification section; analyze-spec header pin authoritative).",
+            "attempt 2 PASS after fix: analyze 30/30, cli 19/19, typecheck 0, lint 0 (3 pre-existing warnings); flow 0/3 old-shape deferred to cp2 per plan.",
+            "post-review re-run PASS: analyze 31/31, cli 19/19; both-ways spot-check of the choke-point guard (HEAD on tree-identical → batch empty/CURRENT_BRANCH; on main → -D batched)."
+          ]
+        },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": {
+          "status": "passed",
+          "attempts": 1,
+          "findings": [
+            "adversarial loop: round 1 FAIL (F1 high: EMPTY_DIFF path lacked isCurrent guard — current tree-identical branch batched -D against itself; F2 minor: exact-config test missing), fixer round 1 fixed both at a single classify() choke point (L20); round 2 PASS, no new findings (thread .ai-engineering/workflow/reviews/ai-git-cleanup-v3-1.md).",
+            "Fixer changed code → Gate 1 re-run PASS (31/31, 19/19, typecheck 0, lint 0) with both-ways spot-check: HEAD on tree-identical branch → batch empty/CURRENT_BRANCH; on main → batched -D.",
+            "Note: first critic attempt (CriticV3a) was cancelled after context hallucination (phantom C++ files); fresh critic used."
+          ]
+        }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 2,
+      "title": "Rewrite SKILL.md as the action-first four-phase flow with flags and triggers",
+      "simple": "Ask once, then clean up",
+      "size": "m",
+      "goal": "SKILL.md runs phases 0-3 in order — automatic safe migration, deterministic classification, ONE ask per delete batch (the only confirmation), execute and report — supports `--sync`/`--branches`/`--all`, drops `disable-model-invocation` for a trigger-rich description, states the rewritten safety invariants, and the structure gates stay green with the flow spec proving the ordering.",
+      "plain": {
+        "what": "One question lists every removal; answering it runs the whole cleanup.",
+        "why": "Two prompts meant approval could happen without the full plan on screen.",
+        "check": "Run it on a finished feature: you answer one question before anything changes."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "skills/ai-git-cleanup/SKILL.md: replace analysis-first steps 2-5 with the four phases: Phase 0 automatic migration (record current branch, auto-stash if dirty, switch to default, ff-only pull with HEAD already on the default — WARN and continue on pull failure or stash-pop conflict, leaving the stash in place and reporting it; no ask — all reversible); Phase 1 read-only analyze with the documented mode flag and output fields; Phase 2 the ONE ask per delete batch — batch table (branch, category, reason/evidence), worktree removals that block deletions, dirty-worktree warnings (dirty worktree removal requires explicit data-loss acknowledgment or that branch drops to KEEP), options delete all / pick / stop, nothing destructive before it; Phase 3 execute (worktree removals first, then guarded deletes with exact single-quoting, skip+report failed guards, `git worktree prune` only if a removal happened, no push ever) and end with the per-branch report table (default branch, previous branch, working-tree status incl. stash state, per-branch Action/Reason/Remote/Ahead-Behind).",
+        "skills/ai-git-cleanup/SKILL.md frontmatter: remove `disable-model-invocation: true`; rewrite the folded `>-` description as trigger-rich (tidy up, tidy branches, sync to main, delete old branches, start fresh, limpieza de branches — auto-invoked by phrase) while keeping name, LicenseRef-Attributed and the minimum structure; document the flags `--sync` (phase 0 only), `--branches` (phases 1-3, no migration), `--all` (default). Keep the `## Lifecycle` block and the Trail of Bits `Source:` line untouched.",
+        "skills/ai-git-cleanup/SKILL.md: rewrite the Safety invariants — 1-batch-ask floor (never zero confirmations for deletions), protected-before-triage (R3), pinned sync target (R4: pull names the default branch, never HEAD), single-quoting of all refnames/paths, dirty-worktree refusal without per-worktree acknowledgment, unanalyzed/uncertain → KEEP fail-closed surfaced in the report, deletions only in the main session; no push, no reflog GC, no CI, no remote deletion.",
+        "tests/git-cleanup-flow.spec.ts: rework to the new contract (R2/R3) — phase 0 pull pinned to the default in a current≠default fixture (R4), removal-before-delete ordering with the candidate↔worktree back-link, exactly one ask before any destructive command in SKILL.md, protection-before-triage in the emitted document, dirty refusal outranking ordering, no push anywhere.",
+        "Run bun scripts/gen-assets.ts after the SKILL.md edits, then the verify list (skills/workflow-handoff/embed-canon structure gates: folded description, SPDX, Lifecycle, Source line, link integrity)."
+      ],
+      "files": [
+        "skills/ai-git-cleanup/SKILL.md",
+        "src/assets.ts",
+        "tests/git-cleanup-flow.spec.ts"
+      ],
+      "acceptance": [
+        "SKILL.md describes phases 0-3 in order with exactly one `ask` before any deletion; migration runs with no ask because it is fully reversible.",
+        "Frontmatter has no disable-model-invocation, keeps name=folder, folded description with the trigger phrases, LicenseRef-Attributed, the Lifecycle block and the Trail of Bits Source line.",
+        "The three flags are documented with their phase scopes; `--all` is the default.",
+        "Safety invariants state the 1-ask floor, protected-before-triage, pinned sync target, quoting, dirty refusal, fail-closed KEEP and main-session-only deletion.",
+        "bun test tests/git-cleanup-flow.spec.ts, tests/git-cleanup-analyze.spec.ts, tests/git-cleanup-cli.spec.ts, tests/skills.spec.ts, tests/workflow-handoff.spec.ts and tests/embed-canon.spec.ts pass; bun run typecheck and bun run lint are clean."
+      ],
+      "verify": [
+        "bun test tests/git-cleanup-flow.spec.ts",
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/git-cleanup-cli.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "PASS attempt 1: flow 5/5, analyze 32/32, cli 19/19, skills 19/19, handoff 2/2, embed 13/13, arch 22/22 (supplemental), typecheck 0, lint 0. Spot-check: worktree-held merged branch → batched MERGED/-d/guard/worktreePath; dirtied → keep WORKTREE_HELD + requiresAcknowledgment. SKILL.md greps: no disable-model-invocation, flags documented, hard-floor sentence, push mentions are prohibitions."
+          ]
+        },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "adversarial loop PASS in 1 round, no fixer (thread .ai-engineering/workflow/reviews/ai-git-cleanup-v3-2.md); phase-0 failure paths, trigger surface, flag partitioning, invariants truth all attacked without landing.",
+            "MINOR deferred F1: SKILL.md:159 'pick' semantics undefined — worst case is an extra (safe) prompt or a numbered menu as THE one ask; not a data-loss path. Presented at app review."
+          ]
+        }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 3,
+      "title": "Close the loop: report, obsolete reference removal, docs sweep and full green",
+      "simple": "Finish the cleanup report",
+      "size": "l",
+      "goal": "The run ends with the per-branch report proven end to end, references/merge-evidence.md is removed with attribution preserved in NOTICE, CHANGELOG and the changeset carry the v3 entry, assets are regenerated, and the full suite is green at the new baseline.",
+      "plain": {
+        "what": "After a cleanup you get a clear summary of every branch and what happened to it.",
+        "why": "Without the report, silent skips and refusals are invisible after the run ends.",
+        "check": "Run a cleanup and read the final table: every branch has an action and a reason."
+      },
+      "builds_on": [2],
+      "tasks": [
+        "skills/ai-git-cleanup/SKILL.md and references: remove references/merge-evidence.md and its links (the deterministic classifier no longer sends common cases to investigator/refuter subagents; every remaining bucket is git-proven or fail-closed KEEP) — the skill folder always keeps SKILL.md (G1).",
+        "NOTICE.md and THIRD-PARTY-NOTICES.md: keep the Trail of Bits attribution rows but name only the files actually adapted (SKILL.md, scripts/analyze.mjs) — the license obligation is attribution, not retaining unused files.",
+        "tests/git-cleanup-flow.spec.ts: end-to-end report contract — default branch, previous (pre-migration) branch, working-tree status incl. stash state, per-branch Action/Reason/Remote/Ahead-Behind rows; guard-failed deletes appear as skip+report; no push/reflog-GC/CI/remote-deletion anywhere in the skill or emitted output (R3).",
+        "CHANGELOG.md: add the Unreleased v3 line (action-first flow, automatic safe migration, one batch confirmation, deterministic classification, report); amend .changeset/ai-git-cleanup.md (verify it is still present) instead of adding a second changeset; confirm package.json gains no dependency.",
+        "Run bun scripts/gen-assets.ts after the SKILL.md/reference edits, then the full sweep in order: the three git-cleanup specs, skills, workflow-handoff, arch, embed-canon, typecheck, lint, then bun test for the whole suite."
+      ],
+      "files": [
+        "skills/ai-git-cleanup/SKILL.md",
+        "skills/ai-git-cleanup/references/merge-evidence.md",
+        "NOTICE.md",
+        "THIRD-PARTY-NOTICES.md",
+        "src/assets.ts",
+        "tests/git-cleanup-flow.spec.ts",
+        "CHANGELOG.md",
+        ".changeset/ai-git-cleanup.md"
+      ],
+      "acceptance": [
+        "The report shows the default branch, the previous branch, working-tree status including stash state, and an Action/Reason/Remote/Ahead-Behind row for every branch; failed guards are skipped and reported.",
+        "references/merge-evidence.md is gone, SKILL.md has no dead links (G7), and NOTICE/THIRD-PARTY rows still credit Trail of Bits for the files actually adapted.",
+        "No `git push`, push --delete, reflog GC, `git gc`, CI or remote deletion exists anywhere in the skill or its emitted output; deletions remain guarded and single-quoted.",
+        "CHANGELOG names the v3 flow under Unreleased; .changeset/ai-git-cleanup.md is amended (minor); package.json is unchanged.",
+        "bun test passes the full suite (baseline 912/912 plus reworked/new cases; 3 pre-existing doctor-command warnings only); bun run typecheck and bun run lint are clean; bun test tests/arch.spec.ts passes."
+      ],
+      "verify": [
+        "bun test tests/git-cleanup-flow.spec.ts",
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/git-cleanup-cli.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "rg -q 'ai-git-cleanup' CHANGELOG.md",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "PASS attempt 1: verify array all green (flow 7, analyze 32, cli 19, skills 19, handoff 2, arch 22, embed 13, rg CHANGELOG v3 line, typecheck 0, lint 0) + full sweep 928/928. Report spot-check: 4 rows exact (merged/-d, unpushed/keep, dirty-worktree-held/keep, default/keep), every branch exactly once, stashState ⟺ migration.stash both directions. Docs spot-check: attribution rows + Source line + v3 CHANGELOG line + minor changeset all present."
+          ]
+        },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "adversarial loop PASS in 1 round, no fixer (thread .ai-engineering/workflow/reviews/ai-git-cleanup-v3-3.md): no dangling merge-evidence reference, attribution sufficient under CC BY-SA §4(a), U23 sweep attacks (case/spaces/dynamic construction/scripts recursion) without landing, 928/928 re-confirmed.",
+            "3 minors ACCEPTED as by-design: U22 toEqual brittleness (R2-compliant), U23 negated-line heuristic (non-vacuity probe proves it), CHANGELOG line completeness (verified).",
+            "Carried from cp2: MINOR pick-semantics note (SKILL.md:159) deferred to app review."
+          ]
+        }
+      },
+      "status": "passed"
+    }
+  ],
+  "assumptions": [
+    "Test-plan deviation (accepted, orchestrator): cp2 unit cases U20/U21 as drafted asserted countable source-text facts in SKILL.md — dropped per R1 (no source-text behavioral assertions); skills.spec structure gates + the review gate own the SKILL.md rewrite. The test plan's not_tested line claiming U20 covers those facts is superseded by this note.",
+    "cp2 implement also carries a test-writer-found engine bug: analyze.mjs's `git branch --merged` parse strips only '* ' but worktree-checked branches are marked '+ name', so worktree-held merged branches miss the merged set (fail-safe today — -D/keep/park variants, no data-loss — but wrong category for the skill's central worktree case). Fix: strip '+' too + cp1-shape exact-config test (worktree-held merged → guarded -d with worktreePath).",
+    "Worktree-batch clarification (resolves acceptance-3 vs test-plan U15/U19): a linked worktree's branch reaches the batch WITH its worktreePath back-link when the worktree is CLEAN and stale (phase 3 removes the worktree first, then deletes — the one ask covers both); a DIRTY worktree's branch never reaches the batch (requiresAcknowledgment, drops to KEEP). Acceptance-3 forbids batched worktree-held branches only in the dirty/unacknowledged sense.",
+    "Scope is git only, the skill keeps the name ai-git-cleanup, and automation is auto with one batch confirmation — user decisions already made (feature request).",
+    "Phase 0's pull failure only WARNs and cleanup continues: the reference's STOP is a deviation the feature request logged as an assumption, because cleanup does not need a synced default (feature request).",
+    "The old postSync pull is absorbed into phase 0 rather than kept as a post-cleanup step: the pull now runs with HEAD already on the default branch, which is the R4/L17 fix — the analyzer emits it as migration-plan data, and post-cleanup keeps only worktree prune (feature request item 4; decide-and-log).",
+    "analyze.mjs takes the mode flag itself (--all default, --sync, --branches) and emits only the sections the mode needs, so every field is machine-assertable in its exact configuration instead of the skill filtering prose (LEARNINGS R2/R3; decide-and-log on the cleanest JSON shape).",
+    "references/merge-evidence.md is REMOVED: the common path is now git-proven in code and every remaining bucket is fail-closed KEEP, so no bucket reads that evidence guide; NOTICE.md and THIRD-PARTY-NOTICES.md rows are edited to name only the retained adapted files while the SKILL.md Source line keeps the Trail of Bits attribution — the license obligation is attribution, not file retention (decide-and-log).",
+    "The recorded current branch (pre-migration) is report-only: it is not a protected deletion target because phase 0 migrated HEAD away, yet a branch checked out in any linked worktree is still never deletable (feature request).",
+    "The investigator/refuter subagent steps and needsReview-as-investigation disappear from SKILL.md; needs-review wording survives only as KEEP reasons in the report (feature request phases 1-3).",
+    "fetchStatus keeps its v2 semantics (ok with no origin; failed: <first stderr line> otherwise) — the feature request did not change it (prior plan assumption, still true).",
+    "LEARNINGS.md on disk currently holds rules R1-R3 and lessons L1-L16; the request's R4/L17/L18 do not exist there yet, so their described content (pin the pull target to the default branch; protection filter before every classification path) is implemented and asserted directly, and any LEARNINGS entry is the orchestrator's log step, not this plan's (repo check).",
+    "Old tests needing rework, named: tests/git-cleanup-analyze.spec.ts (25 — classification semantics, postSync-pull cases, single-view case), tests/git-cleanup-cli.spec.ts (14 — the post-cleanup sync-plan describe, plus new mode cases), tests/git-cleanup-flow.spec.ts (3 — command plan, refusals, unanalyzed, rewritten around batch+report). skills.spec, workflow-handoff, arch and embed-canon structure gates are unchanged (feature request).",
+    "Baseline at merge is 912/912 green with the 3 pre-existing doctor-command lint warnings; checkpoint verifies run targeted specs first and the full sweep in checkpoint 3 (feature baseline).",
+    "Every checkpoint has ui null and gates.ui n/a — no UI anywhere (feature request).",
+    "No new dependencies: node child_process and git plumbing cover everything; package.json untouched, confirmed at checkpoint 3 (feature request; ladder: nothing here needs a package).",
+    "Sizes go s → m → l: checkpoint 1 is one script plus two specs, checkpoint 2 adds SKILL.md and the flow spec, checkpoint 3 adds the reference removal and the docs sweep (agents/checkpoint-planner.md sizes never shrink).",
+    "The single ask covers only the destructive batch (worktree removals and guarded deletes); migration and sync run before/without it because they are reversible — the never-zero floor applies to deletions, unchanged (hard safety floor).",
+    "FILEMAP.md, AGENTS.md, LEARNINGS.md, README.md and DECISIONS.md stay unchanged: they index the skill as a whole and carry no v2-specific flow claims (prior plan assumption, verified by grep)."
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "Out of scope, unchanged: remote branch deletion, push of any kind, reflog GC, git gc, CI integration, and the reference design's extra phases (session-watch, spec sweep, runtime rotate, spec consolidation) — no substrate in this repo.",
+    "The reference design's report columns are adapted to this repo's fields: Remote and Ahead-Behind come from the existing upstream/ahead/behind data already emitted per branch.",
+    "The interactive pick option inside the single ask is unchanged from v2; only who runs before the ask changes (migration now runs automatically).",
+    "Test-count bookkeeping stays in .ai-engineering/workflow/test-plans/, written by the orchestrator's test-plan step — the checkpoint schema has no count field (agents/checkpoint-planner.md; viewer.html)."
+  ]
+}

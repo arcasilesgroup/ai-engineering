@@ -23,7 +23,7 @@ Format: skill — source (integrated verbatim) — author — license — URL.
 | ai-writing-behavior | writing-agent-behavior (agentbehavior) | Braintrust + Basis | Apache-2.0 | https://github.com/braintrustdata/agentbehavior |
 | ai-agents-md | agents.md convention + published sample layouts | agents.md (OpenAI/Codex et al.) | MIT | https://agents.md/ · https://github.com/agentsmd/agents.md |
 | ai-stress-test | original | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/ai-engineering |
-| ai-git-cleanup | git-cleanup plugin (README, workflows/analyze-branches.js, references/merge-evidence.md) | Trail of Bits | CC BY-SA 4.0 | https://github.com/trailofbits/skills/tree/main/plugins/git-cleanup |
+| ai-git-cleanup | git-cleanup plugin (README, workflows/analyze-branches.js), adapted into skills/ai-git-cleanup/SKILL.md and scripts/analyze.mjs | Trail of Bits | CC BY-SA 4.0 | https://github.com/trailofbits/skills/tree/main/plugins/git-cleanup |
 
 ## The brand (§22)
 

@@ -13,7 +13,7 @@ Bundled third-party content:
 - wayfinder (mattpocock) — MIT
 - writing-agent-behavior (braintrustdata/agentbehavior) — Apache-2.0 — © Braintrust + Basis
 - Trail of Bits git-cleanup plugin — CC BY-SA 4.0 — © Trail of Bits — adapted into
-  `skills/ai-git-cleanup/` (SKILL.md, references/merge-evidence.md) with attribution
+  `skills/ai-git-cleanup/` (SKILL.md, scripts/analyze.mjs) with attribution
   in NOTICE.md and the skill's Source line
 - Loop-Engineering, design-orchestrator (claude-design-skills), graph-engineering,
   ai-audit-design — integrated with attribution; license issues open (H4)

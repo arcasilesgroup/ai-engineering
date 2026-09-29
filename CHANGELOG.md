@@ -8,6 +8,7 @@ All notable changes, written for someone reading what changed, not how. Format: 
 
 - `ai-git-cleanup` skill: list finished local branches and worktrees with the evidence behind each recommendation, then remove only what a person approves at two confirmation gates — local git only.
 - `ai-git-cleanup` v2: the two gates become one — a single view shows the full analysis table with its per-row command plan, the `fetchStatus` of the initial best-effort fetch, and the `postSync` post-cleanup sync (`git worktree prune` only when a worktree removal is queued, `git pull --ff-only` on the default branch only when it is behind its upstream, the ahead count reported — never pushed), and that one approval covers deletions and sync alike — local git only, still never zero confirmations.
+- `ai-git-cleanup` v3: the flow turns action-first — phase 0 migrates to the default branch automatically and reversibly (auto-stash a dirty tree, `git switch` to the default, `git pull --ff-only` pinned to the default branch as destination with HEAD already there, WARN-and-continue), phase 1 classifies branches deterministically in code with protection filtered before every category, phase 2 asks exactly once per delete batch (delete all, pick, or stop — never zero confirmations), and phase 3 executes the batch then prints the per-branch report: default branch, previous (pre-migration) branch, stash state, and an action/reason/upstream/ahead/behind row for every branch — local git only; the analysis-first two-gate flow and `references/merge-evidence.md` are gone.
 
 ### Changed
 
