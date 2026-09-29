@@ -355,6 +355,45 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(out).toMatch(/nothing to sync|nothing written/); // the declared surfaces are already current or patches kept
   });
 
+  test("--yes keeps an AGENTS.md the project already had, byte for byte", async () => {
+    const { cwd } = sandboxed();
+    const mine = "# my own rules\n\nI decide what agents do here.\n";
+    writeFileSync(join(cwd, "AGENTS.md"), mine);
+    const { result, out } = await capture(() => initMain({ yes: true }));
+    expect(result).toBe(0);
+    expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(mine);
+    expect(out).toContain("yours, untouched");
+  });
+
+  test("a first init names an existing AGENTS.md and a decline keeps it", async () => {
+    const { cwd } = sandboxed();
+    const mine = "# my own rules\n";
+    writeFileSync(join(cwd, "AGENTS.md"), mine);
+    const { result, out } = await driven({}, [
+      ["Create", "y"],
+      ["governed", " \n"],
+      ["AGENTS.md already exists", "n"],
+    ]);
+    expect(result).toBe(0);
+    expect(readFileSync(join(cwd, "AGENTS.md"), "utf8")).toBe(mine);
+    expect(out).toContain("yours, untouched");
+  });
+
+  test("answering yes replaces the existing AGENTS.md with the contract file", async () => {
+    const { cwd } = sandboxed();
+    writeFileSync(join(cwd, "AGENTS.md"), "# my own rules\n");
+    const { result, out } = await driven({}, [
+      ["Create", "y"],
+      ["governed", " \n"],
+      ["AGENTS.md already exists", "y"],
+    ]);
+    expect(result).toBe(0);
+    const agents = readFileSync(join(cwd, "AGENTS.md"), "utf8");
+    expect(agents).toContain("governed by {ai} Engineering");
+    expect(agents).not.toContain("# my own rules");
+    expect(out).toContain("replaced the file that was there");
+  });
+
   test("a surface that cannot deny aborts before anything is promised", async () => {
     const { cwd } = sandboxed();
     mkdirSync(join(cwd, ".git"));

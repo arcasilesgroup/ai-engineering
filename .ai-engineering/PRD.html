@@ -49,36 +49,40 @@ a{color:var(--accent)}
 </head>
 <body>
 <h1><span class="x">{ai}</span> PRD</h1>
-<p class="meta">Status: draft · Last updated —</p>
+<p class="meta">Status: draft · Last updated 2026-09-28</p>
 
 <div class="card">
   <p>Cumulative product scope. <code>/ai-orchestrator</code> settles ambiguity from this file, so business rules written here become the default answer to “what should happen when…”.</p>
 </div>
 
 <h2>Problem</h2>
-<p>&lt;Who has what problem today, and what it costs them.&gt;</p>
+<p>When someone installs ai-engineering and runs <code>ai-eng init</code> in a project that already has its own AGENTS.md, init keeps that file silently and never asks: the project ends up without the ai-engineering contract and no human decided anything (<code>src/install.ts</code>: "we never installed it: it is the user's"). On top of that, the authoring skill and the template carried none of the discipline long unattended runs need: verification floor, suite baseline before the first edit, hang-proof commands.</p>
 
 <h2>Goal</h2>
-<p>&lt;What the product makes possible, in two or three sentences.&gt;</p>
+<p><code>ai-eng init</code> leaves every project with our AGENTS.md: written when missing, named and asked about when a foreign one exists (default: keep the user's), never replaced in silence. The <code>ai-agents-md</code> skill and <code>templates/AGENTS.md.tpl</code> carry the approved content: context-first explanation, the verification floor, the unattended-runs section, and the do-not-touch/context fill-ins, under the 120-line doctor ceiling.</p>
 
 <h2>Users &amp; roles</h2>
 <table>
   <thead><tr><th>Role</th><th>Who</th><th>Can</th></tr></thead>
   <tbody>
-    <tr><td><strong>&lt;Role&gt;</strong></td><td>&lt;who they are&gt;</td><td>&lt;what they can do&gt;</td></tr>
+    <tr><td><strong>Project operator</strong></td><td>whoever runs <code>ai-eng init</code></td><td>gets asked before an existing AGENTS.md is replaced; default and <code>--yes</code> keep their file</td></tr>
+    <tr><td><strong>Coding agent</strong></td><td>any agent reading AGENTS.md</td><td>gets the unattended-run rules, the verification floor and the context fill-ins on every turn</td></tr>
   </tbody>
 </table>
 
 <h2>Features</h2>
-<h3>&lt;Feature&gt;</h3>
+<h3>AGENTS.md contract on init</h3>
 <ul>
-  <li>&lt;What it does, from the user's side&gt;</li>
-  <li><strong>Rules:</strong> &lt;business rules: limits, states, who can do what, edge cases&gt;</li>
+  <li>Init writes our AGENTS.md when the project has none, as before. When a foreign one exists, it names it and asks: overwrite with the contract file?</li>
+  <li><strong>Rules:</strong> default (Enter) and <code>--yes</code>/non-TTY keep the existing file byte for byte; only a human yes replaces it. The prompt covers <code>AGENTS.md</code> only: existing <code>DECISIONS.md</code> and <code>.gitignore</code> are never asked about. An AGENTS.md not tracked by git gets one extra warning in the prompt before it can be lost. <code>update</code>, re-init and <code>uninstall</code> keep their current behaviour (they never touch the contract). Template and skill edits: 11-section order, Code style line carries the context clause, new <code>Unattended runs</code> section (no mid-run questions with assumptions recorded, full-suite baseline, hang-proof commands), verification floor and "noticed, not fixed" in Workflow, do-not-touch/context fill-ins in Project config, anti-second-map clause (name the memory the repo keeps, never add a PROGRESS.md beside it), doctor ceiling stated as 120 lines.</li>
 </ul>
 
 <h2>Out of scope</h2>
 <ul>
-  <li>&lt;Things deliberately not built, and why. Link a decision if there is one.&gt;</li>
+  <li>A semantic merge of two different AGENTS.md files: prose has no marker to merge on; the choice replaces or keeps the whole file.</li>
+  <li>Changing the 3-way diff of <code>update</code>, or <code>uninstall</code>'s contract handling.</li>
+  <li>A <code>CLAUDE.md</code> shim, or a PROGRESS.md file (the memory slot belongs to <code>plan.html</code>; a second map is forbidden by ai-goal).</li>
+  <li>New CI or lint rules; the load-gating header ("do not load this file for short work"), since AGENTS.md always loads.</li>
 </ul>
 </body>
 </html>

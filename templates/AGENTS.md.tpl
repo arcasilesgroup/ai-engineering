@@ -9,7 +9,7 @@ Guidance for AI coding agents working in this repository. Human teammates should
 
 ## Code style
 - KISS, YAGNI, DRY, SOLID, TDD, Clean Code.
-- Explain it so someone who doesn't code can follow along.
+- Explain it so someone who doesn't code can follow along, and always give the context: the reader is not in the details.
 - **Readable code** (Boswell & Foucher): minimize the time it takes someone else to understand your code.
   - Names say purpose or value; no generic names (`data`, `temp`, `helper` are forbidden).
   - Prefix booleans (`is`, `has`, `can`, `should`); prefix limits (`max`, `min`).
@@ -30,6 +30,8 @@ Guidance for AI coding agents working in this repository. Human teammates should
 - Commands: n/a
 - URLs: n/a
 - Sign-in: n/a
+- Do not touch: n/a
+- Context: n/a
 
 ## Architecture rules
 Lines the critic treats as blockers. Fill in project-specific rules here; leave empty when none apply yet.
@@ -46,7 +48,15 @@ Lines the critic treats as blockers. Fill in project-specific rules here; leave 
 ## Workflow
 - Green gate before "done": show the output of the check that proves it.
 - A decision that always comes out the same is code, not a prompt.
+- Never make a check pass by deleting or skipping a test, weakening an assertion, or loosening a type; a test that looks wrong is reported, not weakened.
+- Stay inside the task: an unrelated bug or refactor you notice goes in the report as "noticed, not fixed", never into the diff.
 - Task status convention (when a todo list exists): mark each task 🟢 done (paste the proving output) · 🟡 pending (name the next action) · 🔴 blocked on you (ask the exact question). No todo list → state status inline: done-with-proof, pending, or blocked.
+
+## Unattended runs
+- Nobody is watching: do not stop to ask. Pick the reading a careful colleague would pick, record the assumption in the final report, and continue with every part that is still reachable.
+- Run the full test suite once before the first edit and record which failures already exist; every new failure is yours.
+- No interactive commands (editors, `rebase -i`, login flows): pass non-interactive flags, set `CI=true`, redirect stdin from `/dev/null` when unsure, and put a timeout on every command that talks to the network.
+- Run servers, watchers and long-lived processes in the background with a timeout; never wait on one in the foreground.
 
 ## Lifecycle
 - Every skill declares its own contract — lane, artifact, successor — in a `## Lifecycle` block inside its SKILL.md: follow the `Next:` a skill hands you instead of asking what comes first.
@@ -62,6 +72,7 @@ Replies to a person, and handoffs to another agent, follow the voice standard in
 - More than one step is a numbered list, one action per step.
 - Last line is one next action that takes under two minutes.
 - Say which step just finished before starting the next.
+- A closing report leads with what is blocked, then what was done and how it was proven.
 
 ## Session hygiene (context economy)
 `/clear` between tasks · `/compact` before stopping, not after · batch prompting · check `/usage` when the context inflates.

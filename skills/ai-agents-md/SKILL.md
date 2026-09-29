@@ -45,22 +45,31 @@ Sections that earn their place, in this order when present:
 2. **Code style** — only the rules the linter cannot check (the linter checks its own).
 3. **Build and test commands** — the exact commands, detected from the tree (package.json
    scripts, Cargo.toml, go.mod, pyproject.toml...), never from memory.
-4. **Project config** — short fill-in (domain, roles, paths, commands, URLs, sign-in; n/a when absent).
+4. **Project config** — short fill-in (domain, roles, paths, commands, URLs, sign-in, do-not-touch paths, context the code cannot tell; n/a when absent).
 5. **Architecture rules** — lines the critic treats as blockers.
 6. **Shared helpers** — codegraph for call chains and other project helpers.
 7. **Git workflow** — commit-as-you-go on feat/<slug>, explicit paths, no --no-verify, no push unless asked.
-8. **Workflow** — the definition of done: green gate before "done", status conventions.
-9. **Pull requests** — title format, pre-commit checks, test expectations.
-10. **Session hygiene** — context-economy conventions the repo expects.
+8. **Workflow** — the definition of done: green gate before "done", status conventions,
+   the verification floor (never weaken a test, an assertion or a type to make a check
+   pass), and scope discipline (an unrelated find is reported as "noticed, not fixed").
+9. **Unattended runs** — a session with no human watching: no mid-run questions (pick the
+   careful reading, record the assumption, continue), the full-suite baseline before the
+   first edit, and hang-proof commands (non-interactive flags, `CI=true`, timeouts on
+   network calls, servers in the background). Drop the section when the repo never runs
+   long unattended work.
+10. **Pull requests** — title format, pre-commit checks, test expectations.
+11. **Session hygiene** — context-economy conventions the repo expects.
 
 Never include: anything `--help` or a config file already says; a tutorial; rules a
-newcomer can deduce from one look at the tree. Anti-drift rule: if a line becomes obvious
-from reading the code, delete the line.
+newcomer can deduce from one look at the tree; a progress file of our own — name the
+memory the repo already keeps (`.ai-engineering/plan.html` in a governed repo), never
+introduce a second one beside it. Anti-drift rule: if a line becomes obvious from
+reading the code, delete the line.
 
 Two more tests decide a line. **Enforcement**: an always or a never names the mechanism that
 holds it (a hook, a test, a CI job), because an unenforced rule rots. **Cost**: the root file
 loads on every turn, so overflow moves behind a pointer in a nested file or a reference, never
-into the always-loaded one; `doctor` warns once the root passes 80 lines.
+into the always-loaded one; `doctor` warns once the root passes 120 lines.
 
 ## Steps
 
@@ -132,8 +141,11 @@ Edit it when the repo's real state made a rule stale, never to bend a rule this 
 
 ## The ai-engineering seam
 
-1. `ai-eng init` installs this file once (never overwritten by update — 3-way diff if you
-   edited it). This skill is how you rewrite it deliberately.
+1. `ai-eng init` installs this file once. An AGENTS.md the repo already had is named and
+   asked about: default (Enter) and `--yes` keep the existing file, only a yes replaces
+   it, and an untracked file gets one extra warning before it is lost. `update` never
+   touches it (3-way diff if you edited it). This skill is how you rewrite it
+   deliberately.
 2. The governed agent edits it in-session when the tree moved on (section above);
    `self-protect` guards the wiring instead — the file is prose the team owns.
 3. `ai-eng doctor` checks the anti-drift rule: a rule that the code now states is flagged
