@@ -264,7 +264,9 @@ period, or `·`.
    because a verb that can act on several paths is judged as a whole command.
    Render it with the artifact design system —
    [references/artifact-design.md](references/artifact-design.md):
-   tokens in verbatim, same family as the research pages and the recap. Before
+   copy that document's whole CSS block in verbatim — tokens, layout rules and
+   components, not tokens alone — same family as the research pages and the recap.
+   Before
    `</body>`, copy that file's scroll-spy script verbatim (it is already in
    `templates/brainstorm.html.tpl`): it marks the nav link for the section in view.
    The markdown

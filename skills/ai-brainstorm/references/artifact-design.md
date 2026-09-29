@@ -23,7 +23,7 @@ inline data URI in its `<head>`, before `<style>`:
 Inline, never a file: an artifact is one self-contained page opened from
 `file://` — no sibling asset can be assumed to travel with it. The URI is a
 single source in this document; when the `{ai}` mark changes, re-cut every
-carrier of this line (the two shipped templates and this document).
+carrier of this line (the three shipped templates and this document).
 
 ## The tokens
 
@@ -55,7 +55,7 @@ carrier of this line (the two shipped templates and this document).
 
   /* space: a 4px rhythm, so nothing lands on an arbitrary number */
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
-  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+  --radius:12px; --radius-sm:8px; --radius-lg:var(--radius); --container:1040px; --measure:68ch;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -393,7 +393,7 @@ standalone document; `spec.html` and `plan.html` omit the hero and keep the rest
 
   /* space: a 4px rhythm, so nothing lands on an arbitrary number */
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
-  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+  --radius:12px; --radius-sm:8px; --radius-lg:var(--radius); --container:1040px; --measure:68ch;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -407,9 +407,9 @@ a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline;text-underline-offset:3px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
 .skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);
-      border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:14px 18px;
-      clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
-.skip:focus{clip-path:none;width:auto;height:auto}
+      border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;
+      transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 
 /* ── hero ─────────────────────────────────────────────────────────────── */
@@ -513,8 +513,8 @@ pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text)
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
       padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
-.card h3,.card h4{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
-.card h3,.card h4{min-height:1.6em}
+.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+.card h3,.card h4{min-height:22px;line-height:22px}
 .card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
 .card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
 .card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
@@ -606,11 +606,13 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   .hero{padding:64px var(--s5) 44px}
   .hero h1{font-size:34px;letter-spacing:-.022em}
   .hero .sub{font-size:16px}
-  section{padding:var(--s7) 0 var(--s6)}
   .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}
   .pipe .stage+.stage{margin-top:var(--s2)}
   .pipe .stage::after{content:''}
   .tier .tlat{text-align:left}
+}
+@media (max-width:820px){
+  nav a{padding:14px 8px}
 }
 @media (max-width:560px){
   .container{padding:0 var(--s4)}
@@ -649,9 +651,9 @@ immediately before `</body>`. While the reader scrolls, the link whose section
 heading has cleared the sticky nav carries `.active` (and `aria-current="location"`).
 The lead is the same 88px as `scroll-margin-top`. A nav that never changes is
 a defect: the paint for `.active` does nothing without this listener.
-`templates/recap.html.tpl` and `templates/brainstorm.html.tpl` already carry
-these bytes; a page written from this document, including
-`.ai-engineering/research/NNN-*.html`, copies the same block.
+`templates/recap.html.tpl`, `templates/brainstorm.html.tpl` and
+`templates/research.html.tpl` already carry
+these bytes; a page written from this document copies the same block.
 
 ```html
 <script>
@@ -689,7 +691,7 @@ ai-engineering (own), Apache-2.0. The values are LeafyGreen UI's
 (`mongodb/leafygreen-ui`, Apache-2.0, taken verbatim): the palette and the
 component grammar, not the identity — no MongoDB logo, wordmark or leaf is
 reproduced anywhere, and no commercial font is shipped. `brand/tokens.json`
-records them; the two shipped templates carry the same block.
+records them; the three shipped templates carry the same block.
 
 ## Done when
 

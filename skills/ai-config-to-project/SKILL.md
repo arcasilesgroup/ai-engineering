@@ -66,7 +66,7 @@ Every `[[guard.off]]` block in the proposal has `name`, `reason`, and `until` (a
 
 Run `ai-eng adapt apply` from the repo root. Do not pass `--no-verify`. If it refuses, show the line and stop.
 
-The page uses the artifact design system in [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md). Copy the tokens and the scroll-spy script. Do not invent a second style.
+The page uses the artifact design system in [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md). Copy that document's whole CSS block and the scroll-spy script verbatim — tokens, layout rules and components, not tokens alone. Do not invent a second style.
 
 ## Lifecycle
 

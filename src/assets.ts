@@ -117,6 +117,7 @@ import atemplates_plan_html_tpl from "../templates/plan.html.tpl" with { type: "
 import atemplates_LEARNINGS_md_tpl from "../templates/LEARNINGS.md.tpl" with { type: "file" };
 import atemplates_config_toml_tpl from "../templates/config.toml.tpl" with { type: "file" };
 import atemplates_git_pre_push_tpl from "../templates/git-pre-push.tpl" with { type: "file" };
+import atemplates_research_html_tpl from "../templates/research.html.tpl" with { type: "file" };
 import atemplates_plugin_opencode_ts_tpl from "../templates/plugin.opencode.ts.tpl" with { type: "file" };
 import atemplates_brainstorm_html_tpl from "../templates/brainstorm.html.tpl" with { type: "file" };
 import atemplates_settings_copilot_cli_json_tpl from "../templates/settings.copilot.cli.json.tpl" with { type: "file" };
@@ -255,6 +256,7 @@ export const EMBEDDED: Record<string, string> = {
   "../templates/LEARNINGS.md.tpl": atemplates_LEARNINGS_md_tpl as unknown as string,
   "../templates/config.toml.tpl": atemplates_config_toml_tpl as unknown as string,
   "../templates/git-pre-push.tpl": atemplates_git_pre_push_tpl as unknown as string,
+  "../templates/research.html.tpl": atemplates_research_html_tpl as unknown as string,
   "../templates/plugin.opencode.ts.tpl": atemplates_plugin_opencode_ts_tpl as unknown as string,
   "../templates/brainstorm.html.tpl": atemplates_brainstorm_html_tpl as unknown as string,
   "../templates/settings.copilot.cli.json.tpl": atemplates_settings_copilot_cli_json_tpl as unknown as string,
