@@ -128,10 +128,14 @@ Not for:
 ## The ai-engineering seam
 
 1. Output goes to `.ai-engineering/research/NNN-section.html` with numbered citations,
-   styled by the artifact design system — [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md): the tokens go
-   in verbatim, so the report reads as one family with the brainstorm and the recap. Before
-   `</body>`, copy that file's scroll-spy script verbatim: it marks the nav link for
-   the section in view, and tokens alone leave the nav unselected. The
+   rendered by the artifact design system — [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md).
+   Start from [templates/research.html.tpl](../../templates/research.html.tpl): copy
+   the whole file and fill it — it already carries the canonical CSS block (tokens,
+   layout rules and components), the `{ai}` favicon and the scroll-spy script, so the
+   report reads as one family with the brainstorm and the recap. Never write a
+   `<style>` block from scratch — the layout gate rejects centered or capped body
+   text and a missing `.container`, and the carrier gate rejects a page missing the
+   canonical block. Every section's content sits inside that `.container`. The
    folder is flat: a three-digit `NNN`, never a subfolder.
 2. Feed ai-architect's existence-check and prior-art review: this evidence is what an
    architecture PR cites before building something that already exists.

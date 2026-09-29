@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "activeProvider": "agent-skills",
+  "activeProviderMarkers": [
+    "agent-skills"
+  ]
+}

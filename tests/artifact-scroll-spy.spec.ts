@@ -2,7 +2,7 @@
  * The nav highlight is a behaviour, not a colour. `nav a.active` is painted in
  * the artifact shell, and docs/blueprint.html is the one page that actually
  * toggles it while scrolling. recap, brainstorm and research copy the shell
- * (the two templates, plus the script block in artifact-design.md) and used to
+ * (the templates, plus the script block in artifact-design.md) and used to
  * ship the paint without the listener, so the titles never selected.
  *
  * The design doc owns the script. The templates must carry the same bytes,
@@ -14,7 +14,7 @@ import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
 
-const SHELLS = ["templates/recap.html.tpl", "templates/brainstorm.html.tpl"] as const;
+const SHELLS = ["templates/recap.html.tpl", "templates/brainstorm.html.tpl", "templates/research.html.tpl"] as const;
 
 function read(path: string): string {
   return readFileSync(join(ROOT, path), "utf8");
