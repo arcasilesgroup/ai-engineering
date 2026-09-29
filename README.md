@@ -51,10 +51,9 @@ bun add -g ai-engineering@latest && ai-eng init    # or: npm install -g ai-engin
 One command. `init` asks which agents to govern, installs the canon on your machine, and writes
 the contract into this repository. It is idempotent — run it again whenever you like.
 
-`npm install` needs no runtime on your machine: the package ships a compiled binary for your
-platform as an optional dependency (`ai-engineing-<platform>`, eight targets, musl included)
-and the `ai-eng` launcher picks it up. Bun remains the path for `bun add -g` and for
-development — where bun is present, the launcher runs the source.
+`ai-eng` runs its TypeScript source under [bun](https://bun.com), the same way the Python
+release needed `python>=3.11`: install bun once and both `npm install -g` and
+`bun add -g` work. The launcher fails with an honest message if bun is missing.
 
 <p align="center">
   <img src=".github/assets/cli-tour.gif" alt="ai-eng in a real terminal: the verb list, init installing the canon and picking surfaces, doctor running 17 checks, config adding a surface, update reporting what it rewrote" width="900">

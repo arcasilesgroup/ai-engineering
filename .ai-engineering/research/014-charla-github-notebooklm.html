@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>014 · NotebookLM como motor de la charla GitHub Community</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23001E2B'/%3E%3Crect x='0.5' y='0.5' width='31' height='31' rx='6.5' fill='none' stroke='%2300ED64' stroke-opacity='0.35'/%3E%3Ctext x='16' y='17' text-anchor='middle' dominant-baseline='central' font-family='ui-monospace, Menlo, Consolas, DejaVu Sans Mono, monospace' font-size='14' font-weight='700' letter-spacing='-1'%3E%3Ctspan fill='%2300ED64'%3E%7B%3C/tspan%3E%3Ctspan fill='%23E8EEF7'%3Eai%3C/tspan%3E%3Ctspan fill='%2300ED64'%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<style>
+/* ── {ai} Engineering — the artifact design system ─────────────────────────
+   Tokens are the brand's, at system stacks so an artifact renders offline:
+   one signal green, neutral borders, the reading tint for small green,
+   dark-only. Anything ai-engineering renders as an artifact — spec.html,
+   plan.html, a recap, a research page, a report — inherits this block
+   verbatim.                                                                */
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+
+  /* type: one scale, tracking and leading set per size, never one value for all */
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px;      --lh-h2:1.16;      --ls-h2:-.018em;
+  --fs-h3:17px;      --lh-h3:1.32;      --ls-h3:-.006em;
+  --fs-h4:14px;      --lh-h4:1.35;
+  --fs-body:15px;    --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px;  --lh-mono:1.7;
+  --fs-label:10.5px;
+
+  /* space: a 4px rhythm, so nothing lands on an arbitrary number */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:var(--fs-body);line-height:var(--lh-body);
+  font-synthesis-weight:none;-webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);
+      border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:14px 18px;
+      clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+.skip:focus{clip-path:none;width:auto;height:auto}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+.hero{
+  position:relative;overflow:hidden;text-align:center;
+  padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);
+  background-image:
+    linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px),
+    radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);
+  background-size:32px 32px,32px 32px,100% 100%;
+}
+.hero .stamp{
+  display:inline-block;font-family:var(--mono);font-size:var(--fs-label);
+  letter-spacing:.26em;text-transform:uppercase;color:var(--accent);
+  border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;
+  margin-bottom:var(--s5);
+}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);
+         letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;
+           margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);
+            margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+
+/* ── nav: translucent chrome, content scrolls under it ────────────────── */
+nav{
+  position:sticky;top:0;z-index:50;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;
+  padding:var(--s2) var(--s4);
+  background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);
+  border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;
+}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;
+      white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+
+/* ── page ─────────────────────────────────────────────────────────────── */
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;
+        letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);
+   font-weight:640;margin:var(--s6) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);max-width:var(--measure);margin:0 auto var(--s3);text-align:center}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+
+/* ── code ─────────────────────────────────────────────────────────────── */
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);
+     border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);
+     overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);
+    padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);
+    font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;
+    -webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{
+  background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ── panels ───────────────────────────────────────────────────────────── */
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);
+         border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;
+         border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;
+         font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;
+         text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.card h3,.card h4{min-height:1.6em}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;
+         text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+pre{max-width:100%}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;
+         text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+
+/* ── tables: a component, not a spill ─────────────────────────────────── */
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);
+          overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;
+   font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;
+   text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);
+   vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+
+/* ── pills, marks ─────────────────────────────────────────────────────── */
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;
+      padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+
+/* ── pipeline: real boxes, not ASCII ─────────────────────────────────── */
+.pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+.pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);
+             border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+.pipe .stage:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+.pipe .stage:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+.pipe .stage+.stage{border-left:none}
+.pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);
+                    color:var(--accent);font-size:13px;z-index:2}
+.pipe .stage{position:relative}
+.pipe .stage:last-child::after{content:''}
+.pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+.pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+
+.tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);
+      border-radius:var(--radius-lg);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+.tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;
+             color:var(--accent);text-transform:uppercase}
+.tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+.tier .tbody b{color:var(--text)}
+.tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);
+       border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
+       color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+
+@media (max-width:900px){
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .hero{padding:64px var(--s5) 44px}
+  .hero h1{font-size:34px;letter-spacing:-.022em}
+  .hero .sub{font-size:16px}
+  section{padding:var(--s7) 0 var(--s6)}
+  .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}
+  .pipe .stage+.stage{margin-top:var(--s2)}
+  .pipe .stage::after{content:''}
+  .tier .tlat{text-align:left}
+}
+@media (max-width:560px){
+  .container{padding:0 var(--s4)}
+  nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;
+      overflow-x:auto;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;
+      background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}
+  nav a{padding:14px 8px}
+  table{font-size:13px} th,td{padding:10px var(--s3)}
+  pre{font-size:11.5px;padding:var(--s3) var(--s4)}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation:none!important;transition:none!important}
+}
+@media (prefers-reduced-transparency:reduce){
+  nav{background:var(--bg);backdrop-filter:none}
+}
+@media (prefers-contrast:more){
+  :root{--dim:#E8EDEB;--comment:#C1C7C6}
+  .card,.note,p,li,td{color:var(--dim)}
+  nav a{color:#E8EDEB}
+}
+@media print{
+  nav,.skip{display:none}
+  body{background:#fff;color:#111}
+  section{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Research 014 · 2026-09-29</div>
+  <h1>NotebookLM como motor de la <span class="x">charla GitHub Community</span></h1>
+  <p class="sub">Todo el conocimiento de <strong>{ai} engineering</strong> — guards, hooks, policy guard, skills, integración GitHub — compilado, subido a un notebook y convertido en un <strong>slide deck</strong> con un prompt optimizado.</p>
+  <p class="meta">Notebook <b>c5f5c8cd-2840-4e04-be72-f15dca1c3756</b> · 14 sources primarias <b>ready</b> + deep research <b>41</b> · notebooklm CLI <b>0.8.0 (8fb61cb1)</b> · doctor <b>exit 0</b> · deck: presenter, es</p>
+</header>
+
+<nav aria-label="Secciones">
+  <a href="#s1"><b>01</b>Decisión</a>
+  <a href="#s2"><b>02</b>Tools</a>
+  <a href="#s3"><b>03</b>Subidas</a>
+  <a href="#s4"><b>04</b>Prompt</a>
+  <a href="#s5"><b>05</b>Deck</a>
+  <a href="#s6"><b>06</b>Discrepancias</a>
+  <a href="#s7"><b>07</b>Fuentes</a>
+  <a href="#s8"><b>08</b>Direcciones</a>
+</nav>
+
+<main id="main">
+
+<section id="s1">
+  <h2><span class="num">SECCIÓN 01</span>Qué cambia según la respuesta</h2>
+  <p>Esta corrida no es lectura: hay una decisión detrás. Lo que NotebookLM sepa de ai-engineering decide si el deck generado es <strong>citable o genérico</strong> — y de eso depende la estructura real de la charla de Dachi: qué se demuestra en vivo (el deny de <code>--no-verify</code>, el <code>0467</code> del policy guard), qué se corta, y cuánto peso tiene cada beat de los diez planeados. La pregunta que se respondió fue: <em>¿qué material exacto necesita el motor de presentaciones para que la charla "No te fíes de tu agente. Fíate de tus gates" salga fiel al producto?</em></p>
+  <p>Lo que se entregó: el notebook con las 14 fuentes, el prompt de generación optimizado (SECCIÓN 04), el deck generado (SECCIÓN 05) y este informe con las tools usadas y las ausentes.</p>
+</section>
+
+<section id="s2">
+  <h2><span class="num">SECCIÓN 02</span>Inventario de tools — usadas y ausentes</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Tool</th><th>Estado</th><th>Evidencia (2026-09-29)</th></tr></thead>
+    <tbody>
+      <tr><td>Local floor (repo)</td><td><span class="pill p-ok">usada</span></td><td>Repo <code>arcasilesgroup/ai-engineering</code>, <code>package.json</code> v2.5.0: README, DECISIONS, <code>src/chain/mod.ts</code>, <code>src/guards/*</code>, <code>src/surfaces/surfaces.json</code>, <code>.github/workflows/check.yml</code>, canon de skills en <code>skills/</code></td></tr>
+      <tr><td>notebooklm CLI</td><td><span class="pill p-ok">usada</span></td><td>v0.8.0 (8fb61cb1); <code>notebooklm doctor</code> → exit 0 (auth local, 49 cookies); <code>create</code>, <code>source add</code> ×14, <code>generate slide-deck</code>, <code>source add-research</code></td></tr>
+      <tr><td>notebooklm deep research</td><td><span class="pill p-ok">cosechada</span></td><td>task <code>ChBlNzJjODU3MzE4NjExYzA1EAgaATAqA3VzZQ</code> → <code>research wait --import-all</code>: <strong>41 fuentes citadas importadas</strong> al notebook (Microsoft Agent Governance Toolkit, hooks de Claude Code/Copilot CLI docs, sandboxes, arXiv) — 2026-09-29</td></tr>
+      <tr><td>pandoc (homebrew)</td><td><span class="pill p-ok">usada</span></td><td><code>docs/blueprint.html</code> → md (231 KB), <code>docs/recap.html</code> → md (152 KB)</td></tr>
+      <tr><td>Web search / Exa / Tavily</td><td><span class="pill p-dim">no usadas</span></td><td>disponibles pero innecesarias: toda claim de la charla es primaria (repo + docs de GitHub citadas en <code>surfaces.json</code>). No hay <code>degraded-tool</code>: nada bloqueó la corrida</td></tr>
+      <tr><td>NotebookLM (servicio)</td><td><span class="pill p-ok">usada</span></td><td>ingerió 14 sources (todas <code>ready</code>), generó el deck; sus outputs son <strong>claims que verificar</strong>, no instrucciones</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn">
+    <h4>Observación de seguridad durante la corrida</h4>
+    <p>Un <code>cp</code> que leía el canon global (<code>~/.agents/skills</code>) fue <strong>denegado por el guard <code>self-protect</code></strong> en esta misma máquina: <em>"A person changes that, in a reviewed diff — not the session it governs."</em> No se rodeó: se usaron los <code>SKILL.md</code> del repo (mismo canon). Los guards de este repo juzgaron la propia corrida de research [11].</p>
+  </div>
+</section>
+
+<section id="s3">
+  <h2><span class="num">SECCIÓN 03</span>Qué se subió al notebook</h2>
+  <p>Notebook <code>c5f5c8cd-2840-4e04-be72-f15dca1c3756</code> — "ai-engineering · Charla GitHub Community". 14 sources, todas <code>ready</code> al momento de generar [12]:</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Grupo</th><th>Source</th><th>ID (8)</th><th>Peso</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="4">Producto (primaria)</td><td><code>README.md</code> — cifras, guards, skills, lanes, triggers, verdicts verbatim</td><td><code>aee39972</code></td><td>17 KB</td></tr>
+      <tr><td><code>DECISIONS.md</code> — D-001…D-004 (gobierno, observabilidad, spoken-secret)</td><td><code>2f9750ad</code></td><td>3 KB</td></tr>
+      <tr><td><code>blueprint.md</code> — docs/blueprint.html convertido (diseño, en español)</td><td><code>d491115b</code></td><td>231 KB</td></tr>
+      <tr><td><code>recap.md</code> — docs/recap.html convertido (estado actual)</td><td><code>c44364d4</code></td><td>152 KB</td></tr>
+      <tr><td rowspan="4">Packs curados (esta corrida)</td><td>01 · guards, chain, policy guard, receipts</td><td><code>283899d3</code></td><td>8 KB</td></tr>
+      <tr><td>02 · skills, lanes, triggers, hard gate, orquestador</td><td><code>a076e5c3</code></td><td>8 KB</td></tr>
+      <tr><td>03 · integración GitHub (Copilot CLI, Actions, Issues)</td><td><code>33a0e96e</code></td><td>8 KB</td></tr>
+      <tr><td>04 · brief de la charla (evento, audiencia, 10 beats, formato)</td><td><code>cbcaad32</code></td><td>4 KB</td></tr>
+      <tr><td rowspan="4">Skills ancla (verbatim)</td><td><code>ai-brainstorm</code> — HARD-GATE, tres paths</td><td><code>3a68fbba</code></td><td>16 KB</td></tr>
+      <tr><td><code>ai-orchestrator</code> — dos preguntas, gate marker, checkpoints</td><td><code>369573d2</code></td><td>19 KB</td></tr>
+      <tr><td><code>ai-verify</code> — veredicto con evidencia</td><td><code>66bc9e77</code></td><td>4 KB</td></tr>
+      <tr><td><code>ai-issue-report</code> — payload gobernado de GitHub Issues</td><td><code>c15c7bc1</code></td><td>5 KB</td></tr>
+      <tr><td rowspan="2">Web</td><td>github.com/arcasilesgroup/ai-engineering</td><td><code>cdb53016</code></td><td>—</td></tr>
+      <tr><td>ai-engineering.arcasiles.com</td><td><code>82d8c17e</code></td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <p class="dim">Los packs viven en <code>/tmp/nblm-ai-eng/</code> (temp, no se commitean): son regenerables desde el repo con las fuentes citadas en SECCIÓN 07. El notebook es ahora el artefacto durable.</p>
+  <div class="note ok">
+    <h4>Deep research importada después de las 14 primarias</h4>
+    <p><code>notebooklm research wait --import-all</code> terminó en 180 s y añadió <strong>41 fuentes citadas</strong> (informe de research + artículos): Microsoft Agent Governance Toolkit, GitHub Copilot hooks reference, Claude Code hooks docs, sandboxes (Sandlock, NVIDIA OpenShell), arXiv. Total en el notebook: <strong>56 sources</strong>. Son material <em>externo</em>: sus claims son de terceros y se citan como tales en la charla, no como hechos de ai-engineering [14].</p>
+  </div>
+</section>
+
+<section id="s4">
+  <h2><span class="num">SECCIÓN 04</span>El prompt optimizado</h2>
+  <p>Prompt final (guardado en <code>/tmp/nblm-ai-eng/prompt-charla.txt</code>, pasado con <code>--prompt-file</code> para evitar quoting frágil [13]):</p>
+  <pre><code>Crea un slide deck técnico en español para una charla en una comunidad GitHub.
+
+Título de la charla: "No te fíes de tu agente. Fíate de tus gates 👀" — GitHub Issues, GitHub Copilot y un proceso gobernado para que tus agentes puedan trabajar… sin darles las llaves del castillo 👀. Ponente: Dachi Gogotchuri (Arcasiles Group, autores de {ai} Engineering).
+
+Audiencia: desarrolladores de la comunidad GitHub (Issues, Actions, Copilot y Copilot CLI), nivel técnico alto en GitHub, conocimiento variable de agentes de IA. Objetivo: que salgan sabiendo qué es ai-engineering, cómo se integra con GitHub de punta a punta, y cómo adoptarlo.
+
+Estructura requerida (~18-20 slides, con notas del orador en cada slide):
+1. Hook: la anécdota del agente que se salta el gate; el título de la charla.
+2. El problema: agentes autónomos (evidencia real: Copilot CLI --plan / --mode, "autonomously without asking questions"); la confianza no escala, los gates sí.
+3. La tesis de ai-engineering: un contrato que el agente no puede ejecutar antes de tu aprobación; guards que dicen no ANTES de que corra la tool call; un receipt de cada denegación en disco, en git. Cita: "A decision that always comes out the same is code, not a prompt."
+4. Qué es el producto (cifras de la fuente README): 5 guards de la tabla (7 tras policy y spoken-secret), 21 skills, 8 surfaces, 1 binario, 0 model calls, hot path 200 ms; nada hosted, Apache-2.0.
+5. Anatomía de un deny: payload → `ai-eng chain PreToolUse` → guards → allow / deny / rewrite en el dialecto del host + receipt en .ai-engineering/receipts/. Incluye 2-3 textos verbatim de deny reales (el de --no-verify, el del linter silenciado, el del quinto retry).
+6. Los cinco guards en una tabla: no-verify, self-protect, injection, loop, wrap — qué niega cada uno.
+7. El policy guard: clasificación por alcance × permisos en cuatro dígitos octales; 0467 por defecto; modo inválido → 0000 fail-closed; se amplía solo cambiando guards.policy_mode en config.toml, en un diff revisado por una persona. El salto de patrón de contenido a alcance de sistema.
+8. Fail-closed sin excepciones: guard que crashea niega; única vía = overrides.toml con reason + until, doctor reporta cada override activo y el que expira re-armea el guard.
+9. Receipts y doctor: receipt por veredicto, denies.json como señal nunca veredicto, serie de 90 días, WARN de desviación 3x, doctor dispara un payload adversario real.
+10. Skills: una pipeline con contrato — cada SKILL.md declara qué escribe, quién lo lee, cuándo muere y qué corre después.
+11. La cadena de skills: ai-brainstorm → ai-research → ai-architect → ai-orchestrator → ai-verify → cierre ai-eng spec close; el hard gate de aprobación de brainstorm; el orquestador pregunta al humano exactamente dos veces.
+12. Lanes (light/standard/full) y los cinco triggers cerrados (ui, security, open-questions, arch-change, public-interface): path trigger automático, judgment trigger preguntado en voz alta — "un gate o un ABANDON, nunca silencio".
+13. Integración GitHub #1 — Copilot CLI como surface: hooks de repo en .github/hooks/ai-eng.json (preToolUse: ai-eng chain + checkpoint-gate; postToolUse: ai-eng chain), carrier machine en .copilot/hooks/, deny + rewrite, loop nativo; limitación honesta medida: el output de userPromptSubmitted se ignora en CLI hooks, así que el prompt guard está apagado con la causa nombrada.
+14. Integración GitHub #2 — GitHub Actions: acciones pineadas por SHA, actionlint, gitleaks + semgrep (--metrics=off) + trivy, `ai-eng update --yes` restaura floor+canon en el checkout de CI, `ai-eng doctor` como paso de CI; releases con SBOM y attestations.
+15. Integración GitHub #3 — GitHub Issues: ai-issue-report, payload gobernado de campos cerrados, rechazo de machine paths / PII / secrets, draft local + preview con SHA-256, nada se envía sin confirmación manual; vulnerabilidades → ruta privada, nunca issue pública.
+16. El contrato en tu repo tras `ai-eng init`: AGENTS.md, DECISIONS.md, config.toml, git hooks; spec open → spec approve → spec close con sha256; cambios de permisos = diff revisado.
+17. Demo / adopción: `bun add -g ai-engineering@latest && ai-eng init`, `ai-eng doctor`, `ai-eng config --add copilot-cli`.
+18. Takeaways: empieza por el floor de git + guard no-verify; después policy_mode; después triggers y lanes. "No te fíes de tu agente. Fíate de tus gates."
+
+Reglas de contenido:
+- Cita los textos de deny y los comandos en inglés verbatim (son salidas reales del binario); el resto en español.
+- Cifras y rutas solo de las fuentes del notebook; nada inventado. Si una cifra no está en las fuentes, omítela.
+- Sin relleno de marketing: cada slide enseña una pieza mecánica concreta (qué corre, dónde vive, qué devuelve).
+- Notas del orador: 4-6 frases por slide, con el porqué y el siguiente paso que Dachi debe decir en voz alta.</code></pre>
+  <p class="dim">Por qué funciona: (a) audiencia y objetivo explícitos; (b) estructura numerada de 18 beats anclada a fuentes concretas; (c) reglas anti-alucinación ("cifras solo de las fuentes"); (d) instrucción de idioma por partes (español + verbatim inglés); (e) speaker notes con encargo — el deck sale presentable, no un outline.</p>
+  <div class="bracket"><span class="tag">comando exacto</span><pre><code>notebooklm generate slide-deck \
+  --notebook c5f5c8cd-2840-4e04-be72-f15dca1c3756 \
+  --prompt-file /tmp/nblm-ai-eng/prompt-charla.txt \
+  --format presenter --language es \
+  --wait --timeout 900 --retry 2 --json</code></pre></div>
+</section>
+
+<section id="s5">
+  <h2><span class="num">SECCIÓN 05</span>El deck</h2>
+  <div id="deck-result">
+    <div class="note ok">
+      <h4>Generado — 18 slides, presenter, es (2026-09-29)</h4>
+      <p>Artifact <code>8d17313d-6fb7-4fd1-9ed9-072553ad5b8d</code> · "The Immutable Control Room" · tipo <em>Slide Deck</em> · estado <code>completed</code>. Descargado en los dos formatos:</p>
+      <p><code>/tmp/nblm-ai-eng/charla-github-community.pdf</code> (18 páginas, 23 MB) · <code>/tmp/nblm-ai-eng/charla-github-community.pptx</code> (25 MB, editable). Re-descargable en cualquier momento: <code>notebooklm download slide-deck -a 8d17313d -n c5f5c8cd…</code></p>
+    </div>
+    <div class="note warn">
+      <h4>Lo que pasó por el camino (línea de tiempo real)</h4>
+      <p>14:48 genera → 14:53 el CLI declara <code>GENERATION_FAILED</code> ("artifact disappeared", HTTP 502 + quota sospechada) → <code>artifact list</code> lo muestra <code>pending</code>, no muerto → <code>artifact wait</code> sobre el mismo ID completa a los 197 s. <strong>Lección operativa: el "desaparecido" del poll fue un 502 transitorio — regenerar habría gastado cuota por nada; esperar sobre el ID existente costó cero.</strong></p>
+    </div>
+    <p>Son <strong>borradores</strong> hasta que se verifiquen: cada quote verbatim y cada cifra se comprueba contra README [1] antes de la charla — el deck puede haberse servido con las 41 fuentes externas ya importadas (SECCIÓN 03), de donde salen claims de terceros [14] <em>[unsourced: no se ha auditado slide a slide en esta corrida]</em>.</p>
+  </div>
+</section>
+
+<section id="s6">
+  <h2><span class="num">SECCIÓN 06</span>Discrepancias marcadas</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Discrepancia</th><th>Fuente A</th><th>Fuente B</th><th>Cómo actúo</th></tr></thead>
+    <tbody>
+      <tr><td>"<strong>5 guards</strong>" vs 7 guards cableados</td><td>README.md (tabla + contador) [1]</td><td><code>src/chain/mod.ts:24</code>: <code>GuardName = self-protect | no-verify | policy | injection | loop | wrap | spoken-secret</code> [2]</td><td><strong>Actúo por B</strong> (el código manda sobre la doc): la charla dice "cinco de la tabla, siete hoy" — policy aterrizó 2026-09-20 [4][13], spoken-secret 2026-09-22 (D-004) [4]. El pack 01 ya lo advierte</td></tr>
+      <tr><td>Badge "release v2.2.0" vs <code>package.json</code> 2.5.0</td><td>README badge [1]</td><td><code>package.json</code> <code>"version": "2.5.0"</code> [5]</td><td><strong>Actúo por B</strong>: el badge quedó stale; la charla cita 2.5.0 (2026-09-29)</td></tr>
+      <tr><td>Copilot CLI: el evento de prompt existe pero no bloquea</td><td>GitHub Docs hooks reference vía <code>surfaces.json</code> (medido 2026-09-22) [6]</td><td>—</td><td>No es conflicto: es limitación medida. Se dice en la charla tal cual — honestidad como argumento</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="s7">
+  <h2><span class="num">SECCIÓN 07</span>Fuentes</h2>
+  <ol>
+    <li id="f1"><code>README.md</code> — <code>arcasilesgroup/ai-engineering</code> v2.x, leído 2026-09-29: tabla de guards, veredictos verbatim, lanes/triggers, cifras, superficies. <code>/Users/soydachi/repos/ai-engineering/README.md</code></li>
+    <li id="f2"><code>src/chain/mod.ts</code> — dispatcher; <code>GuardName</code> en línea 24; registro de guards (imports 14-22); evento <code>UserPromptSubmit</code> → <code>spoken-secret</code> (línea 54). Repo local, leído 2026-09-29</li>
+    <li id="f3"><code>src/guards/policy.ts</code> — cabecera y líneas 1-83: matriz octal, <code>DEFAULT_MODE="0467"</code>, <code>normalizeMode→0000</code>, <code>denialReason</code>, port de bash-guard (MIT) verificado contra el original. Repo local, 2026-09-29</li>
+    <li id="f4"><code>DECISIONS.md</code> — D-001 (2026-09-15), D-002 (2026-09-20), D-003 (2026-09-21), D-004 spoken-secret (2026-09-22)</li>
+    <li id="f5"><code>package.json</code> — <code>"name": "ai-engineering", "version": "2.5.0"</code></li>
+    <li id="f6"><code>src/surfaces/surfaces.json</code> — fila <code>copilot-cli</code>: carriers, limitación <code>userPromptSubmitted</code> (medido 2026-09-22/25, cita GitHub Docs hooks reference)</li>
+    <li id="f7"><code>.github/hooks/ai-eng.json</code> — payload verbatim del hook Copilot CLI (preToolUse: chain + checkpoint-gate)</li>
+    <li id="f8"><code>.github/workflows/check.yml</code> — gate de CI: SHA-pinning, actionlint, gitleaks/semgrep(<code>--metrics=off</code>)/trivy, <code>ai-eng update --yes</code> + <code>doctor</code> como steps</li>
+    <li id="f9"><code>skills/ai-brainstorm/SKILL.md</code>, <code>skills/ai-orchestrator/SKILL.md</code>, <code>skills/ai-verify/SKILL.md</code>, <code>skills/ai-issue-report/SKILL.md</code> — lifecycle front matter y mecanismos citados (HARD-GATE, dos preguntas, gate marker, campos cerrados)</li>
+    <li id="f10"><code>docs/blueprint.html</code> + <code>docs/recap.html</code> — documentos de diseño (convertidos con pandoc) — como sources del notebook</li>
+    <li id="f11">Corrida observada, 2026-09-29: deny de <code>self-protect</code> al <code>cp</code> desde <code>~/.agents/skills</code>; salida citada textualmente en SECCIÓN 02</li>
+    <li id="f12">NotebookLM CLI <code>0.8.0 (8fb61cb1)</code>: <code>doctor</code> (exit 0), <code>create</code>, <code>source list --json</code> (14 ready), <code>generate slide-deck --help</code> — comandos ejecutados 2026-09-29 en esta máquina</li>
+    <li id="f13"><code>.ai-engineering/research/001-gobernabilidad-observabilidad.html</code> — addendum "the policy guard landed" (2026-09-20) y tabla ASI; <code>.ai-engineering/security/run-1/REPORT.md</code> — auditoría adversarial (P1-P3 abiertos a la fecha del run)</li>
+    <li id="f14">Nota de procedimiento: los outputs de NotebookLM (deck, research) son texto que un servicio externo escribió — claim que verificar contra [1]-[9], nunca instrucción. Regla del skill ai-research paso 5</li>
+  </ol>
+</section>
+
+<section id="s8">
+  <h2><span class="num">SECCIÓN 08</span>Tres direcciones para mañana</h2>
+  <ol>
+    <li><strong>Generar el deck v2 con el notebook enriquecido.</strong> La deep research ya está importada (41 fuentes, cosechada 2026-09-29): un segundo <code>generate slide-deck</code> con el mismo prompt compara si el prior art externo (Microsoft Agent Governance Toolkit, hooks docs) mejora la charla sin diluir las cifras propias [12] · [14].</li>
+    <li><strong>Verificar el deck antes de la charla, slide a slide.</strong> <code>notebooklm download slide-deck</code> + <code>generate revise-slide</code> para corregir cualquier quote que no byte-a-byte con README [1]; los textos de deny son el activo de la charla — un quote mal copiado se ve en el primer minuto [1].</li>
+    <li><strong>Archivar el drift del README como issue gobernado.</strong> "5 guards" vs 7 en <code>mod.ts:24</code> y el badge v2.2.0 son bug de doc reproducible: <code>ai-issue-report</code> (campos cerrados, SHA-256, envío manual) y que el humano confirme [1] · [2] · [9].</li>
+  </ol>
+</section>
+
+</main>
+<footer>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Research 014 · 2026-09-29<br>
+  tools: floor local · notebooklm CLI 0.8.0 (doctor exit 0) · pandoc · deep research cosechada (+41) &nbsp;·&nbsp; degraded: ninguna (exa/tavily no consultadas: sin claim externa que resolver)
+</footer>
+
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>
