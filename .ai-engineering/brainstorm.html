@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Brainstorm · The kit, on every machine</title>
+<meta name="ai-feature" content="init-agents-md">
+<meta name="ai-approved" content="2026-09-28">
+<title>Brainstorm · init escribe nuestro AGENTS.md</title>
 <style>
 :root{
   --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
@@ -54,112 +56,63 @@ nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
 nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
 nav a.active b{opacity:1}
 .container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
-section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section{padding:56px 0 44px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
 section:last-of-type{border-bottom:none}
 h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
 h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
-h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:640;margin:var(--s6) 0 var(--s3)}
-h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:660;margin:var(--s5) 0 var(--s3)}
 h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
-p{color:var(--dim);max-width:var(--measure);margin:0 auto var(--s3);text-align:center}
+p{color:var(--dim);margin:0 auto var(--s3);text-align:justify;hyphens:auto}
 p:last-child{margin-bottom:0}
 p strong,li strong{color:var(--text);font-weight:620}
-ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
-li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+ul{margin:var(--s3) 0 var(--s5) var(--s5)}
+ol{margin:var(--s3) 0 var(--s5);text-align:left;list-style:none;padding-left:0;counter-reset:ref}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s3);padding-left:var(--s2)}
+ol li{counter-increment:ref;padding-left:2.4em;position:relative}
+ol li::before{content:counter(ref) ".";position:absolute;left:0;color:var(--comment);font-family:var(--mono);font-size:12px;width:2em;text-align:right}
 li strong{color:var(--text)}
-.dim{color:var(--comment)}
 code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
-pre{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;-webkit-overflow-scrolling:touch}
-pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
-pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
-pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
-pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px}
-pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
-pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
-pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
-.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
-.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;border:0 solid var(--accent)}
-.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
-.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
-.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
-.bracket pre{margin:0;border:none;background:none;padding:0}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
-.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
-.card h3,.card h4{min-height:22px;line-height:22px}
-.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
-.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
-.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
-.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;max-width:100%}
+pre code{background:none;border:none;padding:0;color:inherit}
 .note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);margin:var(--s5) 0}
-.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
-.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0;text-align:left}
 .note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
 .note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
 .note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
-.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
-.grid>*{min-width:0}
-.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
-.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s4) var(--s5);min-width:132px;text-align:center}
-.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
-.stat .v em{font-style:normal;color:var(--accent)}
-.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
-.tbl-wrap{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
-table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
-th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
-td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top;line-height:var(--lh-small)}
-tr:last-child td{border-bottom:none}
-td:first-child{color:var(--text);font-weight:520}
-@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
-td code{overflow-wrap:normal;word-break:keep-all}
-table{min-width:640px}
-.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
-.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
-.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
-.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
-.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
-.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
-.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
-.half{color:var(--warn);font-weight:600} .center{text-align:center}
 footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
 footer .x{color:var(--accent)}
 footer a{color:var(--dim);display:inline-block;padding:12px 4px}
-@media (max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px;letter-spacing:-.022em}.hero .sub{font-size:16px}}
-@media (max-width:820px){nav a{padding:14px 8px}}
-@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}table{font-size:13px}th,td{padding:10px var(--s3)}pre{font-size:11.5px;padding:var(--s3) var(--s4)}}
+@media (max-width:900px){.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px;letter-spacing:-.022em}.hero .sub{font-size:16px}}
+@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
-@media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
-@media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
 @media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
 </style>
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
+<a class="skip" href="#main">Saltar al contenido</a>
 
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Brainstorm · approve this</div>
-  <h1>The kit, on every machine, in every repo.</h1>
-  <p class="sub">You install ai-engineering once on a computer. Skills and agents land in one canon and are linked to each editor. You run init in a project. That project gets AGENTS.md, the root files, and a workflow folder. From then on, /ai-orchestrator builds a feature with the same phases the kit already uses. You approve the plan once, and you try the app once.</p>
-  <div class="meta">ready for approval · 2026-09-25 · path <b>architectural</b> · evidence in research/011 · say yes and the build starts</div>
+  <div class="stamp">Brainstorm · init + AGENTS.md</div>
+  <h1>init escribe nuestro AGENTS.md y pregunta si ya existe uno</h1>
+  <p class="sub">Cuando instalas ai-engineering y ejecutas <code>ai-eng init</code> en un proyecto, el proyecto debe quedar con <strong>nuestro</strong> AGENTS.md (el de la plantilla). Si el proyecto ya tiene un AGENTS.md, init debe decirlo y preguntar si lo sobreescribimos, en vez de guardarlo en silencio. Además mejora la skill <code>ai-agents-md</code> tomando ideas del AGENTS.md de corrida sin persona que compartiste.</p>
+  <div class="meta">status <b>complete · 2026-09-28</b> · path <b>bounded</b> · aprobado</div>
 </header>
 
 <nav>
-  <a href="#s1"><b>01</b>Plain</a>
-  <a href="#s2"><b>02</b>Why</a>
-  <a href="#s3"><b>03</b>Who</a>
-  <a href="#s4"><b>04</b>Today</a>
-  <a href="#s5"><b>05</b>Success</a>
-  <a href="#s6"><b>06</b>Decided</a>
-  <a href="#s7"><b>07</b>Still open</a>
-  <a href="#s8"><b>08</b>Limits</a>
-  <a href="#s9"><b>09</b>Out</a>
-  <a href="#s10"><b>10</b>Research</a>
-  <a href="#s11"><b>11</b>How</a>
+  <a href="#s1"><b>01</b>Idea</a>
+  <a href="#s2"><b>02</b>Por qué</a>
+  <a href="#s3"><b>03</b>Para quién</a>
+  <a href="#s4"><b>04</b>Hoy</a>
+  <a href="#s5"><b>05</b>Éxito</a>
+  <a href="#s6"><b>06</b>Decidido</a>
+  <a href="#s7"><b>07</b>Abierto</a>
+  <a href="#s8"><b>08</b>Límites</a>
+  <a href="#s9"><b>09</b>Fuera</a>
+  <a href="#s10"><b>10</b>Investigar</a>
+  <a href="#s11"><b>11</b>Handoff</a>
 </nav>
 
 <main id="main">
@@ -167,39 +120,38 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 
 <section id="s1">
   <h2><span class="num">01</span>The idea in plain words</h2>
-  <p>The paragraph above is the read-back. This page is the blueprint for this cut. Approve it, or mark the line that is wrong.</p>
+  <p>El read-back de arriba, aprobado sin cambios. Entrevista cerrada el 2026-09-28: las cinco decisiones de §07 se resolvieron y viven en §06.</p>
 </section>
 
 <section id="s2">
   <h2><span class="num">02</span>Why this matters</h2>
-  <p>The kit already builds a feature. Copying it into <code>.claude/</code> would make one editor special. ai-engineering already installs one canon per machine and links it to the editors. The kit joins that canon. A second computer runs the same init and gets the same files.</p>
+  <p>Hoy, si el proyecto ya trae un AGENTS.md, <code>install()</code> lo clasifica como "nunca lo instalamos nosotros" y lo deja intacto sin preguntar (<code>src/install.ts:206-211</code>), y <code>scaffoldProject</code> solo imprime "yours, untouched" (<code>src/commands/init.ts:65-68</code>). Resultado: el proyecto queda sin nuestro contrato y nadie decidió nada. Y la plantilla y la skill pueden crecer con las ideas del AGENTS.md de corrida sin persona (PROGRESS.md, paradas duras, verificación).</p>
 </section>
 
 <section id="s3">
   <h2><span class="num">03</span>Who it's for</h2>
-  <p>You, approving the shape before any kit code is written. Then anyone who runs <code>ai-eng init</code> on a new machine or in a new repo and expects <code>/ai-orchestrator</code> to work there.</p>
+  <p>Quien ejecuta <code>ai-eng init</code> en un proyecto que ya existe y ya tiene un AGENTS.md propio. Y todo agente que después lea ese archivo.</p>
 </section>
 
 <section id="s4">
   <h2><span class="num">04</span>What exists today</h2>
   <ul>
-    <li>Skills: one canon at <code>~/.ai-engineering/skills</code>, symlinked to <code>~/.claude/skills</code>, <code>~/.agents/skills</code>, and <code>~/.config/opencode/skill</code> (<code>installCanon</code> in <code>src/surfaces/adapters.ts</code>). A refused symlink is left empty. The comment mentions a Windows copy. The function does not copy.</li>
-    <li>Agents: not installed. The five kit files are new.</li>
-    <li>Hooks: <code>ai-eng chain</code> on each surface's carrier. Cursor and the Copilot cloud agent read a file in the repo. The other carriers live on the machine. Git hooks call <code>ai-eng git</code>.</li>
-    <li><code>DECISIONS.md</code> at the root. Pre-commit requires a <code>## D-NNN</code> block on a wide commit (<code>src/floor/index.ts</code>).</li>
-    <li><code>CHANGELOG.md</code> at the root. This repo's file is the changesets log. <code>upgrade.ts</code> reads it.</li>
-    <li><code>spec close</code> deletes <code>spec.html</code>, <code>plan.html</code>, <code>brainstorm.html</code>, and <code>recap.html</code> from the tree. Git keeps them.</li>
-    <li>No <code>CLAUDE.md</code>. No <code>LEARNINGS.md</code>, <code>FILEMAP.md</code>, or <code>PERMISSIONS.md</code>.</li>
+    <li><code>templates/AGENTS.md.tpl</code> es "el nuestro": se renderiza con versión y comandos detectados (<code>src/commands/init-shared.ts:107-108</code>).</li>
+    <li>Los contratos (<code>AGENTS.md</code>, <code>DECISIONS.md</code>, <code>.gitignore</code>) se escriben una sola vez; <code>update</code> y <code>re-init</code> nunca los tocan.</li>
+    <li>Archivo existente que no es nuestro: <code>install()</code> lo reporta <code>untouched</code>, sin preguntar (<code>src/install.ts:206-211</code>). <code>report.conflicts</code> de los contratos ni se imprime.</li>
+    <li>La skill <code>skills/ai-agents-md/SKILL.md</code> manda cómo se redacta el archivo y su seam dice "init lo instala una vez".</li>
+    <li>Referencia: doctor avisa si el root pasa 120 líneas y exige ≥6 reglas (<code>src/commands/doctor.ts:24-31</code>).</li>
+    <li>Tests: hasta este cambio ningún test cubría un AGENTS.md ajeno; los tres tests nuevos de <code>tests/init-command.spec.ts</code> fijan <code>--yes</code> conservando, declinar y aceptar.</li>
   </ul>
 </section>
 
 <section id="s5">
   <h2><span class="num">05</span>What success looks like</h2>
   <ul>
-    <li>A new computer: install the binary, run init. The canon has the new skills and the five agents. Each editor sees them through a symlink, or a copy if the symlink was refused.</li>
-    <li>A new repo: init writes the root files and <code>.ai-engineering/</code>. It does not copy skills into the repo.</li>
-    <li><code>/ai-orchestrator</code> runs the kit's phases. State goes to <code>.ai-engineering/workflow/</code>. The two human stops stay.</li>
-    <li><code>ai-eng chain</code> and the git hooks still run. The checkpoint gate is a second command beside the chain.</li>
+    <li>Proyecto sin AGENTS.md: init escribe el nuestro, como hoy.</li>
+    <li>Proyecto con AGENTS.md ajeno: init lo nombra y pregunta sobreescribir sí/no; la respuesta se respeta, y la opción "no" deja el archivo byte a byte igual.</li>
+    <li>Camino sin TTY (<code>--yes</code>, CI): comportamiento definido y documentado, no un cuelgue.</li>
+    <li>La skill y la plantilla reflejan el nuevo comportamiento y las secciones inspiradas que se decidan adoptar.</li>
   </ul>
 </section>
 
@@ -207,30 +159,27 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <h2><span class="num">06</span>Decisions already made</h2>
   <div class="note ok">
     <h4>Locked</h4>
-    <p>All surfaces. English for skills, docs, and code. <code>AGENTS.md</code> is the only instruction file. Skill names start with <code>ai-</code>. Agent names do not. Phases, gates, JSON, commit messages, and the viewer's English copy stay. Codegraph stays, named in Shared helpers. The viewer uses the artifact design. <code>ai-eng chain</code> and the git floor stay. <code>ai-verify</code>, <code>ai-security</code>, and <code>ai-audit-design</code> stay callable and stay out of Phase 2. <code>ai-visual-recap</code> stays. It is a picture of a PR or a diff. The viewer is live progress. They are different pages. <code>ai-design-md-planner</code> stays. <code>ai-make-design-md</code> is added and writes the same <code>DESIGN.md</code>.</p>
-  </div>
-  <div class="note ok">
-    <h4>Names and places</h4>
-    <p>Cumulative spec: <code>.ai-engineering/PRD.html</code>. Design system: <code>.ai-engineering/DESIGN.md</code> (markdown, because the Google linter requires it). Run state: <code>.ai-engineering/workflow/</code>. Root, and only the root: <code>AGENTS.md</code>, <code>DECISIONS.md</code>, <code>CHANGELOG.md</code>, <code>LEARNINGS.md</code>, <code>FILEMAP.md</code>, <code>PERMISSIONS.md</code>. <code>DECISIONS.md</code> keeps <code>## D-NNN</code>. <code>CHANGELOG.md</code> keeps the format the repo already has. A repo with no changelog gets the kit's Keep a Changelog template. Init plants a missing file and does not overwrite one that exists.</p>
+    <p>El archivo se llama siempre <code>AGENTS.md</code> en la raíz. Nunca sobreescribir en silencio (regla del propio instalador, <code>src/install.ts:1-3</code>). <code>update</code> y <code>uninstall</code> no cambian de comportamiento en este corte. El idioma de la plantilla y de la skill sigue siendo inglés.</p>
+    <p>El prompt pregunta y el default es <strong>no sobreescribir</strong>: Enter = conservar el archivo ajeno byte a byte. <code>--yes</code> / sin TTY conserva el existente también, así ningún CI destruye un archivo del usuario. Solo escribir el nuestro si el humano responde sí a mano.</p>
+    <p>El prompt es <strong>solo para <code>AGENTS.md</code></strong>. <code>DECISIONS.md</code> y <code>.gitignore</code> existentes se conservan como hoy, sin pregunta.</p>
+    <p>Línea de Code style reescrita, tu enmienda: "Explain it so someone who doesn't code can follow along, and always give the context: the reader is not in the details."</p>
   </div>
 </section>
 
 <section id="s7">
   <h2><span class="num">07</span>Decisions still open</h2>
   <div class="note warn">
-    <h4>Defaults, unless you change them</h4>
-    <p>Zed gets the skills. Doctor says the checkpoint gate is not enforced there, because Zed cannot block a tool call. The doctor line ceiling for <code>AGENTS.md</code> rises so Project config is not a warning. The anti-drift rule stays. Codex agents are not generated as TOML until that vendor page is opened or the CLI is probed.</p>
+    <h4>Defaults, salvo que los cambies</h4>
+    <p>Ninguna abierta. Cerradas en §06: default no sobreescribir con <code>--yes</code> conservando; prompt solo para <code>AGENTS.md</code>; secciones adoptadas (baseline de suite, comandos que se cuelgan, no preguntar, fill-ins de contexto, línea de verificación) en plantilla y skill; aviso extra cuando el archivo no está en git; y la enmienda de Code style.</p>
   </div>
 </section>
 
 <section id="s8">
   <h2><span class="num">08</span>Constraints and guardrails</h2>
   <ul>
-    <li>One canon. Symlink. Copy only when the symlink throws, and doctor names that mirror.</li>
-    <li>No second copy of a skill or an agent inside the repo.</li>
-    <li>The checkpoint script stays the kit's rules. A normalizer per surface feeds it. The carrier command points at the canon file.</li>
-    <li>The chain is not replaced. The gate is added next to it.</li>
-    <li><code>spec.html</code> and <code>plan.html</code> are not the feature contract. <code>spec run</code> and <code>ai-proof</code> are retired. <code>spec open</code>, <code>approve</code> and <code>close</code> stay.</li>
+    <li>Sin sobreescribir nunca en silencio: toda escritura sobre un archivo ajeno pasa por una decisión humana explícita.</li>
+    <li>El techo de doctor (120 líneas, ≥6 reglas) y la regla anti-drift siguen vigentes: lo que se añada a la plantilla no puede romperlos.</li>
+    <li>El flujo de init es idempotente: una segunda corrida no vuelve a preguntar por un archivo que ya resolvimos.</li>
   </ul>
 </section>
 
@@ -238,140 +187,29 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <h2><span class="num">09</span>Out of scope</h2>
   <div class="note danger">
     <h4>Not this cut</h4>
-    <p>A <code>CLAUDE.md</code> shim. A <code>docs/decisions/</code> folder. A second changelog. Rewriting phases. Putting <code>LEARNINGS.md</code> inside <code>workflow/</code>. Deleting the chain. Folding <code>ai-verify</code> into Phase 2. Using the artifact palette as the product's <code>DESIGN.md</code>.</p>
+    <p>Un merge inteligente de dos AGENTS.md (difusión de prosa, no de JSON). Cambiar el 3-way diff de <code>update</code>. Tocar <code>uninstall</code>. Añadir un shim <code>CLAUDE.md</code>. Reglas nuevas de CI/lint.</p>
   </div>
 </section>
 
 <section id="s10">
   <h2><span class="num">10</span>Open questions for research</h2>
   <ol>
-    <li>Does PreToolUse exit 2 on this Claude Code build stop an Agent or Task call before the subagent runs? The vendor doc says yes. Three GitHub issues say the subagent already finished.</li>
-    <li>The agent directory each vendor documents, for Codex, Copilot CLI, Pi, Oh My Pi, OpenCode, and Zed. Claude and Cursor are sourced. A wrong folder means the critic never loads.</li>
-    <li>Which of Pi, Oh My Pi, OpenCode, Codex, and Copilot can refuse to end a turn while a checkpoint is open? Cursor's own page supports <code>followup_message</code> on <code>stop</code>. That is the Cursor mechanism.</li>
+    <li>Resuelto: ningún test cubría un AGENTS.md ajeno; los existentes solo fijan el caso limpio y la re-init (<code>tests/init-command.spec.ts</code>). Los dos tests nuevos cubren declinar y aceptar.</li>
+    <li>Resuelto: el prompt vive en <code>scaffoldAndCarriers</code>, antes del spinner y después de la fase de repositorio; el camino <code>--yes</code> no pregunta y conserva el archivo.</li>
   </ol>
 </section>
 
 <section id="s11">
   <h2><span class="num">11</span>Handoff notes</h2>
-  <p>This is the picture to approve. Three trees. Then the build order.</p>
-
-  <h3>What a different computer gets</h3>
-  <p>Install the binary. Run <code>ai-eng init</code> outside a repo, or let init in a repo offer the machine step first. Same result the blueprint already describes for skills. Agents join that step.</p>
-  <pre>~/.ai-engineering/
-  skills/
-    ai-orchestrator/            checkpoint-gate.py lives here
-    ai-test-planner/
-    ai-prototype/
-    ai-review-ui/               capture.cjs lives here
-    ai-adversarial-loop/
-    ai-design-md-planner/
-    ai-make-design-md/
-    ai-agents-md/               updated section list
-    ...every other ai-* skill
-  agents/
-    checkpoint-planner.md
-    adversarial-reviewer.md
-    fixer.md
-    ui-visual-reviewer.md
-    ui-behavior-reviewer.md
-  version.json
-
-~/.claude/skills     -&gt; ~/.ai-engineering/skills
-~/.agents/skills     -&gt; ~/.ai-engineering/skills
-~/.config/opencode/skill -&gt; ~/.ai-engineering/skills
-~/.claude/agents     -&gt; ~/.ai-engineering/agents</pre>
-  <p>Further agent symlinks are added only where that vendor's doc names a directory. Cursor also reads <code>~/.claude/agents</code>, so one link covers Claude and Cursor. Codex waits on question 2.</p>
-  <p>Machine hook files, already how init works, gain the checkpoint gate beside <code>ai-eng chain</code>:</p>
-  <pre>~/.claude/settings.json
-~/.codex/hooks.json
-~/.copilot/hooks/ai-eng.json
-~/.config/opencode/plugins/ai-eng.ts
-~/.omp/agent/hooks/pre/ai-eng.ts
-~/.pi/agent/extensions/ai-eng.ts</pre>
-  <p>Zed has no carrier. Skills still show up if that host reads one of the skill mirrors. Doctor says the gate is off.</p>
-
-  <h3>What a different project gets</h3>
-  <p><code>cd their-app &amp;&amp; ai-eng init</code>. If the machine has no canon, init offers to install it and then continues. The repo does not receive a copy of the skills.</p>
-  <pre>their-app/
-  AGENTS.md                      Project config, Architecture rules,
-                                 Shared helpers, Git workflow, plus
-                                 Security and the sections already there
-  DECISIONS.md                   ## D-NNN blocks. Floor reads this path.
-  CHANGELOG.md                   existing format, or Keep a Changelog
-                                 when the file was absent
-  LEARNINGS.md                   rules + append-only log
-  FILEMAP.md
-  PERMISSIONS.md                 n/a until the app has endpoints
-  .ai-engineering/
-    config.toml
-    ai-eng.lock
-    PRD.html                     cumulative spec, artifact design
-    DESIGN.md                    created by a design skill, not by init
-    brainstorm.html              one interview, when one is in progress
-    recap.html                   only when someone runs ai-visual-recap
-    workflow/
-      checkpoints/
-        viewer.html              artifact design, English copy from the kit
-        &lt;slug&gt;.json              written by a run
-      test-plans/
-        &lt;slug&gt;.json
-      reviews/
-        &lt;slug&gt;-&lt;id&gt;.md
-  .git/hooks/                    pre-commit, commit-msg, pre-push
-                                 each calls ai-eng git
-  .cursor/hooks.json             repo carrier, chain + checkpoint gate
-  .github/hooks/ai-eng.json      only if Copilot was selected</pre>
-  <p>Init writes a root file only when that path is missing. <code>ai-eng update</code> still does not overwrite <code>AGENTS.md</code> or <code>DECISIONS.md</code>. The design skills write <code>DESIGN.md</code>. The orchestrator writes the JSON, the reviews, the learnings entries, the filemap lines, the permissions rows, and one changelog entry in the file's own format.</p>
-
-  <h3>What this source repo gains</h3>
-  <p>The canon source is <code>skills/</code> in this repository. The binary embeds it. A release is how another computer receives it. This repo also becomes a governed project, so it grows the same root files a client grows, without moving <code>DECISIONS.md</code> or rewriting <code>CHANGELOG.md</code>.</p>
-  <pre>skills/ai-orchestrator/
-skills/ai-test-planner/
-skills/ai-prototype/
-skills/ai-review-ui/
-skills/ai-adversarial-loop/
-skills/ai-design-md-planner/
-skills/ai-make-design-md/
-agents/                          source of the five markdown files
-.ai-engineering/PRD.html
-.ai-engineering/workflow/
-LEARNINGS.md
-FILEMAP.md
-PERMISSIONS.md                   n/a while this package has no endpoints</pre>
-
-  <h3>How a feature runs, unchanged in shape</h3>
-  <pre>Phase 0   preflight, branch feat/&lt;slug&gt;
-Phase 1   checkpoints JSON, test plan, prototypes
-          you approve, edit, or stop
-Phase 2   each checkpoint:
-            tests, implement,
-            behavior, ui, review
-            3 failures split the step
-            a split that fails 3 times sets halted
-Phase 3   full suites, changelog, filemap, learnings
-Phase 4   you try the app
-          approve squashes onto the base branch
-          no push</pre>
-  <p>The coordinator still does not read the source. Workers read <code>AGENTS.md</code> and <code>PRD.html</code>. Shared helpers tells them to use codegraph for call chains. The gate marker stays <code>[checkpoint slug#id stage]</code>.</p>
-
-  <h3>Build order, after you say yes</h3>
-  <ol>
-    <li>Add the seven skill directories under <code>skills/</code>. Prefix names and slash commands. Point every <code>CLAUDE.md</code> at <code>AGENTS.md</code>. Point run state at <code>.ai-engineering/workflow/</code>. Point standing files at the root. Diff the phases against the kit and expect that diff to be only those strings.</li>
-    <li>Add <code>agents/</code> at the canon source. Extend <code>installCanon</code> to materialize <code>~/.ai-engineering/agents</code> and symlink it. On a refused symlink, copy and report.</li>
-    <li>Ship <code>checkpoint-gate.py</code> inside <code>ai-orchestrator</code>. Register it beside <code>ai-eng chain</code> on every carrier that can deny. Normalizer per dialect. Plan path <code>.ai-engineering/workflow/checkpoints/*.json</code>.</li>
-    <li>Extend <code>ai-agents-md</code> and <code>templates/AGENTS.md.tpl</code> with Project config, Architecture rules, Shared helpers, and Git workflow. Raise the doctor line ceiling.</li>
-    <li>Init plants missing root files and <code>.ai-engineering/PRD.html</code> plus <code>workflow/checkpoints/viewer.html</code>. Restyle the viewer. Do not touch an existing <code>CHANGELOG.md</code> or <code>DECISIONS.md</code>.</li>
-    <li>Feature work goes to <code>ai-orchestrator</code>. <code>spec run</code> and <code>ai-proof</code> are retired.</li>
-    <li>Prove it: phase diff, gate test green, viewer polling a sample JSON, doctor truthful on Zed and on one surface that can deny.</li>
-  </ol>
+  <p>Archivos que este cambio toca: <code>src/commands/init.ts</code> (<code>scaffoldProject</code>, informe de contrato), <code>src/commands/init-shared.ts</code> (<code>contractEntries</code>), <code>src/install.ts</code> (<code>install()</code>), <code>templates/AGENTS.md.tpl</code>, <code>skills/ai-agents-md/SKILL.md</code>, <code>tests/init-command.spec.ts</code>.</p>
 </section>
 
 </div>
 </main>
 
 <footer>
-  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · approve this page<br>
-  ready for approval · 2026-09-25<br>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · complete<br>
+  complete · 2026-09-28 · approved<br>
   <a href="#main">↑ top</a>
 </footer>
 

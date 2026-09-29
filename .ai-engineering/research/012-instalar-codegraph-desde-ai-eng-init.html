@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>012 · Instalar CodeGraph desde ai-eng init — viabilidad</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23001E2B'/%3E%3Crect x='0.5' y='0.5' width='31' height='31' rx='6.5' fill='none' stroke='%2300ED64' stroke-opacity='0.35'/%3E%3Ctext x='16' y='17' text-anchor='middle' dominant-baseline='central' font-family='ui-monospace, Menlo, Consolas, DejaVu Sans Mono, monospace' font-size='14' font-weight='700' letter-spacing='-1'%3E%3Ctspan fill='%2300ED64'%3E%7B%3C/tspan%3E%3Ctspan fill='%23E8EEF7'%3Eai%3C/tspan%3E%3Ctspan fill='%2300ED64'%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<style>
+/* ── {ai} Engineering — the artifact design system ─────────────────────────
+   Tokens are the brand's, at system stacks so an artifact renders offline:
+   one signal green, neutral borders, the reading tint for small green,
+   dark-only. Anything ai-engineering renders as an artifact — spec.html,
+   plan.html, a recap, a research page, a report — inherits this block
+   verbatim.                                                                */
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+
+  /* type: one scale, tracking and leading set per size, never one value for all */
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px;      --lh-h2:1.16;      --ls-h2:-.018em;
+  --fs-h3:17px;      --lh-h3:1.32;      --ls-h3:-.006em;
+  --fs-h4:14px;      --lh-h4:1.35;
+  --fs-body:15px;    --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px;  --lh-mono:1.7;
+  --fs-label:10.5px;
+
+  /* space: a 4px rhythm, so nothing lands on an arbitrary number */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:var(--fs-body);line-height:var(--lh-body);
+  font-synthesis-weight:none;-webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);
+      border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:14px 18px;
+      clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+.skip:focus{clip-path:none;width:auto;height:auto}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+.hero{
+  position:relative;overflow:hidden;text-align:center;
+  padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);
+  background-image:
+    linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px),
+    radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);
+  background-size:32px 32px,32px 32px,100% 100%;
+}
+.hero .stamp{
+  display:inline-block;font-family:var(--mono);font-size:var(--fs-label);
+  letter-spacing:.26em;text-transform:uppercase;color:var(--accent);
+  border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;
+  margin-bottom:var(--s5);
+}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);
+         letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;
+           margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);
+            margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+
+/* ── nav: translucent chrome, content scrolls under it ────────────────── */
+nav{
+  position:sticky;top:0;z-index:50;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;
+  padding:var(--s2) var(--s4);
+  background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);
+  border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;
+}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;
+      white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+
+/* ── page ─────────────────────────────────────────────────────────────── */
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;
+        letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);
+   font-weight:640;margin:var(--s6) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);max-width:var(--measure);margin:0 auto var(--s3);text-align:center}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+
+/* ── code ─────────────────────────────────────────────────────────────── */
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);
+     border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);
+     overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);
+    padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);
+    font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;
+    -webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{
+  background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ── panels ───────────────────────────────────────────────────────────── */
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);
+         border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;
+         border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;
+         font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;
+         text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.card h3,.card h4{min-height:1.6em}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;
+         text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+pre{max-width:100%}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+      padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;
+         text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+
+/* ── tables: a component, not a spill ─────────────────────────────────── */
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);
+          overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;
+   font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;
+   text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);
+   vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+
+/* ── pills, marks ─────────────────────────────────────────────────────── */
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;
+      padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+
+/* ── pipeline: real boxes, not ASCII ─────────────────────────────────── */
+.pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+.pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);
+             border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+.pipe .stage:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+.pipe .stage:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+.pipe .stage+.stage{border-left:none}
+.pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);
+                    color:var(--accent);font-size:13px;z-index:2}
+.pipe .stage{position:relative}
+.pipe .stage:last-child::after{content:''}
+.pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+.pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+
+.tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);
+      border-radius:var(--radius-lg);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+.tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;
+             color:var(--accent);text-transform:uppercase}
+.tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+.tier .tbody b{color:var(--text)}
+.tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);
+       border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
+       color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+
+@media (max-width:900px){
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .hero{padding:64px var(--s5) 44px}
+  .hero h1{font-size:34px;letter-spacing:-.022em}
+  .hero .sub{font-size:16px}
+  section{padding:var(--s7) 0 var(--s6)}
+  .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}
+  .pipe .stage+.stage{margin-top:var(--s2)}
+  .pipe .stage::after{content:''}
+  .tier .tlat{text-align:left}
+}
+@media (max-width:560px){
+  .container{padding:0 var(--s4)}
+  nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;
+      overflow-x:auto;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;
+      background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}
+  nav a{padding:14px 8px}
+  table{font-size:13px} th,td{padding:10px var(--s3)}
+  pre{font-size:11.5px;padding:var(--s3) var(--s4)}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation:none!important;transition:none!important}
+}
+@media (prefers-reduced-transparency:reduce){
+  nav{background:var(--bg);backdrop-filter:none}
+}
+@media (prefers-contrast:more){
+  :root{--dim:#E8EDEB;--comment:#C1C7C6}
+  .card,.note,p,li,td{color:var(--dim)}
+  nav a{color:#E8EDEB}
+}
+@media print{
+  nav,.skip{display:none}
+  body{background:#fff;color:#111}
+  section{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Research 012 · viabilidad</div>
+  <h1>Instalar <span class="x">CodeGraph</span> desde <code>ai-eng init</code></h1>
+  <p class="sub">¿Se puede automatizar la instalación y la configuración de codegraph dentro de <code>ai-eng init</code>? <strong>Se puede, con una sola condición que no admite excepción</strong>: nunca en <code>--location=local</code>, porque entonces codegraph escribe <code>AGENTS.md</code> en la raíz del proyecto y ese es el archivo de contrato de ai-eng.</p>
+  <div class="meta">tools: <b>floor local</b> (src/, templates/, research/previos) · <b>notebooklm deep research</b> (38 fuentes) · <b>código fuente primario</b> de colbymchenry/codegraph · <b>sonda de la cadena</b> ai-eng chain · <b>registros npm</b> y sondeos CLI medidos<br>
+  degraded-tool: <b>exa</b> · <b>tavily</b> (no configurados) &nbsp;·&nbsp; todo lo medido, medido el <b>2026-09-28</b></div>
+</header>
+
+<nav aria-label="Secciones">
+  <a href="#s1"><b>01</b>La decisión</a>
+  <a href="#s2"><b>02</b>Herramientas</a>
+  <a href="#s3"><b>03</b>Superficie del CLI</a>
+  <a href="#s4"><b>04</b>Colisión medida</a>
+  <a href="#s5"><b>05</b>Lo que ya decide la cadena</a>
+  <a href="#s6"><b>06</b>Coste</a>
+  <a href="#s7"><b>07</b>Dónde encaja en init</a>
+  <a href="#s8"><b>08</b>Tres direcciones</a>
+  <a href="#s9"><b>09</b>Fuentes</a>
+</nav>
+
+<main id="main">
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s1">
+<h2><span class="num">01</span>La decisión que cambia esto</h2>
+
+<p>Sin este informe la decisión se tomaría por intuición: «init instala cosas, codegraph es una cosa, ponlo». Con él, la decisión es <strong>qué forma exacta tiene el offer</strong>, porque tres de ellas ya están descartadas por evidencia y una queda en pie.</p>
+
+<div class="grid g3">
+<div class="card">
+<h3>Cambia: si init lo instala en silencio</h3>
+<p><code>codegraph install --yes</code> escribe hasta <strong>8 ficheros de configuración de agentes</strong> en esta máquina y deja la telemetría en su default (activada) porque <code>--yes</code> salta la pregunta de consentimiento. <span class="src">[2] [9]</span></p>
+</div>
+<div class="card">
+<h4>Cambia: la localización</h4>
+<p><code>--location=global</code> no toca el repo. <code>--location=local</code> con los targets codex/opencode/gemini escribe <strong><code>./AGENTS.md</code></strong>, el archivo de contrato de ai-eng. Lo mido en ambas direcciones en §04. <span class="src">[7] [12]</span></p>
+</div>
+<div class="card">
+<h4>Cambia: si CI lo arrastra</h4>
+<p>La plantilla de CI ejecuta <code>ai-eng init --global --yes</code> en cada corrida. Un paso de codegraph colocado en la fase 1 se ejecutaría en <strong>cada runner de cada PR</strong>. <span class="src">[17]</span></p>
+</div>
+</div>
+
+<div class="note ok">
+<h4>Veredicto</h4>
+<p><strong>Viable, con una prohibición y tres condicionantes.</strong> Prohibido: cualquier ruta que lleve a codegraph a escribir <code>AGENTS.md</code> de proyecto. Condicionantes: separar el paso de fase 1 (nunca en CI) de fase 2, pasar <code>--target</code> explícito en vez de <code>auto</code>, y decidir la telemetría en voz alta en vez de aceptar el default. Todo lo demás — fusión de <code>settings.json</code>, hooks de git, desinstalación — ya está medido y no estorba. <span class="src">[12]</span></p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s2">
+<h2><span class="num">02</span>Herramientas usadas y ausentes</h2>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th scope="col">Rung</th><th scope="col">Herramienta</th><th scope="col">Estado</th><th scope="col">Qué aportó</th></tr></thead>
+<tbody>
+<tr><td>Local</td><td><code>src/</code>, <code>templates/</code>, <code>skills/</code></td><td><span class="pill p-ok">usado</span></td><td>Dónde se engancharía init, qué escribe hoy, qué promete el template de AGENTS.md</td></tr>
+<tr><td>Local</td><td><code>.ai-engineering/research/004</code></td><td><span class="pill p-ok">usado</span></td><td>La recomendación previa (2026-09-23): <em>«Do not add it to <code>ai-eng init</code>»</em> — la contrasto, no la repito</td></tr>
+<tr><td>Local</td><td>Registros de npm (<code>~/.npm/_logs</code>)</td><td><span class="pill p-ok">usado</span></td><td>Prueba forense de qué instalación existía antes de mis pruebas y qué retiró el uninstall</td></tr>
+<tr><td>Deep</td><td><b>NotebookLM</b> (<code>--mode deep</code>)</td><td><span class="pill p-ok">usado</span></td><td>38 fuentes sobre supply-chain npm, MCP config ownership y patrones previos (husky, lefthook, pre-commit, turbo)</td></tr>
+<tr><td>Primario</td><td>Código fuente de <code>colbymchenry/codegraph</code></td><td><span class="pill p-ok">usado</span></td><td>Defaults reales de <code>--yes</code>, semántica de <code>readJsonFile</code>, rutas por target, git hooks</td></tr>
+<tr><td>Primario</td><td>Tarball npm + <code>install.sh</code></td><td><span class="pill p-ok">usado</span></td><td>Qué se ejecuta al instalar: sin <code>postinstall</code>, con <code>preuninstall</code></td></tr>
+<tr><td>Sonda</td><td><code>ai-eng chain PreToolUse</code></td><td><span class="pill p-ok">usado</span></td><td>Qué decide ya la cadena de gobernanza sobre cada comando de codegraph (§05)</td></tr>
+<tr><td>Medición</td><td>Sondeos CLI en <code>/tmp</code></td><td><span class="pill p-ok">usado</span></td><td>Colisión en ambas direcciones, latencias, huella en disco — todo reproducido, no inferido</td></tr>
+<tr><td>Web</td><td><b>Exa</b></td><td><span class="pill p-dim">degraded-tool</span></td><td>No configurado — sustituido por lectura directa del repositorio fuente</td></tr>
+<tr><td>Web</td><td><b>Tavily</b></td><td><span class="pill p-dim">degraded-tool</span></td><td>No configurado — sustituido por la API de GitHub y el registro npm</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+<h3>Lo que no se pudo comprobar</h3>
+<p>El comportamiento de codegraph sobre <strong>Windows</strong> y sobre <strong>WSL2</strong> (<code>/mnt/*</code>, donde el watcher se desactiva y sí se instalan git hooks) no se midió: esta máquina es macOS 25.6 arm64. Queda <span class="dim">[unsourced: entorno no disponible desde aquí]</span>. Tampoco se midió la latencia del <code>prompt-hook</code> con un repo de tamaño industrial — sólo con este repo (138 ficheros) y con directorios de 1 fichero. <span class="src">[12]</span></p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s3">
+<h2><span class="num">03</span>La superficie del CLI: qué llamaría init</h2>
+
+<p>codegraph 1.6.0 (npm <code>@colbymchenry/codegraph</code>, MIT, medido el 2026-09-28) expone exactamente los flags que un init necesita. La pregunta no es si existen, sino qué hacen por defecto. <span class="src">[1] [3]</span></p>
+
+<div class="bracket">
+<span class="tag">codegraph install --help · real</span>
+<pre>  -t, --target &lt;ids&gt;      comma-separated ids, or "auto"|"all"|"none". Default: prompt
+  -l, --location &lt;where&gt;  "global" or "local". Default: prompt
+  -y, --yes               Non-interactive: defaults to --location=global
+                          --target=auto, auto-allow on
+  -i, --init              After wiring agents, also run `codegraph init`
+  --no-permissions        Skip writing the auto-allow permissions list (Claude Code only)
+  --print-config &lt;id&gt;     Print MCP config snippet and exit (no file writes)
+  --refresh               Rewrite what previous installs configured, already-configured agents only</pre>
+</div>
+
+<h3>3.1 — Lo que <code>--yes</code> resuelve en silencio</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th scope="col">Decisión</th><th scope="col">Default bajo <code>--yes</code></th><th scope="col">Fuente</th></tr></thead>
+<tbody>
+<tr><td>Localización</td><td><code>global</code> — escribe sólo en <code>$HOME</code></td><td><code>installer/index.ts</code>: <em>«else if (useDefaults) location = 'global'»</em> <span class="src">[2]</span></td></tr>
+<tr><td>Targets</td><td><code>auto</code> — todos los detectados; <strong>fallback <code>['claude']</code></strong> si no detecta ninguno</td><td><code>targets/registry.ts</code>: <em>«if nothing detected, return fallback claude»</em> <span class="src">[3]</span></td></tr>
+<tr><td>Instalar el CLI</td><td><strong>Se salta</strong> — <em>«Skipped when --yes (assume present)»</em></td><td><code>installer/index.ts</code> Step 2 <span class="src">[2]</span></td></tr>
+<tr><td>Permisos auto-allow</td><td><code>true</code> → <code>permissions.allow: ["mcp__codegraph__*"]</code></td><td>Step 4 + <code>getCodeGraphPermissions()</code> <span class="src">[2] [5]</span></td></tr>
+<tr><td>Hook de prompt</td><td><code>true</code> → grupo <code>UserPromptSubmit</code> con <code>codegraph prompt-hook</code></td><td>Step 4¾: <em>«--yes → on»</em> <span class="src">[2]</span></td></tr>
+<tr><td>Telemetría</td><td><strong>Se salta la pregunta</strong> → queda el default del sistema, que es <code>enabled: true</code></td><td>Step 4½ + <code>telemetry/index.ts</code>: <em>«decidedBy: 'default' → enabled: true»</em> <span class="src">[2] [9]</span></td></tr>
+<tr><td>Índice del proyecto</td><td>No — <code>--init</code> lo encadena, sin él no indexa nada</td><td>Step 6: <em>«it deliberately does NOT index»</em> <span class="src">[2]</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+<h4>La fila de la telemetría es la que hay que mirar</h4>
+<p>En esta máquina la telemetría está <strong>apagada</strong> con <code>consent_source: "installer"</code> — alguien la apagó en una instalación interactiva. Pero una máquina nueva que reciba <code>codegraph install --yes</code> queda con <strong><code>enabled: true</code></strong> y sólo un aviso a <code>stderr</code>, porque <code>--yes</code> salta el <code>confirm</code>. Si init automatiza esa llamada, init está tomando una decisión de consentimiento por cuenta del usuario. <span class="src">[9]</span></p>
+</div>
+
+<h3>3.2 — La huella de <code>auto</code> en esta máquina</h3>
+
+<p><code>detect()</code> de codegraph no ejecuta binarios: mira si existen directorios de configuración. Sondeo de sólo-lectura de los 11 targets contra el <code>$HOME</code> real: <span class="src">[3] [4]</span></p>
+
+<div class="flow">DETECT claude      ~/.claude, ~/.claude.json          DETECT cursor      ~/.cursor
+DETECT codex       ~/.codex                            DETECT opencode    ~/.config/opencode
+DETECT gemini      ~/.gemini                           DETECT antigravity ~/.gemini (compartido)
+DETECT copilot-vscode  ~/Library/.../Code/User, ~/.vscode   DETECT copilot-cli  ~/.copilot
+skip   hermes  ~/.hermes ausente                       skip   kiro  ~/.kiro ausente</div>
+
+<p><strong>8 de 11 targets detectados.</strong> Y ai-eng gobierna 7 superficies: <code>claude-code</code>, <code>oh-my-pi</code>, <code>opencode</code>, <code>cursor</code>, <code>codex</code>, <code>pi</code>, <code>copilot-cli</code>. La intersección no es el conjunto de ninguno de los dos: <span class="src">[12] [23]</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th scope="col">Superficie ai-eng</th><th scope="col">Target codegraph</th><th scope="col">Coincide</th></tr></thead>
+<tbody>
+<tr><td>claude-code</td><td><code>claude</code></td><td><span class="check">sí</span></td></tr>
+<tr><td>cursor</td><td><code>cursor</code></td><td><span class="check">sí</span></td></tr>
+<tr><td>codex</td><td><code>codex</code></td><td><span class="check">sí</span></td></tr>
+<tr><td>opencode</td><td><code>opencode</code></td><td><span class="check">sí</span></td></tr>
+<tr><td>copilot-cli</td><td><code>copilot-cli</code></td><td><span class="check">sí</span></td></tr>
+<tr><td><strong>oh-my-pi</strong></td><td>— no existe target</td><td><span class="cross">no</span></td></tr>
+<tr><td><strong>pi</strong></td><td>— no existe target</td><td><span class="cross">no</span></td></tr>
+<tr><td>— (ai-eng no lo gobierna)</td><td><code>gemini</code>, <code>antigravity</code>, <code>copilot-vscode</code></td><td><span class="half">codegraph los escribiría igual</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Pi y omp no tienen target: el mantenedor lo cerró en 2026-08-25 con <em>«Pi core is deliberately MCP-less»</em> y lo dejó consolidado en el tracker <code>#649</code> (abierto). <span class="src">[21]</span></p>
+
+<div class="note">
+<h4>Consecuencia para el diseño</h4>
+<p><code>--target=auto</code> no es «lo que ai-eng gobierna», es «lo que este <code>$HOME</code> tenga puesto». Un usuario con Gemini instalado pero gobernando sólo Claude se lleva tres escrituras que no pidió; un usuario de pi/omp se lleva la mitad de su superficie sin grafo. <strong>El <code>--target</code> tiene que salir de las superficies que el propio init ya preguntó</strong>, no de <code>auto</code>.</p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s4">
+<h2><span class="num">04</span>La colisión, medida en las dos direcciones</h2>
+
+<p>Éste es el núcleo del audit. Todo lo siguiente es reproducido en directorios de <code>/tmp</code> con un <code>AI_ENG_HOME</code> aislado, no inferido del código. <span class="src">[12]</span></p>
+
+<h3>4.1 — init primero, codegraph después</h3>
+
+<div class="bracket">
+<span class="tag">orden A · repo gobernado</span>
+<pre>$ ai-eng init --yes --surface claude-code     <span class="c">→ AGENTS.md 77 líneas · commit del contrato</span>
+$ codegraph install -t claude,codex,opencode -l local --yes
+
+◆ Codex CLI: Created   /tmp/col2/.codex/config.toml
+<span class="k">◆ Codex CLI: Updated   /tmp/col2/AGENTS.md</span>          <span class="c">← el contrato</span>
+◆ Claude Code: Created /tmp/col2/.mcp.json
+◆ Claude Code: Created /tmp/col2/.claude/settings.json
+◆ opencode: Created    /tmp/col2/opencode.jsonc
+
+<span class="n">AGENTS.md después: 88 líneas (+11 del bloque CODEGRAPH_START..END)</span>
+<span class="n">git status: M AGENTS.md   ?? .claude/  ?? .codex/  ?? .mcp.json  ?? opencode.jsonc</span></pre>
+</div>
+
+<p>Re-init y <code>update</code> no lo revierten: <code>AGENTS.md</code> es un fichero de contrato, no un asset del lock, así que el informe dice <em>«all 7 assets current — nothing to sync»</em> y la mutación queda. <code>doctor</code> sigue en verde (<em>42 rules · 89 lines</em>). Daño: bajo, pero ai-eng acaba de prometer <em>«yours to edit — ai-eng never rewrites them»</em> mientras otra herramienta lo reescribe. <span class="src">[12] [14]</span></p>
+
+<h3>4.2 — codegraph primero, init después</h3>
+
+<div class="bracket">
+<span class="tag">orden B · el daño real</span>
+<pre>$ codegraph install -t codex,opencode,claude -l local --yes
+◆ Codex CLI: Created   /tmp/rev/AGENTS.md            <span class="c">← 10 líneas, sólo el bloque de codegraph</span>
+
+$ ai-eng init --yes --surface claude-code
+◆ Your contract files · yours to edit — ai-eng never rewrites them
+  ✓ DECISIONS.md (contract)
+  ✓ .gitignore (contract)
+<span class="k">  AGENTS.md — yours, untouched</span>                        <span class="c">← nunca se escribe el contrato</span>
+
+<span class="n">doctor → ▲ AGENTS.md · 2 rules · 11 lines   (WARN)</span></pre>
+</div>
+
+<p>El mecanismo está en <code>src/install.ts</code>: <code>install()</code> ante un fichero existente que ai-eng no instaló devuelve <em>«we never installed it: it is the user's»</em> y lo deja. El repo queda gobernado <strong>sin contrato</strong> — sin las dieciséis reglas, sin comandos de build. <span class="src">[14]</span></p>
+
+<h3>4.3 — y si además se desinstala codegraph</h3>
+
+<div class="bracket">
+<span class="tag">orden B + codegraph uninstall -l local</span>
+<pre>$ codegraph uninstall -t codex,opencode -l local --yes
+◆ Codex CLI: removed /tmp/rev/AGENTS.md
+
+<span class="n">AGENTS.md presente? NO — BORRADO</span>
+<span class="n">doctor → ✗ AGENTS.md · missing — the contract was never installed   (FAIL)</span></pre>
+</div>
+
+<p><code>removeMarkedSection()</code> de codegraph borra el fichero entero cuando tras quitar su bloque no queda nada. En el orden B, ai-eng nunca había puesto nada dentro, así que el archivo desaparece y <code>doctor</code> pasa a <strong>FAIL</strong>. Es la secuencia más corta posible desde un init limpio hasta un repo con la cadena rota. <span class="src">[5] [12]</span></p>
+
+<h3>4.4 — lo que NO choca (también medido)</h3>
+
+<div class="grid g2">
+<div class="card">
+<h4><code>~/.claude/settings.json</code> <span class="pill p-ok">fusión simétrica</span></h4>
+<p>codegraph lee el JSON, sólo añade sus claves y escribe atómicamente: los hooks de ai-eng, el <code>$comment</code> y el <code>model</code> sobreviven a <code>codegraph install</code>. Y al revés: <code>mergeSharedText()</code> de ai-eng conserva el grupo <code>codegraph prompt-hook</code> y <code>mcp__codegraph__*</code>, también durante <code>ai-eng uninstall</code>, que pasa por <code>sweepMovedRepoCarriers()</code> — sólo extrae lo suyo y deja lo ajeno. <span class="src">[5] [12] [14] [15]</span></p>
+</div>
+<div class="card">
+<h4>Git hooks <span class="pill p-ok">sin solape de nombres</span></h4>
+<p>codegraph escribe <code>post-commit</code>/<code>post-merge</code>/<code>post-checkout</code> con bloque entre marcas y <strong>sólo si el watcher está desactivado</strong>. ai-eng usa <code>pre-commit</code>/<code>commit-msg</code>/<code>pre-push</code>. Medido: el <code>post-commit</code> del usuario se conserva, el <code>pre-commit</code> de ai-eng intacto. <span class="src">[8] [12]</span></p>
+</div>
+<div class="card">
+<h4><code>codegraph init</code> <span class="pill p-ok">huella contenida</span></h4>
+<p>Crea <code>.codegraph/</code> con su propio <code>.gitignore</code> (<code>*</code> + <code>!.gitignore</code>), así que la base de datos nunca entra en git; sólo ese <code>.gitignore</code> de 5 líneas se commitea. Se niega a indexar <code>$HOME</code> sin <code>--force</code>. <span class="src">[12]</span></p>
+</div>
+<div class="card">
+<h4><code>uninstall</code> cruzado <span class="pill p-warn">asimétrico</span></h4>
+<p><code>ai-eng uninstall</code> no retira los ficheros locales de codegraph (el lock no los declara): quedan <code>.mcp.json</code>, <code>.claude/</code>, <code>.codex/</code>, <code>opencode.jsonc</code>, <code>.codegraph/</code>. Código huérfano que nadie limpia. <span class="src">[12]</span></p>
+</div>
+</div>
+
+<div class="note danger">
+<h4>Un hallazgo colateral: <code>codegraph uninstall</code> no es <code>$HOME</code>-scoped</h4>
+<p>Al probar <code>codegraph uninstall -t claude -l global --yes</code> con <code>$HOME</code> apuntando a un directorio temporal, las escrituras de configuración de agentes fueron al HOME falso (por eso los MCP configs reales sobrevivieron), pero la <strong>eliminación del CLI no</strong>: localiza el bundle por la ruta del binario en ejecución y además invoca <code>npm uninstall --global</code> contra el prefijo real. Resultado: se retiraron el bundle de <code>~/.codegraph</code>, el symlink de <code>~/.local/bin</code> y la instalación npm global. <span class="src">[12]</span></p>
+<p><strong>Restaurado y verificado en esta misma sesión:</strong> bundle reinstalado con <code>install.sh</code> (v1.6.0, <code>~/.local/bin/codegraph</code>), npm global reinstalado (<code>@colbymchenry/codegraph@1.6.0</code> en <code>/opt/homebrew</code>), <code>telemetry.json</code> devuelto al contenido original byte a byte (machine id <code>9f00e9c8…</code>, <code>enabled: false</code>, <code>consent_source: installer</code>), handshake MCP, <code>codegraph status</code> e <code>codegraph query</code> funcionando, los 6 MCP configs de agentes intactos, <code>git status</code> del repo limpio. Sólo se perdieron cachés regenerables (<code>~/.codegraph/daemons/</code>, <code>update-check.json</code>, <code>beta-signup.json</code>). <span class="src">[12]</span></p>
+<p>Y es un argumento de diseño: <strong>init no debe tener nunca un camino hacia <code>codegraph uninstall</code></strong>. Sólo instalación.</p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s5">
+<h2><span class="num">05</span>Lo que la cadena ya decide sin tocar nada</h2>
+
+<p>Pasé cada comando por <code>ai-eng chain PreToolUse</code> con un payload real, en este repo, gobernado. Ésta es la frontera que ya existe hoy: <span class="src">[19]</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th scope="col">Comando</th><th scope="col">Veredicto</th><th scope="col">Lectura</th></tr></thead>
+<tbody>
+<tr><td><code>codegraph --version</code></td><td><span class="check">allow</span></td><td>Sondeo de presencia, sin escribir</td></tr>
+<tr><td><code>codegraph init --yes</code></td><td><span class="check">allow</span></td><td>Escribe sólo dentro del workspace</td></tr>
+<tr><td><code>codegraph install -t claude -l local --yes</code></td><td><span class="check">allow</span></td><td>Escritura en el workspace</td></tr>
+<tr><td><code>codegraph install -t claude -l global --yes</code></td><td><span class="check">allow</span></td><td><strong>Escribe en <code>$HOME</code> y la política lo admite</strong></td></tr>
+<tr><td><code>npm i -g @colbymchenry/codegraph</code></td><td><span class="check">allow</span></td><td>Red de lectura/escrita permitida</td></tr>
+<tr><td><code>codegraph telemetry off</code></td><td><span class="check">allow</span></td><td>Cambio de preferencia local</td></tr>
+<tr><td><code>curl -fsSL …install.sh | sh</code></td><td><span class="cross">DENY</span></td><td><em>«needs 0050»</em> — ejecución desde red no concedida</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+<h3>La frontera ya existe y es la correcta</h3>
+<p>El instalador <code>curl | sh</code> ya está denegado por la política de scope de comando; la vía npm y la CLI local se permiten. Es decir: <strong>no hay que construir ninguna guarda nueva</strong> — hay que construir el offer para que el camino permitido sea el que se use, y el denegado ni se proponga. Eso coincide con lo que la investigación previa decidió para el resto de la superficie: la inyección ya escanea respuestas MCP, no hace falta guarda nueva para codegraph. <span class="src">[19] [20]</span></p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s6">
+<h2><span class="num">06</span>Coste: tiempo, disco y latencia por prompt</h2>
+
+<div class="stats">
+<div class="stat"><div class="v"><em>3,3</em> s</div><div class="l">npm i -g (caliente)</div></div>
+<div class="stat"><div class="v"><em>280</em> MB</div><div class="l">instalado npm</div></div>
+<div class="stat"><div class="v"><em>278</em> MB</div><div class="l">bundle ~/.codegraph</div></div>
+<div class="stat"><div class="v"><em>2,2</em> s</div><div class="l">codegraph init · 144 ficheros</div></div>
+<div class="stat"><div class="v"><em>13</em> MB</div><div class="l">índice resultante</div></div>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th scope="col">Operación</th><th scope="col">Medido</th><th scope="col">Impacto real</th></tr></thead>
+<tbody>
+<tr><td><code>codegraph prompt-hook</code> · prompt no estructural</td><td>0,079 – 0,091 s · <strong>0 bytes</strong> de salida</td><td>Se ejecuta en <em>cada</em> prompt porque <code>--yes</code> instala el hook; sale limpio</td></tr>
+<tr><td><code>codegraph prompt-hook</code> · prompt estructural</td><td>0,26 – 0,57 s · bloque <code>&lt;codegraph_context&gt;</code></td><td>Inyecta contexto al contexto — el hook de ai-eng tarda 0,077 s, o sea <strong>×3 a ×7</strong></td></tr>
+<tr><td><code>ai-eng chain UserPromptSubmit</code></td><td>0,077 – 0,082 s</td><td>Referencia de comparación</td></tr>
+<tr><td><code>codegraph status</code></td><td>0,427 s</td><td>Demasiado caro para un chequeo de <code>doctor</code></td></tr>
+<tr><td><code>command -v codegraph</code></td><td>0,086 s</td><td>Lo que un chequeo de <code>doctor</code> debería usar</td></tr>
+<tr><td><code>codegraph sync</code> (caliente)</td><td>0,39 s</td><td>InBackground, no bloquea</td></tr>
+<tr><td><code>npm i -g --dry-run</code></td><td>1,0 s</td><td>Coste de red mínimo para decidir</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+<h3>El coste que no se ve en la instalación</h3>
+<p>Instalar cuesta 3 segundos una vez. Lo que cuesta <strong>es el hook de prompt</strong>: 0,08 s en prompts que codegraph ignora y hasta 0,57 s en los que no, en cada prompt de cada sesión, para siempre. Es un tradeoff legítimo — el bloque que inyecta es precisamente lo que hace que el agente use el grafo en vez de grepear — pero es una decisión de UX que init debe mostrar, no perpetrar en silencio bajo <code>--yes</code>. <span class="src">[12] [24]</span></p>
+</div>
+
+<p>Un dato a favor: el tarball npm <strong>no tiene <code>postinstall</code></strong>. Sólo <code>preuninstall</code> (que es el que ejecuta el borrado de configs de agentes al desinstalar el paquete). El paquete de plataforma (<code>@colbymchenry/codegraph-darwin-arm64</code>, 57,8 MB / 289,5 MB descomprimido) tiene <code>scripts: null</code>. O sea: <code>npm i -g</code> no ejecuta código nuestro en tiempo de instalación más allá del propio reify de npm. <span class="src">[10] [11]</span></p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s7">
+<h2><span class="num">07</span>Dónde encajaría en <code>init</code>, y qué rompería</h2>
+
+<p><code>initMain</code> tiene hoy dos fases con un punto de retorno temprano: la fase 1 (máquina) sale con <code>--global</code> justo después de instalar el canon, y la fase 2 (repo) sólo corre dentro de un repositorio. Y hay un dato que ya conocemos: <strong>init hace hoy una sola llamada a red</strong> — <code>registryVersion()</code>, cacheada 24 h y silenciosa si falla — así que meter codegraph en init es meter la <em>segunda</em>, y la primera que instala. <span class="src">[13] [18]</span></p>
+
+<div class="flow">initMain({yes, global, surface})
+ ├─ resolvePhase ─── fase 1 · máquina: canon + espejos
+ │                    └─ if (flags.global) → <span class="k">return 0</span>          ← CI sale aquí
+ ├─ ensureRepo / reinitHandoff
+ ├─ pickSurfaces ──── <span class="k">aquí ya sabemos las superficies elegidas</span>
+ ├─ scaffoldAndCarriers ── fase 2 · contrato, hooks, lock, CI
+ └─ commitContract ── git add -A + commit                     ← codegraph debe ir ANTES</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th scope="col">Colocación</th><th scope="col">Ventaja</th><th scope="col">Problema</th></tr></thead>
+<tbody>
+<tr><td>Fase 1 (máquina)</td><td>El <code>--location=global</code> es literalmente «lo de la máquina»; coincide con el modelo</td><td><strong>La plantilla de CI corre <code>init --global --yes</code></strong>: el paso se dispararía en cada runner, con red, en un contenedor desechable donde el MCP config no sirve para nada <span class="src">[17]</span></td></tr>
+<tr><td>Fase 2, antes de <code>pickSurfaces</code></td><td>—</td><td>No sabemos todavía qué superficies se eligieron: obligaría a <code>--target=auto</code>, con la divergencia de §03</td></tr>
+<tr><td>Fase 2, <strong>después de <code>pickSurfaces</code></strong></td><td>Hay superficies → <code>--target</code> exacto; si el usuario dice que no, init no gasta un solo subprocess</td><td>Pregunta extra en un verb que hoy sólo pregunta una vez por máquina — hay que meterla en el mismo acuerdo (<code>machineAgreed</code>) o no meterla</td></tr>
+<tr><td>Fase 2, antes de <code>commitContract</code></td><td><strong>El commit del contrato no barre ficheros ajenos</strong></td><td>Hay que dejarlo explícito: en la prueba del orden B, <code>git add -A</code> metió <code>.claude/CLAUDE.md</code>, <code>.codex/config.toml</code>, <code>.mcp.json</code> y un <code>AGENTS.md</code> ajeno dentro de <em>«chore(ai-eng): install governance»</em> <span class="src">[12]</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>7.1 — Los cuatro condicionantes</h3>
+
+<div class="grid g2">
+<div class="card">
+<h4>1 · Nunca <code>--location=local</code> <span class="pill p-bad">obligatorio</span></h4>
+<p>Es la única condición que no admite excepción: es la causa única de los tres fallos de §04. Con <code>global</code>, los <code>AGENTS.md</code> de codex/opencode van a <code>~/.codex/</code> y <code>~/.config/opencode/</code> — fuera del repo. <span class="src">[7] [12]</span></p>
+</div>
+<div class="card">
+<h4>2 · <code>--target</code> desde las superficies <span class="pill p-warn">necesario</span></h4>
+<p><code>auto</code> escribiría 8 agentes aquí y no escribiría pi/omp. El mapeo es 1:1 para 5 de 7 superficies; para <code>pi</code>/<code>oh-my-pi</code> no hay target y hay que decirlo en voz alta, no callarlo. <span class="src">[3] [21] [12]</span></p>
+</div>
+<div class="card">
+<h4>3 · Fuera de la rama <code>--global</code> <span class="pill p-warn">necesario</span></h4>
+<p>Y decidir qué hace <code>init --yes</code> en CI. La opción barata: ni offer ni skip ruidoso — un <code>if (isCI)</code> equivalente al que ya usan husky/turbo para saltarse sus prompts. <span class="src">[17] [22]</span></p>
+</div>
+<div class="card">
+<h4>4 · Telemetría decidida, no heredada <span class="pill p-warn">necesario</span></h4>
+<p>Bajo <code>--yes</code> el default es <code>enabled: true</code>. O se pregunta en el mismo prompt del offer, o se llama <code>codegraph telemetry off</code> tras instalar y se documenta. Lo que no vale es heredar el default en silencio. <span class="src">[9]</span></p>
+</div>
+</div>
+
+<h3>7.2 — Lo que ya está hecho y no hay que tocar</h3>
+
+<p>El template de <code>AGENTS.md</code> ya nombra codegraph en <em>Shared helpers</em> y hay un test que lo fija (<code>tests/agents-md-sections.spec.ts:28</code>). La skill <code>ai-codegraph</code> ya documenta instalación, MCP por superficie y cuándo <em>no</em> usarla. Es decir: <strong>el contrato ya promete una herramienta que init no instala</strong> — el hueco que este audit evalúa es real, no inventado. <span class="src">[16] [12]</span></p>
+
+<p>Y dos precisiones sobre esa skill, verificadas contra el código: el paso 2 (<em>«check daemon, si no corre arráncalo»</em>) sobra — el handshake MCP responde en 0,55 s sin ningún daemon pre-arrancado; y «una herramienta» es correcto: <code>DEFAULT_MCP_TOOLS</code> sólo expone <code>codegraph_explore</code>. <span class="src">[24] [12]</span></p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s8">
+<h2><span class="num">08</span>Tres direcciones que vale la pena tomar mañana</h2>
+
+<div class="grid g3">
+<div class="card">
+<h3>1 · El offer en fase 2, con <code>--target</code> derivado <span class="pill p-ok">recomendada</span></h3>
+<p>Un único prompt tras <code>pickSurfaces</code>: <em>«¿Instalar codegraph y enchufarlo a las superficies elegidas?»</em>. Si dice que sí, dos llamadas: <code>npm i -g @colbymchenry/codegraph</code> sólo si <code>command -v codegraph</code> falla, y <code>codegraph install --target &lt;mapped&gt; --location global --yes --no-permissions</code>. Ninguna ruta llega a <code>--location=local</code> ni a <code>codegraph uninstall</code>. Los flags nuevos: <code>--codegraph</code> / <code>--no-codegraph</code>, y <code>--yes</code> no lo implica.</p>
+<p class="src">[2] [3] [13] [19] — defaults reales de <code>--yes</code>, mapeo de targets, punto de enganche y veredictos de la cadena</p>
+</div>
+<div class="card">
+<h4>2 · El contrato deja de prometer sin instalar <span class="pill p-ok">recomendada</span></h4>
+<p>Sea cual sea la forma del offer, <code>templates/AGENTS.md.tpl</code> y la skill <code>ai-codegraph</code> tienen que dejar de asumir codegraph. Hoy el contrato dice <em>«use for call chains»</em> y nada garantiza que exista. Condición: si el offer se declina, que init deje una línea en el contrato condicionada a la presencia — el propio bloque de codegraph ya usa ese patrón (<em>«If there is no <code>.codegraph/</code>, skip CodeGraph entirely»</em>).</p>
+<p class="src">[6] [16] [12] — bloque condicional de codegraph, template y test que lo fija</p>
+</div>
+<div class="card">
+<h4>3 · El chequeo en <code>doctor</code> <span class="pill p-dim">barata, después</span></h4>
+<p>Una fila más en <code>runChecks()</code>: <code>command -v codegraph</code> (0,086 s) y si existe, si el <code>--target</code> mapeado a las superficies gobernadas lleva su entrada MCP. Nunca <code>codegraph status</code> (0,427 s por chequeo). Verdadiera la promesa del §07: el contrato sólo se da por cumplido si la herramienta está donde el contrato dice.</p>
+<p class="src">[12] [23] — latencias medidas y estructura actual de <code>runChecks()</code></p>
+</div>
+</div>
+
+<div class="note warn">
+<h4>El orden importa: 2 antes que 1</h4>
+<p>La dirección 2 es la que se puede hacer <strong>sin instalar nada</strong> y sin decidir nada sobre codegraph; además es la que arregla el estado actual, donde el contrato ya promete. La dirección 1 introduce el prompt y los flags. La 3 sólo tiene sentido cuando 1 existe, porque sin instalación automatizada no hay nada que comprobar. Y la recomendación previa de research 004 (<em>«Do not add it to <code>ai-eng init</code>»</em>) queda <strong>parcialmente revertida</strong>: se mantiene para <code>--location=local</code> y para el acoplamiento de ciclos de vida, y se levanta para un offer de <code>global</code> explícito con <code>--target</code> derivado. <span class="src">[20]</span></p>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<section id="s9">
+<h2><span class="num">09</span>Fuentes</h2>
+
+<ol>
+<li id="f1"><a href="https://github.com/colbymchenry/codegraph">colbymchenry/codegraph — README</a>: Get Started, CLI Reference, Supported Agents, Telemetry. Descargado y leído el 2026-09-28.</li>
+<li id="f2"><a href="https://github.com/colbymchenry/codegraph/blob/main/src/installer/index.ts"><code>src/installer/index.ts</code></a> — <code>runInstallerWithOptions</code>: Step 2 (CLI instalado, saltado bajo <code>--yes</code>), Step 3 (<code>location</code>), Step 4 (<code>autoAllow</code>), Step 4½ (telemetría), Step 4¾ (<code>promptHook</code>), Step 6 (no indexa). Leído 2026-09-28.</li>
+<li id="f3"><a href="https://github.com/colbymchenry/codegraph/blob/main/src/installer/targets/registry.ts"><code>src/installer/targets/registry.ts</code></a> — los 11 targets y <code>resolveTargetFlag()</code> con su fallback a <code>['claude']</code>.</li>
+<li id="f4">Targets <code>claude.ts</code>, <code>codex.ts</code>, <code>opencode.ts</code>, <code>gemini.ts</code>, <code>copilot-*.ts</code>, <code>hermes.ts</code>, <code>kiro.ts</code>, <code>antigravity.ts</code> del mismo repositorio — <code>detect()</code> por existencia de directorio y <code>instructionsPath()</code> (raíz del proyecto en <code>local</code>).</li>
+<li id="f5"><a href="https://github.com/colbymchenry/codegraph/blob/main/src/installer/targets/shared.ts"><code>targets/shared.ts</code></a> — <code>readJsonFile()</code> (devuelve <code>{}</code> si no parsea), <code>writeJsonFile()</code> (atómico + <code>.backup</code>), <code>getCodeGraphPermissions()</code> = <code>['mcp__codegraph__*']</code>, <code>replaceOrAppendMarkedSection()</code>.</li>
+<li id="f6"><a href="https://github.com/colbymchenry/codegraph/blob/main/src/installer/instructions-template.ts"><code>installer/instructions-template.ts</code></a> — <code>CODEGRAPH_INSTRUCTIONS_BLOCK</code>, el bloque condicional entre marcas.</li>
+<li id="f7">Rutas de <code>instructionsPath()</code> en <code>codex.ts</code>/<code>opencode.ts</code>/<code>gemini.ts</code>: en <code>local</code> apuntan a <code>process.cwd()/AGENTS.md</code> (o <code>GEMINI.md</code>).</li>
+<li id="f8"><a href="https://github.com/colbymchenry/codegraph/blob/main/src/sync/git-hooks.ts"><code>src/sync/git-hooks.ts</code></a> — <code>post-commit</code>/<code>post-merge</code>/<code>post-checkout</code>, bloque entre marcas, sólo si el watcher está caído.</li>
+<li id="f9"><a href="https://github.com/colbymchenry/codegraph/blob/main/src/telemetry/index.ts"><code>src/telemetry/index.ts</code></a> — <code>getStatus()</code> devuelve <code>{enabled: true, decidedBy: 'default'}</code> sin configuración; y <a href="https://github.com/colbymchenry/codegraph/blob/main/TELEMETRY.md"><code>TELEMETRY.md</code></a>, que confirma el <code>confirm</code> del instalador con default-on.</li>
+<li id="f10"><code>npm-shim.js</code> y <code>package.json</code> del tarball <code>@colbymchenry/codegraph@1.6.0</code>: <code>bin</code>, <code>optionalDependencies</code> por plataforma, auto-sanación descargando de GitHub Releases, <code>scripts</code> con sólo <code>preuninstall</code>. Extraído del tarball el 2026-09-28.</li>
+<li id="f11">Registro npm: <code>@colbymchenry/codegraph-darwin-arm64@1.6.0</code> — <em>package size 57.8 MB · unpacked 289.5 MB</em>, <code>scripts: null</code>. <code>npm pack</code> el 2026-09-28.</li>
+<li id="f12">Sondeos medidos en esta sesión (2026-09-28), todos reproducibles: colisión órdenes A/B en <code>/tmp/col2</code> y <code>/tmp/rev</code>, instalación <code>global</code> contra <code>$HOME</code> falso, fan-out de <code>auto</code> por sondeo de sólo-lectura, latencias de <code>prompt-hook</code>/<code>status</code>/<code>command -v</code>/<code>sync</code>, huella en disco, semántica de <code>uninstall</code> cruzado, y la restauración posterior.</li>
+<li id="f13"><code>src/commands/init.ts</code> de este repo — <code>initMain</code>, <code>resolvePhase</code>, la salida temprana con <code>--global</code> (líneas 134-137) y <code>machineAgreed</code>.</li>
+<li id="f14"><code>src/install.ts</code> — <code>install()</code> con su rama <em>«we never installed it: it is the user's»</em>, <code>mergeSharedText()</code> que se niega ante JSON no parseable, y <code>contractEntries()</code> en <code>src/commands/init-shared.ts</code>.</li>
+<li id="f15"><code>src/surfaces/adapters.ts</code> — <code>sweepMovedRepoCarriers()</code>, que sólo extrae las entradas de ai-eng de <code>.claude/settings.json</code> y deja las ajenas.</li>
+<li id="f16"><code>templates/AGENTS.md.tpl</code> (<em>Shared helpers — codegraph</em>) y <code>tests/agents-md-sections.spec.ts:28</code>, que lo fija en verde.</li>
+<li id="f17"><code>templates/ci.yml.tpl:53</code> — <code>run: ai-eng init --global --yes</code> en cada corrida de CI.</li>
+<li id="f18"><code>src/notice.ts</code> — la única llamada a red de init hoy: <code>registryVersion()</code> cacheada 24 h, silenciosa si falla.</li>
+<li id="f19">Sonda de la cadena, esta sesión: 7 payloads reales contra <code>ai-eng chain PreToolUse</code> — 6 <em>allow</em>, 1 <em>DENY</em> (<code>curl | sh</code>, «needs 0050»).</li>
+<li id="f20"><a href="004-codegraph-integration-with-ai-engineering.html">Research 004 — CodeGraph + ai-engineering</a> (2026-09-23), §04.1: <em>«Do not add it to <code>ai-eng init</code>»</em> — la recomendación previa que este audit contrasta.</li>
+<li id="f21">codegraph <a href="https://github.com/colbymchenry/codegraph/issues/1603">#1603</a> (cerrado 2026-08-25: <em>«Pi core is deliberately MCP-less»</em>) y <a href="https://github.com/colbymchenry/codegraph/issues/649">#649</a> (tracker de targets, abierto).</li>
+<li id="f22">NotebookLM deep research, 2026-09-28, 38 fuentes — instaladores opcionales previos (husky, lefthook, pre-commit, dagger, turbo), supply-chain npm (Sha1-Hulud, Axios) y política de scripts de pnpm 10/bun. El informe completo quedó en el notebook <code>9eeda5a6-9f14-4dd0-9c8b-bd6a3c44666f</code>.</li>
+<li id="f23"><code>src/commands/doctor.ts</code> — <code>runChecks()</code> actual y el conteo vivo de superficies (<code>claude-code, oh-my-pi, opencode, cursor, codex, pi, copilot-cli</code>).</li>
+<li id="f24"><a href="https://github.com/colbymchenry/codegraph/blob/main/src/mcp/tools.ts"><code>src/mcp/tools.ts</code></a> — <code>DEFAULT_MCP_TOOLS</code>: sólo <code>codegraph_explore</code>; el resto se recupera con <code>CODEGRAPH_MCP_TOOLS</code>.</li>
+</ol>
+
+<p class="dim">Todo lo marcado con <span class="dim">[unsourced]</span> en el texto permanece así: comportamiento en Windows/WSL2 y latencias en repos industriales, ambos fuera del alcance de esta máquina.</p>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Research 012 · 2026-09-28<br>
+  tools: floor local · notebooklm deep research (38) · código fuente primario · sonda de la cadena · registros npm · sondeos medidos &nbsp;·&nbsp; degraded: exa, tavily
+</footer>
+
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>
