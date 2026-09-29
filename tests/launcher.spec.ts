@@ -1,6 +1,6 @@
 // bin/ai-eng.js is the launcher that decides whether the CLI runs at all: the
-// platform package binary, the dev-checkout dist binary, the bun source path,
-// or the honest error. The realpath invocation guard already broke once (a
+// dev-checkout dist binary, the bun source path, or the honest error. The
+// realpath invocation guard already broke once (a
 // symlink made the launcher a silent no-op); these tests keep that class of
 // failure out. The shim is plain Node JS on purpose, so the suite runs it with
 // `node` — the same runtime npm installs use.
@@ -26,7 +26,7 @@ function stagedLauncher(prefix: string): { root: string; launcher: string } {
   const root = mkdtempSync(join(tmpdir(), prefix));
   roots.push(root);
   // Copy the launcher into a staging tree so each case controls what sits
-  // next to it: an installed platform package, a dist build, or neither.
+  // next to it: a dist build, a leftover node_modules package, or neither.
   const bin = join(root, "ai-engineing", "bin", "ai-eng.js");
   mkdirSync(dirname(bin), { recursive: true });
   copyFileSync(LAUNCHER, bin);
@@ -73,22 +73,26 @@ describe("resolveTarget", () => {
 });
 
 describe("launcher resolution order", () => {
-  test("runs the platform package binary when it is installed", () => {
+  test("a leftover platform package is never consulted — the scheme is gone", () => {
     const { root, launcher } = stagedLauncher("ai-eng-launcher-pkg-");
-    const pkgDir = join(root, "ai-engineing", "node_modules", `ai-engineering-${TARGET}`);
+    const pkgDir = join(root, "ai-engineering", "node_modules", `ai-engineering-${TARGET}`);
     mkdirSync(join(pkgDir, "bin"), { recursive: true });
-    // The launcher resolves `ai-engineing-<target>/package.json` — without a
-    // package.json the subpath resolve misses, exactly like a broken install.
+    // If anything still resolves these packages, the launcher would run them:
+    // it must not. No dist, no bun on PATH → the honest error instead.
     writeFileSync(join(pkgDir, "package.json"), '{"name":"fake","version":"0.0.0"}\n');
     writeFileSync(join(pkgDir, "bin", "ai-eng"), '#!/bin/sh\necho from-platform-package "$@"\n');
     chmodSync(join(pkgDir, "bin", "ai-eng"), 0o755);
 
-    const { status, stdout } = run(launcher, ["--version"]);
-    expect(status).toBe(0);
-    expect(stdout).toContain("from-platform-package");
+    const done = spawnSync(NODE, [launcher, "--version"], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: "/usr/bin:/bin" },
+    });
+    expect(done.status).toBe(1);
+    expect(done.stdout ?? "").not.toContain("from-platform-package");
+    expect(done.stderr ?? "").toContain("no bun runtime");
   });
 
-  test("falls back to the dist binary of a dev checkout", () => {
+  test("a stray dist build for this host runs before the source", () => {
     const { launcher } = stagedLauncher("ai-eng-launcher-dist-");
     const dist = join(dirname(dirname(launcher)), "dist");
     mkdirSync(dist, { recursive: true });
@@ -100,34 +104,32 @@ describe("launcher resolution order", () => {
     expect(stdout).toContain("from-dist");
   });
 
-  test("a published install prefers the platform package over a stray dist build", () => {
-    const { root, launcher } = stagedLauncher("ai-eng-launcher-both-");
-    const pkgDir = join(root, "ai-engineing", "node_modules", `ai-engineering-${TARGET}`);
-    mkdirSync(join(pkgDir, "bin"), { recursive: true });
-    writeFileSync(join(pkgDir, "package.json"), '{"name":"fake","version":"0.0.0"}\n');
-    writeFileSync(join(pkgDir, "bin", "ai-eng"), '#!/bin/sh\necho from-platform-package\n');
-    chmodSync(join(pkgDir, "bin", "ai-eng"), 0o755);
-    const dist = join(dirname(dirname(launcher)), "dist");
-    mkdirSync(dist, { recursive: true });
-    writeFileSync(join(dist, BIN_NAME), "#!/bin/sh\necho from-dist\n");
-    chmodSync(join(dist, BIN_NAME), 0o755);
+  test("a published install with no binary runs the source through bun", () => {
+    // The npm contract: no scripts/build.ts marker, no dist, no platform
+    // package — the launcher still runs src/cli.ts via the bun on PATH.
+    const { root, launcher } = stagedLauncher("ai-eng-launcher-npm-");
+    mkdirSync(join(dirname(dirname(launcher)), "src"), { recursive: true });
+    writeFileSync(join(dirname(dirname(launcher)), "src", "cli.ts"), "// not executed: the fake bun answers\n");
+    const fakeBin = join(root, "fake-bin");
+    mkdirSync(fakeBin, { recursive: true });
+    writeFileSync(join(fakeBin, "bun"), "#!/bin/sh\necho from-npm-source\n");
+    chmodSync(join(fakeBin, "bun"), 0o755);
 
-    const { stdout } = run(launcher, ["--version"]);
-    expect(stdout).toContain("from-platform-package");
+    const done = spawnSync(NODE, [launcher, "--version"], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH ?? ""}` },
+    });
+    expect(done.status).toBe(0);
+    expect(done.stdout ?? "").toContain("from-npm-source");
   });
 
-  test("a dev checkout runs dist/ai-eng, not the installed platform package", () => {
+  test("a dev checkout runs dist/ai-eng", () => {
     // `bun link` of this repo. scripts/build.ts is the marker that is not in
     // the published tarball, and `bun run build` writes dist/ai-eng.
-    const { root, launcher } = stagedLauncher("ai-eng-launcher-dev-");
+    const { launcher } = stagedLauncher("ai-eng-launcher-dev-");
     const pkgRoot = dirname(dirname(launcher));
     mkdirSync(join(pkgRoot, "scripts"), { recursive: true });
     writeFileSync(join(pkgRoot, "scripts", "build.ts"), "// dev checkout marker\n");
-    const pkgDir = join(root, "ai-engineing", "node_modules", `ai-engineering-${TARGET}`);
-    mkdirSync(join(pkgDir, "bin"), { recursive: true });
-    writeFileSync(join(pkgDir, "package.json"), '{"name":"fake","version":"0.0.0"}\n');
-    writeFileSync(join(pkgDir, "bin", "ai-eng"), '#!/bin/sh\necho from-platform-package\n');
-    chmodSync(join(pkgDir, "bin", "ai-eng"), 0o755);
     const dist = join(pkgRoot, "dist");
     mkdirSync(dist, { recursive: true });
     writeFileSync(join(dist, "ai-eng"), "#!/bin/sh\necho from-dist-plain\n");
@@ -160,14 +162,14 @@ describe("launcher resolution order", () => {
 
   test("with no binary anywhere, exits 1 with the honest error — never a stack trace", () => {
     const { launcher } = stagedLauncher("ai-eng-launcher-none-");
-    // No node_modules platform package, no dist/. Also no bun on PATH: the
-    // launcher must report the miss, not crash importing src/cli.ts.
+    // No dist, no bun on PATH: the launcher must report the miss, not crash
+    // importing src/cli.ts.
     const { status, stderr } = spawnSync(NODE, [launcher, "--version"], {
       encoding: "utf8",
       env: { ...process.env, PATH: "/usr/bin:/bin" },
     });
     expect(status).toBe(1);
-    expect(stderr).toContain("no prebuilt binary for");
+    expect(stderr).toContain("no bun runtime");
     expect(stderr).not.toContain("Error");
   });
 
