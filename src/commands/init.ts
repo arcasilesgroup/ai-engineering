@@ -5,6 +5,7 @@ import { PassThrough } from "node:stream";
 // machine (canon + mirrors). Inside a repo: both phases — first the canon (missing
 // is installed, never aborts), then the project contract. Idempotent: re-init
 // offers update/config/exit, never overwrites an edited file (§14.5b's six paths).
+// A first init that meets a foreign AGENTS.md names it and asks before replacing it.
 // Every line a human sees goes through src/ui.ts: the frame must survive the
 // whole flow (cli-ux-14 work point 02).
 
@@ -13,7 +14,7 @@ import { select, multiselect, isCancel } from "@clack/prompts";
 import { scriptedInput } from "../ui.ts";
 import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, rememberTemplateDir, type Surface } from "../surfaces/adapters.ts";
 import { installTemplateDir } from "../floor/template.ts";
-import { install, buildLock, lockText, parseLock } from "../install.ts";
+import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home } from "../env.ts";
 import { planEntries, contractEntries, hasAdapter, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
@@ -59,11 +60,13 @@ export function surfaceHint(s: Surface): string {
   return delta.join(" · ");
 }
 
-function scaffoldProject(surfaces: string[]): string[] {
+function scaffoldProject(surfaces: string[], contract: PlanEntry[]): string[] {
   const cwd = process.cwd();
   const lines: string[] = [];
-  // Contract files: written ONCE. install() skips anything the user already has.
-  const contractReport = install(cwd, contractEntries(new Date().toISOString().slice(0, 10), cwd));
+  // Contract files: written ONCE. The AGENTS.md question is already resolved where the
+  // prompt lives (scaffoldAndCarriers), so what reaches install() here is exactly what
+  // may be written: a kept file was filtered out, a replaced one was written above.
+  const contractReport = install(cwd, contract);
   for (const written of contractReport.written) lines.push(`✓ ${written} (contract)`);
   for (const untouched of contractReport.untouched) lines.push(`· ${untouched} — yours, untouched`);
   const entries = planEntries(surfaces);
@@ -293,9 +296,36 @@ async function scaffoldAndCarriers(
   machineAgreed: boolean,
   confirmWithInput: ConfirmInput,
 ): Promise<string[]> {
+  const cwd = process.cwd();
+  // An AGENTS.md this project already had is named and asked about before anything is
+  // written: default, --yes and cancel keep it byte for byte; only a human yes replaces
+  // it. install() would keep it either way ("we never installed it: it is the user's"),
+  // so the decision is resolved here, before the installer runs.
+  let contract = contractEntries(new Date().toISOString().slice(0, 10), cwd);
+  const agents = contract.find((entry) => entry.path === "AGENTS.md");
+  const agentsPath = join(cwd, "AGENTS.md");
+  let replacedExisting = false;
+  let keptExisting = false;
+  if (agents !== undefined && existsSync(agentsPath) && readFileSync(agentsPath, "utf8") !== agents.ours) {
+    let overwrite = false;
+    if (flags.yes !== true) {
+      const lsFiles = spawnSync("git", ["-C", cwd, "ls-files", "--", "AGENTS.md"], { encoding: "utf8" });
+      const untrackedHint = lsFiles.status === 0 && (lsFiles.stdout ?? "").trim() === "" ? " Not in git: overwriting loses it for good." : "";
+      overwrite = await confirmWithInput(`AGENTS.md already exists in this project.${untrackedHint} Overwrite it with the ai-engineering contract file?`, false);
+    }
+    contract = contract.filter((entry) => entry.path !== "AGENTS.md");
+    if (overwrite) {
+      writeFileSync(agentsPath, agents.ours);
+      replacedExisting = true;
+    } else {
+      keptExisting = true;
+    }
+  }
   const sp = ui.spinner();
   sp.start("Scaffolding governance…");
-  const lines = scaffoldProject(picked);
+  const lines = scaffoldProject(picked, contract);
+  if (replacedExisting) lines.unshift("✓ AGENTS.md (contract) — replaced the file that was there");
+  if (keptExisting) lines.unshift("· AGENTS.md — yours, untouched");
   sp.stop();
   await installCarriers(flags, picked, machineAgreed, confirmWithInput, lines);
   await installTemplate(machineAgreed, confirmWithInput, lines);
