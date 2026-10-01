@@ -213,16 +213,16 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     cleanups.push(root);
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
 
-    const remote = gitOut(["config", "--get", "branch.alpha.remote"], repo);
-    const merge = gitOut(["config", "--get", "branch.alpha.merge"], repo);
+    const remote = gitOut(["config", "--get", "branch.feat/alpha.remote"], repo);
+    const merge = gitOut(["config", "--get", "branch.feat/alpha.merge"], repo);
     expect(remote.status).toBe(0);
     expect(remote.stdout.trim()).toBe(".");
     expect(merge.status).toBe(0);
     expect(merge.stdout.trim()).toBe("refs/heads/main");
 
-    expect(branchNames(repo)).toContain("alpha");
+    expect(branchNames(repo)).toContain("feat/alpha");
     // Cut from the local main, not from a remote-tracking ref: same commit.
-    expect(git(["rev-parse", "alpha"], repo).trim()).toBe(git(["rev-parse", "main"], repo).trim());
+    expect(git(["rev-parse", "feat/alpha"], repo).trim()).toBe(git(["rev-parse", "main"], repo).trim());
   });
 
   test("design slot: an uncommitted slot file makes new refuse and create nothing", () => {
@@ -240,7 +240,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(run.status).not.toBe(0);
     expect(run.stderr).toContain("brainstorm.html");
     expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("alpha");
+    expect(branchNames(repo)).not.toContain("feat/alpha");
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
@@ -280,7 +280,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(second.status).toBe(0);
     expect(second.stderr).toContain("shared.md");
     expect(existsSync(join(root, "beta"))).toBe(true);
-    expect(branchNames(repo)).toContain("beta");
+    expect(branchNames(repo)).toContain("feat/beta");
   });
 
   test("list: reports every open worktree with its slug and path and mutates nothing", () => {
@@ -317,7 +317,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(existsSync(join(root, "alpha"))).toBe(false);
     expect(worktreeEntries(repo).map((entry) => entry.path)).not.toContain(created);
     expect(worktreeEntries(repo)).toHaveLength(1);
-    expect(branchNames(repo)).not.toContain("alpha");
+    expect(branchNames(repo)).not.toContain("feat/alpha");
   });
 
   test("no push: no git command the verb emits ever pushes", () => {
@@ -368,7 +368,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
       const run = runCli(["worktree", "new", slug], repo);
       expect(run.status).toBe(0);
       expect(existsSync(join(root, slug))).toBe(true);
-      expect(branchNames(repo)).toContain(slug);
+      expect(branchNames(repo)).toContain(`feat/${slug}`);
     }
   });
 
@@ -405,7 +405,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const removed = runCli(["worktree", "rm", "alpha"], repo);
     expect(removed.status).toBe(0);
     expect(worktreeEntries(repo)).toHaveLength(1);
-    expect(branchNames(repo)).not.toContain("alpha");
+    expect(branchNames(repo)).not.toContain("feat/alpha");
   });
 
   test("untracked design slot: a never-committed .ai-engineering slot still makes new refuse", () => {
@@ -422,7 +422,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(run.status).not.toBe(0);
     expect(run.stderr).toContain("brainstorm.html");
     expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("alpha");
+    expect(branchNames(repo)).not.toContain("feat/alpha");
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
@@ -478,7 +478,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(run.status).not.toBe(0);
     expect(run.stderr).toContain("brainstorm.html");
     expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("alpha");
+    expect(branchNames(repo)).not.toContain("feat/alpha");
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
@@ -498,7 +498,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(run.status).not.toBe(0);
     expect(run.stderr).toContain("brainstorm");
     expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("alpha");
+    expect(branchNames(repo)).not.toContain("feat/alpha");
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
@@ -517,7 +517,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(run.status).not.toBe(0);
     expect(run.stderr).toContain("plan.html");
     expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("alpha");
+    expect(branchNames(repo)).not.toContain("feat/alpha");
   });
 
   // On a case-insensitive filesystem `brainstorm.HTML` is the same file as
@@ -536,8 +536,87 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
       expect(run.status).not.toBe(0);
       expect(run.stderr).toMatch(/brainstorm\.html/i);
       expect(existsSync(join(root, "alpha"))).toBe(false);
-      expect(branchNames(repo)).not.toContain("alpha");
+      expect(branchNames(repo)).not.toContain("feat/alpha");
       expect(worktreeEntries(repo)).toHaveLength(1);
     },
   );
+
+  test("non-ascii inside a slot directory: escape-decorated porcelain still makes new refuse", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    // git quotes the path as `"?? .ai-engineering/brainstorm.html/caf\303\251.txt"`,
+    // so a parser that keeps the C escapes never matches the slot prefix.
+    const slotDir = join(repo, ".ai-engineering", "brainstorm.html");
+    mkdirSync(slotDir, { recursive: true });
+    writeFileSync(join(slotDir, "café.txt"), "dirt\n");
+
+    const run = runCli(["worktree", "new", "alpha"], repo);
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toMatch(/brainstorm\.html/);
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(branchNames(repo)).not.toContain("feat/alpha");
+    expect(worktreeEntries(repo)).toHaveLength(1);
+  });
+
+  test("from inside a worktree: list lists sessions and new cuts from the primary main", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    const inside = join(root, "alpha");
+    const primary = realpathSync(repo);
+
+    const listed = runCli(["worktree", "list"], inside);
+    expect(listed.status).toBe(0);
+    expect(listed.stdout).toContain("alpha");
+    const mentionsPrimary = listed.stdout
+      .split("\n")
+      .some((line) => line.includes(primary) && !line.includes(`${primary}.worktrees`));
+    expect(mentionsPrimary).toBe(false);
+
+    // The intended use: a new session opened from inside an open worktree still
+    // belongs to the primary repository, not to a nested `<worktree>.worktrees`.
+    const created = runCli(["worktree", "new", "otra"], inside);
+    expect(created.status).toBe(0);
+    expect(existsSync(join(root, "otra"))).toBe(true);
+    expect(existsSync(join(root, "alpha.worktrees", "otra"))).toBe(false);
+    expect(git(["rev-parse", "feat/otra"], repo).trim()).toBe(git(["rev-parse", "main"], repo).trim());
+  });
+
+  test("newline slug: a control character is refused and leaves nothing behind", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+
+    const run = runCli(["worktree", "new", "alpha\n"], repo);
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toMatch(/slug/i);
+    expect(existsSync(join(root, "alpha\n"))).toBe(false);
+    expect(branchNames(repo)).toEqual(["main"]);
+    expect(worktreeEntries(repo)).toHaveLength(1);
+  });
+
+  test("declaration file: an invalid file is rejected, and rm drops the slug's entry", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const declarations = join(repo, ".ai-eng-worktrees.json");
+    writeFileSync(declarations, "null");
+
+    // A malformed declaration file must be a refusal, not an uncaught throw.
+    const bad = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr.trim().length).toBeGreaterThan(0);
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+
+    rmSync(declarations, { force: true });
+    expect(runCli(["worktree", "new", "alpha", "docs/shared.md"], repo).status).toBe(0);
+    expect(existsSync(declarations)).toBe(true);
+    expect(readFileSync(declarations, "utf8")).toContain("alpha");
+
+    expect(runCli(["worktree", "rm", "alpha"], repo).status).toBe(0);
+    const after = existsSync(declarations) ? readFileSync(declarations, "utf8") : "";
+    expect(after).not.toContain("alpha");
+  });
 });
