@@ -22,7 +22,10 @@ in order, from the primary checkout, and report what each one did.
 
 ## The pass
 
-1. **Remove the dead worktrees.** For each worktree, read two facts before
+1. **Remove the dead worktrees.** The loop walks the session worktrees only —
+   the primary checkout is never a candidate, since `git worktree remove <repo>`
+   refuses it as a main working tree (and the pass leaves the tree you are
+   standing in alone). For each worktree, read two facts before
    touching it: whether its HEAD is on a branch
    (`git -C <path> symbolic-ref -q HEAD`) and what uncommitted content it holds,
    ignored files included
