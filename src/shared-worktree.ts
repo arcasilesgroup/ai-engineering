@@ -190,16 +190,19 @@ function statusPaths(tokens: string[], index: number): { paths: string[]; next: 
 }
 
 /** The ignored paths a worktree holds, so `worktree rm` can name what its removal
- *  drops before it drops it. `-uall` forces the untracked listing past the user's
- *  `status.showUntrackedFiles=no` — which would otherwise print nothing at all,
- *  ignored entries included, and let the removal name an empty set while dropping
- *  a `local.env` — exactly why the slot guard next door forces it too. `-z` keeps
- *  each path raw, matching the status reads elsewhere. A status the command cannot
- *  read yields an empty list: the removal still runs, and an empty report never
- *  claims content it did not see. */
-function ignoredPaths(path: string): string[] {
-  const status = git(path, ["status", "--porcelain", "--ignored", "-uall", "-z"]);
-  if (status.status !== 0) return [];
+ *  drops before it drops it. `--untracked-files=normal` forces the untracked listing
+ *  past the user's `status.showUntrackedFiles=no` — which would otherwise print
+ *  nothing at all, ignored entries included, and let the removal name an empty set
+ *  while dropping a `local.env` — while keeping a wholly ignored directory collapsed
+ *  to one `dir/` entry, so the report stays bounded (a 2,000-file `node_modules` is
+ *  one line, not 2,000) and matches the skill list's `dir/` entries literally. `-z`
+ *  keeps each path raw, matching the status reads elsewhere. null means the status
+ *  could not be trusted — a non-zero exit, or the warning git prints on stderr while
+ *  still exiting 0 when it cannot read a subdirectory — so the caller never reports
+ *  an empty set for content the read did not see. */
+function ignoredPaths(path: string): string[] | null {
+  const status = git(path, ["status", "--porcelain", "--ignored", "--untracked-files=normal", "-z"]);
+  if (status.status !== 0 || status.stderr.trim() !== "") return null;
   const found: string[] = [];
   const tokens = status.stdout.split("\0");
   for (let index = 0; index < tokens.length; ) {
@@ -400,7 +403,12 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   const declarations = pruneDeclarations(root, read.declarations);
   delete declarations[slug];
   writeDeclarations(root, declarations);
-  const droppedNote = dropped.length > 0 ? ` — dropped ignored: ${dropped.join(", ")}` : "";
+  const droppedNote =
+    dropped === null
+      ? " — the ignored content could not be read (git status warned); anything it held was dropped unseen"
+      : dropped.length > 0
+        ? ` — dropped ignored: ${dropped.join(", ")}`
+        : "";
   return {
     code: 0,
     out: force

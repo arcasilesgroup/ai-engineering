@@ -26,12 +26,15 @@ in order, from the primary checkout, and report what each one did.
    touching it: whether its HEAD is on a branch
    (`git -C <path> symbolic-ref -q HEAD`) and what uncommitted content it holds,
    ignored files included
-   (`git -C <path> status --porcelain --ignored --untracked-files=all` — the
+   (`git -C <path> status --porcelain --ignored --untracked-files=normal` — the
    option is required: a `status.showUntrackedFiles=no` in the repository or the
    global config makes the bare command print nothing at all, so the read must
-   force the listing itself). Remove
+   force the listing itself; `normal` keeps a wholly ignored directory collapsed
+   to one `!! dir/` line, so the report stays bounded and matches the list's
+   `dir/` entries literally). Remove
    it with `git worktree remove <path>` only when the HEAD check names a branch
-   that is already merged into the local `main` **and** every status entry is
+   that is already merged into the local `main`, the status read printed no
+   warning, **and** every status entry is
    either absent or an ignored path on the regenerable list below. Otherwise skip
    it and report it kept with the reason:
    - **No branch (detached HEAD).** `git worktree remove` exits 0 on a clean
@@ -43,6 +46,10 @@ in order, from the primary checkout, and report what each one did.
      list below — the removal is never forced, and git destroys ignored content
      silently (a `.env`, ignored screenshots). Report it kept and say what the
      status listed.
+   - **Unreadable status.** `git status` exits 0 while warning on stderr when it
+     cannot read a subdirectory or a path, so a read that warned is not a clean
+     worktree: keep it and report the warning. The doubt is resolved by keeping,
+     never by removing what the read did not see.
    - **Ignored content that is all regenerable.** Two groups, and nothing else:
      the paths this framework rebuilds — `node_modules/`, `dist/`, `coverage/`,
      `.stryker-tmp/`, `reports/`, `.ai-engineering/receipts/`,
@@ -56,16 +63,18 @@ in order, from the primary checkout, and report what each one did.
      that list — it is exactly what this framework regenerates and what the
      repository ignores as noise, so anything else ignored is treated as data and
      keeps the worktree.
-     A match is anchored, never a substring or a bare name: the printed path
-     must be the entry itself, or sit inside a listed directory — and both sides
-     are worktree-root-relative, so a listed directory is taken whole (`dist/`
-     covers `dist/out.js`, and `node_modules/` covers everything under it). A
-     lookalike is not the entry: `packages/x/dist/out.js` is not `dist/`, and
-     `reports-archive/` is not `reports/`. The read prints each ignored file
-     (`--untracked-files=all` never collapses a wholly ignored directory to one
-     `!! dir/` line), so the report names what it drops; the ceiling is that a
-     listed directory goes whole — a hand-written file inside `dist/` is dropped
-     with it, and only the paths git prints are ever seen.
+     A match is anchored to the worktree root, never a substring or a bare name:
+     the printed path must be the entry itself, or sit inside a listed directory,
+     so a listed directory is taken whole (`dist/` covers `dist/out.js`, and
+     `node_modules/` covers everything under it). A lookalike is not the entry:
+     `packages/x/dist/out.js` is not `dist/`, and `reports-archive/` is not
+     `reports/`. The two `*`-prefixed entries are the exception to the whole-path
+     rule — they are suffix patterns matched against the path's last component at
+     any depth, so `*.DS_Store` matches `sub/.DS_Store` and `*.bun-build` matches
+     `app.bun-build`. The read collapses a wholly ignored directory to one
+     `!! dir/` line, so the report names the directories it drops; the ceiling is
+     that a listed directory goes whole — a hand-written file inside `dist/` is
+     dropped with it, unlisted, and only the paths git prints are ever seen.
    Never force a removal.
 2. **Prune the stale ones.** Run `git worktree prune` to drop registrations
    whose directory is already gone. It removes no live worktree.
