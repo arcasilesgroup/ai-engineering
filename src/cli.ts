@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // src/cli.ts — raw argv, prompts only for what's missing (@clack/prompts). Human
-// verbs get a line in --help. Machine verbs (chain|git|wrap|spec|adapt|briefing)
+// verbs get a line in --help. Machine verbs (chain|git|wrap|spec|worktree|adapt|briefing)
 // are named on one line: agents and hooks type them, people do not.
 
 import { VERSION } from "./version.ts";

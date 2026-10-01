@@ -441,8 +441,8 @@
     <div class="card">
       <h4>CLI Layer</h4>
       <p><code>@clack/prompts 1.7.0</code> — prompts interactivos: text(), select(), confirm(), multiselect(), spinner(), tasks(). Async, cancel-safe (<code>isCancel()</code>), ESM-first, Bun-compatible.<br>
-      <code>@bomb.sh/args 0.3.1</code> — &lt;1kB flag parser. Flags primero; lo que falte, se pregunta.<br>
-      <code>@bomb.sh/tab 0.0.22</code> — autocompletion zsh/bash/fish/powershell, se instala una vez con <code>t.setup()</code>.</p>
+      <code>process.argv</code>: los flags se leen en un bucle a mano, sin dependencia. Flags primero; lo que falte, se pregunta.<br>
+      <code>@bomb.sh/args</code> y <code>@bomb.sh/tab</code> eran la capa de CLI y el TAB del diseño v17; se retiraron el 2026-09-22 y hoy no están en <code>package.json</code>, ni en <code>bun.lock</code>, ni en <code>src/</code>.</p>
       <p><strong>NO usamos @bomb.sh/tty</strong> — los docs oficiales lo dicen literalmente: <em>«One-shot CLI prompts: use @clack/prompts»</em>. TTY es para TUIs full-screen con layout custom (Clay flexbox WASM). No necesitamos eso.</p>
     </div>
     <div class="card">
@@ -450,13 +450,13 @@
       <p><code>Bun</code> — runtime + bundler + test runner + <code>--compile</code> a binario único.<br>
       <code>TypeScript</code> estricto, sin <code>any</code> (regla 10, verificada por tsgolint).<br>
       <code>single-file</code> — 8 targets cross-compile; macOS con codesign, Windows sin symlinks.</p>
-      <p>Sin dependencias de runtime además de las tres de arriba. Sin Python. Sin wheel.</p>
+      <p>Sin dependencias de runtime además de las dos que declara <code>package.json</code>: <code>@clack/prompts</code> (prompts) y <code>fast-wrap-ansi</code> (el envoltorio ANSI de <code>wrap</code>, en <code>src/ui.ts</code>). Sin Python. Sin wheel.</p>
       <p style="font-size:13px"><strong>Sin sistema de observabilidad propio:</strong> ai-engineering NO construye un servicio, ni un dashboard, ni dependencias de runtime de métricas. Referencia AgentsView (un binario, un SQLite) para métricas de agentes; Phoenix/Langfuse para OTLP si algún día se necesita. Lo que sí construye es <em>signal inside the gc</em> (§10, research/001 R1+R2, D-003): el agregado de <code>doctor --gc</code> conserva por guard/herramienta/superficie y una serie diaria de 90 días, y el ledger <code>receipts/denies.json</code> hace visible el reintento ya-negado a través de sesiones — señal pura, jamás un veredicto nuevo. Si a los 90 días no marcó ni un repeat ni una desviación, la capa se retira (§10.2).</p>
     </div>
   </div>
 
   <h3>Referencia viva del patrón CLI: <code>~/repos/ai-shell</code></h3>
-  <p>El repo demuestra el patrón exacto en producción (1,698 LOC): <code>src/cli.ts</code> entry con parser de flags · <code>src/prompt.ts</code> flow intro → text → spinner → select → confirm · <code>src/commands/config.ts</code> menú recursivo · <code>src/helpers/providers.ts</code> wizard con select → text → test → save. Nosotros usamos <code>args</code> en lugar de cleye (más ligera, misma función).</p>
+  <p>El repo demuestra el patrón exacto en producción (1,698 LOC): <code>src/cli.ts</code> entry con parser de flags · <code>src/prompt.ts</code> flow intro → text → spinner → select → confirm · <code>src/commands/config.ts</code> menú recursivo · <code>src/helpers/providers.ts</code> wizard con select → text → test → save. Nosotros no usamos un parser de flags: <code>src/cli.ts</code> lee <code>process.argv</code> a mano (el <code>args</code> del diseño v17 se retiró el 2026-09-22).</p>
 
   <h3>Herramientas del ecosistema que adoptamos (no construimos)</h3>
   <div class="grid g3">
@@ -502,8 +502,8 @@
 
 <pre><span class="c">ai-engineering/                          ≈3,800 LOC TS propios + canon de skills integrados (§11) + ≈500 de capas finas</span>
 ├── src/
-│   ├── cli.ts                           <span class="c"># tab() → args.parse → dispatch a verbo</span>
-│   ├── commands/                        <span class="c"># 8 archivos FINOS: parsean args y delegan — la lógica vive en los módulos de abajo</span>
+│   ├── cli.ts                           <span class="c"># process.argv → dispatch a verbo</span>
+│   ├── commands/                        <span class="c"># archivos FINOS: parsean args y delegan — la lógica vive en los módulos de abajo</span>
 │   │   ├── <span class="b"># ── 6 verbos humanos ──</span>
 │   │   ├── init.ts                      <span class="c"># sin repo git → ofrece `git init -q` él mismo · instala · diff 3-vías · notes de trust → install.ts</span>
 │   │   ├── doctor.ts                    <span class="c"># 12 checks + payload adversarial + p95 de receipts + drift lockfile → checks.ts</span>
@@ -515,7 +515,7 @@
 │   │   ├── chain.ts                     <span class="c"># `ai-eng chain &lt;evento&gt; &lt; payload-json` ← hooks de superficie · stdout = veredicto · exit 2 = deny → chain/</span>
 │   │   ├── git.ts                       <span class="c"># `ai-eng git pre-commit|commit-msg|pre-push` ← los 3 shims del floor → floor/ (§13.2)</span>
 │   │   ├── wrap.ts                      <span class="c"># `ai-eng wrap test -- npm test` ← el input que reescribió el guard wrap → wrap/ (§15)</span>
-│   │   └── spec.ts                 <span class="c"># `ai-eng spec run|open|close` — run ← CI; open/close ← el ritual del slot (§21.2) → spec/ (§09.3)</span>
+│   │   └── spec.ts                 <span class="c"># `ai-eng spec open|approve|close` — open/close ← el ritual del slot (§21.2); `run` retirado (§14) → spec/ (§09.3)</span>
 │   ├── chain/                           <span class="c"># ── lógica de los verbos máquina ──</span>
 │   │   ├── mod.ts                       <span class="c"># dispatcher · tabla evento→guards · cache (session, tool_use_id) · ≈250 LOC</span>
 │   │   ├── payload.ts                   <span class="c"># normaliza los 3 vocabularios de superficie a 1 forma</span>
@@ -1136,7 +1136,7 @@ license: Apache-2.0
   <p><strong>La duda 1 resuelta — «si solo instalo global, ¿cómo sé que me falta iniciar el proyecto?»</strong> Con un hook de <code>SessionStart</code> que cuesta una comprobación de existencia, no un prompt: si el cwd es un repo y no tiene <code>.ai-engineering/config.toml</code>, inyecta <strong>una línea</strong> en el contexto del agente — <code>[ai-eng] este repo no está gobernado: ai-eng init</code> — y el agente la menciona al saludar. Cero tokens cuando sí está inicializado (el hook sale antes de escribir nada), cero red, y <code>doctor</code> lo reporta como FAIL para que no dependa solo del aviso.</p>
   <p><strong>La duda 2 resuelta — «¿cómo se entera uno de la versión nueva sin gastar tokens en cada llamada?»</strong> Dos canales, ninguno en el hot-path: <strong>(a)</strong> el chequeo al CLI es <em>cacheado 24h</em> (§14.0) — una petición anónima al día como mucho, y solo cuando corres un comando de humano; <strong>(b)</strong> el hook de <code>SessionStart</code> lee <code>~/.ai-engineering/version.json</code> — <strong>un archivo local, cero red</strong> — y si hay versión nueva inyecta una línea para que <em>el agente te lo diga y te ofrezca actualizar</em>. Y como la fase 1 mantiene un registro de proyectos inicializados (<code>~/.ai-engineering/projects.json</code>, alimentado por <code>init</code>), <code>ai-eng upgrade --all</code> sube el binario y reinstala los assets en todos tus repos gobernanados de una pasada. Nunca auto-update: propone, dispone el humano.</p>
 
-  <p>Los que tú tecleas: <code>init · doctor · config · update · upgrade · uninstall</code>. Flags primero (<code>@bomb.sh/args</code>), prompts solo para lo que falte (<code>@clack/prompts</code>), TAB en todo (<code>@bomb.sh/tab</code>). El binario expone además <strong>siete verbos que no son para el humano</strong> — los invocan los hooks de superficie, los shims de git y la plantilla de CI: <code>ai-eng chain &lt;evento&gt;</code> (stdin→stdout, exit 2 = deny), <code>ai-eng git &lt;hook&gt;</code>, <code>ai-eng wrap test -- &lt;cmd&gt;</code>, <code>ai-eng spec run|open|close</code>, <code>ai-eng worktree new|rm|list</code>, <code>ai-eng adapt</code> y <code>ai-eng briefing</code>. <code>--help</code> los nombra en una línea, bajo «Machine verbs», y no llevan TAB como los humanos: son la superficie de programación del propio producto (§07).</p>
+  <p>Los que tú tecleas: <code>init · doctor · config · update · upgrade · uninstall</code>. Flags primero (un bucle sobre <code>process.argv</code>, sin dependencia), prompts solo para lo que falte (<code>@clack/prompts</code>). El binario expone además <strong>siete verbos que no son para el humano</strong> — los invocan los hooks de superficie, los shims de git y la plantilla de CI: <code>ai-eng chain &lt;evento&gt;</code> (stdin→stdout, exit 2 = deny), <code>ai-eng git &lt;hook&gt;</code>, <code>ai-eng wrap test -- &lt;cmd&gt;</code>, <code>ai-eng spec open|approve|close</code>, <code>ai-eng worktree new|rm|list</code>, <code>ai-eng adapt</code> y <code>ai-eng briefing</code>. <code>--help</code> los nombra en una línea, bajo «Machine verbs»: son la superficie de programación del propio producto (§07).</p>
 
   <p><strong>El paquete es <code>ai-engineering@2.2.3</code></strong> — otro artefacto en otro registry que el wheel de Python de v1 (que llegó a 1.0.0 en PyPI); los dos números no tienen relación. v2 arrancó en la línea 0.x a propósito: un binario que aún cambiaba su superficie de hooks cada pocas semanas no debía una promesa de compatibilidad 1.0. Las versiones de abajo (2.2.3 instalado, 2.3.0 disponible) son las que vería <code>ai-eng --version</code>. La cadena de distribución completa —repo, CI de release, npm, GitHub Releases— está en <a href="#s07">§7.1</a>.</p>
 
@@ -1354,6 +1354,7 @@ license: Apache-2.0
   <p class="dim">Los verbos máquina no tienen UX humana a propósito: su «pantalla» es stdout con un contrato fijo y exit 2. Lo que un humano ve, siempre explica <em>qué hacer después</em> — ninguna salida de ai-eng termina en un error sin línea de acción.</p>
 
   <h3>14.6 · Entry point real (patrón verificado en ai-shell)</h3>
+  <p class="dim">El boceto de abajo es el entry point tal como se diseñó en v17: usa <code>@bomb.sh/args</code> para los flags y <code>@bomb.sh/tab</code> para el TAB, y las dos se retiraron el 2026-09-22. Hoy <code>src/cli.ts</code> lee <code>process.argv</code> a mano y no hay autocompletado; el resto de la forma (dos fases de <code>init</code>, prompts de <code>@clack/prompts</code>, aviso de versión cacheado) sí es la que se envía.</p>
 <pre><span class="c">// src/cli.ts — flags primero, prompts solo para lo que falte</span>
 <span class="k">import</span> { intro, multiselect, confirm, isCancel, spinner, note } <span class="k">from</span> <span class="s">"@clack/prompts"</span>;
 <span class="k">import</span> { parse } <span class="k">from</span> <span class="s">"@bomb.sh/args"</span>;
@@ -1361,7 +1362,7 @@ license: Apache-2.0
 <span class="k">import</span> { SURFACES } <span class="k">from</span> <span class="s">"./surfaces/surfaces.json"</span>;
 
 <span class="k">const</span> HUMAN = [<span class="s">"init"</span>, <span class="s">"doctor"</span>, <span class="s">"config"</span>, <span class="s">"update"</span>, <span class="s">"upgrade"</span>, <span class="s">"uninstall"</span>];
-<span class="k">await</span> tab(<span class="s">"ai-eng"</span>, (t) =&gt; HUMAN.forEach(v =&gt; t.command(v)));   <span class="c">// solo los verbos humanos se completan; los de máquina no llevan TAB</span>
+<span class="k">await</span> tab(<span class="s">"ai-eng"</span>, (t) =&gt; HUMAN.forEach(v =&gt; t.command(v)));   <span class="c">// TAB de los verbos humanos en el boceto v17 (retirado con @bomb.sh/tab)</span>
 <span class="k">const</span> f = parse(process.argv.slice(<span class="n">2</span>), { boolean: [<span class="s">"yes"</span>, <span class="s">"check-only"</span>], string: [<span class="s">"surface"</span>, <span class="s">"to"</span>] });
 
 <span class="c">// aviso de versión: cacheado 24h, una petición anónima, silencio si hay error o offline (§14.0)</span>

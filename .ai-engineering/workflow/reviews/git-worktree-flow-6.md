@@ -139,4 +139,45 @@ ROUND 2: resolved 3 (F4, F5, F6) · withdrawn 0 · upheld 1 (F7) · new 3 (F8 MA
 
 ROUND 3: resolved 3 (F8, F9, F10) · withdrawn 0 · upheld 1 (F7) · new 3 (F11 MAJOR, F12 MAJOR, F13 MINOR).
 
+## Verdict (round 4)
+
+**Critic (r4) · F11: resolved.** `docs/blueprint.html:1139` now reads «siete verbos que no son para el humano», lists all seven from the binary, and replaces the false TAB/`--help` sentence with «`--help` los nombra en una línea, bajo «Machine verbs», y no llevan TAB como los humanos»; `:1364`'s comment carries no number. `./dist/ai-eng --help` agrees.
+
+**Critic (r4) · F12: resolved.** `:1646` now badges «un slot por repo, worktree por feature … (§21.2, revisado por §21.6)»; `:1780` and `:1825` agree; no «un slot por checkout» survives.
+
+**Critic (r4) · F13: resolved.** `brainstorm.html:202` carries the «estado previo a esta feature» pill and names the four facts that moved; §02's bullets stay as the dated record.
+
+**Critic (r4) · sweep: verified.** No numeric verb count lacks a re-derived source (`:1126` «6 … 7», `:1875` «6 + 7», `:1655` «6 + 7»; `:514`'s count dropped). The five surfaces carry both halves: `AGENTS.md:56`, `templates/AGENTS.md.tpl:49`, `PRD.html:85`, `brainstorm.html:308/316/353`, `skills/ai-orchestrator/SKILL.md:156`; `dist/ai-eng` embeds the new sentence. No blueprint claim promises the per-worktree design slot (the §21.2 card is revised in place by its §21.6 note; `:1646` fixed).
+
+**Critic (r4) · F7: upheld** (process finding; history is not rewritten and the coordinator accepts the deviation — it does not block the docs).
+
+Noted, **not a finding of this checkpoint** (pre-existing content the feature's diff never touched, for a later docs pass): `docs/blueprint.html:444-445,1359-1360` still present `@bomb.sh/args`/`@bomb.sh/tab` as the shipped CLI layer and as imports of «14.6 Entry point real», but neither is in `package.json`, `bun.lock` or `src/` (removed 2026-09-22, `83b942fb`) — the real `src/cli.ts:26` parses raw argv.
+
+VERDICT: PASS
+
 ROUND 4: fixed 3 (F11, F12, F13) · disputed 0 · one same-class sweep fix (`brainstorm.html:340`).
+
+## Findings (round 5) — dependency claims, a retired subcommand, and three dated rows
+
+**Where:** `docs/blueprint.html:444-445,453,459,506,507,518,1139,1357,1364`; `.ai-engineering/brainstorm.html:220,234,240`
+
+**Fixer (r5):** fixed — every claim re-derived before writing.
+- **Dependencies.** `grep -rn '@bomb' src` → 0 hits; `package.json` `dependencies` → `@clack/prompts` and `fast-wrap-ansi` only; `src/cli.ts:26-48` is a hand-rolled `process.argv` loop; `fast-wrap-ansi` is used in `src/ui.ts`. `:444-445` now says the flags are read by hand and marks `@bomb.sh/args`/`@bomb.sh/tab` as the v17 layer retired on 2026-09-22; `:453`'s «las tres de arriba» is now the two real deps with `fast-wrap-ansi` named; `:459`'s «Nosotros usamos `args`» is corrected; `:507`'s tree comment reads `process.argv → dispatch a verbo`. Because `@bomb.sh/tab` is gone there is no TAB completion at all, so the clause I added at `:1139` in r4 («no llevan TAB como los humanos») is removed rather than half-corrected, and the 14.6 sketch gets a dim note (`:1357`) saying it is the v17 entry point while its old TAB comment (`:1364`) now says the TAB went with the package.
+- **F-A.** `./dist/ai-eng spec` → `usage: ai-eng spec open|approve|close`; `./dist/ai-eng spec run` → «spec run: retired», exit 2. `:1139` now lists `spec open|approve|close`, and the same false listing in the repo tree (`:518`) is corrected too. The other `spec run` mentions (`:408,762,767,909`) stay: the hero at `:162` already declares «ai-plan, ai-goal, ai-proof and spec run are retired. Sections below that still name them are the v2 design record».
+- **F-B.** `brainstorm.html:234` no longer contradicts `:236`: the row reads «Nada en `src/` gestionaba worktrees (entonces) … hoy la lógica vive en `src/shared-worktree.ts` y el verbo la despacha desde `src/cli.ts`» (`src/cli.ts:89`).
+- **F-C.** `brainstorm.html:240` reads «`ai-pr` no existía (entonces) … hoy existe `skills/ai-pr/SKILL.md` y sustituye a `ai-pr-loop-fix`» (`ls skills/ai-pr/` → `SKILL.md`).
+- **Dating.** §04's lead-in (`:220`) carries the same «estado previo a esta feature» pill as §02, so the table is dated as a whole and only the two rows that read as living truth were amended in place. No interview conclusion was rewritten.
+- **Sweep.** `:506`'s «8 archivos FINOS» is dropped (`ls src/commands/` = 12), the F6/F8 precedent.
+
+**Verify (round 5):** all 12 checkpoint-6 entries ✓ · `./dist/ai-eng spec` → `usage: ai-eng spec open|approve|close` ✓ · `./dist/ai-eng spec run` exit 2 «retired» ✓ · `./dist/ai-eng --help` 6 human / 7 machine ✓ · `bun test tests/npm-manifest.spec.ts` 3/3 ✓ · `bun run typecheck` ✓ · `bun run lint` ✓ · `bun run build` ✓
+
+ROUND 5: fixed 14 edits over six problems (retired deps, TAB, spec subcommands, F-B, F-C, stale commands count) · disputed 0.
+
+## Findings (round 6) — the same class inside `src/` (authorised by the coordinator)
+
+**Where:** `src/cli.ts:3`
+**Fixer (r6):** fixed — the header comment listed six machine verbs and omitted `worktree`. Re-derived from the dispatcher (`case` order at `src/cli.ts:72,83,85,87,89,101,109`) and from the line `--help` prints (`Machine verbs (hooks/CI/agents): chain · git · wrap · spec · worktree · adapt · briefing`): the comment now reads `(chain|git|wrap|spec|worktree|adapt|briefing)`. Comment only — no behaviour, dispatcher or help text touched.
+
+**Verify (round 6):** all 12 checkpoint-6 entries ✓ · `bun test tests/npm-manifest.spec.ts` 3/3 ✓ · `bun test tests/arch.spec.ts` 22/22 ✓ · `bun run typecheck` ✓ · `bun run lint` ✓ · `bun run build` ✓
+
+ROUND 6: fixed 1 (comment) · disputed 0.
