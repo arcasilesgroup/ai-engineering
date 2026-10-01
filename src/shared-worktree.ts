@@ -308,7 +308,7 @@ export function worktreeList(): WorktreeResult {
   return { code: 0, out: out.length > 0 ? `${out}\n` : "", err: "" };
 }
 
-export function worktreeRm(slug: string): WorktreeResult {
+export function worktreeRm(slug: string, force = false): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree rm: not inside a git repository.\n" };
   const root = worktreeRoot(repo);
@@ -329,6 +329,27 @@ export function worktreeRm(slug: string): WorktreeResult {
   );
   if (!entry) return { code: 1, out: "", err: `worktree rm: no open worktree for slug "${printable(slug)}".\n` };
 
+  const branch = entry.branch;
+  if (branch === undefined) {
+    return { code: 1, out: "", err: `worktree rm: the worktree for slug "${slug}" is detached — refusing to guess a branch to delete.\n` };
+  }
+
+  // Refuse before touching anything: the default delete deletes only a branch that
+  // proved it landed in the local `main`, and a refusal must leave the worktree and
+  // the branch exactly as they were. `merge-base --is-ancestor` pins both refs, so
+  // the answer never depends on the mutable HEAD. Only an explicit `--force` skips
+  // the proof, for the deliberately abandoned branch.
+  if (!force) {
+    const merged = git(repo, ["merge-base", "--is-ancestor", branch, "refs/heads/main"]);
+    if (merged.status !== 0) {
+      return {
+        code: 1,
+        out: "",
+        err: `worktree rm: ${branch} is not merged into the local main — refusing to delete it, and the worktree is left in place. Pass --force to remove a deliberately abandoned branch.\n`,
+      };
+    }
+  }
+
   if (existsSync(entry.path)) {
     const removed = git(repo, ["worktree", "remove", entry.path]);
     if (removed.status !== 0) {
@@ -338,17 +359,19 @@ export function worktreeRm(slug: string): WorktreeResult {
     // The directory is gone: prune the stale registration instead of failing on it.
     git(repo, ["worktree", "prune"]);
   }
-  const branch = entry.branch;
-  if (branch === undefined) {
-    return { code: 1, out: "", err: `worktree rm: the worktree for slug "${slug}" is detached — refusing to guess a branch to delete.\n` };
-  }
-  const deleted = git(repo, ["branch", "-D", branch]);
+  const deleted = git(repo, ["branch", force ? "-D" : "-d", branch]);
   if (deleted.status !== 0) {
-    return { code: 1, out: "", err: `worktree rm: git branch -D failed: ${deleted.stderr.trim()}\n` };
+    return { code: 1, out: "", err: `worktree rm: git branch ${force ? "-D" : "-d"} failed: ${deleted.stderr.trim()}\n` };
   }
 
   const declarations = pruneDeclarations(root, read.declarations);
   delete declarations[slug];
   writeDeclarations(root, declarations);
-  return { code: 0, out: `✓ removed worktree ${slug}\n`, err: "" };
+  return {
+    code: 0,
+    out: force
+      ? `✓ removed worktree ${slug} — deleted ${branch} with --force: it was not merged into main\n`
+      : `✓ removed worktree ${slug}\n`,
+    err: "",
+  };
 }

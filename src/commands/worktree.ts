@@ -4,9 +4,9 @@
 
 import { worktreeList, worktreeNew, worktreeRm } from "../shared-worktree.ts";
 
-const USAGE = "usage: ai-eng worktree new <slug> [files...] | rm <slug> | list\n";
+const USAGE = "usage: ai-eng worktree new <slug> [files...] | rm <slug> [--force] | list\n";
 
-export function worktreeMain(args: string[]): number {
+export function worktreeMain(args: string[], force = false): number {
   const [action, slug, ...files] = args;
   let result;
   switch (action) {
@@ -22,7 +22,7 @@ export function worktreeMain(args: string[]): number {
         process.stderr.write(USAGE);
         return 2;
       }
-      result = worktreeRm(slug);
+      result = worktreeRm(slug, force);
       break;
     case "list":
       result = worktreeList();

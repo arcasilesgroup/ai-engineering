@@ -24,7 +24,7 @@ import { suggestVerb } from "./shared-verbs.ts";
 
 
 const argv = process.argv.slice(2);
-const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, json: true };
+const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, json: true, force: true };
 const boolFlags: Record<string, true> = {};
 const valueFlags: Record<string, string> = {};
 const positionals: string[] = [];
@@ -87,7 +87,7 @@ async function main(): Promise<number> {
     case "spec":
       return specMain(flags._.slice(1).map(String));
     case "worktree":
-      return worktreeMain(flags._.slice(1).map(String));
+      return worktreeMain(flags._.slice(1).map(String), flags.force === true);
     case "init":
       { const code = await initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList }); if (code === 0) maybeNotice(); return code; }
     case "doctor":
