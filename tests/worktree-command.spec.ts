@@ -392,4 +392,60 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(worktreeEntries(repo)).toHaveLength(1);
     expect(branchNames(repo)).not.toContain("alpha");
   });
+
+  test("untracked design slot: a never-committed .ai-engineering slot still makes new refuse", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    // `.ai-engineering/` has never been committed, so git status collapses the whole
+    // directory to `?? .ai-engineering/` unless the guard asks for untracked files.
+    const slot = join(repo, ".ai-engineering", "brainstorm.html");
+    mkdirSync(dirname(slot), { recursive: true });
+    writeFileSync(slot, "<html>untracked slot</html>\n");
+
+    const run = runCli(["worktree", "new", "alpha"], repo);
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain("brainstorm.html");
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(branchNames(repo)).not.toContain("alpha");
+    expect(worktreeEntries(repo)).toHaveLength(1);
+  });
+
+  test("recap does not block: a dirty recap.html leaves new succeeding", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const recap = join(repo, ".ai-engineering", "recap.html");
+    mkdirSync(dirname(recap), { recursive: true });
+    writeFileSync(recap, "<html>committed recap</html>\n");
+    git(["add", "-A"], repo);
+    git(["commit", "-q", "-m", "add recap"], repo);
+    // Dirty, but recap is generated at the app review and reaches the primary tree
+    // with the merge, so it must never block cutting a worktree.
+    writeFileSync(recap, "<html>dirty recap</html>\n");
+
+    const run = runCli(["worktree", "new", "alpha"], repo);
+    expect(run.status).toBe(0);
+    expect(existsSync(join(root, "alpha"))).toBe(true);
+  });
+
+  test("list omits the primary checkout: only open sessions are printed", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    expect(runCli(["worktree", "new", "beta"], repo).status).toBe(0);
+
+    const run = runCli(["worktree", "list"], repo);
+    expect(run.status).toBe(0);
+    const primary = realpathSync(repo);
+    // The primary checkout must not carry a line, but its worktrees (paths that extend
+    // it with `.worktrees/`) are exactly what must.
+    const mentionsPrimary = run.stdout
+      .split("\n")
+      .some((line) => line.includes(primary) && !line.includes(`${primary}.worktrees`));
+    expect(mentionsPrimary).toBe(false);
+    expect(run.stdout).toContain("alpha");
+    expect(run.stdout).toContain("beta");
+  });
 });
