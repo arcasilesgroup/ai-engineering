@@ -149,6 +149,34 @@ describe("ai-pr skill — the full pull-request loop", () => {
     expect(skill).toMatch(/ask|request/i);
     expect(skill).toMatch(/merge/i);
   });
+
+  test("U-PR-g: a re-run continues the same pull request instead of creating a second one", () => {
+    // The existing pull request is found by branch, its number read, and creation is skipped.
+    expect(skill).toMatch(/gh pr (view|list)\b/);
+    expect(skill).toMatch(
+      /(already exists|existing (pull request|pr)|if (a |the |one )?(pull request|pr) (already )?exists|re-?run|rerun|run again|second run)[^.]{0,220}(number|#\d|view|reuse|same (pull request|pr)|do not (create|open)|never (create|open)|without (re)?creat|no(new)? (creat|open))/i,
+    );
+    // The existence check comes before the create command, not after it.
+    const view = skill.search(/gh pr (view|list)\b/);
+    const create = skill.indexOf("gh pr create");
+    expect(view).toBeGreaterThan(-1);
+    expect(create).toBeGreaterThan(-1);
+    expect(view).toBeLessThan(create);
+  });
+
+  test("U-PR-h: a rejected merge is reported, not retried blindly", () => {
+    expect(skill).toMatch(/gh pr merge/);
+    // A rejection branch exists: gh's own message is surfaced.
+    expect(skill).toMatch(
+      /(fail|fails|failed|failure|refus|reject|error|non-?zero exit|exit code)[^.]{0,250}(report|print|show|surface|relay|paste|quote|state)[^.]{0,150}(message|output|stderr|error|gh)/i,
+    );
+    // The pull request is left open.
+    expect(skill).toMatch(/(leave|keep|remain|stay)[^.]{0,150}(open|unmerged|not merged|as is)/i);
+    // And the loop does not retry the merge blindly.
+    expect(skill).toMatch(
+      /(no|not|never|do not|don't|without)[^.]{0,100}(blind|blindly)?[^.]{0,40}(retry|re-?try|retrying|re-?run|repeat|loop|again)/i,
+    );
+  });
 });
 
 describe("ai-pr replaces ai-pr-loop-fix", () => {

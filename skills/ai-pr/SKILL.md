@@ -116,6 +116,20 @@ report — do not overwrite.
 
 ## Phase 3 — open the pull request against `main`
 
+A re-run continues the same pull request. Before creating one, ask whether the
+branch already has an open pull request and reuse it — its `<number>`, which
+every later phase reads, comes from here, and the create below runs only when
+this finds nothing:
+
+```bash
+gh pr view <branch> --json number,state
+```
+
+A non-zero exit saying no pull request was found for the branch means there is
+none: continue to the create. An `<number>` with state `OPEN` means skip the
+create and carry on with that pull request. Any other state is reported and the
+run stops — that pull request is already closed or merged.
+
 Fill the body from the merge commits the branch carries, so a pull request that
 bundles several features reads as a list of what landed, never as a diff dump.
 Build it once into a file and pass it with `--body-file`:
@@ -216,6 +230,12 @@ gh api repos/{owner}/{repo} \
   --jq '{squash:.allow_squash_merge,merge:.allow_merge_commit,rebase:.allow_rebase_merge}'
 gh pr merge <number> --merge --auto
 ```
+
+A rejected merge is reported, not retried. When `gh pr merge` fails with a
+non-zero exit code — a conflict, a method the repository denies at merge time, or
+a protection rule the API query above did not surface — report gh's message,
+leave the pull request open and stop; never retry the merge blindly, and never
+force it through.
 
 **Switching auto-merge off.** If the human wants to review before it lands, do not
 arm it: run `gh pr merge <number> --merge` only on an explicit go. An already-

@@ -150,3 +150,26 @@ ROUND 2: resolved 6 · withdrawn 0 · upheld 2 · new 4
 **Fixer (r3):** fixed — the count is gone; Phase 4 polls every 30 seconds up to a total 30-minute budget, stated as a cap on how long the run waits for a stuck check, not on how many looks (SKILL.md:165-169), and Done when names that budget (SKILL.md:283-284). A check whose run state has not moved at budget end is stuck; the report names the check, its last run state and how long it was watched. verify: `bun test tests/ai-pr.spec.ts` ✓ (U-PR-e).
 
 ROUND 3: resolved 5 · withdrawn 0 · upheld 1 · new 2
+
+## Rulings — round 4 (verified against ff2b653d)
+
+**F9 · resolved.** The merge is now a merge commit, `gh pr merge <number> --merge --auto` (SKILL.md:206-217), the repository allows it (`allow_merge_commit: true`; `required_linear_history: false`), and the rule, the command and Phase 7's rationale (:206-211, :244-247) all say the same thing. Reproduced: base → local `main` carrying two `--no-ff` feature merges → PR branch + `fix: ci` → origin gains the merge commit → `git merge-base --is-ancestor main origin/main` = YES, `git merge --ff-only` succeeds, `origin/main...main` = `0 0`.
+
+**F13 · resolved.** The batch history survives the merge commit, so the level step completes and the next run starts from `0 N` (local ahead) instead of diverged; and when a session merged after the PR was cut the ancestry check returns non-zero and Phase 7 stops instead of overwriting (:238-243, reproduced: `is-ancestor` = NO after a later local merge).
+
+**F14 · resolved.** The cap is now a 30-minute poll budget at 30 s intervals (:165-168), with the stuck end state in Done when (:272-274) — no false stuck at 90 s and no unbounded loop.
+
+## F15 · MAJOR · fixed
+**Where:** skills/ai-pr/SKILL.md:81-84 vs :124
+**Critic (r4):** Phase 1 promises the re-run ("a second run adds to the same pull request instead of a second one"), but Phase 3 runs `gh pr create` unconditionally; on that re-run gh exits non-zero ("a pull request for branch X into branch main already exists") and no phase says what to do — and this is the skill's own recovery path, since a CI-stuck stop (:166-168) can only be resumed by running it again. → Say to skip Phase 3 and read the number with `gh pr view --json number` when the pull request already exists. Check: run the skill twice against the same branch.
+
+**Fixer (r4):** fixed — Phase 3 now checks before it creates (SKILL.md:117-131): the run opens with one line, "A re-run continues the same pull request", then asks the branch whether it already has an open pull request — `gh pr view <branch> --json number,state` — and reuses it: a non-zero exit ("no pull requests found for branch") means none, so the create runs; an `<number>` with state `OPEN` skips the create and carries that number into Phases 4-6; any other state is reported with the run stopped because that pull request is already closed or merged. `gh pr view [<number> | <url> | <branch>]` is the documented usage in gh 2.101.0 (`gh pr view --help` ✓). Hand-walked in a throwaway repo (bare remote, private): push pr/walk twice — second `git push -u` exit 0 (up to date) — first create makes PR #1, then `gh pr view pr/walk --json number,state` = `1 OPEN` and the create is skipped, while the old unconditional `gh pr create` on that same re-run exits non-zero with `a pull request for branch "pr/walk" into branch "main" already exists: <url>`. verify: `bun test tests/ai-pr.spec.ts` ✓ (U-PR-g, 17 pass).
+
+## F16 · MINOR · fixed
+**Where:** skills/ai-pr/SKILL.md:213-217
+**Critic (r4):** the merge command has no rejection branch: a conflict, a denied method at PR time, or a protection rule the API query does not surface makes `gh pr merge` exit non-zero and the run has no instruction (the r1 wording that read gh's rejection was dropped in the r3 rewrite). → State that a rejected merge is reported with gh's message and the pull request left open. Check: `gh pr merge --merge` on a conflicting pull request.
+
+**Fixer (r4):** fixed — Phase 6 states the rejection branch right after the merge command (SKILL.md:234-238): when `gh pr merge` fails with a non-zero exit code — a conflict, a method the repository denies at merge time, or a protection rule the API query did not surface — report gh's message, leave the pull request open and stop; never retry the merge blindly, and never force it through. This is the same end state Done when already names (a non-obvious failure is reported with evidence and the pull request is left open). verify: `bun test tests/ai-pr.spec.ts` ✓ (U-PR-h, 17 pass).
+
+ROUND 4: resolved 3 · withdrawn 0 · upheld 0 · new 2
+ROUND 5: fixed 2 · disputed 0 (F15 MAJOR, F16 MINOR)
