@@ -76,7 +76,7 @@
       ],
       "acceptance": [
         "`new` resolves the root from `[git].worktrees_dir` in `.ai-engineering/config.toml` when present and falls back to `<repo>.worktrees`; the created path is canonical and carries the upstream config.",
-        "`new` refuses when a design-slot file is uncommitted in the primary tree, using the one shared slot list.",
+        "`new` refuses when a pre-worktree artifact (`brainstorm.html`, `spec.html`, `plan.html`) is uncommitted in the invoked repository, whatever shape the dirt has, including a wholly untracked `.ai-engineering/`; the pre-worktree list is its own definition in the shared module, next to the spec-close sweep list it must not borrow.",
         "A slug is validated against `^[a-z0-9][a-z0-9._-]*$` before anything is created; a slug with a space or a `/` exits non-zero, creates nothing and names the reason, and a valid kebab-case slug succeeds.",
         "Creating a second worktree that declares a file an open worktree already declared warns (does not block).",
         "`list` reports the open worktrees and `rm` removes the worktree and its branch; no command ever pushes.",
@@ -107,7 +107,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "failed", "attempts": 2, "findings": ["attempt 1 FAIL: the 24 planned verify entries all passed, and the manual smoke created and removed a worktree correctly, but the refusal never fires when .ai-engineering/ is wholly untracked: git status --porcelain collapses it to '?? .ai-engineering/' without -uall, so 'worktree new' created a worktree over a dirty design slot (MAJOR). Plus: the refusal reuses the spec-close sweep list, so a dirty recap.html blocks 'worktree new' against AGENTS.md:54-55 (MINOR), and 'list' prints the primary checkout as an entry (nit).", "attempt 2: the 21 planned verify entries pass and all three findings are hand-proven fixed, but the gate's own probe proved the guard still fails OPEN on two shapes: a slot turned into a directory ('?? .ai-engineering/brainstorm.html/inner.txt' never equals the slot path, so the worktree was created) and a slot renamed ('R  ...brainstorm.html -> ...brainstorm2.html' hides the deletion, worktree created). Matching by exact string equality is the cause; a guard that cannot decide must deny, not pass."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
