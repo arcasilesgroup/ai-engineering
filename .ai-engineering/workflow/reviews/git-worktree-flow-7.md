@@ -34,7 +34,7 @@ This is the last checkpoint, and the only one whose source is outside the reposi
 ## F2 · MAJOR · fixed
 **Where:** skills/ai-security/SKILL.md:65
 **Critic (r1):** "no severity without an attack path … one without a path is a note, not a finding" contradicts the file's own taxonomy: line 89 defines INFORMATIONAL as "a confirmed but minimal-impact observation with no standalone exploit" — a severity reserved for exactly the no-path case this line calls a note. It also restates §"Only report what you can exploit" (:61-63) and "Severity requires impact" (:81-91), a third copy of one meaning. → scope :65 to the CRITICAL–LOW grades, or amend :89; leave one statement. Check: does `findings.json` schema still admit INFORMATIONAL with no attack path?
-**Fixer (r1):** fixed — :65 scoped: "CRITICAL through LOW each require a path an attacker can walk; a confirmed observation without one is INFORMATIONAL, not one of those grades." The sentence survives because acceptance 2 names it; the contradiction with :89 is gone. verify: `rg -q 'attack path' skills/ai-security/SKILL.md` ✓
+**Fixer (r1):** fixed — :65 scoped in the headline itself: "CRITICAL through LOW take no severity without an attack path; INFORMATIONAL is the confirmed observation with no exploit, not a finding." The sentence survives because acceptance 2 names it; the contradiction with :89 is gone. verify: `rg -q 'attack path' skills/ai-security/SKILL.md` ✓
 
 ## F3 · MAJOR · fixed
 **Where:** skills/ai-audit-code/SKILL.md:76
@@ -58,3 +58,20 @@ This is the last checkpoint, and the only one whose source is outside the reposi
 
 ROUND 1: resolved 0 · withdrawn 0 · upheld 0 · new 6
 Fixer round 1: fixed 6 · disputed 0
+
+## Critic round 2 — rulings (all statuses updated on the finding blocks above: F1–F6 → resolved)
+
+- **F1:** resolved — :75 now separates locate (`search`) from prove (`language-server references`); :57's `grep every caller` is the locate step, not a rival version. Read :57/:75; greps pass.
+- **F2:** resolved — :65 is scoped to CRITICAL–LOW and names INFORMATIONAL as the no-path grade; no longer contradicts :89.
+- **F3:** resolved — :76 is conditioned on callers ("stays while callers remain … the guard is the callers, not the file's role"); a dead barrel is deletable again, consistent with :66.
+- **F4:** resolved — :77 deletes the test with the symbol instead of freezing both.
+- **F5:** resolved — :74 widens the citation to file/symbol/path; "rumour" now covers only a total absence.
+- **F6:** resolved — bullets gone, no rule lost (each was :64, rungs 3-4/6, or :70); the section keeps only the new habit, "name the rung and stop".
+- **F6b:** the "Looks bad but is fine" heading now carries one sentence and no examples — accepted as the smallest delta the goal asked for; not a finding.
+- **Regressions:** `bun test tests/skills.spec.ts tests/embed-canon.spec.ts` = 32 pass, gates green.
+
+## F7 · MINOR · open
+**Where:** skills/ai-security/SKILL.md:65
+**Critic (r2):** The lead clause "No severity without an attack path" is absolute, and the file's own taxonomy makes INFORMATIONAL a severity with no path (:89) — the sentence's second half and :89 both contradict the headline, so a skimmer keeps the blanket version. → state the rule as "CRITICAL through LOW require an attack path" and drop the absolute lead; the `rg 'attack path'` gate still passes. Check: read :65 and :89 side by side.
+
+ROUND 2: resolved 6 · withdrawn 0 · upheld 0 · new 1

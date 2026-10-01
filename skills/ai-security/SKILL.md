@@ -62,7 +62,7 @@ Include a brief summary of prior runs in the architecture summary so Phase 2 age
 
 Every finding must have a concrete attack scenario: who is the attacker, what do they do, and what do they get? "An attacker could theoretically..." is not a finding. "Send this request, get this result" is.
 
-No severity without an attack path: CRITICAL through LOW each require a path an attacker can walk; a confirmed observation without one is INFORMATIONAL, not one of those grades.
+CRITICAL through LOW take no severity without an attack path; INFORMATIONAL is the confirmed observation with no exploit, not a finding.
 
 ### Confirm dynamically when you can
 
