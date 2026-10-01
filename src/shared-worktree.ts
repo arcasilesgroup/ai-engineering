@@ -83,14 +83,18 @@ function primaryRepoRoot(): string | null {
 }
 
 /** `<repo>.worktrees` beside the repository, or `[git].worktrees_dir` from the
- *  primary checkout's `.ai-engineering/config.toml` when that key is present. */
+ *  primary checkout's `.ai-engineering/config.toml` when that key is present. The
+ *  config is read from the primary tree, so a relative value is resolved there too:
+ *  resolving it against the process directory would make the same repository report
+ *  one root from the primary tree and another from inside an open worktree. */
 export function worktreeRoot(repo: string): string {
   const configured = loadConfig(repo).git?.["worktrees_dir"];
-  if (typeof configured === "string" && configured.trim()) return canonicalize(configured.trim());
+  if (typeof configured === "string" && configured.trim()) return canonicalize(resolve(repo, configured.trim()));
   return `${repo}.worktrees`;
 }
 
-/** Declared files per slug, kept in the primary tree — outside every worktree, so
+/** Declared files per slug, kept beside the worktrees root — outside the primary
+ *  tree, so a session never dirties the checkout, and outside every worktree, so
  *  `git worktree remove` never needs a force and no session tree carries them. */
 type Declarations = Record<string, string[]>;
 
@@ -99,8 +103,8 @@ const DECLARATIONS = ".ai-eng-worktrees.json";
 /** The declarations the file really holds, or why it cannot be trusted. A file that
  *  is not an object of string arrays is refused rather than believed: `null` throws
  *  on the next read, and a top-level array swallows every key on write. */
-function readDeclarations(repo: string): { declarations: Declarations } | { detail: string } {
-  const path = join(repo, DECLARATIONS);
+function readDeclarations(root: string): { declarations: Declarations } | { detail: string } {
+  const path = join(root, DECLARATIONS);
   if (!existsSync(path)) return { declarations: {} };
   let parsed: unknown;
   try {
@@ -131,8 +135,9 @@ function pruneDeclarations(root: string, declarations: Declarations): Declaratio
   return live;
 }
 
-function writeDeclarations(repo: string, declarations: Declarations): void {
-  writeFileSync(join(repo, DECLARATIONS), `${JSON.stringify(declarations, null, 2)}\n`);
+function writeDeclarations(root: string, declarations: Declarations): void {
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, DECLARATIONS), `${JSON.stringify(declarations, null, 2)}\n`);
 }
 
 interface OpenWorktree {
@@ -187,7 +192,14 @@ function statusPaths(tokens: string[], index: number): { paths: string[]; next: 
 /** The first design slot touched in the primary tree, or null. A slot counts as
  *  touched when a status record carries its path, the path a rename took it from, or
  *  anything nested under it (a slot replaced by a directory) — and an unreadable
- *  record blocks rather than passes. */
+ *  record blocks rather than passes.
+ *
+ *  The ceiling is git's own: a slot edit that git refuses to report (`assume-unchanged`,
+ *  `skip-worktree`) or one hidden by `.gitignore` never reaches this status, and a slot
+ *  reached through a symlink whose target lives outside the repository is compared under
+ *  its repository path, so an edit written through that link is likewise invisible. Both
+ *  are deliberate — the guard refuses what it cannot decide, and a status it cannot read
+ *  has no record to inspect; neither is evidence that the primary tree is clean. */
 function dirtySlot(repo: string): SlotBlocker | null {
   // `-uall` lists each untracked file instead of collapsing a wholly untracked
   // directory to `?? .ai-engineering/`, so an uncommitted slot is still seen; `-z`
@@ -237,7 +249,7 @@ export function worktreeNew(slug: string, files: string[]): WorktreeResult {
   }
 
   const root = worktreeRoot(repo);
-  const read = readDeclarations(repo);
+  const read = readDeclarations(root);
   if ("detail" in read) {
     return {
       code: 2,
@@ -273,7 +285,7 @@ export function worktreeNew(slug: string, files: string[]): WorktreeResult {
   git(repo, ["config", `branch.${branch}.remote`, "."]);
   git(repo, ["config", `branch.${branch}.merge`, "refs/heads/main"]);
   if (files.length > 0) declarations[slug] = files;
-  writeDeclarations(repo, declarations);
+  writeDeclarations(root, declarations);
 
   return {
     code: 0,
@@ -300,7 +312,7 @@ export function worktreeRm(slug: string): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree rm: not inside a git repository.\n" };
   const root = worktreeRoot(repo);
-  const read = readDeclarations(repo);
+  const read = readDeclarations(root);
   if ("detail" in read) {
     return {
       code: 2,
@@ -337,6 +349,6 @@ export function worktreeRm(slug: string): WorktreeResult {
 
   const declarations = pruneDeclarations(root, read.declarations);
   delete declarations[slug];
-  writeDeclarations(repo, declarations);
+  writeDeclarations(root, declarations);
   return { code: 0, out: `✓ removed worktree ${slug}\n`, err: "" };
 }
