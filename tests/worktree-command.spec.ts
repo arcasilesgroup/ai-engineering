@@ -719,4 +719,22 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(run.stdout).not.toContain("branch -D");
     expect(run.stderr).not.toContain("branch -D");
   });
+
+  test("ignored content: rm removes the worktree and names the ignored path it dropped", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    // local.env is ignored in the repository, so it never shows as untracked.
+    writeFileSync(join(repo, ".gitignore"), "local.env\n");
+    git(["add", "-A"], repo);
+    git(["commit", "-q", "-m", "ignore local.env"], repo);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    writeFileSync(join(root, "alpha", "local.env"), "SECRET=1\n");
+
+    const run = runCli(["worktree", "rm", "alpha"], repo);
+    expect(run.status).toBe(0);
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    // The removal says what it let go, so the person can see the ignored path lost.
+    expect(`${run.stdout}${run.stderr}`).toContain("local.env");
+  });
 });

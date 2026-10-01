@@ -53,3 +53,36 @@ describe("orchestrator close — merge verified before cleanup", () => {
     expect(orchestrator).not.toContain("branch -D");
   });
 });
+
+describe("ai-git-cleanup skill — ignored content is data unless regenerable", () => {
+  const regenerable = [
+    "node_modules/",
+    "dist/",
+    "coverage/",
+    ".stryker-tmp/",
+    "reports/",
+    ".ai-engineering/receipts/",
+    ".ai-engineering/cache/",
+    ".ai-engineering/workflow/playwright/",
+  ];
+
+  test("U-CP4-a names the regenerable-output list and says anything else ignored is data", () => {
+    for (const entry of regenerable) expect(skill).toContain(entry);
+    // The list is bounded by a sentence: this is what the framework regenerates, and
+    // any other ignored content is treated as data (so it keeps the worktree).
+    expect(skill).toMatch(/regenerat/i);
+    expect(skill).toMatch(/\bdata\b/i);
+  });
+
+  test("U-CP4-b requires reporting the ignored paths found when it removes a worktree", () => {
+    // The reporting word and "ignored" must be in the same sentence about the removal.
+    expect(skill).toMatch(
+      /ignored[^.]{0,200}(report|name|say|state|list|tell)|(report|name|say|state|list|tell)[^.]{0,200}ignored/i,
+    );
+  });
+
+  test("U-CP4-c marks ai-eng worktree rm as the explicit human path, not the automatic pass", () => {
+    expect(skill).toContain("ai-eng worktree rm");
+    expect(skill).toMatch(/explicit|human|a person|the person|by hand/i);
+  });
+});
