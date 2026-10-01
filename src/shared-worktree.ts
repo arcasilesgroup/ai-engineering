@@ -10,9 +10,14 @@ import { spawnSync } from "node:child_process";
 import { loadConfig, repoRoot } from "./env.ts";
 
 /** The four artifacts of a milestone. `spec open` scaffolds two and `spec close`
- *  sweeps all four; the verb refuses to cut a worktree while any of them is
- *  uncommitted in the primary tree, so the two commands cannot drift. */
+ *  sweeps all four; `ai-eng spec` is its only consumer. */
 export const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.html", "recap.html"] as const;
+
+/** The design artifacts that must be committed before a worktree is cut
+ *  (AGENTS.md `## Git workflow`). `recap.html` is absent on purpose: it is
+ *  generated at the app review and arrives with the merge, so a dirty one must
+ *  not block. One definition here, distinct from the `spec close` sweep. */
+export const PRE_WORKTREE_SLOTS = ["brainstorm.html", "spec.html", "plan.html"] as const;
 
 /** The slug is both the branch name and the worktree directory name, and the
  *  orchestrator compares it literally against `<meta name="ai-feature">`. */
@@ -101,12 +106,14 @@ function openWorktrees(repo: string): OpenWorktree[] {
 
 /** The first design slot with an uncommitted change in the primary tree, or null. */
 function dirtySlot(repo: string): string | null {
-  const status = git(repo, ["status", "--porcelain"]);
+  // `-uall` lists each untracked file instead of collapsing a wholly untracked
+  // directory to `?? .ai-engineering/`, so an uncommitted slot is still seen.
+  const status = git(repo, ["status", "--porcelain", "-uall"]);
   if (status.status !== 0) return null;
   for (const line of status.stdout.split("\n")) {
     if (line.length < 4) continue;
     const path = line.slice(3).replace(/^"(.*)"$/, "$1");
-    const slot = SLOT_FILES.find((name) => path === `.ai-engineering/${name}`);
+    const slot = PRE_WORKTREE_SLOTS.find((name) => path === `.ai-engineering/${name}`);
     if (slot) return slot;
   }
   return null;
@@ -163,6 +170,7 @@ export function worktreeList(): WorktreeResult {
   const repo = canonicalRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree list: not inside a git repository.\n" };
   const out = openWorktrees(repo)
+    .filter((entry) => canonicalize(entry.path) !== repo)
     .map((entry) => `${entry.slug}\t${entry.path}`)
     .join("\n");
   return { code: 0, out: out.length > 0 ? `${out}\n` : "", err: "" };
