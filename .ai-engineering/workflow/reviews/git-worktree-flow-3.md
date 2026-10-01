@@ -75,8 +75,16 @@ The contract this skill must follow is `AGENTS.md` → `## Git workflow` (checkp
 
 **Fixer (r2):** fixed — `skills/ai-orchestrator/SKILL.md:83` now checks each slot and `git add`s it by its own path only when it exists, and forbids naming two paths in one `git add` (a missing path aborts the call, exit 128, nothing staged); a dirty slot that must not be committed is a stop-and-report. verify: hand walk without `spec.html`/`plan.html` ✓ (commit step ends clean, `ai-eng worktree new` exit 0)
 
+**Fixer (r2b):** fixed — the same defect reached the close: `skills/ai-orchestrator/SKILL.md:174` (move 1) named `.ai-engineering/recap.html` and a `.ai-engineering/workflow/reviews/<slug>-*.md` glob in one `git add`, and an unmatched glob aborts the call (exit 128, nothing staged). Move 1 now stages one path per `git add`, only those that exist. verify: grep ✓
+
 ## N2 · MINOR · fixed (r2)
 **Where:** `skills/ai-orchestrator/SKILL.md:46`
 **Critic (r2):** `:46` says of the design slots "they are written in the primary tree before the worktree is cut and no session stages them", while the new `:83` instructs the session to stage and commit those same three files in the primary tree. Two absolute rules in one file, contradicting each other; an agent following both cannot execute Phase 0. → Scope the ban to the run's worktree commits ("never stage a design slot from inside the worktree") and point at the Phase 0 primary-tree commit. Check: read `:46` and `:83` side by side.
 
 **Fixer (r2):** fixed — `skills/ai-orchestrator/SKILL.md:46` now scopes the ban to "from inside the worktree" and points at the Phase 0 primary-tree commit, which `:83` describes; the two rules no longer contradict. verify: read `:46` + `:83` ✓
+
+## N3 · MAJOR · fixed (r2)
+**Where:** `skills/ai-orchestrator/SKILL.md:176-177`
+**Behavior gate (r2):** With the primary tree parked on another branch, or with move 3's `git switch main` skipped, `git merge --no-ff feat/<slug>` does not fail — git merges into whatever branch is checked out, `main` gets nothing, and move 4's `ai-eng worktree rm` deletes `feat/<slug>` with `git branch -D`. Verified: HEAD stayed on `other`, `main` lacked the feature, and `feat/demo` was force-deleted. The only guard was prose. → Before removing the worktree, assert the merge landed on `main` (e.g. `git merge-base --is-ancestor feat/<slug> main`), and on failure stop without deleting and without leaving the primary tree on another branch.
+
+**Fixer (r2):** fixed — close move 4 (`skills/ai-orchestrator/SKILL.md:177`) now verifies `git merge-base --is-ancestor feat/<slug> main` exits 0 and HEAD is still `main` before any removal; on failure it stops and reports, never runs `ai-eng worktree rm` (which force-deletes the branch) and never leaves the primary tree elsewhere. The move states the check is why removal is not done blind. verify: hand walk with move 3's switch skipped ✓ (close refuses, `feat/demo` still present)

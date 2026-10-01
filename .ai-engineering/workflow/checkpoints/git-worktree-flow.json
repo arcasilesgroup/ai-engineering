@@ -156,7 +156,7 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 1, "findings": ["attempt 1 PASS: 11/11 planned entries in order, all six contract points present in both the skill and AGENTS.md, the Lifecycle block still hands off at :186 to ai-visual-recap, and the stale-flow audit found zero hits for squash, switch -c, shared tree or a hand-created branch. The negative gates are sharpened to '<slug>#N' so the legitimate checkpoint marker placeholder ([checkpoint <slug>#<id> <stage>]) is not caught by them."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "pending", "attempts": 1, "findings": ["round 1 FAIL with five findings: F1 BLOCKER the review thread's own verify line still carried the blunt '<slug>#' pattern the plan had already sharpened to '<slug>#N' (thread stale, fixed); F2 BLOCKER the close could deadlock: the rewritten step dropped 'make sure everything on feat/<slug> is committed', and /ai-visual-recap writes an untracked .ai-engineering/recap.html that the merge cannot carry and that makes 'worktree rm' refuse; F3 MAJOR Phase 0 recorded the primary tree's current branch as the merge target while the contract pins the local main; F4 MAJOR Phase 0 had no way out of the two states it will meet (a dirty pre-worktree artifact makes the verb refuse, and a crashed run's branch already exists); F5 MINOR the prose misstated what the commit-msg hook enforces.", "round 2 FAIL: F1-F5 verified resolved; N1 MAJOR the Phase 0 slot commit named three paths in one git add, which aborts atomically when one is missing (spec.html and plan.html do not exist here), leaving the slot dirty and the verb refusing; N2 MINOR the ban on staging slots contradicted the Phase 0 commit and is now scoped to worktree commits; N3 MAJOR found while the behavior gate walked the sequence literally: with the primary tree parked on another branch the merge does not fail, main never receives the feature, and worktree rm erases the branch anyway. The close now verifies the merge landed on main before it removes anything, and checkpoint 4 owns making the verb refuse to force-delete an unmerged branch."] }
       },
       "status": "pending"
     },
@@ -177,6 +177,8 @@
         "skills/ai-git-cleanup/SKILL.md: rewrite as one pass with no interactive question — remove dead worktrees first (`git worktree remove`, then `git worktree prune`), then branches with `git branch --delete-merged refs/heads/main`; fallback for branches without that upstream: `git branch --merged main` and `-d` (never `-D`, never a forced delete); never touch an unmerged branch; no name is ever asked. Update the description/triggers, keep the frontmatter shape and the `## Lifecycle` block, and drop the Trail of Bits `Source:` line (no upstream code ships).",
         "NOTICE.md and THIRD-PARTY-NOTICES.md: remove the Trail of Bits git-cleanup rows, since the adapted analyze.mjs no longer ships.",
         "tests/git-cleanup-pass.spec.ts (new, small): the skill documents `--delete-merged refs/heads/main`, the `--merged main` + `-d` fallback, no `-D`, no prompt/name question, and a `## Lifecycle` block.",
+        "src/shared-worktree.ts: `rm` removes the branch with `git branch -d` — the delete that refuses when the branch is unmerged, so the branch survives — and `git branch -D` disappears from the verb; an explicit `--force` flag covers the deliberately abandoned branch, and its refusal or removal message states the reason.",
+        "tests/worktree-command.spec.ts: an unmerged branch makes `rm` refuse and the branch survives; `rm --force` removes it; a merged branch is removed without ceremony; and `git branch -D` never appears in the emitted commands.",
         "Run `bun scripts/gen-assets.ts` and commit the regenerated src/assets.ts."
       ],
       "files": [
@@ -184,13 +186,17 @@
         "tests/git-cleanup-pass.spec.ts",
         "NOTICE.md",
         "THIRD-PARTY-NOTICES.md",
+        "src/shared-worktree.ts",
+        "tests/worktree-command.spec.ts",
         "src/assets.ts"
       ],
       "acceptance": [
         "The one pass removes dead worktrees and merged branches with `git branch --delete-merged refs/heads/main`, falling back to `git branch --merged main` + `-d` for branches without that upstream.",
         "An unmerged branch is never deleted, `-D` never appears, and no name is ever asked.",
         "The old script and its three specs are gone; the Trail of Bits attribution is removed from NOTICE.md and THIRD-PARTY-NOTICES.md.",
-        "The skill keeps a valid Lifecycle block and the embedded assets are in sync."
+        "The skill keeps a valid Lifecycle block and the embedded assets are in sync.",
+        "`ai-eng worktree rm` never force-deletes: it uses `git branch -d`, refuses an unmerged branch (which survives) and removes it only with an explicit `--force`, whose message states the reason.",
+        "The orchestrator's close prose verifies where the merge landed (`git merge-base --is-ancestor feat/<slug> main`) before the cleanup, and the gate checks that prose so a future edit cannot drop it."
       ],
       "verify": [
         "test ! -f skills/ai-git-cleanup/scripts/analyze.mjs",
@@ -201,6 +207,8 @@
         "! rg -q -- '-D' skills/ai-git-cleanup/SKILL.md",
         "rg -q 'worktree prune' skills/ai-git-cleanup/SKILL.md",
         "bun test tests/git-cleanup-pass.spec.ts",
+        "bun test tests/worktree-command.spec.ts",
+        "rg -q 'merge-base --is-ancestor' skills/ai-orchestrator/SKILL.md",
         "bun test tests/embed-canon.spec.ts",
         "bun run typecheck",
         "bun run lint",
