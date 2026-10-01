@@ -199,7 +199,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 
 <section id="s2">
   <h2><span class="num">02</span>Por qué importa</h2>
-  <p>"Ahora mismo no está funcionando bien" tiene causas concretas y verificables, no una sola:</p>
+  <p><span class="pill">estado previo a esta feature</span> «Ahora mismo no está funcionando bien» tenía causas concretas y verificables, no una sola. La lista de abajo es el retrato de aquel momento, antes de esta feature, no el de hoy: el contrato de git ya está en <code>AGENTS.md</code>, la Fase 0 corta un worktree en vez de ramificar el árbol principal, el cierre rebasa y usa <code>merge --no-ff</code> sin squash, y <code>ai-pr</code> sustituyó a <code>ai-pr-loop-fix</code>:</p>
   <ul>
     <li><strong>El árbol principal no está en main.</strong> <code>git branch -vv</code> hoy devuelve <code>* feat/arcasiles-skills</code> en <code>/Users/soydachi/repos/ai-engineering</code>, con <code>main</code> en <code>3986acbb</code>. El modelo que pides exige el checkout principal <strong>en main</strong>; hoy no lo está, así que no hay destino local único al que fusionar.</li>
     <li><strong>El contrato citado no existe.</strong> <code>skills/ai-orchestrator/SKILL.md:45</code> y <code>:172</code> dicen "per the <code>AGENTS.md</code> git workflow", pero el <code>AGENTS.md</code> de este repo no tiene sección de workflow de git: solo tiene higiene de PR (título, lint y tests antes de commit). El agente busca un contrato que no está escrito.</li>
@@ -337,7 +337,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <section id="s10">
   <h2><span class="num">10</span>Preguntas para investigar</h2>
   <ol>
-    <li><span class="pill p-ok">resuelta</span> ¿Existe <code>--delete-merged</code>? Sí, en git 2.56.0, pero no dispara sin upstream: la limpieza usa <code>--merged</code> + <code>-d</code>. Queda abierta la variante de abajo.</li>
+    <li><span class="pill p-ok">resuelta</span> ¿Existe <code>--delete-merged</code>? Sí, en git 2.56.0, pero no dispara sin upstream: la limpieza usa <code>--merged</code> + <code>-d</code>. Queda abierta la variante de abajo. <span class="dim">(La <code>ai-git-cleanup</code> que sale de esta feature lo invierte: cada rama nace con el upstream <code>refs/heads/main</code>, así que borra con <code>--delete-merged refs/heads/main</code> y deja <code>--merged</code> + <code>-d</code> solo de reserva; ver §05.)</span></li>
     <li>¿El framework puede exigir git ≥ 2.56, o tiene que funcionar con el git de Apple (2.50.1) que muchos tendrán? Importa porque decide si un verbo nuevo puede usar flags recientes o solo los de 2.25.</li>
     <li>¿Los hooks de este repo (el "floor" de ai-eng) funcionan igual dentro de un worktree, o hay rutas absolutas que asumen el árbol principal? Importa porque el gate de commit correría distinto en la sesión.</li>
     <li>¿Qué workflow de los siete es el gate real de un PR a main, y cuáles son informativos? Importa para que <code>ai-pr</code> espere Lo correcto.</li>

@@ -106,3 +106,37 @@ ROUND 1 (re-run): open 4 · resolved 0 · withdrawn 0 · upheld 3 (F1-F3 re-veri
 **Fixer (r3):** fixed — `AGENTS.md:56` and `templates/AGENTS.md.tpl:49` now carry both halves in one bullet: «A session may edit the shared files on its own branch like any other change, and the merge step is their single writer in the primary tree, never a parallel session writing them there: …». That is the same partition `PRD.html:85` («may be edited on the feature branch, and the merge step is their single writer in the primary tree»), `brainstorm.html:308/316/353` («se pueden editar en la rama de la feature, y el paso de merge es su único escritor en el árbol principal») and `skills/ai-orchestrator/SKILL.md:156` state, so all four surfaces named by acceptance 5 now agree. `bun scripts/gen-assets.ts` re-run (`embedded 136 assets`); `src/assets.ts` is byte-identical because it imports `templates/AGENTS.md.tpl` with `{ type: "file" }`, and the rebuilt `dist/ai-eng` carries the new sentence (`grep -c` → 1). · verify: `bun test tests/agents-md-sections.spec.ts` 4/4 ✓ · `bun test tests/embed-canon.spec.ts` 13/13 ✓
 
 ROUND 2: resolved 3 (F4, F5, F6) · withdrawn 0 · upheld 1 (F7) · new 3 (F8 MAJOR, F9 MINOR, F10 MAJOR).
+## Findings (round 3)
+
+**Critic (r3) · F8: resolved.** Counts re-derived from `./dist/ai-eng --help`: `:1126` «6 verbos para humanos, 7 para máquinas», `:1875` «6 verbos humanos + 7 máquina», `:514` count dropped, `:1354` enumerations dropped, `:1655` «6 humanos + 7 de máquina». But `:1139` still carries a four-verb claim — see F11.
+
+**Critic (r3) · F9: resolved.** `:1590`'s H2 now reads the slot written and committed in the primary tree before cutting; no per-worktree design slot remains there.
+
+**Critic (r3) · F10: resolved.** `AGENTS.md:56` and `templates/AGENTS.md.tpl:49` carry both halves; the five surfaces (`AGENTS.md`, template, `PRD.html:85`, `brainstorm.html:308/316/353`, `skills/ai-orchestrator/SKILL.md:156`) agree, and the rebuilt `dist/ai-eng` embeds the new sentence.
+
+**Critic (r3) · F7: upheld** (unchanged; history not rewritten, deviation accepted by the coordinator).
+
+### F11 · MAJOR · open
+**Where:** `docs/blueprint.html:1139`
+**Critic (r3):** «El binario expone además **cuatro verbos que no son para el humano** … No aparecen en el TAB ni en `--help` como verbos de usuario» — both halves are false. `./dist/ai-eng --help` names seven (`chain · git · wrap · spec · worktree · adapt · briefing`) on one line, and the README fix in this same checkpoint removed exactly that «neither `--help` nor TAB» claim. The r3 note claims no verb count is left un-derived; this one is. → re-derive or drop as at `:514`. · verify: `./dist/ai-eng --help` against `:1139`.
+
+**Fixer (r4):** fixed — the count is re-derived from `./dist/ai-eng --help` (built after the edits): 6 human (`init · doctor · config · update · upgrade · uninstall`) and 7 machine (`chain · git · wrap · spec · worktree · adapt · briefing`, dispatched at `src/cli.ts:72-109`). `docs/blueprint.html:1139` now reads «siete verbos que no son para el humano», lists all seven, and replaces the false «No aparecen en el TAB ni en `--help`» with «`--help` los nombra en una línea, bajo «Machine verbs», y no llevan TAB como los humanos»; the 7 matches the §14 heading (`:1126`) and the footer (`:1875`). The same-class line the gate found, `:1364`, drops its four-name list for «solo los verbos humanos se completan; los de máquina no llevan TAB» — no number left to drift (F6 precedent). · verify: `./dist/ai-eng --help` ✓ (6 human / 7 machine)
+
+### F12 · MAJOR · fixed
+**Where:** `docs/blueprint.html:1646`
+**Critic (r3):** the open-questions list still resolves «Dos agentes, un repo» as `<span class="pill p-ok">RESUELTO v17</span>: un slot por checkout, worktree por agente … (§21.2)» — the model §21.6 (`:1825`) revises to one slot per repo, with no revision note here. §21.2's own heading now says «un slot por repo», so the blueprint contradicts itself line to line. → point the row at §21.6 the way §21.2 does. · verify: `:1646` against `:1825`.
+
+**Fixer (r4):** fixed — `docs/blueprint.html:1646`. The badge now reads «un slot por repo, worktree por feature … (§21.2, revisado por §21.6)», the marker §21.2's heading carries (`:1780`) and the model §21.6 states (`:1825`); «un slot por checkout» is gone, so the row no longer contradicts the section it points at. §21.2's own text is untouched and still reads as its history. · verify: read `:1646` against `:1780` and `:1825` ✓
+
+### F13 · MINOR · fixed
+**Where:** `.ai-engineering/brainstorm.html:204-209`
+**Critic (r3):** §02 «Por qué importa … Ahora mismo no está funcionando bien» still states as live truth the pre-feature state this feature changed: «el `AGENTS.md` de este repo no tiene sección de workflow de git» (`:205`; the section landed in `c9ae9499`), «`ai-orchestrator` Fase 0 hace `git switch -c feat/<slug>` en la carpeta principal (línea 45)» (`:206`; `SKILL.md:45` now runs `ai-eng worktree new <slug>`), «`git merge --squash` … (línea 172)» (`:207`; now `--no-ff`), «`ai-pr-loop-fix`» (`:209`; the skill is gone). None is said as history. → date/label §02 as the state before the feature. · verify: the cited lines in `SKILL.md`, `AGENTS.md` and `skills/` today.
+
+**Fixer (r4):** fixed — `.ai-engineering/brainstorm.html:202`. §02's lead-in now carries an `estado previo a esta feature` pill and states the list below is the portrait of the moment before this feature, not today's, naming the four facts that moved (the git contract now lives in `AGENTS.md`, Phase 0 cuts a worktree instead of branching the primary tree, the close rebases and uses `merge --no-ff` with no squash, and `ai-pr` replaced `ai-pr-loop-fix`). The interview's six bullets are untouched — only dated. · verify: `AGENTS.md:49-56`, `skills/ai-orchestrator/SKILL.md`, `skills/ai-pr/SKILL.md` read against `:204-209` ✓
+
+### Sweep (round 4) · one more of the class, outside the three named
+`.ai-engineering/brainstorm.html:340`: the open-questions row badges «resuelta» and states the cleanup's mechanism as «la limpieza usa `--merged` + `-d`» — the pre-feature mechanism. The shipped `skills/ai-git-cleanup/SKILL.md:84-95` deletes with `git branch --delete-merged refs/heads/main` first and keeps `--merged` + `-d` only as the fallback. Fixed in place as a dated note: the interview's answer stays, the revision is appended, pointing at §05. · verify: `skills/ai-git-cleanup/SKILL.md:84,90-94` ✓
+
+ROUND 3: resolved 3 (F8, F9, F10) · withdrawn 0 · upheld 1 (F7) · new 3 (F11 MAJOR, F12 MAJOR, F13 MINOR).
+
+ROUND 4: fixed 3 (F11, F12, F13) · disputed 0 · one same-class sweep fix (`brainstorm.html:340`).
