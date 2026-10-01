@@ -1,0 +1,361 @@
+{
+  "feature": "One worktree per feature (slug), local main as the only destination",
+  "slug": "git-worktree-flow",
+  "summary": "A session that writes code works in `<repo>.worktrees/<slug>` on its own `feat/<slug>` branch (created with `branch.<slug>.remote=\".\"` and `merge=refs/heads/main`), closes by rebasing on the local `main` inside its own worktree and merging with `git merge --no-ff`, and never pushes; the human later cuts one branch from the local `main` and opens one pull request against `origin/main`. The refactor adds the missing `AGENTS.md` git contract, adds the `ai-eng worktree new|rm|list` verb, rewrites `ai-orchestrator` Phase 0/close, rewrites `ai-git-cleanup`, replaces `ai-pr-loop-fix` with the full-loop `ai-pr`, and updates the docs, blueprint and changeset.",
+  "plain_summary": "When work happens in the repository it gets its own separate copy, so several pieces of work can go on at once without fighting. Each finished piece is combined back in one clear step, and nothing is sent anywhere until a person decides to.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Add the Git workflow contract to AGENTS.md and the shipped template",
+      "simple": "Write down the shared-work rules",
+      "size": "xs",
+      "goal": "AGENTS.md and templates/AGENTS.md.tpl carry the worktree-per-feature contract that ai-orchestrator already cites by name: one worktree per slug cut from the local `main`; one merge commit per feature into the local `main`; a session never pushes; the pull request is the human's decision; the primary tree is not touched while a session runs; design slots are never staged from a worktree; the shared files are written by the merge step.",
+      "plain": {
+        "what": "Anyone working in the project can read how separate pieces of work stay out of each other's way.",
+        "why": "The helper already points at these rules, but they had never been written down anywhere.",
+        "check": "Open the project's guidance file and look for the new section about separate work areas."
+      },
+      "builds_on": [],
+      "tasks": [
+        "AGENTS.md: add a `## Git workflow` section stating the contract — a session that writes code works in `<repo>.worktrees/<slug>` on `feat/<slug>`, cut from the local `main`; the merge destination is the local `main`, never `origin`, and it is one merge commit per feature; a session never pushes; the pull request is the human's decision; the primary tree is not touched while a session runs; the design slots (`brainstorm.html`, `PRD.html`, `spec.html`, `plan.html`) are written and committed in the primary tree before any worktree exists and are never staged from a worktree; the shared files (`CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md`, `.ai-engineering/recap.html`) are written once by that merge step; ephemeral branches are created with `branch.<slug>.remote=\".\"` and `merge=refs/heads/main`. Keep the file under doctor's 120-line ceiling.",
+        "templates/AGENTS.md.tpl: rewrite the existing four-line `## Git workflow` section (keep the heading — tests/agents-md-sections.spec.ts requires it) with the same contract, in the installed template's voice.",
+        "Run `bun scripts/gen-assets.ts` (templates travel inside the binary) and commit the regenerated src/assets.ts."
+      ],
+      "files": ["AGENTS.md", "templates/AGENTS.md.tpl", "src/assets.ts"],
+      "changed_files": ["AGENTS.md", "templates/AGENTS.md.tpl"],
+      "acceptance": [
+        "AGENTS.md and templates/AGENTS.md.tpl both state: worktree per slug cut from the local main, one merge commit per feature into the local main, no push from a session, the PR decided by the human, the primary tree untouched, design slots never staged, shared files written by the merge step.",
+        "The template still contains the four headings tests/agents-md-sections.spec.ts requires, and it and the repo file stay under doctor's 120-line ceiling.",
+        "The embedded assets are in sync with the template (embed-canon passes)."
+      ],
+      "verify": [
+        "rg -q 'worktree' AGENTS.md",
+        "rg -q 'merge --no-ff' AGENTS.md",
+        "rg -q '## Git workflow' templates/AGENTS.md.tpl",
+        "rg -q 'worktree' templates/AGENTS.md.tpl",
+        "bun test tests/agents-md-sections.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Add the ai-eng worktree new|rm|list verb with tests",
+      "simple": "Add tools to manage work copies",
+      "size": "m",
+      "goal": "The CLI grows a `worktree` verb: `src/cli.ts` only dispatches, `src/commands/worktree.ts` is a thin parser, and the pure logic lives in `src/shared-worktree.ts`. `new <slug>` resolves the worktree root — `[git].worktrees_dir` from `.ai-engineering/config.toml` when present, otherwise `<repo>.worktrees` — creates the worktree there using the canonical (realpath) path, sets `branch.<slug>.remote=\".\"` and `branch.<slug>.merge=refs/heads/main`, refuses when the primary tree has uncommitted design-slot files (a list defined once in the shared module), and warns when a declared file overlaps an open worktree; `list` reports the open worktrees; `rm <slug>` removes the worktree and its branch.",
+      "plain": {
+        "what": "The project gains simple commands to open, list and close its separate work copies.",
+        "why": "Without them, people would have to run raw git commands by hand and could get it wrong.",
+        "check": "Nothing to see on screen yet; the checks run behind the scenes."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "src/shared-worktree.ts (new): pure helpers for the verb — resolve the worktree root by reading `[git].worktrees_dir` from `.ai-engineering/config.toml` when the key is present, otherwise joining the real parent of the repo with `<name>.worktrees`, and realpath-canonicalize the result (brainstorm §08: git returns the canonical form, so compare canonical); define the design-slot list (`brainstorm.html`, `PRD.html`, `spec.html`, `plan.html`) once here; validate the slug against `^[a-z0-9][a-z0-9._-]*$` (kebab-case — no spaces, no `/`, never starting with a separator; the slug is both the branch name `feat/<slug>` and the directory name, and the orchestrator compares it literally against `<meta name=\"ai-feature\">`) and fail with a non-zero exit and nothing created when it does not match, build the exact `git worktree add` plus `git config branch.<slug>.remote '.'` and `git config branch.<slug>.merge refs/heads/main` command list, detect uncommitted design-slot files with `git status --porcelain` and refuse, and compare the declared file paths of a new worktree against those of open worktrees to warn on overlap.",
+        "src/spec/index.ts: import the design-slot list from the shared module instead of defining `SLOT_FILES` locally, so the verb and the spec slot share one definition (the shared layer may not import the spec layer, so the list moves down, not up).",
+        "src/commands/worktree.ts (new): thin parser for `new <slug> [files...]`, `rm <slug>` and `list`; prints the result and returns the exit code.",
+        "src/cli.ts: add the `case \"worktree\"` dispatch only (and name the verb in `--help`); no logic in the dispatcher.",
+        "tests/worktree-command.spec.ts (new): fixture git repo in a temp directory — asserts the created path is canonical and sibling to the repo, `git config --get branch.<slug>.merge` is `refs/heads/main` and `.remote` is `.`, a dirty design-slot file makes `new` refuse without creating anything, two worktrees declaring the same file warn, `list` reports the open worktrees, `rm` removes worktree and branch, and no emitted command contains `git push`; one case writes a `.ai-engineering/config.toml` with `[git] worktrees_dir` and asserts the worktree lands at that path; one case passes a slug with a space and one with a `/` and asserts a non-zero exit with nothing created and the reason in the message, while a valid kebab-case slug succeeds."
+      ],
+      "files": [
+        "src/cli.ts",
+        "src/commands/worktree.ts",
+        "src/shared-worktree.ts",
+        "src/spec/index.ts",
+        "tests/worktree-command.spec.ts"
+      ],
+      "acceptance": [
+        "`new` resolves the root from `[git].worktrees_dir` in `.ai-engineering/config.toml` when present and falls back to `<repo>.worktrees`; the created path is canonical and carries the upstream config.",
+        "`new` refuses when a design-slot file is uncommitted in the primary tree, using the one shared slot list.",
+        "A slug is validated against `^[a-z0-9][a-z0-9._-]*$` before anything is created; a slug with a space or a `/` exits non-zero, creates nothing and names the reason, and a valid kebab-case slug succeeds.",
+        "Creating a second worktree that declares a file an open worktree already declared warns (does not block).",
+        "`list` reports the open worktrees and `rm` removes the worktree and its branch; no command ever pushes.",
+        "src/cli.ts contains only the dispatch case; the design-slot list has one definition; `bun test tests/arch.spec.ts` stays green with no change to `.ai-engineering/arch.rules.json`."
+      ],
+      "verify": [
+        "bun test tests/worktree-command.spec.ts",
+        "bun test tests/spec-command.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "rg -q 'worktrees_dir' src/shared-worktree.ts",
+        "rg -q 'SLOT_FILES' src/shared-worktree.ts",
+        "bun test tests/worktree-command.spec.ts -t canonical",
+        "bun test tests/worktree-command.spec.ts -t upstream",
+        "bun test tests/worktree-command.spec.ts -t 'design slot'",
+        "bun test tests/worktree-command.spec.ts -t fallback",
+        "bun test tests/worktree-command.spec.ts -t worktrees_dir",
+        "bun test tests/worktree-command.spec.ts -t overlap",
+        "bun test tests/worktree-command.spec.ts -t list",
+        "bun test tests/worktree-command.spec.ts -t remove",
+        "bun test tests/worktree-command.spec.ts -t 'no push'",
+        "bun test tests/worktree-command.spec.ts -t 'invalid slug'",
+        "bun test tests/worktree-command.spec.ts -t 'valid slug'",
+        "bun test tests/worktree-command.spec.ts -t 'no unquoted'",
+        "bun test tests/worktree-command.spec.ts -t stale",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Cut the worktree in ai-orchestrator Phase 0 and close with rebase + merge",
+      "simple": "Give each job its own copy",
+      "size": "m",
+      "goal": "skills/ai-orchestrator/SKILL.md Phase 0 opens `<repo>.worktrees/<slug>` through the CLI verb that now exists, instead of `git switch -c feat/<slug>` in the shared tree, and the close step becomes rebase on the local `main` inside the worktree, `git merge --no-ff` in the primary tree, then worktree and branch cleanup, with the shared files written once by the merge step.",
+      "plain": {
+        "what": "Each piece of work starts in its own separate copy of the project, ready to build.",
+        "why": "Working in one shared copy meant two jobs could overwrite each other.",
+        "check": "Start a new build and notice it says it opened a separate copy before touching any code."
+      },
+      "builds_on": [2],
+      "tasks": [
+        "skills/ai-orchestrator/SKILL.md `Commits: commit as you go` (branch line ~45): Phase 0 runs `ai-eng worktree new <slug>` (on resume, enter the existing `<repo>.worktrees/<slug>` and `git switch feat/<slug>` inside it), and drop the \"because other sessions share this tree\" staging rationale — the worktree is the isolation now; keep explicit-path staging for the slug-scoped artifacts and the gate table unchanged.",
+        "skills/ai-orchestrator/SKILL.md Phase 4 approve (~172): replace `git merge --squash feat/<slug>` with `git rebase main` inside the worktree, then `git merge --no-ff feat/<slug>` in the primary tree, then `ai-eng worktree rm <slug>`; state that the shared files (CHANGELOG/LEARNINGS/FILEMAP/PERMISSIONS/recap.html) are written once by this merge step and that nothing pushes.",
+        "Run `bun scripts/gen-assets.ts` and commit the regenerated src/assets.ts."
+      ],
+      "files": ["skills/ai-orchestrator/SKILL.md", "src/assets.ts"],
+      "acceptance": [
+        "Phase 0 no longer creates `feat/<slug>` in the shared tree; it names `ai-eng worktree new <slug>`.",
+        "The close step rebases on local `main` inside the worktree, merges with `git merge --no-ff`, and cleans up the worktree and branch; it never pushes.",
+        "The shared files are assigned to the merge step only.",
+        "The Lifecycle block still hands off per the workflow-handoff test."
+      ],
+      "verify": [
+        "rg -q 'ai-eng worktree new' skills/ai-orchestrator/SKILL.md",
+        "! rg -q 'git switch -c feat/' skills/ai-orchestrator/SKILL.md",
+        "rg -q 'merge --no-ff' skills/ai-orchestrator/SKILL.md",
+        "rg -q 'worktree rm' skills/ai-orchestrator/SKILL.md",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Rewrite ai-git-cleanup as a one-pass, name-free cleanup",
+      "simple": "Clean up finished work automatically",
+      "size": "l",
+      "goal": "skills/ai-git-cleanup is rewritten from scratch as a single automatic pass: it removes dead worktrees and merged branches with `git branch --delete-merged refs/heads/main`, using `git branch --merged main` plus `-d` as the fallback for branches without that upstream; it never deletes an unmerged branch and never asks for a name. The old analyze.mjs script and the three git-cleanup specs are deleted, and the Trail of Bits attribution goes with the code.",
+      "plain": {
+        "what": "Finished work copies disappear by themselves in one safe pass, and anything unfinished is left alone.",
+        "why": "Leftover copies pile up until nobody can tell which work is still in progress.",
+        "check": "After finishing some work, run the tidy-up and see the finished copies gone and unfinished ones untouched."
+      },
+      "builds_on": [3],
+      "tasks": [
+        "Delete skills/ai-git-cleanup/scripts/analyze.mjs, tests/git-cleanup-flow.spec.ts, tests/git-cleanup-analyze.spec.ts and tests/git-cleanup-cli.spec.ts (they test the deleted script).",
+        "skills/ai-git-cleanup/SKILL.md: rewrite as one pass with no interactive question — remove dead worktrees first (`git worktree remove`, then `git worktree prune`), then branches with `git branch --delete-merged refs/heads/main`; fallback for branches without that upstream: `git branch --merged main` and `-d` (never `-D`, never a forced delete); never touch an unmerged branch; no name is ever asked. Update the description/triggers, keep the frontmatter shape and the `## Lifecycle` block, and drop the Trail of Bits `Source:` line (no upstream code ships).",
+        "NOTICE.md and THIRD-PARTY-NOTICES.md: remove the Trail of Bits git-cleanup rows, since the adapted analyze.mjs no longer ships.",
+        "tests/git-cleanup-pass.spec.ts (new, small): the skill documents `--delete-merged refs/heads/main`, the `--merged main` + `-d` fallback, no `-D`, no prompt/name question, and a `## Lifecycle` block.",
+        "Run `bun scripts/gen-assets.ts` and commit the regenerated src/assets.ts."
+      ],
+      "files": [
+        "skills/ai-git-cleanup/SKILL.md",
+        "tests/git-cleanup-pass.spec.ts",
+        "NOTICE.md",
+        "THIRD-PARTY-NOTICES.md",
+        "src/assets.ts"
+      ],
+      "acceptance": [
+        "The one pass removes dead worktrees and merged branches with `git branch --delete-merged refs/heads/main`, falling back to `git branch --merged main` + `-d` for branches without that upstream.",
+        "An unmerged branch is never deleted, `-D` never appears, and no name is ever asked.",
+        "The old script and its three specs are gone; the Trail of Bits attribution is removed from NOTICE.md and THIRD-PARTY-NOTICES.md.",
+        "The skill keeps a valid Lifecycle block and the embedded assets are in sync."
+      ],
+      "verify": [
+        "test ! -f skills/ai-git-cleanup/scripts/analyze.mjs",
+        "test ! -f tests/git-cleanup-flow.spec.ts && test ! -f tests/git-cleanup-analyze.spec.ts && test ! -f tests/git-cleanup-cli.spec.ts",
+        "rg -q 'delete-merged refs/heads/main' skills/ai-git-cleanup/SKILL.md",
+        "rg -q -- '--merged main' skills/ai-git-cleanup/SKILL.md",
+        "! rg -q 'Trail of Bits' NOTICE.md THIRD-PARTY-NOTICES.md",
+        "! rg -q -- '-D' skills/ai-git-cleanup/SKILL.md",
+        "rg -q 'worktree prune' skills/ai-git-cleanup/SKILL.md",
+        "bun test tests/git-cleanup-pass.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "title": "Replace ai-pr-loop-fix with the ai-pr full loop",
+      "simple": "Open and finish the pull request",
+      "size": "l",
+      "goal": "A new skills/ai-pr walks the whole pull-request loop — cut the PR branch from the local `main` without a worktree, push, open the pull request against `main`, watch CI and review comments, fix what is obvious in bounded iterations and merge with auto-merge on by default (switchable off) — and skills/ai-pr-loop-fix is deleted.",
+      "plain": {
+        "what": "One helper takes a finished group of work all the way to a reviewed pull request.",
+        "why": "The old helper fixed test failures but could not open or finish anything, so the job stopped halfway.",
+        "check": "Ask for the pull request and watch it get opened, checked and finished without further steps."
+      },
+      "builds_on": [4],
+      "tasks": [
+        "skills/ai-pr/SKILL.md (new): frontmatter with triggers and a `## Lifecycle` block; phases — cut the PR branch from the local `main` with no worktree, `git push -u`, `gh pr create --base main` with the body assembled from the merge commits the branch carries, watch CI (`gh pr checks` / `gh run list`) and review comments, fix only obvious failures in bounded iterations, then merge with auto-merge on by default and switchable off (`gh pr merge --auto` with a no-auto option); never delete a remote branch; never merge unless the human asked for the PR.",
+        "Delete skills/ai-pr-loop-fix/SKILL.md.",
+        "tests/ai-pr.spec.ts (new, small): the skill exists with a Lifecycle block and documents `gh pr create` against `main`, auto-merge on by default with a switch, the bounded iteration cap, and that skills/ai-pr-loop-fix no longer exists.",
+        "Run `bun scripts/gen-assets.ts` and commit the regenerated src/assets.ts."
+      ],
+      "files": ["skills/ai-pr/SKILL.md", "tests/ai-pr.spec.ts", "src/assets.ts"],
+      "acceptance": [
+        "skills/ai-pr exists, has a Lifecycle block, and documents the full loop: branch from local main without a worktree, push, PR against main, CI/review watch, bounded obvious fixes, merge.",
+        "Auto-merge is on by default and can be switched off; remote branch deletion never appears.",
+        "skills/ai-pr-loop-fix is gone and embedded assets are in sync."
+      ],
+      "verify": [
+        "test -f skills/ai-pr/SKILL.md && test ! -d skills/ai-pr-loop-fix",
+        "rg -q 'gh pr create' skills/ai-pr/SKILL.md",
+        "rg -q 'gh pr merge' skills/ai-pr/SKILL.md",
+        "bun test tests/ai-pr.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "Update README, CONTRIBUTING, the blueprint and the changeset",
+      "simple": "Tell people about the new workflow",
+      "size": "l",
+      "goal": "README documents the `ai-eng worktree` verb next to `ai-eng git pre-commit`, CONTRIBUTING describes the local flow (worktree, merge to the local main, PR only when the human decides), docs/blueprint.html gains the behaviour-change section for the verb and the changed skills, and a minor changeset lands in .changeset/.",
+      "plain": {
+        "what": "The user-facing docs, the guide for contributors and the product document all describe the new way of working.",
+        "why": "A change nobody can read about is a change half delivered.",
+        "check": "Open the project's readme and look for the new command and the short description of the flow."
+      },
+      "builds_on": [5],
+      "tasks": [
+        "README.md: next to `ai-eng git pre-commit` (~line 235) add `ai-eng worktree new|rm|list` with one line of the flow (separate copy per job, combined back locally, nothing sent anywhere until a person decides).",
+        "CONTRIBUTING.md `Commit and PR conventions`: add the local flow — work in a worktree, merge to the local `main`, the PR against `origin/main` is the human's decision.",
+        "docs/blueprint.html: add the behaviour-change section for the `worktree` verb and the changed skills (ai-orchestrator close, ai-git-cleanup, ai-pr), near the existing §21.2 worktree-per-agent section.",
+        ".changeset/git-worktree-flow.md: minor bump (`\"ai-engineering\": minor`) with a one-sentence summary.",
+        "FILEMAP.md is left unchanged (board §11 marks it so on purpose)."
+      ],
+      "files": ["README.md", "CONTRIBUTING.md", "docs/blueprint.html", ".changeset/git-worktree-flow.md"],
+      "acceptance": [
+        "README names `ai-eng worktree` and one line of the flow.",
+        "CONTRIBUTING describes the local worktree/merge flow and that the PR is the human's call.",
+        "docs/blueprint.html has the new section for the verb and the changed skills.",
+        ".changeset/git-worktree-flow.md exists with a minor bump; FILEMAP.md is untouched."
+      ],
+      "verify": [
+        "rg -q 'ai-eng worktree' README.md",
+        "rg -q 'worktree' CONTRIBUTING.md",
+        "rg -q 'ai-eng worktree' docs/blueprint.html",
+        "test -f .changeset/git-worktree-flow.md && rg -q 'minor' .changeset/git-worktree-flow.md",
+        "bun test tests/npm-manifest.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "title": "Fold the reviewed attachment pieces into ai-audit-code and ai-security",
+      "simple": "Add good habits to two helpers",
+      "size": "l",
+      "goal": "The smallest text additions: ai-audit-code gains the discipline of citing `file:line` and a \"Looks bad but is fine\" section plus the anti-false-positive and verify-before-deleting guardrail; ai-security gains \"no severity without an attack path\" and the split of the hunter/PoC from the validator. Nothing else from the attachments is imported.",
+      "plain": {
+        "what": "Two helpers get a few extra good habits taken from other projects.",
+        "why": "Those habits are the best parts of the outside work; taking the whole projects would bring too much.",
+        "check": "Nothing to see on screen yet; the checks read the written guidance."
+      },
+      "builds_on": [6],
+      "tasks": [
+        "skills/ai-audit-code/SKILL.md: add the `file:line` citation discipline and a \"Looks bad but is fine\" section (from tech-debt-audit), plus the anti-false-positive and verify-before-deleting guardrail (from remove-deadcode) as a few short lines.",
+        "skills/ai-security/SKILL.md: add \"no severity without an attack path\" and the hunter/PoC-separate-from-validator split as a couple of sentences (the findings.json ledger already exists).",
+        "Run `bun scripts/gen-assets.ts` and commit the regenerated src/assets.ts."
+      ],
+      "files": ["skills/ai-audit-code/SKILL.md", "skills/ai-security/SKILL.md", "src/assets.ts"],
+      "acceptance": [
+        "ai-audit-code cites `file:line` and carries a \"Looks bad but is fine\" section.",
+        "ai-security states that no severity is given without an attack path and separates the hunter/PoC from the validator.",
+        "No other content from the three attachments is imported; embedded assets are in sync."
+      ],
+      "verify": [
+        "rg -q 'Looks bad but is fine' skills/ai-audit-code/SKILL.md",
+        "rg -q 'file:line' skills/ai-audit-code/SKILL.md",
+        "rg -q 'attack path' skills/ai-security/SKILL.md",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    }
+  ],
+  "assumptions": [
+    "The project's own guidance file and the shipped template both get the new section, because the template already carried an older four-line version of it (templates/AGENTS.md.tpl already has `## Git workflow`).",
+    "The slug is validated before use against `^[a-z0-9][a-z0-9._-]*$`, because it is both the branch name `feat/<slug>` and the worktree directory name, and the orchestrator compares it literally against `<meta name=\"ai-feature\">`; an invalid slug fails with a non-zero exit and creates nothing.",
+    "The worktree root is configurable: `[git].worktrees_dir` in `.ai-engineering/config.toml` when present, otherwise `<repo>.worktrees`; it is the only portability escape hatch the design allows (brainstorm §08).",
+    "The design-slot list is defined once in the new shared module and src/spec/index.ts imports it from there, because the shared layer may not import the spec layer (arch.rules.json), so the single definition moves down rather than up.",
+    "The new command's logic lives in a shared helper file and a thin parser so no new architecture layer has to be proposed (AGENTS.md architecture rules and src/cli.ts, which only dispatches).",
+    "The verb checkpoint precedes the orchestrator checkpoint, because the orchestrator must not call a command that does not exist yet; this supersedes the handoff's suggested order.",
+    "The outside project's attribution is removed because its script is deleted and the helper is rewritten from scratch (handoff notes list that deletion and the attribution update together).",
+    "Auto-merge on by default, switchable off (PRD feature bullet for `ai-pr`).",
+    "The template's old git section is rewritten rather than duplicated, because the section test expects a single `## Git workflow` heading."
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "The verb (checkpoint 2) lands before the orchestrator change (checkpoint 3) so the orchestrator never cites a command that does not exist; this feature builds its own workflow, and the first build runs in the primary tree.",
+    "Out of scope, per the preflight §09: renaming `ai-eng git` to `ai-eng hooks`, deleting remote branches, rewriting local main history, and touching the orphan worktree `ai-engineering-v1-oracle`.",
+    "Checkpoint 7 is deliberately tiny but its size stays `l` because planner sizes never shrink; its own checkpoint was requested by the preflight handoff.",
+    "The CHANGELOG entry is written by the merge step, not by a checkpoint (preflight §08/§11); no checkpoint adds it.",
+    "Checkpoint 6 runs `bun test tests/npm-manifest.spec.ts` because the changeset and the packaging surface change together; FILEMAP.md needs no change (preflight §11)."
+  ]
+}
