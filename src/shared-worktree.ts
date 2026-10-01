@@ -104,17 +104,43 @@ function openWorktrees(repo: string): OpenWorktree[] {
   return entries;
 }
 
-/** The first design slot with an uncommitted change in the primary tree, or null. */
-function dirtySlot(repo: string): string | null {
+/** Why a cut is refused: a slot change seen at `path`, or the status detail
+ *  that could not be read. A guard that cannot decide denies. */
+type SlotBlocker = { path: string } | { detail: string };
+
+/** Splits the path field of one `git status --porcelain` line into the paths it
+ *  carries: a rename or copy carries two (`source -> destination`), every other
+ *  line carries exactly one. null means the line is unreadable, which blocks. */
+function statusPaths(line: string): string[] | null {
+  if (line.length < 4 || line[2] !== " ") return null;
+  const twoPaths = [line[0], line[1]].some((code) => code === "R" || code === "C");
+  // ponytail: a path that itself contains " -> " reads as the wrong count, hence
+  // unreadable — a refused cut the user clears by renaming the file.
+  const paths = line.slice(3).split(" -> ");
+  if (paths.length !== (twoPaths ? 2 : 1) || paths.some((path) => path === "")) return null;
+  return paths;
+}
+
+/** The first design slot touched in the primary tree, or null. A slot counts as
+ *  touched when a status line carries its path, the path a rename took it from,
+ *  or anything nested under it (a slot replaced by a directory) — and an
+ *  unreadable line blocks rather than passes. */
+function dirtySlot(repo: string): SlotBlocker | null {
   // `-uall` lists each untracked file instead of collapsing a wholly untracked
   // directory to `?? .ai-engineering/`, so an uncommitted slot is still seen.
   const status = git(repo, ["status", "--porcelain", "-uall"]);
-  if (status.status !== 0) return null;
+  if (status.status !== 0) return { detail: `git status exited ${status.status}` };
   for (const line of status.stdout.split("\n")) {
-    if (line.length < 4) continue;
-    const path = line.slice(3).replace(/^"(.*)"$/, "$1");
-    const slot = PRE_WORKTREE_SLOTS.find((name) => path === `.ai-engineering/${name}`);
-    if (slot) return slot;
+    if (line === "") continue;
+    const paths = statusPaths(line);
+    if (paths === null) return { detail: line };
+    for (const path of paths) {
+      const slot = PRE_WORKTREE_SLOTS.find((name) => {
+        const slotPath = `.ai-engineering/${name}`;
+        return path === slotPath || path.startsWith(`${slotPath}/`);
+      });
+      if (slot) return { path };
+    }
   }
   return null;
 }
@@ -129,12 +155,15 @@ export function worktreeNew(slug: string, files: string[]): WorktreeResult {
       err: `worktree new: invalid slug "${slug}" — it must match ${SLUG_PATTERN} (no spaces, no "/", never starting with a separator).\n`,
     };
   }
-  const dirty = dirtySlot(repo);
-  if (dirty !== null) {
+  const blocked = dirtySlot(repo);
+  if (blocked !== null) {
     return {
       code: 2,
       out: "",
-      err: `worktree new: .ai-engineering/${dirty} has uncommitted changes in the primary tree — commit the design slot before opening a worktree.\n`,
+      err:
+        "path" in blocked
+          ? `worktree new: ${blocked.path} has uncommitted changes in the primary tree — commit the design slot before opening a worktree.\n`
+          : `worktree new: the primary tree's status is unreadable (${JSON.stringify(blocked.detail)}) — refusing to cut a worktree while the design slots are unknown.\n`,
     };
   }
 
