@@ -40,10 +40,12 @@ Lines the critic treats as blockers. Fill in project-specific rules here; leave 
 - codegraph — use for call chains and blast-radius before editing across modules.
 
 ## Git workflow
-- Commit as you go on `feat/<slug>`.
-- Stage explicit paths only.
-- Do not use `--no-verify`.
-- Do not push unless asked.
+- A session that writes code works in `<repo>.worktrees/<slug>` on the branch `feat/<slug>`, cut from the local `main`; a session that only reads opens no worktree.
+- The merge destination is the local `main`, never `origin`: rebase inside the worktree, then `git merge --no-ff` — one merge commit per feature.
+- A session never pushes; the pull request is the human's decision.
+- The primary tree is not touched while a session runs.
+- The design slots (`brainstorm.html`, `PRD.html`, `spec.html`, `plan.html`) are written and committed in the primary tree before any worktree exists, and no worktree ever stages them.
+- The shared files (`CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md`, `.ai-engineering/recap.html`) are written once by that merge step, never by a parallel session.
 
 ## Workflow
 - Green gate before "done": show the output of the check that proves it.
