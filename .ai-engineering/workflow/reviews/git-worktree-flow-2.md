@@ -59,3 +59,34 @@ Re-ran the set on HEAD (93bafbb9): `bun test tests/worktree-command.spec.ts` **1
 **Critic (r1):** `$` also matches before a trailing newline, so `SLUG_PATTERN.test("alpha\n")` is true and the validation admits a value it is meant to reject; `mkdirSync(root)` has already run by the time git refuses the ref. → Anchor with a class that excludes the newline (`[a-z0-9._-]*\z` equivalent) or reject `slug !== slug.trim()`. Settle: `worktree new $'alpha\n'` creates nothing and names the reason.
 
 Round 1 verdict: FAIL (F1 BLOCKER, F2 BLOCKER, F3 BLOCKER, F4 MAJOR; F5, F6 MINOR).
+
+## Round 2 — critic
+
+Re-ran the set on 67b25dd7: `tests/worktree-command.spec.ts` 24 pass / 0 fail; `spec-command` + `arch` 44 pass; typecheck, lint, build exit 0. Probes against the real CLI in throwaway repos: a worktree cut from inside another worktree lands at `<primary>.worktrees/<slug>`; `list` from inside a worktree prints only the session; `rm <session>` from inside another session removes that worktree and `feat/<slug>`; `rm main` from inside a worktree refuses without touching the primary; an unusable `.ai-eng-worktrees.json` (`null`) refuses both `new` and `rm` before any create or removal.
+
+**F1 — resolved.** Verified, not claimed: the case-alias test (added in 93bafbb9) is green on this case-insensitive fs, and `namesSlot` now canonicalizes then case-folds both sides. The over-refusal you asked about is real on a case-sensitive fs (`BRAINSTORM.HTML` as a genuinely distinct file blocks) but it is the fail-closed side of an error message — accepted, and written in the code's own comment.
+
+**F2 — resolved.** `git status --porcelain -uall -z` with NUL tokens and raw bytes; the non-ASCII-inside-a-slot-directory case (ffb6d76c:544) is green, and a rename's `to\0from` order is proven by the pre-existing rename case.
+
+**F3 — resolved.** `primaryRepoRoot()` from `--git-common-dir` (parent of `.git`), used by `new`, `list`, `rm` and the guard; verified from inside a worktree, from a subdirectory of the primary, and for the two `rm` protections above. The primary can no longer be listed, cut over, or removed.
+
+**F4 — resolved.** Branch `feat/<slug>`, keys `branch.feat/<slug>.{remote,merge}`, start point pinned to `refs/heads/main` (LEARNINGS R4), and the spec pins `feat/` and `refs/heads/main` (ffb6d76c) rather than the earlier accidental shape. Probed: `git worktree list` shows `[feat/alpha]`, `git branch` shows `feat/alpha`.
+
+**F5 — resolved.** Shape-validated (`object`, non-null, not an array, string arrays), refused by name when unusable, pruned of vanished slugs. Verified: `null` refuses `new` with a named detail and `rm` with the worktree and branch left intact — no partial cut, no delete.
+
+**F6 — resolved.** `SLUG_PATTERN` plus `/\p{C}/u`, refused before `mkdirSync`; the newline case (ffb6d76c:587) is green.
+
+## F7 · MINOR · open (r2)
+**Where:** src/shared-worktree.ts:134/:276/:340 · tests/worktree-command.spec.ts:604
+**Critic (r2):** The fix moved the declarations file from beside the worktrees root into `repo` — the primary tree. Probed: `worktree new` leaves `?? .ai-eng-worktrees.json` at the primary root, untracked and not gitignored, so the verb now writes a permanent, unignored artifact into the very tree AGENTS.md:53 keeps clean, and it does so when run from inside a worktree (the case this roundmade supported). The new test pins that location, so the spec now asserts the siting choice rather than the interface. → Write it beside the worktrees root (as before) or ignore it; settle: `git status --porcelain` in the primary after `new` and after `rm`.
+
+## F8 · MINOR · open (r2)
+**Where:** src/shared-worktree.ts:89 (`canonicalize(configured.trim())`)
+**Critic (r2):** The config is now read from the primary (`loadConfig(repo)`) but a relative `[git].worktrees_dir` is still resolved against `process.cwd()`, so the same repository resolves two different roots depending on where the verb stands (`new` from the primary vs from inside a worktree), and `pruneDeclarations` then prunes against a root the worktrees do not live in. → `join(repo, configured)` when the value is relative. Settle: `[git] worktrees_dir = ".wt"` then `new` from the primary and from inside a worktree must print the same root.
+
+## F9 · MINOR · open (r2)
+**Where:** src/shared-worktree.ts:148-183 (`dirtySlot` and its comment)
+**Critic (r2):** The guard's construction limit is nowhere written: `git status` does not report `assume-unchanged`/`skip-worktree` entries or ignored paths, and a symlink whose target changed is unchanged to git. Probed: commit `.ai-engineering/brainstorm.html`, `git update-index --assume-unchanged` it, append dirt — `git status -uall` is clean and `worktree new` exits 0 over the dirty slot. → One comment (or a LEARNINGS line) stating exactly what the guard cannot see, so the next reader does not trust it further than the check does. Settle: the probe above.
+
+Round 2 verdict: PASS with three MINOR findings (F7, F8, F9).
+ROUND 2: resolved 6 · withdrawn 0 · upheld 0 · new 3
