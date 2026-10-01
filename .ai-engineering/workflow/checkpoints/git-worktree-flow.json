@@ -128,6 +128,7 @@
       "tasks": [
         "skills/ai-orchestrator/SKILL.md `Commits: commit as you go` (branch line ~45): Phase 0 runs `ai-eng worktree new <slug>` (on resume, enter the existing `<repo>.worktrees/<slug>` and `git switch feat/<slug>` inside it), and drop the \"because other sessions share this tree\" staging rationale — the worktree is the isolation now; keep explicit-path staging for the slug-scoped artifacts and the gate table unchanged.",
         "skills/ai-orchestrator/SKILL.md Phase 4 approve (~172): replace `git merge --squash feat/<slug>` with `git rebase main` inside the worktree, then `git merge --no-ff feat/<slug>` in the primary tree, then `ai-eng worktree rm <slug>`; state that the shared files (CHANGELOG/LEARNINGS/FILEMAP/PERMISSIONS/recap.html) are written once by this merge step and that nothing pushes.",
+        "skills/ai-orchestrator/SKILL.md commit-message table: emit only messages this repo's `commit-msg` hook accepts — types limited to `feat|docs|chore|fix|test`, scope without `#`, and the checkpoint number in the body, never in the scope; write the exact map into the skill: `plan(<slug>)` -> `chore(<slug>)` with the number in the body, `gate(<slug>#N)` -> `chore(<slug>)`, `wip(<slug>#N)` -> `chore(<slug>)` (drop `plan`, `gate` and `wip`, and drop the `#` from every scope).",
         "Run `bun scripts/gen-assets.ts` and commit the regenerated src/assets.ts."
       ],
       "files": ["skills/ai-orchestrator/SKILL.md", "src/assets.ts"],
@@ -135,13 +136,16 @@
         "Phase 0 no longer creates `feat/<slug>` in the shared tree; it names `ai-eng worktree new <slug>`.",
         "The close step rebases on local `main` inside the worktree, merges with `git merge --no-ff`, and cleans up the worktree and branch; it never pushes.",
         "The shared files are assigned to the merge step only.",
-        "The Lifecycle block still hands off per the workflow-handoff test."
+        "The Lifecycle block still hands off per the workflow-handoff test.",
+        "No message the skill emits can be rejected by the `commit-msg` hook: every pattern of its table matches `^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\([a-z0-9._/-]+\\))?!?: \\S`, so `plan`, `gate` and `wip` and the `<slug>#N` scope are gone."
       ],
       "verify": [
         "rg -q 'ai-eng worktree new' skills/ai-orchestrator/SKILL.md",
         "! rg -q 'git switch -c feat/' skills/ai-orchestrator/SKILL.md",
         "rg -q 'merge --no-ff' skills/ai-orchestrator/SKILL.md",
         "rg -q 'worktree rm' skills/ai-orchestrator/SKILL.md",
+        "! rg -q 'plan\\(<slug>|gate\\(<slug>|wip\\(<slug>' skills/ai-orchestrator/SKILL.md",
+        "! rg -q '<slug>#' skills/ai-orchestrator/SKILL.md",
         "bun test tests/workflow-handoff.spec.ts",
         "bun test tests/embed-canon.spec.ts",
         "bun run typecheck",
