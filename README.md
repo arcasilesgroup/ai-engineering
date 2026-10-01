@@ -225,14 +225,14 @@ the evidence lives in `src/surfaces/surfaces.json`.
 
 ## CLI
 
-Six verbs for people — `init`, `doctor`, `config`, `update`, `upgrade`, `uninstall` — and four for
-hooks, CI and the loop, which appear in neither `--help` nor TAB completion because no human types
-them:
+Six verbs for people — `init`, `doctor`, `config`, `update`, `upgrade`, `uninstall` — and seven
+machine verbs for hooks, CI and agents, which `--help` names on one line and no human types by
+hand. The five this section covers:
 
 ```bash
 echo "$PAYLOAD" | ai-eng chain PreToolUse   # the guard dispatcher: reads the host's payload on stdin
 ai-eng git pre-commit                       # the pre-commit, commit-msg and pre-push checks
-ai-eng worktree new|rm|list                 # one copy per job, merged into the local main; nothing pushed until you decide
+ai-eng worktree new <slug> | rm <slug> | list  # one copy per job, merged into the local main; nothing pushed until you decide
 ai-eng wrap test -- bun test                # test-output filter: failures grouped, noise dropped
 ai-eng spec open | approve | close        # the milestone slot
 ```
