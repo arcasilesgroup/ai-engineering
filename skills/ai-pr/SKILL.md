@@ -1,17 +1,16 @@
 ---
 name: ai-pr
 description: >-
-  The full pull-request loop, run end to end once the human decides to publish
-  what the local `main` already holds: cut the pull-request branch from the
-  local `main` with no worktree, push it, open the pull request against `main`
-  with a body assembled from the merge commits the branch carries, watch CI and
-  the review comments, fix only what is obvious in bounded iterations, then
-  merge with auto-merge on by default. Running this skill is the human's request
-  to finish the pull request — open, watch and merge; a human who says "open the
-  pull request only" gets the open pull request and no merge. A session that is
-  still building never pushes. Trigger for "get the PR merged", "finish the PR",
-  "run the full PR loop", or by naming ai-pr. Not for diagnosing non-CI failures
-  — use ai-debug. Not for adding test coverage — use ai-verify.
+  The pull-request loop, opened from the local `main` with no worktree: cut the
+  pull-request branch from the local `main`, push it, open the pull request
+  against `main` with a body assembled from the merge commits the branch
+  carries, watch CI and the review comments, fix only what is obvious in
+  bounded iterations, then merge with auto-merge on by default. The human's verb
+  decides how far the run goes: "open the pull request" opens it and stops,
+  while "finish the PR", "land the PR", "merge it" or "run the full PR loop"
+  carries the run through the merge — an ask that names neither is the open one.
+  A session that is still building never pushes. Not for diagnosing non-CI
+  failures — use ai-debug. Not for adding test coverage — use ai-verify.
 license: Apache-2.0
 ---
 
@@ -19,20 +18,32 @@ license: Apache-2.0
 
 This is the one place in the framework where a push is legitimate. Until then the
 work sits in the local `main` as one merge commit per feature, and `origin/main`
-has not moved. When the human says open the pull request, run the phases below in
-order and report what each one did. Read `AGENTS.md` and the commit/PR conventions
+has not moved. Run the phases below in order and report what each one did; the
+verb the human used decides how far the run goes — open stops after Phase 3,
+finish/land/merge it continues through Phase 6 (see The ask). Read `AGENTS.md`
+and the commit/PR conventions
 in `CONTRIBUTING.md` first — they own the branch model and the title/changeset
 rules this skill assumes, and nothing here repeats them.
 
-## The ask — who decides what
+## The ask — the verb the human uses decides the run
 
-- **Running this skill is the human's request to finish the pull request** —
-  cut, push, open, watch, fix, merge. Print that as the first line of the run, so
-  the human sees what was asked before anything moves:
-  `ai-pr: finishing <branch> — open, watch, merge.`
-- **Open the pull request only.** When the human's words are open the pull
-  request only, phases 1-3 run, the run states it stops before merging, and it
-  never merges — no merge command, no auto-merge. The ask was to open, not to land.
+- **The verb decides how far the run goes, and nothing else does.** Read the
+  words before any command runs, and print the shape as the first line of the
+  run:
+  - **"open", "open the pull request", "make the PR"** — Phases 1-3 run and the
+    run stops there: `ai-pr: opened <branch> — not merging.` Open the pull
+    request only is the open mode, and it never merges — no merge command, no
+    auto-merge, and no Phase 6.
+  - **"finish", "land", "merge it", "get the PR merged", "run the full PR
+    loop"** — the run carries the whole loop: cut, push, open, watch, fix, and
+    through the merge. Print `ai-pr: finishing <branch> — open, watch, merge.`
+- **An ambiguous ask is the open one.** When the words name neither shape, the
+  run opens the pull request only and stops; the merge is the shape the human
+  must name, never the one inferred.
+- **A green pull request is not a request to merge it.** The merge happens
+  because the human said finish, land or merge it — asking for this skill with a
+  finish verb is the request to land the pull request — never because the checks
+  came back green. Both the open ask and the ambiguous ask stop before Phase 6.
 - **A session that is still building never pushes.** Only this step, the one the
   human triggered, pushes, and only after every session has closed into the local
   `main`.
@@ -142,13 +153,20 @@ gh api repos/{owner}/{repo}/branches/main/protection --jq '.required_status_chec
 ```
 
 Exactly those contexts gate the merge; `gh pr checks <number> --required` lists
-them for this pull request. The rest of the workflows only inform — a red one is
-worth reading, never a reason to hold the merge. Treat a gate that is queued or
-still running as not passed. Read the review comments as they arrive — a
-`CHANGES_REQUESTED` or a blocking comment is a stop, not an iteration.
+them for this pull request. When the query itself fails — an unprotected branch,
+a fork, or a token without admin rights — nothing gating that the run can verify
+exists, so the run must not arm auto-merge: it waits for the human's explicit
+word before Phase 6 and says the gating set could not be read. The rest of the
+workflows only inform — a red one is worth reading, never a reason to hold the
+merge. Treat a gate that is queued or still running as not passed. Read the
+review comments as they arrive — a `CHANGES_REQUESTED` or a blocking comment is a
+stop, not an iteration.
 
-Poll at most 3 times while a check stays queued or in progress, then declare CI
-stuck and stop — never wait forever:
+Wait 30 seconds between polls and poll at most 3 times while a check stays
+queued or in progress; then, after the third poll, declare CI stuck and stop —
+never wait forever. A stuck check is an end state the run reports: name the check
+still queued or in progress and the last run's state. The run only continues
+where a check, once polled, is no longer running:
 
 ```bash
 gh run list --branch <branch> --limit 1 --json databaseId,status,conclusion
@@ -179,12 +197,15 @@ re-run the whole suite locally to replace CI.
 
 ## Phase 6 — merge, auto-merge on by default
 
-Once the gating checks are green and no review is blocking, arm auto-merge so the
-pull request lands by itself. Skip this phase entirely when the ask was open the
-pull request only.
+Once the ask was finish or land and the gating checks are green with no review
+blocking, arm auto-merge so the pull request lands by itself. Skip this phase
+entirely when the ask was open (or ambiguous), and never arm auto-merge when
+Phase 4 could not read the gating set — there the merge waits for the human's
+explicit word.
 
-Name the strategy; never let `gh pr merge` prompt for it. The rule: `main`
-history decides — no merge commits on `main` means `--squash`. Read the methods
+Name the strategy; never let `gh pr merge` prompt for it. The history of the
+remote branch the pull request targets, `origin/main`, decides: no merge commits
+on `origin/main` means `--squash` — the shape Phase 7 assumes. Read the methods
 the repository actually allows, and follow that set when it disagrees with the
 rule:
 
@@ -207,23 +228,26 @@ and its number, or the open pull request and the stated reason it did not merge.
 ```bash
 git fetch origin
 git switch main
-git reset --hard origin/main
+git merge --ff-only origin/main
 ```
 
-A squash merge lands the batch on `origin/main` as one new commit and leaves the
-local `main` carrying the original merge commits, so the two diverge and the next
-run's precondition — a local `main` that `origin/main` is behind — is false until
-they are levelled. Run this only after the pull request reports merged, and only
-when the local `main` is exactly the batch that just landed; otherwise report and
-leave the local `main` alone. This is the one place that reset is legitimate.
+A fast-forward-only update, never a hard reset: it moves the local `main` only
+when the local `main` holds nothing that `origin/main` does not, so a feature
+another session merged into the local `main` after the pull request was cut is
+refused, not discarded. Run it only after the pull request reports merged. When
+it refuses, the local `main` carries commits `origin/main` lacks — a later
+session's merge, or the un-squashed batch history a squash merge replaces — so
+report the commits with `git log --oneline origin/main..main` and leave the local
+`main` alone; the human levels it. This is the one place the local `main` is
+levelled, and it never overwrites.
 
 ## Rules that are never bent
 
 - **Never delete a remote branch.** Not on merge, not after it. No branch-deletion
   flag on the merge command, and never the remote-deleting form of push.
-- **Never merge outside the ask.** Running this skill is the human's request to
-  finish the pull request, merge included; the open-only ask stops before Phase 6,
-  and a run that only opened a pull request never merges one.
+- **Never merge outside the ask.** Only the words finish, land or merge it carry
+  the run through the merge; the open ask and the ambiguous ask stop before
+  Phase 6, and a run that only opened a pull request never merges one.
 - **A session that is still building never pushes.** Only the pull-request step
   the human triggered pushes, and only after every session has closed into the
   local `main`.
@@ -241,9 +265,12 @@ leave the local `main` alone. This is the one place that reset is legitimate.
 ## Done when
 
 - The pull request is merged, with its number reported, and the local `main` is
-  level with `origin/main` again, or
+  levelled with `origin/main` — or the fast-forward was refused and that is
+  reported for the human to level, or
 - A non-obvious failure or a blocking review is reported with evidence and the
   pull request is left open, or
+- CI is declared stuck after the third poll, with the check still queued or in
+  progress named and the last run's state reported, or
 - The 5-iteration cap is exhausted and the last state is reported.
 
 ## Lifecycle

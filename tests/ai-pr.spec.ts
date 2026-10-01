@@ -76,6 +76,24 @@ describe("ai-pr skill — the full pull-request loop", () => {
     expect(skill).toMatch(
       /(open (the )?(pull request|pr)? ?only|only open|just open|open-only)[^.]{0,250}(not|never|no|without)[^.]{0,60}merg/i,
     );
+    // The deciding word is the request verb: "open" ends with the pull request created and no merge.
+    expect(skill).toMatch(
+      /(open|opening)[^.]{0,220}(pull request|pr)[^.]{0,220}(creat|open)[^.]{0,160}(no|not|never|without)[^.]{0,60}merg/i,
+    );
+    // "finish" / "land" / "merge" continues all the way to the merge.
+    expect(skill).toMatch(
+      /(finish|finishing|complete|completing|land|landing|merge|merging)[^.]{0,220}(green|checks?|ci|merge|land|pr\b|pull request)/i,
+    );
+    // An ambiguous request is treated as the open-only one.
+    expect(skill).toMatch(
+      /(ambiguous|unclear|not clear|unspecified|no (explicit )?(request|ask|instruction|word)|otherwise|default)[^.]{0,200}(open|only open|no merg|not merg|never merg)/i,
+    );
+    // A sentence that merges on "green" alone, with no request verb, is the failure this guards.
+    const mergesOnGreen = skill
+      .split(/(?<=[.!?])\s+|\n/)
+      .filter((s) => /merg/i.test(s) && /(green|pass(ing|es)?|checks? pass|all checks)/i.test(s))
+      .filter((s) => !/(finish|request|ask|asked|human|land|open|decision|explicit|verb)/i.test(s));
+    expect(mergesOnGreen).toEqual([]);
   });
 
   test("U-PR-c: the merge names an explicit strategy, a rule choosing it, and a command listing allowed methods", () => {
@@ -100,9 +118,18 @@ describe("ai-pr skill — the full pull-request loop", () => {
     expect(skill.search(/git fetch/)).toBeLessThan(skill.search(range));
   });
 
-  test("U-PR-e: the loop states a maximum number of attempts or polls", () => {
+  test("U-PR-e: the loop states a maximum number of attempts or polls and what reaching it does", () => {
+    // A numeric maximum of attempts/polls.
     expect(skill).toMatch(
       /((attempt|poll|round|iteration|try|tries|pass)[^.\n]{0,40}\b\d+\b|\b\d+\b[^.\n]{0,40}(attempt|poll|round|iteration|try|tries|pass))/i,
+    );
+    // Reaching the cap has a stated outcome, not a silent stop.
+    expect(skill).toMatch(
+      /(reach|reaches|reached|exceed|hit|after|once|when|at)[^.]{0,140}(attempt|poll|round|iteration|cap|limit|maximum|max)[^.]{0,180}(stop|report|escalat|ask|hand|give up|abort|fail|leave|not)/i,
+    );
+    // A wait interval between polls is stated — three polls in a row with none does not pass.
+    expect(skill).toMatch(
+      /(interval|wait|sleep|every|between|delay)[^.\n]{0,60}\b\d+\s*(s\b|sec|secs|seconds?|minutes?|m\b)|\b\d+\s*(s\b|sec|secs|seconds?)\b[^.\n]{0,50}(interval|wait|between|poll)/i,
     );
   });
 
