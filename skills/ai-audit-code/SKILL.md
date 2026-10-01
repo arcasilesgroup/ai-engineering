@@ -69,6 +69,23 @@ every sibling caller still broken. Fix it once, where all callers route through.
 - Two stdlib options, same size? Take the one that's correct on edge cases. Lazy means writing less code, not picking the flimsier algorithm.
 - Mark deliberate simplifications that cut a real corner with a known ceiling (global lock, O(n²) scan, naive heuristic) with a `todo:` comment naming the ceiling and upgrade path (`# todo: global lock, per-account locks if throughput matters`).
 
+## Findings
+
+- Every finding cites its `file:line`. A finding without a citation is a rumour.
+- Verify before deleting anything: ask the language server for references, never a text search. A text search matches comments and misses dynamic calls.
+- Never remove an entry point or a barrel re-export; callers reach the code through them.
+- Keep a symbol a test or a public API still uses — both are consumers.
+
+## Looks bad but is fine
+
+Patterns a reader flags as bad that are deliberate under this skill. Name the rung and stop:
+
+- A helper not extracted from two near-identical lines.
+- A one-liner where a "proper" helper would read better.
+- A stdlib call or a native feature where a library is the norm.
+- A `todo:` comment that names a ceiling.
+- No interface, factory, or config around one implementation.
+
 ## Output
 
 Code first. Then at most three short lines: what was skipped, when to add it.
