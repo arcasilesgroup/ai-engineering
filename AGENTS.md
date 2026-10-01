@@ -49,10 +49,10 @@ Replies to a person, and handoffs to another agent, follow the voice standard in
 ## Git workflow
 - A session that writes code works in `<repo>.worktrees/<slug>` on the branch `feat/<slug>`, cut from the local `main`. A session that only reads opens no worktree.
 - The merge destination is the local `main`, never `origin`: rebase inside the worktree, then `git merge --no-ff` — one merge commit per feature, the one undoable unit.
-- A session never pushes; the pull request against `origin/main` is the human's decision, cut from the local `main` without a worktree.
-- The primary tree is not touched while a session runs.
-- The design slots (`brainstorm.html`, `PRD.html`, `spec.html`, `plan.html`) are written and committed in the primary tree before any worktree exists, and no worktree ever stages them.
-- The shared files (`CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md`, `.ai-engineering/recap.html`) are written once by that merge step, never by a parallel session.
+- A build session never pushes: the only push is the pull-request step the human triggers, against `origin/main`, cut from the local `main` without a worktree.
+- A build session does not touch the primary tree; only the merge step writes there, once, after that session's branch has merged.
+- The design slots (`brainstorm.html`, `spec.html`, `plan.html`, `recap.html`) are written and committed in the primary tree before any worktree exists, and no worktree ever stages them.
+- The shared files (`CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md`, `.ai-engineering/PRD.html`) are written once by that merge step, never by a parallel session.
 
 ## Pull requests
 - Run lint and the full test suite before committing; the commit must pass everything it will face in CI.
