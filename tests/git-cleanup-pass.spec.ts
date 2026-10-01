@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const skill = readFileSync(join(import.meta.dir, "..", "skills", "ai-git-cleanup", "SKILL.md"), "utf8");
+const orchestrator = readFileSync(join(import.meta.dir, "..", "skills", "ai-orchestrator", "SKILL.md"), "utf8");
 
 describe("ai-git-cleanup skill — the one-pass, name-free rewrite", () => {
   test("documents the merged-branch delete with the explicit main ref", () => {
@@ -32,5 +33,23 @@ describe("ai-git-cleanup skill — the one-pass, name-free rewrite", () => {
 
   test("keeps a Lifecycle block", () => {
     expect(skill).toContain("## Lifecycle");
+  });
+});
+
+describe("orchestrator close — merge verified before cleanup", () => {
+  test("names the ancestry check on feat/<slug> against main before the cleanup, and promises no git branch -D", () => {
+    // The close is the `Approve:` bullet; the guard must live in it, before the removal.
+    const approveStart = orchestrator.indexOf("- **Approve:**");
+    const stopHere = orchestrator.indexOf("- **Stop here:**", approveStart);
+    const close = orchestrator.slice(approveStart, stopHere > -1 ? stopHere : undefined);
+    const check = close.indexOf("merge-base --is-ancestor");
+    expect(check).toBeGreaterThan(-1);
+    // The target branch and destination sit in the same clause as the check.
+    expect(close.slice(check, check + 120)).toContain("feat/<slug>");
+    expect(close.slice(check, check + 160)).toContain("main");
+    // Verified first, removed after: the removal instruction follows the check.
+    expect(close.lastIndexOf("worktree rm")).toBeGreaterThan(check);
+    // And the close never promises the forced delete the verb no longer does.
+    expect(orchestrator).not.toContain("branch -D");
   });
 });
