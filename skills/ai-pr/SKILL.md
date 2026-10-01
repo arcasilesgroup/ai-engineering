@@ -162,11 +162,11 @@ merge. Treat a gate that is queued or still running as not passed. Read the
 review comments as they arrive — a `CHANGES_REQUESTED` or a blocking comment is a
 stop, not an iteration.
 
-Wait 30 seconds between polls and poll at most 3 times while a check stays
-queued or in progress; then, after the third poll, declare CI stuck and stop —
-never wait forever. A stuck check is an end state the run reports: name the check
-still queued or in progress and the last run's state. The run only continues
-where a check, once polled, is no longer running:
+Poll the check every 30 seconds while it stays queued or in progress, up to a
+total budget of 30 minutes. At the cap, declare the check stuck and stop — never
+wait forever. A stuck check is an end state the run reports: name the check still
+queued or in progress, its last run state, and how long it was watched. The run
+only continues where a check, once polled, is no longer running:
 
 ```bash
 gh run list --branch <branch> --limit 1 --json databaseId,status,conclusion
@@ -203,20 +203,22 @@ entirely when the ask was open (or ambiguous), and never arm auto-merge when
 Phase 4 could not read the gating set — there the merge waits for the human's
 explicit word.
 
-Name the strategy; never let `gh pr merge` prompt for it. The history of the
-remote branch the pull request targets, `origin/main`, decides: no merge commits
-on `origin/main` means `--squash` — the shape Phase 7 assumes. Read the methods
-the repository actually allows, and follow that set when it disagrees with the
-rule:
+The merge method is a **merge commit**, `gh pr merge --merge` — never squash. The
+local `main` is the integration trunk, and the merge commit is the only method
+that leaves the local trunk in `origin/main`'s ancestry: a squash puts an
+unrelated commit on `origin/main` and strands the local trunk, so Phase 7's
+fast-forward could never run. If the repository does not allow merge commits,
+stop and report it — no other method leaves the local trunk healthy, and the
+skill does not pick a second strategy on its own. Never let `gh pr merge` prompt:
 
 ```bash
 gh api repos/{owner}/{repo} \
   --jq '{squash:.allow_squash_merge,merge:.allow_merge_commit,rebase:.allow_rebase_merge}'
-gh pr merge <number> --squash --auto
+gh pr merge <number> --merge --auto
 ```
 
 **Switching auto-merge off.** If the human wants to review before it lands, do not
-arm it: run `gh pr merge <number> --squash` only on an explicit go. An already-
+arm it: run `gh pr merge <number> --merge` only on an explicit go. An already-
 armed merge is disarmed with `gh pr merge --disable-auto`. Auto-merge is the
 default, not a requirement.
 
@@ -225,21 +227,30 @@ and its number, or the open pull request and the stated reason it did not merge.
 
 ## Phase 7 — level the local `main` with the remote
 
+Run this only after the pull request reports merged. First fetch and verify the
+merge landed as an ancestor, so the local `main` can be fast-forwarded rather
+than overwritten:
+
 ```bash
 git fetch origin
+git merge-base --is-ancestor main origin/main
+```
+
+When that exits non-zero, the local `main` is not in `origin/main`'s ancestry —
+the pull request did not land as a merge commit, or a session merged after it —
+so stop and report; never force the local `main` level. When it exits zero, level
+with a fast-forward-only update, never a hard reset:
+
+```bash
 git switch main
 git merge --ff-only origin/main
 ```
 
-A fast-forward-only update, never a hard reset: it moves the local `main` only
-when the local `main` holds nothing that `origin/main` does not, so a feature
-another session merged into the local `main` after the pull request was cut is
-refused, not discarded. Run it only after the pull request reports merged. When
-it refuses, the local `main` carries commits `origin/main` lacks — a later
-session's merge, or the un-squashed batch history a squash merge replaces — so
-report the commits with `git log --oneline origin/main..main` and leave the local
-`main` alone; the human levels it. This is the one place the local `main` is
-levelled, and it never overwrites.
+The fast-forward moves the local `main` forward to `origin/main` and nothing
+else, so a feature another session merged after the pull request was cut is kept,
+never discarded, and the batch history survives — the merge commit put the local
+trunk in `origin/main`'s ancestry. This is the one place the local `main` is
+levelled.
 
 ## Rules that are never bent
 
@@ -269,8 +280,8 @@ levelled, and it never overwrites.
   reported for the human to level, or
 - A non-obvious failure or a blocking review is reported with evidence and the
   pull request is left open, or
-- CI is declared stuck after the third poll, with the check still queued or in
-  progress named and the last run's state reported, or
+- CI is declared stuck when the 30-minute poll budget runs out, with the check
+  still queued or in progress named and its last run state reported, or
 - The 5-iteration cap is exhausted and the last state is reported.
 
 ## Lifecycle

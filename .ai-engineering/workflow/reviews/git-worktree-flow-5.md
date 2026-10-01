@@ -103,6 +103,8 @@ Checkpoints 1-4 passed: the contract, the verb, the orchestrator, the cleanup. T
 
 **Fixer (r2):** fixed — the hard reset is gone. Phase 7 is a fast-forward-only update, `git merge --ff-only origin/main` (SKILL.md:227-231), which moves the local `main` only when it holds nothing `origin/main` lacks — so a feature a later session merged in is refused, never discarded. The refusal path is named: report `git log --oneline origin/main..main` and leave the local `main` alone for the human to level (SKILL.md:233-241), and "Done when" carries the refused case. verify: `bun test tests/ai-pr.spec.ts` ✓.
 
+**Fixer (r3):** fixed — the merge method is now a **merge commit**, `gh pr merge <number> --merge --auto` (SKILL.md:206-217): the local `main` is the integration trunk and the merge commit is the only method that leaves it in `origin/main`'s ancestry, which is what lets Phase 7 fast-forward — a squash strands it. The selection rule now says exactly that, and if the repository disallows merge commits the skill stops and reports rather than choosing a second strategy (SKILL.md:209-212). Phase 7 verifies the landing first with `git merge-base --is-ancestor main origin/main` and stops on non-zero, then fast-forwards (SKILL.md:230-253). Hand-walked in a throwaway repo: `--merge` PR → ancestor exit 0, `--ff-only` advances, `origin/main...main` back to `0 0`; an extra session merge after the PR leaves the ancestor check exit 1 (refused). verify: `bun test tests/ai-pr.spec.ts` ✓.
+
 ## F10 · MINOR · fixed
 **Where:** skills/ai-pr/SKILL.md:139-145
 **Critic (r2):** Phase 4's gating set comes only from branch protection; an unprotected branch, a fork, or a token without admin makes that endpoint return 404 and the skill then has no rule at all — the agent falls back to guessing and may treat the real gate as advisory. → State the fallback (treat every check as gating, or stop and say the gate is unknown). Check: run the `gh api .../protection` call on an unprotected branch.
@@ -120,3 +122,31 @@ Checkpoints 1-4 passed: the contract, the verb, the orchestrator, the cleanup. T
 **Fixer (r2):** fixed — the rule names the ref: "the history of the remote branch the pull request targets, `origin/main`", no merge commits on `origin/main` means `--squash` (SKILL.md:205-210), so the local `main`'s `--no-ff` merges no longer flip it; the API allowed-set remains the correction, and Phase 7 states it assumes the squash shape. The command stays `gh pr merge <number> --squash --auto`. verify: `bun test tests/ai-pr.spec.ts` ✓ (U-PR-c).
 
 ROUND 2: resolved 6 · withdrawn 0 · upheld 2 · new 4
+
+## Rulings — round 3 (verified against 92505046)
+
+**F1 · resolved.** The verb decides (SKILL.md:30-46): "open"/"make the PR" runs Phases 1-3 and stops, "finish"/"land"/"merge it"/"get the PR merged"/"run the full PR loop" carries through Phase 6, and an ambiguous ask is the open one; Phase 6 (:198-202) skips on open or ambiguous. No sentence claims running the skill is itself the request to finish, and U-PR-b's last assertion fails any sentence that merges on "green" without a request verb. No verb reaches the merge without naming it.
+
+**F5 · resolved** (with F14). The interval is back at 30 s with the 3-poll cap and "CI stuck" is now an end state in Done when (:165-168, :270-272).
+
+**F10 · resolved.** When the protection query fails the run does not arm auto-merge and waits for the human's word (:158-161); Phase 6 repeats the ban (:199-201).
+
+**F12 · resolved.** The rule now names the target ref, `origin/main` (:208).
+
+**F11 · resolved.** U-PR-e now demands the interval and the cap's outcome, and U-PR-b's mergesOnGreen assertion fails a text that merges whenever the checks pass; 15 pass locally.
+
+**F9 · upheld.** `git merge --ff-only origin/main` (:231) cannot succeed in the case the skill itself mandates: the rule picks `--squash` (:208), and a squash merge puts one new commit on `origin/main` whose history does not contain the batch the local `main` carries, so the local `main` is not an ancestor of `origin/main` and the fast-forward refuses — the refusal text at :238-239 concedes exactly this. Phase 7 only fast-forwards after a merge-commit merge, the one strategy the rule rejects. Check: merge a batch with `--squash`, then `git merge-base --is-ancestor main origin/main` → false.
+
+## F13 · MAJOR · fixed
+**Where:** skills/ai-pr/SKILL.md:73, :234-240, :268
+**Critic (r3):** because Phase 7 cannot level a squash-merged `main`, every completed run leaves the local `main` and `origin/main` diverged (`origin/main...main` shows both sides non-zero), and the Preconditions then stop the next run at "the branches diverged" (:73) — the skill can publish once and never again, and Done when's first clause ("levelled with `origin/main`") is unreachable. → Either state the level that works with squash (a verified `reset --hard` bounded by a count) or make the divergence a recoverable state with a stated command. Check: run the skill twice in a row against a repo using squash.
+
+**Fixer (r3):** fixed by the F9 change — the merge commit puts the local trunk in `origin/main`'s ancestry, so the `--ff-only` in Phase 7 actually advances and the divergence never forms. Hand-walked two full runs in a throwaway repo: run 1 ends `origin/main...main` = `0 0`; run 2's pre-publish count is `0 2` (local ahead — the Preconditions' normal case, not "diverged"), and it ends `0 0` again. Done when's "levelled" clause is reachable. verify: `bun test tests/ai-pr.spec.ts` ✓.
+
+## F14 · MINOR · fixed
+**Where:** skills/ai-pr/SKILL.md:165-168
+**Critic (r3):** three polls 30 s apart is 90 s; a GitHub Actions queue plus an e2e run and a three-OS matrix routinely exceeds that, so a healthy, merely slow CI is declared "stuck" and the run ends there — a false stuck, which is the other half of the attack. → Back off or raise the total wait, and keep "stuck" for a check whose run state has not moved. Check: the workflow set's own queue and run time against 90 s.
+
+**Fixer (r3):** fixed — the count is gone; Phase 4 polls every 30 seconds up to a total 30-minute budget, stated as a cap on how long the run waits for a stuck check, not on how many looks (SKILL.md:165-169), and Done when names that budget (SKILL.md:283-284). A check whose run state has not moved at budget end is stuck; the report names the check, its last run state and how long it was watched. verify: `bun test tests/ai-pr.spec.ts` ✓ (U-PR-e).
+
+ROUND 3: resolved 5 · withdrawn 0 · upheld 1 · new 2
