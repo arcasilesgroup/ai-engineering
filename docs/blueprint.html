@@ -1822,6 +1822,17 @@ receipts_ttl = "30d" # receipts: agregar y borrar</pre><p style="margin-top:10px
     <div class="card"><h4>El canon viaja por el binario</h4><p>Los 20 skills se construyen, se prueban y se fijan por sha256 <em>en este repo</em> (<code>skills/ai-*/</code>); <code>init</code> los instala desde el binario compilado. Dogfooding del payload: el paquete que instala tu proyecto es el que este repo gobernó.</p></div>
     <div class="card"><h4>La excepción dura, declarada</h4><p>El agente no edita guards sin humano — no hay bypass de desarrollo. Si algún día los denies del repo fueran friction-inútil, <code>doctor</code> lo vería en los receipts (§10.2: «si a los 3 meses los denies son 0, el producto es ceremonia») y se recorta con reason, no en silencio.</p></div>
   </div>
+  <h3>21.6 · El flujo de git: un worktree por feature, un merge a main local</h3>
+  <p>La pregunta abierta de §21.2 («dos agentes, un repo») se cierra con un modelo que no añade cuotas ni locks: <strong>un worktree por feature y el main local como único destino</strong>. El diseño se escribe en el árbol principal y se commitea antes de cortar nada; el worktree nace ya para construir, no para diseñar. Eso revisa la parte de §21.2 que daba a cada worktree su propio <code>.ai-engineering/</code>: el slot de diseño es uno por repo, no uno por worktree.</p>
+  <div class="grid g2">
+    <div class="card"><h4>El verbo: <code>ai-eng worktree new|rm|list</code></h4><p><code>new &lt;slug&gt;</code> corta <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code> desde el <code>main</code> local y deja la rama <code>feat/&lt;slug&gt;</code>; <code>rm &lt;slug&gt;</code> borra una copia muerta y su rama solo cuando ya está fusionada; <code>list</code> las enumera. La raíz es configurable (<code>[git].worktrees_dir</code>), un slug inválido no crea nada y una copia con el diseño sucio no se corta. No empuja y no toca el remoto: git es transporte, no proceso (§07.1).</p></div>
+    <div class="card"><h4>El cierre del <code>ai-orchestrator</code></h4><p>Al aprobar el app review, el <code>recap.html</code> se genera en la rama, la sesión rebasa sobre el <code>main</code> local dentro de su worktree y el merge entra con <code>git merge --no-ff</code>: un merge commit por feature, la única unidad deshacible. Nada de squash y nada de push. El paso de merge es el único escritor del árbol principal, y ahí aterrizan <code>PRD.html</code> y los compartidos.</p></div>
+  </div>
+  <ul>
+    <li><strong><code>ai-git-cleanup</code> se rehace desde cero:</strong> una pasada quita worktrees muertos y ramas ya fusionadas al <code>main</code> local, nunca toca una rama sin fusionar y nunca pide un nombre. Se apoya en <code>git branch --delete-merged refs/heads/main</code>, porque cada rama nace con <code>branch.&lt;slug&gt;.remote="."</code>.</li>
+    <li><strong><code>ai-pr</code> reemplaza a <code>ai-pr-loop-fix</code>:</strong> corta la rama del PR desde el <code>main</code> local sin worktree, empuja, abre el pull request contra <code>main</code>, vigila CI y comentarios, arregla lo obvio en iteraciones acotadas y fusiona (auto-merge activo por defecto, desactivable). Es el único punto del framework donde un push es legítimo.</li>
+  </ul>
+  <p class="dim">El contrato completo vive en <code>AGENTS.md</code> (<code>## Git workflow</code>) y el flujo del humano en <code>CONTRIBUTING.md</code>; aquí queda el porqué. Como todo cambio de comportamiento, se verifica por gate de checkpoint, no por prosa.</p>
 </section>
 
 <!-- ════════ 22 BRANDING ════════ -->

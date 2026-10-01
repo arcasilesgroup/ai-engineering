@@ -232,6 +232,7 @@ them:
 ```bash
 echo "$PAYLOAD" | ai-eng chain PreToolUse   # the guard dispatcher: reads the host's payload on stdin
 ai-eng git pre-commit                       # the pre-commit, commit-msg and pre-push checks
+ai-eng worktree new|rm|list                 # one copy per job, merged into the local main; nothing pushed until you decide
 ai-eng wrap test -- bun test                # test-output filter: failures grouped, noise dropped
 ai-eng spec open | approve | close        # the milestone slot
 ```

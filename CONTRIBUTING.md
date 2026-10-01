@@ -46,6 +46,8 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
 - Conventional Commits; commit messages must carry the `Receipt-Id` trailer
   when the git hooks require it (the hook enforces this).
 - PR title: `<area>: <imperative summary>` (e.g. `chain: cache verdicts per tool_use_id`).
+- Local flow: work in a worktree (`ai-eng worktree new <slug>`), then merge your branch into the local `main`. A session never pushes.
+- The pull request against `origin/main` is your decision. It is cut from the local `main`, never from a worktree.
 - CI runs build, lint, typecheck, the full test suite, gitleaks, semgrep,
   trivy, `bun audit`, SonarCloud and Snyk — your commit must pass everything
   it will face there.
