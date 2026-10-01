@@ -71,20 +71,14 @@ every sibling caller still broken. Fix it once, where all callers route through.
 
 ## Findings
 
-- Every finding cites its `file:line`. A finding without a citation is a rumour.
-- Verify before deleting anything: ask the language server for references, never a text search. A text search matches comments and misses dynamic calls.
-- Never remove an entry point or a barrel re-export; callers reach the code through them.
-- Keep a symbol a test or a public API still uses — both are consumers.
+- Every finding cites its `file:line`, or a file, symbol, or path when a line is not the right unit. A finding with no citation is a rumour.
+- Verify before deleting anything: search to locate, language-server references to prove. A text search matches comments and misses dynamic calls.
+- An entry point or a barrel re-export stays while callers remain — verify references first; the guard is the callers, not the file's role.
+- Keep a symbol only while a caller or a public API needs it; a test that only asserted the symbol is not a consumer — delete the test with the symbol.
 
 ## Looks bad but is fine
 
-Patterns a reader flags as bad that are deliberate under this skill. Name the rung and stop:
-
-- A helper not extracted from two near-identical lines.
-- A one-liner where a "proper" helper would read better.
-- A stdlib call or a native feature where a library is the norm.
-- A `todo:` comment that names a ceiling.
-- No interface, factory, or config around one implementation.
+Patterns a reader flags as bad that are deliberate under this skill, because each is a rung of the ladder above, not debt. Name the rung and stop.
 
 ## Output
 
