@@ -51,8 +51,9 @@ Replies to a person, and handoffs to another agent, follow the voice standard in
 - The merge destination is the local `main`, never `origin`: rebase inside the worktree, then `git merge --no-ff` — one merge commit per feature, the one undoable unit.
 - A build session never pushes: the only push is the pull-request step the human triggers, against `origin/main`, cut from the local `main` without a worktree.
 - A build session does not touch the primary tree; only the merge step writes there, once, after that session's branch has merged.
-- The design slots (`brainstorm.html`, `spec.html`, `plan.html`, `recap.html`) are written and committed in the primary tree before any worktree exists, and no worktree ever stages them.
-- The shared files (`CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md`, `.ai-engineering/PRD.html`) are written once by that merge step, never by a parallel session.
+- The design artifacts `.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html` and `.ai-engineering/plan.html` are written and committed in the primary tree before any worktree is cut, and no worktree ever stages them.
+- `.ai-engineering/recap.html` is generated at the app review on the feature branch and reaches the primary tree with the merge.
+- The merge step writes the shared files once, never by a parallel session: `.ai-engineering/PRD.html` when the feature changes scope, plus `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md` and `PERMISSIONS.md`.
 
 ## Pull requests
 - Run lint and the full test suite before committing; the commit must pass everything it will face in CI.
