@@ -53,7 +53,7 @@ Verify re-run: all seven commands pass (rg ×4, agents-md-sections 17 pass, embe
 
 **Fixer (r1):** fixed — AGENTS.md:53 / templates/AGENTS.md.tpl:46 now "A build session does not touch the primary tree; only the merge step writes there, once, after that session's branch has merged." Names who may write (the merge step) and when (once, after that branch merged).
 
-## F5 · MINOR · upheld
+## F5 · MINOR · resolved
 **Where:** AGENTS.md:54-55 (vs src/spec/index.ts:21)
 **Critic (r1):** The design-slot list disagrees with the code that defines it: AGENTS.md calls `PRD.html` a design slot and `recap.html` a merge-written shared file, but `SLOT_FILES` at src/spec/index.ts:21 is `["spec.html","plan.html","brainstorm.html","recap.html"]` — the inverse on both names. One of the two is stale, and the contract cannot be verified against the code until they agree. → Checkpoint 2's shared design-slot module must make `PRD.html` a slot and `recap.html` a shared file, matching AGENTS.md:54-55. Settle: `sed -n '21p' src/spec/index.ts` vs AGENTS.md:54.
 
@@ -73,7 +73,7 @@ Re-ran the verify set: `rg` ×4 ok; `agents-md-sections` + `embed-canon` 17 pass
 
 **F5 — upheld.** The fix matched `SLOT_FILES` membership but dragged `recap.html` into a rule whose clauses it violates; see F6.
 
-## F6 · MAJOR · fixed
+## F6 · MAJOR · resolved
 **Where:** AGENTS.md:54; templates/AGENTS.md.tpl:47
 **Critic (r2):** The bullet now says the design slots — including `recap.html` — "are written and committed in the primary tree before any worktree exists, and no worktree ever stages them". That is false for `recap.html`: the consumer writes it at the app review, on the feature branch, after the worktree exists — `skills/ai-orchestrator/SKILL.md:172` "run `/ai-visual-recap` on this branch first. The page it writes, `.ai-engineering/recap.html`, is the review", and brainstorm §08 says the versioned artifacts (it names `recap.html`) sit inside the worktree and must return to the primary tree. A rule that forbids the worktree from staging `recap.html` directly contradicts the step that produces it. → Keep only `brainstorm.html`, `spec.html`, `plan.html` in the pre-worktree slot bullet, and handle `recap.html` under the run-close/merge rules (per PRD §Rules it is a shared file written once by the merge step). Settle: read `skills/ai-orchestrator/SKILL.md:172` + the `spec close` list at `src/spec/index.ts:21` side by side with AGENTS.md:54.
 
@@ -84,3 +84,15 @@ Re-ran the verify set: `rg` ×4 ok; `agents-md-sections` + `embed-canon` 17 pass
 **Critic (r2):** The fix swapped the two lists against the checkpoint's own requirement: PRD §Rules and brainstorm §08 name `PRD.html` a design artifact and `.ai-engineering/recap.html` a shared file, and both docs still do. F5's fix resolved the code drift but opened a docs drift; one of the two sides must be amended in the docs checkpoint, and the contract may not silently override the requirement it was written to satisfy. → Amend PRD §Rules + brainstorm §08 to the code-canonical lists (slots `brainstorm/spec/plan/recap`, `PRD.html` merge-written), or revert the bullet. Settle: `rg -n 'recap.html|PRD.html' .ai-engineering/PRD.html` vs AGENTS.md:54-55.
 
 **Fixer (r2):** not fixed here — the docs drift between these lists and `.ai-engineering/PRD.html` / `brainstorm.html` is checkpoint documentation's job; those pages are design artifacts and are never edited from a worktree. Left open for that checkpoint.
+
+## Round 3 — critic
+
+Re-ran the verify set: `rg` ×4 ok; `agents-md-sections` + `embed-canon` 17 pass; typecheck/lint/build exit 0. AGENTS.md 66 lines, template 91, both under doctor's 120 with `## Git workflow` intact. `git status`: only the two contract files plus the thread.
+
+**F6 — resolved.** The rule no longer makes a pre-worktree claim about `recap.html`. Checked the new bullets against the code line by line: AGENTS.md:54 (brainstorm/spec/plan pre-worktree) matches `ai-eng spec open` scaffolding `spec.html`+`plan.html` and `ai-brainstorm` writing `brainstorm.html` before the run; AGENTS.md:55 (`recap.html` generated at the app review on the feature branch, reaching the primary tree with the merge) matches `skills/ai-orchestrator/SKILL.md:172`; AGENTS.md:56 (merge step writes `PRD.html` on scope change plus the four standing files) matches `skills/ai-orchestrator/SKILL.md:154` and `src/commands/plant-workflow.ts:12`. No clause now demands from `recap.html` anything its birth moment forbids, and `spec close` sweeping the four at `src/spec/index.ts:21,196-205` is not contradicted by any of the three bullets.
+
+**F5 — resolved.** The text no longer asserts a design-slot list equal to `SLOT_FILES`; the residual membership question moved to F7.
+
+**F7 — accepted as deferred.** The PRD/brainstorm drift outlives this checkpoint and belongs to the documentation checkpoint; no finding in the two changed files remains.
+
+Round 3 verdict: PASS.

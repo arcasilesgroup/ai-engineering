@@ -44,9 +44,9 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 1, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 1, "findings": ["round 2 FAIL: F6 MAJOR, recap.html listed under a pre-worktree rule its own production step (ai-orchestrator:172) violates; F7 MINOR docs drift deferred to checkpoint 6. F1/F3/F4 fixed in round 1, F5 superseded by F6. Round 3 PASS after the rule was split by where each artifact is born."] }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 2,
