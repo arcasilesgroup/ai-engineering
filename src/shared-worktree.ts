@@ -196,8 +196,8 @@ function statusPaths(tokens: string[], index: number): { paths: string[]; next: 
  *
  *  The ceiling is git's own: a slot edit that git refuses to report (`assume-unchanged`,
  *  `skip-worktree`) or one hidden by `.gitignore` never reaches this status, and a slot
- *  reached through a symlink whose target lives outside the repository is compared under
- *  its repository path, so an edit written through that link is likewise invisible. Both
+ *  that is a symlink is compared under its repository path, so an edit written through
+ *  the link — to a target inside or outside the repository — is likewise invisible. Both
  *  are deliberate — the guard refuses what it cannot decide, and a status it cannot read
  *  has no record to inspect; neither is evidence that the primary tree is clean. */
 function dirtySlot(repo: string): SlotBlocker | null {
