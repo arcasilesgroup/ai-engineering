@@ -145,7 +145,7 @@
         "rg -q 'merge --no-ff' skills/ai-orchestrator/SKILL.md",
         "rg -q 'worktree rm' skills/ai-orchestrator/SKILL.md",
         "! rg -q 'plan\\(<slug>|gate\\(<slug>|wip\\(<slug>' skills/ai-orchestrator/SKILL.md",
-        "! rg -q '<slug>#' skills/ai-orchestrator/SKILL.md",
+        "! rg -q '<slug>#N' skills/ai-orchestrator/SKILL.md",
         "bun test tests/workflow-handoff.spec.ts",
         "bun test tests/embed-canon.spec.ts",
         "bun run typecheck",

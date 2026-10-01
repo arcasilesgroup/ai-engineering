@@ -26,7 +26,7 @@ Everywhere else, decide and keep going:
 - **Never read source code, diffs, test output or screenshots yourself.** Subagents read them and report back in a few lines.
 - **All state lives on disk** in `.ai-engineering/workflow/checkpoints/<slug>.json`, and that file is the only thing you read to know where you are. Change it only with Edit or Write, never through Bash. The same hook validates every write to it: no gate can be passed out of order, no checkpoint can be marked passed with a gate still open, and no checkpoint can be touched while an earlier one is open. Update it after every step, so `/ai-orchestrator resume <slug>` can pick up after a crash or `/clear`.
 - **Every subagent prompt:**
-  - in Phase 2 and later, **starts with the gate marker** `[checkpoint <slug>#<id> <stage>]`, where `<stage>` is one of `tests`, `implement`, `behavior`, `ui`, `review` or `fix`. The `checkpoint-gate` hook (`scripts/checkpoint-gate.py`, PreToolUse) reads it and blocks the call with exit code 2 if:
+  - in Phase 2 and later, **starts with the gate marker** `[checkpoint <slug>#<id> <stage>]`, where `<slug>` is the feature slug you were asked to build and `<stage>` is one of `tests`, `implement`, `behavior`, `ui`, `review` or `fix`. The `checkpoint-gate` hook (`scripts/checkpoint-gate.py`, PreToolUse) reads it and blocks the call with exit code 2 if:
     - an earlier checkpoint hasn't passed;
     - this checkpoint has already passed;
     - or the gate before this one hasn't passed.
@@ -40,22 +40,22 @@ Everywhere else, decide and keep going:
 
 ## Commits: commit as you go
 
-Every step that changes files ends with a commit on the feature branch, so the git history is a full, resumable record of the run. You make the commits yourself with Bash; the output is small.
+Every step that changes files ends with a commit on `feat/<slug>`, so the git history is a full, resumable record of the run. You make the commits yourself with Bash; the output is small.
 
-- **Branch:** Phase 0 runs `git switch -c feat/<slug>` (or `git switch feat/<slug>` on resume). This doesn't touch the working tree. Everything is committed there, and `main` gets one squashed commit per feature at the app review, per the `AGENTS.md` git workflow.
-- **Stage explicit paths only.** Never use `git add -A` or `git add .`, because other sessions share this tree. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage `.ai-engineering/workflow/playwright/`, `.env*` or files that were in the Phase 0 baseline.
-- **When to commit, and with which message.** Each message ends with the co-author trailer.
+- **Tree and branch:** Phase 0 runs `ai-eng worktree new <slug>`, which cuts the worktree `<repo>.worktrees/<slug>` from the local `main` and checks out `feat/<slug>` there; on resume, enter the existing `<repo>.worktrees/<slug>` and run `git switch feat/<slug>` inside it. Every later step — code, commits, tests, prototypes — happens in that worktree. Everything is committed on `feat/<slug>`, and the local `main` gets one `--no-ff` merge commit per feature at the app review, per the `AGENTS.md` git workflow.
+- **Stage explicit paths only.** Never use `git add -A` or `git add .`. The session owns its worktree now, so a loose stage can no longer sweep a sibling session's edits, but an explicit list keeps each commit the slice it claims and keeps the design slots out. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage a design slot (`.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html`, `.ai-engineering/plan.html`) — they are written in the primary tree before the worktree is cut and no session stages them — nor `.ai-engineering/workflow/playwright/`, `.env*` or files that were in the Phase 0 baseline.
+- **When to commit, and with which message.** The `commit-msg` hook only accepts `feat`, `docs`, `chore`, `fix` and `test` as the type, a scope that never contains `#`, and the checkpoint number in the body — so `plan`, `gate` and `wip` are gone and the number moved off the scope. Each message ends with the co-author trailer.
 
 | After | Message |
 |---|---|
-| Plan approved (Phase 1) | `plan(<slug>): checkpoints, test plan, prototypes` |
-| 2a tests written | `test(<slug>#N): failing tests for <title>` |
-| 2b implement | `feat(<slug>#N): <title>` |
-| Each gate result | `gate(<slug>#N): <gate> passed` or `gate(<slug>#N): <gate> failed (attempt k)`, with the JSON and the LEARNINGS entry |
-| Each fix | `fix(<slug>#N): <root cause, in a few words>` |
-| Re-plan split | `plan(<slug>): split #N into #N..#M` |
+| Plan approved (Phase 1) | `chore(<slug>): plan checkpoints, test plan, prototypes` |
+| 2a tests written | `test(<slug>): checkpoint N failing tests for <title>` |
+| 2b implement | `feat(<slug>): checkpoint N <title>` |
+| Each gate result | `chore(<slug>): checkpoint N <gate> gate passed` or `chore(<slug>): checkpoint N <gate> gate failed (attempt k)`, with the JSON and the LEARNINGS entry |
+| Each fix | `fix(<slug>): checkpoint N <root cause, in a few words>` |
+| Re-plan split | `chore(<slug>): replan split #N into #N..#M` |
 | Wrap-up | `docs(<slug>): changelog, filemap, learnings` |
-| Circuit-breaker stop | `wip(<slug>#N): stopped at <gate>, needs human`, committed before you stop |
+| Circuit-breaker stop | `chore(<slug>): stopped at <gate>, needs human`, committed before you stop |
 
 - **Nothing to commit?** If a step changed no files (a gate that only ran checks still changes the JSON), skip that commit. Never make an empty commit, and never pass `--no-verify`.
 
@@ -79,8 +79,8 @@ Delegate this to one `general-purpose` subagent, which reports ready or blocked:
 - the local DB is up, if the project has one (Project config → *DB status*; if it's down, run *DB start/reset* to apply migrations and the seed);
 - the API health check and the web URL both answer (if not, run the *Dev server* command from the repo root in the background);
 - `.ai-engineering/workflow/playwright/auth.json` exists, if the app has signed-in pages. If it's missing, the subagent creates it without the user when Project config → *Automated sign-in* describes a way (e.g. a demo-login button or seeded test credentials): it scripts a Playwright sign-in and saves `context.storageState({ path: '.ai-engineering/workflow/playwright/auth.json' })`, using `npx -y -p playwright node <script>` with the script in the scratchpad. It saves one file per role listed under *Roles* (`.ai-engineering/workflow/playwright/auth-<role>.json`), with `auth.json` as a copy of the most privileged one;
-- the git tree state (`git status --porcelain`), recorded as a baseline so the feature's files can be told apart from others' work, plus the current branch name (the merge target later);
-- the feature branch `feat/<slug>`: switch to it, creating it if it doesn't exist (see Commits).
+- the primary checkout, recorded for the close step: its path and its branch (`git rev-parse --show-toplevel` and `git rev-parse --abbrev-ref HEAD` run there). The branch is the merge target later; the path is the `<repo>` in `<repo>.worktrees/<slug>`;
+- the feature worktree: run `ai-eng worktree new <slug>`, which cuts `<repo>.worktrees/<slug>` from the local `main` and checks out `feat/<slug>` there (on resume, enter that worktree and run `git switch feat/<slug>` inside it). Record the worktree's tree state (`git status --porcelain`) as a baseline so the feature's files can be told apart; every later step, commit and test runs inside this worktree (see Commits).
 
 Only if automatic sign-in is impossible (Project config gives no way), add the manual step to the Phase 1 checkpoint review, so the user handles it in the same stop:
 ```
@@ -153,6 +153,7 @@ Use one `general-purpose` subagent to:
 - add an entry under Unreleased in `CHANGELOG.md`;
 - check `FILEMAP.md` is complete, and update `.ai-engineering/PRD.html` if the feature changed scope or business rules;
 - consolidate `LEARNINGS.md`: promote any lesson that now appears in 2 or more Log entries (across all features, not just this one) to a **Rule** citing those entries, and merge Rules that say the same thing. It must never edit or delete a Log entry.
+- these shared-file edits are made on `feat/<slug>` inside the worktree; they reach the primary tree only through the Phase 4 merge step, which is their single writer there.
 - in the same pass, when the feature diff matches a trigger, run that skill. `ai-security` when it touches auth, SQL, migrations, or workflows. `ai-write` when it changes a public interface, a documented behaviour, or a command a README shows. Both run when both match. Neither waits for the other.
 
 If anything fails, treat it as a Gate 1 failure on the last checkpoint. First reopen that checkpoint in the JSON: set `gates.behavior.status` to `"failed"`, set `ui` and `review` back to `"pending"` (leave `ui` alone if it's `"n/a"`), and set `status` to `"pending"`. Then run the fixer with `[checkpoint <slug>#<id> fix]`.
@@ -169,7 +170,7 @@ The feature isn't done until a human has looked at it. Make sure the dev server 
 Offer three choices: **Approve**, **Request changes**, **Stop here**.
 
 - **Request changes:** first log the feedback in `LEARNINGS.md` with the gate `human`. Something every automated gate missed is the highest-value learning, so also promote it to a Rule right away and say which gate should have caught it. Then turn the feedback into new checkpoints appended to the JSON (next `id`, with `builds_on` the last one). Run them through Phase 2 and Phase 3 without asking again at checkpoint level, because the feedback is the approval. Then return to this app review.
-- **Approve:** run `/ai-visual-recap` on this branch first. The page it writes, `.ai-engineering/recap.html`, is the review. Then make sure everything on `feat/<slug>` is committed. Switch back to the branch recorded in Phase 0 and run `git merge --squash feat/<slug>`. Then make one commit whose message describes the feature, per the `AGENTS.md` git workflow. Keep `feat/<slug>` so its step-by-step history stays available. Don't push.
+- **Approve:** run `/ai-visual-recap` on this branch first. The page it writes, `.ai-engineering/recap.html`, is the review; it is generated on `feat/<slug>` at this app review and reaches the primary tree with the merge, never before. Then close in three moves: inside the worktree, `git rebase main`; in the primary tree, `git merge --no-ff feat/<slug>` with the message `chore(<slug>): merge <feature>` — one merge commit per feature, the single undoable unit; then remove the worktree and delete `feat/<slug>` with `ai-eng worktree rm <slug>`. This merge step is the only writer of the primary tree: the shared files — `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md`, and `.ai-engineering/PRD.html` when the feature changed scope — land here, once, and no session writes them in the primary tree in parallel. Never push.
 - **Stop here:** commit whatever is outstanding on `feat/<slug>` and leave it unmerged.
 
 ## Lifecycle
