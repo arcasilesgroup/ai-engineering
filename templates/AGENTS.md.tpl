@@ -46,7 +46,7 @@ Lines the critic treats as blockers. Fill in project-specific rules here; leave 
 - A build session does not touch the primary tree; only the merge step writes there, once, after that session's branch has merged.
 - The design artifacts `.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html` and `.ai-engineering/plan.html` are written and committed in the primary tree before any worktree is cut, and no worktree ever stages them.
 - `.ai-engineering/recap.html` is generated at the app review on the feature branch and reaches the primary tree with the merge.
-- The merge step writes the shared files once, never by a parallel session: `.ai-engineering/PRD.html` when the feature changes scope, plus `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md` and `PERMISSIONS.md`.
+- A session may edit the shared files on its own branch like any other change, and the merge step is their single writer in the primary tree, never a parallel session writing them there: `.ai-engineering/PRD.html` when the feature changes scope, plus `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md` and `PERMISSIONS.md`.
 
 ## Workflow
 - Green gate before "done": show the output of the check that proves it.
