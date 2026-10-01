@@ -154,7 +154,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["attempt 1 PASS: 11/11 planned entries in order, all six contract points present in both the skill and AGENTS.md, the Lifecycle block still hands off at :186 to ai-visual-recap, and the stale-flow audit found zero hits for squash, switch -c, shared tree or a hand-created branch. The negative gates are sharpened to '<slug>#N' so the legitimate checkpoint marker placeholder ([checkpoint <slug>#<id> <stage>]) is not caught by them."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
