@@ -448,4 +448,60 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(run.stdout).toContain("alpha");
     expect(run.stdout).toContain("beta");
   });
+
+  test("slot as a directory: brainstorm.html turned into a directory still makes new refuse", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    // A directory named like the slot never committed: porcelain -uall reports the
+    // file inside it, so a whole-string comparison against the slot name misses it.
+    const slotDir = join(repo, ".ai-engineering", "brainstorm.html");
+    mkdirSync(slotDir, { recursive: true });
+    writeFileSync(join(slotDir, "inner.txt"), "not the slot\n");
+
+    const run = runCli(["worktree", "new", "alpha"], repo);
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain("brainstorm.html");
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(branchNames(repo)).not.toContain("alpha");
+    expect(worktreeEntries(repo)).toHaveLength(1);
+  });
+
+  test("renamed slot: git mv of a committed design slot still makes new refuse", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const slot = join(repo, ".ai-engineering", "brainstorm.html");
+    mkdirSync(dirname(slot), { recursive: true });
+    writeFileSync(slot, "<html>slot</html>\n");
+    git(["add", "-A"], repo);
+    git(["commit", "-q", "-m", "add slot"], repo);
+    // A rename line `R  brainstorm.html -> brainstorm2.html` hides that the slot left.
+    git(["mv", ".ai-engineering/brainstorm.html", ".ai-engineering/brainstorm2.html"], repo);
+
+    const run = runCli(["worktree", "new", "alpha"], repo);
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain("brainstorm");
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(branchNames(repo)).not.toContain("alpha");
+    expect(worktreeEntries(repo)).toHaveLength(1);
+  });
+
+  test("deleted slot: git rm of a committed design slot still makes new refuse", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const slot = join(repo, ".ai-engineering", "plan.html");
+    mkdirSync(dirname(slot), { recursive: true });
+    writeFileSync(slot, "<html>plan</html>\n");
+    git(["add", "-A"], repo);
+    git(["commit", "-q", "-m", "add plan"], repo);
+    git(["rm", "-q", ".ai-engineering/plan.html"], repo);
+
+    const run = runCli(["worktree", "new", "alpha"], repo);
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain("plan.html");
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(branchNames(repo)).not.toContain("alpha");
+  });
 });
