@@ -101,7 +101,7 @@ function loggedArgs(log: string): string[] {
 
 interface Entry {
   path: string;
-  branch?: string;
+  branch: string | undefined;
 }
 
 function worktreeEntries(repo: string): Entry[] {
@@ -169,7 +169,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
   test("canonical: new <slug> lands at the realpathed sibling root, even from a symlinked cwd", () => {
     const base = mkdtempSync(join(tmpdir(), "ai-eng-worktree-base-"));
     cleanups.push(base);
-    const repo = initRepo(join(base, "repo"));
+    initRepo(join(base, "repo"));
     const alias = join(base, "alias");
     symlinkSync(base, alias);
     // The repository is reached through a symlink: a naive implementation would
