@@ -273,19 +273,24 @@
         "CONTRIBUTING.md `Commit and PR conventions`: add the local flow — work in a worktree, merge to the local `main`, the PR against `origin/main` is the human's decision.",
         "docs/blueprint.html: add the behaviour-change section for the `worktree` verb and the changed skills (ai-orchestrator close, ai-git-cleanup, ai-pr), near the existing §21.2 worktree-per-agent section.",
         ".changeset/git-worktree-flow.md: minor bump (`\"ai-engineering\": minor`) with a one-sentence summary.",
+        ".ai-engineering/PRD.html (Rules bullet) and .ai-engineering/brainstorm.html (§08 and §11): align both with the contract — name which artifacts are written and committed in the primary tree before any worktree (`brainstorm.html`, `spec.html`, `plan.html`), which reach the primary tree with the merge (`recap.html`, generated on the feature branch at the app review), and that `PRD.html` itself is updated only by the merge step; leave no inverted sentence. This is the only place those two files are touched, and it happens in the primary tree as part of the close, never from a worktree.",
         "FILEMAP.md is left unchanged (board §11 marks it so on purpose)."
       ],
-      "files": ["README.md", "CONTRIBUTING.md", "docs/blueprint.html", ".changeset/git-worktree-flow.md"],
+      "files": ["README.md", "CONTRIBUTING.md", "docs/blueprint.html", ".changeset/git-worktree-flow.md", ".ai-engineering/PRD.html", ".ai-engineering/brainstorm.html"],
       "acceptance": [
         "README names `ai-eng worktree` and one line of the flow.",
         "CONTRIBUTING describes the local worktree/merge flow and that the PR is the human's call.",
         "docs/blueprint.html has the new section for the verb and the changed skills.",
-        ".changeset/git-worktree-flow.md exists with a minor bump; FILEMAP.md is untouched."
+        ".changeset/git-worktree-flow.md exists with a minor bump; FILEMAP.md is untouched.",
+        "AGENTS.md, templates/AGENTS.md.tpl, `.ai-engineering/PRD.html` and `.ai-engineering/brainstorm.html` describe the same partition — written before the worktree / arrives with the merge / merge-only — with no inverted sentence left."
       ],
       "verify": [
         "rg -q 'ai-eng worktree' README.md",
         "rg -q 'worktree' CONTRIBUTING.md",
         "rg -q 'ai-eng worktree' docs/blueprint.html",
+        "rg -q 'brainstorm\\.html' .ai-engineering/PRD.html && rg -q 'spec\\.html' .ai-engineering/PRD.html && rg -q 'plan\\.html' .ai-engineering/PRD.html",
+        "! rg -q 'PRD\\.html.*spec\\.html.*plan\\.html' .ai-engineering/PRD.html",
+        "! rg -q 'PERMISSIONS\\.md.*recap\\.html' .ai-engineering/brainstorm.html",
         "test -f .changeset/git-worktree-flow.md && rg -q 'minor' .changeset/git-worktree-flow.md",
         "bun test tests/npm-manifest.spec.ts",
         "bun test tests/arch.spec.ts",
