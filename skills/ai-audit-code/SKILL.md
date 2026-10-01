@@ -72,7 +72,7 @@ every sibling caller still broken. Fix it once, where all callers route through.
 ## Findings
 
 - Every finding cites its `file:line`, or a file, symbol, or path when a line is not the right unit. A finding with no citation is a rumour.
-- Verify before deleting anything: search to locate, language-server references to prove — where the only link is a path (an import string, a manifest entry), the search is the proof. A text search matches comments and misses dynamic calls.
+- Verify before deleting anything: search to locate, language-server references to prove — where the only link is a path (an import string, a manifest entry), the search is the proof, though it also matches comments, so read what it returns.
 - An entry point or a barrel re-export stays while callers remain — verify references first; the guard is the callers, not the file's role.
 - Keep a symbol only while a caller or a public API needs it; a test that only asserted the symbol is not a consumer — delete the test with the symbol.
 

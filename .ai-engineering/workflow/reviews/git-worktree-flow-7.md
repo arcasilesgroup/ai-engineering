@@ -29,7 +29,7 @@ This is the last checkpoint, and the only one whose source is outside the reposi
 ## F1 · BLOCKER · fixed
 **Where:** skills/ai-audit-code/SKILL.md:75
 **Critic (r1):** The new guardrail says "never a text search", but line 57 orders "grep every caller of the function you're about to touch" — grep *is* a text search. A reader now picks the softer of two versions, or obeys :75 and skips the caller sweep :57 mandates, shipping the sibling-caller bug line 60 warns about. → make :57 say "ask the language server for references (never a bare text search)" so one version of the rule survives. Check: `grep -n 'grep every caller\|never a text search' skills/ai-audit-code/SKILL.md` must show one rule, not two.
-**Fixer (r1):** fixed — :75 now reads "search to locate, language-server references to prove — where the only link is a path (an import string, a manifest entry), the search is the proof"; :57's `grep every caller` stays as the locate step, so the two clauses name different jobs instead of two versions of one. verify: `grep -n 'grep every caller\|search to locate\|language-server references' skills/ai-audit-code/SKILL.md` ✓
+**Fixer (r1):** fixed — :75 now reads "search to locate, language-server references to prove — where the only link is a path (an import string, a manifest entry), the search is the proof, though it also matches comments, so read what it returns"; :57's `grep every caller` stays as the locate step, so the two clauses name different jobs instead of two versions of one. verify: `grep -n 'grep every caller\|search to locate\|language-server references' skills/ai-audit-code/SKILL.md` ✓
 
 ## F2 · MAJOR · fixed
 **Where:** skills/ai-security/SKILL.md:65

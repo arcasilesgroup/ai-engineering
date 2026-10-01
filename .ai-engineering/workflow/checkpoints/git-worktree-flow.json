@@ -353,11 +353,11 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["attempt 1 PASS: 8/8 planned entries in order, every planned piece present and, clause by clause, the two skills grow by five one-line habits and two lines respectively. The gate confirmed nothing was imported beyond the plan, that both files keep their frontmatter and Lifecycle block, and that the embedded assets resolve (the map enumerates paths, so regeneration is correctly a no-op). It noted the intermediate revision stated several rules twice at two strengths, which the review then removed."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 1, "findings": ["round 1 FAIL with six findings, one blocker: the addition restated rules the host files already carried, in a harder form, so the duplicates read as new law and cancelled the originals. A search was forbidden for a job the same page tells the agent to search for; a guard against deleting entry points contradicted the ladder's first rung; a rule preserved dead code behind its stale test; a citation rule refused findings whose unit is not one line; a severity rule contradicted the file's own no-exploit grade; and the new section repeated the ladder it was appended to. Half the addition was removed and the rest qualified against the host rule. Round 2 PASS with one minor, closed after it: the severity headline now names its range, and the audit rule's trailing absolute is folded into the sentence before it.", "Residual recorded by the gate, not a defect: the severity theme appears at three places in the security file, consistent rather than conflicting."] }
       },
-      "status": "pending"
+      "status": "passed"
     }
   ],
   "assumptions": [
