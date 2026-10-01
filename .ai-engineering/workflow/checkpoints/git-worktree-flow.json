@@ -312,9 +312,9 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 2, "findings": ["attempt 1 FAIL: the 12 planned entries passed, but the gate re-derived every claim against the tooling and found three the tooling denies. The README said the machine verbs numbered four and that --help hides them, while its own list had five after this checkpoint's line and the binary prints seven; the blueprint's 21.2 still sold one .ai-engineering per worktree after the new section denied it; and the brainstorm cited the slot list at the file it used to live in. Attempt 2 PASS: 12/12, the help output compared item by item with the page, 21.2 carrying its correction, every file:line citation resolving, CONTRIBUTING matching both skills, and the changeset and FILEMAP checked."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "pending", "attempts": 1, "findings": ["round 1 FAIL with four findings: F4 MAJOR the blueprint's 21.2 still contradicted the new section in its own heading and its closing plan, which one sentence inside a card had not settled; F5 MAJOR the alignment dropped the qualifier that scopes the merge step to the primary tree, so the two design pages began inverting skills/ai-orchestrator/SKILL.md Phase 3, where the session writes those files on its own branch; F6 MINOR a file count that was already stale when written; F7 MAJOR the two design pages were staged from inside this worktree, against a rule that had landed five checkpoints earlier, so the deviation was not the rule's own run. F1-F3 were re-verified resolved."] }
       },
       "status": "pending"
     },
