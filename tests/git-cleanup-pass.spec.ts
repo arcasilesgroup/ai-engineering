@@ -86,3 +86,20 @@ describe("ai-git-cleanup skill — ignored content is data unless regenerable", 
     expect(skill).toMatch(/explicit|human|a person|the person|by hand/i);
   });
 });
+
+describe("ai-git-cleanup skill — the regenerable list covers system and editor noise", () => {
+  test("U-CP4-f names .DS_Store and .claude/reviews/ as the noise the repository already ignores", () => {
+    expect(skill).toContain(".DS_Store");
+    expect(skill).toContain(".claude/reviews/");
+    // The list is regenerable framework output plus the system/editor noise already ignored.
+    expect(skill).toMatch(/already ignor|system|editor|noise/i);
+  });
+
+  test("U-CP4-g anchors the match: exact worktree-root-relative path or a whole listed directory", () => {
+    // Comparison is anchored, not a substring: a lookalike name is not the entry.
+    expect(skill).toMatch(/exact path|relative to the worktree root|anchored|whole (entry|directory|segment)/i);
+    // The counter-examples the anchoring excludes.
+    expect(skill).toContain("reports-archive");
+    expect(skill).toContain("packages/x/dist");
+  });
+});

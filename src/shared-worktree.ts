@@ -190,11 +190,15 @@ function statusPaths(tokens: string[], index: number): { paths: string[]; next: 
 }
 
 /** The ignored paths a worktree holds, so `worktree rm` can name what its removal
- *  drops before it drops it. `-z` keeps each path raw, matching the status reads
- *  elsewhere. A status the command cannot read yields an empty list: the removal
- *  still runs, and an empty report never claims content it did not see. */
+ *  drops before it drops it. `-uall` forces the untracked listing past the user's
+ *  `status.showUntrackedFiles=no` — which would otherwise print nothing at all,
+ *  ignored entries included, and let the removal name an empty set while dropping
+ *  a `local.env` — exactly why the slot guard next door forces it too. `-z` keeps
+ *  each path raw, matching the status reads elsewhere. A status the command cannot
+ *  read yields an empty list: the removal still runs, and an empty report never
+ *  claims content it did not see. */
 function ignoredPaths(path: string): string[] {
-  const status = git(path, ["status", "--porcelain", "--ignored", "-z"]);
+  const status = git(path, ["status", "--porcelain", "--ignored", "-uall", "-z"]);
   if (status.status !== 0) return [];
   const found: string[] = [];
   const tokens = status.stdout.split("\0");

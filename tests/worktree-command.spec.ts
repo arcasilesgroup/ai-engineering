@@ -737,4 +737,38 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     // The removal says what it let go, so the person can see the ignored path lost.
     expect(`${run.stdout}${run.stderr}`).toContain("local.env");
   });
+
+  test("U-CP4-d: rm forces its own status read and names the ignored path despite status.showUntrackedFiles=no", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    writeFileSync(join(repo, ".gitignore"), "local.env\n");
+    git(["add", "-A"], repo);
+    git(["commit", "-q", "-m", "ignore local.env"], repo);
+    // A hostile local config must not hide the ignored file the verb is about to drop.
+    git(["config", "status.showUntrackedFiles", "no"], repo);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    writeFileSync(join(root, "alpha", "local.env"), "SECRET=1\n");
+
+    const run = runCli(["worktree", "rm", "alpha"], repo);
+    expect(run.status).toBe(0);
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(`${run.stdout}${run.stderr}`).toContain("local.env");
+  });
+
+  test("U-CP4-e: a worktree whose only ignored content is .DS_Store is removed and names it", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    writeFileSync(join(repo, ".gitignore"), ".DS_Store\n");
+    git(["add", "-A"], repo);
+    git(["commit", "-q", "-m", "ignore .DS_Store"], repo);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    writeFileSync(join(root, "alpha", ".DS_Store"), "junk\n");
+
+    const run = runCli(["worktree", "rm", "alpha"], repo);
+    expect(run.status).toBe(0);
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(`${run.stdout}${run.stderr}`).toContain(".DS_Store");
+  });
 });
