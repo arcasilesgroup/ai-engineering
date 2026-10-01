@@ -54,6 +54,69 @@ describe("ai-pr skill — the full pull-request loop", () => {
     expect(skill).not.toMatch(/origin\s+--delete/);
   });
 
+  test("U-PR-a: the merge command does not delete the branch (no --delete-branch)", () => {
+    const mergeLines = skill
+      .split("\n")
+      .filter((line) => /gh pr merge|pr merge/.test(line))
+      .join("\n");
+    expect(mergeLines).not.toBe(""); // there is a merge command at all
+    expect(mergeLines).not.toMatch(/--delete-branch/);
+  });
+
+  test("U-PR-b: running the skill is the request to finish; there is an explicit open-only mode", () => {
+    // Rolling the skill is the human's request to finish the pull request, not mere advice.
+    expect(skill).toMatch(
+      /(running|invok|us(e|ing)|start(ing)?|ask(ing)? for|request(ing)?)[^.]{0,150}(skill|this)[^.]{0,150}(is|means|counts as|is treated as)[^.]{0,150}(request|ask|instruction|decision)[^.]{0,150}(finish|complete|land|merge|pull request)/i,
+    );
+    // And an explicit mode that opens the pull request only, with no merge.
+    const openOnly =
+      /(open (the )?(pull request|pr)? ?only|only open|just open|open-only|--open-only|without merg|no-?merge)/i;
+    expect(skill).toMatch(openOnly);
+    // In that mode the merge does not happen.
+    expect(skill).toMatch(
+      /(open (the )?(pull request|pr)? ?only|only open|just open|open-only)[^.]{0,250}(not|never|no|without)[^.]{0,60}merg/i,
+    );
+  });
+
+  test("U-PR-c: the merge names an explicit strategy, a rule choosing it, and a command listing allowed methods", () => {
+    const mergeLines = skill
+      .split("\n")
+      .filter((line) => /gh pr merge/.test(line))
+      .join("\n");
+    expect(mergeLines).toMatch(/--squash|--rebase|--merge\b/);
+    // A stated rule picks the strategy rather than leaving it to taste.
+    expect(skill).toMatch(/(rule|choose|chosen|pick|prefer|decide|depending|when|if)[^.]{0,150}(squash|rebase|merge commit)/i);
+    // The allowed methods come from the repository, not from a guess.
+    expect(skill).toMatch(/gh api/);
+    expect(skill).toMatch(/allow_(squash|merge|rebase)|allowed_merge_methods/);
+  });
+
+  test("U-PR-d: fetches before reading origin/main..HEAD for the body", () => {
+    expect(skill).toMatch(/git fetch/);
+    const range = /origin\/main\s*\.\.\s*HEAD/;
+    expect(skill).toMatch(range);
+    // The fetch precedes the range in the text of the body assembly.
+    expect(skill.search(/git fetch/)).toBeGreaterThan(-1);
+    expect(skill.search(/git fetch/)).toBeLessThan(skill.search(range));
+  });
+
+  test("U-PR-e: the loop states a maximum number of attempts or polls", () => {
+    expect(skill).toMatch(
+      /((attempt|poll|round|iteration|try|tries|pass)[^.\n]{0,40}\b\d+\b|\b\d+\b[^.\n]{0,40}(attempt|poll|round|iteration|try|tries|pass))/i,
+    );
+  });
+
+  test("U-PR-f: it reads the required status checks and says the rest only inform", () => {
+    // The blocking gates are queried from branch protection, not guessed.
+    expect(skill).toMatch(/required_status_checks/);
+    expect(skill).toMatch(/gh api/);
+    expect(skill).toMatch(/branches\/main\/protection|branch protection/i);
+    // Everything else is advisory.
+    expect(skill).toMatch(
+      /(rest|other|remaining|non-required)[^.]{0,150}(workflow|check|job)[^.]{0,150}(inform|advisory|non-?blocking|do(es)? not block|don't block|report only)/i,
+    );
+  });
+
   test("merges only when the human asked for the pull request", () => {
     expect(skill).toMatch(/human|the person|the user/i);
     expect(skill).toMatch(/ask|request/i);

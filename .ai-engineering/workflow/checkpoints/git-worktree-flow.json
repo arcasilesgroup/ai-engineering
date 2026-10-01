@@ -262,9 +262,9 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["attempt 1 PASS: 8/8 planned entries, the spec green at 9 cases, and every flag the skill names confirmed against the installed gh (create --base/--head/--title/--body-file, merge --auto/--disable-auto, checks with a PR number, --watch and --required). The gate found one contradiction for the review gate to settle: Phase 6 armed auto-merge by default while a rules line said a green pull request is not a request to merge, and the strategy was left to 'whatever the repository allows' with no command to find it."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "pending", "attempts": 1, "findings": ["round 1 FAIL with eight findings: F1 BLOCKER the skill could merge unasked, arming auto-merge on any pull request it opened while a rules line said a green one is not a request to merge; F2 MAJOR the merge named no strategy, which fails headless on a repository with several methods enabled; F3 MAJOR nothing fetched, so the range and the precondition were read off a stale ref and the body could misstate what the branch carries; F4 MAJOR gating and informing checks were not distinguished, so the agent guessed; F5 MAJOR the watch loop lost the predecessor's stuck bound and its log-diagnosis discipline; F6 MINOR Phase 1 had no path for an existing branch, a dirty tree or a behind main; F7 MAJOR the spec pinned wording, not behaviour, so text that merges unasked would have passed; F8 MINOR nothing brought local main up to date after the merge."] }
       },
       "status": "pending"
     },
