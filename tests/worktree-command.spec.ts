@@ -597,26 +597,55 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
-  test("declaration file: an invalid file is rejected, and rm drops the slug's entry", () => {
+  test("declaration file with the worktrees: invalid null is rejected, rm drops the slug, primary stays clean", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
-    const declarations = join(repo, ".ai-eng-worktrees.json");
+    // The declaration file lives beside the worktrees, never in the primary tree.
+    mkdirSync(root, { recursive: true });
+    const declarations = join(root, ".ai-eng-worktrees.json");
     writeFileSync(declarations, "null");
+    const clean = git(["status", "--porcelain"], repo);
 
     // A malformed declaration file must be a refusal, not an uncaught throw.
     const bad = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
     expect(bad.status).not.toBe(0);
     expect(bad.stderr.trim().length).toBeGreaterThan(0);
     expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(git(["status", "--porcelain"], repo)).toBe(clean);
 
     rmSync(declarations, { force: true });
     expect(runCli(["worktree", "new", "alpha", "docs/shared.md"], repo).status).toBe(0);
     expect(existsSync(declarations)).toBe(true);
     expect(readFileSync(declarations, "utf8")).toContain("alpha");
+    // A session never touches the primary tree.
+    expect(git(["status", "--porcelain"], repo)).toBe(clean);
 
     expect(runCli(["worktree", "rm", "alpha"], repo).status).toBe(0);
     const after = existsSync(declarations) ? readFileSync(declarations, "utf8") : "";
     expect(after).not.toContain("alpha");
+    expect(git(["status", "--porcelain"], repo)).toBe(clean);
+  });
+
+  test("relative worktrees_dir: the same root from the primary tree and from inside a worktree", () => {
+    const repo = tempRepo();
+    const root = join(realpathSync(repo), ".wt");
+    cleanups.push(root);
+    mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(repo, ".ai-engineering", "config.toml"), `[git]\nworktrees_dir = ".wt"\n`);
+
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    const created = join(root, "alpha");
+    expect(existsSync(created)).toBe(true);
+    // A relative root must hang off the primary tree, not off the current directory.
+    expect(existsSync(join(created, ".wt", "alpha"))).toBe(false);
+
+    const fromPrimary = runCli(["worktree", "list"], repo);
+    const fromWorktree = runCli(["worktree", "list"], created);
+    expect(fromPrimary.status).toBe(0);
+    expect(fromWorktree.status).toBe(0);
+    const alphaLine = (out: string): string | undefined => out.split("\n").find((line) => line.includes("alpha"));
+    expect(alphaLine(fromPrimary.stdout)).toContain(realpathSync(created));
+    expect(alphaLine(fromWorktree.stdout)).toBe(alphaLine(fromPrimary.stdout));
   });
 });
