@@ -181,3 +181,17 @@ ROUND 5: fixed 14 edits over six problems (retired deps, TAB, spec subcommands, 
 **Verify (round 6):** all 12 checkpoint-6 entries ✓ · `bun test tests/npm-manifest.spec.ts` 3/3 ✓ · `bun test tests/arch.spec.ts` 22/22 ✓ · `bun run typecheck` ✓ · `bun run lint` ✓ · `bun run build` ✓
 
 ROUND 6: fixed 1 (comment) · disputed 0.
+
+## Findings (round 7) — stale counts, a wrong slot extension, and a cover line
+
+**Where:** `README.md:38,59`; `docs/blueprint.html:652,807,883,945,1682-1695,1756,1782,1784`; `.ai-engineering/brainstorm.html:174`
+
+**Fixer (r7):** fixed — each re-derived from the tree or the binary.
+- **A.** `ls -d skills/*/ | wc -l` → 29, while `README.md:38` said 21 and the README's own skills table lists 18, so no single number is both true and stable. The row is now «**1 canon** | skills, mirrored into Claude Code, Oh My Pi and OpenCode» — a structural fact, no count to drift (F6/F8 precedent), and it still matches `doctor`'s «mirrors · 3/3 mirrors carry linked skills».
+- **B.** The alt text said «doctor running 17 checks». `./dist/ai-eng --help` prints «12 checks + one real adversarial probe + --gc» and `./dist/ai-eng doctor` prints a «Health check» frame whose section list is neither of those numbers, so the alt is now «doctor reporting the repo's health» — a phrase no output can contradict.
+- **C.** `grep SLOT_FILES src/shared-worktree.ts` → `["spec.html","plan.html","brainstorm.html","recap.html"]`, and `find . -name 'brainstorm.md'` finds nothing. All nine `brainstorm.md` occurrences in the blueprint are now `brainstorm.html` (`grep -c` → 0), including §21.2 (`:1782`, `:1784`) which the finding named; §21.2's prose is otherwise untouched, so its v17 history reads as written.
+- **D.** `brainstorm.html:174` no longer promises «read-back provisional … entrevista en curso» while `:171` and the footer (`:400`) date the document «complete · 2026-10-01». The cover meta now reads «complete · 2026-10-01 · entrevista cerrada; las conclusiones viven también en PRD.html». No interview conclusion was touched.
+
+**Verify (round 7):** all 12 checkpoint-6 entries ✓ · `./dist/ai-eng doctor` ✓ · `./dist/ai-eng --help` ✓ · `ls -d skills/*/ | wc -l` → 29 ✓ · `bun test tests/npm-manifest.spec.ts` 3/3 ✓ · `bun run typecheck` ✓ · `bun run lint` ✓ · `bun run build` ✓
+
+ROUND 7: fixed 4 (skill count, doctor count, slot extension ×9, cover line) · disputed 0.

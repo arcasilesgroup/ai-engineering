@@ -35,7 +35,7 @@ A receipt for every denial, on disk, in git.</p>
 | | |
 |---|---|
 | **5** guards | decide before the call runs, and write a receipt |
-| **21** skills | one canon, mirrored into Claude Code, Oh My Pi and OpenCode |
+| **1 canon** | skills, mirrored into Claude Code, Oh My Pi and OpenCode |
 | **8** surfaces | one payload, no per-IDE fork |
 | **1** binary | Bun-compiled, no daemon, no hosted control plane |
 | **0** model calls | by `ai-eng` itself — your key, your model |
@@ -56,7 +56,7 @@ release needed `python>=3.11`: install bun once and both `npm install -g` and
 `bun add -g` work. The launcher fails with an honest message if bun is missing.
 
 <p align="center">
-  <img src=".github/assets/cli-tour.gif" alt="ai-eng in a real terminal: the verb list, init installing the canon and picking surfaces, doctor running 17 checks, config adding a surface, update reporting what it rewrote" width="900">
+  <img src=".github/assets/cli-tour.gif" alt="ai-eng in a real terminal: the verb list, init installing the canon and picking surfaces, doctor reporting the repo's health, config adding a surface, update reporting what it rewrote" width="900">
   <br/><sub>a real session, 43 seconds, sped up: install → govern → verify → add a surface → update</sub>
 </p>
 
