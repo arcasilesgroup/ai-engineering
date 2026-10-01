@@ -56,7 +56,6 @@ import askills_ai_writing_behavior_references_agent_behavior_specification_md fr
 import askills_ai_writing_behavior_references_calibrating_with_trajectories_md from "../skills/ai-writing-behavior/references/calibrating-with-trajectories.md" with { type: "file" };
 import askills_ai_writing_behavior_references_deciding_what_to_save_md from "../skills/ai-writing-behavior/references/deciding-what-to-save.md" with { type: "file" };
 import askills_ai_writing_behavior_SKILL_md from "../skills/ai-writing-behavior/SKILL.md" with { type: "file" };
-import askills_ai_pr_loop_fix_SKILL_md from "../skills/ai-pr-loop-fix/SKILL.md" with { type: "file" };
 import askills_ai_explore_SKILL_md from "../skills/ai-explore/SKILL.md" with { type: "file" };
 import askills_ai_issue_report_SKILL_md from "../skills/ai-issue-report/SKILL.md" with { type: "file" };
 import askills_ai_orchestrator_SKILL_md from "../skills/ai-orchestrator/SKILL.md" with { type: "file" };
@@ -75,6 +74,7 @@ import askills_ai_visual_recap_references_local_files_md from "../skills/ai-visu
 import askills_ai_visual_recap_references_wireframe_md from "../skills/ai-visual-recap/references/wireframe.md" with { type: "file" };
 import askills_ai_visual_recap_SKILL_md from "../skills/ai-visual-recap/SKILL.md" with { type: "file" };
 import askills_ai_visual_recap_assets_highlight_mjs from "../skills/ai-visual-recap/assets/highlight.mjs" with { type: "file" };
+import askills_ai_pr_SKILL_md from "../skills/ai-pr/SKILL.md" with { type: "file" };
 import askills_ai_test_planner_SKILL_md from "../skills/ai-test-planner/SKILL.md" with { type: "file" };
 import askills_ai_write_references_security_md_writer_md from "../skills/ai-write/references/security-md-writer.md" with { type: "file" };
 import askills_ai_write_references_voice_md from "../skills/ai-write/references/voice.md" with { type: "file" };
@@ -194,7 +194,6 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-writing-behavior/references/calibrating-with-trajectories.md": askills_ai_writing_behavior_references_calibrating_with_trajectories_md as unknown as string,
   "../skills/ai-writing-behavior/references/deciding-what-to-save.md": askills_ai_writing_behavior_references_deciding_what_to_save_md as unknown as string,
   "../skills/ai-writing-behavior/SKILL.md": askills_ai_writing_behavior_SKILL_md as unknown as string,
-  "../skills/ai-pr-loop-fix/SKILL.md": askills_ai_pr_loop_fix_SKILL_md as unknown as string,
   "../skills/ai-explore/SKILL.md": askills_ai_explore_SKILL_md as unknown as string,
   "../skills/ai-issue-report/SKILL.md": askills_ai_issue_report_SKILL_md as unknown as string,
   "../skills/ai-orchestrator/SKILL.md": askills_ai_orchestrator_SKILL_md as unknown as string,
@@ -213,6 +212,7 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-visual-recap/references/wireframe.md": askills_ai_visual_recap_references_wireframe_md as unknown as string,
   "../skills/ai-visual-recap/SKILL.md": askills_ai_visual_recap_SKILL_md as unknown as string,
   "../skills/ai-visual-recap/assets/highlight.mjs": askills_ai_visual_recap_assets_highlight_mjs as unknown as string,
+  "../skills/ai-pr/SKILL.md": askills_ai_pr_SKILL_md as unknown as string,
   "../skills/ai-test-planner/SKILL.md": askills_ai_test_planner_SKILL_md as unknown as string,
   "../skills/ai-write/references/security-md-writer.md": askills_ai_write_references_security_md_writer_md as unknown as string,
   "../skills/ai-write/references/voice.md": askills_ai_write_references_voice_md as unknown as string,
