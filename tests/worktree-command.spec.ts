@@ -649,3 +649,74 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(alphaLine(fromWorktree.stdout)).toBe(alphaLine(fromPrimary.stdout));
   });
 });
+
+describe("ai-eng worktree rm (checkpoint 4)", () => {
+  /** Put a commit on the open worktree's branch that local main does not have. */
+  function commitInWorktree(repo: string, slug: string): void {
+    git(["commit", "--allow-empty", "-q", "-m", `work in ${slug}`], join(defaultRoot(repo), slug));
+  }
+
+  test("unmerged: rm refuses, exits non-zero, says why, and leaves worktree and branch alive", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    const created = realpathSync(join(root, "alpha"));
+    commitInWorktree(repo, "alpha");
+
+    const run = runCli(["worktree", "rm", "alpha"], repo);
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toMatch(/not merged|unmerged|merge/i);
+    // The refusal is total: neither side of the pair is touched.
+    expect(existsSync(join(root, "alpha"))).toBe(true);
+    expect(worktreeEntries(repo).map((entry) => entry.path)).toContain(created);
+    expect(branchNames(repo)).toContain("feat/alpha");
+  });
+
+  test("force: rm --force removes an unmerged worktree and its branch", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    commitInWorktree(repo, "alpha");
+
+    const run = runCli(["worktree", "rm", "alpha", "--force"], repo);
+    expect(run.status).toBe(0);
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(worktreeEntries(repo)).toHaveLength(1);
+    expect(branchNames(repo)).not.toContain("feat/alpha");
+  });
+
+  test("merged: a branch merged into local main is removed without ceremony", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    commitInWorktree(repo, "alpha");
+    // Bring main up to include the branch's work, so feat/alpha is genuinely merged.
+    git(["merge", "--no-ff", "-q", "-m", "merge feat/alpha", "feat/alpha"], repo);
+
+    const run = runCli(["worktree", "rm", "alpha"], repo);
+    expect(run.status).toBe(0);
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(branchNames(repo)).not.toContain("feat/alpha");
+    expect(worktreeEntries(repo)).toHaveLength(1);
+  });
+
+  test("default path: no emitted command contains git branch -D", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const log = join(repo, "invocations.log");
+    expect(runCli(["worktree", "new", "alpha"], repo, shimEnv(log)).status).toBe(0);
+
+    const run = runCli(["worktree", "rm", "alpha"], repo, shimEnv(log));
+    expect(run.status).toBe(0);
+
+    const args = loggedArgs(log);
+    expect(args.length).toBeGreaterThan(0);
+    expect(args).not.toContain("-D");
+    expect(run.stdout).not.toContain("branch -D");
+    expect(run.stderr).not.toContain("branch -D");
+  });
+});
