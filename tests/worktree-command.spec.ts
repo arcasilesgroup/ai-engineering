@@ -16,6 +16,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -164,6 +165,20 @@ function tempRepo(): string {
   cleanups.push(root);
   return initRepo(root);
 }
+
+/** APFS/HFS+ fold case, ext4 does not: probe by writing the same name in two cases. */
+function isCaseInsensitiveFs(): boolean {
+  const probe = mkdtempSync(join(tmpdir(), "ai-eng-case-probe-"));
+  try {
+    writeFileSync(join(probe, "probe"), "a");
+    writeFileSync(join(probe, "PROBE"), "b");
+    return readdirSync(probe).length === 1; // both names collapsed onto one file
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
+}
+
+const IS_CASE_INSENSITIVE_FS = isCaseInsensitiveFs();
 
 describe("ai-eng worktree verb (checkpoint 2)", () => {
   test("canonical: new <slug> lands at the realpathed sibling root, even from a symlinked cwd", () => {
@@ -504,4 +519,25 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(existsSync(join(root, "alpha"))).toBe(false);
     expect(branchNames(repo)).not.toContain("alpha");
   });
+
+  // On a case-insensitive filesystem `brainstorm.HTML` is the same file as
+  // `brainstorm.html`, but porcelain reports it in the written case.
+  test.skipIf(!IS_CASE_INSENSITIVE_FS)(
+    "case-alias slot: brainstorm.HTML dirty still makes new refuse (case-insensitive fs only)",
+    () => {
+      const repo = tempRepo();
+      const root = defaultRoot(repo);
+      cleanups.push(root);
+      const slot = join(repo, ".ai-engineering", "brainstorm.HTML");
+      mkdirSync(dirname(slot), { recursive: true });
+      writeFileSync(slot, "dirt\n");
+
+      const run = runCli(["worktree", "new", "alpha"], repo);
+      expect(run.status).not.toBe(0);
+      expect(run.stderr).toMatch(/brainstorm\.html/i);
+      expect(existsSync(join(root, "alpha"))).toBe(false);
+      expect(branchNames(repo)).not.toContain("alpha");
+      expect(worktreeEntries(repo)).toHaveLength(1);
+    },
+  );
 });
