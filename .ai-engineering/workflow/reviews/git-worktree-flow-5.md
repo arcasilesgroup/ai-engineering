@@ -173,3 +173,30 @@ ROUND 3: resolved 5 · withdrawn 0 · upheld 1 · new 2
 
 ROUND 4: resolved 3 · withdrawn 0 · upheld 0 · new 2
 ROUND 5: fixed 2 · disputed 0 (F15 MAJOR, F16 MINOR)
+
+## Rulings — round 5 (verified against d5b2a4c4)
+
+**F15 · resolved.** Phase 3 now reads before it creates (SKILL.md:118-132): `gh pr view <branch> --json number,state`, create only when the exit is non-zero *and* says no pull request was found, state `OPEN` reuses the number and skips the create, any other state is reported and the run stops. The discriminator is gh's message, not the bare exit code, so an auth or network failure (different message) does not fall into the create path. `<number>` is then read by Phases 4-6 (:169, :187-188, :231, :241). U-PR-g pins the read-before-create order; 17 tests pass.
+
+**F16 · resolved.** A rejected merge now has its branch (SKILL.md:234-238): report gh's message, leave the pull request open, stop, never retry blindly or force. U-PR-h pins it.
+
+## F17 · MINOR · fixed
+**Where:** skills/ai-pr/SKILL.md:128-131
+**Critic (r5):** only the "no pull request was found" message continues to the create; a `gh pr view` that fails for another reason (expired token, no network, API error) is neither the "no PR" case nor a PR state, so no sentence says what the run does with it — the fixer's own rule for `gh pr merge` ("a command that talks to a remote needs its rejection branch") is not applied here. → Say any other non-zero exit is reported and the run stops. Check: run Phase 3 with an invalid `GH_TOKEN`.
+
+**Fixer (r5):** fixed — Phase 3's read now carries the merge's rule (SKILL.md:128-135): "Only the message that no pull request was found for the branch means there is none, and only then does the create run. A non-zero exit for any other reason — an expired token, no network, an API error — is neither that case nor a pull request state: report gh's message and stop ... never read a failed read as 'no pull request' and create a second one." The discriminator is gh's message, never the bare exit code, so a failed read cannot fall into the create path. verify: `bun test tests/ai-pr.spec.ts` ✓ (U-PR-g, 17 pass).
+
+## F18 · MINOR · fixed
+**Where:** skills/ai-pr/SKILL.md:120-121 vs :136-140
+**Critic (r5):** the number is said to come "from here" — the read that found a pull request — but on the create path that read found nothing, and nothing says to capture the number from the create's output (or re-read it) before Phases 4-6 use `<number>`. → State that after the create the number comes from its output or from a re-read. Check: run a fresh (no-PR) batch and see where Phase 4's `<number>` is bound.
+
+**Fixer (r5):** fixed — the number's source is now stated per path (SKILL.md:119-122, :137-141): on the reuse path it comes from the `gh pr view <branch> --json number,state` that found the open pull request; on the create path nothing has read it yet, so after `gh pr create` succeeds — it prints the new pull request's URL — the run re-reads `<number>` with the same `gh pr view <branch> --json number,state`, and that read, not the URL text, is what Phases 4-6 use. verify: `bun test tests/ai-pr.spec.ts` ✓ (U-PR-g, 17 pass).
+
+## F19 · MINOR · fixed
+**Where:** skills/ai-pr/SKILL.md:176-189
+**Critic (r5):** the poll commands (`gh run list`, `gh pr checks`, `gh pr view --comments`) have no rejection branch: the protection query failure is handled (:172-176) but a failed poll is not, and the sentence "the run only continues where a check, once polled, is no longer running" can be read as "it finished" when the read actually failed. → State that a poll that errors is not a passing or finished check: retry within the budget or report and stop. Check: revoke the token mid-run while polling.
+
+**Fixer (r5):** fixed — the ambiguous sentence is gone and a failed poll has its branch (SKILL.md:192-205): "The run continues only from a poll that succeeded and shows the check no longer queued or in progress", and "A poll can fail as well: when any of those commands exits non-zero — an expired token, no network, an API error — that is not a finished check. Report gh's message and the check it was reading, and stop; never read a failed poll as a passing check, and never as a stuck one." The 30 s interval and the 30-minute budget are untouched. verify: `bun test tests/ai-pr.spec.ts` ✓ (U-PR-e, 17 pass).
+
+ROUND 5: resolved 2 · withdrawn 0 · upheld 0 · new 3
+ROUND 6: fixed 3 · disputed 0 (F17, F18, F19 MINOR)

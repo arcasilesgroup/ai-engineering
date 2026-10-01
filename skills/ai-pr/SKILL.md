@@ -117,18 +117,28 @@ report — do not overwrite.
 ## Phase 3 — open the pull request against `main`
 
 A re-run continues the same pull request. Before creating one, ask whether the
-branch already has an open pull request and reuse it — its `<number>`, which
-every later phase reads, comes from here, and the create below runs only when
-this finds nothing:
+branch already has an open pull request and reuse it — the number every later
+phase needs comes from that read, and the create below runs only when this finds
+nothing:
 
 ```bash
 gh pr view <branch> --json number,state
 ```
 
-A non-zero exit saying no pull request was found for the branch means there is
-none: continue to the create. An `<number>` with state `OPEN` means skip the
-create and carry on with that pull request. Any other state is reported and the
-run stops — that pull request is already closed or merged.
+Only the message that no pull request was found for the branch means there is
+none, and only then does the create run. A non-zero exit for any other reason — an
+expired token, no network, an API error — is neither that case nor a pull request
+state: report gh's message and stop, the same rule the merge follows, and never
+read a failed read as "no pull request" and create a second one. An `<number>`
+with state `OPEN` means skip the create and carry on with that pull request. Any
+other state is reported and the run stops — that pull request is already closed
+or merged.
+
+The create path has no number yet: `gh pr create` prints the new pull request's
+URL, so read `<number>` back from the branch with the same `gh pr view <branch>
+--json number,state` once it succeeds — a successful create is the one case where
+that read must find something, and the number it prints, not the URL text, is what
+Phases 4-6 use.
 
 Fill the body from the merge commits the branch carries, so a pull request that
 bundles several features reads as a list of what landed, never as a diff dump.
@@ -180,13 +190,19 @@ Poll the check every 30 seconds while it stays queued or in progress, up to a
 total budget of 30 minutes. At the cap, declare the check stuck and stop — never
 wait forever. A stuck check is an end state the run reports: name the check still
 queued or in progress, its last run state, and how long it was watched. The run
-only continues where a check, once polled, is no longer running:
+continues only from a poll that succeeded and shows the check no longer queued or
+in progress:
 
 ```bash
 gh run list --branch <branch> --limit 1 --json databaseId,status,conclusion
 gh pr checks <number>
 gh pr view <number> --comments
 ```
+
+A poll can fail as well: when any of those commands exits non-zero — an expired
+token, no network, an API error — that is not a finished check. Report gh's
+message and the check it was reading, and stop; never read a failed poll as a
+passing check, and never as a stuck one.
 
 ## Phase 5 — fix only what is obvious, in bounded iterations
 
