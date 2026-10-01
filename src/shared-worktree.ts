@@ -189,6 +189,29 @@ function statusPaths(tokens: string[], index: number): { paths: string[]; next: 
   return { paths: [path, source], next: index + 2 };
 }
 
+/** The ignored paths a worktree holds, so `worktree rm` can name what its removal
+ *  drops before it drops it. `-z` keeps each path raw, matching the status reads
+ *  elsewhere. A status the command cannot read yields an empty list: the removal
+ *  still runs, and an empty report never claims content it did not see. */
+function ignoredPaths(path: string): string[] {
+  const status = git(path, ["status", "--porcelain", "--ignored", "-z"]);
+  if (status.status !== 0) return [];
+  const found: string[] = [];
+  const tokens = status.stdout.split("\0");
+  for (let index = 0; index < tokens.length; ) {
+    const token = tokens[index] ?? "";
+    if (token === "") {
+      index += 1; // the NUL that closes the last record
+      continue;
+    }
+    const read = statusPaths(tokens, index);
+    if (read === null) break;
+    if (token.startsWith("!! ")) found.push(...read.paths);
+    index = read.next;
+  }
+  return found;
+}
+
 /** The first design slot touched in the primary tree, or null. A slot counts as
  *  touched when a status record carries its path, the path a rename took it from, or
  *  anything nested under it (a slot replaced by a directory) — and an unreadable
@@ -350,6 +373,12 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
     }
   }
 
+  // This verb is the explicit path — a person typed it, or the close ran it after
+  // the merge landed — so unlike the automatic cleanup pass it removes the worktree
+  // even when it holds ignored content. Read that content first and print it, so
+  // the deletion is visible to whoever asked for it.
+  const dropped = existsSync(entry.path) ? ignoredPaths(entry.path) : [];
+
   if (existsSync(entry.path)) {
     const removed = git(repo, ["worktree", "remove", entry.path]);
     if (removed.status !== 0) {
@@ -367,11 +396,12 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   const declarations = pruneDeclarations(root, read.declarations);
   delete declarations[slug];
   writeDeclarations(root, declarations);
+  const droppedNote = dropped.length > 0 ? ` — dropped ignored: ${dropped.join(", ")}` : "";
   return {
     code: 0,
     out: force
-      ? `✓ removed worktree ${slug} — deleted ${branch} with --force: it was not merged into main\n`
-      : `✓ removed worktree ${slug}\n`,
+      ? `✓ removed worktree ${slug} — deleted ${branch} with --force: it was not merged into main${droppedNote}\n`
+      : `✓ removed worktree ${slug}${droppedNote}\n`,
     err: "",
   };
 }

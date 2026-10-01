@@ -24,21 +24,29 @@ in order, from the primary checkout, and report what each one did.
 
 1. **Remove the dead worktrees.** For each worktree, read two facts before
    touching it: whether its HEAD is on a branch
-   (`git -C <path> symbolic-ref -q HEAD`) and whether it holds any uncommitted
-   content, ignored files included
-   (`git -C <path> status --porcelain --ignored`). Remove it with
-   `git worktree remove <path>` only when the HEAD check names a branch that is
-   already merged into the local `main` **and** the status output is empty.
-   Otherwise skip it and report it kept with the reason:
+   (`git -C <path> symbolic-ref -q HEAD`) and what uncommitted content it holds,
+   ignored files included (`git -C <path> status --porcelain --ignored`). Remove
+   it with `git worktree remove <path>` only when the HEAD check names a branch
+   that is already merged into the local `main` **and** every status entry is
+   either absent or an ignored path on the regenerable list below. Otherwise skip
+   it and report it kept with the reason:
    - **No branch (detached HEAD).** `git worktree remove` exits 0 on a clean
      detached worktree and the commits it holds become unreachable from every
      ref, so the pass never removes one: report it kept as "detached, no branch
      to prove".
-   - **Any uncommitted content.** The removal is never forced, and a worktree
-     whose only content is gitignored (a `.env`, ignored screenshots) is removed
-     without force and that content destroyed — so any non-empty status, tracked,
-     untracked, or ignored, keeps the worktree: report it kept and say what the
+   - **Uncommitted content that is not regenerable.** Tracked and untracked
+     content always keeps the worktree, and so does any ignored path outside the
+     list below — the removal is never forced, and git destroys ignored content
+     silently (a `.env`, ignored screenshots). Report it kept and say what the
      status listed.
+   - **Ignored content that is all regenerable.** The paths this framework
+     rebuilds: `node_modules/`, `dist/`, `coverage/`, `.stryker-tmp/`,
+     `reports/`, `.ai-engineering/receipts/`, `.ai-engineering/cache/`,
+     `.ai-engineering/workflow/playwright/`. They are build and runtime output,
+     never data, so they do not keep a worktree: remove it and name every ignored
+     path dropped. The ceiling is that list — it is exactly what this framework
+     regenerates, so anything else ignored is treated as data and keeps the
+     worktree.
    Never force a removal.
 2. **Prune the stale ones.** Run `git worktree prune` to drop registrations
    whose directory is already gone. It removes no live worktree.
@@ -69,8 +77,15 @@ in order, from the primary checkout, and report what each one did.
 - **A worktree with no branch is never removed.** A detached HEAD has no branch
   to prove merged, so the pass keeps that worktree and reports it as detached:
   its commits never lose their only ref.
-- **Uncommitted content keeps its worktree.** Tracked, untracked, or ignored —
-  the status check covers all three, and a non-empty status is a keep.
+- **Uncommitted content keeps its worktree — except regenerable output.**
+  Tracked, untracked, and ignored-but-not-regenerable content all keep it; only
+  the named build/runtime paths may be dropped, and every dropped path is
+  reported.
+- **`ai-eng worktree rm` is the explicit human path.** A person typed it, or the
+  close ran it after the merge landed, so it removes what this pass keeps — a
+  worktree holding ignored content is deleted by the verb, not by this pass — and
+  it prints the ignored paths it drops. The pass is the automatic path and errs
+  on keeping; the verb answers a named worktree its caller asked to remove.
 - **No name is ever asked, and there is no interactive question.** The pass
   decides from git state alone; it never prompts for a branch or worktree name.
 - **The local `main` is the only destination that matters.** No remote is
