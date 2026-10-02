@@ -17,13 +17,17 @@ export function worktreeMain(args: string[], force = false): number {
       }
       result = worktreeNew(slug, files);
       break;
-    case "rm":
-      if (!slug) {
+    case "rm": {
+      // A trailing positional is a typo the caller cannot see — `rm alpha typo`
+      // deleting `alpha` would be silent data loss, so the shape is exact:
+      // one slug, nothing else.
+      if (!slug || files.length > 0) {
         process.stderr.write(USAGE);
         return 2;
       }
       result = worktreeRm(slug, force);
       break;
+    }
     case "list":
       result = worktreeList();
       break;

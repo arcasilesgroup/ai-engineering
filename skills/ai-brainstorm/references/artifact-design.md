@@ -379,8 +379,9 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     whose body explains open (plain-language context, evidence, cross-refs). The
     disclosure is native, never scripted and never animated open: keyboard,
     find-in-page and print keep working, and nothing is invisible while an
-    animation runs. An item the reader might meet twice carries `id="i<number>"`
-    so one section can link to the same row in another.
+    animation runs. An item the reader might meet twice carries `id="i<number>"` on
+    its first occurrence and `id="i<number>-s<NN>"` on every later one, so no id
+    repeats and one section can link to the same row in another.
 11. **A chip carries a key.** Any glyph whose meaning is colour plus a word —
     a band, a severity, a verdict — is repeated in the page's `.legend` with the
     rule that assigns it. A chip the reader cannot look up is decoration wearing

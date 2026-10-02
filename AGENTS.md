@@ -48,7 +48,7 @@ Replies to a person, and handoffs to another agent, follow the voice standard in
 
 ## Git workflow
 - A session that writes code works in `<repo>.worktrees/<slug>` on the branch `feat/<slug>`, cut from the local `main`. A session that only reads opens no worktree.
-- The merge destination is the local `main`, never `origin`: rebase inside the worktree, then `git merge --no-ff` — one merge commit per feature, the one undoable unit.
+- The merge destination is the local `main`, never `origin`: rebase inside the worktree, then, from the primary tree on `main`, `git merge --no-ff feat/<slug>` — one merge commit per feature, the one undoable unit.
 - A build session never pushes: the only push is the pull-request step the human triggers, against `origin/main`, cut from the local `main` without a worktree.
 - A build session does not touch the primary tree; only the merge step writes there, once, after that session's branch has merged.
 - The design artifacts `.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html` and `.ai-engineering/plan.html` are written and committed in the primary tree before any worktree is cut, and no worktree ever stages them.

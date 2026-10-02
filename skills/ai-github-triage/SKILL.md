@@ -56,10 +56,13 @@ example of a violation.
 ## Steps
 
 1. Resolve the scope from the argument, and say out loud which repository is being read.
-2. Read the whole open backlog, not a sample:
-   `gh issue list --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closedByPullRequestsReferences,body`
-   and `gh pr list` with the same fields plus `mergeStateStatus`, `mergeable`,
-   `reviewDecision`, `headRefName`, `closingIssuesReferences`, `isDraft`. Above 1000
+2. Read the whole open backlog, not a sample, and make every `gh` call name the
+   repository explicitly with `--repo <owner/repo>` (or a full `--repo <url>`): the
+   commands run from wherever the session stands, and the default checkout's repo is
+   not the one being triaged when the argument was another repository's URL.
+   `gh issue list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closedByPullRequestsReferences,body`
+   and `gh pr list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closingIssuesReferences,mergeStateStatus,mergeable,reviewDecision,headRefName,isDraft`.
+   The two inventories cannot share one field list: a pull request has no `closedByPullRequestsReferences`, so `gh pr list` with the issue's fields exits non-zero before it reads anything. Above 1000
    items, page with `--search "created:<oldest-in-page"` until a page comes back
    empty. A truncated backlog is a wrong page: an item nobody read is an item the
    ranking silently dropped. **Write down the count you fetched and make the page
@@ -160,6 +163,14 @@ https://github.com/<owner>/<repo>/commit/<fix-sha>
 `git rev-parse HEAD` gives the commit for a claim about the tree as it stands. A branch name
 in a permalink is the mistake that makes a report argue with its own evidence a week later.
 
+The two link kinds are not interchangeable, and the page must say which one it used:
+issue and comment URLs are **thread evidence** — they prove what was *said*, and they are
+allowed only for claims about the discussion (who reported what, what a maintainer
+answered). A claim about the **code** — a `file:line`, a behaviour, a fix — is code
+evidence and needs the `blob/<sha>` or `commit/<sha>` shape above; when the run could not
+pin the line to a commit, the row says `[UNVERIFIED]` instead of pointing at the thread
+and letting it stand in for the tree.
+
 ## Ranking: what to start on first
 
 The top of the page is a queue, and the order is stated, not felt. Band first, then the tie
@@ -190,8 +201,11 @@ its structure: the working page is that template with the `{{placeholders}}` rep
   item read, and a `.meta` line with the commit, the scope and the tools used.
 - The sections, in the template's order: Snapshot (the counts and the `.legend` that keys
   every chip), Start here (the ranked queue), Fix now, Answer, Close or park, Feature
-  requests, Pull requests, Catalogued (the items this run did not read, so the backlog is
-  whole), First moves, Method. A section with nothing in it is deleted and the survivors
+  requests, Pull requests, Catalogued, First moves, Method. Catalogued is the run's
+  honesty: one `UNASSESSED` `.item` per item the run did not read deeply, so the reader
+  sees exactly what the ranking did not weigh — dropping it to shorten the page is the
+  failure mode the count check in step 2 exists to catch. Any other section with nothing
+  in it is deleted and the survivors
   are renumbered `01` to `N`, so the nav has no hole: an empty heading reads as "we found
   nothing", which is a different claim from "we did not look". Number the sections from
   the surviving list, never from a hard-coded map, or the `also in` links point one
@@ -210,10 +224,20 @@ its structure: the working page is that template with the `{{placeholders}}` rep
   reader who stops after section 02 must already know what to open first.
 - The id is the link. `#2497` in a row is an `<a>` to the issue, in every section,
   because the id is what the reader wants to click.
+- **Every string that came from GitHub is escaped, not copied.** Titles, bodies,
+  labels, author names and comment text are untrusted input: an issue title may
+  carry `<img onerror=…>` or `<script>`, and copied verbatim it executes the
+  moment the reader opens a local `file://` page — no server, no CSP, no second
+  chance. Before a value goes between tags or into an attribute, escape at least
+  `& < > " '`; a URL goes through the same escape after an `https?://` check, so a
+  `javascript:` link cannot ride in on a label or a repo field. The template's
+  literal CSS and markup is the only content allowed in raw.
 - Cross-section duplicates are shown, not hidden: an issue that is already fixed
-  sits in Close or park *and* in the queue, both rows carry `id="i<number>"`, and
-  the evidence line names the other sections. The page must let a reader see it is
-  one item, not two.
+  sits in Close or park *and* in the queue, and the ids make that readable — the
+  queue's row keeps `id="i<number>"`, every later occurrence is
+  `id="i<number>-s<NN>"`, so no id repeats and a cross-ref lands on the row it
+  meant. The evidence line names the other sections. The page must let a reader
+  see it is one item, not two.
 - The shell is copied, never retyped: the `{ai}` favicon, the `<nav>`, the CSS
   block and the scroll-spy script come from the template byte for byte. A
   hand-rolled scroll-spy is how the nav stops marking the section in view;

@@ -256,6 +256,10 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
      row carries id="i<number>", so a row in one section links to the same item
      in another, and its Evidence line ends with the 'also in' cross-refs. The
      reader must be able to tell, without scrolling twice, that it is one item.
+     An item that appears in two sections gets ONE id on its FIRST occurrence
+     (the queue's row) and section-qualified ids after that —
+     id="i<number>-s05" — so no id repeats and a fragment lands on the row the
+     cross-ref meant.
 
      Sections, in this order:
        01 Snapshot          the counts, as .stats, then the .legend (band and
@@ -265,11 +269,14 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
        04 Answer            questions with a drafted answer, one .item each
        05 Close or park     stale, duplicate, out of scope, already fixed
        06 Feature requests  assessed: feasibility + existing implementation
-       07 Pull requests     CI, review state, merge readiness
-       08 First three moves a numbered ol, then one .bracket per command block
-       09 Method            repo, commit, scope, tools used, tools absent, and
-                            the coverage: how many items were read deeply
-                            against how many were only catalogued
+      07 Pull requests     CI, review state, merge readiness
+      08 Catalogued        every item the run did not read deeply, one
+                           UNASSESSED .item each, so the page is the whole
+                           backlog and the ranking's omissions are visible
+      09 First three moves a numbered ol, then one .bracket per command block
+      10 Method            repo, commit, scope, tools used, tools absent, and
+                           the coverage: how many items were read deeply
+                           against how many were only catalogued
 
      Delete a section with nothing in it and renumber the survivors 01..N, so the
      nav has no hole: an empty heading reads as "we found nothing", which is a
@@ -300,6 +307,8 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <div><span class="lname"><span class="band band-p0">P0</span></span><p>{{legend_p0}}</p></div>
     <div><span class="lname"><span class="band band-p1">P1</span></span><p>{{legend_p1}}</p></div>
     <div><span class="lname"><span class="band band-p2">P2</span></span><p>{{legend_p2}}</p></div>
+    <div><span class="lname"><span class="band band-p3">P3</span></span><p>{{legend_p3}}</p></div>
+    <div><span class="lname"><span class="band band-p4">P4</span></span><p>{{legend_p4}}</p></div>
     <div><span class="lname"><span class="band band-p5">P5</span></span><p>{{legend_p5}}</p></div>
   </div>
 </section>
@@ -435,6 +444,18 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <li><strong>#{{number}} {{title}}</strong> · {{move}} <a href="{{permalink}}">permalink</a></li>
   </ol>
   <div class="bracket"><span class="tag">commands</span><pre>gh issue view {{number}} --repo {{repo}} --json title,body,comments</pre></div>
+</section>
+
+<section id="s-catalogued">
+  <h2><span class="num">NN · Catalogued</span>Everything else, unseen</h2>
+  <p>{{catalogued_prose}}</p>
+  <div class="items">
+    <!-- one .item per item this run did not read deeply: verdict chip
+    <span class="pill p-dim">UNASSESSED</span>, the same .iid/.ititle/.imeta on
+    the summary, and a body that names what the reader should check first. The
+    section exists so the page is the whole backlog: a row here is an item the
+    ranking did not weigh, not an item the ranking rejected. -->
+  </div>
 </section>
 
 <section id="s09">

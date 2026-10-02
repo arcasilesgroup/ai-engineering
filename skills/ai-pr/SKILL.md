@@ -196,13 +196,25 @@ in progress:
 ```bash
 gh run list --branch <branch> --limit 1 --json databaseId,status,conclusion
 gh pr checks <number>
+gh pr view <number> --json reviewDecision,reviews --jq '{decision: .reviewDecision, states: [.reviews[].state]}'
 gh pr view <number> --comments
 ```
+
+`reviewDecision` and the per-review `states` are the structured gate: read them
+every poll, because prose comments say nothing the merge needs and a
+`CHANGES_REQUESTED` can land in the middle of a poll loop. `REVIEW_REQUIRED` or any
+review state `CHANGES_REQUESTED` is a stop; `APPROVED` with the checks green is the
+only state that arms Phase 6.
 
 A poll can fail as well: when any of those commands exits non-zero — an expired
 token, no network, an API error — that is not a finished check. Report gh's
 message and the check it was reading, and stop; never read a failed poll as a
-passing check, and never as a stuck one.
+passing check, and never as a stuck one. Two exit codes are results, not
+failures: `gh pr checks` exits `8` when the pending set has not finished yet —
+queued is not stuck, keep polling — and exits `1` for a genuine failure of gh
+itself, a report-and-stop like any other. A non-zero exit is read as a poll
+result only when the command documents it; every other non-zero exit is the
+failure above.
 
 ## Phase 5 — fix only what is obvious, in bounded iterations
 
@@ -258,8 +270,21 @@ arm it: run `gh pr merge <number> --merge` only on an explicit go. An already-
 armed merge is disarmed with `gh pr merge --disable-auto`. Auto-merge is the
 default, not a requirement.
 
-Then report the outcome the brainstorm fixes as success: the merged pull request
-and its number, or the open pull request and the stated reason it did not merge.
+`gh pr merge --auto` returning success means auto-merge was **armed**, not that
+the pull request landed — it can stay `OPEN` for minutes or hours while the gate
+runs. Phase 7 begins only on a poll that reads the state `MERGED`; poll every 60
+seconds with a budget of 30 minutes, and treat the poll's own non-zero exits by
+the same table as Phase 4 (`8` is still pending, everything else is report-and-stop):
+
+```bash
+gh pr view <number> --json state --jq .state
+```
+
+At the budget cap, report the pull request as still open with auto-merge armed —
+that is a stuck state, not a failure: nothing to fix, the merge lands by itself
+when the gate finishes. Then report the outcome the brainstorm fixes as success:
+the merged pull request and its number, or the open pull request and the stated
+reason it did not merge.
 
 ## Phase 7 — level the local `main` with the remote
 

@@ -354,10 +354,19 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   if ("detail" in listed) {
     return { code: 2, out: "", err: `worktree rm: the worktree list is unreadable (${listed.detail}).\n` };
   }
-  const entry = listed.worktrees.find(
-    (candidate) => candidate.slug === slug && canonicalize(candidate.path) !== repo,
-  );
-  if (!entry) return { code: 1, out: "", err: `worktree rm: no open worktree for slug "${printable(slug)}".\n` };
+  // Scope the match to what this verb manages: the worktree must live under the
+  // configured worktrees root AND sit on the branch the verb itself would have
+  // created (`feat/<slug>`). Matching the slug alone would let
+  // `worktree rm alpha --force` remove an unrelated worktree whose branch happens
+  // to end in `alpha`, wherever it lives.
+  const managedBranch = `feat/${slug}`;
+  const managedRoot = `${canonicalize(root)}/`;
+  const entry = listed.worktrees.find((candidate) => {
+    const path = canonicalize(candidate.path);
+    if (path === canonicalize(repo)) return false;
+    return path.startsWith(managedRoot) && candidate.branch === managedBranch;
+  });
+  if (!entry) return { code: 1, out: "", err: `worktree rm: no managed worktree for slug "${printable(slug)}" (expected ${managedBranch} under ${managedRoot.slice(0, -1)}).\n` };
 
   const branch = entry.branch;
   if (branch === undefined) {

@@ -27,15 +27,15 @@ in order, from the primary checkout, and report what each one did.
    refuses it as a main working tree (and the pass leaves the tree you are
    standing in alone). For each worktree, read two facts before
    touching it: whether its HEAD is on a branch
-   (`git -C <path> symbolic-ref -q HEAD`) and what uncommitted content it holds,
+   (`git -C "<path>" symbolic-ref -q HEAD`) and what uncommitted content it holds,
    ignored files included
-   (`git -C <path> status --porcelain --ignored --untracked-files=normal` — the
+   (`git -C "<path>" status --porcelain --ignored --untracked-files=normal` — the
    option is required: a `status.showUntrackedFiles=no` in the repository or the
    global config makes the bare command print nothing at all, so the read must
    force the listing itself; `normal` keeps a wholly ignored directory collapsed
    to one `!! dir/` line, so the report stays bounded and matches the list's
    `dir/` entries literally). Remove
-   it with `git worktree remove <path>` only when the HEAD check names a branch
+   it with `git worktree remove -- "<path>"` only when the HEAD check names a branch
    that is already merged into the local `main`, the status read printed no
    warning, **and** every status entry is
    either absent or an ignored path on the regenerable list below. Otherwise skip
@@ -91,7 +91,11 @@ in order, from the primary checkout, and report what each one did.
    with `git branch --merged main`, then drop the current branch and any branch
    checked out in another worktree (the lines decorated `*` or `+`) and read each
    remaining name without its decoration. Delete each with
-   `git branch -d <branch>`. A refusal is a keep, and it is never retried: `-d`
+   `git branch -d -- "<branch>"`. The name goes in as one quoted argument that is
+   data, never re-typed into a shell line: a branch name may legally carry
+   metacharacters (`$(…)`, `;`, `|`, spaces), and an unquoted interpolation executes
+   them. `--` ends the options, so a name like `-r` cannot be read as a flag. A
+   refusal is a keep, and it is never retried: `-d`
    tests the branch against its own upstream, so a branch merged into `main`
    whose upstream points elsewhere (a lagging `origin/main`, a
    `refs/heads/behind`) is refused — report that branch kept and name the

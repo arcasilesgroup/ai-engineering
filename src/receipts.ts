@@ -81,11 +81,23 @@ export function summarizeReceipts(dir?: string): ReceiptSummary {
   const daily: Record<string, DailyPoint> = {};
   if (target) {
     try {
+      // The filename carries the ISO timestamp the receipt was written with, so the
+      // window is cut by name before any file is opened: a repo that runs the chain
+      // all day accumulates tens of thousands of receipts, and every pre-commit hook
+      // (src/floor/entry.ts) pays this scan — opening each file for 36k receipts
+      // cost 5 s on the dev machine. Files that predate the window are either past
+      // the gc's TTL (config.toml `[gc].receipts_ttl`, default 30d — the gc
+      // aggregates and deletes them) or a fixture with a crafted name, and the
+      // doctor's deviation rule reads a 14-day window, so a 40-day stamp covers
+      // both. Only a timestamped name is skipped unopened; every other file —
+      // fixtures, future shapes — is parsed exactly as before.
+      const cutoff = new Date(Date.now() - 40 * 86_400_000).toISOString().slice(0, 10).replace(/-/g, "");
       for (const name of readdirSync(target)) {
         if (!name.endsWith(".json")) continue;
         // gc writes its own summary into this folder; counting it as a receipt would
         // inflate the total by one on every collection (§21.3).
         if (name === "summary.json" || name === "denies.json") continue;
+        if (/^\d{4}-\d{2}-\d{2}T/.test(name) && name.slice(0, 10).replace(/-/g, "") < cutoff) continue;
         try {
           const receipt = JSON.parse(readFileSync(join(target, name), "utf8")) as Receipt;
           total += 1;
