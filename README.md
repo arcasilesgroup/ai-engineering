@@ -194,6 +194,7 @@ loud. Either way: a gate or an `ABANDON`, never silence.
 | `ai-explore` | Answers "where does this live" from the repository, anchored to `file:line` |
 | `ai-note` | Saves a hard-won finding as committed markdown, stamped so staleness is detectable |
 | `ai-issue-report` | Files a governed bug report: scrubbed fields, local draft, nothing sent unconfirmed |
+| `ai-github-triage` | Ranks a whole open backlog into one page: what to start on first, with links to the code that proves it. Read-only on GitHub |
 | `ai-read-docs` | Forces a documentation pass before depending on versioned or external behaviour |
 | `ai-agents-md` | Writes and maintains the `AGENTS.md` a repository owes its coding agents |
 | `ai-writing-behavior` | Authors `BEHAVIOR.md` specs for recurring, judgeable agent conduct |

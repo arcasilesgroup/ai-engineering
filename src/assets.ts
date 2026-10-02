@@ -89,6 +89,7 @@ import askills_ai_review_ui_SKILL_md from "../skills/ai-review-ui/SKILL.md" with
 import askills_ai_note_SKILL_md from "../skills/ai-note/SKILL.md" with { type: "file" };
 import askills_ai_read_docs_SKILL_md from "../skills/ai-read-docs/SKILL.md" with { type: "file" };
 import askills__chain_bundle_ai_eng_chain_ts from "../skills/.chain-bundle/ai-eng-chain.ts" with { type: "file" };
+import askills_ai_github_triage_SKILL_md from "../skills/ai-github-triage/SKILL.md" with { type: "file" };
 import askills_ai_prototype_SKILL_md from "../skills/ai-prototype/SKILL.md" with { type: "file" };
 import askills_ai_git_cleanup_SKILL_md from "../skills/ai-git-cleanup/SKILL.md" with { type: "file" };
 import askills_ai_stress_test_references_tool_selection_md from "../skills/ai-stress-test/references/tool-selection.md" with { type: "file" };
@@ -132,6 +133,7 @@ import atemplates_settings_claude_json_tpl from "../templates/settings.claude.js
 import atemplates_ci_yml_tpl from "../templates/ci.yml.tpl" with { type: "file" };
 import atemplates_DECISIONS_md_tpl from "../templates/DECISIONS.md.tpl" with { type: "file" };
 import atemplates_settings_cursor_json_tpl from "../templates/settings.cursor.json.tpl" with { type: "file" };
+import atemplates_triage_html_tpl from "../templates/triage.html.tpl" with { type: "file" };
 import atemplates_PERMISSIONS_md_tpl from "../templates/PERMISSIONS.md.tpl" with { type: "file" };
 import atemplates_recap_html_tpl from "../templates/recap.html.tpl" with { type: "file" };
 import atemplates_arch_rules_json_tpl from "../templates/arch.rules.json.tpl" with { type: "file" };
@@ -227,6 +229,7 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-note/SKILL.md": askills_ai_note_SKILL_md as unknown as string,
   "../skills/ai-read-docs/SKILL.md": askills_ai_read_docs_SKILL_md as unknown as string,
   "../skills/.chain-bundle/ai-eng-chain.ts": askills__chain_bundle_ai_eng_chain_ts as unknown as string,
+  "../skills/ai-github-triage/SKILL.md": askills_ai_github_triage_SKILL_md as unknown as string,
   "../skills/ai-prototype/SKILL.md": askills_ai_prototype_SKILL_md as unknown as string,
   "../skills/ai-git-cleanup/SKILL.md": askills_ai_git_cleanup_SKILL_md as unknown as string,
   "../skills/ai-stress-test/references/tool-selection.md": askills_ai_stress_test_references_tool_selection_md as unknown as string,
@@ -270,6 +273,7 @@ export const EMBEDDED: Record<string, string> = {
   "../templates/ci.yml.tpl": atemplates_ci_yml_tpl as unknown as string,
   "../templates/DECISIONS.md.tpl": atemplates_DECISIONS_md_tpl as unknown as string,
   "../templates/settings.cursor.json.tpl": atemplates_settings_cursor_json_tpl as unknown as string,
+  "../templates/triage.html.tpl": atemplates_triage_html_tpl as unknown as string,
   "../templates/PERMISSIONS.md.tpl": atemplates_PERMISSIONS_md_tpl as unknown as string,
   "../templates/recap.html.tpl": atemplates_recap_html_tpl as unknown as string,
   "../templates/arch.rules.json.tpl": atemplates_arch_rules_json_tpl as unknown as string,
