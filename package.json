@@ -50,6 +50,7 @@
     "oxlint-tsgolint": "7.0.2001"
   },
   "overrides": {
-    "smol-toml": "1.7.2"
+    "smol-toml": "1.7.2",
+    "brace-expansion": "5.0.12"
   }
 }

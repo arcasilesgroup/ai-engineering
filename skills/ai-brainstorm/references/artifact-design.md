@@ -256,6 +256,39 @@ table{min-width:640px}
 .tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
 .tier .tbody b{color:var(--text)}
 .tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+/* ── items: the expandable row, and the band chip that ranks it ───────── */
+.band{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.08em;white-space:nowrap;color:var(--text);border:1px solid transparent}
+.band-p0{background:rgba(255,105,96,.16);border-color:rgba(255,105,96,.46)}
+.band-p1{background:rgba(255,192,16,.14);border-color:rgba(255,192,16,.44)}
+.band-p2{background:rgba(0,237,100,.12);border-color:rgba(0,237,100,.36)}
+.band-p3,.band-p4,.band-p5{background:rgba(17,39,51,.6);border-color:var(--line);color:var(--dim)}
+.items{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.item{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
+.item>summary{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;padding:var(--s3) var(--s4);cursor:pointer;list-style:none;border-radius:var(--radius-lg)}
+.item>summary::-webkit-details-marker{display:none}
+.item>summary::after{content:'+';font-family:var(--mono);font-size:13px;line-height:1;color:var(--comment)}
+.item[open]>summary::after{content:'\2013'}
+.item[open]>summary{border-bottom:1px solid var(--line);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.item>summary:hover{background:rgba(17,39,51,.35)}
+.item .iid{font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap}
+.item .ititle{flex:1 1 300px;min-width:0;font-size:var(--fs-small);line-height:var(--lh-small);color:var(--text);font-weight:520}
+.item .imeta{font-family:var(--mono);font-size:11px;color:var(--warn);white-space:nowrap}
+.item .ibody{padding:var(--s3) var(--s4) var(--s4);display:grid;gap:var(--s2)}
+.kv{display:grid;grid-template-columns:128px minmax(0,1fr);gap:var(--s3);align-items:baseline}
+.kv>span{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);text-align:left}
+.ilbl{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim)}
+.xref{font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.xref a{color:var(--comment);text-decoration:underline;text-underline-offset:2px}
+.xref a:hover{color:var(--accent);text-decoration:none}
+.sig{display:flex;gap:var(--s3);flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.sig b{color:var(--dim);font-weight:500}
+.legend{display:grid;gap:var(--s2);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);padding:var(--s5);margin:var(--s5) 0}
+.legend>div{display:flex;gap:var(--s3);align-items:baseline;flex-wrap:wrap}
+.legend .lname{min-width:104px}
+.legend p{margin:0}
+.hero .mark{display:flex;width:44px;height:44px;align-items:center;justify-content:center;margin:0 auto var(--s4);border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.04em}
+.hero .mark .x{color:var(--accent)}
+@media (max-width:700px){.kv{grid-template-columns:1fr;gap:var(--s1)}}
 
 footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);
        border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
@@ -340,9 +373,22 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 9. **Structure is semantic.** `<header>` / `<nav>` / `<main>`, one `<section>`
    per numbered block, a skip link, `lang`, a `<title>`, and headings that never
    skip a level.
-10. **Never:** emoji as icons · a gradient as decoration · a second signal hue ·
+10. **A list of work is a list of items.** Anything the reader may act on — a
+    ranked entry, a bug, a feature, a pull request — is an `.item`: a native
+    `<details>` whose `<summary>` scans closed (id, title, chips, effort) and
+    whose body explains open (plain-language context, evidence, cross-refs). The
+    disclosure is native, never scripted and never animated open: keyboard,
+    find-in-page and print keep working, and nothing is invisible while an
+    animation runs. An item the reader might meet twice carries `id="i<number>"` on
+    its first occurrence and `id="i<number>-s<NN>"` on every later one, so no id
+    repeats and one section can link to the same row in another.
+11. **A chip carries a key.** Any glyph whose meaning is colour plus a word —
+    a band, a severity, a verdict — is repeated in the page's `.legend` with the
+    rule that assigns it. A chip the reader cannot look up is decoration wearing
+    a state's clothes. The legend sits with the first section that uses it.
+12. **Never:** emoji as icons · a gradient as decoration · a second signal hue ·
     a colored left border wider than 1px · a shadow without offset and blur · a
-    card inside a card.
+    card inside a card · a chip whose colour has no legend.
 
 ## The component vocabulary
 
@@ -357,8 +403,14 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 | Flow | `.flow` | a terminal-shaped diagram, in mono, scrolling in its own panel |
 | Pipeline | `.pipe > .stage` | an ordered sequence where the boxes *are* the message |
 | Tier | `.tiers > .tier` | ranked rows: name, body, measurement |
+| Item | `.items > .item` (+ `.iid` / `.ititle` / `.imeta` / `.ibody` / `.kv` / `.ilbl`) | one expandable record: a native `<details>` whose summary scans closed and whose body explains open |
+| Band | `.band` (+ `.band-p0` … `.band-p5`) | the priority chip on an item, always keyed by the page's `.legend` |
+| Legend | `.legend > div` (+ `.lname`) | the key to the chips: a colour the reader cannot look up is decoration |
+| Cross-ref | `.xref` | the "also in" line that ties one item's rows together across sections |
+| Signals | `.sig` | the flat mono trail of counts and links an item carries (reactions, comments, labels, milestone) |
 | Stats | `.stats > .stat` | a short row of counts, never a dashboard |
 | Marks | `.check` / `.cross` / `.half` | yes · no · partial, inside a cell |
+| Brand mark | `.hero .mark` | the `{ai}` mark at the top of the hero, so the page names its family before its subject |
 
 ## The block
 
@@ -594,6 +646,39 @@ table{min-width:640px}
 .tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
 .tier .tbody b{color:var(--text)}
 .tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+/* ── items: the expandable row, and the band chip that ranks it ───────── */
+.band{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.08em;white-space:nowrap;color:var(--text);border:1px solid transparent}
+.band-p0{background:rgba(255,105,96,.16);border-color:rgba(255,105,96,.46)}
+.band-p1{background:rgba(255,192,16,.14);border-color:rgba(255,192,16,.44)}
+.band-p2{background:rgba(0,237,100,.12);border-color:rgba(0,237,100,.36)}
+.band-p3,.band-p4,.band-p5{background:rgba(17,39,51,.6);border-color:var(--line);color:var(--dim)}
+.items{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.item{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
+.item>summary{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;padding:var(--s3) var(--s4);cursor:pointer;list-style:none;border-radius:var(--radius-lg)}
+.item>summary::-webkit-details-marker{display:none}
+.item>summary::after{content:'+';font-family:var(--mono);font-size:13px;line-height:1;color:var(--comment)}
+.item[open]>summary::after{content:'\2013'}
+.item[open]>summary{border-bottom:1px solid var(--line);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.item>summary:hover{background:rgba(17,39,51,.35)}
+.item .iid{font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap}
+.item .ititle{flex:1 1 300px;min-width:0;font-size:var(--fs-small);line-height:var(--lh-small);color:var(--text);font-weight:520}
+.item .imeta{font-family:var(--mono);font-size:11px;color:var(--warn);white-space:nowrap}
+.item .ibody{padding:var(--s3) var(--s4) var(--s4);display:grid;gap:var(--s2)}
+.kv{display:grid;grid-template-columns:128px minmax(0,1fr);gap:var(--s3);align-items:baseline}
+.kv>span{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);text-align:left}
+.ilbl{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim)}
+.xref{font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.xref a{color:var(--comment);text-decoration:underline;text-underline-offset:2px}
+.xref a:hover{color:var(--accent);text-decoration:none}
+.sig{display:flex;gap:var(--s3);flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.sig b{color:var(--dim);font-weight:500}
+.legend{display:grid;gap:var(--s2);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);padding:var(--s5);margin:var(--s5) 0}
+.legend>div{display:flex;gap:var(--s3);align-items:baseline;flex-wrap:wrap}
+.legend .lname{min-width:104px}
+.legend p{margin:0}
+.hero .mark{display:flex;width:44px;height:44px;align-items:center;justify-content:center;margin:0 auto var(--s4);border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.04em}
+.hero .mark .x{color:var(--accent)}
+@media (max-width:700px){.kv{grid-template-columns:1fr;gap:var(--s1)}}
 
 footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);
        border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
@@ -702,3 +787,5 @@ records them; the three shipped templates carry the same block.
   a preference.
 - Scrolling marks the nav link of the section in view with `.active`. The
   scroll-spy script above is in the page, verbatim.
+- Every chip on the page resolves in its `.legend`, and every `.item` opens to a
+  body that says something the closed row did not.

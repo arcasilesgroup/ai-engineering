@@ -80,11 +80,11 @@ function adoptSession(id) {
   if (typeof id === "string" && id.trim())
     SESSION_STATE.set("session", id.trim());
 }
-function loadConfig() {
-  const root = repoRoot();
-  if (!root)
+function loadConfig(root) {
+  const resolved = root === undefined ? repoRoot() : root;
+  if (!resolved)
     return {};
-  const path = configPath(root);
+  const path = configPath(resolved);
   if (!existsSync(path))
     return {};
   try {

@@ -14,7 +14,7 @@ import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
 
-const SHELLS = ["templates/recap.html.tpl", "templates/brainstorm.html.tpl", "templates/research.html.tpl"] as const;
+const SHELLS = ["templates/recap.html.tpl", "templates/brainstorm.html.tpl", "templates/research.html.tpl", "templates/triage.html.tpl"] as const;
 
 function read(path: string): string {
   return readFileSync(join(ROOT, path), "utf8");

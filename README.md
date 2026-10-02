@@ -35,7 +35,7 @@ A receipt for every denial, on disk, in git.</p>
 | | |
 |---|---|
 | **5** guards | decide before the call runs, and write a receipt |
-| **21** skills | one canon, mirrored into Claude Code, Oh My Pi and OpenCode |
+| **1 canon** | skills, mirrored into Claude Code, Oh My Pi and OpenCode |
 | **8** surfaces | one payload, no per-IDE fork |
 | **1** binary | Bun-compiled, no daemon, no hosted control plane |
 | **0** model calls | by `ai-eng` itself — your key, your model |
@@ -56,7 +56,7 @@ release needed `python>=3.11`: install bun once and both `npm install -g` and
 `bun add -g` work. The launcher fails with an honest message if bun is missing.
 
 <p align="center">
-  <img src=".github/assets/cli-tour.gif" alt="ai-eng in a real terminal: the verb list, init installing the canon and picking surfaces, doctor running 17 checks, config adding a surface, update reporting what it rewrote" width="900">
+  <img src=".github/assets/cli-tour.gif" alt="ai-eng in a real terminal: the verb list, init installing the canon and picking surfaces, doctor reporting the repo's health, config adding a surface, update reporting what it rewrote" width="900">
   <br/><sub>a real session, 43 seconds, sped up: install → govern → verify → add a surface → update</sub>
 </p>
 
@@ -194,6 +194,7 @@ loud. Either way: a gate or an `ABANDON`, never silence.
 | `ai-explore` | Answers "where does this live" from the repository, anchored to `file:line` |
 | `ai-note` | Saves a hard-won finding as committed markdown, stamped so staleness is detectable |
 | `ai-issue-report` | Files a governed bug report: scrubbed fields, local draft, nothing sent unconfirmed |
+| `ai-github-triage` | Ranks a whole open backlog into one page: what to start on first, with links to the code that proves it. Read-only on GitHub |
 | `ai-read-docs` | Forces a documentation pass before depending on versioned or external behaviour |
 | `ai-agents-md` | Writes and maintains the `AGENTS.md` a repository owes its coding agents |
 | `ai-writing-behavior` | Authors `BEHAVIOR.md` specs for recurring, judgeable agent conduct |
@@ -225,13 +226,14 @@ the evidence lives in `src/surfaces/surfaces.json`.
 
 ## CLI
 
-Six verbs for people — `init`, `doctor`, `config`, `update`, `upgrade`, `uninstall` — and four for
-hooks, CI and the loop, which appear in neither `--help` nor TAB completion because no human types
-them:
+Six verbs for people — `init`, `doctor`, `config`, `update`, `upgrade`, `uninstall` — and seven
+machine verbs for hooks, CI and agents, which `--help` names on one line and no human types by
+hand. The five this section covers:
 
 ```bash
 echo "$PAYLOAD" | ai-eng chain PreToolUse   # the guard dispatcher: reads the host's payload on stdin
 ai-eng git pre-commit                       # the pre-commit, commit-msg and pre-push checks
+ai-eng worktree new <slug> | rm <slug> | list  # one copy per job, merged into the local main; nothing pushed until you decide
 ai-eng wrap test -- bun test                # test-output filter: failures grouped, noise dropped
 ai-eng spec open | approve | close        # the milestone slot
 ```

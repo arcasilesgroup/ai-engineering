@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // src/cli.ts — raw argv, prompts only for what's missing (@clack/prompts). Human
-// verbs get a line in --help. Machine verbs (chain|git|wrap|spec|adapt|briefing)
+// verbs get a line in --help. Machine verbs (chain|git|wrap|spec|worktree|adapt|briefing)
 // are named on one line: agents and hooks type them, people do not.
 
 import { VERSION } from "./version.ts";
@@ -15,6 +15,7 @@ import { upgradeMain } from "./commands/upgrade.ts";
 import { uninstallMain } from "./commands/uninstall.ts";
 import { configMain } from "./commands/config.ts";
 import { adaptMain } from "./commands/adapt.ts";
+import { worktreeMain } from "./commands/worktree.ts";
 import { generateBriefing, formatBriefing } from "./commands/briefing.ts";
 import { wrapMain } from "./wrap/index.ts";
 import { specMain } from "./spec/index.ts";
@@ -23,7 +24,7 @@ import { suggestVerb } from "./shared-verbs.ts";
 
 
 const argv = process.argv.slice(2);
-const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, json: true };
+const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, json: true, force: true };
 const boolFlags: Record<string, true> = {};
 const valueFlags: Record<string, string> = {};
 const positionals: string[] = [];
@@ -61,7 +62,7 @@ if (flags.help || !verb) {
   process.stdout.write("  ai-eng update     rewrite ai-eng's files from the installed binary (zero network)\n");
   process.stdout.write("  ai-eng upgrade    delegate to bun/npm\n");
   process.stdout.write("  ai-eng uninstall  revert ours, keep yours\n\n");
-  process.stdout.write("Machine verbs (hooks/CI/agents): chain · git · wrap · spec · adapt · briefing\n");
+  process.stdout.write("Machine verbs (hooks/CI/agents): chain · git · wrap · spec · worktree · adapt · briefing\n");
   process.exit(flags.help ? 0 : 2);
 }
 
@@ -85,6 +86,8 @@ async function main(): Promise<number> {
       return wrapMain(process.argv.slice(3).map(String));
     case "spec":
       return specMain(flags._.slice(1).map(String));
+    case "worktree":
+      return worktreeMain(flags._.slice(1).map(String), flags.force === true);
     case "init":
       { const code = await initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList }); if (code === 0) maybeNotice(); return code; }
     case "doctor":

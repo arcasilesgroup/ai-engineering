@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Recap · {{milestone}}</title>
+<title>Triage · {{repo}} · {{date}}</title>
 <style>
 :root{
   --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
@@ -199,40 +199,276 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Recap · {{date}} · {{status}}</div>
+  <div class="mark" aria-hidden="true"><span class="x">{</span>ai<span class="x">}</span></div>
+  <div class="stamp">Triage · {{repo}} · {{date}}</div>
   <h1>{{title}}</h1>
   <p class="sub">{{subtitle}}</p>
   <div class="meta">{{meta}}</div>
 </header>
 
 <nav>
-  <!-- Add nav links here: <a href="#s1"><b>01</b>Section</a> -->
+  <!-- One link per section, same order as the sections below, numbered with
+       .num and no hole after a deletion:
+       <a href="#s01"><b>01</b>Snapshot</a> ... -->
 </nav>
 
 <main id="main">
 <div class="container">
 
-<!-- Add sections here using the standard components:
-     <section id="sN">
-       <h2><span class="num">NN</span>Section title</h2>
-       content...
-     </section>
+<!-- Triage contract (ai-github-triage): the page is a decision surface, not a
+     transcript. Every claim is a permalink at a commit SHA; no permalink means
+     no claim. The reader must be able to pick the first item to work on from
+     section 02 alone, and act on it with the commands in section 08.
 
-     Available components:
-     - .stats > .stat > .v + .l     (stat cards)
-     - .tbl-wrap > table            (data tables)
-     - .card > h4 + p               (info cards)
-     - .note > h4 + p               (callouts: .ok, .warn, .danger)
-     - .grid.g2/.g3/.g4 > *         (grid layouts)
-     - .bracket > .tag + pre        (code panels)
-     - pre > pre .c/.k/.s/.t/.n/.b  (highlighted code)
--->
+     THE ITEM ROW. Every item on the page - a ranked entry, a bug, a closable
+     issue, a feature, a pull request - is one expandable row with the same
+     shape, so a reader learns it once and the sections differ only in which
+     chips they carry. The row is a native <details>: no script, keyboard and
+     find-in-page work, and the closed state is the scan.
+
+       <details class="item" id="i{{number}}">
+         <summary>
+           <span class="band band-p0">P0</span>          the band chip
+           <a class="iid" href="{{url}}">#{{number}}</a> the id IS the link out
+           <span class="ititle">{{title}}</span>        bold subject, code inline
+           <span class="imeta">{{effort}}</span>        the right rail
+         </summary>
+         <div class="ibody">
+           <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+           <div class="kv"><span class="ilbl">Why now</span><span>{{why_now}}</span></div>
+           <div class="kv"><span class="ilbl">Signals</span><span class="sig">{{signals}}</span></div>
+           <div class="kv"><span class="ilbl">Evidence</span><span class="xref">{{evidence}}</span></div>
+         </div>
+       </details>
+
+     Context is plain language for an engineer who has read nothing: what the
+     item is about, why it exists, what happens if nobody touches it. Not a
+     restatement of the title. A row whose context is missing says so.
+
+     BAND, and the chip that carries it: P0 .band-p0 (build red, data loss,
+     security, or already fixed) - P1 .band-p1 (confirmed bug with a
+     reproduction, HIGH or CRITICAL) - P2 .band-p2 (confirmed bug without a
+     reproduction, or MEDIUM) - P3..P5 .band-p3/.band-p4/.band-p5 (neutral).
+     The order of the rows IS the rank; there is no '01' column to maintain.
+
+     DUPLICATES ACROSS SECTIONS ARE THE POINT, not a bug: an issue that is
+     already fixed appears in Close or park AND at the top of the queue. Every
+     row carries id="i<number>", so a row in one section links to the same item
+     in another, and its Evidence line ends with the 'also in' cross-refs. The
+     reader must be able to tell, without scrolling twice, that it is one item.
+     An item that appears in two sections gets ONE id on its FIRST occurrence
+     (the queue's row) and section-qualified ids after that —
+     id="i<number>-s05" — so no id repeats and a fragment lands on the row the
+     cross-ref meant.
+
+     Sections, in this order:
+       01 Snapshot          the counts, as .stats, then the .legend (band and
+                            severity, so a chip is never a colour with no key)
+       02 Start here        the ranked queue: .items > .item, best first
+       03 Fix now           confirmed bugs, ordered by severity
+       04 Answer            questions with a drafted answer, one .item each
+       05 Close or park     stale, duplicate, out of scope, already fixed
+       06 Feature requests  assessed: feasibility + existing implementation
+      07 Pull requests     CI, review state, merge readiness
+      08 Catalogued        every item the run did not read deeply, one
+                           UNASSESSED .item each, so the page is the whole
+                           backlog and the ranking's omissions are visible
+      09 First three moves a numbered ol, then one .bracket per command block
+      10 Method            repo, commit, scope, tools used, tools absent, and
+                           the coverage: how many items were read deeply
+                           against how many were only catalogued
+
+     Delete a section with nothing in it and renumber the survivors 01..N, so the
+     nav has no hole: an empty heading reads as "we found nothing", which is a
+     different claim from "we did not look".
+
+     Components: .stats > .stat > .v + .l · .items > .item (+ .band, .iid,
+     .ititle, .imeta, .ibody, .kv, .ilbl, .sig, .xref) · .legend · .tbl-wrap >
+     table · .card > h4 + p · .note (+ .ok/.warn/.danger) · .grid.g2/.g3/.g4 ·
+     .bracket > .tag + pre · pre with .c/.k/.s/.t/.n/.b · .pill (+ .p-ok/.p-bad/
+     .p-warn/.p-fix/.p-dim).
+     A note's label is an <h3> directly under the section's <h2> (and a card's is
+     an <h3> or <h4> after one): an h4 straight under an h2 skips a level, and the
+     layout rule is that no heading level is ever skipped.
+     Copy the CSS block, the {ai} favicon and the scroll-spy script verbatim, do
+     not retype them: the shell is what makes this page one of the family, and a
+     hand-rolled scroll-spy is how the nav stops marking the section in view. -->
+
+<section id="s01">
+  <h2><span class="num">01 · Snapshot</span>The backlog in numbers</h2>
+  <div class="stats">
+    <div class="stat"><div class="v">{{open_items}}</div><div class="l">open items</div></div>
+    <div class="stat"><div class="v">{{issues}}</div><div class="l">issues</div></div>
+    <div class="stat"><div class="v">{{pull_requests}}</div><div class="l">pull requests</div></div>
+    <div class="stat"><div class="v">{{ranked}}</div><div class="l">verified, ranked</div></div>
+  </div>
+  <p>{{snapshot_prose}}</p>
+  <div class="legend">
+    <div><span class="lname"><span class="band band-p0">P0</span></span><p>{{legend_p0}}</p></div>
+    <div><span class="lname"><span class="band band-p1">P1</span></span><p>{{legend_p1}}</p></div>
+    <div><span class="lname"><span class="band band-p2">P2</span></span><p>{{legend_p2}}</p></div>
+    <div><span class="lname"><span class="band band-p3">P3</span></span><p>{{legend_p3}}</p></div>
+    <div><span class="lname"><span class="band band-p4">P4</span></span><p>{{legend_p4}}</p></div>
+    <div><span class="lname"><span class="band band-p5">P5</span></span><p>{{legend_p5}}</p></div>
+  </div>
+</section>
+
+<section id="s02">
+  <h2><span class="num">02 · Start here</span>What to work on first</h2>
+  <p>{{ranking_prose}}</p>
+  <div class="items">
+    <!-- one .item per ranked entry, best first, band chip + linked id:
+    <details class="item" id="i{{number}}">
+      <summary>
+        <span class="band band-{{band}}">{{band_label}}</span>
+        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="ititle">{{title}}</span>
+        <span class="imeta">{{effort}}</span>
+      </summary>
+      <div class="ibody">
+        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Why now</span><span>{{why_now}}</span></div>
+        <div class="kv"><span class="ilbl">Signals</span><span class="sig">{{signals}}</span></div>
+        <div class="kv"><span class="ilbl">Evidence</span><span class="xref">{{evidence}}</span></div>
+      </div>
+    </details>
+    -->
+  </div>
+</section>
+
+<section id="s03">
+  <h2><span class="num">03 · Fix now</span>Confirmed bugs</h2>
+  <div class="items">
+    <!-- verdict + severity chips, then the same .ibody:
+    <details class="item" id="i{{number}}">
+      <summary>
+        <span class="pill p-ok">{{verdict}}</span>
+        <span class="pill {{severity_class}}">{{severity}}</span>
+        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="ititle">{{title}}</span>
+      </summary>
+      <div class="ibody">
+        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Root cause</span><span>{{root_cause}}</span></div>
+        <div class="kv"><span class="ilbl">Evidence</span><span class="xref">{{evidence}}</span></div>
+      </div>
+    </details>
+    -->
+  </div>
+</section>
+
+<section id="s04">
+  <h2><span class="num">04 · Answer</span>Questions with an answer ready</h2>
+  <div class="items">
+    <!-- the draft answer goes in the body, verbatim, so it can be sent as-is.
+    <details class="item" id="i{{number}}">
+      <summary>
+        <span class="pill p-ok">{{verdict}}</span>
+        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="ititle">{{question}}</span>
+      </summary>
+      <div class="ibody">
+        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Draft answer</span><span>{{draft_answer}}</span></div>
+        <div class="kv"><span class="ilbl">Confidence</span><span>{{confidence}}</span></div>
+      </div>
+    </details>
+    -->
+  </div>
+</section>
+
+<section id="s05">
+  <h2><span class="num">05 · Close or park</span>Nothing to build</h2>
+  <div class="items">
+    <!-- reason chip + the same .ibody; the row says who closes it and why:
+    <details class="item" id="i{{number}}">
+      <summary>
+        <span class="pill p-dim">{{verdict}}</span>
+        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="ititle">{{title}}</span>
+      </summary>
+      <div class="ibody">
+        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Reason</span><span>{{reason}}</span></div>
+        <div class="kv"><span class="ilbl">Evidence</span><span class="xref">{{evidence}}</span></div>
+      </div>
+    </details>
+    -->
+  </div>
+</section>
+
+<section id="s06">
+  <h2><span class="num">06 · Feature requests</span>Assessed, not promised</h2>
+  <div class="items">
+    <!-- feasibility chip + the same .ibody:
+    <details class="item" id="i{{number}}">
+      <summary>
+        <span class="pill p-dim">{{feasibility}}</span>
+        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="ititle">{{title}}</span>
+      </summary>
+      <div class="ibody">
+        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Exists today</span><span>{{exists_today}}</span></div>
+        <div class="kv"><span class="ilbl">Evidence</span><span class="xref">{{evidence}}</span></div>
+      </div>
+    </details>
+    -->
+  </div>
+</section>
+
+<section id="s07">
+  <h2><span class="num">07 · Pull requests</span>Merge readiness</h2>
+  <div class="items">
+    <!-- action chip (MERGE / WAIT / REBASE / BLOCKED) + the same .ibody:
+    <details class="item" id="i{{number}}">
+      <summary>
+        <span class="pill {{action_class}}">{{action}}</span>
+        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="ititle">{{title}}</span>
+        <span class="imeta">{{branch}}</span>
+      </summary>
+      <div class="ibody">
+        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Checks</span><span>{{checks}}</span></div>
+        <div class="kv"><span class="ilbl">Closes</span><span class="xref">{{closes}}</span></div>
+      </div>
+    </details>
+    -->
+  </div>
+</section>
+
+<section id="s08">
+  <h2><span class="num">08 · First three moves</span>The next ninety minutes</h2>
+  <ol>
+    <li><strong>#{{number}} {{title}}</strong> · {{move}} <a href="{{permalink}}">permalink</a></li>
+  </ol>
+  <div class="bracket"><span class="tag">commands</span><pre>gh issue view {{number}} --repo {{repo}} --json title,body,comments</pre></div>
+</section>
+
+<section id="s-catalogued">
+  <h2><span class="num">NN · Catalogued</span>Everything else, unseen</h2>
+  <p>{{catalogued_prose}}</p>
+  <div class="items">
+    <!-- one .item per item this run did not read deeply: verdict chip
+    <span class="pill p-dim">UNASSESSED</span>, the same .iid/.ititle/.imeta on
+    the summary, and a body that names what the reader should check first. The
+    section exists so the page is the whole backlog: a row here is an item the
+    ranking did not weigh, not an item the ranking rejected. -->
+  </div>
+</section>
+
+<section id="s09">
+  <h2><span class="num">09 · Method</span>What was read</h2>
+  <p>{{method}}</p>
+  <p>{{coverage}}</p>
+</section>
 
 </div>
 </main>
 
 <footer>
-  <span class="x">{</span>ai<span class="x">}</span> Engineering · Recap · {{milestone}}<br>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Triage · {{repo}} · {{date}}<br>
   {{footer}}
   <a href="#main">↑ top</a>
 </footer>

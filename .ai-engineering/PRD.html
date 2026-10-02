@@ -49,7 +49,7 @@ a{color:var(--accent)}
 </head>
 <body>
 <h1><span class="x">{ai}</span> PRD</h1>
-<p class="meta">Status: draft · Last updated 2026-09-28</p>
+<p class="meta">Status: draft · Last updated 2026-10-01</p>
 
 <div class="card">
   <p>Cumulative product scope. <code>/ai-orchestrator</code> settles ambiguity from this file, so business rules written here become the default answer to “what should happen when…”.</p>
@@ -57,9 +57,11 @@ a{color:var(--accent)}
 
 <h2>Problem</h2>
 <p>When someone installs ai-engineering and runs <code>ai-eng init</code> in a project that already has its own AGENTS.md, init keeps that file silently and never asks: the project ends up without the ai-engineering contract and no human decided anything (<code>src/install.ts</code>: "we never installed it: it is the user's"). On top of that, the authoring skill and the template carried none of the discipline long unattended runs need: verification floor, suite baseline before the first edit, hang-proof commands.</p>
+<p><strong>Git flow:</strong> the framework has no written git contract, and the tooling assumes one. <code>skills/ai-orchestrator/SKILL.md:45</code> and <code>:172</code> cite "the <code>AGENTS.md</code> git workflow", which does not exist: a run creates <code>feat/&lt;slug&gt;</code> in the shared working tree (<code>git switch -c</code>, line 45), stages paths by hand "because other sessions share this tree" (line 46) and closes with a squash into whichever branch Phase 0 recorded (line 172). After some time the shared branch stops belonging to one session. <code>ai-pr-loop-fix</code> fixes CI without opening or merging a pull request, and <code>ai-git-cleanup</code> lists worktrees but never removes them.</p>
 
 <h2>Goal</h2>
 <p><code>ai-eng init</code> leaves every project with our AGENTS.md: written when missing, named and asked about when a foreign one exists (default: keep the user's), never replaced in silence. The <code>ai-agents-md</code> skill and <code>templates/AGENTS.md.tpl</code> carry the approved content: context-first explanation, the verification floor, the unattended-runs section, and the do-not-touch/context fill-ins, under the 120-line doctor ceiling.</p>
+<p><strong>Git flow:</strong> a session that writes code works in <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code> on its own ephemeral branch, merges into the local <code>main</code> when it ends, and never pushes. The human decides when the local <code>main</code> becomes one branch and one pull request against <code>origin/main</code>. Design artifacts are written and committed in the primary tree before any worktree exists, so a build session always reads a document that is already in its base.</p>
 
 <h2>Users &amp; roles</h2>
 <table>
@@ -67,10 +69,21 @@ a{color:var(--accent)}
   <tbody>
     <tr><td><strong>Project operator</strong></td><td>whoever runs <code>ai-eng init</code></td><td>gets asked before an existing AGENTS.md is replaced; default and <code>--yes</code> keep their file</td></tr>
     <tr><td><strong>Coding agent</strong></td><td>any agent reading AGENTS.md</td><td>gets the unattended-run rules, the verification floor and the context fill-ins on every turn</td></tr>
+    <tr><td><strong>Session owner</strong></td><td>the person running one or more agent sessions</td><td>starts a build in an isolated worktree without typing git commands, approves each merge to local <code>main</code>, and decides when the local commits become a pull request</td></tr>
+    <tr><td><strong>Build session</strong></td><td>the agent working inside that worktree</td><td>commits its steps on its own branch, rebases on local <code>main</code>, and has no way to push: <code>origin</code> does not move from inside a session</td></tr>
   </tbody>
 </table>
 
 <h2>Features</h2>
+<h3>One worktree per feature (slug), local main as the only destination</h3>
+<ul>
+  <li>A session that writes code opens <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code> with its own branch, created by the new verb <code>ai-eng worktree new|rm|list</code>. A session that only reads (triage, research, audit, brainstorm) opens none. One worktree belongs to one slug, which is one feature and one <code>/ai-orchestrator</code> run: several conversation sessions may resume that run without opening another worktree, because the state is <code>workflow/checkpoints/&lt;slug&gt;.json</code> and the branch is <code>feat/&lt;slug&gt;</code>.</li>
+  <li>Each ephemeral branch is created with <code>branch.&lt;slug&gt;.remote="."</code> and <code>merge=refs/heads/main</code>, so <code>git branch --delete-merged refs/heads/main</code> removes exactly what already landed in the local <code>main</code> and skips what is still unmerged or held by a worktree.</li>
+  <li>The run closes by rebasing on local <code>main</code> inside its own worktree and then merging with <code>git merge --no-ff</code>: one merge commit per feature (slug), one undoable unit, and no conflict ever surfaces in the shared tree.</li>
+  <li><code>ai-pr</code> replaces <code>ai-pr-loop-fix</code>: it cuts the PR branch from the local <code>main</code> (no worktree), pushes, opens the pull request against <code>main</code>, watches CI and review comments, fixes what is obvious in bounded iterations and merges (auto-merge on by default, switchable off). The PR body is assembled from the merge commits of the features it carries.</li>
+  <li><code>ai-git-cleanup</code> is rewritten: one pass removes dead worktrees and merged branches, it never touches an unmerged branch, and it never asks for a name.</li>
+  <li><strong>Rules:</strong> the merge destination is the local <code>main</code>, never <code>origin</code>; a session never pushes; the design artifacts (<code>brainstorm.html</code>, <code>spec.html</code>, <code>plan.html</code>) are a single slot per repository, written and committed in the primary tree before any worktree is cut, and no worktree ever stages them; <code>.ai-engineering/recap.html</code> is generated on the feature branch at the app review and reaches the primary tree with the merge; per-session artifacts keep the slug in the file path (<code>workflow/checkpoints/&lt;slug&gt;.json</code>, <code>test-plans/&lt;slug&gt;.json</code>, <code>reviews/&lt;slug&gt;-*.md</code>); <code>.ai-engineering/PRD.html</code> and the shared files (<code>CHANGELOG.md</code>, <code>LEARNINGS.md</code>, <code>FILEMAP.md</code>, <code>PERMISSIONS.md</code>) may be edited on the feature branch, and the merge step is their single writer in the primary tree, never a parallel session writing them there; the worktree path is canonicalized (realpath) before any comparison; documentation is a checkpoint gate, not a promise, because no workflow reads prose.</li>
+</ul>
 <h3>AGENTS.md contract on init</h3>
 <ul>
   <li>Init writes our AGENTS.md when the project has none, as before. When a foreign one exists, it names it and asks: overwrite with the contract file?</li>
@@ -83,6 +96,16 @@ a{color:var(--accent)}
   <li>Changing the 3-way diff of <code>update</code>, or <code>uninstall</code>'s contract handling.</li>
   <li>A <code>CLAUDE.md</code> shim, or a PROGRESS.md file (the memory slot belongs to <code>plan.html</code>; a second map is forbidden by ai-goal).</li>
   <li>New CI or lint rules; the load-gating header ("do not load this file for short work"), since AGENTS.md always loads.</li>
+  <li><strong>Git flow (one worktree per build session):</strong>
+    <ul>
+      <li>Deleting remote branches: <code>git push origin --delete</code> is never used.</li>
+      <li>Renaming <code>ai-eng git</code> to <code>ai-eng hooks</code>: cosmetic, and the installed floor shims carry <code>ai-eng git floor shim</code> as their marker, so a renamed verb with old shims on disk denies every commit until <code>ai-eng update</code> runs in each repository.</li>
+      <li>Merging or closing a pull request on the agent's own initiative: <code>ai-pr</code> merges when the human asked for the PR, and the human can switch auto-merge off.</li>
+      <li>A worktree for a session that only reads: triage, research, audits and brainstorm stay in the primary tree.</li>
+      <li>Rewriting history of the local <code>main</code>: no interactive rebase, no <code>git gc</code>, no forced deletes, no replacement of the spec/plan/checkpoint process.</li>
+      <li>Picking up the three attachments whole: only single pieces of <code>tech-debt-audit</code>, <code>remove-deadcode</code> and <code>security-research</code> enter <code>ai-audit-code</code> and <code>ai-security</code>.</li>
+    </ul>
+  </li>
 </ul>
 </body>
 </html>
