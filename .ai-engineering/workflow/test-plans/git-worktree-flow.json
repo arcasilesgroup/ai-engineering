@@ -1,0 +1,401 @@
+{
+  "feature": "One worktree per feature (slug), local main as the only destination",
+  "slug": "git-worktree-flow",
+  "order": ["unit", "api", "cli", "ui"],
+  "gating": "Run layers in order. Do not run a layer until every case in the layer before it passes.",
+  "layers": {
+    "unit": [
+      {
+        "id": "U1",
+        "case": "new <slug> creates <name>.worktrees/<slug> whose path is canonical (realpath) and resolves as a sibling of the repo, not a string-equal but symlinked alias",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t canonical",
+        "checkpoint": 2
+      },
+      {
+        "id": "U2",
+        "case": "the created branch carries branch.<slug>.remote == \".\" and branch.<slug>.merge == refs/heads/main (git config --get check)",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t upstream",
+        "checkpoint": 2
+      },
+      {
+        "id": "U3",
+        "case": "an uncommitted design-slot file in the primary tree makes new refuse and creates no directory, no branch",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t 'design slot'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U4",
+        "case": "with no [git] worktrees_dir key in .ai-engineering/config.toml the root falls back to <repo>.worktrees",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t fallback",
+        "checkpoint": 2
+      },
+      {
+        "id": "U5",
+        "case": "with [git] worktrees_dir set in .ai-engineering/config.toml the worktree lands at that path",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t worktrees_dir",
+        "checkpoint": 2
+      },
+      {
+        "id": "U6",
+        "case": "a second worktree declaring a file an open worktree already declared warns without blocking creation",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t overlap",
+        "checkpoint": 2
+      },
+      {
+        "id": "U7",
+        "case": "list reports the open worktrees (slug and path) without mutating anything",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t list",
+        "checkpoint": 2
+      },
+      {
+        "id": "U8",
+        "case": "rm <slug> removes the worktree and its branch and both disappear from worktree list / branch",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t remove",
+        "checkpoint": 2
+      },
+      {
+        "id": "U9",
+        "case": "no command the verb emits ever contains git push (read-only ahead/behind at most)",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t 'no push'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U10",
+        "case": "a slug with a space or a slash is rejected: new exits non-zero, creates neither the directory nor the branch, and prints the reason; the shape is enforced as a code rule (^[a-z0-9][a-z0-9._-]*$), not left to the agent",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t 'invalid slug'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U11",
+        "case": "a well-formed slug is accepted: 'git-worktree-flow' and a slug mixing letters, digits, dot and hyphen each create the directory and the branch (the rule is not only negative)",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t 'valid slug'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U12",
+        "case": "no path or ref reaches git unquoted (cheap regression guard; unreachable while slug validation rejects separators)",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t 'no unquoted'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U13",
+        "case": "a stale worktree entry whose directory was deleted out from under it does not crash list, and rm <slug> prunes it",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts -t stale",
+        "checkpoint": 2
+      }
+    ],
+    "api": [],
+    "cli": [
+      {
+        "id": "C1",
+        "case": "the shipped template still carries the four headings the section test requires after the Git workflow rewrite",
+        "command": "bun test tests/agents-md-sections.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "C2",
+        "case": "regenerated src/assets.ts embeds the rewritten AGENTS template and embed-canon stays green",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "C3",
+        "case": "typecheck passes after the AGENTS.md/template/asset change",
+        "command": "bun run typecheck",
+        "checkpoint": 1
+      },
+      {
+        "id": "C4",
+        "case": "lint passes after the AGENTS.md/template/asset change",
+        "command": "bun run lint",
+        "checkpoint": 1
+      },
+      {
+        "id": "C5",
+        "case": "moving the design-slot list into the shared module does not break the spec command that used it",
+        "command": "bun test tests/spec-command.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C6",
+        "case": "arch layer rules stay green: src/cli.ts only dispatches, the shared module imports no upper layer",
+        "command": "bun test tests/arch.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C7",
+        "case": "typecheck passes after the worktree verb lands",
+        "command": "bun run typecheck",
+        "checkpoint": 2
+      },
+      {
+        "id": "C8",
+        "case": "lint passes after the worktree verb lands",
+        "command": "bun run lint",
+        "checkpoint": 2
+      },
+      {
+        "id": "C9",
+        "case": "the package still builds with the new command and regenerated assets",
+        "command": "bun run build",
+        "checkpoint": 2
+      },
+      {
+        "id": "C10",
+        "case": "the orchestrator Lifecycle block still hands off after Phase 0/close are rewritten",
+        "command": "bun test tests/workflow-handoff.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "C11",
+        "case": "regenerated src/assets.ts embeds the rewritten orchestrator skill and embed-canon stays green",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "C12",
+        "case": "typecheck passes after the orchestrator rewrite and asset regeneration",
+        "command": "bun run typecheck",
+        "checkpoint": 3
+      },
+      {
+        "id": "C13",
+        "case": "lint passes after the orchestrator rewrite and asset regeneration",
+        "command": "bun run lint",
+        "checkpoint": 3
+      },
+      {
+        "id": "C14",
+        "case": "the package still builds with the regenerated orchestrator asset",
+        "command": "bun run build",
+        "checkpoint": 3
+      },
+      {
+        "id": "C15",
+        "case": "the rewritten cleanup skill documents --delete-merged refs/heads/main and the --merged main + -d fallback, so a branch without the upstream is still cleaned",
+        "command": "bun test tests/git-cleanup-pass.spec.ts",
+        "checkpoint": 4
+      },
+      {
+        "id": "C16",
+        "case": "an unmerged branch survives: the skill never force-deletes (no -D anywhere in the skill)",
+        "command": "! rg -q -- '-D' skills/ai-git-cleanup/SKILL.md",
+        "checkpoint": 4
+      },
+      {
+        "id": "C17",
+        "case": "a branch retained by an open worktree survives: cleanup only removes what is merged in main and never forces a worktree removal",
+        "command": "rg -q 'delete-merged refs/heads/main' skills/ai-git-cleanup/SKILL.md",
+        "checkpoint": 4
+      },
+      {
+        "id": "C18",
+        "case": "a stale worktree entry whose directory is gone is pruned: the skill documents git worktree prune",
+        "command": "rg -q 'worktree prune' skills/ai-git-cleanup/SKILL.md",
+        "checkpoint": 4
+      },
+      {
+        "id": "C19",
+        "case": "typecheck passes after the cleanup rewrite and asset regeneration",
+        "command": "bun run typecheck",
+        "checkpoint": 4
+      },
+      {
+        "id": "C20",
+        "case": "lint passes after the cleanup rewrite and asset regeneration",
+        "command": "bun run lint",
+        "checkpoint": 4
+      },
+      {
+        "id": "C21",
+        "case": "the package still builds with the regenerated cleanup asset",
+        "command": "bun run build",
+        "checkpoint": 4
+      },
+      {
+        "id": "C22",
+        "case": "skills/ai-pr exists with a Lifecycle block and documents the full loop (gh pr create against main, auto-merge on by default with a switch, bounded iterations), and ai-pr-loop-fix is gone",
+        "command": "bun test tests/ai-pr.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "C23",
+        "case": "typecheck passes after ai-pr lands",
+        "command": "bun run typecheck",
+        "checkpoint": 5
+      },
+      {
+        "id": "C24",
+        "case": "lint passes after ai-pr lands and the old skill is deleted",
+        "command": "bun run lint",
+        "checkpoint": 5
+      },
+      {
+        "id": "C25",
+        "case": "the package still builds with the regenerated ai-pr asset",
+        "command": "bun run build",
+        "checkpoint": 5
+      },
+      {
+        "id": "C26",
+        "case": "the packaging surface and the changeset agree after the docs update",
+        "command": "bun test tests/npm-manifest.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "C27",
+        "case": "arch layer rules not broken by the docs/changeset checkpoint",
+        "command": "bun test tests/arch.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "C28",
+        "case": "typecheck passes on the docs checkpoint",
+        "command": "bun run typecheck",
+        "checkpoint": 6
+      },
+      {
+        "id": "C29",
+        "case": "lint passes on the docs checkpoint",
+        "command": "bun run lint",
+        "checkpoint": 6
+      },
+      {
+        "id": "C30",
+        "case": "the package still builds after README/CONTRIBUTING/blueprint/changeset land",
+        "command": "bun run build",
+        "checkpoint": 6
+      },
+      {
+        "id": "C31",
+        "case": "the two edited audit/security skills keep valid frontmatter, Lifecycle block and English",
+        "command": "bun test tests/skills.spec.ts",
+        "checkpoint": 7
+      },
+      {
+        "id": "C32",
+        "case": "regenerated src/assets.ts embeds the edited skills and embed-canon stays green",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 7
+      },
+      {
+        "id": "C33",
+        "case": "typecheck passes after the audit/security edits and asset regeneration",
+        "command": "bun run typecheck",
+        "checkpoint": 7
+      },
+      {
+        "id": "C34",
+        "case": "lint passes after the audit/security edits and asset regeneration",
+        "command": "bun run lint",
+        "checkpoint": 7
+      },
+      {
+        "id": "C35",
+        "case": "the package still builds with the regenerated skills assets",
+        "command": "bun run build",
+        "checkpoint": 7
+      }
+    ],
+    "ui": []
+  },
+  "verify": [
+    {
+      "checkpoint": 1,
+      "commands": [
+        "bun test tests/agents-md-sections.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ]
+    },
+    {
+      "checkpoint": 2,
+      "commands": [
+        "bun test tests/worktree-command.spec.ts",
+        "bun test tests/spec-command.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ]
+    },
+    {
+      "checkpoint": 3,
+      "commands": [
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ]
+    },
+    {
+      "checkpoint": 4,
+      "commands": [
+        "bun test tests/git-cleanup-pass.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "! rg -q -- '-D' skills/ai-git-cleanup/SKILL.md",
+        "rg -q 'delete-merged refs/heads/main' skills/ai-git-cleanup/SKILL.md",
+        "rg -q 'worktree prune' skills/ai-git-cleanup/SKILL.md",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ]
+    },
+    {
+      "checkpoint": 5,
+      "commands": [
+        "bun test tests/ai-pr.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ]
+    },
+    {
+      "checkpoint": 6,
+      "commands": [
+        "bun test tests/npm-manifest.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ]
+    },
+    {
+      "checkpoint": 7,
+      "commands": [
+        "bun test tests/skills.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ]
+    }
+  ],
+  "not_tested": [
+    "UI layer — feature has no UI; every checkpoint gate.ui is n/a.",
+    "API layer — no server, no HTTP endpoints, no DB (api layer empty).",
+    "Full `bun test` sweep — excluded in favour of the scoped specs above; sibling checkpoints iterate and the suite carries pre-existing unrelated failures.",
+    "The real end-to-end worktree lifecycle (a session builds inside a worktree, rebases on local main, merges --no-ff, cleans up) — this is prose an agent follows inside ai-orchestrator, not code; exercised by the behavior/review gates and the next build, not by a script.",
+    "The real ai-pr loop (push, gh pr create against main, CI/review watch, auto-merge) — needs live GitHub, credentials and a human decision; only the skill text and the pack presence are script-checked.",
+    "That no remote branch is ever deleted — proving it needs a live remote; the static checks cover only the skill text (no `push origin --delete`).",
+    "CHANGELOG.md gets its feature entry — written by the merge step per §08/§11, not by a checkpoint, so no checkpoint command asserts it.",
+    "AGENTS.md has no `Project config` section; unit commands are inferred from the `Build and test commands` line (`bun test`) and the neighbouring test plans."
+  ]
+}

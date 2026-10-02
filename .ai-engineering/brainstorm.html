@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="ai-feature" content="init-agents-md">
-<meta name="ai-approved" content="2026-09-28">
-<title>Brainstorm · init escribe nuestro AGENTS.md</title>
+<meta name="ai-feature" content="git-worktree-flow">
+<meta name="ai-approved" content="2026-10-01">
+<title>Brainstorm · git-worktree-flow</title>
 <style>
 :root{
   --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
@@ -25,7 +25,7 @@
   --fs-mono:12.5px; --lh-mono:1.7;
   --fs-label:10.5px;
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
-  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+  --radius:12px; --radius-sm:8px; --radius-lg:var(--radius); --container:1040px; --measure:68ch;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -36,6 +36,7 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
 .skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;transform:translateY(-160%);transition:transform .15s ease-out}
 .skip:focus{transform:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .hero{position:relative;overflow:hidden;text-align:center;padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);background-size:32px 32px,32px 32px,100% 100%}
 .hero .stamp{display:inline-block;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.26em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;margin-bottom:var(--s5)}
 .hero h1{font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display);font-weight:740}
@@ -61,6 +62,7 @@ section:last-of-type{border-bottom:none}
 h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
 h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
 h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:660;margin:var(--s5) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
 h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
 p{color:var(--dim);margin:0 auto var(--s3);text-align:justify;hyphens:auto}
 p:last-child{margin-bottom:0}
@@ -71,148 +73,333 @@ li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s3);paddi
 ol li{counter-increment:ref;padding-left:2.4em;position:relative}
 ol li::before{content:counter(ref) ".";position:absolute;left:0;color:var(--comment);font-family:var(--mono);font-size:12px;width:2em;text-align:right}
 li strong{color:var(--text)}
+.dim{color:var(--comment)}
 code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
-pre{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;max-width:100%}
-pre code{background:none;border:none;padding:0;color:inherit}
-.note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:var(--s5);margin:var(--s5) 0}
-.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;-webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+.card h3,.card h4{min-height:22px;line-height:22px}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
 .note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0;text-align:left}
 .note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
 .note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
 .note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+pre{max-width:100%}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+.btn{display:inline-block;border:1px solid rgba(0,237,100,.35);border-radius:999px;padding:8px 18px;margin:var(--s2) 0;color:var(--accent);font-family:var(--mono);font-size:12px;text-decoration:none;transition:background .15s}
+.btn:hover{background:rgba(0,237,100,.08);text-decoration:none}
+.pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+.pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+.pipe .stage:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+.pipe .stage:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+.pipe .stage+.stage{border-left:none}
+.pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);color:var(--accent);font-size:13px;z-index:2}
+.pipe .stage{position:relative}
+.pipe .stage:last-child::after{content:''}
+.pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+.pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+.tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+.tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;color:var(--accent);text-transform:uppercase}
+.tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+.tier .tbody b{color:var(--text)}
+.tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
 footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
 footer .x{color:var(--accent)}
 footer a{color:var(--dim);display:inline-block;padding:12px 4px}
-@media (max-width:900px){.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px;letter-spacing:-.022em}.hero .sub{font-size:16px}}
-@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}}
+@media (max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px;letter-spacing:-.022em}.hero .sub{font-size:16px}.pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}.pipe .stage+.stage{margin-top:var(--s2)}.pipe .stage::after{content:''}.tier .tlat{text-align:left}}
+@media (max-width:820px){nav a{padding:14px 8px}}
+@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}nav a{padding:14px 8px}table{font-size:13px}th,td{padding:10px var(--s3)}pre{font-size:11.5px;padding:var(--s3) var(--s4)}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
+@media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
 @media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
 </style>
 </head>
 <body>
-<a class="skip" href="#main">Saltar al contenido</a>
+<a class="skip" href="#main">Skip to content</a>
 
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Brainstorm · init + AGENTS.md</div>
-  <h1>init escribe nuestro AGENTS.md y pregunta si ya existe uno</h1>
-  <p class="sub">Cuando instalas ai-engineering y ejecutas <code>ai-eng init</code> en un proyecto, el proyecto debe quedar con <strong>nuestro</strong> AGENTS.md (el de la plantilla). Si el proyecto ya tiene un AGENTS.md, init debe decirlo y preguntar si lo sobreescribimos, en vez de guardarlo en silencio. Además mejora la skill <code>ai-agents-md</code> tomando ideas del AGENTS.md de corrida sin persona que compartiste.</p>
-  <div class="meta">status <b>complete · 2026-09-28</b> · path <b>bounded</b> · aprobado</div>
+  <div class="stamp">Brainstorm · git-worktree-flow · complete · 2026-10-01</div>
+  <h1>Un worktree por sesión, <span class="x">main</span> como único destino local</h1>
+  <p class="sub">Cada sesión que <strong>escribe código</strong> vive en su propio worktree con rama efímera; al terminar, su trabajo se fusiona en el <strong>main local</strong> y el worktree desaparece. Nadie empuja a origin: el PR lo abre el humano cuando decide, después, desde main local. Triage, research y auditorías no abren worktree. Se borran <code>ai-pr-loop-fix</code> y la vieja <code>ai-git-cleanup</code>, y nacen una <code>ai-git-cleanup</code> nueva y una skill <code>ai-pr</code>.</p>
+  <div class="meta"><b>complete · 2026-10-01</b><br>Slug <b>git-worktree-flow</b> · <span class="dim">entrevista cerrada; las conclusiones viven también en PRD.html</span></div>
 </header>
 
 <nav>
-  <a href="#s1"><b>01</b>Idea</a>
-  <a href="#s2"><b>02</b>Por qué</a>
+  <a href="#s1"><b>01</b>Idea en palabras llanas</a>
+  <a href="#s2"><b>02</b>Por qué importa</a>
   <a href="#s3"><b>03</b>Para quién</a>
-  <a href="#s4"><b>04</b>Hoy</a>
-  <a href="#s5"><b>05</b>Éxito</a>
-  <a href="#s6"><b>06</b>Decidido</a>
-  <a href="#s7"><b>07</b>Abierto</a>
-  <a href="#s8"><b>08</b>Límites</a>
-  <a href="#s9"><b>09</b>Fuera</a>
-  <a href="#s10"><b>10</b>Investigar</a>
-  <a href="#s11"><b>11</b>Handoff</a>
+  <a href="#s4"><b>04</b>Qué existe hoy</a>
+  <a href="#s5"><b>05</b>Cómo se ve el éxito</a>
+  <a href="#s6"><b>06</b>Decisiones tomadas</a>
+  <a href="#s7"><b>07</b>Decisiones abiertas</a>
+  <a href="#s8"><b>08</b>Límites y guardarraíles</a>
+  <a href="#s9"><b>09</b>Fuera de alcance</a>
+  <a href="#s10"><b>10</b>Preguntas para investigar</a>
+  <a href="#s11"><b>11</b>Notas de handoff</a>
 </nav>
 
 <main id="main">
 <div class="container">
 
 <section id="s1">
-  <h2><span class="num">01</span>The idea in plain words</h2>
-  <p>El read-back de arriba, aprobado sin cambios. Entrevista cerrada el 2026-09-28: las cinco decisiones de §07 se resolvieron y viven en §06.</p>
+  <h2><span class="num">01</span>La idea en palabras llanas</h2>
+  <p>Cuando un agente va a <strong>cambiar</strong> el proyecto, no trabaja en tu carpeta: se hace una copia aparte con su propia rama y ahí dentro lo hace todo. Cuando termina, su trabajo se pega en el main de tu ordenador, la copia se borra y la rama se borra. Nada sale a internet. Cuando tú quieras, coges el main de tu ordenador y pides un pull request con todo lo que hay dentro, y ahí sí se ve en GitHub, se revisa y se fusiona. Y para la limpieza hay un solo comando que borra las copias y las ramas que ya no sirven, sin que tengas que apuntar nombres, y que nunca borra algo que no esté ya fusionado.</p>
+  <p>Las sesiones que solo <strong>miran</strong> (un triage, un research, una auditoría) no abren copia: miran el original y no lo tocan.</p>
 </section>
 
 <section id="s2">
-  <h2><span class="num">02</span>Why this matters</h2>
-  <p>Hoy, si el proyecto ya trae un AGENTS.md, <code>install()</code> lo clasifica como "nunca lo instalamos nosotros" y lo deja intacto sin preguntar (<code>src/install.ts:206-211</code>), y <code>scaffoldProject</code> solo imprime "yours, untouched" (<code>src/commands/init.ts:65-68</code>). Resultado: el proyecto queda sin nuestro contrato y nadie decidió nada. Y la plantilla y la skill pueden crecer con las ideas del AGENTS.md de corrida sin persona (PROGRESS.md, paradas duras, verificación).</p>
+  <h2><span class="num">02</span>Por qué importa</h2>
+  <p><span class="pill">estado previo a esta feature</span> «Ahora mismo no está funcionando bien» tenía causas concretas y verificables, no una sola. La lista de abajo es el retrato de aquel momento, antes de esta feature, no el de hoy: el contrato de git ya está en <code>AGENTS.md</code>, la Fase 0 corta un worktree en vez de ramificar el árbol principal, el cierre rebasa y usa <code>merge --no-ff</code> sin squash, y <code>ai-pr</code> sustituyó a <code>ai-pr-loop-fix</code>:</p>
+  <ul>
+    <li><strong>El árbol principal no está en main.</strong> <code>git branch -vv</code> hoy devuelve <code>* feat/arcasiles-skills</code> en <code>/Users/soydachi/repos/ai-engineering</code>, con <code>main</code> en <code>3986acbb</code>. El modelo que pides exige el checkout principal <strong>en main</strong>; hoy no lo está, así que no hay destino local único al que fusionar.</li>
+    <li><strong>El contrato citado no existe.</strong> <code>skills/ai-orchestrator/SKILL.md:45</code> y <code>:172</code> dicen "per the <code>AGENTS.md</code> git workflow", pero el <code>AGENTS.md</code> de este repo no tiene sección de workflow de git: solo tiene higiene de PR (título, lint y tests antes de commit). El agente busca un contrato que no está escrito.</li>
+    <li><strong>La orquestación trabaja en el árbol compartido.</strong> <code>ai-orchestrator</code> Fase 0 hace <code>git switch -c feat/&lt;slug&gt;</code> en la carpeta principal (línea 45) y exige "stage explicit paths only ... because other sessions share this tree" (línea 46). Ese comentario es la prueba de que ya hubo dolor: sesiones peleándose por el mismo <code>git add</code>.</li>
+    <li><strong>El cierre de sesión no es el que quieres.</strong> <code>ai-orchestrator</code> hace <code>git merge --squash feat/&lt;slug&gt;</code> contra la rama grabada en Fase 0 (línea 172), que no es main, y conserva la rama para siempre.</li>
+    <li><strong>La limpieza no cubre worktrees.</strong> La <code>ai-git-cleanup</code> actual borra ramas locales; los <code>worktrees</code> aparecen solo como inventario y como bloqueo (<code>WORKTREE_HELD</code>). Con worktrees por sesión, eso se convierte en basura acumulada.</li>
+    <li><strong>Dos skills no dan lo que quieres.</strong> <code>ai-pr-loop-fix</code> arregla CI sin crear PR ni fusionar (queda cojo), y <code>ai-git-cleanup</code> obliga a una pregunta interactiva y no gestiona worktrees.</li>
+  </ul>
 </section>
 
 <section id="s3">
-  <h2><span class="num">03</span>Who it's for</h2>
-  <p>Quien ejecuta <code>ai-eng init</code> en un proyecto que ya existe y ya tiene un AGENTS.md propio. Y todo agente que después lea ese archivo.</p>
+  <h2><span class="num">03</span>Para quién es</h2>
+  <p>Para ti, <code>soydachi</code>, cuando lanzas una o varias sesiones de agente sobre este repo (o sobre un proyecto gobernado por ai-engineering) en paralelo o en secuencia. Tú eres el único que decide cuándo algo sale a origin, y el único que aprueba cada fusión a main local. El segundo destinatario es el agente de la siguiente sesión: necesita saber sin preguntar dónde trabajar y dónde fusionar.</p>
 </section>
 
 <section id="s4">
-  <h2><span class="num">04</span>What exists today</h2>
-  <ul>
-    <li><code>templates/AGENTS.md.tpl</code> es "el nuestro": se renderiza con versión y comandos detectados (<code>src/commands/init-shared.ts:107-108</code>).</li>
-    <li>Los contratos (<code>AGENTS.md</code>, <code>DECISIONS.md</code>, <code>.gitignore</code>) se escriben una sola vez; <code>update</code> y <code>re-init</code> nunca los tocan.</li>
-    <li>Archivo existente que no es nuestro: <code>install()</code> lo reporta <code>untouched</code>, sin preguntar (<code>src/install.ts:206-211</code>). <code>report.conflicts</code> de los contratos ni se imprime.</li>
-    <li>La skill <code>skills/ai-agents-md/SKILL.md</code> manda cómo se redacta el archivo y su seam dice "init lo instala una vez".</li>
-    <li>Referencia: doctor avisa si el root pasa 120 líneas y exige ≥6 reglas (<code>src/commands/doctor.ts:24-31</code>).</li>
-    <li>Tests: hasta este cambio ningún test cubría un AGENTS.md ajeno; los tres tests nuevos de <code>tests/init-command.spec.ts</code> fijan <code>--yes</code> conservando, declinar y aceptar.</li>
-  </ul>
-</section>
-
-<section id="s5">
-  <h2><span class="num">05</span>What success looks like</h2>
-  <ul>
-    <li>Proyecto sin AGENTS.md: init escribe el nuestro, como hoy.</li>
-    <li>Proyecto con AGENTS.md ajeno: init lo nombra y pregunta sobreescribir sí/no; la respuesta se respeta, y la opción "no" deja el archivo byte a byte igual.</li>
-    <li>Camino sin TTY (<code>--yes</code>, CI): comportamiento definido y documentado, no un cuelgue.</li>
-    <li>La skill y la plantilla reflejan el nuevo comportamiento y las secciones inspiradas que se decidan adoptar.</li>
-  </ul>
-</section>
-
-<section id="s6">
-  <h2><span class="num">06</span>Decisions already made</h2>
-  <div class="note ok">
-    <h4>Locked</h4>
-    <p>El archivo se llama siempre <code>AGENTS.md</code> en la raíz. Nunca sobreescribir en silencio (regla del propio instalador, <code>src/install.ts:1-3</code>). <code>update</code> y <code>uninstall</code> no cambian de comportamiento en este corte. El idioma de la plantilla y de la skill sigue siendo inglés.</p>
-    <p>El prompt pregunta y el default es <strong>no sobreescribir</strong>: Enter = conservar el archivo ajeno byte a byte. <code>--yes</code> / sin TTY conserva el existente también, así ningún CI destruye un archivo del usuario. Solo escribir el nuestro si el humano responde sí a mano.</p>
-    <p>El prompt es <strong>solo para <code>AGENTS.md</code></strong>. <code>DECISIONS.md</code> y <code>.gitignore</code> existentes se conservan como hoy, sin pregunta.</p>
-    <p>Línea de Code style reescrita, tu enmienda: "Explain it so someone who doesn't code can follow along, and always give the context: the reader is not in the details."</p>
+  <h2><span class="num">04</span>Qué existe hoy</h2>
+  <p class="dim"><span class="pill">estado previo a esta feature</span> Hechos verificados en la entrevista, antes de esta feature, con la ruta que los prueba; donde una fila describe algo que la feature ya cambió, la propia fila dice qué hay hoy.</p>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>Hecho</th><th>Evidencia</th><th>Qué implica</th></tr></thead>
+    <tbody>
+      <tr><td>Hay dos git; el activo es 2.56.0 de brew</td><td><code>command -v git</code> → <code>/opt/homebrew/bin/git</code>; <code>git -v</code> → <code>2.56.0</code>; Apple CLT sigue en <code>/usr/bin/git</code> → 2.50.1</td><td>El PATH ya prefiere brew; una terminal abierta antes de instalar sirve el viejo hasta <code>hash -r</code></td></tr>
+      <tr><td><code>git branch --delete-merged &lt;pattern&gt;</code> sí existe en 2.56</td><td><code>git branch -h</code>; doc <code>git-branch.html:686-700</code></td><td>Borra solo ramas cuyo <strong>upstream configurado</strong> case el patrón y exista, y cuyo tip sea alcanzable desde él</td></tr>
+      <tr><td>Sí sirve, si la rama efímera nace con upstream = main local</td><td>En <code>/tmp/ait3</code>: con <code>branch.&lt;x&gt;.remote="."</code> + <code>merge=refs/heads/main</code>, <code>git branch --delete-merged refs/heads/main</code> borró <code>s1</code> (fusionada), y <strong>saltó</strong> <code>s2</code> (fusionada pero retenida por un worktree) y <code>s3</code> (sin fusionar, ahead 1)</td><td>Es justo el primitivo de la limpieza: borra lo que ya está en main local, respeta worktrees y no toca lo sin fusionar</td></tr>
+      <tr><td>Sin ese upstream no dispara</td><td>7 configuraciones sin upstream o con upstream <code>origin/x</code> (incluida la rama empujada y al día, y la que va detrás 1): <strong>0 borradas</strong></td><td>El flag casa contra el <em>upstream configurado</em>, no contra la rama: las ramas de sesión necesitan ese <code>remote="."</code> desde que nacen</td></tr>
+      <tr><td><code>-d</code> sigue siendo el guardarraíl de reserva</td><td><code>git branch -d unmerged-x</code> → <code>error: the branch 'unmerged-x' is not fully merged</code>, exit 1</td><td>Para ramas sin ese upstream: filtro <code>git branch --merged main</code> + <code>-d</code>; <code>-D</code> nunca automático</td></tr>
+      <tr><td>Solo un worktree adicional registrado</td><td><code>git worktree list</code>: principal + <code>ai-engineering-v1-oracle</code> (detached)</td><td>Ya hay un worktree huérfano en detached HEAD</td></tr>
+      <tr><td>El checkout principal está en <code>feat/arcasiles-skills</code></td><td><code>git branch -vv</code></td><td>Fusionar "a main local" hoy no tiene destino: main no está activo</td></tr>
+      <tr><td><code>ai-eng git</code> ya está tomado</td><td><code>ai-eng git</code> → <code>usage: ai-eng git pre-commit|commit-msg|pre-push</code>; <code>src/cli.ts:84</code> → <code>floor(...)</code></td><td>Un verbo de worktrees no cabe sin renombrar: o nace un verbo nuevo, o se migra el nombre</td></tr>
+      <tr><td>Renombrar ese verbo toca shims instalados</td><td><code>src/floor/template.ts:25</code> (<code>MARKER = "ai-eng git floor shim"</code>), <code>src/commands/doctor.ts:117</code>, <code>src/commands/uninstall.ts:179</code>, <code>src/commands/init.ts:96</code> (el mensaje que le dice al humano qué llamar)</td><td>Un binario nuevo con verbos renombrados y shims viejos en disco bloquearía cada commit hasta correr <code>ai-eng update</code> en cada repo</td></tr>
+      <tr><td>Nada en <code>src/</code> gestionaba worktrees <span class="dim">(entonces)</span></td><td><code>grep -rn worktree src</code> → solo comentarios; hoy la lógica vive en <code>src/shared-worktree.ts</code> y el verbo la despacha desde <code>src/cli.ts</code></td><td>Superficie nueva: verbo <code>ai-eng worktree new|rm|list</code> más sus tests</td></tr>
+      <tr><td>Los artefactos viven versionados</td><td><code>git ls-files .ai-engineering</code> (<code>brainstorm.html</code>, <code>PRD.html</code>, <code>recap.html</code>, <code>research/*</code>, <code>config.toml</code>); <code>.gitignore</code> ignora <code>receipts/</code>, <code>cache/</code>, <code>workflow/playwright/</code></td><td>Lo que una sesión escribe en el worktree no vuelve al árbol principal hasta que se fusiona la rama</td></tr>
+      <tr><td>Los artefactos de diseño son <strong>un solo slot por repo</strong>, no uno por feature</td><td><code>src/shared-worktree.ts:14</code>: <code>SLOT_FILES = ["spec.html","plan.html","brainstorm.html","recap.html"]</code>, todos en <code>.ai-engineering/</code>; <code>spec open</code> los escribe con <code>writeFileSync</code>; <code>spec close</code> compara el sha256 de <code>spec.html</code> contra el lock</td><td>Dos sesiones escribiendo diseño a la vez se pisan el fichero: el diseño tiene que ser secuencial y fuera de los worktrees paralelos</td></tr>
+      <tr><td>Hoy <code>spec.html</code> y <code>plan.html</code> no existen en este repo</td><td><code>ls .ai-engineering</code> y <code>find .ai-engineering -maxdepth 2 -type d</code>: no están; sí <code>brainstorm.html</code>, <code>PRD.html</code>, <code>triage.html</code>, <code>recap.html</code></td><td>Nada que limpiar: los crea <code>ai-eng spec open</code> cuando el carril lo pida</td></tr>
+      <tr><td>Ya hay un patrón de fichero-por-feature que no da conflictos</td><td><code>.changeset/artifact-layout-gate.md</code>, <code>source-only-package.md</code>; y por slug: <code>workflow/checkpoints/&lt;slug&gt;.json</code>, <code>test-plans/&lt;slug&gt;.json</code>, <code>reviews/&lt;slug&gt;-*.md</code> (<code>skills/ai-orchestrator/SKILL.md:46</code>)</td><td>Lo que se escribe desde un worktree debe vivir en un fichero con el slug en el nombre</td></tr>
+      <tr><td>Ficheros compartidos que un build toca hoy</td><td><code>skills/ai-visual-recap/SKILL.md:658</code>: <code>.ai-engineering/recap.html</code>; y <code>skills/ai-orchestrator/SKILL.md:46</code> y <code>:153-155</code>: <code>CHANGELOG.md</code>, <code>LEARNINGS.md</code>, <code>FILEMAP.md</code>, <code>PERMISSIONS.md</code></td><td>Dos sesiones paralelas actualizando estos = conflicto garantizado en el merge</td></tr>
+      <tr><td><code>ai-pr</code> no existía <span class="dim">(entonces)</span></td><td><code>ls skills/</code> en la entrevista; hoy existe <code>skills/ai-pr/SKILL.md</code> y sustituye a <code>ai-pr-loop-fix</code></td><td>Skill nueva, no reemplazo</td></tr>
+      <tr><td>CI corre en <code>main</code> de <code>arcasilesgroup/ai-engineering</code></td><td><code>gh repo view</code> default=main; <code>.github/workflows/</code>: <code>ai-eng-check</code>, <code>check</code>, <code>e2e</code>, <code>mutation</code>, <code>platforms</code>, <code>release</code>, <code>version</code></td><td>Siete workflows: el gate de PR de <code>ai-pr</code> tiene que saber cuáles mirar</td></tr>
+      <tr><td>El brainstorm previo era de otro feature</td><td><code>.ai-engineering/brainstorm.html</code> tenía <code>ai-feature=init-agents-md</code>, aprobado 2026-09-28, ya recogido en <code>PRD.html:87</code></td><td>Su entrevista se reemplaza; las conclusiones siguen en el PRD</td></tr>
+    </tbody>
+  </table>
   </div>
 </section>
 
+<section id="s5">
+  <h2><span class="num">05</span>Cómo se ve el éxito</h2>
+  <p>Cada criterio se comprueba con un comando o mirando un fichero. Sin adjetivos.</p>
+  <ol>
+    <li><code>ai-eng worktree new &lt;slug&gt;</code> deja el árbol principal intacto, crea <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code> con la rama del slug, y esa rama queda con <code>branch.&lt;slug&gt;.remote="."</code> y <code>merge=refs/heads/main</code>. Se comprueba con <code>git worktree list</code> y <code>git config --get branch.&lt;slug&gt;.merge</code>.</li>
+    <li>Al cerrar la sesión, el main local contiene el trabajo (un merge commit por sesión), y la rama y el worktree ya no aparecen en <code>git worktree list</code> ni en <code>git branch</code>.</li>
+    <li>Ningún comando de la sesión empuja: <code>git log origin/main..main</code> muestra exactamente lo que faltará por subir, y <code>origin/main</code> no se mueve hasta que el humano lanza <code>ai-pr</code>.</li>
+    <li><code>ai-git-cleanup</code> en una pasada deja cero ramas fusionadas y cero worktrees muertos, y deja intactas las ramas sin fusionar: <code>git branch --delete-merged refs/heads/main</code> deja de encontrar candidatas.</li>
+    <li><code>ai-pr</code> termina con un PR fusionado y su número en el reporte, o con el PR abierto y el motivo de no fusionar.</li>
+    <li>Los gates del repo pasan: <code>bun test</code>, <code>bun run typecheck</code>, <code>bun run lint</code>, y <code>bun run arch</code> sigue verde.</li>
+    <li>La documentación queda al día y se comprueba por fichero: <code>AGENTS.md</code> con la sección de git, <code>CONTRIBUTING.md</code> con el flujo local, <code>README.md</code> nombrando el verbo nuevo, <code>NOTICE.md</code> y <code>THIRD-PARTY-NOTICES.md</code> sin la atribución que ya no se usa, y un changeset <code>minor</code> presente en <code>.changeset/</code>.</li>
+  </ol>
+</section>
+
+<section id="s6">
+  <h2><span class="num">06</span>Decisiones ya tomadas</h2>
+  <div class="note ok"><h4>Fijadas por el humano, el plan no las reabre</h4></div>
+  <ul>
+    <li>Sesión que <strong>escribe</strong> código = worktree con rama propia. Sesión que solo <strong>mira</strong> (triage, research, auditoría, brainstorm) = sin worktree.</li>
+    <li><strong>Decisión A: una sola rama de largo recorrido, <code>main</code> local.</strong> Cada sesión fusiona ahí y su rama efímera desaparece. Cuando el humano decide, corta <strong>una rama nueva desde main local</strong> (sin worktree), la empuja y abre <strong>un PR</strong> que arrastra todo lo que main tenga por delante de <code>origin/main</code>, sea una sesión o cinco.</li>
+    <li><strong>Decisión A′ (el worktree nace para construir, no para diseñar).</strong> El diseño se escribe en el árbol principal y se commitea a main local <strong>antes</strong> de cortar cualquier worktree; el worktree se corta de ese main y solo construye. Un worktree es <strong>uno por slug</strong> (una feature, una corrida de <code>/ai-orchestrator</code>), y esa corrida puede retomarse en varias sesiones de conversación sin abrir otro: <code>/ai-orchestrator resume &lt;slug&gt;</code> vuelve al mismo worktree, porque el estado vive en <code>workflow/checkpoints/&lt;slug&gt;.json</code> (<code>skills/ai-orchestrator/SKILL.md:27</code>) y la rama es <code>feat/&lt;slug&gt;</code> (<code>:45</code>, "or <code>git switch feat/&lt;slug&gt;</code> on resume"). El merge a main local es <strong>uno por slug</strong>, al cerrar la corrida. Y las cinco reglas de conflicto de §08: diseño secuencial fuera de los worktrees, artefactos de sesión con el slug en el nombre, compartidos escritos por el paso de merge, rebase dentro del worktree y luego <code>merge --no-ff</code> desde main, y aviso de solape al crear.</li>
+    <li><strong>"Sesión" no es una pestaña.</strong> Una sesión de conversación puede retomar el mismo slug, o abrir el worktree de otro slug distinto. Lo que abre worktree es un <strong>slug que va a escribir código</strong>, no el acto de abrir una pestaña. Un feature que no cabe se parte en slugs (slices), y cada slice tiene su worktree: ahí sí hay varios en paralelo, si son independientes.</li>
+    <li><strong>Verbo nuevo del CLI</strong> para gestionar worktrees (no código suelto dentro de la skill).</li>
+    <li><strong>Los worktrees viven en <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code></strong>, hermanos del repo (aquí: <code>/Users/soydachi/repos/ai-engineering.worktrees/&lt;slug&gt;</code>). Fuera del árbol de trabajo, un directorio por proyecto, sin nada que añadir a <code>.gitignore</code>.</li>
+    <li><strong><code>ai-eng git</code> no se renombra.</strong> El verbo de hooks conserva su nombre; el renombre a <code>ai-eng hooks</code> queda fuera (§09).</li>
+    <li>El destino de la fusión es el <strong>main local</strong>. Nunca <code>origin</code>.</li>
+    <li>El PR a origin lo decide y lo lanza el humano <strong>después</strong>, desde el main local, y puede agrupar 1..n sesiones de worktree.</li>
+    <li>La rama del PR a origin se crea <strong>sin worktree</strong>.</li>
+    <li><strong>Se borran <code>ai-pr-loop-fix</code> y <code>ai-git-cleanup</code>.</strong> Se rehace <code>ai-git-cleanup</code> desde cero: una sola skill, worktrees + ramas, automática y segura.</li>
+    <li><strong><code>ai-pr</code> hace el ciclo completo, con la fusión desactivable:</strong> corta la rama desde main local sin worktree, empuja, abre el PR contra <code>main</code>, vigila CI y comentarios, arregla lo obvio en iteraciones acotadas y fusiona. El cuerpo del PR se arma con los merge commits de las sesiones incluidas, para que un PR que agrupa varias se lea.</li>
+    <li><strong>La documentación se entrega con la feature, no después:</strong> la lista exacta de ficheros y qué cambia en cada uno está en §11, y es criterio de éxito en §05.</li>
+    <li>Nace una skill <code>ai-pr</code> para crear el pull request (adaptando <code>work-with-pr</code> al modelo de ai-engineering).</li>
+    <li>Revisar qué vale de <code>tech-debt-audit</code> y <code>remove-deadcode</code> para <code>ai-audit-code</code>, y de <code>security-research</code> para <code>ai-security</code>.</li>
+  </ul>
+</section>
+
 <section id="s7">
-  <h2><span class="num">07</span>Decisions still open</h2>
-  <div class="note warn">
-    <h4>Defaults, salvo que los cambies</h4>
-    <p>Ninguna abierta. Cerradas en §06: default no sobreescribir con <code>--yes</code> conservando; prompt solo para <code>AGENTS.md</code>; secciones adoptadas (baseline de suite, comandos que se cuelgan, no preguntar, fill-ins de contexto, línea de verificación) en plantilla y skill; aviso extra cuando el archivo no está en git; y la enmienda de Code style.</p>
+  <h2><span class="num">07</span>Decisiones abiertas</h2>
+  <div class="note warn"><h4>Solo las cierra el humano · cada una lleva mi recomendación por defecto</h4></div>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>#</th><th>Pregunta</th><th>Mi recomendación</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>¿Se adopta algo de los tres adjuntos (tech-debt-audit, remove-deadcode, security-research)?</td><td>Solo piezas sueltas, no las skills enteras: ver §11</td></tr>
+      <tr><td>2</td><td>¿La feature toca <code>AGENTS.md</code> y <code>docs/blueprint.html</code> además de las skills?</td><td>Sí a los dos: el contrato de git no existe hoy, y <code>CONTRIBUTING.md</code> exige sección de blueprint para un cambio de comportamiento</td></tr>
+      <tr><td>3</td><td>¿Qué pasa con el worktree huérfano <code>ai-engineering-v1-oracle</code>?</td><td>Decisión del humano en el momento; el diseño solo lo lista y no lo toca</td></tr>
+    </tbody>
+  </table>
   </div>
 </section>
 
 <section id="s8">
-  <h2><span class="num">08</span>Constraints and guardrails</h2>
+  <h2><span class="num">08</span>Límites y guardarraíles</h2>
   <ul>
-    <li>Sin sobreescribir nunca en silencio: toda escritura sobre un archivo ajeno pasa por una decisión humana explícita.</li>
-    <li>El techo de doctor (120 líneas, ≥6 reglas) y la regla anti-drift siguen vigentes: lo que se añada a la plantilla no puede romperlos.</li>
-    <li>El flujo de init es idempotente: una segunda corrida no vuelve a preguntar por un archivo que ya resolvimos.</li>
+    <li><strong>Git prohíbe la misma rama en dos worktrees.</strong> Es la razón de que cada sesión tenga rama propia; sin eso, el segundo worktree que apunte a main es un error, no una elección.</li>
+    <li><strong>Nunca <code>--no-verify</code>, nunca silenciar un linter</strong> (<code>AGENTS.md</code>). Los hooks corren igual dentro del worktree.</li>
+    <li><strong>Ningún push desde una sesión.</strong> Ahead/behind son solo lectura.</li>
+    <li><strong>Solo se borra lo fusionado.</strong> Nada sin fusionar desaparece sin una confirmación explícita del humano.</li>
+    <li><strong>El árbol principal no se toca</strong> mientras una sesión corre: el worktree existe justo para eso.</li>
+    <li><strong>Gate verde antes de "hecho"</strong>: typecheck, lint y tests con la salida a la vista.</li>
+    <li><strong>El diseño se escribe antes, el recap llega con el merge.</strong> <code>brainstorm.html</code>, <code>spec.html</code> y <code>plan.html</code> se escriben y se commitean en el árbol principal antes de cortar cualquier worktree. <code>recap.html</code> nace en la rama de la feature, en el app review, y <code>PRD.html</code> lo edita la sesión en su rama: el paso de merge es su único escritor en el árbol principal.</li>
+  </ul>
+  <h3>Cómo se evita el conflicto</h3>
+  <p>La regla no es de tiempo, es de <strong>dueño del fichero</strong>: cada ruta tiene un solo escritor. Donde el dueño es el paso de merge, la sesión paralela no escribe ese fichero nunca.</p>
+  <ul>
+    <li><strong>Diseño secuencial, en el árbol principal:</strong> <code>brainstorm.html</code>, <code>spec.html</code> y <code>plan.html</code> son los que se commitean <em>antes</em> de cortar cualquier worktree (<code>PRE_WORKTREE_SLOTS</code>, <code>src/shared-worktree.ts:20</code>); ningún worktree los escenifica. <code>recap.html</code> no entra ahí: se genera en la rama de la feature y llega con el merge.</li>
+    <li><strong>Lo de la sesión lleva el slug en el nombre:</strong> <code>workflow/checkpoints/&lt;slug&gt;.json</code>, <code>test-plans/&lt;slug&gt;.json</code>, <code>prototypes/&lt;slug&gt;*</code>, <code>reviews/&lt;slug&gt;-*.md</code>. Ya es así.</li>
+    <li><strong>El recap no lo escribe el merge:</strong> <code>recap.html</code> nace en la rama de la feature, en el app review, y el merge solo lo arrastra al árbol principal.</li>
+    <li><strong>Los compartidos los escribe el merge en el árbol principal, una sola vez:</strong> <code>CHANGELOG.md</code>, <code>LEARNINGS.md</code>, <code>FILEMAP.md</code>, <code>PERMISSIONS.md</code> y <code>PRD.html</code> se pueden editar en la rama de la feature, y el paso de merge es su único escritor en el árbol principal: se actualizan allí una vez, cuando la sesión ya está fusionada, y ninguna sesión paralela los escribe. El merge a main es forzosamente secuencial: un solo índice, un solo checkout de main.</li>
+    <li><strong>El conflicto se resuelve en el sandbox, nunca en main:</strong> antes de fusionar, la sesión hace <code>git rebase main</code> dentro de su worktree (la rama es efímera, rebasar es gratis); con el rebase limpio, el merge a main es <code>git merge --no-ff</code> y no puede fallar.</li>
+    <li><strong>La ruta del worktree se resuelve canónica:</strong> <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code> se calcula uniendo el directorio padre real del repo con <code>&lt;nombre&gt;.worktrees</code>, y se compara siempre en forma canónica (realpath). En macOS <code>/tmp</code> es un symlink a <code>/private/tmp</code> y <code>git worktree list</code> devuelve la forma canónica: comparar cadenas sin canonicalizar fue lo que apareció en las pruebas de hoy.</li>
+    <li><strong>El directorio es un valor con escapatoria:</strong> por defecto <code>&lt;repo&gt;.worktrees</code>; si el padre del repo no es escribible (CI, checkout en la raíz de un volumen), <code>config.toml</code> puede apuntarlo a otro sitio. Es el único ajuste que necesita el "sirve para cualquier SO y cualquier proyecto".</li>
+    <li><strong>Aviso de solape al crear:</strong> <code>ai-eng worktree new</code> compara las rutas declaradas por la sesión contra las de los worktrees ya abiertos y avisa. Dos sesiones sobre el mismo fichero es el único conflicto que git no puede resolver solo, y se evita antes de empezar.</li>
   </ul>
 </section>
 
 <section id="s9">
-  <h2><span class="num">09</span>Out of scope</h2>
-  <div class="note danger">
-    <h4>Not this cut</h4>
-    <p>Un merge inteligente de dos AGENTS.md (difusión de prosa, no de JSON). Cambiar el 3-way diff de <code>update</code>. Tocar <code>uninstall</code>. Añadir un shim <code>CLAUDE.md</code>. Reglas nuevas de CI/lint.</p>
-  </div>
+  <h2><span class="num">09</span>Fuera de alcance</h2>
+  <div class="note danger"><h4>No entra</h4></div>
+  <ul>
+    <li>Renombrar <code>ai-eng git</code> a <code>ai-eng hooks</code>: cosmético, toca los shims instalados (§04) y va como feature aparte si algún día se quiere.</li>
+    <li>Borrar ramas remotas. <code>git push origin --delete</code> no se usa, nunca.</li>
+    <li>Fusionar o cerrar PRs por iniciativa del agente sin que el humano lo haya pedido.</li>
+    <li>Sustituir el sistema de spec/plan/checkpoints por git: git es transporte, no proceso.</li>
+    <li>Reescribir <code>ai-security</code> o <code>ai-audit-code</code> enteros: solo piezas sueltas.</li>
+    <li>Rebase interactivo, historia reescrita, <code>git gc</code>.</li>
+  </ul>
 </section>
 
 <section id="s10">
-  <h2><span class="num">10</span>Open questions for research</h2>
+  <h2><span class="num">10</span>Preguntas para investigar</h2>
   <ol>
-    <li>Resuelto: ningún test cubría un AGENTS.md ajeno; los existentes solo fijan el caso limpio y la re-init (<code>tests/init-command.spec.ts</code>). Los dos tests nuevos cubren declinar y aceptar.</li>
-    <li>Resuelto: el prompt vive en <code>scaffoldAndCarriers</code>, antes del spinner y después de la fase de repositorio; el camino <code>--yes</code> no pregunta y conserva el archivo.</li>
+    <li><span class="pill p-ok">resuelta</span> ¿Existe <code>--delete-merged</code>? Sí, en git 2.56.0, pero no dispara sin upstream: la limpieza usa <code>--merged</code> + <code>-d</code>. Queda abierta la variante de abajo. <span class="dim">(La <code>ai-git-cleanup</code> que sale de esta feature lo invierte: cada rama nace con el upstream <code>refs/heads/main</code>, así que borra con <code>--delete-merged refs/heads/main</code> y deja <code>--merged</code> + <code>-d</code> solo de reserva; ver §05.)</span></li>
+    <li>¿El framework puede exigir git ≥ 2.56, o tiene que funcionar con el git de Apple (2.50.1) que muchos tendrán? Importa porque decide si un verbo nuevo puede usar flags recientes o solo los de 2.25.</li>
+    <li>¿Los hooks de este repo (el "floor" de ai-eng) funcionan igual dentro de un worktree, o hay rutas absolutas que asumen el árbol principal? Importa porque el gate de commit correría distinto en la sesión.</li>
+    <li>¿Qué workflow de los siete es el gate real de un PR a main, y cuáles son informativos? Importa para que <code>ai-pr</code> espere Lo correcto.</li>
+    <li>¿El repo exige merge commit en origin (nada de squash) y branch protection con PR obligatorio? Importa para que <code>ai-pr</code> no emita un comando que origin rechace.</li>
+    <li>¿<code>ai-eng spec close</code> barre <code>brainstorm.html</code> y <code>recap.html</code> desde qué ruta (árbol principal o worktree), ahora que los artefactos pueden nacer en el worktree?</li>
   </ol>
 </section>
 
 <section id="s11">
-  <h2><span class="num">11</span>Handoff notes</h2>
-  <p>Archivos que este cambio toca: <code>src/commands/init.ts</code> (<code>scaffoldProject</code>, informe de contrato), <code>src/commands/init-shared.ts</code> (<code>contractEntries</code>), <code>src/install.ts</code> (<code>install()</code>), <code>templates/AGENTS.md.tpl</code>, <code>skills/ai-agents-md/SKILL.md</code>, <code>tests/init-command.spec.ts</code>.</p>
+  <h2><span class="num">11</span>Notas de handoff</h2>
+  <ul>
+    <li><strong>Orden sugerido:</strong> (1) <code>AGENTS.md</code> sección de git con el modelo worktree, porque es el contrato que <code>ai-orchestrator:45</code> y <code>:172</code> ya citan y hoy no existe; (2) <code>ai-orchestrator</code> Fase 0 (corta worktree) y cierre (rebase + <code>merge --no-ff</code> + borrado); (3) verbo <code>ai-eng worktree new|rm|list</code> con sus tests; (4) <code>ai-git-cleanup</code> nueva y borrado de la vieja; (5) <code>ai-pr</code>; (6) documentación (tabla de abajo); (7) piezas sueltas de audit y security.</li>
+    <li><strong>Qué artefacto nace dónde (por <code>AGENTS.md</code>):</strong> <code>brainstorm.html</code>, <code>spec.html</code> y <code>plan.html</code> se escriben y se commitean en el árbol principal antes de cortar cualquier worktree; <code>recap.html</code> se genera en la rama de la feature, en el app review, y llega al árbol principal con el merge; <code>PRD.html</code> lo edita la sesión en su rama y el paso de merge es su único escritor en el árbol principal.</li>
+  </ul>
+  <h3>Documentación a tocar</h3>
+  <p>Cada fila se verifica abriendo el fichero al terminar. <code>FILEMAP.md</code> figura a propósito aunque no cambie: listarlo evita tocarlo sin motivo.</p>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>Fichero</th><th>Qué cambia</th><th>Por qué</th></tr></thead>
+    <tbody>
+      <tr><td><code>AGENTS.md</code></td><td>Sección nueva de workflow git: worktree por sesión, merge a main local, PR cuando el humano decida, higiene de ramas efímeras</td><td>Es la raíz del problema: <code>ai-orchestrator</code> la cita por nombre y no existe</td></tr>
+      <tr><td><code>CONTRIBUTING.md</code></td><td>La sección "Commit and PR conventions" gana el flujo local (worktree, merge a main local, PR solo a decisión humana)</td><td>Es la guía del humano que contribuye, y hoy no menciona ramas</td></tr>
+      <tr><td><code>README.md</code></td><td>El verbo <code>ai-eng worktree</code> junto a <code>ai-eng git pre-commit</code> (línea 235) y una línea del flujo</td><td>La superficie es pública y hoy no documenta worktrees</td></tr>
+      <tr><td><code>docs/blueprint.html</code></td><td>Sección de spec para el verbo nuevo y las skills que cambian</td><td><code>CONTRIBUTING.md</code> lo exige: un cambio de comportamiento sin sección de blueprint es un cambio de spec</td></tr>
+      <tr><td><code>NOTICE.md</code> y <code>THIRD-PARTY-NOTICES.md</code></td><td>Quitar la atribución a Trail of Bits si el código de <code>analyze.mjs</code> ya no viaja</td><td>Hoy la línea 16 de <code>THIRD-PARTY-NOTICES.md</code> atribuye <code>skills/ai-git-cleanup/</code></td></tr>
+      <tr><td><code>src/assets.ts</code></td><td>Regenerar con <code>bun scripts/gen-assets.ts</code></td><td>Las skills y plantillas viajan dentro del binario; sin regenerar, el build rompe</td></tr>
+      <tr><td><code>.changeset/&lt;slug&gt;.md</code></td><td>Changeset <code>minor</code></td><td>Verbo nuevo y skills: <code>minor</code> según <code>CONTRIBUTING.md</code></td></tr>
+      <tr><td><code>CHANGELOG.md</code></td><td>Entrada de la feature</td><td>La escribe el paso de merge, no la sesión (§08)</td></tr>
+      <tr><td><code>tests/git-cleanup-flow.spec.ts</code>, <code>-analyze.spec.ts</code>, <code>-cli.spec.ts</code></td><td>Se borran con el script viejo</td><td>Prueban <code>skills/ai-git-cleanup/scripts/analyze.mjs</code></td></tr>
+      <tr><td><code>.ai-engineering/arch.rules.json</code></td><td>Solo si el verbo vive en una capa nueva</td><td><code>AGENTS.md</code> pide proponer el cambio de capa ahí, nunca tocar el test en silencio; <code>src/cli.ts</code> solo despacha y <code>src/commands/*</code> son parsers finos</td></tr>
+      <tr><td><code>FILEMAP.md</code></td><td>Sin cambio</td><td>Solo lista carpetas y <code>skills/</code> ya figura como canon instalado</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h3>Dónde se revisa la documentación</h3>
+  <p>En tres capas, y solo la primera obliga de verdad.</p>
+  <ol>
+    <li><strong>Como gates ejecutables del plan de checkpoints.</strong> Cada checkpoint lleva <code>verify</code> (comandos) y <code>acceptance</code>, y el hook del checkpoint se niega a pasar un gate fuera de orden (<code>skills/ai-orchestrator/SKILL.md:27</code>). El precedente ya está en este repo: el plan de <code>ai-git-cleanup</code> verifica la documentación con comandos, no con prosa (<code>.ai-engineering/workflow/test-plans/ai-git-cleanup.json:144</code> → <code>rg -q 'ai-git-cleanup' NOTICE.md &amp;&amp; rg -q 'CC BY-SA 4.0' NOTICE.md</code>; y <code>:193</code> → <code>test -f .changeset/ai-git-cleanup.md &amp;&amp; rg -q 'minor' .changeset/ai-git-cleanup.md</code>). La tabla de §11 se traduce a una línea <code>verify</code> por fila, en el checkpoint que cambia la interfaz.</li>
+    <li><strong>En el paso de cierre del run.</strong> <code>skills/ai-orchestrator/SKILL.md:153-155</code> ya escribe la entrada de <code>CHANGELOG.md</code>, revisa <code>FILEMAP.md</code> y actualiza <code>PRD.html</code>. Ahí cae también el changeset.</li>
+    <li><strong>En <code>ai-pr</code>, no revisando la doc, sino exponiéndola:</strong> arma el cuerpo del PR con la evidencia de lo que corrieron los gates. No es un revisor de documentación y no debería serlo.</li>
+  </ol>
+  <div class="note warn"><h4>CI no cubre documentación, y conviene saberlo</h4>
+  <p><code>grep -rn changeset .github/workflows</code> solo encuentra <code>version.yml</code> (changesets/action, que consume los changesets pendientes) y <code>release.yml</code>: <strong>ningún workflow falla por un changeset ausente</strong>. Y <code>check.yml</code> corre typecheck, lint, tests, arch, doctor, gitleaks, semgrep, trivy, bun audit, SonarCloud y Snyk: ninguno lee prosa. Por eso "documentación al día" tiene que ser gate de checkpoint, no confianza en el PR.</p></div>
+  <h3>Decisiones de implementación ya fijadas</h3>
+  <ul>
+    <li><strong>Esta feature no puede estrenar su propio flujo.</strong> El primer build ocurre en el árbol principal, porque el verbo y las skills que lo habilitan son justo lo que se va a construir. El árbol principal está hoy en <code>feat/arcasiles-skills</code> con trabajo sin commitear: la primera sesión de este feature aterriza donde el humano decida, y desde el segundo checkpoint en adelante ya puede usar el worktree.</li>
+    <li><strong>Primitivo de limpieza:</strong> <code>git branch --delete-merged refs/heads/main</code> funciona si la rama efímera nace con <code>branch.&lt;x&gt;.remote="."</code> y <code>merge=refs/heads/main</code>: borra lo fusionado en main local y salta solo lo retenido por un worktree y lo sin fusionar. Reserva para ramas sin ese upstream: <code>--merged main</code> + <code>-d</code>.</li>
+    <li><strong>Borrados y sus arrastres:</strong> se van <code>skills/ai-pr-loop-fix/</code> y la vieja <code>skills/ai-git-cleanup/</code> (esta última se rehace). Ninguna otra skill las nombra, pero sí las referencian <code>src/assets.ts</code> (regenerar), los tres <code>tests/git-cleanup-*.spec.ts</code>, y <code>NOTICE.md</code> más <code>THIRD-PARTY-NOTICES.md</code>.</li>
+    <li><strong>Pieza de <code>tech-debt-audit</code> que sí vale:</strong> la disciplina de citar <code>file:line</code> y la sección "Looks bad but is fine"; la auditoría de 9 dimensiones no cabe en <code>ai-audit-code</code>, que es la escalera de pereza.</li>
+    <li><strong>Pieza de <code>remove-deadcode</code> que sí vale:</strong> el guardarraíl anti-falsos-positivos y la verificación LSP antes de borrar (<code>xd://lsp</code>).</li>
+    <li><strong>Pieza de <code>security-research</code> que sí vale:</strong> "no hay severidad sin camino de ataque" y el equipo cazador/PoC separado del validador; <code>ai-security</code> ya lo tiene, y ya tiene ledger <code>findings.json</code>: probablemente solo un par de frases.</li>
+  </ul>
 </section>
 
 </div>
 </main>
 
 <footer>
-  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · complete<br>
-  complete · 2026-09-28 · approved<br>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · git-worktree-flow<br>
+  complete · 2026-10-01 · <span class="dim">las conclusiones viven también en PRD.html; el build lo corre ai-orchestrator</span>
   <a href="#main">↑ top</a>
 </footer>
-
 <script>
 /* scroll-spy: mark the nav link for the section in view.
    Lead matches scroll-margin-top (88px): the highlight flips when the

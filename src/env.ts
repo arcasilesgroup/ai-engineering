@@ -123,10 +123,10 @@ export function versionFile(): string {
 type TomlValue = string | number | boolean;
 export type Config = Record<string, Record<string, TomlValue>>;
 
-export function loadConfig(): Config {
-  const root = repoRoot();
-  if (!root) return {};
-  const path = configPath(root);
+export function loadConfig(root?: string | null): Config {
+  const resolved = root === undefined ? repoRoot() : root;
+  if (!resolved) return {};
+  const path = configPath(resolved);
   if (!existsSync(path)) return {};
   try {
     return Bun.TOML.parse(readFileSync(path, "utf8")) as Config;

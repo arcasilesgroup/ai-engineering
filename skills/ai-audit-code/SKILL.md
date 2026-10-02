@@ -69,6 +69,17 @@ every sibling caller still broken. Fix it once, where all callers route through.
 - Two stdlib options, same size? Take the one that's correct on edge cases. Lazy means writing less code, not picking the flimsier algorithm.
 - Mark deliberate simplifications that cut a real corner with a known ceiling (global lock, O(n²) scan, naive heuristic) with a `todo:` comment naming the ceiling and upgrade path (`# todo: global lock, per-account locks if throughput matters`).
 
+## Findings
+
+- Every finding cites its `file:line`, or a file, symbol, or path when a line is not the right unit. A finding with no citation is a rumour.
+- Verify before deleting anything: search to locate, language-server references to prove — where the only link is a path (an import string, a manifest entry), the search is the proof, though it also matches comments, so read what it returns.
+- An entry point or a barrel re-export stays while callers remain — verify references first; the guard is the callers, not the file's role.
+- Keep a symbol only while a caller or a public API needs it; a test that only asserted the symbol is not a consumer — delete the test with the symbol.
+
+## Looks bad but is fine
+
+Patterns a reader flags as bad that are deliberate under this skill, because each is a rung of the ladder above, not debt. Name the rung and stop.
+
 ## Output
 
 Code first. Then at most three short lines: what was skipped, when to add it.
