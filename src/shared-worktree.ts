@@ -163,7 +163,7 @@ function openWorktrees(repo: string): { worktrees: OpenWorktree[] } | { detail: 
     if (!pathLine) return { detail: `unreadable worktree list entry ${JSON.stringify(printable(block))}` };
     const path = pathLine.slice("worktree ".length);
     const ref = lines.find((line) => line.startsWith("branch "))?.slice("branch ".length);
-    const branch = ref !== undefined && ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : undefined;
+    const branch = ref?.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : undefined;
     worktrees.push({ path, branch, slug: branch === undefined ? basename(path) : branch.replace(/^feat\//, "") });
   }
   return { worktrees };
@@ -182,7 +182,7 @@ function statusPaths(tokens: string[], index: number): { paths: string[]; next: 
   const record = tokens[index];
   if (record === undefined || record.length < 4 || record[2] !== " ") return null;
   const path = record.slice(3);
-  const renamed = record[0] === "R" || record[1] === "R" || record[0] === "C" || record[1] === "C";
+  const renamed = record.slice(0, 2).split("").some((flag) => flag === "R" || flag === "C");
   if (!renamed) return { paths: [path], next: index + 1 };
   const source = tokens[index + 1];
   if (source === undefined || source === "") return null;
@@ -338,6 +338,29 @@ export function worktreeList(): WorktreeResult {
   return { code: 0, out: out.length > 0 ? `${out}\n` : "", err: "" };
 }
 
+/** The managed worktree a slug names, or null: the worktree must live under the
+ *  configured worktrees root AND sit on the branch this verb itself would have
+ *  created (`feat/<slug>`). Matching the slug alone would let
+ *  `worktree rm alpha --force` remove an unrelated worktree whose branch happens
+ *  to end in `alpha`, wherever it lives. */
+function findManagedWorktree(
+  repo: string,
+  root: string,
+  slug: string,
+  worktrees: { path: string; branch: string | undefined }[],
+): { path: string; branch: string } | null {
+  const managedBranch = `feat/${slug}`;
+  const managedRoot = `${canonicalize(root)}/`;
+  const primary = canonicalize(repo);
+  const entry = worktrees.find((candidate) => {
+    const path = canonicalize(candidate.path);
+    if (path === primary) return false;
+    return path.startsWith(managedRoot) && candidate.branch === managedBranch;
+  });
+  if (entry === undefined || entry.branch === undefined) return null;
+  return { path: entry.path, branch: entry.branch };
+}
+
 export function worktreeRm(slug: string, force = false): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree rm: not inside a git repository.\n" };
@@ -354,24 +377,17 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   if ("detail" in listed) {
     return { code: 2, out: "", err: `worktree rm: the worktree list is unreadable (${listed.detail}).\n` };
   }
-  // Scope the match to what this verb manages: the worktree must live under the
-  // configured worktrees root AND sit on the branch the verb itself would have
-  // created (`feat/<slug>`). Matching the slug alone would let
-  // `worktree rm alpha --force` remove an unrelated worktree whose branch happens
-  // to end in `alpha`, wherever it lives.
-  const managedBranch = `feat/${slug}`;
-  const managedRoot = `${canonicalize(root)}/`;
-  const entry = listed.worktrees.find((candidate) => {
-    const path = canonicalize(candidate.path);
-    if (path === canonicalize(repo)) return false;
-    return path.startsWith(managedRoot) && candidate.branch === managedBranch;
-  });
-  if (!entry) return { code: 1, out: "", err: `worktree rm: no managed worktree for slug "${printable(slug)}" (expected ${managedBranch} under ${managedRoot.slice(0, -1)}).\n` };
+  const entry = findManagedWorktree(repo, root, slug, listed.worktrees);
+  if (entry === null) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree rm: no managed worktree for slug "${printable(slug)}" (expected feat/${slug} under ${canonicalize(root)}).\n`,
+    };
+  }
 
   const branch = entry.branch;
-  if (branch === undefined) {
-    return { code: 1, out: "", err: `worktree rm: the worktree for slug "${slug}" is detached — refusing to guess a branch to delete.\n` };
-  }
+
 
   // Refuse before touching anything: the default delete deletes only a branch that
   // proved it landed in the local `main`, and a refusal must leave the worktree and
@@ -412,12 +428,12 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   const declarations = pruneDeclarations(root, read.declarations);
   delete declarations[slug];
   writeDeclarations(root, declarations);
-  const droppedNote =
-    dropped === null
-      ? " — the ignored content could not be read (git status warned); anything it held was dropped unseen"
-      : dropped.length > 0
-        ? ` — dropped ignored: ${dropped.join(", ")}`
-        : "";
+  let droppedNote = "";
+  if (dropped === null) {
+    droppedNote = " — the ignored content could not be read (git status warned); anything it held was dropped unseen";
+  } else if (dropped.length > 0) {
+    droppedNote = ` — dropped ignored: ${dropped.join(", ")}`;
+  }
   return {
     code: 0,
     out: force

@@ -11,7 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mergeDaily, summarizeReceipts, type Receipt } from "../src/receipts.ts";
+import { mergeDaily, summarizeBySession, summarizeReceipts, type Receipt } from "../src/receipts.ts";
 
 function dirWith(receipts: Receipt[]): string {
   const dir = mkdtempSync(join(tmpdir(), "ai-eng-summary-"));
@@ -112,5 +112,39 @@ describe("mergeDaily — the gc merge, not the gc overwrite (G5-G6)", () => {
     const current = { [day(1)]: { runs: 3, denies: 1 } };
     expect(mergeDaily(undefined, current, 90, Date.UTC(2026, 8, 20))).toEqual(current);
     expect(mergeDaily({} as Record<string, never>, current, 90, Date.UTC(2026, 8, 20))).toEqual(current);
+  });
+});
+
+describe("summarizeBySession — sessions grouped and sorted newest first", () => {
+  test("groups by session_id, sums runs and denies, unions tools and guards", () => {
+    const dir = dirWith([
+      receipt({ session_id: "s1", tool: "Bash", ts: "2026-01-01T00:00:00Z" }),
+      receipt({ session_id: "s1", tool: "Write", ts: "2026-01-01T00:02:00Z" }),
+      deny({ session_id: "s2", ts: "2026-01-01T00:01:00Z" }),
+      receipt({ ts: "2026-01-01T00:03:00Z" }),
+    ]);
+    const sessions = summarizeBySession(dir);
+    expect(sessions.map((s) => s.session_id)).toEqual(["unknown", "s1", "s2"]);
+    const s1 = sessions.find((s) => s.session_id === "s1")!;
+    expect(s1.runs).toBe(2);
+    expect(s1.denies).toBe(0);
+    expect([...s1.tools].sort()).toEqual(["Bash", "Write"]);
+    expect(s1.first_ts).toBe("2026-01-01T00:00:00Z");
+    expect(s1.last_ts).toBe("2026-01-01T00:02:00Z");
+    const s2 = sessions.find((s) => s.session_id === "s2")!;
+    expect(s2.denies).toBe(1);
+    expect(s2.guards_denied).toEqual(["self-protect"]);
+  });
+
+  test("a session with no session_id field lands under unknown and carries the torn write", () => {
+    const dir = dirWith([receipt({ ts: "2026-02-02T10:00:00Z" })]);
+    const sessions = summarizeBySession(dir);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]!.session_id).toBe("unknown");
+    expect(sessions[0]!.last_ts).toBe("2026-02-02T10:00:00Z");
+  });
+
+  test("an empty directory yields no sessions", () => {
+    expect(summarizeBySession(dirWith([]))).toEqual([]);
   });
 });
