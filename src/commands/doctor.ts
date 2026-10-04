@@ -528,7 +528,10 @@ function gcReceipts(receipts: string, ttlDays: number): string[] {
     .filter((entry) => entry.ts < cut);
   for (const entry of stale) unlinkSync(join(receipts, entry.name));
   if (stale.length > 0) {
-    mergeAndWriteSummary(receipts, summary);
+    // The stale files are part of the story the summary tells: the summarizer's
+    // name-window now skips receipts whose stamp predates the TTL, so the live
+    // count alone would understate the store by exactly the files being deleted.
+    mergeAndWriteSummary(receipts, { ...summary, total: summary.total + stale.length });
     lines.push(`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
   }
   const ledger = join(receipts, "denies.json");

@@ -14,11 +14,7 @@ import { embeddedTemplate } from "../embed.ts";
 import { parseLock, lockText } from "../install.ts";
 import { unmetTriggers } from "./triggers.ts";
 import { VERSION } from "../version.ts";
-
-/** The four artifacts of a milestone. `spec open` scaffolds two, `spec close` sweeps
- *  all four — the guard's fence leaves them to the session, so this verb is their
- *  only consumer. */
-const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.html", "recap.html"] as const;
+import { SLOT_FILES } from "../shared-worktree.ts";
 
 /** An ABANDON with less than this much reason is a checkbox, not an honest exit. */
 const MIN_ABANDON_REASON = 12;

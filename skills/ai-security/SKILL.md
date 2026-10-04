@@ -62,6 +62,8 @@ Include a brief summary of prior runs in the architecture summary so Phase 2 age
 
 Every finding must have a concrete attack scenario: who is the attacker, what do they do, and what do they get? "An attacker could theoretically..." is not a finding. "Send this request, get this result" is.
 
+CRITICAL through LOW take no severity without an attack path; INFORMATIONAL is the confirmed observation with no exploit, not a finding.
+
 ### Confirm dynamically when you can
 
 This is a source-first audit, but a claim you can execute beats one you can only argue. Where the target is locally buildable — a parser, a library, a CLI, a native component — build and run it: reproduce the crash, run the payload, diff the two parsers on the same bytes. Better still, **extract the suspect code into a minimal standalone harness** and test the hypothesis in isolation — fuzz the one function, feed it the crafted input, watch what it does. Where confirmation needs infrastructure you don't have — a proxy chain, a live cache, production auth — you cannot confirm from source alone: mark it "requires deployment testing" and do not report it as confirmed. Dynamic evidence is what resolves the memory-safety and request-framing classes that static reading leaves ambiguous.
@@ -133,8 +135,8 @@ These are the mistakes that make security audits useless:
    fixed or not, and the CHECK has nothing to evaluate.
 3. You only report what you can exploit. No demonstrable exploit, no finding.
 4. Who verifies: the `verify` model tier of the pin (§09.4); who judges the
-   conclusions: `decide`. The validator is never the finder — adversarial validation
-   is non-negotiable.
+   conclusions: `decide`. The validator is never the finder, and never the author of
+   the proof-of-concept it judges — adversarial validation is non-negotiable.
 5. The framework's own controls are the bar a finding or a control is measured
    against, and they are code, not prose — cite file:line when you invoke them:
    - **The gate that cannot run denies** (`src/floor/index.ts:63`, `:145`): gitleaks

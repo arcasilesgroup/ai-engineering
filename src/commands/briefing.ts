@@ -5,7 +5,7 @@
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { repoRoot, isGoverned } from "../env.ts";
+import { repoRoot, isGoverned, receiptsDir } from "../env.ts";
 import { summarizeReceipts, type ReceiptSummary } from "../receipts.ts";
 
 export type Briefing = {
@@ -79,8 +79,12 @@ export function generateBriefing(root?: string | null): Briefing {
   const planExists = planContent !== null;
   const planCurrentStep = planContent ? parsePlanCurrentStep(planContent) : "no plan";
 
-  // Receipts
-  const receipts = summarizeReceipts();
+  // Receipts — resolved against this root, never the process's nearest repo: the
+  // briefing describes `root`, so reading the checkout the process happens to stand
+  // in would report (and pay for) a foreign receipt store. The whole-suite timeout
+  // flake was exactly that: a temp-repo briefing scanning the dev checkout's 36k
+  // receipts for 5 s a call.
+  const receipts = summarizeReceipts(resolved ? receiptsDir(resolved) ?? undefined : undefined);
 
   // Recent denies (last 10, reading receipt files directly)
   const recentDenies: Briefing["recent_denies"] = [];

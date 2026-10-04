@@ -46,6 +46,15 @@ Replies to a person, and handoffs to another agent, follow the voice standard in
 ## Session hygiene (context economy)
 `/clear` between tasks · `/compact` before stopping, not after · batch prompting · check `/usage` when the context inflates.
 
+## Git workflow
+- A session that writes code works in `<repo>.worktrees/<slug>` on the branch `feat/<slug>`, cut from the local `main`. A session that only reads opens no worktree.
+- The merge destination is the local `main`, never `origin`: rebase inside the worktree, then, from the primary tree on `main`, `git merge --no-ff feat/<slug>` — one merge commit per feature, the one undoable unit.
+- A build session never pushes: the only push is the pull-request step the human triggers, against `origin/main`, cut from the local `main` without a worktree.
+- A build session does not touch the primary tree; only the merge step writes there, once, after that session's branch has merged.
+- The design artifacts `.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html` and `.ai-engineering/plan.html` are written and committed in the primary tree before any worktree is cut, and no worktree ever stages them.
+- `.ai-engineering/recap.html` is generated at the app review on the feature branch and reaches the primary tree with the merge.
+- A session may edit the shared files on its own branch like any other change, and the merge step is their single writer in the primary tree, never a parallel session writing them there: `.ai-engineering/PRD.html` when the feature changes scope, plus `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md` and `PERMISSIONS.md`.
+
 ## Pull requests
 - Run lint and the full test suite before committing; the commit must pass everything it will face in CI.
 - Add or update tests for the code you change, even if nobody asked.

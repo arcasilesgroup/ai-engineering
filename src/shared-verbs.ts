@@ -19,6 +19,7 @@ export const ALL_VERBS: readonly string[] = [
   "git",
   "wrap",
   "spec",
+  "worktree",
   "briefing",
 ];
 

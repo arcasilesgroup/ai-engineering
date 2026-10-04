@@ -1,0 +1,382 @@
+{
+  "feature": "One worktree per feature (slug), local main as the only destination",
+  "slug": "git-worktree-flow",
+  "summary": "A session that writes code works in `<repo>.worktrees/<slug>` on its own `feat/<slug>` branch (created with `branch.<slug>.remote=\".\"` and `merge=refs/heads/main`), closes by rebasing on the local `main` inside its own worktree and merging with `git merge --no-ff`, and never pushes; the human later cuts one branch from the local `main` and opens one pull request against `origin/main`. The refactor adds the missing `AGENTS.md` git contract, adds the `ai-eng worktree new|rm|list` verb, rewrites `ai-orchestrator` Phase 0/close, rewrites `ai-git-cleanup`, replaces `ai-pr-loop-fix` with the full-loop `ai-pr`, and updates the docs, blueprint and changeset.",
+  "plain_summary": "When work happens in the repository it gets its own separate copy, so several pieces of work can go on at once without fighting. Each finished piece is combined back in one clear step, and nothing is sent anywhere until a person decides to.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Add the Git workflow contract to AGENTS.md and the shipped template",
+      "simple": "Write down the shared-work rules",
+      "size": "xs",
+      "goal": "AGENTS.md and templates/AGENTS.md.tpl carry the worktree-per-feature contract that ai-orchestrator already cites by name: one worktree per slug cut from the local `main`; one merge commit per feature into the local `main`; a session never pushes; the pull request is the human's decision; the primary tree is not touched while a session runs; design slots are never staged from a worktree; the shared files are written by the merge step.",
+      "plain": {
+        "what": "Anyone working in the project can read how separate pieces of work stay out of each other's way.",
+        "why": "The helper already points at these rules, but they had never been written down anywhere.",
+        "check": "Open the project's guidance file and look for the new section about separate work areas."
+      },
+      "builds_on": [],
+      "tasks": [
+        "AGENTS.md: add a `## Git workflow` section stating the contract — a session that writes code works in `<repo>.worktrees/<slug>` on `feat/<slug>`, cut from the local `main`; the merge destination is the local `main`, never `origin`, and it is one merge commit per feature; a session never pushes; the pull request is the human's decision; the primary tree is not touched while a session runs; the design slots (`brainstorm.html`, `PRD.html`, `spec.html`, `plan.html`) are written and committed in the primary tree before any worktree exists and are never staged from a worktree; the shared files (`CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md`, `.ai-engineering/recap.html`) are written once by that merge step; ephemeral branches are created with `branch.<slug>.remote=\".\"` and `merge=refs/heads/main`. Keep the file under doctor's 120-line ceiling.",
+        "templates/AGENTS.md.tpl: rewrite the existing four-line `## Git workflow` section (keep the heading — tests/agents-md-sections.spec.ts requires it) with the same contract, in the installed template's voice.",
+        "Run `bun scripts/gen-assets.ts` (templates travel inside the binary) and commit the regenerated src/assets.ts."
+      ],
+      "files": ["AGENTS.md", "templates/AGENTS.md.tpl", "src/assets.ts"],
+      "changed_files": ["AGENTS.md", "templates/AGENTS.md.tpl"],
+      "acceptance": [
+        "AGENTS.md and templates/AGENTS.md.tpl both state: worktree per slug cut from the local main, one merge commit per feature into the local main, no push from a session, the PR decided by the human, the primary tree untouched, design slots never staged, shared files written by the merge step.",
+        "The template still contains the four headings tests/agents-md-sections.spec.ts requires, and it and the repo file stay under doctor's 120-line ceiling.",
+        "The embedded assets are in sync with the template (embed-canon passes)."
+      ],
+      "verify": [
+        "rg -q 'worktree' AGENTS.md",
+        "rg -q 'merge --no-ff' AGENTS.md",
+        "rg -q '## Git workflow' templates/AGENTS.md.tpl",
+        "rg -q 'worktree' templates/AGENTS.md.tpl",
+        "bun test tests/agents-md-sections.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["round 2 FAIL: F6 MAJOR, recap.html listed under a pre-worktree rule its own production step (ai-orchestrator:172) violates; F7 MINOR docs drift deferred to checkpoint 6. F1/F3/F4 fixed in round 1, F5 superseded by F6. Round 3 PASS after the rule was split by where each artifact is born."] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 2,
+      "title": "Add the ai-eng worktree new|rm|list verb with tests",
+      "simple": "Add tools to manage work copies",
+      "size": "m",
+      "goal": "The CLI grows a `worktree` verb: `src/cli.ts` only dispatches, `src/commands/worktree.ts` is a thin parser, and the pure logic lives in `src/shared-worktree.ts`. `new <slug>` resolves the worktree root — `[git].worktrees_dir` from `.ai-engineering/config.toml` when present, otherwise `<repo>.worktrees` — creates the worktree there using the canonical (realpath) path, sets `branch.<slug>.remote=\".\"` and `branch.<slug>.merge=refs/heads/main`, refuses when the primary tree has uncommitted design-slot files (a list defined once in the shared module), and warns when a declared file overlaps an open worktree; `list` reports the open worktrees; `rm <slug>` removes the worktree and its branch.",
+      "plain": {
+        "what": "The project gains simple commands to open, list and close its separate work copies.",
+        "why": "Without them, people would have to run raw git commands by hand and could get it wrong.",
+        "check": "Nothing to see on screen yet; the checks run behind the scenes."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "src/shared-worktree.ts (new): pure helpers for the verb — resolve the worktree root by reading `[git].worktrees_dir` from `.ai-engineering/config.toml` when the key is present, otherwise joining the real parent of the repo with `<name>.worktrees`, and realpath-canonicalize the result (brainstorm §08: git returns the canonical form, so compare canonical); define the design-slot list (`brainstorm.html`, `PRD.html`, `spec.html`, `plan.html`) once here; validate the slug against `^[a-z0-9][a-z0-9._-]*$` (kebab-case — no spaces, no `/`, never starting with a separator; the slug is both the branch name `feat/<slug>` and the directory name, and the orchestrator compares it literally against `<meta name=\"ai-feature\">`) and fail with a non-zero exit and nothing created when it does not match, build the exact `git worktree add` plus `git config branch.<slug>.remote '.'` and `git config branch.<slug>.merge refs/heads/main` command list, detect uncommitted design-slot files with `git status --porcelain` and refuse, and compare the declared file paths of a new worktree against those of open worktrees to warn on overlap.",
+        "src/spec/index.ts: import the design-slot list from the shared module instead of defining `SLOT_FILES` locally, so the verb and the spec slot share one definition (the shared layer may not import the spec layer, so the list moves down, not up).",
+        "src/commands/worktree.ts (new): thin parser for `new <slug> [files...]`, `rm <slug>` and `list`; prints the result and returns the exit code.",
+        "src/cli.ts: add the `case \"worktree\"` dispatch only (and name the verb in `--help`); no logic in the dispatcher.",
+        "tests/worktree-command.spec.ts (new): fixture git repo in a temp directory — asserts the created path is canonical and sibling to the repo, `git config --get branch.<slug>.merge` is `refs/heads/main` and `.remote` is `.`, a dirty design-slot file makes `new` refuse without creating anything, two worktrees declaring the same file warn, `list` reports the open worktrees, `rm` removes worktree and branch, and no emitted command contains `git push`; one case writes a `.ai-engineering/config.toml` with `[git] worktrees_dir` and asserts the worktree lands at that path; one case passes a slug with a space and one with a `/` and asserts a non-zero exit with nothing created and the reason in the message, while a valid kebab-case slug succeeds."
+      ],
+      "files": [
+        "src/cli.ts",
+        "src/commands/worktree.ts",
+        "src/shared-worktree.ts",
+        "src/spec/index.ts",
+        "tests/worktree-command.spec.ts"
+      ],
+      "acceptance": [
+        "`new` resolves the primary checkout from git itself (`--git-common-dir`), so the verb behaves the same run from the primary tree or from inside an open worktree; the root comes from `[git].worktrees_dir` when present and otherwise from `<primary>.worktrees`; the created path is canonical and the branch `feat/<slug>` carries `remote = .` and `merge = refs/heads/main`.",
+        "`new` refuses when a pre-worktree artifact (`brainstorm.html`, `spec.html`, `plan.html`) is uncommitted in the invoked repository, whatever shape the dirt has, including a wholly untracked `.ai-engineering/`; the pre-worktree list is its own definition in the shared module, next to the spec-close sweep list it must not borrow.",
+        "A slug is validated against `^[a-z0-9][a-z0-9._-]*$` before anything is created; a slug with a space or a `/` exits non-zero, creates nothing and names the reason, and a valid kebab-case slug succeeds.",
+        "Creating a second worktree that declares a file an open worktree already declared warns (does not block).",
+        "`list` reports the open worktrees and `rm` removes the worktree and its branch; no command ever pushes.",
+        "src/cli.ts contains only the dispatch case; the design-slot list has one definition; `bun test tests/arch.spec.ts` stays green with no change to `.ai-engineering/arch.rules.json`."
+      ],
+      "verify": [
+        "bun test tests/worktree-command.spec.ts",
+        "bun test tests/spec-command.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "rg -q 'worktrees_dir' src/shared-worktree.ts",
+        "rg -q 'SLOT_FILES' src/shared-worktree.ts",
+        "bun test tests/worktree-command.spec.ts -t canonical",
+        "bun test tests/worktree-command.spec.ts -t upstream",
+        "bun test tests/worktree-command.spec.ts -t 'design slot'",
+        "bun test tests/worktree-command.spec.ts -t fallback",
+        "bun test tests/worktree-command.spec.ts -t worktrees_dir",
+        "bun test tests/worktree-command.spec.ts -t overlap",
+        "bun test tests/worktree-command.spec.ts -t list",
+        "bun test tests/worktree-command.spec.ts -t remove",
+        "bun test tests/worktree-command.spec.ts -t 'no push'",
+        "bun test tests/worktree-command.spec.ts -t 'invalid slug'",
+        "bun test tests/worktree-command.spec.ts -t 'valid slug'",
+        "bun test tests/worktree-command.spec.ts -t 'no unquoted'",
+        "bun test tests/worktree-command.spec.ts -t stale",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 2, "findings": ["attempt 1 FAIL: the 24 planned verify entries all passed, and the manual smoke created and removed a worktree correctly, but the refusal never fires when .ai-engineering/ is wholly untracked: git status --porcelain collapses it to '?? .ai-engineering/' without -uall, so 'worktree new' created a worktree over a dirty design slot (MAJOR). Plus: the refusal reuses the spec-close sweep list, so a dirty recap.html blocks 'worktree new' against AGENTS.md:54-55 (MINOR), and 'list' prints the primary checkout as an entry (nit).", "attempt 2 FAIL: the 21 planned verify entries passed and all three findings were hand-proven fixed, but the guard still failed OPEN on a slot turned into a directory and a slot renamed, both invisible to an equality match on the status path.", "attempt 3 PASS: 21/21 planned entries green and eight hand proofs correct, including a corrupt .git/index now refusing instead of proceeding. The gate handed one finding on: a case-insensitive filesystem makes brainstorm.HTML the same file under another name.", "attempt 4 PASS after the review's three blockers were fixed: 21/21 entries and eight hand proofs, the case alias closed, the primary resolved from git's common dir, feat/<slug> created, the declarations file moved out of the repository, and the guard's ceiling confirmed with evidence.", "attempt 5 PASS after the minor fixes: 25/25 cases, the primary checkout byte-identical before, between and after new and rm, the same root printed for a relative worktrees_dir from both cwds, and the ceiling note amended for a symlink whose target is inside the repository too."] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["round 1 FAIL with six findings: F1 BLOCKER the case alias on a case-insensitive filesystem (the open finding carried from behavior); F2 BLOCKER porcelain quoting and C-escaping of non-ASCII paths, so a slot-as-directory with an inner non-ASCII file slips through (fix: read the status with -z and parse NUL-separated raw paths); F3 BLOCKER repoRoot took the nearest .git, so run from inside a worktree the verb listed the primary, hid the sessions, cut <worktree>.worktrees/<slug> and guarded the wrong tree (fix: --git-common-dir); F4 MAJOR the branch was <slug> while the contract, the template and checkpoint 3 say feat/<slug>; F5 MINOR the declarations file accepted null/[] and never pruned; F6 MINOR SLUG_PATTERN admitted a trailing newline after the root had already been created.", "round 2 PASS: F1-F6 verified resolved; F7 MINOR the declarations file dirtied the primary checkout and F8 MINOR a relative worktrees_dir resolved against the cwd were fixed next round, and F9 MINOR asked for the guard's ceiling to be written down, which it now is."] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 3,
+      "title": "Cut the worktree in ai-orchestrator Phase 0 and close with rebase + merge",
+      "simple": "Give each job its own copy",
+      "size": "m",
+      "goal": "skills/ai-orchestrator/SKILL.md Phase 0 opens `<repo>.worktrees/<slug>` through the CLI verb that now exists, instead of `git switch -c feat/<slug>` in the shared tree, and the close step becomes rebase on the local `main` inside the worktree, `git merge --no-ff` in the primary tree, then worktree and branch cleanup, with the shared files written once by the merge step.",
+      "plain": {
+        "what": "Each piece of work starts in its own separate copy of the project, ready to build.",
+        "why": "Working in one shared copy meant two jobs could overwrite each other.",
+        "check": "Start a new build and notice it says it opened a separate copy before touching any code."
+      },
+      "builds_on": [2],
+      "tasks": [
+        "skills/ai-orchestrator/SKILL.md `Commits: commit as you go` (branch line ~45): Phase 0 runs `ai-eng worktree new <slug>` (on resume, enter the existing `<repo>.worktrees/<slug>` and `git switch feat/<slug>` inside it), and drop the \"because other sessions share this tree\" staging rationale — the worktree is the isolation now; keep explicit-path staging for the slug-scoped artifacts and the gate table unchanged.",
+        "skills/ai-orchestrator/SKILL.md Phase 4 approve (~172): replace `git merge --squash feat/<slug>` with `git rebase main` inside the worktree, then `git merge --no-ff feat/<slug>` in the primary tree, then `ai-eng worktree rm <slug>`; state that the shared files (CHANGELOG/LEARNINGS/FILEMAP/PERMISSIONS/recap.html) are written once by this merge step and that nothing pushes.",
+        "skills/ai-orchestrator/SKILL.md commit-message table: emit only messages this repo's `commit-msg` hook accepts — types limited to `feat|docs|chore|fix|test`, scope without `#`, and the checkpoint number in the body, never in the scope; write the exact map into the skill: `plan(<slug>)` -> `chore(<slug>)` with the number in the body, `gate(<slug>#N)` -> `chore(<slug>)`, `wip(<slug>#N)` -> `chore(<slug>)` (drop `plan`, `gate` and `wip`, and drop the `#` from every scope).",
+        "Run `bun scripts/gen-assets.ts` and commit the regenerated src/assets.ts."
+      ],
+      "files": ["skills/ai-orchestrator/SKILL.md", "src/assets.ts"],
+      "acceptance": [
+        "Phase 0 no longer creates `feat/<slug>` in the shared tree; it names `ai-eng worktree new <slug>`.",
+        "The close step rebases on local `main` inside the worktree, merges with `git merge --no-ff`, and cleans up the worktree and branch; it never pushes.",
+        "The shared files are assigned to the merge step only.",
+        "The Lifecycle block still hands off per the workflow-handoff test.",
+        "No message the skill emits can be rejected by the `commit-msg` hook: every pattern of its table matches `^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\([a-z0-9._/-]+\\))?!?: \\S`, so `plan`, `gate` and `wip` and the `<slug>#N` scope are gone."
+      ],
+      "verify": [
+        "rg -q 'ai-eng worktree new' skills/ai-orchestrator/SKILL.md",
+        "! rg -q 'git switch -c feat/' skills/ai-orchestrator/SKILL.md",
+        "rg -q 'merge --no-ff' skills/ai-orchestrator/SKILL.md",
+        "rg -q 'worktree rm' skills/ai-orchestrator/SKILL.md",
+        "! rg -q 'plan\\(<slug>|gate\\(<slug>|wip\\(<slug>' skills/ai-orchestrator/SKILL.md",
+        "! rg -q '<slug>#N' skills/ai-orchestrator/SKILL.md",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["attempt 1 PASS: 11/11 planned entries in order, all six contract points present in both the skill and AGENTS.md, the Lifecycle block still hands off at :186 to ai-visual-recap, and the stale-flow audit found zero hits for squash, switch -c, shared tree or a hand-created branch. The negative gates are sharpened to '<slug>#N' so the legitimate checkpoint marker placeholder ([checkpoint <slug>#<id> <stage>]) is not caught by them."] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["round 1 FAIL with five findings: F1 BLOCKER the review thread's own verify line still carried the blunt '<slug>#' pattern the plan had already sharpened to '<slug>#N' (thread stale, fixed); F2 BLOCKER the close could deadlock: the rewritten step dropped 'make sure everything on feat/<slug> is committed', and /ai-visual-recap writes an untracked .ai-engineering/recap.html that the merge cannot carry and that makes 'worktree rm' refuse; F3 MAJOR Phase 0 recorded the primary tree's current branch as the merge target while the contract pins the local main; F4 MAJOR Phase 0 had no way out of the two states it will meet (a dirty pre-worktree artifact makes the verb refuse, and a crashed run's branch already exists); F5 MINOR the prose misstated what the commit-msg hook enforces.", "round 2 FAIL: F1-F5 verified resolved; N1 MAJOR the Phase 0 slot commit named three paths in one git add, which aborts atomically when one is missing (spec.html and plan.html do not exist here), leaving the slot dirty and the verb refusing; N2 MINOR the ban on staging slots contradicted the Phase 0 commit and is now scoped to worktree commits; N3 MAJOR found while the behavior gate walked the sequence literally: with the primary tree parked on another branch the merge does not fail, main never receives the feature, and worktree rm erases the branch anyway. The close now verifies the merge landed on main before it removes anything, and checkpoint 4 owns making the verb refuse to force-delete an unmerged branch.", "round 3 PASS: N1-N3 verified fixed with no new findings. Behavior re-runs after each fix stayed green (the merge-verification move, then the refusal wording), each walked by hand on a throwaway repo including the primary parked on another branch, where the close now refuses and leaves the branch alive. Carried to checkpoint 4: the close still describes rm as force-deleting with git branch -D, true until that checkpoint changes the verb."] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 4,
+      "title": "Rewrite ai-git-cleanup as a one-pass, name-free cleanup",
+      "simple": "Clean up finished work automatically",
+      "size": "l",
+      "goal": "skills/ai-git-cleanup is rewritten from scratch as a single automatic pass: it removes dead worktrees and merged branches with `git branch --delete-merged refs/heads/main`, using `git branch --merged main` plus `-d` as the fallback for branches without that upstream; it never deletes an unmerged branch and never asks for a name. The old analyze.mjs script and the three git-cleanup specs are deleted, and the Trail of Bits attribution goes with the code.",
+      "plain": {
+        "what": "Finished work copies disappear by themselves in one safe pass, and anything unfinished is left alone.",
+        "why": "Leftover copies pile up until nobody can tell which work is still in progress.",
+        "check": "After finishing some work, run the tidy-up and see the finished copies gone and unfinished ones untouched."
+      },
+      "builds_on": [3],
+      "tasks": [
+        "Delete skills/ai-git-cleanup/scripts/analyze.mjs, tests/git-cleanup-flow.spec.ts, tests/git-cleanup-analyze.spec.ts and tests/git-cleanup-cli.spec.ts (they test the deleted script).",
+        "skills/ai-git-cleanup/SKILL.md: rewrite as one pass with no interactive question — remove dead worktrees first (`git worktree remove`, then `git worktree prune`), then branches with `git branch --delete-merged refs/heads/main`; fallback for branches without that upstream: `git branch --merged main` and `-d` (never `-D`, never a forced delete); never touch an unmerged branch; no name is ever asked. Update the description/triggers, keep the frontmatter shape and the `## Lifecycle` block, and drop the Trail of Bits `Source:` line (no upstream code ships).",
+        "NOTICE.md and THIRD-PARTY-NOTICES.md: remove the Trail of Bits git-cleanup rows, since the adapted analyze.mjs no longer ships.",
+        "tests/git-cleanup-pass.spec.ts (new, small): the skill documents `--delete-merged refs/heads/main`, the `--merged main` + `-d` fallback, no `-D`, no prompt/name question, and a `## Lifecycle` block.",
+        "src/shared-worktree.ts: `rm` removes the branch with `git branch -d` — the delete that refuses when the branch is unmerged, so the branch survives — and `git branch -D` disappears from the verb; an explicit `--force` flag covers the deliberately abandoned branch, and its refusal or removal message states the reason.",
+        "tests/worktree-command.spec.ts: an unmerged branch makes `rm` refuse and the branch survives; `rm --force` removes it; a merged branch is removed without ceremony; and `git branch -D` never appears in the emitted commands.",
+        "skills/ai-orchestrator/SKILL.md close (the two sentences around lines 175-176): update the prose that says `ai-eng worktree rm` deletes the branch with `git branch -D` so it describes what the verb does after this checkpoint — a delete that refuses on its own unless `--force` is passed — changing nothing else in the skill.",
+        "Run `bun scripts/gen-assets.ts` and commit the regenerated src/assets.ts."
+      ],
+      "files": [
+        "skills/ai-git-cleanup/SKILL.md",
+        "tests/git-cleanup-pass.spec.ts",
+        "NOTICE.md",
+        "THIRD-PARTY-NOTICES.md",
+        "src/shared-worktree.ts",
+        "tests/worktree-command.spec.ts",
+        "skills/ai-orchestrator/SKILL.md",
+        "src/assets.ts"
+      ],
+      "acceptance": [
+        "The one pass removes dead worktrees and merged branches with `git branch --delete-merged refs/heads/main`, falling back to `git branch --merged main` + `-d` for branches without that upstream.",
+        "An unmerged branch is never deleted, `-D` never appears, and no name is ever asked.",
+        "The old script and its three specs are gone; the Trail of Bits attribution is removed from NOTICE.md and THIRD-PARTY-NOTICES.md.",
+        "The skill keeps a valid Lifecycle block and the embedded assets are in sync.",
+        "`ai-eng worktree rm` never force-deletes: it uses `git branch -d`, refuses an unmerged branch (which survives) and removes it only with an explicit `--force`, whose message states the reason.",
+        "The orchestrator's close prose verifies where the merge landed (`git merge-base --is-ancestor feat/<slug> main`) before the cleanup, and the gate checks that prose so a future edit cannot drop it.",
+        "The orchestrator's close and the verb describe the same deletion behavior, and no sentence in the skill promises a `git branch -D` that no longer exists."
+      ],
+      "verify": [
+        "test ! -f skills/ai-git-cleanup/scripts/analyze.mjs",
+        "test ! -f tests/git-cleanup-flow.spec.ts && test ! -f tests/git-cleanup-analyze.spec.ts && test ! -f tests/git-cleanup-cli.spec.ts",
+        "rg -q 'delete-merged refs/heads/main' skills/ai-git-cleanup/SKILL.md",
+        "rg -q -- '--merged main' skills/ai-git-cleanup/SKILL.md",
+        "! rg -q 'Trail of Bits' NOTICE.md THIRD-PARTY-NOTICES.md",
+        "! rg -q -- '-D' skills/ai-git-cleanup/SKILL.md",
+        "rg -q 'worktree prune' skills/ai-git-cleanup/SKILL.md",
+        "bun test tests/git-cleanup-pass.spec.ts",
+        "bun test tests/worktree-command.spec.ts",
+        "rg -q 'merge-base --is-ancestor' skills/ai-orchestrator/SKILL.md",
+        "! rg -q 'branch -D' skills/ai-orchestrator/SKILL.md",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["attempt 1 PASS: 15/15 planned entries, the old script and its three specs gone, the attribution rows gone, and eight hand proofs on throwaway repos, including an unmerged branch surviving both delete paths, a branch held by a worktree surviving, a stale entry pruned, and the default path emitting no force-delete. Residual, non-deleting: step 1's selection is agent-judged and 'git worktree remove' checks no merge state, so a mis-selected clean worktree can be removed while its commits survive on the branch that steps 3-4 refuse to delete."] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["round 1 FAIL with six findings: F1 BLOCKER step 1 could remove a worktree whose HEAD is not on a branch, and 'git worktree remove' exits 0 on a clean detached worktree while its commits become unreachable from every ref (the verb refuses that state); F2 MAJOR an uncommitted change keeps its worktree is false for ignored files, so a worktree whose only dirt is gitignored is removed and the files destroyed; F3 MAJOR 'git branch --delete-merged' exists only from git 2.56.0 and the skill used it as the primary path with no floor, erroring after worktrees were already removed; F4 MINOR the merged list also carries the current branch and worktree-held branches with decorations, which git refuses; F5 MINOR a branch merged into main with a stale upstream is skipped by one path and refused by the other, because that delete tests the branch against its own upstream; F6 MINOR the drop-proof assertion for the orchestrator's merge check lived only in this checkpoint's verify list, so nothing would keep it.", "round 2 FAIL: F1-F6 verified resolved (the detached gate, the ignored-content gate, the version floor, the decorated list, the upstream-mismatch keep, and the test that now pins the orchestrator's merge check). Two new findings: N1 MAJOR the ignored-content rule overshot, because gitignored content is the normal state of a session worktree in this repository (receipts, cache, playwright, node_modules) and it made worktree removal unreachable, contradicting the checkpoint's own acceptance; N2 MINOR the skill and the verb then disagreed about that same state, since the verb has no such check. Both are being closed by splitting regenerable ignored output from data, naming the explicit human path, and reporting what a removal drops.", "round 3 FAIL: N1 and N2 verified resolved, and three more found on the same path: N3 MAJOR the ignored-path read omits --untracked-files=all, so it inherits status.showUntrackedFiles and a repository configured with 'no' prints nothing, making the verb drop ignored content in silence and step 1 read every worktree as regenerable; N4 MAJOR the regenerable list misses .DS_Store and .claude/reviews/, which this repository ignores and macOS writes into any worktree, so the pass goes inert again on a worktree carrying nothing but editor noise; N5 MINOR the list is unanchored, so a nested or prefixed lookalike reads as listed and an ignored directory collapses to a single line that hides what it holds.", "round 4 PASS: N3-N5 verified resolved and the loop closed, with two minors and one gate finding closed after it: N6 the forced read expanded every ignored directory into a line per file, so the report grew with the tree (61 bytes for a 2,000-file directory now, against 57 KB), and N7 the anchoring rule denied substring matches while two of its own entries are suffix patterns. The behavior gate added N8, a fail-open read: git exits 0 while warning on stderr when it cannot read a subdirectory, so a read that only asked whether the output was empty treated an unread worktree as clean; the read now refuses to report an empty set it did not see, and the skill keeps and reports that worktree. Final gate: 15/15 entries, both directions proved by hand, and step 1 now says the loop walks the session worktrees only."] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 5,
+      "title": "Replace ai-pr-loop-fix with the ai-pr full loop",
+      "simple": "Open and finish the pull request",
+      "size": "l",
+      "goal": "A new skills/ai-pr walks the whole pull-request loop — cut the PR branch from the local `main` without a worktree, push, open the pull request against `main`, watch CI and review comments, fix what is obvious in bounded iterations and merge with auto-merge on by default (switchable off) — and skills/ai-pr-loop-fix is deleted.",
+      "plain": {
+        "what": "One helper takes a finished group of work all the way to a reviewed pull request.",
+        "why": "The old helper fixed test failures but could not open or finish anything, so the job stopped halfway.",
+        "check": "Ask for the pull request and watch it get opened, checked and finished without further steps."
+      },
+      "builds_on": [4],
+      "tasks": [
+        "skills/ai-pr/SKILL.md (new): frontmatter with triggers and a `## Lifecycle` block; phases — cut the PR branch from the local `main` with no worktree, `git push -u`, `gh pr create --base main` with the body assembled from the merge commits the branch carries, watch CI (`gh pr checks` / `gh run list`) and review comments, fix only obvious failures in bounded iterations, then merge with auto-merge on by default and switchable off (`gh pr merge --auto` with a no-auto option); never delete a remote branch; never merge unless the human asked for the PR.",
+        "Delete skills/ai-pr-loop-fix/SKILL.md.",
+        "tests/ai-pr.spec.ts (new, small): the skill exists with a Lifecycle block and documents `gh pr create` against `main`, auto-merge on by default with a switch, the bounded iteration cap, and that skills/ai-pr-loop-fix no longer exists.",
+        "Run `bun scripts/gen-assets.ts` and commit the regenerated src/assets.ts."
+      ],
+      "files": ["skills/ai-pr/SKILL.md", "tests/ai-pr.spec.ts", "src/assets.ts"],
+      "acceptance": [
+        "skills/ai-pr exists, has a Lifecycle block, and documents the full loop: branch from local main without a worktree, push, PR against main, CI/review watch, bounded obvious fixes, merge.",
+        "Auto-merge is on by default and can be switched off; remote branch deletion never appears.",
+        "skills/ai-pr-loop-fix is gone and embedded assets are in sync."
+      ],
+      "verify": [
+        "test -f skills/ai-pr/SKILL.md && test ! -d skills/ai-pr-loop-fix",
+        "rg -q 'gh pr create' skills/ai-pr/SKILL.md",
+        "rg -q 'gh pr merge' skills/ai-pr/SKILL.md",
+        "bun test tests/ai-pr.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["attempt 1 PASS: 8/8 planned entries, the spec green at 9 cases, and every flag the skill names confirmed against the installed gh (create --base/--head/--title/--body-file, merge --auto/--disable-auto, checks with a PR number, --watch and --required). The gate found one contradiction for the review gate to settle: Phase 6 armed auto-merge by default while a rules line said a green pull request is not a request to merge, and the strategy was left to 'whatever the repository allows' with no command to find it."] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 2, "findings": ["round 1 FAIL with eight findings: F1 BLOCKER the skill could merge unasked, arming auto-merge on any pull request it opened while a rules line said a green one is not a request to merge; F2 MAJOR the merge named no strategy, which fails headless on a repository with several methods enabled; F3 MAJOR nothing fetched, so the range and the precondition were read off a stale ref and the body could misstate what the branch carries; F4 MAJOR gating and informing checks were not distinguished, so the agent guessed; F5 MAJOR the watch loop lost the predecessor's stuck bound and its log-diagnosis discipline; F6 MINOR Phase 1 had no path for an existing branch, a dirty tree or a behind main; F7 MAJOR the spec pinned wording, not behaviour, so text that merges unasked would have passed; F8 MINOR nothing brought local main up to date after the merge.", "rounds 2-4, attempt 1 ended at the cap without a PASS: F1 upheld (a plain 'open the pull request' still routed into the phase that merges) and F5 upheld (the poll cap had no interval); new F9 MAJOR a hard reset on the shared trunk, F10 MINOR no rule when the protection query fails, F12 MINOR the strategy rule named an ambiguous ref; then F9 upheld again with the sharpest argument of the run: a squash merge gives the remote a commit whose history lacks the local trunk, so the fast-forward level could never run and F13 followed, every later run stopping on a divergence it had caused; F14 MINOR the poll cap counted ninety seconds. Resolved by routing the run on the human's verb, waiting between polls inside a time budget, leveling with the form that refuses, waiting for the human when the gating set cannot be read, and merging with a merge commit because it is the only method that leaves the local trunk in the remote's ancestry.", "rounds 1-4 of attempt 2: F15 MAJOR a re-run could not get past opening, since Phase 3 created the pull request unconditionally and gh fails when one already exists for the branch; F16 MINOR the merge had no rejection branch. Both closed next round.", "attempt 2 round 1 PASS: F15 and F16 verified resolved with three minors left, all one class: the rejection rule written for the merge had not been applied to the other remote reads. F17 the pull-request read treated any failure as absence, so a token or network failure could create a second pull request; F18 the number had no stated source on the create path; F19 the polls had no failure branch, where a failed read could pass for a finished check. Closed so that only the message naming the expected absence branches, every other failure reports and stops, and the number is bound per path. Final gate: 8/8 entries and the walk, including a real re-run that continues pull request #1 and a protection rule that rejects the merge with the pull request left open. Residue recorded, not blocking: the create and the merge-method query exit loudly on failure without a stated branch."] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 6,
+      "title": "Update README, CONTRIBUTING, the blueprint and the changeset",
+      "simple": "Tell people about the new workflow",
+      "size": "l",
+      "goal": "README documents the `ai-eng worktree` verb next to `ai-eng git pre-commit`, CONTRIBUTING describes the local flow (worktree, merge to the local main, PR only when the human decides), docs/blueprint.html gains the behaviour-change section for the verb and the changed skills, and a minor changeset lands in .changeset/.",
+      "plain": {
+        "what": "The user-facing docs, the guide for contributors and the product document all describe the new way of working.",
+        "why": "A change nobody can read about is a change half delivered.",
+        "check": "Open the project's readme and look for the new command and the short description of the flow."
+      },
+      "builds_on": [5],
+      "tasks": [
+        "README.md: next to `ai-eng git pre-commit` (~line 235) add `ai-eng worktree new|rm|list` with one line of the flow (separate copy per job, combined back locally, nothing sent anywhere until a person decides).",
+        "CONTRIBUTING.md `Commit and PR conventions`: add the local flow — work in a worktree, merge to the local `main`, the PR against `origin/main` is the human's decision.",
+        "docs/blueprint.html: add the behaviour-change section for the `worktree` verb and the changed skills (ai-orchestrator close, ai-git-cleanup, ai-pr), near the existing §21.2 worktree-per-agent section.",
+        ".changeset/git-worktree-flow.md: minor bump (`\"ai-engineering\": minor`) with a one-sentence summary.",
+        ".ai-engineering/PRD.html (Rules bullet) and .ai-engineering/brainstorm.html (§08 and §11): align both with the contract — name which artifacts are written and committed in the primary tree before any worktree (`brainstorm.html`, `spec.html`, `plan.html`), which reach the primary tree with the merge (`recap.html`, generated on the feature branch at the app review), and that `PRD.html` itself is updated only by the merge step; leave no inverted sentence. This is the only place those two files are touched, and it happens in the primary tree as part of the close, never from a worktree.",
+        "FILEMAP.md is left unchanged (board §11 marks it so on purpose)."
+      ],
+      "files": ["README.md", "CONTRIBUTING.md", "docs/blueprint.html", ".changeset/git-worktree-flow.md", ".ai-engineering/PRD.html", ".ai-engineering/brainstorm.html"],
+      "acceptance": [
+        "README names `ai-eng worktree` and one line of the flow.",
+        "CONTRIBUTING describes the local worktree/merge flow and that the PR is the human's call.",
+        "docs/blueprint.html has the new section for the verb and the changed skills.",
+        ".changeset/git-worktree-flow.md exists with a minor bump; FILEMAP.md is untouched.",
+        "AGENTS.md, templates/AGENTS.md.tpl, `.ai-engineering/PRD.html` and `.ai-engineering/brainstorm.html` describe the same partition — written before the worktree / arrives with the merge / merge-only — with no inverted sentence left."
+      ],
+      "verify": [
+        "rg -q 'ai-eng worktree' README.md",
+        "rg -q 'worktree' CONTRIBUTING.md",
+        "rg -q 'ai-eng worktree' docs/blueprint.html",
+        "rg -q 'brainstorm\\.html' .ai-engineering/PRD.html && rg -q 'spec\\.html' .ai-engineering/PRD.html && rg -q 'plan\\.html' .ai-engineering/PRD.html",
+        "! rg -q 'PRD\\.html.*spec\\.html.*plan\\.html' .ai-engineering/PRD.html",
+        "! rg -q 'PERMISSIONS\\.md.*recap\\.html' .ai-engineering/brainstorm.html",
+        "test -f .changeset/git-worktree-flow.md && rg -q 'minor' .changeset/git-worktree-flow.md",
+        "bun test tests/npm-manifest.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 2, "findings": ["attempt 1 FAIL: the 12 planned entries passed, but the gate re-derived every claim against the tooling and found three the tooling denies. The README said the machine verbs numbered four and that --help hides them, while its own list had five after this checkpoint's line and the binary prints seven; the blueprint's 21.2 still sold one .ai-engineering per worktree after the new section denied it; and the brainstorm cited the slot list at the file it used to live in. Attempt 2 PASS: 12/12, the help output compared item by item with the page, 21.2 carrying its correction, every file:line citation resolving, CONTRIBUTING matching both skills, and the changeset and FILEMAP checked.", "later rounds, same class: the sweep kept finding claims the tooling denies in places the previous fix had not looked, each time in a document this checkpoint edited: the blueprint still counted four machine verbs in two more places and badged a superseded question as resolved; the interview's what-exists-today table contradicted its own next row and named a skill that now exists; the CLI paragraph sold a retired subcommand and hid the one the README uses; and the README counted skills against three different numbers and promised a check count no output prints. Every one was closed by deriving it from the command that answers it, and a number that cannot stay true was removed rather than corrected. Final run PASS: 12/12 entries in order, ninety statements swept, and the only false claims left are the blueprint's own dated v17 record (a package version, a skill count and a surface count from 2026-09-22) which the document marks as history and which this feature neither wrote nor touched."] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["round 1 FAIL with four findings: F4 MAJOR the blueprint's 21.2 still contradicted the new section in its own heading and its closing plan, which one sentence inside a card had not settled; F5 MAJOR the alignment dropped the qualifier that scopes the merge step to the primary tree, so the two design pages began inverting skills/ai-orchestrator/SKILL.md Phase 3, where the session writes those files on its own branch; F6 MINOR a file count that was already stale when written; F7 MAJOR the two design pages were staged from inside this worktree, against a rule that had landed five checkpoints earlier, so the deviation was not the rule's own run. F1-F3 were re-verified resolved.", "later rounds: F4-F6 resolved; F7 upheld as an accepted process deviation, history left alone because the repository does not rewrite it. Each later round found the same class and the last returned PASS: the blueprint's own section heading and its question badge, the second half of the shared-file rule in the two AGENTS surfaces, dependency names that left the tree in September, a subcommand the binary reports as retired, and the interview's table dated as the state before this feature. Residual recorded, not this feature's: the blueprint's own v17 record still carries a package version, a skill count and a surface count from 2026-09-22, which the document marks as history."] }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 7,
+      "title": "Fold the reviewed attachment pieces into ai-audit-code and ai-security",
+      "simple": "Add good habits to two helpers",
+      "size": "l",
+      "goal": "The smallest text additions: ai-audit-code gains the discipline of citing `file:line` and a \"Looks bad but is fine\" section plus the anti-false-positive and verify-before-deleting guardrail; ai-security gains \"no severity without an attack path\" and the split of the hunter/PoC from the validator. Nothing else from the attachments is imported.",
+      "plain": {
+        "what": "Two helpers get a few extra good habits taken from other projects.",
+        "why": "Those habits are the best parts of the outside work; taking the whole projects would bring too much.",
+        "check": "Nothing to see on screen yet; the checks read the written guidance."
+      },
+      "builds_on": [6],
+      "tasks": [
+        "skills/ai-audit-code/SKILL.md: add the `file:line` citation discipline and a \"Looks bad but is fine\" section (from tech-debt-audit), plus the anti-false-positive and verify-before-deleting guardrail (from remove-deadcode) as a few short lines.",
+        "skills/ai-security/SKILL.md: add \"no severity without an attack path\" and the hunter/PoC-separate-from-validator split as a couple of sentences (the findings.json ledger already exists).",
+        "Run `bun scripts/gen-assets.ts` and commit the regenerated src/assets.ts."
+      ],
+      "files": ["skills/ai-audit-code/SKILL.md", "skills/ai-security/SKILL.md", "src/assets.ts"],
+      "acceptance": [
+        "ai-audit-code cites `file:line` and carries a \"Looks bad but is fine\" section.",
+        "ai-security states that no severity is given without an attack path and separates the hunter/PoC from the validator.",
+        "No other content from the three attachments is imported; embedded assets are in sync."
+      ],
+      "verify": [
+        "rg -q 'Looks bad but is fine' skills/ai-audit-code/SKILL.md",
+        "rg -q 'file:line' skills/ai-audit-code/SKILL.md",
+        "rg -q 'attack path' skills/ai-security/SKILL.md",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["attempt 1 PASS: 8/8 planned entries in order, every planned piece present and, clause by clause, the two skills grow by five one-line habits and two lines respectively. The gate confirmed nothing was imported beyond the plan, that both files keep their frontmatter and Lifecycle block, and that the embedded assets resolve (the map enumerates paths, so regeneration is correctly a no-op). It noted the intermediate revision stated several rules twice at two strengths, which the review then removed."] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 1, "findings": ["round 1 FAIL with six findings, one blocker: the addition restated rules the host files already carried, in a harder form, so the duplicates read as new law and cancelled the originals. A search was forbidden for a job the same page tells the agent to search for; a guard against deleting entry points contradicted the ladder's first rung; a rule preserved dead code behind its stale test; a citation rule refused findings whose unit is not one line; a severity rule contradicted the file's own no-exploit grade; and the new section repeated the ladder it was appended to. Half the addition was removed and the rest qualified against the host rule. Round 2 PASS with one minor, closed after it: the severity headline now names its range, and the audit rule's trailing absolute is folded into the sentence before it.", "Residual recorded by the gate, not a defect: the severity theme appears at three places in the security file, consistent rather than conflicting."] }
+      },
+      "status": "passed"
+    }
+  ],
+  "assumptions": [
+    "The project's own guidance file and the shipped template both get the new section, because the template already carried an older four-line version of it (templates/AGENTS.md.tpl already has `## Git workflow`).",
+    "The slug is validated before use against `^[a-z0-9][a-z0-9._-]*$`, because it is both the branch name `feat/<slug>` and the worktree directory name, and the orchestrator compares it literally against `<meta name=\"ai-feature\">`; an invalid slug fails with a non-zero exit and creates nothing.",
+    "The worktree root is configurable: `[git].worktrees_dir` in `.ai-engineering/config.toml` when present, otherwise `<repo>.worktrees`; it is the only portability escape hatch the design allows (brainstorm §08).",
+    "The design-slot list is defined once in the new shared module and src/spec/index.ts imports it from there, because the shared layer may not import the spec layer (arch.rules.json), so the single definition moves down rather than up.",
+    "The new command's logic lives in a shared helper file and a thin parser so no new architecture layer has to be proposed (AGENTS.md architecture rules and src/cli.ts, which only dispatches).",
+    "The verb checkpoint precedes the orchestrator checkpoint, because the orchestrator must not call a command that does not exist yet; this supersedes the handoff's suggested order.",
+    "The outside project's attribution is removed because its script is deleted and the helper is rewritten from scratch (handoff notes list that deletion and the attribution update together).",
+    "Auto-merge on by default, switchable off (PRD feature bullet for `ai-pr`).",
+    "The template's old git section is rewritten rather than duplicated, because the section test expects a single `## Git workflow` heading."
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "The verb (checkpoint 2) lands before the orchestrator change (checkpoint 3) so the orchestrator never cites a command that does not exist; this feature builds its own workflow, and the first build runs in the primary tree.",
+    "Out of scope, per the preflight §09: renaming `ai-eng git` to `ai-eng hooks`, deleting remote branches, rewriting local main history, and touching the orphan worktree `ai-engineering-v1-oracle`.",
+    "Checkpoint 7 is deliberately tiny but its size stays `l` because planner sizes never shrink; its own checkpoint was requested by the preflight handoff.",
+    "The CHANGELOG entry is written by the merge step, not by a checkpoint (preflight §08/§11); no checkpoint adds it.",
+    "Checkpoint 6 runs `bun test tests/npm-manifest.spec.ts` because the changeset and the packaging surface change together; FILEMAP.md needs no change (preflight §11)."
+  ]
+}
