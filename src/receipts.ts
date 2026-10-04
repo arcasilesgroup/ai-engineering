@@ -70,8 +70,10 @@ export function isChainReceipt(event: string): boolean {
 /** doctor's aggregate: without this you don't know whether the chain runs at all —
  *  nor who denies, on what tool, on which day (research/001 R1: the gc must stop
  *  throwing away the story the receipts already tell). */
-export function summarizeReceipts(dir?: string): ReceiptSummary {
-  const target = dir ?? receiptsDir();
+export function summarizeReceipts(dir?: string | null): ReceiptSummary {
+  // `dir` is tri-state: `undefined` = resolve the caller's repo, `null` = no store
+  // at all (the caller already knows this root has none), a string = that store.
+  const target = dir === undefined ? receiptsDir() : dir;
   const latencies: number[] = [];
   let total = 0;
   let denies = 0;
