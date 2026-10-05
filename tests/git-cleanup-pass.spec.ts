@@ -19,8 +19,25 @@ describe("ai-git-cleanup skill — the one-pass, name-free rewrite", () => {
     expect(skill).toContain("git branch --merged main");
   });
 
-  test("never force-deletes: -D appears nowhere in the skill", () => {
-    expect(skill).not.toContain("-D");
+  test("force-deletes only behind the step-5 whole-tree proof", () => {
+    // This test used to read "-D appears nowhere". That held until a squash landed:
+    // a branch whose tree is byte-identical to origin/main is provably finished even
+    // though ancestry never merged it, so the pass earned exactly one -D for it. The
+    // narrowing is the rule — no new force-delete, and the one keeps its proof.
+    const forceDeletes = skill.match(/branch -D/g) ?? [];
+    expect(forceDeletes).toHaveLength(2); // the step-5 command, quoted once in the invariants
+    // The ordinary delete stays soft, tested against the branch's own upstream.
+    expect(skill).toContain('git branch -d -- "<branch>"');
+    // The proof, the receipt tag and the refusal-without-proof sit with the command.
+    const step = skill.indexOf('git branch -D -- "<branch>"');
+    expect(step).toBeGreaterThan(-1);
+    const around = skill.slice(Math.max(0, step - 900), step + 900);
+    expect(around).toContain("archive/<branch>");
+    expect(around).toMatch(/byte-identical to\s+`origin\/main`/);
+    expect(around).toMatch(/refuse the whole step when `origin\/main` cannot be fetched/);
+    expect(around).toMatch(/only force-delete/);
+    // And the invariant still refuses a force-delete that has no proof.
+    expect(skill).toContain("Never force-delete anything without a proof in hand");
   });
 
   test("asks for no name and has no interactive question", () => {
