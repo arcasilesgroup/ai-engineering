@@ -1,5 +1,52 @@
 # Changelog
 
+## 2.6.0
+
+### Minor Changes
+
+- [#743](https://github.com/arcasilesgroup/ai-engineering/pull/743) [`3e3bd00`](https://github.com/arcasilesgroup/ai-engineering/commit/3e3bd0099483c31cfd4450fc2fbd60355bcc7cb1) Thanks [@soydachi](https://github.com/soydachi)! - New `ai-github-triage` skill: reads every open issue and pull request of a repository into one ranked page at `.ai-engineering/triage.html` — what to start on first, what is already answered, what to close, each claim pinned to a permalink at a commit SHA — read-only on GitHub.
+
+- [#743](https://github.com/arcasilesgroup/ai-engineering/pull/743) [`3e3bd00`](https://github.com/arcasilesgroup/ai-engineering/commit/3e3bd0099483c31cfd4450fc2fbd60355bcc7cb1) Thanks [@soydachi](https://github.com/soydachi)! - One worktree per feature: a session that writes code works in `<repo>.worktrees/<slug>`, merges into the local `main` when it closes, and never pushes, while the new `ai-eng worktree new|rm|list` verb manages those copies and the human decides the pull request against `origin/main`.
+
+### Patch Changes
+
+- [#742](https://github.com/arcasilesgroup/ai-engineering/pull/742) [`3986acb`](https://github.com/arcasilesgroup/ai-engineering/commit/3986acbb3ff5c84d2de5fc796879fcb10bd7a45c) Thanks [@soydachi](https://github.com/soydachi)! - Fix artifact HTML alignment drift at the source: the artifact design system now
+  carries one CSS block instead of two drifted copies, the skills say to copy the
+  whole block verbatim (copying only the tokens left each writer inventing layout),
+  and a new layout gate (tests/artifact-layout.spec.ts) rejects centered or 68ch-capped
+  body text, missing `.container` wrappers, and unaligned notes — the defect that
+  shipped research 007-014 and the audit page. The gate also caught two template
+  defects: `--radius-lg` was used 12× but never declared (border-radius computed
+  to 0px — square corners — in every verbatim copier) and the shipped carriers
+  were missing 18 canonical rules (`.sr`, `.pipe`, `.tiers`, `nav::after`).
+  Both templates now carry the canonical block whole. Research gains the same
+  guarantee it never had: `templates/research.html.tpl` (carrier nº3, gated by
+  the layout and scroll-spy tests) and ai-research now starts from it instead of
+  hand-writing a `<style>` block per report.
+
+- [#744](https://github.com/arcasilesgroup/ai-engineering/pull/744) [`cb0e947`](https://github.com/arcasilesgroup/ai-engineering/commit/cb0e947ed78233b2b5ae622c1060d637109e72a8) Thanks [@soydachi](https://github.com/soydachi)! - Briefing: an ungoverned root reads no foreign receipt store. `summarizeReceipts`
+  now takes a tri-state `dir` — `undefined` resolves the caller's repository,
+  `null` means this root has no store at all, a string means that store — so a
+  temp-root briefing stops resolving the process's nearest governed repo and
+  scanning the host checkout's receipts (5 s per call → 0 ms).
+
+- [#744](https://github.com/arcasilesgroup/ai-engineering/pull/744) [`cb0e947`](https://github.com/arcasilesgroup/ai-engineering/commit/cb0e947ed78233b2b5ae622c1060d637109e72a8) Thanks [@soydachi](https://github.com/soydachi)! - `ai-git-cleanup`: the pass learns what a squash merge looks like, so a branch a
+  squash-merged pull request left behind is no longer stranded as "unmerged"
+  forever. A branch (not the current one, not checked out anywhere) whose tree is
+  byte-identical to a fetched `origin/main` has provably landed: tag
+  `archive/<branch>` as the receipt that its history stays reachable, then delete
+  it. It is the pass's only force-delete, earned by the whole-tree comparison; a
+  branch whose tree differs is parked and reported, never merged or re-opened on
+  the pass's initiative, and without a fetched `origin/main` the step refuses.
+
+- [#740](https://github.com/arcasilesgroup/ai-engineering/pull/740) [`2fda7ea`](https://github.com/arcasilesgroup/ai-engineering/commit/2fda7ea5c991615b8cb08a1d2567ad7c219b00ba) Thanks [@soydachi](https://github.com/soydachi)! - npm: drop the eight `ai-engineering-<target>` platform packages. They never
+  existed on the registry — OIDC trusted publishing cannot create a package
+  (npm: "Package must exist"), so every release died at their publish with
+  ENEEDAUTH while `ai-engineering` itself published fine. The launcher now runs
+  `src/` under the bun that `engines` already requires (the v0.13.0
+  `requires-python` contract, in npm terms), and the GitHub release keeps
+  shipping the eight compiled binaries for the client's CI.
+
 ## 2.5.0
 
 ### Minor Changes
