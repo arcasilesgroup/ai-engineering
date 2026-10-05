@@ -187,7 +187,7 @@ contract the next skill can read.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/skill-chain-dark.svg">
-    <img src=".github/assets/skill-chain-light.svg" alt="The skill pipeline: ai-research and ai-architect feed ai-brainstorm into ai-orchestrator, ai-verify judges the result, ai-security and ai-write fire on their triggers, and ai-visual-recap is the terminal node, with 22 on-demand skills available anywhere" width="100%">
+    <img src=".github/assets/skill-chain-light.svg" alt="The skills chain in five phases: ai-brainstorm frames the idea, ai-orchestrator writes the contract and runs the checkpoint loop, ai-verify gives the verdict, and ai-security, ai-write and ai-visual-recap close it, with ai-research, ai-architect and the design skills feeding the contract and 20 on-demand skills available anywhere" width="100%">
   </picture>
 </p>
 

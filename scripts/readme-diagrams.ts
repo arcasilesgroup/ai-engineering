@@ -18,7 +18,11 @@ const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 
 type Palette = {
   bg: string;
+  ivory: string;
   panel: string;
+  card: string;
+  hot: string;
+  faint: string;
   stroke: string;
   title: string;
   body: string;
@@ -32,7 +36,11 @@ type Palette = {
 
 const DARK: Palette = {
   bg: "#001E2B",
+  ivory: "#001E2B",
   panel: "#112733",
+  card: "#112733",
+  hot: "#0F2C36",
+  faint: "#3D4F58",
   stroke: "#25505F",
   title: "#FFFFFF",
   body: "#C1C7C6",
@@ -46,7 +54,11 @@ const DARK: Palette = {
 
 const LIGHT: Palette = {
   bg: "#FFFFFF",
+  ivory: "#F9FBFA",
   panel: "#F9FBFA",
+  card: "#FFFFFF",
+  hot: "#EDF6F2",
+  faint: "#C1C7C6",
   stroke: "#C1C7C6",
   title: "#001E2B",
   body: "#3D4F58",
@@ -137,16 +149,67 @@ const installedSkills = readdirSync(SKILLS_DIR)
   .filter((name) => existsSync(join(SKILLS_DIR, name, "SKILL.md")))
   .sort();
 
-const PIPELINE = ["ai-brainstorm", "ai-orchestrator", "ai-verify", "ai-visual-recap"];
-const FEEDS_IN = ["ai-research", "ai-architect"];
-const TRIGGERED = ["ai-security", "ai-write"];
-const ON_DEMAND = installedSkills.filter((s) => !PIPELINE.includes(s) && !FEEDS_IN.includes(s) && !TRIGGERED.includes(s));
-
-const LANES = [
-  { id: "light", detail: "ai-brainstorm → ai-verify · a verdict, no contract" },
-  { id: "standard", detail: "ai-brainstorm → ai-orchestrator → ai-verify → the recap" },
-  { id: "full", detail: "the same, plus research, architecture, security and docs when a trigger fires" },
+/** Every skill the diagram names, so a rename fails the render instead of the picture. */
+const NAMED_SKILLS = [
+  "ai-brainstorm",
+  "ai-orchestrator",
+  "ai-verify",
+  "ai-visual-recap",
+  "ai-research",
+  "ai-architect",
+  "ai-design-md-planner",
+  "ai-audit-design",
+  "ai-security",
+  "ai-write",
 ];
+
+type PhaseCard = { cmd: string; sub: string; out?: string; hot?: boolean };
+type Phase = { idx: string; name: string; cards: PhaseCard[]; gate?: string };
+
+/** The pipeline as the site draws it: five phases, no lanes, one gate per column. */
+const PHASES: Phase[] = [
+  {
+    idx: "01",
+    name: "frame",
+    cards: [{ cmd: "/ai-brainstorm", sub: "the idea, said in plain language", out: "writes brainstorm.html" }],
+  },
+  {
+    idx: "02",
+    name: "contract",
+    cards: [{ cmd: "/ai-orchestrator", sub: "writes what must hold, and the check that proves it", out: "writes spec.html · plan.html" }],
+    gate: "STOP · a human approves",
+  },
+  {
+    idx: "03",
+    name: "the loop",
+    cards: [{ cmd: "/ai-orchestrator", sub: "phase two: runs the plan, three gates per checkpoint", hot: true }],
+    gate: "ai-eng spec run",
+  },
+  {
+    idx: "04",
+    name: "verdict",
+    cards: [{ cmd: "/ai-verify", sub: "judges the work against the standard it was given", out: "reads spec.html" }],
+  },
+  {
+    idx: "05",
+    name: "the close",
+    cards: [
+      { cmd: "/ai-security", sub: "the security trigger fired" },
+      { cmd: "/ai-write", sub: "the public interface changed" },
+      { cmd: "/ai-visual-recap", sub: "the terminal node" },
+    ],
+    gate: "ai-eng spec close",
+  },
+];
+
+/** The three skills that feed the contract from outside the pipeline. */
+const FEEDS = [
+  { cmd: "/ai-research", sub: "answers what the repo cannot" },
+  { cmd: "/ai-architect", sub: "pins the layer rules" },
+  { cmd: "ai-design-md-planner → ai-audit-design", sub: "the UI lane, on the ui trigger" },
+];
+
+const ON_DEMAND = installedSkills.filter((s) => !NAMED_SKILLS.includes(s));
 
 const GUARDS = [
   { name: "self-protect", detail: "writes against governance" },
@@ -174,68 +237,106 @@ function assertSkillsExist(names: string[], where: string): void {
 
 // ── diagram 1: the skill pipeline ───────────────────────────────────────────
 
-function skillDiagram(pal: Palette): string {
-  const W = 1360;
-  const parts: string[] = [];
-  parts.push(text(40, 54, "{ai} engineering · one pipeline", { size: 25, fill: pal.title, weight: 700, mono: true }));
-  parts.push(
-    text(40, 82, `${installedSkills.length} skills. Each declares in its front matter what it writes, who reads it,`, { size: 15, fill: pal.body }),
-  );
-  parts.push(text(40, 102, "when it dies, and what runs next — so the handoff is a contract, not a convention.", { size: 15, fill: pal.body }));
+/** Break a sentence so it fits a column, by an average glyph width. */
+function wrapWords(value: string, maxChars: number): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of value.split(" ")) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (candidate.length > maxChars && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
 
-  parts.push(text(40, 148, "LANES", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 2 }));
-  LANES.forEach((lane, i) => {
-    const y = 160 + i * 34;
-    parts.push(`<rect x="118" y="${y}" width="104" height="26" rx="7" fill="${pal.panel}" stroke="${pal.stroke}"/>`);
-    parts.push(text(170, y + 18, lane.id, { size: 13, fill: pal.accent, weight: 700, mono: true, anchor: "middle" }));
-    parts.push(text(238, y + 18, lane.detail, { size: 14, fill: pal.body }));
+/** One skill node. The hot variant marks the phase where the agent is working. */
+function node(x: number, y: number, w: number, h: number, pal: Palette, n: PhaseCard): string {
+  const fill = n.hot ? pal.hot : pal.panel;
+  const stroke = n.hot ? pal.accent : pal.stroke;
+  const pad = 14;
+  const parts = [`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="${fill}" stroke="${stroke}" stroke-width="1.25"/>`];
+  parts.push(text(x + pad, y + 25, n.cmd, { size: 14, fill: n.hot ? pal.accent : pal.title, weight: 700, mono: true }));
+  wrapWords(n.sub, Math.floor((w - pad * 2) / 6.3))
+    .slice(0, 3)
+    .forEach((line, i) => parts.push(text(x + pad, y + 46 + i * 17, line, { size: 12.5, fill: pal.body })));
+  if (n.out) parts.push(text(x + pad, y + h - 12, n.out, { size: 11.5, fill: pal.accent, mono: true }));
+  return parts.join("\n");
+}
+
+/** A stop the pipeline waits on. Dashed, because it is a state, not a skill. */
+function gate(x: number, y: number, w: number, h: number, pal: Palette, label: string): string {
+  return [
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7" fill="none" stroke="${pal.accent}" stroke-dasharray="4 3" opacity="0.9"/>`,
+    text(x + 10, y + 19, label, { size: 12, fill: pal.accent, weight: 700, mono: true }),
+  ].join("\n");
+}
+
+/** A feeder card: dashed outline, an up-arrow back toward the chain. */
+function feed(x: number, y: number, w: number, h: number, pal: Palette, n: { cmd: string; sub: string }): string {
+  const pad = 14;
+  const arrowX = x + w - 22;
+  const parts = [
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="none" stroke="${pal.faint}" stroke-dasharray="5 4"/>`,
+    text(x + pad, y + 27, n.cmd, { size: 13, fill: pal.title, weight: 700, mono: true }),
+    `<path d="M ${arrowX} ${y + 27} L ${arrowX} ${y + 14} M ${arrowX - 5} ${y + 19} L ${arrowX} ${y + 14} L ${arrowX + 5} ${y + 19}" fill="none" stroke="${pal.accent}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+  ];
+  wrapWords(n.sub, Math.floor((w - pad * 2) / 6.6))
+    .slice(0, 2)
+    .forEach((line, i) => parts.push(text(x + pad, y + 52 + i * 17, line, { size: 12.5, fill: pal.body })));
+  return parts.join("\n");
+}
+
+function skillDiagram(pal: Palette): string {
+  const W = 1400;
+  const CX = W / 2;
+  const parts: string[] = [];
+
+  parts.push(`<path d="M 585 66 L 625 66" stroke="${pal.accent}" stroke-width="1.5"/>`);
+  parts.push(text(639, 71, "THE SKILLS CHAIN", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 2.4 }));
+  parts.push(text(CX - 10, 140, "One pipeline,", { size: 44, fill: pal.title, weight: 800, anchor: "end" }));
+  parts.push(text(CX + 10, 140, "five phases.", { size: 44, fill: pal.accent, weight: 800, anchor: "start" }));
+
+  const colW = 232;
+  const arrowW = 40;
+  const phaseNumY = 208;
+  const cardTop = 226;
+  const singleH = 118;
+  const smallH = 58;
+  const smallGap = 10;
+  const rowH = Math.max(singleH, 3 * smallH + 2 * smallGap);
+  const gateY = cardTop + rowH + 14;
+  const gateH = 28;
+  const arrowY = cardTop + singleH / 2;
+
+  PHASES.forEach((phase, i) => {
+    const x = 40 + i * (colW + arrowW);
+    parts.push(text(x, phaseNumY, phase.idx, { size: 12, fill: pal.title, weight: 700, mono: true, tracking: 1.6 }));
+    parts.push(text(x + 28, phaseNumY, `· ${phase.name.toUpperCase()}`, { size: 12, fill: pal.muted, mono: true, tracking: 1.6 }));
+    phase.cards.forEach((c, j) =>
+      parts.push(node(x, cardTop + j * (smallH + smallGap), colW, phase.cards.length > 1 ? smallH : singleH, pal, c)),
+    );
+    if (phase.gate) parts.push(gate(x, gateY, colW, gateH, pal, phase.gate));
+    if (i < PHASES.length - 1) parts.push(arrow(x + colW + 6, arrowY, x + colW + arrowW - 8, arrowY, pal));
   });
 
-  // Feeders sit above the orchestrator, triggers below verify and the recap.
-  const nodes = [
-    { x: 90, y: 420, w: 250, h: 96, title: PIPELINE[0], lines: ["the idea, said in plain", "language"] },
-    { x: 400, y: 420, w: 250, h: 96, title: PIPELINE[1], lines: ["builds it in gated", "checkpoints you approve"] },
-    { x: 710, y: 420, w: 250, h: 96, title: PIPELINE[2], lines: ["a verdict with evidence,", "not an impression"] },
-    { x: 1020, y: 420, w: 250, h: 96, title: PIPELINE[3], lines: ["the diff, as an", "interactive page"] },
-  ];
-  const feeds = [
-    { x: 275, y: 290, w: 250, h: 72, title: FEEDS_IN[0], lines: ["answers what the repo", "cannot"] },
-    { x: 550, y: 290, w: 250, h: 72, title: FEEDS_IN[1], lines: ["the approach, the stack,", "the tradeoff"] },
-  ];
-  const triggered = [
-    { x: 710, y: 560, w: 250, h: 72, title: TRIGGERED[0], lines: ["a six-phase audit,", "adversarially validated"] },
-    { x: 1020, y: 560, w: 250, h: 72, title: TRIGGERED[1], lines: ["the README, the wiki,", "the API doc"] },
-  ];
+  const feedsLabelY = gateY + gateH + 52;
+  parts.push(text(40, feedsLabelY, "FEEDS THE CONTRACT", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 1.8 }));
+  const feedTop = feedsLabelY + 16;
+  FEEDS.forEach((f, i) => parts.push(feed(40 + i * 448, feedTop, 424, 78, pal, f)));
 
-  parts.push(text(40, 282, "FEEDS THE CONTRACT", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 1.6 }));
-  for (const n of feeds) parts.push(card(n.x, n.y, n.w, n.h, pal, n));
-  for (const n of nodes) parts.push(card(n.x, n.y, n.w, n.h, pal, n));
-  parts.push(text(40, 554, "FIRES AFTER VERIFY", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 1.6 }));
-  for (const n of triggered) parts.push(card(n.x, n.y, n.w, n.h, pal, n));
-
-  // Pipeline arrows.
-  const midY = 468;
-  for (const [a, b] of [
-    [0, 1],
-    [1, 2],
-  ]) {
-    const from = nodes[a]!;
-    const to = nodes[b]!;
-    parts.push(arrow(from.x + from.w, midY, to.x - 4, midY, pal));
-  }
-  // The recap is the terminal node: the arrow in is the pipeline's last hop.
-  parts.push(arrow(nodes[2]!.x + nodes[2]!.w, midY, nodes[3]!.x - 4, midY, pal));
-  parts.push(`<path d="M 400 362 L 400 392 L 490 392 L 490 416" fill="none" stroke="${pal.accent}" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>`);
-  parts.push(`<path d="M 675 362 L 675 392 L 560 392 L 560 416" fill="none" stroke="${pal.accent}" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>`);
-  parts.push(arrow(835, 516, 835, 556, pal));
-  parts.push(arrow(1145, 516, 1145, 556, pal));
-
-  parts.push(text(40, 672, "ON DEMAND · ANYWHERE IN THE CHAIN", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 1.6 }));
-  const cloud = chips(ON_DEMAND, 40, 688, 1320, pal);
+  const odLabelY = feedTop + 78 + 52;
+  parts.push(text(40, odLabelY, "ON DEMAND · ANYWHERE IN THE CHAIN", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 1.8 }));
+  const cloud = chips(ON_DEMAND, 40, odLabelY + 16, 1360, pal);
   parts.push(cloud.svg);
 
-  const H = 688 + cloud.height + 40;
-  return frame(W, H, pal, parts.join("\n"));
+  const H = odLabelY + 16 + cloud.height + 44;
+  const tint = `<defs><radialGradient id="tint" cx="50%" cy="0%" r="72%"><stop offset="0%" stop-color="${pal.accent}" stop-opacity="0.07"/><stop offset="100%" stop-color="${pal.accent}" stop-opacity="0"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#tint)"/>`;
+  return frame(W, H, { ...pal, bg: pal.ivory, panel: pal.card }, tint + parts.join("\n"));
 }
 
 // ── diagram 2: the life of one tool call ────────────────────────────────────
@@ -313,12 +414,7 @@ ${body}
 
 // ── write ───────────────────────────────────────────────────────────────────
 
-assertSkillsExist([...PIPELINE, ...FEEDS_IN, ...TRIGGERED], "the pipeline");
-for (const lane of LANES) {
-  for (const named of lane.detail.match(/ai-[a-z-]+/g) ?? []) {
-    if (!installedSkills.includes(named)) throw new Error(`readme-diagrams: a lane names "${named}", which is not installed`);
-  }
-}
+assertSkillsExist(NAMED_SKILLS, "the skills diagram");
 
 for (const [name, pal] of [
   ["skill-chain-dark", DARK],
