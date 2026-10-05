@@ -1,111 +1,119 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 834" width="1400" height="834" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1090" width="1400" height="1090" role="img">
 <defs>
 <marker id="head" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="#00684A"/></marker>
 </defs>
-<rect width="1400" height="834" fill="#F9FBFA"/>
-<defs><radialGradient id="tint" cx="50%" cy="0%" r="72%"><stop offset="0%" stop-color="#00684A" stop-opacity="0.07"/><stop offset="100%" stop-color="#00684A" stop-opacity="0"/></radialGradient></defs><rect width="1400" height="834" fill="url(#tint)"/><path d="M 585 66 L 625 66" stroke="#00684A" stroke-width="1.5"/>
-<text x="639" y="71" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" letter-spacing="2.4">THE SKILLS CHAIN</text>
-<text x="690" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="44" fill="#001E2B" font-weight="800" text-anchor="end">One pipeline,</text>
-<text x="710" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="44" fill="#00684A" font-weight="800" text-anchor="start">five phases.</text>
-<text x="40" y="208" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#001E2B" font-weight="700" letter-spacing="1.6">01</text>
-<text x="68" y="208" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#5C6C75" letter-spacing="1.6">· FRAME</text>
-<rect x="40" y="226" width="232" height="118" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
-<text x="54" y="251" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#001E2B" font-weight="700">/ai-brainstorm</text>
-<text x="54" y="272" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">the idea, said in plain language</text>
-<text x="54" y="332" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="11.5" fill="#00684A">writes brainstorm.html</text>
-<path d="M 278 285 L 304 285" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
-<text x="312" y="208" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#001E2B" font-weight="700" letter-spacing="1.6">02</text>
-<text x="340" y="208" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#5C6C75" letter-spacing="1.6">· CONTRACT</text>
-<rect x="312" y="226" width="232" height="118" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
-<text x="326" y="251" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#001E2B" font-weight="700">/ai-orchestrator</text>
-<text x="326" y="272" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">writes what must hold, and the</text>
-<text x="326" y="289" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">check that proves it</text>
-<text x="326" y="332" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="11.5" fill="#00684A">writes spec.html · plan.html</text>
-<rect x="312" y="434" width="232" height="28" rx="7" fill="none" stroke="#00684A" stroke-dasharray="4 3" opacity="0.9"/>
-<text x="322" y="453" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700">STOP · a human approves</text>
-<path d="M 550 285 L 576 285" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
-<text x="584" y="208" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#001E2B" font-weight="700" letter-spacing="1.6">03</text>
-<text x="612" y="208" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#5C6C75" letter-spacing="1.6">· THE LOOP</text>
-<rect x="584" y="226" width="232" height="118" rx="12" fill="#EDF6F2" stroke="#00684A" stroke-width="1.25"/>
-<text x="598" y="251" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#00684A" font-weight="700">/ai-orchestrator</text>
-<text x="598" y="272" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">phase two: runs the plan, three</text>
-<text x="598" y="289" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">gates per checkpoint</text>
-<rect x="584" y="434" width="232" height="28" rx="7" fill="none" stroke="#00684A" stroke-dasharray="4 3" opacity="0.9"/>
-<text x="594" y="453" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700">ai-eng spec run</text>
-<path d="M 822 285 L 848 285" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
-<text x="856" y="208" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#001E2B" font-weight="700" letter-spacing="1.6">04</text>
-<text x="884" y="208" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#5C6C75" letter-spacing="1.6">· VERDICT</text>
-<rect x="856" y="226" width="232" height="118" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
-<text x="870" y="251" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#001E2B" font-weight="700">/ai-verify</text>
-<text x="870" y="272" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">judges the work against the</text>
-<text x="870" y="289" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">standard it was given</text>
-<text x="870" y="332" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="11.5" fill="#00684A">reads spec.html</text>
-<path d="M 1094 285 L 1120 285" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
-<text x="1128" y="208" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#001E2B" font-weight="700" letter-spacing="1.6">05</text>
-<text x="1156" y="208" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#5C6C75" letter-spacing="1.6">· THE CLOSE</text>
-<rect x="1128" y="226" width="232" height="58" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
-<text x="1142" y="251" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#001E2B" font-weight="700">/ai-security</text>
-<text x="1142" y="272" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">the security trigger fired</text>
-<rect x="1128" y="294" width="232" height="58" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
-<text x="1142" y="319" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#001E2B" font-weight="700">/ai-write</text>
-<text x="1142" y="340" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">the public interface changed</text>
-<rect x="1128" y="362" width="232" height="58" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
-<text x="1142" y="387" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#001E2B" font-weight="700">/ai-visual-recap</text>
-<text x="1142" y="408" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">the terminal node</text>
-<rect x="1128" y="434" width="232" height="28" rx="7" fill="none" stroke="#00684A" stroke-dasharray="4 3" opacity="0.9"/>
-<text x="1138" y="453" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700">ai-eng spec close</text>
-<text x="40" y="514" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" letter-spacing="1.8">FEEDS THE CONTRACT</text>
-<rect x="40" y="530" width="424" height="78" rx="12" fill="none" stroke="#C1C7C6" stroke-dasharray="5 4"/>
-<text x="54" y="557" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="700">/ai-research</text>
-<path d="M 442 557 L 442 544 M 437 549 L 442 544 L 447 549" fill="none" stroke="#00684A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="54" y="582" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">answers what the repo cannot</text>
-<rect x="488" y="530" width="424" height="78" rx="12" fill="none" stroke="#C1C7C6" stroke-dasharray="5 4"/>
-<text x="502" y="557" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="700">/ai-architect</text>
-<path d="M 890 557 L 890 544 M 885 549 L 890 544 L 895 549" fill="none" stroke="#00684A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="502" y="582" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">pins the layer rules</text>
-<rect x="936" y="530" width="424" height="78" rx="12" fill="none" stroke="#C1C7C6" stroke-dasharray="5 4"/>
-<text x="950" y="557" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" font-weight="700">ai-design-md-planner → ai-audit-design</text>
-<path d="M 1338 557 L 1338 544 M 1333 549 L 1338 544 L 1343 549" fill="none" stroke="#00684A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="950" y="582" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">the UI lane, on the ui trigger</text>
-<text x="40" y="660" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" letter-spacing="1.8">ON DEMAND · ANYWHERE IN THE CHAIN</text>
-<rect x="40" y="676" width="181.14000000000001" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="130.57" y="696" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-adversarial-loop</text>
-<rect x="233.14000000000001" y="676" width="124.72" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="295.5" y="696" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-agents-md</text>
-<rect x="369.86" y="676" width="132.78" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="436.25" y="696" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-audit-code</text>
-<rect x="514.64" y="676" width="132.78" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="581.03" y="696" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-audit-docs</text>
-<rect x="659.42" y="676" width="140.84" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="729.8399999999999" y="696" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-code-review</text>
-<rect x="812.26" y="676" width="124.72" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="874.62" y="696" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-codegraph</text>
-<rect x="948.98" y="676" width="189.20000000000002" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="1043.58" y="696" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-config-to-project</text>
-<rect x="1150.18" y="676" width="92.48" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="1196.42" y="696" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-debug</text>
-<rect x="40" y="718" width="108.60000000000001" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="94.30000000000001" y="738" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-explore</text>
-<rect x="160.60000000000002" y="718" width="140.84" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="231.02000000000004" y="738" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-git-cleanup</text>
-<rect x="313.44000000000005" y="718" width="156.96" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="391.9200000000001" y="738" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-github-triage</text>
-<rect x="482.4000000000001" y="718" width="148.9" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="556.8500000000001" y="738" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-issue-report</text>
-<rect x="643.3000000000001" y="718" width="84.42" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="685.5100000000001" y="738" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-note</text>
-<rect x="739.72" y="718" width="68.30000000000001" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="773.87" y="738" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-pr</text>
-<rect x="820.02" y="718" width="124.72" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="882.38" y="738" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-prototype</text>
-<rect x="956.74" y="718" width="124.72" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="1019.1" y="738" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-read-docs</text>
-<rect x="1093.46" y="718" width="124.72" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="1155.82" y="738" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-review-ui</text>
-<rect x="40" y="760" width="140.84" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="110.42" y="780" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-stress-test</text>
-<rect x="192.84" y="760" width="148.9" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="267.29" y="780" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-test-planner</text>
-<rect x="353.74" y="760" width="181.14000000000001" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
-<text x="444.31" y="780" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-writing-behavior</text>
+<rect width="1400" height="1090" fill="#F9FBFA"/>
+<defs><radialGradient id="tint" cx="50%" cy="0%" r="72%"><stop offset="0%" stop-color="#00684A" stop-opacity="0.07"/><stop offset="100%" stop-color="#00684A" stop-opacity="0"/></radialGradient></defs><rect width="1400" height="1090" fill="url(#tint)"/><path d="M 585 66 L 625 66" stroke="#00684A" stroke-width="1.5"/>
+<text x="639" y="71" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" letter-spacing="2.4">THE ORCHESTRATOR LOOP</text>
+<text x="690" y="142" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="42" fill="#001E2B" font-weight="800" text-anchor="end">One loop.</text>
+<text x="710" y="142" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="42" fill="#00684A" font-weight="800" text-anchor="start">Everything else is optional.</text>
+<text x="700" y="182" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15.5" fill="#3D4F58" text-anchor="middle">ai-orchestrator is the whole workflow: it splits the feature into checkpoints, runs each one through its gates,</text>
+<text x="700" y="204" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15.5" fill="#3D4F58" text-anchor="middle">and stops for you twice. Every other skill is optional, and they compose with whatever else you already run.</text>
+<text x="40" y="266" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" letter-spacing="1.8">OPTIONAL · BEFORE THE LOOP</text>
+<rect x="40" y="282" width="420" height="84" rx="12" fill="none" stroke="#C1C7C6" stroke-dasharray="5 4"/>
+<text x="56" y="314" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">/ai-brainstorm</text>
+<text x="56" y="338" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">optional · pins the idea in plain language</text>
+<rect x="490" y="282" width="420" height="84" rx="12" fill="none" stroke="#C1C7C6" stroke-dasharray="5 4"/>
+<text x="506" y="314" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">/ai-research</text>
+<text x="506" y="338" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">optional · evidence from outside the repo</text>
+<rect x="940" y="282" width="420" height="84" rx="12" fill="none" stroke="#C1C7C6" stroke-dasharray="5 4"/>
+<text x="956" y="314" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">/ai-architect</text>
+<text x="956" y="338" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">optional · the approach and the layer rules</text>
+<rect x="40" y="400" width="1320" height="280" rx="16" fill="#EDF6F2" stroke="#00684A" stroke-width="1.5"/>
+<text x="72" y="442" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="21" fill="#00684A" font-weight="700">/ai-orchestrator · the loop that runs it all</text>
+<text x="72" y="468" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" fill="#3D4F58">The only skill you have to run. It plans the checkpoints, then builds each one through its gates.</text>
+<circle cx="112" cy="536" r="19" fill="#00684A" stroke="#00684A" stroke-width="1.5"/>
+<text x="112" y="542" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">1</text>
+<path d="M 133 536 L 199 536" stroke="#00684A" stroke-width="1.5"/>
+<circle cx="220" cy="536" r="19" fill="#00684A" stroke="#00684A" stroke-width="1.5"/>
+<text x="220" y="542" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">2</text>
+<path d="M 241 536 L 307 536" stroke="#00684A" stroke-width="1.5"/>
+<circle cx="328" cy="536" r="19" fill="#00684A" stroke="#00684A" stroke-width="1.5"/>
+<text x="328" y="542" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">3</text>
+<path d="M 349 536 L 415 536" stroke="#00684A" stroke-width="1.5"/>
+<circle cx="436" cy="536" r="19" fill="#FFFFFF" stroke="#00684A" stroke-width="1.5"/>
+<text x="436" y="542" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#3D4F58" font-weight="700" text-anchor="middle">4</text>
+<path d="M 457 536 L 523 536" stroke="#00684A" stroke-width="1.5"/>
+<circle cx="544" cy="536" r="19" fill="#FFFFFF" stroke="#C1C7C6" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="544" y="542" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#3D4F58" font-weight="700" text-anchor="middle">5</text>
+<path d="M 565 536 L 631 536" stroke="#00684A" stroke-width="1.5"/>
+<circle cx="652" cy="536" r="19" fill="#FFFFFF" stroke="#C1C7C6" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="652" y="542" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#3D4F58" font-weight="700" text-anchor="middle">N</text>
+<text x="682" y="542" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#5C6C75">one at a time · smallest first</text>
+<text x="72" y="596" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#5C6C75">A checkpoint passes its gates, or it cannot move on</text>
+<rect x="72" y="610" width="86.8" height="32" rx="8" fill="#FFFFFF" stroke="#00684A"/>
+<text x="115.4" y="631" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13.5" fill="#00684A" font-weight="700" text-anchor="middle">behavior</text>
+<rect x="170.8" y="610" width="41.2" height="32" rx="8" fill="#FFFFFF" stroke="#00684A"/>
+<text x="191.4" y="631" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13.5" fill="#00684A" font-weight="700" text-anchor="middle">UI</text>
+<rect x="224" y="610" width="162.79999999999998" height="32" rx="8" fill="#FFFFFF" stroke="#00684A"/>
+<text x="305.4" y="631" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13.5" fill="#00684A" font-weight="700" text-anchor="middle">adversarial review</text>
+<text x="72" y="668" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#5C6C75">A failed gate re-plans and retries. Three failures on a split checkpoint stop and ask you.</text>
+<rect x="962" y="434" width="362" height="38" rx="9" fill="none" stroke="#00684A" stroke-dasharray="4 3"/>
+<text x="982" y="459" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#00684A" font-weight="700">STOP 1 · you approve the plan</text>
+<path d="M 1143 474 L 1143 526" fill="none" stroke="#00684A" stroke-width="1.5" marker-end="url(#head)"/>
+<rect x="962" y="532" width="362" height="38" rx="9" fill="none" stroke="#00684A" stroke-dasharray="4 3"/>
+<text x="982" y="557" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="14" fill="#00684A" font-weight="700">STOP 2 · you review the app</text>
+<text x="982" y="602" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#5C6C75">The only two times it asks you</text>
+<text x="982" y="626" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#5C6C75">anything, from the first idea</text>
+<text x="982" y="650" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#5C6C75">to the finished pull request.</text>
+<text x="40" y="726" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" letter-spacing="1.8">OPTIONAL · AFTER THE LOOP</text>
+<rect x="40" y="742" width="315" height="84" rx="12" fill="none" stroke="#C1C7C6" stroke-dasharray="5 4"/>
+<text x="56" y="774" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">/ai-verify</text>
+<text x="56" y="798" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">optional · a verdict with evidence</text>
+<rect x="375" y="742" width="315" height="84" rx="12" fill="none" stroke="#C1C7C6" stroke-dasharray="5 4"/>
+<text x="391" y="774" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">/ai-security</text>
+<text x="391" y="798" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">optional · the six-phase audit</text>
+<rect x="710" y="742" width="315" height="84" rx="12" fill="none" stroke="#C1C7C6" stroke-dasharray="5 4"/>
+<text x="726" y="774" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">/ai-write</text>
+<text x="726" y="798" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">optional · the README, the wiki, the API</text>
+<text x="726" y="815" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">doc</text>
+<rect x="1045" y="742" width="315" height="84" rx="12" fill="none" stroke="#C1C7C6" stroke-dasharray="5 4"/>
+<text x="1061" y="774" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">/ai-visual-recap</text>
+<text x="1061" y="798" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12.5" fill="#3D4F58">optional · the diff, as a page</text>
+<text x="700" y="866" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" fill="#5C6C75" text-anchor="middle">Every skill is optional except the loop · bring your own skills, and run them beside any other harness</text>
+<text x="40" y="916" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" letter-spacing="1.8">ON DEMAND · ANYWHERE IN THE CHAIN</text>
+<rect x="40" y="932" width="181.14000000000001" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="130.57" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-adversarial-loop</text>
+<rect x="233.14000000000001" y="932" width="124.72" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="295.5" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-agents-md</text>
+<rect x="369.86" y="932" width="132.78" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="436.25" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-audit-code</text>
+<rect x="514.64" y="932" width="148.9" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="589.09" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-audit-design</text>
+<rect x="675.54" y="932" width="132.78" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="741.93" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-audit-docs</text>
+<rect x="820.3199999999999" y="932" width="140.84" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="890.7399999999999" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-code-review</text>
+<rect x="973.16" y="932" width="124.72" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="1035.52" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-codegraph</text>
+<rect x="1109.8799999999999" y="932" width="189.20000000000002" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="1204.4799999999998" y="952" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-config-to-project</text>
+<rect x="40" y="974" width="92.48" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="86.24000000000001" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-debug</text>
+<rect x="144.48000000000002" y="974" width="189.20000000000002" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="239.08000000000004" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-design-md-planner</text>
+<rect x="345.68000000000006" y="974" width="108.60000000000001" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="399.9800000000001" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-explore</text>
+<rect x="466.2800000000001" y="974" width="140.84" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="536.7" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-git-cleanup</text>
+<rect x="619.1200000000001" y="974" width="156.96" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="697.6000000000001" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-github-triage</text>
+<rect x="788.0800000000002" y="974" width="148.9" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="862.5300000000002" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-issue-report</text>
+<rect x="948.9800000000001" y="974" width="84.42" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="991.1900000000002" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-note</text>
+<rect x="1045.4" y="974" width="68.30000000000001" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="1079.5500000000002" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-pr</text>
+<rect x="1125.7" y="974" width="124.72" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="1188.06" y="994" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-prototype</text>
+<rect x="40" y="1016" width="124.72" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="102.36" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-read-docs</text>
+<rect x="176.72" y="1016" width="124.72" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="239.07999999999998" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-review-ui</text>
+<rect x="313.44" y="1016" width="140.84" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="383.86" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-stress-test</text>
+<rect x="466.28" y="1016" width="148.9" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="540.73" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-test-planner</text>
+<rect x="627.18" y="1016" width="181.14000000000001" height="30" rx="7" fill="#F9FBFA" stroke="#C1C7C6"/>
+<text x="717.75" y="1036" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="13" fill="#001E2B" text-anchor="middle">ai-writing-behavior</text>
 </svg>

@@ -15,8 +15,8 @@ duration of each clip plus a short pause.
 3. **install** (11.14s) · Install it once. Run ai-eng init inside your repository. It writes a contract the agent cannot execute before you approve it, and installs the git hooks.
 4. **proof** (8.98s) · Then ask it how it is doing. ai-eng doctor fires a real adversarial payload through the chain, and proves the deny comes back.
 5. **the guards** (10.97s) · Every call passes six guards in order: self-protect, no-verify, policy, injection, wrap, and loop. The first deny wins, and a receipt lands on disk.
-6. **the skills** (14.93s) · It also installs thirty skills that run as one pipeline: brainstorm frames the idea. The orchestrator writes the contract, and builds it in checkpoints you approve. Verify judges the result. The recap closes it.
-7. **one workflow** (19.39s) · So a whole feature runs as one workflow. You bring a fuzzy idea. ai-brainstorm interrogates it until it is plain. ai-orchestrator plans gated checkpoints. You approve. It builds. ai-verify checks the work. The recap shows the diff. Every step is a file in git.
+6. **the loop** (17.71s) · It also installs thirty skills. One of them is the whole workflow: ai-orchestrator. It splits the feature into checkpoints you approve, builds each one through its gates, and stops for you twice. Everything else is optional, and it composes with whatever you already run.
+7. **one workflow** (22.38s) · So a whole feature runs as one loop. You bring a fuzzy idea. ai-brainstorm pins it down. You approve the checkpoints. The orchestrator builds each one and runs it through its gates. A failed gate re-plans and tries again until it passes. When the app is done, you review it, and the recap shows the diff. Every gate is a receipt in git.
 8. **close** (7.96s) · No model calls. No hosted state. Your key, your model. Install it, run doctor, and see the deny for yourself.
 
 To swap in a human voice, replace `audio/sN.mp3` with a recording of the same

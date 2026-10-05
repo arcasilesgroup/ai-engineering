@@ -151,63 +151,31 @@ const installedSkills = readdirSync(SKILLS_DIR)
 
 /** Every skill the diagram names, so a rename fails the render instead of the picture. */
 const NAMED_SKILLS = [
-  "ai-brainstorm",
   "ai-orchestrator",
-  "ai-verify",
-  "ai-visual-recap",
+  "ai-brainstorm",
   "ai-research",
   "ai-architect",
-  "ai-design-md-planner",
-  "ai-audit-design",
+  "ai-verify",
   "ai-security",
   "ai-write",
+  "ai-visual-recap",
 ];
 
-type PhaseCard = { cmd: string; sub: string; out?: string; hot?: boolean };
-type Phase = { idx: string; name: string; cards: PhaseCard[]; gate?: string };
-
-/** The pipeline as the site draws it: five phases, no lanes, one gate per column. */
-const PHASES: Phase[] = [
-  {
-    idx: "01",
-    name: "frame",
-    cards: [{ cmd: "/ai-brainstorm", sub: "the idea, said in plain language", out: "writes brainstorm.html" }],
-  },
-  {
-    idx: "02",
-    name: "contract",
-    cards: [{ cmd: "/ai-orchestrator", sub: "writes what must hold, and the check that proves it", out: "writes spec.html · plan.html" }],
-    gate: "STOP · a human approves",
-  },
-  {
-    idx: "03",
-    name: "the loop",
-    cards: [{ cmd: "/ai-orchestrator", sub: "phase two: runs the plan, three gates per checkpoint", hot: true }],
-    gate: "ai-eng spec run",
-  },
-  {
-    idx: "04",
-    name: "verdict",
-    cards: [{ cmd: "/ai-verify", sub: "judges the work against the standard it was given", out: "reads spec.html" }],
-  },
-  {
-    idx: "05",
-    name: "the close",
-    cards: [
-      { cmd: "/ai-security", sub: "the security trigger fired" },
-      { cmd: "/ai-write", sub: "the public interface changed" },
-      { cmd: "/ai-visual-recap", sub: "the terminal node" },
-    ],
-    gate: "ai-eng spec close",
-  },
+const BEFORE = [
+  { cmd: "/ai-brainstorm", sub: "optional · pins the idea in plain language" },
+  { cmd: "/ai-research", sub: "optional · evidence from outside the repo" },
+  { cmd: "/ai-architect", sub: "optional · the approach and the layer rules" },
 ];
 
-/** The three skills that feed the contract from outside the pipeline. */
-const FEEDS = [
-  { cmd: "/ai-research", sub: "answers what the repo cannot" },
-  { cmd: "/ai-architect", sub: "pins the layer rules" },
-  { cmd: "ai-design-md-planner → ai-audit-design", sub: "the UI lane, on the ui trigger" },
+const AFTER = [
+  { cmd: "/ai-verify", sub: "optional · a verdict with evidence" },
+  { cmd: "/ai-security", sub: "optional · the six-phase audit" },
+  { cmd: "/ai-write", sub: "optional · the README, the wiki, the API doc" },
+  { cmd: "/ai-visual-recap", sub: "optional · the diff, as a page" },
 ];
+
+/** The orchestrator's own gates, plus the human review that closes the loop. */
+const GATES = ["behavior", "UI", "adversarial review"];
 
 const ON_DEMAND = installedSkills.filter((s) => !NAMED_SKILLS.includes(s));
 
@@ -254,41 +222,23 @@ function wrapWords(value: string, maxChars: number): string[] {
   return lines;
 }
 
-/** One skill node. The hot variant marks the phase where the agent is working. */
-function node(x: number, y: number, w: number, h: number, pal: Palette, n: PhaseCard): string {
-  const fill = n.hot ? pal.hot : pal.panel;
-  const stroke = n.hot ? pal.accent : pal.stroke;
-  const pad = 14;
-  const parts = [`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="${fill}" stroke="${stroke}" stroke-width="1.25"/>`];
-  parts.push(text(x + pad, y + 25, n.cmd, { size: 14, fill: n.hot ? pal.accent : pal.title, weight: 700, mono: true }));
-  wrapWords(n.sub, Math.floor((w - pad * 2) / 6.3))
-    .slice(0, 3)
-    .forEach((line, i) => parts.push(text(x + pad, y + 46 + i * 17, line, { size: 12.5, fill: pal.body })));
-  if (n.out) parts.push(text(x + pad, y + h - 12, n.out, { size: 11.5, fill: pal.accent, mono: true }));
-  return parts.join("\n");
-}
-
-/** A stop the pipeline waits on. Dashed, because it is a state, not a skill. */
-function gate(x: number, y: number, w: number, h: number, pal: Palette, label: string): string {
-  return [
-    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7" fill="none" stroke="${pal.accent}" stroke-dasharray="4 3" opacity="0.9"/>`,
-    text(x + 10, y + 19, label, { size: 12, fill: pal.accent, weight: 700, mono: true }),
-  ].join("\n");
-}
-
-/** A feeder card: dashed outline, an up-arrow back toward the chain. */
-function feed(x: number, y: number, w: number, h: number, pal: Palette, n: { cmd: string; sub: string }): string {
-  const pad = 14;
-  const arrowX = x + w - 22;
+/** A dashed card for a skill you can leave out. */
+function optCard(x: number, y: number, w: number, h: number, pal: Palette, n: { cmd: string; sub: string }): string {
+  const pad = 16;
   const parts = [
     `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="none" stroke="${pal.faint}" stroke-dasharray="5 4"/>`,
-    text(x + pad, y + 27, n.cmd, { size: 13, fill: pal.title, weight: 700, mono: true }),
-    `<path d="M ${arrowX} ${y + 27} L ${arrowX} ${y + 14} M ${arrowX - 5} ${y + 19} L ${arrowX} ${y + 14} L ${arrowX + 5} ${y + 19}" fill="none" stroke="${pal.accent}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+    text(x + pad, y + 32, n.cmd, { size: 15, fill: pal.title, weight: 700, mono: true }),
   ];
   wrapWords(n.sub, Math.floor((w - pad * 2) / 6.6))
     .slice(0, 2)
-    .forEach((line, i) => parts.push(text(x + pad, y + 52 + i * 17, line, { size: 12.5, fill: pal.body })));
+    .forEach((line, i) => parts.push(text(x + pad, y + 56 + i * 17, line, { size: 12.5, fill: pal.body })));
   return parts.join("\n");
+}
+
+/** A small chip, used for the gate names. */
+/** Width of a gate chip, from its label. */
+function gateChipWidth(label: string): number {
+  return label.length * 7.6 + 26;
 }
 
 function skillDiagram(pal: Palette): string {
@@ -297,44 +247,84 @@ function skillDiagram(pal: Palette): string {
   const parts: string[] = [];
 
   parts.push(`<path d="M 585 66 L 625 66" stroke="${pal.accent}" stroke-width="1.5"/>`);
-  parts.push(text(639, 71, "THE SKILLS CHAIN", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 2.4 }));
-  parts.push(text(CX - 10, 140, "One pipeline,", { size: 44, fill: pal.title, weight: 800, anchor: "end" }));
-  parts.push(text(CX + 10, 140, "five phases.", { size: 44, fill: pal.accent, weight: 800, anchor: "start" }));
+  parts.push(text(639, 71, "THE ORCHESTRATOR LOOP", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 2.4 }));
+  parts.push(text(CX - 10, 142, "One loop.", { size: 42, fill: pal.title, weight: 800, anchor: "end" }));
+  parts.push(text(CX + 10, 142, "Everything else is optional.", { size: 42, fill: pal.accent, weight: 800, anchor: "start" }));
+  parts.push(
+    text(CX, 182, "ai-orchestrator is the whole workflow: it splits the feature into checkpoints, runs each one through its gates,", {
+      size: 15.5,
+      fill: pal.body,
+      anchor: "middle",
+    }),
+  );
+  parts.push(
+    text(CX, 204, "and stops for you twice. Every other skill is optional, and they compose with whatever else you already run.", {
+      size: 15.5,
+      fill: pal.body,
+      anchor: "middle",
+    }),
+  );
 
-  const colW = 232;
-  const arrowW = 40;
-  const phaseNumY = 208;
-  const cardTop = 226;
-  const singleH = 118;
-  const smallH = 58;
-  const smallGap = 10;
-  const rowH = Math.max(singleH, 3 * smallH + 2 * smallGap);
-  const gateY = cardTop + rowH + 14;
-  const gateH = 28;
-  const arrowY = cardTop + singleH / 2;
+  parts.push(text(40, 266, "OPTIONAL · BEFORE THE LOOP", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 1.8 }));
+  BEFORE.forEach((b, i) => parts.push(optCard(40 + i * 450, 282, 420, 84, pal, b)));
 
-  PHASES.forEach((phase, i) => {
-    const x = 40 + i * (colW + arrowW);
-    parts.push(text(x, phaseNumY, phase.idx, { size: 12, fill: pal.title, weight: 700, mono: true, tracking: 1.6 }));
-    parts.push(text(x + 28, phaseNumY, `· ${phase.name.toUpperCase()}`, { size: 12, fill: pal.muted, mono: true, tracking: 1.6 }));
-    phase.cards.forEach((c, j) =>
-      parts.push(node(x, cardTop + j * (smallH + smallGap), colW, phase.cards.length > 1 ? smallH : singleH, pal, c)),
-    );
-    if (phase.gate) parts.push(gate(x, gateY, colW, gateH, pal, phase.gate));
-    if (i < PHASES.length - 1) parts.push(arrow(x + colW + 6, arrowY, x + colW + arrowW - 8, arrowY, pal));
+  // The loop: the one mandatory thing in the picture.
+  const panelY = 400;
+  const panelH = 280;
+  parts.push(`<rect x="40" y="${panelY}" width="1320" height="${panelH}" rx="16" fill="${pal.hot}" stroke="${pal.accent}" stroke-width="1.5"/>`);
+  parts.push(text(72, panelY + 42, "/ai-orchestrator · the loop that runs it all", { size: 21, fill: pal.accent, weight: 700, mono: true }));
+  parts.push(text(72, panelY + 68, "The only skill you have to run. It plans the checkpoints, then builds each one through its gates.", { size: 14, fill: pal.body }));
+
+  // The checkpoint stepper: small steps first, one at a time.
+  const cy = panelY + 136;
+  const steps = ["1", "2", "3", "4", "5", "N"];
+  steps.forEach((n, i) => {
+    const cx = 112 + i * 108;
+    const state = i < 3 ? "done" : i === 3 ? "now" : "todo";
+    const fill = state === "done" ? pal.accent : pal.card;
+    const stroke = state === "todo" ? pal.faint : pal.accent;
+    const dash = state === "todo" ? ' stroke-dasharray="4 3"' : "";
+    parts.push(`<circle cx="${cx}" cy="${cy}" r="19" fill="${fill}" stroke="${stroke}" stroke-width="1.5"${dash}/>`);
+    parts.push(text(cx, cy + 6, n, { size: 15, fill: state === "done" ? pal.bg : pal.body, weight: 700, mono: true, anchor: "middle" }));
+    if (i < steps.length - 1) parts.push(`<path d="M ${cx + 21} ${cy} L ${cx + 87} ${cy}" stroke="${pal.accent}" stroke-width="1.5"/>`);
   });
+  parts.push(text(682, cy + 6, "one at a time · smallest first", { size: 13, fill: pal.muted, mono: true }));
 
-  const feedsLabelY = gateY + gateH + 52;
-  parts.push(text(40, feedsLabelY, "FEEDS THE CONTRACT", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 1.8 }));
-  const feedTop = feedsLabelY + 16;
-  FEEDS.forEach((f, i) => parts.push(feed(40 + i * 448, feedTop, 424, 78, pal, f)));
+  // The gates: how a checkpoint earns the next one.
+  parts.push(text(72, panelY + 196, "A checkpoint passes its gates, or it cannot move on", { size: 13, fill: pal.muted, mono: true }));
+  let gx = 72;
+  for (const name of GATES) {
+    const w = gateChipWidth(name);
+    parts.push(`<rect x="${gx}" y="${panelY + 210}" width="${w}" height="32" rx="8" fill="${pal.card}" stroke="${pal.accent}"/>`);
+    parts.push(text(gx + w / 2, panelY + 231, name, { size: 13.5, fill: pal.accent, weight: 700, mono: true, anchor: "middle" }));
+    gx += w + 12;
+  }
+  parts.push(text(72, panelY + 268, "A failed gate re-plans and retries. Three failures on a split checkpoint stop and ask you.", { size: 12.5, fill: pal.muted }));
 
-  const odLabelY = feedTop + 78 + 52;
-  parts.push(text(40, odLabelY, "ON DEMAND · ANYWHERE IN THE CHAIN", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 1.8 }));
-  const cloud = chips(ON_DEMAND, 40, odLabelY + 16, 1360, pal);
+  // The two human stops, in their own column.
+  parts.push(`<rect x="962" y="${panelY + 34}" width="362" height="38" rx="9" fill="none" stroke="${pal.accent}" stroke-dasharray="4 3"/>`);
+  parts.push(text(982, panelY + 59, "STOP 1 · you approve the plan", { size: 14, fill: pal.accent, weight: 700, mono: true }));
+  parts.push(`<path d="M 1143 ${panelY + 74} L 1143 ${panelY + 126}" fill="none" stroke="${pal.accent}" stroke-width="1.5" marker-end="url(#head)"/>`);
+  parts.push(`<rect x="962" y="${panelY + 132}" width="362" height="38" rx="9" fill="none" stroke="${pal.accent}" stroke-dasharray="4 3"/>`);
+  parts.push(text(982, panelY + 157, "STOP 2 · you review the app", { size: 14, fill: pal.accent, weight: 700, mono: true }));
+  parts.push(text(982, panelY + 202, "The only two times it asks you", { size: 13, fill: pal.muted, mono: true }));
+  parts.push(text(982, panelY + 226, "anything, from the first idea", { size: 13, fill: pal.muted, mono: true }));
+  parts.push(text(982, panelY + 250, "to the finished pull request.", { size: 13, fill: pal.muted, mono: true }));
+
+  parts.push(text(40, 726, "OPTIONAL · AFTER THE LOOP", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 1.8 }));
+  AFTER.forEach((a, i) => parts.push(optCard(40 + i * 335, 742, 315, 84, pal, a)));
+
+  parts.push(text(CX, 866, "Every skill is optional except the loop · bring your own skills, and run them beside any other harness", {
+    size: 14,
+    fill: pal.muted,
+    anchor: "middle",
+  }));
+
+  parts.push(text(40, 916, "ON DEMAND · ANYWHERE IN THE CHAIN", { size: 12, fill: pal.accent, weight: 700, mono: true, tracking: 1.8 }));
+  const cloud = chips(ON_DEMAND, 40, 932, 1360, pal);
   parts.push(cloud.svg);
 
-  const H = odLabelY + 16 + cloud.height + 44;
+  const H = 932 + cloud.height + 44;
   const tint = `<defs><radialGradient id="tint" cx="50%" cy="0%" r="72%"><stop offset="0%" stop-color="${pal.accent}" stop-opacity="0.07"/><stop offset="100%" stop-color="${pal.accent}" stop-opacity="0"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#tint)"/>`;
   return frame(W, H, { ...pal, bg: pal.ivory, panel: pal.card }, tint + parts.join("\n"));
 }

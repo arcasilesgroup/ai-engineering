@@ -9,12 +9,26 @@ Guards that say <strong>no</strong> before the tool call runs.<br/>
 A receipt for every verdict, on disk, in git.</p>
 
 <p>
+  <a href="https://www.npmjs.com/package/ai-engineering"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/npm/ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
+    <img alt="npm version" src="https://shieldcn.dev/npm/ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
+  </picture></a>
   <a href="https://github.com/arcasilesgroup/ai-engineering/actions/workflows/check.yml"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/ci/arcasilesgroup/ai-engineering.svg?workflow=check.yml&amp;branch=main&amp;variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
     <img alt="CI: build, lint, typecheck, test, gates and security scans" src="https://shieldcn.dev/github/ci/arcasilesgroup/ai-engineering.svg?workflow=check.yml&amp;branch=main&amp;variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
   </picture></a>
-  <a href="https://sonarcloud.io/project/overview?id=arcasilesgroup_ai-engineering"><img alt="SonarCloud quality gate" src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&amp;metric=alert_status"></a>
-  <a href="https://app.snyk.io/org/soydachi/project/a415e4c8-3688-4cda-94e5-43fab7b6c56d"><img alt="Snyk security" src="https://snyk.io/test/github/arcasilesgroup/ai-engineering/badge.svg"></a>
+  <a href="https://sonarcloud.io/project/overview?id=arcasilesgroup_ai-engineering"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/sonar/quality-gate/arcasilesgroup_ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
+    <img alt="SonarCloud quality gate" src="https://shieldcn.dev/sonar/quality-gate/arcasilesgroup_ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
+  </picture></a>
+  <a href="https://sonarcloud.io/component_measures?id=arcasilesgroup_ai-engineering&amp;metric=coverage"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/sonar/coverage/arcasilesgroup_ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
+    <img alt="test coverage" src="https://shieldcn.dev/sonar/coverage/arcasilesgroup_ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
+  </picture></a>
+  <a href="https://snyk.io/test/github/arcasilesgroup/ai-engineering"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/security-monitored.svg?logo=snyk&amp;variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
+    <img alt="Snyk security" src="https://shieldcn.dev/badge/security-monitored.svg?logo=snyk&amp;variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
+  </picture></a>
 </p>
 
 <p>
@@ -22,17 +36,20 @@ A receipt for every verdict, on disk, in git.</p>
     <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/website-ai--engineering.arcasiles.com.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
     <img alt="website" src="https://shieldcn.dev/badge/website-ai--engineering.arcasiles.com.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
   </picture></a>
-  <a href="https://github.com/arcasilesgroup/ai-engineering/releases"><img alt="release" src="https://img.shields.io/github/v/release/arcasilesgroup/ai-engineering?display_name=tag&amp;style=flat-square&amp;color=00ED64&amp;labelColor=001E2B"></a>
+  <a href="https://github.com/arcasilesgroup/ai-engineering/releases"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/release/arcasilesgroup/ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
+    <img alt="release" src="https://shieldcn.dev/github/release/arcasilesgroup/ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
+  </picture></a>
   <a href="LICENSE"><picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/license-Apache--2.0.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
-    <img alt="license Apache-2.0" src="https://shieldcn.dev/badge/license-Apache--2.0.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/license/arcasilesgroup/ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=dark">
+    <img alt="license Apache-2.0" src="https://shieldcn.dev/github/license/arcasilesgroup/ai-engineering.svg?variant=secondary&amp;font=geist-mono&amp;size=sm&amp;mode=light">
   </picture></a>
 </p>
 
 | | |
 |---|---|
 | **6** guards | on every tool call, plus **1** on the prompt itself |
-| **30** skills | one pipeline, announced in each skill's front matter |
+| **30** skills | one loop, the rest optional and composable |
 | **8** surfaces | one payload, no per-IDE fork |
 | **1** binary | Bun-compiled, no daemon, no hosted control plane |
 | **0** model calls | by `ai-eng` itself. Your key, your model |
@@ -70,7 +87,7 @@ the judgment calls where they belong: with you.
 - [Quick start](#quick-start)
 - [How a tool call is decided](#how-a-tool-call-is-decided)
 - [What it stops](#what-it-stops)
-- [The skills pipeline](#the-skills-pipeline)
+- [The loop and the skills](#the-loop-and-the-skills)
 - [Surfaces](#surfaces)
 - [CLI](#cli)
 - [Configuration](#configuration)
@@ -178,30 +195,34 @@ binary:
 | the fifth identical retry | denied by the loop guard, with the threshold it crossed. |
 | a file that argues with the model | stopped before the model reads it. The text is treated as data. |
 
-## The skills pipeline
+## The loop and the skills
 
-`ai-eng` also installs 30 skills that run as one pipeline. Each one declares in its front
-matter what it writes, who reads it, when it dies and what runs next, so the handoff is a
-contract the next skill can read.
+`ai-eng` also installs 30 skills. One of them is the workflow: `ai-orchestrator`. Give it a
+feature and it splits the work into checkpoints you approve, then builds each checkpoint
+through its gates, one at a time, smallest first. Start with `ai-brainstorm` to pin the idea in
+plain language, or hand the feature straight to the orchestrator.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/skill-chain-dark.svg">
-    <img src=".github/assets/skill-chain-light.svg" alt="The skills chain in five phases: ai-brainstorm frames the idea, ai-orchestrator writes the contract and runs the checkpoint loop, ai-verify gives the verdict, and ai-security, ai-write and ai-visual-recap close it, with ai-research, ai-architect and the design skills feeding the contract and 20 on-demand skills available anywhere" width="100%">
+    <img src=".github/assets/skill-chain-light.svg" alt="The orchestrator loop: ai-brainstorm, ai-research and ai-architect are optional inputs; ai-orchestrator splits a feature into numbered checkpoints, builds each through behavior, UI and adversarial review gates, and stops for a human twice; ai-verify, ai-security, ai-write and ai-visual-recap are optional outputs; 22 other skills run on demand" width="100%">
   </picture>
 </p>
 
-A **lane** decides how much of it runs. You pick it by the size of the work, not by ceremony.
+The loop is the only required part, and it is a contract: a checkpoint passes its gates or it
+cannot move on, and the orchestrator stops for you exactly twice, once to approve the plan and
+once to review the app. Everything else is a tool you reach for when the work needs it.
 
-| Lane | What runs | What you get |
-|---|---|---|
-| **light** | `ai-brainstorm` → `ai-verify` | A verdict with evidence. No contract, because the work does not need one |
-| **standard** | `ai-brainstorm` → `ai-orchestrator` | The feature. Three gates per checkpoint |
-| **full** | standard, plus `ai-research`, `ai-architect`, `ai-security` and `ai-write` when their triggers fire | The same, with the evidence and the docs the change owed |
+- `ai-brainstorm`, `ai-research` and `ai-architect` feed the loop from outside: the idea, the
+  evidence and the layer rules.
+- `ai-verify`, `ai-security`, `ai-write` and `ai-visual-recap` come after it, when you want a
+  verdict, an audit, the docs or the recap.
+- The other 22 skills are on demand. None of them is a prerequisite, and every one runs beside
+  the skills you already have, in this harness or in another.
 
-**Five triggers**, and the set is closed. A path trigger fires on its own, evaluated against
-the milestone's diff. A judgment trigger cannot be read from a diff, so it is asked out loud,
-once. Either way it ends in a gate or an `ABANDON`, never in silence.
+**Five triggers** decide when the optional skills fire on their own. A **path** trigger is
+evaluated against the milestone's diff. A **judgment** trigger cannot be read from a diff, so
+it is asked out loud, once. Either way it ends in a gate or an `ABANDON`, never in silence.
 
 | Trigger | Kind | Routes to | Fires when |
 |---|---|---|---|
