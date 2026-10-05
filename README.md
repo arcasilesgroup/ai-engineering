@@ -95,6 +95,7 @@ the judgment calls where they belong: with you.
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
 - [Maintainers](#maintainers)
+- [Contributors](#contributors)
 - [License](#license)
 
 ## Security
@@ -393,10 +394,19 @@ the cross-compiled binaries, the SBOM and the attestations.
 [Code of Conduct](CODE_OF_CONDUCT.md) · [Apache-2.0](LICENSE) © Arcasiles Group. Third-party
 attribution in [NOTICE.md](NOTICE.md) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
-<a href="https://github.com/arcasilesgroup/ai-engineering/graphs/contributors"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/contributors/arcasilesgroup/ai-engineering.svg?title=false&preset=transparent&border=false&mode=dark">
-  <img alt="contributors" src="https://shieldcn.dev/contributors/arcasilesgroup/ai-engineering.svg?title=false&preset=transparent&border=false&mode=light">
-</picture></a>
+## Contributors
+
+<p align="center">
+  <a href="https://github.com/arcasilesgroup/ai-engineering/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=arcasilesgroup/ai-engineering" alt="the people who built ai-engineering">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://star-history.com/#arcasilesgroup/ai-engineering&amp;Date">
+    <img src="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&amp;type=Date" alt="star history" width="720">
+  </a>
+</p>
 
 ## License
 
