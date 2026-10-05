@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 760" width="1360" height="760" role="img">
+<defs>
+<marker id="head" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="#00684A"/></marker>
+</defs>
+<rect width="1360" height="760" fill="#FFFFFF"/>
+<text x="40" y="54" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="25" fill="#001E2B" font-weight="700">{ai} engineering · the life of one tool call</text>
+<text x="40" y="82" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#3D4F58">The host hands every call to one dispatcher before it runs. Guards decide, the verdict</text>
+<text x="40" y="102" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#3D4F58">goes back in the host's own dialect, and a receipt lands on disk.</text>
+<rect x="40" y="150" width="380" height="88" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
+<text x="58" y="180" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="17" fill="#001E2B" font-weight="700">The agent</text>
+<text x="58" y="204" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">asks for one tool call</text>
+<rect x="460" y="150" width="380" height="88" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
+<text x="478" y="180" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="17" fill="#001E2B" font-weight="700">The host</text>
+<text x="478" y="204" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">sends the payload on stdin,</text>
+<text x="478" y="223" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">asks for a verdict</text>
+<rect x="880" y="150" width="380" height="88" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
+<text x="898" y="180" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="17" fill="#001E2B" font-weight="700">ai-eng chain</text>
+<text x="898" y="204" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">your binary · no model call</text>
+<text x="898" y="223" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">· no network</text>
+<path d="M 420 194 L 456 194" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<path d="M 840 194 L 876 194" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<text x="40" y="296" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12" fill="#00684A" font-weight="700" letter-spacing="1.2">PRETOOLUSE · SIX GUARDS, IN ORDER · THE FIRST DENY WINS</text>
+<rect x="40" y="312" width="200" height="66" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
+<text x="54" y="338" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">self-protect</text>
+<text x="54" y="358" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#3D4F58">writes against governance</text>
+<rect x="256" y="312" width="200" height="66" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
+<text x="270" y="338" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">no-verify</text>
+<text x="270" y="358" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#3D4F58">hook skips, linter silences</text>
+<rect x="472" y="312" width="200" height="66" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
+<text x="486" y="338" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">policy</text>
+<text x="486" y="358" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#3D4F58">system · net · workspace</text>
+<rect x="688" y="312" width="200" height="66" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
+<text x="702" y="338" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">injection</text>
+<text x="702" y="358" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#3D4F58">text that gives orders</text>
+<rect x="904" y="312" width="200" height="66" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
+<text x="918" y="338" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">wrap</text>
+<text x="918" y="358" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#3D4F58">rewrites a test command</text>
+<rect x="1120" y="312" width="200" height="66" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
+<text x="1134" y="338" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="15" fill="#001E2B" font-weight="700">loop</text>
+<text x="1134" y="358" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="12" fill="#3D4F58">the same call, again</text>
+<path d="M 680 378 L 680 414" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<text x="680" y="432" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#5C6C75" text-anchor="middle">the first guard that fires decides</text>
+<rect x="40" y="452" width="400" height="96" rx="12" fill="#F9FBFA" stroke="#00684A" stroke-width="1.25"/>
+<text x="58" y="486" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="18" fill="#970606" font-weight="700" letter-spacing="1.5">DENY</text>
+<text x="58" y="510" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">exit 2 · the call never runs</text>
+<text x="58" y="529" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">the reason, in the host's own dialect</text>
+<rect x="480" y="452" width="400" height="96" rx="12" fill="#F9FBFA" stroke="#00684A" stroke-width="1.25"/>
+<text x="498" y="486" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="18" fill="#944F01" font-weight="700" letter-spacing="1.5">REWRITE</text>
+<text x="498" y="510" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">the host runs a safer command</text>
+<text x="498" y="529" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">the original is kept in the receipt</text>
+<rect x="920" y="452" width="400" height="96" rx="12" fill="#F9FBFA" stroke="#00684A" stroke-width="1.25"/>
+<text x="938" y="486" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="18" fill="#00684A" font-weight="700" letter-spacing="1.5">ALLOW</text>
+<text x="938" y="510" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">exit 0 · the call runs</text>
+<text x="938" y="529" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">still written down, still auditable</text>
+<path d="M 680 548 L 680 584" fill="none" stroke="#00684A" stroke-width="1.75" stroke-linecap="round" marker-end="url(#head)"/>
+<rect x="40" y="600" width="1280" height="90" rx="12" fill="#F9FBFA" stroke="#C1C7C6" stroke-width="1.25"/>
+<text x="58" y="630" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="17" fill="#001E2B" font-weight="700">A receipt for every verdict</text>
+<text x="58" y="654" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#3D4F58">.ai-engineering/receipts/ · one file per call, plus summary.json and denies.json · committed with the work</text>
+<text x="58" y="676" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12.5" fill="#00A35C">doctor reads them back: denies per guard, per tool, over 90 days</text>
+<text x="40" y="728" font-family="'JetBrains Mono','Fira Code','SF Mono',ui-monospace,monospace" font-size="12.5" fill="#5C6C75" letter-spacing="0.6">USERPROMPTSUBMIT · ONE MORE GUARD: spoken-secret reads the prompt before it enters the transcript</text>
+</svg>
