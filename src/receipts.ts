@@ -67,18 +67,60 @@ export function isChainReceipt(event: string): boolean {
   return !/^(git-|commit-msg|spec-)/.test(event);
 }
 
+/** The running aggregate one receipt folds into. Kept as a plain record so the fold
+ *  is a small function of its own: `summarizeReceipts` keeps the scan (which files,
+ *  which window) and `tallyReceipt` keeps the arithmetic, and neither carries the
+ *  other's nesting. */
+interface ReceiptTally {
+  total: number;
+  denies: number;
+  latencies: number[];
+  per: Record<"per_guard" | "per_tool" | "per_surface", Record<string, number>>;
+  daily: Record<string, DailyPoint>;
+}
+
+/** Fold one receipt into the tally. The deny buckets and the daily series are
+ *  independent of each other, and the latency is independent of both: a receipt
+ *  with no `ts` still counts its latency. */
+function tallyReceipt(receipt: Receipt, tally: ReceiptTally): void {
+  tally.total += 1;
+  if (receipt.outcome === "deny") {
+    tally.denies += 1;
+    // Keys come from files an adversary inside the repo may write — they reach
+    // doctor's HUMAN line as-is. printable() (env.ts) is the repo's own strip of
+    // control/ANSI characters, applied here at the source so no consumer must
+    // remember it (audit run-1 F3: a receipt's denied_by forged whole ✓ rows).
+    const guard = printable(receipt.guards?.denied_by ?? "chain");
+    const tool = printable(receipt.tool);
+    const surface = printable(receipt.surface);
+    tally.per.per_guard[guard] = (tally.per.per_guard[guard] ?? 0) + 1;
+    tally.per.per_tool[tool] = (tally.per.per_tool[tool] ?? 0) + 1;
+    tally.per.per_surface[surface] = (tally.per.per_surface[surface] ?? 0) + 1;
+  }
+  const day = typeof receipt.ts === "string" ? printable(receipt.ts.slice(0, 10)) : "";
+  if (day !== "") {
+    const point = tally.daily[day] ?? { runs: 0, denies: 0 };
+    point.runs += 1;
+    if (receipt.outcome === "deny") point.denies += 1;
+    tally.daily[day] = point;
+  }
+  if (typeof receipt.latency_ms === "number" && isChainReceipt(receipt.event)) tally.latencies.push(receipt.latency_ms);
+}
+
 /** doctor's aggregate: without this you don't know whether the chain runs at all —
  *  nor who denies, on what tool, on which day (research/001 R1: the gc must stop
  *  throwing away the story the receipts already tell). */
-export function summarizeReceipts(dir?: string): ReceiptSummary {
-  const target = dir ?? receiptsDir();
-  const latencies: number[] = [];
-  let total = 0;
-  let denies = 0;
-  const per: Record<"per_guard" | "per_tool" | "per_surface", Record<string, number>> = {
-    per_guard: {}, per_tool: {}, per_surface: {},
+export function summarizeReceipts(dir?: string | null): ReceiptSummary {
+  // `dir` is tri-state: `undefined` = resolve the caller's repo, `null` = no store
+  // at all (the caller already knows this root has none), a string = that store.
+  const target = dir === undefined ? receiptsDir() : dir;
+  const tally: ReceiptTally = {
+    total: 0,
+    denies: 0,
+    latencies: [],
+    per: { per_guard: {}, per_tool: {}, per_surface: {} },
+    daily: {},
   };
-  const daily: Record<string, DailyPoint> = {};
   if (target) {
     try {
       // The filename carries the ISO timestamp the receipt was written with, so the
@@ -99,29 +141,7 @@ export function summarizeReceipts(dir?: string): ReceiptSummary {
         if (name === "summary.json" || name === "denies.json") continue;
         if (/^\d{4}-\d{2}-\d{2}T/.test(name) && name.slice(0, 10).replaceAll("-", "") < cutoff) continue;
         try {
-          const receipt = JSON.parse(readFileSync(join(target, name), "utf8")) as Receipt;
-          total += 1;
-          // Keys come from files an adversary inside the repo may write — they reach
-          // doctor's HUMAN line as-is. printable() (env.ts) is the repo's own strip of
-          // control/ANSI characters, applied here at the source so no consumer must
-          // remember it (audit run-1 F3: a receipt's denied_by forged whole ✓ rows).
-          if (receipt.outcome === "deny") {
-            denies += 1;
-            const guard = printable(receipt.guards?.denied_by ?? "chain");
-            const tool = printable(receipt.tool);
-            const surface = printable(receipt.surface);
-            per.per_guard[guard] = (per.per_guard[guard] ?? 0) + 1;
-            per.per_tool[tool] = (per.per_tool[tool] ?? 0) + 1;
-            per.per_surface[surface] = (per.per_surface[surface] ?? 0) + 1;
-          }
-          const day = typeof receipt.ts === "string" ? printable(receipt.ts.slice(0, 10)) : "";
-          if (day !== "") {
-            const point = daily[day] ?? { runs: 0, denies: 0 };
-            point.runs += 1;
-            if (receipt.outcome === "deny") point.denies += 1;
-            daily[day] = point;
-          }
-          if (typeof receipt.latency_ms === "number" && isChainReceipt(receipt.event)) latencies.push(receipt.latency_ms);
+          tallyReceipt(JSON.parse(readFileSync(join(target, name), "utf8")) as Receipt, tally);
         } catch {
           /* a torn write is data, not a crash */
         }
@@ -130,9 +150,10 @@ export function summarizeReceipts(dir?: string): ReceiptSummary {
       /* no receipts yet */
     }
   }
+  const { latencies } = tally;
   latencies.sort((a, b) => a - b);
   const pick = (q: number) => (latencies.length ? latencies[Math.min(latencies.length - 1, Math.floor(q * latencies.length))]! : 0);
-  return { total, denies, p50: pick(0.5), p95: pick(0.95), ...per, daily };
+  return { total: tally.total, denies: tally.denies, p50: pick(0.5), p95: pick(0.95), ...tally.per, daily: tally.daily };
 }
 
 export type SessionSummary = {

@@ -3,22 +3,28 @@ name: ai-git-cleanup
 description: >-
   Removes finished local git work in one automatic pass, with no question and
   no name to type: dead worktrees first (`git worktree remove`, then `git
-  worktree prune`), then branches already merged into the local `main`.
+  worktree prune`), then branches already merged into the local `main`, then
+  the branches a squash-merged pull request left behind (tree identical to
+  `origin/main`, tagged before deletion).
   Trigger for "tidy up", "tidy up these branches", "tidy branches", "delete
   old branches", "start fresh", "limpieza de branches", "limpia branches", or
   by naming ai-git-cleanup. A branch that is not merged into `main` is left
-  alone: the pass never force-deletes and no name is ever asked. Not for
-  pushing, not for remote branches, not for opening a pull request.
+  alone — unless its tree is byte-identical to `origin/main`, which is what a
+  squash-merged pull request looks like afterward; the pass deletes those with
+  the proof in hand, tags the tip, and never force-deletes anything else.
+  Not for pushing, not for remote branches, not for opening a pull request.
 license: Apache-2.0
 ---
 
 # ai-git-cleanup — remove finished local work in one pass
 
 Say a cleanup phrase and the pass runs itself. It deletes only work that is
-finished — worktrees whose branch is merged into the local `main`, and those
-merged branches — and it never asks a question and never takes a name. Anything
-unfinished, unprovable, or detached is left exactly where it is. Run the steps
-in order, from the primary checkout, and report what each one did.
+finished — worktrees whose branch is merged into the local `main`, those merged
+branches, and the branches a squash-merged pull request left behind (their
+content provably already in `origin/main`) — and it never asks a question and
+never takes a name. Anything unfinished, unprovable, or detached is left exactly
+where it is. Run the steps in order, from the primary checkout, and report what
+each one did.
 
 ## The pass
 
@@ -101,14 +107,40 @@ in order, from the primary checkout, and report what each one did.
    `refs/heads/behind`) is refused — report that branch kept and name the
    upstream mismatch as the reason.
 
+5. **Reconcile branches a squash landed.** `git branch --merged main` misses the
+   commonest end state of a pull request: GitHub squash-merges it into one commit
+   whose ancestry contains nothing from the branch, so `git branch --merged main`
+   never lists it and the branch looks "unmerged" forever. Detect it instead of
+   guessing: a branch (never the current one, never one checked out in a worktree)
+   whose tip `git diff --quiet <branch> origin/main` reports **byte-identical to
+   `origin/main`'s tree** has landed — nothing the branch holds is missing from the
+   remote. Tag the tip first (`git tag archive/<branch> <branch>`) — the tag is
+   the receipt that the history stayed reachable — then delete with
+   `git branch -D -- "<branch>"`. This is the pass's only force-delete, it is
+   earned by the whole-tree comparison, and it never applies to a branch whose
+   tree differs from `origin/main`: that one still carries something the remote
+   does not have — leave it alone and report it as parked (never merge it, never
+   re-open a pull request for it: that decision is the human's, on their ask).
+   Also refuse the whole step when `origin/main` cannot be fetched or the remote
+   is not configured: without a fetched `origin/main` there is no proof, and
+   nothing deletable.
+   After any deletion, check whether the local `main` can still be fast-forwarded:
+   if a squash landed, the local `main`'s history was bypassed and only a human's
+   reviewed `git reset --hard origin/main` levels it — report that state, never
+   reset on the pass's own initiative.
+
 ## Safety invariants
 
-- **Never force-delete anything.** No forced branch delete and no forced
-  worktree removal: a refusal is the correct outcome and is reported as kept,
-  never retried with force.
-- **An unmerged branch is never deleted.** Both the delete-merged pass and the
-  fallback delete only what is already merged into `main`; a branch with work
-  not in `main` is left alone.
+- **Never force-delete anything without a proof in hand.** Worktree removals
+  are never forced: a refusal is the correct outcome and is reported as kept,
+  never retried with force. The one force-delete the pass may run is step 5's
+  `git branch -D` on a branch whose tree is byte-identical to `origin/main`,
+  tagged first — without that proof, `-D` does not exist for this pass.
+- **An unmerged branch is never deleted — by ancestry.** Steps 3–4 delete only
+  branches whose commits are in `main`'s ancestry; a branch with work not in
+  `main` is left alone. The one exception is step 5's whole-tree proof: a branch
+  whose tree is byte-identical to `origin/main` holds nothing the remote lacks,
+  however unmerged its ancestry looks.
 - **A worktree with no branch is never removed.** A detached HEAD has no branch
   to prove merged, so the pass keeps that worktree and reports it as detached:
   its commits never lose their only ref.

@@ -84,7 +84,10 @@ export function generateBriefing(root?: string | null): Briefing {
   // in would report (and pay for) a foreign receipt store. The whole-suite timeout
   // flake was exactly that: a temp-repo briefing scanning the dev checkout's 36k
   // receipts for 5 s a call.
-  const receipts = summarizeReceipts(resolved ? receiptsDir(resolved) ?? undefined : undefined);
+  // Receipts — only this root's store, or nothing. Passing `undefined` (the old
+  // fallback) would make the summarizer resolve the process's nearest governed
+  // repo: a temp-root briefing paid for the host checkout's 36k receipts per call.
+  const receipts = summarizeReceipts(resolved ? receiptsDir(resolved) : undefined);
 
   // Recent denies (last 10, reading receipt files directly)
   const recentDenies: Briefing["recent_denies"] = [];
