@@ -1,0 +1,1 @@
+{"tool_name":"Edit","tool_input":{"file_path":"src/app.ts","old_string":"console.log(total)","new_string":"// eslint-disable-next-line no-console\nconsole.log(total)"},"tool_use_id":"demo-2","session_id":"demo"}
