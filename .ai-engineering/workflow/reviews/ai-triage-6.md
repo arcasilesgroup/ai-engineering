@@ -102,3 +102,46 @@ Verify:
 - **LESSON:** Apply credential detection after decoding at every output boundary, and make unsafe links a display fallback rather than a report failure.
 - **Synthetic coverage:** Encoded fragment keys/values, metadata assignments, malformed evidence, unsafe and unvalidated relationships; safe HTTPS links remain checked.
 - **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 24/24 (156 assertions).
+
+## Final review · CP6
+
+- **VERDICT: FAIL**
+- **Resolved: 9 · Open: 1** (prior report-safety findings and CP6 F3/F5 resolved; F4 remains incomplete).
+- **Open F4 residual · P1 — bare `auth=` credentials leak through dynamic text** (`/Users/soydachi/repos/arcasilesgroup/ai-engineering.worktrees/ai-triage/skills/ai-triage/scripts/render-report.mjs:50,163-176,520-528`): a synthetic backlog name `Synthetic backlog auth=synthetic-secret` renders its value in the complete report. The assignment redactor recognizes `authorization` but not `auth`; `visibleText` therefore falls through to HTML escaping. Add `auth`/`auth[_-]?token` aliases and a full-report regression.
+- **F3 resolved:** URL credentials/assignments are rejected after repeated percent decoding across URL components, query, and fragment.
+- **F5 resolved:** unsafe/malformed evidence falls back to escaped label text; unsafe or unvalidated relationships fall back to plain text without aborting the report.
+- **Prior safety checks resolved:** scope/link redaction, safe Azure/GitHub HTTPS links, one-pass shell substitution, and failed atomic-write preservation verified.
+- **Verification:** focused unit and integration tests passed 24/24 (156 assertions); an in-memory synthetic render probe confirmed the open leak. No live provider calls or private report used.
+
+## Fixer response · final review F4 (Round 1)
+
+- **STATUS: FIXED**
+- **ROOT CAUSE:** The credential-assignment redactor recognized `authorization` but not the `auth` alias.
+- **FIX:** Redact `auth`, `authtoken`, `auth_token`, and `auth-token` assignments in dynamic report text.
+- **LESSON:** Treat short authentication aliases as credentials at every rendered-text boundary.
+- **Regression:** The complete synthetic report asserts that `auth=` backlog metadata and `auth_token=` team metadata are redacted.
+- **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 24/24 (157 assertions). No live provider calls or private report used.
+
+## Fixer response · final review F4 residual (Round 2)
+
+- **STATUS: FIXED**
+- **FIX:** Added exact assignment aliases for `oauth_token`, `x_auth_token`, and `client_auth` (also accepting hyphen separators); no broad auth-substring matching.
+- **Regression:** The complete synthetic report asserts these three secret values are absent while benign `authored_by`, `client_author`, and `oauth_provider` metadata remains unchanged.
+- **LESSON:** Match credential aliases as complete assignment keys, not arbitrary auth-containing substrings.
+- **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 24/24 (163 assertions). No live provider calls or private report used.
+
+## Fixer response · final review F4 residual (Round 3)
+
+- **STATUS: FIXED**
+- **FIX:** Added the exact `oauth2[_-]?access[_-]?token` assignment alias; no broad OAuth/auth matching.
+- **Regression:** The complete synthetic report asserts the `oauth2_access_token` value is absent and preserves the benign near-match `oauth2_access_policy` alongside existing benign metadata.
+- **LESSON:** Add credential variants as exact key patterns and pin neighboring benign keys against over-redaction.
+- **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 24/24 (165 assertions). No live provider calls or private report used.
+
+## Round 4 final review
+
+- **VERDICT: FAIL**
+- **Round 4 resolved/open: 1/1** — `oauth2_access_token` is now redacted in the complete report; `oauth2_access_policy` and the existing benign near-match fields remain intact.
+- **Open F6 · P1 — Compound credential assignment keys still leak** (`/Users/soydachi/repos/arcasilesgroup/ai-engineering.worktrees/ai-triage/skills/ai-triage/scripts/render-report.mjs:50`): synthetic `scope.team` values `azure_devops_token=synthetic-secret` and `bearer_token=synthetic-secret` both appear in the generated report. The matcher covers exact aliases but misses these credential keys when prefixed.
+- **Verification:** report unit/integration tests passed 24/24 (165 assertions); synthetic full-report probes confirmed both residual leaks. No live calls; no source edits.
+- **Cumulative:** 12 resolved · 1 open.

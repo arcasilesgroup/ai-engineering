@@ -47,7 +47,7 @@ function redactAuthentication(value) {
   return value
     .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*/gi, "[redacted]")
     .replace(
-      /\b(?:access[_-]?token|refresh[_-]?token|id[_-]?token|token|bearer|authorization|password|passwd|client[_-]?secret|api[_-]?key|secret|credential)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi,
+      /\b(?:access[_-]?token|refresh[_-]?token|id[_-]?token|oauth2[_-]?access[_-]?token|oauth[_-]?token|x[_-]?auth[_-]?token|client[_-]?auth|auth(?:[_-]?token)?|token|bearer|authorization|password|passwd|client[_-]?secret|api[_-]?key|secret|credential)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi,
       "[redacted]",
     )
     .replace(

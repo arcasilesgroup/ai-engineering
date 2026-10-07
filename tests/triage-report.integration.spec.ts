@@ -267,10 +267,22 @@ describe("Azure triage report integration", () => {
     }
   });
 
-  test("redacts generic token assignments in all synthetic scope metadata", async () => {
+  test("redacts credential assignments in the complete synthetic report", async () => {
     const scope = createSyntheticScope();
-    scope.team = "Synthetic team token=synthetic-team-secret";
-    scope.backlogName = "Synthetic backlog token=synthetic-backlog-secret";
+    scope.team = [
+      "Synthetic team",
+      "token=synthetic-team-secret",
+      "auth_token=synthetic-auth-token-secret",
+      "oauth_token=synthetic-oauth-token-secret",
+      "oauth2_access_token=synthetic-oauth2-access-secret",
+      "x_auth_token=synthetic-x-auth-token-secret",
+      "client_auth=synthetic-client-auth-secret",
+      "authored_by=synthetic-maintainer",
+      "client_author=synthetic-owner",
+      "oauth_provider=synthetic-provider",
+      "oauth2_access_policy=synthetic-policy",
+    ].join(" ");
+    scope.backlogName = "Synthetic backlog auth=synthetic-backlog-secret";
     const reportWriter = createMemoryReportWriter();
 
     await writeAzureTriageReport({
@@ -285,8 +297,19 @@ describe("Azure triage report integration", () => {
       throw new Error("The synthetic report writer did not store the target report");
     }
     expect(generatedReport).not.toContain("synthetic-team-secret");
+    expect(generatedReport).not.toContain("synthetic-auth-token-secret");
+    expect(generatedReport).not.toContain("synthetic-oauth-token-secret");
+    expect(generatedReport).not.toContain("synthetic-oauth2-access-secret");
+    expect(generatedReport).not.toContain("synthetic-x-auth-token-secret");
+    expect(generatedReport).not.toContain("synthetic-client-auth-secret");
     expect(generatedReport).not.toContain("synthetic-backlog-secret");
-    expect(generatedReport).toContain("Synthetic team [redacted]");
+    expect(generatedReport).toContain(
+      "Synthetic team [redacted] [redacted] [redacted] [redacted] [redacted] [redacted]",
+    );
+    expect(generatedReport).toContain("authored_by=synthetic-maintainer");
+    expect(generatedReport).toContain("client_author=synthetic-owner");
+    expect(generatedReport).toContain("oauth_provider=synthetic-provider");
+    expect(generatedReport).toContain("oauth2_access_policy=synthetic-policy");
     expect(generatedReport).toContain("Synthetic backlog [redacted]");
   });
 

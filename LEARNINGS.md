@@ -414,3 +414,11 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Validate decoded URL values and do not reprocess inserted content.
 - **Lesson:** Validate decoded URL values and never reprocess inserted content.
 - **Tags:** review, urls, validation, rendering
+
+### L56 · 2026-10-07 · ai-triage #6 · circuit-breaker
+- **Failure:** After the split, review attempt 3 stopped on the round-4 open P1: synthetic `azure_devops_token=` and `bearer_token=` team metadata values still render.
+- **Root cause:** Awaiting the user's decision.
+- **Fix:** Awaiting the user's decision.
+- **Attempts:** Review attempts 1–3; round 4 left the P1 open.
+- **Lesson:** No Rule inferred; root cause and final fix await the user's decision.
+- **Tags:** circuit-breaker, review, auth, redaction, metadata, azure
