@@ -149,12 +149,13 @@
         "Add `skills/ai-triage/scripts/resolve-target.mjs` to resolve explicit GitHub or Azure DevOps Services URLs before remotes, and otherwise derive only the provider and project scope established by repository remotes.",
         "Return an explicit needs-answer result when provider, project, team, board or backlog level is ambiguous; have `skills/ai-triage/SKILL.md` ask before reading and retain any answer only for that run.",
         "Require explicit Azure organization and project arguments downstream; reject Azure DevOps Server and never inspect active `az` defaults or add a triage field to `.ai-engineering/config.toml`.",
-        "Add `tests/triage-routing.spec.ts` using synthetic URLs and remotes, plus a fake request adapter that proves ambiguous and unsupported targets trigger zero reads."
+        "Add separate unit and integration tests using synthetic URLs/remotes and a fake request adapter that proves ambiguous and unsupported targets trigger zero reads."
       ],
       "files": [
         "skills/ai-triage/SKILL.md",
         "skills/ai-triage/scripts/resolve-target.mjs",
-        "tests/triage-routing.spec.ts"
+        "tests/triage-routing.unit.spec.ts",
+        "tests/triage-routing.integration.spec.ts"
       ],
       "acceptance": [
         "An explicit URL fixes provider and scope even when repository remotes disagree.",
@@ -163,7 +164,8 @@
         "Synthetic tests cover GitHub and Azure URLs, unique and conflicting remotes, missing board selection, unsupported Azure Server, and zero reads on ambiguity."
       ],
       "verify": [
-        "bun test tests/triage-routing.spec.ts",
+        "bun test tests/triage-routing.unit.spec.ts",
+        "bun test tests/triage-routing.integration.spec.ts",
         "bun test tests/triage-github.spec.ts",
         "bun run typecheck",
         "bun run lint"
@@ -174,7 +176,11 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "pending",
+      "changed_files": [
+        "tests/triage-routing.unit.spec.ts",
+        "tests/triage-routing.integration.spec.ts"
+      ]
     },
     {
       "id": 5,
