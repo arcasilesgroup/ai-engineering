@@ -279,3 +279,24 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Scope each safety and completeness assertion to its governing command.
 - **Lesson:** Scope each safety and completeness assertion to the command it governs.
 - **Tags:** review, tests, contracts
+
+### L37 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Retry round 1 found that the contract chased mutators rather than limiting permitted operations.
+- **Root cause:** Mutator-by-mutator exclusions leave gaps when operations are missed.
+- **Fix:** Allowlist permitted operations instead of chasing mutators.
+- **Lesson:** Allowlist permitted operations instead of chasing mutators.
+- **Tags:** review, command-safety, contracts
+
+### L38 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Retry round 2 found remote-capable commands and request-body options insufficiently constrained.
+- **Root cause:** The contract did not reject all commands outside explicitly safe reads, independent of flag spacing.
+- **Fix:** Restrict commands to explicitly safe reads and reject other remote-capable commands and request-body options regardless of flag spacing.
+- **Lesson:** Allow only explicitly safe reads; reject other remote-capable commands and request-body options regardless of flag spacing.
+- **Tags:** review, command-safety, contracts
+
+### L39 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Retry round 3 found shell syntax that could execute nested commands in the read-only command contract.
+- **Root cause:** The contract did not reject shell syntax capable of nested command execution.
+- **Fix:** Reject shell syntax that executes nested commands.
+- **Lesson:** A read-only command contract must reject shell syntax that executes nested commands.
+- **Tags:** review, command-safety, contracts
