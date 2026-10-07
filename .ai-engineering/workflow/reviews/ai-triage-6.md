@@ -35,3 +35,9 @@ Verify:
 
 - **F1:** Root cause was shell placeholders using HTML escaping without the shared authentication redaction. All shell/header/footer substitutions now use the same redact-then-escape path as report content. The integration fixture includes hostile markup and a synthetic GitHub-token-shaped value and asserts the markup is escaped and token is absent from the complete report.
 - **F2:** The atomic writer now tracks ownership before deleting its temp file, so a failed exclusive open cannot remove another file. Integration coverage injects partial-temp-write and replacement failures through the real writer and checks previous bytes and temp cleanup.
+
+## Round 2 verdict
+
+- **FAIL**
+- **F1 · P1 remains open** (`skills/ai-triage/scripts/render-report.mjs:264–273, 282`): Shell placeholders now redact, but a token-shaped `scope.project` is included in generated work-item `href`s. URL validation permits that path and HTML escaping does not redact it. A synthetic GitHub-token-shaped project value appeared in the complete report; reject/redact credential-shaped URL path values and cover this in the complete-report assertion.
+- **F2 · P2 resolved**: `bun test tests/triage-report.integration.spec.ts` passed 6/6. Injected temp-write and replacement failures preserve previous bytes and clean owned temps; `ownsTemporaryFile` remains false when exclusive open fails, so cleanup cannot unlink a non-owned temp file.
