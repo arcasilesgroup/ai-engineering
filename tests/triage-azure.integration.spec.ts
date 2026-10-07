@@ -20,16 +20,20 @@ type AzureRequest = {
   method: "GET" | "POST";
   path: string;
   organization: string;
-  apiVersion: string;
+  project: string;
+  team: string;
+  backlogId: string;
+  apiVersion: "7.1";
   body?: {
-    ids?: number[];
-    errorPolicy?: string;
+    ids: number[];
+    errorPolicy: "Fail";
   };
 };
 
 type WorkItem = {
   id: number;
   fields: {
+    "System.AreaPath"?: string;
     "System.WorkItemType": string;
     "System.State": string;
   };
@@ -46,7 +50,12 @@ type FixtureOptions = {
   workItemCountLimit?: number;
   unknownLimit?: boolean;
   stateMetadata?: Record<string, StateMetadata[]>;
+  organization?: string;
   failRequest?: (request: AzureRequest) => Error | undefined;
+  detailResponse?: (
+    requestedIds: number[],
+    defaultDetails: WorkItem[],
+  ) => WorkItem[];
 };
 
 const defaultStateMetadata: Record<string, StateMetadata[]> = {
@@ -66,6 +75,7 @@ function createDefaultWorkItems(): WorkItem[] {
     {
       id: 101,
       fields: {
+        "System.AreaPath": "Synthetic Project\\Platform",
         "System.WorkItemType": "Story",
         "System.State": "Ready for intake",
       },
@@ -76,6 +86,7 @@ function createDefaultWorkItems(): WorkItem[] {
     {
       id: 102,
       fields: {
+        "System.AreaPath": "Synthetic Project\\Platform",
         "System.WorkItemType": "Story",
         "System.State": "Moving through queue",
       },
@@ -86,6 +97,7 @@ function createDefaultWorkItems(): WorkItem[] {
     {
       id: 103,
       fields: {
+        "System.AreaPath": "Synthetic Project\\Quality",
         "System.WorkItemType": "Bug",
         "System.State": "Waiting on validation",
       },
@@ -111,11 +123,15 @@ function createAzureFixture(options: FixtureOptions = {}) {
   const calls: AzureRequest[] = [];
   const workItems = options.workItems ?? createDefaultWorkItems();
   const stateMetadata = options.stateMetadata ?? defaultStateMetadata;
+  const requestScope = {
+    ...scope,
+    organization: options.organization ?? scope.organization,
+  };
   const workItemsById = new Map(workItems.map((item) => [item.id, item]));
   const selectedBacklog = options.unknownLimit
-    ? { id: scope.backlogId }
+    ? { id: requestScope.backlogId }
     : {
-        id: scope.backlogId,
+        id: requestScope.backlogId,
         workItemCountLimit: options.workItemCountLimit ?? 1000,
       };
   const invoke = async (request: AzureRequest): Promise<unknown> => {
@@ -161,11 +177,13 @@ function createAzureFixture(options: FixtureOptions = {}) {
     }
     if (request.method === "POST" && request.path === workItemBatchPath) {
       const ids = request.body?.ids ?? [];
+      const defaultDetails = ids.flatMap((id) => {
+        const item = workItemsById.get(id);
+        return item ? [item] : [];
+      });
       return {
-        value: ids.flatMap((id) => {
-          const item = workItemsById.get(id);
-          return item ? [item] : [];
-        }),
+        value:
+          options.detailResponse?.(ids, defaultDetails) ?? defaultDetails,
       };
     }
 
@@ -174,7 +192,7 @@ function createAzureFixture(options: FixtureOptions = {}) {
 
   return {
     calls,
-    collect: () => collectAzureBacklog({ ...scope, invoke }),
+    collect: () => collectAzureBacklog({ ...requestScope, invoke }),
   };
 }
 
@@ -197,10 +215,35 @@ function expectOnlyAllowedReads(calls: AzureRequest[]): void {
     calls.every(
       (request) =>
         request.organization === scope.organization &&
+        request.project === scope.project &&
+        request.team === scope.team &&
+        request.backlogId === scope.backlogId &&
         request.apiVersion === "7.1" &&
         request.path.startsWith(`/${scope.project}/`),
     ),
   ).toBe(true);
+  for (const request of calls) {
+    const expectedKeys = [
+      "method",
+      "path",
+      "organization",
+      "project",
+      "team",
+      "backlogId",
+      "apiVersion",
+      ...(request.method === "POST" ? ["body"] : []),
+    ].sort();
+    expect(Object.keys(request).sort()).toEqual(expectedKeys);
+    if (request.method === "POST") {
+      expect(request.body?.ids.length).toBeLessThanOrEqual(200);
+      expect(request.body).toMatchObject({
+        ids: expect.any(Array),
+        errorPolicy: "Fail",
+      });
+    } else {
+      expect("body" in request).toBe(false);
+    }
+  }
   expect(
     calls.every(
       (request) =>
@@ -222,6 +265,13 @@ describe("Azure backlog collection integration", () => {
       "Ready for intake",
       "Moving through queue",
       "Waiting on validation",
+    ]);
+    expect(
+      inventory.items.map((item) => item.fields["System.AreaPath"]),
+    ).toEqual([
+      "Synthetic Project\\Platform",
+      "Synthetic Project\\Platform",
+      "Synthetic Project\\Quality",
     ]);
     expect(inventory.items[0]?.relations).toEqual([
       { rel: "System.LinkTypes.Hierarchy-Reverse", url: `${workItemUrl}901` },
@@ -287,7 +337,8 @@ describe("Azure backlog collection integration", () => {
   test("fails closed when the selected backlog cap is unknown or reached", async () => {
     const capCases = [
       { label: "unknown", options: { unknownLimit: true } },
-      { label: "reached", options: { workItemCountLimit: 5 } },
+      { label: "at cap", options: { workItemCountLimit: 5 } },
+      { label: "above cap", options: { workItemCountLimit: 4 } },
     ] as const;
 
     for (const capCase of capCases) {
@@ -313,6 +364,57 @@ describe("Azure backlog collection integration", () => {
 
     await expect(fixture.collect()).rejects.toThrow();
     expectOnlyAllowedReads(fixture.calls);
+  });
+
+  test("fails closed for an unknown state category", async () => {
+    const fixture = createAzureFixture({
+      stateMetadata: {
+        Story: [
+          { name: "Ready for intake", stateCategory: "Unclassified" },
+          { name: "Moving through queue", stateCategory: "InProgress" },
+        ],
+        Bug: [
+          { name: "Waiting on validation", stateCategory: "Resolved" },
+          { name: "No longer planned", stateCategory: "Removed" },
+        ],
+      },
+    });
+
+    await expect(fixture.collect()).rejects.toThrow();
+    expectOnlyAllowedReads(fixture.calls);
+  });
+
+  test("fails closed when a detail batch omits or mismatches a requested item", async () => {
+    const invalidDetailResponses = [
+      {
+        label: "omitted item",
+        detailResponse: (_requestedIds: number[], defaultDetails: WorkItem[]) =>
+          defaultDetails.slice(0, -1),
+      },
+      {
+        label: "mismatched item",
+        detailResponse: (_requestedIds: number[], defaultDetails: WorkItem[]) =>
+          defaultDetails.map((item, index) =>
+            index === 0 ? { ...item, id: 999 } : item,
+          ),
+      },
+    ];
+
+    for (const invalidResponse of invalidDetailResponses) {
+      const fixture = createAzureFixture(invalidResponse);
+
+      await expect(fixture.collect()).rejects.toThrow();
+      expectOnlyAllowedReads(fixture.calls);
+    }
+  });
+
+  test("rejects non-Services organization scope before invoking the adapter", async () => {
+    const fixture = createAzureFixture({
+      organization: "https://synthetic-server.invalid/tfs/collection",
+    });
+
+    await expect(fixture.collect()).rejects.toThrow();
+    expect(fixture.calls).toEqual([]);
   });
 
   test("fails closed on synthetic authentication and API errors", async () => {
