@@ -205,9 +205,10 @@
       "tasks": [
         "Add `skills/ai-triage/scripts/collect-azure.mjs` and `skills/ai-triage/references/azure-devops.md` for Azure DevOps Services only; use explicit organization/project scope and one selected board/backlog level per run.",
         "Discover work-item types and their process state categories; include every nonterminal category without hard-coded state names, and fetch parent/child links only for context without widening the inventory.",
-        "Define and enforce this default-deny `az devops invoke` allowlist with explicit `--organization`, project/team route parameters and API version: GET `/{project}/{team}/_apis/work/backlogs`; GET `/{project}/{team}/_apis/work/backlogs/{id}` when needed to resolve the selected level; GET `/{project}/_apis/wit/workitemtypes`; GET `/{project}/_apis/wit/workitemtypes/{type}/states`; POST `/{project}/_apis/wit/wiql`; POST `/{project}/_apis/wit/workitemsbatch`. Verify exact supported routes before implementation; add no other route/method pair without a documented read need and a pinned test.",
-        "Use `az devops invoke` only through the allowlist; do not use flat-only `az boards query` as a complete backlog read. Allow POST only for the listed read-only WIQL and batch endpoints, require explicit organization/project arguments, and cap each batch at 200 IDs.",
-        "Prove completeness before returning inventory; test the documented service boundary, missing state metadata, API/auth errors and batches above 200 with sanitized synthetic fixtures in separate unit/integration suites."
+        "Define and enforce this default-deny `az devops invoke` allowlist with explicit `--organization`, project/team route parameters and API version: GET `/{project}/{team}/_apis/work/backlogs`; GET `/{project}/{team}/_apis/work/backlogs/{backlogId}/workItems`; GET `/{project}/_apis/wit/workitemtypes`; GET `/{project}/_apis/wit/workitemtypes/{type}/states`; POST `/{project}/_apis/wit/workitemsbatch`. Verify each route before implementation; add no other route/method pair without a documented read need and a pinned test.",
+        "Use the selected backlog's own work-items endpoint to preserve exact board membership; do not substitute flat-only `az boards query` or WIQL whose parity with backlog membership is unproven. Allow POST only for the listed read-only batch endpoint, require explicit organization/project arguments, and cap each batch at 200 IDs.",
+        "Use the backlog level's documented `workItemCountLimit` as a fail-closed boundary: if the limit is absent/unknown or the returned item count reaches it, stop without a report rather than claim completeness. Do not invent continuation tokens or keyset pagination absent documented backlog-equivalent semantics.",
+        "Test full inventory below the configured boundary, boundary/unknown cap failure, missing state metadata, API/auth errors and batches above 200 with sanitized synthetic fixtures in separate unit/integration suites."
       ],
       "files": [
         "skills/ai-triage/references/azure-devops.md",
@@ -219,7 +220,7 @@
       "acceptance": [
         "The synthetic inventory contains every and only nonterminal item for the selected process-aware backlog level; parent/child context never adds inventory rows.",
         "Every request matches an allowlisted method and route, carries explicit organization/project scope, and batch requests contain at most 200 IDs; no mutation-capable route or unbounded `invoke` is emitted.",
-        "A fixture crossing the supported WIQL/page boundary is complete only when the reader can prove all pages were fetched; an unknown or capped result fails rather than returning a complete flag.",
+        "The selected backlog endpoint returns fewer items than its known `workItemCountLimit`; an unknown limit or a count at/over the cap fails rather than returning a complete flag.",
         "Unknown process state categories, incomplete pagination, authentication failures and any non-allowlisted call stop collection without producing a report.",
         "All Azure tests use synthetic fixtures; this checkpoint makes no tenant or authentication query."
       ],
@@ -366,7 +367,7 @@
   "new_dependencies": [],
   "notes": [
     "Original baseline note: the feature PRD was missing before its ai-triage scope was added; checkpoint 1 still syncs the branch PRD from the approved brainstorm without changing the primary checkout.",
-    "Safe completeness beyond WIQL result limits and process-aware state-category discovery are technical risks, not permission to guess: if an implementation cannot prove completeness, it must fail closed and produce no partial report.",
+    "Microsoft documents no continuation token for backlog-level workItems or WIQL, and no documented WIQL mapping proves parity with backlog membership. Use the backlog-level endpoint and fail closed at an unknown/reached workItemCountLimit; support beyond that boundary requires a documented equivalent paging mechanism.",
     "No Azure tenant or authentication query is part of planning or automated verification. A later live smoke read is optional and requires separate authorization; raw output stays out of Git.",
     "No remote Azure mutation, multi-board aggregation, Azure DevOps Server support, persistent board configuration, commit or push of a live private report is in scope.",
     "Superseded checkpoint 1 attempt 1: `bun test tests/triage-github.spec.ts` failed before tests ran because it imported `skills/ai-triage/scripts/github.mjs`, which is outside the approved Markdown-skill design. The plan was corrected to a static Markdown instruction-contract test; lesson L31 says not to invent a runtime for an agent-executed procedure.",
