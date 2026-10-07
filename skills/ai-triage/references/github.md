@@ -1,18 +1,4 @@
----
-name: ai-github-triage
-description: >-
-  Reads every open issue and pull request of a repository and writes one ranked, actionable
-  page at .ai-engineering/triage.html: what is broken, what is already answered, what to
-  close, and the three things to start on first, each claim backed by a permalink at a
-  commit SHA. Read-only: it never comments, labels, closes, merges or reviews anything on
-  GitHub. With no argument it triages this repository; given a URL or owner/repo it triages
-  that backlog instead. Trigger for "triage", "triage the issues", "go through the
-  backlog", "what should we work on next". Not for diagnosing one failure (/ai-debug), not
-  for reporting a fault (/ai-issue-report), not for judging a diff (/ai-verify).
-license: Apache-2.0
----
-
-# ai-github-triage — read the backlog, rank it, touch nothing
+# GitHub procedure — read the backlog, rank it, touch nothing
 
 One page that answers "what should we work on next", built from every open issue and pull
 request, with each claim pinned to the line of code that proves it. The output is a
@@ -193,7 +179,7 @@ colour the reader cannot look up is decoration, not a ranking.
 
 ## The page
 
-Start from [templates/triage.html.tpl](../../templates/triage.html.tpl), fill it, and keep
+Start from [templates/triage.html.tpl](../../../templates/triage.html.tpl), fill it, and keep
 its structure: the working page is that template with the `{{placeholders}}` replaced.
 
 - `<header class="hero">` carries the stamp `Triage · <owner/repo> · <date>`, the h1
@@ -250,7 +236,7 @@ its structure: the working page is that template with the `{{placeholders}}` rep
 
 The page is an ai-engineering artifact, so its style is the artifact design system and its
 carrier is the template, never a stylesheet invented for the report:
-[ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md).
+[ai-brainstorm › references/artifact-design.md](../../ai-brainstorm/references/artifact-design.md).
 
 The template carries the canonical CSS block, the `{ai}` favicon and the scroll-spy script
 verbatim. Copy the file and fill it; do not write a `<style>` block, and do not add a
@@ -269,7 +255,7 @@ template is the whole design and the run does not degrade.
 ## The ai-engineering seam
 
 1. Output path: `.ai-engineering/triage.html`, rendered from
-   [templates/triage.html.tpl](../../templates/triage.html.tpl) with the artifact design
+   [templates/triage.html.tpl](../../../templates/triage.html.tpl) with the artifact design
    system. It is written with the file tools; `rm`, `mv` and `tee` into `.ai-engineering/`
    are denied, because a verb that can act on several paths is judged as a whole command.
 2. The page is a slot like `recap.html`: the next triage of the same repository replaces
@@ -316,13 +302,3 @@ In scope: "triage the backlog", "what should we work on next", "go through the o
 Not for: one failure in your own code (/ai-debug), filing a fault (/ai-issue-report),
 judging a finished diff (/ai-verify), deciding what to build (/ai-brainstorm), evidence from
 outside the repository (/ai-research).
-
-## Lifecycle
-
-Lane: any
-Writes: .ai-engineering/triage.html
-Read by: the human who decides what to work on next; ai-brainstorm once a triaged item becomes work
-Dies: replaced by the next triage of the same repository; git keeps the history
-Next: ai-brainstorm when the human picks an item to build; none when the page only closed items
-
-Source: ai-engineering (own), Apache-2.0.

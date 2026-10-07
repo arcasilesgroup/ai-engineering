@@ -58,6 +58,8 @@ import askills_ai_writing_behavior_references_deciding_what_to_save_md from "../
 import askills_ai_writing_behavior_SKILL_md from "../skills/ai-writing-behavior/SKILL.md" with { type: "file" };
 import askills_ai_explore_SKILL_md from "../skills/ai-explore/SKILL.md" with { type: "file" };
 import askills_ai_issue_report_SKILL_md from "../skills/ai-issue-report/SKILL.md" with { type: "file" };
+import askills_ai_triage_references_github_md from "../skills/ai-triage/references/github.md" with { type: "file" };
+import askills_ai_triage_SKILL_md from "../skills/ai-triage/SKILL.md" with { type: "file" };
 import askills_ai_orchestrator_SKILL_md from "../skills/ai-orchestrator/SKILL.md" with { type: "file" };
 import askills_ai_debug_SKILL_md from "../skills/ai-debug/SKILL.md" with { type: "file" };
 import askills_ai_design_md_planner_references_cli_md from "../skills/ai-design-md-planner/references/cli.md" with { type: "file" };
@@ -89,7 +91,6 @@ import askills_ai_review_ui_SKILL_md from "../skills/ai-review-ui/SKILL.md" with
 import askills_ai_note_SKILL_md from "../skills/ai-note/SKILL.md" with { type: "file" };
 import askills_ai_read_docs_SKILL_md from "../skills/ai-read-docs/SKILL.md" with { type: "file" };
 import askills__chain_bundle_ai_eng_chain_ts from "../skills/.chain-bundle/ai-eng-chain.ts" with { type: "file" };
-import askills_ai_github_triage_SKILL_md from "../skills/ai-github-triage/SKILL.md" with { type: "file" };
 import askills_ai_prototype_SKILL_md from "../skills/ai-prototype/SKILL.md" with { type: "file" };
 import askills_ai_git_cleanup_SKILL_md from "../skills/ai-git-cleanup/SKILL.md" with { type: "file" };
 import askills_ai_stress_test_references_tool_selection_md from "../skills/ai-stress-test/references/tool-selection.md" with { type: "file" };
@@ -198,6 +199,8 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-writing-behavior/SKILL.md": askills_ai_writing_behavior_SKILL_md as unknown as string,
   "../skills/ai-explore/SKILL.md": askills_ai_explore_SKILL_md as unknown as string,
   "../skills/ai-issue-report/SKILL.md": askills_ai_issue_report_SKILL_md as unknown as string,
+  "../skills/ai-triage/references/github.md": askills_ai_triage_references_github_md as unknown as string,
+  "../skills/ai-triage/SKILL.md": askills_ai_triage_SKILL_md as unknown as string,
   "../skills/ai-orchestrator/SKILL.md": askills_ai_orchestrator_SKILL_md as unknown as string,
   "../skills/ai-debug/SKILL.md": askills_ai_debug_SKILL_md as unknown as string,
   "../skills/ai-design-md-planner/references/cli.md": askills_ai_design_md_planner_references_cli_md as unknown as string,
@@ -229,7 +232,6 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-note/SKILL.md": askills_ai_note_SKILL_md as unknown as string,
   "../skills/ai-read-docs/SKILL.md": askills_ai_read_docs_SKILL_md as unknown as string,
   "../skills/.chain-bundle/ai-eng-chain.ts": askills__chain_bundle_ai_eng_chain_ts as unknown as string,
-  "../skills/ai-github-triage/SKILL.md": askills_ai_github_triage_SKILL_md as unknown as string,
   "../skills/ai-prototype/SKILL.md": askills_ai_prototype_SKILL_md as unknown as string,
   "../skills/ai-git-cleanup/SKILL.md": askills_ai_git_cleanup_SKILL_md as unknown as string,
   "../skills/ai-stress-test/references/tool-selection.md": askills_ai_stress_test_references_tool_selection_md as unknown as string,
