@@ -22,6 +22,43 @@ function isSafePart(part) {
   );
 }
 
+function parseAzureBoardRoute(parts, baseIndex) {
+  const route = parts.slice(baseIndex);
+  const boardIndex =
+    route[0] === "_boards"
+      ? 0
+      : route[1] === "_boards" && isSafePart(route[0])
+        ? 1
+        : -1;
+  if (boardIndex < 0) return {};
+  let team = boardIndex === 1 ? route[0] : undefined;
+  if (route[boardIndex + 1] === undefined) {
+    return { team, missingBoard: true };
+  }
+  if (route[boardIndex + 1] !== "board") return {};
+
+  let routeIndex = boardIndex + 2;
+  if (route[routeIndex] === "t") {
+    if (!isSafePart(route[routeIndex + 1])) return {};
+    team = route[routeIndex + 1];
+    routeIndex += 2;
+  }
+  if (routeIndex === route.length) return { team };
+  if (
+    route[routeIndex] !== "backlogs" ||
+    routeIndex + 2 !== route.length ||
+    !isSafePart(route[routeIndex + 1])
+  ) {
+    return {};
+  }
+
+  const backlogLevel = route[routeIndex + 1];
+  return {
+    team,
+    ...(backlogLevel.toLowerCase() === "board" ? {} : { backlogLevel }),
+  };
+}
+
 function parseGitHub(url) {
   if (
     url.protocol !== "https:" ||
@@ -75,29 +112,11 @@ function parseAzure(url) {
     organization,
     project,
   };
-  const teamIndex = parts.indexOf("t");
-  if (teamIndex >= 0 && isSafePart(parts[teamIndex + 1])) {
-    target.team = parts[teamIndex + 1];
-  } else {
-    const boardsIndex = parts.indexOf("_boards");
-    if (boardsIndex >= 3 && isSafePart(parts[boardsIndex - 1])) {
-      target.team = parts[boardsIndex - 1];
-    }
-  }
-
-  const boardsIndex = parts.indexOf("_boards");
-  if (boardsIndex >= 0 && !parts[boardsIndex + 1]) {
-    target.missingBoard = true;
-  }
-
-  const backlogIndex = parts.indexOf("backlogs");
-  if (backlogIndex >= 0 && isSafePart(parts[backlogIndex + 1])) {
-    const backlogLevel = parts[backlogIndex + 1];
-    if (backlogLevel.toLowerCase() !== "board") {
-      target.backlogLevel = backlogLevel;
-    }
-  }
-  return target;
+  const boardRoute = parseAzureBoardRoute(
+    parts,
+    hostname === "dev.azure.com" ? 2 : 1,
+  );
+  return { ...target, ...boardRoute };
 }
 
 function parseUrl(value) {
@@ -130,10 +149,28 @@ function parseRemote(value) {
   const remote = value.trim();
   let url;
 
-  const scpRemote = remote.match(/^(?:[^@/]+@)?github\.com:([^?#]+)$/i);
-  if (scpRemote) {
+  const azureScpRemote = remote.match(
+    /^git@ssh\.dev\.azure\.com:v3\/([^?#]+)$/i,
+  );
+  const azureScpParts = azureScpRemote?.[1].split("/");
+  const githubScpRemote = remote.match(
+    /^(?:[^@/]+@)?github\.com:([^?#]+)$/i,
+  );
+  if (
+    azureScpParts &&
+    azureScpParts.length === 3 &&
+    azureScpParts.every(isSafePart)
+  ) {
     try {
-      url = new URL(`https://github.com/${scpRemote[1]}`);
+      url = new URL(`https://dev.azure.com/${azureScpParts.join("/")}`);
+    } catch {
+      return null;
+    }
+  } else if (azureScpRemote) {
+    return null;
+  } else if (githubScpRemote) {
+    try {
+      url = new URL(`https://github.com/${githubScpRemote[1]}`);
     } catch {
       return null;
     }

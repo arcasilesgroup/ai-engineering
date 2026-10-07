@@ -123,4 +123,32 @@ describe("triage target routing integration", () => {
     expect(resolvedResult).toMatchObject({ status: "read" });
     expect(reads).toEqual([selectedScope]);
   });
+
+  test("reads the scope selected from an Azure DevOps Services SSH remote", async () => {
+    const reads: AzureScope[] = [];
+    const read = async (scope: AzureScope) => {
+      reads.push(scope);
+    };
+    const selectedScope: AzureScope = {
+      provider: "azure-devops",
+      organization: "synthetic-org",
+      project: "alpha",
+      team: "platform-team",
+      board: "platform",
+      backlog: "features",
+    };
+
+    const result = await resolveTargetAndRead(
+      {
+        remotes: [
+          "git@ssh.dev.azure.com:v3/synthetic-org/alpha/alpha",
+        ],
+        selection: selectedScope,
+      },
+      read,
+    );
+
+    expect(result).toEqual({ status: "read", target: selectedScope });
+    expect(reads).toEqual([selectedScope]);
+  });
 });

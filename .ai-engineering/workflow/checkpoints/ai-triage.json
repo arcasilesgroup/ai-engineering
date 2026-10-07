@@ -177,9 +177,10 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
           "status": "failed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "Reviewer could not resolve relative scope paths in the feature worktree; no code review was performed."
+            "resolve-target.mjs can misread a path segment named t as the team marker and resolve the wrong Azure team/backlog scope.",
+            "resolve-target.mjs does not recognize valid Azure DevOps Services SSH remotes (ssh.dev.azure.com:v3/...)."
           ]
         }
       },

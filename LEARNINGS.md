@@ -365,3 +365,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** No source change; include absolute feature-worktree paths in the review prompt.
 - **Lesson:** Review prompts for worktree files must include absolute worktree paths.
 - **Tags:** review, worktree, orchestration
+
+### L49 · 2026-10-07 · ai-triage #4 · behavior
+- **Failure:** A generic path segment `t` was mistaken for the team marker, and Azure DevOps Services SSH remotes were missed.
+- **Root cause:** Marker parsing was not anchored to the board route, and SSH parsing did not support strict `v3` remotes.
+- **Fix:** Anchor parsing to the board route and support strict Azure DevOps Services SSH `v3` remotes.
+- **Lesson:** Match route markers by position and test the resulting scope with synthetic inputs.
+- **Tags:** url-routing, team-marker, azure-devops, ssh

@@ -37,6 +37,23 @@ describe("resolveTarget", () => {
     });
   });
 
+  test("recognizes the team marker only in its Azure board-route position", () => {
+    expect(
+      resolveTarget({
+        explicitUrl:
+          "https://dev.azure.com/example-org/t/_boards/board/t/example-team/backlogs/Stories",
+        remotes: [],
+      }),
+    ).toEqual({
+      status: "ready",
+      provider: "azure-devops",
+      organization: "example-org",
+      project: "t",
+      team: "example-team",
+      backlogLevel: "Stories",
+    });
+  });
+
   test("resolves one GitHub repository remote", () => {
     expect(resolveTarget({ remotes: [githubRemote] })).toMatchObject({
       status: "ready",
