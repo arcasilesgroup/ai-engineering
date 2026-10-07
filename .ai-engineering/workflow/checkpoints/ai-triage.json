@@ -295,15 +295,15 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 4, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 5, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "pending",
-          "attempts": 4,
+          "status": "passed",
+          "attempts": 5,
           "findings": []
         }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         "skills/ai-triage/SKILL.md",
         "skills/ai-triage/references/azure-devops.md",
