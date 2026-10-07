@@ -267,6 +267,29 @@ describe("Azure triage report integration", () => {
     }
   });
 
+  test("redacts generic token assignments in all synthetic scope metadata", async () => {
+    const scope = createSyntheticScope();
+    scope.team = "Synthetic team token=synthetic-team-secret";
+    scope.backlogName = "Synthetic backlog token=synthetic-backlog-secret";
+    const reportWriter = createMemoryReportWriter();
+
+    await writeAzureTriageReport({
+      scope,
+      inventory: createSyntheticInventory(),
+      analyzeItem: async () => ({ status: "UNASSESSED" }),
+      writeFile: reportWriter.writeFile,
+    });
+
+    const generatedReport = reportWriter.reports.get(targetReport);
+    if (generatedReport === undefined) {
+      throw new Error("The synthetic report writer did not store the target report");
+    }
+    expect(generatedReport).not.toContain("synthetic-team-secret");
+    expect(generatedReport).not.toContain("synthetic-backlog-secret");
+    expect(generatedReport).toContain("Synthetic team [redacted]");
+    expect(generatedReport).toContain("Synthetic backlog [redacted]");
+  });
+
   test.each(["project", "organization"] as const)(
     "omits percent-encoded credentials from %s metadata and links",
     async (scopeField) => {
@@ -424,64 +447,70 @@ describe("Azure triage report integration", () => {
     expect(reportWriter.writes).toEqual([]);
   });
 
-  test("does not replace the existing report when rendering rejects an unsafe link", async () => {
-    const inventory = createSyntheticInventory();
-    const firstItem = inventory.items[0];
-    if (firstItem === undefined) throw new Error("Expected a synthetic work item");
-    const invalidLinkInventory = {
-      ...inventory,
-      items: [
-        {
-          ...firstItem,
-          relations: [
-            {
-              rel: "System.LinkTypes.Hierarchy-Reverse",
-              url: "javascript:alert(1)",
-            },
-          ],
-        },
-        ...inventory.items.slice(1),
-      ],
-    };
-    const reportWriter = createMemoryReportWriter();
+  test.each([
+    {
+      label: "evidence URL with a bearer fragment",
+      kind: "evidence",
+      url: "https://evidence.example.test/items/42#%62earer%3Dsynthetic-secret",
+    },
+    {
+      label: "malformed evidence URL",
+      kind: "evidence",
+      url: "https://evidence.example.test/items/%ZZ",
+    },
+    {
+      label: "unsafe relationship URL",
+      kind: "relationship",
+      url: "javascript:alert(1)",
+    },
+    {
+      label: "unvalidated relationship URL",
+      kind: "relationship",
+      url: "https://evidence.example.test/not-a-work-item",
+    },
+  ] as const)(
+    "preserves the report with a plain-text fallback for $label",
+    async ({ kind, url }) => {
+      const inventory = createSyntheticInventory();
+      if (kind === "relationship") {
+        const firstItem = inventory.items[0];
+        if (firstItem === undefined) throw new Error("Expected a synthetic work item");
+        firstItem.relations = [
+          { rel: "System.LinkTypes.Hierarchy-Reverse", url },
+        ];
+      }
+      const reportWriter = createMemoryReportWriter();
 
-    await expectNoSuccessShapedResult(() =>
-      writeAzureTriageReport({
+      await writeAzureTriageReport({
         scope: createSyntheticScope(),
-        inventory: invalidLinkInventory,
-        analyzeItem: async () => ({ status: "ASSESSED" }),
-        writeFile: reportWriter.writeFile,
-      }),
-    );
-
-    expect(reportWriter.reports.get(targetReport)).toBe(existingReport);
-    expect(reportWriter.writes).toEqual([]);
-  });
-
-  test("does not write or expose a rejected evidence URL with bearer credentials", async () => {
-    const reportWriter = createMemoryReportWriter();
-    const syntheticToken = "github_pat_syntheticToken1234567890";
-    const unsafeUrl =
-      `https://evidence.example.test/items/42?view=Bearer%2520${syntheticToken}`;
-
-    await expectNoSuccessShapedResult(() =>
-      writeAzureTriageReport({
-        scope: createSyntheticScope(),
-        inventory: createSyntheticInventory(),
+        inventory,
         analyzeItem: async (item: SyntheticWorkItem) => ({
           status: "ASSESSED",
           priority: "P2",
           summary: `Synthetic analysis for item ${item.id}`,
-          evidence: [{ label: "Synthetic evidence", url: unsafeUrl }],
+          evidence:
+            kind === "evidence"
+              ? [{ label: "Synthetic evidence label", url }]
+              : [],
         }),
         writeFile: reportWriter.writeFile,
-      }),
-    );
+      });
 
-    expect(reportWriter.reports.get(targetReport)).toBe(existingReport);
-    expect(reportWriter.writes).toEqual([]);
-    expect(
-      [...reportWriter.reports.values()].some((report) => report.includes(unsafeUrl)),
-    ).toBe(false);
-  });
+      const generatedReport = reportWriter.reports.get(targetReport);
+      if (generatedReport === undefined) {
+        throw new Error("The synthetic report writer did not store the target report");
+      }
+      expect(reportWriter.writes).toHaveLength(1);
+      expect(generatedReport).not.toContain(url);
+      expect(generatedReport).not.toContain("synthetic-secret");
+      expect(generatedReport).toContain(
+        'href="https://dev.azure.com/synthetic-org/synthetic-project/_workitems/edit/201"',
+      );
+      if (kind === "evidence") {
+        expect(generatedReport).toContain("Synthetic evidence label");
+      } else {
+        expect(generatedReport).toContain("Parent work item");
+      }
+    },
+  );
 });

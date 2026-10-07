@@ -47,7 +47,7 @@ function redactAuthentication(value) {
   return value
     .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*/gi, "[redacted]")
     .replace(
-      /\b(?:access[_-]?token|refresh[_-]?token|id[_-]?token|authorization|password|passwd|client[_-]?secret|api[_-]?key|secret|credential)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi,
+      /\b(?:access[_-]?token|refresh[_-]?token|id[_-]?token|token|bearer|authorization|password|passwd|client[_-]?secret|api[_-]?key|secret|credential)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi,
       "[redacted]",
     )
     .replace(
@@ -249,14 +249,15 @@ function hierarchyFor(item) {
     if (relationKind === undefined) continue;
 
     const url = sanitizeEvidenceUrl(relation.url);
-    if (url === null) {
-      throw new Error("Azure inventory contains an unsafe relationship URL");
-    }
-    const relatedId = new URL(url).pathname.match(/\/workItems\/(\d+)\/?$/i)?.[1];
-    if (relatedId === undefined) {
-      throw new Error("Azure inventory contains an invalid relationship URL");
-    }
-    relations.push({ kind: relationKind, id: relatedId, url });
+    const relatedId =
+      url === null
+        ? undefined
+        : new URL(url).pathname.match(/\/workItems\/(\d+)\/?$/i)?.[1];
+    relations.push({
+      kind: relationKind,
+      id: relatedId,
+      url: relatedId === undefined ? null : url,
+    });
   }
   return relations;
 }
@@ -288,9 +289,6 @@ function normalizeAnalysis(analysis, itemId) {
     requireRecord(entry, "evidence");
     const label = requireText(entry.label, "evidence label");
     const url = sanitizeEvidenceUrl(entry.url);
-    if (url === null) {
-      throw new Error("Azure analysis contains an unsafe evidence URL");
-    }
     return { label, url };
   });
   return { status: "ASSESSED", priority, summary, evidence };
@@ -326,6 +324,10 @@ function link(label, url) {
   const safeUrl = sanitizeEvidenceUrl(url);
   if (safeUrl === null) return visibleText(label);
   return `<a href="${escapeHtml(safeUrl)}" rel="noreferrer noopener">${visibleText(label)}</a>`;
+}
+
+function relationTarget({ id, url }) {
+  return id === undefined ? "work item" : link(`#${id}`, url);
 }
 
 function itemUrl(scope, id) {
@@ -364,7 +366,7 @@ function renderItem(item, analysis, relations, scope) {
     relations.length === 0
       ? "No parent or child links were returned."
       : relations
-          .map(({ kind, id, url }) => `${kind} ${link(`#${id}`, url)}`)
+          .map((relation) => `${relation.kind} ${relationTarget(relation)}`)
           .join(" · ");
   const evidence =
     analysis.status === "ASSESSED" && analysis.evidence.length > 0
@@ -421,7 +423,7 @@ function renderRelatedContext(items, hierarchy) {
     const relations = hierarchy[index] ?? [];
     for (const relation of relations) {
       rows.push(
-        `<li>Work item #${item.id} · ${relation.kind.toLowerCase()} ${link(`#${relation.id}`, relation.url)}</li>`,
+        `<li>Work item #${item.id} · ${relation.kind.toLowerCase()} ${relationTarget(relation)}</li>`,
       );
     }
   });

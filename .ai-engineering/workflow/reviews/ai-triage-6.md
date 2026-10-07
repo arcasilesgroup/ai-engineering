@@ -79,3 +79,26 @@ Verify:
 - **LESSON:** Validate every decoded URL query value, and never run template passes over inserted untrusted text.
 - **Focused tests:** Report unit and integration tests cover reserved query keys, encoded bearer values, safe GitHub/Azure links, no URL leakage, and inert placeholder/replacement-token labels with one intact shell.
 - **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 20/20.
+
+## Round 2 verdict
+
+- **FAIL**
+- **F1 · P1 remains open — Bearer credentials in URL fragments render** (`skills/ai-triage/scripts/render-report.mjs:148–153`). The sanitizer checks query keys in `searchParams`, but the fragment-key check does not include `bearer`; a synthetic `https://evidence.example.test/item#bearer=abcDEF987654321` passes sanitization and appears in the complete report's `href`. Reject bearer-style fragment parameters, including encoded keys, without exposing the rejected URL.
+- **F2 · P2 resolved:** Shell substitutions now run once against the original template via a callback; the integration fixture confirms literal placeholder/replacement tokens and a single intact shell.
+- Verification: report and shared-shell tests passed 30/30; a synthetic complete-report probe reproduced F1. No Azure/GitHub access.
+
+## CP6 fresh adversarial review
+
+- **FAIL**
+- **F3 · P1 — Credential markers bypass URL checks** (`skills/ai-triage/scripts/render-report.mjs:46–65, 99–108, 148–153`): fragment `bearer=` (including `%62earer=`), query values `view=token%3D...`, and path `token%3D...` are accepted into `href`; reproduced through complete report rendering. Reject credentials in all URL components after decoding.
+- **F4 · P1 — Generic token assignment leaks from shell metadata** (`skills/ai-triage/scripts/render-report.mjs:46–65, 163–178, 498–533`): `backlogName: "token=synthetic-secret"` appears four times in generated shell/report because redaction omits bare `token=`. GitHub-PAT-shaped project metadata and encoded scope credentials are redacted correctly.
+- **F5 · P2 — Unsafe evidence does not fall back to safe text** (`skills/ai-triage/scripts/render-report.mjs:244–254, 287–294`): invalid evidence/relation URLs throw before rendering instead of showing the safe label/ID without an anchor; previous report is preserved, but the requested fallback behavior is absent. Scope-derived item links do fall back to ID text.
+- **PASS checks:** Template substitution is one-pass; safe Azure/GitHub URLs remain intact; atomic write/replacement failure tests preserve previous bytes and clean the owned temp. Focused unit/integration tests: 20/20 passed.
+
+## Fixer response · CP6 F3-F5
+
+- **ROOT CAUSE:** URL validation did not recognize generic `token=`/`bearer=` assignments after decoding, metadata redaction omitted bare `token=`, and invalid evidence/relationship URLs aborted normalization.
+- **FIX:** Redact generic token and bearer assignments everywhere dynamic text is rendered; reject them in URL components; render unsafe or unvalidated evidence/relationship references as escaped plain-text labels.
+- **LESSON:** Apply credential detection after decoding at every output boundary, and make unsafe links a display fallback rather than a report failure.
+- **Synthetic coverage:** Encoded fragment keys/values, metadata assignments, malformed evidence, unsafe and unvalidated relationships; safe HTTPS links remain checked.
+- **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 24/24 (156 assertions).

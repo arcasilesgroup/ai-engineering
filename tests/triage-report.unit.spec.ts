@@ -105,4 +105,18 @@ describe("report HTML sanitization", () => {
       expect(sanitizeEvidenceUrl(encodedUrl)).toBeNull();
     }
   });
+
+  test("rejects bearer and token assignments in URL fragments and decoded components", () => {
+    const unsafeUrls = [
+      "https://issues.example.test/items/42#bearer=synthetic-secret",
+      "https://issues.example.test/items/42#%62earer=synthetic-secret",
+      "https://issues.example.test/items/42#view=token%3Dsynthetic-secret",
+      "https://issues.example.test/items/42#view=%2574oken%253Dsynthetic-secret",
+      "https://issues.example.test/items/token%3Dsynthetic-secret",
+    ];
+
+    for (const unsafeUrl of unsafeUrls) {
+      expect(sanitizeEvidenceUrl(unsafeUrl)).toBeNull();
+    }
+  });
 });
