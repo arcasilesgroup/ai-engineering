@@ -472,3 +472,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Stage in a private unique directory, retain the opened file through atomic rename, validate device/inode before replacement, and unlink only the matching staged file.
 - **Lesson:** Bind filesystem cleanup and publication to the identity of the file opened, not just its temporary pathname.
 - **Tags:** review, atomic-write, filesystem, ownership, tests
+
+### L64 · 2026-10-07 · ai-triage #8 · behavior
+- **Failure:** `bun run typecheck` reported TS1192/TS2846 because generated `src/assets.ts` imported `.d.mts` declaration files as runtime assets.
+- **Root cause:** `.mjs` runtime imports resolved sibling `.d.mts` declarations as host modules.
+- **Fix:** Embedded scripts and declaration files through `.txt` copies and tested the exact payloads.
+- **Lesson:** Keep runtime script assets separate from host-module resolution.
+- **Tags:** behavior, assets, typecheck
