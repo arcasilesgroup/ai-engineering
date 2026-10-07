@@ -298,7 +298,11 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "pending",
+      "changed_files": [
+        "tests/triage-report.unit.spec.ts",
+        "tests/triage-report.integration.spec.ts"
+      ]
     },
     {
       "id": 7,
