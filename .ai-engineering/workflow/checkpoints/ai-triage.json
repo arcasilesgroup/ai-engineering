@@ -346,17 +346,15 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 2, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "failed",
-          "attempts": 1,
-          "findings": [
-            "F1/P1: A same-path temp-file substitution race can make cleanup delete another writer's file or publish its contents instead of the complete report."
-          ]
+          "status": "passed",
+          "attempts": 2,
+          "findings": []
         }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         "skills/ai-triage/scripts/render-report.mjs",
         "tests/triage-report.integration.spec.ts"
