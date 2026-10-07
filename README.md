@@ -252,7 +252,7 @@ it is asked out loud, once. Either way it ends in a gate or an `ABANDON`, never 
 | `ai-design-md-planner` | Writes a `DESIGN.md` design system and audits it with the official CLI until it lints clean |
 | `ai-explore` | Answers "where does this live" from the repository, anchored to `file:line` |
 | `ai-git-cleanup` | Removes merged branches and dead worktrees in one pass. It never force-deletes |
-| `ai-github-triage` | Ranks an entire open backlog into one page, each claim pinned to a commit |
+| `ai-triage` | Ranks one GitHub or Azure DevOps backlog in a complete, read-only report |
 | `ai-issue-report` | Files a governed bug report: scrubbed fields, local draft, nothing sent unconfirmed |
 | `ai-note` | Saves a hard-won finding as committed markdown, stamped so staleness is detectable |
 | `ai-orchestrator` | Builds a feature end to end in gated checkpoints. You approve the plan, then the app |

@@ -20,6 +20,18 @@ PERMISSIONS.md                 Endpoint × role access matrix (n/a until the pro
     reviews/                   /ai-adversarial-loop debate threads
     prototypes/                /ai-prototype HTML mockups + <name>.states.json scenarios
 skills/                        Installed skill canon
+  ai-triage/
+    SKILL.md                   Single entry point; routes to the selected provider
+    references/
+      azure-devops.md          Azure DevOps Services scope, reads and report contract
+      github.md                GitHub inventory, ranking and report procedure
+    scripts/
+      collect-azure.mjs        Scoped Azure backlog collector
+      collect-azure.d.mts      Collector types
+      render-report.mjs        Safe report rendering and atomic write
+      render-report.d.mts      Report writer types
+      resolve-target.mjs       Explicit provider and target resolution
+      resolve-target.d.mts     Target resolver types
 agents/                        Specialist agents for the feature workflow
 .ai-engineering/workflow/playwright/  Sign-in sessions and review screenshots (gitignored)
 ```

@@ -45,6 +45,10 @@ unknown state metadata fails closed.
 
 ## CLI route-mapping boundary
 
+Use the already-authenticated `az` CLI with its Azure DevOps extension for Azure access.
+Never write or persist credentials, and do not use active CLI defaults to guess the
+selected scope.
+
 Local `az devops invoke --help` documents `--area`, `--resource`,
 `--route-parameters`, `--query-parameters`, `--org`, `--http-method`, and
 `--api-version`, and shows examples for Wiki routes. It does not establish the

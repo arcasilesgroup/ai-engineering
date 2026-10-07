@@ -59,6 +59,13 @@ import askills_ai_writing_behavior_SKILL_md from "../skills/ai-writing-behavior/
 import askills_ai_explore_SKILL_md from "../skills/ai-explore/SKILL.md" with { type: "file" };
 import askills_ai_issue_report_SKILL_md from "../skills/ai-issue-report/SKILL.md" with { type: "file" };
 import askills_ai_triage_references_github_md from "../skills/ai-triage/references/github.md" with { type: "file" };
+import askills_ai_triage_references_azure_devops_md from "../skills/ai-triage/references/azure-devops.md" with { type: "file" };
+import askills_ai_triage_scripts_resolve_target_mjs from "../skills/ai-triage/scripts/resolve-target.mjs" with { type: "file" };
+import askills_ai_triage_scripts_resolve_target_d_mts from "../skills/ai-triage/scripts/resolve-target.d.mts" with { type: "file" };
+import askills_ai_triage_scripts_render_report_mjs from "../skills/ai-triage/scripts/render-report.mjs" with { type: "file" };
+import askills_ai_triage_scripts_render_report_d_mts from "../skills/ai-triage/scripts/render-report.d.mts" with { type: "file" };
+import askills_ai_triage_scripts_collect_azure_mjs from "../skills/ai-triage/scripts/collect-azure.mjs" with { type: "file" };
+import askills_ai_triage_scripts_collect_azure_d_mts from "../skills/ai-triage/scripts/collect-azure.d.mts" with { type: "file" };
 import askills_ai_triage_SKILL_md from "../skills/ai-triage/SKILL.md" with { type: "file" };
 import askills_ai_orchestrator_SKILL_md from "../skills/ai-orchestrator/SKILL.md" with { type: "file" };
 import askills_ai_debug_SKILL_md from "../skills/ai-debug/SKILL.md" with { type: "file" };
@@ -200,6 +207,13 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-explore/SKILL.md": askills_ai_explore_SKILL_md as unknown as string,
   "../skills/ai-issue-report/SKILL.md": askills_ai_issue_report_SKILL_md as unknown as string,
   "../skills/ai-triage/references/github.md": askills_ai_triage_references_github_md as unknown as string,
+  "../skills/ai-triage/references/azure-devops.md": askills_ai_triage_references_azure_devops_md as unknown as string,
+  "../skills/ai-triage/scripts/resolve-target.mjs": askills_ai_triage_scripts_resolve_target_mjs as unknown as string,
+  "../skills/ai-triage/scripts/resolve-target.d.mts": askills_ai_triage_scripts_resolve_target_d_mts as unknown as string,
+  "../skills/ai-triage/scripts/render-report.mjs": askills_ai_triage_scripts_render_report_mjs as unknown as string,
+  "../skills/ai-triage/scripts/render-report.d.mts": askills_ai_triage_scripts_render_report_d_mts as unknown as string,
+  "../skills/ai-triage/scripts/collect-azure.mjs": askills_ai_triage_scripts_collect_azure_mjs as unknown as string,
+  "../skills/ai-triage/scripts/collect-azure.d.mts": askills_ai_triage_scripts_collect_azure_d_mts as unknown as string,
   "../skills/ai-triage/SKILL.md": askills_ai_triage_SKILL_md as unknown as string,
   "../skills/ai-orchestrator/SKILL.md": askills_ai_orchestrator_SKILL_md as unknown as string,
   "../skills/ai-debug/SKILL.md": askills_ai_debug_SKILL_md as unknown as string,
