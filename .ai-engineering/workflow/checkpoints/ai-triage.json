@@ -125,9 +125,9 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 2, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 1, "findings": [] }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         "src/assets.ts",
         "tests/triage-github.spec.ts"
