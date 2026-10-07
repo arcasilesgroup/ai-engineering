@@ -100,9 +100,20 @@ VERDICT: FAIL
 - F7 · P1 · `tests/triage-github.spec.ts:40` — Still open: the guard rejects `<(...)` and `>(...)` but not zsh `=(...)`; `gh issue list =(curl -X POST https://example.invalid)` passes as read-only while zsh executes the write.
 - F8 · P1 · `tests/triage-github.spec.ts:40,50-63` — The gate also misses shell composition through here-doc expansion: `gh issue list <<EOF` passes the guard, while `commandExamples` drops a `$()` body line, so `$(curl -X POST ...)` executes without being checked. The closed read-only claim is not enforced against this shell form.
 
+### Debate · fresh retry-cycle round 2
+VERDICT: FAIL
+- F7/F8 · RESOLVED — The validator rejects shell operators/substitutions/redirections and multiline blocks; provider guidance explicitly forbids process substitution and here-docs.
+- F9 · P1 · `tests/triage-github.spec.ts:49-55` — `commandExamples` recognizes only backtick fences and only retains blocks containing a lowercase command-looking line. A valid `~~~sh` block, or a backtick block containing `TOKEN=x curl -X POST https://example.invalid`, is skipped; an active remote write can be added without failing the gate.
+
 ### Response · fresh retry-cycle round 1
 - Root cause fixed: the contract allowed shell syntax beyond its Bash metacharacter checks, and the extractor checked lines rather than complete fenced command bodies.
 - F7 fixed: the direct-command guard rejects shell operators, substitutions, redirections, grouping, and line breaks, covering zsh `=(...)` without enumerating commands.
 - F8 fixed: fenced command bodies are validated intact before they can pass the allowlist; the here-doc fixture proves the `$()` body is retained and rejected.
 - Lesson: constrain the command grammar at the boundary, then inspect whole command blocks before accepting their contents.
 - Verify: `bun test tests/triage-github.spec.ts`.
+
+### Response · fresh retry-cycle round 2
+- Root cause fixed: the extractor recognized only triple-backtick fences and skipped environment-prefixed command lines before validation.
+- F9 fixed: variable-length backtick and tilde fences are extracted; inline environment assignments are recognized and rejected by the read-only checker.
+- The GitHub procedure explicitly forbids inline environment assignments; the allowlist and shell-composition restrictions remain intact.
+- Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (70 assertions).

@@ -33,6 +33,13 @@ function isReadOnlyGhApi(command: string): boolean {
 
 function isReadOnlyCommand(command: string): boolean {
   const normalizedCommand = command.trim();
+  if (
+    /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:[^\s"'`]*|"[^"]*"|'[^']*')\s+)+/.test(
+      normalizedCommand,
+    )
+  ) {
+    return false;
+  }
   const commandSyntax = normalizedCommand.replace(/<[\w./-]+>/g, "");
   if (/[\r\n;&|`$<>\\()]/.test(commandSyntax)) return false;
   if (normalizedCommand === "bun test tests/artifact-scroll-spy.spec.ts") return true;
@@ -44,25 +51,68 @@ function isReadOnlyCommand(command: string): boolean {
   );
 }
 
-function commandExamples(markdown: string): string[] {
-  const codeBlocks = [
-    ...markdown.matchAll(/```[^\n]*\n([\s\S]*?)```/g),
-  ].flatMap(([, block]) =>
-    block.split("\n").some((line) => /^[a-z][\w-]*\s/.test(line.trim()))
-      ? [block.trim()]
-      : [],
+function looksLikeCommand(line: string): boolean {
+  return /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:[^\s"'`]*|"[^"]*"|'[^']*')\s+)*[a-z][\w-]*\s/.test(
+    line.trim(),
   );
-  const inlineCode = markdown.replace(/```[\s\S]*?```/g, "");
+}
+
+function commandExamples(markdown: string): string[] {
+  const codeBlocks: string[] = [];
+  const inlineLines: string[] = [];
+  let fenceCharacter: string | undefined;
+  let fenceLength = 0;
+  let isShellFence = false;
+  let blockLines: string[] = [];
+  const addCodeBlock = () => {
+    const block = blockLines.join("\n").trim();
+    if (
+      block &&
+      (isShellFence || block.split("\n").some(looksLikeCommand))
+    ) {
+      codeBlocks.push(block);
+    }
+  };
+
+  for (const line of markdown.split(/\r?\n/)) {
+    if (!fenceCharacter) {
+      const opening = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+      if (!opening) {
+        inlineLines.push(line);
+        continue;
+      }
+      fenceCharacter = opening[1][0];
+      fenceLength = opening[1].length;
+      isShellFence = /^(?:sh|bash|shell|zsh)(?:\s|$)/i.test(
+        opening[2].trim(),
+      );
+      blockLines = [];
+      continue;
+    }
+
+    const closing = line.match(/^ {0,3}(`+|~+)[ \t]*$/);
+    if (
+      closing &&
+      closing[1][0] === fenceCharacter &&
+      closing[1].length >= fenceLength
+    ) {
+      addCodeBlock();
+      fenceCharacter = undefined;
+      blockLines = [];
+      continue;
+    }
+    blockLines.push(line);
+  }
+  if (fenceCharacter) addCodeBlock();
+
+  const inlineCode = inlineLines.join("\n");
   return [
     ...codeBlocks,
     ...[...inlineCode.matchAll(/`([^`\n]+)`/g)].map(([, command]) =>
       command.trim(),
     ),
   ]
-    .filter(
-      (command) =>
-        command.includes("\n") || /^[a-z][\w-]*\s/.test(command),
-    );
+    .filter((command) => command.includes("\n") || looksLikeCommand(command));
 }
 
 describe("GitHub triage instruction contract", () => {
@@ -161,7 +211,7 @@ describe("GitHub triage instruction contract", () => {
       /Use exactly one direct allowlisted CLI command per tool call\./,
     );
     expect(readOnlyPolicy.replace(/\s+/g, " ")).toContain(
-      "Do not wrap or compose shell commands: no compound commands, shell wrappers, process substitution, command substitution, here-docs, or line continuations.",
+      "Do not wrap or compose shell commands: no compound commands, shell wrappers, inline environment assignments, process substitution, command substitution, here-docs, or line continuations.",
     );
     expect(readOnlyPolicy).toContain(
       "Every mutation of GitHub state is a failure of this skill",
@@ -195,11 +245,27 @@ describe("GitHub triage instruction contract", () => {
       ),
     ).toBe(false);
     expect(isReadOnlyCommand("env gh issue list")).toBe(false);
+    expect(isReadOnlyCommand("TOKEN=x gh issue list")).toBe(false);
+    expect(
+      isReadOnlyCommand("TOKEN=x curl -X POST https://example.invalid"),
+    ).toBe(false);
     const remoteWriteBlock = "```sh\ncurl -X POST https://example.invalid\n```";
     expect(commandExamples(remoteWriteBlock)).toEqual([
       "curl -X POST https://example.invalid",
     ]);
     expect(commandExamples(remoteWriteBlock).every(isReadOnlyCommand)).toBe(false);
+    for (const fencedWrite of [
+      "````sh\ncurl -X POST https://example.invalid\n`````",
+      "~~~~~bash\nTOKEN=x curl -X POST https://example.invalid\n~~~~~~",
+    ]) {
+      const commands = commandExamples(fencedWrite);
+      expect(commands).toEqual([
+        fencedWrite.includes("TOKEN=x ")
+          ? "TOKEN=x curl -X POST https://example.invalid"
+          : "curl -X POST https://example.invalid",
+      ]);
+      expect(commands.every(isReadOnlyCommand)).toBe(false);
+    }
     const hereDocBlock = [
       "```sh",
       "gh issue list <<EOF",
