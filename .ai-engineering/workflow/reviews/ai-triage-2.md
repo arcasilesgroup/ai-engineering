@@ -51,3 +51,10 @@ VERDICT: FAIL
 - F2 fixed: the test isolates each inventory and requires its own pagination rule and fetched-count agreement; the provider text states each independently.
 - F3 remains resolved and untouched.
 - Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (57 assertions).
+
+### Debate · round 4
+VERDICT: FAIL
+- F1 · P1 · `tests/triage-github.spec.ts:102-125` — The remote-write detector still omits `gh pr lock` and `gh pr unlock`, which mutate GitHub PR state; adding either active command to the provider instructions passes the negative assertion.
+- F2 · RESOLVED — `:18-45` isolates issue and PR command ranges and asserts each range's own pagination and fetched-count instruction; the reference provides both separately.
+- F3 · RESOLVED — The per-item block and its shape assertions remain intact.
+- Verify: `bun test ./tests/triage-github.spec.ts` — 3 passed, 0 failed (57 assertions).

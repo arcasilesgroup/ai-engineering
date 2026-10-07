@@ -258,3 +258,24 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Restored locked dependencies with `bun install --frozen-lockfile`; manifests and lockfile were unchanged. Confirmed `oxlint` 1.80.0 was available and `bun run typecheck` exited 0 with warnings.
 - **Lesson:** Restore locked dependencies before the typecheck gate.
 - **Tags:** typecheck, dependencies, bun
+
+### L34 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Round 1 findings F1–F3 identified contract-test gaps.
+- **Root cause:** The tests did not link each requirement to its specific command.
+- **Fix:** Link each contract-test requirement to its specific command.
+- **Lesson:** Contract tests should link each requirement to its specific command.
+- **Tags:** review, tests, contracts
+
+### L35 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Round 2 findings F1/F2 remained open after independent review.
+- **Root cause:** Static contract checks did not link each requirement to the command it governs.
+- **Fix:** Link each static contract requirement to the command it governs.
+- **Lesson:** Static contract checks should link each requirement to the command it governs.
+- **Tags:** review, tests, contracts
+
+### L36 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Round 3 identified mutation and pagination gaps.
+- **Root cause:** Safety and completeness assertions were not scoped to the command they govern.
+- **Fix:** Scope each safety and completeness assertion to its governing command.
+- **Lesson:** Scope each safety and completeness assertion to the command it governs.
+- **Tags:** review, tests, contracts
