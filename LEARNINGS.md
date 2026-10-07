@@ -379,3 +379,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Added explicit guards and narrowing without casts; typecheck and targeted tests passed.
 - **Lesson:** Narrow optional array values before passing them to typed assertions or functions.
 - **Tags:** typecheck, tests, narrowing, azure
+
+### L51 · 2026-10-07 · ai-triage #6 · behavior
+- **Failure:** Typecheck reported TS2769 at `tests/triage-report.integration.spec.ts:160` because an optional array lookup yielded `string | undefined` for `writeFile`.
+- **Root cause:** The recorded write was used without narrowing its possible absence.
+- **Fix:** Narrowed the recorded write before calling `writeFile`, without an unsafe cast; typecheck and targeted integration test passed.
+- **Lesson:** Narrow indexed values before using them in typed assertions.
+- **Tags:** typecheck, tests, narrowing, integration

@@ -156,8 +156,12 @@ describe("Azure triage report integration", () => {
       throw new Error("The synthetic report writer did not store the target report");
     }
     expect(reportWriter.writes).toHaveLength(1);
-    expect(reportWriter.writes[0]?.path).toBe(targetReport);
-    expect(generatedReport).toBe(reportWriter.writes[0]?.contents);
+    const writtenReport = reportWriter.writes[0];
+    if (writtenReport === undefined) {
+      throw new Error("The synthetic report writer did not record a write");
+    }
+    expect(writtenReport.path).toBe(targetReport);
+    expect(generatedReport).toBe(writtenReport.contents);
     expect(maxActiveAnalyses).toBeLessThanOrEqual(5);
     expect([...analyzedItemIds].sort((firstId, secondId) => firstId - secondId)).toEqual(
       inventory.items.map((item) => item.id),
