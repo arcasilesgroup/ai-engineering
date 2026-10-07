@@ -23,6 +23,9 @@ Only those listed `gh` reads may contact a remote service. Every other command o
 capable of remote access or changing remote state is forbidden, including curl requests
 and git push. This applies to attached flags too: any request-body or field option is
 forbidden.
+Use exactly one direct allowlisted CLI command per tool call. Do not wrap or
+compose shell commands: no compound commands, shell wrappers, process
+substitution, command substitution, here-docs, or line continuations.
 Do not check out, switch, fetch, or pull a branch under review; inspect it with `git log`,
 `git show`, `git blame`, or `git rev-parse`.
 

