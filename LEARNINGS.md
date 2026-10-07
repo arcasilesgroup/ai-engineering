@@ -430,3 +430,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Use the already-authenticated Azure CLI and its Azure DevOps extension; do not write tokens or credentials.
 - **Lesson:** Use the existing Azure CLI authentication and Azure DevOps extension, never written tokens or credentials.
 - **Tags:** human, circuit-breaker, auth, credentials, azure-devops
+
+### L58 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Synthetic `azure_devops_token=` and `bearer_token=` team metadata credentials still rendered.
+- **Root cause:** The assignment redactor omitted Azure DevOps token and bearer-token key variants.
+- **Fix:** Added both key variants to the redaction matcher and expanded full-report tests to verify secret removal while preserving safe lookalike fields.
+- **Lesson:** Cover provider-specific credential assignment names in redaction tests, including safe fields with similar prefixes.
+- **Tags:** review, auth, redaction, metadata, azure, bearer

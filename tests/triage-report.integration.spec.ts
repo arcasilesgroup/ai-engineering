@@ -277,10 +277,14 @@ describe("Azure triage report integration", () => {
       "oauth2_access_token=synthetic-oauth2-access-secret",
       "x_auth_token=synthetic-x-auth-token-secret",
       "client_auth=synthetic-client-auth-secret",
+      "azure_devops_token=synthetic-azure-devops-token-secret",
+      "bearer_token=synthetic-bearer-token-secret",
       "authored_by=synthetic-maintainer",
       "client_author=synthetic-owner",
       "oauth_provider=synthetic-provider",
       "oauth2_access_policy=synthetic-policy",
+      "azure_devops_token_policy=synthetic-token-policy",
+      "bearer_token_owner=synthetic-token-owner",
     ].join(" ");
     scope.backlogName = "Synthetic backlog auth=synthetic-backlog-secret";
     const reportWriter = createMemoryReportWriter();
@@ -302,14 +306,18 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).not.toContain("synthetic-oauth2-access-secret");
     expect(generatedReport).not.toContain("synthetic-x-auth-token-secret");
     expect(generatedReport).not.toContain("synthetic-client-auth-secret");
+    expect(generatedReport).not.toContain("synthetic-azure-devops-token-secret");
+    expect(generatedReport).not.toContain("synthetic-bearer-token-secret");
     expect(generatedReport).not.toContain("synthetic-backlog-secret");
     expect(generatedReport).toContain(
-      "Synthetic team [redacted] [redacted] [redacted] [redacted] [redacted] [redacted]",
+      "Synthetic team [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted]",
     );
     expect(generatedReport).toContain("authored_by=synthetic-maintainer");
     expect(generatedReport).toContain("client_author=synthetic-owner");
     expect(generatedReport).toContain("oauth_provider=synthetic-provider");
     expect(generatedReport).toContain("oauth2_access_policy=synthetic-policy");
+    expect(generatedReport).toContain("azure_devops_token_policy=synthetic-token-policy");
+    expect(generatedReport).toContain("bearer_token_owner=synthetic-token-owner");
     expect(generatedReport).toContain("Synthetic backlog [redacted]");
   });
 
