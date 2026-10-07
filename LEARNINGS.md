@@ -358,3 +358,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Added `resolve-target.d.mts`; tests now pass.
 - **Lesson:** Give executable `.mjs` modules explicit declarations when a wildcard asset declaration masks their exports.
 - **Tags:** typecheck, typescript, declarations
+
+### L48 · 2026-10-07 · ai-triage #4 · review
+- **Failure:** The CP4 review invocation could not resolve feature-worktree files and performed no code review; no source finding.
+- **Root cause:** The reviewer used relative paths from the primary checkout instead of paths to the feature worktree.
+- **Fix:** No source change; include absolute feature-worktree paths in the review prompt.
+- **Lesson:** Review prompts for worktree files must include absolute worktree paths.
+- **Tags:** review, worktree, orchestration
