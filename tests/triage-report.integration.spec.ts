@@ -205,6 +205,12 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).toContain("UNASSESSED");
     expect(generatedReport).toContain("901");
     expect(generatedReport).toContain("902");
+    expect(generatedReport).toContain(
+      'href="https://dev.azure.com/synthetic-org/synthetic-project/_workitems/edit/201"',
+    );
+    expect(generatedReport).toContain(
+      'href="https://dev.azure.com/synthetic-org/synthetic-project/_apis/wit/workItems/201"',
+    );
     expect(generatedReport).not.toContain(
       "<img src=x onerror=alert(1)>",
     );
@@ -216,6 +222,43 @@ describe("Azure triage report integration", () => {
     );
     expect(generatedReport).not.toContain("<img src=x onerror=alert(1)>");
     expect(generatedReport).not.toContain(syntheticToken);
+  });
+
+  test("renders a token-shaped project identifier as text instead of linking it", async () => {
+    const syntheticToken = "github_pat_syntheticToken1234567890";
+    const scope = createSyntheticScope();
+    scope.project = syntheticToken;
+    const reportWriter = createMemoryReportWriter();
+
+    await writeAzureTriageReport({
+      scope,
+      inventory: createSyntheticInventory(),
+      analyzeItem: async (item: SyntheticWorkItem) => ({
+        status: "ASSESSED",
+        priority: "P2",
+        summary: `Synthetic analysis for item ${item.id}`,
+        evidence: [
+          {
+            label: "Safe synthetic evidence",
+            url: `${syntheticOrganization}/synthetic-project/_apis/wit/workItems/${item.id}`,
+          },
+        ],
+      }),
+      writeFile: reportWriter.writeFile,
+    });
+
+    const generatedReport = reportWriter.reports.get(targetReport);
+    if (generatedReport === undefined) {
+      throw new Error("The synthetic report writer did not store the target report");
+    }
+    expect(generatedReport).not.toContain(syntheticToken);
+    expect(generatedReport).toContain('<span class="iid">#201</span>');
+    expect(generatedReport).toContain(
+      'href="https://dev.azure.com/synthetic-org/synthetic-project/_apis/wit/workItems/201"',
+    );
+    for (const linkMatch of generatedReport.matchAll(/\bhref="([^"]*)"/g)) {
+      expect(linkMatch[1] ?? "").not.toContain(syntheticToken);
+    }
   });
 
   test.each(["write", "replace"] as const)(

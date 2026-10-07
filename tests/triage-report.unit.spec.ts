@@ -51,4 +51,17 @@ describe("report HTML sanitization", () => {
       expect(sanitizedUrl ?? "").not.toContain(syntheticToken);
     }
   });
+
+  test("rejects encoded credential-shaped URL components", () => {
+    const encodedToken = "%67ithub_pat_syntheticToken1234567890";
+    const encodedUrls = [
+      `https://issues.example.test/${encodedToken}`,
+      `https://issues.example.test/items/42?project=${encodedToken}`,
+      `https://${encodedToken}@issues.example.test/items/42`,
+    ];
+
+    for (const encodedUrl of encodedUrls) {
+      expect(sanitizeEvidenceUrl(encodedUrl)).toBeNull();
+    }
+  });
 });

@@ -64,6 +64,23 @@ function redactAuthentication(value) {
     );
 }
 
+function containsAuthentication(value) {
+  let candidate = value;
+  while (true) {
+    if (redactAuthentication(candidate) !== candidate) return true;
+    let decoded;
+    try {
+      decoded = decodeURIComponent(
+        candidate.replace(/%(?![a-f\d]{2})/gi, "%25"),
+      );
+    } catch {
+      return true;
+    }
+    if (decoded === candidate) return false;
+    candidate = decoded;
+  }
+}
+
 export function escapeHtml(value) {
   if (typeof value !== "string") {
     throw new TypeError("HTML text must be a string");
@@ -92,6 +109,17 @@ export function sanitizeEvidenceUrl(value) {
       !url.hostname ||
       url.username ||
       url.password ||
+      [
+        value,
+        url.protocol,
+        url.host,
+        url.username,
+        url.password,
+        url.pathname,
+        url.search,
+        ...[...url.searchParams.entries()].flat(),
+        url.hash,
+      ].some(containsAuthentication) ||
       /(?:token|auth|password|secret|credential|api[_-]?key|signature)/i.test(
         url.hash,
       ) ||
@@ -263,7 +291,7 @@ async function analyzeInventory(items, analyzeItem) {
 
 function link(label, url) {
   const safeUrl = sanitizeEvidenceUrl(url);
-  if (safeUrl === null) throw new Error("Refusing an unsafe Azure report link");
+  if (safeUrl === null) return visibleText(label);
   return `<a href="${escapeHtml(safeUrl)}" rel="noreferrer noopener">${visibleText(label)}</a>`;
 }
 
