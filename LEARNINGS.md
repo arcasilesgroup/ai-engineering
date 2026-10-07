@@ -251,3 +251,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Removed only the empty retired skill directory; the targeted test then passed (19 passed) with no tracked file changes.
 - **Lesson:** Retirement checks include directory presence, not just `SKILL.md` files.
 - **Tags:** tests, skills, filesystem
+
+### L33 · 2026-10-07 · ai-triage #1 · behavior
+- **Failure:** `bun run typecheck` exited 127 because `oxlint` was not found.
+- **Root cause:** Dependencies had not been restored.
+- **Fix:** Restored locked dependencies with `bun install --frozen-lockfile`; manifests and lockfile were unchanged. Confirmed `oxlint` 1.80.0 was available and `bun run typecheck` exited 0 with warnings.
+- **Lesson:** Restore locked dependencies before the typecheck gate.
+- **Tags:** typecheck, dependencies, bun
