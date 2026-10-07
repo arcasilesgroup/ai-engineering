@@ -70,11 +70,17 @@ describe("Azure work-item collection helpers", () => {
         stateCategory: "Resolved",
       },
     ];
+    const [firstExpectedWorkItem, secondExpectedWorkItem, thirdExpectedWorkItem] =
+      workItems.slice(2);
+
+    if (!firstExpectedWorkItem || !secondExpectedWorkItem || !thirdExpectedWorkItem) {
+      throw new Error("Expected three nonterminal work items");
+    }
 
     expect(filterNonterminalWorkItems(workItems, stateMetadata)).toEqual([
-      workItems[2],
-      workItems[3],
-      workItems[4],
+      firstExpectedWorkItem,
+      secondExpectedWorkItem,
+      thirdExpectedWorkItem,
     ]);
   });
 
@@ -102,7 +108,13 @@ describe("Azure work-item collection helpers", () => {
     ];
 
     expect(() => filterNonterminalWorkItems(workItems, stateMetadata)).toThrow();
-    expect(() => filterNonterminalWorkItems(workItems, [stateMetadata[0]])).toThrow();
+    const activeStateMetadata = stateMetadata[0];
+
+    if (!activeStateMetadata || !("stateCategory" in activeStateMetadata)) {
+      throw new Error("Expected Active state metadata");
+    }
+
+    expect(() => filterNonterminalWorkItems(workItems, [activeStateMetadata])).toThrow();
   });
 });
 

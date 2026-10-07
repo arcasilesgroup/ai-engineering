@@ -372,3 +372,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Anchor parsing to the board route and support strict Azure DevOps Services SSH `v3` remotes.
 - **Lesson:** Match route markers by position and test the resulting scope with synthetic inputs.
 - **Tags:** url-routing, team-marker, azure-devops, ssh
+
+### L50 · 2026-10-07 · ai-triage #5 · behavior
+- **Failure:** The Azure unit test typecheck failed on indexed array values and fixture metadata.
+- **Root cause:** Indexed arrays may yield `undefined`, and the fixture metadata union included a missing `stateCategory`.
+- **Fix:** Added explicit guards and narrowing without casts; typecheck and targeted tests passed.
+- **Lesson:** Narrow optional array values before passing them to typed assertions or functions.
+- **Tags:** typecheck, tests, narrowing, azure
