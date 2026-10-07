@@ -325,6 +325,7 @@ describe("Azure triage report integration", () => {
       "private_key_owner=synthetic-private-key-owner",
       "access_key_count=3",
       "secret_access_key_policy=synthetic-key-policy",
+      'team_owner="Synthetic maintainer token=synthetic-nested-token-secret"',
     ].join(" ");
     scope.backlogName = "Synthetic backlog auth=synthetic-backlog-secret";
     const reportWriter = createMemoryReportWriter();
@@ -341,6 +342,7 @@ describe("Azure triage report integration", () => {
       throw new Error("The synthetic report writer did not store the target report");
     }
     expect(generatedReport).not.toContain("synthetic-team-secret");
+    expect(generatedReport).not.toContain("synthetic-nested-token-secret");
     expect(generatedReport).not.toContain("synthetic-auth-token-secret");
     expect(generatedReport).not.toContain("synthetic-oauth-token-secret");
     expect(generatedReport).not.toContain("synthetic-oauth2-access-secret");
@@ -383,6 +385,9 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).not.toContain("synthetic-backlog-secret");
     expect(generatedReport).toContain(
       "Synthetic team [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted]",
+    );
+    expect(generatedReport).toContain(
+      "team_owner=&quot;Synthetic maintainer [redacted]&quot;",
     );
     expect(generatedReport).toContain("authored_by=synthetic-maintainer");
     expect(generatedReport).toContain("client_author=synthetic-owner");

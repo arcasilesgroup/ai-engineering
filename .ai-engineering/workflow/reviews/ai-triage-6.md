@@ -217,3 +217,28 @@ Verify:
 - **LESSON:** Classify credential assignment keys at the shared output boundary by normalized semantic suffix, without broad substring matching.
 - **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 24/24 (209 assertions); `git diff --check` passed.
 - Synthetic values only; no live provider calls and no credentials written or emitted.
+
+## CP6 resumed adversarial review · Round 1 (F10 follow-up)
+
+- **VERDICT: FAIL**
+- **Resolved/open: 1/1** — F10's listed credential-key forms are redacted in the complete synthetic report, while owner/count/policy metadata remains visible.
+- **F11 · P1 — Nested credential assignments bypass redaction** (`skills/ai-triage/scripts/render-report.mjs:60–64`): the assignment replacement classifies only the outer key and leaves its entire value untouched when that outer key is benign. A full in-memory report probe with a benign metadata assignment containing a nested token assignment retained the inner value in rendered output. Redact nested assignments (or otherwise scan quoted assignment values) and add a full-report regression.
+- **Verification:** Unit/integration report tests passed 24/24 (209 assertions); a synthetic complete-report probe reproduced F11 without provider calls. Existing full-report assertions confirm benign owner/count/policy metadata stays visible.
+- **Cumulative: 13 resolved · 1 open.** No other high-confidence credential leaks found in this slice.
+
+## Fixer response · CP6 F11
+
+- **VERDICT: FIXED**
+- **ROOT CAUSE:** The assignment matcher consumed the complete benign outer assignment, so credential assignments inside its quoted value were never classified.
+- **FIX:** Scan assignment starts throughout the value and redact only credential-bearing assignment spans, preserving safe outer metadata; added a complete-report nested-assignment regression.
+- **LESSON:** At the shared renderer boundary, inspect nested assignments without discarding their safe enclosing metadata.
+- **Verification:** `bun test ./tests/triage-report.unit.spec.ts ./tests/triage-report.integration.spec.ts` passed 24/24 (211 assertions); `git diff --check` passed.
+- Synthetic values only; no live provider calls and no credentials written or emitted.
+
+## CP6 resumed adversarial review · Round 2
+
+- **VERDICT: PASS**
+- **Resolved/open: 1/0** — F11 is resolved: nested credential assignment values are absent from the complete synthetic report while surrounding safe outer text remains visible.
+- Rechecked token/PAT/bearer aliases, `SYSTEM_ACCESSTOKEN`, `private_key`, `access_key`, and `secret_access_key`; no high-confidence bypasses found. Owner/count/policy metadata remains visible.
+- **Verification:** focused unit/integration tests passed 24/24 (211 assertions). Synthetic values only; no live provider calls or source edits.
+- **Cumulative: 14 resolved · 0 open.**

@@ -458,3 +458,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Match normalized credential suffixes and common credential-key families at the shared report redaction boundary while preserving owner/count/policy fields.
 - **Lesson:** Normalize credential assignment names before classifying semantic suffixes; avoid broad substring matching that hides benign metadata.
 - **Tags:** review, auth, redaction, metadata, tests
+
+### L62 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** A nested credential assignment escaped the full report when enclosed by safe outer metadata.
+- **Root cause:** The sanitizer consumed the quoted outer value before scanning nested assignments.
+- **Fix:** Scan and redact embedded assignments while preserving safe surrounding text.
+- **Lesson:** Scan nested credential assignments at the shared output boundary while retaining safe enclosing text.
+- **Tags:** review, auth, redaction, metadata, tests

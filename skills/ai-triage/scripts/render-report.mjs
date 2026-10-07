@@ -55,14 +55,36 @@ function isCredentialAssignmentKey(key) {
   );
 }
 
+function redactCredentialAssignments(value) {
+  const assignmentPattern =
+    /(?=(\b([A-Za-z][A-Za-z0-9_-]*)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;'"<>]+)))/g;
+  const replacements = [];
+  let replacedUntil = 0;
+
+  for (const match of value.matchAll(assignmentPattern)) {
+    const start = match.index;
+    const end = start + (match[1]?.length ?? 0);
+    if (start < replacedUntil || !isCredentialAssignmentKey(match[2] ?? "")) {
+      continue;
+    }
+    replacements.push({ start, end });
+    replacedUntil = end;
+  }
+
+  let redactedValue = value;
+  for (const { start, end } of replacements.reverse()) {
+    redactedValue =
+      redactedValue.slice(0, start) +
+      "[redacted]" +
+      redactedValue.slice(end);
+  }
+  return redactedValue;
+}
+
 function redactAuthentication(value) {
-  return value
-    .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*/gi, "[redacted]")
-    .replace(
-      /\b([A-Za-z][A-Za-z0-9_-]*)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/g,
-      (assignment, key) =>
-        isCredentialAssignmentKey(key) ? "[redacted]" : assignment,
-    )
+  return redactCredentialAssignments(
+    value.replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*/gi, "[redacted]"),
+  )
     .replace(
       /\b(?:gh[pousr]_[A-Za-z0-9_]{10,}|github_pat_[A-Za-z0-9_]{10,}|azdpat_[A-Za-z0-9_]{10,})\b/gi,
       "[redacted]",
