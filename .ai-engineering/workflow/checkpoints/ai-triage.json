@@ -4,7 +4,6 @@
   "summary": "Replace the GitHub-only triage skill with one `ai-triage` entry point that preserves GitHub behavior and adds safe, complete Azure DevOps Services reports. Each run resolves one scope, reads without remote mutations, and writes a full report only when its inventory is complete.",
   "plain_summary": "People can get one complete, ranked backlog report from GitHub or Azure DevOps without changing anything in either service.",
   "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
-  "halted": { "reason": "review failed 3× after split", "checkpoint": 6 },
   "checkpoints": [
     {
       "id": 1,

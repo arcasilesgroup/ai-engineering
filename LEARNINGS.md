@@ -16,6 +16,7 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R7: Derive every list, count and path from the thing that owns it — the command's own contract, re-derived at write time — never a neighbour command's sweep, a remembered list, or a number copied into prose, which is only a cache of the command that produces it. (from L15, L21, L27)
 - R8: Pin the scope of every read and fail closed: ambient mutable state — HEAD, a user or global git config — must not decide what it sees, an exit code is never the result (only the message naming the expected absence may branch), and a guard that cannot decide denies. (from L16, L23)
 - R9: Accept only bare allowlisted `gh`/`az` executable names; reject path prefixes, environment assignments and shell wrappers. A static Markdown allowlist is not a sandbox against an earlier malicious executable in `PATH`. (from L44)
+- R10: Use the already-authenticated Azure CLI and its Azure DevOps extension for Azure DevOps access; never write tokens or credentials. (from L57)
 
 ## Log
 
@@ -422,3 +423,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Attempts:** Review attempts 1–3; round 4 left the P1 open.
 - **Lesson:** No Rule inferred; root cause and final fix await the user's decision.
 - **Tags:** circuit-breaker, review, auth, redaction, metadata, azure
+
+### L57 · 2026-10-07 · ai-triage #6 · human
+- **Failure:** The checkpoint halted while deciding how Azure DevOps authentication should be handled.
+- **Root cause:** “que usen el cli de az que debe estar auth y ahí existe la extensión de azure devops no? que no exista tokens ni credenciales escritos”
+- **Fix:** Use the already-authenticated Azure CLI and its Azure DevOps extension; do not write tokens or credentials.
+- **Lesson:** Use the existing Azure CLI authentication and Azure DevOps extension, never written tokens or credentials.
+- **Tags:** human, circuit-breaker, auth, credentials, azure-devops
