@@ -393,3 +393,24 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Check raw and decoded URL values; omit links with unsafe scope values and render safe IDs/text instead.
 - **Lesson:** Validate untrusted URL values before encoding or rendering them.
 - **Tags:** review, auth, redaction, urls, azure
+
+### L53 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Rendered values could reach output without sanitization, and write/replace failure cases were not covered.
+- **Root cause:** Output-boundary sanitization and stage-specific failure tests were incomplete.
+- **Fix:** Sanitize values at each output boundary and test failures at write and replace stages.
+- **Lesson:** Sanitize every rendered value at its output boundary; test failures at the write and replace stages.
+- **Tags:** review, sanitization, output, tests
+
+### L54 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Escaped HTML did not prevent credentials in URLs from being rendered.
+- **Root cause:** HTML escaping was treated as URL validation.
+- **Fix:** Escape HTML and validate URL values independently.
+- **Lesson:** Escape HTML and validate URLs independently; escaping does not remove credentials.
+- **Tags:** review, html, urls, credentials
+
+### L55 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Decoded URL values were not validated, and inserted content could be processed again.
+- **Root cause:** Validation and rendering did not account for decoded values and already-inserted content.
+- **Fix:** Validate decoded URL values and do not reprocess inserted content.
+- **Lesson:** Validate decoded URL values and never reprocess inserted content.
+- **Tags:** review, urls, validation, rendering

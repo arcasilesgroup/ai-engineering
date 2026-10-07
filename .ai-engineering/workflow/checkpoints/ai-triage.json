@@ -299,10 +299,11 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
           "status": "failed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "F1/P1: bearer/credential values in URL query parameters can pass link validation and render.",
-            "F2/P2: replacement tokens embedded in remote labels can be processed again and corrupt shared report placeholders."
+            "F3/P1: bearer-style credentials in URL fragments may survive href validation.",
+            "F4/P1: credential-shaped backlogName metadata may render without redaction.",
+            "F5/P2: unsafe evidence/relationship URLs currently fail the report instead of falling back to plain safe text."
           ]
         }
       },
