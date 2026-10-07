@@ -207,13 +207,14 @@
         "Discover work-item types and their process state categories; include every nonterminal category without hard-coded state names, and fetch parent/child links only for context without widening the inventory.",
         "Define and enforce this default-deny `az devops invoke` allowlist with explicit `--organization`, project/team route parameters and API version: GET `/{project}/{team}/_apis/work/backlogs`; GET `/{project}/{team}/_apis/work/backlogs/{id}` when needed to resolve the selected level; GET `/{project}/_apis/wit/workitemtypes`; GET `/{project}/_apis/wit/workitemtypes/{type}/states`; POST `/{project}/_apis/wit/wiql`; POST `/{project}/_apis/wit/workitemsbatch`. Verify exact supported routes before implementation; add no other route/method pair without a documented read need and a pinned test.",
         "Use `az devops invoke` only through the allowlist; do not use flat-only `az boards query` as a complete backlog read. Allow POST only for the listed read-only WIQL and batch endpoints, require explicit organization/project arguments, and cap each batch at 200 IDs.",
-        "Prove pagination/completeness before returning inventory; test continuation, empty final page, WIQL boundary, missing state metadata, API/auth errors and batches above 200 with sanitized synthetic fixtures in `tests/triage-azure.spec.ts`."
+        "Prove completeness before returning inventory; test the documented service boundary, missing state metadata, API/auth errors and batches above 200 with sanitized synthetic fixtures in separate unit/integration suites."
       ],
       "files": [
         "skills/ai-triage/references/azure-devops.md",
         "skills/ai-triage/scripts/collect-azure.mjs",
         "skills/ai-triage/scripts/resolve-target.mjs",
-        "tests/triage-azure.spec.ts"
+        "tests/triage-azure.unit.spec.ts",
+        "tests/triage-azure.integration.spec.ts"
       ],
       "acceptance": [
         "The synthetic inventory contains every and only nonterminal item for the selected process-aware backlog level; parent/child context never adds inventory rows.",
@@ -223,7 +224,8 @@
         "All Azure tests use synthetic fixtures; this checkpoint makes no tenant or authentication query."
       ],
       "verify": [
-        "bun test tests/triage-azure.spec.ts",
+        "bun test tests/triage-azure.unit.spec.ts",
+        "bun test tests/triage-azure.integration.spec.ts",
         "bun test tests/triage-routing.spec.ts",
         "bun run typecheck",
         "bun run lint"
