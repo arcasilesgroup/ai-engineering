@@ -419,9 +419,9 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 4, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 1, "findings": [] }
+        "review": { "status": "passed", "attempts": 2, "findings": [] }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         "README.md",
         "CHANGELOG.md",

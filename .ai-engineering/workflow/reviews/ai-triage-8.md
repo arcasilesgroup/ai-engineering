@@ -18,3 +18,12 @@
 - All six embedded `.txt` files byte-match their source modules/declarations. `src/assets.ts` points their original payload keys to `.txt` imports, keeping them as text rather than host modules.
 - The added payload test compares each `EMBEDDED` value to its source; the existing copy test checks all `.embed` files against source paths. README/changelog/filemap claims match the skill and payload.
 - No live Azure/GitHub calls or source/test edits were made.
+
+
+## Post-wrap-up verification — round 1
+
+**Verdict:** PASS
+**Resolved / open:** 1 / 0
+**Rationale:** The nearest-rank p95 index is `ceil(0.95*n)-1`; 19 one-millisecond samples plus one 100 ms outlier yield 1 ms. The chain test still asserts p95 `< 50` ms across 20 calls. Runtime `doctor` retains its 50 ms ceiling and `<=` comparison; this checkpoint did not alter runtime budget code. The current README/CHANGELOG identify `ai-triage`, FILEMAP matches its structure, and generated-payload/canon/skill checks pass. No live provider calls were made.
+
+**Proof:** `bun test tests/adversarial/chain.test.ts tests/generated-payload.test.ts tests/embed-canon.spec.ts tests/skills.spec.ts` — 80 pass, 0 fail.
