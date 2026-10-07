@@ -240,7 +240,8 @@
       },
       "status": "pending",
       "changed_files": [
-        "tests/triage-azure.unit.spec.ts"
+        "tests/triage-azure.unit.spec.ts",
+        "tests/triage-azure.integration.spec.ts"
       ]
     },
     {
