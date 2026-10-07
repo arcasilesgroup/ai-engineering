@@ -14,25 +14,24 @@ and git keeps what the last run said.
 ## The absolute rule: read-only
 
 The page is the only artifact. Every mutation of GitHub state is a failure of this skill,
-not a shortcut in it.
+not a shortcut in it. The only permitted GitHub reads are `gh issue list`, `gh issue view`,
+`gh pr list`, `gh pr view`, `gh pr diff`, and `gh api` with GET only. For `gh api`, omit
+the method (GET is the default) or specify GET, and do not send a request body. Treat every
+other `gh` command as forbidden; this is a closed allowlist, not a list of examples.
 
-| Forbidden | Allowed |
-|---|---|
-| `gh issue comment`, `gh issue close`, `gh issue edit` | `gh issue view`, `gh issue list` |
-| `gh pr comment`, `gh pr merge`, `gh pr review`, `gh pr edit`, `gh pr checkout` | `gh pr view`, `gh pr list`, `gh pr diff` |
-| `gh api -X POST`, `-X PUT`, `-X PATCH`, `-X DELETE` | `gh api` without a method (GET) |
-| `git checkout`, `git switch`, `git fetch`, `git pull` on a branch under review | `git log`, `git show`, `git blame`, `git rev-parse` |
-| Labeling, assigning, reopening, transferring | Reading the tree, the diff and the history |
+Every other remote-state write, through any tool, remains forbidden. Do not check out,
+switch, fetch, or pull a branch under review; inspect it with `git log`, `git show`,
+`git blame`, or `git rev-parse`.
 
-No subagent gets a verb from the left column. A PR row says `MERGE` or `BLOCKED`; a human
-merges. The single tempting exception, "just close the duplicate", is the rule's own
+No subagent gets a command outside that allowlist. A PR row says `MERGE` or `BLOCKED`; a
+human merges. The single tempting exception, "just close the duplicate", is the rule's own
 example of a violation.
 
 ## Which repository (the scope rule, decided before anything else)
 
-- **No URL** — the current repository: `gh repo view --json nameWithOwner -q .nameWithOwner`.
-  If the directory is not a git repository or `gh` has no repo, say which of the two failed
-  and stop.
+- **No URL** — the current repository, identified from the local `origin` remote with
+  `git remote get-url origin`. If the directory is not a git repository or has no GitHub
+  `origin`, say which of the two failed and stop.
 - **A URL, `owner/repo`, or a path to another checkout** — that backlog: `https://github.com/owner/repo/issues`,
   `https://github.com/owner/repo/pulls`, the bare slug, or a directory that has a remote.
 - One run, one repository. Never merge two backlogs into one page, even when the same

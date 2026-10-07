@@ -9,6 +9,12 @@ const reportTemplate = readFileSync(
   new URL("../templates/triage.html.tpl", import.meta.url),
   "utf8",
 );
+const unapprovedGitHubCommand =
+  /\bgh\s+(?!(?:issue\s+(?:list|view)|pr\s+(?:list|view|diff)|api\b))[\w-]+(?:\s+[\w-]+)?|\bgh\s+api\b(?=[^\n]*(?:(?:^|\s)(?:-X|--method)(?:=|\s+)?(?!GET\b)\S+|(?:^|\s)(?:-F|-f|--field|--raw-field|--input)(?:=|\s|$)))/i;
+
+function normalizeShellContinuations(text: string): string {
+  return text.replace(/\\\r?\n[ \t]*/g, " ");
+}
 
 describe("GitHub triage instruction contract", () => {
   test("preserves separate complete issue and pull-request inventories", () => {
@@ -93,37 +99,33 @@ describe("GitHub triage instruction contract", () => {
       0,
       githubInstructions.indexOf("## Which repository"),
     );
-    expect(readOnlyPolicy).toContain("| Forbidden | Allowed |");
+    expect(readOnlyPolicy).toMatch(
+      /The only permitted GitHub reads are `gh issue list`, `gh issue view`,\s+`gh pr list`, `gh pr view`, `gh pr diff`, and `gh api` with GET only\./,
+    );
+    expect(readOnlyPolicy).toMatch(
+      /Treat every\s+other `gh` command as forbidden\b/,
+    );
     expect(readOnlyPolicy).toContain(
       "Every mutation of GitHub state is a failure of this skill",
     );
     expect(readOnlyPolicy).toContain(
-      "No subagent gets a verb from the left column.",
+      "Every other remote-state write, through any tool, remains forbidden.",
     );
 
-    const activeInstructions = githubInstructions.slice(
-      githubInstructions.indexOf("## Which repository"),
+    expect(
+      normalizeShellContinuations(githubInstructions),
+    ).not.toMatch(unapprovedGitHubCommand);
+    expect(
+      normalizeShellContinuations(reportTemplate),
+    ).not.toMatch(unapprovedGitHubCommand);
+    expect("gh pr lock").toMatch(unapprovedGitHubCommand);
+    expect("gh release create").toMatch(unapprovedGitHubCommand);
+    expect(
+      normalizeShellContinuations("gh api \\\n  --method PATCH /repos/acme/repo"),
+    ).toMatch(unapprovedGitHubCommand);
+    expect("gh api --method GET /repos/acme/repo").not.toMatch(
+      unapprovedGitHubCommand,
     );
-    const remoteMutationCommand =
-      /\bgh\s+(?:(?:issue\s+(?:comment|close|create|delete|edit|lock|pin|reopen|transfer|unlock|unpin)|pr\s+(?:checkout|close|comment|create|edit|merge|ready|reopen|review|update-branch)|repo\s+edit)\b|api\b(?=[^\n]*(?:(?:^|\s)(?:-X|--method)(?:=|\s+)(?:POST|PUT|PATCH|DELETE)\b|(?:^|\s)(?:-F|-f|--field|--raw-field)(?:=|\s)))[^\n]*)/i;
-    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
-      for (const option of ["-X", "--method"]) {
-        expect(`gh api ${option} ${method}`).toMatch(remoteMutationCommand);
-      }
-    }
-    for (const fieldOption of ["-f", "--raw-field", "-F", "--field"]) {
-      expect(`gh api ${fieldOption} key=value`).toMatch(remoteMutationCommand);
-    }
-    for (const command of [
-      "gh issue reopen",
-      "gh issue delete",
-      "gh pr close",
-      "gh repo edit",
-    ]) {
-      expect(command).toMatch(remoteMutationCommand);
-    }
-    expect(activeInstructions).not.toMatch(remoteMutationCommand);
-    expect(reportTemplate).not.toMatch(remoteMutationCommand);
   });
 
   test("keeps the report template's full-inventory and evidence sections", () => {

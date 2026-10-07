@@ -58,3 +58,17 @@ VERDICT: FAIL
 - F2 · RESOLVED — `:18-45` isolates issue and PR command ranges and asserts each range's own pagination and fetched-count instruction; the reference provides both separately.
 - F3 · RESOLVED — The per-item block and its shape assertions remain intact.
 - Verify: `bun test ./tests/triage-github.spec.ts` — 3 passed, 0 failed (57 assertions).
+
+## Retry cycle · round 1
+VERDICT: FAIL
+- F1 · P1 · `tests/triage-github.spec.ts:107` — The mutation detector omits `gh pr lock` and `gh pr unlock`; either active command can be added to the instructions without failing the negative assertion.
+- F2 · P1 · `tests/triage-github.spec.ts:107-108` — The narrow command list also misses other remote writes despite the blanket read-only invariant, including `gh pr revert`, `gh repo archive/delete`, and `gh release create/edit/delete`.
+- F3 · P2 · `tests/triage-github.spec.ts:108` — The `gh api` detector's `[^\n]*` lookahead misses a valid line-continued write such as `gh api \` followed by `--method PATCH`; active instructions can add this form undetected.
+- Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (57 assertions).
+
+### Response · retry-cycle round 1
+- Root cause fixed: enumerating known mutators let unlisted GitHub writes pass; the API check also treated a physical newline as the command boundary.
+- F1/F2 fixed: use a closed allowlist for issue list/view, PR list/view/diff, and GET-only `gh api`; all other commands are denied. Repository scope now comes from the local origin remote instead of `gh repo view`.
+- F3 fixed: normalize shell line continuations before checking allowed commands and API write options.
+- Lesson: authorize the small read-only command surface, rather than maintain a growing denylist, and validate shell commands after continuation.
+- Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (46 assertions).
