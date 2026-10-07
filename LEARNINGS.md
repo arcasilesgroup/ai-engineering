@@ -15,6 +15,7 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R6: Enforce protection at the one choke point every categorization funnels through, not per path — a guard placed only where a test pinned one configuration is forgotten by the next path — and let every destructive step assert its own safety first, with a command an agent can run, before it deletes. (from L18, L20, L30)
 - R7: Derive every list, count and path from the thing that owns it — the command's own contract, re-derived at write time — never a neighbour command's sweep, a remembered list, or a number copied into prose, which is only a cache of the command that produces it. (from L15, L21, L27)
 - R8: Pin the scope of every read and fail closed: ambient mutable state — HEAD, a user or global git config — must not decide what it sees, an exit code is never the result (only the message naming the expected absence may branch), and a guard that cannot decide denies. (from L16, L23)
+- R9: Accept only bare allowlisted `gh`/`az` executable names; reject path prefixes, environment assignments and shell wrappers. A static Markdown allowlist is not a sandbox against an earlier malicious executable in `PATH`. (from L44)
 
 ## Log
 
@@ -328,4 +329,11 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Awaiting the user's decision.
 - **Attempts:** Explicit denylist; closed allowlist; shell operator, substitution and heredoc checks; all-fence parsing; basename normalization.
 - **Lesson:** No Rule inferred; root cause and final fix await the user's decision.
+- **Tags:** circuit-breaker, review, command-safety, allowlist
+
+### L44 · 2026-10-07 · ai-triage #2 · circuit-breaker
+- **Failure:** F11/P1 remained after three failed review attempts because basename normalization allowed path-qualified executables such as `./gh` or `~/bin/gh` to bypass the read allowlist.
+- **Root cause:** Normalizing an executable to its basename erased whether the command used a path prefix.
+- **Fix:** Require bare allowlisted `gh`/`az` executable names; reject executable path prefixes, environment assignments and shell wrappers. Accept that a static Markdown allowlist cannot sandbox a malicious earlier executable in `PATH`.
+- **Lesson:** A static command allowlist must constrain command form and disclose that it cannot control executable resolution from `PATH`.
 - **Tags:** circuit-breaker, review, command-safety, allowlist
