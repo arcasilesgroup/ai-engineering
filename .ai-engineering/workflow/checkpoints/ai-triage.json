@@ -173,7 +173,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 2, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 3, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
           "status": "failed",
