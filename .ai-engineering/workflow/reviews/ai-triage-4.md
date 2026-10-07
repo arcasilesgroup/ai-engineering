@@ -32,3 +32,10 @@ Verify:
 - **F2 fixed:** The resolver recognizes only the Azure SSH `git@ssh.dev.azure.com:v3/<org>/<project>/<repo>` form and routes the synthetic selection through the fake reader.
 - **Validation:** Unit 11/11, integration 8/8, typecheck exit 0 (warnings only in unchanged files), `git diff --check` passed.
 - **VERDICT: PASS.**
+
+## Round 2 review
+- **F1 resolved:** The team marker is read only at the board route's expected position; project `t` no longer shadows it.
+- **F2 resolved:** Strict Azure SSH `v3` parsing accepts the supported form and rejects malformed path/user variants.
+- **No new findings:** Explicit URL host/protocol/credentials and decoded path segments are checked; conflicting/unsupported targets and Azure config/default-only inputs fail closed. The reader revalidates board/backlog and receives only the selected scope; missing board yielded zero reads in the probe. The declaration matches runtime results and typecheck passes. The trusted-PATH wording is an assumption, not an executable-identity guarantee, consistent with R9.
+- **Validation:** Routing unit/integration tests: 19 pass; typecheck and lint exit 0 with warnings in unchanged files. No GitHub or Azure access.
+- **VERDICT: PASS** — F1/F2 resolved; no open findings.
