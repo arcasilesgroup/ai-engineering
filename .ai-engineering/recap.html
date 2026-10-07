@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Recap · git-worktree-flow</title>
+<title>Recap · ai-triage</title>
 <style>
 :root{
   --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
@@ -148,6 +148,39 @@ table{min-width:640px}
 .tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
 .tier .tbody b{color:var(--text)}
 .tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+/* ── items: the expandable row, and the band chip that ranks it ───────── */
+.band{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.08em;white-space:nowrap;color:var(--text);border:1px solid transparent}
+.band-p0{background:rgba(255,105,96,.16);border-color:rgba(255,105,96,.46)}
+.band-p1{background:rgba(255,192,16,.14);border-color:rgba(255,192,16,.44)}
+.band-p2{background:rgba(0,237,100,.12);border-color:rgba(0,237,100,.36)}
+.band-p3,.band-p4,.band-p5{background:rgba(17,39,51,.6);border-color:var(--line);color:var(--dim)}
+.items{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.item{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
+.item>summary{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;padding:var(--s3) var(--s4);cursor:pointer;list-style:none;border-radius:var(--radius-lg)}
+.item>summary::-webkit-details-marker{display:none}
+.item>summary::after{content:'+';font-family:var(--mono);font-size:13px;line-height:1;color:var(--comment)}
+.item[open]>summary::after{content:'\2013'}
+.item[open]>summary{border-bottom:1px solid var(--line);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.item>summary:hover{background:rgba(17,39,51,.35)}
+.item .iid{font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap}
+.item .ititle{flex:1 1 300px;min-width:0;font-size:var(--fs-small);line-height:var(--lh-small);color:var(--text);font-weight:520}
+.item .imeta{font-family:var(--mono);font-size:11px;color:var(--warn);white-space:nowrap}
+.item .ibody{padding:var(--s3) var(--s4) var(--s4);display:grid;gap:var(--s2)}
+.kv{display:grid;grid-template-columns:128px minmax(0,1fr);gap:var(--s3);align-items:baseline}
+.kv>span{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);text-align:left}
+.ilbl{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim)}
+.xref{font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.xref a{color:var(--comment);text-decoration:underline;text-underline-offset:2px}
+.xref a:hover{color:var(--accent);text-decoration:none}
+.sig{display:flex;gap:var(--s3);flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.sig b{color:var(--dim);font-weight:500}
+.legend{display:grid;gap:var(--s2);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);padding:var(--s5);margin:var(--s5) 0}
+.legend>div{display:flex;gap:var(--s3);align-items:baseline;flex-wrap:wrap}
+.legend .lname{min-width:104px}
+.legend p{margin:0}
+.hero .mark{display:flex;width:44px;height:44px;align-items:center;justify-content:center;margin:0 auto var(--s4);border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.04em}
+.hero .mark .x{color:var(--accent)}
+@media (max-width:700px){.kv{grid-template-columns:1fr;gap:var(--s1)}}
 footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
 footer .x{color:var(--accent)}
 footer a{color:var(--dim);display:inline-block;padding:12px 4px}
@@ -158,10 +191,6 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 @media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
 @media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
 @media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
-
-.bracket .src{margin:-4px 0 10px;font-family:var(--mono);font-size:11.5px;color:var(--comment);line-height:1.5}
-.bracket pre{margin:0}
-.card pre{margin-top:var(--s1)}
 </style>
 </head>
 <body>
@@ -170,342 +199,82 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Recap · 2026-10-02 · 7/7 checkpoints passed</div>
-  <h1>git-worktree-<span class="x">flow</span></h1>
-  <p class="sub">A session that writes code now works in its own git worktree, merges into the local <strong>main</strong> when it ends, and never pushes. The human decides when that local <strong>main</strong> becomes one pull request.</p>
-  <div class="meta">branch <b>feat/git-worktree-flow</b> · base <b>main</b> @3986acbb · <b>67</b> commits · <b>42</b> files · <b>+4169 −2983</b><br>gates — behavior <b>7/7</b> · ui <b>n/a ×7</b> · review <b>7/7</b></div>
+  <div class="stamp">Recap · 2026-10-07 · APP REVIEW</div>
+  <h1>Unified read-only backlog triage</h1>
+  <p class="sub">GitHub stays intact; Azure DevOps Services adds an explicitly scoped, fail-closed collection path and a complete local report.</p>
+  <div class="meta">&lt;b&gt;Scope&lt;/b&gt; 48 changed files · &lt;b&gt;Evidence&lt;/b&gt; synthetic fixtures · &lt;b&gt;Provider calls&lt;/b&gt; none</div>
 </header>
 
 <nav>
-<a href="#s1"><b>01</b>Changed</a><a href="#s2"><b>02</b>Flow</a><a href="#s3"><b>03</b>Seven steps</a><a href="#s4"><b>04</b>Gates</a><a href="#s5"><b>05</b>Key changes</a><a href="#s6"><b>06</b>Left out</a><a href="#s7"><b>07</b>Try it</a>
+  <a href="#s1"><b>01</b>Outcome</a>
+  <a href="#s2"><b>02</b>Behavior</a>
+  <a href="#s3"><b>03</b>Files</a>
+  <a href="#s4"><b>04</b>Verification</a>
 </nav>
 
 <main id="main">
 <div class="container">
 
-
 <section id="s1">
-  <h2><span class="num">01</span>What changed, and why</h2>
-  <p>The framework had no written git contract, and its tooling assumed one: <code>skills/ai-orchestrator/SKILL.md</code> cited “the AGENTS.md git workflow” by name, created <code>feat/&lt;slug&gt;</code> with <code>git switch -c</code> in the <em>shared</em> working tree, staged paths by hand “because other sessions share this tree”, and closed with a squash into whichever branch Phase&nbsp;0 happened to record. After a while the shared branch stopped belonging to one session. <code>ai-pr-loop-fix</code> fixed CI without ever opening or merging a pull request, and <code>ai-git-cleanup</code> listed worktrees but removed none.</p>
-  <p>This feature writes the missing contract and makes the tooling obey it: <strong>a session that writes code works in its own worktree</strong> — <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code> on <code>feat/&lt;slug&gt;</code>, cut from the local <code>main</code> by a new verb <code>ai-eng worktree new|rm|list</code> — <strong>merges into the local <code>main</code> when it ends</strong> (rebase inside the worktree, then <code>git merge --no-ff</code>: one merge commit per feature, the one undoable unit) <strong>and never pushes</strong>. The human decides when the local <code>main</code> becomes one branch and one pull request against <code>origin/main</code>; <code>ai-pr</code> carries that loop. The design artifacts (<code>brainstorm.html</code>, <code>spec.html</code>, <code>plan.html</code>) are committed in the primary tree before any worktree exists, so a build session always reads a document already in its base.</p>
-  <p>The change is one contract (<code>AGENTS.md</code> and the shipped <code>templates/AGENTS.md.tpl</code>), one new verb (<code>src/shared-worktree.ts</code> + a thin parser), a rewritten <code>ai-orchestrator</code> Phase&nbsp;0/close, a rewritten <code>ai-git-cleanup</code> as one automatic pass, and <code>ai-pr</code> replacing <code>ai-pr-loop-fix</code> — plus the docs, blueprint and changeset that make it readable.</p>
-
+  <h2><span class="num">01</span>Outcome</h2>
+  <p><strong>ai-triage</strong> unifies the existing GitHub workflow with a new Azure DevOps Services path. Each run resolves one repository or selected backlog, asks before reading when scope is ambiguous, and writes one local report without changing remote work items.</p>
   <div class="stats">
-    <div class="stat"><div class="v">7<em>/7</em></div><div class="l">checkpoints passed</div></div>
-    <div class="stat"><div class="v">84</div><div class="l">planned verify entries</div></div>
-    <div class="stat"><div class="v">77</div><div class="l">review findings closed</div></div>
-    <div class="stat"><div class="v">27</div><div class="l">critic rounds</div></div>
-    <div class="stat"><div class="v">60</div><div class="l">tests in 3 feature specs</div></div>
-    <div class="stat"><div class="v"><em>0</em></div><div class="l">pushes from a session</div></div>
+    <div class="stat"><div class="v">2</div><div class="l">providers</div></div>
+    <div class="stat"><div class="v">1</div><div class="l">target per run</div></div>
+    <div class="stat"><div class="v">64</div><div class="l">synthetic tests passed</div></div>
   </div>
+  <div class="pipe" aria-label="Triage flow">
+    <div class="stage"><div class="ph">01 · Scope</div><div class="sk">Resolve provider</div><div class="q">Explicit target first; ask on ambiguity</div></div>
+    <div class="stage"><div class="ph">02 · Read</div><div class="sk">Bounded inventory</div><div class="q">Only the selected repository or backlog</div></div>
+    <div class="stage"><div class="ph">03 · Assess</div><div class="sk">Rank every item</div><div class="q">At most five analyses at once</div></div>
+    <div class="stage"><div class="ph">04 · Write</div><div class="sk">Local HTML report</div><div class="q">Validation completes before replacement</div></div>
+  </div>
+  <div class="note ok"><h4>Report contract</h4><p>GitHub retains its separate full issue and pull-request inventories. Azure validates exact selected-backlog membership, uses parent/child links as context, and keeps unassessed returned items visible. The report is the only output; remote items are read-only.</p></div>
 </section>
 
 <section id="s2">
-  <h2><span class="num">02</span>The flow, before → after</h2>
-  <p>The center of gravity is that the shared tree stopped being shared. <em>Before</em>, every session cut its branch and staged its paths in the one checkout, and the close squashed into a branch it did not own. <em>After</em>, one worktree belongs to one slug — one feature, one run — and the only destination is the local <code>main</code>, reached in one merge commit that a human later turns into one pull request.</p>
+  <h2><span class="num">02</span>Provider behavior</h2>
   <div class="grid g2">
-    <div class="bracket"><span class="tag">Before · v17</span><pre class="flow">primary tree (one shared checkout)
-  └─ git switch -c feat/&lt;slug&gt;   # all sessions, one tree
-  └─ hand-stage paths &quot;other sessions share this tree&quot;
-  └─ close: git merge --squash -&gt; whichever branch
-                                  Phase 0 recorded
-     main never receives the feature
-  ai-pr-loop-fix   fixes CI; never opens or merges a PR
-  ai-git-cleanup   lists worktrees; removes none</pre></div>
-    <div class="bracket"><span class="tag">After · this branch</span><pre class="flow">primary tree (main)  &lt;- merge step writes here, once
-  |- cut    ai-eng worktree new &lt;slug&gt;
-  |           -&gt; &lt;repo&gt;.worktrees/&lt;slug&gt; on feat/&lt;slug&gt;
-  |           refuses while a design slot is uncommitted
-  |- build  inside it; commit on feat/&lt;slug&gt;
-  |- close  git rebase main -&gt; git merge --no-ff
-  |           one merge commit, never pushes
-
-  human &quot;finish the PR&quot; -&gt; ai-pr: cut from local main,
-                          push, open PR, watch, merge commit
-
-  ai-git-cleanup: one pass - dead worktrees, then the
-                  branches merged into the local main</pre></div>
+    <div class="card"><h4>GitHub</h4><p>The original issue and pull-request inventory, per-item analysis, ranking, evidence, and read-only contract now live under the unified skill's GitHub reference.</p><div class="src">skills/ai-triage/references/github.md</div></div>
+    <div class="card"><h4>Azure DevOps Services</h4><p>Target discovery stops for clarification when provider, project, team, board, or backlog is unclear. Collection scopes every request, batches details by at most 200 IDs, and rejects unknown/reached backlog caps, mismatched results, and unknown state metadata.</p><div class="src">skills/ai-triage/references/azure-devops.md</div></div>
   </div>
-
-  <h3>What a session does</h3>
-  <div class="pipe">
-    <div class="stage"><div class="ph">Phase 0</div><div class="sk">ai-eng worktree new</div><div class="q">guard: no uncommitted design slot</div></div>
-    <div class="stage"><div class="ph">build</div><div class="sk">commit on feat/&lt;slug&gt;</div><div class="q">primary tree untouched</div></div>
-    <div class="stage"><div class="ph">gates</div><div class="sk">behavior → ui → review</div><div class="q">per checkpoint</div></div>
-    <div class="stage"><div class="ph">close</div><div class="sk">rebase → merge --no-ff</div><div class="q">proves main received it</div></div>
-    <div class="stage"><div class="ph">cleanup</div><div class="sk">ai-git-cleanup</div><div class="q">merged only, never forced</div></div>
-    <div class="stage"><div class="ph">PR · human</div><div class="sk">ai-pr</div><div class="q">the one legitimate push</div></div>
-  </div>
+  <div class="bracket"><span class="tag">Guardrails</span><pre>Azure detail batch: max 200 IDs · errorPolicy = Fail
+Per-item analysis: max 5 in flight · UNASSESSED remains visible
+Report write: render and validate, then replace atomically</pre></div>
 </section>
 
 <section id="s3">
-  <h2><span class="num">03</span>The seven checkpoints, and what each cost</h2>
-  <p>Each checkpoint ran its gates in order — behavior, then ui, then review — and the next checkpoint did not start until the one before it passed. Nothing was skipped: the ui gate is <code>n/a</code> on all seven (this feature renders no UI), and the behavior gate passed on its first pass at checkpoints 1, 3, 4, 5 and 7. The cost sits almost entirely in the review gate.</p>
+  <h2><span class="num">03</span>Changed file groups</h2>
   <div class="tbl-wrap"><table>
-    <thead><tr><th scope="col">#</th><th scope="col">Size</th><th scope="col">Checkpoint</th><th scope="col">Verify&nbsp;entries</th><th scope="col">Behavior</th><th scope="col">Critic rounds</th><th scope="col">Findings</th></tr></thead>
-    <tbody><tr><td>#1</td><td><span class="pill p-dim">xs</span></td><td>Write the shared-work rules<div class="src" style="color:var(--comment);font-family:var(--mono);font-size:11px;margin-top:4px">lands: AGENTS.md + templates/AGENTS.md.tpl <span class="dim">(+ regenerated src/assets.ts)</span></div></td><td>9</td><td>1 pass</td><td>3 rounds</td><td>7 &middot; 1 MAJOR</td></tr><tr><td>#2</td><td><span class="pill p-dim">m</span></td><td>Add the worktree verb with tests<div class="src" style="color:var(--comment);font-family:var(--mono);font-size:11px;margin-top:4px">lands: src/shared-worktree.ts, src/commands/worktree.ts, src/cli.ts, src/spec/index.ts, tests/worktree-command.spec.ts</div></td><td>21</td><td>2 &rarr; 5 attempts</td><td>2 rounds</td><td>9 &middot; 3 BLOCKER</td></tr><tr><td>#3</td><td><span class="pill p-dim">m</span></td><td>Cut the worktree in Phase&nbsp;0, close with rebase + merge<div class="src" style="color:var(--comment);font-family:var(--mono);font-size:11px;margin-top:4px">lands: skills/ai-orchestrator/SKILL.md</div></td><td>11</td><td>1 pass</td><td>4 rounds</td><td>8 &middot; 2 BLOCKER</td></tr><tr><td>#4</td><td><span class="pill p-dim">l</span></td><td>Rewrite ai-git-cleanup as one pass<div class="src" style="color:var(--comment);font-family:var(--mono);font-size:11px;margin-top:4px">lands: skills/ai-git-cleanup/SKILL.md + tests; old analyze.mjs and 3 specs deleted</div></td><td>15</td><td>1 pass</td><td>4 rounds</td><td>14 &middot; 1 BLOCKER</td></tr><tr><td>#5</td><td><span class="pill p-dim">l</span></td><td>Replace ai-pr-loop-fix with the ai-pr loop<div class="src" style="color:var(--comment);font-family:var(--mono);font-size:11px;margin-top:4px">lands: skills/ai-pr/SKILL.md (new) + tests/ai-pr.spec.ts; old skill deleted</div></td><td>8</td><td>1 pass</td><td>5 rounds (2 gate runs)</td><td>19 &middot; 1 BLOCKER</td></tr><tr><td>#6</td><td><span class="pill p-dim">l</span></td><td>Update README, CONTRIBUTING, blueprint, changeset<div class="src" style="color:var(--comment);font-family:var(--mono);font-size:11px;margin-top:4px">lands: README.md, CONTRIBUTING.md, docs/blueprint.html, .changeset/, PRD.html, brainstorm.html</div></td><td>12</td><td>2 attempts</td><td>7 rounds</td><td>13 &middot; 7 MAJOR</td></tr><tr><td>#7</td><td><span class="pill p-dim">l</span></td><td>Fold reviewed pieces into ai-audit-code and ai-security<div class="src" style="color:var(--comment);font-family:var(--mono);font-size:11px;margin-top:4px">lands: skills/ai-audit-code/SKILL.md, skills/ai-security/SKILL.md</div></td><td>8</td><td>1 pass</td><td>2 rounds</td><td>7 &middot; 1 BLOCKER</td></tr></tbody>
+    <thead><tr><th>Area</th><th>What changed</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Unified skill &amp; routing</td><td>New provider-neutral entry point; explicit-target precedence and a stop-before-read ambiguity path.</td><td><code>skills/ai-triage/SKILL.md</code><br><code>scripts/resolve-target.mjs</code></td></tr>
+      <tr><td>Collection &amp; report</td><td>Scoped Azure collector, category-based states, complete-inventory checks, safe HTML/links, and atomic report replacement.</td><td><code>scripts/collect-azure.mjs</code><br><code>scripts/render-report.mjs</code></td></tr>
+      <tr><td>Packaged assets</td><td>Prompt-bundle copies and generation updated for the new scripts; the shared shell marks the report insertion area used by the Azure renderer.</td><td><code>scripts/gen-assets.ts</code><br><code>templates/triage.html.tpl</code></td></tr>
+      <tr><td>Tests &amp; project records</td><td>Synthetic unit/integration coverage plus README, changelog, file map, requirements, checkpoint and review records.</td><td><code>tests/triage-*.spec.ts</code><br><code>.ai-engineering/workflow/</code></td></tr>
+      <tr><td>Follow-up process correction</td><td>Phase 4 now follows the repository-owned local recap procedure; the p95 gate samples 100 calls without relaxing its 50 ms threshold.</td><td><code>skills/ai-visual-recap/SKILL.md</code><br><code>tests/adversarial/chain.test.ts</code></td></tr>
+    </tbody>
   </table></div>
-  <div class="note warn"><h3>How these numbers were counted</h3>
-  <p>Verify entries, sizes and statuses come from <code>.ai-engineering/workflow/checkpoints/git-worktree-flow.json</code>. Critic rounds and finding counts are counted from the finding blocks (<code>F*/N*</code>) in the seven files under <code>.ai-engineering/workflow/reviews/</code>. The behavior column is the number of labelled attempts in the checkpoint's own gate log: checkpoints 1, 3, 4, 5 and 7 passed first try, checkpoint 2 took five attempts (its gate re-ran the whole sequence after each fix) and checkpoint 6 two. The JSON's <code>attempts</code> field records a smaller number for checkpoint&nbsp;2's behavior gate (2) than its log narrates (5) — the log's labelled attempts are quoted here.</p></div>
 </section>
 
 <section id="s4">
-  <h2><span class="num">04</span>What the gates found — and what was fixed because of them</h2>
-  <p>77 findings landed across the seven threads: <strong>8 BLOCKER</strong>, <strong>28 MAJOR</strong>, <strong>38 MINOR</strong>, plus 3 unlabelled doc contradictions in checkpoint 6's first round. Every one was fixed in the branch or explicitly deferred with a reason and an owner. Four are worth a reviewer's attention.</p>
-
-  <div class="tbl-wrap"><table>
-    <thead><tr><th scope="col">#</th><th scope="col">BLOCKER</th><th scope="col">MAJOR</th><th scope="col">MINOR</th><th scope="col">The finding that mattered</th></tr></thead>
-    <tbody>
-      <tr><td>1</td><td><span class="cross">0</span></td><td>1</td><td>6</td><td>The contract banned a worktree from staging <code>recap.html</code> — but the app review writes that page <em>on the feature branch</em>. Fixed by splitting the rule by where each artifact is born.</td></tr>
-      <tr><td>2</td><td><span class="cross">3</span></td><td>1</td><td>5</td><td>Running from inside a worktree made the verb guard the wrong tree (it took the nearest <code>.git</code>); the pre-worktree guard also failed open when a slot was untracked, a directory, renamed, or a case alias.</td></tr>
-      <tr><td>3</td><td><span class="cross">2</span></td><td>4</td><td>2</td><td>With the primary tree parked on another branch, the close could merge into the wrong branch, never reach <code>main</code>, and still delete the branch. The close now proves the merge landed first.</td></tr>
-      <tr><td>4</td><td><span class="cross">1</span></td><td>5</td><td>8</td><td>A clean detached-HEAD worktree was removable, and its commits became unreachable from every ref; a status read the repository could silence made the pass drop ignored content in silence.</td></tr>
-      <tr><td>5</td><td><span class="cross">1</span></td><td>8</td><td>10</td><td>The loop could merge unasked; and a squash merge with a fast-forward level are mutually exclusive — the level could never run, so every later run stopped on a divergence the loop had caused.</td></tr>
-      <tr><td>6</td><td><span class="cross">0</span></td><td>7</td><td>3 <span class="dim">+3 unlabelled</span></td><td>The docs cached numbers and paths that no longer held (21 vs 29 skills; a promised check count no output prints) — each was re-derived from the command that owns it, or dropped.</td></tr>
-      <tr><td>7</td><td><span class="cross">1</span></td><td>2</td><td>4</td><td>Half the addition to <code>ai-audit-code</code> restated rules the host already enforced, in a harder form, so the duplicates read as new law and cancelled the originals. That half was removed.</td></tr>
-    </tbody>
-  </table></div>
-
-  <div class="grid g2">
-    <div class="card"><h3>The guard fails closed</h3><p>Checkpoint 2's guard was rebuilt around one idea: a guard that cannot decide denies. It reads the status with <code>-z</code> (raw, NUL-separated paths — no quoting or C-escaping to misread), matches every path a record carries (both sides of a rename, a slot turned into a directory, a case alias), and refuses when the status itself is unreadable. <span class="src">src/shared-worktree.ts · dirtySlot</span></p></div>
-    <div class="card"><h3>Destruction proves itself first</h3><p>Both the close and <code>worktree rm</code> assert <code>git merge-base --is-ancestor &lt;branch&gt; refs/heads/main</code> exits&nbsp;0 before deleting the branch, and refuse a detached worktree outright. <code>--force</code> is the one explicit, human-typed escape. <span class="src">LEARNINGS L30 · src/shared-worktree.ts</span></p></div>
-    <div class="card"><h3>One history shape</h3><p>The PR loop must merge with a merge commit: it is the only method that leaves the local <code>main</code> in <code>origin/main</code>'s ancestry, so the later fast-forward level can run. Squash was removed because it stranded the local trunk. <span class="src">LEARNINGS L25 · ai-pr Phase 6</span></p></div>
-    <div class="card"><h3>Where a gate found nothing</h3><p>The ui gate is <code>n/a</code> on all seven checkpoints — the feature renders no UI, so it found nothing because there was nothing to find. The API and ui layers of the test plan are empty for the same reason. Nothing was deferred to a later checkpoint except checkpoint 1's docs-drift finding (F7), which checkpoint 6 closed. <span class="src">test-plans · not_tested</span></p></div>
+  <h2><span class="num">04</span>Verification &amp; limits</h2>
+  <div class="stats">
+    <div class="stat"><div class="v"><em>64</em> / 0</div><div class="l">triage tests · pass / fail</div></div>
+    <div class="stat"><div class="v">559</div><div class="l">assertions</div></div>
+    <div class="stat"><div class="v">7</div><div class="l">test files</div></div>
   </div>
+  <p><code>bun test tests/triage-*.spec.ts</code> passed. The synthetic suite covers routing ambiguity, selected-backlog completeness and batching, state handling, sanitization, report preservation on write failures, and the GitHub instruction contract. No live provider calls were made.</p>
+  <div class="note warn"><h4>Azure execution remains gated</h4><p>The repository documents the REST routes, but does not establish the exact CLI <code>--area</code>/<code>--resource</code> mapping for backlog membership. Do not guess it or invoke the provider until authoritative route metadata confirms it; authentication and live API compatibility were not tested.</p></div>
+  <div class="note warn"><h4>GitHub command boundary</h4><p>The GitHub procedure is a static allowlist and explicitly assumes a trusted <code>PATH</code>; it is not an executable-identity sandbox. Keep that limitation in mind when relying on the documented command boundary.</p></div>
 </section>
-
-<section id="s5">
-  <h2><span class="num">05</span>Key changes</h2>
-  <p>The load-bearing code is small and deliberately boring. Every git value is an argv element — no command is ever assembled as a shell string — and every refusal names its own recovery.</p>
-
-  <div class="bracket"><span class="tag">src/shared-worktree.ts · 14–27</span><p class="src">The design-slot list is defined once and the pre-worktree list is deliberately different: recap.html is absent, because it is generated on the feature branch and must not block a cut.</p><pre data-lang="ts"><code> *  sweeps all four; <span class="s">`ai-eng spec`</span> <span class="k">is</span> its only consumer. */
-<span class="k">export</span> <span class="k">const</span> SLOT_FILES = [<span class="s">"spec.html"</span>, <span class="s">"plan.html"</span>, <span class="s">"brainstorm.html"</span>, <span class="s">"recap.html"</span>] <span class="k">as</span> <span class="k">const</span>;
-
-<span class="c">/** The design artifacts that must be committed before a worktree is cut
- *  (AGENTS.md `## Git workflow`). `recap.html` is absent on purpose: it is
- *  generated at the app review and arrives with the merge, so a dirty one must
- *  not block. One definition here, distinct from the `spec close` sweep. */</span>
-<span class="k">export</span> <span class="k">const</span> PRE_WORKTREE_SLOTS = [<span class="s">"brainstorm.html"</span>, <span class="s">"spec.html"</span>, <span class="s">"plan.html"</span>] <span class="k">as</span> <span class="k">const</span>;
-
-<span class="c">/** The shape of a slug: the user types it, and it becomes both `feat/&lt;slug&gt;` and the
- *  worktree directory name. The orchestrator compares it literally against
- *  `&lt;meta name="ai-feature"&gt;`. `$` alone would accept a trailing newline, so the
- *  test also rules out control characters — see `isSlug`. */</span>
-<span class="k">export</span> <span class="k">const</span> SLUG_PATTERN = /^[a-z0-<span class="n">9</span>][a-z0-<span class="n">9</span>._-]*$/;
-</code></pre></div>
-  <div class="bracket"><span class="tag">src/shared-worktree.ts · 233–254</span><p class="src">The pre-worktree guard: <code>-uall</code> so a wholly untracked design directory is still seen, <code>-z</code> so no path is quoted or escaped, and a refusal to pass when the status cannot be read.</p><pre data-lang="ts"><code><span class="k">function</span> <span class="f">dirtySlot</span>(repo: <span class="t">string</span>): SlotBlocker | <span class="k">null</span> {
-  <span class="c">// `-uall` lists each untracked file instead of collapsing a wholly untracked</span>
-  <span class="c">// directory to `?? .ai-engineering/`, so an uncommitted slot is still seen; `-z`</span>
-  <span class="c">// carries the paths raw, so a quoted or escaped one is never misread.</span>
-  <span class="k">const</span> status = <span class="f">git</span>(repo, [<span class="s">"status"</span>, <span class="s">"--porcelain"</span>, <span class="s">"-uall"</span>, <span class="s">"-z"</span>]);
-  <span class="k">if</span> (status.status !== <span class="n">0</span>) <span class="k">return</span> { detail: <span class="s">`git status exited ${status.status}`</span> };
-  <span class="k">const</span> tokens = status.stdout.<span class="f">split</span>(<span class="s">"\0"</span>);
-  <span class="k">for</span> (<span class="k">let</span> index = <span class="n">0</span>; index &lt; tokens.length; ) {
-    <span class="k">if</span> (tokens[index] === <span class="s">""</span>) {
-      index += <span class="n">1</span>; <span class="c">// the NUL that closes the last record</span>
-      <span class="k">continue</span>;
-    }
-    <span class="k">const</span> read = <span class="f">statusPaths</span>(tokens, index);
-    <span class="k">if</span> (read === <span class="k">null</span>) <span class="k">return</span> { detail: <span class="s">`unreadable status record ${JSON.stringify(printable(tokens[index] ?? ""))}`</span> };
-    <span class="k">for</span> (<span class="k">const</span> path <span class="k">of</span> read.paths) {
-      <span class="k">const</span> slot = <span class="f">namesSlot</span>(repo, path);
-      <span class="k">if</span> (slot !== <span class="k">null</span>) <span class="k">return</span> { path: slot };
-    }
-    index = read.next;
-  }
-  <span class="k">return</span> <span class="k">null</span>;
-}</code></pre></div>
-  <div class="bracket"><span class="tag">src/shared-worktree.ts · 256–279</span><p class="src">worktreeNew: the slug is rejected before anything is created (the pattern alone would accept a trailing newline), then the guard, then the work.</p><pre data-lang="ts"><code><span class="k">export</span> <span class="k">function</span> <span class="f">worktreeNew</span>(slug: <span class="t">string</span>, files: <span class="t">string</span>[]): WorktreeResult {
-  <span class="k">const</span> repo = <span class="f">primaryRepoRoot</span>();
-  <span class="k">if</span> (repo === <span class="k">null</span>) <span class="k">return</span> { code: <span class="n">2</span>, out: <span class="s">""</span>, err: <span class="s">"worktree new: not inside a git repository.\n"</span> };
-  <span class="c">// A slug is a branch-name fragment and a directory name: the pattern alone would</span>
-  <span class="c">// accept `alpha\n` (`$` matches before a final newline), and git would only refuse</span>
-  <span class="c">// the ref after the worktree root had already been created.</span>
-  <span class="k">if</span> (!SLUG_PATTERN.<span class="f">test</span>(slug) || /\p{C}/u.<span class="f">test</span>(slug)) {
-    <span class="k">return</span> {
-      code: <span class="n">2</span>,
-      out: <span class="s">""</span>,
-      err: <span class="s">`worktree new: invalid slug "${printable(slug)}" — it must match ${SLUG_PATTERN} and carry no control character (no spaces, no "/", never starting with a separator).\n`</span>,
-    };
-  }
-  <span class="k">const</span> blocked = <span class="f">dirtySlot</span>(repo);
-  <span class="k">if</span> (blocked !== <span class="k">null</span>) {
-    <span class="k">return</span> {
-      code: <span class="n">2</span>,
-      out: <span class="s">""</span>,
-      err:
-        <span class="s">"path"</span> <span class="k">in</span> blocked
-          ? <span class="s">`worktree new: ${blocked.path} has uncommitted changes in the primary tree — commit the design slot before opening a worktree.\n`</span>
-          : <span class="s">`worktree new: the primary tree's status is unreadable (${JSON.stringify(blocked.detail)}) — refusing to cut a worktree while the design slots are unknown.\n`</span>,
-    };
-  }</code></pre></div>
-  <div class="bracket"><span class="tag">src/shared-worktree.ts · 368–400</span><p class="src">worktreeRm refuses before touching anything: detached HEAD, a branch not merged into the local main, a stale directory pruned instead of failed on, and the ignored content read and reported before it is dropped.</p><pre data-lang="ts"><code>  <span class="c">// proved it landed in the local `main`, and a refusal must leave the worktree and</span>
-  <span class="c">// the branch exactly as they were. `merge-base --is-ancestor` pins both refs, so</span>
-  <span class="c">// the answer never depends on the mutable HEAD. Only an explicit `--force` skips</span>
-  <span class="c">// the proof, for the deliberately abandoned branch.</span>
-  <span class="k">if</span> (!force) {
-    <span class="k">const</span> merged = <span class="f">git</span>(repo, [<span class="s">"merge-base"</span>, <span class="s">"--is-ancestor"</span>, branch, <span class="s">"refs/heads/main"</span>]);
-    <span class="k">if</span> (merged.status !== <span class="n">0</span>) {
-      <span class="k">return</span> {
-        code: <span class="n">1</span>,
-        out: <span class="s">""</span>,
-        err: <span class="s">`worktree rm: ${branch} is not merged into the local main — refusing to delete it, and the worktree is left in place. Pass --force to remove a deliberately abandoned branch.\n`</span>,
-      };
-    }
-  }
-
-  <span class="c">// This verb is the explicit path — a person typed it, or the close ran it after</span>
-  <span class="c">// the merge landed — so unlike the automatic cleanup pass it removes the worktree</span>
-  <span class="c">// even when it holds ignored content. Read that content first and print it, so</span>
-  <span class="c">// the deletion is visible to whoever asked for it.</span>
-  <span class="k">const</span> dropped = <span class="f">existsSync</span>(entry.path) ? <span class="f">ignoredPaths</span>(entry.path) : [];
-
-  <span class="k">if</span> (<span class="f">existsSync</span>(entry.path)) {
-    <span class="k">const</span> removed = <span class="f">git</span>(repo, [<span class="s">"worktree"</span>, <span class="s">"remove"</span>, entry.path]);
-    <span class="k">if</span> (removed.status !== <span class="n">0</span>) {
-      <span class="k">return</span> { code: <span class="n">1</span>, out: <span class="s">""</span>, err: <span class="s">`worktree rm: git worktree remove failed: ${removed.stderr.trim()}\n`</span> };
-    }
-  } <span class="k">else</span> {
-    <span class="c">// The directory is gone: prune the stale registration instead of failing on it.</span>
-    <span class="f">git</span>(repo, [<span class="s">"worktree"</span>, <span class="s">"prune"</span>]);
-  }
-  <span class="k">const</span> deleted = <span class="f">git</span>(repo, [<span class="s">"branch"</span>, force ? <span class="s">"-D"</span> : <span class="s">"-d"</span>, branch]);
-  <span class="k">if</span> (deleted.status !== <span class="n">0</span>) {
-    <span class="k">return</span> { code: <span class="n">1</span>, out: <span class="s">""</span>, err: <span class="s">`worktree rm: git branch ${force ? "-D" : "-d"} failed: ${deleted.stderr.trim()}\n`</span> };</code></pre></div>
-  <div class="bracket"><span class="tag">src/commands/worktree.ts · 1–37</span><p class="src">The whole verb: a thin parser that reads argv, prints the result and returns its exit code. The logic lives in the shared layer, so no new architecture layer was proposed.</p><pre data-lang="ts"><code><span class="c">// `ai-eng worktree new|rm|list` — the thin parser. The root resolution, the git</span>
-<span class="c">// argv and the design-slot list live in src/shared-worktree.ts; this file only</span>
-<span class="c">// reads argv, prints the result and returns its exit code.</span>
-
-<span class="k">import</span> { worktreeList, worktreeNew, worktreeRm } <span class="k">from</span> <span class="s">"../shared-worktree.ts"</span>;
-
-<span class="k">const</span> USAGE = <span class="s">"usage: ai-eng worktree new &lt;slug&gt; [files...] | rm &lt;slug&gt; [--force] | list\n"</span>;
-
-<span class="k">export</span> <span class="k">function</span> <span class="f">worktreeMain</span>(args: <span class="t">string</span>[], force = <span class="k">false</span>): <span class="t">number</span> {
-  <span class="k">const</span> [action, slug, ...files] = args;
-  <span class="k">let</span> result;
-  <span class="k">switch</span> (action) {
-    <span class="k">case</span> <span class="s">"new"</span>:
-      <span class="k">if</span> (!slug) {
-        <span class="t">process</span>.stderr.<span class="f">write</span>(USAGE);
-        <span class="k">return</span> <span class="n">2</span>;
-      }
-      result = <span class="f">worktreeNew</span>(slug, files);
-      <span class="k">break</span>;
-    <span class="k">case</span> <span class="s">"rm"</span>:
-      <span class="k">if</span> (!slug) {
-        <span class="t">process</span>.stderr.<span class="f">write</span>(USAGE);
-        <span class="k">return</span> <span class="n">2</span>;
-      }
-      result = <span class="f">worktreeRm</span>(slug, force);
-      <span class="k">break</span>;
-    <span class="k">case</span> <span class="s">"list"</span>:
-      result = <span class="f">worktreeList</span>();
-      <span class="k">break</span>;
-    <span class="k">default</span>:
-      <span class="t">process</span>.stderr.<span class="f">write</span>(USAGE);
-      <span class="k">return</span> <span class="n">2</span>;
-  }
-  <span class="k">if</span> (result.out) <span class="t">process</span>.stdout.<span class="f">write</span>(result.out);
-  <span class="k">if</span> (result.err) <span class="t">process</span>.stderr.<span class="f">write</span>(result.err);
-  <span class="k">return</span> result.code;
-}</code></pre></div>
-  <div class="bracket"><span class="tag">AGENTS.md · 49–56</span><p class="src">The contract itself — the section ai-orchestrator cited by name and that did not exist. The shipped template carries the same seven bullets.</p><pre><code>## Git workflow
-- A session that writes code works in `&lt;repo&gt;.worktrees/&lt;slug&gt;` on the branch `feat/&lt;slug&gt;`, cut from the local `main`. A session that only reads opens no worktree.
-- The merge destination is the local `main`, never `origin`: rebase inside the worktree, then `git merge --no-ff` — one merge commit per feature, the one undoable unit.
-- A build session never pushes: the only push is the pull-request step the human triggers, against `origin/main`, cut from the local `main` without a worktree.
-- A build session does not touch the primary tree; only the merge step writes there, once, after that session&#x27;s branch has merged.
-- The design artifacts `.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html` and `.ai-engineering/plan.html` are written and committed in the primary tree before any worktree is cut, and no worktree ever stages them.
-- `.ai-engineering/recap.html` is generated at the app review on the feature branch and reaches the primary tree with the merge.
-- A session may edit the shared files on its own branch like any other change, and the merge step is their single writer in the primary tree, never a parallel session writing them there: `.ai-engineering/PRD.html` when the feature changes scope, plus `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md` and `PERMISSIONS.md`.</code></pre></div>
-  <div class="bracket"><span class="tag">skills/ai-pr/SKILL.md · 28–46</span><p class="src">The rule that took the longest to settle: the human's verb decides how far the run goes, an ambiguous ask is the open one, and a green PR is not a request to merge.</p><pre><code>## The ask — the verb the human uses decides the run
-
-- **The verb decides how far the run goes, and nothing else does.** Read the
-  words before any command runs, and print the shape as the first line of the
-  run:
-  - **&quot;open&quot;, &quot;open the pull request&quot;, &quot;make the PR&quot;** — Phases 1-3 run and the
-    run stops there: `ai-pr: opened &lt;branch&gt; — not merging.` Open the pull
-    request only is the open mode, and it never merges — no merge command, no
-    auto-merge, and no Phase 6.
-  - **&quot;finish&quot;, &quot;land&quot;, &quot;merge it&quot;, &quot;get the PR merged&quot;, &quot;run the full PR
-    loop&quot;** — the run carries the whole loop: cut, push, open, watch, fix, and
-    through the merge. Print `ai-pr: finishing &lt;branch&gt; — open, watch, merge.`
-- **An ambiguous ask is the open one.** When the words name neither shape, the
-  run opens the pull request only and stops; the merge is the shape the human
-  must name, never the one inferred.
-- **A green pull request is not a request to merge it.** The merge happens
-  because the human said finish, land or merge it — asking for this skill with a
-  finish verb is the request to land the pull request — never because the checks
-  came back green. Both the open ask and the ambiguous ask stop before Phase 6.</code></pre></div>
-</section>
-
-<section id="s6">
-  <h2><span class="num">06</span>What is deliberately left out</h2>
-  <p>These were decided out of scope in the brainstorm (§09) and the PRD, and the test plan records what its checks do not cover. None is an oversight; each has a reason.</p>
-  <div class="tbl-wrap"><table>
-    <thead><tr><th scope="col">Not in this feature</th><th scope="col">Why</th></tr></thead>
-    <tbody>
-      <tr><td>Deleting remote branches</td><td><code>git push origin --delete</code> is never used. Proving it needs a live remote; the static check covers only the skill text.</td></tr>
-      <tr><td>Renaming <code>ai-eng git</code> → <code>ai-eng hooks</code></td><td>Cosmetic, and the installed floor shims carry the old marker, so a rename would deny every commit until <code>ai-eng update</code> runs in each repo.</td></tr>
-      <tr><td>Merging or closing a PR on the agent's initiative</td><td><code>ai-pr</code> merges only when the human asked for that; auto-merge is on by default and switchable off.</td></tr>
-      <tr><td>A worktree for a read-only session</td><td>Triage, research, audits and brainstorm stay in the primary tree.</td></tr>
-      <tr><td>Rewriting the local <code>main</code>'s history</td><td>No interactive rebase, no <code>git gc</code>, no forced deletes. Git is transport, not process.</td></tr>
-      <tr><td>The three attachment skills whole</td><td>Only single pieces of <code>tech-debt-audit</code>, <code>remove-deadcode</code> and <code>security-research</code> enter <code>ai-audit-code</code> and <code>ai-security</code>.</td></tr>
-      <tr><td>A semantic merge of two <code>AGENTS.md</code> files</td><td>Prose has no marker to merge on; the choice replaces or keeps the whole file.</td></tr>
-      <tr><td>The orphan worktree <code>ai-engineering-v1-oracle</code></td><td>Listed by <code>worktree list</code>, touched by nothing — a human decides separately.</td></tr>
-    </tbody>
-  </table></div>
-  <div class="note"><h3>Not covered by the automated checks</h3>
-  <p>The real end-to-end worktree lifecycle and the real <code>ai-pr</code> loop (push, <code>gh pr create</code>, CI watch, auto-merge) are prose an agent follows inside the skills, needing live GitHub, credentials and a human decision — exercised by the behavior/review gates and the next build, not by a script. The full <code>bun test</code> sweep is excluded in favour of the scoped specs. <code>CHANGELOG.md</code> gets its entry from the merge step, so no checkpoint command asserts it.</p></div>
-  <div class="note warn"><h3>Residuals recorded, not blocking</h3>
-  <p>The blueprint's own v17 record still carries a package version, a skill count and a surface count dated 2026-09-22, marked as history — this feature neither wrote nor touched it. <code>ai-git-cleanup</code> step&nbsp;1 is agent-judged, so a mis-selected clean worktree can be removed while its commits survive on the branch steps 3–4 refuse to delete. And <code>ai-pr</code>'s create and merge-method queries exit loudly on failure without a stated branch.</p></div>
-</section>
-
-<section id="s7">
-  <h2><span class="num">07</span>Where to try it yourself</h2>
-  <p>Everything below runs from this worktree and needs no remote. The three feature specs are the fastest proof: 60&nbsp;tests, 0&nbsp;fail, 312 assertions at the time of writing.</p>
-  <div class="grid g2">
-    <div class="card"><h3>The verb</h3>
-      <pre><code>node ./bin/ai-eng.js worktree            # usage
-node ./bin/ai-eng.js worktree list       # open worktrees
-node ./bin/ai-eng.js worktree new demo   # refuses on a dirty design slot
-node ./bin/ai-eng.js worktree rm demo    # refuses an unmerged branch</code></pre>
-      <p>Real output on this branch — note the orphan worktree the feature deliberately does not touch: <span class="src">captured 2026-10-02</span></p>
-      <div class="bracket"><span class="tag">terminal · not pixels</span><pre class="flow">$ node ./bin/ai-eng.js worktree list
-ai-engineering-v1-oracle      /Users/soydachi/repos/ai-engineering-v1-oracle
-git-worktree-flow             /Users/soydachi/repos/ai-engineering.worktrees/git-worktree-flow
-
-$ node ./bin/ai-eng.js worktree
-usage: ai-eng worktree new &lt;slug&gt; [files...] | rm &lt;slug&gt; [--force] | list</pre></div>
-    </div>
-    <div class="card"><h3>The tests</h3>
-      <pre><code>bun test tests/worktree-command.spec.ts   # the verb (774 lines)
-bun test tests/git-cleanup-pass.spec.ts   # drop-proof + refusal
-bun test tests/ai-pr.spec.ts              # the PR loop behaviour</code></pre>
-      <p>The pull-request loop pins <em>behaviour</em>, not wording: a run that merges unasked fails the spec. <span class="src">ran here: 60 pass · 0 fail</span></p>
-    </div>
-    <div class="card"><h3>The contract and the skills</h3>
-      <pre><code>AGENTS.md §Git workflow                    # the seven rules
-skills/ai-orchestrator/SKILL.md            # Phase 0 + close
-skills/ai-git-cleanup/SKILL.md             # one automatic pass
-skills/ai-pr/SKILL.md                      # the full PR loop</code></pre>
-      <p>A build session never pushes; the only push is the PR step the human triggers. <span class="src">this is the one legitimate push</span></p>
-    </div>
-    <div class="card"><h3>The ledger</h3>
-      <pre><code>.ai-engineering/workflow/checkpoints/git-worktree-flow.json
-.ai-engineering/workflow/test-plans/git-worktree-flow.json
-.ai-engineering/workflow/reviews/git-worktree-flow-{1..7}.md</code></pre>
-      <p>Every number on this page comes from one of these files or from a command run in this worktree. <span class="src">no evidence was invented</span></p>
-    </div>
-  </div>
-</section>
-
 
 </div>
 </main>
 
 <footer>
-  <span class="x">{</span>ai<span class="x">}</span> Engineering · Recap · git-worktree-flow<br>
-  Seven checkpoints · 67 commits · +4169 −2983 · every number re-derived from the ledger
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Recap · ai-triage<br>
+  Implementation and verification summarized from repository changes.
   <a href="#main">↑ top</a>
 </footer>
 <script>
