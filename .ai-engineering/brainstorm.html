@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="ai-feature" content="git-worktree-flow">
-<meta name="ai-approved" content="2026-10-01">
-<title>Brainstorm · git-worktree-flow</title>
+<meta name="ai-feature" content="ai-triage">
+<meta name="ai-approved" content="2026-10-06">
+<title>Brainstorm · ai-triage</title>
 <style>
 :root{
   --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
@@ -150,6 +150,39 @@ table{min-width:640px}
 .tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
 .tier .tbody b{color:var(--text)}
 .tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+/* ── items: the expandable row, and the band chip that ranks it ───────── */
+.band{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.08em;white-space:nowrap;color:var(--text);border:1px solid transparent}
+.band-p0{background:rgba(255,105,96,.16);border-color:rgba(255,105,96,.46)}
+.band-p1{background:rgba(255,192,16,.14);border-color:rgba(255,192,16,.44)}
+.band-p2{background:rgba(0,237,100,.12);border-color:rgba(0,237,100,.36)}
+.band-p3,.band-p4,.band-p5{background:rgba(17,39,51,.6);border-color:var(--line);color:var(--dim)}
+.items{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.item{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
+.item>summary{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;padding:var(--s3) var(--s4);cursor:pointer;list-style:none;border-radius:var(--radius-lg)}
+.item>summary::-webkit-details-marker{display:none}
+.item>summary::after{content:'+';font-family:var(--mono);font-size:13px;line-height:1;color:var(--comment)}
+.item[open]>summary::after{content:'\2013'}
+.item[open]>summary{border-bottom:1px solid var(--line);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.item>summary:hover{background:rgba(17,39,51,.35)}
+.item .iid{font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap}
+.item .ititle{flex:1 1 300px;min-width:0;font-size:var(--fs-small);line-height:var(--lh-small);color:var(--text);font-weight:520}
+.item .imeta{font-family:var(--mono);font-size:11px;color:var(--warn);white-space:nowrap}
+.item .ibody{padding:var(--s3) var(--s4) var(--s4);display:grid;gap:var(--s2)}
+.kv{display:grid;grid-template-columns:128px minmax(0,1fr);gap:var(--s3);align-items:baseline}
+.kv>span{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);text-align:left}
+.ilbl{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim)}
+.xref{font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.xref a{color:var(--comment);text-decoration:underline;text-underline-offset:2px}
+.xref a:hover{color:var(--accent);text-decoration:none}
+.sig{display:flex;gap:var(--s3);flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.sig b{color:var(--dim);font-weight:500}
+.legend{display:grid;gap:var(--s2);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);padding:var(--s5);margin:var(--s5) 0}
+.legend>div{display:flex;gap:var(--s3);align-items:baseline;flex-wrap:wrap}
+.legend .lname{min-width:104px}
+.legend p{margin:0}
+.hero .mark{display:flex;width:44px;height:44px;align-items:center;justify-content:center;margin:0 auto var(--s4);border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.04em}
+.hero .mark .x{color:var(--accent)}
+@media (max-width:700px){.kv{grid-template-columns:1fr;gap:var(--s1)}}
 footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
 footer .x{color:var(--accent)}
 footer a{color:var(--dim);display:inline-block;padding:12px 4px}
@@ -168,24 +201,24 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Brainstorm · git-worktree-flow · complete · 2026-10-01</div>
-  <h1>Un worktree por sesión, <span class="x">main</span> como único destino local</h1>
-  <p class="sub">Cada sesión que <strong>escribe código</strong> vive en su propio worktree con rama efímera; al terminar, su trabajo se fusiona en el <strong>main local</strong> y el worktree desaparece. Nadie empuja a origin: el PR lo abre el humano cuando decide, después, desde main local. Triage, research y auditorías no abren worktree. Se borran <code>ai-pr-loop-fix</code> y la vieja <code>ai-git-cleanup</code>, y nacen una <code>ai-git-cleanup</code> nueva y una skill <code>ai-pr</code>.</p>
-  <div class="meta"><b>complete · 2026-10-01</b><br>Slug <b>git-worktree-flow</b> · <span class="dim">entrevista cerrada; las conclusiones viven también en PRD.html</span></div>
+  <div class="stamp">Brainstorm · ai-triage · complete · 2026-10-06</div>
+  <h1>Triage para GitHub y Azure DevOps</h1>
+  <p class="sub">Una skill lee un backlog, explica qué atender primero y genera un informe completo. El usuario no debe perder detalles del backlog por usar Azure DevOps en vez de GitHub.</p>
+  <div class="meta"><b>complete · 2026-10-06</b><br>Slug <b>ai-triage</b> · entrevista aprobada; sin datos del tenant privado de prueba en este documento</div>
 </header>
 
 <nav>
-  <a href="#s1"><b>01</b>Idea en palabras llanas</a>
-  <a href="#s2"><b>02</b>Por qué importa</a>
+  <a href="#s1"><b>01</b>Idea</a>
+  <a href="#s2"><b>02</b>Por qué</a>
   <a href="#s3"><b>03</b>Para quién</a>
-  <a href="#s4"><b>04</b>Qué existe hoy</a>
-  <a href="#s5"><b>05</b>Cómo se ve el éxito</a>
-  <a href="#s6"><b>06</b>Decisiones tomadas</a>
-  <a href="#s7"><b>07</b>Decisiones abiertas</a>
-  <a href="#s8"><b>08</b>Límites y guardarraíles</a>
-  <a href="#s9"><b>09</b>Fuera de alcance</a>
-  <a href="#s10"><b>10</b>Preguntas para investigar</a>
-  <a href="#s11"><b>11</b>Notas de handoff</a>
+  <a href="#s4"><b>04</b>Hoy</a>
+  <a href="#s5"><b>05</b>Éxito</a>
+  <a href="#s6"><b>06</b>Decisiones</a>
+  <a href="#s7"><b>07</b>Abiertas</a>
+  <a href="#s8"><b>08</b>Límites</a>
+  <a href="#s9"><b>09</b>Fuera</a>
+  <a href="#s10"><b>10</b>Investigar</a>
+  <a href="#s11"><b>11</b>Handoff</a>
 </nav>
 
 <main id="main">
@@ -193,211 +226,118 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 
 <section id="s1">
   <h2><span class="num">01</span>La idea en palabras llanas</h2>
-  <p>Cuando un agente va a <strong>cambiar</strong> el proyecto, no trabaja en tu carpeta: se hace una copia aparte con su propia rama y ahí dentro lo hace todo. Cuando termina, su trabajo se pega en el main de tu ordenador, la copia se borra y la rama se borra. Nada sale a internet. Cuando tú quieras, coges el main de tu ordenador y pides un pull request con todo lo que hay dentro, y ahí sí se ve en GitHub, se revisa y se fusiona. Y para la limpieza hay un solo comando que borra las copias y las ramas que ya no sirven, sin que tengas que apuntar nombres, y que nunca borra algo que no esté ya fusionado.</p>
-  <p>Las sesiones que solo <strong>miran</strong> (un triage, un research, una auditoría) no abren copia: miran el original y no lo tocan.</p>
+  <p>Quieres una sola skill, <code>ai-triage</code>, para GitHub y Azure DevOps. Mira la URL que le das o el remote del repo para saber dónde buscar. Si no sabe cuál board usar, pregunta y recuerda la respuesta solo durante esa ejecución. El informe muestra todo el trabajo abierto del board elegido y lo explica, como el informe de GitHub.</p>
+  <p>La skill solo lee Azure. Aquí se puede guardar el informe privado en el archivo normal, pero no se hace commit ni push con esos datos.</p>
 </section>
 
 <section id="s2">
   <h2><span class="num">02</span>Por qué importa</h2>
-  <p><span class="pill">estado previo a esta feature</span> «Ahora mismo no está funcionando bien» tenía causas concretas y verificables, no una sola. La lista de abajo es el retrato de aquel momento, antes de esta feature, no el de hoy: el contrato de git ya está en <code>AGENTS.md</code>, la Fase 0 corta un worktree en vez de ramificar el árbol principal, el cierre rebasa y usa <code>merge --no-ff</code> sin squash, y <code>ai-pr</code> sustituyó a <code>ai-pr-loop-fix</code>:</p>
-  <ul>
-    <li><strong>El árbol principal no está en main.</strong> <code>git branch -vv</code> hoy devuelve <code>* feat/arcasiles-skills</code> en <code>/Users/soydachi/repos/ai-engineering</code>, con <code>main</code> en <code>3986acbb</code>. El modelo que pides exige el checkout principal <strong>en main</strong>; hoy no lo está, así que no hay destino local único al que fusionar.</li>
-    <li><strong>El contrato citado no existe.</strong> <code>skills/ai-orchestrator/SKILL.md:45</code> y <code>:172</code> dicen "per the <code>AGENTS.md</code> git workflow", pero el <code>AGENTS.md</code> de este repo no tiene sección de workflow de git: solo tiene higiene de PR (título, lint y tests antes de commit). El agente busca un contrato que no está escrito.</li>
-    <li><strong>La orquestación trabaja en el árbol compartido.</strong> <code>ai-orchestrator</code> Fase 0 hace <code>git switch -c feat/&lt;slug&gt;</code> en la carpeta principal (línea 45) y exige "stage explicit paths only ... because other sessions share this tree" (línea 46). Ese comentario es la prueba de que ya hubo dolor: sesiones peleándose por el mismo <code>git add</code>.</li>
-    <li><strong>El cierre de sesión no es el que quieres.</strong> <code>ai-orchestrator</code> hace <code>git merge --squash feat/&lt;slug&gt;</code> contra la rama grabada en Fase 0 (línea 172), que no es main, y conserva la rama para siempre.</li>
-    <li><strong>La limpieza no cubre worktrees.</strong> La <code>ai-git-cleanup</code> actual borra ramas locales; los <code>worktrees</code> aparecen solo como inventario y como bloqueo (<code>WORKTREE_HELD</code>). Con worktrees por sesión, eso se convierte en basura acumulada.</li>
-    <li><strong>Dos skills no dan lo que quieres.</strong> <code>ai-pr-loop-fix</code> arregla CI sin crear PR ni fusionar (queda cojo), y <code>ai-git-cleanup</code> obliga a una pregunta interactiva y no gestiona worktrees.</li>
-  </ul>
+  <p>Hoy existe una skill de triage para GitHub. Una sola entrada debe servir también a equipos con Azure DevOps, sin perder los detalles útiles de cada proveedor ni mezclar sus reglas.</p>
 </section>
 
 <section id="s3">
   <h2><span class="num">03</span>Para quién es</h2>
-  <p>Para ti, <code>soydachi</code>, cuando lanzas una o varias sesiones de agente sobre este repo (o sobre un proyecto gobernado por ai-engineering) en paralelo o en secuencia. Tú eres el único que decide cuándo algo sale a origin, y el único que aprueba cada fusión a main local. El segundo destinatario es el agente de la siguiente sesión: necesita saber sin preguntar dónde trabajar y dónde fusionar.</p>
+  <p>Para personas y equipos que usan ai-engineering con Azure DevOps en distintas organizaciones y proyectos. No debe depender de la empresa ni del tenant usado para probarla.</p>
 </section>
 
 <section id="s4">
   <h2><span class="num">04</span>Qué existe hoy</h2>
-  <p class="dim"><span class="pill">estado previo a esta feature</span> Hechos verificados en la entrevista, antes de esta feature, con la ruta que los prueba; donde una fila describe algo que la feature ya cambió, la propia fila dice qué hay hoy.</p>
-  <div class="tbl-wrap">
-  <table>
-    <thead><tr><th>Hecho</th><th>Evidencia</th><th>Qué implica</th></tr></thead>
-    <tbody>
-      <tr><td>Hay dos git; el activo es 2.56.0 de brew</td><td><code>command -v git</code> → <code>/opt/homebrew/bin/git</code>; <code>git -v</code> → <code>2.56.0</code>; Apple CLT sigue en <code>/usr/bin/git</code> → 2.50.1</td><td>El PATH ya prefiere brew; una terminal abierta antes de instalar sirve el viejo hasta <code>hash -r</code></td></tr>
-      <tr><td><code>git branch --delete-merged &lt;pattern&gt;</code> sí existe en 2.56</td><td><code>git branch -h</code>; doc <code>git-branch.html:686-700</code></td><td>Borra solo ramas cuyo <strong>upstream configurado</strong> case el patrón y exista, y cuyo tip sea alcanzable desde él</td></tr>
-      <tr><td>Sí sirve, si la rama efímera nace con upstream = main local</td><td>En <code>/tmp/ait3</code>: con <code>branch.&lt;x&gt;.remote="."</code> + <code>merge=refs/heads/main</code>, <code>git branch --delete-merged refs/heads/main</code> borró <code>s1</code> (fusionada), y <strong>saltó</strong> <code>s2</code> (fusionada pero retenida por un worktree) y <code>s3</code> (sin fusionar, ahead 1)</td><td>Es justo el primitivo de la limpieza: borra lo que ya está en main local, respeta worktrees y no toca lo sin fusionar</td></tr>
-      <tr><td>Sin ese upstream no dispara</td><td>7 configuraciones sin upstream o con upstream <code>origin/x</code> (incluida la rama empujada y al día, y la que va detrás 1): <strong>0 borradas</strong></td><td>El flag casa contra el <em>upstream configurado</em>, no contra la rama: las ramas de sesión necesitan ese <code>remote="."</code> desde que nacen</td></tr>
-      <tr><td><code>-d</code> sigue siendo el guardarraíl de reserva</td><td><code>git branch -d unmerged-x</code> → <code>error: the branch 'unmerged-x' is not fully merged</code>, exit 1</td><td>Para ramas sin ese upstream: filtro <code>git branch --merged main</code> + <code>-d</code>; <code>-D</code> nunca automático</td></tr>
-      <tr><td>Solo un worktree adicional registrado</td><td><code>git worktree list</code>: principal + <code>ai-engineering-v1-oracle</code> (detached)</td><td>Ya hay un worktree huérfano en detached HEAD</td></tr>
-      <tr><td>El checkout principal está en <code>feat/arcasiles-skills</code></td><td><code>git branch -vv</code></td><td>Fusionar "a main local" hoy no tiene destino: main no está activo</td></tr>
-      <tr><td><code>ai-eng git</code> ya está tomado</td><td><code>ai-eng git</code> → <code>usage: ai-eng git pre-commit|commit-msg|pre-push</code>; <code>src/cli.ts:84</code> → <code>floor(...)</code></td><td>Un verbo de worktrees no cabe sin renombrar: o nace un verbo nuevo, o se migra el nombre</td></tr>
-      <tr><td>Renombrar ese verbo toca shims instalados</td><td><code>src/floor/template.ts:25</code> (<code>MARKER = "ai-eng git floor shim"</code>), <code>src/commands/doctor.ts:117</code>, <code>src/commands/uninstall.ts:179</code>, <code>src/commands/init.ts:96</code> (el mensaje que le dice al humano qué llamar)</td><td>Un binario nuevo con verbos renombrados y shims viejos en disco bloquearía cada commit hasta correr <code>ai-eng update</code> en cada repo</td></tr>
-      <tr><td>Nada en <code>src/</code> gestionaba worktrees <span class="dim">(entonces)</span></td><td><code>grep -rn worktree src</code> → solo comentarios; hoy la lógica vive en <code>src/shared-worktree.ts</code> y el verbo la despacha desde <code>src/cli.ts</code></td><td>Superficie nueva: verbo <code>ai-eng worktree new|rm|list</code> más sus tests</td></tr>
-      <tr><td>Los artefactos viven versionados</td><td><code>git ls-files .ai-engineering</code> (<code>brainstorm.html</code>, <code>PRD.html</code>, <code>recap.html</code>, <code>research/*</code>, <code>config.toml</code>); <code>.gitignore</code> ignora <code>receipts/</code>, <code>cache/</code>, <code>workflow/playwright/</code></td><td>Lo que una sesión escribe en el worktree no vuelve al árbol principal hasta que se fusiona la rama</td></tr>
-      <tr><td>Los artefactos de diseño son <strong>un solo slot por repo</strong>, no uno por feature</td><td><code>src/shared-worktree.ts:14</code>: <code>SLOT_FILES = ["spec.html","plan.html","brainstorm.html","recap.html"]</code>, todos en <code>.ai-engineering/</code>; <code>spec open</code> los escribe con <code>writeFileSync</code>; <code>spec close</code> compara el sha256 de <code>spec.html</code> contra el lock</td><td>Dos sesiones escribiendo diseño a la vez se pisan el fichero: el diseño tiene que ser secuencial y fuera de los worktrees paralelos</td></tr>
-      <tr><td>Hoy <code>spec.html</code> y <code>plan.html</code> no existen en este repo</td><td><code>ls .ai-engineering</code> y <code>find .ai-engineering -maxdepth 2 -type d</code>: no están; sí <code>brainstorm.html</code>, <code>PRD.html</code>, <code>triage.html</code>, <code>recap.html</code></td><td>Nada que limpiar: los crea <code>ai-eng spec open</code> cuando el carril lo pida</td></tr>
-      <tr><td>Ya hay un patrón de fichero-por-feature que no da conflictos</td><td><code>.changeset/artifact-layout-gate.md</code>, <code>source-only-package.md</code>; y por slug: <code>workflow/checkpoints/&lt;slug&gt;.json</code>, <code>test-plans/&lt;slug&gt;.json</code>, <code>reviews/&lt;slug&gt;-*.md</code> (<code>skills/ai-orchestrator/SKILL.md:46</code>)</td><td>Lo que se escribe desde un worktree debe vivir en un fichero con el slug en el nombre</td></tr>
-      <tr><td>Ficheros compartidos que un build toca hoy</td><td><code>skills/ai-visual-recap/SKILL.md:658</code>: <code>.ai-engineering/recap.html</code>; y <code>skills/ai-orchestrator/SKILL.md:46</code> y <code>:153-155</code>: <code>CHANGELOG.md</code>, <code>LEARNINGS.md</code>, <code>FILEMAP.md</code>, <code>PERMISSIONS.md</code></td><td>Dos sesiones paralelas actualizando estos = conflicto garantizado en el merge</td></tr>
-      <tr><td><code>ai-pr</code> no existía <span class="dim">(entonces)</span></td><td><code>ls skills/</code> en la entrevista; hoy existe <code>skills/ai-pr/SKILL.md</code> y sustituye a <code>ai-pr-loop-fix</code></td><td>Skill nueva, no reemplazo</td></tr>
-      <tr><td>CI corre en <code>main</code> de <code>arcasilesgroup/ai-engineering</code></td><td><code>gh repo view</code> default=main; <code>.github/workflows/</code>: <code>ai-eng-check</code>, <code>check</code>, <code>e2e</code>, <code>mutation</code>, <code>platforms</code>, <code>release</code>, <code>version</code></td><td>Siete workflows: el gate de PR de <code>ai-pr</code> tiene que saber cuáles mirar</td></tr>
-      <tr><td>El brainstorm previo era de otro feature</td><td><code>.ai-engineering/brainstorm.html</code> tenía <code>ai-feature=init-agents-md</code>, aprobado 2026-09-28, ya recogido en <code>PRD.html:87</code></td><td>Su entrevista se reemplaza; las conclusiones siguen en el PRD</td></tr>
-    </tbody>
-  </table>
-  </div>
+  <ul>
+    <li><code>skills/ai-github-triage/SKILL.md</code> define una skill de solo lectura: recoge un backlog, lo clasifica, lo ordena y genera una página de informe.</li>
+    <li>La skill de GitHub elige el repositorio actual si no recibe destino y acepta una URL o repositorio explícito como destino.</li>
+    <li><code>src/assets.ts</code> registra las skills incluidas en el paquete; cambiar el nombre requiere actualizar ese registro además de la carpeta y las referencias.</li>
+    <li>La plantilla de brainstorm existente da el formato HTML para este documento.</li>
+    <li><code>.ai-engineering/config.toml</code> está versionado y documenta que lo edita una persona y que la cadena solo lo lee.</li>
+    <li>Aún no se ha consultado Azure DevOps ni se han ejecutado comandos de Azure CLI en esta entrevista.</li>
+    <li>El usuario indicó que un proyecto de Azure DevOps puede tener varios boards y que el servicio de prueba es productivo y privado.</li>
+    <li>Se revisaron patrones de otros flujos Azure Boards: leer la jerarquía relacionada, distinguir hechos confirmados de supuestos y poner límites explícitos a las escrituras. Solo se reutilizarán prácticas genéricas, no reglas de una organización concreta.</li>
+  </ul>
 </section>
 
 <section id="s5">
   <h2><span class="num">05</span>Cómo se ve el éxito</h2>
-  <p>Cada criterio se comprueba con un comando o mirando un fichero. Sin adjetivos.</p>
   <ol>
-    <li><code>ai-eng worktree new &lt;slug&gt;</code> deja el árbol principal intacto, crea <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code> con la rama del slug, y esa rama queda con <code>branch.&lt;slug&gt;.remote="."</code> y <code>merge=refs/heads/main</code>. Se comprueba con <code>git worktree list</code> y <code>git config --get branch.&lt;slug&gt;.merge</code>.</li>
-    <li>Al cerrar la sesión, el main local contiene el trabajo (un merge commit por sesión), y la rama y el worktree ya no aparecen en <code>git worktree list</code> ni en <code>git branch</code>.</li>
-    <li>Ningún comando de la sesión empuja: <code>git log origin/main..main</code> muestra exactamente lo que faltará por subir, y <code>origin/main</code> no se mueve hasta que el humano lanza <code>ai-pr</code>.</li>
-    <li><code>ai-git-cleanup</code> en una pasada deja cero ramas fusionadas y cero worktrees muertos, y deja intactas las ramas sin fusionar: <code>git branch --delete-merged refs/heads/main</code> deja de encontrar candidatas.</li>
-    <li><code>ai-pr</code> termina con un PR fusionado y su número en el reporte, o con el PR abierto y el motivo de no fusionar.</li>
-    <li>Los gates del repo pasan: <code>bun test</code>, <code>bun run typecheck</code>, <code>bun run lint</code>, y <code>bun run arch</code> sigue verde.</li>
-    <li>La documentación queda al día y se comprueba por fichero: <code>AGENTS.md</code> con la sección de git, <code>CONTRIBUTING.md</code> con el flujo local, <code>README.md</code> nombrando el verbo nuevo, <code>NOTICE.md</code> y <code>THIRD-PARTY-NOTICES.md</code> sin la atribución que ya no se usa, y un changeset <code>minor</code> presente en <code>.changeset/</code>.</li>
+    <li>Sin argumentos, un remote único identifica el proveedor y el destino. Si hay más de una opción posible, la skill pregunta antes de leer.</li>
+    <li>La skill conserva la triage GitHub actual y añade Azure DevOps sin mezclar sus tipos de trabajo ni sus reglas de lectura.</li>
+    <li>Con una URL, la skill limita la lectura al board indicado y muestra el destino que va a consultar.</li>
+    <li>La salida de Azure DevOps presenta todos los elementos del board y sus detalles importantes con el mismo nivel de explicación que <code>ai-github-triage</code>.</li>
+    <li>La ejecución no crea, edita, cierra, comenta ni borra work items.</li>
+    <li>El informe de una ejecución real conserva los datos y explicaciones del backlog. En este repo público se permite generar localmente el informe de prueba, pero no hacer commit ni push de ese resultado privado.</li>
+    <li>La skill funciona para organizaciones y proyectos distintos, sin nombres, URLs, credenciales ni reglas privadas codificadas.</li>
   </ol>
 </section>
 
 <section id="s6">
   <h2><span class="num">06</span>Decisiones ya tomadas</h2>
-  <div class="note ok"><h4>Fijadas por el humano, el plan no las reabre</h4></div>
+  <div class="note ok"><h4>Fijadas por el usuario</h4></div>
   <ul>
-    <li>Sesión que <strong>escribe</strong> código = worktree con rama propia. Sesión que solo <strong>mira</strong> (triage, research, auditoría, brainstorm) = sin worktree.</li>
-    <li><strong>Decisión A: una sola rama de largo recorrido, <code>main</code> local.</strong> Cada sesión fusiona ahí y su rama efímera desaparece. Cuando el humano decide, corta <strong>una rama nueva desde main local</strong> (sin worktree), la empuja y abre <strong>un PR</strong> que arrastra todo lo que main tenga por delante de <code>origin/main</code>, sea una sesión o cinco.</li>
-    <li><strong>Decisión A′ (el worktree nace para construir, no para diseñar).</strong> El diseño se escribe en el árbol principal y se commitea a main local <strong>antes</strong> de cortar cualquier worktree; el worktree se corta de ese main y solo construye. Un worktree es <strong>uno por slug</strong> (una feature, una corrida de <code>/ai-orchestrator</code>), y esa corrida puede retomarse en varias sesiones de conversación sin abrir otro: <code>/ai-orchestrator resume &lt;slug&gt;</code> vuelve al mismo worktree, porque el estado vive en <code>workflow/checkpoints/&lt;slug&gt;.json</code> (<code>skills/ai-orchestrator/SKILL.md:27</code>) y la rama es <code>feat/&lt;slug&gt;</code> (<code>:45</code>, "or <code>git switch feat/&lt;slug&gt;</code> on resume"). El merge a main local es <strong>uno por slug</strong>, al cerrar la corrida. Y las cinco reglas de conflicto de §08: diseño secuencial fuera de los worktrees, artefactos de sesión con el slug en el nombre, compartidos escritos por el paso de merge, rebase dentro del worktree y luego <code>merge --no-ff</code> desde main, y aviso de solape al crear.</li>
-    <li><strong>"Sesión" no es una pestaña.</strong> Una sesión de conversación puede retomar el mismo slug, o abrir el worktree de otro slug distinto. Lo que abre worktree es un <strong>slug que va a escribir código</strong>, no el acto de abrir una pestaña. Un feature que no cabe se parte en slugs (slices), y cada slice tiene su worktree: ahí sí hay varios en paralelo, si son independientes.</li>
-    <li><strong>Verbo nuevo del CLI</strong> para gestionar worktrees (no código suelto dentro de la skill).</li>
-    <li><strong>Los worktrees viven en <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code></strong>, hermanos del repo (aquí: <code>/Users/soydachi/repos/ai-engineering.worktrees/&lt;slug&gt;</code>). Fuera del árbol de trabajo, un directorio por proyecto, sin nada que añadir a <code>.gitignore</code>.</li>
-    <li><strong><code>ai-eng git</code> no se renombra.</strong> El verbo de hooks conserva su nombre; el renombre a <code>ai-eng hooks</code> queda fuera (§09).</li>
-    <li>El destino de la fusión es el <strong>main local</strong>. Nunca <code>origin</code>.</li>
-    <li>El PR a origin lo decide y lo lanza el humano <strong>después</strong>, desde el main local, y puede agrupar 1..n sesiones de worktree.</li>
-    <li>La rama del PR a origin se crea <strong>sin worktree</strong>.</li>
-    <li><strong>Se borran <code>ai-pr-loop-fix</code> y <code>ai-git-cleanup</code>.</strong> Se rehace <code>ai-git-cleanup</code> desde cero: una sola skill, worktrees + ramas, automática y segura.</li>
-    <li><strong><code>ai-pr</code> hace el ciclo completo, con la fusión desactivable:</strong> corta la rama desde main local sin worktree, empuja, abre el PR contra <code>main</code>, vigila CI y comentarios, arregla lo obvio en iteraciones acotadas y fusiona. El cuerpo del PR se arma con los merge commits de las sesiones incluidas, para que un PR que agrupa varias se lea.</li>
-    <li><strong>La documentación se entrega con la feature, no después:</strong> la lista exacta de ficheros y qué cambia en cada uno está en §11, y es criterio de éxito en §05.</li>
-    <li>Nace una skill <code>ai-pr</code> para crear el pull request (adaptando <code>work-with-pr</code> al modelo de ai-engineering).</li>
-    <li>Revisar qué vale de <code>tech-debt-audit</code> y <code>remove-deadcode</code> para <code>ai-audit-code</code>, y de <code>security-research</code> para <code>ai-security</code>.</li>
+    <li>Habrá una única skill pública <code>ai-triage</code>, con un contrato común y procedimientos separados por proveedor.</li>
+    <li><code>ai-triage</code> reemplaza a <code>ai-github-triage</code>; no habrá alias separado. El flujo GitHub existente debe conservar su comportamiento.</li>
+    <li>Una URL explícita decide proveedor y destino. Sin URL, la skill usa el remote del repo si identifica un único proveedor y destino; ante ambigüedad pregunta. No usa la cuenta activa de Azure CLI para adivinar.</li>
+    <li>El informe para el usuario debe contener y explicar el backlog completo del ámbito seleccionado, como <code>ai-github-triage</code>.</li>
+    <li>En Azure DevOps, cada ejecución cubre un solo board/nivel. Las relaciones con padres o hijos pueden mostrarse como contexto, pero no amplían el inventario; varios boards solo si se piden expresamente.</li>
+    <li>El Azure DevOps de prueba es productivo y privado. El informe puede guardarse localmente aquí, pero no se hace commit ni push de sus datos.</li>
+    <li>Si hay varios boards y no se indica uno, la skill pregunta en vez de adivinar. La elección solo vale para esa ejecución; no se añade un campo de triage a <code>config.toml</code>.</li>
+    <li>Para Azure Boards, se incluyen los work items de estado no terminal del board elegido; se excluyen los terminales sin depender de nombres de estado fijos.</li>
+    <li>La skill y todas sus pruebas son estrictamente de solo lectura respecto a Azure DevOps.</li>
   </ul>
 </section>
 
 <section id="s7">
-  <h2><span class="num">07</span>Decisiones abiertas</h2>
-  <div class="note warn"><h4>Solo las cierra el humano · cada una lleva mi recomendación por defecto</h4></div>
-  <div class="tbl-wrap">
-  <table>
-    <thead><tr><th>#</th><th>Pregunta</th><th>Mi recomendación</th></tr></thead>
-    <tbody>
-      <tr><td>1</td><td>¿Se adopta algo de los tres adjuntos (tech-debt-audit, remove-deadcode, security-research)?</td><td>Solo piezas sueltas, no las skills enteras: ver §11</td></tr>
-      <tr><td>2</td><td>¿La feature toca <code>AGENTS.md</code> y <code>docs/blueprint.html</code> además de las skills?</td><td>Sí a los dos: el contrato de git no existe hoy, y <code>CONTRIBUTING.md</code> exige sección de blueprint para un cambio de comportamiento</td></tr>
-      <tr><td>3</td><td>¿Qué pasa con el worktree huérfano <code>ai-engineering-v1-oracle</code>?</td><td>Decisión del humano en el momento; el diseño solo lo lista y no lo toca</td></tr>
-    </tbody>
-  </table>
-  </div>
+  <h2><span class="num">07</span>Decisiones todavía abiertas</h2>
+  <div class="note ok"><h4>No quedan decisiones de producto abiertas</h4><p>Las preguntas técnicas pendientes de comprobar están en la sección 10; no cambian las decisiones de alcance aprobadas.</p></div>
 </section>
 
 <section id="s8">
-  <h2><span class="num">08</span>Límites y guardarraíles</h2>
+  <h2><span class="num">08</span>Restricciones y guardarraíles</h2>
   <ul>
-    <li><strong>Git prohíbe la misma rama en dos worktrees.</strong> Es la razón de que cada sesión tenga rama propia; sin eso, el segundo worktree que apunte a main es un error, no una elección.</li>
-    <li><strong>Nunca <code>--no-verify</code>, nunca silenciar un linter</strong> (<code>AGENTS.md</code>). Los hooks corren igual dentro del worktree.</li>
-    <li><strong>Ningún push desde una sesión.</strong> Ahead/behind son solo lectura.</li>
-    <li><strong>Solo se borra lo fusionado.</strong> Nada sin fusionar desaparece sin una confirmación explícita del humano.</li>
-    <li><strong>El árbol principal no se toca</strong> mientras una sesión corre: el worktree existe justo para eso.</li>
-    <li><strong>Gate verde antes de "hecho"</strong>: typecheck, lint y tests con la salida a la vista.</li>
-    <li><strong>El diseño se escribe antes, el recap llega con el merge.</strong> <code>brainstorm.html</code>, <code>spec.html</code> y <code>plan.html</code> se escriben y se commitean en el árbol principal antes de cortar cualquier worktree. <code>recap.html</code> nace en la rama de la feature, en el app review, y <code>PRD.html</code> lo edita la sesión en su rama: el paso de merge es su único escritor en el árbol principal.</li>
-  </ul>
-  <h3>Cómo se evita el conflicto</h3>
-  <p>La regla no es de tiempo, es de <strong>dueño del fichero</strong>: cada ruta tiene un solo escritor. Donde el dueño es el paso de merge, la sesión paralela no escribe ese fichero nunca.</p>
-  <ul>
-    <li><strong>Diseño secuencial, en el árbol principal:</strong> <code>brainstorm.html</code>, <code>spec.html</code> y <code>plan.html</code> son los que se commitean <em>antes</em> de cortar cualquier worktree (<code>PRE_WORKTREE_SLOTS</code>, <code>src/shared-worktree.ts:20</code>); ningún worktree los escenifica. <code>recap.html</code> no entra ahí: se genera en la rama de la feature y llega con el merge.</li>
-    <li><strong>Lo de la sesión lleva el slug en el nombre:</strong> <code>workflow/checkpoints/&lt;slug&gt;.json</code>, <code>test-plans/&lt;slug&gt;.json</code>, <code>prototypes/&lt;slug&gt;*</code>, <code>reviews/&lt;slug&gt;-*.md</code>. Ya es así.</li>
-    <li><strong>El recap no lo escribe el merge:</strong> <code>recap.html</code> nace en la rama de la feature, en el app review, y el merge solo lo arrastra al árbol principal.</li>
-    <li><strong>Los compartidos los escribe el merge en el árbol principal, una sola vez:</strong> <code>CHANGELOG.md</code>, <code>LEARNINGS.md</code>, <code>FILEMAP.md</code>, <code>PERMISSIONS.md</code> y <code>PRD.html</code> se pueden editar en la rama de la feature, y el paso de merge es su único escritor en el árbol principal: se actualizan allí una vez, cuando la sesión ya está fusionada, y ninguna sesión paralela los escribe. El merge a main es forzosamente secuencial: un solo índice, un solo checkout de main.</li>
-    <li><strong>El conflicto se resuelve en el sandbox, nunca en main:</strong> antes de fusionar, la sesión hace <code>git rebase main</code> dentro de su worktree (la rama es efímera, rebasar es gratis); con el rebase limpio, el merge a main es <code>git merge --no-ff</code> y no puede fallar.</li>
-    <li><strong>La ruta del worktree se resuelve canónica:</strong> <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code> se calcula uniendo el directorio padre real del repo con <code>&lt;nombre&gt;.worktrees</code>, y se compara siempre en forma canónica (realpath). En macOS <code>/tmp</code> es un symlink a <code>/private/tmp</code> y <code>git worktree list</code> devuelve la forma canónica: comparar cadenas sin canonicalizar fue lo que apareció en las pruebas de hoy.</li>
-    <li><strong>El directorio es un valor con escapatoria:</strong> por defecto <code>&lt;repo&gt;.worktrees</code>; si el padre del repo no es escribible (CI, checkout en la raíz de un volumen), <code>config.toml</code> puede apuntarlo a otro sitio. Es el único ajuste que necesita el "sirve para cualquier SO y cualquier proyecto".</li>
-    <li><strong>Aviso de solape al crear:</strong> <code>ai-eng worktree new</code> compara las rutas declaradas por la sesión contra las de los worktrees ya abiertos y avisa. Dos sesiones sobre el mismo fichero es el único conflicto que git no puede resolver solo, y se evita antes de empezar.</li>
+    <li>El HTML generado para un backlog privado puede existir localmente en el árbol de trabajo de este repo; nunca se incorpora al historial de ai-engineering mediante commit o push.</li>
+    <li>El informe que genera la skill en el proyecto de un usuario conserva el detalle completo del backlog; esa salida de usuario no es un fixture ni contenido fuente de ai-engineering.</li>
+    <li>El triage normal no crea, edita, asigna, comenta, cierra ni borra work items.</li>
+    <li>Un destino ambiguo, un error de autenticación o una lectura/paginación incompleta detiene el run; no se amplía el ámbito ni se presenta un informe parcial como completo.</li>
+    <li>No inferir el proyecto a partir del usuario/tenant activo de Azure CLI cuando el repo o la URL no identifican uno.</li>
+    <li>Un fallo conserva el informe anterior. Los campos remotos se escapan como contenido no confiable antes de incluirlos en HTML; los enlaces solo se generan con URLs HTTPS validadas. La autenticación nunca aparece en el informe.</li>
+    <li>El entorno de prueba es productivo. La skill y sus pruebas son estrictamente de solo lectura; usar fixtures sintéticos locales y una lectura real solo para validar el flujo.</li>
+    <li>La salida real puede escribirse localmente en <code>.ai-engineering/triage.html</code>, pero no se hace commit ni push mientras contenga datos del Azure privado.</li>
+    <li>No modificar work items ni copiar datos reales del backlog a fixtures, logs, documentación o código fuente; el único artefacto de datos es el HTML local de triage.</li>
+    <li>Resolver y anunciar el ámbito antes de leer datos. No mezclar organizaciones, proyectos, equipos ni boards.</li>
+    <li>La implementación debe ser genérica y no asumir que el lector tiene permisos para crear, editar o borrar elementos.</li>
   </ul>
 </section>
 
 <section id="s9">
   <h2><span class="num">09</span>Fuera de alcance</h2>
-  <div class="note danger"><h4>No entra</h4></div>
+  <div class="note danger"><h4>No forma parte de esta idea</h4></div>
   <ul>
-    <li>Renombrar <code>ai-eng git</code> a <code>ai-eng hooks</code>: cosmético, toca los shims instalados (§04) y va como feature aparte si algún día se quiere.</li>
-    <li>Borrar ramas remotas. <code>git push origin --delete</code> no se usa, nunca.</li>
-    <li>Fusionar o cerrar PRs por iniciativa del agente sin que el humano lo haya pedido.</li>
-    <li>Sustituir el sistema de spec/plan/checkpoints por git: git es transporte, no proceso.</li>
-    <li>Reescribir <code>ai-security</code> o <code>ai-audit-code</code> enteros: solo piezas sueltas.</li>
-    <li>Rebase interactivo, historia reescrita, <code>git gc</code>.</li>
+    <li>Crear, editar, asignar, comentar, cerrar o borrar work items como parte del triage normal.</li>
+    <li>Enviar datos del backlog a servicios externos o incorporarlos a ejemplos, tests, documentación o fixtures de ai-engineering.</li>
+    <li>Combinar varios boards en un mismo informe sin que el usuario lo pida de forma explícita.</li>
   </ul>
 </section>
 
 <section id="s10">
   <h2><span class="num">10</span>Preguntas para investigar</h2>
   <ol>
-    <li><span class="pill p-ok">resuelta</span> ¿Existe <code>--delete-merged</code>? Sí, en git 2.56.0, pero no dispara sin upstream: la limpieza usa <code>--merged</code> + <code>-d</code>. Queda abierta la variante de abajo. <span class="dim">(La <code>ai-git-cleanup</code> que sale de esta feature lo invierte: cada rama nace con el upstream <code>refs/heads/main</code>, así que borra con <code>--delete-merged refs/heads/main</code> y deja <code>--merged</code> + <code>-d</code> solo de reserva; ver §05.)</span></li>
-    <li>¿El framework puede exigir git ≥ 2.56, o tiene que funcionar con el git de Apple (2.50.1) que muchos tendrán? Importa porque decide si un verbo nuevo puede usar flags recientes o solo los de 2.25.</li>
-    <li>¿Los hooks de este repo (el "floor" de ai-eng) funcionan igual dentro de un worktree, o hay rutas absolutas que asumen el árbol principal? Importa porque el gate de commit correría distinto en la sesión.</li>
-    <li>¿Qué workflow de los siete es el gate real de un PR a main, y cuáles son informativos? Importa para que <code>ai-pr</code> espere Lo correcto.</li>
-    <li>¿El repo exige merge commit en origin (nada de squash) y branch protection con PR obligatorio? Importa para que <code>ai-pr</code> no emita un comando que origin rechace.</li>
-    <li>¿<code>ai-eng spec close</code> barre <code>brainstorm.html</code> y <code>recap.html</code> desde qué ruta (árbol principal o worktree), ahora que los artefactos pueden nacer en el worktree?</li>
+    <li>Confirmar cómo Azure DevOps representa equipos, boards y niveles de backlog en sus URLs y APIs; importa para interpretar una URL sin ampliar el ámbito por error.</li>
+    <li>Ver qué puede descubrirse de forma fiable desde un remote Git y cuándo hay que preguntar por varios equipos o boards.</li>
+    <li>Comprobar qué comandos de Azure CLI están disponibles y qué permisos solicitan, sin imprimir ni guardar datos del tenant; importa para elegir una ruta de lectura segura.</li>
+    <li>Definir cómo paginar todos los work items del ámbito elegido y cómo detectar resultados incompletos; importa para que el ranking no oculte trabajo.</li>
+    <li>Verificar cómo preservar los campos y relaciones de Azure en el HTML sin permitir contenido activo ni enlaces inseguros, y que una lectura incompleta nunca se presenta como triage completo.</li>
   </ol>
 </section>
 
 <section id="s11">
   <h2><span class="num">11</span>Notas de handoff</h2>
-  <ul>
-    <li><strong>Orden sugerido:</strong> (1) <code>AGENTS.md</code> sección de git con el modelo worktree, porque es el contrato que <code>ai-orchestrator:45</code> y <code>:172</code> ya citan y hoy no existe; (2) <code>ai-orchestrator</code> Fase 0 (corta worktree) y cierre (rebase + <code>merge --no-ff</code> + borrado); (3) verbo <code>ai-eng worktree new|rm|list</code> con sus tests; (4) <code>ai-git-cleanup</code> nueva y borrado de la vieja; (5) <code>ai-pr</code>; (6) documentación (tabla de abajo); (7) piezas sueltas de audit y security.</li>
-    <li><strong>Qué artefacto nace dónde (por <code>AGENTS.md</code>):</strong> <code>brainstorm.html</code>, <code>spec.html</code> y <code>plan.html</code> se escriben y se commitean en el árbol principal antes de cortar cualquier worktree; <code>recap.html</code> se genera en la rama de la feature, en el app review, y llega al árbol principal con el merge; <code>PRD.html</code> lo edita la sesión en su rama y el paso de merge es su único escritor en el árbol principal.</li>
-  </ul>
-  <h3>Documentación a tocar</h3>
-  <p>Cada fila se verifica abriendo el fichero al terminar. <code>FILEMAP.md</code> figura a propósito aunque no cambie: listarlo evita tocarlo sin motivo.</p>
-  <div class="tbl-wrap">
-  <table>
-    <thead><tr><th>Fichero</th><th>Qué cambia</th><th>Por qué</th></tr></thead>
-    <tbody>
-      <tr><td><code>AGENTS.md</code></td><td>Sección nueva de workflow git: worktree por sesión, merge a main local, PR cuando el humano decida, higiene de ramas efímeras</td><td>Es la raíz del problema: <code>ai-orchestrator</code> la cita por nombre y no existe</td></tr>
-      <tr><td><code>CONTRIBUTING.md</code></td><td>La sección "Commit and PR conventions" gana el flujo local (worktree, merge a main local, PR solo a decisión humana)</td><td>Es la guía del humano que contribuye, y hoy no menciona ramas</td></tr>
-      <tr><td><code>README.md</code></td><td>El verbo <code>ai-eng worktree</code> junto a <code>ai-eng git pre-commit</code> (línea 235) y una línea del flujo</td><td>La superficie es pública y hoy no documenta worktrees</td></tr>
-      <tr><td><code>docs/blueprint.html</code></td><td>Sección de spec para el verbo nuevo y las skills que cambian</td><td><code>CONTRIBUTING.md</code> lo exige: un cambio de comportamiento sin sección de blueprint es un cambio de spec</td></tr>
-      <tr><td><code>NOTICE.md</code> y <code>THIRD-PARTY-NOTICES.md</code></td><td>Quitar la atribución a Trail of Bits si el código de <code>analyze.mjs</code> ya no viaja</td><td>Hoy la línea 16 de <code>THIRD-PARTY-NOTICES.md</code> atribuye <code>skills/ai-git-cleanup/</code></td></tr>
-      <tr><td><code>src/assets.ts</code></td><td>Regenerar con <code>bun scripts/gen-assets.ts</code></td><td>Las skills y plantillas viajan dentro del binario; sin regenerar, el build rompe</td></tr>
-      <tr><td><code>.changeset/&lt;slug&gt;.md</code></td><td>Changeset <code>minor</code></td><td>Verbo nuevo y skills: <code>minor</code> según <code>CONTRIBUTING.md</code></td></tr>
-      <tr><td><code>CHANGELOG.md</code></td><td>Entrada de la feature</td><td>La escribe el paso de merge, no la sesión (§08)</td></tr>
-      <tr><td><code>tests/git-cleanup-flow.spec.ts</code>, <code>-analyze.spec.ts</code>, <code>-cli.spec.ts</code></td><td>Se borran con el script viejo</td><td>Prueban <code>skills/ai-git-cleanup/scripts/analyze.mjs</code></td></tr>
-      <tr><td><code>.ai-engineering/arch.rules.json</code></td><td>Solo si el verbo vive en una capa nueva</td><td><code>AGENTS.md</code> pide proponer el cambio de capa ahí, nunca tocar el test en silencio; <code>src/cli.ts</code> solo despacha y <code>src/commands/*</code> son parsers finos</td></tr>
-      <tr><td><code>FILEMAP.md</code></td><td>Sin cambio</td><td>Solo lista carpetas y <code>skills/</code> ya figura como canon instalado</td></tr>
-    </tbody>
-  </table>
-  </div>
-  <h3>Dónde se revisa la documentación</h3>
-  <p>En tres capas, y solo la primera obliga de verdad.</p>
-  <ol>
-    <li><strong>Como gates ejecutables del plan de checkpoints.</strong> Cada checkpoint lleva <code>verify</code> (comandos) y <code>acceptance</code>, y el hook del checkpoint se niega a pasar un gate fuera de orden (<code>skills/ai-orchestrator/SKILL.md:27</code>). El precedente ya está en este repo: el plan de <code>ai-git-cleanup</code> verifica la documentación con comandos, no con prosa (<code>.ai-engineering/workflow/test-plans/ai-git-cleanup.json:144</code> → <code>rg -q 'ai-git-cleanup' NOTICE.md &amp;&amp; rg -q 'CC BY-SA 4.0' NOTICE.md</code>; y <code>:193</code> → <code>test -f .changeset/ai-git-cleanup.md &amp;&amp; rg -q 'minor' .changeset/ai-git-cleanup.md</code>). La tabla de §11 se traduce a una línea <code>verify</code> por fila, en el checkpoint que cambia la interfaz.</li>
-    <li><strong>En el paso de cierre del run.</strong> <code>skills/ai-orchestrator/SKILL.md:153-155</code> ya escribe la entrada de <code>CHANGELOG.md</code>, revisa <code>FILEMAP.md</code> y actualiza <code>PRD.html</code>. Ahí cae también el changeset.</li>
-    <li><strong>En <code>ai-pr</code>, no revisando la doc, sino exponiéndola:</strong> arma el cuerpo del PR con la evidencia de lo que corrieron los gates. No es un revisor de documentación y no debería serlo.</li>
-  </ol>
-  <div class="note warn"><h4>CI no cubre documentación, y conviene saberlo</h4>
-  <p><code>grep -rn changeset .github/workflows</code> solo encuentra <code>version.yml</code> (changesets/action, que consume los changesets pendientes) y <code>release.yml</code>: <strong>ningún workflow falla por un changeset ausente</strong>. Y <code>check.yml</code> corre typecheck, lint, tests, arch, doctor, gitleaks, semgrep, trivy, bun audit, SonarCloud y Snyk: ninguno lee prosa. Por eso "documentación al día" tiene que ser gate de checkpoint, no confianza en el PR.</p></div>
-  <h3>Decisiones de implementación ya fijadas</h3>
-  <ul>
-    <li><strong>Esta feature no puede estrenar su propio flujo.</strong> El primer build ocurre en el árbol principal, porque el verbo y las skills que lo habilitan son justo lo que se va a construir. El árbol principal está hoy en <code>feat/arcasiles-skills</code> con trabajo sin commitear: la primera sesión de este feature aterriza donde el humano decida, y desde el segundo checkpoint en adelante ya puede usar el worktree.</li>
-    <li><strong>Primitivo de limpieza:</strong> <code>git branch --delete-merged refs/heads/main</code> funciona si la rama efímera nace con <code>branch.&lt;x&gt;.remote="."</code> y <code>merge=refs/heads/main</code>: borra lo fusionado en main local y salta solo lo retenido por un worktree y lo sin fusionar. Reserva para ramas sin ese upstream: <code>--merged main</code> + <code>-d</code>.</li>
-    <li><strong>Borrados y sus arrastres:</strong> se van <code>skills/ai-pr-loop-fix/</code> y la vieja <code>skills/ai-git-cleanup/</code> (esta última se rehace). Ninguna otra skill las nombra, pero sí las referencian <code>src/assets.ts</code> (regenerar), los tres <code>tests/git-cleanup-*.spec.ts</code>, y <code>NOTICE.md</code> más <code>THIRD-PARTY-NOTICES.md</code>.</li>
-    <li><strong>Pieza de <code>tech-debt-audit</code> que sí vale:</strong> la disciplina de citar <code>file:line</code> y la sección "Looks bad but is fine"; la auditoría de 9 dimensiones no cabe en <code>ai-audit-code</code>, que es la escalera de pereza.</li>
-    <li><strong>Pieza de <code>remove-deadcode</code> que sí vale:</strong> el guardarraíl anti-falsos-positivos y la verificación LSP antes de borrar (<code>xd://lsp</code>).</li>
-    <li><strong>Pieza de <code>security-research</code> que sí vale:</strong> "no hay severidad sin camino de ataque" y el equipo cazador/PoC separado del validador; <code>ai-security</code> ya lo tiene, y ya tiene ledger <code>findings.json</code>: probablemente solo un par de frases.</li>
-  </ul>
+  <p>Arquitectura, flujo, límites de error y pruebas aprobados: una skill pública <code>ai-triage</code> reemplaza <code>ai-github-triage</code>, conserva el comportamiento GitHub e incorpora procedimientos Azure separados bajo un contrato común. Una URL manda; sin URL, un remote único puede descubrir proveedor y proyecto, y la ambigüedad se pregunta antes de leer. No se usa la cuenta activa de Azure CLI para adivinar el destino. Cada ejecución Azure cubre un solo board; los work items relacionados solo dan contexto. Incluye estados no terminales y explica el ámbito; no hay informe parcial ni fallback silencioso. La skill y sus pruebas nunca escriben en Azure DevOps. En este repo público el HTML privado se permite localmente en el slot normal, pero no se hace commit ni push. La elección del board no se persiste ni se añade a config. Reutilizar los patrones genéricos de contexto y evidencia de los flujos Azure revisados, sin importar reglas específicas de su organización.</p>
+  <p><strong>Estado:</strong> completa · 2026-10-06; no se ha consultado ni modificado el tenant productivo.</p>
 </section>
 
 </div>
 </main>
 
 <footer>
-  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · git-worktree-flow<br>
-  complete · 2026-10-01 · <span class="dim">las conclusiones viven también en PRD.html; el build lo corre ai-orchestrator</span>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · ai-triage<br>
+  Complete · 2026-10-06
   <a href="#main">↑ top</a>
 </footer>
 <script>
