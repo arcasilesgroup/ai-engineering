@@ -240,6 +240,9 @@
       },
       "status": "pending",
       "changed_files": [
+        "skills/ai-triage/references/azure-devops.md",
+        "skills/ai-triage/scripts/collect-azure.d.mts",
+        "skills/ai-triage/scripts/collect-azure.mjs",
         "tests/triage-azure.unit.spec.ts",
         "tests/triage-azure.integration.spec.ts"
       ]
@@ -358,7 +361,7 @@
     "An explicit URL fixes provider and scope; repository remotes may resolve only what they identify, and ambiguous provider, project or board choices are asked per run. [Approved brainstorm, sections 6 and 8]",
     "One Azure run inventories one selected backlog level, while parents and children are context only; each item keeps the GitHub analysis contract with at most five analysts in flight. [Approved feature decisions and existing GitHub procedure]",
     "Azure state names vary by process, so terminal status is derived from discovered state categories rather than fixed names. [Approved feature decisions]",
-    "POST is allowed only for the explicitly named read-only WIQL and batch-read routes; broad `az devops invoke` access is not safe. [Approved Azure constraints]",
+    "`az devops invoke` resolves area/resource names through read-only service metadata calls; the collector must still constrain each final method/route pair, reject mutations, and pass explicit scope. [Official CLI extension research, no tenant call]",
     "If state discovery or pagination cannot prove a complete inventory, collection stops and the existing report stays unchanged. [Approved fail-closed and preserve-previous-report decisions]",
     "Automated fixtures contain synthetic data only; a private real report is local output and never a committed or pushed artifact. [Approved brainstorm, sections 5 and 8]",
     "The existing Bun toolchain is sufficient; no new dependency is needed unless implementation proves a required capability is absent. [AGENTS.md Project config and user instruction]",
