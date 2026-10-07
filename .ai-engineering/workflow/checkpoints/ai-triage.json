@@ -105,10 +105,12 @@
       },
       "builds_on": [2],
       "tasks": [
-        "Regenerate `src/assets.ts` with `bun scripts/gen-assets.ts` and verify the new skill and provider reference are embedded while the retired skill is absent."
+        "Regenerate `src/assets.ts` with `bun scripts/gen-assets.ts` and verify the new skill and provider reference are embedded while the retired skill is absent.",
+        "Keep the static GitHub contract test type-safe under the project-wide TypeScript check."
       ],
       "files": [
-        "src/assets.ts"
+        "src/assets.ts",
+        "tests/triage-github.spec.ts"
       ],
       "acceptance": [
         "`bun test tests/embed-canon.spec.ts` proves the new skill and provider reference are embedded and the retired skill payload is absent.",
@@ -121,13 +123,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": {
-          "status": "failed",
-          "attempts": 1,
-          "findings": [
-            "bun run typecheck failed with TypeScript undefined-value errors in tests/triage-github.spec.ts:26-115; embed-canon passed and the gate stopped before lint."
-          ]
-        },
+        "behavior": { "status": "passed", "attempts": 2, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
