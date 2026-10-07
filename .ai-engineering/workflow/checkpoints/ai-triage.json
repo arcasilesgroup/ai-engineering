@@ -178,6 +178,8 @@
       },
       "status": "pending",
       "changed_files": [
+        "skills/ai-triage/SKILL.md",
+        "skills/ai-triage/scripts/resolve-target.mjs",
         "tests/triage-routing.unit.spec.ts",
         "tests/triage-routing.integration.spec.ts"
       ]

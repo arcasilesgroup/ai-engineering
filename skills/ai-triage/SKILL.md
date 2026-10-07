@@ -15,6 +15,16 @@ organizations, projects, teams, or boards in one report.
 
 ## Routing
 
+- When no URL is supplied, list remotes with `git remote` and collect each URL with
+  `git remote get-url --all <name>`. Pass the URLs and any explicit URL to the exported
+  `resolveTarget` function in `scripts/resolve-target.mjs`; an explicit URL takes
+  precedence over remotes.
+- If the resolver returns `needs-answer`, ask for the missing or conflicting provider,
+  project, team, board, or backlog selection before any work-item read. Keep the answer
+  only for that run; do not save it in configuration. Stop on `unsupported`.
+- Use only bare allowlisted CLI names from the trusted `PATH`; never use path-qualified
+  executables, environment-prefixed commands, or shell wrappers. Do not inspect active
+  Azure CLI defaults.
 - For a GitHub target, follow the complete [GitHub procedure](references/github.md). It
   preserves the existing issue and pull-request inventory, ranking, evidence, and report.
 - If the target is Azure DevOps, stop before making any remote read. Azure support is not
