@@ -264,14 +264,15 @@
         "Reuse the existing shell and artifact design in `templates/triage.html.tpl`; render Azure-specific scope, ranked work, work-item types/states, related context and method sections rather than GitHub-only issue/PR sections.",
         "Preserve per-item analysis for the complete inventory with no more than five analysts in flight, and show every item or an explicit `UNASSESSED` status instead of dropping unreviewed items.",
         "Escape all untrusted Azure fields before HTML text or attributes; validate every evidence link as HTTPS before rendering and reject unsafe or malformed URLs.",
-        "Render fully before replacing the existing report; use sanitized synthetic fixtures in `tests/triage-report.spec.ts` to assert all rows/counts/linkages, Azure sections, hostile fields, invalid links and previous-report preservation on every failure path."
+        "Render fully before replacing the existing report; use separate sanitized synthetic unit/integration fixtures in `tests/triage-report.unit.spec.ts` and `tests/triage-report.integration.spec.ts` to assert escaping/link validation, rows/counts/linkages, Azure sections, and previous-report preservation on every failure path."
       ],
       "files": [
         "skills/ai-triage/SKILL.md",
         "skills/ai-triage/scripts/collect-azure.mjs",
         "skills/ai-triage/scripts/render-report.mjs",
         "templates/triage.html.tpl",
-        "tests/triage-report.spec.ts",
+        "tests/triage-report.unit.spec.ts",
+        "tests/triage-report.integration.spec.ts",
         "tests/artifact-layout.spec.ts",
         "tests/artifact-scroll-spy.spec.ts"
       ],
@@ -283,7 +284,8 @@
         "The shared shell/layout gates and synthetic report tests pass without reading or storing private Azure data."
       ],
       "verify": [
-        "bun test tests/triage-report.spec.ts",
+        "bun test tests/triage-report.unit.spec.ts",
+        "bun test tests/triage-report.integration.spec.ts",
         "bun test tests/artifact-layout.spec.ts",
         "bun test tests/artifact-scroll-spy.spec.ts",
         "bun test tests/artifact-brand.spec.ts",
@@ -325,9 +327,12 @@
         "skills/ai-triage/references/azure-devops.md",
         "src/assets.ts",
         "tests/triage-github.spec.ts",
-        "tests/triage-routing.spec.ts",
-        "tests/triage-azure.spec.ts",
-        "tests/triage-report.spec.ts"
+        "tests/triage-routing.unit.spec.ts",
+        "tests/triage-routing.integration.spec.ts",
+        "tests/triage-azure.unit.spec.ts",
+        "tests/triage-azure.integration.spec.ts",
+        "tests/triage-report.unit.spec.ts",
+        "tests/triage-report.integration.spec.ts"
       ],
       "acceptance": [
         "README and current instructions refer to `ai-triage`, not a separate `ai-github-triage` alias; changelog and file map match the final shipped structure.",
@@ -337,9 +342,12 @@
       ],
       "verify": [
         "bun test tests/triage-github.spec.ts",
-        "bun test tests/triage-routing.spec.ts",
-        "bun test tests/triage-azure.spec.ts",
-        "bun test tests/triage-report.spec.ts",
+        "bun test tests/triage-routing.unit.spec.ts",
+        "bun test tests/triage-routing.integration.spec.ts",
+        "bun test tests/triage-azure.unit.spec.ts",
+        "bun test tests/triage-azure.integration.spec.ts",
+        "bun test tests/triage-report.unit.spec.ts",
+        "bun test tests/triage-report.integration.spec.ts",
         "bun test tests/skills.spec.ts",
         "bun test tests/embed-canon.spec.ts",
         "bun run typecheck",
