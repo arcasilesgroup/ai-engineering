@@ -348,7 +348,13 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 1, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "F1/P1: A same-path temp-file substitution race can make cleanup delete another writer's file or publish its contents instead of the complete report."
+          ]
+        }
       },
       "status": "pending",
       "changed_files": [
