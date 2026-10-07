@@ -17,6 +17,7 @@ function isReadOnlyGhApi(command: string): boolean {
 
   for (let index = 0; index < argumentsList.length; index += 1) {
     const argument = argumentsList[index];
+    if (argument === undefined) return false;
     if (argument === "--method" || argument === "-X") {
       const method = argumentsList[index + 1];
       if (method?.toUpperCase() !== "GET") return false;
@@ -83,21 +84,25 @@ function commandExamples(markdown: string): string[] {
         inlineLines.push(line);
         continue;
       }
-      fenceCharacter = opening[1][0];
-      fenceLength = opening[1].length;
+      const openingMarker = opening[1];
+      const openingInfo = opening[2];
+      if (openingMarker === undefined || openingInfo === undefined) continue;
+      fenceCharacter = openingMarker.charAt(0);
+      fenceLength = openingMarker.length;
       isShellFence = /^(?:sh|bash|shell|zsh)(?:\s|$)/i.test(
-        opening[2].trim(),
+        openingInfo.trim(),
       );
-      isInertFence = /^(?:json|html)(?:\s|$)/i.test(opening[2].trim());
+      isInertFence = /^(?:json|html)(?:\s|$)/i.test(openingInfo.trim());
       blockLines = [];
       continue;
     }
 
     const closing = line.match(/^ {0,3}(`+|~+)[ \t]*$/);
+    const closingMarker = closing?.[1];
     if (
-      closing &&
-      closing[1][0] === fenceCharacter &&
-      closing[1].length >= fenceLength
+      closingMarker !== undefined &&
+      closingMarker.charAt(0) === fenceCharacter &&
+      closingMarker.length >= fenceLength
     ) {
       addCodeBlock();
       fenceCharacter = undefined;
@@ -111,9 +116,9 @@ function commandExamples(markdown: string): string[] {
   const inlineCode = inlineLines.join("\n");
   return [
     ...codeBlocks,
-    ...[...inlineCode.matchAll(/`([^`\n]+)`/g)].map(([, command]) =>
-      command.trim(),
-    ),
+    ...[...inlineCode.matchAll(/`([^`\n]+)`/g)]
+      .map(([, command]) => command?.trim())
+      .filter((command): command is string => command !== undefined),
   ]
     .filter((command) => command.includes("\n") || looksLikeCommand(command));
 }

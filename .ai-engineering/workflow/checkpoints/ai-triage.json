@@ -121,13 +121,20 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "bun run typecheck failed with TypeScript undefined-value errors in tests/triage-github.spec.ts:26-115; embed-canon passed and the gate stopped before lint."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "pending",
       "changed_files": [
-        "src/assets.ts"
+        "src/assets.ts",
+        "tests/triage-github.spec.ts"
       ]
     },
     {

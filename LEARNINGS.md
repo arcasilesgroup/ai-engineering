@@ -344,3 +344,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** The human chose the trusted-PATH boundary: require bare allowlisted executable names and explicitly state that this is not a sandbox.
 - **Lesson:** A command allowlist does not verify executable identity.
 - **Tags:** review, command-safety, allowlist
+
+### L46 · 2026-10-07 · ai-triage #3 · behavior
+- **Failure:** TypeScript reported possibly-undefined indexed values and regex captures in `tests/triage-github.spec.ts`.
+- **Root cause:** Indexed values and regex captures were used without narrowing their possible absence.
+- **Fix:** Added explicit guards and safe narrowing without casts, preserving the assertions.
+- **Lesson:** Narrow indexed values before use, and fail closed when a value is absent.
+- **Tags:** typecheck, tests, narrowing
