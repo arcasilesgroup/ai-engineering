@@ -27,6 +27,11 @@ Use exactly one direct allowlisted CLI command per tool call. Do not wrap or
 compose shell commands: no compound commands, shell wrappers, inline environment
 assignments, process substitution, command substitution,
 here-docs, or line continuations.
+Every permitted CLI executable must use its bare allowlisted name (`gh`, `git`, or
+`curl` only where explicitly permitted), never an executable path. Reject `./gh`,
+`/usr/bin/curl`, `~/bin/git`, and equivalent path-qualified forms. This contract
+assumes the user's `PATH` is trusted; it is not an executable-identity sandbox and
+does not protect against malicious entries in `PATH`.
 Do not check out, switch, fetch, or pull a branch under review; inspect it with `git log`,
 `git show`, `git blame`, or `git rev-parse`.
 

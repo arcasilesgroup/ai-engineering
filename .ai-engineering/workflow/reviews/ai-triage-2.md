@@ -134,3 +134,9 @@ VERDICT: FAIL
 VERDICT: FAIL
 - F7–F10 · RESOLVED — zsh process substitution, here-docs, variable fences, environment assignments, and path-prefixed curl examples are covered.
 - F11 · P1 · `tests/triage-github.spec.ts:45-54` — Basename normalization allows an arbitrary executable named `gh` to pass the allowlist: `./gh issue list` or `~/bin/gh issue list` is accepted even if that script performs a remote write. The tests cover path-prefixed denied commands, but not a path-prefixed executable with an allowed verb.
+
+### Response · fresh retry-cycle round 4
+- Root cause fixed: basename normalization erased executable path prefixes before applying the closed read allowlist.
+- F11 fixed: only bare allowlisted executable names pass; static assertions reject path-qualified command examples and require the trusted-`PATH` limitation to be stated.
+- The GitHub procedure remains agent-executed Markdown and preserves the closed read contract; it states this is not an executable-identity sandbox and assumes the user's `PATH` is trusted.
+- Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (128 assertions).

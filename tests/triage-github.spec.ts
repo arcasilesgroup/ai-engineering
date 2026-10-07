@@ -42,16 +42,12 @@ function isReadOnlyCommand(command: string): boolean {
   }
   const commandSyntax = normalizedCommand.replace(/<[\w./-]+>/g, "");
   if (/[\r\n;&|`$<>\\()]/.test(commandSyntax)) return false;
-  const executable = normalizedCommand.match(/^(\S+)/)?.[1];
-  const normalizedExecutableCommand = executable
-    ? normalizedCommand.replace(/^\S+/, executable.split("/").at(-1) ?? "")
-    : "";
-  if (normalizedExecutableCommand === "bun test tests/artifact-scroll-spy.spec.ts") return true;
-  if (/^gh api(?:\s|$)/i.test(normalizedExecutableCommand)) {
-    return isReadOnlyGhApi(normalizedExecutableCommand);
+  if (normalizedCommand === "bun test tests/artifact-scroll-spy.spec.ts") return true;
+  if (/^gh api(?:\s|$)/i.test(normalizedCommand)) {
+    return isReadOnlyGhApi(normalizedCommand);
   }
   return /^(?:gh issue (?:list|view)|gh pr (?:list|view|diff)|git remote get-url origin|git (?:log|show|blame|rev-parse))(?:\s|$)/i.test(
-    normalizedExecutableCommand,
+    normalizedCommand,
   );
 }
 
@@ -220,6 +216,13 @@ describe("GitHub triage instruction contract", () => {
     expect(readOnlyPolicy.replace(/\s+/g, " ")).toContain(
       "Do not wrap or compose shell commands: no compound commands, shell wrappers, inline environment assignments, process substitution, command substitution, here-docs, or line continuations.",
     );
+    expect(readOnlyPolicy).toContain("its bare allowlisted name");
+    for (const executablePath of ["`./gh`", "`/usr/bin/curl`", "`~/bin/git`"]) {
+      expect(readOnlyPolicy).toContain(executablePath);
+    }
+    expect(readOnlyPolicy).toMatch(/assumes the user's `PATH` is trusted/);
+    expect(readOnlyPolicy).toContain("not an executable-identity sandbox");
+    expect(readOnlyPolicy).toContain("does not protect against malicious entries in `PATH`");
     expect(readOnlyPolicy).toContain(
       "Every mutation of GitHub state is a failure of this skill",
     );
@@ -257,9 +260,13 @@ describe("GitHub triage instruction contract", () => {
       isReadOnlyCommand("TOKEN=x curl -X POST https://example.invalid"),
     ).toBe(false);
     for (const command of [
-      "/usr/bin/curl -X POST https://example.invalid",
-      "./curl -X POST https://example.invalid",
-      "~/bin/git push origin main",
+      "./gh issue list",
+      "/usr/bin/gh issue list",
+      "~/bin/gh issue list",
+      "./git log",
+      "/usr/bin/git log",
+      "~/bin/git log",
+      "/usr/bin/curl -X GET https://example.invalid",
     ]) {
       expect(isReadOnlyCommand(command)).toBe(false);
       for (const fence of ["```\n", "```text\n", "```python\n"]) {
