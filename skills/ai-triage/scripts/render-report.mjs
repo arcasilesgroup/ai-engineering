@@ -45,8 +45,13 @@ function requireSegment(value, label) {
 
 function isCredentialAssignmentKey(key) {
   const normalizedKey = key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
-  return /(?:^|[_-])(?:token|pat|auth|authorization|bearer|password|passwd|secret|credential|signature|api[_-]?key)$/i.test(
-    normalizedKey,
+  const compactKey = normalizedKey.replace(/[_-]/g, "");
+  return (
+    /(?:token|pat|auth|authorization|bearer|password|passwd|secret|credential|signature)$/.test(
+      compactKey,
+    ) ||
+    /(?:^|[_-])key$/.test(normalizedKey) ||
+    /(?:api|access|private|secretaccess)key$/.test(compactKey)
   );
 }
 

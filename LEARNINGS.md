@@ -451,3 +451,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Normalize assignment keys and redact credential suffix families while leaving owner/count and non-terminal near-matches unchanged.
 - **Lesson:** Classify credential assignment keys by semantic suffix, not a growing provider alias list or arbitrary keyword containment.
 - **Tags:** review, auth, redaction, metadata, tests
+
+### L61 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Synthetic `SYSTEM_ACCESSTOKEN=`, `private_key=`, `access_key=`, and `secret_access_key=` values remained in the full report.
+- **Root cause:** Token matching required a separator before its suffix, and key assignment families were not recognized.
+- **Fix:** Match normalized credential suffixes and common credential-key families at the shared report redaction boundary while preserving owner/count/policy fields.
+- **Lesson:** Normalize credential assignment names before classifying semantic suffixes; avoid broad substring matching that hides benign metadata.
+- **Tags:** review, auth, redaction, metadata, tests

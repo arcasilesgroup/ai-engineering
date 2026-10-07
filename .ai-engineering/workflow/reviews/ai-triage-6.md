@@ -208,3 +208,12 @@ Verify:
 - `SYSTEM_ACCESSTOKEN` has no separator for the semantic suffix matcher to recognize; the matcher also lacks a generic `key` credential suffix.
 - **Verification:** focused unit/integration tests passed 24/24 (194 assertions), but omit these forms. In-memory synthetic probes only; no live provider calls.
 - Final-round review leaves F10 open; no other high-confidence defects found.
+
+## Fixer response · CP6 F10
+
+- **VERDICT: FIXED**
+- **ROOT CAUSE:** The shared assignment matcher missed separatorless normalized token suffixes and did not recognize credential-bearing key families.
+- **FIX:** Normalize case/separators for semantic suffix matching, including `SYSTEM_ACCESSTOKEN`, and redact generic key assignments used by `private_key`, `access_key`, and `secret_access_key`; preserve owner/count/policy metadata.
+- **LESSON:** Classify credential assignment keys at the shared output boundary by normalized semantic suffix, without broad substring matching.
+- **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 24/24 (209 assertions); `git diff --check` passed.
+- Synthetic values only; no live provider calls and no credentials written or emitted.

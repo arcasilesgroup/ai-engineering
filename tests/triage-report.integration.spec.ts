@@ -285,12 +285,24 @@ describe("Azure triage report integration", () => {
       "azure_devops_pat=synthetic-azure-devops-pat-secret",
       "github_token=synthetic-github-token-secret",
       "system_access_token=synthetic-system-access-token-secret",
+      "SYSTEM_ACCESSTOKEN=synthetic-system-accesstoken-secret",
+      "SYSTEM-ACCESSTOKEN=synthetic-system-hyphen-accesstoken-secret",
+      "SystemAccessToken=synthetic-system-camel-token-secret",
       "api_token=synthetic-api-token-secret",
       "github_pat=synthetic-github-pat-secret",
       "gh_token=synthetic-gh-token-secret",
       "azdo_pat=synthetic-azdo-pat-secret",
       "ado_token=synthetic-ado-token-secret",
       "azure_pat=synthetic-azure-pat-secret",
+      "private_key=synthetic-private-key-secret",
+      "PRIVATE-KEY=synthetic-uppercase-private-key-secret",
+      "privateKey=synthetic-camel-private-key-secret",
+      "access_key=synthetic-access-key-secret",
+      "access-key=synthetic-hyphen-access-key-secret",
+      "accessKey=synthetic-camel-access-key-secret",
+      "secret_access_key=synthetic-secret-access-key-secret",
+      "secret-access-key=synthetic-hyphen-secret-access-key-secret",
+      "secretAccessKey=synthetic-camel-secret-access-key-secret",
       "authored_by=synthetic-maintainer",
       "client_author=synthetic-owner",
       "oauth_provider=synthetic-provider",
@@ -310,6 +322,9 @@ describe("Azure triage report integration", () => {
       "ado_token_count=6",
       "azure_pat_owner=synthetic-azure-owner",
       "api_token_count=8",
+      "private_key_owner=synthetic-private-key-owner",
+      "access_key_count=3",
+      "secret_access_key_policy=synthetic-key-policy",
     ].join(" ");
     scope.backlogName = "Synthetic backlog auth=synthetic-backlog-secret";
     const reportWriter = createMemoryReportWriter();
@@ -339,12 +354,32 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).not.toContain("synthetic-azure-devops-pat-secret");
     expect(generatedReport).not.toContain("synthetic-github-token-secret");
     expect(generatedReport).not.toContain("synthetic-system-access-token-secret");
+    expect(generatedReport).not.toContain("synthetic-system-accesstoken-secret");
+    expect(generatedReport).not.toContain(
+      "synthetic-system-hyphen-accesstoken-secret",
+    );
+    expect(generatedReport).not.toContain("synthetic-system-camel-token-secret");
     expect(generatedReport).not.toContain("synthetic-api-token-secret");
     expect(generatedReport).not.toContain("synthetic-github-pat-secret");
     expect(generatedReport).not.toContain("synthetic-gh-token-secret");
     expect(generatedReport).not.toContain("synthetic-azdo-pat-secret");
     expect(generatedReport).not.toContain("synthetic-ado-token-secret");
     expect(generatedReport).not.toContain("synthetic-azure-pat-secret");
+    expect(generatedReport).not.toContain("synthetic-private-key-secret");
+    expect(generatedReport).not.toContain(
+      "synthetic-uppercase-private-key-secret",
+    );
+    expect(generatedReport).not.toContain("synthetic-camel-private-key-secret");
+    expect(generatedReport).not.toContain("synthetic-access-key-secret");
+    expect(generatedReport).not.toContain("synthetic-hyphen-access-key-secret");
+    expect(generatedReport).not.toContain("synthetic-camel-access-key-secret");
+    expect(generatedReport).not.toContain("synthetic-secret-access-key-secret");
+    expect(generatedReport).not.toContain(
+      "synthetic-hyphen-secret-access-key-secret",
+    );
+    expect(generatedReport).not.toContain(
+      "synthetic-camel-secret-access-key-secret",
+    );
     expect(generatedReport).not.toContain("synthetic-backlog-secret");
     expect(generatedReport).toContain(
       "Synthetic team [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted]",
@@ -378,6 +413,13 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).toContain("ado_token_count=6");
     expect(generatedReport).toContain("azure_pat_owner=synthetic-azure-owner");
     expect(generatedReport).toContain("api_token_count=8");
+    expect(generatedReport).toContain(
+      "private_key_owner=synthetic-private-key-owner",
+    );
+    expect(generatedReport).toContain("access_key_count=3");
+    expect(generatedReport).toContain(
+      "secret_access_key_policy=synthetic-key-policy",
+    );
     expect(generatedReport).toContain("Synthetic backlog [redacted]");
   });
 
