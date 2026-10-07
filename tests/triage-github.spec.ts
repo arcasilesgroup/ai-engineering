@@ -42,17 +42,21 @@ function isReadOnlyCommand(command: string): boolean {
   }
   const commandSyntax = normalizedCommand.replace(/<[\w./-]+>/g, "");
   if (/[\r\n;&|`$<>\\()]/.test(commandSyntax)) return false;
-  if (normalizedCommand === "bun test tests/artifact-scroll-spy.spec.ts") return true;
-  if (/^gh api(?:\s|$)/i.test(normalizedCommand)) {
-    return isReadOnlyGhApi(normalizedCommand);
+  const executable = normalizedCommand.match(/^(\S+)/)?.[1];
+  const normalizedExecutableCommand = executable
+    ? normalizedCommand.replace(/^\S+/, executable.split("/").at(-1) ?? "")
+    : "";
+  if (normalizedExecutableCommand === "bun test tests/artifact-scroll-spy.spec.ts") return true;
+  if (/^gh api(?:\s|$)/i.test(normalizedExecutableCommand)) {
+    return isReadOnlyGhApi(normalizedExecutableCommand);
   }
   return /^(?:gh issue (?:list|view)|gh pr (?:list|view|diff)|git remote get-url origin|git (?:log|show|blame|rev-parse))(?:\s|$)/i.test(
-    normalizedCommand,
+    normalizedExecutableCommand,
   );
 }
 
 function looksLikeCommand(line: string): boolean {
-  return /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:[^\s"'`]*|"[^"]*"|'[^']*')\s+)*[a-z][\w-]*\s/.test(
+  return /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:[^\s"'`]*|"[^"]*"|'[^']*')\s+)*(?:\/|~(?:[\w.-]+)?\/|\.{1,2}\/)?(?:[\w.-]+\/)*[a-z][\w-]*\s/.test(
     line.trim(),
   );
 }
@@ -63,11 +67,13 @@ function commandExamples(markdown: string): string[] {
   let fenceCharacter: string | undefined;
   let fenceLength = 0;
   let isShellFence = false;
+  let isInertFence = false;
   let blockLines: string[] = [];
   const addCodeBlock = () => {
     const block = blockLines.join("\n").trim();
     if (
       block &&
+      !isInertFence &&
       (isShellFence || block.split("\n").some(looksLikeCommand))
     ) {
       codeBlocks.push(block);
@@ -86,6 +92,7 @@ function commandExamples(markdown: string): string[] {
       isShellFence = /^(?:sh|bash|shell|zsh)(?:\s|$)/i.test(
         opening[2].trim(),
       );
+      isInertFence = /^(?:json|html)(?:\s|$)/i.test(opening[2].trim());
       blockLines = [];
       continue;
     }
@@ -249,6 +256,28 @@ describe("GitHub triage instruction contract", () => {
     expect(
       isReadOnlyCommand("TOKEN=x curl -X POST https://example.invalid"),
     ).toBe(false);
+    for (const command of [
+      "/usr/bin/curl -X POST https://example.invalid",
+      "./curl -X POST https://example.invalid",
+      "~/bin/git push origin main",
+    ]) {
+      expect(isReadOnlyCommand(command)).toBe(false);
+      for (const fence of ["```\n", "```text\n", "```python\n"]) {
+        const commands = commandExamples(`${fence}${command}\n\`\`\``);
+        expect(commands).toEqual([command]);
+        expect(commands.every(isReadOnlyCommand)).toBe(false);
+      }
+    }
+    expect(
+      commandExamples(
+        '```json\n{ "example": "curl -X POST https://example.invalid" }\n```',
+      ),
+    ).toEqual([]);
+    expect(
+      commandExamples(
+        "```html\n<pre>curl -X POST https://example.invalid</pre>\n```",
+      ),
+    ).toEqual([]);
     const remoteWriteBlock = "```sh\ncurl -X POST https://example.invalid\n```";
     expect(commandExamples(remoteWriteBlock)).toEqual([
       "curl -X POST https://example.invalid",

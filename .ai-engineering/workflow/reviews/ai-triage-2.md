@@ -117,3 +117,15 @@ VERDICT: FAIL
 - F9 fixed: variable-length backtick and tilde fences are extracted; inline environment assignments are recognized and rejected by the read-only checker.
 - The GitHub procedure explicitly forbids inline environment assignments; the allowlist and shell-composition restrictions remain intact.
 - Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (70 assertions).
+
+### Debate · fresh retry-cycle round 3
+VERDICT: FAIL
+- F7/F8/F9 · RESOLVED — zsh process substitution, here-doc expansion, variable-length backtick/tilde fences, and inline environment assignments are now explicitly rejected/tested.
+- F10 · P1 · `tests/triage-github.spec.ts:54-72` — A fenced block without a recognized shell info string is only included when `looksLikeCommand` matches a bare lowercase command. A valid command such as `/usr/bin/curl -X POST https://example.invalid` in an untagged or `text` fence is skipped, so the read-only gate passes despite an active write example.
+
+### Response · fresh retry-cycle round 3
+- Root cause fixed: command extraction skipped untagged/`text` fences when the executable had a path prefix, and the allowlist matched the full executable token rather than its basename.
+- F10 fixed: inspect command-like lines in fenced blocks regardless of language tag, keep JSON/HTML examples inert, and normalize executable basenames before allowlist checks. Tests cover untagged, `text`, and other tagged fences plus `./curl`, `/usr/bin/curl`, and `~/bin/git`.
+- Lesson: a closed command allowlist must classify the executable by basename, and extraction cannot depend on a recognized fence label.
+- Files: `tests/triage-github.spec.ts`, `.ai-engineering/workflow/reviews/ai-triage-2.md`.
+- Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (93 assertions).
