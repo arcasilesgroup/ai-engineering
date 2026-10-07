@@ -76,14 +76,12 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 2, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "failed",
+          "status": "pending",
           "attempts": 3,
-          "findings": [
-            "Adversarial retry-cycle round 4: F11 remains open because path-qualified executables such as ./gh or ~/bin/gh can bypass the read allowlist."
-          ]
+          "findings": []
         }
       },
       "status": "pending",
