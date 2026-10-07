@@ -72,3 +72,9 @@ VERDICT: FAIL
 - F3 fixed: normalize shell line continuations before checking allowed commands and API write options.
 - Lesson: authorize the small read-only command surface, rather than maintain a growing denylist, and validate shell commands after continuation.
 - Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (46 assertions).
+
+### Response · retry-cycle round 2
+- F4/F5 fixed: only the listed GitHub reads may contact a remote; every other remote-capable command or tool is forbidden. The API contract explicitly rejects request-body and field options, including attached forms.
+- Static assertion: all command examples in the instructions and report template are checked against a closed read-only command surface; API options are limited to GET and an endpoint. Sentinels reject attached `-f`/`-F`/field/input flags, non-GET methods, curl POST, and git push.
+- Lesson: a closed read-only command contract must cover every command family and parse options as users can attach them, not only recognize `gh` verbs or spaced flags.
+- Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (56 assertions).

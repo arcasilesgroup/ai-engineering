@@ -19,9 +19,12 @@ not a shortcut in it. The only permitted GitHub reads are `gh issue list`, `gh i
 the method (GET is the default) or specify GET, and do not send a request body. Treat every
 other `gh` command as forbidden; this is a closed allowlist, not a list of examples.
 
-Every other remote-state write, through any tool, remains forbidden. Do not check out,
-switch, fetch, or pull a branch under review; inspect it with `git log`, `git show`,
-`git blame`, or `git rev-parse`.
+Only those listed `gh` reads may contact a remote service. Every other command or tool
+capable of remote access or changing remote state is forbidden, including curl requests
+and git push. This applies to attached flags too: any request-body or field option is
+forbidden.
+Do not check out, switch, fetch, or pull a branch under review; inspect it with `git log`,
+`git show`, `git blame`, or `git rev-parse`.
 
 No subagent gets a command outside that allowlist. A PR row says `MERGE` or `BLOCKED`; a
 human merges. The single tempting exception, "just close the duplicate", is the rule's own
@@ -199,7 +202,7 @@ its structure: the working page is that template with the `{{placeholders}}` rep
   in it is deleted and the survivors
   are renumbered `01` to `N`, so the nav has no hole: an empty heading reads as "we found
   nothing", which is a different claim from "we did not look". Number the sections from
-  the surviving list, never from a hard-coded map, or the `also in` links point one
+  the surviving list, never from a hard-coded map, or the “also in” links point one
   section too far the moment a section is dropped.
 - Sticky `<nav>` with one `<a>` per surviving section, `<main id="main">`, `<footer>` with
   the `{ai}` mark.
@@ -208,7 +211,7 @@ its structure: the working page is that template with the `{{placeholders}}` rep
   `<meta name="ai-triage-sha" content="<commit>">`.
 - Every item on the page is the same `.item`: a native `<details>` whose `summary`
   carries the chips, the linked `#id` and the title, and whose body carries the
-  `CONTEXT`, the evidence and the `also in` cross-refs. Native disclosure, not a
+  `CONTEXT`, the evidence and the “also in” cross-references. Native disclosure, not a
   script, so keyboard, find-in-page and print keep working.
 - Section 02 is the page's job: the ranked queue, one `.item` per ranked entry,
   best first, each id linking to the issue, each row carrying the band chip. A
@@ -279,7 +282,7 @@ template is the whole design and the run does not degrade.
 - Every claim carries a permalink at a commit SHA, or is marked `[UNVERIFIED]` and stays
   marked.
 - Every chip on the page has its key in the `.legend`, and every duplicate is
-  visible as one item through its `also in` line.
+  visible as one item through its “also in” line.
 - Scrolling marks the nav link of the section in view, because the script is the
   template's, copied byte for byte.
 - The page opens from `file://` with no sideways scroll, section 02 names what to start on,

@@ -9,11 +9,57 @@ const reportTemplate = readFileSync(
   new URL("../templates/triage.html.tpl", import.meta.url),
   "utf8",
 );
-const unapprovedGitHubCommand =
-  /\bgh\s+(?!(?:issue\s+(?:list|view)|pr\s+(?:list|view|diff)|api\b))[\w-]+(?:\s+[\w-]+)?|\bgh\s+api\b(?=[^\n]*(?:(?:^|\s)(?:-X|--method)(?:=|\s+)?(?!GET\b)\S+|(?:^|\s)(?:-F|-f|--field|--raw-field|--input)(?:=|\s|$)))/i;
 
 function normalizeShellContinuations(text: string): string {
   return text.replace(/\\\r?\n[ \t]*/g, " ");
+}
+
+function isReadOnlyGhApi(command: string): boolean {
+  const argumentsText = command.replace(/^gh api\b/i, "").trim();
+  const argumentsList = argumentsText.match(/(?:[^\s"'`]+|"[^"]*"|'[^']*')+/g) ?? [];
+  let hasEndpoint = false;
+
+  for (let index = 0; index < argumentsList.length; index += 1) {
+    const argument = argumentsList[index];
+    if (argument === "--method" || argument === "-X") {
+      const method = argumentsList[index + 1];
+      if (method?.toUpperCase() !== "GET") return false;
+      index += 1;
+      continue;
+    }
+    if (/^(?:--method=GET|-X=?GET)$/i.test(argument)) continue;
+    if (argument.startsWith("-") || hasEndpoint) return false;
+    if (!/^[\w./{}?=&%:-]+$/.test(argument)) return false;
+    hasEndpoint = true;
+  }
+  return true;
+}
+
+function isReadOnlyCommand(command: string): boolean {
+  const normalizedCommand = normalizeShellContinuations(command).trim();
+  if (/[;&|`$]/.test(normalizedCommand)) return false;
+  if (normalizedCommand === "bun test tests/artifact-scroll-spy.spec.ts") return true;
+  if (/^gh api(?:\s|$)/i.test(normalizedCommand)) {
+    return isReadOnlyGhApi(normalizedCommand);
+  }
+  return /^(?:gh issue (?:list|view)|gh pr (?:list|view|diff)|git remote get-url origin|git (?:log|show|blame|rev-parse))(?:\s|$)/i.test(
+    normalizedCommand,
+  );
+}
+
+function commandExamples(markdown: string): string[] {
+  const normalizedMarkdown = normalizeShellContinuations(markdown);
+  const codeBlocks = [
+    ...normalizedMarkdown.matchAll(/```[^\n]*\n([\s\S]*?)```/g),
+  ].flatMap(([, block]) => block.split("\n").map((line) => line.trim()));
+  const inlineCode = normalizedMarkdown.replace(/```[\s\S]*?```/g, "");
+  return [
+    ...codeBlocks,
+    ...[...inlineCode.matchAll(/`([^`\n]+)`/g)].map(([, command]) =>
+      command.trim(),
+    ),
+  ]
+    .filter((command) => /^[a-z][\w-]*\s/.test(command));
 }
 
 describe("GitHub triage instruction contract", () => {
@@ -105,27 +151,43 @@ describe("GitHub triage instruction contract", () => {
     expect(readOnlyPolicy).toMatch(
       /Treat every\s+other `gh` command as forbidden\b/,
     );
+    expect(readOnlyPolicy).toMatch(
+      /Only those listed `gh` reads may contact a remote service\.\s+Every other command or tool\s+capable of remote access or changing remote state is forbidden/,
+    );
     expect(readOnlyPolicy).toContain(
       "Every mutation of GitHub state is a failure of this skill",
     );
-    expect(readOnlyPolicy).toContain(
-      "Every other remote-state write, through any tool, remains forbidden.",
-    );
-
     expect(
-      normalizeShellContinuations(githubInstructions),
-    ).not.toMatch(unapprovedGitHubCommand);
+      commandExamples(githubInstructions).filter(
+        (command) => !isReadOnlyCommand(command),
+      ),
+    ).toEqual([]);
     expect(
-      normalizeShellContinuations(reportTemplate),
-    ).not.toMatch(unapprovedGitHubCommand);
-    expect("gh pr lock").toMatch(unapprovedGitHubCommand);
-    expect("gh release create").toMatch(unapprovedGitHubCommand);
-    expect(
-      normalizeShellContinuations("gh api \\\n  --method PATCH /repos/acme/repo"),
-    ).toMatch(unapprovedGitHubCommand);
-    expect("gh api --method GET /repos/acme/repo").not.toMatch(
-      unapprovedGitHubCommand,
-    );
+      commandExamples(reportTemplate).filter(
+        (command) => !isReadOnlyCommand(command),
+      ),
+    ).toEqual([]);
+    expect(isReadOnlyCommand("curl -X POST https://example.invalid")).toBe(false);
+    expect(isReadOnlyCommand("git push origin main")).toBe(false);
+    expect(isReadOnlyCommand("git log ; git push origin main")).toBe(false);
+    const remoteWriteBlock = "```sh\ncurl -X POST https://example.invalid\n```";
+    expect(commandExamples(remoteWriteBlock)).toEqual([
+      "curl -X POST https://example.invalid",
+    ]);
+    expect(commandExamples(remoteWriteBlock).every(isReadOnlyCommand)).toBe(false);
+    for (const command of [
+      "gh api -fbody=value /repos/acme/repo",
+      "gh api -Fbody=value /repos/acme/repo",
+      "gh api --field=body=value /repos/acme/repo",
+      "gh api --raw-field=body=value /repos/acme/repo",
+      "gh api --input=body.json /repos/acme/repo",
+      "gh api --method PATCH /repos/acme/repo",
+      "gh api -XPOST /repos/acme/repo",
+      "gh api \\\n  --method PATCH /repos/acme/repo",
+    ]) {
+      expect(isReadOnlyCommand(command)).toBe(false);
+    }
+    expect(isReadOnlyCommand("gh api --method GET /repos/acme/repo")).toBe(true);
   });
 
   test("keeps the report template's full-inventory and evidence sections", () => {
