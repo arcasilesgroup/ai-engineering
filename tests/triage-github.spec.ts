@@ -20,25 +20,31 @@ describe("GitHub triage instruction contract", () => {
       steps.indexOf("2. Read the whole open backlog"),
       steps.indexOf("3. Join the two halves"),
     );
+    const issueInventory = inventoryStep.slice(
+      inventoryStep.indexOf("gh issue list"),
+      inventoryStep.indexOf("gh pr list"),
+    );
+    const pullRequestInventory = inventoryStep.slice(
+      inventoryStep.indexOf("gh pr list"),
+    );
 
-    expect(inventoryStep).toContain(
+    expect(issueInventory).toContain(
       "gh issue list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closedByPullRequestsReferences,body",
     );
-    expect(inventoryStep).toContain(
+    expect(pullRequestInventory).toContain(
       "gh pr list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closingIssuesReferences,mergeStateStatus,mergeable,reviewDecision,headRefName,isDraft",
     );
-    expect(
-      inventoryStep.slice(inventoryStep.indexOf("gh issue list")),
-    ).toMatch(
-      /Above 1000\s+items, page with `--search "created:<oldest-in-page"` until a page comes back\s+empty\./,
+    expect(issueInventory).toMatch(
+      /If this issue inventory returns 1000\s+items, page it with\s+`--search "created:<oldest-in-page"`\s+until a page comes back\s+empty\./,
     );
-    expect(
-      inventoryStep.slice(inventoryStep.indexOf("gh pr list")),
-    ).toMatch(
-      /Above 1000\s+items, page with `--search "created:<oldest-in-page"` until a page comes back\s+empty\./,
+    expect(issueInventory).toMatch(
+      /Write down\s+the fetched issue count and make the page's open-issue count agree\s+with it\./,
     );
-    expect(inventoryStep).toMatch(
-      /\*\*Write down the count you fetched and make the page\s+agree with it\.\*\*/,
+    expect(pullRequestInventory).toMatch(
+      /If this pull-request inventory returns 1000\s+items, page it with\s+`--search "created:<oldest-in-page"`\s+until a page comes back\s+empty\./,
+    );
+    expect(pullRequestInventory).toMatch(
+      /Write down\s+the fetched pull-request count and make the page's pull-request count agree\s+with it\./,
     );
   });
 
@@ -99,7 +105,7 @@ describe("GitHub triage instruction contract", () => {
       githubInstructions.indexOf("## Which repository"),
     );
     const remoteMutationCommand =
-      /\bgh\s+(?:(?:issue\s+(?:comment|close|edit)|pr\s+(?:comment|merge|review|edit|checkout)|repo\s+edit)\b|api\b(?=[^\n]*(?:(?:^|\s)(?:-X|--method)(?:=|\s+)(?:POST|PUT|PATCH|DELETE)\b|(?:^|\s)(?:-F|-f|--field|--raw-field)(?:=|\s)))[^\n]*)/i;
+      /\bgh\s+(?:(?:issue\s+(?:comment|close|create|delete|edit|lock|pin|reopen|transfer|unlock|unpin)|pr\s+(?:checkout|close|comment|create|edit|merge|ready|reopen|review|update-branch)|repo\s+edit)\b|api\b(?=[^\n]*(?:(?:^|\s)(?:-X|--method)(?:=|\s+)(?:POST|PUT|PATCH|DELETE)\b|(?:^|\s)(?:-F|-f|--field|--raw-field)(?:=|\s)))[^\n]*)/i;
     for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
       for (const option of ["-X", "--method"]) {
         expect(`gh api ${option} ${method}`).toMatch(remoteMutationCommand);
@@ -108,7 +114,12 @@ describe("GitHub triage instruction contract", () => {
     for (const fieldOption of ["-f", "--raw-field", "-F", "--field"]) {
       expect(`gh api ${fieldOption} key=value`).toMatch(remoteMutationCommand);
     }
-    for (const command of ["gh repo edit"]) {
+    for (const command of [
+      "gh issue reopen",
+      "gh issue delete",
+      "gh pr close",
+      "gh repo edit",
+    ]) {
       expect(command).toMatch(remoteMutationCommand);
     }
     expect(activeInstructions).not.toMatch(remoteMutationCommand);

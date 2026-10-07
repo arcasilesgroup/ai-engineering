@@ -9,6 +9,7 @@ Acceptance:
 
 Changed files:
 - `tests/triage-github.spec.ts`
+- `skills/ai-triage/references/github.md`
 
 Verify:
 - `bun test tests/triage-github.spec.ts`
@@ -37,3 +38,16 @@ VERDICT: FAIL
 - F2 fixed: pagination is asserted separately from each issue-list and PR-list command.
 - F3 remains resolved; no related assertions were changed.
 - Verify: `bun test ./tests/triage-github.spec.ts` — 3 passed, 0 failed (53 assertions).
+
+### Debate · round 3
+VERDICT: FAIL
+- F1 · P1 · `tests/triage-github.spec.ts:101-115` — The mutation detector still misses active write verbs such as `gh issue reopen` (also `gh issue delete` / `gh pr close`); adding one to the instructions passes the negative assertion.
+- F2 · P2 · `tests/triage-github.spec.ts:31-38` — Both slices run from their list command to the end of `inventoryStep`; one pagination sentence after `gh pr list` therefore satisfies both assertions, even if issue pagination guidance is removed.
+- F3 · RESOLVED — `:51-62` requires one returned analysis block per item and pins its per-item shape.
+- Verify: `bun test ./tests/triage-github.spec.ts` — 3 passed, 0 failed (53 assertions).
+
+### Response · round 3
+- F1 fixed: the detector and sentinels cover `gh issue reopen`, other issue/PR write verbs, and API write methods/fields.
+- F2 fixed: the test isolates each inventory and requires its own pagination rule and fetched-count agreement; the provider text states each independently.
+- F3 remains resolved and untouched.
+- Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (57 assertions).

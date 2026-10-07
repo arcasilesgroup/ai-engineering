@@ -47,12 +47,18 @@ example of a violation.
    commands run from wherever the session stands, and the default checkout's repo is
    not the one being triaged when the argument was another repository's URL.
    `gh issue list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closedByPullRequestsReferences,body`
-   and `gh pr list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closingIssuesReferences,mergeStateStatus,mergeable,reviewDecision,headRefName,isDraft`.
-   The two inventories cannot share one field list: a pull request has no `closedByPullRequestsReferences`, so `gh pr list` with the issue's fields exits non-zero before it reads anything. Above 1000
-   items, page with `--search "created:<oldest-in-page"` until a page comes back
-   empty. A truncated backlog is a wrong page: an item nobody read is an item the
-   ranking silently dropped. **Write down the count you fetched and make the page
-   agree with it.** An active repository carries several times more open items than
+   If this issue inventory returns 1000 items, page it with
+   `--search "created:<oldest-in-page"` until a page comes back empty. Write down
+   the fetched issue count and make the page's open-issue count agree with it.
+   The `gh pr list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closingIssuesReferences,mergeStateStatus,mergeable,reviewDecision,headRefName,isDraft`
+   If this pull-request inventory returns 1000 items, page it with
+   `--search "created:<oldest-in-page"` until a page comes back empty. Write down
+   the fetched pull-request count and make the page's pull-request count agree
+   with it. The two inventories cannot share
+   one field list: a pull request has no `closedByPullRequestsReferences`, so
+   `gh pr list` with the issue's fields exits non-zero before it reads anything.
+   A truncated backlog is a wrong page: an item nobody read is an item the
+   ranking silently dropped. An active repository carries several times more open items than
    its newest page shows; reading the first page and calling it the backlog is the
    commonest way this page goes wrong, and it fails silently.
 3. Join the two halves before classifying. `closedByPullRequestsReferences` on an
