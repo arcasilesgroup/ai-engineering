@@ -51,7 +51,8 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "pending",
+      "changed_files": ["tests/triage-github.spec.ts"]
     },
     {
       "id": 2,
