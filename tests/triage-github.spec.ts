@@ -37,7 +37,7 @@ function isReadOnlyGhApi(command: string): boolean {
 
 function isReadOnlyCommand(command: string): boolean {
   const normalizedCommand = normalizeShellContinuations(command).trim();
-  if (/[;&|`$]/.test(normalizedCommand)) return false;
+  if (/[;&|`$]|[<>]\(/.test(normalizedCommand)) return false;
   if (normalizedCommand === "bun test tests/artifact-scroll-spy.spec.ts") return true;
   if (/^gh api(?:\s|$)/i.test(normalizedCommand)) {
     return isReadOnlyGhApi(normalizedCommand);
@@ -170,6 +170,16 @@ describe("GitHub triage instruction contract", () => {
     expect(isReadOnlyCommand("curl -X POST https://example.invalid")).toBe(false);
     expect(isReadOnlyCommand("git push origin main")).toBe(false);
     expect(isReadOnlyCommand("git log ; git push origin main")).toBe(false);
+    expect(
+      isReadOnlyCommand(
+        "gh issue list <(curl -X POST https://example.invalid)",
+      ),
+    ).toBe(false);
+    expect(
+      isReadOnlyCommand(
+        "gh issue list >(curl -X POST https://example.invalid)",
+      ),
+    ).toBe(false);
     const remoteWriteBlock = "```sh\ncurl -X POST https://example.invalid\n```";
     expect(commandExamples(remoteWriteBlock)).toEqual([
       "curl -X POST https://example.invalid",

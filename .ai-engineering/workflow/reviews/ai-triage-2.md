@@ -78,3 +78,14 @@ VERDICT: FAIL
 - Static assertion: all command examples in the instructions and report template are checked against a closed read-only command surface; API options are limited to GET and an endpoint. Sentinels reject attached `-f`/`-F`/field/input flags, non-GET methods, curl POST, and git push.
 - Lesson: a closed read-only command contract must cover every command family and parse options as users can attach them, not only recognize `gh` verbs or spaced flags.
 - Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (56 assertions).
+
+### Response · retry-cycle round 3
+VERDICT: FAIL
+- F4/F5 · RESOLVED — Attached `gh api` body flags, `curl`, and `git push` are rejected; their explicit sentinels exercise those cases.
+- F6 · P1 · `tests/triage-github.spec.ts:40-45` — `isReadOnlyCommand` omits process-substitution syntax from its shell metacharacter rejection. `gh issue list <(curl -X POST https://example.invalid)` is classified read-only (`true`) while the shell executes the remote write.
+
+### Response · retry-cycle round 3
+- Root cause fixed: the shell guard allowed process substitution, so a permitted `gh` command could execute a nested forbidden remote write.
+- F6 fixed: reject both `<(` and `>(` in the tested command contract, with sentinels for input and output process substitution.
+- Lesson: a command allowlist must reject shell syntax that can run nested commands, not only standalone forbidden commands and chaining operators.
+- Verify: `bun test tests/triage-github.spec.ts`.
