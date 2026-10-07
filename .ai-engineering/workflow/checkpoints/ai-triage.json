@@ -249,22 +249,22 @@
     },
     {
       "id": 6,
-      "title": "Render complete Azure reports safely",
-      "simple": "Show the whole Azure backlog",
-      "size": "l",
-      "goal": "A complete Azure inventory becomes a full `.ai-engineering/triage.html` report using the shared artifact shell, Azure-appropriate sections, escaped untrusted content and validated HTTPS evidence; failures leave the previous report untouched.",
+      "title": "Render safe Azure content in the shared shell",
+      "simple": "Show Azure backlog details safely",
+      "size": "m",
+      "goal": "A complete synthetic Azure inventory renders Azure-specific sections in the shared artifact shell. Untrusted HTML is inert, credential-like URL values are checked raw and decoded, unsafe links are omitted, and safe HTTPS links remain usable.",
       "plain": {
-        "what": "People can read the full Azure backlog, its ranking and useful related context in one safe page.",
-        "why": "A partial or unsafe page could hide work or run content copied from a work item.",
-        "check": "Open a synthetic report and confirm every item appears while hostile text stays inert."
+        "what": "People can read the full Azure backlog in a page that keeps its details safe.",
+        "why": "Untrusted work-item content or links must not execute or expose credential-like values.",
+        "check": "Render a synthetic Azure report and confirm its provider sections and safe links appear while hostile content stays inert."
       },
       "builds_on": [5],
       "tasks": [
         "Add `skills/ai-triage/scripts/render-report.mjs` and wire the shared router, Azure collector and report writer to `.ai-engineering/triage.html` only after routing and inventory completeness pass.",
         "Reuse the existing shell and artifact design in `templates/triage.html.tpl`; render Azure-specific scope, ranked work, work-item types/states, related context and method sections rather than GitHub-only issue/PR sections.",
         "Preserve per-item analysis for the complete inventory with no more than five analysts in flight, and show every item or an explicit `UNASSESSED` status instead of dropping unreviewed items.",
-        "Escape all untrusted Azure fields before HTML text or attributes; validate every evidence link as HTTPS before rendering and reject unsafe or malformed URLs.",
-        "Render fully before replacing the existing report; use separate sanitized synthetic unit/integration fixtures in `tests/triage-report.unit.spec.ts` and `tests/triage-report.integration.spec.ts` to assert escaping/link validation, rows/counts/linkages, Azure sections, and previous-report preservation on every failure path."
+        "Escape untrusted Azure fields before rendering HTML text or attributes; check raw and safely decoded URL components for credential-like values, omit unsafe or malformed links, and keep valid safe HTTPS links.",
+        "Use separate synthetic unit and integration coverage in `tests/triage-report.unit.spec.ts` and `tests/triage-report.integration.spec.ts` for escaping, URL safety, complete rows/counts/linkages, Azure-specific shared-shell sections, and bounded analysis."
       ],
       "files": [
         "skills/ai-triage/SKILL.md",
@@ -275,14 +275,14 @@
         "tests/triage-report.unit.spec.ts",
         "tests/triage-report.integration.spec.ts",
         "tests/artifact-layout.spec.ts",
-        "tests/artifact-scroll-spy.spec.ts"
+        "tests/artifact-scroll-spy.spec.ts",
+        "tests/artifact-brand.spec.ts"
       ],
       "acceptance": [
         "A synthetic full run writes a complete HTML report to `.ai-engineering/triage.html` with Azure-specific sections inside the existing shared shell.",
         "Every inventoried work item and its expected details/linkage is represented; report totals agree with inventory totals and related parent/child context does not inflate them.",
-        "Untrusted fields render as inert text, only validated HTTPS evidence links become links, and no authentication value is rendered.",
-        "No report is written or replaced after ambiguity, read, pagination, validation or render failure; an existing report remains byte-for-byte unchanged.",
-        "The shared shell/layout gates and synthetic report tests pass without reading or storing private Azure data."
+        "Untrusted fields render as inert text; credential-like URL values are rejected in raw and decoded forms, unsafe links are omitted, safe HTTPS links remain clickable, and no authentication value is rendered.",
+        "Shared-shell/layout gates and the separate synthetic unit/integration tests pass without reading or storing private Azure data."
       ],
       "verify": [
         "bun test tests/triage-report.unit.spec.ts",
@@ -295,15 +295,9 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 2, "findings": [] },
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": {
-          "status": "failed",
-          "attempts": 3,
-          "findings": [
-            "F1/P1: percent-encoded token-like values in scope.project or the organization URL bypass auth-value redaction; F2/P2 report-preservation coverage is resolved."
-          ]
-        }
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "pending",
       "changed_files": [
@@ -318,6 +312,48 @@
     },
     {
       "id": 7,
+      "title": "Preserve the previous report on write failures",
+      "simple": "Keep the last report if saving fails",
+      "size": "s",
+      "goal": "The report writer replaces the report atomically after a successful temporary write, and partial-write or replacement failures preserve the previous report byte-for-byte while cleaning up only temporary files it owns.",
+      "plain": {
+        "what": "A failed save keeps the last good report in place.",
+        "why": "A partial or failed replacement must never destroy the report people already have.",
+        "check": "Inject write and replacement failures and confirm the previous bytes remain unchanged."
+      },
+      "builds_on": [6],
+      "tasks": [
+        "Keep report publication behind a temporary-file write followed by replacement; track temporary-file ownership so cleanup never removes another file.",
+        "Use synthetic integration coverage in `tests/triage-report.integration.spec.ts` to inject partial temporary-write and replacement errors through the real writer, verify a successful replacement publishes the complete report, and assert previous bytes and owned-temp cleanup on failures."
+      ],
+      "files": [
+        "skills/ai-triage/scripts/render-report.mjs",
+        "tests/triage-report.integration.spec.ts"
+      ],
+      "acceptance": [
+        "Successful publication replaces the report with the complete rendered bytes.",
+        "Injected partial-write and replacement failures leave the previous report byte-for-byte unchanged.",
+        "Failure cleanup removes only an owned temporary file; no private Azure data or live report is used."
+      ],
+      "verify": [
+        "bun test tests/triage-report.integration.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending",
+      "changed_files": [
+        "skills/ai-triage/scripts/render-report.mjs",
+        "tests/triage-report.integration.spec.ts"
+      ]
+    },
+    {
+      "id": 8,
       "title": "Close documentation and verify the full feature",
       "simple": "Explain the new triage skill",
       "size": "l",
@@ -327,7 +363,7 @@
         "why": "Outdated instructions could send people to a removed skill or imply Azure can be modified.",
         "check": "Read the skill summary and run every project check before the feature is handed off."
       },
-      "builds_on": [6],
+      "builds_on": [7],
       "tasks": [
         "Update the current skill listing in `README.md`, add the user-facing replacement/Azure Services entry to `CHANGELOG.md`, and update `FILEMAP.md` for the new skill structure; retain historical release entries as history.",
         "Review `skills/ai-triage/SKILL.md` and provider references for one entry point, no alias, exact read-only Azure allowlist, explicit scope, per-run ambiguity answers, one-level inventory, five-agent cap, failure behavior and no configuration field.",
@@ -412,6 +448,7 @@
     "Superseded checkpoint 1 attempt 2: `bun test tests/skills.spec.ts` found the empty retired `skills/ai-github-triage/` directory after the skill file was renamed. Only that empty directory was removed; the targeted test then passed (19 passed) with no tracked file changes. Lesson L32 says retirement checks include directory presence.",
     "Superseded checkpoint 1 attempt 3: `bun run typecheck` exited 127 because `oxlint` was absent. `bun install --frozen-lockfile` restored dependencies without manifest or lock changes; `oxlint` 1.80.0 became available and typecheck exited 0 with warnings. Lesson L33 says to restore locked dependencies before typecheck.",
     "The three replacement checkpoints are pending with behavior/review gates reset; the historical failures and fixes above are retained as planning notes, not current gate results.",
-    "Human resumed checkpoint 2 with the trusted-PATH boundary after review circuit breaker F11; require bare command names and document that the contract is not a sandbox."
+    "Human resumed checkpoint 2 with the trusted-PATH boundary after review circuit breaker F11; require bare command names and document that the contract is not a sandbox.",
+    "Checkpoint 6 re-plan history (new gates are pending; these are historical outcomes): behavior passed after two attempts. The behavior failure was TS2769 from an unnarrowed optional recorded write; it was fixed by narrowing before `writeFile` (L51: narrow indexed values before typed use). Round 1 failed on shell metadata that HTML-escaped but did not redact credential-shaped values and missing injected write-failure coverage; fixes used shared redact-then-escape handling and added partial-write/replacement tests with temporary-file ownership tracking. Round 2 failed because token-shaped project values appeared in work-item URLs; the fix rejected credential-shaped URL values and fell back to safe IDs, while write-preservation coverage was resolved. Round 3 failed because percent-encoded credential-like organization/project values bypassed raw-only shell redaction; the fix checked encoded values in metadata, while write-failure coverage remained resolved. Round 4 passed after checking raw and decoded URL components, omitting unsafe links while retaining safe HTTPS links; synthetic unit/integration tests passed (6/6 and 11/11). L52 lesson: validate untrusted URL values before encoding or rendering them. Keep the approved trusted-PATH and privacy decisions unchanged: no Azure tenant, real report, commit, or push."
   ]
 }
