@@ -299,9 +299,9 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
           "status": "failed",
-          "attempts": 2,
+          "attempts": 3,
           "findings": [
-            "F1/P1: token-shaped project name in a generated work-item link bypasses auth-value redaction; F2/P2 was resolved with write/replace failure tests."
+            "F1/P1: percent-encoded token-like values in scope.project or the organization URL bypass auth-value redaction; F2/P2 report-preservation coverage is resolved."
           ]
         }
       },

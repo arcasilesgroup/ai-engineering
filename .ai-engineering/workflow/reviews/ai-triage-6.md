@@ -41,3 +41,24 @@ Verify:
 - **FAIL**
 - **F1 · P1 remains open** (`skills/ai-triage/scripts/render-report.mjs:264–273, 282`): Shell placeholders now redact, but a token-shaped `scope.project` is included in generated work-item `href`s. URL validation permits that path and HTML escaping does not redact it. A synthetic GitHub-token-shaped project value appeared in the complete report; reject/redact credential-shaped URL path values and cover this in the complete-report assertion.
 - **F2 · P2 resolved**: `bun test tests/triage-report.integration.spec.ts` passed 6/6. Injected temp-write and replacement failures preserve previous bytes and clean owned temps; `ownsTemporaryFile` remains false when exclusive open fails, so cleanup cannot unlink a non-owned temp file.
+
+## Round 3 verdict
+
+- **FAIL**
+- **F1 · P1 remains open** (`skills/ai-triage/scripts/render-report.mjs:46–65, 490–503`): URL sanitization detects percent-encoded credentials, but shell metadata still uses raw `visibleText()` redaction. A synthetic `%2567ithub_pat_syntheticToken1234567890` in either `scope.project` or the organization URL appeared in the complete report. Apply the encoded-value check to dynamic metadata and assert both cases.
+- **F2 · P2 resolved**: `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 13/13; partial-write and replacement failures still preserve prior bytes and clean owned temps.
+
+## Round 4 verdict
+
+- **PASS**
+- **F1 · P1 resolved:** Report text now checks raw and safely percent-decoded values before rendering; unsafe scope metadata is replaced, and work-item links fall back to IDs when organization/project values are unsafe. URL validation rejects malformed escapes, encoded credentials, and encoded sensitive query keys without changing safe link identities.
+- Synthetic report tests cover encoded token-shaped values and malformed escapes in both `scope.project` and the organization URL. Safe Azure evidence links remain clickable.
+- **F2 · P2 remains resolved.**
+- Verification: `bun test tests/triage-report.unit.spec.ts` passed 6/6; `bun test tests/triage-report.integration.spec.ts` passed 11/11.
+
+## Fixer response · F1
+
+- **ROOT CAUSE:** Raw-only authentication redaction did not catch percent-encoded credential-shaped values in Azure organization/project scope.
+- **FIX:** Check raw and decoded URL values, omit unsafe links, and render safe IDs/text.
+- **LESSON:** Validate untrusted URL values before encoding or rendering them.
+- **Focused tests:** Unit 6/6; integration 11/11.

@@ -386,3 +386,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Narrowed the recorded write before calling `writeFile`, without an unsafe cast; typecheck and targeted integration test passed.
 - **Lesson:** Narrow indexed values before using them in typed assertions.
 - **Tags:** typecheck, tests, narrowing, integration
+
+### L52 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Percent-encoded credential-shaped values in Azure organization/project scope bypassed raw-only authentication redaction and appeared in rendered output.
+- **Root cause:** Authentication redaction checked raw URL values but not their percent-decoded forms before rendering.
+- **Fix:** Check raw and decoded URL values; omit links with unsafe scope values and render safe IDs/text instead.
+- **Lesson:** Validate untrusted URL values before encoding or rendering them.
+- **Tags:** review, auth, redaction, urls, azure

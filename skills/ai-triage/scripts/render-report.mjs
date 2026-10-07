@@ -64,21 +64,48 @@ function redactAuthentication(value) {
     );
 }
 
-function containsAuthentication(value) {
+function percentDecodedValues(value) {
+  const decodedValues = [];
   let candidate = value;
+  let isRawValue = true;
   while (true) {
-    if (redactAuthentication(candidate) !== candidate) return true;
+    decodedValues.push(candidate);
+    if (!candidate.includes("%")) return decodedValues;
+    if (/%(?![a-f\d]{2})/i.test(candidate)) {
+      return !isRawValue && !/%[a-f\d]{2}/i.test(candidate)
+        ? decodedValues
+        : null;
+    }
     let decoded;
     try {
-      decoded = decodeURIComponent(
-        candidate.replace(/%(?![a-f\d]{2})/gi, "%25"),
-      );
+      decoded = decodeURIComponent(candidate);
     } catch {
-      return true;
+      return null;
     }
-    if (decoded === candidate) return false;
+    if (decoded === candidate) return decodedValues;
     candidate = decoded;
+    isRawValue = false;
   }
+}
+
+function containsAuthentication(value) {
+  const candidates = percentDecodedValues(value);
+  return (
+    candidates === null ||
+    candidates.some((candidate) => redactAuthentication(candidate) !== candidate)
+  );
+}
+
+function containsSensitiveQueryKey(key) {
+  const candidates = percentDecodedValues(key);
+  return (
+    candidates === null ||
+    candidates.some((candidate) =>
+      /(?:token|auth|password|secret|credential|api[_-]?key|signature|(?:^|[_-])sig(?:$|[_-]))/i.test(
+        candidate,
+      ),
+    )
+  );
 }
 
 export function escapeHtml(value) {
@@ -123,11 +150,7 @@ export function sanitizeEvidenceUrl(value) {
       /(?:token|auth|password|secret|credential|api[_-]?key|signature)/i.test(
         url.hash,
       ) ||
-      [...url.searchParams.keys()].some((key) =>
-        /(?:token|auth|password|secret|credential|api[_-]?key|signature|(?:^|[_-])sig(?:$|[_-]))/i.test(
-          key,
-        ),
-      )
+      [...url.searchParams.keys()].some(containsSensitiveQueryKey)
     ) {
       return null;
     }
@@ -138,9 +161,19 @@ export function sanitizeEvidenceUrl(value) {
 }
 
 function visibleText(value) {
-  return typeof value === "string"
-    ? escapeHtml(redactAuthentication(value))
-    : "";
+  if (typeof value !== "string") return "";
+  const decodedValues = percentDecodedValues(value);
+  if (decodedValues === null) return escapeHtml("[redacted]");
+  const redactedValue = redactAuthentication(value);
+  if (redactedValue !== value) return escapeHtml(redactedValue);
+  if (
+    decodedValues.some(
+      (candidate) => redactAuthentication(candidate) !== candidate,
+    )
+  ) {
+    return escapeHtml("[redacted]");
+  }
+  return escapeHtml(value);
 }
 
 function validateScope(scope) {
@@ -296,6 +329,12 @@ function link(label, url) {
 }
 
 function itemUrl(scope, id) {
+  if (
+    containsAuthentication(scope.organization) ||
+    containsAuthentication(scope.project)
+  ) {
+    return null;
+  }
   const project = encodeURIComponent(scope.project);
   return `${scope.organization}/${project}/_workitems/edit/${id}`;
 }

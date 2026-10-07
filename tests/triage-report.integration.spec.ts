@@ -261,6 +261,94 @@ describe("Azure triage report integration", () => {
     }
   });
 
+  test.each(["project", "organization"] as const)(
+    "omits percent-encoded credentials from %s metadata and links",
+    async (scopeField) => {
+      const encodedToken = "%2567ithub_pat_syntheticToken1234567890";
+      const scope = createSyntheticScope();
+      if (scopeField === "project") {
+        scope.project = encodedToken;
+      } else {
+        scope.organization = `https://dev.azure.com/${encodedToken}`;
+      }
+      const reportWriter = createMemoryReportWriter();
+
+      await writeAzureTriageReport({
+        scope,
+        inventory: createSyntheticInventory(),
+        analyzeItem: async (item: SyntheticWorkItem) => ({
+          status: "ASSESSED",
+          priority: "P2",
+          summary: `Synthetic analysis for item ${item.id}`,
+          evidence: [
+            {
+              label: "Safe synthetic evidence",
+              url: `${syntheticOrganization}/synthetic-project/_apis/wit/workItems/${item.id}`,
+            },
+          ],
+        }),
+        writeFile: reportWriter.writeFile,
+      });
+
+      const generatedReport = reportWriter.reports.get(targetReport);
+      if (generatedReport === undefined) {
+        throw new Error("The synthetic report writer did not store the target report");
+      }
+      for (const unsafeValue of [
+        encodedToken,
+        decodeURIComponent(encodedToken),
+        decodeURIComponent(decodeURIComponent(encodedToken)),
+      ]) {
+        expect(generatedReport).not.toContain(unsafeValue);
+      }
+      expect(generatedReport).toContain('<span class="iid">#201</span>');
+      expect(generatedReport).toContain(
+        'href="https://dev.azure.com/synthetic-org/synthetic-project/_apis/wit/workItems/201"',
+      );
+    },
+  );
+
+  test.each(["project", "organization"] as const)(
+    "omits malformed percent escapes from %s metadata and links",
+    async (scopeField) => {
+      const malformedValue = "synthetic-malformed%ZZ";
+      const scope = createSyntheticScope();
+      if (scopeField === "project") {
+        scope.project = malformedValue;
+      } else {
+        scope.organization = `https://dev.azure.com/${malformedValue}`;
+      }
+      const reportWriter = createMemoryReportWriter();
+
+      await writeAzureTriageReport({
+        scope,
+        inventory: createSyntheticInventory(),
+        analyzeItem: async (item: SyntheticWorkItem) => ({
+          status: "ASSESSED",
+          priority: "P2",
+          summary: `Synthetic analysis for item ${item.id}`,
+          evidence: [
+            {
+              label: "Safe synthetic evidence",
+              url: `${syntheticOrganization}/synthetic-project/_apis/wit/workItems/${item.id}`,
+            },
+          ],
+        }),
+        writeFile: reportWriter.writeFile,
+      });
+
+      const generatedReport = reportWriter.reports.get(targetReport);
+      if (generatedReport === undefined) {
+        throw new Error("The synthetic report writer did not store the target report");
+      }
+      expect(generatedReport).not.toContain(malformedValue);
+      expect(generatedReport).toContain('<span class="iid">#201</span>');
+      expect(generatedReport).toContain(
+        'href="https://dev.azure.com/synthetic-org/synthetic-project/_apis/wit/workItems/201"',
+      );
+    },
+  );
+
   test.each(["write", "replace"] as const)(
     "preserves previous report bytes when temporary %s fails",
     async (failureStage) => {

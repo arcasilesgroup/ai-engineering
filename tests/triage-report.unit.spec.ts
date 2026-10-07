@@ -30,6 +30,8 @@ describe("report HTML sanitization", () => {
       "/items/42",
       "//issues.example.test/items/42",
       "https://[",
+      "https://issues.example.test/items/%ZZ",
+      "https://issues.example.test/items/%E0%A4%A",
     ];
 
     for (const evidenceUrl of invalidUrls) {
@@ -56,7 +58,9 @@ describe("report HTML sanitization", () => {
     const encodedToken = "%67ithub_pat_syntheticToken1234567890";
     const encodedUrls = [
       `https://issues.example.test/${encodedToken}`,
+      "https://issues.example.test/%2567ithub_pat_syntheticToken1234567890",
       `https://issues.example.test/items/42?project=${encodedToken}`,
+      "https://issues.example.test/items/42?%2561ccess_token=",
       `https://${encodedToken}@issues.example.test/items/42`,
     ];
 
