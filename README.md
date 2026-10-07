@@ -135,7 +135,7 @@ The whole payload travels inside the package: the binary, the skill canon, the t
 ## Quick start
 
 <p align="center">
-  <img src=".github/assets/quickstart.gif" alt="ai-eng init installing the canon and the git floor, then ai-eng doctor reporting 16 checks passed, 0 warnings, 0 failures" width="960">
+  <img src=".github/assets/quickstart.gif" alt="ai-eng init installing the canon and the git floor, then ai-eng doctor running its checks and adversarial probe" width="960">
   <br/><sub>a real session, sped up: <code>ai-eng init</code>, then <code>ai-eng doctor</code></sub>
 </p>
 
@@ -252,7 +252,7 @@ it is asked out loud, once. Either way it ends in a gate or an `ABANDON`, never 
 | `ai-design-md-planner` | Writes a `DESIGN.md` design system and audits it with the official CLI until it lints clean |
 | `ai-explore` | Answers "where does this live" from the repository, anchored to `file:line` |
 | `ai-git-cleanup` | Removes merged branches and dead worktrees in one pass. It never force-deletes |
-| `ai-github-triage` | Ranks an entire open backlog into one page, each claim pinned to a commit |
+| `ai-triage` | Ranks one GitHub or Azure DevOps backlog in a complete, read-only report |
 | `ai-issue-report` | Files a governed bug report: scrubbed fields, local draft, nothing sent unconfirmed |
 | `ai-note` | Saves a hard-won finding as committed markdown, stamped so staleness is detectable |
 | `ai-orchestrator` | Builds a feature end to end in gated checkpoints. You approve the plan, then the app |
@@ -324,7 +324,7 @@ ai-eng worktree new <slug> | rm <slug> | list   # one copy per job, merged into 
 Ask the repo how it is doing, with real receipt statistics:
 
 <p align="center">
-  <img src=".github/assets/doctor.png" alt="ai-eng doctor reporting 16 checks passed, 0 warnings, 0 failures, with a real adversarial payload denied in 4ms" width="960">
+  <img src=".github/assets/doctor.png" alt="ai-eng doctor running its checks and denying a real adversarial payload" width="960">
 </p>
 
 ## Configuration

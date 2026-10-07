@@ -15,6 +15,15 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R6: Enforce protection at the one choke point every categorization funnels through, not per path — a guard placed only where a test pinned one configuration is forgotten by the next path — and let every destructive step assert its own safety first, with a command an agent can run, before it deletes. (from L18, L20, L30)
 - R7: Derive every list, count and path from the thing that owns it — the command's own contract, re-derived at write time — never a neighbour command's sweep, a remembered list, or a number copied into prose, which is only a cache of the command that produces it. (from L15, L21, L27)
 - R8: Pin the scope of every read and fail closed: ambient mutable state — HEAD, a user or global git config — must not decide what it sees, an exit code is never the result (only the message naming the expected absence may branch), and a guard that cannot decide denies. (from L16, L23)
+- R9: Define remote commands with a closed allowlist; inspect complete command examples before acceptance, reject shell composition and unsafe forms, and accept only bare allowlisted executable names. A static Markdown allowlist cannot secure executable resolution from `PATH`. (from L37–L42, L44–L45)
+- R10: Use the already-authenticated Azure CLI and its Azure DevOps extension for Azure DevOps access; never write tokens or credentials. (from L57)
+- R11: Scope each contract assertion to the specific command it governs; a neighboring command or generic assertion cannot stand in for it. (from L34–L36)
+- R12: Narrow optional and indexed values before typed use, and fail closed when a required value is absent. (from L46, L50–L51)
+- R13: Validate untrusted output values at the output boundary; HTML-escape text, validate raw and decoded URL values separately, and do not reprocess inserted content. (from L52–L55)
+- R14: Redact credential assignments at the shared output boundary by semantic key families, including nested assignments, while preserving safe near-matches. (from L58–L62)
+- R15: Keep executable `.mjs` APIs explicitly declared, and embed script/declaration payloads as text when they are data rather than host modules. (from L47, L64)
+- R16: Route repository-owned artifacts through their repository procedure and test the caller-to-procedure handoff; a same-named installed copy may have a conflicting contract. (from L66)
+- R17: For runtime p95 checks under parallel test load, use enough samples for nearest-rank p95 to tolerate scheduler outliers without loosening the budget. (from L65, L67)
 
 ## Log
 
@@ -237,3 +246,265 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** one reusable sentence for next time
 - **Tags:** e.g. auth, db, migration, ui, tests, webhooks
 -->
+
+### L31 · 2026-10-07 · ai-triage #1 · behavior
+- **Failure:** The first GitHub regression test imported `skills/ai-triage/scripts/github.mjs`, which is not part of the approved Markdown skill design.
+- **Root cause:** The test assumed the agent-executed procedure had an executable runtime helper, creating a scope mismatch.
+- **Fix:** Converted the regression test to a static contract test; did not invent the missing runtime.
+- **Lesson:** Test agent-executed Markdown procedures as static contracts; do not invent a runtime to satisfy an import.
+- **Tags:** tests, skills, scope
+
+### L32 · 2026-10-07 · ai-triage #1 · behavior
+- **Failure:** `bun test tests/skills.spec.ts` detected the empty `skills/ai-github-triage/` directory left after the old skill file was renamed.
+- **Root cause:** Renaming the old skill file left a stale directory entry on disk.
+- **Fix:** Removed only the empty retired skill directory; the targeted test then passed (19 passed) with no tracked file changes.
+- **Lesson:** Retirement checks include directory presence, not just `SKILL.md` files.
+- **Tags:** tests, skills, filesystem
+
+### L33 · 2026-10-07 · ai-triage #1 · behavior
+- **Failure:** `bun run typecheck` exited 127 because `oxlint` was not found.
+- **Root cause:** Dependencies had not been restored.
+- **Fix:** Restored locked dependencies with `bun install --frozen-lockfile`; manifests and lockfile were unchanged. Confirmed `oxlint` 1.80.0 was available and `bun run typecheck` exited 0 with warnings.
+- **Lesson:** Restore locked dependencies before the typecheck gate.
+- **Tags:** typecheck, dependencies, bun
+
+### L34 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Round 1 findings F1–F3 identified contract-test gaps.
+- **Root cause:** The tests did not link each requirement to its specific command.
+- **Fix:** Link each contract-test requirement to its specific command.
+- **Lesson:** Contract tests should link each requirement to its specific command.
+- **Tags:** review, tests, contracts
+
+### L35 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Round 2 findings F1/F2 remained open after independent review.
+- **Root cause:** Static contract checks did not link each requirement to the command it governs.
+- **Fix:** Link each static contract requirement to the command it governs.
+- **Lesson:** Static contract checks should link each requirement to the command it governs.
+- **Tags:** review, tests, contracts
+
+### L36 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Round 3 identified mutation and pagination gaps.
+- **Root cause:** Safety and completeness assertions were not scoped to the command they govern.
+- **Fix:** Scope each safety and completeness assertion to its governing command.
+- **Lesson:** Scope each safety and completeness assertion to the command it governs.
+- **Tags:** review, tests, contracts
+
+### L37 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Retry round 1 found that the contract chased mutators rather than limiting permitted operations.
+- **Root cause:** Mutator-by-mutator exclusions leave gaps when operations are missed.
+- **Fix:** Allowlist permitted operations instead of chasing mutators.
+- **Lesson:** Allowlist permitted operations instead of chasing mutators.
+- **Tags:** review, command-safety, contracts
+
+### L38 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Retry round 2 found remote-capable commands and request-body options insufficiently constrained.
+- **Root cause:** The contract did not reject all commands outside explicitly safe reads, independent of flag spacing.
+- **Fix:** Restrict commands to explicitly safe reads and reject other remote-capable commands and request-body options regardless of flag spacing.
+- **Lesson:** Allow only explicitly safe reads; reject other remote-capable commands and request-body options regardless of flag spacing.
+- **Tags:** review, command-safety, contracts
+
+### L39 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** Retry round 3 found shell syntax that could execute nested commands in the read-only command contract.
+- **Root cause:** The contract did not reject shell syntax capable of nested command execution.
+- **Fix:** Reject shell syntax that executes nested commands.
+- **Lesson:** A read-only command contract must reject shell syntax that executes nested commands.
+- **Tags:** review, command-safety, contracts
+
+### L40 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** The retry review found that the shell boundary was not enforced before accepting commands.
+- **Root cause:** Command acceptance preceded shell-boundary enforcement.
+- **Fix:** Enforce the shell boundary before accepting commands.
+- **Lesson:** Enforce the shell boundary before accepting commands.
+- **Tags:** review, command-safety, shell
+
+### L41 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** The retry review found that complete command examples were not extracted before read-only allowlist checks.
+- **Root cause:** The allowlist was applied before complete command examples were extracted.
+- **Fix:** Extract complete command examples before applying the read-only allowlist.
+- **Lesson:** Extract complete command examples before applying the read-only allowlist.
+- **Tags:** review, command-safety, contracts
+
+### L42 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** The retry review found that fence labels and executable paths could bypass a closed read allowlist.
+- **Root cause:** Fence labels and executable paths were not fully constrained by the closed read allowlist.
+- **Fix:** Prevent fence labels and executable paths from bypassing the closed read allowlist.
+- **Lesson:** Fence labels and executable paths must not bypass a closed read allowlist.
+- **Tags:** review, command-safety, allowlist
+
+### L43 · 2026-10-07 · ai-triage #2 · circuit-breaker
+- **Failure:** After the automatic split, checkpoint 2 review reached three failed review attempts. F1–F10 were resolved, but F11/P1 remains because basename normalization allows path-qualified executables such as `./gh` or `~/bin/gh` to bypass the read allowlist.
+- **Root cause:** Awaiting the user's decision.
+- **Fix:** Awaiting the user's decision.
+- **Attempts:** Explicit denylist; closed allowlist; shell operator, substitution and heredoc checks; all-fence parsing; basename normalization.
+- **Lesson:** No Rule inferred; root cause and final fix await the user's decision.
+- **Tags:** circuit-breaker, review, command-safety, allowlist
+
+### L44 · 2026-10-07 · ai-triage #2 · circuit-breaker
+- **Failure:** F11/P1 remained after three failed review attempts because basename normalization allowed path-qualified executables such as `./gh` or `~/bin/gh` to bypass the read allowlist.
+- **Root cause:** Normalizing an executable to its basename erased whether the command used a path prefix.
+- **Fix:** Require bare allowlisted `gh`/`az` executable names; reject executable path prefixes, environment assignments and shell wrappers. Accept that a static Markdown allowlist cannot sandbox a malicious earlier executable in `PATH`.
+- **Lesson:** A static command allowlist must constrain command form and disclose that it cannot control executable resolution from `PATH`.
+- **Tags:** circuit-breaker, review, command-safety, allowlist
+
+### L45 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** F11 found that basename normalization let `./gh` or `~/bin/gh` evade command identity checks.
+- **Root cause:** Markdown allowlists cannot attest the executable resolved from PATH.
+- **Fix:** The human chose the trusted-PATH boundary: require bare allowlisted executable names and explicitly state that this is not a sandbox.
+- **Lesson:** A command allowlist does not verify executable identity.
+- **Tags:** review, command-safety, allowlist
+
+### L46 · 2026-10-07 · ai-triage #3 · behavior
+- **Failure:** TypeScript reported possibly-undefined indexed values and regex captures in `tests/triage-github.spec.ts`.
+- **Root cause:** Indexed values and regex captures were used without narrowing their possible absence.
+- **Fix:** Added explicit guards and safe narrowing without casts, preserving the assertions.
+- **Lesson:** Narrow indexed values before use, and fail closed when a value is absent.
+- **Tags:** typecheck, tests, narrowing
+
+### L47 · 2026-10-07 · ai-triage #4 · behavior
+- **Failure:** Typecheck couldn't resolve `resolveTarget`/`resolveTargetAndRead` because `.mjs` lacked named-export declarations.
+- **Root cause:** A wildcard asset declaration masked the executable module's named exports.
+- **Fix:** Added `resolve-target.d.mts`; tests now pass.
+- **Lesson:** Give executable `.mjs` modules explicit declarations when a wildcard asset declaration masks their exports.
+- **Tags:** typecheck, typescript, declarations
+
+### L48 · 2026-10-07 · ai-triage #4 · review
+- **Failure:** The CP4 review invocation could not resolve feature-worktree files and performed no code review; no source finding.
+- **Root cause:** The reviewer used relative paths from the primary checkout instead of paths to the feature worktree.
+- **Fix:** No source change; include absolute feature-worktree paths in the review prompt.
+- **Lesson:** Review prompts for worktree files must include absolute worktree paths.
+- **Tags:** review, worktree, orchestration
+
+### L49 · 2026-10-07 · ai-triage #4 · behavior
+- **Failure:** A generic path segment `t` was mistaken for the team marker, and Azure DevOps Services SSH remotes were missed.
+- **Root cause:** Marker parsing was not anchored to the board route, and SSH parsing did not support strict `v3` remotes.
+- **Fix:** Anchor parsing to the board route and support strict Azure DevOps Services SSH `v3` remotes.
+- **Lesson:** Match route markers by position and test the resulting scope with synthetic inputs.
+- **Tags:** url-routing, team-marker, azure-devops, ssh
+
+### L50 · 2026-10-07 · ai-triage #5 · behavior
+- **Failure:** The Azure unit test typecheck failed on indexed array values and fixture metadata.
+- **Root cause:** Indexed arrays may yield `undefined`, and the fixture metadata union included a missing `stateCategory`.
+- **Fix:** Added explicit guards and narrowing without casts; typecheck and targeted tests passed.
+- **Lesson:** Narrow optional array values before passing them to typed assertions or functions.
+- **Tags:** typecheck, tests, narrowing, azure
+
+### L51 · 2026-10-07 · ai-triage #6 · behavior
+- **Failure:** Typecheck reported TS2769 at `tests/triage-report.integration.spec.ts:160` because an optional array lookup yielded `string | undefined` for `writeFile`.
+- **Root cause:** The recorded write was used without narrowing its possible absence.
+- **Fix:** Narrowed the recorded write before calling `writeFile`, without an unsafe cast; typecheck and targeted integration test passed.
+- **Lesson:** Narrow indexed values before using them in typed assertions.
+- **Tags:** typecheck, tests, narrowing, integration
+
+### L52 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Percent-encoded credential-shaped values in Azure organization/project scope bypassed raw-only authentication redaction and appeared in rendered output.
+- **Root cause:** Authentication redaction checked raw URL values but not their percent-decoded forms before rendering.
+- **Fix:** Check raw and decoded URL values; omit links with unsafe scope values and render safe IDs/text instead.
+- **Lesson:** Validate untrusted URL values before encoding or rendering them.
+- **Tags:** review, auth, redaction, urls, azure
+
+### L53 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Rendered values could reach output without sanitization, and write/replace failure cases were not covered.
+- **Root cause:** Output-boundary sanitization and stage-specific failure tests were incomplete.
+- **Fix:** Sanitize values at each output boundary and test failures at write and replace stages.
+- **Lesson:** Sanitize every rendered value at its output boundary; test failures at the write and replace stages.
+- **Tags:** review, sanitization, output, tests
+
+### L54 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Escaped HTML did not prevent credentials in URLs from being rendered.
+- **Root cause:** HTML escaping was treated as URL validation.
+- **Fix:** Escape HTML and validate URL values independently.
+- **Lesson:** Escape HTML and validate URLs independently; escaping does not remove credentials.
+- **Tags:** review, html, urls, credentials
+
+### L55 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Decoded URL values were not validated, and inserted content could be processed again.
+- **Root cause:** Validation and rendering did not account for decoded values and already-inserted content.
+- **Fix:** Validate decoded URL values and do not reprocess inserted content.
+- **Lesson:** Validate decoded URL values and never reprocess inserted content.
+- **Tags:** review, urls, validation, rendering
+
+### L56 · 2026-10-07 · ai-triage #6 · circuit-breaker
+- **Failure:** After the split, review attempt 3 stopped on the round-4 open P1: synthetic `azure_devops_token=` and `bearer_token=` team metadata values still render.
+- **Root cause:** Awaiting the user's decision.
+- **Fix:** Awaiting the user's decision.
+- **Attempts:** Review attempts 1–3; round 4 left the P1 open.
+- **Lesson:** No Rule inferred; root cause and final fix await the user's decision.
+- **Tags:** circuit-breaker, review, auth, redaction, metadata, azure
+
+### L57 · 2026-10-07 · ai-triage #6 · human
+- **Failure:** The checkpoint halted while deciding how Azure DevOps authentication should be handled.
+- **Root cause:** “que usen el cli de az que debe estar auth y ahí existe la extensión de azure devops no? que no exista tokens ni credenciales escritos”
+- **Fix:** Use the already-authenticated Azure CLI and its Azure DevOps extension; do not write tokens or credentials.
+- **Lesson:** Use the existing Azure CLI authentication and Azure DevOps extension, never written tokens or credentials.
+- **Tags:** human, circuit-breaker, auth, credentials, azure-devops
+
+### L58 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Synthetic `azure_devops_token=` and `bearer_token=` team metadata credentials still rendered.
+- **Root cause:** The assignment redactor omitted Azure DevOps token and bearer-token key variants.
+- **Fix:** Added both key variants to the redaction matcher and expanded full-report tests to verify secret removal while preserving safe lookalike fields.
+- **Lesson:** Cover provider-specific credential assignment names in redaction tests, including safe fields with similar prefixes.
+- **Tags:** review, auth, redaction, metadata, azure, bearer
+
+### L59 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Synthetic `azure_devops_pat=`, `github_token=`, and `system_access_token=` metadata values rendered in the full report.
+- **Root cause:** The shared assignment redactor omitted these credential aliases.
+- **Fix:** Added the three exact aliases at the shared redaction boundary and extended full-report regression coverage with benign owner-field near-matches.
+- **Lesson:** Cover provider credential aliases at the shared output boundary while asserting that neighboring metadata remains visible.
+- **Tags:** review, auth, redaction, metadata, tests
+
+### L60 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** New provider-prefixed credential assignment aliases continued to leak after the finite alias list was extended.
+- **Root cause:** Redaction depended on enumerating provider-specific assignment names instead of recognizing credential-bearing key families.
+- **Fix:** Normalize assignment keys and redact credential suffix families while leaving owner/count and non-terminal near-matches unchanged.
+- **Lesson:** Classify credential assignment keys by semantic suffix, not a growing provider alias list or arbitrary keyword containment.
+- **Tags:** review, auth, redaction, metadata, tests
+
+### L61 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Synthetic `SYSTEM_ACCESSTOKEN=`, `private_key=`, `access_key=`, and `secret_access_key=` values remained in the full report.
+- **Root cause:** Token matching required a separator before its suffix, and key assignment families were not recognized.
+- **Fix:** Match normalized credential suffixes and common credential-key families at the shared report redaction boundary while preserving owner/count/policy fields.
+- **Lesson:** Normalize credential assignment names before classifying semantic suffixes; avoid broad substring matching that hides benign metadata.
+- **Tags:** review, auth, redaction, metadata, tests
+
+### L62 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** A nested credential assignment escaped the full report when enclosed by safe outer metadata.
+- **Root cause:** The sanitizer consumed the quoted outer value before scanning nested assignments.
+- **Fix:** Scan and redact embedded assignments while preserving safe surrounding text.
+- **Lesson:** Scan nested credential assignments at the shared output boundary while retaining safe enclosing text.
+- **Tags:** review, auth, redaction, metadata, tests
+
+### L63 · 2026-10-07 · ai-triage #7 · review
+- **Failure:** A substituted same-path temporary file could be deleted during cleanup or published instead of the report.
+- **Root cause:** Cleanup and replacement trusted a pathname after closing the staged file, without binding that path to the opened file's identity.
+- **Fix:** Stage in a private unique directory, retain the opened file through atomic rename, validate device/inode before replacement, and unlink only the matching staged file.
+- **Lesson:** Bind filesystem cleanup and publication to the identity of the file opened, not just its temporary pathname.
+- **Tags:** review, atomic-write, filesystem, ownership, tests
+
+### L64 · 2026-10-07 · ai-triage #8 · behavior
+- **Failure:** `bun run typecheck` reported TS1192/TS2846 because generated `src/assets.ts` imported `.d.mts` declaration files as runtime assets.
+- **Root cause:** `.mjs` runtime imports resolved sibling `.d.mts` declarations as host modules.
+- **Fix:** Embedded scripts and declaration files through `.txt` copies and tested the exact payloads.
+- **Lesson:** Keep runtime script assets separate from host-module resolution.
+- **Tags:** behavior, assets, typecheck
+
+### L65 · 2026-10-07 · ai-triage #8 · behavior
+- **Failure:** The chain full-suite p95 budget failed sporadically although the isolated test passed.
+- **Root cause:** `tests/adversarial/chain.test.ts` used `floor(n*0.95)`, which selected the maximum of 20 observations.
+- **Fix:** Use `ceil(0.95*n)-1` and pin the one-outlier regression while preserving the 50ms threshold.
+- **Lesson:** The nearest-rank p95 index is `ceil(p*n)-1`.
+- **Tags:** behavior, tests, performance
+
+### L66 · 2026-10-07 · ai-triage · human
+- **Failure:** The approved app review could not finish because a generic recap-skill invocation selected an installed procedure with a different publishing contract from the repository's HTML artifact.
+- **Root cause:** The orchestrator named a skill without pinning the repository-owned procedure, and the installed copy disagreed with the local workflow.
+- **Fix:** Bind the close procedure to the repository skill path, make that skill describe the local HTML artifact, synchronize the active installed copies, and test the handoff.
+- **Lesson:** Route repository-owned artifacts through their repository procedure and test the caller-to-procedure handoff.
+- **Gate that should have caught it:** `tests/skills.spec.ts` had no assertion for the app-review recap route.
+- **Tags:** human, workflow, recap
+
+### L67 · 2026-10-07 · ai-triage #8 · behavior
+- **Failure:** The nearest-rank chain p95 test intermittently failed with 20 samples under the test runner.
+- **Root cause:** At 20 samples, the 19th ordered value defines p95, so two scheduler stalls push the estimate over the budget.
+- **Fix:** Measure 100 calls and retain the 50ms threshold plus a deterministic outlier check.
+- **Lesson:** Use enough samples for nearest-rank p95 to tolerate expected scheduler outliers without changing the budget.
+- **Tags:** behavior, tests, performance

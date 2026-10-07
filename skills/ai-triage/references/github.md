@@ -1,18 +1,4 @@
----
-name: ai-github-triage
-description: >-
-  Reads every open issue and pull request of a repository and writes one ranked, actionable
-  page at .ai-engineering/triage.html: what is broken, what is already answered, what to
-  close, and the three things to start on first, each claim backed by a permalink at a
-  commit SHA. Read-only: it never comments, labels, closes, merges or reviews anything on
-  GitHub. With no argument it triages this repository; given a URL or owner/repo it triages
-  that backlog instead. Trigger for "triage", "triage the issues", "go through the
-  backlog", "what should we work on next". Not for diagnosing one failure (/ai-debug), not
-  for reporting a fault (/ai-issue-report), not for judging a diff (/ai-verify).
-license: Apache-2.0
----
-
-# ai-github-triage — read the backlog, rank it, touch nothing
+# GitHub procedure — read the backlog, rank it, touch nothing
 
 One page that answers "what should we work on next", built from every open issue and pull
 request, with each claim pinned to the line of code that proves it. The output is a
@@ -28,25 +14,36 @@ and git keeps what the last run said.
 ## The absolute rule: read-only
 
 The page is the only artifact. Every mutation of GitHub state is a failure of this skill,
-not a shortcut in it.
+not a shortcut in it. The only permitted GitHub reads are `gh issue list`, `gh issue view`,
+`gh pr list`, `gh pr view`, `gh pr diff`, and `gh api` with GET only. For `gh api`, omit
+the method (GET is the default) or specify GET, and do not send a request body. Treat every
+other `gh` command as forbidden; this is a closed allowlist, not a list of examples.
 
-| Forbidden | Allowed |
-|---|---|
-| `gh issue comment`, `gh issue close`, `gh issue edit` | `gh issue view`, `gh issue list` |
-| `gh pr comment`, `gh pr merge`, `gh pr review`, `gh pr edit`, `gh pr checkout` | `gh pr view`, `gh pr list`, `gh pr diff` |
-| `gh api -X POST`, `-X PUT`, `-X PATCH`, `-X DELETE` | `gh api` without a method (GET) |
-| `git checkout`, `git switch`, `git fetch`, `git pull` on a branch under review | `git log`, `git show`, `git blame`, `git rev-parse` |
-| Labeling, assigning, reopening, transferring | Reading the tree, the diff and the history |
+Only those listed `gh` reads may contact a remote service. Every other command or tool
+capable of remote access or changing remote state is forbidden, including curl requests
+and git push. This applies to attached flags too: any request-body or field option is
+forbidden.
+Use exactly one direct allowlisted CLI command per tool call. Do not wrap or
+compose shell commands: no compound commands, shell wrappers, inline environment
+assignments, process substitution, command substitution,
+here-docs, or line continuations.
+Every permitted CLI executable must use its bare allowlisted name (`gh`, `git`, or
+`curl` only where explicitly permitted), never an executable path. Reject `./gh`,
+`/usr/bin/curl`, `~/bin/git`, and equivalent path-qualified forms. This contract
+assumes the user's `PATH` is trusted; it is not an executable-identity sandbox and
+does not protect against malicious entries in `PATH`.
+Do not check out, switch, fetch, or pull a branch under review; inspect it with `git log`,
+`git show`, `git blame`, or `git rev-parse`.
 
-No subagent gets a verb from the left column. A PR row says `MERGE` or `BLOCKED`; a human
-merges. The single tempting exception, "just close the duplicate", is the rule's own
+No subagent gets a command outside that allowlist. A PR row says `MERGE` or `BLOCKED`; a
+human merges. The single tempting exception, "just close the duplicate", is the rule's own
 example of a violation.
 
 ## Which repository (the scope rule, decided before anything else)
 
-- **No URL** — the current repository: `gh repo view --json nameWithOwner -q .nameWithOwner`.
-  If the directory is not a git repository or `gh` has no repo, say which of the two failed
-  and stop.
+- **No URL** — the current repository, identified from the local `origin` remote with
+  `git remote get-url origin`. If the directory is not a git repository or has no GitHub
+  `origin`, say which of the two failed and stop.
 - **A URL, `owner/repo`, or a path to another checkout** — that backlog: `https://github.com/owner/repo/issues`,
   `https://github.com/owner/repo/pulls`, the bare slug, or a directory that has a remote.
 - One run, one repository. Never merge two backlogs into one page, even when the same
@@ -61,12 +58,18 @@ example of a violation.
    commands run from wherever the session stands, and the default checkout's repo is
    not the one being triaged when the argument was another repository's URL.
    `gh issue list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closedByPullRequestsReferences,body`
-   and `gh pr list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closingIssuesReferences,mergeStateStatus,mergeable,reviewDecision,headRefName,isDraft`.
-   The two inventories cannot share one field list: a pull request has no `closedByPullRequestsReferences`, so `gh pr list` with the issue's fields exits non-zero before it reads anything. Above 1000
-   items, page with `--search "created:<oldest-in-page"` until a page comes back
-   empty. A truncated backlog is a wrong page: an item nobody read is an item the
-   ranking silently dropped. **Write down the count you fetched and make the page
-   agree with it.** An active repository carries several times more open items than
+   If this issue inventory returns 1000 items, page it with
+   `--search "created:<oldest-in-page"` until a page comes back empty. Write down
+   the fetched issue count and make the page's open-issue count agree with it.
+   The `gh pr list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closingIssuesReferences,mergeStateStatus,mergeable,reviewDecision,headRefName,isDraft`
+   If this pull-request inventory returns 1000 items, page it with
+   `--search "created:<oldest-in-page"` until a page comes back empty. Write down
+   the fetched pull-request count and make the page's pull-request count agree
+   with it. The two inventories cannot share
+   one field list: a pull request has no `closedByPullRequestsReferences`, so
+   `gh pr list` with the issue's fields exits non-zero before it reads anything.
+   A truncated backlog is a wrong page: an item nobody read is an item the
+   ranking silently dropped. An active repository carries several times more open items than
    its newest page shows; reading the first page and calling it the backlog is the
    commonest way this page goes wrong, and it fails silently.
 3. Join the two halves before classifying. `closedByPullRequestsReferences` on an
@@ -193,7 +196,7 @@ colour the reader cannot look up is decoration, not a ranking.
 
 ## The page
 
-Start from [templates/triage.html.tpl](../../templates/triage.html.tpl), fill it, and keep
+Start from [templates/triage.html.tpl](../../../templates/triage.html.tpl), fill it, and keep
 its structure: the working page is that template with the `{{placeholders}}` replaced.
 
 - `<header class="hero">` carries the stamp `Triage · <owner/repo> · <date>`, the h1
@@ -208,7 +211,7 @@ its structure: the working page is that template with the `{{placeholders}}` rep
   in it is deleted and the survivors
   are renumbered `01` to `N`, so the nav has no hole: an empty heading reads as "we found
   nothing", which is a different claim from "we did not look". Number the sections from
-  the surviving list, never from a hard-coded map, or the `also in` links point one
+  the surviving list, never from a hard-coded map, or the “also in” links point one
   section too far the moment a section is dropped.
 - Sticky `<nav>` with one `<a>` per surviving section, `<main id="main">`, `<footer>` with
   the `{ai}` mark.
@@ -217,7 +220,7 @@ its structure: the working page is that template with the `{{placeholders}}` rep
   `<meta name="ai-triage-sha" content="<commit>">`.
 - Every item on the page is the same `.item`: a native `<details>` whose `summary`
   carries the chips, the linked `#id` and the title, and whose body carries the
-  `CONTEXT`, the evidence and the `also in` cross-refs. Native disclosure, not a
+  `CONTEXT`, the evidence and the “also in” cross-references. Native disclosure, not a
   script, so keyboard, find-in-page and print keep working.
 - Section 02 is the page's job: the ranked queue, one `.item` per ranked entry,
   best first, each id linking to the issue, each row carrying the band chip. A
@@ -250,7 +253,7 @@ its structure: the working page is that template with the `{{placeholders}}` rep
 
 The page is an ai-engineering artifact, so its style is the artifact design system and its
 carrier is the template, never a stylesheet invented for the report:
-[ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md).
+[ai-brainstorm › references/artifact-design.md](../../ai-brainstorm/references/artifact-design.md).
 
 The template carries the canonical CSS block, the `{ai}` favicon and the scroll-spy script
 verbatim. Copy the file and fill it; do not write a `<style>` block, and do not add a
@@ -269,7 +272,7 @@ template is the whole design and the run does not degrade.
 ## The ai-engineering seam
 
 1. Output path: `.ai-engineering/triage.html`, rendered from
-   [templates/triage.html.tpl](../../templates/triage.html.tpl) with the artifact design
+   [templates/triage.html.tpl](../../../templates/triage.html.tpl) with the artifact design
    system. It is written with the file tools; `rm`, `mv` and `tee` into `.ai-engineering/`
    are denied, because a verb that can act on several paths is judged as a whole command.
 2. The page is a slot like `recap.html`: the next triage of the same repository replaces
@@ -288,7 +291,7 @@ template is the whole design and the run does not degrade.
 - Every claim carries a permalink at a commit SHA, or is marked `[UNVERIFIED]` and stays
   marked.
 - Every chip on the page has its key in the `.legend`, and every duplicate is
-  visible as one item through its `also in` line.
+  visible as one item through its “also in” line.
 - Scrolling marks the nav link of the section in view, because the script is the
   template's, copied byte for byte.
 - The page opens from `file://` with no sideways scroll, section 02 names what to start on,
@@ -316,13 +319,3 @@ In scope: "triage the backlog", "what should we work on next", "go through the o
 Not for: one failure in your own code (/ai-debug), filing a fault (/ai-issue-report),
 judging a finished diff (/ai-verify), deciding what to build (/ai-brainstorm), evidence from
 outside the repository (/ai-research).
-
-## Lifecycle
-
-Lane: any
-Writes: .ai-engineering/triage.html
-Read by: the human who decides what to work on next; ai-brainstorm once a triaged item becomes work
-Dies: replaced by the next triage of the same repository; git keeps the history
-Next: ai-brainstorm when the human picks an item to build; none when the page only closed items
-
-Source: ai-engineering (own), Apache-2.0.

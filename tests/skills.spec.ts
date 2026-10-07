@@ -398,3 +398,21 @@ describe("workflow kit — six skills ship with valid frontmatter", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("workflow kit — recap handoff stays repository-local", () => {
+  test("the close process follows the repository HTML recap procedure", () => {
+    const orchestratorSkill = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const recapSkill = readFileSync(join(SKILLS, "ai-visual-recap", "SKILL.md"), "utf8");
+
+    expect(orchestratorSkill).toContain(
+      "follow the repository-owned procedure at `skills/ai-visual-recap/SKILL.md`",
+    );
+    expect(orchestratorSkill).not.toContain("run `/ai-visual-recap`");
+    expect(orchestratorSkill).toContain(
+      "Next: none — Phase 4 reads the repository-local HTML procedure directly.",
+    );
+    expect(recapSkill).toContain("Start with `templates/recap.html.tpl`");
+    expect(recapSkill).toContain("`.ai-engineering/recap.html`");
+    expect(recapSkill).not.toContain("ai-eng spec close");
+  });
+});

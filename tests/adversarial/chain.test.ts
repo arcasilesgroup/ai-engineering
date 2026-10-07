@@ -30,6 +30,8 @@ afterAll(() => {
 const RUN = (payload: Record<string, unknown>, event = "PreToolUse") =>
   runChain(payload, event, { inProcess: true });
 
+const p95 = (sortedSamples: number[]) => sortedSamples[Math.ceil(sortedSamples.length * 0.95) - 1]!;
+
 describe("adversarial · no-verify", () => {
   test("git commit -n is denied", () => {
     const r = RUN({ tool_name: "Bash", tool_input: { command: "git commit -n -m x" }, tool_use_id: "a1", session_id: "adv" });
@@ -230,15 +232,19 @@ describe("adversarial · chain hard cases", () => {
     expect(r.action).toBe("deny");
     if (r.action === "deny") expect(r.by).toBe("chain");
   });
-  test("latency budget: chain answers under 50ms p95 across 20 calls", () => {
+  test("latency budget: chain answers under 50ms p95 across 100 calls", () => {
+    const sampleCount = 100;
     const samples: number[] = [];
-    for (let i = 0; i < 20; i++) {
+    // A larger sample makes p95 resilient to a few scheduler pauses without loosening the budget.
+    for (let i = 0; i < sampleCount; i++) {
       const t0 = performance.now();
       RUN({ tool_name: "Bash", tool_input: { command: `echo ${i}` }, tool_use_id: `lat-${i}`, session_id: "adv-lat" });
       samples.push(performance.now() - t0);
     }
     samples.sort((a, b) => a - b);
-    expect(samples[Math.floor(samples.length * 0.95)]!).toBeLessThan(50);
+    const oneOutlier = [...Array.from({ length: sampleCount - 1 }, () => 1), 100];
+    expect(p95(oneOutlier)).toBe(1);
+    expect(p95(samples)).toBeLessThan(50);
   });
 });
 
