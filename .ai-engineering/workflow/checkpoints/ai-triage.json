@@ -1,0 +1,271 @@
+{
+  "feature": "GitHub and Azure DevOps backlog triage",
+  "slug": "ai-triage",
+  "summary": "Replace the GitHub-only triage skill with one `ai-triage` entry point that preserves GitHub behavior and adds safe, complete Azure DevOps Services reports. Each run resolves one scope, reads without remote mutations, and writes a full report only when its inventory is complete.",
+  "plain_summary": "People can get one complete, ranked backlog report from GitHub or Azure DevOps without changing anything in either service.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Unify the skill and preserve GitHub triage",
+      "simple": "Keep GitHub triage",
+      "size": "s",
+      "goal": "The branch PRD records the approved ai-triage scope, one public skill preserves the existing GitHub inventory, ranking, evidence and read-only behavior, the old skill is retired, and the replacement is bundled.",
+      "plain": {
+        "what": "People still get the same complete GitHub backlog report from one renamed skill.",
+        "why": "Without this, the new name could silently lose details people already rely on.",
+        "check": "Run the GitHub fixture and confirm every expected item and report section remains."
+      },
+      "builds_on": [],
+      "tasks": [
+        "Sync `.ai-engineering/PRD.html` on this feature branch with the approved decisions from `.ai-engineering/brainstorm.html`; the branch baseline PRD has no ai-triage scope.",
+        "Create `skills/ai-triage/SKILL.md` as the single shared entry point and move the existing GitHub procedure into `skills/ai-triage/references/github.md`; preserve its issue and pull-request inventories, pagination, per-item analysis, ranking, evidence, report contract, and read-only boundary.",
+        "Retire `skills/ai-github-triage/` only after the new provider reference and regression fixture are in place; do not add an alias. Until Azure support is complete, an Azure route must stop before any remote read.",
+        "Add `tests/triage-github.spec.ts` with synthetic GitHub issue/PR fixtures that exercise the replacement route and assert complete inventory, preserved report sections and fields, item linkage, and no remote writes.",
+        "Regenerate `src/assets.ts` with `bun scripts/gen-assets.ts` and verify the new skill and provider reference are embedded while the retired skill is absent."
+      ],
+      "files": [
+        ".ai-engineering/PRD.html",
+        "skills/ai-triage/SKILL.md",
+        "skills/ai-triage/references/github.md",
+        "skills/ai-github-triage/SKILL.md",
+        "src/assets.ts",
+        "tests/triage-github.spec.ts"
+      ],
+      "acceptance": [
+        "The PRD contains the approved single-skill replacement and GitHub-preservation decisions without changing unrelated product scope.",
+        "A synthetic GitHub run keeps every issue and pull request visible, including unassessed items, and preserves the existing ranking, evidence and report behavior.",
+        "Only `ai-triage` is the public skill name; `skills/ai-github-triage/` is gone and an Azure target fails closed before reading.",
+        "`bun test tests/skills.spec.ts` and `bun test tests/embed-canon.spec.ts` prove the new skill is valid and embedded, with no retired skill payload."
+      ],
+      "verify": [
+        "bun test tests/triage-github.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Resolve Azure targets before reading",
+      "simple": "Choose the right Azure board",
+      "size": "m",
+      "goal": "A deterministic resolver chooses an explicit URL's provider and scope or a unique repository remote, and returns an ambiguity that must be answered before any Azure request.",
+      "plain": {
+        "what": "The skill knows which Azure project and board to read, or asks before opening anything.",
+        "why": "Guessing from the signed-in account could expose the wrong team's private backlog.",
+        "check": "Try clear and ambiguous URLs and remotes; ambiguous cases must make no read call."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "Add `skills/ai-triage/scripts/resolve-target.mjs` to resolve explicit GitHub or Azure DevOps Services URLs before remotes, and otherwise derive only the provider and project scope established by repository remotes.",
+        "Return an explicit needs-answer result when provider, project, team, board or backlog level is ambiguous; have `skills/ai-triage/SKILL.md` ask before reading and retain any answer only for that run.",
+        "Require explicit Azure organization and project arguments downstream; reject Azure DevOps Server and never inspect active `az` defaults or add a triage field to `.ai-engineering/config.toml`.",
+        "Add `tests/triage-routing.spec.ts` using synthetic URLs and remotes, plus a fake request adapter that proves ambiguous and unsupported targets trigger zero reads."
+      ],
+      "files": [
+        "skills/ai-triage/SKILL.md",
+        "skills/ai-triage/scripts/resolve-target.mjs",
+        "tests/triage-routing.spec.ts"
+      ],
+      "acceptance": [
+        "An explicit URL fixes provider and scope even when repository remotes disagree.",
+        "Without a URL, only one unambiguous remote determines provider/project; missing or conflicting provider, project or board information asks before any read.",
+        "Azure Services targets carry explicit organization and project values; no active Azure CLI default or persisted config field supplies scope.",
+        "Synthetic tests cover GitHub and Azure URLs, unique and conflicting remotes, missing board selection, unsupported Azure Server, and zero reads on ambiguity."
+      ],
+      "verify": [
+        "bun test tests/triage-routing.spec.ts",
+        "bun test tests/triage-github.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Collect a complete read-only Azure backlog",
+      "simple": "Read every open Azure item",
+      "size": "l",
+      "goal": "The selected Azure backlog level yields a complete, normalized inventory of nonterminal work items using process-aware state categories, bounded batch reads and a provable completion condition; otherwise collection fails closed.",
+      "plain": {
+        "what": "The report receives every eligible item from one board, with related parents or children only as context.",
+        "why": "A capped or guessed list could hide work and make the ranking misleading.",
+        "check": "Synthetic large backlogs must finish completely or report failure, never a smaller complete-looking list."
+      },
+      "builds_on": [2],
+      "tasks": [
+        "Add `skills/ai-triage/scripts/collect-azure.mjs` and `skills/ai-triage/references/azure-devops.md` for Azure DevOps Services only; use explicit organization/project scope and one selected board/backlog level per run.",
+        "Discover work-item types and their process state categories; include every nonterminal category without hard-coded state names, and fetch parent/child links only for context without widening the inventory.",
+        "Define and enforce this default-deny `az devops invoke` allowlist with explicit `--organization`, project/team route parameters and API version: GET `/{project}/{team}/_apis/work/backlogs`; GET `/{project}/{team}/_apis/work/backlogs/{id}` when needed to resolve the selected level; GET `/{project}/_apis/wit/workitemtypes`; GET `/{project}/_apis/wit/workitemtypes/{type}/states`; POST `/{project}/_apis/wit/wiql`; POST `/{project}/_apis/wit/workitemsbatch`. Verify exact supported routes before implementation; add no other route/method pair without a documented read need and a pinned test.",
+        "Use `az devops invoke` only through the allowlist; do not use flat-only `az boards query` as a complete backlog read. Allow POST only for the listed read-only WIQL and batch endpoints, require explicit organization/project arguments, and cap each batch at 200 IDs.",
+        "Prove pagination/completeness before returning inventory; test continuation, empty final page, WIQL boundary, missing state metadata, API/auth errors and batches above 200 with sanitized synthetic fixtures in `tests/triage-azure.spec.ts`."
+      ],
+      "files": [
+        "skills/ai-triage/references/azure-devops.md",
+        "skills/ai-triage/scripts/collect-azure.mjs",
+        "skills/ai-triage/scripts/resolve-target.mjs",
+        "tests/triage-azure.spec.ts"
+      ],
+      "acceptance": [
+        "The synthetic inventory contains every and only nonterminal item for the selected process-aware backlog level; parent/child context never adds inventory rows.",
+        "Every request matches an allowlisted method and route, carries explicit organization/project scope, and batch requests contain at most 200 IDs; no mutation-capable route or unbounded `invoke` is emitted.",
+        "A fixture crossing the supported WIQL/page boundary is complete only when the reader can prove all pages were fetched; an unknown or capped result fails rather than returning a complete flag.",
+        "Unknown process state categories, incomplete pagination, authentication failures and any non-allowlisted call stop collection without producing a report.",
+        "All Azure tests use synthetic fixtures; this checkpoint makes no tenant or authentication query."
+      ],
+      "verify": [
+        "bun test tests/triage-azure.spec.ts",
+        "bun test tests/triage-routing.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Render complete Azure reports safely",
+      "simple": "Show the whole Azure backlog",
+      "size": "l",
+      "goal": "A complete Azure inventory becomes a full `.ai-engineering/triage.html` report using the shared artifact shell, Azure-appropriate sections, escaped untrusted content and validated HTTPS evidence; failures leave the previous report untouched.",
+      "plain": {
+        "what": "People can read the full Azure backlog, its ranking and useful related context in one safe page.",
+        "why": "A partial or unsafe page could hide work or run content copied from a work item.",
+        "check": "Open a synthetic report and confirm every item appears while hostile text stays inert."
+      },
+      "builds_on": [3],
+      "tasks": [
+        "Add `skills/ai-triage/scripts/render-report.mjs` and wire the shared router, Azure collector and report writer to `.ai-engineering/triage.html` only after routing and inventory completeness pass.",
+        "Reuse the existing shell and artifact design in `templates/triage.html.tpl`; render Azure-specific scope, ranked work, work-item types/states, related context and method sections rather than GitHub-only issue/PR sections.",
+        "Preserve per-item analysis for the complete inventory with no more than five analysts in flight, and show every item or an explicit `UNASSESSED` status instead of dropping unreviewed items.",
+        "Escape all untrusted Azure fields before HTML text or attributes; validate every evidence link as HTTPS before rendering and reject unsafe or malformed URLs.",
+        "Render fully before replacing the existing report; use sanitized synthetic fixtures in `tests/triage-report.spec.ts` to assert all rows/counts/linkages, Azure sections, hostile fields, invalid links and previous-report preservation on every failure path."
+      ],
+      "files": [
+        "skills/ai-triage/SKILL.md",
+        "skills/ai-triage/scripts/collect-azure.mjs",
+        "skills/ai-triage/scripts/render-report.mjs",
+        "templates/triage.html.tpl",
+        "tests/triage-report.spec.ts",
+        "tests/artifact-layout.spec.ts",
+        "tests/artifact-scroll-spy.spec.ts"
+      ],
+      "acceptance": [
+        "A synthetic full run writes a complete HTML report to `.ai-engineering/triage.html` with Azure-specific sections inside the existing shared shell.",
+        "Every inventoried work item and its expected details/linkage is represented; report totals agree with inventory totals and related parent/child context does not inflate them.",
+        "Untrusted fields render as inert text, only validated HTTPS evidence links become links, and no authentication value is rendered.",
+        "No report is written or replaced after ambiguity, read, pagination, validation or render failure; an existing report remains byte-for-byte unchanged.",
+        "The shared shell/layout gates and synthetic report tests pass without reading or storing private Azure data."
+      ],
+      "verify": [
+        "bun test tests/triage-report.spec.ts",
+        "bun test tests/artifact-layout.spec.ts",
+        "bun test tests/artifact-scroll-spy.spec.ts",
+        "bun test tests/artifact-brand.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "title": "Close documentation and verify the full feature",
+      "simple": "Explain the new triage skill",
+      "size": "l",
+      "goal": "Current documentation names only `ai-triage`, generated assets include the final shared and provider-specific procedures, and the complete GitHub/Azure suite and project gates pass without a private live report in the changes.",
+      "plain": {
+        "what": "People can find the new skill and understand what it reads and what it never changes.",
+        "why": "Outdated instructions could send people to a removed skill or imply Azure can be modified.",
+        "check": "Read the skill summary and run every project check before the feature is handed off."
+      },
+      "builds_on": [4],
+      "tasks": [
+        "Update the current skill listing in `README.md`, add the user-facing replacement/Azure Services entry to `CHANGELOG.md`, and update `FILEMAP.md` for the new skill structure; retain historical release entries as history.",
+        "Review `skills/ai-triage/SKILL.md` and provider references for one entry point, no alias, exact read-only Azure allowlist, explicit scope, per-run ambiguity answers, one-level inventory, five-agent cap, failure behavior and no configuration field.",
+        "Run `bun scripts/gen-assets.ts`, then verify `src/assets.ts` and embedded canon contain only the current skill paths.",
+        "Run the full suite and required project gates; optionally perform a live Azure smoke read only if separately authorized, using only allowlisted read calls, keeping raw/private output out of Git and never committing or pushing the live report."
+      ],
+      "files": [
+        "README.md",
+        "CHANGELOG.md",
+        "FILEMAP.md",
+        "skills/ai-triage/SKILL.md",
+        "skills/ai-triage/references/github.md",
+        "skills/ai-triage/references/azure-devops.md",
+        "src/assets.ts",
+        "tests/triage-github.spec.ts",
+        "tests/triage-routing.spec.ts",
+        "tests/triage-azure.spec.ts",
+        "tests/triage-report.spec.ts"
+      ],
+      "acceptance": [
+        "README and current instructions refer to `ai-triage`, not a separate `ai-github-triage` alias; changelog and file map match the final shipped structure.",
+        "The final embedded payload has the replacement skill and provider procedures and no retired skill folder.",
+        "`bun run typecheck`, `bun run lint`, `bun test`, and `bun test tests/arch.spec.ts` all pass.",
+        "Automated checks use synthetic data only; no live private report or raw backlog output is added to Git, committed or pushed."
+      ],
+      "verify": [
+        "bun test tests/triage-github.spec.ts",
+        "bun test tests/triage-routing.spec.ts",
+        "bun test tests/triage-azure.spec.ts",
+        "bun test tests/triage-report.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test",
+        "bun test tests/arch.spec.ts"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    }
+  ],
+  "assumptions": [
+    "Azure support means Azure DevOps Services only, not Azure DevOps Server. [Approved brainstorm, sections 8 and 11]",
+    "An explicit URL fixes provider and scope; repository remotes may resolve only what they identify, and ambiguous provider, project or board choices are asked per run. [Approved brainstorm, sections 6 and 8]",
+    "One Azure run inventories one selected backlog level, while parents and children are context only; each item keeps the GitHub analysis contract with at most five analysts in flight. [Approved feature decisions and existing GitHub procedure]",
+    "Azure state names vary by process, so terminal status is derived from discovered state categories rather than fixed names. [Approved feature decisions]",
+    "POST is allowed only for the explicitly named read-only WIQL and batch-read routes; broad `az devops invoke` access is not safe. [Approved Azure constraints]",
+    "If state discovery or pagination cannot prove a complete inventory, collection stops and the existing report stays unchanged. [Approved fail-closed and preserve-previous-report decisions]",
+    "Automated fixtures contain synthetic data only; a private real report is local output and never a committed or pushed artifact. [Approved brainstorm, sections 5 and 8]",
+    "The existing Bun toolchain is sufficient; no new dependency is needed unless implementation proves a required capability is absent. [AGENTS.md Project config and user instruction]"
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "The feature PRD is missing from this clean feature-branch baseline; synchronize it on this branch from the committed approved brainstorm before implementation, without changing the primary checkout.",
+    "Safe completeness beyond WIQL result limits and process-aware state-category discovery are technical risks, not permission to guess: if an implementation cannot prove completeness, it must fail closed and produce no partial report.",
+    "No Azure tenant or authentication query is part of planning or automated verification. A later live smoke read is optional and requires separate authorization; raw output stays out of Git.",
+    "No remote Azure mutation, multi-board aggregation, Azure DevOps Server support, persistent board configuration, commit or push of a live private report is in scope."
+  ]
+}
