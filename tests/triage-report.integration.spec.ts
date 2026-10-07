@@ -521,11 +521,14 @@ describe("Azure triage report integration", () => {
     async (failureStage) => {
       const directory = `.ai-engineering/triage-report-test-${randomUUID()}`;
       const reportPath = `${directory}/triage.html`;
+      const otherWriterPath = `${reportPath}.other-writer.tmp`;
       const previousBytes = Buffer.from(existingReport);
+      const otherWriterBytes = Buffer.from("temporary file owned by another writer");
       await mkdir(directory);
 
       try {
         await writeFile(reportPath, previousBytes);
+        await writeFile(otherWriterPath, otherWriterBytes);
         const operations: NonNullable<Parameters<typeof atomicWriteReport>[2]> =
           failureStage === "write"
             ? {
@@ -553,12 +556,54 @@ describe("Azure triage report integration", () => {
         );
 
         expect(await readFile(reportPath)).toEqual(previousBytes);
-        expect(await readdir(directory)).toEqual(["triage.html"]);
+        expect(await readFile(otherWriterPath)).toEqual(otherWriterBytes);
+        expect((await readdir(directory)).sort()).toEqual([
+          "triage.html",
+          "triage.html.other-writer.tmp",
+        ]);
       } finally {
         await rm(directory, { recursive: true, force: true });
       }
     },
   );
+
+  test("publishes the complete synthetic report after successful replacement", async () => {
+    const directory = `.ai-engineering/triage-report-test-${randomUUID()}`;
+    const reportPath = `${directory}/triage.html`;
+    const previousBytes = Buffer.from(existingReport);
+    const inventory = createSyntheticInventory();
+    let completeReport: string | undefined;
+    await mkdir(directory);
+
+    try {
+      await writeFile(reportPath, previousBytes);
+
+      await writeAzureTriageReport({
+        scope: createSyntheticScope(),
+        inventory,
+        analyzeItem: async () => ({ status: "UNASSESSED" }),
+        writeFile: async (path, contents) => {
+          expect(path).toBe(targetReport);
+          completeReport = contents;
+          await atomicWriteReport(reportPath, contents);
+        },
+      });
+
+      if (completeReport === undefined) {
+        throw new Error("The synthetic report writer did not provide the complete report");
+      }
+      expect(completeReport.match(/class="item(?:\s|")/g)).toHaveLength(
+        inventory.items.length,
+      );
+      expect(completeReport).toContain("Synthetic backlog item 208");
+      expect(completeReport).toContain("</html>");
+      expect(await readFile(reportPath)).toEqual(Buffer.from(completeReport));
+      expect(await readFile(reportPath)).not.toEqual(previousBytes);
+      expect(await readdir(directory)).toEqual(["triage.html"]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
 
   test.each([
     {
