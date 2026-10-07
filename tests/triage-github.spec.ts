@@ -12,25 +12,54 @@ const reportTemplate = readFileSync(
 
 describe("GitHub triage instruction contract", () => {
   test("preserves separate complete issue and pull-request inventories", () => {
-    expect(githubInstructions).toContain(
+    const steps = githubInstructions.slice(
+      githubInstructions.indexOf("## Steps"),
+      githubInstructions.indexOf("## The analysis block"),
+    );
+    const inventoryStep = steps.slice(
+      steps.indexOf("2. Read the whole open backlog"),
+      steps.indexOf("3. Join the two halves"),
+    );
+
+    expect(inventoryStep).toContain(
       "gh issue list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closedByPullRequestsReferences,body",
     );
-    expect(githubInstructions).toContain(
+    expect(inventoryStep).toContain(
       "gh pr list --repo <owner/repo> --state open --limit 1000 --json number,title,labels,milestone,reactionGroups,comments,createdAt,updatedAt,author,closingIssuesReferences,mergeStateStatus,mergeable,reviewDecision,headRefName,isDraft",
     );
-    expect(githubInstructions).toMatch(
+    expect(
+      inventoryStep.slice(inventoryStep.indexOf("gh issue list")),
+    ).toMatch(
       /Above 1000\s+items, page with `--search "created:<oldest-in-page"` until a page comes back\s+empty\./,
     );
-    expect(githubInstructions).toMatch(
+    expect(
+      inventoryStep.slice(inventoryStep.indexOf("gh pr list")),
+    ).toMatch(
+      /Above 1000\s+items, page with `--search "created:<oldest-in-page"` until a page comes back\s+empty\./,
+    );
+    expect(inventoryStep).toMatch(
       /\*\*Write down the count you fetched and make the page\s+agree with it\.\*\*/,
     );
   });
 
   test("preserves per-item analysis, evidence, ranking, and read-only rules", () => {
+    const steps = githubInstructions.slice(
+      githubInstructions.indexOf("## Steps"),
+      githubInstructions.indexOf("## The analysis block"),
+    );
+    const analysisStep = steps.slice(
+      steps.indexOf("5. One subagent per item"),
+      steps.indexOf("6. Rank what came back"),
+    );
     const analysisBlock = githubInstructions.slice(
       githubInstructions.indexOf("## The analysis block"),
       githubInstructions.indexOf("## Verdict and severity"),
     );
+    expect(analysisStep).toMatch(
+      /Each reads its own item and returns\s+one analysis block/,
+    );
+    expect(analysisStep).toContain("require one block per item");
+    expect(analysisBlock).toMatch(/exactly this shape, one per item/);
     for (const field of [
       "ITEM:",
       "KIND:",
@@ -70,7 +99,18 @@ describe("GitHub triage instruction contract", () => {
       githubInstructions.indexOf("## Which repository"),
     );
     const remoteMutationCommand =
-      /\bgh\s+(?:issue\s+(?:comment|close|edit)|pr\s+(?:comment|merge|review|edit|checkout)|api\s+-X\s+(?:POST|PUT|PATCH|DELETE))\b/;
+      /\bgh\s+(?:(?:issue\s+(?:comment|close|edit)|pr\s+(?:comment|merge|review|edit|checkout)|repo\s+edit)\b|api\b(?=[^\n]*(?:(?:^|\s)(?:-X|--method)(?:=|\s+)(?:POST|PUT|PATCH|DELETE)\b|(?:^|\s)(?:-F|-f|--field|--raw-field)(?:=|\s)))[^\n]*)/i;
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      for (const option of ["-X", "--method"]) {
+        expect(`gh api ${option} ${method}`).toMatch(remoteMutationCommand);
+      }
+    }
+    for (const fieldOption of ["-f", "--raw-field", "-F", "--field"]) {
+      expect(`gh api ${fieldOption} key=value`).toMatch(remoteMutationCommand);
+    }
+    for (const command of ["gh repo edit"]) {
+      expect(command).toMatch(remoteMutationCommand);
+    }
     expect(activeInstructions).not.toMatch(remoteMutationCommand);
     expect(reportTemplate).not.toMatch(remoteMutationCommand);
   });
