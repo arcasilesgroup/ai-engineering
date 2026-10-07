@@ -43,12 +43,20 @@ function requireSegment(value, label) {
   return segment;
 }
 
+function isCredentialAssignmentKey(key) {
+  const normalizedKey = key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+  return /(?:^|[_-])(?:token|pat|auth|authorization|bearer|password|passwd|secret|credential|signature|api[_-]?key)$/i.test(
+    normalizedKey,
+  );
+}
+
 function redactAuthentication(value) {
   return value
     .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*/gi, "[redacted]")
     .replace(
-      /\b(?:access[_-]?token|refresh[_-]?token|id[_-]?token|oauth2[_-]?access[_-]?token|oauth[_-]?token|x[_-]?auth[_-]?token|azure[_-]?devops[_-]?token|bearer[_-]?token|client[_-]?auth|auth(?:[_-]?token)?|token|bearer|authorization|password|passwd|client[_-]?secret|api[_-]?key|secret|credential)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi,
-      "[redacted]",
+      /\b([A-Za-z][A-Za-z0-9_-]*)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/g,
+      (assignment, key) =>
+        isCredentialAssignmentKey(key) ? "[redacted]" : assignment,
     )
     .replace(
       /\b(?:gh[pousr]_[A-Za-z0-9_]{10,}|github_pat_[A-Za-z0-9_]{10,}|azdpat_[A-Za-z0-9_]{10,})\b/gi,

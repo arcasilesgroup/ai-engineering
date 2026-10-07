@@ -437,3 +437,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Added both key variants to the redaction matcher and expanded full-report tests to verify secret removal while preserving safe lookalike fields.
 - **Lesson:** Cover provider-specific credential assignment names in redaction tests, including safe fields with similar prefixes.
 - **Tags:** review, auth, redaction, metadata, azure, bearer
+
+### L59 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** Synthetic `azure_devops_pat=`, `github_token=`, and `system_access_token=` metadata values rendered in the full report.
+- **Root cause:** The shared assignment redactor omitted these credential aliases.
+- **Fix:** Added the three exact aliases at the shared redaction boundary and extended full-report regression coverage with benign owner-field near-matches.
+- **Lesson:** Cover provider credential aliases at the shared output boundary while asserting that neighboring metadata remains visible.
+- **Tags:** review, auth, redaction, metadata, tests
+
+### L60 · 2026-10-07 · ai-triage #6 · review
+- **Failure:** New provider-prefixed credential assignment aliases continued to leak after the finite alias list was extended.
+- **Root cause:** Redaction depended on enumerating provider-specific assignment names instead of recognizing credential-bearing key families.
+- **Fix:** Normalize assignment keys and redact credential suffix families while leaving owner/count and non-terminal near-matches unchanged.
+- **Lesson:** Classify credential assignment keys by semantic suffix, not a growing provider alias list or arbitrary keyword containment.
+- **Tags:** review, auth, redaction, metadata, tests

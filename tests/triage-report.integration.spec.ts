@@ -279,12 +279,37 @@ describe("Azure triage report integration", () => {
       "client_auth=synthetic-client-auth-secret",
       "azure_devops_token=synthetic-azure-devops-token-secret",
       "bearer_token=synthetic-bearer-token-secret",
+      "personal_access_token=synthetic-personal-access-token-secret",
+      "ado_pat=synthetic-ado-pat-secret",
+      "azure_devops_ext_pat=synthetic-azure-devops-ext-pat-secret",
+      "azure_devops_pat=synthetic-azure-devops-pat-secret",
+      "github_token=synthetic-github-token-secret",
+      "system_access_token=synthetic-system-access-token-secret",
+      "api_token=synthetic-api-token-secret",
+      "github_pat=synthetic-github-pat-secret",
+      "gh_token=synthetic-gh-token-secret",
+      "azdo_pat=synthetic-azdo-pat-secret",
+      "ado_token=synthetic-ado-token-secret",
+      "azure_pat=synthetic-azure-pat-secret",
       "authored_by=synthetic-maintainer",
       "client_author=synthetic-owner",
       "oauth_provider=synthetic-provider",
       "oauth2_access_policy=synthetic-policy",
       "azure_devops_token_policy=synthetic-token-policy",
       "bearer_token_owner=synthetic-token-owner",
+      "personal_access_token_owner=synthetic-personal-token-owner",
+      "ado_pat_owner=synthetic-ado-owner",
+      "azure_devops_ext_pat_owner=synthetic-extension-owner",
+      "azure_devops_pat_owner=synthetic-azure-pat-owner",
+      "github_token_owner=synthetic-github-owner",
+      "system_access_token_owner=synthetic-system-owner",
+      "api_token_owner=synthetic-api-owner",
+      "github_pat_owner=synthetic-github-pat-owner",
+      "gh_token_count=4",
+      "azdo_pat_owner=synthetic-azdo-owner",
+      "ado_token_count=6",
+      "azure_pat_owner=synthetic-azure-owner",
+      "api_token_count=8",
     ].join(" ");
     scope.backlogName = "Synthetic backlog auth=synthetic-backlog-secret";
     const reportWriter = createMemoryReportWriter();
@@ -308,9 +333,21 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).not.toContain("synthetic-client-auth-secret");
     expect(generatedReport).not.toContain("synthetic-azure-devops-token-secret");
     expect(generatedReport).not.toContain("synthetic-bearer-token-secret");
+    expect(generatedReport).not.toContain("synthetic-personal-access-token-secret");
+    expect(generatedReport).not.toContain("synthetic-ado-pat-secret");
+    expect(generatedReport).not.toContain("synthetic-azure-devops-ext-pat-secret");
+    expect(generatedReport).not.toContain("synthetic-azure-devops-pat-secret");
+    expect(generatedReport).not.toContain("synthetic-github-token-secret");
+    expect(generatedReport).not.toContain("synthetic-system-access-token-secret");
+    expect(generatedReport).not.toContain("synthetic-api-token-secret");
+    expect(generatedReport).not.toContain("synthetic-github-pat-secret");
+    expect(generatedReport).not.toContain("synthetic-gh-token-secret");
+    expect(generatedReport).not.toContain("synthetic-azdo-pat-secret");
+    expect(generatedReport).not.toContain("synthetic-ado-token-secret");
+    expect(generatedReport).not.toContain("synthetic-azure-pat-secret");
     expect(generatedReport).not.toContain("synthetic-backlog-secret");
     expect(generatedReport).toContain(
-      "Synthetic team [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted]",
+      "Synthetic team [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted] [redacted]",
     );
     expect(generatedReport).toContain("authored_by=synthetic-maintainer");
     expect(generatedReport).toContain("client_author=synthetic-owner");
@@ -318,6 +355,29 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).toContain("oauth2_access_policy=synthetic-policy");
     expect(generatedReport).toContain("azure_devops_token_policy=synthetic-token-policy");
     expect(generatedReport).toContain("bearer_token_owner=synthetic-token-owner");
+    expect(generatedReport).toContain(
+      "personal_access_token_owner=synthetic-personal-token-owner",
+    );
+    expect(generatedReport).toContain("ado_pat_owner=synthetic-ado-owner");
+    expect(generatedReport).toContain(
+      "azure_devops_ext_pat_owner=synthetic-extension-owner",
+    );
+    expect(generatedReport).toContain(
+      "azure_devops_pat_owner=synthetic-azure-pat-owner",
+    );
+    expect(generatedReport).toContain("github_token_owner=synthetic-github-owner");
+    expect(generatedReport).toContain(
+      "system_access_token_owner=synthetic-system-owner",
+    );
+    expect(generatedReport).toContain("api_token_owner=synthetic-api-owner");
+    expect(generatedReport).toContain(
+      "github_pat_owner=synthetic-github-pat-owner",
+    );
+    expect(generatedReport).toContain("gh_token_count=4");
+    expect(generatedReport).toContain("azdo_pat_owner=synthetic-azdo-owner");
+    expect(generatedReport).toContain("ado_token_count=6");
+    expect(generatedReport).toContain("azure_pat_owner=synthetic-azure-owner");
+    expect(generatedReport).toContain("api_token_count=8");
     expect(generatedReport).toContain("Synthetic backlog [redacted]");
   });
 
