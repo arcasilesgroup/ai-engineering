@@ -19,6 +19,11 @@ PERMISSIONS.md                 Endpoint × role access matrix (n/a until the pro
     test-plans/                /ai-test-planner plans (<slug>.json)
     reviews/                   /ai-adversarial-loop debate threads
     prototypes/                /ai-prototype HTML mockups + <name>.states.json scenarios
+src/
+  assets.ts                    Embedded skill, template and runtime asset registry
+scripts/
+  gen-assets.ts                Generate embedded assets from their source files
+  .embed/ai-triage/scripts/    Generated text payloads for triage scripts and declarations
 skills/                        Installed skill canon
   ai-triage/
     SKILL.md                   Single entry point; routes to the selected provider
@@ -32,6 +37,9 @@ skills/                        Installed skill canon
       render-report.d.mts      Report writer types
       resolve-target.mjs       Explicit provider and target resolution
       resolve-target.d.mts     Target resolver types
+tests/
+  generated-payload.test.ts   Assert generated assets match their source files
+  triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests
 agents/                        Specialist agents for the feature workflow
 .ai-engineering/workflow/playwright/  Sign-in sessions and review screenshots (gitignored)
 ```

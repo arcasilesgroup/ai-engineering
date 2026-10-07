@@ -135,7 +135,7 @@ The whole payload travels inside the package: the binary, the skill canon, the t
 ## Quick start
 
 <p align="center">
-  <img src=".github/assets/quickstart.gif" alt="ai-eng init installing the canon and the git floor, then ai-eng doctor reporting 16 checks passed, 0 warnings, 0 failures" width="960">
+  <img src=".github/assets/quickstart.gif" alt="ai-eng init installing the canon and the git floor, then ai-eng doctor running its checks and adversarial probe" width="960">
   <br/><sub>a real session, sped up: <code>ai-eng init</code>, then <code>ai-eng doctor</code></sub>
 </p>
 
@@ -324,7 +324,7 @@ ai-eng worktree new <slug> | rm <slug> | list   # one copy per job, merged into 
 Ask the repo how it is doing, with real receipt statistics:
 
 <p align="center">
-  <img src=".github/assets/doctor.png" alt="ai-eng doctor reporting 16 checks passed, 0 warnings, 0 failures, with a real adversarial payload denied in 4ms" width="960">
+  <img src=".github/assets/doctor.png" alt="ai-eng doctor running its checks and denying a real adversarial payload" width="960">
 </p>
 
 ## Configuration
