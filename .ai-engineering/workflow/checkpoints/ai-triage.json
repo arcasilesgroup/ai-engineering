@@ -14,14 +14,14 @@
       "plain": {
         "what": "People still get the same complete GitHub backlog report from one renamed skill.",
         "why": "Without this, the new name could silently lose details people already rely on.",
-        "check": "Run the GitHub fixture and confirm every expected item and report section remains."
+        "check": "Run the static GitHub instruction-contract check and confirm the inventory and report requirements remain."
       },
       "builds_on": [],
       "tasks": [
         "Sync `.ai-engineering/PRD.html` on this feature branch with the approved decisions from `.ai-engineering/brainstorm.html`; the branch baseline PRD has no ai-triage scope.",
         "Create `skills/ai-triage/SKILL.md` as the single shared entry point and move the existing GitHub procedure into `skills/ai-triage/references/github.md`; preserve its issue and pull-request inventories, pagination, per-item analysis, ranking, evidence, report contract, and read-only boundary.",
         "Retire `skills/ai-github-triage/` only after the new provider reference and regression fixture are in place; do not add an alias. Until Azure support is complete, an Azure route must stop before any remote read.",
-        "Add `tests/triage-github.spec.ts` with synthetic GitHub issue/PR fixtures that exercise the replacement route and assert complete inventory, preserved report sections and fields, item linkage, and no remote writes.",
+        "Add `tests/triage-github.spec.ts` as a deterministic static instruction-contract check over the GitHub Markdown and existing report template; assert separate issue/PR inventories, complete pagination and counts, per-item analysis, evidence, ranking, read-only rules, report coverage, and no active remote mutation commands. Do not add or expect a GitHub runtime runner or synthetic execution.",
         "Regenerate `src/assets.ts` with `bun scripts/gen-assets.ts` and verify the new skill and provider reference are embedded while the retired skill is absent."
       ],
       "files": [
@@ -34,7 +34,7 @@
       ],
       "acceptance": [
         "The PRD contains the approved single-skill replacement and GitHub-preservation decisions without changing unrelated product scope.",
-        "A synthetic GitHub run keeps every issue and pull request visible, including unassessed items, and preserves the existing ranking, evidence and report behavior.",
+        "The static GitHub instruction-contract check verifies separate issue/PR inventories, complete pagination and counts, per-item analysis, evidence, ranking, read-only rules, report-template coverage, and no active remote mutation commands; it does not execute a synthetic provider run.",
         "Only `ai-triage` is the public skill name; `skills/ai-github-triage/` is gone and an Azure target fails closed before reading.",
         "`bun test tests/skills.spec.ts` and `bun test tests/embed-canon.spec.ts` prove the new skill is valid and embedded, with no retired skill payload."
       ],
@@ -47,7 +47,13 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "bun test tests/triage-github.spec.ts failed before tests ran: cannot resolve skills/ai-triage/scripts/github.mjs"
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
@@ -267,7 +273,8 @@
     "POST is allowed only for the explicitly named read-only WIQL and batch-read routes; broad `az devops invoke` access is not safe. [Approved Azure constraints]",
     "If state discovery or pagination cannot prove a complete inventory, collection stops and the existing report stays unchanged. [Approved fail-closed and preserve-previous-report decisions]",
     "Automated fixtures contain synthetic data only; a private real report is local output and never a committed or pushed artifact. [Approved brainstorm, sections 5 and 8]",
-    "The existing Bun toolchain is sufficient; no new dependency is needed unless implementation proves a required capability is absent. [AGENTS.md Project config and user instruction]"
+    "The existing Bun toolchain is sufficient; no new dependency is needed unless implementation proves a required capability is absent. [AGENTS.md Project config and user instruction]",
+    "GitHub provider procedures are agent-executed Markdown; their command contract is tested statically, not with a synthetic runtime."
   ],
   "new_dependencies": [],
   "notes": [

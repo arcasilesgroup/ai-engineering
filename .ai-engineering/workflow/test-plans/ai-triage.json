@@ -10,7 +10,7 @@
       { "id": "U3", "case": "Untrusted HTML values are escaped and evidence links are accepted only when valid HTTPS URLs.", "file": "tests/triage-report.spec.ts", "checkpoint": 4 }
     ],
     "integration": [
-      { "id": "I1", "case": "Synthetic GitHub run retains every issue and pull request, existing report sections and fields, item links, and makes no remote writes.", "file": "tests/triage-github.spec.ts", "checkpoint": 1 },
+      { "id": "I1",       "case": "A deterministic static instruction-contract check verifies separate complete GitHub issue/PR inventories and pagination, per-item analysis, evidence, ranking, read-only rules, existing report-template coverage, and no active remote mutation commands; it does not execute a synthetic provider run.", "file": "tests/triage-github.spec.ts", "checkpoint": 1 },
       { "id": "I2", "case": "Ambiguous provider or scope is resolved before any request; a fake adapter records zero reads until an answer is available.", "file": "tests/triage-routing.spec.ts", "checkpoint": 2 },
       { "id": "I3", "case": "Azure collection reads only the selected backlog level, includes all nonterminal process categories, keeps related hierarchy as context, and emits only allowlisted read routes with explicit organization and project.", "file": "tests/triage-azure.spec.ts", "checkpoint": 3 },
       { "id": "I4", "case": "Synthetic Azure inventory crosses pagination and batch boundaries completely; capped/incomplete results, missing state metadata, unknown categories, auth errors, and API errors fail closed.", "file": "tests/triage-azure.spec.ts", "checkpoint": 3 },
