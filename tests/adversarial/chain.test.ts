@@ -232,15 +232,17 @@ describe("adversarial · chain hard cases", () => {
     expect(r.action).toBe("deny");
     if (r.action === "deny") expect(r.by).toBe("chain");
   });
-  test("latency budget: chain answers under 50ms p95 across 20 calls", () => {
+  test("latency budget: chain answers under 50ms p95 across 100 calls", () => {
+    const sampleCount = 100;
     const samples: number[] = [];
-    for (let i = 0; i < 20; i++) {
+    // A larger sample makes p95 resilient to a few scheduler pauses without loosening the budget.
+    for (let i = 0; i < sampleCount; i++) {
       const t0 = performance.now();
       RUN({ tool_name: "Bash", tool_input: { command: `echo ${i}` }, tool_use_id: `lat-${i}`, session_id: "adv-lat" });
       samples.push(performance.now() - t0);
     }
     samples.sort((a, b) => a - b);
-    const oneOutlier = [...Array.from({ length: 19 }, () => 1), 100];
+    const oneOutlier = [...Array.from({ length: sampleCount - 1 }, () => 1), 100];
     expect(p95(oneOutlier)).toBe(1);
     expect(p95(samples)).toBeLessThan(50);
   });

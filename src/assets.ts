@@ -78,8 +78,6 @@ import askills_ai_design_md_planner_references_style_directions_md from "../skil
 import askills_ai_design_md_planner_SKILL_md from "../skills/ai-design-md-planner/SKILL.md" with { type: "file" };
 import askills_ai_design_md_planner_assets_DESIGN_example_md from "../skills/ai-design-md-planner/assets/DESIGN.example.md" with { type: "file" };
 import askills_ai_design_md_planner_assets_DESIGN_template_md from "../skills/ai-design-md-planner/assets/DESIGN.template.md" with { type: "file" };
-import askills_ai_visual_recap_references_connection_md from "../skills/ai-visual-recap/references/connection.md" with { type: "file" };
-import askills_ai_visual_recap_references_local_files_md from "../skills/ai-visual-recap/references/local-files.md" with { type: "file" };
 import askills_ai_visual_recap_references_wireframe_md from "../skills/ai-visual-recap/references/wireframe.md" with { type: "file" };
 import askills_ai_visual_recap_SKILL_md from "../skills/ai-visual-recap/SKILL.md" with { type: "file" };
 import askills_ai_visual_recap_assets_highlight_mjs from "../skills/ai-visual-recap/assets/highlight.mjs" with { type: "file" };
@@ -226,8 +224,6 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-design-md-planner/SKILL.md": askills_ai_design_md_planner_SKILL_md as unknown as string,
   "../skills/ai-design-md-planner/assets/DESIGN.example.md": askills_ai_design_md_planner_assets_DESIGN_example_md as unknown as string,
   "../skills/ai-design-md-planner/assets/DESIGN.template.md": askills_ai_design_md_planner_assets_DESIGN_template_md as unknown as string,
-  "../skills/ai-visual-recap/references/connection.md": askills_ai_visual_recap_references_connection_md as unknown as string,
-  "../skills/ai-visual-recap/references/local-files.md": askills_ai_visual_recap_references_local_files_md as unknown as string,
   "../skills/ai-visual-recap/references/wireframe.md": askills_ai_visual_recap_references_wireframe_md as unknown as string,
   "../skills/ai-visual-recap/SKILL.md": askills_ai_visual_recap_SKILL_md as unknown as string,
   "../skills/ai-visual-recap/assets/highlight.mjs": askills_ai_visual_recap_assets_highlight_mjs as unknown as string,

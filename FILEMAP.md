@@ -37,9 +37,18 @@ skills/                        Installed skill canon
       render-report.d.mts      Report writer types
       resolve-target.mjs       Explicit provider and target resolution
       resolve-target.d.mts     Target resolver types
+  ai-visual-recap/
+    SKILL.md                   Local HTML recap procedure used during app review
+    references/
+      wireframe.md             Guidance for recap visuals
+    assets/
+      highlight.mjs            Syntax highlighting for code excerpts
 tests/
+  skills.spec.ts               Skill contracts, including the local recap handoff
   generated-payload.test.ts   Assert generated assets match their source files
   triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests
+templates/
+  recap.html.tpl               Self-contained HTML recap shell and styles
 agents/                        Specialist agents for the feature workflow
 .ai-engineering/workflow/playwright/  Sign-in sessions and review screenshots (gitignored)
 ```

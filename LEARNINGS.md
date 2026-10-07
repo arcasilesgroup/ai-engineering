@@ -22,6 +22,8 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R13: Validate untrusted output values at the output boundary; HTML-escape text, validate raw and decoded URL values separately, and do not reprocess inserted content. (from L52–L55)
 - R14: Redact credential assignments at the shared output boundary by semantic key families, including nested assignments, while preserving safe near-matches. (from L58–L62)
 - R15: Keep executable `.mjs` APIs explicitly declared, and embed script/declaration payloads as text when they are data rather than host modules. (from L47, L64)
+- R16: Route repository-owned artifacts through their repository procedure and test the caller-to-procedure handoff; a same-named installed copy may have a conflicting contract. (from L66)
+- R17: For runtime p95 checks under parallel test load, use enough samples for nearest-rank p95 to tolerate scheduler outliers without loosening the budget. (from L65, L67)
 
 ## Log
 
@@ -490,4 +492,19 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Root cause:** `tests/adversarial/chain.test.ts` used `floor(n*0.95)`, which selected the maximum of 20 observations.
 - **Fix:** Use `ceil(0.95*n)-1` and pin the one-outlier regression while preserving the 50ms threshold.
 - **Lesson:** The nearest-rank p95 index is `ceil(p*n)-1`.
+- **Tags:** behavior, tests, performance
+
+### L66 · 2026-10-07 · ai-triage · human
+- **Failure:** The approved app review could not finish because a generic recap-skill invocation selected an installed procedure with a different publishing contract from the repository's HTML artifact.
+- **Root cause:** The orchestrator named a skill without pinning the repository-owned procedure, and the installed copy disagreed with the local workflow.
+- **Fix:** Bind the close procedure to the repository skill path, make that skill describe the local HTML artifact, synchronize the active installed copies, and test the handoff.
+- **Lesson:** Route repository-owned artifacts through their repository procedure and test the caller-to-procedure handoff.
+- **Gate that should have caught it:** `tests/skills.spec.ts` had no assertion for the app-review recap route.
+- **Tags:** human, workflow, recap
+
+### L67 · 2026-10-07 · ai-triage #8 · behavior
+- **Failure:** The nearest-rank chain p95 test intermittently failed with 20 samples under the test runner.
+- **Root cause:** At 20 samples, the 19th ordered value defines p95, so two scheduler stalls push the estimate over the budget.
+- **Fix:** Measure 100 calls and retain the 50ms threshold plus a deterministic outlier check.
+- **Lesson:** Use enough samples for nearest-rank p95 to tolerate expected scheduler outliers without changing the budget.
 - **Tags:** behavior, tests, performance
