@@ -461,20 +461,20 @@ function renderTemplate(template, scope, date, sections) {
   );
   const projectLabel = `${scope.organization}/${scope.project}`;
   const substitutions = new Map([
-    ["{{repo}}", escapeHtml(projectLabel)],
-    ["{{date}}", escapeHtml(date)],
-    ["{{title}}", escapeHtml(`Azure DevOps · ${scope.backlogName}`)],
+    ["{{repo}}", visibleText(projectLabel)],
+    ["{{date}}", visibleText(date)],
+    ["{{title}}", visibleText(`Azure DevOps · ${scope.backlogName}`)],
     [
       "{{subtitle}}",
-      escapeHtml("Complete inventory · read-only triage · related links are context only"),
+      visibleText("Complete inventory · read-only triage · related links are context only"),
     ],
     [
       "{{meta}}",
-      escapeHtml(
+      visibleText(
         `${scope.organization} · ${scope.project} · ${scope.team} · ${scope.backlogName}`,
       ),
     ],
-    ["{{footer}}", escapeHtml("Complete inventory · read-only report")],
+    ["{{footer}}", visibleText("Complete inventory · read-only report")],
   ]);
   for (const [placeholder, value] of substitutions) {
     output = output.replaceAll(placeholder, value);
@@ -482,19 +482,28 @@ function renderTemplate(template, scope, date, sections) {
   return output;
 }
 
-async function atomicWriteReport(path, contents) {
+export async function atomicWriteReport(
+  path,
+  contents,
+  { writeTemporaryFile, replaceFile = rename } = {},
+) {
   const temporaryPath = `${path}.${randomUUID()}.tmp`;
   let handle;
+  let ownsTemporaryFile = false;
   try {
     handle = await open(temporaryPath, "wx", 0o600);
-    await handle.writeFile(contents, "utf8");
+    ownsTemporaryFile = true;
+    await (writeTemporaryFile ?? ((file, text) => file.writeFile(text, "utf8")))(
+      handle,
+      contents,
+    );
     await handle.sync();
     await handle.close();
     handle = undefined;
-    await rename(temporaryPath, path);
+    await replaceFile(temporaryPath, path);
   } catch (error) {
     await handle?.close().catch(() => {});
-    await unlink(temporaryPath).catch(() => {});
+    if (ownsTemporaryFile) await unlink(temporaryPath).catch(() => {});
     throw error;
   }
 }

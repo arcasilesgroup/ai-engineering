@@ -17,6 +17,18 @@ export type AzureTriageReportInput<T extends { id: number }> = {
 export function escapeHtml(value: string): string;
 export function sanitizeEvidenceUrl(value: unknown): string | null;
 
+export function atomicWriteReport(
+  path: string,
+  contents: string,
+  operations?: {
+    writeTemporaryFile?: (
+      handle: { writeFile(contents: string, encoding: "utf8"): Promise<void> },
+      contents: string,
+    ) => Promise<void>;
+    replaceFile?: (temporaryPath: string, path: string) => Promise<void>;
+  },
+): Promise<void>;
+
 export function writeAzureTriageReport<T extends { id: number }>(
   input: AzureTriageReportInput<T>,
 ): Promise<void>;

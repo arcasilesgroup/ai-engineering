@@ -1,5 +1,10 @@
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { describe, expect, test } from "bun:test";
-import { writeAzureTriageReport } from "../skills/ai-triage/scripts/render-report.mjs";
+import {
+  atomicWriteReport,
+  writeAzureTriageReport,
+} from "../skills/ai-triage/scripts/render-report.mjs";
 
 const targetReport = ".ai-engineering/triage.html";
 const syntheticOrganization = "https://dev.azure.com/synthetic-org";
@@ -116,13 +121,16 @@ async function expectNoSuccessShapedResult(
 describe("Azure triage report integration", () => {
   test("writes every synthetic item in the shared shell with Azure sections and at most five analyses in flight", async () => {
     const inventory = createSyntheticInventory();
+    const scope = createSyntheticScope();
+    const syntheticToken = "github_pat_syntheticToken1234567890";
+    scope.backlogName = `<img src=x onerror=alert(1)> ${syntheticToken}`;
     const reportWriter = createMemoryReportWriter();
     const analyzedItemIds: number[] = [];
     let activeAnalyses = 0;
     let maxActiveAnalyses = 0;
 
     await writeAzureTriageReport({
-      scope: createSyntheticScope(),
+      scope,
       inventory,
       analyzeItem: async (item: SyntheticWorkItem) => {
         activeAnalyses += 1;
@@ -203,7 +211,56 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).not.toContain(
       "</span><script>window.syntheticAttack=true</script>",
     );
+    expect(generatedReport).toContain(
+      "&lt;img src=x onerror=alert(1)&gt; [redacted]",
+    );
+    expect(generatedReport).not.toContain("<img src=x onerror=alert(1)>");
+    expect(generatedReport).not.toContain(syntheticToken);
   });
+
+  test.each(["write", "replace"] as const)(
+    "preserves previous report bytes when temporary %s fails",
+    async (failureStage) => {
+      const directory = `.ai-engineering/triage-report-test-${randomUUID()}`;
+      const reportPath = `${directory}/triage.html`;
+      const previousBytes = Buffer.from(existingReport);
+      await mkdir(directory);
+
+      try {
+        await writeFile(reportPath, previousBytes);
+        const operations: NonNullable<Parameters<typeof atomicWriteReport>[2]> =
+          failureStage === "write"
+            ? {
+                writeTemporaryFile: async (handle) => {
+                  await handle.writeFile("partial synthetic report", "utf8");
+                  throw new Error("Synthetic temporary write failure");
+                },
+              }
+            : {
+                replaceFile: async () => {
+                  throw new Error("Synthetic report replacement failure");
+                },
+              };
+
+        await expectNoSuccessShapedResult(() =>
+          writeAzureTriageReport({
+            scope: createSyntheticScope(),
+            inventory: createSyntheticInventory(),
+            analyzeItem: async () => ({ status: "UNASSESSED" }),
+            writeFile: async (path, contents) => {
+              expect(path).toBe(targetReport);
+              await atomicWriteReport(reportPath, contents, operations);
+            },
+          }),
+        );
+
+        expect(await readFile(reportPath)).toEqual(previousBytes);
+        expect(await readdir(directory)).toEqual(["triage.html"]);
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
 
   test.each([
     {
