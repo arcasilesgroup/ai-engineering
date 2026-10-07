@@ -337,3 +337,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Require bare allowlisted `gh`/`az` executable names; reject executable path prefixes, environment assignments and shell wrappers. Accept that a static Markdown allowlist cannot sandbox a malicious earlier executable in `PATH`.
 - **Lesson:** A static command allowlist must constrain command form and disclose that it cannot control executable resolution from `PATH`.
 - **Tags:** circuit-breaker, review, command-safety, allowlist
+
+### L45 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** F11 found that basename normalization let `./gh` or `~/bin/gh` evade command identity checks.
+- **Root cause:** Markdown allowlists cannot attest the executable resolved from PATH.
+- **Fix:** The human chose the trusted-PATH boundary: require bare allowlisted executable names and explicitly state that this is not a sandbox.
+- **Lesson:** A command allowlist does not verify executable identity.
+- **Tags:** review, command-safety, allowlist
