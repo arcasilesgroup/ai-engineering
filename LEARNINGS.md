@@ -244,3 +244,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Converted the regression test to a static contract test; did not invent the missing runtime.
 - **Lesson:** Test agent-executed Markdown procedures as static contracts; do not invent a runtime to satisfy an import.
 - **Tags:** tests, skills, scope
+
+### L32 · 2026-10-07 · ai-triage #1 · behavior
+- **Failure:** `bun test tests/skills.spec.ts` detected the empty `skills/ai-github-triage/` directory left after the old skill file was renamed.
+- **Root cause:** Renaming the old skill file left a stale directory entry on disk.
+- **Fix:** Removed only the empty retired skill directory; the targeted test then passed (19 passed) with no tracked file changes.
+- **Lesson:** Retirement checks include directory presence, not just `SKILL.md` files.
+- **Tags:** tests, skills, filesystem
