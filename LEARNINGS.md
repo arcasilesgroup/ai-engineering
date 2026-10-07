@@ -351,3 +351,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Added explicit guards and safe narrowing without casts, preserving the assertions.
 - **Lesson:** Narrow indexed values before use, and fail closed when a value is absent.
 - **Tags:** typecheck, tests, narrowing
+
+### L47 · 2026-10-07 · ai-triage #4 · behavior
+- **Failure:** Typecheck couldn't resolve `resolveTarget`/`resolveTargetAndRead` because `.mjs` lacked named-export declarations.
+- **Root cause:** A wildcard asset declaration masked the executable module's named exports.
+- **Fix:** Added `resolve-target.d.mts`; tests now pass.
+- **Lesson:** Give executable `.mjs` modules explicit declarations when a wildcard asset declaration masks their exports.
+- **Tags:** typecheck, typescript, declarations
