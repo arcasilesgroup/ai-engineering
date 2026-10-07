@@ -1,5 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { open, readFile, rename, unlink } from "node:fs/promises";
+import {
+  lstat,
+  mkdtemp,
+  open,
+  readFile,
+  rename,
+  rmdir,
+  unlink,
+} from "node:fs/promises";
+import { join } from "node:path";
 
 const REPORT_PATH = ".ai-engineering/triage.html";
 const MAX_CONCURRENT_ANALYSES = 5;
@@ -578,25 +587,48 @@ function renderTemplate(template, scope, date, sections) {
 export async function atomicWriteReport(
   path,
   contents,
-  { writeTemporaryFile, replaceFile = rename } = {},
+  { writeTemporaryFile, beforeReplace } = {},
 ) {
-  const temporaryPath = `${path}.${randomUUID()}.tmp`;
+  const temporaryDirectory = await mkdtemp(`${path}.${randomUUID()}.tmp-`);
+  const temporaryPath = join(temporaryDirectory, "report");
   let handle;
   let ownsTemporaryFile = false;
+  let temporaryIdentity;
   try {
     handle = await open(temporaryPath, "wx", 0o600);
     ownsTemporaryFile = true;
+    temporaryIdentity = await handle.stat();
     await (writeTemporaryFile ?? ((file, text) => file.writeFile(text, "utf8")))(
       handle,
       contents,
+      temporaryPath,
     );
     await handle.sync();
-    await handle.close();
+    await beforeReplace?.(temporaryPath, path);
+    const stagedFile = await lstat(temporaryPath).catch(() => undefined);
+    if (
+      stagedFile === undefined ||
+      stagedFile.dev !== temporaryIdentity.dev ||
+      stagedFile.ino !== temporaryIdentity.ino
+    ) {
+      throw new Error("Temporary report file changed before replacement");
+    }
+    await rename(temporaryPath, path);
+    await handle.close().catch(() => {});
     handle = undefined;
-    await replaceFile(temporaryPath, path);
+    await rmdir(temporaryDirectory).catch(() => {});
   } catch (error) {
+    if (ownsTemporaryFile && temporaryIdentity !== undefined) {
+      const stagedFile = await lstat(temporaryPath).catch(() => undefined);
+      if (
+        stagedFile?.dev === temporaryIdentity.dev &&
+        stagedFile.ino === temporaryIdentity.ino
+      ) {
+        await unlink(temporaryPath).catch(() => {});
+      }
+    }
     await handle?.close().catch(() => {});
-    if (ownsTemporaryFile) await unlink(temporaryPath).catch(() => {});
+    await rmdir(temporaryDirectory).catch(() => {});
     throw error;
   }
 }

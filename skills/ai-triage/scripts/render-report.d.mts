@@ -24,8 +24,9 @@ export function atomicWriteReport(
     writeTemporaryFile?: (
       handle: { writeFile(contents: string, encoding: "utf8"): Promise<void> },
       contents: string,
+      temporaryPath: string,
     ) => Promise<void>;
-    replaceFile?: (temporaryPath: string, path: string) => Promise<void>;
+    beforeReplace?: (temporaryPath: string, path: string) => Promise<void>;
   },
 ): Promise<void>;
 

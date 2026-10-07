@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { describe, expect, test } from "bun:test";
 import {
   atomicWriteReport,
@@ -538,7 +545,7 @@ describe("Azure triage report integration", () => {
                 },
               }
             : {
-                replaceFile: async () => {
+                  beforeReplace: async () => {
                   throw new Error("Synthetic report replacement failure");
                 },
               };
@@ -561,6 +568,61 @@ describe("Azure triage report integration", () => {
           "triage.html",
           "triage.html.other-writer.tmp",
         ]);
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
+
+  test.each(["cleanup", "replacement"] as const)(
+    "preserves the old report and foreign bytes after temporary-path substitution before %s",
+    async (stage) => {
+      const directory = `.ai-engineering/triage-report-test-${randomUUID()}`;
+      const reportPath = `${directory}/triage.html`;
+      const previousBytes = Buffer.from(existingReport);
+      const foreignBytes = Buffer.from("temporary file owned by another writer");
+      let foreignTemporaryPath: string | undefined;
+      await mkdir(directory);
+
+      try {
+        await writeFile(reportPath, previousBytes);
+        await expectNoSuccessShapedResult(() =>
+          writeAzureTriageReport({
+            scope: createSyntheticScope(),
+            inventory: createSyntheticInventory(),
+            analyzeItem: async () => ({ status: "UNASSESSED" }),
+            writeFile: async (path, contents) => {
+              expect(path).toBe(targetReport);
+              await atomicWriteReport(
+                reportPath,
+                contents,
+                stage === "cleanup"
+                  ? {
+                      writeTemporaryFile: async (handle, _contents, temporaryPath) => {
+                        foreignTemporaryPath = temporaryPath;
+                        await handle.writeFile("partial synthetic report", "utf8");
+                        await unlink(temporaryPath);
+                        await writeFile(temporaryPath, foreignBytes);
+                        throw new Error("Synthetic failure after temporary substitution");
+                      },
+                    }
+                  : {
+                      beforeReplace: async (temporaryPath) => {
+                        foreignTemporaryPath = temporaryPath;
+                        await unlink(temporaryPath);
+                        await writeFile(temporaryPath, foreignBytes);
+                      },
+                    },
+              );
+            },
+          }),
+        );
+
+        expect(await readFile(reportPath)).toEqual(previousBytes);
+        if (foreignTemporaryPath === undefined) {
+          throw new Error("The synthetic substitution did not run");
+        }
+        expect(await readFile(foreignTemporaryPath)).toEqual(foreignBytes);
       } finally {
         await rm(directory, { recursive: true, force: true });
       }

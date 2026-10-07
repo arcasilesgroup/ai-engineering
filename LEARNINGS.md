@@ -465,3 +465,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Scan and redact embedded assignments while preserving safe surrounding text.
 - **Lesson:** Scan nested credential assignments at the shared output boundary while retaining safe enclosing text.
 - **Tags:** review, auth, redaction, metadata, tests
+
+### L63 · 2026-10-07 · ai-triage #7 · review
+- **Failure:** A substituted same-path temporary file could be deleted during cleanup or published instead of the report.
+- **Root cause:** Cleanup and replacement trusted a pathname after closing the staged file, without binding that path to the opened file's identity.
+- **Fix:** Stage in a private unique directory, retain the opened file through atomic rename, validate device/inode before replacement, and unlink only the matching staged file.
+- **Lesson:** Bind filesystem cleanup and publication to the identity of the file opened, not just its temporary pathname.
+- **Tags:** review, atomic-write, filesystem, ownership, tests
