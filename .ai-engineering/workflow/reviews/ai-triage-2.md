@@ -140,3 +140,10 @@ VERDICT: FAIL
 - F11 fixed: only bare allowlisted executable names pass; static assertions reject path-qualified command examples and require the trusted-`PATH` limitation to be stated.
 - The GitHub procedure remains agent-executed Markdown and preserves the closed read contract; it states this is not an executable-identity sandbox and assumes the user's `PATH` is trusted.
 - Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (128 assertions).
+
+### Fresh final review · trusted-PATH boundary
+VERDICT: PASS
+- Resolved: 11/11 (F1–F11); open: 0.
+- The contract and sentinels retain the earlier command, pagination, per-item, and shell-form protections; executable names must be bare, allowlisted names.
+- The instructions explicitly trust `PATH` and disclaim executable-identity sandboxing; a malicious earlier `PATH` entry is within the approved boundary, not an open finding.
+- No high-confidence remaining gap found.

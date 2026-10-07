@@ -63,9 +63,11 @@
       },
       "builds_on": [1],
       "tasks": [
-        "Add `tests/triage-github.spec.ts` as a deterministic static instruction-contract check over the GitHub Markdown and existing report template; assert separate issue/PR inventories, complete pagination and counts, per-item analysis, evidence, ranking, read-only rules, report coverage, and no active remote mutation commands. Do not add or expect a GitHub runtime runner or synthetic execution."
+        "Add `tests/triage-github.spec.ts` as a deterministic static instruction-contract check over the GitHub Markdown and existing report template; assert separate issue/PR inventories, complete pagination and counts, per-item analysis, evidence, ranking, read-only rules, report coverage, and no active remote mutation commands. Do not add or expect a GitHub runtime runner or synthetic execution.",
+        "Keep the GitHub reference explicit about a closed read-only command allowlist, reject path-qualified executables and shell composition, and state that executable resolution relies on a trusted PATH rather than a sandbox."
       ],
       "files": [
+        "skills/ai-triage/references/github.md",
         "tests/triage-github.spec.ts"
       ],
       "acceptance": [
@@ -79,12 +81,12 @@
         "behavior": { "status": "passed", "attempts": 3, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "pending",
-          "attempts": 3,
+          "status": "passed",
+          "attempts": 4,
           "findings": []
         }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         "skills/ai-triage/references/github.md",
         "tests/triage-github.spec.ts"
