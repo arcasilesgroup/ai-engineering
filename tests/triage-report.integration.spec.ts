@@ -123,7 +123,9 @@ describe("Azure triage report integration", () => {
     const inventory = createSyntheticInventory();
     const scope = createSyntheticScope();
     const syntheticToken = "github_pat_syntheticToken1234567890";
-    scope.backlogName = `<img src=x onerror=alert(1)> ${syntheticToken}`;
+    const inertPlaceholderLabel = "{{date}} {{repo}} $& $`";
+    scope.backlogName =
+      `<img src=x onerror=alert(1)> ${syntheticToken} ${inertPlaceholderLabel}`;
     const reportWriter = createMemoryReportWriter();
     const analyzedItemIds: number[] = [];
     let activeAnalyses = 0;
@@ -175,6 +177,10 @@ describe("Azure triage report integration", () => {
       inventory.items.map((item) => item.id),
     );
     expect(generatedReport).toContain('class="hero"');
+    expect(generatedReport.match(/<html\b/g)).toHaveLength(1);
+    expect(generatedReport.match(/<\/html>/g)).toHaveLength(1);
+    expect(generatedReport.match(/<h1>/g)).toHaveLength(1);
+    expect(generatedReport).toContain("{{date}} {{repo}} $&amp; $`");
     expect(generatedReport).toContain("<nav>");
     expect(generatedReport).toContain('<main id="main">');
     expect(generatedReport).toContain('class="container"');
@@ -450,5 +456,32 @@ describe("Azure triage report integration", () => {
 
     expect(reportWriter.reports.get(targetReport)).toBe(existingReport);
     expect(reportWriter.writes).toEqual([]);
+  });
+
+  test("does not write or expose a rejected evidence URL with bearer credentials", async () => {
+    const reportWriter = createMemoryReportWriter();
+    const syntheticToken = "github_pat_syntheticToken1234567890";
+    const unsafeUrl =
+      `https://evidence.example.test/items/42?view=Bearer%2520${syntheticToken}`;
+
+    await expectNoSuccessShapedResult(() =>
+      writeAzureTriageReport({
+        scope: createSyntheticScope(),
+        inventory: createSyntheticInventory(),
+        analyzeItem: async (item: SyntheticWorkItem) => ({
+          status: "ASSESSED",
+          priority: "P2",
+          summary: `Synthetic analysis for item ${item.id}`,
+          evidence: [{ label: "Synthetic evidence", url: unsafeUrl }],
+        }),
+        writeFile: reportWriter.writeFile,
+      }),
+    );
+
+    expect(reportWriter.reports.get(targetReport)).toBe(existingReport);
+    expect(reportWriter.writes).toEqual([]);
+    expect(
+      [...reportWriter.reports.values()].some((report) => report.includes(unsafeUrl)),
+    ).toBe(false);
   });
 });

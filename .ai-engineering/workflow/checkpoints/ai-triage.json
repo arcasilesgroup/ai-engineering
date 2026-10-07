@@ -297,7 +297,14 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 1, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "F1/P1: bearer/credential values in URL query parameters can pass link validation and render.",
+            "F2/P2: replacement tokens embedded in remote labels can be processed again and corrupt shared report placeholders."
+          ]
+        }
       },
       "status": "pending",
       "changed_files": [

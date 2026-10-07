@@ -1,5 +1,7 @@
 # Checkpoint 6 · Render complete Azure reports safely
 
+Replanned scope: checkpoint 6 now covers Azure-specific report rendering, complete rows/counts/linkage, HTML and URL sanitization, and shared-shell compatibility. Atomic publication/write-failure behavior is split into checkpoint 7; its existing tests still run, but it is no longer an acceptance criterion for this review.
+
 Goal: A complete Azure inventory becomes a full `.ai-engineering/triage.html` report using the shared artifact shell, Azure-appropriate sections, escaped untrusted content and validated HTTPS evidence; failures leave the previous report untouched.
 
 Acceptance:
@@ -62,3 +64,18 @@ Verify:
 - **FIX:** Check raw and decoded URL values, omit unsafe links, and render safe IDs/text.
 - **LESSON:** Validate untrusted URL values before encoding or rendering them.
 - **Focused tests:** Unit 6/6; integration 11/11.
+
+## Round 1 after replan · verdict
+
+- **FAIL**
+- **F1 · P1 — Bearer credentials in URL query parameters render** (`skills/ai-triage/scripts/render-report.mjs:99–108, 153`). `sanitizeEvidenceUrl("https://evidence.example.test/item?bearer=synthetic-secret")` accepts the URL because `bearer` is absent from the sensitive-query-key check; accepted evidence and relation URLs are rendered as links. Reject bearer-style credential keys and cover the complete report output.
+- **F2 · P2 — Dollar replacement tokens corrupt the shared shell** (`skills/ai-triage/scripts/render-report.mjs:546–548`). `replaceAll` interprets replacement tokens in escaped remote labels: a synthetic backlog name of `$`` produced four document roots, titles, and hero headers. Use a replacement callback (or equivalent literal substitution) and test `$&`/`$`` labels against the generated shell.
+- Verification: the report unit/integration and shared-shell test set passed 27/27; the two synthetic probes above reproduced F1 and F2.
+
+## Fixer response · F1/F2
+
+- **ROOT CAUSE:** URL validation did not classify `bearer` as a credential query key, and sequential template substitutions rescanned dynamic report content.
+- **FIX:** Reject bearer and credential-like query values after URL parsing, including encoded forms. Substitute nav, report content, and shell placeholders once from the original template via a callback.
+- **LESSON:** Validate every decoded URL query value, and never run template passes over inserted untrusted text.
+- **Focused tests:** Report unit and integration tests cover reserved query keys, encoded bearer values, safe GitHub/Azure links, no URL leakage, and inert placeholder/replacement-token labels with one intact shell.
+- **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 20/20.

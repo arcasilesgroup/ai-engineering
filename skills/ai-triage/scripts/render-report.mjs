@@ -101,7 +101,7 @@ function containsSensitiveQueryKey(key) {
   return (
     candidates === null ||
     candidates.some((candidate) =>
-      /(?:token|auth|password|secret|credential|api[_-]?key|signature|(?:^|[_-])sig(?:$|[_-]))/i.test(
+      /(?:token|auth|password|secret|bearer|credential|api[_-]?key|signature|(?:^|[_-])sig(?:$|[_-]))/i.test(
         candidate,
       ),
     )
@@ -495,18 +495,10 @@ function renderSections(scope, items, analyses, hierarchy) {
   return { date, sections, assessedCount, unassessedCount };
 }
 
-function replaceContent(template, startMarker, endMarker, content) {
-  const start = template.indexOf(startMarker);
-  const end = template.indexOf(endMarker, start + startMarker.length);
-  if (start < 0 || end < 0) throw new Error("Triage template is missing report markers");
-  return (
-    template.slice(0, start) +
-    content +
-    template.slice(end + endMarker.length)
-  );
-}
-
 function renderTemplate(template, scope, date, sections) {
+  if (!/<!-- report-content-start -->[\s\S]*?<!-- report-content-end -->/.test(template)) {
+    throw new Error("Triage template is missing report markers");
+  }
   const nav = [
     "Snapshot",
     "Ranked work",
@@ -519,13 +511,6 @@ function renderTemplate(template, scope, date, sections) {
         `<a href="#s0${index + 1}"><b>0${index + 1}</b>${label}</a>`,
     )
     .join("\n");
-  let output = template.replace(/<nav>[\s\S]*?<\/nav>/, `<nav>\n${nav}\n</nav>`);
-  output = replaceContent(
-    output,
-    "<!-- report-content-start -->",
-    "<!-- report-content-end -->",
-    sections,
-  );
   const projectLabel = `${scope.organization}/${scope.project}`;
   const substitutions = new Map([
     ["{{repo}}", visibleText(projectLabel)],
@@ -543,10 +528,14 @@ function renderTemplate(template, scope, date, sections) {
     ],
     ["{{footer}}", visibleText("Complete inventory · read-only report")],
   ]);
-  for (const [placeholder, value] of substitutions) {
-    output = output.replaceAll(placeholder, value);
-  }
-  return output;
+  return template.replace(
+    /<nav>[\s\S]*?<\/nav>|<!-- report-content-start -->[\s\S]*?<!-- report-content-end -->|\{\{(?:repo|date|title|subtitle|meta|footer)\}\}/g,
+    (placeholder) => {
+      if (placeholder.startsWith("<nav>")) return `<nav>\n${nav}\n</nav>`;
+      if (placeholder.startsWith("<!-- report-content-start -->")) return sections;
+      return substitutions.get(placeholder) ?? placeholder;
+    },
+  );
 }
 
 export async function atomicWriteReport(

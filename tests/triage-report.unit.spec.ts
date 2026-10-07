@@ -23,6 +23,17 @@ describe("report HTML sanitization", () => {
     expect(sanitizeEvidenceUrl(evidenceUrl)).toBe(evidenceUrl);
   });
 
+  test("preserves safe HTTPS GitHub and Azure links with normal query parameters", () => {
+    const safeUrls = [
+      "https://github.com/org/repo/issues/42?view=full&line=3",
+      "https://dev.azure.com/org/project/_workitems/edit/42?view=full",
+    ];
+
+    for (const safeUrl of safeUrls) {
+      expect(sanitizeEvidenceUrl(safeUrl)).toBe(safeUrl);
+    }
+  });
+
   test("rejects unsafe, malformed, and relative evidence URLs", () => {
     const invalidUrls = [
       "javascript:alert(1)",
@@ -32,10 +43,35 @@ describe("report HTML sanitization", () => {
       "https://[",
       "https://issues.example.test/items/%ZZ",
       "https://issues.example.test/items/%E0%A4%A",
+      "https://user:password@issues.example.test/items/42",
+      "https://user@issues.example.test/items/42",
     ];
 
     for (const evidenceUrl of invalidUrls) {
       expect(sanitizeEvidenceUrl(evidenceUrl)).toBeNull();
+    }
+  });
+
+  test("rejects credential query keys and credential-like query values", () => {
+    const credentialKeys = [
+      "token",
+      "auth",
+      "password",
+      "secret",
+      "signature",
+      "bearer",
+    ];
+    const syntheticToken = "github_pat_syntheticToken1234567890";
+    const invalidUrls = [
+      ...credentialKeys.map(
+        (key) => `https://issues.example.test/items/42?${key}=synthetic-value`,
+      ),
+      `https://issues.example.test/items/42?view=Bearer%20${syntheticToken}`,
+      `https://issues.example.test/items/42?view=Bearer%2520${syntheticToken}`,
+    ];
+
+    for (const invalidUrl of invalidUrls) {
+      expect(sanitizeEvidenceUrl(invalidUrl)).toBeNull();
     }
   });
 
@@ -62,6 +98,7 @@ describe("report HTML sanitization", () => {
       `https://issues.example.test/items/42?project=${encodedToken}`,
       "https://issues.example.test/items/42?%2561ccess_token=",
       `https://${encodedToken}@issues.example.test/items/42`,
+      `https://issues.example.test/items/42?view=%2542earer%2520${encodedToken}`,
     ];
 
     for (const encodedUrl of encodedUrls) {
