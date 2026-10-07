@@ -237,3 +237,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** one reusable sentence for next time
 - **Tags:** e.g. auth, db, migration, ui, tests, webhooks
 -->
+
+### L31 · 2026-10-07 · ai-triage #1 · behavior
+- **Failure:** The first GitHub regression test imported `skills/ai-triage/scripts/github.mjs`, which is not part of the approved Markdown skill design.
+- **Root cause:** The test assumed the agent-executed procedure had an executable runtime helper, creating a scope mismatch.
+- **Fix:** Converted the regression test to a static contract test; did not invent the missing runtime.
+- **Lesson:** Test agent-executed Markdown procedures as static contracts; do not invent a runtime to satisfy an import.
+- **Tags:** tests, skills, scope

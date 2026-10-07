@@ -49,9 +49,10 @@
       "gates": {
         "behavior": {
           "status": "failed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "bun test tests/triage-github.spec.ts failed before tests ran: cannot resolve skills/ai-triage/scripts/github.mjs"
+            "bun test tests/triage-github.spec.ts failed before tests ran: cannot resolve skills/ai-triage/scripts/github.mjs",
+            "bun test tests/skills.spec.ts reports stale skills/ai-github-triage directory without SKILL.md"
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
