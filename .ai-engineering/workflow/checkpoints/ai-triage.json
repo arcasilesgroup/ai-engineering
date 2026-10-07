@@ -298,9 +298,11 @@
         "behavior": { "status": "passed", "attempts": 3, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "pending",
-          "attempts": 3,
-          "findings": []
+          "status": "failed",
+          "attempts": 4,
+          "findings": [
+            "F10/P1: Synthetic `SYSTEM_ACCESSTOKEN=`, `private_key=`, `access_key=`, and `secret_access_key=` team metadata values still render in full reports."
+          ]
         }
       },
       "status": "pending",

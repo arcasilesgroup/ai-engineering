@@ -145,3 +145,66 @@ Verify:
 - **Open F6 · P1 — Compound credential assignment keys still leak** (`/Users/soydachi/repos/arcasilesgroup/ai-engineering.worktrees/ai-triage/skills/ai-triage/scripts/render-report.mjs:50`): synthetic `scope.team` values `azure_devops_token=synthetic-secret` and `bearer_token=synthetic-secret` both appear in the generated report. The matcher covers exact aliases but misses these credential keys when prefixed.
 - **Verification:** report unit/integration tests passed 24/24 (165 assertions); synthetic full-report probes confirmed both residual leaks. No live calls; no source edits.
 - **Cumulative:** 12 resolved · 1 open.
+
+## CP6 resumed adversarial review · Round 1
+
+- **VERDICT: FAIL**
+- **Resolved/open: 1/1** — F6 is resolved: `azure_devops_token=` and `bearer_token=` are redacted in the complete report; neighboring policy/owner metadata remains visible.
+- **F7 · P1 — Common PAT assignment aliases still leak** (`skills/ai-triage/scripts/render-report.mjs:50`): synthetic `personal_access_token=synthetic-personal-token`, `ado_pat=synthetic-ado-pat`, and `azure_devops_ext_pat=synthetic-extension-pat` all appeared in a full generated report.
+- The generic `access_token` match has no word boundary after the underscore in `personal_access_token`; `pat` aliases are not recognized. `personal_access_token_owner` remained visible, so any fix must preserve benign near-matches.
+- **Verification:** unit and integration tests passed 24/24 (169 assertions), but do not exercise these aliases. Synthetic in-memory report probe only; no live provider calls.
+- No other high-confidence safety defects found in this slice.
+
+## Fixer response · CP6 F7 (Round 1)
+
+- **STATUS: FIXED**
+- **ROOT CAUSE:** The exact assignment matcher recognized `access_token` only at a word boundary and omitted the `ado_pat` and `azure_devops_ext_pat` aliases.
+- **FIX:** Added those three exact assignment-key patterns at the shared authentication-redaction boundary; keys must still be followed by `=` or `:`, preserving benign suffixed metadata.
+- **REGRESSION:** Full synthetic report coverage verifies all three secret values are absent and `personal_access_token_owner`, `ado_pat_owner`, and `azure_devops_ext_pat_owner` remain unchanged.
+- **LESSON:** Match credential aliases as complete assignment keys and retain neighboring safe metadata in full-output assertions.
+- **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 24/24 (175 assertions); `git diff --check` passed. Synthetic values only; no live provider calls.
+
+## CP6 resumed adversarial review · Round 2
+
+- **VERDICT: FAIL**
+- **Resolved/open: 1/1** — F7 is resolved: the complete report redacts `personal_access_token=`, `ado_pat=`, and `azure_devops_ext_pat=`; the tested owner/policy near-matches remain visible.
+- **F8 · P1 — Other common token assignments still leak** (`skills/ai-triage/scripts/render-report.mjs:50`): a full synthetic report retained `azure_devops_pat=synthetic-azure-pat`, `github_token=synthetic-github-token`, and `system_access_token=synthetic-system-token`.
+- The full report also preserved benign `azure_devops_pat_owner` and `github_token_owner` metadata.
+- **Verification:** focused unit/integration tests passed 24/24 (175 assertions), but omit these keys. In-memory synthetic report probe only; no live provider calls.
+- No other high-confidence safety defects found in this slice.
+
+## Fixer response · CP6 F8 (Round 2)
+
+- **VERDICT: FIXED**
+- **ROOT CAUSE:** The shared authentication-assignment redactor omitted `azure_devops_pat`, `github_token`, and `system_access_token`.
+- **FIX:** Added those exact aliases at the shared rendering boundary and extended the complete synthetic-report test to assert all three values are absent while preserving benign `*_owner` metadata.
+- **LESSON:** Cover provider credential aliases at the shared output boundary while asserting neighboring metadata remains visible.
+- **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 24/24 (181 assertions); `git diff --check` passed.
+- Synthetic credentials only; no live Azure/GitHub calls and no credentials written or emitted.
+
+## CP6 resumed adversarial review · Round 3
+
+- **VERDICT: FAIL**
+- **Resolved/open: 1/1** — F8 is resolved: the complete report redacts `azure_devops_pat=`, `github_token=`, and `system_access_token=`; corresponding `*_owner` metadata remains visible.
+- **F9 · P1 — Other common token assignment aliases still leak** (`skills/ai-triage/scripts/render-report.mjs:50`): full synthetic reports retained `api_token=`, `github_pat=`, `gh_token=`, `azdo_pat=`, `ado_token=`, and `azure_pat=` values.
+- The complete-report integration tests pass but do not cover these aliases.
+- **Verification:** focused unit/integration tests passed 24/24 (181 assertions); separate in-memory synthetic report probe reproduced each leak and confirmed owner metadata remains visible. No live provider calls.
+- No other high-confidence safety defects found in this slice.
+
+## Fixer response · CP6 F9 (Round 3)
+
+- **VERDICT: FIXED**
+- **ROOT CAUSE:** The shared assignment redactor depended on a finite list of provider-specific aliases.
+- **FIX:** Normalize assignment keys and redact credential-bearing suffix families (`token`, `pat`, `auth`, `secret`, and related terms), rather than matching arbitrary `token` substrings; full-report regressions cover F9, prior aliases, and safe owner/count/policy metadata.
+- **LESSON:** Classify credential assignment keys by semantic suffix, not a growing provider alias list or arbitrary keyword containment.
+- **Verification:** `bun test tests/triage-report.unit.spec.ts tests/triage-report.integration.spec.ts` passed 24/24 (194 assertions); `git diff --check` passed.
+- Synthetic values only; no live Azure/GitHub calls and no credentials written or emitted.
+
+## CP6 resumed adversarial review · Round 4 (final)
+
+- **VERDICT: FAIL**
+- **Resolved/open: 1/1** — F9 is resolved: all 14 reported aliases are absent from the full report, and tested owner/count/policy metadata remains visible.
+- **F10 · P1 — Established credential forms still leak** (`skills/ai-triage/scripts/render-report.mjs:46–51`): synthetic full-report probes retained `SYSTEM_ACCESSTOKEN=`, `private_key=`, `access_key=`, and `secret_access_key=` values.
+- `SYSTEM_ACCESSTOKEN` has no separator for the semantic suffix matcher to recognize; the matcher also lacks a generic `key` credential suffix.
+- **Verification:** focused unit/integration tests passed 24/24 (194 assertions), but omit these forms. In-memory synthetic probes only; no live provider calls.
+- Final-round review leaves F10 open; no other high-confidence defects found.
