@@ -2,9 +2,8 @@
 name: ai-triage
 description: >-
   Reads one GitHub or Azure DevOps backlog, explains what to work on first, and writes a
-  complete report without changing remote items. GitHub triage is available; Azure routes
-  stop before remote reads until Azure support is implemented. Use for backlog triage, not
-  debugging one failure, filing an issue, reviewing a diff, or deciding what to build.
+  complete report without changing remote items. Use for backlog triage, not debugging one
+  failure, filing an issue, reviewing a diff, or deciding what to build.
 license: Apache-2.0
 ---
 
@@ -27,9 +26,21 @@ organizations, projects, teams, or boards in one report.
   Azure CLI defaults.
 - For a GitHub target, follow the complete [GitHub procedure](references/github.md). It
   preserves the existing issue and pull-request inventory, ranking, evidence, and report.
-- If the target is Azure DevOps, stop before making any remote read. Azure support is not
-  available yet; do not invoke Azure CLI, inspect account defaults, or guess a scope. This
-  fail-closed boundary remains until the later Azure checkpoints are implemented.
+- For Azure DevOps, follow the [Azure procedure](references/azure-devops.md). Route the
+  resolved target through `resolveTargetAndRead`; its callback is the only place to call
+  `collectAzureBacklog`. If the selected scope is not ready or the scoped request adapter
+  cannot be established from documented route metadata, stop without reading or writing.
+- After collection returns `complete: true`, create exactly one analysis record per
+  inventoried work-item ID. Keep no more than five per-item analyses in flight; record
+  `UNASSESSED` explicitly when an item cannot be assessed. Pass the complete inventory
+  and an `analyzeItem` lookup keyed by item ID to `writeAzureTriageReport` in
+  `scripts/render-report.mjs`. It validates and renders everything before writing
+  `.ai-engineering/triage.html`; an ambiguity, incomplete inventory, missing/invalid
+  analysis, unsafe link, or render failure must leave the prior report untouched. Parent
+  and child links are context, never inventory.
+- The report uses the shared shell in `templates/triage.html.tpl` and follows
+  [artifact-design.md](../ai-brainstorm/references/artifact-design.md); preserve the
+  existing GitHub report sections and output contract.
 - If the provider or target is unclear, ask before reading anything.
 
 ## Read-only boundary
@@ -41,7 +52,7 @@ that could not be assessed; never present a partial inventory as complete.
 ## Lifecycle
 
 Lane: light
-Writes: `.ai-engineering/triage.html` for GitHub
+Writes: `.ai-engineering/triage.html` for GitHub and Azure DevOps
 Read by: the human deciding what to work on next; ai-brainstorm when an item becomes work
 Dies: replaced by the next triage of the same repository
 Next: ai-brainstorm when the human picks an item to build; none when the report only closes items

@@ -215,6 +215,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <main id="main">
 <div class="container">
 
+<!-- report-content-start -->
 <!-- Triage contract (ai-github-triage): the page is a decision surface, not a
      transcript. Every claim is a permalink at a commit SHA; no permalink means
      no claim. The reader must be able to pick the first item to work on from
@@ -464,6 +465,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <p>{{coverage}}</p>
 </section>
 
+<!-- report-content-end -->
 </div>
 </main>
 

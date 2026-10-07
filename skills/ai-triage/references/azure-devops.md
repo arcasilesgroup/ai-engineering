@@ -58,3 +58,21 @@ tenant, credentials, or network access.
 No credentials, active CLI defaults, or Azure responses belong in this
 repository. Authentication and API failures stop collection; no partial
 inventory is reported as complete.
+
+## Report handoff
+
+Only after `collectAzureBacklog` returns `complete: true`, analyze every returned work
+item exactly once. Keep no more than five analyses in flight. Each analysis must return a
+record for that item's ID, or an explicit `UNASSESSED` record; a missing or invalid record
+stops the run.
+
+Pass the complete inventory and its per-item analysis records to
+`writeAzureTriageReport` in `scripts/render-report.mjs` through an `analyzeItem` lookup
+keyed by work-item ID. The writer uses the shared
+`templates/triage.html.tpl` shell and the Azure-specific scope, ranked work-item,
+type/state, related-context and method sections. Related parents and children are shown as
+context only and never become inventory rows. The writer finishes validation and rendering
+before atomically replacing `.ai-engineering/triage.html`; ambiguity, collection,
+analysis, validation, rendering or writing failures must leave an existing report
+byte-for-byte unchanged. Never include authentication fields or values in the analysis
+records or report.
