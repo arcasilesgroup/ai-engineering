@@ -300,3 +300,32 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Reject shell syntax that executes nested commands.
 - **Lesson:** A read-only command contract must reject shell syntax that executes nested commands.
 - **Tags:** review, command-safety, contracts
+
+### L40 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** The retry review found that the shell boundary was not enforced before accepting commands.
+- **Root cause:** Command acceptance preceded shell-boundary enforcement.
+- **Fix:** Enforce the shell boundary before accepting commands.
+- **Lesson:** Enforce the shell boundary before accepting commands.
+- **Tags:** review, command-safety, shell
+
+### L41 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** The retry review found that complete command examples were not extracted before read-only allowlist checks.
+- **Root cause:** The allowlist was applied before complete command examples were extracted.
+- **Fix:** Extract complete command examples before applying the read-only allowlist.
+- **Lesson:** Extract complete command examples before applying the read-only allowlist.
+- **Tags:** review, command-safety, contracts
+
+### L42 · 2026-10-07 · ai-triage #2 · review
+- **Failure:** The retry review found that fence labels and executable paths could bypass a closed read allowlist.
+- **Root cause:** Fence labels and executable paths were not fully constrained by the closed read allowlist.
+- **Fix:** Prevent fence labels and executable paths from bypassing the closed read allowlist.
+- **Lesson:** Fence labels and executable paths must not bypass a closed read allowlist.
+- **Tags:** review, command-safety, allowlist
+
+### L43 · 2026-10-07 · ai-triage #2 · circuit-breaker
+- **Failure:** After the automatic split, checkpoint 2 review reached three failed review attempts. F1–F10 were resolved, but F11/P1 remains because basename normalization allows path-qualified executables such as `./gh` or `~/bin/gh` to bypass the read allowlist.
+- **Root cause:** Awaiting the user's decision.
+- **Fix:** Awaiting the user's decision.
+- **Attempts:** Explicit denylist; closed allowlist; shell operator, substitution and heredoc checks; all-fence parsing; basename normalization.
+- **Lesson:** No Rule inferred; root cause and final fix await the user's decision.
+- **Tags:** circuit-breaker, review, command-safety, allowlist

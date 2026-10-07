@@ -129,3 +129,8 @@ VERDICT: FAIL
 - Lesson: a closed command allowlist must classify the executable by basename, and extraction cannot depend on a recognized fence label.
 - Files: `tests/triage-github.spec.ts`, `.ai-engineering/workflow/reviews/ai-triage-2.md`.
 - Verify: `bun test tests/triage-github.spec.ts` — 3 passed, 0 failed (93 assertions).
+
+### Debate · fresh retry-cycle round 4
+VERDICT: FAIL
+- F7–F10 · RESOLVED — zsh process substitution, here-docs, variable fences, environment assignments, and path-prefixed curl examples are covered.
+- F11 · P1 · `tests/triage-github.spec.ts:45-54` — Basename normalization allows an arbitrary executable named `gh` to pass the allowlist: `./gh issue list` or `~/bin/gh issue list` is accepted even if that script performs a remote write. The tests cover path-prefixed denied commands, but not a path-prefixed executable with an allowed verb.
