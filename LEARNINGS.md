@@ -15,8 +15,13 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R6: Enforce protection at the one choke point every categorization funnels through, not per path — a guard placed only where a test pinned one configuration is forgotten by the next path — and let every destructive step assert its own safety first, with a command an agent can run, before it deletes. (from L18, L20, L30)
 - R7: Derive every list, count and path from the thing that owns it — the command's own contract, re-derived at write time — never a neighbour command's sweep, a remembered list, or a number copied into prose, which is only a cache of the command that produces it. (from L15, L21, L27)
 - R8: Pin the scope of every read and fail closed: ambient mutable state — HEAD, a user or global git config — must not decide what it sees, an exit code is never the result (only the message naming the expected absence may branch), and a guard that cannot decide denies. (from L16, L23)
-- R9: Accept only bare allowlisted `gh`/`az` executable names; reject path prefixes, environment assignments and shell wrappers. A static Markdown allowlist is not a sandbox against an earlier malicious executable in `PATH`. (from L44)
+- R9: Define remote commands with a closed allowlist; inspect complete command examples before acceptance, reject shell composition and unsafe forms, and accept only bare allowlisted executable names. A static Markdown allowlist cannot secure executable resolution from `PATH`. (from L37–L42, L44–L45)
 - R10: Use the already-authenticated Azure CLI and its Azure DevOps extension for Azure DevOps access; never write tokens or credentials. (from L57)
+- R11: Scope each contract assertion to the specific command it governs; a neighboring command or generic assertion cannot stand in for it. (from L34–L36)
+- R12: Narrow optional and indexed values before typed use, and fail closed when a required value is absent. (from L46, L50–L51)
+- R13: Validate untrusted output values at the output boundary; HTML-escape text, validate raw and decoded URL values separately, and do not reprocess inserted content. (from L52–L55)
+- R14: Redact credential assignments at the shared output boundary by semantic key families, including nested assignments, while preserving safe near-matches. (from L58–L62)
+- R15: Keep executable `.mjs` APIs explicitly declared, and embed script/declaration payloads as text when they are data rather than host modules. (from L47, L64)
 
 ## Log
 
@@ -479,3 +484,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Embedded scripts and declaration files through `.txt` copies and tested the exact payloads.
 - **Lesson:** Keep runtime script assets separate from host-module resolution.
 - **Tags:** behavior, assets, typecheck
+
+### L65 · 2026-10-07 · ai-triage #8 · behavior
+- **Failure:** The chain full-suite p95 budget failed sporadically although the isolated test passed.
+- **Root cause:** `tests/adversarial/chain.test.ts` used `floor(n*0.95)`, which selected the maximum of 20 observations.
+- **Fix:** Use `ceil(0.95*n)-1` and pin the one-outlier regression while preserving the 50ms threshold.
+- **Lesson:** The nearest-rank p95 index is `ceil(p*n)-1`.
+- **Tags:** behavior, tests, performance

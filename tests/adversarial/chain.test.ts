@@ -30,6 +30,8 @@ afterAll(() => {
 const RUN = (payload: Record<string, unknown>, event = "PreToolUse") =>
   runChain(payload, event, { inProcess: true });
 
+const p95 = (sortedSamples: number[]) => sortedSamples[Math.ceil(sortedSamples.length * 0.95) - 1]!;
+
 describe("adversarial · no-verify", () => {
   test("git commit -n is denied", () => {
     const r = RUN({ tool_name: "Bash", tool_input: { command: "git commit -n -m x" }, tool_use_id: "a1", session_id: "adv" });
@@ -238,7 +240,9 @@ describe("adversarial · chain hard cases", () => {
       samples.push(performance.now() - t0);
     }
     samples.sort((a, b) => a - b);
-    expect(samples[Math.floor(samples.length * 0.95)]!).toBeLessThan(50);
+    const oneOutlier = [...Array.from({ length: 19 }, () => 1), 100];
+    expect(p95(oneOutlier)).toBe(1);
+    expect(p95(samples)).toBeLessThan(50);
   });
 });
 
