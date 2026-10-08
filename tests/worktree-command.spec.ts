@@ -269,18 +269,17 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(existsSync(join(defaultRoot(repo), "gamma"))).toBe(false);
   });
 
-  test("overlap: a second worktree declaring a file an open one declared warns without blocking", () => {
+  test("new: extra positional file arguments fail with usage before creating the root or branch", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
 
-    const first = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
-    expect(first.status).toBe(0);
-    const second = runCli(["worktree", "new", "beta", "docs/shared.md"], repo);
-    expect(second.status).toBe(0);
-    expect(second.stderr).toContain("shared.md");
-    expect(existsSync(join(root, "beta"))).toBe(true);
-    expect(branchNames(repo)).toContain("feat/beta");
+    const run = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
+    expect(run.status).not.toBe(0);
+    expect(run.stderr.toLowerCase()).toContain("usage");
+    expect(existsSync(root)).toBe(false);
+    expect(branchNames(repo)).toEqual(["main"]);
+    expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
   test("list: reports every open worktree with its slug and path and mutates nothing", () => {
@@ -596,34 +595,46 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
-  test("declaration file with the worktrees: invalid null is rejected, rm drops the slug, primary stays clean", () => {
+  test("new: does not create the legacy manifest", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
-    // The declaration file lives beside the worktrees, never in the primary tree.
+
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    expect(existsSync(join(root, ".ai-eng-worktrees.json"))).toBe(false);
+  });
+
+  test("new: ignores and preserves malformed legacy manifest bytes", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
     mkdirSync(root, { recursive: true });
     const declarations = join(root, ".ai-eng-worktrees.json");
-    writeFileSync(declarations, "null");
-    const clean = git(["status", "--porcelain"], repo);
+    const malformedBytes = "{ legacy manifest is malformed\n";
+    writeFileSync(declarations, malformedBytes);
 
-    // A malformed declaration file must be a refusal, not an uncaught throw.
-    const bad = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
-    expect(bad.status).not.toBe(0);
-    expect(bad.stderr.trim().length).toBeGreaterThan(0);
+    const run = runCli(["worktree", "new", "alpha"], repo);
+    expect(run.status).toBe(0);
+    expect(existsSync(join(root, "alpha"))).toBe(true);
+    expect(readFileSync(declarations, "utf8")).toBe(malformedBytes);
+  });
+
+  test("rm: does not read, rewrite, or remove a malformed legacy manifest", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+
+    const declarations = join(root, ".ai-eng-worktrees.json");
+    const malformedBytes = "{ legacy manifest is malformed\n";
+    writeFileSync(declarations, malformedBytes);
+
+    const run = runCli(["worktree", "rm", "alpha"], repo);
+    expect(run.status).toBe(0);
     expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(git(["status", "--porcelain"], repo)).toBe(clean);
-
-    rmSync(declarations, { force: true });
-    expect(runCli(["worktree", "new", "alpha", "docs/shared.md"], repo).status).toBe(0);
-    expect(existsSync(declarations)).toBe(true);
-    expect(readFileSync(declarations, "utf8")).toContain("alpha");
-    // A session never touches the primary tree.
-    expect(git(["status", "--porcelain"], repo)).toBe(clean);
-
-    expect(runCli(["worktree", "rm", "alpha"], repo).status).toBe(0);
-    const after = existsSync(declarations) ? readFileSync(declarations, "utf8") : "";
-    expect(after).not.toContain("alpha");
-    expect(git(["status", "--porcelain"], repo)).toBe(clean);
+    expect(branchNames(repo)).not.toContain("feat/alpha");
+    expect(worktreeEntries(repo)).toHaveLength(1);
+    expect(readFileSync(declarations, "utf8")).toBe(malformedBytes);
   });
 
   test("relative worktrees_dir: the same root from the primary tree and from inside a worktree", () => {
