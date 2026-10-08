@@ -38,7 +38,7 @@ STAGES = {"tests", "implement", "behavior", "ui", "review", "fix"}
 MARKER = re.compile(r"^\s*\[checkpoint\s+([\w.-]+)#(\d+)\s+(\w+)\]")
 LIFECYCLE_PHASES = {
     "awaiting-plan-approval", "implementation", "blocked",
-    "awaiting-app-review", "ready-to-merge", "complete",
+    "awaiting-app-review", "ready-to-merge",
 }
 LOWER_TOOLS = {"bash": "Bash", "shell": "Bash", "write": "Write", "edit": "Edit", "read": "Read"}
 SURFACE = "claude-code"
@@ -215,28 +215,6 @@ def local_main(root):
     return result.stdout.strip() if result is not None else None
 
 
-def verified_merge(root, slug, reviewed):
-    branch = git(root, "symbolic-ref", "--quiet", "--short", "HEAD")
-    if branch is None or branch.stdout.strip() != f"feat/{slug}":
-        return False
-    merges = git(root, "rev-list", "--first-parent", "--merges", "--format=%H", "refs/heads/main")
-    if merges is None:
-        return False
-    for commit in merges.stdout.splitlines():
-        if not commit.strip():
-            continue
-        commit = commit.strip()
-        parents = git(root, "rev-list", "--parents", "-n", "1", commit)
-        if parents is None:
-            return False
-        commits = parents.stdout.split()
-        if len(commits) < 3 or commits[1] != reviewed:
-            continue
-        if git(root, "merge-base", "--is-ancestor", "HEAD", commit) is not None:
-            return True
-    return False
-
-
 def completed_gates(plan):
     checkpoints = plan.get("checkpoints")
     if not isinstance(checkpoints, list) or not checkpoints:
@@ -279,16 +257,23 @@ def lifecycle_shape_error(state, plan, root, require_fresh=True):
     error = checkpoint_shape_error(plan)
     if error:
         return error
-    fields = ("phase", "plan_approval", "app_review", "reviewed_main")
-    if not isinstance(state, dict) or set(state) != set(fields):
+    fields = {"phase", "plan_approval", "app_review", "reviewed_main"}
+    if (
+        not isinstance(state, dict)
+        or not fields.issubset(state)
+        or set(state) - fields not in (set(), {"reviewed_feature"})
+    ):
         return "lifecycle must contain phase, plan_approval, app_review and reviewed_main"
-    phase, approval, review, reviewed = (state[field] for field in fields)
+    phase, approval, review, reviewed = (state[field] for field in ("phase", "plan_approval", "app_review", "reviewed_main"))
     if not isinstance(phase, str) or phase not in LIFECYCLE_PHASES:
         return "lifecycle has an unknown phase"
     if approval not in ("pending", "approved") or review not in ("not-started", "pending", "approved"):
         return "lifecycle has an invalid approval value"
     if reviewed is not None and not full_commit(root, reviewed):
         return "reviewed_main must be a full commit id"
+    reviewed_feature = state.get("reviewed_feature")
+    if reviewed_feature is not None and not full_commit(root, reviewed_feature):
+        return "reviewed_feature must be a full commit id"
     if phase == "awaiting-plan-approval" and (approval, review, reviewed) != ("pending", "not-started", None):
         return "awaiting-plan-approval requires pending plan approval, no app review and no reviewed_main"
     if phase == "implementation" and (approval, review, reviewed) != ("approved", "not-started", None):
@@ -301,12 +286,21 @@ def lifecycle_shape_error(state, plan, root, require_fresh=True):
         if require_fresh and reviewed != local_main(root):
             return "reviewed_main is stale or is not the current local main commit"
     if phase == "ready-to-merge":
-        if (approval, review) != ("approved", "approved") or reviewed is None:
-            return "ready-to-merge requires approved plan and app review with reviewed_main"
+        if (
+            (approval, review) != ("approved", "approved")
+            or reviewed is None
+            or not isinstance(reviewed_feature, str)
+        ):
+            return "ready-to-merge requires approved plan and app review with reviewed_main and reviewed_feature"
         if not completed_gates(plan):
             return "ready-to-merge requires completed checkpoint gates"
         if require_fresh and reviewed != local_main(root):
             return "reviewed_main is stale or is not the current local main commit"
+        if require_fresh:
+            slug = plan.get("slug") if isinstance(plan, dict) else None
+            feature = git(root, "rev-parse", "--verify", f"refs/heads/feat/{slug}^{{commit}}")
+            if feature is None or feature.stdout.strip() != reviewed_feature:
+                return "reviewed_feature is stale or is not the current local feature commit"
     if phase == "blocked":
         if approval == "pending":
             if (review, reviewed) != ("not-started", None):
@@ -317,14 +311,6 @@ def lifecycle_shape_error(state, plan, root, require_fresh=True):
         else:
             if reviewed is None or not completed_gates(plan):
                 return "blocked app-review work requires completed gates and reviewed_main"
-    if phase == "complete":
-        if (approval, review) != ("approved", "approved") or reviewed is None:
-            return "complete requires approved plan and app review with reviewed_main"
-        if not completed_gates(plan):
-            return "complete requires completed checkpoint gates"
-        slug = plan.get("slug") if isinstance(plan, dict) else None
-        if local_main(root) is None or not verified_merge(root, slug, reviewed):
-            return "complete requires a verified feature merge into local main"
     return None
 
 
@@ -333,10 +319,16 @@ def lifecycle_transition_error(old_state, new_state, root):
     new_phase = new_state["phase"]
     if old_state == new_state:
         return None
-    if old_phase == "complete":
-        return "complete is terminal"
     if new_phase == "blocked":
         if any(old_state[field] != new_state[field] for field in ("plan_approval", "app_review", "reviewed_main")):
+            if (
+                old_phase in ("awaiting-app-review", "ready-to-merge")
+                and old_state["plan_approval"] == "approved"
+                and new_state["plan_approval"] == "approved"
+                and new_state["app_review"] == "not-started"
+                and new_state["reviewed_main"] is None
+            ):
+                return None
             return "blocked is fail-safe and cannot change approval state"
         return None
     if old_phase == "awaiting-plan-approval":
@@ -379,8 +371,6 @@ def lifecycle_transition_error(old_state, new_state, root):
         return "app-review reset requires a fresh review against the advanced local main"
     if old_phase == "ready-to-merge" and new_phase == "ready-to-merge":
         return "ready-to-merge approval cannot change without repeating app review"
-    if old_phase == "ready-to-merge" and new_phase == "complete":
-        return None
     return f"unauthorized lifecycle transition from {old_phase} to {new_phase}"
 
 
@@ -400,12 +390,13 @@ def check_lifecycle(new_plan, old_plan, root, check_transition=True):
     if not check_transition:
         return
     if not old_has_state:
-        if new_state != {
+        initial_state = {
             "phase": "awaiting-plan-approval",
             "plan_approval": "pending",
             "app_review": "not-started",
             "reviewed_main": None,
-        }:
+        }
+        if new_state not in (initial_state, {**initial_state, "reviewed_feature": None}):
             block("a new lifecycle must start in awaiting-plan-approval with pending approval.")
         return
     old_state = old_plan["lifecycle"]
