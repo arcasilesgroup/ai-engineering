@@ -26,8 +26,19 @@ type SyntheticWorkItem = {
     "System.Title": string;
     "System.Description": string;
     "System.AreaPath": string;
+    "Microsoft.VSTS.Common.Priority"?: number | string;
+    "Microsoft.VSTS.Common.Severity"?: string;
   };
-  relations?: Array<{ rel: string; url: string }>;
+  relations?: Array<{
+    rel: string;
+    url: string;
+    relatedItem?: {
+      id: number;
+      type: string;
+      state: string;
+      title: string;
+    };
+  }>;
 };
 
 function createSyntheticInventory() {
@@ -37,11 +48,25 @@ function createSyntheticInventory() {
     fields: {
       "System.WorkItemType": index % 2 === 0 ? "Feature" : "Task",
       "System.State": index % 2 === 0 ? "Ready for planning" : "In progress",
+      ...(index === 0
+        ? {
+            "Microsoft.VSTS.Common.Priority": 2,
+            "Microsoft.VSTS.Common.Severity": "3 - Medium",
+          }
+        : {}),
+      ...(index === 1
+        ? {
+            "Microsoft.VSTS.Common.Priority": 1,
+            "Microsoft.VSTS.Common.Severity": "2 - High",
+          }
+        : {}),
       "System.Title":
         index === 2 ? "<img src=x onerror=alert(1)>" : `Synthetic backlog item ${id}`,
       "System.Description":
         index === 3
           ? "</span><script>window.syntheticAttack=true</script>"
+          : index === 4
+            ? "<p>First description line&nbsp;&amp; with spaces</p><p>Second description line</p><ul><li>Alpha</li><li>Beta</li></ul><script>window.syntheticDescriptionScript=true</script>"
           : `Synthetic description for item ${id}`,
       "System.AreaPath": "Synthetic Project\\Delivery",
     },
@@ -51,6 +76,12 @@ function createSyntheticInventory() {
             {
               rel: "System.LinkTypes.Hierarchy-Reverse",
               url: `${syntheticOrganization}/synthetic-project/_apis/wit/workItems/901`,
+              relatedItem: {
+                id: 901,
+                type: "Feature",
+                state: "Feature in progress",
+                title: "Synthetic parent feature",
+              },
             },
           ],
         }
@@ -152,7 +183,7 @@ describe("Azure triage report integration", () => {
         return {
           status: "ASSESSED",
           priority: "P2",
-          summary: `Synthetic analysis for item ${item.id}`,
+          summary: `**Synthetic analysis** for item ${item.id}: *verify* \`pipeline.yml\``,
           evidence: [
             {
               label: "Synthetic work item",
@@ -194,8 +225,11 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).toContain("<footer>");
     expect(generatedReport).toMatch(/<h[2-3][^>]*>[^<]*Azure DevOps/i);
     expect(generatedReport).toMatch(/<h[2-3][^>]*>[^<]*work item types?/i);
-    expect(generatedReport).toMatch(/<h[2-3][^>]*>[^<]*related/i);
+    expect(generatedReport).not.toMatch(/<h[2-3][^>]*>[^<]*related/i);
     expect(generatedReport).toMatch(/<h[2-3][^>]*>[^<]*method/i);
+    expect(generatedReport).toContain('<section id="s04">');
+    expect(generatedReport).not.toContain('<section id="s05">');
+    expect(generatedReport).not.toContain('href="#s04"><b>04</b>Related context');
     expect(generatedReport).not.toMatch(/pull requests/i);
     expect(generatedReport).not.toMatch(/\bgh\s+(?:issue|pr)\s+(?:list|view)\b/i);
 
@@ -218,23 +252,83 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).toContain("UNASSESSED");
     expect(generatedReport).toContain("901");
     expect(generatedReport).toContain("902");
+    expect(generatedReport).toMatch(
+      /<span class="type-chip">Feature<\/span> <a\b[^>]*>#901<\/a> <span class="tree-title">Synthetic parent feature/,
+    );
+    expect(generatedReport).toContain(
+      '<span class="tree-state">Feature in progress</span>',
+    );
+    const parentItem = generatedReport.match(
+      /<details class="item" id="i201">([\s\S]*?)<\/details>/,
+    )?.[1];
+    expect(parentItem).toContain(
+      '<span class="tree-role">Parent</span> <span class="type-chip">Feature</span>',
+    );
+    expect(parentItem).toContain(
+      '<div class="tree-branch"><div class="tree-row tree-current">',
+    );
+    const childItem = generatedReport.match(
+      /<details class="item" id="i202">([\s\S]*?)<\/details>/,
+    )?.[1];
+    expect(childItem).toContain('<div class="tree-children">');
+    expect(childItem).toContain('<span class="tree-role">Child</span>');
+    expect(generatedReport).not.toContain('id="i901"');
     expect(generatedReport).toContain(
       'href="https://dev.azure.com/synthetic-org/synthetic-project/_workitems/edit/201"',
     );
+    expect(generatedReport).toContain('class="type-chip">Feature</span>');
     expect(generatedReport).toContain(
-      'href="https://dev.azure.com/synthetic-org/synthetic-project/_apis/wit/workItems/201"',
+      'href="https://dev.azure.com/synthetic-org/synthetic-project/_workitems/edit/201" target="_blank" rel="noreferrer noopener"',
     );
+    expect(generatedReport).toContain(
+      'href="https://dev.azure.com/synthetic-org/synthetic-project/_workitems/edit/901" target="_blank" rel="noreferrer noopener"',
+    );
+    expect(generatedReport).not.toContain("/_apis/wit/workItems/");
+    expect(generatedReport).toContain('class="tree-group"');
+    expect(generatedReport).toContain('class="tree-row tree-current"');
+    expect(generatedReport).toContain('class="tree-children"');
+    expect(generatedReport.indexOf('id="i202"')).toBeLessThan(
+      generatedReport.indexOf('id="i201"'),
+    );
+    for (const anchor of generatedReport.matchAll(/<a\b[^>]*>/g)) {
+      if (!anchor[0].includes('href="https:')) continue;
+      expect(anchor[0]).toContain('target="_blank"');
+      expect(anchor[0]).toContain('rel="noreferrer noopener"');
+    }
     expect(generatedReport).not.toContain(
       "<img src=x onerror=alert(1)>",
     );
     expect(generatedReport).not.toContain(
       "</span><script>window.syntheticAttack=true</script>",
     );
+    expect(generatedReport).not.toContain('<span class="ilbl">Description</span>');
+    expect(generatedReport).not.toContain("First description line");
+    expect(generatedReport).toContain(
+      '<span class="analysis"><strong>Synthetic analysis</strong> for item 201: <em>verify</em> <code>pipeline.yml</code></span>',
+    );
+    expect(generatedReport).not.toContain("window.syntheticDescriptionScript");
+    expect(generatedReport).not.toContain("<p>First description line");
     expect(generatedReport).toContain(
       "&lt;img src=x onerror=alert(1)&gt; [redacted]",
     );
     expect(generatedReport).not.toContain("<img src=x onerror=alert(1)>");
     expect(generatedReport).not.toContain(syntheticToken);
+  });
+
+  test("leaves the previous report untouched when an analysis contains an unsafe link", async () => {
+    const reportWriter = createMemoryReportWriter();
+    await expectNoSuccessShapedResult(() => writeAzureTriageReport({
+      scope: createSyntheticScope(),
+      inventory: createSyntheticInventory(),
+      analyzeItem: async () => ({
+        status: "ASSESSED",
+        summary: "[unsafe](javascript:alert)",
+        evidence: [],
+      }),
+      writeFile: reportWriter.writeFile,
+    }));
+    expect(reportWriter.writes).toHaveLength(0);
+    expect(reportWriter.reports.get(targetReport)).toBe(existingReport);
   });
 
   test("renders a token-shaped project identifier as text instead of linking it", async () => {
@@ -267,7 +361,7 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).not.toContain(syntheticToken);
     expect(generatedReport).toContain('<span class="iid">#201</span>');
     expect(generatedReport).toContain(
-      'href="https://dev.azure.com/synthetic-org/synthetic-project/_apis/wit/workItems/201"',
+      'href="https://dev.azure.com/synthetic-org/synthetic-project/_workitems/edit/201" target="_blank" rel="noreferrer noopener"',
     );
     for (const linkMatch of generatedReport.matchAll(/\bhref="([^"]*)"/g)) {
       expect(linkMatch[1] ?? "").not.toContain(syntheticToken);
@@ -477,7 +571,7 @@ describe("Azure triage report integration", () => {
       }
       expect(generatedReport).toContain('<span class="iid">#201</span>');
       expect(generatedReport).toContain(
-        'href="https://dev.azure.com/synthetic-org/synthetic-project/_apis/wit/workItems/201"',
+        'href="https://dev.azure.com/synthetic-org/synthetic-project/_workitems/edit/201" target="_blank" rel="noreferrer noopener"',
       );
     },
   );
@@ -518,7 +612,7 @@ describe("Azure triage report integration", () => {
       expect(generatedReport).not.toContain(malformedValue);
       expect(generatedReport).toContain('<span class="iid">#201</span>');
       expect(generatedReport).toContain(
-        'href="https://dev.azure.com/synthetic-org/synthetic-project/_apis/wit/workItems/201"',
+        'href="https://dev.azure.com/synthetic-org/synthetic-project/_workitems/edit/201" target="_blank" rel="noreferrer noopener"',
       );
     },
   );
@@ -751,11 +845,42 @@ describe("Azure triage report integration", () => {
       expect(generatedReport).toContain(
         'href="https://dev.azure.com/synthetic-org/synthetic-project/_workitems/edit/201"',
       );
+      expect(generatedReport).toContain('target="_blank" rel="noreferrer noopener"');
       if (kind === "evidence") {
         expect(generatedReport).toContain("Synthetic evidence label");
       } else {
-        expect(generatedReport).toContain("Parent work item");
+        expect(generatedReport).toContain('class="tree-row tree-parent"');
+        expect(generatedReport).toContain(" work item</div>");
       }
     },
   );
+
+  test("ranks Azure priority and severity ahead of workflow state and analysis guesses", async () => {
+    const inventory = createSyntheticInventory();
+    inventory.items[0]!.fields["System.State"] = "Resolved";
+    inventory.items[1]!.fields["System.State"] = "Backlog";
+    inventory.items[2]!.fields["Microsoft.VSTS.Common.Priority"] = 4;
+    inventory.items[2]!.fields["Microsoft.VSTS.Common.Severity"] = "1 - Critical";
+    const reportWriter = createMemoryReportWriter();
+
+    await writeAzureTriageReport({
+      scope: createSyntheticScope(),
+      inventory,
+      analyzeItem: async (item: SyntheticWorkItem) => ({
+        status: "ASSESSED",
+        priority: item.id === 201 ? "P0" : "P5",
+        summary: `Synthetic analysis for item ${item.id}`,
+      }),
+      writeFile: reportWriter.writeFile,
+    });
+
+    const report = reportWriter.reports.get(targetReport);
+    if (report === undefined) throw new Error("The synthetic report was not written");
+    const rankedSection = report.match(/<section id="s02">([\s\S]*?)<\/section>/)?.[1] ?? "";
+    const rankedIds = [...rankedSection.matchAll(/id="i(\d+)"/g)].map((match) => match[1]);
+    expect(rankedIds.slice(0, 3)).toEqual(["203", "202", "201"]);
+    expect(rankedSection).toContain('<span class="band band-p0">P0</span>');
+    expect(rankedSection).toContain('<span class="band band-p1">P1</span>');
+    expect(rankedSection).toContain('<span class="band band-p2">P2</span>');
+  });
 });

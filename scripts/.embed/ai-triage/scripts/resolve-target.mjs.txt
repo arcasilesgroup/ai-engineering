@@ -24,6 +24,20 @@ function isSafePart(part) {
 
 function parseAzureBoardRoute(parts, baseIndex) {
   const route = parts.slice(baseIndex);
+  if (
+    route[0] === "_backlogs" &&
+    route[1] === "backlog" &&
+    route.length === 4 &&
+    isSafePart(route[2]) &&
+    isSafePart(route[3])
+  ) {
+    return {
+      team: route[2],
+      board: "backlog",
+      backlogLevel: route[3],
+    };
+  }
+
   const boardIndex =
     route[0] === "_boards"
       ? 0

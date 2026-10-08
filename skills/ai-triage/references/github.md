@@ -78,6 +78,19 @@ example of a violation.
    item in two sections without the reader wondering whether it is two items. Keep
    labels, milestone, reaction count, comment count and age as the item's SIGNALS;
    they are the tie breaks.
+   For each issue, also read its direct parent and sub-issues through the documented
+   [sub-issue endpoints](https://docs.github.com/en/rest/issues/sub-issues):
+   `gh api /repos/{owner}/{repo}/issues/{issue_number}/parent` and
+   `gh api /repos/{owner}/{repo}/issues/{issue_number}/sub_issues?page=1`.
+   Replace the brace placeholders with the selected repository and issue number.
+   Keep the endpoint's default page size of 30 and follow subsequent page numbers
+   until a page has fewer than 30 children.
+   Retain `html_url`, number, title, state, and issue type (fall back to the verified
+   classification for inventoried issues, or `Issue` when no type is supplied).
+   An explicit parent-not-found 404 means no accessible parent; other read failures
+   must be surfaced as unavailable context, not an empty hierarchy. These reads never
+   add items to the open inventory or trigger extra analyses. Do not follow parents or
+   children recursively. A linked PR is evidence or a dependency, not a parent/child edge.
 4. Classify each item: question, bug, feature, pull request, or other. Do it from the
    title, the labels and the body, in that order.
 5. One subagent per item, five in flight at a time. Each reads its own item and returns
@@ -119,6 +132,10 @@ FIRST_MOVE: <the one command or edit that starts this item>
 `CONTEXT` is what the page's expandable body shows, and it is the field a reader
 actually uses: the title says what changed, `CONTEXT` says what it means. Write it
 for someone who joined today and cannot open the issue.
+Use `**bold**` for the key decision, `*italics*` for caveats, backticks for code or
+paths, and `[label](https://...)` for verified links when useful. Keep these inline
+formats non-nested and separate paragraphs with blank lines. Read the issue body
+as input; never copy it into a separate Description row.
 
 Subagents may read the tree, search history for the fixing commit
 (`git log --oneline --grep=<keyword> -i --all`, then `git show`), and read GitHub with
@@ -222,11 +239,29 @@ its structure: the working page is that template with the `{{placeholders}}` rep
   carries the chips, the linked `#id` and the title, and whose body carries the
   `CONTEXT`, the evidence and the “also in” cross-references. Native disclosure, not a
   script, so keyboard, find-in-page and print keep working.
+  Show the classified type in a `.type-chip` alongside the band and id, including
+  `Pull request` for PRs. Label the `CONTEXT` row `Analysis`, with a
+  `<span class="analysis">` whose contents come from the exported `renderAnalysis`
+  in `scripts/render-report.mjs`. Use this helper for every occurrence in every
+  section; do not interpolate raw Markdown or raw HTML. It escapes text, redacts
+  credentials, and permits only the inline formats above and safe HTTPS links.
+  An invalid analysis link stops rendering before the existing report is replaced.
+  In each expanded issue, put verified parent → item → sub-issues under `Related
+  context`, using the same module's exported `renderHierarchy({ current, parents,
+  children })` inside `.tree-list`. Every node has `label`, `url`, `type`, `title`,
+  and `state`; use `html_url`, never an API URL, and repository-qualified labels
+  for items outside the selected repository. The shared `.tree-branch` and
+  `.tree-children` styles connect and indent each level. Only actual issue hierarchy
+  belongs here: `DEPENDS` and closing PR references are not invented parents.
+  State when context was unavailable; when verified empty, omit the hierarchy.
 - Section 02 is the page's job: the ranked queue, one `.item` per ranked entry,
   best first, each id linking to the issue, each row carrying the band chip. A
   reader who stops after section 02 must already know what to open first.
 - The id is the link. `#2497` in a row is an `<a>` to the issue, in every section,
   because the id is what the reader wants to click.
+  - Every link to GitHub outside the report opens in a new tab with
+    `target="_blank"` and `rel="noreferrer noopener"`. In-page navigation anchors
+    stay in the current tab.
 - **Every string that came from GitHub is escaped, not copied.** Titles, bodies,
   labels, author names and comment text are untrusted input: an issue title may
   carry `<img onerror=…>` or `<script>`, and copied verbatim it executes the
@@ -234,7 +269,8 @@ its structure: the working page is that template with the `{{placeholders}}` rep
   chance. Before a value goes between tags or into an attribute, escape at least
   `& < > " '`; a URL goes through the same escape after an `https?://` check, so a
   `javascript:` link cannot ride in on a label or a repo field. The template's
-  literal CSS and markup is the only content allowed in raw.
+  literal CSS and markup, plus the safe HTML returned by `renderAnalysis` and
+  `renderHierarchy`, are the only content allowed in raw.
 - Cross-section duplicates are shown, not hidden: an issue that is already fixed
   sits in Close or park *and* in the queue, and the ids make that readable — the
   queue's row keeps `id="i<number>"`, every later occurrence is

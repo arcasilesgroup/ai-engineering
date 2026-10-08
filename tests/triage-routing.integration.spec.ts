@@ -124,6 +124,31 @@ describe("triage target routing integration", () => {
     expect(reads).toEqual([selectedScope]);
   });
 
+  test("reads the scope from an Azure DevOps backlog URL", async () => {
+    const reads: AzureScope[] = [];
+    const read = async (scope: AzureScope) => {
+      reads.push(scope);
+    };
+    const selectedScope: AzureScope = {
+      provider: "azure-devops",
+      organization: "example-org",
+      project: "example-project",
+      team: "platform-engineering Team",
+      board: "backlog",
+      backlog: "User Story",
+    };
+
+    const result = await resolveTargetAndRead(
+      {
+        url: "https://dev.azure.com/example-org/example-project/_backlogs/backlog/platform-engineering%20Team/User%20Story",
+      },
+      read,
+    );
+
+    expect(result).toEqual({ status: "read", target: selectedScope });
+    expect(reads).toEqual([selectedScope]);
+  });
+
   test("reads the scope selected from an Azure DevOps Services SSH remote", async () => {
     const reads: AzureScope[] = [];
     const read = async (scope: AzureScope) => {

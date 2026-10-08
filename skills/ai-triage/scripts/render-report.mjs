@@ -21,6 +21,12 @@ const PRIORITY_ORDER = new Map([
   ["P4", 4],
   ["P5", 5],
 ]);
+const SEVERITY_RANK = new Map([
+  ["critical", 0],
+  ["high", 1],
+  ["medium", 2],
+  ["low", 3],
+]);
 const HIERARCHY_RELATIONS = new Map([
   ["System.LinkTypes.Hierarchy-Reverse", "Parent"],
   ["System.LinkTypes.Hierarchy-Forward", "Child"],
@@ -204,20 +210,53 @@ export function sanitizeEvidenceUrl(value) {
   }
 }
 
-function visibleText(value) {
+function redactedText(value) {
   if (typeof value !== "string") return "";
   const decodedValues = percentDecodedValues(value);
-  if (decodedValues === null) return escapeHtml("[redacted]");
+  if (decodedValues === null) return "[redacted]";
   const redactedValue = redactAuthentication(value);
-  if (redactedValue !== value) return escapeHtml(redactedValue);
+  if (redactedValue !== value) return redactedValue;
   if (
     decodedValues.some(
       (candidate) => redactAuthentication(candidate) !== candidate,
     )
   ) {
-    return escapeHtml("[redacted]");
+    return "[redacted]";
   }
-  return escapeHtml(value);
+  return value;
+}
+
+function visibleText(value) {
+  return escapeHtml(redactedText(value));
+}
+
+export function renderAnalysis(value) {
+  if (typeof value !== "string") {
+    throw new TypeError("Analysis text must be a string");
+  }
+  const tokens = /`([^`\n]+)`|\[([^\]\n]+)\]\(([^)\s]+)\)|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*/g;
+  for (const match of value.matchAll(tokens)) {
+    if (match[3] !== undefined && sanitizeEvidenceUrl(match[3]) === null) {
+      throw new Error("Invalid analysis link");
+    }
+  }
+  const text = redactedText(value);
+  let rendered = "";
+  let nextIndex = 0;
+  for (const match of text.matchAll(tokens)) {
+    rendered += escapeHtml(text.slice(nextIndex, match.index));
+    if (match[1] !== undefined) {
+      rendered += `<code>${escapeHtml(match[1])}</code>`;
+    } else if (match[2] !== undefined) {
+      rendered += link(match[2], workItemEvidenceUrl(match[3]));
+    } else if (match[4] !== undefined) {
+      rendered += `<strong>${escapeHtml(match[4])}</strong>`;
+    } else {
+      rendered += `<em>${escapeHtml(match[5])}</em>`;
+    }
+    nextIndex = match.index + match[0].length;
+  }
+  return rendered + escapeHtml(text.slice(nextIndex));
 }
 
 function validateScope(scope) {
@@ -297,10 +336,26 @@ function hierarchyFor(item) {
       url === null
         ? undefined
         : new URL(url).pathname.match(/\/workItems\/(\d+)\/?$/i)?.[1];
+    let relatedItem;
+    if (relation.relatedItem !== undefined) {
+      requireRecord(relation.relatedItem, "related work item");
+      if (
+        !Number.isSafeInteger(relation.relatedItem.id) ||
+        relation.relatedItem.id !== Number(relatedId)
+      ) {
+        throw new Error("Invalid Azure related work-item ID");
+      }
+      relatedItem = {
+        type: requireText(relation.relatedItem.type, "related work-item type"),
+        state: requireText(relation.relatedItem.state, "related work-item state"),
+        title: requireText(relation.relatedItem.title, "related work-item title"),
+      };
+    }
     relations.push({
       kind: relationKind,
       id: relatedId,
       url: relatedId === undefined ? null : url,
+      relatedItem,
     });
   }
   return relations;
@@ -367,11 +422,7 @@ async function analyzeInventory(items, analyzeItem) {
 function link(label, url) {
   const safeUrl = sanitizeEvidenceUrl(url);
   if (safeUrl === null) return visibleText(label);
-  return `<a href="${escapeHtml(safeUrl)}" rel="noreferrer noopener">${visibleText(label)}</a>`;
-}
-
-function relationTarget({ id, url }) {
-  return id === undefined ? "work item" : link(`#${id}`, url);
+  return `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noreferrer noopener">${visibleText(label)}</a>`;
 }
 
 function itemUrl(scope, id) {
@@ -385,6 +436,55 @@ function itemUrl(scope, id) {
   return `${scope.organization}/${project}/_workitems/edit/${id}`;
 }
 
+function workItemEvidenceUrl(url) {
+  const safeUrl = sanitizeEvidenceUrl(url);
+  if (safeUrl === null) return null;
+  const parsed = new URL(safeUrl);
+  const match = parsed.pathname.match(
+    /^\/(?:([^/]+)\/)?([^/]+)\/_apis\/wit\/workItems\/(\d+)\/?$/i,
+  );
+  if (!match?.[2] || !match[3]) return safeUrl;
+  if (parsed.hostname.toLowerCase() === "dev.azure.com") {
+    if (!match[1]) return safeUrl;
+    return `${parsed.origin}/${match[1]}/${match[2]}/_workitems/edit/${match[3]}`;
+  }
+  if (/^[a-z0-9-]+\.visualstudio\.com$/i.test(parsed.hostname)) {
+    if (match[1]) return safeUrl;
+    return `${parsed.origin}/${match[2]}/_workitems/edit/${match[3]}`;
+  }
+  return safeUrl;
+}
+
+function typeChip(item) {
+  return `<span class="type-chip">${visibleText(item.fields["System.WorkItemType"])}</span>`;
+}
+
+function prioritySignals(item) {
+  const priority = item.fields["Microsoft.VSTS.Common.Priority"];
+  const severity = item.fields["Microsoft.VSTS.Common.Severity"];
+  return [
+    `Priority ${priority == null ? "not set" : visibleText(String(priority))}`,
+    `Severity ${severity == null ? "not set" : visibleText(String(severity))}`,
+  ].join(" · ");
+}
+
+function azurePriority(item) {
+  const fields = item.fields;
+  const candidates = [];
+  const priority = Number(fields["Microsoft.VSTS.Common.Priority"]);
+  if (Number.isInteger(priority) && priority >= 1 && priority <= 4) {
+    candidates.push(priority);
+  }
+
+  const severity = String(fields["Microsoft.VSTS.Common.Severity"] ?? "")
+    .toLowerCase()
+    .match(/critical|high|medium|low/);
+  const severityRank = severity?.[0] ? SEVERITY_RANK.get(severity[0]) : undefined;
+  if (severityRank !== undefined) candidates.push(severityRank);
+
+  return `P${candidates.length === 0 ? 5 : Math.min(...candidates)}`;
+}
+
 function renderItem(item, analysis, relations, scope) {
   const fields = item.fields;
   const title = visibleText(
@@ -395,42 +495,34 @@ function renderItem(item, analysis, relations, scope) {
   const itemLink = link(`#${item.id}`, itemUrl(scope, item.id));
   const status = analysis.status === "UNASSESSED"
     ? '<span class="pill p-dim">UNASSESSED</span>'
-    : `<span class="band band-${analysis.priority.toLowerCase()}">${analysis.priority}</span>`;
-  const description = visibleText(
-    typeof fields["System.Description"] === "string"
-      ? fields["System.Description"]
-      : "No description provided.",
-  );
+    : `<span class="band band-${azurePriority(item).toLowerCase()}">${azurePriority(item)}</span>`;
   const area = visibleText(
     typeof fields["System.AreaPath"] === "string"
       ? fields["System.AreaPath"]
       : "Not specified",
   );
-  const relationLinks =
-    relations.length === 0
-      ? "No parent or child links were returned."
-      : relations
-          .map((relation) => `${relation.kind} ${relationTarget(relation)}`)
-          .join(" · ");
+  const relationContext = relations.length === 0
+    ? "No parent or child links were returned."
+    : `<div class="tree-list" role="list">${renderHierarchyTree(item, relations, scope)}</div>`;
   const evidence =
     analysis.status === "ASSESSED" && analysis.evidence.length > 0
       ? analysis.evidence
-          .map(({ label, url }) => link(label, url))
+          .map(({ label, url }) => link(label, workItemEvidenceUrl(url)))
           .join(" · ")
       : "No verified evidence links.";
   const summary =
     analysis.status === "ASSESSED"
-      ? visibleText(analysis.summary)
+      ? renderAnalysis(analysis.summary)
       : "This item was inventoried but not assessed.";
 
   return `<details class="item" id="i${item.id}">
-  <summary>${status}<span class="iid">${itemLink}</span><span class="ititle">${title}</span><span class="imeta">${visibleText(fields["System.State"])}</span></summary>
+    <summary>${status}${typeChip(item)}<span class="iid">${itemLink}</span><span class="ititle">${title}</span><span class="imeta">${visibleText(fields["System.State"])}</span></summary>
   <div class="ibody">
     <div class="kv"><span class="ilbl">Type</span><span>${visibleText(fields["System.WorkItemType"])}</span></div>
-    <div class="kv"><span class="ilbl">Analysis</span><span>${summary}</span></div>
-    <div class="kv"><span class="ilbl">Description</span><span>${description}</span></div>
+    <div class="kv"><span class="ilbl">Azure priority</span><span>${prioritySignals(item)}</span></div>
+    <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">${summary}</span></div>
     <div class="kv"><span class="ilbl">Area</span><span>${area}</span></div>
-    <div class="kv"><span class="ilbl">Related context</span><span class="xref">${relationLinks}</span></div>
+    <div class="kv"><span class="ilbl">Related context</span><div class="xref">${relationContext}</div></div>
     <div class="kv"><span class="ilbl">Evidence</span><span class="xref">${evidence}</span></div>
   </div>
 </details>`;
@@ -461,19 +553,39 @@ function renderTypeStateTable(items) {
 </table></div>`;
 }
 
-function renderRelatedContext(items, hierarchy) {
-  const rows = [];
-  items.forEach((item, index) => {
-    const relations = hierarchy[index] ?? [];
-    for (const relation of relations) {
-      rows.push(
-        `<li>Work item #${item.id} · ${relation.kind.toLowerCase()} ${relationTarget(relation)}</li>`,
-      );
-    }
+function renderHierarchyTree(item, relations, scope) {
+  const relatedNode = (relation) => ({
+    ...relation.relatedItem,
+    label: relation.id === undefined ? "work item" : `#${relation.id}`,
+    url: relation.relatedItem === undefined ? null : itemUrl(scope, Number(relation.id)),
   });
-  return rows.length === 0
-    ? '<p>No parent or child context was returned. Related items are never counted as backlog inventory.</p>'
-    : `<p>These links provide hierarchy context only; they do not add work-item rows or change the inventory total.</p><ul>${rows.join("")}</ul>`;
+  return renderHierarchy({
+    current: {
+      label: `#${item.id}`,
+      url: itemUrl(scope, item.id),
+      type: item.fields["System.WorkItemType"],
+      title: item.fields["System.Title"] ?? `Work item ${item.id}`,
+      state: item.fields["System.State"],
+    },
+    parents: relations.filter((relation) => relation.kind === "Parent").map(relatedNode),
+    children: relations.filter((relation) => relation.kind === "Child").map(relatedNode),
+  });
+}
+
+export function renderHierarchy({ current, parents = [], children = [] }) {
+  const renderNode = (node) => {
+    const target = link(node.label, node.url);
+    if (node.type === undefined) return target;
+    return `<span class="type-chip">${visibleText(node.type)}</span> ${target} <span class="tree-title">${visibleText(node.title)}</span> <span class="tree-state">${visibleText(node.state)}</span>`;
+  };
+  const parentRows = parents
+    .map((node) => `<div class="tree-row tree-parent"><span class="tree-role">Parent</span> ${renderNode(node)}</div>`)
+    .join("");
+  const childRows = children.length === 0
+    ? ""
+    : `<div class="tree-children">${children.map((node) => `<div class="tree-row tree-child"><span class="tree-role">Child</span> ${renderNode(node)}</div>`).join("")}</div>`;
+  const currentBranch = `<div class="tree-row tree-current"><span class="tree-role">In backlog</span>${renderNode(current)}</div>${childRows}`;
+  return `<div class="tree-group" role="listitem">${parentRows}${parents.length === 0 ? currentBranch : `<div class="tree-branch">${currentBranch}</div>`}</div>`;
 }
 
 function renderSections(scope, items, analyses, hierarchy) {
@@ -484,11 +596,11 @@ function renderSections(scope, items, analyses, hierarchy) {
     .sort((first, second) => {
       const firstRank =
         first.analysis?.status === "ASSESSED"
-          ? (PRIORITY_ORDER.get(first.analysis.priority) ?? 3)
+          ? (PRIORITY_ORDER.get(azurePriority(first.item)) ?? 5)
           : 6;
       const secondRank =
         second.analysis?.status === "ASSESSED"
-          ? (PRIORITY_ORDER.get(second.analysis.priority) ?? 3)
+          ? (PRIORITY_ORDER.get(azurePriority(second.item)) ?? 5)
           : 6;
       return firstRank - secondRank || first.index - second.index;
     });
@@ -515,7 +627,7 @@ function renderSections(scope, items, analyses, hierarchy) {
 
 <section id="s02">
   <h2><span class="num">02 · Ranked work</span>What to work on first</h2>
-  <p>Every item in the complete selected-backlog inventory appears once below. Assessed items are ordered by priority; items without a usable assessment remain visible as UNASSESSED.</p>
+  <p>Every selected item appears once. Azure priority and severity fields set urgency; workflow states remain unchanged and do not imply priority. Missing priority data appears last.</p>
   <div class="items">${itemsHtml}</div>
 </section>
 
@@ -527,15 +639,9 @@ function renderSections(scope, items, analyses, hierarchy) {
 </section>
 
 <section id="s04">
-  <h2><span class="num">04 · Related</span>Parent and child context</h2>
-  <h3>Related work items</h3>
-  ${renderRelatedContext(items, hierarchy)}
-</section>
-
-<section id="s05">
-  <h2><span class="num">05 · Method</span>Coverage and method</h2>
+  <h2><span class="num">04 · Method</span>Coverage and method</h2>
   <h3>Method</h3>
-  <p>Read-only Azure DevOps Services report for the explicitly selected team backlog level “${visibleText(scope.backlogName)}”. The complete inventory was validated before per-item analysis; parent and child links remain context.</p>
+  <p>Read-only Azure DevOps Services report for the explicitly selected team backlog level “${visibleText(scope.backlogName)}”. Ranking uses the standard Azure Priority field (1 highest) and Severity field (Critical to Low), taking the strongest signal. Workflow state is displayed verbatim and is not treated as urgency.</p>
   <p>Coverage: ${items.length} inventoried work items, ${assessedCount} assessed, ${unassessedCount} explicitly UNASSESSED. The type/state counts sum to ${items.length}.</p>
 </section>`;
   return { date, sections, assessedCount, unassessedCount };
@@ -549,7 +655,6 @@ function renderTemplate(template, scope, date, sections) {
     "Snapshot",
     "Ranked work",
     "Work item types",
-    "Related context",
     "Method",
   ]
     .map(

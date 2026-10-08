@@ -28,8 +28,8 @@ organizations, projects, teams, or boards in one report.
   preserves the existing issue and pull-request inventory, ranking, evidence, and report.
 - For Azure DevOps, follow the [Azure procedure](references/azure-devops.md). Route the
   resolved target through `resolveTargetAndRead`; its callback is the only place to call
-  `collectAzureBacklog`. If the selected scope is not ready or the scoped request adapter
-  cannot be established from documented route metadata, stop without reading or writing.
+  `collectAzureBacklog` with the scoped `createAzureDevOpsInvoker` adapter. If the selected
+  scope is not ready or collection is incomplete, stop without writing.
 - After collection returns `complete: true`, create exactly one analysis record per
   inventoried work-item ID. Keep no more than five per-item analyses in flight; record
   `UNASSESSED` explicitly when an item cannot be assessed. Pass the complete inventory
@@ -38,6 +38,8 @@ organizations, projects, teams, or boards in one report.
   `.ai-engineering/triage.html`; an ambiguity, incomplete inventory, missing/invalid
   analysis, unsafe link, or render failure must leave the prior report untouched. Parent
   and child links are context, never inventory.
+- Remote GitHub and Azure work-item links open in a new tab; Azure item links target the
+  Azure Boards work-item page, not a REST API endpoint.
 - The report uses the shared shell in `templates/triage.html.tpl` and follows
   [artifact-design.md](../ai-brainstorm/references/artifact-design.md); preserve the
   existing GitHub report sections and output contract.

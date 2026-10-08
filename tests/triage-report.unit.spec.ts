@@ -1,10 +1,43 @@
 import { describe, expect, test } from "bun:test";
 import {
   escapeHtml,
+  renderAnalysis,
   sanitizeEvidenceUrl,
 } from "../skills/ai-triage/scripts/render-report.mjs";
 
 describe("report HTML sanitization", () => {
+  test("formats analysis emphasis, code, paragraphs, and safe provider links", () => {
+    expect(renderAnalysis(
+      "**Decision**: *verify first* with `release/0.6.0`.\n\n[GitHub](https://github.com/org/repo/issues/42) and [Azure](https://dev.azure.com/org/project/_workitems/edit/42)",
+    )).toBe(
+      '<strong>Decision</strong>: <em>verify first</em> with <code>release/0.6.0</code>.\n\n<a href="https://github.com/org/repo/issues/42" target="_blank" rel="noreferrer noopener">GitHub</a> and <a href="https://dev.azure.com/org/project/_workitems/edit/42" target="_blank" rel="noreferrer noopener">Azure</a>',
+    );
+  });
+
+  test("keeps raw HTML inert and redacts credentials before formatting", () => {
+    const rendered = renderAnalysis(
+      '<img src=x onerror=alert(1)> **<script>attack()</script>** `token=synthetic-secret` & "quotes"',
+    );
+    expect(rendered).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    expect(rendered).toContain("<strong>&lt;script&gt;attack()&lt;/script&gt;</strong>");
+    expect(rendered).not.toContain("synthetic-secret");
+    expect(rendered).not.toContain("<script>");
+    expect(rendered).toContain("&amp; &quot;quotes&quot;");
+  });
+
+  test("rejects unsafe analysis links rather than emitting clickable content", () => {
+    for (const url of [
+      "javascript:alert",
+      "data:text/html,attack",
+      "https://example.test/?token=synthetic-secret",
+      "https://example.test/%ZZ",
+    ]) {
+      expect(() => renderAnalysis(`[unsafe](${url})`)).toThrow(
+        "Invalid analysis link",
+      );
+    }
+  });
+
   test("escapes every HTML-special character in text", () => {
     expect(escapeHtml(`&<>"'`)).toBe("&amp;&lt;&gt;&quot;&#39;");
   });

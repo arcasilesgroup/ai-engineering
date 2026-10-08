@@ -1,14 +1,16 @@
 export type AzureWorkItem = {
   id: number;
   fields: Record<string, unknown>;
-  relations?: Array<{ rel: string; url: string }>;
-};
-
-export type AzureStateMetadata = {
-  workItemType: string;
-  name: string;
-  stateCategory?: string;
-  category?: string;
+  relations?: Array<{
+    rel: string;
+    url: string;
+    relatedItem?: {
+      id: number;
+      type: string;
+      state: string;
+      title: string;
+    };
+  }>;
 };
 
 export type AzureInvokeRequest = {
@@ -22,6 +24,8 @@ export type AzureInvokeRequest = {
   body?: {
     ids: number[];
     errorPolicy: "Fail";
+    "$expand"?: "Relations";
+    fields?: string[];
   };
 };
 
@@ -33,17 +37,25 @@ export type CollectAzureBacklogInput = {
   invoke: (request: AzureInvokeRequest) => Promise<unknown>;
 };
 
+export type AzureCliRun = (args: string[]) => Promise<string>;
+
+export type CreateAzureDevOpsInvokerInput = Omit<
+  CollectAzureBacklogInput,
+  "invoke"
+> & {
+  run?: AzureCliRun;
+};
+
 export type AzureInventory = {
   complete: true;
   items: AzureWorkItem[];
 };
 
-export function filterNonterminalWorkItems<T extends AzureWorkItem>(
-  workItems: T[],
-  stateMetadata: AzureStateMetadata[],
-): T[];
-
 export function partitionWorkItemIds(workItemIds: number[]): number[][];
+
+export function createAzureDevOpsInvoker(
+  input: CreateAzureDevOpsInvokerInput,
+): CollectAzureBacklogInput["invoke"];
 
 export function collectAzureBacklog(
   input: CollectAzureBacklogInput,

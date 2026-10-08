@@ -37,6 +37,23 @@ describe("resolveTarget", () => {
     });
   });
 
+  test("recognizes the Azure backlog route with team and backlog level", () => {
+    expect(
+      resolveTarget({
+        explicitUrl:
+          "https://dev.azure.com/example-org/example-project/_backlogs/backlog/example-team/User%20Story",
+      }),
+    ).toEqual({
+      status: "ready",
+      provider: "azure-devops",
+      organization: "example-org",
+      project: "example-project",
+      team: "example-team",
+      board: "backlog",
+      backlogLevel: "User Story",
+    });
+  });
+
   test("recognizes the team marker only in its Azure board-route position", () => {
     expect(
       resolveTarget({

@@ -16,6 +16,21 @@ export type AzureTriageReportInput<T extends { id: number }> = {
 
 export function escapeHtml(value: string): string;
 export function sanitizeEvidenceUrl(value: unknown): string | null;
+export function renderAnalysis(value: string): string;
+
+export type TriageHierarchyNode = {
+  label: string;
+  url: string | null;
+  type?: string;
+  title?: string;
+  state?: string;
+};
+
+export function renderHierarchy(input: {
+  current: TriageHierarchyNode;
+  parents?: TriageHierarchyNode[];
+  children?: TriageHierarchyNode[];
+}): string;
 
 export function atomicWriteReport(
   path: string,
