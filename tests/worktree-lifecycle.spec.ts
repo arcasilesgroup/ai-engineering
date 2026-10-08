@@ -100,13 +100,13 @@ function lifecycle(phase: string): object {
   };
 }
 
-function checkpointPlan(slug: string, phase: string, files: string[] = []): Record<string, unknown> {
+function checkpointPlan(slug: string, phase: string, files: string[] = [], status = "pending"): Record<string, unknown> {
   const gate = () => ({ status: "pending", attempts: 0, findings: [] });
   return {
     slug,
     checkpoints: [{
       id: 1,
-      status: "pending",
+      status,
       gates: { behavior: gate(), ui: gate(), review: gate() },
       files,
     }],
@@ -204,6 +204,7 @@ describe("ai-eng worktree lifecycle (checkpoint 2)", () => {
     const unreadable = addBranchWorktree(repo, "unreadable");
     const malformed = addBranchWorktree(repo, "malformed");
     const legacy = addBranchWorktree(repo, "legacy");
+    const contradictory = addBranchWorktree(repo, "contradictory");
 
     const unreadablePath = checkpointPath(unreadable, "unreadable");
     mkdirSync(unreadablePath, { recursive: true });
@@ -214,6 +215,7 @@ describe("ai-eng worktree lifecycle (checkpoint 2)", () => {
     const legacyPlan = checkpointPlan("legacy", "implementation");
     delete legacyPlan.lifecycle;
     writeCheckpoint(legacy, "legacy", legacyPlan);
+    writeCheckpoint(contradictory, "contradictory", checkpointPlan("contradictory", "implementation", [], "passed"));
 
     const result = runList(repo);
     expect(result.status).toBe(0);
@@ -222,12 +224,14 @@ describe("ai-eng worktree lifecycle (checkpoint 2)", () => {
       { slug: "unreadable", path: unreadable },
       { slug: "malformed", path: malformed },
       { slug: "legacy", path: legacy },
+      { slug: "contradictory", path: contradictory },
     ]) {
       expect(result.stdout).toContain(slug);
       expect(result.stdout).toContain(realpathSync(path));
     }
     expect(result.stdout.toLowerCase()).toContain("unknown");
-    expect(result.stdout.match(/unknown/gi)?.length ?? 0).toBeGreaterThanOrEqual(4);
+    expect(result.stdout).toContain("unknown (contradictory lifecycle)");
+    expect(result.stdout.match(/unknown/gi)?.length ?? 0).toBeGreaterThanOrEqual(5);
     expect(result.stdout).not.toContain("ready-to-merge");
     expect(result.stdout).not.toContain("approved");
   });

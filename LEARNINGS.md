@@ -595,3 +595,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Represented each test case with named object fields while keeping both lifecycle and Git assertions.
 - **Lesson:** Use named fields when loop entries have distinct roles.
 - **Tags:** behavior, tests, types
+
+### L69 · 2026-10-08 · worktree-lifecycle-governance #2 · review
+- **Failure:** Adversarial review found that incomplete prior checkpoints could pass, the plan slug was not bound to the checkpoint marker, and a blocked lifecycle could retain stale app approval.
+- **Root cause:** The guard trusted summary status and lifecycle phase without checking prerequisite gates, plan identity, and the freshness of approval state.
+- **Fix:** Require completed predecessor gates, exact marker-to-plan slug matching, and reset stale review state before a blocked plan can resume.
+- **Lesson:** Approval metadata is a claim; verify underlying gates, identity, and review freshness at each guard.
+- **Tags:** review, checkpoint-gate, lifecycle

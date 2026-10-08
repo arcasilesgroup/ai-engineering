@@ -316,9 +316,14 @@ function checkpointShapeValid(plan: unknown): boolean {
       return false;
     }
     const gates = checkpoint.gates;
-    return ["behavior", "ui", "review"].every((name) => {
+    const gateNames = ["behavior", "ui", "review"];
+    if (!gateNames.every((name) => {
       const gate = gates[name];
       return isRecord(gate) && ["pending", "failed", "passed", "n/a"].includes(String(gate.status));
+    })) return false;
+    return checkpoint.status !== "passed" || gateNames.every((name) => {
+      const gate = gates[name];
+      return isRecord(gate) && (gate.status === "passed" || gate.status === "n/a");
     });
   });
 }

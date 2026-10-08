@@ -112,7 +112,9 @@ def normalise(data, surface):
 
 
 def gate(cp, name):
-    return (cp.get("gates") or {}).get(name, {}).get("status", "pending")
+    gates = cp.get("gates")
+    state = gates.get(name) if isinstance(gates, dict) else None
+    return state.get("status", "pending") if isinstance(state, dict) else "pending"
 
 
 def gate_ok(cp, name):
@@ -120,7 +122,10 @@ def gate_ok(cp, name):
 
 
 def unpassed_before(cps, cid):
-    return [c["id"] for c in cps if c["id"] < cid and c.get("status") != "passed"]
+    return [
+        c["id"] for c in cps
+        if c["id"] < cid and not (c.get("status") == "passed" and all(gate_ok(c, name) for name in GATES))
+    ]
 
 
 def check_agent(prompt, root):
@@ -133,6 +138,8 @@ def check_agent(prompt, root):
     path = os.path.join(root, ".ai-engineering", "workflow", "checkpoints", f"{slug}.json")
     try:
         plan = json.load(open(path))
+        if not isinstance(plan, dict) or plan.get("slug") != slug:
+            block(f"checkpoint plan slug doesn't match marker '{slug}'.")
         cps = plan["checkpoints"]
     except (OSError, ValueError, KeyError, TypeError) as e:
         block(f"can't read {path}: {e}")
@@ -236,6 +243,8 @@ def checkpoint_shape_error(plan):
             state = gates.get(name)
             if not isinstance(state, dict) or state.get("status") not in ("pending", "failed", "passed", "n/a"):
                 return "lifecycle checkpoint has an invalid gate status"
+        if checkpoint["status"] == "passed" and not all(gate_ok(checkpoint, name) for name in GATES):
+            return "lifecycle checkpoint marked passed has incomplete gates"
     return None
 
 
@@ -318,9 +327,14 @@ def lifecycle_transition_error(old_state, new_state, root):
             old_state["plan_approval"] == "approved" and old_state["app_review"] == "not-started"
         ):
             return None
-        if new_phase == "awaiting-app-review" and old_state["app_review"] == "pending":
-            return None
-        if new_phase == "ready-to-merge" and old_state["app_review"] == "approved":
+        if new_phase == "awaiting-app-review" and old_state["app_review"] in ("pending", "approved"):
+            if new_state["app_review"] == "pending" and new_state["reviewed_main"] == local_main(root):
+                return None
+        if (
+            new_phase == "ready-to-merge"
+            and old_state["app_review"] == "approved"
+            and new_state["reviewed_main"] == old_state["reviewed_main"]
+        ):
             return None
         return "blocked work may resume only into a phase allowed by its existing approvals"
     if old_phase == "awaiting-app-review" and new_phase == "ready-to-merge":

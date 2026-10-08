@@ -97,14 +97,22 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "failed",
-          "attempts": 1,
+          "status": "pending",
+          "attempts": 2,
           "findings": [
-            "attempt 1 FAIL: bun run typecheck reports TS2769 at tests/worktree-lifecycle.spec.ts:226-227; lifecycle, worktree-command, checkpoint-gate, and architecture tests passed before the typecheck failure; lint was not run."
+            "attempt 1 FAIL: bun run typecheck reports TS2769 at tests/worktree-lifecycle.spec.ts:226-227; lifecycle, worktree-command, checkpoint-gate, and architecture tests passed before the typecheck failure; lint was not run.",
+            "attempt 2 PASS: all six checkpoint 2 verify commands passed after changing test case data to named fields.",
+            "Review fix changed lifecycle and gate validation; rerun the full checkpoint 2 verify list before marking behavior passed."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "attempt 1 FAIL: F1 P1 incomplete gates can authorize the next checkpoint; F2 P1 the plan slug is not checked against the checkpoint marker; F3 P2 blocked lifecycle with stale app approval cannot safely resume."
+          ]
+        }
       },
       "status": "pending",
       "changed_files": [
@@ -112,7 +120,8 @@
         "scripts/checkpoint-gate.py",
         "tests/worktree-lifecycle.spec.ts",
         "tests/test_checkpoint_gate.py",
-        "LEARNINGS.md"
+        "LEARNINGS.md",
+        ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-2.md"
       ]
     },
     {

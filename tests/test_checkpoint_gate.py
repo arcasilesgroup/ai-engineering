@@ -71,6 +71,38 @@ with tempfile.TemporaryDirectory() as root:
         fails += not ok
         print(("ok  " if ok else "FAIL"), name, f"(exit {got})")
 
+    other_plan = copy.deepcopy(PLAN)
+    other_plan["slug"] = "other"
+    other_plan["lifecycle"] = {
+        "phase": "implementation",
+        "plan_approval": "approved",
+        "app_review": "not-started",
+        "reviewed_main": None,
+    }
+    json.dump(other_plan, open(path, "w"))
+    got = run(root, agent("[checkpoint demo#2 implement]"))
+    fails += got != 2
+    print(("ok  " if got == 2 else "FAIL"), "marker slug mismatch → blocked", f"(exit {got})")
+
+    contradictory = copy.deepcopy(PLAN)
+    contradictory["checkpoints"][0]["gates"]["review"]["status"] = "pending"
+    contradictory["lifecycle"] = {
+        "phase": "implementation",
+        "plan_approval": "approved",
+        "app_review": "not-started",
+        "reviewed_main": None,
+    }
+    json.dump(contradictory, open(path, "w"))
+    got = run(root, agent("[checkpoint demo#2 implement]"))
+    fails += got != 2
+    print(("ok  " if got == 2 else "FAIL"), "passed predecessor with incomplete gate → blocked", f"(exit {got})")
+
+    contradictory.pop("lifecycle")
+    json.dump(contradictory, open(path, "w"))
+    got = run(root, agent("[checkpoint demo#2 implement]"))
+    fails += got != 2
+    print(("ok  " if got == 2 else "FAIL"), "legacy passed predecessor with incomplete gate → blocked", f"(exit {got})")
+
     # Edit path: simulate replacing one gate status in the file on disk.
     json.dump(PLAN, open(path, "w"), indent=2)
     text = open(path).read()
@@ -261,6 +293,13 @@ with tempfile.TemporaryDirectory() as root:
     )
     lifecycle_result("U10: approved app review permits ready-to-merge", awaiting_review, ready_to_merge, 0)
 
+    blocked_review = with_lifecycle(
+        completed_gates,
+        life("blocked", "approved", "approved", reviewed_main),
+    )
+    lifecycle_result("U10: blocked work retains current app approval", ready_to_merge, blocked_review, 0)
+    lifecycle_result("U10: current blocked approval can resume merge", blocked_review, ready_to_merge, 0)
+
     invalid_lifecycles = [
         ("missing phase", {"plan_approval": "pending", "app_review": "not-started", "reviewed_main": None}),
         ("unknown phase", life("unrecognized")),
@@ -339,6 +378,15 @@ with tempfile.TemporaryDirectory() as root:
         life("awaiting-app-review", "approved", "pending", current_main),
     )
     lifecycle_result("U10: advancing local main resets approval for a fresh review", ready_to_merge, refreshed_review, 0)
+    blocked_stale_review = with_lifecycle(
+        completed_gates,
+        life("blocked", "approved", "approved", reviewed_main),
+    )
+    lifecycle_result("U11: blocked stale review cannot skip a fresh review", blocked_stale_review, with_lifecycle(
+        completed_gates,
+        life("ready-to-merge", "approved", "approved", current_main),
+    ), 2)
+    lifecycle_result("U11: blocked stale review resumes at pending review on current main", blocked_stale_review, refreshed_review, 0)
     fails += nonlocal_fails[0]
 
 sys.exit(1 if fails else 0)
