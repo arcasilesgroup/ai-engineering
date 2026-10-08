@@ -103,6 +103,13 @@ with tempfile.TemporaryDirectory() as root:
     fails += got != 2
     print(("ok  " if got == 2 else "FAIL"), "legacy passed predecessor with incomplete gate → blocked", f"(exit {got})")
 
+    overflow = json.dumps(with_gate(PLAN, 1, status="pending", behavior="pending")).replace('"id": 1,', '"id": 1e999,', 1)
+    with open(path, "w") as fixture:
+        fixture.write(overflow)
+    got = run(root, agent("[checkpoint demo#2 implement]"))
+    fails += got != 2
+    print(("ok  " if got == 2 else "FAIL"), "non-finite predecessor id cannot bypass incomplete gate → blocked", f"(exit {got})")
+
     # Edit path: simulate replacing one gate status in the file on disk.
     json.dump(PLAN, open(path, "w"), indent=2)
     text = open(path).read()
@@ -266,6 +273,11 @@ with tempfile.TemporaryDirectory() as root:
         life("implementation", "approved"),
     )
     lifecycle_result("U10: approved plan permits implementation", initial_plan, implementation, 0)
+    overflow_lifecycle = json.dumps(implementation).replace('"id": 1,', '"id": 1e999,', 1)
+    json.dump(initial_plan, open(path, "w"))
+    got = run(root, {"tool_name": "Write", "tool_input": {"file_path": path, "content": overflow_lifecycle}})
+    fails += got != 2
+    print(("ok  " if got == 2 else "FAIL"), "non-finite id cannot pass lifecycle transition → blocked", f"(exit {got})")
 
     blocked = with_lifecycle(
         legacy,

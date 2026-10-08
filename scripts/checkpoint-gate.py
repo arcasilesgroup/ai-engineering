@@ -121,7 +121,22 @@ def gate_ok(cp, name):
     return gate(cp, name) in ("passed", "n/a")
 
 
+def checkpoint_id_error(cps):
+    if not isinstance(cps, list):
+        return "checkpoint plan must contain a checkpoint list"
+    for expected, checkpoint in enumerate(cps, 1):
+        if (
+            not isinstance(checkpoint, dict)
+            or type(checkpoint.get("id")) is not int
+            or checkpoint["id"] != expected
+        ):
+            return "checkpoint IDs must be finite positive integers in sequential order starting at 1"
+    return None
+
+
 def unpassed_before(cps, cid):
+    if error := checkpoint_id_error(cps):
+        block(error + ".")
     return [
         c["id"] for c in cps
         if c["id"] < cid and not (c.get("status") == "passed" and all(gate_ok(c, name) for name in GATES))
@@ -143,6 +158,8 @@ def check_agent(prompt, root):
         cps = plan["checkpoints"]
     except (OSError, ValueError, KeyError, TypeError) as e:
         block(f"can't read {path}: {e}")
+    if error := checkpoint_id_error(cps):
+        block(error + ".")
     if isinstance(plan, dict) and "lifecycle" in plan:
         if not isinstance(cps, list) or any(not isinstance(checkpoint, dict) for checkpoint in cps):
             block("lifecycle checkpoint plan must contain a checkpoint list.")
@@ -233,6 +250,8 @@ def checkpoint_shape_error(plan):
     checkpoints = plan.get("checkpoints") if isinstance(plan, dict) else None
     if not isinstance(checkpoints, list) or not checkpoints:
         return "lifecycle requires a non-empty checkpoint list"
+    if error := checkpoint_id_error(checkpoints):
+        return error
     for checkpoint in checkpoints:
         if not isinstance(checkpoint, dict) or checkpoint.get("status") not in ("pending", "passed"):
             return "lifecycle checkpoint has an invalid status"
@@ -404,6 +423,8 @@ def check_plan(new_text, old_text, root, check_transition=True):
     if isinstance(new_plan, dict) and "lifecycle" in new_plan:
         if not isinstance(new, list) or any(not isinstance(cp, dict) for cp in new):
             block("lifecycle checkpoint plan must contain a checkpoint list.")
+    if error := checkpoint_id_error(new):
+        block(error + ".")
     old = {}
     old_plan = {}
     try:

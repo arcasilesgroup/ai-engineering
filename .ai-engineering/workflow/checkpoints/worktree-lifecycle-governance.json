@@ -98,11 +98,12 @@
       "gates": {
         "behavior": {
           "status": "pending",
-          "attempts": 2,
+          "attempts": 3,
           "findings": [
             "attempt 1 FAIL: bun run typecheck reports TS2769 at tests/worktree-lifecycle.spec.ts:226-227; lifecycle, worktree-command, checkpoint-gate, and architecture tests passed before the typecheck failure; lint was not run.",
             "attempt 2 PASS: all six checkpoint 2 verify commands passed after changing test case data to named fields.",
-            "Review fix changed lifecycle and gate validation; rerun the full checkpoint 2 verify list before marking behavior passed."
+            "attempt 3 PASS after the first review fixes: lifecycle tests, worktree-command tests, checkpoint-gate tests, architecture tests, typecheck and lint all passed.",
+            "A later review fix changed checkpoint-id validation; rerun the full behavior verify list before closing the gate."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -110,7 +111,8 @@
           "status": "failed",
           "attempts": 1,
           "findings": [
-            "attempt 1 FAIL: F1 P1 incomplete gates can authorize the next checkpoint; F2 P1 the plan slug is not checked against the checkpoint marker; F3 P2 blocked lifecycle with stale app approval cannot safely resume."
+            "attempt 1 FAIL: F1 P1 incomplete gates can authorize the next checkpoint; F2 P1 the plan slug is not checked against the checkpoint marker; F3 P2 blocked lifecycle with stale app approval cannot safely resume.",
+            "Adversarial round 2 resolved F2 and F3; F1 remains because JSON 1e999 becomes infinity and can bypass checkpoint-id ordering."
           ]
         }
       },

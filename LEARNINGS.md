@@ -602,3 +602,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Require completed predecessor gates, exact marker-to-plan slug matching, and reset stale review state before a blocked plan can resume.
 - **Lesson:** Approval metadata is a claim; verify underlying gates, identity, and review freshness at each guard.
 - **Tags:** review, checkpoint-gate, lifecycle
+
+### L70 · 2026-10-08 · worktree-lifecycle-governance #2 · review
+- **Failure:** An adversarial test showed that checkpoint ID `1e999` parsed as infinity and could bypass predecessor ordering.
+- **Root cause:** The gate compared checkpoint IDs before validating that they were finite positive integers.
+- **Fix:** Validate checkpoint ID type, finiteness and sequence before lookup or gate comparison.
+- **Lesson:** Validate ordering keys before comparing them.
+- **Tags:** review, checkpoint-gate, validation

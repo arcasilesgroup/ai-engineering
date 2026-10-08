@@ -34,3 +34,18 @@ Report Git-listed feature worktrees and trustworthy lifecycle state from each wo
 - **F2 — fixed:** Agent markers now require an exact match between marker slug and loaded plan slug; the copied-plan mismatch is covered.
 - **F3 — fixed:** A blocked stale app approval can resume only at pending review against current local `main`; carrying approval to ready-to-merge after changing `reviewed_main` is rejected.
 - **Verification:** `python3 tests/test_checkpoint_gate.py` and `bun test tests/worktree-lifecycle.spec.ts` passed; `bun run typecheck` and `bun run lint` passed with existing warnings.
+
+## Round 2 follow-up — independent verification
+
+- **VERDICT: FAIL** — F1 remains open; F2 and F3 are resolved.
+- **F1 · P1 (open):** `unpassed_before` (checkpoint-gate.py:124–128) compares `id < cid`; legacy plans skip lifecycle shape validation and no guard validates checkpoint IDs. The valid JSON number `1e999` decodes as infinity; a preceding `{id: 1e999, status: "passed", gates: pending}` compares false against #2, so the legacy Agent guard can still authorize #2. Reject non-finite/invalid IDs before predecessor comparisons (lifecycle plans already reject incomplete passed gates).
+- **F2 — resolved:** `check_agent` now requires the loaded plan slug to equal the marker slug; separators are excluded by the marker pattern, and the mismatched-plan test covers the bypass.
+- **F3 — resolved:** stale blocked approval cannot resume directly to ready-to-merge; it must enter pending app review with `reviewed_main` equal to current local `main`. Old-state validation and transition checks enforce the reset; tests cover stale direct-merge rejection and pending-review recovery.
+- **Counts:** 2 resolved, 0 withdrawn, 1 open (F1).
+
+## Round 3 — F1 resolution
+
+- **F1 — resolved:** Checkpoint IDs are now validated as exact positive one-based integers in sequence before lookup, ordering, gate checks, and lifecycle shape/transition checks. This rejects booleans, strings, fractional and non-finite numbers, duplicates, gaps, and out-of-order IDs while leaving valid legacy plans unchanged.
+- **Regression:** Valid JSON `1e999` on an incomplete predecessor can no longer authorize checkpoint #2.
+- **Verification:** `python3 tests/test_checkpoint_gate.py` passed.
+- **Counts:** 3 resolved, 0 withdrawn, 0 open.
