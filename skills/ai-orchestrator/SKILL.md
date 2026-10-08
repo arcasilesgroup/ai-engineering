@@ -134,7 +134,7 @@ Run Phase 1 and its workers from the selected feature worktree. Create the check
 plan, test plan and prototypes only in the selected feature worktree. Never create a
 checkpoint plan in the primary checkout or copy any plan between worktrees.
 
-1. **Checkpoints:** run the `checkpoint-planner` agent with the feature request. It writes `.ai-engineering/workflow/checkpoints/<slug>.json`, with `gates` and `ui` set for each checkpoint. If it comes back with questions, don't ask the user. Answer them yourself from the PRD, the decisions and the code, re-run it with those answers, and log them as `assumptions`.
+1. **Checkpoints:** run the `checkpoint-planner` agent with the feature request. Its first write of `.ai-engineering/workflow/checkpoints/<slug>.json` in the selected feature worktree must include `gates` and `ui` for each checkpoint and this lifecycle: `phase: awaiting-plan-approval`, `plan_approval: pending`, `app_review: not-started`, and `reviewed_main: null` (`{"phase":"awaiting-plan-approval","plan_approval":"pending","app_review":"not-started","reviewed_main":null}`). The checkpoint gate rejects a new plan without that state or a lifecycle plan written outside the selected worktree at its matching slug path. If it comes back with questions, don't ask the user. Answer them yourself from the PRD, the decisions and the code, re-run it with those answers, and log them as `assumptions`.
 2. **Test plan:** run a `general-purpose` subagent to do steps 1–2 of `ai-test-planner`. That's the plan only, no tests yet: it writes `.ai-engineering/workflow/test-plans/<slug>.json`, with every case linked to a `checkpoint` and each checkpoint's test commands added to its `verify` array.
 3. **Prototypes:** list the distinct `ui.prototype` paths across the checkpoints. Launch one `general-purpose` subagent per prototype **in parallel**. Each one follows `ai-prototype` for its screen, covering the states named in `ui.states`, and skips the `open` step.
 
@@ -147,7 +147,7 @@ checkpoint plan in the primary checkout or copy any plan between worktrees.
 
    Offer: **Approve**, **Edit** (the user describes the changes), or **Stop**.
    - **Edit:** re-run `checkpoint-planner` with the feedback (and fix the test plan and prototypes if they're affected), then ask again.
-   - **Approve:** this is the last question until the app review. After approval, set the lifecycle phase to `implementation`, then run Phase 2 and Phase 3 without stopping.
+   - **Approve:** this is the last question until the app review. After approval, set the lifecycle phase to `implementation` and persist `plan_approval: approved`, `app_review: not-started`, and `reviewed_main: null` (`{"phase":"implementation","plan_approval":"approved","app_review":"not-started","reviewed_main":null}`). Confirm the guarded write succeeded before starting Phase 2. Do not begin Phase 2 or dispatch its workers until the human approves the checkpoint plan and the persisted lifecycle is valid. The checkpoint gate blocks implementation markers while plan approval is pending or invalid. On **Edit**, keep plan approval pending, update the plan and ask for approval again. Then run Phase 2 and Phase 3 without stopping.
 
 ## Phase 2: Checkpoint loop
 

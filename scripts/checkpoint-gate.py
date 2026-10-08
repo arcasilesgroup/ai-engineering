@@ -408,7 +408,32 @@ def check_lifecycle(new_plan, old_plan, root, check_transition=True):
         block(error + ".")
 
 
-def check_plan(new_text, old_text, root, check_transition=True):
+def lifecycle_plan_path_error(plan, path, root, require_feature_worktree):
+    slug = plan.get("slug")
+    if not isinstance(slug, str) or not re.fullmatch(r"[\w.-]+", slug):
+        return "lifecycle checkpoint plan must have a valid slug"
+    target = path if os.path.isabs(path) else os.path.join(root, path)
+    expected = os.path.join(root, ".ai-engineering", "workflow", "checkpoints", f"{slug}.json")
+    if os.path.realpath(target) != os.path.realpath(expected):
+        return "lifecycle checkpoint plan must be written at its matching path inside the current worktree"
+    if not require_feature_worktree:
+        return None
+    top = git(root, "rev-parse", "--show-toplevel")
+    branch = git(root, "symbolic-ref", "--quiet", "--short", "HEAD")
+    git_dir = git(root, "rev-parse", "--git-dir")
+    common_dir = git(root, "rev-parse", "--git-common-dir")
+    if top is None or branch is None or git_dir is None or common_dir is None:
+        return "a new lifecycle plan must be created in its selected feature worktree"
+    if os.path.realpath(top.stdout.strip()) != os.path.realpath(root) or branch.stdout.strip() != f"feat/{slug}":
+        return "a new lifecycle plan must be created in its selected feature worktree on feat/<slug>"
+    absolute_git_dir = os.path.realpath(os.path.join(root, git_dir.stdout.strip()))
+    absolute_common_dir = os.path.realpath(os.path.join(root, common_dir.stdout.strip()))
+    if absolute_git_dir == absolute_common_dir:
+        return "a new lifecycle plan cannot be created in the primary checkout"
+    return None
+
+
+def check_plan(new_text, old_text, root, check_transition=True, path=None):
     try:
         new_plan = json.loads(new_text)
     except ValueError:
@@ -432,6 +457,7 @@ def check_plan(new_text, old_text, root, check_transition=True):
         old = {c["id"]: snapshot(c) for c in old_plan["checkpoints"]}
     except (ValueError, KeyError, TypeError):
         pass
+    had_plan = isinstance(old_plan, dict) and isinstance(old_plan.get("checkpoints"), list)
     for cp in new:
         cid = cp.get("id")
         g = [gate(cp, x) for x in GATES]
@@ -445,6 +471,12 @@ def check_plan(new_text, old_text, root, check_transition=True):
         started = cid not in old and (cp.get("status") == "passed" or any(x in ("passed", "failed") for x in g))
         if (changed or started) and (todo := unpassed_before(new, cid)):
             block(f"#{cid}: can't change gates or status while checkpoint(s) {todo} haven't passed.")
+    if check_transition:
+        if "lifecycle" in new_plan:
+            if error := lifecycle_plan_path_error(new_plan, path, root, not had_plan):
+                block(error + ".")
+        elif not had_plan:
+            block("a new checkpoint plan must include its initial lifecycle.")
     check_lifecycle(new_plan, old_plan, root, check_transition)
 
 
@@ -564,7 +596,7 @@ def main():
         if not old_s or old_s not in old_text:
             allow()  # Edit will fail on its own
         new_text = old_text.replace(old_s, new_s) if inp.get("replace_all") else old_text.replace(old_s, new_s, 1)
-    check_plan(new_text, old_text, root)
+    check_plan(new_text, old_text, root, path=path)
     allow()
 
 
