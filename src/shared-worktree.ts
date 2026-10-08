@@ -385,8 +385,9 @@ function rebaseGatesComplete(plan: unknown): boolean {
   if (!gatesComplete(plan) || !isRecord(plan) || !Array.isArray(plan.checkpoints)) return false;
   return plan.checkpoints.every((checkpoint) => {
     if (!isRecord(checkpoint) || !isRecord(checkpoint.gates)) return false;
+    const gates = checkpoint.gates;
     return ["behavior", "review"].every((name) => {
-      const gate = checkpoint.gates[name];
+      const gate = gates[name];
       return isRecord(gate) && gate.status === "passed";
     });
   });

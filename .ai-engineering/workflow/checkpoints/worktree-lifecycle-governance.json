@@ -337,7 +337,7 @@
       "gates": {
         "behavior": {
           "status": "pending",
-          "attempts": 6,
+          "attempts": 7,
           "findings": [
             "attempt 1 FAIL: `bun test tests/workflow-handoff.spec.ts` U23 could not find the reviewed-main reference after the main-read step; lifecycle, skill and rebase fixture tests passed before the failure, remaining commands were not run.",
             "attempt 2 FAIL: `bun run typecheck` reports TS2769 at tests/worktree-lifecycle.spec.ts:472, 508, 527 and 552; prior lifecycle, skill, handoff, gate, asset, embed and architecture checks passed; lint was not run.",
@@ -345,7 +345,9 @@
             "attempt 4 PASS after adversarial rebase-abort sequencing and behavior/UI/review ordering fixes: all nine checkpoint 5 verify commands passed.",
             "attempt 5 PASS after unsafe pre-rebase states were made read-only: all nine checkpoint 5 verify commands passed.",
             "attempt 6 PASS after U22 gained missing and malformed lifecycle-state preservation cases: all nine checkpoint 5 verify commands passed.",
-            "Added the guarded `worktree rebase` command for testable sync preconditions; rerun the revised checkpoint 5 verify list."
+            "Added the guarded `worktree rebase` command for testable sync preconditions; reran the revised checkpoint 5 verify list.",
+            "attempt 7 FAIL: `bun run typecheck` reports TS18046 at src/shared-worktree.ts:389 because checkpoint.gates remains unknown; earlier focused tests, generator, embed and architecture checks passed; lint was not run.",
+            "Checkpoint gate fields were narrowed before indexed access; rerun the full cp5 verify list."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },

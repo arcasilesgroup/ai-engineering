@@ -693,3 +693,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Add Git fixtures showing missing state remains absent and malformed state bytes, refs and worktree status remain unchanged.
 - **Lesson:** Pin each refused precondition's full state, not just the dirty case.
 - **Tags:** review, tests, unknown-state
+
+### L83 · 2026-10-08 · worktree-lifecycle-governance #5 · behavior
+- **Failure:** `bun run typecheck` rejected the lifecycle gate's indexed `checkpoint.gates` access with TS18046.
+- **Root cause:** Validation of the parsed checkpoint object was not preserved through a callback's indexed access.
+- **Fix:** Capture the validated gates object before indexing, without weakening the fail-closed checks.
+- **Lesson:** Narrow indexed values before typed use.
+- **Tags:** behavior, types, checkpoint-gate

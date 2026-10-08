@@ -66,3 +66,9 @@ The post-conflict sequence is behavior, UI only when the checkpoint has a UI gat
 - F4 · Medium · Phase 3 no-mutation coverage omits missing/unknown preconditions — OPEN: Step 1 correctly forbids writes for missing, dirty, unknown or untrusted pre-rebase state. U22 asserts checkpoint bytes and the full Git snapshot only for a dirty worktree; its abort fixture covers an active conflict, not missing/unknown Phase 3 preconditions. U16a checks those status words for Phase 0, not the Phase 3 sync boundary, while test-plan U22 claims missing/untrusted preconditions. Add a Phase 3 regression assertion for missing/unknown state preserving checkpoint bytes, refs, status and content.
 - F1/F2 abort-path criteria — RESOLVED: the active conflict fixture uses `git rebase --abort` (no `git reset --hard`) and verifies original HEAD/tree/refs/status/content/checkpoint/worktree registration before writing `blocked`.
 - F3 gate-order criterion — RESOLVED: workflow-handoff U23 orders behavior, conditional UI, review, then app-review handoff; the skill and U21 test-plan state the same sequence.
+
+## Round 4 — FAIL
+
+- **Counts:** resolved 3 (F1–F3); withdrawn 0; open 1 (F4).
+- **F4 — U22 does not test the Phase 3 refusal (medium).** `tests/worktree-lifecycle.spec.ts:472` exercises only `runList` for missing, unreadable, and malformed lifecycle state. It does not test the Phase 3 decision to stop before rebase/checkpoint writes, so it would pass if the no-write guard were removed. Add a sync-refusal test for those states and assert the full snapshot remains unchanged.
+- **Verified by reviewer:** conflict abort/original-state proof, gate ordering, and `reviewed_main` ordering passed; no `git reset --hard` in the fixture. Focused tests: 43 passed. Gate 1: nine verify commands passed after `8fca5927`.
