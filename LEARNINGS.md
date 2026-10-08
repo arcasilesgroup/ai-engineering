@@ -707,3 +707,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Assert `mainBefore` is an ancestor and `mainAfter` is not, while retaining the race SHA and preservation checks.
 - **Lesson:** Assert the intended Git ancestry, not a stronger fixture-dependent relationship.
 - **Tags:** behavior, tests, git-fixture
+
+### L85 · 2026-10-08 · worktree-lifecycle-governance #5 · review
+- **Failure:** Review found a local-main advance during rebase could leave the feature rewritten on an older tip without identifying the effective base or retry.
+- **Root cause:** The rebase command did not compare and report the full main refs around its operation.
+- **Fix:** Capture full pre/post main SHAs, verify post-main ancestry, and report both refs plus safe retry guidance without resetting feature state.
+- **Lesson:** Race errors should identify the observed refs and safe recovery.
+- **Tags:** review, rebase, concurrency

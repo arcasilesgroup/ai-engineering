@@ -353,15 +353,15 @@
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "pending",
-          "attempts": 1,
+          "status": "passed",
+          "attempts": 2,
           "findings": [
             "Review attempt 1 reached four rounds without PASS: F1 blocked state could be written before rebase restoration; F2 fixture used `git reset --hard`; F3 conditional UI gate ordering was untested; F4 missing/unknown Phase 3 sync state lacked a no-write regression.",
-            "Review attempt 2 found F5: local main may advance during rebase, leaving the feature rewritten on an older tip without an exact target report. CP5 now checks pre/post main SHAs and ancestry and reports a retry condition."
+            "Review attempt 2 PASS after F1-F4 fixes and F5 race handling: five findings resolved, none withdrawn or open."
           ]
         }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         "skills/ai-orchestrator/SKILL.md",
         "src/shared-worktree.ts",
