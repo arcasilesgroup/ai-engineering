@@ -248,19 +248,25 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 3,
+          "status": "passed",
+          "attempts": 4,
           "findings": [
             "attempt 1 FAIL: python3 tests/test_checkpoint_gate.py reported contradictory expectations for the same lifecycle transition; remaining verify commands were not run.",
             "attempt 2 PASS: all eight checkpoint 4 verify commands passed after correcting U19 to test phase prerequisites rather than human-authorship proof.",
             "attempt 3 PASS after the lifecycle-path guard: all eight checkpoint 4 verify commands passed.",
-            "The symlink-alias regression now passes; rerun the full checkpoint 4 verify list and adversarial review."
+            "attempt 4 PASS after the distinct symlink-alias regression: all eight checkpoint 4 verify commands passed."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 1,
+          "findings": [
+            "Review attempt 1 PASS in four rounds: human Phase 1 approval handoff, lifecycle ordering, primary/worktree boundaries and distinct symlink-alias path verified; 3 resolved, 0 withdrawn, 0 open."
+          ]
+        }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         "skills/ai-orchestrator/SKILL.md",
         "scripts/checkpoint-gate.py",
