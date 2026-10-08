@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="ai-feature" content="ai-triage-azure-signals">
+<meta name="ai-feature" content="worktree-lifecycle-governance">
 <meta name="ai-approved" content="2026-10-08">
-<title>Brainstorm · ai-triage</title>
+<title>Brainstorm · gobernanza de worktrees</title>
 <style>
 :root{
   --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
@@ -201,10 +201,10 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Brainstorm · señales Azure · complete · 2026-10-08</div>
-  <h1>Triage Azure con razones para actuar</h1>
-  <p class="sub">El informe debe explicar qué atender primero y por qué ahora, usando comentarios, fechas, sprint y contexto del padre cuando existan. Un dato ausente no es una razón inventada.</p>
-  <div class="meta"><b>complete · 2026-10-08</b><br>Slug <b>ai-triage-azure-signals</b> · ampliación del diseño de ai-triage aprobado el 2026-10-06; ampliación aprobada por el usuario: «dale apruebo, implementa»</div>
+  <div class="stamp">Brainstorm · gobernanza de worktrees · complete · 2026-10-08</div>
+  <h1>Worktrees con estado claro</h1>
+  <p class="sub">Antes de empezar trabajo nuevo, el flujo debe mostrar qué worktrees existen, qué trabajo sigue activo y qué decisiones esperan a la persona, para no duplicar cambios ni dejar ramas olvidadas.</p>
+  <div class="meta"><b>complete · 2026-10-08</b><br>Slug <b>worktree-lifecycle-governance</b> · aprobado para implementación</div>
 </header>
 
 <nav>
@@ -226,48 +226,51 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 
 <section id="s1">
   <h2><span class="num">01</span>La idea en palabras llanas</h2>
-  <p>Quieres una sola skill, <code>ai-triage</code>, para GitHub y Azure DevOps. Mira la URL que le das o el remote del repo para saber dónde buscar. Si no sabe cuál board usar, pregunta y recuerda la respuesta solo durante esa ejecución. El informe muestra todos los miembros del backlog elegido y los explica, como el informe de GitHub.</p>
-  <p>La skill solo lee Azure. Aquí se puede guardar el informe privado en el archivo normal, pero no se hace commit ni push con esos datos.</p>
-  <p><strong>Ampliación aprobada:</strong> no basta con ordenar por Priority y Severity. Queremos saber qué cuenta el equipo en los comentarios, cuánto tiempo lleva abierto un elemento, qué importancia tiene su padre y si hay una fecha de entrega o un sprint definido. Cada recomendación debe decir por qué conviene actuar ahora y señalar los hechos que la apoyan.</p>
+  <p>Quieres que antes de empezar un trabajo nuevo, el agente mire las carpetas de trabajo que ya existen. Debe decir qué sigue en marcha y dónde falta que la persona apruebe algo. Si el mismo trabajo ya existe, debe seguir desde ahí en vez de empezar otra copia.</p>
+  <p>Si varias tareas avanzan a la vez, el agente también debe juntar cada tarea con los cambios que ya llegaron a la rama principal y resolver los conflictos que pueda entender. La persona revisa el resultado actualizado antes de que se integre y se borre el worktree.</p>
+  <p>La persona conserva el control: ninguna rama se integra ni se borra sin la aprobación prevista. Falta decidir si también se pueden incorporar ramas hermanas que aún no llegaron a la rama principal.</p>
 </section>
 
 <section id="s2">
   <h2><span class="num">02</span>Por qué importa</h2>
-  <p>La intención original era ofrecer una explicación útil del backlog en ambos proveedores. Azure ya tiene inventario y jerarquía, pero su orden solo toma Priority y Severity. Falta distinguir trabajo con compromiso próximo, bloqueos documentados y elementos antiguos que necesitan revisión, sin confundir actividad con urgencia.</p>
+  <p>Un worktree puede contener cambios activos aunque el directorio principal no los muestre. Sin un resumen compartido antes de cada nueva idea o implementación, dos sesiones pueden trabajar sobre el mismo tema, y una tarea terminada puede quedarse esperando una aprobación o limpieza sin que sea visible. Además, varias ramas pueden cambiar las mismas partes del proyecto; integrarlas sin reconciliar los conflictos puede perder cambios o romper algo que ya funcionaba.</p>
 </section>
 
 <section id="s3">
   <h2><span class="num">03</span>Para quién es</h2>
-  <p>Para personas y equipos que usan ai-engineering con Azure DevOps en distintas organizaciones y proyectos. No debe depender de la empresa ni del tenant usado para probarla.</p>
+  <p>Para las personas que coordinan sesiones de agentes en el mismo clon local y para cada agente que va a diseñar, implementar o cerrar una tarea.</p>
 </section>
 
 <section id="s4">
   <h2><span class="num">04</span>Qué existe hoy</h2>
   <ul>
-    <li><code>skills/ai-triage/SKILL.md</code> define una única skill de solo lectura con procedimientos separados para GitHub y Azure DevOps.</li>
-    <li>La plantilla de brainstorm existente da el formato HTML para este documento.</li>
-    <li>En esta ampliación no se consulta Azure DevOps productivo. La ejecución de triage anterior se limita a evidencia del estado actual, no prueba la viabilidad de las nuevas APIs.</li>
-    <li>El usuario indicó que un proyecto de Azure DevOps puede tener varios boards y que el servicio de prueba es productivo y privado.</li>
-    <li>La implementación actual muestra padres e hijos como contexto, conserva el estado literal y no amplía el inventario con relaciones.</li>
-    <li><code>skills/ai-triage/references/azure-devops.md:52-61</code> documenta un ranking basado solo en Priority y Severity.</li>
-    <li><code>skills/ai-triage/scripts/collect-azure.mjs:9-13</code> limita los campos de contexto de padres e hijos a tipo, estado y título; no recoge su prioridad ni fechas.</li>
-    <li><code>skills/ai-triage/scripts/render-report.mjs:462-529</code> muestra prioridad, análisis, área, jerarquía y evidencia; no muestra señales temporales ni Why now.</li>
+    <li><code>AGENTS.md</code> pide un worktree por feature para sesiones que escriben código. El formato habitual es <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code>, con una posible ubicación configurada en <code>.ai-engineering/config.toml</code>.</li>
+    <li><code>ai-eng worktree list</code> enumera slug y ruta. No muestra por sí solo si hay cambios sin commit, en qué checkpoint va la implementación ni si espera una aprobación.</li>
+    <li><code>ai-orchestrator</code> ya reutiliza el worktree si encuentra el mismo slug. Tiene una aprobación humana del plan antes de implementar y otra revisión humana antes de integrar y borrar el worktree.</li>
+    <li>El archivo de checkpoints registra los estados de las pruebas y revisiones por checkpoint, pero la lista de worktrees no los une en un estado de ciclo de vida visible.</li>
+    <li>Hoy la revisión humana final sucede antes del rebase y del merge. El flujo describe verificaciones del merge, pero no un procedimiento para resolver conflictos y volver a probar antes de integrar.</li>
+    <li><code>&lt;raíz-de-worktrees&gt;/.ai-eng-worktrees.json</code> es un manifiesto local de archivos declarados por slug, no el inventario real de Git ni un registro de fases o aprobaciones. <code>ai-eng worktree new &lt;slug&gt; [files...]</code> lo crea y actualiza; <code>rm</code> elimina la entrada, y las entradas de directorios ya ausentes se podan al crear o quitar worktrees. Dos listas que declaran el mismo archivo solo producen un aviso, no bloquean la creación. <code>list</code> no consulta este archivo. Ver <code>src/commands/worktree.ts:7-18</code> y <code>src/shared-worktree.ts:96-145, 282-323, 327-337, 364-430</code>.</li>
+    <li>Si el manifiesto no se puede leer o no contiene el formato esperado, <code>worktree new</code> y <code>worktree rm</code> fallan cerrados. La prueba de aviso por solapamiento está en <code>tests/worktree-command.spec.ts:272-283</code>; la de formato inválido y limpieza en <code>:599-630</code>.</li>
+    <li>El flujo normal de <code>ai-orchestrator</code> llama a <code>ai-eng worktree new &lt;slug&gt;</code> sin la lista opcional de archivos. La búsqueda del repo no encontró otro llamador de producción que la pase; el argumento solo aparece en la interfaz del comando y las pruebas. El archivo local consultado para este borrador tenía cero entradas.</li>
+    <li><code>ai-eng worktree rm</code> comprueba que la rama llegó al <code>main</code> local antes de borrarla. <code>ai-git-cleanup</code> es un pase separado para eliminar trabajo que Git puede demostrar que ya terminó.</li>
+    <li>En esta inspección hay dos worktrees además del checkout principal. <code>feat/ai-triage-azure-signals</code> tiene cambios locales y un checkpoint pendiente; <code>feat/azure-triage-comments</code> también tiene cambios locales, pero no tiene un checkpoint con ese slug en su directorio de workflow.</li>
+    <li>Los archivos relevantes abiertos son <code>AGENTS.md</code>, <code>src/shared-worktree.ts</code>, <code>skills/ai-orchestrator/SKILL.md</code> y <code>skills/ai-git-cleanup/SKILL.md</code>.</li>
   </ul>
 </section>
 
 <section id="s5">
   <h2><span class="num">05</span>Cómo se ve el éxito</h2>
   <ol>
-    <li>Sin argumentos, un remote único identifica el proveedor y el destino. Si hay más de una opción posible, la skill pregunta antes de leer.</li>
-    <li>La skill conserva la triage GitHub actual y añade Azure DevOps sin mezclar sus tipos de trabajo ni sus reglas de lectura.</li>
-    <li>Con una URL, la skill limita la lectura al board indicado y muestra el destino que va a consultar.</li>
-    <li>La salida de Azure DevOps presenta todos los elementos del board y sus detalles importantes con el mismo nivel de explicación que <code>ai-github-triage</code>.</li>
-    <li>La ejecución no crea, edita, cierra, comenta ni borra work items.</li>
-    <li>El informe de una ejecución real conserva los datos y explicaciones del backlog. En este repo público se permite generar localmente el informe de prueba, pero no hacer commit ni push de ese resultado privado.</li>
-    <li>La skill funciona para organizaciones y proyectos distintos, sin nombres, URLs, credenciales ni reglas privadas codificadas.</li>
-    <li>Ampliación aprobada: cada elemento muestra las señales verificadas y un Why now específico, o declara que no hay evidencia suficiente para justificar urgencia.</li>
-    <li>Ampliación aprobada: un comentario que confirma un bloqueo importa por su contenido, no por aumentar un contador. El informe distingue los hechos del board de las inferencias del análisis.</li>
-    <li>Ampliación aprobada: fechas e iteraciones ausentes, personalizadas o inaccesibles se identifican explícitamente; no se adivinan ni se sustituyen por el estado del workflow.</li>
+    <li>Antes de abrir un brainstorm o iniciar o reanudar un orchestrator, el agente enumera los worktrees existentes y detecta los estados de checkpoint disponibles.</li>
+    <li>El resumen diferencia trabajo en curso, pendiente de aprobación del plan, pendiente de revisión final, pendiente de integración, bloqueado y sin estado confiable.</li>
+    <li>Si se encuentra la misma tarea, se reanuda el slug existente. Si no se puede saber si dos tareas se solapan, el agente lo muestra y pide una decisión antes de crear otro worktree.</li>
+    <li>El trabajo independiente puede continuar sin que un worktree ajeno se integre o borre por accidente.</li>
+    <li>El estado de un worktree y las aprobaciones se leen de Git y del checkpoint asociado. El manifiesto de archivos, si está poblado, solo sirve como pista de solapamiento, nunca como prueba de que una tarea existe, está limpia o fue aprobada.</li>
+    <li>Antes de la revisión humana final, el worktree incorpora cambios ya integrados en <code>main</code>. Si aparecen conflictos, el agente resuelve los que pueda justificar, ejecuta de nuevo las pruebas y la revisión afectadas, y presenta a la persona el resultado final integrado.</li>
+    <li>Si la integración cambia el comportamiento acordado, falla una comprobación o la resolución no es clara, el agente se detiene, conserva el worktree y pide una decisión. No fuerza el merge ni borra trabajo.</li>
+    <li>Si <code>main</code> avanza después de sincronizar la tarea, el agente vuelve a sincronizar y validar antes de integrarla.</li>
+    <li>Una lista ilegible, un checkpoint ausente o estados contradictorios se muestran como desconocidos; nunca se presentan como ausencia de trabajo.</li>
+    <li>Cada aprobación pendiente indica qué decisión hace falta y qué paso seguirá. Integrar y borrar solo ocurren tras la aprobación de revisión final y las comprobaciones actuales de seguridad.</li>
   </ol>
 </section>
 
@@ -275,60 +278,53 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <h2><span class="num">06</span>Decisiones ya tomadas</h2>
   <div class="note ok"><h4>Fijadas por el usuario</h4></div>
   <ul>
-    <li>Habrá una única skill pública <code>ai-triage</code>, con un contrato común y procedimientos separados por proveedor.</li>
-    <li><code>ai-triage</code> reemplaza a <code>ai-github-triage</code>; no habrá alias separado. El flujo GitHub existente debe conservar su comportamiento.</li>
-    <li>Una URL explícita decide proveedor y destino. Sin URL, la skill usa el remote del repo si identifica un único proveedor y destino; ante ambigüedad pregunta. No usa la cuenta activa de Azure CLI para adivinar.</li>
-    <li>El informe para el usuario debe contener y explicar el backlog completo del ámbito seleccionado, como <code>ai-github-triage</code>.</li>
-    <li>En Azure DevOps, cada ejecución cubre un solo board/nivel. Las relaciones con padres o hijos pueden mostrarse como contexto, pero no amplían el inventario; varios boards solo si se piden expresamente.</li>
-    <li>El Azure DevOps de prueba es productivo y privado. El informe puede guardarse localmente aquí, pero no se hace commit ni push de sus datos.</li>
-    <li>Si hay varios boards y no se indica uno, la skill pregunta en vez de adivinar. La elección solo vale para esa ejecución; no se añade un campo de triage a <code>config.toml</code>.</li>
-    <li>El diseño original pedía excluir estados terminales. La implementación actual conserva todos los miembros devueltos por el backlog. Esta ampliación no cambia esa política ni interpreta nombres de estado como urgencia.</li>
-    <li>La skill y todas sus pruebas son estrictamente de solo lectura respecto a Azure DevOps.</li>
-    <li>El usuario aprobó el 2026-10-08 evaluar comentarios, antigüedad, prioridad del padre, fechas de entrega, iteraciones o sprints y Why now mediante una recomendación razonada, separada de Priority y Severity originales, que permanecen visibles y no se reescriben.</li>
-    <li>Los compromisos vigentes y bloqueos explícitos pueden cambiar la recomendación de qué atender primero. Cada cambio de orden explica su evidencia y la acción sugerida; sin razones verificables se conserva el orden nativo actual. No hay score ponderado, pesos configurables ni urgencia por antigüedad o número de comentarios solos.</li>
-    <li>Los comentarios se analizan por contenido, secuencia y fechas. Una afirmación del equipo no se presenta como un hecho comprobado en código; una actualización posterior que resuelve un bloqueo sustituye la conclusión anterior.</li>
-    <li>La prioridad y el calendario del padre directo son contexto, sin herencia automática. Solo se afirma que un hijo bloquea la entrega del padre cuando existe evidencia explícita de esa dependencia.</li>
-    <li>Una fecha de entrega explícita representa un compromiso. El fin del sprint es contexto de planificación, no una fecha de entrega automática; una iteración sin fechas no aporta un plazo. Un compromiso próximo no rebaja por sí solo un riesgo crítico y los conflictos quedan visibles para decisión humana.</li>
-    <li>Una señal ausente, inaccesible o parcial se distingue con su motivo y próxima acción. La cobertura se describe como suficiente, limitada o no evaluable, nunca como confianza numérica. Una señal opcional inaccesible o parcial permite un informe de cobertura limitada si el inventario está completo; no permite afirmar ausencia de bloqueos ni urgencia sin evidencia.</li>
-    <li>La aprobación autoriza este diseño y su implementación local. No autoriza mutaciones remotas, nuevas lecturas productivas ni publicar datos privados. Las nuevas APIs siguen pendientes de investigación.</li>
+    <li>Antes de comenzar o implementar algo, hay que tener en cuenta los worktrees que ya existen para no repetir trabajo.</li>
+    <li>El flujo debe hacer visibles las aprobaciones humanas pendientes tanto para comenzar implementación como para la revisión final y el cierre.</li>
+    <li>El objetivo es robustecer y gobernar el ciclo completo de los worktrees, desde el diseño hasta merge y eliminación.</li>
+    <li>Con varias tareas en paralelo, el agente debe poder integrar cambios concurrentes y resolver solapamientos o conflictos, sin perder los controles humanos del cierre.</li>
+    <li>Aplicar KISS, DRY y YAGNI: cada pieza del flujo debe tener un consumidor y una razón clara; quitar la que no aporte.</li>
+    <li>La aprobación del brainstorm autoriza esta implementación local, incluidos los defaults descritos en la sección 7.</li>
+    <li>El formato habitual es <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code>; el código permite una ruta configurada, así que el flujo debe consultar Git o la herramienta existente y no construir rutas a mano.</li>
   </ul>
 </section>
 
 <section id="s7">
   <h2><span class="num">07</span>Decisiones todavía abiertas</h2>
-  <div class="note ok"><h4>Decisiones de producto cerradas</h4><p>El usuario aprobó el diseño y sus valores recomendados el 2026-10-08. Las reglas vinculantes están en la sección 6. No quedan decisiones de producto abiertas; la investigación técnica de la sección 10 es requisito previo a planificar las nuevas lecturas.</p></div>
-  <h3>Alternativas consideradas y elección aprobada</h3>
+  <div class="note ok"><h4>Decisiones confirmadas</h4><p>La persona aprobó el resumen anterior: reanudar el mismo slug, pausar ante un solapamiento probable y dejar seguir tareas independientes. También pidió que el agente pueda reconciliar cambios paralelos y conflictos.</p></div>
+  <h3>Enfoques para integrar cambios paralelos</h3>
   <ol>
-    <li><strong>Aprobado: hechos más recomendación razonada.</strong> Recoger las señales verificables, mantener separada la prioridad del board y explicar en Why now por qué atender, aclarar, desbloquear o revisar el elemento. Los compromisos y bloqueos evidenciados influyen en la recomendación, sin score opaco. Las nuevas APIs requieren investigación antes de planificar su uso.</li>
-    <li><strong>Descartado: solo enriquecer la explicación.</strong> Mostrar las mismas señales conservando siempre el orden por Priority/Severity es menos invasivo, pero puede dejar enterrada una entrega próxima con compromiso vigente.</li>
-    <li><strong>Descartado: score ponderado configurable.</strong> Sumar pesos de edad, comentarios, padre y calendario crea falsa precisión, requiere calibración por equipo y puede premiar ruido o tickets abandonados.</li>
+    <li><strong>Recomendado: sincronizar antes de la revisión final.</strong> Rebasar el worktree sobre el <code>main</code> local más reciente, resolver conflictos comprensibles y repetir las comprobaciones afectadas. La persona aprueba el resultado ya integrado, no una versión anterior.</li>
+    <li><strong>Alternativa: sincronizar después de la aprobación.</strong> Conserva el orden actual, pero si la resolución cambia el resultado hay que repetir pruebas y pedir una nueva revisión humana antes de cerrar.</li>
+    <li><strong>No recomendado: mezclar ramas hermanas activas.</strong> Puede importar código sin aprobar y unir el destino de dos tareas. Mantener cada feature separada hace que cada aprobación y merge sean claros.</li>
+    <li><strong>Decidido:</strong> sincronizar solo con cambios que ya llegaron al <code>main</code> local. No integrar worktrees hermanos que aún están en implementación o esperan revisión.</li>
+    <li><strong>Decidido:</strong> compartir un preflight local mediante <code>ai-eng worktree list</code>, sin duplicar la lógica en cada skill.</li>
+    <li><strong>Decidido:</strong> guardar la fase y las aprobaciones en el checkpoint existente de cada feature, sin crear un segundo registro.</li>
+    <li><strong>Decidido:</strong> limitar el inventario a este clon local; no añadir coordinación entre máquinas.</li>
+    <li><strong>Decidido:</strong> retirar el manifiesto y el argumento opcional <code>[files...]</code>. No hay consumidores de producción en el repo y la función no forma parte de la gobernanza aprobada.</li>
   </ol>
-  <div class="note ok"><h4>Padre y calendario aprobados</h4><p>Mostrar prioridad y fechas del padre directo sin herencia automática. Una relación padre-hijo no prueba que ese hijo bloquee toda la entrega. Una fecha de entrega explícita es un compromiso; el fin de una iteración solo es contexto de planificación, y una iteración sin fechas no aporta un plazo.</p></div>
-  <div class="note ok"><h4>Evidencia insuficiente aprobada</h4><p>Distinguir ausente, inaccesible y parcial, sin fabricar confianza numérica. Mostrar cobertura suficiente, limitada o no evaluable con el motivo y la próxima decisión concreta. Solo continuar con señales limitadas cuando el inventario esté completo y los guardarraíles de autenticación, ámbito y salida segura sigan satisfechos.</p></div>
-  <h3>Escenarios de aceptación aprobados</h3>
-  <ol>
-    <li>Un bug crítico y una tarea con entrega mañana: el calendario no rebaja automáticamente el riesgo crítico. Why now explica cada motivo y señala el conflicto para decisión humana.</li>
-    <li>Un ticket antiguo con muchos comentarios, sin compromiso vigente: recomendar revisar relevancia o aclarar, no declarar urgencia solo por su edad o actividad.</li>
-    <li>Un hijo de una Feature prioritaria: mostrar la prioridad del padre. Solo afirmar que bloquea esa Feature si hay evidencia explícita de esa dependencia.</li>
-    <li>Un elemento asignado a un sprint vencido: señalar planificación desactualizada, no afirmar que incumplió una fecha de entrega que no existe.</li>
-    <li>Un comentario antiguo dice bloqueado y uno posterior indica desbloqueado: analizar la secuencia y sus fechas; no mantener la conclusión antigua por contar menciones.</li>
-  </ol>
+  <h3>El manifiesto <code>.ai-eng-worktrees.json</code></h3>
+  <p>Lo crea y actualiza <code>ai-eng worktree new</code>; <code>ai-eng worktree rm</code> quita la entrada del slug, y las entradas cuyo directorio ya no existe se podan al crear o quitar worktrees. El archivo vive junto a la raíz de worktrees, fuera del checkout principal y de cada worktree. Hoy el orchestrator no le pasa archivos, así que su aviso de solapamiento no cubre el flujo normal. Aunque el campo de archivos sea opcional, un manifiesto corrupto puede bloquear <code>new</code> y <code>rm</code>.</p>
+  <div class="note ok"><h4>Decisión aprobada</h4><p>No usar el manifiesto para gobernanza. Retirar el argumento opcional, el aviso, el mantenimiento y el archivo; borrarlo solo no basta porque el comando actual lo vuelve a crear. El inventario de Git y el checkpoint por feature son las fuentes de verdad.</p></div>
+  <h3>Alcance técnico de esa eliminación</h3>
+  <ul>
+    <li><code>src/shared-worktree.ts</code>: quitar el tipo, el nombre del manifiesto y las funciones de lectura, poda y escritura; simplificar <code>worktreeNew</code> y <code>worktreeRm</code> para que no lean ni actualicen declaraciones. Mantener la raíz de worktrees, la validación del slug, el inventario de Git y la prueba de que una rama llegó a <code>main</code>.</li>
+    <li><code>src/commands/worktree.ts</code>: cambiar el uso a <code>new &lt;slug&gt;</code> y rechazar argumentos adicionales en vez de interpretarlos como archivos.</li>
+    <li><code>tests/worktree-command.spec.ts</code>: retirar los casos del manifiesto y del aviso entre listas declaradas; conservar las pruebas de creación, listado, eliminación segura y estado del checkout principal, y fijar que argumentos extra se rechazan.</li>
+    <li>El archivo del directorio de worktrees está fuera del repositorio. Borrarlo ahora no basta: la versión actual lo vuelve a crear. Si se elimina el código, borrar también ese manifiesto local después de verificar que ninguna versión activa lo usa.</li>
+    <li><code>README.md</code>, <code>CONTRIBUTING.md</code> y el orchestrator documentan <code>new &lt;slug&gt;</code>, no la opción de archivos. Las menciones restantes están en pruebas e historial del diseño del worktree; conservar el historial como historial, no reescribirlo.</li>
+  </ul>
 </section>
 
 <section id="s8">
   <h2><span class="num">08</span>Restricciones y guardarraíles</h2>
   <ul>
-    <li>El HTML generado para un backlog privado puede existir localmente en el árbol de trabajo de este repo; nunca se incorpora al historial de ai-engineering mediante commit o push.</li>
-    <li>El informe que genera la skill en el proyecto de un usuario conserva el detalle completo del backlog; esa salida de usuario no es un fixture ni contenido fuente de ai-engineering.</li>
-    <li>El triage normal no crea, edita, asigna, comenta, cierra ni borra work items.</li>
-    <li>Un destino ambiguo, un error de autenticación o una lectura/paginación incompleta del inventario detiene el run y conserva el informe anterior. La cobertura limitada de señales opcionales se identifica por separado; no se amplía el ámbito ni se presenta como evidencia completa.</li>
-    <li>No inferir el proyecto a partir del usuario/tenant activo de Azure CLI cuando el repo o la URL no identifican uno.</li>
-    <li>Un fallo conserva el informe anterior. Los campos remotos se escapan como contenido no confiable antes de incluirlos en HTML; los enlaces solo se generan con URLs HTTPS validadas. La autenticación nunca aparece en el informe.</li>
-    <li>El entorno disponible es productivo. Usar fixtures sintéticos locales; cualquier nueva validación con lecturas reales requiere autorización específica y permanece estrictamente de solo lectura.</li>
-    <li>La salida real puede escribirse localmente en <code>.ai-engineering/triage.html</code>, pero no se hace commit ni push mientras contenga datos del Azure privado.</li>
-    <li>No modificar work items ni copiar datos reales del backlog a fixtures, logs, documentación o código fuente; el único artefacto de datos es el HTML local de triage.</li>
-    <li>Resolver y anunciar el ámbito antes de leer datos. No mezclar organizaciones, proyectos, equipos ni boards.</li>
-    <li>La implementación debe ser genérica y no asumir que el lector tiene permisos para crear, editar o borrar elementos.</li>
+    <li>No integrar, borrar ni forzar un worktree como efecto de un simple inventario. La aprobación humana y las verificaciones existentes siguen siendo obligatorias.</li>
+    <li>Si Git o un archivo de checkpoint no se puede leer, decirlo explícitamente y conservar el trabajo.</li>
+    <li>Respetar la ruta configurada de worktrees y las reglas actuales de rama local <code>main</code>.</li>
+    <li>La lista es una instantánea local. No afirmar que representa otros clones o máquinas sin un mecanismo compartido aprobado.</li>
+    <li>Resolver conflictos dentro del worktree de la tarea, nunca editando a la vez en el checkout principal. No descartar cambios ajenos ni integrar una rama hermana que todavía no haya pasado su aprobación.</li>
+    <li>Tras resolver conflictos, repetir las pruebas y revisiones afectadas. Si no se puede probar o justificar la resolución, parar antes del merge y conservar la rama.</li>
+    <li>Mostrar nombres de tareas y rutas necesarias para distinguirlas, sin copiar diffs ni contenido sensible al registro de estado.</li>
   </ul>
 </section>
 
@@ -336,49 +332,47 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <h2><span class="num">09</span>Fuera de alcance</h2>
   <div class="note danger"><h4>No forma parte de esta idea</h4></div>
   <ul>
-    <li>Crear, editar, asignar, comentar, cerrar o borrar work items como parte del triage normal.</li>
-    <li>Enviar datos del backlog a servicios externos o incorporarlos a ejemplos, tests, documentación o fixtures de ai-engineering.</li>
-    <li>Combinar varios boards en un mismo informe.</li>
-    <li>En esta ampliación, cambiar el comportamiento GitHub, crear un motor configurable de scoring o validar vulnerabilidades contra un repositorio que no se ha identificado.</li>
+    <li>Hacer merge, borrar ramas o worktrees automáticamente sin la aprobación final ya requerida.</li>
+    <li>Crear una aplicación web o un panel remoto antes de demostrar que un preflight local no basta.</li>
+    <li>Cambiar el destino de merge, permitir push desde una sesión de implementación o reemplazar los gates de aprobación existentes.</li>
+    <li>Limpiar automáticamente worktrees con cambios sin commit o con estado desconocido.</li>
+    <li>Combinar automáticamente ramas hermanas no aprobadas dentro de una tarea distinta.</li>
   </ul>
 </section>
 
 <section id="s10">
   <h2><span class="num">10</span>Preguntas para investigar</h2>
   <ol>
-    <li>Confirmar cómo Azure DevOps representa equipos, boards y niveles de backlog en sus URLs y APIs; importa para interpretar una URL sin ampliar el ámbito por error.</li>
-    <li>Ver qué puede descubrirse de forma fiable desde un remote Git y cuándo hay que preguntar por varios equipos o boards.</li>
-    <li>Comprobar qué comandos de Azure CLI están disponibles y qué permisos solicitan, sin imprimir ni guardar datos del tenant; importa para elegir una ruta de lectura segura.</li>
-    <li>Preservar el contrato de inventario completo actual. No inventar paginación para membresía del backlog; comprobar la paginación únicamente en endpoints que la documenten.</li>
-    <li>Verificar cómo preservar los campos y relaciones de Azure en el HTML sin permitir contenido activo ni enlaces inseguros, y que una lectura incompleta nunca se presenta como triage completo.</li>
-    <li>Ampliación: comprobar las APIs de comentarios y su paginación, permisos y límites, y distinguir comentarios completos de una lectura parcial.</li>
-    <li>Ampliación: verificar campos estándar de creación, actualización y entrega, y cómo reconocer campos personalizados sin reglas específicas de una organización.</li>
-    <li>Ampliación: verificar cómo resolver las fechas de una iteración dentro del equipo seleccionado, sin asumir que una ruta de iteración implica un sprint activo.</li>
-    <li>Ampliación: comprobar el coste y los límites de leer prioridad y calendario del padre directo; el padre sigue siendo contexto, no inventario adicional.</li>
+    <li>Determinar qué puede leerse de forma fiable desde <code>git worktree list</code>, las ramas y el checkpoint existente, y qué estado de aprobación no está representado hoy.</li>
+    <li>Definir cómo detectar un checkpoint ausente, un worktree huérfano o estados de Git y checkpoint que no concuerdan, sin perder cambios ni dar por terminado el trabajo.</li>
+    <li>Comprobar cómo compartir el preflight entre brainstorm y orchestrator sin duplicar reglas ni impedir tareas independientes.</li>
+    <li>Verificar cómo volver a ejecutar las comprobaciones y la revisión tras resolver conflictos, y cómo detectar si <code>main</code> avanzó antes del merge final.</li>
   </ol>
 </section>
 
 <section id="s11">
   <h2><span class="num">11</span>Notas de handoff</h2>
-  <h3>Componentes y flujo aprobados</h3>
+  <h3>Componentes y flujo propuestos</h3>
   <ol>
-    <li>Resolver e inventariar con los módulos existentes. Ampliar la allowlist solo después de verificar rutas de lectura documentadas y mantener el ámbito explícito.</li>
-    <li>Enriquecer los miembros del inventario con comentarios, creación/actualización, calendario del elemento y contexto del padre directo. Resolver metadatos de una misma iteración una sola vez por ejecución; no recorrer ancestros o hermanos sin límite.</li>
-    <li>Analizar cada elemento una vez con hasta cinco análisis en paralelo. La misma entrada de evidencia alimenta Analysis y Why now, pero no se duplica el texto. Cada conclusión cita su fuente y distingue una afirmación del equipo de un hecho comprobado en código.</li>
-    <li>Renderizar señales, recomendación y datos originales en la fila existente. Validar inventario, análisis y enlaces antes de reemplazar el informe con el escritor atómico actual.</li>
+    <li>Un preflight común reúne la lista real de Git, el estado de cambios sin commit y el checkpoint por slug. Muestra también tareas sin worktree que esperan aprobación del plan. La opción recomendada es ampliar la lista local existente y usar un campo explícito de fase en el checkpoint, no mantener otro registro. Si se comprueban solapamientos, comparar rutas modificadas de Git y archivos previstos en checkpoints, no mantener un manifiesto paralelo.</li>
+    <li>Antes de brainstorm y orchestrator, el preflight resume trabajo activo, aprobaciones pendientes, coincidencias probables y datos que no puede clasificar. El mismo slug se reanuda; un posible solapamiento se detiene para decisión; una tarea distinta puede seguir.</li>
+    <li>Antes de la revisión humana final, el agente actualiza la rama de la tarea con el <code>main</code> local más reciente, dentro de su propio worktree.</li>
+    <li>El agente resuelve un conflicto solo si puede conservar la intención de ambos lados sin adivinar. Después repite las pruebas de comportamiento, revisión adversarial y pruebas de interfaz afectadas, además de la suite final.</li>
+    <li>La revisión humana muestra el resultado ya integrado. Se registra qué versión de <code>main</code> revisó la persona. Justo antes del merge se verifica que <code>main</code> no haya avanzado; si cambió, se sincroniza de nuevo y se vuelve a validar y revisar.</li>
+    <li>Solo tras la aprobación final se hace el merge no fast-forward en el checkout principal sobre el <code>main</code> local. Se verifica que la rama quedó integrada y luego se elimina con el comando seguro existente.</li>
   </ol>
   <h3>Errores y datos que faltan</h3>
-  <p>Una lectura incompleta del inventario, un error de autenticación, un ámbito ambiguo o una salida insegura mantienen el informe anterior. Una señal opcional que no existe se muestra como ausente. Una denegación de permisos específica de una señal se muestra como inaccesible y una lectura incompleta como parcial; con inventario completo se puede continuar indicando cobertura limitada o no evaluable por elemento. No se afirma ausencia de bloqueos ni una conclusión completa a partir de esas lagunas. La investigación debe confirmar cómo identificar estos casos, no presentar las APIs nuevas como ya verificadas. Ningún fallo permite ampliar el ámbito o escribir en Azure.</p>
+  <p>Una lista de Git o checkpoint ilegible, un estado contradictorio o un checkpoint ausente nunca significa que no haya trabajo. Si un worktree está sucio, no se inicia un rebase que ponga esos cambios en riesgo. Ante un conflicto ambiguo, un test fallido o un <code>main</code> que avanza después de la aprobación, se conserva la rama, no se fuerza ninguna operación y se informa qué decisión o acción falta.</p>
   <h3>Pruebas requeridas</h3>
-  <p>Usar los tests existentes y fixtures sintéticos para los cinco escenarios de la sección 7, límites de paginación de comentarios, fechas/zonas horarias, metadatos ausentes, permisos, padres fuera del ámbito, HTML no confiable y conservación del informe anterior. Fijar el reloj en las pruebas de antigüedad/calendario. Mantener las pruebas de GitHub como regresión y comprobar que cada miembro aparece exactamente una vez.</p>
-  <p><strong>Estado:</strong> complete · 2026-10-08. Diseño y valores recomendados aprobados por el usuario: «dale apruebo, implementa». Las preguntas técnicas de la sección 10 siguen abiertas y no se han consultado APIs nuevas. La aprobación del brainstorm es STOP 0, no la aprobación de un contrato futuro. Siguiente paso: <code>/ai-orchestrator</code>, con investigación de esas preguntas antes de cerrar el plan y solicitar STOP 1; este handoff no crea checkpoints ni implementa código.</p>
+  <p>Probar la clasificación de trabajo con y sin worktree, estados de aprobación, checkpoints ausentes o malformados y cambios sin commit. En repos Git temporales, probar dos features independientes, solapamiento sin conflicto, conflicto resoluble, conflicto ambiguo que se aborta sin perder trabajo y <code>main</code> que avanza entre revisión y merge. Verificar que una rama no aprobada nunca se incorpora ni se borra.</p>
+  <p><strong>Estado:</strong> complete · 2026-10-08. Diseño aprobado para implementación local. El checkpoint planner resolverá detalles técnicos dentro de los límites y decisiones fijados arriba.</p>
 </section>
 
 </div>
 </main>
 
 <footer>
-  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · ai-triage<br>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · worktree-lifecycle-governance<br>
   complete · 2026-10-08
   <a href="#main">↑ top</a>
 </footer>
