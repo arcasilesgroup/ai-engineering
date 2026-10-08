@@ -433,11 +433,26 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "pending",
+          "attempts": 1,
+          "findings": [
+            "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
+            "The assertion normalization now preserves identifier underscores; rerun all checkpoint 6 verify commands."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "pending",
+      "changed_files": [
+        "skills/ai-orchestrator/SKILL.md",
+        "scripts/checkpoint-gate.py",
+        "tests/test_checkpoint_gate.py",
+        "tests/skills.spec.ts",
+        "tests/worktree-lifecycle.spec.ts",
+        "LEARNINGS.md"
+      ]
     }
   ],
   "assumptions": [

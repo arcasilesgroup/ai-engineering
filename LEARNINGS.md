@@ -714,3 +714,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Capture full pre/post main SHAs, verify post-main ancestry, and report both refs plus safe retry guidance without resetting feature state.
 - **Lesson:** Race errors should identify the observed refs and safe recovery.
 - **Tags:** review, rebase, concurrency
+
+### L86 · 2026-10-08 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** U24-U27 failed because the skill-test normalizer removed underscores from `reviewed_main`.
+- **Root cause:** Formatting normalization altered a lifecycle identifier before matching.
+- **Fix:** Narrow normalization so identifier spelling remains exact.
+- **Lesson:** Normalize Markdown formatting without altering identifiers.
+- **Tags:** behavior, tests, lifecycle
