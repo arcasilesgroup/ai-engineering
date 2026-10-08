@@ -29,11 +29,16 @@ top-level "halted" reason (circuit breaker), and gives up after MAX_STOP_BLOCKS 
 import json
 import os
 import re
+import subprocess
 import sys
 
 GATES = ["behavior", "ui", "review"]
 STAGES = {"tests", "implement", "behavior", "ui", "review", "fix"}
 MARKER = re.compile(r"^\s*\[checkpoint\s+([\w.-]+)#(\d+)\s+(\w+)\]")
+LIFECYCLE_PHASES = {
+    "awaiting-plan-approval", "implementation", "blocked",
+    "awaiting-app-review", "ready-to-merge", "complete",
+}
 LOWER_TOOLS = {"bash": "Bash", "shell": "Bash", "write": "Write", "edit": "Edit", "read": "Read"}
 SURFACE = "claude-code"
 
@@ -127,9 +132,19 @@ def check_agent(prompt, root):
         block(f"unknown stage '{stage}'. Use one of: {', '.join(sorted(STAGES))}.")
     path = os.path.join(root, ".ai-engineering", "workflow", "checkpoints", f"{slug}.json")
     try:
-        cps = json.load(open(path))["checkpoints"]
-    except (OSError, ValueError, KeyError) as e:
+        plan = json.load(open(path))
+        cps = plan["checkpoints"]
+    except (OSError, ValueError, KeyError, TypeError) as e:
         block(f"can't read {path}: {e}")
+    if isinstance(plan, dict) and "lifecycle" in plan:
+        if not isinstance(cps, list) or any(not isinstance(checkpoint, dict) for checkpoint in cps):
+            block("lifecycle checkpoint plan must contain a checkpoint list.")
+        error = lifecycle_shape_error(plan.get("lifecycle"), plan, root)
+        if error:
+            block(error + ".")
+        state = plan["lifecycle"]
+        if state["phase"] != "implementation" or state["plan_approval"] != "approved":
+            block(f"{slug}: implementation is not authorized by the lifecycle approval.")
     cp = next((c for c in cps if c.get("id") == cid), None)
     if cp is None:
         block(f"checkpoint #{cid} doesn't exist in {slug}.json.")
@@ -147,14 +162,239 @@ def snapshot(cp):
     return (cp.get("status"), tuple(gate(cp, g) for g in GATES))
 
 
-def check_plan(new_text, old_text):
+def git(root, *args):
     try:
-        new = json.loads(new_text)["checkpoints"]
-    except (ValueError, KeyError, TypeError):
+        result = subprocess.run(
+            ["git", *args], cwd=root, capture_output=True, text=True, check=False,
+        )
+    except OSError:
+        return None
+    return result if result.returncode == 0 else None
+
+
+def full_commit(root, value):
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", value):
+        return False
+    return git(root, "cat-file", "-e", f"{value}^{{commit}}") is not None
+
+
+def local_main(root):
+    result = git(root, "rev-parse", "--verify", "refs/heads/main^{commit}")
+    return result.stdout.strip() if result is not None else None
+
+
+def verified_merge(root, slug, reviewed):
+    branch = git(root, "symbolic-ref", "--quiet", "--short", "HEAD")
+    if branch is None or branch.stdout.strip() != f"feat/{slug}":
+        return False
+    merges = git(root, "rev-list", "--first-parent", "--merges", "--format=%H", "refs/heads/main")
+    if merges is None:
+        return False
+    for commit in merges.stdout.splitlines():
+        if not commit.strip():
+            continue
+        commit = commit.strip()
+        parents = git(root, "rev-list", "--parents", "-n", "1", commit)
+        if parents is None:
+            return False
+        commits = parents.stdout.split()
+        if len(commits) < 3 or commits[1] != reviewed:
+            continue
+        if git(root, "merge-base", "--is-ancestor", "HEAD", commit) is not None:
+            return True
+    return False
+
+
+def completed_gates(plan):
+    checkpoints = plan.get("checkpoints")
+    if not isinstance(checkpoints, list) or not checkpoints:
+        return False
+    for checkpoint in checkpoints:
+        if not isinstance(checkpoint, dict) or checkpoint.get("status") != "passed":
+            return False
+        gates = checkpoint.get("gates")
+        if not isinstance(gates, dict):
+            return False
+        for name in GATES:
+            state = gates.get(name)
+            if not isinstance(state, dict) or state.get("status") not in ("passed", "n/a"):
+                return False
+    return True
+
+
+def checkpoint_shape_error(plan):
+    checkpoints = plan.get("checkpoints") if isinstance(plan, dict) else None
+    if not isinstance(checkpoints, list) or not checkpoints:
+        return "lifecycle requires a non-empty checkpoint list"
+    for checkpoint in checkpoints:
+        if not isinstance(checkpoint, dict) or checkpoint.get("status") not in ("pending", "passed"):
+            return "lifecycle checkpoint has an invalid status"
+        gates = checkpoint.get("gates")
+        if not isinstance(gates, dict):
+            return "lifecycle checkpoint has invalid gates"
+        for name in GATES:
+            state = gates.get(name)
+            if not isinstance(state, dict) or state.get("status") not in ("pending", "failed", "passed", "n/a"):
+                return "lifecycle checkpoint has an invalid gate status"
+    return None
+
+
+def lifecycle_shape_error(state, plan, root, require_fresh=True):
+    error = checkpoint_shape_error(plan)
+    if error:
+        return error
+    fields = ("phase", "plan_approval", "app_review", "reviewed_main")
+    if not isinstance(state, dict) or set(state) != set(fields):
+        return "lifecycle must contain phase, plan_approval, app_review and reviewed_main"
+    phase, approval, review, reviewed = (state[field] for field in fields)
+    if not isinstance(phase, str) or phase not in LIFECYCLE_PHASES:
+        return "lifecycle has an unknown phase"
+    if approval not in ("pending", "approved") or review not in ("not-started", "pending", "approved"):
+        return "lifecycle has an invalid approval value"
+    if reviewed is not None and not full_commit(root, reviewed):
+        return "reviewed_main must be a full commit id"
+    if phase == "awaiting-plan-approval" and (approval, review, reviewed) != ("pending", "not-started", None):
+        return "awaiting-plan-approval requires pending plan approval, no app review and no reviewed_main"
+    if phase == "implementation" and (approval, review, reviewed) != ("approved", "not-started", None):
+        return "implementation requires approved plan, no app review and no reviewed_main"
+    if phase == "awaiting-app-review":
+        if (approval, review) != ("approved", "pending") or reviewed is None:
+            return "awaiting-app-review requires approved plan, pending app review and reviewed_main"
+        if not completed_gates(plan):
+            return "awaiting-app-review requires completed checkpoint gates"
+        if require_fresh and reviewed != local_main(root):
+            return "reviewed_main is stale or is not the current local main commit"
+    if phase == "ready-to-merge":
+        if (approval, review) != ("approved", "approved") or reviewed is None:
+            return "ready-to-merge requires approved plan and app review with reviewed_main"
+        if not completed_gates(plan):
+            return "ready-to-merge requires completed checkpoint gates"
+        if require_fresh and reviewed != local_main(root):
+            return "reviewed_main is stale or is not the current local main commit"
+    if phase == "blocked":
+        if approval == "pending":
+            if (review, reviewed) != ("not-started", None):
+                return "blocked work with pending plan approval cannot have app review state"
+        elif review == "not-started":
+            if reviewed is not None:
+                return "blocked work without app review cannot have reviewed_main"
+        else:
+            if reviewed is None or not completed_gates(plan):
+                return "blocked app-review work requires completed gates and reviewed_main"
+    if phase == "complete":
+        if (approval, review) != ("approved", "approved") or reviewed is None:
+            return "complete requires approved plan and app review with reviewed_main"
+        if not completed_gates(plan):
+            return "complete requires completed checkpoint gates"
+        slug = plan.get("slug") if isinstance(plan, dict) else None
+        if local_main(root) is None or not verified_merge(root, slug, reviewed):
+            return "complete requires a verified feature merge into local main"
+    return None
+
+
+def lifecycle_transition_error(old_state, new_state, root):
+    old_phase = old_state["phase"]
+    new_phase = new_state["phase"]
+    if old_state == new_state:
+        return None
+    if old_phase == "complete":
+        return "complete is terminal"
+    if new_phase == "blocked":
+        if any(old_state[field] != new_state[field] for field in ("plan_approval", "app_review", "reviewed_main")):
+            return "blocked is fail-safe and cannot change approval state"
+        return None
+    if old_phase == "awaiting-plan-approval":
+        if new_phase == "implementation" and new_state["plan_approval"] == "approved":
+            return None
+        return "plan approval must transition directly from awaiting-plan-approval to implementation"
+    if old_phase == "implementation":
+        if new_phase == "awaiting-app-review":
+            return None
+        return "implementation may only advance to awaiting-app-review or blocked"
+    if old_phase == "blocked":
+        if new_phase == "awaiting-plan-approval" and new_state["plan_approval"] == "pending":
+            return None
+        if new_phase == "implementation" and (
+            old_state["plan_approval"] == "approved" and old_state["app_review"] == "not-started"
+        ):
+            return None
+        if new_phase == "awaiting-app-review" and old_state["app_review"] == "pending":
+            return None
+        if new_phase == "ready-to-merge" and old_state["app_review"] == "approved":
+            return None
+        return "blocked work may resume only into a phase allowed by its existing approvals"
+    if old_phase == "awaiting-app-review" and new_phase == "ready-to-merge":
+        if new_state["reviewed_main"] == old_state["reviewed_main"]:
+            return None
+        return "app-review approval must retain the reviewed_main commit"
+    if new_phase == "awaiting-app-review" and old_phase in ("awaiting-app-review", "ready-to-merge"):
+        current = local_main(root)
+        if (
+            new_state["app_review"] == "pending"
+            and new_state["reviewed_main"] == current
+            and new_state["reviewed_main"] != old_state["reviewed_main"]
+        ):
+            return None
+        return "app-review reset requires a fresh review against the advanced local main"
+    if old_phase == "ready-to-merge" and new_phase == "ready-to-merge":
+        return "ready-to-merge approval cannot change without repeating app review"
+    if old_phase == "ready-to-merge" and new_phase == "complete":
+        return None
+    return f"unauthorized lifecycle transition from {old_phase} to {new_phase}"
+
+
+def check_lifecycle(new_plan, old_plan, root, check_transition=True):
+    if not isinstance(new_plan, dict):
+        return
+    new_has_state = "lifecycle" in new_plan
+    old_has_state = isinstance(old_plan, dict) and "lifecycle" in old_plan
+    if not new_has_state and not old_has_state:
+        return  # legacy checkpoint-gate behavior is unchanged
+    if not new_has_state:
+        block("lifecycle state cannot be removed from a checkpoint.")
+    new_state = new_plan["lifecycle"]
+    error = lifecycle_shape_error(new_state, new_plan, root)
+    if error:
+        block(error + ".")
+    if not check_transition:
+        return
+    if not old_has_state:
+        if new_state != {
+            "phase": "awaiting-plan-approval",
+            "plan_approval": "pending",
+            "app_review": "not-started",
+            "reviewed_main": None,
+        }:
+            block("a new lifecycle must start in awaiting-plan-approval with pending approval.")
+        return
+    old_state = old_plan["lifecycle"]
+    if lifecycle_shape_error(old_state, old_plan, root, require_fresh=False):
+        block("existing lifecycle state is malformed; refusing a lifecycle transition.")
+    error = lifecycle_transition_error(old_state, new_state, root)
+    if error:
+        block(error + ".")
+
+
+def check_plan(new_text, old_text, root, check_transition=True):
+    try:
+        new_plan = json.loads(new_text)
+    except ValueError:
         return  # not a valid plan yet; the planner validates JSON itself
+    if not isinstance(new_plan, dict):
+        return  # not a checkpoint plan; retain the existing legacy behavior
+    if "checkpoints" not in new_plan:
+        if "lifecycle" in new_plan:
+            block("lifecycle checkpoint plan must contain a checkpoint list.")
+        return
+    new = new_plan["checkpoints"]
+    if isinstance(new_plan, dict) and "lifecycle" in new_plan:
+        if not isinstance(new, list) or any(not isinstance(cp, dict) for cp in new):
+            block("lifecycle checkpoint plan must contain a checkpoint list.")
     old = {}
+    old_plan = {}
     try:
-        old = {c["id"]: snapshot(c) for c in json.loads(old_text)["checkpoints"]}
+        old_plan = json.loads(old_text)
+        old = {c["id"]: snapshot(c) for c in old_plan["checkpoints"]}
     except (ValueError, KeyError, TypeError):
         pass
     for cp in new:
@@ -170,6 +410,7 @@ def check_plan(new_text, old_text):
         started = cid not in old and (cp.get("status") == "passed" or any(x in ("passed", "failed") for x in g))
         if (changed or started) and (todo := unpassed_before(new, cid)):
             block(f"#{cid}: can't change gates or status while checkpoint(s) {todo} haven't passed.")
+    check_lifecycle(new_plan, old_plan, root, check_transition)
 
 
 BASH_WRITE = re.compile(r">|\btee\b|\bsed\s+-i|\bpython3?\b|\bnode\b|\bperl\b|\bjq\b.*>|\bmv\b|\bcp\b|\btruncate\b")
@@ -209,7 +450,7 @@ def check_stop(data, root):
             continue
         if not orchestrating(data.get("transcript_path"), slug):
             continue
-        check_plan(text, "")  # structural rules against an empty baseline; exits 2 on a violation
+        check_plan(text, "", root, check_transition=False)  # structural rules against an empty baseline
         if (plan.get("halted") or {}).get("reason"):
             continue  # circuit breaker: stopping for a human is allowed, with the reason on record
         for cp in plan.get("checkpoints", []):
@@ -288,7 +529,7 @@ def main():
         if not old_s or old_s not in old_text:
             allow()  # Edit will fail on its own
         new_text = old_text.replace(old_s, new_s) if inp.get("replace_all") else old_text.replace(old_s, new_s, 1)
-    check_plan(new_text, old_text)
+    check_plan(new_text, old_text, root)
     allow()
 
 

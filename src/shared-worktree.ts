@@ -4,8 +4,8 @@
 // import spec — so the one definition moves down rather than up (arch.rules.json).
 // Every git value is an argv element: no command is ever assembled as a shell string.
 
-import { existsSync, mkdirSync, realpathSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { loadConfig, printable } from "./env.ts";
 
@@ -99,6 +99,7 @@ interface OpenWorktree {
   branch: string | undefined;
   /** What the user typed: the branch with the `feat/` prefix removed. */
   slug: string;
+  detached: boolean;
 }
 
 /** Every worktree git knows, or the reason it could not be read — a list that cannot
@@ -117,7 +118,12 @@ function openWorktrees(repo: string): { worktrees: OpenWorktree[] } | { detail: 
     const path = pathLine.slice("worktree ".length);
     const ref = lines.find((line) => line.startsWith("branch "))?.slice("branch ".length);
     const branch = ref?.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : undefined;
-    worktrees.push({ path, branch, slug: branch === undefined ? basename(path) : branch.replace(/^feat\//, "") });
+    worktrees.push({
+      path,
+      branch,
+      slug: branch === undefined ? basename(path) : branch.replace(/^feat\//, ""),
+      detached: lines.includes("detached"),
+    });
   }
   return { worktrees };
 }
@@ -249,6 +255,215 @@ export function worktreeNew(slug: string): WorktreeResult {
   };
 }
 
+interface StatusRead {
+  paths: string[];
+  detail?: string;
+}
+
+function worktreeStatus(path: string): StatusRead {
+  const status = git(path, ["status", "--porcelain", "--untracked-files=all", "-z"]);
+  if (status.status !== 0 || status.stderr.trim() !== "") {
+    return { paths: [], detail: status.stderr.trim() || `git status exited ${status.status}` };
+  }
+  const paths: string[] = [];
+  const tokens = status.stdout.split("\0");
+  for (let index = 0; index < tokens.length; ) {
+    if (tokens[index] === "") {
+      index += 1;
+      continue;
+    }
+    const read = statusPaths(tokens, index);
+    if (read === null) return { paths: [], detail: "unreadable git status record" };
+    paths.push(...read.paths);
+    index = read.next;
+  }
+  return { paths: [...new Set(paths)] };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const LIFECYCLE_PHASES = new Set([
+  "awaiting-plan-approval",
+  "implementation",
+  "blocked",
+  "awaiting-app-review",
+  "ready-to-merge",
+  "complete",
+]);
+
+function checkpointFiles(plan: unknown, slug: string): string[] | null {
+  if (!isRecord(plan) || plan.slug !== slug || !Array.isArray(plan.checkpoints)) return null;
+  const files: string[] = [];
+  for (const checkpoint of plan.checkpoints) {
+    if (!isRecord(checkpoint)) return null;
+    if (checkpoint.files === undefined) continue;
+    if (!Array.isArray(checkpoint.files) || checkpoint.files.some((file) => typeof file !== "string")) return null;
+    files.push(...checkpoint.files);
+  }
+  return files;
+}
+
+function checkpointShapeValid(plan: unknown): boolean {
+  if (!isRecord(plan) || !Array.isArray(plan.checkpoints) || plan.checkpoints.length === 0) return false;
+  return plan.checkpoints.every((checkpoint) => {
+    if (
+      !isRecord(checkpoint) ||
+      (checkpoint.status !== "pending" && checkpoint.status !== "passed") ||
+      !isRecord(checkpoint.gates)
+    ) {
+      return false;
+    }
+    const gates = checkpoint.gates;
+    return ["behavior", "ui", "review"].every((name) => {
+      const gate = gates[name];
+      return isRecord(gate) && ["pending", "failed", "passed", "n/a"].includes(String(gate.status));
+    });
+  });
+}
+
+function lifecycleFields(plan: unknown): Record<string, unknown> | null {
+  if (!checkpointShapeValid(plan) || !isRecord(plan) || !isRecord(plan.lifecycle)) return null;
+  const lifecycle = plan.lifecycle;
+  if (Object.keys(lifecycle).length !== 4) return null;
+  if (
+    typeof lifecycle.phase !== "string" ||
+    !LIFECYCLE_PHASES.has(lifecycle.phase) ||
+    !["pending", "approved"].includes(String(lifecycle.plan_approval)) ||
+    !["not-started", "pending", "approved"].includes(String(lifecycle.app_review)) ||
+    (lifecycle.reviewed_main !== null &&
+      (typeof lifecycle.reviewed_main !== "string" || !/^[0-9a-f]{40,64}$/i.test(lifecycle.reviewed_main)))
+  ) {
+    return null;
+  }
+  const phase = lifecycle.phase;
+  const approval = lifecycle.plan_approval;
+  const review = lifecycle.app_review;
+  const reviewedMain = lifecycle.reviewed_main;
+  if (
+    (phase === "awaiting-plan-approval" &&
+      (approval !== "pending" || review !== "not-started" || reviewedMain !== null)) ||
+    (phase === "implementation" &&
+      (approval !== "approved" || review !== "not-started" || reviewedMain !== null)) ||
+    (phase === "awaiting-app-review" &&
+      (approval !== "approved" || review !== "pending" || typeof reviewedMain !== "string")) ||
+    (phase === "ready-to-merge" &&
+      (approval !== "approved" || review !== "approved" || typeof reviewedMain !== "string")) ||
+    (phase === "complete" &&
+      (approval !== "approved" || review !== "approved" || typeof reviewedMain !== "string")) ||
+    (phase === "blocked" &&
+      (approval === "pending"
+        ? review !== "not-started" || reviewedMain !== null
+        : review === "not-started"
+          ? reviewedMain !== null
+          : typeof reviewedMain !== "string"))
+  ) {
+    return null;
+  }
+  return lifecycle;
+}
+
+function gatesComplete(plan: unknown): boolean {
+  if (!isRecord(plan) || !Array.isArray(plan.checkpoints) || plan.checkpoints.length === 0) return false;
+  return plan.checkpoints.every((checkpoint) => {
+    if (!isRecord(checkpoint) || checkpoint.status !== "passed" || !isRecord(checkpoint.gates)) return false;
+    const gates = checkpoint.gates;
+    return ["behavior", "ui", "review"].every((name) => {
+      const gate = gates[name];
+      return isRecord(gate) && (gate.status === "passed" || gate.status === "n/a");
+    });
+  });
+}
+
+function verifiedFeatureMerge(repo: string, branch: string, reviewedMain: string): boolean {
+  const merges = git(repo, ["rev-list", "--first-parent", "--merges", "--format=%H", "refs/heads/main"]);
+  if (merges.status !== 0) return false;
+  for (const commit of merges.stdout.split("\n").filter(Boolean)) {
+    const parents = git(repo, ["rev-list", "--parents", "-n", "1", commit]);
+    if (parents.status !== 0) return false;
+    const [mergeCommit, firstParent] = parents.stdout.trim().split(" ");
+    if (firstParent !== reviewedMain || !mergeCommit) continue;
+    if (git(repo, ["merge-base", "--is-ancestor", branch, mergeCommit]).status === 0) return true;
+  }
+  return false;
+}
+
+function lifecycleStatus(
+  checkpointPath: string,
+  worktreePath: string,
+  slug: string,
+  currentMain: string | null,
+  repo: string,
+  branch: string,
+): { label: string; files: string[] } {
+  let parsed: unknown;
+  try {
+    const checkpointStat = lstatSync(checkpointPath);
+    const checkpointRelative = relative(canonicalize(worktreePath), realpathSync(checkpointPath));
+    if (
+      !checkpointStat.isFile() ||
+      checkpointStat.isSymbolicLink() ||
+      checkpointRelative === "" ||
+      checkpointRelative === ".." ||
+      checkpointRelative.startsWith(`..${sep}`) ||
+      isAbsolute(checkpointRelative)
+    ) {
+      return { label: "unknown (checkpoint is not a worktree-local file)", files: [] };
+    }
+    parsed = JSON.parse(readFileSync(checkpointPath, "utf8"));
+  } catch {
+    return { label: "unknown (missing, unreadable or malformed checkpoint)", files: [] };
+  }
+  const files = checkpointFiles(parsed, slug);
+  if (files === null) return { label: "unknown (checkpoint does not match this worktree)", files: [] };
+  if (!isRecord(parsed) || !Object.hasOwn(parsed, "lifecycle")) {
+    return { label: "unknown (legacy checkpoint without lifecycle)", files };
+  }
+  const lifecycle = lifecycleFields(parsed);
+  if (lifecycle === null) return { label: "unknown (contradictory lifecycle)", files };
+  const phase = lifecycle.phase as string;
+  if (["awaiting-app-review", "ready-to-merge"].includes(phase) && !gatesComplete(parsed)) {
+    return { label: "unknown (lifecycle gates are incomplete)", files };
+  }
+  if (lifecycle.reviewed_main !== null) {
+    if (typeof lifecycle.reviewed_main !== "string") return { label: "unknown (invalid reviewed_main)", files };
+    const exists = git(repo, ["cat-file", "-e", `${lifecycle.reviewed_main}^{commit}`]);
+    if (exists.status !== 0) return { label: "unknown (invalid reviewed_main)", files };
+    if (phase !== "complete" && (currentMain === null || lifecycle.reviewed_main !== currentMain)) {
+      return { label: "unknown (reviewed_main is stale)", files };
+    }
+    if (phase === "complete") {
+      if (!verifiedFeatureMerge(repo, branch, lifecycle.reviewed_main) || !gatesComplete(parsed)) {
+        return { label: "unknown (merge is unverified)", files };
+      }
+    }
+  }
+  return {
+    label: `${phase} (plan ${String(lifecycle.plan_approval)}, app review ${String(lifecycle.app_review)})`,
+    files,
+  };
+}
+
+function normalizedEvidencePath(path: string): string | null {
+  const normalized = path.replace(/^(?:\.\/)+/, "").replace(/\/+/g, "/");
+  if (normalized === "" || normalized.startsWith("/") || normalized.split("/").some((part) => part === "..")) return null;
+  return normalized;
+}
+
+function displayPath(path: string): string {
+  return path.replace(/[\p{C}]/gu, "");
+}
+
+interface ListedWorktree {
+  entry: OpenWorktree;
+  isFeature: boolean;
+  status: StatusRead;
+  checkpointPath: string | null;
+  checkpointFiles: string[];
+  lifecycle: string;
+}
+
 export function worktreeList(): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree list: not inside a git repository.\n" };
@@ -256,11 +471,83 @@ export function worktreeList(): WorktreeResult {
   if ("detail" in listed) {
     return { code: 2, out: "", err: `worktree list: the worktree list is unreadable (${listed.detail}).\n` };
   }
-  const out = listed.worktrees
+  const currentMainRead = git(repo, ["rev-parse", "--verify", "refs/heads/main^{commit}"]);
+  const currentMain = currentMainRead.status === 0 ? currentMainRead.stdout.trim() : null;
+  let statusUnreadable = false;
+  const entries: ListedWorktree[] = listed.worktrees
     .filter((entry) => canonicalize(entry.path) !== repo)
-    .map((entry) => `${entry.slug}\t${entry.path}`)
-    .join("\n");
-  return { code: 0, out: out.length > 0 ? `${out}\n` : "", err: "" };
+    .map((entry) => {
+      const pathExists = existsSync(entry.path);
+      const status = pathExists ? worktreeStatus(entry.path) : { paths: [], detail: "worktree path is missing" };
+      statusUnreadable ||= pathExists && status.detail !== undefined;
+      const isFeature =
+        entry.branch?.startsWith("feat/") === true &&
+        SLUG_PATTERN.test(entry.slug) &&
+        !/\p{C}/u.test(entry.slug);
+      const checkpointPath = isFeature
+        ? join(entry.path, ".ai-engineering", "workflow", "checkpoints", `${entry.slug}.json`)
+        : null;
+      const state = checkpointPath === null
+        ? { label: "unknown (no feature branch)", files: [] }
+        : lifecycleStatus(checkpointPath, entry.path, entry.slug, currentMain, repo, entry.branch ?? "");
+      return {
+        entry,
+        isFeature,
+        status,
+        checkpointPath,
+        checkpointFiles: state.files,
+        lifecycle: state.label,
+      };
+    });
+
+  const lines = entries.map(({ entry, isFeature, status, lifecycle }) => {
+    const classification = isFeature
+      ? "feature"
+      : entry.detached
+        ? "detached"
+        : entry.branch === undefined
+          ? "unclassified"
+          : `unclassified (${printable(entry.branch)})`;
+    const cleanliness = status.detail !== undefined
+      ? `status unknown (${printable(status.detail)})`
+      : status.paths.length === 0
+        ? "clean"
+        : `dirty (${status.paths.map(displayPath).join(", ")})`;
+    return `${displayPath(entry.slug)}\t${displayPath(entry.path)}\t${classification}\t${cleanliness}\t${lifecycle}`;
+  });
+
+  const overlaps = new Set<string>();
+  // todo: index paths if local worktree counts grow; pairwise comparison is O(n²).
+  for (let left = 0; left < entries.length; left += 1) {
+    const first = entries[left];
+    if (first === undefined || !first.isFeature) continue;
+    for (let right = left + 1; right < entries.length; right += 1) {
+      const second = entries[right];
+      if (second === undefined || !second.isFeature) continue;
+      const firstFiles = new Set(first.checkpointFiles.map(normalizedEvidencePath).filter((path) => path !== null));
+      const secondFiles = new Set(second.checkpointFiles.map(normalizedEvidencePath).filter((path) => path !== null));
+      const firstStatus = new Set(first.status.paths.map(normalizedEvidencePath).filter((path) => path !== null));
+      const secondStatus = new Set(second.status.paths.map(normalizedEvidencePath).filter((path) => path !== null));
+      const evidence = new Set<string>();
+      for (const path of firstFiles) if (secondFiles.has(path)) evidence.add(path);
+      for (const path of firstStatus) if (secondFiles.has(path) || secondStatus.has(path)) evidence.add(path);
+      for (const path of secondStatus) if (firstFiles.has(path)) evidence.add(path);
+      if (evidence.size === 0) continue;
+      overlaps.add(
+        `likely overlap: ${displayPath(first.entry.slug)} and ${displayPath(second.entry.slug)} ` +
+        `(${[...evidence].map(displayPath).join(", ")}); ` +
+        `checkpoints: ${displayPath(first.checkpointPath ?? "")}, ${displayPath(second.checkpointPath ?? "")}`,
+      );
+    }
+  }
+
+  lines.push(...overlaps);
+  const out = lines.join("\n");
+  return {
+    code: statusUnreadable ? 2 : 0,
+    out: out.length > 0 ? `${out}\n` : "",
+    err: "",
+  };
 }
 
 /** The managed worktree a slug names, or null: the worktree must live under the
