@@ -188,6 +188,13 @@
         "checkpoint": 5
       },
       {
+        "id": "U20d",
+        "case": "a controlled temporary Git hook advances local refs/heads/main after rebase selects the previous tip; the command reports exact before/after main SHAs and rerun-sync guidance, claims sync and writes lifecycle state or reviewed_main only if the post-rebase main tip is an ancestor of feature HEAD, and otherwise preserves rewritten feature state without reset or rollback",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
         "id": "U21",
         "case": "a clear rebase conflict is resolved only inside the feature worktree; affected behavior gates rerun first, UI gates only when the checkpoint has UI, then affected review gates, all before human app review",
         "file": "tests/worktree-lifecycle.spec.ts",

@@ -285,7 +285,7 @@
       "title": "Rebase and retest before human app review",
       "simple": "Review work with latest changes",
       "size": "xl",
-      "goal": "Before app review, the managed feature worktree can rebase only onto current local main through a guarded CLI operation; refusals preserve all state, conflicts remain for agent handling, and affected gates pass before review.",
+      "goal": "Before app review, the managed feature worktree rebases only onto current local main through a guarded CLI operation; preflight refusals preserve state, conflicts remain for agent handling, and main movement during rebase is reported without discarding rewritten work; affected gates pass before review.",
       "plain": {
         "what": "The person reviews work that includes changes already accepted into the main project.",
         "why": "Old work may conflict with changes that have already landed.",
@@ -295,10 +295,10 @@
       "tasks": [
         "src/commands/worktree.ts and src/shared-worktree.ts: add exact-arity `ai-eng worktree rebase <slug>` and resolve only an existing Git-registered worktree under the canonical configured root on exact `feat/<slug>`; refuse detached, missing, mismatched or untrusted registrations.",
         "src/shared-worktree.ts: before mutation, require readable clean Git status and a readable non-legacy checkpoint with lifecycle phase `implementation`, every planned checkpoint status `passed`, and every planned gate `passed` or `n/a`. Missing, malformed, contradictory or unknown lifecycle state refuses without changing refs, files, index, checkpoint bytes or worktree registration.",
-        "src/shared-worktree.ts: invoke only `git rebase refs/heads/main` inside the resolved feature worktree; accept no base-ref argument and do not fetch or sync remote or sibling branches. On success, report the full current local-main commit ID without writing lifecycle state.",
+        "src/shared-worktree.ts: invoke only `git rebase refs/heads/main` inside the resolved feature worktree; accept no base-ref argument and do not fetch or sync remote or sibling branches. Capture the full `refs/heads/main` SHA immediately before and after rebase, then verify the post-rebase main tip is an ancestor of feature HEAD. Claim sync only when that current tip is included and report its exact full SHA. If main advanced and is not included, report both exact SHAs, tell the agent to rerun sync, preserve the rewritten feature state without `git reset --hard`, abort or other destructive rollback, and do not write lifecycle state.",
         "skills/ai-orchestrator/SKILL.md: use the CLI for Phase 3. A conflict remains in progress for agent handling; resolve only clear conflicts inside that feature worktree, never auto-resolve or force. For unclear conflicts or failed checks, abort, then verify the original feature branch, HEAD, tree, index, status, local-main ref, checkpoint bytes and worktree registration before recording blocked; if proof fails, stop without a lifecycle write.",
-        "skills/ai-orchestrator/SKILL.md: after a successful rebase or clear conflict resolution, rerun affected behavior, UI only when present, then review gates. Only after they pass and local main still equals the CLI-reported full commit ID, record `reviewed_main` and set `app_review` pending; if main advanced, repeat synchronization and affected gates.",
-        "tests/worktree-command.spec.ts: use real temporary Git repositories to test refusal for dirty, missing, malformed, legacy, unknown-lifecycle, detached and mismatched-branch states, with byte-for-byte snapshots proving refs, files, index, checkpoint bytes and worktree registration remain unchanged; also test local-main-only success and that conflicts remain active for agent handling.",
+        "skills/ai-orchestrator/SKILL.md: after a successful rebase or clear conflict resolution, rerun affected behavior, UI only when present, then review gates. Only after they pass and local main still equals the CLI-reported full post-rebase commit ID, record `reviewed_main` and set `app_review` pending; if main advanced, repeat synchronization and affected gates. A rebase whose current main tip is not included is not sync: report both SHAs, tell the agent to rerun sync, preserve the rewritten feature state and do not write lifecycle state.",
+        "tests/worktree-command.spec.ts: use real temporary Git repositories to test refusal for dirty, missing, malformed, legacy, unknown-lifecycle, detached and mismatched-branch states, with byte-for-byte snapshots proving refs, files, index, checkpoint bytes and worktree registration remain unchanged; also test local-main-only success, conflicts remaining active for agent handling, and U20d: a controlled Git fixture advances main during rebase and proves exact before/after SHAs, post-tip ancestry enforcement, rerun guidance and preservation without rollback or lifecycle writes.",
         "tests/worktree-lifecycle.spec.ts, tests/skills.spec.ts and tests/workflow-handoff.spec.ts: retain executable coverage of conflict handling and abort/restoration proof, affected behavior/UI/review ordering, and delayed `reviewed_main` handoff using exact local refs.",
         "Run `bun scripts/gen-assets.ts` after skill edits and verify the embedded canon."
       ],
@@ -316,10 +316,10 @@
         "`ai-eng worktree rebase <slug>` accepts no arbitrary base and operates only on an existing Git-registered worktree under the configured root whose branch is exactly `feat/<slug>`.",
         "Dirty status, missing worktree or checkpoint, malformed or legacy checkpoint, unknown lifecycle, detached HEAD or branch mismatch refuses before mutation; byte-for-byte assertions prove refs, files, index, checkpoint bytes and worktree registration are unchanged.",
         "The command requires clean readable Git status, lifecycle phase `implementation`, and every planned checkpoint and gate passed (with only `n/a` gates exempt); unreadable or contradictory state fails closed.",
-        "A successful invocation runs only `git rebase refs/heads/main` inside the feature worktree, performs no fetch or remote/sibling sync, changes no checkpoint, and reports the full current local-main commit ID.",
+        "The helper captures the full `refs/heads/main` SHA before and after rebase and verifies the post-rebase tip is an ancestor of feature HEAD; only then may it report sync success and the exact current post-rebase SHA. If main advanced and is not included, it reports both exact SHAs and tells the agent to rerun sync, preserves the rewritten feature state without `git reset --hard`, abort or other destructive rollback, and writes no lifecycle state or `reviewed_main`.",
         "A conflict is left active for agent handling. Only clear conflicts may be resolved in the feature worktree; unclear conflicts or failed gates are aborted and recorded blocked only after the exact original state is verified. No auto-resolution, force, lock, dependency or service is added.",
         "After sync or conflict resolution, affected behavior, conditional UI, then review gates pass before app review and before the orchestrator records `reviewed_main`; a moved local main requires resynchronization and affected gates.",
-        "Tests exercise real Git refusal, rebase success and unresolved-conflict states rather than relying only on prose or source-text assertions; CP6's existing Git-native merge serialization and reviewed-main freshness remain unchanged."
+        "U20d uses a real temporary Git fixture with a controlled hook that advances local main after rebase has selected the prior tip; when the new tip is not an ancestor of feature HEAD, it asserts the exact pre/post SHAs, rerun guidance, retained rewritten feature state, and unchanged lifecycle bytes with no destructive rollback. Tests cover Git refusal, rebase success and unresolved-conflict states rather than relying only on prose or source-text assertions; CP6's existing Git-native merge serialization and reviewed-main freshness remain unchanged."
       ],
       "verify": [
         "bun test tests/worktree-command.spec.ts",
@@ -336,8 +336,8 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 7,
+          "status": "passed",
+          "attempts": 8,
           "findings": [
             "attempt 1 FAIL: `bun test tests/workflow-handoff.spec.ts` U23 could not find the reviewed-main reference after the main-read step; lifecycle, skill and rebase fixture tests passed before the failure, remaining commands were not run.",
             "attempt 2 FAIL: `bun run typecheck` reports TS2769 at tests/worktree-lifecycle.spec.ts:472, 508, 527 and 552; prior lifecycle, skill, handoff, gate, asset, embed and architecture checks passed; lint was not run.",
@@ -345,17 +345,17 @@
             "attempt 4 PASS after adversarial rebase-abort sequencing and behavior/UI/review ordering fixes: all nine checkpoint 5 verify commands passed.",
             "attempt 5 PASS after unsafe pre-rebase states were made read-only: all nine checkpoint 5 verify commands passed.",
             "attempt 6 PASS after U22 gained missing and malformed lifecycle-state preservation cases: all nine checkpoint 5 verify commands passed.",
-            "Added the guarded `worktree rebase` command for testable sync preconditions; reran the revised checkpoint 5 verify list.",
             "attempt 7 FAIL: `bun run typecheck` reports TS18046 at src/shared-worktree.ts:389 because checkpoint.gates remains unknown; earlier focused tests, generator, embed and architecture checks passed; lint was not run.",
-            "Checkpoint gate fields were narrowed before indexed access; rerun the full cp5 verify list."
+            "attempt 8 PASS after checkpoint gate fields were narrowed before indexed access: all ten revised checkpoint 5 verify commands passed."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "failed",
+          "status": "pending",
           "attempts": 1,
           "findings": [
-            "Review attempt 1 reached four rounds without PASS: F1 blocked state could be written before rebase restoration; F2 fixture used `git reset --hard`; F3 conditional UI gate ordering was untested; F4 missing/unknown Phase 3 sync state lacked a no-write regression."
+            "Review attempt 1 reached four rounds without PASS: F1 blocked state could be written before rebase restoration; F2 fixture used `git reset --hard`; F3 conditional UI gate ordering was untested; F4 missing/unknown Phase 3 sync state lacked a no-write regression.",
+            "Review attempt 2 found F5: local main may advance during rebase, leaving the feature rewritten on an older tip without an exact target report. CP5 now checks pre/post main SHAs and ancestry and reports a retry condition."
           ]
         }
       },

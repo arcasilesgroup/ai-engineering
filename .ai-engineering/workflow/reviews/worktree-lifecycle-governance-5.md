@@ -72,3 +72,10 @@ The post-conflict sequence is behavior, UI only when the checkpoint has a UI gat
 - **Counts:** resolved 3 (F1–F3); withdrawn 0; open 1 (F4).
 - **F4 — U22 does not test the Phase 3 refusal (medium).** `tests/worktree-lifecycle.spec.ts:472` exercises only `runList` for missing, unreadable, and malformed lifecycle state. It does not test the Phase 3 decision to stop before rebase/checkpoint writes, so it would pass if the no-write guard were removed. Add a sync-refusal test for those states and assert the full snapshot remains unchanged.
 - **Verified by reviewer:** conflict abort/original-state proof, gate ordering, and `reviewed_main` ordering passed; no `git reset --hard` in the fixture. Focused tests: 43 passed. Gate 1: nine verify commands passed after `8fca5927`.
+
+## Round 5 — FAIL
+
+- **Counts:** resolved 4 (F1–F4); withdrawn 0; open 1 (F5).
+- **F1–F3 — RESOLVED:** the workflow now stops without mutation for untrusted pre-sync state, aborts and verifies restoration before recording `blocked`, and orders behavior, conditional UI, then review before app review.
+- **F4 — RESOLVED:** U20b now drives the actual CLI sync boundary and proves no mutation for dirty, missing, malformed, legacy, unknown-phase, detached and mismatched-branch inputs using full repository snapshots.
+- **F5 · Medium · local-main movement is detected only after an unrecovered rebase.** `src/shared-worktree.ts:707–725` runs `git rebase refs/heads/main`, then returns failure if `refs/heads/main` changed; it does not abort or restore the feature ref/tree, nor report which main SHA the completed rebase used. U20a tests a stationary main, and no CP5 test pins movement during the command. This leaves a rewritten feature worktree after a failed sync check, so Phase 3 cannot safely record or rely on the original target. Handle this path explicitly (preserve/restore after verifying the original state, or report a verified target and require gate reruns) and test movement plus preservation/recovery.
