@@ -1,0 +1,292 @@
+{
+  "feature": "Local worktree lifecycle governance",
+  "slug": "worktree-lifecycle-governance",
+  "order": ["unit", "api", "cli", "ui"],
+  "gating": "Run layers in order. Do not run a layer until every case in the layer before it passes.",
+  "layers": {
+    "unit": [
+      {
+        "id": "U1",
+        "case": "new <slug> rejects extra positional arguments with a usage failure before creating a directory or branch",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U2",
+        "case": "new ignores a malformed legacy .ai-eng-worktrees.json, creates no manifest, and leaves any existing manifest bytes untouched",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U3",
+        "case": "rm neither reads, rewrites nor removes a legacy manifest, including a malformed one",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U4",
+        "case": "manifest removal preserves configured-root resolution, slug validation, Git inventory, branch creation from local main, merged-branch protection and safe removal",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U5",
+        "case": "list uses only Git-listed feature worktrees and reads each lifecycle checkpoint from that worktree's own path, not from the primary checkout or a copied plan",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U6",
+        "case": "clean, dirty, detached and otherwise unclassified Git worktrees are reported with the correct status and evidence without changing refs, files or index state",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U7",
+        "case": "missing, unreadable or malformed lifecycle state remains visible as unknown and cannot authorize approval, merge or removal",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U8",
+        "case": "a legacy checkpoint with no lifecycle keeps existing checkpoint-gate behavior, is reported as unknown, and grants no lifecycle approval or merge/removal authority",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 2
+      },
+      {
+        "id": "U9",
+        "case": "likely-overlap evidence includes relevant Git status and checkpoint paths, while listing remains read-only",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U10",
+        "case": "valid lifecycle initialization and every documented phase/approval transition are accepted with their required gates and reviewed_main",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 2
+      },
+      {
+        "id": "U11",
+        "case": "malformed or contradictory lifecycle data, skipped or unauthorized transitions, and missing, invalid or stale reviewed_main are rejected; advancing local main requires review reset and repetition",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 2
+      },
+      {
+        "id": "U12",
+        "case": "brainstorm and orchestrator call the same read-only local worktree preflight before new or resumed work",
+        "file": "tests/skills.spec.ts",
+        "command": "bun test tests/skills.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U13",
+        "case": "Phase 0 resumes the same slug at its Git-listed path, or creates a clean feature worktree before Phase 1 begins",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test tests/workflow-handoff.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U14",
+        "case": "likely-overlap preflight pauses for a human decision while clearly unrelated work can continue",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test tests/workflow-handoff.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U15",
+        "case": "dirty, missing or uncertain work is preserved and reported; preflight does not reset, remove or sync it",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U16",
+        "case": "preflight stays local, does not fetch or merge an unapproved sibling, and neither creates a plan in the primary checkout nor copies one between worktrees",
+        "file": "tests/skills.spec.ts",
+        "command": "bun test tests/skills.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U17",
+        "case": "a new checkpoint plan is created only in the selected feature worktree with awaiting-plan-approval, pending plan approval, app review not-started and reviewed_main null",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 4
+      },
+      {
+        "id": "U18",
+        "case": "implementation does not start or dispatch until the human approves the plan; approval then permits the transition to implementation",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test tests/workflow-handoff.spec.ts",
+        "checkpoint": 4
+      },
+      {
+        "id": "U19",
+        "case": "the plan-approval transition rejects missing approval, skipped phases and unauthorized approval-state changes while preserving legacy gate behavior",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 4
+      },
+      {
+        "id": "U20",
+        "case": "a clean feature worktree rebases successfully onto the current local refs/heads/main only, with exact fixture refs and resulting history asserted",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U21",
+        "case": "a clear rebase conflict is resolved only inside the feature worktree and affected behavior and review gates rerun before human app review",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U22",
+        "case": "an unclear conflict or failed check aborts the rebase, marks lifecycle blocked and preserves the original feature branch, worktree and content; dirty preconditions also prevent rebase",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U23",
+        "case": "only after synchronization and affected gates pass does lifecycle record the exact current local-main reviewed_main and set app review pending",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U24",
+        "case": "in a real temporary Git repository, native Git merge-in-progress/index/ref protections stop a competing normal lifecycle merge safely; no custom lock file is used, no commit or worktree removal occurs, data is preserved, and retry requires re-reading refs and fresh approval",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U25",
+        "case": "in a real temporary Git repository, if primary HEAD advances after app approval and the pending merge has begun, the pre-commit check runs git merge --abort, preserves the feature worktree and data, invalidates approval, and requires resynchronization, affected gates and renewed review before retry",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U26",
+        "case": "the approved feature alone is merged with --no-commit --no-ff into local main; post-merge verification requires the merge commit's first parent to equal reviewed_main and feature ancestry before removal, while an unapproved sibling is neither merged nor deleted",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U27",
+        "case": "feature ancestry is verified before safe worktree removal; failed or uncertain merge, state or ancestry verification preserves the worktree, while fully verified ancestry allows the existing safe removal",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U28",
+        "case": "ready-to-merge requires fresh reviewed_main and approved app review, and complete is allowed only after verified merge",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 6
+      }
+    ],
+    "api": [],
+    "cli": [
+      {
+        "id": "C1",
+        "case": "regenerate src/assets.ts after the first checkpoint's skill changes",
+        "command": "bun scripts/gen-assets.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "C2",
+        "case": "the regenerated skill payload matches the source canon after checkpoint 3",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "C3",
+        "case": "regenerate src/assets.ts after the plan-approval skill changes",
+        "command": "bun scripts/gen-assets.ts",
+        "checkpoint": 4
+      },
+      {
+        "id": "C4",
+        "case": "the regenerated skill payload matches the source canon after checkpoint 4",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 4
+      },
+      {
+        "id": "C5",
+        "case": "regenerate src/assets.ts after the rebase-skill changes",
+        "command": "bun scripts/gen-assets.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "C6",
+        "case": "the regenerated skill payload matches the source canon after checkpoint 5",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "C7",
+        "case": "regenerate src/assets.ts after the final lifecycle skill changes",
+        "command": "bun scripts/gen-assets.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "C8",
+        "case": "the regenerated skill payload matches the source canon after checkpoint 6",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "C9",
+        "case": "the architecture boundary remains valid after worktree and lifecycle changes",
+        "command": "bun test tests/arch.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "C10",
+        "case": "all TypeScript changes type-check",
+        "command": "bun run typecheck",
+        "checkpoint": 6
+      },
+      {
+        "id": "C11",
+        "case": "the project lint gate passes",
+        "command": "bun run lint",
+        "checkpoint": 6
+      },
+      {
+        "id": "C12",
+        "case": "the complete repository test suite passes after the focused feature checks",
+        "command": "bun test",
+        "checkpoint": 6
+      }
+    ],
+    "ui": []
+  },
+  "not_tested": [
+    "API layer: no HTTP endpoint, server, database, persistence service or API authorization surface exists for this local CLI and skill workflow.",
+    "UI layer: the feature has no application screen, browser interaction or responsive layout; all worktree visibility and approval-flow behavior is exercised at the CLI, state-validation and workflow-contract layers.",
+    "Cross-clone or remote coordination is deliberately not tested because the approved design is local-only and forbids remote synchronization in this lifecycle.",
+    "Live human approval is represented by explicit state-transition and handoff tests; tests do not invoke an actual person or run a multi-agent production session."
+  ]
+}

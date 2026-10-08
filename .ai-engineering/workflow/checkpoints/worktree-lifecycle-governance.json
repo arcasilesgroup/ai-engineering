@@ -1,0 +1,323 @@
+{
+  "feature": "Local worktree lifecycle governance",
+  "slug": "worktree-lifecycle-governance",
+  "summary": "Remove unused declaration-manifest support, show lifecycle state from Git-listed feature worktrees, and safely synchronize and merge reviewed work into local main.",
+  "plain_summary": "Before work begins, the project shows active tasks and decisions waiting. Each task catches up with accepted changes before review and safe cleanup.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Remove unused declared-file manifest support",
+      "simple": "Stop keeping a second list",
+      "size": "xs",
+      "goal": "Worktree creation and removal no longer read or write .ai-eng-worktrees.json, while configured roots, slug validation, Git inventory, local-main ancestry protection and safe removal remain unchanged.",
+      "plain": {
+        "what": "The project stops keeping a second list of files for work copies.",
+        "why": "A broken extra list should not prevent work from starting or ending.",
+        "check": "A work copy can still be opened and safely removed."
+      },
+      "builds_on": [],
+      "tasks": [
+        "src/shared-worktree.ts: remove declaration types, manifest path, read/prune/write helpers, overlap warning and all manifest reads or writes; simplify worktreeNew to accept only the slug without changing configured-root resolution, slug validation, Git inventory, branch creation from local main, or worktreeRm's merged-branch and safe-removal checks.",
+        "src/commands/worktree.ts: change usage to `new <slug>`, reject extra `new` positionals, and call worktreeNew with only the slug.",
+        "tests/worktree-command.spec.ts: replace manifest and declared-overlap cases with assertions that extra arguments are rejected, no manifest is created, a malformed legacy manifest is ignored and left untouched, and configured roots, slug checks, Git listing, merged-branch protection and safe removal still work."
+      ],
+      "files": [
+        "src/shared-worktree.ts",
+        "src/commands/worktree.ts",
+        "tests/worktree-command.spec.ts"
+      ],
+      "acceptance": [
+        "`ai-eng worktree new <slug>` accepts no optional file list; additional positionals return usage failure without creating a worktree.",
+        "New and removal operations neither read, create, update nor delete `.ai-eng-worktrees.json`; even a malformed leftover file does not block them.",
+        "Configured worktree paths, slug checks, Git inventory, branch creation from local main, merged-branch protection and safe removal remain covered and green."
+      ],
+      "verify": [
+        "bun test tests/worktree-command.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Report Git worktrees and validate lifecycle state",
+      "simple": "See each work copy's state",
+      "size": "s",
+      "goal": "`ai-eng worktree list` reports Git's local feature worktrees and trustworthy state from each worktree's own checkpoint; invalid or missing lifecycle data is visibly unknown and cannot authorize lifecycle actions.",
+      "plain": {
+        "what": "The project shows each work copy, its changes, and the decision waiting for it.",
+        "why": "People need to spot active or uncertain work before starting another task.",
+        "check": "Run the listing command and see work copies and their state."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "src/shared-worktree.ts: extend the Git inventory and worktreeList to inspect dirty state and `.ai-engineering/workflow/checkpoints/<slug>.json` inside each Git-listed feature worktree. Do not scan the primary checkout for plans without worktrees or copy checkpoint files between trees; a missing, unreadable or invalid checkpoint is reported as unknown.",
+        "src/shared-worktree.ts and src/commands/worktree.ts: keep Git as the only worktree inventory, show detached and otherwise unclassified entries, and derive likely-overlap evidence from Git status and checkpoint paths without mutating a worktree.",
+        "scripts/checkpoint-gate.py: validate lifecycle fields, initial state and allowed phase/approval transitions. A new lifecycle starts as awaiting-plan-approval with pending plan approval, app review not-started and reviewed_main null; implementation requires plan approval; awaiting-app-review requires completed gates and a full reviewed_main; ready-to-merge requires approved app review against that same current local-main commit; complete is terminal. Permit blocked only as a fail-safe and allow resumption only into a valid phase with its required approvals and gates.",
+        "scripts/checkpoint-gate.py: preserve legacy plans with no lifecycle by leaving existing checkpoint-gate behavior unchanged and reporting their lifecycle as unknown; never infer approval or permit lifecycle-controlled merge/removal from absent lifecycle state. Reject malformed, contradictory, skipped or unauthorized transitions; reject an invalid or stale reviewed_main, and require review to be reset and repeated after local main advances.",
+        "tests/worktree-lifecycle.spec.ts and tests/worktree-command.spec.ts: use temporary Git repositories to cover actual listing, dirty/clean/detached states, checkpoint state from the worktree path, missing/unreadable state as unknown, overlap evidence and read-only behavior.",
+        "tests/test_checkpoint_gate.py: cover legacy plans, valid and invalid lifecycle shapes, each permitted and forbidden phase/approval transition, missing or malformed reviewed_main, and reviewed_main becoming stale as local main advances."
+      ],
+      "files": [
+        "src/shared-worktree.ts",
+        "src/commands/worktree.ts",
+        "scripts/checkpoint-gate.py",
+        "tests/test_checkpoint_gate.py",
+        "tests/worktree-lifecycle.spec.ts",
+        "tests/worktree-command.spec.ts"
+      ],
+      "acceptance": [
+        "The report reads lifecycle state only from the matching Git-listed feature worktree; it does not require plans without worktrees or duplicate/copy a checkpoint file.",
+        "Git-listed worktrees without valid checkpoint state remain visible as unknown, never as no work; legacy plans without lifecycle retain existing checkpoint-gate behavior but cannot authorize lifecycle approval, merge or removal.",
+        "Lifecycle validation accepts only documented phase/approval transitions and refuses an invalid or stale reviewed_main before approval can authorize merge.",
+        "Listing preserves dirty-state and read-only guarantees and reports detached, missing-checkpoint and otherwise unclassified entries."
+      ],
+      "verify": [
+        "bun test tests/worktree-lifecycle.spec.ts",
+        "bun test tests/worktree-command.spec.ts",
+        "python3 tests/test_checkpoint_gate.py",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Preflight and open a clean feature worktree",
+      "simple": "Open the right work copy",
+      "size": "m",
+      "goal": "The shared local preflight supports the orchestrator's Phase 0: create or resume the same slug's clean feature worktree before Phase 1, preserving unrelated, dirty or uncertain work.",
+      "plain": {
+        "what": "Planning and building start in the right work copy, without disturbing another task.",
+        "why": "People need to see active work before opening or resuming a task.",
+        "check": "Start or resume a task and confirm its work copy is clean."
+      },
+      "builds_on": [2],
+      "tasks": [
+        "skills/ai-brainstorm/SKILL.md and skills/ai-orchestrator/SKILL.md: call the same read-only `ai-eng worktree list` preflight before new or resumed work; use its local Git, dirty-state, lifecycle and overlap evidence, pause likely overlaps for a human decision, and allow clearly unrelated work.",
+        "skills/ai-orchestrator/SKILL.md: make Phase 0 create a new feature worktree from local main or resume the same slug using the Git-listed path. Continue only when the worktree is clean and trusted; preserve and report dirty, missing or uncertain work without resetting, removing or syncing it.",
+        "skills/ai-orchestrator/SKILL.md: keep this workflow local to the current clone; never fetch, sync remote state or merge an unapproved sibling. Do not create a checkpoint plan in the primary tree or copy one into the feature worktree.",
+        "Run `bun scripts/gen-assets.ts` after skill edits. Update tests/skills.spec.ts, tests/workflow-handoff.spec.ts and tests/worktree-lifecycle.spec.ts to verify the shared preflight, clean create/resume ordering, same-slug path selection, overlap pause, unrelated-work continuation and preservation of uncertain work."
+      ],
+      "files": [
+        "skills/ai-brainstorm/SKILL.md",
+        "skills/ai-orchestrator/SKILL.md",
+        "src/assets.ts",
+        "tests/skills.spec.ts",
+        "tests/workflow-handoff.spec.ts",
+        "tests/worktree-lifecycle.spec.ts"
+      ],
+      "acceptance": [
+        "Both skills use the same read-only local preflight; only the orchestrator's Phase 0 creates or resumes a feature worktree.",
+        "Phase 0 uses the Git-listed path for the same slug and proceeds only with a clean, trusted feature worktree; uncertain or dirty work is preserved.",
+        "The preflight neither requires a plan without a worktree nor coordinates across clones, syncs remote state or merges an unapproved sibling.",
+        "The generated skill payload matches its sources."
+      ],
+      "verify": [
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/worktree-lifecycle.spec.ts",
+        "bun scripts/gen-assets.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Write and approve the plan before implementation",
+      "simple": "Approve the work plan first",
+      "size": "l",
+      "goal": "Phase 1 writes the checkpoint plan only inside the clean feature worktree, records awaiting-plan-approval, and starts no implementation until the human approves that plan.",
+      "plain": {
+        "what": "The person agrees on the steps before any building begins.",
+        "why": "Work should follow the plan the person actually approved.",
+        "check": "The plan waits for approval before any building starts."
+      },
+      "builds_on": [3],
+      "tasks": [
+        "skills/ai-orchestrator/SKILL.md: after Phase 0, write `.ai-engineering/workflow/checkpoints/<slug>.json` in that feature worktree with lifecycle phase awaiting-plan-approval, plan_approval pending, app_review not-started and reviewed_main null. Do not create it in the primary tree, require a plan without a worktree, or copy it between trees.",
+        "skills/ai-orchestrator/SKILL.md: keep the existing Phase 1 human checkpoint-plan approval stop. Only after approval, update lifecycle to implementation and begin tests or code; commit the approved plan in the same worktree.",
+        "scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py: enforce the initial lifecycle and the pending-to-approved plan transition, reject implementation before plan approval, and preserve legacy checkpoint gate behavior when lifecycle is absent.",
+        "Run `bun scripts/gen-assets.ts` after skill edits. Update tests/skills.spec.ts and tests/workflow-handoff.spec.ts to assert Phase 0 precedes Phase 1, the plan is written in the feature worktree, and no implementation dispatch occurs before approval."
+      ],
+      "files": [
+        "skills/ai-orchestrator/SKILL.md",
+        "src/assets.ts",
+        "scripts/checkpoint-gate.py",
+        "tests/test_checkpoint_gate.py",
+        "tests/skills.spec.ts",
+        "tests/workflow-handoff.spec.ts"
+      ],
+      "acceptance": [
+        "The checkpoint plan and its lifecycle state exist only in the same feature worktree created or resumed in Phase 0.",
+        "A new plan begins at awaiting-plan-approval with pending plan approval and no reviewed_main; implementation is blocked until the human approves.",
+        "The plan is never copied between the primary and feature trees, and no plan without a Git-listed worktree is required.",
+        "Generated skill assets and embed-canon verification stay in sync."
+      ],
+      "verify": [
+        "python3 tests/test_checkpoint_gate.py",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun scripts/gen-assets.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "title": "Rebase and retest before human app review",
+      "simple": "Review work with latest changes",
+      "size": "xl",
+      "goal": "Before app review, a clean feature worktree rebases only onto current local main; clear conflicts are resolved there, unclear conflicts are aborted and preserved, and affected gates pass again before review.",
+      "plain": {
+        "what": "The person reviews work that includes changes already accepted into the main project.",
+        "why": "Old work may conflict with changes that have already landed.",
+        "check": "The refreshed result is checked again before the person reviews it."
+      },
+      "builds_on": [4],
+      "tasks": [
+        "skills/ai-orchestrator/SKILL.md: before human app review, confirm the feature branch and clean worktree, then rebase only onto the current local `refs/heads/main`; do not fetch, sync remote state or merge an unapproved sibling.",
+        "skills/ai-orchestrator/SKILL.md: resolve a conflict only when both sides' intent is clear and only inside the feature worktree. For unclear intent or a failed check, abort the rebase, preserve the branch/worktree, set phase blocked and report the decision needed.",
+        "skills/ai-orchestrator/SKILL.md: after a clean rebase or clear conflict resolution, rerun affected behavior, UI when present, and review gates before human app review; record the exact current local-main commit as reviewed_main and set app_review pending.",
+        "tests/worktree-lifecycle.spec.ts: use real temporary Git repositories and execute actual rebases. Assert clean synchronization against local main, a clear conflict resolved inside the feature worktree with affected gates rerun before review, and an unclear conflict followed by `git rebase --abort` that preserves the original feature branch, worktree and content.",
+        "Run `bun scripts/gen-assets.ts` after skill edits. Update tests/skills.spec.ts to verify local-main-only sync, clean-state preconditions, no remote/sibling sync and gates-before-review ordering."
+      ],
+      "files": [
+        "skills/ai-orchestrator/SKILL.md",
+        "src/assets.ts",
+        "tests/skills.spec.ts",
+        "tests/worktree-lifecycle.spec.ts"
+      ],
+      "acceptance": [
+        "The feature is rebased on local main before app review, with no remote sync or unapproved sibling merge.",
+        "A clear conflict is resolved only in the feature worktree; an unclear conflict or failed check aborts and preserves it.",
+        "After resolution, affected gates run again before review, and reviewed_main records the exact local-main commit.",
+        "Tests execute real Git rebase/conflict/abort behavior rather than relying only on prose or source-text assertions."
+      ],
+      "verify": [
+        "bun test tests/worktree-lifecycle.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "python3 tests/test_checkpoint_gate.py",
+        "bun scripts/gen-assets.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "Serialize the approved merge and remove safely",
+      "simple": "Keep approval tied to current work",
+      "size": "xl",
+      "goal": "Only an approved feature merge based on the reviewed local-main commit completes; a moved main forces resynchronization and renewed gates/review, and ancestry is verified before safe removal.",
+      "plain": {
+        "what": "If the main project changes after review, the person reviews the refreshed work before it is merged and removed.",
+        "why": "Approval should apply only to the version that was actually reviewed.",
+        "check": "If the main project moved, refresh and review the work before cleanup."
+      },
+      "builds_on": [5],
+      "tasks": [
+        "skills/ai-orchestrator/SKILL.md: use Git's primary-worktree merge, index and ref protections for serialization; do not add a custom lock file or locking dependency. Immediately before merging, require primary `HEAD == lifecycle.reviewed_main` and run `git merge --no-commit --no-ff feat/<slug>`.",
+        "skills/ai-orchestrator/SKILL.md: while `MERGE_HEAD` and index state mark the merge in progress, recheck primary `HEAD == lifecycle.reviewed_main` immediately before `git commit`. If it differs, run `git merge --abort`, invalidate app approval, preserve the feature worktree and require resynchronization, affected gates and renewed app review. If Git reports an in-progress merge/index/ref lock or refuses the commit, stop safely, preserve data, re-read refs and retry only after fresh approval.",
+        "skills/ai-orchestrator/SKILL.md: after a successful merge, verify the merge commit's first parent equals reviewed_main and `feat/<slug>` is an ancestor of primary HEAD before using the existing non-force `ai-eng worktree rm <slug>`. Preserve the worktree whenever merge, parent, ancestry or state verification is uncertain.",
+        "scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py: require a fresh reviewed_main and approved app review for ready-to-merge; permit approval invalidation only as part of returning to sync/review, and allow complete only after verified merge.",
+        "tests/worktree-lifecycle.spec.ts: use a real temporary Git repository to exercise native Git merge-in-progress contention, main advancing after app approval, `git merge --abort` and preservation, fresh approval before retry, reviewed first-parent and feature-ancestry verification before removal, and an unapproved sibling left untouched.",
+        "Run `bun scripts/gen-assets.ts` after skill edits. Update CHANGELOG.md and FILEMAP.md for the shipped lifecycle behavior and lifecycle test.",
+        "Run the full project gates."
+      ],
+      "files": [
+        "skills/ai-orchestrator/SKILL.md",
+        "src/assets.ts",
+        "scripts/checkpoint-gate.py",
+        "tests/test_checkpoint_gate.py",
+        "tests/skills.spec.ts",
+        "tests/worktree-lifecycle.spec.ts",
+        "tests/worktree-command.spec.ts",
+        "CHANGELOG.md",
+        "FILEMAP.md"
+      ],
+      "acceptance": [
+        "No custom lock file or locking dependency is introduced. A merge requires primary HEAD to equal reviewed_main immediately before `git merge --no-commit --no-ff feat/<slug>` and again immediately before commit; Git's native in-progress merge, index and ref protections make a competing normal merge stop safely.",
+        "If primary HEAD advances after app review, the pending merge is aborted with `git merge --abort`, old approval is invalidated, the feature worktree and data are preserved, and resynchronization, affected gates and renewed app review are required. Git contention or commit refusal also stops safely; refs are re-read and retry requires fresh approval.",
+        "The only feature merge is no-fast-forward into local main; after commit, its first parent must equal reviewed_main and feature ancestry must be verified before existing safe removal runs without force.",
+        "An unapproved sibling is never incorporated or deleted; any uncertain merge or ancestry result preserves the feature worktree.",
+        "CHANGELOG.md and FILEMAP.md reflect the shipped behavior, generated skill assets match, and all existing project gates pass."
+      ],
+      "verify": [
+        "bun test tests/worktree-lifecycle.spec.ts",
+        "bun test tests/worktree-command.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "python3 tests/test_checkpoint_gate.py",
+        "bun scripts/gen-assets.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test",
+        "bun test tests/arch.spec.ts"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    }
+  ],
+  "assumptions": [
+    "A feature plan is written only after its clean work copy exists, and remains in that copy. [approved task clarification; PRD Worktree lifecycle]",
+    "Missing or legacy lifecycle state is shown as unknown, not as no work or approval. [brainstorm §§8, 11; LEARNINGS Rules R2, R8]",
+    "The worktree inventory and merge serialization apply to this local clone; they do not coordinate across machines or merge unapproved siblings. [PRD Out of scope; brainstorm §6]",
+    "No new dependencies or screen are needed; existing Bun tests and real Git fixtures cover the behavior. [AGENTS.md; approved request]"
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "All checkpoints have ui null and a ui gate of n/a; this feature changes CLI reporting and agent workflow, not an application screen.",
+    "Do not delete a leftover `.ai-eng-worktrees.json` from any worktree root; remove its support from this repository and leave unrelated local data untouched.",
+    "Lifecycle lives in each feature's existing checkpoint JSON. Do not add a second registry, require a plan without a worktree, or duplicate a checkpoint file between the primary and feature trees.",
+    "Only local main is a synchronization or merge source. Never fetch remote state, coordinate across clones, merge an unapproved sibling or force an unclear conflict."
+  ]
+}
