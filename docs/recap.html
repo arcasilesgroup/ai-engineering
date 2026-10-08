@@ -669,7 +669,7 @@
     </div>
     <div class="card">
       <h4>Written later, by the verb that owns it</h4>
-      <p><code>spec.html</code> and <code>plan.html</code> come from <code>ai-eng spec open</code>, which refuses to open a second contract while one is live and records the commit the milestone starts from. <code>brainstorm.md</code> and <code>recap.html</code> belong to the same slot, and <code>ai-eng spec close</code> deletes all four from the tree — git keeps the history. <code>receipts/</code> fills as guards run. <code>research/</code>, <code>design/</code>, <code>security/</code> and <code>reports/</code> exist once their verb has been used; <code>doctor --gc</code> applies the growth caps in <code>config.toml</code> and aggregates or deletes what no document cites.</p>
+      <p><code>spec.html</code> and <code>plan.html</code> come from <code>ai-eng spec open</code>, which refuses to open a second contract while one is live and records the commit the milestone starts from. <code>brainstorm.md</code> and the optional <code>recap.html</code> belong to the same slot; <code>ai-eng spec close</code> deletes them when present, while git keeps the history. <code>receipts/</code> fills as guards run. <code>research/</code>, <code>design/</code>, <code>security/</code> and <code>reports/</code> exist once their verb has been used; <code>doctor --gc</code> applies the growth caps in <code>config.toml</code> and aggregates or deletes what no document cites.</p>
     </div>
   </div>
 
@@ -734,7 +734,7 @@ until  = "2026-09-05"          # every exception expires — there is no infinit
 
   <div class="grid g3">
     <div class="card"><h4>Generation</h4><p><code>ai-plan</code> writes both files when the milestone opens: <code>spec.html</code> with the acceptance gates and <code>plan.html</code> with the ordered steps. Two files, one truth each — never one file mixing requirements with a schedule.</p></div>
-    <div class="card"><h4>Review</h4><p>The initial review surface is <code>spec.html</code> itself; <code>ai-visual-recap</code> — a skill, not a CLI — writes <code>recap.html</code> when the milestone closes.</p></div>
+    <div class="card"><h4>Review</h4><p>The initial review surface is <code>spec.html</code> itself; <code>ai-visual-recap</code> — a skill, not a CLI — writes an optional <code>recap.html</code> only when the user invokes it.</p></div>
     <div class="card"><h4>Execution</h4><p><code>ai-eng spec run</code> executes every <code>CHECK</code> of <code>spec.html</code> through <code>skills/ai-proof/scripts/gate-check.mjs</code> (never reimplemented), writes a receipt and exits non-zero when a check could not run: a check that does not run is red, never green by absence of an executor. No gates at all — the run refuses.</p></div>
   </div>
 
@@ -1491,7 +1491,7 @@ exit 1</pre>
       <tr><td>9</td><td>Security <span class="pill p-dim">if it touches security</span></td><td><code>ai-security</code></td><td><code>.ai-engineering/security/run-N/findings.json</code> + <code>REPORT.md</code>; zero open HIGH findings, schema-validated, is the milestone gate</td><td>— (the validator is not the finder)</td></tr>
       <tr><td>10</td><td>Proof</td><td><code>ai-proof</code> + <code>ai-eng spec run</code></td><td>a receipt per run; a check that cannot execute exits non-zero and turns CI red</td><td>—</td></tr>
       <tr><td>11</td><td>Docs</td><td><code>ai-write</code></td><td>README / docs/ of the project, verified against the tree; <code>not-covered:</code> marks what could not be proven</td><td>—</td></tr>
-      <tr><td>12</td><td>Close</td><td><code>ai-visual-recap</code> + git</td><td>the milestone recap HTML; <code>ai-eng spec close</code> archives spec.html, plan.html, brainstorm.md and recap.html to git and deletes them from the tree</td><td>reviewing the recap; the human tags — the binary never touches the remote (<a href="#s04">§04</a>)</td></tr>
+      <tr><td>12</td><td>Close</td><td>git; <code>ai-visual-recap</code> only if the human invokes it</td><td>merge to local <code>main</code> after human approval; the optional recap is archived only if present; <code>ai-eng spec close</code> removes the milestone slots from the tree</td><td>review the recap if created; the human tags — the binary never touches the remote (<a href="#s04">§04</a>)</td></tr>
     </tbody>
   </table></div>
   <p>The order runs on <strong>three lanes</strong>. <strong>Light</strong> — spike or bounded work: no contract, it explores and throws away what does not serve. <strong>Standard</strong> — the contract: <code>ai-plan</code> writes spec.html + plan.html, the loop runs, <code>ai-eng spec run</code> closes the gates and <code>ai-eng spec close</code> closes the milestone. <strong>Full</strong> — architectural: the same contract plus the nodes their conditions fire (<a href="#s15-lanes">§15.4</a>). The lane is <strong>one-way</strong>: a milestone may climb when the evidence asks for it, never descend silently. Each skill declares its own lane, artifacts, successor and death in a <code>## Lifecycle</code> block inside its SKILL.md, and the canon test fails when a skill declares none — that is what makes the order checkable instead of aspirational. There is deliberately no central router: the skill in front of you already knows what comes next.</p>
@@ -1523,7 +1523,7 @@ exit 1</pre>
         <span class="ed">╲</span>                                                    <span class="ed">╱</span>
                     <span class="wd">the same floor</span>  <span class="dim">— guards on every edit · git floor on every commit · spec run on every PR</span>
                     <span class="dim">the guards run whatever happens: skipping a phase of the order switches off no protection</span></div>
-  <p class="dim">The test of the map: if at the close of a milestone you cannot point at the receipt that closed each gate, the DECISIONS.md line that justifies each decision, and the plan.html step that ordered each commit — the cycle was improvised, not followed. <code>ai-visual-recap</code> shows exactly those three things, which is why it closes the milestone instead of summarising it.</p>
+  <p class="dim">The test of the map: if at the close of a milestone you cannot point at the receipt that closed each gate, the DECISIONS.md line that justifies each decision, and the plan.html step that ordered each commit — the cycle was improvised, not followed. When the user wants a visual report, they can invoke <code>ai-visual-recap</code>; the recap is optional and does not replace proof or close the milestone.</p>
 </section>
 
 <!-- ═══════ 16 FILE LIFECYCLE ═══════ -->

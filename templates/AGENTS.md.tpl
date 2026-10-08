@@ -45,7 +45,7 @@ Lines the critic treats as blockers. Fill in project-specific rules here; leave 
 - A build session never pushes: the only push is the pull-request step the human triggers, against `origin/main`, cut from the local `main` without a worktree.
 - A build session does not touch the primary tree; only the merge step writes there, once, after that session's branch has merged.
 - The design artifacts `.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html` and `.ai-engineering/plan.html` are written and committed in the primary tree before any worktree is cut, and no worktree ever stages them.
-- `.ai-engineering/recap.html` is generated at the app review on the feature branch and reaches the primary tree with the merge.
+- `.ai-engineering/recap.html` is optional and never required for merge; it is created on the feature branch only when the user explicitly invokes `/ai-visual-recap`.
 - A session may edit the shared files on its own branch like any other change, and the merge step is their single writer in the primary tree, never a parallel session writing them there: `.ai-engineering/PRD.html` when the feature changes scope, plus `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md` and `PERMISSIONS.md`.
 
 ## Workflow
