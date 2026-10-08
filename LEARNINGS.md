@@ -26,6 +26,7 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R17: For runtime p95 checks under parallel test load, use enough samples for nearest-rank p95 to tolerate scheduler outliers without loosening the budget. (from L65, L67)
 - R18: Normalize Markdown formatting without altering identifiers; preserve underscores, case, and other contract-significant characters before matching. (from L82, L89, L97)
 - R19: Carry destructive-cleanup warnings and accurately describe the irreversible action and remaining state through every outcome and caller. (from L105, L107)
+- R20: Gate 1 CLI acceptance must assert physical total and unknown classification together; physical presence is not lifecycle certainty. (from L126)
 
 ## Log
 
@@ -919,3 +920,11 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Guard reclamation with its own recovery lock, reread and recheck the owner before unlinking, and exercise concurrent recovery (`src/shared-worktree.ts`, `tests/worktree-command.spec.ts`).
 - **Lesson:** Stale-lock reclamation needs its own serialization, not just a liveness check.
 - **Tags:** worktree, lifecycle, review
+
+### L126 · 2026-10-08 · worktree-lifecycle-awareness #3 · human
+- **Failure:** Existing AI Engineering and NN Skills worktrees appeared as `0 active · N unknown` despite live directories and branches.
+- **Root cause:** Legacy worktrees without sibling `.ai-eng-lifecycle` records are intentionally unknown, while the statusline omitted the physical total; new `worktreeNew` also did not seed an initial approval-before-start record.
+- **Fix:** Add a Gate 1 CLI acceptance requirement that reports physical total alongside unknown classification; no source change in this learning-only update.
+- **Lesson:** Verify the user's real local inventory and distinguish physical totals from lifecycle certainty; missing records must remain unknown, never inferred active.
+- **Gate that should have caught it:** Gate 1 CLI acceptance must assert physical total and unknown classification together.
+- **Tags:** human, worktree, statusline, lifecycle
