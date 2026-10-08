@@ -1,4 +1,4 @@
-// tests/worktree-command.spec.ts — CLI contract of `ai-eng worktree new|rm|list`
+// tests/worktree-command.spec.ts — CLI contract of `ai-eng worktree new|rm|list|rebase`
 // (git-worktree-flow test plan, unit layer, checkpoint 2). Every case drives the
 // real CLI as a subprocess inside a throwaway git repository in a temp dir: the
 // verb owns the filesystem and the git state, so only its observable effects count
@@ -13,17 +13,19 @@ import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 
 const CLI = join(import.meta.dir, "..", "src", "cli.ts");
 const REAL_GIT = Bun.which("git") ?? "git";
@@ -100,6 +102,22 @@ function loggedArgs(log: string): string[] {
     .map((line) => line.slice("ARG\t".length));
 }
 
+function loggedInvocations(log: string): string[][] {
+  if (!existsSync(log)) return [];
+  const invocations: string[][] = [];
+  let current: string[] | undefined;
+  for (const line of readFileSync(log, "utf8").split("\n")) {
+    if (line.startsWith("ARG\t")) current?.push(line.slice("ARG\t".length));
+    if (line === "END" && current) {
+      invocations.push(current);
+      current = undefined;
+    }
+    if (line === "END") continue;
+    if (line.startsWith("ARG\t") && !current) current = [line.slice("ARG\t".length)];
+  }
+  return invocations;
+}
+
 interface Entry {
   path: string;
   branch: string | undefined;
@@ -132,6 +150,124 @@ function repoState(repo: string): string {
     git(["worktree", "list", "--porcelain"], repo),
     git(["branch", "--format=%(refname:short)"], repo),
   ].join("\n===\n");
+}
+
+function treeFiles(root: string): unknown {
+  if (!existsSync(root)) return "missing";
+  const entries: unknown[] = [];
+  const visit = (directory: string): void => {
+    for (const name of readdirSync(directory).sort()) {
+      const path = join(directory, name);
+      const pathFromRoot = relative(root, path);
+      const info = lstatSync(path);
+      if (info.isSymbolicLink()) {
+        entries.push([pathFromRoot, "symlink", readlinkSync(path)]);
+      } else if (info.isDirectory()) {
+        if (pathFromRoot === ".git") continue;
+        entries.push([pathFromRoot, "directory"]);
+        visit(path);
+      } else if (info.isFile()) {
+        entries.push([pathFromRoot, "file", readFileSync(path).toString("base64")]);
+      } else {
+        entries.push([pathFromRoot, "other", info.mode]);
+      }
+    }
+  };
+  visit(root);
+  return entries;
+}
+
+function checkpointBytes(path: string): unknown {
+  if (!existsSync(path)) return [path, "missing"];
+  const info = lstatSync(path);
+  if (info.isDirectory()) return [path, "directory", treeFiles(path)];
+  if (info.isSymbolicLink()) return [path, "symlink", readlinkSync(path)];
+  return [path, "file", readFileSync(path).toString("base64")];
+}
+
+/** Includes repository refs, every registered index/status and all visible tree bytes. */
+function fullRepoSnapshot(repo: string, extraTrees: string[], checkpoints: string[]): string {
+  const registrations = worktreeEntries(repo);
+  const worktrees = [realpathSync(repo), ...registrations.map((entry) => entry.path)];
+  const uniqueWorktrees = [...new Set(worktrees)];
+  const uniqueTrees = [...new Set([...uniqueWorktrees, ...extraTrees])];
+  return JSON.stringify({
+    refs: git(["for-each-ref", "--format=%(refname) %(objectname)"], repo),
+    registrations: git(["worktree", "list", "--porcelain"], repo),
+    worktrees: uniqueWorktrees.map((worktree) => ({
+      path: worktree,
+      head: git(["rev-parse", "HEAD"], worktree).trim(),
+      branch: gitOut(["symbolic-ref", "--short", "-q", "HEAD"], worktree).stdout.trim() || "detached",
+      status: git(["status", "--porcelain", "--untracked-files=all"], worktree),
+      index: readFileSync(resolve(worktree, git(["rev-parse", "--git-path", "index"], worktree).trim())).toString("base64"),
+    })),
+    files: uniqueTrees.map((tree) => [tree, treeFiles(tree)]),
+    checkpoints: checkpoints.map(checkpointBytes),
+  });
+}
+
+function rebaseGate(status: string): { status: string; attempts: number; findings: string[] } {
+  return { status, attempts: status === "passed" ? 1 : 0, findings: [] };
+}
+
+function rebaseLifecycle(
+  phase = "implementation",
+  planApproval = "approved",
+  appReview = "not-started",
+  reviewedMain: string | null = null,
+): Record<string, unknown> {
+  return { phase, plan_approval: planApproval, app_review: appReview, reviewed_main: reviewedMain };
+}
+
+function rebasePlan(
+  slug: string,
+  checkpointStatus = "passed",
+  gateStatus = "passed",
+  lifecycle: Record<string, unknown> = rebaseLifecycle(),
+): Record<string, unknown> {
+  const checkpoint = (id: number) => ({
+    id,
+    status: checkpointStatus,
+    gates: {
+      behavior: rebaseGate(gateStatus),
+      ui: rebaseGate(gateStatus),
+      review: rebaseGate(gateStatus),
+    },
+    files: [`src/checkpoint-${id}.ts`],
+  });
+  return { slug, checkpoints: [checkpoint(1), checkpoint(2)], lifecycle };
+}
+
+function addRebaseWorktree(repo: string, slug: string, branch = `feat/${slug}`, detached = false): string {
+  const path = join(defaultRoot(repo), slug);
+  mkdirSync(dirname(path), { recursive: true });
+  git(
+    detached
+      ? ["worktree", "add", "--quiet", "--detach", path, "refs/heads/main"]
+      : ["worktree", "add", "--quiet", "-b", branch, path, "refs/heads/main"],
+    repo,
+  );
+  return path;
+}
+
+function writeRebasePlan(worktree: string, slug: string, plan: Record<string, unknown>): string {
+  const path = join(worktree, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(plan, null, 2)}\n`);
+  git(["add", path], worktree);
+  git(["commit", "-q", "-m", `plan ${slug}`], worktree);
+  return path;
+}
+
+function commitRebaseFixtureFile(worktree: string, name: string, contents: string, message: string): string {
+  writeFileSync(join(worktree, name), contents);
+  git(["add", name], worktree);
+  git(["commit", "-q", "-m", message], worktree);
+  return git(["rev-parse", "HEAD"], worktree).trim();
+}
+
+function advanceRebaseMain(repo: string): string {
+  return commitRebaseFixtureFile(repo, "main-only.txt", "main\n", "advance local main");
 }
 
 /** The canonical default root: a sibling of the repo's real path. */
@@ -780,5 +916,301 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(run.status).toBe(0);
     expect(existsSync(join(root, "alpha"))).toBe(false);
     expect(`${run.stdout}${run.stderr}`).toContain(".DS_Store");
+  });
+});
+
+describe("ai-eng worktree rebase (checkpoint 5)", () => {
+  function expectRefusalWithoutMutation(
+    repo: string,
+    slug: string,
+    trees: string[],
+    checkpoints: string[],
+    args = ["worktree", "rebase", slug],
+  ): Run {
+    const before = fullRepoSnapshot(repo, trees, checkpoints);
+    const run = runCli(args, repo);
+    expect(run.status).not.toBe(0);
+    expect(fullRepoSnapshot(repo, trees, checkpoints)).toBe(before);
+    return run;
+  }
+
+  test("U20a: rebases only the registered feature onto local main and reports its full SHA", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+
+    const remote = join(dirname(repo), `${basename(repo)}-origin.git`);
+    cleanups.push(remote);
+    git(["init", "--bare", "--quiet", remote], dirname(repo));
+    git(["remote", "add", "origin", remote], repo);
+    git(["push", "--quiet", "origin", "refs/heads/main:refs/heads/main"], repo);
+    git(["fetch", "--quiet", "origin"], repo);
+    const base = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const baseTree = git(["rev-parse", `${base}^{tree}`], repo).trim();
+    const remoteTip = git(["commit-tree", baseTree, "-p", base, "-m", "remote-only update"], repo).trim();
+    git(["push", "--quiet", "origin", `${remoteTip}:refs/heads/main`], repo);
+    git(["fetch", "--quiet", "origin"], repo);
+    const remoteMain = git(["rev-parse", "refs/remotes/origin/main"], repo).trim();
+    expect(remoteMain).toBe(remoteTip);
+
+    const feature = addRebaseWorktree(repo, "alpha");
+    const sibling = addRebaseWorktree(repo, "sibling");
+    const checkpoint = writeRebasePlan(feature, "alpha", rebasePlan("alpha"));
+    const checkpointContents = readFileSync(checkpoint, "utf8");
+    const featureBefore = commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    const siblingBefore = commitRebaseFixtureFile(sibling, "sibling-only.txt", "sibling\n", "sibling change");
+    const mainBefore = advanceRebaseMain(repo);
+    expect(git(["rev-parse", `${mainBefore}^`], repo).trim()).toBe(base);
+
+    const log = join(root, "rebase-invocations.log");
+    const run = runCli(["worktree", "rebase", "alpha"], repo, shimEnv(log));
+    expect(run.status).toBe(0);
+    expect(run.stdout.trim().split(/\s+/)).toContain(mainBefore);
+
+    const invocations = loggedInvocations(log);
+    expect(invocations.length).toBeGreaterThan(0);
+    expect(invocations.filter((args) => args[0] === "rebase")).toEqual([["rebase", "refs/heads/main"]]);
+    expect(invocations.some((args) => ["fetch", "pull", "push", "remote", "merge"].includes(args[0] ?? ""))).toBe(false);
+    expect(invocations.flat()).not.toContain("origin");
+    expect(invocations.flat()).not.toContain("feat/sibling");
+
+    const featureAfter = git(["rev-parse", "refs/heads/feat/alpha"], repo).trim();
+    expect(featureAfter).not.toBe(featureBefore);
+    expect(gitOut(["merge-base", "--is-ancestor", "refs/heads/main", featureAfter], repo).status).toBe(0);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(mainBefore);
+    expect(git(["rev-parse", "refs/remotes/origin/main"], repo).trim()).toBe(remoteMain);
+    expect(git(["rev-parse", "refs/heads/feat/sibling"], repo).trim()).toBe(siblingBefore);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
+    expect(git(["status", "--porcelain", "--untracked-files=all"], sibling)).toBe("");
+    expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
+    expect(worktreeEntries(repo).map((entry) => entry.path)).toContain(realpathSync(feature));
+    expect(worktreeEntries(repo).map((entry) => entry.path)).toContain(realpathSync(sibling));
+  });
+
+  test("U20b: rejects extra base arguments before changing any Git or worktree state", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "extra-args");
+    const checkpoint = writeRebasePlan(feature, "extra-args", rebasePlan("extra-args"));
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    advanceRebaseMain(repo);
+
+    const run = expectRefusalWithoutMutation(
+      repo,
+      "extra-args",
+      [root],
+      [checkpoint],
+      ["worktree", "rebase", "extra-args", "refs/heads/main"],
+    );
+    expect(run.stderr.toLowerCase()).toContain("usage");
+  });
+
+  test("U20b: refuses dirty tracked and untracked feature content without mutation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "dirty");
+    const checkpoint = writeRebasePlan(feature, "dirty", rebasePlan("dirty"));
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    advanceRebaseMain(repo);
+    writeFileSync(join(feature, "README.md"), "# staged dirt\n");
+    git(["add", "README.md"], feature);
+    writeFileSync(join(feature, "untracked.txt"), "untracked dirt\n");
+
+    expectRefusalWithoutMutation(repo, "dirty", [root], [checkpoint]);
+  });
+
+  test("U20b: refuses a missing registered worktree without creating or pruning anything", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    mkdirSync(root, { recursive: true });
+    const slug = "missing-worktree";
+    const base = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const baseTree = git(["rev-parse", `${base}^{tree}`], repo).trim();
+    const featureCommit = git(["commit-tree", baseTree, "-p", base, "-m", "missing worktree feature"], repo).trim();
+    git(["update-ref", `refs/heads/feat/${slug}`, featureCommit], repo);
+    advanceRebaseMain(repo);
+    const missingPath = join(root, slug);
+    const checkpoint = join(missingPath, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+
+    expectRefusalWithoutMutation(repo, slug, [root, missingPath], [checkpoint]);
+  });
+
+  test("U20b: refuses a registered feature without its checkpoint", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "missing-checkpoint");
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    advanceRebaseMain(repo);
+    const checkpoint = join(feature, ".ai-engineering", "workflow", "checkpoints", "missing-checkpoint.json");
+
+    expectRefusalWithoutMutation(repo, "missing-checkpoint", [root], [checkpoint]);
+  });
+
+  test("U20b: refuses malformed checkpoint bytes without mutation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "malformed");
+    const checkpoint = join(feature, ".ai-engineering", "workflow", "checkpoints", "malformed.json");
+    mkdirSync(dirname(checkpoint), { recursive: true });
+    writeFileSync(checkpoint, "{ malformed lifecycle\n");
+    git(["add", checkpoint], feature);
+    git(["commit", "-q", "-m", "malformed checkpoint"], feature);
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    advanceRebaseMain(repo);
+
+    expectRefusalWithoutMutation(repo, "malformed", [root], [checkpoint]);
+  });
+
+  test("U20b: refuses a legacy checkpoint without lifecycle data and preserves its bytes", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "legacy");
+    const plan = rebasePlan("legacy");
+    delete plan.lifecycle;
+    const checkpoint = writeRebasePlan(feature, "legacy", plan);
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    advanceRebaseMain(repo);
+
+    expectRefusalWithoutMutation(repo, "legacy", [root], [checkpoint]);
+  });
+
+  test("U20b: refuses an unknown lifecycle phase without mutation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "unknown-phase");
+    const checkpoint = writeRebasePlan(
+      feature,
+      "unknown-phase",
+      rebasePlan("unknown-phase", "passed", "passed", rebaseLifecycle("not-a-phase")),
+    );
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    advanceRebaseMain(repo);
+
+    expectRefusalWithoutMutation(repo, "unknown-phase", [root], [checkpoint]);
+  });
+
+  test("U20b: refuses a valid lifecycle outside implementation without mutation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const feature = addRebaseWorktree(repo, "awaiting-review");
+    const checkpoint = writeRebasePlan(
+      feature,
+      "awaiting-review",
+      rebasePlan("awaiting-review", "passed", "passed", rebaseLifecycle("awaiting-app-review", "approved", "pending", reviewedMain)),
+    );
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+
+    expectRefusalWithoutMutation(repo, "awaiting-review", [root], [checkpoint]);
+  });
+
+  test("U20b: refuses an incomplete planned checkpoint without mutation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "incomplete-checkpoint");
+    const checkpoint = writeRebasePlan(
+      feature,
+      "incomplete-checkpoint",
+      rebasePlan("incomplete-checkpoint", "pending"),
+    );
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    advanceRebaseMain(repo);
+
+    expectRefusalWithoutMutation(repo, "incomplete-checkpoint", [root], [checkpoint]);
+  });
+
+  test("U20b: refuses an incomplete planned gate without mutation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "incomplete-gate");
+    const checkpoint = writeRebasePlan(
+      feature,
+      "incomplete-gate",
+      rebasePlan("incomplete-gate", "passed", "pending"),
+    );
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    advanceRebaseMain(repo);
+
+    expectRefusalWithoutMutation(repo, "incomplete-gate", [root], [checkpoint]);
+  });
+
+  test("U20b: refuses a detached registered worktree without mutation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "detached", "feat/detached", true);
+    const checkpoint = writeRebasePlan(feature, "detached", rebasePlan("detached"));
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    advanceRebaseMain(repo);
+
+    expectRefusalWithoutMutation(repo, "detached", [root], [checkpoint]);
+  });
+
+  test("U20b: refuses a registered worktree on a mismatched feature branch without mutation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "alpha", "feat/other");
+    const checkpoint = writeRebasePlan(feature, "alpha", rebasePlan("alpha"));
+    commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    advanceRebaseMain(repo);
+
+    expectRefusalWithoutMutation(repo, "alpha", [root], [checkpoint]);
+  });
+
+  test("U20b: refuses an unmanaged directory even when its matching branch and checkpoint exist", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const slug = "unmanaged";
+    const unmanaged = join(root, slug);
+    const checkpoint = join(unmanaged, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+    git(["branch", `feat/${slug}`, "refs/heads/main"], repo);
+    mkdirSync(dirname(checkpoint), { recursive: true });
+    writeFileSync(join(unmanaged, "README.md"), readFileSync(join(repo, "README.md")));
+    writeFileSync(checkpoint, `${JSON.stringify(rebasePlan(slug), null, 2)}\n`);
+    advanceRebaseMain(repo);
+
+    expectRefusalWithoutMutation(repo, slug, [root, unmanaged], [checkpoint]);
+  });
+
+  test("U20c: leaves a conflicting CLI rebase active for agent handling without changing lifecycle bytes", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "conflict");
+    const checkpoint = writeRebasePlan(feature, "conflict", rebasePlan("conflict"));
+    const checkpointContents = readFileSync(checkpoint, "utf8");
+    commitRebaseFixtureFile(feature, "README.md", "# feature change\n", "conflicting feature change");
+    commitRebaseFixtureFile(repo, "README.md", "# main change\n", "conflicting main change");
+
+    try {
+      const log = join(root, "conflict-invocations.log");
+      const run = runCli(["worktree", "rebase", "conflict"], repo, shimEnv(log));
+      expect(run.status).not.toBe(0);
+      expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
+      expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toMatch(/README\.md/);
+      expect(
+        existsSync(resolve(feature, git(["rev-parse", "--git-path", "rebase-merge"], feature).trim())) ||
+          existsSync(resolve(feature, git(["rev-parse", "--git-path", "rebase-apply"], feature).trim())),
+      ).toBe(true);
+      expect(loggedInvocations(log).filter((args) => args[0] === "rebase")).toEqual([
+        ["rebase", "refs/heads/main"],
+      ]);
+    } finally {
+      const mergeState = resolve(feature, git(["rev-parse", "--git-path", "rebase-merge"], feature).trim());
+      const applyState = resolve(feature, git(["rev-parse", "--git-path", "rebase-apply"], feature).trim());
+      if (existsSync(mergeState) || existsSync(applyState)) git(["rebase", "--abort"], feature);
+    }
   });
 });

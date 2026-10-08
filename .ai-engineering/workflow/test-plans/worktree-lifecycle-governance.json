@@ -167,6 +167,27 @@
         "checkpoint": 5
       },
       {
+        "id": "U20a",
+        "case": "rebase <slug> targets only its matching Git-registered feature worktree, runs git rebase refs/heads/main without accepting another base, leaves lifecycle bytes unchanged and reports the exact full local-main SHA",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U20b",
+        "case": "dirty status, missing worktree or checkpoint, malformed, legacy or unknown checkpoint, and mismatched or detached worktree each refuse before mutation; refs, status, present checkpoint bytes and worktree registration remain unchanged",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U20c",
+        "case": "an unresolved rebase conflict returns failure while leaving Git's rebase in progress for agent resolution or abort, without modifying lifecycle state",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
         "id": "U21",
         "case": "a clear rebase conflict is resolved only inside the feature worktree; affected behavior gates rerun first, UI gates only when the checkpoint has UI, then affected review gates, all before human app review",
         "file": "tests/worktree-lifecycle.spec.ts",
@@ -262,6 +283,13 @@
         "case": "the regenerated skill payload matches the source canon after checkpoint 5",
         "file": "tests/embed-canon.spec.ts",
         "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "C6a",
+        "case": "the exact `ai-eng worktree rebase <slug>` CLI invocation uses only the registered matching feature worktree and local refs/heads/main, emits the full main SHA on success, refuses arbitrary base arguments and leaves an unresolved conflict available for agent handling",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test tests/worktree-command.spec.ts",
         "checkpoint": 5
       },
       {

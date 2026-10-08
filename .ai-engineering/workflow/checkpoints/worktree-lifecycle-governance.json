@@ -285,7 +285,7 @@
       "title": "Rebase and retest before human app review",
       "simple": "Review work with latest changes",
       "size": "xl",
-      "goal": "Before app review, a clean feature worktree rebases only onto current local main; clear conflicts are resolved there, unclear conflicts are aborted and preserved, and affected gates pass again before review.",
+      "goal": "Before app review, the managed feature worktree can rebase only onto current local main through a guarded CLI operation; refusals preserve all state, conflicts remain for agent handling, and affected gates pass before review.",
       "plain": {
         "what": "The person reviews work that includes changes already accepted into the main project.",
         "why": "Old work may conflict with changes that have already landed.",
@@ -293,26 +293,36 @@
       },
       "builds_on": [4],
       "tasks": [
-        "skills/ai-orchestrator/SKILL.md: before human app review, confirm the feature branch and clean worktree, then rebase only onto the current local `refs/heads/main`; do not fetch, sync remote state or merge an unapproved sibling.",
-        "skills/ai-orchestrator/SKILL.md: resolve a conflict only when both sides' intent is clear and only inside the feature worktree. For unclear intent or a failed check, abort the rebase, preserve the branch/worktree, set phase blocked and report the decision needed.",
-        "skills/ai-orchestrator/SKILL.md: after a clean rebase or clear conflict resolution, rerun affected behavior, UI when present, and review gates before human app review; record the exact current local-main commit as reviewed_main and set app_review pending.",
-        "tests/worktree-lifecycle.spec.ts: use real temporary Git repositories and execute actual rebases. Assert clean synchronization against local main, a clear conflict resolved inside the feature worktree with affected gates rerun before review, and an unclear conflict followed by `git rebase --abort` that preserves the original feature branch, worktree and content.",
-        "Run `bun scripts/gen-assets.ts` after skill edits. Update tests/skills.spec.ts to verify local-main-only sync, clean-state preconditions, no remote/sibling sync and gates-before-review ordering."
+        "src/commands/worktree.ts and src/shared-worktree.ts: add exact-arity `ai-eng worktree rebase <slug>` and resolve only an existing Git-registered worktree under the canonical configured root on exact `feat/<slug>`; refuse detached, missing, mismatched or untrusted registrations.",
+        "src/shared-worktree.ts: before mutation, require readable clean Git status and a readable non-legacy checkpoint with lifecycle phase `implementation`, every planned checkpoint status `passed`, and every planned gate `passed` or `n/a`. Missing, malformed, contradictory or unknown lifecycle state refuses without changing refs, files, index, checkpoint bytes or worktree registration.",
+        "src/shared-worktree.ts: invoke only `git rebase refs/heads/main` inside the resolved feature worktree; accept no base-ref argument and do not fetch or sync remote or sibling branches. On success, report the full current local-main commit ID without writing lifecycle state.",
+        "skills/ai-orchestrator/SKILL.md: use the CLI for Phase 3. A conflict remains in progress for agent handling; resolve only clear conflicts inside that feature worktree, never auto-resolve or force. For unclear conflicts or failed checks, abort, then verify the original feature branch, HEAD, tree, index, status, local-main ref, checkpoint bytes and worktree registration before recording blocked; if proof fails, stop without a lifecycle write.",
+        "skills/ai-orchestrator/SKILL.md: after a successful rebase or clear conflict resolution, rerun affected behavior, UI only when present, then review gates. Only after they pass and local main still equals the CLI-reported full commit ID, record `reviewed_main` and set `app_review` pending; if main advanced, repeat synchronization and affected gates.",
+        "tests/worktree-command.spec.ts: use real temporary Git repositories to test refusal for dirty, missing, malformed, legacy, unknown-lifecycle, detached and mismatched-branch states, with byte-for-byte snapshots proving refs, files, index, checkpoint bytes and worktree registration remain unchanged; also test local-main-only success and that conflicts remain active for agent handling.",
+        "tests/worktree-lifecycle.spec.ts, tests/skills.spec.ts and tests/workflow-handoff.spec.ts: retain executable coverage of conflict handling and abort/restoration proof, affected behavior/UI/review ordering, and delayed `reviewed_main` handoff using exact local refs.",
+        "Run `bun scripts/gen-assets.ts` after skill edits and verify the embedded canon."
       ],
       "files": [
         "skills/ai-orchestrator/SKILL.md",
+        "src/shared-worktree.ts",
+        "src/commands/worktree.ts",
         "src/assets.ts",
         "tests/skills.spec.ts",
+        "tests/worktree-command.spec.ts",
         "tests/worktree-lifecycle.spec.ts",
         "tests/workflow-handoff.spec.ts"
       ],
       "acceptance": [
-        "The feature is rebased on local main before app review, with no remote sync or unapproved sibling merge.",
-        "A clear conflict is resolved only in the feature worktree; an unclear conflict or failed check aborts and preserves it.",
-        "After resolution, affected gates run again before review, and reviewed_main records the exact local-main commit.",
-        "Tests execute real Git rebase/conflict/abort behavior rather than relying only on prose or source-text assertions."
+        "`ai-eng worktree rebase <slug>` accepts no arbitrary base and operates only on an existing Git-registered worktree under the configured root whose branch is exactly `feat/<slug>`.",
+        "Dirty status, missing worktree or checkpoint, malformed or legacy checkpoint, unknown lifecycle, detached HEAD or branch mismatch refuses before mutation; byte-for-byte assertions prove refs, files, index, checkpoint bytes and worktree registration are unchanged.",
+        "The command requires clean readable Git status, lifecycle phase `implementation`, and every planned checkpoint and gate passed (with only `n/a` gates exempt); unreadable or contradictory state fails closed.",
+        "A successful invocation runs only `git rebase refs/heads/main` inside the feature worktree, performs no fetch or remote/sibling sync, changes no checkpoint, and reports the full current local-main commit ID.",
+        "A conflict is left active for agent handling. Only clear conflicts may be resolved in the feature worktree; unclear conflicts or failed gates are aborted and recorded blocked only after the exact original state is verified. No auto-resolution, force, lock, dependency or service is added.",
+        "After sync or conflict resolution, affected behavior, conditional UI, then review gates pass before app review and before the orchestrator records `reviewed_main`; a moved local main requires resynchronization and affected gates.",
+        "Tests exercise real Git refusal, rebase success and unresolved-conflict states rather than relying only on prose or source-text assertions; CP6's existing Git-native merge serialization and reviewed-main freshness remain unchanged."
       ],
       "verify": [
+        "bun test tests/worktree-command.spec.ts",
         "bun test tests/worktree-lifecycle.spec.ts",
         "bun test tests/skills.spec.ts",
         "bun test tests/workflow-handoff.spec.ts",
@@ -326,19 +336,25 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 5,
+          "status": "passed",
+          "attempts": 6,
           "findings": [
             "attempt 1 FAIL: `bun test tests/workflow-handoff.spec.ts` U23 could not find the reviewed-main reference after the main-read step; lifecycle, skill and rebase fixture tests passed before the failure, remaining commands were not run.",
             "attempt 2 FAIL: `bun run typecheck` reports TS2769 at tests/worktree-lifecycle.spec.ts:472, 508, 527 and 552; prior lifecycle, skill, handoff, gate, asset, embed and architecture checks passed; lint was not run.",
             "attempt 3 PASS after U23 handoff and lifecycle fixture type fixes: all nine checkpoint 5 verify commands passed.",
             "attempt 4 PASS after adversarial rebase-abort sequencing and behavior/UI/review ordering fixes: all nine checkpoint 5 verify commands passed.",
             "attempt 5 PASS after unsafe pre-rebase states were made read-only: all nine checkpoint 5 verify commands passed.",
-            "U22 now covers missing and malformed lifecycle state at the Phase 3 sync boundary; rerun the full checkpoint 5 verify list."
+            "attempt 6 PASS after U22 gained missing and malformed lifecycle-state preservation cases: all nine checkpoint 5 verify commands passed."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "Review attempt 1 reached four rounds without PASS: F1 blocked state could be written before rebase restoration; F2 fixture used `git reset --hard`; F3 conditional UI gate ordering was untested; F4 missing/unknown Phase 3 sync state lacked a no-write regression."
+          ]
+        }
       },
       "status": "pending",
       "changed_files": [
@@ -370,6 +386,7 @@
         "scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py: require a fresh reviewed_main and approved app review for ready-to-merge; permit approval invalidation only as part of returning to sync/review, and allow complete only after verified merge.",
         "tests/worktree-lifecycle.spec.ts: use a real temporary Git repository to exercise native Git merge-in-progress contention, main advancing after app approval, `git merge --abort` and preservation, fresh approval before retry, reviewed first-parent and feature-ancestry verification before removal, and an unapproved sibling left untouched.",
         "Run `bun scripts/gen-assets.ts` after skill edits. Update CHANGELOG.md and FILEMAP.md for the shipped lifecycle behavior and lifecycle test.",
+        "Use the ai-write skill for user-facing documentation: document `ai-eng worktree rebase <slug>` and its clean-state, local-main-only and conflict-handling contract in README.md, CONTRIBUTING.md, docs/blueprint.html and CHANGELOG.md; update FILEMAP.md for the shipped command and lifecycle behavior.",
         "Run the full project gates."
       ],
       "files": [
@@ -380,6 +397,9 @@
         "tests/skills.spec.ts",
         "tests/worktree-lifecycle.spec.ts",
         "tests/worktree-command.spec.ts",
+        "README.md",
+        "CONTRIBUTING.md",
+        "docs/blueprint.html",
         "CHANGELOG.md",
         "FILEMAP.md"
       ],
@@ -388,7 +408,7 @@
         "If primary HEAD advances after app review, the pending merge is aborted with `git merge --abort`, old approval is invalidated, the feature worktree and data are preserved, and resynchronization, affected gates and renewed app review are required. Git contention or commit refusal also stops safely; refs are re-read and retry requires fresh approval.",
         "The only feature merge is no-fast-forward into local main; after commit, its first parent must equal reviewed_main and feature ancestry must be verified before existing safe removal runs without force.",
         "An unapproved sibling is never incorporated or deleted; any uncertain merge or ancestry result preserves the feature worktree.",
-        "CHANGELOG.md and FILEMAP.md reflect the shipped behavior, generated skill assets match, and all existing project gates pass."
+        "README.md, CONTRIBUTING.md, docs/blueprint.html and CHANGELOG.md describe the public rebase command and its safety contract; FILEMAP.md reflects the shipped command and lifecycle behavior, generated skill assets match, and all existing project gates pass."
       ],
       "verify": [
         "bun test tests/worktree-lifecycle.spec.ts",
