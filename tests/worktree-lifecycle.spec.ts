@@ -446,6 +446,47 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).not.toContain("rebase");
   });
 
+  test("U22: missing, unreadable and malformed lifecycle state refuses sync without mutation", () => {
+    const repo = initRepo();
+    const missing = addBranchWorktree(repo, "sync-missing-state");
+    const malformed = addBranchWorktree(repo, "sync-malformed-state");
+    const unreadable = addBranchWorktree(repo, "sync-unreadable-state");
+    const missingCheckpoint = checkpointPath(missing, "sync-missing-state");
+    const malformedCheckpoint = checkpointPath(malformed, "sync-malformed-state");
+    const unreadableCheckpoint = checkpointPath(unreadable, "sync-unreadable-state");
+    const malformedBytes = "{ malformed lifecycle checkpoint\n";
+
+    mkdirSync(dirname(malformedCheckpoint), { recursive: true });
+    writeFileSync(malformedCheckpoint, malformedBytes);
+    git(["add", malformedCheckpoint], malformed);
+    git(["commit", "-q", "-m", "add malformed checkpoint"], malformed);
+    mkdirSync(unreadableCheckpoint, { recursive: true });
+    commitFile(repo, "src/main.ts", "export const main = true;\n", "advance local main");
+
+    expect(existsSync(missingCheckpoint)).toBe(false);
+    expect(readFileSync(malformedCheckpoint, "utf8")).toBe(malformedBytes);
+    expect(statSync(unreadableCheckpoint).isDirectory()).toBe(true);
+
+    const checkpoints = [missingCheckpoint, malformedCheckpoint, unreadableCheckpoint];
+    const before = repoSnapshot(repo, [missing, malformed, unreadable], checkpoints);
+    const listing = runList(repo);
+
+    expect(listing.status).toBe(0);
+    for (const { slug, path } of [
+      { slug: "sync-missing-state", path: missing },
+      { slug: "sync-malformed-state", path: malformed },
+      { slug: "sync-unreadable-state", path: unreadable },
+    ]) {
+      expect(listing.stdout).toContain(slug);
+      expect(listing.stdout).toContain(realpathSync(path));
+    }
+    expect(listing.stdout.match(/unknown/gi)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    expect(existsSync(missingCheckpoint)).toBe(false);
+    expect(readFileSync(malformedCheckpoint, "utf8")).toBe(malformedBytes);
+    expect(statSync(unreadableCheckpoint).isDirectory()).toBe(true);
+    expect(repoSnapshot(repo, [missing, malformed, unreadable], checkpoints)).toBe(before);
+  });
+
   test("U22: unresolved conflicts abort before checkpoint updates and preserve original refs, status and content", () => {
     const repo = initRepo();
     const feature = addBranchWorktree(repo, "sync-abort");

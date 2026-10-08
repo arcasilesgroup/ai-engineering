@@ -61,3 +61,8 @@ The post-conflict sequence is behavior, UI only when the checkpoint has a UI gat
 ## Round 3 finding resolution
 - F1 pre-sync — RESOLVED: Phase 3 Step 1 now reports and stops without changing checkpoint or worktree files for missing, dirty, unknown or untrusted worktrees and missing/untrusted lifecycle state. U22 pins checkpoint bytes and the full Git snapshot for the dirty precondition; the focused lifecycle test passes.
 - Abort-path criterion retained: an active unclear conflict is aborted first, and `blocked` is written only after original feature/main refs, tree and status are verified restored.
+
+## Round 3 follow-up review — FAIL
+- F4 · Medium · Phase 3 no-mutation coverage omits missing/unknown preconditions — OPEN: Step 1 correctly forbids writes for missing, dirty, unknown or untrusted pre-rebase state. U22 asserts checkpoint bytes and the full Git snapshot only for a dirty worktree; its abort fixture covers an active conflict, not missing/unknown Phase 3 preconditions. U16a checks those status words for Phase 0, not the Phase 3 sync boundary, while test-plan U22 claims missing/untrusted preconditions. Add a Phase 3 regression assertion for missing/unknown state preserving checkpoint bytes, refs, status and content.
+- F1/F2 abort-path criteria — RESOLVED: the active conflict fixture uses `git rebase --abort` (no `git reset --hard`) and verifies original HEAD/tree/refs/status/content/checkpoint/worktree registration before writing `blocked`.
+- F3 gate-order criterion — RESOLVED: workflow-handoff U23 orders behavior, conditional UI, review, then app-review handoff; the skill and U21 test-plan state the same sequence.

@@ -327,13 +327,14 @@
       "gates": {
         "behavior": {
           "status": "pending",
-          "attempts": 4,
+          "attempts": 5,
           "findings": [
             "attempt 1 FAIL: `bun test tests/workflow-handoff.spec.ts` U23 could not find the reviewed-main reference after the main-read step; lifecycle, skill and rebase fixture tests passed before the failure, remaining commands were not run.",
             "attempt 2 FAIL: `bun run typecheck` reports TS2769 at tests/worktree-lifecycle.spec.ts:472, 508, 527 and 552; prior lifecycle, skill, handoff, gate, asset, embed and architecture checks passed; lint was not run.",
             "attempt 3 PASS after U23 handoff and lifecycle fixture type fixes: all nine checkpoint 5 verify commands passed.",
             "attempt 4 PASS after adversarial rebase-abort sequencing and behavior/UI/review ordering fixes: all nine checkpoint 5 verify commands passed.",
-            "The dirty/unknown precondition now leaves lifecycle bytes unchanged; rerun the full checkpoint 5 verify list."
+            "attempt 5 PASS after unsafe pre-rebase states were made read-only: all nine checkpoint 5 verify commands passed.",
+            "U22 now covers missing and malformed lifecycle state at the Phase 3 sync boundary; rerun the full checkpoint 5 verify list."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },

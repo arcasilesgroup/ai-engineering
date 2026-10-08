@@ -175,7 +175,7 @@
       },
       {
         "id": "U22",
-        "case": "an unclear conflict or failed check aborts the rebase and verifies original refs, tree and status before marking lifecycle blocked; dirty, missing or untrusted preconditions stop without mutation, preserving checkpoint bytes and Git state",
+        "case": "an unclear conflict or failed check aborts the rebase and verifies original refs, tree and status before marking lifecycle blocked; dirty, missing/unknown, malformed or untrusted lifecycle preconditions stop without mutation, preserving checkpoint bytes and Git state",
         "file": "tests/worktree-lifecycle.spec.ts",
         "command": "bun test tests/worktree-lifecycle.spec.ts",
         "checkpoint": 5

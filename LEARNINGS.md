@@ -686,3 +686,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Stop without writes on unsafe preconditions; after a started rebase, abort and verify restoration before recording blocked.
 - **Lesson:** Preserve state first; record failure only after restoration is proven.
 - **Tags:** review, rebase, checkpoint-state
+
+### L82 · 2026-10-08 · worktree-lifecycle-governance #5 · review
+- **Failure:** U22 proved no mutation for dirty work but omitted missing and malformed lifecycle checkpoint states at the sync boundary.
+- **Root cause:** The test covered one refusal precondition instead of asserting the full state for every refusal.
+- **Fix:** Add Git fixtures showing missing state remains absent and malformed state bytes, refs and worktree status remain unchanged.
+- **Lesson:** Pin each refused precondition's full state, not just the dirty case.
+- **Tags:** review, tests, unknown-state
