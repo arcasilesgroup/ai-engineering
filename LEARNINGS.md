@@ -665,3 +665,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Preserve identifier spelling in the test and state that the full local-main commit ID is recorded only after gates pass and before app review.
 - **Lesson:** Normalize Markdown formatting without altering identifiers.
 - **Tags:** behavior, tests, reviewed-main
+
+### L79 · 2026-10-08 · worktree-lifecycle-governance #5 · behavior
+- **Failure:** `bun run typecheck` rejected four rebase fixture assertions in `tests/worktree-lifecycle.spec.ts`.
+- **Root cause:** The local lifecycle test type omitted fields that the fixture asserted with `toEqual`.
+- **Fix:** Add the named fields to the test-case type while preserving the rebase, conflict and abort assertions.
+- **Lesson:** Keep test-case types aligned with their distinct named fields.
+- **Tags:** behavior, tests, types

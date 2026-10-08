@@ -324,10 +324,12 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "failed",
-          "attempts": 1,
+          "status": "pending",
+          "attempts": 2,
           "findings": [
-            "attempt 1 FAIL: `bun test tests/workflow-handoff.spec.ts` U23 could not find the reviewed-main reference after the main-read step; lifecycle, skill and rebase fixture tests passed before the failure, remaining commands were not run."
+            "attempt 1 FAIL: `bun test tests/workflow-handoff.spec.ts` U23 could not find the reviewed-main reference after the main-read step; lifecycle, skill and rebase fixture tests passed before the failure, remaining commands were not run.",
+            "attempt 2 FAIL: `bun run typecheck` reports TS2769 at tests/worktree-lifecycle.spec.ts:472, 508, 527 and 552; prior lifecycle, skill, handoff, gate, asset, embed and architecture checks passed; lint was not run.",
+            "Test types were corrected; rerun the full checkpoint 5 verification list."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },

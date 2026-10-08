@@ -465,7 +465,12 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(feature));
     writeCheckpoint(feature, "sync-abort", checkpointPlan("sync-abort", "blocked"));
     const abortedPlan = JSON.parse(readFileSync(blockedCheckpoint, "utf8")) as {
-      lifecycle: { phase: string; app_review: string; reviewed_main: string | null };
+      lifecycle: {
+        phase: string;
+        plan_approval: string;
+        app_review: string;
+        reviewed_main: string | null;
+      };
     };
     expect(abortedPlan.lifecycle).toEqual({
       phase: "blocked",
@@ -495,7 +500,7 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     const blockedPlan = checkpointPlan("sync-failed-gate", "blocked");
     writeCheckpoint(failedGate, "sync-failed-gate", blockedPlan);
     const storedPlan = JSON.parse(readFileSync(checkpoint, "utf8")) as {
-      lifecycle: { phase: string; reviewed_main: string | null };
+      lifecycle: { phase: string; plan_approval: string; app_review: string; reviewed_main: string | null };
     };
 
     expect(git(["rev-parse", "HEAD"], failedGate).trim()).toBe(originalFeature);
@@ -520,7 +525,12 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
 
     expect(runGit(["rebase", "refs/heads/main"], feature).status).toBe(0);
     const beforeGates = JSON.parse(readFileSync(checkpoint, "utf8")) as {
-      lifecycle: { phase: string; app_review: string; reviewed_main: string | null };
+      lifecycle: {
+        phase: string;
+        plan_approval: string;
+        app_review: string;
+        reviewed_main: string | null;
+      };
     };
     expect(beforeGates.lifecycle).toEqual({
       phase: "implementation",
@@ -544,7 +554,12 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     };
     writeCheckpoint(feature, "sync-review", reviewedPlan);
     const storedPlan = JSON.parse(readFileSync(checkpoint, "utf8")) as {
-      lifecycle: { phase: string; app_review: string; reviewed_main: string | null };
+      lifecycle: {
+        phase: string;
+        plan_approval: string;
+        app_review: string;
+        reviewed_main: string | null;
+      };
     };
 
     expect(storedPlan.lifecycle).toEqual({
