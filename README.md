@@ -318,7 +318,11 @@ Seven machine verbs for hooks, CI and agents: `chain`, `git`, `wrap`, `spec`, `w
 ```bash
 echo "$PAYLOAD" | ai-eng chain PreToolUse       # the guard dispatcher, reads the host payload on stdin
 ai-eng git pre-commit                           # the pre-commit, commit-msg and pre-push checks
-ai-eng worktree new <slug> | rm <slug> | list   # one copy per job, merged into the local main
+ai-eng worktree new <slug>                      # start a feature worktree
+ai-eng worktree rebase <slug>                   # sync a clean managed feature with all required implementation gates passed
+ai-eng worktree merge <slug>                    # merge the human-approved, SHA-reviewed feature and close its worktree
+ai-eng worktree rm <slug>                       # remove a feature already merged to local main
+ai-eng worktree list                            # show active feature worktrees
 ```
 
 Ask the repo how it is doing, with real receipt statistics:
