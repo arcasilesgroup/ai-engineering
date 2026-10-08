@@ -577,6 +577,30 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(all.stdout).not.toContain("approval-before-start");
   });
 
+  test("legacy lifecycle sidecars never supply pre-worktree approval or active state", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    mkdirSync(join(root, ".ai-eng-lifecycle"), { recursive: true });
+    const recordPath = join(root, ".ai-eng-lifecycle", "alpha.json");
+    const record = JSON.stringify({
+      schemaVersion: 1,
+      slug: "alpha",
+      state: "approval-before-start",
+      updatedAt: new Date().toISOString(),
+    });
+    writeFileSync(recordPath, record);
+
+    const listed = runCli(["worktree", "list", "alpha"], repo);
+
+    expect(listed.status).toBe(0);
+    expect(listed.stdout).toContain("unknown (brainstorm is missing or unreadable)");
+    expect(listed.stdout).not.toContain("approval-before-start");
+    expect(listed.stdout).not.toContain("active-implementation");
+    expect(readFileSync(recordPath, "utf8")).toBe(record);
+    expect(worktreeEntries(repo)).toHaveLength(1);
+    expect(branchNames(repo)).toEqual(["main"]);
+  });
+
   test("list reports draft, expired, ambiguous, mismatched, and missing brainstorms as unknown", () => {
     const repo = tempRepo();
     const expiredDate = new Date();
