@@ -630,3 +630,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Added a no-mutation Phase 0 stop for dirty/unknown state and explicit plan, app-review and merge-ready handoffs with focused ordering assertions.
 - **Lesson:** Check status and approval gates before any continuation.
 - **Tags:** review, workflow, worktree
+
+### L74 · 2026-10-08 · worktree-lifecycle-governance #4 · behavior
+- **Failure:** U19 expected the checkpoint gate to distinguish human authorship for a transition that U10 submitted with the same state.
+- **Root cause:** The test treated a local JSON state validator as proof of who supplied a human approval.
+- **Fix:** Assert pending-state and phase prerequisites in the gate, and keep the actual human approval ordered through the Phase 1 orchestrator handoff.
+- **Lesson:** Test human approval as an ordered handoff; don't claim a local state file authenticates who approved.
+- **Tags:** behavior, tests, approvals

@@ -293,17 +293,11 @@ with tempfile.TemporaryDirectory() as root:
         legacy,
         life("implementation", "approved"),
     )
-    lifecycle_result("U10: approved plan permits implementation", initial_plan, implementation, 0)
+    lifecycle_result("U10: approved lifecycle permits implementation", initial_plan, implementation, 0)
     lifecycle_result(
-        "U19: implementation without plan approval is rejected",
+        "U19: pending plan approval rejects implementation",
         initial_plan,
         with_lifecycle(legacy, life("implementation")),
-        2,
-    )
-    lifecycle_result(
-        "U19: an unverified approval-field change cannot authorize implementation",
-        initial_plan,
-        implementation,
         2,
     )
     json.dump(initial_plan, open(path, "w"))

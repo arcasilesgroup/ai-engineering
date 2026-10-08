@@ -247,11 +247,27 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "pending",
+          "attempts": 1,
+          "findings": [
+            "attempt 1 FAIL: python3 tests/test_checkpoint_gate.py reports U19 with contradictory expectations for the same lifecycle transition; remaining verify commands were not run.",
+            "The test was corrected to check pending-state and phase prerequisites; re-run the full checkpoint 4 verify list."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "pending",
+      "changed_files": [
+        "skills/ai-orchestrator/SKILL.md",
+        "scripts/checkpoint-gate.py",
+        "tests/test_checkpoint_gate.py",
+        "tests/skills.spec.ts",
+        "tests/workflow-handoff.spec.ts",
+        "LEARNINGS.md",
+        ".ai-engineering/workflow/test-plans/worktree-lifecycle-governance.json"
+      ]
     },
     {
       "id": 5,
@@ -368,6 +384,7 @@
     "A feature plan is written only after its clean work copy exists, and remains in that copy. [approved task clarification; PRD Worktree lifecycle]",
     "Missing or legacy lifecycle state is shown as unknown, not as no work or approval. [brainstorm §§8, 11; LEARNINGS Rules R2, R8]",
     "The worktree inventory and merge serialization apply to this local clone; they do not coordinate across machines or merge unapproved siblings. [PRD Out of scope; brainstorm §6]",
+    "The checkpoint gate validates approval-state ordering, while the orchestrator records plan approval only after the human Phase 1 response; the local state file does not independently authenticate who supplied that response. [AGENTS.md approval contract; orchestrator Phase 1]",
     "No new dependencies or screen are needed; existing Bun tests and real Git fixtures cover the behavior. [AGENTS.md; approved request]"
   ],
   "new_dependencies": [],

@@ -147,7 +147,7 @@
       },
       {
         "id": "U19",
-        "case": "the plan-approval transition rejects missing approval, skipped phases and unauthorized approval-state changes while preserving legacy gate behavior",
+        "case": "pending approval and skipped phases cannot enter implementation; the explicitly approved state can transition after the human plan-review handoff, while legacy gate behavior is preserved",
         "file": "tests/test_checkpoint_gate.py",
         "command": "python3 tests/test_checkpoint_gate.py",
         "checkpoint": 4
