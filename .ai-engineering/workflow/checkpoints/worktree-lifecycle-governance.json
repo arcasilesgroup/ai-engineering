@@ -98,7 +98,7 @@
       "gates": {
         "behavior": {
           "status": "passed",
-          "attempts": 4,
+          "attempts": 5,
           "findings": [
             "attempt 1 FAIL: bun run typecheck reports TS2769 at tests/worktree-lifecycle.spec.ts:226-227; lifecycle, worktree-command, checkpoint-gate, and architecture tests passed before the typecheck failure; lint was not run.",
             "attempt 2 PASS: all six checkpoint 2 verify commands passed after changing test case data to named fields.",
@@ -164,8 +164,8 @@
         "bun test tests/workflow-handoff.spec.ts",
         "bun test tests/worktree-lifecycle.spec.ts",
         "bun scripts/gen-assets.ts",
-        "bun test tests/embed-canon.spec.ts",
-        "bun test tests/arch.spec.ts",
+        "bun test ./tests/embed-canon.spec.ts",
+        "bun test ./tests/arch.spec.ts",
         "bun run typecheck",
         "bun run lint"
       ],
@@ -240,7 +240,7 @@
         "bun test tests/skills.spec.ts",
         "bun test tests/workflow-handoff.spec.ts",
         "bun scripts/gen-assets.ts",
-        "bun test tests/embed-canon.spec.ts",
+        "bun test ./tests/embed-canon.spec.ts",
         "bun test tests/arch.spec.ts",
         "bun run typecheck",
         "bun run lint"
@@ -322,14 +322,14 @@
         "U20d uses a real temporary Git fixture with a controlled hook that advances local main after rebase has selected the prior tip; when the new tip is not an ancestor of feature HEAD, it asserts the exact pre/post SHAs, rerun guidance, retained rewritten feature state, and unchanged lifecycle bytes with no destructive rollback. Tests cover Git refusal, rebase success and unresolved-conflict states rather than relying only on prose or source-text assertions; CP6's existing Git-native merge serialization and reviewed-main freshness remain unchanged."
       ],
       "verify": [
-        "bun test tests/worktree-command.spec.ts",
-        "bun test tests/worktree-lifecycle.spec.ts",
-        "bun test tests/skills.spec.ts",
-        "bun test tests/workflow-handoff.spec.ts",
+        "bun test ./tests/worktree-command.spec.ts",
+        "bun test ./tests/worktree-lifecycle.spec.ts",
+        "bun test ./tests/skills.spec.ts",
+        "bun test ./tests/workflow-handoff.spec.ts",
         "python3 tests/test_checkpoint_gate.py",
         "bun scripts/gen-assets.ts",
-        "bun test tests/embed-canon.spec.ts",
-        "bun test tests/arch.spec.ts",
+        "bun test ./tests/embed-canon.spec.ts",
+        "bun test ./tests/arch.spec.ts",
         "bun run typecheck",
         "bun run lint"
       ],
@@ -388,23 +388,29 @@
       },
       "builds_on": [5],
       "tasks": [
-        "skills/ai-orchestrator/SKILL.md: use Git's primary-worktree merge, index and ref protections for serialization; do not add a custom lock file or locking dependency. Immediately before merging, require primary `HEAD == lifecycle.reviewed_main` and run `git merge --no-commit --no-ff feat/<slug>`.",
-        "skills/ai-orchestrator/SKILL.md: while `MERGE_HEAD` and index state mark the merge in progress, recheck primary `HEAD == lifecycle.reviewed_main` immediately before `git commit`. If it differs, run `git merge --abort`, invalidate app approval, preserve the feature worktree and require resynchronization, affected gates and renewed app review. If Git reports an in-progress merge/index/ref lock or refuses the commit, stop safely, preserve data, re-read refs and retry only after fresh approval.",
-        "skills/ai-orchestrator/SKILL.md: after a successful merge, verify the merge commit's first parent equals reviewed_main and `feat/<slug>` is an ancestor of primary HEAD before using the existing non-force `ai-eng worktree rm <slug>`. Preserve the worktree whenever merge, parent, ancestry or state verification is uncertain.",
-        "scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py: require a fresh reviewed_main and approved app review for ready-to-merge; permit approval invalidation only as part of returning to sync/review, and allow complete only after verified merge.",
-        "tests/worktree-lifecycle.spec.ts: use a real temporary Git repository to exercise native Git merge-in-progress contention, main advancing after app approval, `git merge --abort` and preservation, fresh approval before retry, reviewed first-parent and feature-ancestry verification before removal, and an unapproved sibling left untouched.",
-        "Run `bun scripts/gen-assets.ts` after skill edits. Update CHANGELOG.md and FILEMAP.md for the shipped lifecycle behavior and lifecycle test.",
-        "Use the ai-write skill for user-facing documentation: document `ai-eng worktree rebase <slug>` and its clean-state, local-main-only and conflict-handling contract in README.md, CONTRIBUTING.md, docs/blueprint.html and CHANGELOG.md; update FILEMAP.md for the shipped command and lifecycle behavior.",
+        "src/commands/worktree.ts and src/shared-worktree.ts: add `ai-eng worktree merge <slug>` as the only close transaction. Require the clean primary checkout on `main`, `HEAD == lifecycle.reviewed_main`, a clean managed feature worktree on exact `feat/<slug>`, `app_review=approved`, and full valid `reviewed_main` plus `reviewed_feature` SHAs. Refuse all legacy, malformed, dirty, mismatched or stale state before mutation.",
+        "src/shared-worktree.ts: create a temporary detached Git worktree at `reviewed_main`; run `git merge --no-commit --no-ff refs/heads/feat/<slug>` there and commit normally so repository hooks run. Verify the resulting merge commit's exact parents are `reviewed_main` and `reviewed_feature`, then atomically update `refs/heads/main` with `git update-ref <merge-commit> <reviewed_main>` compare-and-swap. No custom lock file/dependency.",
+        "src/shared-worktree.ts: if merge/hooks fail, abort any temporary merge and remove only a clean temporary worktree; preserve the feature worktree and lifecycle state. Publish only with `git update-ref refs/heads/main <merge-commit> <reviewed_main>` compare-and-swap. If CAS loses because main advanced, report exact old/new main SHAs, refresh the clean primary checkout safely, clean only the temporary merge worktree, and preserve the feature worktree for resynchronization/review. After CAS success, refresh the primary checkout with safe `git reset --merge refs/heads/main`, verify merge ancestry, then call existing non-force `worktreeRm(slug)`.",
+        "Do not write lifecycle phase `complete` inside the feature worktree: after verified merge and safe removal there is no live feature worktree to own that file. The worktree's absence from Git inventory represents no longer-active work; keep `complete` out of valid lifecycle states.",
+        "skills/ai-orchestrator/SKILL.md: after human app-review approval, capture the exact approved feature tip as `lifecycle.reviewed_feature`, set `phase=ready-to-merge` and `app_review=approved`, then call `ai-eng worktree merge <slug>`. On refusal/race, preserve the feature and repeat sync/gates/review if refs changed. Never run a manual merge transaction in prose.",
+        "scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py: require valid reviewed_main and reviewed_feature, approved app review and completed gates for ready-to-merge; reject the removed `complete` lifecycle phase while preserving legacy gate behavior.",
+        "tests/worktree-command.spec.ts: use real temporary Git repositories to prove hooks run on the temporary merge commit, exact first/second parent verification, successful CAS and primary refresh, `post-commit`-hook main advancement causing CAS refusal with exact SHAs and no stale merge, temp-worktree cleanup, original feature/checkpoint preservation, and safe removal only after ancestry is verified.",
+        "tests/worktree-lifecycle.spec.ts and tests/skills.spec.ts: cover app-review approval and reviewed_feature capture, no premature `complete`, ready-to-merge prerequisites, and handoff to the single CLI merge command.",
+        "Use the ai-write skill for user-facing documentation: document `ai-eng worktree rebase <slug>` and `ai-eng worktree merge <slug>` plus clean-state, local-main-only, approval and conflict handling in README.md, CONTRIBUTING.md, docs/blueprint.html and CHANGELOG.md; update FILEMAP.md for the shipped commands and lifecycle tests.",
+        "Run `bun scripts/gen-assets.ts` after skill edits and verify embed-canon.",
         "Run the full project gates."
       ],
       "files": [
         "skills/ai-orchestrator/SKILL.md",
+        "src/shared-worktree.ts",
+        "src/commands/worktree.ts",
         "src/assets.ts",
         "scripts/checkpoint-gate.py",
         "tests/test_checkpoint_gate.py",
         "tests/skills.spec.ts",
         "tests/worktree-lifecycle.spec.ts",
         "tests/worktree-command.spec.ts",
+        "tests/workflow-handoff.spec.ts",
         "README.md",
         "CONTRIBUTING.md",
         "docs/blueprint.html",
@@ -412,33 +418,40 @@
         "FILEMAP.md"
       ],
       "acceptance": [
-        "No custom lock file or locking dependency is introduced. A merge requires primary HEAD to equal reviewed_main immediately before `git merge --no-commit --no-ff feat/<slug>` and again immediately before commit; Git's native in-progress merge, index and ref protections make a competing normal merge stop safely.",
-        "If primary HEAD advances after app review, the pending merge is aborted with `git merge --abort`, old approval is invalidated, the feature worktree and data are preserved, and resynchronization, affected gates and renewed app review are required. Git contention or commit refusal also stops safely; refs are re-read and retry requires fresh approval.",
-        "The only feature merge is no-fast-forward into local main; after commit, its first parent must equal reviewed_main and feature ancestry must be verified before existing safe removal runs without force.",
-        "An unapproved sibling is never incorporated or deleted; any uncertain merge or ancestry result preserves the feature worktree.",
-        "README.md, CONTRIBUTING.md, docs/blueprint.html and CHANGELOG.md describe the public rebase command and its safety contract; FILEMAP.md reflects the shipped command and lifecycle behavior, generated skill assets match, and all existing project gates pass."
+        "The approved branch tip is captured as reviewed_feature; no state transition to ready-to-merge is valid without app_review approved and fresh reviewed_main/reviewed_feature.",
+        "The merge commit is created normally in a temporary detached worktree so repository commit hooks run; its exact parents are reviewed_main and reviewed_feature.",
+        "Only an atomic `git update-ref refs/heads/main <merge-commit> <reviewed_main>` CAS can publish the merge. If main moved, CAS refuses; the original feature worktree/checkpoint remain untouched, only the clean temporary worktree is removed, and exact refs plus retry guidance are reported.",
+        "After CAS, refresh the clean primary checkout without force, verify the approved feature ancestry, then use existing safe worktree removal. No active checkpoint is marked complete before it is removed; absence from Git worktree inventory means no active work.",
+        "An unapproved sibling is never merged or deleted; no fetch, remote synchronization, custom lock or new dependency/service is used.",
+        "README.md, CONTRIBUTING.md, docs/blueprint.html and CHANGELOG.md document both public worktree commands; FILEMAP.md and generated skill assets match; all project gates pass."
       ],
       "verify": [
-        "bun test tests/worktree-lifecycle.spec.ts",
-        "bun test tests/worktree-command.spec.ts",
-        "bun test tests/skills.spec.ts",
-        "bun test tests/workflow-handoff.spec.ts",
+        "bun test ./tests/worktree-lifecycle.spec.ts",
+        "bun test ./tests/worktree-command.spec.ts",
+        "bun test ./tests/skills.spec.ts",
+        "bun test ./tests/workflow-handoff.spec.ts",
         "python3 tests/test_checkpoint_gate.py",
         "bun scripts/gen-assets.ts",
-        "bun test tests/embed-canon.spec.ts",
+        "bun test ./tests/embed-canon.spec.ts",
         "bun run typecheck",
         "bun run lint",
         "bun test",
-        "bun test tests/arch.spec.ts"
+        "bun test ./tests/arch.spec.ts"
       ],
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 1,
+          "status": "failed",
+          "attempts": 7,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
-            "The assertion normalization now preserves identifier underscores; rerun all checkpoint 6 verify commands."
+            "attempt 2 FAIL: `bun test tests/worktree-lifecycle.spec.ts` invoked without `./` was interpreted by Bun as a test-name filter and matched no test files; rerun with explicit relative paths.",
+            "The assertion normalization now preserves identifier underscores; rerun all checkpoint 6 verify commands.",
+            "attempt 3 FAIL: full `bun test` reported one latency-budget failure (1716.22 ms) in tests/adversarial/chain.test.ts; 1,064 other tests passed; all focused CP6 checks and architecture test passed. Isolated reruns were intermittent: pass at 1066.67/1116.68 ms, fail at 162.30/135.75 ms p95; no diff in that test or chain implementation.",
+            "attempt 4 serial diagnostic PASS: `bun test --parallel=1 --max-concurrency=1` ran all 1,065 tests successfully.",
+            "attempt 5 standard-concurrency FAIL: `bun test --reporter=dots` reported a separate floor-gates staged-secret scan contract case failure; 1,064 other tests passed. The spec/source were unchanged and three isolated runs passed.",
+            "attempt 6 PASS: standard-concurrency `bun test --reporter=dots` passed all 1,065 tests.",
+            "attempt 7 FAIL: `bun test ./tests/worktree-command.spec.ts` has 3 failures involving temp merge hook file snapshots and primary tree refresh; `bun test ./tests/worktree-lifecycle.spec.ts` has 1 failure calling realpath after successful worktree removal. Skills/hook/typecheck/lint/embed checks passed."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -447,10 +460,13 @@
       "status": "pending",
       "changed_files": [
         "skills/ai-orchestrator/SKILL.md",
+        "src/shared-worktree.ts",
+        "src/commands/worktree.ts",
         "scripts/checkpoint-gate.py",
         "tests/test_checkpoint_gate.py",
         "tests/skills.spec.ts",
         "tests/worktree-lifecycle.spec.ts",
+        "tests/worktree-command.spec.ts",
         "LEARNINGS.md"
       ]
     }

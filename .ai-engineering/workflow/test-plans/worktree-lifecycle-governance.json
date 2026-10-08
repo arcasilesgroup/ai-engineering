@@ -9,49 +9,49 @@
         "id": "U1",
         "case": "new <slug> rejects extra positional arguments with a usage failure before creating a directory or branch",
         "file": "tests/worktree-command.spec.ts",
-        "command": "bun test tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 1
       },
       {
         "id": "U2",
         "case": "new ignores a malformed legacy .ai-eng-worktrees.json, creates no manifest, and leaves any existing manifest bytes untouched",
         "file": "tests/worktree-command.spec.ts",
-        "command": "bun test tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 1
       },
       {
         "id": "U3",
         "case": "rm neither reads, rewrites nor removes a legacy manifest, including a malformed one",
         "file": "tests/worktree-command.spec.ts",
-        "command": "bun test tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 1
       },
       {
         "id": "U4",
         "case": "manifest removal preserves configured-root resolution, slug validation, Git inventory, branch creation from local main, merged-branch protection and safe removal",
         "file": "tests/worktree-command.spec.ts",
-        "command": "bun test tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 1
       },
       {
         "id": "U5",
         "case": "list uses only Git-listed feature worktrees and reads each lifecycle checkpoint from that worktree's own path, not from the primary checkout or a copied plan",
         "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 2
       },
       {
         "id": "U6",
         "case": "clean, dirty, detached and otherwise unclassified Git worktrees are reported with the correct status and evidence without changing refs, files or index state",
         "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 2
       },
       {
         "id": "U7",
         "case": "missing, unreadable or malformed lifecycle state remains visible as unknown and cannot authorize approval, merge or removal",
         "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 2
       },
       {
@@ -65,7 +65,7 @@
         "id": "U9",
         "case": "likely-overlap evidence includes relevant Git status and checkpoint paths, while listing remains read-only",
         "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 2
       },
       {
@@ -86,49 +86,49 @@
         "id": "U12",
         "case": "brainstorm and orchestrator call the same read-only local worktree preflight before new or resumed work",
         "file": "tests/skills.spec.ts",
-        "command": "bun test tests/skills.spec.ts",
+        "command": "bun test ./tests/skills.spec.ts",
         "checkpoint": 3
       },
       {
         "id": "U13",
         "case": "Phase 0 resumes the same slug at its Git-listed path, or creates a clean feature worktree before Phase 1 begins",
         "file": "tests/workflow-handoff.spec.ts",
-        "command": "bun test tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
         "checkpoint": 3
       },
       {
         "id": "U14",
         "case": "likely-overlap preflight pauses for a human decision while clearly unrelated work can continue",
         "file": "tests/workflow-handoff.spec.ts",
-        "command": "bun test tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
         "checkpoint": 3
       },
       {
         "id": "U15",
         "case": "dirty, missing or uncertain work is preserved and reported; preflight does not reset, remove or sync it",
         "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 3
       },
       {
         "id": "U16",
         "case": "preflight stays local, does not fetch or merge an unapproved sibling, and neither creates a plan in the primary checkout nor copies one between worktrees",
         "file": "tests/skills.spec.ts",
-        "command": "bun test tests/skills.spec.ts",
+        "command": "bun test ./tests/skills.spec.ts",
         "checkpoint": 3
       },
       {
         "id": "U16a",
         "case": "Phase 0 stops before new, resume, rebase, rm or reset when the same slug is dirty or unknown, preserving its state",
         "file": "tests/workflow-handoff.spec.ts",
-        "command": "bun test tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
         "checkpoint": 3
       },
       {
         "id": "U16b",
         "case": "preflight surfaces awaiting-plan-approval, awaiting-app-review and ready-to-merge with the required human decision before orchestrator continues",
         "file": "tests/skills.spec.ts",
-        "command": "bun test tests/skills.spec.ts",
+        "command": "bun test ./tests/skills.spec.ts",
         "checkpoint": 3
       },
       {
@@ -149,7 +149,7 @@
         "id": "U18",
         "case": "implementation does not start or dispatch until the human approves the plan; approval then permits the transition to implementation",
         "file": "tests/workflow-handoff.spec.ts",
-        "command": "bun test tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
         "checkpoint": 4
       },
       {
@@ -163,91 +163,112 @@
         "id": "U20",
         "case": "a clean feature worktree rebases successfully onto the current local refs/heads/main only, with exact fixture refs and resulting history asserted",
         "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 5
       },
       {
         "id": "U20a",
         "case": "rebase <slug> targets only its matching Git-registered feature worktree, runs git rebase refs/heads/main without accepting another base, leaves lifecycle bytes unchanged and reports the exact full local-main SHA",
         "file": "tests/worktree-command.spec.ts",
-        "command": "bun test tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 5
       },
       {
         "id": "U20b",
         "case": "dirty status, missing worktree or checkpoint, malformed, legacy or unknown checkpoint, and mismatched or detached worktree each refuse before mutation; refs, status, present checkpoint bytes and worktree registration remain unchanged",
         "file": "tests/worktree-command.spec.ts",
-        "command": "bun test tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 5
       },
       {
         "id": "U20c",
         "case": "an unresolved rebase conflict returns failure while leaving Git's rebase in progress for agent resolution or abort, without modifying lifecycle state",
         "file": "tests/worktree-command.spec.ts",
-        "command": "bun test tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 5
       },
       {
         "id": "U20d",
         "case": "a controlled temporary Git hook advances local refs/heads/main after rebase selects the previous tip; the command reports exact before/after main SHAs and rerun-sync guidance, claims sync and writes lifecycle state or reviewed_main only if the post-rebase main tip is an ancestor of feature HEAD, and otherwise preserves rewritten feature state without reset or rollback",
         "file": "tests/worktree-command.spec.ts",
-        "command": "bun test tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 5
       },
       {
         "id": "U21",
         "case": "a clear rebase conflict is resolved only inside the feature worktree; affected behavior gates rerun first, UI gates only when the checkpoint has UI, then affected review gates, all before human app review",
         "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 5
       },
       {
         "id": "U22",
         "case": "an unclear conflict or failed check aborts the rebase and verifies original refs, tree and status before marking lifecycle blocked; dirty, missing/unknown, malformed or untrusted lifecycle preconditions stop without mutation, preserving checkpoint bytes and Git state",
         "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 5
       },
       {
         "id": "U23",
         "case": "only after synchronization and affected gates pass does lifecycle record the exact current local-main reviewed_main and set app review pending",
         "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 5
       },
       {
         "id": "U24",
-        "case": "in a real temporary Git repository, native Git merge-in-progress/index/ref protections stop a competing normal lifecycle merge safely; no custom lock file is used, no commit or worktree removal occurs, data is preserved, and retry requires re-reading refs and fresh approval",
-        "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "case": "two merge transactions based on the same reviewed_main race through real temporary Git worktrees; compare-and-swap publishes at most one merge, the loser publishes no stale second merge, and an unmerged feature worktree remains for fresh review without a custom lock",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "U25",
-        "case": "in a real temporary Git repository, if primary HEAD advances after app approval and the pending merge has begun, the pre-commit check runs git merge --abort, preserves the feature worktree and data, invalidates approval, and requires resynchronization, affected gates and renewed review before retry",
-        "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "case": "in a real temporary Git repository, a post-commit hook advances refs/heads/main after the temporary merge commit is created; compare-and-swap against reviewed_main fails with exact old/new refs, cleans only the temporary worktree and publishes no stale merge, while preserving the feature worktree and data; changed main requires resynchronization, affected gates and renewed review",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "U26",
-        "case": "the approved feature alone is merged with --no-commit --no-ff into local main; post-merge verification requires the merge commit's first parent to equal reviewed_main and feature ancestry before removal, while an unapproved sibling is neither merged nor deleted",
-        "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "case": "only the approved feature is merged normally in a temporary detached worktree so commit hooks run; assert exact merge parents reviewed_main and reviewed_feature before compare-and-swap publication, then verify feature ancestry before removal while an unapproved sibling is neither merged nor deleted",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "U27",
-        "case": "feature ancestry is verified before safe worktree removal; failed or uncertain merge, state or ancestry verification preserves the worktree, while fully verified ancestry allows the existing safe removal",
-        "file": "tests/worktree-lifecycle.spec.ts",
-        "command": "bun test tests/worktree-lifecycle.spec.ts",
+        "case": "after successful compare-and-swap, safely refresh the primary checkout with git reset --merge, clean the temporary merge worktree, and verify the published merge and reviewed_feature ancestry before safe feature-worktree removal; failed or uncertain refresh, state or ancestry verification preserves the feature worktree",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "U28",
-        "case": "ready-to-merge requires fresh reviewed_main and approved app review, and complete is allowed only after verified merge",
+        "case": "ready-to-merge requires completed gates, approved app review, and fresh reviewed_main plus reviewed_feature; the removed complete lifecycle phase is rejected while legacy checkpoint-gate behavior remains unchanged",
         "file": "tests/test_checkpoint_gate.py",
         "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 6
+      },
+      {
+        "id": "U29",
+        "case": "if temporary-worktree merge or commit hooks fail, abort only the temporary merge and remove only a clean temporary worktree; no main ref is published and the feature worktree, lifecycle state and data remain unchanged",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U30",
+        "case": "if primary refresh or safe feature-worktree removal is interrupted after compare-and-swap, retry is idempotent: recognize the already-published merge with exact reviewed parents, safely refresh and verify ancestry, then remove only the approved feature worktree",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U31",
+        "case": "the feature lifecycle never becomes complete before removal; while its worktree is still Git-listed its checkpoint retains an active phase, and removal/absence from Git inventory represents closed work",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 6
       }
     ],
@@ -263,7 +284,7 @@
         "id": "C2",
         "case": "the regenerated skill payload matches the source canon after checkpoint 3",
         "file": "tests/embed-canon.spec.ts",
-        "command": "bun test tests/embed-canon.spec.ts",
+        "command": "bun test ./tests/embed-canon.spec.ts",
         "checkpoint": 3
       },
       {
@@ -276,7 +297,7 @@
         "id": "C4",
         "case": "the regenerated skill payload matches the source canon after checkpoint 4",
         "file": "tests/embed-canon.spec.ts",
-        "command": "bun test tests/embed-canon.spec.ts",
+        "command": "bun test ./tests/embed-canon.spec.ts",
         "checkpoint": 4
       },
       {
@@ -289,14 +310,14 @@
         "id": "C6",
         "case": "the regenerated skill payload matches the source canon after checkpoint 5",
         "file": "tests/embed-canon.spec.ts",
-        "command": "bun test tests/embed-canon.spec.ts",
+        "command": "bun test ./tests/embed-canon.spec.ts",
         "checkpoint": 5
       },
       {
         "id": "C6a",
         "case": "the exact `ai-eng worktree rebase <slug>` CLI invocation uses only the registered matching feature worktree and local refs/heads/main, emits the full main SHA on success, refuses arbitrary base arguments and leaves an unresolved conflict available for agent handling",
         "file": "tests/worktree-command.spec.ts",
-        "command": "bun test tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 5
       },
       {
@@ -309,13 +330,13 @@
         "id": "C8",
         "case": "the regenerated skill payload matches the source canon after checkpoint 6",
         "file": "tests/embed-canon.spec.ts",
-        "command": "bun test tests/embed-canon.spec.ts",
+        "command": "bun test ./tests/embed-canon.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "C9",
         "case": "the architecture boundary remains valid after worktree and lifecycle changes",
-        "command": "bun test tests/arch.spec.ts",
+        "command": "bun test ./tests/arch.spec.ts",
         "checkpoint": 6
       },
       {
@@ -334,6 +355,13 @@
         "id": "C12",
         "case": "the complete repository test suite passes after the focused feature checks",
         "command": "bun test",
+        "checkpoint": 6
+      },
+      {
+        "id": "C13",
+        "case": "the exact `ai-eng worktree merge <slug>` CLI command validates fresh reviewed refs, publishes only a verified reviewed_main/reviewed_feature merge with compare-and-swap, safely refreshes and removes the approved feature, and preserves it on races",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       }
     ],
