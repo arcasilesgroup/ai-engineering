@@ -268,11 +268,50 @@ with tempfile.TemporaryDirectory() as root:
     )
     lifecycle_result("U10: valid initial lifecycle shape is accepted", legacy, initial_plan, 0)
 
+    # A fresh lifecycle plan belongs to the Git-listed feature worktree, not the primary checkout.
+    selected_root = f"{root}/selected-feature"
+    subprocess.run(
+        ["git", "worktree", "add", "-q", "-b", "feat/demo", selected_root],
+        cwd=root,
+        env=git_env,
+        check=True,
+    )
+    selected_path = f"{selected_root}/.ai-engineering/workflow/checkpoints/demo.json"
+    os.makedirs(os.path.dirname(selected_path), exist_ok=True)
+    selected_result = run(selected_root, write(selected_path, initial_plan))
+    fails += selected_result != 0
+    print(("ok  " if selected_result == 0 else "FAIL"), "U17: initial lifecycle plan is accepted in selected feature worktree", f"(exit {selected_result})")
+    primary_result = run(selected_root, write(path, initial_plan))
+    fails += primary_result != 2
+    print(("ok  " if primary_result == 2 else "FAIL"), "U17: selected feature worktree rejects writing its plan in the primary checkout", f"(exit {primary_result})")
+    missing_lifecycle_result = run(selected_root, write(selected_path, legacy))
+    fails += missing_lifecycle_result != 2
+    print(("ok  " if missing_lifecycle_result == 2 else "FAIL"), "U17: a new feature plan cannot omit its initial lifecycle", f"(exit {missing_lifecycle_result})")
+    git(["worktree", "remove", selected_root])
+
     implementation = with_lifecycle(
         legacy,
         life("implementation", "approved"),
     )
     lifecycle_result("U10: approved plan permits implementation", initial_plan, implementation, 0)
+    lifecycle_result(
+        "U19: implementation without plan approval is rejected",
+        initial_plan,
+        with_lifecycle(legacy, life("implementation")),
+        2,
+    )
+    lifecycle_result(
+        "U19: an unverified approval-field change cannot authorize implementation",
+        initial_plan,
+        implementation,
+        2,
+    )
+    json.dump(initial_plan, open(path, "w"))
+    got = run(root, agent("[checkpoint demo#2 implement]"))
+    fails += got != 2
+    print(("ok  " if got == 2 else "FAIL"), "U19: implementation dispatch waits while plan approval is pending", f"(exit {got})")
+    legacy_result("U19: legacy checkpoint keeps its existing gate behavior", agent("[checkpoint demo#2 implement]"), 0)
+
     overflow_lifecycle = json.dumps(implementation).replace('"id": 1,', '"id": 1e999,', 1)
     json.dump(initial_plan, open(path, "w"))
     got = run(root, {"tool_name": "Write", "tool_input": {"file_path": path, "content": overflow_lifecycle}})
@@ -332,6 +371,12 @@ with tempfile.TemporaryDirectory() as root:
         "U11: rejects skipped plan-approval and app-review phases",
         initial_plan,
         with_lifecycle(legacy, life("ready-to-merge", "approved", "approved", reviewed_main)),
+        2,
+    )
+    lifecycle_result(
+        "U19: rejects skipping directly to app review",
+        initial_plan,
+        awaiting_review,
         2,
     )
     lifecycle_result(

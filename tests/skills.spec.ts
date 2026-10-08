@@ -546,4 +546,19 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
       }
     }
   });
+
+  test("U17: Phase 1 initializes lifecycle approval in the selected feature worktree", () => {
+    const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const phase1 = markdownSection(orchestrator, "## Phase 1: Plan")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+
+    expect(phase1).toContain("selected feature worktree");
+    expect(phase1).toContain(".ai-engineering/workflow/checkpoints/<slug>.json");
+    expect(phase1).toMatch(/lifecycle[\s\S]{0,100}awaiting-plan-approval/);
+    expect(phase1).toMatch(/plan_approval: pending/);
+    expect(phase1).toMatch(/app_review: not-started/);
+    expect(phase1).toMatch(/reviewed_main: null/);
+    expect(phase1).toMatch(/never create a checkpoint plan in the primary checkout or copy any plan between worktrees/);
+  });
 });

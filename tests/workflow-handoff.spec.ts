@@ -90,4 +90,35 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(noMatch).toBeGreaterThan(resume);
     expect(create).toBeGreaterThan(noMatch);
   });
+
+  test("U18: implementation waits for human plan approval and lifecycle transition", () => {
+    const { text, body } = section("skills/ai-orchestrator/SKILL.md", "## Phase 1: Plan");
+    const normalized = body.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const humanStop = normalized.indexOf("human stop 1: checkpoint review");
+    const askHuman = normalized.indexOf("askuserquestion", humanStop);
+    const approvalChoice = normalized.indexOf("offer:", askHuman);
+    const approveTransition = normalized.indexOf(
+      "after approval, set the lifecycle phase to implementation",
+      approvalChoice,
+    );
+    const transitionInText = text
+      .replace(/[`*_]/g, "")
+      .toLowerCase()
+      .indexOf("after approval, set the lifecycle phase to implementation");
+    const phase2 = text.indexOf("## Phase 2: Checkpoint loop");
+    const firstDispatch = text.indexOf("Use one `general-purpose` subagent", phase2);
+
+    expect(humanStop).toBeGreaterThanOrEqual(0);
+    expect(askHuman).toBeGreaterThan(humanStop);
+    expect(approvalChoice).toBeGreaterThan(askHuman);
+    expect(normalized.slice(approvalChoice)).toMatch(/offer:\s*approve,\s*edit[\s\S]{0,80}or stop/);
+    expect(normalized).toMatch(
+      /do not (?:begin|run) phase 2 or dispatch its workers until the human approves the checkpoint plan/,
+    );
+    expect(approveTransition).toBeGreaterThan(approvalChoice);
+    expect(phase2).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf("## Phase 1: Plan")).toBeLessThan(phase2);
+    expect(firstDispatch).toBeGreaterThan(phase2);
+    expect(phase2).toBeGreaterThan(transitionInText);
+  });
 });
