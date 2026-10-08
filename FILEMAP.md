@@ -33,6 +33,8 @@ skills/                        Installed skill canon
     scripts/
       collect-azure.mjs        Scoped Azure backlog collector
       collect-azure.d.mts      Collector types
+      azure-signals.mjs        Normalize scoped Azure evidence, sources and coverage
+      azure-signals.d.mts      Signal normalization types
       render-report.mjs        Safe report rendering and atomic write
       render-report.d.mts      Report writer types
       resolve-target.mjs       Explicit provider and target resolution

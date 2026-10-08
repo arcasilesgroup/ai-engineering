@@ -508,3 +508,31 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Measure 100 calls and retain the 50ms threshold plus a deterministic outlier check.
 - **Lesson:** Use enough samples for nearest-rank p95 to tolerate expected scheduler outliers without changing the budget.
 - **Tags:** behavior, tests, performance
+
+### L68 · 2026-10-08 · ai-triage-azure-signals #1 · behavior
+- **Failure:** A6 expected enriched UNASSESSED items in priority order rather than their original inventory order.
+- **Root cause:** The compatibility test applied assessed-item sorting to UNASSESSED items, contrary to the unchanged renderer and approved preservation contract.
+- **Fix:** Pin the fixture's inventory order and assert that every enriched UNASSESSED item renders once in that same order; leave the renderer unchanged.
+- **Lesson:** Verify legacy behavior and assessment status before setting compatibility expectations; correct a faulty test instead of changing the product baseline to satisfy it.
+- **Tags:** behavior, tests, azure, compatibility, unassessed
+
+### L69 · 2026-10-08 · ai-triage-azure-signals #1 · review
+- **Failure:** Valid comment continuations using Azure's canonical project GUID stopped pagination when the request used the project name.
+- **Root cause:** Continuation validation compared literal paths rather than the already verified selected-project identity.
+- **Fix:** Reuse the scoped project lookup or read it once; validate GUID aliases against that identity, organization and item, then reconstruct the original endpoint using only the opaque token.
+- **Lesson:** Validate documented identifier aliases against established identity without trusting or executing server-supplied continuation URLs.
+- **Tags:** review, azure, pagination, scope, validation, tests
+
+### L70 · 2026-10-08 · ai-triage-azure-signals #1 · review
+- **Failure:** Inaccessible or partial field metadata erased already-returned custom-date context and its revision-linked sources.
+- **Root cause:** Context candidates came only from successful dateTime metadata, so an unavailable definition also removed the underlying returned evidence.
+- **Fix:** Preserve custom fields without verified definitions as raw reference names, values and sources with unrecognized context and explicit metadata gaps; never infer their field types or delivery meaning.
+- **Lesson:** Missing definitions limit interpretation, not retention of already-returned scoped evidence.
+- **Tags:** review, azure, metadata, coverage, sources, tests
+
+### L71 · 2026-10-08 · ai-triage-azure-signals #1 · review
+- **Failure:** Missing, unset or malformed parent Priority/Severity was labeled complete and could make overall evidence sufficient.
+- **Root cause:** Parent normalization validated the item container but blindly copied importance and never included its field coverage in sufficiency.
+- **Fix:** Validate each importance field against integer/string metadata, expose per-field gaps and linked raw sources, publish only validated importance, and retain known parent dates while limiting coverage.
+- **Lesson:** A successful optional item read does not prove every requested field is available and valid; track those field gaps independently.
+- **Tags:** review, azure, parent, validation, coverage, sources, tests

@@ -28,7 +28,10 @@ organizations, projects, teams, or boards in one report.
   preserves the existing issue and pull-request inventory, ranking, evidence, and report.
 - For Azure DevOps, follow the [Azure procedure](references/azure-devops.md). Route the
   resolved target through `resolveTargetAndRead`; its callback is the only place to call
-  `collectAzureBacklog` with the scoped `createAzureDevOpsInvoker` adapter. If the selected
+  `collectAzureBacklog` with the scoped `createAzureDevOpsInvoker` adapter and
+  **`includeSignals: true` on every normal Azure run**. This explicitly enables comments,
+  dates, direct-parent context and selected-team iteration evidence; inventory-only
+  compatibility defaults are not the triage procedure. If the selected
   scope is not ready or collection is incomplete, stop without writing.
 - After collection returns `complete: true`, create exactly one analysis record per
   inventoried work-item ID. Keep no more than five per-item analyses in flight; record
@@ -38,6 +41,11 @@ organizations, projects, teams, or boards in one report.
   `.ai-engineering/triage.html`; an ambiguity, incomplete inventory, missing/invalid
   analysis, unsafe link, or render failure must leave the prior report untouched. Parent
   and child links are context, never inventory.
+- Read each Azure item's `signals` and revision-linked `sources` during analysis.
+  Respect complete, absent, partial and inaccessible signal coverage and its next
+  action; limited discussion never proves no blockers. Creation/change ages are
+  elapsed times, not continuously-open duration or urgency. Native Priority/Severity
+  stay unchanged; parent dates and sprint end are context, not inherited deadlines.
 - Remote GitHub and Azure work-item links open in a new tab; Azure item links target the
   Azure Boards work-item page, not a REST API endpoint.
 - The report uses the shared shell in `templates/triage.html.tpl` and follows

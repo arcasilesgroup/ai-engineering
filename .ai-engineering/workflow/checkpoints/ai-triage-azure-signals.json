@@ -62,12 +62,33 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 0, "findings": [] }
       },
-      "status": "pending",
-      "changed_files": []
+      "status": "passed",
+      "changed_files": [
+        "tests/triage-azure-signals.unit.spec.ts",
+        "tests/triage-azure-signals.integration.spec.ts"
+        ,"skills/ai-triage/scripts/collect-azure.mjs"
+        ,"skills/ai-triage/scripts/collect-azure.d.mts"
+        ,"skills/ai-triage/scripts/azure-signals.mjs"
+        ,"skills/ai-triage/scripts/azure-signals.d.mts"
+        ,"skills/ai-triage/references/azure-devops.md"
+        ,"skills/ai-triage/SKILL.md"
+        ,"FILEMAP.md"
+        ,"PERMISSIONS.md"
+        ,"src/assets.ts"
+        ,"scripts/.embed/ai-triage/scripts/collect-azure.mjs.txt"
+        ,"scripts/.embed/ai-triage/scripts/collect-azure.d.mts.txt"
+        ,"scripts/.embed/ai-triage/scripts/azure-signals.mjs.txt"
+        ,"scripts/.embed/ai-triage/scripts/azure-signals.d.mts.txt"
+      ],
+      "notes": [
+        "Tests-first proof: new unit command exits 1 on missing normalizeAzureSignals module; new integration suite has 42 expected missing-behavior failures. Existing integration suites: 44 pass. Red tests are persisted on disk; commit is deferred until green to obey repository full-suite-before-commit rule.",
+        "Behavior proof: 77 unit, 110 API and 62 static tests pass; lint/typecheck exit 0. A6 premise corrected with L68. Full-suite latency is variable; avoid project-local TMPDIR because fixture repos lose isolation.",
+        "Review PASS round 2: F1-F3 fixed and verified. Post-fix behavior: 92 unit, 114 API, 62 static pass; lint/typecheck pass; full normal bun test 1167 pass, 0 fail on unchanged retry."
+      ]
     },
     {
       "id": 2,
