@@ -928,3 +928,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Verify the user's real local inventory and distinguish physical totals from lifecycle certainty; missing records must remain unknown, never inferred active.
 - **Gate that should have caught it:** Gate 1 CLI acceptance must assert physical total and unknown classification together.
 - **Tags:** human, worktree, statusline, lifecycle
+
+### L127 · 2026-10-08 · worktree-lifecycle-awareness #3 · behavior
+- **Failure:** A prunable-worktree test expected no lifecycle record after a rejected active/review transition, but new worktrees now start with `approval-before-start`.
+- **Root cause:** The test expected record absence instead of verifying that rejected transitions preserve the initial lifecycle state.
+- **Fix:** Assert the original approval-before-start record remains unchanged while prunable and after pruning (`tests/worktree-command.spec.ts`).
+- **Lesson:** Rejected promotion preserves creation evidence; assert the lifecycle state, not record absence.
+- **Tags:** behavior, worktree, lifecycle, tests

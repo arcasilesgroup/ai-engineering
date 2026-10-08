@@ -577,6 +577,22 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(all.stdout).not.toContain("approval-before-start");
   });
 
+  test("a prunable same-slug worktree suppresses pre-worktree brainstorm projection", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    writeBrainstorm(repo, "alpha");
+    const feature = addRebaseWorktree(repo, "alpha");
+    rmSync(feature, { recursive: true, force: true });
+    expect(git(["worktree", "list", "--porcelain"], repo)).toContain("prunable");
+
+    const listed = runCli(["worktree", "list", "alpha"], repo);
+
+    expect(listed.status).toBe(0);
+    expect(listed.stdout).toContain("unknown (missing, unreadable or malformed checkpoint)");
+    expect(listed.stdout).not.toContain("approval-before-start (brainstorm approved");
+  });
+
   test("legacy lifecycle sidecars never supply pre-worktree approval or active state", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
