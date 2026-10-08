@@ -2,9 +2,9 @@
 // argv and the design-slot list live in src/shared-worktree.ts; this file only
 // reads argv, prints the result and returns its exit code.
 
-import { worktreeList, worktreeNew, worktreeRm } from "../shared-worktree.ts";
+import { worktreeList, worktreeNew, worktreeRebase, worktreeRm } from "../shared-worktree.ts";
 
-const USAGE = "usage: ai-eng worktree new <slug> | rm <slug> [--force] | list\n";
+const USAGE = "usage: ai-eng worktree new <slug> | rm <slug> [--force] | rebase <slug> | list\n";
 
 export function worktreeMain(args: string[], force = false): number {
   const [action, slug, ...files] = args;
@@ -28,6 +28,13 @@ export function worktreeMain(args: string[], force = false): number {
       result = worktreeRm(slug, force);
       break;
     }
+    case "rebase":
+      if (!slug || files.length > 0 || force) {
+        process.stderr.write(USAGE);
+        return 2;
+      }
+      result = worktreeRebase(slug);
+      break;
     case "list":
       result = worktreeList();
       break;

@@ -261,7 +261,7 @@ interface StatusRead {
 }
 
 function worktreeStatus(path: string): StatusRead {
-  const status = git(path, ["status", "--porcelain", "--untracked-files=all", "-z"]);
+  const status = git(path, ["--no-optional-locks", "status", "--porcelain", "--untracked-files=all", "-z"]);
   if (status.status !== 0 || status.stderr.trim() !== "") {
     return { paths: [], detail: status.stderr.trim() || `git status exited ${status.status}` };
   }
@@ -377,6 +377,17 @@ function gatesComplete(plan: unknown): boolean {
     return ["behavior", "ui", "review"].every((name) => {
       const gate = gates[name];
       return isRecord(gate) && (gate.status === "passed" || gate.status === "n/a");
+    });
+  });
+}
+
+function rebaseGatesComplete(plan: unknown): boolean {
+  if (!gatesComplete(plan) || !isRecord(plan) || !Array.isArray(plan.checkpoints)) return false;
+  return plan.checkpoints.every((checkpoint) => {
+    if (!isRecord(checkpoint) || !isRecord(checkpoint.gates)) return false;
+    return ["behavior", "review"].every((name) => {
+      const gate = checkpoint.gates[name];
+      return isRecord(gate) && gate.status === "passed";
     });
   });
 }
@@ -576,6 +587,152 @@ function findManagedWorktree(
   });
   if (entry === undefined || entry.branch === undefined) return null;
   return { path: entry.path, branch: entry.branch };
+}
+
+function rebaseCheckpointProblem(path: string, slug: string): string | null {
+  const checkpointPath = join(path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+  let checkpoint: unknown;
+  try {
+    const stat = lstatSync(checkpointPath);
+    const checkpointRelative = relative(canonicalize(path), realpathSync(checkpointPath));
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      checkpointRelative === "" ||
+      checkpointRelative === ".." ||
+      checkpointRelative.startsWith(`..${sep}`) ||
+      isAbsolute(checkpointRelative)
+    ) {
+      return "checkpoint is not a worktree-local file";
+    }
+    checkpoint = JSON.parse(readFileSync(checkpointPath, "utf8"));
+  } catch {
+    return "checkpoint is missing, unreadable or malformed";
+  }
+
+  if (
+    !isRecord(checkpoint) ||
+    !Object.hasOwn(checkpoint, "lifecycle") ||
+    checkpointFiles(checkpoint, slug) === null
+  ) {
+    return "checkpoint is legacy or does not match this worktree";
+  }
+  const lifecycle = lifecycleFields(checkpoint);
+  if (
+    lifecycle === null ||
+    lifecycle.phase !== "implementation" ||
+    lifecycle.plan_approval !== "approved" ||
+    !rebaseGatesComplete(checkpoint)
+  ) {
+    return "checkpoint is not approved implementation state with all planned gates passed";
+  }
+  return null;
+}
+
+function gitOperationState(path: string): { name: string } | { detail: string } | null {
+  for (const name of ["rebase-merge", "rebase-apply", "MERGE_HEAD"]) {
+    const location = git(path, ["rev-parse", "--git-path", name]);
+    if (location.status !== 0 || location.stderr.trim() !== "") {
+      return { detail: `cannot read git ${name} state: ${location.stderr.trim() || `git exited ${location.status}`}` };
+    }
+    const gitPath = location.stdout.endsWith("\n") ? location.stdout.slice(0, -1) : location.stdout;
+    if (gitPath === "") return { detail: `cannot read git ${name} state path` };
+    if (existsSync(resolve(path, gitPath))) return { name };
+  }
+  return null;
+}
+
+function fullCommitRef(repo: string): string | null {
+  const current = git(repo, ["rev-parse", "--verify", "refs/heads/main^{commit}"]);
+  if (current.status !== 0 || current.stderr.trim() !== "") return null;
+  const commit = current.stdout.trim();
+  return /^[0-9a-f]{40,64}$/i.test(commit) ? commit : null;
+}
+
+export function worktreeRebase(slug: string): WorktreeResult {
+  const repo = primaryRepoRoot();
+  if (repo === null) return { code: 2, out: "", err: "worktree rebase: not inside a git repository.\n" };
+  if (!SLUG_PATTERN.test(slug) || /\p{C}/u.test(slug)) {
+    return { code: 2, out: "", err: `worktree rebase: invalid slug "${printable(slug)}".\n` };
+  }
+
+  const root = worktreeRoot(repo);
+  const listed = openWorktrees(repo);
+  if ("detail" in listed) {
+    return { code: 2, out: "", err: `worktree rebase: the worktree list is unreadable (${listed.detail}).\n` };
+  }
+  const entry = findManagedWorktree(repo, root, slug, listed.worktrees);
+  if (entry === null || !existsSync(entry.path)) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree rebase: no existing managed worktree for slug "${printable(slug)}" (expected feat/${slug} under ${canonicalize(root)}).\n`,
+    };
+  }
+
+  const head = git(entry.path, ["symbolic-ref", "--quiet", "HEAD"]);
+  if (head.status !== 0 || head.stderr.trim() !== "" || head.stdout.trim() !== `refs/heads/${entry.branch}`) {
+    return { code: 1, out: "", err: `worktree rebase: ${entry.path} is not registered on ${entry.branch}.\n` };
+  }
+
+  const status = worktreeStatus(entry.path);
+  if (status.detail !== undefined) {
+    return { code: 1, out: "", err: `worktree rebase: git status is unreadable (${printable(status.detail)}); refusing to rebase.\n` };
+  }
+  if (status.paths.length > 0) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree rebase: ${entry.branch} is dirty (${status.paths.map(displayPath).join(", ")}); refusing to rebase.\n`,
+    };
+  }
+
+  const checkpointProblem = rebaseCheckpointProblem(entry.path, slug);
+  if (checkpointProblem !== null) {
+    return { code: 1, out: "", err: `worktree rebase: ${checkpointProblem}; refusing to rebase.\n` };
+  }
+
+  const operation = gitOperationState(entry.path);
+  if (operation !== null) {
+    const detail = "detail" in operation ? operation.detail : `${operation.name} is in progress`;
+    return { code: 1, out: "", err: `worktree rebase: ${detail}; refusing to rebase.\n` };
+  }
+
+  const mainBefore = fullCommitRef(repo);
+  if (mainBefore === null) {
+    return { code: 1, out: "", err: "worktree rebase: local refs/heads/main is unreadable; refusing to rebase.\n" };
+  }
+
+  const rebased = git(entry.path, ["rebase", "refs/heads/main"]);
+  if (rebased.status !== 0) {
+    const detail = rebased.stderr.trim();
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree rebase: git rebase refs/heads/main failed${detail ? `: ${printable(detail)}` : ` (exit ${rebased.status})`}; ` +
+        `any conflict remains in progress in ${entry.path} for resolution or abort.\n`,
+    };
+  }
+
+  const mainAfter = fullCommitRef(repo);
+  if (mainAfter === null || mainAfter !== mainBefore) {
+    return {
+      code: 1,
+      out: "",
+      err: "worktree rebase: local refs/heads/main changed or became unreadable during rebase; verify the feature worktree before continuing.\n",
+    };
+  }
+  const ancestry = git(entry.path, ["merge-base", "--is-ancestor", mainAfter, "HEAD"]);
+  if (ancestry.status !== 0 || ancestry.stderr.trim() !== "") {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree rebase: could not verify that local main ${mainAfter} is an ancestor of ${entry.branch}.\n`,
+    };
+  }
+
+  return { code: 0, out: `✓ rebased worktree ${slug} onto local main ${mainAfter}\n`, err: "" };
 }
 
 export function worktreeRm(slug: string, force = false): WorktreeResult {
