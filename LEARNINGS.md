@@ -891,3 +891,31 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Add the Choose folder control, matching three-column layout, simulated selection state, and narrow-screen stacking to the prototype and capture map.
 - **Lesson:** When a live form gains a control, update its approved prototype and state scenario in the same checkpoint; mark platform-only effects proto-only.
 - **Tags:** ui, prototype, workspace, tests
+
+### L122 · 2026-10-08 · worktree-lifecycle-awareness #1 · behavior
+- **Failure:** The full-suite wall-clock p95 check (<50ms) intermittently measured 1,672.47ms and 161.718ms under load; the focused test was intermittent too (`tests/adversarial/chain.test.ts:247`).
+- **Root cause:** Verification traced the timing to scheduler sensitivity under concurrent test load, not checkpoint code.
+- **Fix:** No code change; subsequent isolated and full-suite runs passed.
+- **Lesson:** Capture and isolate a timing failure before attributing it to a feature.
+- **Tags:** behavior, tests, performance
+
+### L123 · 2026-10-08 · worktree-lifecycle-awareness #1 · review
+- **Failure:** Lifecycle state could be acted on for an unverified, out-of-root, or missing/prunable worktree, or from a stale concurrent update.
+- **Root cause:** Evidence was not consistently tied to the exact managed worktree, configured root, live registration, and serialized lifecycle record.
+- **Fix:** Verify exact slug/root/live worktree evidence, serialize writes, and treat missing, malformed, or stale evidence as unknown (`src/shared-worktree.ts`, `skills/ai-orchestrator/SKILL.md`, `tests/worktree-command.spec.ts`).
+- **Lesson:** Lifecycle evidence must be exact, rooted, live, and serialized.
+- **Tags:** worktree, lifecycle, review
+
+### L124 · 2026-10-08 · worktree-lifecycle-awareness #1 · review
+- **Failure:** A stale review approval could reopen implementation, while text-only checks could miss lifecycle command behavior.
+- **Root cause:** Revision approval was not proved against the exact current review record through the command path.
+- **Fix:** Bind approval to the current review record and cover current and stale revisions through the CLI (`src/shared-worktree.ts`, `skills/ai-orchestrator/SKILL.md`, `tests/worktree-command.spec.ts`).
+- **Lesson:** Bind revisions to the exact reviewed record and test lifecycle behavior through the command.
+- **Tags:** worktree, lifecycle, review
+
+### L125 · 2026-10-08 · worktree-lifecycle-awareness #1 · review
+- **Failure:** Concurrent callers could race while reclaiming a dead lifecycle lock.
+- **Root cause:** Checking that the recorded owner was dead did not serialize stale-lock removal.
+- **Fix:** Guard reclamation with its own recovery lock, reread and recheck the owner before unlinking, and exercise concurrent recovery (`src/shared-worktree.ts`, `tests/worktree-command.spec.ts`).
+- **Lesson:** Stale-lock reclamation needs its own serialization, not just a liveness check.
+- **Tags:** worktree, lifecycle, review

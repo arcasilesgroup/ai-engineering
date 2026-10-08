@@ -41,7 +41,14 @@ brainstorm with one exact feature slug, a unique approval date within 14 days, a
 matching `complete · <date>` status line. This projection writes no record and never replaces
 the brainstorm's human approval gate. Missing, draft, malformed, ambiguous, mismatched, or
 expired evidence is unknown/pending. Semantic near-matches are advisory only and never
-substitute for an exact slug or resume target. Do not create a worktree from brainstorm.
+substitute for an exact slug or resume target. Use only the exact Git-listed path, and
+verify it remains a directory whose porcelain entry is not `prunable`. Do not create a
+worktree from brainstorm.
+An exact slug match selects that existing task; do not create a second brainstorm or worktree
+for it. Use only the exact row and Git-listed path; verify the path is still a directory and
+its porcelain entry is not `prunable`. Semantic near-matches are advisory only, never a
+substitute for an exact slug or resume target. A projection never supplies human approval,
+and unknown lifecycle evidence never authorizes work.
 
 ## Three paths (classify out loud before the first question)
 

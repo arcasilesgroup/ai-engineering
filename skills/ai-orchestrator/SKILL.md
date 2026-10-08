@@ -111,7 +111,8 @@ When the gate passes, every later phase reads both files. `.ai-engineering/PRD.h
   Phase 0 immediately. Do not run `ai-eng worktree new`, resume it, rebase it, run
   `ai-eng worktree rm`, reset it, switch branches, or otherwise mutate it.
 - Only if that same-slug entry is clean, trusted and already on `feat/<slug>`, resume
-  it using its exact Git-listed path; never derive a path or switch a branch.
+  it using its exact Git-listed path; verify that path is still a directory and its
+  porcelain entry is not `prunable`. Never derive a path or switch a branch.
 - If the slug is not listed, first classify the other work. Clearly unrelated work
   may continue untouched. A likely overlap, or dirty/missing/uncertain work that could
   overlap, means pause here and ask the human for a decision. Only when no matching
