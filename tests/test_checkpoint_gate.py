@@ -52,7 +52,10 @@ def is_symlink_creation_unavailable(error):
     return getattr(error, "winerror", None) == 1314 or error.errno in unavailable_errors
 
 
-with tempfile.TemporaryDirectory() as temporary_root:
+with tempfile.TemporaryDirectory(
+    prefix=".checkpoint-gate-",
+    dir=os.path.dirname(os.path.abspath(__file__)),
+) as temporary_root:
     root = os.path.realpath(temporary_root)
     os.makedirs(f"{root}/.ai-engineering/workflow/checkpoints")
     path = f"{root}/.ai-engineering/workflow/checkpoints/demo.json"
@@ -244,10 +247,10 @@ with tempfile.TemporaryDirectory() as temporary_root:
         "GIT_TERMINAL_PROMPT": "0",
     }
 
-    def git(args):
+    def git(args, cwd=root):
         result = subprocess.run(
             ["git", *args],
-            cwd=root,
+            cwd=cwd,
             env=git_env,
             capture_output=True,
             text=True,
@@ -547,6 +550,118 @@ with tempfile.TemporaryDirectory() as temporary_root:
         life("ready-to-merge", "approved", "approved", current_main),
     ), 2)
     lifecycle_result("U11: blocked stale review resumes at pending review on current main", blocked_stale_review, refreshed_review, 0)
+
+    # U28: ready-to-merge stays bound to fresh approval, and complete needs a verified main merge.
+    merge_slug = "verified-merge"
+    merge_root = os.path.realpath(f"{root}/selected-worktrees/{merge_slug}")
+    os.makedirs(os.path.dirname(merge_root), exist_ok=True)
+    subprocess.run(
+        ["git", "worktree", "add", "-q", "-b", f"feat/{merge_slug}", merge_root, "refs/heads/main"],
+        cwd=root,
+        env=git_env,
+        check=True,
+    )
+    merge_checkpoint = f"{merge_root}/.ai-engineering/workflow/checkpoints/{merge_slug}.json"
+    os.makedirs(os.path.dirname(merge_checkpoint), exist_ok=True)
+    main_at_review = git(["rev-parse", "refs/heads/main"])
+    ready_plan = {
+        "slug": merge_slug,
+        "checkpoints": [cp(1, "passed", "passed", "n/a", "passed")],
+        "lifecycle": life("ready-to-merge", "approved", "approved", main_at_review),
+    }
+    with open(merge_checkpoint, "w") as fixture:
+        json.dump(ready_plan, fixture)
+    with open(f"{merge_root}/merge-feature.txt", "w") as fixture:
+        fixture.write("approved feature\n")
+    git(["add", merge_checkpoint, "merge-feature.txt"], cwd=merge_root)
+    git(["commit", "-q", "-m", "approve feature for merge"], cwd=merge_root)
+    merge_branch = git(["rev-parse", f"refs/heads/feat/{merge_slug}"])
+    assert git(["symbolic-ref", "--short", "HEAD"], cwd=merge_root) == f"feat/{merge_slug}"
+    assert git(["rev-parse", "refs/heads/main"]) == main_at_review
+    assert git(["remote"]) == ""
+
+    git(["commit", "--allow-empty", "-q", "-m", "advance main after approval"])
+    stale_main = git(["rev-parse", "refs/heads/main"])
+    stale_ready_result = run(merge_root, write(merge_checkpoint, ready_plan))
+    fails += stale_ready_result != 2
+    print(("ok  " if stale_ready_result == 2 else "FAIL"), "U28: stale app approval cannot enter ready-to-merge", f"(exit {stale_ready_result})")
+    git(["rebase", "refs/heads/main"], cwd=merge_root)
+    git(["merge-base", "--is-ancestor", stale_main, "HEAD"], cwd=merge_root)
+
+    fresh_review_plan = with_lifecycle(
+        ready_plan,
+        life("awaiting-app-review", "approved", "pending", stale_main),
+    )
+    fresh_review_result = run(merge_root, write(merge_checkpoint, fresh_review_plan))
+    fails += fresh_review_result != 0
+    print(("ok  " if fresh_review_result == 0 else "FAIL"), "U28: renewed app review binds to the advanced local main", f"(exit {fresh_review_result})")
+    with open(merge_checkpoint, "w") as fixture:
+        json.dump(fresh_review_plan, fixture)
+    fresh_ready_plan = with_lifecycle(
+        fresh_review_plan,
+        life("ready-to-merge", "approved", "approved", stale_main),
+    )
+    fresh_ready_result = run(merge_root, write(merge_checkpoint, fresh_ready_plan))
+    fails += fresh_ready_result != 0
+    print(("ok  " if fresh_ready_result == 0 else "FAIL"), "U28: fresh app approval authorizes ready-to-merge", f"(exit {fresh_ready_result})")
+    with open(merge_checkpoint, "w") as fixture:
+        json.dump(fresh_ready_plan, fixture)
+
+    complete_plan = with_lifecycle(
+        fresh_ready_plan,
+        life("complete", "approved", "approved", stale_main),
+    )
+    unverified_complete_result = run(merge_root, write(merge_checkpoint, complete_plan))
+    fails += unverified_complete_result != 2
+    print(("ok  " if unverified_complete_result == 2 else "FAIL"), "U28: complete is refused before a verified merge", f"(exit {unverified_complete_result})")
+
+    fresh_ready_bytes = open(merge_checkpoint).read()
+    with open(merge_checkpoint, "w") as fixture:
+        json.dump(fresh_ready_plan, fixture)
+    git(["add", merge_checkpoint], cwd=merge_root)
+    git(["commit", "-q", "-m", "record fresh merge approval"], cwd=merge_root)
+    merge_branch = git(["rev-parse", f"refs/heads/feat/{merge_slug}"])
+    assert git(["rev-parse", "refs/heads/main"]) == stale_main
+    git(["merge-base", "--is-ancestor", stale_main, merge_branch])
+    subprocess.run(
+        ["git", "merge", "--no-commit", "--no-ff", f"refs/heads/feat/{merge_slug}"],
+        cwd=root,
+        env=git_env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "chore(verified-merge): merge feature"],
+        cwd=root,
+        env=git_env,
+        check=True,
+    )
+    merge_commit = git(["rev-parse", "refs/heads/main"])
+    parents = git(["rev-list", "--parents", "-n", "1", merge_commit]).split()
+    assert parents == [merge_commit, stale_main, merge_branch]
+    git(["merge-base", "--is-ancestor", merge_branch, merge_commit])
+    assert git(["symbolic-ref", "--short", "HEAD"], cwd=merge_root) == f"feat/{merge_slug}"
+    assert git(["rev-parse", "HEAD"], cwd=merge_root) == merge_branch
+    assert git(["rev-parse", "refs/heads/main"], cwd=merge_root) == merge_commit
+    git(["merge-base", "--is-ancestor", "HEAD", merge_commit], cwd=merge_root)
+
+    verified_process = subprocess.run(
+        [sys.executable, HOOK],
+        input=json.dumps(write(merge_checkpoint, complete_plan)),
+        capture_output=True,
+        text=True,
+        env={**os.environ, "CLAUDE_PROJECT_DIR": merge_root},
+    )
+    verified_complete_result = verified_process.returncode
+    fails += verified_complete_result != 0
+    if verified_complete_result != 0:
+        print("U28 complete refusal detail:", verified_process.stderr.strip())
+    print(("ok  " if verified_complete_result == 0 else "FAIL"), "U28: verified merge authorizes complete", f"(exit {verified_complete_result})")
+    with open(merge_checkpoint, "w") as fixture:
+        fixture.write(fresh_ready_bytes)
+    git(["worktree", "remove", merge_root])
+
     fails += nonlocal_fails[0]
 
 sys.exit(1 if fails else 0)

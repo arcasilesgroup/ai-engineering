@@ -63,6 +63,19 @@ function runList(cwd: string): Run {
   };
 }
 
+function runWorktree(cwd: string, args: string[]): Run {
+  const result = spawnSync(process.execPath, [CLI, "worktree", ...args], {
+    cwd,
+    encoding: "utf8",
+    env: childEnv,
+  });
+  return {
+    status: result.status ?? 1,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+  };
+}
+
 function commitFile(worktree: string, relativePath: string, contents: string, message: string): string {
   const filePath = join(worktree, relativePath);
   mkdirSync(dirname(filePath), { recursive: true });
@@ -152,6 +165,25 @@ function checkpointPlan(slug: string, phase: string, files: string[] = [], statu
       files,
     }],
     lifecycle: lifecycle(phase),
+  };
+}
+
+function mergeReadyPlan(slug: string, reviewedMain: string): Record<string, unknown> {
+  const gate = (status: string) => ({ status, attempts: 1, findings: [] });
+  return {
+    slug,
+    checkpoints: [{
+      id: 1,
+      status: "passed",
+      gates: { behavior: gate("passed"), ui: gate("passed"), review: gate("passed") },
+      files: [],
+    }],
+    lifecycle: {
+      phase: "ready-to-merge",
+      plan_approval: "approved",
+      app_review: "approved",
+      reviewed_main: reviewedMain,
+    },
   };
 }
 
@@ -632,5 +664,237 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
       reviewed_main: localMain,
     });
     expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(localMain);
+  });
+});
+
+describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
+  test("U24: native merge state refuses a competing merge without committing or removing either feature", () => {
+    const repo = initRepo();
+    const approved = addBranchWorktree(repo, "merge-approved");
+    const sibling = addBranchWorktree(repo, "merge-sibling");
+    const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const approvedFile = "approved feature data\n";
+    const siblingFile = "unapproved sibling data\n";
+    const approvedCommit = commitFile(approved, "src/approved.ts", approvedFile, "approved feature");
+    const siblingCommit = commitFile(sibling, "src/sibling.ts", siblingFile, "unapproved sibling");
+    const approvedCheckpoint = writeCheckpoint(
+      approved,
+      "merge-approved",
+      mergeReadyPlan("merge-approved", reviewedMain),
+    );
+    const siblingCheckpoint = writeCheckpoint(
+      sibling,
+      "merge-sibling",
+      checkpointPlan("merge-sibling", "implementation"),
+    );
+    commitCheckpoint(approved, approvedCheckpoint);
+    commitCheckpoint(sibling, siblingCheckpoint);
+    const approvedTip = git(["rev-parse", "refs/heads/feat/merge-approved"], repo).trim();
+    const siblingTip = git(["rev-parse", "refs/heads/feat/merge-sibling"], repo).trim();
+
+    expect(git(["branch", "--show-current"], repo).trim()).toBe("main");
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(reviewedMain);
+    expect(git(["remote"], repo)).toBe("");
+    expect(git(["for-each-ref", "--format=%(refname)", "refs/remotes"], repo)).toBe("");
+    expect(git(["branch", "--show-current"], approved).trim()).toBe("feat/merge-approved");
+    expect(git(["branch", "--show-current"], sibling).trim()).toBe("feat/merge-sibling");
+    expect(runGit(["merge-base", "--is-ancestor", reviewedMain, approvedTip], repo).status).toBe(0);
+    expect(runGit(["merge-base", "--is-ancestor", reviewedMain, siblingTip], repo).status).toBe(0);
+    expect(runGit(["merge-base", "--is-ancestor", approvedCommit, approvedTip], repo).status).toBe(0);
+    expect(runGit(["merge-base", "--is-ancestor", siblingCommit, siblingTip], repo).status).toBe(0);
+
+    const firstMerge = runGit(["merge", "--no-commit", "--no-ff", "refs/heads/feat/merge-approved"], repo);
+    expect(firstMerge.status).toBe(0);
+    const mergeHeadPath = join(repo, ".git", "MERGE_HEAD");
+    expect(readFileSync(mergeHeadPath, "utf8").trim()).toBe(approvedTip);
+    const indexBeforeRetry = git(["ls-files", "--stage"], repo);
+    const statusBeforeRetry = git(["status", "--porcelain", "--untracked-files=all"], repo);
+    const registrationsBeforeRetry = git(["worktree", "list", "--porcelain"], repo);
+    const refsBeforeRetry = git(["for-each-ref", "--format=%(refname) %(objectname)"], repo);
+
+    const competingMerge = runGit(["merge", "--no-ff", "refs/heads/feat/merge-sibling"], repo);
+
+    expect(competingMerge.status).not.toBe(0);
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(reviewedMain);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(reviewedMain);
+    expect(readFileSync(mergeHeadPath, "utf8").trim()).toBe(approvedTip);
+    expect(git(["ls-files", "--stage"], repo)).toBe(indexBeforeRetry);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(statusBeforeRetry);
+    expect(git(["worktree", "list", "--porcelain"], repo)).toBe(registrationsBeforeRetry);
+    expect(git(["for-each-ref", "--format=%(refname) %(objectname)"], repo)).toBe(refsBeforeRetry);
+    expect(git(["rev-parse", "refs/heads/feat/merge-sibling"], repo).trim()).toBe(siblingTip);
+    expect(readFileSync(join(approved, "src", "approved.ts"), "utf8")).toBe(approvedFile);
+    expect(readFileSync(join(sibling, "src", "sibling.ts"), "utf8")).toBe(siblingFile);
+    expect(readFileSync(approvedCheckpoint, "utf8")).toContain(reviewedMain);
+    expect(readFileSync(siblingCheckpoint, "utf8")).toContain('"phase": "implementation"');
+  });
+
+  test("U25: a stale approved merge is aborted while retaining the advanced main and feature checkpoint", () => {
+    const repo = initRepo();
+    const feature = addBranchWorktree(repo, "merge-stale");
+    const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const featureContents = "preserved feature data\n";
+    const featureCommit = commitFile(feature, "src/feature.ts", featureContents, "feature change");
+    const checkpoint = writeCheckpoint(
+      feature,
+      "merge-stale",
+      mergeReadyPlan("merge-stale", reviewedMain),
+    );
+    commitCheckpoint(feature, checkpoint);
+    const approvedCheckpoint = readFileSync(checkpoint, "utf8");
+    const featureTip = git(["rev-parse", "refs/heads/feat/merge-stale"], repo).trim();
+    const featureRef = pinRef(repo, "stale-feature-before-merge", featureTip);
+    expect(runGit(["merge-base", "--is-ancestor", featureCommit, featureTip], repo).status).toBe(0);
+    expect(git(["remote"], repo)).toBe("");
+
+    const mainAdvance = addBranchWorktree(repo, "merge-main-advance", "topic/main-advance");
+    const advancedMain = commitFile(
+      mainAdvance,
+      "src/main-after-review.ts",
+      "main advanced after approval\n",
+      "advance main",
+    );
+    git(["worktree", "remove", mainAdvance], repo);
+    expect(runGit(["merge-base", "--is-ancestor", reviewedMain, advancedMain], repo).status).toBe(0);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(reviewedMain);
+    expect(git(["branch", "--show-current"], feature).trim()).toBe("feat/merge-stale");
+
+    const pendingMerge = runGit(["merge", "--no-commit", "--no-ff", "refs/heads/feat/merge-stale"], repo);
+    expect(pendingMerge.status).toBe(0);
+    expect(readFileSync(join(repo, ".git", "MERGE_HEAD"), "utf8").trim()).toBe(featureTip);
+    git(["update-ref", "refs/heads/main", advancedMain], repo);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).not.toBe(reviewedMain);
+
+    const abort = runGit(["merge", "--abort"], repo);
+
+    expect(abort.status).toBe(0);
+    expect(runGit(["rev-parse", "--verify", "MERGE_HEAD"], repo).status).not.toBe(0);
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(advancedMain);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(advancedMain);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+    expect(git(["rev-parse", "refs/heads/feat/merge-stale"], repo).trim()).toBe(featureTip);
+    expect(git(["rev-parse", featureRef], repo).trim()).toBe(featureTip);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
+    expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(feature));
+    expect(readFileSync(checkpoint, "utf8")).toBe(approvedCheckpoint);
+    expect(readFileSync(join(feature, "src", "feature.ts"), "utf8")).toBe(featureContents);
+
+    const invalidatedPlan = checkpointPlan("merge-stale", "blocked");
+    writeCheckpoint(feature, "merge-stale", invalidatedPlan);
+    expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle).toEqual({
+      phase: "blocked",
+      plan_approval: "approved",
+      app_review: "not-started",
+      reviewed_main: null,
+    });
+  });
+
+  test("U26: only the approved feature gets a no-fast-forward merge, verified before safe removal", () => {
+    const repo = initRepo();
+    const approved = addBranchWorktree(repo, "merge-only-approved");
+    const sibling = addBranchWorktree(repo, "merge-only-sibling");
+    const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const approvedCommit = commitFile(approved, "src/approved.ts", "approved only\n", "approved feature");
+    const siblingCommit = commitFile(sibling, "src/sibling.ts", "sibling remains\n", "unapproved sibling");
+    const approvedCheckpoint = writeCheckpoint(
+      approved,
+      "merge-only-approved",
+      mergeReadyPlan("merge-only-approved", reviewedMain),
+    );
+    const siblingCheckpoint = writeCheckpoint(
+      sibling,
+      "merge-only-sibling",
+      checkpointPlan("merge-only-sibling", "implementation"),
+    );
+    commitCheckpoint(approved, approvedCheckpoint);
+    commitCheckpoint(sibling, siblingCheckpoint);
+    const approvedTip = git(["rev-parse", "refs/heads/feat/merge-only-approved"], repo).trim();
+    const siblingTip = git(["rev-parse", "refs/heads/feat/merge-only-sibling"], repo).trim();
+
+    expect(git(["branch", "--show-current"], repo).trim()).toBe("main");
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(reviewedMain);
+    expect(git(["branch", "--show-current"], approved).trim()).toBe("feat/merge-only-approved");
+    expect(git(["branch", "--show-current"], sibling).trim()).toBe("feat/merge-only-sibling");
+    expect(git(["rev-parse", "refs/heads/feat/merge-only-approved"], repo).trim()).toBe(approvedTip);
+    expect(runGit(["merge-base", "--is-ancestor", reviewedMain, approvedTip], repo).status).toBe(0);
+    expect(runGit(["merge-base", "--is-ancestor", approvedCommit, approvedTip], repo).status).toBe(0);
+    expect(runGit(["merge-base", "--is-ancestor", siblingCommit, siblingTip], repo).status).toBe(0);
+    expect(git(["remote"], repo)).toBe("");
+
+    expect(runGit(["merge", "--no-commit", "--no-ff", "refs/heads/feat/merge-only-approved"], repo).status).toBe(0);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(reviewedMain);
+    expect(runGit(["merge-base", "--is-ancestor", "refs/heads/feat/merge-only-sibling", "refs/heads/main"], repo).status)
+      .not.toBe(0);
+    expect(runGit(["merge-base", "--is-ancestor", "refs/heads/feat/merge-only-approved", "refs/heads/main"], repo).status)
+      .not.toBe(0);
+    git(["commit", "-q", "-m", "chore(merge-only-approved): merge feature"], repo);
+
+    const mergeCommit = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const mergeParents = git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ");
+    expect(mergeParents).toEqual([mergeCommit, reviewedMain, approvedTip]);
+    expect(runGit(["merge-base", "--is-ancestor", "refs/heads/feat/merge-only-approved", "refs/heads/main"], repo).status)
+      .toBe(0);
+    expect(runGit(["merge-base", "--is-ancestor", "refs/heads/feat/merge-only-sibling", "refs/heads/main"], repo).status)
+      .not.toBe(0);
+    expect(readFileSync(approvedCheckpoint, "utf8")).toContain('"app_review": "approved"');
+
+    const removeApproved = runWorktree(repo, ["rm", "merge-only-approved"]);
+
+    expect(removeApproved.status).toBe(0);
+    expect(existsSync(approved)).toBe(false);
+    expect(runGit(["show-ref", "--verify", "refs/heads/feat/merge-only-approved"], repo).status).not.toBe(0);
+    expect(existsSync(sibling)).toBe(true);
+    expect(git(["rev-parse", "refs/heads/feat/merge-only-sibling"], repo).trim()).toBe(siblingTip);
+    expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(sibling));
+    expect(readFileSync(join(sibling, "src", "sibling.ts"), "utf8")).toBe("sibling remains\n");
+    expect(readFileSync(siblingCheckpoint, "utf8")).toContain('"phase": "implementation"');
+  });
+
+  test("U27: uncertain ancestry preserves the feature and verified ancestry is required before removal", () => {
+    const repo = initRepo();
+    const feature = addBranchWorktree(repo, "merge-unverified");
+    const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const featureContents = "keep until merge proof\n";
+    const featureCommit = commitFile(feature, "src/feature.ts", featureContents, "feature change");
+    const checkpoint = writeCheckpoint(
+      feature,
+      "merge-unverified",
+      mergeReadyPlan("merge-unverified", reviewedMain),
+    );
+    commitCheckpoint(feature, checkpoint);
+    const featureTip = git(["rev-parse", "refs/heads/feat/merge-unverified"], repo).trim();
+    const checkpointContents = readFileSync(checkpoint, "utf8");
+    expect(runGit(["merge-base", "--is-ancestor", featureCommit, featureTip], repo).status).toBe(0);
+    expect(git(["remote"], repo)).toBe("");
+    const beforeUnmergedRemoval = repoSnapshot(repo, [feature], [checkpoint]);
+
+    const unmergedRemoval = runWorktree(repo, ["rm", "merge-unverified"]);
+
+    expect(unmergedRemoval.status).not.toBe(0);
+    expect(unmergedRemoval.stderr).toContain("not merged into the local main");
+    expect(repoSnapshot(repo, [feature], [checkpoint])).toBe(beforeUnmergedRemoval);
+    expect(git(["rev-parse", "refs/heads/feat/merge-unverified"], repo).trim()).toBe(featureTip);
+    expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
+    expect(readFileSync(join(feature, "src", "feature.ts"), "utf8")).toBe(featureContents);
+    expect(existsSync(feature)).toBe(true);
+
+    const advancedMain = commitFile(repo, "src/main-after-review.ts", "different first parent\n", "advance main");
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(advancedMain);
+    expect(runGit(["merge", "--no-commit", "--no-ff", "refs/heads/feat/merge-unverified"], repo).status).toBe(0);
+    git(["commit", "-q", "-m", "merge against unreviewed main"], repo);
+
+    const unreviewedMerge = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const unreviewedParents = git(["rev-list", "--parents", "-n", "1", unreviewedMerge], repo).trim().split(" ");
+    const featureIsAncestor = runGit(
+      ["merge-base", "--is-ancestor", "refs/heads/feat/merge-unverified", "refs/heads/main"],
+      repo,
+    ).status === 0;
+    expect(featureIsAncestor).toBe(true);
+    expect(unreviewedParents[1]).not.toBe(reviewedMain);
+    expect(unreviewedParents[1]).toBe(advancedMain);
+    expect(existsSync(feature)).toBe(true);
+    expect(git(["rev-parse", "refs/heads/feat/merge-unverified"], repo).trim()).toBe(featureTip);
+    expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
+    expect(readFileSync(join(feature, "src", "feature.ts"), "utf8")).toBe(featureContents);
   });
 });

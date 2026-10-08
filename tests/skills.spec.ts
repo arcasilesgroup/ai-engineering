@@ -547,6 +547,32 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     }
   });
 
+  test("U24-U27: Phase 4 aborts stale merges and verifies the reviewed merge before removal", () => {
+    const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const phase4 = markdownSection(orchestrator, "## Phase 4: Human stop 2, app review");
+    const approval = phase4.split("- **Approve:**")[1]?.split("- **Stop here:**")[0] ?? "";
+    const normalized = approval.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const startMerge = normalized.indexOf("git merge --no-commit --no-ff feat/<slug>");
+    const rereadMain = normalized.indexOf("git rev-parse refs/heads/main", startMerge);
+    const abortStaleMerge = normalized.indexOf("git merge --abort", rereadMain);
+    const invalidateApproval = normalized.indexOf("app review", abortStaleMerge);
+    const verifyFirstParent = normalized.indexOf("first parent", abortStaleMerge);
+    const verifyFeatureAncestry = normalized.indexOf("git merge-base --is-ancestor feat/<slug> main", verifyFirstParent);
+    const removeWorktree = normalized.indexOf("ai-eng worktree rm <slug>", verifyFeatureAncestry);
+
+    expect(startMerge).toBeGreaterThanOrEqual(0);
+    expect(rereadMain).toBeGreaterThan(startMerge);
+    expect(abortStaleMerge).toBeGreaterThan(rereadMain);
+    expect(invalidateApproval).toBeGreaterThan(abortStaleMerge);
+    expect(verifyFirstParent).toBeGreaterThan(abortStaleMerge);
+    expect(normalized).toMatch(/first parent[\s\S]{0,120}reviewed_main/);
+    expect(verifyFeatureAncestry).toBeGreaterThan(verifyFirstParent);
+    expect(removeWorktree).toBeGreaterThan(verifyFeatureAncestry);
+    expect(normalized).toContain("merge_head");
+    expect(normalized).toMatch(/no custom lock/);
+    expect(normalized).toMatch(/only the approved feature/);
+  });
+
   test("U17: Phase 1 initializes lifecycle approval in the selected feature worktree", () => {
     const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
     const phase1 = markdownSection(orchestrator, "## Phase 1: Plan")
