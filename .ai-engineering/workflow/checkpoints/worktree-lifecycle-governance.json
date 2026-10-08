@@ -4,6 +4,12 @@
   "summary": "Remove unused declaration-manifest support, show lifecycle state from Git-listed feature worktrees, and safely synchronize and merge reviewed work into local main.",
   "plain_summary": "Before work begins, the project shows active tasks and decisions waiting. Each task catches up with accepted changes before review and safe cleanup.",
   "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "lifecycle": {
+    "phase": "implementation",
+    "plan_approval": "approved",
+    "app_review": "not-started",
+    "reviewed_main": null
+  },
   "checkpoints": [
     {
       "id": 1,
