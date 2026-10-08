@@ -1389,6 +1389,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
         "git rev-list --parents -n 1 HEAD >> \"$AI_ENG_TEST_PARENT_LOG\"",
       ].join("\n"),
     );
+    const primaryStatus = git(["status", "--porcelain", "--untracked-files=all"], repo);
     const log = join(root, "git-invocations.log");
     const run = runCli(["worktree", "merge", approved.slug], repo, {
       ...shimEnv(log),
@@ -1416,7 +1417,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
       approved.reviewedFeature,
     ]);
     expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(mergeCommit);
-    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(primaryStatus);
     expect(gitOut(["merge-base", "--is-ancestor", approved.reviewedFeature, mergeCommit], repo).status).toBe(0);
     expect(existsSync(approved.feature)).toBe(false);
     expect(gitOut(["show-ref", "--verify", `refs/heads/feat/${approved.slug}`], repo).status).not.toBe(0);
@@ -1564,6 +1565,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
         "exit 19",
       ].join("\n"),
     );
+    const primaryStatus = git(["status", "--porcelain", "--untracked-files=all"], repo);
 
     const run = runCli(["worktree", "merge", approved.slug], repo, {
       AI_ENG_TEST_HOOK_LOG: hookLog,
@@ -1582,7 +1584,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
       approved.reviewedFeature,
     );
     expect(gitOut(["rev-parse", "--verify", "MERGE_HEAD"], repo).status).not.toBe(0);
-    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(primaryStatus);
     expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
     expect(readFileSync(approved.checkpoint, "utf8")).toBe(approved.checkpointContents);
     expectWorktrees(repo, [repo, approved.feature]);
@@ -1619,6 +1621,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
           "fi",
         ].join("\n"),
       );
+      const primaryStatus = git(["status", "--porcelain", "--untracked-files=all"], repo);
       const hookEnv = {
         AI_ENG_TEST_HOOK_LOG: hookLog,
         AI_ENG_TEST_INTERRUPTION: interruption,
@@ -1645,11 +1648,11 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
         expect(readFileSync(join(repo, "README.md"), "utf8")).toBe("interrupted primary\n");
         expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toContain("README.md");
         writeFileSync(join(repo, "README.md"), "# fixture\n");
-        expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+        expect(gitOut(["diff", "--quiet", approved.reviewedMain, "--"], repo).status).toBe(0);
         expect(existsSync(join(repo, "src", "approved.ts"))).toBe(false);
       } else {
         expect(readFileSync(join(approved.feature, "interrupted.txt"), "utf8")).toBe("interrupted feature\n");
-        expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+        expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(primaryStatus);
         rmSync(join(approved.feature, "interrupted.txt"));
         expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
         expect(readFileSync(join(repo, "src", "approved.ts"), "utf8")).toBe(
@@ -1667,7 +1670,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
         approved.reviewedFeature,
       ]);
       expect(gitOut(["merge-base", "--is-ancestor", approved.reviewedFeature, publishedMerge], repo).status).toBe(0);
-      expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+      expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(primaryStatus);
       expect(existsSync(approved.feature)).toBe(false);
       expect(existsSync(approved.checkpoint)).toBe(false);
       expectWorktrees(repo, [repo]);

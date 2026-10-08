@@ -441,7 +441,7 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "failed",
+          "status": "pending",
           "attempts": 7,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
@@ -451,7 +451,7 @@
             "attempt 4 serial diagnostic PASS: `bun test --parallel=1 --max-concurrency=1` ran all 1,065 tests successfully.",
             "attempt 5 standard-concurrency FAIL: `bun test --reporter=dots` reported a separate floor-gates staged-secret scan contract case failure; 1,064 other tests passed. The spec/source were unchanged and three isolated runs passed.",
             "attempt 6 PASS: standard-concurrency `bun test --reporter=dots` passed all 1,065 tests.",
-            "attempt 7 FAIL: `bun test ./tests/worktree-command.spec.ts` has 3 failures involving temp merge hook file snapshots and primary tree refresh; `bun test ./tests/worktree-lifecycle.spec.ts` has 1 failure calling realpath after successful worktree removal. Skills/hook/typecheck/lint/embed checks passed."
+            "attempt 7 FAIL: `bun test ./tests/worktree-command.spec.ts` had 3 fixture/refresh assertions and `bun test ./tests/worktree-lifecycle.spec.ts` called realpath after successful removal. Test fixes snapshot after fixture setup, assert safe primary preservation/retry, and capture paths before deletion; rerun full CP6 verification."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },

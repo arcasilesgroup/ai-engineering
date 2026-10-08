@@ -921,6 +921,7 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
       mergeReadyPlan(slug, reviewedMain, reviewedFeature),
     );
     const checkpointContents = readFileSync(checkpoint, "utf8");
+    const featurePath = realpathSync(feature);
     const checkpointState = JSON.parse(checkpointContents) as {
       lifecycle: {
         phase: string;
@@ -951,7 +952,7 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
       reviewedFeature,
     ]);
     expect(runGit(["merge-base", "--is-ancestor", reviewedFeature, "refs/heads/main"], repo).status).toBe(0);
-    expect(git(["worktree", "list", "--porcelain"], repo)).not.toContain(realpathSync(feature));
+    expect(git(["worktree", "list", "--porcelain"], repo)).not.toContain(featurePath);
     expect(runGit(["show-ref", "--verify", `refs/heads/feat/${slug}`], repo).status).not.toBe(0);
     expect(existsSync(feature)).toBe(false);
     expect(existsSync(checkpoint)).toBe(false);

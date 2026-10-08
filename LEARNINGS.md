@@ -721,3 +721,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Narrow normalization so identifier spelling remains exact.
 - **Lesson:** Normalize Markdown formatting without altering identifiers.
 - **Tags:** behavior, tests, lifecycle
+
+### L87 · 2026-10-08 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** Merge transaction tests counted fixture hook files as product mutations, queried a canonical path after removal, and assumed the primary checkout would be empty despite a deliberate hook edit.
+- **Root cause:** The assertions ignored fixture setup and the safe preservation/retry path after refresh refuses to overwrite user changes.
+- **Fix:** Snapshot after hook setup, capture paths before deletion, and test that the primary edit is preserved until retry refreshes the published merge.
+- **Lesson:** Baseline fixtures after setup; capture paths before removal; assert preservation and retry separately.
+- **Tags:** behavior, tests, merge
