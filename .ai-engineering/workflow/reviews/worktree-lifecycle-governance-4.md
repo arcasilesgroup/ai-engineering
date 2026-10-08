@@ -42,3 +42,8 @@ Persist the plan-approval phase in the selected feature worktree and block imple
 
 - **Resolved:** Lifecycle initialization now compares the normalized supplied path to the canonical checkpoint path and rejects a symlink in the target or any path component (`scripts/checkpoint-gate.py`). Real Git feature-worktree regressions cover both a symlinked target file and a symlinked checkpoint-directory component (`tests/test_checkpoint_gate.py`).
 - Legacy primary-checkout writes without lifecycle and the existing primary/feature, branch, and path-escape checks remain unchanged.
+
+### Round 3 verification — one open finding
+
+- **Open — exact alias-path regression missing:** The implementation rejects an alias path because its normalized target differs from the canonical checkpoint (`scripts/checkpoint-gate.py:445-459`), but the “target-file symlink” test supplies the canonical `selected_path` itself and replaces that file with a symlink (`tests/test_checkpoint_gate.py:303-319`). It does not pass a distinct symlink alias path that resolves to the canonical checkpoint. Add a portable alias-path regression using the existing symlink-availability handling; expect lifecycle initialization through that alias to be denied.
+- **Verified:** Initialization is bound to the canonical checkpoint in the matching Git-listed `feat/<slug>` worktree; tests deny primary-checkout initialization, wrong branch/slug, out-of-root/path escape, and symlinked target/component paths. Legacy primary gate writes without lifecycle remain allowed.

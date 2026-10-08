@@ -651,3 +651,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Require normalized target identity and reject symlinks in the target path or any component.
 - **Lesson:** Verify path identity and each component, not only where a path resolves.
 - **Tags:** review, checkpoint-gate, symlink
+
+### L77 · 2026-10-08 · worktree-lifecycle-governance #4 · review
+- **Failure:** Review found the path-boundary test symlinked the canonical target rather than passing a distinct alias path that resolves to it.
+- **Root cause:** The fixture did not exercise the caller-supplied alias spelling checked by the hook.
+- **Fix:** Add a separate symlink alias path and assert that initialization through it is rejected while canonical initialization succeeds.
+- **Lesson:** Test path security with the alternate input path, not a symlinked target alone.
+- **Tags:** review, checkpoint-gate, symlink, tests

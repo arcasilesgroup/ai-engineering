@@ -301,6 +301,27 @@ with tempfile.TemporaryDirectory() as temporary_root:
     fails += selected_result != 0
     print(("ok  " if selected_result == 0 else "FAIL"), "U17: initial lifecycle plan is accepted in selected feature worktree", f"(exit {selected_result})")
     checkpoint_dir = os.path.dirname(selected_path)
+    alias_path = f"{checkpoint_dir}/demo-alias.json"
+    with open(selected_path, "w") as fixture:
+        json.dump(legacy, fixture)
+    canonical_result = run(selected_root, write(selected_path, initial_plan))
+    fails += canonical_result != 0
+    print(("ok  " if canonical_result == 0 else "FAIL"), "U20: canonical lifecycle path remains accepted", f"(exit {canonical_result})")
+    try:
+        os.symlink(selected_path, alias_path)
+    except OSError as error:
+        if not is_symlink_creation_unavailable(error):
+            raise
+        print(f"SKIP U20: distinct checkpoint alias symlink regression; this platform denies symlink creation ({error})")
+    else:
+        try:
+            alias_result = run(selected_root, write(alias_path, initial_plan))
+        finally:
+            os.unlink(alias_path)
+        fails += alias_result != 2
+        print(("ok  " if alias_result == 2 else "FAIL"), f"U20: distinct symlink alias cannot initialize lifecycle (exit {alias_result})")
+    os.unlink(selected_path)
+
     target_path = f"{selected_path}.target"
     with open(target_path, "w") as fixture:
         json.dump(legacy, fixture)

@@ -139,6 +139,13 @@
         "checkpoint": 4
       },
       {
+        "id": "U17a",
+        "case": "lifecycle initialization rejects a distinct symlink alias to the canonical checkpoint path while canonical feature-worktree initialization succeeds",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 4
+      },
+      {
         "id": "U18",
         "case": "implementation does not start or dispatch until the human approves the plan; approval then permits the transition to implementation",
         "file": "tests/workflow-handoff.spec.ts",
