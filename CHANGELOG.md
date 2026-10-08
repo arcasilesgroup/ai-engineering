@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Azure triage now validates source-linked claims and explains Recommendation and
+  Why now alongside dates, discussion, parent/sprint context and evidence coverage.
+  Current commitments and blockers can change recommendation order without
+  changing native Priority/Severity; critical risk stays first. Partial chronology
+  cannot establish current work. Existing inventory-only and GitHub behavior stays
+  intact, and invalid evidence preserves the previous report.
+- Add a memory-only synthetic preview for complete, limited and empty Azure
+  reports; no live tenant or private report is used.
+
 ## 2.6.0
 
 ### Minor Changes

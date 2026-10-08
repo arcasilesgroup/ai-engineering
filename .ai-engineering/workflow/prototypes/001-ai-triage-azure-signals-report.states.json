@@ -1,0 +1,46 @@
+{
+  "route": "/triage.html",
+  "now": "2026-10-08T10:00:00Z",
+  "viewports": [[1440, 900], [375, 812]],
+  "regions": ["page-header", "backlog-snapshot", "ranked-work", "type-state-summary", "coverage-method"],
+  "states": [
+    {
+      "name": "complete",
+      "regions": ["page-header", "backlog-snapshot", "ranked-work", "type-state-summary", "coverage-method"],
+      "proto_query": "state=complete",
+      "live_query": "state=complete",
+      "steps": []
+    },
+    {
+      "name": "expanded",
+      "regions": ["page-header", "backlog-snapshot", "ranked-work", "type-state-summary", "coverage-method"],
+      "proto_query": "state=complete",
+      "live_query": "state=complete",
+      "steps": [
+        { "click": "Item #202: Prepare delivery package", "role": "button" },
+        { "press": "Enter" },
+        { "press": "Enter" },
+        { "waitFor": "Microsoft.VSTS.Scheduling.DueDate: 2026-10-09." }
+      ]
+    },
+    {
+      "name": "limited",
+      "regions": ["page-header", "backlog-snapshot", "ranked-work", "type-state-summary", "coverage-method"],
+      "proto_query": "state=limited",
+      "live_query": "state=limited",
+      "steps": [
+        { "click": "Item #202: Prepare delivery package", "role": "button" },
+        { "waitFor": "Inaccessible: confirmed selected-team iteration permission denial." }
+      ]
+    },
+    {
+      "name": "empty",
+      "regions": ["page-header", "backlog-snapshot", "ranked-work", "type-state-summary", "coverage-method"],
+      "proto_query": "state=empty",
+      "live_query": "state=empty",
+      "steps": [
+        { "waitFor": "No selected backlog members were returned." }
+      ]
+    }
+  ]
+}

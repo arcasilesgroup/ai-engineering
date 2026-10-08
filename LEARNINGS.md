@@ -508,3 +508,83 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Measure 100 calls and retain the 50ms threshold plus a deterministic outlier check.
 - **Lesson:** Use enough samples for nearest-rank p95 to tolerate expected scheduler outliers without changing the budget.
 - **Tags:** behavior, tests, performance
+
+### L68 · 2026-10-08 · ai-triage-azure-signals #1 · behavior
+- **Failure:** A6 expected enriched UNASSESSED items in priority order rather than their original inventory order.
+- **Root cause:** The compatibility test applied assessed-item sorting to UNASSESSED items, contrary to the unchanged renderer and approved preservation contract.
+- **Fix:** Pin the fixture's inventory order and assert that every enriched UNASSESSED item renders once in that same order; leave the renderer unchanged.
+- **Lesson:** Verify legacy behavior and assessment status before setting compatibility expectations; correct a faulty test instead of changing the product baseline to satisfy it.
+- **Tags:** behavior, tests, azure, compatibility, unassessed
+
+### L69 · 2026-10-08 · ai-triage-azure-signals #1 · review
+- **Failure:** Valid comment continuations using Azure's canonical project GUID stopped pagination when the request used the project name.
+- **Root cause:** Continuation validation compared literal paths rather than the already verified selected-project identity.
+- **Fix:** Reuse the scoped project lookup or read it once; validate GUID aliases against that identity, organization and item, then reconstruct the original endpoint using only the opaque token.
+- **Lesson:** Validate documented identifier aliases against established identity without trusting or executing server-supplied continuation URLs.
+- **Tags:** review, azure, pagination, scope, validation, tests
+
+### L70 · 2026-10-08 · ai-triage-azure-signals #1 · review
+- **Failure:** Inaccessible or partial field metadata erased already-returned custom-date context and its revision-linked sources.
+- **Root cause:** Context candidates came only from successful dateTime metadata, so an unavailable definition also removed the underlying returned evidence.
+- **Fix:** Preserve custom fields without verified definitions as raw reference names, values and sources with unrecognized context and explicit metadata gaps; never infer their field types or delivery meaning.
+- **Lesson:** Missing definitions limit interpretation, not retention of already-returned scoped evidence.
+- **Tags:** review, azure, metadata, coverage, sources, tests
+
+### L71 · 2026-10-08 · ai-triage-azure-signals #1 · review
+- **Failure:** Missing, unset or malformed parent Priority/Severity was labeled complete and could make overall evidence sufficient.
+- **Root cause:** Parent normalization validated the item container but blindly copied importance and never included its field coverage in sufficiency.
+- **Fix:** Validate each importance field against integer/string metadata, expose per-field gaps and linked raw sources, publish only validated importance, and retain known parent dates while limiting coverage.
+- **Lesson:** A successful optional item read does not prove every requested field is available and valid; track those field gaps independently.
+- **Tags:** review, azure, parent, validation, coverage, sources, tests
+
+### L72 · 2026-10-08 · ai-triage-azure-signals #2 · tests
+- **Failure:** New unit fixtures used `item.azureSignals` while the shipped collector and integration fixtures used `item.signals`; a provenance case also nested its link under `codeEvidence.url` instead of the integration claim's `url`.
+- **Root cause:** Parallel test contracts invented different names for the same evidence without checking the existing collector declaration and each other's claim shapes.
+- **Fix:** Align only checkpoint-2 unit fixtures and assertions with `signals` and claim `url`; retain the missing recommendation APIs as intentional red tests.
+- **Lesson:** Derive new fixtures from the authoritative shipped contract and align shared claim names before implementation; never add product aliases to satisfy test drift.
+- **Tags:** tests, azure, contract, provenance
+
+### L73 · 2026-10-08 · ai-triage-azure-signals #2 · behavior
+- **Failure:** Independent reproduction confirmed 13 unit and 2 API failures after recommendation implementation.
+- **Root cause:** The unit recommendation fixture combines Priority 3 with Medium severity, whose stronger native band is P2 in the unchanged baseline, but asserted P3; omitted delivery fields also made its asserted sufficient coverage false. Bun's asymmetric `toMatchObject` replaced A6's live `signals` object with its matcher before publication. A8 expected item #202 ahead of #204 although both have native P3 and #204 occurs first in inventory.
+- **Fix:** Correct only the proven native-band, coverage and stable-order premises; run the asymmetric assertion on a clone and verify publication leaves inventory unchanged. Add exact critical/blocker/overdue/today/seven-day/eight-day ordering, native/stable ties, legacy-versus-enriched fallback, and sufficient-versus-limited coverage checks. Production ranking, source fixtures, cases and latency thresholds remain unchanged.
+- **Lesson:** Prove a fixture's strongest native signal, coverage gaps and unchanged evidence before asserting advice; a matcher that mutates its input can invalidate the very publication path it is meant to test.
+- **Tags:** behavior, tests, azure, fixtures, compatibility, coverage, ordering
+
+### L74 · 2026-10-08 · ai-triage-azure-signals #2 · behavior
+- **Failure:** The synthetic preview showed zero sufficient and three limited assessed items in both complete and limited states, instead of three sufficient and two sufficient respectively.
+- **Root cause:** Complete read envelopes did not supply every field the normalizer requires: items #201 and #203 omitted both delivery dates, #202 omitted TargetDate, and parent #901 omitted Severity, creation/change timestamps and DueDate. Metadata and supplied values, not the read envelope alone, determine evidence coverage.
+- **Fix:** Complete the synthetic date metadata and actual item/parent fields; put unrelated delivery dates outside the near window, retain #202's outstanding commitment tomorrow, and add revision/comment evidence labels backed by the supplied records. Leave production sufficiency, native urgency, incomplete reads, UNASSESSED retention, tests and prototype unchanged.
+- **Lesson:** Run a preview fixture through the normal writer and inspect each normalized coverage gap before capture; complete synthetic evidence honestly rather than force sufficient labels or loosen coverage rules.
+- **Tags:** behavior, azure, fixtures, preview, metadata, parent, coverage, sources
+
+### L75 · 2026-10-08 · ai-triage-azure-signals #2 · validation
+- **Failure:** A full-suite retry with project-local scratch created installation commits and deleted tracked governance artifacts from the working feature tree.
+- **Root cause:** The existing integration harness assumes its temporary homes and repositories are outside the governed repository. Moving its temporary root inside the feature tree made `home()` reject those `AI_ENG_HOME` overrides and made `repoRoot()` discover the real worktree through fixture ancestry; installation and removal no longer stayed isolated.
+- **Fix:** Recover the 84 missing tracked files from the test-created snapshot, prove all 19 feature/task changed files match that snapshot, restore the original feature tip and empty index, and remove owned scratch artifacts. Stop that retry configuration; unrelated harness and machine-side governance checks remain for the coordinator.
+- **Lesson:** A project-local temporary root is not isolation for tests that discover repositories through ancestors or deliberately reject repository-contained home overrides. Validate those boundaries before running installation/removal integration tests.
+- **Tags:** validation, tests, fixtures, isolation, governance, recovery
+
+### L76 · 2026-10-08 · ai-triage-azure-signals #2 · review
+- **Failure:** Edited older resolution/completion comments were ignored, and a later withdrawn child dependency still promoted its parent's commitment; actual reports ranked the child above native-priority-one work.
+- **Root cause:** Opposing claims were filtered by creation time before considering modification time. Parent admission accepted any historical positive dependency sharing a parent field, without reconciling false/unknown updates or preserving its supporting comment sources. Same-date commitments also lacked issue-identity pairing.
+- **Fix:** Reconcile source-backed claims with creation/modification intervals and issue identity. Unambiguous later withdrawals remove dependency admission; edited or unknown counterclaims retain both references and request clarification in native order. Separate-comment parent support needs matching delivery identities, and promoted commitments include their dependency evidence. Preserve conservative legacy handling without prose keywords or changing native urgency.
+- **Lesson:** A current comment version does not timestamp its asserted event. Reconcile positive, negative and unknown evidence before declaring work current; shared fields establish context, not identity or current dependency.
+- **Proof:** Eighteen added regressions cover chronology, identity, dependency withdrawal/uncertainty and actual writer ordering. Checkpoint non-UI gates: 138 unit, 150 API and 72 static pass; lint/typecheck exit 0. Normal full suite with unchanged OS scratch: 1249 pass, 0 fail, 5503 assertions. No performance budget changes.
+- **Tags:** review, azure, chronology, claims, identity, dependency, provenance, ordering, tests
+
+### L77 · 2026-10-08 · ai-triage-azure-signals #2 · review
+- **Failure:** Historical dependency uncertainty overrode a later explicit confirmation only when an obsolete positive dependency preceded that uncertainty; the actual writer retained native order instead of promoting the currently supported commitment.
+- **Root cause:** Unknown claims collected through superseded positive/unknown pairs bypassed the later-confirmation filter. That same mixed collection also described uncertainty as an explicit withdrawal.
+- **Fix:** Reconcile unknown dependency claims against current confirmations through the shared creation/modification chronology. Keep overlapping edited uncertainty conservative, and derive withdrawal context only from explicit false claims. Add four-comment and three-comment controls to unit and actual-writer tests, including edited uncertainty in both configurations.
+- **Lesson:** Historical evidence must not alter current status after an unambiguous confirmation. Reconcile every path that collects uncertainty through the same chronology, and distinguish unknown status from an explicit withdrawal.
+- **Proof:** Before the fix, both historical-dependency regressions failed while their controls passed. All eight new regressions now pass with 86 assertions. Non-UI gates: 142 unit, 154 API and 72 static pass (2291 assertions); lint/typecheck exit 0 with existing warnings; all four canonical payload pairs match. Two unchanged normal full-suite runs each yielded 1256 pass, 1 fail and 5589 assertions: only the existing chain p95 latency test failed (128.30ms and 166.81ms against 50ms). That unchanged isolated test passes (1 pass, 2 assertions). No TMPDIR overrides or performance-budget changes.
+- **Tags:** review, azure, chronology, dependency, uncertainty, claims, ordering, tests, validation
+
+### L78 · 2026-10-08 · ai-triage-azure-signals #2 · review
+- **Failure:** An unknown dependency edited before a renewed confirmation still forced native-order clarification when an obsolete positive report preceded it. Overlapping-edit advice also cited that obsolete positive.
+- **Root cause:** Historical conflict pairs bypassed current-status reconciliation; collecting every dependency for clarification reintroduced superseded evidence into Why now.
+- **Fix:** At the shared chronology boundary, retire matching historical reports when an unedited same-identity renewal starts after their last modification. Derive clarification references from unresolved evidence, retaining prior supporting reports only for still-unresolved unknown status. Preserve overlapping edits and conservative handling when identity is missing.
+- **Lesson:** Reconcile the whole status timeline before classifying conflict pairs. A historical edit can make its contemporary evidence ambiguous without making a later explicit confirmation ambiguous; compare that confirmation with the earlier evidence's last modification.
+- **Proof:** Twelve memory-only unit and actual-writer renewal cases cover unedited, edited-before and edited-after uncertainty, with and without obsolete positive history. Before the fix, four failed on advice/order or stale references. Renewal and F1/F2 controls now pass: 29 tests, 259 assertions. Checkpoint lower gates: 144 unit, 156 API and 72 static pass; lint/typecheck exit 0 with existing warnings; all four canonical signal/writer script/declaration payload pairs match. Normal full-suite validation remains separate.
+- **Tags:** review, azure, chronology, dependency, uncertainty, renewal, identity, provenance, ordering, tests

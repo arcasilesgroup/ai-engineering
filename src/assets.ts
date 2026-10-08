@@ -61,6 +61,8 @@ import askills_ai_issue_report_SKILL_md from "../skills/ai-issue-report/SKILL.md
 import askills_ai_triage_references_github_md from "../skills/ai-triage/references/github.md" with { type: "file" };
 import askills_ai_triage_references_azure_devops_md from "../skills/ai-triage/references/azure-devops.md" with { type: "file" };
 import askills_ai_triage_scripts_resolve_target_mjs from "../scripts/.embed/ai-triage/scripts/resolve-target.mjs.txt" with { type: "file" };
+import askills_ai_triage_scripts_azure_signals_d_mts from "../scripts/.embed/ai-triage/scripts/azure-signals.d.mts.txt" with { type: "file" };
+import askills_ai_triage_scripts_azure_signals_mjs from "../scripts/.embed/ai-triage/scripts/azure-signals.mjs.txt" with { type: "file" };
 import askills_ai_triage_scripts_resolve_target_d_mts from "../scripts/.embed/ai-triage/scripts/resolve-target.d.mts.txt" with { type: "file" };
 import askills_ai_triage_scripts_render_report_mjs from "../scripts/.embed/ai-triage/scripts/render-report.mjs.txt" with { type: "file" };
 import askills_ai_triage_scripts_render_report_d_mts from "../scripts/.embed/ai-triage/scripts/render-report.d.mts.txt" with { type: "file" };
@@ -207,6 +209,8 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-triage/references/github.md": askills_ai_triage_references_github_md as unknown as string,
   "../skills/ai-triage/references/azure-devops.md": askills_ai_triage_references_azure_devops_md as unknown as string,
   "../skills/ai-triage/scripts/resolve-target.mjs": askills_ai_triage_scripts_resolve_target_mjs as unknown as string,
+  "../skills/ai-triage/scripts/azure-signals.d.mts": askills_ai_triage_scripts_azure_signals_d_mts as unknown as string,
+  "../skills/ai-triage/scripts/azure-signals.mjs": askills_ai_triage_scripts_azure_signals_mjs as unknown as string,
   "../skills/ai-triage/scripts/resolve-target.d.mts": askills_ai_triage_scripts_resolve_target_d_mts as unknown as string,
   "../skills/ai-triage/scripts/render-report.mjs": askills_ai_triage_scripts_render_report_mjs as unknown as string,
   "../skills/ai-triage/scripts/render-report.d.mts": askills_ai_triage_scripts_render_report_d_mts as unknown as string,

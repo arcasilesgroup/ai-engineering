@@ -1,0 +1,175 @@
+{
+  "feature": "Evidence-led Azure backlog recommendations",
+  "slug": "ai-triage-azure-signals",
+  "order": ["unit", "api", "cli", "ui"],
+  "gating": "Phase 1 steps 1–2 only: map and plan, no source/tests implemented. After checkpoint review, write failing tests first. Within each checkpoint run unit → api → cli → ui and stop at the first failed layer; API here means injected collector/writer integration, not a live Azure request. UI comparison follows behavior and independent review follows UI. All cases reference the matching checkpoint verify commands.",
+  "layers": {
+    "unit": [
+      {
+        "id": "U1",
+        "case": "Normalize comments by documented id or example commentId with matching workItemId/version/dates; reject conflicting aliases, invalid/duplicate IDs, malformed timestamps and incoherent pages. Distinct opaque continuation tokens are encoded as query values and cannot replace the route/version. Deleted tombstones contribute to complete totals, never claims; author/identity/mention/reaction payloads are not retained.",
+        "file": "tests/triage-azure-signals.unit.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U2",
+        "case": "One frozen clock computes creation age and time since change across Z/offset timestamps, midnight, leap day and DST; elapsed-day boundaries are exact. Missing/invalid/future dates and changed-before-created are explicit non-assessable signals, never NaN, negative age, continuously-open claims, or urgency.",
+        "file": "tests/triage-azure-signals.unit.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U3",
+        "case": "Only documented Microsoft.VSTS.Scheduling.DueDate/TargetDate references with dateTime metadata gain due/target meaning. Custom date fields already returned retain their exact reference names/values as visibly unrecognized context with unknown semantics and no ranking effect; no caller mapping or configurable projection is accepted. Custom lookalike names, wrong type, null/absent/invalid values, unavailable metadata and conflicting dates retain distinct coverage; StartDate/FinishDate do not become delivery promises.",
+        "file": "tests/triage-azure-signals.unit.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U4",
+        "case": "Selected-team iteration lookup uses exact path, never name, current fallback or integer/UUID equality; normalize explicit value/values envelopes without accepting conflicting shapes. UTC date-only sprint boundaries are inclusive. Unmatched paths, null dates, duplicate paths, invalid/reversed ranges, and inaccessible reads carry reason/next action and no implied deadline. Parent priority/dates remain context.",
+        "file": "tests/triage-azure-signals.unit.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U5",
+        "case": "Validate each structured claim against its actual item's source IDs, matching field/excerpt/value/parent/date and correct team-reported/code-verified provenance. Missing references, cross-item/parent mismatches, unsupported claims, invented quotations and an ordinary HTTPS link claimed as code verification fail closed.",
+        "file": "tests/triage-azure-signals.unit.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U6",
+        "case": "A native critical bug and a lower-priority commitment tomorrow retain critical-first order, unchanged Priority/Severity/bands and visible conflicting reasons. Grounded current overdue/today/within-seven-days commitments and explicit unresolved blockers share an attention group with native/stable tie-breaks; eight-days-away, forecast-only, fulfilled/unknown-current and absent evidence keep native order.",
+        "file": "tests/triage-azure-signals.unit.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U7",
+        "case": "An old ticket with many comments gets relevance review after 30 idle days without rank promotion; fresh activity does not create urgency. A priority-1 parent with dates does not promote its child without an explicit matching outstanding dependency/current commitment. Expired sprint yields planning review rather than overdue delivery; literal workflow state alone changes no recommendation.",
+        "file": "tests/triage-azure-signals.unit.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U8",
+        "case": "Later explicit resolution of the same blocker removes its old promotion; unrelated resolution does not. Old comment edits versus later resolution remain a conflict instead of a fabricated current blocker. Partial discussion cannot prove an unresolved blocker or absence; valid independent field evidence remains usable with limited coverage. Fallback and UNASSESSED retain exact native/stable order and next actions.",
+        "file": "tests/triage-azure-signals.unit.spec.ts",
+        "checkpoint": 2
+      }
+    ],
+    "api": [
+      {
+        "id": "A1",
+        "case": "A fake CLI records exact bare az rest arguments, explicit resource/scope, route-specific 7.1/7.1-preview.4, allowed query keys and encoded tokens. Comment reads for unselected IDs, cross-project/team scope, wrong version, raw nextPage URLs, arbitrary fields, request bodies on GET, unsafe batch keys, >200 IDs and mutation routes are rejected before any CLI execution.",
+        "file": "tests/triage-azure-signals.integration.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "A2",
+        "case": "Collect more than one full page of synthetic comments through every token to terminal count reconciliation; verify exact content/source IDs/dates and absent-complete zero comments. Repeated tokens, malformed/duplicate/mislinked pages, changing totals, contradictory continuation metadata, missing last page and buffer/timeout interruption retain explicit partial evidence without full/no-blocker claims.",
+        "file": "tests/triage-azure-signals.integration.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "A3",
+        "case": "Exact selected backlog membership and literal terminal/custom states survive enrichment; batching stays <=200, inventory IDs/counts are unchanged, and parent/child evidence cannot add rows. Below-known-cap succeeds; missing/at-cap completeness, missing mandatory details/related context, ambiguity and auth stop before writer invocation and preserve prior report bytes.",
+        "file": "tests/triage-azure-signals.integration.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "A4",
+        "case": "Field metadata and selected-team iteration list each read once; projections use only the closed standard-field allowlist, with no custom mapping, configuration or custom-field enrichment reads. Repeated same-project direct parents are read once in bounded optional batches or reused from inventory; children/ancestors/siblings/cross-project links are not enriched. Missing optional parent data yields limited coverage while existing mandatory context errors remain fatal; verify every requested projection field.",
+        "file": "tests/triage-azure-signals.integration.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "A5",
+        "case": "Injected confirmed optional Forbidden response is inaccessible with safe reason/next action; confirmed transient 429/5xx or invalid second page is partial, never absent. Unauthorized, CLI sign-in failure, unknown prefixes and body text containing misleading Forbidden are fatal. Assert zero raw stderr, identity or authentication material reaches normalized evidence and no failed inventory is downgraded.",
+        "file": "tests/triage-azure-signals.integration.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "A6",
+        "case": "The enriched inventory still writes through the current Azure report with native ordering and exact selected-item counts; resolver ambiguity makes zero new reads. Existing GitHub inventory/analysis/read-only instruction contract and embedded script/declaration payloads remain intact.",
+        "file": "tests/triage-azure-signals.integration.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "A7",
+        "case": "End-to-end synthetic collect → evidence-linked analyses → writer proves all five approved scenarios with exact ID order, specific Why now and recommendation/action, every cited field/comment/version/date/parent linkage, native urgency, and no duplicated Analysis prose. Every member appears once, each analysis runs once at <=5 concurrent calls, related context remains non-inventory and all counts agree.",
+        "file": "tests/triage-azure-signals.integration.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "A8",
+        "case": "Complete/limited/empty/UNASSESSED reports retain literal states, four Azure sections, explicit signal coverage plus reason/next action, no numeric confidence, no unknown-source claims and no false absence of blockers. A selected-team sprint with no dates supplies only planning context; an already returned custom date visibly preserves its reference name/value with unrecognized semantics and cannot supply a commitment, promotion or guaranteed-delivery claim. Disagreement stays visible.",
+        "file": "tests/triage-azure-signals.integration.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "A9",
+        "case": "Hostile comments, custom-field names, iteration paths, parent values, claim excerpts and action/reason strings render inert via shared escaping/redaction. Raw/encoded credential assignments, userinfo and unsafe links never become active content; Board item evidence links use existing safe routes with comment ID/version labels, not guessed deep links. Known benign near-matches remain visible.",
+        "file": "tests/triage-azure-signals.integration.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "A10",
+        "case": "Unknown/mismatched sources, unsafe required claim links, missing/invalid analyses, inventory failures, render failures and injected atomic write/replace failures retain prior report byte-for-byte and do not return success. Confirmed optional limited signals can publish only labeled safe output. Existing hierarchy, GitHub contract, template shell and file-identity cleanup regressions stay green.",
+        "file": "tests/triage-azure-signals.integration.spec.ts",
+        "checkpoint": 2
+      }
+    ],
+    "cli": [
+      {
+        "id": "C1",
+        "case": "Checkpoint 1 static contracts, architecture and generated text payloads match their source.",
+        "command": "bun test tests/triage-github.spec.ts tests/skills.spec.ts tests/embed-canon.spec.ts tests/generated-payload.test.ts tests/arch.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "C2",
+        "case": "Checkpoint 1 lint and typecheck pass with no silenced rule or unsafe declaration/import workaround.",
+        "command": "bun run lint && bun run typecheck",
+        "checkpoint": 1
+      },
+      {
+        "id": "C3",
+        "case": "Checkpoint 2 shared artifact, GitHub, skill, generated payload and architecture contracts pass, followed by lint and typecheck.",
+        "command": "bun test tests/triage-github.spec.ts tests/skills.spec.ts tests/embed-canon.spec.ts tests/generated-payload.test.ts tests/artifact-layout.spec.ts tests/artifact-scroll-spy.spec.ts tests/artifact-brand.spec.ts tests/arch.spec.ts && bun run lint && bun run typecheck",
+        "checkpoint": 2
+      },
+      {
+        "id": "C4",
+        "case": "The full existing suite passes at checkpoint-2 wrap-up after scoped behavior and UI gates; fixtures make no live Azure request.",
+        "command": "bun test",
+        "checkpoint": 2
+      }
+    ],
+    "ui": [
+      {
+        "id": "E1",
+        "case": "Compare the generated complete report and its expanded #202 disclosure with the single prototype at 1440×900 and 375×812: identical labels, native chip distinct from recommendation, keyboard disclosure/focus, readable Why now/source references, parent tree, safe evidence links and no document horizontal overflow.",
+        "file": "skills/ai-review-ui/capture.cjs",
+        "command": "mkdir -p .ai-engineering/workflow/playwright/browser-profile && TMPDIR=\"$PWD/.ai-engineering/workflow/playwright/browser-profile\" PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.ai-engineering/workflow/playwright/browsers\" npm_config_cache=.ai-engineering/workflow/playwright/npm-cache npx -y -p playwright sh -c 'NODE_PATH=\"$(dirname \"$(command -v playwright)\")/..\" node skills/ai-review-ui/capture.cjs 001-ai-triage-azure-signals-report http://127.0.0.1:8773 --scope page-header,backlog-snapshot,ranked-work,type-state-summary,coverage-method'",
+        "checkpoint": 2,
+        "why_ui": "Only a browser proves disclosure keyboard behavior, actual wrapping/focus/contrast, and measured layout of long new evidence rows.",
+        "precondition": "Start the planned synthetic preview fixture with bun tests/fixtures/triage-azure-signals-preview.mjs, verify /health, and use actual writer output in memory. Stop its owned process after review."
+      },
+      {
+        "id": "E2",
+        "case": "Compare limited and empty generated reports at both widths: partial/inaccessible signal notice and next action are visible, UNASSESSED remains distinct, all known evidence can be inspected, and empty inventory has truthful zero counts with no invented loading/error controls.",
+        "file": "skills/ai-review-ui/capture.cjs",
+        "command": "mkdir -p .ai-engineering/workflow/playwright/browser-profile && TMPDIR=\"$PWD/.ai-engineering/workflow/playwright/browser-profile\" PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.ai-engineering/workflow/playwright/browsers\" npm_config_cache=.ai-engineering/workflow/playwright/npm-cache npx -y -p playwright sh -c 'NODE_PATH=\"$(dirname \"$(command -v playwright)\")/..\" node skills/ai-review-ui/capture.cjs 001-ai-triage-azure-signals-report http://127.0.0.1:8773 --scope page-header,backlog-snapshot,ranked-work,type-state-summary,coverage-method'",
+        "checkpoint": 2,
+        "why_ui": "Only rendered screenshots establish visible separation of inventory/evidence coverage, readable gap labels, and a non-clipping empty state.",
+        "precondition": "Same single capture run as E1; prototype state queries and local live queries select the same synthetic inputs. Review all matching captures, not fingerprints alone."
+      }
+    ]
+  },
+  "not_tested": [
+    "No tests or production source are written by this Phase-1 plan; existing tests run only as a planning baseline.",
+    "No live Azure tenant, account, sign-in or authentication queries and no real backlog/personal-data fixtures. Future production reads require separate authorization.",
+    "No invented role, database, uniqueness, 409/422 or write-race cases: this is a read-only CLI adapter/report, with no product API/database. Applicable authorization, malformed-read, continuation, count-drift and atomic-write paths are covered above.",
+    "No Azure DevOps Server, alternate-team iteration discovery, multiple-board report, ancestor/sibling traversal, state-policy change, weighted score, numeric confidence, custom field mapping/extensibility (including per-run mapping) or GitHub behavior change.",
+    "No dedicated @playwright/test dependency: existing capture.cjs drives the visual gate and screenshots. Pure content/ranking/safety assertions stay in Bun unit/integration tests.",
+    "No production loading/error HTML: the artifact is written atomically after collection/analysis, and fatal errors preserve the prior report. That behavior belongs to integration tests.",
+    "Source-reference validation proves provenance, not semantic truth of arbitrary analysis. Exact synthetic grounded conclusions and independent adversarial review cover that boundary; no test can certify every future natural-language claim."
+  ]
+}
