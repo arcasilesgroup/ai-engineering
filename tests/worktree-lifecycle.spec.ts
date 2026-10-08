@@ -424,21 +424,24 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
   test("U22: dirty preconditions refuse before rebase and preserve branch, worktree and edits", () => {
     const repo = initRepo();
     const feature = addBranchWorktree(repo, "sync-dirty");
+    const checkpoint = writeCheckpoint(feature, "sync-dirty", checkpointPlan("sync-dirty", "implementation"));
+    commitCheckpoint(feature, checkpoint);
+    const checkpointContents = readFileSync(checkpoint, "utf8");
     const mainContents = "# main edit\n";
     const localMain = commitFile(repo, "README.md", mainContents, "advance local main");
     const dirtyContents = "# uncommitted feature edit\n";
     writeFileSync(join(feature, "README.md"), dirtyContents);
     const featureBefore = git(["rev-parse", "HEAD"], feature).trim();
-    const before = repoSnapshot(repo, [feature], []);
+    const before = repoSnapshot(repo, [feature], [checkpoint]);
 
     const rebase = runGit(["rebase", "refs/heads/main"], feature);
-    const after = repoSnapshot(repo, [feature], []);
 
     expect(rebase.status).not.toBe(0);
+    expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
     expect(git(["rev-parse", "HEAD"], feature).trim()).toBe(featureBefore);
     expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(localMain);
     expect(readFileSync(join(feature, "README.md"), "utf8")).toBe(dirtyContents);
-    expect(after).toBe(before);
+    expect(repoSnapshot(repo, [feature], [checkpoint])).toBe(before);
     expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toContain("README.md");
     expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).not.toContain("rebase");
   });

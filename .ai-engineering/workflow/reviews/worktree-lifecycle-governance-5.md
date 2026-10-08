@@ -51,3 +51,13 @@ The post-conflict sequence is behavior, UI only when the checkpoint has a UI gat
 - Passed: worktree lifecycle, skill contract and workflow handoff tests.
 - Passed: asset generation and embedded-canon test.
 - Passed: typecheck, lint and diff hygiene; lint/typecheck reported only existing warnings outside the changed files.
+
+## Round 2 follow-up review — FAIL
+- F1 (requested abort-path criterion) — RESOLVED: Step 3 aborts first and forbids lifecycle writes if abort or restoration proof fails. U22 verifies the checkpoint remains unchanged during rebase, then checks abort success, original feature/main refs, branch, HEAD/tree, clean status, restored feature content and worktree registration before writing `blocked`.
+- F2 — RESOLVED: The U22 fixture uses `git rebase --abort`, not `git reset --hard`; it verifies the saved refs, original tree/content, status and repository snapshot.
+- F3 — RESOLVED: U21, the Phase 3 contract, and U20-U22/U23 ordering assertions place behavior, conditional UI, then review before Phase 4 app review.
+- OPEN (original F1 pre-sync case): Phase 3 Step 1 still instructs writing `phase: blocked` for missing, dirty, unknown or untrusted worktrees. That contradicts preserving them; the dirty-precondition fixture does not assert checkpoint bytes remain unchanged. Stop without lifecycle writes in these cases and pin the unchanged snapshot.
+
+## Round 3 finding resolution
+- F1 pre-sync — RESOLVED: Phase 3 Step 1 now reports and stops without changing checkpoint or worktree files for missing, dirty, unknown or untrusted worktrees and missing/untrusted lifecycle state. U22 pins checkpoint bytes and the full Git snapshot for the dirty precondition; the focused lifecycle test passes.
+- Abort-path criterion retained: an active unclear conflict is aborted first, and `blocked` is written only after original feature/main refs, tree and status are verified restored.

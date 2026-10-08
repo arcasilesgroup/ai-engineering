@@ -679,3 +679,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Abort and verify refs/tree/status/content before marking blocked, use `git rebase --abort` in the fixture, and test behavior/UI-if-applicable/review ordering.
 - **Lesson:** Preserve state first; record failure only after restoration is proven.
 - **Tags:** review, rebase, safety
+
+### L81 · 2026-10-08 · worktree-lifecycle-governance #5 · review
+- **Failure:** Review found dirty or unknown pre-rebase work could be marked blocked before restoration and the checkpoint could be mutated.
+- **Root cause:** The workflow wrote lifecycle state while existing user work was still untrusted.
+- **Fix:** Stop without writes on unsafe preconditions; after a started rebase, abort and verify restoration before recording blocked.
+- **Lesson:** Preserve state first; record failure only after restoration is proven.
+- **Tags:** review, rebase, checkpoint-state
