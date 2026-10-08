@@ -118,6 +118,20 @@
         "checkpoint": 3
       },
       {
+        "id": "U16a",
+        "case": "Phase 0 refuses to create or resume a same-slug worktree when preflight reports dirty or unknown state, before any mutation",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test tests/workflow-handoff.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U16b",
+        "case": "the preflight surfaces pending plan approval and pending app review before the agent decides whether work may continue",
+        "file": "tests/skills.spec.ts",
+        "command": "bun test tests/skills.spec.ts",
+        "checkpoint": 3
+      },
+      {
         "id": "U17",
         "case": "a new checkpoint plan is created only in the selected feature worktree with awaiting-plan-approval, pending plan approval, app review not-started and reviewed_main null",
         "file": "tests/test_checkpoint_gate.py",

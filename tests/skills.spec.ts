@@ -487,4 +487,25 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     expect(phase1).toMatch(/(?:never|do not)[\s\S]{0,100}(?:primary checkout|primary tree)/i);
     expect(phase1).toMatch(/(?:never|do not)[\s\S]{0,100}cop(?:y|ied|ying)[\s\S]{0,100}(?:checkpoint|plan|between worktrees|between trees)/i);
   });
+
+  test("U18: both preflights surface pending human approvals before proceeding", () => {
+    const preflights = [
+      { skill: "ai-brainstorm", heading: "### 0. Check what already exists" },
+      { skill: "ai-orchestrator", heading: "## Phase 0: Preflight" },
+    ];
+
+    for (const { skill, heading } of preflights) {
+      const text = readFileSync(join(SKILLS, skill, "SKILL.md"), "utf8");
+      const preflight = markdownSection(text, heading).replace(/\s+/g, " ");
+      const listing = preflight.indexOf("ai-eng worktree list");
+      const approvalReport = preflight.search(/(?:report|call out)[\s\S]{0,100}pending human approvals/i);
+
+      expect(listing).toBeGreaterThanOrEqual(0);
+      expect(approvalReport).toBeGreaterThan(listing);
+      expect(preflight).toMatch(/(?:rather than treating them as granted|unknown lifecycle state is not approval)/i);
+
+      const create = preflight.indexOf("ai-eng worktree new");
+      if (create >= 0) expect(approvalReport).toBeLessThan(create);
+    }
+  });
 });

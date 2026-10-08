@@ -172,10 +172,12 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "failed",
-          "attempts": 1,
+          "status": "pending",
+          "attempts": 2,
           "findings": [
-            "attempt 1 FAIL: bun test tests/skills.spec.ts passed, but tests/workflow-handoff.spec.ts failed a U13 wording-pattern assertion; remaining verify commands were not run."
+            "attempt 1 FAIL: bun test tests/skills.spec.ts passed, but tests/workflow-handoff.spec.ts failed a U13 wording-pattern assertion; remaining verify commands were not run.",
+            "attempt 2 PASS: all eight checkpoint 3 verify commands passed after whitespace normalization in the handoff assertion.",
+            "Adversarial fixes added dirty/unknown Phase 0 and pending-approval assertions; rerun all checkpoint 3 verification commands."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -187,7 +189,10 @@
         "skills/ai-orchestrator/SKILL.md",
         "tests/skills.spec.ts",
         "tests/workflow-handoff.spec.ts",
-        "tests/worktree-lifecycle.spec.ts"
+        "tests/worktree-lifecycle.spec.ts",
+        "LEARNINGS.md",
+        ".ai-engineering/workflow/test-plans/worktree-lifecycle-governance.json",
+        ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-3.md"
       ]
     },
     {

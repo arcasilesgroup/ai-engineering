@@ -616,3 +616,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Normalize whitespace before matching the handoff condition.
 - **Lesson:** Match handoff conditions independently of Markdown line wrapping.
 - **Tags:** behavior, tests, workflow
+
+### L72 · 2026-10-08 · worktree-lifecycle-governance #3 · review
+- **Failure:** Adversarial review found no test that prevented Phase 0 from mutating dirty/unknown work or proved pending human approvals were surfaced before proceeding.
+- **Root cause:** Tests pinned successful resume and overlap branches but omitted two safety states and their ordering.
+- **Fix:** Added focused handoff assertions for dirty/unknown refusal and visible plan/app-review approvals before continuation.
+- **Lesson:** Test status guards and approval reporting in order, not only successful paths.
+- **Tags:** review, tests, worktree
