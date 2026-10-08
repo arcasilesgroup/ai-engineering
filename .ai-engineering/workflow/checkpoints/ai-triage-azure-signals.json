@@ -1,0 +1,182 @@
+{
+  "feature": "Evidence-led Azure backlog recommendations",
+  "slug": "ai-triage-azure-signals",
+  "summary": "Enrich the existing complete Azure inventory with fully paged comments, created/changed ages, direct-parent priority and dates, documented delivery fields, and selected-team iteration metadata. Validate evidence-linked analysis, then explain a separate deterministic recommendation without rewriting native urgency, expanding inventory, or changing GitHub.",
+  "plain_summary": "People see why each Azure item deserves attention now, which facts support that advice, and what could not be checked.",
+  "gating": "Checkpoint plan approved by the human on 2026-10-08: apruebo el plan. Work checkpoints in order. Write failing tests, implement, then run behavior in unit → api → cli → ui order, UI comparison when required, and independent adversarial review. A checkpoint passes only when every gate is passed or n/a. Never start the next checkpoint before the preceding checkpoint passes.",
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Collect scoped Azure signals with explicit coverage",
+      "simple": "Read the evidence without guessing",
+      "size": "m",
+      "goal": "The existing collector returns every selected member exactly once with normalized optional signals, source references, one observation time, and truthful coverage; unsafe scope, authentication, or inventory failures still stop without a report.",
+      "plain": {
+        "what": "Each item carries its discussion, dates, parent importance, and sprint context when those facts can be read.",
+        "why": "Missing or unfinished reads must never look like proof that nothing is blocked.",
+        "check": "Nothing new to see yet; this step prepares trustworthy evidence behind the scenes."
+      },
+      "builds_on": [],
+      "tasks": [
+        "Phase 2 tests first: add checkpoint-1 cases U1–U4, A1–A6 from .ai-engineering/workflow/test-plans/ai-triage-azure-signals.json in the named synthetic suites. Use a fixed observation clock, memory adapters, and fake az output; make no tenant, account, authentication, or production query.",
+        "Extend collectAzureBacklog and its declared .d.mts API without changing backlog membership, literal states, workItemCountLimit guards, mandatory detail validation, or the existing minimal parent/child context. Add optional signal enrichment only after the selected inventory is proven complete. Existing callers and the current native-order report remain usable at this checkpoint.",
+        "Extend the existing createAzureDevOpsInvoker, not a second client. Keep bare az rest, explicit organization/project/team/backlog, the Azure DevOps resource, argument-array execution, and default-deny validation. Add only GET /{project}/_apis/wit/workItems/{selectedItemId}/comments at 7.1-preview.4, GET /{project}/{selectedTeam}/_apis/work/teamsettings/iterations at 7.1, and GET /{project}/_apis/wit/fields at 7.1. Permit comment IDs only from the validated selected membership, never parent/child comment traversals. Validate allowed query keys and route-specific versions, reject GET bodies, unexpected batch keys, scope escape, mutation methods, raw URL overrides, and unsupported fields before running az.",
+        "Read every comment page with $top=200, order=asc, includeDeleted=true, and a URLSearchParams-encoded continuationToken. This is a requested page size, not a documented service maximum. Reconstruct the same scoped endpoint; never execute nextPage. Validate count against the page, workItemId linkage, positive id/version, text/dates, distinct IDs, stable totalCount, and distinct opaque tokens. Complete only at a terminal page with all declared comments accounted for, including tombstones; discard deleted bodies and identities. Definition uses id but official examples use commentId: accept either, reject conflicting aliases. A repeated token, malformed page, count drift, contradictory nextPage/token, lost page, buffer/timeout limit, or duplicate ID yields partial coverage, never an empty complete discussion.",
+        "Add the small pure azure-signals.mjs module and declaration for signal normalization and later recommendation rules. Preserve raw reference names, revision, timestamps and values with stable source IDs. Normalize only validated fields needed by triage; comments retain content, id/version, createdDate/modifiedDate and deletion status, not author/identity/reaction/mention payloads. Record absent, inaccessible, partial, or complete per signal with a safe reason and concrete next action, plus sufficient, limited, or not assessable overall evidence coverage. Inventory completeness and evidence coverage are independent.",
+        "Read System.CreatedDate and System.ChangedDate already present in selected detail fields; use one injected/default observation timestamp for the whole run. Compute elapsed whole days from timezone-qualified instants; show missing, invalid, future, or inconsistent dates explicitly instead of NaN or negative ages. Call these age since creation and time since last change, not time continuously open. Do not infer urgency or reopen history from these dates.",
+        "Fetch project field metadata once. Recognize only Microsoft.VSTS.Scheduling.DueDate and Microsoft.VSTS.Scheduling.TargetDate by documented reference name and dateTime type, never display-name substring matching. Custom date fields already returned in item details remain visibly unrecognized: preserve their reference names and values as context with unknown semantics and no delivery effect. Do not add custom field mappings, caller-supplied projections, configuration or extensibility. Distinguish unsupported/not returned, unset, inaccessible metadata, and invalid values. StartDate/FinishDate do not become commitments.",
+        "Keep direct-parent enrichment separate from the mandatory minimal related-item read. Reuse already loaded selected parents, cache other distinct same-project direct parents, and read optional priority/severity/created/changed/due/target fields through existing <=200-ID batch reads with Fail and an exact metadata-validated fields allowlist. No ancestor, sibling, cross-project, or child-calendar traversal. A missing optional parent enrichment is explicit limited coverage; failures of the pre-existing mandatory related context still stop. Parent fields remain context and never add rows or inherit urgency.",
+        "Read the selected team's iteration list once without $timeframe, cache by its documented path, and match exact System.IterationPath rather than the integer System.IterationId to a UUID or the iteration name. The official response example says values while standard Azure list envelopes say value: normalize only these explicit envelope forms and reject disagreement or malformed/ambiguous matches. No undocumented pagination or current-sprint fallback. Retain id/path/name/startDate/finishDate/timeFrame; treat the documented UTC-midnight dates as inclusive calendar dates, not local timestamps. A missing match, missing dates, invalid range, or denied read remains explicit coverage; a path alone supplies no deadline.",
+        "Preserve authentication failures even on optional calls. Convert recognized CLI failures to safe typed categories before the collector's generic catch loses them: only verified anchored HTTP reason prefixes may distinguish signal-specific Forbidden, transient 429/5xx, and Unauthorized; do not scrape keywords from a response body or mistake process exit codes for HTTP status. Unknown CLI/auth failures remain fatal. Confirmed optional permission failure is inaccessible; transient/incomplete optional reads are partial or inaccessible with next action. Never store or print raw stderr, bodies, credentials, or debug auth output.",
+        "Update the Azure reference and common skill handoff for collected evidence and coverage without editing the GitHub reference. Regenerate src/assets.ts and scripts/.embed payloads with bun scripts/gen-assets.ts, following the existing text-embedding pattern for executable scripts and declarations; update FILEMAP.md and PERMISSIONS.md for the new read surface."
+      ],
+      "files": [
+        "skills/ai-triage/scripts/collect-azure.mjs",
+        "skills/ai-triage/scripts/collect-azure.d.mts",
+        "skills/ai-triage/scripts/azure-signals.mjs",
+        "skills/ai-triage/scripts/azure-signals.d.mts",
+        "skills/ai-triage/references/azure-devops.md",
+        "skills/ai-triage/SKILL.md",
+        "tests/triage-azure-signals.unit.spec.ts",
+        "tests/triage-azure-signals.integration.spec.ts",
+        "tests/triage-azure.integration.spec.ts",
+        "src/assets.ts",
+        "scripts/.embed/ai-triage/scripts/",
+        "FILEMAP.md",
+        "PERMISSIONS.md"
+      ],
+      "acceptance": [
+        "U1–U4 and A1–A6 assert exact normalized content, source linkage, request arguments, coverage reason/next action, and read counts, not source-text proxies.",
+        "A below-cap inventory retains every selected member and its literal state exactly once. Optional signals cannot add, remove, or filter members. Unknown/at-cap inventory, missing mandatory details, ambiguous scope, auth, unsafe requests, and unknown CLI failure still stop.",
+        "A discussion larger than one page is fully read with the preview API, all continuation tokens are followed safely, tombstones reconcile totals without contributing claims, and a partial discussion is visible as partial rather than no comments/no blockers.",
+        "One fixed clock determines every age. Native priority/severity stay unchanged, direct-parent dates remain context, only documented standard dates gain delivery meaning, custom dates remain visibly unrecognized without mapping or delivery effect, and each selected-team iteration is resolved once without deadline inheritance.",
+        "Optional failures retain known evidence with truthful coverage and a next action; a 401 or unknown failure is never downgraded to a permission gap. Prior report preservation remains the caller/writer invariant.",
+        "The unchanged report can consume the enriched inventory and keep its existing native order. GitHub routing and procedure remain unchanged. Script declarations and embedded payloads agree with source."
+      ],
+      "verify": [
+        "bun test tests/triage-azure-signals.unit.spec.ts tests/triage-azure.unit.spec.ts tests/triage-report.unit.spec.ts",
+        "bun test tests/triage-azure-signals.integration.spec.ts tests/triage-azure.integration.spec.ts tests/triage-report.integration.spec.ts tests/triage-routing.integration.spec.ts",
+        "bun test tests/triage-github.spec.ts tests/skills.spec.ts tests/embed-canon.spec.ts tests/generated-payload.test.ts tests/arch.spec.ts",
+        "bun run lint",
+        "bun run typecheck"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending",
+      "changed_files": []
+    },
+    {
+      "id": 2,
+      "title": "Explain evidence-led recommendations in the Azure report",
+      "simple": "Explain what needs attention now",
+      "size": "l",
+      "goal": "The Azure report shows specific Why now and next action, native urgency, dates, discussion and parent/sprint context, and honest evidence coverage; a validated deterministic order changes only for grounded current reasons and safe output replaces the prior report atomically.",
+      "plain": {
+        "what": "People can choose the next item, follow its supporting facts, and see which questions still need answers.",
+        "why": "Busy discussions, old tickets, and sprint dates must not masquerade as urgent delivery promises.",
+        "check": "Open the example report, expand an item, and compare complete, limited, and empty reports."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "Phase 2 tests first: add U5–U8, A7–A10, and the E1–E2 capture scenarios from the linked test plan. Keep fixtures wholly synthetic and the clock fixed; add no source implementation while writing the failing behavior tests.",
+        "Extend the existing per-item analysis contract and its .d.mts declaration with source-referenced structured claims: blocker, blocker-resolved, current commitment, explicit parent dependency, and context. Each assertion carries existing evidence IDs, an exact supporting excerpt/value, issue identity for pairing blocker/resolution, and team-reported versus code-verified provenance. A safe HTTPS URL or Board field alone is not code verification. Reject unknown/cross-item references, unsupported claim types, mismatched excerpts/dates/parents, and invalid asserted code provenance before rendering. When assessment is unavailable, the caller must supply an explicit UNASSESSED record; a missing or invalid record remains fatal, never silently synthesized.",
+        "Specify the semantic extraction in references/azure-devops.md and SKILL.md, not a keyword classifier or a second scoring model. Analyze each item once with at most five analyses in flight; Analysis explains what/why, while claims feed Why now without copying that paragraph. Consider comment creation sequence and modification timestamps together. A later explicit resolution of the same blocker supersedes the earlier claim; unrelated comments do not resolve it. An edited old claim that conflicts with later evidence remains an explicit conflict. Partial chronology cannot prove an unresolved blocker or no blockers.",
+        "In azure-signals.mjs, implement the deterministic default: preserve the existing assessed native P0–P5 stable order and UNASSESSED placement when no grounded current reason exists. Native P0 remains ahead of calendar-only promotion. Other assessed items with an evidenced unresolved explicit blocker or a current item-specific commitment overdue/today/within seven UTC calendar days enter one attention group, preserving native order and inventory order within that group. Leave native Priority/Severity and their displayed band untouched; do not accept a model priority override, weights, scores, numeric confidence, or urgency from workflow state, comment count, age, parent rank, or sprint finish.",
+        "A recorded DueDate supplies a scheduling commitment under the approved product rule, not proof of a guaranteed contract or unfinished work. Promote only with grounded current outstanding-work evidence; otherwise ask to confirm its relevance in native order. TargetDate is a documented forecast and requires explicit current commitment evidence to affect order. Keep distinct/conflicting due and target dates visible rather than silently choosing one. Parent delivery influences a child only with an explicit matching dependency and current commitment claim, never hierarchy alone. Calendar conflicts with critical risk stay visible for human judgment.",
+        "Produce item-specific deterministic recommendation/action and Why now from validated claims and normalized sources: address native critical risk, meet the dated commitment, unblock the cited blocker, confirm conflicting/current dates, review relevance after at least 30 days without change, keep native order, or not assessable. The 30-day review is not urgency and cannot change rank. An expired sprint suggests updating planning, not a missed delivery claim. Reasons cite field names/values, parent IDs, comment IDs/versions/timestamps, and applicable code evidence; acknowledge limited coverage and its concrete next read/decision.",
+        "Extend Azure-only render-report.mjs sections in the existing shell with the exact labels Recommendation, Why now, Created / Changed, Delivery dates, Discussion, Iteration / sprint, Parent signals, Coverage, and Evidence while preserving Azure priority, Analysis, Area, hierarchy, counts, and every member once. Show sufficient/limited/not assessable separately from UNASSESSED and complete inventory. Retain literal state and current four Azure sections; GitHub's template contract, sections, counts, links and procedure stay unchanged. Add Azure data-region markers matching the prototype and accessible disclosure button names Item #<id>: <title>. Append only tightly scoped .azure-signals label/wrapping and .azure-type-state table rules to templates/triage.html.tpl when needed for desktop/375px parity; leave its canonical CSS and GitHub rendering unchanged. Labels must not overlap values. Do not redesign the shell or add UI controls to the production report.",
+        "Reuse renderAnalysis, redaction, URL validation and atomicWriteReport at every new output boundary. Treat HTML/markdown comment text as untrusted inert text, never execute renderedText or model markup. Evidence labels identify original sources; comment links fall back to the existing documented Board item link plus comment ID/version, not invented comment deep links. Reject unsafe claim links and invalid contracts before publishing. Existing safe plain-text fallback for optional unsafe links remains where the current writer already supports it.",
+        "Add a synthetic-only local preview fixture server at tests/fixtures/triage-azure-signals-preview.mjs using Bun and the actual writer with a memory writeFile callback. Serve /triage.html?state=complete|limited|empty from generated reports on 127.0.0.1:8773, with /health; do not overwrite or serve a private .ai-engineering/triage.html. Its inputs and clock match prototype 001-ai-triage-azure-signals-report. This is gate support, not a product feature or a hand-authored replacement renderer.",
+        "Run behavior layers before the UI gate. Start the preview only while doing UI work, verify /health, and use the existing skills/ai-review-ui/capture.cjs workflow at desktop and 375px to compare all prototype regions and complete/expanded/limited/empty states. Inspect screenshots for clipping, focus, disclosure keyboard operation, readable source/coverage labels and working evidence links; stop the owned preview process afterward. No authenticated browser state is needed.",
+        "Complete independent adversarial review after behavior and UI gates. Regenerate and verify embedded payloads, update the Azure read/analysis/recommendation documentation, FILEMAP.md, PERMISSIONS.md and CHANGELOG.md, and run full-suite wrap-up before parent commit/app review. Scope stays approved; do not edit protected design slots or manufacture approvals."
+      ],
+      "files": [
+        "skills/ai-triage/scripts/azure-signals.mjs",
+        "skills/ai-triage/scripts/azure-signals.d.mts",
+        "skills/ai-triage/scripts/render-report.mjs",
+        "skills/ai-triage/scripts/render-report.d.mts",
+        "skills/ai-triage/references/azure-devops.md",
+        "skills/ai-triage/SKILL.md",
+        "templates/triage.html.tpl",
+        "tests/triage-azure-signals.unit.spec.ts",
+        "tests/triage-azure-signals.integration.spec.ts",
+        "tests/triage-report.integration.spec.ts",
+        "tests/fixtures/triage-azure-signals-preview.mjs",
+        "src/assets.ts",
+        "scripts/.embed/ai-triage/scripts/",
+        "FILEMAP.md",
+        "PERMISSIONS.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance": [
+        "U5–U8 and A7–A10 prove all five approved scenarios with exact recommendation, Why now facts/references, native fields, resulting ID order, explicit coverage and next action, not only a nonempty summary.",
+        "A critical bug remains ahead of a lower-risk delivery tomorrow; both reasons and their conflict remain visible. An old busy ticket gets relevance review without promotion. A priority-1 parent's child gains no urgency without an explicit dependency. An expired sprint is stale planning, not overdue delivery. A later matching resolution removes the old blocker reason.",
+        "No-evidence, contradictory, partial-comment, target-forecast-only, missing-date and UNASSESSED cases cannot manufacture urgent conclusions or silently change native ordering. Known complete field evidence remains usable even when a different optional signal is limited.",
+        "Every selected inventory ID is rendered exactly once, each is analyzed once with <=5 concurrent analyses, and type/state/snapshot counts agree. Related items remain context. Original Priority/Severity/state and GitHub behavior are preserved.",
+        "New remote text, claim excerpts, timestamps, custom field labels, iteration paths, parent fields, reason/action prose, and links pass the shared HTML/credential boundary; unknown sources and unsafe required links abort before any write.",
+        "Authentication, ambiguity, unknown/incomplete inventory, invalid analysis/references, render errors and write/replace errors preserve an existing report byte-for-byte. Confirmed optional gaps may publish only a labeled limited report with no false negative blocker claim.",
+        "The generated synthetic report matches the single approved-at-checkpoint-review prototype across complete, expanded, limited and empty states at 1440px and 375px, with no document horizontal overflow. The writer has no loading/error page: fatal errors retain the previous report instead.",
+        "All checkpoint verification commands and the full-suite wrap-up pass before completion. No live Azure call, real/private fixture, remote mutation, public posting or unauthorized approval occurs."
+      ],
+      "verify": [
+        "bun test tests/triage-azure-signals.unit.spec.ts tests/triage-azure.unit.spec.ts tests/triage-report.unit.spec.ts",
+        "bun test tests/triage-azure-signals.integration.spec.ts tests/triage-azure.integration.spec.ts tests/triage-report.integration.spec.ts tests/triage-routing.integration.spec.ts",
+        "bun test tests/triage-github.spec.ts tests/skills.spec.ts tests/embed-canon.spec.ts tests/generated-payload.test.ts tests/artifact-layout.spec.ts tests/artifact-scroll-spy.spec.ts tests/artifact-brand.spec.ts tests/arch.spec.ts",
+        "bun run lint",
+        "bun run typecheck",
+        "curl --fail --silent http://127.0.0.1:8773/health",
+        "mkdir -p .ai-engineering/workflow/playwright/browser-profile && TMPDIR=\"$PWD/.ai-engineering/workflow/playwright/browser-profile\" PLAYWRIGHT_BROWSERS_PATH=\"$PWD/.ai-engineering/workflow/playwright/browsers\" npm_config_cache=.ai-engineering/workflow/playwright/npm-cache npx -y -p playwright sh -c 'NODE_PATH=\"$(dirname \"$(command -v playwright)\")/..\" node skills/ai-review-ui/capture.cjs 001-ai-triage-azure-signals-report http://127.0.0.1:8773 --scope page-header,backlog-snapshot,ranked-work,type-state-summary,coverage-method'",
+        "bun test"
+      ],
+      "ui": {
+        "route": "/triage.html",
+        "prototype": ".ai-engineering/workflow/prototypes/001-ai-triage-azure-signals-report.html",
+        "scope": ["page-header", "backlog-snapshot", "ranked-work", "type-state-summary", "coverage-method"],
+        "states": ["complete", "expanded", "limited", "empty"]
+      },
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "pending", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending",
+      "changed_files": []
+    }
+  ],
+  "assumptions": [
+    "Two steps keep evidence collection separate from advice and presentation; both preserve the existing report until their gates pass. [Approved handoff; agents/checkpoint-planner.md]",
+    "Due dates are team-recorded scheduling commitments here, not guaranteed contracts; forecasts need supporting current-work evidence. [brainstorm §6; Microsoft scheduling field definitions]",
+    "A near commitment means today, overdue, or the next seven days; an idle month suggests relevance review, never urgency. [Approved qualitative defaults; proposed concrete cutoffs for checkpoint review]",
+    "Critical native risk stays first; evidenced blockers and commitments share one attention group, with native order deciding ties. [brainstorm §6–7; existing azurePriority stable ordering]",
+    "Comment order, edits, and explicit resolutions matter; incomplete discussion cannot prove a blocker remains active or none exists. [brainstorm §6; Comments API date/version definitions]",
+    "Read deleted-comment tombstones to reconcile documented totals, but never analyze their deleted content or keep authors. [Comments API includeDeleted and totalCount; privacy boundary]",
+    "Recognize documented standard dates; show custom dates as unrecognized context, with no mapping or guessed meaning. [PRD coverage rules; brainstorm §5 and §8; Fields API referenceName/type]",
+    "Only the selected team's configured iterations supply sprint dates; an unmatched path stays unexplained rather than expanding scope. [Iterations List API; brainstorm §6]",
+    "Unknown command failures stop; confirmed optional permission gaps get a reason and next action, not silent absence. [PRD coverage rules; official Azure CLI send_raw_request/handle_exception]",
+    "The report needs one visual example because its expanded evidence rows change; reuse the existing capture runner without another browser framework. [ai-prototype; skills/ai-review-ui/capture.cjs]",
+    "Complete, limited and empty examples are synthetic reports; no error/loading page is added because failed writes retain the previous report. [Atomic writer; brainstorm §8]",
+    "No primary spec/plan prerequisite is enforced by this checkpoint hook; no design slot or approval receipt is invented. [scripts/checkpoint-gate.py; src/spec/index.ts]"
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "PLAN ONLY. Source, tests and generated payloads named above are future work. Every gate and checkpoint remains pending, and changed_files starts empty. The parent owns checkpoint review and any later commits.",
+    "Research record: .ai-engineering/research/015-ai-triage-azure-signals.html, verified 2026-10-08 using repository reads, Microsoft Learn and official Azure CLI source. No tenant/account/auth requests. NotebookLM unavailable; no third-party research service used.",
+    "Verified [1]: Comments Get uses GET /{project}/_apis/wit/workItems/{workItemId}/comments at 7.1-preview.4, with $top, continuationToken, includeDeleted, order and optional expansion. CommentList documents comments/count/totalCount/continuationToken/nextPage, and vso.work read scope. Definition id versus example commentId is a documented disagreement handled explicitly. https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/comments/get-comments?view=azure-devops-rest-7.1",
+    "Verified [2]: Iterations List uses GET /{project}/{team}/_apis/work/teamsettings/iterations at 7.1; $timeframe supports only Current, so omit it. Iteration dates are date-only UTC-midnight values. Definition includes path; example envelope values differs from usual value. No continuation/paging parameter is documented. https://learn.microsoft.com/en-us/rest/api/azure/devops/work/iterations/list?view=azure-devops-rest-7.1",
+    "Verified [3]: Fields List is project-scoped GET /{project}/_apis/wit/fields at 7.1. Metadata gives referenceName/type, not the business meaning of arbitrary custom dates or per-item population. Do not treat a name match as a deadline. https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/fields/list?view=azure-devops-rest-7.1",
+    "Verified [4–5]: System.CreatedDate and System.ChangedDate are work-item creation/modification times. DueDate and TargetDate are documented forecasted dates; treating an explicit due field as a scheduling commitment is the approved product rule, not a stronger Azure API guarantee. https://learn.microsoft.com/en-us/azure/devops/boards/queries/history-and-auditing?view=azure-devops ; https://learn.microsoft.com/en-us/azure/devops/boards/queries/query-by-date-or-current-iteration?view=azure-devops",
+    "Verified [6–7]: Batch reads accept fields/errorPolicy/Relations and at most 200 IDs. Existing backlog membership exposes workItems[].target.id with no documented continuation; retain its current cap guard and exact member policy. https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items/get-work-items-batch?view=azure-devops-rest-7.1 ; https://learn.microsoft.com/en-us/rest/api/azure/devops/work/backlogs/get-backlog-level-work-items?view=azure-devops-rest-7.1",
+    "Verified [8]: az rest owns CLI authentication. Official send_raw_request raises an HTTPError containing HTTP reason/body, while CLI printing does not promise structured HTTP status on stdout. An arbitrary exit code cannot distinguish auth from permissions; only narrowly recognized reason prefixes may downgrade an optional failure, and all unrecognized forms fail closed. https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/util.py ; https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/azclierror.py",
+    "Recommendation extraction is semantic analysis by the existing agent procedure; deterministic code validates references/chronology and selects action/order. Reference validation establishes provenance, not that arbitrary prose is true. Synthetic exact outcomes and adversarial review must check the supporting meaning; no keyword urgency detector is planned.",
+    "Keep the existing native band algorithm as-is. Newly evidenced recommendations are separate; native fields are never rewritten, and model analysis.priority never decides ordering.",
+    "For signal-specific missing parents or fields, distinguish no relation/not configured/not populated from denied or incomplete enrichment. Keep mandatory inventory and existing minimal related-context failures fatal; do not silently weaken those pre-existing guards.",
+    "No new package manifest dependency or browser-test framework is planned: the repository already owns capture.cjs and its npx Playwright workflow. The missing capture package and Chromium binary were restored in the gitignored project capture folder after their checks failed. Future capture commands select that local browser/cache path. UI work uses only the local synthetic preview; no private report is served.",
+    "Phase-1 baseline after restoring locked dependencies: targeted unit 16 passed, integration/GitHub contract 39 passed, canonical artifact checks 10 passed; lint and typecheck exited 0 with existing warnings. These results are baseline only, not proof of new behavior. The prototype's four scenarios were exercised at 1440px and 375px, including keyboard disclosure and no document overflow; screenshot review led to an Azure-only label-width rule, not a shell redesign.",
+    "Review preparation removed the unrequested per-run custom due/target mapping. Only documented standard fields gain delivery meaning; already returned custom dates remain visibly unrecognized context. Custom mapping and extensibility require a separately approved product need. Checkpoint review remains pending.",
+    "No real Azure backlog or personal-data fixture, remote mutation, weighted scoring, custom field mapping or extensibility, persistent board/date configuration, multi-board inventory, ancestor/sibling traversal, GitHub change, new architecture layer, or primary-tree spec/plan modification is included."
+  ]
+}
