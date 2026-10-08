@@ -949,3 +949,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Keep the checkpoint code unchanged; its focused lifecycle suite passes 47 tests and typecheck, lint, and build pass. Record the unrelated full-suite failures without restoring unrelated artifacts or loosening the timing budget.
 - **Lesson:** Do not alter feature code or performance thresholds to mask pre-existing test-contract and repository-configuration failures.
 - **Tags:** behavior, tests, baseline, performance
+
+### L87 · 2026-10-09 · worktree-lifecycle-awareness #4 · behavior
+- **Failure:** The AI Engineering full suite reported 1253 pass, 2 fail, and 1 error while the focused lifecycle suite passed 47 tests.
+- **Root cause:** The existing governance 2.6.0 commit `9c37661d` deleted `AGENTS.md` and `.ai-engineering/arch.rules.json`; the unchanged recap and architecture checks still expect those files. Checkpoint 4 changes did not cause the failures.
+- **Fix:** No in-scope change; preserve the existing tests and repository configuration state, and keep the failure separate from the passing lifecycle acceptance.
+- **Lesson:** Keep branch-configuration failures distinct from lifecycle regressions.
+- **Tags:** behavior, tests, baseline, lifecycle
