@@ -29,6 +29,10 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 
 const CLI = join(import.meta.dir, "..", "src", "cli.ts");
 const REAL_GIT = Bun.which("git") ?? "git";
+const orchestratorSkill = readFileSync(
+  join(import.meta.dir, "..", "skills", "ai-orchestrator", "SKILL.md"),
+  "utf8",
+);
 const sandboxRoot = mkdtempSync(join(tmpdir(), "ai-eng-worktree-"));
 const emptyGitConfig = join(sandboxRoot, "empty-gitconfig");
 writeFileSync(emptyGitConfig, "");
@@ -1259,6 +1263,54 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
     expect(refused.status).toBe(1);
     expect(refused.stderr).toContain("request-changes hook refused");
     expect(fullRepoSnapshot(repo, [approved.feature], [checkpointPath])).toBe(before);
+  });
+});
+
+describe("ai-orchestrator worktree lifecycle awareness (checkpoint 1)", () => {
+  test("resumes only when the requested slug exactly names an existing local worktree", () => {
+    const preflightStart = orchestratorSkill.indexOf("## Phase 0: Preflight");
+    const planStart = orchestratorSkill.indexOf("## Phase 1: Plan", preflightStart);
+    const preflight = orchestratorSkill.slice(preflightStart, planStart);
+
+    expect(preflight).toContain("when it already lists `<slug>`");
+    expect(preflight).toContain(
+      "enter the existing `<repo>.worktrees/<slug>` and run `git switch feat/<slug>` inside it",
+    );
+    expect(preflight).toContain("instead of cutting a new one");
+    expect(preflight).toContain("Only when `<slug>` is not listed");
+  });
+
+  test("surfaces semantic near-matches as advisory without treating them as the exact feature", () => {
+    expect(orchestratorSkill).toMatch(/semantic near[- ]match/i);
+    expect(orchestratorSkill).toMatch(/near[- ]match[^.\n]{0,120}advisory/i);
+    expect(orchestratorSkill).toMatch(
+      /near[- ]match[^.\n]{0,160}(?:not|never|must not)[^.\n]{0,80}(?:exact|substitut|resume|continue)/i,
+    );
+  });
+
+  test("recognizes approval-before-start, active, review-before-merge/cleanup, and unknown evidence", () => {
+    expect(orchestratorSkill).toMatch(/approval[^.\n]{0,100}(?:before|prior to|awaiting|not yet)[^.\n]{0,40}start/i);
+    expect(orchestratorSkill).toMatch(/\bactive\b/i);
+    expect(orchestratorSkill).toMatch(
+      /review[^.\n]{0,100}(?:before|prior to|awaiting|not yet|pending)[^.\n]{0,40}(?:merge|cleanup)/i,
+    );
+    expect(orchestratorSkill).toMatch(/\bunknown\b/i);
+  });
+
+  test("treats missing, malformed, and stale lifecycle evidence as unknown", () => {
+    for (const condition of ["missing", "malformed", "stale"]) {
+      expect(orchestratorSkill).toMatch(
+        new RegExp(`(?:${condition}[^.\\n]{0,100}unknown|unknown[^.\\n]{0,100}${condition})`, "i"),
+      );
+    }
+  });
+
+  test("lifecycle evidence never automatically approves, starts, merges, or deletes", () => {
+    for (const action of ["approv", "start", "merg", "delet"]) {
+      expect(orchestratorSkill).toMatch(
+        new RegExp(`(?:no|never|must not|do not)[^.\\n]{0,80}automatic(?:ally)?[^.\\n]{0,50}\\b${action}\\w*`, "i"),
+      );
+    }
   });
 });
 
