@@ -742,3 +742,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Bind human app-review approval to both reviewed refs and route the close through the single Git-native CAS command.
 - **Lesson:** When a transaction becomes a command, update its caller handoff before documenting or reviewing the lifecycle.
 - **Tags:** behavior, skills, merge
+
+### L90 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** The blueprint contract test found the rewritten worktree flow no longer stated that visual recap is optional for merge and cleanup.
+- **Root cause:** The new CAS procedure replaced the existing close paragraph without carrying forward the unrelated recap boundary.
+- **Fix:** Preserve the recap-optional statement beside the new atomic merge and removal contract.
+- **Lesson:** When replacing a workflow paragraph, retain adjacent invariants that remain in scope.
+- **Tags:** behavior, docs, recap
+
+### L91 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** The orchestrator contract test expected the old manual merge/removal wording after close moved into the CAS command.
+- **Root cause:** A phase-order assertion matched retired command prose rather than the new sync, review and command handoff.
+- **Fix:** Assert Phase 3 sync before app review, then reviewed SHA capture, human approval and the CAS command after approval.
+- **Lesson:** Assert ordered behavior, not the mere presence of command strings.
+- **Tags:** behavior, tests, workflow

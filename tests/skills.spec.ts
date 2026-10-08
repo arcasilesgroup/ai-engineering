@@ -416,11 +416,36 @@ describe("workflow kit — visual recap is opt-in", () => {
     const prd = readFileSync(join(SKILLS, "..", ".ai-engineering", "PRD.html"), "utf8");
     const blueprint = readFileSync(join(SKILLS, "..", "docs", "blueprint.html"), "utf8");
 
-    const appReview = orchestratorSkill.split("## Phase 4: Human stop 2, app review")[1] ?? "";
+    const phase3 = markdownSection(orchestratorSkill, "## Phase 3: Wrap-up");
+    const appReview = markdownSection(orchestratorSkill, "## Phase 4: Human stop 2, app review");
+    const approval = appReview.split("- **Approve:**")[1]?.split("- **Stop here:**")[0] ?? "";
     expect(appReview).toContain("Never invoke `ai-visual-recap` automatically");
     expect(appReview).toContain("Only when the user explicitly invokes `/ai-visual-recap` themselves");
-    expect(appReview).toContain("git merge --no-ff feat/<slug>");
-    expect(appReview).toContain("ai-eng worktree rm <slug>");
+    const rebase = phase3.indexOf("Run `git rebase refs/heads/main`");
+    const behaviorGates = phase3.indexOf("rerun affected behavior checks");
+    const uiGates = phase3.indexOf("rerun affected UI checks");
+    const reviewGate = phase3.indexOf("rerun the affected review gate");
+    const appReviewHandoff = phase3.indexOf("Only then proceed to Phase 4");
+    expect(rebase).toBeGreaterThanOrEqual(0);
+    expect(behaviorGates).toBeGreaterThan(rebase);
+    expect(uiGates).toBeGreaterThan(behaviorGates);
+    expect(reviewGate).toBeGreaterThan(uiGates);
+    expect(appReviewHandoff).toBeGreaterThan(reviewGate);
+    const featureTip = approval.indexOf("git rev-parse refs/heads/feat/<slug>");
+    const reviewedFeature = approval.indexOf("lifecycle.reviewed_feature", featureTip);
+    const approved = approval.indexOf("lifecycle.app_review: approved", reviewedFeature);
+    const readyToMerge = approval.indexOf("lifecycle.phase: ready-to-merge", approved);
+    const mergeCommand = approval.indexOf("ai-eng worktree merge <slug>", readyToMerge);
+    expect(featureTip).toBeGreaterThanOrEqual(0);
+    expect(reviewedFeature).toBeGreaterThan(featureTip);
+    expect(approval).toMatch(/set `lifecycle\.reviewed_feature` to that exact full SHA/);
+    expect(approval).toContain("retain the exact full `lifecycle.reviewed_main`");
+    expect(approved).toBeGreaterThan(reviewedFeature);
+    expect(readyToMerge).toBeGreaterThan(approved);
+    expect(mergeCommand).toBeGreaterThan(readyToMerge);
+    expect(approval).toContain("compare-and-swap transaction");
+    expect(appReview).toContain("Never write lifecycle phase `complete`.");
+    expect(appReview).toContain("its absence must not delay approval, merge, or worktree removal");
     expect(appReview).not.toContain(
       "follow the repository-owned procedure at `skills/ai-visual-recap/SKILL.md`",
     );

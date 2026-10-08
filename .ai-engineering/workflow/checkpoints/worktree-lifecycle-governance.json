@@ -445,7 +445,7 @@
       "gates": {
         "behavior": {
           "status": "pending",
-          "attempts": 14,
+          "attempts": 17,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
             "attempt 2 FAIL: `bun test tests/worktree-lifecycle.spec.ts` invoked without `./` was interpreted by Bun as a test-name filter and matched no test files; rerun with explicit relative paths.",
@@ -460,7 +460,11 @@
             "attempt 10 FAIL: updated `bun test ./tests/skills.spec.ts` contract test reveals the orchestrator skill still lacks reviewed_feature capture and the single `ai-eng worktree merge <slug>` handoff.",
             "attempt 11 FAIL: focused CP6 tests, checkpoint gate, assets, embed-canon, typecheck and lint passed; full bun test exited 1 but tool output exceeded capture limit and no counts/failure were available; arch not run.",
             "attempt 12 FAIL: full bun test ran 1071 tests (1069 pass, 2 fail): orchestrator-close contract still expected manual ancestry/rm wording, and chain p95 intermittently measured 2015.25 ms.",
-            "The cross-skill orchestrator-close assertion is updated in tests/git-cleanup-pass.spec.ts and focused skills/cleanup contract tests pass; rerun full verification."
+            "attempt 13 FAIL: focused CP6 suites, gate, assets, typecheck and lint passed; standard full suite ran 1071 tests (1070 pass, 1 fail), the pre-existing adversarial chain p95 budget at 151.60 ms; arch was not run.",
+            "The cross-skill orchestrator-close assertion is updated in tests/git-cleanup-pass.spec.ts and focused skills/cleanup contract tests pass; rerun full verification.",
+            "attempt 14 FAIL: `bun test ./tests/skills.spec.ts` found the blueprint no longer stated that recap is optional; earlier lifecycle and worktree-command suites passed, remaining commands were not run.",
+            "The recap boundary was restored in docs/blueprint.html; the focused rerun exposed a stale old merge-order contract assertion.",
+            "attempt 17 corrected the close-contract assertion to require Phase3 sync before human review, then exact reviewed SHAs/approval/CAS handoff after review; focused skills and git-cleanup-pass tests pass."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -477,6 +481,7 @@
         "tests/worktree-lifecycle.spec.ts",
         "tests/worktree-command.spec.ts",
         "tests/git-cleanup-pass.spec.ts",
+        "docs/blueprint.html",
         "LEARNINGS.md"
       ]
     }
