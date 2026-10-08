@@ -672,3 +672,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Add the named fields to the test-case type while preserving the rebase, conflict and abort assertions.
 - **Lesson:** Keep test-case types aligned with their distinct named fields.
 - **Tags:** behavior, tests, types
+
+### L80 · 2026-10-08 · worktree-lifecycle-governance #5 · review
+- **Failure:** Review found an unresolved rebase could mutate checkpoint state before restoration, a fixture used `git reset --hard`, and gate ordering omitted conditional UI.
+- **Root cause:** Failure handling and test cleanup did not prove the original state was restored before continuing.
+- **Fix:** Abort and verify refs/tree/status/content before marking blocked, use `git rebase --abort` in the fixture, and test behavior/UI-if-applicable/review ordering.
+- **Lesson:** Preserve state first; record failure only after restoration is proven.
+- **Tags:** review, rebase, safety

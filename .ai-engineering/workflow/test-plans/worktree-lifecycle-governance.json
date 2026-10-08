@@ -168,7 +168,7 @@
       },
       {
         "id": "U21",
-        "case": "a clear rebase conflict is resolved only inside the feature worktree and affected behavior and review gates rerun before human app review",
+        "case": "a clear rebase conflict is resolved only inside the feature worktree; affected behavior gates rerun first, UI gates only when the checkpoint has UI, then affected review gates, all before human app review",
         "file": "tests/worktree-lifecycle.spec.ts",
         "command": "bun test tests/worktree-lifecycle.spec.ts",
         "checkpoint": 5

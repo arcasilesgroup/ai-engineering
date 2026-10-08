@@ -568,19 +568,53 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     const normalized = phase3.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
     const dirtyCheck = normalized.indexOf("git status --porcelain --untracked-files=all");
     const localRebase = normalized.indexOf("git rebase refs/heads/main");
+    const clearConflict = normalized.indexOf("a clear conflict");
+    const afterSync = normalized.indexOf("after a clean rebase or clear resolution", clearConflict);
+    const behaviorRerun = normalized.indexOf("rerun affected behavior checks", afterSync);
+    const uiRerun = normalized.indexOf("rerun affected ui checks only when the checkpoint has a ui gate", behaviorRerun);
+    const reviewRerun = normalized.indexOf("rerun the affected review gate", uiRerun);
+    const unclearConflict = normalized.indexOf("if either side's intent is unclear");
+    const abortConflict = normalized.indexOf("git rebase --abort first", unclearConflict);
+    const verifyConflictRestoration = normalized.indexOf("verify that the original feature branch", abortConflict);
+    const blockAfterConflictRestoration = normalized.indexOf(
+      "only after abort and restoration are verified, write lifecycle phase: blocked",
+      verifyConflictRestoration,
+    );
+    const failedCheck = normalized.indexOf("on any failed check");
+    const abortFailedCheck = normalized.indexOf("abort an active rebase first", failedCheck);
+    const verifyFailedCheckRestoration = normalized.indexOf(
+      "verify the original branch, feature commit, tree id and clean worktree as in step 3",
+      abortFailedCheck,
+    );
+    const blockAfterFailedCheckRestoration = normalized.indexOf(
+      "only after restoration is verified, write lifecycle phase: blocked",
+      verifyFailedCheckRestoration,
+    );
 
     expect(dirtyCheck).toBeGreaterThanOrEqual(0);
     expect(localRebase).toBeGreaterThan(dirtyCheck);
+    expect(clearConflict).toBeGreaterThanOrEqual(0);
+    expect(afterSync).toBeGreaterThan(clearConflict);
+    expect(behaviorRerun).toBeGreaterThan(afterSync);
+    expect(uiRerun).toBeGreaterThan(behaviorRerun);
+    expect(reviewRerun).toBeGreaterThan(uiRerun);
+    expect(abortConflict).toBeGreaterThan(unclearConflict);
+    expect(verifyConflictRestoration).toBeGreaterThan(abortConflict);
+    expect(blockAfterConflictRestoration).toBeGreaterThan(verifyConflictRestoration);
+    expect(abortFailedCheck).toBeGreaterThan(failedCheck);
+    expect(verifyFailedCheckRestoration).toBeGreaterThan(abortFailedCheck);
+    expect(blockAfterFailedCheckRestoration).toBeGreaterThan(verifyFailedCheckRestoration);
     expect(normalized).not.toMatch(/git rebase main\b/);
     expect(phase3).toMatch(/(?:never|do not)[\s\S]{0,120}(?:fetch|remote sync)/i);
     expect(phase3).toMatch(
       /(?:never|do not)[\s\S]{0,120}(?:merge[\s\S]{0,100}unapproved sibling|unapproved sibling[\s\S]{0,100}merge)/i,
     );
     expect(phase3).toMatch(/clear conflict[\s\S]{0,160}resolve[\s\S]{0,120}feature worktree/i);
-    expect(phase3).toMatch(/(?:rerun|re-run)[\s\S]{0,120}affected behavior[\s\S]{0,160}review gate/i);
+    expect(phase3).toMatch(/ui checks only when the checkpoint has a ui gate/i);
+    expect(phase3).toMatch(/without writing lifecycle state or claiming clean preservation/i);
+    expect(phase3).toMatch(/without changing checkpoint state or claiming clean preservation/i);
     expect(phase3).toMatch(/(?:unclear|ambiguous)[\s\S]{0,100}conflict[\s\S]{0,160}(?:git rebase --abort|abort)/i);
     expect(phase3).toMatch(/(?:failed|failing)[\s\S]{0,100}check[\s\S]{0,180}(?:restore|reset|abort)/i);
     expect(phase3).toMatch(/blocked/i);
-    expect(phase3).toMatch(/preserve[\s\S]{0,120}original[\s\S]{0,180}worktree[\s\S]{0,180}content/i);
   });
 });

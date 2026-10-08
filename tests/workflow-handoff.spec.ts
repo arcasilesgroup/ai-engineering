@@ -129,8 +129,11 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     const phase4Start = normalized.indexOf("## phase 4: human stop 2, app review", phase3Start);
     const phase3 = normalized.slice(phase3Start, phase4Start);
     const rebase = phase3.indexOf("git rebase refs/heads/main");
-    const behaviorGate = phase3.indexOf("rerun affected behavior", rebase);
-    const reviewGate = phase3.indexOf("rerun affected review", behaviorGate);
+    const clearConflict = phase3.indexOf("a clear conflict", rebase);
+    const afterSync = phase3.indexOf("after a clean rebase or clear resolution", clearConflict);
+    const behaviorGate = phase3.indexOf("rerun affected behavior checks", afterSync);
+    const uiGate = phase3.indexOf("rerun affected ui checks only when the checkpoint has a ui gate", behaviorGate);
+    const reviewGate = phase3.indexOf("rerun the affected review gate", uiGate);
     const gatesPassed = phase3.indexOf("after all affected gates pass", reviewGate);
     const mainRead = phase3.indexOf("git rev-parse refs/heads/main", gatesPassed);
     const currentMain = phase3.indexOf("require it to equal the exact local-main target used for the rebase", mainRead);
@@ -140,13 +143,18 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     const awaitingReview = phase3.indexOf("lifecycle.phase to awaiting-app-review", fullCommitId);
     const pendingReview = phase3.indexOf("lifecycle.app_review to pending", awaitingReview);
     const onlyThen = phase3.indexOf("only then proceed to phase 4", pendingReview);
-    const appReview = section("skills/ai-orchestrator/SKILL.md", "## Phase 4: Human stop 2, app review").body;
+    const appReview = section("skills/ai-orchestrator/SKILL.md", "## Phase 4: Human stop 2, app review")
+      .body.toLowerCase();
+    const humanAppReview = appReview.indexOf("ask the user to try the feature");
 
     expect(phase3Start).toBeGreaterThanOrEqual(0);
     expect(phase4Start).toBeGreaterThan(phase3Start);
     expect(rebase).toBeGreaterThanOrEqual(0);
+    expect(clearConflict).toBeGreaterThan(rebase);
+    expect(afterSync).toBeGreaterThan(clearConflict);
     expect(behaviorGate).toBeGreaterThan(rebase);
-    expect(reviewGate).toBeGreaterThan(behaviorGate);
+    expect(uiGate).toBeGreaterThan(behaviorGate);
+    expect(reviewGate).toBeGreaterThan(uiGate);
     expect(gatesPassed).toBeGreaterThan(reviewGate);
     expect(mainRead).toBeGreaterThan(gatesPassed);
     expect(currentMain).toBeGreaterThan(mainRead);
@@ -156,6 +164,8 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(awaitingReview).toBeGreaterThan(fullCommitId);
     expect(pendingReview).toBeGreaterThan(awaitingReview);
     expect(onlyThen).toBeGreaterThan(pendingReview);
+    expect(reviewGate).toBeLessThan(phase4Start);
+    expect(humanAppReview).toBeGreaterThanOrEqual(0);
     expect(appReview).toMatch(/reviewed_main[\s\S]{0,100}(?:exact|current)[\s\S]{0,100}local main/i);
     expect(appReview).not.toMatch(/git rebase/i);
   });

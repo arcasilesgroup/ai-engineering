@@ -443,24 +443,32 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).not.toContain("rebase");
   });
 
-  test("U22: an unresolved conflict aborts cleanly and a failed gate restores original feature content", () => {
+  test("U22: unresolved conflicts abort before checkpoint updates and preserve original refs, status and content", () => {
     const repo = initRepo();
     const feature = addBranchWorktree(repo, "sync-abort");
     const blockedCheckpoint = writeCheckpoint(feature, "sync-abort", checkpointPlan("sync-abort", "implementation"));
     commitCheckpoint(feature, blockedCheckpoint);
+    const originalCheckpointContents = readFileSync(blockedCheckpoint, "utf8");
     const originalFeatureContents = "export const value = 'feature';\n";
     const featureCommit = commitFile(feature, "src/shared.ts", originalFeatureContents, "feature edit");
+    const originalFeatureTree = git(["rev-parse", `${featureCommit}^{tree}`], feature).trim();
     const featureRef = pinRef(repo, "abort-feature-before", featureCommit);
     const mainContents = "export const value = 'main';\n";
     const localMain = commitFile(repo, "src/shared.ts", mainContents, "main edit");
-    pinRef(repo, "abort-local-main", localMain);
+    const mainRef = pinRef(repo, "abort-local-main", localMain);
 
-    const before = repoSnapshot(repo, [feature], []);
+    const before = repoSnapshot(repo, [feature], [blockedCheckpoint]);
     expect(runGit(["rebase", "refs/heads/main"], feature).status).not.toBe(0);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toContain("src/shared.ts");
+    expect(readFileSync(blockedCheckpoint, "utf8")).toBe(originalCheckpointContents);
     expect(runGit(["rebase", "--abort"], feature).status).toBe(0);
-    expect(repoSnapshot(repo, [feature], [])).toBe(before);
+    expect(repoSnapshot(repo, [feature], [blockedCheckpoint])).toBe(before);
     expect(git(["rev-parse", "HEAD"], feature).trim()).toBe(featureCommit);
+    expect(git(["rev-parse", "HEAD^{tree}"], feature).trim()).toBe(originalFeatureTree);
     expect(git(["branch", "--show-current"], feature).trim()).toBe("feat/sync-abort");
+    expect(git(["rev-parse", featureRef], repo).trim()).toBe(featureCommit);
+    expect(git(["rev-parse", mainRef], repo).trim()).toBe(localMain);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
     expect(readFileSync(join(feature, "src", "shared.ts"), "utf8")).toBe(originalFeatureContents);
     expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(feature));
     writeCheckpoint(feature, "sync-abort", checkpointPlan("sync-abort", "blocked"));
@@ -483,19 +491,36 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     const initialPlan = checkpointPlan("sync-failed-gate", "implementation");
     const checkpoint = writeCheckpoint(failedGate, "sync-failed-gate", initialPlan);
     commitCheckpoint(failedGate, checkpoint);
-    const originalFeature = commitFile(
-      failedGate,
-      "src/trailing-space.ts",
-      "export const value = true; \n",
-      "feature with failed check",
-    );
+    const originalFeatureContentsWithTrailingSpace = "export const value = 'feature'; \n";
+    const originalFeature = commitFile(failedGate, "src/shared.ts", originalFeatureContentsWithTrailingSpace, "feature with failed check");
+    const failedGateFeatureTree = git(["rev-parse", `${originalFeature}^{tree}`], failedGate).trim();
     const originalFeatureRef = pinRef(repo, "failed-gate-feature-before", originalFeature);
-    const advancedMain = commitFile(repo, "src/main.ts", "export const main = true;\n", "advance main");
+    const mainContentsForFailedGate = "export const value = 'main for failed gate';\n";
+    const advancedMain = commitFile(repo, "src/shared.ts", mainContentsForFailedGate, "advance main");
+    const failedGateMainRef = pinRef(repo, "failed-gate-local-main", advancedMain);
+    const originalFailedGateCheckpoint = readFileSync(checkpoint, "utf8");
+    const failedGateBefore = repoSnapshot(repo, [failedGate], [checkpoint]);
 
-    expect(runGit(["rebase", "refs/heads/main"], failedGate).status).toBe(0);
-    expect(runGit(["merge-base", "--is-ancestor", advancedMain, "HEAD"], failedGate).status).toBe(0);
-    expect(runGit(["diff", "--check", `${advancedMain}..HEAD`], failedGate).status).not.toBe(0);
-    expect(runGit(["reset", "--hard", originalFeatureRef], failedGate).status).toBe(0);
+    expect(runGit(["rebase", "refs/heads/main"], failedGate).status).not.toBe(0);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], failedGate)).toContain("src/shared.ts");
+    const failedResolutionContents = "export const value = 'resolved'; \n";
+    writeFileSync(join(failedGate, "src", "shared.ts"), failedResolutionContents);
+    git(["add", "src/shared.ts"], failedGate);
+    expect(runGit(["diff", "--cached", "--check"], failedGate).status).not.toBe(0);
+    expect(readFileSync(checkpoint, "utf8")).toBe(originalFailedGateCheckpoint);
+    expect(runGit(["rebase", "--abort"], failedGate).status).toBe(0);
+    expect(repoSnapshot(repo, [failedGate], [checkpoint])).toBe(failedGateBefore);
+    expect(git(["rev-parse", "HEAD"], failedGate).trim()).toBe(originalFeature);
+    expect(git(["rev-parse", "HEAD^{tree}"], failedGate).trim()).toBe(failedGateFeatureTree);
+    expect(git(["branch", "--show-current"], failedGate).trim()).toBe("feat/sync-failed-gate");
+    expect(git(["rev-parse", originalFeatureRef], repo).trim()).toBe(originalFeature);
+    expect(git(["rev-parse", failedGateMainRef], repo).trim()).toBe(advancedMain);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(advancedMain);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], failedGate)).toBe("");
+    expect(readFileSync(join(failedGate, "src", "shared.ts"), "utf8")).toBe(originalFeatureContentsWithTrailingSpace);
+    expect(readFileSync(join(repo, "src", "shared.ts"), "utf8")).toBe(mainContentsForFailedGate);
+    expect(readFileSync(checkpoint, "utf8")).toBe(originalFailedGateCheckpoint);
+    expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(failedGate));
 
     const blockedPlan = checkpointPlan("sync-failed-gate", "blocked");
     writeCheckpoint(failedGate, "sync-failed-gate", blockedPlan);
@@ -504,12 +529,6 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     };
 
     expect(git(["rev-parse", "HEAD"], failedGate).trim()).toBe(originalFeature);
-    expect(git(["branch", "--show-current"], failedGate).trim()).toBe("feat/sync-failed-gate");
-    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(advancedMain);
-    expect(readFileSync(join(failedGate, "src", "trailing-space.ts"), "utf8")).toBe(
-      "export const value = true; \n",
-    );
-    expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(failedGate));
     expect(storedPlan.lifecycle).toEqual({ phase: "blocked", plan_approval: "approved", app_review: "not-started", reviewed_main: null });
   });
 
