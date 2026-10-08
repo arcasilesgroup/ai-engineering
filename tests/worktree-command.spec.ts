@@ -1213,4 +1213,47 @@ describe("ai-eng worktree rebase (checkpoint 5)", () => {
       if (existsSync(mergeState) || existsSync(applyState)) git(["rebase", "--abort"], feature);
     }
   });
+
+  test("U20d: preserves rewritten work and reports a main advance during rebase", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const feature = addRebaseWorktree(repo, "main-race");
+    const checkpoint = writeRebasePlan(feature, "main-race", rebasePlan("main-race"));
+    const checkpointContents = readFileSync(checkpoint, "utf8");
+    const featureBefore = commitRebaseFixtureFile(feature, "feature-only.txt", "feature\n", "feature change");
+    const mainBefore = advanceRebaseMain(repo);
+    const mainTree = git(["rev-parse", `${mainBefore}^{tree}`], repo).trim();
+    const mainAfter = git(
+      ["commit-tree", mainTree, "-p", mainBefore, "-m", "advance local main during rebase"],
+      repo,
+    ).trim();
+    const hookDir = join(repo, "hooks");
+    const hook = join(hookDir, "post-rewrite");
+    mkdirSync(hookDir, { recursive: true });
+    writeFileSync(hook, `#!/bin/sh\ngit update-ref refs/heads/main ${mainAfter}\n`);
+    chmodSync(hook, 0o755);
+    git(["config", "core.hooksPath", hookDir], repo);
+
+    const log = join(root, "main-race-invocations.log");
+    const run = runCli(["worktree", "rebase", "main-race"], repo, shimEnv(log));
+    const output = `${run.stdout}${run.stderr}`;
+    const featureAfter = git(["rev-parse", "refs/heads/feat/main-race"], repo).trim();
+    const invocations = loggedInvocations(log);
+
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(mainAfter);
+    expect(run.status).not.toBe(0);
+    expect(run.stdout).not.toContain("✓");
+    expect(output).toContain(mainBefore);
+    expect(output).toContain(mainAfter);
+    expect(output.toLowerCase()).toContain("rerun sync");
+    expect(featureAfter).not.toBe(featureBefore);
+    expect(git(["rev-parse", `${featureAfter}^`], repo).trim()).toBe(mainBefore);
+    expect(gitOut(["merge-base", "--is-ancestor", "refs/heads/main", featureAfter], repo).status).not.toBe(0);
+    expect(git(["rev-parse", "HEAD"], feature).trim()).toBe(featureAfter);
+    expect(git(["show", "HEAD:feature-only.txt"], feature)).toBe("feature\n");
+    expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
+    expect(invocations.filter((args) => args[0] === "rebase")).toEqual([["rebase", "refs/heads/main"]]);
+    expect(invocations.some((args) => args[0] === "reset" || (args[0] === "rebase" && args[1] === "--abort"))).toBe(false);
+  });
 });
