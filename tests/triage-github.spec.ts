@@ -1,5 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
+import {
+  renderAnalysis,
+  renderHierarchy,
+} from "../skills/ai-triage/scripts/render-report.mjs";
 
 const githubInstructions = readFileSync(
   new URL("../skills/ai-triage/references/github.md", import.meta.url),
@@ -124,6 +128,40 @@ function commandExamples(markdown: string): string[] {
 }
 
 describe("GitHub triage instruction contract", () => {
+  test("shares formatted analysis and connected parent/item/sub-issue rendering", () => {
+    const node = (number: number, title: string) => ({
+      label: `#${number}`,
+      url: `https://github.com/synthetic-org/synthetic-repo/issues/${number}`,
+      type: "Issue",
+      title,
+      state: "open",
+    });
+    const hierarchy = renderHierarchy({
+      current: node(42, "Current issue"),
+      parents: [node(41, "Parent issue")],
+      children: [node(43, "<img src=x onerror=alert(1)>")],
+    });
+    expect(hierarchy).toContain('class="tree-row tree-parent"');
+    expect(hierarchy).toContain('<div class="tree-branch"><div class="tree-row tree-current">');
+    expect(hierarchy).toContain('<div class="tree-children"><div class="tree-row tree-child">');
+    expect(hierarchy).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    expect(hierarchy).not.toContain("<img");
+    for (const anchor of hierarchy.matchAll(/<a\b[^>]*>/g)) {
+      expect(anchor[0]).toContain('target="_blank" rel="noreferrer noopener"');
+      expect(anchor[0]).not.toContain("api.github.com");
+    }
+    expect(renderAnalysis("**Decision**: *verify* `src/cli.ts`")).toBe(
+      "<strong>Decision</strong>: <em>verify</em> <code>src/cli.ts</code>",
+    );
+    expect(githubInstructions).toContain("renderAnalysis");
+    expect(githubInstructions).toContain("renderHierarchy");
+    expect(githubInstructions).toContain("/issues/{issue_number}/parent");
+    expect(githubInstructions).toContain("/issues/{issue_number}/sub_issues?page=1");
+    expect(githubInstructions).toContain("never copy it into a separate Description row");
+    expect(reportTemplate).toContain('.tree-branch>.tree-current::before,.tree-child::before');
+    expect(reportTemplate).toContain('<span class="ilbl">Analysis</span><span class="analysis">{{context}}</span>');
+    expect(reportTemplate).toContain('<span class="type-chip">{{type}}</span>');
+  });
   test("preserves separate complete issue and pull-request inventories", () => {
     const steps = githubInstructions.slice(
       githubInstructions.indexOf("## Steps"),

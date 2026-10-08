@@ -1,15 +1,16 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
 const API_VERSION = "7.1";
+const AZURE_DEVOPS_RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798";
+const AZURE_PROJECT_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BATCH_SIZE = 200;
-const NONTERMINAL_CATEGORIES = new Set([
-  "Proposed",
-  "InProgress",
-  "Resolved",
-]);
-const STATE_CATEGORIES = new Set([
-  ...NONTERMINAL_CATEGORIES,
-  "Completed",
-  "Removed",
-]);
+const RELATED_ITEM_FIELDS = [
+  "System.WorkItemType",
+  "System.State",
+  "System.Title",
+];
 
 class IncompleteAzureInventoryError extends Error {
   constructor(reason) {
@@ -81,7 +82,7 @@ function requireArray(value, property, source) {
 function requireWorkItemType(item) {
   const workItemType = item?.fields?.["System.WorkItemType"];
   if (typeof workItemType !== "string" || !workItemType) {
-    throw incomplete("a work item has no type metadata");
+    throw incomplete("a work item has no type value");
   }
   return workItemType;
 }
@@ -89,45 +90,151 @@ function requireWorkItemType(item) {
 function requireWorkItemState(item) {
   const state = item?.fields?.["System.State"];
   if (typeof state !== "string" || !state) {
-    throw incomplete("a work item has no state metadata");
+    throw incomplete("a work item has no state value");
   }
   return state;
 }
 
-function stateKey(workItemType, state) {
-  return `${workItemType}\u0000${state}`;
+function requireWorkItemTitle(item) {
+  const title = item?.fields?.["System.Title"];
+  if (typeof title !== "string" || !title) {
+    throw incomplete("a related work item has no title");
+  }
+  return title;
 }
 
-export function filterNonterminalWorkItems(workItems, stateMetadata) {
-  const categoriesByState = new Map();
-  for (const metadata of stateMetadata) {
+const execFileAsync = promisify(execFile);
+
+async function executeAz(args) {
+  const { stdout } = await execFileAsync("az", args, {
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  return stdout;
+}
+
+export function createAzureDevOpsInvoker({
+  organization,
+  project,
+  team,
+  backlogId,
+  run = executeAz,
+}) {
+  const selectedScope = {
+    organization: explicitOrganization(organization),
+    project,
+    team,
+    backlogId,
+  };
+  const encodedProject = encodeSegment(project, "project");
+  const encodedTeam = encodeSegment(team, "team");
+  const encodedBacklog = encodeSegment(backlogId, "backlog");
+  const backlogLevelsPath = `/${encodedProject}/${encodedTeam}/_apis/work/backlogs`;
+  const backlogItemsPath = `${backlogLevelsPath}/${encodedBacklog}/workItems`;
+  const projectPath = `/_apis/projects/${encodedProject}`;
+  const workItemBatchPath = `/${encodedProject}/_apis/wit/workitemsbatch`;
+
+  return async (request) => {
     if (
-      typeof metadata.workItemType !== "string" ||
-      typeof metadata.name !== "string" ||
-      !metadata.name
+      request.organization !== selectedScope.organization ||
+      request.project !== selectedScope.project ||
+      request.team !== selectedScope.team ||
+      request.backlogId !== selectedScope.backlogId ||
+      request.apiVersion !== API_VERSION
     ) {
-      throw incomplete("a work-item state is missing metadata");
+      throw incomplete("an Azure request escaped the selected scope");
     }
-    const category = metadata.stateCategory ?? metadata.category;
-    if (!STATE_CATEGORIES.has(category)) {
-      throw incomplete("a work-item state has an unknown category");
+
+    const isAllowedGet =
+      request.method === "GET" &&
+      (request.path === backlogLevelsPath ||
+        request.path === backlogItemsPath ||
+        request.path === projectPath);
+    const isInventoryBatch =
+      request.method === "POST" &&
+      request.path === workItemBatchPath &&
+      Array.isArray(request.body?.ids) &&
+      request.body["$expand"] === "Relations" &&
+      request.body.fields === undefined &&
+      request.body.errorPolicy === "Fail" &&
+      Object.keys(request.body).every((key) =>
+        ["ids", "errorPolicy", "$expand"].includes(key),
+      );
+    const isRelatedContextBatch =
+      request.method === "POST" &&
+      request.path === workItemBatchPath &&
+      Array.isArray(request.body?.ids) &&
+      request.body["$expand"] === undefined &&
+      Array.isArray(request.body.fields) &&
+      request.body.fields.length === RELATED_ITEM_FIELDS.length &&
+      request.body.fields.every(
+        (field, index) => field === RELATED_ITEM_FIELDS[index],
+      ) &&
+      request.body.errorPolicy === "Fail" &&
+      Object.keys(request.body).every((key) =>
+        ["ids", "errorPolicy", "fields"].includes(key),
+      );
+    const isAllowedBatch = isInventoryBatch || isRelatedContextBatch;
+    if (!isAllowedGet && !isAllowedBatch) {
+      throw incomplete("an Azure request did not match the read allowlist");
     }
-    const key = stateKey(metadata.workItemType, metadata.name);
-    if (categoriesByState.has(key)) {
-      throw incomplete("work-item state metadata is ambiguous");
+
+    const args = [
+      "rest",
+      "--method",
+      request.method.toLowerCase(),
+      "--url",
+      `${selectedScope.organization}${request.path}?api-version=${API_VERSION}`,
+      "--resource",
+      AZURE_DEVOPS_RESOURCE,
+      "--only-show-errors",
+      "--output",
+      "json",
+    ];
+    if (isAllowedBatch) {
+      args.push("--body", JSON.stringify(request.body));
     }
-    categoriesByState.set(key, category);
+
+    const output = await run(args);
+    return JSON.parse(output);
+  };
+}
+
+function relatedWorkItemTarget(relation, organization) {
+  if (
+    relation?.rel !== "System.LinkTypes.Hierarchy-Forward" &&
+    relation?.rel !== "System.LinkTypes.Hierarchy-Reverse"
+  ) {
+    return undefined;
   }
 
-  return workItems.filter((item) => {
-    const category = categoriesByState.get(
-      stateKey(requireWorkItemType(item), requireWorkItemState(item)),
-    );
-    if (category === undefined) {
-      throw incomplete("a work-item state has no category metadata");
-    }
-    return NONTERMINAL_CATEGORIES.has(category);
-  });
+  let url;
+  try {
+    url = new URL(relation.url);
+  } catch {
+    return undefined;
+  }
+
+  const organizationUrl = new URL(organization);
+  const organizationPath = organizationUrl.pathname.replace(/\/+$/, "");
+  if (
+    url.origin !== organizationUrl.origin ||
+    url.username ||
+    url.password ||
+    !url.pathname.startsWith(`${organizationPath}/`)
+  ) {
+    return undefined;
+  }
+
+  const relativePath = url.pathname.slice(organizationPath.length);
+  const match = relativePath.match(
+    /^\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/_apis\/wit\/workItems\/(\d+)\/?$/i,
+  );
+  if (!match) return undefined;
+  const [, projectId, idText] = match;
+  const id = Number(idText);
+  if (!projectId || !Number.isSafeInteger(id) || id <= 0) return undefined;
+  return { projectId, id };
 }
 
 export function partitionWorkItemIds(workItemIds) {
@@ -160,12 +267,12 @@ export async function collectAzureBacklog({
   const encodedBacklog = encodeSegment(backlogId, "backlog");
   const backlogLevelsPath = `/${encodedProject}/${encodedTeam}/_apis/work/backlogs`;
   const backlogItemsPath = `${backlogLevelsPath}/${encodedBacklog}/workItems`;
-  const workItemTypesPath = `/${encodedProject}/_apis/wit/workitemtypes`;
+  const projectPath = `/_apis/projects/${encodedProject}`;
   const workItemBatchPath = `/${encodedProject}/_apis/wit/workitemsbatch`;
   const allowedRoutes = new Set([
     `GET ${backlogLevelsPath}`,
     `GET ${backlogItemsPath}`,
-    `GET ${workItemTypesPath}`,
+    `GET ${projectPath}`,
     `POST ${workItemBatchPath}`,
   ]);
 
@@ -209,7 +316,7 @@ export async function collectAzureBacklog({
       throw incomplete("the selected backlog reached its work-item limit");
     }
 
-    const workItemIds = references.map((reference) => reference?.id);
+    const workItemIds = references.map((reference) => reference?.target?.id);
     if (
       workItemIds.some(
         (id) => !Number.isSafeInteger(id) || id <= 0,
@@ -224,6 +331,7 @@ export async function collectAzureBacklog({
       const batchResponse = await request("POST", workItemBatchPath, {
         ids: batch,
         errorPolicy: "Fail",
+        "$expand": "Relations",
       });
       const details = requireArray(batchResponse, "value", "work-item batch");
       const returnedIds = details.map((item) => item?.id);
@@ -238,40 +346,101 @@ export async function collectAzureBacklog({
       for (const item of details) detailsById.set(item.id, item);
     }
 
-    const workItems = workItemIds.map((id) => detailsById.get(id));
-    const typesResponse = await request("GET", workItemTypesPath);
-    const workItemTypes = requireArray(
-      typesResponse,
-      "value",
-      "work-item types",
+    const workItems = workItemIds.map((id) => {
+      const item = detailsById.get(id);
+      if (!item) throw incomplete("a selected work item is missing");
+      requireWorkItemType(item);
+      requireWorkItemState(item);
+      return item;
+    });
+    const relatedTargets = workItems.flatMap((item) =>
+      (item.relations ?? [])
+        .map((relation) =>
+          relatedWorkItemTarget(relation, scope.organization),
+        )
+        .filter((target) => target !== undefined),
     );
-    const availableTypes = new Set(
-      workItemTypes.map((type) => type?.name).filter((name) => typeof name === "string"),
-    );
-    const selectedTypes = [...new Set(workItems.map(requireWorkItemType))];
-    const stateMetadata = [];
-
-    for (const workItemType of selectedTypes) {
-      if (!availableTypes.has(workItemType)) {
-        throw incomplete("a selected work-item type is not listed");
-      }
-      const encodedType = encodeSegment(workItemType, "work-item type");
-      const statePath = `${workItemTypesPath}/${encodedType}/states`;
-      allowedRoutes.add(`GET ${statePath}`);
-      const stateResponse = await request("GET", statePath);
-      const states = requireArray(stateResponse, "value", "work-item states");
-      stateMetadata.push(
-        ...states.map((state) => ({
-          workItemType,
-          name: state?.name,
-          stateCategory: state?.stateCategory ?? state?.category,
-        })),
-      );
+    const projectResponse =
+      relatedTargets.length === 0
+        ? undefined
+        : await request("GET", projectPath);
+    const projectId = projectResponse?.id;
+    if (
+      relatedTargets.length > 0 &&
+      (typeof projectId !== "string" ||
+        !AZURE_PROJECT_ID_PATTERN.test(projectId))
+    ) {
+      throw incomplete("the selected project ID is invalid");
     }
+    const relatedWorkItemIds = [
+      ...new Set(
+        relatedTargets
+          .filter(
+            (target) =>
+              target.projectId.toLowerCase() === projectId?.toLowerCase(),
+          )
+          .map((target) => target.id),
+      ),
+    ].filter((id) => !detailsById.has(id));
+
+    for (const batch of partitionWorkItemIds(relatedWorkItemIds)) {
+      const batchResponse = await request("POST", workItemBatchPath, {
+        ids: batch,
+        fields: RELATED_ITEM_FIELDS,
+        errorPolicy: "Fail",
+      });
+      const details = requireArray(
+        batchResponse,
+        "value",
+        "related work-item batch",
+      );
+      const returnedIds = details.map((item) => item?.id);
+      if (
+        returnedIds.some((id) => !Number.isSafeInteger(id)) ||
+        new Set(returnedIds).size !== returnedIds.length ||
+        returnedIds.length !== batch.length ||
+        returnedIds.some((id) => !batch.includes(id))
+      ) {
+        throw incomplete("a related-item batch did not return exactly the requested IDs");
+      }
+      for (const item of details) detailsById.set(item.id, item);
+    }
+
+    const inventoryItems = workItems.map((item) => ({
+      ...item,
+      ...(item.relations
+        ? {
+            relations: item.relations.map((relation) => {
+              const target = relatedWorkItemTarget(
+                relation,
+                scope.organization,
+              );
+              if (
+                !target ||
+                target.projectId.toLowerCase() !== projectId?.toLowerCase()
+              ) {
+                return relation;
+              }
+              const relatedItem = detailsById.get(target.id);
+              if (!relatedItem) return relation;
+
+              return {
+                ...relation,
+                relatedItem: {
+                  id: relatedItem.id,
+                  type: requireWorkItemType(relatedItem),
+                  state: requireWorkItemState(relatedItem),
+                  title: requireWorkItemTitle(relatedItem),
+                },
+              };
+            }),
+          }
+        : {}),
+    }));
 
     return {
       complete: true,
-      items: filterNonterminalWorkItems(workItems, stateMetadata),
+      items: inventoryItems,
     };
   } catch (error) {
     if (error instanceof IncompleteAzureInventoryError) throw error;
