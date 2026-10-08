@@ -547,30 +547,29 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     }
   });
 
-  test("U24-U27: Phase 4 aborts stale merges and verifies the reviewed merge before removal", () => {
+  test("U24-U30: Phase 4 records approved feature SHA and delegates the whole merge transaction to the CLI", () => {
     const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
     const phase4 = markdownSection(orchestrator, "## Phase 4: Human stop 2, app review");
     const approval = phase4.split("- **Approve:**")[1]?.split("- **Stop here:**")[0] ?? "";
     const normalized = approval.replace(/[`*]/g, "").replace(/\s+/g, " ").toLowerCase();
-    const startMerge = normalized.indexOf("git merge --no-commit --no-ff feat/<slug>");
-    const rereadMain = normalized.indexOf("git rev-parse refs/heads/main", startMerge);
-    const abortStaleMerge = normalized.indexOf("git merge --abort", rereadMain);
-    const invalidateApproval = normalized.indexOf("app review", abortStaleMerge);
-    const verifyFirstParent = normalized.indexOf("first parent", abortStaleMerge);
-    const verifyFeatureAncestry = normalized.indexOf("git merge-base --is-ancestor feat/<slug> main", verifyFirstParent);
-    const removeWorktree = normalized.indexOf("ai-eng worktree rm <slug>", verifyFeatureAncestry);
+    const captureFeatureTip = normalized.indexOf("git rev-parse refs/heads/feat/<slug>");
+    const recordReviewedFeature = normalized.indexOf("reviewed_feature", captureFeatureTip);
+    const approveAppReview = normalized.indexOf("app_review: approved", recordReviewedFeature);
+    const readyToMerge = normalized.indexOf("phase: ready-to-merge", approveAppReview);
+    const mergeCommand = normalized.indexOf("ai-eng worktree merge <slug>", readyToMerge);
 
-    expect(startMerge).toBeGreaterThanOrEqual(0);
-    expect(rereadMain).toBeGreaterThan(startMerge);
-    expect(abortStaleMerge).toBeGreaterThan(rereadMain);
-    expect(invalidateApproval).toBeGreaterThan(abortStaleMerge);
-    expect(verifyFirstParent).toBeGreaterThan(abortStaleMerge);
-    expect(normalized).toMatch(/first parent[\s\S]{0,120}reviewed_main/);
-    expect(verifyFeatureAncestry).toBeGreaterThan(verifyFirstParent);
-    expect(removeWorktree).toBeGreaterThan(verifyFeatureAncestry);
-    expect(normalized).toContain("merge_head");
+    expect(captureFeatureTip).toBeGreaterThanOrEqual(0);
+    expect(recordReviewedFeature).toBeGreaterThan(captureFeatureTip);
+    expect(normalized).toMatch(/reviewed_feature[\s\S]{0,120}(?:exact|full) (?:commit )?(?:id|sha)/);
+    expect(approveAppReview).toBeGreaterThan(recordReviewedFeature);
+    expect(readyToMerge).toBeGreaterThan(approveAppReview);
+    expect(mergeCommand).toBeGreaterThan(readyToMerge);
+    expect(normalized).toMatch(/reviewed_main/);
     expect(normalized).toMatch(/no custom lock/);
-    expect(normalized).toMatch(/only the approved feature/);
+    expect(normalized).toMatch(/preserve the feature worktree/);
+    expect(normalized).toMatch(/rerun (?:phase 3|sync)[\s\S]{0,100}(?:gates|review)/);
+    expect(normalized).not.toMatch(/\bgit merge\b|\bgit update-ref\b|\bgit worktree rm\b/);
+    expect(normalized).not.toContain("phase: complete");
   });
 
   test("U17: Phase 1 initializes lifecycle approval in the selected feature worktree", () => {

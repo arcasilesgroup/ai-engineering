@@ -1,4 +1,4 @@
-// tests/worktree-command.spec.ts — CLI contract of `ai-eng worktree new|rm|list|rebase`
+// tests/worktree-command.spec.ts — CLI contract of `ai-eng worktree new|rm|list|rebase|merge`
 // (git-worktree-flow test plan, unit layer, checkpoint 2). Every case drives the
 // real CLI as a subprocess inside a throwaway git repository in a temp dir: the
 // verb owns the filesystem and the git state, so only its observable effects count
@@ -9,7 +9,7 @@
 // verb emits; the shim delegates to the real binary, so behaviour is unchanged.
 
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -88,6 +88,22 @@ function git(args: string[], cwd: string): string {
 function runCli(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Run {
   const done = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf8", env: { ...childEnv, ...env } });
   return { status: done.status ?? 1, stdout: done.stdout ?? "", stderr: done.stderr ?? "" };
+}
+
+function runCliAsync(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Promise<Run> {
+  return new Promise((resolveRun, rejectRun) => {
+    const child = spawn(process.execPath, [CLI, ...args], {
+      cwd,
+      env: { ...childEnv, ...env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => (stdout += chunk.toString()));
+    child.stderr.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
+    child.on("error", rejectRun);
+    child.on("close", (status) => resolveRun({ status: status ?? 1, stdout, stderr }));
+  });
 }
 
 function shimEnv(log: string): NodeJS.ProcessEnv {
@@ -238,6 +254,65 @@ function rebasePlan(
   return { slug, checkpoints: [checkpoint(1), checkpoint(2)], lifecycle };
 }
 
+function mergeReadyPlan(slug: string, reviewedMain: string, reviewedFeature: string): Record<string, unknown> {
+  return rebasePlan(slug, "passed", "passed", {
+    phase: "ready-to-merge",
+    plan_approval: "approved",
+    app_review: "approved",
+    reviewed_main: reviewedMain,
+    reviewed_feature: reviewedFeature,
+  });
+}
+
+function ignoreMergeCheckpoint(repo: string): void {
+  writeFileSync(
+    join(repo, ".git", "info", "exclude"),
+    "\n/.ai-engineering/workflow/checkpoints/*.json\n",
+    { flag: "a" },
+  );
+}
+
+function writeMergeCheckpoint(
+  feature: string,
+  slug: string,
+  reviewedMain: string,
+  reviewedFeature: string,
+): string {
+  const checkpoint = join(feature, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+  mkdirSync(dirname(checkpoint), { recursive: true });
+  writeFileSync(checkpoint, `${JSON.stringify(mergeReadyPlan(slug, reviewedMain, reviewedFeature), null, 2)}\n`);
+  return checkpoint;
+}
+
+function installHook(repo: string, name: string, body: string): void {
+  const hookDir = join(repo, "hooks");
+  const hookPath = join(hookDir, name);
+  mkdirSync(hookDir, { recursive: true });
+  writeFileSync(hookPath, `#!/bin/sh\nset -eu\n${body}\n`);
+  chmodSync(hookPath, 0o755);
+  git(["config", "core.hooksPath", hookDir], repo);
+}
+
+function expectNoMergeLock(repo: string): void {
+  const lockFiles: string[] = [];
+  const inspect = (directory: string): void => {
+    if (!existsSync(directory)) return;
+    for (const name of readdirSync(directory)) {
+      const path = join(directory, name);
+      if (/lock/i.test(name)) lockFiles.push(path);
+      if (lstatSync(path).isDirectory()) inspect(path);
+    }
+  };
+  inspect(repo);
+  inspect(defaultRoot(repo));
+  expect(lockFiles).toEqual([]);
+}
+
+function expectWorktrees(repo: string, expectedPaths: string[]): void {
+  const actualPaths = worktreeEntries(repo).map(({ path }) => realpathSync(path)).sort();
+  expect(actualPaths).toEqual(expectedPaths.map((path) => realpathSync(path)).sort());
+}
+
 function addRebaseWorktree(repo: string, slug: string, branch = `feat/${slug}`, detached = false): string {
   const path = join(defaultRoot(repo), slug);
   mkdirSync(dirname(path), { recursive: true });
@@ -260,7 +335,9 @@ function writeRebasePlan(worktree: string, slug: string, plan: Record<string, un
 }
 
 function commitRebaseFixtureFile(worktree: string, name: string, contents: string, message: string): string {
-  writeFileSync(join(worktree, name), contents);
+  const path = join(worktree, name);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, contents);
   git(["add", name], worktree);
   git(["commit", "-q", "-m", message], worktree);
   return git(["rev-parse", "HEAD"], worktree).trim();
@@ -268,6 +345,33 @@ function commitRebaseFixtureFile(worktree: string, name: string, contents: strin
 
 function advanceRebaseMain(repo: string): string {
   return commitRebaseFixtureFile(repo, "main-only.txt", "main\n", "advance local main");
+}
+
+interface MergeFixture {
+  feature: string;
+  slug: string;
+  checkpoint: string;
+  checkpointContents: string;
+  reviewedMain: string;
+  reviewedFeature: string;
+}
+
+function prepareMergeFixture(repo: string, slug: string): MergeFixture {
+  ignoreMergeCheckpoint(repo);
+  const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
+  const feature = addRebaseWorktree(repo, slug);
+  const reviewedFeature = commitRebaseFixtureFile(
+    feature,
+    "src/approved.ts",
+    `${slug} approved feature\n`,
+    `${slug} approved feature`,
+  );
+  const checkpoint = writeMergeCheckpoint(feature, slug, reviewedMain, reviewedFeature);
+  const checkpointContents = readFileSync(checkpoint, "utf8");
+  if (git(["status", "--porcelain", "--untracked-files=all"], feature) !== "") {
+    throw new Error(`merge fixture ${slug} must start clean`);
+  }
+  return { feature, slug, checkpoint, checkpointContents, reviewedMain, reviewedFeature };
 }
 
 /** The canonical default root: a sibling of the repo's real path. */
@@ -1255,5 +1359,320 @@ describe("ai-eng worktree rebase (checkpoint 5)", () => {
     expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
     expect(invocations.filter((args) => args[0] === "rebase")).toEqual([["rebase", "refs/heads/main"]]);
     expect(invocations.some((args) => args[0] === "reset" || (args[0] === "rebase" && args[1] === "--abort"))).toBe(false);
+  });
+});
+
+describe("ai-eng worktree merge (checkpoint 6)", () => {
+  test("U26-U27: runs commit hooks in a detached temporary worktree, publishes exact reviewed parents, refreshes main, then safely removes only the approved feature", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareMergeFixture(repo, "merge-approved");
+    const sibling = addRebaseWorktree(repo, "merge-sibling");
+    commitRebaseFixtureFile(sibling, "src/sibling.ts", "unapproved sibling\n", "unapproved sibling");
+    const siblingCheckpoint = join(sibling, ".ai-engineering", "workflow", "checkpoints", "merge-sibling.json");
+    mkdirSync(dirname(siblingCheckpoint), { recursive: true });
+    writeFileSync(
+      siblingCheckpoint,
+      `${JSON.stringify(rebasePlan("merge-sibling"), null, 2)}\n`,
+    );
+    const siblingCheckpointContents = readFileSync(siblingCheckpoint, "utf8");
+    const siblingTip = git(["rev-parse", "refs/heads/feat/merge-sibling"], repo).trim();
+    const hookLog = join(root, "merge-hook.log");
+    const hookParents = join(root, "merge-hook-parents.log");
+
+    installHook(
+      repo,
+      "post-commit",
+      [
+        "printf '%s\\t%s\\t%s\\n' \"$PWD\" \"$(git rev-parse HEAD)\" \"$(git symbolic-ref -q --short HEAD || printf detached)\" >> \"$AI_ENG_TEST_HOOK_LOG\"",
+        "git rev-list --parents -n 1 HEAD >> \"$AI_ENG_TEST_PARENT_LOG\"",
+      ].join("\n"),
+    );
+    const log = join(root, "git-invocations.log");
+    const run = runCli(["worktree", "merge", approved.slug], repo, {
+      ...shimEnv(log),
+      AI_ENG_TEST_HOOK_LOG: hookLog,
+      AI_ENG_TEST_PARENT_LOG: hookParents,
+    });
+
+    expect(run.status).toBe(0);
+    expect(existsSync(hookLog)).toBe(true);
+    const [hookCwd, hookHead, hookBranch] = readFileSync(hookLog, "utf8").trim().split("\t");
+    expect(hookCwd).toBeDefined();
+    expect(hookCwd).not.toBe(repo);
+    expect(hookHead).toBeDefined();
+    expect(hookBranch).toBe("detached");
+    const mergeCommit = git(["rev-parse", "refs/heads/main"], repo).trim();
+    expect(hookHead).toBe(mergeCommit);
+    expect(git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ")).toEqual([
+      mergeCommit,
+      approved.reviewedMain,
+      approved.reviewedFeature,
+    ]);
+    expect(readFileSync(hookParents, "utf8").trim().split(" ")).toEqual([
+      mergeCommit,
+      approved.reviewedMain,
+      approved.reviewedFeature,
+    ]);
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(mergeCommit);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+    expect(gitOut(["merge-base", "--is-ancestor", approved.reviewedFeature, mergeCommit], repo).status).toBe(0);
+    expect(existsSync(approved.feature)).toBe(false);
+    expect(gitOut(["show-ref", "--verify", `refs/heads/feat/${approved.slug}`], repo).status).not.toBe(0);
+    expect(readFileSync(siblingCheckpoint, "utf8")).toBe(siblingCheckpointContents);
+    expect(git(["rev-parse", "refs/heads/feat/merge-sibling"], repo).trim()).toBe(siblingTip);
+    expect(readFileSync(join(sibling, "src", "sibling.ts"), "utf8")).toBe("unapproved sibling\n");
+    expect(gitOut(["merge-base", "--is-ancestor", siblingTip, mergeCommit], repo).status).not.toBe(0);
+    expectWorktrees(repo, [repo, sibling]);
+    expectNoMergeLock(repo);
+    const invocations = loggedInvocations(log);
+    expect(invocations.some((args) => args[0] === "worktree" && args[1] === "lock")).toBe(false);
+    expect(invocations.some((args) => args.some((arg) => /\.lock\b/i.test(arg)))).toBe(false);
+    expect(JSON.parse(approved.checkpointContents).lifecycle.phase).toBe("ready-to-merge");
+    expect(approved.checkpointContents).not.toContain('"phase": "complete"');
+    expect(existsSync(approved.checkpoint)).toBe(false);
+  });
+
+  test("U25: a post-commit main advance loses the reviewed-main CAS without publishing stale merge or changing feature state", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareMergeFixture(repo, "merge-main-race");
+    const reviewedTree = git(["rev-parse", `${approved.reviewedMain}^{tree}`], repo).trim();
+    const advancedMain = git(
+      ["commit-tree", reviewedTree, "-p", approved.reviewedMain, "-m", "advance main during temporary commit"],
+      repo,
+    ).trim();
+    const hookLog = join(root, "race-hook.log");
+    installHook(
+      repo,
+      "post-commit",
+      [
+        "printf '%s\\n' \"$(git rev-parse HEAD)\" > \"$AI_ENG_TEST_HOOK_LOG\"",
+        "git update-ref refs/heads/main \"$AI_ENG_TEST_ADVANCED_MAIN\" \"$AI_ENG_TEST_REVIEWED_MAIN\"",
+      ].join("\n"),
+    );
+
+    const run = runCli(["worktree", "merge", approved.slug], repo, {
+      AI_ENG_TEST_HOOK_LOG: hookLog,
+      AI_ENG_TEST_ADVANCED_MAIN: advancedMain,
+      AI_ENG_TEST_REVIEWED_MAIN: approved.reviewedMain,
+    });
+    const output = `${run.stdout}${run.stderr}`;
+    expect(existsSync(hookLog)).toBe(true);
+    const temporaryMerge = readFileSync(hookLog, "utf8").trim();
+
+    expect(run.status).not.toBe(0);
+    expect(git(["rev-list", "--parents", "-n", "1", temporaryMerge], repo).trim().split(" ")).toEqual([
+      temporaryMerge,
+      approved.reviewedMain,
+      approved.reviewedFeature,
+    ]);
+    expect(output).toContain(approved.reviewedMain);
+    expect(output).toContain(advancedMain);
+    expect(output.toLowerCase()).toMatch(/sync|review/);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(advancedMain);
+    expect(gitOut(["merge-base", "--is-ancestor", temporaryMerge, advancedMain], repo).status).not.toBe(0);
+    expect(git(["rev-parse", "refs/heads/feat/merge-main-race"], repo).trim()).toBe(approved.reviewedFeature);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
+    expect(readFileSync(approved.checkpoint, "utf8")).toBe(approved.checkpointContents);
+    expect(readFileSync(join(approved.feature, "src", "approved.ts"), "utf8")).toBe(
+      "merge-main-race approved feature\n",
+    );
+    expectWorktrees(repo, [repo, approved.feature]);
+    expectNoMergeLock(repo);
+    expect(approved.checkpointContents).not.toContain('"phase": "complete"');
+  });
+
+  test("U24: two prepared compare-and-swap transactions publish at most one merge and preserve the losing feature", async () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const features = [
+      prepareMergeFixture(repo, "merge-race-one"),
+      prepareMergeFixture(repo, "merge-race-two"),
+    ];
+    expect(features[0]?.reviewedMain).toBe(features[1]?.reviewedMain);
+    const barrierLog = join(root, "merge-barrier.log");
+    installHook(
+      repo,
+      "post-commit",
+      [
+        "printf '%s\\t%s\\n' \"$(git rev-parse HEAD)\" \"$PWD\" >> \"$AI_ENG_TEST_BARRIER_LOG\"",
+        "waits=0",
+        "while [ \"$(wc -l < \"$AI_ENG_TEST_BARRIER_LOG\")\" -lt 2 ]; do",
+        "  waits=$((waits + 1))",
+        "  [ \"$waits\" -lt 401 ] || exit 91",
+        "  sleep 0.025",
+        "done",
+      ].join("\n"),
+    );
+
+    const runs = await Promise.all(
+      features.map((feature) =>
+        runCliAsync(["worktree", "merge", feature.slug], repo, {
+          AI_ENG_TEST_BARRIER_LOG: barrierLog,
+        }),
+      ),
+    );
+
+    expect(runs.filter((run) => run.status === 0)).toHaveLength(1);
+    expect(runs.filter((run) => run.status !== 0)).toHaveLength(1);
+    const surviving = features.filter((feature) => existsSync(feature.feature));
+    expect(surviving).toHaveLength(1);
+    const loser = surviving[0]!;
+    const winner = features.find((feature) => feature.slug !== loser.slug)!;
+    const mergeCommit = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const mergeParents = git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ");
+    expect(mergeParents).toEqual([mergeCommit, winner.reviewedMain, winner.reviewedFeature]);
+    expect(
+      git(["rev-list", "--merges", `${winner.reviewedMain}..refs/heads/main`], repo).trim().split("\n"),
+    ).toEqual([mergeCommit]);
+    expect(gitOut(["merge-base", "--is-ancestor", winner.reviewedFeature, mergeCommit], repo).status).toBe(0);
+    expect(gitOut(["merge-base", "--is-ancestor", loser.reviewedFeature, mergeCommit], repo).status).not.toBe(0);
+    expect(git(["rev-parse", `refs/heads/feat/${loser.slug}`], repo).trim()).toBe(loser.reviewedFeature);
+    expect(readFileSync(loser.checkpoint, "utf8")).toBe(loser.checkpointContents);
+    expect(readFileSync(join(loser.feature, "src", "approved.ts"), "utf8")).toBe(
+      `${loser.slug} approved feature\n`,
+    );
+    expect(existsSync(winner.feature)).toBe(false);
+    expect(existsSync(winner.checkpoint)).toBe(false);
+    expectWorktrees(repo, [repo, loser.feature]);
+    const loserRun = runs[features.indexOf(loser)]!;
+    expect(`${loserRun.stdout}${loserRun.stderr}`).toContain(winner.reviewedMain);
+    expect(`${loserRun.stdout}${loserRun.stderr}`).toContain(mergeCommit);
+    const preparedCommits = readFileSync(barrierLog, "utf8").trim().split("\n");
+    expect(preparedCommits).toHaveLength(2);
+    expect(new Set(preparedCommits.map((line) => line.split("\t")[0])).size).toBe(2);
+    expectNoMergeLock(repo);
+    expect(loser.checkpointContents).not.toContain('"phase": "complete"');
+  });
+
+  test("U29: a failed temporary merge commit hook aborts and cleans only the temporary worktree", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareMergeFixture(repo, "merge-hook-failure");
+    const mainBefore = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const hookLog = join(root, "failed-hook.log");
+    installHook(
+      repo,
+      "pre-commit",
+      [
+        "printf '%s\\t%s\\t%s\\n' \"$PWD\" \"$(git rev-parse HEAD)\" \"$(git rev-parse MERGE_HEAD)\" > \"$AI_ENG_TEST_HOOK_LOG\"",
+        "exit 19",
+      ].join("\n"),
+    );
+
+    const run = runCli(["worktree", "merge", approved.slug], repo, {
+      AI_ENG_TEST_HOOK_LOG: hookLog,
+    });
+    expect(existsSync(hookLog)).toBe(true);
+    const [temporaryPath, temporaryHead, temporaryMergeHead] = readFileSync(hookLog, "utf8").trim().split("\t");
+
+    expect(run.status).not.toBe(0);
+    expect(temporaryPath).toBeDefined();
+    expect(temporaryPath).not.toBe(repo);
+    expect(temporaryHead).toBe(approved.reviewedMain);
+    expect(temporaryMergeHead).toBe(approved.reviewedFeature);
+    expect(existsSync(temporaryPath!)).toBe(false);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(mainBefore);
+    expect(git(["rev-parse", "refs/heads/feat/merge-hook-failure"], repo).trim()).toBe(
+      approved.reviewedFeature,
+    );
+    expect(gitOut(["rev-parse", "--verify", "MERGE_HEAD"], repo).status).not.toBe(0);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+    expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
+    expect(readFileSync(approved.checkpoint, "utf8")).toBe(approved.checkpointContents);
+    expectWorktrees(repo, [repo, approved.feature]);
+    expectNoMergeLock(repo);
+    expect(approved.checkpointContents).not.toContain('"phase": "complete"');
+  });
+
+  test("U30: retry recognizes an already-published merge after refresh or safe removal is interrupted", () => {
+    for (const interruption of ["refresh", "removal"] as const) {
+      const repo = tempRepo();
+      const root = defaultRoot(repo);
+      cleanups.push(root);
+      const approved = prepareMergeFixture(repo, `merge-retry-${interruption}`);
+      if (interruption === "refresh") {
+        approved.reviewedFeature = commitRebaseFixtureFile(
+          approved.feature,
+          "README.md",
+          "feature-approved README\n",
+          "feature README change",
+        );
+        writeMergeCheckpoint(approved.feature, approved.slug, approved.reviewedMain, approved.reviewedFeature);
+        approved.checkpointContents = readFileSync(approved.checkpoint, "utf8");
+      }
+      const hookLog = join(root, "retry-hook.log");
+      installHook(
+        repo,
+        "post-commit",
+        [
+          "printf '%s\\n' \"$(git rev-parse HEAD)\" >> \"$AI_ENG_TEST_HOOK_LOG\"",
+          "if [ \"$AI_ENG_TEST_INTERRUPTION\" = refresh ]; then",
+          "  printf 'interrupted primary\\n' > \"$AI_ENG_TEST_PRIMARY/README.md\"",
+          "else",
+          "  printf 'interrupted feature\\n' > \"$AI_ENG_TEST_FEATURE/interrupted.txt\"",
+          "fi",
+        ].join("\n"),
+      );
+      const hookEnv = {
+        AI_ENG_TEST_HOOK_LOG: hookLog,
+        AI_ENG_TEST_INTERRUPTION: interruption,
+        AI_ENG_TEST_PRIMARY: repo,
+        AI_ENG_TEST_FEATURE: approved.feature,
+      };
+
+      const firstAttempt = runCli(["worktree", "merge", approved.slug], repo, hookEnv);
+      const publishedMerge = git(["rev-parse", "refs/heads/main"], repo).trim();
+      expect(firstAttempt.status).not.toBe(0);
+      expect(git(["rev-list", "--parents", "-n", "1", publishedMerge], repo).trim().split(" ")).toEqual([
+        publishedMerge,
+        approved.reviewedMain,
+        approved.reviewedFeature,
+      ]);
+      expect(git(["rev-parse", `refs/heads/feat/${approved.slug}`], repo).trim()).toBe(
+        approved.reviewedFeature,
+      );
+      expect(existsSync(approved.feature)).toBe(true);
+      expect(readFileSync(approved.checkpoint, "utf8")).toBe(approved.checkpointContents);
+      expect(approved.checkpointContents).not.toContain('"phase": "complete"');
+
+      if (interruption === "refresh") {
+        expect(readFileSync(join(repo, "README.md"), "utf8")).toBe("interrupted primary\n");
+        expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toContain("README.md");
+        writeFileSync(join(repo, "README.md"), "# fixture\n");
+        expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+        expect(existsSync(join(repo, "src", "approved.ts"))).toBe(false);
+      } else {
+        expect(readFileSync(join(approved.feature, "interrupted.txt"), "utf8")).toBe("interrupted feature\n");
+        expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+        rmSync(join(approved.feature, "interrupted.txt"));
+        expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
+        expect(readFileSync(join(repo, "src", "approved.ts"), "utf8")).toBe(
+          `${approved.slug} approved feature\n`,
+        );
+      }
+
+      const retry = runCli(["worktree", "merge", approved.slug], repo);
+
+      expect(retry.status).toBe(0);
+      expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(publishedMerge);
+      expect(git(["rev-list", "--parents", "-n", "1", publishedMerge], repo).trim().split(" ")).toEqual([
+        publishedMerge,
+        approved.reviewedMain,
+        approved.reviewedFeature,
+      ]);
+      expect(gitOut(["merge-base", "--is-ancestor", approved.reviewedFeature, publishedMerge], repo).status).toBe(0);
+      expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+      expect(existsSync(approved.feature)).toBe(false);
+      expect(existsSync(approved.checkpoint)).toBe(false);
+      expectWorktrees(repo, [repo]);
+      expect(readFileSync(hookLog, "utf8").trim().split("\n")).toHaveLength(1);
+      expectNoMergeLock(repo);
+    }
   });
 });

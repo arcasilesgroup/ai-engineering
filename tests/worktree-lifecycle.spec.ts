@@ -168,7 +168,11 @@ function checkpointPlan(slug: string, phase: string, files: string[] = [], statu
   };
 }
 
-function mergeReadyPlan(slug: string, reviewedMain: string): Record<string, unknown> {
+function mergeReadyPlan(
+  slug: string,
+  reviewedMain: string,
+  reviewedFeature = reviewedMain,
+): Record<string, unknown> {
   const gate = (status: string) => ({ status, attempts: 1, findings: [] });
   return {
     slug,
@@ -183,8 +187,14 @@ function mergeReadyPlan(slug: string, reviewedMain: string): Record<string, unkn
       plan_approval: "approved",
       app_review: "approved",
       reviewed_main: reviewedMain,
+      reviewed_feature: reviewedFeature,
     },
   };
+}
+
+function ignoreLifecycleCheckpoints(repo: string): void {
+  const exclude = join(repo, ".git", "info", "exclude");
+  writeFileSync(exclude, "\n/.ai-engineering/workflow/checkpoints/*.json\n", { flag: "a" });
 }
 
 function writeCheckpoint(worktree: string, slug: string, value: object): string {
@@ -896,5 +906,55 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
     expect(git(["rev-parse", "refs/heads/feat/merge-unverified"], repo).trim()).toBe(featureTip);
     expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
     expect(readFileSync(join(feature, "src", "feature.ts"), "utf8")).toBe(featureContents);
+  });
+
+  test("U31: ready lifecycle remains active until the CLI merge removes its Git-listed feature worktree", () => {
+    const repo = initRepo();
+    const slug = "merge-lifecycle-close";
+    const feature = addBranchWorktree(repo, slug);
+    const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const reviewedFeature = commitFile(feature, "src/active.ts", "approved work\n", "approved work");
+    ignoreLifecycleCheckpoints(repo);
+    const checkpoint = writeCheckpoint(
+      feature,
+      slug,
+      mergeReadyPlan(slug, reviewedMain, reviewedFeature),
+    );
+    const checkpointContents = readFileSync(checkpoint, "utf8");
+    const checkpointState = JSON.parse(checkpointContents) as {
+      lifecycle: {
+        phase: string;
+        plan_approval: string;
+        app_review: string;
+        reviewed_main: string;
+        reviewed_feature: string;
+      };
+    };
+
+    expect(checkpointState.lifecycle).toEqual({
+      phase: "ready-to-merge",
+      plan_approval: "approved",
+      app_review: "approved",
+      reviewed_main: reviewedMain,
+      reviewed_feature: reviewedFeature,
+    });
+    expect(checkpointContents).not.toContain('"phase": "complete"');
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
+    expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(feature));
+
+    const merge = runWorktree(repo, ["merge", slug]);
+
+    expect(merge.status).toBe(0);
+    expect(git(["rev-list", "--parents", "-n", "1", "refs/heads/main"], repo).trim().split(" ")).toEqual([
+      git(["rev-parse", "refs/heads/main"], repo).trim(),
+      reviewedMain,
+      reviewedFeature,
+    ]);
+    expect(runGit(["merge-base", "--is-ancestor", reviewedFeature, "refs/heads/main"], repo).status).toBe(0);
+    expect(git(["worktree", "list", "--porcelain"], repo)).not.toContain(realpathSync(feature));
+    expect(runGit(["show-ref", "--verify", `refs/heads/feat/${slug}`], repo).status).not.toBe(0);
+    expect(existsSync(feature)).toBe(false);
+    expect(existsSync(checkpoint)).toBe(false);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
   });
 });

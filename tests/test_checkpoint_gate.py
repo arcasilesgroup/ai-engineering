@@ -204,12 +204,19 @@ with tempfile.TemporaryDirectory(
     # --- Local lifecycle state ---
     legacy = copy.deepcopy(PLAN)
 
-    def life(phase, plan_approval="pending", app_review="not-started", reviewed_main=None):
+    def life(
+        phase,
+        plan_approval="pending",
+        app_review="not-started",
+        reviewed_main=None,
+        reviewed_feature=None,
+    ):
         return {
             "phase": phase,
             "plan_approval": plan_approval,
             "app_review": app_review,
             "reviewed_main": reviewed_main,
+            "reviewed_feature": reviewed_feature,
         }
 
     def with_lifecycle(plan, lifecycle):
@@ -271,6 +278,7 @@ with tempfile.TemporaryDirectory(
     git(["add", "README.md", ".ai-engineering/config.toml"])
     git(["commit", "-q", "-m", "lifecycle base"])
     reviewed_main = git(["rev-parse", "refs/heads/main"])
+    reviewed_feature = git(["rev-parse", "HEAD"])
 
     initial = life("awaiting-plan-approval")
     initial_plan = with_lifecycle(legacy, initial)
@@ -279,7 +287,10 @@ with tempfile.TemporaryDirectory(
     lifecycle_result(
         "U8: legacy checkpoint cannot gain direct merge authority",
         legacy,
-        with_lifecycle(legacy, life("ready-to-merge", "approved", "approved", reviewed_main)),
+        with_lifecycle(
+            legacy,
+            life("ready-to-merge", "approved", "approved", reviewed_main, reviewed_feature),
+        ),
         2,
     )
     lifecycle_result("U17: legacy checkpoint cannot initialize lifecycle in primary checkout", legacy, initial_plan, 2)
@@ -446,13 +457,13 @@ with tempfile.TemporaryDirectory(
 
     ready_to_merge = with_lifecycle(
         completed_gates,
-        life("ready-to-merge", "approved", "approved", reviewed_main),
+        life("ready-to-merge", "approved", "approved", reviewed_main, reviewed_feature),
     )
     lifecycle_result("U10: approved app review permits ready-to-merge", awaiting_review, ready_to_merge, 0)
 
     blocked_review = with_lifecycle(
         completed_gates,
-        life("blocked", "approved", "approved", reviewed_main),
+        life("blocked", "approved", "approved", reviewed_main, reviewed_feature),
     )
     lifecycle_result("U10: blocked work retains current app approval", ready_to_merge, blocked_review, 0)
     lifecycle_result("U10: current blocked approval can resume merge", blocked_review, ready_to_merge, 0)
@@ -476,7 +487,10 @@ with tempfile.TemporaryDirectory(
     lifecycle_result(
         "U11: rejects skipped plan-approval and app-review phases",
         initial_plan,
-        with_lifecycle(legacy, life("ready-to-merge", "approved", "approved", reviewed_main)),
+        with_lifecycle(
+            legacy,
+            life("ready-to-merge", "approved", "approved", reviewed_main, reviewed_feature),
+        ),
         2,
     )
     lifecycle_result(
@@ -506,19 +520,61 @@ with tempfile.TemporaryDirectory(
     lifecycle_result(
         "U11: rejects malformed reviewed_main",
         awaiting_review,
-        with_lifecycle(completed_gates, life("ready-to-merge", "approved", "approved", "1234")),
+        with_lifecycle(
+            completed_gates,
+            life("ready-to-merge", "approved", "approved", "1234", reviewed_feature),
+        ),
+        2,
+    )
+    lifecycle_result(
+        "U28: rejects ready-to-merge without reviewed_feature",
+        awaiting_review,
+        with_lifecycle(completed_gates, life("ready-to-merge", "approved", "approved", reviewed_main)),
+        2,
+    )
+    lifecycle_result(
+        "U28: rejects malformed reviewed_feature",
+        awaiting_review,
+        with_lifecycle(
+            completed_gates,
+            life("ready-to-merge", "approved", "approved", reviewed_main, "not-a-commit"),
+        ),
+        2,
+    )
+    lifecycle_result(
+        "U28: rejects reviewed_feature that is not an existing commit",
+        awaiting_review,
+        with_lifecycle(
+            completed_gates,
+            life("ready-to-merge", "approved", "approved", reviewed_main, "f" * 40),
+        ),
+        2,
+    )
+    lifecycle_result(
+        "U28: rejects ready-to-merge with app review still pending",
+        awaiting_review,
+        with_lifecycle(
+            completed_gates,
+            life("ready-to-merge", "approved", "pending", reviewed_main, reviewed_feature),
+        ),
         2,
     )
     lifecycle_result(
         "U11: rejects app-review approval without ready-to-merge transition",
         awaiting_review,
-        with_lifecycle(completed_gates, life("awaiting-app-review", "approved", "approved", reviewed_main)),
+        with_lifecycle(
+            completed_gates,
+            life("awaiting-app-review", "approved", "approved", reviewed_main, reviewed_feature),
+        ),
         2,
     )
     lifecycle_result(
-        "U11: rejects complete before verified merge",
+        "U28: rejects the removed complete lifecycle phase",
         ready_to_merge,
-        with_lifecycle(completed_gates, life("complete", "approved", "approved", reviewed_main)),
+        with_lifecycle(
+            completed_gates,
+            life("complete", "approved", "approved", reviewed_main, reviewed_feature),
+        ),
         2,
     )
 
@@ -527,7 +583,10 @@ with tempfile.TemporaryDirectory(
     lifecycle_result(
         "U11: rejects ready-to-merge when reviewed_main is stale",
         awaiting_review,
-        with_lifecycle(completed_gates, life("ready-to-merge", "approved", "approved", reviewed_main)),
+        with_lifecycle(
+            completed_gates,
+            life("ready-to-merge", "approved", "approved", reviewed_main, reviewed_feature),
+        ),
         2,
     )
     lifecycle_result(
@@ -543,15 +602,15 @@ with tempfile.TemporaryDirectory(
     lifecycle_result("U10: advancing local main resets approval for a fresh review", ready_to_merge, refreshed_review, 0)
     blocked_stale_review = with_lifecycle(
         completed_gates,
-        life("blocked", "approved", "approved", reviewed_main),
+        life("blocked", "approved", "approved", reviewed_main, reviewed_feature),
     )
     lifecycle_result("U11: blocked stale review cannot skip a fresh review", blocked_stale_review, with_lifecycle(
         completed_gates,
-        life("ready-to-merge", "approved", "approved", current_main),
+        life("ready-to-merge", "approved", "approved", current_main, reviewed_feature),
     ), 2)
     lifecycle_result("U11: blocked stale review resumes at pending review on current main", blocked_stale_review, refreshed_review, 0)
 
-    # U28: ready-to-merge stays bound to fresh approval, and complete needs a verified main merge.
+    # U28: ready-to-merge binds both reviewed commits to approved gates; complete is never active state.
     merge_slug = "verified-merge"
     merge_root = os.path.realpath(f"{root}/selected-worktrees/{merge_slug}")
     os.makedirs(os.path.dirname(merge_root), exist_ok=True)
@@ -564,18 +623,24 @@ with tempfile.TemporaryDirectory(
     merge_checkpoint = f"{merge_root}/.ai-engineering/workflow/checkpoints/{merge_slug}.json"
     os.makedirs(os.path.dirname(merge_checkpoint), exist_ok=True)
     main_at_review = git(["rev-parse", "refs/heads/main"])
+    with open(f"{merge_root}/merge-feature.txt", "w") as fixture:
+        fixture.write("approved feature\n")
+    git(["add", "merge-feature.txt"], cwd=merge_root)
+    git(["commit", "-q", "-m", "feature implementation"], cwd=merge_root)
+    reviewed_feature_at_first_review = git(["rev-parse", f"refs/heads/feat/{merge_slug}"])
     ready_plan = {
         "slug": merge_slug,
         "checkpoints": [cp(1, "passed", "passed", "n/a", "passed")],
-        "lifecycle": life("ready-to-merge", "approved", "approved", main_at_review),
+        "lifecycle": life(
+            "ready-to-merge",
+            "approved",
+            "approved",
+            main_at_review,
+            reviewed_feature_at_first_review,
+        ),
     }
     with open(merge_checkpoint, "w") as fixture:
         json.dump(ready_plan, fixture)
-    with open(f"{merge_root}/merge-feature.txt", "w") as fixture:
-        fixture.write("approved feature\n")
-    git(["add", merge_checkpoint, "merge-feature.txt"], cwd=merge_root)
-    git(["commit", "-q", "-m", "approve feature for merge"], cwd=merge_root)
-    merge_branch = git(["rev-parse", f"refs/heads/feat/{merge_slug}"])
     assert git(["symbolic-ref", "--short", "HEAD"], cwd=merge_root) == f"feat/{merge_slug}"
     assert git(["rev-parse", "refs/heads/main"]) == main_at_review
     assert git(["remote"]) == ""
@@ -586,7 +651,8 @@ with tempfile.TemporaryDirectory(
     fails += stale_ready_result != 2
     print(("ok  " if stale_ready_result == 2 else "FAIL"), "U28: stale app approval cannot enter ready-to-merge", f"(exit {stale_ready_result})")
     git(["rebase", "refs/heads/main"], cwd=merge_root)
-    git(["merge-base", "--is-ancestor", stale_main, "HEAD"], cwd=merge_root)
+    reviewed_feature = git(["rev-parse", "refs/heads/feat/" + merge_slug])
+    git(["merge-base", "--is-ancestor", stale_main, reviewed_feature], cwd=merge_root)
 
     fresh_review_plan = with_lifecycle(
         ready_plan,
@@ -599,67 +665,56 @@ with tempfile.TemporaryDirectory(
         json.dump(fresh_review_plan, fixture)
     fresh_ready_plan = with_lifecycle(
         fresh_review_plan,
-        life("ready-to-merge", "approved", "approved", stale_main),
+        life("ready-to-merge", "approved", "approved", stale_main, reviewed_feature),
     )
     fresh_ready_result = run(merge_root, write(merge_checkpoint, fresh_ready_plan))
     fails += fresh_ready_result != 0
-    print(("ok  " if fresh_ready_result == 0 else "FAIL"), "U28: fresh app approval authorizes ready-to-merge", f"(exit {fresh_ready_result})")
+    print(("ok  " if fresh_ready_result == 0 else "FAIL"), "U28: approved review with both fresh SHAs permits ready-to-merge", f"(exit {fresh_ready_result})")
     with open(merge_checkpoint, "w") as fixture:
         json.dump(fresh_ready_plan, fixture)
 
+    ready_refusals = [
+        (
+            "missing reviewed_feature",
+            life("ready-to-merge", "approved", "approved", stale_main),
+        ),
+        (
+            "stale reviewed_feature",
+            life(
+                "ready-to-merge",
+                "approved",
+                "approved",
+                stale_main,
+                reviewed_feature_at_first_review,
+            ),
+        ),
+        (
+            "malformed reviewed_feature",
+            life("ready-to-merge", "approved", "approved", stale_main, "not-a-commit"),
+        ),
+        (
+            "pending app review",
+            life("ready-to-merge", "approved", "pending", stale_main, reviewed_feature),
+        ),
+    ]
+    for name, invalid_lifecycle in ready_refusals:
+        with open(merge_checkpoint, "w") as fixture:
+            json.dump(fresh_review_plan, fixture)
+        got = run(merge_root, write(merge_checkpoint, with_lifecycle(fresh_review_plan, invalid_lifecycle)))
+        fails += got != 2
+        print(("ok  " if got == 2 else "FAIL"), f"U28: ready-to-merge rejects {name} (exit {got})")
+
+    with open(merge_checkpoint, "w") as fixture:
+        json.dump(fresh_ready_plan, fixture)
     complete_plan = with_lifecycle(
         fresh_ready_plan,
-        life("complete", "approved", "approved", stale_main),
+        life("complete", "approved", "approved", stale_main, reviewed_feature),
     )
-    unverified_complete_result = run(merge_root, write(merge_checkpoint, complete_plan))
-    fails += unverified_complete_result != 2
-    print(("ok  " if unverified_complete_result == 2 else "FAIL"), "U28: complete is refused before a verified merge", f"(exit {unverified_complete_result})")
-
-    fresh_ready_bytes = open(merge_checkpoint).read()
-    with open(merge_checkpoint, "w") as fixture:
-        json.dump(fresh_ready_plan, fixture)
-    git(["add", merge_checkpoint], cwd=merge_root)
-    git(["commit", "-q", "-m", "record fresh merge approval"], cwd=merge_root)
-    merge_branch = git(["rev-parse", f"refs/heads/feat/{merge_slug}"])
-    assert git(["rev-parse", "refs/heads/main"]) == stale_main
-    git(["merge-base", "--is-ancestor", stale_main, merge_branch])
-    subprocess.run(
-        ["git", "merge", "--no-commit", "--no-ff", f"refs/heads/feat/{merge_slug}"],
-        cwd=root,
-        env=git_env,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-q", "-m", "chore(verified-merge): merge feature"],
-        cwd=root,
-        env=git_env,
-        check=True,
-    )
-    merge_commit = git(["rev-parse", "refs/heads/main"])
-    parents = git(["rev-list", "--parents", "-n", "1", merge_commit]).split()
-    assert parents == [merge_commit, stale_main, merge_branch]
-    git(["merge-base", "--is-ancestor", merge_branch, merge_commit])
-    assert git(["symbolic-ref", "--short", "HEAD"], cwd=merge_root) == f"feat/{merge_slug}"
-    assert git(["rev-parse", "HEAD"], cwd=merge_root) == merge_branch
-    assert git(["rev-parse", "refs/heads/main"], cwd=merge_root) == merge_commit
-    git(["merge-base", "--is-ancestor", "HEAD", merge_commit], cwd=merge_root)
-
-    verified_process = subprocess.run(
-        [sys.executable, HOOK],
-        input=json.dumps(write(merge_checkpoint, complete_plan)),
-        capture_output=True,
-        text=True,
-        env={**os.environ, "CLAUDE_PROJECT_DIR": merge_root},
-    )
-    verified_complete_result = verified_process.returncode
-    fails += verified_complete_result != 0
-    if verified_complete_result != 0:
-        print("U28 complete refusal detail:", verified_process.stderr.strip())
-    print(("ok  " if verified_complete_result == 0 else "FAIL"), "U28: verified merge authorizes complete", f"(exit {verified_complete_result})")
-    with open(merge_checkpoint, "w") as fixture:
-        fixture.write(fresh_ready_bytes)
+    complete_result = run(merge_root, write(merge_checkpoint, complete_plan))
+    fails += complete_result != 2
+    print(("ok  " if complete_result == 2 else "FAIL"), "U28: removed complete phase is always rejected", f"(exit {complete_result})")
+    if os.path.exists(merge_checkpoint):
+        os.unlink(merge_checkpoint)
     git(["worktree", "remove", merge_root])
 
     fails += nonlocal_fails[0]
