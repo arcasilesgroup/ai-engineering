@@ -717,11 +717,21 @@ export function worktreeRebase(slug: string): WorktreeResult {
   }
 
   const mainAfter = fullCommitRef(repo);
-  if (mainAfter === null || mainAfter !== mainBefore) {
+  if (mainAfter === null) {
     return {
       code: 1,
       out: "",
       err: "worktree rebase: local refs/heads/main changed or became unreadable during rebase; verify the feature worktree before continuing.\n",
+    };
+  }
+  if (mainAfter !== mainBefore) {
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree rebase: local refs/heads/main advanced during rebase from ${mainBefore} to ${mainAfter}; ` +
+        `the rewritten feature branch is preserved. Rerun sync with \`ai-eng worktree rebase ${slug}\` ` +
+        `to include the new local main tip.\n`,
     };
   }
   const ancestry = git(entry.path, ["merge-base", "--is-ancestor", mainAfter, "HEAD"]);
