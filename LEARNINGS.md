@@ -588,3 +588,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Reconcile the whole status timeline before classifying conflict pairs. A historical edit can make its contemporary evidence ambiguous without making a later explicit confirmation ambiguous; compare that confirmation with the earlier evidence's last modification.
 - **Proof:** Twelve memory-only unit and actual-writer renewal cases cover unedited, edited-before and edited-after uncertainty, with and without obsolete positive history. Before the fix, four failed on advice/order or stale references. Renewal and F1/F2 controls now pass: 29 tests, 259 assertions. Checkpoint lower gates: 144 unit, 156 API and 72 static pass; lint/typecheck exit 0 with existing warnings; all four canonical signal/writer script/declaration payload pairs match. Normal full-suite validation remains separate.
 - **Tags:** review, azure, chronology, dependency, uncertainty, renewal, identity, provenance, ordering, tests
+
+### L79 · 2026-10-08 · worktree-lifecycle-governance #2 · behavior
+- **Failure:** `bun run typecheck` rejected the lifecycle test's nested array loop values with TS2769, although its runtime assertions passed.
+- **Root cause:** TypeScript inferred optional tuple elements that did not satisfy the `toContain` overloads.
+- **Fix:** Represented each test case with named object fields while keeping both lifecycle and Git assertions.
+- **Lesson:** Use named fields when loop entries have distinct roles.
+- **Tags:** behavior, tests, types

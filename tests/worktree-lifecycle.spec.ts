@@ -217,11 +217,11 @@ describe("ai-eng worktree lifecycle (checkpoint 2)", () => {
 
     const result = runList(repo);
     expect(result.status).toBe(0);
-    for (const [slug, path] of [
-      ["missing", missing],
-      ["unreadable", unreadable],
-      ["malformed", malformed],
-      ["legacy", legacy],
+    for (const { slug, path } of [
+      { slug: "missing", path: missing },
+      { slug: "unreadable", path: unreadable },
+      { slug: "malformed", path: malformed },
+      { slug: "legacy", path: legacy },
     ]) {
       expect(result.stdout).toContain(slug);
       expect(result.stdout).toContain(realpathSync(path));
