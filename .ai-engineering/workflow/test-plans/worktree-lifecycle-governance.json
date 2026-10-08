@@ -217,56 +217,70 @@
       },
       {
         "id": "U24",
-        "case": "two merge transactions based on the same reviewed_main race through real temporary Git worktrees; compare-and-swap publishes at most one merge, the loser publishes no stale second merge, and an unmerged feature worktree remains for fresh review without a custom lock",
+        "case": "in a real Git worktree, capture reviewed_feature as the exact code tip at the human app-review stop; committing phase awaiting-app-review and app_review pending creates a separate checkpoint-only commit whose tree preserves that reviewed code tip",
         "file": "tests/worktree-command.spec.ts",
         "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "U25",
-        "case": "in a real temporary Git repository, a post-commit hook advances refs/heads/main after the temporary merge commit is created; compare-and-swap against reviewed_main fails with exact old/new refs, cleans only the temporary worktree and publishes no stale merge, while preserving the feature worktree and data; changed main requires resynchronization, affected gates and renewed review",
+        "case": "after human approval, a second distinct real-Git commit changes app_review from pending to approved and phase to ready-to-merge, changes only the slug checkpoint, preserves both reviewed SHAs and leaves the reviewed code tree unchanged",
         "file": "tests/worktree-command.spec.ts",
         "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "U26",
-        "case": "only the approved feature is merged normally in a temporary detached worktree so commit hooks run; assert exact merge parents reviewed_main and reviewed_feature before compare-and-swap publication, then verify feature ancestry before removal while an unapproved sibling is neither merged nor deleted",
+        "case": "real-Git merge validation refuses any code or other non-checkpoint path committed after reviewed_feature before publication or removal, and accepts only intervening commits that change the slug checkpoint with valid lifecycle metadata",
         "file": "tests/worktree-command.spec.ts",
         "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "U27",
-        "case": "after successful compare-and-swap, safely refresh the primary checkout with git reset --merge, clean the temporary merge worktree, and verify the published merge and reviewed_feature ancestry before safe feature-worktree removal; failed or uncertain refresh, state or ancestry verification preserves the feature worktree",
+        "case": "a real detached-worktree merge runs normal commit hooks and publishes only with first parent exactly reviewed_main and second parent exactly the current refs/heads/feat/<slug> tip; reviewed_feature is an ancestor with only checkpoint-only commits between it and that tip, and an unapproved sibling remains untouched",
         "file": "tests/worktree-command.spec.ts",
         "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "U28",
-        "case": "ready-to-merge requires completed gates, approved app review, and fresh reviewed_main plus reviewed_feature; the removed complete lifecycle phase is rejected while legacy checkpoint-gate behavior remains unchanged",
+        "case": "the lifecycle gate permits stale-review invalidation only after reviewed_main becomes stale and only to phase implementation with app_review not-started and both reviewed refs cleared; it rejects incomplete or contradictory invalidation state",
         "file": "tests/test_checkpoint_gate.py",
         "command": "python3 tests/test_checkpoint_gate.py",
         "checkpoint": 6
       },
       {
+        "id": "U28a",
+        "case": "after compare-and-swap loss, the orchestrator commits only the checkpoint invalidation to implementation with app_review not-started and both reviewed refs cleared before resynchronizing, rerunning affected gates or requesting renewed human review",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
+        "checkpoint": 6
+      },
+      {
         "id": "U29",
-        "case": "if temporary-worktree merge or commit hooks fail, abort only the temporary merge and remove only a clean temporary worktree; no main ref is published and the feature worktree, lifecycle state and data remain unchanged",
+        "case": "real concurrent CAS transactions from the same reviewed_main and a controlled post-commit main advance publish no stale merge: at most one concurrent transaction wins, exact old/current SHAs are reported, only the temporary worktree is cleaned and the losing feature remains intact",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U29a",
+        "case": "when a temporary merge commit hook fails, abort only that temporary merge and clean only its temporary worktree; publish no main ref and preserve the primary checkout, feature worktree, lifecycle checkpoint and feature data",
         "file": "tests/worktree-command.spec.ts",
         "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "U30",
-        "case": "if primary refresh or safe feature-worktree removal is interrupted after compare-and-swap, retry is idempotent: recognize the already-published merge with exact reviewed parents, safely refresh and verify ancestry, then remove only the approved feature worktree",
+        "case": "if primary refresh or safe feature removal is interrupted after compare-and-swap, retry idempotently recognizes the exact published parents and reviewed_feature ancestry, safely refreshes primary, cleans temporary merge worktrees and removes only the approved feature worktree",
         "file": "tests/worktree-command.spec.ts",
         "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
       },
       {
         "id": "U31",
-        "case": "the feature lifecycle never becomes complete before removal; while its worktree is still Git-listed its checkpoint retains an active phase, and removal/absence from Git inventory represents closed work",
+        "case": "the lifecycle never records phase complete; its checkpoint keeps an active phase while the feature is Git-listed, and successful merge cleanup removes the feature worktree and branch so Git inventory absence represents closed work",
         "file": "tests/worktree-lifecycle.spec.ts",
         "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 6

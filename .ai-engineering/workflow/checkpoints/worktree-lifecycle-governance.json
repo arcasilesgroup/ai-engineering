@@ -380,7 +380,7 @@
       "title": "Serialize the approved merge and remove safely",
       "simple": "Keep approval tied to current work",
       "size": "xl",
-      "goal": "Only an approved feature merge based on the reviewed local-main commit completes; a moved main forces resynchronization and renewed gates/review, and ancestry is verified before safe removal.",
+      "goal": "Human app review is bound to full reviewed_main and reviewed_feature code-tip SHAs. Only checkpoint-metadata commits may follow the reviewed code; merge publishes the approved feature tip with exact reviewed parents through local-main CAS, then safely removes the feature without storing phase complete.",
       "plain": {
         "what": "If the main project changes after review, the person reviews the refreshed work before it is merged and removed.",
         "why": "Approval should apply only to the version that was actually reviewed.",
@@ -388,20 +388,24 @@
       },
       "builds_on": [5],
       "tasks": [
-        "src/commands/worktree.ts and src/shared-worktree.ts: add `ai-eng worktree merge <slug>` as the only close transaction. Require the clean primary checkout on `main`, `HEAD == lifecycle.reviewed_main`, a clean managed feature worktree on exact `feat/<slug>`, `app_review=approved`, and full valid `reviewed_main` plus `reviewed_feature` SHAs. Refuse all legacy, malformed, dirty, mismatched or stale state before mutation.",
-        "src/shared-worktree.ts: create a temporary detached Git worktree at `reviewed_main`; run `git merge --no-commit --no-ff refs/heads/feat/<slug>` there and commit normally so repository hooks run. Verify the resulting merge commit's exact parents are `reviewed_main` and `reviewed_feature`, then atomically update `refs/heads/main` with `git update-ref <merge-commit> <reviewed_main>` compare-and-swap. No custom lock file/dependency.",
-        "src/shared-worktree.ts: if merge/hooks fail, abort any temporary merge and remove only a clean temporary worktree; preserve the feature worktree and lifecycle state. Publish only with `git update-ref refs/heads/main <merge-commit> <reviewed_main>` compare-and-swap. If CAS loses because main advanced, report exact old/new main SHAs, refresh the clean primary checkout safely, clean only the temporary merge worktree, and preserve the feature worktree for resynchronization/review. After CAS success, refresh the primary checkout with safe `git reset --merge refs/heads/main`, verify merge ancestry, then call existing non-force `worktreeRm(slug)`.",
-        "Do not write lifecycle phase `complete` inside the feature worktree: after verified merge and safe removal there is no live feature worktree to own that file. The worktree's absence from Git inventory represents no longer-active work; keep `complete` out of valid lifecycle states.",
-        "skills/ai-orchestrator/SKILL.md: after human app-review approval, capture the exact approved feature tip as `lifecycle.reviewed_feature`, set `phase=ready-to-merge` and `app_review=approved`, then call `ai-eng worktree merge <slug>`. On refusal/race, preserve the feature and repeat sync/gates/review if refs changed. Never run a manual merge transaction in prose.",
-        "scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py: require valid reviewed_main and reviewed_feature, approved app review and completed gates for ready-to-merge; reject the removed `complete` lifecycle phase while preserving legacy gate behavior.",
-        "tests/worktree-command.spec.ts: use real temporary Git repositories to prove hooks run on the temporary merge commit, exact first/second parent verification, successful CAS and primary refresh, `post-commit`-hook main advancement causing CAS refusal with exact SHAs and no stale merge, temp-worktree cleanup, original feature/checkpoint preservation, and safe removal only after ancestry is verified.",
-        "tests/worktree-lifecycle.spec.ts and tests/skills.spec.ts: cover app-review approval and reviewed_feature capture, no premature `complete`, ready-to-merge prerequisites, and handoff to the single CLI merge command.",
+        "skills/ai-orchestrator/SKILL.md: after Phase 3 gates pass and local refs are stable, capture full `reviewed_main` and the exact full `reviewed_feature` code tip before the human app-review stop. Set `phase=awaiting-app-review` and `app_review=pending`, then commit only `.ai-engineering/workflow/checkpoints/<slug>.json`; verify that commit changes no other path and does not change the reviewed code.",
+        "skills/ai-orchestrator/SKILL.md: after human approval, set `phase=ready-to-merge` and `app_review=approved` without changing either reviewed SHA, then commit only the checkpoint file again. Confirm this second metadata-only commit leaves the reviewed code unchanged before invoking `ai-eng worktree merge <slug>`.",
+        "scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py: validate both review-state transitions and full reviewed SHAs; treat `reviewed_feature` as the reviewed code tip, not the later feature HEAD. Permit only the checkpoint-only pending/approved metadata commits, require valid completed gates and lifecycle metadata, and allow stale approval invalidation to return to `implementation` only when local main no longer equals `reviewed_main` and both reviewed refs are cleared. Reject `complete` and preserve legacy gate behavior.",
+        "src/commands/worktree.ts and src/shared-worktree.ts: keep `ai-eng worktree merge <slug>` as the only close transaction. Require a clean primary checkout on `main`, `HEAD == reviewed_main`, a trusted clean managed `feat/<slug>` worktree, approved lifecycle metadata and completed gates. Require the current feature tip to descend from `reviewed_feature`; inspect every intervening commit and its changed paths, rejecting any path other than `.ai-engineering/workflow/checkpoints/<slug>.json` or invalid lifecycle metadata.",
+        "src/shared-worktree.ts: create a temporary detached worktree at `reviewed_main`, merge the actual current `refs/heads/feat/<slug>` tip with `--no-commit --no-ff`, and commit normally so repository hooks run. Verify the merge commit's first parent is exactly `reviewed_main`, its second parent is exactly the current feature tip, and `reviewed_feature` is an ancestor whose intervening commits are checkpoint-only before publication.",
+        "src/shared-worktree.ts: publish only with an expected-old `refs/heads/main` compare-and-swap against `reviewed_main`, using local refs and no custom lock. On CAS loss, report exact reviewed/current main SHAs, refuse stale publication, clean only the temporary merge worktree, and preserve the feature. When main has moved, the orchestrator must invalidate approval through the checkpoint gate, commit only the checkpoint with `phase=implementation`, `app_review=not-started`, and both reviewed refs cleared, then resynchronize, rerun affected gates and obtain renewed human review.",
+        "src/shared-worktree.ts: on successful CAS, safely refresh the primary checkout, verify the published merge's exact parents and reviewed-feature ancestry, clean the temporary worktree, then use existing non-force removal to remove both the approved feature worktree and branch. The approved checkpoint remains in merge history; Git worktree inventory absence means no active work. Never write lifecycle phase `complete`.",
+        "tests/worktree-command.spec.ts: use real temporary Git repositories to prove two separate checkpoint-only commits descend from the reviewed code tip: pending state before the human stop and approved state after approval. The merge accepts this metadata-only delta but refuses any code change after review. Also prove normal hooks, exact merge parents (reviewed_main and current feature tip), CAS race refusal with exact SHAs and no stale publication, temporary-worktree cleanup, feature preservation, and safe worktree/branch removal.",
+        "tests/test_checkpoint_gate.py, tests/worktree-lifecycle.spec.ts, tests/skills.spec.ts and tests/workflow-handoff.spec.ts: cover full ref capture before human review, both checkpoint-only metadata commits, rejection of code changes after review, stale-review invalidation to implementation with cleared refs, renewed sync/gates/review ordering, and no active `complete` phase.",
+        "tests/worktree-command.spec.ts: retain coverage for safe primary refresh, hook/merge failure, retry after post-publication obstruction, no unapproved sibling merge/removal, local-only refs and no custom lock.",
         "tests/git-cleanup-pass.spec.ts: update the cross-skill orchestrator-close contract assertion to the reviewed_feature and `ai-eng worktree merge <slug>` handoff; retain real-Git ancestry and removal safety assertions at the worktree command boundary.",
         "Use the ai-write skill for user-facing documentation: document `ai-eng worktree rebase <slug>` and `ai-eng worktree merge <slug>` plus clean-state, local-main-only, approval and conflict handling in README.md, CONTRIBUTING.md, docs/blueprint.html and CHANGELOG.md; update FILEMAP.md for the shipped commands and lifecycle tests.",
         "Run `bun scripts/gen-assets.ts` after skill edits and verify embed-canon.",
         "Run the full project gates."
       ],
       "files": [
+        ".ai-engineering/workflow/checkpoints/<slug>.json",
+        ".ai-engineering/workflow/test-plans/worktree-lifecycle-governance.json",
         "skills/ai-orchestrator/SKILL.md",
         "src/shared-worktree.ts",
         "src/commands/worktree.ts",
@@ -420,10 +424,12 @@
         "FILEMAP.md"
       ],
       "acceptance": [
-        "The approved branch tip is captured as reviewed_feature; no state transition to ready-to-merge is valid without app_review approved and fresh reviewed_main/reviewed_feature.",
-        "The merge commit is created normally in a temporary detached worktree so repository commit hooks run; its exact parents are reviewed_main and reviewed_feature.",
-        "Only an atomic `git update-ref refs/heads/main <merge-commit> <reviewed_main>` CAS can publish the merge. If main moved, CAS refuses; the original feature worktree/checkpoint remain untouched, only the clean temporary worktree is removed, and exact refs plus retry guidance are reported.",
-        "After CAS, refresh the clean primary checkout without force, verify the approved feature ancestry, then use existing safe worktree removal. No active checkpoint is marked complete before it is removed; absence from Git worktree inventory means no active work.",
+        "Before the human app-review stop, lifecycle stores full reviewed_main and reviewed_feature for the reviewed code tip, sets awaiting-app-review/pending, and commits only the slug checkpoint file; the code reviewed is unchanged.",
+        "After human approval, lifecycle sets ready-to-merge/approved without changing either reviewed SHA and commits only the slug checkpoint file a second time; the code reviewed is unchanged.",
+        "The feature tip must descend from reviewed_feature, and every intervening commit must change only `.ai-engineering/workflow/checkpoints/<slug>.json` with valid lifecycle metadata. Any code or other path change after review is refused before publication or removal.",
+        "The temporary detached-worktree merge runs normal hooks and uses the actual approved feature tip as second parent; verify its first parent equals reviewed_main and second parent equals the current `refs/heads/feat/<slug>` tip, with reviewed_feature an ancestor and only checkpoint metadata commits between them.",
+        "Publish local main only with expected-old reviewed_main CAS. A lost CAS reports exact refs, refuses stale publication, cleans only the temporary worktree and preserves the feature; when main moved, stale approval is committed as checkpoint-only metadata returning lifecycle to implementation with app_review not-started and both reviewed refs cleared, then sync, affected gates and human review repeat.",
+        "After successful CAS, safely refresh primary, verify exact parents and reviewed-feature ancestry, and remove the approved feature worktree and branch. The approved checkpoint remains in merge history; Git inventory absence means no active work, and no active checkpoint ever stores phase complete.",
         "An unapproved sibling is never merged or deleted; no fetch, remote synchronization, custom lock or new dependency/service is used.",
         "README.md, CONTRIBUTING.md, docs/blueprint.html and CHANGELOG.md document both public worktree commands; FILEMAP.md and generated skill assets match; all project gates pass."
       ],
@@ -445,7 +451,7 @@
       "gates": {
         "behavior": {
           "status": "pending",
-          "attempts": 17,
+          "attempts": 21,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
             "attempt 2 FAIL: `bun test tests/worktree-lifecycle.spec.ts` invoked without `./` was interpreted by Bun as a test-name filter and matched no test files; rerun with explicit relative paths.",
@@ -464,7 +470,12 @@
             "The cross-skill orchestrator-close assertion is updated in tests/git-cleanup-pass.spec.ts and focused skills/cleanup contract tests pass; rerun full verification.",
             "attempt 14 FAIL: `bun test ./tests/skills.spec.ts` found the blueprint no longer stated that recap is optional; earlier lifecycle and worktree-command suites passed, remaining commands were not run.",
             "The recap boundary was restored in docs/blueprint.html; the focused rerun exposed a stale old merge-order contract assertion.",
-            "attempt 17 corrected the close-contract assertion to require Phase3 sync before human review, then exact reviewed SHAs/approval/CAS handoff after review; focused skills and git-cleanup-pass tests pass."
+            "attempt 17 corrected the close-contract assertion to require Phase3 sync before human review, then exact reviewed SHAs/approval/CAS handoff after review; focused skills and git-cleanup-pass tests pass.",
+            "attempt 18 runner invocation failed with an internal server error before tests ran.",
+            "attempt 19 FAIL: `bun test ./tests/worktree-lifecycle.spec.ts` exited 1 after doc/contract fixes, but tool output truncated before the failing case; later verify commands were not run.",
+            "The isolated `--only-failures` rerun passed all 16 lifecycle cases (251 assertions), so the failure did not reproduce; attempt 20 reruns the full gate.",
+            "attempt 21 PASS: full standard-concurrency `bun test` passed all 1,071 tests (4,877 assertions) across 71 files; all focused CP6 commands, typecheck, lint and arch were green.",
+            "The reviewed_feature contract was refined to permit only pre-review and post-approval checkpoint-only commits; rework the CP6 tests and implementation before the gate can pass."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -491,7 +502,9 @@
     "Missing or legacy lifecycle state is shown as unknown, not as no work or approval. [brainstorm §§8, 11; LEARNINGS Rules R2, R8]",
     "The worktree inventory and merge serialization apply to this local clone; they do not coordinate across machines or merge unapproved siblings. [PRD Out of scope; brainstorm §6]",
     "The checkpoint gate validates approval-state ordering, while the orchestrator records plan approval only after the human Phase 1 response; the local state file does not independently authenticate who supplied that response. [AGENTS.md approval contract; orchestrator Phase 1]",
-    "No new dependencies or screen are needed; existing Bun tests and real Git fixtures cover the behavior. [AGENTS.md; approved request]"
+    "No new dependencies or screen are needed; existing Bun tests and real Git fixtures cover the behavior. [AGENTS.md; approved request]",
+    "The app review is bound to a code tip; only the pending and approved lifecycle commits may follow it, and both may change only the checkpoint file. [approved CP6 clarification; CAS review; LEARNINGS R4-R5]",
+    "When local main moves, stale approval is invalidated in a checkpoint-only commit before resynchronization, gates and renewed human review. [approved CP6 clarification; CAS review; LEARNINGS R4, R8, L85, L89-L91]"
   ],
   "new_dependencies": [],
   "notes": [
