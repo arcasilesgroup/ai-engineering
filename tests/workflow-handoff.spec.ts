@@ -140,9 +140,12 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     const guardedWrite = phase3.indexOf("guarded edit or write", currentMain);
     const reviewedMain = phase3.indexOf("lifecycle.reviewed_main", guardedWrite);
     const fullCommitId = phase3.indexOf("exact full commit id returned by that command", reviewedMain);
-    const awaitingReview = phase3.indexOf("lifecycle.phase to awaiting-app-review", fullCommitId);
+    const featureTip = phase3.indexOf("git rev-parse refs/heads/feat/<slug>", gatesPassed);
+    const reviewedFeature = phase3.indexOf("lifecycle.reviewed_feature", featureTip);
+    const awaitingReview = phase3.indexOf("lifecycle.phase to awaiting-app-review", reviewedFeature);
     const pendingReview = phase3.indexOf("lifecycle.app_review to pending", awaitingReview);
-    const onlyThen = phase3.indexOf("only then proceed to phase 4", pendingReview);
+    const reviewCommit = phase3.indexOf("checkpoint-only commit", pendingReview);
+    const onlyThen = phase3.indexOf("only then proceed to phase 4", reviewCommit);
     const appReview = section("skills/ai-orchestrator/SKILL.md", "## Phase 4: Human stop 2, app review")
       .body.toLowerCase();
     const humanAppReview = appReview.indexOf("ask the user to try the feature");
@@ -161,12 +164,46 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(guardedWrite).toBeGreaterThan(currentMain);
     expect(reviewedMain).toBeGreaterThan(guardedWrite);
     expect(fullCommitId).toBeGreaterThan(reviewedMain);
-    expect(awaitingReview).toBeGreaterThan(fullCommitId);
+    expect(featureTip).toBeGreaterThan(gatesPassed);
+    expect(reviewedFeature).toBeGreaterThan(featureTip);
+    expect(phase3).toMatch(/reviewed_feature[\s\S]{0,120}(?:exact|full) (?:commit )?(?:id|sha)/);
+    expect(awaitingReview).toBeGreaterThan(reviewedFeature);
     expect(pendingReview).toBeGreaterThan(awaitingReview);
-    expect(onlyThen).toBeGreaterThan(pendingReview);
+    expect(reviewCommit).toBeGreaterThan(pendingReview);
+    expect(onlyThen).toBeGreaterThan(reviewCommit);
     expect(reviewGate).toBeLessThan(phase4Start);
     expect(humanAppReview).toBeGreaterThanOrEqual(0);
     expect(appReview).toMatch(/reviewed_main[\s\S]{0,100}(?:exact|current)[\s\S]{0,100}local main/i);
     expect(appReview).not.toMatch(/git rebase/i);
+  });
+
+  test("U28a: CAS loss invalidates only the checkpoint before resynchronization and renewed review", () => {
+    const { body } = section("skills/ai-orchestrator/SKILL.md", "## Phase 4: Human stop 2, app review");
+    const normalized = body.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const approval = normalized.split("- approve:")[1]?.split("- stop here:")[0] ?? "";
+    const mergeCommand = approval.indexOf("ai-eng worktree merge <slug>");
+    const casLoss = approval.indexOf("if the command refuses", mergeCommand);
+    const implementation = approval.indexOf("phase: implementation", casLoss);
+    const appReview = approval.indexOf("app_review: not-started", casLoss);
+    const reviewedMain = approval.indexOf("reviewed_main: null", casLoss);
+    const reviewedFeature = approval.indexOf("reviewed_feature: null", casLoss);
+    const invalidation = approval.indexOf("checkpoint-only commit", reviewedFeature);
+    const resync = approval.indexOf("phase 3", invalidation);
+    const rerunGates = approval.indexOf("affected gates", resync);
+    const renewedReview = approval.indexOf("renewed human app review", rerunGates);
+
+    expect(mergeCommand).toBeGreaterThanOrEqual(0);
+    expect(casLoss).toBeGreaterThan(mergeCommand);
+    expect(implementation).toBeGreaterThan(casLoss);
+    expect(appReview).toBeGreaterThan(casLoss);
+    expect(reviewedMain).toBeGreaterThan(casLoss);
+    expect(reviewedFeature).toBeGreaterThan(casLoss);
+    expect(invalidation).toBeGreaterThan(implementation);
+    expect(invalidation).toBeGreaterThan(appReview);
+    expect(invalidation).toBeGreaterThan(reviewedMain);
+    expect(invalidation).toBeGreaterThan(reviewedFeature);
+    expect(resync).toBeGreaterThan(invalidation);
+    expect(rerunGates).toBeGreaterThan(resync);
+    expect(renewedReview).toBeGreaterThan(rerunGates);
   });
 });

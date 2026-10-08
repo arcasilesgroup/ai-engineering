@@ -431,16 +431,11 @@ describe("workflow kit — visual recap is opt-in", () => {
     expect(uiGates).toBeGreaterThan(behaviorGates);
     expect(reviewGate).toBeGreaterThan(uiGates);
     expect(appReviewHandoff).toBeGreaterThan(reviewGate);
-    const featureTip = approval.indexOf("git rev-parse refs/heads/feat/<slug>");
-    const reviewedFeature = approval.indexOf("lifecycle.reviewed_feature", featureTip);
-    const approved = approval.indexOf("lifecycle.app_review: approved", reviewedFeature);
+    const approved = approval.indexOf("lifecycle.app_review: approved");
     const readyToMerge = approval.indexOf("lifecycle.phase: ready-to-merge", approved);
     const mergeCommand = approval.indexOf("ai-eng worktree merge <slug>", readyToMerge);
-    expect(featureTip).toBeGreaterThanOrEqual(0);
-    expect(reviewedFeature).toBeGreaterThan(featureTip);
-    expect(approval).toMatch(/set `lifecycle\.reviewed_feature` to that exact full SHA/);
     expect(approval).toContain("retain the exact full `lifecycle.reviewed_main`");
-    expect(approved).toBeGreaterThan(reviewedFeature);
+    expect(approved).toBeGreaterThanOrEqual(0);
     expect(readyToMerge).toBeGreaterThan(approved);
     expect(mergeCommand).toBeGreaterThan(readyToMerge);
     expect(approval).toContain("compare-and-swap transaction");
@@ -572,23 +567,41 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     }
   });
 
-  test("U24-U30: Phase 4 records approved feature SHA and delegates the whole merge transaction to the CLI", () => {
+  test("U24-U27: Phase 3 pins reviewed SHAs before app review and Phase 4 commits approval before CLI merge", () => {
     const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const phase3 = markdownSection(orchestrator, "## Phase 3: Wrap-up")
+      .replace(/[`*]/g, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
     const phase4 = markdownSection(orchestrator, "## Phase 4: Human stop 2, app review");
     const approval = phase4.split("- **Approve:**")[1]?.split("- **Stop here:**")[0] ?? "";
     const normalized = approval.replace(/[`*]/g, "").replace(/\s+/g, " ").toLowerCase();
-    const captureFeatureTip = normalized.indexOf("git rev-parse refs/heads/feat/<slug>");
-    const recordReviewedFeature = normalized.indexOf("reviewed_feature", captureFeatureTip);
-    const approveAppReview = normalized.indexOf("app_review: approved", recordReviewedFeature);
+    const mainTip = phase3.indexOf("git rev-parse refs/heads/main");
+    const featureTip = phase3.indexOf("git rev-parse refs/heads/feat/<slug>", mainTip);
+    const recordReviewedMain = phase3.indexOf("lifecycle.reviewed_main", mainTip);
+    const recordReviewedFeature = phase3.indexOf("lifecycle.reviewed_feature", featureTip);
+    const awaitingReview = phase3.indexOf("lifecycle.phase to awaiting-app-review", recordReviewedFeature);
+    const pendingReview = phase3.indexOf("lifecycle.app_review to pending", awaitingReview);
+    const reviewCommit = phase3.indexOf("checkpoint-only commit", pendingReview);
+    const approveAppReview = normalized.indexOf("app_review: approved");
     const readyToMerge = normalized.indexOf("phase: ready-to-merge", approveAppReview);
+    const approvalCommit = normalized.indexOf("checkpoint-only commit", readyToMerge);
     const mergeCommand = normalized.indexOf("ai-eng worktree merge <slug>", readyToMerge);
 
-    expect(captureFeatureTip).toBeGreaterThanOrEqual(0);
-    expect(recordReviewedFeature).toBeGreaterThan(captureFeatureTip);
-    expect(normalized).toMatch(/reviewed_feature[\s\S]{0,120}(?:exact|full) (?:commit )?(?:id|sha)/);
-    expect(approveAppReview).toBeGreaterThan(recordReviewedFeature);
+    expect(mainTip).toBeGreaterThanOrEqual(0);
+    expect(featureTip).toBeGreaterThan(mainTip);
+    expect(recordReviewedMain).toBeGreaterThan(mainTip);
+    expect(recordReviewedFeature).toBeGreaterThan(featureTip);
+    expect(phase3).toMatch(/reviewed_feature[\s\S]{0,120}(?:exact|full) (?:commit )?(?:id|sha)/);
+    expect(awaitingReview).toBeGreaterThan(recordReviewedFeature);
+    expect(pendingReview).toBeGreaterThan(awaitingReview);
+    expect(reviewCommit).toBeGreaterThan(pendingReview);
+    expect(approveAppReview).toBeGreaterThanOrEqual(0);
     expect(readyToMerge).toBeGreaterThan(approveAppReview);
-    expect(mergeCommand).toBeGreaterThan(readyToMerge);
+    expect(approvalCommit).toBeGreaterThan(readyToMerge);
+    expect(mergeCommand).toBeGreaterThan(approvalCommit);
+    expect(normalized).toMatch(/retain the exact (?:full )?lifecycle\.reviewed_main/);
+    expect(normalized).toMatch(/retain the exact (?:full )?lifecycle\.reviewed_feature/);
     expect(normalized).toMatch(/reviewed_main/);
     expect(normalized).toMatch(/no custom lock/);
     expect(normalized).toMatch(/preserve the feature worktree/);

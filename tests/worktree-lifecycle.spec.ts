@@ -173,6 +173,16 @@ function mergeReadyPlan(
   reviewedMain: string,
   reviewedFeature = reviewedMain,
 ): Record<string, unknown> {
+  return mergeLifecyclePlan(slug, "ready-to-merge", "approved", reviewedMain, reviewedFeature);
+}
+
+function mergeLifecyclePlan(
+  slug: string,
+  phase: string,
+  appReview: string,
+  reviewedMain: string,
+  reviewedFeature: string,
+): Record<string, unknown> {
   const gate = (status: string) => ({ status, attempts: 1, findings: [] });
   return {
     slug,
@@ -183,18 +193,13 @@ function mergeReadyPlan(
       files: [],
     }],
     lifecycle: {
-      phase: "ready-to-merge",
+      phase,
       plan_approval: "approved",
-      app_review: "approved",
+      app_review: appReview,
       reviewed_main: reviewedMain,
       reviewed_feature: reviewedFeature,
     },
   };
-}
-
-function ignoreLifecycleCheckpoints(repo: string): void {
-  const exclude = join(repo, ".git", "info", "exclude");
-  writeFileSync(exclude, "\n/.ai-engineering/workflow/checkpoints/*.json\n", { flag: "a" });
 }
 
 function writeCheckpoint(worktree: string, slug: string, value: object): string {
@@ -739,7 +744,7 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
     expect(readFileSync(siblingCheckpoint, "utf8")).toContain('"phase": "implementation"');
   });
 
-  test("U25: a stale approved merge is aborted while retaining the advanced main and feature checkpoint", () => {
+  test("U28: a stale approved merge aborts and invalidates review in a checkpoint-only commit", () => {
     const repo = initRepo();
     const feature = addBranchWorktree(repo, "merge-stale");
     const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
@@ -748,7 +753,7 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
     const checkpoint = writeCheckpoint(
       feature,
       "merge-stale",
-      mergeReadyPlan("merge-stale", reviewedMain),
+      mergeReadyPlan("merge-stale", reviewedMain, featureCommit),
     );
     commitCheckpoint(feature, checkpoint);
     const approvedCheckpoint = readFileSync(checkpoint, "utf8");
@@ -789,14 +794,31 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
     expect(readFileSync(checkpoint, "utf8")).toBe(approvedCheckpoint);
     expect(readFileSync(join(feature, "src", "feature.ts"), "utf8")).toBe(featureContents);
 
-    const invalidatedPlan = checkpointPlan("merge-stale", "blocked");
-    writeCheckpoint(feature, "merge-stale", invalidatedPlan);
-    expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle).toEqual({
-      phase: "blocked",
+    const invalidatedPlan = checkpointPlan("merge-stale", "implementation");
+    invalidatedPlan.lifecycle = {
+      phase: "implementation",
       plan_approval: "approved",
       app_review: "not-started",
       reviewed_main: null,
+      reviewed_feature: null,
+    };
+    writeCheckpoint(feature, "merge-stale", invalidatedPlan);
+    commitCheckpoint(feature, checkpoint);
+    const invalidationCommit = git(["rev-parse", "HEAD"], feature).trim();
+    expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle).toEqual({
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      reviewed_main: null,
+      reviewed_feature: null,
     });
+    expect(git(["diff-tree", "--no-commit-id", "--name-only", "-r", invalidationCommit], repo)
+      .trim().split("\n")).toEqual([".ai-engineering/workflow/checkpoints/merge-stale.json"]);
+    expect(git(["rev-parse", `${invalidationCommit}^`], repo).trim()).toBe(featureTip);
+    expect(git(["rev-parse", "refs/heads/feat/merge-stale"], repo).trim()).toBe(invalidationCommit);
+    expect(git(["rev-parse", featureRef], repo).trim()).toBe(featureTip);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
+    expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(feature));
   });
 
   test("U26: only the approved feature gets a no-fast-forward merge, verified before safe removal", () => {
@@ -914,12 +936,21 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
     const feature = addBranchWorktree(repo, slug);
     const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
     const reviewedFeature = commitFile(feature, "src/active.ts", "approved work\n", "approved work");
-    ignoreLifecycleCheckpoints(repo);
+    const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
     const checkpoint = writeCheckpoint(
+      feature,
+      slug,
+      mergeLifecyclePlan(slug, "awaiting-app-review", "pending", reviewedMain, reviewedFeature),
+    );
+    commitCheckpoint(feature, checkpoint);
+    const awaitingReviewCommit = git(["rev-parse", "HEAD"], feature).trim();
+    writeCheckpoint(
       feature,
       slug,
       mergeReadyPlan(slug, reviewedMain, reviewedFeature),
     );
+    commitCheckpoint(feature, checkpoint);
+    const featureTip = git(["rev-parse", "HEAD"], feature).trim();
     const checkpointContents = readFileSync(checkpoint, "utf8");
     const featurePath = realpathSync(feature);
     const checkpointState = JSON.parse(checkpointContents) as {
@@ -940,6 +971,16 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
       reviewed_feature: reviewedFeature,
     });
     expect(checkpointContents).not.toContain('"phase": "complete"');
+    expect(git(["diff-tree", "--no-commit-id", "--name-only", "-r", awaitingReviewCommit], repo)
+      .trim().split("\n")).toEqual([checkpointPath]);
+    expect(git(["diff-tree", "--no-commit-id", "--name-only", "-r", featureTip], repo)
+      .trim().split("\n")).toEqual([checkpointPath]);
+    expect(git(["rev-parse", `${awaitingReviewCommit}^`], repo).trim()).toBe(reviewedFeature);
+    expect(git(["rev-parse", `${featureTip}^`], repo).trim()).toBe(awaitingReviewCommit);
+    expect(runGit(
+      ["diff", "--quiet", reviewedFeature, featureTip, "--", ".", `:(exclude)${checkpointPath}`],
+      repo,
+    ).status).toBe(0);
     expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
     expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(feature));
 
@@ -949,9 +990,14 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
     expect(git(["rev-list", "--parents", "-n", "1", "refs/heads/main"], repo).trim().split(" ")).toEqual([
       git(["rev-parse", "refs/heads/main"], repo).trim(),
       reviewedMain,
-      reviewedFeature,
+      featureTip,
     ]);
     expect(runGit(["merge-base", "--is-ancestor", reviewedFeature, "refs/heads/main"], repo).status).toBe(0);
+    expect(runGit(["merge-base", "--is-ancestor", featureTip, "refs/heads/main"], repo).status).toBe(0);
+    expect(runGit(
+      ["diff", "--quiet", reviewedFeature, "refs/heads/main", "--", ".", `:(exclude)${checkpointPath}`],
+      repo,
+    ).status).toBe(0);
     expect(git(["worktree", "list", "--porcelain"], repo)).not.toContain(featurePath);
     expect(runGit(["show-ref", "--verify", `refs/heads/feat/${slug}`], repo).status).not.toBe(0);
     expect(existsSync(feature)).toBe(false);

@@ -451,7 +451,7 @@ with tempfile.TemporaryDirectory(
     completed_gates = all_gates_passed(legacy)
     awaiting_review = with_lifecycle(
         completed_gates,
-        life("awaiting-app-review", "approved", "pending", reviewed_main),
+        life("awaiting-app-review", "approved", "pending", reviewed_main, reviewed_feature),
     )
     lifecycle_result("U10: completed gates and current reviewed_main permit app review", implementation, awaiting_review, 0)
 
@@ -460,6 +460,26 @@ with tempfile.TemporaryDirectory(
         life("ready-to-merge", "approved", "approved", reviewed_main, reviewed_feature),
     )
     lifecycle_result("U10: approved app review permits ready-to-merge", awaiting_review, ready_to_merge, 0)
+    alternate_reviewed_feature = git(
+        [
+            "commit-tree",
+            f"{reviewed_feature}^{{tree}}",
+            "-p",
+            reviewed_feature,
+            "-m",
+            "different feature review SHA",
+        ],
+        cwd=root,
+    )
+    lifecycle_result(
+        "U28: approval cannot change either reviewed SHA",
+        awaiting_review,
+        with_lifecycle(
+            completed_gates,
+            life("ready-to-merge", "approved", "approved", reviewed_main, alternate_reviewed_feature),
+        ),
+        2,
+    )
 
     blocked_review = with_lifecycle(
         completed_gates,
@@ -514,7 +534,16 @@ with tempfile.TemporaryDirectory(
     lifecycle_result(
         "U11: rejects missing reviewed_main before app review",
         implementation,
-        with_lifecycle(completed_gates, life("awaiting-app-review", "approved", "pending", None)),
+        with_lifecycle(
+            completed_gates,
+            life("awaiting-app-review", "approved", "pending", None, reviewed_feature),
+        ),
+        2,
+    )
+    lifecycle_result(
+        "U28: rejects app review without reviewed_feature",
+        implementation,
+        with_lifecycle(completed_gates, life("awaiting-app-review", "approved", "pending", reviewed_main)),
         2,
     )
     lifecycle_result(
@@ -577,9 +606,46 @@ with tempfile.TemporaryDirectory(
         ),
         2,
     )
+    invalidated_review = with_lifecycle(
+        completed_gates,
+        life("implementation", "approved", "not-started", None, None),
+    )
+    lifecycle_result(
+        "U28: rejects review invalidation while reviewed_main is still current",
+        ready_to_merge,
+        invalidated_review,
+        2,
+    )
 
     git(["commit", "--allow-empty", "-q", "-m", "advance local main"])
     current_main = git(["rev-parse", "refs/heads/main"])
+    lifecycle_result(
+        "U28: stale review invalidation clears both refs and returns to implementation",
+        ready_to_merge,
+        invalidated_review,
+        0,
+    )
+    invalid_review_invalidations = [
+        (
+            "retained reviewed_main",
+            life("implementation", "approved", "not-started", reviewed_main, None),
+        ),
+        (
+            "retained reviewed_feature",
+            life("implementation", "approved", "not-started", None, reviewed_feature),
+        ),
+        (
+            "approved app review",
+            life("implementation", "approved", "approved", None, None),
+        ),
+    ]
+    for name, invalidation in invalid_review_invalidations:
+        lifecycle_result(
+            f"U28: rejects stale-review invalidation with {name}",
+            ready_to_merge,
+            with_lifecycle(completed_gates, invalidation),
+            2,
+        )
     lifecycle_result(
         "U11: rejects ready-to-merge when reviewed_main is stale",
         awaiting_review,
@@ -597,7 +663,7 @@ with tempfile.TemporaryDirectory(
     )
     refreshed_review = with_lifecycle(
         completed_gates,
-        life("awaiting-app-review", "approved", "pending", current_main),
+        life("awaiting-app-review", "approved", "pending", current_main, reviewed_feature),
     )
     lifecycle_result("U10: advancing local main resets approval for a fresh review", ready_to_merge, refreshed_review, 0)
     blocked_stale_review = with_lifecycle(
@@ -656,7 +722,7 @@ with tempfile.TemporaryDirectory(
 
     fresh_review_plan = with_lifecycle(
         ready_plan,
-        life("awaiting-app-review", "approved", "pending", stale_main),
+        life("awaiting-app-review", "approved", "pending", stale_main, reviewed_feature),
     )
     fresh_review_result = run(merge_root, write(merge_checkpoint, fresh_review_plan))
     fails += fresh_review_result != 0
