@@ -173,11 +173,12 @@
       "gates": {
         "behavior": {
           "status": "pending",
-          "attempts": 2,
+          "attempts": 3,
           "findings": [
             "attempt 1 FAIL: bun test tests/skills.spec.ts passed, but tests/workflow-handoff.spec.ts failed a U13 wording-pattern assertion; remaining verify commands were not run.",
             "attempt 2 PASS: all eight checkpoint 3 verify commands passed after whitespace normalization in the handoff assertion.",
-            "Adversarial fixes added dirty/unknown Phase 0 and pending-approval assertions; rerun all checkpoint 3 verification commands."
+            "attempt 3 PASS after first adversarial fixes: all eight checkpoint 3 verify commands passed with dirty/unknown refusal and pending-approval assertions.",
+            "Adversarial fixes changed skills, tests and the generated payload to make dirty/unknown refusal and exact approval states explicit; rerun all checkpoint 3 verification commands."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -187,10 +188,12 @@
       "changed_files": [
         "skills/ai-brainstorm/SKILL.md",
         "skills/ai-orchestrator/SKILL.md",
+        "src/assets.ts",
         "tests/skills.spec.ts",
         "tests/workflow-handoff.spec.ts",
         "tests/worktree-lifecycle.spec.ts",
         "LEARNINGS.md",
+        ".ai-engineering/workflow/test-plans/worktree-lifecycle-governance.json",
         ".ai-engineering/workflow/test-plans/worktree-lifecycle-governance.json",
         ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-3.md"
       ]

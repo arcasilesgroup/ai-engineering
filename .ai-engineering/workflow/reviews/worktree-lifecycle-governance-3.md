@@ -29,3 +29,8 @@ Use one read-only local preflight before brainstorm and orchestrator work to sho
 
 - **F1 · P2 · closed:** Added U17 to check the same-slug status guard, preservation and stop conditions, and that creation remains on the unlisted-slug path. It also rejects rebase/remove commands in the guarded branch.
 - **F2 · P2 · closed:** Added U18 to check that both preflights report pending human approvals after the shared listing and before proceeding to creation.
+
+### Round 2 follow-up
+
+- **F1 · P2 · open:** U16a points to a test named U17. U17 checks skill prose and excludes `worktree new`, rebase and removal in the same-slug branch, but does not prove that dirty/unknown state cannot resume, switch branches or trigger other mutations. Its exact paragraph anchors also make it vulnerable to wording changes. The current skill instructions do say preserve and stop; the test does not enforce the full no-action invariant.
+- **F2 · P2 · open:** U16b points to a test named U18. U18 checks only the generic “pending human approvals” phrase after listing and before creation; it does not assert that pending plan approval and app-review/merge-ready states are identified or surfaced before continuation.

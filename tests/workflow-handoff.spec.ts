@@ -46,7 +46,9 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(afterPreflight).toMatch(/same slug/i);
     expect(afterPreflight).toMatch(/Git-listed path/i);
     expect(afterPreflight).toMatch(/\b(?:resume|existing worktree)\b/i);
-    expect(afterPreflight).toMatch(/(?:when|if)[\s\S]{0,80}listed[\s\S]{0,120}(?:resume|existing worktree)/i);
+    expect(normalizedAfterPreflight).toMatch(
+      /only if that same-slug entry is clean[\s\S]{0,160}resume it using its exact git-listed path/i,
+    );
     expect(normalizedAfterPreflight).toMatch(/(?:only|otherwise|else)[\s\S]{0,100}(?:slug[\s\S]{0,40}not listed|no matching slug)[\s\S]{0,100}ai-eng worktree new/i);
     expect(body).toMatch(/\bclean\b/i);
     expect(body).toMatch(/\btrusted\b/i);
@@ -64,24 +66,28 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(body).toMatch(/\b(?:continue|proceed)\b/i);
   });
 
-  test("U17: Phase 0 preserves a dirty or unknown same-slug worktree before lifecycle actions", () => {
+  test("U16a: Phase 0 stops on dirty or unknown same-slug status before lifecycle actions", () => {
     const { body } = section("skills/ai-orchestrator/SKILL.md", "## Phase 0: Preflight");
     const normalized = body.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
-    const sameSlug = normalized.indexOf("if an existing worktree with the same slug is listed");
-    const noMatch = normalized.indexOf("if the slug is not listed", sameSlug);
-    const sameSlugBranch = normalized.slice(sameSlug, noMatch);
-    const create = normalized.indexOf("ai-eng worktree new");
+    const listing = normalized.indexOf("ai-eng worktree list");
+    const dirtyGuard = normalized.indexOf("has dirty or unknown status", listing);
+    const refusal = normalized.slice(dirtyGuard, normalized.indexOf("only if that same-slug entry is clean", dirtyGuard));
+    const resume = normalized.indexOf("resume it using its exact git-listed path", dirtyGuard);
+    const noMatch = normalized.indexOf("if the slug is not listed", resume);
+    const create = normalized.indexOf("ai-eng worktree new", noMatch);
 
-    expect(sameSlug).toBeGreaterThanOrEqual(0);
-    expect(noMatch).toBeGreaterThan(sameSlug);
-    expect(sameSlugBranch).toMatch(/continue only when[\s\S]*clean[\s\S]*trusted[\s\S]*feat\/<slug>/);
-    for (const status of ["dirty", "missing", "untrusted", "unknown"]) {
-      expect(sameSlugBranch).toContain(status);
+    expect(listing).toBeGreaterThanOrEqual(0);
+    expect(dirtyGuard).toBeGreaterThan(listing);
+    expect(refusal).toContain("has dirty or unknown status");
+    for (const status of ["dirty", "unknown", "missing", "untrusted"]) {
+      expect(refusal).toContain(status);
     }
-    expect(sameSlugBranch).toMatch(/preserve it[\s\S]*report its path and evidence[\s\S]*stop/);
-    expect(sameSlugBranch).toMatch(/do not reset, remove or sync it/);
-    expect(sameSlugBranch).not.toContain("ai-eng worktree new");
+    expect(refusal).toMatch(/preserve it[\s\S]*report its exact git-listed path and evidence[\s\S]*stop phase 0 immediately/);
+    expect(refusal).toMatch(
+      /do not run ai-eng worktree new, resume it, rebase it, run ai-eng worktree rm, reset it, switch branches, or otherwise mutate it/,
+    );
+    expect(resume).toBeGreaterThan(dirtyGuard);
+    expect(noMatch).toBeGreaterThan(resume);
     expect(create).toBeGreaterThan(noMatch);
-    expect(sameSlugBranch).not.toMatch(/\b(?:git rebase|ai-eng worktree rm)\b/);
   });
 });

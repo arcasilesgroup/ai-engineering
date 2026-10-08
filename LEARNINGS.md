@@ -623,3 +623,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Added focused handoff assertions for dirty/unknown refusal and visible plan/app-review approvals before continuation.
 - **Lesson:** Test status guards and approval reporting in order, not only successful paths.
 - **Tags:** review, tests, worktree
+
+### L73 · 2026-10-08 · worktree-lifecycle-governance #3 · review
+- **Failure:** Review found that a dirty or unknown same-slug worktree might still be resumed, and generic approval wording did not guarantee the pending decision was visible.
+- **Root cause:** The preflight contract did not make refusal-before-mutation or named human approval states explicit.
+- **Fix:** Added a no-mutation Phase 0 stop for dirty/unknown state and explicit plan, app-review and merge-ready handoffs with focused ordering assertions.
+- **Lesson:** Check status and approval gates before any continuation.
+- **Tags:** review, workflow, worktree

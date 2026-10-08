@@ -119,14 +119,14 @@
       },
       {
         "id": "U16a",
-        "case": "Phase 0 refuses to create or resume a same-slug worktree when preflight reports dirty or unknown state, before any mutation",
+        "case": "Phase 0 stops before new, resume, rebase, rm or reset when the same slug is dirty or unknown, preserving its state",
         "file": "tests/workflow-handoff.spec.ts",
         "command": "bun test tests/workflow-handoff.spec.ts",
         "checkpoint": 3
       },
       {
         "id": "U16b",
-        "case": "the preflight surfaces pending plan approval and pending app review before the agent decides whether work may continue",
+        "case": "preflight surfaces awaiting-plan-approval, awaiting-app-review and ready-to-merge with the required human decision before orchestrator continues",
         "file": "tests/skills.spec.ts",
         "command": "bun test tests/skills.spec.ts",
         "checkpoint": 3

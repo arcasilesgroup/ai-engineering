@@ -24,7 +24,7 @@ Everywhere else, decide and keep going:
 ## Context rules (non-negotiable)
 
 - **Never read source code, diffs, test output or screenshots yourself.** Subagents read them and report back in a few lines.
-- **All state lives on disk** in `.ai-engineering/workflow/checkpoints/<slug>.json`, and that file is the only thing you read to know where you are. Change it only with Edit or Write, never through Bash. The same hook validates every write to it: no gate can be passed out of order, no checkpoint can be marked passed with a gate still open, and no checkpoint can be touched while an earlier one is open. Update it after every step, so `/ai-orchestrator resume <slug>` can pick up after a crash or `/clear`.
+- **Checkpoint progress lives on disk** in `.ai-engineering/workflow/checkpoints/<slug>.json`; that file is the source of truth for checkpoint status. Phase 0's read-only `ai-eng worktree list` is the source of truth for worktree existence, paths, cleanliness and reported lifecycle status. Change the checkpoint file only with Edit or Write, never through Bash. The same hook validates every write to it: no gate can be passed out of order, no checkpoint can be marked passed with a gate still open, and no checkpoint can be touched while an earlier one is open. Update it after every step, so `/ai-orchestrator resume <slug>` can pick up after a crash or `/clear`.
 - **Every subagent prompt:**
   - in Phase 2 and later, **starts with the gate marker** `[checkpoint <slug>#<id> <stage>]`, where `<slug>` is the feature slug you were asked to build and `<stage>` is one of `tests`, `implement`, `behavior`, `ui`, `review` or `fix`. The `checkpoint-gate` hook (`scripts/checkpoint-gate.py`, PreToolUse) reads it and blocks the call with exit code 2 if:
     - an earlier checkpoint hasn't passed;
@@ -42,8 +42,8 @@ Everywhere else, decide and keep going:
 
 Every step that changes files ends with a commit on `feat/<slug>`, so the git history is a full, resumable record of the run. You make the commits yourself with Bash; the output is small.
 
-- **Tree and branch:** Phase 0 runs `ai-eng worktree new <slug>`, which cuts the worktree from the local `main` at the configured root — `[git].worktrees_dir` from `.ai-engineering/config.toml` when set, `<repo>.worktrees` otherwise — and checks out `feat/<slug>` there; on resume, ask `ai-eng worktree list` for the path (never re-derive it from the slug), enter it and run `git switch feat/<slug>` inside it. Every later step — code, commits, tests, prototypes — happens in that worktree. Everything is committed on `feat/<slug>`, and the local `main` gets one `--no-ff` merge commit per feature at the app review, per the `AGENTS.md` git workflow.
-- **Stage explicit paths only.** Never use `git add -A` or `git add .`. The session owns its worktree now, so a loose stage can no longer sweep a sibling session's edits, but an explicit list keeps each commit the slice it claims and keeps the design slots out. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage a design slot (`.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html`, `.ai-engineering/plan.html`) from inside the worktree — they are committed in the primary tree before the worktree is cut (Phase 0, below), and no worktree commit stages them — nor `.ai-engineering/workflow/playwright/`, `.env*` or files that were in the Phase 0 baseline.
+- **Tree and branch:** After the Phase 0 preflight, `ai-eng worktree new <slug>` creates a new worktree from local `main`; on resume, use the exact Git-listed path for the same slug and continue only if it is clean, trusted and already on `feat/<slug>`. Never derive a path or switch a branch. Every later step — code, commits, tests, prototypes and plans — happens in that selected worktree. Everything is committed on `feat/<slug>`, and the local `main` gets one `--no-ff` merge commit per feature at the app review, per the `AGENTS.md` git workflow.
+- **Stage explicit paths only.** Never use `git add -A` or `git add .`. The session owns its worktree now, so a loose stage can no longer sweep a sibling session's edits, but an explicit list keeps each commit the slice it claims and keeps the design slots out. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage a design slot (`.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html`, `.ai-engineering/plan.html`) from inside the feature worktree; these primary-tree artifacts must already be committed before new worktree creation, and preflight reports rather than changes any dirty slot. Do not stage `.ai-engineering/workflow/playwright/`, `.env*` or files that were in the Phase 0 baseline.
 - **When to commit, and with which message.** The `commit-msg` hook (`src/floor/index.ts`) accepts any of the eleven Conventional Commit types — `feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert` — with an optional scope matching `[a-z0-9._/-]+` (no `#`); it checks nothing about the body. This repo's house convention still puts the checkpoint number in the body rather than the scope — the hook does not enforce that — so `plan`, `gate` and `wip` are gone and the number moved off the scope. Each message ends with the co-author trailer.
 
 | After | Message |
@@ -74,13 +74,54 @@ When the gate passes, every later phase reads both files. `.ai-engineering/PRD.h
 
 ## Phase 0: Preflight
 
-Delegate this to one `general-purpose` subagent, which reports ready or blocked:
-
-- the local DB is up, if the project has one (Project config → *DB status*; if it's down, run *DB start/reset* to apply migrations and the seed);
-- the API health check and the web URL both answer (if not, run the *Dev server* command from the repo root in the background);
-- `.ai-engineering/workflow/playwright/auth.json` exists, if the app has signed-in pages. If it's missing, the subagent creates it without the user when Project config → *Automated sign-in* describes a way (e.g. a demo-login button or seeded test credentials): it scripts a Playwright sign-in and saves `context.storageState({ path: '.ai-engineering/workflow/playwright/auth.json' })`, using `npx -y -p playwright node <script>` with the script in the scratchpad. It saves one file per role listed under *Roles* (`.ai-engineering/workflow/playwright/auth-<role>.json`), with `auth.json` as a copy of the most privileged one;
-- the primary checkout, recorded for the close step: its path (`git rev-parse --show-toplevel`, the `<repo>` in `<repo>.worktrees/<slug>`). The merge destination is the local `main`, by name — never whichever branch the primary tree happens to have checked out. If `git rev-parse --abbrev-ref HEAD` run there is not `main`, switch the primary tree to `main` when it is clean (`git switch main`); when it is not clean, refuse and tell the user which branch is checked out and what is dirty. Never cut a worktree over a primary tree parked on another branch, or the feature merge would land there;
-- the feature worktree: first commit the design slots that exist — check each of `.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html`, `.ai-engineering/plan.html` and `git add` it by its own path only when it is there, then commit. Never name two paths in one `git add`: a missing path aborts the whole call (`fatal: pathspec … did not match any files`, exit 128) and stages nothing, and not every project has all three slots. `ai-eng worktree new` refuses while any existing slot is uncommitted in the primary tree (`dirtySlot`, `src/shared-worktree.ts`). If a slot is dirty and must not be committed yet (an unfinished draft), stop and report it to the user instead of cutting the worktree. Then run `ai-eng worktree list`: when it already lists `<slug>`, this is a crashed run resuming — enter the existing `<repo>.worktrees/<slug>` and run `git switch feat/<slug>` inside it instead of cutting a new one (the verb cannot create a branch that already exists). Only when `<slug>` is not listed, run `ai-eng worktree new <slug>`, which cuts `<repo>.worktrees/<slug>` from the local `main` and checks out `feat/<slug>` there. Record the worktree's tree state (`git status --porcelain`) as a baseline so the feature's files can be told apart; every later step, commit and test runs inside this worktree (see Commits).
+- Before any new or resumed work, run the same read-only, local preflight used by
+  ai-brainstorm: `ai-eng worktree list`. Use only this current clone's Git inventory,
+  listed paths, dirty/trusted state, lifecycle checkpoint and overlap evidence; report
+  pending human approvals rather than treating them as granted. Before deciding
+  whether work may continue, explicitly surface a pending plan approval as
+  `awaiting-plan-approval` with `plan_approval: pending`, a pending app review as
+  `awaiting-app-review` with `app_review: pending`, and `ready-to-merge` with
+  `app_review: approved`. Do not reduce these to a generic pending-approval label.
+  For pending plan approval, pause and ask the human to **Approve**, **Edit**, or
+  **Stop** before implementation continues. For pending app review, pause and ask the
+  human to **Approve**, **Request changes**, or **Stop here** before merging. For
+  `ready-to-merge`, report that state and ask whether to continue the merge before any
+  merge action. Unknown lifecycle state is not approval. Never fetch or sync remote
+  state, and never merge an unapproved sibling.
+- If a listed worktree with the same slug has dirty or unknown status, or is missing
+  or untrusted, preserve it, report its exact Git-listed path and evidence, and stop
+  Phase 0 immediately. Do not run `ai-eng worktree new`, resume it, rebase it, run
+  `ai-eng worktree rm`, reset it, switch branches, or otherwise mutate it.
+- Only if that same-slug entry is clean, trusted and already on `feat/<slug>`, resume
+  it using its exact Git-listed path; never derive a path or switch a branch.
+- If the slug is not listed, first classify the other work. Clearly unrelated work
+  may continue untouched. A likely overlap, or dirty/missing/uncertain work that could
+  overlap, means pause here and ask the human for a decision. Only when no matching
+  slug is listed and no likely or uncertain overlap remains, run
+  `ai-eng worktree new <slug>`; it creates a clean feature worktree from local `main`.
+  Then run `ai-eng worktree list` again and use the exact Git-listed path. If creation
+  refuses, report the reason and stop; do not modify dirty design slots, branches or
+  other work to force it.
+- Record the primary checkout path for the close step using a read-only Git query
+  before entering the selected worktree. Do not switch its branch or stage/commit
+  design slots from preflight. If creation is refused because primary design slots
+  are dirty, report that state and stop without changing it.
+- Record the selected worktree's clean state as a baseline. Delegate environment
+  readiness to one `general-purpose` subagent, which reports ready or blocked, and
+  runs from the selected feature worktree without modifying any other worktree:
+  - the local DB is up, if the project has one (Project config → *DB status*; if it's
+    down, run *DB start/reset* to apply migrations and the seed);
+  - the API health check and the web URL both answer (if not, run the *Dev server*
+    command from the selected worktree root in the background);
+  - `.ai-engineering/workflow/playwright/auth.json` exists, if the app has signed-in
+    pages. If it's missing, create it only in the selected worktree when Project
+    config → *Automated sign-in* describes a way (e.g. a demo-login button or seeded
+    test credentials): script a Playwright sign-in and save
+    `context.storageState({ path: '.ai-engineering/workflow/playwright/auth.json' })`,
+    using `npx -y -p playwright node <script>` with the script in the scratchpad. Save
+    one file per role listed under *Roles*
+    (`.ai-engineering/workflow/playwright/auth-<role>.json`), with `auth.json` as a
+    copy of the most privileged one.
 
 Only if automatic sign-in is impossible (Project config gives no way), add the manual step to the Phase 1 checkpoint review, so the user handles it in the same stop:
 ```
@@ -89,11 +130,15 @@ Only if automatic sign-in is impossible (Project config gives no way), add the m
 
 ## Phase 1: Plan
 
+Run Phase 1 and its workers from the selected feature worktree. Create the checkpoint
+plan, test plan and prototypes only in the selected feature worktree. Never create a
+checkpoint plan in the primary checkout or copy any plan between worktrees.
+
 1. **Checkpoints:** run the `checkpoint-planner` agent with the feature request. It writes `.ai-engineering/workflow/checkpoints/<slug>.json`, with `gates` and `ui` set for each checkpoint. If it comes back with questions, don't ask the user. Answer them yourself from the PRD, the decisions and the code, re-run it with those answers, and log them as `assumptions`.
 2. **Test plan:** run a `general-purpose` subagent to do steps 1–2 of `ai-test-planner`. That's the plan only, no tests yet: it writes `.ai-engineering/workflow/test-plans/<slug>.json`, with every case linked to a `checkpoint` and each checkpoint's test commands added to its `verify` array.
 3. **Prototypes:** list the distinct `ui.prototype` paths across the checkpoints. Launch one `general-purpose` subagent per prototype **in parallel**. Each one follows `ai-prototype` for its screen, covering the states named in `ui.states`, and skips the `open` step.
 
-4. **Human stop 1: checkpoint review.** First start the plan viewer, if it isn't already running, with `python3 -m http.server 8765` from the repo root in the background (the root, not `docs/`, so the viewer's prototype links resolve). Open `http://localhost:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=<slug>` for the user; it updates live as the JSON changes, so it doubles as the progress view for the whole run. Then use `AskUserQuestion` to show:
+4. **Human stop 1: checkpoint review.** First start the plan viewer, if it isn't already running, with `python3 -m http.server 8765` from the selected feature worktree root in the background (the root, not `docs/`, so the viewer's prototype links resolve). Open `http://localhost:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=<slug>` for the user; it updates live as the JSON changes, so it doubles as the progress view for the whole run. Then use `AskUserQuestion` to show:
    - the `plain_summary`, then each checkpoint as one plain-language line taken from its `simple` title (e.g. `Step 1: Work out discounted prices`), falling back to `plain.what` for older plans. The user isn't technical, so leave out file names, sizes and gate jargon; the viewer has those under "Technical details";
    - the `assumptions`;
    - the `new_dependencies` (approving the plan approves installing these; add `@playwright/test` whenever `ui` checkpoints exist and it isn't installed);
@@ -102,7 +147,7 @@ Only if automatic sign-in is impossible (Project config gives no way), add the m
 
    Offer: **Approve**, **Edit** (the user describes the changes), or **Stop**.
    - **Edit:** re-run `checkpoint-planner` with the feedback (and fix the test plan and prototypes if they're affected), then ask again.
-   - **Approve:** this is the last question until the app review. Run Phase 2 and Phase 3 without stopping.
+   - **Approve:** this is the last question until the app review. After approval, set the lifecycle phase to `implementation`, then run Phase 2 and Phase 3 without stopping.
 
 ## Phase 2: Checkpoint loop
 

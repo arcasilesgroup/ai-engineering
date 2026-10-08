@@ -82,6 +82,29 @@ artifact, never the approval.
 
 ### 0. Check what already exists
 
+- Before any new or resumed brainstorm work, run the same read-only, local preflight
+  used by ai-orchestrator: `ai-eng worktree list`. It reports the current clone's
+  Git-listed worktrees, their paths and clean/dirty/trusted/unknown state, lifecycle
+  checkpoint and approval status, and overlap evidence. It creates or changes nothing.
+- Before deciding whether work may continue, explicitly surface a pending plan approval
+  as `awaiting-plan-approval` with `plan_approval: pending`, a pending app review as
+  `awaiting-app-review` with `app_review: pending`, and `ready-to-merge` with
+  `app_review: approved`. Do not reduce these to a generic pending-approval label.
+  For pending plan approval, pause and ask the human to **Approve**, **Edit**, or
+  **Stop** before implementation continues. For pending app review, pause and ask the
+  human to **Approve**, **Request changes**, or **Stop here** before merging. For
+  `ready-to-merge`, report that state and ask whether to continue the merge before any
+  merge action.
+- Report the existing work relevant to this feature. A listed worktree with the same
+  slug means resume that feature, not start parallel work; use only its Git-listed
+  path if it must be entered, and continue only when it is clean and trusted. Preserve
+  and report dirty, missing, untrusted or unknown work without switching, resetting,
+  removing or syncing it; pause rather than starting a replacement worktree.
+  Clearly unrelated work can continue untouched. If another task may likely overlap,
+  or uncertain work could overlap, pause for the human's decision. Call out pending
+  human approvals shown by the listing; unknown lifecycle state is not approval.
+  Never fetch or sync remote state, merge an unapproved sibling, or create a worktree
+  from brainstorm.
 - **Scan this conversation.** If the user already explained the idea, do not ask them to
   repeat it. Extract everything said, build the gap list from it, and open with either the
   first targeted question or an early read-back.

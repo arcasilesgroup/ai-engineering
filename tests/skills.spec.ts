@@ -488,7 +488,7 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     expect(phase1).toMatch(/(?:never|do not)[\s\S]{0,100}cop(?:y|ied|ying)[\s\S]{0,100}(?:checkpoint|plan|between worktrees|between trees)/i);
   });
 
-  test("U18: both preflights surface pending human approvals before proceeding", () => {
+  test("U16b: both preflights surface lifecycle approvals and ask the human before continuing", () => {
     const preflights = [
       { skill: "ai-brainstorm", heading: "### 0. Check what already exists" },
       { skill: "ai-orchestrator", heading: "## Phase 0: Preflight" },
@@ -496,16 +496,54 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
 
     for (const { skill, heading } of preflights) {
       const text = readFileSync(join(SKILLS, skill, "SKILL.md"), "utf8");
-      const preflight = markdownSection(text, heading).replace(/\s+/g, " ");
+      const preflight = markdownSection(text, heading)
+        .replace(/[`*]/g, "")
+        .replace(/\s+/g, " ")
+        .toLowerCase();
       const listing = preflight.indexOf("ai-eng worktree list");
-      const approvalReport = preflight.search(/(?:report|call out)[\s\S]{0,100}pending human approvals/i);
-
       expect(listing).toBeGreaterThanOrEqual(0);
-      expect(approvalReport).toBeGreaterThan(listing);
-      expect(preflight).toMatch(/(?:rather than treating them as granted|unknown lifecycle state is not approval)/i);
+      expect(preflight).toMatch(/before deciding whether work may continue/);
 
-      const create = preflight.indexOf("ai-eng worktree new");
-      if (create >= 0) expect(approvalReport).toBeLessThan(create);
+      const planPhase = preflight.indexOf("awaiting-plan-approval", listing);
+      const planPending = preflight.indexOf("plan_approval: pending", planPhase);
+      const appReviewPhase = preflight.indexOf("awaiting-app-review", planPending);
+      const appReviewPending = preflight.indexOf("app_review: pending", appReviewPhase);
+      const mergeReady = preflight.indexOf("ready-to-merge", appReviewPending);
+      const mergeApproved = preflight.indexOf("app_review: approved", mergeReady);
+      const planDecision = preflight.indexOf("ask the human to approve, edit, or stop", mergeApproved);
+      const appReviewDecision = preflight.indexOf(
+        "ask the human to approve, request changes, or stop here",
+        planDecision,
+      );
+      const mergeDecision = preflight.indexOf(
+        "ask whether to continue the merge before any merge action",
+        appReviewDecision,
+      );
+      const continueWork = preflight.indexOf(
+        skill === "ai-brainstorm"
+          ? "a listed worktree with the same slug means resume that feature"
+          : "resume it using its exact git-listed path",
+        mergeDecision,
+      );
+
+      expect(planPhase).toBeGreaterThan(listing);
+      expect(planPending).toBeGreaterThan(planPhase);
+      expect(appReviewPhase).toBeGreaterThan(planPending);
+      expect(appReviewPending).toBeGreaterThan(appReviewPhase);
+      expect(mergeReady).toBeGreaterThan(appReviewPending);
+      expect(mergeApproved).toBeGreaterThan(mergeReady);
+      expect(planDecision).toBeGreaterThan(mergeApproved);
+      expect(appReviewDecision).toBeGreaterThan(planDecision);
+      expect(mergeDecision).toBeGreaterThan(appReviewDecision);
+      expect(continueWork).toBeGreaterThan(mergeDecision);
+      expect(preflight).toMatch(/do not reduce these to a generic pending-approval label/);
+      expect(preflight).toMatch(/unknown lifecycle state is not approval/);
+      if (skill === "ai-orchestrator") {
+        const newBranch = preflight.indexOf("only when no matching slug is listed", continueWork);
+        const create = preflight.indexOf("ai-eng worktree new", newBranch);
+        expect(newBranch).toBeGreaterThan(mergeDecision);
+        expect(create).toBeGreaterThan(newBranch);
+      }
     }
   });
 });
