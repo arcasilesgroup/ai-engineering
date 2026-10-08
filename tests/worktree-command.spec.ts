@@ -435,8 +435,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     writeFileSync(recap, "<html>committed recap</html>\n");
     git(["add", "-A"], repo);
     git(["commit", "-q", "-m", "add recap"], repo);
-    // Dirty, but recap is generated at the app review and reaches the primary tree
-    // with the merge, so it must never block cutting a worktree.
+    // The optional recap may already exist, but it must never block a worktree.
     writeFileSync(recap, "<html>dirty recap</html>\n");
 
     const run = runCli(["worktree", "new", "alpha"], repo);

@@ -259,7 +259,8 @@ period, or `·`.
 
 1. Output path: `.ai-engineering/brainstorm.html`. Approval does not delete it.
    `ai-orchestrator` reads it for the whole build. `spec close` sweeps it when the
-   feature is finished, along with `recap.html`. Write it with the file
+   feature is finished, along with `recap.html` if the user created one. The recap
+   is optional and never a prerequisite to close. Write it with the file
    tools, or with a redirect: `rm`, `mv` and `tee` into `.ai-engineering/` are denied,
    because a verb that can act on several paths is judged as a whole command.
    Render it with the artifact design system —

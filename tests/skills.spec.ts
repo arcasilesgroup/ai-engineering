@@ -399,20 +399,32 @@ describe("workflow kit — six skills ship with valid frontmatter", () => {
   });
 });
 
-describe("workflow kit — recap handoff stays repository-local", () => {
-  test("the close process follows the repository HTML recap procedure", () => {
+describe("workflow kit — visual recap is opt-in", () => {
+  test("the orchestrator never requires or automatically invokes a recap", () => {
     const orchestratorSkill = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
     const recapSkill = readFileSync(join(SKILLS, "ai-visual-recap", "SKILL.md"), "utf8");
+    const agents = readFileSync(join(SKILLS, "..", "AGENTS.md"), "utf8");
+    const agentsTemplate = readFileSync(join(SKILLS, "..", "templates", "AGENTS.md.tpl"), "utf8");
+    const prd = readFileSync(join(SKILLS, "..", ".ai-engineering", "PRD.html"), "utf8");
+    const blueprint = readFileSync(join(SKILLS, "..", "docs", "blueprint.html"), "utf8");
 
-    expect(orchestratorSkill).toContain(
+    const appReview = orchestratorSkill.split("## Phase 4: Human stop 2, app review")[1] ?? "";
+    expect(appReview).toContain("Never invoke `ai-visual-recap` automatically");
+    expect(appReview).toContain("Only when the user explicitly invokes `/ai-visual-recap` themselves");
+    expect(appReview).toContain("git merge --no-ff feat/<slug>");
+    expect(appReview).toContain("ai-eng worktree rm <slug>");
+    expect(appReview).not.toContain(
       "follow the repository-owned procedure at `skills/ai-visual-recap/SKILL.md`",
     );
-    expect(orchestratorSkill).not.toContain("run `/ai-visual-recap`");
+    expect(recapSkill).toContain("manually invoked by the user");
+    expect(agents).toContain("optional and never required for merge");
+    expect(agentsTemplate).toContain("optional and never required for merge");
+    expect(prd).toContain("optional and never required for merge");
+    expect(blueprint).toContain("nunca es requisito para merge ni limpieza");
     expect(orchestratorSkill).toContain(
-      "Next: none — Phase 4 reads the repository-local HTML procedure directly.",
+      "Next: none — Phase 4 closes after app review approval; recap is optional and user-invoked.",
     );
     expect(recapSkill).toContain("Start with `templates/recap.html.tpl`");
     expect(recapSkill).toContain("`.ai-engineering/recap.html`");
-    expect(recapSkill).not.toContain("ai-eng spec close");
   });
 });

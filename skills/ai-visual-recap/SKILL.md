@@ -1,16 +1,18 @@
 ---
 name: ai-visual-recap
 description: >-
-  Build the feature's self-contained HTML recap from the repository template
-  during app review. The output is a local file on the feature branch.
+  Build an optional self-contained HTML recap when the user manually invokes
+  this skill. The output is a local file on the feature branch.
 license: Apache-2.0
 ---
 
 # ai-visual-recap
 
-Create the review recap as `.ai-engineering/recap.html` from the changes on the
-current feature branch. Use the repository's template and keep the output
-self-contained.
+When manually invoked by the user, create the optional recap as
+`.ai-engineering/recap.html` from the changes on the current feature branch. Use
+the repository's template and keep the output self-contained. The orchestrator
+never invokes this skill automatically, and a missing recap never blocks review
+or merge.
 
 ## Procedure
 
@@ -36,8 +38,9 @@ self-contained.
    script is unchanged. Run `bun test tests/artifact-layout.spec.ts` and
    `bun test tests/artifact-scroll-spy.spec.ts`.
 6. **Write the artifact.** Save the complete page to
-   `.ai-engineering/recap.html` on the feature branch. The orchestrator owns
-   committing the recap and completing the merge.
+   `.ai-engineering/recap.html` on the feature branch. The orchestrator includes
+   it in the close commit only if the user requested this skill and the file
+   exists; this skill does not commit or merge.
 
 ## Lifecycle
 
