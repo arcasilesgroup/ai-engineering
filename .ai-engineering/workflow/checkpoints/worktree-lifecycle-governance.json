@@ -441,8 +441,8 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 7,
+          "status": "failed",
+          "attempts": 10,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
             "attempt 2 FAIL: `bun test tests/worktree-lifecycle.spec.ts` invoked without `./` was interpreted by Bun as a test-name filter and matched no test files; rerun with explicit relative paths.",
@@ -451,7 +451,10 @@
             "attempt 4 serial diagnostic PASS: `bun test --parallel=1 --max-concurrency=1` ran all 1,065 tests successfully.",
             "attempt 5 standard-concurrency FAIL: `bun test --reporter=dots` reported a separate floor-gates staged-secret scan contract case failure; 1,064 other tests passed. The spec/source were unchanged and three isolated runs passed.",
             "attempt 6 PASS: standard-concurrency `bun test --reporter=dots` passed all 1,065 tests.",
-            "attempt 7 FAIL: `bun test ./tests/worktree-command.spec.ts` had 3 fixture/refresh assertions and `bun test ./tests/worktree-lifecycle.spec.ts` called realpath after successful removal. Test fixes snapshot after fixture setup, assert safe primary preservation/retry, and capture paths before deletion; rerun full CP6 verification."
+            "attempt 7 FAIL: `bun test ./tests/worktree-command.spec.ts` had 3 fixture/refresh assertions and `bun test ./tests/worktree-lifecycle.spec.ts` called realpath after successful removal. Test fixes snapshot after fixture setup, assert safe primary preservation/retry, and capture paths before deletion; rerun full CP6 verification.",
+            "attempt 8 FAIL: all focused CP6 tests, checkpoint gate, embed, typecheck and lint passed; `bun test` exited 1 but tool output was truncated before counts or failing case; arch command not run.",
+            "attempt 9 FAIL: full bun test reports the stale skills.spec.ts assertion expecting manual ancestry/rm after close, plus the unrelated intermittent adversarial chain p95 test; 1069 passed, 2 failed.",
+            "attempt 10 FAIL: updated `bun test ./tests/skills.spec.ts` contract test reveals the orchestrator skill still lacks reviewed_feature capture and the single `ai-eng worktree merge <slug>` handoff."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },

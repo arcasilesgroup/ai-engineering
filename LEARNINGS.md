@@ -728,3 +728,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Snapshot after hook setup, capture paths before deletion, and test that the primary edit is preserved until retry refreshes the published merge.
 - **Lesson:** Baseline fixtures after setup; capture paths before removal; assert preservation and retry separately.
 - **Tags:** behavior, tests, merge
+
+### L88 · 2026-10-08 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** The full suite's orchestrator-close contract test still expected manual ancestry verification and `worktree rm` after replacing the merge sequence with the atomic `worktree merge` command.
+- **Root cause:** The skill handoff test was not updated with the new command boundary.
+- **Fix:** Assert the approval-to-`worktree merge` handoff and verify the CLI transaction's ancestry/removal behavior in its real-Git tests.
+- **Lesson:** When a workflow moves into a command, update the caller handoff test and keep behavioral assertions at the command boundary.
+- **Tags:** behavior, tests, lifecycle
+
+### L89 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** The updated close contract test showed the orchestrator still did not capture `reviewed_feature` or invoke the atomic `ai-eng worktree merge <slug>` command.
+- **Root cause:** The merge command implementation landed without replacing the skill's previous manual merge/cleanup handoff.
+- **Fix:** Bind human app-review approval to both reviewed refs and route the close through the single Git-native CAS command.
+- **Lesson:** When a transaction becomes a command, update its caller handoff before documenting or reviewing the lifecycle.
+- **Tags:** behavior, skills, merge
