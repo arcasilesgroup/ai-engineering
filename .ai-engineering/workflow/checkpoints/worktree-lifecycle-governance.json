@@ -396,6 +396,7 @@
         "scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py: require valid reviewed_main and reviewed_feature, approved app review and completed gates for ready-to-merge; reject the removed `complete` lifecycle phase while preserving legacy gate behavior.",
         "tests/worktree-command.spec.ts: use real temporary Git repositories to prove hooks run on the temporary merge commit, exact first/second parent verification, successful CAS and primary refresh, `post-commit`-hook main advancement causing CAS refusal with exact SHAs and no stale merge, temp-worktree cleanup, original feature/checkpoint preservation, and safe removal only after ancestry is verified.",
         "tests/worktree-lifecycle.spec.ts and tests/skills.spec.ts: cover app-review approval and reviewed_feature capture, no premature `complete`, ready-to-merge prerequisites, and handoff to the single CLI merge command.",
+        "tests/git-cleanup-pass.spec.ts: update the cross-skill orchestrator-close contract assertion to the reviewed_feature and `ai-eng worktree merge <slug>` handoff; retain real-Git ancestry and removal safety assertions at the worktree command boundary.",
         "Use the ai-write skill for user-facing documentation: document `ai-eng worktree rebase <slug>` and `ai-eng worktree merge <slug>` plus clean-state, local-main-only, approval and conflict handling in README.md, CONTRIBUTING.md, docs/blueprint.html and CHANGELOG.md; update FILEMAP.md for the shipped commands and lifecycle tests.",
         "Run `bun scripts/gen-assets.ts` after skill edits and verify embed-canon.",
         "Run the full project gates."
@@ -408,6 +409,7 @@
         "scripts/checkpoint-gate.py",
         "tests/test_checkpoint_gate.py",
         "tests/skills.spec.ts",
+        "tests/git-cleanup-pass.spec.ts",
         "tests/worktree-lifecycle.spec.ts",
         "tests/worktree-command.spec.ts",
         "tests/workflow-handoff.spec.ts",
@@ -429,6 +431,7 @@
         "bun test ./tests/worktree-lifecycle.spec.ts",
         "bun test ./tests/worktree-command.spec.ts",
         "bun test ./tests/skills.spec.ts",
+        "bun test ./tests/git-cleanup-pass.spec.ts",
         "bun test ./tests/workflow-handoff.spec.ts",
         "python3 tests/test_checkpoint_gate.py",
         "bun scripts/gen-assets.ts",
@@ -441,8 +444,8 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "failed",
-          "attempts": 10,
+          "status": "pending",
+          "attempts": 14,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
             "attempt 2 FAIL: `bun test tests/worktree-lifecycle.spec.ts` invoked without `./` was interpreted by Bun as a test-name filter and matched no test files; rerun with explicit relative paths.",
@@ -454,7 +457,10 @@
             "attempt 7 FAIL: `bun test ./tests/worktree-command.spec.ts` had 3 fixture/refresh assertions and `bun test ./tests/worktree-lifecycle.spec.ts` called realpath after successful removal. Test fixes snapshot after fixture setup, assert safe primary preservation/retry, and capture paths before deletion; rerun full CP6 verification.",
             "attempt 8 FAIL: all focused CP6 tests, checkpoint gate, embed, typecheck and lint passed; `bun test` exited 1 but tool output was truncated before counts or failing case; arch command not run.",
             "attempt 9 FAIL: full bun test reports the stale skills.spec.ts assertion expecting manual ancestry/rm after close, plus the unrelated intermittent adversarial chain p95 test; 1069 passed, 2 failed.",
-            "attempt 10 FAIL: updated `bun test ./tests/skills.spec.ts` contract test reveals the orchestrator skill still lacks reviewed_feature capture and the single `ai-eng worktree merge <slug>` handoff."
+            "attempt 10 FAIL: updated `bun test ./tests/skills.spec.ts` contract test reveals the orchestrator skill still lacks reviewed_feature capture and the single `ai-eng worktree merge <slug>` handoff.",
+            "attempt 11 FAIL: focused CP6 tests, checkpoint gate, assets, embed-canon, typecheck and lint passed; full bun test exited 1 but tool output exceeded capture limit and no counts/failure were available; arch not run.",
+            "attempt 12 FAIL: full bun test ran 1071 tests (1069 pass, 2 fail): orchestrator-close contract still expected manual ancestry/rm wording, and chain p95 intermittently measured 2015.25 ms.",
+            "The cross-skill orchestrator-close assertion is updated in tests/git-cleanup-pass.spec.ts and focused skills/cleanup contract tests pass; rerun full verification."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -470,6 +476,7 @@
         "tests/skills.spec.ts",
         "tests/worktree-lifecycle.spec.ts",
         "tests/worktree-command.spec.ts",
+        "tests/git-cleanup-pass.spec.ts",
         "LEARNINGS.md"
       ]
     }

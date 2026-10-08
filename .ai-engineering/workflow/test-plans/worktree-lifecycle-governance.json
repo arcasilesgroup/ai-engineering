@@ -270,6 +270,13 @@
         "file": "tests/worktree-lifecycle.spec.ts",
         "command": "bun test ./tests/worktree-lifecycle.spec.ts",
         "checkpoint": 6
+      },
+      {
+        "id": "U32",
+        "case": "the orchestrator-close contract assertion follows the reviewed_feature and atomic worktree merge handoff instead of retired manual merge/removal instructions",
+        "file": "tests/git-cleanup-pass.spec.ts",
+        "command": "bun test ./tests/git-cleanup-pass.spec.ts",
+        "checkpoint": 6
       }
     ],
     "api": [],
