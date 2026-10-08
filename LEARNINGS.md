@@ -935,3 +935,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Assert the original approval-before-start record remains unchanged while prunable and after pruning (`tests/worktree-command.spec.ts`).
 - **Lesson:** Rejected promotion preserves creation evidence; assert the lifecycle state, not record absence.
 - **Tags:** behavior, worktree, lifecycle, tests
+
+### L85 · 2026-10-08 · worktree-lifecycle-awareness #3 · behavior
+- **Failure:** The AI Engineering full suite before rebase reported 1012 pass, 3 fail, and 1 error, including missing `AGENTS.md` and architecture rules plus a p95 measurement of 166.36ms.
+- **Root cause:** The feature branch's pre-existing governance 2.6.0 commit removed `AGENTS.md` and `.ai-engineering/arch.rules.json` while existing tests still require them; the p95 check is scheduler-sensitive.
+- **Fix:** Rebase onto local main to separate branch drift from checkpoint regressions, then rerun the full suite without changing unrelated tests or thresholds.
+- **Lesson:** Inspect branch file-removal history before attributing missing test prerequisites to merge-base drift.
+- **Tags:** behavior, tests, baseline, branch
+
+### L86 · 2026-10-08 · worktree-lifecycle-awareness #3 · behavior
+- **Failure:** The post-rebase full suite reported 1252 pass, 3 fail, and 1 error; architecture checks still lacked their config and p95 measured 71.19ms against 50ms.
+- **Root cause:** The same pre-existing governance commit still deletes the files required by the unrelated recap and architecture checks, while the full-suite p95 probe remains load-sensitive.
+- **Fix:** Keep the checkpoint code unchanged; its focused lifecycle suite passes 47 tests and typecheck, lint, and build pass. Record the unrelated full-suite failures without restoring unrelated artifacts or loosening the timing budget.
+- **Lesson:** Do not alter feature code or performance thresholds to mask pre-existing test-contract and repository-configuration failures.
+- **Tags:** behavior, tests, baseline, performance
