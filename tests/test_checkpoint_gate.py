@@ -1,5 +1,6 @@
 """Run: python3 tests/test_checkpoint_gate.py"""
 import copy
+import errno
 import json
 import os
 import subprocess
@@ -43,7 +44,16 @@ def with_gate(plan, cid, **gates):
     return p
 
 
-with tempfile.TemporaryDirectory() as root:
+def is_symlink_creation_unavailable(error):
+    unavailable_errors = {errno.EACCES, errno.EPERM}
+    for name in ("ENOSYS", "ENOTSUP", "EOPNOTSUPP"):
+        if hasattr(errno, name):
+            unavailable_errors.add(getattr(errno, name))
+    return getattr(error, "winerror", None) == 1314 or error.errno in unavailable_errors
+
+
+with tempfile.TemporaryDirectory() as temporary_root:
+    root = os.path.realpath(temporary_root)
     os.makedirs(f"{root}/.ai-engineering/workflow/checkpoints")
     path = f"{root}/.ai-engineering/workflow/checkpoints/demo.json"
     json.dump(PLAN, open(path, "w"))
@@ -278,7 +288,7 @@ with tempfile.TemporaryDirectory() as root:
 
     # A fresh lifecycle plan belongs to the Git-listed feature worktree, not the primary checkout.
     os.makedirs(f"{root}/selected-worktrees")
-    selected_root = f"{root}/selected-worktrees/selected-feature"
+    selected_root = os.path.realpath(f"{root}/selected-worktrees/selected-feature")
     subprocess.run(
         ["git", "worktree", "add", "-q", "-b", "feat/demo", selected_root],
         cwd=root,
@@ -290,6 +300,49 @@ with tempfile.TemporaryDirectory() as root:
     selected_result = run(selected_root, write(selected_path, initial_plan))
     fails += selected_result != 0
     print(("ok  " if selected_result == 0 else "FAIL"), "U17: initial lifecycle plan is accepted in selected feature worktree", f"(exit {selected_result})")
+    checkpoint_dir = os.path.dirname(selected_path)
+    target_path = f"{selected_path}.target"
+    with open(target_path, "w") as fixture:
+        json.dump(legacy, fixture)
+    try:
+        os.symlink(target_path, selected_path)
+    except OSError as error:
+        if not is_symlink_creation_unavailable(error):
+            raise
+        print(f"SKIP U20: target-file symlink regression; this platform denies symlink creation ({error})")
+    else:
+        try:
+            symlink_result = run(selected_root, write(selected_path, initial_plan))
+        finally:
+            os.unlink(selected_path)
+        fails += symlink_result != 2
+        print(("ok  " if symlink_result == 2 else "FAIL"), f"U20: target-file symlink cannot initialize lifecycle (exit {symlink_result})")
+    os.unlink(target_path)
+
+    with open(selected_path, "w") as fixture:
+        json.dump(legacy, fixture)
+    component_target = f"{checkpoint_dir}-target"
+    os.rename(checkpoint_dir, component_target)
+    try:
+        os.symlink(component_target, checkpoint_dir, target_is_directory=True)
+    except OSError as error:
+        os.rename(component_target, checkpoint_dir)
+        if not is_symlink_creation_unavailable(error):
+            raise
+        print(f"SKIP U20: path-component symlink regression; this platform denies symlink creation ({error})")
+    else:
+        try:
+            symlink_result = run(selected_root, write(selected_path, initial_plan))
+        finally:
+            if os.name == "nt":
+                os.rmdir(checkpoint_dir)
+            else:
+                os.unlink(checkpoint_dir)
+            os.rename(component_target, checkpoint_dir)
+        fails += symlink_result != 2
+        print(("ok  " if symlink_result == 2 else "FAIL"), f"U20: path-component symlink cannot initialize lifecycle (exit {symlink_result})")
+    if os.path.exists(selected_path):
+        os.unlink(selected_path)
     primary_result = run(selected_root, write(path, initial_plan))
     fails += primary_result != 2
     print(("ok  " if primary_result == 2 else "FAIL"), "U17: selected feature worktree rejects writing its plan in the primary checkout", f"(exit {primary_result})")

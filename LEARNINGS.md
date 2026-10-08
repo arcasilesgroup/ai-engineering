@@ -644,3 +644,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Require lifecycle initialization at the canonical checkpoint path in the matching `feat/<slug>` worktree while preserving legacy primary-checkout gate behavior.
 - **Lesson:** Validate lifecycle initialization at the worktree boundary, not just by slug.
 - **Tags:** review, checkpoint-gate, worktree
+
+### L76 · 2026-10-08 · worktree-lifecycle-governance #4 · review
+- **Failure:** Adversarial review found a symlink alias could resolve to the canonical lifecycle checkpoint path and pass initialization.
+- **Root cause:** Resolving source and target paths erased the distinction between the intended path and a symlink alias.
+- **Fix:** Require normalized target identity and reject symlinks in the target path or any component.
+- **Lesson:** Verify path identity and each component, not only where a path resolves.
+- **Tags:** review, checkpoint-gate, symlink

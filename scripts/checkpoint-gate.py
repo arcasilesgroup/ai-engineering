@@ -416,6 +416,23 @@ def check_lifecycle(new_plan, old_plan, root, check_transition=True):
         block(error + ".")
 
 
+def has_symlink_component(path):
+    drive, remainder = os.path.splitdrive(path)
+    current = drive + os.sep if os.path.isabs(path) else drive
+    if os.altsep:
+        remainder = remainder.replace(os.altsep, os.sep)
+    for component in remainder.split(os.sep):
+        if component in ("", "."):
+            continue
+        if component == "..":
+            current = os.path.dirname(current) or current
+            continue
+        current = os.path.join(current, component)
+        if os.path.islink(current):
+            return True
+    return False
+
+
 def lifecycle_plan_path_error(plan, path, root, require_feature_worktree):
     slug = plan.get("slug")
     if not isinstance(slug, str) or not re.fullmatch(r"[\w.-]+", slug):
@@ -423,15 +440,23 @@ def lifecycle_plan_path_error(plan, path, root, require_feature_worktree):
     if not isinstance(path, str) or not path:
         return "lifecycle checkpoint plan must be written at its matching path inside the current worktree"
     worktree_root = os.path.realpath(root)
-    target = os.path.realpath(path if os.path.isabs(path) else os.path.join(worktree_root, path))
-    expected = os.path.realpath(os.path.join(
+    candidate = path if os.path.isabs(path) else os.path.join(worktree_root, path)
+    target = os.path.abspath(candidate)
+    expected = os.path.join(
         worktree_root, ".ai-engineering", "workflow", "checkpoints", f"{slug}.json"
-    ))
+    )
     try:
-        is_inside_worktree = os.path.commonpath((worktree_root, target)) == worktree_root
+        is_inside_worktree = (
+            os.path.normcase(os.path.commonpath((worktree_root, target)))
+            == os.path.normcase(worktree_root)
+        )
     except ValueError:
         is_inside_worktree = False
-    if target != expected or not is_inside_worktree:
+    if (
+        os.path.normcase(target) != os.path.normcase(expected)
+        or not is_inside_worktree
+        or has_symlink_component(candidate)
+    ):
         return "lifecycle checkpoint plan must be written at its matching path inside the current worktree"
     if not require_feature_worktree:
         return None
