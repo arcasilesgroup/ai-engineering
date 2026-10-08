@@ -97,26 +97,27 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 3,
+          "status": "passed",
+          "attempts": 4,
           "findings": [
             "attempt 1 FAIL: bun run typecheck reports TS2769 at tests/worktree-lifecycle.spec.ts:226-227; lifecycle, worktree-command, checkpoint-gate, and architecture tests passed before the typecheck failure; lint was not run.",
             "attempt 2 PASS: all six checkpoint 2 verify commands passed after changing test case data to named fields.",
             "attempt 3 PASS after the first review fixes: lifecycle tests, worktree-command tests, checkpoint-gate tests, architecture tests, typecheck and lint all passed.",
-            "A later review fix changed checkpoint-id validation; rerun the full behavior verify list before closing the gate."
+            "attempt 4 PASS after checkpoint-id validation: all six checkpoint 2 verify commands passed."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "failed",
+          "status": "passed",
           "attempts": 1,
           "findings": [
-            "attempt 1 FAIL: F1 P1 incomplete gates can authorize the next checkpoint; F2 P1 the plan slug is not checked against the checkpoint marker; F3 P2 blocked lifecycle with stale app approval cannot safely resume.",
-            "Adversarial round 2 resolved F2 and F3; F1 remains because JSON 1e999 becomes infinity and can bypass checkpoint-id ordering."
+            "Review attempt 1 round 1 found F1 P1 incomplete prior gates, F2 P1 marker/plan slug mismatch and F3 P2 stale approval on blocked resume.",
+            "Round 2 resolved F2 and F3; F1 remained because JSON 1e999 becomes infinity and could bypass checkpoint ordering.",
+            "Review attempt 1 PASS in round 3: finite sequential ID validation resolved F1; all three findings resolved, none withdrawn or open."
           ]
         }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         "src/shared-worktree.ts",
         "scripts/checkpoint-gate.py",

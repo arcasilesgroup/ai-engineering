@@ -49,3 +49,8 @@ Report Git-listed feature worktrees and trustworthy lifecycle state from each wo
 - **Regression:** Valid JSON `1e999` on an incomplete predecessor can no longer authorize checkpoint #2.
 - **Verification:** `python3 tests/test_checkpoint_gate.py` passed.
 - **Counts:** 3 resolved, 0 withdrawn, 0 open.
+
+## Round 3 follow-up — F1 verification
+
+- **VERDICT: PASS** — IDs are validated as exact sequential positive integers before Agent checkpoint lookup and predecessor comparison, and before plan gate or lifecycle-transition checks. JSON `1e999` is rejected; the legacy incomplete-predecessor and lifecycle-transition regressions pass. F2 slug binding and F3 stale-review reset remain covered and intact.
+- **Counts:** 3 resolved, 0 withdrawn, 0 open.
