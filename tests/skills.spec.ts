@@ -230,6 +230,14 @@ function lifecycleFields(dir: string): Record<string, string> {
   return block ? blockFields(block) : {};
 }
 
+function markdownSection(content: string, heading: string): string {
+  const start = content.indexOf(heading);
+  if (start < 0) return "";
+  const bodyStart = start + heading.length;
+  const nextHeading = /^#{1,3} /m.exec(content.slice(bodyStart));
+  return content.slice(bodyStart, nextHeading ? bodyStart + nextHeading.index : undefined);
+}
+
 describe("G9 — every skill declares its node", () => {
   test("the Lifecycle block carries Lane, Writes, Read by, Dies and Next", () => {
     const problems: string[] = [];
@@ -426,5 +434,57 @@ describe("workflow kit — visual recap is opt-in", () => {
     );
     expect(recapSkill).toContain("Start with `templates/recap.html.tpl`");
     expect(recapSkill).toContain("`.ai-engineering/recap.html`");
+  });
+});
+
+describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () => {
+  test("U12: brainstorm and orchestrator use the same read-only local worktree listing before work", () => {
+    const cases = [
+      {
+        skill: "ai-brainstorm",
+        heading: "### 0. Check what already exists",
+      },
+      {
+        skill: "ai-orchestrator",
+        heading: "## Phase 0: Preflight",
+      },
+    ];
+    const commands: string[] = [];
+
+    for (const { skill, heading } of cases) {
+      const text = readFileSync(join(SKILLS, skill, "SKILL.md"), "utf8");
+      const preflight = markdownSection(text, heading);
+      const command = /`(ai-eng worktree list)`/.exec(preflight)?.[1] ?? "";
+
+      expect(preflight).toMatch(/read.only/i);
+      expect(preflight).toMatch(/\blocal\b/i);
+      commands.push(command);
+    }
+
+    expect(commands).toEqual(["ai-eng worktree list", "ai-eng worktree list"]);
+  });
+
+  test("U16: preflights stay local, avoid remote sync and sibling merges, and keep plans in the feature worktree", () => {
+    const preflights = [
+      { skill: "ai-brainstorm", heading: "### 0. Check what already exists" },
+      { skill: "ai-orchestrator", heading: "## Phase 0: Preflight" },
+    ];
+
+    for (const { skill, heading } of preflights) {
+      const text = readFileSync(join(SKILLS, skill, "SKILL.md"), "utf8");
+      const preflight = markdownSection(text, heading);
+      expect(preflight).toMatch(/\bcurrent clone\b|\blocal\b/i);
+      expect(preflight).toMatch(/(?:never|do not|no)[\s\S]{0,100}(?:fetch|remote sync|sync remote)/i);
+      expect(preflight).toMatch(
+        /(?:never|do not)[\s\S]{0,100}(?:merge[\s\S]{0,100}unapproved sibling|unapproved sibling[\s\S]{0,100}merge)/i,
+      );
+    }
+
+    const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const phase1 = markdownSection(orchestrator, "## Phase 1: Plan");
+    expect(phase1).toMatch(/(?:write|create)[\s\S]{0,120}checkpoint[\s\S]{0,120}feature worktree/i);
+    expect(phase1).toMatch(/(?:plan|checkpoint)[\s\S]{0,160}(?:primary checkout|primary tree)|(?:primary checkout|primary tree)[\s\S]{0,160}(?:plan|checkpoint)/i);
+    expect(phase1).toMatch(/(?:never|do not)[\s\S]{0,100}(?:primary checkout|primary tree)/i);
+    expect(phase1).toMatch(/(?:never|do not)[\s\S]{0,100}cop(?:y|ied|ying)[\s\S]{0,100}(?:checkpoint|plan|between worktrees|between trees)/i);
   });
 });

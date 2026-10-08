@@ -87,6 +87,22 @@ function addDetachedWorktree(repo: string, name: string): string {
   return path;
 }
 
+function addUnfetchedRemoteBranch(repo: string): string {
+  const remote = join(root, "origin.git");
+  git(["init", "--bare", "--quiet", remote], root);
+  git(["remote", "add", "origin", remote], repo);
+  git(["push", "--quiet", "origin", "refs/heads/main:refs/heads/main"], repo);
+  git(["branch", "remote-only", "refs/heads/main"], repo);
+  git(["push", "--quiet", "origin", "refs/heads/remote-only:refs/heads/remote-only"], repo);
+  git(["branch", "-D", "remote-only"], repo);
+  const remoteTrackingRefs = git(["for-each-ref", "--format=%(refname)", "refs/remotes/origin"], repo)
+    .trim()
+    .split("\n")
+    .filter(Boolean);
+  for (const ref of remoteTrackingRefs) git(["update-ref", "-d", ref], repo);
+  return remote;
+}
+
 function checkpointPath(worktree: string, slug: string): string {
   return join(worktree, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
 }
@@ -133,7 +149,7 @@ function repoSnapshot(repo: string, worktrees: string[], checkpointFiles: string
     return [path, readFileSync(path, "utf8")];
   });
   return JSON.stringify({
-    refs: git(["for-each-ref", "--format=%(refname) %(objectname)", "refs/heads"], repo),
+    refs: git(["for-each-ref", "--format=%(refname) %(objectname)"], repo),
     registrations: git(["worktree", "list", "--porcelain"], repo),
     statuses: [repo, ...worktrees].map((path) => [
       realpathSync(path),
@@ -258,5 +274,40 @@ describe("ai-eng worktree lifecycle (checkpoint 2)", () => {
     expect(result.stdout).toContain(alphaCheckpoint);
     expect(result.stdout).toContain(betaCheckpoint);
     expect(after).toBe(before);
+  });
+
+  test("U15: listing preserves dirty and uncertain work without resetting, removing or fetching", () => {
+    const repo = initRepo();
+    const remote = addUnfetchedRemoteBranch(repo);
+    const dirty = addBranchWorktree(repo, "dirty");
+    const missing = addBranchWorktree(repo, "missing");
+    const uncertain = addBranchWorktree(repo, "uncertain");
+    const dirtyFile = join(dirty, "README.md");
+    const missingCheckpoint = checkpointPath(missing, "missing");
+    const uncertainCheckpoint = writeCheckpoint(uncertain, "uncertain", checkpointPlan("uncertain", "implementation"));
+    const originalDirtyContents = "# uncommitted user work\n";
+
+    writeFileSync(dirtyFile, originalDirtyContents);
+    writeFileSync(uncertainCheckpoint, "{ malformed checkpoint\n");
+
+    expect(git(["--git-dir", remote, "for-each-ref", "--format=%(refname)"], repo)).toContain(
+      "refs/heads/remote-only",
+    );
+    expect(git(["for-each-ref", "--format=%(refname)", "refs/remotes"], repo)).toBe("");
+
+    const before = repoSnapshot(repo, [dirty, missing, uncertain], [missingCheckpoint, uncertainCheckpoint]);
+    const result = runList(repo);
+    const after = repoSnapshot(repo, [dirty, missing, uncertain], [missingCheckpoint, uncertainCheckpoint]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(realpathSync(dirty));
+    expect(result.stdout.toLowerCase()).toContain("dirty");
+    expect(result.stdout).toContain("README.md");
+    expect(result.stdout).toContain(realpathSync(missing));
+    expect(result.stdout).toContain(realpathSync(uncertain));
+    expect(result.stdout.toLowerCase()).toContain("unknown");
+    expect(readFileSync(dirtyFile, "utf8")).toBe(originalDirtyContents);
+    expect(after).toBe(before);
+    expect(git(["for-each-ref", "--format=%(refname)", "refs/remotes"], repo)).toBe("");
   });
 });
