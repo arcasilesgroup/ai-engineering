@@ -121,4 +121,31 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(firstDispatch).toBeGreaterThan(phase2);
     expect(phase2).toBeGreaterThan(transitionInText);
   });
+
+  test("U23: sync gates capture local main before the later human app-review handoff", () => {
+    const { text: orchestrator } = section("skills/ai-orchestrator/SKILL.md", "## Phase 3: Wrap-up");
+    const phase3 = orchestrator.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const rebase = phase3.indexOf("git rebase refs/heads/main");
+    const behaviorGate = phase3.indexOf("rerun affected behavior", rebase);
+    const reviewGate = phase3.indexOf("rerun affected review", behaviorGate);
+    const gatesPassed = phase3.indexOf("after all affected gates pass", reviewGate);
+    const mainRead = phase3.indexOf("git rev-parse refs/heads/main", gatesPassed);
+    const reviewedMain = phase3.indexOf("reviewed_main", mainRead);
+    const awaitingReview = phase3.indexOf("awaiting-app-review", reviewedMain);
+    const pendingReview = phase3.indexOf("app_review: pending", awaitingReview);
+    const phase4 = orchestrator.indexOf("## Phase 4: Human stop 2, app review");
+    const appReview = section("skills/ai-orchestrator/SKILL.md", "## Phase 4: Human stop 2, app review").body;
+
+    expect(rebase).toBeGreaterThanOrEqual(0);
+    expect(behaviorGate).toBeGreaterThan(rebase);
+    expect(reviewGate).toBeGreaterThan(behaviorGate);
+    expect(gatesPassed).toBeGreaterThan(reviewGate);
+    expect(mainRead).toBeGreaterThan(gatesPassed);
+    expect(reviewedMain).toBeGreaterThan(mainRead);
+    expect(awaitingReview).toBeGreaterThan(reviewedMain);
+    expect(pendingReview).toBeGreaterThan(awaitingReview);
+    expect(phase4).toBeGreaterThan(orchestrator.indexOf("## Phase 3: Wrap-up"));
+    expect(appReview).toMatch(/reviewed_main[\s\S]{0,100}(?:exact|current)[\s\S]{0,100}local main/i);
+    expect(appReview).not.toMatch(/git rebase/i);
+  });
 });

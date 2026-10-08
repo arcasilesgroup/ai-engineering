@@ -561,4 +561,26 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     expect(phase1).toMatch(/reviewed_main: null/);
     expect(phase1).toMatch(/never create a checkpoint plan in the primary checkout or copy any plan between worktrees/);
   });
+
+  test("U20-U22: Phase 3 syncs only a clean feature worktree and fails closed", () => {
+    const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const phase3 = markdownSection(orchestrator, "## Phase 3: Wrap-up");
+    const normalized = phase3.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const dirtyCheck = normalized.indexOf("git status --porcelain --untracked-files=all");
+    const localRebase = normalized.indexOf("git rebase refs/heads/main");
+
+    expect(dirtyCheck).toBeGreaterThanOrEqual(0);
+    expect(localRebase).toBeGreaterThan(dirtyCheck);
+    expect(normalized).not.toMatch(/git rebase main\b/);
+    expect(phase3).toMatch(/(?:never|do not)[\s\S]{0,120}(?:fetch|remote sync)/i);
+    expect(phase3).toMatch(
+      /(?:never|do not)[\s\S]{0,120}(?:merge[\s\S]{0,100}unapproved sibling|unapproved sibling[\s\S]{0,100}merge)/i,
+    );
+    expect(phase3).toMatch(/clear conflict[\s\S]{0,160}resolve[\s\S]{0,120}feature worktree/i);
+    expect(phase3).toMatch(/(?:rerun|re-run)[\s\S]{0,120}affected behavior[\s\S]{0,160}review gate/i);
+    expect(phase3).toMatch(/(?:unclear|ambiguous)[\s\S]{0,100}conflict[\s\S]{0,160}(?:git rebase --abort|abort)/i);
+    expect(phase3).toMatch(/(?:failed|failing)[\s\S]{0,100}check[\s\S]{0,180}(?:restore|reset|abort)/i);
+    expect(phase3).toMatch(/blocked/i);
+    expect(phase3).toMatch(/preserve[\s\S]{0,120}original[\s\S]{0,180}worktree[\s\S]{0,180}content/i);
+  });
 });
