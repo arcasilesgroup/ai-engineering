@@ -4,18 +4,18 @@
 
 import { worktreeList, worktreeNew, worktreeRm } from "../shared-worktree.ts";
 
-const USAGE = "usage: ai-eng worktree new <slug> [files...] | rm <slug> [--force] | list\n";
+const USAGE = "usage: ai-eng worktree new <slug> | rm <slug> [--force] | list\n";
 
 export function worktreeMain(args: string[], force = false): number {
   const [action, slug, ...files] = args;
   let result;
   switch (action) {
     case "new":
-      if (!slug) {
+      if (!slug || files.length > 0) {
         process.stderr.write(USAGE);
         return 2;
       }
-      result = worktreeNew(slug, files);
+      result = worktreeNew(slug);
       break;
     case "rm": {
       // A trailing positional is a typo the caller cannot see — `rm alpha typo`

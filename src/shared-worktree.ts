@@ -4,7 +4,7 @@
 // import spec — so the one definition moves down rather than up (arch.rules.json).
 // Every git value is an argv element: no command is ever assembled as a shell string.
 
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { loadConfig, printable } from "./env.ts";
@@ -91,53 +91,6 @@ export function worktreeRoot(repo: string): string {
   const configured = loadConfig(repo).git?.["worktrees_dir"];
   if (typeof configured === "string" && configured.trim()) return canonicalize(resolve(repo, configured.trim()));
   return `${repo}.worktrees`;
-}
-
-/** Declared files per slug, kept beside the worktrees root — outside the primary
- *  tree, so a session never dirties the checkout, and outside every worktree, so
- *  `git worktree remove` never needs a force and no session tree carries them. */
-type Declarations = Record<string, string[]>;
-
-const DECLARATIONS = ".ai-eng-worktrees.json";
-
-/** The declarations the file really holds, or why it cannot be trusted. A file that
- *  is not an object of string arrays is refused rather than believed: `null` throws
- *  on the next read, and a top-level array swallows every key on write. */
-function readDeclarations(root: string): { declarations: Declarations } | { detail: string } {
-  const path = join(root, DECLARATIONS);
-  if (!existsSync(path)) return { declarations: {} };
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
-  } catch (error) {
-    return { detail: `${path} is not valid JSON (${error instanceof Error ? error.message : String(error)})` };
-  }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return { detail: `${path} must hold an object mapping each slug to its declared files` };
-  }
-  const declarations: Declarations = {};
-  for (const [slug, files] of Object.entries(parsed as Record<string, unknown>)) {
-    if (!Array.isArray(files) || files.some((file) => typeof file !== "string")) {
-      return { detail: `${path} declares "${slug}" as something other than a list of file paths` };
-    }
-    declarations[slug] = files as string[];
-  }
-  return { declarations };
-}
-
-/** A slug whose worktree is gone declares nothing: the entry is dropped before the
- *  file is written, so a worktree removed outside the verb leaves no declaration. */
-function pruneDeclarations(root: string, declarations: Declarations): Declarations {
-  const live: Declarations = {};
-  for (const [slug, files] of Object.entries(declarations)) {
-    if (existsSync(join(root, slug))) live[slug] = files;
-  }
-  return live;
-}
-
-function writeDeclarations(root: string, declarations: Declarations): void {
-  mkdirSync(root, { recursive: true });
-  writeFileSync(join(root, DECLARATIONS), `${JSON.stringify(declarations, null, 2)}\n`);
 }
 
 interface OpenWorktree {
@@ -253,7 +206,7 @@ function dirtySlot(repo: string): SlotBlocker | null {
   return null;
 }
 
-export function worktreeNew(slug: string, files: string[]): WorktreeResult {
+export function worktreeNew(slug: string): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree new: not inside a git repository.\n" };
   // A slug is a branch-name fragment and a directory name: the pattern alone would
@@ -279,32 +232,6 @@ export function worktreeNew(slug: string, files: string[]): WorktreeResult {
   }
 
   const root = worktreeRoot(repo);
-  const read = readDeclarations(root);
-  if ("detail" in read) {
-    return {
-      code: 2,
-      out: "",
-      err: `worktree new: the declarations file is unusable (${read.detail}) — refusing to cut a worktree while the declarations are unknown.\n`,
-    };
-  }
-  const declarations = pruneDeclarations(root, read.declarations);
-
-  const listed = openWorktrees(repo);
-  if ("detail" in listed) {
-    return {
-      code: 2,
-      out: "",
-      err: `worktree new: the worktree list is unreadable (${listed.detail}) — refusing to cut a worktree blindly.\n`,
-    };
-  }
-  const overlaps = listed.worktrees
-    .filter((entry) => canonicalize(entry.path) !== repo)
-    .flatMap((entry) =>
-      (declarations[entry.slug] ?? [])
-        .filter((file) => files.includes(file))
-        .map((file) => `${entry.slug} already declared ${file}`),
-    );
-
   const target = join(root, slug);
   const branch = `feat/${slug}`;
   mkdirSync(root, { recursive: true });
@@ -314,13 +241,11 @@ export function worktreeNew(slug: string, files: string[]): WorktreeResult {
   }
   git(repo, ["config", `branch.${branch}.remote`, "."]);
   git(repo, ["config", `branch.${branch}.merge`, "refs/heads/main"]);
-  if (files.length > 0) declarations[slug] = files;
-  writeDeclarations(root, declarations);
 
   return {
     code: 0,
     out: `✓ worktree ${slug} → ${target}\n`,
-    err: overlaps.length > 0 ? `worktree new: overlap — ${overlaps.join("; ")}\n` : "",
+    err: "",
   };
 }
 
@@ -365,14 +290,6 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree rm: not inside a git repository.\n" };
   const root = worktreeRoot(repo);
-  const read = readDeclarations(root);
-  if ("detail" in read) {
-    return {
-      code: 2,
-      out: "",
-      err: `worktree rm: the declarations file is unusable (${read.detail}) — refusing to rewrite it blindly.\n`,
-    };
-  }
   const listed = openWorktrees(repo);
   if ("detail" in listed) {
     return { code: 2, out: "", err: `worktree rm: the worktree list is unreadable (${listed.detail}).\n` };
@@ -387,7 +304,6 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   }
 
   const branch = entry.branch;
-
 
   // Refuse before touching anything: the default delete deletes only a branch that
   // proved it landed in the local `main`, and a refusal must leave the worktree and
@@ -425,9 +341,6 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
     return { code: 1, out: "", err: `worktree rm: git branch ${force ? "-D" : "-d"} failed: ${deleted.stderr.trim()}\n` };
   }
 
-  const declarations = pruneDeclarations(root, read.declarations);
-  delete declarations[slug];
-  writeDeclarations(root, declarations);
   let droppedNote = "";
   if (dropped === null) {
     droppedNote = " — the ignored content could not be read (git status warned); anything it held was dropped unseen";
