@@ -34,3 +34,9 @@ Use one read-only local preflight before brainstorm and orchestrator work to sho
 
 - **F1 · P2 · open:** U16a points to a test named U17. U17 checks skill prose and excludes `worktree new`, rebase and removal in the same-slug branch, but does not prove that dirty/unknown state cannot resume, switch branches or trigger other mutations. Its exact paragraph anchors also make it vulnerable to wording changes. The current skill instructions do say preserve and stop; the test does not enforce the full no-action invariant.
 - **F2 · P2 · open:** U16b points to a test named U18. U18 checks only the generic “pending human approvals” phrase after listing and before creation; it does not assert that pending plan approval and app-review/merge-ready states are identified or surfaced before continuation.
+
+### Round 3 follow-up
+
+- **F1 · P2 · resolved:** U16a asserts the list → dirty/unknown guard → eligible resume or unlisted-slug creation ordering. It requires preserving/reporting the exact listed path and evidence, stopping Phase 0 immediately, and forbids new, resume, rebase, rm, reset, branch switching or any other mutation in the guarded path.
+- **F2 · P2 · resolved:** U16b checks both preflights for `awaiting-plan-approval`/`plan_approval: pending`, `awaiting-app-review`/`app_review: pending`, and `ready-to-merge`/`app_review: approved`, followed by the specific human decisions before resume or creation.
+- **Verdict: PASS · 2 resolved · 0 open.** Focused verification: `bun test tests/workflow-handoff.spec.ts tests/skills.spec.ts` — 28 pass, 0 fail.

@@ -172,23 +172,28 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 3,
+          "status": "passed",
+          "attempts": 4,
           "findings": [
             "attempt 1 FAIL: bun test tests/skills.spec.ts passed, but tests/workflow-handoff.spec.ts failed a U13 wording-pattern assertion; remaining verify commands were not run.",
             "attempt 2 PASS: all eight checkpoint 3 verify commands passed after whitespace normalization in the handoff assertion.",
             "attempt 3 PASS after first adversarial fixes: all eight checkpoint 3 verify commands passed with dirty/unknown refusal and pending-approval assertions.",
-            "Adversarial fixes changed skills, tests and the generated payload to make dirty/unknown refusal and exact approval states explicit; rerun all checkpoint 3 verification commands."
+            "attempt 4 PASS after explicit dirty/unknown and named approval-state assertions: all eight checkpoint 3 verify commands passed."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 1,
+          "findings": [
+            "Review attempt 1 PASS in 3 rounds: F1 dirty/unknown no-mutation guard and F2 named plan/app-review/merge-ready approval handoffs were verified; 2 resolved, 0 open."
+          ]
+        }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         "skills/ai-brainstorm/SKILL.md",
         "skills/ai-orchestrator/SKILL.md",
-        "src/assets.ts",
         "tests/skills.spec.ts",
         "tests/workflow-handoff.spec.ts",
         "tests/worktree-lifecycle.spec.ts",
