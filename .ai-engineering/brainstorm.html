@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="ai-feature" content="ai-triage">
-<meta name="ai-approved" content="2026-10-06">
+<meta name="ai-feature" content="ai-triage-azure-signals">
+<meta name="ai-approved" content="2026-10-08">
 <title>Brainstorm · ai-triage</title>
 <style>
 :root{
@@ -201,10 +201,10 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Brainstorm · ai-triage · complete · 2026-10-06</div>
-  <h1>Triage para GitHub y Azure DevOps</h1>
-  <p class="sub">Una skill lee un backlog, explica qué atender primero y genera un informe completo. El usuario no debe perder detalles del backlog por usar Azure DevOps en vez de GitHub.</p>
-  <div class="meta"><b>complete · 2026-10-06</b><br>Slug <b>ai-triage</b> · entrevista aprobada; sin datos del tenant privado de prueba en este documento</div>
+  <div class="stamp">Brainstorm · señales Azure · complete · 2026-10-08</div>
+  <h1>Triage Azure con razones para actuar</h1>
+  <p class="sub">El informe debe explicar qué atender primero y por qué ahora, usando comentarios, fechas, sprint y contexto del padre cuando existan. Un dato ausente no es una razón inventada.</p>
+  <div class="meta"><b>complete · 2026-10-08</b><br>Slug <b>ai-triage-azure-signals</b> · ampliación del diseño de ai-triage aprobado el 2026-10-06; ampliación aprobada por el usuario: «dale apruebo, implementa»</div>
 </header>
 
 <nav>
@@ -226,13 +226,14 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 
 <section id="s1">
   <h2><span class="num">01</span>La idea en palabras llanas</h2>
-  <p>Quieres una sola skill, <code>ai-triage</code>, para GitHub y Azure DevOps. Mira la URL que le das o el remote del repo para saber dónde buscar. Si no sabe cuál board usar, pregunta y recuerda la respuesta solo durante esa ejecución. El informe muestra todo el trabajo abierto del board elegido y lo explica, como el informe de GitHub.</p>
+  <p>Quieres una sola skill, <code>ai-triage</code>, para GitHub y Azure DevOps. Mira la URL que le das o el remote del repo para saber dónde buscar. Si no sabe cuál board usar, pregunta y recuerda la respuesta solo durante esa ejecución. El informe muestra todos los miembros del backlog elegido y los explica, como el informe de GitHub.</p>
   <p>La skill solo lee Azure. Aquí se puede guardar el informe privado en el archivo normal, pero no se hace commit ni push con esos datos.</p>
+  <p><strong>Ampliación aprobada:</strong> no basta con ordenar por Priority y Severity. Queremos saber qué cuenta el equipo en los comentarios, cuánto tiempo lleva abierto un elemento, qué importancia tiene su padre y si hay una fecha de entrega o un sprint definido. Cada recomendación debe decir por qué conviene actuar ahora y señalar los hechos que la apoyan.</p>
 </section>
 
 <section id="s2">
   <h2><span class="num">02</span>Por qué importa</h2>
-  <p>Hoy existe una skill de triage para GitHub. Una sola entrada debe servir también a equipos con Azure DevOps, sin perder los detalles útiles de cada proveedor ni mezclar sus reglas.</p>
+  <p>La intención original era ofrecer una explicación útil del backlog en ambos proveedores. Azure ya tiene inventario y jerarquía, pero su orden solo toma Priority y Severity. Falta distinguir trabajo con compromiso próximo, bloqueos documentados y elementos antiguos que necesitan revisión, sin confundir actividad con urgencia.</p>
 </section>
 
 <section id="s3">
@@ -243,14 +244,14 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <section id="s4">
   <h2><span class="num">04</span>Qué existe hoy</h2>
   <ul>
-    <li><code>skills/ai-github-triage/SKILL.md</code> define una skill de solo lectura: recoge un backlog, lo clasifica, lo ordena y genera una página de informe.</li>
-    <li>La skill de GitHub elige el repositorio actual si no recibe destino y acepta una URL o repositorio explícito como destino.</li>
-    <li><code>src/assets.ts</code> registra las skills incluidas en el paquete; cambiar el nombre requiere actualizar ese registro además de la carpeta y las referencias.</li>
+    <li><code>skills/ai-triage/SKILL.md</code> define una única skill de solo lectura con procedimientos separados para GitHub y Azure DevOps.</li>
     <li>La plantilla de brainstorm existente da el formato HTML para este documento.</li>
-    <li><code>.ai-engineering/config.toml</code> está versionado y documenta que lo edita una persona y que la cadena solo lo lee.</li>
-    <li>Aún no se ha consultado Azure DevOps ni se han ejecutado comandos de Azure CLI en esta entrevista.</li>
+    <li>En esta ampliación no se consulta Azure DevOps productivo. La ejecución de triage anterior se limita a evidencia del estado actual, no prueba la viabilidad de las nuevas APIs.</li>
     <li>El usuario indicó que un proyecto de Azure DevOps puede tener varios boards y que el servicio de prueba es productivo y privado.</li>
-    <li>Se revisaron patrones de otros flujos Azure Boards: leer la jerarquía relacionada, distinguir hechos confirmados de supuestos y poner límites explícitos a las escrituras. Solo se reutilizarán prácticas genéricas, no reglas de una organización concreta.</li>
+    <li>La implementación actual muestra padres e hijos como contexto, conserva el estado literal y no amplía el inventario con relaciones.</li>
+    <li><code>skills/ai-triage/references/azure-devops.md:52-61</code> documenta un ranking basado solo en Priority y Severity.</li>
+    <li><code>skills/ai-triage/scripts/collect-azure.mjs:9-13</code> limita los campos de contexto de padres e hijos a tipo, estado y título; no recoge su prioridad ni fechas.</li>
+    <li><code>skills/ai-triage/scripts/render-report.mjs:462-529</code> muestra prioridad, análisis, área, jerarquía y evidencia; no muestra señales temporales ni Why now.</li>
   </ul>
 </section>
 
@@ -264,6 +265,9 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <li>La ejecución no crea, edita, cierra, comenta ni borra work items.</li>
     <li>El informe de una ejecución real conserva los datos y explicaciones del backlog. En este repo público se permite generar localmente el informe de prueba, pero no hacer commit ni push de ese resultado privado.</li>
     <li>La skill funciona para organizaciones y proyectos distintos, sin nombres, URLs, credenciales ni reglas privadas codificadas.</li>
+    <li>Ampliación aprobada: cada elemento muestra las señales verificadas y un Why now específico, o declara que no hay evidencia suficiente para justificar urgencia.</li>
+    <li>Ampliación aprobada: un comentario que confirma un bloqueo importa por su contenido, no por aumentar un contador. El informe distingue los hechos del board de las inferencias del análisis.</li>
+    <li>Ampliación aprobada: fechas e iteraciones ausentes, personalizadas o inaccesibles se identifican explícitamente; no se adivinan ni se sustituyen por el estado del workflow.</li>
   </ol>
 </section>
 
@@ -278,14 +282,37 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <li>En Azure DevOps, cada ejecución cubre un solo board/nivel. Las relaciones con padres o hijos pueden mostrarse como contexto, pero no amplían el inventario; varios boards solo si se piden expresamente.</li>
     <li>El Azure DevOps de prueba es productivo y privado. El informe puede guardarse localmente aquí, pero no se hace commit ni push de sus datos.</li>
     <li>Si hay varios boards y no se indica uno, la skill pregunta en vez de adivinar. La elección solo vale para esa ejecución; no se añade un campo de triage a <code>config.toml</code>.</li>
-    <li>Para Azure Boards, se incluyen los work items de estado no terminal del board elegido; se excluyen los terminales sin depender de nombres de estado fijos.</li>
+    <li>El diseño original pedía excluir estados terminales. La implementación actual conserva todos los miembros devueltos por el backlog. Esta ampliación no cambia esa política ni interpreta nombres de estado como urgencia.</li>
     <li>La skill y todas sus pruebas son estrictamente de solo lectura respecto a Azure DevOps.</li>
+    <li>El usuario aprobó el 2026-10-08 evaluar comentarios, antigüedad, prioridad del padre, fechas de entrega, iteraciones o sprints y Why now mediante una recomendación razonada, separada de Priority y Severity originales, que permanecen visibles y no se reescriben.</li>
+    <li>Los compromisos vigentes y bloqueos explícitos pueden cambiar la recomendación de qué atender primero. Cada cambio de orden explica su evidencia y la acción sugerida; sin razones verificables se conserva el orden nativo actual. No hay score ponderado, pesos configurables ni urgencia por antigüedad o número de comentarios solos.</li>
+    <li>Los comentarios se analizan por contenido, secuencia y fechas. Una afirmación del equipo no se presenta como un hecho comprobado en código; una actualización posterior que resuelve un bloqueo sustituye la conclusión anterior.</li>
+    <li>La prioridad y el calendario del padre directo son contexto, sin herencia automática. Solo se afirma que un hijo bloquea la entrega del padre cuando existe evidencia explícita de esa dependencia.</li>
+    <li>Una fecha de entrega explícita representa un compromiso. El fin del sprint es contexto de planificación, no una fecha de entrega automática; una iteración sin fechas no aporta un plazo. Un compromiso próximo no rebaja por sí solo un riesgo crítico y los conflictos quedan visibles para decisión humana.</li>
+    <li>Una señal ausente, inaccesible o parcial se distingue con su motivo y próxima acción. La cobertura se describe como suficiente, limitada o no evaluable, nunca como confianza numérica. Una señal opcional inaccesible o parcial permite un informe de cobertura limitada si el inventario está completo; no permite afirmar ausencia de bloqueos ni urgencia sin evidencia.</li>
+    <li>La aprobación autoriza este diseño y su implementación local. No autoriza mutaciones remotas, nuevas lecturas productivas ni publicar datos privados. Las nuevas APIs siguen pendientes de investigación.</li>
   </ul>
 </section>
 
 <section id="s7">
   <h2><span class="num">07</span>Decisiones todavía abiertas</h2>
-  <div class="note ok"><h4>No quedan decisiones de producto abiertas</h4><p>Las preguntas técnicas pendientes de comprobar están en la sección 10; no cambian las decisiones de alcance aprobadas.</p></div>
+  <div class="note ok"><h4>Decisiones de producto cerradas</h4><p>El usuario aprobó el diseño y sus valores recomendados el 2026-10-08. Las reglas vinculantes están en la sección 6. No quedan decisiones de producto abiertas; la investigación técnica de la sección 10 es requisito previo a planificar las nuevas lecturas.</p></div>
+  <h3>Alternativas consideradas y elección aprobada</h3>
+  <ol>
+    <li><strong>Aprobado: hechos más recomendación razonada.</strong> Recoger las señales verificables, mantener separada la prioridad del board y explicar en Why now por qué atender, aclarar, desbloquear o revisar el elemento. Los compromisos y bloqueos evidenciados influyen en la recomendación, sin score opaco. Las nuevas APIs requieren investigación antes de planificar su uso.</li>
+    <li><strong>Descartado: solo enriquecer la explicación.</strong> Mostrar las mismas señales conservando siempre el orden por Priority/Severity es menos invasivo, pero puede dejar enterrada una entrega próxima con compromiso vigente.</li>
+    <li><strong>Descartado: score ponderado configurable.</strong> Sumar pesos de edad, comentarios, padre y calendario crea falsa precisión, requiere calibración por equipo y puede premiar ruido o tickets abandonados.</li>
+  </ol>
+  <div class="note ok"><h4>Padre y calendario aprobados</h4><p>Mostrar prioridad y fechas del padre directo sin herencia automática. Una relación padre-hijo no prueba que ese hijo bloquee toda la entrega. Una fecha de entrega explícita es un compromiso; el fin de una iteración solo es contexto de planificación, y una iteración sin fechas no aporta un plazo.</p></div>
+  <div class="note ok"><h4>Evidencia insuficiente aprobada</h4><p>Distinguir ausente, inaccesible y parcial, sin fabricar confianza numérica. Mostrar cobertura suficiente, limitada o no evaluable con el motivo y la próxima decisión concreta. Solo continuar con señales limitadas cuando el inventario esté completo y los guardarraíles de autenticación, ámbito y salida segura sigan satisfechos.</p></div>
+  <h3>Escenarios de aceptación aprobados</h3>
+  <ol>
+    <li>Un bug crítico y una tarea con entrega mañana: el calendario no rebaja automáticamente el riesgo crítico. Why now explica cada motivo y señala el conflicto para decisión humana.</li>
+    <li>Un ticket antiguo con muchos comentarios, sin compromiso vigente: recomendar revisar relevancia o aclarar, no declarar urgencia solo por su edad o actividad.</li>
+    <li>Un hijo de una Feature prioritaria: mostrar la prioridad del padre. Solo afirmar que bloquea esa Feature si hay evidencia explícita de esa dependencia.</li>
+    <li>Un elemento asignado a un sprint vencido: señalar planificación desactualizada, no afirmar que incumplió una fecha de entrega que no existe.</li>
+    <li>Un comentario antiguo dice bloqueado y uno posterior indica desbloqueado: analizar la secuencia y sus fechas; no mantener la conclusión antigua por contar menciones.</li>
+  </ol>
 </section>
 
 <section id="s8">
@@ -294,10 +321,10 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <li>El HTML generado para un backlog privado puede existir localmente en el árbol de trabajo de este repo; nunca se incorpora al historial de ai-engineering mediante commit o push.</li>
     <li>El informe que genera la skill en el proyecto de un usuario conserva el detalle completo del backlog; esa salida de usuario no es un fixture ni contenido fuente de ai-engineering.</li>
     <li>El triage normal no crea, edita, asigna, comenta, cierra ni borra work items.</li>
-    <li>Un destino ambiguo, un error de autenticación o una lectura/paginación incompleta detiene el run; no se amplía el ámbito ni se presenta un informe parcial como completo.</li>
+    <li>Un destino ambiguo, un error de autenticación o una lectura/paginación incompleta del inventario detiene el run y conserva el informe anterior. La cobertura limitada de señales opcionales se identifica por separado; no se amplía el ámbito ni se presenta como evidencia completa.</li>
     <li>No inferir el proyecto a partir del usuario/tenant activo de Azure CLI cuando el repo o la URL no identifican uno.</li>
     <li>Un fallo conserva el informe anterior. Los campos remotos se escapan como contenido no confiable antes de incluirlos en HTML; los enlaces solo se generan con URLs HTTPS validadas. La autenticación nunca aparece en el informe.</li>
-    <li>El entorno de prueba es productivo. La skill y sus pruebas son estrictamente de solo lectura; usar fixtures sintéticos locales y una lectura real solo para validar el flujo.</li>
+    <li>El entorno disponible es productivo. Usar fixtures sintéticos locales; cualquier nueva validación con lecturas reales requiere autorización específica y permanece estrictamente de solo lectura.</li>
     <li>La salida real puede escribirse localmente en <code>.ai-engineering/triage.html</code>, pero no se hace commit ni push mientras contenga datos del Azure privado.</li>
     <li>No modificar work items ni copiar datos reales del backlog a fixtures, logs, documentación o código fuente; el único artefacto de datos es el HTML local de triage.</li>
     <li>Resolver y anunciar el ámbito antes de leer datos. No mezclar organizaciones, proyectos, equipos ni boards.</li>
@@ -311,7 +338,8 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <ul>
     <li>Crear, editar, asignar, comentar, cerrar o borrar work items como parte del triage normal.</li>
     <li>Enviar datos del backlog a servicios externos o incorporarlos a ejemplos, tests, documentación o fixtures de ai-engineering.</li>
-    <li>Combinar varios boards en un mismo informe sin que el usuario lo pida de forma explícita.</li>
+    <li>Combinar varios boards en un mismo informe.</li>
+    <li>En esta ampliación, cambiar el comportamiento GitHub, crear un motor configurable de scoring o validar vulnerabilidades contra un repositorio que no se ha identificado.</li>
   </ul>
 </section>
 
@@ -321,15 +349,29 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <li>Confirmar cómo Azure DevOps representa equipos, boards y niveles de backlog en sus URLs y APIs; importa para interpretar una URL sin ampliar el ámbito por error.</li>
     <li>Ver qué puede descubrirse de forma fiable desde un remote Git y cuándo hay que preguntar por varios equipos o boards.</li>
     <li>Comprobar qué comandos de Azure CLI están disponibles y qué permisos solicitan, sin imprimir ni guardar datos del tenant; importa para elegir una ruta de lectura segura.</li>
-    <li>Definir cómo paginar todos los work items del ámbito elegido y cómo detectar resultados incompletos; importa para que el ranking no oculte trabajo.</li>
+    <li>Preservar el contrato de inventario completo actual. No inventar paginación para membresía del backlog; comprobar la paginación únicamente en endpoints que la documenten.</li>
     <li>Verificar cómo preservar los campos y relaciones de Azure en el HTML sin permitir contenido activo ni enlaces inseguros, y que una lectura incompleta nunca se presenta como triage completo.</li>
+    <li>Ampliación: comprobar las APIs de comentarios y su paginación, permisos y límites, y distinguir comentarios completos de una lectura parcial.</li>
+    <li>Ampliación: verificar campos estándar de creación, actualización y entrega, y cómo reconocer campos personalizados sin reglas específicas de una organización.</li>
+    <li>Ampliación: verificar cómo resolver las fechas de una iteración dentro del equipo seleccionado, sin asumir que una ruta de iteración implica un sprint activo.</li>
+    <li>Ampliación: comprobar el coste y los límites de leer prioridad y calendario del padre directo; el padre sigue siendo contexto, no inventario adicional.</li>
   </ol>
 </section>
 
 <section id="s11">
   <h2><span class="num">11</span>Notas de handoff</h2>
-  <p>Arquitectura, flujo, límites de error y pruebas aprobados: una skill pública <code>ai-triage</code> reemplaza <code>ai-github-triage</code>, conserva el comportamiento GitHub e incorpora procedimientos Azure separados bajo un contrato común. Una URL manda; sin URL, un remote único puede descubrir proveedor y proyecto, y la ambigüedad se pregunta antes de leer. No se usa la cuenta activa de Azure CLI para adivinar el destino. Cada ejecución Azure cubre un solo board; los work items relacionados solo dan contexto. Incluye estados no terminales y explica el ámbito; no hay informe parcial ni fallback silencioso. La skill y sus pruebas nunca escriben en Azure DevOps. En este repo público el HTML privado se permite localmente en el slot normal, pero no se hace commit ni push. La elección del board no se persiste ni se añade a config. Reutilizar los patrones genéricos de contexto y evidencia de los flujos Azure revisados, sin importar reglas específicas de su organización.</p>
-  <p><strong>Estado:</strong> completa · 2026-10-06; no se ha consultado ni modificado el tenant productivo.</p>
+  <h3>Componentes y flujo aprobados</h3>
+  <ol>
+    <li>Resolver e inventariar con los módulos existentes. Ampliar la allowlist solo después de verificar rutas de lectura documentadas y mantener el ámbito explícito.</li>
+    <li>Enriquecer los miembros del inventario con comentarios, creación/actualización, calendario del elemento y contexto del padre directo. Resolver metadatos de una misma iteración una sola vez por ejecución; no recorrer ancestros o hermanos sin límite.</li>
+    <li>Analizar cada elemento una vez con hasta cinco análisis en paralelo. La misma entrada de evidencia alimenta Analysis y Why now, pero no se duplica el texto. Cada conclusión cita su fuente y distingue una afirmación del equipo de un hecho comprobado en código.</li>
+    <li>Renderizar señales, recomendación y datos originales en la fila existente. Validar inventario, análisis y enlaces antes de reemplazar el informe con el escritor atómico actual.</li>
+  </ol>
+  <h3>Errores y datos que faltan</h3>
+  <p>Una lectura incompleta del inventario, un error de autenticación, un ámbito ambiguo o una salida insegura mantienen el informe anterior. Una señal opcional que no existe se muestra como ausente. Una denegación de permisos específica de una señal se muestra como inaccesible y una lectura incompleta como parcial; con inventario completo se puede continuar indicando cobertura limitada o no evaluable por elemento. No se afirma ausencia de bloqueos ni una conclusión completa a partir de esas lagunas. La investigación debe confirmar cómo identificar estos casos, no presentar las APIs nuevas como ya verificadas. Ningún fallo permite ampliar el ámbito o escribir en Azure.</p>
+  <h3>Pruebas requeridas</h3>
+  <p>Usar los tests existentes y fixtures sintéticos para los cinco escenarios de la sección 7, límites de paginación de comentarios, fechas/zonas horarias, metadatos ausentes, permisos, padres fuera del ámbito, HTML no confiable y conservación del informe anterior. Fijar el reloj en las pruebas de antigüedad/calendario. Mantener las pruebas de GitHub como regresión y comprobar que cada miembro aparece exactamente una vez.</p>
+  <p><strong>Estado:</strong> complete · 2026-10-08. Diseño y valores recomendados aprobados por el usuario: «dale apruebo, implementa». Las preguntas técnicas de la sección 10 siguen abiertas y no se han consultado APIs nuevas. La aprobación del brainstorm es STOP 0, no la aprobación de un contrato futuro. Siguiente paso: <code>/ai-orchestrator</code>, con investigación de esas preguntas antes de cerrar el plan y solicitar STOP 1; este handoff no crea checkpoints ni implementa código.</p>
 </section>
 
 </div>
@@ -337,7 +379,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 
 <footer>
   <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · ai-triage<br>
-  Complete · 2026-10-06
+  complete · 2026-10-08
   <a href="#main">↑ top</a>
 </footer>
 <script>
