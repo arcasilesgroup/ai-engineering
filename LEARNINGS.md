@@ -658,3 +658,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Add a separate symlink alias path and assert that initialization through it is rejected while canonical initialization succeeds.
 - **Lesson:** Test path security with the alternate input path, not a symlinked target alone.
 - **Tags:** review, checkpoint-gate, symlink, tests
+
+### L78 · 2026-10-08 · worktree-lifecycle-governance #5 · behavior
+- **Failure:** U23 could not find the exact `reviewed_main` handoff after the local-main read step.
+- **Root cause:** Test whitespace normalization removed underscores from lifecycle field identifiers.
+- **Fix:** Preserve identifier spelling in the test and state that the full local-main commit ID is recorded only after gates pass and before app review.
+- **Lesson:** Normalize Markdown formatting without altering identifiers.
+- **Tags:** behavior, tests, reviewed-main

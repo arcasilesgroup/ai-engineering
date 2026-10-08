@@ -301,7 +301,8 @@
         "skills/ai-orchestrator/SKILL.md",
         "src/assets.ts",
         "tests/skills.spec.ts",
-        "tests/worktree-lifecycle.spec.ts"
+        "tests/worktree-lifecycle.spec.ts",
+        "tests/workflow-handoff.spec.ts"
       ],
       "acceptance": [
         "The feature is rebased on local main before app review, with no remote sync or unapproved sibling merge.",
@@ -322,11 +323,24 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "attempt 1 FAIL: `bun test tests/workflow-handoff.spec.ts` U23 could not find the reviewed-main reference after the main-read step; lifecycle, skill and rebase fixture tests passed before the failure, remaining commands were not run."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "pending",
+      "changed_files": [
+        "skills/ai-orchestrator/SKILL.md",
+        "tests/skills.spec.ts",
+        "tests/worktree-lifecycle.spec.ts",
+        "tests/workflow-handoff.spec.ts",
+        "LEARNINGS.md"
+      ]
     },
     {
       "id": 6,

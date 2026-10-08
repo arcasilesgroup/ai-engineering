@@ -124,27 +124,38 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
 
   test("U23: sync gates capture local main before the later human app-review handoff", () => {
     const { text: orchestrator } = section("skills/ai-orchestrator/SKILL.md", "## Phase 3: Wrap-up");
-    const phase3 = orchestrator.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const normalized = orchestrator.replace(/[`*]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const phase3Start = normalized.indexOf("## phase 3: wrap-up");
+    const phase4Start = normalized.indexOf("## phase 4: human stop 2, app review", phase3Start);
+    const phase3 = normalized.slice(phase3Start, phase4Start);
     const rebase = phase3.indexOf("git rebase refs/heads/main");
     const behaviorGate = phase3.indexOf("rerun affected behavior", rebase);
     const reviewGate = phase3.indexOf("rerun affected review", behaviorGate);
     const gatesPassed = phase3.indexOf("after all affected gates pass", reviewGate);
     const mainRead = phase3.indexOf("git rev-parse refs/heads/main", gatesPassed);
-    const reviewedMain = phase3.indexOf("reviewed_main", mainRead);
-    const awaitingReview = phase3.indexOf("awaiting-app-review", reviewedMain);
-    const pendingReview = phase3.indexOf("app_review: pending", awaitingReview);
-    const phase4 = orchestrator.indexOf("## Phase 4: Human stop 2, app review");
+    const currentMain = phase3.indexOf("require it to equal the exact local-main target used for the rebase", mainRead);
+    const guardedWrite = phase3.indexOf("guarded edit or write", currentMain);
+    const reviewedMain = phase3.indexOf("lifecycle.reviewed_main", guardedWrite);
+    const fullCommitId = phase3.indexOf("exact full commit id returned by that command", reviewedMain);
+    const awaitingReview = phase3.indexOf("lifecycle.phase to awaiting-app-review", fullCommitId);
+    const pendingReview = phase3.indexOf("lifecycle.app_review to pending", awaitingReview);
+    const onlyThen = phase3.indexOf("only then proceed to phase 4", pendingReview);
     const appReview = section("skills/ai-orchestrator/SKILL.md", "## Phase 4: Human stop 2, app review").body;
 
+    expect(phase3Start).toBeGreaterThanOrEqual(0);
+    expect(phase4Start).toBeGreaterThan(phase3Start);
     expect(rebase).toBeGreaterThanOrEqual(0);
     expect(behaviorGate).toBeGreaterThan(rebase);
     expect(reviewGate).toBeGreaterThan(behaviorGate);
     expect(gatesPassed).toBeGreaterThan(reviewGate);
     expect(mainRead).toBeGreaterThan(gatesPassed);
-    expect(reviewedMain).toBeGreaterThan(mainRead);
-    expect(awaitingReview).toBeGreaterThan(reviewedMain);
+    expect(currentMain).toBeGreaterThan(mainRead);
+    expect(guardedWrite).toBeGreaterThan(currentMain);
+    expect(reviewedMain).toBeGreaterThan(guardedWrite);
+    expect(fullCommitId).toBeGreaterThan(reviewedMain);
+    expect(awaitingReview).toBeGreaterThan(fullCommitId);
     expect(pendingReview).toBeGreaterThan(awaitingReview);
-    expect(phase4).toBeGreaterThan(orchestrator.indexOf("## Phase 3: Wrap-up"));
+    expect(onlyThen).toBeGreaterThan(pendingReview);
     expect(appReview).toMatch(/reviewed_main[\s\S]{0,100}(?:exact|current)[\s\S]{0,100}local main/i);
     expect(appReview).not.toMatch(/git rebase/i);
   });
