@@ -149,4 +149,196 @@ with tempfile.TemporaryDirectory() as root:
         fails += not ok
         print(("ok  " if ok else "FAIL"), name, f"(exit {result.returncode})")
 
+    # --- Local lifecycle state ---
+    legacy = copy.deepcopy(PLAN)
+
+    def life(phase, plan_approval="pending", app_review="not-started", reviewed_main=None):
+        return {
+            "phase": phase,
+            "plan_approval": plan_approval,
+            "app_review": app_review,
+            "reviewed_main": reviewed_main,
+        }
+
+    def with_lifecycle(plan, lifecycle):
+        result = copy.deepcopy(plan)
+        result["lifecycle"] = lifecycle
+        return result
+
+    def all_gates_passed(plan):
+        result = copy.deepcopy(plan)
+        for checkpoint in result["checkpoints"]:
+            checkpoint["status"] = "passed"
+            for gate_state in checkpoint["gates"].values():
+                gate_state["status"] = "passed"
+        return result
+
+    def lifecycle_result(name, old_plan, new_plan, want):
+        json.dump(old_plan, open(path, "w"))
+        got = run(root, write(path, new_plan))
+        ok = got == want
+        nonlocal_fails[0] += not ok
+        print(("ok  " if ok else "FAIL"), f"{name} (exit {got})")
+
+    def legacy_result(name, payload, want):
+        json.dump(legacy, open(path, "w"))
+        got = run(root, payload)
+        ok = got == want
+        nonlocal_fails[0] += not ok
+        print(("ok  " if ok else "FAIL"), f"{name} (exit {got})")
+
+    nonlocal_fails = [0]
+    git_env = {
+        **os.environ,
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_SYSTEM": os.devnull,
+        "GIT_TERMINAL_PROMPT": "0",
+    }
+
+    def git(args):
+        result = subprocess.run(
+            ["git", *args],
+            cwd=root,
+            env=git_env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise AssertionError(f"git {' '.join(args)} failed: {result.stderr}")
+        return result.stdout.strip()
+
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=root, env=git_env, check=True)
+    git(["config", "user.name", "Ada Lovelace"])
+    git(["config", "user.email", "ada@example.com"])
+    git(["config", "commit.gpgsign", "false"])
+    with open(f"{root}/README.md", "w") as fixture:
+        fixture.write("# lifecycle fixture\n")
+    git(["add", "README.md"])
+    git(["commit", "-q", "-m", "lifecycle base"])
+    reviewed_main = git(["rev-parse", "refs/heads/main"])
+
+    initial = life("awaiting-plan-approval")
+    initial_plan = with_lifecycle(legacy, initial)
+    legacy_result("U8: legacy checkpoint keeps existing gate behavior", agent("[checkpoint demo#2 implement]"), 0)
+    legacy_result("U8: legacy checkpoint still blocks a skipped checkpoint", agent("[checkpoint demo#3 implement]"), 2)
+    lifecycle_result(
+        "U8: legacy checkpoint cannot gain direct merge authority",
+        legacy,
+        with_lifecycle(legacy, life("ready-to-merge", "approved", "approved", reviewed_main)),
+        2,
+    )
+    lifecycle_result("U10: valid initial lifecycle shape is accepted", legacy, initial_plan, 0)
+
+    implementation = with_lifecycle(
+        legacy,
+        life("implementation", "approved"),
+    )
+    lifecycle_result("U10: approved plan permits implementation", initial_plan, implementation, 0)
+
+    blocked = with_lifecycle(
+        legacy,
+        life("blocked", "approved"),
+    )
+    lifecycle_result("U10: entering blocked is accepted as a fail-safe", implementation, blocked, 0)
+    lifecycle_result(
+        "U11: resuming blocked work requires its plan approval",
+        with_lifecycle(legacy, life("blocked")),
+        implementation,
+        2,
+    )
+    lifecycle_result("U10: valid blocked work can resume implementation", blocked, implementation, 0)
+
+    completed_gates = all_gates_passed(legacy)
+    awaiting_review = with_lifecycle(
+        completed_gates,
+        life("awaiting-app-review", "approved", "pending", reviewed_main),
+    )
+    lifecycle_result("U10: completed gates and current reviewed_main permit app review", implementation, awaiting_review, 0)
+
+    ready_to_merge = with_lifecycle(
+        completed_gates,
+        life("ready-to-merge", "approved", "approved", reviewed_main),
+    )
+    lifecycle_result("U10: approved app review permits ready-to-merge", awaiting_review, ready_to_merge, 0)
+
+    invalid_lifecycles = [
+        ("missing phase", {"plan_approval": "pending", "app_review": "not-started", "reviewed_main": None}),
+        ("unknown phase", life("unrecognized")),
+        ("invalid plan approval", life("awaiting-plan-approval", "yes")),
+        ("invalid app review", life("awaiting-plan-approval", app_review="approved")),
+        ("contradictory pending plan in implementation", life("implementation")),
+    ]
+    for name, invalid in invalid_lifecycles:
+        lifecycle_result(f"U11: rejects {name}", legacy, with_lifecycle(legacy, invalid), 2)
+
+    lifecycle_result(
+        "U11: rejects implementation before plan approval",
+        initial_plan,
+        with_lifecycle(legacy, life("implementation")),
+        2,
+    )
+    lifecycle_result(
+        "U11: rejects skipped plan-approval and app-review phases",
+        initial_plan,
+        with_lifecycle(legacy, life("ready-to-merge", "approved", "approved", reviewed_main)),
+        2,
+    )
+    lifecycle_result(
+        "U11: rejects plan approval without entering implementation",
+        initial_plan,
+        with_lifecycle(legacy, life("awaiting-plan-approval", "approved")),
+        2,
+    )
+    lifecycle_result(
+        "U11: rejects app review before all checkpoint gates pass",
+        implementation,
+        with_lifecycle(legacy, life("awaiting-app-review", "approved", "pending", reviewed_main)),
+        2,
+    )
+    lifecycle_result(
+        "U11: rejects missing reviewed_main before app review",
+        implementation,
+        with_lifecycle(completed_gates, life("awaiting-app-review", "approved", "pending", None)),
+        2,
+    )
+    lifecycle_result(
+        "U11: rejects malformed reviewed_main",
+        awaiting_review,
+        with_lifecycle(completed_gates, life("ready-to-merge", "approved", "approved", "1234")),
+        2,
+    )
+    lifecycle_result(
+        "U11: rejects app-review approval without ready-to-merge transition",
+        awaiting_review,
+        with_lifecycle(completed_gates, life("awaiting-app-review", "approved", "approved", reviewed_main)),
+        2,
+    )
+    lifecycle_result(
+        "U11: rejects complete before verified merge",
+        ready_to_merge,
+        with_lifecycle(completed_gates, life("complete", "approved", "approved", reviewed_main)),
+        2,
+    )
+
+    git(["commit", "--allow-empty", "-q", "-m", "advance local main"])
+    current_main = git(["rev-parse", "refs/heads/main"])
+    lifecycle_result(
+        "U11: rejects ready-to-merge when reviewed_main is stale",
+        awaiting_review,
+        with_lifecycle(completed_gates, life("ready-to-merge", "approved", "approved", reviewed_main)),
+        2,
+    )
+    lifecycle_result(
+        "U11: rejects a non-current reviewed_main while awaiting app review",
+        implementation,
+        with_lifecycle(completed_gates, life("awaiting-app-review", "approved", "pending", reviewed_main)),
+        2,
+    )
+    refreshed_review = with_lifecycle(
+        completed_gates,
+        life("awaiting-app-review", "approved", "pending", current_main),
+    )
+    lifecycle_result("U10: advancing local main resets approval for a fresh review", ready_to_merge, refreshed_review, 0)
+    fails += nonlocal_fails[0]
+
 sys.exit(1 if fails else 0)
