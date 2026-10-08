@@ -46,6 +46,19 @@ organizations, projects, teams, or boards in one report.
   action; limited discussion never proves no blockers. Creation/change ages are
   elapsed times, not continuously-open duration or urgency. Native Priority/Severity
   stay unchanged; parent dates and sprint end are context, not inherited deadlines.
+- An assessed Azure record must include a nonempty summary and structured `claims`
+  from the [semantic extraction contract](references/azure-devops.md#semantic-claims-and-chronology).
+  Use exact source IDs/excerpts/values, blocker identity, current-work status and
+  matching parent/date linkage; use `claims: []` when unsupported. Do not classify
+  by keywords or generate a second priority score. Board evidence is team-reported,
+  not code-verified merely because it links to HTTPS. Pair delivery/dependency
+  claims by the source-backed issue identity, not shared dates alone. Include
+  completed, withdrawn and unknown counterclaims, even in older-created comments
+  edited later. Compare creation and edit timestamps together; overlapping edits
+  require clarification, not promotion. Reconcile current child dependency before
+  using a parent commitment and retain its supporting comment references. Incomplete
+  chronology cannot establish a current blocker or commitment. The writer validates claims, preserves
+  the native band and derives Recommendation/Why now independently of Analysis.
 - Remote GitHub and Azure work-item links open in a new tab; Azure item links target the
   Azure Boards work-item page, not a REST API endpoint.
 - The report uses the shared shell in `templates/triage.html.tpl` and follows

@@ -1,3 +1,5 @@
+import { azurePriority, sanitizeEvidenceUrl } from "./render-report.mjs";
+
 const DUE_FIELD = "Microsoft.VSTS.Scheduling.DueDate";
 const TARGET_FIELD = "Microsoft.VSTS.Scheduling.TargetDate";
 const DAY_MS = 86_400_000;
@@ -340,6 +342,7 @@ export function normalizeAzureSignals({ item, observedAt, discussion, fieldMetad
       const { id: commentId, ...evidence } = context;
       sources.push({ id: sourceId, commentId, ...evidence });
     }
+
   }
   const dates = itemDates(item, observed, sources);
   const delivery = deliverySignals(item, fieldMetadata, sources);
@@ -391,3 +394,339 @@ export function normalizeAzureSignals({ item, observedAt, discussion, fieldMetad
     coverage: isSufficient ? "sufficient" : hasEvidence ? "limited" : "not-assessable",
   };
 }
+
+    function invalidClaim() {
+      throw new Error("Invalid Azure evidence claim.");
+    }
+
+    function claimSources(item, claim) {
+      const signals = item.signals;
+      return claim.sourceIds.map((id) => {
+        const matches = signals.sources.filter((source) => source.id === id);
+        if (matches.length !== 1) return invalidClaim();
+        const source = matches[0];
+        const isParent = source.workItemId === signals.parent.workItemId;
+        if (source.workItemId !== item.id && (!isParent || claim.parentId !== source.workItemId)) {
+          return invalidClaim();
+        }
+        if (source.commentId !== undefined) {
+          const comment = signals.discussion.comments.find((candidate) =>
+            candidate.sourceId === id && !candidate.isDeleted);
+          if (
+            !comment || source.workItemId !== item.id ||
+            id !== `comment:${item.id}:${comment.id}:v${comment.version}` ||
+            source.commentId !== comment.id || source.version !== comment.version ||
+            source.text !== comment.text || source.createdDate !== comment.createdDate ||
+            source.modifiedDate !== comment.modifiedDate
+          ) return invalidClaim();
+        } else if (source.referenceName !== undefined) {
+          if (id !== `field:${source.workItemId}:r${source.revision}:${source.referenceName}`) return invalidClaim();
+          if (source.workItemId === item.id &&
+            (source.revision !== item.rev || !Object.is(source.value, item.fields[source.referenceName]))) {
+            return invalidClaim();
+          }
+          if (source.workItemId !== item.id) {
+            const parent = signals.parent;
+            const linkedSignal = [
+              parent.importance?.priority, parent.importance?.severity,
+              parent.dates?.created, parent.dates?.changed, ...parent.delivery.entries,
+            ].find((signal) => signal?.sourceId === id);
+            if (!linkedSignal || !Object.is(source.value, linkedSignal.value)) return invalidClaim();
+          }
+        } else if (source.iterationId !== undefined) {
+          if (source.workItemId !== item.id || id !== signals.iteration.sourceId ||
+            source.iterationId !== signals.iteration.id || source.path !== signals.iteration.path) {
+            return invalidClaim();
+          }
+        } else return invalidClaim();
+        return source;
+      });
+    }
+
+    export function validateAzureClaims(item, analysis) {
+      if (!item?.signals || !Array.isArray(item.signals.sources)) {
+        throw new Error("Azure evidence sources are required.");
+      }
+      if (instant(item.signals.observedAt) === undefined) {
+        throw new Error("Invalid Azure evidence observation timestamp.");
+      }
+      if (!analysis) throw new Error("Azure evidence assessment is required.");
+      if ((analysis.id !== undefined && analysis.id !== item.id) ||
+        (analysis.itemId !== undefined && analysis.itemId !== item.id)) {
+        throw new Error("Azure evidence assessment item mismatch.");
+      }
+      if (analysis.status === "UNASSESSED") {
+        if (analysis.claims !== undefined && (!Array.isArray(analysis.claims) || analysis.claims.length)) {
+          return invalidClaim();
+        }
+        return [];
+      }
+      if (
+        analysis.status !== "ASSESSED" || typeof analysis.summary !== "string" ||
+        !analysis.summary.trim() || !Array.isArray(analysis.claims)
+      ) return invalidClaim();
+      for (const claim of analysis.claims) {
+        if (
+          !claim || !["blocker", "blocker-resolved", "commitment", "parent-dependency", "context"].includes(claim.type) ||
+          !Array.isArray(claim.sourceIds) || !claim.sourceIds.length ||
+          claim.sourceIds.some((id) => typeof id !== "string") ||
+          new Set(claim.sourceIds).size !== claim.sourceIds.length ||
+          !["team-reported", "code-verified"].includes(claim.provenance) ||
+          (claim.url !== undefined && sanitizeEvidenceUrl(claim.url) === null)
+        ) return invalidClaim();
+        const sources = claimSources(item, claim);
+        if (claim.parentId !== undefined && (
+          claim.parentId !== item.signals.parent.workItemId ||
+          !sources.some((source) => source.workItemId === claim.parentId)
+        )) return invalidClaim();
+        if (claim.type === "parent-dependency" && claim.parentId === undefined) return invalidClaim();
+        if (claim.isOutstanding !== undefined && typeof claim.isOutstanding !== "boolean") return invalidClaim();
+        if (claim.excerpt !== undefined && (typeof claim.excerpt !== "string" || !claim.excerpt.trim())) {
+          return invalidClaim();
+        }
+        const hasExcerpt = typeof claim.excerpt === "string" && claim.excerpt.trim().length > 0;
+        const hasValue = Object.hasOwn(claim, "value");
+        if (
+          (!hasExcerpt && !hasValue) ||
+          (hasExcerpt && !sources.some((source) => typeof source.text === "string" && source.text.includes(claim.excerpt))) ||
+          (hasValue && !sources.some((source) => Object.is(source.value, claim.value)))
+        ) return invalidClaim();
+        if (["blocker", "blocker-resolved", "commitment", "parent-dependency"].includes(claim.type) && !hasExcerpt) {
+          return invalidClaim();
+        }
+        if (["blocker", "blocker-resolved", "commitment", "parent-dependency"].includes(claim.type)) {
+          const supportingComments = sources.filter((source) =>
+            source.commentId !== undefined && source.text.includes(claim.excerpt));
+          if (supportingComments.length !== 1 ||
+            instant(supportingComments[0].modifiedDate) > instant(item.signals.observedAt)) return invalidClaim();
+        }
+        if ((["blocker", "blocker-resolved"].includes(claim.type) || claim.issueId !== undefined) &&
+          (typeof claim.issueId !== "string" || !claim.issueId.trim())) return invalidClaim();
+        if (claim.type === "commitment" || claim.date !== undefined) {
+          const delivery = claim.parentId === undefined ? item.signals.delivery : item.signals.parent.delivery;
+          if (instant(claim.date) === undefined || !delivery.entries.some((entry) =>
+            entry.status === "complete" && entry.semantics !== "unrecognized" &&
+            entry.value === claim.date && claim.sourceIds.includes(entry.sourceId))) return invalidClaim();
+        }
+        // A Board assertion, even with an HTTPS link, cannot certify a code fact.
+        if (claim.provenance === "code-verified") return invalidClaim();
+      }
+      return analysis.claims;
+    }
+
+    function sourceDescription(source) {
+      if (source.commentId !== undefined) {
+        return `comment #${source.commentId} v${source.version}, created ${source.createdDate}, modified ${source.modifiedDate}: “${source.text}” (team-reported)`;
+      }
+      if (source.referenceName !== undefined) {
+        return `#${source.workItemId} revision ${source.revision} ${source.referenceName}: ${String(source.value)}`;
+      }
+      return `${source.path} · ${source.startDate ?? "dates unset"} through ${source.finishDate ?? "dates unset"} (planning context)`;
+    }
+
+    function claimComment(item, claim) {
+      return claimSources(item, claim).find((source) =>
+        source.commentId !== undefined && source.text.includes(claim.excerpt));
+    }
+
+    function sameIssue(first, second) {
+      return first.issueId === undefined || second.issueId === undefined || first.issueId === second.issueId;
+    }
+
+    function outstandingChronology(item, reports, updates, matches) {
+      const outstanding = [];
+      const superseded = [];
+      const conflicts = [];
+      for (const report of reports) {
+        const origin = claimComment(item, report);
+        // A renewed report ends historical conflict pairs, but not edits overlapping that renewal.
+        if (updates.some((update) => matches(report, update)) &&
+          reports.some((renewal) => {
+            if (report.issueId === undefined || renewal.issueId !== report.issueId ||
+              !matches(report, renewal)) return false;
+            const confirmation = claimComment(item, renewal);
+            return instant(confirmation.createdDate) === instant(confirmation.modifiedDate) &&
+              instant(confirmation.createdDate) > instant(origin.modifiedDate);
+          })) continue;
+        let hasCounterclaim = false;
+        for (const update of updates) {
+          if (!matches(report, update)) continue;
+          const counterclaim = claimComment(item, update);
+          if (instant(counterclaim.modifiedDate) < instant(origin.createdDate)) continue;
+          hasCounterclaim = true;
+          // Edits expose only the current version, not when its asserted event occurred.
+          if (instant(counterclaim.createdDate) > instant(origin.modifiedDate) &&
+            instant(counterclaim.createdDate) === instant(counterclaim.modifiedDate)) {
+            superseded.push(report, update);
+          } else {
+            conflicts.push(report, update);
+          }
+        }
+        if (!hasCounterclaim) outstanding.push(report);
+      }
+      return { outstanding, superseded, conflicts };
+    }
+
+    function dependencySupports(item, dependency, commitment) {
+      if (dependency.parentId !== commitment.parentId) return false;
+      if (dependency.issueId !== undefined && commitment.issueId !== undefined) {
+        return dependency.issueId === commitment.issueId;
+      }
+      // A shared parent field establishes the date, not which delivery requires this child.
+      return claimComment(item, dependency).id === claimComment(item, commitment).id;
+    }
+
+    export function buildAzureRecommendation(item, analysis) {
+      const claims = validateAzureClaims(item, analysis);
+      const signals = item.signals;
+      const nativePriority = azurePriority(item);
+      let dependencyReason = "";
+      let dependencyIds = [];
+      const advice = (kind, orderGroup, recommendation, nextAction, whyNow, sourceIds = []) => ({
+        kind, orderGroup, nativePriority, recommendation, nextAction, whyNow: whyNow + dependencyReason,
+        sourceIds: [...new Set([...sourceIds, ...dependencyIds])], coverage: signals.coverage,
+      });
+      if (analysis.status === "UNASSESSED") {
+        return { ...advice("not-assessable", "unassessed", "Not assessable.",
+          `Assess the evidence for item #${item.id} before recommending work.`,
+          "No justified urgency: this item was inventoried but not assessed."), coverage: "not-assessable" };
+      }
+      const chronology = outstandingChronology(item,
+        claims.filter((claim) => claim.type === "blocker"),
+        claims.filter((claim) => claim.type === "blocker-resolved"),
+        (report, update) => report.issueId === update.issueId);
+      const discussionIsComplete = ["complete", "absent"].includes(signals.discussion.status);
+      const references = (selectedClaims) => [...new Set(selectedClaims.flatMap((claim) => claim.sourceIds))];
+      const describe = (ids) => ids.map((id) => sourceDescription(signals.sources.find((source) => source.id === id))).join("; ");
+      const resolvedIds = discussionIsComplete ? references(chronology.superseded) : [];
+      const resolutionReason = resolvedIds.length
+        ? ` Blocker ${chronology.superseded[0].issueId} was resolved: ${describe(resolvedIds)}.` : "";
+      if (nativePriority === "P0") {
+        const source = signals.sources.find((candidate) => candidate.workItemId === item.id &&
+          candidate.referenceName === "Microsoft.VSTS.Common.Severity");
+        return advice("critical-risk", "critical", "Address critical risk.",
+          `Validate the critical risk reported for item #${item.id} before shipping.`,
+          `${source ? sourceDescription(source) : "Native Azure critical risk"} calls for validation before shipping.`,
+          source ? [source.id] : []);
+      }
+      if (signals.coverage === "not-assessable") {
+        return advice("not-assessable", "native", "Not assessable.",
+          `Read the missing evidence for item #${item.id} before recommending work.`,
+          "The inventory is complete, but the signals cannot support an assessment.");
+      }
+      if (!discussionIsComplete && claims.some((claim) => claim.type !== "context")) {
+        return advice("confirm-evidence", "native", "Confirm the current evidence.",
+          signals.discussion.nextAction, `Discussion is ${signals.discussion.status}: ${signals.discussion.reason}. Known reports cannot establish current work until chronology is complete.`,
+          references(claims));
+      }
+      if (chronology.conflicts.length) {
+        const ids = references(chronology.conflicts);
+        return advice("confirm-evidence", "native", "Clarify the current evidence.",
+          `Clarify the conflicting blocker reports for item #${item.id}.`,
+          `Conflicting creation and modification chronology: ${describe(ids)}.`, ids);
+      }
+      const parentCommitments = claims.filter((claim) =>
+        claim.type === "commitment" && claim.parentId !== undefined && claim.isOutstanding === true);
+      const dependencies = claims.filter((claim) => claim.type === "parent-dependency" &&
+        parentCommitments.some((commitment) =>
+          commitment.parentId === claim.parentId && sameIssue(commitment, claim)));
+      const dependencyReports = dependencies.filter((claim) => claim.isOutstanding === true);
+      const matchesDependency = (report, update) =>
+        report.parentId === update.parentId && sameIssue(report, update);
+      const dependencyChronology = outstandingChronology(item,
+        dependencyReports,
+        dependencies.filter((claim) => claim.isOutstanding !== true),
+        matchesDependency);
+      const unknownDependencyChronology = outstandingChronology(item,
+        dependencies.filter((claim) => claim.isOutstanding === undefined),
+        dependencyChronology.outstanding, matchesDependency);
+      const uncertainDependencies = [
+        ...dependencyChronology.conflicts,
+        ...unknownDependencyChronology.outstanding,
+        ...unknownDependencyChronology.conflicts,
+        ...dependencyChronology.outstanding.filter((dependency) =>
+          parentCommitments.some((commitment) => commitment.parentId === dependency.parentId &&
+            sameIssue(commitment, dependency) && !dependencySupports(item, dependency, commitment))),
+      ];
+      if (uncertainDependencies.length) {
+        const ids = references([
+          ...dependencyChronology.superseded.filter((claim) => claim.isOutstanding === true &&
+            unknownDependencyChronology.outstanding.some((unknown) => matchesDependency(claim, unknown))),
+          ...uncertainDependencies, ...parentCommitments,
+        ]);
+        return advice("confirm-evidence", "native", "Clarify the current dependency.",
+          `Confirm whether item #${item.id} is still required for its parent's delivery.`,
+          `Conflicting or unknown child dependency status: ${describe(ids)}.`, ids);
+      }
+      const withdrawnDependencies = references(outstandingChronology(item,
+        dependencyReports, dependencies.filter((claim) => claim.isOutstanding === false),
+        matchesDependency).superseded);
+      if (withdrawnDependencies.length) {
+        dependencyIds = withdrawnDependencies;
+        dependencyReason = ` An explicit later withdrawal removes the earlier child dependency: ${describe(withdrawnDependencies)}.`;
+      }
+      const commitments = claims.filter((claim) => claim.type === "commitment" &&
+        claim.isOutstanding === true && (claim.parentId === undefined ||
+          dependencyChronology.outstanding.some((dependency) => dependencySupports(item, dependency, claim))));
+      const commitmentChronology = outstandingChronology(item, commitments,
+        claims.filter((claim) => claim.type === "commitment" && claim.isOutstanding !== true),
+        (report, update) => report.parentId === update.parentId && sameIssue(report, update) &&
+          (report.issueId !== undefined && update.issueId !== undefined || report.date === update.date));
+      const supersededCommitments = [...commitmentChronology.superseded, ...commitmentChronology.conflicts];
+      if (supersededCommitments.length) {
+        const ids = references(supersededCommitments);
+        return advice("confirm-evidence", "native", "Clarify the current commitment.",
+          `Confirm the current delivery status for item #${item.id}.`,
+          `Later delivery updates supersede or conflict with the earlier outstanding report: ${describe(ids)}.`, ids);
+      }
+      const currentDates = [...new Set(commitments.map((claim) => instant(claim.date)))];
+      if (currentDates.length > 1) {
+        const ids = references(commitments);
+        return advice("confirm-evidence", "native", "Clarify the current commitment.",
+          `Confirm the current delivery date for item #${item.id}.`,
+          `Conflicting current delivery dates: ${describe(ids)}.`, ids);
+      }
+      if (discussionIsComplete && chronology.outstanding.length) {
+        const blocker = chronology.outstanding[0];
+        const ids = references(chronology.outstanding);
+        return advice("unblock", "attention", "Unblock the work.",
+          `Resolve blocker ${blocker.issueId} for item #${item.id}.`,
+          `Outstanding blocker ${blocker.issueId}: ${describe(ids)}.`, ids);
+      }
+      const observedDay = Math.floor(instant(signals.observedAt) / DAY_MS);
+      const nearCommitments = commitments.filter((claim) => Math.floor(instant(claim.date) / DAY_MS) - observedDay <= 7);
+      if (nearCommitments.length) {
+        const ids = references([
+          ...nearCommitments,
+          ...dependencyChronology.outstanding.filter((dependency) =>
+            nearCommitments.some((commitment) => dependencySupports(item, dependency, commitment))),
+        ]);
+        return advice("meet-commitment", "attention", "Meet the commitment.",
+          `Complete the outstanding work for item #${item.id} or confirm a revised delivery date.`,
+          `Current outstanding delivery commitment: ${describe(ids)}.`, ids);
+      }
+      const due = signals.delivery.entries.find((entry) => entry.semantics === "due" && entry.status === "complete");
+      if (due && Math.floor(instant(due.value) / DAY_MS) - observedDay <= 7 &&
+        !claims.some((claim) => claim.type === "commitment")) {
+        return advice("confirm-evidence", "native", "Clarify the current commitment.",
+          `Confirm whether item #${item.id} still has outstanding work for the recorded delivery date.`,
+          `${describe([due.sourceId])} records a scheduling commitment, but current outstanding work is not established.${resolutionReason}`,
+          [due.sourceId, ...resolvedIds]);
+      }
+      const changed = signals.dates.changed;
+      if (changed.status === "complete" && changed.elapsedDays >= 30) {
+        return advice("review-relevance", "native", "Review relevance.",
+          `Confirm whether item #${item.id} still belongs in the backlog.`,
+          `${describe([changed.sourceId])} is ${changed.elapsedDays} days old. Review relevance, not urgency.${resolutionReason}`,
+          [changed.sourceId, ...resolvedIds]);
+      }
+      if (signals.iteration.status === "complete" && signals.iteration.calendarPosition === "after") {
+        return advice("update-planning", "native", "Update planning.",
+          `Confirm the current iteration for item #${item.id}.`,
+          `${signals.iteration.path} ended ${signals.iteration.finishDate}; update stale planning, not a delivery deadline.${resolutionReason}`,
+          [signals.iteration.sourceId, ...resolvedIds]);
+      }
+      return advice("keep-native-order", "native", "Keep native order.",
+        `Continue item #${item.id} in native Azure priority order.`,
+        `No grounded current reason changes native Azure order.${resolutionReason}`, resolvedIds);
+    }

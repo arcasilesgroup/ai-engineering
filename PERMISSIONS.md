@@ -26,3 +26,12 @@ inventory-only API callers retain their original read surface.
 Continuation URLs never authorize requests: validate their organization, item
 and name/verified-GUID project identity, then reconstruct the original selected
 route with only the opaque token. An unverified GUID is denied.
+
+Recommendations authorize no additional reads or remote writes. Source-linked
+claims are validated before publishing; unknown/cross-item evidence, unsafe claim
+URLs and unsupported code-verification assertions fail closed. Optional gaps
+remain visible and cannot establish current blockers or commitments.
+`tests/fixtures/triage-azure-signals-preview.mjs` is gate support only: it serves
+synthetic complete/limited/empty writer output from memory on `127.0.0.1:8773`,
+plus `/health`. It neither reads nor overwrites the private triage artifact,
+contacts Azure, nor creates an authenticated browser session.

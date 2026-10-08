@@ -17,6 +17,7 @@ export type AzureTriageReportInput<T extends { id: number }> = {
 export function escapeHtml(value: string): string;
 export function sanitizeEvidenceUrl(value: unknown): string | null;
 export function renderAnalysis(value: string): string;
+export function azurePriority(item: { fields: Record<string, unknown> }): string;
 
 export type TriageHierarchyNode = {
   label: string;
@@ -48,3 +49,4 @@ export function atomicWriteReport(
 export function writeAzureTriageReport<T extends { id: number }>(
   input: AzureTriageReportInput<T>,
 ): Promise<void>;
+export type { AzureAssessment, AzureClaim, AzureRecommendation } from "./azure-signals.mjs";

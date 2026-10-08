@@ -160,12 +160,38 @@
         "states": ["complete", "expanded", "limited", "empty"]
       },
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
-        "ui": { "status": "pending", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "behavior": { "status": "passed", "attempts": 2, "findings": [] },
+        "ui": { "status": "passed", "attempts": 0, "findings": [] },
+        "review": { "status": "passed", "attempts": 0, "findings": [] }
       },
-      "status": "pending",
-      "changed_files": []
+      "status": "passed",
+      "changed_files": [
+        "tests/triage-azure-signals.unit.spec.ts",
+        "tests/triage-azure-signals.integration.spec.ts",
+        "LEARNINGS.md"
+        ,"skills/ai-triage/scripts/azure-signals.mjs"
+        ,"skills/ai-triage/scripts/azure-signals.d.mts"
+        ,"skills/ai-triage/scripts/render-report.mjs"
+        ,"skills/ai-triage/scripts/render-report.d.mts"
+        ,"skills/ai-triage/SKILL.md"
+        ,"skills/ai-triage/references/azure-devops.md"
+        ,"scripts/.embed/ai-triage/scripts/azure-signals.mjs.txt"
+        ,"scripts/.embed/ai-triage/scripts/azure-signals.d.mts.txt"
+        ,"scripts/.embed/ai-triage/scripts/render-report.mjs.txt"
+        ,"scripts/.embed/ai-triage/scripts/render-report.d.mts.txt"
+        ,"templates/triage.html.tpl"
+        ,"tests/fixtures/triage-azure-signals-preview.mjs"
+        ,"CHANGELOG.md"
+        ,"FILEMAP.md"
+        ,"PERMISSIONS.md"
+      ],
+      "notes": [
+        "Tests-first proof: 28 new unit and 19 new writer failures; 152 existing/compatible cases pass. Test fixture property aligned with the canonical collector item.signals before implementation. Red-test commits deferred until green per repository commit rules.",
+        "Post-fix behavior proof: 126 unit, 144 API, 72 static pass; lint/typecheck exit 0; full normal bun test 1231 pass, 0 fail. Complete/limited/empty preview coverage verified.",
+        "Safety note: test rerun with project-local temp caused governance side effects, feature branch/HEAD/index and tracked files restored. Recovery worker confirms local config/hooks baseline. Primary private report fingerprint differs from an earlier observation and global machine undo metadata could not be cleared without exact preimages; neither will be restored speculatively. Continue isolated feature only, preserve unrelated primary changes; surface uncertainty at app review before merge.",
+        "UI gate PASS: 8 state/viewport pairs match. Independent visual and behavior reviewers report 0 high/medium/low findings; 16 keyboard disclosures and no horizontal overflow verified at 375/1440.",
+        "Adversarial review PASS round 4, F1-F3 resolved, 0 open. Post-review lower gates: 144 unit, 156 API, 72 static pass; full normal suite 1261 pass/0 fail/5655 assertions; lint/typecheck exit 0. Collector-to-claims-to-writer operational sample verified. UI recapture after fixes: 8/8 match. Awaiting human app review; no merge/push."
+      ]
     }
   ],
   "assumptions": [

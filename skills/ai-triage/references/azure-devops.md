@@ -72,6 +72,14 @@ for a team's configured board policy. Work-item state stays verbatim and does
 not imply urgency: an advanced state can mean work is closer to completion, not
 that it is more important.
 
+The native band is never rewritten by analysis. For assessed items the separate
+recommendation order is native P0 first, then one attention group for validated
+current blockers or outstanding commitments overdue, today or within seven UTC
+calendar days, then native order. Both native band and original inventory order
+break ties within each group. Explicit UNASSESSED items retain inventory order
+at the end. With no grounded current reason, this is the legacy native ordering.
+Critical risk and calendar commitments remain visible as competing reasons.
+
 ## Scoped CLI adapter
 
 Use `createAzureDevOpsInvoker` from `scripts/collect-azure.mjs` as the collector's
@@ -184,8 +192,11 @@ stops the run.
 
 Pass the complete inventory and its per-item analysis records to
 `writeAzureTriageReport` in `scripts/render-report.mjs` through an `analyzeItem` lookup
-keyed by work-item ID. `signals` are evidence input to the analysis; this collection step does not change
-the existing HTML sections, native ranking algorithm or `UNASSESSED` fallback.
+keyed by work-item ID. Each assessed record has `status: "ASSESSED"`, a nonempty
+`summary`, and a `claims` array (empty when nothing is supported). An unavailable
+assessment is explicitly `{ status: "UNASSESSED" }`; missing records are fatal.
+The writer calls `validateAzureClaims` and `buildAzureRecommendation` from
+`scripts/azure-signals.mjs` before rendering.
 The writer uses the shared
 `templates/triage.html.tpl` shell and the Azure-specific scope, ranked work-item,
 type/state and method sections. Each ranked item's expanded details renders its parent,
@@ -208,3 +219,104 @@ Work-item and relationship links use the Azure Boards work-item page
 report open in a new tab with `rel="noreferrer noopener"`. The ranked row shows
 the work-item type and exact state; expanded details show the parent, backlog
 item, and child links as a hierarchy.
+
+## Semantic claims and chronology
+
+Extract claims from meaning, not keywords, comment counts, model scores, state
+names or parent rank. Analysis explains the work once; Why now is separately
+derived from validated structured claims and normalized facts, not copied prose.
+Every claim uses the actual item's `signals.sources` IDs, the exact supporting
+comment `excerpt` and/or field `value`, and `provenance`. Do not invent quotations,
+versions, dates or parent IDs. Claims support these closed types:
+
+| Type | Required support |
+| --- | --- |
+| `blocker` | Exact comment excerpt describing a specific unresolved dependency; stable `issueId` identifies it. |
+| `blocker-resolved` | Exact comment excerpt explicitly resolving that same `issueId`. Unrelated resolutions do not count. |
+| `commitment` | Exact comment excerpt establishing delivery status and a cited metadata-recognized DueDate/TargetDate equal to `date`; use a stable `issueId` for that specific delivery. `isOutstanding` is true, false or omitted when unknown. |
+| `parent-dependency` | Exact child comment excerpt requiring, withdrawing or questioning this child's dependency for its direct `parentId`; cite the actual parent's field source and use the matching delivery `issueId`. Set `isOutstanding` only when supported. |
+| `context` | Exact excerpt or field value describing evidence without implying urgency. Parent sources require the matching `parentId`. |
+
+Example for one synthetic item (substitute only actual collected IDs and text):
+
+```js
+{
+  status: "ASSESSED",
+  summary: "Preparation makes the work usable by the delivery stage.",
+  claims: [{
+    type: "commitment",
+    sourceIds: [
+      "field:202:r6:Microsoft.VSTS.Scheduling.DueDate",
+      "comment:202:21:v1",
+    ],
+    excerpt: "The package is unfinished and still due tomorrow.",
+    issueId: "delivery-package",
+    date: "2026-10-09T00:00:00Z",
+    isOutstanding: true,
+    provenance: "team-reported",
+  }],
+}
+```
+
+Board fields and comments are **team-reported**, never code-verified. An ordinary
+HTTPS URL cannot upgrade their provenance. The collected source contract contains
+no independently verified code sources, so code-verified claims are rejected
+rather than manufactured; verified code links may be supplied separately in
+Analysis/evidence only after inspecting the identified repository at a pinned
+commit. No repository identification or inspection means no code-verification
+assertion. Any supplied claim URL must pass the existing raw/decoded credential
+and HTTPS boundary, even when the claim would not change order.
+
+Pair blockers and resolutions by `issueId`. For deliveries, derive the stable
+identity from what the cited excerpts describe, not keywords or a shared date:
+two packages due on the same day are not the same commitment. Match parent
+dependencies to the same direct parent and delivery identity. Include explicit
+false and unknown status claims as well as true ones; never omit counterclaims.
+Legacy commitments without an identity are reconciled conservatively by parent
+and date. Separate-comment parent dependency support needs matching identities;
+legacy claims can share the same supporting comment, but sharing a parent date
+field alone is not enough. Missing linkage asks for clarification without promotion.
+
+Use both creation and modification timestamps, not array order or modification
+time alone. An unedited counterclaim created strictly after the earlier report's
+last modification supersedes it. An unedited older counterclaim cannot withdraw
+a newer report. If the counterclaim was created earlier or simultaneously but
+edited at or after the report, retain both as a conflict. Likewise, a later edited
+counterclaim or an earlier report edited at or after the counterclaim requires
+clarification: the API exposes the current comment version, not when its asserted
+event occurred. Apply this rule to blockers, completed/unknown commitments and
+withdrawn/unknown parent dependencies. A later unedited renewal of the same
+identity supersedes earlier reports whose last modification precedes it; their
+historical conflict pairs must not override current evidence. An unknown edited
+before a renewed confirmation is historical, while an edit overlapping or
+following that confirmation still requires clarification. Preserve references
+for unresolved conflicts in Why now, not superseded historical pairs.
+Partial discussion cannot establish current outstanding work, a current blocker
+or absence of blockers; complete those reads first. Independent native critical
+fields remain usable with visibly limited coverage.
+
+DueDate records a scheduling commitment, not proof of unfinished work or a
+guaranteed contract. It needs current outstanding-work evidence to promote.
+TargetDate is a forecast unless an explicit current commitment grounds it. Keep
+both raw dates visible; conflicting current commitments require clarification
+without promotion. A parent's current commitment affects its child only with a
+matching explicit outstanding dependency. Parent Priority alone never promotes.
+Reconcile all matching dependency statuses before admitting the parent commitment.
+A later unambiguous withdrawal removes the child promotion; ambiguous edits or
+unknown dependency status ask for clarification in native order. A promotion
+includes the actual dependency comment sources in Why now, even when the
+dependency and parent commitment are reported in separate comments.
+
+At 30 elapsed days without change, recommend relevance review without promoting
+rank. An expired sprint suggests updating planning, not overdue delivery. Fresh
+activity, workflow state and comment count supply no urgency. Retain absent,
+partial and inaccessible signals with each reason and next action. Inventory
+completeness and evidence coverage are independent.
+
+The four Azure sections retain every selected member once. Expanded items show
+Recommendation, Why now, Analysis, Created / Changed, Delivery dates, Discussion,
+Iteration / sprint, Parent signals, Area, Coverage and Evidence, alongside native
+Azure priority and hierarchy. Comment evidence links use the documented Board
+item URL with comment ID/version/timestamp labels, never guessed deep links.
+Remote comment markup is inert escaped text. Legacy callers without `signals`
+keep native behavior; the normal skill always explicitly requests `includeSignals`.

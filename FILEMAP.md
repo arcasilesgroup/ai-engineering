@@ -33,8 +33,8 @@ skills/                        Installed skill canon
     scripts/
       collect-azure.mjs        Scoped Azure backlog collector
       collect-azure.d.mts      Collector types
-      azure-signals.mjs        Normalize scoped Azure evidence, sources and coverage
-      azure-signals.d.mts      Signal normalization types
+      azure-signals.mjs        Normalize evidence; validate claims and derive recommendations
+      azure-signals.d.mts      Signal, claim, assessment and recommendation types
       render-report.mjs        Safe report rendering and atomic write
       render-report.d.mts      Report writer types
       resolve-target.mjs       Explicit provider and target resolution
@@ -49,6 +49,8 @@ tests/
   skills.spec.ts               Skill contracts, including the local recap handoff
   generated-payload.test.ts   Assert generated assets match their source files
   triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests
+  fixtures/
+    triage-azure-signals-preview.mjs  Synthetic writer preview on loopback, memory-only reports
 templates/
   recap.html.tpl               Self-contained HTML recap shell and styles
 agents/                        Specialist agents for the feature workflow

@@ -215,15 +215,9 @@ function redactedText(value) {
   const decodedValues = percentDecodedValues(value);
   if (decodedValues === null) return "[redacted]";
   const redactedValue = redactAuthentication(value);
-  if (redactedValue !== value) return redactedValue;
-  if (
-    decodedValues.some(
-      (candidate) => redactAuthentication(candidate) !== candidate,
-    )
-  ) {
-    return "[redacted]";
-  }
-  return value;
+  const scrubbedValue = redactedValue.replace(/[^\s"'<>]+/g, (candidate) =>
+    candidate.includes("%") && containsAuthentication(candidate) ? "[redacted]" : candidate);
+  return containsAuthentication(scrubbedValue) ? "[redacted]" : scrubbedValue;
 }
 
 function visibleText(value) {
@@ -390,7 +384,7 @@ function normalizeAnalysis(analysis, itemId) {
     const url = sanitizeEvidenceUrl(entry.url);
     return { label, url };
   });
-  return { status: "ASSESSED", priority, summary, evidence };
+  return { status: "ASSESSED", priority, summary, evidence, claims: analysis.claims };
 }
 
 async function analyzeInventory(items, analyzeItem) {
@@ -398,13 +392,20 @@ async function analyzeInventory(items, analyzeItem) {
     throw new Error("Azure item analysis is required");
   }
   const analyses = new Array(items.length);
+  // Load the signal layer only for enriched reports; it reuses this module's output boundary.
+  const { buildAzureRecommendation } = await import("./azure-signals.mjs");
   let nextIndex = 0;
   const worker = async () => {
     while (nextIndex < items.length) {
       const index = nextIndex++;
       const item = items[index];
       if (item === undefined) throw new Error("Azure inventory changed during analysis");
-      analyses[index] = normalizeAnalysis(await analyzeItem(item), item.id);
+      const suppliedAnalysis = await analyzeItem(item);
+      const analysis = normalizeAnalysis(suppliedAnalysis, item.id);
+      if (item.signals !== undefined) {
+        analysis.recommendation = buildAzureRecommendation(item, suppliedAnalysis);
+      }
+      analyses[index] = analysis;
     }
   };
   await Promise.all(
@@ -468,7 +469,7 @@ function prioritySignals(item) {
   ].join(" · ");
 }
 
-function azurePriority(item) {
+export function azurePriority(item) {
   const fields = item.fields;
   const candidates = [];
   const priority = Number(fields["Microsoft.VSTS.Common.Priority"]);
@@ -514,18 +515,85 @@ function renderItem(item, analysis, relations, scope) {
     analysis.status === "ASSESSED"
       ? renderAnalysis(analysis.summary)
       : "This item was inventoried but not assessed.";
+  const advice = analysis.recommendation;
+  const signalRows = advice ? renderSignalRows(item, advice, scope) : {};
+  const row = (label, contents, className = "") =>
+    `<div class="kv"><span class="ilbl">${label}</span><span${className ? ` class="${className}"` : ""}>${contents}</span></div>`;
+  const recommendationRows = advice
+    ? row("Recommendation", `<strong>${visibleText(advice.recommendation)}</strong> ${visibleText(advice.nextAction)}`) +
+      row("Why now", visibleText(advice.whyNow))
+    : "";
+  const evidenceLinks = advice
+    ? [
+      signalRows.Evidence, evidence === "No verified evidence links." ? "" : evidence,
+      ...(analysis.claims ?? []).filter((claim) => claim.url !== undefined).map((claim) => link(`${claim.provenance} ${claim.type} evidence`, claim.url)),
+    ].filter(Boolean).join(" · ")
+    : evidence;
+  const titleLabel = typeof fields["System.Title"] === "string" ? fields["System.Title"] : `Work item ${item.id}`;
+  const disclosureLabel = advice ? ` role="button" aria-label="${visibleText(`Item #${item.id}: ${titleLabel}`)}"` : "";
 
   return `<details class="item" id="i${item.id}">
-    <summary>${status}${typeChip(item)}<span class="iid">${itemLink}</span><span class="ititle">${title}</span><span class="imeta">${visibleText(fields["System.State"])}</span></summary>
+    <summary${disclosureLabel}>${status}${typeChip(item)}<span class="iid">${itemLink}</span><span class="ititle">${title}</span><span class="imeta">${visibleText(fields["System.State"])}</span></summary>
   <div class="ibody">
     <div class="kv"><span class="ilbl">Type</span><span>${visibleText(fields["System.WorkItemType"])}</span></div>
     <div class="kv"><span class="ilbl">Azure priority</span><span>${prioritySignals(item)}</span></div>
+    ${recommendationRows}
     <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">${summary}</span></div>
+    ${advice ? ["Created / Changed", "Delivery dates", "Discussion", "Iteration / sprint", "Parent signals"].map((label) => row(label, signalRows[label])).join("\n") : ""}
+    ${advice && relations.length > 0 ? `<div class="kv"><span class="ilbl">Related context</span><div class="xref">${relationContext}</div></div>` : ""}
     <div class="kv"><span class="ilbl">Area</span><span>${area}</span></div>
-    <div class="kv"><span class="ilbl">Related context</span><div class="xref">${relationContext}</div></div>
-    <div class="kv"><span class="ilbl">Evidence</span><span class="xref">${evidence}</span></div>
+    ${advice ? "" : `<div class="kv"><span class="ilbl">Related context</span><div class="xref">${relationContext}</div></div>`}
+    ${advice ? row("Coverage", signalRows.Coverage, advice.coverage === "limited" ? "coverage-gap" : "") : ""}
+    <div class="kv"><span class="ilbl">Evidence</span><span class="xref">${evidenceLinks}</span></div>
   </div>
 </details>`;
+}
+
+function renderSignalRows(item, advice, scope) {
+  const signals = item.signals;
+  const textValue = (value) => typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
+  const coverageText = (signal) => `${signal.status[0].toUpperCase()}${signal.status.slice(1)}${signal.reason ? `: ${signal.reason}` : ""}${signal.nextAction ? `. ${signal.nextAction}` : ""}`;
+  const formatDate = (value) => {
+    const timestamp = Date.parse(value);
+    return Number.isFinite(timestamp) ? new Date(timestamp).toISOString().replace(".000Z", "Z") : textValue(value);
+  };
+  const dateText = (label, signal) => `${label} ${signal.value === undefined ? "not returned" : formatDate(signal.value)}${signal.elapsedDays === undefined ? "" : ` · ${signal.elapsedDays} days ago`}${signal.status === "complete" ? "." : `. ${coverageText(signal)}`}`;
+  const deliveryText = (delivery) => delivery.entries.map((entry) => {
+    const value = entry.value === undefined ? "not returned" : entry.value === null ? "unset" :
+      entry.status === "complete" && entry.semantics !== "unrecognized" ? formatDate(entry.value).slice(0, 10) : textValue(entry.value);
+    return `${entry.referenceName}: ${value}. ${entry.semantics === "due" ? "Scheduling commitment, not a guaranteed contract." : entry.semantics === "forecast" ? "Forecast only." : "Unrecognized context; semantics unknown."}${entry.status === "complete" ? "" : ` ${coverageText(entry)}`}`;
+  }).join(" ");
+  const comments = signals.discussion.comments.filter((comment) => !comment.isDeleted).map((comment) =>
+    `Comment #${comment.id} v${comment.version} · created ${comment.createdDate} · modified ${comment.modifiedDate}: “${comment.text}” Team-reported; not code-verified.`);
+  const iteration = signals.iteration;
+  const iterationPath = iteration.path ?? item.fields["System.IterationPath"] ?? "Path not returned";
+  const parent = signals.parent;
+  const parentText = parent.workItemId === undefined
+    ? `No direct parent evidence. ${coverageText(parent)}`
+    : `#${parent.workItemId} · Priority ${parent.priority ?? "not set"} · Severity ${parent.severity ?? "not set"}. ${deliveryText(parent.delivery)} Context only; no urgency inherited. ${coverageText(parent)}`;
+  const gaps = [
+    signals.discussion, signals.dates.created, signals.dates.changed,
+    ...signals.delivery.entries, iteration, parent, parent.importance?.priority,
+    parent.importance?.severity, parent.dates?.created, parent.dates?.changed,
+    ...parent.delivery.entries,
+  ].filter((signal) => signal && signal.status !== "complete" && signal.reason !== "no-direct-parent");
+  const evidence = signals.sources.map((source) => {
+    const label = source.commentId !== undefined
+      ? `#${source.workItemId} comment #${source.commentId} v${source.version} · ${source.createdDate} / ${source.modifiedDate}`
+      : source.referenceName !== undefined
+        ? `#${source.workItemId} revision ${source.revision} · ${source.referenceName}: ${textValue(source.value)}`
+        : `#${source.workItemId} iteration ${source.path} · ${source.startDate ?? "unset"} / ${source.finishDate ?? "unset"}`;
+    return link(label, itemUrl(scope, source.workItemId));
+  });
+  return {
+    "Created / Changed": visibleText(`${dateText("Created", signals.dates.created)} ${dateText("Changed", signals.dates.changed)}`),
+    "Delivery dates": visibleText(deliveryText(signals.delivery)),
+    Discussion: visibleText(`${comments.join(" ")} ${coverageText(signals.discussion)} discussion.`),
+    "Iteration / sprint": visibleText(`${iterationPath} · ${iteration.startDate ?? "dates unset"} through ${iteration.finishDate ?? "dates unset"}. Planning context only; sprint end is not a delivery commitment. ${coverageText(iteration)}`),
+    "Parent signals": visibleText(parentText),
+    Coverage: visibleText(`${advice.coverage === "not-assessable" ? "Not assessable" : advice.coverage}. Complete inventory is separate from signal coverage. ${gaps.map(coverageText).join(" ")} ${advice.nextAction}`),
+    Evidence: evidence.join(" · ") || link(`#${item.id} revision ${item.rev} · type/state`, itemUrl(scope, item.id)),
+  };
 }
 
 function renderTypeStateTable(items) {
@@ -547,7 +615,7 @@ function renderTypeStateTable(items) {
         `<tr><td>${visibleText(type)}</td><td>${visibleText(state)}</td><td>${count}</td></tr>`,
     )
     .join("");
-  return `<div class="tbl-wrap"><table>
+  return `<div class="tbl-wrap azure-type-state"><table>
   <thead><tr><th>Work item type</th><th>State</th><th>Inventory count</th></tr></thead>
   <tbody>${rows}</tbody>
 </table></div>`;
@@ -588,9 +656,21 @@ export function renderHierarchy({ current, parents = [], children = [] }) {
   return `<div class="tree-group" role="listitem">${parentRows}${parents.length === 0 ? currentBranch : `<div class="tree-branch">${currentBranch}</div>`}</div>`;
 }
 
-function renderSections(scope, items, analyses, hierarchy) {
+function renderSections(scope, items, analyses, hierarchy, observedAt) {
+  const hasSignals = items.some((item) => item.signals !== undefined) || items.length === 0;
+  const region = (name) => hasSignals ? ` data-region="${name}"` : "";
   const assessedCount = analyses.filter((analysis) => analysis.status === "ASSESSED").length;
   const unassessedCount = items.length - assessedCount;
+  const orderGroups = { critical: 0, attention: 1, native: 2, unassessed: 3 };
+  const criticalIds = items.filter((_item, index) => analyses[index]?.recommendation?.orderGroup === "critical").map((item) => `#${item.id}`);
+  const commitmentIds = items.filter((_item, index) => analyses[index]?.recommendation?.kind === "meet-commitment").map((item) => `#${item.id}`);
+  if (criticalIds.length && commitmentIds.length) {
+    for (const analysis of analyses) {
+      if (analysis.recommendation?.orderGroup === "critical" || analysis.recommendation?.kind === "meet-commitment") {
+        analysis.recommendation.whyNow += ` Compare critical risk ${criticalIds.join(", ")} with current commitment ${commitmentIds.join(", ")}; neither reason removes the other.`;
+      }
+    }
+  }
   const rankedItems = items
     .map((item, index) => ({ item, index, analysis: analyses[index] }))
     .sort((first, second) => {
@@ -602,7 +682,11 @@ function renderSections(scope, items, analyses, hierarchy) {
         second.analysis?.status === "ASSESSED"
           ? (PRIORITY_ORDER.get(azurePriority(second.item)) ?? 5)
           : 6;
-      return firstRank - secondRank || first.index - second.index;
+      const firstGroup = first.analysis?.recommendation?.orderGroup;
+      const secondGroup = second.analysis?.recommendation?.orderGroup;
+      const groupDifference = (orderGroups[firstGroup ?? (firstRank === 6 ? "unassessed" : firstRank === 0 ? "critical" : "native")]) -
+        (orderGroups[secondGroup ?? (secondRank === 6 ? "unassessed" : secondRank === 0 ? "critical" : "native")]);
+      return groupDifference || firstRank - secondRank || first.index - second.index;
     });
   const itemsHtml = rankedItems
     .map(({ item, index, analysis }) => {
@@ -613,8 +697,14 @@ function renderSections(scope, items, analyses, hierarchy) {
       return renderItem(item, analysis, itemHierarchy, scope);
     })
     .join("\n");
-  const date = new Date().toISOString().slice(0, 10);
-  const sections = `<section id="s01">
+  const observation = observedAt ?? items.find((item) => item.signals)?.signals.observedAt ?? new Date().toISOString();
+  const date = observation.slice(0, 10);
+  const coverageCounts = { sufficient: 0, limited: 0, "not-assessable": 0 };
+  for (const analysis of analyses) {
+    if (analysis.recommendation) coverageCounts[analysis.recommendation.coverage]++;
+  }
+  const coverageSummary = `Inventory complete. Evidence coverage: ${coverageCounts.sufficient} sufficient, ${coverageCounts.limited} limited, ${coverageCounts["not-assessable"]} not assessable.`;
+  const sections = `<section id="s01"${region("backlog-snapshot")}>
   <h2><span class="num">01 · Snapshot</span>Backlog snapshot</h2>
   <h3>Azure DevOps scope</h3>
   <div class="stats">
@@ -623,31 +713,36 @@ function renderSections(scope, items, analyses, hierarchy) {
     <div class="stat"><div class="v">${unassessedCount}</div><div class="l">UNASSESSED</div></div>
   </div>
   <p>${visibleText(scope.organization)} · ${visibleText(scope.project)} · ${visibleText(scope.team)} · ${visibleText(scope.backlogName)}</p>
+  ${hasSignals ? `<p>${items.length ? coverageSummary : "Inventory complete: zero selected members. No item evidence or urgency is asserted."}</p>` : ""}
 </section>
 
-<section id="s02">
+<section id="s02"${hasSignals ? ' class="azure-signals"' : ""}${region("ranked-work")}>
   <h2><span class="num">02 · Ranked work</span>What to work on first</h2>
-  <p>Every selected item appears once. Azure priority and severity fields set urgency; workflow states remain unchanged and do not imply priority. Missing priority data appears last.</p>
+  <p>${hasSignals ? "Every selected item appears once. The band shows native Azure urgency, not a generated score. Grounded current reasons can change the separate recommendation; critical native risk stays first." : "Every selected item appears once. Azure priority and severity fields set urgency; workflow states remain unchanged and do not imply priority. Missing priority data appears last."}</p>
+  ${criticalIds.length && commitmentIds.length ? `<p>Review the conflict: ${criticalIds.join(", ")} has critical native severity; ${commitmentIds.join(", ")} has a current commitment. Neither reason removes the other.</p>` : ""}
   <div class="items">${itemsHtml}</div>
+  ${items.length ? "" : "<p>No selected backlog members were returned. There is nothing to rank.</p>"}
 </section>
 
-<section id="s03">
+<section id="s03"${region("type-state-summary")}>
   <h2><span class="num">03 · Work item types</span>Types and states</h2>
   <h3>Work item types and states</h3>
-  <p>Counts are grouped from the selected backlog inventory. The rows below are type/state summaries, not additional work items.</p>
+  <p>Counts describe this selected inventory, not additional work items.</p>
   ${renderTypeStateTable(items)}
 </section>
 
-<section id="s04">
+<section id="s04"${region("coverage-method")}>
   <h2><span class="num">04 · Method</span>Coverage and method</h2>
   <h3>Method</h3>
-  <p>Read-only Azure DevOps Services report for the explicitly selected team backlog level “${visibleText(scope.backlogName)}”. Ranking uses the standard Azure Priority field (1 highest) and Severity field (Critical to Low), taking the strongest signal. Workflow state is displayed verbatim and is not treated as urgency.</p>
+  <p>${hasSignals ? `Read-only Azure DevOps Services report for one selected team backlog level “${visibleText(scope.backlogName)}”. Related parents and children are context only. Every selected member is retained, with its exact state. Native urgency uses the strongest Priority/Severity signal; validated current reasons change only the separate recommendation order.` : `Read-only Azure DevOps Services report for the explicitly selected team backlog level “${visibleText(scope.backlogName)}”. Ranking uses the standard Azure Priority field (1 highest) and Severity field (Critical to Low), taking the strongest signal. Workflow state is displayed verbatim and is not treated as urgency.`}</p>
   <p>Coverage: ${items.length} inventoried work items, ${assessedCount} assessed, ${unassessedCount} explicitly UNASSESSED. The type/state counts sum to ${items.length}.</p>
+  ${hasSignals ? `<p>${coverageSummary}</p>
+  <p>Observation time: ${visibleText(observation)}. Near means overdue, today or the next seven UTC calendar days. Thirty days without change suggests relevance review, never urgent ranking. Sprint end and parent priority are not inherited deadlines or urgency. Team reports are not code verification.</p>` : ""}
 </section>`;
   return { date, sections, assessedCount, unassessedCount };
 }
 
-function renderTemplate(template, scope, date, sections) {
+function renderTemplate(template, scope, date, sections, hasSignals) {
   if (!/<!-- report-content-start -->[\s\S]*?<!-- report-content-end -->/.test(template)) {
     throw new Error("Triage template is missing report markers");
   }
@@ -662,7 +757,10 @@ function renderTemplate(template, scope, date, sections) {
         `<a href="#s0${index + 1}"><b>0${index + 1}</b>${label}</a>`,
     )
     .join("\n");
-  const projectLabel = `${scope.organization}/${scope.project}`;
+  const organizationUrl = new URL(scope.organization);
+  const organizationLabel = organizationUrl.hostname === "dev.azure.com"
+    ? organizationUrl.pathname.slice(1) : organizationUrl.hostname.split(".")[0];
+  const projectLabel = hasSignals ? `${organizationLabel} / ${scope.project}` : `${scope.organization}/${scope.project}`;
   const substitutions = new Map([
     ["{{repo}}", visibleText(projectLabel)],
     ["{{date}}", visibleText(date)],
@@ -674,7 +772,7 @@ function renderTemplate(template, scope, date, sections) {
     [
       "{{meta}}",
       visibleText(
-        `${scope.organization} · ${scope.project} · ${scope.team} · ${scope.backlogName}`,
+        `${hasSignals ? organizationLabel : scope.organization} · ${scope.project} · ${scope.team} · ${scope.backlogName}`,
       ),
     ],
     ["{{footer}}", visibleText("Complete inventory · read-only report")],
@@ -686,7 +784,7 @@ function renderTemplate(template, scope, date, sections) {
       if (placeholder.startsWith("<!-- report-content-start -->")) return sections;
       return substitutions.get(placeholder) ?? placeholder;
     },
-  );
+  ).replace('<header class="hero">', '<header class="hero" data-region="page-header">');
 }
 
 export async function atomicWriteReport(
@@ -752,12 +850,13 @@ export async function writeAzureTriageReport({
   const hierarchy = items.map(hierarchyFor);
   const analyses = await analyzeInventory(items, analyzeItem);
   const template = await readFile(TEMPLATE_URL, "utf8");
-  const rendered = renderSections(validatedScope, items, analyses, hierarchy);
+  const rendered = renderSections(validatedScope, items, analyses, hierarchy, inventory.observedAt);
   const report = renderTemplate(
     template,
     validatedScope,
     rendered.date,
     rendered.sections,
+    items.length === 0 || items.some((item) => item.signals !== undefined),
   );
 
   await writeFile(REPORT_PATH, report);

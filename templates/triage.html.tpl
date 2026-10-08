@@ -205,6 +205,12 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 .tree-branch>.tree-current::before,.tree-child::before{content:'';width:10px;border-top:1px solid var(--line-strong);margin-left:calc(-1 * var(--s4));flex:0 0 10px}
 .tree-row a{font-family:var(--mono);font-size:11px;font-weight:600}
 @media (max-width:700px){.tree-group{padding-left:var(--s3)}.tree-role{min-width:66px}}
+.azure-type-state table{min-width:0}
+.azure-type-state th{white-space:normal}
+.azure-signals .kv .ilbl{font-size:var(--fs-label);line-height:var(--lh-small);overflow-wrap:anywhere}
+.azure-signals .ibody .kv>span:last-child{overflow-wrap:anywhere}
+.azure-signals .item>summary{min-height:44px}
+.azure-signals .coverage-gap{border-left:3px solid var(--warn);padding-left:var(--s3)}
 </style>
 </head>
 <body>

@@ -108,3 +108,47 @@ export function normalizeAzureSignals(input: {
   iterations: AzureSignalRead;
   parent: AzureSignalRead;
 }): AzureSignals;
+
+export type AzureClaim = {
+  type: "blocker" | "blocker-resolved" | "commitment" | "parent-dependency" | "context";
+  sourceIds: string[];
+  provenance: "team-reported" | "code-verified";
+  excerpt?: string;
+  value?: unknown;
+  issueId?: string;
+  date?: string;
+  parentId?: number;
+  isOutstanding?: boolean;
+  url?: string;
+};
+export type AzureAssessment = {
+  status: "ASSESSED";
+  summary: string;
+  claims: AzureClaim[];
+} | {
+  status: "UNASSESSED";
+  claims?: [];
+};
+export type AzureRecommendation = {
+  kind: "critical-risk" | "meet-commitment" | "unblock" | "confirm-evidence" |
+    "review-relevance" | "update-planning" | "keep-native-order" | "not-assessable";
+  orderGroup: "critical" | "attention" | "native" | "unassessed";
+  nativePriority: string;
+  recommendation: string;
+  nextAction: string;
+  whyNow: string;
+  sourceIds: string[];
+  coverage: AzureSignals["coverage"];
+};
+export function validateAzureClaims<T>(
+  item: AzureSignalItem & { signals: AzureSignals },
+  analysis: { claims: T[] },
+): T[];
+export function validateAzureClaims(
+  item: AzureSignalItem & { signals: AzureSignals },
+  analysis: unknown,
+): AzureClaim[];
+export function buildAzureRecommendation(
+  item: AzureSignalItem & { signals: AzureSignals },
+  analysis: unknown,
+): AzureRecommendation;

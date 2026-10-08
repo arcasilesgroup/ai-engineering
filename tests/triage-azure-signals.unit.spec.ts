@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { normalizeAzureDiscussion, normalizeAzureSignals } from "../skills/ai-triage/scripts/azure-signals.mjs";
+import * as azureRecommendationApi from "../skills/ai-triage/scripts/azure-signals.mjs";
 
 type WorkItemFixture = {
   id: number;
@@ -619,5 +620,726 @@ describe("U4 exact selected-team iteration and parent context", () => {
       parent: { status: "inaccessible", reason: "parent-unavailable", nextAction: "Read the direct parent." },
     });
     expect(normalizeAzureSignals(input).coverage).toBe("not-assessable");
+  });
+});
+
+function recommendationFixture(
+  fields: Record<string, unknown> = {},
+  comments: ReturnType<typeof commentFixture>[] = [],
+  reads: Pick<Partial<SignalFixture>, "discussion" | "parent" | "iterations"> = {},
+) {
+  const input = signalFixture({
+    discussion: {
+      status: "complete",
+      pages: [{ count: comments.length, totalCount: comments.length, comments }],
+    },
+    ...reads,
+  });
+  input.item.fields = {
+    "System.Title": "Synthetic outstanding work",
+    "System.State": "Ready for investigation",
+    "System.CreatedDate": "2026-09-01T00:00:00Z",
+    "System.ChangedDate": "2026-10-07T00:00:00Z",
+    "System.IterationPath": iterationPath,
+    "Microsoft.VSTS.Common.Priority": 3,
+    "Microsoft.VSTS.Common.Severity": "3 - Medium",
+    ...fields,
+  };
+  return { ...input.item, signals: normalizeAzureSignals(input) };
+}
+
+function claimFixture(
+  type: string,
+  comment: ReturnType<typeof commentFixture>,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    type,
+    sourceIds: [`comment:202:${comment.id}:v${comment.version}`],
+    excerpt: comment.text,
+    provenance: "team-reported",
+    ...overrides,
+  };
+}
+
+function assessedFixture(claims: unknown[] = []) {
+  return {
+    status: "ASSESSED",
+    summary: "Synthetic explanation of the remaining work.",
+    claims,
+  };
+}
+
+function commitmentFixture(
+  date = "2026-10-09T00:00:00Z",
+  referenceName = dueReference,
+  isOutstanding = true,
+) {
+  const comment = commentFixture({
+    text: isOutstanding
+      ? `The package remains outstanding for the ${date} commitment.`
+      : `The package for the ${date} commitment has been delivered.`,
+  });
+  const item = recommendationFixture({ [referenceName]: date }, [comment]);
+  const claim = claimFixture("commitment", comment, {
+    sourceIds: [`field:202:r3:${referenceName}`, "comment:202:7:v2"],
+    date,
+    isOutstanding,
+  });
+  return { item, claim, analysis: assessedFixture([claim]) };
+}
+
+describe("U5 source-referenced claims fail closed", () => {
+  test("accepts exact current item evidence without upgrading team reports to code verification", () => {
+    const { item, claim, analysis } = commitmentFixture();
+    expect(azureRecommendationApi.validateAzureClaims(item, analysis)).toEqual([claim]);
+    expect(analysis.claims).toEqual([claim]);
+  });
+
+  test.each([
+    ["missing references", { sourceIds: [] }],
+    ["unknown source", { sourceIds: ["comment:202:999:v2"] }],
+    ["cross-item source", { sourceIds: ["comment:203:7:v2"] }],
+    ["old comment version", { sourceIds: ["comment:202:7:v1"] }],
+    ["unsupported type", { type: "priority-override" }],
+    ["invented quotation", { excerpt: "A quotation that the source never contained." }],
+    ["mismatched date", { date: "2026-10-10T00:00:00Z" }],
+    ["unsupported provenance", { provenance: "model-verified" }],
+    ["ordinary HTTPS is not code verification", {
+      provenance: "code-verified",
+      url: "https://dev.azure.com/example/project/_workitems/edit/202",
+    }],
+  ])("rejects %s before a recommendation", (_reason, overrides) => {
+    const { item, claim } = commitmentFixture();
+    expect(azureRecommendationApi.validateAzureClaims(item, assessedFixture([claim]))).toEqual([claim]);
+    const analysis = assessedFixture([{ ...claim, ...overrides }]);
+    expect(() => azureRecommendationApi.validateAzureClaims(item, analysis)).toThrow();
+    expect(() => azureRecommendationApi.buildAzureRecommendation(item, analysis)).toThrow();
+  });
+
+  test("field values and the actual direct parent must match, not merely use existing IDs", () => {
+    const parent = signalFixture().item;
+    parent.id = 101;
+    parent.rev = 4;
+    const comment = commentFixture({ text: "Item #202 is required for parent #101's delivery." });
+    const item = recommendationFixture({}, [comment], { parent: { status: "complete", item: parent } });
+    const dependency = claimFixture("parent-dependency", comment, {
+      parentId: 999, sourceIds: ["comment:202:7:v2", `field:101:r4:${dueReference}`],
+      date: "2026-10-09T00:00:00Z", isOutstanding: true,
+    });
+    expect(azureRecommendationApi.validateAzureClaims(item, assessedFixture([
+      { ...dependency, parentId: 101 },
+    ]))).toEqual([{ ...dependency, parentId: 101 }]);
+    expect(() => azureRecommendationApi.validateAzureClaims(item, assessedFixture([dependency]))).toThrow();
+    const context = {
+      type: "context", sourceIds: ["field:202:r3:Microsoft.VSTS.Common.Priority"],
+      value: 1, provenance: "team-reported",
+    };
+    expect(azureRecommendationApi.validateAzureClaims(item, assessedFixture([
+      { ...context, value: 3 },
+    ]))).toEqual([{ ...context, value: 3 }]);
+    expect(() => azureRecommendationApi.validateAzureClaims(item, assessedFixture([context]))).toThrow();
+    item.signals.sources.push({
+      id: "field:203:r3:Microsoft.VSTS.Common.Priority", workItemId: 203,
+      revision: 3, referenceName: "Microsoft.VSTS.Common.Priority", value: 3,
+    });
+    expect(() => azureRecommendationApi.validateAzureClaims(item, assessedFixture([{
+      ...context, value: 3, sourceIds: ["field:203:r3:Microsoft.VSTS.Common.Priority"],
+    }]))).toThrow();
+  });
+
+  test("a missing or invalid assessment remains fatal instead of synthesizing UNASSESSED", () => {
+    const item = recommendationFixture();
+    expect(azureRecommendationApi.buildAzureRecommendation(item, assessedFixture()).orderGroup).toBe("native");
+    for (const analysis of [undefined, null, {}, { status: "ASSESSED", summary: "" }]) {
+      expect(() => azureRecommendationApi.buildAzureRecommendation(item, analysis)).toThrow();
+    }
+  });
+});
+
+describe("U6 current reasons change the group, never native urgency", () => {
+  test.each([
+    [3, "3 - Medium", "P2"],
+    [3, "4 - Low", "P3"],
+    [1, "3 - Medium", "P1"],
+    [4, "1 - Critical", "P0"],
+    [undefined, undefined, "P5"],
+  ])("preserves the strongest native band for Priority %j / Severity %j", (priority, severity, nativePriority) => {
+    const item = recommendationFixture({
+      "Microsoft.VSTS.Common.Priority": priority,
+      "Microsoft.VSTS.Common.Severity": severity,
+    });
+    expect(azureRecommendationApi.buildAzureRecommendation(item, assessedFixture()).nativePriority).toBe(nativePriority);
+  });
+
+  test("missing delivery dates limit coverage without discarding usable critical evidence", () => {
+    const item = recommendationFixture({ "Microsoft.VSTS.Common.Severity": "1 - Critical" });
+    for (const referenceName of [dueReference, targetReference]) {
+      const entry = item.signals.delivery.entries.find((candidate) => candidate.referenceName === referenceName);
+      if (!entry) throw new Error(`Missing delivery signal ${referenceName}`);
+      expectGap(entry, "absent", "not-returned");
+    }
+    expect(azureRecommendationApi.buildAzureRecommendation(item, assessedFixture())).toMatchObject({
+      kind: "critical-risk", orderGroup: "critical", coverage: "limited",
+    });
+    const complete = recommendationFixture({
+      ...item.fields,
+      [dueReference]: "2026-10-30T00:00:00Z",
+      [targetReference]: "2026-10-30T00:00:00Z",
+    });
+    expect(azureRecommendationApi.buildAzureRecommendation(complete, assessedFixture())).toMatchObject({
+      kind: "critical-risk", orderGroup: "critical", coverage: "sufficient",
+    });
+  });
+
+  test("scenario: critical risk stays ahead of tomorrow's lower-risk commitment with both facts intact", () => {
+    const criticalItem = recommendationFixture({ "Microsoft.VSTS.Common.Severity": "1 - Critical" });
+    const { item, analysis } = commitmentFixture();
+    const originalCritical = structuredClone(criticalItem);
+    const originalDelivery = structuredClone(item);
+    const critical = azureRecommendationApi.buildAzureRecommendation(criticalItem, assessedFixture());
+    const delivery = azureRecommendationApi.buildAzureRecommendation(item, { ...analysis, priority: "P0" });
+    expect(critical).toMatchObject({
+      kind: "critical-risk", orderGroup: "critical", nativePriority: "P0",
+      recommendation: "Address critical risk.", coverage: "limited",
+      nextAction: "Validate the critical risk reported for item #202 before shipping.",
+    });
+    expect(critical.sourceIds).toContain("field:202:r3:Microsoft.VSTS.Common.Severity");
+    expect(critical.whyNow).toContain("Microsoft.VSTS.Common.Severity");
+    expect(critical.whyNow).toContain("1 - Critical");
+    expect(delivery).toMatchObject({
+      kind: "meet-commitment", orderGroup: "attention", nativePriority: "P2",
+      recommendation: "Meet the commitment.", coverage: "limited",
+      nextAction: "Complete the outstanding work for item #202 or confirm a revised delivery date.",
+    });
+    expect(delivery.sourceIds).toEqual([`field:202:r3:${dueReference}`, "comment:202:7:v2"]);
+    for (const fact of [dueReference, "2026-10-09", "#7", "v2", "2026-10-07T12:00:00Z"]) {
+      expect(delivery.whyNow).toContain(fact);
+    }
+    expect(criticalItem).toEqual(originalCritical);
+    expect(item).toEqual(originalDelivery);
+  });
+
+  test.each([
+    ["2026-10-07T23:59:59Z", "attention"],
+    ["2026-10-08T23:59:59Z", "attention"],
+    ["2026-10-15T23:59:59Z", "attention"],
+    ["2026-10-16T00:30:00+02:00", "attention"],
+    ["2026-10-16T00:00:00Z", "native"],
+  ])("uses overdue/today/seven UTC calendar days for %s", (date, orderGroup) => {
+    const { item, analysis } = commitmentFixture(date);
+    expect(azureRecommendationApi.buildAzureRecommendation(item, analysis)).toMatchObject({
+      orderGroup, nativePriority: "P2",
+      kind: orderGroup === "attention" ? "meet-commitment" : "keep-native-order",
+    });
+  });
+
+  test("explicit unresolved blockers and current commitments share one native-ranked attention group", () => {
+    const comment = commentFixture({ text: "Release remains blocked by dependency alpha." });
+    const blockerItem = recommendationFixture({ "Microsoft.VSTS.Common.Priority": 2 }, [comment]);
+    const blocker = azureRecommendationApi.buildAzureRecommendation(
+      blockerItem, assessedFixture([claimFixture("blocker", comment, { issueId: "dependency-alpha" })]),
+    );
+    const { item, analysis } = commitmentFixture();
+    const delivery = azureRecommendationApi.buildAzureRecommendation(item, analysis);
+    expect(blocker).toMatchObject({
+      kind: "unblock", orderGroup: "attention", nativePriority: "P2",
+      recommendation: "Unblock the work.",
+      nextAction: "Resolve blocker dependency-alpha for item #202.",
+    });
+    expect(blocker.sourceIds).toEqual(["comment:202:7:v2"]);
+    expect(blocker.whyNow).toContain("dependency-alpha");
+    expect(blocker.whyNow).toContain("#7");
+    expect(blocker.whyNow).toContain("v2");
+    expect(delivery).toMatchObject({ orderGroup: blocker.orderGroup, nativePriority: "P2" });
+  });
+
+  test("a due field alone, fulfilled commitment, and forecast alone cannot promote", () => {
+    const dueOnly = recommendationFixture({ [dueReference]: "2026-10-09T00:00:00Z" });
+    const dueRecommendation = azureRecommendationApi.buildAzureRecommendation(dueOnly, assessedFixture());
+    expect(dueRecommendation).toMatchObject({
+      kind: "confirm-evidence", orderGroup: "native", nativePriority: "P2",
+      recommendation: "Clarify the current commitment.",
+      nextAction: "Confirm whether item #202 still has outstanding work for the recorded delivery date.",
+    });
+    expect(dueRecommendation.whyNow).toContain(dueReference);
+    expect(dueRecommendation.whyNow).toContain("2026-10-09");
+    const fulfilled = commitmentFixture("2026-10-09T00:00:00Z", dueReference, false);
+    expect(azureRecommendationApi.buildAzureRecommendation(fulfilled.item, fulfilled.analysis)).toMatchObject({
+      orderGroup: "native", nativePriority: "P2",
+    });
+    const forecast = commitmentFixture("2026-10-09T00:00:00Z", targetReference);
+    expect(azureRecommendationApi.buildAzureRecommendation(forecast.item, assessedFixture())).toMatchObject({
+      orderGroup: "native", nativePriority: "P2",
+    });
+    expect(azureRecommendationApi.buildAzureRecommendation(forecast.item, forecast.analysis)).toMatchObject({
+      kind: "meet-commitment", orderGroup: "attention", nativePriority: "P2",
+    });
+    expect(azureRecommendationApi.buildAzureRecommendation(recommendationFixture(), assessedFixture())).toMatchObject({
+      kind: "keep-native-order", orderGroup: "native", nativePriority: "P2",
+    });
+  });
+
+  test("distinct due and forecast dates remain a visible conflict, not a silently chosen promise", () => {
+    const { item, analysis } = commitmentFixture();
+    const dueComment = commentFixture({ text: "The package remains outstanding for the 2026-10-09T00:00:00Z commitment." });
+    const targetComment = commentFixture({
+      id: 8, version: 1,
+      text: "The package is also currently committed for delivery on 2026-10-12.",
+    });
+    const conflicting = recommendationFixture({
+      ...item.fields, [targetReference]: "2026-10-12T00:00:00Z",
+    }, [dueComment, targetComment]);
+    const targetClaim = claimFixture("commitment", targetComment, {
+      sourceIds: [`field:202:r3:${targetReference}`, "comment:202:8:v1"],
+      date: "2026-10-12T00:00:00Z", isOutstanding: true,
+    });
+    const recommendation = azureRecommendationApi.buildAzureRecommendation(conflicting, {
+      ...analysis, claims: [...analysis.claims, targetClaim],
+    });
+    expect(recommendation.orderGroup).toBe("native");
+    expect(recommendation.kind).toBe("confirm-evidence");
+    for (const fact of [dueReference, targetReference, "2026-10-09", "2026-10-12"]) {
+      expect(recommendation.whyNow).toContain(fact);
+    }
+    expect(recommendation.nextAction).toBe("Confirm the current delivery date for item #202.");
+  });
+});
+
+describe("U7 age, activity, hierarchy and sprint are not urgency", () => {
+  test("scenario: an old busy ticket gets 30-day relevance review without promotion", () => {
+    const comments = Array.from({ length: 12 }, (_, index) => commentFixture({ id: index + 1 }));
+    const item = recommendationFixture({ "System.ChangedDate": "2026-09-08T00:00:00Z" }, comments);
+    const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture());
+    expect(recommendation).toMatchObject({
+      kind: "review-relevance", orderGroup: "native", nativePriority: "P2",
+      recommendation: "Review relevance.",
+      nextAction: "Confirm whether item #202 still belongs in the backlog.",
+      sourceIds: ["field:202:r3:System.ChangedDate"],
+    });
+    expect(recommendation.whyNow).toContain("System.ChangedDate");
+    expect(recommendation.whyNow).toContain("30");
+    const recent = recommendationFixture({ "System.ChangedDate": "2026-09-08T00:00:01Z" }, comments);
+    expect(azureRecommendationApi.buildAzureRecommendation(recent, assessedFixture())).toMatchObject({
+      kind: "keep-native-order", orderGroup: "native",
+    });
+    expect(azureRecommendationApi.buildAzureRecommendation(recommendationFixture({}, comments), assessedFixture())).toMatchObject({
+      kind: "keep-native-order", orderGroup: "native",
+    });
+  });
+
+  test("scenario: priority-1 parent dates matter only with matching outstanding dependency and commitment", () => {
+    const parent = {
+      id: 101, rev: 4,
+      fields: {
+        ...recommendationFixture().fields,
+        "Microsoft.VSTS.Common.Priority": 1,
+        [dueReference]: "2026-10-09T00:00:00Z",
+      },
+    };
+    const comment = commentFixture({
+      text: "Item #202 remains required for parent #101's current delivery commitment on 2026-10-09.",
+    });
+    const item = recommendationFixture({}, [comment], { parent: { status: "complete", item: parent } });
+    expect(azureRecommendationApi.buildAzureRecommendation(item, assessedFixture())).toMatchObject({
+      kind: "keep-native-order", orderGroup: "native", nativePriority: "P2",
+    });
+    const sourceIds = ["comment:202:7:v2", `field:101:r4:${dueReference}`];
+    const dependency = claimFixture("parent-dependency", comment, {
+      parentId: 101, sourceIds, isOutstanding: true,
+    });
+    const commitment = claimFixture("commitment", comment, {
+      parentId: 101, sourceIds, date: "2026-10-09T00:00:00Z", isOutstanding: true,
+    });
+    expect(azureRecommendationApi.buildAzureRecommendation(item, assessedFixture([dependency]))).toMatchObject({
+      orderGroup: "native", nativePriority: "P2",
+    });
+    const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture([dependency, commitment]));
+    expect(recommendation).toMatchObject({
+      kind: "meet-commitment", orderGroup: "attention", nativePriority: "P2",
+    });
+    expect(recommendation.sourceIds).toEqual(expect.arrayContaining(sourceIds));
+    expect(recommendation.whyNow).toContain("#101");
+    expect(recommendation.whyNow).toContain("2026-10-09");
+    expect(item.fields["Microsoft.VSTS.Common.Priority"]).toBe(3);
+  });
+
+  test("scenario: expired sprint suggests planning review, not overdue delivery or state-derived urgency", () => {
+    const expired = {
+      ...iteration,
+      attributes: { ...iteration.attributes, finishDate: "2026-10-07T00:00:00Z", timeFrame: "past" },
+    };
+    for (const state of ["Ready for investigation", "Blocked", "Closed", "Urgent"]) {
+      const item = recommendationFixture({ "System.State": state }, [], {
+        iterations: { status: "complete", response: { value: [expired] } },
+      });
+      const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture());
+      expect(recommendation).toMatchObject({
+        kind: "update-planning", orderGroup: "native", nativePriority: "P2",
+        recommendation: "Update planning.",
+        nextAction: "Confirm the current iteration for item #202.",
+      });
+      expect(recommendation.whyNow).toContain(iterationPath);
+      expect(recommendation.whyNow).toContain("2026-10-07");
+      expect(recommendation.whyNow).not.toMatch(/overdue delivery|missed delivery|unresolved blocker/i);
+      expect(item.fields["System.State"]).toBe(state);
+    }
+  });
+});
+
+describe("U8 chronology, conflicts and limited evidence", () => {
+  test.each(["blocker", "commitment"])("an older-created edited %s counterclaim retains both sources without promotion", (type) => {
+    const report = commentFixture({
+      id: 21, version: 1, text: "The October 9 package is outstanding, blocked by dependency alpha.",
+      createdDate: "2026-10-06T10:00:00Z", modifiedDate: "2026-10-06T10:00:00Z",
+    });
+    for (const createdDate of ["2026-10-05T10:00:00Z", report.createdDate]) {
+      const update = commentFixture({
+        id: 22, version: 2, text: "Dependency alpha is resolved; the October 9 package is delivered.",
+        createdDate, modifiedDate: "2026-10-07T10:00:00Z",
+      });
+      const item = recommendationFixture({ [dueReference]: "2026-10-09T00:00:00Z" }, [update, report]);
+      const fieldSourceId = `field:202:r3:${dueReference}`;
+      const claims = [report, update].map((comment, index) => claimFixture(
+        type === "blocker" && index === 1 ? "blocker-resolved" : type,
+        comment,
+        {
+          issueId: "dependency-alpha",
+          ...(type === "commitment" ? {
+            date: "2026-10-09T00:00:00Z", isOutstanding: index === 0,
+            sourceIds: [fieldSourceId, `comment:202:${comment.id}:v${comment.version}`],
+          } : {}),
+        },
+      ));
+      expect(azureRecommendationApi.validateAzureClaims(item, assessedFixture(claims))).toEqual(claims);
+      const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture(claims));
+      expect(recommendation).toMatchObject({ kind: "confirm-evidence", orderGroup: "native" });
+      expect(recommendation.sourceIds).toEqual(expect.arrayContaining(["comment:202:21:v1", "comment:202:22:v2"]));
+      for (const fact of ["#21", "#22", createdDate, update.modifiedDate]) {
+        expect(recommendation.whyNow).toContain(fact);
+      }
+    }
+  });
+
+  test("commitment counterclaims pair by issue identity, not a shared calendar date", () => {
+    const report = commentFixture({
+      id: 21, version: 1, text: "Package alpha remains unfinished for October 9.",
+      createdDate: "2026-10-06T10:00:00Z", modifiedDate: "2026-10-06T10:00:00Z",
+    });
+    const update = commentFixture({
+      id: 22, version: 1, text: "Package beta is delivered for October 9.",
+      createdDate: "2026-10-07T10:00:00Z", modifiedDate: "2026-10-07T10:00:00Z",
+    });
+    const item = recommendationFixture({ [dueReference]: "2026-10-09T00:00:00Z" }, [report, update]);
+    const claims = [report, update].map((comment, index) => claimFixture("commitment", comment, {
+      issueId: index === 0 ? "package-alpha" : "package-beta", isOutstanding: index === 0,
+      date: "2026-10-09T00:00:00Z",
+      sourceIds: [`field:202:r3:${dueReference}`, `comment:202:${comment.id}:v1`],
+    }));
+    const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture(claims));
+    expect(recommendation).toMatchObject({ kind: "meet-commitment", orderGroup: "attention" });
+    expect(recommendation.sourceIds).toEqual([`field:202:r3:${dueReference}`, "comment:202:21:v1"]);
+    const edited = { ...report, modifiedDate: "2026-10-07T18:00:00Z" };
+    const conflictedItem = recommendationFixture(item.fields, [edited, update]);
+    const matchingClaims = [claims[0], { ...claims[1], issueId: "package-alpha" }];
+    expect(azureRecommendationApi.buildAzureRecommendation(conflictedItem, assessedFixture(matchingClaims))).toMatchObject({
+      kind: "confirm-evidence", orderGroup: "native",
+      sourceIds: expect.arrayContaining(["comment:202:21:v1", "comment:202:22:v1"]),
+    });
+  });
+
+  test.each([
+    { status: "current", isOutstanding: true, createdDate: "2026-10-07T10:00:00Z", modifiedDate: "2026-10-07T10:00:00Z" },
+    { status: "withdrawn", isOutstanding: false, createdDate: "2026-10-07T10:00:00Z", modifiedDate: "2026-10-07T10:00:00Z" },
+    { status: "unknown", isOutstanding: undefined, createdDate: "2026-10-07T10:00:00Z", modifiedDate: "2026-10-07T10:00:00Z" },
+    { status: "edited withdrawal", isOutstanding: false, createdDate: "2026-10-05T10:00:00Z", modifiedDate: "2026-10-07T10:00:00Z" },
+  ])("parent dependency $status reconciles separate comments and cites the admission evidence", ({ status, isOutstanding, createdDate, modifiedDate }) => {
+    const parent = { ...signalFixture().item, id: 901, rev: 2 };
+    const dependency = commentFixture({
+      id: 25, version: 1, text: "Child #202 is required for parent #901 delivery.",
+      createdDate: "2026-10-06T10:00:00Z", modifiedDate: "2026-10-06T10:00:00Z",
+    });
+    const update = commentFixture({
+      id: 26, version: 1,
+      text: isOutstanding === true ? "Child #202 is still required for parent #901 delivery."
+        : isOutstanding === false ? "Child #202 is no longer required for parent #901 delivery."
+        : "Whether child #202 is required for parent #901 delivery is unknown.",
+      createdDate, modifiedDate,
+    });
+    const commitment = commentFixture({
+      id: 27, version: 1, text: "Parent #901 delivery remains unfinished for October 9.",
+      createdDate: "2026-10-07T20:00:00Z", modifiedDate: "2026-10-07T20:00:00Z",
+    });
+    const item = recommendationFixture({}, [commitment, update, dependency], { parent: { status: "complete", item: parent } });
+    const fieldSourceId = `field:901:r2:${dueReference}`;
+    const claims = [dependency, update, commitment].map((comment, index) => claimFixture(
+      index === 2 ? "commitment" : "parent-dependency", comment, {
+        parentId: 901, issueId: "parent-package",
+        sourceIds: [fieldSourceId, `comment:202:${comment.id}:v1`],
+        ...(index === 2 ? { date: "2026-10-09T00:00:00Z" } : {}),
+        ...(index === 1 && isOutstanding === undefined ? {} : {
+          isOutstanding: index === 1 ? isOutstanding : true,
+        }),
+      },
+    ));
+    expect(azureRecommendationApi.validateAzureClaims(item, assessedFixture(claims))).toEqual(claims);
+    const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture(claims));
+    expect(recommendation.orderGroup).toBe(status === "current" ? "attention" : "native");
+    expect(recommendation.sourceIds).toEqual(expect.arrayContaining([fieldSourceId, "comment:202:25:v1", "comment:202:26:v1"]));
+    expect(recommendation.whyNow).toContain("#25");
+    expect(recommendation.whyNow).toContain("#26");
+    if (status === "current") {
+      expect(recommendation.kind).toBe("meet-commitment");
+      expect(recommendation.sourceIds).toContain("comment:202:27:v1");
+    }
+    if (status === "edited withdrawal" || status === "unknown") expect(recommendation.kind).toBe("confirm-evidence");
+  });
+
+  test.each([
+    { hasHistoricalDependency: true, unknownModifiedDate: "2026-10-07T10:00:00Z", hasCurrentUncertainty: false },
+    { hasHistoricalDependency: false, unknownModifiedDate: "2026-10-07T10:00:00Z", hasCurrentUncertainty: false },
+    { hasHistoricalDependency: true, unknownModifiedDate: "2026-10-07T11:00:00Z", hasCurrentUncertainty: false },
+    { hasHistoricalDependency: false, unknownModifiedDate: "2026-10-07T11:00:00Z", hasCurrentUncertainty: false },
+    { hasHistoricalDependency: true, unknownModifiedDate: "2026-10-08T08:30:00Z", hasCurrentUncertainty: true },
+    { hasHistoricalDependency: false, unknownModifiedDate: "2026-10-08T08:30:00Z", hasCurrentUncertainty: true },
+  ])("renewed dependency confirmation reconciles uncertainty (history=$hasHistoricalDependency, modified=$unknownModifiedDate)", ({ hasHistoricalDependency, unknownModifiedDate, hasCurrentUncertainty }) => {
+    const dependency = commentFixture({
+      id: 25, version: 1, text: "Child #202 is required for parent #901 package alpha delivery on October 9.",
+      createdDate: "2026-10-06T10:00:00Z", modifiedDate: "2026-10-06T10:00:00Z",
+    });
+    const uncertainty = commentFixture({
+      id: 26, version: unknownModifiedDate === "2026-10-07T10:00:00Z" ? 1 : 2,
+      text: "Whether child #202 is still required for parent #901 package alpha is unknown.",
+      createdDate: "2026-10-07T10:00:00Z",
+      modifiedDate: unknownModifiedDate,
+    });
+    const confirmation = commentFixture({
+      id: 28, version: 1, text: "Confirmed October 8: child #202 is still required for parent #901 package alpha delivery on October 9.",
+      createdDate: "2026-10-08T08:00:00Z", modifiedDate: "2026-10-08T08:00:00Z",
+    });
+    const commitment = commentFixture({
+      id: 27, version: 1, text: "Parent #901 package alpha remains unfinished and committed for October 9.",
+      createdDate: "2026-10-08T09:00:00Z", modifiedDate: "2026-10-08T09:00:00Z",
+    });
+    const comments = [...(hasHistoricalDependency ? [dependency] : []), uncertainty, confirmation, commitment];
+    const input = signalFixture({
+      observedAt: "2026-10-08T10:00:00Z",
+      discussion: { status: "complete", pages: [{ count: comments.length, totalCount: comments.length, comments }] },
+      parent: { status: "complete", item: { ...signalFixture().item, id: 901, rev: 2 } },
+    });
+    input.item.rev = 6;
+    input.item.fields["Microsoft.VSTS.Common.Severity"] = "4 - Low";
+    const item = { ...input.item, signals: normalizeAzureSignals(input) };
+    const fieldSourceId = `field:901:r2:${dueReference}`;
+    const claims = comments.map((comment) => claimFixture(
+      comment.id === 27 ? "commitment" : "parent-dependency", comment, {
+        parentId: 901, issueId: "package-alpha",
+        sourceIds: [fieldSourceId, `comment:202:${comment.id}:v${comment.version}`],
+        ...(comment.id === 27 ? { date: "2026-10-09T00:00:00Z" } : {}),
+        ...(comment.id === 26 ? {} : { isOutstanding: true }),
+      },
+    ));
+    expect(item.signals.coverage).toBe("sufficient");
+    expect(azureRecommendationApi.validateAzureClaims(item, assessedFixture(claims))).toEqual(claims);
+    const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture(claims));
+    expect(recommendation.kind).toBe(hasCurrentUncertainty ? "confirm-evidence" : "meet-commitment");
+    expect(recommendation.orderGroup).toBe(hasCurrentUncertainty ? "native" : "attention");
+    expect(recommendation.nativePriority).toBe("P3");
+    expect(recommendation.sourceIds).toEqual(expect.arrayContaining([
+      fieldSourceId, "comment:202:28:v1", "comment:202:27:v1",
+    ]));
+    for (const fact of ["#28 v1", "#27 v1", "#901"]) expect(recommendation.whyNow).toContain(fact);
+    expect(recommendation.sourceIds).not.toContain("comment:202:25:v1");
+    expect(recommendation.whyNow).not.toContain("#25");
+    if (hasCurrentUncertainty) {
+      expect(recommendation.sourceIds).toContain("comment:202:26:v2");
+      expect(recommendation.sourceIds).toHaveLength(4);
+      expect(recommendation.whyNow).toContain(unknownModifiedDate);
+    } else {
+      expect(recommendation.sourceIds).toEqual([fieldSourceId, "comment:202:27:v1", "comment:202:28:v1"]);
+      for (const obsolete of ["#25", "#26", "withdrawal"]) expect(recommendation.whyNow).not.toContain(obsolete);
+    }
+  });
+
+  test("sharing a parent date is not identity for separate dependency and commitment claims", () => {
+    const parent = { ...signalFixture().item, id: 901, rev: 2 };
+    const dependency = commentFixture({
+      id: 25, version: 1, text: "Child #202 is required for parent #901 package alpha.",
+      createdDate: "2026-10-06T10:00:00Z", modifiedDate: "2026-10-06T10:00:00Z",
+    });
+    const commitment = commentFixture({
+      id: 27, version: 1, text: "Parent #901 package beta remains unfinished for October 9.",
+      createdDate: "2026-10-07T10:00:00Z", modifiedDate: "2026-10-07T10:00:00Z",
+    });
+    const item = recommendationFixture({}, [dependency, commitment], { parent: { status: "complete", item: parent } });
+    const claims = [dependency, commitment].map((comment, index) => claimFixture(
+      index === 0 ? "parent-dependency" : "commitment", comment, {
+        parentId: 901, issueId: index === 0 ? "package-alpha" : "package-beta", isOutstanding: true,
+        sourceIds: [`field:901:r2:${dueReference}`, `comment:202:${comment.id}:v1`],
+        ...(index === 1 ? { date: "2026-10-09T00:00:00Z" } : {}),
+      },
+    ));
+    const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture(claims));
+    expect(recommendation.orderGroup).toBe("native");
+    expect(recommendation.kind).not.toBe("meet-commitment");
+  });
+
+  test("an unedited earlier counterclaim cannot withdraw a newer explicit report", () => {
+    const resolved = commentFixture({
+      id: 21, version: 1, text: "Package alpha is delivered and its blocker is resolved.",
+      createdDate: "2026-10-05T10:00:00Z", modifiedDate: "2026-10-05T10:00:00Z",
+    });
+    const outstanding = commentFixture({
+      id: 22, version: 1, text: "Package alpha is blocked again and unfinished for October 9.",
+      createdDate: "2026-10-06T10:00:00Z", modifiedDate: "2026-10-06T10:00:00Z",
+    });
+    const item = recommendationFixture({ [dueReference]: "2026-10-09T00:00:00Z" }, [outstanding, resolved]);
+    for (const type of ["blocker", "commitment"]) {
+      const claims = [resolved, outstanding].map((comment, index) => claimFixture(
+        type === "blocker" && index === 0 ? "blocker-resolved" : type, comment, {
+          issueId: "package-alpha",
+          ...(type === "commitment" ? {
+            date: "2026-10-09T00:00:00Z", isOutstanding: index === 1,
+            sourceIds: [`field:202:r3:${dueReference}`, `comment:202:${comment.id}:v1`],
+          } : {}),
+        },
+      ));
+      const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture(claims));
+      expect(recommendation.orderGroup).toBe("attention");
+      expect(recommendation.sourceIds).toContain("comment:202:22:v1");
+      expect(recommendation.sourceIds).not.toContain("comment:202:21:v1");
+    }
+  });
+
+  test.each(["unknown", "unpaired", "edited outstanding"])("a parent's %s child dependency requires clarification", (status) => {
+    const parent = { ...signalFixture().item, id: 901, rev: 2 };
+    const dependency = commentFixture({
+      id: 25, version: 1,
+      text: status === "unknown" ? "Whether child #202 is required for parent #901 is unknown."
+        : "Child #202 is required for parent #901 package alpha.",
+      createdDate: "2026-10-06T10:00:00Z",
+      modifiedDate: status === "edited outstanding" ? "2026-10-07T20:00:00Z" : "2026-10-06T10:00:00Z",
+    });
+    const withdrawal = commentFixture({
+      id: 26, version: 1, text: "Child #202 is no longer required for parent #901 package alpha.",
+      createdDate: "2026-10-07T10:00:00Z", modifiedDate: "2026-10-07T10:00:00Z",
+    });
+    const commitment = commentFixture({
+      id: 27, version: 1, text: "Parent #901 package alpha remains unfinished for October 9.",
+      createdDate: "2026-10-07T21:00:00Z", modifiedDate: "2026-10-07T21:00:00Z",
+    });
+    const comments = status === "edited outstanding" ? [dependency, withdrawal, commitment] : [dependency, commitment];
+    const item = recommendationFixture({}, comments, { parent: { status: "complete", item: parent } });
+    const claims = comments.map((comment) => claimFixture(comment.id === 27 ? "commitment" : "parent-dependency", comment, {
+      parentId: 901,
+      ...(status === "unpaired" ? {} : { issueId: "package-alpha" }),
+      sourceIds: [`field:901:r2:${dueReference}`, `comment:202:${comment.id}:v1`],
+      ...(comment.id === 27 ? { date: "2026-10-09T00:00:00Z" } : {}),
+      ...(status === "unknown" && comment.id === 25 ? {} : { isOutstanding: comment.id !== 26 }),
+    }));
+    const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture(claims));
+    expect(recommendation).toMatchObject({ kind: "confirm-evidence", orderGroup: "native" });
+    expect(recommendation.sourceIds).toEqual(expect.arrayContaining(["comment:202:25:v1", "comment:202:27:v1"]));
+    if (status === "edited outstanding") expect(recommendation.sourceIds).toContain("comment:202:26:v1");
+  });
+
+  test("scenario: only a later explicit resolution of the same blocker removes attention", () => {
+    const blocker = commentFixture({
+      text: "Release is blocked by dependency alpha.",
+      createdDate: "2026-10-05T12:00:00Z", modifiedDate: "2026-10-05T12:00:00Z",
+    });
+    const resolution = commentFixture({
+      id: 8, version: 1, text: "Dependency alpha has been resolved.",
+      createdDate: "2026-10-07T12:00:00Z", modifiedDate: "2026-10-07T12:00:00Z",
+    });
+    const item = recommendationFixture({}, [resolution, blocker]);
+    const blockerClaim = claimFixture("blocker", blocker, { issueId: "dependency-alpha" });
+    const resolutionClaim = claimFixture("blocker-resolved", resolution, { issueId: "dependency-alpha" });
+    const resolved = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture([resolutionClaim, blockerClaim]));
+    expect(resolved).toMatchObject({
+      kind: "keep-native-order", orderGroup: "native", nativePriority: "P2",
+      recommendation: "Keep native order.",
+      nextAction: "Continue item #202 in native Azure priority order.",
+    });
+    expect(resolved.sourceIds).toEqual(expect.arrayContaining(["comment:202:7:v2", "comment:202:8:v1"]));
+    expect(resolved.whyNow).toContain("resolved");
+    expect(resolved.whyNow).toContain("#8");
+    expect(resolved.whyNow).toContain("dependency-alpha");
+    const unrelatedResolution = commentFixture({
+      ...resolution, text: "Dependency beta has been resolved.",
+    });
+    const unrelatedItem = recommendationFixture({}, [blocker, unrelatedResolution]);
+    const unrelated = claimFixture("blocker-resolved", unrelatedResolution, { issueId: "dependency-beta" });
+    expect(azureRecommendationApi.buildAzureRecommendation(unrelatedItem, assessedFixture([blockerClaim, unrelated]))).toMatchObject({
+      kind: "unblock", orderGroup: "attention",
+    });
+  });
+
+  test("an edited old blocker conflicting with a later resolution requires clarification, not fabricated urgency", () => {
+    const edited = commentFixture({
+      text: "Release is blocked again by dependency alpha.",
+      createdDate: "2026-10-05T12:00:00Z", modifiedDate: "2026-10-07T18:00:00Z",
+    });
+    const resolution = commentFixture({
+      id: 8, version: 1, text: "Dependency alpha has been resolved.",
+      createdDate: "2026-10-07T12:00:00Z", modifiedDate: "2026-10-07T12:00:00Z",
+    });
+    const item = recommendationFixture({}, [edited, resolution]);
+    const recommendation = azureRecommendationApi.buildAzureRecommendation(item, assessedFixture([
+      claimFixture("blocker", edited, { issueId: "dependency-alpha" }),
+      claimFixture("blocker-resolved", resolution, { issueId: "dependency-alpha" }),
+    ]));
+    expect(recommendation).toMatchObject({
+      kind: "confirm-evidence", orderGroup: "native", nativePriority: "P2",
+      nextAction: "Clarify the conflicting blocker reports for item #202.",
+    });
+    for (const fact of ["#7", "#8", "2026-10-07T18:00:00Z", "2026-10-07T12:00:00Z"]) {
+      expect(recommendation.whyNow).toContain(fact);
+    }
+  });
+
+  test("partial chronology cannot prove a current blocker, commitment or no blockers; critical fields remain usable", () => {
+    const comment = commentFixture({ text: "Release is blocked by dependency alpha." });
+    const discussion: ReadFixture = {
+      status: "partial", reason: "remaining-comments-unavailable",
+      nextAction: "Fetch the remaining comments for item #202.",
+      pages: [{ count: 1, totalCount: 2, comments: [comment], continuationToken: "next-page" }],
+    };
+    const item = recommendationFixture({}, [comment], { discussion });
+    const claims = assessedFixture([claimFixture("blocker", comment, { issueId: "dependency-alpha" })]);
+    const recommendation = azureRecommendationApi.buildAzureRecommendation(item, claims);
+    expect(recommendation).toMatchObject({
+      kind: "confirm-evidence", orderGroup: "native", coverage: "limited",
+      nextAction: discussion.nextAction,
+    });
+    expect(recommendation.whyNow).toContain("remaining-comments-unavailable");
+    expect(recommendation.whyNow).not.toMatch(/no blockers|unresolved blocker/i);
+    const critical = recommendationFixture({ "Microsoft.VSTS.Common.Severity": "1 - Critical" }, [comment], { discussion });
+    expect(azureRecommendationApi.buildAzureRecommendation(critical, claims)).toMatchObject({
+      kind: "critical-risk", orderGroup: "critical", nativePriority: "P0", coverage: "limited",
+    });
+    const commitment = commitmentFixture();
+    const partialCommitment = recommendationFixture(commitment.item.fields, [], {
+      discussion: {
+        ...discussion,
+        pages: [{ count: 1, totalCount: 2, comments: [commentFixture({
+          text: "The package remains outstanding for the 2026-10-09T00:00:00Z commitment.",
+        })], continuationToken: "next-page" }],
+      },
+    });
+    expect(azureRecommendationApi.buildAzureRecommendation(partialCommitment, commitment.analysis)).toMatchObject({
+      kind: "confirm-evidence", orderGroup: "native", coverage: "limited",
+      nextAction: discussion.nextAction,
+    });
+  });
+
+  test("explicit UNASSESSED remains last and not assessable, even with native critical fields", () => {
+    const item = recommendationFixture({ "Microsoft.VSTS.Common.Severity": "1 - Critical" });
+    expect(azureRecommendationApi.buildAzureRecommendation(item, { status: "UNASSESSED" })).toMatchObject({
+      kind: "not-assessable", orderGroup: "unassessed", nativePriority: "P0",
+      recommendation: "Not assessable.", coverage: "not-assessable",
+      nextAction: "Assess the evidence for item #202 before recommending work.",
+      sourceIds: [],
+    });
   });
 });
