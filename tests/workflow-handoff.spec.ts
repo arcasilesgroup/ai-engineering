@@ -40,13 +40,14 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(list).toBeGreaterThanOrEqual(0);
 
     const afterPreflight = body.slice(list);
+    const normalizedAfterPreflight = afterPreflight.replace(/\s+/g, " ");
     const create = afterPreflight.indexOf("ai-eng worktree new");
 
     expect(afterPreflight).toMatch(/same slug/i);
     expect(afterPreflight).toMatch(/Git-listed path/i);
     expect(afterPreflight).toMatch(/\b(?:resume|existing worktree)\b/i);
     expect(afterPreflight).toMatch(/(?:when|if)[\s\S]{0,80}listed[\s\S]{0,120}(?:resume|existing worktree)/i);
-    expect(afterPreflight).toMatch(/(?:only|otherwise|else)[\s\S]{0,100}(?:slug[\s\S]{0,40}not listed|no matching slug)[\s\S]{0,100}ai-eng worktree new/i);
+    expect(normalizedAfterPreflight).toMatch(/(?:only|otherwise|else)[\s\S]{0,100}(?:slug[\s\S]{0,40}not listed|no matching slug)[\s\S]{0,100}ai-eng worktree new/i);
     expect(body).toMatch(/\bclean\b/i);
     expect(body).toMatch(/\btrusted\b/i);
     expect(create).toBeGreaterThan(0);
