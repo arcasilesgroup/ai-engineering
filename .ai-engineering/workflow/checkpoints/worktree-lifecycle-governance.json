@@ -248,11 +248,12 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 1,
+          "status": "passed",
+          "attempts": 3,
           "findings": [
-            "attempt 1 FAIL: python3 tests/test_checkpoint_gate.py reports U19 with contradictory expectations for the same lifecycle transition; remaining verify commands were not run.",
-            "The test was corrected to check pending-state and phase prerequisites; re-run the full checkpoint 4 verify list."
+            "attempt 1 FAIL: python3 tests/test_checkpoint_gate.py reported contradictory expectations for the same lifecycle transition; remaining verify commands were not run.",
+            "attempt 2 PASS: all eight checkpoint 4 verify commands passed after correcting U19 to test phase prerequisites rather than human-authorship proof.",
+            "attempt 3 PASS after the lifecycle-path guard: all eight checkpoint 4 verify commands passed."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -266,7 +267,8 @@
         "tests/skills.spec.ts",
         "tests/workflow-handoff.spec.ts",
         "LEARNINGS.md",
-        ".ai-engineering/workflow/test-plans/worktree-lifecycle-governance.json"
+        ".ai-engineering/workflow/test-plans/worktree-lifecycle-governance.json",
+        ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-4.md"
       ]
     },
     {

@@ -637,3 +637,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Assert pending-state and phase prerequisites in the gate, and keep the actual human approval ordered through the Phase 1 orchestrator handoff.
 - **Lesson:** Test human approval as an ordered handoff; don't claim a local state file authenticates who approved.
 - **Tags:** behavior, tests, approvals
+
+### L75 · 2026-10-08 · worktree-lifecycle-governance #4 · review
+- **Failure:** Adversarial review found a legacy checkpoint in the primary checkout could gain lifecycle state there.
+- **Root cause:** The gate validated lifecycle content without binding first initialization to the matching Git-listed feature worktree.
+- **Fix:** Require lifecycle initialization at the canonical checkpoint path in the matching `feat/<slug>` worktree while preserving legacy primary-checkout gate behavior.
+- **Lesson:** Validate lifecycle initialization at the worktree boundary, not just by slug.
+- **Tags:** review, checkpoint-gate, worktree

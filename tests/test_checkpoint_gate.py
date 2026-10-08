@@ -250,9 +250,12 @@ with tempfile.TemporaryDirectory() as root:
     git(["config", "user.name", "Ada Lovelace"])
     git(["config", "user.email", "ada@example.com"])
     git(["config", "commit.gpgsign", "false"])
+    os.makedirs(f"{root}/.ai-engineering", exist_ok=True)
+    with open(f"{root}/.ai-engineering/config.toml", "w") as fixture:
+        fixture.write('[git]\nworktrees_dir = "selected-worktrees"\n')
     with open(f"{root}/README.md", "w") as fixture:
         fixture.write("# lifecycle fixture\n")
-    git(["add", "README.md"])
+    git(["add", "README.md", ".ai-engineering/config.toml"])
     git(["commit", "-q", "-m", "lifecycle base"])
     reviewed_main = git(["rev-parse", "refs/heads/main"])
 
@@ -266,10 +269,16 @@ with tempfile.TemporaryDirectory() as root:
         with_lifecycle(legacy, life("ready-to-merge", "approved", "approved", reviewed_main)),
         2,
     )
-    lifecycle_result("U10: valid initial lifecycle shape is accepted", legacy, initial_plan, 0)
+    lifecycle_result("U17: legacy checkpoint cannot initialize lifecycle in primary checkout", legacy, initial_plan, 2)
+    legacy_result(
+        "U17: legacy primary checkpoint keeps existing gate writes",
+        write(path, with_gate(legacy, 2, behavior="failed")),
+        0,
+    )
 
     # A fresh lifecycle plan belongs to the Git-listed feature worktree, not the primary checkout.
-    selected_root = f"{root}/selected-feature"
+    os.makedirs(f"{root}/selected-worktrees")
+    selected_root = f"{root}/selected-worktrees/selected-feature"
     subprocess.run(
         ["git", "worktree", "add", "-q", "-b", "feat/demo", selected_root],
         cwd=root,
@@ -284,10 +293,36 @@ with tempfile.TemporaryDirectory() as root:
     primary_result = run(selected_root, write(path, initial_plan))
     fails += primary_result != 2
     print(("ok  " if primary_result == 2 else "FAIL"), "U17: selected feature worktree rejects writing its plan in the primary checkout", f"(exit {primary_result})")
+    other_root = f"{root}/selected-worktrees/other-feature"
+    subprocess.run(
+        ["git", "worktree", "add", "-q", "-b", "feat/other", other_root],
+        cwd=root,
+        env=git_env,
+        check=True,
+    )
+    other_path = f"{other_root}/.ai-engineering/workflow/checkpoints/demo.json"
+    os.makedirs(os.path.dirname(other_path), exist_ok=True)
+    other_result = run(other_root, write(other_path, initial_plan))
+    fails += other_result != 2
+    print(("ok  " if other_result == 2 else "FAIL"), "U17: lifecycle initialization in the wrong feature worktree is blocked", f"(exit {other_result})")
+    git(["worktree", "remove", other_root])
     missing_lifecycle_result = run(selected_root, write(selected_path, legacy))
     fails += missing_lifecycle_result != 2
     print(("ok  " if missing_lifecycle_result == 2 else "FAIL"), "U17: a new feature plan cannot omit its initial lifecycle", f"(exit {missing_lifecycle_result})")
     git(["worktree", "remove", selected_root])
+    outside_root = f"{root}/outside-feature"
+    subprocess.run(
+        ["git", "worktree", "add", "-q", outside_root, "feat/demo"],
+        cwd=root,
+        env=git_env,
+        check=True,
+    )
+    outside_path = f"{outside_root}/.ai-engineering/workflow/checkpoints/demo.json"
+    os.makedirs(os.path.dirname(outside_path), exist_ok=True)
+    outside_result = run(outside_root, write(outside_path, initial_plan))
+    fails += outside_result != 2
+    print(("ok  " if outside_result == 2 else "FAIL"), "U17: lifecycle initialization outside the configured worktree root is blocked", f"(exit {outside_result})")
+    git(["worktree", "remove", outside_root])
 
     implementation = with_lifecycle(
         legacy,

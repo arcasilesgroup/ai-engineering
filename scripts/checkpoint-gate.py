@@ -31,6 +31,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 
 GATES = ["behavior", "ui", "review"]
 STAGES = {"tests", "implement", "behavior", "ui", "review", "fix"}
@@ -188,8 +189,15 @@ def snapshot(cp):
 
 def git(root, *args):
     try:
+        env = os.environ.copy()
+        for name in (
+            "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE",
+            "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_NAMESPACE", "GIT_CEILING_DIRECTORIES",
+        ):
+            env.pop(name, None)
         result = subprocess.run(
-            ["git", *args], cwd=root, capture_output=True, text=True, check=False,
+            ["git", *args], cwd=root, env=env, capture_output=True, text=True, check=False,
         )
     except OSError:
         return None
@@ -412,24 +420,81 @@ def lifecycle_plan_path_error(plan, path, root, require_feature_worktree):
     slug = plan.get("slug")
     if not isinstance(slug, str) or not re.fullmatch(r"[\w.-]+", slug):
         return "lifecycle checkpoint plan must have a valid slug"
-    target = path if os.path.isabs(path) else os.path.join(root, path)
-    expected = os.path.join(root, ".ai-engineering", "workflow", "checkpoints", f"{slug}.json")
-    if os.path.realpath(target) != os.path.realpath(expected):
+    if not isinstance(path, str) or not path:
+        return "lifecycle checkpoint plan must be written at its matching path inside the current worktree"
+    worktree_root = os.path.realpath(root)
+    target = os.path.realpath(path if os.path.isabs(path) else os.path.join(worktree_root, path))
+    expected = os.path.realpath(os.path.join(
+        worktree_root, ".ai-engineering", "workflow", "checkpoints", f"{slug}.json"
+    ))
+    try:
+        is_inside_worktree = os.path.commonpath((worktree_root, target)) == worktree_root
+    except ValueError:
+        is_inside_worktree = False
+    if target != expected or not is_inside_worktree:
         return "lifecycle checkpoint plan must be written at its matching path inside the current worktree"
     if not require_feature_worktree:
         return None
     top = git(root, "rev-parse", "--show-toplevel")
-    branch = git(root, "symbolic-ref", "--quiet", "--short", "HEAD")
-    git_dir = git(root, "rev-parse", "--git-dir")
     common_dir = git(root, "rev-parse", "--git-common-dir")
-    if top is None or branch is None or git_dir is None or common_dir is None:
+    listed = git(root, "worktree", "list", "--porcelain", "-z")
+    if top is None or common_dir is None or listed is None:
         return "a new lifecycle plan must be created in its selected feature worktree"
-    if os.path.realpath(top.stdout.strip()) != os.path.realpath(root) or branch.stdout.strip() != f"feat/{slug}":
-        return "a new lifecycle plan must be created in its selected feature worktree on feat/<slug>"
-    absolute_git_dir = os.path.realpath(os.path.join(root, git_dir.stdout.strip()))
-    absolute_common_dir = os.path.realpath(os.path.join(root, common_dir.stdout.strip()))
-    if absolute_git_dir == absolute_common_dir:
+    if os.path.realpath(top.stdout.strip()) != worktree_root:
+        return "a new lifecycle plan must be created in its selected feature worktree"
+    absolute_common_dir = os.path.realpath(os.path.join(worktree_root, common_dir.stdout.strip()))
+    if os.path.basename(absolute_common_dir) != ".git":
+        return "a new lifecycle plan must be created in its selected feature worktree"
+    primary_root = os.path.realpath(os.path.dirname(absolute_common_dir))
+    if worktree_root == primary_root:
         return "a new lifecycle plan cannot be created in the primary checkout"
+    config_path = os.path.join(primary_root, ".ai-engineering", "config.toml")
+    try:
+        with open(config_path, "rb") as config_file:
+            config = tomllib.load(config_file)
+    except FileNotFoundError:
+        config = {}
+    except (OSError, tomllib.TOMLDecodeError):
+        return "the configured worktree root cannot be read"
+    git_config = config.get("git", {})
+    if not isinstance(git_config, dict):
+        return "the configured worktree root cannot be read"
+    configured_root = git_config.get("worktrees_dir")
+    if isinstance(configured_root, str) and configured_root.strip():
+        configured_root = os.path.realpath(os.path.join(primary_root, configured_root.strip()))
+    else:
+        configured_root = os.path.realpath(f"{primary_root}.worktrees")
+    try:
+        is_managed_worktree = (
+            worktree_root != configured_root
+            and os.path.commonpath((configured_root, worktree_root)) == configured_root
+        )
+    except ValueError:
+        is_managed_worktree = False
+    if not is_managed_worktree:
+        return "a new lifecycle plan must be created in its configured feature worktree"
+    entries = []
+    entry = {}
+    for field in listed.stdout.split("\0"):
+        if not field:
+            if entry:
+                entries.append(entry)
+                entry = {}
+            continue
+        key, separator, value = field.partition(" ")
+        if separator and key in ("worktree", "branch"):
+            if key in entry:
+                return "the Git worktree list is unreadable"
+            entry[key] = value
+    if entry:
+        entries.append(entry)
+    matches = [
+        item for item in entries
+        if isinstance(item.get("worktree"), str)
+        and os.path.realpath(item["worktree"]) == worktree_root
+    ]
+    if len(matches) != 1 or matches[0].get("branch") != f"refs/heads/feat/{slug}":
+        return "a new lifecycle plan must be created in its Git-listed feat/<slug> worktree"
     return None
 
 
@@ -458,6 +523,7 @@ def check_plan(new_text, old_text, root, check_transition=True, path=None):
     except (ValueError, KeyError, TypeError):
         pass
     had_plan = isinstance(old_plan, dict) and isinstance(old_plan.get("checkpoints"), list)
+    had_lifecycle = isinstance(old_plan, dict) and "lifecycle" in old_plan
     for cp in new:
         cid = cp.get("id")
         g = [gate(cp, x) for x in GATES]
@@ -473,7 +539,7 @@ def check_plan(new_text, old_text, root, check_transition=True, path=None):
             block(f"#{cid}: can't change gates or status while checkpoint(s) {todo} haven't passed.")
     if check_transition:
         if "lifecycle" in new_plan:
-            if error := lifecycle_plan_path_error(new_plan, path, root, not had_plan):
+            if error := lifecycle_plan_path_error(new_plan, path, root, not had_lifecycle):
                 block(error + ".")
         elif not had_plan:
             block("a new checkpoint plan must include its initial lifecycle.")
