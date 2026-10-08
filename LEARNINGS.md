@@ -700,3 +700,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Capture the validated gates object before indexing, without weakening the fail-closed checks.
 - **Lesson:** Narrow indexed values before typed use.
 - **Tags:** behavior, types, checkpoint-gate
+
+### L84 · 2026-10-08 · worktree-lifecycle-governance #5 · behavior
+- **Failure:** U20d expected the rebased feature's first parent to equal `mainBefore`, but the fixture also included a feature commit.
+- **Root cause:** The test asserted direct-parent equality instead of the premise it needed, ancestry from the selected base.
+- **Fix:** Assert `mainBefore` is an ancestor and `mainAfter` is not, while retaining the race SHA and preservation checks.
+- **Lesson:** Assert the intended Git ancestry, not a stronger fixture-dependent relationship.
+- **Tags:** behavior, tests, git-fixture

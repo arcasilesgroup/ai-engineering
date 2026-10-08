@@ -336,8 +336,8 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "passed",
-          "attempts": 8,
+          "status": "failed",
+          "attempts": 9,
           "findings": [
             "attempt 1 FAIL: `bun test tests/workflow-handoff.spec.ts` U23 could not find the reviewed-main reference after the main-read step; lifecycle, skill and rebase fixture tests passed before the failure, remaining commands were not run.",
             "attempt 2 FAIL: `bun run typecheck` reports TS2769 at tests/worktree-lifecycle.spec.ts:472, 508, 527 and 552; prior lifecycle, skill, handoff, gate, asset, embed and architecture checks passed; lint was not run.",
@@ -346,7 +346,8 @@
             "attempt 5 PASS after unsafe pre-rebase states were made read-only: all nine checkpoint 5 verify commands passed.",
             "attempt 6 PASS after U22 gained missing and malformed lifecycle-state preservation cases: all nine checkpoint 5 verify commands passed.",
             "attempt 7 FAIL: `bun run typecheck` reports TS18046 at src/shared-worktree.ts:389 because checkpoint.gates remains unknown; earlier focused tests, generator, embed and architecture checks passed; lint was not run.",
-            "attempt 8 PASS after checkpoint gate fields were narrowed before indexed access: all ten revised checkpoint 5 verify commands passed."
+            "attempt 8 PASS after checkpoint gate fields were narrowed before indexed access: all ten revised checkpoint 5 verify commands passed.",
+            "attempt 9 FAIL: U20d expects the rebased branch's first parent to equal the pre-rebase main SHA; the test branch carries an additional feature commit, so the premise should use ancestry rather than direct parent equality."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },

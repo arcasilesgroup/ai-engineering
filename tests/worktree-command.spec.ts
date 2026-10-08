@@ -1248,8 +1248,8 @@ describe("ai-eng worktree rebase (checkpoint 5)", () => {
     expect(output).toContain(mainAfter);
     expect(output.toLowerCase()).toContain("rerun sync");
     expect(featureAfter).not.toBe(featureBefore);
-    expect(git(["rev-parse", `${featureAfter}^`], repo).trim()).toBe(mainBefore);
-    expect(gitOut(["merge-base", "--is-ancestor", "refs/heads/main", featureAfter], repo).status).not.toBe(0);
+    expect(gitOut(["merge-base", "--is-ancestor", mainBefore, featureAfter], repo).status).toBe(0);
+    expect(gitOut(["merge-base", "--is-ancestor", mainAfter, featureAfter], repo).status).not.toBe(0);
     expect(git(["rev-parse", "HEAD"], feature).trim()).toBe(featureAfter);
     expect(git(["show", "HEAD:feature-only.txt"], feature)).toBe("feature\n");
     expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
