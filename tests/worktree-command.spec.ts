@@ -729,15 +729,45 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(existsSync(join(defaultRoot(repo), "gamma"))).toBe(false);
   });
 
-  test("new: extra positional file arguments fail with usage before creating the root or branch", () => {
+  test("new: optional file hints are saved outside the repo and do not become lifecycle state", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
 
     const run = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
-    expect(run.status).not.toBe(0);
-    expect(run.stderr.toLowerCase()).toContain("usage");
-    expect(existsSync(root)).toBe(false);
+    expect(run.status).toBe(0);
+    expect(existsSync(join(root, "alpha"))).toBe(true);
+    expect(JSON.parse(readFileSync(join(root, ".ai-eng-worktrees.json"), "utf8"))).toEqual({
+      alpha: ["docs/shared.md"],
+    });
+    expect(existsSync(join(root, ".ai-eng-lifecycle", "alpha.json"))).toBe(false);
+  });
+
+  test("new: overlapping file hints warn but never prevent worktree creation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha", "docs/shared.md"], repo).status).toBe(0);
+
+    const overlapping = runCli(["worktree", "new", "beta", "docs/shared.md"], repo);
+
+    expect(overlapping.status).toBe(0);
+    expect(overlapping.stderr).toContain("overlap");
+    expect(overlapping.stderr).toContain("alpha already declared docs/shared.md");
+    expect(existsSync(join(root, "beta"))).toBe(true);
+  });
+
+  test("new: invalid file hints refuse before creating a worktree", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+
+    for (const file of ["../outside.ts", "/absolute/file.ts", "C:\\outside.ts"]) {
+      const run = runCli(["worktree", "new", "alpha", file], repo);
+      expect(run.status).toBe(2);
+      expect(run.stderr).toContain("invalid relative file hint");
+      expect(existsSync(join(root, "alpha"))).toBe(false);
+    }
     expect(branchNames(repo)).toEqual(["main"]);
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
@@ -1055,7 +1085,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
-  test("new: does not create the legacy manifest", () => {
+  test("new without file hints does not create a file-hint manifest", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1064,7 +1094,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(existsSync(join(root, ".ai-eng-worktrees.json"))).toBe(false);
   });
 
-  test("new: ignores and preserves malformed legacy manifest bytes", () => {
+  test("new without hints preserves malformed file-hint manifest bytes", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1079,7 +1109,25 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(readFileSync(declarations, "utf8")).toBe(malformedBytes);
   });
 
-  test("rm: does not read, rewrite, or remove a malformed legacy manifest", () => {
+  test("new: refuses requested hints rather than overwriting a malformed manifest", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    mkdirSync(root, { recursive: true });
+    const declarations = join(root, ".ai-eng-worktrees.json");
+    const malformedBytes = "{ manifest remains untouched\n";
+    writeFileSync(declarations, malformedBytes);
+
+    const run = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
+
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain("manifest is unusable");
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(branchNames(repo)).toEqual(["main"]);
+    expect(readFileSync(declarations, "utf8")).toBe(malformedBytes);
+  });
+
+  test("rm preserves malformed file-hint bytes without using them as removal authority", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1267,50 +1315,37 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
 });
 
 describe("ai-orchestrator worktree lifecycle awareness (checkpoint 1)", () => {
-  test("resumes only when the requested slug exactly names an existing local worktree", () => {
+  test("uses exact local worktree identity and treats near-matches as advisory", () => {
     const preflightStart = orchestratorSkill.indexOf("## Phase 0: Preflight");
     const planStart = orchestratorSkill.indexOf("## Phase 1: Plan", preflightStart);
     const preflight = orchestratorSkill.slice(preflightStart, planStart);
 
-    expect(preflight).toContain("when it already lists `<slug>`");
-    expect(preflight).toContain(
-      "enter the existing `<repo>.worktrees/<slug>` and run `git switch feat/<slug>` inside it",
-    );
-    expect(preflight).toContain("instead of cutting a new one");
-    expect(preflight).toContain("Only when `<slug>` is not listed");
+    expect(preflight).toContain("ai-eng worktree list <slug>");
+    expect(preflight).toMatch(/resume it using its exact git-listed path/i);
+    expect(preflight).toMatch(/semantic near[- ]match[^.\n]{0,120}advisory/i);
+    expect(preflight).toMatch(/near[- ]match[^.\n]{0,160}(?:not|never|must not)[^.\n]{0,80}(?:exact|substitut|resume|continue)/i);
   });
 
-  test("surfaces semantic near-matches as advisory without treating them as the exact feature", () => {
-    expect(orchestratorSkill).toMatch(/semantic near[- ]match/i);
-    expect(orchestratorSkill).toMatch(/near[- ]match[^.\n]{0,120}advisory/i);
-    expect(orchestratorSkill).toMatch(
-      /near[- ]match[^.\n]{0,160}(?:not|never|must not)[^.\n]{0,80}(?:exact|substitut|resume|continue)/i,
-    );
+  test("uses the brainstorm projection only before a worktree, then checkpoints", () => {
+    const preflightStart = orchestratorSkill.indexOf("## Phase 0: Preflight");
+    const planStart = orchestratorSkill.indexOf("## Phase 1: Plan", preflightStart);
+    const preflight = orchestratorSkill.slice(preflightStart, planStart);
+
+    expect(preflight).toContain("approval-before-start");
+    expect(preflight).toContain("within 14 days");
+    expect(preflight).toContain("matching complete status line");
+    expect(preflight).toContain("projection is read-only");
+    expect(preflight).toContain("checkpoint alone is authoritative");
+    expect(preflight).toContain("never falls back to brainstorm");
+    expect(preflight).toContain("awaiting-plan-approval");
+    expect(preflight).toContain("awaiting-app-review");
+    expect(preflight).toContain("ready-to-merge");
   });
 
-  test("recognizes approval-before-start, active, review-before-merge/cleanup, and unknown evidence", () => {
-    expect(orchestratorSkill).toMatch(/approval[^.\n]{0,100}(?:before|prior to|awaiting|not yet)[^.\n]{0,40}start/i);
-    expect(orchestratorSkill).toMatch(/\bactive\b/i);
-    expect(orchestratorSkill).toMatch(
-      /review[^.\n]{0,100}(?:before|prior to|awaiting|not yet|pending)[^.\n]{0,40}(?:merge|cleanup)/i,
-    );
-    expect(orchestratorSkill).toMatch(/\bunknown\b/i);
-  });
-
-  test("treats missing, malformed, and stale lifecycle evidence as unknown", () => {
-    for (const condition of ["missing", "malformed", "stale"]) {
-      expect(orchestratorSkill).toMatch(
-        new RegExp(`(?:${condition}[^.\\n]{0,100}unknown|unknown[^.\\n]{0,100}${condition})`, "i"),
-      );
-    }
-  });
-
-  test("lifecycle evidence never automatically approves, starts, merges, or deletes", () => {
-    for (const action of ["approv", "start", "merg", "delet"]) {
-      expect(orchestratorSkill).toMatch(
-        new RegExp(`(?:no|never|must not|do not)[^.\\n]{0,80}automatic(?:ally)?[^.\\n]{0,50}\\b${action}\\w*`, "i"),
-      );
-    }
+  test("unknown lifecycle and file hints never authorize implementation", () => {
+    expect(orchestratorSkill).toContain("unknown/pending and cannot authorize work");
+    expect(orchestratorSkill).toContain("hints never authorize implementation");
+    expect(orchestratorSkill).toContain("Never fetch or sync remote state");
   });
 });
 

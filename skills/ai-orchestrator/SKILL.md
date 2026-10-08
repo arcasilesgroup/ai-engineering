@@ -116,7 +116,11 @@ When the gate passes, every later phase reads both files. `.ai-engineering/PRD.h
   may continue untouched. A likely overlap, or dirty/missing/uncertain work that could
   overlap, means pause here and ask the human for a decision. Only when no matching
   slug is listed and no likely or uncertain overlap remains, run
-  `ai-eng worktree new <slug>`; it creates a clean feature worktree from local `main`.
+  `ai-eng worktree new <slug> [files...]`; it creates a clean feature worktree from
+  local `main`. Pass known relative file paths as advisory overlap hints. A warning
+  means classify the overlap before proceeding; hints never authorize implementation
+  or replace checkpoint gates. Semantic near-matches are advisory too, never a
+  substitute for an exact slug or resume target.
   Then run `ai-eng worktree list` again and use the exact Git-listed path. If creation
   refuses, report the reason and stop; do not modify dirty design slots, branches or
   other work to force it.

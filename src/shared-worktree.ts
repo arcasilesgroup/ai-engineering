@@ -104,6 +104,92 @@ export function worktreeRoot(repo: string): string {
   return `${repo}.worktrees`;
 }
 
+type Declarations = Record<string, string[]>;
+
+const DECLARATIONS = ".ai-eng-worktrees.json";
+
+function declarationPath(path: string): string | null {
+  if (/\p{C}/u.test(path) || path.includes("\\") || /^[a-z]:/iu.test(path)) return null;
+  const normalized = normalizedEvidencePath(path);
+  return normalized === "." || normalized?.split("/").includes(".") ? null : normalized;
+}
+
+function readDeclarations(root: string): { declarations: Declarations } | { detail: string } {
+  const path = join(root, DECLARATIONS);
+  let stat: ReturnType<typeof lstatSync>;
+  try {
+    stat = lstatSync(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { declarations: {} };
+    return { detail: `${path} is unreadable (${error instanceof Error ? error.message : String(error)})` };
+  }
+  if (!stat.isFile() || stat.isSymbolicLink()) return { detail: `${path} is not a worktree-root-local file` };
+  let contents: string;
+  try {
+    const manifestRelative = relative(canonicalize(root), realpathSync(path));
+    if (
+      manifestRelative === "" ||
+      manifestRelative === ".." ||
+      manifestRelative.startsWith(`..${sep}`) ||
+      isAbsolute(manifestRelative)
+    ) {
+      return { detail: `${path} is not a worktree-root-local file` };
+    }
+    contents = readFileSync(path, "utf8");
+  } catch (error) {
+    return { detail: `${path} is unreadable (${error instanceof Error ? error.message : String(error)})` };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(contents);
+  } catch (error) {
+    return { detail: `${path} is not valid JSON (${error instanceof Error ? error.message : String(error)})` };
+  }
+  if (!isRecord(parsed)) return { detail: `${path} must map feature slugs to file-path arrays` };
+
+  const declarations: Declarations = {};
+  for (const [slug, files] of Object.entries(parsed)) {
+    if (
+      !SLUG_PATTERN.test(slug) ||
+      /\p{C}/u.test(slug) ||
+      !Array.isArray(files) ||
+      files.some((file) => typeof file !== "string" || declarationPath(file) === null)
+    ) {
+      return { detail: `${path} contains an invalid file declaration for "${printable(slug)}"` };
+    }
+    declarations[slug] = files as string[];
+  }
+  return { declarations };
+}
+
+function pruneDeclarations(root: string, declarations: Declarations): Declarations {
+  const live: Declarations = {};
+  for (const [slug, files] of Object.entries(declarations)) {
+    if (existsSync(join(root, slug))) live[slug] = files;
+  }
+  return live;
+}
+
+function writeDeclarations(root: string, declarations: Declarations): string | null {
+  const path = join(root, DECLARATIONS);
+  const temporaryPath = join(root, `.${DECLARATIONS}.${randomUUID()}.tmp`);
+  const current = readDeclarations(root);
+  if ("detail" in current) return current.detail;
+  try {
+    writeFileSync(temporaryPath, `${JSON.stringify(declarations, null, 2)}\n`, { flag: "wx" });
+    renameSync(temporaryPath, path);
+    return null;
+  } catch (error) {
+    try {
+      unlinkSync(temporaryPath);
+    } catch {
+      // Keep the manifest write error; the temporary file may not exist.
+    }
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
 interface OpenWorktree {
   path: string;
   /** The branch short name, absent when the worktree is detached. */
@@ -340,7 +426,7 @@ function dirtySlot(repo: string): SlotBlocker | null {
   return null;
 }
 
-export function worktreeNew(slug: string): WorktreeResult {
+export function worktreeNew(slug: string, files: string[] = []): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree new: not inside a git repository.\n" };
   // A slug is a branch-name fragment and a directory name: the pattern alone would
@@ -366,6 +452,51 @@ export function worktreeNew(slug: string): WorktreeResult {
   }
 
   const root = worktreeRoot(repo);
+  const fileHints: string[] = [];
+  for (const file of files) {
+    const normalized = declarationPath(file);
+    if (normalized === null) {
+      return {
+        code: 2,
+        out: "",
+        err: `worktree new: invalid relative file hint "${printable(file)}"; no worktree was created.\n`,
+      };
+    }
+    if (!fileHints.includes(normalized)) fileHints.push(normalized);
+  }
+
+  const manifestPath = join(root, DECLARATIONS);
+  const manifestExists = existsSync(manifestPath);
+  const read = readDeclarations(root);
+  if ("detail" in read && fileHints.length > 0) {
+    return {
+      code: 2,
+      out: "",
+      err: `worktree new: cannot save requested file hints because the manifest is unusable (${read.detail}); no worktree was created.\n`,
+    };
+  }
+  const declarations = "detail" in read ? {} : pruneDeclarations(root, read.declarations);
+  const manifestWarning = "detail" in read
+    ? `worktree new: file-hint overlap is unknown; malformed manifest bytes were preserved (${read.detail}).\n`
+    : "";
+  let overlaps: string[] = [];
+  if (fileHints.length > 0 && !("detail" in read)) {
+    const listed = openWorktrees(repo);
+    if ("detail" in listed) {
+      return { code: 2, out: "", err: `worktree new: the worktree list is unreadable (${listed.detail}).\n` };
+    }
+    overlaps = listed.worktrees
+      .filter((entry) => canonicalize(entry.path) !== repo)
+      .flatMap((entry) =>
+        (Object.hasOwn(declarations, entry.slug) ? declarations[entry.slug] ?? [] : [])
+          .filter((file) => {
+            const normalized = declarationPath(file);
+            return normalized !== null && fileHints.includes(normalized);
+          })
+          .map((file) => `${entry.slug} already declared ${printable(file)}`),
+      );
+  }
+
   const target = join(root, slug);
   const branch = `feat/${slug}`;
   mkdirSync(root, { recursive: true });
@@ -376,10 +507,24 @@ export function worktreeNew(slug: string): WorktreeResult {
   git(repo, ["config", `branch.${branch}.remote`, "."]);
   git(repo, ["config", `branch.${branch}.merge`, "refs/heads/main"]);
 
+  if (fileHints.length > 0) declarations[slug] = fileHints;
+  if (!("detail" in read) && (manifestExists || fileHints.length > 0)) {
+    const writeError = writeDeclarations(root, pruneDeclarations(root, declarations));
+    if (writeError !== null) {
+      return {
+        code: 1,
+        out: `✓ worktree ${slug} → ${target}\n`,
+        err:
+          `worktree new: the worktree exists, but its advisory file hints were not saved ` +
+          `(${printable(writeError)}); no lifecycle approval was recorded.\n`,
+      };
+    }
+  }
+
   return {
     code: 0,
     out: `✓ worktree ${slug} → ${target}\n`,
-    err: "",
+    err: manifestWarning || (overlaps.length > 0 ? `worktree new: overlap — ${overlaps.join("; ")}\n` : ""),
   };
 }
 
@@ -792,6 +937,7 @@ interface ListedWorktree {
   status: StatusRead;
   checkpointPath: string | null;
   checkpointFiles: string[];
+  declaredFiles: string[];
   lifecycle: string;
 }
 
@@ -808,6 +954,8 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
   }
   const currentMainRead = git(repo, ["rev-parse", "--verify", "refs/heads/main^{commit}"]);
   const currentMain = currentMainRead.status === 0 ? currentMainRead.stdout.trim() : null;
+  const declarationRead = readDeclarations(root);
+  const declarations = "detail" in declarationRead ? {} : declarationRead.declarations;
   let statusUnreadable = false;
   const entries: ListedWorktree[] = listed.worktrees
     .filter((entry) => canonicalize(entry.path) !== repo)
@@ -831,6 +979,7 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
         status,
         checkpointPath,
         checkpointFiles: state.files,
+        declaredFiles: declarations[entry.slug] ?? [],
         lifecycle: state.label,
       };
     });
@@ -906,6 +1055,9 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
   }
 
   const overlaps = new Set<string>();
+  if ("detail" in declarationRead) {
+    overlaps.add(`declared-file overlap unknown (${printable(declarationRead.detail)})`);
+  }
   // todo: index paths if local worktree counts grow; pairwise comparison is O(n²).
   for (let left = 0; left < entries.length; left += 1) {
     const first = entries[left];
@@ -913,8 +1065,12 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
     for (let right = left + 1; right < entries.length; right += 1) {
       const second = entries[right];
       if (second === undefined || !second.isFeature) continue;
-      const firstFiles = new Set(first.checkpointFiles.map(normalizedEvidencePath).filter((path) => path !== null));
-      const secondFiles = new Set(second.checkpointFiles.map(normalizedEvidencePath).filter((path) => path !== null));
+      const firstFiles = new Set(
+        [...first.checkpointFiles, ...first.declaredFiles].map(normalizedEvidencePath).filter((path) => path !== null),
+      );
+      const secondFiles = new Set(
+        [...second.checkpointFiles, ...second.declaredFiles].map(normalizedEvidencePath).filter((path) => path !== null),
+      );
       const firstStatus = new Set(first.status.paths.map(normalizedEvidencePath).filter((path) => path !== null));
       const secondStatus = new Set(second.status.paths.map(normalizedEvidencePath).filter((path) => path !== null));
       const evidence = new Set<string>();
@@ -2267,6 +2423,9 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree rm: not inside a git repository.\n" };
   const root = worktreeRoot(repo);
+  const manifestPath = join(root, DECLARATIONS);
+  const declarationRead = readDeclarations(root);
+  const hasManifest = existsSync(manifestPath);
   const listed = openWorktrees(repo);
   if ("detail" in listed) {
     return { code: 2, out: "", err: `worktree rm: the worktree list is unreadable (${listed.detail}).\n` };
@@ -2347,12 +2506,30 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
     };
   }
 
+  let manifestWarning = "";
+  if ("detail" in declarationRead) {
+    manifestWarning = `worktree rm: malformed advisory file hints were preserved (${declarationRead.detail}).\n`;
+  } else if (hasManifest) {
+    const declarations = pruneDeclarations(root, declarationRead.declarations);
+    delete declarations[slug];
+    const writeError = writeDeclarations(root, declarations);
+    if (writeError !== null) {
+      return {
+        code: 1,
+        out: "",
+        err:
+          `worktree rm: ${slug} was removed, but its advisory file hints could not be updated ` +
+          `(${printable(writeError)}); preserve the remaining manifest for repair.\n`,
+      };
+    }
+  }
+
   const droppedNote = ignoredRemovalNote(dropped, "removed");
   return {
     code: 0,
     out: force
       ? `✓ removed worktree ${slug} — deleted ${branch} with --force: it was not merged into main${droppedNote}\n`
       : `✓ removed worktree ${slug}${droppedNote}\n`,
-    err: "",
+    err: manifestWarning,
   };
 }
