@@ -609,3 +609,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Validate checkpoint ID type, finiteness and sequence before lookup or gate comparison.
 - **Lesson:** Validate ordering keys before comparing them.
 - **Tags:** review, checkpoint-gate, validation
+
+### L71 · 2026-10-08 · worktree-lifecycle-governance #3 · behavior
+- **Failure:** U13's handoff assertion failed even though the skill contained the required same-slug resume behavior.
+- **Root cause:** The test expected a phrase to remain contiguous across Markdown formatting.
+- **Fix:** Normalize whitespace before matching the handoff condition.
+- **Lesson:** Match handoff conditions independently of Markdown line wrapping.
+- **Tags:** behavior, tests, workflow
