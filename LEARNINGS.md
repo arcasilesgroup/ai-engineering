@@ -24,6 +24,7 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R15: Keep executable `.mjs` APIs explicitly declared, and embed script/declaration payloads as text when they are data rather than host modules. (from L47, L64)
 - R16: Route repository-owned artifacts through their repository procedure and test the caller-to-procedure handoff; a same-named installed copy may have a conflicting contract. (from L66)
 - R17: For runtime p95 checks under parallel test load, use enough samples for nearest-rank p95 to tolerate scheduler outliers without loosening the budget. (from L65, L67)
+- R18: Normalize Markdown formatting without altering identifiers; preserve underscores, case, and other contract-significant characters before matching. (from L71, L78, L86)
 
 ## Log
 
@@ -756,3 +757,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Assert Phase 3 sync before app review, then reviewed SHA capture, human approval and the CAS command after approval.
 - **Lesson:** Assert ordered behavior, not the mere presence of command strings.
 - **Tags:** behavior, tests, workflow
+
+### L92 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** U28a could not find the `app_review` lifecycle field after a handoff-test normalizer removed underscores.
+- **Root cause:** Formatting normalization changed a contract-significant identifier before matching.
+- **Fix:** Preserve underscores in identifiers while normalizing Markdown whitespace.
+- **Lesson:** Normalize Markdown formatting without altering identifiers.
+- **Tags:** behavior, tests, lifecycle

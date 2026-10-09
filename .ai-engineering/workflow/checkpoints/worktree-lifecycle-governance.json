@@ -451,7 +451,7 @@
       "gates": {
         "behavior": {
           "status": "pending",
-          "attempts": 21,
+          "attempts": 22,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
             "attempt 2 FAIL: `bun test tests/worktree-lifecycle.spec.ts` invoked without `./` was interpreted by Bun as a test-name filter and matched no test files; rerun with explicit relative paths.",
@@ -475,7 +475,8 @@
             "attempt 19 FAIL: `bun test ./tests/worktree-lifecycle.spec.ts` exited 1 after doc/contract fixes, but tool output truncated before the failing case; later verify commands were not run.",
             "The isolated `--only-failures` rerun passed all 16 lifecycle cases (251 assertions), so the failure did not reproduce; attempt 20 reruns the full gate.",
             "attempt 21 PASS: full standard-concurrency `bun test` passed all 1,071 tests (4,877 assertions) across 71 files; all focused CP6 commands, typecheck, lint and arch were green.",
-            "The reviewed_feature contract was refined to permit only pre-review and post-approval checkpoint-only commits; rework the CP6 tests and implementation before the gate can pass."
+            "The reviewed_feature contract was refined to permit only pre-review and post-approval checkpoint-only commits; rework the CP6 tests and implementation before the gate can pass.",
+            "attempt 22 FAIL: `bun test ./tests/workflow-handoff.spec.ts` U28a failed because normalization converted `app_review` to `appreview`; prior focused suites passed. Preserve identifier underscores."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
