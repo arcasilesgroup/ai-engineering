@@ -618,11 +618,12 @@
       "gates": {
         "behavior": {
           "status": "passed",
-          "attempts": 3,
+          "attempts": 4,
           "findings": [
             "All nine checkpoint 7 verify commands passed in order: checkpoint gate tests, skills/workflow handoff tests, asset generation, embed-canon, build, typecheck, lint, and architecture tests.",
             "Attempt 2 PASS after F1/F2 fixes: all nine checkpoint 7 verify commands passed in order, including gate, skills, handoff, build, typecheck, lint, and architecture tests.",
-            "Attempt 3 PASS after closing pending-first-write self-approval and the cross-skill brainstorm handoff: all nine checkpoint 7 verify commands passed in order."
+            "Attempt 3 PASS after closing pending-first-write self-approval and the cross-skill brainstorm handoff: all nine checkpoint 7 verify commands passed in order.",
+            "Attempt 4 PASS after validating legacy plan identity and removing obsolete plan-stop wording: all nine checkpoint 7 verify commands passed in order."
           ]
         },
         "ui": {
