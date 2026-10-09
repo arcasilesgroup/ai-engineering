@@ -973,9 +973,17 @@
           ]
         },
         "ui": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "UI-R1-01 (High): `ai-engineering-project-overview` and `checkout-api-project-overview` fail to reach the project tree/view at 375px because the explorer is hidden until `← Explorer` is activated; correct the state flow for mobile.",
+            "UI-R1-02 (Medium): `resize-project-explorer` uses unsupported `drag` in the capture scenario, so resize remains at its default width and is not evidenced; use a supported interaction and preserve pointer resizing.",
+            "UI-R1-03 (Medium): `save-search-settings-375-proto.png` shows feedback covering project cards; place feedback where it does not obscure content.",
+            "UI-R1-04 (Medium): `workspace.html.tpl:449-452` reports that no worktrees are present when a status filter has no matches; distinguish no filtered matches from an empty inventory.",
+            "UI-R1-05 (Medium): `workspace.html.tpl:344-346,680-688,711-716,734-738` rerenders tree/filter/settings content and loses keyboard focus; restore focus to the corresponding surviving control.",
+            "UI-R1-06 (Medium): project brainstorm/PRD entries render as inert spans while the approved prototype presents buttons; make them actionable or align this checkpoint's staged scope with the later artifact-opening checkpoint.",
+            "Low: project tab controls lack tab semantics/aria-selected; validation feedback lacks aria-invalid/aria-describedby; prototype empty state says 3 roots while also saying no roots are registered."
+          ]
         },
         "review": {
           "status": "pending",
@@ -993,12 +1001,9 @@
         "templates/workspace.html.tpl",
         "tests/workspace-settings.spec.ts",
         "tests/workspace-ui.spec.ts",
-        "tests/workspace-server.spec.ts"
-      ],
-      "changed_files": [
-        "tests/workspace-settings.spec.ts",
-        "tests/workspace-ui.spec.ts",
-        "tests/workspace-server.spec.ts"
+        "tests/workspace-server.spec.ts",
+        ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        ".ai-engineering/workflow/prototypes/001-worktree-overview.states.json"
       ]
     },
     {
