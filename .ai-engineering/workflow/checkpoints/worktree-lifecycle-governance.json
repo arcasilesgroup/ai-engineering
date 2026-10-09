@@ -618,10 +618,11 @@
       "gates": {
         "behavior": {
           "status": "passed",
-          "attempts": 2,
+          "attempts": 3,
           "findings": [
             "All nine checkpoint 7 verify commands passed in order: checkpoint gate tests, skills/workflow handoff tests, asset generation, embed-canon, build, typecheck, lint, and architecture tests.",
-            "Attempt 2 PASS after F1/F2 fixes: all nine checkpoint 7 verify commands passed in order, including gate, skills, handoff, build, typecheck, lint, and architecture tests."
+            "Attempt 2 PASS after F1/F2 fixes: all nine checkpoint 7 verify commands passed in order, including gate, skills, handoff, build, typecheck, lint, and architecture tests.",
+            "Attempt 3 PASS after closing pending-first-write self-approval and the cross-skill brainstorm handoff: all nine checkpoint 7 verify commands passed in order."
           ]
         },
         "ui": {
@@ -643,6 +644,7 @@
       "status": "in_progress",
       "changed_files": [
         "skills/ai-orchestrator/SKILL.md",
+        "skills/ai-brainstorm/SKILL.md",
         "scripts/checkpoint-gate.py",
         "tests/test_checkpoint_gate.py",
         "tests/workflow-handoff.spec.ts"
