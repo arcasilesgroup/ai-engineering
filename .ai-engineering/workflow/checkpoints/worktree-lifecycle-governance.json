@@ -723,9 +723,11 @@
       },
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "Attempt 1 FAIL: `bun test ./tests/workspace-command.spec.ts` found that the CLI test starts a mock HTTP server in the same process and then runs a synchronous CLI subprocess. The subprocess blocks the server event loop, so the health probe cannot receive a response. Remaining verify commands were not run; fix the test fixture using a child server process or asynchronous execution."
+          ]
         },
         "ui": {
           "status": "pending",
@@ -740,6 +742,13 @@
       },
       "status": "in_progress",
       "changed_files": [
+        "src/cli.ts",
+        "src/shared-verbs.ts",
+        "src/commands/workspace.ts",
+        "src/workspace/server.ts",
+        "src/workspace/instance.ts",
+        "src/workspace/settings.ts",
+        "templates/workspace.html.tpl",
         "tests/workspace-settings.spec.ts",
         "tests/workspace-command.spec.ts",
         "tests/workspace-server.spec.ts"
