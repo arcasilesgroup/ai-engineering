@@ -74,3 +74,26 @@ Verify:
 Closed history checks reviewed-SHA ancestry but not whether the current main checkpoint payload still matches `reviewed_feature`. A later main commit can change plan scope while preserving lifecycle metadata, gates, and ancestry, and still be classified closed.
 
 **Suggested fix:** Compare the current main checkpoint payload with the reviewed payload before closing; otherwise return Unknown.
+
+## Fix response
+
+Read and validate the checkpoint at local `reviewed_feature`, then compare its immutable plan payload with local main; lifecycle and gate/runtime fields remain excluded. Missing, malformed, or changed reviewed plans now stay Unknown. Focused discovery tests pass; the ordered CP9 verification stopped at `bun test ./tests/workspace-server.spec.ts`, whose closed-history fixture points `reviewed_feature` to a commit without a checkpoint. That fixture is outside the permitted edit set.
+
+## Round 3
+
+**Verdict:** FINDINGS
+
+**Resolved:** 1 (CP9-R2-01)
+**Withdrawn:** 0
+**Arbitrated:** 0
+
+### CP9-R3-01 — Plan-level notes are not bound to reviewed payload
+
+**Severity:** Medium
+**File:** `src/workspace/status.ts:67-76`
+
+**Problem:** `immutablePlanPayload` omits the top-level `notes` field. A change to plan constraints in `notes` on local main therefore compares equal to the reviewed payload and can still be classified Closed, despite the payload mismatch.
+
+**Evidence:** The CP9 checkpoint metadata contains top-level `notes` with durable constraints (for example, lifecycle-source and local-main-only requirements), and `validateCheckpoint` accepts this field. The comparison copies only the fields enumerated in `PLAN_FIELDS`; U39a exercises changed `summary` and `tasks`, but not `notes`. The current metadata also mixes runtime gate notes into this array, but that does not make the durable plan notes runtime metadata.
+
+**Suggested fix:** Include durable plan notes in the reviewed-payload comparison while excluding any genuinely runtime-only notes, or otherwise classify changed plan notes as Unknown.

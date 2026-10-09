@@ -852,7 +852,8 @@
             "CP9-R1-03 (P2): src/workspace/status.ts:434-484. A detached registered worktree is not matched by branch name, so Closed history can override Unknown. Treat registered entries identifying the slug/path as live evidence and preserve Unknown for detached/prunable entries.",
             "CP9-R1-04 (P2): src/workspace/status.ts:513-517. A nested checkpoint JSON may be accepted by basename only. Require the exact slug-derived canonical path; misplaced or duplicate records are Unknown.",
             "CP9-R1-05 (P2): src/workspace/api.ts:59-65. Refresh responses omit per-project Git/checkpoint errors and expose only root-scan errors. Include per-project errors or aggregate them into visible response errors.",
-            "Round 2: CP9-R1-01, R1-03, R1-04 and R1-05 resolved. CP9-R2-01 remains (Medium): src/workspace/status.ts:488-507 checks reviewed-SHA ancestry but not whether the current local-main checkpoint payload matches reviewed_feature. A later main commit can change plan scope while retaining metadata/gates and still classify Closed. Compare current and reviewed checkpoint payloads; otherwise return Unknown."
+            "Round 2: CP9-R1-01, R1-03, R1-04 and R1-05 resolved. CP9-R2-01 remains (Medium): src/workspace/status.ts:488-507 checks reviewed-SHA ancestry but not whether the current local-main checkpoint payload matches reviewed_feature. A later main commit can change plan scope while retaining metadata/gates and still classify Closed. Compare current and reviewed checkpoint payloads; otherwise return Unknown.",
+            "Round 3: CP9-R2-01 resolved. CP9-R3-01 remains (Medium): src/workspace/status.ts:67-76 immutablePlanPayload omits durable top-level `notes`; changing plan notes on local main leaves the review comparison equal and can still classify Closed. Include plan notes in the immutable payload or return Unknown."
           ]
         }
       },
