@@ -842,3 +842,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Revalidate directory identity around path reads; require both review SHAs and the checkpoint-only reviewed chain; block Closed on registered slug/path evidence; accept only one canonical checkpoint path; include project errors in refresh responses.
 - **Lesson:** Revalidate path identity without claiming race elimination; when review ancestry, payload, registration, or canonical placement is uncertain, report Unknown and preserve the error.
 - **Tags:** review, workspace, lifecycle, filesystem, checkpoints, errors
+
+### L104 · 2026-10-09 · worktree-lifecycle-governance #9 · review
+- **Failure:** Closed history accepted a local-main checkpoint whose plan changed after the recorded review.
+- **Root cause:** The history guard checked reviewed-SHA ancestry but never loaded the plan at `reviewed_feature`.
+- **Fix:** Compare selected immutable plan fields from the local reviewed commit and current local-main checkpoint; missing, malformed, or changed reviewed payload remains Unknown.
+- **Lesson:** Bind closure to the exact reviewed plan while excluding lifecycle, gate, and other runtime metadata.
+- **Tags:** review, checkpoint-gate, workspace, lifecycle
+
+### L105 · 2026-10-09 · worktree-lifecycle-governance #9 · behavior
+- **Failure:** Checkpoint 9 behavior attempt 3 failed because closed history's `reviewed_feature` commit had no matching checkpoint plan payload.
+- **Root cause:** The temporary Git fixture captured the feature commit before creating and committing the closed checkpoint plan.
+- **Fix:** Commit the matching implementation-phase checkpoint before recording the feature SHA, then preserve the complete phase and passed gates on local main.
+- **Lesson:** R5 applies: a reviewed-commit fixture must contain the checkpoint payload its validator requires.
+- **Tags:** behavior, tests, git-fixture, checkpoint-gate, workspace

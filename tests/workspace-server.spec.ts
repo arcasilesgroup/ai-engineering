@@ -260,6 +260,7 @@ describe("workspace server", () => {
 
     git(repository, "checkout", "--quiet", "-b", "feat/closed");
     writeFileSync(join(repository, "closed-feature.txt"), "merged into local main\n");
+    writeCheckpoint(repository, "closed", "implementation");
     git(repository, "add", "-A");
     git(repository, "commit", "--quiet", "-m", "closed feature");
     const featureCommit = git(repository, "rev-parse", "HEAD").trim();
