@@ -1,6 +1,14 @@
 export type AzureWorkItem = {
   id: number;
   fields: Record<string, unknown>;
+  comments?: {
+    totalCount: number;
+    items: Array<{
+      id: number;
+      text: string;
+      createdDate: string;
+    }>;
+  };
   relations?: Array<{
     rel: string;
     url: string;
@@ -9,6 +17,14 @@ export type AzureWorkItem = {
       type: string;
       state: string;
       title: string;
+      comments?: {
+        totalCount: number;
+        items: Array<{
+          id: number;
+          text: string;
+          createdDate: string;
+        }>;
+      };
     };
   }>;
 };
@@ -20,7 +36,11 @@ export type AzureInvokeRequest = {
   project: string;
   team: string;
   backlogId: string;
-  apiVersion: "7.1";
+  apiVersion: "7.1" | "7.1-preview.4";
+  query?: {
+    "$top": number;
+    order: string;
+  };
   body?: {
     ids: number[];
     errorPolicy: "Fail";

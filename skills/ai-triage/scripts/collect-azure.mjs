@@ -2,10 +2,13 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const API_VERSION = "7.1";
+const COMMENTS_API_VERSION = "7.1-preview.4";
 const AZURE_DEVOPS_RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798";
 const AZURE_PROJECT_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BATCH_SIZE = 200;
+const MAX_COMMENT_READS = 5;
+const RECENT_COMMENT_LIMIT = 5;
 const RELATED_ITEM_FIELDS = [
   "System.WorkItemType",
   "System.State",
@@ -103,6 +106,14 @@ function requireWorkItemTitle(item) {
   return title;
 }
 
+function commentWorkItemId(path, encodedProject) {
+  const prefix = `/${encodedProject}/_apis/wit/workItems/`;
+  if (!path.startsWith(prefix)) return undefined;
+  const match = path.slice(prefix.length).match(/^(\d+)\/comments$/);
+  const id = Number(match?.[1]);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+}
+
 const execFileAsync = promisify(execFile);
 
 async function executeAz(args) {
@@ -135,12 +146,14 @@ export function createAzureDevOpsInvoker({
   const workItemBatchPath = `/${encodedProject}/_apis/wit/workitemsbatch`;
 
   return async (request) => {
+    const commentId = commentWorkItemId(request.path, encodedProject);
     if (
       request.organization !== selectedScope.organization ||
       request.project !== selectedScope.project ||
       request.team !== selectedScope.team ||
       request.backlogId !== selectedScope.backlogId ||
-      request.apiVersion !== API_VERSION
+      request.apiVersion !==
+        (commentId === undefined ? API_VERSION : COMMENTS_API_VERSION)
     ) {
       throw incomplete("an Azure request escaped the selected scope");
     }
@@ -150,6 +163,13 @@ export function createAzureDevOpsInvoker({
       (request.path === backlogLevelsPath ||
         request.path === backlogItemsPath ||
         request.path === projectPath);
+    const isAllowedCommentRead =
+      request.method === "GET" &&
+      commentId !== undefined &&
+      request.apiVersion === COMMENTS_API_VERSION &&
+      request.query?.["$top"] === RECENT_COMMENT_LIMIT &&
+      request.query.order === "desc" &&
+      Object.keys(request.query).length === 2;
     const isInventoryBatch =
       request.method === "POST" &&
       request.path === workItemBatchPath &&
@@ -175,7 +195,7 @@ export function createAzureDevOpsInvoker({
         ["ids", "errorPolicy", "fields"].includes(key),
       );
     const isAllowedBatch = isInventoryBatch || isRelatedContextBatch;
-    if (!isAllowedGet && !isAllowedBatch) {
+    if (!isAllowedGet && !isAllowedBatch && !isAllowedCommentRead) {
       throw incomplete("an Azure request did not match the read allowlist");
     }
 
@@ -184,7 +204,11 @@ export function createAzureDevOpsInvoker({
       "--method",
       request.method.toLowerCase(),
       "--url",
-      `${selectedScope.organization}${request.path}?api-version=${API_VERSION}`,
+      `${selectedScope.organization}${request.path}?${
+        isAllowedCommentRead
+          ? `$top=${RECENT_COMMENT_LIMIT}&order=desc&api-version=${COMMENTS_API_VERSION}`
+          : `api-version=${API_VERSION}`
+      }`,
       "--resource",
       AZURE_DEVOPS_RESOURCE,
       "--only-show-errors",
@@ -277,14 +301,20 @@ export async function collectAzureBacklog({
   ]);
 
   const request = async (method, path, body) => {
-    if (!allowedRoutes.has(`${method} ${path}`)) {
+    const isCommentRead =
+      method === "GET" &&
+      commentWorkItemId(path, encodedProject) !== undefined;
+    if (!allowedRoutes.has(`${method} ${path}`) && !isCommentRead) {
       throw incomplete("a request did not match the scoped read allowlist");
     }
     return invoke({
       method,
       path,
       ...scope,
-      apiVersion: API_VERSION,
+      apiVersion: isCommentRead ? COMMENTS_API_VERSION : API_VERSION,
+      ...(isCommentRead
+        ? { query: { "$top": RECENT_COMMENT_LIMIT, order: "desc" } }
+        : {}),
       ...(body ? { body } : {}),
     });
   };
@@ -406,8 +436,60 @@ export async function collectAzureBacklog({
       for (const item of details) detailsById.set(item.id, item);
     }
 
+    const commentIds = [...detailsById.keys()];
+    const commentsById = new Map();
+    let nextCommentIndex = 0;
+    const readComments = async () => {
+      while (nextCommentIndex < commentIds.length) {
+        const workItemId = commentIds[nextCommentIndex++];
+        if (workItemId === undefined) {
+          throw incomplete("the related-comment inventory changed during collection");
+        }
+        const response = await request(
+          "GET",
+          `/${encodedProject}/_apis/wit/workItems/${workItemId}/comments`,
+        );
+        const comments = requireArray(response, "comments", "work-item comments");
+        if (
+          !Number.isSafeInteger(response?.totalCount) ||
+          response.totalCount < comments.length ||
+          comments.length > RECENT_COMMENT_LIMIT
+        ) {
+          throw incomplete("invalid work-item comments response");
+        }
+        commentsById.set(workItemId, {
+          totalCount: response.totalCount,
+          items: comments.map((comment) => {
+            const createdDate = comment?.createdDate;
+            if (
+              comment?.workItemId !== workItemId ||
+              !Number.isSafeInteger(comment.commentId) ||
+              comment.commentId <= 0 ||
+              typeof comment.text !== "string" ||
+              typeof createdDate !== "string" ||
+              !Number.isFinite(Date.parse(createdDate))
+            ) {
+              throw incomplete("invalid work-item comment");
+            }
+            return {
+              id: comment.commentId,
+              text: comment.text,
+              createdDate,
+            };
+          }),
+        });
+      }
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(MAX_COMMENT_READS, commentIds.length) },
+        () => readComments(),
+      ),
+    );
+
     const inventoryItems = workItems.map((item) => ({
       ...item,
+      comments: commentsById.get(item.id),
       ...(item.relations
         ? {
             relations: item.relations.map((relation) => {
@@ -431,6 +513,7 @@ export async function collectAzureBacklog({
                   type: requireWorkItemType(relatedItem),
                   state: requireWorkItemState(relatedItem),
                   title: requireWorkItemTitle(relatedItem),
+                  comments: commentsById.get(relatedItem.id),
                 },
               };
             }),

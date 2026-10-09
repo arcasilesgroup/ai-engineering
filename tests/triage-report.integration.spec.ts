@@ -29,6 +29,10 @@ type SyntheticWorkItem = {
     "Microsoft.VSTS.Common.Priority"?: number | string;
     "Microsoft.VSTS.Common.Severity"?: string;
   };
+  comments?: {
+    totalCount: number;
+    items: Array<{ id: number; text: string; createdDate: string }>;
+  };
   relations?: Array<{
     rel: string;
     url: string;
@@ -37,6 +41,10 @@ type SyntheticWorkItem = {
       type: string;
       state: string;
       title: string;
+      comments?: {
+        totalCount: number;
+        items: Array<{ id: number; text: string; createdDate: string }>;
+      };
     };
   }>;
 };
@@ -72,6 +80,25 @@ function createSyntheticInventory() {
     },
     ...(index === 0
       ? {
+          comments: {
+            totalCount: 2,
+            items: [
+              {
+                id: 1201,
+                text: "Deployment waits on product sign-off.",
+                createdDate: "2026-10-01T10:00:00Z",
+              },
+              {
+                id: 1202,
+                text: "Follow-up scheduled for next week.",
+                createdDate: "2026-10-02T10:00:00Z",
+              },
+            ],
+          },
+        }
+      : {}),
+    ...(index === 0
+      ? {
           relations: [
             {
               rel: "System.LinkTypes.Hierarchy-Reverse",
@@ -81,6 +108,16 @@ function createSyntheticInventory() {
                 type: "Feature",
                 state: "Feature in progress",
                 title: "Synthetic parent feature",
+                comments: {
+                  totalCount: 1,
+                  items: [
+                    {
+                      id: 1901,
+                      text: "<script>window.commentAttack=true</script> token=synthetic-comment-secret",
+                      createdDate: "2026-10-03T10:00:00Z",
+                    },
+                  ],
+                },
               },
             },
           ],
@@ -92,6 +129,16 @@ function createSyntheticInventory() {
             {
               rel: "System.LinkTypes.Hierarchy-Forward",
               url: `${syntheticOrganization}/synthetic-project/_apis/wit/workItems/902`,
+              relatedItem: {
+                id: 902,
+                type: "Task",
+                state: "Ready",
+                title: "Synthetic child task",
+                comments: {
+                  totalCount: 0,
+                  items: [],
+                },
+              },
             },
           ],
         }
@@ -184,6 +231,9 @@ describe("Azure triage report integration", () => {
           status: "ASSESSED",
           priority: "P2",
           summary: `**Synthetic analysis** for item ${item.id}: *verify* \`pipeline.yml\``,
+          whyNow: "A parent comment asks for product sign-off before deployment.",
+          confidence: "HIGH",
+          confidenceBasis: "The linked parent comment names the pending approval.",
           evidence: [
             {
               label: "Synthetic work item",
@@ -252,6 +302,14 @@ describe("Azure triage report integration", () => {
     expect(generatedReport).toContain("UNASSESSED");
     expect(generatedReport).toContain("901");
     expect(generatedReport).toContain("902");
+    expect(generatedReport).toContain("Deployment waits on product sign-off.");
+    expect(generatedReport).toContain("Follow-up scheduled for next week.");
+    expect(generatedReport).toContain("2 comments");
+    expect(generatedReport).toContain("HIGH · The linked parent comment names the pending approval.");
+    expect(generatedReport).toContain("A parent comment asks for product sign-off before deployment.");
+    expect(generatedReport).toContain("&lt;script&gt;window.commentAttack=true&lt;/script&gt; [redacted]");
+    expect(generatedReport).not.toContain("<script>window.commentAttack=true</script>");
+    expect(generatedReport).not.toContain("synthetic-comment-secret");
     expect(generatedReport).toMatch(
       /<span class="type-chip">Feature<\/span> <a\b[^>]*>#901<\/a> <span class="tree-title">Synthetic parent feature/,
     );

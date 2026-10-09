@@ -25,7 +25,11 @@ type AzureRequest = {
   project: string;
   team: string;
   backlogId: string;
-  apiVersion: "7.1";
+  apiVersion: "7.1" | "7.1-preview.4";
+  query?: {
+    "$top": number;
+    order: string;
+  };
   body?: {
     ids: number[];
     errorPolicy: "Fail";
@@ -50,8 +54,24 @@ type WorkItem = {
       type: string;
       state: string;
       title: string;
+      comments?: {
+        totalCount: number;
+        items: Array<{
+          id: number;
+          text: string;
+          createdDate: string;
+        }>;
+      };
     };
   }>;
+  comments?: {
+    totalCount: number;
+    items: Array<{
+      id: number;
+      text: string;
+      createdDate: string;
+    }>;
+  };
 };
 
 type FixtureOptions = {
@@ -65,6 +85,7 @@ type FixtureOptions = {
     requestedIds: number[],
     defaultDetails: WorkItem[],
   ) => WorkItem[];
+  commentsById?: Record<number, unknown>;
 };
 
 function createDefaultWorkItems(): WorkItem[] {
@@ -151,6 +172,34 @@ function createAzureFixture(options: FixtureOptions = {}) {
   const workItemsById = new Map(
     [...workItems, ...relatedItems].map((item) => [item.id, item]),
   );
+  const commentsById = options.commentsById ?? {
+    101: {
+      totalCount: 1,
+      comments: [
+        {
+          workItemId: 101,
+          commentId: 1001,
+          text: "The rollout is waiting for platform approval.",
+          createdDate: "2026-10-01T12:00:00Z",
+        },
+      ],
+    },
+    901: {
+      totalCount: 1,
+      comments: [
+        {
+          workItemId: 901,
+          commentId: 9001,
+          text: "Parent decision: defer until the platform team confirms.",
+          createdDate: "2026-10-02T12:00:00Z",
+        },
+      ],
+    },
+    902: {
+      totalCount: 0,
+      comments: [],
+    },
+  };
   const selectedBacklog = options.unknownLimit
     ? { id: requestScope.backlogId }
     : {
@@ -185,6 +234,22 @@ function createAzureFixture(options: FixtureOptions = {}) {
     }
     if (request.method === "GET" && request.path === projectPath) {
       return { id: syntheticProjectId };
+    }
+    const commentMatch = request.path.match(
+      new RegExp(`^/${scope.project}/_apis/wit/workItems/(\\d+)/comments$`),
+    );
+    if (request.method === "GET" && commentMatch?.[1]) {
+      if (
+        request.apiVersion !== "7.1-preview.4" ||
+        request.query?.["$top"] !== 5 ||
+        request.query.order !== "desc"
+      ) {
+        throw new Error("Unexpected Azure comments request");
+      }
+      return commentsById[Number(commentMatch[1])] ?? {
+        totalCount: 0,
+        comments: [],
+      };
     }
     if (request.method === "POST" && request.path === workItemBatchPath) {
       const ids = request.body?.ids ?? [];
@@ -226,11 +291,20 @@ const allowedRoutes = new Set([
   `GET ${projectPath}`,
   `POST ${workItemBatchPath}`,
 ]);
+const commentPathPattern = new RegExp(
+  `^/${scope.project}/_apis/wit/workItems/\\d+/comments$`,
+);
 
 function expectOnlyAllowedReads(calls: AzureRequest[]): void {
   expect(
-    calls.every((request) =>
-      allowedRoutes.has(`${request.method} ${request.path}`),
+    calls.every(
+      (request) =>
+        allowedRoutes.has(`${request.method} ${request.path}`) ||
+        (request.method === "GET" &&
+          commentPathPattern.test(request.path) &&
+          request.apiVersion === "7.1-preview.4" &&
+          request.query?.["$top"] === 5 &&
+          request.query.order === "desc"),
     ),
   ).toBe(true);
   expect(
@@ -240,7 +314,8 @@ function expectOnlyAllowedReads(calls: AzureRequest[]): void {
         request.project === scope.project &&
         request.team === scope.team &&
         request.backlogId === scope.backlogId &&
-        request.apiVersion === "7.1" &&
+        request.apiVersion ===
+          (commentPathPattern.test(request.path) ? "7.1-preview.4" : "7.1") &&
         (request.path.startsWith(`/${scope.project}/`) ||
           request.path === projectPath),
     ),
@@ -254,6 +329,7 @@ function expectOnlyAllowedReads(calls: AzureRequest[]): void {
       "team",
       "backlogId",
       "apiVersion",
+      ...(request.query ? ["query"] : []),
       ...(request.method === "POST" ? ["body"] : []),
     ].sort();
     expect(Object.keys(request).sort()).toEqual(expectedKeys);
@@ -272,6 +348,8 @@ function expectOnlyAllowedReads(calls: AzureRequest[]): void {
       } else {
         expect(request.body?.["$expand"]).toBe("Relations");
       }
+    } else if (commentPathPattern.test(request.path)) {
+      expect(request.query).toEqual({ "$top": 5, order: "desc" });
     } else {
       expect("body" in request).toBe(false);
     }
@@ -415,6 +493,51 @@ describe("Azure backlog collection integration", () => {
     ]);
   });
 
+  test("reads only the latest five comments through the scoped preview route", async () => {
+    const calls: string[][] = [];
+    const invoke = createAzureDevOpsInvoker({
+      ...scope,
+      run: async (args) => {
+        calls.push(args);
+        return JSON.stringify({ totalCount: 8, comments: [] });
+      },
+    });
+
+    await invoke({
+      method: "GET",
+      path: `/${scope.project}/_apis/wit/workItems/101/comments`,
+      ...scope,
+      apiVersion: "7.1-preview.4",
+      query: { "$top": 5, order: "desc" },
+    });
+
+    expect(calls[0]).toContain(
+      `${scope.organization}/${scope.project}/_apis/wit/workItems/101/comments?$top=5&order=desc&api-version=7.1-preview.4`,
+    );
+  });
+
+  test("rejects comment reads outside the fixed scope and query", async () => {
+    const calls: string[][] = [];
+    const invoke = createAzureDevOpsInvoker({
+      ...scope,
+      run: async (args) => {
+        calls.push(args);
+        return JSON.stringify({ totalCount: 0, comments: [] });
+      },
+    });
+
+    await expect(
+      invoke({
+        method: "GET",
+        path: `/${scope.project}/_apis/wit/workItems/101/comments`,
+        ...scope,
+        apiVersion: "7.1-preview.4",
+        query: { "$top": 50, order: "asc" },
+      }),
+    ).rejects.toThrow();
+    expect(calls).toEqual([]);
+  });
+
   test("rejects Azure requests outside the selected scope", async () => {
     const calls: string[][] = [];
     const invoke = createAzureDevOpsInvoker({
@@ -493,6 +616,20 @@ describe("Azure backlog collection integration", () => {
         title: "Parent feature for intake",
       },
     });
+    expect(inventory.items[0]?.comments).toEqual({
+      totalCount: 1,
+      items: [
+        {
+          id: 1001,
+          text: "The rollout is waiting for platform approval.",
+          createdDate: "2026-10-01T12:00:00Z",
+        },
+      ],
+    });
+    expect(inventory.items[0]?.relations?.[0]?.relatedItem?.comments).toMatchObject({
+      totalCount: 1,
+      items: [{ id: 9001, text: "Parent decision: defer until the platform team confirms." }],
+    });
     expect(inventory.items[1]?.relations?.[0]).toMatchObject({
       rel: "System.LinkTypes.Hierarchy-Forward",
       relatedItem: {
@@ -509,6 +646,9 @@ describe("Azure backlog collection integration", () => {
       `GET ${projectPath}`,
       `POST ${workItemBatchPath}`,
       `POST ${workItemBatchPath}`,
+      ...[101, 102, 103, 104, 105, 901, 902].map(
+        (id) => `GET /${scope.project}/_apis/wit/workItems/${id}/comments`,
+      ),
     ].sort();
     expect(
       fixture.calls.map((request) => `${request.method} ${request.path}`).sort(),
@@ -551,7 +691,7 @@ describe("Azure backlog collection integration", () => {
 
     const inventory = await fixture.collect();
 
-    expect(inventory.items).toEqual(workItems);
+    expect(inventory.items).toMatchObject(workItems);
     expect(fixture.calls.map((request) => request.path)).not.toContain(
       "/synthetic-project/_apis/wit/workitemtypes",
     );

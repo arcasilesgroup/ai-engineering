@@ -27,6 +27,7 @@ const SEVERITY_RANK = new Map([
   ["medium", 2],
   ["low", 3],
 ]);
+const CONFIDENCE_LEVELS = new Set(["HIGH", "MEDIUM", "LOW"]);
 const HIERARCHY_RELATIONS = new Map([
   ["System.LinkTypes.Hierarchy-Reverse", "Parent"],
   ["System.LinkTypes.Hierarchy-Forward", "Child"],
@@ -317,6 +318,7 @@ function validateInventory(inventory) {
     requireRecord(item.fields, "work-item fields");
     requireText(item.fields["System.WorkItemType"], "work-item type");
     requireText(item.fields["System.State"], "work-item state");
+    normalizeComments(item.comments, "work-item comments");
     if (item.relations !== undefined && !Array.isArray(item.relations)) {
       throw new Error("Invalid Azure report relations");
     }
@@ -349,6 +351,10 @@ function hierarchyFor(item) {
         type: requireText(relation.relatedItem.type, "related work-item type"),
         state: requireText(relation.relatedItem.state, "related work-item state"),
         title: requireText(relation.relatedItem.title, "related work-item title"),
+        comments: normalizeComments(
+          relation.relatedItem.comments,
+          "related work-item comments",
+        ),
       };
     }
     relations.push({
@@ -359,6 +365,43 @@ function hierarchyFor(item) {
     });
   }
   return relations;
+}
+
+function normalizeComments(value, label) {
+  if (value === undefined) return undefined;
+  requireRecord(value, label);
+  if (
+    !Number.isSafeInteger(value.totalCount) ||
+    value.totalCount < 0 ||
+    !Array.isArray(value.items) ||
+    value.items.length > 5 ||
+    value.items.length > value.totalCount
+  ) {
+    throw new Error(`Invalid Azure report ${label}`);
+  }
+  const ids = new Set();
+  return {
+    totalCount: value.totalCount,
+    items: value.items.map((comment) => {
+      requireRecord(comment, label);
+      if (
+        !Number.isSafeInteger(comment.id) ||
+        comment.id <= 0 ||
+        ids.has(comment.id) ||
+        typeof comment.text !== "string" ||
+        typeof comment.createdDate !== "string" ||
+        !Number.isFinite(Date.parse(comment.createdDate))
+      ) {
+        throw new Error(`Invalid Azure report ${label}`);
+      }
+      ids.add(comment.id);
+      return {
+        id: comment.id,
+        text: comment.text,
+        createdDate: comment.createdDate,
+      };
+    }),
+  };
 }
 
 function normalizeAnalysis(analysis, itemId) {
@@ -376,6 +419,18 @@ function normalizeAnalysis(analysis, itemId) {
     throw new Error("Azure analysis is missing or has an invalid status");
   }
   const summary = requireText(analysis.summary, "analysis summary");
+  const whyNow =
+    typeof analysis.whyNow === "string" && analysis.whyNow.trim() !== ""
+      ? analysis.whyNow
+      : "Not assessed; no timing signal supplied.";
+  const confidence = CONFIDENCE_LEVELS.has(analysis.confidence)
+    ? analysis.confidence
+    : "NOT STATED";
+  const confidenceBasis =
+    typeof analysis.confidenceBasis === "string" &&
+    analysis.confidenceBasis.trim() !== ""
+      ? analysis.confidenceBasis
+      : "No confidence basis provided.";
   const priority =
     typeof analysis.priority === "string" && PRIORITY_ORDER.has(analysis.priority)
       ? analysis.priority
@@ -390,7 +445,15 @@ function normalizeAnalysis(analysis, itemId) {
     const url = sanitizeEvidenceUrl(entry.url);
     return { label, url };
   });
-  return { status: "ASSESSED", priority, summary, evidence };
+  return {
+    status: "ASSESSED",
+    priority,
+    summary,
+    whyNow,
+    confidence,
+    confidenceBasis,
+    evidence,
+  };
 }
 
 async function analyzeInventory(items, analyzeItem) {
@@ -514,6 +577,15 @@ function renderItem(item, analysis, relations, scope) {
     analysis.status === "ASSESSED"
       ? renderAnalysis(analysis.summary)
       : "This item was inventoried but not assessed.";
+  const whyNow =
+    analysis.status === "ASSESSED"
+      ? renderAnalysis(analysis.whyNow)
+      : "Not assessed.";
+  const confidence =
+    analysis.status === "ASSESSED"
+      ? `${visibleText(analysis.confidence)} · ${renderAnalysis(analysis.confidenceBasis)}`
+      : "Not assessed.";
+  const recentComments = renderRecentComments(item, relations);
 
   return `<details class="item" id="i${item.id}">
     <summary>${status}${typeChip(item)}<span class="iid">${itemLink}</span><span class="ititle">${title}</span><span class="imeta">${visibleText(fields["System.State"])}</span></summary>
@@ -521,8 +593,11 @@ function renderItem(item, analysis, relations, scope) {
     <div class="kv"><span class="ilbl">Type</span><span>${visibleText(fields["System.WorkItemType"])}</span></div>
     <div class="kv"><span class="ilbl">Azure priority</span><span>${prioritySignals(item)}</span></div>
     <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">${summary}</span></div>
+    <div class="kv"><span class="ilbl">Why now</span><span class="analysis">${whyNow}</span></div>
+    <div class="kv"><span class="ilbl">Confidence</span><span class="analysis">${confidence}</span></div>
     <div class="kv"><span class="ilbl">Area</span><span>${area}</span></div>
     <div class="kv"><span class="ilbl">Related context</span><div class="xref">${relationContext}</div></div>
+    <div class="kv"><span class="ilbl">Recent comments</span>${recentComments}</div>
     <div class="kv"><span class="ilbl">Evidence</span><span class="xref">${evidence}</span></div>
   </div>
 </details>`;
@@ -570,6 +645,38 @@ function renderHierarchyTree(item, relations, scope) {
     parents: relations.filter((relation) => relation.kind === "Parent").map(relatedNode),
     children: relations.filter((relation) => relation.kind === "Child").map(relatedNode),
   });
+}
+
+function renderRecentComments(item, relations) {
+  const groups = [
+    {
+      label: `This item #${item.id}`,
+      comments: item.comments,
+    },
+    ...relations.map((relation) => ({
+      label: `${relation.kind} #${relation.id ?? "unknown"}${
+        relation.relatedItem?.title ? ` · ${relation.relatedItem.title}` : ""
+      }`,
+      comments: relation.relatedItem?.comments,
+    })),
+  ].filter(({ comments }) => (comments?.totalCount ?? 0) > 0);
+  if (groups.length === 0) return "No comments were returned for this item or its direct parent/children.";
+
+  return `<div class="comment-list">${groups
+    .map(({ label, comments }) => {
+      if (comments === undefined) throw new Error("Azure report lost comment context");
+      const countLabel =
+        comments.totalCount > comments.items.length
+          ? `Latest ${comments.items.length} of ${comments.totalCount}`
+          : `${comments.totalCount}`;
+      return `<div class="comment-group"><strong>${visibleText(label)}</strong><span class="dim"> · ${countLabel} comment${comments.totalCount === 1 ? "" : "s"}</span>${comments.items
+        .map(
+          (comment) =>
+            `<div class="comment-entry"><time>${visibleText(comment.createdDate)}</time><div class="analysis">${visibleText(comment.text)}</div></div>`,
+        )
+        .join("")}</div>`;
+    })
+    .join("")}</div>`;
 }
 
 export function renderHierarchy({ current, parents = [], children = [] }) {

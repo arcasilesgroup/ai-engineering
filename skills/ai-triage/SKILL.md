@@ -38,6 +38,12 @@ organizations, projects, teams, or boards in one report.
   `.ai-engineering/triage.html`; an ambiguity, incomplete inventory, missing/invalid
   analysis, unsafe link, or render failure must leave the prior report untouched. Parent
   and child links are context, never inventory.
+- For Azure assessments, include `summary`, `whyNow`, `confidence` (`HIGH`, `MEDIUM`, or
+  `LOW`), and `confidenceBasis`. Use Azure priority/severity for ranking; `whyNow` explains
+  a concrete timing signal, and confidence states how well the available evidence supports
+  the assessment. Use the five newest comments collected for the item and direct
+  same-project parents/children as context, but do not treat a comment as verified fact.
+  Missing signals stay explicit instead of being guessed.
 - Remote GitHub and Azure work-item links open in a new tab; Azure item links target the
   Azure Boards work-item page, not a REST API endpoint.
 - The report uses the shared shell in `templates/triage.html.tpl` and follows

@@ -9,8 +9,8 @@ The documented backlog-membership operation has no continuation, `$top`, or
 
 ## Scoped read allowlist
 
-Every request carries the resolved organization, project, team/backlog where the
-route requires them, and API version `7.1`. The collector permits only these
+Every request carries the resolved organization and project plus the selected
+team/backlog where the route requires them. The collector permits only these
 method/route pairs:
 
 | Method | Route | Purpose |
@@ -20,12 +20,23 @@ method/route pairs:
 | `GET` | `/_apis/projects/{project}` | Resolve the selected project ID to scope linked work-item URLs. |
 | `POST` | `/{project}/_apis/wit/workitemsbatch` | Read selected-item details and hierarchy relations in batches of at most 200 IDs. |
 | `POST` | `/{project}/_apis/wit/workitemsbatch` | Read type, state, and title for directly related items as context only. |
+| `GET` | `/{project}/_apis/wit/workItems/{workItemId}/comments` | Read at most the five newest comments for selected items and same-project parent/child context. |
 
 These routes follow the Azure DevOps Services REST API 7.1 documentation:
 [backlog levels](https://learn.microsoft.com/en-us/rest/api/azure/devops/work/backlogs/list?view=azure-devops-rest-7.1),
 [backlog-level membership](https://learn.microsoft.com/en-us/rest/api/azure/devops/work/backlogs/get-backlog-level-work-items?view=azure-devops-rest-7.1),
 [project details](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/get?view=azure-devops-rest-7.1),
 and [batch work-item reads](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items/get-work-items-batch?view=azure-devops-rest-7.1).
+Comment reads use the documented
+[Get Comments](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/comments/get-comments?view=azure-devops-rest-7.1)
+route at API version `7.1-preview.4`, with the fixed query `$top=5&order=desc`.
+The report shows only the newest five comments and the API's total count; it
+does not page through older discussion. It reads comments for every selected
+item and every directly related same-project parent or child, without adding
+those related items to the inventory. The collector keeps only comment ID,
+plain-text body, and creation date; identities and links from comment metadata
+are discarded. Comment text is escaped and credentials are redacted before it
+appears in the local report.
 The backlog-membership response stores each work-item ID at
 `workItems[].target.id`; the collector reads that documented shape. Batch reads
 request `$expand: "Relations"` so each story or bug carries its parent/child links;
@@ -67,7 +78,8 @@ Use `createAzureDevOpsInvoker` from `scripts/collect-azure.mjs` as the collector
 request adapter. It issues the exact allowlisted REST URLs through `az rest`, with
 the explicit Azure DevOps resource ID
 `499b84ac-1321-427f-aa17-267ca6975798`, API version `7.1`, and the selected
-organization, project, team, and backlog. The adapter validates every request
+organization, project, team, and backlog. It uses API version `7.1-preview.4`
+only for the fixed comments route and query. The adapter validates every request
 against that scope before invoking `az`; it passes arguments directly without a
 shell and sends the batch body as JSON. `az rest` uses the existing CLI sign-in
 and does not write or persist credentials.
@@ -91,14 +103,21 @@ stops the run.
 
 Pass the complete inventory and its per-item analysis records to
 `writeAzureTriageReport` in `scripts/render-report.mjs` through an `analyzeItem` lookup
-keyed by work-item ID. The writer uses the shared
+keyed by work-item ID. Each assessed record should include `summary`, `whyNow`,
+`confidence` (`HIGH`, `MEDIUM`, or `LOW`), and `confidenceBasis`; missing timing
+signals or confidence must be stated as unknown, never guessed. Use recent comments
+on the item and direct parent/child context to explain timing or dependencies, but
+distinguish a comment's claim from verified facts. The writer uses the shared
 `templates/triage.html.tpl` shell and the Azure-specific scope, ranked work-item,
 type/state and method sections. Each ranked item's expanded details renders its parent,
 the backlog item and any children as a hierarchy, with connectors and one indentation
 level per parent-to-item and item-to-child edge; related items remain context and never
-become inventory rows. Read descriptions as analysis input, but do not display a separate
+become inventory rows. Expanded details show the five newest comments for the selected
+item and each direct related parent or child, with their dates and total available count.
+Read descriptions as analysis input, but do not display a separate
 Description row. The Analysis summary must explain what the item changes, why it matters,
-and the next decision in plain language. Use `**bold**` for key decisions, `*italics*`
+and the next decision in plain language. “Why now” names the concrete timing signal;
+confidence has a qualitative level and a short evidence-based reason. Use `**bold**` for key decisions, `*italics*`
 for caveats, backticks for code or paths, and `[label](https://...)` for verified links
 when useful; use blank lines to separate paragraphs. Keep formatting inline and
 non-nested. `renderAnalysis` escapes raw HTML, redacts credentials, and renders only
