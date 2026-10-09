@@ -179,16 +179,16 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
 
   test("U28a: CAS loss invalidates only the checkpoint before resynchronization and renewed review", () => {
     const { body } = section("skills/ai-orchestrator/SKILL.md", "## Phase 4: Human stop 2, app review");
-    const normalized = body.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
-    const approval = normalized.split("- approve:")[1]?.split("- stop here:")[0] ?? "";
+    const normalized = body.replace(/[`*]/g, "").replace(/\s+/g, " ");
+    const approval = normalized.split("- Approve:")[1]?.split("- Stop here:")[0] ?? "";
     const mergeCommand = approval.indexOf("ai-eng worktree merge <slug>");
-    const casLoss = approval.indexOf("if the command refuses", mergeCommand);
+    const casLoss = approval.indexOf("If the command refuses", mergeCommand);
     const implementation = approval.indexOf("phase: implementation", casLoss);
     const appReview = approval.indexOf("app_review: not-started", casLoss);
     const reviewedMain = approval.indexOf("reviewed_main: null", casLoss);
     const reviewedFeature = approval.indexOf("reviewed_feature: null", casLoss);
-    const invalidation = approval.indexOf("checkpoint-only commit", reviewedFeature);
-    const resync = approval.indexOf("phase 3", invalidation);
+    const invalidation = approval.indexOf("checkpoint-only commit", casLoss);
+    const resync = approval.indexOf("Phase 3", invalidation);
     const rerunGates = approval.indexOf("affected gates", resync);
     const renewedReview = approval.indexOf("renewed human app review", rerunGates);
 
@@ -198,10 +198,11 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(appReview).toBeGreaterThan(casLoss);
     expect(reviewedMain).toBeGreaterThan(casLoss);
     expect(reviewedFeature).toBeGreaterThan(casLoss);
-    expect(invalidation).toBeGreaterThan(implementation);
-    expect(invalidation).toBeGreaterThan(appReview);
-    expect(invalidation).toBeGreaterThan(reviewedMain);
-    expect(invalidation).toBeGreaterThan(reviewedFeature);
+    expect(invalidation).toBeGreaterThan(casLoss);
+    expect(implementation).toBeGreaterThan(invalidation);
+    expect(appReview).toBeGreaterThan(invalidation);
+    expect(reviewedMain).toBeGreaterThan(invalidation);
+    expect(reviewedFeature).toBeGreaterThan(invalidation);
     expect(resync).toBeGreaterThan(invalidation);
     expect(rerunGates).toBeGreaterThan(resync);
     expect(renewedReview).toBeGreaterThan(rerunGates);
