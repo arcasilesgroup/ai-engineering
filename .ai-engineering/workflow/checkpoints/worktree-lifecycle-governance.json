@@ -450,8 +450,8 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 26,
+          "status": "passed",
+          "attempts": 28,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
             "attempt 2 FAIL: `bun test tests/worktree-lifecycle.spec.ts` invoked without `./` was interpreted by Bun as a test-name filter and matched no test files; rerun with explicit relative paths.",
@@ -479,7 +479,10 @@
             "attempt 22 FAIL: `bun test ./tests/workflow-handoff.spec.ts` U28a failed because normalization converted `app_review` to `appreview`; prior focused suites passed. Preserve identifier underscores.",
             "attempt 23 did not execute because the gate agent ran the first Bun selector from the primary checkout; no cases ran. Retry each command after explicitly `cd`ing to the feature worktree.",
             "attempt 25 FAIL: focused CP6 checks 1-10 passed; full bun test ran 1,074 tests (1,072 pass, 2 fail): U30 timed out at 5s and chain p95 measured 176.59 ms; arch not run.",
-            "attempt 26 U30 timeout fix: only its per-test timeout increased to 30s; isolated U30 and the full worktree-command spec pass with assertions unchanged. Rerun full CP6 gates."
+            "attempt 26 U30 timeout fix: only its per-test timeout increased to 30s; isolated U30 and the full worktree-command spec pass with assertions unchanged. Rerun full CP6 gates.",
+            "attempt 27 FAIL: all focused CP6 commands, typecheck and lint passed; standard full suite ran 1074 tests (1073 pass, 1 fail), the pre-existing chain p95 budget at 156.35 ms; arch was not run.",
+            "attempt 28 PASS: standard full suite `bun test` passed all 1,074 tests (4,934 assertions) across 71 files after retry.",
+            "Explicit `bun test ./tests/arch.spec.ts` passed 22 tests."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -487,6 +490,8 @@
       },
       "status": "pending",
       "changed_files": [
+        ".ai-engineering/workflow/checkpoints/worktree-lifecycle-governance.json",
+        ".ai-engineering/workflow/test-plans/worktree-lifecycle-governance.json",
         "skills/ai-orchestrator/SKILL.md",
         "src/shared-worktree.ts",
         "src/commands/worktree.ts",
@@ -496,8 +501,16 @@
         "tests/worktree-lifecycle.spec.ts",
         "tests/worktree-command.spec.ts",
         "tests/git-cleanup-pass.spec.ts",
+        "tests/workflow-handoff.spec.ts",
+        "README.md",
+        "CONTRIBUTING.md",
         "docs/blueprint.html",
-        "LEARNINGS.md"
+        "CHANGELOG.md",
+        "FILEMAP.md",
+        "LEARNINGS.md",
+        ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-6-cas.md",
+        ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-6-reviewed-shas.md",
+        ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-6.md"
       ]
     }
   ],
