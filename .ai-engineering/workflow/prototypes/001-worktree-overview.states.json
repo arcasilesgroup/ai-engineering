@@ -1,0 +1,387 @@
+{
+  "route": "/.ai-engineering/workflow/checkpoints/overview.html",
+  "login": "/login",
+  "now": "2026-10-08T16:48:00",
+  "regions": [
+    "app-header",
+    "settings-trigger",
+    "settings-dialog",
+    "settings-guidance",
+    "settings-root-list",
+    "settings-add-root",
+    "settings-validation",
+    "settings-prototype-note",
+    "header-context",
+    "project-explorer",
+    "explorer-resize-handle",
+    "project-tree",
+    "main-pane",
+    "all-projects-view",
+    "project-overview",
+    "project-summary",
+    "project-documents",
+    "project-worktrees",
+    "project-history",
+    "summary",
+    "project-roots",
+    "attention-list",
+    "feature-viewer",
+    "viewer-header",
+    "status-banner",
+    "journey",
+    "checkpoint-card",
+    "checkpoint-findings",
+    "technical-details",
+    "assumptions",
+    "notes",
+    "ide-action",
+    "viewer-empty",
+    "lifecycle-record-detail",
+    "document-preview",
+    "document-content",
+    "document-scope-note",
+    "copy-path-action",
+    "mobile-explorer-back",
+    "action-feedback",
+    "loading-state",
+    "empty-state",
+    "error-state"
+  ],
+  "states": [
+    {
+      "name": "all-projects-dashboard",
+      "regions": ["app-header", "project-explorer", "explorer-resize-handle", "project-tree", "main-pane", "all-projects-view", "summary", "project-roots", "attention-list"],
+      "live": false,
+      "live_note": "This local explorer and its project roots are prototype data.",
+      "steps": []
+    },
+    {
+      "name": "ai-engineering-project-overview",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-documents", "project-worktrees", "project-history"],
+      "live": false,
+      "live_note": "This local explorer and its project roots are prototype data.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Open overview for ai-engineering", "role": "button" }
+      ]
+    },
+    {
+      "name": "checkout-api-project-overview",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-documents", "project-worktrees", "project-history"],
+      "live": false,
+      "live_note": "This local explorer and its project roots are prototype data.",
+      "steps": [
+        { "click": "Expand project checkout-api", "role": "button" },
+        { "click": "Open overview for checkout-api", "role": "button" }
+      ]
+    },
+    {
+      "name": "worktree-feature-viewer",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "feature-viewer", "viewer-header", "status-banner", "journey", "checkpoint-card", "checkpoint-findings", "technical-details", "assumptions", "notes", "header-context", "ide-action"],
+      "live": false,
+      "live_note": "The real feature viewer is represented with sample checkpoint data.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand worktrees for ai-engineering", "role": "button" },
+        { "click": "Expand worktree feat/worktree-lifecycle-governance in ai-engineering. Status: In progress", "role": "button" },
+        { "click": "Open progress for feat/worktree-lifecycle-governance. Status: In progress", "role": "button" }
+      ]
+    },
+    {
+      "name": "azure-feature-viewer",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "feature-viewer", "viewer-header", "status-banner", "journey", "checkpoint-card", "technical-details", "header-context", "ide-action"],
+      "live": false,
+      "live_note": "The real feature viewer is represented with sample checkpoint data.",
+      "steps": [
+        { "click": "Expand project checkout-api", "role": "button" },
+        { "click": "Expand worktrees for checkout-api", "role": "button" },
+        { "click": "Expand worktree feat/checkout-deployment-safety in checkout-api. Status: In progress", "role": "button" },
+        { "click": "Open progress for feat/checkout-deployment-safety. Status: In progress", "role": "button" }
+      ]
+    },
+    {
+      "name": "closed-feature-viewer",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "feature-viewer", "viewer-header", "status-banner", "journey", "checkpoint-card", "technical-details"],
+      "live": false,
+      "live_note": "History rows use sample checkpoint data.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand history for ai-engineering", "role": "button" },
+        { "click": "Expand worktree feat/git-worktree-flow in ai-engineering. Status: Closed", "role": "button" },
+        { "click": "Open progress for feat/git-worktree-flow. Status: Closed", "role": "button" }
+      ]
+    },
+    {
+      "name": "root-brainstorm-preview",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "document-preview", "document-content", "copy-path-action"],
+      "live": false,
+      "live_note": "The HTML file contents in this preview are representative sample text.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand project files for ai-engineering", "role": "button" },
+        { "click": "Open project-level brainstorm.html for ai-engineering", "role": "button" }
+      ]
+    },
+    {
+      "name": "root-prd-preview",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "document-preview", "document-content", "copy-path-action"],
+      "live": false,
+      "live_note": "The HTML file contents in this preview are representative sample text.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand project files for ai-engineering", "role": "button" },
+        { "click": "Open project PRD.html for ai-engineering", "role": "button" }
+      ]
+    },
+    {
+      "name": "worktree-brainstorm-preview",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "document-preview", "document-content", "document-scope-note", "copy-path-action"],
+      "live": false,
+      "live_note": "The proposed feature brief uses representative sample text and does not change repository lifecycle guidance.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand worktrees for ai-engineering", "role": "button" },
+        { "click": "Expand worktree feat/worktree-lifecycle-governance in ai-engineering. Status: In progress", "role": "button" },
+        { "click": "Open feature brainstorm.html for feat/worktree-lifecycle-governance", "role": "button" }
+      ]
+    },
+    {
+      "name": "simulate-open-worktree-in-ide",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "feature-viewer", "header-context", "ide-action", "action-feedback"],
+      "live": false,
+      "live_note": "The prototype click is a simulation and does not launch an IDE.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand worktrees for ai-engineering", "role": "button" },
+        { "click": "Expand worktree feat/worktree-lifecycle-governance in ai-engineering. Status: In progress", "role": "button" },
+        { "click": "Open progress for feat/worktree-lifecycle-governance. Status: In progress", "role": "button" },
+        { "click": "Open in IDE", "role": "button" }
+      ]
+    },
+    {
+      "name": "expand-and-collapse-project-tree",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree"],
+      "live": false,
+      "live_note": "The project explorer uses sample local roots.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Collapse project ai-engineering", "role": "button" }
+      ]
+    },
+    {
+      "name": "expanded-worktree-actions",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree"],
+      "live": false,
+      "live_note": "The branch, status, and brainstorm are sample explorer items.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand worktrees for ai-engineering", "role": "button" },
+        { "click": "Expand worktree feat/worktree-lifecycle-governance in ai-engineering. Status: In progress", "role": "button" }
+      ]
+    },
+    {
+      "name": "resize-project-explorer",
+      "regions": ["project-explorer", "explorer-resize-handle", "main-pane"],
+      "live": false,
+      "live_note": "The explorer width is local prototype state.",
+      "steps": [{ "drag": "Resize project explorer", "target": "explorer-resize-handle" }]
+    },
+    {
+      "name": "viewer-step-navigation",
+      "regions": ["feature-viewer", "journey", "checkpoint-card", "technical-details", "header-context", "ide-action"],
+      "live": false,
+      "live_note": "The viewer uses sample checkpoint data.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand worktrees for ai-engineering", "role": "button" },
+        { "click": "Expand worktree feat/worktree-lifecycle-governance in ai-engineering. Status: In progress", "role": "button" },
+        { "click": "Open progress for feat/worktree-lifecycle-governance. Status: In progress", "role": "button" },
+        { "click": "Go to step 4: Show the existing checkpoint viewer, Fixing problems", "role": "button" }
+      ]
+    },
+    {
+      "name": "unknown-checkpoint-viewer",
+      "regions": ["feature-viewer", "viewer-empty", "header-context", "ide-action"],
+      "live": false,
+      "live_note": "The missing checkpoint is a representative sample edge case.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand worktrees for ai-engineering", "role": "button" },
+        { "click": "Expand worktree feat/partial-checkpoint in ai-engineering. Status: Unknown", "role": "button" },
+        { "click": "Open progress for feat/partial-checkpoint. Status: Unknown", "role": "button" }
+      ]
+    },
+    {
+      "name": "missing-lifecycle-registration",
+      "regions": ["app-header", "feature-viewer", "viewer-empty", "lifecycle-record-detail"],
+      "proto_query": "state=viewer&project=nn-skills&feature=nn-keynote-unregistered",
+      "live": false,
+      "live_note": "This deliberately omits the lifecycle record to prove the feature remains Unknown. The Copilotline reader contract is verified.",
+      "steps": []
+    },
+    {
+      "name": "verified-active-lifecycle-record",
+      "regions": ["app-header", "feature-viewer", "viewer-header", "status-banner", "checkpoint-card"],
+      "proto_query": "state=viewer&project=nn-skills&feature=nn-keynote",
+      "live": false,
+      "live_note": "Models the verified nn-keynote record written from its owning nn-skills worktree.",
+      "steps": []
+    },
+    {
+      "name": "feature-brainstorm-slug-path",
+      "regions": ["app-header", "document-preview", "document-content", "copy-path-action"],
+      "proto_query": "state=document&project=ai-engineering&file=brainstorm.html&feature=worktree-lifecycle-governance",
+      "live": false,
+      "live_note": "Feature brainstorms use a unique slug-scoped path so merges do not overwrite the project brief.",
+      "steps": []
+    },
+    {
+      "name": "direct-viewer-deep-link",
+      "regions": ["app-header", "header-context", "feature-viewer", "viewer-header", "status-banner", "checkpoint-card", "technical-details", "assumptions", "notes", "ide-action"],
+      "proto_query": "state=viewer&project=ai-engineering&feature=worktree-lifecycle-governance",
+      "live": false,
+      "live_note": "The feature viewer is represented with sample checkpoint data.",
+      "steps": []
+    },
+    {
+      "name": "direct-document-deep-link",
+      "regions": ["app-header", "document-preview", "document-content", "copy-path-action"],
+      "proto_query": "state=document&project=ai-engineering&file=brainstorm.html",
+      "live": false,
+      "live_note": "The HTML file contents in this preview are representative sample text.",
+      "steps": []
+    },
+    {
+      "name": "ide-open-feedback",
+      "regions": ["app-header", "header-context", "feature-viewer", "ide-action", "action-feedback"],
+      "proto_query": "state=ide-opened&project=ai-engineering&feature=worktree-lifecycle-governance",
+      "live": false,
+      "live_note": "The prototype does not launch an IDE.",
+      "steps": []
+    },
+    {
+      "name": "copy-html-absolute-path",
+      "regions": ["app-header", "document-preview", "document-content", "copy-path-action", "action-feedback"],
+      "proto_query": "state=document&project=ai-engineering&file=brainstorm.html&feature=worktree-lifecycle-governance",
+      "live": false,
+      "live_note": "The copied absolute path is example data for this prototype, not a path on the current machine.",
+      "steps": [{ "click": "Copy absolute path for brainstorm.html", "role": "button" }]
+    },
+    {
+      "name": "mobile-content-to-explorer",
+      "regions": ["app-header", "header-context", "mobile-explorer-back", "project-explorer", "project-tree"],
+      "proto_query": "state=viewer&project=ai-engineering&feature=worktree-lifecycle-governance",
+      "live": false,
+      "live_note": "At mobile widths the selected pane fills the screen. Explorer returns to the tree.",
+      "steps": [{ "click": "← Explorer", "role": "button" }]
+    },
+    {
+      "name": "loading-projects",
+      "regions": ["app-header", "project-explorer", "loading-state"],
+      "proto_query": "state=loading",
+      "live": false,
+      "live_note": "The loading state is for prototype review.",
+      "steps": []
+    },
+    {
+      "name": "empty-project-list",
+      "regions": ["app-header", "project-explorer", "empty-state"],
+      "proto_query": "state=empty",
+      "live": false,
+      "live_note": "The empty state is for prototype review.",
+      "steps": []
+    },
+    {
+      "name": "project-list-error",
+      "regions": ["app-header", "project-explorer", "error-state"],
+      "proto_query": "state=error",
+      "live": false,
+      "live_note": "The error state is for prototype review.",
+      "steps": []
+    },
+    {
+      "name": "retry-project-list",
+      "regions": ["app-header", "project-explorer", "all-projects-view", "error-state"],
+      "proto_query": "state=error",
+      "live": false,
+      "live_note": "Retry returns to representative sample data.",
+      "steps": [{ "click": "Try again", "role": "button" }]
+    },
+    {
+      "name": "open-workspace-settings",
+      "regions": ["app-header", "settings-trigger", "settings-dialog", "settings-guidance", "settings-root-list"],
+      "live": false,
+      "live_note": "Settings values are illustrative and remain in this prototype session.",
+      "steps": [{ "click": "Settings", "role": "button" }]
+    },
+    {
+      "name": "add-search-root",
+      "regions": ["settings-dialog", "settings-root-list", "settings-add-root"],
+      "live": false,
+      "live_note": "Adding a root changes only the prototype's in-memory list.",
+      "steps": [
+        { "click": "Settings", "role": "button" },
+        { "fill": "Additional folder path", "value": "~/sandbox" },
+        { "press": "Enter" }
+      ]
+    },
+    {
+      "name": "search-root-validation-error",
+      "regions": ["settings-dialog", "settings-add-root", "settings-validation"],
+      "live": false,
+      "live_note": "A duplicate search root displays an inline validation message.",
+      "steps": [
+        { "click": "Settings", "role": "button" },
+        { "fill": "Additional folder path", "value": "~/repos" },
+        { "press": "Enter" }
+      ]
+    },
+    {
+      "name": "search-root-parent-traversal-error",
+      "regions": ["settings-dialog", "settings-add-root", "settings-validation"],
+      "live": false,
+      "live_note": "Parent-directory segments are rejected instead of expanding the search outside the selected folder.",
+      "steps": [
+        { "click": "Settings", "role": "button" },
+        { "fill": "Additional folder path", "value": "~/.." },
+        { "press": "Enter" }
+      ]
+    },
+    {
+      "name": "remove-search-root",
+      "regions": ["settings-dialog", "settings-root-list"],
+      "live": false,
+      "live_note": "Removing a root changes only the prototype's in-memory list.",
+      "steps": [
+        { "click": "Settings", "role": "button" },
+        { "click": "Remove ~/projects", "role": "button" }
+      ]
+    },
+    {
+      "name": "save-search-settings",
+      "regions": ["settings-dialog", "settings-root-list", "action-feedback"],
+      "live": false,
+      "live_note": "Save displays prototype-only feedback and does not write to disk.",
+      "steps": [
+        { "click": "Settings", "role": "button" },
+        { "fill": "Additional folder path", "value": "~/sandbox" },
+        { "press": "Enter" },
+        { "click": "Save settings", "role": "button" },
+        { "waitFor": "Settings updated for this prototype session only" }
+      ]
+    },
+    {
+      "name": "cancel-search-settings",
+      "regions": ["settings-dialog", "settings-root-list", "settings-add-root"],
+      "live": false,
+      "live_note": "Cancel discards roots added in the open dialog.",
+      "steps": [
+        { "click": "Settings", "role": "button" },
+        { "fill": "Additional folder path", "value": "~/discarded" },
+        { "press": "Enter" },
+        { "click": "Cancel", "role": "button" },
+        { "click": "Settings", "role": "button" }
+      ]
+    }
+  ]
+}

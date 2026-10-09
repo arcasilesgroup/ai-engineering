@@ -1,8 +1,8 @@
 {
   "feature": "Local worktree lifecycle governance",
   "slug": "worktree-lifecycle-governance",
-  "summary": "Remove unused declaration-manifest support, show lifecycle state from Git-listed feature worktrees, and safely synchronize and merge reviewed work into local main.",
-  "plain_summary": "Before work begins, the project shows active tasks and decisions waiting. Each task catches up with accepted changes before review and safe cleanup.",
+  "summary": "Govern feature worktree lifecycle and provide a loopback-only hub for configured projects, Git-backed worktree status, feature progress, and canonical local artifacts.",
+  "plain_summary": "People can see local projects and work copies, understand what needs attention, and open the right progress view or project document.",
   "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
   "lifecycle": {
     "phase": "implementation",
@@ -46,9 +46,21 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
-        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "passed", "attempts": 1, "findings": [] }
+        "behavior": {
+          "status": "passed",
+          "attempts": 1,
+          "findings": []
+        },
+        "ui": {
+          "status": "n/a",
+          "attempts": 0,
+          "findings": []
+        },
+        "review": {
+          "status": "passed",
+          "attempts": 1,
+          "findings": []
+        }
       },
       "status": "passed"
     },
@@ -63,7 +75,9 @@
         "why": "People need to spot active or uncertain work before starting another task.",
         "check": "Run the listing command and see work copies and their state."
       },
-      "builds_on": [1],
+      "builds_on": [
+        1
+      ],
       "tasks": [
         "src/shared-worktree.ts: extend the Git inventory and worktreeList to inspect dirty state and `.ai-engineering/workflow/checkpoints/<slug>.json` inside each Git-listed feature worktree. Do not scan the primary checkout for plans without worktrees or copy checkpoint files between trees; a missing, unreadable or invalid checkpoint is reported as unknown.",
         "src/shared-worktree.ts and src/commands/worktree.ts: keep Git as the only worktree inventory, show detached and otherwise unclassified entries, and derive likely-overlap evidence from Git status and checkpoint paths without mutating a worktree.",
@@ -106,7 +120,11 @@
             "attempt 4 PASS after checkpoint-id validation: all six checkpoint 2 verify commands passed."
           ]
         },
-        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "ui": {
+          "status": "n/a",
+          "attempts": 0,
+          "findings": []
+        },
         "review": {
           "status": "passed",
           "attempts": 1,
@@ -138,7 +156,9 @@
         "why": "People need to see active work before opening or resuming a task.",
         "check": "Start or resume a task and confirm its work copy is clean."
       },
-      "builds_on": [2],
+      "builds_on": [
+        2
+      ],
       "tasks": [
         "skills/ai-brainstorm/SKILL.md and skills/ai-orchestrator/SKILL.md: call the same read-only `ai-eng worktree list` preflight before new or resumed work; use its local Git, dirty-state, lifecycle and overlap evidence, pause likely overlaps for a human decision, and allow clearly unrelated work.",
         "skills/ai-orchestrator/SKILL.md: make Phase 0 create a new feature worktree from local main or resume the same slug using the Git-listed path. Continue only when the worktree is clean and trusted; preserve and report dirty, missing or uncertain work without resetting, removing or syncing it.",
@@ -181,7 +201,11 @@
             "attempt 4 PASS after explicit dirty/unknown and named approval-state assertions: all eight checkpoint 3 verify commands passed."
           ]
         },
-        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "ui": {
+          "status": "n/a",
+          "attempts": 0,
+          "findings": []
+        },
         "review": {
           "status": "passed",
           "attempts": 1,
@@ -214,7 +238,9 @@
         "why": "Work should follow the plan the person actually approved.",
         "check": "The plan waits for approval before any building starts."
       },
-      "builds_on": [3],
+      "builds_on": [
+        3
+      ],
       "tasks": [
         "skills/ai-orchestrator/SKILL.md: after Phase 0, write `.ai-engineering/workflow/checkpoints/<slug>.json` in that feature worktree with lifecycle phase awaiting-plan-approval, plan_approval pending, app_review not-started and reviewed_main null. Do not create it in the primary tree, require a plan without a worktree, or copy it between trees.",
         "skills/ai-orchestrator/SKILL.md: keep the existing Phase 1 human checkpoint-plan approval stop. Only after approval, update lifecycle to implementation and begin tests or code; commit the approved plan in the same worktree.",
@@ -257,7 +283,11 @@
             "attempt 4 PASS after the distinct symlink-alias regression: all eight checkpoint 4 verify commands passed."
           ]
         },
-        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "ui": {
+          "status": "n/a",
+          "attempts": 0,
+          "findings": []
+        },
         "review": {
           "status": "passed",
           "attempts": 1,
@@ -291,7 +321,9 @@
         "why": "Old work may conflict with changes that have already landed.",
         "check": "The refreshed result is checked again before the person reviews it."
       },
-      "builds_on": [4],
+      "builds_on": [
+        4
+      ],
       "tasks": [
         "src/commands/worktree.ts and src/shared-worktree.ts: add exact-arity `ai-eng worktree rebase <slug>` and resolve only an existing Git-registered worktree under the canonical configured root on exact `feat/<slug>`; refuse detached, missing, mismatched or untrusted registrations.",
         "src/shared-worktree.ts: before mutation, require readable clean Git status and a readable non-legacy checkpoint with lifecycle phase `implementation`, every planned checkpoint status `passed`, and every planned gate `passed` or `n/a`. Missing, malformed, contradictory or unknown lifecycle state refuses without changing refs, files, index, checkpoint bytes or worktree registration.",
@@ -351,7 +383,11 @@
             "attempt 10 PASS after asserting ancestry: all ten revised checkpoint 5 verify commands passed, including U20d main-movement handling."
           ]
         },
-        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "ui": {
+          "status": "n/a",
+          "attempts": 0,
+          "findings": []
+        },
         "review": {
           "status": "passed",
           "attempts": 2,
@@ -386,7 +422,9 @@
         "why": "Approval should apply only to the version that was actually reviewed.",
         "check": "If the main project moved, refresh and review the work before cleanup."
       },
-      "builds_on": [5],
+      "builds_on": [
+        5
+      ],
       "tasks": [
         "skills/ai-orchestrator/SKILL.md: after Phase 3 gates pass and local refs are stable, capture full `reviewed_main` and the exact full `reviewed_feature` code tip before the human app-review stop. Set `phase=awaiting-app-review` and `app_review=pending`, then commit only `.ai-engineering/workflow/checkpoints/<slug>.json`; verify that commit changes no other path and does not change the reviewed code.",
         "skills/ai-orchestrator/SKILL.md: after human approval, set `phase=ready-to-merge` and `app_review=approved` without changing either reviewed SHA, then commit only the checkpoint file again. Confirm this second metadata-only commit leaves the reviewed code unchanged before invoking `ai-eng worktree merge <slug>`.",
@@ -488,7 +526,11 @@
             "attempt 31 PASS after fixing F5 cleanup-warning propagation: all 12 checkpoint 6 verification commands passed in order."
           ]
         },
-        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "ui": {
+          "status": "n/a",
+          "attempts": 0,
+          "findings": []
+        },
         "review": {
           "status": "passed",
           "attempts": 3,
@@ -524,6 +566,496 @@
         ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-6-reviewed-shas.md",
         ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-6.md"
       ]
+    },
+    {
+      "id": 7,
+      "title": "Proceed after the approved brainstorm",
+      "simple": "Begin after the approved brief",
+      "size": "xl",
+      "goal": "After the human approves the brainstorm, the generated plan opens in the checkpoint viewer and implementation starts without a second plan-approval stop; final app review remains required.",
+      "plain": {
+        "what": "After the person approves the brief, building starts without another plan approval.",
+        "why": "The same decision should not be requested twice.",
+        "check": "See the generated plan open, then continue directly into implementation."
+      },
+      "builds_on": [
+        6
+      ],
+      "tasks": [
+        "skills/ai-orchestrator/SKILL.md: after the approved brainstorm and worktree preflight, write the plan in the feature worktree, open it in the existing checkpoint viewer, record plan_approval as approved from the explicit decision, and continue directly to implementation without asking for plan approval; keep brainstorm approval and final app review stops.",
+        "scripts/checkpoint-gate.py: accept the new-plan lifecycle at phase implementation with plan_approval approved, app_review not-started, and both reviewed refs null; preserve valid legacy and already-running lifecycle behavior without letting missing or contradictory state authorize merge.",
+        "tests/test_checkpoint_gate.py: cover the new implementation/approved initial lifecycle, reject contradictory review refs or app-review state, and retain legacy checkpoint compatibility.",
+        "tests/skills.spec.ts and tests/workflow-handoff.spec.ts: assert brainstorm approval precedes plan creation, the plan viewer opens, implementation follows without a plan-approval prompt, and final app review still precedes merge.",
+        "Run `bun scripts/gen-assets.ts` after skill edits and verify the generated embed contract."
+      ],
+      "files": [
+        "skills/ai-orchestrator/SKILL.md",
+        "scripts/checkpoint-gate.py",
+        "src/assets.ts",
+        "tests/test_checkpoint_gate.py",
+        "tests/skills.spec.ts",
+        "tests/workflow-handoff.spec.ts",
+        "tests/embed-canon.spec.ts"
+      ],
+      "acceptance": [
+        "A human-approved brainstorm remains the start gate; the generated checkpoint plan opens in the existing viewer and the orchestrator proceeds without asking for a second plan approval.",
+        "New plans use phase implementation, plan_approval approved, app_review not-started, and null reviewed refs; malformed or contradictory lifecycle state still fails closed.",
+        "The final human app review and all existing reviewed-ref, merge, and removal protections remain required.",
+        "Generated skill assets match their sources and the focused lifecycle, workflow-handoff, typecheck, lint, and architecture checks pass."
+      ],
+      "verify": [
+        "python3 tests/test_checkpoint_gate.py",
+        "bun test ./tests/skills.spec.ts",
+        "bun test ./tests/workflow-handoff.spec.ts",
+        "bun scripts/gen-assets.ts",
+        "bun test ./tests/embed-canon.spec.ts",
+        "bun run build",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test ./tests/arch.spec.ts"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        },
+        "ui": {
+          "status": "n/a",
+          "attempts": 0,
+          "findings": []
+        },
+        "review": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        }
+      },
+      "status": "in_progress"
+    },
+    {
+      "id": 8,
+      "title": "Start one loopback workspace hub",
+      "simple": "Open one local workspace",
+      "size": "xl",
+      "goal": "The workspace serves its English loading shell from one loopback-only Bun service, persists configured project roots under the user-level home, and reuses a healthy existing instance.",
+      "plain": {
+        "what": "People can open one local workspace, and later openings reuse the same service.",
+        "why": "Separate services could show stale projects or compete for the same settings.",
+        "check": "Open the workspace twice and confirm both openings reach the same local hub."
+      },
+      "builds_on": [
+        7
+      ],
+      "tasks": [
+        "src/cli.ts, src/shared-verbs.ts and src/commands/workspace.ts: add the `ai-eng workspace` command, preserve exact argument handling and help behavior, and open the hub in the default browser.",
+        "src/workspace/server.ts and src/workspace/instance.ts: serve only on 127.0.0.1; use a health probe to reuse a responsive hub, and show an actionable error without starting a competing server when the port is occupied by an unhealthy or unrelated process.",
+        "src/workspace/settings.ts: persist only configured project roots in `home()/workspace.json` using the existing `AI_ENG_HOME` test isolation; validate the file shape, preserve existing bytes on invalid input, and keep lifecycle data out of this settings file.",
+        "templates/workspace.html.tpl and src/assets.ts: serve the initial English loading shell at `/.ai-engineering/workflow/checkpoints/overview.html`, marked up for the prototype's app-header, project-explorer, and loading-state regions.",
+        "tests/workspace-command.spec.ts and tests/workspace-server.spec.ts: cover the loopback bind, health/reuse behavior, occupied-port error, loading response, and isolated settings read/write; tests must not start a second real hub on a shared fixed port.",
+        "Run `bun scripts/gen-assets.ts` after adding the template and verify the embed-canon test."
+      ],
+      "files": [
+        "src/cli.ts",
+        "src/shared-verbs.ts",
+        "src/commands/workspace.ts",
+        "src/workspace/server.ts",
+        "src/workspace/instance.ts",
+        "src/workspace/settings.ts",
+        "templates/workspace.html.tpl",
+        "src/assets.ts",
+        "tests/workspace-command.spec.ts",
+        "tests/workspace-server.spec.ts",
+        "tests/workspace-settings.spec.ts",
+        "tests/embed-canon.spec.ts"
+      ],
+      "acceptance": [
+        "`ai-eng workspace` serves and opens the hub on loopback only; it never listens on a network interface.",
+        "A second invocation reuses the healthy instance; an occupied or unhealthy service produces visible recovery guidance and never silently creates a second instance.",
+        "Configured roots persist in the user-level settings location, are isolated through `AI_ENG_HOME` in tests, and do not become a second lifecycle registry.",
+        "The initial English loading screen matches prototype state loading-projects, and server or settings failures are visible rather than reported as success."
+      ],
+      "verify": [
+        "bun test ./tests/workspace-command.spec.ts",
+        "bun test ./tests/workspace-server.spec.ts",
+        "bun test ./tests/workspace-settings.spec.ts",
+        "bun scripts/gen-assets.ts",
+        "bun test ./tests/embed-canon.spec.ts",
+        "bun run build",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test ./tests/arch.spec.ts"
+      ],
+      "ui": {
+        "route": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "scope": [
+          "app-header",
+          "project-explorer",
+          "loading-state"
+        ],
+        "states": [
+          "loading-projects"
+        ]
+      },
+      "gates": {
+        "behavior": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        },
+        "ui": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        },
+        "review": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 9,
+      "title": "Discover projects and classify their worktrees",
+      "simple": "Trust evidence for each work copy",
+      "size": "xl",
+      "goal": "Read-only discovery scans only configured project roots, lists each discovered repository's Git-registered worktrees using its configured worktree root, and maps explicit Git/checkpoint evidence plus verified pre-worktree approvals to the approved lifecycle filters.",
+      "plain": {
+        "what": "People can see local work copies with a status supported by evidence.",
+        "why": "Missing or conflicting records must not make uncertain work look active or finished.",
+        "check": "Filter the list and inspect waiting, active, blocked, closed, and unknown work."
+      },
+      "builds_on": [
+        8
+      ],
+      "tasks": [
+        "src/shared-worktree.ts: expose a read-only repository-root-scoped worktree inventory for the hub while preserving the existing `ai-eng worktree list` contract and its local-only safety checks.",
+        "src/workspace/discovery.ts: find repositories only beneath canonical configured roots, reject symlink escapes, surface unreadable roots, and after finding a repository include only its Git-registered worktrees, including paths under that repository's configured `[git].worktrees_dir` even when that directory is outside the search root.",
+        "src/workspace/status.ts: derive all, needs-review, in-progress, blocked, closed, and unknown from Git plus a matching valid checkpoint/lifecycle record. Needs-review means a valid `approval-before-start` projection or awaiting-plan/app-review phase; in-progress means implementation or ready-to-merge; blocked requires explicit blocked lifecycle or Git conflict evidence. Dirty status is detail, not proof of activity. Build closed history only from a checkpoint on local main with complete gates and Git merge evidence, and classify missing, legacy, stale, malformed, detached, prunable, or contradictory evidence as unknown.",
+        "src/workspace/api.ts and src/workspace/server.ts: add read-only project/worktree/history endpoints; refresh only on startup or explicit user request, never by continuous polling, and keep per-project Git or checkpoint read failures in the response for visible UI handling.",
+        "tests/workspace-discovery.spec.ts and tests/workspace-server.spec.ts: use temporary Git repositories to prove configured-root boundaries, custom worktree roots, Git registration, all six status buckets, and unknown precedence for missing or conflicting evidence.",
+        "tests/worktree-lifecycle.spec.ts: retain and extend regression coverage for the existing CLI worktree inventory if its shared read-only helper changes."
+      ],
+      "files": [
+        "src/shared-worktree.ts",
+        "src/workspace/discovery.ts",
+        "src/workspace/status.ts",
+        "src/workspace/api.ts",
+        "src/workspace/server.ts",
+        "tests/workspace-discovery.spec.ts",
+        "tests/workspace-server.spec.ts",
+        "tests/worktree-lifecycle.spec.ts"
+      ],
+      "acceptance": [
+        "Repository discovery never scans outside configured canonical roots; worktrees are included only when Git registers them to an in-scope repository, respecting that repository's configured worktree directory. A verified pre-worktree approval may appear from its explicit lifecycle projection.",
+        "Every lifecycle label is backed by Git and a matching valid checkpoint; dirty work alone never means active, and missing, stale, malformed, or contradictory evidence is Unknown.",
+        "Needs-review, in-progress, and blocked map only to explicit approval phases, implementation/ready-to-merge phases, or a blocked phase/Git conflict; dirty files alone do not imply any of them.",
+        "Closed history requires a matching checkpoint on local main, Git proof that the feature reached local main, no registered feature worktree, and complete checkpoint gates; lack of a live worktree alone is not proof of closure.",
+        "Project and worktree inventory is read-only, refreshes at startup or user request only, and reports partial read errors instead of hiding them."
+      ],
+      "verify": [
+        "bun test ./tests/workspace-discovery.spec.ts",
+        "bun test ./tests/workspace-server.spec.ts",
+        "bun test ./tests/worktree-lifecycle.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test ./tests/arch.spec.ts",
+        "bun run build"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        },
+        "ui": {
+          "status": "n/a",
+          "attempts": 0,
+          "findings": []
+        },
+        "review": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 10,
+      "title": "Browse project roots and history",
+      "simple": "Browse projects and recent work",
+      "size": "xl",
+      "goal": "The English hub presents all-projects, per-project overview/history, status filters, and persistent root settings with native folder selection, validation, and clear loading, empty, and error states.",
+      "plain": {
+        "what": "People can manage search folders and review each project's files, work copies, and history.",
+        "why": "Without a project view, people must search separate folders and progress pages.",
+        "check": "Add a folder and open a project's overview from the English workspace."
+      },
+      "builds_on": [
+        9
+      ],
+      "tasks": [
+        "src/workspace/folder-picker.ts and src/workspace/settings.ts: provide a platform-native folder chooser that returns a canonical absolute path, cancellation without mutation, and a visible manual-path fallback where the native chooser is unavailable; add, remove, save, and validate roots without following path traversal or escaping symlinks.",
+        "templates/workspace.html.tpl: implement the all-projects dashboard, project tree, project overview, file/worktree/history regions, status filters, Settings dialog, native folder-selection action, inline validation, and loading/empty/error/retry feedback from the prototype states.",
+        "src/workspace/ui.ts and src/workspace/api.ts: wire project selection, history navigation, settings save/cancel, manual refresh, and actionable API errors without continuous refresh or guessed activity; keep every visible product label in English.",
+        "tests/workspace-settings.spec.ts, tests/workspace-ui.spec.ts and tests/workspace-server.spec.ts: cover persisted root changes, duplicate/traversal rejection, cancellation, status filters, project overview/history data, and visible empty/error/retry outcomes.",
+        "Keep the UI scope cumulative with checkpoint 8, and compare only the listed data-region regions and states against the copied prototype."
+      ],
+      "files": [
+        "src/workspace/folder-picker.ts",
+        "src/workspace/settings.ts",
+        "src/workspace/ui.ts",
+        "src/workspace/api.ts",
+        "templates/workspace.html.tpl",
+        "tests/workspace-settings.spec.ts",
+        "tests/workspace-ui.spec.ts",
+        "tests/workspace-server.spec.ts"
+      ],
+      "acceptance": [
+        "All visible hub copy is English and matches prototype states for all-projects, project overview, project history, Settings, loading, empty, validation, and error/retry.",
+        "Native folder selection returns a validated canonical root; cancel leaves settings unchanged, invalid or duplicate roots show inline errors, and the manual fallback is explicit.",
+        "Project overviews and history use the same Git/checkpoint evidence as the all-projects filters; errors remain visible and never turn into guessed statuses.",
+        "The project's prototype UI gate passes for every listed state and only the checkpoint 8 regions plus the newly added project/settings regions are compared."
+      ],
+      "verify": [
+        "bun test ./tests/workspace-settings.spec.ts",
+        "bun test ./tests/workspace-ui.spec.ts",
+        "bun test ./tests/workspace-server.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test ./tests/arch.spec.ts",
+        "bun run build"
+      ],
+      "ui": {
+        "route": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "scope": [
+          "app-header",
+          "project-explorer",
+          "explorer-resize-handle",
+          "project-tree",
+          "main-pane",
+          "all-projects-view",
+          "project-overview",
+          "project-summary",
+          "project-documents",
+          "project-worktrees",
+          "project-history",
+          "summary",
+          "project-roots",
+          "attention-list",
+          "settings-trigger",
+          "settings-dialog",
+          "settings-guidance",
+          "settings-root-list",
+          "settings-add-root",
+          "settings-validation",
+          "loading-state",
+          "empty-state",
+          "error-state",
+          "action-feedback"
+        ],
+        "states": [
+          "all-projects-dashboard",
+          "ai-engineering-project-overview",
+          "checkout-api-project-overview",
+          "loading-projects",
+          "empty-project-list",
+          "project-list-error",
+          "retry-project-list",
+          "open-workspace-settings",
+          "add-search-root",
+          "search-root-validation-error",
+          "search-root-parent-traversal-error",
+          "remove-search-root",
+          "save-search-settings",
+          "cancel-search-settings"
+        ]
+      },
+      "gates": {
+        "behavior": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        },
+        "ui": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        },
+        "review": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 11,
+      "title": "Open feature progress and canonical artifacts",
+      "simple": "Open progress and key documents",
+      "size": "xl",
+      "goal": "Feature details reuse the existing checkpoint viewer, expose trustworthy lifecycle evidence, safely open only canonical HTML artifacts in the hub or a new tab, copy absolute paths, and project explicit lifecycle transitions for the verified Copilotline consumer.",
+      "plain": {
+        "what": "People can inspect feature progress and open approved project documents or copy their exact paths.",
+        "why": "Progress and documents need to stay tied to the correct local work copy.",
+        "check": "Open a feature, view its progress, open a document, and copy its full path."
+      },
+      "builds_on": [
+        10
+      ],
+      "tasks": [
+        "src/workspace/viewer.ts and src/workspace/server.ts: serve the existing `templates/viewer.html.tpl` for a selected Git-listed feature and provide only that worktree's matching checkpoint JSON; preserve the existing viewer schema and show missing or invalid checkpoint/lifecycle data as Unknown.",
+        "src/workspace/artifacts.ts and src/workspace/api.ts: allow only canonical project brainstorm/PRD and feature-scoped brainstorm HTML artifacts beneath a configured project or verified worktree; resolve real paths, reject traversal and symlink escapes, and support both in-hub preview and a direct new-tab route.",
+        "templates/workspace.html.tpl and src/workspace/ui.ts: add the feature detail, checkpoint journey, findings, technical details, lifecycle-record detail, canonical document preview, absolute-path clipboard action, visible success/failure feedback, mobile explorer return, and the prototype's explicit Open in IDE action using only the selected Git-registered worktree path.",
+        "src/workspace/lifecycle-projection.ts, src/commands/worktree.ts and skills/ai-orchestrator/SKILL.md: integrate explicit workflow transitions with the verified Copilotline `.ai-eng-lifecycle/<slug>.json` contract. Resolve the owning repository and configured worktree root from Git, emit only already-verified projection states, keep the record outside Git, never include approval, and report write failures without claiming success; the checkpoint remains authoritative.",
+        "src/commands/workspace.ts: add exact-arity `ai-eng workspace open <path>`; accept only a canonical allowlisted artifact, reuse the local hub, and open that document without launching arbitrary filesystem paths.",
+        "tests/workspace-viewer.spec.ts, tests/workspace-artifacts.spec.ts, tests/workspace-server.spec.ts, tests/workspace-lifecycle.spec.ts, tests/workspace-command.spec.ts, tests/worktree-lifecycle.spec.ts and tests/workflow-handoff.spec.ts: cover existing viewer rendering, path containment/allowlist, copied absolute path, open-target argument safety, projection schema/path/state compatibility, read/write errors, and lifecycle handoff ordering.",
+        "Update README.md, CHANGELOG.md, FILEMAP.md, and only the relevant local workspace conclusions in `.ai-engineering/PRD.html`; do not replace it with the cumulative PRD from another worktree.",
+        "Run `bun scripts/gen-assets.ts` after skill or template edits; verify embed-canon, typecheck, lint, full tests, and architecture."
+      ],
+      "files": [
+        "src/workspace/viewer.ts",
+        "src/workspace/server.ts",
+        "src/workspace/artifacts.ts",
+        "src/workspace/api.ts",
+        "src/workspace/ui.ts",
+        "src/workspace/lifecycle-projection.ts",
+        "src/commands/workspace.ts",
+        "src/commands/worktree.ts",
+        "skills/ai-orchestrator/SKILL.md",
+        "templates/workspace.html.tpl",
+        "src/assets.ts",
+        "tests/workspace-viewer.spec.ts",
+        "tests/workspace-artifacts.spec.ts",
+        "tests/workspace-server.spec.ts",
+        "tests/workspace-lifecycle.spec.ts",
+        "tests/workspace-command.spec.ts",
+        "tests/worktree-lifecycle.spec.ts",
+        "tests/workflow-handoff.spec.ts",
+        "tests/embed-canon.spec.ts",
+        "README.md",
+        "CHANGELOG.md",
+        "FILEMAP.md",
+        ".ai-engineering/PRD.html"
+      ],
+      "acceptance": [
+        "A selected feature opens the existing checkpoint viewer with its own matching checkpoint; missing, stale, malformed, or contradictory evidence stays visibly Unknown.",
+        "Only canonical allowlisted HTML artifacts under configured project/worktree roots can open in the hub or a new tab; traversal, symlink escapes, unrelated HTML, and paths outside the project are refused visibly.",
+        "Copy-path uses the canonical absolute path and reports clipboard success or failure; Open in IDE uses only the selected Git-registered worktree path and never performs Git lifecycle actions.",
+        "Lifecycle projection uses the verified Copilotline record fields, explicit supported states, owning repository, and configured worktree root; it cannot approve work, and a failed write is never shown as a successful transition.",
+        "No remote coordination, inferred activity, automatic merge, or automatic cleanup is added; brainstorm approval and final human app review remain, while checkpoint-plan approval remains waived.",
+        "Documentation adds only the relevant local workspace conclusions to this worktree's PRD, and the full test, typecheck, lint, generated-asset, and architecture gates pass."
+      ],
+      "verify": [
+        "bun test ./tests/workspace-viewer.spec.ts",
+        "bun test ./tests/workspace-artifacts.spec.ts",
+        "bun test ./tests/workspace-server.spec.ts",
+        "bun test ./tests/workspace-lifecycle.spec.ts",
+        "bun test ./tests/workspace-command.spec.ts",
+        "bun test ./tests/worktree-lifecycle.spec.ts",
+        "bun test ./tests/workflow-handoff.spec.ts",
+        "bun scripts/gen-assets.ts",
+        "bun test ./tests/embed-canon.spec.ts",
+        "bun run build",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test",
+        "bun test ./tests/arch.spec.ts"
+      ],
+      "ui": {
+        "route": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "scope": [
+          "app-header",
+          "project-explorer",
+          "explorer-resize-handle",
+          "project-tree",
+          "main-pane",
+          "all-projects-view",
+          "project-overview",
+          "project-summary",
+          "project-documents",
+          "project-worktrees",
+          "project-history",
+          "summary",
+          "project-roots",
+          "attention-list",
+          "settings-trigger",
+          "settings-dialog",
+          "settings-guidance",
+          "settings-root-list",
+          "settings-add-root",
+          "settings-validation",
+          "loading-state",
+          "empty-state",
+          "error-state",
+          "action-feedback",
+          "header-context",
+          "feature-viewer",
+          "viewer-header",
+          "status-banner",
+          "journey",
+          "checkpoint-card",
+          "checkpoint-findings",
+          "technical-details",
+          "assumptions",
+          "notes",
+          "ide-action",
+          "viewer-empty",
+          "lifecycle-record-detail",
+          "document-preview",
+          "document-content",
+          "document-scope-note",
+          "copy-path-action",
+          "mobile-explorer-back"
+        ],
+        "states": [
+          "worktree-feature-viewer",
+          "azure-feature-viewer",
+          "closed-feature-viewer",
+          "root-brainstorm-preview",
+          "root-prd-preview",
+          "worktree-brainstorm-preview",
+          "simulate-open-worktree-in-ide",
+          "expanded-worktree-actions",
+          "viewer-step-navigation",
+          "unknown-checkpoint-viewer",
+          "missing-lifecycle-registration",
+          "verified-active-lifecycle-record",
+          "feature-brainstorm-slug-path",
+          "direct-viewer-deep-link",
+          "direct-document-deep-link",
+          "ide-open-feedback",
+          "copy-html-absolute-path",
+          "mobile-content-to-explorer"
+        ]
+      },
+      "gates": {
+        "behavior": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        },
+        "ui": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        },
+        "review": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        }
+      },
+      "status": "pending"
     }
   ],
   "assumptions": [
@@ -533,13 +1065,22 @@
     "The checkpoint gate validates approval-state ordering, while the orchestrator records plan approval only after the human Phase 1 response; the local state file does not independently authenticate who supplied that response. [AGENTS.md approval contract; orchestrator Phase 1]",
     "No new dependencies or screen are needed; existing Bun tests and real Git fixtures cover the behavior. [AGENTS.md; approved request]",
     "The app review is bound to a code tip; only the pending and approved lifecycle commits may follow it, and both may change only the checkpoint file. [approved CP6 clarification; CAS review; LEARNINGS R4-R5]",
-    "When local main moves, stale approval is invalidated in a checkpoint-only commit before resynchronization, gates and renewed human review. [approved CP6 clarification; CAS review; LEARNINGS R4, R8, L85, L89-L91]"
+    "When local main moves, stale approval is invalidated in a checkpoint-only commit before resynchronization, gates and renewed human review. [approved CP6 clarification; CAS review; LEARNINGS R4, R8, L85, L89-L91]",
+    "After a brainstorm is approved, the generated plan is opened and implementation starts without another plan approval; final app review still needs the person. [approved feature brief; explicit user decision]",
+    "The hub stores project roots in the existing user-level home location, while each feature checkpoint remains the lifecycle source of truth. [source-worktree PRD; src/env.ts]",
+    "Search only configured roots for projects; once a project is found, Git-registered worktrees may be outside those roots when that project's configured worktree directory places them there. [source-worktree PRD; src/shared-worktree.ts]",
+    "Show Closed only when local Git proves the feature is merged and its checkpoint gates are complete; missing or conflicting proof stays Unknown. [approved feature brief; checkpoint 6]",
+    "Use a platform-native folder chooser that returns a canonical absolute path, with the prototype's path entry as a clear fallback. [approved feature brief; prototype state add-search-root]",
+    "Keep the prototype's Open in IDE action as an explicit open-only convenience; it never merges or removes a worktree. [approved prototype state simulate-open-worktree-in-ide; approved exclusions]",
+    "The Copilotline record is only a projection using its verified local contract; it never grants approval or replaces the checkpoint. [approved feature brief; source-worktree PRD]"
   ],
   "new_dependencies": [],
   "notes": [
-    "All checkpoints have ui null and a ui gate of n/a; this feature changes CLI reporting and agent workflow, not an application screen.",
+    "Checkpoints 1–6 retain their original results and have ui null. Checkpoints 8, 10, and 11 share the copied worktree overview prototype; each later UI scope includes the earlier regions.",
     "Do not delete a leftover `.ai-eng-worktrees.json` from any worktree root; remove its support from this repository and leave unrelated local data untouched.",
     "Lifecycle lives in each feature's existing checkpoint JSON. Do not add a second registry, require a plan without a worktree, or duplicate a checkpoint file between the primary and feature trees.",
-    "Only local main is a synchronization or merge source. Never fetch remote state, coordinate across clones, merge an unapproved sibling or force an unclear conflict."
+    "Only local main is a synchronization or merge source. Never fetch remote state, coordinate across clones, merge an unapproved sibling or force an unclear conflict.",
+    "The approved feature brief and prototype/state map are copied byte-for-byte into this worktree; treat the prototype as the visual reference and do not redesign it.",
+    "Plan approval is waived only by the explicit decision recorded for this scope. Keep the root brainstorm approval stamp unchanged and leave lifecycle app_review not-started until final human app review."
   ]
 }

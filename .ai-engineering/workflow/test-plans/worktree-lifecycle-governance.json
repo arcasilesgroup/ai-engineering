@@ -291,9 +291,129 @@
         "file": "tests/git-cleanup-pass.spec.ts",
         "command": "bun test ./tests/git-cleanup-pass.spec.ts",
         "checkpoint": 6
+      },
+      {
+        "id": "U33",
+        "case": "after an approved brainstorm, a new plan starts at implementation with plan_approval approved, app_review not-started, and both reviewed refs null; contradictory lifecycle combinations are rejected",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 7
+      },
+      {
+        "id": "U34",
+        "case": "the approved brainstorm remains the start gate, the generated plan opens in the existing viewer without a second approval prompt, and final app review still precedes merge",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
+        "checkpoint": 7
+      },
+      {
+        "id": "U35",
+        "case": "user-level project-root settings validate canonical absolute paths, reject duplicates and traversal, preserve malformed settings bytes, and isolate test writes through AI_ENG_HOME",
+        "file": "tests/workspace-settings.spec.ts",
+        "command": "bun test ./tests/workspace-settings.spec.ts",
+        "checkpoint": 8
+      },
+      {
+        "id": "U36",
+        "case": "repository discovery finds Git roots only under configured canonical roots and refuses symlink escapes without claiming an incomplete scan is empty",
+        "file": "tests/workspace-discovery.spec.ts",
+        "command": "bun test ./tests/workspace-discovery.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "U37",
+        "case": "a discovered repository contributes only Git-registered worktrees and respects its configured git.worktrees_dir even when the worktree directory is outside the search root",
+        "file": "tests/workspace-discovery.spec.ts",
+        "command": "bun test ./tests/workspace-discovery.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "U38",
+        "case": "all, needs-review, in-progress, blocked, closed, and unknown classifications match explicit Git and checkpoint/lifecycle fixtures, including a verified approval-before-start record without a worktree; dirty state is never proof of activity",
+        "file": "tests/workspace-discovery.spec.ts",
+        "command": "bun test ./tests/workspace-discovery.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "U39",
+        "case": "closed is emitted only when local main ancestry, complete checkpoint gates, and absence of the registered worktree are all proven; missing or conflicting evidence remains unknown",
+        "file": "tests/workspace-discovery.spec.ts",
+        "command": "bun test ./tests/workspace-discovery.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "U40",
+        "case": "canonical artifact resolution accepts only the allowlisted project brainstorm/PRD and feature-scoped brainstorm, rejecting traversal, symlink escapes, unrelated HTML, and paths outside configured roots",
+        "file": "tests/workspace-artifacts.spec.ts",
+        "command": "bun test ./tests/workspace-artifacts.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "U41",
+        "case": "the lifecycle projection uses the verified Copilotline schema, explicit supported states, the owning repository and configured worktree root, and never includes approval",
+        "file": "tests/workspace-lifecycle.spec.ts",
+        "command": "bun test ./tests/workspace-lifecycle.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "U42",
+        "case": "opening a selected worktree in the system IDE passes only its Git-registered canonical path as an argument and never invokes shell composition or lifecycle commands",
+        "file": "tests/workspace-command.spec.ts",
+        "command": "bun test ./tests/workspace-command.spec.ts",
+        "checkpoint": 11
       }
     ],
-    "api": [],
+    "api": [
+      {
+        "id": "A1",
+        "case": "the service binds only to 127.0.0.1, answers its health route, reuses a healthy instance, and reports an occupied unhealthy port without starting a second server",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 8
+      },
+      {
+        "id": "A2",
+        "case": "project and worktree endpoints return only configured-root projects and their Git-registered worktrees, including a configured external worktree root and an explicit verified pre-worktree approval",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "A3",
+        "case": "status filters and project history return the same evidence-backed categories as the unit classifier and keep partial Git/checkpoint read failures visible",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "A4",
+        "case": "settings endpoints persist valid roots, reject duplicate/traversal roots, and leave prior settings unchanged on invalid input or picker cancellation",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 10
+      },
+      {
+        "id": "A5",
+        "case": "feature viewer endpoints expose only the matching Git-listed worktree checkpoint and return visible unknown/error evidence for missing or malformed state",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "A6",
+        "case": "artifact routes serve only canonical allowlisted HTML under an in-scope project/worktree and refuse path traversal, symlink escapes, and arbitrary filesystem reads",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "A7",
+        "case": "lifecycle projection failures are visible and do not report a successful state change or mutate checkpoint approval",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 11
+      }
+    ],
     "cli": [
       {
         "id": "C1",
@@ -384,14 +504,133 @@
         "file": "tests/worktree-command.spec.ts",
         "command": "bun test ./tests/worktree-command.spec.ts",
         "checkpoint": 6
+      },
+      {
+        "id": "C14",
+        "case": "`ai-eng workspace` opens or reuses the loopback hub and returns an actionable failure for invalid arguments or an unhealthy occupied port",
+        "file": "tests/workspace-command.spec.ts",
+        "command": "bun test ./tests/workspace-command.spec.ts",
+        "checkpoint": 8
+      },
+      {
+        "id": "C15",
+        "case": "the new workspace template and skill payloads regenerate into src/assets.ts",
+        "command": "bun scripts/gen-assets.ts",
+        "checkpoint": 8
+      },
+      {
+        "id": "C16",
+        "case": "generated workspace and skill assets match their source canon",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test ./tests/embed-canon.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "C17",
+        "case": "all TypeScript changes type-check",
+        "command": "bun run typecheck",
+        "checkpoint": 11
+      },
+      {
+        "id": "C18",
+        "case": "the project lint gate passes",
+        "command": "bun run lint",
+        "checkpoint": 11
+      },
+      {
+        "id": "C19",
+        "case": "the architecture boundary remains valid after workspace modules are added",
+        "command": "bun test ./tests/arch.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "C20",
+        "case": "the complete repository test suite passes after focused workspace, lifecycle, and workflow checks",
+        "command": "bun test",
+        "checkpoint": 11
+      },
+      {
+        "id": "C21",
+        "case": "`ai-eng workspace open <path>` accepts only canonical allowlisted HTML artifacts, reuses the local hub, and focuses the selected document without opening arbitrary paths",
+        "file": "tests/workspace-command.spec.ts",
+        "command": "bun test ./tests/workspace-command.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "C22",
+        "case": "the production package build completes with the workspace hub and generated templates",
+        "command": "bun run build",
+        "checkpoint": 11
       }
     ],
-    "ui": []
+    "ui": [
+      {
+        "id": "E1",
+        "case": "the workspace opens in its English loading state while project discovery is pending",
+        "file": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "checkpoint": 8,
+        "why_ui": "The actual browser route, loading layout, focus behavior, and responsive shell exist only after rendering the served page; API tests cannot prove them.",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "states": ["loading-projects"]
+      },
+      {
+        "id": "E2",
+        "case": "the all-projects dashboard, project overview/history, root settings, native selection, validation, empty list, and retryable error match their prototype states",
+        "file": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "checkpoint": 10,
+        "why_ui": "Browser layout, dialog interaction, native picker handoff, keyboard focus, and narrow-screen navigation cannot be proven by unit or API assertions.",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "states": [
+          "all-projects-dashboard",
+          "ai-engineering-project-overview",
+          "open-workspace-settings",
+          "save-search-settings",
+          "search-root-validation-error",
+          "empty-project-list",
+          "project-list-error"
+        ]
+      },
+      {
+        "id": "E3",
+        "case": "the selected worktree progress view shows current checkpoint details and distinguishes valid, missing, and unknown lifecycle evidence",
+        "file": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "checkpoint": 11,
+        "why_ui": "The rendered journey, findings, status banner, and unknown-state presentation are browser-visible composition of the existing viewer and hub context.",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "states": [
+          "worktree-feature-viewer",
+          "closed-feature-viewer",
+          "unknown-checkpoint-viewer",
+          "missing-lifecycle-registration",
+          "verified-active-lifecycle-record"
+        ]
+      },
+      {
+        "id": "E4",
+        "case": "canonical project and feature documents open in the hub/new tab, absolute paths copy with feedback, the selected worktree opens explicitly, and mobile returns to the explorer",
+        "file": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "checkpoint": 11,
+        "why_ui": "New-tab behavior, native clipboard permission feedback, system-open confirmation, and mobile pane transitions require a real browser interaction.",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "states": [
+          "root-brainstorm-preview",
+          "root-prd-preview",
+          "worktree-brainstorm-preview",
+          "feature-brainstorm-slug-path",
+          "direct-document-deep-link",
+          "copy-html-absolute-path",
+          "simulate-open-worktree-in-ide",
+          "ide-open-feedback",
+          "mobile-content-to-explorer"
+        ]
+      }
+    ]
   },
   "not_tested": [
-    "API layer: no HTTP endpoint, server, database, persistence service or API authorization surface exists for this local CLI and skill workflow.",
-    "UI layer: the feature has no application screen, browser interaction or responsive layout; all worktree visibility and approval-flow behavior is exercised at the CLI, state-validation and workflow-contract layers.",
-    "Cross-clone or remote coordination is deliberately not tested because the approved design is local-only and forbids remote synchronization in this lifecycle.",
-    "Live human approval is represented by explicit state-transition and handoff tests; tests do not invoke an actual person or run a multi-agent production session."
+    "No automated Playwright suite is added; browser-only flows are checked through the checkpoint UI gate against the copied prototype, following the existing viewer-audit convention.",
+    "The native operating-system folder dialog is not launched in automated tests; tests cover its adapter contract, cancellation, path validation, and visible fallback.",
+    "The external Copilotline consumer is not started in this repository; lifecycle projection is checked against its already-verified record contract and fixtures.",
+    "Cross-clone or remote coordination, inferred activity, automatic merge, and automatic cleanup are deliberately excluded by the approved scope.",
+    "Human brainstorm approval and final app review remain ordered handoffs; automated tests do not simulate an actual person or production multi-agent run."
   ]
 }
