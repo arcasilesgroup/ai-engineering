@@ -270,6 +270,8 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
       "a new checkpoint plan proceeds to implementation without another approval stop",
     );
     expect(normalizedBrainstormHandoff).toContain("the final app review remains a human stop");
+    expect(normalizedBrainstormHandoff).not.toContain("the plan approval downstream is stop 1");
+    expect(normalizedBrainstormHandoff).not.toContain("one idea, two stops, both human");
     expect(normalizedPlan).toContain("proceed directly to phase 2 without another approval question");
     const legacyPlanStart = normalizedPlan.indexOf("for a resumed legacy plan");
     const legacyPlan = normalizedPlan.slice(legacyPlanStart);

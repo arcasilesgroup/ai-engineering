@@ -387,10 +387,29 @@ with tempfile.TemporaryDirectory(
         print(("ok  " if got == 2 else "FAIL"), f"U33: rejects initial lifecycle with {name}", f"(exit {got})")
     checkpoint_dir = os.path.dirname(selected_path)
     alias_path = f"{checkpoint_dir}/demo-alias.json"
-    with open(selected_path, "w") as fixture:
-        json.dump(legacy, fixture)
+    invalid_prior_plans = [
+        ("wrong-slug prior plan", {**legacy, "slug": "other"}),
+        ("malformed prior checkpoint structure", {**legacy, "checkpoints": [None]}),
+    ]
     if os.path.exists(brainstorm_path):
         os.unlink(brainstorm_path)
+    for name, invalid_prior_plan in invalid_prior_plans:
+        with open(selected_path, "w") as fixture:
+            json.dump(invalid_prior_plan, fixture)
+        pending_result = run(selected_root, write(selected_path, initial_plan))
+        if pending_result == 0:
+            with open(selected_path, "w") as fixture:
+                json.dump(initial_plan, fixture)
+        approval_result = run(selected_root, write(selected_path, approved_brainstorm_plan))
+        rejected = pending_result == 2 and approval_result == 2
+        fails += not rejected
+        print(
+            ("ok  " if rejected else "FAIL"),
+            f"F1: {name} cannot authorize plan approval "
+            f"(pending {pending_result}, approve {approval_result})",
+        )
+    with open(selected_path, "w") as fixture:
+        json.dump(legacy, fixture)
     canonical_result = run(selected_root, write(selected_path, initial_plan))
     if canonical_result == 0:
         json.dump(initial_plan, open(selected_path, "w"))

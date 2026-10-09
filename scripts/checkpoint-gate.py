@@ -756,7 +756,12 @@ def check_plan(new_text, old_text, root, check_transition=True, path=None):
         old = {c["id"]: snapshot(c) for c in old_plan["checkpoints"]}
     except (ValueError, KeyError, TypeError):
         pass
-    had_plan = isinstance(old_plan, dict) and isinstance(old_plan.get("checkpoints"), list)
+    had_plan = (
+        isinstance(old_plan, dict)
+        and old_plan.get("slug") == new_plan.get("slug")
+        and checkpoint_id_error(old_plan.get("checkpoints")) is None
+        and lifecycle_plan_path_error(old_plan, path, root, False) is None
+    )
     had_lifecycle = isinstance(old_plan, dict) and "lifecycle" in old_plan
     if has_app_review_claim(new_plan) or (
         has_app_review_claim(old_plan)
