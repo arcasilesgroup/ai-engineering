@@ -11,7 +11,7 @@ import {
 } from "../shared-worktree.ts";
 
 const USAGE =
-  "usage: ai-eng worktree new <slug> [files...] | rm <slug> [--force] | rebase <slug> | merge <slug> | " +
+  "usage: ai-eng worktree new <slug> | rm <slug> [--force] | rebase <slug> | merge <slug> | " +
   "request-changes <slug> <pending-checkpoint-commit-sha> | list [<slug>]\n";
 
 export function worktreeMain(args: string[], force = false): number {
@@ -19,11 +19,11 @@ export function worktreeMain(args: string[], force = false): number {
   let result;
   switch (action) {
     case "new":
-      if (!slug || force) {
+      if (!slug || files.length > 0) {
         process.stderr.write(USAGE);
         return 2;
       }
-      result = worktreeNew(slug, files);
+      result = worktreeNew(slug);
       break;
     case "rm": {
       // A trailing positional is a typo the caller cannot see — `rm alpha typo`

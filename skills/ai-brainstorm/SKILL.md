@@ -28,28 +28,6 @@ approved it. This applies to EVERY task on EVERY path — the ceremony scales wi
 the approval gate never does.
 </HARD-GATE>
 
-## Local worktree check
-
-Before the first question or draft, run the read-only local preflight
-`ai-eng worktree list`. For this feature, also run `ai-eng worktree list <slug>` when its
-exact state is not already shown. Existing worktrees use their checkpoint as the sole
-lifecycle authority; missing, malformed, or contradictory checkpoint state is unknown and
-never falls back to brainstorm.
-
-Before a worktree exists, the list may project `approval-before-start` only from the primary
-brainstorm with one exact feature slug, a unique approval date within 14 days, and one
-matching `complete · <date>` status line. This projection writes no record and never replaces
-the brainstorm's human approval gate. Missing, draft, malformed, ambiguous, mismatched, or
-expired evidence is unknown/pending. Semantic near-matches are advisory only and never
-substitute for an exact slug or resume target. Use only the exact Git-listed path, and
-verify it remains a directory whose porcelain entry is not `prunable`. Do not create a
-worktree from brainstorm.
-An exact slug match selects that existing task; do not create a second brainstorm or worktree
-for it. Use only the exact row and Git-listed path; verify the path is still a directory and
-its porcelain entry is not `prunable`. Semantic near-matches are advisory only, never a
-substitute for an exact slug or resume target. A projection never supplies human approval,
-and unknown lifecycle evidence never authorizes work.
-
 ## Three paths (classify out loud before the first question)
 
 Say the classification out loud — "this looks bounded, so I'll present a short design here

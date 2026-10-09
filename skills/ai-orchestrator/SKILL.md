@@ -111,17 +111,12 @@ When the gate passes, every later phase reads both files. `.ai-engineering/PRD.h
   Phase 0 immediately. Do not run `ai-eng worktree new`, resume it, rebase it, run
   `ai-eng worktree rm`, reset it, switch branches, or otherwise mutate it.
 - Only if that same-slug entry is clean, trusted and already on `feat/<slug>`, resume
-  it using its exact Git-listed path; verify that path is still a directory and its
-  porcelain entry is not `prunable`. Never derive a path or switch a branch.
+  it using its exact Git-listed path; never derive a path or switch a branch.
 - If the slug is not listed, first classify the other work. Clearly unrelated work
   may continue untouched. A likely overlap, or dirty/missing/uncertain work that could
   overlap, means pause here and ask the human for a decision. Only when no matching
   slug is listed and no likely or uncertain overlap remains, run
-  `ai-eng worktree new <slug> [files...]`; it creates a clean feature worktree from
-  local `main`. Pass known relative file paths as advisory overlap hints. A warning
-  means classify the overlap before proceeding; hints never authorize implementation
-  or replace checkpoint gates. Semantic near-matches are advisory too, never a
-  substitute for an exact slug or resume target.
+  `ai-eng worktree new <slug>`; it creates a clean feature worktree from local `main`.
   Then run `ai-eng worktree list` again and use the exact Git-listed path. If creation
   refuses, report the reason and stop; do not modify dirty design slots, branches or
   other work to force it.
