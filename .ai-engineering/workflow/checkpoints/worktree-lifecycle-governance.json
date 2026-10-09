@@ -996,8 +996,8 @@
           ]
         },
         "ui": {
-          "status": "failed",
-          "attempts": 2,
+          "status": "passed",
+          "attempts": 3,
           "findings": [
             "UI-R1-01 (High): `ai-engineering-project-overview` and `checkout-api-project-overview` fail to reach the project tree/view at 375px because the explorer is hidden until `← Explorer` is activated; correct the state flow for mobile.",
             "UI-R1-02 (Medium): `resize-project-explorer` uses unsupported `drag` in the capture scenario, so resize remains at its default width and is not evidenced; use a supported interaction and preserve pointer resizing.",
@@ -1007,7 +1007,8 @@
             "UI-R1-06 (Medium): project brainstorm/PRD entries render as inert spans while the approved prototype presents buttons; resolved by staging artifact activation in CP11 and removing `project-documents` from CP10's UI comparison scope.",
             "UI-R1-07 (High): opening a project from a scrolled page leaves the breadcrumb/Refresh toolbar clipped beneath the sticky app header; reset scroll at the shared view transition and capture the scrolled-navigation case.",
             "Low: project tab controls lack tab semantics/aria-selected; validation feedback lacks aria-invalid/aria-describedby; prototype empty state says 3 roots while also saying no roots are registered.",
-            "UI-R2-01 (Medium): Settings prototype omitted the live Choose folder control and used a two-column row instead of the live three-column layout."
+            "UI-R2-01 (Medium): Settings prototype omitted the live Choose folder control and used a two-column row instead of the live three-column layout; resolved by adding the matching button, grid column, and prototype-only selected-path state.",
+            "UI attempt 3 captured 24 in-scope state definitions across 35 viewport captures with zero step errors. All sample-data states were marked proto-only; both independent visual and behavior reviewers returned PASS."
           ]
         },
         "review": {
