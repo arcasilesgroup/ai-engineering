@@ -738,7 +738,12 @@
           "findings": []
         }
       },
-      "status": "in_progress"
+      "status": "in_progress",
+      "changed_files": [
+        "tests/workspace-settings.spec.ts",
+        "tests/workspace-command.spec.ts",
+        "tests/workspace-server.spec.ts"
+      ]
     },
     {
       "id": 9,
