@@ -724,9 +724,10 @@
       "gates": {
         "behavior": {
           "status": "failed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "Attempt 1 FAIL: `bun test ./tests/workspace-command.spec.ts` found that the CLI test starts a mock HTTP server in the same process and then runs a synchronous CLI subprocess. The subprocess blocks the server event loop, so the health probe cannot receive a response. Remaining verify commands were not run; fix the test fixture using a child server process or asynchronous execution."
+            "Attempt 1 FAIL: `bun test ./tests/workspace-command.spec.ts` found that the CLI test starts a mock HTTP server in the same process and then runs a synchronous CLI subprocess. The subprocess blocks the server event loop, so the health probe cannot receive a response. Remaining verify commands were not run; fix the test fixture using a child server process or asynchronous execution.",
+            "Attempt 2 FAIL: workspace-command and workspace-server specs passed; `bun test ./tests/workspace-settings.spec.ts` failed the rejection assertion for duplicate roots/traversal. Remaining verify commands were not run; identify the exact accepted invalid input and correct validation."
           ]
         },
         "ui": {
