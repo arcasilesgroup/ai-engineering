@@ -331,5 +331,23 @@ describe("workspace server", () => {
       `/api/worktrees?project=${encodeURIComponent(repository)}&status=unknown`,
     );
     expect(JSON.stringify(partialCheckpointResponse)).toMatch(/checkpoint-failure|checkpoint.*(error|failed|read)|EISDIR/i);
+
+    const refreshResponse = await fetch(new URL("/api/refresh", server.url), { method: "POST" });
+    expect(refreshResponse.status).toBe(200);
+    const refreshBody = await refreshResponse.json() as {
+      projects: string[];
+      errors: Array<{ root: string; detail: string }>;
+    };
+    expect(refreshBody.projects).toContain(repository);
+    expect(refreshBody.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        root: repository,
+        detail: expect.stringMatching(/checkpoint-failure/),
+      }),
+      expect.objectContaining({
+        root: partialGitRepository,
+        detail: expect.any(String),
+      }),
+    ]));
   });
 });

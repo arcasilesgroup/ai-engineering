@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -27,6 +29,7 @@ interface WorkspaceItem {
 interface WorkspaceProject {
   root: string;
   items: WorkspaceItem[];
+  history: Array<{ slug: string }>;
 }
 
 interface WorkspaceDiscoveryResult {
@@ -35,6 +38,7 @@ interface WorkspaceDiscoveryResult {
 }
 
 interface WorkspaceDiscoveryApi {
+  matchesDirectoryIdentity(path: string, expected: { device: number; inode: number }): boolean;
   discoverWorkspace(
     roots: string[],
     options?: { filter?: WorkspaceFilter; now?: Date },
@@ -183,6 +187,45 @@ function writeCheckpoint(repoPath: string, slug: string, plan: Record<string, un
   return path;
 }
 
+function commitCheckpoint(worktreePath: string, slug: string, plan: Record<string, unknown>, message: string): string {
+  const path = writeCheckpoint(worktreePath, slug, plan);
+  git(["add", path], worktreePath);
+  git(["commit", "--quiet", "-m", message], worktreePath);
+  return git(["rev-parse", "HEAD"], worktreePath);
+}
+
+function createValidReviewLifecycle(
+  worktreePath: string,
+  slug: string,
+  reviewedMain: string,
+  finalPhase: "awaiting-app-review" | "ready-to-merge",
+): void {
+  const gatesComplete = {
+    phase: "implementation",
+    checkpointStatus: "passed",
+    gateStatus: "passed",
+    reviewGateStatus: "passed",
+  };
+  commitCheckpoint(worktreePath, slug, checkpointPlan(slug, gatesComplete), `checkpoint implementation ${slug}`);
+  const reviewedFeature = git(["rev-parse", "HEAD"], worktreePath);
+  commitCheckpoint(worktreePath, slug, checkpointPlan(slug, {
+    ...gatesComplete,
+    phase: "awaiting-app-review",
+    appReview: "pending",
+    reviewedMain,
+    reviewedFeature,
+  }), `checkpoint awaiting app review ${slug}`);
+  if (finalPhase === "ready-to-merge") {
+    commitCheckpoint(worktreePath, slug, checkpointPlan(slug, {
+      ...gatesComplete,
+      phase: "ready-to-merge",
+      appReview: "approved",
+      reviewedMain,
+      reviewedFeature,
+    }), `checkpoint ready to merge ${slug}`);
+  }
+}
+
 function gitWorktreePaths(repoPath: string): string[] {
   return git(["worktree", "list", "--porcelain"], repoPath)
     .split(/\n\n/)
@@ -288,6 +331,21 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
     expect(incompleteScan.errors.some((error) => error.root === canonicalMissingRoot)).toBe(true);
   });
 
+  test("U36a rejects a symlink replacement when revalidating a checked directory identity", () => {
+    const api = discovery();
+    const checkedPath = join(sandbox, "checked-directory");
+    const replacementPath = join(sandbox, "replacement-directory");
+    mkdirSync(checkedPath);
+    mkdirSync(replacementPath);
+    const identity = lstatSync(checkedPath);
+    const expectedIdentity = { device: identity.dev, inode: identity.ino };
+    const renamedPath = join(sandbox, "renamed-directory");
+    renameSync(checkedPath, renamedPath);
+    symlinkSync(replacementPath, checkedPath);
+
+    expect(api.matchesDirectoryIdentity(checkedPath, expectedIdentity)).toBe(false);
+  });
+
   test("U37 reports only Git-registered feature worktrees and honors an external git.worktrees_dir", async () => {
     discovery();
     const searchRoot = join(sandbox, "projects");
@@ -334,8 +392,11 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
     const slugs = [
       "plan-review",
       "app-review",
+      "app-review-missing-shas",
+      "app-review-stale",
       "implementation",
       "ready",
+      "ready-stale",
       "lifecycle-blocked",
       "git-conflict",
       "dirty-unknown",
@@ -346,16 +407,7 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
 
     const plans: Array<[string, CheckpointOptions]> = [
       ["plan-review", { phase: "awaiting-plan-approval" }],
-      ["app-review", { phase: "awaiting-app-review", checkpointStatus: "passed", gateStatus: "passed", reviewGateStatus: "pending" }],
       ["implementation", { phase: "implementation" }],
-      ["ready", {
-        phase: "ready-to-merge",
-        checkpointStatus: "passed",
-        gateStatus: "passed",
-        appReview: "approved",
-        reviewedMain: mainCommit,
-        reviewedFeature: git(["rev-parse", "HEAD"], worktrees.get("ready")!),
-      }],
       ["lifecycle-blocked", { phase: "blocked", checkpointStatus: "blocked", reviewGateStatus: "blocked" }],
     ];
     for (const [slug, options] of plans) {
@@ -363,6 +415,29 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
       git(["add", path], worktrees.get(slug)!);
       git(["commit", "--quiet", "-m", `checkpoint ${slug}`], worktrees.get(slug)!);
     }
+    createValidReviewLifecycle(worktrees.get("app-review")!, "app-review", mainCommit, "awaiting-app-review");
+    createValidReviewLifecycle(worktrees.get("ready")!, "ready", mainCommit, "ready-to-merge");
+    const missingReviewPath = writeCheckpoint(
+      worktrees.get("app-review-missing-shas")!,
+      "app-review-missing-shas",
+      checkpointPlan("app-review-missing-shas", {
+        phase: "awaiting-app-review",
+        checkpointStatus: "passed",
+        gateStatus: "passed",
+        reviewGateStatus: "passed",
+      }),
+    );
+    git(["add", missingReviewPath], worktrees.get("app-review-missing-shas")!);
+    git(["commit", "--quiet", "-m", "checkpoint missing review shas"], worktrees.get("app-review-missing-shas")!);
+    createValidReviewLifecycle(
+      worktrees.get("app-review-stale")!,
+      "app-review-stale",
+      mainCommit,
+      "awaiting-app-review",
+    );
+    commitFile(worktrees.get("app-review-stale")!, "post-review.txt", "stale review\n", "change code after app review");
+    createValidReviewLifecycle(worktrees.get("ready-stale")!, "ready-stale", mainCommit, "ready-to-merge");
+    commitFile(worktrees.get("ready-stale")!, "post-review.txt", "stale review\n", "change code after ready review");
 
     const conflictPath = worktrees.get("git-conflict")!;
     const conflictCheckpoint = writeCheckpoint(conflictPath, "git-conflict", checkpointPlan("git-conflict"));
@@ -394,8 +469,11 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
     const expectedStatuses: Array<[string, WorkspaceStatus]> = [
       ["plan-review", "needs-review"],
       ["app-review", "needs-review"],
+      ["app-review-missing-shas", "unknown"],
+      ["app-review-stale", "unknown"],
       ["implementation", "in-progress"],
       ["ready", "in-progress"],
+      ["ready-stale", "unknown"],
       ["lifecycle-blocked", "blocked"],
       ["git-conflict", "blocked"],
       ["dirty-unknown", "unknown"],
@@ -443,6 +521,52 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
       removeWorktree: true,
       omitCheckpoint: true,
     });
+    const detached = createHistoryFixture(searchRoot, "detached-closed", { mergeToMain: true });
+    git(["switch", "--detach", "HEAD"], detached.worktreePath);
+    const prunable = createHistoryFixture(searchRoot, "prunable-closed", { mergeToMain: true });
+    rmSync(prunable.worktreePath, { recursive: true, force: true });
+    const prunableEntry = git(["worktree", "list", "--porcelain"], prunable.repoPath)
+      .split("\n\n")
+      .find((block) => block.includes(prunable.worktreePath));
+    expect(prunableEntry).toContain("prunable");
+
+    const nestedOnly = createHistoryFixture(searchRoot, "nested-checkpoint", {
+      mergeToMain: true,
+      removeWorktree: true,
+    });
+    const nestedOnlyCheckpoint = checkpointPath(nestedOnly.repoPath, "nested-checkpoint");
+    const nestedOnlyPath = join(
+      nestedOnly.repoPath,
+      ".ai-engineering",
+      "workflow",
+      "checkpoints",
+      "archive",
+      "nested-checkpoint.json",
+    );
+    const nestedOnlyContents = readFileSync(nestedOnlyCheckpoint, "utf8");
+    rmSync(nestedOnlyCheckpoint);
+    mkdirSync(dirname(nestedOnlyPath), { recursive: true });
+    writeFileSync(nestedOnlyPath, nestedOnlyContents);
+    git(["add", "-A"], nestedOnly.repoPath);
+    git(["commit", "--quiet", "-m", "misplace nested checkpoint"], nestedOnly.repoPath);
+
+    const duplicateCheckpoint = createHistoryFixture(searchRoot, "duplicate-checkpoint", {
+      mergeToMain: true,
+      removeWorktree: true,
+    });
+    const duplicateCanonical = checkpointPath(duplicateCheckpoint.repoPath, "duplicate-checkpoint");
+    const duplicateNestedPath = join(
+      duplicateCheckpoint.repoPath,
+      ".ai-engineering",
+      "workflow",
+      "checkpoints",
+      "archive",
+      "duplicate-checkpoint.json",
+    );
+    mkdirSync(dirname(duplicateNestedPath), { recursive: true });
+    writeFileSync(duplicateNestedPath, readFileSync(duplicateCanonical, "utf8"));
+    git(["add", duplicateNestedPath], duplicateCheckpoint.repoPath);
+    git(["commit", "--quiet", "-m", "duplicate checkpoint under archive"], duplicateCheckpoint.repoPath);
 
     expect(runGit(["merge-base", "--is-ancestor", "refs/heads/feat/closed-valid", "refs/heads/main"], closed.repoPath).status).toBe(0);
     expect(gitWorktreePaths(closed.repoPath)).not.toContain(closed.worktreePath);
@@ -473,6 +597,20 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
 
     const snapshot = await discoverWorkspace([realpathSync(searchRoot)], "all");
     expect(itemFor(snapshot, "closed-valid").status).toBe("closed");
+    for (const slug of [
+      "detached-closed",
+      "prunable-closed",
+      "nested-checkpoint",
+      "duplicate-checkpoint",
+    ]) {
+      expect(itemFor(snapshot, slug).status, slug).toBe("unknown");
+    }
+    for (const project of snapshot.projects) {
+      expect(project.history.map((item) => item.slug)).not.toContain("detached-closed");
+      expect(project.history.map((item) => item.slug)).not.toContain("prunable-closed");
+      expect(project.history.map((item) => item.slug)).not.toContain("nested-checkpoint");
+      expect(project.history.map((item) => item.slug)).not.toContain("duplicate-checkpoint");
+    }
     for (const slug of [
       "closed-incomplete-gates",
       "unmerged-history",

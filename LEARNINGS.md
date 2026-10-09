@@ -835,3 +835,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Typed the callback body as a union of the workspace health response and the unrelated generic listener response.
 - **Lesson:** Type mock response variants against each distinct contract instead of letting the default fixture narrow the accepted shape.
 - **Tags:** behavior, typecheck, tests, workspace
+
+### L103 · 2026-10-09 · worktree-lifecycle-governance #9 · review
+- **Failure:** CP9 review found discovery paths could be swapped after canonicalization, stale or incomplete app-review evidence remained active, detached worktrees and misplaced checkpoints could be overridden by Closed history, and refresh omitted project errors.
+- **Root cause:** Path reads trusted a prior realpath check, review state checked ancestry without the reviewed commit chain and payload, and history/API checks dropped path identity and per-project error details.
+- **Fix:** Revalidate directory identity around path reads; require both review SHAs and the checkpoint-only reviewed chain; block Closed on registered slug/path evidence; accept only one canonical checkpoint path; include project errors in refresh responses.
+- **Lesson:** Revalidate path identity without claiming race elimination; when review ancestry, payload, registration, or canonical placement is uncertain, report Unknown and preserve the error.
+- **Tags:** review, workspace, lifecycle, filesystem, checkpoints, errors

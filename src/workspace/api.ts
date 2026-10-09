@@ -61,7 +61,12 @@ export async function handleWorkspaceApi(
     return json({
       status: "ok",
       projects: snapshot.projects.map((project) => project.root),
-      errors: snapshot.errors,
+      errors: [
+        ...snapshot.errors,
+        ...snapshot.projects.flatMap((project) =>
+          project.errors.map((detail) => ({ root: project.root, detail }))
+        ),
+      ],
     });
   }
 

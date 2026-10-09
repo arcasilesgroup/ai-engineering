@@ -852,12 +852,13 @@ function reviewedPlanPayload(plan: unknown): Record<string, unknown> | null {
   return payload;
 }
 
-function reviewedFeatureChainProblem(
+export function reviewedFeatureChainProblem(
   repo: string,
   slug: string,
   reviewedMain: string,
   reviewedFeature: string,
   featureTip: string,
+  phase: "awaiting-app-review" | "ready-to-merge" = "ready-to-merge",
 ): string | null {
   const ancestry = git(repo, ["merge-base", "--is-ancestor", reviewedFeature, featureTip]);
   if (ancestry.status !== 0 || ancestry.stderr.trim() !== "") {
@@ -866,7 +867,10 @@ function reviewedFeatureChainProblem(
   const history = git(repo, ["rev-list", "--reverse", `${reviewedFeature}..${featureTip}`]);
   if (history.status !== 0 || history.stderr.trim() !== "") return "feature commits after reviewed_feature are unreadable";
   const commits = history.stdout.split("\n").map((commit) => commit.trim()).filter(Boolean);
-  if (commits.length < 2) return "both app-review lifecycle checkpoint commits are missing";
+  if (
+    (phase === "awaiting-app-review" && commits.length !== 1) ||
+    (phase === "ready-to-merge" && commits.length < 2)
+  ) return "app-review lifecycle checkpoint commits are missing or duplicated";
 
   const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
   const reviewedCheckpoint = git(repo, ["show", `${reviewedFeature}:${checkpointPath}`]);
@@ -923,7 +927,8 @@ function reviewedFeatureChainProblem(
       lifecycle.reviewed_main !== reviewedMain ||
       lifecycle.reviewed_feature !== reviewedFeature ||
       lifecycle.phase !== (isPendingReview ? "awaiting-app-review" : "ready-to-merge") ||
-      lifecycle.app_review !== (isPendingReview ? "pending" : "approved")
+      lifecycle.app_review !== (isPendingReview ? "pending" : "approved") ||
+      (phase === "awaiting-app-review" && !isPendingReview)
     ) {
       return `commit ${commit} has invalid app-review lifecycle metadata`;
     }

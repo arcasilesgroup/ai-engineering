@@ -5,6 +5,7 @@ import {
   SLUG_PATTERN,
   type RepositoryWorktree,
   type RepositoryWorktreeInventory,
+  reviewedFeatureChainProblem,
 } from "../shared-worktree.ts";
 
 export type WorkspaceStatus = "needs-review" | "in-progress" | "blocked" | "closed" | "unknown";
@@ -207,7 +208,7 @@ function validateCheckpoint(value: unknown, slug: string): Checkpoint | null {
     (phase === "implementation" &&
       (lifecycle.plan_approval !== "approved" || lifecycle.app_review !== "not-started" || hasReviewCommits)) ||
     (phase === "awaiting-app-review" &&
-      (lifecycle.plan_approval !== "approved" || lifecycle.app_review !== "pending")) ||
+      (lifecycle.plan_approval !== "approved" || lifecycle.app_review !== "pending" || !hasReviewCommits)) ||
     (phase === "ready-to-merge" &&
       (lifecycle.plan_approval !== "approved" || lifecycle.app_review !== "approved" || !hasReviewCommits)) ||
     (phase === "complete" &&
@@ -366,22 +367,41 @@ function classifyWorktree(
   if (lifecycle.phase === "approval-before-start") {
     return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, "approval-before-start checkpoint has a registered worktree");
   }
-  if (lifecycle.phase === "awaiting-plan-approval" || lifecycle.phase === "awaiting-app-review") {
+  if (lifecycle.phase === "awaiting-plan-approval") {
     if (lifecycle.reviewedMain !== null && lifecycle.reviewedMain !== mainCommit) {
       return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, "lifecycle reviewed_main is stale");
     }
-    if (lifecycle.reviewedFeature !== null) {
-      const featureTipRead = runGit(repository, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
-      const featureTipError = gitError(featureTipRead, `rev-parse refs/heads/${branch}`);
-      if (featureTipError !== undefined) {
-        projectErrors.push(`${slug}: ${featureTipError}`);
-        return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, featureTipError);
-      }
-      const reviewedFeatureIsAncestor = isAncestor(repository, lifecycle.reviewedFeature, featureTipRead.stdout.trim());
-      if (reviewedFeatureIsAncestor !== true) {
-        if (reviewedFeatureIsAncestor === null) projectErrors.push(`${slug}: Git could not verify reviewed_feature ancestry`);
-        return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, "lifecycle reviewed_feature does not match the feature branch");
-      }
+    return { slug, branch, worktreePath: entry.path, status: "needs-review", dirty: worktreeStatus.dirty };
+  }
+  if (lifecycle.phase === "awaiting-app-review") {
+    if (
+      mainCommit === null ||
+      lifecycle.reviewedMain !== mainCommit ||
+      lifecycle.reviewedFeature === null
+    ) {
+      return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, "app-review lifecycle evidence is missing or stale");
+    }
+    const featureTipRead = runGit(repository, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
+    const featureTipError = gitError(featureTipRead, `rev-parse refs/heads/${branch}`);
+    if (featureTipError !== undefined) {
+      projectErrors.push(`${slug}: ${featureTipError}`);
+      return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, featureTipError);
+    }
+    const featureTip = featureTipRead.stdout.trim();
+    if (!COMMIT_PATTERN.test(featureTip)) {
+      return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, "Git returned an invalid feature commit");
+    }
+    const chainProblem = reviewedFeatureChainProblem(
+      repository,
+      slug,
+      lifecycle.reviewedMain,
+      lifecycle.reviewedFeature,
+      featureTip,
+      "awaiting-app-review",
+    );
+    if (chainProblem !== null) {
+      projectErrors.push(`${slug}: ${chainProblem}`);
+      return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, chainProblem);
     }
     return { slug, branch, worktreePath: entry.path, status: "needs-review", dirty: worktreeStatus.dirty };
   }
@@ -407,16 +427,25 @@ function classifyWorktree(
     if (reviewedFeature === null) {
       return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, "lifecycle reviewed_feature is missing");
     }
-    const reviewedFeatureIsAncestor = isAncestor(repository, reviewedFeature, featureTip);
-    if (reviewedFeatureIsAncestor !== true) {
-      if (reviewedFeatureIsAncestor === null) projectErrors.push(`${slug}: Git could not verify reviewed_feature ancestry`);
-      return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, "lifecycle reviewed_feature does not match the feature branch");
+    const chainProblem = reviewedFeatureChainProblem(
+      repository,
+      slug,
+      lifecycle.reviewedMain,
+      reviewedFeature,
+      featureTip,
+    );
+    if (chainProblem !== null) {
+      projectErrors.push(`${slug}: ${chainProblem}`);
+      return unknownItem(slug, branch, entry.path, worktreeStatus.dirty, chainProblem);
     }
   }
   return { slug, branch, worktreePath: entry.path, status: "in-progress", dirty: worktreeStatus.dirty };
 }
 
 function readMainCheckpoint(repository: string, path: string, slug: string): ReadCheckpoint {
+  if (path !== `.ai-engineering/workflow/checkpoints/${slug}.json`) {
+    return { error: "main checkpoint is not at its canonical slug path" };
+  }
   const result = runGit(repository, ["show", `refs/heads/main:${path}`]);
   const error = gitError(result, `show refs/heads/main:${path}`);
   if (error !== undefined) return { error };
@@ -431,12 +460,27 @@ function readMainCheckpoint(repository: string, path: string, slug: string): Rea
   }
 }
 
+function hasRegisteredWorktreeForSlug(
+  registeredWorktrees: RepositoryWorktree[],
+  worktreesRoot: string,
+  slug: string,
+): boolean {
+  const expectedPath = join(worktreesRoot, slug);
+  return registeredWorktrees.some((entry) =>
+    entry.branch === `feat/${slug}` ||
+    entry.slug === slug ||
+    entry.path === expectedPath ||
+    entry.registeredPath === expectedPath
+  );
+}
+
 function closedHistoryItem(
   repository: string,
   slug: string,
   checkpoint: Checkpoint,
   mainCommit: string | null,
   registeredWorktrees: RepositoryWorktree[],
+  worktreesRoot: string,
   areFeatureBranchesReadable: boolean,
   featureBranches: Set<string>,
   projectErrors: string[],
@@ -451,7 +495,7 @@ function closedHistoryItem(
     lifecycle.reviewedMain === null ||
     lifecycle.reviewedFeature === null ||
     lifecycle.reviewedMain === lifecycle.reviewedFeature ||
-    registeredWorktrees.some((entry) => entry.branch === `feat/${slug}`)
+    hasRegisteredWorktreeForSlug(registeredWorktrees, worktreesRoot, slug)
   ) return null;
 
   const mainContainsReview = isAncestor(repository, lifecycle.reviewedMain, mainCommit);
@@ -490,6 +534,7 @@ function readClosedHistory(
   repository: string,
   mainCommit: string | null,
   registeredWorktrees: RepositoryWorktree[],
+  worktreesRoot: string,
   areFeatureBranchesReadable: boolean,
   featureBranches: Set<string>,
   itemsBySlug: Map<string, WorkspaceItem>,
@@ -510,14 +555,32 @@ function readClosedHistory(
   }
 
   const history: WorkspaceHistoryItem[] = [];
-  const paths = listed.stdout.split("\0").filter((path) => path.endsWith(".json"));
-  for (const path of paths) {
+  const pathsBySlug = new Map<string, string[]>();
+  for (const path of listed.stdout.split("\0").filter((candidate) => candidate.endsWith(".json"))) {
     const slug = basename(path, ".json");
     if (!SLUG_PATTERN.test(slug) || /\p{C}/u.test(slug)) continue;
+    pathsBySlug.set(slug, [...(pathsBySlug.get(slug) ?? []), path]);
+  }
+
+  for (const [slug, paths] of pathsBySlug) {
+    const canonicalPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    if (paths.length !== 1 || paths[0] !== canonicalPath) {
+      const reason = "main checkpoint is misplaced or duplicated";
+      projectErrors.push(`${slug}: ${reason}`);
+      const existing = itemsBySlug.get(slug);
+      if (existing !== undefined) {
+        existing.status = "unknown";
+        existing.errors = [...(existing.errors ?? []), reason];
+      } else {
+        itemsBySlug.set(slug, unknownItem(slug, `feat/${slug}`, null, null, reason));
+      }
+      continue;
+    }
+    const path = paths[0]!;
     const read = readMainCheckpoint(repository, path, slug);
     if (read.error !== undefined) projectErrors.push(`${slug}: ${read.error}`);
     if (read.checkpoint?.lifecycle.phase === "approval-before-start") {
-      const hasRegisteredWorktree = registeredWorktrees.some((entry) => entry.branch === `feat/${slug}`);
+      const hasRegisteredWorktree = hasRegisteredWorktreeForSlug(registeredWorktrees, worktreesRoot, slug);
       if (!hasRegisteredWorktree && !featureBranches.has(`feat/${slug}`)) {
         const item: WorkspaceItem = {
           slug,
@@ -538,6 +601,7 @@ function readClosedHistory(
         read.checkpoint,
         mainCommit,
         registeredWorktrees,
+        worktreesRoot,
         areFeatureBranchesReadable,
         featureBranches,
         projectErrors,
@@ -695,6 +759,7 @@ export function classifyRepository(
     inventory.repositoryRoot,
     mainCommit,
     inventory.worktrees,
+    inventory.worktreesRoot,
     featureBranchRead.readable,
     featureBranches,
     itemsBySlug,
