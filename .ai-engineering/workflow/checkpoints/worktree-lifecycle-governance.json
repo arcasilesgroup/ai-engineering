@@ -618,12 +618,13 @@
       "gates": {
         "behavior": {
           "status": "passed",
-          "attempts": 4,
+          "attempts": 5,
           "findings": [
             "All nine checkpoint 7 verify commands passed in order: checkpoint gate tests, skills/workflow handoff tests, asset generation, embed-canon, build, typecheck, lint, and architecture tests.",
             "Attempt 2 PASS after F1/F2 fixes: all nine checkpoint 7 verify commands passed in order, including gate, skills, handoff, build, typecheck, lint, and architecture tests.",
             "Attempt 3 PASS after closing pending-first-write self-approval and the cross-skill brainstorm handoff: all nine checkpoint 7 verify commands passed in order.",
-            "Attempt 4 PASS after validating legacy plan identity and removing obsolete plan-stop wording: all nine checkpoint 7 verify commands passed in order."
+            "Attempt 4 PASS after validating legacy plan identity and removing obsolete plan-stop wording: all nine checkpoint 7 verify commands passed in order.",
+            "Attempt 5 PASS after requiring the full supported shape for matching legacy plans: all nine checkpoint 7 verify commands passed in order."
           ]
         },
         "ui": {
@@ -632,7 +633,7 @@
           "findings": []
         },
         "review": {
-          "status": "failed",
+          "status": "pending",
           "attempts": 1,
           "findings": [
             "F1 (HIGH): scripts/checkpoint-gate.py:525-542 and tests/test_checkpoint_gate.py:317-320. Caller-supplied lifecycle JSON can authorize implementation without proving a matching, fresh, approved brainstorm. Bind new-plan approval to validated brainstorm state and test first-write, absent, stale, and wrong-slug cases.",
