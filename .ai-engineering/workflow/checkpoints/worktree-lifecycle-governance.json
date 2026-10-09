@@ -47,7 +47,7 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
+          "status": "passed",
           "attempts": 1,
           "findings": []
         },
@@ -111,8 +111,8 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "failed",
-          "attempts": 6,
+          "status": "passed",
+          "attempts": 7,
           "findings": [
             "attempt 1 FAIL: bun run typecheck reports TS2769 at tests/worktree-lifecycle.spec.ts:226-227; lifecycle, worktree-command, checkpoint-gate, and architecture tests passed before the typecheck failure; lint was not run.",
             "attempt 2 PASS: all six checkpoint 2 verify commands passed after changing test case data to named fields.",
@@ -490,7 +490,7 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "passed",
+          "status": "pending",
           "attempts": 31,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
@@ -545,7 +545,7 @@
           ]
         }
       },
-      "status": "passed",
+      "status": "pending",
       "changed_files": [
         ".ai-engineering/workflow/checkpoints/worktree-lifecycle-governance.json",
         ".ai-engineering/workflow/test-plans/worktree-lifecycle-governance.json",
@@ -734,7 +734,8 @@
             "Attempt 3 FAIL: workspace command, server, settings tests, asset generation, embed-canon, and build passed. `bun run typecheck` failed in src/workspace/server.ts:78,82 and tests/workspace-server.spec.ts:58. Lint and architecture checks were not run.",
             "Attempt 4 FAIL: workspace command, server, settings, generation, embed-canon, build, typecheck, and lint passed. `bun test ./tests/arch.spec.ts` failed because the new workspace source group is not declared in `.ai-engineering/arch.rules.json`.",
             "Attempt 5 PASS after registering `src/workspace/**` as the workspace architecture layer: all nine checkpoint 8 verify commands passed in order.",
-            "Attempt 6 FAIL: workspace command/server/settings tests, asset generation, embed-canon, and build passed. `bun run typecheck` failed because tests/workspace-command.spec.ts:77 gave the workspace health identity to a response typed without the `service` field. Lint and architecture checks were not run."
+            "Attempt 6 FAIL: workspace command/server/settings tests, asset generation, embed-canon, and build passed. `bun run typecheck` failed because tests/workspace-command.spec.ts:77 gave the workspace health identity to a response typed without the `service` field. Lint and architecture checks were not run.",
+            "Attempt 7 PASS after typing the healthy and generic health fixtures separately: all nine checkpoint 8 verify commands passed in order."
           ]
         },
         "ui": {
