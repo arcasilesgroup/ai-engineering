@@ -901,6 +901,18 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     }
   });
 
+  test("constructor slug does not poison a later worktree creation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+
+    expect(runCli(["worktree", "new", "constructor"], repo).status).toBe(0);
+    const followup = runCli(["worktree", "new", "followup"], repo);
+
+    expect(followup.status).toBe(0);
+    expect(existsSync(join(root, "followup"))).toBe(true);
+  });
+
   test("no unquoted: every value reaches git as its own argv element", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
@@ -1501,6 +1513,23 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(existsSync(feature)).toBe(true);
     expect(existsSync(join(feature, "local.env"))).toBe(true);
     expect(branchNames(repo)).toContain("feat/alpha");
+  });
+
+  test("rm strips terminal controls from ignored filenames", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    writeFileSync(join(repo, ".gitignore"), "*.txt\n");
+    git(["add", "-A"], repo);
+    git(["commit", "-q", "-m", "ignore txt files"], repo);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    writeFileSync(join(root, "alpha", "spoof\u001b[2J.txt"), "ignored\n");
+
+    const run = runCli(["worktree", "rm", "alpha"], repo);
+
+    expect(run.status).toBe(0);
+    expect(run.stdout).not.toContain("\u001b");
+    expect(run.stdout).toContain("spoof[2J.txt");
   });
 
   test("U-CP4-d: rm forces its own status read and names the ignored path despite status.showUntrackedFiles=no", () => {

@@ -10,6 +10,8 @@
 - `ai-eng worktree new <slug> [files...]` now records validated file hints in the
   worktree-root manifest and reports likely overlaps as advisory only; malformed
   manifest bytes are preserved, never silently replaced.
+- Worktree cleanup now removes terminal control characters from ignored filenames in
+  its output, and a `constructor` slug no longer blocks later worktree creation.
 - Azure triage now validates source-linked claims and explains Recommendation and
   Why now alongside dates, discussion, parent/sprint context and evidence coverage.
   Current commitments and blockers can change recommendation order without

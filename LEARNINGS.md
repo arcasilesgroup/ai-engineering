@@ -922,7 +922,7 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Tags:** worktree, lifecycle, review
 
 ### L126 · 2026-10-08 · worktree-lifecycle-awareness #3 · human
-- **Failure:** Existing AI Engineering and NN Skills worktrees appeared as `0 active · N unknown` despite live directories and branches.
+- **Failure:** Existing AI Engineering and NN Skills worktrees across two local repositories appeared as `0 active · N unknown` despite live directories and branches.
 - **Root cause:** Legacy worktrees without sibling `.ai-eng-lifecycle` records are intentionally unknown, while the statusline omitted the physical total; new `worktreeNew` also did not seed an initial approval-before-start record.
 - **Fix:** Add a Gate 1 CLI acceptance requirement that reports physical total alongside unknown classification; no source change in this learning-only update.
 - **Lesson:** Verify the user's real local inventory and distinguish physical totals from lifecycle certainty; missing records must remain unknown, never inferred active.
