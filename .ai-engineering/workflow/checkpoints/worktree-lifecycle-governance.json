@@ -486,7 +486,14 @@
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "F4 (HIGH): scripts/checkpoint-gate.py:186,638-665 and src/shared-worktree.ts:709-765. Approval checks freeze lifecycle and gates but not the rest of the checkpoint plan; tasks, acceptance, or file scope can change after review and still be mergeable.",
+            "F5 (MEDIUM): src/shared-worktree.ts:1452-1478 and 1049-1088. Removal reports ignored paths or an unreadable scan, but the close flow discards the output, so ignored local files can be removed without warning."
+          ]
+        }
       },
       "status": "pending",
       "changed_files": [
