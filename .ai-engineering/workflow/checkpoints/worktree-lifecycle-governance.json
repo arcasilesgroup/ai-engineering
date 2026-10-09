@@ -930,7 +930,6 @@
           "all-projects-view",
           "project-overview",
           "project-summary",
-          "project-documents",
           "project-worktrees",
           "project-history",
           "summary",
@@ -981,7 +980,7 @@
             "UI-R1-03 (Medium): `save-search-settings-375-proto.png` shows feedback covering project cards; place feedback where it does not obscure content.",
             "UI-R1-04 (Medium): `workspace.html.tpl:449-452` reports that no worktrees are present when a status filter has no matches; distinguish no filtered matches from an empty inventory.",
             "UI-R1-05 (Medium): `workspace.html.tpl:344-346,680-688,711-716,734-738` rerenders tree/filter/settings content and loses keyboard focus; restore focus to the corresponding surviving control.",
-            "UI-R1-06 (Medium): project brainstorm/PRD entries render as inert spans while the approved prototype presents buttons; make them actionable or align this checkpoint's staged scope with the later artifact-opening checkpoint.",
+            "UI-R1-06 (Medium): project brainstorm/PRD entries render as inert spans while the approved prototype presents buttons; resolved by staging artifact activation in CP11 and removing `project-documents` from CP10's UI comparison scope.",
             "Low: project tab controls lack tab semantics/aria-selected; validation feedback lacks aria-invalid/aria-describedby; prototype empty state says 3 roots while also saying no roots are registered."
           ]
         },
@@ -1193,6 +1192,7 @@
     "Plan approval is waived only by the explicit decision recorded for this scope. Keep the root brainstorm approval stamp unchanged and leave lifecycle app_review not-started until final human app review.",
     "Checkpoint 8 UI gate reviews the prototype-only loading state at 1440px and 375px because the scenario marks it live:false. The independent reviewers reported two low issues: mobile wordmark size and the sample root count during loading; record them for final app review.",
     "No @playwright/test dependency or separate browser test harness was added. UI comparison used the existing ai-review-ui capture/reviewer gate.",
+    "CP10 displays project-level brainstorm and PRD names; opening project/worktree artifacts is staged in CP11, where canonical allowlisting and safe preview behavior are implemented.",
     "Checkpoint 9 behavior attempt 4 passed all seven verify commands after updating the reviewed_feature fixture to contain the required checkpoint payload.",
     "Checkpoint 9 behavior attempt 5 passed all seven verify commands after binding Closed classification to durable plan notes."
   ]
