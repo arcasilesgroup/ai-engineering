@@ -830,11 +830,12 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "passed",
-          "attempts": 2,
+          "status": "failed",
+          "attempts": 3,
           "findings": [
             "All seven checkpoint 9 verification commands passed in order: discovery, server, worktree lifecycle, typecheck, lint, architecture, and build.",
-            "Attempt 2 PASS after addressing CP9-R1-01–05: all seven verify commands passed in order, including the focused discovery/server/lifecycle tests and architecture checks."
+            "Attempt 2 PASS after addressing CP9-R1-01–05: all seven verify commands passed in order, including the focused discovery/server/lifecycle tests and architecture checks.",
+            "Attempt 3 FAIL after plan-payload binding: `bun test ./tests/workspace-discovery.spec.ts` passed, then `bun test ./tests/workspace-server.spec.ts` failed because an existing server fixture sets `reviewed_feature` to a commit without a checkpoint payload. Remaining verify commands were not run; update the fixture to satisfy the reviewed-feature contract."
           ]
         },
         "ui": {
