@@ -629,9 +629,12 @@
           "findings": []
         },
         "review": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "F1 (HIGH): scripts/checkpoint-gate.py:525-542 and tests/test_checkpoint_gate.py:317-320. Caller-supplied lifecycle JSON can authorize implementation without proving a matching, fresh, approved brainstorm. Bind new-plan approval to validated brainstorm state and test first-write, absent, stale, and wrong-slug cases.",
+            "F2 (MEDIUM): skills/ai-orchestrator/SKILL.md:13-16, 142-144, 238-239 and tests/workflow-handoff.spec.ts:254-255. Conflicting instructions still make checkpoint approval a universal stop, and the regression check misses the actual ask_user_question prompt. Limit the stop to pending legacy plans; test no prompt for fresh approved-brainstorm plans and preserve the legacy prompt."
+          ]
         }
       },
       "status": "in_progress",
