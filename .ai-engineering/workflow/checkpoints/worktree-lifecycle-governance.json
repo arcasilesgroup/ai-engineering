@@ -828,9 +828,10 @@
       "gates": {
         "behavior": {
           "status": "passed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "All seven checkpoint 9 verification commands passed in order: discovery, server, worktree lifecycle, typecheck, lint, architecture, and build."
+            "All seven checkpoint 9 verification commands passed in order: discovery, server, worktree lifecycle, typecheck, lint, architecture, and build.",
+            "Attempt 2 PASS after addressing CP9-R1-01–05: all seven verify commands passed in order, including the focused discovery/server/lifecycle tests and architecture checks."
           ]
         },
         "ui": {
