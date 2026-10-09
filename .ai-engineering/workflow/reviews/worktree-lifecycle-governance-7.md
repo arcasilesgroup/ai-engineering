@@ -56,3 +56,24 @@ The universal Phase 1 stop and lifecycle description are now scoped to resumed p
 The upstream brainstorm handoff still says “the plan approval downstream is STOP 1” and “One idea, two stops, both human.” That directly contradicts the new orchestrator contract, which says a fresh approved brainstorm proceeds without another plan-approval question. U34 only checks the orchestrator skill, so the cross-skill contradiction remains undetected. Update that handoff contract and add a cross-skill regression assertion; this round was restricted from changing docs.
 
 F1’s wrong-slug and stale direct-initialization attempts are blocked by the new checks; F1 remains open solely for the pending-first-write route. Contradictory initial app-review state remains rejected, legacy plans with existing pending lifecycle retain their approval transition, and the final human app review/reviewed-ref protections remain intact. The source asset references for `skills/ai-orchestrator/SKILL.md` and `scripts/checkpoint-gate.py` resolve to bytes identical to both sources; no code, tests, checkpoint JSON, or learning logs were changed.
+
+## Debate mode — round 3
+
+### F1 — High — Legacy fallback is not bound to a valid same-slug prior plan
+**Status:** Open
+**Files:** `scripts/checkpoint-gate.py:758-790`, `scripts/checkpoint-gate.py:578-625`, `tests/test_checkpoint_gate.py:389-405`
+
+The first-write self-approval from an absent file is now blocked, and the valid same-slug legacy continuation is tested. However, `had_plan` is true for any parsed object whose `checkpoints` member is a list; the prior plan’s slug and checkpoint validity are not checked before that boolean is passed as `has_prior_plan`. `lifecycle_plan_path_error` validates only the new plan. I reproduced a prior plan with `slug: other` and a checkpoint list authorizing a pending lifecycle for `slug: demo`, followed by an approved implementation transition with no brainstorm. Bind the legacy exception to a valid pre-existing plan for the same slug/path, and test a wrong-slug (and malformed) prior plan.
+
+### F3 — Medium — Resolved in skill text; cross-skill wording is now aligned
+**Status:** Resolved
+
+The brainstorm handoff now states that a new plan proceeds without a second approval and preserves the legacy checkpoint and final app-review stops. A search found no remaining “plan approval downstream,” “two stops,” or “STOP 1” claim in the skills. The updated U34 assertion checks the cross-skill handoff.
+
+### F4 — Medium — Cross-skill regression test would allow the old contradiction back
+**Status:** Open
+**Files:** `tests/workflow-handoff.spec.ts:215-275`
+
+U34 asserts that the brainstorm handoff contains the corrected positive statements, but it never asserts that the old STOP 1 / “two stops” statement is absent. Reintroducing the old sentence alongside the new one would still satisfy every new assertion, leaving the exact F3 contradiction undetected. Add a negative assertion against that obsolete plan-approval stop language in the normalized handoff section.
+
+Round 3 checks: `bun test ./tests/skills.spec.ts ./tests/workflow-handoff.spec.ts` passed (35 tests, 0 failures); the checkpoint records all nine Gate 1 commands passing after the fix. In-memory probes confirmed no-prior pending initialization is denied and exposed the wrong-slug legacy classification above. Current embedded references for both skills and `checkpoint-gate.py` resolve to bytes identical to their source files. Final app review/ref assertions remain present; only this review thread was changed.
