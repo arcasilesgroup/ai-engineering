@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from datetime import date, timedelta
 
 HOOK = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "checkpoint-gate.py")
@@ -31,6 +32,17 @@ def agent(marker):
 
 def write(path, plan):
     return {"tool_name": "Write", "tool_input": {"file_path": path, "content": json.dumps(plan)}}
+
+
+def brainstorm_html(feature, approval, status):
+    return (
+        '<!doctype html><html><head>'
+        f'<meta name="ai-feature" content="{feature}">'
+        f'<meta name="ai-approved" content="{approval}">'
+        '</head><body><div class="meta"><b>'
+        f'{status}'
+        '</b><br>Slug <b>demo</b></div></body></html>'
+    )
 
 
 def with_gate(plan, cid, **gates):
@@ -315,9 +327,43 @@ with tempfile.TemporaryDirectory(
     fails += selected_result != 0
     print(("ok  " if selected_result == 0 else "FAIL"), "U17: initial lifecycle plan is accepted in selected feature worktree", f"(exit {selected_result})")
     approved_brainstorm_plan = with_lifecycle(legacy, life("implementation", "approved"))
-    approved_brainstorm_result = run(selected_root, write(selected_path, approved_brainstorm_plan))
-    fails += approved_brainstorm_result != 0
-    print(("ok  " if approved_brainstorm_result == 0 else "FAIL"), "U33: approved brainstorm initializes implementation with app review not started and both refs null", f"(exit {approved_brainstorm_result})")
+    brainstorm_path = f"{selected_root}/.ai-engineering/brainstorm.html"
+    current_date = date.today().isoformat()
+    stale_date = (date.today() - timedelta(days=15)).isoformat()
+    first_write_cases = [
+        (
+            "U33: first write with matching fresh approved brainstorm is accepted",
+            brainstorm_html("demo", current_date, f"complete · {current_date}"),
+            0,
+        ),
+        ("F1: first write without a brainstorm is blocked", None, 2),
+        (
+            "F1: first write with a stale brainstorm is blocked",
+            brainstorm_html("demo", stale_date, f"complete · {stale_date}"),
+            2,
+        ),
+        (
+            "F1: first write with the wrong brainstorm slug is blocked",
+            brainstorm_html("other", current_date, f"complete · {current_date}"),
+            2,
+        ),
+        (
+            "F1: first write with an incomplete brainstorm status is blocked",
+            brainstorm_html("demo", current_date, f"draft · {current_date}"),
+            2,
+        ),
+    ]
+    for name, artifact, want in first_write_cases:
+        if os.path.exists(selected_path):
+            os.unlink(selected_path)
+        if os.path.exists(brainstorm_path):
+            os.unlink(brainstorm_path)
+        if artifact is not None:
+            with open(brainstorm_path, "w") as fixture:
+                fixture.write(artifact)
+        got = run(selected_root, write(selected_path, approved_brainstorm_plan))
+        fails += got != want
+        print(("ok  " if got == want else "FAIL"), name, f"(exit {got})")
     contradictory_initial_lifecycles = [
         ("pending app review", life("implementation", "approved", "pending")),
         ("approved app review", life("implementation", "approved", "approved", reviewed_main, reviewed_feature)),
@@ -411,6 +457,8 @@ with tempfile.TemporaryDirectory(
     missing_lifecycle_result = run(selected_root, write(selected_path, legacy))
     fails += missing_lifecycle_result != 2
     print(("ok  " if missing_lifecycle_result == 2 else "FAIL"), "U17: a new feature plan cannot omit its initial lifecycle", f"(exit {missing_lifecycle_result})")
+    if os.path.exists(brainstorm_path):
+        os.unlink(brainstorm_path)
     git(["worktree", "remove", selected_root])
     outside_root = f"{root}/outside-feature"
     subprocess.run(

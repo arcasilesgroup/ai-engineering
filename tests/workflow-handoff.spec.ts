@@ -91,13 +91,15 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(create).toBeGreaterThan(noMatch);
   });
 
-  test("U18: implementation waits for human plan approval and lifecycle transition", () => {
+  test("U18: only resumed pending legacy plans wait for checkpoint approval", () => {
     const { text, body } = section("skills/ai-orchestrator/SKILL.md", "## Phase 1: Plan");
-    const normalized = body.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
-    const humanStop = normalized.indexOf("human stop 1: checkpoint review");
-    const askHuman = normalized.indexOf("askuserquestion", humanStop);
-    const approvalChoice = normalized.indexOf("offer:", askHuman);
-    const approveTransition = normalized.indexOf(
+    const legacyStart = body.indexOf("For a resumed legacy plan");
+    const freshPlan = body.slice(0, legacyStart);
+    const legacyPlan = body.slice(legacyStart).replace(/[`*]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const humanStop = legacyPlan.indexOf("human _stop_ 1: checkpoint review");
+    const askHuman = legacyPlan.indexOf("ask_user_question", humanStop);
+    const approvalChoice = legacyPlan.indexOf("offer:", askHuman);
+    const approveTransition = legacyPlan.indexOf(
       "after approval, set the lifecycle phase to implementation",
       approvalChoice,
     );
@@ -108,11 +110,13 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     const phase2 = text.indexOf("## Phase 2: Checkpoint loop");
     const firstDispatch = text.indexOf("Use one `general-purpose` subagent", phase2);
 
+    expect(legacyStart).toBeGreaterThanOrEqual(0);
+    expect(freshPlan).not.toMatch(/ask_user_question|human _stop_ 1: checkpoint review/);
     expect(humanStop).toBeGreaterThanOrEqual(0);
     expect(askHuman).toBeGreaterThan(humanStop);
     expect(approvalChoice).toBeGreaterThan(askHuman);
-    expect(normalized.slice(approvalChoice)).toMatch(/offer:\s*approve,\s*edit[\s\S]{0,80}or stop/);
-    expect(normalized).toMatch(
+    expect(legacyPlan.slice(approvalChoice)).toMatch(/offer:\s*approve,\s*edit[\s\S]{0,80}or stop/);
+    expect(legacyPlan).toMatch(
       /do not (?:begin|run) phase 2 or dispatch its workers until the human approves the checkpoint plan/,
     );
     expect(approveTransition).toBeGreaterThan(approvalChoice);
@@ -251,8 +255,12 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(initialPlanLifecycle).toContain("app_review: not-started");
     expect(initialPlanLifecycle).toContain("reviewed_main: null");
     expect(initialPlanLifecycle).toContain("reviewed_feature: null");
-    expect(normalizedPlan).not.toContain("askuserquestion");
-    expect(normalizedPlan).not.toContain("human stop 1: checkpoint review");
+    expect(initialPlanLifecycle).not.toContain("ask_user_question");
+    expect(initialPlanLifecycle).not.toContain("human _stop_ 1: checkpoint review");
+    const legacyPlanStart = normalizedPlan.indexOf("for a resumed legacy plan");
+    const legacyPlan = normalizedPlan.slice(legacyPlanStart);
+    expect(legacyPlan).toContain("ask_user_question");
+    expect(legacyPlan).toContain("human _stop_ 1: checkpoint review");
 
     expect(humanReview).toBeGreaterThanOrEqual(0);
     expect(approval).toBeGreaterThan(humanReview);

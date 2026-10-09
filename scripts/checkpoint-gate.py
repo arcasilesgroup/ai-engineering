@@ -33,6 +33,8 @@ import re
 import subprocess
 import sys
 import tomllib
+from datetime import date
+from html.parser import HTMLParser
 
 GATES = ["behavior", "ui", "review"]
 STAGES = {"tests", "implement", "behavior", "ui", "review", "fix"}
@@ -413,6 +415,74 @@ def lifecycle_shape_error(state, plan, root, require_fresh=True):
     return None
 
 
+class BrainstormApprovalParser(HTMLParser):
+    """Read the brainstorm artifact's feature, approval date and visible status line."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.metadata = {}
+        self.status_lines = []
+        self.status_containers = []
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == "meta" and attributes.get("name") in ("ai-feature", "ai-approved"):
+            self.metadata.setdefault(attributes["name"], []).append(attributes.get("content"))
+        if "meta" in (attributes.get("class") or "").split():
+            container = {"tag": tag, "text": [], "is_complete": False}
+            self.status_containers.append(container)
+            self.status_lines.append(container["text"])
+        elif tag == "br" and self.status_containers:
+            self.status_containers[-1]["is_complete"] = True
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        self.handle_endtag(tag)
+
+    def handle_endtag(self, tag):
+        for index in range(len(self.status_containers) - 1, -1, -1):
+            if self.status_containers[index]["tag"] == tag:
+                del self.status_containers[index:]
+                break
+
+    def handle_data(self, content):
+        if self.status_containers and not self.status_containers[-1]["is_complete"]:
+            self.status_containers[-1]["text"].append(content)
+
+
+def brainstorm_approval_error(root, slug):
+    path = os.path.join(root, ".ai-engineering", "brainstorm.html")
+    try:
+        with open(path, encoding="utf-8") as artifact:
+            parser = BrainstormApprovalParser()
+            parser.feed(artifact.read())
+            parser.close()
+    except (OSError, UnicodeError, ValueError):
+        return "implementation approval requires a readable approved brainstorm artifact"
+
+    feature = parser.metadata.get("ai-feature", [])
+    approval = parser.metadata.get("ai-approved", [])
+    if feature != [slug] or len(approval) != 1 or not isinstance(approval[0], str):
+        return "implementation approval requires a matching brainstorm feature and approval stamp"
+    if len(parser.status_lines) != 1:
+        return "implementation approval requires one complete brainstorm status line"
+
+    approval_date = approval[0]
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", approval_date):
+        return "implementation approval requires a valid brainstorm approval date"
+    try:
+        approved_on = date.fromisoformat(approval_date)
+    except ValueError:
+        return "implementation approval requires a valid brainstorm approval date"
+    status = " ".join("".join(parser.status_lines[0]).split())
+    if status != f"complete · {approval_date}":
+        return "implementation approval requires a complete brainstorm status matching its approval date"
+    today = date.today()
+    if approved_on > today or (today - approved_on).days > 14:
+        return "implementation approval requires a brainstorm approved within the last 14 days"
+    return None
+
+
 def lifecycle_transition_error(old_state, new_state, root, slug):
     old_phase = old_state["phase"]
     new_phase = new_state["phase"]
@@ -534,10 +604,13 @@ def check_lifecycle(new_plan, old_plan, root, check_transition=True):
             "reviewed_main": None,
             "reviewed_feature": None,
         }
+        if new_state == brainstorm_approved_state:
+            if error := brainstorm_approval_error(root, new_plan.get("slug")):
+                block(error + ".")
+            return
         if new_state not in (
             initial_state,
             {**initial_state, "reviewed_feature": None},
-            brainstorm_approved_state,
         ):
             block("a new lifecycle must start pending plan approval or approved for implementation with no review.")
         return

@@ -10,10 +10,13 @@ You coordinate; you don't do the work. Every piece of real work goes to a fresh 
 
 **Project specifics** (dev/test/lint/build commands, URLs, DB setup, sign-in) come from the **Project config** section of `AGENTS.md`. Pass the relevant values into every worker prompt so workers don't have to hunt for them.
 
-## Autonomy: the human is asked exactly twice
+## Approval stops
 
-1. **Checkpoint review**, at the end of Phase 1.
-2. **App review**, in Phase 4.
+On a fresh run, the human approves the brainstorm before Phase 0 and reviews the app
+in Phase 4. A new plan backed by that approved brainstorm opens in the viewer and
+continues to Phase 2 without another plan-approval question. Only a resumed legacy
+plan with `phase: awaiting-plan-approval` and `plan_approval: pending` keeps the
+Phase 1 checkpoint-review stop.
 
 Everywhere else, decide and keep going:
 - **Ambiguity:** choose the option most consistent with `.ai-engineering/PRD.html`, `.ai-engineering/brainstorm.html`, `DECISIONS.md` and the existing code, and log it as an `assumptions` entry in the checkpoint JSON. The human sees those at the next review. The brainstorm gate, below, refuses a missing, stale, or unrelated interview before any of this runs.
@@ -139,7 +142,7 @@ checkpoint plan in the primary checkout or copy any plan between worktrees.
 2. **Test plan:** run a `general-purpose` subagent to do steps 1–2 of `ai-test-planner`. That's the plan only, no tests yet: it writes `.ai-engineering/workflow/test-plans/<slug>.json`, with every case linked to a `checkpoint` and each checkpoint's test commands added to its `verify` array.
 3. **Prototypes:** list the distinct `ui.prototype` paths across the checkpoints. Launch one `general-purpose` subagent per prototype **in parallel**. Each one follows `ai-prototype` for its screen, covering the states named in `ui.states`, and skips the `open` step.
 
-4. **Open the plan:** start the viewer if it isn't already running with `python3 -m http.server 8765` from the selected feature worktree root in the background (not `docs/`, so prototype links resolve), then open `http://localhost:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=<slug>`. It updates live as the JSON changes and remains the progress view for the run. The brainstorm decision already approved this plan, so proceed directly to Phase 2 without another approval question.
+4. **Open the plan:** start the viewer if it isn't already running with `python3 -m http.server 8765` from the selected feature worktree root in the background (not `docs/`, so prototype links resolve), then open `http://localhost:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=<slug>`. It updates live as the JSON changes and remains the progress view for the run. The checkpoint hook checks the local brainstorm artifact's matching feature slug, approval date within 14 days, and matching `complete ·` status line on this first approved lifecycle write. This is local guardrail validation of the HTML approval stamp, not independent proof of who approved it. Then proceed directly to Phase 2 without another approval question.
 
 For a resumed legacy plan that is still pending at its checkpoint review, preserve its prior human _stop_ 1: checkpoint review. Show the viewer details and use `ask_user_question` to offer: **Approve**, **Edit**, or **Stop**. Do not begin Phase 2 or dispatch its workers until the human approves the checkpoint plan. After approval, set the lifecycle phase to `implementation`, persist `plan_approval: approved`, `app_review: not-started`, `reviewed_main: null`, and `reviewed_feature: null`, and confirm the guarded write succeeded. On **Edit**, keep plan approval pending, update the plan and ask again. This legacy path does not apply to a new plan started from an approved brainstorm.
 
@@ -235,6 +238,6 @@ Read by: humans, the next checkpoint worker
 Dies: when the feature is approved or the plan is closed
 Stop: approve
 Stop words: approve, ok, go, adelante
-Stop confirms: the checkpoint plan
-Stop runs: the orchestrator continues Phase 2
+Stop confirms: the app review, or a checkpoint plan only when resuming a pending legacy plan
+Stop runs: merge after app-review approval, or continue Phase 2 after legacy plan approval
 Next: none — Phase 4 closes after app review approval; recap is optional and user-invoked.
