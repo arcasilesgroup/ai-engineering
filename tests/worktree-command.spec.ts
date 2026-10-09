@@ -783,6 +783,21 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(existsSync(join(root, ".ai-eng-lifecycle", "alpha.json"))).toBe(false);
   });
 
+  test("list strips terminal controls from registered worktree paths", () => {
+    const repo = mkdtempSync(join(tmpdir(), "ai-eng-\u001b[2J-repo-"));
+    cleanups.push(repo);
+    initRepo(repo);
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+
+    const run = runCli(["worktree", "list"], repo);
+
+    expect(run.status).toBe(0);
+    expect(run.stdout).not.toContain("\u001b");
+    expect(run.stdout).toContain("alpha\t");
+  });
+
   test("new: overlapping file hints warn but never prevent worktree creation", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);

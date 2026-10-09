@@ -956,3 +956,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** No in-scope change; preserve the existing tests and repository configuration state, and keep the failure separate from the passing lifecycle acceptance.
 - **Lesson:** Keep branch-configuration failures distinct from lifecycle regressions.
 - **Tags:** behavior, tests, baseline, lifecycle
+
+### L88 · 2026-10-09 · worktree-lifecycle-awareness #4 · review
+- **Failure:** `ai-eng worktree list` and successful removal could print terminal controls from local filesystem paths.
+- **Root cause:** Both output paths interpolated Git-reported paths without using the shared printable sanitizer.
+- **Fix:** Sanitize worktree-list paths and ignored filenames at the terminal output boundary; add regression tests for both commands.
+- **Lesson:** Sanitize every untrusted local filesystem name at the output boundary.
+- **Tags:** review, security, terminal, filesystem
+
+### L89 · 2026-10-09 · worktree-lifecycle-awareness #4 · review
+- **Failure:** Creating a worktree named `constructor` made a later ordinary worktree creation fail.
+- **Root cause:** A declaration lookup read an inherited `Object.prototype.constructor` function as though it were an own list of files.
+- **Fix:** Check that the declaration key is an own property before using its value; add a follow-up-creation regression.
+- **Lesson:** Check own-property membership before indexing ordinary objects with user-controlled keys.
+- **Tags:** review, security, prototype, worktree
