@@ -575,7 +575,7 @@ def lifecycle_transition_error(old_state, new_state, root, slug):
     return f"unauthorized lifecycle transition from {old_phase} to {new_phase}"
 
 
-def check_lifecycle(new_plan, old_plan, root, check_transition=True):
+def check_lifecycle(new_plan, old_plan, root, check_transition=True, has_prior_plan=False):
     if not isinstance(new_plan, dict):
         return
     new_has_state = "lifecycle" in new_plan
@@ -608,11 +608,14 @@ def check_lifecycle(new_plan, old_plan, root, check_transition=True):
             if error := brainstorm_approval_error(root, new_plan.get("slug")):
                 block(error + ".")
             return
-        if new_state not in (
+        if new_state in (
             initial_state,
             {**initial_state, "reviewed_feature": None},
         ):
-            block("a new lifecycle must start pending plan approval or approved for implementation with no review.")
+            if not has_prior_plan:
+                block("a new plan must start approved for implementation with no review.")
+            return
+        block("a new lifecycle must start pending plan approval or approved for implementation with no review.")
         return
     old_state = old_plan["lifecycle"]
     if lifecycle_shape_error(old_state, old_plan, root, require_fresh=False):
@@ -787,7 +790,7 @@ def check_plan(new_text, old_text, root, check_transition=True, path=None):
                 block(error + ".")
         elif not had_plan:
             block("a new checkpoint plan must include its initial lifecycle.")
-    check_lifecycle(new_plan, old_plan, root, check_transition)
+    check_lifecycle(new_plan, old_plan, root, check_transition, had_plan)
 
 
 BASH_WRITE = re.compile(r">|\btee\b|\bsed\s+-i|\bpython3?\b|\bnode\b|\bperl\b|\bjq\b.*>|\bmv\b|\bcp\b|\btruncate\b")

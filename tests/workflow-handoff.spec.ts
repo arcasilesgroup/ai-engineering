@@ -214,6 +214,10 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
 
   test("U34: approved brainstorm opens the plan and proceeds to implementation without another approval", () => {
     const { text: orchestrator } = section("skills/ai-orchestrator/SKILL.md", "## The brainstorm gate");
+    const { body: brainstormHandoff } = section(
+      "skills/ai-brainstorm/SKILL.md",
+      "## The ai-engineering seam",
+    );
     const brainstormGate = orchestrator.indexOf("## The brainstorm gate");
     const phase0 = orchestrator.indexOf("## Phase 0: Preflight");
     const phase1 = orchestrator.indexOf("## Phase 1: Plan");
@@ -229,6 +233,10 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     const gateText = orchestrator.slice(brainstormGate, phase0);
     const { body: plan } = section("skills/ai-orchestrator/SKILL.md", "## Phase 1: Plan");
     const normalizedPlan = plan.replace(/[`*]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const normalizedBrainstormHandoff = brainstormHandoff
+      .replace(/[`*]/g, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
     const checkpointStepStart = normalizedPlan.indexOf("1. checkpoints:");
     const testPlanStart = normalizedPlan.indexOf("2. test plan", checkpointStepStart);
     const initialPlanLifecycle = normalizedPlan.slice(checkpointStepStart, testPlanStart);
@@ -257,6 +265,12 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(initialPlanLifecycle).toContain("reviewed_feature: null");
     expect(initialPlanLifecycle).not.toContain("ask_user_question");
     expect(initialPlanLifecycle).not.toContain("human _stop_ 1: checkpoint review");
+    expect(normalizedBrainstormHandoff).toContain("blueprint stop 0");
+    expect(normalizedBrainstormHandoff).toContain(
+      "a new checkpoint plan proceeds to implementation without another approval stop",
+    );
+    expect(normalizedBrainstormHandoff).toContain("the final app review remains a human stop");
+    expect(normalizedPlan).toContain("proceed directly to phase 2 without another approval question");
     const legacyPlanStart = normalizedPlan.indexOf("for a resumed legacy plan");
     const legacyPlan = normalizedPlan.slice(legacyPlanStart);
     expect(legacyPlan).toContain("ask_user_question");

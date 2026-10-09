@@ -323,13 +323,24 @@ with tempfile.TemporaryDirectory(
     )
     selected_path = f"{selected_root}/.ai-engineering/workflow/checkpoints/demo.json"
     os.makedirs(os.path.dirname(selected_path), exist_ok=True)
-    selected_result = run(selected_root, write(selected_path, initial_plan))
-    fails += selected_result != 0
-    print(("ok  " if selected_result == 0 else "FAIL"), "U17: initial lifecycle plan is accepted in selected feature worktree", f"(exit {selected_result})")
     approved_brainstorm_plan = with_lifecycle(legacy, life("implementation", "approved"))
     brainstorm_path = f"{selected_root}/.ai-engineering/brainstorm.html"
     current_date = date.today().isoformat()
     stale_date = (date.today() - timedelta(days=15)).isoformat()
+    pending_first_write = run(selected_root, write(selected_path, initial_plan))
+    pending_was_not_written = not os.path.exists(selected_path)
+    approval_after_rejected_pending = run(selected_root, write(selected_path, approved_brainstorm_plan))
+    malicious_pending_rejected = (
+        pending_first_write == 2
+        and pending_was_not_written
+        and approval_after_rejected_pending == 2
+    )
+    fails += not malicious_pending_rejected
+    print(
+        ("ok  " if malicious_pending_rejected else "FAIL"),
+        "F1: fresh plan cannot self-authorize through pending first write "
+        f"(pending {pending_first_write}, approve {approval_after_rejected_pending})",
+    )
     first_write_cases = [
         (
             "U33: first write with matching fresh approved brainstorm is accepted",
@@ -378,9 +389,20 @@ with tempfile.TemporaryDirectory(
     alias_path = f"{checkpoint_dir}/demo-alias.json"
     with open(selected_path, "w") as fixture:
         json.dump(legacy, fixture)
+    if os.path.exists(brainstorm_path):
+        os.unlink(brainstorm_path)
     canonical_result = run(selected_root, write(selected_path, initial_plan))
+    if canonical_result == 0:
+        json.dump(initial_plan, open(selected_path, "w"))
     fails += canonical_result != 0
-    print(("ok  " if canonical_result == 0 else "FAIL"), "U20: canonical lifecycle path remains accepted", f"(exit {canonical_result})")
+    legacy_approval_result = run(selected_root, write(selected_path, approved_brainstorm_plan))
+    legacy_continuation = canonical_result == 0 and legacy_approval_result == 0
+    fails += not legacy_continuation
+    print(
+        ("ok  " if legacy_continuation else "FAIL"),
+        "F1/U20: pre-existing legacy plan may enter pending review and continue "
+        f"(pending {canonical_result}, approve {legacy_approval_result})",
+    )
     try:
         os.symlink(selected_path, alias_path)
     except OSError as error:
@@ -478,7 +500,7 @@ with tempfile.TemporaryDirectory(
         legacy,
         life("implementation", "approved"),
     )
-    lifecycle_result("U10: approved lifecycle permits implementation", initial_plan, implementation, 0)
+    lifecycle_result("F1/U10: pre-existing legacy pending lifecycle permits implementation", initial_plan, implementation, 0)
     lifecycle_result(
         "U19: pending plan approval rejects implementation",
         initial_plan,

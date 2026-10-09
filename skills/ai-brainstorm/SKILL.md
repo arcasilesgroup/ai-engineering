@@ -300,8 +300,9 @@ period, or `·`.
    become the orchestrator's question queue.
 3. Grounding duty (§11.6): never cite a file or API you have not opened this session —
    /ai-explore and /ai-read-docs are the lenses.
-4. The approval gate here IS blueprint STOP 0; the plan approval downstream is STOP 1. One
-   idea, two stops, both human.
+4. The approval gate here IS blueprint STOP 0. After approval, a new checkpoint plan
+   proceeds to implementation without another approval stop; resumed legacy pending plans
+   retain their checkpoint review. The final app review remains a human stop.
 5. After approval, set `ai-approved` to today's date and the status line to `complete · YYYY-MM-DD`. Copy only the conclusions into `.ai-engineering/PRD.html`: Problem (why it matters), Goal (what success looks like), Users & roles, the Feature plus its Rules (decisions already made), and Out of scope. Leave the interview in `brainstorm.html`. If the PRD already has other features, update the matching one and leave the others. This skill never writes spec.html or plan.html.
 6. Handoff, said out loud after approval: next step is `/ai-orchestrator`. That is the start of the build. This turn does not run it.
 
