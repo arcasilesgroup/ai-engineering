@@ -814,3 +814,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Capture and narrow the port before constructing or registering the workspace server, stop the server if no port is reported, and type test cleanup by its required `stop` method.
 - **Lesson:** R12 applies: narrow optional Bun values before typed use, and fail closed when a required value is absent.
 - **Tags:** behavior, typecheck, narrowing, workspace
+
+### L100 · 2026-10-09 · worktree-lifecycle-governance #8 · behavior
+- **Failure:** Checkpoint 8 behavior attempt 4 failed architecture tests because the new workspace source directory was not assigned to an architecture layer.
+- **Root cause:** The code introduced a cohesive `src/workspace/**` layer without registering it in the architecture rules.
+- **Fix:** Added the workspace source mapping to `.ai-engineering/arch.rules.json`; no forbidden dependency edge was found.
+- **Lesson:** Register every new cohesive source layer in `.ai-engineering/arch.rules.json` in the same feature change.
+- **Tags:** behavior, architecture, workspace
