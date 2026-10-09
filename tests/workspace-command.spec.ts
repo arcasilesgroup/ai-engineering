@@ -1,5 +1,4 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { join } from "node:path";
@@ -22,13 +21,11 @@ interface Run {
   stderr: string;
 }
 
-function runWorkspace(args: string[], port?: number, openLog = join(sandbox, "opened-urls.log")): Run {
+async function runWorkspace(args: string[], port?: number, openLog = join(sandbox, "opened-urls.log")): Promise<Run> {
   const home = join(sandbox, `home-${Date.now()}-${Math.random()}`);
   mkdirSync(home);
-  const result = spawnSync(process.execPath, [CLI, "workspace", ...args], {
+  const child = Bun.spawn([process.execPath, CLI, "workspace", ...args], {
     cwd: "/",
-    encoding: "utf8",
-    timeout: 5000,
     env: {
       ...process.env,
       AI_ENG_HOME: home,
@@ -36,8 +33,20 @@ function runWorkspace(args: string[], port?: number, openLog = join(sandbox, "op
       PATH: `${browserShimDirectory}:${process.env.PATH ?? ""}`,
       WORKSPACE_OPEN_LOG: openLog,
     },
+    stdout: "pipe",
+    stderr: "pipe",
   });
-  return { status: result.status ?? 1, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
+  const timeout = setTimeout(() => child.kill(), 5000);
+  try {
+    const [status, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ]);
+    return { status, stdout, stderr };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function startOccupiedPort(status: number): Promise<{ server: Server; port: number; requests: number }> {
@@ -65,8 +74,8 @@ describe("ai-eng workspace CLI", () => {
     const occupied = await startOccupiedPort(200);
     const openLog = join(sandbox, "healthy-open.log");
     try {
-      const first = runWorkspace([], occupied.port, openLog);
-      const second = runWorkspace([], occupied.port, openLog);
+      const first = await runWorkspace([], occupied.port, openLog);
+      const second = await runWorkspace([], occupied.port, openLog);
       expect(first.status).toBe(0);
       expect(second.status).toBe(0);
       expect(occupied.requests).toBeGreaterThan(0);
@@ -79,8 +88,8 @@ describe("ai-eng workspace CLI", () => {
     }
   });
 
-  test("rejects invalid arguments with workspace-specific usage", () => {
-    const result = runWorkspace(["unexpected"]);
+  test("rejects invalid arguments with workspace-specific usage", async () => {
+    const result = await runWorkspace(["unexpected"]);
     const output = `${result.stdout}\n${result.stderr}`;
 
     expect(result.status).not.toBe(0);
@@ -92,7 +101,7 @@ describe("ai-eng workspace CLI", () => {
     const occupied = await startOccupiedPort(503);
     const openLog = join(sandbox, "unhealthy-open.log");
     try {
-      const result = runWorkspace([], occupied.port, openLog);
+      const result = await runWorkspace([], occupied.port, openLog);
       const output = `${result.stdout}\n${result.stderr}`;
 
       expect(result.status).not.toBe(0);

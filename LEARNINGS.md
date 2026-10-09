@@ -793,3 +793,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Preserve warnings through every cleanup return and report whether removal occurred, failed uncertainly, or left the branch behind.
 - **Lesson:** Carry destructive-cleanup warnings and the actual remaining state through every success and failure path.
 - **Tags:** review, cleanup, worktree, merge
+
+### L97 · 2026-10-09 · worktree-lifecycle-governance #8 · behavior
+- **Failure:** Checkpoint 8 behavior attempt 1 failed because workspace CLI tests could not receive responses from their in-process health mock.
+- **Root cause:** `runWorkspace()` used a synchronous subprocess, blocking the same event loop that served the mock HTTP requests.
+- **Fix:** Run the real CLI subprocess asynchronously with `Bun.spawn` and await its output and exit status.
+- **Lesson:** Keep an in-process HTTP mock responsive by running the client subprocess asynchronously.
+- **Tags:** behavior, tests, subprocess, workspace
