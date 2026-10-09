@@ -180,6 +180,18 @@ function ignoredPaths(path: string): string[] | null {
   return found;
 }
 
+function ignoredRemovalNote(dropped: string[] | null, removalState: "removed" | "unknown"): string {
+  if (dropped === null) {
+    return removalState === "removed"
+      ? " — the ignored content could not be read (git status warned); anything it held was dropped unseen"
+      : " — the ignored content could not be read (git status warned); whether it was removed is unknown";
+  }
+  if (dropped.length === 0) return "";
+  return removalState === "removed"
+    ? ` — dropped ignored: ${dropped.join(", ")}`
+    : ` — ignored content found before removal: ${dropped.join(", ")}; its remaining state is unknown`;
+}
+
 /** The first design slot touched in the primary tree, or null. A slot counts as
  *  touched when a status record carries its path, the path a rename took it from, or
  *  anything nested under it (a slot replaced by a directory) — and an unreadable
@@ -1117,22 +1129,29 @@ function removeMergedFeature(repo: string, slug: string, state: MergeReadyState,
   if (removed.code !== 0) {
     return {
       code: 1,
-      out: "",
-      err: `worktree merge: merge ${mergeCommit} is published, but safe feature removal failed; preserve the feature worktree and retry: ${removed.err.trim()}\n`,
+      out: removed.out,
+      err: `worktree merge: merge ${mergeCommit} is published, but safe feature cleanup failed: ${removed.err.trim()}\n`,
     };
   }
   const listed = openWorktrees(repo);
   const branchRef = git(repo, ["show-ref", "--verify", "--quiet", `refs/heads/${state.branch}`]);
-  if (
-    "detail" in listed ||
-    listed.worktrees.some((entry) => entry.branch === state.branch) ||
-    existsSync(state.path) ||
-    branchRef.status === 0
-  ) {
+  const problems: string[] = [];
+  if ("detail" in listed) {
+    problems.push(`worktree inventory is unreadable (${listed.detail})`);
+  } else if (listed.worktrees.some((entry) => entry.branch === state.branch)) {
+    problems.push(`worktree for ${state.branch} remains registered`);
+  }
+  if (existsSync(state.path)) problems.push(`worktree path ${state.path} remains`);
+  if (branchRef.status === 0) {
+    problems.push(`branch ${state.branch} remains`);
+  } else if (branchRef.status !== 1 || branchRef.stderr.trim() !== "") {
+    problems.push(`branch ${state.branch} could not be verified (${branchRef.stderr.trim() || `git show-ref exited ${branchRef.status}`})`);
+  }
+  if (problems.length > 0) {
     return {
       code: 1,
-      out: "",
-      err: `worktree merge: safe removal returned, but removal of ${state.branch} could not be verified; do not claim completion.\n`,
+      out: removed.out,
+      err: `worktree merge: merge ${mergeCommit} is published, but post-removal verification failed: ${problems.join("; ")}. The cleanup command reported success; do not claim completion.\n`,
     };
   }
   return {
@@ -1495,12 +1514,28 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   // the merge landed — so unlike the automatic cleanup pass it removes the worktree
   // even when it holds ignored content. Read that content first and print it, so
   // the deletion is visible to whoever asked for it.
-  const dropped = existsSync(entry.path) ? ignoredPaths(entry.path) : [];
+  const hasWorktreePath = existsSync(entry.path);
+  const dropped = hasWorktreePath ? ignoredPaths(entry.path) : [];
 
-  if (existsSync(entry.path)) {
+  if (hasWorktreePath) {
     const removed = git(repo, ["worktree", "remove", entry.path]);
     if (removed.status !== 0) {
-      return { code: 1, out: "", err: `worktree rm: git worktree remove failed: ${removed.stderr.trim()}\n` };
+      const pathRemains = existsSync(entry.path);
+      const branchRef = git(repo, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]);
+      const branchState =
+        branchRef.status === 0
+          ? `branch ${branch} remains`
+          : branchRef.status === 1 && branchRef.stderr.trim() === ""
+            ? `branch ${branch} is absent`
+            : `branch ${branch} could not be verified (${branchRef.stderr.trim() || `git show-ref exited ${branchRef.status}`})`;
+      return {
+        code: 1,
+        out: "",
+        err:
+          `worktree rm: git worktree remove failed: ${removed.stderr.trim()}; ` +
+          `${pathRemains ? `worktree path ${entry.path} remains, but its contents may be partial` : `worktree path ${entry.path} is gone despite the failure`}; ` +
+          `${branchState}${ignoredRemovalNote(dropped, pathRemains ? "unknown" : "removed")}\n`,
+      };
     }
   } else {
     // The directory is gone: prune the stale registration instead of failing on it.
@@ -1508,15 +1543,23 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   }
   const deleted = git(repo, ["branch", force ? "-D" : "-d", branch]);
   if (deleted.status !== 0) {
-    return { code: 1, out: "", err: `worktree rm: git branch ${force ? "-D" : "-d"} failed: ${deleted.stderr.trim()}\n` };
+    const branchRef = git(repo, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]);
+    const branchState =
+      branchRef.status === 0
+        ? `branch ${branch} remains`
+        : branchRef.status === 1 && branchRef.stderr.trim() === ""
+          ? `branch ${branch} is absent`
+          : `branch ${branch} could not be verified (${branchRef.stderr.trim() || `git show-ref exited ${branchRef.status}`})`;
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree rm: worktree ${slug} was removed, but git branch ${force ? "-D" : "-d"} failed: ${deleted.stderr.trim()}; ` +
+        `${branchState}${ignoredRemovalNote(dropped, "removed")}\n`,
+    };
   }
 
-  let droppedNote = "";
-  if (dropped === null) {
-    droppedNote = " — the ignored content could not be read (git status warned); anything it held was dropped unseen";
-  } else if (dropped.length > 0) {
-    droppedNote = ` — dropped ignored: ${dropped.join(", ")}`;
-  }
+  const droppedNote = ignoredRemovalNote(dropped, "removed");
   return {
     code: 0,
     out: force

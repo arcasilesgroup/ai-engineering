@@ -49,6 +49,34 @@ writeFileSync(
     "    printf 'END\\n'",
     '  } >> "$GIT_INVOCATION_LOG"',
     "fi",
+    'if [ "$GIT_TEST_FAIL_BRANCH_DELETE" = "1" ] && [ "$1" = "branch" ] && [ "$2" = "-d" ]; then',
+    '  printf "injected branch-delete failure\\n" >&2',
+    "  exit 1",
+    "fi",
+    'if [ "$GIT_TEST_FAIL_WORKTREE_REMOVE" = "1" ] && [ "$1" = "worktree" ] && [ "$2" = "remove" ]; then',
+    '  printf "injected worktree-remove failure\\n" >&2',
+    "  exit 1",
+    "fi",
+    'if [ "$GIT_TEST_FAIL_POST_REMOVE_LIST" = "1" ] && [ -f "$GIT_TEST_POST_REMOVE_MARKER" ] && [ "$1" = "worktree" ] && [ "$2" = "list" ]; then',
+    '  printf "injected post-removal inventory failure\\n" >&2',
+    "  exit 1",
+    "fi",
+    'if [ "$GIT_TEST_UNREADABLE_IGNORED_SCAN" = "1" ] && [ "$1" = "status" ]; then',
+    "  for argument do",
+    '    if [ "$argument" = "--ignored" ]; then',
+    `      "${REAL_GIT}" "$@"`,
+    "      status=$?",
+    '      printf "injected unreadable ignored-path warning\\n" >&2',
+    "      exit \"$status\"",
+    "    fi",
+    "  done",
+    "fi",
+    'if [ "$GIT_TEST_FAIL_POST_REMOVE_LIST" = "1" ] && [ "$1" = "branch" ] && [ "$2" = "-d" ]; then',
+    `  "${REAL_GIT}" "$@"`,
+    "  status=$?",
+    '  if [ "$status" -eq 0 ]; then : > "$GIT_TEST_POST_REMOVE_MARKER"; fi',
+    "  exit \"$status\"",
+    "fi",
     `exec "${REAL_GIT}" "$@"`,
     "",
   ].join("\n"),
@@ -1057,6 +1085,32 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(`${run.stdout}${run.stderr}`).toContain("local.env");
   });
 
+  test("failed removal reports scanned ignored content without claiming it was dropped", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    writeFileSync(join(repo, ".gitignore"), "local.env\n");
+    git(["add", ".gitignore"], repo);
+    git(["commit", "-q", "-m", "ignore local environment file"], repo);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    const feature = join(root, "alpha");
+    writeFileSync(join(feature, "local.env"), "LOCAL_ONLY=1\n");
+
+    const run = runCli(["worktree", "rm", "alpha"], repo, {
+      ...shimEnv(join(repo, "remove-failure.log")),
+      GIT_TEST_FAIL_WORKTREE_REMOVE: "1",
+    });
+    const output = `${run.stdout}${run.stderr}`;
+
+    expect(run.status).not.toBe(0);
+    expect(output).toContain("ignored content found before removal: local.env");
+    expect(output).toContain("remaining state is unknown");
+    expect(output).not.toContain("dropped ignored: local.env");
+    expect(existsSync(feature)).toBe(true);
+    expect(existsSync(join(feature, "local.env"))).toBe(true);
+    expect(branchNames(repo)).toContain("feat/alpha");
+  });
+
   test("U-CP4-d: rm forces its own status read and names the ignored path despite status.showUntrackedFiles=no", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
@@ -1536,6 +1590,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
 
   test("F5: merged feature cleanup surfaces the ignored paths it removes", () => {
     const repo = tempRepo();
+    cleanups.push(defaultRoot(repo));
     writeFileSync(join(repo, ".gitignore"), "local.env\n");
     git(["add", ".gitignore"], repo);
     git(["commit", "-q", "-m", "ignore local environment file"], repo);
@@ -1546,6 +1601,58 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
 
     expect(run.status).toBe(0);
     expect(`${run.stdout}${run.stderr}`).toContain("dropped ignored: local.env");
+    expect(existsSync(approved.feature)).toBe(false);
+    expect(gitOut(["show-ref", "--verify", `refs/heads/feat/${approved.slug}`], repo).status).not.toBe(0);
+  });
+
+  test("F5: branch-delete failure forwards unreadable scan warning after worktree removal", () => {
+    const repo = tempRepo();
+    cleanups.push(defaultRoot(repo));
+    writeFileSync(join(repo, ".gitignore"), "local.env\n");
+    git(["add", ".gitignore"], repo);
+    git(["commit", "-q", "-m", "ignore local environment file"], repo);
+    const approved = prepareMergeFixture(repo, "merge-branch-delete-failure");
+    writeFileSync(join(approved.feature, "local.env"), "LOCAL_ONLY=1\n");
+
+    const run = runCli(["worktree", "merge", approved.slug], repo, {
+      ...shimEnv(join(repo, ".git", "branch-delete-failure.log")),
+      GIT_TEST_FAIL_BRANCH_DELETE: "1",
+      GIT_TEST_UNREADABLE_IGNORED_SCAN: "1",
+    });
+    const output = `${run.stdout}${run.stderr}`;
+
+    expect(run.status).not.toBe(0);
+    expect(output).toContain("is published, but safe feature cleanup failed");
+    expect(output).toContain(`worktree ${approved.slug} was removed`);
+    expect(output).toContain(`branch feat/${approved.slug} remains`);
+    expect(output).toContain("ignored content could not be read");
+    expect(output).toContain("anything it held was dropped unseen");
+    expect(existsSync(approved.feature)).toBe(false);
+    expect(branchNames(repo)).toContain(`feat/${approved.slug}`);
+  });
+
+  test("F5: post-removal verification failure reports ignored files and completed removal", () => {
+    const repo = tempRepo();
+    cleanups.push(defaultRoot(repo));
+    writeFileSync(join(repo, ".gitignore"), "local.env\n");
+    git(["add", ".gitignore"], repo);
+    git(["commit", "-q", "-m", "ignore local environment file"], repo);
+    const approved = prepareMergeFixture(repo, "merge-post-removal-verification");
+    writeFileSync(join(approved.feature, "local.env"), "LOCAL_ONLY=1\n");
+    const marker = join(repo, ".git", "test-feature-removal-complete");
+
+    const run = runCli(["worktree", "merge", approved.slug], repo, {
+      ...shimEnv(join(repo, ".git", "post-removal-verification-failure.log")),
+      GIT_TEST_FAIL_POST_REMOVE_LIST: "1",
+      GIT_TEST_POST_REMOVE_MARKER: marker,
+    });
+    const output = `${run.stdout}${run.stderr}`;
+
+    expect(run.status).not.toBe(0);
+    expect(output).toContain("dropped ignored: local.env");
+    expect(output).toContain("post-removal verification failed");
+    expect(output).toContain("worktree inventory is unreadable");
+    expect(output).toContain("cleanup command reported success");
     expect(existsSync(approved.feature)).toBe(false);
     expect(gitOut(["show-ref", "--verify", `refs/heads/feat/${approved.slug}`], repo).status).not.toBe(0);
   });

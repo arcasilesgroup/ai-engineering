@@ -25,6 +25,7 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R16: Route repository-owned artifacts through their repository procedure and test the caller-to-procedure handoff; a same-named installed copy may have a conflicting contract. (from L66)
 - R17: For runtime p95 checks under parallel test load, use enough samples for nearest-rank p95 to tolerate scheduler outliers without loosening the budget. (from L65, L67)
 - R18: Normalize Markdown formatting without altering identifiers; preserve underscores, case, and other contract-significant characters before matching. (from L71, L78, L86)
+- R19: Carry destructive-cleanup warnings and accurately describe the irreversible action and remaining state through every outcome and caller. (from L94, L96)
 
 ## Log
 
@@ -785,3 +786,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Commit the implementation-phase checkpoint in the fixture before recording `reviewed_feature`.
 - **Lesson:** A test fixture must satisfy the real contract it exercises.
 - **Tags:** behavior, tests, lifecycle, merge
+
+### L96 · 2026-10-09 · worktree-lifecycle-governance #6 · review
+- **Failure:** Ignored-content scan warnings disappeared on cleanup errors after removal or failed post-removal verification.
+- **Root cause:** Warnings were formatted only on normal success, and the merge wrapper discarded removal output on error while claiming the feature worktree was preserved.
+- **Fix:** Preserve warnings through every cleanup return and report whether removal occurred, failed uncertainly, or left the branch behind.
+- **Lesson:** Carry destructive-cleanup warnings and the actual remaining state through every success and failure path.
+- **Tags:** review, cleanup, worktree, merge
