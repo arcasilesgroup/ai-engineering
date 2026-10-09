@@ -807,3 +807,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Construct the fixture by joining path components with the platform separator, preserving the literal `..` segment.
 - **Lesson:** Preserve literal traversal segments in test inputs instead of passing them through a normalizing path join.
 - **Tags:** behavior, tests, paths, workspace
+
+### L99 · 2026-10-09 · worktree-lifecycle-governance #8 · behavior
+- **Failure:** Checkpoint 8 behavior attempt 3 failed typecheck because Bun's server port is optional and its server type did not satisfy the test's stricter cleanup type.
+- **Root cause:** The returned port and Bun server cleanup object were used under narrower assumptions than their types guarantee.
+- **Fix:** Capture and narrow the port before constructing or registering the workspace server, stop the server if no port is reported, and type test cleanup by its required `stop` method.
+- **Lesson:** R12 applies: narrow optional Bun values before typed use, and fail closed when a required value is absent.
+- **Tags:** behavior, typecheck, narrowing, workspace

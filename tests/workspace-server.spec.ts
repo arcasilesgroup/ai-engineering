@@ -7,11 +7,11 @@ interface WorkspaceServer {
   stop(force?: boolean): void;
 }
 
-const activeServers = new Set<WorkspaceServer>();
+const activeServers = new Set<Pick<Bun.Server<undefined>, "stop"> | WorkspaceServer>();
 const serverModulePath = new URL("../src/workspace/server.ts", import.meta.url).href;
 
-afterEach(() => {
-  for (const server of activeServers) server.stop(true);
+afterEach(async () => {
+  for (const server of activeServers) await server.stop(true);
   activeServers.clear();
 });
 
