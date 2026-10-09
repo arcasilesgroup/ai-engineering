@@ -67,3 +67,13 @@ Serialize the human-approved feature merge into the current local `main`, ensure
 - **Verified:** Real-Git cases cover a failed removal with ignored paths, branch-delete failure with an unreadable scan after the worktree is gone, normal merged cleanup, and post-removal inventory failure after the worktree and branch were removed. F4's plan freeze and U31's tracked-checkpoint fixture remain intact.
 - **Verification:** `bun test ./tests/worktree-command.spec.ts` — 62 passed; `bun run typecheck` and `bun run lint` exited successfully.
 - **Files changed:** `src/shared-worktree.ts`, `tests/worktree-command.spec.ts`, `LEARNINGS.md`, and this review thread.
+
+## Critic ruling — round 3 (2026-10-09)
+
+**VERDICT: PASS.** Counts this round: resolved 1; withdrawn 0; arbitrated 0; open 0.
+
+- **F5 resolved:** The removal path now carries the ignored-scan result through successful cleanup, failed worktree removal, failed branch deletion, and post-removal verification errors. Each error distinguishes what is known about the worktree path and branch, while unreadable scans explicitly state that data may have been dropped unseen or that the result is unknown. `worktreeMerge` forwards the error/output, and the worktree command writes both streams to the caller. Real-Git tests exercise each failure path; a refusal reports found ignored files without claiming they were deleted.
+- **F4 remains resolved:** Gate transitions compare the reviewed plan payload while permitting only the intended lifecycle and gate runtime fields. Merge independently compares that payload from the full `reviewed_feature` commit against every descendant metadata commit and refuses changed scope before publishing. The direct-Git bypass test preserves local main and the feature.
+- **U31 remains resolved:** The real-Git fixture commits the implementation checkpoint before capturing `reviewed_feature`; subsequent approval commits touch only that checkpoint. The test verifies the exact merge parents and successful removal.
+- **Attack/verification:** `bun test ./tests/worktree-command.spec.ts ./tests/worktree-lifecycle.spec.ts` — 78 pass, 0 fail; `python3 tests/test_checkpoint_gate.py` — all checks pass. The recorded complete 12-command Behavior gate (attempt 31) also passes. No new finding; UI n/a. No production code or tests edited.
+- **Files changed by this review:** `.ai-engineering/workflow/reviews/worktree-lifecycle-governance-6.md` only.

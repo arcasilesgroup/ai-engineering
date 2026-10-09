@@ -490,16 +490,17 @@
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "failed",
-          "attempts": 2,
+          "status": "passed",
+          "attempts": 3,
           "findings": [
             "F4 (HIGH): scripts/checkpoint-gate.py:186,638-665 and src/shared-worktree.ts:709-765. Approval checks freeze lifecycle and gates but not the rest of the checkpoint plan; tasks, acceptance, or file scope can change after review and still be mergeable.",
             "F5 (MEDIUM): src/shared-worktree.ts:1452-1478 and 1049-1088. Removal reports ignored paths or an unreadable scan, but the close flow discards the output, so ignored local files can be removed without warning.",
-            "Round 2: F4 resolved. F5 remains open: src/shared-worktree.ts:1049-1088 and 1452-1478 can omit the ignored-data/unreadable-scan warning after successful removal with failed post-verification, or return early on branch-delete failure before formatting the warning. Every outcome after scanning or destructive cleanup must preserve and report the warning."
+            "Round 2: F4 resolved. F5 remains open: src/shared-worktree.ts:1049-1088 and 1452-1478 can omit the ignored-data/unreadable-scan warning after successful removal with failed post-verification, or return early on branch-delete failure before formatting the warning. Every outcome after scanning or destructive cleanup must preserve and report the warning.",
+            "Round 3 PASS: F5 resolved by propagating cleanup warnings and accurate remaining-state details through failure paths. F4 and U31 remain resolved; 1 finding resolved, 0 withdrawn or arbitrated, 0 open."
           ]
         }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         ".ai-engineering/workflow/checkpoints/worktree-lifecycle-governance.json",
         ".ai-engineering/workflow/test-plans/worktree-lifecycle-governance.json",
