@@ -207,4 +207,55 @@ describe("workflow kit — feature work hands off to ai-orchestrator", () => {
     expect(rerunGates).toBeGreaterThan(resync);
     expect(renewedReview).toBeGreaterThan(rerunGates);
   });
+
+  test("U34: approved brainstorm opens the plan and proceeds to implementation without another approval", () => {
+    const { text: orchestrator } = section("skills/ai-orchestrator/SKILL.md", "## The brainstorm gate");
+    const brainstormGate = orchestrator.indexOf("## The brainstorm gate");
+    const phase0 = orchestrator.indexOf("## Phase 0: Preflight");
+    const phase1 = orchestrator.indexOf("## Phase 1: Plan");
+    const checkpointPlan = orchestrator.indexOf(
+      ".ai-engineering/workflow/checkpoints/<slug>.json",
+      phase1,
+    );
+    const viewer = orchestrator.indexOf(
+      "http://localhost:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=<slug>",
+      phase1,
+    );
+    const phase2 = orchestrator.indexOf("## Phase 2: Checkpoint loop");
+    const gateText = orchestrator.slice(brainstormGate, phase0);
+    const { body: plan } = section("skills/ai-orchestrator/SKILL.md", "## Phase 1: Plan");
+    const normalizedPlan = plan.replace(/[`*]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const checkpointStepStart = normalizedPlan.indexOf("1. checkpoints:");
+    const testPlanStart = normalizedPlan.indexOf("2. test plan", checkpointStepStart);
+    const initialPlanLifecycle = normalizedPlan.slice(checkpointStepStart, testPlanStart);
+    const { body: appReview } = section(
+      "skills/ai-orchestrator/SKILL.md",
+      "## Phase 4: Human stop 2, app review",
+    );
+    const normalizedAppReview = appReview.replace(/[`*]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const humanReview = normalizedAppReview.indexOf("ask the user to try the feature");
+    const approval = normalizedAppReview.indexOf("approve:", humanReview);
+    const merge = normalizedAppReview.indexOf("ai-eng worktree merge <slug>", approval);
+
+    expect(gateText).toContain('<meta name="ai-approved">');
+    expect(gateText).toContain("within 14 days");
+    expect(phase0).toBeGreaterThan(brainstormGate);
+    expect(phase1).toBeGreaterThan(phase0);
+    expect(checkpointPlan).toBeGreaterThan(phase1);
+    expect(viewer).toBeGreaterThan(phase1);
+    expect(viewer).toBeGreaterThan(checkpointPlan);
+    expect(phase2).toBeGreaterThan(viewer);
+
+    expect(initialPlanLifecycle).toContain("phase: implementation");
+    expect(initialPlanLifecycle).toContain("plan_approval: approved");
+    expect(initialPlanLifecycle).toContain("app_review: not-started");
+    expect(initialPlanLifecycle).toContain("reviewed_main: null");
+    expect(initialPlanLifecycle).toContain("reviewed_feature: null");
+    expect(normalizedPlan).not.toContain("askuserquestion");
+    expect(normalizedPlan).not.toContain("human stop 1: checkpoint review");
+
+    expect(humanReview).toBeGreaterThanOrEqual(0);
+    expect(approval).toBeGreaterThan(humanReview);
+    expect(merge).toBeGreaterThan(approval);
+  });
 });

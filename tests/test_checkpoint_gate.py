@@ -314,6 +314,20 @@ with tempfile.TemporaryDirectory(
     selected_result = run(selected_root, write(selected_path, initial_plan))
     fails += selected_result != 0
     print(("ok  " if selected_result == 0 else "FAIL"), "U17: initial lifecycle plan is accepted in selected feature worktree", f"(exit {selected_result})")
+    approved_brainstorm_plan = with_lifecycle(legacy, life("implementation", "approved"))
+    approved_brainstorm_result = run(selected_root, write(selected_path, approved_brainstorm_plan))
+    fails += approved_brainstorm_result != 0
+    print(("ok  " if approved_brainstorm_result == 0 else "FAIL"), "U33: approved brainstorm initializes implementation with app review not started and both refs null", f"(exit {approved_brainstorm_result})")
+    contradictory_initial_lifecycles = [
+        ("pending app review", life("implementation", "approved", "pending")),
+        ("approved app review", life("implementation", "approved", "approved", reviewed_main, reviewed_feature)),
+        ("reviewed main ref before app review", life("implementation", "approved", "not-started", reviewed_main)),
+        ("reviewed feature ref before app review", life("implementation", "approved", "not-started", reviewed_feature=reviewed_feature)),
+    ]
+    for name, invalid_lifecycle in contradictory_initial_lifecycles:
+        got = run(selected_root, write(selected_path, with_lifecycle(legacy, invalid_lifecycle)))
+        fails += got != 2
+        print(("ok  " if got == 2 else "FAIL"), f"U33: rejects initial lifecycle with {name}", f"(exit {got})")
     checkpoint_dir = os.path.dirname(selected_path)
     alias_path = f"{checkpoint_dir}/demo-alias.json"
     with open(selected_path, "w") as fixture:
