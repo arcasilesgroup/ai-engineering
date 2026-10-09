@@ -527,8 +527,19 @@ def check_lifecycle(new_plan, old_plan, root, check_transition=True):
             "app_review": "not-started",
             "reviewed_main": None,
         }
-        if new_state not in (initial_state, {**initial_state, "reviewed_feature": None}):
-            block("a new lifecycle must start in awaiting-plan-approval with pending approval.")
+        brainstorm_approved_state = {
+            "phase": "implementation",
+            "plan_approval": "approved",
+            "app_review": "not-started",
+            "reviewed_main": None,
+            "reviewed_feature": None,
+        }
+        if new_state not in (
+            initial_state,
+            {**initial_state, "reviewed_feature": None},
+            brainstorm_approved_state,
+        ):
+            block("a new lifecycle must start pending plan approval or approved for implementation with no review.")
         return
     old_state = old_plan["lifecycle"]
     if lifecycle_shape_error(old_state, old_plan, root, require_fresh=False):
