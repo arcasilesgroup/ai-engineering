@@ -830,8 +830,8 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "failed",
-          "attempts": 3,
+          "status": "passed",
+          "attempts": 4,
           "findings": [
             "All seven checkpoint 9 verification commands passed in order: discovery, server, worktree lifecycle, typecheck, lint, architecture, and build.",
             "Attempt 2 PASS after addressing CP9-R1-01–05: all seven verify commands passed in order, including the focused discovery/server/lifecycle tests and architecture checks.",
@@ -1164,6 +1164,7 @@
     "The approved feature brief and prototype/state map are copied byte-for-byte into this worktree; treat the prototype as the visual reference and do not redesign it.",
     "Plan approval is waived only by the explicit decision recorded for this scope. Keep the root brainstorm approval stamp unchanged and leave lifecycle app_review not-started until final human app review.",
     "Checkpoint 8 UI gate reviews the prototype-only loading state at 1440px and 375px because the scenario marks it live:false. The independent reviewers reported two low issues: mobile wordmark size and the sample root count during loading; record them for final app review.",
-    "No @playwright/test dependency or separate browser test harness was added. UI comparison used the existing ai-review-ui capture/reviewer gate."
+    "No @playwright/test dependency or separate browser test harness was added. UI comparison used the existing ai-review-ui capture/reviewer gate.",
+    "Checkpoint 9 behavior attempt 4 passed all seven verify commands after updating the reviewed_feature fixture to contain the required checkpoint payload."
   ]
 }
