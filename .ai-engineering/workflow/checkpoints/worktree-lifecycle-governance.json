@@ -888,28 +888,33 @@
       ],
       "tasks": [
         "src/workspace/folder-picker.ts and src/workspace/settings.ts: provide a platform-native folder chooser that returns a canonical absolute path, cancellation without mutation, and a visible manual-path fallback where the native chooser is unavailable; add, remove, save, and validate roots without following path traversal or escaping symlinks.",
+        "src/workspace/discovery.ts: list only repositories accepted by the shared isGoverned(root) gate; do not show ordinary Git repositories beneath a configured search root.",
         "templates/workspace.html.tpl: implement the all-projects dashboard, project tree, project overview, file/worktree/history regions, status filters, Settings dialog, native folder-selection action, inline validation, and loading/empty/error/retry feedback from the prototype states.",
         "src/workspace/ui.ts and src/workspace/api.ts: wire project selection, history navigation, settings save/cancel, manual refresh, and actionable API errors without continuous refresh or guessed activity; keep every visible product label in English.",
-        "tests/workspace-settings.spec.ts, tests/workspace-ui.spec.ts and tests/workspace-server.spec.ts: cover persisted root changes, duplicate/traversal rejection, cancellation, status filters, project overview/history data, and visible empty/error/retry outcomes.",
+        "tests/workspace-discovery.spec.ts, tests/workspace-settings.spec.ts, tests/workspace-ui.spec.ts and tests/workspace-server.spec.ts: cover the governance filter, persisted root changes, duplicate/traversal rejection, cancellation, status filters, project overview/history data, and visible empty/error/retry outcomes.",
         "Keep the UI scope cumulative with checkpoint 8, and compare only the listed data-region regions and states against the copied prototype."
       ],
       "files": [
+        "src/workspace/discovery.ts",
         "src/workspace/folder-picker.ts",
         "src/workspace/settings.ts",
         "src/workspace/ui.ts",
         "src/workspace/api.ts",
         "templates/workspace.html.tpl",
+        "tests/workspace-discovery.spec.ts",
         "tests/workspace-settings.spec.ts",
         "tests/workspace-ui.spec.ts",
         "tests/workspace-server.spec.ts"
       ],
       "acceptance": [
         "All visible hub copy is English and matches prototype states for all-projects, project overview, project history, Settings, loading, empty, validation, and error/retry.",
+        "Configured roots may contain arbitrary Git repositories, but only repositories accepted by the shared ai-eng governance gate appear in the project explorer and API.",
         "Native folder selection returns a validated canonical root; cancel leaves settings unchanged, invalid or duplicate roots show inline errors, and the manual fallback is explicit.",
         "Project overviews and history use the same Git/checkpoint evidence as the all-projects filters; errors remain visible and never turn into guessed statuses.",
         "The project's prototype UI gate passes for every listed state and only the checkpoint 8 regions plus the newly added project/settings regions are compared."
       ],
       "verify": [
+        "bun test ./tests/workspace-discovery.spec.ts",
         "bun test ./tests/workspace-settings.spec.ts",
         "bun test ./tests/workspace-ui.spec.ts",
         "bun test ./tests/workspace-server.spec.ts",
@@ -965,10 +970,11 @@
       },
       "gates": {
         "behavior": {
-          "status": "passed",
-          "attempts": 1,
+          "status": "failed",
+          "attempts": 2,
           "findings": [
-            "All seven checkpoint 10 verification commands passed in order: settings, workspace UI, server endpoints, typecheck, lint, architecture, and build."
+            "Behavior attempt 1 passed all seven then-listed checkpoint 10 verification commands.",
+            "Behavior attempt 2 failed the new U36b regression: discovery returned repositories with no config, malformed config, and no [surfaces] declaration because every Git root under a configured search root was accepted."
           ]
         },
         "ui": {
@@ -981,6 +987,7 @@
             "UI-R1-04 (Medium): `workspace.html.tpl:449-452` reports that no worktrees are present when a status filter has no matches; distinguish no filtered matches from an empty inventory.",
             "UI-R1-05 (Medium): `workspace.html.tpl:344-346,680-688,711-716,734-738` rerenders tree/filter/settings content and loses keyboard focus; restore focus to the corresponding surviving control.",
             "UI-R1-06 (Medium): project brainstorm/PRD entries render as inert spans while the approved prototype presents buttons; resolved by staging artifact activation in CP11 and removing `project-documents` from CP10's UI comparison scope.",
+            "UI-R1-07 (High): opening a project from a scrolled page leaves the breadcrumb/Refresh toolbar clipped beneath the sticky app header; reset scroll at the shared view transition and capture the scrolled-navigation case.",
             "Low: project tab controls lack tab semantics/aria-selected; validation feedback lacks aria-invalid/aria-describedby; prototype empty state says 3 roots while also saying no roots are registered."
           ]
         },
