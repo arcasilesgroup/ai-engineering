@@ -863,3 +863,31 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Compare top-level notes and verify changed local-main notes remain Unknown; lifecycle and gate/runtime fields stay excluded.
 - **Lesson:** Bind closure to every plan-defining field, not just scope and task arrays; keep runtime state outside the immutable fingerprint.
 - **Tags:** review, checkpoint-gate, workspace, lifecycle
+
+### L107 · 2026-10-09 · worktree-lifecycle-governance #10 · behavior
+- **Failure:** CP10 behavior attempt 2 showed ungoverned Git repositories in the workspace project list.
+- **Root cause:** Discovery accepted every repository beneath configured search roots without applying the shared ai-eng governance predicate.
+- **Fix:** Filter discovered repositories through `isGoverned(root)` and add governed, missing-config, corrupt-config, and declaration-less fixtures.
+- **Lesson:** Configured roots scope discovery, but the shared governance gate decides which repositories the hub may present.
+- **Tags:** behavior, tests, workspace, governance
+
+### L108 · 2026-10-09 · worktree-lifecycle-governance #10 · behavior
+- **Failure:** CP10 behavior attempt 3 classified a valid implementation checkpoint with status `in_progress` as Unknown.
+- **Root cause:** The workspace checkpoint reader's status allowlist omitted a value emitted by the orchestrator.
+- **Fix:** Accept `in_progress` and add it to the lifecycle classification fixture.
+- **Lesson:** Keep checkpoint readers aligned with the writer's persisted enum and exercise every writer-produced state.
+- **Tags:** behavior, tests, workspace, lifecycle
+
+### L109 · 2026-10-09 · worktree-lifecycle-governance #10 · ui
+- **Failure:** CP10 UI attempt 1 found inaccessible mobile explorer navigation, an unsupported resize-capture step, obscuring feedback, misleading filtered-empty text, lost focus, and missing ARIA state.
+- **Root cause:** The live shell and capture scenarios did not fully preserve the prototype's navigation, feedback, and keyboard interaction contracts.
+- **Fix:** Restore mobile return navigation and focus, add keyboard resize capture, keep feedback in flow, distinguish filtered emptiness, and add tab/validation semantics.
+- **Lesson:** Exercise responsive UI transitions through supported capture actions and preserve focus and accessible state whenever content rerenders.
+- **Tags:** ui, accessibility, workspace, tests
+
+### L110 · 2026-10-09 · worktree-lifecycle-governance #10 · ui
+- **Failure:** CP10 UI attempt 2 found the approved Settings prototype lacked the live Choose folder control and its third form column.
+- **Root cause:** The live native-picker interaction was added without updating the feature prototype's Settings form.
+- **Fix:** Add the Choose folder control, matching three-column layout, simulated selection state, and narrow-screen stacking to the prototype and capture map.
+- **Lesson:** When a live form gains a control, update its approved prototype and state scenario in the same checkpoint; mark platform-only effects proto-only.
+- **Tags:** ui, prototype, workspace, tests
