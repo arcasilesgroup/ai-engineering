@@ -1,6 +1,7 @@
 import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { basename, isAbsolute, join, relative, sep } from "node:path";
 import { spawnSync } from "node:child_process";
+import { isDeepStrictEqual } from "node:util";
 import {
   SLUG_PATTERN,
   type RepositoryWorktree,
@@ -54,6 +55,7 @@ interface Lifecycle {
 interface Checkpoint {
   checkpoints: Record<string, unknown>[];
   lifecycle: Lifecycle;
+  planPayload: Record<string, unknown>;
 }
 
 interface ReadCheckpoint {
@@ -62,6 +64,33 @@ interface ReadCheckpoint {
 }
 
 const COMMIT_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+const PLAN_FIELDS = [
+  "feature",
+  "slug",
+  "summary",
+  "plain_summary",
+  "gating",
+  "assumptions",
+  "notes",
+  "new_dependencies",
+  "dependencies",
+] as const;
+const CHECKPOINT_PLAN_FIELDS = [
+  "id",
+  "title",
+  "goal",
+  "plain",
+  "simple",
+  "size",
+  "builds_on",
+  "tasks",
+  "files",
+  "acceptance",
+  "verify",
+  "ui",
+  "new_dependencies",
+  "dependencies",
+] as const;
 const LIFECYCLE_PHASES = new Set([
   "approval-before-start",
   "awaiting-plan-approval",
@@ -94,6 +123,27 @@ function runGit(repository: string, args: string[]): GitResult {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function immutablePlanPayload(value: unknown): Record<string, unknown> | null {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.checkpoints) ||
+    !value.checkpoints.every(isRecord)
+  ) return null;
+
+  const copyFields = (record: Record<string, unknown>, fields: readonly string[]) => {
+    const payload: Record<string, unknown> = {};
+    for (const field of fields) {
+      if (Object.prototype.hasOwnProperty.call(record, field)) payload[field] = record[field];
+    }
+    return payload;
+  };
+
+  return {
+    ...copyFields(value, PLAN_FIELDS),
+    checkpoints: value.checkpoints.map((checkpoint) => copyFields(checkpoint, CHECKPOINT_PLAN_FIELDS)),
+  };
 }
 
 function isWithin(root: string, path: string): boolean {
@@ -245,8 +295,12 @@ function validateCheckpoint(value: unknown, slug: string): Checkpoint | null {
   }
   if ((phase === "ready-to-merge" || phase === "complete") && !gatesComplete(checkpoints)) return null;
 
+  const planPayload = immutablePlanPayload(value);
+  if (planPayload === null) return null;
+
   return {
     checkpoints,
+    planPayload,
     lifecycle: {
       phase,
       planApproval: String(lifecycle.plan_approval),
@@ -460,6 +514,22 @@ function readMainCheckpoint(repository: string, path: string, slug: string): Rea
   }
 }
 
+function readReviewedCheckpoint(repository: string, reviewedFeature: string, slug: string): ReadCheckpoint {
+  const path = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+  const result = runGit(repository, ["show", `${reviewedFeature}:${path}`]);
+  const error = gitError(result, `show ${reviewedFeature}:${path}`);
+  if (error !== undefined) return { error: `reviewed_feature checkpoint is missing or unreadable: ${error}` };
+  try {
+    const parsed: unknown = JSON.parse(result.stdout);
+    const checkpoint = validateCheckpoint(parsed, slug);
+    return checkpoint === null
+      ? { error: "reviewed_feature checkpoint is malformed or does not match its slug" }
+      : { checkpoint };
+  } catch (error) {
+    return { error: `reviewed_feature checkpoint is malformed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
 function hasRegisteredWorktreeForSlug(
   registeredWorktrees: RepositoryWorktree[],
   worktreesRoot: string,
@@ -505,6 +575,16 @@ function closedHistoryItem(
     return null;
   }
   if (mainContainsReview !== true || mainContainsFeature !== true) return null;
+
+  const reviewedCheckpoint = readReviewedCheckpoint(repository, lifecycle.reviewedFeature, slug);
+  if (reviewedCheckpoint.checkpoint === undefined) {
+    projectErrors.push(`${slug}: ${reviewedCheckpoint.error ?? "reviewed_feature checkpoint is unreadable"}`);
+    return null;
+  }
+  if (!isDeepStrictEqual(reviewedCheckpoint.checkpoint.planPayload, checkpoint.planPayload)) {
+    projectErrors.push(`${slug}: local-main checkpoint plan differs from reviewed_feature`);
+    return null;
+  }
 
   if (featureBranches.has(`feat/${slug}`)) {
     const featureBranch = runGit(repository, ["rev-parse", "--verify", `refs/heads/feat/${slug}^{commit}`]);

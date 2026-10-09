@@ -159,9 +159,30 @@ function checkpointPlan(slug: string, options: CheckpointOptions = {}): Record<s
   const reviewGateStatus = options.reviewGateStatus ?? gateStatus;
   const phase = options.phase ?? "implementation";
   return {
+    feature: `Feature ${slug}`,
     slug: options.checkpointSlug ?? slug,
+    summary: `Plan summary for ${slug}`,
+    plain_summary: `Plain summary for ${slug}`,
+    gating: "Run gates in order.",
+    assumptions: [],
+    notes: [`Plan note for ${slug}.`],
+    new_dependencies: [],
     checkpoints: [{
       id: 1,
+      title: `Checkpoint for ${slug}`,
+      goal: `Complete ${slug}.`,
+      plain: {
+        what: `Complete ${slug}.`,
+        why: `This is needed for ${slug}.`,
+        check: `Verify ${slug}.`,
+      },
+      simple: `Complete ${slug}`,
+      size: "s",
+      builds_on: [],
+      tasks: [`Implement ${slug}.`],
+      acceptance: [`${slug} is complete.`],
+      verify: [`bun test ${slug}`],
+      ui: null,
       status: options.checkpointStatus ?? "pending",
       gates: {
         behavior: { status: gateStatus, attempts: 1, findings: [] },
@@ -187,11 +208,21 @@ function writeCheckpoint(repoPath: string, slug: string, plan: Record<string, un
   return path;
 }
 
+function readCheckpointPlan(repoPath: string, slug: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(checkpointPath(repoPath, slug), "utf8")) as Record<string, unknown>;
+}
+
 function commitCheckpoint(worktreePath: string, slug: string, plan: Record<string, unknown>, message: string): string {
   const path = writeCheckpoint(worktreePath, slug, plan);
   git(["add", path], worktreePath);
   git(["commit", "--quiet", "-m", message], worktreePath);
   return git(["rev-parse", "HEAD"], worktreePath);
+}
+
+function commitMainCheckpoint(repoPath: string, slug: string, plan: Record<string, unknown>, message: string): void {
+  const path = writeCheckpoint(repoPath, slug, plan);
+  git(["add", path], repoPath);
+  git(["commit", "--quiet", "-m", message], repoPath);
 }
 
 function createValidReviewLifecycle(
@@ -277,19 +308,30 @@ function createHistoryFixture(parentPath: string, slug: string, options: History
   const featureCommit = commitFile(worktreePath, "feature.txt", `${slug}\n`, `feature ${slug}`);
 
   if (!options.omitCheckpoint) {
-    const checkpoint = checkpointPlan(slug, {
+    commitCheckpoint(worktreePath, slug, checkpointPlan(slug, {
+      phase: "implementation",
+    }), `checkpoint implementation ${slug}`);
+    const reviewedFeature = git(["rev-parse", "HEAD"], worktreePath);
+    const reviewPlan = {
       phase: "ready-to-merge",
       checkpointStatus: options.checkpointStatus ?? "passed",
       gateStatus: options.gateStatus ?? "passed",
       reviewGateStatus: options.reviewGateStatus ?? options.gateStatus ?? "passed",
-      appReview: "approved",
+      appReview: "pending",
       reviewedMain,
-      reviewedFeature: featureCommit,
       ...(options.checkpointSlug === undefined ? {} : { checkpointSlug: options.checkpointSlug }),
-    });
-    const checkpointFile = writeCheckpoint(worktreePath, slug, checkpoint);
-    git(["add", checkpointFile], worktreePath);
-    git(["commit", "--quiet", "-m", `checkpoint ${slug}`], worktreePath);
+    } as const;
+    commitCheckpoint(worktreePath, slug, checkpointPlan(slug, {
+      ...reviewPlan,
+      phase: "awaiting-app-review",
+      appReview: "pending",
+      reviewedFeature,
+    }), `checkpoint awaiting app review ${slug}`);
+    commitCheckpoint(worktreePath, slug, checkpointPlan(slug, {
+      ...reviewPlan,
+      appReview: "approved",
+      reviewedFeature,
+    }), `checkpoint ready to merge ${slug}`);
   }
 
   if (options.mergeToMain) {
@@ -622,5 +664,92 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
     }
     const closedFilter = await discoverWorkspace([realpathSync(searchRoot)], "closed");
     expect(closedFilter.projects.flatMap((project) => project.items).map((item) => item.slug)).toEqual(["closed-valid"]);
+  }, 20_000);
+
+  test("U39a requires the local-main checkpoint plan to match reviewed_feature", async () => {
+    discovery();
+    const searchRoot = join(sandbox, "projects");
+    mkdirSync(searchRoot, { recursive: true });
+    const identical = createHistoryFixture(searchRoot, "same-reviewed-plan", {
+      mergeToMain: true,
+      removeWorktree: true,
+    });
+    const changedScope = createHistoryFixture(searchRoot, "changed-reviewed-scope", {
+      mergeToMain: true,
+      removeWorktree: true,
+    });
+    const changedTasks = createHistoryFixture(searchRoot, "changed-reviewed-tasks", {
+      mergeToMain: true,
+      removeWorktree: true,
+    });
+    const changedNotes = createHistoryFixture(searchRoot, "changed-reviewed-notes", {
+      mergeToMain: true,
+      removeWorktree: true,
+    });
+    const missingReviewedPlan = createHistoryFixture(searchRoot, "missing-reviewed-plan", {
+      mergeToMain: true,
+      removeWorktree: true,
+    });
+    const malformedReviewedPlan = createHistoryFixture(searchRoot, "malformed-reviewed-plan", {
+      mergeToMain: true,
+      removeWorktree: true,
+    });
+
+    const unchangedPlan = readCheckpointPlan(identical.repoPath, "same-reviewed-plan");
+    const unchangedLifecycle = unchangedPlan.lifecycle as Record<string, unknown>;
+    const reviewedFeature = String(unchangedLifecycle.reviewed_feature);
+    const reviewedPlan = JSON.parse(git([
+      "show",
+      `${reviewedFeature}:.ai-engineering/workflow/checkpoints/same-reviewed-plan.json`,
+    ], identical.repoPath)) as Record<string, unknown>;
+    expect(reviewedPlan.feature).toBe(unchangedPlan.feature);
+    expect(reviewedPlan.summary).toBe(unchangedPlan.summary);
+    expect(
+      (reviewedPlan.checkpoints as Array<Record<string, unknown>>)[0]!.tasks,
+    ).toEqual((unchangedPlan.checkpoints as Array<Record<string, unknown>>)[0]!.tasks);
+    expect((reviewedPlan.lifecycle as Record<string, unknown>).phase).toBe("implementation");
+    expect(unchangedLifecycle.phase).toBe("ready-to-merge");
+    expect((reviewedPlan.checkpoints as Array<Record<string, unknown>>)[0]!.status).toBe("pending");
+    expect((unchangedPlan.checkpoints as Array<Record<string, unknown>>)[0]!.status).toBe("passed");
+
+    const scopePlan = readCheckpointPlan(changedScope.repoPath, "changed-reviewed-scope");
+    scopePlan.summary = "Scope expanded after review.";
+    commitMainCheckpoint(changedScope.repoPath, "changed-reviewed-scope", scopePlan, "change reviewed scope");
+    const tasksPlan = readCheckpointPlan(changedTasks.repoPath, "changed-reviewed-tasks");
+    (tasksPlan.checkpoints as Array<Record<string, unknown>>)[0]!.tasks = ["Replace the reviewed task."];
+    commitMainCheckpoint(changedTasks.repoPath, "changed-reviewed-tasks", tasksPlan, "change reviewed tasks");
+    const notesPlan = readCheckpointPlan(changedNotes.repoPath, "changed-reviewed-notes");
+    notesPlan.notes = ["Changed after review."];
+    commitMainCheckpoint(changedNotes.repoPath, "changed-reviewed-notes", notesPlan, "change reviewed notes");
+
+    const missingPlan = readCheckpointPlan(missingReviewedPlan.repoPath, "missing-reviewed-plan");
+    (missingPlan.lifecycle as Record<string, unknown>).reviewed_feature = missingReviewedPlan.featureCommit;
+    commitMainCheckpoint(missingReviewedPlan.repoPath, "missing-reviewed-plan", missingPlan, "point to missing reviewed plan");
+
+    const malformedPlan = readCheckpointPlan(malformedReviewedPlan.repoPath, "malformed-reviewed-plan");
+    const malformedPath = checkpointPath(malformedReviewedPlan.repoPath, "malformed-reviewed-plan");
+    writeFileSync(malformedPath, "{ malformed checkpoint\n");
+    git(["add", malformedPath], malformedReviewedPlan.repoPath);
+    git(["commit", "--quiet", "-m", "record malformed reviewed plan"], malformedReviewedPlan.repoPath);
+    const malformedCommit = git(["rev-parse", "HEAD"], malformedReviewedPlan.repoPath);
+    (malformedPlan.lifecycle as Record<string, unknown>).reviewed_feature = malformedCommit;
+    commitMainCheckpoint(
+      malformedReviewedPlan.repoPath,
+      "malformed-reviewed-plan",
+      malformedPlan,
+      "point to malformed reviewed plan",
+    );
+
+    const snapshot = await discoverWorkspace([realpathSync(searchRoot)], "all");
+    expect(itemFor(snapshot, "same-reviewed-plan").status).toBe("closed");
+    for (const slug of [
+      "changed-reviewed-scope",
+      "changed-reviewed-tasks",
+      "changed-reviewed-notes",
+      "missing-reviewed-plan",
+      "malformed-reviewed-plan",
+    ]) {
+      expect(itemFor(snapshot, slug).status, slug).toBe("unknown");
+    }
   }, 20_000);
 });

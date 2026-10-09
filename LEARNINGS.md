@@ -856,3 +856,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Commit the matching implementation-phase checkpoint before recording the feature SHA, then preserve the complete phase and passed gates on local main.
 - **Lesson:** R5 applies: a reviewed-commit fixture must contain the checkpoint payload its validator requires.
 - **Tags:** behavior, tests, git-fixture, checkpoint-gate, workspace
+
+### L106 · 2026-10-09 · worktree-lifecycle-governance #9 · review
+- **Failure:** Closed history accepted a local-main plan whose durable notes changed after review.
+- **Root cause:** The immutable plan comparison included assumptions but omitted top-level `notes`.
+- **Fix:** Compare top-level notes and verify changed local-main notes remain Unknown; lifecycle and gate/runtime fields stay excluded.
+- **Lesson:** Bind closure to every plan-defining field, not just scope and task arrays; keep runtime state outside the immutable fingerprint.
+- **Tags:** review, checkpoint-gate, workspace, lifecycle
