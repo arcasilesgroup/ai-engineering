@@ -839,9 +839,15 @@
           "findings": []
         },
         "review": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "CP9-R1-01 (P2): src/workspace/discovery.ts:80. Reopening a checked directory by path after realpath validation permits a symlink swap to scan outside the configured root; anchor traversal to the checked directory or revalidate identity.",
+            "CP9-R1-02 (P2): src/workspace/status.ts:369-414. Descendant commits may leave stale review evidence classified as active; missing review SHAs may pass app-review validation. Require both SHAs and validate the reviewed-feature chain/payload; stale or unverifiable state is Unknown.",
+            "CP9-R1-03 (P2): src/workspace/status.ts:434-484. A detached registered worktree is not matched by branch name, so Closed history can override Unknown. Treat registered entries identifying the slug/path as live evidence and preserve Unknown for detached/prunable entries.",
+            "CP9-R1-04 (P2): src/workspace/status.ts:513-517. A nested checkpoint JSON may be accepted by basename only. Require the exact slug-derived canonical path; misplaced or duplicate records are Unknown.",
+            "CP9-R1-05 (P2): src/workspace/api.ts:59-65. Refresh responses omit per-project Git/checkpoint errors and expose only root-scan errors. Include per-project errors or aggregate them into visible response errors."
+          ]
         }
       },
       "status": "in_progress",
