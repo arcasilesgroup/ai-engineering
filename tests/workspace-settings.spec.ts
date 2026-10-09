@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 interface WorkspaceSettingsApi {
   readWorkspaceRoots(): string[] | Promise<string[]>;
   writeWorkspaceRoots(roots: string[]): void | Promise<void>;
+  addWorkspaceRoot?: (root: string | null) => void | Promise<void>;
+  removeWorkspaceRoot?: (root: string) => void | Promise<void>;
 }
 
 const SETTINGS_MODULE = join(import.meta.dir, "..", "src", "workspace", "settings.ts");
@@ -47,8 +49,15 @@ function settings(): WorkspaceSettingsApi {
   return settingsApi!;
 }
 
-function projectRoot(): string {
-  const path = join(sandbox, "projects", "alpha");
+function rootSettings(): Required<Pick<WorkspaceSettingsApi, "addWorkspaceRoot" | "removeWorkspaceRoot">> & WorkspaceSettingsApi {
+  const api = settings();
+  expect(typeof api.addWorkspaceRoot, "addWorkspaceRoot export is required").toBe("function");
+  expect(typeof api.removeWorkspaceRoot, "removeWorkspaceRoot export is required").toBe("function");
+  return api as Required<Pick<WorkspaceSettingsApi, "addWorkspaceRoot" | "removeWorkspaceRoot">> & WorkspaceSettingsApi;
+}
+
+function projectRoot(name = "alpha"): string {
+  const path = join(sandbox, "projects", name);
   mkdirSync(path, { recursive: true });
   return realpathSync(path);
 }
@@ -88,6 +97,50 @@ describe("workspace project-root settings", () => {
 
     await expectRejected(() => api.writeWorkspaceRoots(["projects/alpha"]));
     expect(readFileSync(settingsPath)).toEqual(validBytes);
+  });
+
+  test("does not change saved roots when folder selection is cancelled", async () => {
+    const root = projectRoot();
+    await settings().writeWorkspaceRoots([root]);
+    const settingsPath = join(settingsHome, "workspace.json");
+    const savedBytes = readFileSync(settingsPath);
+    const api = rootSettings();
+
+    await api.addWorkspaceRoot(null);
+
+    expect(await api.readWorkspaceRoots()).toEqual([root]);
+    expect(readFileSync(settingsPath)).toEqual(savedBytes);
+  });
+
+  test("adds and removes roots through the settings API", async () => {
+    const firstRoot = projectRoot("alpha");
+    const secondRoot = projectRoot("beta");
+    const api = rootSettings();
+
+    await api.addWorkspaceRoot(firstRoot);
+    await api.addWorkspaceRoot(secondRoot);
+    expect(await api.readWorkspaceRoots()).toEqual([firstRoot, secondRoot]);
+
+    await api.removeWorkspaceRoot(firstRoot);
+    expect(await api.readWorkspaceRoots()).toEqual([secondRoot]);
+  });
+
+  test("add-root validation preserves canonical, duplicate, and traversal safeguards", async () => {
+    const root = projectRoot();
+    await settings().writeWorkspaceRoots([root]);
+    const api = rootSettings();
+    const settingsPath = join(settingsHome, "workspace.json");
+    const savedBytes = readFileSync(settingsPath);
+    const alias = join(sandbox, "projects", "alpha-alias");
+    symlinkSync(root, alias);
+    const traversal = [sandbox, "projects", "missing", "..", "alpha"].join(sep);
+
+    await expectRejected(() => api.addWorkspaceRoot(root));
+    expect(readFileSync(settingsPath)).toEqual(savedBytes);
+    await expectRejected(() => api.addWorkspaceRoot(alias));
+    expect(readFileSync(settingsPath)).toEqual(savedBytes);
+    await expectRejected(() => api.addWorkspaceRoot(traversal));
+    expect(readFileSync(settingsPath)).toEqual(savedBytes);
   });
 
   test("replaces a stale configured root without validating the removed path", async () => {

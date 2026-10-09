@@ -491,8 +491,8 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "failed",
-          "attempts": 32,
+          "status": "passed",
+          "attempts": 34,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
             "attempt 2 FAIL: `bun test tests/worktree-lifecycle.spec.ts` invoked without `./` was interpreted by Bun as a test-name filter and matched no test files; rerun with explicit relative paths.",
@@ -528,7 +528,9 @@
             "attempt 30 PASS after fixing U31: all 12 checkpoint 6 verify commands passed in order, including full suite, typecheck, lint, generated assets, and architecture tests.",
             "attempt 31 PASS after fixing F5 cleanup-warning propagation: all 12 checkpoint 6 verification commands passed in order.",
             "attempt 32 FAIL after CP6-CAS-1 fix: focused worktree/lifecycle/skill/handoff/gate/assets/typecheck/lint checks passed; full `bun test` exited 1, but the harness truncated the failure and count; architecture command was not reached.",
-            "Exact feature-worktree diagnosis: `bun test ./tests/skills.spec.ts` passes; `artifact-scroll-spy.spec.ts` failed because its scanner treated internal brief/prototype navigation as public section navigation. Scanner scope was narrowed to public documentation section links; the focused spec now passes."
+            "Exact feature-worktree diagnosis: `bun test ./tests/skills.spec.ts` passes; `artifact-scroll-spy.spec.ts` failed because its scanner treated internal brief/prototype navigation as public section navigation. Scanner scope was narrowed to public documentation section links; the focused spec now passes.",
+            "attempt 33 FAIL: full suite stopped at workspace-server A3 (`closed` expected, `[]` received) while the branch advanced; standalone `bun test ./tests/workspace-server.spec.ts` passed 7 tests at HEAD d8a734b5.",
+            "attempt 34 PASS: all CP6 verification commands passed at HEAD d8a734b5; the branch advanced to f4d006fe during the run through checkpoint/review metadata only, with no source, test, generated asset, or configuration paths changed."
           ]
         },
         "ui": {
@@ -571,7 +573,8 @@
         "LEARNINGS.md",
         ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-6-cas.md",
         ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-6-reviewed-shas.md",
-        ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-6.md"
+        ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-6.md",
+        ".ai-engineering/workflow/reviews/worktree-lifecycle-governance-6-cas-focused.md"
       ]
     },
     {
@@ -978,7 +981,12 @@
           "findings": []
         }
       },
-      "status": "in_progress"
+      "status": "in_progress",
+      "changed_files": [
+        "tests/workspace-settings.spec.ts",
+        "tests/workspace-ui.spec.ts",
+        "tests/workspace-server.spec.ts"
+      ]
     },
     {
       "id": 11,

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 interface WorkspaceServer {
   hostname: string;
@@ -9,6 +9,8 @@ interface WorkspaceServer {
   url: URL;
   stop(force?: boolean): void;
 }
+
+type FolderPicker = () => string | null | Promise<string | null>;
 
 const activeServers = new Set<Pick<Bun.Server<undefined>, "stop"> | WorkspaceServer>();
 const serverModulePath = new URL("../src/workspace/server.ts", import.meta.url).href;
@@ -29,15 +31,21 @@ afterEach(async () => {
   testHome = "";
 });
 
-async function startWorkspaceServer(port = 0): Promise<WorkspaceServer> {
+async function startWorkspaceServer(port = 0, folderPicker?: FolderPicker): Promise<WorkspaceServer> {
   const serverModule = (await import(serverModulePath)) as {
-    startWorkspaceServer?: (options: { port: number }) => Promise<WorkspaceServer> | WorkspaceServer;
+    startWorkspaceServer?: (options: {
+      port: number;
+      folderPicker?: FolderPicker;
+    }) => Promise<WorkspaceServer> | WorkspaceServer;
   };
   if (typeof serverModule.startWorkspaceServer !== "function") {
     throw new Error("Expected src/workspace/server.ts to export startWorkspaceServer");
   }
 
-  const server = await serverModule.startWorkspaceServer({ port });
+  const server = await serverModule.startWorkspaceServer({
+    port,
+    ...(folderPicker === undefined ? {} : { folderPicker }),
+  });
   activeServers.add(server);
   return server;
 }
@@ -109,6 +117,14 @@ async function getJson(server: WorkspaceServer, path: string): Promise<unknown> 
   const response = await fetch(new URL(path, server.url));
   expect(response.status).toBe(200);
   return response.json();
+}
+
+async function saveWorkspaceRoots(server: WorkspaceServer, roots: string[]): Promise<Response> {
+  return fetch(new URL("/api/settings", server.url), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ roots }),
+  });
 }
 
 function records(payload: unknown, key: "projects" | "worktrees" | "history"): Record<string, unknown>[] {
@@ -184,6 +200,58 @@ describe("workspace server", () => {
     expect(startupError).toBeInstanceOf(Error);
     expect((startupError as Error).message).toMatch(/occupied|already in use/i);
     expect(await (await fetch(new URL("/health", occupiedServer.url))).json()).toEqual({ ok: true, status: "ok" });
+  });
+
+  test("A4 reads, adds, removes, and saves configured roots", async () => {
+    const server = await startWorkspaceServer();
+    const firstRoot = join(testHome, "first-root");
+    const secondRoot = join(testHome, "second-root");
+    mkdirSync(firstRoot);
+    mkdirSync(secondRoot);
+
+    expect(await getJson(server, "/api/settings")).toEqual({ roots: [] });
+
+    const addResponse = await saveWorkspaceRoots(server, [firstRoot, secondRoot]);
+    expect(addResponse.status).toBe(200);
+    expect(await getJson(server, "/api/settings")).toEqual({ roots: [firstRoot, secondRoot] });
+
+    const removeResponse = await saveWorkspaceRoots(server, [secondRoot]);
+    expect(removeResponse.status).toBe(200);
+    expect(await getJson(server, "/api/settings")).toEqual({ roots: [secondRoot] });
+  });
+
+  test("A4 rejects duplicate and traversal roots without changing saved settings", async () => {
+    const server = await startWorkspaceServer();
+    const root = join(testHome, "configured-root");
+    mkdirSync(root);
+
+    expect((await saveWorkspaceRoots(server, [root])).status).toBe(200);
+    const settingsPath = join(testHome, "workspace.json");
+    const originalSettings = await Bun.file(settingsPath).text();
+
+    const duplicateResponse = await saveWorkspaceRoots(server, [root, root]);
+    expect(duplicateResponse.status).toBe(400);
+    expect(await Bun.file(settingsPath).text()).toBe(originalSettings);
+
+    const traversal = [testHome, "configured-root", "missing", "..", "configured-root"].join(sep);
+    const traversalResponse = await saveWorkspaceRoots(server, [traversal]);
+    expect(traversalResponse.status).toBe(400);
+    expect(await Bun.file(settingsPath).text()).toBe(originalSettings);
+  });
+
+  test("A4 leaves previously saved roots unchanged when the folder picker is cancelled", async () => {
+    const priorRoot = join(testHome, "prior-root");
+    mkdirSync(priorRoot);
+    const settingsPath = join(testHome, "workspace.json");
+    const originalSettings = `${JSON.stringify({ roots: [priorRoot] }, null, 2)}\n`;
+    writeFileSync(settingsPath, originalSettings);
+
+    const server = await startWorkspaceServer(0, () => null);
+    const response = await fetch(new URL("/api/settings/pick", server.url), { method: "POST" });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ path: null });
+    expect(await Bun.file(settingsPath).text()).toBe(originalSettings);
   });
 
   test("A2 lists only configured repositories and registered worktrees, plus an explicit pre-worktree approval", async () => {
