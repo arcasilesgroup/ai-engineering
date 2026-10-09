@@ -87,3 +87,8 @@ Round 3 checks: `bun test ./tests/skills.spec.ts ./tests/workflow-handoff.spec.t
 The new wrong-slug and `[None]` prior-plan cases are rejected, and the path/slug match check closes the round-3 repro. But `had_plan` uses `checkpoint_id_error`, which checks only that `checkpoints` is a list of sequential integer IDs. It accepts an empty list and a checkpoint such as `{"id": 1}`; `checkpoint_shape_error` rejects the latter because it has no valid status or gates. I verified that a same-slug, matching-path prior plan with `[{"id": 1}]` qualifies as `has_prior_plan`, after which a pending lifecycle and its approval transition both pass without a brainstorm. The new malformed fixture `[None]` does not cover this structurally incomplete-but-ID-valid shape. Require a prior plan to satisfy the supported legacy checkpoint structure, and test missing fields and an empty list.
 
 F2, F3, and F4 are resolved: orchestrator and brainstorm instructions agree; U34 now rejects both obsolete STOP 1/two-stops statements. The checkpoint records all nine Gate 1 commands passing after round-4 fixes. Final app-review ordering/protections remain present, and all three current skill/gate asset refs match their source bytes. Focused Bun tests passed (35 tests, 0 failures); the in-memory malformed-legacy repro above leaves F1 open.
+
+## Attempt 2 — Round 1
+- **Verdict:** PASS — no open findings.
+- **Resolved:** 4 (F1–F4). **Withdrawn:** 0. **Arbitrated:** 0.
+- **Scope:** CP7 only; checked slug/path binding, malformed and empty legacy checkpoint shapes, approved brainstorm freshness/absence, pending-first-write self-approval, valid legacy continuation, obsolete STOP 1 wording, and final app-review/merge protection.

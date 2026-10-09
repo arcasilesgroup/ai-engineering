@@ -633,8 +633,8 @@
           "findings": []
         },
         "review": {
-          "status": "pending",
-          "attempts": 1,
+          "status": "passed",
+          "attempts": 2,
           "findings": [
             "F1 (HIGH): scripts/checkpoint-gate.py:525-542 and tests/test_checkpoint_gate.py:317-320. Caller-supplied lifecycle JSON can authorize implementation without proving a matching, fresh, approved brainstorm. Bind new-plan approval to validated brainstorm state and test first-write, absent, stale, and wrong-slug cases.",
             "F2 (MEDIUM): skills/ai-orchestrator/SKILL.md:13-16, 142-144, 238-239 and tests/workflow-handoff.spec.ts:254-255. Conflicting instructions still make checkpoint approval a universal stop, and the regression check misses the actual ask_user_question prompt. Limit the stop to pending legacy plans; test no prompt for fresh approved-brainstorm plans and preserve the legacy prompt.",
@@ -642,11 +642,12 @@
             "F3 (MEDIUM): skills/ai-brainstorm/SKILL.md:303-304 promises a second plan-approval stop, contradicting the orchestrator. Update the handoff contract and add a cross-skill regression assertion.",
             "Round 3: F2 and F3 resolved. F1 remains open: scripts/checkpoint-gate.py:758-790, 578-625 accepts a prior plan with any checkpoints list without verifying matching slug/path or valid checkpoint shape, allowing a wrong-slug prior plan to authorize approval.",
             "F4 (MEDIUM): tests/workflow-handoff.spec.ts:215-275 checks corrected brainstorm handoff text but not absence of obsolete STOP 1/two-stops wording; add a negative assertion so contradictory plan-stop text cannot be reintroduced.",
-            "Adversarial review attempt 1 reached the four-round cap. F2, F3, and F4 resolved. F1 remains open: scripts/checkpoint-gate.py:756-765 and tests/test_checkpoint_gate.py:389-408 accept a matching same-slug prior plan with an empty checkpoints list or [\u007b\"id\":1\u007d], because legacy detection checks sequential IDs but not full checkpoint structure. Reject malformed/empty legacy plans before allowing pending lifecycle creation or approval."
+            "Adversarial review attempt 1 reached the four-round cap. F2, F3, and F4 resolved. F1 remains open: scripts/checkpoint-gate.py:756-765 and tests/test_checkpoint_gate.py:389-408 accept a matching same-slug prior plan with an empty checkpoints list or [\u007b\"id\":1\u007d], because legacy detection checks sequential IDs but not full checkpoint structure. Reject malformed/empty legacy plans before allowing pending lifecycle creation or approval.",
+            "Adversarial review attempt 2 PASS in round 1: F1-F4 resolved, 0 findings withdrawn/arbitrated/open."
           ]
         }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": [
         "skills/ai-orchestrator/SKILL.md",
         "skills/ai-brainstorm/SKILL.md",
