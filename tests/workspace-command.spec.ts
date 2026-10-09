@@ -21,6 +21,9 @@ interface Run {
   stderr: string;
 }
 
+type WorkspaceHealthResponse = { service: "ai-eng-workspace"; status: string };
+type GenericListenerResponse = { ok: boolean; status: string };
+
 async function runWorkspace(args: string[], port?: number, openLog = join(sandbox, "opened-urls.log")): Promise<Run> {
   const home = join(sandbox, `home-${Date.now()}-${Math.random()}`);
   mkdirSync(home);
@@ -49,12 +52,15 @@ async function runWorkspace(args: string[], port?: number, openLog = join(sandbo
   }
 }
 
-async function startOccupiedPort(status: number): Promise<{ server: Server; port: number; requests: number }> {
+async function startOccupiedPort(
+  status: number,
+  body: WorkspaceHealthResponse | GenericListenerResponse = { ok: status === 200, status: "ok" },
+): Promise<{ server: Server; port: number; requests: number }> {
   let requests = 0;
   const server = createServer((_request, response) => {
     requests += 1;
     response.writeHead(status, { "content-type": "application/json" });
-    response.end(JSON.stringify({ ok: status === 200, status: "ok" }));
+    response.end(JSON.stringify(body));
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -71,7 +77,7 @@ async function closeServer(server: Server): Promise<void> {
 
 describe("ai-eng workspace CLI", () => {
   test("opens the same healthy loopback hub on repeated invocations", async () => {
-    const occupied = await startOccupiedPort(200);
+    const occupied = await startOccupiedPort(200, { service: "ai-eng-workspace", status: "ok" });
     const openLog = join(sandbox, "healthy-open.log");
     try {
       const first = await runWorkspace([], occupied.port, openLog);

@@ -821,3 +821,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Added the workspace source mapping to `.ai-engineering/arch.rules.json`; no forbidden dependency edge was found.
 - **Lesson:** Register every new cohesive source layer in `.ai-engineering/arch.rules.json` in the same feature change.
 - **Tags:** behavior, architecture, workspace
+
+### L101 · 2026-10-09 · worktree-lifecycle-governance #8 · review
+- **Failure:** The checkpoint 8 review found generic health responses could reuse unrelated services, stale roots blocked replacement, and interrupted writes could truncate settings.
+- **Root cause:** Health identity was generic, writing validated old filesystem paths, and settings bytes were overwritten directly.
+- **Fix:** Require the workspace service identity, validate old settings structure without old paths, and atomically rename a same-directory temporary file.
+- **Lesson:** Identify reusable services specifically, make recovery validate the replacement state, and preserve persisted bytes until an atomic write succeeds.
+- **Tags:** review, health, settings, atomic-write, tests
+
+### L102 · 2026-10-09 · worktree-lifecycle-governance #8 · behavior
+- **Failure:** Checkpoint 8 behavior attempt 6 failed typecheck because the healthy workspace response mock included `service`, which its callback parameter type rejected.
+- **Root cause:** The default generic listener fixture inferred a shape that did not include the workspace health identity.
+- **Fix:** Typed the callback body as a union of the workspace health response and the unrelated generic listener response.
+- **Lesson:** Type mock response variants against each distinct contract instead of letting the default fixture narrow the accepted shape.
+- **Tags:** behavior, typecheck, tests, workspace
