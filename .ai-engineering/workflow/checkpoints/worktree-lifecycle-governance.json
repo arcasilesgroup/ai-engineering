@@ -618,9 +618,10 @@
       "gates": {
         "behavior": {
           "status": "passed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "All nine checkpoint 7 verify commands passed in order: checkpoint gate tests, skills/workflow handoff tests, asset generation, embed-canon, build, typecheck, lint, and architecture tests."
+            "All nine checkpoint 7 verify commands passed in order: checkpoint gate tests, skills/workflow handoff tests, asset generation, embed-canon, build, typecheck, lint, and architecture tests.",
+            "Attempt 2 PASS after F1/F2 fixes: all nine checkpoint 7 verify commands passed in order, including gate, skills, handoff, build, typecheck, lint, and architecture tests."
           ]
         },
         "ui": {
