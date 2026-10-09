@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 interface WorkspaceSettingsApi {
@@ -82,7 +82,7 @@ describe("workspace project-root settings", () => {
     await expectRejected(() => api.writeWorkspaceRoots([root, root]));
     expect(readFileSync(settingsPath)).toEqual(validBytes);
 
-    const traversal = join(sandbox, "projects", "missing", "..", "alpha");
+    const traversal = [sandbox, "projects", "missing", "..", "alpha"].join(sep);
     await expectRejected(() => api.writeWorkspaceRoots([traversal]));
     expect(readFileSync(settingsPath)).toEqual(validBytes);
 

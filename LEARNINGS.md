@@ -800,3 +800,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Run the real CLI subprocess asynchronously with `Bun.spawn` and await its output and exit status.
 - **Lesson:** Keep an in-process HTTP mock responsive by running the client subprocess asynchronously.
 - **Tags:** behavior, tests, subprocess, workspace
+
+### L98 · 2026-10-09 · worktree-lifecycle-governance #8 · behavior
+- **Failure:** Checkpoint 8 behavior attempt 2 failed because the traversal-path assertion accepted the workspace root.
+- **Root cause:** `join()` normalized `missing/..` before validation, so the test submitted the valid canonical project path instead of traversal input.
+- **Fix:** Construct the fixture by joining path components with the platform separator, preserving the literal `..` segment.
+- **Lesson:** Preserve literal traversal segments in test inputs instead of passing them through a normalizing path join.
+- **Tags:** behavior, tests, paths, workspace
