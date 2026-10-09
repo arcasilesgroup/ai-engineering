@@ -58,3 +58,19 @@ Verify:
 - **Problem:** The refresh response serializes only `snapshot.errors`, which contains root-scan errors; Git and checkpoint read failures are held in each `snapshot.projects[].errors` and disappear from this response.
 - **Evidence:** `/api/worktrees` and `/api/history` include `project.errors`, but `/api/refresh` returns only project paths plus the global error list, so the caller cannot see partial failures from the refreshed scan in its refresh result.
 - **Suggested fix:** Include per-project errors in the refresh response or aggregate them into the response's visible errors.
+## Round 2
+
+**Verdict:** FINDINGS
+
+**Resolved:** 4 (F1, F3–F5)
+**Withdrawn:** 0
+**Arbitrated:** 0
+
+### CP9-R2-01 — Closed history does not validate the reviewed plan payload
+
+**Severity:** Medium
+**File:** `src/workspace/status.ts:488-507`
+
+Closed history checks reviewed-SHA ancestry but not whether the current main checkpoint payload still matches `reviewed_feature`. A later main commit can change plan scope while preserving lifecycle metadata, gates, and ancestry, and still be classified closed.
+
+**Suggested fix:** Compare the current main checkpoint payload with the reviewed payload before closing; otherwise return Unknown.

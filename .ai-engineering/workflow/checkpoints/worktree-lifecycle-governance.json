@@ -477,6 +477,7 @@
         "bun test ./tests/worktree-lifecycle.spec.ts",
         "bun test ./tests/worktree-command.spec.ts",
         "bun test ./tests/skills.spec.ts",
+        "bun test ./tests/artifact-scroll-spy.spec.ts",
         "bun test ./tests/git-cleanup-pass.spec.ts",
         "bun test ./tests/workflow-handoff.spec.ts",
         "python3 tests/test_checkpoint_gate.py",
@@ -526,7 +527,8 @@
             "attempt 29 FAIL after F4/F5 fixes: `bun test ./tests/worktree-lifecycle.spec.ts` fails U31; the CLI merge returned 1 instead of 0, and the gate report did not include the underlying CLI error. Remaining verify commands were not run.",
             "attempt 30 PASS after fixing U31: all 12 checkpoint 6 verify commands passed in order, including full suite, typecheck, lint, generated assets, and architecture tests.",
             "attempt 31 PASS after fixing F5 cleanup-warning propagation: all 12 checkpoint 6 verification commands passed in order.",
-            "attempt 32 FAIL after CP6-CAS-1 fix: focused worktree/lifecycle/skill/handoff/gate/assets/typecheck/lint checks passed; full `bun test` exited 1, but the harness truncated the failure and count; architecture command was not reached."
+            "attempt 32 FAIL after CP6-CAS-1 fix: focused worktree/lifecycle/skill/handoff/gate/assets/typecheck/lint checks passed; full `bun test` exited 1, but the harness truncated the failure and count; architecture command was not reached.",
+            "Exact feature-worktree diagnosis: `bun test ./tests/skills.spec.ts` passes; `artifact-scroll-spy.spec.ts` failed because its scanner treated internal brief/prototype navigation as public section navigation. Scanner scope was narrowed to public documentation section links; the focused spec now passes."
           ]
         },
         "ui": {
@@ -560,6 +562,7 @@
         "tests/worktree-command.spec.ts",
         "tests/git-cleanup-pass.spec.ts",
         "tests/workflow-handoff.spec.ts",
+        "tests/artifact-scroll-spy.spec.ts",
         "README.md",
         "CONTRIBUTING.md",
         "docs/blueprint.html",
@@ -847,7 +850,8 @@
             "CP9-R1-02 (P2): src/workspace/status.ts:369-414. Descendant commits may leave stale review evidence classified as active; missing review SHAs may pass app-review validation. Require both SHAs and validate the reviewed-feature chain/payload; stale or unverifiable state is Unknown.",
             "CP9-R1-03 (P2): src/workspace/status.ts:434-484. A detached registered worktree is not matched by branch name, so Closed history can override Unknown. Treat registered entries identifying the slug/path as live evidence and preserve Unknown for detached/prunable entries.",
             "CP9-R1-04 (P2): src/workspace/status.ts:513-517. A nested checkpoint JSON may be accepted by basename only. Require the exact slug-derived canonical path; misplaced or duplicate records are Unknown.",
-            "CP9-R1-05 (P2): src/workspace/api.ts:59-65. Refresh responses omit per-project Git/checkpoint errors and expose only root-scan errors. Include per-project errors or aggregate them into visible response errors."
+            "CP9-R1-05 (P2): src/workspace/api.ts:59-65. Refresh responses omit per-project Git/checkpoint errors and expose only root-scan errors. Include per-project errors or aggregate them into visible response errors.",
+            "Round 2: CP9-R1-01, R1-03, R1-04 and R1-05 resolved. CP9-R2-01 remains (Medium): src/workspace/status.ts:488-507 checks reviewed-SHA ancestry but not whether the current local-main checkpoint payload matches reviewed_feature. A later main commit can change plan scope while retaining metadata/gates and still classify Closed. Compare current and reviewed checkpoint payloads; otherwise return Unknown."
           ]
         }
       },
