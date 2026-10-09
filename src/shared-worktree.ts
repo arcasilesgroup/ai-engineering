@@ -102,13 +102,14 @@ interface OpenWorktree {
   /** What the user typed: the branch with the `feat/` prefix removed. */
   slug: string;
   detached: boolean;
+  prunable: boolean;
 }
 
 /** Every worktree git knows, or the reason it could not be read — a list that cannot
  *  be read is never an empty list, because that would let a guard pass unexamined. */
 function openWorktrees(repo: string): { worktrees: OpenWorktree[] } | { detail: string } {
   const listed = git(repo, ["worktree", "list", "--porcelain"]);
-  if (listed.status !== 0) {
+  if (listed.status !== 0 || listed.stderr.trim() !== "") {
     return { detail: `git worktree list exited ${listed.status}: ${listed.stderr.trim()}` };
   }
   const worktrees: OpenWorktree[] = [];
@@ -125,9 +126,113 @@ function openWorktrees(repo: string): { worktrees: OpenWorktree[] } | { detail: 
       branch,
       slug: branch === undefined ? basename(path) : branch.replace(/^feat\//, ""),
       detached: lines.includes("detached"),
+      prunable: lines.some((line) => line.startsWith("prunable")),
     });
   }
   return { worktrees };
+}
+
+export interface RepositoryWorktree {
+  path: string;
+  registeredPath: string;
+  branch: string | null;
+  slug: string;
+  detached: boolean;
+  prunable: boolean;
+}
+
+export interface RepositoryWorktreeInventory {
+  repositoryRoot: string;
+  worktreesRoot: string;
+  worktrees: RepositoryWorktree[];
+}
+
+function inventoryWorktreesRoot(repo: string): { path: string } | { detail: string } {
+  const metadataPath = join(repo, ".ai-engineering");
+  try {
+    const metadataStat = lstatSync(metadataPath);
+    if (!metadataStat.isDirectory() || metadataStat.isSymbolicLink()) {
+      return { detail: ".ai-engineering is not a repository-local directory" };
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      return { detail: `cannot read .ai-engineering: ${error instanceof Error ? error.message : String(error)}` };
+    }
+    return { path: canonicalize(`${repo}.worktrees`) };
+  }
+
+  const configPath = join(metadataPath, "config.toml");
+  try {
+    const configStat = lstatSync(configPath);
+    const canonicalConfig = realpathSync(configPath);
+    const configRelative = relative(repo, canonicalConfig);
+    if (
+      !configStat.isFile() ||
+      configStat.isSymbolicLink() ||
+      configRelative === ".." ||
+      configRelative.startsWith(`..${sep}`) ||
+      isAbsolute(configRelative)
+    ) {
+      return { detail: "config.toml is not a repository-local file" };
+    }
+    const parsed: unknown = Bun.TOML.parse(readFileSync(configPath, "utf8"));
+    if (!isRecord(parsed)) return { detail: "config.toml is not a TOML table" };
+    if (
+      parsed.git !== undefined &&
+      (!isRecord(parsed.git) ||
+        (parsed.git.worktrees_dir !== undefined && typeof parsed.git.worktrees_dir !== "string"))
+    ) {
+      return { detail: "config.toml [git].worktrees_dir is malformed" };
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { path: canonicalize(`${repo}.worktrees`) };
+    }
+    return { detail: `config.toml read failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+  return { path: canonicalize(worktreeRoot(repo)) };
+}
+
+/** A read-only inventory for callers that already resolved a repository root. */
+export function repositoryWorktreeInventory(
+  repositoryPath: string,
+): RepositoryWorktreeInventory | { detail: string } {
+  let repositoryRoot: string;
+  try {
+    repositoryRoot = realpathSync(repositoryPath);
+  } catch (error) {
+    return { detail: `repository root is unreadable: ${error instanceof Error ? error.message : String(error)}` };
+  }
+
+  const topLevel = git(repositoryRoot, ["rev-parse", "--show-toplevel"]);
+  if (topLevel.status !== 0 || topLevel.stderr.trim() !== "") {
+    return {
+      detail: topLevel.stderr.trim() || `git rev-parse --show-toplevel exited ${topLevel.status}`,
+    };
+  }
+  if (canonicalize(topLevel.stdout.trim()) !== repositoryRoot) {
+    return { detail: "path is not the Git repository root" };
+  }
+
+  const configuredWorktreesRoot = inventoryWorktreesRoot(repositoryRoot);
+  if ("detail" in configuredWorktreesRoot) return configuredWorktreesRoot;
+  const listed = openWorktrees(repositoryRoot);
+  if ("detail" in listed) return { detail: listed.detail };
+  return {
+    repositoryRoot,
+    worktreesRoot: configuredWorktreesRoot.path,
+    worktrees: listed.worktrees.map((entry) => {
+      const registeredPath = isAbsolute(entry.path) ? resolve(entry.path) : resolve(repositoryRoot, entry.path);
+      return {
+        path: canonicalize(registeredPath),
+        registeredPath,
+        branch: entry.branch ?? null,
+        slug: entry.slug,
+        detached: entry.detached,
+        prunable: entry.prunable,
+      };
+    }),
+  };
 }
 
 /** Why a cut is refused: a slot change seen at `path`, or the status detail
@@ -1269,11 +1374,35 @@ export function worktreeMerge(slug: string): WorktreeResult {
     };
   }
 
+  const expectedMergeTree = git(temporaryPath, ["write-tree"]);
+  const expectedTreeId = expectedMergeTree.stdout.trim();
+  if (
+    expectedMergeTree.status !== 0 ||
+    expectedMergeTree.stderr.trim() !== "" ||
+    !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(expectedTreeId)
+  ) {
+    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.featureTip);
+    const detail = expectedMergeTree.stderr.trim() || `git write-tree exited ${expectedMergeTree.status}`;
+    return {
+      code: 1,
+      out: "",
+      err: `worktree merge: could not snapshot temporary merge index tree: ${detail}${cleanup ? `; ${cleanup}` : ""}\n`,
+    };
+  }
+
   const committed = git(temporaryPath, ["commit", "-m", `chore(${slug}): merge ${state.branch}`]);
   const mergeCommit = fullHead(temporaryPath);
   const hasExactParents =
     mergeCommit !== null && hasReviewedParents(repo, mergeCommit, state.reviewedMain, state.featureTip);
-  if (committed.status !== 0 || !hasExactParents || mergeCommit === null) {
+  const committedTree = mergeCommit === null
+    ? null
+    : git(temporaryPath, ["rev-parse", "--verify", `${mergeCommit}^{tree}`]);
+  const hasExpectedTree =
+    committedTree !== null &&
+    committedTree.status === 0 &&
+    committedTree.stderr.trim() === "" &&
+    committedTree.stdout.trim() === expectedTreeId;
+  if (committed.status !== 0 || !hasExactParents || mergeCommit === null || !hasExpectedTree) {
     const cleanup = cleanupMergeWorktree(
       repo,
       temporaryPath,
@@ -1283,7 +1412,11 @@ export function worktreeMerge(slug: string): WorktreeResult {
     );
     const reason = committed.status !== 0
       ? `git commit failed: ${committed.stderr.trim()}`
-      : "temporary merge commit does not have the exact reviewed parents";
+      : !hasExactParents || mergeCommit === null
+        ? "temporary merge commit does not have the exact reviewed parents"
+        : committedTree === null || committedTree.status !== 0 || committedTree.stderr.trim() !== ""
+          ? `could not verify temporary merge commit tree: ${committedTree?.stderr.trim() || "git rev-parse failed"}`
+          : "temporary merge tree differs from reviewed merge result";
     return { code: 1, out: "", err: `worktree merge: ${reason}${cleanup ? `; ${cleanup}` : ""}\n` };
   }
   const temporaryStatus = worktreeStatus(temporaryPath);

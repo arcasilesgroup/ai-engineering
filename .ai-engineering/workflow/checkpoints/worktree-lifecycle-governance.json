@@ -827,9 +827,11 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "passed",
+          "attempts": 1,
+          "findings": [
+            "All seven checkpoint 9 verification commands passed in order: discovery, server, worktree lifecycle, typecheck, lint, architecture, and build."
+          ]
         },
         "ui": {
           "status": "n/a",
@@ -844,6 +846,11 @@
       },
       "status": "in_progress",
       "changed_files": [
+        "src/shared-worktree.ts",
+        "src/workspace/discovery.ts",
+        "src/workspace/status.ts",
+        "src/workspace/api.ts",
+        "src/workspace/server.ts",
         "tests/workspace-discovery.spec.ts",
         "tests/workspace-server.spec.ts"
       ]

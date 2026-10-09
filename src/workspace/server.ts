@@ -1,4 +1,5 @@
 import { embeddedTemplate } from "../embed.ts";
+import { discoverConfiguredWorkspace, handleWorkspaceApi } from "./api.ts";
 import { readWorkspaceRoots } from "./settings.ts";
 
 export const WORKSPACE_OVERVIEW_PATH = "/.ai-engineering/workflow/checkpoints/overview.html";
@@ -43,16 +44,36 @@ export async function startWorkspaceServer(options: { port: number }): Promise<W
     if (await isWorkspaceHealthy(port)) return externalServer(port);
   }
 
+  let workspaceSnapshot = await discoverConfiguredWorkspace();
   let server: ReturnType<typeof Bun.serve>;
   try {
     server = Bun.serve({
       hostname: "127.0.0.1",
       port,
-      fetch: (request) => {
+      fetch: async (request) => {
         const pathname = new URL(request.url).pathname;
         if (request.method === "GET" && pathname === HEALTH_PATH) {
           return Response.json(HEALTH_BODY, { headers: { "cache-control": "no-store" } });
         }
+        let apiResponse: Response | null;
+        try {
+          apiResponse = await handleWorkspaceApi(
+            request,
+            () => workspaceSnapshot,
+            async () => {
+              workspaceSnapshot = await discoverConfiguredWorkspace();
+              return workspaceSnapshot;
+            },
+          );
+        } catch (error) {
+          apiResponse = Response.json({
+            error: error instanceof Error ? error.message : String(error),
+          }, {
+            status: 500,
+            headers: { "cache-control": "no-store" },
+          });
+        }
+        if (apiResponse !== null) return apiResponse;
         if (request.method === "GET" && pathname === WORKSPACE_OVERVIEW_PATH) {
           return new Response(embeddedTemplate("workspace.html.tpl"), {
             headers: {
@@ -84,7 +105,7 @@ export async function startWorkspaceServer(options: { port: number }): Promise<W
     port: serverPort,
     url: new URL(`http://127.0.0.1:${serverPort}`),
     stop(force) {
-      server.stop(force);
+      void server.stop(force);
       activeServers.delete(serverPort);
     },
   };
