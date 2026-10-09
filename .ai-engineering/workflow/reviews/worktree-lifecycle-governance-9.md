@@ -97,3 +97,12 @@ Read and validate the checkpoint at local `reviewed_feature`, then compare its i
 **Evidence:** The CP9 checkpoint metadata contains top-level `notes` with durable constraints (for example, lifecycle-source and local-main-only requirements), and `validateCheckpoint` accepts this field. The comparison copies only the fields enumerated in `PLAN_FIELDS`; U39a exercises changed `summary` and `tasks`, but not `notes`. The current metadata also mixes runtime gate notes into this array, but that does not make the durable plan notes runtime metadata.
 
 **Suggested fix:** Include durable plan notes in the reviewed-payload comparison while excluding any genuinely runtime-only notes, or otherwise classify changed plan notes as Unknown.
+## Round 4 — Final
+
+**Verdict:** PASS
+**Resolved:** 7 total, including CP9-R3-01
+**Withdrawn:** 0
+**Arbitrated:** 0
+**Open findings:** None
+
+All seven CP9 verification commands passed after the final fix.
