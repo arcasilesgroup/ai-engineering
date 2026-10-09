@@ -52,3 +52,12 @@ Verify:
 - **Coverage gap:** Tests check successful persistence and preservation of pre-existing malformed bytes, but do not cover interruption during a write.
 
 **VERDICT: FAIL** — 0 resolved, 0 withdrawn, 0 arbitrated, 3 open (F1, F2, F3).
+
+## Round 2 — Critic
+
+- **F1 RESOLVED:** The workspace-specific `/health` identity rejects generic listeners; `tests/workspace-server.spec.ts:90–110` covers rejection.
+- **F2 RESOLVED:** Settings replacement checks the stored structure without requiring prior roots to still exist; `tests/workspace-settings.spec.ts:93–101` covers stale-root recovery.
+- **F3 RESOLVED:** Settings use a same-directory temporary write and rename; `tests/workspace-settings.spec.ts:116–140` covers failed-write preservation.
+- No new actionable findings.
+
+**VERDICT: PASS** — 3 resolved, 0 withdrawn, 0 arbitrated, 0 open.
