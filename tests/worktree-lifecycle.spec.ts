@@ -935,9 +935,11 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
     const slug = "merge-lifecycle-close";
     const feature = addBranchWorktree(repo, slug);
     const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
-    const reviewedFeature = commitFile(feature, "src/active.ts", "approved work\n", "approved work");
     const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
-    const checkpoint = writeCheckpoint(
+    const checkpoint = writeCheckpoint(feature, slug, checkpointPlan(slug, "implementation"));
+    commitCheckpoint(feature, checkpoint);
+    const reviewedFeature = commitFile(feature, "src/active.ts", "approved work\n", "approved work");
+    writeCheckpoint(
       feature,
       slug,
       mergeLifecyclePlan(slug, "awaiting-app-review", "pending", reviewedMain, reviewedFeature),

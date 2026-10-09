@@ -454,12 +454,50 @@ with tempfile.TemporaryDirectory(
         life("awaiting-app-review", "approved", "pending", reviewed_main, reviewed_feature),
     )
     lifecycle_result("U10: completed gates and current reviewed_main permit app review", implementation, awaiting_review, 0)
+    changed_before_review = copy.deepcopy(completed_gates)
+    changed_before_review["checkpoints"][0]["tasks"] = ["expanded at app-review handoff"]
+    lifecycle_result(
+        "F4: app-review handoff rejects checkpoint task changes",
+        implementation,
+        with_lifecycle(
+            changed_before_review,
+            life("awaiting-app-review", "approved", "pending", reviewed_main, reviewed_feature),
+        ),
+        2,
+    )
 
     ready_to_merge = with_lifecycle(
         completed_gates,
         life("ready-to-merge", "approved", "approved", reviewed_main, reviewed_feature),
     )
     lifecycle_result("U10: approved app review permits ready-to-merge", awaiting_review, ready_to_merge, 0)
+    for field, value in (
+        ("tasks", ["expanded after review"]),
+        ("acceptance", ["changed after review"]),
+        ("files", ["src/unreviewed.ts"]),
+    ):
+        changed_plan = copy.deepcopy(awaiting_review)
+        changed_plan["checkpoints"][0][field] = value
+        lifecycle_result(
+            f"F4: app-review approval rejects changed checkpoint {field}",
+            awaiting_review,
+            with_lifecycle(
+                changed_plan,
+                life("ready-to-merge", "approved", "approved", reviewed_main, reviewed_feature),
+            ),
+            2,
+        )
+    runtime_update = copy.deepcopy(awaiting_review)
+    runtime_checkpoint = runtime_update["checkpoints"][0]
+    runtime_checkpoint["gates"]["behavior"]["attempts"] += 1
+    runtime_checkpoint["gates"]["behavior"]["findings"].append("gate rerun")
+    runtime_checkpoint["gates"]["ui"]["status"] = "n/a"
+    lifecycle_result(
+        "F4: app review permits runtime gate status and finding updates",
+        awaiting_review,
+        runtime_update,
+        0,
+    )
     alternate_reviewed_feature = git(
         [
             "commit-tree",

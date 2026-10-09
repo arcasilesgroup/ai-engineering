@@ -771,3 +771,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Raise only U30's test-local timeout while preserving its assertions and global budget.
 - **Lesson:** Give an expensive integration case measured headroom without relaxing unrelated test budgets.
 - **Tags:** behavior, tests, timeout
+
+### L94 · 2026-10-09 · worktree-lifecycle-governance #6 · review
+- **Failure:** Approval-bound checkpoint-only commits could alter reviewed plan scope, and close hid ignored-file removal warnings.
+- **Root cause:** Approval validation compared lifecycle metadata but not the immutable plan payload, while the close command dropped cleanup output.
+- **Fix:** Compare the reviewed payload while excluding runtime gate metadata, and forward the removal result to the caller.
+- **Lesson:** Bind approval to the unchanged plan and preserve destructive-cleanup warnings through every caller.
+- **Tags:** review, checkpoint-gate, cleanup
+
+### L95 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** Attempt 29 failed U31 because the real CLI merge returned 1.
+- **Root cause:** The U31 test fixture captured `reviewed_feature` at a commit that did not contain the checkpoint plan, so the real merge guard correctly refused.
+- **Fix:** Commit the implementation-phase checkpoint in the fixture before recording `reviewed_feature`.
+- **Lesson:** A test fixture must satisfy the real contract it exercises.
+- **Tags:** behavior, tests, lifecycle, merge

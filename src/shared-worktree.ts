@@ -8,6 +8,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync } from "no
 import { randomUUID } from "node:crypto";
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
+import { isDeepStrictEqual } from "node:util";
 import { loadConfig, printable } from "./env.ts";
 
 /** The four artifacts of a milestone. `spec open` scaffolds two and `spec close`
@@ -394,20 +395,25 @@ function lifecycleFields(plan: unknown): Record<string, unknown> | null {
   const reviewedMain = lifecycle.reviewed_main;
   if (
     (phase === "awaiting-plan-approval" &&
-      (approval !== "pending" || review !== "not-started" || reviewedMain !== null)) ||
+      (approval !== "pending" || review !== "not-started" || reviewedMain !== null ||
+        (lifecycle.reviewed_feature !== undefined && lifecycle.reviewed_feature !== null))) ||
     (phase === "implementation" &&
-      (approval !== "approved" || review !== "not-started" || reviewedMain !== null)) ||
+      (approval !== "approved" || review !== "not-started" || reviewedMain !== null ||
+        (lifecycle.reviewed_feature !== undefined && lifecycle.reviewed_feature !== null))) ||
     (phase === "awaiting-app-review" &&
-      (approval !== "approved" || review !== "pending" || typeof reviewedMain !== "string")) ||
+      (approval !== "approved" || review !== "pending" || typeof reviewedMain !== "string" ||
+        typeof lifecycle.reviewed_feature !== "string")) ||
     (phase === "ready-to-merge" &&
       (approval !== "approved" || review !== "approved" || typeof reviewedMain !== "string" ||
         typeof lifecycle.reviewed_feature !== "string")) ||
     (phase === "blocked" &&
       (approval === "pending"
-        ? review !== "not-started" || reviewedMain !== null
+        ? review !== "not-started" || reviewedMain !== null ||
+          (lifecycle.reviewed_feature !== undefined && lifecycle.reviewed_feature !== null)
         : review === "not-started"
-          ? reviewedMain !== null
-          : typeof reviewedMain !== "string"))
+          ? reviewedMain !== null ||
+            (lifecycle.reviewed_feature !== undefined && lifecycle.reviewed_feature !== null)
+          : typeof reviewedMain !== "string" || typeof lifecycle.reviewed_feature !== "string"))
   ) {
     return null;
   }
@@ -486,12 +492,18 @@ function lifecycleStatus(
   if (phase === "ready-to-merge") {
     const reviewedFeature = lifecycle.reviewed_feature;
     const featureRef = git(repo, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
-    if (
-      typeof reviewedFeature !== "string" ||
-      featureRef.status !== 0 ||
-      featureRef.stdout.trim() !== reviewedFeature
-    ) {
-      return { label: "unknown (reviewed_feature is stale)", files };
+    if (typeof reviewedFeature !== "string" || featureRef.status !== 0) {
+      return { label: "unknown (reviewed_feature or feature tip is unreadable)", files };
+    }
+    const chainProblem = reviewedFeatureChainProblem(
+      repo,
+      slug,
+      lifecycle.reviewed_main as string,
+      reviewedFeature,
+      featureRef.stdout.trim(),
+    );
+    if (chainProblem !== null) {
+      return { label: `unknown (${chainProblem})`, files };
     }
   }
   return {
@@ -695,11 +707,120 @@ function fullHead(repo: string): string | null {
   return /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit) ? commit : null;
 }
 
+function reviewedPlanPayload(plan: unknown): Record<string, unknown> | null {
+  if (!isRecord(plan) || !Array.isArray(plan.checkpoints)) return null;
+  const payload: Record<string, unknown> = { ...plan };
+  delete payload.lifecycle;
+  payload.checkpoints = plan.checkpoints.map((checkpoint) => {
+    if (!isRecord(checkpoint)) return checkpoint;
+    const checkpointPayload: Record<string, unknown> = { ...checkpoint };
+    delete checkpointPayload.status;
+    if (isRecord(checkpointPayload.gates)) {
+      const gates: Record<string, unknown> = {};
+      for (const [name, gate] of Object.entries(checkpointPayload.gates)) {
+        if (!isRecord(gate)) {
+          gates[name] = gate;
+          continue;
+        }
+        const gatePayload: Record<string, unknown> = { ...gate };
+        delete gatePayload.status;
+        delete gatePayload.attempts;
+        delete gatePayload.findings;
+        gates[name] = gatePayload;
+      }
+      checkpointPayload.gates = gates;
+    }
+    return checkpointPayload;
+  });
+  return payload;
+}
+
+function reviewedFeatureChainProblem(
+  repo: string,
+  slug: string,
+  reviewedMain: string,
+  reviewedFeature: string,
+  featureTip: string,
+): string | null {
+  const ancestry = git(repo, ["merge-base", "--is-ancestor", reviewedFeature, featureTip]);
+  if (ancestry.status !== 0 || ancestry.stderr.trim() !== "") {
+    return `reviewed_feature ${reviewedFeature} is not an ancestor of feat/${slug} ${featureTip}`;
+  }
+  const history = git(repo, ["rev-list", "--reverse", `${reviewedFeature}..${featureTip}`]);
+  if (history.status !== 0 || history.stderr.trim() !== "") return "feature commits after reviewed_feature are unreadable";
+  const commits = history.stdout.split("\n").map((commit) => commit.trim()).filter(Boolean);
+  if (commits.length < 2) return "both app-review lifecycle checkpoint commits are missing";
+
+  const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+  const reviewedCheckpoint = git(repo, ["show", `${reviewedFeature}:${checkpointPath}`]);
+  if (reviewedCheckpoint.status !== 0 || reviewedCheckpoint.stderr.trim() !== "") {
+    return "reviewed_feature has no readable checkpoint plan";
+  }
+  let reviewedPlan: unknown;
+  try {
+    reviewedPlan = JSON.parse(reviewedCheckpoint.stdout);
+  } catch {
+    return "reviewed_feature has a malformed checkpoint plan";
+  }
+  const reviewedPayload = reviewedPlanPayload(reviewedPlan);
+  if (reviewedPayload === null) return "reviewed_feature has no verifiable checkpoint plan";
+
+  let previous = reviewedFeature;
+  for (const [index, commit] of commits.entries()) {
+    const parents = git(repo, ["rev-list", "--parents", "-n", "1", commit]);
+    if (
+      parents.status !== 0 ||
+      parents.stderr.trim() !== "" ||
+      parents.stdout.trim().split(" ").join(" ") !== `${commit} ${previous}`
+    ) {
+      return `feat/${slug} has a non-linear commit after reviewed_feature`;
+    }
+    const changed = git(repo, ["diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", "-z", commit]);
+    if (
+      changed.status !== 0 ||
+      changed.stderr.trim() !== "" ||
+      changed.stdout.split("\0").filter(Boolean).join("\0") !== checkpointPath
+    ) {
+      return `commit ${commit} after reviewed_feature changes paths other than ${checkpointPath}`;
+    }
+    const checkpoint = git(repo, ["show", `${commit}:${checkpointPath}`]);
+    if (checkpoint.status !== 0 || checkpoint.stderr.trim() !== "") {
+      return `commit ${commit} has no readable lifecycle checkpoint`;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(checkpoint.stdout);
+    } catch {
+      return `commit ${commit} has malformed lifecycle checkpoint metadata`;
+    }
+    const payload = reviewedPlanPayload(parsed);
+    if (payload === null || !isDeepStrictEqual(reviewedPayload, payload)) {
+      return `commit ${commit} changes the reviewed checkpoint plan`;
+    }
+    const lifecycle = lifecycleFields(parsed);
+    const isPendingReview = index === 0;
+    if (
+      lifecycle === null ||
+      !gatesComplete(parsed) ||
+      lifecycle.plan_approval !== "approved" ||
+      lifecycle.reviewed_main !== reviewedMain ||
+      lifecycle.reviewed_feature !== reviewedFeature ||
+      lifecycle.phase !== (isPendingReview ? "awaiting-app-review" : "ready-to-merge") ||
+      lifecycle.app_review !== (isPendingReview ? "pending" : "approved")
+    ) {
+      return `commit ${commit} has invalid app-review lifecycle metadata`;
+    }
+    previous = commit;
+  }
+  return null;
+}
+
 interface MergeReadyState {
   path: string;
   branch: string;
   reviewedMain: string;
   reviewedFeature: string;
+  featureTip: string;
 }
 
 function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState } | { detail: string } {
@@ -731,13 +852,13 @@ function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState
     return { detail: "detail" in operation ? operation.detail : `${operation.name} is in progress` };
   }
 
-  const featureTip = git(repo, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
+  const featureRef = git(repo, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
   const featureHead = fullHead(entry.path);
   if (
-    featureTip.status !== 0 ||
-    featureTip.stderr.trim() !== "" ||
+    featureRef.status !== 0 ||
+    featureRef.stderr.trim() !== "" ||
     featureHead === null ||
-    featureTip.stdout.trim() !== featureHead
+    featureRef.stdout.trim() !== featureHead
   ) {
     return { detail: `${branch} HEAD does not match its local branch ref` };
   }
@@ -775,8 +896,16 @@ function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState
   if (typeof lifecycle.reviewed_main !== "string" || typeof lifecycle.reviewed_feature !== "string") {
     return { detail: "checkpoint is missing full reviewed_main or reviewed_feature commit ids" };
   }
-  if (lifecycle.reviewed_feature !== featureHead) {
-    return { detail: `reviewed_feature ${lifecycle.reviewed_feature} is stale; ${branch} is ${featureHead}` };
+  const featureTip = featureHead;
+  const chainProblem = reviewedFeatureChainProblem(
+    repo,
+    slug,
+    lifecycle.reviewed_main,
+    lifecycle.reviewed_feature,
+    featureTip,
+  );
+  if (chainProblem !== null) {
+    return { detail: chainProblem };
   }
   return {
     state: {
@@ -784,6 +913,7 @@ function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState
       branch,
       reviewedMain: lifecycle.reviewed_main,
       reviewedFeature: lifecycle.reviewed_feature,
+      featureTip,
     },
   };
 }
@@ -812,18 +942,18 @@ function mergeParents(repo: string, commit: string): string[] | null {
   return result.stdout.trim().split(" ");
 }
 
-function hasReviewedParents(repo: string, commit: string, reviewedMain: string, reviewedFeature: string): boolean {
+function hasReviewedParents(repo: string, commit: string, reviewedMain: string, featureTip: string): boolean {
   const parents = mergeParents(repo, commit);
   return parents !== null && parents.length === 3 &&
     parents[0] === commit &&
     parents[1] === reviewedMain &&
-    parents[2] === reviewedFeature;
+    parents[2] === featureTip;
 }
 
 function findPublishedMerge(
   repo: string,
   reviewedMain: string,
-  reviewedFeature: string,
+  featureTip: string,
 ): { commit: string } | { detail: string } | null {
   const history = git(repo, ["rev-list", "--first-parent", "--merges", "--format=%H", "refs/heads/main"]);
   if (history.status !== 0 || history.stderr.trim() !== "") {
@@ -832,7 +962,7 @@ function findPublishedMerge(
   for (const candidate of history.stdout.split("\n")) {
     const commit = candidate.trim();
     if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit)) continue;
-    if (hasReviewedParents(repo, commit, reviewedMain, reviewedFeature)) return { commit };
+    if (hasReviewedParents(repo, commit, reviewedMain, featureTip)) return { commit };
   }
   return null;
 }
@@ -841,18 +971,23 @@ function verifyPublishedMerge(
   repo: string,
   commit: string,
   reviewedMain: string,
+  featureTip: string,
   reviewedFeature: string,
 ): string | null {
-  if (!hasReviewedParents(repo, commit, reviewedMain, reviewedFeature)) {
+  if (!hasReviewedParents(repo, commit, reviewedMain, featureTip)) {
     return `published merge ${commit} does not have the exact reviewed parents`;
   }
   const published = git(repo, ["merge-base", "--is-ancestor", commit, "refs/heads/main"]);
   if (published.status !== 0 || published.stderr.trim() !== "") {
     return `merge ${commit} is not in local refs/heads/main history`;
   }
-  const feature = git(repo, ["merge-base", "--is-ancestor", reviewedFeature, "refs/heads/main"]);
+  const feature = git(repo, ["merge-base", "--is-ancestor", featureTip, "refs/heads/main"]);
   if (feature.status !== 0 || feature.stderr.trim() !== "") {
-    return `reviewed feature ${reviewedFeature} is not an ancestor of local main`;
+    return `feature tip ${featureTip} is not an ancestor of local main`;
+  }
+  const reviewed = git(repo, ["merge-base", "--is-ancestor", reviewedFeature, featureTip]);
+  if (reviewed.status !== 0 || reviewed.stderr.trim() !== "") {
+    return `reviewed feature ${reviewedFeature} is not an ancestor of feature tip ${featureTip}`;
   }
   return null;
 }
@@ -907,7 +1042,7 @@ function cleanupMergeWorktree(
   repo: string,
   path: string,
   reviewedMain: string,
-  reviewedFeature: string,
+  featureTip: string,
   allowedHead?: string,
 ): string | null {
   const listed = openWorktrees(repo);
@@ -925,7 +1060,7 @@ function cleanupMergeWorktree(
       operation.name !== "MERGE_HEAD" ||
       mergeHead.status !== 0 ||
       mergeHead.stderr.trim() !== "" ||
-      mergeHead.stdout.trim() !== reviewedFeature
+      mergeHead.stdout.trim() !== featureTip
     ) {
       return `${path} has an operation that is not this transaction's merge`;
     }
@@ -969,7 +1104,8 @@ function removeMergedFeature(repo: string, slug: string, state: MergeReadyState,
   if (
     current.state.path !== state.path ||
     current.state.reviewedMain !== state.reviewedMain ||
-    current.state.reviewedFeature !== state.reviewedFeature
+    current.state.reviewedFeature !== state.reviewedFeature ||
+    current.state.featureTip !== state.featureTip
   ) {
     return {
       code: 1,
@@ -1001,7 +1137,7 @@ function removeMergedFeature(repo: string, slug: string, state: MergeReadyState,
   }
   return {
     code: 0,
-    out: `✓ merged ${slug} at ${mergeCommit} and removed its feature worktree\n`,
+    out: `${removed.out}✓ merged ${slug} at ${mergeCommit} and removed its feature worktree\n`,
     err: "",
   };
 }
@@ -1027,7 +1163,7 @@ export function worktreeMerge(slug: string): WorktreeResult {
   if ("detail" in ready) return { code: 1, out: "", err: `worktree merge: ${ready.detail}; refusing to merge.\n` };
   const state = ready.state;
   if (state.reviewedMain !== currentMain) {
-    const alreadyPublished = findPublishedMerge(repo, state.reviewedMain, state.reviewedFeature);
+    const alreadyPublished = findPublishedMerge(repo, state.reviewedMain, state.featureTip);
     if (alreadyPublished !== null && "detail" in alreadyPublished) {
       return { code: 1, out: "", err: `worktree merge: ${alreadyPublished.detail}; preserve the feature worktree.\n` };
     }
@@ -1044,6 +1180,7 @@ export function worktreeMerge(slug: string): WorktreeResult {
       repo,
       alreadyPublished.commit,
       state.reviewedMain,
+      state.featureTip,
       state.reviewedFeature,
     );
     if (publishedError !== null) {
@@ -1061,6 +1198,7 @@ export function worktreeMerge(slug: string): WorktreeResult {
       repo,
       alreadyPublished.commit,
       state.reviewedMain,
+      state.featureTip,
       state.reviewedFeature,
     );
     if (verified !== null) return { code: 1, out: "", err: `worktree merge: ${verified}; preserve the feature worktree.\n` };
@@ -1081,7 +1219,7 @@ export function worktreeMerge(slug: string): WorktreeResult {
   const temporaryPath = join(canonicalize(root), `.ai-eng-merge-${slug}-${randomUUID()}`);
   const added = git(repo, ["worktree", "add", "--detach", temporaryPath, state.reviewedMain]);
   if (added.status !== 0) {
-    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.reviewedFeature);
+    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.featureTip);
     return {
       code: 1,
       out: "",
@@ -1091,7 +1229,7 @@ export function worktreeMerge(slug: string): WorktreeResult {
 
   const merged = git(temporaryPath, ["merge", "--no-commit", "--no-ff", `refs/heads/${state.branch}`]);
   if (merged.status !== 0) {
-    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.reviewedFeature);
+    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.featureTip);
     return {
       code: 1,
       out: "",
@@ -1102,26 +1240,26 @@ export function worktreeMerge(slug: string): WorktreeResult {
   if (
     mergeHead.status !== 0 ||
     mergeHead.stderr.trim() !== "" ||
-    mergeHead.stdout.trim() !== state.reviewedFeature
+    mergeHead.stdout.trim() !== state.featureTip
   ) {
-    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.reviewedFeature);
+    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.featureTip);
     return {
       code: 1,
       out: "",
-      err: `worktree merge: temporary merge does not name reviewed_feature ${state.reviewedFeature}${cleanup ? `; ${cleanup}` : ""}\n`,
+      err: `worktree merge: temporary merge does not name current feature tip ${state.featureTip}${cleanup ? `; ${cleanup}` : ""}\n`,
     };
   }
 
   const committed = git(temporaryPath, ["commit", "-m", `chore(${slug}): merge ${state.branch}`]);
   const mergeCommit = fullHead(temporaryPath);
   const hasExactParents =
-    mergeCommit !== null && hasReviewedParents(repo, mergeCommit, state.reviewedMain, state.reviewedFeature);
+    mergeCommit !== null && hasReviewedParents(repo, mergeCommit, state.reviewedMain, state.featureTip);
   if (committed.status !== 0 || !hasExactParents || mergeCommit === null) {
     const cleanup = cleanupMergeWorktree(
       repo,
       temporaryPath,
       state.reviewedMain,
-      state.reviewedFeature,
+      state.featureTip,
       hasExactParents ? mergeCommit : undefined,
     );
     const reason = committed.status !== 0
@@ -1135,7 +1273,7 @@ export function worktreeMerge(slug: string): WorktreeResult {
       repo,
       temporaryPath,
       state.reviewedMain,
-      state.reviewedFeature,
+      state.featureTip,
       mergeCommit,
     );
     return {
@@ -1150,12 +1288,11 @@ export function worktreeMerge(slug: string): WorktreeResult {
   const published = git(repo, ["update-ref", "refs/heads/main", mergeCommit, state.reviewedMain]);
   if (published.status !== 0) {
     const changedMain = fullCommitRef(repo);
-    const refreshed = refreshPrimary(repo, state.reviewedMain);
     const cleanup = cleanupMergeWorktree(
       repo,
       temporaryPath,
       state.reviewedMain,
-      state.reviewedFeature,
+      state.featureTip,
       mergeCommit,
     );
     return {
@@ -1164,7 +1301,6 @@ export function worktreeMerge(slug: string): WorktreeResult {
       err:
         `worktree merge: compare-and-swap lost; refs/heads/main changed from ${state.reviewedMain} ` +
         `to ${changedMain ?? "unreadable"}. Preserve the feature worktree and rerun synchronization, affected gates and human review.` +
-        `${refreshed ? ` Primary refresh was not verified: ${refreshed}.` : ""}` +
         `${cleanup ? ` Temporary worktree was preserved: ${cleanup}.` : ""}\n`,
     };
   }
@@ -1175,7 +1311,7 @@ export function worktreeMerge(slug: string): WorktreeResult {
       repo,
       temporaryPath,
       state.reviewedMain,
-      state.reviewedFeature,
+      state.featureTip,
       mergeCommit,
     );
     return {
@@ -1186,13 +1322,19 @@ export function worktreeMerge(slug: string): WorktreeResult {
         `${cleanup ? ` Temporary worktree was preserved: ${cleanup}.` : ""}\n`,
     };
   }
-  const verification = verifyPublishedMerge(repo, mergeCommit, state.reviewedMain, state.reviewedFeature);
+  const verification = verifyPublishedMerge(
+    repo,
+    mergeCommit,
+    state.reviewedMain,
+    state.featureTip,
+    state.reviewedFeature,
+  );
   if (verification !== null) {
     const cleanup = cleanupMergeWorktree(
       repo,
       temporaryPath,
       state.reviewedMain,
-      state.reviewedFeature,
+      state.featureTip,
       mergeCommit,
     );
     return {
@@ -1205,7 +1347,7 @@ export function worktreeMerge(slug: string): WorktreeResult {
     repo,
     temporaryPath,
     state.reviewedMain,
-    state.reviewedFeature,
+    state.featureTip,
     mergeCommit,
   );
   if (cleanup !== null) {

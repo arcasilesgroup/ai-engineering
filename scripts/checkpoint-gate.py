@@ -26,6 +26,7 @@ checkpoint has unproven gates or the plan is structurally invalid, whatever rout
 took to get there. It lets through user interrupts, AskUserQuestion stops, plans with a
 top-level "halted" reason (circuit breaker), and gives up after MAX_STOP_BLOCKS blocks in a row.
 """
+import copy
 import json
 import os
 import re
@@ -187,6 +188,33 @@ def snapshot(cp):
     return (cp.get("status"), tuple(gate(cp, g) for g in GATES))
 
 
+def reviewed_plan_payload(plan):
+    if not isinstance(plan, dict) or not isinstance(plan.get("checkpoints"), list):
+        return None
+    payload = copy.deepcopy(plan)
+    payload.pop("lifecycle", None)
+    for checkpoint in payload["checkpoints"]:
+        if not isinstance(checkpoint, dict):
+            return None
+        checkpoint.pop("status", None)
+        if isinstance(checkpoint.get("gates"), dict):
+            for state in checkpoint["gates"].values():
+                if isinstance(state, dict):
+                    for field in ("status", "attempts", "findings"):
+                        state.pop(field, None)
+    return payload
+
+
+def has_app_review_claim(plan):
+    if not isinstance(plan, dict) or not isinstance(plan.get("lifecycle"), dict):
+        return False
+    lifecycle = plan["lifecycle"]
+    return lifecycle.get("phase") in ("awaiting-app-review", "ready-to-merge") or (
+        lifecycle.get("phase") == "blocked"
+        and lifecycle.get("app_review") in ("pending", "approved")
+    )
+
+
 def git(root, *args):
     try:
         env = os.environ.copy()
@@ -213,6 +241,62 @@ def full_commit(root, value):
 def local_main(root):
     result = git(root, "rev-parse", "--verify", "refs/heads/main^{commit}")
     return result.stdout.strip() if result is not None else None
+
+
+def local_feature(root, slug):
+    if not isinstance(slug, str) or not re.fullmatch(r"[\w.-]+", slug):
+        return None
+    result = git(root, "rev-parse", "--verify", f"refs/heads/feat/{slug}^{{commit}}")
+    return result.stdout.strip() if result is not None else None
+
+
+def reviewed_feature_chain_error(root, slug, reviewed_main, reviewed_feature, phase):
+    feature_tip = local_feature(root, slug)
+    if feature_tip is None:
+        return "the local feature tip is unreadable"
+    if git(root, "merge-base", "--is-ancestor", reviewed_feature, feature_tip) is None:
+        return "reviewed_feature is not an ancestor of the local feature tip"
+    commits = git(root, "rev-list", "--reverse", f"{reviewed_feature}..{feature_tip}")
+    if commits is None:
+        return "the commits after reviewed_feature are unreadable"
+    checkpoint_path = f".ai-engineering/workflow/checkpoints/{slug}.json"
+    previous = reviewed_feature
+    for index, commit in enumerate(commits.stdout.split()):
+        parents = git(root, "rev-list", "--parents", "-n", "1", commit)
+        paths = git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", "-z", commit)
+        if parents is None or parents.stdout.split() != [commit, previous]:
+            return "reviewed_feature has a non-linear descendant history"
+        if paths is None or [path for path in paths.stdout.split("\0") if path] != [checkpoint_path]:
+            return "only checkpoint metadata commits may follow reviewed_feature"
+        checkpoint = git(root, "show", f"{commit}:{checkpoint_path}")
+        if checkpoint is None:
+            return "a reviewed-feature descendant has no readable lifecycle checkpoint"
+        try:
+            plan = json.loads(checkpoint.stdout)
+        except ValueError:
+            return "a reviewed-feature descendant has malformed lifecycle metadata"
+        lifecycle = plan.get("lifecycle") if isinstance(plan, dict) else None
+        expected_phase = "awaiting-app-review" if index == 0 else "ready-to-merge"
+        expected_review = "pending" if index == 0 else "approved"
+        lifecycle_fields = {"phase", "plan_approval", "app_review", "reviewed_main", "reviewed_feature"}
+        if (
+            not isinstance(plan, dict)
+            or plan.get("slug") != slug
+            or checkpoint_shape_error(plan) is not None
+            or not completed_gates(plan)
+            or not isinstance(lifecycle, dict)
+            or not lifecycle_fields.issubset(lifecycle)
+            or set(lifecycle) - lifecycle_fields
+            or lifecycle.get("phase") != expected_phase
+            or lifecycle.get("plan_approval") != "approved"
+            or lifecycle.get("app_review") != expected_review
+            or lifecycle.get("reviewed_main") != reviewed_main
+            or lifecycle.get("reviewed_feature") != reviewed_feature
+            or (phase == "awaiting-app-review" and index > 0)
+        ):
+            return "a reviewed-feature descendant has invalid app-review lifecycle metadata"
+        previous = commit
+    return None
 
 
 def completed_gates(plan):
@@ -274,21 +358,36 @@ def lifecycle_shape_error(state, plan, root, require_fresh=True):
     reviewed_feature = state.get("reviewed_feature")
     if reviewed_feature is not None and not full_commit(root, reviewed_feature):
         return "reviewed_feature must be a full commit id"
-    if phase == "awaiting-plan-approval" and (approval, review, reviewed) != ("pending", "not-started", None):
+    if phase == "awaiting-plan-approval" and (
+        (approval, review, reviewed) != ("pending", "not-started", None)
+        or reviewed_feature is not None
+    ):
         return "awaiting-plan-approval requires pending plan approval, no app review and no reviewed_main"
-    if phase == "implementation" and (approval, review, reviewed) != ("approved", "not-started", None):
+    if phase == "implementation" and (
+        (approval, review, reviewed) != ("approved", "not-started", None)
+        or reviewed_feature is not None
+    ):
         return "implementation requires approved plan, no app review and no reviewed_main"
     if phase == "awaiting-app-review":
-        if (approval, review) != ("approved", "pending") or reviewed is None:
-            return "awaiting-app-review requires approved plan, pending app review and reviewed_main"
+        if (
+            (approval, review) != ("approved", "pending")
+            or not isinstance(reviewed, str)
+            or not isinstance(reviewed_feature, str)
+        ):
+            return "awaiting-app-review requires approved plan, pending app review and both reviewed commits"
         if not completed_gates(plan):
             return "awaiting-app-review requires completed checkpoint gates"
-        if require_fresh and reviewed != local_main(root):
-            return "reviewed_main is stale or is not the current local main commit"
+        if require_fresh:
+            if reviewed != local_main(root):
+                return "reviewed_main is stale or is not the current local main commit"
+            if error := reviewed_feature_chain_error(
+                root, plan.get("slug"), reviewed, reviewed_feature, phase,
+            ):
+                return error
     if phase == "ready-to-merge":
         if (
             (approval, review) != ("approved", "approved")
-            or reviewed is None
+            or not isinstance(reviewed, str)
             or not isinstance(reviewed_feature, str)
         ):
             return "ready-to-merge requires approved plan and app review with reviewed_main and reviewed_feature"
@@ -297,46 +396,65 @@ def lifecycle_shape_error(state, plan, root, require_fresh=True):
         if require_fresh and reviewed != local_main(root):
             return "reviewed_main is stale or is not the current local main commit"
         if require_fresh:
-            slug = plan.get("slug") if isinstance(plan, dict) else None
-            feature = git(root, "rev-parse", "--verify", f"refs/heads/feat/{slug}^{{commit}}")
-            if feature is None or feature.stdout.strip() != reviewed_feature:
-                return "reviewed_feature is stale or is not the current local feature commit"
+            if error := reviewed_feature_chain_error(
+                root, plan.get("slug"), reviewed, reviewed_feature, phase,
+            ):
+                return error
     if phase == "blocked":
         if approval == "pending":
-            if (review, reviewed) != ("not-started", None):
+            if (review, reviewed, reviewed_feature) != ("not-started", None, None):
                 return "blocked work with pending plan approval cannot have app review state"
         elif review == "not-started":
-            if reviewed is not None:
-                return "blocked work without app review cannot have reviewed_main"
+            if reviewed is not None or reviewed_feature is not None:
+                return "blocked work without app review cannot have reviewed commits"
         else:
-            if reviewed is None or not completed_gates(plan):
-                return "blocked app-review work requires completed gates and reviewed_main"
+            if not isinstance(reviewed, str) or not isinstance(reviewed_feature, str) or not completed_gates(plan):
+                return "blocked app-review work requires completed gates and both reviewed commits"
     return None
 
 
-def lifecycle_transition_error(old_state, new_state, root):
+def lifecycle_transition_error(old_state, new_state, root, slug):
     old_phase = old_state["phase"]
     new_phase = new_state["phase"]
     if old_state == new_state:
         return None
     if new_phase == "blocked":
-        if any(old_state[field] != new_state[field] for field in ("plan_approval", "app_review", "reviewed_main")):
+        if any(
+            old_state.get(field) != new_state.get(field)
+            for field in ("plan_approval", "app_review", "reviewed_main", "reviewed_feature")
+        ):
             if (
                 old_phase in ("awaiting-app-review", "ready-to-merge")
                 and old_state["plan_approval"] == "approved"
                 and new_state["plan_approval"] == "approved"
                 and new_state["app_review"] == "not-started"
                 and new_state["reviewed_main"] is None
+                and new_state.get("reviewed_feature") is None
             ):
                 return None
             return "blocked is fail-safe and cannot change approval state"
         return None
+    if new_phase == "implementation" and old_phase in ("awaiting-app-review", "ready-to-merge"):
+        if (
+            old_state["plan_approval"] == "approved"
+            and new_state["plan_approval"] == "approved"
+            and new_state["app_review"] == "not-started"
+            and new_state["reviewed_main"] is None
+            and new_state.get("reviewed_feature") is None
+            and old_state["reviewed_main"] != local_main(root)
+        ):
+            return None
+        return "app-review invalidation requires stale reviewed_main and cleared reviewed commits"
     if old_phase == "awaiting-plan-approval":
         if new_phase == "implementation" and new_state["plan_approval"] == "approved":
             return None
         return "plan approval must transition directly from awaiting-plan-approval to implementation"
     if old_phase == "implementation":
-        if new_phase == "awaiting-app-review":
+        if (
+            new_phase == "awaiting-app-review"
+            and new_state["reviewed_main"] == local_main(root)
+            and new_state.get("reviewed_feature") == local_feature(root, slug)
+        ):
             return None
         return "implementation may only advance to awaiting-app-review or blocked"
     if old_phase == "blocked":
@@ -347,28 +465,41 @@ def lifecycle_transition_error(old_state, new_state, root):
         ):
             return None
         if new_phase == "awaiting-app-review" and old_state["app_review"] in ("pending", "approved"):
-            if new_state["app_review"] == "pending" and new_state["reviewed_main"] == local_main(root):
+            if (
+                new_state["app_review"] == "pending"
+                and new_state["reviewed_main"] == local_main(root)
+                and new_state.get("reviewed_feature") == local_feature(root, slug)
+            ):
                 return None
         if (
             new_phase == "ready-to-merge"
             and old_state["app_review"] == "approved"
             and new_state["reviewed_main"] == old_state["reviewed_main"]
+            and new_state.get("reviewed_feature") == old_state.get("reviewed_feature")
         ):
             return None
         return "blocked work may resume only into a phase allowed by its existing approvals"
     if old_phase == "awaiting-app-review" and new_phase == "ready-to-merge":
-        if new_state["reviewed_main"] == old_state["reviewed_main"]:
+        if (
+            new_state["reviewed_main"] == old_state["reviewed_main"]
+            and new_state.get("reviewed_feature") == old_state.get("reviewed_feature")
+        ):
             return None
-        return "app-review approval must retain the reviewed_main commit"
+        return "app-review approval must retain both reviewed commits"
     if new_phase == "awaiting-app-review" and old_phase in ("awaiting-app-review", "ready-to-merge"):
         current = local_main(root)
+        feature_tip = local_feature(root, slug)
         if (
             new_state["app_review"] == "pending"
             and new_state["reviewed_main"] == current
-            and new_state["reviewed_main"] != old_state["reviewed_main"]
+            and new_state.get("reviewed_feature") == feature_tip
+            and (
+                new_state["reviewed_main"] != old_state["reviewed_main"]
+                or new_state.get("reviewed_feature") != old_state.get("reviewed_feature")
+            )
         ):
             return None
-        return "app-review reset requires a fresh review against the advanced local main"
+        return "app-review reset requires a fresh review against current local refs"
     if old_phase == "ready-to-merge" and new_phase == "ready-to-merge":
         return "ready-to-merge approval cannot change without repeating app review"
     return f"unauthorized lifecycle transition from {old_phase} to {new_phase}"
@@ -402,7 +533,7 @@ def check_lifecycle(new_plan, old_plan, root, check_transition=True):
     old_state = old_plan["lifecycle"]
     if lifecycle_shape_error(old_state, old_plan, root, require_fresh=False):
         block("existing lifecycle state is malformed; refusing a lifecycle transition.")
-    error = lifecycle_transition_error(old_state, new_state, root)
+    error = lifecycle_transition_error(old_state, new_state, root, new_plan.get("slug"))
     if error:
         block(error + ".")
 
@@ -540,6 +671,19 @@ def check_plan(new_text, old_text, root, check_transition=True, path=None):
         pass
     had_plan = isinstance(old_plan, dict) and isinstance(old_plan.get("checkpoints"), list)
     had_lifecycle = isinstance(old_plan, dict) and "lifecycle" in old_plan
+    if has_app_review_claim(new_plan) or (
+        has_app_review_claim(old_plan)
+        and not (
+            isinstance(new_plan.get("lifecycle"), dict)
+            and new_plan["lifecycle"].get("phase") == "implementation"
+        )
+    ):
+        old_payload = reviewed_plan_payload(old_plan)
+        new_payload = reviewed_plan_payload(new_plan)
+        if old_payload is None or new_payload is None:
+            block("can't verify the checkpoint plan across app review.")
+        if old_payload != new_payload:
+            block("checkpoint plan changed after app review began.")
     for cp in new:
         cid = cp.get("id")
         g = [gate(cp, x) for x in GATES]

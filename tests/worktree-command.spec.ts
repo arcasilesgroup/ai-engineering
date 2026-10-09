@@ -249,6 +249,8 @@ function rebasePlan(
       ui: rebaseGate(gateStatus),
       review: rebaseGate(gateStatus),
     },
+    tasks: [`checkpoint-${id} task`],
+    acceptance: [`checkpoint-${id} acceptance`],
     files: [`src/checkpoint-${id}.ts`],
   });
   return { slug, checkpoints: [checkpoint(1), checkpoint(2)], lifecycle };
@@ -289,6 +291,38 @@ function writeMergeCheckpoint(
     `${JSON.stringify(mergeLifecyclePlan(slug, reviewedMain, reviewedFeature, phase, appReview), null, 2)}\n`,
   );
   return checkpoint;
+}
+
+function writeReviewedMergeCheckpoint(feature: string, slug: string): string {
+  const checkpoint = join(feature, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+  mkdirSync(dirname(checkpoint), { recursive: true });
+  const plan = rebasePlan(slug, "passed", "passed", {
+    phase: "implementation",
+    plan_approval: "approved",
+    app_review: "not-started",
+    reviewed_main: null,
+    reviewed_feature: null,
+  });
+  const first = (plan.checkpoints as Array<{ gates: { ui: { status: string } } }>)[0];
+  if (!first) throw new Error("reviewed merge fixture needs a checkpoint");
+  first.gates.ui.status = "n/a";
+  writeFileSync(checkpoint, `${JSON.stringify(plan, null, 2)}\n`);
+  git(["add", checkpoint], feature);
+  git(["commit", "-q", "-m", `${slug} approved implementation plan`], feature);
+  return checkpoint;
+}
+
+function updateMergeRuntimeFields(checkpoint: string): void {
+  const plan = JSON.parse(readFileSync(checkpoint, "utf8")) as {
+    checkpoints: Array<{
+      gates: { behavior: { attempts: number; findings: string[] } };
+    }>;
+  };
+  const first = plan.checkpoints[0];
+  if (!first) throw new Error("reviewed merge fixture needs a checkpoint");
+  first.gates.behavior.attempts += 1;
+  first.gates.behavior.findings.push("runtime gate rerun");
+  writeFileSync(checkpoint, `${JSON.stringify(plan, null, 2)}\n`);
 }
 
 function installHook(repo: string, name: string, body: string): void {
@@ -368,14 +402,15 @@ interface MergeFixture {
 function prepareMergeFixture(repo: string, slug: string): MergeFixture {
   const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
   const feature = addRebaseWorktree(repo, slug);
+  const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+  const checkpoint = writeReviewedMergeCheckpoint(feature, slug);
   const reviewedFeature = commitRebaseFixtureFile(
     feature,
     "src/approved.ts",
     `${slug} approved feature\n`,
     `${slug} approved feature`,
   );
-  const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
-  const checkpoint = writeMergeCheckpoint(
+  writeMergeCheckpoint(
     feature,
     slug,
     reviewedMain,
@@ -383,10 +418,12 @@ function prepareMergeFixture(repo: string, slug: string): MergeFixture {
     "awaiting-app-review",
     "pending",
   );
+  updateMergeRuntimeFields(checkpoint);
   git(["add", checkpointPath], feature);
   git(["commit", "-q", "-m", `${slug} checkpoint awaiting app review`], feature);
   const awaitingReviewCommit = git(["rev-parse", "HEAD"], feature).trim();
   writeMergeCheckpoint(feature, slug, reviewedMain, reviewedFeature);
+  updateMergeRuntimeFields(checkpoint);
   git(["add", checkpointPath], feature);
   git(["commit", "-q", "-m", `${slug} checkpoint approved`], feature);
   const featureTip = git(["rev-parse", "HEAD"], feature).trim();
@@ -1466,6 +1503,51 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expect(existsSync(approved.feature)).toBe(true);
     expectWorktrees(repo, [repo, approved.feature]);
     expectNoMergeLock(repo);
+  });
+
+  test("F4: refuses a checkpoint-only commit that changes the reviewed plan", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareMergeFixture(repo, "merge-unreviewed-plan");
+    const mainBefore = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const checkpointPlan = JSON.parse(readFileSync(approved.checkpoint, "utf8")) as {
+      checkpoints: Array<{ tasks: string[] }>;
+    };
+    const first = checkpointPlan.checkpoints[0];
+    if (!first) throw new Error("reviewed merge fixture needs a checkpoint");
+    first.tasks[0] = "task changed after human review";
+    writeFileSync(approved.checkpoint, `${JSON.stringify(checkpointPlan, null, 2)}\n`);
+    git(["add", `.ai-engineering/workflow/checkpoints/${approved.slug}.json`], approved.feature);
+    git(["commit", "-q", "-m", "change reviewed plan"], approved.feature);
+    const changedTip = git(["rev-parse", "HEAD"], approved.feature).trim();
+
+    const run = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(run.status).not.toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toContain("changes the reviewed checkpoint plan");
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(mainBefore);
+    expect(git(["rev-parse", `refs/heads/feat/${approved.slug}`], repo).trim()).toBe(changedTip);
+    expect(existsSync(approved.feature)).toBe(true);
+    expect(readFileSync(approved.checkpoint, "utf8")).toContain("task changed after human review");
+    expectWorktrees(repo, [repo, approved.feature]);
+    expectNoMergeLock(repo);
+  });
+
+  test("F5: merged feature cleanup surfaces the ignored paths it removes", () => {
+    const repo = tempRepo();
+    writeFileSync(join(repo, ".gitignore"), "local.env\n");
+    git(["add", ".gitignore"], repo);
+    git(["commit", "-q", "-m", "ignore local environment file"], repo);
+    const approved = prepareMergeFixture(repo, "merge-ignored-content");
+    writeFileSync(join(approved.feature, "local.env"), "LOCAL_ONLY=1\n");
+
+    const run = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(run.status).toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toContain("dropped ignored: local.env");
+    expect(existsSync(approved.feature)).toBe(false);
+    expect(gitOut(["show-ref", "--verify", `refs/heads/feat/${approved.slug}`], repo).status).not.toBe(0);
   });
 
   test("U26-U27: runs commit hooks in a detached temporary worktree, publishes exact reviewed parents, refreshes main, then safely removes only the approved feature", () => {
