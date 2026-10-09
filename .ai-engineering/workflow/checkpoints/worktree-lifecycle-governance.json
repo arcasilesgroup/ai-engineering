@@ -734,9 +734,13 @@
           ]
         },
         "ui": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "passed",
+          "attempts": 1,
+          "findings": [
+            "All in-scope captures were prototype-only because loading-projects is marked live:false; no live-reproducible state was available. Independent reviewers found no high or medium issues.",
+            "Low: at 375px the wordmark appears smaller than the prototype sizing.",
+            "Low: the loading state keeps the sample count '3 roots', which may imply roots already loaded."
+          ]
         },
         "review": {
           "status": "pending",
@@ -1124,6 +1128,8 @@
     "Lifecycle lives in each feature's existing checkpoint JSON. Do not add a second registry, require a plan without a worktree, or duplicate a checkpoint file between the primary and feature trees.",
     "Only local main is a synchronization or merge source. Never fetch remote state, coordinate across clones, merge an unapproved sibling or force an unclear conflict.",
     "The approved feature brief and prototype/state map are copied byte-for-byte into this worktree; treat the prototype as the visual reference and do not redesign it.",
-    "Plan approval is waived only by the explicit decision recorded for this scope. Keep the root brainstorm approval stamp unchanged and leave lifecycle app_review not-started until final human app review."
+    "Plan approval is waived only by the explicit decision recorded for this scope. Keep the root brainstorm approval stamp unchanged and leave lifecycle app_review not-started until final human app review.",
+    "Checkpoint 8 UI gate reviews the prototype-only loading state at 1440px and 375px because the scenario marks it live:false. The independent reviewers reported two low issues: mobile wordmark size and the sample root count during loading; record them for final app review.",
+    "No @playwright/test dependency or separate browser test harness was added. UI comparison used the existing ai-review-ui capture/reviewer gate."
   ]
 }
