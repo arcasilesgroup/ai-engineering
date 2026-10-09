@@ -724,11 +724,12 @@
       "gates": {
         "behavior": {
           "status": "failed",
-          "attempts": 3,
+          "attempts": 4,
           "findings": [
             "Attempt 1 FAIL: `bun test ./tests/workspace-command.spec.ts` found that the CLI test starts a mock HTTP server in the same process and then runs a synchronous CLI subprocess. The subprocess blocks the server event loop, so the health probe cannot receive a response. Remaining verify commands were not run; fix the test fixture using a child server process or asynchronous execution.",
             "Attempt 2 FAIL: workspace-command and workspace-server specs passed; `bun test ./tests/workspace-settings.spec.ts` failed the rejection assertion for duplicate roots/traversal. Root cause was a fixture `join()` that normalized away `..`; the fixture was corrected.",
-            "Attempt 3 FAIL: workspace command, server, settings tests, asset generation, embed-canon, and build passed. `bun run typecheck` failed in src/workspace/server.ts:78,82 and tests/workspace-server.spec.ts:58. Lint and architecture checks were not run."
+            "Attempt 3 FAIL: workspace command, server, settings tests, asset generation, embed-canon, and build passed. `bun run typecheck` failed in src/workspace/server.ts:78,82 and tests/workspace-server.spec.ts:58. Lint and architecture checks were not run.",
+            "Attempt 4 FAIL: workspace command, server, settings, generation, embed-canon, build, typecheck, and lint passed. `bun test ./tests/arch.spec.ts` failed because the new workspace source group is not declared in `.ai-engineering/arch.rules.json`."
           ]
         },
         "ui": {
@@ -752,6 +753,7 @@
         "src/workspace/settings.ts",
         "templates/workspace.html.tpl",
         "src/assets.ts",
+        ".ai-engineering/arch.rules.json",
         "tests/workspace-settings.spec.ts",
         "tests/workspace-command.spec.ts",
         "tests/workspace-server.spec.ts"
