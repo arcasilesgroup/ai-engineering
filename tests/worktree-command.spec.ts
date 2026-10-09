@@ -1796,5 +1796,5 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
       expect(readFileSync(hookLog, "utf8").trim().split("\n")).toHaveLength(1);
       expectNoMergeLock(repo);
     }
-  });
+  }, 30_000);
 });

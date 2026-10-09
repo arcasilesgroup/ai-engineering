@@ -764,3 +764,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Preserve underscores in identifiers while normalizing Markdown whitespace.
 - **Lesson:** Normalize Markdown formatting without altering identifiers.
 - **Tags:** behavior, tests, lifecycle
+
+### L93 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** U30's two real-Git retry scenarios exceeded Bun's default five-second per-test timeout under suite load.
+- **Root cause:** The integration test combined two full worktree merge/refresh/removal cycles with insufficient timeout headroom.
+- **Fix:** Raise only U30's test-local timeout while preserving its assertions and global budget.
+- **Lesson:** Give an expensive integration case measured headroom without relaxing unrelated test budgets.
+- **Tags:** behavior, tests, timeout
