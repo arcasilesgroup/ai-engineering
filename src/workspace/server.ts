@@ -3,7 +3,7 @@ import { readWorkspaceRoots } from "./settings.ts";
 
 export const WORKSPACE_OVERVIEW_PATH = "/.ai-engineering/workflow/checkpoints/overview.html";
 const HEALTH_PATH = "/health";
-const HEALTH_BODY = { ok: true, status: "ok" };
+const HEALTH_BODY = { service: "ai-eng-workspace", status: "ok" };
 const activeServers = new Map<number, WorkspaceServer>();
 
 export interface WorkspaceServer {
@@ -23,7 +23,7 @@ export async function isWorkspaceHealthy(port: number): Promise<boolean> {
     return body !== null
       && typeof body === "object"
       && !Array.isArray(body)
-      && (body as Record<string, unknown>).ok === true
+      && (body as Record<string, unknown>).service === "ai-eng-workspace"
       && (body as Record<string, unknown>).status === "ok";
   } catch {
     return false;

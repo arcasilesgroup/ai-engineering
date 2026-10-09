@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
 
 interface WorkspaceServer {
   hostname: string;
@@ -9,10 +11,21 @@ interface WorkspaceServer {
 
 const activeServers = new Set<Pick<Bun.Server<undefined>, "stop"> | WorkspaceServer>();
 const serverModulePath = new URL("../src/workspace/server.ts", import.meta.url).href;
+const savedHome = process.env.AI_ENG_HOME;
+let testHome = "";
+
+beforeEach(() => {
+  testHome = mkdtempSync(join(import.meta.dir, ".workspace-server-"));
+  process.env.AI_ENG_HOME = testHome;
+});
 
 afterEach(async () => {
   for (const server of activeServers) await server.stop(true);
   activeServers.clear();
+  if (savedHome === undefined) delete process.env.AI_ENG_HOME;
+  else process.env.AI_ENG_HOME = savedHome;
+  rmSync(testHome, { recursive: true, force: true });
+  testHome = "";
 });
 
 async function startWorkspaceServer(port = 0): Promise<WorkspaceServer> {
@@ -40,6 +53,7 @@ describe("workspace server", () => {
     const response = await fetch(new URL("/health", server.url));
 
     expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ service: "ai-eng-workspace", status: "ok" });
   });
 
   test("reuses a healthy instance on a second start", async () => {
@@ -71,5 +85,28 @@ describe("workspace server", () => {
     expect((startupError as Error).message).toMatch(/occupied|already in use/i);
     expect((startupError as Error).message).toMatch(/stop|close|free|another port|restart/i);
     expect(await (await fetch(occupiedServer.url)).text()).toBe("unrelated service");
+  });
+
+  test("refuses a generic health response without starting a competing server", async () => {
+    const occupiedServer = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => Response.json({ ok: true, status: "ok" }),
+    });
+    activeServers.add(occupiedServer);
+
+    let competingServer: WorkspaceServer | undefined;
+    let startupError: unknown;
+    try {
+      competingServer = await startWorkspaceServer(occupiedServer.port);
+    } catch (error) {
+      startupError = error;
+    }
+    if (competingServer) activeServers.add(competingServer);
+
+    expect(competingServer).toBeUndefined();
+    expect(startupError).toBeInstanceOf(Error);
+    expect((startupError as Error).message).toMatch(/occupied|already in use/i);
+    expect(await (await fetch(new URL("/health", occupiedServer.url))).json()).toEqual({ ok: true, status: "ok" });
   });
 });

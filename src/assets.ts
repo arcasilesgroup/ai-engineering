@@ -131,6 +131,7 @@ import atemplates_brainstorm_html_tpl from "../templates/brainstorm.html.tpl" wi
 import atemplates_settings_copilot_cli_json_tpl from "../templates/settings.copilot.cli.json.tpl" with { type: "file" };
 import atemplates_AGENTS_md_tpl from "../templates/AGENTS.md.tpl" with { type: "file" };
 import atemplates_gitignore_tpl from "../templates/gitignore.tpl" with { type: "file" };
+import atemplates_workspace_html_tpl from "../templates/workspace.html.tpl" with { type: "file" };
 import atemplates_git_commit_msg_tpl from "../templates/git-commit-msg.tpl" with { type: "file" };
 import atemplates_git_pre_commit_tpl from "../templates/git-pre-commit.tpl" with { type: "file" };
 import atemplates_PRD_html_tpl from "../templates/PRD.html.tpl" with { type: "file" };
@@ -279,6 +280,7 @@ export const EMBEDDED: Record<string, string> = {
   "../templates/settings.copilot.cli.json.tpl": atemplates_settings_copilot_cli_json_tpl as unknown as string,
   "../templates/AGENTS.md.tpl": atemplates_AGENTS_md_tpl as unknown as string,
   "../templates/gitignore.tpl": atemplates_gitignore_tpl as unknown as string,
+  "../templates/workspace.html.tpl": atemplates_workspace_html_tpl as unknown as string,
   "../templates/git-commit-msg.tpl": atemplates_git_commit_msg_tpl as unknown as string,
   "../templates/git-pre-commit.tpl": atemplates_git_pre_commit_tpl as unknown as string,
   "../templates/PRD.html.tpl": atemplates_PRD_html_tpl as unknown as string,

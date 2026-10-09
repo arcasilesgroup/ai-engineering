@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -90,6 +90,17 @@ describe("workspace project-root settings", () => {
     expect(readFileSync(settingsPath)).toEqual(validBytes);
   });
 
+  test("replaces a stale configured root without validating the removed path", async () => {
+    const staleRoot = projectRoot();
+    const api = settings();
+    await api.writeWorkspaceRoots([staleRoot]);
+    rmSync(staleRoot, { recursive: true, force: true });
+
+    await api.writeWorkspaceRoots([]);
+
+    expect(await api.readWorkspaceRoots()).toEqual([]);
+  });
+
   test("does not overwrite malformed settings bytes", async () => {
     const settingsPath = join(settingsHome, "workspace.json");
     const malformedBytes = Buffer.from('{"roots": [\n');
@@ -100,5 +111,32 @@ describe("workspace project-root settings", () => {
     await expectRejected(() => api.writeWorkspaceRoots([projectRoot()]));
 
     expect(readFileSync(settingsPath)).toEqual(malformedBytes);
+  });
+
+  test("preserves settings bytes when serialization fails", async () => {
+    const api = settings();
+    await api.writeWorkspaceRoots([projectRoot()]);
+    const settingsPath = join(settingsHome, "workspace.json");
+    const originalBytes = readFileSync(settingsPath);
+    const originalStringify = JSON.stringify;
+    JSON.stringify = () => {
+      throw new Error("serialization failed");
+    };
+
+    try {
+      await expectRejected(() => api.writeWorkspaceRoots([]));
+    } finally {
+      JSON.stringify = originalStringify;
+    }
+    expect(readFileSync(settingsPath)).toEqual(originalBytes);
+
+    chmodSync(settingsHome, 0o555);
+    try {
+      await expectRejected(() => api.writeWorkspaceRoots([]));
+    } finally {
+      chmodSync(settingsHome, 0o755);
+    }
+
+    expect(readFileSync(settingsPath)).toEqual(originalBytes);
   });
 });

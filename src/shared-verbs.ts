@@ -11,6 +11,7 @@ export const ALL_VERBS: readonly string[] = [
   "init",
   "doctor",
   "config",
+  "workspace",
   "adapt",
   "update",
   "upgrade",
