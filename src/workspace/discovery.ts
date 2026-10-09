@@ -1,6 +1,7 @@
 import { lstatSync, readdirSync, realpathSync } from "node:fs";
 import type { Dirent } from "node:fs";
 import { isAbsolute, join, relative, sep } from "node:path";
+import { isGoverned } from "../env.ts";
 import { classifyRepository, type WorkspaceFilter, type WorkspaceProject, type WorkspaceStatus } from "./status.ts";
 import { repositoryWorktreeInventory } from "../shared-worktree.ts";
 
@@ -171,6 +172,7 @@ export function discoverWorkspace(
     const scan = scanRoot(configuredRoot);
     errors.push(...scan.errors);
     for (const repositoryRoot of scan.repositories) {
+      if (!isGoverned(repositoryRoot)) continue;
       const inventory = repositoryWorktreeInventory(repositoryRoot);
       if ("detail" in inventory) {
         projectsByRoot.set(repositoryRoot, {

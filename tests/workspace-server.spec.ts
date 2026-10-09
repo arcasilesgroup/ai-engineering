@@ -16,15 +16,19 @@ const activeServers = new Set<Pick<Bun.Server<undefined>, "stop"> | WorkspaceSer
 const serverModulePath = new URL("../src/workspace/server.ts", import.meta.url).href;
 const savedHome = process.env.AI_ENG_HOME;
 let testHome = "";
+let savedCwd = "";
 
 beforeEach(() => {
-  testHome = mkdtempSync(join(import.meta.dir, "..", "..", ".workspace-server-"));
+  testHome = mkdtempSync(join(import.meta.dir, ".workspace-server-"));
   process.env.AI_ENG_HOME = testHome;
+  savedCwd = process.cwd();
+  process.chdir("/");
 });
 
 afterEach(async () => {
   for (const server of activeServers) await server.stop(true);
   activeServers.clear();
+  process.chdir(savedCwd);
   if (savedHome === undefined) delete process.env.AI_ENG_HOME;
   else process.env.AI_ENG_HOME = savedHome;
   rmSync(testHome, { recursive: true, force: true });
@@ -69,12 +73,13 @@ function createRepository(repository: string, worktreesRoot?: string): void {
   git(repository, "config", "user.email", "workspace-fixture@example.invalid");
   git(repository, "config", "commit.gpgsign", "false");
   mkdirSync(join(repository, ".ai-engineering"), { recursive: true });
-  if (worktreesRoot) {
-    writeFileSync(
-      join(repository, ".ai-engineering", "config.toml"),
-      `[git]\nworktrees_dir = ${JSON.stringify(worktreesRoot)}\n`,
-    );
-  }
+  const worktreeConfigSection = worktreesRoot === undefined
+    ? ""
+    : `\n\n[git]\nworktrees_dir = ${JSON.stringify(worktreesRoot)}`;
+  writeFileSync(
+    join(repository, ".ai-engineering", "config.toml"),
+    `[surfaces]\nenabled = ["claude-code"]${worktreeConfigSection}\n`,
+  );
   writeFileSync(join(repository, "README.md"), "# local fixture\n");
   git(repository, "add", "-A");
   git(repository, "commit", "--quiet", "-m", "fixture base");
@@ -239,6 +244,22 @@ describe("workspace server", () => {
     expect(await Bun.file(settingsPath).text()).toBe(originalSettings);
   });
 
+  test("A4 saving roots updates project discovery without a separate refresh", async () => {
+    const root = join(testHome, "configured");
+    const repository = join(root, "governed");
+    createRepository(repository);
+    const server = await startWorkspaceServer();
+
+    expect(records(await getJson(server, "/api/projects"), "projects")).toEqual([]);
+
+    expect((await saveWorkspaceRoots(server, [root])).status).toBe(200);
+    expect(records(await getJson(server, "/api/projects"), "projects").map((project) => project.path))
+      .toEqual([repository]);
+
+    expect((await saveWorkspaceRoots(server, [])).status).toBe(200);
+    expect(records(await getJson(server, "/api/projects"), "projects")).toEqual([]);
+  });
+
   test("A4 leaves previously saved roots unchanged when the folder picker is cancelled", async () => {
     const priorRoot = join(testHome, "prior-root");
     mkdirSync(priorRoot);
@@ -254,6 +275,16 @@ describe("workspace server", () => {
     expect(await Bun.file(settingsPath).text()).toBe(originalSettings);
   });
 
+  test("A4 normalizes a native folder selection with a trailing separator", async () => {
+    const selectedRoot = join(testHome, "selected-root");
+    mkdirSync(selectedRoot);
+    const server = await startWorkspaceServer(0, () => `${selectedRoot}${sep}`);
+    const response = await fetch(new URL("/api/settings/pick", server.url), { method: "POST" });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ path: selectedRoot });
+  });
+
   test("A2 lists only configured repositories and registered worktrees, plus an explicit pre-worktree approval", async () => {
     const configuredRoot = join(testHome, "configured");
     const repository = join(configuredRoot, "inside");
@@ -261,6 +292,9 @@ describe("workspace server", () => {
     const externalWorktreesRoot = join(testHome, "external-worktrees");
     mkdirSync(configuredRoot, { recursive: true });
     createRepository(repository, externalWorktreesRoot);
+    const ungovernedRepository = join(configuredRoot, "ungoverned");
+    createRepository(ungovernedRepository);
+    rmSync(join(ungovernedRepository, ".ai-engineering", "config.toml"));
     createRepository(outsideRepository);
 
     const registeredWorktree = addWorktree(repository, externalWorktreesRoot, "registered");

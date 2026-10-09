@@ -122,14 +122,21 @@ function git(args: string[], cwd: string): string {
   return result.stdout.trimEnd();
 }
 
-function initRepo(repoPath: string): string {
+function initRepo(
+  repoPath: string,
+  config = '[surfaces]\nenabled = ["claude-code"]\n',
+): string {
   mkdirSync(repoPath, { recursive: true });
   git(["init", "--quiet", "-b", "main"], repoPath);
   git(["config", "user.name", "Workspace Test"], repoPath);
   git(["config", "user.email", "workspace-test@example.invalid"], repoPath);
   git(["config", "commit.gpgsign", "false"], repoPath);
+  if (config !== "") {
+    mkdirSync(join(repoPath, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(repoPath, ".ai-engineering", "config.toml"), config);
+  }
   writeFileSync(join(repoPath, "README.md"), "# fixture\n");
-  git(["add", "README.md"], repoPath);
+  git(["add", "-A"], repoPath);
   git(["commit", "--quiet", "-m", "base"], repoPath);
   return realpathSync(repoPath);
 }
@@ -373,6 +380,20 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
     expect(incompleteScan.errors.some((error) => error.root === canonicalMissingRoot)).toBe(true);
   });
 
+  test("U36b discovers only repositories accepted by the ai-eng governance gate", async () => {
+    const api = discovery();
+    const searchRoot = join(sandbox, "governed-projects");
+    const governedRepo = initRepo(join(searchRoot, "governed"));
+    initRepo(join(searchRoot, "no-config"), "");
+    initRepo(join(searchRoot, "corrupt-config"), "[surfaces]\nenabled = [\n");
+    initRepo(join(searchRoot, "no-surfaces"), "[git]\nworktrees_dir = \"/worktrees\"\n");
+
+    const snapshot = await api.discoverWorkspace([realpathSync(searchRoot)]);
+
+    expect(snapshot.projects.map((project) => project.root)).toEqual([governedRepo]);
+    expect(snapshot.errors).toEqual([]);
+  });
+
   test("U36a rejects a symlink replacement when revalidating a checked directory identity", () => {
     const api = discovery();
     const checkedPath = join(sandbox, "checked-directory");
@@ -393,13 +414,14 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
     const searchRoot = join(sandbox, "projects");
     const customWorktreesRoot = join(sandbox, "registered-worktrees");
     const repoPath = initRepo(join(searchRoot, "alpha"));
+    commitFile(
+      repoPath,
+      ".ai-engineering/config.toml",
+      `[surfaces]\nenabled = ["claude-code"]\n\n[git]\nworktrees_dir = "${customWorktreesRoot}"\n`,
+      "configure external worktrees root",
+    );
     const registeredWorktree = addWorktree(repoPath, "registered", customWorktreesRoot);
     const unregisteredRepo = initRepo(join(customWorktreesRoot, "unregistered"));
-    mkdirSync(join(repoPath, ".ai-engineering"), { recursive: true });
-    writeFileSync(
-      join(repoPath, ".ai-engineering", "config.toml"),
-      `[git]\nworktrees_dir = "${customWorktreesRoot}"\n`,
-    );
 
     const registeredPathsBefore = gitWorktreePaths(repoPath);
     expect(registeredPathsBefore).toContain(realpathSync(repoPath));
@@ -437,6 +459,7 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
       "app-review-missing-shas",
       "app-review-stale",
       "implementation",
+      "active-checkpoint-status",
       "ready",
       "ready-stale",
       "lifecycle-blocked",
@@ -450,6 +473,7 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
     const plans: Array<[string, CheckpointOptions]> = [
       ["plan-review", { phase: "awaiting-plan-approval" }],
       ["implementation", { phase: "implementation" }],
+      ["active-checkpoint-status", { phase: "implementation", checkpointStatus: "in_progress" }],
       ["lifecycle-blocked", { phase: "blocked", checkpointStatus: "blocked", reviewGateStatus: "blocked" }],
     ];
     for (const [slug, options] of plans) {
@@ -514,6 +538,7 @@ describe("workspace discovery and lifecycle status (checkpoint 9)", () => {
       ["app-review-missing-shas", "unknown"],
       ["app-review-stale", "unknown"],
       ["implementation", "in-progress"],
+      ["active-checkpoint-status", "in-progress"],
       ["ready", "in-progress"],
       ["ready-stale", "unknown"],
       ["lifecycle-blocked", "blocked"],

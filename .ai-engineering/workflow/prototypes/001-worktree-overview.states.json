@@ -57,21 +57,51 @@
     },
     {
       "name": "ai-engineering-project-overview",
-      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-documents", "project-worktrees", "project-history"],
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-worktrees", "project-history"],
+      "viewports": [[1440, 900]],
       "live": false,
       "live_note": "This local explorer and its project roots are prototype data.",
       "steps": [
         { "click": "Expand project ai-engineering", "role": "button" },
+        { "scroll": "#main-pane", "to": "bottom" },
+        { "click": "Open overview for ai-engineering", "role": "button" }
+      ]
+    },
+    {
+      "name": "ai-engineering-project-overview-mobile",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-worktrees", "project-history"],
+      "viewports": [[375, 812]],
+      "live": false,
+      "live_note": "This local explorer and its project roots are prototype data.",
+      "steps": [
+        { "click": "← Explorer", "role": "button" },
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "scroll": ".explorer", "to": "bottom" },
         { "click": "Open overview for ai-engineering", "role": "button" }
       ]
     },
     {
       "name": "checkout-api-project-overview",
-      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-documents", "project-worktrees", "project-history"],
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-worktrees", "project-history"],
+      "viewports": [[1440, 900]],
       "live": false,
       "live_note": "This local explorer and its project roots are prototype data.",
       "steps": [
         { "click": "Expand project checkout-api", "role": "button" },
+        { "scroll": "#main-pane", "to": "bottom" },
+        { "click": "Open overview for checkout-api", "role": "button" }
+      ]
+    },
+    {
+      "name": "checkout-api-project-overview-mobile",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-worktrees", "project-history"],
+      "viewports": [[375, 812]],
+      "live": false,
+      "live_note": "This local explorer and its project roots are prototype data.",
+      "steps": [
+        { "click": "← Explorer", "role": "button" },
+        { "click": "Expand project checkout-api", "role": "button" },
+        { "scroll": ".explorer", "to": "bottom" },
         { "click": "Open overview for checkout-api", "role": "button" }
       ]
     },
@@ -161,6 +191,7 @@
     {
       "name": "expand-and-collapse-project-tree",
       "regions": ["project-explorer", "explorer-resize-handle", "project-tree"],
+      "viewports": [[1440, 900]],
       "live": false,
       "live_note": "The project explorer uses sample local roots.",
       "steps": [
@@ -169,8 +200,21 @@
       ]
     },
     {
+      "name": "expand-and-collapse-project-tree-mobile",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree"],
+      "viewports": [[375, 812]],
+      "live": false,
+      "live_note": "The project explorer uses sample local roots.",
+      "steps": [
+        { "click": "← Explorer", "role": "button" },
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Collapse project ai-engineering", "role": "button" }
+      ]
+    },
+    {
       "name": "expanded-worktree-actions",
       "regions": ["project-explorer", "explorer-resize-handle", "project-tree"],
+      "viewports": [[1440, 900]],
       "live": false,
       "live_note": "The branch, status, and brainstorm are sample explorer items.",
       "steps": [
@@ -180,11 +224,55 @@
       ]
     },
     {
+      "name": "expanded-worktree-actions-mobile",
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree"],
+      "viewports": [[375, 812]],
+      "live": false,
+      "live_note": "The branch, status, and brainstorm are sample explorer items.",
+      "steps": [
+        { "click": "← Explorer", "role": "button" },
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand worktrees for ai-engineering", "role": "button" },
+        { "click": "Expand worktree feat/worktree-lifecycle-governance in ai-engineering. Status: In progress", "role": "button" }
+      ]
+    },
+    {
+      "name": "project-tree-disclosure-groups",
+      "regions": ["project-explorer", "project-tree"],
+      "viewports": [[1440, 900]],
+      "live": false,
+      "live_note": "Project files, worktrees, and history are representative sample groups.",
+      "steps": [
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand project files for ai-engineering", "role": "button" },
+        { "click": "Expand worktrees for ai-engineering", "role": "button" },
+        { "click": "Expand history for ai-engineering", "role": "button" }
+      ]
+    },
+    {
+      "name": "project-tree-disclosure-groups-mobile",
+      "regions": ["project-explorer", "project-tree"],
+      "viewports": [[375, 812]],
+      "live": false,
+      "live_note": "Project files, worktrees, and history are representative sample groups.",
+      "steps": [
+        { "click": "← Explorer", "role": "button" },
+        { "click": "Expand project ai-engineering", "role": "button" },
+        { "click": "Expand project files for ai-engineering", "role": "button" },
+        { "click": "Expand worktrees for ai-engineering", "role": "button" },
+        { "click": "Expand history for ai-engineering", "role": "button" }
+      ]
+    },
+    {
       "name": "resize-project-explorer",
       "regions": ["project-explorer", "explorer-resize-handle", "main-pane"],
+      "viewports": [[1440, 900]],
       "live": false,
       "live_note": "The explorer width is local prototype state.",
-      "steps": [{ "drag": "Resize project explorer", "target": "explorer-resize-handle" }]
+      "steps": [
+        { "click": "Resize project explorer", "role": "separator" },
+        { "press": "ArrowRight" }
+      ]
     },
     {
       "name": "viewer-step-navigation",
@@ -288,7 +376,7 @@
       "regions": ["app-header", "project-explorer", "empty-state"],
       "proto_query": "state=empty",
       "live": false,
-      "live_note": "The empty state is for prototype review.",
+      "live_note": "The configured root contains Git repositories, but none are AI Engineering-governed.",
       "steps": []
     },
     {
@@ -323,6 +411,16 @@
         { "click": "Settings", "role": "button" },
         { "fill": "Additional folder path", "value": "~/sandbox" },
         { "press": "Enter" }
+      ]
+    },
+    {
+      "name": "choose-search-root",
+      "regions": ["settings-dialog", "settings-add-root"],
+      "live": false,
+      "live_note": "The native folder chooser is platform-specific; the prototype selects an example path.",
+      "steps": [
+        { "click": "Settings", "role": "button" },
+        { "click": "Choose folder", "role": "button" }
       ]
     },
     {

@@ -293,6 +293,20 @@
         "checkpoint": 6
       },
       {
+        "id": "U32a",
+        "case": "a pre-commit hook that stages unreviewed content changes the temporary merge tree and must prevent CAS publication while preserving local main, feature worktree and checkpoint",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U32b",
+        "case": "scroll-spy contract validation covers public docs pages with in-page section links and excludes the internal brainstorm and workflow prototype tree navigation",
+        "file": "tests/artifact-scroll-spy.spec.ts",
+        "command": "bun test ./tests/artifact-scroll-spy.spec.ts",
+        "checkpoint": 6
+      },
+      {
         "id": "U33",
         "case": "after an approved brainstorm, a new plan starts at implementation with plan_approval approved, app_review not-started, and both reviewed refs null; contradictory lifecycle combinations are rejected",
         "file": "tests/test_checkpoint_gate.py",

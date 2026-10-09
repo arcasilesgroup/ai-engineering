@@ -587,8 +587,12 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     const readyToMerge = normalized.indexOf("phase: ready-to-merge", approveAppReview);
     const approvalCommit = normalized.indexOf("checkpoint-only commit", readyToMerge);
     const mergeCommand = normalized.indexOf("ai-eng worktree merge <slug>", readyToMerge);
+    const artifactCommit = phase3.indexOf("commit those artifacts");
+    const recordedApprovalSha = normalized.indexOf("reviewed_feature_sha=");
 
     expect(mainTip).toBeGreaterThanOrEqual(0);
+    expect(artifactCommit).toBeGreaterThanOrEqual(0);
+    expect(featureTip).toBeGreaterThan(artifactCommit);
     expect(featureTip).toBeGreaterThan(mainTip);
     expect(recordReviewedMain).toBeGreaterThan(mainTip);
     expect(recordReviewedFeature).toBeGreaterThan(featureTip);
@@ -597,6 +601,8 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     expect(pendingReview).toBeGreaterThan(awaitingReview);
     expect(reviewCommit).toBeGreaterThan(pendingReview);
     expect(approveAppReview).toBeGreaterThanOrEqual(0);
+    expect(recordedApprovalSha).toBeGreaterThanOrEqual(0);
+    expect(approveAppReview).toBeGreaterThan(recordedApprovalSha);
     expect(readyToMerge).toBeGreaterThan(approveAppReview);
     expect(approvalCommit).toBeGreaterThan(readyToMerge);
     expect(mergeCommand).toBeGreaterThan(approvalCommit);
@@ -608,6 +614,7 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     expect(normalized).toMatch(/rerun (?:phase 3|sync)[\s\S]{0,100}(?:gates|review)/);
     expect(normalized).not.toMatch(/\bgit merge\b|\bgit update-ref\b|\bgit worktree rm\b/);
     expect(normalized).not.toContain("phase: complete");
+    expect(normalized).not.toContain("commit those artifacts");
   });
 
   test("U17: Phase 1 initializes lifecycle approval in the selected feature worktree", () => {

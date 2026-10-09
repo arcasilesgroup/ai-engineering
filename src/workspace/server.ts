@@ -1,5 +1,5 @@
 import { embeddedTemplate } from "../embed.ts";
-import { discoverConfiguredWorkspace, handleWorkspaceApi } from "./api.ts";
+import { discoverConfiguredWorkspace, handleWorkspaceApi, type WorkspaceFolderPicker } from "./api.ts";
 import { readWorkspaceRoots } from "./settings.ts";
 
 export const WORKSPACE_OVERVIEW_PATH = "/.ai-engineering/workflow/checkpoints/overview.html";
@@ -31,8 +31,11 @@ export async function isWorkspaceHealthy(port: number): Promise<boolean> {
   }
 }
 
-export async function startWorkspaceServer(options: { port: number }): Promise<WorkspaceServer> {
-  const { port } = options;
+export async function startWorkspaceServer(options: {
+  port: number;
+  folderPicker?: WorkspaceFolderPicker;
+}): Promise<WorkspaceServer> {
+  const { port, folderPicker } = options;
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
     throw new Error("Workspace port must be an integer between 0 and 65535.");
   }
@@ -64,6 +67,7 @@ export async function startWorkspaceServer(options: { port: number }): Promise<W
               workspaceSnapshot = await discoverConfiguredWorkspace();
               return workspaceSnapshot;
             },
+            folderPicker,
           );
         } catch (error) {
           apiResponse = Response.json({

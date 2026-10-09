@@ -81,6 +81,13 @@ describe("workspace project-root settings", () => {
     expect(existsSync(join(settingsHome, "workspace.json"))).toBe(true);
   });
 
+  test("accepts native folder selections with a trailing separator and stores the canonical root", async () => {
+    const root = projectRoot();
+    await settings().writeWorkspaceRoots([`${root}${sep}`]);
+
+    expect(await settings().readWorkspaceRoots()).toEqual([root]);
+  });
+
   test("rejects duplicate roots and paths containing traversal", async () => {
     const root = projectRoot();
     const api = settings();

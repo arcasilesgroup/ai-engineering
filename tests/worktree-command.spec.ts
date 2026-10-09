@@ -1902,6 +1902,57 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expect(approved.checkpointContents).not.toContain('"phase": "complete"');
   });
 
+  test("U32a: a pre-commit hook cannot publish content staged outside the reviewed merge tree", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareMergeFixture(repo, "merge-hook-content");
+    const mainBefore = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const hookLog = join(root, "staged-hook-content.log");
+    const stagedLog = join(root, "staged-hook-paths.log");
+    installHook(
+      repo,
+      "pre-commit",
+      [
+        "printf 'unreviewed hook content\\n' > hook-added.txt",
+        "git add -- hook-added.txt",
+        "printf '%s\\t%s\\t%s\\n' \"$PWD\" \"$(git rev-parse HEAD)\" \"$(git rev-parse MERGE_HEAD)\" > \"$AI_ENG_TEST_HOOK_LOG\"",
+        "git diff --cached --name-only > \"$AI_ENG_TEST_STAGED_LOG\"",
+      ].join("\n"),
+    );
+    const primaryStatus = git(["status", "--porcelain", "--untracked-files=all"], repo);
+    const primaryTree = treeFiles(repo);
+    const featureTree = treeFiles(approved.feature);
+
+    const run = runCli(["worktree", "merge", approved.slug], repo, {
+      AI_ENG_TEST_HOOK_LOG: hookLog,
+      AI_ENG_TEST_STAGED_LOG: stagedLog,
+    });
+    const output = `${run.stdout}${run.stderr}`;
+    expect(existsSync(hookLog)).toBe(true);
+    expect(readFileSync(stagedLog, "utf8")).toContain("hook-added.txt");
+    const [temporaryPath, temporaryHead, temporaryMergeHead] = readFileSync(hookLog, "utf8").trim().split("\t");
+
+    expect(run.status).not.toBe(0);
+    expect(output).toContain("merge tree");
+    expect(temporaryPath).toBeDefined();
+    expect(temporaryPath).not.toBe(repo);
+    expect(temporaryHead).toBe(approved.reviewedMain);
+    expect(temporaryMergeHead).toBe(approved.featureTip);
+    expect(existsSync(temporaryPath!)).toBe(false);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(mainBefore);
+    expect(treeFiles(repo)).toEqual(primaryTree);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(primaryStatus);
+    expect(git(["rev-parse", `refs/heads/feat/${approved.slug}`], repo).trim()).toBe(approved.featureTip);
+    expect(git(["rev-parse", "HEAD"], approved.feature).trim()).toBe(approved.featureTip);
+    expect(treeFiles(approved.feature)).toEqual(featureTree);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
+    expect(readFileSync(approved.checkpoint, "utf8")).toBe(approved.checkpointContents);
+    expectWorktrees(repo, [repo, approved.feature]);
+    expectNoMergeLock(repo);
+    expect(approved.checkpointContents).not.toContain('"phase": "complete"');
+  });
+
   test("U30: retry recognizes an already-published merge after refresh or safe removal is interrupted", () => {
     for (const interruption of ["refresh", "removal"] as const) {
       const repo = tempRepo();

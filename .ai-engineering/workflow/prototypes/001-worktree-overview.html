@@ -1953,7 +1953,7 @@ body.is-resizing, body.is-resizing * { cursor: col-resize !important; user-selec
 .settings-remove:hover { background: rgba(255, 105, 96, .1); color: var(--danger); }
 .settings-root-form { display: grid; gap: 7px; margin-top: 14px; }
 .settings-root-form label { color: var(--muted); font-size: 11px; }
-.settings-add-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.settings-add-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
 .settings-root-input {
   width: 100%;
   min-width: 0;
@@ -1975,7 +1975,8 @@ body.is-resizing, body.is-resizing * { cursor: col-resize !important; user-selec
   .settings-add-row { grid-template-columns: minmax(0, 1fr); }
   .settings-add-row .button { width: 100%; }
 }
-</style>
+  .action-feedback { position: static; width: fit-content; max-width: 100%; margin: 0 0 16px; transform: none; text-align: left; }
+  </style>
 </head>
 <body data-mobile-pane="content">
 <a class="skip-link" href="#main-pane">Skip to main content</a>
@@ -2017,8 +2018,9 @@ body.is-resizing, body.is-resizing * { cursor: col-resize !important; user-selec
         <div class="settings-add-row">
           <input class="settings-root-input" id="settings-root-input" name="searchRoot" type="text" placeholder="For example, ~/src" autocomplete="off">
           <button class="button" type="submit">Add root</button>
+          <button class="button" id="choose-workspace-folder" type="button">Choose folder</button>
         </div>
-        <p class="settings-helper">Use a specific folder, such as <code>~/repos</code> or <code>~/src</code>.</p>
+        <p class="settings-helper">Use a specific folder, such as <code>~/repos</code> or <code>~/src</code>. If folder selection is unavailable, enter an absolute path here.</p>
         <p class="settings-validation" id="settings-validation" data-region="settings-validation" role="alert" hidden></p>
       </form>
     </section>
@@ -2041,6 +2043,7 @@ body.is-resizing, body.is-resizing * { cursor: col-resize !important; user-selec
   <div class="resize-handle" id="explorer-resize-handle" role="separator" tabindex="0" aria-label="Resize project explorer" aria-orientation="vertical" aria-valuemin="240" aria-valuemax="520" aria-valuenow="344" title="Drag to resize. Use arrow keys to adjust."></div>
 
   <main class="main-pane" id="main-pane" data-region="main-pane">
+    <div class="action-feedback" id="action-feedback" data-region="action-feedback" role="status" aria-live="polite" hidden></div>
     <button class="mobile-explorer-back" type="button" id="mobile-explorer-back" data-region="mobile-explorer-back">← Explorer</button>
     <section class="pane-content" id="all-projects-view" data-region="all-projects-view"></section>
     <section class="pane-content" id="project-overview-view" data-region="project-overview" hidden></section>
@@ -2056,8 +2059,8 @@ body.is-resizing, body.is-resizing * { cursor: col-resize !important; user-selec
     </section>
     <section class="state-panel" id="empty-state" data-region="empty-state" hidden>
       <p class="pane-eyebrow">Project explorer</p>
-      <h1>No local projects found</h1>
-      <p>Open the hub from a repository to add its root, then its worktrees and project documents will appear here.</p>
+      <h1>No AI Engineering-governed projects found</h1>
+      <p>No governed repositories were found under the configured roots. Repositories appear here after AI Engineering governance is established.</p>
     </section>
     <section class="state-panel error" id="error-state" data-region="error-state" role="alert" hidden>
       <p class="pane-eyebrow">Project explorer</p>
@@ -2067,8 +2070,6 @@ body.is-resizing, body.is-resizing * { cursor: col-resize !important; user-selec
     </section>
   </main>
 </div>
-
-<div class="action-feedback" id="action-feedback" data-region="action-feedback" role="status" hidden></div>
 
 <script>
 const gateNames = [
@@ -3050,7 +3051,7 @@ function renderEmpty(view = "all") {
   if (view === "project") {
     $("empty-state").innerHTML = `<p class="pane-eyebrow">Worktree explorer</p><h1>No worktree found</h1><p>This project root has no registered feature branch yet.</p>`;
   } else {
-    $("empty-state").innerHTML = `<p class="pane-eyebrow">Project explorer</p><h1>No local projects found</h1><p>Open the hub from a GitHub or Azure DevOps repository to add its root. Its generated project files and worktrees will appear here.</p>`;
+    $("empty-state").innerHTML = `<p class="pane-eyebrow">Project explorer</p><h1>No AI Engineering-governed projects found</h1><p>No governed repositories were found under the configured roots. Repositories appear here after AI Engineering governance is established.</p>`;
   }
   showMainView("empty-state");
 }
@@ -3065,6 +3066,8 @@ function showMainView(id) {
   }
   const cameFromExplorer = $("project-tree").contains(document.activeElement);
   setMobilePane("content");
+  window.scrollTo(0, 0);
+  $("main-pane").scrollTop = 0;
   if (cameFromExplorer && window.matchMedia("(max-width: 760px)").matches) {
     $("mobile-explorer-back").focus({ preventScroll: true });
   }
@@ -3072,7 +3075,7 @@ function showMainView(id) {
 
 function setMobilePane(pane) {
   document.body.dataset.mobilePane = pane;
-  if (pane !== "explorer" || !window.matchMedia("(max-width: 760px)").matches) return;
+  if (pane !== "explorer") return;
   const selectedRow = $("project-tree").querySelector('[aria-current="page"]')
     ?? $("project-tree").querySelector('[data-toggle-target^="project-children-"]');
   expandTreeAncestors(selectedRow);
@@ -3213,7 +3216,8 @@ function showDataState(state) {
     return;
   }
   if (state === "empty") {
-    $("project-tree").innerHTML = `<p class="tree-empty">No project roots registered.</p>`;
+    $("project-tree").innerHTML = `<p class="tree-empty">No AI Engineering-governed projects found.</p>`;
+    $("root-count").textContent = "1 root";
     renderEmpty();
     return;
   }
@@ -3421,7 +3425,13 @@ const settingsRootInput = document.getElementById("settings-root-input");
 const settingsValidation = document.getElementById("settings-validation");
 const settingsTrigger = document.getElementById("open-workspace-settings");
 
-function renderWorkspaceRoots() {
+function renderWorkspaceRoots(focusTarget = null) {
+  if (focusTarget === null) {
+    const focusedRoot = document.activeElement?.dataset.removeRoot;
+    if (focusedRoot !== undefined) {
+      focusTarget = { root: focusedRoot, index: draftSearchRoots.indexOf(focusedRoot) };
+    }
+  }
   settingsRootList.replaceChildren();
   for (const root of draftSearchRoots) {
     const row = document.createElement("div");
@@ -3438,14 +3448,35 @@ function renderWorkspaceRoots() {
     row.append(path, remove);
     settingsRootList.append(row);
   }
+  if (focusTarget) {
+    const nextRoot = draftSearchRoots.includes(focusTarget.root)
+      ? focusTarget.root
+      : draftSearchRoots[Math.max(0, Math.min(focusTarget.index, draftSearchRoots.length - 1))];
+    const removeButtons = [...settingsRootList.querySelectorAll("button[data-remove-root]")];
+    const replacement = removeButtons.find((button) => button.dataset.removeRoot === nextRoot);
+    (replacement || settingsRootInput).focus({ preventScroll: true });
+  }
+}
+
+function showSettingsValidation(message) {
+  settingsRootInput.setAttribute("aria-invalid", "true");
+  settingsRootInput.setAttribute("aria-describedby", "settings-validation");
+  settingsValidation.textContent = message;
+  settingsValidation.hidden = false;
+}
+
+function clearSettingsValidation() {
+  settingsRootInput.removeAttribute("aria-invalid");
+  settingsRootInput.removeAttribute("aria-describedby");
+  settingsValidation.hidden = true;
+  settingsValidation.textContent = "";
 }
 
 function openWorkspaceSettings() {
   draftSearchRoots = [...workspaceSearchRoots];
   renderWorkspaceRoots();
   settingsRootInput.value = "";
-  settingsValidation.hidden = true;
-  settingsValidation.textContent = "";
+  clearSettingsValidation();
   settingsDialog.showModal();
   settingsRootInput.focus();
 }
@@ -3453,7 +3484,7 @@ function openWorkspaceSettings() {
 function closeWorkspaceSettings() {
   if (settingsDialog.open) settingsDialog.close();
   draftSearchRoots = [...workspaceSearchRoots];
-  settingsValidation.hidden = true;
+  clearSettingsValidation();
 }
 
 function addWorkspaceRoot(event) {
@@ -3466,34 +3497,38 @@ function addWorkspaceRoot(event) {
   const isNetworkPath = /^\\\\[^\\]+\\[^\\]+/.test(typedPath);
   const hasTraversalSegment = typedPath.replace(/\\/g, "/").split("/").some((segment) => segment === "." || segment === "..");
   if (!root || hasTraversalSegment || !(isHomePath || isPosixPath || isDrivePath || isNetworkPath)) {
-    settingsValidation.textContent = hasTraversalSegment
+    showSettingsValidation(hasTraversalSegment
       ? "Parent-directory segments are not allowed in a search root."
-      : "Enter a specific absolute folder path, not a filesystem root.";
-    settingsValidation.hidden = false;
+      : "Enter a specific absolute folder path, not a filesystem root.");
     settingsRootInput.focus();
     return;
   }
   const normalized = root.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
   if (draftSearchRoots.some((entry) => entry.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase() === normalized)) {
-    settingsValidation.textContent = "That search root is already listed.";
-    settingsValidation.hidden = false;
+    showSettingsValidation("That search root is already listed.");
     settingsRootInput.focus();
     return;
   }
   draftSearchRoots.push(root);
   renderWorkspaceRoots();
   settingsRootInput.value = "";
-  settingsValidation.hidden = true;
+  clearSettingsValidation();
   settingsRootInput.focus();
 }
 
 document.getElementById("settings-root-form").addEventListener("submit", addWorkspaceRoot);
+document.getElementById("choose-workspace-folder").addEventListener("click", () => {
+  settingsRootInput.value = "~/repos";
+  clearSettingsValidation();
+  settingsRootInput.focus();
+});
 settingsRootList.addEventListener("click", (event) => {
   const remove = event.target.closest("button[data-remove-root]");
   if (!remove) return;
+  const focusTarget = { root: remove.dataset.removeRoot, index: draftSearchRoots.indexOf(remove.dataset.removeRoot) };
   draftSearchRoots = draftSearchRoots.filter((root) => root !== remove.dataset.removeRoot);
-  renderWorkspaceRoots();
-  settingsValidation.hidden = true;
+  renderWorkspaceRoots(focusTarget);
+  clearSettingsValidation();
 });
 settingsTrigger.addEventListener("click", openWorkspaceSettings);
 document.getElementById("close-workspace-settings").addEventListener("click", closeWorkspaceSettings);
@@ -3505,7 +3540,7 @@ document.getElementById("save-workspace-settings").addEventListener("click", () 
 });
 settingsDialog.addEventListener("cancel", () => {
   draftSearchRoots = [...workspaceSearchRoots];
-  settingsValidation.hidden = true;
+  clearSettingsValidation();
 });
 settingsDialog.addEventListener("click", (event) => {
   if (event.target === settingsDialog) closeWorkspaceSettings();

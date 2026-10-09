@@ -1,14 +1,15 @@
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { isAbsolute, join } from "node:path";
+import { join } from "node:path";
 import { home } from "../env.ts";
+import { validateWorkspaceRoot } from "./folder-picker.ts";
 
 function settingsPath(): string {
   return join(home(), "workspace.json");
 }
 
 export function readWorkspaceRoots(): string[] {
-  return validateRoots(readStoredRoots(settingsPath()) ?? []);
+  return readStoredRoots(settingsPath()) ?? [];
 }
 
 function readStoredRoots(path: string): string[] | undefined {
@@ -45,31 +46,27 @@ export function writeWorkspaceRoots(roots: string[]): void {
   }
 }
 
-function validateRoots(roots: unknown[]): string[] {
-  const seen = new Set<string>();
-  for (const root of roots) {
-    if (typeof root !== "string" || !isAbsolute(root) || root.split(/[\\/]/).includes("..")) {
-      throw new Error("Each workspace root must be a canonical absolute directory path.");
-    }
-    let canonicalRoot: string;
-    try {
-      canonicalRoot = realpathSync(root);
-    } catch {
-      throw new Error(`Workspace root does not exist or cannot be read: ${root}`);
-    }
-    if (canonicalRoot !== root || !isDirectory(root)) {
-      throw new Error(`Workspace root must be a canonical absolute directory: ${root}`);
-    }
-    if (seen.has(root)) throw new Error(`Workspace root is duplicated: ${root}`);
-    seen.add(root);
-  }
-  return roots as string[];
+export function addWorkspaceRoot(root: string | null): void {
+  if (root === null) return;
+  const roots = readWorkspaceRoots();
+  writeWorkspaceRoots([...roots, root]);
 }
 
-function isDirectory(path: string): boolean {
-  try {
-    return statSync(path).isDirectory();
-  } catch {
-    return false;
+export function removeWorkspaceRoot(root: string): void {
+  writeWorkspaceRoots(readWorkspaceRoots().filter((entry) => entry !== root));
+}
+
+function validateRoots(roots: unknown[]): string[] {
+  const seen = new Set<string>();
+  const canonicalRoots: string[] = [];
+  for (const root of roots) {
+    if (typeof root !== "string") {
+      throw new Error("Each workspace root must be a canonical absolute directory path.");
+    }
+    const canonicalRoot = validateWorkspaceRoot(root);
+    if (seen.has(canonicalRoot)) throw new Error(`Workspace root is duplicated: ${root}`);
+    seen.add(canonicalRoot);
+    canonicalRoots.push(canonicalRoot);
   }
+  return canonicalRoots;
 }

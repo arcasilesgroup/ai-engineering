@@ -273,7 +273,7 @@ function validateCheckpoint(value: unknown, slug: string): Checkpoint | null {
 
   const checkpoints: Record<string, unknown>[] = [];
   for (const checkpoint of value.checkpoints) {
-    if (!isRecord(checkpoint) || !["pending", "passed", "blocked"].includes(String(checkpoint.status))) return null;
+    if (!isRecord(checkpoint) || !["pending", "in_progress", "passed", "blocked"].includes(String(checkpoint.status))) return null;
     if (!isRecord(checkpoint.gates)) return null;
     const gates = checkpoint.gates;
     const gateNames = ["behavior", "ui", "review"];
