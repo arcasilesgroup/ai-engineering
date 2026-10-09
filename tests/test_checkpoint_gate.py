@@ -390,6 +390,8 @@ with tempfile.TemporaryDirectory(
     invalid_prior_plans = [
         ("wrong-slug prior plan", {**legacy, "slug": "other"}),
         ("malformed prior checkpoint structure", {**legacy, "checkpoints": [None]}),
+        ("empty prior checkpoint list", {**legacy, "checkpoints": []}),
+        ("prior checkpoint missing required fields", {**legacy, "checkpoints": [{"id": 1}]}),
     ]
     if os.path.exists(brainstorm_path):
         os.unlink(brainstorm_path)
