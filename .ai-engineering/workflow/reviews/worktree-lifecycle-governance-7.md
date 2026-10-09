@@ -77,3 +77,13 @@ The brainstorm handoff now states that a new plan proceeds without a second appr
 U34 asserts that the brainstorm handoff contains the corrected positive statements, but it never asserts that the old STOP 1 / “two stops” statement is absent. Reintroducing the old sentence alongside the new one would still satisfy every new assertion, leaving the exact F3 contradiction undetected. Add a negative assertion against that obsolete plan-approval stop language in the normalized handoff section.
 
 Round 3 checks: `bun test ./tests/skills.spec.ts ./tests/workflow-handoff.spec.ts` passed (35 tests, 0 failures); the checkpoint records all nine Gate 1 commands passing after the fix. In-memory probes confirmed no-prior pending initialization is denied and exposed the wrong-slug legacy classification above. Current embedded references for both skills and `checkpoint-gate.py` resolve to bytes identical to their source files. Final app review/ref assertions remain present; only this review thread was changed.
+
+## Debate mode — round 4 (final)
+
+### F1 — High — Legacy fallback still accepts malformed same-slug checkpoint plans
+**Status:** Open
+**Files:** `scripts/checkpoint-gate.py:756-765`, `tests/test_checkpoint_gate.py:389-408`
+
+The new wrong-slug and `[None]` prior-plan cases are rejected, and the path/slug match check closes the round-3 repro. But `had_plan` uses `checkpoint_id_error`, which checks only that `checkpoints` is a list of sequential integer IDs. It accepts an empty list and a checkpoint such as `{"id": 1}`; `checkpoint_shape_error` rejects the latter because it has no valid status or gates. I verified that a same-slug, matching-path prior plan with `[{"id": 1}]` qualifies as `has_prior_plan`, after which a pending lifecycle and its approval transition both pass without a brainstorm. The new malformed fixture `[None]` does not cover this structurally incomplete-but-ID-valid shape. Require a prior plan to satisfy the supported legacy checkpoint structure, and test missing fields and an empty list.
+
+F2, F3, and F4 are resolved: orchestrator and brainstorm instructions agree; U34 now rejects both obsolete STOP 1/two-stops statements. The checkpoint records all nine Gate 1 commands passing after round-4 fixes. Final app-review ordering/protections remain present, and all three current skill/gate asset refs match their source bytes. Focused Bun tests passed (35 tests, 0 failures); the in-memory malformed-legacy repro above leaves F1 open.
