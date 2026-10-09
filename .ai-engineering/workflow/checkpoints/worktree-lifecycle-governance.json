@@ -450,8 +450,8 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "passed",
-          "attempts": 28,
+          "status": "failed",
+          "attempts": 29,
           "findings": [
             "attempt 1 FAIL: `bun test tests/worktree-lifecycle.spec.ts` and `bun test tests/worktree-command.spec.ts` passed; `bun test tests/skills.spec.ts` failed U24–U27 because its normalization turned `reviewed_main` into `reviewedmain`; remaining commands were not run.",
             "attempt 2 FAIL: `bun test tests/worktree-lifecycle.spec.ts` invoked without `./` was interpreted by Bun as a test-name filter and matched no test files; rerun with explicit relative paths.",
@@ -482,7 +482,8 @@
             "attempt 26 U30 timeout fix: only its per-test timeout increased to 30s; isolated U30 and the full worktree-command spec pass with assertions unchanged. Rerun full CP6 gates.",
             "attempt 27 FAIL: all focused CP6 commands, typecheck and lint passed; standard full suite ran 1074 tests (1073 pass, 1 fail), the pre-existing chain p95 budget at 156.35 ms; arch was not run.",
             "attempt 28 PASS: standard full suite `bun test` passed all 1,074 tests (4,934 assertions) across 71 files after retry.",
-            "Explicit `bun test ./tests/arch.spec.ts` passed 22 tests."
+            "Explicit `bun test ./tests/arch.spec.ts` passed 22 tests.",
+            "attempt 29 FAIL after F4/F5 fixes: `bun test ./tests/worktree-lifecycle.spec.ts` fails U31; the CLI merge returned 1 instead of 0, and the gate report did not include the underlying CLI error. Remaining verify commands were not run."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
