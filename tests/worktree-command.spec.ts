@@ -1388,7 +1388,7 @@ describe("ai-orchestrator worktree lifecycle awareness (checkpoint 1)", () => {
     const preflight = orchestratorSkill.slice(preflightStart, planStart);
 
     expect(preflight).toContain("ai-eng worktree list <slug>");
-    expect(preflight).toMatch(/resume it using its exact git-listed path/i);
+    expect(preflight).toMatch(/resume\s+it using its exact git-listed path/i);
     expect(preflight).toMatch(/semantic near[- ]match[^.\n]{0,120}advisory/i);
     expect(preflight).toMatch(/near[- ]match[^.\n]{0,160}(?:not|never|must not)[^.\n]{0,80}(?:exact|substitut|resume|continue)/i);
   });
@@ -1403,16 +1403,16 @@ describe("ai-orchestrator worktree lifecycle awareness (checkpoint 1)", () => {
     expect(preflight).toContain("matching complete status line");
     expect(preflight).toContain("projection is read-only");
     expect(preflight).toContain("checkpoint alone is authoritative");
-    expect(preflight).toContain("never falls back to brainstorm");
+    expect(preflight).toMatch(/never falls back to\s+brainstorm/);
     expect(preflight).toContain("awaiting-plan-approval");
     expect(preflight).toContain("awaiting-app-review");
     expect(preflight).toContain("ready-to-merge");
   });
 
   test("unknown lifecycle and file hints never authorize implementation", () => {
-    expect(orchestratorSkill).toContain("unknown/pending and cannot authorize work");
-    expect(orchestratorSkill).toContain("hints never authorize implementation");
-    expect(orchestratorSkill).toContain("Never fetch or sync remote state");
+    expect(orchestratorSkill).toMatch(/unknown\/pending and cannot authorize\s+work/);
+    expect(orchestratorSkill).toMatch(/hints\s+never authorize implementation/i);
+    expect(orchestratorSkill).toMatch(/Never fetch or sync remote\s+state/);
   });
 });
 

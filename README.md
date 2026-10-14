@@ -339,6 +339,7 @@ The optional `files...` on `worktree new` are advisory overlap hints stored in
 `.ai-eng-worktrees.json` beside the worktrees. They can warn about likely file overlap,
 but never approve implementation or replace checkpoint gates. A malformed manifest is
 preserved and not rewritten; a requested hint is refused when it cannot be validated.
+Carry any hint that remains in scope into the approved checkpoint's `files` list.
 Worktrees live under `[git].worktrees_dir` when configured, or beside the repository in
 `<repo>.worktrees` by default. `ai-eng worktree list` reports only that local root and
 prints the exact path to use when resuming a registered worktree.

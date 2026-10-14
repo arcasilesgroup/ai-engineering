@@ -936,35 +936,35 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Rejected promotion preserves creation evidence; assert the lifecycle state, not record absence.
 - **Tags:** behavior, worktree, lifecycle, tests
 
-### L85 · 2026-10-08 · worktree-lifecycle-awareness #3 · behavior
+### L128 · 2026-10-08 · worktree-lifecycle-awareness #3 · behavior
 - **Failure:** The AI Engineering full suite before rebase reported 1012 pass, 3 fail, and 1 error, including missing `AGENTS.md` and architecture rules plus a p95 measurement of 166.36ms.
 - **Root cause:** The feature branch's pre-existing governance 2.6.0 commit removed `AGENTS.md` and `.ai-engineering/arch.rules.json` while existing tests still require them; the p95 check is scheduler-sensitive.
 - **Fix:** Rebase onto local main to separate branch drift from checkpoint regressions, then rerun the full suite without changing unrelated tests or thresholds.
 - **Lesson:** Inspect branch file-removal history before attributing missing test prerequisites to merge-base drift.
 - **Tags:** behavior, tests, baseline, branch
 
-### L86 · 2026-10-08 · worktree-lifecycle-awareness #3 · behavior
+### L129 · 2026-10-08 · worktree-lifecycle-awareness #3 · behavior
 - **Failure:** The post-rebase full suite reported 1252 pass, 3 fail, and 1 error; architecture checks still lacked their config and p95 measured 71.19ms against 50ms.
 - **Root cause:** The same pre-existing governance commit still deletes the files required by the unrelated recap and architecture checks, while the full-suite p95 probe remains load-sensitive.
 - **Fix:** Keep the checkpoint code unchanged; its focused lifecycle suite passes 47 tests and typecheck, lint, and build pass. Record the unrelated full-suite failures without restoring unrelated artifacts or loosening the timing budget.
 - **Lesson:** Do not alter feature code or performance thresholds to mask pre-existing test-contract and repository-configuration failures.
 - **Tags:** behavior, tests, baseline, performance
 
-### L87 · 2026-10-09 · worktree-lifecycle-awareness #4 · behavior
+### L130 · 2026-10-09 · worktree-lifecycle-awareness #4 · behavior
 - **Failure:** The AI Engineering full suite reported 1253 pass, 2 fail, and 1 error while the focused lifecycle suite passed 47 tests.
 - **Root cause:** The existing governance 2.6.0 commit `9c37661d` deleted `AGENTS.md` and `.ai-engineering/arch.rules.json`; the unchanged recap and architecture checks still expect those files. Checkpoint 4 changes did not cause the failures.
 - **Fix:** No in-scope change; preserve the existing tests and repository configuration state, and keep the failure separate from the passing lifecycle acceptance.
 - **Lesson:** Keep branch-configuration failures distinct from lifecycle regressions.
 - **Tags:** behavior, tests, baseline, lifecycle
 
-### L88 · 2026-10-09 · worktree-lifecycle-awareness #4 · review
+### L131 · 2026-10-09 · worktree-lifecycle-awareness #4 · review
 - **Failure:** `ai-eng worktree list` and successful removal could print terminal controls from local filesystem paths.
 - **Root cause:** Both output paths interpolated Git-reported paths without using the shared printable sanitizer.
 - **Fix:** Sanitize worktree-list paths and ignored filenames at the terminal output boundary; add regression tests for both commands.
 - **Lesson:** Sanitize every untrusted local filesystem name at the output boundary.
 - **Tags:** review, security, terminal, filesystem
 
-### L89 · 2026-10-09 · worktree-lifecycle-awareness #4 · review
+### L132 · 2026-10-09 · worktree-lifecycle-awareness #4 · review
 - **Failure:** Creating a worktree named `constructor` made a later ordinary worktree creation fail.
 - **Root cause:** A declaration lookup read an inherited `Object.prototype.constructor` function as though it were an own list of files.
 - **Fix:** Check that the declaration key is an own property before using its value; add a follow-up-creation regression.
