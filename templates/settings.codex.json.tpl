@@ -12,7 +12,7 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface codex",
+            "command": "[ -f \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" ] || exit 0; python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface codex",
             "timeout": 10,
             "statusMessage": "checkpoint-gate"
           }

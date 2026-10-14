@@ -202,6 +202,15 @@ describe("doctor · a repo where everything is green", () => {
     expect(detail(run, "canon")).toContain("files verified · 0 drift");
     expect(detail(run, "canon")).toContain("missing");
   });
+
+  test("a mirror whose links dangle is broken: the canon the links point at is gone", async () => {
+    const { home } = healthy();
+    rmSync(join(home, "skills"), { recursive: true, force: true });
+    const run = await doctor();
+    expect(row(run, "mirrors")).toContain("▲");
+    expect(detail(run, "mirrors")).toBe("3/3 mirrors empty or missing → ai-eng init --global");
+    expect(detail(run, "canon")).toContain("missing");
+  });
 });
 
 describe("doctor · AGENTS.md", () => {

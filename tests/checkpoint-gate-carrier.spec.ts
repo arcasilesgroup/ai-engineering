@@ -82,4 +82,23 @@ describe("workflow kit — checkpoint-gate beside chain on deny carriers", () =>
     expect(zed!.can.deny).toBe("host-only");
     expect(DENYING_CARRIER_TEMPLATES.some((name) => /zed/i.test(name))).toBe(false);
   });
+
+  test("every carrier that runs the gate guards the script's existence", () => {
+    // A carrier invokes python3 on a path that lives in the machine canon. When the
+    // canon is gone the script is absent, and python exits 2 — which the host reads
+    // as a denial (Copilot: "Denied by preToolUse hook: hook exited with code 2"),
+    // bricking every tool call. The in-process plugins already treat a missing script
+    // as "no gate"; the shell carriers must say so too.
+    const GUARD = /\[\s*-f\s+\\?"\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py\\?"\s*\]\s*\|\|\s*exit 0/;
+    const problems: string[] = [];
+    for (const name of denyingCarrierTemplatesOnDisk()) {
+      const content = readFileSync(join(TEMPLATES, name), "utf8");
+      if (!/python3/.test(content) || !/checkpoint-gate\.py/.test(content)) continue;
+      // Shell carriers guard with a test on the path; the in-process plugins guard
+      // with existsSync before spawn. Either way the missing script is no denial.
+      if (GUARD.test(content) || /existsSync\(script\)/.test(content)) continue;
+      problems.push(`${name}: invokes checkpoint-gate.py without a file guard`);
+    }
+    expect(problems).toEqual([]);
+  });
 });
