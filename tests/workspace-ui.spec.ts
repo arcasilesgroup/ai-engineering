@@ -426,11 +426,12 @@ describe("workspace UI logic", () => {
       }>;
     };
     const checkpoints = JSON.parse(readFileSync(CHECKPOINTS, "utf8")) as {
-      checkpoints: Array<{ id: number; ui: { route: string; states: string[] } }>;
+      checkpoints: Array<{ id: number; ui: { route: string; scope: string[]; states: string[] } }>;
     };
     const cp10 = checkpoints.checkpoints.find((checkpoint) => checkpoint.id === 10)!;
 
     expect(states.route).toBe(cp10.ui.route);
+    expect(cp10.ui.scope).toContain("project-documents");
     expect(states.viewports).toBeUndefined();
     for (const projectName of ["ai-engineering", "checkout-api"]) {
       const desktop = states.states.find((state) => state.name === `${projectName}-project-overview`)!;
@@ -440,7 +441,7 @@ describe("workspace UI logic", () => {
         { scroll: "#main-pane", to: "bottom" },
         { click: `Open overview for ${projectName}`, role: "button" },
       ]);
-      expect(desktop.regions).not.toContain("project-documents");
+      expect(desktop.regions).toContain("project-documents");
 
       const mobile = states.states.find((state) => state.name === `${projectName}-project-overview-mobile`)!;
       expect(mobile.viewports).toEqual([[375, 812]]);
@@ -500,12 +501,19 @@ describe("workspace UI logic", () => {
       "project-tree-disclosure-groups": [[1440, 900]],
       "project-tree-disclosure-groups-mobile": [[375, 812]],
       "resize-project-explorer": [[1440, 900]],
+      "drag-resize-project-explorer": [[1440, 900]],
     };
     expect(resize.viewports).toEqual([[1440, 900]]);
     expect(resize.steps).toEqual([
       { click: "Resize project explorer", role: "separator" },
       { press: "ArrowRight" },
     ]);
+    const dragResize = states.states.find((state) => state.name === "drag-resize-project-explorer")!;
+    expect(dragResize.steps).toEqual([
+      { drag: "Resize project explorer", target: "explorer-resize-handle" },
+    ]);
+    expect(cp10.ui.states).toContain("resize-project-explorer");
+    expect(cp10.ui.states).toContain(dragResize.name);
     for (const state of states.states) {
       if (state.name in viewportOverrides) {
         expect(state.viewports).toEqual(viewportOverrides[state.name]);
