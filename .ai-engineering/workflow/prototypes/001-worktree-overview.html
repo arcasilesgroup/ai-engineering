@@ -2303,17 +2303,17 @@ const features = [
     projectId: "nn-skills",
     slug: "nn-keynote-unregistered",
     branch: "feat/nn-keynote-unregistered",
-    title: "Unregistered lifecycle example",
+    title: "Missing lifecycle checkpoint example",
     status: "unknown",
     currentId: 0,
-    plain_summary: "This example has no lifecycle record, so its state remains unknown.",
-    lifecycleRecordMissing: true,
-    lifecycleRecordPath: ".ai-eng-lifecycle/nn-keynote-unregistered.json",
+    plain_summary: "This example has no valid lifecycle checkpoint, so its state remains unknown.",
+    lifecycleCheckpointMissing: true,
+    lifecycleCheckpointPath: ".ai-engineering/workflow/checkpoints/nn-keynote-unregistered.json",
     brainstorm: {
-      title: "Missing lifecycle record",
-      summary: "Keep a worktree unknown until its explicit lifecycle record is valid.",
+      title: "Missing lifecycle checkpoint",
+      summary: "Keep a worktree unknown until its checkpoint contains valid lifecycle evidence.",
       sections: [
-        ["Problem", "The consumer cannot classify a worktree without its lifecycle record."],
+        ["Problem", "The workspace cannot classify a worktree without a matching lifecycle checkpoint."],
         ["Goal", "Show Unknown rather than infer activity from a branch."]
       ]
     },
@@ -2325,26 +2325,26 @@ const features = [
     projectId: "nn-skills",
     slug: "nn-keynote",
     branch: "feat/nn-keynote",
-    title: "Lifecycle status integration",
+    title: "Lifecycle checkpoint integration",
     status: "in-progress",
     currentId: 1,
-    plain_summary: "A verified lifecycle record reports active implementation.",
-    lifecycleRecordMissing: false,
-    lifecycleRecordPath: ".ai-eng-lifecycle/nn-keynote.json",
+    plain_summary: "A verified lifecycle checkpoint reports active implementation.",
+    lifecycleCheckpointMissing: false,
+    lifecycleCheckpointPath: ".ai-engineering/workflow/checkpoints/nn-keynote.json",
     brainstorm: {
-      title: "Lifecycle status integration",
-      summary: "Expose an explicit worktree lifecycle state to local statusline consumers.",
+      title: "Lifecycle checkpoint integration",
+      summary: "Expose explicit worktree lifecycle state to the local workspace.",
       sections: [
-        ["Problem", "A consumer cannot classify a worktree without its lifecycle record."],
-        ["Goal", "Write lifecycle status from explicit workflow transitions."],
-        ["Decision", "Keep the checkpoint authoritative and publish a derived local record."]
+        ["Problem", "A workspace cannot classify a worktree from branch presence alone."],
+        ["Goal", "Read lifecycle status from the feature checkpoint and verify it against Git."],
+        ["Decision", "Keep the checkpoint as the only lifecycle source."]
       ]
     },
     checkpoints: [
-      checkpoint(1, "Register active lifecycle", "Show verified implementation state", "running", {
-        what: "Write a valid active-implementation record for the exact local worktree.",
-        why: "Statusline consumers need an explicit signal instead of guessing from Git.",
-        check: "The record matches the slug, branch, path, and current lifecycle state."
+      checkpoint(1, "Record active lifecycle phase", "Show verified implementation state", "running", {
+        what: "Keep a valid implementation phase in the feature checkpoint.",
+        why: "The workspace needs an explicit signal instead of guessing from Git.",
+        check: "The checkpoint matches the slug, branch, and current lifecycle state."
       }, {
         behavior: { status: "passed" },
         ui: { status: "n/a" },
@@ -2875,9 +2875,9 @@ function renderFeatureViewer(feature) {
   const plan = feature;
   setHeaderAction(feature);
   if (!plan || feature.status === "unknown" || !plan.checkpoints?.length) {
-    const emptyTitle = feature.lifecycleRecordMissing ? "Lifecycle record missing" : "Checkpoint not found";
-    const emptyDescription = feature.lifecycleRecordMissing
-      ? "Git lists this worktree, but no explicit lifecycle record was found. Its phase remains Unknown. Branch presence alone is not evidence of active implementation."
+    const emptyTitle = feature.lifecycleCheckpointMissing ? "Lifecycle checkpoint missing" : "Checkpoint not found";
+    const emptyDescription = feature.lifecycleCheckpointMissing
+      ? "Git lists this worktree, but no valid lifecycle checkpoint was found. Its phase remains Unknown. Branch presence alone is not evidence of active implementation."
       : "Git lists this worktree, but no matching checkpoint was found. The feature is not marked as complete.";
     $("feature-viewer-view").innerHTML = `
       <div class="viewer-shell">
@@ -2885,10 +2885,10 @@ function renderFeatureViewer(feature) {
           <span class="breadcrumb">${escapeHtml(project.provider)} <span aria-hidden="true">/</span> ${escapeHtml(project.remote)} <span aria-hidden="true">/</span> <strong>${escapeHtml(feature.branch)}</strong></span>
         </div>
         <section class="viewer-empty" data-region="viewer-empty">
-          <p class="viewer-eyebrow">${feature.lifecycleRecordMissing ? "Lifecycle status" : "Feature progress"}</p>
+          <p class="viewer-eyebrow">${feature.lifecycleCheckpointMissing ? "Lifecycle status" : "Feature progress"}</p>
           <div class="viewer-heading-line"><h1>${escapeHtml(emptyTitle)}</h1><span class="status-badge ${escapeHtml(feature.status)}">${STATUS_LABELS[feature.status]}</span></div>
           <p>${escapeHtml(emptyDescription)}</p>
-          ${feature.lifecycleRecordMissing ? `<aside class="viewer-note" data-region="lifecycle-record-detail"><h3>Registration source</h3><ul><li>Expected path: <code>${escapeHtml(feature.lifecycleRecordPath)}</code></li><li>This example deliberately omits the record, so Unknown is correct.</li><li>The Copilotline reader contract is verified; its writer must run from the repository that owns the worktree.</li></ul></aside>` : ""}
+          ${feature.lifecycleCheckpointMissing ? `<aside class="viewer-note" data-region="lifecycle-checkpoint-detail"><h3>Lifecycle evidence</h3><ul><li>Expected path: <code>${escapeHtml(feature.lifecycleCheckpointPath)}</code></li><li>This example deliberately omits valid lifecycle data, so Unknown is correct.</li><li>The checkpoint must match the feature slug and live worktree; branch presence alone is not enough.</li></ul></aside>` : ""}
         </section>
       </div>
     `;
@@ -3066,8 +3066,6 @@ function showMainView(id) {
   }
   const cameFromExplorer = $("project-tree").contains(document.activeElement);
   setMobilePane("content");
-  window.scrollTo(0, 0);
-  $("main-pane").scrollTop = 0;
   if (cameFromExplorer && window.matchMedia("(max-width: 760px)").matches) {
     $("mobile-explorer-back").focus({ preventScroll: true });
   }
@@ -3075,7 +3073,7 @@ function showMainView(id) {
 
 function setMobilePane(pane) {
   document.body.dataset.mobilePane = pane;
-  if (pane !== "explorer") return;
+  if (pane !== "explorer" || !window.matchMedia("(max-width: 760px)").matches) return;
   const selectedRow = $("project-tree").querySelector('[aria-current="page"]')
     ?? $("project-tree").querySelector('[data-toggle-target^="project-children-"]');
   expandTreeAncestors(selectedRow);

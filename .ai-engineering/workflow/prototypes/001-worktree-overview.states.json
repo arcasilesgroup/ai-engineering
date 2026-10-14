@@ -36,7 +36,7 @@
     "notes",
     "ide-action",
     "viewer-empty",
-    "lifecycle-record-detail",
+    "lifecycle-checkpoint-detail",
     "document-preview",
     "document-content",
     "document-scope-note",
@@ -57,7 +57,7 @@
     },
     {
       "name": "ai-engineering-project-overview",
-      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-worktrees", "project-history"],
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-documents", "project-worktrees", "project-history"],
       "viewports": [[1440, 900]],
       "live": false,
       "live_note": "This local explorer and its project roots are prototype data.",
@@ -82,7 +82,7 @@
     },
     {
       "name": "checkout-api-project-overview",
-      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-worktrees", "project-history"],
+      "regions": ["project-explorer", "explorer-resize-handle", "project-tree", "project-overview", "project-summary", "project-documents", "project-worktrees", "project-history"],
       "viewports": [[1440, 900]],
       "live": false,
       "live_note": "This local explorer and its project roots are prototype data.",
@@ -275,6 +275,16 @@
       ]
     },
     {
+      "name": "drag-resize-project-explorer",
+      "regions": ["project-explorer", "explorer-resize-handle", "main-pane"],
+      "viewports": [[1440, 900]],
+      "live": false,
+      "live_note": "The explorer width is local prototype state.",
+      "steps": [
+        { "drag": "Resize project explorer", "target": "explorer-resize-handle" }
+      ]
+    },
+    {
       "name": "viewer-step-navigation",
       "regions": ["feature-viewer", "journey", "checkpoint-card", "technical-details", "header-context", "ide-action"],
       "live": false,
@@ -300,19 +310,19 @@
       ]
     },
     {
-      "name": "missing-lifecycle-registration",
-      "regions": ["app-header", "feature-viewer", "viewer-empty", "lifecycle-record-detail"],
+      "name": "missing-lifecycle-checkpoint",
+      "regions": ["app-header", "feature-viewer", "viewer-empty", "lifecycle-checkpoint-detail"],
       "proto_query": "state=viewer&project=nn-skills&feature=nn-keynote-unregistered",
       "live": false,
-      "live_note": "This deliberately omits the lifecycle record to prove the feature remains Unknown. The Copilotline reader contract is verified.",
+      "live_note": "This deliberately omits valid lifecycle checkpoint data to prove the feature remains Unknown.",
       "steps": []
     },
     {
-      "name": "verified-active-lifecycle-record",
+      "name": "verified-active-lifecycle-checkpoint",
       "regions": ["app-header", "feature-viewer", "viewer-header", "status-banner", "checkpoint-card"],
       "proto_query": "state=viewer&project=nn-skills&feature=nn-keynote",
       "live": false,
-      "live_note": "Models the verified nn-keynote record written from its owning nn-skills worktree.",
+      "live_note": "Models verified active lifecycle data in the nn-keynote feature checkpoint.",
       "steps": []
     },
     {

@@ -70,9 +70,9 @@
       padding: 7px 10px; border-radius: 999px; color: var(--muted);
       font: 11px var(--mono);
     }
-    nav a:hover, nav a.active, nav a[aria-current="location"] { background: rgba(0, 237, 100, .1); color: var(--accent); text-decoration: none; }
+    nav a:hover, nav a[aria-current="location"] { background: rgba(0, 237, 100, .1); color: var(--accent); text-decoration: none; }
     main { max-width: 900px; margin: 0 auto; padding: 12px 24px 64px; }
-    section { padding: 34px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 88px; }
+    section { padding: 34px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 64px; }
     .number { display: block; margin-bottom: 8px; color: var(--accent); font: 11px var(--mono); letter-spacing: .16em; }
     h2 { margin: 0 0 12px; font-size: 24px; line-height: 1.2; }
     h3 { margin: 22px 0 8px; color: var(--accent-soft); font-size: 15px; }
@@ -111,8 +111,8 @@
     <div class="mark" aria-hidden="true">{ai}</div>
     <div class="eyebrow">Brainstorm · local worktree lifecycle</div>
     <h1>Un hub local, estados fiables</h1>
-    <p class="summary">Un centro local reúne los worktrees de los proyectos configurados y muestra su estado solo cuando Git y un registro explícito lo confirman.</p>
-    <p class="status">complete · 2026-10-09 · approved</p>
+    <p class="summary">Un centro local reúne los worktrees de los proyectos configurados y muestra su estado con evidencia de Git y checkpoints; antes de crear un worktree, la aprobación se proyecta desde el brainstorm aprobado.</p>
+    <p class="status">complete · 2026-10-09</p>
   </header>
   <nav aria-label="Secciones del brainstorm">
     <a href="#idea">01 Idea</a><a href="#why">02 Por qué</a><a href="#who">03 Para quién</a>
@@ -127,7 +127,7 @@
     </section>
     <section id="why">
       <span class="number">02</span><h2>Por qué importa</h2>
-      <p>Un worktree puede quedar como <code>Unknown</code> aunque se esté trabajando en él. La causa puede ser un CLI antiguo, una invocación desde el repositorio equivocado o una ruta configurada que el consumidor no descubre.</p>
+      <p>Un worktree queda como <code>Unknown</code> si Git o su checkpoint faltan, no coinciden o no se pueden validar. Es más seguro mostrar la incertidumbre que inferir actividad a partir de una rama o un proceso abierto.</p>
     </section>
     <section id="who">
       <span class="number">03</span><h2>Para quién es</h2>
@@ -136,11 +136,11 @@
     <section id="today">
       <span class="number">04</span><h2>Qué existe hoy</h2>
       <ul>
-        <li>El CLI global <code>ai-eng 2.6.0</code> solo muestra <code>new</code>, <code>rm</code> y <code>list</code>. El código lifecycle-aware añade <code>worktree lifecycle</code>, pero también informa <code>2.6.0</code>; la versión publicada no distingue ese código de desarrollo.</li>
-        <li>El writer resuelve el repositorio desde el <code>cwd</code> del proceso. Desde <code>nn-keynote</code>, el CLI del branch lifecycle-aware escribió <code>active-implementation</code> en el registro de NN Skills y <code>worktree list</code> devolvió la ruta exacta.</li>
-        <li>Copilotline valida schema, slug, estado, timestamp, branch y worktree local. Un registro ausente, viejo o inválido queda como <code>Unknown</code>.</li>
-        <li>El writer respeta <code>[git].worktrees_dir</code>. El consumidor debe derivar la raíz de los worktrees que Git lista para leer el registro en esa misma raíz.</li>
-        <li>Había un choque: brainstorm podía escribir <code>approval-before-start</code> antes de crear el worktree, pero <code>worktree new</code> rechazaba todo registro previo. Se permite solo ese registro válido; las pruebas cubren la transición y la protección de estados posteriores.</li>
+        <li>El CLI del repositorio incluye <code>ai-eng worktree list [slug]</code> para revisar el estado y <code>request-changes &lt;slug&gt; &lt;sha&gt;</code> para devolver una revisión pendiente sin sobrescribir cambios concurrentes.</li>
+        <li>Los worktrees existentes se clasifican a partir de Git y de <code>workflow/checkpoints/&lt;slug&gt;.json</code>. Si falta evidencia válida o no coincide con el worktree, el estado es <code>Unknown</code>.</li>
+        <li>Antes de crear el worktree, la aprobación se proyecta en modo lectura desde el brainstorm exacto, reciente y aprobado; no se escribe un registro lifecycle previo.</li>
+        <li>La opción de archivos de <code>worktree new</code> guarda pistas de solapamiento en <code>.ai-eng-worktrees.json</code>, fuera del repositorio. Son advisory: no autorizan trabajo ni sustituyen el checkpoint.</li>
+        <li>El experimento anterior con <code>.ai-eng-lifecycle</code> se retiró durante la integración para evitar dos fuentes de estado.</li>
       </ul>
     </section>
     <section id="success">
@@ -148,16 +148,16 @@
       <ol>
         <li>Una sola instancia local descubre las raíces elegidas y se reutiliza si ya responde.</li>
         <li>La lista identifica cada proyecto y agrupa sus worktrees por estado. La selección abre el viewer correspondiente.</li>
-        <li>El writer registra transiciones explícitas junto a la raíz real del worktree. Si la escritura falla, el flujo informa el error y no afirma que el estado cambió.</li>
-        <li>Un registro ausente, ambiguo, obsoleto o incompatible se muestra como <code>Unknown</code>.</li>
-        <li>El plan de <code>/ai-orchestrator</code> se abre en una pestaña y continúa sin aprobación. La aprobación del brainstorm y la revisión humana final se mantienen.</li>
+        <li>El checkpoint registra las transiciones del worktree; los cambios con revisión pendiente usan su SHA completo para evitar actualizaciones obsoletas.</li>
+        <li>Un checkpoint ausente, ambiguo, obsoleto o incompatible se muestra como <code>Unknown</code>; las pistas de archivos nunca cambian esa decisión.</li>
+        <li>La aprobación humana del brainstorm permite iniciar; la revisión humana final sigue siendo necesaria antes del merge y la limpieza.</li>
       </ol>
     </section>
     <section id="decided">
       <span class="number">06</span><h2>Decisiones ya tomadas</h2>
       <div class="grid">
-        <div class="card"><h3>Fuente de estado</h3><p>El checkpoint gobierna AI Engineering. El archivo lifecycle local es una proyección para consumidores externos, no una segunda fuente de verdad.</p></div>
-        <div class="card"><h3>Aprobaciones</h3><p>El brainstorm requiere aprobación antes del build. El plan no. La revisión humana final sigue antes del merge y la limpieza.</p></div>
+        <div class="card"><h3>Fuente de estado</h3><p>Git y el checkpoint gobiernan los worktrees existentes. Antes de crear uno, el brainstorm aprobado es evidencia de inicio de solo lectura; no hay un registro lifecycle paralelo.</p></div>
+        <div class="card"><h3>Aprobaciones</h3><p>La aprobación humana del brainstorm permite iniciar. Las pistas de archivos no aprueban trabajo; merge y limpieza conservan su revisión humana final.</p></div>
         <div class="card"><h3>Independencia</h3><p>Cada feature mantiene su brief en <code>.ai-engineering/workflow/features/&lt;slug&gt;/brainstorm.html</code>. Los cambios se hacen en su worktree.</p></div>
         <div class="card"><h3>Descubrimiento</h3><p>El hub es local, consulta Git y respeta la raíz de worktrees configurada. No deduce actividad por la rama o un proceso abierto.</p></div>
       </div>
@@ -165,18 +165,18 @@
     <section id="open">
       <span class="number">07</span><h2>Decisiones todavía abiertas</h2>
       <ul>
-        <li>¿Actualizar el inventario al iniciar y bajo demanda, o mantener observación continua? Recomendación: inicio y acción manual.</li>
-        <li>¿Settings usa selector nativo de carpetas o acepta rutas pegadas? Recomendación: selector, con validación visible.</li>
-        <li>¿Qué documentos canónicos se abren automáticamente al terminar? Recomendación: allowlist explícita; no abrir prototipos ni archivos parciales.</li>
+        <li>El inventario se actualiza al iniciar y bajo demanda; no mantiene observación continua.</li>
+        <li>Settings ofrece selector nativo y permite rutas pegadas, ambas con validación visible.</li>
+        <li>Solo se abren documentos canónicos de una allowlist; no se abren prototipos ni archivos parciales.</li>
       </ul>
     </section>
     <section id="guardrails">
       <span class="number">08</span><h2>Restricciones y guardarraíles</h2>
       <ul>
         <li>El hub escucha solo en loopback y no hace merge ni elimina worktrees.</li>
-        <li>El registro no da aprobación. Solo una aprobación humana del brainstorm permite iniciar.</li>
-        <li>El escritor se ejecuta desde el repositorio propietario del worktree. El consumidor verifica branch, ruta y vigencia.</li>
-        <li>Los registros son locales y no se añaden a Git. Nunca se presenta un fallo de escritura como éxito.</li>
+        <li>Ni el checkpoint ni las pistas de archivos conceden aprobación; solo la aprobación humana del brainstorm permite iniciar.</li>
+        <li>Git y el checkpoint son autoridad para worktrees existentes. Las pistas opcionales quedan fuera del repositorio y solo advierten de solapamientos.</li>
+        <li>El hub no hace merge ni elimina worktrees. Los errores al actualizar estado se muestran explícitamente.</li>
       </ul>
     </section>
     <section id="out">
@@ -186,43 +186,37 @@
     <section id="research">
       <span class="number">10</span><h2>Investigar antes de cerrar</h2>
       <ol>
-        <li>Publicar y actualizar el CLI lifecycle-aware con una versión que distinga el release; verificar el binario instalado con <code>ai-eng worktree lifecycle</code>.</li>
+        <li>Publicar y actualizar el CLI que incluye los comandos de worktree; verificar la versión instalada antes de depender de ellos.</li>
         <li>Probar el lector con raíz predeterminada y <code>worktrees_dir</code> personalizado, incluyendo worktrees prunables.</li>
         <li>Confirmar cómo se comparte el puerto del hub entre proyectos y cómo se recupera una instancia que no responde.</li>
       </ol>
     </section>
     <section id="handoff">
       <span class="number">11</span><h2>Handoff</h2>
-      <p>Implementar el hub y los ajustes globales en el worktree de esta feature. Mantener los registros lifecycle fuera de Git. No integrar ni borrar ramas sin la aprobación de la revisión final.</p>
-      <div class="callout warning"><p><strong>Bloqueo de distribución:</strong> el binario global sigue sin el subcomando. El código fuente y el registro local ya funcionan, pero la actualización del CLI publicado queda como paso explícito antes de depender de este flujo en otros proyectos.</p></div>
+      <p>El hub y los ajustes globales se implementan en este repositorio. Los checkpoints lifecycle sí se versionan; el registro paralelo se retiró. La integración y la limpieza siguen fuera del hub y requieren revisión humana.</p>
+      <div class="callout warning"><p><strong>Distribución:</strong> la versión publicada puede no incluir todavía los comandos de worktree; verificar y actualizar el CLI instalado antes de depender de ellos.</p></div>
     </section>
   </main>
   <footer>{ai} Engineering · feature-scoped brainstorm</footer>
 <script>
-/* scroll-spy: mark the nav link for the section in view.
-   Lead matches scroll-margin-top (88px): the highlight flips when the
-   heading clears the sticky nav. */
+/* Highlight the section nearest the sticky navigation without scanning on every scroll. */
 (function () {
-  const lead = 88;
-  const links = document.querySelectorAll('nav a[href^="#"]');
-  function updateNav() {
-    let current = "";
-    for (const link of links) {
-      const href = link.getAttribute("href");
-      if (!href) continue;
-      const section = document.getElementById(href.slice(1));
-      if (!section) continue;
-      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
-    }
-    for (const link of links) {
-      const on = link.getAttribute("href") === "#" + current;
-      link.classList.toggle("active", on);
-      if (on) link.setAttribute("aria-current", "location");
+  const navLinks = [...document.querySelectorAll('nav a[href^="#"]')];
+  const sections = navLinks
+    .map((link) => document.getElementById(link.getAttribute("href").slice(1)))
+    .filter(Boolean);
+  const observer = new IntersectionObserver((entries) => {
+    const visible = entries
+      .filter((entry) => entry.isIntersecting)
+      .sort((first, second) => first.boundingClientRect.top - second.boundingClientRect.top);
+    if (!visible.length) return;
+    const activeId = visible[0].target.id;
+    for (const link of navLinks) {
+      if (link.getAttribute("href") === `#${activeId}`) link.setAttribute("aria-current", "location");
       else link.removeAttribute("aria-current");
     }
-  }
-  window.addEventListener("scroll", updateNav, { passive: true });
-  updateNav();
+  }, { rootMargin: "-64px 0px -70% 0px" });
+  sections.forEach((section) => observer.observe(section));
 })();
 </script>
 </body>
