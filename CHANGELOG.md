@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Worktree lifecycle awareness now reads pre-worktree approval from the exact fresh
+  brainstorm artifact only when no local feature branch exists, without writing a
+  second state store. Existing worktree checkpoints remain authoritative;
+  `request-changes` uses the full pending checkpoint-only commit SHA as a
+  compare-and-swap token before clearing review pins.
 - Azure triage now validates source-linked claims and explains Recommendation and
   Why now alongside dates, discussion, parent/sprint context and evidence coverage.
   Current commitments and blockers can change recommendation order without

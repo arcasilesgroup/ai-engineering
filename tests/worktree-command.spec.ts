@@ -317,6 +317,33 @@ function writeMergeCheckpoint(
   return checkpoint;
 }
 
+function writeBrainstorm(
+  repo: string,
+  slug: string,
+  options: { approval?: string; status?: string; duplicateSlug?: string } = {},
+): string {
+  const artifact = join(repo, ".ai-engineering", "brainstorm.html");
+  mkdirSync(dirname(artifact), { recursive: true });
+  const currentDate = new Date();
+  const approval = options.approval ??
+    `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(currentDate.getDate()).padStart(2, "0")}`;
+  const duplicateMeta = options.duplicateSlug === undefined
+    ? ""
+    : `<meta name="ai-feature" content="${options.duplicateSlug}">`;
+  writeFileSync(
+    artifact,
+    [
+      "<!doctype html><html><head>",
+      `<meta name="ai-feature" content="${slug}">${duplicateMeta}`,
+      `<meta name="ai-approved" content="${approval}">`,
+      "</head><body>",
+      `<div class="meta"><b>${options.status ?? `complete · ${approval}`}</b><br>feature</div>`,
+      "</body></html>",
+    ].join("\n"),
+  );
+  return artifact;
+}
+
 function writeReviewedMergeCheckpoint(feature: string, slug: string): string {
   const checkpoint = join(feature, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   mkdirSync(dirname(checkpoint), { recursive: true });
@@ -514,6 +541,102 @@ function isCaseInsensitiveFs(): boolean {
 const IS_CASE_INSENSITIVE_FS = isCaseInsensitiveFs();
 
 describe("ai-eng worktree verb (checkpoint 2)", () => {
+  test("list projects a fresh exact brainstorm approval before a feature worktree exists", () => {
+    const repo = tempRepo();
+    const artifact = writeBrainstorm(repo, "alpha");
+    const before = worktreeEntries(repo);
+
+    const listed = runCli(["worktree", "list", "alpha"], repo);
+
+    expect(listed.status).toBe(0);
+    expect(listed.stdout).toContain(
+      "alpha\t-\tpre-worktree\tunknown\tapproval-before-start (brainstorm approved ",
+    );
+    expect(worktreeEntries(repo)).toEqual(before);
+    expect(branchNames(repo)).not.toContain("feat/alpha");
+    expect(existsSync(artifact)).toBe(true);
+  });
+
+  test("list never presents an existing feature branch as pre-worktree approval", () => {
+    const repo = tempRepo();
+    writeBrainstorm(repo, "alpha");
+    git(["branch", "feat/alpha"], repo);
+
+    const listed = runCli(["worktree", "list", "alpha"], repo);
+    const all = runCli(["worktree", "list"], repo);
+
+    expect(listed.status).toBe(0);
+    expect(listed.stdout).toContain(
+      "alpha\t-\tbranch-only\tunknown\tunknown (feature branch exists without an open worktree)",
+    );
+    expect(listed.stdout).not.toContain("approval-before-start");
+    expect(all.stdout).not.toContain("approval-before-start");
+  });
+
+  test("list reports draft, expired, ambiguous, mismatched, and missing brainstorms as unknown", () => {
+    const repo = tempRepo();
+    const expiredDate = new Date();
+    expiredDate.setDate(expiredDate.getDate() - 15);
+    const expiredApproval =
+      `${expiredDate.getFullYear()}-${String(expiredDate.getMonth() + 1).padStart(2, "0")}-${String(expiredDate.getDate()).padStart(2, "0")}`;
+    const cases: Array<[string, string, string | null, { approval?: string; status?: string; duplicateSlug?: string }]> = [
+      ["draft", "brainstorm approval does not match its complete status", "draft", { status: "draft · interview in progress" }],
+      ["malformed", "brainstorm is malformed", "malformed", {}],
+      ["expired", "brainstorm approval is expired or future-dated", "expired", { approval: expiredApproval }],
+      ["ambiguous", "brainstorm feature slug is missing or ambiguous", "ambiguous", { duplicateSlug: "other" }],
+      ["requested", "brainstorm belongs to different, not requested", "different", {}],
+      ["missing", "brainstorm is missing or unreadable", null, {}],
+    ];
+    for (const [slug, reason, artifactSlug, options] of cases) {
+      if (artifactSlug !== null) {
+        const artifact = writeBrainstorm(repo, artifactSlug, options);
+        if (slug === "malformed") {
+          const today = new Date();
+          const date =
+            `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+          writeFileSync(
+            artifact,
+            `<meta name="ai-feature" content="malformed"><meta name="ai-approved" content="${date}"><div class="meta">complete · ${date}`,
+          );
+        }
+      } else {
+        rmSync(join(repo, ".ai-engineering", "brainstorm.html"), { force: true });
+      }
+      const listed = runCli(["worktree", "list", slug], repo);
+      expect(listed.status).toBe(0);
+      expect(listed.stdout).toContain(`unknown (${reason}`);
+    }
+  });
+
+  test("an existing worktree checkpoint is authoritative over a matching approved brainstorm", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    writeBrainstorm(repo, "alpha");
+    const feature = addRebaseWorktree(repo, "alpha");
+
+    const listed = runCli(["worktree", "list", "alpha"], repo);
+
+    expect(listed.status).toBe(0);
+    expect(listed.stdout).toContain(`${feature}\tfeature`);
+    expect(listed.stdout).toContain("unknown (missing, unreadable or malformed checkpoint)");
+    expect(listed.stdout).not.toContain("approval-before-start (brainstorm approved");
+  });
+
+  test("a same-path worktree on another branch is unknown, not a brainstorm fallback", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    writeBrainstorm(repo, "alpha");
+    addRebaseWorktree(repo, "alpha", "feat/beta");
+
+    const listed = runCli(["worktree", "list", "alpha"], repo);
+
+    expect(listed.status).toBe(0);
+    expect(listed.stdout).toContain("unknown (existing worktree does not match feat/alpha)");
+    expect(listed.stdout).not.toContain("approval-before-start (brainstorm approved");
+  });
+
   test("canonical: new <slug> lands at the realpathed sibling root, even from a symlinked cwd", () => {
     const base = mkdtempSync(join(tmpdir(), "ai-eng-worktree-base-"));
     cleanups.push(base);
@@ -990,6 +1113,152 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const alphaLine = (out: string): string | undefined => out.split("\n").find((line) => line.includes("alpha"));
     expect(alphaLine(fromPrimary.stdout)).toContain(realpathSync(created));
     expect(alphaLine(fromWorktree.stdout)).toBe(alphaLine(fromPrimary.stdout));
+  });
+});
+
+describe("ai-eng worktree request-changes (checkpoint 7)", () => {
+  test("the captured pending checkpoint commit authorizes one checkpoint-only lifecycle transition", () => {
+    const repo = tempRepo();
+    const approved = prepareMergeFixture(repo, "revision");
+    git(["reset", "--hard", approved.awaitingReviewCommit], approved.feature);
+    const checkpointPath = `.ai-engineering/workflow/checkpoints/${approved.slug}.json`;
+    const pending = JSON.parse(readFileSync(approved.checkpoint, "utf8")) as {
+      lifecycle: Record<string, unknown>;
+    };
+    expect(pending.lifecycle).toMatchObject({
+      phase: "awaiting-app-review",
+      app_review: "pending",
+      reviewed_main: approved.reviewedMain,
+      reviewed_feature: approved.reviewedFeature,
+    });
+
+    const requested = runCli(
+      ["worktree", "request-changes", approved.slug, approved.awaitingReviewCommit],
+      repo,
+    );
+
+    if (requested.status !== 0) throw new Error(requested.stderr);
+    expect(requested.status).toBe(0);
+    expect(requested.stdout).toContain("→ implementation");
+    const transitionCommit = git(["rev-parse", "HEAD"], approved.feature).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", transitionCommit], approved.feature).trim())
+      .toBe(`${transitionCommit} ${approved.awaitingReviewCommit}`);
+    expect(git(
+      ["diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", transitionCommit],
+      approved.feature,
+    ).trim()).toBe(checkpointPath);
+    expect(git(
+      ["diff", "--quiet", `${approved.reviewedFeature}..${transitionCommit}`, "--", ".", `:(exclude)${checkpointPath}`],
+      approved.feature,
+    )).toBe("");
+    const transitioned = JSON.parse(readFileSync(approved.checkpoint, "utf8")) as {
+      lifecycle: Record<string, unknown>;
+    };
+    expect(transitioned.lifecycle).toEqual({
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      reviewed_main: null,
+      reviewed_feature: null,
+    });
+    expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
+  });
+
+  test("stale tokens and non-pending states refuse without changing review evidence", () => {
+    const repo = tempRepo();
+    const approved = prepareMergeFixture(repo, "stale-revision");
+    git(["reset", "--hard", approved.awaitingReviewCommit], approved.feature);
+    const checkpointPath = join(approved.feature, ".ai-engineering", "workflow", "checkpoints", `${approved.slug}.json`);
+    const pendingState = fullRepoSnapshot(repo, [approved.feature], [checkpointPath]);
+
+    const stale = runCli(
+      ["worktree", "request-changes", approved.slug, approved.reviewedFeature],
+      repo,
+    );
+    expect(stale.status).toBe(1);
+    expect(stale.stderr).toContain("stale checkpoint");
+    expect(fullRepoSnapshot(repo, [approved.feature], [checkpointPath])).toBe(pendingState);
+
+    git(["reset", "--hard", approved.featureTip], approved.feature);
+    const approvedState = fullRepoSnapshot(repo, [approved.feature], [checkpointPath]);
+    const wrongState = runCli(
+      ["worktree", "request-changes", approved.slug, approved.featureTip],
+      repo,
+    );
+    expect(wrongState.status).toBe(1);
+    expect(wrongState.stderr).toContain("not awaiting app review");
+    expect(fullRepoSnapshot(repo, [approved.feature], [checkpointPath])).toBe(approvedState);
+  });
+
+  test("a branch advance during the detached transaction loses the SHA CAS", () => {
+    const repo = tempRepo();
+    const approved = prepareMergeFixture(repo, "cas-race");
+    git(["reset", "--hard", approved.awaitingReviewCommit], approved.feature);
+    const concurrentTip = git([
+      "commit-tree",
+      `${approved.awaitingReviewCommit}^{tree}`,
+      "-p",
+      approved.awaitingReviewCommit,
+      "-m",
+      "concurrent feature ref advance",
+    ], repo).trim();
+    installHook(
+      repo,
+      "pre-commit",
+      `git update-ref refs/heads/feat/${approved.slug} ${concurrentTip} ${approved.awaitingReviewCommit}`,
+    );
+    const checkpointContents = readFileSync(approved.checkpoint, "utf8");
+    const worktreesBefore = worktreeEntries(repo);
+
+    const stale = runCli(
+      ["worktree", "request-changes", approved.slug, approved.awaitingReviewCommit],
+      repo,
+    );
+
+    expect(stale.status).toBe(1);
+    expect(stale.stderr).toContain("stale checkpoint");
+    expect(git(["rev-parse", `refs/heads/feat/${approved.slug}`], repo).trim()).toBe(concurrentTip);
+    expect(readFileSync(approved.checkpoint, "utf8")).toBe(checkpointContents);
+    expect(worktreeEntries(repo)).toEqual(worktreesBefore);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
+  });
+
+  test("dirty work is preserved and cannot be transitioned", () => {
+    const repo = tempRepo();
+    const approved = prepareMergeFixture(repo, "dirty-revision");
+    git(["reset", "--hard", approved.awaitingReviewCommit], approved.feature);
+    const localFile = join(approved.feature, "local-notes.txt");
+    writeFileSync(localFile, "keep these notes\n");
+    const checkpointPath = join(approved.feature, ".ai-engineering", "workflow", "checkpoints", `${approved.slug}.json`);
+    const before = fullRepoSnapshot(repo, [approved.feature], [checkpointPath]);
+
+    const refused = runCli(
+      ["worktree", "request-changes", approved.slug, approved.awaitingReviewCommit],
+      repo,
+    );
+
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toContain("is not clean");
+    expect(readFileSync(localFile, "utf8")).toBe("keep these notes\n");
+    expect(fullRepoSnapshot(repo, [approved.feature], [checkpointPath])).toBe(before);
+  });
+
+  test("a failing commit hook restores the pending checkpoint and leaves the branch unchanged", () => {
+    const repo = tempRepo();
+    const approved = prepareMergeFixture(repo, "hook-revision");
+    git(["reset", "--hard", approved.awaitingReviewCommit], approved.feature);
+    installHook(repo, "pre-commit", 'printf "request-changes hook refused\\n" >&2\nexit 1');
+    const checkpointPath = join(approved.feature, ".ai-engineering", "workflow", "checkpoints", `${approved.slug}.json`);
+    const before = fullRepoSnapshot(repo, [approved.feature], [checkpointPath]);
+
+    const refused = runCli(
+      ["worktree", "request-changes", approved.slug, approved.awaitingReviewCommit],
+      repo,
+    );
+
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toContain("request-changes hook refused");
+    expect(fullRepoSnapshot(repo, [approved.feature], [checkpointPath])).toBe(before);
   });
 });
 

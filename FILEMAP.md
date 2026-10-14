@@ -23,7 +23,7 @@ src/
   assets.ts                    Embedded skill, template and runtime asset registry
   commands/
     worktree.ts                CLI parser for managed worktree lifecycle commands
-  shared-worktree.ts           Worktree creation, sync, merge and safe removal
+  shared-worktree.ts           Worktree lifecycle projection, CAS transitions, sync, merge and safe removal
 scripts/
   gen-assets.ts                Generate embedded assets from their source files
   .embed/ai-triage/scripts/    Generated text payloads for triage scripts and declarations

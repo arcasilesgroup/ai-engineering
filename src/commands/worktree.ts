@@ -1,10 +1,18 @@
-// `ai-eng worktree new|rm|list` — the thin parser. The root resolution, the git
-// argv and the design-slot list live in src/shared-worktree.ts; this file only
-// reads argv, prints the result and returns its exit code.
+// The `ai-eng worktree` parser is thin. Root resolution, git argv and the
+// design-slot list live in src/shared-worktree.ts; this file prints results.
 
-import { worktreeList, worktreeMerge, worktreeNew, worktreeRebase, worktreeRm } from "../shared-worktree.ts";
+import {
+  worktreeList,
+  worktreeMerge,
+  worktreeNew,
+  worktreeRebase,
+  worktreeRequestChanges,
+  worktreeRm,
+} from "../shared-worktree.ts";
 
-const USAGE = "usage: ai-eng worktree new <slug> | rm <slug> [--force] | rebase <slug> | merge <slug> | list\n";
+const USAGE =
+  "usage: ai-eng worktree new <slug> | rm <slug> [--force] | rebase <slug> | merge <slug> | " +
+  "request-changes <slug> <pending-checkpoint-commit-sha> | list [<slug>]\n";
 
 export function worktreeMain(args: string[], force = false): number {
   const [action, slug, ...files] = args;
@@ -43,7 +51,18 @@ export function worktreeMain(args: string[], force = false): number {
       result = worktreeMerge(slug);
       break;
     case "list":
-      result = worktreeList();
+      if (files.length > 0 || force) {
+        process.stderr.write(USAGE);
+        return 2;
+      }
+      result = worktreeList(slug);
+      break;
+    case "request-changes":
+      if (!slug || files.length !== 1 || force) {
+        process.stderr.write(USAGE);
+        return 2;
+      }
+      result = worktreeRequestChanges(slug, files[0] ?? "");
       break;
     default:
       process.stderr.write(USAGE);

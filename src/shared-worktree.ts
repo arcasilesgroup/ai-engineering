@@ -4,9 +4,18 @@
 // import spec — so the one definition moves down rather than up (arch.rules.json).
 // Every git value is an argv element: no command is ever assembled as a shell string.
 
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { randomUUID } from "node:crypto";
-import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
 import { loadConfig, printable } from "./env.ts";
@@ -629,6 +638,144 @@ function lifecycleStatus(
   };
 }
 
+interface BrainstormProjection {
+  slug: string | null;
+  label: string;
+}
+
+function htmlAttributes(source: string): Record<string, string> | null {
+  const attributes: Record<string, string> = {};
+  const attribute = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+  let cursor = 0;
+  for (const match of source.matchAll(attribute)) {
+    if (source.slice(cursor, match.index).trim() !== "") return null;
+    const name = match[1]?.toLowerCase();
+    const value = match[2] ?? match[3];
+    if (name === undefined || value === undefined || Object.hasOwn(attributes, name)) return null;
+    attributes[name] = value;
+    cursor = (match.index ?? 0) + match[0].length;
+  }
+  return source.slice(cursor).replace(/\/\s*$/, "").trim() === "" ? attributes : null;
+}
+
+function htmlIsWellFormed(html: string): boolean {
+  const withoutComments = html.replace(/<!--[\s\S]*?-->/gu, "");
+  if (/<!--|-->/u.test(withoutComments)) return false;
+  const withoutRawText = withoutComments.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/giu, "");
+  if (/<(?:script|style)\b/iu.test(withoutRawText)) return false;
+
+  const voidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+  const openTags: string[] = [];
+  let htmlRoots = 0;
+  for (const match of withoutRawText.matchAll(/<\/?([a-z][\w:-]*)\b[^>]*>/giu)) {
+    const tag = (match[1] ?? "").toLowerCase();
+    const isClosing = match[0]?.startsWith("</") === true;
+    if (tag === "html" && !isClosing) htmlRoots += 1;
+    if (isClosing) {
+      if (openTags.pop() !== tag) return false;
+    } else if (!voidTags.has(tag) && !match[0]?.endsWith("/>")) {
+      openTags.push(tag);
+    }
+  }
+  return htmlRoots === 1 && openTags.length === 0;
+}
+
+function brainstormProjection(repo: string, requestedSlug?: string): BrainstormProjection {
+  const path = join(repo, ".ai-engineering", "brainstorm.html");
+  let html: string;
+  try {
+    const stat = lstatSync(path);
+    const artifactRelative = relative(canonicalize(repo), realpathSync(path));
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      artifactRelative === "" ||
+      artifactRelative === ".." ||
+      artifactRelative.startsWith(`..${sep}`) ||
+      isAbsolute(artifactRelative)
+    ) {
+      return { slug: requestedSlug ?? null, label: "unknown (brainstorm is not a repository-local file)" };
+    }
+    html = readFileSync(path, "utf8");
+  } catch {
+    return { slug: requestedSlug ?? null, label: "unknown (brainstorm is missing or unreadable)" };
+  }
+  if (!htmlIsWellFormed(html)) {
+    return { slug: requestedSlug ?? null, label: "unknown (brainstorm is malformed)" };
+  }
+
+  const metadata: Record<string, string[]> = { "ai-feature": [], "ai-approved": [] };
+  let malformedMetadata = false;
+  for (const match of html.matchAll(/<meta\b([^>]*)>/giu)) {
+    const attributes = htmlAttributes(match[1] ?? "");
+    if (attributes === null) {
+      malformedMetadata = true;
+      continue;
+    }
+    const name = attributes.name;
+    if (name === "ai-feature" || name === "ai-approved") {
+      metadata[name]?.push(attributes.content ?? "");
+    }
+  }
+  const feature = metadata["ai-feature"];
+  const approved = metadata["ai-approved"];
+  const slug = feature?.length === 1 && SLUG_PATTERN.test(feature[0] ?? "") && !/\p{C}/u.test(feature[0] ?? "")
+    ? feature[0] ?? null
+    : null;
+  const fail = (reason: string): BrainstormProjection => ({
+    slug: requestedSlug ?? slug,
+    label: `unknown (${reason})`,
+  });
+  if (malformedMetadata) return fail("brainstorm metadata is malformed");
+  if (slug === null) return fail("brainstorm feature slug is missing or ambiguous");
+  if (requestedSlug !== undefined && slug !== requestedSlug) {
+    return fail(`brainstorm belongs to ${slug}, not ${requestedSlug}`);
+  }
+  if (approved?.length !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(approved[0] ?? "")) {
+    return fail("brainstorm approval date is missing or ambiguous");
+  }
+
+  const approvedOn = approved[0] ?? "";
+  const [year, month, day] = approvedOn.split("-").map(Number);
+  const approvedDate = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 0));
+  if (
+    approvedDate.getUTCFullYear() !== year ||
+    approvedDate.getUTCMonth() + 1 !== month ||
+    approvedDate.getUTCDate() !== day
+  ) {
+    return fail("brainstorm approval date is malformed");
+  }
+
+  const statusLines: string[] = [];
+  const statusContainer =
+    /<([a-z][\w:-]*)\b(?=[^>]*\bclass\s*=\s*(?:"[^"]*\bmeta\b[^"]*"|'[^']*\bmeta\b[^']*'))[^>]*>([\s\S]*?)<\/\1\s*>/giu;
+  for (const match of html.matchAll(statusContainer)) {
+    const line = (match[2] ?? "").split(/<br\b[^>]*>/iu, 1)[0] ?? "";
+    statusLines.push(
+      line
+        .replace(/<[^>]*>/gu, "")
+        .replace(/&middot;|&#183;|&#x0*b7;/giu, "·")
+        .replace(/&nbsp;|&#160;|&#x0*a0;/giu, " ")
+        .replace(/&amp;/giu, "&")
+        .replace(/&lt;/giu, "<")
+        .replace(/&gt;/giu, ">")
+        .replace(/&quot;/giu, '"')
+        .replace(/&#39;|&apos;/giu, "'")
+        .replace(/\s+/gu, " ")
+        .trim(),
+    );
+  }
+  if (statusLines.length !== 1 || statusLines[0] !== `complete · ${approvedOn}`) {
+    return fail("brainstorm approval does not match its complete status");
+  }
+
+  const today = new Date();
+  const todayStart = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const ageDays = (todayStart - approvedDate.getTime()) / 86_400_000;
+  if (ageDays < 0 || ageDays > 14) return fail("brainstorm approval is expired or future-dated");
+  return { slug, label: `approval-before-start (brainstorm approved ${approvedOn})` };
+}
+
 function normalizedEvidencePath(path: string): string | null {
   const normalized = path.replace(/^(?:\.\/)+/, "").replace(/\/+/g, "/");
   if (normalized === "" || normalized.startsWith("/") || normalized.split("/").some((part) => part === "..")) return null;
@@ -648,9 +795,13 @@ interface ListedWorktree {
   lifecycle: string;
 }
 
-export function worktreeList(): WorktreeResult {
+export function worktreeList(requestedSlug?: string): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree list: not inside a git repository.\n" };
+  if (requestedSlug !== undefined && (!SLUG_PATTERN.test(requestedSlug) || /\p{C}/u.test(requestedSlug))) {
+    return { code: 2, out: "", err: `worktree list: invalid slug "${printable(requestedSlug)}".\n` };
+  }
+  const root = worktreeRoot(repo);
   const listed = openWorktrees(repo);
   if ("detail" in listed) {
     return { code: 2, out: "", err: `worktree list: the worktree list is unreadable (${listed.detail}).\n` };
@@ -684,7 +835,10 @@ export function worktreeList(): WorktreeResult {
       };
     });
 
-  const lines = entries.map(({ entry, isFeature, status, lifecycle }) => {
+  const matchingEntries = requestedSlug === undefined
+    ? entries
+    : entries.filter(({ entry }) => entry.slug === requestedSlug);
+  const lines = matchingEntries.map(({ entry, isFeature, status, lifecycle }) => {
     const classification = isFeature
       ? "feature"
       : entry.detached
@@ -699,6 +853,57 @@ export function worktreeList(): WorktreeResult {
         : `dirty (${status.paths.map(displayPath).join(", ")})`;
     return `${displayPath(entry.slug)}\t${displayPath(entry.path)}\t${classification}\t${cleanliness}\t${lifecycle}`;
   });
+
+  const hasWorktreeForSlug = (slug: string): boolean =>
+    listed.worktrees.some((entry) =>
+      canonicalize(entry.path) !== repo &&
+      (
+        entry.branch === `feat/${slug}` ||
+        entry.slug === slug ||
+        canonicalize(entry.path) === canonicalize(join(root, slug))
+      )
+    );
+  const hasMatchingWorktree = requestedSlug !== undefined && hasWorktreeForSlug(requestedSlug);
+  const projection = requestedSlug !== undefined
+    ? hasMatchingWorktree
+      ? null
+      : brainstormProjection(repo, requestedSlug)
+    : brainstormProjection(repo);
+  const projectionSlug = projection === null ? null : requestedSlug ?? projection.slug;
+  const featureBranchRead = projectionSlug === null
+    ? null
+    : git(repo, ["show-ref", "--verify", "--quiet", `refs/heads/feat/${projectionSlug}`]);
+  const hasFeatureBranch = featureBranchRead?.status === 0 && featureBranchRead.stderr.trim() === "";
+  const featureBranchUnknown = featureBranchRead !== null &&
+    !hasFeatureBranch &&
+    !(featureBranchRead.status === 1 && featureBranchRead.stderr.trim() === "");
+  if (requestedSlug !== undefined && hasMatchingWorktree && matchingEntries.length === 0) {
+    const path = listed.worktrees.find((entry) =>
+      canonicalize(entry.path) === canonicalize(join(root, requestedSlug))
+    )?.path ?? "-";
+    lines.push(
+      `${displayPath(requestedSlug)}\t${displayPath(path)}\tunclassified\tunknown\tunknown (existing worktree does not match feat/${requestedSlug})`,
+    );
+  }
+  if (requestedSlug !== undefined && !hasMatchingWorktree && hasFeatureBranch) {
+    lines.push(
+      `${displayPath(requestedSlug)}\t-\tbranch-only\tunknown\tunknown (feature branch exists without an open worktree)`,
+    );
+  }
+  if (requestedSlug !== undefined && !hasMatchingWorktree && featureBranchUnknown) {
+    lines.push(
+      `${displayPath(requestedSlug)}\t-\tbranch-only\tunknown\tunknown (feature branch status is unreadable)`,
+    );
+  }
+  if (projection !== null && (projection.slug !== null || requestedSlug !== undefined)) {
+    const slug = requestedSlug ?? projection.slug ?? "unknown";
+    const alreadyListed = hasWorktreeForSlug(slug);
+    if (!alreadyListed && !hasFeatureBranch && !featureBranchUnknown) {
+      lines.push(
+        `${displayPath(slug)}\t-\tpre-worktree\tunknown\t${projection.label}`,
+      );
+    }
+  }
 
   const overlaps = new Set<string>();
   // todo: index paths if local worktree counts grow; pairwise comparison is O(n²).
@@ -725,11 +930,456 @@ export function worktreeList(): WorktreeResult {
     }
   }
 
-  lines.push(...overlaps);
+  if (requestedSlug === undefined) lines.push(...overlaps);
   const out = lines.join("\n");
   return {
     code: statusUnreadable ? 2 : 0,
     out: out.length > 0 ? `${out}\n` : "",
+    err: "",
+  };
+}
+
+function replaceCheckpoint(path: string, contents: string, mode: number): string | null {
+  const temporaryPath = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+  try {
+    writeFileSync(temporaryPath, contents, { flag: "wx", mode: mode & 0o777 });
+    renameSync(temporaryPath, path);
+    return null;
+  } catch (error) {
+    try {
+      unlinkSync(temporaryPath);
+    } catch {
+      // Keep the original write error; the temporary file may not exist.
+    }
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+function cleanupRequestChangesWorktree(
+  repo: string,
+  path: string,
+  baseCommit: string,
+  checkpointRelative: string,
+): string | null {
+  const head = fullHead(path);
+  if (head === null) return `${path} has an unreadable transaction HEAD`;
+  const status = worktreeStatus(path);
+  if (status.detail !== undefined) return `${path} status is unreadable (${status.detail})`;
+  if (status.paths.some((changedPath) => changedPath !== checkpointRelative)) {
+    return `${path} contains unexpected changes (${status.paths.map(displayPath).join(", ")})`;
+  }
+  if (status.paths.length > 0) {
+    const restored = git(path, ["restore", "--source", head, "--staged", "--worktree", "--", checkpointRelative]);
+    if (restored.status !== 0) return `could not restore the transaction checkpoint in ${path}`;
+    const afterRestore = worktreeStatus(path);
+    if (afterRestore.detail !== undefined || afterRestore.paths.length > 0) {
+      return `${path} was not clean after restoring its transaction checkpoint`;
+    }
+  }
+  return cleanupMergeWorktree(repo, path, baseCommit, baseCommit, head === baseCommit ? undefined : head);
+}
+
+export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: string): WorktreeResult {
+  const repo = primaryRepoRoot();
+  if (repo === null) return { code: 2, out: "", err: "worktree request-changes: not inside a git repository.\n" };
+  if (!SLUG_PATTERN.test(slug) || /\p{C}/u.test(slug)) {
+    return { code: 2, out: "", err: `worktree request-changes: invalid slug "${printable(slug)}".\n` };
+  }
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(expectedCheckpointCommit)) {
+    return {
+      code: 2,
+      out: "",
+      err: "worktree request-changes: provide the full SHA of the pending app-review checkpoint-only commit.\n",
+    };
+  }
+
+  const root = worktreeRoot(repo);
+  const listed = openWorktrees(repo);
+  if ("detail" in listed) {
+    return { code: 2, out: "", err: `worktree request-changes: the worktree list is unreadable (${listed.detail}).\n` };
+  }
+  const matching = listed.worktrees.filter((entry) => entry.branch === `feat/${slug}`);
+  const entry = findManagedWorktree(repo, root, slug, listed.worktrees);
+  if (
+    matching.length !== 1 ||
+    entry === null ||
+    canonicalize(entry.path) !== canonicalize(join(root, slug)) ||
+    !existsSync(entry.path)
+  ) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree request-changes: no exact live managed feat/${slug} worktree; preserve the review state.\n`,
+    };
+  }
+
+  const branch = `refs/heads/feat/${slug}`;
+  const head = fullHead(entry.path);
+  const branchTip = git(repo, ["rev-parse", "--verify", `${branch}^{commit}`]);
+  if (
+    head !== expectedCheckpointCommit ||
+    branchTip.status !== 0 ||
+    branchTip.stderr.trim() !== "" ||
+    branchTip.stdout.trim() !== expectedCheckpointCommit
+  ) {
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree request-changes: stale checkpoint; expected ${expectedCheckpointCommit}, ` +
+        `but the current feat/${slug} tip is ${head ?? "unreadable"}. Return to app review; no files were changed.\n`,
+    };
+  }
+
+  const checkedOutBranch = git(entry.path, ["symbolic-ref", "--quiet", "HEAD"]);
+  if (
+    checkedOutBranch.status !== 0 ||
+    checkedOutBranch.stderr.trim() !== "" ||
+    checkedOutBranch.stdout.trim() !== branch
+  ) {
+    return { code: 1, out: "", err: `worktree request-changes: ${entry.path} is not checked out on feat/${slug}.\n` };
+  }
+  const status = worktreeStatus(entry.path);
+  if (status.detail !== undefined || status.paths.length > 0) {
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree request-changes: feat/${slug} is not clean` +
+        `${status.detail ? ` (${printable(status.detail)})` : ` (${status.paths.map(displayPath).join(", ")})`}; ` +
+        "preserve the review state and return to app review.\n",
+    };
+  }
+  const operation = gitOperationState(entry.path);
+  if (operation !== null) {
+    const detail = "detail" in operation ? operation.detail : `${operation.name} is in progress`;
+    return { code: 1, out: "", err: `worktree request-changes: ${printable(detail)}; preserve the review state.\n` };
+  }
+
+  const checkpointPath = join(entry.path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+  const checkpointRelative = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+  let checkpointContents: string;
+  let checkpoint: unknown;
+  try {
+    const stat = lstatSync(checkpointPath);
+    const relativePath = relative(canonicalize(entry.path), realpathSync(checkpointPath));
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      relativePath === "" ||
+      relativePath === ".." ||
+      relativePath.startsWith(`..${sep}`) ||
+      isAbsolute(relativePath)
+    ) {
+      return { code: 1, out: "", err: "worktree request-changes: checkpoint is not a worktree-local file.\n" };
+    }
+    checkpointContents = readFileSync(checkpointPath, "utf8");
+    checkpoint = JSON.parse(checkpointContents);
+  } catch {
+    return { code: 1, out: "", err: "worktree request-changes: checkpoint is missing, unreadable or malformed.\n" };
+  }
+
+  if (checkpointFiles(checkpoint, slug) === null) {
+    return { code: 1, out: "", err: "worktree request-changes: checkpoint does not match this worktree.\n" };
+  }
+  const lifecycle = lifecycleFields(checkpoint);
+  if (
+    lifecycle === null ||
+    lifecycle.phase !== "awaiting-app-review" ||
+    lifecycle.plan_approval !== "approved" ||
+    lifecycle.app_review !== "pending" ||
+    !gatesComplete(checkpoint) ||
+    typeof lifecycle.reviewed_main !== "string" ||
+    typeof lifecycle.reviewed_feature !== "string"
+  ) {
+    return {
+      code: 1,
+      out: "",
+      err: "worktree request-changes: checkpoint is not awaiting app review with pending review and complete gates.\n",
+    };
+  }
+  const chainProblem = reviewedFeatureChainProblem(
+    repo,
+    slug,
+    lifecycle.reviewed_main,
+    lifecycle.reviewed_feature,
+    expectedCheckpointCommit,
+    "awaiting-app-review",
+  );
+  if (chainProblem !== null) {
+    return { code: 1, out: "", err: `worktree request-changes: ${chainProblem}; preserve the review state.\n` };
+  }
+
+  const nextPlan = {
+    ...(checkpoint as Record<string, unknown>),
+    lifecycle: {
+      ...lifecycle,
+      phase: "implementation",
+      app_review: "not-started",
+      reviewed_main: null,
+      reviewed_feature: null,
+    },
+  };
+  const nextContents = `${JSON.stringify(nextPlan, null, 2)}\n`;
+
+  const transactionPath = join(root, `.request-changes-${slug}-${randomUUID()}`);
+  const added = git(repo, ["worktree", "add", "--detach", transactionPath, expectedCheckpointCommit]);
+  if (added.status !== 0) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree request-changes: could not prepare a detached checkpoint transaction (${printable(added.stderr.trim())}).\n`,
+    };
+  }
+
+  const transactionCheckpoint = join(transactionPath, checkpointRelative);
+  let transactionMode: number;
+  let transactionPlan: unknown;
+  try {
+    const stat = lstatSync(transactionCheckpoint);
+    const relativePath = relative(canonicalize(transactionPath), realpathSync(transactionCheckpoint));
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      relativePath === "" ||
+      relativePath === ".." ||
+      relativePath.startsWith(`..${sep}`) ||
+      isAbsolute(relativePath)
+    ) {
+      const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
+      return {
+        code: 1,
+        out: "",
+        err: `worktree request-changes: transaction checkpoint is not worktree-local${cleanup ? `; ${cleanup}` : ""}.\n`,
+      };
+    }
+    transactionMode = stat.mode;
+    transactionPlan = JSON.parse(readFileSync(transactionCheckpoint, "utf8"));
+  } catch {
+    const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
+    return {
+      code: 1,
+      out: "",
+      err: `worktree request-changes: transaction checkpoint is unreadable${cleanup ? `; ${cleanup}` : ""}.\n`,
+    };
+  }
+  if (!isDeepStrictEqual(transactionPlan, checkpoint)) {
+    const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
+    return {
+      code: 1,
+      out: "",
+      err: `worktree request-changes: transaction checkpoint differs from the captured review${cleanup ? `; ${cleanup}` : ""}.\n`,
+    };
+  }
+  const writeError = replaceCheckpoint(transactionCheckpoint, nextContents, transactionMode);
+  if (writeError !== null) {
+    const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
+    return {
+      code: 1,
+      out: "",
+      err: `worktree request-changes: could not write the transaction checkpoint (${printable(writeError)})${cleanup ? `; ${cleanup}` : ""}.\n`,
+    };
+  }
+
+  const staged = git(transactionPath, ["add", "--", checkpointRelative]);
+  const stagedPaths = git(transactionPath, ["diff", "--cached", "--name-only", "--no-renames", "-z"]);
+  if (
+    staged.status !== 0 ||
+    staged.stderr.trim() !== "" ||
+    stagedPaths.status !== 0 ||
+    stagedPaths.stderr.trim() !== "" ||
+    stagedPaths.stdout.split("\0").filter(Boolean).join("\0") !== checkpointRelative
+  ) {
+    const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
+    return {
+      code: 1,
+      out: "",
+      err: `worktree request-changes: could not stage only the lifecycle checkpoint${cleanup ? `; ${cleanup}` : ""}.\n`,
+    };
+  }
+
+  const committed = git(transactionPath, ["commit", "-m", `chore(${slug}): record requested changes`]);
+  if (committed.status !== 0) {
+    const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree request-changes: checkpoint commit failed${committed.stderr.trim() ? `: ${printable(committed.stderr.trim())}` : ""}` +
+        `${cleanup ? `; ${cleanup}` : ""}; the feature worktree was not changed.\n`,
+    };
+  }
+
+  const transitionCommit = fullHead(transactionPath);
+  const parents = transitionCommit === null
+    ? null
+    : git(transactionPath, ["rev-list", "--parents", "-n", "1", transitionCommit]);
+  const changedPaths = transitionCommit === null
+    ? null
+    : git(transactionPath, ["diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", "-z", transitionCommit]);
+  const clean = worktreeStatus(transactionPath);
+  let transitionedPlan: unknown = null;
+  try {
+    const committedCheckpoint = git(transactionPath, ["show", `${transitionCommit}:${checkpointRelative}`]);
+    if (committedCheckpoint.status === 0 && committedCheckpoint.stderr.trim() === "") {
+      transitionedPlan = JSON.parse(committedCheckpoint.stdout);
+    }
+  } catch {
+    // The verification below refuses an unreadable commit.
+  }
+  const transitionedLifecycle = lifecycleFields(transitionedPlan);
+  if (
+    transitionCommit === null ||
+    parents?.status !== 0 ||
+    parents.stderr.trim() !== "" ||
+    parents.stdout.trim() !== `${transitionCommit} ${expectedCheckpointCommit}` ||
+    changedPaths?.status !== 0 ||
+    changedPaths.stderr.trim() !== "" ||
+    changedPaths.stdout.split("\0").filter(Boolean).join("\0") !== checkpointRelative ||
+    clean.detail !== undefined ||
+    clean.paths.length > 0 ||
+    transitionedLifecycle?.phase !== "implementation" ||
+    transitionedLifecycle.app_review !== "not-started" ||
+    transitionedLifecycle.reviewed_main !== null ||
+    transitionedLifecycle.reviewed_feature !== null ||
+    !isDeepStrictEqual(transitionedPlan, nextPlan)
+  ) {
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree request-changes: the checkpoint commit could not be verified as a checkpoint-only child of ` +
+        `${expectedCheckpointCommit}; preserve the detached transaction worktree at ${transactionPath}. ` +
+        "The feature worktree was not changed.\n",
+    };
+  }
+
+  const currentBranchTip = git(repo, ["rev-parse", "--verify", `${branch}^{commit}`]);
+  const currentStatus = worktreeStatus(entry.path);
+  if (
+    fullHead(entry.path) !== expectedCheckpointCommit ||
+    currentBranchTip.status !== 0 ||
+    currentBranchTip.stderr.trim() !== "" ||
+    currentBranchTip.stdout.trim() !== expectedCheckpointCommit ||
+    currentStatus.detail !== undefined ||
+    currentStatus.paths.length > 0
+  ) {
+    const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree request-changes: stale checkpoint; expected ${expectedCheckpointCommit}. Return to app review; ` +
+        `${cleanup ? ` ${cleanup}` : "the feature worktree is unchanged"}.\n`,
+    };
+  }
+  const published = git(repo, ["update-ref", branch, transitionCommit, expectedCheckpointCommit]);
+  if (published.status !== 0) {
+    const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree request-changes: compare-and-swap lost; feat/${slug} no longer points to ` +
+        `${expectedCheckpointCommit}. Return to app review; ${cleanup ? `${cleanup}.` : "the feature worktree is unchanged"}\n`,
+    };
+  }
+
+  const sourceStatus = worktreeStatus(entry.path);
+  let sourceCheckpoint: string | null = null;
+  try {
+    sourceCheckpoint = readFileSync(checkpointPath, "utf8");
+  } catch {
+    // A failed read below rolls back only if the exact feature ref still matches.
+  }
+  if (
+    fullHead(entry.path) !== transitionCommit ||
+    sourceStatus.detail !== undefined ||
+    sourceStatus.paths.length !== 1 ||
+    sourceStatus.paths[0] !== checkpointRelative ||
+    sourceCheckpoint !== checkpointContents
+  ) {
+    const rollback = git(repo, ["update-ref", branch, expectedCheckpointCommit, transitionCommit]);
+    const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree request-changes: published checkpoint could not be synchronized safely` +
+        `${rollback.status === 0 ? "; the ref was rolled back" : "; preserve the published ref and worktree"}` +
+        `${cleanup ? `; ${cleanup}` : ""}.\n`,
+    };
+  }
+
+  const synchronized = git(entry.path, [
+    "restore",
+    `--source=${transitionCommit}`,
+    "--staged",
+    "--worktree",
+    "--",
+    checkpointRelative,
+  ]);
+  const synchronizedStatus = worktreeStatus(entry.path);
+  if (
+    synchronized.status !== 0 ||
+    synchronized.stderr.trim() !== "" ||
+    fullHead(entry.path) !== transitionCommit ||
+    synchronizedStatus.detail !== undefined ||
+    synchronizedStatus.paths.length > 0
+  ) {
+    const rollback = git(repo, ["update-ref", branch, expectedCheckpointCommit, transitionCommit]);
+    let restored = false;
+    if (rollback.status === 0) {
+      const currentStatus = worktreeStatus(entry.path);
+      let currentContents: string | null = null;
+      try {
+        currentContents = readFileSync(checkpointPath, "utf8");
+      } catch {
+        // Leave unreadable work untouched.
+      }
+      if (
+        currentStatus.detail === undefined &&
+        currentStatus.paths.every((changedPath) => changedPath === checkpointRelative) &&
+        (currentContents === checkpointContents || currentContents === nextContents)
+      ) {
+        const restore = git(entry.path, [
+          "restore",
+          `--source=${expectedCheckpointCommit}`,
+          "--staged",
+          "--worktree",
+          "--",
+          checkpointRelative,
+        ]);
+        const afterRestore = worktreeStatus(entry.path);
+        restored =
+          restore.status === 0 &&
+          restore.stderr.trim() === "" &&
+          afterRestore.detail === undefined &&
+          afterRestore.paths.length === 0;
+      }
+    }
+    const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree request-changes: could not synchronize the committed checkpoint` +
+        `${rollback.status === 0 && restored ? "; the ref and checkpoint were restored" : "; preserve the ref and worktree"}` +
+        `${cleanup ? `; ${cleanup}` : ""}.\n`,
+    };
+  }
+
+  const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
+  if (cleanup !== null) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree request-changes: transition ${transitionCommit} succeeded, but ${cleanup}; preserve the feature worktree.\n`,
+    };
+  }
+  return {
+    code: 0,
+    out: `✓ request changes ${slug}: checkpoint ${transitionCommit} → implementation; rerun affected gates before renewed app review.\n`,
     err: "",
   };
 }

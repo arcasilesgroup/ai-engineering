@@ -83,9 +83,18 @@ artifact, never the approval.
 ### 0. Check what already exists
 
 - Before any new or resumed brainstorm work, run the same read-only, local preflight
-  used by ai-orchestrator: `ai-eng worktree list`. It reports the current clone's
-  Git-listed worktrees, their paths and clean/dirty/trusted/unknown state, lifecycle
-  checkpoint and approval status, and overlap evidence. It creates or changes nothing.
+  used by ai-orchestrator: `ai-eng worktree list`. For the feature in this conversation,
+  also run `ai-eng worktree list <slug>` when its exact state is not already listed.
+  The list reports Git-listed worktrees, their paths and clean/dirty/trusted/unknown
+  state, lifecycle checkpoints and overlap evidence. Before a worktree exists, it
+  projects `approval-before-start` only from the primary-tree brainstorm whose exact
+  feature slug, approval date within 14 days, matching `complete · <date>` status,
+  and absent local `feat/<slug>` branch all validate. A branch without an open
+  worktree is unknown, never pre-worktree approval. This is read-only; no lifecycle
+  file is written. A missing, draft, malformed, ambiguous, expired or mismatched
+  artifact is `unknown`, never approval.
+  Once a worktree exists, its checkpoint is authoritative; a missing or contradictory
+  checkpoint is unknown, with no fallback to brainstorm. The list creates or changes nothing.
 - Before deciding whether work may continue, explicitly surface a pending plan approval
   as `awaiting-plan-approval` with `plan_approval: pending`, a pending app review as
   `awaiting-app-review` with `app_review: pending`, and `ready-to-merge` with

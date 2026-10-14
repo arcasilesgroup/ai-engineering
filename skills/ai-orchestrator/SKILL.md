@@ -69,18 +69,33 @@ Before Phase 0, read `.ai-engineering/brainstorm.html`. Plan nothing until every
 - the file exists;
 - `<meta name="ai-feature">` is the slug of the feature you were just asked to build;
 - `<meta name="ai-approved">` is a `YYYY-MM-DD` date, and that date is within 14 days;
-- the status line is `complete ·` that same date.
+- there is exactly one of each marker, and the status line is exactly
+  `complete ·` that same date.
 
-Anything else is the wrong interview or a stale one: a missing file, a draft, another slug, or an approval older than 14 days. Run `/ai-brainstorm` for this feature and stop. Do not turn the old page into checkpoints. When the slug matches but the date is older than 14 days, say the date out loud and re-run the interview.
+Anything else is unknown, not approval: a missing, draft, malformed, ambiguous,
+mismatched or expired artifact. Run `/ai-brainstorm` for this feature and stop. Do not
+turn the old page into checkpoints. When the slug matches but the date is older than
+14 days, say the date out loud and re-run the interview.
 
 When the gate passes, every later phase reads both files. `.ai-engineering/PRD.html` is the conclusions. `brainstorm.html` is the interview: what was wanted, what was decided, and what was refused.
 
 ## Phase 0: Preflight
 
 - Before any new or resumed work, run the same read-only, local preflight used by
-  ai-brainstorm: `ai-eng worktree list`. Use only this current clone's Git inventory,
-  listed paths, dirty/trusted state, lifecycle checkpoint and overlap evidence; report
-  pending human approvals rather than treating them as granted. Before deciding
+  ai-brainstorm: `ai-eng worktree list`, then `ai-eng worktree list <slug>` when the
+  exact requested state is not already present. Use only this current clone's Git
+  inventory, listed paths, dirty/trusted state, lifecycle checkpoint and overlap
+  evidence; report pending human approvals rather than treating them as granted.
+  Before a worktree exists, the list may project `approval-before-start` only from
+  the primary brainstorm with one exact matching feature slug, one fresh approval
+  date (within 14 days), the matching complete status line, and no local
+  `feat/<slug>` branch. A branch without an open worktree is unknown, never
+  pre-worktree approval. This projection is read-only, writes no lifecycle record,
+  and never substitutes for the brainstorm gate above. A missing, draft, malformed,
+  ambiguous, expired or mismatched artifact is unknown/pending and cannot authorize
+  work. Once a worktree exists, its checkpoint alone is authoritative; missing,
+  malformed or contradictory checkpoint state is unknown and never falls back to
+  brainstorm. Before deciding
   whether work may continue, explicitly surface a pending plan approval as
   `awaiting-plan-approval` with `plan_approval: pending`, a pending app review as
   `awaiting-app-review` with `app_review: pending`, and `ready-to-merge` with
@@ -210,7 +225,13 @@ Before opening Phase 4, finish and commit Phase 3 changes under the commit-as-yo
 
 ## Phase 4: Human stop 2, app review
 
-The feature isn't done until a human has looked at it. Before asking, verify the lifecycle is `awaiting-app-review` with `app_review: pending` and `reviewed_main` equal to the exact local main commit synchronized in Phase 3. Make sure the dev server is running, then use `AskUserQuestion` to ask the user to try the feature. Include:
+The feature isn't done until a human has looked at it. Before asking, verify the
+lifecycle is `awaiting-app-review` with `app_review: pending`, `reviewed_main` equal
+to the exact local main commit synchronized in Phase 3, and a clean feature worktree
+whose `HEAD` equals `refs/heads/feat/<slug>`. Capture that exact full branch SHA from
+`git rev-parse refs/heads/feat/<slug>` as `PENDING_REVIEW_SHA`; Phase 3 guarantees it
+is the pending checkpoint-only review commit. Make sure the dev server is running,
+then use `AskUserQuestion` to ask the user to try the feature. Include:
 
 - the routes to open, and which role or test login to use for each (from Project config → *Roles* and *Automated sign-in*);
 - a checkpoint summary: sizes, retries per gate, and test counts per layer;
@@ -221,7 +242,23 @@ Offer three choices: **Approve**, **Request changes**, **Stop here**.
 
 Do not use the former manual `git merge --no-ff feat/<slug>` and `ai-eng worktree rm <slug>` close flow.
 
-- **Request changes:** first log the feedback in `LEARNINGS.md` with the gate `human`. Something every automated gate missed is the highest-value learning, so also promote it to a Rule right away and say which gate should have caught it. Then turn the feedback into new checkpoints appended to the JSON (next `id`, with `builds_on` the last one). Run them through Phase 2 and Phase 3 without asking again at checkpoint level, because the feedback is the approval. Then return to this app review.
+- **Request changes:** before asking, capture the full current `HEAD` SHA of the
+  checkpoint-only pending-review commit as `PENDING_REVIEW_SHA`. After the human
+  chooses Request changes, first run
+  `ai-eng worktree request-changes <slug> <PENDING_REVIEW_SHA>` from the primary
+  checkout. The command accepts only a clean, live managed `feat/<slug>` worktree
+  whose current full checkpoint-only commit SHA still equals that token and whose
+  checkpoint is `awaiting-app-review` with `app_review: pending`. It atomically
+  commits only the transition to `implementation`, clears app-review status and both
+  reviewed SHAs, then reports the new commit. If the SHA is stale or any check fails,
+  preserve all work and return to app review; never substitute a newer SHA. Only
+  after that transition succeeds, log the feedback in `LEARNINGS.md` with the gate
+  `human`. Something every automated gate missed is the highest-value learning, so
+  also promote it to a Rule right away and say which gate should have caught it.
+  Turn the feedback into new checkpoints appended to the JSON (next `id`, with
+  `builds_on` the last one). Run them through Phase 2 and Phase 3 without asking
+  again at checkpoint level, because the feedback is the approval. Then return to
+  this app review.
 - **Approve:** Never invoke `ai-visual-recap` automatically or create `.ai-engineering/recap.html`. The recap is optional and never required for merge. Only when the user explicitly invokes `/ai-visual-recap` themselves may a recap be created; its absence must not delay approval, merge, or worktree removal.
   1. Confirm the feature worktree is clean and its full `HEAD` equals `refs/heads/feat/<slug>`. All review artifacts must already be committed before the Phase 3 review pin. If any new artifact or code change remains, return to Phase 3 and obtain renewed app review instead of committing it after the pin. Read the already pinned `lifecycle.reviewed_feature` from the checkpoint and record `REVIEWED_FEATURE_SHA=<that exact full commit ID>`; never recapture the metadata-only `HEAD`.
   2. After the human approves, verify `lifecycle.reviewed_main` still equals the exact local main and `lifecycle.reviewed_feature` is still an ancestor of the current `refs/heads/feat/<slug>` tip. Do not replace either reviewed SHA with a later metadata-commit tip. Use the checkpoint-gated state update in the feature worktree to retain the exact full `lifecycle.reviewed_main` and retain the exact full `lifecycle.reviewed_feature`, then set `lifecycle.app_review: approved` and `lifecycle.phase: ready-to-merge`. Confirm the update passed its gate, all gates passed, both reviewed refs are current, and the feature worktree remains clean. Stage and make a second, distinct checkpoint-only commit containing only `.ai-engineering/workflow/checkpoints/<slug>.json`; verify it preserves both reviewed SHAs and leaves the reviewed feature code tree unchanged. If the checkpoint is missing, invalid, stale, or the update makes the worktree dirty, stop without closing or removing anything.
