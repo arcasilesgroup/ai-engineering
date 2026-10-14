@@ -1,10 +1,23 @@
 import type { AzureSignals } from "./azure-signals.mjs";
 
+export type AzureRecentComments = {
+  totalCount?: number;
+  items: Array<{
+    id: number;
+    text: string;
+    createdDate: string;
+  }>;
+  status?: "complete" | "absent" | "partial" | "inaccessible";
+  reason?: string;
+  nextAction?: string;
+};
+
 export type AzureWorkItem = {
   id: number;
   rev?: number;
   fields: Record<string, unknown>;
   signals?: AzureSignals;
+  comments?: AzureRecentComments;
   relations?: Array<{
     rel: string;
     url: string;
@@ -13,6 +26,7 @@ export type AzureWorkItem = {
       type: string;
       state: string;
       title: string;
+      comments?: AzureRecentComments;
     };
   }>;
 };
@@ -64,16 +78,6 @@ export function partitionWorkItemIds(workItemIds: number[]): number[][];
 export function createAzureDevOpsInvoker(
   input: CreateAzureDevOpsInvokerInput,
 ): CollectAzureBacklogInput["invoke"];
-
-export function collectAzureBacklog(
-  input: Omit<CollectAzureBacklogInput, "invoke" | "includeSignals" | "observedAt"> & {
-    includeSignals?: false;
-    observedAt?: never;
-    invoke: (request: Omit<AzureInvokeRequest, "apiVersion" | "query"> & {
-      apiVersion: "7.1";
-    }) => Promise<unknown>;
-  },
-): Promise<AzureInventory>;
 
 export function collectAzureBacklog(
   input: CollectAzureBacklogInput,

@@ -7,10 +7,13 @@ import {
 } from "./azure-signals.mjs";
 
 const API_VERSION = "7.1";
+const COMMENTS_API_VERSION = "7.1-preview.4";
 const AZURE_DEVOPS_RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798";
 const AZURE_PROJECT_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BATCH_SIZE = 200;
+const MAX_COMMENT_READS = 5;
+const RECENT_COMMENT_LIMIT = 5;
 const RELATED_ITEM_FIELDS = [
   "System.WorkItemType",
   "System.State",
@@ -166,6 +169,43 @@ function requireWorkItemTitle(item) {
   return title;
 }
 
+function commentWorkItemId(path, encodedProject) {
+  const prefix = `/${encodedProject}/_apis/wit/workItems/`;
+  if (typeof path !== "string" || !path.startsWith(prefix)) return undefined;
+  const match = path.slice(prefix.length).match(/^(\d+)\/comments$/);
+  const id = Number(match?.[1]);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+}
+
+function recentComments(response, workItemId) {
+  const comments = response?.comments;
+  if (
+    !Array.isArray(comments) ||
+    !Number.isSafeInteger(response.totalCount) ||
+    response.totalCount < comments.length ||
+    comments.length > RECENT_COMMENT_LIMIT ||
+    (response.count !== undefined && response.count !== comments.length)
+  ) throw new AzureReadError("invalid-response");
+  const ids = new Set();
+  return {
+    totalCount: response.totalCount,
+    items: comments.map((comment) => {
+      const id = comment?.id ?? comment?.commentId;
+      if (
+        comment?.workItemId !== workItemId ||
+        !Number.isSafeInteger(id) || id <= 0 || ids.has(id) ||
+        (comment.id !== undefined && comment.commentId !== undefined && comment.id !== comment.commentId) ||
+        comment.isDeleted === true ||
+        typeof comment.text !== "string" ||
+        typeof comment.createdDate !== "string" ||
+        !Number.isFinite(Date.parse(comment.createdDate))
+      ) throw new AzureReadError("invalid-response");
+      ids.add(id);
+      return { id, text: comment.text, createdDate: comment.createdDate };
+    }),
+  };
+}
+
 const execFileAsync = promisify(execFile);
 
 async function executeAz(args) {
@@ -218,11 +258,17 @@ export function createAzureDevOpsInvoker({
       throw incomplete("an Azure request escaped the selected scope");
     }
 
-    const commentId = [...selectedIds].find((id) =>
-      request.path === `/${encodedProject}/_apis/wit/workItems/${id}/comments`
-    );
-    const isCommentRead = request.method === "GET" && commentId !== undefined &&
-      request.apiVersion === "7.1-preview.4" &&
+    const commentId = commentWorkItemId(request.path, encodedProject);
+    const isSelectedComment = commentId !== undefined && selectedIds.has(commentId) &&
+      request.path === `/${encodedProject}/_apis/wit/workItems/${commentId}/comments`;
+    const isRelatedComment = commentId !== undefined && [...selectedDetails.values()].some((item) =>
+      (item.relations ?? []).some((relation) => {
+        const target = relatedWorkItemTarget(relation, selectedScope.organization);
+        return target?.id === commentId &&
+          target.projectId.toLowerCase() === selectedProjectId?.toLowerCase();
+      })
+    ) && request.path === `/${encodedProject}/_apis/wit/workItems/${commentId}/comments`;
+    const isFullCommentRead = isSelectedComment &&
       request.query && typeof request.query === "object" && !Array.isArray(request.query) &&
       Object.keys(request.query).every((key) =>
         ["$top", "order", "includeDeleted", "continuationToken"].includes(key)
@@ -231,6 +277,12 @@ export function createAzureDevOpsInvoker({
       request.query.includeDeleted === true &&
       (request.query.continuationToken === undefined ||
         (typeof request.query.continuationToken === "string" && request.query.continuationToken.length > 0));
+    const isRecentCommentRead = (isSelectedComment || isRelatedComment) &&
+      request.query && typeof request.query === "object" && !Array.isArray(request.query) &&
+      request.query["$top"] === RECENT_COMMENT_LIMIT && request.query.order === "desc" &&
+      Object.keys(request.query).length === 2;
+    const isCommentRead = request.apiVersion === COMMENTS_API_VERSION &&
+      (isFullCommentRead || isRecentCommentRead);
     const isAllowedGet = request.body === undefined &&
       request.method === "GET" &&
       (isCommentRead || (request.apiVersion === API_VERSION && request.query === undefined &&
@@ -296,7 +348,11 @@ export function createAzureDevOpsInvoker({
       "--method",
       request.method.toLowerCase(),
       "--url",
-      `${selectedScope.organization}${request.path}?${query}`,
+      `${selectedScope.organization}${request.path}?${
+        isRecentCommentRead
+          ? `$top=${RECENT_COMMENT_LIMIT}&order=desc&api-version=${COMMENTS_API_VERSION}`
+          : query
+      }`,
       "--resource",
       AZURE_DEVOPS_RESOURCE,
       "--only-show-errors",
@@ -427,14 +483,20 @@ export async function collectAzureBacklog({
   ]);
 
   const request = async (method, path, body) => {
-    if (!allowedRoutes.has(`${method} ${path}`)) {
+    const isCommentRead =
+      method === "GET" &&
+      commentWorkItemId(path, encodedProject) !== undefined;
+    if (!allowedRoutes.has(`${method} ${path}`) && !isCommentRead) {
       throw incomplete("a request did not match the scoped read allowlist");
     }
     return invoke({
       method,
       path,
       ...scope,
-      apiVersion: API_VERSION,
+      apiVersion: isCommentRead ? COMMENTS_API_VERSION : API_VERSION,
+      ...(isCommentRead
+        ? { query: { "$top": RECENT_COMMENT_LIMIT, order: "desc" } }
+        : {}),
       ...(body ? { body } : {}),
     });
   };
@@ -556,8 +618,52 @@ export async function collectAzureBacklog({
       for (const item of details) detailsById.set(item.id, item);
     }
 
-    const inventoryItems = workItems.map((item) => ({
+    // Selected enriched items reuse the complete discussion, never a latest-five sample.
+    const commentIds = includeSignals ? relatedWorkItemIds : [...detailsById.keys()];
+    const commentsById = new Map();
+    let nextCommentIndex = 0;
+    const readComments = async () => {
+      while (nextCommentIndex < commentIds.length) {
+        const workItemId = commentIds[nextCommentIndex++];
+        if (workItemId === undefined) {
+          throw incomplete("the related-comment inventory changed during collection");
+        }
+        try {
+          const response = await request(
+            "GET",
+            `/${encodedProject}/_apis/wit/workItems/${workItemId}/comments`,
+          );
+          const comments = recentComments(response, workItemId);
+          const isLimited = comments.totalCount > comments.items.length;
+          commentsById.set(workItemId, {
+            ...comments,
+            ...(includeSignals ? {
+              status: isLimited ? "partial" : comments.totalCount === 0 ? "absent" : "complete",
+              ...(isLimited ? {
+                reason: "recent-comment-window",
+                nextAction: "Read the full related discussion before drawing conclusions.",
+              } : {}),
+            } : {}),
+          });
+        } catch (error) {
+          if (!includeSignals && workItemIds.includes(workItemId)) throw error;
+          commentsById.set(workItemId, {
+            ...optionalReadGap(error, "Request read access to recent related comments, then retry."),
+            items: [],
+          });
+        }
+      }
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(MAX_COMMENT_READS, commentIds.length) },
+        () => readComments(),
+      ),
+    );
+
+    const inventoryItem = (item) => ({
       ...item,
+      comments: commentsById.get(item.id),
       ...(item.relations
         ? {
             relations: item.relations.map((relation) => {
@@ -581,12 +687,14 @@ export async function collectAzureBacklog({
                   type: requireWorkItemType(relatedItem),
                   state: requireWorkItemState(relatedItem),
                   title: requireWorkItemTitle(relatedItem),
+                  comments: commentsById.get(relatedItem.id),
                 },
               };
             }),
           }
         : {}),
-    }));
+    });
+    const inventoryItems = workItems.map(inventoryItem);
 
     if (includeSignals) {
       const observation = observedAt ?? new Date().toISOString();
@@ -717,15 +825,58 @@ export async function collectAzureBacklog({
           token = nextToken;
         }
         const parent = parentsByItem.get(item.id);
+        const signals = normalizeAzureSignals({
+          item, observedAt: observation, discussion, fieldMetadata, iterations,
+          parent: typeof parent === "number" ? parentReads.get(parent) : parent,
+        });
+        const normalizedDiscussion = signals.discussion;
+        const recentItems = normalizedDiscussion.status === "complete" || normalizedDiscussion.status === "absent"
+          ? normalizedDiscussion.comments.filter((comment) => !comment.isDeleted)
+            .sort((first, second) => Date.parse(second.createdDate) - Date.parse(first.createdDate) || second.id - first.id)
+            .slice(0, RECENT_COMMENT_LIMIT)
+            .map(({ id, text, createdDate }) => ({ id, text, createdDate }))
+          : [];
+        const isRecentWindowLimited = normalizedDiscussion.totalCount !== undefined &&
+          normalizedDiscussion.totalCount > recentItems.length;
+        commentsById.set(item.id, {
+          status: isRecentWindowLimited ? "partial" : normalizedDiscussion.status,
+          ...(normalizedDiscussion.totalCount !== undefined ? { totalCount: normalizedDiscussion.totalCount } : {}),
+          ...(isRecentWindowLimited
+            ? {
+                reason: "recent-comment-window",
+                nextAction: "Use the full selected-item Discussion for chronology.",
+              }
+            : normalizedDiscussion.reason
+              ? { reason: normalizedDiscussion.reason, nextAction: normalizedDiscussion.nextAction }
+              : {}),
+          items: recentItems,
+        });
+        if (normalizedDiscussion.status === "partial" || normalizedDiscussion.status === "inaccessible") {
+          try {
+            const response = await request("GET", path);
+            const comments = recentComments(response, item.id);
+            const isLimited = comments.totalCount > comments.items.length;
+            commentsById.set(item.id, {
+              ...comments,
+              status: isLimited ? "partial" : comments.totalCount === 0 ? "absent" : "complete",
+              ...(isLimited ? {
+                reason: "recent-comment-window",
+                nextAction: "Read the full discussion before drawing conclusions.",
+              } : {}),
+            });
+          } catch (error) {
+            commentsById.set(item.id, {
+              ...optionalReadGap(error, "Retry the latest-five comment read for this selected item."),
+              items: [],
+            });
+          }
+        }
         enrichedItems.push({
           ...item,
-          signals: normalizeAzureSignals({
-            item, observedAt: observation, discussion, fieldMetadata, iterations,
-            parent: typeof parent === "number" ? parentReads.get(parent) : parent,
-          }),
+          signals,
         });
       }
-      return { complete: true, observedAt: observation, items: enrichedItems };
+      return { complete: true, observedAt: observation, items: enrichedItems.map(inventoryItem) };
     }
     return {
       complete: true,

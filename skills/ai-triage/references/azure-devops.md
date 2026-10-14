@@ -22,7 +22,8 @@ method/route pairs:
 | `POST` | `/{project}/_apis/wit/workitemsbatch` | Read selected-item details and hierarchy relations in batches of at most 200 IDs. |
 | `POST` | `/{project}/_apis/wit/workitemsbatch` | Read type, state, and title for directly related items as context only. |
 | `POST` | `/{project}/_apis/wit/workitemsbatch` | Separately enrich distinct same-project direct parents with metadata-validated standard priority, severity and date fields. |
-| `GET` | `/{project}/_apis/wit/workItems/{selectedItemId}/comments` | Read every selected item's discussion, at `7.1-preview.4`. |
+| `GET` | `/{project}/_apis/wit/workItems/{selectedItemId}/comments` | Read every selected item's discussion for signal chronology, at `7.1-preview.4`. |
+| `GET` | `/{project}/_apis/wit/workItems/{workItemId}/comments` | Read the fixed latest-five context window for selected items and verified same-project direct parent/child relations, at `7.1-preview.4`. |
 | `GET` | `/{project}/_apis/wit/fields` | Read project field definitions once. |
 | `GET` | `/{project}/{team}/_apis/work/teamsettings/iterations` | Read the selected team's configured iterations once. |
 
@@ -31,6 +32,20 @@ These routes follow the Azure DevOps Services REST API 7.1 documentation:
 [backlog-level membership](https://learn.microsoft.com/en-us/rest/api/azure/devops/work/backlogs/get-backlog-level-work-items?view=azure-devops-rest-7.1),
 [project details](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/get?view=azure-devops-rest-7.1),
 and [batch work-item reads](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items/get-work-items-batch?view=azure-devops-rest-7.1).
+Comment reads use the documented
+[Get Comments](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/comments/get-comments?view=azure-devops-rest-7.1)
+route at API version `7.1-preview.4`, with the fixed query `$top=5&order=desc`.
+The fixed context request is `$top=5&order=desc`. In inventory-only mode it
+provides each selected item's recent window; in signal-enabled mode selected
+items also receive a separate full, paginated discussion read for chronology.
+When that full read is partial, the collector uses the fixed latest-five request
+for recent context rather than labeling an oldest-first partial page as newest.
+The context read also covers verified same-project direct parents and children,
+without adding related items to the inventory. Optional related-comment failures
+remain explicit coverage gaps. The collector keeps only comment ID, plain-text
+body, and creation date in recent context; identities and links from comment
+metadata are discarded. Comment text is escaped and credentials are redacted
+before it appears in the local report.
 The backlog-membership response stores each work-item ID at
 `workItems[].target.id`; the collector reads that documented shape. Batch reads
 request `$expand: "Relations"` so each story or bug carries its parent/child links;
@@ -86,7 +101,9 @@ Use `createAzureDevOpsInvoker` from `scripts/collect-azure.mjs` as the collector
 request adapter. It issues the exact allowlisted REST URLs through `az rest`, with
 the explicit Azure DevOps resource ID
 `499b84ac-1321-427f-aa17-267ca6975798`, API version `7.1`, and the selected
-organization, project, team, and backlog (comments use `7.1-preview.4`). The adapter validates every request
+organization, project, team, and backlog. It uses API version `7.1-preview.4`
+only for comments; every other route uses API version `7.1`. The adapter
+validates every request
 against that scope before invoking `az`; it passes arguments directly without a
 shell and sends the batch body as JSON. `az rest` uses the existing CLI sign-in
 and does not write or persist credentials.
@@ -193,18 +210,30 @@ stops the run.
 Pass the complete inventory and its per-item analysis records to
 `writeAzureTriageReport` in `scripts/render-report.mjs` through an `analyzeItem` lookup
 keyed by work-item ID. Each assessed record has `status: "ASSESSED"`, a nonempty
-`summary`, and a `claims` array (empty when nothing is supported). An unavailable
+`summary`, a `claims` array (empty when nothing is supported), `whyNow`,
+`confidence` (`HIGH`, `MEDIUM`, or `LOW`), and `confidenceBasis`. An unavailable
 assessment is explicitly `{ status: "UNASSESSED" }`; missing records are fatal.
 The writer calls `validateAzureClaims` and `buildAzureRecommendation` from
 `scripts/azure-signals.mjs` before rendering.
-The writer uses the shared
+With signals, the report derives Recommendation, its Why now rationale, and
+confidence from validated signals and their coverage, independently of
+assessment prose; without signals it displays the assessment's Why now and
+confidence basis. Use recent comments on the item and direct parent/child context
+to explain timing or dependencies, but distinguish a comment's claim from
+verified facts. The writer uses the shared
 `templates/triage.html.tpl` shell and the Azure-specific scope, ranked work-item,
 type/state and method sections. Each ranked item's expanded details renders its parent,
 the backlog item and any children as a hierarchy, with connectors and one indentation
 level per parent-to-item and item-to-child edge; related items remain context and never
-become inventory rows. Read descriptions as analysis input, but do not display a separate
+become inventory rows. Expanded details show the full selected-item discussion
+and chronology in the Discussion signal row, separately from the fixed latest-five
+context for the selected item and each verified direct related parent or child.
+Recent context includes dates, available counts, and explicit partial/inaccessible
+status.
+Read descriptions as analysis input, but do not display a separate
 Description row. The Analysis summary must explain what the item changes, why it matters,
-and the next decision in plain language. Use `**bold**` for key decisions, `*italics*`
+and the next decision in plain language. “Why now” names the concrete timing signal;
+confidence has a qualitative level and a short evidence-based reason. Use `**bold**` for key decisions, `*italics*`
 for caveats, backticks for code or paths, and `[label](https://...)` for verified links
 when useful; use blank lines to separate paragraphs. Keep formatting inline and
 non-nested. `renderAnalysis` escapes raw HTML, redacts credentials, and renders only

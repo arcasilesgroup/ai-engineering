@@ -59,6 +59,14 @@ organizations, projects, teams, or boards in one report.
   using a parent commitment and retain its supporting comment references. Incomplete
   chronology cannot establish a current blocker or commitment. The writer validates claims, preserves
   the native band and derives Recommendation/Why now independently of Analysis.
+- Include `summary`, `whyNow`, `confidence` (`HIGH`, `MEDIUM`, or `LOW`), and
+  `confidenceBasis` in each assessed record. With signals, the report uses its
+  independently derived recommendation rationale and coverage-based confidence;
+  without signals, it shows the assessment's `whyNow` and confidence basis. Keep
+  those explanations distinct. Recent-comment context is the fixed latest-five
+  window; it is separate from the full selected-item discussion used for chronology.
+  Direct same-project parents/children are context only, and comments are not
+  verified facts.
 - Remote GitHub and Azure work-item links open in a new tab; Azure item links target the
   Azure Boards work-item page, not a REST API endpoint.
 - The report uses the shared shell in `templates/triage.html.tpl` and follows

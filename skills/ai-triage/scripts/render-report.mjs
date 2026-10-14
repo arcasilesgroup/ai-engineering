@@ -27,6 +27,7 @@ const SEVERITY_RANK = new Map([
   ["medium", 2],
   ["low", 3],
 ]);
+const CONFIDENCE_LEVELS = new Set(["HIGH", "MEDIUM", "LOW"]);
 const HIERARCHY_RELATIONS = new Map([
   ["System.LinkTypes.Hierarchy-Reverse", "Parent"],
   ["System.LinkTypes.Hierarchy-Forward", "Child"],
@@ -311,6 +312,7 @@ function validateInventory(inventory) {
     requireRecord(item.fields, "work-item fields");
     requireText(item.fields["System.WorkItemType"], "work-item type");
     requireText(item.fields["System.State"], "work-item state");
+    normalizeComments(item.comments, "work-item comments");
     if (item.relations !== undefined && !Array.isArray(item.relations)) {
       throw new Error("Invalid Azure report relations");
     }
@@ -343,6 +345,10 @@ function hierarchyFor(item) {
         type: requireText(relation.relatedItem.type, "related work-item type"),
         state: requireText(relation.relatedItem.state, "related work-item state"),
         title: requireText(relation.relatedItem.title, "related work-item title"),
+        comments: normalizeComments(
+          relation.relatedItem.comments,
+          "related work-item comments",
+        ),
       };
     }
     relations.push({
@@ -353,6 +359,50 @@ function hierarchyFor(item) {
     });
   }
   return relations;
+}
+
+function normalizeComments(value, label) {
+  if (value === undefined) return undefined;
+  requireRecord(value, label);
+  const statuses = new Set(["complete", "absent", "partial", "inaccessible"]);
+  if (
+    (value.totalCount !== undefined &&
+      (!Number.isSafeInteger(value.totalCount) || value.totalCount < 0)) ||
+    (value.totalCount === undefined && !["partial", "inaccessible"].includes(value.status)) ||
+    !Array.isArray(value.items) ||
+    value.items.length > 5 ||
+    (value.totalCount !== undefined && value.items.length > value.totalCount) ||
+    (value.status !== undefined && !statuses.has(value.status)) ||
+    (value.status === "absent" && value.totalCount !== 0)
+  ) {
+    throw new Error(`Invalid Azure report ${label}`);
+  }
+  const ids = new Set();
+  return {
+    ...(value.totalCount !== undefined ? { totalCount: value.totalCount } : {}),
+    items: value.items.map((comment) => {
+      requireRecord(comment, label);
+      if (
+        !Number.isSafeInteger(comment.id) ||
+        comment.id <= 0 ||
+        ids.has(comment.id) ||
+        typeof comment.text !== "string" ||
+        typeof comment.createdDate !== "string" ||
+        !Number.isFinite(Date.parse(comment.createdDate))
+      ) {
+        throw new Error(`Invalid Azure report ${label}`);
+      }
+      ids.add(comment.id);
+      return {
+        id: comment.id,
+        text: comment.text,
+        createdDate: comment.createdDate,
+      };
+    }),
+    ...(value.status !== undefined ? { status: value.status } : {}),
+    ...(value.reason !== undefined ? { reason: requireText(value.reason, `${label} reason`) } : {}),
+    ...(value.nextAction !== undefined ? { nextAction: requireText(value.nextAction, `${label} next action`) } : {}),
+  };
 }
 
 function normalizeAnalysis(analysis, itemId) {
@@ -370,6 +420,18 @@ function normalizeAnalysis(analysis, itemId) {
     throw new Error("Azure analysis is missing or has an invalid status");
   }
   const summary = requireText(analysis.summary, "analysis summary");
+  const whyNow =
+    typeof analysis.whyNow === "string" && analysis.whyNow.trim() !== ""
+      ? analysis.whyNow
+      : "Not assessed; no timing signal supplied.";
+  const confidence = CONFIDENCE_LEVELS.has(analysis.confidence)
+    ? analysis.confidence
+    : "NOT STATED";
+  const confidenceBasis =
+    typeof analysis.confidenceBasis === "string" &&
+    analysis.confidenceBasis.trim() !== ""
+      ? analysis.confidenceBasis
+      : "No confidence basis provided.";
   const priority =
     typeof analysis.priority === "string" && PRIORITY_ORDER.has(analysis.priority)
       ? analysis.priority
@@ -384,7 +446,16 @@ function normalizeAnalysis(analysis, itemId) {
     const url = sanitizeEvidenceUrl(entry.url);
     return { label, url };
   });
-  return { status: "ASSESSED", priority, summary, evidence, claims: analysis.claims };
+  return {
+    status: "ASSESSED",
+    priority,
+    summary,
+    whyNow,
+    confidence,
+    confidenceBasis,
+    evidence,
+    claims: analysis.claims,
+  };
 }
 
 async function analyzeInventory(items, analyzeItem) {
@@ -521,7 +592,7 @@ function renderItem(item, analysis, relations, scope) {
     `<div class="kv"><span class="ilbl">${label}</span><span${className ? ` class="${className}"` : ""}>${contents}</span></div>`;
   const recommendationRows = advice
     ? row("Recommendation", `<strong>${visibleText(advice.recommendation)}</strong> ${visibleText(advice.nextAction)}`) +
-      row("Why now", visibleText(advice.whyNow))
+      row("Why now", visibleText(`Signal-derived recommendation: ${advice.whyNow}`))
     : "";
   const evidenceLinks = advice
     ? [
@@ -531,6 +602,16 @@ function renderItem(item, analysis, relations, scope) {
     : evidence;
   const titleLabel = typeof fields["System.Title"] === "string" ? fields["System.Title"] : `Work item ${item.id}`;
   const disclosureLabel = advice ? ` role="button" aria-label="${visibleText(`Item #${item.id}: ${titleLabel}`)}"` : "";
+  const recentComments = renderRecentComments(item, relations);
+  const confidence =
+    analysis.status !== "ASSESSED"
+      ? "Not assessed."
+      : advice
+        ? `${advice.coverage === "sufficient" ? "HIGH" : advice.coverage === "limited" ? "MEDIUM" : "LOW"} · ${visibleText(`Signal evidence coverage is ${advice.coverage}; confidence reflects only validated signals and their coverage.`)}`
+        : `${visibleText(analysis.confidence)} · ${renderAnalysis(analysis.confidenceBasis)}`;
+  const assessmentWhyNow = analysis.status === "ASSESSED"
+    ? renderAnalysis(analysis.whyNow)
+    : "Not assessed.";
 
   return `<details class="item" id="i${item.id}">
     <summary${disclosureLabel}>${status}${typeChip(item)}<span class="iid">${itemLink}</span><span class="ititle">${title}</span><span class="imeta">${visibleText(fields["System.State"])}</span></summary>
@@ -541,9 +622,12 @@ function renderItem(item, analysis, relations, scope) {
     <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">${summary}</span></div>
     ${advice ? ["Created / Changed", "Delivery dates", "Discussion", "Iteration / sprint", "Parent signals"].map((label) => row(label, signalRows[label])).join("\n") : ""}
     ${advice && relations.length > 0 ? `<div class="kv"><span class="ilbl">Related context</span><div class="xref">${relationContext}</div></div>` : ""}
+    ${advice ? "" : `<div class="kv"><span class="ilbl">Why now</span><span class="analysis">${assessmentWhyNow}</span></div>`}
+    <div class="kv"><span class="ilbl">Confidence</span><span class="analysis">${confidence}</span></div>
     <div class="kv"><span class="ilbl">Area</span><span>${area}</span></div>
     ${advice ? "" : `<div class="kv"><span class="ilbl">Related context</span><div class="xref">${relationContext}</div></div>`}
     ${advice ? row("Coverage", signalRows.Coverage, advice.coverage === "limited" ? "coverage-gap" : "") : ""}
+    <div class="kv"><span class="ilbl">Recent comments</span>${recentComments}</div>
     <div class="kv"><span class="ilbl">Evidence</span><span class="xref">${evidenceLinks}</span></div>
   </div>
 </details>`;
@@ -638,6 +722,53 @@ function renderHierarchyTree(item, relations, scope) {
     parents: relations.filter((relation) => relation.kind === "Parent").map(relatedNode),
     children: relations.filter((relation) => relation.kind === "Child").map(relatedNode),
   });
+}
+
+function renderRecentComments(item, relations) {
+  const groups = [
+    {
+      label: `This item #${item.id}`,
+      comments: item.comments,
+    },
+    ...relations.filter((relation) => relation.relatedItem !== undefined).map((relation) => ({
+      label: `${relation.kind} #${relation.id ?? "unknown"}${
+        relation.relatedItem?.title ? ` · ${relation.relatedItem.title}` : ""
+      }`,
+      comments: relation.relatedItem?.comments,
+    })),
+  ];
+  const coverage = (comments) => {
+    if (comments === undefined) return "Not collected; no comment count is available.";
+    const status = comments.status ??
+      (comments.totalCount === 0 ? "absent" :
+        comments.totalCount !== undefined && comments.totalCount > comments.items.length ? "partial" : "complete");
+    const detail = [comments.reason, comments.nextAction].filter(Boolean).join(". ");
+    if (status === "inaccessible") return `Inaccessible${detail ? `: ${detail}` : "."}`;
+    if (status === "partial") {
+      const count = comments.totalCount === undefined
+        ? "Recent window unavailable."
+        : `Latest ${comments.items.length} of ${comments.totalCount}.`;
+      return `Partial. ${count}${detail ? ` ${detail}` : ""}`;
+    }
+    if (status === "absent") return "No comments in the complete response.";
+    return comments.totalCount === undefined
+      ? "Complete response; total count unavailable."
+      : `Complete: ${comments.items.length} of ${comments.totalCount} comments.`;
+  };
+  if (groups.every(({ comments }) => comments === undefined)) {
+    return "Recent comment context was not collected.";
+  }
+
+  return `<div class="comment-list">${groups
+    .map(({ label, comments }) => {
+      return `<div class="comment-group"><strong>${visibleText(label)}</strong><span class="dim"> · ${visibleText(coverage(comments))}</span>${(comments?.items ?? [])
+        .map(
+          (comment) =>
+            `<div class="comment-entry"><time>${visibleText(comment.createdDate)}</time><div class="analysis">${visibleText(comment.text)}</div></div>`,
+        )
+        .join("")}</div>`;
+    })
+    .join("")}</div>`;
 }
 
 export function renderHierarchy({ current, parents = [], children = [] }) {

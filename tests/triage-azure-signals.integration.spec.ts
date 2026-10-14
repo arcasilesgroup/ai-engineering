@@ -242,6 +242,24 @@ function createFixture(options: FixtureOptions = {}) {
     if (request.path === iterationsPath) {
       return options.iterations ?? { count: 1, value: [iteration] };
     }
+    const recentItem = [...items, ...relatives].find(({ id }) =>
+      request.path === commentsPath(id) && Number(request.query?.["$top"]) === 5
+    );
+    if (recentItem) {
+      const recentPages = options.pagesByItem?.[recentItem.id] ??
+        (recentItem.id === 101 ? pages : [makePage([])]);
+      const comments = recentPages.flatMap((page) =>
+        (page as CommentPage).comments ?? []
+      ).filter((comment) => !comment.isDeleted).sort((first, second) =>
+        Date.parse(second.createdDate) - Date.parse(first.createdDate) ||
+        (second.id ?? second.commentId ?? 0) - (first.id ?? first.commentId ?? 0)
+      );
+      return {
+        count: Math.min(comments.length, 5),
+        totalCount: (recentPages.at(-1) as CommentPage | undefined)?.totalCount ?? comments.length,
+        comments: comments.slice(0, 5),
+      };
+    }
     if (items.some(({ id }) => request.path === commentsPath(id))) {
       const selectedItem = items.find(({ id }) => request.path === commentsPath(id));
       const selectedPages = selectedItem && options.pagesByItem?.[selectedItem.id];
@@ -288,10 +306,11 @@ function createFixture(options: FixtureOptions = {}) {
     cliCalls,
     invoke,
     run,
-    collect: (isCli = false) => {
+    collect: (isCli = false, includeSignals = true) => {
       const input = {
         ...scope,
         observedAt,
+        includeSignals,
         invoke: isCli ? createAzureDevOpsInvoker({ ...scope, run }) : invoke,
       };
       return collectAzureBacklog(input);
@@ -496,8 +515,11 @@ describe("Azure comment pagination and provenance (A2)", () => {
     expect(inventory.items[0]?.signals?.discussion.comments.map(({ id }) => id)).toEqual([1, 2]);
     expect(fixture.calls.filter(({ path }) => path === projectPath)).toHaveLength(1);
     const commentCalls = fixture.calls.filter(({ path }) => path.endsWith("/comments"));
-    expect(commentCalls.map(({ path }) => path)).toEqual([commentsPath(101), commentsPath(101)]);
-    expect(commentCalls[1]?.query).toEqual({
+    expect(commentCalls.map(({ path }) => path)).toEqual([
+      ...(hasParent ? [commentsPath(901)] : []),
+      commentsPath(101), commentsPath(101),
+    ]);
+    expect(commentCalls.at(-1)?.query).toEqual({
       "$top": "200", order: "asc", includeDeleted: "true", continuationToken: token,
     });
     expect(fixture.cliCalls.every((args) => !args.join(" ").includes("never-executed"))).toBe(true);
@@ -565,6 +587,7 @@ describe("Azure membership and scoped cached enrichment (A3–A4)", () => {
       });
     }
     expect(fixture.calls.filter(({ path }) => path.endsWith("/comments")).map(({ path }) => path)).toEqual([
+      commentsPath(901), commentsPath(902),
       commentsPath(101), commentsPath(102), commentsPath(103),
     ]);
   });
@@ -800,7 +823,7 @@ describe("Azure optional permission and fatal authentication classification (A5)
     expect(inventory.items[0]).toMatchObject({
       signals: { discussion: { comments: [expect.objectContaining({ id: 1, text: "Synthetic discussion 1" })] } },
     });
-    expect(commentReads).toBe(2);
+    expect(commentReads).toBe(3);
   });
 
   test.each([
@@ -826,6 +849,160 @@ describe("Azure optional permission and fatal authentication classification (A5)
 });
 
 describe("Azure enriched inventory compatibility (A6)", () => {
+  test.each([false, true])("integrates recent hierarchy context without replacing full grounded discussion (signals=%s)", async (includeSignals) => {
+    const comments = [
+      datedComment(1, 101, "Package alpha is blocked.", "2026-10-01T10:00:00Z"),
+      datedComment(2, 101, "Package alpha is resolved.", "2026-10-02T10:00:00Z"),
+      ...Array.from({ length: 5 }, (_, index) =>
+        datedComment(index + 3, 101, `Unrelated context ${index + 3}.`, "2026-10-03T10:00:00Z")
+      ),
+    ];
+    const parentComment = datedComment(91, 901, "<script>syntheticAttack()</script> token=synthetic-comment-secret", "2026-10-04T10:00:00Z");
+    const fixture = createFixture({
+      items: [makeItem(101, {}, [hierarchy(901), hierarchy(902, "Forward"), hierarchy(903, "Reverse", otherProjectId)])],
+      relatives: [makeItem(901), makeItem(902), makeItem(903)],
+      pagesByItem: {
+        101: [makePage(comments.slice(0, 2), 7, "next"), makePage(comments.slice(2), 7)],
+        901: [makePage([parentComment])],
+      },
+    });
+    const inventory = await fixture.collect(true, includeSignals);
+    expect(inventory.items.map(({ id }) => id)).toEqual([101]);
+    expect(inventory.items[0]?.comments?.items.map(({ id }) => id)).toEqual([7, 6, 5, 4, 3]);
+    expect(inventory.items[0]?.relations?.[0]?.relatedItem?.comments?.items).toEqual([
+      { id: 91, text: parentComment.text, createdDate: parentComment.createdDate },
+    ]);
+    expect(fixture.calls.filter(({ path }) => path === commentsPath(903))).toEqual([]);
+    const selectedReads = fixture.calls.filter(({ path }) => path === commentsPath(101));
+    expect(selectedReads.map(({ query }) => query)).toEqual(includeSignals ? [
+      { "$top": "200", order: "asc", includeDeleted: "true" },
+      { "$top": "200", order: "asc", includeDeleted: "true", continuationToken: "next" },
+    ] : [{ "$top": "5", order: "desc" }]);
+    if (includeSignals) {
+      expect(inventory.items[0]?.signals?.discussion.comments.map(({ id }) => id)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    } else {
+      expect(inventory.items[0]?.signals).toBeUndefined();
+      expect(fixture.calls.filter(({ path }) => path === fieldsPath || path === iterationsPath)).toEqual([]);
+    }
+    let report = "";
+    await writeAzureTriageReport({
+      scope: reportScope, inventory,
+      analyzeItem: async () => ({
+        status: "ASSESSED", summary: "Synthetic integration.",
+        whyNow: "MODEL_TIMING_MARKER", confidence: "HIGH", confidenceBasis: "MODEL_CONFIDENCE_MARKER",
+        claims: includeSignals ? [
+          { type: "blocker", sourceIds: ["comment:101:1:v1"], excerpt: comments[0]?.text, issueId: "package-alpha", provenance: "team-reported" },
+          { type: "blocker-resolved", sourceIds: ["comment:101:2:v1"], excerpt: comments[1]?.text, issueId: "package-alpha", provenance: "team-reported" },
+        ] : [],
+      }),
+      writeFile: async (_path, contents) => { report = contents; },
+    });
+    expect(report).toContain("Latest 5 of 7");
+    expect(report).toContain("&lt;script&gt;syntheticAttack()&lt;/script&gt; [redacted]");
+    expect(report).not.toContain("synthetic-comment-secret");
+    expect(rankedIds(report)).toEqual([101]);
+    if (includeSignals) {
+      expect(signalRow(itemMarkup(report, 101), "Why now")).toMatch(/#2 v1|resolv/i);
+      expect(signalRow(itemMarkup(report, 101), "Confidence")).toMatch(/HIGH|MEDIUM|LOW/);
+      expect(report).not.toContain("MODEL_TIMING_MARKER");
+      expect(report).not.toContain("MODEL_CONFIDENCE_MARKER");
+      expect(signalRow(itemMarkup(report, 101), "Recommendation")).not.toContain("Unblock the work.");
+    } else {
+      expect(signalRow(itemMarkup(report, 101), "Why now")).toContain("MODEL_TIMING_MARKER");
+      expect(signalRow(itemMarkup(report, 101), "Confidence")).toContain("MODEL_CONFIDENCE_MARKER");
+    }
+  });
+
+  test("uses the fixed latest-five window when selected chronology is partial", async () => {
+    const oldComments = [
+      makeComment(1, 101),
+      makeComment(2, 101),
+    ];
+    const recentComments = Array.from({ length: 5 }, (_, index) =>
+      makeComment(index + 3, 101)
+    );
+    const fixture = createFixture({
+      pagesByItem: {
+        101: [
+          makePage(oldComments, 7, "next"),
+          makePage(recentComments, 7),
+        ],
+      },
+      failRequest: (request) => request.query?.continuationToken
+        ? cliFailure("ERROR: Service Unavailable") : undefined,
+    });
+
+    const inventory = await fixture.collect(true);
+
+    expectCommentCoverage(inventory.items[0], "partial", 7);
+    expect(inventory.items[0]?.comments).toMatchObject({
+      status: "partial",
+      reason: "recent-comment-window",
+      totalCount: 7,
+      items: [{ id: 7 }, { id: 6 }, { id: 5 }, { id: 4 }, { id: 3 }],
+    });
+    expect(fixture.calls.filter(({ path }) => path === commentsPath(101)).map(({ query }) => query)).toEqual([
+      { "$top": "200", order: "asc", includeDeleted: "true" },
+      { "$top": "200", order: "asc", includeDeleted: "true", continuationToken: "next" },
+      { "$top": "5", order: "desc" },
+    ]);
+  });
+
+  test("optional recent hierarchy failures remain gaps, not absent discussion", async () => {
+    const fixture = createFixture({
+      items: [makeItem(101, {}, [hierarchy(901)])],
+      relatives: [makeItem(901)],
+      failRequest: (request) => request.path === commentsPath(901)
+        ? cliFailure("ERROR: Forbidden") : undefined,
+    });
+    const inventory = await fixture.collect(true);
+    expectCommentCoverage(inventory.items[0], "absent", 0);
+    expect({ ...inventory.items[0]?.relations?.[0]?.relatedItem?.comments }).toMatchObject({
+      status: "inaccessible", reason: "permission-denied", nextAction: expect.stringMatching(/\S/),
+    });
+    let report = "";
+    await writeAzureTriageReport({
+      scope: reportScope, inventory,
+      analyzeItem: async () => ({ status: "ASSESSED", summary: "Context unavailable.", claims: [] }),
+      writeFile: async (_path, contents) => { report = contents; },
+    });
+    expect(signalRow(itemMarkup(report, 101), "Recent comments")).toMatch(/inaccessible.*permission-denied/i);
+    expect(report).not.toMatch(/no blockers|no unresolved blockers/i);
+  });
+
+  test.each([false, true])("bounds recent comment reads to five in flight (signals=%s)", async (includeSignals) => {
+    const fixture = createFixture({
+      items: Array.from({ length: 12 }, (_, index) =>
+        makeItem(index + 101, {}, [hierarchy(index + 901)])
+      ),
+      relatives: Array.from({ length: 12 }, (_, index) => makeItem(index + 901)),
+    });
+    let activeReads = 0;
+    let maxActiveReads = 0;
+    const invoke = createAzureDevOpsInvoker({
+      ...scope,
+      run: async (args) => {
+        const url = new URL(args[args.indexOf("--url") + 1] ?? "");
+        if (url.searchParams.get("$top") !== "5") return fixture.run(args);
+        activeReads++;
+        maxActiveReads = Math.max(maxActiveReads, activeReads);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        try {
+          return await fixture.run(args);
+        } finally {
+          activeReads--;
+        }
+      },
+    });
+    const inventory = await collectAzureBacklog({ ...scope, observedAt, includeSignals, invoke });
+    expect(inventory.items).toHaveLength(12);
+    expect(maxActiveReads).toBe(5);
+    expect(activeReads).toBe(0);
+    const recentReads = fixture.calls.filter(({ query }) => Number(query?.["$top"]) === 5);
+    expect(recentReads).toHaveLength(includeSignals ? 12 : 24);
+    expect(new Set(recentReads.map(({ path }) => path)).size).toBe(recentReads.length);
+  });
+
   test("writes every enriched UNASSESSED member once in inventory order", async () => {
     const fixture = createFixture({
       items: [
