@@ -1,0 +1,49 @@
+{
+  "route": ".ai-engineering/workflow/checkpoints/viewer.html",
+  "regions": [
+    "state-switch",
+    "before-pane",
+    "after-pane",
+    "page-header",
+    "plain-summary",
+    "status-banner",
+    "journey",
+    "checkpoint-card",
+    "empty-drop",
+    "tech-details"
+  ],
+  "states": [
+    {
+      "name": "journey",
+      "title": "Journey at 320",
+      "description": "Before clips the last dot. After fits seven dots in the row.",
+      "url": "?state=journey",
+      "regions": ["page-header", "plain-summary", "status-banner", "journey", "checkpoint-card"],
+      "proto_query": "state=journey",
+      "live_query": "plan=workflow-kit",
+      "steps": []
+    },
+    {
+      "name": "empty",
+      "title": "Broken plan",
+      "description": "Before says live on the empty drop. After says offline, with a heading, a wrapping path, and a 44px file control.",
+      "url": "?state=empty",
+      "regions": ["page-header", "empty-drop"],
+      "proto_query": "state=empty",
+      "live_query": "plan=missing-audit",
+      "steps": []
+    },
+    {
+      "name": "open",
+      "title": "Open step",
+      "description": "Before keeps Technical details at about 19px. After adds 13px of padding so the target clears 44px.",
+      "url": "?state=open",
+      "regions": ["page-header", "status-banner", "journey", "checkpoint-card", "tech-details"],
+      "proto_query": "state=open",
+      "live_query": "plan=workflow-kit",
+      "steps": [
+        { "click": "Go to step 1" }
+      ]
+    }
+  ]
+}

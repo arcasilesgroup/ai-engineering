@@ -1,0 +1,38 @@
+{
+  "route": "/.ai-engineering/workflow/checkpoints/viewer.html?plan=workflow-kit",
+  "login": "/login",
+  "now": "2026-09-25T21:00:00",
+  "regions": ["page-header", "status-banner", "journey", "checkpoint-card", "plain-summary"],
+  "states": [
+    {
+      "name": "empty",
+      "regions": ["page-header"],
+      "proto_query": "state=empty",
+      "live": false,
+      "live_note": "empty drop zone only when no plan JSON is loaded",
+      "steps": []
+    },
+    {
+      "name": "running",
+      "regions": ["page-header", "status-banner", "journey", "checkpoint-card", "plain-summary"],
+      "proto_query": "state=running",
+      "steps": []
+    },
+    {
+      "name": "done",
+      "regions": ["page-header", "status-banner", "journey", "checkpoint-card", "plain-summary"],
+      "proto_query": "state=done",
+      "live": false,
+      "live_note": "needs a fully passed checkpoint plan",
+      "steps": []
+    },
+    {
+      "name": "halted",
+      "regions": ["page-header", "status-banner", "journey", "checkpoint-card", "plain-summary"],
+      "proto_query": "state=halted",
+      "live": false,
+      "live_note": "needs a plan with halted.reason set",
+      "steps": []
+    }
+  ]
+}

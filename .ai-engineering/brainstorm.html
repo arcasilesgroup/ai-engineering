@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="ai-feature" content="worktree-lifecycle-governance">
+<meta name="ai-approved" content="2026-10-08">
+<title>Brainstorm · gobernanza de worktrees</title>
+<style>
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010; --purple:#B45AF2; --orange:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px; --lh-h2:1.16; --ls-h2:-.018em;
+  --fs-h3:17px; --lh-h3:1.32; --ls-h3:-.006em;
+  --fs-h4:14px; --lh-h4:1.35;
+  --fs-body:15px; --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px; --lh-mono:1.7;
+  --fs-label:10.5px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --radius-lg:var(--radius); --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--fs-body);line-height:var(--lh-body);font-synthesis-weight:none;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.hero{position:relative;overflow:hidden;text-align:center;padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px),radial-gradient(ellipse 80% 60% at 50% 0%,#11273366,transparent);background-size:32px 32px,32px 32px,100% 100%}
+.hero .stamp{display:inline-block;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.26em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;margin-bottom:var(--s5)}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+nav{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:var(--s2) var(--s4);background:rgba(0,30,43,.78);backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,237,100,.06)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:56px 0 44px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);font-weight:660;margin:var(--s5) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);margin:0 auto var(--s3);text-align:justify;hyphens:auto}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul{margin:var(--s3) 0 var(--s5) var(--s5)}
+ol{margin:var(--s3) 0 var(--s5);text-align:left;list-style:none;padding-left:0;counter-reset:ref}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s3);padding-left:var(--s2)}
+ol li{counter-increment:ref;padding-left:2.4em;position:relative}
+ol li::before{content:counter(ref) ".";position:absolute;left:0;color:var(--comment);font-family:var(--mono);font-size:12px;width:2em;text-align:right}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;-webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);border-radius:var(--radius-lg);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+.card h3,.card h4{min-height:22px;line-height:22px}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0;text-align:left}
+.note.ok{border-color:rgba(0,237,100,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(255,192,16,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(255,105,96,.3)} .note.danger h4{color:var(--bad)}
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+pre{max-width:100%}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-2);overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(17,39,51,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(0,237,100,.13);border:1px solid rgba(0,237,100,.32)}
+.p-bad{background:rgba(255,105,96,.13);border:1px solid rgba(255,105,96,.34)}
+.p-warn{background:rgba(255,192,16,.12);border:1px solid rgba(255,192,16,.32)}
+.p-fix{background:rgba(0,237,100,.1);border:1px solid rgba(0,237,100,.35)}
+.p-dim{background:rgba(17,39,51,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+.btn{display:inline-block;border:1px solid rgba(0,237,100,.35);border-radius:999px;padding:8px 18px;margin:var(--s2) 0;color:var(--accent);font-family:var(--mono);font-size:12px;text-decoration:none;transition:background .15s}
+.btn:hover{background:rgba(0,237,100,.08);text-decoration:none}
+.pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+.pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+.pipe .stage:first-child{border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+.pipe .stage:last-child{border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+.pipe .stage+.stage{border-left:none}
+.pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);color:var(--accent);font-size:13px;z-index:2}
+.pipe .stage{position:relative}
+.pipe .stage:last-child::after{content:''}
+.pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+.pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+.tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+.tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;color:var(--accent);text-transform:uppercase}
+.tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+.tier .tbody b{color:var(--text)}
+.tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+/* ── items: the expandable row, and the band chip that ranks it ───────── */
+.band{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.08em;white-space:nowrap;color:var(--text);border:1px solid transparent}
+.band-p0{background:rgba(255,105,96,.16);border-color:rgba(255,105,96,.46)}
+.band-p1{background:rgba(255,192,16,.14);border-color:rgba(255,192,16,.44)}
+.band-p2{background:rgba(0,237,100,.12);border-color:rgba(0,237,100,.36)}
+.band-p3,.band-p4,.band-p5{background:rgba(17,39,51,.6);border-color:var(--line);color:var(--dim)}
+.items{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.item{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface)}
+.item>summary{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;padding:var(--s3) var(--s4);cursor:pointer;list-style:none;border-radius:var(--radius-lg)}
+.item>summary::-webkit-details-marker{display:none}
+.item>summary::after{content:'+';font-family:var(--mono);font-size:13px;line-height:1;color:var(--comment)}
+.item[open]>summary::after{content:'\2013'}
+.item[open]>summary{border-bottom:1px solid var(--line);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.item>summary:hover{background:rgba(17,39,51,.35)}
+.item .iid{font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap}
+.item .ititle{flex:1 1 300px;min-width:0;font-size:var(--fs-small);line-height:var(--lh-small);color:var(--text);font-weight:520}
+.item .imeta{font-family:var(--mono);font-size:11px;color:var(--warn);white-space:nowrap}
+.item .ibody{padding:var(--s3) var(--s4) var(--s4);display:grid;gap:var(--s2)}
+.kv{display:grid;grid-template-columns:128px minmax(0,1fr);gap:var(--s3);align-items:baseline}
+.kv>span{font-size:var(--fs-small);line-height:var(--lh-small);color:var(--dim);text-align:left}
+.ilbl{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim)}
+.xref{font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.xref a{color:var(--comment);text-decoration:underline;text-underline-offset:2px}
+.xref a:hover{color:var(--accent);text-decoration:none}
+.sig{display:flex;gap:var(--s3);flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--comment)}
+.sig b{color:var(--dim);font-weight:500}
+.legend{display:grid;gap:var(--s2);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface);padding:var(--s5);margin:var(--s5) 0}
+.legend>div{display:flex;gap:var(--s3);align-items:baseline;flex-wrap:wrap}
+.legend .lname{min-width:104px}
+.legend p{margin:0}
+.hero .mark{display:flex;width:44px;height:44px;align-items:center;justify-content:center;margin:0 auto var(--s4);border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.04em}
+.hero .mark .x{color:var(--accent)}
+@media (max-width:700px){.kv{grid-template-columns:1fr;gap:var(--s1)}}
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+@media (max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.hero{padding:64px var(--s5) 44px}.hero h1{font-size:34px;letter-spacing:-.022em}.hero .sub{font-size:16px}.pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius-lg)!important;flex-basis:100%}.pipe .stage+.stage{margin-top:var(--s2)}.pipe .stage::after{content:''}.tier .tlat{text-align:left}}
+@media (max-width:820px){nav a{padding:14px 8px}}
+@media (max-width:560px){.container{padding:0 var(--s4)}nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;background:linear-gradient(90deg,transparent,rgba(0,30,43,.95));pointer-events:none}nav a{padding:14px 8px}table{font-size:13px}th,td{padding:10px var(--s3)}pre{font-size:11.5px;padding:var(--s3) var(--s4)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
+@media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
+@media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <div class="stamp">Brainstorm · gobernanza de worktrees · complete · 2026-10-08</div>
+  <h1>Worktrees con estado claro</h1>
+  <p class="sub">Antes de empezar trabajo nuevo, el flujo debe mostrar qué worktrees existen, qué trabajo sigue activo y qué decisiones esperan a la persona, para no duplicar cambios ni dejar ramas olvidadas.</p>
+  <div class="meta"><b>complete · 2026-10-08</b><br>Slug <b>worktree-lifecycle-governance</b> · aprobado para implementación</div>
+</header>
+
+<nav>
+  <a href="#s1"><b>01</b>Idea</a>
+  <a href="#s2"><b>02</b>Por qué</a>
+  <a href="#s3"><b>03</b>Para quién</a>
+  <a href="#s4"><b>04</b>Hoy</a>
+  <a href="#s5"><b>05</b>Éxito</a>
+  <a href="#s6"><b>06</b>Decisiones</a>
+  <a href="#s7"><b>07</b>Abiertas</a>
+  <a href="#s8"><b>08</b>Límites</a>
+  <a href="#s9"><b>09</b>Fuera</a>
+  <a href="#s10"><b>10</b>Investigar</a>
+  <a href="#s11"><b>11</b>Handoff</a>
+</nav>
+
+<main id="main">
+<div class="container">
+
+<section id="s1">
+  <h2><span class="num">01</span>La idea en palabras llanas</h2>
+  <p>Quieres que antes de empezar un trabajo nuevo, el agente mire las carpetas de trabajo que ya existen. Debe decir qué sigue en marcha y dónde falta que la persona apruebe algo. Si el mismo trabajo ya existe, debe seguir desde ahí en vez de empezar otra copia.</p>
+  <p>Si varias tareas avanzan a la vez, el agente también debe juntar cada tarea con los cambios que ya llegaron a la rama principal y resolver los conflictos que pueda entender. La persona revisa el resultado actualizado antes de que se integre y se borre el worktree.</p>
+  <p>La persona conserva el control: ninguna rama se integra ni se borra sin la aprobación prevista. Falta decidir si también se pueden incorporar ramas hermanas que aún no llegaron a la rama principal.</p>
+</section>
+
+<section id="s2">
+  <h2><span class="num">02</span>Por qué importa</h2>
+  <p>Un worktree puede contener cambios activos aunque el directorio principal no los muestre. Sin un resumen compartido antes de cada nueva idea o implementación, dos sesiones pueden trabajar sobre el mismo tema, y una tarea terminada puede quedarse esperando una aprobación o limpieza sin que sea visible. Además, varias ramas pueden cambiar las mismas partes del proyecto; integrarlas sin reconciliar los conflictos puede perder cambios o romper algo que ya funcionaba.</p>
+</section>
+
+<section id="s3">
+  <h2><span class="num">03</span>Para quién es</h2>
+  <p>Para las personas que coordinan sesiones de agentes en el mismo clon local y para cada agente que va a diseñar, implementar o cerrar una tarea.</p>
+</section>
+
+<section id="s4">
+  <h2><span class="num">04</span>Qué existe hoy</h2>
+  <ul>
+    <li><code>AGENTS.md</code> pide un worktree por feature para sesiones que escriben código. El formato habitual es <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code>, con una posible ubicación configurada en <code>.ai-engineering/config.toml</code>.</li>
+    <li><code>ai-eng worktree list</code> enumera slug y ruta. No muestra por sí solo si hay cambios sin commit, en qué checkpoint va la implementación ni si espera una aprobación.</li>
+    <li><code>ai-orchestrator</code> ya reutiliza el worktree si encuentra el mismo slug. Tiene una aprobación humana del plan antes de implementar y otra revisión humana antes de integrar y borrar el worktree.</li>
+    <li>El archivo de checkpoints registra los estados de las pruebas y revisiones por checkpoint, pero la lista de worktrees no los une en un estado de ciclo de vida visible.</li>
+    <li>Hoy la revisión humana final sucede antes del rebase y del merge. El flujo describe verificaciones del merge, pero no un procedimiento para resolver conflictos y volver a probar antes de integrar.</li>
+    <li><code>&lt;raíz-de-worktrees&gt;/.ai-eng-worktrees.json</code> es un manifiesto local de archivos declarados por slug, no el inventario real de Git ni un registro de fases o aprobaciones. <code>ai-eng worktree new &lt;slug&gt; [files...]</code> lo crea y actualiza; <code>rm</code> elimina la entrada, y las entradas de directorios ya ausentes se podan al crear o quitar worktrees. Dos listas que declaran el mismo archivo solo producen un aviso, no bloquean la creación. <code>list</code> no consulta este archivo. Ver <code>src/commands/worktree.ts:7-18</code> y <code>src/shared-worktree.ts:96-145, 282-323, 327-337, 364-430</code>.</li>
+    <li>Si el manifiesto no se puede leer o no contiene el formato esperado, <code>worktree new</code> y <code>worktree rm</code> fallan cerrados. La prueba de aviso por solapamiento está en <code>tests/worktree-command.spec.ts:272-283</code>; la de formato inválido y limpieza en <code>:599-630</code>.</li>
+    <li>El flujo normal de <code>ai-orchestrator</code> llama a <code>ai-eng worktree new &lt;slug&gt;</code> sin la lista opcional de archivos. La búsqueda del repo no encontró otro llamador de producción que la pase; el argumento solo aparece en la interfaz del comando y las pruebas. El archivo local consultado para este borrador tenía cero entradas.</li>
+    <li><code>ai-eng worktree rm</code> comprueba que la rama llegó al <code>main</code> local antes de borrarla. <code>ai-git-cleanup</code> es un pase separado para eliminar trabajo que Git puede demostrar que ya terminó.</li>
+    <li>En esta inspección hay dos worktrees además del checkout principal. <code>feat/ai-triage-azure-signals</code> tiene cambios locales y un checkpoint pendiente; <code>feat/azure-triage-comments</code> también tiene cambios locales, pero no tiene un checkpoint con ese slug en su directorio de workflow.</li>
+    <li>Los archivos relevantes abiertos son <code>AGENTS.md</code>, <code>src/shared-worktree.ts</code>, <code>skills/ai-orchestrator/SKILL.md</code> y <code>skills/ai-git-cleanup/SKILL.md</code>.</li>
+  </ul>
+</section>
+
+<section id="s5">
+  <h2><span class="num">05</span>Cómo se ve el éxito</h2>
+  <ol>
+    <li>Antes de abrir un brainstorm o iniciar o reanudar un orchestrator, el agente enumera los worktrees existentes y detecta los estados de checkpoint disponibles.</li>
+    <li>El resumen diferencia trabajo en curso, pendiente de aprobación del plan, pendiente de revisión final, pendiente de integración, bloqueado y sin estado confiable.</li>
+    <li>Si se encuentra la misma tarea, se reanuda el slug existente. Si no se puede saber si dos tareas se solapan, el agente lo muestra y pide una decisión antes de crear otro worktree.</li>
+    <li>El trabajo independiente puede continuar sin que un worktree ajeno se integre o borre por accidente.</li>
+    <li>El estado de un worktree y las aprobaciones se leen de Git y del checkpoint asociado. El manifiesto de archivos, si está poblado, solo sirve como pista de solapamiento, nunca como prueba de que una tarea existe, está limpia o fue aprobada.</li>
+    <li>Antes de la revisión humana final, el worktree incorpora cambios ya integrados en <code>main</code>. Si aparecen conflictos, el agente resuelve los que pueda justificar, ejecuta de nuevo las pruebas y la revisión afectadas, y presenta a la persona el resultado final integrado.</li>
+    <li>Si la integración cambia el comportamiento acordado, falla una comprobación o la resolución no es clara, el agente se detiene, conserva el worktree y pide una decisión. No fuerza el merge ni borra trabajo.</li>
+    <li>Si <code>main</code> avanza después de sincronizar la tarea, el agente vuelve a sincronizar y validar antes de integrarla.</li>
+    <li>Una lista ilegible, un checkpoint ausente o estados contradictorios se muestran como desconocidos; nunca se presentan como ausencia de trabajo.</li>
+    <li>Cada aprobación pendiente indica qué decisión hace falta y qué paso seguirá. Integrar y borrar solo ocurren tras la aprobación de revisión final y las comprobaciones actuales de seguridad.</li>
+  </ol>
+</section>
+
+<section id="s6">
+  <h2><span class="num">06</span>Decisiones ya tomadas</h2>
+  <div class="note ok"><h4>Fijadas por el usuario</h4></div>
+  <ul>
+    <li>Antes de comenzar o implementar algo, hay que tener en cuenta los worktrees que ya existen para no repetir trabajo.</li>
+    <li>El flujo debe hacer visibles las aprobaciones humanas pendientes tanto para comenzar implementación como para la revisión final y el cierre.</li>
+    <li>El objetivo es robustecer y gobernar el ciclo completo de los worktrees, desde el diseño hasta merge y eliminación.</li>
+    <li>Con varias tareas en paralelo, el agente debe poder integrar cambios concurrentes y resolver solapamientos o conflictos, sin perder los controles humanos del cierre.</li>
+    <li>Aplicar KISS, DRY y YAGNI: cada pieza del flujo debe tener un consumidor y una razón clara; quitar la que no aporte.</li>
+    <li>La aprobación del brainstorm autoriza esta implementación local, incluidos los defaults descritos en la sección 7.</li>
+    <li>El formato habitual es <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code>; el código permite una ruta configurada, así que el flujo debe consultar Git o la herramienta existente y no construir rutas a mano.</li>
+  </ul>
+</section>
+
+<section id="s7">
+  <h2><span class="num">07</span>Decisiones todavía abiertas</h2>
+  <div class="note ok"><h4>Decisiones confirmadas</h4><p>La persona aprobó el resumen anterior: reanudar el mismo slug, pausar ante un solapamiento probable y dejar seguir tareas independientes. También pidió que el agente pueda reconciliar cambios paralelos y conflictos.</p></div>
+  <h3>Enfoques para integrar cambios paralelos</h3>
+  <ol>
+    <li><strong>Recomendado: sincronizar antes de la revisión final.</strong> Rebasar el worktree sobre el <code>main</code> local más reciente, resolver conflictos comprensibles y repetir las comprobaciones afectadas. La persona aprueba el resultado ya integrado, no una versión anterior.</li>
+    <li><strong>Alternativa: sincronizar después de la aprobación.</strong> Conserva el orden actual, pero si la resolución cambia el resultado hay que repetir pruebas y pedir una nueva revisión humana antes de cerrar.</li>
+    <li><strong>No recomendado: mezclar ramas hermanas activas.</strong> Puede importar código sin aprobar y unir el destino de dos tareas. Mantener cada feature separada hace que cada aprobación y merge sean claros.</li>
+    <li><strong>Decidido:</strong> sincronizar solo con cambios que ya llegaron al <code>main</code> local. No integrar worktrees hermanos que aún están en implementación o esperan revisión.</li>
+    <li><strong>Decidido:</strong> compartir un preflight local mediante <code>ai-eng worktree list</code>, sin duplicar la lógica en cada skill.</li>
+    <li><strong>Decidido:</strong> guardar la fase y las aprobaciones en el checkpoint existente de cada feature, sin crear un segundo registro.</li>
+    <li><strong>Decidido:</strong> limitar el inventario a este clon local; no añadir coordinación entre máquinas.</li>
+    <li><strong>Decidido:</strong> retirar el manifiesto y el argumento opcional <code>[files...]</code>. No hay consumidores de producción en el repo y la función no forma parte de la gobernanza aprobada.</li>
+  </ol>
+  <h3>El manifiesto <code>.ai-eng-worktrees.json</code></h3>
+  <p>Lo crea y actualiza <code>ai-eng worktree new</code>; <code>ai-eng worktree rm</code> quita la entrada del slug, y las entradas cuyo directorio ya no existe se podan al crear o quitar worktrees. El archivo vive junto a la raíz de worktrees, fuera del checkout principal y de cada worktree. Hoy el orchestrator no le pasa archivos, así que su aviso de solapamiento no cubre el flujo normal. Aunque el campo de archivos sea opcional, un manifiesto corrupto puede bloquear <code>new</code> y <code>rm</code>.</p>
+  <div class="note ok"><h4>Decisión aprobada</h4><p>No usar el manifiesto para gobernanza. Retirar el argumento opcional, el aviso, el mantenimiento y el archivo; borrarlo solo no basta porque el comando actual lo vuelve a crear. El inventario de Git y el checkpoint por feature son las fuentes de verdad.</p></div>
+  <h3>Alcance técnico de esa eliminación</h3>
+  <ul>
+    <li><code>src/shared-worktree.ts</code>: quitar el tipo, el nombre del manifiesto y las funciones de lectura, poda y escritura; simplificar <code>worktreeNew</code> y <code>worktreeRm</code> para que no lean ni actualicen declaraciones. Mantener la raíz de worktrees, la validación del slug, el inventario de Git y la prueba de que una rama llegó a <code>main</code>.</li>
+    <li><code>src/commands/worktree.ts</code>: cambiar el uso a <code>new &lt;slug&gt;</code> y rechazar argumentos adicionales en vez de interpretarlos como archivos.</li>
+    <li><code>tests/worktree-command.spec.ts</code>: retirar los casos del manifiesto y del aviso entre listas declaradas; conservar las pruebas de creación, listado, eliminación segura y estado del checkout principal, y fijar que argumentos extra se rechazan.</li>
+    <li>El archivo del directorio de worktrees está fuera del repositorio. Borrarlo ahora no basta: la versión actual lo vuelve a crear. Si se elimina el código, borrar también ese manifiesto local después de verificar que ninguna versión activa lo usa.</li>
+    <li><code>README.md</code>, <code>CONTRIBUTING.md</code> y el orchestrator documentan <code>new &lt;slug&gt;</code>, no la opción de archivos. Las menciones restantes están en pruebas e historial del diseño del worktree; conservar el historial como historial, no reescribirlo.</li>
+  </ul>
+</section>
+
+<section id="s8">
+  <h2><span class="num">08</span>Restricciones y guardarraíles</h2>
+  <ul>
+    <li>No integrar, borrar ni forzar un worktree como efecto de un simple inventario. La aprobación humana y las verificaciones existentes siguen siendo obligatorias.</li>
+    <li>Si Git o un archivo de checkpoint no se puede leer, decirlo explícitamente y conservar el trabajo.</li>
+    <li>Respetar la ruta configurada de worktrees y las reglas actuales de rama local <code>main</code>.</li>
+    <li>La lista es una instantánea local. No afirmar que representa otros clones o máquinas sin un mecanismo compartido aprobado.</li>
+    <li>Resolver conflictos dentro del worktree de la tarea, nunca editando a la vez en el checkout principal. No descartar cambios ajenos ni integrar una rama hermana que todavía no haya pasado su aprobación.</li>
+    <li>Tras resolver conflictos, repetir las pruebas y revisiones afectadas. Si no se puede probar o justificar la resolución, parar antes del merge y conservar la rama.</li>
+    <li>Mostrar nombres de tareas y rutas necesarias para distinguirlas, sin copiar diffs ni contenido sensible al registro de estado.</li>
+  </ul>
+</section>
+
+<section id="s9">
+  <h2><span class="num">09</span>Fuera de alcance</h2>
+  <div class="note danger"><h4>No forma parte de esta idea</h4></div>
+  <ul>
+    <li>Hacer merge, borrar ramas o worktrees automáticamente sin la aprobación final ya requerida.</li>
+    <li>Crear una aplicación web o un panel remoto antes de demostrar que un preflight local no basta.</li>
+    <li>Cambiar el destino de merge, permitir push desde una sesión de implementación o reemplazar los gates de aprobación existentes.</li>
+    <li>Limpiar automáticamente worktrees con cambios sin commit o con estado desconocido.</li>
+    <li>Combinar automáticamente ramas hermanas no aprobadas dentro de una tarea distinta.</li>
+  </ul>
+</section>
+
+<section id="s10">
+  <h2><span class="num">10</span>Preguntas para investigar</h2>
+  <ol>
+    <li>Determinar qué puede leerse de forma fiable desde <code>git worktree list</code>, las ramas y el checkpoint existente, y qué estado de aprobación no está representado hoy.</li>
+    <li>Definir cómo detectar un checkpoint ausente, un worktree huérfano o estados de Git y checkpoint que no concuerdan, sin perder cambios ni dar por terminado el trabajo.</li>
+    <li>Comprobar cómo compartir el preflight entre brainstorm y orchestrator sin duplicar reglas ni impedir tareas independientes.</li>
+    <li>Verificar cómo volver a ejecutar las comprobaciones y la revisión tras resolver conflictos, y cómo detectar si <code>main</code> avanzó antes del merge final.</li>
+  </ol>
+</section>
+
+<section id="s11">
+  <h2><span class="num">11</span>Notas de handoff</h2>
+  <h3>Componentes y flujo propuestos</h3>
+  <ol>
+    <li>Un preflight común reúne la lista real de Git, el estado de cambios sin commit y el checkpoint por slug. Muestra también tareas sin worktree que esperan aprobación del plan. La opción recomendada es ampliar la lista local existente y usar un campo explícito de fase en el checkpoint, no mantener otro registro. Si se comprueban solapamientos, comparar rutas modificadas de Git y archivos previstos en checkpoints, no mantener un manifiesto paralelo.</li>
+    <li>Antes de brainstorm y orchestrator, el preflight resume trabajo activo, aprobaciones pendientes, coincidencias probables y datos que no puede clasificar. El mismo slug se reanuda; un posible solapamiento se detiene para decisión; una tarea distinta puede seguir.</li>
+    <li>Antes de la revisión humana final, el agente actualiza la rama de la tarea con el <code>main</code> local más reciente, dentro de su propio worktree.</li>
+    <li>El agente resuelve un conflicto solo si puede conservar la intención de ambos lados sin adivinar. Después repite las pruebas de comportamiento, revisión adversarial y pruebas de interfaz afectadas, además de la suite final.</li>
+    <li>La revisión humana muestra el resultado ya integrado. Se registra qué versión de <code>main</code> revisó la persona. Justo antes del merge se verifica que <code>main</code> no haya avanzado; si cambió, se sincroniza de nuevo y se vuelve a validar y revisar.</li>
+    <li>Solo tras la aprobación final se hace el merge no fast-forward en el checkout principal sobre el <code>main</code> local. Se verifica que la rama quedó integrada y luego se elimina con el comando seguro existente.</li>
+  </ol>
+  <h3>Errores y datos que faltan</h3>
+  <p>Una lista de Git o checkpoint ilegible, un estado contradictorio o un checkpoint ausente nunca significa que no haya trabajo. Si un worktree está sucio, no se inicia un rebase que ponga esos cambios en riesgo. Ante un conflicto ambiguo, un test fallido o un <code>main</code> que avanza después de la aprobación, se conserva la rama, no se fuerza ninguna operación y se informa qué decisión o acción falta.</p>
+  <h3>Pruebas requeridas</h3>
+  <p>Probar la clasificación de trabajo con y sin worktree, estados de aprobación, checkpoints ausentes o malformados y cambios sin commit. En repos Git temporales, probar dos features independientes, solapamiento sin conflicto, conflicto resoluble, conflicto ambiguo que se aborta sin perder trabajo y <code>main</code> que avanza entre revisión y merge. Verificar que una rama no aprobada nunca se incorpora ni se borra.</p>
+  <p><strong>Estado:</strong> complete · 2026-10-08. Diseño aprobado para implementación local. El checkpoint planner resolverá detalles técnicos dentro de los límites y decisiones fijados arriba.</p>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · worktree-lifecycle-governance<br>
+  complete · 2026-10-08
+  <a href="#main">↑ top</a>
+</footer>
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>

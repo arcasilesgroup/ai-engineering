@@ -1,0 +1,167 @@
+{
+  "feature": "ai-git-cleanup v2: one gate, fetch status, post-cleanup sync",
+  "slug": "ai-git-cleanup-v2",
+  "summary": "Merge the ai-git-cleanup skill's two confirmation gates into a single plan-and-approve view, surface whether the initial git fetch succeeded, and fold the post-cleanup local sync commands (worktree prune, ff-only pull, ahead report) into the same one approved plan — local git only, never zero confirmations.",
+  "plain_summary": "When a feature is finished, the cleanup shows one complete plan of what it will remove and what it will sync, asks you once, and only then acts.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Merge the two confirmation gates and surface fetch status",
+      "simple": "Approve the whole cleanup once",
+      "size": "s",
+      "goal": "SKILL.md asks exactly once: one view presents the full analysis table with the per-row command plan (worktree removals first, then guard-paired deletes) and a single ask (delete all recommended / pick / stop); analyze.mjs emits a top-level fetchStatus that the gate displays; every execution guard is unchanged and the unit and structure specs are green.",
+      "plain": {
+        "what": "One view shows every recommended removal with its command, then asks for approval once.",
+        "why": "Two prompts meant approval could happen without the full plan on screen.",
+        "check": "Run the skill on a finished feature: you answer one question before anything changes."
+      },
+      "builds_on": [],
+      "tasks": [
+        "skills/ai-git-cleanup/scripts/analyze.mjs: capture the exit of the best-effort `git fetch --prune origin` and add a top-level `fetchStatus` field — `ok` when the fetch succeeded or no origin exists, `failed: <first stderr line, trimmed>` when it failed — keeping stdout one single JSON document.",
+        "skills/ai-git-cleanup/SKILL.md: replace the gate 1 and gate 2 steps with ONE gate: a single view presenting the full analysis table with the exact per-row command plan (worktree removals first, then each `git merge-base --is-ancestor` guard paired with its `git branch -d`), followed by one `ask` (delete all recommended / pick / stop). State the hard floor: one explicit approval is always required, never zero, no auto-deletion.",
+        "skills/ai-git-cleanup/SKILL.md: display fetchStatus in that gate view, with a visible callout that a failed fetch means remote-derived states may be stale (classification already errs toward KEEP/needsReview — make it visible, not silent). Update the frontmatter description and 'What it produces' from two gates to one; keep disable-model-invocation, LicenseRef-Attributed and the Lifecycle block untouched.",
+        "Keep every execution rule verbatim in the rewritten steps: the guard runs immediately before every `-d`; `-D` only for evidence-backed claims that survived refutation; dirty worktree refused without explicit data-loss acknowledgment; protected/current/default never deletable; deletions only in the main session; no push, no reflog GC, no git gc, no CI.",
+        "tests/git-cleanup-analyze.spec.ts: assert fetchStatus in its exact configurations (R3) — `ok` with a working origin, `ok` with no origin, `failed: <reason>` with a broken origin — plus every field the gate consumes (R2).",
+        "tests/git-cleanup-cli.spec.ts: extend the no-origin and broken-origin tests with the exact fetchStatus values; fix comments that still say 'gate 2'.",
+        "Run bun scripts/gen-assets.ts after the SKILL.md/script edits, then the verify list."
+      ],
+      "files": [
+        "skills/ai-git-cleanup/SKILL.md",
+        "skills/ai-git-cleanup/scripts/analyze.mjs",
+        "src/assets.ts",
+        "tests/git-cleanup-analyze.spec.ts",
+        "tests/git-cleanup-cli.spec.ts"
+      ],
+      "acceptance": [
+        "analyze.mjs output always carries fetchStatus: `ok` for a successful fetch or an absent origin, `failed: <reason>` when fetch fails, stdout still a single JSON document.",
+        "SKILL.md contains exactly one `ask` before execution; the view pairs the analysis table with the per-row command plan, worktree removals before guard-paired branch deletes.",
+        "The gate view shows fetchStatus and calls out that a failed fetch means remote-derived states may be stale.",
+        "The hard floor is stated: one explicit approval is always required; no auto-deletion, ever.",
+        "Execution invariants unchanged: guard immediately before every `-d`, `-D` only with named evidence, dirty worktree refused without data-loss acknowledgment, protected/current/default never deletable.",
+        "bun test tests/git-cleanup-analyze.spec.ts, tests/git-cleanup-cli.spec.ts, tests/skills.spec.ts and tests/embed-canon.spec.ts pass; bun run typecheck and bun run lint are clean (only the 3 pre-existing warnings in doctor-command.spec.ts)."
+      ],
+      "verify": [
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/git-cleanup-cli.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "PASS attempt 1: analyze 20/20, cli 6/6, skills 19/19, embed-canon 13/13, typecheck 0, lint 0; non-gating handoff 2/2 + flow 3/3; spot-check bogus remote → fetchStatus 'failed: …' + deleteCandidates [], no remote → 'ok'."
+          ]
+        },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "adversarial loop PASS in 1 round, no fixer (thread .ai-engineering/workflow/reviews/ai-git-cleanup-v2-1.md); one-approval floor verified intact, no stale two-gate text in changed files.",
+            "MINOR deferred F1: stale 'gate 2' comment in tests/git-cleanup-flow.spec.ts:236 — file outside cp1 scope, fixed by cp2's flow-spec rework.",
+            "MINOR deferred F2: single-view test asserts 5 fields but not keep/needsReview/unanalyzed/currentBranch presence — fed to cp2 test writer (R2)."
+          ]
+        }
+      },
+      "status": "passed"
+    },
+    {
+      "id": 2,
+      "title": "Add post-cleanup sync to the approved plan and close docs",
+      "simple": "Finish cleanup and catch up",
+      "size": "m",
+      "goal": "The single approved plan carries the post-cleanup local sync — `git worktree prune` only if a worktree was removed, `git pull --ff-only` on the default branch only if it is behind its upstream, ahead reported never pushed — the flow spec proves the pairing contract and every invariant end to end, and the feature closes with CHANGELOG, an amended changeset and a green full sweep.",
+      "plain": {
+        "what": "The approved plan also brings your main files up to date after cleanup.",
+        "why": "Without it, you finish cleanup and must run the sync commands yourself.",
+        "check": "After a cleanup, your main branch is current without typing anything more."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "skills/ai-git-cleanup/scripts/analyze.mjs: add a `postSync` section to the JSON — the exact `git worktree prune` command present only when a worktree removal is queued, the exact `git pull --ff-only` command present only when the default branch is behind its upstream (with the upstream name and behind count), and the ahead count for report-only output.",
+        "skills/ai-git-cleanup/SKILL.md: extend the single gate's plan with the post-cleanup lines in execution order — approved deletions (worktree removals, then guard-paired deletes), then `git worktree prune` if a worktree was removed, then `git pull --ff-only` on the default branch if it is behind, then an ahead report. The one ask covers these commands; ahead → report only, NEVER push. Invariants stay: no `git push`/`push --delete`, no reflog GC, no `git gc`, no CI, no auto-deletion.",
+        "tests/git-cleanup-flow.spec.ts: keep the pairing contract provable under the merged single-plan format (U16): every queued worktree removal precedes its branch delete with the candidate↔worktree back-link intact. Assert the new fields (R2): postSync.prune only when a worktree removal exists, postSync.pull only when the default is behind, ahead reported with no push command, fetchStatus present.",
+        "tests/git-cleanup-flow.spec.ts and tests/git-cleanup-analyze.spec.ts: guard each invariant in its exact configuration (R3) — assert the emitted document and SKILL.md never contain `git push`, `push --delete`, `git gc` or reflog GC, and that the dirty worktree refusal outranks the ordering.",
+        "CHANGELOG.md: amend the Unreleased ai-git-cleanup line to the single-approval flow and add the fetch-status and post-cleanup sync behaviour; amend the still-present unreleased .changeset/ai-git-cleanup.md (minor) instead of adding a second changeset; confirm package.json gains no dependency.",
+        "Run bun scripts/gen-assets.ts after the SKILL.md/script edits, then the full verify sweep in order: the three git-cleanup specs, skills, workflow-handoff, arch, embed-canon, then typecheck and lint."
+      ],
+      "files": [
+        "skills/ai-git-cleanup/SKILL.md",
+        "skills/ai-git-cleanup/scripts/analyze.mjs",
+        "src/assets.ts",
+        "tests/git-cleanup-flow.spec.ts",
+        "tests/git-cleanup-analyze.spec.ts",
+        "CHANGELOG.md",
+        ".changeset/ai-git-cleanup.md"
+      ],
+      "acceptance": [
+        "The one approved plan contains the sync commands in execution order: deletions, then prune (only if a worktree was removed), then ff-only pull (only if the default branch is behind), then the ahead report.",
+        "postSync fields are emitted only in their qualifying configurations; an ahead default branch is reported and never pushed.",
+        "The flow spec still proves the pairing contract: worktree removals ordered before their branch deletes, refusal outranking ordering for dirty worktrees.",
+        "No `git push`, `push --delete`, reflog GC, `git gc`, CI or auto-deletion exists anywhere in the skill or its emitted output.",
+        "CHANGELOG.md names the single-gate flow under Unreleased; .changeset/ai-git-cleanup.md is amended with a minor bump; package.json is unchanged.",
+        "bun test tests/git-cleanup-flow.spec.ts, tests/git-cleanup-analyze.spec.ts, tests/git-cleanup-cli.spec.ts, tests/skills.spec.ts, tests/workflow-handoff.spec.ts, tests/arch.spec.ts, tests/embed-canon.spec.ts, bun run typecheck and bun run lint all pass."
+      ],
+      "verify": [
+        "bun test tests/git-cleanup-flow.spec.ts",
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/git-cleanup-cli.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "rg -q 'ai-git-cleanup' CHANGELOG.md",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "PASS attempt 1: flow 3/3, analyze 25/25, cli 14/14, skills 19/19, handoff 2/2, arch 22/22, embed-canon 13/13, rg CHANGELOG ok, typecheck 0, lint 0; full sweep 912/912. Spot-check: behind → git pull --ff-only present, ahead → report-only, zero 'push' in any emitted command, single-JSON stdout, exit 0."
+          ]
+        },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": {
+          "status": "passed",
+          "attempts": 0,
+          "findings": [
+            "adversarial loop PASS in 1 round, no fixer (thread .ai-engineering/workflow/reviews/ai-git-cleanup-v2-2.md); no-push invariant attacked via all command-bearing paths, none landed.",
+            "MINOR deferred F1: analyze.mjs:265 deletable.has guard untested in its exact config (clean worktree on keep-branch); mutation stale=!dirty would pass today. CODE IS CORRECT NOW — regression tripwire missing. Presented at app review."
+          ]
+        }
+      },
+      "status": "passed"
+    }
+  ],
+  "assumptions": [
+    "The prior changeset .changeset/ai-git-cleanup.md still exists and CHANGELOG's Unreleased section still carries the original line, so it is amended rather than replaced by a new file (checked on disk; feature request says verify first).",
+    "One gate keeps the hard floor: exactly one explicit ask before any change, with delete-all / pick / stop, and stop before the ask leaves everything untouched (feature request).",
+    "fetchStatus is `ok` when no origin exists: with no remote there is no remote-derived state that could be stale, and the feature named only the two values ok and failed (feature request; analyze.mjs best-effort fetch).",
+    "A failed fetch's reason is the first trimmed stderr line of git fetch, so the gate shows something actionable instead of a bare flag (feature request asks for `failed: <reason>`).",
+    "The post-cleanup commands are emitted by analyze.mjs as postSync fields rather than hardcoded prose in SKILL.md, so every executed field is machine-assertable; conditionals are encoded by field presence (LEARNINGS R2/R3).",
+    "The default branch's ahead state is report-only in the analyzer and SKILL.md: pushing is out of scope forever, not a follow-up (feature request invariant).",
+    "The flow spec's U16 pairing contract is re-asserted as data (removal precedes delete, candidate↔worktree back-link) even though presentation merges into one view; only the textual 'gate 2' wording moves (tests/git-cleanup-flow.spec.ts U16 note).",
+    "No test pins the phrase 'two gates': a grep of tests/ finds only comments referencing gate 2, so rewording SKILL.md breaks no assertion, but comments are updated for truthfulness (tests/ grep).",
+    "Every checkpoint has ui null and gates.ui n/a — no UI anywhere; frontmatter keeps disable-model-invocation (feature request).",
+    "Verify uses targeted specs plus typecheck and lint per checkpoint, with the full structure sweep (skills, workflow-handoff, arch, embed-canon) in checkpoint 2's gate, matching the prior run's pattern; baseline at merge is 895/895 green with 3 pre-existing warnings in doctor-command.spec.ts (feature baseline).",
+    "No new dependencies are needed; confirm against package.json when closing checkpoint 2 (feature request; ladder: nothing here needs a package).",
+    "Sizes go s → m: checkpoint 1 is edits to two existing files plus two specs, checkpoint 2 adds the sync feature, flow spec and docs sweep (agents/checkpoint-planner.md sizes never shrink).",
+    "FILEMAP.md, AGENTS.md, LEARNINGS.md and README.md stay unchanged: they index skills as a whole, as in the prior run (prior plan assumption, still true)."
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "Out of scope, unchanged: remote branch deletion, push of any kind, reflog GC, git gc, CI integration, auto-deletion.",
+    "No fetch retry or deeper staleness model: one best-effort fetch, failure surfaced visibly, classification already errs conservative (feature request: visible, not silent).",
+    "The interactive pick option inside the single ask is unchanged from gate 1's original options; only the second confirmation disappears.",
+    "Test-count bookkeeping stays in .ai-engineering/workflow/test-plans/, written by the orchestrator's test-plan step — the checkpoint schema has no count field (agents/checkpoint-planner.md; viewer.html)."
+  ]
+}

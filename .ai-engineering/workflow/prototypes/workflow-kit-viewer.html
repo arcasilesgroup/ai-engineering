@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feature Progress</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
+  --line:rgba(61,79,88,.3); --line-strong:rgba(61,79,88,.6);
+  --accent:#00ED64; --accent-dim:#71F6BA;
+  --text:#FFFFFF; --dim:#C1C7C6; --comment:#889397;
+  --ok:#00ED64; --bad:#FF6960; --warn:#FFC010;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+  --fs-h2:26px; --lh-h2:1.16; --ls-h2:-.018em;
+  --fs-h3:17px; --lh-h3:1.32; --ls-h3:-.006em;
+  --fs-body:15px; --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px; --fs-label:10.5px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+  --radius:12px; --radius-sm:8px; --container:760px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:var(--fs-body);line-height:var(--lh-body);
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(0,237,100,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+main{max-width:var(--container);margin:0 auto;padding:var(--s6) var(--s4) var(--s8,80px)}
+.top{display:flex;justify-content:space-between;gap:var(--s3);flex-wrap:wrap;align-items:center}
+.eyebrow{
+  font-family:var(--mono);font-size:var(--fs-label);font-weight:600;
+  letter-spacing:.22em;text-transform:uppercase;color:var(--accent);
+}
+.live{font-family:var(--mono);font-size:11.5px;color:var(--comment);display:inline-flex;gap:6px;align-items:center}
+.live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--line-strong)}
+.live.on::before{background:var(--accent);animation:pulse 2s infinite}
+h1{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700;margin:var(--s2) 0 var(--s2)}
+.lede{font-size:var(--fs-h3);line-height:var(--lh-h3);color:var(--dim);max-width:68ch;margin:0}
+.muted{color:var(--comment)}
+.banner{
+  margin:var(--s5) 0 0;padding:14px var(--s4);border-radius:var(--radius-sm);
+  font-weight:600;display:flex;gap:10px;align-items:center;border:1px solid;
+}
+.banner.run{background:rgba(0,237,100,.08);color:var(--accent-dim);border-color:rgba(0,237,100,.28)}
+.banner.done{background:rgba(0,237,100,.13);color:var(--ok);border-color:rgba(0,237,100,.32)}
+.banner.stop{background:rgba(255,105,96,.12);color:var(--bad);border-color:rgba(255,105,96,.34)}
+.banner .dot{width:10px;height:10px;border-radius:50%;background:currentColor;flex:none}
+.banner.run .dot{animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.25}}
+.journey{display:flex;align-items:center;margin:var(--s6) 0 var(--s2)}
+.journey .line{flex:1;height:2px;background:var(--line-strong);min-width:8px}
+.journey .line.on{background:var(--accent)}
+.jdot{
+  border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;
+  flex:none;border:2px solid var(--line-strong);background:var(--surface);color:var(--comment);
+  cursor:pointer;padding:0;font-family:var(--sans);
+}
+.jdot.passed{background:var(--accent);border-color:var(--accent);color:#001E2B}
+.jdot.running{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px rgba(0,237,100,.12)}
+.jdot.failed,.jdot.blocked{border-color:var(--bad);color:var(--bad);box-shadow:0 0 0 4px rgba(255,105,96,.12)}
+.jdot.blocked{background:var(--bad);color:#001E2B}
+.caption{font-size:var(--fs-small);color:var(--comment);margin:0 0 var(--s5)}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin:var(--s3) 0}
+.step.current{border-color:rgba(0,237,100,.45);box-shadow:0 0 0 1px rgba(0,237,100,.25)}
+.step>summary{list-style:none;cursor:pointer;padding:var(--s4);display:grid;grid-template-columns:36px 1fr;gap:var(--s3)}
+.step>summary::-webkit-details-marker{display:none}
+.num{
+  width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;
+  background:var(--surface-2);color:var(--comment);font-family:var(--mono);font-size:13px;
+}
+.passed .num{background:var(--accent);color:#001E2B}
+.running .num{background:rgba(0,237,100,.12);color:var(--accent)}
+.failed .num,.blocked .num{background:rgba(255,105,96,.14);color:var(--bad)}
+.status{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--comment)}
+.passed .status{color:var(--ok)} .running .status{color:var(--accent-dim)}
+.failed .status,.blocked .status{color:var(--bad)}
+.what{font-size:var(--fs-h3);font-weight:640;line-height:var(--lh-h3);margin:2px 0 10px;color:var(--text)}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.chk{
+  font-size:13px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);
+  background:var(--surface-2);color:var(--dim);white-space:nowrap;font-family:var(--sans);
+}
+.chk.passed{background:rgba(0,237,100,.13);border-color:rgba(0,237,100,.32);color:var(--ok)}
+.chk.failed{background:rgba(255,105,96,.13);border-color:rgba(255,105,96,.34);color:var(--bad)}
+.chk.running{background:rgba(0,237,100,.1);border-color:rgba(0,237,100,.35);color:var(--accent-dim)}
+.chk.na{background:transparent;border-style:dashed;color:var(--comment)}
+.more{font-size:13px;color:var(--accent-dim);margin-top:10px}
+.step[open] .more{display:none}
+.body{padding:0 var(--s4) var(--s4) 64px}
+.body h3{font-family:var(--mono);font-size:var(--fs-label);font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-dim);margin:14px 0 4px}
+.body p{margin:0;color:var(--dim);font-size:var(--fs-small);line-height:var(--lh-small);max-width:68ch;text-align:left}
+.tech{margin-top:var(--s4);border-top:1px dashed var(--line);padding-top:10px;font-size:13px}
+.tech>summary{cursor:pointer;color:var(--comment);font-family:var(--mono);font-size:12px}
+.tech code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim)}
+.tech ul{margin:4px 0;padding-left:18px;color:var(--dim)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--s4);margin-top:var(--s5)}
+.panel h2{font-size:15px;margin:0 0 var(--s2);font-weight:640}
+.panel ul{margin:0;padding-left:18px}.panel li{margin:4px 0;color:var(--dim);font-size:var(--fs-small)}
+.drop{
+  border:2px dashed var(--line-strong);border-radius:var(--radius);padding:var(--s7) var(--s4);
+  text-align:center;background:var(--surface);margin-top:var(--s5);
+}
+.drop p{margin:0 auto var(--s2);max-width:48ch;color:var(--dim)}
+.drop strong{color:var(--text)}
+.drop code{font-family:var(--mono);font-size:var(--fs-mono);color:var(--accent-dim)}
+.switcher{
+  position:fixed;bottom:var(--s4);right:var(--s4);z-index:40;
+  display:flex;flex-wrap:wrap;gap:4px;padding:6px;background:rgba(0,30,43,.92);
+  border:1px solid var(--line-strong);border-radius:var(--radius-sm);backdrop-filter:blur(10px);
+}
+.switcher button{
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:6px 10px;
+  border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--dim);cursor:pointer;
+}
+.switcher button[aria-pressed="true"]{color:var(--accent);border-color:rgba(0,237,100,.4);background:rgba(0,237,100,.1)}
+.switcher button:hover{color:var(--accent)}
+nav a.active{color:var(--accent);background:rgba(0,237,100,.1);font-weight:600}
+@media (max-width:520px){.body{padding-left:var(--s4)} h1{font-size:22px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <div class="top" data-region="page-header">
+    <span class="eyebrow">Feature progress</span>
+    <span id="live" class="live">static</span>
+  </div>
+
+  <section id="empty" class="drop" hidden>
+    <p><strong>Open a feature plan</strong></p>
+    <p class="muted">Drop a file from <code>.ai-engineering/workflow/checkpoints/</code> here, or choose one:</p>
+    <input type="file" id="file" accept=".json,application/json" aria-label="Feature plan file" disabled>
+    <p class="muted" style="font-size:13px;margin-top:12px">Prototype: use the state switcher, or open with <code>?state=running</code>.</p>
+  </section>
+
+  <section id="app" hidden>
+    <h1 id="title"></h1>
+    <p class="lede" id="summary" data-region="plain-summary"></p>
+    <div id="banner" class="banner run" role="status" data-region="status-banner"><span class="dot"></span><span id="bannerText"></span></div>
+    <div class="journey" id="journey" aria-label="Steps overview" data-region="journey"></div>
+    <p class="caption">Small steps first, each one a little bigger. A step must pass all its checks before the next one starts.</p>
+    <div id="steps" data-region="checkpoint-card"></div>
+    <div id="extra"></div>
+  </section>
+</main>
+
+<nav class="switcher" aria-label="Prototype states">
+  <button type="button" data-state="empty">empty</button>
+  <button type="button" data-state="running">running</button>
+  <button type="button" data-state="done">done</button>
+  <button type="button" data-state="halted">halted</button>
+</nav>
+
+<script>
+const SIZES = { xs: 1, s: 2, m: 3, l: 4, xl: 5 };
+const CHECKS = [
+  ["behavior", "Works", "Testing that it works"],
+  ["ui", "Looks right", "Comparing it with the design"],
+  ["review", "Code review", "Reviewing the code"],
+];
+const MAX_TRIES = 3;
+const STATUS = { passed: "Done", running: "In progress", failed: "Fixing problems", blocked: "Stuck, needs you", pending: "Not started" };
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const $ = (id) => document.getElementById(id);
+
+const BASE = {
+  feature: "Shopify workflow kit in ai-engineering",
+  slug: "workflow-kit",
+  plain_summary: "After install and init, any machine or repo can run the same step-by-step feature build with two human stops.",
+  assumptions: [
+    "Viewer stays English for Works / Looks right / Code review labels.",
+    "Plan JSON lives under .ai-engineering/workflow/checkpoints/.",
+  ],
+};
+
+function cp(id, simple, size, status, gates, extras = {}) {
+  return {
+    id, simple, size, status, title: simple, goal: simple,
+    plain: { what: extras.what || simple, why: extras.why || "Keeps the feature build moving.", check: extras.check || "Open this viewer and confirm the step status." },
+    gates: gates || {
+      behavior: { status: "pending", attempts: 0, findings: [] },
+      ui: { status: "n/a", attempts: 0, findings: [] },
+      review: { status: "pending", attempts: 0, findings: [] },
+    },
+    ...extras,
+  };
+}
+
+const gate = (behavior, ui, review, attempts = {}) => ({
+  behavior: { status: behavior, attempts: attempts.behavior || 0, findings: attempts.bf || [] },
+  ui: { status: ui, attempts: attempts.ui || 0, findings: attempts.uf || [] },
+  review: { status: review, attempts: attempts.review || 0, findings: attempts.rf || [] },
+});
+
+const PLANS = {
+  running: {
+    ...BASE,
+    checkpoints: [
+      cp(1, "Add the build playbooks", "xs", "passed", gate("passed", "n/a", "passed")),
+      cp(2, "Install the five helpers", "s", "pending", gate("passed", "n/a", "running"), {
+        what: "Each computer gets the five specialist helpers linked into the editors.",
+        why: "Without this, the build playbooks call helpers that never appear.",
+      }),
+      cp(3, "Add the step lock", "m", "pending", gate("pending", "n/a", "pending")),
+      cp(4, "Plant standing files and restyle viewer", "l", "pending", gate("pending", "pending", "pending"), {
+        what: "Init plants standing files; the viewer uses the artifact palette.",
+        check: "Open the viewer and confirm dark background and green accent.",
+      }),
+    ],
+  },
+  done: {
+    ...BASE,
+    checkpoints: [
+      cp(1, "Add the build playbooks", "xs", "passed", gate("passed", "n/a", "passed")),
+      cp(2, "Install the five helpers", "s", "passed", gate("passed", "n/a", "passed")),
+      cp(3, "Add the step lock", "m", "passed", gate("passed", "n/a", "passed")),
+      cp(4, "Plant standing files and restyle viewer", "l", "passed", gate("passed", "passed", "passed")),
+    ],
+  },
+  halted: {
+    ...BASE,
+    halted: { reason: "Gate 2 needs a human decision on the viewer prototype before continuing." },
+    checkpoints: [
+      cp(1, "Add the build playbooks", "xs", "passed", gate("passed", "n/a", "passed")),
+      cp(2, "Install the five helpers", "s", "passed", gate("passed", "n/a", "passed")),
+      cp(3, "Add the step lock", "m", "pending", gate("failed", "n/a", "pending", {
+        behavior: 3,
+        bf: ["Carrier deny path still skips checkpoint-gate on one surface."],
+      })),
+      cp(4, "Plant standing files and restyle viewer", "l", "pending", gate("pending", "pending", "pending")),
+    ],
+  },
+};
+
+let plan = null;
+let openIds = null;
+
+const gs = (cp, k) => { const g = cp.gates?.[k]; return !g ? "pending" : g.status === "n/a" ? "na" : g.status || "pending"; };
+const tries = (cp, k) => cp.gates?.[k]?.attempts || 0;
+
+function stepState(cp, currentId) {
+  if (cp.status === "passed") return "passed";
+  if (CHECKS.some(([k]) => gs(cp, k) === "failed" && tries(cp, k) >= MAX_TRIES)) return "blocked";
+  if (cp.id !== currentId) return "pending";
+  return CHECKS.some(([k]) => gs(cp, k) === "failed") ? "failed" : "running";
+}
+
+function activity(cp) {
+  const open = CHECKS.find(([k]) => ["pending", "failed"].includes(gs(cp, k)));
+  if (!open) return "Wrapping up";
+  const [k, , doing] = open;
+  const started = CHECKS.some(([kk]) => ["passed", "failed"].includes(gs(cp, kk)));
+  if (!started && !tries(cp, k)) return "Building it";
+  return gs(cp, k) === "failed" ? `Fixing problems found while ${doing.toLowerCase()} (try ${tries(cp, k) + 1})` : doing;
+}
+
+function stepCard(cp, currentId) {
+  const s = stepState(cp, currentId);
+  const p = cp.plain || {};
+  const checks = CHECKS.map(([k, label]) => {
+    let st = gs(cp, k);
+    if (st === "na") return `<span class="chk na" title="This step has no screen to compare">${label}: no screen</span>`;
+    if (st === "pending" && s === "running" && activity(cp).startsWith(CHECKS.find(([kk]) => kk === k)[2])) st = "running";
+    const icon = { passed: "✓", failed: "✕", running: "…", pending: "○" }[st];
+    const t = tries(cp, k);
+    return `<span class="chk ${st}">${icon} ${label}${t ? ` · ${t} ${t === 1 ? "retry" : "retries"}` : ""}</span>`;
+  }).join("");
+
+  return `<details class="step ${s} ${cp.id === currentId ? "current" : ""}" id="step-${cp.id}" data-id="${cp.id}" ${openIds.has(cp.id) ? "open" : ""}>
+    <summary>
+      <span class="num">${s === "passed" ? "✓" : cp.id}</span>
+      <span>
+        <span class="status">Step ${cp.id} · ${STATUS[s]}</span>
+        <div class="what">${esc(cp.simple || p.what || cp.title)}</div>
+        <div class="checks">${checks}</div>
+        <div class="more">Show more ▾</div>
+      </span>
+    </summary>
+    <div class="body">
+      ${p.what ? `<h3>What you get</h3><p>${esc(p.what)}</p>` : ""}
+      ${p.why ? `<h3>Why it matters</h3><p>${esc(p.why)}</p>` : ""}
+      ${p.check ? `<h3>How you can check it</h3><p>${esc(p.check)}</p>` : ""}
+      <details class="tech"><summary>Technical details</summary>
+        <p><b>${esc(cp.title)}</b> · size ${esc(cp.size)}</p>
+        ${cp.goal ? `<p>${esc(cp.goal)}</p>` : ""}
+      </details>
+    </div>
+  </details>`;
+}
+
+function render() {
+  const cps = plan.checkpoints || [];
+  const current = cps.find((c) => c.status !== "passed");
+  if (openIds === null) openIds = new Set(current ? [current.id] : []);
+
+  $("title").textContent = plan.feature || plan.slug || "Untitled feature";
+  $("summary").textContent = plan.plain_summary || plan.summary || "";
+  document.title = `${plan.feature || "Feature"} · Feature Progress`;
+
+  const b = $("banner");
+  if (plan.halted?.reason) {
+    b.className = "banner stop";
+    $("bannerText").textContent = `Stopped. Needs your input: ${plan.halted.reason}`;
+  } else if (!current) {
+    b.className = "banner done";
+    $("bannerText").textContent = `All ${cps.length} steps done. Ready for you to try it.`;
+  } else {
+    const st = stepState(current, current.id);
+    b.className = "banner " + (st === "blocked" ? "stop" : "run");
+    $("bannerText").textContent = st === "blocked"
+      ? `Step ${current.id} of ${cps.length} is stuck and needs you.`
+      : `Step ${current.id} of ${cps.length}: ${activity(current)}`;
+  }
+
+  $("journey").innerHTML = cps.map((cp, i) => {
+    const s = stepState(cp, current?.id);
+    const d = 22 + (SIZES[cp.size] || 1) * 5;
+    return `${i ? `<span class="line ${cp.status === "passed" || s !== "pending" ? "on" : ""}"></span>` : ""}` +
+      `<button type="button" class="jdot ${s}" style="width:${d}px;height:${d}px" data-go="${cp.id}" title="Step ${cp.id}: ${esc(STATUS[s])}" aria-label="Go to step ${cp.id}">${s === "passed" ? "✓" : cp.id}</button>`;
+  }).join("");
+  document.querySelectorAll("[data-go]").forEach((el) => {
+    el.onclick = () => {
+      openIds.add(+el.dataset.go);
+      render();
+      document.getElementById("step-" + el.dataset.go)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+  });
+
+  $("steps").innerHTML = cps.map((c) => stepCard(c, current?.id)).join("");
+  document.querySelectorAll("details.step").forEach((d) => {
+    d.ontoggle = () => { const id = +d.dataset.id; d.open ? openIds.add(id) : openIds.delete(id); };
+  });
+
+  const assumptions = plan.assumptions || [];
+  $("extra").innerHTML = assumptions.length
+    ? `<div class="panel"><h2>Decisions made for you</h2><p class="muted" style="margin:0 0 6px;font-size:13px">Where the request didn't say, the plan picked these.</p><ul>${assumptions.map((a) => `<li>${esc(a)}</li>`).join("")}</ul></div>`
+    : "";
+}
+
+function showState(name) {
+  const allowed = ["empty", "running", "done", "halted"];
+  const state = allowed.includes(name) ? name : "running";
+  openIds = null;
+  document.querySelectorAll(".switcher button").forEach((btn) => {
+    btn.setAttribute("aria-pressed", btn.dataset.state === state ? "true" : "false");
+  });
+  const url = new URL(location.href);
+  url.searchParams.set("state", state);
+  history.replaceState(null, "", url);
+
+  if (state === "empty") {
+    plan = null;
+    $("empty").hidden = false;
+    $("app").hidden = true;
+    $("live").className = "live";
+    $("live").textContent = "static";
+    document.title = "Feature Progress";
+    return;
+  }
+  plan = structuredClone(PLANS[state]);
+  $("empty").hidden = true;
+  $("app").hidden = false;
+  $("live").className = "live on";
+  $("live").textContent = "prototype";
+  render();
+}
+
+document.querySelectorAll(".switcher button").forEach((btn) => {
+  btn.addEventListener("click", () => showState(btn.dataset.state));
+});
+
+showState(new URLSearchParams(location.search).get("state") || "running");
+</script>
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>

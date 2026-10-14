@@ -1,0 +1,64 @@
+branch: main
+--- porcelain ---
+ M .ai-engineering/ai-eng.lock
+ M .ai-engineering/plan.html
+ D .ai-engineering/recap.html
+ M .ai-engineering/research/001-gobernabilidad-observabilidad.html
+ M .ai-engineering/research/002-jev-chain-optimization.html
+ M .ai-engineering/research/003-agit-secret-guard-agent-git-al-design.html
+ M .ai-engineering/research/004-codegraph-integration-with-ai-engineering.html
+ M .ai-engineering/research/005-skill-pattern-analysis.html
+ M .ai-engineering/research/006-git-backed-sessions.html
+ M .ai-engineering/spec.html
+ M AGENTS.md
+ M NOTICE.md
+ M README.md
+ M bin/ai-eng.js
+ M bun.lock
+ M docs/blueprint.html
+ M docs/recap.html
+ M package.json
+ M scripts/build.ts
+ M scripts/proof-cli-ux.sh
+ M skills/ai-brainstorm/SKILL.md
+ M skills/ai-design/references/artifact-design.md
+ M skills/ai-research/SKILL.md
+ M skills/ai-visual-recap/SKILL.md
+ M skills/ai-write/SKILL.md
+ M src/assets.ts
+ M src/cli.ts
+ M src/commands/config.ts
+ M src/commands/doctor.ts
+ M src/commands/init-shared.ts
+ M src/commands/init.ts
+ M src/env.ts
+ M src/guards/spoken-secret.ts
+ M src/install.ts
+ M src/shared-verbs.ts
+ M src/surfaces/adapters.ts
+ M src/surfaces/surfaces.json
+ M templates/AGENTS.md.tpl
+ M templates/arch.rules.json.tpl
+ M templates/brainstorm.html.tpl
+ M templates/recap.html.tpl
+ M templates/settings.copilot.cli.json.tpl
+ M templates/settings.copilot.json.tpl
+ M tests/adversarial/init-recovery.test.ts
+ M tests/carriers-install.spec.ts
+ M tests/config-command.spec.ts
+ M tests/doctor-command.spec.ts
+ M tests/init-command.spec.ts
+ M tests/launcher.spec.ts
+ M tests/surfaces.test.ts
+?? .ai-engineering/brainstorm.html
+?? .ai-engineering/research/007-token-routing-portal-jev.html
+?? .ai-engineering/research/008-config-to-project.html
+?? .ai-engineering/research/009-cursor-hooks-soporte.html
+?? .ai-engineering/research/010-copilot-core-readiness.html
+?? .ai-engineering/research/011-shopify-workflow-en-ai-engineering.html
+?? .ai-engineering/workflow/
+?? skills/ai-config-to-project/
+?? skills/ai-write/references/voice.md
+?? src/commands/adapt.ts
+?? tests/adapt.spec.ts
+?? tests/artifact-scroll-spy.spec.ts

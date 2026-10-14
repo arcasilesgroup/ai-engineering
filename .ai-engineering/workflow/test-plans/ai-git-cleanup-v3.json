@@ -1,0 +1,408 @@
+{
+  "feature": "ai-git-cleanup v3: action-first cleanup with one batch confirmation",
+  "slug": "ai-git-cleanup-v3",
+  "order": ["unit", "api", "cli", "ui"],
+  "gating": "Run layers in order. Do not run a layer until every case in the layer before it passes.",
+  "layers": {
+    "unit": [
+      {
+        "id": "U1",
+        "case": "classification (R3 exact config): a branch merged into default → batch entry with action `-d`, category, evidence (tip sha), the exact guarded single-quoted command `git merge-base --is-ancestor 'refs/heads/<b>' '<default>' && git branch -d '<b>'`, and its worktreePath when it has one — every field the ask will render and execute (R1/R2/L13)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'merged into default'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U2",
+        "case": "classification: tree-identical branch not on the merged list (`git diff <default>..<branch>` empty) → batch action `-D` with evidence exactly `empty diff vs default` and a single-quoted command (L13)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'empty diff vs default'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U3",
+        "case": "classification: `[gone]` upstream AND empty diff → batch action `-D` with evidence exactly `[gone] + empty diff` (the remote-deleted, tree-identical config)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'gone + empty diff'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U4",
+        "case": "classification: `[gone]` upstream AND non-empty diff → KEEP (needs review), never batch, never a command — old needsReview semantics are gone, the branch lands in the KEEP section with its reason surfaced in the report (R3)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'gone + non-empty'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U5",
+        "case": "classification: tracked, not merged, live upstream (synced or unpushed-ahead) → KEEP with its exact reason (SYNCED_WITH_REMOTE / UNPUSHED_WORK), absent from the batch",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'tracked not-merged'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U6",
+        "case": "classification: local-only branch with unique work → KEEP reason LOCAL_WORK, absent from the batch (R3)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'local-only'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U7",
+        "case": "fail-closed: broken ref inventory → nothing deletable, uncertainty surfaced as KEEP in the report, batch empty (R1/R3)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'broken inventory'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U8",
+        "case": "fail-closed: no default anchor (no origin/HEAD, no known default, HEAD on a feature branch) → no batch, no migration switch target anchored to mutable state, unanalyzed/KEEP surfaced (L16/R4)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'no default anchor'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U9",
+        "case": "protected-before-triage proof (L18/R3): the CURRENT branch with a `[gone]` upstream — the exact configuration where triage alone would swallow it — lands in KEEP via the protection filter BEFORE categorization, never in the batch and never in any review/needs bucket; current-branch name is asserted on the KEEP entry",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'protected before triage'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U10",
+        "case": "protection filter proven on every other path (R3): a PROTECTED-regex name that would otherwise satisfy the `-d` and `-D` rules stays KEEP PROTECTED; the default branch and a branch checked out in a linked worktree never appear in the batch in any fixture",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'protection filter'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U11",
+        "case": "migration plan shape + read-only proof (R4/L17): in a current≠default fixture whose default is behind its upstream, the plan carries the recorded previous (pre-migration) branch, exact `git switch '<default>'`, and the exact pull `git pull --ff-only 'origin' '<default>'` — default ref name, never HEAD, never the current branch — and after the run HEAD is still on the feature branch, no stash exists, no ref moved: the analyzer emitted the commands, it did not execute them (R1)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'migration plan'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U12",
+        "case": "stash steps conditional (R3): dirty worktree → auto-stash push (`git stash push -m cleanup-auto-stash-<ts>` prefix) AND the post-switch `git stash pop` step present with the recorded stash state; clean worktree → both absent (vacuous-absence guarded by proving the clean config)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'stash'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U13",
+        "case": "WARN-and-continue annotations exist as plan data (R2): the pull step carries its on-failure WARN note (pull failure does not stop cleanup) and the pop step carries the stash-pop-conflict WARN (stash left in place, reported) — asserted as emitted fields, not prose",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'WARN'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U14",
+        "case": "batch = exactly one ask's worth of data (R2): ONE batch object, not per-branch gates; every entry carries branch, category, action, reason/evidence, exact single-quoted command, and worktreePath — everything the one ask renders comes from this document, with no second confirmation source",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'one ask'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U15",
+        "case": "worktrees (R3/L14): a dirty worktree never queues a removal and carries the explicit data-loss-acknowledgment flag; a stale clean worktree queues the exact `git worktree remove '<path>'`; the batch candidate's worktreePath equals the worktree entry's path (macOS symlink accounted for); post-cleanup commands reduce to exact `git worktree prune` present only when a removal is queued, absent otherwise (both directions asserted)",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'worktree'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U16",
+        "case": "report data (R2): per-branch rows carry action/reason/upstream/ahead-behind for EVERY fixture branch (inventory-complete: row count equals branch count, no bucket silently unfilled — L11); default ahead/behind counts are report-only",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'report'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U17",
+        "case": "no-push invariant (R3): in the exact config where a push could hide (default ahead of upstream + queued deletions + migration in one document), no command field anywhere in the emitted document contains `push` — scan every command-bearing field",
+        "file": "tests/git-cleanup-analyze.spec.ts",
+        "command": "bun test tests/git-cleanup-analyze.spec.ts -t 'push'",
+        "checkpoint": 1
+      },
+      {
+        "id": "U18",
+        "case": "flow phase-0 pin (R4/L17, own fixture): in a current≠default fixture the emitted plan's pull is exactly `git pull --ff-only 'origin' '<default>'` with the default branch named as destination ref — not HEAD, not the current branch — and the analyzer ran read-only (fixture state unchanged after the run)",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t 'phase 0'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U19",
+        "case": "flow ordering + refusals (R2/R3): every queued worktree removal precedes its branch delete with the candidate↔worktree back-link intact; dirty refusal outranks ordering (dirty never queued at all); the emitted document shows protection-before-triage — no protected/current/default/linked-worktree branch in the batch",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t 'refus'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U20",
+        "case": "SKILL.md contract, countable facts only (R1): phases 0-3 documented in order, exactly ONE ask before any destructive command, migration explicitly ask-free (reversible), the three flags `--sync`/`--branches`/`--all` documented with phase scopes, frontmatter dropped `disable-model-invocation` and carries the trigger-rich description with name=folder",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t 'one ask'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U21",
+        "case": "no push anywhere (R3): no `push` in any emitted command field AND no command-shaped push in the SKILL.md text",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t 'push'",
+        "checkpoint": 2
+      },
+      {
+        "id": "U22",
+        "case": "end-to-end report contract (R2): the report carries default branch, previous (pre-migration) branch, working-tree status including stash state, and an Action/Reason/Remote/Ahead-Behind row for every branch — every field asserted; a guard-failed delete appears as skip+report, not as an error or a silent drop",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t 'report'",
+        "checkpoint": 3
+      },
+      {
+        "id": "U23",
+        "case": "forbidden-command sweep (R3): no `git push`, `push --delete`, reflog GC, `git gc`, remote-branch deletion or CI invocation exists in the skill folder or in any emitted command field",
+        "file": "tests/git-cleanup-flow.spec.ts",
+        "command": "bun test tests/git-cleanup-flow.spec.ts -t 'forbidden'",
+        "checkpoint": 3
+      }
+    ],
+    "api": [],
+    "cli": [
+      {
+        "id": "C1",
+        "case": "mode `--sync` scoping (R2): migration plan present; classification, batch, delete commands and report-branch sections ABSENT (own-property on the parsed document, not truthiness)",
+        "file": "tests/git-cleanup-cli.spec.ts",
+        "command": "bun test tests/git-cleanup-cli.spec.ts -t 'sync'",
+        "checkpoint": 1
+      },
+      {
+        "id": "C2",
+        "case": "mode `--branches` scoping (R2): migration/stash/pull sections ABSENT; classification, batch and report present",
+        "file": "tests/git-cleanup-cli.spec.ts",
+        "command": "bun test tests/git-cleanup-cli.spec.ts -t 'branches'",
+        "checkpoint": 1
+      },
+      {
+        "id": "C3",
+        "case": "mode default: with no flag the document equals an explicit `--all` run (same fixture, same section shape), and stdout parses as ONE JSON document for each of the three invocations",
+        "file": "tests/git-cleanup-cli.spec.ts",
+        "command": "bun test tests/git-cleanup-cli.spec.ts -t 'mode'",
+        "checkpoint": 1
+      },
+      {
+        "id": "C4",
+        "case": "no-origin CLI contract (existing, STAYS): exits 0 with a single JSON document and fetchStatus exactly `ok`",
+        "file": "tests/git-cleanup-cli.spec.ts",
+        "command": "bun test tests/git-cleanup-cli.spec.ts -t 'no origin'",
+        "checkpoint": 1
+      },
+      {
+        "id": "C5",
+        "case": "broken-origin CLI contract (existing, STAYS/extended): fetchStatus `failed: <first stderr line, trimmed>` with an actionable reason, whole stdout still parses as one JSON doc, classification stays conservative",
+        "file": "tests/git-cleanup-cli.spec.ts",
+        "command": "bun test tests/git-cleanup-cli.spec.ts -t 'failing fetch'",
+        "checkpoint": 1
+      },
+      {
+        "id": "C6",
+        "case": "regression sweep: the remaining CLI-contract cases stay green (explicit path, cwd equals explicit, origin/HEAD default, non-repo non-zero exit) alongside the new mode cases",
+        "file": "tests/git-cleanup-cli.spec.ts",
+        "command": "bun test tests/git-cleanup-cli.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "C7",
+        "case": "push-free scan at the CLI boundary (R3): every command field of a real `--all` document (migration + batch + worktrees) is scanned, zero `push` matches, commands.length > 0 so the scan is not vacuous",
+        "file": "tests/git-cleanup-cli.spec.ts",
+        "command": "bun test tests/git-cleanup-cli.spec.ts -t 'push'",
+        "checkpoint": 1
+      },
+      {
+        "id": "C8",
+        "case": "typecheck passes after the analyze.mjs and spec rework",
+        "command": "bun run typecheck",
+        "checkpoint": 1
+      },
+      {
+        "id": "C9",
+        "case": "lint passes after the analyze.mjs and spec rework (3 pre-existing doctor-command warnings allowed)",
+        "command": "bun run lint",
+        "checkpoint": 1
+      },
+      {
+        "id": "C10",
+        "case": "skills structure gates stay green after the four-phase SKILL.md rewrite: folded trigger-rich description, name=folder, LicenseRef-Attributed, `## Lifecycle` block, Trail of Bits Source line, link integrity",
+        "file": "tests/skills.spec.ts",
+        "command": "bun test tests/skills.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C11",
+        "case": "workflow-handoff structure gate not broken by the SKILL.md/flow changes",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test tests/workflow-handoff.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C12",
+        "case": "regenerated src/assets.ts embeds the edited skill and embed-canon stays green after `bun scripts/gen-assets.ts`",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test tests/embed-canon.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C13",
+        "case": "arch layer rules not broken by the skill files or regenerated assets",
+        "file": "tests/arch.spec.ts",
+        "command": "bun test tests/arch.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "C14",
+        "case": "typecheck passes on the SKILL.md/assets checkpoint sweep",
+        "command": "bun run typecheck",
+        "checkpoint": 2
+      },
+      {
+        "id": "C15",
+        "case": "lint passes on the SKILL.md/assets checkpoint sweep (3 pre-existing doctor-command warnings allowed)",
+        "command": "bun run lint",
+        "checkpoint": 2
+      },
+      {
+        "id": "C16",
+        "case": "references/merge-evidence.md is removed while SKILL.md is kept (G1: skill folder always keeps SKILL.md)",
+        "command": "test ! -f skills/ai-git-cleanup/references/merge-evidence.md && test -f skills/ai-git-cleanup/SKILL.md",
+        "checkpoint": 3
+      },
+      {
+        "id": "C17",
+        "case": "final structure-gate sweep green with the finished skill (link integrity after the reference removal)",
+        "command": "bun test tests/skills.spec.ts tests/workflow-handoff.spec.ts tests/arch.spec.ts tests/embed-canon.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "C18",
+        "case": "CHANGELOG Unreleased names the v3 flow and the still-present changeset is amended minor (not duplicated)",
+        "command": "rg -q 'ai-git-cleanup' CHANGELOG.md && test -f .changeset/ai-git-cleanup.md && rg -q 'minor' .changeset/ai-git-cleanup.md",
+        "checkpoint": 3
+      },
+      {
+        "id": "C19",
+        "case": "typecheck passes on the final sweep",
+        "command": "bun run typecheck",
+        "checkpoint": 3
+      },
+      {
+        "id": "C20",
+        "case": "lint passes on the final sweep (3 pre-existing doctor-command warnings allowed)",
+        "command": "bun run lint",
+        "checkpoint": 3
+      },
+      {
+        "id": "C21",
+        "case": "full suite green — baseline 912/912 before this plan's reworked/new cases; count grows, green is the assertion",
+        "command": "bun test",
+        "checkpoint": 3
+      }
+    ],
+    "ui": []
+  },
+  "regressions": [
+    {
+      "spec": "tests/git-cleanup-analyze.spec.ts",
+      "baseline": 25,
+      "changes": [
+        "survey — bucket set replaced by migration/batch/report sections; survey re-collected over the v3 document",
+        "PROTECTED regex — claim moves to protection-before-triage: entries asserted in KEEP, never in the batch",
+        "default branch origin/HEAD — same never-deletable claim, re-asserted on the batch plus migration default detection",
+        "gone → needsReview — needsReview semantics GONE: splits into `[gone]`+diff → KEEP and `[gone]`+empty → `-D` (U3/U4)",
+        "prune queued — postSync container gone; exact prune command re-asserted under the post-cleanup section",
+        "prune absent — same container move, absence half still asserted",
+        "pull behind → postSync.pull GONE; pull re-pinned as migration-plan data in current≠default (U11)",
+        "pull level → absence claim retires with postSync (emission policy at level is decide-and-log, see not_tested)",
+        "ahead report-only — postSync.pull-absent gone; claim becomes report-section ahead count + whole-document push scan (U16/U17)",
+        "single view — one-gate payload replaced by one-ask batch + report payload completeness (U14)"
+      ],
+      "stays": "15 — no default anchor, current branch checked-out, current branch merged CURRENT_BRANCH, cluster, SAFE_TO_DELETE exact guarded command, UNPUSHED_WORK, SYNCED, LOCAL_WORK, quot single-quoting, dirty worktree, unanalyzed present-empty, malformed fail-closed, fetchStatus ok, fetchStatus no-origin ok, fetchStatus failed conservative — same configurations and behavioral claims; bucket-name field references updated where the claim itself is unchanged"
+    },
+    {
+      "spec": "tests/git-cleanup-cli.spec.ts",
+      "baseline": 14,
+      "changes": [
+        "behind → pull present — postSync describe replaced by mode cases; pull proven as migration data (U11)",
+        "level → no pull — absence claim retires with postSync",
+        "ahead → no push reported — re-expressed as report-only + push-free scan (C7)",
+        "queued removal → prune — container moved off postSync",
+        "no removal → no prune — container moved off postSync",
+        "fetchStatus + postSync coexist — becomes fetchStatus + migration coexist in one document"
+      ],
+      "stays": "8 — explicit path single JSON, cwd equals explicit, no origin fetch skipped, origin/HEAD default, failing fetch fallback, non-repo non-zero exit, push-free whole-plan scan (extended to migration commands), single-JSON-with-plan-present (container name updated only)"
+    },
+    {
+      "spec": "tests/git-cleanup-flow.spec.ts",
+      "baseline": 3,
+      "changes": [
+        "command plan — single-gate+postSync scan replaced by migration+batch+report scan; guards, single-quoting and no-push assertions kept and extended (U18/U21)",
+        "refusals — pairing contract re-asserted under the batch+report format (removal precedes delete, back-link), dirty refusal outranks ordering kept, protection-before-triage added (U19)"
+      ],
+      "stays": ["unanalyzed — bucket presence and inventory-completeness claim unchanged"]
+    }
+  ],
+  "verify": [
+    {
+      "checkpoint": 1,
+      "commands": [
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/git-cleanup-cli.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "additions": []
+    },
+    {
+      "checkpoint": 2,
+      "commands": [
+        "bun test tests/git-cleanup-flow.spec.ts",
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/git-cleanup-cli.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun run typecheck",
+        "bun run lint"
+      ],
+      "additions": ["bun test tests/arch.spec.ts"]
+    },
+    {
+      "checkpoint": 3,
+      "commands": [
+        "bun test tests/git-cleanup-flow.spec.ts",
+        "bun test tests/git-cleanup-analyze.spec.ts",
+        "bun test tests/git-cleanup-cli.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/arch.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "rg -q 'ai-git-cleanup' CHANGELOG.md",
+        "test ! -f skills/ai-git-cleanup/references/merge-evidence.md",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test"
+      ],
+      "additions": ["test ! -f skills/ai-git-cleanup/references/merge-evidence.md"]
+    }
+  ],
+  "not_tested": [
+    "UI layer — feature has no UI; every checkpoint gate.ui is n/a (feature request).",
+    "API layer — no server, no HTTP endpoints, no DB (api layer empty).",
+    "In-session execution behavior (running the one ask: delete-all / pick / stop, stop-before-ask leaving everything untouched, guard re-checked immediately before each delete at execution time, WARN-and-continue actually happening when the pull fails or the stash pop conflicts) — behavior/review gates; script-level tests prove plan data only.",
+    "SKILL.md prose wording (trigger phrase list, safety-invariant sentences) — no source-text behavioral assertions per R1; countable facts (phase order, one ask, flag scopes, frontmatter keys) are U20, structure is skills.spec (C10), wording is the review gate.",
+    "package.json gaining no dependency and FILEMAP/AGENTS/LEARNINGS/README/DECISIONS staying unchanged — git-diff review items in the checkpoint gates, no test command.",
+    "Exact full-suite count — baseline is 912/912 green; C21 asserts green, since this plan's rework raises or reshapes the count.",
+    "Section/field names (batch vs deleteCandidates, migration key names, report key names) follow what analyze.mjs actually emits — assert exact emitted strings, never the plan's placeholder names; `-t` filters assume the test titles match the case texts, the test writer keeps them aligned.",
+    "Pull emission policy when the default is level with its upstream (always emit vs behind-only) is the implementer's decide-and-log under cp1 — U11 pins presence, exact default-pinned string and read-only behavior in the behind, current≠default configuration, which holds under either policy; the old behind/level conditional postSync cases retire with postSync."
+  ]
+}
