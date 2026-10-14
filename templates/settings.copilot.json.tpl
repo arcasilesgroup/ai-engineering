@@ -9,7 +9,7 @@
       },
       {
         "type": "command",
-        "command": "python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface copilot-cli",
+        "command": "[ -f \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" ] || exit 0; python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface copilot-cli",
         "timeoutSec": 10
       }
     ],

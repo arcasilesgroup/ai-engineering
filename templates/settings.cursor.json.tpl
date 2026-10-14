@@ -12,7 +12,7 @@
       },
       {
         "type": "command",
-        "command": "python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface cursor",
+        "command": "[ -f \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" ] || exit 0; python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface cursor",
         "timeout": 10,
         "failClosed": true,
         "comment": "checkpoint-gate beside chain for /ai-orchestrator."

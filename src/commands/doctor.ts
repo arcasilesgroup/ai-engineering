@@ -59,8 +59,10 @@ async function checkMirrors(root: string | null): Promise<CheckResult | null> {
       mirrorBroken += 1;
       continue;
     }
-    const links = readdirSync(target.dir, { withFileTypes: true }).filter((e) => e.isSymbolicLink());
-    if (links.length > 0) mirrorOK += 1;
+    // A dangling link is not a mirror: the canon it pointed at is gone, so the
+    // editor reads an empty directory. Resolution is what makes the link real.
+    const liveLinks = readdirSync(target.dir, { withFileTypes: true }).filter((e) => e.isSymbolicLink() && existsSync(join(target.dir, e.name)));
+    if (liveLinks.length > 0) mirrorOK += 1;
     else mirrorBroken += 1;
   }
   return {

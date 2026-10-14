@@ -12,7 +12,7 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface claude-code",
+            "command": "[ -f \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" ] || exit 0; python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface claude-code",
             "timeout": 5
           }
         ]
@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface claude-code",
+            "command": "[ -f \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" ] || exit 0; python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface claude-code",
             "timeout": 5
           }
         ]
