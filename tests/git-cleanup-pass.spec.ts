@@ -53,20 +53,25 @@ describe("ai-git-cleanup skill — the one-pass, name-free rewrite", () => {
   });
 });
 
-describe("orchestrator close — merge verified before cleanup", () => {
-  test("names the ancestry check on feat/<slug> against main before the cleanup, and promises no git branch -D", () => {
-    // The close is the `Approve:` bullet; the guard must live in it, before the removal.
-    const approveStart = orchestrator.indexOf("- **Approve:**");
-    const stopHere = orchestrator.indexOf("- **Stop here:**", approveStart);
-    const close = orchestrator.slice(approveStart, stopHere > -1 ? stopHere : undefined);
-    const check = close.indexOf("merge-base --is-ancestor");
-    expect(check).toBeGreaterThan(-1);
-    // The target branch and destination sit in the same clause as the check.
-    expect(close.slice(check, check + 120)).toContain("feat/<slug>");
-    expect(close.slice(check, check + 160)).toContain("main");
-    // Verified first, removed after: the removal instruction follows the check.
-    expect(close.lastIndexOf("worktree rm")).toBeGreaterThan(check);
-    // And the close never promises the forced delete the verb no longer does.
+describe("orchestrator Phase 4 — app-review merge handoff", () => {
+  test("records reviewed refs and routes approved review through the merge command", () => {
+    const phase4Start = orchestrator.indexOf("## Phase 4: Human stop 2, app review");
+    const lifecycleStart = orchestrator.indexOf("\n## Lifecycle", phase4Start);
+    const phase4 = orchestrator.slice(phase4Start, lifecycleStart);
+    const approveStart = phase4.indexOf("- **Approve:**");
+    const stopHere = phase4.indexOf("- **Stop here:**", approveStart);
+    const approval = phase4.slice(approveStart, stopHere);
+
+    expect(phase4Start).toBeGreaterThan(-1);
+    expect(lifecycleStart).toBeGreaterThan(phase4Start);
+    expect(approveStart).toBeGreaterThan(-1);
+    expect(stopHere).toBeGreaterThan(approveStart);
+    expect(approval).toContain("lifecycle.reviewed_feature");
+    expect(approval).toContain("lifecycle.reviewed_main");
+    expect(approval).toContain("lifecycle.app_review: approved");
+    expect(approval).toContain("lifecycle.phase: ready-to-merge");
+    expect(approval).toContain("Invoke exactly `ai-eng worktree merge <slug>`");
+    // The close never promises the forced delete the verb no longer does.
     expect(orchestrator).not.toContain("branch -D");
   });
 });

@@ -1,0 +1,650 @@
+{
+  "feature": "Local worktree lifecycle governance",
+  "slug": "worktree-lifecycle-governance",
+  "order": ["unit", "api", "cli", "ui"],
+  "gating": "Run layers in order. Do not run a layer until every case in the layer before it passes.",
+  "layers": {
+    "unit": [
+      {
+        "id": "U1",
+        "case": "new <slug> rejects extra positional arguments with a usage failure before creating a directory or branch",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U2",
+        "case": "new ignores a malformed legacy .ai-eng-worktrees.json, creates no manifest, and leaves any existing manifest bytes untouched",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U3",
+        "case": "rm neither reads, rewrites nor removes a legacy manifest, including a malformed one",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U4",
+        "case": "manifest removal preserves configured-root resolution, slug validation, Git inventory, branch creation from local main, merged-branch protection and safe removal",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U5",
+        "case": "list uses only Git-listed feature worktrees and reads each lifecycle checkpoint from that worktree's own path, not from the primary checkout or a copied plan",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U6",
+        "case": "clean, dirty, detached and otherwise unclassified Git worktrees are reported with the correct status and evidence without changing refs, files or index state",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U7",
+        "case": "missing, unreadable or malformed lifecycle state remains visible as unknown and cannot authorize approval, merge or removal",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U8",
+        "case": "a legacy checkpoint with no lifecycle keeps existing checkpoint-gate behavior, is reported as unknown, and grants no lifecycle approval or merge/removal authority",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 2
+      },
+      {
+        "id": "U9",
+        "case": "likely-overlap evidence includes relevant Git status and checkpoint paths, while listing remains read-only",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U10",
+        "case": "valid lifecycle initialization and every documented phase/approval transition are accepted with their required gates and reviewed_main",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 2
+      },
+      {
+        "id": "U11",
+        "case": "malformed or contradictory lifecycle data, skipped or unauthorized transitions, and missing, invalid or stale reviewed_main are rejected; advancing local main requires review reset and repetition",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 2
+      },
+      {
+        "id": "U12",
+        "case": "brainstorm and orchestrator call the same read-only local worktree preflight before new or resumed work",
+        "file": "tests/skills.spec.ts",
+        "command": "bun test ./tests/skills.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U13",
+        "case": "Phase 0 resumes the same slug at its Git-listed path, or creates a clean feature worktree before Phase 1 begins",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U14",
+        "case": "likely-overlap preflight pauses for a human decision while clearly unrelated work can continue",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U15",
+        "case": "dirty, missing or uncertain work is preserved and reported; preflight does not reset, remove or sync it",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U16",
+        "case": "preflight stays local, does not fetch or merge an unapproved sibling, and neither creates a plan in the primary checkout nor copies one between worktrees",
+        "file": "tests/skills.spec.ts",
+        "command": "bun test ./tests/skills.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U16a",
+        "case": "Phase 0 stops before new, resume, rebase, rm or reset when the same slug is dirty or unknown, preserving its state",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U16b",
+        "case": "preflight surfaces awaiting-plan-approval, awaiting-app-review and ready-to-merge with the required human decision before orchestrator continues",
+        "file": "tests/skills.spec.ts",
+        "command": "bun test ./tests/skills.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U17",
+        "case": "a new checkpoint plan is created only in the selected feature worktree with awaiting-plan-approval, pending plan approval, app review not-started and reviewed_main null",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 4
+      },
+      {
+        "id": "U17a",
+        "case": "lifecycle initialization rejects a distinct symlink alias to the canonical checkpoint path while canonical feature-worktree initialization succeeds",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 4
+      },
+      {
+        "id": "U18",
+        "case": "implementation does not start or dispatch until the human approves the plan; approval then permits the transition to implementation",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
+        "checkpoint": 4
+      },
+      {
+        "id": "U19",
+        "case": "pending approval and skipped phases cannot enter implementation; the explicitly approved state can transition after the human plan-review handoff, while legacy gate behavior is preserved",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 4
+      },
+      {
+        "id": "U20",
+        "case": "a clean feature worktree rebases successfully onto the current local refs/heads/main only, with exact fixture refs and resulting history asserted",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U20a",
+        "case": "rebase <slug> targets only its matching Git-registered feature worktree, runs git rebase refs/heads/main without accepting another base, leaves lifecycle bytes unchanged and reports the exact full local-main SHA",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U20b",
+        "case": "dirty status, missing worktree or checkpoint, malformed, legacy or unknown checkpoint, and mismatched or detached worktree each refuse before mutation; refs, status, present checkpoint bytes and worktree registration remain unchanged",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U20c",
+        "case": "an unresolved rebase conflict returns failure while leaving Git's rebase in progress for agent resolution or abort, without modifying lifecycle state",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U20d",
+        "case": "a controlled temporary Git hook advances local refs/heads/main after rebase selects the previous tip; the command reports exact before/after main SHAs and rerun-sync guidance, claims sync and writes lifecycle state or reviewed_main only if the post-rebase main tip is an ancestor of feature HEAD, and otherwise preserves rewritten feature state without reset or rollback",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U21",
+        "case": "a clear rebase conflict is resolved only inside the feature worktree; affected behavior gates rerun first, UI gates only when the checkpoint has UI, then affected review gates, all before human app review",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U22",
+        "case": "an unclear conflict or failed check aborts the rebase and verifies original refs, tree and status before marking lifecycle blocked; dirty, missing/unknown, malformed or untrusted lifecycle preconditions stop without mutation, preserving checkpoint bytes and Git state",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U23",
+        "case": "only after synchronization and affected gates pass does lifecycle record the exact current local-main reviewed_main and set app review pending",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "U24",
+        "case": "in a real Git worktree, capture reviewed_feature as the exact code tip at the human app-review stop; committing phase awaiting-app-review and app_review pending creates a separate checkpoint-only commit whose tree preserves that reviewed code tip",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U25",
+        "case": "after human approval, a second distinct real-Git commit changes app_review from pending to approved and phase to ready-to-merge, changes only the slug checkpoint, preserves both reviewed SHAs and leaves the reviewed code tree unchanged",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U26",
+        "case": "real-Git merge validation refuses any code or other non-checkpoint path committed after reviewed_feature before publication or removal, and accepts only intervening commits that change the slug checkpoint with valid lifecycle metadata",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U27",
+        "case": "a real detached-worktree merge runs normal commit hooks and publishes only with first parent exactly reviewed_main and second parent exactly the current refs/heads/feat/<slug> tip; reviewed_feature is an ancestor with only checkpoint-only commits between it and that tip, and an unapproved sibling remains untouched",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U28",
+        "case": "the lifecycle gate permits stale-review invalidation only after reviewed_main becomes stale and only to phase implementation with app_review not-started and both reviewed refs cleared; it rejects incomplete or contradictory invalidation state",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 6
+      },
+      {
+        "id": "U28a",
+        "case": "after compare-and-swap loss, the orchestrator commits only the checkpoint invalidation to implementation with app_review not-started and both reviewed refs cleared before resynchronizing, rerunning affected gates or requesting renewed human review",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U29",
+        "case": "real concurrent CAS transactions from the same reviewed_main and a controlled post-commit main advance publish no stale merge: at most one concurrent transaction wins, exact old/current SHAs are reported, only the temporary worktree is cleaned and the losing feature remains intact",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U29a",
+        "case": "when a temporary merge commit hook fails, abort only that temporary merge and clean only its temporary worktree; publish no main ref and preserve the primary checkout, feature worktree, lifecycle checkpoint and feature data",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U30",
+        "case": "if primary refresh or safe feature removal is interrupted after compare-and-swap, retry idempotently recognizes the exact published parents and reviewed_feature ancestry, safely refreshes primary, cleans temporary merge worktrees and removes only the approved feature worktree",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U31",
+        "case": "the lifecycle never records phase complete; its checkpoint keeps an active phase while the feature is Git-listed, and successful merge cleanup removes the feature worktree and branch so Git inventory absence represents closed work",
+        "file": "tests/worktree-lifecycle.spec.ts",
+        "command": "bun test ./tests/worktree-lifecycle.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U32",
+        "case": "the orchestrator-close contract assertion follows the reviewed_feature and atomic worktree merge handoff instead of retired manual merge/removal instructions",
+        "file": "tests/git-cleanup-pass.spec.ts",
+        "command": "bun test ./tests/git-cleanup-pass.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U32a",
+        "case": "a pre-commit hook that stages unreviewed content changes the temporary merge tree and must prevent CAS publication while preserving local main, feature worktree and checkpoint",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U32b",
+        "case": "scroll-spy contract validation covers public docs pages with in-page section links and excludes the internal brainstorm and workflow prototype tree navigation",
+        "file": "tests/artifact-scroll-spy.spec.ts",
+        "command": "bun test ./tests/artifact-scroll-spy.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "U33",
+        "case": "after an approved brainstorm, a new plan starts at implementation with plan_approval approved, app_review not-started, and both reviewed refs null; contradictory lifecycle combinations are rejected",
+        "file": "tests/test_checkpoint_gate.py",
+        "command": "python3 tests/test_checkpoint_gate.py",
+        "checkpoint": 7
+      },
+      {
+        "id": "U34",
+        "case": "the approved brainstorm remains the start gate, the generated plan opens in the existing viewer without a second approval prompt, and final app review still precedes merge",
+        "file": "tests/workflow-handoff.spec.ts",
+        "command": "bun test ./tests/workflow-handoff.spec.ts",
+        "checkpoint": 7
+      },
+      {
+        "id": "U35",
+        "case": "user-level project-root settings validate canonical absolute paths, reject duplicates and traversal, preserve malformed settings bytes, and isolate test writes through AI_ENG_HOME",
+        "file": "tests/workspace-settings.spec.ts",
+        "command": "bun test ./tests/workspace-settings.spec.ts",
+        "checkpoint": 8
+      },
+      {
+        "id": "U36",
+        "case": "repository discovery finds Git roots only under configured canonical roots and refuses symlink escapes without claiming an incomplete scan is empty",
+        "file": "tests/workspace-discovery.spec.ts",
+        "command": "bun test ./tests/workspace-discovery.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "U37",
+        "case": "a discovered repository contributes only Git-registered worktrees and respects its configured git.worktrees_dir even when the worktree directory is outside the search root",
+        "file": "tests/workspace-discovery.spec.ts",
+        "command": "bun test ./tests/workspace-discovery.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "U38",
+        "case": "all, needs-review, in-progress, blocked, closed, and unknown classifications match explicit Git and checkpoint/lifecycle fixtures, including a verified approval-before-start record without a worktree; dirty state is never proof of activity",
+        "file": "tests/workspace-discovery.spec.ts",
+        "command": "bun test ./tests/workspace-discovery.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "U39",
+        "case": "closed is emitted only when local main ancestry, complete checkpoint gates, and absence of the registered worktree are all proven; missing or conflicting evidence remains unknown",
+        "file": "tests/workspace-discovery.spec.ts",
+        "command": "bun test ./tests/workspace-discovery.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "U40",
+        "case": "canonical artifact resolution accepts only the allowlisted project brainstorm/PRD and feature-scoped brainstorm, rejecting traversal, symlink escapes, unrelated HTML, and paths outside configured roots",
+        "file": "tests/workspace-artifacts.spec.ts",
+        "command": "bun test ./tests/workspace-artifacts.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "U41",
+        "case": "the lifecycle projection uses the verified Copilotline schema, explicit supported states, the owning repository and configured worktree root, and never includes approval",
+        "file": "tests/workspace-lifecycle.spec.ts",
+        "command": "bun test ./tests/workspace-lifecycle.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "U42",
+        "case": "opening a selected worktree in the system IDE passes only its Git-registered canonical path as an argument and never invokes shell composition or lifecycle commands",
+        "file": "tests/workspace-command.spec.ts",
+        "command": "bun test ./tests/workspace-command.spec.ts",
+        "checkpoint": 11
+      }
+    ],
+    "api": [
+      {
+        "id": "A1",
+        "case": "the service binds only to 127.0.0.1, answers its health route, reuses a healthy instance, and reports an occupied unhealthy port without starting a second server",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 8
+      },
+      {
+        "id": "A2",
+        "case": "project and worktree endpoints return only configured-root projects and their Git-registered worktrees, including a configured external worktree root and an explicit verified pre-worktree approval",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "A3",
+        "case": "status filters and project history return the same evidence-backed categories as the unit classifier and keep partial Git/checkpoint read failures visible",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 9
+      },
+      {
+        "id": "A4",
+        "case": "settings endpoints persist valid roots, reject duplicate/traversal roots, and leave prior settings unchanged on invalid input or picker cancellation",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 10
+      },
+      {
+        "id": "A5",
+        "case": "feature viewer endpoints expose only the matching Git-listed worktree checkpoint and return visible unknown/error evidence for missing or malformed state",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "A6",
+        "case": "artifact routes serve only canonical allowlisted HTML under an in-scope project/worktree and refuse path traversal, symlink escapes, and arbitrary filesystem reads",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "A7",
+        "case": "lifecycle projection failures are visible and do not report a successful state change or mutate checkpoint approval",
+        "file": "tests/workspace-server.spec.ts",
+        "command": "bun test ./tests/workspace-server.spec.ts",
+        "checkpoint": 11
+      }
+    ],
+    "cli": [
+      {
+        "id": "C1",
+        "case": "regenerate src/assets.ts after the first checkpoint's skill changes",
+        "command": "bun scripts/gen-assets.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "C2",
+        "case": "the regenerated skill payload matches the source canon after checkpoint 3",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test ./tests/embed-canon.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "C3",
+        "case": "regenerate src/assets.ts after the plan-approval skill changes",
+        "command": "bun scripts/gen-assets.ts",
+        "checkpoint": 4
+      },
+      {
+        "id": "C4",
+        "case": "the regenerated skill payload matches the source canon after checkpoint 4",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test ./tests/embed-canon.spec.ts",
+        "checkpoint": 4
+      },
+      {
+        "id": "C5",
+        "case": "regenerate src/assets.ts after the rebase-skill changes",
+        "command": "bun scripts/gen-assets.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "C6",
+        "case": "the regenerated skill payload matches the source canon after checkpoint 5",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test ./tests/embed-canon.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "C6a",
+        "case": "the exact `ai-eng worktree rebase <slug>` CLI invocation uses only the registered matching feature worktree and local refs/heads/main, emits the full main SHA on success, refuses arbitrary base arguments and leaves an unresolved conflict available for agent handling",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 5
+      },
+      {
+        "id": "C7",
+        "case": "regenerate src/assets.ts after the final lifecycle skill changes",
+        "command": "bun scripts/gen-assets.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "C8",
+        "case": "the regenerated skill payload matches the source canon after checkpoint 6",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test ./tests/embed-canon.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "C9",
+        "case": "the architecture boundary remains valid after worktree and lifecycle changes",
+        "command": "bun test ./tests/arch.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "C10",
+        "case": "all TypeScript changes type-check",
+        "command": "bun run typecheck",
+        "checkpoint": 6
+      },
+      {
+        "id": "C11",
+        "case": "the project lint gate passes",
+        "command": "bun run lint",
+        "checkpoint": 6
+      },
+      {
+        "id": "C12",
+        "case": "the complete repository test suite passes after the focused feature checks",
+        "command": "bun test",
+        "checkpoint": 6
+      },
+      {
+        "id": "C13",
+        "case": "the exact `ai-eng worktree merge <slug>` CLI command validates fresh reviewed refs, publishes only a verified reviewed_main/reviewed_feature merge with compare-and-swap, safely refreshes and removes the approved feature, and preserves it on races",
+        "file": "tests/worktree-command.spec.ts",
+        "command": "bun test ./tests/worktree-command.spec.ts",
+        "checkpoint": 6
+      },
+      {
+        "id": "C14",
+        "case": "`ai-eng workspace` opens or reuses the loopback hub and returns an actionable failure for invalid arguments or an unhealthy occupied port",
+        "file": "tests/workspace-command.spec.ts",
+        "command": "bun test ./tests/workspace-command.spec.ts",
+        "checkpoint": 8
+      },
+      {
+        "id": "C15",
+        "case": "the new workspace template and skill payloads regenerate into src/assets.ts",
+        "command": "bun scripts/gen-assets.ts",
+        "checkpoint": 8
+      },
+      {
+        "id": "C16",
+        "case": "generated workspace and skill assets match their source canon",
+        "file": "tests/embed-canon.spec.ts",
+        "command": "bun test ./tests/embed-canon.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "C17",
+        "case": "all TypeScript changes type-check",
+        "command": "bun run typecheck",
+        "checkpoint": 11
+      },
+      {
+        "id": "C18",
+        "case": "the project lint gate passes",
+        "command": "bun run lint",
+        "checkpoint": 11
+      },
+      {
+        "id": "C19",
+        "case": "the architecture boundary remains valid after workspace modules are added",
+        "command": "bun test ./tests/arch.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "C20",
+        "case": "the complete repository test suite passes after focused workspace, lifecycle, and workflow checks",
+        "command": "bun test",
+        "checkpoint": 11
+      },
+      {
+        "id": "C21",
+        "case": "`ai-eng workspace open <path>` accepts only canonical allowlisted HTML artifacts, reuses the local hub, and focuses the selected document without opening arbitrary paths",
+        "file": "tests/workspace-command.spec.ts",
+        "command": "bun test ./tests/workspace-command.spec.ts",
+        "checkpoint": 11
+      },
+      {
+        "id": "C22",
+        "case": "the production package build completes with the workspace hub and generated templates",
+        "command": "bun run build",
+        "checkpoint": 11
+      }
+    ],
+    "ui": [
+      {
+        "id": "E1",
+        "case": "the workspace opens in its English loading state while project discovery is pending",
+        "file": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "checkpoint": 8,
+        "why_ui": "The actual browser route, loading layout, focus behavior, and responsive shell exist only after rendering the served page; API tests cannot prove them.",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "states": ["loading-projects"]
+      },
+      {
+        "id": "E2",
+        "case": "the all-projects dashboard, project overview/history, root settings, native selection, validation, empty list, and retryable error match their prototype states",
+        "file": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "checkpoint": 10,
+        "why_ui": "Browser layout, dialog interaction, native picker handoff, keyboard focus, and narrow-screen navigation cannot be proven by unit or API assertions.",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "states": [
+          "all-projects-dashboard",
+          "ai-engineering-project-overview",
+          "open-workspace-settings",
+          "save-search-settings",
+          "search-root-validation-error",
+          "empty-project-list",
+          "project-list-error"
+        ]
+      },
+      {
+        "id": "E3",
+        "case": "the selected worktree progress view shows current checkpoint details and distinguishes valid, missing, and unknown lifecycle evidence",
+        "file": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "checkpoint": 11,
+        "why_ui": "The rendered journey, findings, status banner, and unknown-state presentation are browser-visible composition of the existing viewer and hub context.",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "states": [
+          "worktree-feature-viewer",
+          "closed-feature-viewer",
+          "unknown-checkpoint-viewer",
+          "missing-lifecycle-registration",
+          "verified-active-lifecycle-record"
+        ]
+      },
+      {
+        "id": "E4",
+        "case": "canonical project and feature documents open in the hub/new tab, absolute paths copy with feedback, the selected worktree opens explicitly, and mobile returns to the explorer",
+        "file": "/.ai-engineering/workflow/checkpoints/overview.html",
+        "checkpoint": 11,
+        "why_ui": "New-tab behavior, native clipboard permission feedback, system-open confirmation, and mobile pane transitions require a real browser interaction.",
+        "prototype": ".ai-engineering/workflow/prototypes/001-worktree-overview.html",
+        "states": [
+          "root-brainstorm-preview",
+          "root-prd-preview",
+          "worktree-brainstorm-preview",
+          "feature-brainstorm-slug-path",
+          "direct-document-deep-link",
+          "copy-html-absolute-path",
+          "simulate-open-worktree-in-ide",
+          "ide-open-feedback",
+          "mobile-content-to-explorer"
+        ]
+      }
+    ]
+  },
+  "not_tested": [
+    "No automated Playwright suite is added; browser-only flows are checked through the checkpoint UI gate against the copied prototype, following the existing viewer-audit convention.",
+    "The native operating-system folder dialog is not launched in automated tests; tests cover its adapter contract, cancellation, path validation, and visible fallback.",
+    "The external Copilotline consumer is not started in this repository; lifecycle projection is checked against its already-verified record contract and fixtures.",
+    "Cross-clone or remote coordination, inferred activity, automatic merge, and automatic cleanup are deliberately excluded by the approved scope.",
+    "Human brainstorm approval and final app review remain ordered handoffs; automated tests do not simulate an actual person or production multi-agent run."
+  ]
+}

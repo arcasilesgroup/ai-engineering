@@ -230,6 +230,14 @@ function lifecycleFields(dir: string): Record<string, string> {
   return block ? blockFields(block) : {};
 }
 
+function markdownSection(content: string, heading: string): string {
+  const start = content.indexOf(heading);
+  if (start < 0) return "";
+  const bodyStart = start + heading.length;
+  const nextHeading = /^#{1,3} /m.exec(content.slice(bodyStart));
+  return content.slice(bodyStart, nextHeading ? bodyStart + nextHeading.index : undefined);
+}
+
 describe("G9 — every skill declares its node", () => {
   test("the Lifecycle block carries Lane, Writes, Read by, Dies and Next", () => {
     const problems: string[] = [];
@@ -408,11 +416,31 @@ describe("workflow kit — visual recap is opt-in", () => {
     const prd = readFileSync(join(SKILLS, "..", ".ai-engineering", "PRD.html"), "utf8");
     const blueprint = readFileSync(join(SKILLS, "..", "docs", "blueprint.html"), "utf8");
 
-    const appReview = orchestratorSkill.split("## Phase 4: Human stop 2, app review")[1] ?? "";
+    const phase3 = markdownSection(orchestratorSkill, "## Phase 3: Wrap-up");
+    const appReview = markdownSection(orchestratorSkill, "## Phase 4: Human stop 2, app review");
+    const approval = appReview.split("- **Approve:**")[1]?.split("- **Stop here:**")[0] ?? "";
     expect(appReview).toContain("Never invoke `ai-visual-recap` automatically");
     expect(appReview).toContain("Only when the user explicitly invokes `/ai-visual-recap` themselves");
-    expect(appReview).toContain("git merge --no-ff feat/<slug>");
-    expect(appReview).toContain("ai-eng worktree rm <slug>");
+    const rebase = phase3.indexOf("Run `git rebase refs/heads/main`");
+    const behaviorGates = phase3.indexOf("rerun affected behavior checks");
+    const uiGates = phase3.indexOf("rerun affected UI checks");
+    const reviewGate = phase3.indexOf("rerun the affected review gate");
+    const appReviewHandoff = phase3.indexOf("Only then proceed to Phase 4");
+    expect(rebase).toBeGreaterThanOrEqual(0);
+    expect(behaviorGates).toBeGreaterThan(rebase);
+    expect(uiGates).toBeGreaterThan(behaviorGates);
+    expect(reviewGate).toBeGreaterThan(uiGates);
+    expect(appReviewHandoff).toBeGreaterThan(reviewGate);
+    const approved = approval.indexOf("lifecycle.app_review: approved");
+    const readyToMerge = approval.indexOf("lifecycle.phase: ready-to-merge", approved);
+    const mergeCommand = approval.indexOf("ai-eng worktree merge <slug>", readyToMerge);
+    expect(approval).toContain("retain the exact full `lifecycle.reviewed_main`");
+    expect(approved).toBeGreaterThanOrEqual(0);
+    expect(readyToMerge).toBeGreaterThan(approved);
+    expect(mergeCommand).toBeGreaterThan(readyToMerge);
+    expect(approval).toContain("compare-and-swap transaction");
+    expect(appReview).toContain("Never write lifecycle phase `complete`.");
+    expect(appReview).toContain("its absence must not delay approval, merge, or worktree removal");
     expect(appReview).not.toContain(
       "follow the repository-owned procedure at `skills/ai-visual-recap/SKILL.md`",
     );
@@ -426,5 +454,237 @@ describe("workflow kit — visual recap is opt-in", () => {
     );
     expect(recapSkill).toContain("Start with `templates/recap.html.tpl`");
     expect(recapSkill).toContain("`.ai-engineering/recap.html`");
+  });
+});
+
+describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () => {
+  test("U12: brainstorm and orchestrator use the same read-only local worktree listing before work", () => {
+    const cases = [
+      {
+        skill: "ai-brainstorm",
+        heading: "### 0. Check what already exists",
+      },
+      {
+        skill: "ai-orchestrator",
+        heading: "## Phase 0: Preflight",
+      },
+    ];
+    const commands: string[] = [];
+
+    for (const { skill, heading } of cases) {
+      const text = readFileSync(join(SKILLS, skill, "SKILL.md"), "utf8");
+      const preflight = markdownSection(text, heading);
+      const command = /`(ai-eng worktree list)`/.exec(preflight)?.[1] ?? "";
+
+      expect(preflight).toMatch(/read.only/i);
+      expect(preflight).toMatch(/\blocal\b/i);
+      commands.push(command);
+    }
+
+    expect(commands).toEqual(["ai-eng worktree list", "ai-eng worktree list"]);
+  });
+
+  test("U16: preflights stay local, avoid remote sync and sibling merges, and keep plans in the feature worktree", () => {
+    const preflights = [
+      { skill: "ai-brainstorm", heading: "### 0. Check what already exists" },
+      { skill: "ai-orchestrator", heading: "## Phase 0: Preflight" },
+    ];
+
+    for (const { skill, heading } of preflights) {
+      const text = readFileSync(join(SKILLS, skill, "SKILL.md"), "utf8");
+      const preflight = markdownSection(text, heading);
+      expect(preflight).toMatch(/\bcurrent clone\b|\blocal\b/i);
+      expect(preflight).toMatch(/(?:never|do not|no)[\s\S]{0,100}(?:fetch|remote sync|sync remote)/i);
+      expect(preflight).toMatch(
+        /(?:never|do not)[\s\S]{0,100}(?:merge[\s\S]{0,100}unapproved sibling|unapproved sibling[\s\S]{0,100}merge)/i,
+      );
+    }
+
+    const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const phase1 = markdownSection(orchestrator, "## Phase 1: Plan");
+    expect(phase1).toMatch(/(?:write|create)[\s\S]{0,120}checkpoint[\s\S]{0,120}feature worktree/i);
+    expect(phase1).toMatch(/(?:plan|checkpoint)[\s\S]{0,160}(?:primary checkout|primary tree)|(?:primary checkout|primary tree)[\s\S]{0,160}(?:plan|checkpoint)/i);
+    expect(phase1).toMatch(/(?:never|do not)[\s\S]{0,100}(?:primary checkout|primary tree)/i);
+    expect(phase1).toMatch(/(?:never|do not)[\s\S]{0,100}cop(?:y|ied|ying)[\s\S]{0,100}(?:checkpoint|plan|between worktrees|between trees)/i);
+  });
+
+  test("U16b: both preflights surface lifecycle approvals and ask the human before continuing", () => {
+    const preflights = [
+      { skill: "ai-brainstorm", heading: "### 0. Check what already exists" },
+      { skill: "ai-orchestrator", heading: "## Phase 0: Preflight" },
+    ];
+
+    for (const { skill, heading } of preflights) {
+      const text = readFileSync(join(SKILLS, skill, "SKILL.md"), "utf8");
+      const preflight = markdownSection(text, heading)
+        .replace(/[`*]/g, "")
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+      const listing = preflight.indexOf("ai-eng worktree list");
+      expect(listing).toBeGreaterThanOrEqual(0);
+      expect(preflight).toMatch(/before deciding whether work may continue/);
+
+      const planPhase = preflight.indexOf("awaiting-plan-approval", listing);
+      const planPending = preflight.indexOf("plan_approval: pending", planPhase);
+      const appReviewPhase = preflight.indexOf("awaiting-app-review", planPending);
+      const appReviewPending = preflight.indexOf("app_review: pending", appReviewPhase);
+      const mergeReady = preflight.indexOf("ready-to-merge", appReviewPending);
+      const mergeApproved = preflight.indexOf("app_review: approved", mergeReady);
+      const planDecision = preflight.indexOf("ask the human to approve, edit, or stop", mergeApproved);
+      const appReviewDecision = preflight.indexOf(
+        "ask the human to approve, request changes, or stop here",
+        planDecision,
+      );
+      const mergeDecision = preflight.indexOf(
+        "ask whether to continue the merge before any merge action",
+        appReviewDecision,
+      );
+      const continueWork = preflight.indexOf(
+        skill === "ai-brainstorm"
+          ? "a listed worktree with the same slug means resume that feature"
+          : "resume it using its exact git-listed path",
+        mergeDecision,
+      );
+
+      expect(planPhase).toBeGreaterThan(listing);
+      expect(planPending).toBeGreaterThan(planPhase);
+      expect(appReviewPhase).toBeGreaterThan(planPending);
+      expect(appReviewPending).toBeGreaterThan(appReviewPhase);
+      expect(mergeReady).toBeGreaterThan(appReviewPending);
+      expect(mergeApproved).toBeGreaterThan(mergeReady);
+      expect(planDecision).toBeGreaterThan(mergeApproved);
+      expect(appReviewDecision).toBeGreaterThan(planDecision);
+      expect(mergeDecision).toBeGreaterThan(appReviewDecision);
+      expect(continueWork).toBeGreaterThan(mergeDecision);
+      expect(preflight).toMatch(/do not reduce these to a generic pending-approval label/);
+      expect(preflight).toMatch(/unknown lifecycle state is not approval/);
+      if (skill === "ai-orchestrator") {
+        const newBranch = preflight.indexOf("only when no matching slug is listed", continueWork);
+        const create = preflight.indexOf("ai-eng worktree new", newBranch);
+        expect(newBranch).toBeGreaterThan(mergeDecision);
+        expect(create).toBeGreaterThan(newBranch);
+      }
+    }
+  });
+
+  test("U24-U27: Phase 3 pins reviewed SHAs before app review and Phase 4 commits approval before CLI merge", () => {
+    const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const phase3 = markdownSection(orchestrator, "## Phase 3: Wrap-up")
+      .replace(/[`*]/g, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+    const phase4 = markdownSection(orchestrator, "## Phase 4: Human stop 2, app review");
+    const approval = phase4.split("- **Approve:**")[1]?.split("- **Stop here:**")[0] ?? "";
+    const normalized = approval.replace(/[`*]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const mainTip = phase3.indexOf("git rev-parse refs/heads/main");
+    const featureTip = phase3.indexOf("git rev-parse refs/heads/feat/<slug>", mainTip);
+    const recordReviewedMain = phase3.indexOf("lifecycle.reviewed_main", mainTip);
+    const recordReviewedFeature = phase3.indexOf("lifecycle.reviewed_feature", featureTip);
+    const awaitingReview = phase3.indexOf("lifecycle.phase to awaiting-app-review", recordReviewedFeature);
+    const pendingReview = phase3.indexOf("lifecycle.app_review to pending", awaitingReview);
+    const reviewCommit = phase3.indexOf("checkpoint-only commit", pendingReview);
+    const approveAppReview = normalized.indexOf("app_review: approved");
+    const readyToMerge = normalized.indexOf("phase: ready-to-merge", approveAppReview);
+    const approvalCommit = normalized.indexOf("checkpoint-only commit", readyToMerge);
+    const mergeCommand = normalized.indexOf("ai-eng worktree merge <slug>", readyToMerge);
+    const artifactCommit = phase3.indexOf("commit those artifacts");
+    const recordedApprovalSha = normalized.indexOf("reviewed_feature_sha=");
+
+    expect(mainTip).toBeGreaterThanOrEqual(0);
+    expect(artifactCommit).toBeGreaterThanOrEqual(0);
+    expect(featureTip).toBeGreaterThan(artifactCommit);
+    expect(featureTip).toBeGreaterThan(mainTip);
+    expect(recordReviewedMain).toBeGreaterThan(mainTip);
+    expect(recordReviewedFeature).toBeGreaterThan(featureTip);
+    expect(phase3).toMatch(/reviewed_feature[\s\S]{0,120}(?:exact|full) (?:commit )?(?:id|sha)/);
+    expect(awaitingReview).toBeGreaterThan(recordReviewedFeature);
+    expect(pendingReview).toBeGreaterThan(awaitingReview);
+    expect(reviewCommit).toBeGreaterThan(pendingReview);
+    expect(approveAppReview).toBeGreaterThanOrEqual(0);
+    expect(recordedApprovalSha).toBeGreaterThanOrEqual(0);
+    expect(approveAppReview).toBeGreaterThan(recordedApprovalSha);
+    expect(readyToMerge).toBeGreaterThan(approveAppReview);
+    expect(approvalCommit).toBeGreaterThan(readyToMerge);
+    expect(mergeCommand).toBeGreaterThan(approvalCommit);
+    expect(normalized).toMatch(/retain the exact (?:full )?lifecycle\.reviewed_main/);
+    expect(normalized).toMatch(/retain the exact (?:full )?lifecycle\.reviewed_feature/);
+    expect(normalized).toMatch(/reviewed_main/);
+    expect(normalized).toMatch(/no custom lock/);
+    expect(normalized).toMatch(/preserve the feature worktree/);
+    expect(normalized).toMatch(/rerun (?:phase 3|sync)[\s\S]{0,100}(?:gates|review)/);
+    expect(normalized).not.toMatch(/\bgit merge\b|\bgit update-ref\b|\bgit worktree rm\b/);
+    expect(normalized).not.toContain("phase: complete");
+    expect(normalized).not.toContain("commit those artifacts");
+  });
+
+  test("U17: Phase 1 initializes lifecycle approval in the selected feature worktree", () => {
+    const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const phase1 = markdownSection(orchestrator, "## Phase 1: Plan")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+
+    expect(phase1).toContain("selected feature worktree");
+    expect(phase1).toContain(".ai-engineering/workflow/checkpoints/<slug>.json");
+    expect(phase1).toMatch(/lifecycle[\s\S]{0,100}awaiting-plan-approval/);
+    expect(phase1).toMatch(/plan_approval: pending/);
+    expect(phase1).toMatch(/app_review: not-started/);
+    expect(phase1).toMatch(/reviewed_main: null/);
+    expect(phase1).toMatch(/never create a checkpoint plan in the primary checkout or copy any plan between worktrees/);
+  });
+
+  test("U20-U22: Phase 3 syncs only a clean feature worktree and fails closed", () => {
+    const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const phase3 = markdownSection(orchestrator, "## Phase 3: Wrap-up");
+    const normalized = phase3.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
+    const dirtyCheck = normalized.indexOf("git status --porcelain --untracked-files=all");
+    const localRebase = normalized.indexOf("git rebase refs/heads/main");
+    const clearConflict = normalized.indexOf("a clear conflict");
+    const afterSync = normalized.indexOf("after a clean rebase or clear resolution", clearConflict);
+    const behaviorRerun = normalized.indexOf("rerun affected behavior checks", afterSync);
+    const uiRerun = normalized.indexOf("rerun affected ui checks only when the checkpoint has a ui gate", behaviorRerun);
+    const reviewRerun = normalized.indexOf("rerun the affected review gate", uiRerun);
+    const unclearConflict = normalized.indexOf("if either side's intent is unclear");
+    const abortConflict = normalized.indexOf("git rebase --abort first", unclearConflict);
+    const verifyConflictRestoration = normalized.indexOf("verify that the original feature branch", abortConflict);
+    const blockAfterConflictRestoration = normalized.indexOf(
+      "only after abort and restoration are verified, write lifecycle phase: blocked",
+      verifyConflictRestoration,
+    );
+    const failedCheck = normalized.indexOf("on any failed check");
+    const abortFailedCheck = normalized.indexOf("abort an active rebase first", failedCheck);
+    const verifyFailedCheckRestoration = normalized.indexOf(
+      "verify the original branch, feature commit, tree id and clean worktree as in step 3",
+      abortFailedCheck,
+    );
+    const blockAfterFailedCheckRestoration = normalized.indexOf(
+      "only after restoration is verified, write lifecycle phase: blocked",
+      verifyFailedCheckRestoration,
+    );
+
+    expect(dirtyCheck).toBeGreaterThanOrEqual(0);
+    expect(localRebase).toBeGreaterThan(dirtyCheck);
+    expect(clearConflict).toBeGreaterThanOrEqual(0);
+    expect(afterSync).toBeGreaterThan(clearConflict);
+    expect(behaviorRerun).toBeGreaterThan(afterSync);
+    expect(uiRerun).toBeGreaterThan(behaviorRerun);
+    expect(reviewRerun).toBeGreaterThan(uiRerun);
+    expect(abortConflict).toBeGreaterThan(unclearConflict);
+    expect(verifyConflictRestoration).toBeGreaterThan(abortConflict);
+    expect(blockAfterConflictRestoration).toBeGreaterThan(verifyConflictRestoration);
+    expect(abortFailedCheck).toBeGreaterThan(failedCheck);
+    expect(verifyFailedCheckRestoration).toBeGreaterThan(abortFailedCheck);
+    expect(blockAfterFailedCheckRestoration).toBeGreaterThan(verifyFailedCheckRestoration);
+    expect(normalized).not.toMatch(/git rebase main\b/);
+    expect(phase3).toMatch(/(?:never|do not)[\s\S]{0,120}(?:fetch|remote sync)/i);
+    expect(phase3).toMatch(
+      /(?:never|do not)[\s\S]{0,120}(?:merge[\s\S]{0,100}unapproved sibling|unapproved sibling[\s\S]{0,100}merge)/i,
+    );
+    expect(phase3).toMatch(/clear conflict[\s\S]{0,160}resolve[\s\S]{0,120}feature worktree/i);
+    expect(phase3).toMatch(/ui checks only when the checkpoint has a ui gate/i);
+    expect(phase3).toMatch(/without writing lifecycle state or claiming clean preservation/i);
+    expect(phase3).toMatch(/without changing checkpoint state or claiming clean preservation/i);
+    expect(phase3).toMatch(/(?:unclear|ambiguous)[\s\S]{0,100}conflict[\s\S]{0,160}(?:git rebase --abort|abort)/i);
+    expect(phase3).toMatch(/(?:failed|failing)[\s\S]{0,100}check[\s\S]{0,180}(?:restore|reset|abort)/i);
+    expect(phase3).toMatch(/blocked/i);
   });
 });

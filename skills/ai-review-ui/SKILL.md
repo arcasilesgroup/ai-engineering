@@ -58,10 +58,10 @@ Never compare a prototype in one state with the live page in another, like an em
 
 - **`login`** is the sign-in path from Project config (default `/login`). Landing there means the saved session expired. Without `--scope`, every state runs and the whole screen is compared (standalone mode, or the final checkpoint for a screen).
 
-- **Steps:** `fill`/`select`/`check` target a field by its visible label. `click` targets a button by its name (add `"role"` for links or tabs). There's also `press`, `waitFor` (text) and `wait` (ms). The same steps run on both sides, so the prototype and the live page must use the same labels and button text; a step that works on only one side is a finding in itself.
+- **Steps:** `fill`/`select`/`check` target a field by its visible label. `click` targets a button by its name (add `"role"` for links or tabs). `scroll` targets a CSS selector and accepts `"to": "top"` or `"bottom"`; it scrolls the element when scrollable and the page otherwise. There's also `press`, `waitFor` (text) and `wait` (ms). The same steps run on both sides, so the prototype and the live page must use the same labels and button text; a step that works on only one side is a finding in itself.
 - **Data states:** loading, error and empty lists are reached on the prototype with `proto_query`, and on live with `live_query` or a different role's session (`"auth": ".ai-engineering/workflow/playwright/auth-<role>.json"`). If live can't reproduce the state, set `"live": false`. That state is then reviewed on the prototype alone and never compared.
 - **Mutating states** (`"mutates": true`) run on live only when the base URL is localhost. List them last.
-- **Viewports:** both sides use the same viewports (default 1440×900 and 375×812), the same frozen clock (`now`), reduced motion, and no animations.
+- **Viewports:** both sides use the same viewports (default 1440×900 and 375×812), the same frozen clock (`now`), reduced motion, and no animations. A state may override the viewport list with `"viewports"`, for example `"viewports": [[1440, 900]]` for a desktop-only resize control.
 
 Run from the repo root:
 ```bash

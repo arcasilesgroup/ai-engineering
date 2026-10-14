@@ -318,8 +318,22 @@ Seven machine verbs for hooks, CI and agents: `chain`, `git`, `wrap`, `spec`, `w
 ```bash
 echo "$PAYLOAD" | ai-eng chain PreToolUse       # the guard dispatcher, reads the host payload on stdin
 ai-eng git pre-commit                           # the pre-commit, commit-msg and pre-push checks
-ai-eng worktree new <slug> | rm <slug> | list   # one copy per job, merged into the local main
+ai-eng worktree new <slug>                      # start a feature worktree
+ai-eng worktree rebase <slug>                   # sync a clean managed feature with all required implementation gates passed
+ai-eng worktree merge <slug>                    # merge the human-approved, SHA-reviewed feature and close its worktree
+ai-eng worktree request-changes <slug> <sha>     # CAS the exact pending app-review checkpoint back to implementation
+ai-eng worktree rm <slug>                       # remove a feature already merged to local main
+ai-eng worktree list [<slug>]                   # show active worktrees or exact pre-worktree lifecycle evidence
 ```
+
+Before a feature worktree exists, `list <slug>` projects approval only from the
+primary-tree brainstorm with the same feature slug, a fresh approval date, a matching
+complete status line, and no existing local `feat/<slug>` branch. A branch without
+an open worktree is reported as unknown, never as pre-worktree approval. The projection
+is read-only. Once a worktree exists, its checkpoint is authoritative; unknown
+checkpoint state never falls back to the brainstorm. `request-changes` accepts only
+the full SHA of the current pending, checkpoint-only app-review commit and commits a
+lifecycle-only return to implementation; a stale SHA leaves review state untouched.
 
 Ask the repo how it is doing, with real receipt statistics:
 

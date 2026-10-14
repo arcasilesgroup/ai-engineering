@@ -24,6 +24,8 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R15: Keep executable `.mjs` APIs explicitly declared, and embed script/declaration payloads as text when they are data rather than host modules. (from L47, L64)
 - R16: Route repository-owned artifacts through their repository procedure and test the caller-to-procedure handoff; a same-named installed copy may have a conflicting contract. (from L66)
 - R17: For runtime p95 checks under parallel test load, use enough samples for nearest-rank p95 to tolerate scheduler outliers without loosening the budget. (from L65, L67)
+- R18: Normalize Markdown formatting without altering identifiers; preserve underscores, case, and other contract-significant characters before matching. (from L82, L89, L97)
+- R19: Carry destructive-cleanup warnings and accurately describe the irreversible action and remaining state through every outcome and caller. (from L105, L107)
 
 ## Log
 
@@ -588,3 +590,304 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Reconcile the whole status timeline before classifying conflict pairs. A historical edit can make its contemporary evidence ambiguous without making a later explicit confirmation ambiguous; compare that confirmation with the earlier evidence's last modification.
 - **Proof:** Twelve memory-only unit and actual-writer renewal cases cover unedited, edited-before and edited-after uncertainty, with and without obsolete positive history. Before the fix, four failed on advice/order or stale references. Renewal and F1/F2 controls now pass: 29 tests, 259 assertions. Checkpoint lower gates: 144 unit, 156 API and 72 static pass; lint/typecheck exit 0 with existing warnings; all four canonical signal/writer script/declaration payload pairs match. Normal full-suite validation remains separate.
 - **Tags:** review, azure, chronology, dependency, uncertainty, renewal, identity, provenance, ordering, tests
+
+### L79 · 2026-10-08 · worktree-lifecycle-governance #2 · behavior
+- **Failure:** `bun run typecheck` rejected the lifecycle test's nested array loop values with TS2769, although its runtime assertions passed.
+- **Root cause:** TypeScript inferred optional tuple elements that did not satisfy the `toContain` overloads.
+- **Fix:** Represented each test case with named object fields while keeping both lifecycle and Git assertions.
+- **Lesson:** Use named fields when loop entries have distinct roles.
+- **Tags:** behavior, tests, types
+
+### L80 · 2026-10-08 · worktree-lifecycle-governance #2 · review
+- **Failure:** Adversarial review found that incomplete prior checkpoints could pass, the plan slug was not bound to the checkpoint marker, and a blocked lifecycle could retain stale app approval.
+- **Root cause:** The guard trusted summary status and lifecycle phase without checking prerequisite gates, plan identity, and the freshness of approval state.
+- **Fix:** Require completed predecessor gates, exact marker-to-plan slug matching, and reset stale review state before a blocked plan can resume.
+- **Lesson:** Approval metadata is a claim; verify underlying gates, identity, and review freshness at each guard.
+- **Tags:** review, checkpoint-gate, lifecycle
+
+### L81 · 2026-10-08 · worktree-lifecycle-governance #2 · review
+- **Failure:** An adversarial test showed that checkpoint ID `1e999` parsed as infinity and could bypass predecessor ordering.
+- **Root cause:** The gate compared checkpoint IDs before validating that they were finite positive integers.
+- **Fix:** Validate checkpoint ID type, finiteness and sequence before lookup or gate comparison.
+- **Lesson:** Validate ordering keys before comparing them.
+- **Tags:** review, checkpoint-gate, validation
+
+### L82 · 2026-10-08 · worktree-lifecycle-governance #3 · behavior
+- **Failure:** U13's handoff assertion failed even though the skill contained the required same-slug resume behavior.
+- **Root cause:** The test expected a phrase to remain contiguous across Markdown formatting.
+- **Fix:** Normalize whitespace before matching the handoff condition.
+- **Lesson:** Match handoff conditions independently of Markdown line wrapping.
+- **Tags:** behavior, tests, workflow
+
+### L83 · 2026-10-08 · worktree-lifecycle-governance #3 · review
+- **Failure:** Adversarial review found no test that prevented Phase 0 from mutating dirty/unknown work or proved pending human approvals were surfaced before proceeding.
+- **Root cause:** Tests pinned successful resume and overlap branches but omitted two safety states and their ordering.
+- **Fix:** Added focused handoff assertions for dirty/unknown refusal and visible plan/app-review approvals before continuation.
+- **Lesson:** Test status guards and approval reporting in order, not only successful paths.
+- **Tags:** review, tests, worktree
+
+### L84 · 2026-10-08 · worktree-lifecycle-governance #3 · review
+- **Failure:** Review found that a dirty or unknown same-slug worktree might still be resumed, and generic approval wording did not guarantee the pending decision was visible.
+- **Root cause:** The preflight contract did not make refusal-before-mutation or named human approval states explicit.
+- **Fix:** Added a no-mutation Phase 0 stop for dirty/unknown state and explicit plan, app-review and merge-ready handoffs with focused ordering assertions.
+- **Lesson:** Check status and approval gates before any continuation.
+- **Tags:** review, workflow, worktree
+
+### L85 · 2026-10-08 · worktree-lifecycle-governance #4 · behavior
+- **Failure:** U19 expected the checkpoint gate to distinguish human authorship for a transition that U10 submitted with the same state.
+- **Root cause:** The test treated a local JSON state validator as proof of who supplied a human approval.
+- **Fix:** Assert pending-state and phase prerequisites in the gate, and keep the actual human approval ordered through the Phase 1 orchestrator handoff.
+- **Lesson:** Test human approval as an ordered handoff; don't claim a local state file authenticates who approved.
+- **Tags:** behavior, tests, approvals
+
+### L86 · 2026-10-08 · worktree-lifecycle-governance #4 · review
+- **Failure:** Adversarial review found a legacy checkpoint in the primary checkout could gain lifecycle state there.
+- **Root cause:** The gate validated lifecycle content without binding first initialization to the matching Git-listed feature worktree.
+- **Fix:** Require lifecycle initialization at the canonical checkpoint path in the matching `feat/<slug>` worktree while preserving legacy primary-checkout gate behavior.
+- **Lesson:** Validate lifecycle initialization at the worktree boundary, not just by slug.
+- **Tags:** review, checkpoint-gate, worktree
+
+### L87 · 2026-10-08 · worktree-lifecycle-governance #4 · review
+- **Failure:** Adversarial review found a symlink alias could resolve to the canonical lifecycle checkpoint path and pass initialization.
+- **Root cause:** Resolving source and target paths erased the distinction between the intended path and a symlink alias.
+- **Fix:** Require normalized target identity and reject symlinks in the target path or any component.
+- **Lesson:** Verify path identity and each component, not only where a path resolves.
+- **Tags:** review, checkpoint-gate, symlink
+
+### L88 · 2026-10-08 · worktree-lifecycle-governance #4 · review
+- **Failure:** Review found the path-boundary test symlinked the canonical target rather than passing a distinct alias path that resolves to it.
+- **Root cause:** The fixture did not exercise the caller-supplied alias spelling checked by the hook.
+- **Fix:** Add a separate symlink alias path and assert that initialization through it is rejected while canonical initialization succeeds.
+- **Lesson:** Test path security with the alternate input path, not a symlinked target alone.
+- **Tags:** review, checkpoint-gate, symlink, tests
+
+### L89 · 2026-10-08 · worktree-lifecycle-governance #5 · behavior
+- **Failure:** U23 could not find the exact `reviewed_main` handoff after the local-main read step.
+- **Root cause:** Test whitespace normalization removed underscores from lifecycle field identifiers.
+- **Fix:** Preserve identifier spelling in the test and state that the full local-main commit ID is recorded only after gates pass and before app review.
+- **Lesson:** Normalize Markdown formatting without altering identifiers.
+- **Tags:** behavior, tests, reviewed-main
+
+### L90 · 2026-10-08 · worktree-lifecycle-governance #5 · behavior
+- **Failure:** `bun run typecheck` rejected four rebase fixture assertions in `tests/worktree-lifecycle.spec.ts`.
+- **Root cause:** The local lifecycle test type omitted fields that the fixture asserted with `toEqual`.
+- **Fix:** Add the named fields to the test-case type while preserving the rebase, conflict and abort assertions.
+- **Lesson:** Keep test-case types aligned with their distinct named fields.
+- **Tags:** behavior, tests, types
+
+### L91 · 2026-10-08 · worktree-lifecycle-governance #5 · review
+- **Failure:** Review found an unresolved rebase could mutate checkpoint state before restoration, a fixture used `git reset --hard`, and gate ordering omitted conditional UI.
+- **Root cause:** Failure handling and test cleanup did not prove the original state was restored before continuing.
+- **Fix:** Abort and verify refs/tree/status/content before marking blocked, use `git rebase --abort` in the fixture, and test behavior/UI-if-applicable/review ordering.
+- **Lesson:** Preserve state first; record failure only after restoration is proven.
+- **Tags:** review, rebase, safety
+
+### L92 · 2026-10-08 · worktree-lifecycle-governance #5 · review
+- **Failure:** Review found dirty or unknown pre-rebase work could be marked blocked before restoration and the checkpoint could be mutated.
+- **Root cause:** The workflow wrote lifecycle state while existing user work was still untrusted.
+- **Fix:** Stop without writes on unsafe preconditions; after a started rebase, abort and verify restoration before recording blocked.
+- **Lesson:** Preserve state first; record failure only after restoration is proven.
+- **Tags:** review, rebase, checkpoint-state
+
+### L93 · 2026-10-08 · worktree-lifecycle-governance #5 · review
+- **Failure:** U22 proved no mutation for dirty work but omitted missing and malformed lifecycle checkpoint states at the sync boundary.
+- **Root cause:** The test covered one refusal precondition instead of asserting the full state for every refusal.
+- **Fix:** Add Git fixtures showing missing state remains absent and malformed state bytes, refs and worktree status remain unchanged.
+- **Lesson:** Pin each refused precondition's full state, not just the dirty case.
+- **Tags:** review, tests, unknown-state
+
+### L94 · 2026-10-08 · worktree-lifecycle-governance #5 · behavior
+- **Failure:** `bun run typecheck` rejected the lifecycle gate's indexed `checkpoint.gates` access with TS18046.
+- **Root cause:** Validation of the parsed checkpoint object was not preserved through a callback's indexed access.
+- **Fix:** Capture the validated gates object before indexing, without weakening the fail-closed checks.
+- **Lesson:** Narrow indexed values before typed use.
+- **Tags:** behavior, types, checkpoint-gate
+
+### L95 · 2026-10-08 · worktree-lifecycle-governance #5 · behavior
+- **Failure:** U20d expected the rebased feature's first parent to equal `mainBefore`, but the fixture also included a feature commit.
+- **Root cause:** The test asserted direct-parent equality instead of the premise it needed, ancestry from the selected base.
+- **Fix:** Assert `mainBefore` is an ancestor and `mainAfter` is not, while retaining the race SHA and preservation checks.
+- **Lesson:** Assert the intended Git ancestry, not a stronger fixture-dependent relationship.
+- **Tags:** behavior, tests, git-fixture
+
+### L96 · 2026-10-08 · worktree-lifecycle-governance #5 · review
+- **Failure:** Review found a local-main advance during rebase could leave the feature rewritten on an older tip without identifying the effective base or retry.
+- **Root cause:** The rebase command did not compare and report the full main refs around its operation.
+- **Fix:** Capture full pre/post main SHAs, verify post-main ancestry, and report both refs plus safe retry guidance without resetting feature state.
+- **Lesson:** Race errors should identify the observed refs and safe recovery.
+- **Tags:** review, rebase, concurrency
+
+### L97 · 2026-10-08 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** U24-U27 failed because the skill-test normalizer removed underscores from `reviewed_main`.
+- **Root cause:** Formatting normalization altered a lifecycle identifier before matching.
+- **Fix:** Narrow normalization so identifier spelling remains exact.
+- **Lesson:** Normalize Markdown formatting without altering identifiers.
+- **Tags:** behavior, tests, lifecycle
+
+### L98 · 2026-10-08 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** Merge transaction tests counted fixture hook files as product mutations, queried a canonical path after removal, and assumed the primary checkout would be empty despite a deliberate hook edit.
+- **Root cause:** The assertions ignored fixture setup and the safe preservation/retry path after refresh refuses to overwrite user changes.
+- **Fix:** Snapshot after hook setup, capture paths before deletion, and test that the primary edit is preserved until retry refreshes the published merge.
+- **Lesson:** Baseline fixtures after setup; capture paths before removal; assert preservation and retry separately.
+- **Tags:** behavior, tests, merge
+
+### L99 · 2026-10-08 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** The full suite's orchestrator-close contract test still expected manual ancestry verification and `worktree rm` after replacing the merge sequence with the atomic `worktree merge` command.
+- **Root cause:** The skill handoff test was not updated with the new command boundary.
+- **Fix:** Assert the approval-to-`worktree merge` handoff and verify the CLI transaction's ancestry/removal behavior in its real-Git tests.
+- **Lesson:** When a workflow moves into a command, update the caller handoff test and keep behavioral assertions at the command boundary.
+- **Tags:** behavior, tests, lifecycle
+
+### L100 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** The updated close contract test showed the orchestrator still did not capture `reviewed_feature` or invoke the atomic `ai-eng worktree merge <slug>` command.
+- **Root cause:** The merge command implementation landed without replacing the skill's previous manual merge/cleanup handoff.
+- **Fix:** Bind human app-review approval to both reviewed refs and route the close through the single Git-native CAS command.
+- **Lesson:** When a transaction becomes a command, update its caller handoff before documenting or reviewing the lifecycle.
+- **Tags:** behavior, skills, merge
+
+### L101 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** The blueprint contract test found the rewritten worktree flow no longer stated that visual recap is optional for merge and cleanup.
+- **Root cause:** The new CAS procedure replaced the existing close paragraph without carrying forward the unrelated recap boundary.
+- **Fix:** Preserve the recap-optional statement beside the new atomic merge and removal contract.
+- **Lesson:** When replacing a workflow paragraph, retain adjacent invariants that remain in scope.
+- **Tags:** behavior, docs, recap
+
+### L102 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** The orchestrator contract test expected the old manual merge/removal wording after close moved into the CAS command.
+- **Root cause:** A phase-order assertion matched retired command prose rather than the new sync, review and command handoff.
+- **Fix:** Assert Phase 3 sync before app review, then reviewed SHA capture, human approval and the CAS command after approval.
+- **Lesson:** Assert ordered behavior, not the mere presence of command strings.
+- **Tags:** behavior, tests, workflow
+
+### L103 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** U28a could not find the `app_review` lifecycle field after a handoff-test normalizer removed underscores.
+- **Root cause:** Formatting normalization changed a contract-significant identifier before matching.
+- **Fix:** Preserve underscores in identifiers while normalizing Markdown whitespace.
+- **Lesson:** Normalize Markdown formatting without altering identifiers.
+- **Tags:** behavior, tests, lifecycle
+
+### L104 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** U30's two real-Git retry scenarios exceeded Bun's default five-second per-test timeout under suite load.
+- **Root cause:** The integration test combined two full worktree merge/refresh/removal cycles with insufficient timeout headroom.
+- **Fix:** Raise only U30's test-local timeout while preserving its assertions and global budget.
+- **Lesson:** Give an expensive integration case measured headroom without relaxing unrelated test budgets.
+- **Tags:** behavior, tests, timeout
+
+### L105 · 2026-10-09 · worktree-lifecycle-governance #6 · review
+- **Failure:** Approval-bound checkpoint-only commits could alter reviewed plan scope, and close hid ignored-file removal warnings.
+- **Root cause:** Approval validation compared lifecycle metadata but not the immutable plan payload, while the close command dropped cleanup output.
+- **Fix:** Compare the reviewed payload while excluding runtime gate metadata, and forward the removal result to the caller.
+- **Lesson:** Bind approval to the unchanged plan and preserve destructive-cleanup warnings through every caller.
+- **Tags:** review, checkpoint-gate, cleanup
+
+### L106 · 2026-10-09 · worktree-lifecycle-governance #6 · behavior
+- **Failure:** Attempt 29 failed U31 because the real CLI merge returned 1.
+- **Root cause:** The U31 test fixture captured `reviewed_feature` at a commit that did not contain the checkpoint plan, so the real merge guard correctly refused.
+- **Fix:** Commit the implementation-phase checkpoint in the fixture before recording `reviewed_feature`.
+- **Lesson:** A test fixture must satisfy the real contract it exercises.
+- **Tags:** behavior, tests, lifecycle, merge
+
+### L107 · 2026-10-09 · worktree-lifecycle-governance #6 · review
+- **Failure:** Ignored-content scan warnings disappeared on cleanup errors after removal or failed post-removal verification.
+- **Root cause:** Warnings were formatted only on normal success, and the merge wrapper discarded removal output on error while claiming the feature worktree was preserved.
+- **Fix:** Preserve warnings through every cleanup return and report whether removal occurred, failed uncertainly, or left the branch behind.
+- **Lesson:** Carry destructive-cleanup warnings and the actual remaining state through every success and failure path.
+- **Tags:** review, cleanup, worktree, merge
+
+### L108 · 2026-10-09 · worktree-lifecycle-governance #8 · behavior
+- **Failure:** Checkpoint 8 behavior attempt 1 failed because workspace CLI tests could not receive responses from their in-process health mock.
+- **Root cause:** `runWorkspace()` used a synchronous subprocess, blocking the same event loop that served the mock HTTP requests.
+- **Fix:** Run the real CLI subprocess asynchronously with `Bun.spawn` and await its output and exit status.
+- **Lesson:** Keep an in-process HTTP mock responsive by running the client subprocess asynchronously.
+- **Tags:** behavior, tests, subprocess, workspace
+
+### L109 · 2026-10-09 · worktree-lifecycle-governance #8 · behavior
+- **Failure:** Checkpoint 8 behavior attempt 2 failed because the traversal-path assertion accepted the workspace root.
+- **Root cause:** `join()` normalized `missing/..` before validation, so the test submitted the valid canonical project path instead of traversal input.
+- **Fix:** Construct the fixture by joining path components with the platform separator, preserving the literal `..` segment.
+- **Lesson:** Preserve literal traversal segments in test inputs instead of passing them through a normalizing path join.
+- **Tags:** behavior, tests, paths, workspace
+
+### L110 · 2026-10-09 · worktree-lifecycle-governance #8 · behavior
+- **Failure:** Checkpoint 8 behavior attempt 3 failed typecheck because Bun's server port is optional and its server type did not satisfy the test's stricter cleanup type.
+- **Root cause:** The returned port and Bun server cleanup object were used under narrower assumptions than their types guarantee.
+- **Fix:** Capture and narrow the port before constructing or registering the workspace server, stop the server if no port is reported, and type test cleanup by its required `stop` method.
+- **Lesson:** R12 applies: narrow optional Bun values before typed use, and fail closed when a required value is absent.
+- **Tags:** behavior, typecheck, narrowing, workspace
+
+### L111 · 2026-10-09 · worktree-lifecycle-governance #8 · behavior
+- **Failure:** Checkpoint 8 behavior attempt 4 failed architecture tests because the new workspace source directory was not assigned to an architecture layer.
+- **Root cause:** The code introduced a cohesive `src/workspace/**` layer without registering it in the architecture rules.
+- **Fix:** Added the workspace source mapping to `.ai-engineering/arch.rules.json`; no forbidden dependency edge was found.
+- **Lesson:** Register every new cohesive source layer in `.ai-engineering/arch.rules.json` in the same feature change.
+- **Tags:** behavior, architecture, workspace
+
+### L112 · 2026-10-09 · worktree-lifecycle-governance #8 · review
+- **Failure:** The checkpoint 8 review found generic health responses could reuse unrelated services, stale roots blocked replacement, and interrupted writes could truncate settings.
+- **Root cause:** Health identity was generic, writing validated old filesystem paths, and settings bytes were overwritten directly.
+- **Fix:** Require the workspace service identity, validate old settings structure without old paths, and atomically rename a same-directory temporary file.
+- **Lesson:** Identify reusable services specifically, make recovery validate the replacement state, and preserve persisted bytes until an atomic write succeeds.
+- **Tags:** review, health, settings, atomic-write, tests
+
+### L113 · 2026-10-09 · worktree-lifecycle-governance #8 · behavior
+- **Failure:** Checkpoint 8 behavior attempt 6 failed typecheck because the healthy workspace response mock included `service`, which its callback parameter type rejected.
+- **Root cause:** The default generic listener fixture inferred a shape that did not include the workspace health identity.
+- **Fix:** Typed the callback body as a union of the workspace health response and the unrelated generic listener response.
+- **Lesson:** Type mock response variants against each distinct contract instead of letting the default fixture narrow the accepted shape.
+- **Tags:** behavior, typecheck, tests, workspace
+
+### L114 · 2026-10-09 · worktree-lifecycle-governance #9 · review
+- **Failure:** CP9 review found discovery paths could be swapped after canonicalization, stale or incomplete app-review evidence remained active, detached worktrees and misplaced checkpoints could be overridden by Closed history, and refresh omitted project errors.
+- **Root cause:** Path reads trusted a prior realpath check, review state checked ancestry without the reviewed commit chain and payload, and history/API checks dropped path identity and per-project error details.
+- **Fix:** Revalidate directory identity around path reads; require both review SHAs and the checkpoint-only reviewed chain; block Closed on registered slug/path evidence; accept only one canonical checkpoint path; include project errors in refresh responses.
+- **Lesson:** Revalidate path identity without claiming race elimination; when review ancestry, payload, registration, or canonical placement is uncertain, report Unknown and preserve the error.
+- **Tags:** review, workspace, lifecycle, filesystem, checkpoints, errors
+
+### L115 · 2026-10-09 · worktree-lifecycle-governance #9 · review
+- **Failure:** Closed history accepted a local-main checkpoint whose plan changed after the recorded review.
+- **Root cause:** The history guard checked reviewed-SHA ancestry but never loaded the plan at `reviewed_feature`.
+- **Fix:** Compare selected immutable plan fields from the local reviewed commit and current local-main checkpoint; missing, malformed, or changed reviewed payload remains Unknown.
+- **Lesson:** Bind closure to the exact reviewed plan while excluding lifecycle, gate, and other runtime metadata.
+- **Tags:** review, checkpoint-gate, workspace, lifecycle
+
+### L116 · 2026-10-09 · worktree-lifecycle-governance #9 · behavior
+- **Failure:** Checkpoint 9 behavior attempt 3 failed because closed history's `reviewed_feature` commit had no matching checkpoint plan payload.
+- **Root cause:** The temporary Git fixture captured the feature commit before creating and committing the closed checkpoint plan.
+- **Fix:** Commit the matching implementation-phase checkpoint before recording the feature SHA, then preserve the complete phase and passed gates on local main.
+- **Lesson:** R5 applies: a reviewed-commit fixture must contain the checkpoint payload its validator requires.
+- **Tags:** behavior, tests, git-fixture, checkpoint-gate, workspace
+
+### L117 · 2026-10-09 · worktree-lifecycle-governance #9 · review
+- **Failure:** Closed history accepted a local-main plan whose durable notes changed after review.
+- **Root cause:** The immutable plan comparison included assumptions but omitted top-level `notes`.
+- **Fix:** Compare top-level notes and verify changed local-main notes remain Unknown; lifecycle and gate/runtime fields stay excluded.
+- **Lesson:** Bind closure to every plan-defining field, not just scope and task arrays; keep runtime state outside the immutable fingerprint.
+- **Tags:** review, checkpoint-gate, workspace, lifecycle
+
+### L118 · 2026-10-09 · worktree-lifecycle-governance #10 · behavior
+- **Failure:** CP10 behavior attempt 2 showed ungoverned Git repositories in the workspace project list.
+- **Root cause:** Discovery accepted every repository beneath configured search roots without applying the shared ai-eng governance predicate.
+- **Fix:** Filter discovered repositories through `isGoverned(root)` and add governed, missing-config, corrupt-config, and declaration-less fixtures.
+- **Lesson:** Configured roots scope discovery, but the shared governance gate decides which repositories the hub may present.
+- **Tags:** behavior, tests, workspace, governance
+
+### L119 · 2026-10-09 · worktree-lifecycle-governance #10 · behavior
+- **Failure:** CP10 behavior attempt 3 classified a valid implementation checkpoint with status `in_progress` as Unknown.
+- **Root cause:** The workspace checkpoint reader's status allowlist omitted a value emitted by the orchestrator.
+- **Fix:** Accept `in_progress` and add it to the lifecycle classification fixture.
+- **Lesson:** Keep checkpoint readers aligned with the writer's persisted enum and exercise every writer-produced state.
+- **Tags:** behavior, tests, workspace, lifecycle
+
+### L120 · 2026-10-09 · worktree-lifecycle-governance #10 · ui
+- **Failure:** CP10 UI attempt 1 found inaccessible mobile explorer navigation, an unsupported resize-capture step, obscuring feedback, misleading filtered-empty text, lost focus, and missing ARIA state.
+- **Root cause:** The live shell and capture scenarios did not fully preserve the prototype's navigation, feedback, and keyboard interaction contracts.
+- **Fix:** Restore mobile return navigation and focus, add keyboard resize capture, keep feedback in flow, distinguish filtered emptiness, and add tab/validation semantics.
+- **Lesson:** Exercise responsive UI transitions through supported capture actions and preserve focus and accessible state whenever content rerenders.
+- **Tags:** ui, accessibility, workspace, tests
+
+### L121 · 2026-10-09 · worktree-lifecycle-governance #10 · ui
+- **Failure:** CP10 UI attempt 2 found the approved Settings prototype lacked the live Choose folder control and its third form column.
+- **Root cause:** The live native-picker interaction was added without updating the feature prototype's Settings form.
+- **Fix:** Add the Choose folder control, matching three-column layout, simulated selection state, and narrow-screen stacking to the prototype and capture map.
+- **Lesson:** When a live form gains a control, update its approved prototype and state scenario in the same checkpoint; mark platform-only effects proto-only.
+- **Tags:** ui, prototype, workspace, tests

@@ -21,6 +21,9 @@ PERMISSIONS.md                 Endpoint × role access matrix (n/a until the pro
     prototypes/                /ai-prototype HTML mockups + <name>.states.json scenarios
 src/
   assets.ts                    Embedded skill, template and runtime asset registry
+  commands/
+    worktree.ts                CLI parser for managed worktree lifecycle commands
+  shared-worktree.ts           Worktree lifecycle projection, CAS transitions, sync, merge and safe removal
 scripts/
   gen-assets.ts                Generate embedded assets from their source files
   .embed/ai-triage/scripts/    Generated text payloads for triage scripts and declarations
@@ -46,6 +49,7 @@ skills/                        Installed skill canon
     assets/
       highlight.mjs            Syntax highlighting for code excerpts
 tests/
+  worktree-command.spec.ts     Managed worktree rebase, merge, hook and recovery tests
   skills.spec.ts               Skill contracts, including the local recap handoff
   generated-payload.test.ts   Assert generated assets match their source files
   triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests

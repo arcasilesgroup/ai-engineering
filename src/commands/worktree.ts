@@ -1,21 +1,29 @@
-// `ai-eng worktree new|rm|list` — the thin parser. The root resolution, the git
-// argv and the design-slot list live in src/shared-worktree.ts; this file only
-// reads argv, prints the result and returns its exit code.
+// The `ai-eng worktree` parser is thin. Root resolution, git argv and the
+// design-slot list live in src/shared-worktree.ts; this file prints results.
 
-import { worktreeList, worktreeNew, worktreeRm } from "../shared-worktree.ts";
+import {
+  worktreeList,
+  worktreeMerge,
+  worktreeNew,
+  worktreeRebase,
+  worktreeRequestChanges,
+  worktreeRm,
+} from "../shared-worktree.ts";
 
-const USAGE = "usage: ai-eng worktree new <slug> [files...] | rm <slug> [--force] | list\n";
+const USAGE =
+  "usage: ai-eng worktree new <slug> | rm <slug> [--force] | rebase <slug> | merge <slug> | " +
+  "request-changes <slug> <pending-checkpoint-commit-sha> | list [<slug>]\n";
 
 export function worktreeMain(args: string[], force = false): number {
   const [action, slug, ...files] = args;
   let result;
   switch (action) {
     case "new":
-      if (!slug) {
+      if (!slug || files.length > 0) {
         process.stderr.write(USAGE);
         return 2;
       }
-      result = worktreeNew(slug, files);
+      result = worktreeNew(slug);
       break;
     case "rm": {
       // A trailing positional is a typo the caller cannot see — `rm alpha typo`
@@ -28,8 +36,33 @@ export function worktreeMain(args: string[], force = false): number {
       result = worktreeRm(slug, force);
       break;
     }
+    case "rebase":
+      if (!slug || files.length > 0 || force) {
+        process.stderr.write(USAGE);
+        return 2;
+      }
+      result = worktreeRebase(slug);
+      break;
+    case "merge":
+      if (!slug || files.length > 0 || force) {
+        process.stderr.write(USAGE);
+        return 2;
+      }
+      result = worktreeMerge(slug);
+      break;
     case "list":
-      result = worktreeList();
+      if (files.length > 0 || force) {
+        process.stderr.write(USAGE);
+        return 2;
+      }
+      result = worktreeList(slug);
+      break;
+    case "request-changes":
+      if (!slug || files.length !== 1 || force) {
+        process.stderr.write(USAGE);
+        return 2;
+      }
+      result = worktreeRequestChanges(slug, files[0] ?? "");
       break;
     default:
       process.stderr.write(USAGE);

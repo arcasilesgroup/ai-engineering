@@ -102,16 +102,22 @@ function activeHref(links: SpyLink[]): string | null {
   return selected.length === 1 ? selected[0]?.getAttribute("href") ?? null : null;
 }
 
-/** Every committed page that has a section nav. spec.html and plan.html have none. */
-function htmlWithNav(): string[] {
+function hasSectionNavigation(page: string): boolean {
+  return [...page.matchAll(/<nav\b[^>]*>[\s\S]*?<\/nav>/gi)]
+    .some(([nav]) => /<a\b[^>]*\bhref=["']#[^"']+["']/i.test(nav));
+}
+
+/** Pages whose navigation links to same-page sections, not application views. */
+function htmlWithSectionNav(): string[] {
   const found: string[] = [];
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.name === "node_modules" || entry.name === ".git") continue;
       const full = join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith(".html") && readFileSync(full, "utf8").includes("<nav")) {
-        found.push(full.slice(ROOT.length + 1));
+      else if (entry.name.endsWith(".html")) {
+        const page = readFileSync(full, "utf8");
+        if (hasSectionNavigation(page)) found.push(full.slice(ROOT.length + 1));
       }
     }
   };
@@ -126,9 +132,15 @@ describe("artifact scroll-spy", () => {
     expect(drifted).toEqual([]);
   });
 
-  test("every page with a nav carries that script and the .active paint", () => {
+  test("distinguishes application navigation from section links in any navigation region", () => {
+    expect(hasSectionNavigation('<nav><button>All projects</button></nav>')).toBe(false);
+    expect(hasSectionNavigation('<nav><a href="/projects">Projects</a></nav><nav><a href="#details">Details</a></nav>')).toBe(true);
+    expect(hasSectionNavigation(read(".ai-engineering/workflow/prototypes/001-worktree-overview.html"))).toBe(false);
+  });
+
+  test("every page with section navigation carries that script and the .active paint", () => {
     const script = scrollSpyScript();
-    const bare = htmlWithNav().filter((path) => {
+    const bare = htmlWithSectionNav().filter((path) => {
       const page = read(path);
       return !page.includes(script) || !page.includes("nav a.active");
     });
