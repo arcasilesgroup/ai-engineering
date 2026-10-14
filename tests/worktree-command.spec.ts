@@ -284,10 +284,6 @@ function rebasePlan(
   return { slug, checkpoints: [checkpoint(1), checkpoint(2)], lifecycle };
 }
 
-function mergeReadyPlan(slug: string, reviewedMain: string, reviewedFeature: string): Record<string, unknown> {
-  return mergeLifecyclePlan(slug, reviewedMain, reviewedFeature, "ready-to-merge", "approved");
-}
-
 function mergeLifecyclePlan(
   slug: string,
   reviewedMain: string,
