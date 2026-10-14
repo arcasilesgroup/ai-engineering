@@ -22,8 +22,10 @@ PERMISSIONS.md                 Endpoint × role access matrix (n/a until the pro
 src/
   assets.ts                    Embedded skill, template and runtime asset registry
   commands/
-    worktree.ts                CLI parser for managed worktree lifecycle commands
-  shared-worktree.ts           Worktree lifecycle projection, CAS transitions, sync, merge and safe removal
+    worktree.ts                CLI parser for checkpointed worktree lifecycle and advisory file hints
+  shared-worktree.ts           Worktree projection, lifecycle SHA-CAS, file hints, sync, merge and safe removal
+tests/
+  worktree-command.spec.ts     CLI contracts for worktree creation, projection, file hints, and review CAS
 scripts/
   gen-assets.ts                Generate embedded assets from their source files
   .embed/ai-triage/scripts/    Generated text payloads for triage scripts and declarations

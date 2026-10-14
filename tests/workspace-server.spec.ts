@@ -303,18 +303,31 @@ describe("workspace server", () => {
     writeFileSync(join(unregisteredWorktree, "README.md"), "not registered by Git\n");
 
     const approvalSlug = "approved-before-start";
-    const approvalPath = join(repository, ".ai-eng-lifecycle", `${approvalSlug}.json`);
-    mkdirSync(join(repository, ".ai-eng-lifecycle"), { recursive: true });
-    writeFileSync(approvalPath, `${JSON.stringify({
-      schema_version: 1,
-      slug: approvalSlug,
-      state: "approval-before-start",
-      timestamp: new Date().toISOString(),
-      branch: `feat/${approvalSlug}`,
-      repository,
-      worktrees_dir: externalWorktreesRoot,
-      worktree_path: join(externalWorktreesRoot, approvalSlug),
-    }, null, 2)}\n`);
+    const approvalDate = new Date().toISOString().slice(0, 10);
+    mkdirSync(join(repository, ".ai-engineering"), { recursive: true });
+    writeFileSync(
+      join(repository, ".ai-engineering", "brainstorm.html"),
+      [
+        "<!doctype html><html><head>",
+        `<meta name="ai-feature" content="${approvalSlug}">`,
+        `<meta name="ai-approved" content="${approvalDate}">`,
+        "</head><body>",
+        `<div class="meta"><b>complete · ${approvalDate}</b><br>Feature</div>`,
+        "</body></html>",
+      ].join("\n"),
+    );
+    const legacySlug = "legacy-sidecar-only";
+    const legacyDirectory = join(repository, ".ai-eng-lifecycle");
+    mkdirSync(legacyDirectory, { recursive: true });
+    writeFileSync(
+      join(legacyDirectory, `${legacySlug}.json`),
+      JSON.stringify({
+        schema_version: 1,
+        slug: legacySlug,
+        state: "approval-before-start",
+        timestamp: new Date().toISOString(),
+      }),
+    );
     writeFileSync(join(testHome, "workspace.json"), `${JSON.stringify({ roots: [configuredRoot] })}\n`);
 
     const server = await startWorkspaceServer();
@@ -329,6 +342,7 @@ describe("workspace server", () => {
     expect(worktrees.some((worktree) => worktree.path === registeredWorktree)).toBe(true);
     expect(JSON.stringify(worktrees)).not.toContain(unregisteredWorktree);
     expect(JSON.stringify(worktrees)).not.toContain(outsideRepository);
+    expect(worktrees).not.toContainEqual(expect.objectContaining({ slug: legacySlug }));
     expect(worktrees).toContainEqual(expect.objectContaining({
       slug: approvalSlug,
       status: "needs-review",

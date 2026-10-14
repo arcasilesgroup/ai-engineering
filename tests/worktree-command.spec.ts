@@ -29,6 +29,10 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 
 const CLI = join(import.meta.dir, "..", "src", "cli.ts");
 const REAL_GIT = Bun.which("git") ?? "git";
+const orchestratorSkill = readFileSync(
+  join(import.meta.dir, "..", "skills", "ai-orchestrator", "SKILL.md"),
+  "utf8",
+);
 const sandboxRoot = mkdtempSync(join(tmpdir(), "ai-eng-worktree-"));
 const emptyGitConfig = join(sandboxRoot, "empty-gitconfig");
 writeFileSync(emptyGitConfig, "");
@@ -573,6 +577,46 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(all.stdout).not.toContain("approval-before-start");
   });
 
+  test("a prunable same-slug worktree suppresses pre-worktree brainstorm projection", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    writeBrainstorm(repo, "alpha");
+    const feature = addRebaseWorktree(repo, "alpha");
+    rmSync(feature, { recursive: true, force: true });
+    expect(git(["worktree", "list", "--porcelain"], repo)).toContain("prunable");
+
+    const listed = runCli(["worktree", "list", "alpha"], repo);
+
+    expect(listed.status).toBe(0);
+    expect(listed.stdout).toContain("unknown (missing, unreadable or malformed checkpoint)");
+    expect(listed.stdout).not.toContain("approval-before-start (brainstorm approved");
+  });
+
+  test("legacy lifecycle sidecars never supply pre-worktree approval or active state", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    mkdirSync(join(root, ".ai-eng-lifecycle"), { recursive: true });
+    const recordPath = join(root, ".ai-eng-lifecycle", "alpha.json");
+    const record = JSON.stringify({
+      schemaVersion: 1,
+      slug: "alpha",
+      state: "approval-before-start",
+      updatedAt: new Date().toISOString(),
+    });
+    writeFileSync(recordPath, record);
+
+    const listed = runCli(["worktree", "list", "alpha"], repo);
+
+    expect(listed.status).toBe(0);
+    expect(listed.stdout).toContain("unknown (brainstorm is missing or unreadable)");
+    expect(listed.stdout).not.toContain("approval-before-start");
+    expect(listed.stdout).not.toContain("active-implementation");
+    expect(readFileSync(recordPath, "utf8")).toBe(record);
+    expect(worktreeEntries(repo)).toHaveLength(1);
+    expect(branchNames(repo)).toEqual(["main"]);
+  });
+
   test("list reports draft, expired, ambiguous, mismatched, and missing brainstorms as unknown", () => {
     const repo = tempRepo();
     const expiredDate = new Date();
@@ -725,15 +769,60 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(existsSync(join(defaultRoot(repo), "gamma"))).toBe(false);
   });
 
-  test("new: extra positional file arguments fail with usage before creating the root or branch", () => {
+  test("new: optional file hints are saved outside the repo and do not become lifecycle state", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
 
     const run = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
-    expect(run.status).not.toBe(0);
-    expect(run.stderr.toLowerCase()).toContain("usage");
-    expect(existsSync(root)).toBe(false);
+    expect(run.status).toBe(0);
+    expect(existsSync(join(root, "alpha"))).toBe(true);
+    expect(JSON.parse(readFileSync(join(root, ".ai-eng-worktrees.json"), "utf8"))).toEqual({
+      alpha: ["docs/shared.md"],
+    });
+    expect(existsSync(join(root, ".ai-eng-lifecycle", "alpha.json"))).toBe(false);
+  });
+
+  test("list strips terminal controls from registered worktree paths", () => {
+    const repo = mkdtempSync(join(tmpdir(), "ai-eng-\u001b[2J-repo-"));
+    cleanups.push(repo);
+    initRepo(repo);
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+
+    const run = runCli(["worktree", "list"], repo);
+
+    expect(run.status).toBe(0);
+    expect(run.stdout).not.toContain("\u001b");
+    expect(run.stdout).toContain("alpha\t");
+  });
+
+  test("new: overlapping file hints warn but never prevent worktree creation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha", "docs/shared.md"], repo).status).toBe(0);
+
+    const overlapping = runCli(["worktree", "new", "beta", "docs/shared.md"], repo);
+
+    expect(overlapping.status).toBe(0);
+    expect(overlapping.stderr).toContain("overlap");
+    expect(overlapping.stderr).toContain("alpha already declared docs/shared.md");
+    expect(existsSync(join(root, "beta"))).toBe(true);
+  });
+
+  test("new: invalid file hints refuse before creating a worktree", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+
+    for (const file of ["../outside.ts", "/absolute/file.ts", "C:\\outside.ts"]) {
+      const run = runCli(["worktree", "new", "alpha", file], repo);
+      expect(run.status).toBe(2);
+      expect(run.stderr).toContain("invalid relative file hint");
+      expect(existsSync(join(root, "alpha"))).toBe(false);
+    }
     expect(branchNames(repo)).toEqual(["main"]);
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
@@ -825,6 +914,18 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
       expect(existsSync(join(root, slug))).toBe(true);
       expect(branchNames(repo)).toContain(`feat/${slug}`);
     }
+  });
+
+  test("constructor slug does not poison a later worktree creation", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+
+    expect(runCli(["worktree", "new", "constructor"], repo).status).toBe(0);
+    const followup = runCli(["worktree", "new", "followup"], repo);
+
+    expect(followup.status).toBe(0);
+    expect(existsSync(join(root, "followup"))).toBe(true);
   });
 
   test("no unquoted: every value reaches git as its own argv element", () => {
@@ -1051,7 +1152,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
-  test("new: does not create the legacy manifest", () => {
+  test("new without file hints does not create a file-hint manifest", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1060,7 +1161,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(existsSync(join(root, ".ai-eng-worktrees.json"))).toBe(false);
   });
 
-  test("new: ignores and preserves malformed legacy manifest bytes", () => {
+  test("new without hints preserves malformed file-hint manifest bytes", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1075,7 +1176,25 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(readFileSync(declarations, "utf8")).toBe(malformedBytes);
   });
 
-  test("rm: does not read, rewrite, or remove a malformed legacy manifest", () => {
+  test("new: refuses requested hints rather than overwriting a malformed manifest", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    mkdirSync(root, { recursive: true });
+    const declarations = join(root, ".ai-eng-worktrees.json");
+    const malformedBytes = "{ manifest remains untouched\n";
+    writeFileSync(declarations, malformedBytes);
+
+    const run = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
+
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain("manifest is unusable");
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(branchNames(repo)).toEqual(["main"]);
+    expect(readFileSync(declarations, "utf8")).toBe(malformedBytes);
+  });
+
+  test("rm preserves malformed file-hint bytes without using them as removal authority", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1262,6 +1381,41 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
   });
 });
 
+describe("ai-orchestrator worktree lifecycle awareness (checkpoint 1)", () => {
+  test("uses exact local worktree identity and treats near-matches as advisory", () => {
+    const preflightStart = orchestratorSkill.indexOf("## Phase 0: Preflight");
+    const planStart = orchestratorSkill.indexOf("## Phase 1: Plan", preflightStart);
+    const preflight = orchestratorSkill.slice(preflightStart, planStart);
+
+    expect(preflight).toContain("ai-eng worktree list <slug>");
+    expect(preflight).toMatch(/resume\s+it using its exact git-listed path/i);
+    expect(preflight).toMatch(/semantic near[- ]match[^.\n]{0,120}advisory/i);
+    expect(preflight).toMatch(/near[- ]match[^.\n]{0,160}(?:not|never|must not)[^.\n]{0,80}(?:exact|substitut|resume|continue)/i);
+  });
+
+  test("uses the brainstorm projection only before a worktree, then checkpoints", () => {
+    const preflightStart = orchestratorSkill.indexOf("## Phase 0: Preflight");
+    const planStart = orchestratorSkill.indexOf("## Phase 1: Plan", preflightStart);
+    const preflight = orchestratorSkill.slice(preflightStart, planStart);
+
+    expect(preflight).toContain("approval-before-start");
+    expect(preflight).toContain("within 14 days");
+    expect(preflight).toContain("matching complete status line");
+    expect(preflight).toContain("projection is read-only");
+    expect(preflight).toContain("checkpoint alone is authoritative");
+    expect(preflight).toMatch(/never falls back to\s+brainstorm/);
+    expect(preflight).toContain("awaiting-plan-approval");
+    expect(preflight).toContain("awaiting-app-review");
+    expect(preflight).toContain("ready-to-merge");
+  });
+
+  test("unknown lifecycle and file hints never authorize implementation", () => {
+    expect(orchestratorSkill).toMatch(/unknown\/pending and cannot authorize\s+work/);
+    expect(orchestratorSkill).toMatch(/hints\s+never authorize implementation/i);
+    expect(orchestratorSkill).toMatch(/Never fetch or sync remote\s+state/);
+  });
+});
+
 describe("ai-eng worktree rm (checkpoint 4)", () => {
   /** Put a commit on the open worktree's branch that local main does not have. */
   function commitInWorktree(repo: string, slug: string): void {
@@ -1374,6 +1528,23 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(existsSync(feature)).toBe(true);
     expect(existsSync(join(feature, "local.env"))).toBe(true);
     expect(branchNames(repo)).toContain("feat/alpha");
+  });
+
+  test("rm strips terminal controls from ignored filenames", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    writeFileSync(join(repo, ".gitignore"), "*.txt\n");
+    git(["add", "-A"], repo);
+    git(["commit", "-q", "-m", "ignore txt files"], repo);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    writeFileSync(join(root, "alpha", "spoof\u001b[2J.txt"), "ignored\n");
+
+    const run = runCli(["worktree", "rm", "alpha"], repo);
+
+    expect(run.status).toBe(0);
+    expect(run.stdout).not.toContain("\u001b");
+    expect(run.stdout).toContain("spoof[2J.txt");
   });
 
   test("U-CP4-d: rm forces its own status read and names the ignored path despite status.showUntrackedFiles=no", () => {

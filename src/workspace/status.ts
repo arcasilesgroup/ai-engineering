@@ -1,4 +1,4 @@
-import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { basename, isAbsolute, join, relative, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
@@ -7,6 +7,7 @@ import {
   type RepositoryWorktree,
   type RepositoryWorktreeInventory,
   reviewedFeatureChainProblem,
+  worktreeBrainstormProjection,
 } from "../shared-worktree.ts";
 
 export type WorkspaceStatus = "needs-review" | "in-progress" | "blocked" | "closed" | "unknown";
@@ -704,115 +705,46 @@ function readClosedHistory(
   return history;
 }
 
-function readApprovalProjections(
+function readBrainstormProjection(
   inventory: RepositoryWorktreeInventory,
   featureBranches: Set<string>,
   areFeatureBranchesReadable: boolean,
   itemsBySlug: Map<string, WorkspaceItem>,
-  projectErrors: string[],
 ): void {
-  const directory = join(inventory.repositoryRoot, ".ai-eng-lifecycle");
-  try {
-    const directoryStat = lstatSync(directory);
-    if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink()) {
-      projectErrors.push("approval lifecycle directory is not a repository-local directory");
-      return;
-    }
-  } catch (error) {
-    if (isRecord(error) && error.code === "ENOENT") return;
-    projectErrors.push(`approval lifecycle directory read failed: ${error instanceof Error ? error.message : String(error)}`);
+  const projection = worktreeBrainstormProjection(inventory.repositoryRoot);
+  const slug = projection.slug;
+  if (slug === null || itemsBySlug.has(slug)) return;
+
+  const branch = `feat/${slug}`;
+  if (!areFeatureBranchesReadable) {
+    itemsBySlug.set(
+      slug,
+      unknownItem(slug, branch, null, null, "pre-worktree approval cannot be verified because local feature refs are unreadable"),
+    );
+    return;
+  }
+  if (
+    featureBranches.has(branch) ||
+    inventory.worktrees.some((entry) => entry.branch === branch)
+  ) {
     return;
   }
 
-  let filenames: string[];
-  try {
-    filenames = readdirSync(directory).filter((filename) => filename.endsWith(".json"));
-  } catch (error) {
-    projectErrors.push(`approval lifecycle directory read failed: ${error instanceof Error ? error.message : String(error)}`);
+  if (projection.label.startsWith("approval-before-start")) {
+    itemsBySlug.set(slug, {
+      slug,
+      branch,
+      worktreePath: null,
+      status: "needs-review",
+      dirty: null,
+    });
     return;
   }
 
-  for (const filename of filenames) {
-    const slug = filename.slice(0, -".json".length);
-    if (!SLUG_PATTERN.test(slug) || /\p{C}/u.test(slug)) continue;
-    const path = join(directory, filename);
-    let record: unknown;
-    try {
-      const stat = lstatSync(path);
-      const canonicalPath = realpathSync(path);
-      if (!stat.isFile() || stat.isSymbolicLink() || !isWithin(inventory.repositoryRoot, canonicalPath)) {
-        const error = "approval projection is not a repository-local file";
-        projectErrors.push(`${slug}: ${error}`);
-        itemsBySlug.set(slug, unknownItem(slug, `feat/${slug}`, null, null, error));
-        continue;
-      }
-      record = JSON.parse(readFileSync(path, "utf8"));
-    } catch (error) {
-      const detail = `approval projection read failed: ${error instanceof Error ? error.message : String(error)}`;
-      projectErrors.push(`${slug}: ${detail}`);
-      itemsBySlug.set(
-        slug,
-        unknownItem(slug, `feat/${slug}`, null, null, detail),
-      );
-      continue;
-    }
-
-    const expectedWorktreePath = join(inventory.worktreesRoot, slug);
-    const isVerified = isRecord(record)
-      && Object.keys(record).length === 8
-      && record.schema_version === 1
-      && record.slug === slug
-      && record.state === "approval-before-start"
-      && isIsoTimestamp(record.timestamp)
-      && record.branch === `feat/${slug}`
-      && record.repository === inventory.repositoryRoot
-      && record.worktrees_dir === inventory.worktreesRoot
-      && record.worktree_path === expectedWorktreePath;
-    const hasRegisteredWorktree = inventory.worktrees.some((entry) => entry.branch === `feat/${slug}`);
-    const hasLocalBranch = featureBranches.has(`feat/${slug}`);
-    const existing = itemsBySlug.get(slug);
-
-    if (
-      isVerified &&
-      areFeatureBranchesReadable &&
-      !hasRegisteredWorktree &&
-      !hasLocalBranch &&
-      existing === undefined
-    ) {
-      itemsBySlug.set(slug, {
-        slug,
-        branch: `feat/${slug}`,
-        worktreePath: null,
-        status: "needs-review",
-        dirty: null,
-      });
-      continue;
-    }
-
-    const reason = isVerified && !areFeatureBranchesReadable
-      ? "approval projection cannot be verified because local feature refs are unreadable"
-      : isVerified
-        ? "approval projection conflicts with local Git worktree or branch evidence"
-        : "approval projection is malformed or does not match this repository";
-    projectErrors.push(`${slug}: ${reason}`);
-    if (existing !== undefined) {
-      existing.status = "unknown";
-      existing.errors = [...(existing.errors ?? []), reason];
-    } else {
-      itemsBySlug.set(slug, unknownItem(slug, `feat/${slug}`, null, null, reason));
-    }
-  }
-}
-
-function isIsoTimestamp(value: unknown): value is string {
-  if (typeof value !== "string") return false;
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) return false;
-  try {
-    return new Date(parsed).toISOString() === value;
-  } catch {
-    return false;
-  }
+  const reason = projection.label.startsWith("unknown (")
+    ? projection.label.slice("unknown (".length, -1)
+    : "brainstorm approval is unknown";
+  itemsBySlug.set(slug, unknownItem(slug, branch, null, null, reason));
 }
 
 export function classifyRepository(
@@ -852,7 +784,7 @@ export function classifyRepository(
     itemsBySlug.set(slug, unknownItem(slug, branch, null, null, "feature branch has no registered worktree"));
   }
 
-  readApprovalProjections(inventory, featureBranches, featureBranchRead.readable, itemsBySlug, projectErrors);
+  readBrainstormProjection(inventory, featureBranches, featureBranchRead.readable, itemsBySlug);
 
   return {
     items: [...itemsBySlug.values()].sort((left, right) => left.slug.localeCompare(right.slug)),
