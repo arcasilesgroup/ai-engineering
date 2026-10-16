@@ -101,4 +101,14 @@ describe("workflow kit — checkpoint-gate beside chain on deny carriers", () =>
     }
     expect(problems).toEqual([]);
   });
+
+  test("the repository Copilot hook skips a missing script but runs it when present", () => {
+    const config = JSON.parse(readFileSync(join(ROOT, ".github", "hooks", "ai-eng.json"), "utf8")) as {
+      hooks: { preToolUse: Array<{ command: string }> };
+    };
+    const command = config.hooks.preToolUse.find((hook) => hook.command.includes("checkpoint-gate.py"))?.command ?? "";
+
+    expect(command).toMatch(/\[\s*-f\s+"\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py"\s*\]\s*\|\|\s*exit 0/);
+    expect(command).toMatch(/;\s*python3\s+"\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py"\s+--surface copilot-cli$/);
+  });
 });
