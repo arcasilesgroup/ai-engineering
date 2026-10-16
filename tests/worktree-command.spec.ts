@@ -1922,6 +1922,71 @@ describe("ai-eng worktree rebase (checkpoint 5)", () => {
 });
 
 describe("ai-eng worktree merge (checkpoint 6)", () => {
+  test("merges an approved feature while preserving unrelated untracked primary files", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareMergeFixture(repo, "merge-untracked-primary");
+    const untrackedFiles = [
+      [".ai-engineering/workflow/playwright/keynote-wip-gate/notes.txt", "keynote notes\n"],
+      [".ai-engineering/workflow/playwright/review/002-nn-keynote-stage-reflow/notes.txt", "review notes\n"],
+    ] as const;
+    for (const [path, contents] of untrackedFiles) {
+      const file = join(repo, path);
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, contents);
+    }
+
+    const run = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(run.status).toBe(0);
+    for (const [path, contents] of untrackedFiles) {
+      expect(readFileSync(join(repo, path), "utf8")).toBe(contents);
+    }
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).not.toBe(approved.reviewedMain);
+    expect(existsSync(approved.feature)).toBe(false);
+  });
+
+  test("refuses an untracked file at an incoming feature path without publishing or losing it", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareMergeFixture(repo, "merge-untracked-collision");
+    const mainBefore = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const collision = join(repo, "src", "approved.ts");
+    mkdirSync(dirname(collision), { recursive: true });
+    writeFileSync(collision, "local untracked data\n");
+
+    const run = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(run.status).not.toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toContain("collide");
+    expect(`${run.stdout}${run.stderr}`).toContain("src/approved.ts");
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(mainBefore);
+    expect(readFileSync(collision, "utf8")).toBe("local untracked data\n");
+    expect(existsSync(approved.feature)).toBe(true);
+    expectWorktrees(repo, [repo, approved.feature]);
+    expectNoMergeLock(repo);
+  });
+
+  test("continues to refuse tracked primary changes without altering them", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareMergeFixture(repo, "merge-tracked-primary");
+    const mainBefore = git(["rev-parse", "refs/heads/main"], repo).trim();
+    writeFileSync(join(repo, "README.md"), "local tracked change\n");
+
+    const run = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(run.status).not.toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toContain("primary checkout is dirty");
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(mainBefore);
+    expect(readFileSync(join(repo, "README.md"), "utf8")).toBe("local tracked change\n");
+    expect(existsSync(approved.feature)).toBe(true);
+    expectWorktrees(repo, [repo, approved.feature]);
+  });
+
   test("U24-U25: app-review pending and approval are separate checkpoint-only commits with stable reviewed SHAs", () => {
     const repo = tempRepo();
     const approved = prepareMergeFixture(repo, "merge-review-commits");

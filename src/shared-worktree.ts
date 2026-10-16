@@ -564,15 +564,6 @@ function worktreeStatus(path: string): StatusRead {
   return { paths: [...new Set(paths)] };
 }
 
-function hooksRoot(repo: string): string | null {
-  const configured = git(repo, ["config", "--path", "--get", "core.hooksPath"]);
-  if (configured.status !== 0 || configured.stderr.trim() !== "") return null;
-  const hookPath = configured.stdout.trim();
-  const root = canonicalize(isAbsolute(hookPath) ? hookPath : resolve(repo, hookPath));
-  const primaryRoot = canonicalize(repo);
-  return root !== primaryRoot && root.startsWith(`${primaryRoot}${sep}`) ? root : null;
-}
-
 function untrackedPaths(repo: string): { paths: string[] } | { detail: string } {
   const untracked = git(repo, ["ls-files", "--others", "--exclude-standard", "-z"]);
   if (untracked.status !== 0 || untracked.stderr.trim() !== "") {
@@ -581,24 +572,41 @@ function untrackedPaths(repo: string): { paths: string[] } | { detail: string } 
   return { paths: untracked.stdout.split("\0").filter(Boolean) };
 }
 
-function isUnderHooksRoot(repo: string, path: string, root: string | null): boolean {
-  if (root === null) return false;
-  const absolutePath = canonicalize(join(repo, path));
-  return absolutePath === root || absolutePath.startsWith(`${root}${sep}`);
-}
-
 function primaryStatus(repo: string): StatusRead {
   const status = worktreeStatus(repo);
   if (status.detail !== undefined) return status;
   const untracked = untrackedPaths(repo);
   if ("detail" in untracked) return { paths: [], detail: untracked.detail };
   const untrackedSet = new Set(untracked.paths);
-  const configuredHooksRoot = hooksRoot(repo);
-  return {
-    paths: status.paths.filter((path) => {
-      return !untrackedSet.has(path) || !isUnderHooksRoot(repo, path, configuredHooksRoot);
-    }),
-  };
+  return { paths: status.paths.filter((path) => !untrackedSet.has(path)) };
+}
+
+function untrackedPathCollision(repo: string, current: string, incoming: string): string | null {
+  const untracked = untrackedPaths(repo);
+  if ("detail" in untracked) return `primary untracked files are unreadable (${untracked.detail})`;
+  if (untracked.paths.length === 0) return null;
+
+  const changed = git(repo, ["diff", "--no-renames", "--name-only", "-z", current, incoming]);
+  if (changed.status !== 0 || changed.stderr.trim() !== "") {
+    return `incoming merge paths are unreadable (${changed.stderr.trim() || `git diff exited ${changed.status}`})`;
+  }
+  const ignoreCase = git(repo, ["config", "--bool", "--get", "core.ignorecase"]);
+  if ((ignoreCase.status !== 0 && ignoreCase.status !== 1) || ignoreCase.stderr.trim() !== "") {
+    return `filesystem case handling is unreadable (${ignoreCase.stderr.trim() || `git config exited ${ignoreCase.status}`})`;
+  }
+  const isCaseInsensitive = ignoreCase.stdout.trim() === "true";
+  const normalize = (path: string): string => isCaseInsensitive ? path.toLowerCase() : path;
+  const changedPaths = changed.stdout.split("\0").filter(Boolean).map(normalize);
+  const collisions = untracked.paths.filter((untrackedPath) => {
+    const candidate = normalize(untrackedPath);
+    return changedPaths.some((changedPath) =>
+      candidate === changedPath ||
+      candidate.startsWith(`${changedPath}/`) ||
+      changedPath.startsWith(`${candidate}/`)
+    );
+  });
+  if (collisions.length === 0) return null;
+  return `primary untracked files collide with incoming merge paths (${collisions.map(displayPath).join(", ")})`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1935,17 +1943,14 @@ function refreshPrimary(repo: string, reviewedMain: string): string | null {
   }
   const history = git(repo, ["rev-list", "--first-parent", "refs/heads/main"]);
   if (history.status !== 0 || history.stderr.trim() !== "") return "local main history is unreadable";
-  const untracked = untrackedPaths(repo);
-  if ("detail" in untracked) return untracked.detail;
-  if (untracked.paths.some((path) => !isUnderHooksRoot(repo, path, hooksRoot(repo)))) {
-    return "primary checkout has untracked files; refusing to refresh";
-  }
-  const matchesMainSnapshot = history.stdout.split("\n").some((candidate) => {
+  const snapshot = history.stdout.split("\n").find((candidate) => {
     const index = git(repo, ["diff", "--cached", "--quiet", candidate, "--"]);
     const working = git(repo, ["diff", "--quiet"]);
     return index.status === 0 && index.stderr.trim() === "" && working.status === 0 && working.stderr.trim() === "";
   });
-  if (!matchesMainSnapshot) return "primary checkout has local changes; refusing to refresh";
+  if (snapshot === undefined) return "primary checkout has local changes; refusing to refresh";
+  const collision = untrackedPathCollision(repo, snapshot, "refs/heads/main");
+  if (collision !== null) return collision;
   const reset = git(repo, ["reset", "--merge", "refs/heads/main"]);
   if (reset.status !== 0) return `git reset --merge refs/heads/main failed: ${reset.stderr.trim()}`;
   const refreshedBranch = git(repo, ["symbolic-ref", "--quiet", "HEAD"]);
@@ -2147,6 +2152,10 @@ export function worktreeMerge(slug: string): WorktreeResult {
       out: "",
       err: `worktree merge: primary HEAD ${primary.head} does not equal reviewed_main ${state.reviewedMain}; refusing to merge.\n`,
     };
+  }
+  const collision = untrackedPathCollision(repo, state.reviewedMain, state.featureTip);
+  if (collision !== null) {
+    return { code: 1, out: "", err: `worktree merge: ${collision}; refusing to merge.\n` };
   }
 
   const root = worktreeRoot(repo);
