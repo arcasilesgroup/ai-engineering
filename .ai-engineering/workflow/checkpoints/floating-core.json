@@ -389,7 +389,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 1, "findings": ["All 11 CP6 verify commands passed; 83 focused tests, typecheck/lint, and arch passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
+        "behavior": { "status": "failed", "attempts": 2, "findings": ["Post-review-fix serial suite: 1550/1552 passed in 192.59s. One test hygiene assertion found environment variables/cwd not restored; one carrier merge test failed to preserve user hooks mentioning `ai-eng`. Targeted commands 1-10 passed; first attempt before review fixes had full suite exit 0."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 1, "findings": ["BLOCKER src/install.ts:47: separator matching can delete user wrappers containing `ai-eng chain`; match exact generated commands and test wrapper preservation.", "MAJOR src/surfaces/surfaces.json:90: Cursor's documented Stop hook is omitted, leaving G8 unenforced; add the event-specific carrier and response test."] }
       },
