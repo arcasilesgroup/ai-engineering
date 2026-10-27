@@ -1691,12 +1691,15 @@ function normalizeCheckpoint(value, context) {
   });
   return { ...value, slug: context.slug, checkpoints, lifecycle };
 }
-function parseCheckpoint(contents, context) {
+function parseCheckpoint(contents, context, options = {}) {
   let value;
   try {
     value = JSON.parse(contents);
   } catch (error) {
     fail("JSON", error instanceof Error ? error.message : String(error));
+  }
+  if (options.forWrite && isRecord(value) && isRecord(value.lifecycle) && value.lifecycle.phase === "complete") {
+    fail("phase", "complete is a legacy read-only phase");
   }
   const checkpoint = normalizeCheckpoint(value, context);
   verifiedCheckpoints.add(checkpoint);
@@ -1790,6 +1793,13 @@ function assertCheckpointTransition(previous, next, context) {
     }
     if (baseCommit(context) === oldState.reviewed_base && !hasVerifiedPrevious) {
       fail("base_ref", "review invalidation requires a lost base compare-and-swap");
+    }
+    verifiedCheckpoints.add(next);
+    return;
+  }
+  if (oldState.phase === "blocked" && newState.phase === "implementation") {
+    if (oldState.app_review !== "not-started" || !sameReview(oldState, newState)) {
+      fail("lifecycle", "blocked state may resume implementation only with its preserved approval");
     }
     verifiedCheckpoints.add(next);
     return;
@@ -2096,7 +2106,7 @@ function checkPlanWrite(payload, repoRoot) {
     return;
   let next;
   try {
-    next = parseCheckpoint(text, context);
+    next = parseCheckpoint(text, context, { forWrite: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const item = /checkpoints\[(\d+)\]/.exec(message);
@@ -2283,7 +2293,8 @@ function checkStop(payload, repoRoot) {
     const sequenceError = requireSequentialCheckpoints(checkpoint, path);
     if (sequenceError !== undefined)
       return sequenceError;
-    if (typeof checkpoint.halted?.reason === "string" && checkpoint.halted.reason.length > 0)
+    const halted = checkpoint.halted;
+    if (typeof halted === "object" && halted !== null && "reason" in halted && typeof halted.reason === "string" && halted.reason.length > 0)
       continue;
     for (const item of checkpoint.checkpoints) {
       if (item.status === "passed" || !started(item))

@@ -1061,3 +1061,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Remove only its obsolete Python hook while preserving chain and post-tool hooks.
 - **Lesson:** Verify checked-in local configs separately; template updates do not migrate them.
 - **Tags:** behavior, carriers, migration
+
+### L146 · 2026-10-27 · floating-core #5 · behavior
+- **Failure:** Generated-payload verification found the committed chain bundle differed from its source.
+- **Root cause:** Chain source changed after the last bundle generation.
+- **Fix:** Regenerate the bundle with `bun scripts/gen-assets.ts`.
+- **Lesson:** Regenerate the committed bundle after chain-source changes.
+- **Tags:** behavior, bundle, generated
