@@ -2,7 +2,7 @@
 
 Who can call what. This is the authorization spec: any change to access must update this file in the same commit, and the adversarial reviewer checks endpoints against it.
 
-The product exposes no server endpoints. Its Azure triage adapter permits only
+The product exposes no server endpoints and runs no local server. Its Azure triage adapter permits only
 the outbound reads below, through the existing Azure CLI sign-in. Azure DevOps
 enforces the signed-in user's permissions; the adapter does not grant access.
 

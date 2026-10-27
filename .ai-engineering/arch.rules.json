@@ -10,7 +10,6 @@
     "surfaces": "src/surfaces/**",
     "shared": "src/shared-*.ts,src/{install,receipts,embed,skills-lint}.ts",
     "env": "src/env.ts",
-    "workspace": "src/workspace/**",
     "templates-assets": "templates/**",
     "sidecar": "src/sidecar/**"
   },

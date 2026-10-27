@@ -156,7 +156,8 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "in_progress",
+      "changed_files": [".ai-engineering/arch.rules.json", "FILEMAP.md", "PERMISSIONS.md", "src/assets.ts", "src/cli.ts", "src/commands/workspace.ts", "src/embed.ts", "src/shared-verbs.ts", "src/workspace/", "templates/workspace.html.tpl", "tests/workspace-command.spec.ts", "tests/workspace-discovery.spec.ts", "tests/workspace-server.spec.ts", "tests/workspace-settings.spec.ts", "tests/workspace-ui.spec.ts", "tests/cli-ux.test.ts", "tests/ceremony-contract.spec.ts"]
     },
     {
       "id": 3,

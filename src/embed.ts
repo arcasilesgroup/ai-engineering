@@ -161,7 +161,7 @@ function materializePrefix(prefix: string, destRoot: string): string[] {
 }
 
 /** The filesystem path an embedded ref points at. In a compiled binary the ref is
- *  already the path Bun serves the asset from; in the source tree it is relative to
+ *  already the path Bun reads the asset from; in the source tree it is relative to
  *  this module. It must NOT be round-tripped through a URL when it is already
  *  absolute: the pathname of a file URL carries a leading slash and, on Windows,
  *  drops the drive letter, so init cannot read a template (ENOENT

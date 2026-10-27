@@ -54,6 +54,7 @@ skills/                        Installed skill canon
 tests/
   worktree-command.spec.ts     Managed worktree rebase, merge, hook and recovery tests
   skills.spec.ts               Skill contracts, including the local recap handoff
+  ceremony-contract.spec.ts    Every skill, agent, script and template ai-orchestrator cites exists and ships embedded
   generated-payload.test.ts   Assert generated assets match their source files
   triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests
   test-hygiene.spec.ts         No suite writes under tests/; sandboxed suites restore env and cwd
