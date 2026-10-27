@@ -459,7 +459,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "failed", "attempts": 2, "findings": ["Attempt 1: floor-hooks fixture had no detected base and returned `ask`; corrected in 674ab681.", "Attempt 2: all 11 targeted checks passed, but `bun test --parallel=1` exited 1. Runner output was truncated and omitted failed test names, counts, and duration; cause unknown pending diagnostic rerun."] },
+        "behavior": { "status": "failed", "attempts": 2, "findings": ["Attempt 1: floor-hooks fixture lacked a detected base; corrected in 674ab681.", "Attempt 2 and diagnostic rerun: serial suite 1547/1575, 12 failed, 16 skipped in 198.46s. Stale workflow/skill assertions expect mandatory worktrees, lifecycle approvals and rebase/old merge handoff after CP7 removed them; generated-payload also finds a stale bundle. Exact failures are in the diagnostic report."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
