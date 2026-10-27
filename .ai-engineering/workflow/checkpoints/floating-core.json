@@ -459,7 +459,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "failed", "attempts": 1, "findings": ["Stopped at verify command 4: tests/floor-hooks.spec.ts:300 expected direct detected-base push rejection, but received a Gitleaks finding. Later commands were not run. Inspect prePush ordering and fixture premise."] },
+        "behavior": { "status": "failed", "attempts": 2, "findings": ["Attempt 1: floor-hooks fixture had no detected base and returned `ask`; corrected in 674ab681.", "Attempt 2: all 11 targeted checks passed, but `bun test --parallel=1` exited 1. Runner output was truncated and omitted failed test names, counts, and duration; cause unknown pending diagnostic rerun."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
