@@ -463,7 +463,8 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "in_progress"
+      "status": "in_progress",
+      "changed_files": ["tests/floor-gates.spec.ts", "tests/ceremony-contract.spec.ts"]
     },
     {
       "id": 8,

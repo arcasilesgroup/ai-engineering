@@ -192,6 +192,11 @@ describe("ceremony contract — every piece ai-orchestrator cites exists and shi
     expect([...cited.templates]).toEqual(expect.arrayContaining(["brainstorm.html.tpl", "plan.html.tpl", "viewer.html.tpl"]));
   });
 
+  test("the orchestrator does not cite removed worktree commands", () => {
+    const orchestrator = readFileSync(join(REPO, "skills", ENTRY_SKILL, "SKILL.md"), "utf8");
+    expect(orchestrator).not.toMatch(/worktree rebase|worktree new <slug> \[files\.\.\.\]/);
+  });
+
   test("every cited skill, agent, script, guard and template exists and ships", () => {
     expect(ceremonyGaps(REPO, ENTRY_SKILL, canon)).toEqual([]);
   });

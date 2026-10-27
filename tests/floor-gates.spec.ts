@@ -21,6 +21,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
 import { floor } from "../src/floor/entry.ts";
+import { resolveContext } from "../src/git/context.ts";
 
 const SECRET = "AKIAIOSFODNN7EXAMPLE";
 const roots: string[] = [];
@@ -67,6 +68,33 @@ function tempRepo(governed: boolean): string {
     writeFileSync(join(dir, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
   }
   return dir;
+}
+
+function pushBaseFixture(base: "develop" | "main"): { repo: string; branch: string; sha: string } {
+  const repo = tempRepo(true);
+  const branch = "feature/push-protection";
+  run("git", repo, ["checkout", "-b", branch]);
+  write(repo, "fixture.txt", "fixture\n");
+  run("git", repo, ["add", "fixture.txt"]);
+  run("git", repo, ["commit", "-q", "-m", "test: create push fixture"]);
+  const sha = run("git", repo, ["rev-parse", "HEAD"]).stdout.trim();
+  expect(sha).toMatch(/^[a-f0-9]{40}$/);
+
+  for (const name of ["develop", "main"]) run("git", repo, ["branch", name, sha]);
+  write(
+    repo,
+    ".ai-engineering/config.toml",
+    `[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "${base}"\n`,
+  );
+
+  const context = resolveContext(repo);
+  expect(context).toMatchObject({ branch, base, baseSource: "config", baseRemote: null });
+  expect(run("git", repo, ["symbolic-ref", "--quiet", "HEAD"]).stdout.trim()).toBe(`refs/heads/${branch}`);
+  expect(run("git", repo, ["remote"]).stdout.trim()).toBe("");
+  for (const name of ["develop", "main"]) {
+    expect(run("git", repo, ["show-ref", "--verify", "--hash", `refs/heads/${name}`]).stdout.trim()).toBe(sha);
+  }
+  return { repo, branch, sha };
 }
 
 function write(root: string, name: string, content: string): string {
@@ -334,6 +362,28 @@ describe("floor gates — the staged-secret scan contract", () => {
     expect(result.lines[1]!.length).toBe(2000);
     expect(result.lines[1]).toBe(long.slice(0, 2000));
   });
+});
+
+describe("floor gates — push protection follows the detected base", () => {
+  test.each([
+    { base: "develop", target: "develop", decision: "deny" },
+    { base: "develop", target: "main", decision: "allow" },
+    { base: "main", target: "main", decision: "deny" },
+  ] as const)(
+    "with base $base, a push to $target is $decision",
+    ({ base, target, decision }) => {
+      const { repo, branch, sha } = pushBaseFixture(base);
+      installStrictShim({ scanExit: 0 });
+      const previousRefs = process.env.AI_ENG_PUSH_REFS;
+      process.env.AI_ENG_PUSH_REFS = `refs/heads/${branch} ${sha} refs/heads/${target} ${"0".repeat(40)}`;
+      try {
+        expect(prePush(repo).ok).toBe(decision === "allow");
+      } finally {
+        if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+        else process.env.AI_ENG_PUSH_REFS = previousRefs;
+      }
+    },
+  );
 });
 
 describe("floor gates — commitMsg contract corners", () => {
