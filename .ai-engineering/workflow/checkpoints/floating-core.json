@@ -391,9 +391,9 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 4, "findings": ["After cycle fix `fde1e0e0`, all 11 verify commands passed in order; new cycle test passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "failed", "attempts": 4, "findings": ["Cycle blocker resolved by extracting src/shared-hash.ts and checking full-graph cycles. New MAJOR: FILEMAP.md does not list src/shared-hash.ts, which was added to the repository."] }
+        "review": { "status": "passed", "attempts": 5, "findings": ["F1-F5 resolved: exact per-command hook removal, Cursor Stop carrier/dialect, canonical template-derived hook commands, shared hash extraction/full-graph cycle test, and FILEMAP entry. Final review PASS; MINOR F6 deferred."] }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": ["src/surfaces/surfaces.json", ".github/hooks/ai-eng.json", "src/install.ts", "src/embed.ts", "src/shared-hash.ts", "scripts/gen-assets.ts", "scripts/checkpoint-gate.py", "tests/test_checkpoint_gate.py", "templates/settings.claude.json.tpl", "templates/settings.codex.json.tpl", "templates/settings.copilot.json.tpl", "templates/settings.copilot.cli.json.tpl", "templates/settings.cursor.json.tpl", "templates/plugin.omp.ts.tpl", "templates/plugin.opencode.ts.tpl", "templates/plugin.pi.ts.tpl", "tests/carriers-install.spec.ts", "tests/adversarial/carrier-merge.test.ts", "tests/checkpoint-gate-carrier.spec.ts", "tests/workflow-doctor-surfaces.spec.ts", "tests/ceremony-contract.spec.ts", "tests/chain-dialect.spec.ts", "src/chain/dialect.ts", "tests/arch.spec.ts", "skills/ai-orchestrator/SKILL.md", "src/assets.ts", "skills/.chain-bundle/ai-eng-chain.ts", "src/commands/checkpoint-gate-report.ts", "FILEMAP.md", "LEARNINGS.md"]
     },
     {
@@ -934,6 +934,7 @@
     "CP4 review MINOR: src/shared-worktree.ts:1548 baseRef still defaults to refs/heads/main, but current callers pass detected base. Deferred; remove the default when all direct callers supply an explicit detected base.",
     "CP5 behavior gate history (4 attempts): Attempt 1 failed on the stale .github/hooks/ai-eng.json Python hook; fixed in 031e6751. Attempt 2 failed on stale generated payload; fixed in 5bba8688, followed by full suite 1547/1547. Attempt 3 passed before adversarial changes. Attempt 4 failed at verify command 9: generated-payload found the chain bundle stale again after the guard source fix; commands 10-14 did not run. Three behavior failures have accumulated; replan threshold reached.",
     "CP5 review gate history (1 attempt): BLOCKER src/guards/checkpoint.ts:319: Git-prefixed compound commands can bypass Bash write detection; reject write-capable segments. MAJOR src/install.ts:47: legacy marker can remove a user hook mentioning checkpoint-gate.py; recognize only standalone managed hooks.",
-    "CP5 is split into sequential guard/routing and carrier/migration slices after the automatic re-plan threshold. Scope and dependencies remain those approved in brainstorm section 11; guard coverage and fail-closed behavior follow LEARNINGS Rules R1-R3."
+    "CP5 is split into sequential guard/routing and carrier/migration slices after the automatic re-plan threshold. Scope and dependencies remain those approved in brainstorm section 11; guard coverage and fail-closed behavior follow LEARNINGS Rules R1-R3.",
+    "CP6 review MINOR F6: tests/carriers-install.spec.ts:10 contains a stale Claude-template note and an assertion that can treat refusal as idempotence; deferred because only BLOCKER/MAJOR findings block."
   ]
 }

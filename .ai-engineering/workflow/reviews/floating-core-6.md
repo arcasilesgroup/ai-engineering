@@ -106,3 +106,7 @@ Carriers use the TypeScript checkpoint guard, updates replace only standalone ma
 **ROOT CAUSE:** The new `src/shared-hash.ts` helper was not added to the repository file map.
 **FIX:** Added a concise FILEMAP entry describing its shared SHA-256 file-hashing role.
 **LESSON:** Update FILEMAP whenever a source file is added.
+
+## F6 · MINOR · open
+**Where:** tests/carriers-install.spec.ts:10
+**Critic (r1):** The test still documents Claude's current settings template as unreproducible and expects a second install to be refused, but the committed template is canonical two-space JSON with a trailing newline. The test only asserts that nothing was written, so a refusal can masquerade as idempotence. Remove the stale defect note and assert that the second install reports the carrier untouched with no refusal.
