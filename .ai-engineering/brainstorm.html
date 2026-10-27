@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="ai-feature" content="worktree-lifecycle-governance">
-<meta name="ai-approved" content="2026-10-08">
-<title>Brainstorm · gobernanza de worktrees</title>
+<meta name="ai-feature" content="floating-core">
+<meta name="ai-approved" content="2026-10-27">
+<title>Brainstorm · floating core</title>
 <style>
 :root{
   --bg:#001E2B; --surface:#112733; --surface-2:#1C2D38;
@@ -201,10 +201,10 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Brainstorm · gobernanza de worktrees · complete · 2026-10-08</div>
-  <h1>Worktrees con estado claro</h1>
-  <p class="sub">Antes de empezar trabajo nuevo, el flujo debe mostrar qué worktrees existen, qué trabajo sigue activo y qué decisiones esperan a la persona, para no duplicar cambios ni dejar ramas olvidadas.</p>
-  <div class="meta"><b>complete · 2026-10-08</b><br>Slug <b>worktree-lifecycle-governance</b> · aprobado para implementación</div>
+  <div class="stamp">Brainstorm · floating core · complete · 2026-10-27</div>
+  <h1>Floating core: menos plataforma, el mismo suelo</h1>
+  <p class="sub">ai-engineering es un suelo de seguridad debajo del agente que ya usas. El agente trabaja donde tú estás; el suelo mira cada acción y la apunta; Git, tu editor y tu forge hacen lo suyo, y nosotros quitamos nuestras copias.</p>
+  <div class="meta"><b>complete · 2026-10-27</b><br>Slug <b>floating-core</b> · camino arquitectónico · aprobado para implementación</div>
 </header>
 
 <nav>
@@ -218,162 +218,582 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <a href="#s8"><b>08</b>Límites</a>
   <a href="#s9"><b>09</b>Fuera</a>
   <a href="#s10"><b>10</b>Investigar</a>
-  <a href="#s11"><b>11</b>Handoff</a>
+  <a href="#s11"><b>11</b>Traspaso</a>
 </nav>
 
 <main id="main">
 <div class="container">
-
 <section id="s1">
   <h2><span class="num">01</span>La idea en palabras llanas</h2>
-  <p>Quieres que antes de empezar un trabajo nuevo, el agente mire las carpetas de trabajo que ya existen. Debe decir qué sigue en marcha y dónde falta que la persona apruebe algo. Si el mismo trabajo ya existe, debe seguir desde ahí en vez de empezar otra copia.</p>
-  <p>Si varias tareas avanzan a la vez, el agente también debe juntar cada tarea con los cambios que ya llegaron a la rama principal y resolver los conflictos que pueda entender. La persona revisa el resultado actualizado antes de que se integre y se borre el worktree.</p>
-  <p>La persona conserva el control: ninguna rama se integra ni se borra sin la aprobación prevista. Falta decidir si también se pueden incorporar ramas hermanas que aún no llegaron a la rama principal.</p>
+  <p>ai-engineering es un suelo de seguridad que va debajo del agente que ya usas. El agente trabaja donde tú estás: en tu carpeta de siempre, en la rama que tengas, o en una copia aparte solo si tú la pides o si otra sesión ya está escribiendo ahí.</p>
+  <p>Antes de cada acción del agente, el suelo mira y dice sí, no o "hazlo así", y lo apunta en un archivo. Eso ya funciona y se queda.</p>
+  <p>Para un arreglo pequeño, el agente escribe primero un test que falla, luego el código, ve el test en verde y guarda el cambio. Nada más. Para una feature grande, primero acordamos la idea por escrito, luego el agente la construye por pasos con tests primero, y tú miras el resultado antes de que se junte. Al final eliges: juntarlo en tu rama base, abrir una PR o dejar la rama guardada.</p>
+  <p>Todo lo que Git, tu editor, tu harness y GitHub o Azure DevOps ya saben hacer, lo hacen ellos. Quitamos nuestras copias: el panel web propio, el servidor local, el worktree obligatorio, la rama <code>main</code> supuesta y las reglas que bloquean por archivos que no tienen nada que ver.</p>
+  <div class="note ok"><h4>Aprobado el 2026-10-27</h4><p>Las secciones 06 y 07 son el contrato cerrado. La sección 11 es el plan que <code>/ai-orchestrator</code> convierte en checkpoints.</p></div>
+  <p class="dim">Diagramas interactivos (Archify, verificados en navegador): <a href="../.archify/architecture-floating-core-20261026-162613/floating-core.html">arquitectura objetivo</a> · <a href="../.archify/workflow-way-of-working-20261026-162613/way-of-working.html">way of working</a> · <a href="../.archify/lifecycle-checkpoint-20261026-162613/checkpoint-lifecycle.html">estado de una feature</a>. Viven en <code>.archify/</code> sin commitear; el ASCII de este documento es la fuente.</p>
 </section>
 
 <section id="s2">
   <h2><span class="num">02</span>Por qué importa</h2>
-  <p>Un worktree puede contener cambios activos aunque el directorio principal no los muestre. Sin un resumen compartido antes de cada nueva idea o implementación, dos sesiones pueden trabajar sobre el mismo tema, y una tarea terminada puede quedarse esperando una aprobación o limpieza sin que sea visible. Además, varias ramas pueden cambiar las mismas partes del proyecto; integrarlas sin reconciliar los conflictos puede perder cambios o romper algo que ya funcionaba.</p>
+  <p>La web promete <a href="https://ai-engineering.arcasiles.com/why/">"Not a platform. Nothing to sink."</a>: no hay sistema operativo, no hay framework con ciclo de vida, no hay flujo rígido y nada residente. El repositorio se ha alejado de esa promesa. Tenemos una plataforma que se hunde: cada copia de algo que la base ya da es una factura de mantenimiento para siempre, y además bloquea al agente.</p>
+
+  <h3>La promesa contra la realidad</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Promesa</th><th>Hoy</th><th>Evidencia</th></tr></thead>
+    <tbody>
+      <tr><td>Not an operating system</td><td>Se cumple</td><td><code>src/chain/mod.ts:39-55</code> engancha guards al hook del harness</td></tr>
+      <tr><td>Nada residente en tu editor</td><td>Derivando</td><td><code>ai-eng workspace</code> lanza un servicio local en segundo plano (<code>src/workspace/instance.ts:27-33</code>)</td></tr>
+      <tr><td>No lifecycle to learn, no flow to migrate to</td><td>Roto</td><td><code>AGENTS.md:50-56</code> obliga a worktree por sesión y merge en <code>main</code> local</td></tr>
+      <tr><td>Not a rigid flow</td><td>Roto</td><td>El mismo flujo se instala en cada repo gobernado (<code>templates/AGENTS.md.tpl:43-49</code>)</td></tr>
+      <tr><td>Not another thing to maintain</td><td>Derivando</td><td>Hub web, proyección lifecycle, hook Python de 922 líneas, 4 validadores del mismo estado</td></tr>
+      <tr><td><code>ai-eng update</code> sin red</td><td>Roto</td><td><code>src/cli.ts:107-108</code> llama a <code>maybeNotice()</code>, que puede consultar el registro</td></tr>
+      <tr><td>Nunca saltar hooks</td><td>Roto en casa</td><td><code>init</code> y <code>update</code> hacen commit con <code>--no-verify</code> (<code>src/commands/init.ts:435-448</code>, <code>src/commands/update.ts:289-298</code>)</td></tr>
+      <tr><td>6 guards, 30 skills, 8 surfaces, 0 servicios hospedados</td><td>Se cumple (con matices)</td><td>Uno de los 6 (<code>wrap</code>) no protege: ahorra tokens enseñando solo los tests que fallan. Encaja con otra promesa de la web, "the work goes faster, on fewer tokens", pero debe contarse aparte de los guards de protección</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Los seis fallos reales que viste</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Fallo</th><th>Síntoma</th><th>Causa raíz</th><th>¿Arreglado en main?</th><th>Cómo lo evita el diseño</th></tr></thead>
+    <tbody>
+      <tr><td>F1</td><td>El orchestrator no arranca porque <code>brainstorm.html</code> y <code>PRD.html</code> están modificados en el checkout principal</td><td>Regla "diseño commiteado antes del worktree" (<code>AGENTS.md:54</code>) más el bloqueo <code>dirtySlot</code> (<code>src/shared-worktree.ts:420-441,466-474</code>), y el preflight tiene prohibido commitearlos</td><td>No</td><td>La aprobación del brainstorm commitea solo esos dos archivos (rutas explícitas). Si trabajas aquí, no hace falta ni eso. Archivos ajenos nunca bloquean.</td></tr>
+      <tr><td>F2 y F3</td><td><code>ai-eng worktree merge</code> se niega por artefactos sin seguimiento de otra feature</td><td>El merge trataba cualquier archivo sin seguimiento como bloqueo</td><td>Sí, <code>55c87550</code>: solo bloquea rutas que chocan con lo que entra (<code>src/shared-worktree.ts:584-610</code>, test <code>tests/worktree-command.spec.ts:1925-1948</code>)</td><td>Se conserva tal cual. Es el modelo para todas las reglas.</td></tr>
+      <tr><td>F4</td><td>Tras el merge queda una carpeta (Zed recrea <code>.zed/tasks.json</code>) y la lista muestra una fila "pre-worktree" que parece un worktree vivo</td><td><code>worktreeList</code> mezcla el inventario de Git con una proyección del brainstorm (<code>src/shared-worktree.ts:1029-1068</code>)</td><td>No</td><td>La lista muestra solo lo que Git registra. Una idea aprobada aparece aparte, sin ruta. Si queda una carpeta no registrada, se informa como "carpeta huérfana, no es trabajo".</td></tr>
+      <tr><td>F5</td><td>No se puede reanudar: el worktree está sucio con informes de otra skill, y luego con archivos de la propia feature</td><td>Reanudar exige árbol limpio entero (<code>skills/ai-orchestrator/SKILL.md:109-116</code>; <code>src/shared-worktree.ts:1188-1200,2359-2370</code>); las skills escriben informes dentro del árbol</td><td>No</td><td>Reanudar no exige limpieza: los cambios propios de la feature se continúan, los ajenos se dejan quietos. Las skills escriben informes en un directorio local ignorado por Git.</td></tr>
+      <tr><td>F6</td><td><code>ai-pr</code> no abre la PR: hay otra rama <code>feat/*</code> abierta, el remoto Azure no tiene <code>main</code>, falta <code>CONTRIBUTING.md</code></td><td><code>skills/ai-pr/SKILL.md:51-74,89-101,147-150</code>: exige checkout principal en <code>main</code>, cero ramas abiertas y <code>--base main</code></td><td>No</td><td>La PR sale de la rama actual, esté en checkout o worktree. La base se detecta. Ramas ajenas y archivos opcionales no bloquean.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>El coste medido</h3>
+  <div class="stats">
+    <div class="stat"><div class="v">13,1<em>k</em></div><div class="l">líneas en src</div></div>
+    <div class="stat"><div class="v">2.539</div><div class="l">shared-worktree.ts</div></div>
+    <div class="stat"><div class="v">≈5,5<em>k</em></div><div class="l">hub y proyección</div></div>
+    <div class="stat"><div class="v">27,9<em>k</em></div><div class="l">líneas de tests</div></div>
+    <div class="stat"><div class="v">19</div><div class="l">agentes mínimos por feature de 3 CP</div></div>
+    <div class="stat"><div class="v">287</div><div class="l">commits en una rama de feature</div></div>
+  </div>
+  <p>La feature <code>worktree-lifecycle-governance</code> lleva 287 commits por delante de <code>main</code>, con 12 asuntos "CPn UI attempt k failed". La ceremonia se conserva (P10), pero es un dato para la decisión D6: el re-plan automático multiplica intentos cuando el fallo no está en el código, sino en el entorno o en el gate. El hook <code>scripts/checkpoint-gate.py</code> (922 líneas, Python, segundo runtime) y sus 122 pruebas (931 líneas) ni siquiera corren en CI.</p>
 </section>
 
 <section id="s3">
   <h2><span class="num">03</span>Para quién es</h2>
-  <p>Para las personas que coordinan sesiones de agentes en el mismo clon local y para cada agente que va a diseñar, implementar o cerrar una tarea.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Quién</th><th>Qué necesita</th><th>Qué le duele hoy</th><th>Qué gana</th></tr></thead>
+    <tbody>
+      <tr><td>Persona sola en su checkout</td><td>Pedir un arreglo y que salga, con tests</td><td>Worktree obligatorio, brainstorm aunque sea un typo, merge solo a <code>main</code></td><td>Ritmo Directo: cero documentos, cero paradas extra</td></tr>
+      <tr><td>Persona con varias sesiones en paralelo</td><td>Que dos agentes no se pisen</td><td>Bloqueos por archivos de la otra sesión, filas fantasma en la lista</td><td>Worktree cuando hay paralelo real, reglas que solo miran lo que se escribe</td></tr>
+      <tr><td>Equipo en Azure DevOps o con rama base distinta</td><td>Abrir PR contra su rama por defecto (<code>develop</code>, <code>release/*</code>)</td><td><code>main</code> y <code>origin/main</code> codificados en 43 + 34 sitios</td><td>Base detectada, PR con <code>gh</code> o <code>az</code></td></tr>
+      <tr><td>El agente (Claude Code, Copilot, Codex, Cursor)</td><td>Saber qué hacer y no quedarse atascado</td><td>Paradas sin salida ("preserva y para"), 285 líneas de orchestrator, preflight repetido en dos skills</td><td>Cada refusal nombra la ruta protegida y el siguiente paso</td></tr>
+      <tr><td>Quien mantiene ai-engineering</td><td>Cambiar algo sin romper 4 copias</td><td>4 validadores del mismo estado, tests que comprueban frases de skills, flakes por tiempo</td><td>Un estado, un validador, suite determinista en menos de 2 minutos</td></tr>
+    </tbody>
+  </table></div>
 </section>
 
 <section id="s4">
-  <h2><span class="num">04</span>Qué existe hoy</h2>
-  <ul>
-    <li><code>AGENTS.md</code> pide un worktree por feature para sesiones que escriben código. El formato habitual es <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code>, con una posible ubicación configurada en <code>.ai-engineering/config.toml</code>.</li>
-    <li><code>ai-eng worktree list</code> enumera slug y ruta. No muestra por sí solo si hay cambios sin commit, en qué checkpoint va la implementación ni si espera una aprobación.</li>
-    <li><code>ai-orchestrator</code> ya reutiliza el worktree si encuentra el mismo slug. Tiene una aprobación humana del plan antes de implementar y otra revisión humana antes de integrar y borrar el worktree.</li>
-    <li>El archivo de checkpoints registra los estados de las pruebas y revisiones por checkpoint, pero la lista de worktrees no los une en un estado de ciclo de vida visible.</li>
-    <li>Hoy la revisión humana final sucede antes del rebase y del merge. El flujo describe verificaciones del merge, pero no un procedimiento para resolver conflictos y volver a probar antes de integrar.</li>
-    <li><code>&lt;raíz-de-worktrees&gt;/.ai-eng-worktrees.json</code> es un manifiesto local de archivos declarados por slug, no el inventario real de Git ni un registro de fases o aprobaciones. <code>ai-eng worktree new &lt;slug&gt; [files...]</code> lo crea y actualiza; <code>rm</code> elimina la entrada, y las entradas de directorios ya ausentes se podan al crear o quitar worktrees. Dos listas que declaran el mismo archivo solo producen un aviso, no bloquean la creación. <code>list</code> no consulta este archivo. Ver <code>src/commands/worktree.ts:7-18</code> y <code>src/shared-worktree.ts:96-145, 282-323, 327-337, 364-430</code>.</li>
-    <li>Si el manifiesto no se puede leer o no contiene el formato esperado, <code>worktree new</code> y <code>worktree rm</code> fallan cerrados. La prueba de aviso por solapamiento está en <code>tests/worktree-command.spec.ts:272-283</code>; la de formato inválido y limpieza en <code>:599-630</code>.</li>
-    <li>El flujo normal de <code>ai-orchestrator</code> llama a <code>ai-eng worktree new &lt;slug&gt;</code> sin la lista opcional de archivos. La búsqueda del repo no encontró otro llamador de producción que la pase; el argumento solo aparece en la interfaz del comando y las pruebas. El archivo local consultado para este borrador tenía cero entradas.</li>
-    <li><code>ai-eng worktree rm</code> comprueba que la rama llegó al <code>main</code> local antes de borrarla. <code>ai-git-cleanup</code> es un pase separado para eliminar trabajo que Git puede demostrar que ya terminó.</li>
-    <li>En esta inspección hay dos worktrees además del checkout principal. <code>feat/ai-triage-azure-signals</code> tiene cambios locales y un checkpoint pendiente; <code>feat/azure-triage-comments</code> también tiene cambios locales, pero no tiene un checkpoint con ese slug en su directorio de workflow.</li>
-    <li>Los archivos relevantes abiertos son <code>AGENTS.md</code>, <code>src/shared-worktree.ts</code>, <code>skills/ai-orchestrator/SKILL.md</code> y <code>skills/ai-git-cleanup/SKILL.md</code>.</li>
-  </ul>
-</section>
+  <h2><span class="num">04</span>Qué existe hoy (verificado)</h2>
+  <p class="dim">Auditoría de solo lectura del 26 de octubre de 2026 sobre <code>main</code> en <code>55c87550</code> y la rama <code>feat/worktree-lifecycle-governance</code>. Seis auditorías en paralelo: runtime, worktree y workspace, skills, documentación, tests y CI, e investigación externa con fuentes oficiales.</p>
 
+  <h3>4.1 Runtime: qué es suelo y qué es plataforma</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Clase</th><th>Archivos</th><th>Líneas</th><th>Ejemplos</th></tr></thead>
+    <tbody>
+      <tr><td>Suelo (la promesa)</td><td>20</td><td>4.446</td><td>chain, payload, dialect, guards, receipts, install, embed, surfaces, hooks Git, y <code>wrap</code> y <code>paint</code> (ahorro de tokens)</td></tr>
+      <tr><td>Soporte necesario</td><td>14</td><td>2.877</td><td>cli, env, init, update, uninstall, config, doctor, ui de terminal</td></tr>
+      <tr><td>Plataforma (creep)</td><td>10</td><td>1.091</td><td>spec y triggers, briefing, upgrade y notice, <code>init.templateDir</code> global, plant-workflow</td></tr>
+      <tr><td>Muerto</td><td>4</td><td>375</td><td>sidecar, shadow, queue, circuit breaker (ningún llamador de producción)</td></tr>
+      <tr><td>Fuera de este conteo</td><td>3 + dir</td><td>≈4.200</td><td><code>shared-worktree.ts</code> 2.539, <code>src/workspace/</code> 1.657 (más 2.596 en la rama)</td></tr>
+    </tbody>
+  </table></div>
+  <p>Un tool call real hoy, de punta a punta, ya es limpio y se conserva:</p>
+<pre>settings.claude.json.tpl  (hook PreToolUse)
+  -> ai-eng chain PreToolUse        src/cli.ts:74-83
+  -> runChain: gobernado?, normaliza src/chain/mod.ts:142-185
+  -> TABLE: evento + herramienta    src/chain/mod.ts:38-58
+  -> guard no-verify                src/guards/no-verify.ts:63-80
+  -> deny + receipt                 src/chain/mod.ts:306-342
+  -> receipts/*.json                src/receipts.ts:26-48</pre>
+
+  <h3>4.2 Worktree y workspace</h3>
+  <ul>
+    <li><b>Estado del ciclo de vida</b>: 7 fases (<code>approval-before-start</code>, <code>awaiting-plan-approval</code>, <code>implementation</code>, <code>blocked</code>, <code>awaiting-app-review</code>, <code>ready-to-merge</code>, <code>complete</code>) más 4 campos. Nadie escribe <code>complete</code>, pero dos lectores lo aceptan.</li>
+    <li><b>Validadores duplicados</b>: 4 completos (<code>src/workspace/status.ts:224-315</code>, <code>src/workspace/viewer.ts:68-178</code> (solo en la rama), <code>src/shared-worktree.ts:636-710</code>, <code>scripts/checkpoint-gate.py:313-420</code>) y 2 parsers del HTML de aprobación (TS y Python). Los conjuntos de fases no coinciden entre ellos.</li>
+    <li><b>Supuestos fijos</b>: <code>refs/heads/main</code> 43 veces, <code>origin/main</code> 34, <code>feat/</code> 68, <code>.worktrees</code> 64, entre <code>src/</code>, <code>skills/</code>, <code>scripts/</code>, <code>templates/</code> y <code>AGENTS.md</code>.</li>
+    <li><b>Hub workspace</b>: servidor loopback, API, capability worker, descubrimiento multi repo, UI de 1.867 líneas, visor de 395 y un escritor de proyección con <code>bun:ffi</code> de 584 líneas. No hay ningún lector en el repo de <code>.ai-eng-lifecycle/&lt;slug&gt;.json</code>.</li>
+    <li><b>Lo que sí vale</b>: merge con SHA revisado y compare-and-swap (<code>git update-ref</code>), test de una sola ganadora en carrera (<code>tests/worktree-command.spec.ts:2299-2363</code>), colisión de rutas sin seguimiento acotada, reintento de merge ya publicado, no borrar trabajo sucio.</li>
+  </ul>
+
+  <h3>4.3 Canon de skills</h3>
+  <p>30 skills, 21.556 líneas. La auditoría proponía 8 packs; tras revisar las dependencias del orchestrator, <b>la ceremonia completa se queda en core</b> (ver 6.2 bis). Resultado final: <b>23 skills core, 6 pasan a packs opcionales, 1 se fusiona, 0 se borran.</b> Los 6 packs suman ≈9.350 líneas que hoy se cargan en cada surface.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Skill</th><th>Líneas</th><th>Veredicto</th><th>Por qué</th></tr></thead>
+    <tbody>
+      <tr><td>ai-agents-md, ai-audit-code, ai-audit-docs, ai-codegraph, ai-debug, ai-explore, ai-issue-report, ai-note, ai-read-docs, ai-research</td><td>≈1.150</td><td>Core, sin cambios de fondo</td><td>Pequeñas, componibles, sin acoplamiento a worktree ni a <code>main</code></td></tr>
+      <tr><td>ai-brainstorm</td><td>1.180</td><td>Se queda; solo cambia lo de ubicación</td><td>Entrada de la ceremonia: misma entrevista, mismo HTML, misma aprobación. Se quita el preflight de worktree duplicado y la aprobación en el ritmo Directo</td></tr>
+      <tr><td>ai-orchestrator</td><td>285</td><td>Se queda; solo cambia lo de ubicación</td><td>Mismas fases, gates, agentes, paradas y recetas de commit. Cambian worktree obligatorio, <code>main</code> fijo y el hook Python por el guard TS</td></tr>
+      <tr><td>ai-pr</td><td>356</td><td>Adelgazar a ≈90</td><td>Proveedor neutral (<code>gh</code>/<code>az</code>), base detectada, sin bloqueos por ramas ajenas</td></tr>
+      <tr><td>ai-git-cleanup</td><td>170</td><td>Adelgazar a ≈40</td><td>Vista previa con Git nativo; sin borrado forzado por defecto</td></tr>
+
+      <tr><td>ai-architect, ai-config-to-project</td><td>595, 79</td><td>Adelgazar</td><td>Menos ritual fijo, mismo juicio</td></tr>
+      <tr><td>ai-verify</td><td>6.063</td><td>Core el router de 54 líneas; 6.009 a pack</td><td>Los tiers y evals son especialistas</td></tr>
+      <tr><td>ai-code-review</td><td>126</td><td>Fusionar en ai-verify</td><td>Solapa con la revisión de diff</td></tr>
+      <tr><td>ai-test-planner, ai-prototype, ai-review-ui, ai-adversarial-loop, ai-security, ai-write</td><td>≈2.400</td><td>Core, ceremonia protegida</td><td>El orchestrator las invoca en sus fases (tests, prototipos, gate UI, review, triggers de wrap-up). Se quedan con su comportamiento</td></tr>
+      <tr><td>ai-triage, ai-design-md-planner, ai-audit-design, ai-visual-recap, ai-writing-behavior, ai-stress-test</td><td>≈9.350</td><td>Pack opcional</td><td>Especialistas; se instalan cuando se eligen</td></tr>
+    </tbody>
+  </table></div>
+  <p>Flujo actual de una feature de 3 checkpoints sin UI: 2 paradas humanas, 3 gates por checkpoint, 9 archivos de workflow, <b>19 agentes como mínimo</b> (29 con UI).</p>
+<pre>idea
+  -> /ai-brainstorm (HTML + PRD en el checkout principal)   PERSONA 1
+  -> preflight: sucio, desconocido o solapado = PARA
+  -> worktree feat/&lt;slug&gt; desde main local
+  -> checkpoint JSON + test-plan JSON + prototipos
+  -> por checkpoint: tests, implementar, behavior, UI, review x4
+       3 fallos = re-plan automático; 3 más = circuit breaker
+  -> wrap-up + rebase sobre main local + repetir gates
+  -> revisión de la app                                     PERSONA 2
+  -> ai-eng worktree merge (solo main local)
+  -> /ai-pr aparte (solo main, solo GitHub, sin ramas abiertas)
+  -> /ai-git-cleanup aparte</pre>
+
+  <h3>4.4 Tests y CI</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Clase</th><th>Archivos</th><th>Líneas</th><th>Nota</th></tr></thead>
+    <tbody>
+      <tr><td>Seguridad del suelo</td><td>25</td><td>7.072</td><td>Se quedan; son el valor</td></tr>
+      <tr><td>Workflow (worktree, lifecycle, workspace)</td><td>22</td><td>10.945</td><td>Colapsar casos Git reales duplicados; los del hub se van con el hub</td></tr>
+      <tr><td>Contrato (prosa de skills)</td><td>11</td><td>1.580</td><td>Comprueban frases, no conducta: una sola lint de esquema</td></tr>
+      <tr><td>UI</td><td>7</td><td>1.794</td><td>Los del hub se van con él; los de <code>ai-review-ui</code> y el visor se quedan (ceremonia)</td></tr>
+      <tr><td>Otros</td><td>14</td><td>6.472</td><td>Revisar caso a caso</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li>Arch: 22 pass en 97 ms. Typecheck y lint verdes. Suite serie completa: salida 1, resumen truncado; el test que falla está sin identificar (pregunta 2 de la sección 10).</li>
+    <li>Flake conocido: p95 de 50 ms sobre 100 llamadas en <code>tests/adversarial/chain.test.ts:235-247</code>, medido con I/O real en un host compartido (110 a 3.464 ms observados).</li>
+    <li>Fugas: <code>tests/.worktree-lifecycle-*</code> nacen en <code>tests/worktree-lifecycle.spec.ts:17</code> y solo se limpian en <code>afterAll</code>. <code>tests/.dirfd-probe-*</code> sin creador identificado.</li>
+    <li>CI: la campaña de mutación corre dos veces en PR; Sonar vuelve a ejecutar toda la suite; <code>platforms.yml</code> no pasa por actionlint.</li>
+  </ul>
+
+  <h3>4.5 Documentación</h3>
+  <p>3 críticos, 10 avisos, 4 info. Críticos: <code>docs/blueprint.html:366</code> recomienda <code>ai-eng recap</code> (no existe), <code>docs/recap.html:1251</code> describe <code>ai-eng complete</code> (no existe), <code>NOTICE.md:16</code> enlaza a un repo que da 404. Avisos relevantes: <code>SECURITY.md:28-29</code> dice 5 guards, <code>PERMISSIONS.md:5-7</code> dice que no hay endpoints, <code>CONTRIBUTING.md:40-42</code> llama especificación de producto a un blueprint de la 2.2.3.</p>
+
+  <h3>4.6 Lo que la base ya da (fuentes oficiales, 26 oct 2026)</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Capacidad</th><th>Quién la da</th><th>Consecuencia</th></tr></thead>
+    <tbody>
+      <tr><td>Hooks que niegan o reescriben una herramienta</td><td>Claude Code (<code>updatedInput</code>), Copilot CLI (<code>modifiedArgs</code>), Codex (por código fuente), Cursor (sin reescritura en algunos casos). <a href="https://code.claude.com/docs/en/hooks">Claude</a> · <a href="https://docs.github.com/en/copilot/reference/hooks-reference">Copilot</a> · <a href="https://cursor.com/docs/hooks">Cursor</a></td><td>Los payloads no son portables: el adaptador por harness es suelo y se queda</td></tr>
+      <tr><td>Worktrees y sesiones paralelas</td><td><code>claude --worktree</code>, subagentes con <code>isolation: worktree</code>, Cursor <code>/worktree</code>, VS Code Agents Window, <code>git worktree</code>. <a href="https://code.claude.com/docs/en/worktrees">Claude</a> · <a href="https://cursor.com/docs/configuration/worktrees">Cursor</a> · <a href="https://git-scm.com/docs/git-worktree">Git</a></td><td>Aislamiento: primero el nativo del harness; <code>ai-eng worktree new</code> queda como respaldo fino</td></tr>
+      <tr><td>Plan, tareas, rewind</td><td>Plan mode y <code>/rewind</code> en Claude, Plan y <code>/undo</code> en Copilot CLI, <code>/plan</code> en VS Code</td><td>No construimos visor ni panel de progreso</td></tr>
+      <tr><td>Review</td><td><code>/review</code> en Copilot CLI y Cursor, <code>/code-review</code> en Claude, revisión de PR de Copilot</td><td>La review adversarial es opcional y corta</td></tr>
+      <tr><td>Base de una PR</td><td><code>gh pr create</code> usa <code>--base</code>, luego <code>gh-merge-base</code>, luego la rama por defecto. <code>az repos pr create</code> usa la rama por defecto del repo. <code>git symbolic-ref refs/remotes/origin/HEAD</code></td><td>Nunca escribimos <code>main</code>: detectamos</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Comparables.</b> <a href="https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/skills/using-git-worktrees/SKILL.md">obra/superpowers</a> (v7.0.1, 21 oct 2026): prefiere el worktree nativo del harness, pregunta si no sabe, y si se rechaza trabaja en el sitio; al terminar ofrece merge local a una base confirmada, PR o mantener rama. Lo copiamos. Lo que no copiamos: su ejecución de planes exige aislamiento siempre. <a href="https://github.com/github/spec-kit/blob/7ea1146b9469996b211c581961717038da4f11b6/README.md">GitHub Spec Kit</a> (1.2.3, 22 oct 2026): procesos como overlays opcionales. Lo copiamos para los packs; no copiamos su toolchain Python. La cita exacta de Hohpe sobre "floating vs sinking" no está verificada en una fuente permitida.</p>
+</section>
 <section id="s5">
   <h2><span class="num">05</span>Cómo se ve el éxito</h2>
-  <ol>
-    <li>Antes de abrir un brainstorm o iniciar o reanudar un orchestrator, el agente enumera los worktrees existentes y detecta los estados de checkpoint disponibles.</li>
-    <li>El resumen diferencia trabajo en curso, pendiente de aprobación del plan, pendiente de revisión final, pendiente de integración, bloqueado y sin estado confiable.</li>
-    <li>Si se encuentra la misma tarea, se reanuda el slug existente. Si no se puede saber si dos tareas se solapan, el agente lo muestra y pide una decisión antes de crear otro worktree.</li>
-    <li>El trabajo independiente puede continuar sin que un worktree ajeno se integre o borre por accidente.</li>
-    <li>El estado de un worktree y las aprobaciones se leen de Git y del checkpoint asociado. El manifiesto de archivos, si está poblado, solo sirve como pista de solapamiento, nunca como prueba de que una tarea existe, está limpia o fue aprobada.</li>
-    <li>Antes de la revisión humana final, el worktree incorpora cambios ya integrados en <code>main</code>. Si aparecen conflictos, el agente resuelve los que pueda justificar, ejecuta de nuevo las pruebas y la revisión afectadas, y presenta a la persona el resultado final integrado.</li>
-    <li>Si la integración cambia el comportamiento acordado, falla una comprobación o la resolución no es clara, el agente se detiene, conserva el worktree y pide una decisión. No fuerza el merge ni borra trabajo.</li>
-    <li>Si <code>main</code> avanza después de sincronizar la tarea, el agente vuelve a sincronizar y validar antes de integrarla.</li>
-    <li>Una lista ilegible, un checkpoint ausente o estados contradictorios se muestran como desconocidos; nunca se presentan como ausencia de trabajo.</li>
-    <li>Cada aprobación pendiente indica qué decisión hace falta y qué paso seguirá. Integrar y borrar solo ocurren tras la aprobación de revisión final y las comprobaciones actuales de seguridad.</li>
-  </ol>
-</section>
 
+  <h3>5.1 Criterios medibles</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Métrica</th><th>Hoy</th><th>Objetivo</th><th>Cómo se comprueba</th></tr></thead>
+    <tbody>
+      <tr><td>Trabajar sin worktree</td><td>Imposible en ritmo acordado (<code>scripts/checkpoint-gate.py:645-731</code>)</td><td>Igual que con worktree</td><td>Casos S1, S3, S8 en tests de integración con repos temporales</td></tr>
+      <tr><td>PR desde cualquier rama y base</td><td>Solo <code>main</code>, solo GitHub</td><td>Rama actual, base detectada, <code>gh</code> o <code>az</code></td><td>S7, S9 con forge simulado (binario falso en <code>PATH</code>)</td></tr>
+      <tr><td>Literales <code>main</code> como rama</td><td>77 en código y skills</td><td>0 fuera de tests y ejemplos</td><td>Una lint: grep de <code>refs/heads/main</code> y <code>origin/main</code> en <code>src/</code>, <code>skills/</code>, <code>templates/</code></td></tr>
+      <tr><td>Bloqueos sin salida</td><td>Reanudar con árbol sucio es imposible</td><td>Cada refusal nombra rutas y siguiente paso</td><td>Test por refusal: mensaje contiene la ruta y un comando</td></tr>
+      <tr><td>Procesos residentes</td><td>Servidor workspace</td><td>0</td><td>Ningún <code>Bun.serve</code> ni <code>spawn</code> desacoplado en <code>src/</code></td></tr>
+      <tr><td>Líneas en <code>src/</code></td><td>13.111</td><td>≤ 7.000</td><td><code>wc -l</code> en CI como informe, no como gate</td></tr>
+      <tr><td>Fuentes del estado de una feature</td><td>4 validadores, 2 parsers, 2 lenguajes</td><td>1 módulo TS</td><td>Arch test: solo <code>src/workflow/checkpoint.ts</code> lee el JSON</td></tr>
+      <tr><td>Runtimes del suelo</td><td>Bun + Python (hook)</td><td>Solo Bun en los hooks</td><td>Sin <code>python3</code> en carriers. El visor del orchestrator sigue sirviéndose con <code>python3 -m http.server</code> como hoy</td></tr>
+      <tr><td>Skills core instaladas por defecto</td><td>30 (21,5k líneas)</td><td>23 core (≈6,2k) + packs elegidos</td><td>Test de install: <code>init</code> sin packs instala 23</td></tr>
+      <tr><td>Ceremonia del orchestrator</td><td>Funciona solo en worktree y con <code>main</code></td><td>Mismas fases, gates, agentes y paradas, en checkout o worktree</td><td>Test de contrato: todo skill, agente, script y plantilla que cita <code>ai-orchestrator</code> existe en core y lo instala <code>init</code> sin packs</td></tr>
+                  <tr><td>Suite en serie</td><td>Roja, duración desconocida, flakes</td><td>Verde, &lt; 2 min, dos veces seguidas</td><td><code>bun test --parallel=1</code> en CI</td></tr>
+      <tr><td>Promesas de la web</td><td>3 rotas, 4 derivando</td><td>Todas se cumplen o se reescriben</td><td>Tabla de promesas revisada en CP11</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>5.2 Catálogo de casos (aceptación)</h3>
+  <p>Cada caso es una prueba de aceptación. "Hoy" describe lo que pasa en <code>main</code>; "Después" es el comportamiento que el orchestrator debe demostrar con un test.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>Escenario</th><th>Hoy</th><th>Después</th><th>Prueba</th></tr></thead>
+    <tbody>
+      <tr><td>S1</td><td>Bug de una línea en tu checkout, rama <code>fix/typo</code></td><td>Brainstorm, aprobación, worktree desde <code>main</code>, merge, <code>/ai-pr</code>: ≥ 6 etapas</td><td>Ritmo Directo: test rojo, fix, verde, commit en tu rama. PR solo si la pides</td><td>Skill: ningún paso de brainstorm ni worktree en el ritmo Directo</td></tr>
+      <tr><td>S2</td><td>Spike "¿se puede?"</td><td>Clasificar, preflight, aprobar, experimentar</td><td>Experimento y respuesta. El código queda marcado como desechable</td><td>Skill brainstorm: spike no escribe slots</td></tr>
+      <tr><td>S3</td><td>Feature de 3 checkpoints en tu checkout actual, rama <code>feature/pagos</code></td><td>El hook rechaza el plan fuera de un worktree gestionado</td><td>Plan, tests, código y estado en tu rama. Revisión, y al cerrar eliges merge, PR o mantener</td><td>Integración: plan creado y aceptado por el guard en checkout normal</td></tr>
+      <tr><td>S4</td><td>Feature con UI</td><td>Prototipo, gate UI con <code>ai-review-ui</code> y review adversarial, solo dentro de un worktree</td><td>La misma ceremonia, también en tu checkout. Re-plan y circuit breaker como hoy (D6)</td><td>Contrato de ceremonia + guard acepta el gate UI y el marcador <code>ui</code> fuera de worktree</td></tr>
+      <tr><td>S5</td><td>Dos sesiones a la vez en el mismo repo</td><td>Preflight pausa por solapamiento incierto; filas fantasma</td><td>La segunda sesión ve una feature activa en este checkout y ofrece worktree (una pregunta)</td><td>Test de <code>worktree list</code>: solo registros de Git; detección de checkpoint activo</td></tr>
+      <tr><td>S6</td><td>Hotfix en <code>release/2.6</code></td><td>Se corta desde <code>main</code> y la PR va a <code>main</code></td><td>Base = la rama que nombras o la que tenía la rama de origen; PR contra <code>release/2.6</code></td><td>Contexto Git: base explícita gana a la detectada</td></tr>
+      <tr><td>S7</td><td>Azure DevOps, rama por defecto <code>develop</code></td><td><code>origin/main</code> no existe: refusal</td><td><code>origin/HEAD</code> o <code>az repos show</code> dicen <code>develop</code>; <code>az repos pr create</code> sin <code>--target-branch</code> codificado</td><td>Contexto Git con <code>origin/HEAD</code> apuntando a <code>develop</code></td></tr>
+      <tr><td>S8</td><td>Reanudar tras un crash con la feature a medias (archivos propios sucios)</td><td>"Preserva y para" para siempre (F5)</td><td>Se leen el checkpoint y el diff; los archivos de la feature se continúan sin reset ni stash</td><td>Resume en árbol sucio con cambios propios: continúa</td></tr>
+      <tr><td>S9</td><td>Informes de otra skill sin seguimiento en el árbol (por ejemplo <code>security/run-4/</code>)</td><td>Bloquean merge (ya arreglado) y reanudación (no)</td><td>Se quedan donde están y no bloquean: solo cuentan si chocan con rutas que la operación escribe (P2). La persona decide si se commitean</td><td>Merge y resume con untracked ajenos: pasan; con colisión: refusal con la ruta</td></tr>
+      <tr><td>S10</td><td>El IDE recrea una carpeta después del merge (F4)</td><td>Parece trabajo activo</td><td>Informe: "carpeta no registrada en Git, no es trabajo; bórrala si quieres"</td><td><code>worktree list</code> con carpeta huérfana: no aparece como feature</td></tr>
+      <tr><td>S11</td><td>La base avanza entre la aprobación y el merge</td><td>CAS pierde y se re-revisa (bien)</td><td>Igual. Se conserva</td><td>Test de carrera existente, adaptado a base detectada</td></tr>
+      <tr><td>S12</td><td>Repo con checkpoint JSON antiguo (<code>awaiting-app-review</code>)</td><td>Funciona</td><td>Se lee y se traduce a la fase nueva; una escritura lo migra</td><td>Tabla de migración de fases, test por fase</td></tr>
+      <tr><td>S13</td><td>Repo no gobernado</td><td>El chain no escribe nada</td><td>Igual</td><td>Test existente de gobernanza</td></tr>
+      <tr><td>S14</td><td>Windows</td><td>Matriz de 3 SO en CI</td><td>Igual; rutas con <code>node:path</code> <code>sep</code></td><td><code>platforms.yml</code></td></tr>
+      <tr><td>S15</td><td>Repo sin remoto</td><td><code>ai-pr</code> falla en <code>git fetch origin</code></td><td>Base por config o pregunta; cierre por merge local</td><td>Contexto Git sin remoto</td></tr>
+      <tr><td>S16</td><td>HEAD separado (detached)</td><td>Varios lectores lo tratan como desconocido</td><td>El agente lo informa y pide crear rama antes de escribir; nunca cambia de rama solo</td><td>Contexto Git en detached</td></tr>
+      <tr><td>S17</td><td>Brainstorm y PRD modificados en el checkout principal y quieres worktree (F1)</td><td>Refusal sin salida</td><td>La aprobación ya los commitea; si no, <code>worktree new</code> crea desde <code>HEAD</code> y avisa que esos dos archivos no viajan</td><td>Test: <code>worktree new</code> con slots sucios crea y avisa</td></tr>
+      <tr><td>S18</td><td>La rama por defecto del remoto es la propia rama de trabajo (F6 en Azure)</td><td>Refusal</td><td>Si base = rama actual, se pregunta la base una vez</td><td>Contexto Git: base igual a actual pide entrada</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>5.3 Plan de calidad</h3>
+  <div class="grid g2">
+    <div class="card"><h3>Niveles de test</h3><p>1. Unidad rápida y determinista: guards, normalización, receipts, política, estado del checkpoint, decisiones de merge y base. Sin reloj de pared. Raíces temporales en <code>os.tmpdir()</code>, variables de entorno restauradas.</p><p>2. Integración con Git real: pocos, uno por historia (merge con CAS, resume, PR con forge falso).</p><p>3. Binario instalado y 3 SO: se quedan como están.</p><p>4. Contratos estáticos: una lint de frontmatter, enlaces y esquema de skills. Nada de frases.</p></div>
+    <div class="card"><h3>TDD en cada checkpoint</h3><p>Un worker escribe tests que fallan, otro implementa sin tocar tests, el gate de comportamiento ejecuta los comandos y guarda la salida. "Hecho" exige ver la salida verde. El rendimiento es un benchmark aparte, nunca un gate.</p></div>
+    <div class="card"><h3>Gates requeridos en CI</h3><p>typecheck, lint, arch, suite en serie, instalación y 3 SO. Mutación: una campaña por PR o nocturna. Cobertura: reutiliza la ejecución de check.</p></div>
+    <div class="card"><h3>Criterio de aceptación global</h3><p>Los 18 casos tienen test verde, la suite pasa dos veces seguidas en serie, arch prueba ciclos y cobertura de capas, y la tabla de promesas no tiene filas rotas.</p></div>
+  </div>
+</section>
 <section id="s6">
   <h2><span class="num">06</span>Decisiones ya tomadas</h2>
-  <div class="note ok"><h4>Fijadas por el usuario</h4></div>
-  <ul>
-    <li>Antes de comenzar o implementar algo, hay que tener en cuenta los worktrees que ya existen para no repetir trabajo.</li>
-    <li>El flujo debe hacer visibles las aprobaciones humanas pendientes tanto para comenzar implementación como para la revisión final y el cierre.</li>
-    <li>El objetivo es robustecer y gobernar el ciclo completo de los worktrees, desde el diseño hasta merge y eliminación.</li>
-    <li>Con varias tareas en paralelo, el agente debe poder integrar cambios concurrentes y resolver solapamientos o conflictos, sin perder los controles humanos del cierre.</li>
-    <li>Aplicar KISS, DRY y YAGNI: cada pieza del flujo debe tener un consumidor y una razón clara; quitar la que no aporte.</li>
-    <li>La aprobación del brainstorm autoriza esta implementación local, incluidos los defaults descritos en la sección 7.</li>
-    <li>El formato habitual es <code>&lt;repo&gt;.worktrees/&lt;slug&gt;</code>; el código permite una ruta configurada, así que el flujo debe consultar Git o la herramienta existente y no construir rutas a mano.</li>
-  </ul>
-</section>
+  <div class="note ok"><h4>Propuesta para cerrar al aprobar</h4><p>Todo lo de esta sección queda bloqueado cuando digas "aprobado". El planner no lo reabre. Lo que aún depende de ti está en la sección 07 con su valor recomendado.</p></div>
 
-<section id="s7">
-  <h2><span class="num">07</span>Decisiones todavía abiertas</h2>
-  <div class="note ok"><h4>Decisiones confirmadas</h4><p>La persona aprobó el resumen anterior: reanudar el mismo slug, pausar ante un solapamiento probable y dejar seguir tareas independientes. También pidió que el agente pueda reconciliar cambios paralelos y conflictos.</p></div>
-  <h3>Enfoques para integrar cambios paralelos</h3>
+  <h3>6.1 Principios</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>Principio</th><th>Qué significa en la práctica</th></tr></thead>
+    <tbody>
+      <tr><td>P1</td><td>Flotar sobre la base</td><td>Si Git, el IDE, el harness o la forge ya lo hacen, lo usamos y borramos nuestra copia. Solo construimos lo que nadie más da: guards en el hook, receipts, contrato, skills y ahorro de tokens en el mismo hook (<code>wrap</code>).</td></tr>
+      <tr><td>P2</td><td>Bloquear solo lo que se va a escribir</td><td>Una operación mira únicamente las rutas y refs que va a tocar. Lo demás, sucio o no, no le importa. Modelo: el arreglo de <code>55c87550</code>.</td></tr>
+      <tr><td>P3</td><td>Detectar, nunca suponer</td><td>Rama actual, rama base, si es worktree, la forge: se leen de Git. Si no se pueden leer, se pregunta una vez.</td></tr>
+      <tr><td>P4</td><td>Un estado, una fuente, un validador</td><td>El checkpoint JSON de la feature es el único estado. Un módulo TypeScript lo valida para todos.</td></tr>
+      <tr><td>P5</td><td>El suelo no tiene servidor</td><td>Nada residente, nada escuchando en un puerto, un solo runtime (Bun).</td></tr>
+      <tr><td>P6</td><td>Lo especialista es pack</td><td>Core pequeño instalado siempre; packs que eliges. Mover no es borrar.</td></tr>
+      <tr><td>P7</td><td>Código para lo fijo, prosa para el juicio</td><td>Orden de gates y transiciones de estado: código (el guard). Elegir ritmo, alcance o riesgo: el modelo y la persona.</td></tr>
+      <tr><td>P8</td><td>Nunca sin salida</td><td>Cada refusal dice qué protege, qué ruta exacta y el siguiente paso. "Desconocido" no es aprobación, pero tampoco es un callejón.</td></tr>
+      <tr><td>P9</td><td>Nunca perder trabajo</td><td>Sin <code>stash</code>, <code>reset</code>, <code>clean</code> ni borrado automático. Forzar solo con orden explícita de la persona.</td></tr>
+      <tr><td>P10</td><td>Ceremonia protegida</td><td>Las skills, agentes, scripts y plantillas que usa <code>ai-orchestrator</code> son core y mantienen su comportamiento. Solo cambia dónde se trabaja y cómo se detecta la base. Cualquier aligeramiento de la ceremonia es una decisión explícita (sección 07), nunca un efecto lateral.</td></tr>
+      <tr><td>P11</td><td>Menos tokens, nunca menos verdad</td><td>ai-engineering puede reducir lo que el agente lee (como <code>wrap</code>: solo los tests que fallan, agrupados por archivo). Condiciones: conserva el código de salida, nunca oculta un fallo, dice que filtró y deja la salida completa a mano en local (D11).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>6.2 Qué se queda, qué se va, qué cambia</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Componente</th><th>Veredicto</th><th>Por qué</th><th>Cómo se reconstruye</th><th>Líneas</th></tr></thead>
+    <tbody>
+      <tr><td>chain, payload, dialect, 5 guards protectores + prompt guard</td><td>Se queda</td><td>Es la promesa; diseño de tabla, fail-closed, gobernanza antes de escribir</td><td>Sin cambios de lógica. Payload pasa a su propia capa (guards no importan chain)</td><td>0</td></tr>
+      <tr><td><code>wrap</code> y <code>paint</code> (filtro de salida de tests)</td><td>Se queda</td><td>Ahorra ≈85% de contexto en ejecuciones de test: solo fallos agrupados por archivo, recuento y receipt; conserva el código de salida (<code>src/wrap/index.ts:1-4,48-60</code>)</td><td>Sigue como fila de reescritura en el chain. Se documenta como "ahorro de tokens", separado de los guards de protección. Mejora D11: guarda la salida completa en local</td><td>0 (+≈10 con D11)</td></tr>
+      <tr><td>Adaptadores por harness (<code>surfaces/</code>)</td><td>Se queda</td><td>Los hooks no son portables entre harnesses (investigación 4.6)</td><td>Sin cambios</td><td>0</td></tr>
+      <tr><td>Receipts</td><td>Se queda</td><td>Evidencia local prometida</td><td>Borrar <code>summarizeBySession</code> (sin llamador)</td><td>-50</td></tr>
+      <tr><td>install, uninstall, config, update, doctor</td><td>Se queda y adelgaza</td><td>Plomería necesaria; uninstall protege datos</td><td><code>init</code> y <code>update</code> ya no hacen commit (y menos con <code>--no-verify</code>): dejan cambios para que la persona los revise. <code>update</code> sin consulta de red. <code>doctor</code> se centra en chain, canon, carriers y receipts</td><td>-200</td></tr>
+      <tr><td>Hooks Git por repo</td><td>Se queda</td><td>Integración nativa</td><td>Igual</td><td>0</td></tr>
+      <tr><td><code>git init.templateDir</code> global</td><td>Se va</td><td>Cambia Git de toda la máquina; no es nuestro sitio</td><td>Solo hooks por repo al hacer <code>init</code></td><td>-177</td></tr>
+      <tr><td>sidecar, shadow, queue, circuit breaker</td><td>Se va</td><td>Muerto: sin llamador de producción</td><td>Borrar con sus tests</td><td>-414</td></tr>
+      <tr><td><code>briefing</code></td><td>Se va</td><td>Ningún carrier lo llama; el harness ya tiene su contexto</td><td>Borrar verbo y tests</td><td>-198</td></tr>
+      <tr><td><code>upgrade</code></td><td>Se va</td><td>El gestor de paquetes ya lo hace</td><td>README: <code>bun add -g ai-engineering@latest</code></td><td>-84</td></tr>
+      <tr><td>Aviso de versión (<code>notice</code>)</td><td>Se queda, acotado</td><td>Es "la única lectura saliente" prometida y desactivable</td><td>Nunca durante <code>update</code></td><td>-5</td></tr>
+      <tr><td><code>plant-workflow</code> y <code>checkpoint-gate-report</code></td><td>Se va</td><td><code>init</code> no debe plantar un proceso</td><td>El orchestrator crea sus archivos cuando se usa</td><td>-70</td></tr>
+      <tr><td><code>shared-worktree.ts</code> (2.539)</td><td>Se reconstruye</td><td>Mezcla inventario, proyección de aprobación, hints, transacción de merge y supuestos de <code>main</code></td><td><code>src/git/</code>: <code>run.ts</code> (un runner), <code>context.ts</code> (rama, base, worktree), <code>merge.ts</code> (SHA revisado + CAS + colisiones). Resto: Git nativo</td><td>≈ -1.900</td></tr>
+      <tr><td><code>ai-eng worktree</code></td><td>Se queda, fino</td><td>Respaldo cuando el harness no tiene worktree nativo, y merge seguro</td><td><code>new</code> (desde base detectada o <code>HEAD</code>), <code>list</code> (solo Git), <code>merge</code> (desde cualquier checkout), <code>request-changes</code> (lo usa la Fase 4, se queda), <code>rm</code> (nativo, preserva). Se van <code>rebase</code> (la ceremonia usa <code>git rebase</code> directamente), <code>project-lifecycle</code>, hints, fila pre-worktree, bloqueo por slots</td><td>incluido arriba</td></tr>
+      <tr><td>Hub workspace completo</td><td>Se va</td><td>Servidor, API, UI, capability worker, FFI: plataforma propia. El IDE y el harness ya muestran ramas, diffs y progreso</td><td>Borrar <code>src/workspace/</code>, <code>commands/workspace.ts</code>, plantillas <code>workspace*</code>, tests <code>workspace-*</code>. La rama no se integra (D2)</td><td>-1.657 en main (≈ -5.500 con la rama)</td></tr>
+      <tr><td><code>scripts/checkpoint-gate.py</code> + 931 líneas de test</td><td>Se reconstruye</td><td>Segundo runtime, no corre en CI, duplica validación</td><td>Guard <code>checkpoint</code> en TypeScript dentro del chain (≈200 líneas) que usa <code>src/workflow/checkpoint.ts</code>. Solo actúa si existe un checkpoint JSON</td><td>≈ -1.600</td></tr>
+      <tr><td>Checkpoint JSON</td><td>Se queda, simplificado</td><td>Es el único estado útil y legible por cualquier harness</td><td>Fases nuevas (6.5), lector de fases antiguas, un validador</td><td>-</td></tr>
+      <tr><td>Visor estático de checkpoints</td><td>Se queda tal cual</td><td>Parte de la ceremonia: Fase 1 abre el plan en él</td><td>Sin cambios; se sirve con <code>python3 -m http.server</code> desde el checkout o worktree elegido</td><td>0</td></tr>
+      <tr><td>Skills</td><td>23 core + 6 packs</td><td>Sección 4.3 y 6.2 bis</td><td>Directorio <code>packs/&lt;nombre&gt;/</code>, instalados según <code>[canon] packs</code></td><td>≈ -15,3k cargadas por defecto</td></tr>
+      <tr><td>Sección Git de <code>AGENTS.md</code> y su plantilla</td><td>Se reescribe</td><td>Hoy impone el flujo (roto respecto a la promesa)</td><td>Sección corta "Dónde trabajar" (6.4) en la plantilla; el <code>AGENTS.md</code> del repo la copia y un test comprueba que coinciden</td><td>-</td></tr>
+      <tr><td>Informes de skills dentro del árbol (<code>security/run-*</code>, <code>workflow/playwright/</code>)</td><td>Se quedan donde están</td><td><code>ai-security</code> versiona a propósito sus <code>findings.json</code>; moverlos rompería esa conducta</td><td>Dejan de bloquear por P2: reanudar y cerrar solo miran las rutas que escriben</td><td>0</td></tr>
+      <tr><td>Tests de frases de skills</td><td>Se reemplazan</td><td>Comprueban redacción, no conducta</td><td>Una lint de esquema, frontmatter y enlaces, más el test de contrato de la ceremonia (todo lo que cita el orchestrator existe y se instala). Los asserts sobre fases y gates del orchestrator se conservan</td><td>≈ -900</td></tr>
+      <tr><td>p95 de 50 ms como gate</td><td>Se va del gate</td><td>Mide el host, no el código</td><td>Benchmark aparte, no bloqueante</td><td>-</td></tr>
+    </tbody>
+  </table></div>
+  <p class="dim">Estimación total: <code>src/</code> de 13,1k a ≈6,8k líneas; tests de 27,9k a ≈18k; scripts sin Python; canon por defecto de 21,5k a ≈6,2k líneas. Cero dependencias nuevas, cero quitadas (las dos actuales se siguen usando).</p>
+
+
+  <h3>6.2 bis Ceremonia protegida del orchestrator</h3>
+  <p>Inventario verificado de lo que <code>skills/ai-orchestrator/SKILL.md</code> invoca. Todo es core, todo se instala sin packs y todo mantiene su comportamiento. La columna "Cambia" lista lo único que se toca.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Pieza</th><th>Fase</th><th>Dependencias propias</th><th>Cambia</th></tr></thead>
+    <tbody>
+      <tr><td><code>ai-brainstorm</code></td><td>Antes de la fase 0</td><td>plantilla <code>brainstorm.html.tpl</code>, <code>PRD.html</code></td><td>Sin preflight de worktree duplicado; no aplica al ritmo Directo</td></tr>
+      <tr><td>Agente <code>checkpoint-planner</code></td><td>Fase 1</td><td><code>agents/checkpoint-planner.md</code></td><td>Escribe <code>reviewed_base</code> en lugar de <code>reviewed_main</code> (6.5)</td></tr>
+      <tr><td><code>ai-test-planner</code></td><td>Fase 1 y 2a</td><td>test-plan JSON</td><td>Nada</td></tr>
+      <tr><td><code>ai-prototype</code></td><td>Fase 1</td><td>prototipo HTML + <code>.states.json</code></td><td>Nada</td></tr>
+      <tr><td>Visor <code>viewer.html</code></td><td>Fase 1 paso 4</td><td><code>python3 -m http.server 8765</code></td><td>Se sirve desde el checkout o worktree elegido</td></tr>
+      <tr><td><code>ai-review-ui</code></td><td>Gate 2 (UI)</td><td><code>capture.cjs</code>, agentes <code>ui-behavior-reviewer</code> y <code>ui-visual-reviewer</code></td><td>Nada</td></tr>
+      <tr><td><code>ai-adversarial-loop</code></td><td>Gate 3 (review)</td><td>agentes <code>adversarial-reviewer</code>, <code>fixer</code></td><td>Nada por defecto (D7)</td></tr>
+      <tr><td><code>ai-security</code>, <code>ai-write</code></td><td>Fase 3 (triggers)</td><td>esquema de findings, <code>references/voice.md</code></td><td>Nada; <code>ai-security</code> deja de exigir <code>spec close</code> solo si D4</td></tr>
+      <tr><td>Hook de checkpoints</td><td>Todas</td><td>hoy <code>scripts/checkpoint-gate.py</code></td><td>Se porta 1 a 1 al guard TS: mismos gates (<code>behavior</code>, <code>ui</code>, <code>review</code>), mismos stages (<code>tests</code>, <code>implement</code>, <code>behavior</code>, <code>ui</code>, <code>review</code>, <code>fix</code>), mismo <code>halted</code>, mismo bloqueo en <code>Stop</code>. Se quita solo la regla "plan solo dentro de un worktree gestionado"</td></tr>
+      <tr><td><code>ai-eng worktree merge</code>, <code>request-changes</code></td><td>Fase 4</td><td>Git</td><td>Merge desde cualquier checkout y base detectada; <code>request-changes</code> se mantiene (ver 6.5)</td></tr>
+      <tr><td><code>ai-visual-recap</code></td><td>Solo si la persona lo invoca</td><td>plantilla <code>recap.html.tpl</code></td><td>Pasa a pack: el orchestrator nunca lo llama solo</td></tr>
+    </tbody>
+  </table></div>
+  <p>Garantía ejecutable: un test lee <code>ai-orchestrator/SKILL.md</code> y los SKILL que invoca, extrae cada skill, agente, script y plantilla citados, y falla si alguno no existe en core o si <code>init</code> sin packs no lo instala.</p>
+  <h3>6.3 Arquitectura objetivo</h3>
+  <p>Diagrama interactivo: <a href="../.archify/architecture-floating-core-20261026-162613/floating-core.html">floating-core.html</a>. Vista de capas del código, con la dirección permitida de dependencias (de arriba abajo):</p>
+<pre>Persona ──> Harness (Claude · Copilot · Codex · Cursor)
+               │ hook nativo por tool call
+               v
+src/cli.ts ─────────────── composición de verbos
+   │
+   ├─ src/chain/{mod,dialect}.ts ──> src/guards/*  (no-verify, policy,
+   │                                   self-protect, injection, loop,
+   │                                   spoken-secret, checkpoint)
+   │                            └──> wrap (reescritura: ahorro de tokens)
+   ├─ src/wrap/{index,paint}.ts      (ejecuta el test real y filtra)
+   │                                       │
+   ├─ src/commands/* (init update config   │
+   │   doctor uninstall worktree adapt)    │
+   │        │                              │
+   │        ├─> src/git/{run,context,merge}.ts
+   │        └─> src/workflow/checkpoint.ts <┘  (único lector del JSON)
+   │
+   └─ src/install · src/surfaces · src/embed
+                    │
+          src/payload.ts · src/env.ts · src/receipts.ts · src/shared.ts</pre>
+  <p><b>Interacciones.</b> El harness llama a <code>ai-eng chain</code> por cada tool call; el chain normaliza el payload, aplica los guards de la tabla y escribe un receipt. El guard <code>checkpoint</code> solo despierta cuando el agente escribe el JSON de una feature o lanza un subagente con marcador. <code>ai-eng worktree merge</code> usa <code>src/git/merge.ts</code> y el mismo validador. Nada más lee el JSON.</p>
+  <p><b>Flujo de datos.</b> Entrada: payload JSON del hook por stdin. Salida: veredicto en el dialecto del harness por stdout o código de salida, y un receipt en <code>.ai-engineering/receipts/</code> (local, ignorado). Estado de feature: <code>.ai-engineering/workflow/checkpoints/&lt;slug&gt;.json</code>, versionado en la rama de la feature.</p>
+  <p><b>Reglas de arquitectura</b> (propuesta de diff para <code>.ai-engineering/arch.rules.json</code>, por PR):</p>
+<pre>+ "payload":  "src/payload.ts"
++ "git":      "src/git/**"
++ "workflow": "src/workflow/**"
+  { "from": "guards",   "mayNotImport": "chain,commands,cli" }
++ { "from": "payload",  "mayNotImport": "guards,chain,commands,cli,surfaces" }
++ { "from": "git",      "mayNotImport": "commands,cli,chain,guards" }
++ { "from": "workflow", "mayNotImport": "commands,cli,chain" }
++ { "from": "commands", "mayNotImport": "cli" }
+  "forbid": "cycles"   (el test pasa a comprobarlo de verdad)
+  + todo archivo de src/ pertenece a exactamente una capa</pre>
+
+  <h3>6.4 Way of working</h3>
+  <p>Diagrama: <a href="../.archify/workflow-way-of-working-20261026-162613/way-of-working.html">way-of-working.html</a>. Tres preguntas independientes: <b>qué ritmo</b>, <b>dónde trabajar</b> y <b>cómo cerrar</b>.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Ritmo</th><th>Cuándo</th><th>Artefactos</th><th>Paradas humanas</th><th>Gates</th></tr></thead>
+    <tbody>
+      <tr><td>Directo</td><td>Bug, spike, cambio de una sesión que no toca interfaces de otros</td><td>Ninguno. Commits y, si pides, PR</td><td>0 además de tu pedido</td><td>Test que falla primero si hay lógica; salida verde mostrada antes de decir "hecho"</td></tr>
+      <tr><td>Acordado</td><td>Feature de varias sesiones o que cambia una interfaz</td><td><code>brainstorm.html</code>, <code>PRD.html</code>, un checkpoint JSON, test plan</td><td>2: aprobar la idea y revisar la app</td><td>Por checkpoint: tests, behavior, UI solo si hay UI, review</td></tr>
+      <tr><td>Arquitectura</td><td>Subsistema nuevo, cambio de capas o de dependencias</td><td>Lo de Acordado + informe de <code>ai-architect</code> y diff de <code>arch.rules.json</code></td><td>2</td><td>Igual que Acordado</td></tr>
+    </tbody>
+  </table></div>
+  <p>El ritmo lo propone el agente en una frase y la persona puede cambiarlo. Puede subir a mitad de trabajo si aparece complejidad oculta; bajar también se permite si la persona lo dice (se elimina el "trinquete" de solo subir).</p>
+
+  <div class="grid g2">
+    <div class="card"><h3>Dónde trabajar</h3><p><b>Aquí</b> (por defecto): el checkout y la rama actuales. Si estás en la rama base y vas a commitear, el agente crea una rama con nombre propuesto (<code>&lt;tipo&gt;/&lt;slug&gt;</code>) y te lo dice.</p><p><b>Aparte</b>: un worktree, si lo pides o si el agente ve otra feature activa en este checkout. Primero el nativo del harness (<code>claude -w</code>, <code>/worktree</code> de Cursor); si no hay, <code>ai-eng worktree new &lt;slug&gt;</code>. La ruta y la rama las elige la persona o se proponen; nada de <code>feat/</code> obligatorio.</p></div>
+    <div class="card"><h3>Cómo cerrar</h3><p>En la revisión, la persona elige: <b>merge local</b> en la base detectada con <code>ai-eng worktree merge &lt;slug&gt;</code> (sirve también sin worktree), <b>PR</b> con <code>/ai-pr</code> desde la rama actual, o <b>mantener la rama</b>. Recomendado por defecto: PR si hay forge remoto, merge local si no.</p></div>
+  </div>
+
+  <h3>El bucle de un checkpoint (ritmo Acordado, igual que hoy)</h3>
+<pre>[tests]     subagentes por capa escriben tests que fallan
+[implement] un subagente implementa, no toca tests
+[behavior]  verify en orden: unidad -> API -> CLI -> e2e
+[ui]        ai-review-ui en gate mode si el checkpoint tiene ui
+[review]    ai-adversarial-loop (crítico + fixer, hasta 4 rondas)
+fallo       fixer nuevo, LEARNINGS.md, se repite desde [behavior]
+3 fallos    re-plan automático en checkpoints más pequeños
+3 más       halted (circuit breaker) y se avisa a la persona
+commits     los mismos de hoy: test, feat, gate, fix, replan</pre>
+  <p>Lo único que cambia en el bucle: se ejecuta en el checkout o worktree elegido, el rebase de la Fase 3 es <code>git rebase &lt;base detectada&gt;</code> en lugar de <code>refs/heads/main</code>, y el hook que vigila el orden es el guard TS.</p>
+
+  <h3>Ejemplos de punta a punta</h3>
+  <div class="grid g2">
+    <div class="card"><h3>A · Bug en un guard (Directo, aquí)</h3><p>Pides "no-verify no detecta <code>git commit --no-verify=true</code>". El agente: escribe el caso en <code>tests/no-verify.spec.ts</code>, lo ve fallar, arregla <code>src/guards/no-verify.ts</code>, ve verde, commitea en tu rama. Sin brainstorm, sin worktree. "¿Abro PR?" solo si no lo dijiste.</p></div>
+    <div class="card"><h3>B · Feature de 3 checkpoints (Acordado, aquí)</h3><p>Brainstorm aprobado y commiteado en tu rama <code>feature/pagos</code>. El orchestrator escribe el plan en la misma rama, ejecuta 3 bucles, te enseña la app con el SHA fijado. Eliges PR: <code>/ai-pr</code> detecta <code>origin/HEAD = main</code> y abre la PR.</p></div>
+    <div class="card"><h3>C · Dos sesiones en paralelo (Aparte)</h3><p>La sesión 1 trabaja <code>pagos</code> en tu checkout. Abres la sesión 2 para <code>informes</code>. El agente ve un checkpoint activo de otra feature aquí y pregunta: "¿worktree aparte?". Dices sí: <code>claude -w informes</code>. Ninguna bloquea a la otra por archivos ajenos.</p></div>
+    <div class="card"><h3>D · Azure DevOps con develop (Directo)</h3><p>Repo en Azure, rama por defecto <code>develop</code>. Haces un fix en <code>bugfix/123</code>. <code>/ai-pr</code> lee <code>origin/HEAD</code> y usa <code>az repos pr create</code> sin escribir <code>main</code> en ningún sitio. Si otra rama <code>feat/*</code> sigue abierta, da igual.</p></div>
+  </div>
+
+  <h3>6.5 Modelo de estado</h3>
+  <p>Diagrama: <a href="../.archify/lifecycle-checkpoint-20261026-162613/checkpoint-lifecycle.html">checkpoint-lifecycle.html</a>. Se conservan las fases y campos que la ceremonia ya escribe; solo se generaliza lo que suponía <code>main</code> y se quitan dos fases que nadie escribe.</p>
+<pre>"lifecycle": {
+  "phase": "awaiting-plan-approval"   // solo planes antiguos
+         | "implementation" | "blocked"
+         | "awaiting-app-review" | "ready-to-merge",
+  "plan_approval": "pending" | "approved",
+  "app_review": "not-started" | "pending" | "approved",
+  "base_ref": null | "refs/heads/develop",   // nuevo
+  "reviewed_base": null | "&lt;sha completo&gt;",  // antes reviewed_main
+  "reviewed_feature": null | "&lt;sha completo&gt;"
+}</pre>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Cambio</th><th>Por qué</th><th>Compatibilidad</th></tr></thead>
+    <tbody>
+      <tr><td><code>reviewed_main</code> pasa a <code>reviewed_base</code>, y se añade <code>base_ref</code></td><td>La base ya no es siempre <code>main</code></td><td>El lector acepta <code>reviewed_main</code> y asume <code>base_ref</code> = la base detectada; la siguiente escritura guarda los nombres nuevos</td></tr>
+      <tr><td>Se quita <code>approval-before-start</code></td><td>Era una proyección del brainstorm, nunca una fase del JSON</td><td>Si aparece, se ignora</td></tr>
+      <tr><td>Se quita <code>complete</code></td><td>El orchestrator lo prohíbe escribir; solo lo aceptaban dos lectores</td><td>Se lee como <code>ready-to-merge</code></td></tr>
+      <tr><td>"Integrado" y "rama guardada"</td><td>Se derivan de Git: <code>reviewed_feature</code> es ancestro de la base, o no</td><td>Sin commit extra después del merge</td></tr>
+    </tbody>
+  </table></div>
+  <p>Las transiciones son las de hoy, con la ceremonia actual como autoridad: <code>implementation</code> pasa a <code>awaiting-app-review</code> con SHAs fijados; <code>request-changes</code> vuelve a <code>implementation</code> y borra los SHAs; la aprobación lleva a <code>ready-to-merge</code>; un CAS perdido invalida la revisión; <code>blocked</code> conserva aprobaciones previas.</p>
+
+  <h3>Esquema completo del checkpoint JSON (el actual)</h3>
+<pre>{
+  "slug": "floating-core",
+  "feature": "texto", "summary": "texto",
+  "lifecycle": { ...como arriba... },
+  "halted": null | { "reason": "texto", "checkpoint": 3 },
+  "assumptions": ["texto"], "notes": ["texto"],
+  "checkpoints": [{
+    "id": 1, "title": "texto", "goal": "texto",
+    "tasks": [], "files": [], "acceptance": [], "verify": [],
+    "ui": null | { "route", "prototype", "scope", "states" },
+    "status": "pending" | "in_progress" | "passed" | "blocked",
+    "changed_files": [],
+    "gates": { "behavior": Gate, "ui": Gate, "review": Gate }
+  }]
+}
+Gate = { "status": "pending"|"failed"|"passed"|"n/a"|"blocked",
+         "attempts": n, "findings": ["texto"] }</pre>
+  <p><b>Guard <code>checkpoint</code></b> (port 1 a 1 de <code>scripts/checkpoint-gate.py</code>). Despierta en tres casos: Write o Edit de <code>.ai-engineering/workflow/checkpoints/&lt;slug&gt;.json</code>, lanzamiento de un subagente cuyo prompt empieza por <code>[checkpoint &lt;slug&gt;#&lt;id&gt; &lt;stage&gt;]</code>, y el evento <code>Stop</code> (fila nueva en la tabla del chain). Reglas, cada una con su test portado:</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Regla</th><th>Qué niega</th></tr></thead>
+    <tbody>
+      <tr><td>G1 Esquema</td><td>Escrituras que no validan el esquema, o cuyo <code>slug</code> no coincide con el archivo</td></tr>
+      <tr><td>G2 Inicio</td><td>El primer plan sin brainstorm aprobado del mismo slug (meta <code>ai-feature</code>, meta <code>ai-approved</code> de 14 días o menos, línea <code>complete ·</code> de esa fecha). Ya no exige worktree gestionado</td></tr>
+      <tr><td>G3 Orden de checkpoints</td><td>Tocar el N o lanzar su marcador si el N-1 no está <code>passed</code>; tocar uno ya <code>passed</code></td></tr>
+      <tr><td>G4 Orden de stages y gates</td><td>Stage desconocido; <code>ui</code> sin <code>behavior</code> passed; <code>review</code> sin <code>ui</code> passed o n/a</td></tr>
+      <tr><td>G5 Paso a passed</td><td><code>status: passed</code> con algún gate que no sea <code>passed</code> o <code>n/a</code></td></tr>
+      <tr><td>G6 Transiciones de lifecycle</td><td>Cambios fuera de las transiciones actuales; SHAs abreviados o inexistentes; <code>reviewed_feature</code> que no desciende de la base</td></tr>
+      <tr><td>G7 Shell</td><td>Escribir el JSON con Bash (redirecciones, <code>sed -i</code>, <code>tee</code>, <code>cp</code>, <code>mv</code>)</td></tr>
+      <tr><td>G8 Stop</td><td>Terminar el turno con un checkpoint empezado y sin <code>halted</code>, con el mismo límite de bloqueos seguidos que hoy</td></tr>
+    </tbody>
+  </table></div>
+  <p>Un JSON ilegible niega con motivo y ruta. Fuera de esos tres casos el guard devuelve allow sin leer nada. Los 122 casos de <code>tests/test_checkpoint_gate.py</code> se portan como tabla, salvo los que prueban la regla de worktree gestionado, que se invierten: el plan debe aceptarse también en un checkout normal.</p>
+
+  <h3>6.6 Reglas de bloqueo</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Operación</th><th>Protege</th><th>Mira solo</th><th>Mensaje de ejemplo</th></tr></thead>
+    <tbody>
+      <tr><td><code>worktree new</code></td><td>No pisar una carpeta o rama existente</td><td>Esa ruta y ese nombre de rama</td><td>"La rama feature/x ya está en ../repo.wt/x. Usa ese worktree o elige otro nombre."</td></tr>
+      <tr><td><code>worktree merge</code></td><td>Código no revisado; cambios locales que se pisarían</td><td>SHAs revisados, base actual (CAS), rutas entrantes</td><td>"src/a.ts sin seguimiento chocaría con el merge. Muévelo o commitéalo y repite: ai-eng worktree merge x"</td></tr>
+      <tr><td>Reanudar</td><td>Nada se bloquea</td><td>Diff y checkpoint</td><td>"Sigo con 3 archivos de esta feature. No toco 2 ajenos en .ai-engineering/security/run-4/."</td></tr>
+      <tr><td>PR</td><td>Publicar algo distinto a lo revisado</td><td>La rama y su upstream</td><td>"Hay cambios sin commit en x.ts: no van en la PR. ¿Los commiteo antes?"</td></tr>
+      <tr><td><code>worktree rm</code></td><td>Trabajo sin integrar o archivos ignorados desconocidos</td><td>Esa carpeta y su rama</td><td>"feature/x no está integrada. Para borrarla igualmente: ai-eng worktree rm x --force"</td></tr>
+      <tr><td>Guard <code>checkpoint</code></td><td>El orden TDD</td><td>El JSON y el marcador</td><td>"CP3 no puede pasar: review está pending. Siguiente: ejecuta la review de CP3."</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>6.7 Detección de la rama base</h3>
   <ol>
-    <li><strong>Recomendado: sincronizar antes de la revisión final.</strong> Rebasar el worktree sobre el <code>main</code> local más reciente, resolver conflictos comprensibles y repetir las comprobaciones afectadas. La persona aprueba el resultado ya integrado, no una versión anterior.</li>
-    <li><strong>Alternativa: sincronizar después de la aprobación.</strong> Conserva el orden actual, pero si la resolución cambia el resultado hay que repetir pruebas y pedir una nueva revisión humana antes de cerrar.</li>
-    <li><strong>No recomendado: mezclar ramas hermanas activas.</strong> Puede importar código sin aprobar y unir el destino de dos tareas. Mantener cada feature separada hace que cada aprobación y merge sean claros.</li>
-    <li><strong>Decidido:</strong> sincronizar solo con cambios que ya llegaron al <code>main</code> local. No integrar worktrees hermanos que aún están en implementación o esperan revisión.</li>
-    <li><strong>Decidido:</strong> compartir un preflight local mediante <code>ai-eng worktree list</code>, sin duplicar la lógica en cada skill.</li>
-    <li><strong>Decidido:</strong> guardar la fase y las aprobaciones en el checkpoint existente de cada feature, sin crear un segundo registro.</li>
-    <li><strong>Decidido:</strong> limitar el inventario a este clon local; no añadir coordinación entre máquinas.</li>
-    <li><strong>Decidido:</strong> retirar el manifiesto y el argumento opcional <code>[files...]</code>. No hay consumidores de producción en el repo y la función no forma parte de la gobernanza aprobada.</li>
+    <li>Argumento explícito de la persona (por ejemplo "contra release/2.6").</li>
+    <li><code>[git] base</code> en <code>.ai-engineering/config.toml</code>, si existe.</li>
+    <li>Rama remota por defecto: <code>git symbolic-ref --quiet refs/remotes/&lt;remoto&gt;/HEAD</code>, con el remoto del upstream de la rama actual o <code>origin</code>.</li>
+    <li>Forge, solo cuando se va a abrir una PR: <code>gh repo view --json defaultBranchRef</code> o <code>az repos show --query defaultBranch</code>.</li>
+    <li>Si nada responde, o la base coincide con la rama actual: se pregunta una vez y se ofrece guardarla en <code>[git] base</code>.</li>
   </ol>
-  <h3>El manifiesto <code>.ai-eng-worktrees.json</code></h3>
-  <p>Lo crea y actualiza <code>ai-eng worktree new</code>; <code>ai-eng worktree rm</code> quita la entrada del slug, y las entradas cuyo directorio ya no existe se podan al crear o quitar worktrees. El archivo vive junto a la raíz de worktrees, fuera del checkout principal y de cada worktree. Hoy el orchestrator no le pasa archivos, así que su aviso de solapamiento no cubre el flujo normal. Aunque el campo de archivos sea opcional, un manifiesto corrupto puede bloquear <code>new</code> y <code>rm</code>.</p>
-  <div class="note ok"><h4>Decisión aprobada</h4><p>No usar el manifiesto para gobernanza. Retirar el argumento opcional, el aviso, el mantenimiento y el archivo; borrarlo solo no basta porque el comando actual lo vuelve a crear. El inventario de Git y el checkpoint por feature son las fuentes de verdad.</p></div>
-  <h3>Alcance técnico de esa eliminación</h3>
+
+  <h3>6.8 Cómo resuelve el merge su origen y su destino</h3>
+  <p><code>ai-eng worktree merge &lt;slug&gt;</code> funciona igual desde un checkout normal o desde un worktree:</p>
+  <ol>
+    <li><b>Origen</b>: entre el checkout actual y los worktrees que lista Git, el que contiene <code>.ai-engineering/workflow/checkpoints/&lt;slug&gt;.json</code> en fase <code>ready-to-merge</code>. Si hay cero o más de uno, se niega y lista los candidatos.</li>
+    <li><b>Qué se integra</b>: exactamente <code>reviewed_feature</code>, más los commits posteriores que solo tocan el JSON de checkpoints de ese slug. Cualquier otro commit nuevo en la rama exige revisar otra vez.</li>
+    <li><b>Destino</b>: <code>base_ref</code>, nunca un literal. Su punta actual tiene que ser <code>reviewed_base</code>; si no, se pierde el CAS y, como hoy, la revisión se invalida y la feature vuelve a <code>implementation</code>.</li>
+    <li><b>Ejecución</b>: la transacción actual (merge <code>--no-ff</code> en worktree temporal desacoplado, padres exactos, árbol esperado, <code>git update-ref &lt;base_ref&gt; &lt;merge&gt; &lt;reviewed_base&gt;</code>) sin el requisito de que el checkout principal esté en <code>main</code>.</li>
+    <li><b>Después</b>: si algún checkout tiene la base activa y está limpio en las rutas que entran, se avanza; si no, se informa y se deja quieto. El checkout de la feature sigue en su rama. Ningún worktree se borra solo: se propone <code>ai-eng worktree rm &lt;slug&gt;</code>.</li>
+  </ol>
+  <p>Pruebas obligatorias: feature en checkout normal, feature en worktree, invocación desde un checkout sin relación, dos candidatos (refusal), base movida (CAS perdido), colisión de un archivo sin seguimiento.</p>
+
+  <h3>6.9 Seguridad</h3>
   <ul>
-    <li><code>src/shared-worktree.ts</code>: quitar el tipo, el nombre del manifiesto y las funciones de lectura, poda y escritura; simplificar <code>worktreeNew</code> y <code>worktreeRm</code> para que no lean ni actualicen declaraciones. Mantener la raíz de worktrees, la validación del slug, el inventario de Git y la prueba de que una rama llegó a <code>main</code>.</li>
-    <li><code>src/commands/worktree.ts</code>: cambiar el uso a <code>new &lt;slug&gt;</code> y rechazar argumentos adicionales en vez de interpretarlos como archivos.</li>
-    <li><code>tests/worktree-command.spec.ts</code>: retirar los casos del manifiesto y del aviso entre listas declaradas; conservar las pruebas de creación, listado, eliminación segura y estado del checkout principal, y fijar que argumentos extra se rechazan.</li>
-    <li>El archivo del directorio de worktrees está fuera del repositorio. Borrarlo ahora no basta: la versión actual lo vuelve a crear. Si se elimina el código, borrar también ese manifiesto local después de verificar que ninguna versión activa lo usa.</li>
-    <li><code>README.md</code>, <code>CONTRIBUTING.md</code> y el orchestrator documentan <code>new &lt;slug&gt;</code>, no la opción de archivos. Las menciones restantes están en pruebas e historial del diseño del worktree; conservar el historial como historial, no reescribirlo.</li>
+    <li><b>Superficie</b>: baja. Se van el servidor loopback, su API con capability token, el service worker y el escritor con <code>bun:ffi</code>. No se añade red: la única lectura automática sigue siendo el aviso de versión, desactivable.</li>
+    <li><b>Guards</b>: misma lógica, fail-closed. <code>self-protect</code> sigue protegiendo hooks, carriers, canon y config. El JSON de checkpoints solo cambia por Write o Edit validados por el guard.</li>
+    <li><b>Coherencia</b>: <code>init</code> y <code>update</code> dejan de usar <code>--no-verify</code>, la misma conducta que el guard prohíbe al agente.</li>
+    <li><b>Datos</b>: código del repo, receipts y estado local. Nada sale de la máquina salvo lo que la persona pide (push, PR). Sin autenticación propia: no hay servicio que autenticar. Acceso: solo local.</li>
   </ul>
+
+  <h3>6.10 Especificación técnica</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Pieza</th><th>Contrato</th></tr></thead>
+    <tbody>
+      <tr><td>CLI final</td><td><code>init</code> · <code>doctor</code> · <code>config</code> · <code>update</code> · <code>uninstall</code> · <code>worktree new|list|merge|request-changes|rm</code> · <code>adapt apply</code> · internos <code>chain</code>, <code>git</code> y <code>wrap</code>. Se van <code>workspace</code>, <code>briefing</code>, <code>upgrade</code>, <code>spec</code> (D4), <code>worktree rebase|project-lifecycle</code></td></tr>
+      <tr><td><code>src/git/run.ts</code></td><td>Un runner: cwd, env aislado de config global cuando se pide, stdout, stderr, estado. Sustituye los wrappers repetidos</td></tr>
+      <tr><td><code>src/git/context.ts</code></td><td><code>resolveContext(cwd)</code> devuelve raíz, rama actual o detached, si es worktree enlazado, base y de dónde salió la base</td></tr>
+      <tr><td><code>src/git/merge.ts</code></td><td>Merge <code>--no-ff</code> de <code>reviewed_feature</code> sobre <code>base_ref</code>, verificación de padres exactos, <code>git update-ref &lt;base&gt; &lt;nuevo&gt; &lt;esperado&gt;</code>, colisiones de rutas sin seguimiento, refresco del checkout que tiene la base si está limpio en esas rutas</td></tr>
+      <tr><td><code>src/workflow/checkpoint.ts</code></td><td>Esquema actual, fases, transiciones, lectura de <code>reviewed_main</code> antiguo, parser del meta de aprobación del brainstorm</td></tr>
+      <tr><td><code>src/guards/checkpoint.ts</code></td><td>Reglas G1 a G8 de 6.5, en la tabla del chain para Write, Edit, Task y Stop</td></tr>
+      <tr><td>Config</td><td><code>[git] base</code> y <code>[git] worktrees_dir</code> opcionales; <code>[canon] packs</code></td></tr>
+      <tr><td>Packs al instalar</td><td><code>init</code> interactivo pregunta, nada marcado. <code>init --yes</code> o sin TTY escribe <code>packs = []</code>: las 23 core, con la ceremonia completa</td></tr>
+      <tr><td>Packs al actualizar</td><td>La primera vez que <code>update</code> ve una instalación sin <code>[canon] packs</code>, escribe los 6 packs: nada desaparece. La persona quita los que no quiera. Las ediciones locales siguen protegidas por los hashes del lock</td></tr>
+      <tr><td>Versión</td><td>3.0.0 (quita verbos). Changeset mayor y guía de migración en <code>CHANGELOG.md</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+<section id="s7">
+  <h2><span class="num">07</span>Decisiones aún abiertas</h2>
+  <div class="note ok"><h4>Cerradas el 2026-10-27</h4><p>La persona aprobó el brainstorm: cada decisión queda con su valor recomendado. D3 la decidió la persona (<code>wrap</code> se queda) y D2 se ejecutó al aprobar (rama archivada).</p></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>Decisión</th><th>Recomendado</th><th>Alternativa</th><th>Impacto</th></tr></thead>
+    <tbody>
+      <tr><td>D1</td><td>Dónde se trabaja por defecto</td><td>Checkout actual; worktree si se pide o si hay otra feature activa aquí (una pregunta)</td><td>Worktree automático al detectar paralelo, sin preguntar</td><td>Texto de <code>AGENTS.md</code> y de ai-orchestrator</td></tr>
+      <tr><td>D2</td><td>Rama <code>feat/worktree-lifecycle-governance</code> (287 commits, CP18 pendiente)</td><td>No integrarla. Etiqueta <code>archive/worktree-lifecycle-governance</code> y quitar su worktree con tu ok. Lo valioso (colisiones acotadas, CAS) ya está en <code>main</code></td><td>Terminar CP18 e integrarla antes</td><td>Sin D2 resuelta, el preflight actual verá solapamiento y parará</td></tr>
+      <tr><td>D3</td><td><code>wrap</code> (filtra la salida de tests)</td><td><b>Decidida por la persona el 2026-10-27</b>: se queda. Ahorra tokens enseñando solo los fallos; el ahorro de tokens pasa a ser parte del suelo (P11)</td><td>-</td><td>La web cuenta "5 guards de protección + 1 de prompt + ahorro de tokens en el mismo hook"</td></tr>
+      <tr><td>D4</td><td>Verbo <code>ai-eng spec open|approve|close</code></td><td>Quitarlo. Aprobar = commit del brainstorm con <code>ai-approved</code>; cerrar = integración derivada de Git. <code>ai-brainstorm</code>, <code>ai-security</code> y <code>ai-stress-test</code> dejan de citar <code>spec close</code></td><td>Mantener <code>spec approve</code> como pin de hash</td><td>-300 líneas; texto de Lifecycle en <code>AGENTS.md</code></td></tr>
+      <tr><td>D5</td><td>Packs: dónde y cuáles por defecto</td><td>Mismo repo en <code>packs/&lt;nombre&gt;/</code>. Seis packs (triage, design-md-planner, audit-design, visual-recap, writing-behavior, stress-test) más los tiers de ai-verify. Ninguno por defecto; la ceremonia nunca depende de un pack</td><td>Repo aparte por pack</td><td>Install, update, uninstall, surfaces</td></tr>
+      <tr><td>D6</td><td>Qué pasa tras 3 fallos en un gate</td><td>Mantener la ceremonia de hoy: re-plan automático y circuit breaker <code>halted</code></td><td>Parar en <code>blocked</code> y preguntar tras 3 fallos</td><td>La alternativa reduce churn (287 commits) pero cambia la ceremonia; solo con tu ok</td></tr>
+      <tr><td>D7</td><td>Revisión adversarial</td><td>Mantener hasta 4 rondas, como hoy</td><td>1 crítico y máximo 2 rondas</td><td>Agentes por checkpoint; solo con tu ok</td></tr>
+      <tr><td>D8</td><td>"No runtime to adopt" con Bun obligatorio</td><td>Mantener Bun y corregir la promesa: "un paquete, ningún servicio". Los binarios compilados siguen en cada release</td><td>Publicar el binario compilado por npm</td><td>Texto de web y README</td></tr>
+      <tr><td>D9</td><td>Cierre recomendado en la revisión</td><td>PR si hay forge remoto, merge local si no</td><td>Siempre preguntar sin recomendación</td><td>Texto de ai-orchestrator</td></tr>
+      <tr><td>D10</td><td>Informes generados por skills</td><td>Mantener sus rutas actuales; P2 hace que no bloqueen</td><td>Moverlos a un directorio ignorado por Git</td><td>La alternativa rompe el versionado de <code>findings.json</code> de <code>ai-security</code></td></tr>
+      <tr><td>D11</td><td>Salida completa de un test filtrado por <code>wrap</code></td><td>Guardarla en <code>.ai-engineering/receipts/&lt;receipt&gt;.log</code> (ya ignorado por Git) e imprimir la ruta en la línea final</td><td>Seguir descartándola</td><td>Sin esto, si el parser no reconoce un fallo, el agente no puede verlo sin repetir el test entero</td></tr>
+    </tbody>
+  </table></div>
 </section>
 
 <section id="s8">
   <h2><span class="num">08</span>Restricciones y guardarraíles</h2>
   <ul>
-    <li>No integrar, borrar ni forzar un worktree como efecto de un simple inventario. La aprobación humana y las verificaciones existentes siguen siendo obligatorias.</li>
-    <li>Si Git o un archivo de checkpoint no se puede leer, decirlo explícitamente y conservar el trabajo.</li>
-    <li>Respetar la ruta configurada de worktrees y las reglas actuales de rama local <code>main</code>.</li>
-    <li>La lista es una instantánea local. No afirmar que representa otros clones o máquinas sin un mecanismo compartido aprobado.</li>
-    <li>Resolver conflictos dentro del worktree de la tarea, nunca editando a la vez en el checkout principal. No descartar cambios ajenos ni integrar una rama hermana que todavía no haya pasado su aprobación.</li>
-    <li>Tras resolver conflictos, repetir las pruebas y revisiones afectadas. Si no se puede probar o justificar la resolución, parar antes del merge y conservar la rama.</li>
-    <li>Mostrar nombres de tareas y rutas necesarias para distinguirlas, sin copiar diffs ni contenido sensible al registro de estado.</li>
+    <li><b>La seguridad no baja</b>: los guards mantienen su lógica, fail-closed y gobernanza antes de escribir. Nada de <code>noqa</code>, <code>@ts-ignore</code> ni saltar hooks.</li>
+    <li><b>No se pierde trabajo</b>: ningún paso hace <code>stash</code>, <code>reset</code>, <code>clean</code> ni borra carpetas sin orden explícita.</li>
+    <li><b>Borrar antes de añadir</b>: los checkpoints de borrado van primero para que lo nuevo se escriba sobre menos código.</li>
+    <li><b>Cada checkpoint deja todo verde</b>: typecheck, lint, arch y suite en serie. Un cambio de comportamiento empieza con un test que falla.</li>
+    <li><b>Compatibilidad</b>: repos gobernados con checkpoints antiguos se leen (tabla de 6.5). <code>ai-eng update</code> retira assets obsoletos sin tocar archivos de la persona. Versión mayor 3.0.0 con guía de migración.</li>
+    <li><b>Multiplataforma</b>: rutas con <code>node:path</code> y <code>sep</code>; la matriz de 3 sistemas sigue en CI.</li>
+    <li><b>Sin dependencias nuevas</b>; Python deja de ser necesario en los hooks. El visor de la ceremonia lo sigue usando como hoy.</li>
+    <li><b>Ceremonia protegida</b>: ningún checkpoint cambia fases, gates, agentes, paradas, prototipos, gate UI, review adversarial, visor o triggers de <code>ai-orchestrator</code> sin una decisión explícita de la sección 07. El test de contrato de ceremonia corre desde CP2.</li>
+    <li><b>Arranque</b>: esta feature se construye con el orchestrator actual, en un worktree, porque es el flujo instalado hoy. Las skills nuevas aplican desde el checkpoint 8 en adelante para el trabajo siguiente.</li>
   </ul>
 </section>
 
 <section id="s9">
   <h2><span class="num">09</span>Fuera de alcance</h2>
-  <div class="note danger"><h4>No forma parte de esta idea</h4></div>
-  <ul>
-    <li>Hacer merge, borrar ramas o worktrees automáticamente sin la aprobación final ya requerida.</li>
-    <li>Crear una aplicación web o un panel remoto antes de demostrar que un preflight local no basta.</li>
-    <li>Cambiar el destino de merge, permitir push desde una sesión de implementación o reemplazar los gates de aprobación existentes.</li>
-    <li>Limpiar automáticamente worktrees con cambios sin commit o con estado desconocido.</li>
-    <li>Combinar automáticamente ramas hermanas no aprobadas dentro de una tarea distinta.</li>
-  </ul>
+  <div class="note danger"><h4>No forma parte de esta idea</h4><p>Cambiar la lógica de los guards de seguridad o añadir guards nuevos (salvo <code>checkpoint</code>, port 1 a 1 del hook Python). Cambiar el comportamiento de la ceremonia del orchestrator más allá de trabajar sin worktree y con base detectada. Cualquier servicio hospedado, telemetría o UI propia nueva. Coordinar trabajo entre clones o máquinas. Borrar el contenido de los packs (se mueven, no se borran). Rediseñar la web (solo se corrigen sus afirmaciones). Consumidores externos de lifecycle como Copilotline. Cambiar el formato de los receipts. Nuevos filtros de ahorro de tokens para lint, typecheck o build (siguiente feature, pregunta 7). PR en forges distintas de GitHub y Azure DevOps (la detección de base es genérica; la PR en otras forges queda en instrucciones manuales).</p></div>
 </section>
 
 <section id="s10">
-  <h2><span class="num">10</span>Preguntas para investigar</h2>
+  <h2><span class="num">10</span>Preguntas abiertas para investigar</h2>
   <ol>
-    <li>Determinar qué puede leerse de forma fiable desde <code>git worktree list</code>, las ramas y el checkpoint existente, y qué estado de aprobación no está representado hoy.</li>
-    <li>Definir cómo detectar un checkpoint ausente, un worktree huérfano o estados de Git y checkpoint que no concuerdan, sin perder cambios ni dar por terminado el trabajo.</li>
-    <li>Comprobar cómo compartir el preflight entre brainstorm y orchestrator sin duplicar reglas ni impedir tareas independientes.</li>
-    <li>Verificar cómo volver a ejecutar las comprobaciones y la revisión tras resolver conflictos, y cómo detectar si <code>main</code> avanzó antes del merge final.</li>
+    <li><b>Respondida (2026-10-27)</b>: nadie consume <code>.ai-eng-lifecycle/&lt;slug&gt;.json</code>. El escritor solo existe en la rama sin integrar y se archiva con D2.</li>
+    <li>Duración real y test que falla en <code>bun test --parallel=1</code>: desconocido. Es la primera tarea del CP1, que lo identifica antes de cambiar nada.</li>
+    <li><b>Respondida (2026-10-27)</b>: ningún commit de ninguna rama contiene <code>dirfd-probe</code> (<code>git log --all -S</code>). Es una carpeta vacía del 20 de octubre con una subcarpeta <code>projection</code>: resto de una prueba manual del experimento de proyección, no código. El CP1 la borra junto con <code>tests/.worktree-lifecycle-*</code>.</li>
+    <li>¿Copilot CLI tiene worktree nativo? No verificado; VS Code Agents Window sí. Afecta a las instrucciones de "Aparte".</li>
+    <li>Documentación oficial de hooks de Codex CLI: solo verificado por código fuente en <code>openai/codex@970111f</code>.</li>
+    <li>¿Qué harnesses respetan la reescritura (<code>updatedInput</code>, <code>modifiedArgs</code>)? <code>wrap</code> se queda, así que donde no se respete debe constar en <code>surfaces.json</code> como "sin ahorro de tokens".</li>
+    <li>Siguientes ahorros de tokens del mismo tipo (feature aparte): filtrar la salida de lint, typecheck y build (<code>oxlint</code>, <code>tsc</code>, <code>eslint</code>) igual que <code>wrap</code> hace con tests. Medir primero cuántos tokens consume hoy cada uno.</li>
+    <li>¿Algún repo gobernado depende de <code>ai-eng workspace</code>, <code>briefing</code>, <code>upgrade</code> o <code>spec</code>? No hay telemetría; revisar al menos <code>nn-skills</code> y los repos conocidos.</li>
+    <li>Azure DevOps: confirmar <code>az repos show --query defaultBranch</code> y la política de auto-complete para cerrar con PR.</li>
+    <li>Fuente verificable de la frase de Hohpe "floating vs sinking platform" para la web.</li>
+    <li>¿Qué harnesses emiten el evento <code>Stop</code> a sus hooks? La regla G8 del guard lo necesita; donde no exista, el bloqueo de fin de turno no aplica y debe quedar escrito en <code>surfaces.json</code>.</li>
   </ol>
 </section>
 
 <section id="s11">
-  <h2><span class="num">11</span>Notas de handoff</h2>
-  <h3>Componentes y flujo propuestos</h3>
-  <ol>
-    <li>Un preflight común reúne la lista real de Git, el estado de cambios sin commit y el checkpoint por slug. Muestra también tareas sin worktree que esperan aprobación del plan. La opción recomendada es ampliar la lista local existente y usar un campo explícito de fase en el checkpoint, no mantener otro registro. Si se comprueban solapamientos, comparar rutas modificadas de Git y archivos previstos en checkpoints, no mantener un manifiesto paralelo.</li>
-    <li>Antes de brainstorm y orchestrator, el preflight resume trabajo activo, aprobaciones pendientes, coincidencias probables y datos que no puede clasificar. El mismo slug se reanuda; un posible solapamiento se detiene para decisión; una tarea distinta puede seguir.</li>
-    <li>Antes de la revisión humana final, el agente actualiza la rama de la tarea con el <code>main</code> local más reciente, dentro de su propio worktree.</li>
-    <li>El agente resuelve un conflicto solo si puede conservar la intención de ambos lados sin adivinar. Después repite las pruebas de comportamiento, revisión adversarial y pruebas de interfaz afectadas, además de la suite final.</li>
-    <li>La revisión humana muestra el resultado ya integrado. Se registra qué versión de <code>main</code> revisó la persona. Justo antes del merge se verifica que <code>main</code> no haya avanzado; si cambió, se sincroniza de nuevo y se vuelve a validar y revisar.</li>
-    <li>Solo tras la aprobación final se hace el merge no fast-forward en el checkout principal sobre el <code>main</code> local. Se verifica que la rama quedó integrada y luego se elimina con el comando seguro existente.</li>
-  </ol>
-  <h3>Errores y datos que faltan</h3>
-  <p>Una lista de Git o checkpoint ilegible, un estado contradictorio o un checkpoint ausente nunca significa que no haya trabajo. Si un worktree está sucio, no se inicia un rebase que ponga esos cambios en riesgo. Ante un conflicto ambiguo, un test fallido o un <code>main</code> que avanza después de la aprobación, se conserva la rama, no se fuerza ninguna operación y se informa qué decisión o acción falta.</p>
-  <h3>Pruebas requeridas</h3>
-  <p>Probar la clasificación de trabajo con y sin worktree, estados de aprobación, checkpoints ausentes o malformados y cambios sin commit. En repos Git temporales, probar dos features independientes, solapamiento sin conflicto, conflicto resoluble, conflicto ambiguo que se aborta sin perder trabajo y <code>main</code> que avanza entre revisión y merge. Verificar que una rama no aprobada nunca se incorpora ni se borra.</p>
-  <p><strong>Estado:</strong> complete · 2026-10-08. Diseño aprobado para implementación local. El checkpoint planner resolverá detalles técnicos dentro de los límites y decisiones fijados arriba.</p>
+  <h2><span class="num">11</span>Notas de traspaso</h2>
+  <p><b>Para <code>/ai-orchestrator</code></b>: slug <code>floating-core</code>. Antes de la fase 0, resolver D2 (hoy existe un worktree de la misma zona). Comandos del proyecto: typecheck <code>bun run typecheck</code>, lint <code>bun run lint</code>, tests <code>bun test --parallel=1</code>, arch <code>bun test tests/arch.spec.ts</code>, build <code>bun run build</code>. Sin UI de producto: el gate UI es <code>n/a</code> en todos los checkpoints.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>CP</th><th>Objetivo</th><th>Tests primero</th><th>Archivos principales</th><th>Aceptación</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Línea base verde y determinista</td><td>Test que prueba que ninguna suite crea carpetas bajo <code>tests/</code>; test de restauración de env</td><td><code>tests/worktree-lifecycle.spec.ts</code>, <code>tests/uninstall-command.spec.ts</code>, <code>tests/adversarial/chain.test.ts</code>, <code>.github/workflows/check.yml</code>, <code>package.json</code></td><td>Se borran las carpetas sobrantes <code>tests/.dirfd-probe-*</code> y <code>tests/.worktree-lifecycle-*</code> (vacías, sin seguimiento). Se identifica el test que hoy hace fallar la suite en serie y se arregla su causa (o se registra con motivo en <code>LEARNINGS.md</code> si es ajeno). Después: suite en serie verde dos veces; p95 fuera del gate como <code>bun run bench</code>; CI usa serie y valida <code>platforms.yml</code></td></tr>
+      <tr><td>2</td><td>Borrar el hub workspace</td><td>Test de CLI: <code>ai-eng workspace</code> ya no es un verbo y la ayuda no lo lista. Test de contrato de ceremonia (todo lo que cita el orchestrator existe y se instala), verde desde aquí hasta el final</td><td><code>src/workspace/</code>, <code>src/commands/workspace.ts</code>, <code>src/cli.ts</code>, <code>src/shared-verbs.ts</code>, plantillas <code>workspace*</code>, tests <code>workspace-*</code>, <code>PERMISSIONS.md</code></td><td>Ningún <code>Bun.serve</code> en <code>src/</code>; arch verde</td></tr>
+      <tr><td>3</td><td>Contexto Git único</td><td>Tabla de casos S6, S7, S15, S16, S18 sobre repos temporales</td><td><code>src/git/run.ts</code>, <code>src/git/context.ts</code></td><td><code>resolveContext</code> cubre checkout, worktree, detached, sin remoto, base explícita</td></tr>
+      <tr><td>4</td><td>Estado único</td><td>Tabla por fase nueva y por fase antigua (S12); transiciones válidas e inválidas</td><td><code>src/workflow/checkpoint.ts</code>; adoptarlo en <code>shared-worktree.ts</code></td><td>Un solo lector del JSON (arch test)</td></tr>
+      <tr><td>5</td><td>Guard <code>checkpoint</code> en TypeScript</td><td>Portar los 122 casos de <code>tests/test_checkpoint_gate.py</code> a tests de tabla (invertir los de worktree gestionado); S4; Stop con y sin <code>halted</code></td><td><code>src/guards/checkpoint.ts</code>, <code>src/chain/mod.ts</code>, plantillas de carriers, borrar <code>scripts/checkpoint-gate.py</code> y su test</td><td>Ningún carrier llama a <code>python3</code>; S3 aceptado fuera de worktree</td></tr>
+      <tr><td>6</td><td>Worktree opcional y merge desde cualquier checkout</td><td>S3, S5, S8, S9, S10, S11, S17</td><td><code>src/git/merge.ts</code>, <code>src/commands/worktree.ts</code>, reducir <code>src/shared-worktree.ts</code></td><td>0 literales <code>refs/heads/main</code> en <code>src/</code>; verbos <code>new|list|merge|rm</code></td></tr>
+      <tr><td>7</td><td>Quitar plataforma del runtime</td><td>Tests de <code>init</code> y <code>update</code>: no hacen commit; <code>update</code> no abre red</td><td>sidecar, circuit breaker, briefing, upgrade, <code>floor/template.ts</code>, plant-workflow, spec (D4), <code>wrap</code> guarda la salida completa (D11), helpers DRY, <code>arch.rules.json</code> y su test</td><td>Arch comprueba ciclos y que todo archivo tiene capa</td></tr>
+      <tr><td>8</td><td>Skills de flujo y contrato</td><td>Lint de esquema de skills (sustituye frases); test de que la sección "Dónde trabajar" de <code>AGENTS.md</code> coincide con la plantilla</td><td><code>skills/ai-brainstorm</code>, <code>ai-orchestrator</code>, <code>ai-pr</code>, <code>ai-git-cleanup</code>, <code>ai-adversarial-loop</code>, <code>ai-test-planner</code>, <code>agents/checkpoint-planner.md</code>, <code>AGENTS.md</code>, <code>templates/AGENTS.md.tpl</code>, <code>.gitignore</code> plantilla</td><td>0 literales <code>origin/main</code> y <code>feat/</code> obligatorios en skills; S1, S2, S7 descritos</td></tr>
+      <tr><td>9</td><td>Core y packs</td><td><code>init</code> sin packs instala 23 skills y todos los agentes de la ceremonia; el test de contrato de ceremonia pasa sin packs; <code>uninstall</code> limpia packs</td><td><code>packs/</code>, <code>src/install.ts</code>, <code>src/surfaces/adapters.ts</code>, <code>src/commands/init.ts</code>, <code>config.ts</code>, <code>update.ts</code>, <code>uninstall.ts</code>, <code>scripts/gen-assets.ts</code></td><td>ai-code-review fusionada en ai-verify; la ceremonia completa sigue en core</td></tr>
+      <tr><td>10</td><td>Consolidar tests y CI</td><td>Ninguno nuevo: borrar tests de frases y casos Git duplicados conservando S11 y los asserts de fases y gates del orchestrator</td><td><code>tests/skills.spec.ts</code>, <code>tests/workflow-handoff.spec.ts</code>, <code>tests/ai-pr.spec.ts</code>, <code>tests/worktree-*.spec.ts</code>, <code>.github/workflows/mutation.yml</code>, <code>check.yml</code></td><td>Suite en serie &lt; 2 min; una campaña de mutación por PR</td></tr>
+      <tr><td>11</td><td>Docs, promesa y versión</td><td>Lint de docs: comandos citados existen en la CLI</td><td><code>README.md</code>, <code>CONTRIBUTING.md</code>, <code>SECURITY.md</code>, <code>PERMISSIONS.md</code>, <code>NOTICE.md</code>, <code>docs/</code>, <code>FILEMAP.md</code>, <code>CHANGELOG.md</code>, changeset mayor</td><td>0 críticos en ai-audit-docs; tabla de promesas sin filas rotas; guía de migración 3.0</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Casos por checkpoint</b>: S1, S2 → CP8 · S3 → CP5 y CP6 · S4 → CP5 · S5, S8, S9, S10, S11, S17 → CP6 · S6, S7, S15, S16, S18 → CP3 (y CP8 para la PR) · S12 → CP4 · S13 → CP5 (el guard no actúa en repos no gobernados) · S14 → CP10 (matriz de 3 SO).</p>
+  <p><b>Dependencias</b>: 1 antes de todo. 2 antes de 4 (borra dos validadores duplicados). 3 y 4 antes de 5 y 6. 5 antes de 8 (las skills nombran el guard). 9 después de 8. 10 y 11 al final.</p>
+  <p><b>Referencias de esta auditoría</b> (fuera del repo, en la carpeta de la sesión): <code>audit-runtime.md</code>, <code>audit-worktree.md</code>, <code>audit-skills.md</code>, <code>audit-docs.md</code>, <code>audit-tests.md</code>. Lo esencial está copiado en este documento para que sea autocontenido.</p>
 </section>
 
 </div>
 </main>
 
 <footer>
-  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · worktree-lifecycle-governance<br>
-  complete · 2026-10-08
+  <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · floating core<br>
+  complete · 2026-10-27
   <a href="#main">↑ top</a>
 </footer>
 <script>
