@@ -389,7 +389,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 3, "findings": ["Gate 1 final retry: all 11 verify commands passed in order. The earlier serial failure was a nested carrier assertion misreported by test hygiene; fixed in 8e4fb828. Full serial suite exit 0 (runner output omitted count and duration)."] },
+        "behavior": { "status": "passed", "attempts": 3, "findings": ["After canonical hook fix `5265f010`, all 11 verify commands passed; 86 focused tests and shell checks 2/2; typecheck/lint and arch 30 passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 2, "findings": ["Previous BLOCKER and MAJOR resolved: exact command ownership and Cursor Stop carrier/dialect. New MAJOR src/install.ts:40: MANAGED_CHAIN_HOOKS duplicates command forms from templates; derive them from a canonical source to prevent drift and duplicate hooks on update."] }
       },
