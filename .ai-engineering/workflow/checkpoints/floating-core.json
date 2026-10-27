@@ -445,6 +445,7 @@
         "bun test tests/git-context.spec.ts",
         "bun test tests/workflow-checkpoint.spec.ts",
         "bun test tests/ceremony-contract.spec.ts",
+        "sh -c '! grep -rn \"refs/heads/main\" src'",
         "bun run typecheck",
         "bun run lint",
         "bun test tests/arch.spec.ts",
