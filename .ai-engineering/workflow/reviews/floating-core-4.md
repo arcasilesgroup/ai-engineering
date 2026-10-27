@@ -39,7 +39,7 @@ One TypeScript module owns the checkpoint JSON schema, phases, transitions, the 
 **Fixer (r1):** fixed — added a passing approved plan-approval transition assertion alongside the existing pending refusal · verify: targeted checkpoint tests ✓
 **Critic (r2):** resolved — the passing approved transition case is present and the targeted checkpoint suite passes.
 
-## F4 · MAJOR · open (r2)
+## F4 · MAJOR · fixed (r3)
 **Where:** `src/shared-worktree.ts:1120, 1568`
 **Critic (r2):** `request-changes` calls `reviewedFeatureChainProblem` without its detected `baseRef`; the helper still parses checkpoint snapshots using hard-coded `refs/heads/main`. A canonical review checkpoint with `base_ref: refs/heads/develop` therefore fails validation during request-changes, and ready-to-merge lifecycle listing has the same mismatch. Thread the detected base through the helper and all its checkpoint parses; cover non-main request-changes and ready-state listing.
 
@@ -48,3 +48,8 @@ One TypeScript module owns the checkpoint JSON schema, phases, transitions, the 
 - `bun run lint`
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
+
+**Fixer (r3):** fixed — passed the detected base through every reviewed-feature chain parse and request-changes synchronization read · verify: targeted tests, typecheck, lint and arch ✓
+**ROOT CAUSE:** Chain validation parsed canonical checkpoint snapshots against hard-coded `refs/heads/main`, and request-changes reread its published checkpoint using that same wrong context.
+**FIX:** Threaded detected `baseRef` through chain validation, ready listing, merge-ready reads and request-changes synchronization; the real-repository regression uses a canonical `develop` review chain while `main` diverges.
+**LESSON:** Keep every checkpoint parse in a lifecycle operation pinned to its detected base, including verification reads after publishing.

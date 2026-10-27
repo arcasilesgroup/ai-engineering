@@ -348,6 +348,27 @@ function writeBrainstorm(
   return artifact;
 }
 
+function writeCanonicalCheckpoint(
+  worktree: string,
+  slug: string,
+  lifecycle: Record<string, unknown>,
+): string {
+  const checkpoint = join(worktree, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+  const plan = rebasePlan(slug, "passed", "passed");
+  plan.checkpoints = (plan.checkpoints as Array<Record<string, unknown>>).map((item) => ({
+    ...item,
+    title: "Checkpoint",
+    goal: "Verify reviewed checkpoint history",
+    verify: [],
+    changed_files: [],
+    ui: null,
+  }));
+  plan.lifecycle = lifecycle;
+  mkdirSync(dirname(checkpoint), { recursive: true });
+  writeFileSync(checkpoint, `${JSON.stringify(plan, null, 2)}\n`);
+  return checkpoint;
+}
+
 function writeReviewedMergeCheckpoint(feature: string, slug: string): string {
   const checkpoint = join(feature, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   mkdirSync(dirname(checkpoint), { recursive: true });
@@ -409,13 +430,19 @@ function expectWorktrees(repo: string, expectedPaths: string[]): void {
   expect(actualPaths).toEqual(expectedPaths.map((path) => realpathSync(path)).sort());
 }
 
-function addRebaseWorktree(repo: string, slug: string, branch = `feat/${slug}`, detached = false): string {
+function addRebaseWorktree(
+  repo: string,
+  slug: string,
+  branch = `feat/${slug}`,
+  detached = false,
+  base = "main",
+): string {
   const path = join(defaultRoot(repo), slug);
   mkdirSync(dirname(path), { recursive: true });
   git(
     detached
-      ? ["worktree", "add", "--quiet", "--detach", path, "refs/heads/main"]
-      : ["worktree", "add", "--quiet", "-b", branch, path, "refs/heads/main"],
+      ? ["worktree", "add", "--quiet", "--detach", path, `refs/heads/${base}`]
+      : ["worktree", "add", "--quiet", "-b", branch, path, `refs/heads/${base}`],
     repo,
   );
   return path;
@@ -1248,6 +1275,70 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
 });
 
 describe("ai-eng worktree request-changes (checkpoint 7)", () => {
+  test("request-changes and ready listing validate canonical develop checkpoint history", () => {
+    const repo = tempRepo();
+    const slug = "develop-review-chain";
+    configureDetectedBase(repo, "develop");
+    const reviewedBase = git(["rev-parse", "HEAD"], repo).trim();
+    git(["branch", "develop", reviewedBase], repo);
+    commitRebaseFixtureFile(repo, "src/main-only.ts", "main advanced\n", "advance local main");
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).not.toBe(reviewedBase);
+
+    const feature = addRebaseWorktree(repo, slug, `feat/${slug}`, false, "develop");
+    const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    const checkpoint = writeCanonicalCheckpoint(feature, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    git(["add", checkpointPath], feature);
+    git(["commit", "-q", "-m", "approved implementation plan"], feature);
+    const reviewedFeature = commitRebaseFixtureFile(feature, "src/approved.ts", "approved\n", "approved feature");
+    const pendingLifecycle = {
+      phase: "awaiting-app-review",
+      plan_approval: "approved",
+      app_review: "pending",
+      base_ref: "refs/heads/develop",
+      reviewed_base: reviewedBase,
+      reviewed_feature: reviewedFeature,
+    };
+    writeCanonicalCheckpoint(feature, slug, pendingLifecycle);
+    git(["add", checkpointPath], feature);
+    git(["commit", "-q", "-m", "await app review"], feature);
+    const pendingCommit = git(["rev-parse", "HEAD"], feature).trim();
+    writeCanonicalCheckpoint(feature, slug, {
+      ...pendingLifecycle,
+      phase: "ready-to-merge",
+      app_review: "approved",
+    });
+    git(["add", checkpointPath], feature);
+    git(["commit", "-q", "-m", "approve app review"], feature);
+
+    const listed = runCli(["worktree", "list"], repo);
+
+    expect(listed.status).toBe(0);
+    expect(listed.stdout).toContain("ready-to-merge (plan approved, app review approved)");
+    expect(listed.stdout).not.toContain("unknown (commit ");
+    expect(git(["rev-parse", "refs/heads/develop"], repo).trim()).toBe(reviewedBase);
+    expect(gitOut(["merge-base", "--is-ancestor", reviewedBase, reviewedFeature], repo).status).toBe(0);
+
+    git(["reset", "--hard", pendingCommit], feature);
+    const requested = runCli(["worktree", "request-changes", slug, pendingCommit], repo);
+
+    if (requested.status !== 0) throw new Error(requested.stderr);
+    expect(requested.status).toBe(0);
+    expect(requested.stdout).toContain("→ implementation");
+    expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle).toMatchObject({
+      phase: "implementation",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+  });
+
   test("the captured pending checkpoint commit authorizes one checkpoint-only lifecycle transition", () => {
     const repo = tempRepo();
     const approved = prepareMergeFixture(repo, "revision");

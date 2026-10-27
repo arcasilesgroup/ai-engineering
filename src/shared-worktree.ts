@@ -725,6 +725,8 @@ function lifecycleStatus(
       lifecycle.reviewed_base as string,
       reviewedFeature,
       featureRef.stdout.trim(),
+      "ready-to-merge",
+      baseRef,
     );
     if (chainProblem !== null) {
       return { label: `unknown (${chainProblem})`, files };
@@ -1124,6 +1126,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     lifecycle.reviewed_feature,
     expectedCheckpointCommit,
     "awaiting-app-review",
+    baseRef,
   );
   if (chainProblem !== null) {
     return { code: 1, out: "", err: `worktree request-changes: ${chainProblem}; preserve the review state.\n` };
@@ -1320,7 +1323,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     sourceCheckpoint = readCheckpoint(checkpointPath, {
       repoPath: entry.path,
       slug,
-      baseRef: "refs/heads/main",
+      baseRef,
     });
   } catch {
     // A failed read below rolls back only if the exact feature ref still matches.
@@ -1369,7 +1372,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
         currentContents = readCheckpoint(checkpointPath, {
           repoPath: entry.path,
           slug,
-          baseRef: "refs/heads/main",
+          baseRef,
         });
       } catch {
         // Leave unreadable work untouched.
@@ -1542,6 +1545,7 @@ export function reviewedFeatureChainProblem(
   reviewedFeature: string,
   featureTip: string,
   phase: "awaiting-app-review" | "ready-to-merge" = "ready-to-merge",
+  baseRef = "refs/heads/main",
 ): string | null {
   const ancestry = git(repo, ["merge-base", "--is-ancestor", reviewedFeature, featureTip]);
   if (ancestry.status !== 0 || ancestry.stderr.trim() !== "") {
@@ -1565,7 +1569,7 @@ export function reviewedFeatureChainProblem(
     reviewedPlan = parseCheckpoint(reviewedCheckpoint.stdout, {
       repoPath: repo,
       slug,
-      baseRef: "refs/heads/main",
+      baseRef,
     });
   } catch {
     return "reviewed_feature has a malformed checkpoint plan";
@@ -1600,7 +1604,7 @@ export function reviewedFeatureChainProblem(
       parsed = parseCheckpoint(checkpoint.stdout, {
         repoPath: repo,
         slug,
-        baseRef: "refs/heads/main",
+        baseRef,
       });
     } catch {
       return `commit ${commit} has malformed lifecycle checkpoint metadata`;
@@ -1664,6 +1668,15 @@ function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState
     return { detail: "detail" in operation ? operation.detail : `${operation.name} is in progress` };
   }
 
+  let baseRef: string;
+  try {
+    const detectedBase = resolveContext(entry.path).base;
+    if (detectedBase === null) return { detail: "detected base ref is unavailable" };
+    baseRef = `refs/heads/${detectedBase}`;
+  } catch {
+    return { detail: "detected base ref is unreadable" };
+  }
+
   const featureRef = git(repo, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
   const featureHead = fullHead(entry.path);
   if (
@@ -1693,7 +1706,7 @@ function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState
     checkpoint = readCheckpoint(checkpointPath, {
       repoPath: entry.path,
       slug,
-      baseRef: "refs/heads/main",
+      baseRef,
     });
   } catch {
     return { detail: "checkpoint is missing, unreadable or malformed" };
@@ -1717,6 +1730,8 @@ function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState
     lifecycle.reviewed_base,
     lifecycle.reviewed_feature,
     featureTip,
+    "ready-to-merge",
+    baseRef,
   );
   if (chainProblem !== null) {
     return { detail: chainProblem };

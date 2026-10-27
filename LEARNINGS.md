@@ -1047,3 +1047,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Add the passing transition case alongside the existing refusal.
 - **Lesson:** Test each transition's passing and refusing cases.
 - **Tags:** review, lifecycle, tests
+
+### L144 · 2026-10-27 · floating-core #4 · review
+- **Failure:** Canonical `develop` checkpoints failed request-changes and ready-state listing.
+- **Root cause:** Chain validation parsed checkpoints against hard-coded `main`.
+- **Fix:** Pass the detected base through chain validation and checkpoint reads; cover a diverged `main` and `develop`.
+- **Lesson:** Use the detected base for every checkpoint parse in a lifecycle operation.
+- **Tags:** review, git, lifecycle
