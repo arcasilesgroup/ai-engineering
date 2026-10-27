@@ -91,14 +91,26 @@ Automatic replan split the previous CP7 into CP7 (detected-base merge/CAS/push) 
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
 
-## F1 · MAJOR · open
+## F1 · MAJOR · fixed
 **Where:** `src/git/merge.ts:626-630`
 **Critic (r1):** The retry path finds a previously published merge but refreshes base checkouts from that historical merge even when `currentBase` has since advanced. A clean checkout at the newer tip can have incoming paths reset to the old tree, leaving newer committed content overwritten in the worktree. Refresh from the current base tip and verify it is still the target; otherwise leave the checkout untouched and report it.
+**Fixer (r1):** fixed — retry refreshes only while the base still points to the published merge; checkout refresh verifies both ref and HEAD before restoring, otherwise it reports and leaves files untouched in `src/git/merge.ts` · verify: targeted tests, typecheck, lint, arch ✓
+**ROOT CAUSE:** The retry trusted a historical merge commit as the refresh source after the base branch had moved on.
+**FIX:** Skip refresh when the latest base differs from the published merge and verify the target ref and checkout HEAD before restoring.
+**LESSON:** Retry paths may refresh from a commit only while it is still the current base; otherwise preserve the checkout.
 
-## F2 · MAJOR · open
+## F2 · MAJOR · fixed
 **Where:** `src/git/merge.ts:501-509`
 **Critic (r1):** `initialStatuses` is captured before the temporary merge/commit, then trusted during checkout refresh. If an incoming path becomes dirty during that transaction (including from a hook), the stale clean snapshot authorizes `git restore --worktree` to overwrite it. Revalidate incoming index/worktree state against the reviewed base immediately before restoring; preserve and report any changed path.
+**Fixer (r1):** fixed — refresh now rechecks status and incoming index/worktree/untracked paths against the reviewed base immediately before restore, preserving and reporting late edits in `src/git/merge.ts` · verify: targeted tests, typecheck, lint, arch ✓
+**ROOT CAUSE:** The pre-transaction status snapshot could not detect incoming edits made by hooks during the merge.
+**FIX:** Revalidate the live index, worktree, and untracked incoming paths against `reviewedBase` immediately before restoring.
+**LESSON:** Recheck incoming-path state at the destructive boundary against the immutable reviewed base, not a cached status snapshot.
 
-## F3 · MAJOR · open
+## F3 · MAJOR · fixed
 **Where:** `src/floor/index.ts:177-178`
 **Critic (r1):** Any `resolveContext` failure is swallowed and treated as no protected base, so malformed or unreadable base configuration allows pre-push to continue without this guard. Fail closed on resolution errors and give the caller a concrete base-resolution step.
+**Fixer (r1):** fixed — pre-push now denies base-resolution errors and returns the actionable resolver message in `src/floor/index.ts` · verify: targeted tests, typecheck, lint, arch ✓
+**ROOT CAUSE:** A caught resolver failure silently disabled the protected-base push check.
+**FIX:** Return a denial with the resolver's concrete repair guidance instead of continuing the push gate.
+**LESSON:** A failed protected-base decision must deny and explain how to restore a resolvable base.

@@ -341,6 +341,19 @@ function changedPaths(repo: string, before: string, after: string): string[] | n
   return [...new Set(changed.stdout.split("\0").filter(Boolean))];
 }
 
+function changedWorkingPaths(cwd: string, base: string, incoming: string[]): string[] | null {
+  if (incoming.length === 0) return [];
+  const pathspecs = incoming.map((file) => `:(literal)${file}`);
+  const worktree = git(cwd, ["diff", "--no-renames", "--name-only", "-z", base, "--", ...pathspecs]);
+  const index = git(cwd, ["diff", "--cached", "--no-renames", "--name-only", "-z", base, "--", ...pathspecs]);
+  const untracked = git(cwd, ["ls-files", "--others", "--exclude-standard", "-z"]);
+  if ([worktree, index, untracked].some((result) => result.status !== 0 || result.stderr.trim() !== "")) return null;
+  return [...new Set([worktree.stdout, index.stdout, untracked.stdout]
+    .join("\0")
+    .split("\0")
+    .filter((path) => path !== "" && incoming.some((file) => intersects(path, file, false))))];
+}
+
 function intersects(path: string, incoming: string, ignoreCase: boolean): boolean {
   const left = ignoreCase ? path.toLowerCase() : path;
   const right = ignoreCase ? incoming.toLowerCase() : incoming;
@@ -486,10 +499,10 @@ function refreshBaseCheckouts(
   repo: string,
   entries: Worktree[],
   baseRef: string,
+  reviewedBase: string,
   mergeCommit: string,
   incoming: string[],
   invokingPath: string,
-  initialStatuses: Map<string, FileStatus>,
 ): string[] {
   const notes: string[] = [];
   for (const entry of entries.filter((candidate) => candidate.branch === baseRef)) {
@@ -498,12 +511,15 @@ function refreshBaseCheckouts(
       notes.push(`${path}: base checkout is missing`);
       continue;
     }
-    const status = initialStatuses.get(path) ?? parseStatus(path);
-    const dirtyIncoming = status.detail === undefined
-      ? status.paths.filter((changed) => incoming.some((file) => intersects(changed, file, false)))
-      : [];
-    if (status.detail !== undefined || dirtyIncoming.length > 0) {
-      notes.push(`${path}: left untouched${status.detail ? ` (${status.detail})` : ` (${dirtyIncoming.map(printable).join(", ")})`}`);
+    if (fullCommit(repo, baseRef) !== mergeCommit || fullCommit(path, "HEAD") !== mergeCommit) {
+      notes.push(`${path}: left untouched (base checkout no longer matches ${mergeCommit})`);
+      continue;
+    }
+    const status = parseStatus(path);
+    const changed = status.detail === undefined ? changedWorkingPaths(path, reviewedBase, incoming) : null;
+    if (status.detail !== undefined || changed === null || changed.length > 0) {
+      const reason = status.detail ?? (changed === null ? "cannot revalidate incoming paths" : changed.map(printable).join(", "));
+      notes.push(`${path}: left untouched (${reason})`);
       continue;
     }
     const restored = incoming.length === 0
@@ -522,7 +538,7 @@ function refreshBaseCheckouts(
       notes.push(`${path}: could not safely refresh incoming paths${after.detail ? ` (${after.detail})` : ""}`);
       continue;
     }
-    if (fullCommit(path, "HEAD") !== mergeCommit) {
+    if (fullCommit(repo, baseRef) !== mergeCommit || fullCommit(path, "HEAD") !== mergeCommit) {
       notes.push(`${path}: HEAD does not resolve to ${mergeCommit}`);
       continue;
     }
@@ -614,24 +630,18 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
       if (incoming === null) {
         return { code: 1, out: "", err: `worktree merge: incoming paths for published merge ${publishedMerge} are unreadable; preserve the feature checkout.\n` };
       }
-      const entries = listed.entries;
-      const initialStatuses = new Map(
-        entries
-          .filter((entry) => entry.branch === source.baseRef)
-          .map((entry) => {
-            const path = canonical(entry.path);
-            return [path, existsSync(path) ? parseStatus(path) : { paths: [], untracked: [], detail: "worktree path is missing" }] as const;
-          }),
-      );
-      const refreshed = refreshBaseCheckouts(
-        repo,
-        entries,
-        source.baseRef,
-        publishedMerge,
-        incoming,
-        canonical(context.root),
-        initialStatuses,
-      );
+      const currentBase = fullCommit(repo, source.baseRef);
+      const refreshed = currentBase === publishedMerge
+        ? refreshBaseCheckouts(
+          repo,
+          listed.entries,
+          source.baseRef,
+          source.reviewedBase,
+          currentBase,
+          incoming,
+          canonical(context.root),
+        )
+        : [`${canonical(context.root)}: left untouched (base advanced from ${publishedMerge} to ${currentBase ?? "unreadable"})`];
       return {
         code: 0,
         out: `✓ merged ${slug} at ${publishedMerge} into ${source.baseRef}; the feature checkout remains at ${source.path}. When ready, remove it with \`ai-eng worktree rm ${slug}\`.\n`,
@@ -755,7 +765,15 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
     const cleanup = cleanupTemporary(repo, transaction, source.reviewedBase, source.featureTip, mergeCommit);
     return { code: 1, out: "", err: `worktree merge: published merge ${mergeCommit} failed final verification; preserve the feature checkout${cleanup ? `; ${cleanup}` : ""}.\n` };
   }
-  const refreshed = refreshBaseCheckouts(repo, entries, source.baseRef, mergeCommit, incoming, invokingPath, initialStatuses);
+  const refreshed = refreshBaseCheckouts(
+    repo,
+    entries,
+    source.baseRef,
+    source.reviewedBase,
+    mergeCommit,
+    incoming,
+    invokingPath,
+  );
   const cleanup = cleanupTemporary(repo, transaction, source.reviewedBase, source.featureTip, mergeCommit);
   if (cleanup !== null) {
     return { code: 1, out: "", err: `worktree merge: ${mergeCommit} is published, but ${cleanup}; preserve the feature checkout.\n` };

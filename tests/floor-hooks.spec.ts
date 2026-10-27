@@ -323,6 +323,26 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
     }
   });
 
+  test("fails closed with a repair step when base configuration cannot be resolved", () => {
+    const repo = tempRepo(true);
+    const branch = "feature/unreadable-base";
+    run("git", repo, ["checkout", "-b", branch]);
+    write(repo, ".ai-engineering/config.toml", '[git\nbase = "main"\n');
+    pathWithoutGitleaks();
+    const previousRefs = process.env.AI_ENG_PUSH_REFS;
+    process.env.AI_ENG_PUSH_REFS = `refs/heads/${branch} ${"0".repeat(40)} refs/heads/main ${"0".repeat(40)}`;
+    try {
+      const result = prePush(repo);
+
+      expect(result.ok).toBe(false);
+      expect(result.lines[0]).toContain("pre-push: cannot resolve detected base:");
+      expect(result.lines[0]).toContain("fix the TOML so it parses");
+    } finally {
+      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+      else process.env.AI_ENG_PUSH_REFS = previousRefs;
+    }
+  });
+
   test("any other ref keeps the gate on the scan, not the branch", () => {
     const repo = tempRepo(true);
     installGitleaksShim();

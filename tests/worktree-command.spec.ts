@@ -3018,6 +3018,57 @@ describe("ai-eng worktree merge (checkpoint 7)", () => {
     expectWorktrees(repo, [repo, approved.feature]);
   });
 
+  test("retry leaves newer base content untouched after the published merge advanced", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareCanonicalMergeFixture(repo, "retry-newer-base");
+    const first = runCli(["worktree", "merge", approved.slug], repo);
+    expect(first.status).toBe(0);
+    const publishedMerge = git(["rev-parse", approved.baseRef], repo).trim();
+
+    const incomingFile = join(repo, "src", "approved.ts");
+    writeFileSync(incomingFile, "newer committed base content\n");
+    git(["add", "src/approved.ts"], repo);
+    git(["commit", "-q", "-m", "advance base after published merge"], repo);
+    const newerBase = git(["rev-parse", approved.baseRef], repo).trim();
+    expect(newerBase).not.toBe(publishedMerge);
+    expect(readFileSync(incomingFile, "utf8")).toBe("newer committed base content\n");
+
+    const retry = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(retry.status).toBe(0);
+    expect(`${retry.stdout}${retry.stderr}`).toContain("left untouched");
+    expect(readFileSync(incomingFile, "utf8")).toBe("newer committed base content\n");
+    expect(git(["rev-parse", approved.baseRef], repo).trim()).toBe(newerBase);
+  });
+
+  test("refresh rechecks incoming paths changed during the transaction", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareCanonicalMergeFixture(repo, "refresh-late-edit");
+    installHook(
+      repo,
+      "post-commit",
+      'mkdir -p "$AI_ENG_TEST_PRIMARY/src"; printf "late local edit\\n" > "$AI_ENG_TEST_PRIMARY/src/approved.ts"',
+    );
+
+    const run = runCli(["worktree", "merge", approved.slug], repo, { AI_ENG_TEST_PRIMARY: repo });
+    const output = `${run.stdout}${run.stderr}`;
+
+    expect(run.status).toBe(0);
+    expect(output).toContain("left untouched");
+    expect(output).toContain("src/approved.ts");
+    expect(readFileSync(join(repo, "src", "approved.ts"), "utf8")).toBe("late local edit\n");
+    const mergeCommit = git(["rev-parse", approved.baseRef], repo).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ")).toEqual([
+      mergeCommit,
+      approved.reviewedBase,
+      approved.featureTip,
+    ]);
+  });
+
   test("I37: integrates post-review checkpoint-only commits", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);

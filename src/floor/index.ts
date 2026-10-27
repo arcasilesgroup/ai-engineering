@@ -174,8 +174,9 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   try {
     const base = resolveContext(cwd).base;
     if (base !== null) baseRef = `refs/heads/${base}`;
-  } catch {
-    // A missing base does not turn an unrelated push into a protected-base push.
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { ok: false, lines: [`pre-push: cannot resolve detected base: ${detail}`] };
   }
   // The pre-push hook shim captures stdin into AI_ENG_PUSH_REFS before calling us,
   // so we read it from the environment instead of fd 0 (which may already be consumed).

@@ -1180,3 +1180,24 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Remove the stale command citation while retaining native `git rebase <detected base>` and the Phase 4 merge command.
 - **Lesson:** Contract text should cite only current commands.
 - **Tags:** behavior, workflow, docs
+
+### L163 · 2026-10-27 · floating-core #7 · review
+- **Failure:** A retry could refresh a checkout from an older merge after the base had advanced.
+- **Root cause:** Refresh used the historical merge tree without verifying it was still the base tip.
+- **Fix:** Skip refresh when the base advanced and verify the target before restoring.
+- **Lesson:** Never refresh from a historical base.
+- **Tags:** review, git, merge
+
+### L164 · 2026-10-27 · floating-core #7 · review
+- **Failure:** Incoming edits made during merge could be overwritten by checkout refresh.
+- **Root cause:** The operation reused a cached status snapshot from before the transaction.
+- **Fix:** Recheck incoming index, worktree and untracked paths at the restore boundary.
+- **Lesson:** Revalidate at the restore boundary.
+- **Tags:** review, git, worktree
+
+### L165 · 2026-10-27 · floating-core #7 · review
+- **Failure:** A base-resolution error was swallowed, allowing a push without protection.
+- **Root cause:** The push guard converted resolution failure into an implicit allow.
+- **Fix:** Deny the push and return actionable base-resolution guidance.
+- **Lesson:** Failed base resolution must fail closed.
+- **Tags:** review, git, fail-closed
