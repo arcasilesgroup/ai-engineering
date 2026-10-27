@@ -259,7 +259,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 1, "findings": ["Independent targeted gate: 111 tests passed; typecheck, lint, arch 30/30 passed. Full serial suite already passed once at 1422/1422 on fe0ef7f1."] },
+        "behavior": { "status": "passed", "attempts": 2, "findings": ["Before review fix: 111 targeted tests, typecheck/lint, arch 30/30; full suite 1422/1422. After fix: workflow-checkpoint 10, worktree-command 87, worktree-lifecycle 17, typecheck/lint, arch 30/30 passed; full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 1, "findings": ["MAJOR src/shared-worktree.ts:1120: legacy request-changes reparses/writes reviewed_main and bypasses normalized serialization.", "MAJOR src/shared-worktree.ts:675: legacy translation uses hard-coded main instead of detected base.", "MAJOR tests/workflow-checkpoint.spec.ts:398: no passing test covers plan approval → implementation."] }
       },
