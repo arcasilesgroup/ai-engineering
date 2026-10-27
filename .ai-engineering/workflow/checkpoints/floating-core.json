@@ -85,7 +85,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["Baseline failure was tests/skills.spec.ts:450: commit 12a9a521 dropped the recap rule from PRD.html; restored. Serial suite 1411/1411 twice (139s, 134s)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
