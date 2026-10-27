@@ -1054,3 +1054,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Pass the detected base through chain validation and checkpoint reads; cover a diverged `main` and `develop`.
 - **Lesson:** Use the detected base for every checkpoint parse in a lifecycle operation.
 - **Tags:** review, git, lifecycle
+
+### L145 · 2026-10-27 · floating-core #5 · behavior
+- **Failure:** The repository Copilot hook still invoked the Python checkpoint gate after carrier templates had migrated.
+- **Root cause:** `.github/hooks/ai-eng.json` is a checked-in config, not generated from the templates.
+- **Fix:** Remove only its obsolete Python hook while preserving chain and post-tool hooks.
+- **Lesson:** Verify checked-in local configs separately; template updates do not migrate them.
+- **Tags:** behavior, carriers, migration
