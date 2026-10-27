@@ -18,6 +18,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
 import { floor } from "../src/floor/entry.ts";
+import { resolveContext } from "../src/git/context.ts";
 
 const SECRET = "AKIAIOSFODNN7EXAMPLE";
 const roots: string[] = [];
@@ -292,14 +293,33 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
   // The refs arrive through AI_ENG_PUSH_REFS: the shim captures pre-push stdin before
   // exec eats it (src/floor/index.ts:167). No gitleaks on PATH here on purpose — if the
   // branch check ever moves behind the scan, this test fails on the HARD FAIL line.
-  test("blocks a push targeting main before any scan runs", () => {
+  test("blocks a push targeting the physically present detected base before any scan runs", () => {
     const repo = tempRepo(true);
-    process.env.AI_ENG_PUSH_REFS = "refs/heads/main 0123456789abcdef refs/heads/main 0123456789abcdef";
+    const branch = "feature/direct-push";
+    run("git", repo, ["checkout", "-b", branch]);
+    write(repo, "fixture.txt", "fixture\n");
+    run("git", repo, ["add", "fixture.txt"]);
+    run("git", repo, ["commit", "-q", "-m", "test: create push fixture"]);
+    const sha = run("git", repo, ["rev-parse", "HEAD"]).stdout.trim();
+    run("git", repo, ["branch", "main", sha]);
+    expect(run("git", repo, ["show-ref", "--verify", "--hash", "refs/heads/main"]).stdout.trim()).toBe(sha);
+    expect(resolveContext(repo)).toMatchObject({ base: null, baseSource: "ask" });
+
+    write(repo, ".ai-engineering/config.toml", '[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "main"\n');
+
+    expect(resolveContext(repo)).toMatchObject({ branch, base: "main", baseSource: "config" });
+
+    pathWithoutGitleaks();
+    const previousRefs = process.env.AI_ENG_PUSH_REFS;
+    process.env.AI_ENG_PUSH_REFS = `refs/heads/${branch} ${sha} refs/heads/main ${"0".repeat(40)}`;
     try {
-      const result = prePush(repo);
-      expect(result).toEqual({ ok: false, lines: ["direct push to main is not allowed — open a PR instead."] });
+      expect(prePush(repo)).toEqual({
+        ok: false,
+        lines: ["direct push to detected base refs/heads/main is not allowed — open a PR instead."],
+      });
     } finally {
-      delete process.env.AI_ENG_PUSH_REFS;
+      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+      else process.env.AI_ENG_PUSH_REFS = previousRefs;
     }
   });
 

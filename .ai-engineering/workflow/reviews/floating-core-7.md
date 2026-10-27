@@ -1,0 +1,49 @@
+# Review thread · floating-core #7 · Make the worktree optional and merge from any checkout
+
+## Goal
+`ai-eng worktree new|list|merge|request-changes|rm` work from a normal checkout or a worktree against the detected base, merge keeps the reviewed-SHA compare-and-swap, only colliding paths block, and `src/` has no `refs/heads/main` literal.
+
+## Acceptance
+- S3: merge works for a feature built in a normal checkout.
+- S5: list shows only Git records and flags another active feature in this checkout.
+- S8: resume with the feature's own dirty files continues without reset or stash.
+- S9: foreign untracked files never block; a collision is refused with the path and next command.
+- S10: a leftover unregistered folder is reported as not work.
+- S11: base moved after review loses the CAS and invalidates the review.
+- S17: new worktree with dirty design slots is created and warns.
+- 0 `refs/heads/main` literals in `src/`; worktree verbs are exactly new, list, merge, request-changes, rm.
+
+## changed_files
+- tests/floor-gates.spec.ts
+- tests/floor-hooks.spec.ts
+- tests/ceremony-contract.spec.ts
+- tests/worktree-command.spec.ts
+- tests/worktree-lifecycle.spec.ts
+- FILEMAP.md
+- skills/ai-brainstorm/SKILL.md
+- skills/ai-orchestrator/SKILL.md
+- src/commands/worktree.ts
+- src/floor/index.ts
+- src/shared-worktree.ts
+- src/workflow/checkpoint.ts
+- src/git/merge.ts
+- LEARNINGS.md
+
+## Verify
+- `bun test tests/worktree-command.spec.ts`
+- `bun test tests/worktree-lifecycle.spec.ts`
+- `bun test tests/floor-gates.spec.ts`
+- `bun test tests/floor-hooks.spec.ts`
+- `bun test tests/git-context.spec.ts`
+- `bun test tests/workflow-checkpoint.spec.ts`
+- `bun test tests/ceremony-contract.spec.ts`
+- `sh -c '! grep -rn "refs/heads/main" src'`
+- `bun run typecheck`
+- `bun run lint`
+- `bun test tests/arch.spec.ts`
+- `bun test --parallel=1`
+
+## Gate 1 command 4 · tests/floor-hooks.spec.ts:300
+- **ROOT CAUSE:** The fixture had no `[git] base` or remote HEAD, so `resolveContext` classified the base as `ask` and `prePush` correctly skipped the protected-base guard before reaching Gitleaks. The fixture contains no secret, and `src/floor/index.ts` checks the detected base before scanning.
+- **FIX:** Create a feature commit, configure `main` as the base, prove `refs/heads/main` physically points to that commit and `resolveContext` reports `baseSource: "config"`, then assert the exact detected-base rejection with Gitleaks absent from PATH. No production change.
+- **LESSON:** Physical branch presence is not base/lifecycle certainty: prove the physical ref and its classification together, and test the exact guard reason; an unresolved base remains `ask`.

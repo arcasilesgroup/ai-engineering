@@ -1145,3 +1145,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Align expectations to Git-only listing and conditional refresh paths; preserve unrelated edits.
 - **Lesson:** Keep assertions aligned with approved behavior and verify each fixture's premise.
 - **Tags:** behavior, worktree, tests
+
+### L158 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** The push test expected a base-branch refusal but received Gitleaks.
+- **Root cause:** The fixture had no configured or remote base, so `resolveContext` correctly returned `ask`.
+- **Fix:** Configure `develop`, prove the physical refs/base, then assert the exact push rejection.
+- **Lesson:** Prove base context before asserting push protection.
+- **Tags:** behavior, git, tests
