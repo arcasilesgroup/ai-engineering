@@ -10,8 +10,9 @@ import { join, relative, resolve, dirname } from "node:path";
 import { Glob } from "bun";
 
 interface ArchRule {
-  from: string;
-  mayNotImport: string;
+  from?: string;
+  mayNotImport?: string;
+  forbid?: string;
 }
 interface ArchConfig {
   layers: Record<string, string>;
@@ -45,31 +46,77 @@ const LAYERS = Object.entries(config.layers).map(([name, glob]) => ({ name, re: 
 
 const layerOf = (file: string): string | undefined => LAYERS.find((layer) => layer.re.test(file))?.name;
 
-/** The real import graph: every src TypeScript file, every relative `from` edge,
- *  projected into layer labels. Self-edges and files no layer claims are dropped:
- *  this projects architecture, it does not audit coverage. */
+type ImportEdge = { from: string; to: string };
+
+/** Every relative TypeScript import, with paths relative to src/. */
 const SRC = resolve(import.meta.dir, "..", "src");
-const edges = (): Array<{ from: string; to: string }> => {
-  const out: Array<{ from: string; to: string }> = [];
+const moduleEdges = (): ImportEdge[] => {
+  const out: ImportEdge[] = [];
   for (const path of new Glob("**/*.ts").scanSync({ cwd: SRC })) {
-    const source = layerOf("src/" + path.replace(/\\/g, "/"));
-    if (source === undefined) continue;
     const text = readFileSync(join(SRC, path), "utf8");
     for (const m of text.matchAll(/from\s+["'](\.[^"']+)["']/g)) {
-      const resolved = relative(SRC, resolve(dirname(join(SRC, path)), m[1]!));
-      const target = layerOf("src/" + resolved.replace(/\\/g, "/"));
-      if (target !== undefined && target !== source) out.push({ from: source, to: target });
+      out.push({
+        from: path.replace(/\\/g, "/"),
+        to: relative(SRC, resolve(dirname(join(SRC, path)), m[1]!)).replace(/\\/g, "/"),
+      });
     }
   }
   return out;
 };
 
+/** Project the module graph into layer labels, dropping same-layer edges. */
+const edges = (modules: ImportEdge[]): ImportEdge[] => modules.flatMap(({ from, to }) => {
+  const source = layerOf("src/" + from);
+  const target = layerOf("src/" + to);
+  return source !== undefined && target !== undefined && source !== target ? [{ from: source, to: target }] : [];
+});
+
+function findCycle(imports: ImportEdge[]): string[] | undefined {
+  const outgoing = new Map<string, string[]>();
+  for (const { from, to } of imports) outgoing.set(from, [...(outgoing.get(from) ?? []), to]);
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const path: string[] = [];
+  let cycle: string[] | undefined;
+
+  const visit = (module: string): boolean => {
+    if (visiting.has(module)) {
+      cycle = [...path.slice(path.indexOf(module)), module];
+      return true;
+    }
+    if (visited.has(module)) return false;
+    visiting.add(module);
+    path.push(module);
+    for (const dependency of outgoing.get(module) ?? []) {
+      if (visit(dependency)) return true;
+    }
+    path.pop();
+    visiting.delete(module);
+    visited.add(module);
+    return false;
+  };
+
+  for (const module of outgoing.keys()) {
+    if (visit(module)) return cycle;
+  }
+  return undefined;
+}
+
 /** One check per mayNotImport target in the JSON (projected rules). */
 describe("architecture (arch.rules.json — single source of truth, §16.2)", () => {
   const known = Object.keys(config.layers);
-  const graph = edges();
+  const modules = moduleEdges();
+  const graph = edges(modules);
   for (const rule of config.rules) {
-    if (!rule.mayNotImport || rule.mayNotImport === "cycles") continue;
+    if (rule.forbid === "cycles") {
+      test("forbids import cycles, including same-layer cycles", () => {
+        expect(findCycle([{ from: "install.ts", to: "embed.ts" }, { from: "embed.ts", to: "install.ts" }]))
+          .toEqual(["install.ts", "embed.ts", "install.ts"]);
+        expect(findCycle(modules)).toBeUndefined();
+      });
+      continue;
+    }
+    if (!rule.from || !rule.mayNotImport) continue;
     for (const target of rule.mayNotImport.split(",").map((layer) => layer.trim())) {
       // A rule naming a layer the config does not declare tests nothing; the
       // protection test below is what turns that into a red suite.
@@ -89,7 +136,7 @@ describe("architecture (arch.rules.json — single source of truth, §16.2)", ()
       expect(known).toContain(dir);
     }
     for (const rule of config.rules) {
-      if (!rule.mayNotImport) continue;
+      if (!rule.mayNotImport || !rule.from) continue;
       expect(known).toContain(rule.from);
       for (const layer of rule.mayNotImport.split(",")) expect(known).toContain(layer.trim());
     }

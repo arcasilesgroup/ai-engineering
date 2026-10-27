@@ -89,6 +89,11 @@ Carriers use the TypeScript checkpoint guard, updates replace only standalone ma
 **FIX:** Match only exact `command` fields, recursively strip owned hook leaves and prune only now-empty generated groups; added exact-content wrapper regressions in `tests/carriers-install.spec.ts` and `tests/adversarial/carrier-merge.test.ts`.
 **LESSON:** Attribute ownership to each exact command leaf; remove a containing group only when it has no user hooks left.
 
-## F4 · BLOCKER · open
+## F4 · BLOCKER · fixed
 **Where:** src/install.ts:8
 **Critic (r1):** This adds an `install.ts → embed.ts` import while `embed.ts:8` already imports `hashFile` from `install.ts`, creating a module cycle contrary to `.ai-engineering/arch.rules.json`'s `forbid: cycles`. Break the cycle by extracting `hashFile` into a lower-level helper imported by both modules.
+
+**Fixer (r3):** fixed — extracted `hashFile` to `src/shared-hash.ts`, imported it from both modules while preserving install's re-export, and taught `tests/arch.spec.ts` to detect same-layer cycles · verify: `bun test tests/carriers-install.spec.ts`, `bun run typecheck`, `bun run lint`, `bun test tests/arch.spec.ts` ✓
+**ROOT CAUSE:** `embed.ts` imported `hashFile` from `install.ts`, then deriving managed commands from embedded templates made `install.ts` import `embed.ts`, forming a cycle.
+**FIX:** Moved the shared file-hash helper to `src/shared-hash.ts`; managed commands still come from embedded settings templates and are matched exactly. The architecture test now checks the full module graph and proves its cycle detector catches same-layer loops.
+**LESSON:** Shared low-level helpers belong below the modules that consume them, and a declared cycle prohibition must inspect module edges even within one layer.

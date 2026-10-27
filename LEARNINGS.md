@@ -1124,3 +1124,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Derive exact managed hook commands from embedded settings templates.
 - **Lesson:** Derive managed entries from their canonical artifacts and remove only exact matches.
 - **Tags:** review, install, templates
+
+### L155 · 2026-10-27 · floating-core #6 · review
+- **Failure:** `install.ts` importing `embed.ts` created an import cycle back into `install.ts`.
+- **Root cause:** Template-derived managed commands added an edge to a module that already depended on `hashFile` from install.
+- **Fix:** Extract shared hash logic and test cycles across the complete module graph.
+- **Lesson:** Test declared architecture invariants against the module graph, not only layer boundaries.
+- **Tags:** review, architecture, imports

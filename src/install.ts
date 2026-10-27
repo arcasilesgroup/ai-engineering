@@ -6,6 +6,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { embeddedTemplate, embeddedUnder } from "./embed.ts";
+export { hashFile } from "./shared-hash.ts";
 
 export type PlanEntry = {
   path: string; // repo-relative, e.g. ".claude/settings.json"
@@ -28,12 +29,6 @@ export type InstallReport = {
 
 export function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
-}
-
-/** The same hash over a file on disk — the canon gates compare installed files
- *  against the binary's embedded payload by digest, not by text (paths differ). */
-export function hashFile(path: string): string {
-  return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
 let managedHookCommands: Set<string> | undefined;
