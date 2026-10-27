@@ -998,3 +998,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Claim the day with an exclusive `wx` create; write summary.json via temp file and rename.
 - **Lesson:** Claim shared work with one atomic create, not a read followed by a write.
 - **Tags:** review, receipts, concurrency
+
+### L137 · 2026-10-27 · floating-core #1 · behavior
+- **Failure:** tests/uninstall-command.spec.ts:214 failed intermittently: "Nothing removed", all lock-listed files stayed.
+- **Root cause:** Prompt tests typed answers on the runner's real stdin, so any stray byte answered the scope picker first.
+- **Fix:** A private stdin fixture for the three suites that type keys, plus a test that injects a stray newline.
+- **Lesson:** A test that types into prompts must give them input only the test writes to, never stdin it shares with the runner.
+- **Tags:** behavior, tests, flake, stdin

@@ -7,7 +7,7 @@
 // The interactive prompt is fed through ui.ts's own scripted-input replay (a bare Enter
 // or a real TTY would hang the suite).
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,11 +17,12 @@ import { configMain } from "../src/commands/config.ts";
 import { isGoverned } from "../src/env.ts";
 import { cancelled, confirmDefault, end, fail, frame, info, ok, pathList, scriptedInput, section, spinner, summary, warn } from "../src/ui.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
+import { usePrivateStdin } from "./fixtures/private-stdin.ts";
 
-// scriptedInput() adds a data listener to the real stdin on every call; a file that
-// drives several prompts crosses Node's cap of 10 and prints a leak warning in the middle
-// of the assertions. The listeners are all consumed by their own queue.
-process.stdin.setMaxListeners(0);
+// The keys go through a stdin only this suite writes to: on the runner's real one, a stray
+// byte from whatever launched `bun test` lands in the open picker (tests/fixtures/private-stdin.ts).
+const stdin = usePrivateStdin();
+afterAll(() => stdin.restore());
 
 const roots: string[] = [];
 const savedCwd = process.cwd();

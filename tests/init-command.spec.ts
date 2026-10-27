@@ -40,9 +40,13 @@ import { SURFACES, type Surface } from "../src/surfaces/adapters.ts";
 import { parseLock } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
+import { usePrivateStdin } from "./fixtures/private-stdin.ts";
 
 const cwdBefore = process.cwd();
 const envBefore = snapshotSandboxEnv();
+// The keys go through a stdin only this suite writes to: on the runner's real one, a stray
+// byte from whatever launched `bun test` answers the open prompt (tests/fixtures/private-stdin.ts).
+const stdin = usePrivateStdin();
 const GIT_IDENTITY = ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"] as const;
 
 process.env["NO_COLOR"] = "1";
@@ -149,7 +153,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  process.stdin.pause(); // a flowing stdin keeps the process alive past the last test
+  stdin.restore();
 });
 
 const byId = (id: string): Surface => {

@@ -27,14 +27,15 @@ import { SHIMS, installTemplateDir } from "../src/floor/template.ts";
 import { installMachineCarriers, machineStateFile, readMachineState, rememberTemplateDir } from "../src/surfaces/adapters.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
+import { usePrivateStdin } from "./fixtures/private-stdin.ts";
 
 const cwdBefore = process.cwd();
 const envBefore = snapshotSandboxEnv();
 process.env["NO_COLOR"] = "1";
 process.env["CI"] = "1";
-// scriptedInput adds one data listener per call and a question chain crosses Node's default
-// cap of 10; the wrapper raises it for its own stream, not for the real stdin it listens on.
-process.stdin.setMaxListeners(0);
+// The keys go through a stdin only this suite writes to: on the runner's real one, a stray
+// byte from whatever launched `bun test` answers the open prompt (tests/fixtures/private-stdin.ts).
+const stdin = usePrivateStdin();
 
 /** The prompt fragments. Each one is text that appears for the FIRST time at the prompt
  *  it belongs to — a fragment already on screen would match instantly and the key would
@@ -183,10 +184,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  // scriptedInput attaches a data listener to the real stdin on every call; leaving the
-  // stream flowing keeps the process alive after the last test.
-  process.stdin.pause();
-  process.stdin.removeAllListeners("data");
+  stdin.restore();
 });
 
 describe("uninstall · this project (the lock is the ownership register)", () => {
@@ -223,6 +221,33 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(out).toContain("✓ .cursor/hooks.json removed · still the template ai-eng installed");
     expect(out).toContain("✓ ai-eng.lock deleted · 8 owned files swept");
     expect(out).toContain("ai-eng is no longer active in this repo. Your contract files remain.");
+  });
+
+  test("a byte on the runner's own stdin never answers a prompt: the sweep still runs", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    initShaped(["cursor"]);
+    // Premise: the suite's prompts read a stream of their own, not the runner's.
+    expect(process.stdin).not.toBe(stdin.runnerStdin);
+
+    const cap = startCapture();
+    const run = uninstallMain();
+    try {
+      await until(cap, SELECT);
+      // A newline from the shell that launched the run — on a shared stdin it is Enter on
+      // the scope picker, the scripted Enter then lands on "Confirm?" (default No), and
+      // nothing is removed.
+      stdin.runnerStdin.emit("data", Buffer.from("\n"));
+      await sleep(40);
+      process.stdin.emit("data", Buffer.from(PROJECT_KEYS));
+      await until(cap, CONFIRM);
+      process.stdin.emit("data", Buffer.from("y"));
+      expect(await run).toBe(0);
+    } finally {
+      cap.stop();
+    }
+    expect(existsSync(join(cwd, ".ai-engineering", "ai-eng.lock"))).toBe(false);
+    expect(existsSync(join(cwd, ".cursor", "hooks.json"))).toBe(false);
   });
 
   test("a settings file the user already owned: their hook entries survive verbatim, ours do not", async () => {

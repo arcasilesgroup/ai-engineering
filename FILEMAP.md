@@ -61,6 +61,7 @@ tests/
   fixtures/
     env-snapshot.preload.ts    Records env and cwd before and after every suite for test-hygiene.spec.ts
     sandbox-env.ts             Snapshot/restore of AI_ENG_HOME, PI_CODING_AGENT_DIR, GIT_CONFIG_GLOBAL for sandboxed suites
+    private-stdin.ts           A suite-owned stdin for prompt-driving suites, so runner input never answers a prompt
     triage-azure-signals-preview.mjs  Synthetic writer preview on loopback, memory-only reports
 templates/
   recap.html.tpl               Self-contained HTML recap shell and styles

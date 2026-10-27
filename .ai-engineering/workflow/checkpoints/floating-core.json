@@ -90,7 +90,7 @@
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "in_progress",
-      "changed_files": [".ai-engineering/PRD.html", ".github/workflows/check.yml", "FILEMAP.md", "package.json", "skills/.chain-bundle/ai-eng-chain.ts", "src/chain/mod.ts", "src/commands/doctor.ts", "src/floor/entry.ts", "src/receipts.ts", "scripts/bench-chain.ts", "tests/adversarial/chain.test.ts", "tests/floor-gates.spec.ts", "tests/uninstall-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/fixtures/sandbox-env.ts", "tests/fixtures/env-snapshot.preload.ts", "tests/test-hygiene.spec.ts", "tests/receipts-retention.spec.ts", "tests/doctor-command.spec.ts", "tests/config-command.spec.ts", "tests/init-command.spec.ts", "tests/spec-command.spec.ts", "tests/spec-lifecycle.test.ts", "tests/adversarial/isolation.test.ts"]
+      "changed_files": [".ai-engineering/PRD.html", ".github/workflows/check.yml", "FILEMAP.md", "package.json", "skills/.chain-bundle/ai-eng-chain.ts", "src/chain/mod.ts", "src/commands/doctor.ts", "src/floor/entry.ts", "src/receipts.ts", "scripts/bench-chain.ts", "tests/adversarial/chain.test.ts", "tests/floor-gates.spec.ts", "tests/uninstall-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/fixtures/sandbox-env.ts", "tests/fixtures/env-snapshot.preload.ts", "tests/test-hygiene.spec.ts", "tests/receipts-retention.spec.ts", "tests/doctor-command.spec.ts", "tests/config-command.spec.ts", "tests/init-command.spec.ts", "tests/spec-command.spec.ts", "tests/spec-lifecycle.test.ts", "tests/adversarial/isolation.test.ts", "tests/fixtures/private-stdin.ts"]
     },
     {
       "id": 2,
