@@ -315,7 +315,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["Replanned CP5 checks passed: chain-dialect 24, checkpoint-guard 108, chain-dispatch 28, governance-gate 13, generated-payload 3, arch 30; typecheck/lint pass; full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },

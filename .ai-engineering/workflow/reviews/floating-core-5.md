@@ -79,3 +79,43 @@
 **FIX:** Replaced the filename substring with a full-string match for the standalone legacy Python hook; added a regression proving a wrapped user command is preserved while the standalone managed hook is retired.
 **LESSON:** Migration ownership must match the complete managed command shape, not a filename substring that user commands can also contain.
 **Fixer (r1):** fixed — legacy removal now requires the exact standalone invocation, `src/install.ts` · verify: `bun test tests/checkpoint-guard.spec.ts tests/carriers-install.spec.ts tests/checkpoint-gate-carrier.spec.ts` ✓
+
+## Replanned CP5 review scope
+
+Automatic replan split the old CP5 into CP5 (guard and chain behavior) and CP6 (carrier/Python retirement). The previous F1/F2 fixes remain in the shared code history; this review attempt covers only the CP5 slice below.
+
+### Goal
+`src/guards/checkpoint.ts` enforces G1-G8 for Write, Edit, Task/Agent, Bash and Stop; chain routing and verdict dialects are correct; normal checkouts and ungoverned repos retain the approved behavior.
+
+### Acceptance
+- Every rule G1-G8 has passing and denying cases, including no-lifecycle denial.
+- G6 uses the detected base.
+- S3/S4 work outside managed worktrees.
+- S13 does nothing and writes no receipt in an ungoverned repo.
+- Chain routes supported tools and Stop with each harness's verdict dialect.
+- Outside the three triggers, the guard allows without reading the plan.
+
+### changed_files
+- tests/checkpoint-guard.spec.ts
+- src/guards/checkpoint.ts
+- src/chain/mod.ts
+- src/chain/dialect.ts
+- src/workflow/checkpoint.ts
+- tests/chain-dispatch.spec.ts
+- tests/chain-dialect.spec.ts
+- tests/adversarial/governance-gate.test.ts
+- tests/arch.spec.ts
+- skills/.chain-bundle/ai-eng-chain.ts
+- FILEMAP.md
+- LEARNINGS.md
+
+### Verify
+- `bun test tests/chain-dialect.spec.ts`
+- `bun test tests/checkpoint-guard.spec.ts`
+- `bun test tests/chain-dispatch.spec.ts`
+- `bun test tests/adversarial/governance-gate.test.ts`
+- `bun test tests/generated-payload.test.ts`
+- `bun run typecheck`
+- `bun run lint`
+- `bun test tests/arch.spec.ts`
+- `bun test --parallel=1`
