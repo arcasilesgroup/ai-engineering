@@ -85,3 +85,27 @@ The spoken-secret guard blocks a prompt that carries a low-entropy credential, w
 ### Alternatives considered
 
 - **Scan the transcript later:** the bytes are already stored. Rejected.
+
+## D-005: Bound checkpoint workers to a small deliverable
+
+Status: Accepted · Date: 2026-10-27
+
+### Context
+
+Found during floating-core CP4 on 2026-10-27: the tests-first worker ran for over 7,000 seconds and remained active after 23 tool calls, but had not produced a test file or reported a blocker. The worktree showed only the orchestrator's checkpoint-status edit. The current feature commit was `de296ccc` (CP3 review gate passed). This describes `.ai-engineering/workflow/checkpoints/floating-core.json` CP4, `.ai-engineering/workflow/test-plans/floating-core.json` CP4 cases, and the tests-first steps in `skills/ai-orchestrator/SKILL.md`. It is still true when a checkpoint's test task combines many independent contracts and the worker has no early, checkable deliverable.
+
+Evidence: the worker status reported 7,064 seconds elapsed, 23 tool calls, and no completed turn; `git status --short` showed no CP4 test files.
+
+### Decision
+
+Split broad checkpoint test-writing into bounded deliverables with a clear first artifact and an explicit blocker report. Keep every acceptance case, security check, and required gate; reduce scope by slicing the work, never by dropping coverage or bypassing governance.
+
+### Consequences
+
+- A stalled investigation becomes visible before it consumes a long session.
+- More handoffs may be needed, but each has a verifiable result.
+- Required coverage and gates remain intact.
+
+### Alternatives considered
+
+- **One comprehensive test-writing assignment:** it obscures stalled scope and delays the first useful result. Rejected.
