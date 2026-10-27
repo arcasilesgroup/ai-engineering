@@ -389,7 +389,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 3, "findings": ["After canonical hook fix `5265f010`, all 11 verify commands passed; 86 focused tests and shell checks 2/2; typecheck/lint and arch 30 passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
+        "behavior": { "status": "passed", "attempts": 4, "findings": ["After cycle fix `fde1e0e0`, all 11 verify commands passed in order; new cycle test passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 3, "findings": ["Previous findings resolved: exact command ownership, Cursor Stop carrier/dialect, and canonical command derivation. New BLOCKER src/install.ts:8: install.ts -> embed.ts -> install.ts import cycle violates arch.rules.json forbid cycles; extract shared hash logic."] }
       },
