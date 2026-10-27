@@ -259,7 +259,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["Independent targeted gate: 111 tests passed; typecheck, lint, arch 30/30 passed. Full serial suite already passed once at 1422/1422 on fe0ef7f1."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
