@@ -270,7 +270,7 @@ function ignoredPaths(path: string): string[] | null {
       continue;
     }
     const read = statusPaths(tokens, index);
-    if (read === null) break;
+    if (read === null) return null;
     if (token.startsWith("!! ")) found.push(...read.paths);
     index = read.next;
   }
@@ -280,13 +280,13 @@ function ignoredPaths(path: string): string[] | null {
 function ignoredRemovalNote(dropped: string[] | null, removalState: "removed" | "unknown"): string {
   if (dropped === null) {
     return removalState === "removed"
-      ? " — the ignored content could not be read (git status warned); anything it held was dropped unseen"
+      ? " — the ignored content could not be read (git status warned); anything it held was permanently deleted unseen"
       : " — the ignored content could not be read (git status warned); whether it was removed is unknown";
   }
   if (dropped.length === 0) return "";
   const paths = dropped.map(displayPath);
   return removalState === "removed"
-    ? ` — dropped ignored: ${paths.join(", ")}`
+    ? ` — permanently deleted ignored: ${paths.join(", ")}`
     : ` — ignored content found before removal: ${paths.join(", ")}; its remaining state is unknown`;
 }
 
@@ -378,8 +378,12 @@ export function worktreeNew(branchInput: string): WorktreeResult {
     }
     index = record.next;
   }
+  const sourceHead = fullHead(repo);
+  if (sourceHead === null) {
+    return { code: 1, out: "", err: `worktree new: current HEAD for ${repo} is unreadable; inspect \`git -C ${repo} rev-parse --verify HEAD^{commit}\`.\n` };
+  }
   mkdirSync(dirname(target), { recursive: true });
-  const added = git(repo, ["worktree", "add", target, "-b", branch, baseRef]);
+  const added = git(repo, ["worktree", "add", target, "-b", branch, sourceHead]);
   if (added.status !== 0) {
     return { code: 1, out: "", err: `worktree new: git worktree add failed for ${target}: ${added.stderr.trim()}; inspect \`git -C ${repo} worktree list\`.\n` };
   }
@@ -811,17 +815,22 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     return { code: 2, out: "", err: `worktree request-changes: the worktree list is unreadable (${listed.detail}).\n` };
   }
   const matching = listed.worktrees.filter((entry) => entry.branch === `feat/${slug}`);
-  const entry = findManagedWorktree(repo, root, slug, listed.worktrees);
+  const entry = matching.length === 1 ? matching[0] : undefined;
+  const isCurrentFeatureCheckout = entry !== undefined && canonicalize(entry.path) === canonicalize(repo);
+  const isManagedFeatureWorktree =
+    entry !== undefined &&
+    canonicalize(entry.path) === canonicalize(join(root, slug)) &&
+    findManagedWorktree(repo, root, slug, listed.worktrees) !== null;
   if (
     matching.length !== 1 ||
-    entry === null ||
-    canonicalize(entry.path) !== canonicalize(join(root, slug)) ||
+    entry === undefined ||
+    (!isCurrentFeatureCheckout && !isManagedFeatureWorktree) ||
     !existsSync(entry.path)
   ) {
     return {
       code: 1,
       out: "",
-      err: `worktree request-changes: no exact live managed feat/${slug} worktree; preserve the review state.\n`,
+      err: `worktree request-changes: no exact live feat/${slug} checkout in the current repository or managed worktrees; preserve the review state.\n`,
     };
   }
 
@@ -1236,24 +1245,23 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   };
 }
 
-/** The managed worktree a slug names, or null: the worktree must live under the
- *  configured worktrees root AND sit on the branch this verb itself would have
- *  created (`feat/<slug>`). Matching the slug alone would let
- *  `worktree rm alpha --force` remove an unrelated worktree whose branch happens
- *  to end in `alpha`, wherever it lives. */
+/** The managed worktree a slug names, or null: it must live at the path derived
+ *  from its branch under the configured worktrees root. */
 function findManagedWorktree(
   repo: string,
   root: string,
   slug: string,
   worktrees: { path: string; branch: string | undefined }[],
+  branch = `feat/${slug}`,
 ): { path: string; branch: string } | null {
-  const managedBranch = `feat/${slug}`;
-  const managedRoot = `${canonicalize(root)}/`;
+  const directoryName = branch.startsWith("feat/") ? branch.slice("feat/".length) : branch;
+  const managedPath = canonicalize(resolve(root, directoryName));
+  const managedRoot = `${canonicalize(root)}${sep}`;
   const primary = canonicalize(repo);
   const entry = worktrees.find((candidate) => {
     const path = canonicalize(candidate.path);
     if (path === primary) return false;
-    return path.startsWith(managedRoot) && candidate.branch === managedBranch;
+    return path.startsWith(managedRoot) && path === managedPath && candidate.branch === branch;
   });
   if (entry === undefined || entry.branch === undefined) return null;
   return { path: entry.path, branch: entry.branch };
@@ -1273,7 +1281,7 @@ function gitOperationState(path: string): { name: string } | { detail: string } 
 }
 
 function fullHead(repo: string): string | null {
-  const current = git(repo, ["rev-parse", "--verify", "HEAD^{commit}"]);
+  const current = git(repo, ["rev-parse", "--verify", "HEAD"]);
   if (current.status !== 0 || current.stderr.trim() !== "") return null;
   const commit = current.stdout.trim();
   return /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit) ? commit : null;
@@ -1287,16 +1295,38 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   if ("detail" in listed) {
     return { code: 2, out: "", err: `worktree rm: the worktree list is unreadable (${listed.detail}).\n` };
   }
-  const entry = findManagedWorktree(repo, root, slug, listed.worktrees);
+  const entry = [slug, `feat/${slug}`]
+    .map((branch) => findManagedWorktree(repo, root, slug, listed.worktrees, branch))
+    .find((candidate) => candidate !== null) ?? null;
   if (entry === null) {
     return {
       code: 1,
       out: "",
-      err: `worktree rm: no managed worktree for slug "${printable(slug)}" (expected feat/${slug} under ${canonicalize(root)}).\n`,
+      err: `worktree rm: no managed worktree for branch or slug "${printable(slug)}" under ${canonicalize(root)}.\n`,
     };
   }
 
   const branch = entry.branch;
+  // Scan before ancestry checks so a later --force retry cannot hide the data-loss cost.
+  const hasWorktreePath = existsSync(entry.path);
+  const dropped = hasWorktreePath ? ignoredPaths(entry.path) : [];
+  if (dropped === null) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree rm: refusing to remove ${entry.path} because ignored files could not be inspected; preserve the worktree and retry after \`git -C ${entry.path} status --ignored --short\` succeeds.\n`,
+    };
+  }
+  if (dropped.length > 0 && !force) {
+    return {
+      code: 1,
+      out: "",
+      err:
+        `worktree rm: refusing to remove ${entry.path}; ignored files would be permanently deleted: ` +
+        `${dropped.map(displayPath).join(", ")}. Preserve them or rerun \`ai-eng worktree rm ${slug} --force\` ` +
+        "only if you intend to permanently delete those files.\n",
+    };
+  }
   let baseBranch: string | null;
   try {
     const detected = resolveContext(process.cwd());
@@ -1330,13 +1360,6 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
     }
   }
 
-  // This verb is the explicit path — a person typed it, or the close ran it after
-  // the merge landed — so unlike the automatic cleanup pass it removes the worktree
-  // even when it holds ignored content. Read that content first and print it, so
-  // the deletion is visible to whoever asked for it.
-  const hasWorktreePath = existsSync(entry.path);
-  const dropped = hasWorktreePath ? ignoredPaths(entry.path) : [];
-
   if (hasWorktreePath) {
     const status = worktreeStatus(entry.path);
     if (status.detail !== undefined || status.paths.length > 0) {
@@ -1348,6 +1371,11 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
         out: "",
         err: `worktree rm: refusing to delete ${entry.path} with ${state}; preserve or commit that work, inspect \`git -C ${entry.path} status --short\`, then rerun \`ai-eng worktree rm ${slug}\`.\n`,
       };
+    }
+    if (dropped.length > 0) {
+      process.stderr.write(
+        `worktree rm: --force will permanently delete ignored files: ${dropped.map(displayPath).join(", ")}\n`,
+      );
     }
     const removed = git(repo, ["worktree", "remove", entry.path]);
     if (removed.status !== 0) {

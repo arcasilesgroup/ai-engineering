@@ -10,7 +10,7 @@ import { worktreeMerge } from "../git/merge.ts";
 
 const USAGE =
   "usage: ai-eng worktree new <branch> | list [<slug>] | merge <slug> | request-changes <slug> <pending-checkpoint-commit-sha> | " +
-  "rm <slug> [--force]\n";
+  "rm <slug> [--force] (force also permanently deletes ignored files)\n";
 
 export function worktreeMain(args: string[], force = false): number {
   const [action, slug, ...files] = args;

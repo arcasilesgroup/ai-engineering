@@ -1201,3 +1201,31 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Deny the push and return actionable base-resolution guidance.
 - **Lesson:** Failed base resolution must fail closed.
 - **Tags:** review, git, fail-closed
+
+### L166 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `request-changes` refused a feature built in the current checkout.
+- **Root cause:** Source resolution only considered Git-listed worktrees.
+- **Fix:** Include the current checkout's exact feature branch while retaining reviewed-SHA/CAS checks.
+- **Lesson:** Optional worktrees must not block lifecycle transitions.
+- **Tags:** review, worktree, lifecycle
+
+### L167 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `worktree rm <slug>` could not manage a worktree created on a branch without `feat/`.
+- **Root cause:** Removal assumed branch names always had the `feat/` prefix.
+- **Fix:** Resolve the exact branch and derived worktree path without prefix assumptions.
+- **Lesson:** Create and remove must share the branch-to-path contract.
+- **Tags:** review, git, worktree
+
+### L168 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `worktree new` started from the detected integration base instead of current HEAD.
+- **Root cause:** The integration destination was confused with the user's current commit.
+- **Fix:** Pin new worktrees to current HEAD and warn dirty design files do not travel.
+- **Lesson:** The integration base is not the current commit.
+- **Tags:** review, git, worktree
+
+### L169 · 2026-10-27 · floating-core #8 · review
+- **Failure:** Worktree removal could delete ignored user data before explaining the loss.
+- **Root cause:** Ignored files were reported only after removal.
+- **Fix:** Refuse by default, fail closed on unreadable scans, and warn before forced deletion.
+- **Lesson:** Inspect and explain loss before removal.
+- **Tags:** review, data-loss, worktree
