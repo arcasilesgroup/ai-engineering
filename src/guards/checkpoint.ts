@@ -316,8 +316,7 @@ function checkBash(payload: Payload): CheckpointGuardResult {
   if (
     typeof command !== "string" ||
     !CHECKPOINT_TARGET.test(command) ||
-    !BASH_WRITE.test(command) ||
-    /^\s*git\s/.test(command)
+    !BASH_WRITE.test(command)
   ) {
     return undefined;
   }

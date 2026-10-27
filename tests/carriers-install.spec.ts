@@ -492,6 +492,7 @@ describe("carriers on the machine", () => {
     const base = useHome("machine-update-old-gate");
     const settings = join(base, ".claude", "settings.json");
     const oldPythonGate = '[ -f "$HOME/.ai-engineering/scripts/checkpoint-gate.py" ] || exit 0; python3 "$HOME/.ai-engineering/scripts/checkpoint-gate.py" --surface claude-code';
+    const wrappedUserHook = `my-own-audit.sh && ${oldPythonGate}`;
     write(
       settings,
       `${JSON.stringify({
@@ -499,6 +500,7 @@ describe("carriers on the machine", () => {
         hooks: {
           PreToolUse: [
             { matcher: "Write|Edit|Task|Bash", hooks: [{ type: "command", command: oldPythonGate, timeout: 5 }] },
+            { matcher: "Bash", hooks: [{ type: "command", command: wrappedUserHook, timeout: 5 }] },
             { matcher: "Bash", hooks: [{ type: "command", command: "my-own-audit.sh", timeout: 5 }] },
           ],
         },
@@ -507,7 +509,11 @@ describe("carriers on the machine", () => {
 
     expect(installMachineCarriers(["claude-code"]).refused).toEqual([]);
     const installed = readFileSync(settings, "utf8");
-    expect(installed).not.toContain("checkpoint-gate.py");
+    const installedCommands = (JSON.parse(installed) as {
+      hooks: { PreToolUse: Array<{ hooks: Array<{ command: string }> }> };
+    }).hooks.PreToolUse.flatMap(({ hooks }) => hooks.map(({ command }) => command));
+    expect(installedCommands).not.toContain(oldPythonGate);
+    expect(installedCommands).toContain(wrappedUserHook);
     expect(installed).toContain("my-own-audit.sh");
     expect(installed).toContain(`${CHAIN} PreToolUse`);
     expect(JSON.parse(installed).env.MY_FLAG).toBe("1");

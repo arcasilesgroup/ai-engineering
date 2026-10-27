@@ -1020,6 +1020,8 @@ describe("checkpoint guard G7 — Bash writes to checkpoint JSON", () => {
     ["perl write", `perl -e "open(F,'>','${relativePlan}')"`],
     ["jq redirected write", `jq . source.json > ${relativePlan}`],
     ["truncate", `truncate -s 0 ${relativePlan}`],
+    ["Git-prefixed compound copy", `git status --short && cp source.json ${relativePlan}`],
+    ["Git-prefixed compound redirection", `git status --short; printf x > ${relativePlan}`],
   ] as const;
 
   test.each(deniedCommands)("denies %s", (_name, command) => {
@@ -1028,6 +1030,7 @@ describe("checkpoint guard G7 — Bash writes to checkpoint JSON", () => {
 
   test.each([
     ["git add", `git add ${relativePlan}`],
+    ["read-only git status", `git status --short -- ${relativePlan}`],
     ["cat read", `cat ${relativePlan}`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {

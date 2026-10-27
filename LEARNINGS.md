@@ -1068,3 +1068,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Regenerate the bundle with `bun scripts/gen-assets.ts`.
 - **Lesson:** Regenerate the committed bundle after chain-source changes.
 - **Tags:** behavior, bundle, generated
+
+### L147 · 2026-10-27 · floating-core #5 · review
+- **Failure:** Git-prefixed compound Bash commands bypassed checkpoint-write detection.
+- **Root cause:** The guard exempted the leading Git command and missed a later write segment.
+- **Fix:** Inspect every compound command segment for writes to governed paths.
+- **Lesson:** Check every command segment for writes to governed paths.
+- **Tags:** review, guard, shell
+
+### L148 · 2026-10-27 · floating-core #5 · review
+- **Failure:** Migration could remove a user hook that merely mentioned `checkpoint-gate.py`.
+- **Root cause:** The legacy marker matched a path substring rather than the managed command shape.
+- **Fix:** Match only the exact standalone managed legacy hook forms.
+- **Lesson:** Identify managed commands by their complete shape, not a path mention.
+- **Tags:** review, install, migration
