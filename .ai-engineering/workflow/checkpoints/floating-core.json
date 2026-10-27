@@ -264,7 +264,7 @@
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "in_progress",
-      "changed_files": ["tests/workflow-checkpoint.spec.ts", "tests/arch.spec.ts"]
+      "changed_files": ["tests/workflow-checkpoint.spec.ts", "tests/arch.spec.ts", ".ai-engineering/arch.rules.json", "FILEMAP.md", "src/shared-worktree.ts", "src/workflow/checkpoint.ts"]
     },
     {
       "id": 5,

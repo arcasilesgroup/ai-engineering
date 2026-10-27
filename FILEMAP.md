@@ -26,6 +26,8 @@ src/
   git/
     run.ts                     The one Git runner: status, raw stdout/stderr, optional global/system-config isolation
     context.ts                 resolveContext: root, branch or detached, linked worktree, base and its source (6.7)
+  workflow/
+    checkpoint.ts              Checkpoint schema, lifecycle transitions, legacy normalization and brainstorm approval
   shared-worktree.ts           Worktree projection, lifecycle SHA-CAS, file hints, sync, merge and safe removal
 tests/
   git-context.spec.ts          Git runner and context resolver over real temp repos with isolated config

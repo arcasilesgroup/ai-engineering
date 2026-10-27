@@ -12,7 +12,8 @@
     "env": "src/env.ts",
     "templates-assets": "templates/**",
     "sidecar": "src/sidecar/**",
-    "git": "src/git/**"
+    "git": "src/git/**",
+    "workflow": "src/workflow/**"
   },
   "rules": [
     {
@@ -46,6 +47,10 @@
     {
       "from": "git",
       "mayNotImport": "commands,cli,chain,guards"
+    },
+    {
+      "from": "workflow",
+      "mayNotImport": "commands,cli,chain"
     },
     {
       "any": [],

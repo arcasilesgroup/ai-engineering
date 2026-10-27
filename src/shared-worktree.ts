@@ -8,7 +8,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  readFileSync,
+  readFileSync as readFile,
   realpathSync,
   renameSync,
   unlinkSync,
@@ -19,6 +19,14 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { spawnSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
 import { loadConfig, printable } from "./env.ts";
+import {
+  brainstormApprovalProblem,
+  parseBrainstormApproval,
+  parseCheckpoint,
+  readCheckpoint,
+  serializeCheckpoint,
+  type Checkpoint,
+} from "./workflow/checkpoint.ts";
 
 /** The four artifacts of a milestone. `spec open` scaffolds two and `spec close`
  *  sweeps all four; `ai-eng spec` is its only consumer. */
@@ -144,7 +152,7 @@ function readDeclarations(root: string): { declarations: Declarations; present: 
     ) {
       return { detail: `${path} is not a worktree-root-local file` };
     }
-    contents = readFileSync(path, "utf8");
+    contents = readFile(path, "utf8");
   } catch (error) {
     return { detail: `${path} is unreadable (${error instanceof Error ? error.message : String(error)})` };
   }
@@ -283,7 +291,7 @@ function inventoryWorktreesRoot(repo: string): { path: string } | { detail: stri
     ) {
       return { detail: "config.toml is not a repository-local file" };
     }
-    const parsed: unknown = Bun.TOML.parse(readFileSync(configPath, "utf8"));
+    const parsed: unknown = Bun.TOML.parse(readFile(configPath, "utf8"));
     if (!isRecord(parsed)) return { detail: "config.toml is not a TOML table" };
     if (
       parsed.git !== undefined &&
@@ -613,14 +621,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-const LIFECYCLE_PHASES = new Set([
-  "awaiting-plan-approval",
-  "implementation",
-  "blocked",
-  "awaiting-app-review",
-  "ready-to-merge",
-]);
-
 function checkpointFiles(plan: unknown, slug: string): string[] | null {
   if (!isRecord(plan) || plan.slug !== slug || !Array.isArray(plan.checkpoints)) return null;
   const files: string[] = [];
@@ -633,105 +633,21 @@ function checkpointFiles(plan: unknown, slug: string): string[] | null {
   return files;
 }
 
-function checkpointShapeValid(plan: unknown): boolean {
-  if (!isRecord(plan) || !Array.isArray(plan.checkpoints) || plan.checkpoints.length === 0) return false;
-  return plan.checkpoints.every((checkpoint) => {
-    if (
-      !isRecord(checkpoint) ||
-      (checkpoint.status !== "pending" && checkpoint.status !== "passed") ||
-      !isRecord(checkpoint.gates)
-    ) {
-      return false;
-    }
-    const gates = checkpoint.gates;
-    const gateNames = ["behavior", "ui", "review"];
-    if (!gateNames.every((name) => {
-      const gate = gates[name];
-      return isRecord(gate) && ["pending", "failed", "passed", "n/a"].includes(String(gate.status));
-    })) return false;
-    return checkpoint.status !== "passed" || gateNames.every((name) => {
-      const gate = gates[name];
-      return isRecord(gate) && (gate.status === "passed" || gate.status === "n/a");
-    });
-  });
+function gatesComplete(plan: Checkpoint): boolean {
+  return plan.checkpoints.every((checkpoint) =>
+    checkpoint.status === "passed" &&
+    ["behavior", "ui", "review"].every((name) => {
+      const status = checkpoint.gates[name as keyof Checkpoint["checkpoints"][number]["gates"]].status;
+      return status === "passed" || status === "n/a";
+    })
+  );
 }
 
-function lifecycleFields(plan: unknown): Record<string, unknown> | null {
-  if (!checkpointShapeValid(plan) || !isRecord(plan) || !isRecord(plan.lifecycle)) return null;
-  const lifecycle = plan.lifecycle;
-  const lifecycleKeys = Object.keys(lifecycle);
-  if (
-    lifecycleKeys.length < 4 ||
-    lifecycleKeys.length > 5 ||
-    lifecycleKeys.some((key) => !["phase", "plan_approval", "app_review", "reviewed_main", "reviewed_feature"].includes(key))
-  ) return null;
-  if (
-    typeof lifecycle.phase !== "string" ||
-    !LIFECYCLE_PHASES.has(lifecycle.phase) ||
-    !["pending", "approved"].includes(String(lifecycle.plan_approval)) ||
-    !["not-started", "pending", "approved"].includes(String(lifecycle.app_review)) ||
-    (lifecycle.reviewed_main !== null &&
-      (typeof lifecycle.reviewed_main !== "string" || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(lifecycle.reviewed_main))) ||
-    (lifecycle.reviewed_feature !== undefined &&
-      lifecycle.reviewed_feature !== null &&
-      (typeof lifecycle.reviewed_feature !== "string" ||
-        !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(lifecycle.reviewed_feature)))
-  ) {
-    return null;
-  }
-  const phase = lifecycle.phase;
-  const approval = lifecycle.plan_approval;
-  const review = lifecycle.app_review;
-  const reviewedMain = lifecycle.reviewed_main;
-  if (
-    (phase === "awaiting-plan-approval" &&
-      (approval !== "pending" || review !== "not-started" || reviewedMain !== null ||
-        (lifecycle.reviewed_feature !== undefined && lifecycle.reviewed_feature !== null))) ||
-    (phase === "implementation" &&
-      (approval !== "approved" || review !== "not-started" || reviewedMain !== null ||
-        (lifecycle.reviewed_feature !== undefined && lifecycle.reviewed_feature !== null))) ||
-    (phase === "awaiting-app-review" &&
-      (approval !== "approved" || review !== "pending" || typeof reviewedMain !== "string" ||
-        typeof lifecycle.reviewed_feature !== "string")) ||
-    (phase === "ready-to-merge" &&
-      (approval !== "approved" || review !== "approved" || typeof reviewedMain !== "string" ||
-        typeof lifecycle.reviewed_feature !== "string")) ||
-    (phase === "blocked" &&
-      (approval === "pending"
-        ? review !== "not-started" || reviewedMain !== null ||
-          (lifecycle.reviewed_feature !== undefined && lifecycle.reviewed_feature !== null)
-        : review === "not-started"
-          ? reviewedMain !== null ||
-            (lifecycle.reviewed_feature !== undefined && lifecycle.reviewed_feature !== null)
-          : typeof reviewedMain !== "string" || typeof lifecycle.reviewed_feature !== "string"))
-  ) {
-    return null;
-  }
-  return lifecycle;
-}
-
-function gatesComplete(plan: unknown): boolean {
-  if (!isRecord(plan) || !Array.isArray(plan.checkpoints) || plan.checkpoints.length === 0) return false;
-  return plan.checkpoints.every((checkpoint) => {
-    if (!isRecord(checkpoint) || checkpoint.status !== "passed" || !isRecord(checkpoint.gates)) return false;
-    const gates = checkpoint.gates;
-    return ["behavior", "ui", "review"].every((name) => {
-      const gate = gates[name];
-      return isRecord(gate) && (gate.status === "passed" || gate.status === "n/a");
-    });
-  });
-}
-
-function rebaseGatesComplete(plan: unknown): boolean {
-  if (!gatesComplete(plan) || !isRecord(plan) || !Array.isArray(plan.checkpoints)) return false;
-  return plan.checkpoints.every((checkpoint) => {
-    if (!isRecord(checkpoint) || !isRecord(checkpoint.gates)) return false;
-    const gates = checkpoint.gates;
-    return ["behavior", "review"].every((name) => {
-      const gate = gates[name];
-      return isRecord(gate) && gate.status === "passed";
-    });
-  });
+function rebaseGatesComplete(plan: Checkpoint): boolean {
+  return gatesComplete(plan) && plan.checkpoints.every((checkpoint) =>
+    checkpoint.gates.behavior.status === "passed" &&
+    checkpoint.gates.review.status === "passed"
+  );
 }
 
 function lifecycleStatus(
@@ -742,7 +658,7 @@ function lifecycleStatus(
   repo: string,
   branch: string,
 ): { label: string; files: string[] } {
-  let parsed: unknown;
+  let parsed: Checkpoint;
   try {
     const checkpointStat = lstatSync(checkpointPath);
     const checkpointRelative = relative(canonicalize(worktreePath), realpathSync(checkpointPath));
@@ -756,27 +672,30 @@ function lifecycleStatus(
     ) {
       return { label: "unknown (checkpoint is not a worktree-local file)", files: [] };
     }
-    parsed = JSON.parse(readFileSync(checkpointPath, "utf8"));
-  } catch {
+    parsed = readCheckpoint(checkpointPath, { repoPath: worktreePath, slug, baseRef: "refs/heads/main" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/checkpoint lifecycle: must be an object/i.test(message)) {
+      return { label: "unknown (legacy checkpoint without lifecycle)", files: [] };
+    }
+    if (/^checkpoint (?!JSON\b|path\b|slug\b|lifecycle: must be an object\b)/i.test(message)) {
+      return { label: "unknown (contradictory lifecycle)", files: [] };
+    }
+    if (/checkpoint (?:slug|path):/i.test(message)) {
+      return { label: "unknown (checkpoint does not match this worktree)", files: [] };
+    }
     return { label: "unknown (missing, unreadable or malformed checkpoint)", files: [] };
   }
   const files = checkpointFiles(parsed, slug);
   if (files === null) return { label: "unknown (checkpoint does not match this worktree)", files: [] };
-  if (!isRecord(parsed) || !Object.hasOwn(parsed, "lifecycle")) {
-    return { label: "unknown (legacy checkpoint without lifecycle)", files };
-  }
-  const lifecycle = lifecycleFields(parsed);
-  if (lifecycle === null) return { label: "unknown (contradictory lifecycle)", files };
-  const phase = lifecycle.phase as string;
+  const lifecycle = parsed.lifecycle;
+  const phase = lifecycle.phase;
   if (["awaiting-app-review", "ready-to-merge"].includes(phase) && !gatesComplete(parsed)) {
     return { label: "unknown (lifecycle gates are incomplete)", files };
   }
-  if (lifecycle.reviewed_main !== null) {
-    if (typeof lifecycle.reviewed_main !== "string") return { label: "unknown (invalid reviewed_main)", files };
-    const exists = git(repo, ["cat-file", "-e", `${lifecycle.reviewed_main}^{commit}`]);
-    if (exists.status !== 0) return { label: "unknown (invalid reviewed_main)", files };
-    if (currentMain === null || lifecycle.reviewed_main !== currentMain) {
-      return { label: "unknown (reviewed_main is stale)", files };
+  if (lifecycle.reviewed_base !== null) {
+    if (currentMain === null || lifecycle.reviewed_base !== currentMain) {
+      return { label: "unknown (reviewed_base is stale)", files };
     }
   }
   if (phase === "ready-to-merge") {
@@ -788,7 +707,7 @@ function lifecycleStatus(
     const chainProblem = reviewedFeatureChainProblem(
       repo,
       slug,
-      lifecycle.reviewed_main as string,
+      lifecycle.reviewed_base as string,
       reviewedFeature,
       featureRef.stdout.trim(),
     );
@@ -807,43 +726,6 @@ export interface WorktreeBrainstormProjection {
   label: string;
 }
 
-function htmlAttributes(source: string): Record<string, string> | null {
-  const attributes: Record<string, string> = {};
-  const attribute = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
-  let cursor = 0;
-  for (const match of source.matchAll(attribute)) {
-    if (source.slice(cursor, match.index).trim() !== "") return null;
-    const name = match[1]?.toLowerCase();
-    const value = match[2] ?? match[3];
-    if (name === undefined || value === undefined || Object.hasOwn(attributes, name)) return null;
-    attributes[name] = value;
-    cursor = (match.index ?? 0) + match[0].length;
-  }
-  return source.slice(cursor).replace(/\/\s*$/, "").trim() === "" ? attributes : null;
-}
-
-function htmlIsWellFormed(html: string): boolean {
-  const withoutComments = html.replace(/<!--[\s\S]*?-->/gu, "");
-  if (/<!--|-->/u.test(withoutComments)) return false;
-  const withoutRawText = withoutComments.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/giu, "");
-  if (/<(?:script|style)\b/iu.test(withoutRawText)) return false;
-
-  const voidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
-  const openTags: string[] = [];
-  let htmlRoots = 0;
-  for (const match of withoutRawText.matchAll(/<\/?([a-z][\w:-]*)\b[^>]*>/giu)) {
-    const tag = (match[1] ?? "").toLowerCase();
-    const isClosing = match[0]?.startsWith("</") === true;
-    if (tag === "html" && !isClosing) htmlRoots += 1;
-    if (isClosing) {
-      if (openTags.pop() !== tag) return false;
-    } else if (!voidTags.has(tag) && !match[0]?.endsWith("/>")) {
-      openTags.push(tag);
-    }
-  }
-  return htmlRoots === 1 && openTags.length === 0;
-}
-
 export function worktreeBrainstormProjection(repo: string, requestedSlug?: string): WorktreeBrainstormProjection {
   const path = join(repo, ".ai-engineering", "brainstorm.html");
   let html: string;
@@ -860,84 +742,23 @@ export function worktreeBrainstormProjection(repo: string, requestedSlug?: strin
     ) {
       return { slug: requestedSlug ?? null, label: "unknown (brainstorm is not a repository-local file)" };
     }
-    html = readFileSync(path, "utf8");
+    html = readFile(path, "utf8");
   } catch {
     return { slug: requestedSlug ?? null, label: "unknown (brainstorm is missing or unreadable)" };
   }
-  if (!htmlIsWellFormed(html)) {
-    return { slug: requestedSlug ?? null, label: "unknown (brainstorm is malformed)" };
+  const approval = parseBrainstormApproval(html, requestedSlug ?? "", new Date());
+  if (approval === null) {
+    const reason = brainstormApprovalProblem(html, requestedSlug ?? "", new Date()) ??
+      "brainstorm approval is invalid";
+    return {
+      slug: requestedSlug ?? null,
+      label: `unknown (${reason})`,
+    };
   }
-
-  const metadata: Record<string, string[]> = { "ai-feature": [], "ai-approved": [] };
-  let malformedMetadata = false;
-  for (const match of html.matchAll(/<meta\b([^>]*)>/giu)) {
-    const attributes = htmlAttributes(match[1] ?? "");
-    if (attributes === null) {
-      malformedMetadata = true;
-      continue;
-    }
-    const name = attributes.name;
-    if (name === "ai-feature" || name === "ai-approved") {
-      metadata[name]?.push(attributes.content ?? "");
-    }
-  }
-  const feature = metadata["ai-feature"];
-  const approved = metadata["ai-approved"];
-  const slug = feature?.length === 1 && SLUG_PATTERN.test(feature[0] ?? "") && !/\p{C}/u.test(feature[0] ?? "")
-    ? feature[0] ?? null
-    : null;
-  const fail = (reason: string): WorktreeBrainstormProjection => ({
-    slug: requestedSlug ?? slug,
-    label: `unknown (${reason})`,
-  });
-  if (malformedMetadata) return fail("brainstorm metadata is malformed");
-  if (slug === null) return fail("brainstorm feature slug is missing or ambiguous");
-  if (requestedSlug !== undefined && slug !== requestedSlug) {
-    return fail(`brainstorm belongs to ${slug}, not ${requestedSlug}`);
-  }
-  if (approved?.length !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(approved[0] ?? "")) {
-    return fail("brainstorm approval date is missing or ambiguous");
-  }
-
-  const approvedOn = approved[0] ?? "";
-  const [year, month, day] = approvedOn.split("-").map(Number);
-  const approvedDate = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 0));
-  if (
-    approvedDate.getUTCFullYear() !== year ||
-    approvedDate.getUTCMonth() + 1 !== month ||
-    approvedDate.getUTCDate() !== day
-  ) {
-    return fail("brainstorm approval date is malformed");
-  }
-
-  const statusLines: string[] = [];
-  const statusContainer =
-    /<([a-z][\w:-]*)\b(?=[^>]*\bclass\s*=\s*(?:"[^"]*\bmeta\b[^"]*"|'[^']*\bmeta\b[^']*'))[^>]*>([\s\S]*?)<\/\1\s*>/giu;
-  for (const match of html.matchAll(statusContainer)) {
-    const line = (match[2] ?? "").split(/<br\b[^>]*>/iu, 1)[0] ?? "";
-    statusLines.push(
-      line
-        .replace(/<[^>]*>/gu, "")
-        .replace(/&middot;|&#183;|&#x0*b7;/giu, "·")
-        .replace(/&nbsp;|&#160;|&#x0*a0;/giu, " ")
-        .replace(/&amp;/giu, "&")
-        .replace(/&lt;/giu, "<")
-        .replace(/&gt;/giu, ">")
-        .replace(/&quot;/giu, '"')
-        .replace(/&#39;|&apos;/giu, "'")
-        .replace(/\s+/gu, " ")
-        .trim(),
-    );
-  }
-  if (statusLines.length !== 1 || statusLines[0] !== `complete · ${approvedOn}`) {
-    return fail("brainstorm approval does not match its complete status");
-  }
-
-  const today = new Date();
-  const todayStart = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-  const ageDays = (todayStart - approvedDate.getTime()) / 86_400_000;
-  if (ageDays < 0 || ageDays > 14) return fail("brainstorm approval is expired or future-dated");
-  return { slug, label: `approval-before-start (brainstorm approved ${approvedOn})` };
+  return {
+    slug: approval.slug,
+    label: `approval-before-start (brainstorm approved ${approval.approvedOn})`,
+  };
 }
 
 function normalizedEvidencePath(path: string): string | null {
@@ -1223,7 +1044,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   const checkpointPath = join(entry.path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   const checkpointRelative = `.ai-engineering/workflow/checkpoints/${slug}.json`;
   let checkpointContents: string;
-  let checkpoint: unknown;
+  let checkpoint: Checkpoint;
   try {
     const stat = lstatSync(checkpointPath);
     const relativePath = relative(canonicalize(entry.path), realpathSync(checkpointPath));
@@ -1237,23 +1058,34 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     ) {
       return { code: 1, out: "", err: "worktree request-changes: checkpoint is not a worktree-local file.\n" };
     }
-    checkpointContents = readFileSync(checkpointPath, "utf8");
-    checkpoint = JSON.parse(checkpointContents);
+    checkpoint = readCheckpoint(checkpointPath, {
+      repoPath: entry.path,
+      slug,
+      baseRef: "refs/heads/main",
+    });
+    const snapshot = git(entry.path, ["show", `${expectedCheckpointCommit}:${checkpointRelative}`]);
+    if (snapshot.status !== 0 || snapshot.stderr.trim() !== "") {
+      return { code: 1, out: "", err: "worktree request-changes: checkpoint is missing, unreadable or malformed.\n" };
+    }
+    checkpointContents = snapshot.stdout;
+    if (!isDeepStrictEqual(parseCheckpoint(checkpointContents, {
+      repoPath: entry.path,
+      slug,
+      baseRef: "refs/heads/main",
+    }), checkpoint)) {
+      return { code: 1, out: "", err: "worktree request-changes: checkpoint does not match this worktree.\n" };
+    }
   } catch {
     return { code: 1, out: "", err: "worktree request-changes: checkpoint is missing, unreadable or malformed.\n" };
   }
 
-  if (checkpointFiles(checkpoint, slug) === null) {
-    return { code: 1, out: "", err: "worktree request-changes: checkpoint does not match this worktree.\n" };
-  }
-  const lifecycle = lifecycleFields(checkpoint);
+  const lifecycle = checkpoint.lifecycle;
   if (
-    lifecycle === null ||
     lifecycle.phase !== "awaiting-app-review" ||
     lifecycle.plan_approval !== "approved" ||
     lifecycle.app_review !== "pending" ||
     !gatesComplete(checkpoint) ||
-    typeof lifecycle.reviewed_main !== "string" ||
+    typeof lifecycle.reviewed_base !== "string" ||
     typeof lifecycle.reviewed_feature !== "string"
   ) {
     return {
@@ -1265,7 +1097,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   const chainProblem = reviewedFeatureChainProblem(
     repo,
     slug,
-    lifecycle.reviewed_main,
+    lifecycle.reviewed_base,
     lifecycle.reviewed_feature,
     expectedCheckpointCommit,
     "awaiting-app-review",
@@ -1274,17 +1106,30 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     return { code: 1, out: "", err: `worktree request-changes: ${chainProblem}; preserve the review state.\n` };
   }
 
-  const nextPlan = {
-    ...(checkpoint as Record<string, unknown>),
+  const nextPlan: Checkpoint = {
+    ...checkpoint,
     lifecycle: {
       ...lifecycle,
       phase: "implementation",
       app_review: "not-started",
-      reviewed_main: null,
+      reviewed_base: null,
       reviewed_feature: null,
+      base_ref: null,
     },
   };
-  const nextContents = `${JSON.stringify(nextPlan, null, 2)}\n`;
+  const rawLifecycle = (JSON.parse(checkpointContents) as Record<string, unknown>).lifecycle;
+  const nextContents = isRecord(rawLifecycle) && Object.hasOwn(rawLifecycle, "reviewed_main")
+    ? `${JSON.stringify({
+      ...nextPlan,
+      lifecycle: {
+        phase: "implementation",
+        plan_approval: "approved",
+        app_review: "not-started",
+        reviewed_main: null,
+        reviewed_feature: null,
+      },
+    }, null, 2)}\n`
+    : serializeCheckpoint(nextPlan);
 
   const transactionPath = join(root, `.request-changes-${slug}-${randomUUID()}`);
   const added = git(repo, ["worktree", "add", "--detach", transactionPath, expectedCheckpointCommit]);
@@ -1298,7 +1143,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
 
   const transactionCheckpoint = join(transactionPath, checkpointRelative);
   let transactionMode: number;
-  let transactionPlan: unknown;
+  let transactionPlan: Checkpoint;
   try {
     const stat = lstatSync(transactionCheckpoint);
     const relativePath = relative(canonicalize(transactionPath), realpathSync(transactionCheckpoint));
@@ -1318,7 +1163,11 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
       };
     }
     transactionMode = stat.mode;
-    transactionPlan = JSON.parse(readFileSync(transactionCheckpoint, "utf8"));
+    transactionPlan = readCheckpoint(transactionCheckpoint, {
+      repoPath: transactionPath,
+      slug,
+      baseRef: "refs/heads/main",
+    });
   } catch {
     const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
     return {
@@ -1382,16 +1231,20 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     ? null
     : git(transactionPath, ["diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", "-z", transitionCommit]);
   const clean = worktreeStatus(transactionPath);
-  let transitionedPlan: unknown = null;
+  let transitionedPlan: Checkpoint | null = null;
   try {
     const committedCheckpoint = git(transactionPath, ["show", `${transitionCommit}:${checkpointRelative}`]);
     if (committedCheckpoint.status === 0 && committedCheckpoint.stderr.trim() === "") {
-      transitionedPlan = JSON.parse(committedCheckpoint.stdout);
+      transitionedPlan = parseCheckpoint(committedCheckpoint.stdout, {
+        repoPath: transactionPath,
+        slug,
+        baseRef: "refs/heads/main",
+      });
     }
   } catch {
     // The verification below refuses an unreadable commit.
   }
-  const transitionedLifecycle = lifecycleFields(transitionedPlan);
+  const transitionedLifecycle = transitionedPlan?.lifecycle;
   if (
     transitionCommit === null ||
     parents?.status !== 0 ||
@@ -1404,8 +1257,9 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     clean.paths.length > 0 ||
     transitionedLifecycle?.phase !== "implementation" ||
     transitionedLifecycle.app_review !== "not-started" ||
-    transitionedLifecycle.reviewed_main !== null ||
+    transitionedLifecycle.reviewed_base !== null ||
     transitionedLifecycle.reviewed_feature !== null ||
+    transitionedLifecycle.base_ref !== null ||
     !isDeepStrictEqual(transitionedPlan, nextPlan)
   ) {
     return {
@@ -1450,9 +1304,13 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   }
 
   const sourceStatus = worktreeStatus(entry.path);
-  let sourceCheckpoint: string | null = null;
+  let sourceCheckpoint: Checkpoint | null = null;
   try {
-    sourceCheckpoint = readFileSync(checkpointPath, "utf8");
+    sourceCheckpoint = readCheckpoint(checkpointPath, {
+      repoPath: entry.path,
+      slug,
+      baseRef: "refs/heads/main",
+    });
   } catch {
     // A failed read below rolls back only if the exact feature ref still matches.
   }
@@ -1461,7 +1319,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     sourceStatus.detail !== undefined ||
     sourceStatus.paths.length !== 1 ||
     sourceStatus.paths[0] !== checkpointRelative ||
-    sourceCheckpoint !== checkpointContents
+    !isDeepStrictEqual(sourceCheckpoint, checkpoint)
   ) {
     const rollback = git(repo, ["update-ref", branch, expectedCheckpointCommit, transitionCommit]);
     const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
@@ -1495,16 +1353,20 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     let restored = false;
     if (rollback.status === 0) {
       const currentStatus = worktreeStatus(entry.path);
-      let currentContents: string | null = null;
+      let currentContents: Checkpoint | null = null;
       try {
-        currentContents = readFileSync(checkpointPath, "utf8");
+        currentContents = readCheckpoint(checkpointPath, {
+          repoPath: entry.path,
+          slug,
+          baseRef: "refs/heads/main",
+        });
       } catch {
         // Leave unreadable work untouched.
       }
       if (
         currentStatus.detail === undefined &&
         currentStatus.paths.every((changedPath) => changedPath === checkpointRelative) &&
-        (currentContents === checkpointContents || currentContents === nextContents)
+        (isDeepStrictEqual(currentContents, checkpoint) || isDeepStrictEqual(currentContents, nextPlan))
       ) {
         const restore = git(entry.path, [
           "restore",
@@ -1573,7 +1435,7 @@ function findManagedWorktree(
 
 function rebaseCheckpointProblem(path: string, slug: string): string | null {
   const checkpointPath = join(path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
-  let checkpoint: unknown;
+  let checkpoint: Checkpoint;
   try {
     const stat = lstatSync(checkpointPath);
     const checkpointRelative = relative(canonicalize(path), realpathSync(checkpointPath));
@@ -1587,21 +1449,17 @@ function rebaseCheckpointProblem(path: string, slug: string): string | null {
     ) {
       return "checkpoint is not a worktree-local file";
     }
-    checkpoint = JSON.parse(readFileSync(checkpointPath, "utf8"));
+    checkpoint = readCheckpoint(checkpointPath, {
+      repoPath: path,
+      slug,
+      baseRef: "refs/heads/main",
+    });
   } catch {
-    return "checkpoint is missing, unreadable or malformed";
+    return "checkpoint is missing, unreadable, malformed or legacy";
   }
 
+  const lifecycle = checkpoint.lifecycle;
   if (
-    !isRecord(checkpoint) ||
-    !Object.hasOwn(checkpoint, "lifecycle") ||
-    checkpointFiles(checkpoint, slug) === null
-  ) {
-    return "checkpoint is legacy or does not match this worktree";
-  }
-  const lifecycle = lifecycleFields(checkpoint);
-  if (
-    lifecycle === null ||
     lifecycle.phase !== "implementation" ||
     lifecycle.plan_approval !== "approved" ||
     !rebaseGatesComplete(checkpoint)
@@ -1691,9 +1549,13 @@ export function reviewedFeatureChainProblem(
   if (reviewedCheckpoint.status !== 0 || reviewedCheckpoint.stderr.trim() !== "") {
     return "reviewed_feature has no readable checkpoint plan";
   }
-  let reviewedPlan: unknown;
+  let reviewedPlan: Checkpoint;
   try {
-    reviewedPlan = JSON.parse(reviewedCheckpoint.stdout);
+    reviewedPlan = parseCheckpoint(reviewedCheckpoint.stdout, {
+      repoPath: repo,
+      slug,
+      baseRef: "refs/heads/main",
+    });
   } catch {
     return "reviewed_feature has a malformed checkpoint plan";
   }
@@ -1722,9 +1584,13 @@ export function reviewedFeatureChainProblem(
     if (checkpoint.status !== 0 || checkpoint.stderr.trim() !== "") {
       return `commit ${commit} has no readable lifecycle checkpoint`;
     }
-    let parsed: unknown;
+    let parsed: Checkpoint;
     try {
-      parsed = JSON.parse(checkpoint.stdout);
+      parsed = parseCheckpoint(checkpoint.stdout, {
+        repoPath: repo,
+        slug,
+        baseRef: "refs/heads/main",
+      });
     } catch {
       return `commit ${commit} has malformed lifecycle checkpoint metadata`;
     }
@@ -1732,13 +1598,12 @@ export function reviewedFeatureChainProblem(
     if (payload === null || !isDeepStrictEqual(reviewedPayload, payload)) {
       return `commit ${commit} changes the reviewed checkpoint plan`;
     }
-    const lifecycle = lifecycleFields(parsed);
+    const lifecycle = parsed.lifecycle;
     const isPendingReview = index === 0;
     if (
-      lifecycle === null ||
       !gatesComplete(parsed) ||
       lifecycle.plan_approval !== "approved" ||
-      lifecycle.reviewed_main !== reviewedMain ||
+      lifecycle.reviewed_base !== reviewedMain ||
       lifecycle.reviewed_feature !== reviewedFeature ||
       lifecycle.phase !== (isPendingReview ? "awaiting-app-review" : "ready-to-merge") ||
       lifecycle.app_review !== (isPendingReview ? "pending" : "approved") ||
@@ -1800,7 +1665,7 @@ function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState
   }
 
   const checkpointPath = join(entry.path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
-  let checkpoint: unknown;
+  let checkpoint: Checkpoint;
   try {
     const stat = lstatSync(checkpointPath);
     const checkpointRelative = relative(canonicalize(entry.path), realpathSync(checkpointPath));
@@ -1814,14 +1679,16 @@ function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState
     ) {
       return { detail: "checkpoint is not a worktree-local file" };
     }
-    checkpoint = JSON.parse(readFileSync(checkpointPath, "utf8"));
+    checkpoint = readCheckpoint(checkpointPath, {
+      repoPath: entry.path,
+      slug,
+      baseRef: "refs/heads/main",
+    });
   } catch {
     return { detail: "checkpoint is missing, unreadable or malformed" };
   }
-  if (checkpointFiles(checkpoint, slug) === null) return { detail: "checkpoint does not match this worktree" };
-  const lifecycle = lifecycleFields(checkpoint);
+  const lifecycle = checkpoint.lifecycle;
   if (
-    lifecycle === null ||
     lifecycle.phase !== "ready-to-merge" ||
     lifecycle.plan_approval !== "approved" ||
     lifecycle.app_review !== "approved" ||
@@ -1829,14 +1696,14 @@ function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState
   ) {
     return { detail: "checkpoint is not ready-to-merge with approved plan, app review and completed gates" };
   }
-  if (typeof lifecycle.reviewed_main !== "string" || typeof lifecycle.reviewed_feature !== "string") {
-    return { detail: "checkpoint is missing full reviewed_main or reviewed_feature commit ids" };
+  if (typeof lifecycle.reviewed_base !== "string" || typeof lifecycle.reviewed_feature !== "string") {
+    return { detail: "checkpoint is missing full reviewed_base or reviewed_feature commit ids" };
   }
   const featureTip = featureHead;
   const chainProblem = reviewedFeatureChainProblem(
     repo,
     slug,
-    lifecycle.reviewed_main,
+    lifecycle.reviewed_base,
     lifecycle.reviewed_feature,
     featureTip,
   );
@@ -1847,7 +1714,7 @@ function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState
     state: {
       path: entry.path,
       branch,
-      reviewedMain: lifecycle.reviewed_main,
+      reviewedMain: lifecycle.reviewed_base,
       reviewedFeature: lifecycle.reviewed_feature,
       featureTip,
     },
