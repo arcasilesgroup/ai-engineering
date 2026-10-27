@@ -1012,3 +1012,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Match any depth and require `viewer.html.tpl` in the minimum extraction; nested path in the negative fixture.
 - **Lesson:** Test every path shape the skill text actually cites, including nested ones, before trusting a citation pattern.
 - **Tags:** review, contract, tests
+
+### L139 · 2026-10-27 · floating-core #3 · review
+- **Failure:** An unparsable config.toml silently dropped `[git] base`; the resolver fell through to the remote default.
+- **Root cause:** `loadConfig` treats an unreadable file as empty.
+- **Fix:** The base reader throws on an unreadable or malformed config, naming the path and the fix.
+- **Lesson:** A missing value is only "absent" when the source was actually readable; a read that fails must throw, not answer empty.
+- **Tags:** review, git, config, fail-closed
+
+### L140 · 2026-10-27 · floating-core #3 · review
+- **Failure:** Isolated git reads followed an inherited `GIT_DIR` and mixed two repositories.
+- **Root cause:** Isolation removed config injection but kept the repository-locating env vars git sets inside hooks.
+- **Fix:** Clear every variable `git rev-parse --local-env-vars` lists; fail if that list can't be read.
+- **Lesson:** Isolating a git read means clearing the repository-locating environment as well as config.
+- **Tags:** review, git, isolation

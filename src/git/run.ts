@@ -10,20 +10,40 @@ export interface GitResult {
 
 export interface GitRunOptions {
   cwd: string;
-  /** Ignore the user's global and system config (and config injected through the
-   *  environment) so only the repository's own config decides what git sees (R8). */
+  /** Ignore the user's global and system config, config injected through the environment,
+   *  and the repository-discovery variables (GIT_DIR, GIT_WORK_TREE, ...) a hook inherits,
+   *  so cwd and the repository's own config alone decide what git sees (R8). */
   isolated?: boolean;
 }
 
-function isolatedEnv(): NodeJS.ProcessEnv {
+let repositoryEnvVars: string[] | undefined;
+
+/** The variables git itself lists as repository-local (config injection included), asked of git once per process (R7). */
+function localEnvVars(cwd: string): string[] | Error {
+  if (repositoryEnvVars !== undefined) return repositoryEnvVars;
+  const done = spawnSync("git", ["rev-parse", "--local-env-vars"], { cwd, encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+  const names = (done.stdout ?? "").split("\n").filter((name) => name !== "");
+  if (done.error !== undefined || done.status !== 0 || !names.includes("GIT_DIR")) {
+    return new Error(`cannot list git's repository variables (git rev-parse --local-env-vars): ${done.stderr || String(done.error ?? `exit ${done.status}`)}`);
+  }
+  repositoryEnvVars = names;
+  return names;
+}
+
+function isolatedEnv(cwd: string): NodeJS.ProcessEnv | Error {
+  const names = localEnvVars(cwd);
+  if (names instanceof Error) return names;
   const env: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_SYSTEM: devNull, GIT_CONFIG_NOSYSTEM: "1" };
-  for (const injected of ["GIT_CONFIG_COUNT", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG"]) delete env[injected];
+  for (const name of names) delete env[name];
   return env;
 }
 
 export function runGit(args: string[], opts: GitRunOptions): GitResult {
   try {
-    const env = { ...(opts.isolated === true ? isolatedEnv() : process.env), GIT_TERMINAL_PROMPT: "0" };
+    const baseEnv = opts.isolated === true ? isolatedEnv(opts.cwd) : process.env;
+    // Isolation that cannot be established denies: the run never falls back to the ambient environment.
+    if (baseEnv instanceof Error) return { status: 1, stdout: "", stderr: baseEnv.message };
+    const env = { ...baseEnv, GIT_TERMINAL_PROMPT: "0" };
     const done = spawnSync("git", args, { cwd: opts.cwd, encoding: "utf8", env });
     const stdout = done.stdout ?? "";
     const stderr = done.stderr ?? "";

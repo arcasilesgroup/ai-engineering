@@ -118,6 +118,7 @@ interface ContextView {
   isLinkedWorktree: boolean;
   base: string | null;
   baseSource: BaseSource;
+  baseRemote: string | null;
 }
 
 /** One fixture fact: `git args` run at `at` prints `out` (trimmed), or fails when `out` is null. */
@@ -176,7 +177,7 @@ const cases: ContextCase[] = [
           remoteHead(work, "origin", "develop"),
         ],
         configBase: { root: work, value: undefined },
-        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "develop", baseSource: "remote-head" },
+        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "develop", baseSource: "remote-head", baseRemote: "origin" },
       };
     },
   },
@@ -199,7 +200,7 @@ const cases: ContextCase[] = [
           remoteHead(wt, "origin", "develop"),
         ],
         configBase: { root: wt, value: undefined },
-        expected: { root: wt, branch: "feat/x", isDetached: false, isLinkedWorktree: true, base: "develop", baseSource: "remote-head" },
+        expected: { root: wt, branch: "feat/x", isDetached: false, isLinkedWorktree: true, base: "develop", baseSource: "remote-head", baseRemote: "origin" },
       };
     },
   },
@@ -217,7 +218,7 @@ const cases: ContextCase[] = [
           remoteHead(work, "origin", "develop"),
         ],
         configBase: { root: work, value: undefined },
-        expected: { root: work, branch: null, isDetached: true, isLinkedWorktree: false, base: "develop", baseSource: "remote-head" },
+        expected: { root: work, branch: null, isDetached: true, isLinkedWorktree: false, base: "develop", baseSource: "remote-head", baseRemote: "origin" },
       };
     },
   },
@@ -232,7 +233,7 @@ const cases: ContextCase[] = [
         cwd: repo,
         premises: [onBranch(repo, "feature"), noRemotes(repo)],
         configBase: { root: repo, value: "trunk" },
-        expected: { root: repo, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "trunk", baseSource: "config" },
+        expected: { root: repo, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "trunk", baseSource: "config", baseRemote: null },
       };
     },
   },
@@ -246,7 +247,7 @@ const cases: ContextCase[] = [
         cwd: repo,
         premises: [onBranch(repo, "feature"), noRemotes(repo), { at: repo, args: ["rev-parse", "--verify", "--quiet", "refs/heads/main"], out: git(repo, "rev-parse", "HEAD") }],
         configBase: { root: repo, value: undefined },
-        expected: { root: repo, branch: "feature", isDetached: false, isLinkedWorktree: false, base: null, baseSource: "ask" },
+        expected: { root: repo, branch: "feature", isDetached: false, isLinkedWorktree: false, base: null, baseSource: "ask", baseRemote: null },
       };
     },
   },
@@ -262,7 +263,7 @@ const cases: ContextCase[] = [
         explicitBase: "release/2.6",
         premises: [onBranch(work, "feature"), remoteHead(work, "origin", "develop")],
         configBase: { root: work, value: "trunk" },
-        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "release/2.6", baseSource: "explicit" },
+        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "release/2.6", baseSource: "explicit", baseRemote: null },
       };
     },
   },
@@ -277,7 +278,7 @@ const cases: ContextCase[] = [
         cwd: work,
         premises: [onBranch(work, "feature"), remoteHead(work, "origin", "develop")],
         configBase: { root: work, value: "trunk" },
-        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "trunk", baseSource: "config" },
+        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "trunk", baseSource: "config", baseRemote: null },
       };
     },
   },
@@ -299,7 +300,7 @@ const cases: ContextCase[] = [
           noRef(work, "refs/remotes/origin/main"),
         ],
         configBase: { root: work, value: undefined },
-        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "develop", baseSource: "remote-head" },
+        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "develop", baseSource: "remote-head", baseRemote: "origin" },
       };
     },
   },
@@ -312,7 +313,7 @@ const cases: ContextCase[] = [
         cwd: work,
         premises: [onBranch(work, "develop"), remoteHead(work, "origin", "develop")],
         configBase: { root: work, value: undefined },
-        expected: { root: work, branch: "develop", isDetached: false, isLinkedWorktree: false, base: null, baseSource: "ask" },
+        expected: { root: work, branch: "develop", isDetached: false, isLinkedWorktree: false, base: null, baseSource: "ask", baseRemote: null },
       };
     },
   },
@@ -327,7 +328,7 @@ const cases: ContextCase[] = [
         cwd: work,
         premises: [onBranch(work, "feature"), remoteHead(work, "origin", "develop")],
         configBase: { root: work, value: "feature" },
-        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: null, baseSource: "ask" },
+        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: null, baseSource: "ask", baseRemote: null },
       };
     },
   },
@@ -352,7 +353,7 @@ const cases: ContextCase[] = [
           remoteHead(work, "origin", "develop"),
         ],
         configBase: { root: work, value: undefined },
-        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "release", baseSource: "remote-head" },
+        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "release", baseSource: "remote-head", baseRemote: "upstream" },
       };
     },
   },
@@ -375,7 +376,7 @@ const cases: ContextCase[] = [
           remoteHead(work, "origin", "develop"),
         ],
         configBase: { root: work, value: undefined },
-        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "develop", baseSource: "remote-head" },
+        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "develop", baseSource: "remote-head", baseRemote: "origin" },
       };
     },
   },
@@ -397,15 +398,48 @@ const cases: ContextCase[] = [
           remoteHead(repo, "origin", "develop"),
         ],
         configBase: { root: repo, value: undefined },
-        expected: { root: repo, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "develop", baseSource: "remote-head" },
+        expected: { root: repo, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "develop", baseSource: "remote-head", baseRemote: "origin" },
+      };
+    },
+  },
+  {
+    id: "I20",
+    name: "a local upstream (branch.<name>.remote = .) has no remote default: the base comes from origin",
+    arrange: () => {
+      const { work } = developClone();
+      git(work, "checkout", "--quiet", "--track", "-b", "feature", "develop");
+      return {
+        cwd: work,
+        premises: [
+          onBranch(work, "feature"),
+          { at: work, args: ["config", "--get", "branch.feature.remote"], out: "." },
+          remoteHead(work, "origin", "develop"),
+        ],
+        configBase: { root: work, value: undefined },
+        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: "develop", baseSource: "remote-head", baseRemote: "origin" },
+      };
+    },
+  },
+  {
+    id: "I21",
+    name: "a dangling refs/remotes/origin/HEAD (its target ref is gone) names no base: the result asks",
+    arrange: () => {
+      const { work } = developClone();
+      git(work, "checkout", "--quiet", "-b", "feature");
+      git(work, "update-ref", "-d", "refs/remotes/origin/develop");
+      return {
+        cwd: work,
+        premises: [onBranch(work, "feature"), remoteHead(work, "origin", "develop"), noRef(work, "refs/remotes/origin/develop")],
+        configBase: { root: work, value: undefined },
+        expected: { root: work, branch: "feature", isDetached: false, isLinkedWorktree: false, base: null, baseSource: "ask", baseRemote: null },
       };
     },
   },
 ];
 
 function view(context: ContextView): ContextView {
-  const { root, branch, isDetached, isLinkedWorktree, base, baseSource } = context;
-  return { root, branch, isDetached, isLinkedWorktree, base, baseSource };
+  const { root, branch, isDetached, isLinkedWorktree, base, baseSource, baseRemote } = context;
+  return { root, branch, isDetached, isLinkedWorktree, base, baseSource, baseRemote };
 }
 
 const MAX_RESOLVE_MS = 5_000;
@@ -434,6 +468,7 @@ describe("resolveContext — root, branch, worktree and base in the 6.7 order", 
 
       expect(view(context)).toEqual(arranged.expected);
       if (context.baseSource === "ask") expect(context.base).toBeNull();
+      expect(context.baseRemote === null).toBe(context.baseSource !== "remote-head");
     });
   }
 
@@ -442,6 +477,115 @@ describe("resolveContext — root, branch, worktree and base in the 6.7 order", 
     // Premise: git itself finds no repository above this directory.
     expect(gitRaw(outside, ["rev-parse", "--show-toplevel"]).status).not.toBe(0);
     expect(() => resolveContext(outside)).toThrow(outside);
+  });
+});
+
+/** A clone on feature whose origin/HEAD names develop: falling through to the remote would answer develop. */
+function featureClone(): string {
+  const { work } = developClone();
+  git(work, "checkout", "--quiet", "-b", "feature");
+  return work;
+}
+
+const configFile = (root: string): string => join(root, ".ai-engineering", "config.toml");
+
+describe("resolveContext — every refusal fails closed and names the next step (R8, P8)", () => {
+  test("F1: a config.toml that declares [git] base but does not parse throws naming the file, never falls through to remote-head", () => {
+    const work = featureClone();
+    writeConfig(work, '[git]\nbase = "release"\n\n[broken\n');
+    // Premise: the lenient reader answers {} for this file, and origin/HEAD would answer develop.
+    expect(loadConfig(work)).toEqual({});
+    expect(gitRaw(work, ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"]).stdout.trim()).toBe("refs/remotes/origin/develop");
+
+    expect(() => resolveContext(work)).toThrow(`cannot read ${configFile(work)}`);
+    expect(() => resolveContext(work)).toThrow("fix the TOML so it parses, or remove the file");
+  });
+
+  test("F1: git that is not a [git] table throws instead of reading as no base", () => {
+    const work = featureClone();
+    writeConfig(work, 'git = "release"\n');
+    // Premise: the file parses, and git is a plain string rather than a table.
+    const loaded: unknown = loadConfig(work);
+    expect(loaded).toEqual({ git: "release" });
+    expect(() => resolveContext(work)).toThrow(`git in ${configFile(work)} must be a [git] table`);
+  });
+
+  test("a non-string [git] base throws naming the file and the fix", () => {
+    const work = featureClone();
+    writeConfig(work, "[git]\nbase = 5\n");
+    expect(loadConfig(work)["git"]?.["base"]).toBe(5);
+    expect(() => resolveContext(work)).toThrow(`[git] base in ${configFile(work)} must be a string; set [git] base to a branch name in ${configFile(work)}`);
+  });
+
+  for (const name of ["-x", "HEAD", "a..b"]) {
+    test(`an explicit base ${JSON.stringify(name)} that git rejects as a branch name throws`, () => {
+      const work = featureClone();
+      expect(gitRaw(work, ["check-ref-format", "--branch", name]).status).not.toBe(0);
+      expect(() => resolveContext(work, { explicitBase: name })).toThrow(
+        `the explicit base is not a valid branch name: ${JSON.stringify(name)}; pass a plain branch name such as release/2.6`,
+      );
+    });
+  }
+
+  test("an explicit or configured @{-1} that git expands to another branch is refused, never followed", () => {
+    const work = featureClone();
+    git(work, "checkout", "--quiet", "develop");
+    git(work, "checkout", "--quiet", "feature");
+    // Premise: git accepts @{-1} here and expands it to develop — only the name check stands between it and a base.
+    expect(gitRaw(work, ["check-ref-format", "--branch", "@{-1}"])).toEqual({ status: 0, stdout: "develop\n", stderr: "" });
+
+    expect(() => resolveContext(work, { explicitBase: "@{-1}" })).toThrow('the explicit base is not a valid branch name: "@{-1}"');
+    writeConfig(work, '[git]\nbase = "@{-1}"\n');
+    expect(() => resolveContext(work)).toThrow(`[git] base in ${configFile(work)} is not a valid branch name: "@{-1}"; set [git] base`);
+  });
+
+  test("outside a repository the refusal names the next step", () => {
+    const outside = freshDir("no-repo-");
+    expect(() => resolveContext(outside)).toThrow("run from inside the repository or one of its worktrees");
+  });
+});
+
+describe("isolated runs ignore the repository-discovery environment a hook inherits (R8)", () => {
+  function withEnv(vars: Record<string, string>, run: () => void): void {
+    const prior = Object.fromEntries(Object.keys(vars).map((name) => [name, process.env[name]]));
+    Object.assign(process.env, vars);
+    try {
+      run();
+    } finally {
+      for (const [name, value] of Object.entries(prior)) restoreVar(name, value);
+    }
+  }
+
+  test("F2: GIT_DIR and GIT_WORK_TREE naming another repo change nothing — root, branch and base all come from cwd", () => {
+    const work = featureClone();
+    const other = initRepo("other");
+    const foreign = { GIT_DIR: join(other, ".git"), GIT_WORK_TREE: other, GIT_INDEX_FILE: join(other, ".git", "index") };
+    withEnv(foreign, () => {
+      // Premise: an ordinary git in this environment reads the other repo.
+      expect(spawnSync("git", ["symbolic-ref", "--short", "HEAD"], { cwd: work, encoding: "utf8", env: process.env }).stdout.trim()).toBe("other");
+      expect(runGit(["symbolic-ref", "--short", "HEAD"], { cwd: work }).stdout.trim()).toBe("other");
+
+      expect(runGit(["rev-parse", "--show-toplevel"], { cwd: work, isolated: true })).toEqual({ status: 0, stdout: `${work}\n`, stderr: "" });
+      expect(view(resolveContext(work))).toEqual({
+        root: work,
+        branch: "feature",
+        isDetached: false,
+        isLinkedWorktree: false,
+        base: "develop",
+        baseSource: "remote-head",
+        baseRemote: "origin",
+      });
+    });
+  });
+
+  test("F2: a relative GIT_DIR=.git from a subdirectory does not break discovery", () => {
+    const work = featureClone();
+    const deep = join(work, "src", "deep");
+    mkdirSync(deep, { recursive: true });
+    withEnv({ GIT_DIR: ".git" }, () => {
+      expect(spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: deep, encoding: "utf8", env: process.env }).status).not.toBe(0);
+      expect(view(resolveContext(deep))).toMatchObject({ root: work, branch: "feature", base: "develop", baseSource: "remote-head" });
+    });
   });
 });
 
