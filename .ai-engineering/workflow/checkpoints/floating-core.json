@@ -459,7 +459,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "failed", "attempts": 2, "findings": ["Attempt 1: floor-hooks fixture lacked a detected base; corrected in 674ab681.", "Attempt 2 and diagnostic rerun: serial suite 1547/1575, 12 failed, 16 skipped in 198.46s. Stale workflow/skill assertions expect mandatory worktrees, lifecycle approvals and rebase/old merge handoff after CP7 removed them; generated-payload also finds a stale bundle. Exact failures are in the diagnostic report."] },
+        "behavior": { "status": "failed", "attempts": 3, "findings": ["Attempt 1: floor-hooks fixture lacked a detected base; corrected in 674ab681.", "Attempt 2: serial suite 1547/1575, 12 failed, 16 skipped in 198.46s; stale workflow contracts and generated bundle were corrected in dd42d15d.", "Attempt 3 stopped at command 7: ceremony-contract still found a citation to a removed worktree command. Commands 8-12 did not run. Three behavior failures accumulated; automatic replan required."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
