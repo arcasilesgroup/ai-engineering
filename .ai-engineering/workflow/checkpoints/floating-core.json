@@ -1,0 +1,878 @@
+{
+  "feature": "Floating core: the floor stays, the platform goes",
+  "slug": "floating-core",
+  "summary": "ai-engineering becomes a safety floor under the agent the person already uses: it works in the current checkout or a worktree, detects the base branch instead of assuming main, keeps one checkpoint state with one TypeScript validator and guard, and drops the workspace hub, dead code and platform verbs while the orchestrator ceremony stays intact.",
+  "plain_summary": "People can work where they already are, on any branch, open requests against the right branch, and never get stuck on unrelated files.",
+  "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "lifecycle": {
+    "phase": "implementation",
+    "plan_approval": "approved",
+    "app_review": "not-started",
+    "reviewed_main": null,
+    "reviewed_feature": null
+  },
+  "halted": null,
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Make the serial suite green, deterministic and quiet on commit",
+      "simple": "Make the safety checks reliable",
+      "size": "m",
+      "goal": "The serial suite passes twice in a row, no suite leaves folders under tests/, a green pre-commit prints nothing and never scans receipts, and receipts stay bounded by an automatic daily retention.",
+      "plain": {
+        "what": "Saving work is instant and silent again, and the built-in checks pass every time.",
+        "why": "Today one save can take minutes, and a failing check hides real problems.",
+        "check": "Save a small change and see it finish at once, with no extra message."
+      },
+      "builds_on": [],
+      "tasks": [
+        "Before changing anything, run `bun test --parallel=1` from the worktree root, keep the summary, and name the failing or slowest test file(s) and their root cause (brainstorm section 10 question 2); record the evidence in this checkpoint's behavior findings.",
+        "Tests first: add tests/test-hygiene.spec.ts that runs tests/worktree-lifecycle.spec.ts in a child `bun test` and asserts the tests/ directory listing is unchanged afterwards (no `.worktree-lifecycle-*`, no `.dirfd-probe-*`), and an env-restoration case asserting AI_ENG_HOME, PI_CODING_AGENT_DIR, GIT_CONFIG_GLOBAL and process.cwd() are back to their prior values after the sandboxed() flow of tests/uninstall-command.spec.ts.",
+        "Move the temp root of tests/worktree-lifecycle.spec.ts:17 from `mkdtempSync(join(import.meta.dir, \".worktree-lifecycle-\"))` to `os.tmpdir()`, and make tests/uninstall-command.spec.ts restore AI_ENG_HOME, PI_CODING_AGENT_DIR, GIT_CONFIG_GLOBAL and cwd in afterEach.",
+        "Fix the root cause of the test identified in task 1; if the cause is outside this repository, append a LEARNINGS.md Log entry with the reason instead of muting it.",
+        "F7 tests first in tests/floor-hooks.spec.ts: in a governed temp repo whose receipts folder is seeded with thousands of files, a green `ai-eng git pre-commit` writes 0 lines to stderr and does not enumerate the receipts folder; then remove the `summarizeReceipts()` call and the success line from src/floor/entry.ts:31 (deny output unchanged).",
+        "Receipt retention tests first in tests/receipts-retention.spec.ts: after N writes with stale mtimes the folder stays bounded by the `[gc].receipts_ttl` retention, a second trigger on the same day does no scan, each pass deletes a bounded batch, and summary.json/denies.json survive as today.",
+        "Move gcReceipts and mergeAndWriteSummary from src/commands/doctor.ts into src/receipts.ts (doctor --gc calls the shared one) and trigger it from the chain after its receipt is written (src/chain/mod.ts) at most once per day via a stamp; never from src/floor/entry.ts.",
+        "Take the p95 latency test out of tests/adversarial/chain.test.ts:235-247 and put it in scripts/bench-chain.ts, exposed as `bun run bench` in package.json; it prints p95 and exits 0, never a gate.",
+        "CI: in .github/workflows/check.yml run the suite as `bun test --parallel=1` and add platforms.yml to the actionlint list.",
+        "Delete any tests/.worktree-lifecycle-* and tests/.dirfd-probe-* folders present in this worktree (none today); list the four untracked ones in the primary checkout in the review notes for the person to remove, never delete them from here.",
+        "Run `bun test --parallel=1` twice in a row and keep both outputs as evidence."
+      ],
+      "files": [
+        "tests/test-hygiene.spec.ts",
+        "tests/worktree-lifecycle.spec.ts",
+        "tests/uninstall-command.spec.ts",
+        "tests/floor-hooks.spec.ts",
+        "tests/receipts-retention.spec.ts",
+        "tests/receipts-summary.spec.ts",
+        "tests/doctor-command.spec.ts",
+        "tests/adversarial/chain.test.ts",
+        "src/floor/entry.ts",
+        "src/receipts.ts",
+        "src/commands/doctor.ts",
+        "src/chain/mod.ts",
+        "scripts/bench-chain.ts",
+        "package.json",
+        ".github/workflows/check.yml",
+        "LEARNINGS.md"
+      ],
+      "acceptance": [
+        "The test that made the serial suite fail is named with its cause and fixed, or logged in LEARNINGS.md with the reason it is external.",
+        "F7: a green pre-commit prints 0 lines and does not read the receipts folder, even with thousands of receipts present.",
+        "Receipts stay bounded after N writes; retention runs on its own at most once a day, in bounded batches, and never from the git pre-commit hook.",
+        "No suite creates a folder under tests/; environment variables and cwd are restored after every suite that changes them.",
+        "The p95 latency check is `bun run bench`, outside the test gate.",
+        "CI runs `bun test --parallel=1` and actionlint validates platforms.yml.",
+        "`bun test --parallel=1` passes twice in a row."
+      ],
+      "verify": [
+        "grep -qF \"bun test --parallel=1\" .github/workflows/check.yml",
+        "sh -c 'grep actionlint .github/workflows/check.yml | grep -q platforms'",
+        "bun test tests/test-hygiene.spec.ts",
+        "bun test tests/floor-hooks.spec.ts",
+        "bun test tests/receipts-retention.spec.ts",
+        "bun test tests/receipts-summary.spec.ts",
+        "bun test tests/uninstall-command.spec.ts",
+        "bun test tests/worktree-lifecycle.spec.ts",
+        "bun test tests/doctor-command.spec.ts",
+        "bun test tests/adversarial/chain.test.ts",
+        "bun run bench",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Delete the workspace hub and add the ceremony contract test",
+      "simple": "Remove the local web panel",
+      "size": "m",
+      "goal": "The workspace hub, its server, UI, template and tests are gone, `ai-eng workspace` is an unknown verb, and a ceremony contract test proves every piece ai-orchestrator cites exists and ships in the canon.",
+      "plain": {
+        "what": "Nothing runs in the background any more, and the build-by-steps process is checked as complete.",
+        "why": "A background panel is upkeep forever and duplicates what editors already show.",
+        "check": "Ask for the old panel and get a clear 'unknown' answer."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "Tests first in tests/cli-ux.test.ts: `ai-eng workspace` exits 2 with `unknown verb`, `ai-eng --help` does not list it, and ALL_VERBS in src/shared-verbs.ts does not contain it.",
+        "Tests first: add tests/ceremony-contract.spec.ts that reads skills/ai-orchestrator/SKILL.md and every SKILL.md it invokes, extracts each cited skill, agent, script and template, and fails if any is missing from the repository or from the embedded canon that init installs (src/assets.ts); the list is derived from the skill text at test time, never hard-coded. It stays green from here to CP12.",
+        "Delete src/workspace/ (api.ts, discovery.ts, folder-picker.ts, instance.ts, server.ts, settings.ts, status.ts, ui.ts), src/commands/workspace.ts, templates/workspace.html.tpl and tests/workspace-command.spec.ts, tests/workspace-discovery.spec.ts, tests/workspace-server.spec.ts, tests/workspace-settings.spec.ts, tests/workspace-ui.spec.ts.",
+        "Remove the workspace import, case, help line and the `serve` boolean flag from src/cli.ts, and `workspace` from ALL_VERBS in src/shared-verbs.ts.",
+        "Remove the `workspace` layer from .ai-engineering/arch.rules.json (the arch test requires every layer glob to match a real directory).",
+        "Regenerate src/assets.ts with `bun scripts/gen-assets.ts` so templates/workspace.html.tpl is no longer embedded.",
+        "Drop workspace mentions from scripts/readme-diagrams.ts and README.md; update PERMISSIONS.md (no endpoints remain) and FILEMAP.md."
+      ],
+      "files": [
+        "tests/cli-ux.test.ts",
+        "tests/ceremony-contract.spec.ts",
+        "src/workspace/",
+        "src/commands/workspace.ts",
+        "src/cli.ts",
+        "src/shared-verbs.ts",
+        "src/assets.ts",
+        "templates/workspace.html.tpl",
+        "tests/workspace-command.spec.ts",
+        "tests/workspace-discovery.spec.ts",
+        "tests/workspace-server.spec.ts",
+        "tests/workspace-settings.spec.ts",
+        "tests/workspace-ui.spec.ts",
+        ".ai-engineering/arch.rules.json",
+        "scripts/readme-diagrams.ts",
+        "README.md",
+        "PERMISSIONS.md",
+        "FILEMAP.md"
+      ],
+      "acceptance": [
+        "No `Bun.serve` anywhere in src/.",
+        "`ai-eng workspace` is an unknown verb and `--help` does not list it.",
+        "The ceremony contract test passes: every skill, agent, script and template cited by ai-orchestrator exists and is embedded.",
+        "The duplicate lifecycle validator in src/workspace/status.ts is gone.",
+        "Arch test green with the workspace layer removed."
+      ],
+      "verify": [
+        "bun test tests/cli-ux.test.ts",
+        "bun test tests/ceremony-contract.spec.ts",
+        "bun test tests/generated-payload.test.ts",
+        "sh -c '! grep -rn \"Bun.serve\" src'",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Add one Git runner and one Git context resolver",
+      "simple": "Detect the right base branch",
+      "size": "s",
+      "goal": "src/git/run.ts is the single Git runner and resolveContext(cwd) in src/git/context.ts returns root, current branch or detached, linked-worktree flag, base and where the base came from, following the 6.7 order.",
+      "plain": {
+        "what": "The system knows which branch you are on and which branch your work should go to.",
+        "why": "Without it, teams whose main branch is not 'main' get refused or sent to the wrong place.",
+        "check": "Nothing to see yet, behind the scenes."
+      },
+      "builds_on": [2],
+      "tasks": [
+        "Tests first: add tests/git-context.spec.ts as a case table over real temp repos under os.tmpdir() with GIT_CONFIG_GLOBAL/GIT_CONFIG_SYSTEM isolated: normal checkout; linked worktree; detached HEAD reported as detached (S16); repo with no remote resolves base from `[git] base` or asks (S15); explicit base beats config and remote (S6); `refs/remotes/origin/HEAD` pointing at develop gives base develop (S7); base equal to the current branch asks once (S18); upstream remote preferred over origin. Each case first proves its fixture premise (branch, HEAD, remote HEAD) before asserting the result (R5).",
+        "Create src/git/run.ts: one runner taking cwd, an optional isolated env (no global/system config), and returning stdout, stderr and status.",
+        "Create src/git/context.ts with resolveContext(cwd, { explicitBase? }) implementing 6.7 steps 1, 2, 3 and 5 (explicit, `[git] base`, `git symbolic-ref --quiet refs/remotes/<remote>/HEAD`, else ask); the forge step stays in ai-pr. Return baseSource as explicit | config | remote-head | ask; never a literal main.",
+        "Read the optional `[git] base` and `[git] worktrees_dir` keys through loadConfig in src/env.ts and document them commented-out in templates/config.toml.tpl.",
+        "Add layer \"git\": \"src/git/**\" and the rule `{ from: git, mayNotImport: commands,cli,chain,guards }` to .ai-engineering/arch.rules.json.",
+        "Regenerate src/assets.ts with `bun scripts/gen-assets.ts` after the template edit."
+      ],
+      "files": [
+        "tests/git-context.spec.ts",
+        "src/git/run.ts",
+        "src/git/context.ts",
+        "src/env.ts",
+        "templates/config.toml.tpl",
+        "src/assets.ts",
+        ".ai-engineering/arch.rules.json"
+      ],
+      "acceptance": [
+        "resolveContext covers checkout, linked worktree, detached HEAD, no remote and explicit base.",
+        "S6: an explicit base wins over the detected one.",
+        "S7: origin/HEAD pointing at develop yields base develop with source remote-head.",
+        "S15: with no remote the base comes from config or the result says ask.",
+        "S16: detached HEAD is reported as detached, never as unknown or as a branch.",
+        "S18: base equal to the current branch yields ask.",
+        "No network access and no literal main in src/git/."
+      ],
+      "verify": [
+        "bun test tests/git-context.spec.ts",
+        "bun test tests/generated-payload.test.ts",
+        "sh -c '! grep -rnE \"refs/heads/main|origin/main\" src/git'",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Make src/workflow/checkpoint.ts the single checkpoint state module",
+      "simple": "Keep one record of progress",
+      "size": "m",
+      "goal": "One TypeScript module owns the checkpoint JSON schema, phases, transitions, the legacy reviewed_main reading and the brainstorm approval parser, and it is the only code in src/ that reads the checkpoint JSON.",
+      "plain": {
+        "what": "Progress on a feature is kept in one place and read the same way everywhere.",
+        "why": "Today four checkers disagree about the same progress, so work gets refused for no reason.",
+        "check": "Nothing to see yet, behind the scenes."
+      },
+      "builds_on": [3],
+      "tasks": [
+        "Tests first: add tests/workflow-checkpoint.spec.ts with one row per current phase (implementation, blocked, awaiting-app-review, ready-to-merge) and per legacy shape (awaiting-plan-approval kept for old plans, complete read as ready-to-merge, approval-before-start ignored, reviewed_main read as reviewed_base with base_ref = detected base) (S12); a write saves the new names; valid and invalid transitions from 6.5 (request-changes back to implementation clears SHAs, approval to ready-to-merge, lost CAS invalidates review, blocked keeps earlier approvals); schema errors and slug/file mismatch (G1); abbreviated or unknown SHAs refused (G6); brainstorm approval meta parsing (ai-feature, ai-approved within 14 days, matching `complete ·` line) with an injected clock.",
+        "Create src/workflow/checkpoint.ts: schema of 6.5, phases, transitions, legacy reader and writer, brainstorm approval parser; use src/git/context.ts and src/git/run.ts for base and SHA checks.",
+        "Adopt it in src/shared-worktree.ts: replace the in-file lifecycle validator (around lines 636-710) and its brainstorm approval parsing with calls to the module.",
+        "Add layer \"workflow\": \"src/workflow/**\" and the rule `{ from: workflow, mayNotImport: commands,cli,chain }` to .ai-engineering/arch.rules.json, and an explicit assertion in tests/arch.spec.ts that only src/workflow/checkpoint.ts reads `.ai-engineering/workflow/checkpoints` files in src/."
+      ],
+      "files": [
+        "tests/workflow-checkpoint.spec.ts",
+        "src/workflow/checkpoint.ts",
+        "src/shared-worktree.ts",
+        ".ai-engineering/arch.rules.json",
+        "tests/arch.spec.ts",
+        "tests/worktree-command.spec.ts",
+        "tests/worktree-lifecycle.spec.ts"
+      ],
+      "acceptance": [
+        "S12: an old checkpoint JSON with awaiting-app-review and reviewed_main is read and translated; the next write stores reviewed_base and base_ref.",
+        "Every phase and every transition of 6.5 has a passing and a refusing case.",
+        "The arch test proves a single reader of the checkpoint JSON in src/.",
+        "Existing worktree merge and request-changes tests still pass on the shared module."
+      ],
+      "verify": [
+        "bun test tests/workflow-checkpoint.spec.ts",
+        "bun test tests/worktree-command.spec.ts",
+        "bun test tests/worktree-lifecycle.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "title": "Port the checkpoint gate to a TypeScript guard in the chain",
+      "simple": "Enforce step order without Python",
+      "size": "xl",
+      "goal": "src/guards/checkpoint.ts enforces rules G1-G8 inside the chain for Write, Edit, Task/Agent, Bash and Stop, every case of tests/test_checkpoint_gate.py is ported as a table, plans are accepted outside a managed worktree, and no carrier calls python3.",
+      "plain": {
+        "what": "The step-by-step order is still enforced, now also in your normal folder, with one tool.",
+        "why": "Today the order checker needs a second language and refuses work outside a separate copy.",
+        "check": "Nothing to see yet, behind the scenes."
+      },
+      "builds_on": [4],
+      "tasks": [
+        "Tests first: add tests/checkpoint-guard.spec.ts porting every case of tests/test_checkpoint_gate.py as table rows grouped by G1-G8 (schema and slug, first-plan brainstorm approval, checkpoint order, stage and gate order, passed only with closed gates, lifecycle transitions and full SHAs descending from the base, shell writes to the JSON via redirection/sed -i/tee/cp/mv, Stop with an open checkpoint and no halted plus the same consecutive-block limit). Invert the managed-worktree cases: a plan in a normal checkout is accepted (S3). Add S4 (ui gate and ui marker accepted outside a worktree), Stop with and without halted, an unreadable JSON denying with reason and path, allow without reading outside the three triggers, and S13 (ungoverned repo: no action, no receipt).",
+        "Create src/guards/checkpoint.ts on top of src/workflow/checkpoint.ts and src/git/context.ts (the base replaces local main in G6); refusals name the checkpoint, the gate and the next step (6.6).",
+        "Wire it in src/chain/mod.ts TABLE: PreToolUse rows for Write|Edit|MultiEdit, Task|Agent and Bash, and a new Stop event row; add the Stop verdict shape per harness in src/chain/dialect.ts.",
+        "Carriers: remove the python3 checkpoint-gate entries and wire the Stop event where the harness emits it in templates/settings.claude.json.tpl, templates/settings.codex.json.tpl, templates/settings.copilot.json.tpl, templates/settings.copilot.cli.json.tpl, templates/settings.cursor.json.tpl, templates/plugin.omp.ts.tpl, templates/plugin.opencode.ts.tpl, templates/plugin.pi.ts.tpl; record in src/surfaces/surfaces.json which harnesses emit Stop (section 10 question 11).",
+        "Keep the checkpoint-gate.py match in the MARKER of src/install.ts so `ai-eng update` recognises and retires old Python entries; cover it in tests/carriers-install.spec.ts.",
+        "Remove the checkpoint-gate script materialization from src/embed.ts and scripts/gen-assets.ts:42; delete scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py; update tests/checkpoint-gate-carrier.spec.ts and tests/workflow-doctor-surfaces.spec.ts.",
+        "In skills/ai-orchestrator/SKILL.md change only the hook name and path (`scripts/checkpoint-gate.py`) to the TypeScript checkpoint guard; no other ceremony text changes here.",
+        "Regenerate src/assets.ts with `bun scripts/gen-assets.ts`."
+      ],
+      "files": [
+        "tests/checkpoint-guard.spec.ts",
+        "src/guards/checkpoint.ts",
+        "src/chain/mod.ts",
+        "src/chain/dialect.ts",
+        "src/surfaces/surfaces.json",
+        "src/install.ts",
+        "src/embed.ts",
+        "src/assets.ts",
+        "scripts/gen-assets.ts",
+        "scripts/checkpoint-gate.py",
+        "tests/test_checkpoint_gate.py",
+        "templates/settings.claude.json.tpl",
+        "templates/settings.codex.json.tpl",
+        "templates/settings.copilot.json.tpl",
+        "templates/settings.copilot.cli.json.tpl",
+        "templates/settings.cursor.json.tpl",
+        "templates/plugin.omp.ts.tpl",
+        "templates/plugin.opencode.ts.tpl",
+        "templates/plugin.pi.ts.tpl",
+        "tests/carriers-install.spec.ts",
+        "tests/checkpoint-gate-carrier.spec.ts",
+        "tests/workflow-doctor-surfaces.spec.ts",
+        "tests/chain-dispatch.spec.ts",
+        "tests/adversarial/governance-gate.test.ts",
+        "skills/ai-orchestrator/SKILL.md"
+      ],
+      "acceptance": [
+        "Every rule G1-G8 has passing and denying cases, ported from the Python suite.",
+        "S3: a first plan written in a normal checkout (no managed worktree) is accepted.",
+        "S4: the ui gate and ui stage marker are accepted outside a worktree.",
+        "S13: in an ungoverned repo the guard does nothing and writes nothing.",
+        "No carrier template calls python3; `ai-eng update` replaces an old Python gate entry.",
+        "The ceremony contract test stays green."
+      ],
+      "verify": [
+        "bun test tests/chain-dialect.spec.ts",
+        "bun test tests/checkpoint-guard.spec.ts",
+        "bun test tests/carriers-install.spec.ts",
+        "bun test tests/checkpoint-gate-carrier.spec.ts",
+        "bun test tests/workflow-doctor-surfaces.spec.ts",
+        "bun test tests/chain-dispatch.spec.ts",
+        "bun test tests/adversarial/governance-gate.test.ts",
+        "bun test tests/ceremony-contract.spec.ts",
+        "bun test tests/generated-payload.test.ts",
+        "sh -c '! grep -l python3 templates/settings.*.tpl templates/plugin.*.tpl'",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "Make the worktree optional and merge from any checkout",
+      "simple": "Work anywhere and merge safely",
+      "size": "xl",
+      "goal": "`ai-eng worktree new|list|merge|request-changes|rm` work from a normal checkout or a worktree against the detected base, merge keeps the reviewed-SHA compare-and-swap, only colliding paths block, and src/ has no refs/heads/main literal.",
+      "plain": {
+        "what": "You can build in your usual folder or a separate copy, and merging checks only what it changes.",
+        "why": "Today unrelated files and a forced separate copy block or strand finished work.",
+        "check": "Finish a feature in your usual folder and merge it into your team's branch."
+      },
+      "builds_on": [5],
+      "tasks": [
+        "Tests first in tests/worktree-command.spec.ts with real temp repos under os.tmpdir(), every fixture proving its premise first (R5): the 6.8 mandatory set — feature in a normal checkout (S3), feature in a worktree, merge invoked from an unrelated checkout, two candidate sources refused with both listed, base moved between review and merge loses the CAS and sends the feature back to implementation (S11, the existing race test adapted to a detected base such as develop), untracked file colliding with an incoming path refused with that path and the next command (S9), foreign untracked files that do not collide pass (S9).",
+        "Tests first for list/new/resume: `worktree list` shows only Git-registered worktrees and flags an active checkpoint of another feature in the current checkout (S5); an unregistered leftover folder is reported as not work, never as a feature (S10); `worktree new` with a dirty brainstorm.html/PRD.html creates from HEAD and warns those two files do not travel (S17); `worktree list <slug>` on a tree with the feature's own dirty files reports them as continuable and foreign files as left alone, never a refusal (S8, S9); `worktree rm` refuses an unintegrated branch naming `ai-eng worktree rm <slug> --force` and never deletes dirty work.",
+        "Create src/git/merge.ts: `--no-ff` merge of reviewed_feature onto base_ref in a detached temporary worktree, exact-parents and expected-tree checks, `git update-ref <base_ref> <merge> <reviewed_base>`, untracked collisions limited to incoming paths, then advance any checkout holding the base only if clean on those paths; never delete a worktree.",
+        "Rework src/commands/worktree.ts to the verbs new|list|merge|request-changes|rm; drop `rebase` and file hints; source resolution per 6.8 (current checkout plus Git-listed worktrees holding the slug's JSON in ready-to-merge).",
+        "Shrink src/shared-worktree.ts: remove worktreeBrainstormProjection and the pre-worktree row, file-hint manifest, dirty-slot blocking, worktreeRebase and every refs/heads/main literal; move what remains to src/git/ or src/workflow/ or delete the file.",
+        "`worktree new` takes the path from `[git] worktrees_dir` or proposes one, and the branch name given or proposed; no mandatory feat/ prefix.",
+        "In src/floor/index.ts make the pre-push protection apply to the detected base from src/git/context.ts instead of the literal refs/heads/main; cover it in tests/floor-gates.spec.ts.",
+        "Every refusal message names the exact path and a runnable next command (6.6, P8).",
+        "Fix any skill or doc line that names a removed verb or argument (`worktree rebase`, `worktree new <slug> [files...]`) with the minimal edit so the ceremony contract stays green; full skill rewrites wait for CP8."
+      ],
+      "files": [
+        "tests/worktree-command.spec.ts",
+        "tests/worktree-lifecycle.spec.ts",
+        "tests/floor-gates.spec.ts",
+        "src/git/merge.ts",
+        "src/git/context.ts",
+        "src/commands/worktree.ts",
+        "src/shared-worktree.ts",
+        "src/workflow/checkpoint.ts",
+        "src/floor/index.ts",
+        "skills/ai-orchestrator/SKILL.md",
+        "skills/ai-brainstorm/SKILL.md",
+        "FILEMAP.md"
+      ],
+      "acceptance": [
+        "S3: merge works for a feature built in a normal checkout.",
+        "S5: list shows only Git records and flags another active feature in this checkout.",
+        "S8: resume with the feature's own dirty files continues without reset or stash.",
+        "S9: foreign untracked files never block; a collision is refused with the path and next command.",
+        "S10: a leftover unregistered folder is reported as not work.",
+        "S11: base moved after review loses the CAS and invalidates the review.",
+        "S17: new worktree with dirty design slots is created and warns.",
+        "0 `refs/heads/main` literals in src/; worktree verbs are exactly new, list, merge, request-changes, rm."
+      ],
+      "verify": [
+        "bun test tests/worktree-command.spec.ts",
+        "bun test tests/worktree-lifecycle.spec.ts",
+        "bun test tests/floor-gates.spec.ts",
+        "bun test tests/floor-hooks.spec.ts",
+        "bun test tests/git-context.spec.ts",
+        "bun test tests/workflow-checkpoint.spec.ts",
+        "bun test tests/ceremony-contract.spec.ts",
+        "sh -c '! grep -rn \"refs/heads/main\" src'",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "title": "Remove platform code from the runtime and enforce the final layers",
+      "simple": "Remove leftover extras",
+      "size": "l",
+      "goal": "Dead and platform code is gone (sidecar, circuit breaker, briefing, upgrade, global templateDir, plant-workflow, checkpoint-gate-report, spec), init and update never commit, update never reads the network, wrap keeps the full output locally, and the arch test checks cycles and that every src file has exactly one layer.",
+      "plain": {
+        "what": "Setup and updates leave changes for you to review, and nothing reaches the internet during updates.",
+        "why": "Today setup commits by itself skipping checks, and unused parts cost upkeep.",
+        "check": "Run an update and see your changes waiting for review, not already saved."
+      },
+      "builds_on": [6],
+      "tasks": [
+        "Tests first: tests/init-command.spec.ts and tests/update-command.spec.ts assert HEAD is unchanged after init and update (changes left in the tree) and no git commit or --no-verify is spawned; tests/update-command.spec.ts asserts update does no network read (fetch stubbed to throw, no notice call); tests/wrap.test.ts asserts the full output is saved to `.ai-engineering/receipts/<receipt>.log`, its path is printed on the last line and the exit code is preserved (D11); tests/arch.spec.ts asserts no import cycles and that every src file belongs to exactly one layer.",
+        "Delete src/sidecar/ (sidecar.ts, shadow.ts, queue.ts) and src/guards/circuit-breaker.ts with CircuitBreaker in src/chain/mod.ts and loadCircuitBreakerConfig in src/env.ts; delete tests/sidecar.spec.ts, tests/shadow-eval.spec.ts, tests/circuit-breaker.spec.ts.",
+        "Delete src/commands/briefing.ts, src/commands/upgrade.ts and the `spec` verb with src/spec/index.ts and src/spec/triggers.ts (D4), plus tests/briefing-command.spec.ts, tests/spec-command.spec.ts, tests/spec-lifecycle.test.ts; remove them from src/cli.ts and ALL_VERBS in src/shared-verbs.ts; README says upgrade with `bun add -g ai-engineering@latest`.",
+        "Stop writing the global git init.templateDir from src/commands/init.ts and src/commands/update.ts; reduce src/floor/template.ts to the restore path src/commands/uninstall.ts needs for machines an older version configured.",
+        "Delete src/commands/plant-workflow.ts (and its call in src/commands/init-shared.ts) and src/commands/checkpoint-gate-report.ts (and its use in src/commands/doctor.ts) with tests/plant-workflow.spec.ts; doctor focuses on chain, canon, carriers and receipts.",
+        "Remove the commits at src/commands/init.ts:442 and src/commands/update.ts:292; in src/cli.ts stop calling maybeNotice() after update.",
+        "Delete summarizeBySession from src/receipts.ts and its cases in tests/receipts-summary.spec.ts.",
+        "wrap (src/wrap/index.ts) writes the full output to `.ai-engineering/receipts/<receipt>.log` and prints the path on its final line; record in src/surfaces/surfaces.json the harnesses that ignore rewrites as having no token savings (section 10 question 6).",
+        "DRY: replace the private git() helpers in src/commands/adapt.ts and src/floor/index.ts with src/git/run.ts.",
+        "Move src/chain/payload.ts to src/payload.ts and update importers so guards no longer import chain.",
+        "Apply the 6.3 arch diff in .ai-engineering/arch.rules.json: layers payload, git, workflow; drop spec and sidecar layers; guards mayNotImport chain,commands,cli; payload mayNotImport guards,chain,commands,cli,surfaces; commands mayNotImport cli; cycles enforced; make tests/arch.spec.ts really check cycles and full layer coverage.",
+        "Remove every line naming removed verbs: `spec close`/`spec approve` in skills/ai-brainstorm/SKILL.md, skills/ai-security/SKILL.md, skills/ai-stress-test/SKILL.md, AGENTS.md, templates/AGENTS.md.tpl; `ai-eng spec`/briefing/upgrade in scripts/proof-installed-ci.sh and scripts/proof-cli-ux.sh. Leave src/guards/self-protect.ts logic unchanged.",
+        "Regenerate src/assets.ts with `bun scripts/gen-assets.ts`."
+      ],
+      "files": [
+        "tests/init-command.spec.ts",
+        "tests/update-command.spec.ts",
+        "tests/wrap.test.ts",
+        "tests/arch.spec.ts",
+        "tests/receipts-summary.spec.ts",
+        "tests/doctor-command.spec.ts",
+        "tests/uninstall-command.spec.ts",
+        "tests/cli-ux.test.ts",
+        "src/sidecar/",
+        "src/guards/circuit-breaker.ts",
+        "src/chain/mod.ts",
+        "src/chain/payload.ts",
+        "src/payload.ts",
+        "src/env.ts",
+        "src/commands/briefing.ts",
+        "src/commands/upgrade.ts",
+        "src/spec/",
+        "src/floor/template.ts",
+        "src/floor/index.ts",
+        "src/commands/plant-workflow.ts",
+        "src/commands/checkpoint-gate-report.ts",
+        "src/commands/init.ts",
+        "src/commands/init-shared.ts",
+        "src/commands/update.ts",
+        "src/commands/uninstall.ts",
+        "src/commands/doctor.ts",
+        "src/commands/adapt.ts",
+        "src/cli.ts",
+        "src/shared-verbs.ts",
+        "src/receipts.ts",
+        "src/wrap/index.ts",
+        "src/surfaces/surfaces.json",
+        "src/assets.ts",
+        ".ai-engineering/arch.rules.json",
+        "skills/ai-brainstorm/SKILL.md",
+        "skills/ai-security/SKILL.md",
+        "skills/ai-stress-test/SKILL.md",
+        "AGENTS.md",
+        "templates/AGENTS.md.tpl",
+        "scripts/proof-installed-ci.sh",
+        "scripts/proof-cli-ux.sh",
+        "README.md"
+      ],
+      "acceptance": [
+        "init and update create no commit and never use --no-verify; changes wait for the person.",
+        "update performs no network read.",
+        "wrap keeps the exit code, shows only failures and prints the path of the full local log (D11).",
+        "briefing, upgrade and spec are unknown verbs; sidecar, circuit breaker, plant-workflow and global templateDir code is gone.",
+        "The arch test checks cycles and that every src file has exactly one layer, with the 6.3 rules."
+      ],
+      "verify": [
+        "sh -c '! grep -rnE \"ai-eng (spec|briefing|upgrade)([^a-z-]|$)\" skills scripts AGENTS.md templates/AGENTS.md.tpl'",
+        "bun test tests/init-command.spec.ts",
+        "bun test tests/update-command.spec.ts",
+        "bun test tests/wrap.test.ts",
+        "bun test tests/doctor-command.spec.ts",
+        "bun test tests/uninstall-command.spec.ts",
+        "bun test tests/cli-ux.test.ts",
+        "bun test tests/receipts-summary.spec.ts",
+        "bun test tests/ceremony-contract.spec.ts",
+        "bun test tests/generated-payload.test.ts",
+        "sh -c '! grep -rn -- \"--no-verify\" src/commands'",
+        "sh scripts/proof-cli-ux.sh",
+        "bun run build",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "title": "Rewrite the flow skills and the AGENTS.md contract for where-to-work",
+      "simple": "Update the working instructions",
+      "size": "l",
+      "goal": "The flow skills, the checkpoint-planner agent and AGENTS.md describe working in the current checkout or a worktree, the detected base and the three closings, with a skill schema lint replacing phrase tests and no main literals or mandatory feat/ in skills and templates.",
+      "plain": {
+        "what": "The assistant's instructions match the new way: small fixes go straight through, big features get steps.",
+        "why": "Old instructions would keep forcing separate copies and the 'main' branch.",
+        "check": "Ask for a one-line fix and see it done without planning documents."
+      },
+      "builds_on": [7],
+      "tasks": [
+        "Tests first: add tests/skills-lint.spec.ts linting every skills/*/SKILL.md (frontmatter name and description, a `## Lifecycle` block, relative links that resolve) and asserting 0 `refs/heads/main`/`origin/main` literals and no mandatory `feat/` in skills/ and templates/; extend tests/agents-md-sections.spec.ts so AGENTS.md's 'Where to work' section equals the one in templates/AGENTS.md.tpl.",
+        "skills/ai-orchestrator/SKILL.md: work in the current checkout by default, worktree when asked or another feature is active here (D1), native harness worktree first; resume continues the feature's own changes and leaves foreign files alone (S8); Phase 3 rebases with `git rebase <detected base>`; closing offers local merge, PR or keep the branch, recommending PR with a remote forge and local merge otherwise (D9); Direct rhythm has no brainstorm or worktree step (S1). Phases, gates, agents, stops, re-plan and circuit breaker stay as today (D6, D7).",
+        "skills/ai-brainstorm/SKILL.md: drop the duplicated worktree preflight; approval commits only brainstorm.html and PRD.html by explicit path; a spike writes no slots (S2).",
+        "skills/ai-pr/SKILL.md down to about 90 lines: PR from the current branch in a checkout or worktree; base per 6.7 including the forge step (`gh repo view --json defaultBranchRef`, `az repos show --query defaultBranch`); `gh pr create` or `az repos pr create` with no hard-coded target (S7, S6); no remote means local merge or ask (S15); base equal to current asks once (S18); foreign branches and optional files never block.",
+        "skills/ai-git-cleanup/SKILL.md down to about 40 lines: native Git preview, no forced delete by default.",
+        "skills/ai-adversarial-loop/SKILL.md and skills/ai-test-planner/SKILL.md: location wording only, behaviour unchanged.",
+        "agents/checkpoint-planner.md: first write uses reviewed_base and base_ref instead of reviewed_main.",
+        "Remove main literals from skills/ai-verify/tiers/3-chain/_support/review/CONVENTIONS.md and skills/ai-verify/tiers/1-standalone/verify-feature/SKILL.md.",
+        "AGENTS.md and templates/AGENTS.md.tpl: replace the Git workflow section with the short 'Where to work' section of 6.4 and a Lifecycle text without spec verbs; templates/gitignore.tpl adds `.ai-engineering/workflow/playwright/` and stops naming spec/.",
+        "Keep the orchestrator phase and gate assertions in tests/skills.spec.ts and tests/workflow-handoff.spec.ts green; regenerate src/assets.ts."
+      ],
+      "files": [
+        "tests/skills-lint.spec.ts",
+        "tests/agents-md-sections.spec.ts",
+        "tests/skills.spec.ts",
+        "tests/workflow-handoff.spec.ts",
+        "tests/ai-pr.spec.ts",
+        "tests/git-cleanup-pass.spec.ts",
+        "skills/ai-orchestrator/SKILL.md",
+        "skills/ai-brainstorm/SKILL.md",
+        "skills/ai-pr/SKILL.md",
+        "skills/ai-git-cleanup/SKILL.md",
+        "skills/ai-adversarial-loop/SKILL.md",
+        "skills/ai-test-planner/SKILL.md",
+        "skills/ai-verify/tiers/3-chain/_support/review/CONVENTIONS.md",
+        "skills/ai-verify/tiers/1-standalone/verify-feature/SKILL.md",
+        "agents/checkpoint-planner.md",
+        "AGENTS.md",
+        "templates/AGENTS.md.tpl",
+        "templates/gitignore.tpl",
+        "src/assets.ts"
+      ],
+      "acceptance": [
+        "S1: the Direct rhythm has no brainstorm or worktree step.",
+        "S2: a spike writes no design slots.",
+        "S7: ai-pr reads origin/HEAD or the forge default and uses `az repos pr create` without a hard-coded target; S6, S15 and S18 are described for the PR path.",
+        "0 `origin/main`/`refs/heads/main` literals and no mandatory `feat/` in skills/ and templates/.",
+        "AGENTS.md 'Where to work' matches the template; the ceremony contract and orchestrator phase/gate assertions stay green."
+      ],
+      "verify": [
+        "bun test tests/init-command.spec.ts",
+        "bun test tests/skills-lint.spec.ts",
+        "bun test tests/agents-md-sections.spec.ts",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/ai-pr.spec.ts",
+        "bun test tests/git-cleanup-pass.spec.ts",
+        "bun test tests/agents-canon.spec.ts",
+        "bun test tests/ceremony-contract.spec.ts",
+        "bun test tests/generated-payload.test.ts",
+        "sh -c '! grep -rnE \"refs/heads/main|origin/main\" src skills templates'",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 9,
+      "title": "Split the canon into 23 core skills and opt-in packs",
+      "simple": "Install only the essentials",
+      "size": "l",
+      "goal": "init without packs installs the 23 core skills and every ceremony agent, six specialist skills plus the ai-verify tiers live in packs/ and install only when chosen, ai-code-review is merged into ai-verify, update keeps every pack for existing installs and uninstall removes packs.",
+      "plain": {
+        "what": "A fresh setup installs only the essentials; extra specialist tools are added when you choose them.",
+        "why": "Loading every specialist tool in every session wastes the assistant's attention.",
+        "check": "Set up a new project and count the tools installed by default."
+      },
+      "builds_on": [8],
+      "tasks": [
+        "Tests first: tests/init-command.spec.ts asserts `init --yes` and non-TTY write `packs = []` and install exactly the 23 core skills and every agent the ceremony cites, and interactive init asks with nothing preselected; tests/ceremony-contract.spec.ts runs with packs off; tests/update-command.spec.ts asserts the first update of an install without `[canon] packs` writes all six packs and removes nothing, with local edits still protected by the lock hashes; tests/uninstall-command.spec.ts asserts installed packs are removed; tests/embed-canon.spec.ts covers packs embedded apart from core.",
+        "Move skills/ai-triage, skills/ai-design-md-planner, skills/ai-audit-design, skills/ai-visual-recap, skills/ai-writing-behavior, skills/ai-stress-test to packs/<name>/, and skills/ai-verify/tiers and evals to packs/verify-tiers/, keeping the 54-line ai-verify router in core; move, never delete content.",
+        "Merge skills/ai-code-review into skills/ai-verify and remove the separate skill.",
+        "scripts/gen-assets.ts walks packs/; src/embed.ts and src/install.ts tell core from pack; src/surfaces/adapters.ts installs core plus the selected packs; src/commands/init.ts, src/commands/config.ts, src/commands/update.ts and src/commands/uninstall.ts read and write `[canon] packs` via src/env.ts; document it in templates/config.toml.tpl; add packs to `files` in package.json.",
+        "Repoint tests that read moved skills (tests/triage-*.spec.ts, tests/skills-eval-score.spec.ts, tests/skills.spec.ts) to packs/ paths; update FILEMAP.md; regenerate src/assets.ts."
+      ],
+      "files": [
+        "tests/init-command.spec.ts",
+        "tests/update-command.spec.ts",
+        "tests/uninstall-command.spec.ts",
+        "tests/ceremony-contract.spec.ts",
+        "tests/embed-canon.spec.ts",
+        "tests/agents-canon.spec.ts",
+        "tests/npm-manifest.spec.ts",
+        "tests/skills-eval-score.spec.ts",
+        "tests/skills.spec.ts",
+        "packs/",
+        "skills/ai-verify/",
+        "skills/ai-code-review/",
+        "scripts/gen-assets.ts",
+        "src/embed.ts",
+        "src/install.ts",
+        "src/surfaces/adapters.ts",
+        "src/commands/init.ts",
+        "src/commands/config.ts",
+        "src/commands/update.ts",
+        "src/commands/uninstall.ts",
+        "src/env.ts",
+        "src/assets.ts",
+        "templates/config.toml.tpl",
+        "package.json",
+        "FILEMAP.md"
+      ],
+      "acceptance": [
+        "init without packs installs 23 skills and every ceremony agent; the ceremony contract passes without packs.",
+        "ai-code-review is merged into ai-verify; the full ceremony stays in core.",
+        "The first update of an existing install keeps every pack; uninstall removes packs.",
+        "Pack content is moved, not deleted."
+      ],
+      "verify": [
+        "bun test tests/skills-eval-score.spec.ts",
+        "bun test tests/triage-",
+        "bun test tests/init-command.spec.ts",
+        "bun test tests/update-command.spec.ts",
+        "bun test tests/uninstall-command.spec.ts",
+        "bun test tests/ceremony-contract.spec.ts",
+        "bun test tests/embed-canon.spec.ts",
+        "bun test tests/agents-canon.spec.ts",
+        "bun test tests/carriers-install.spec.ts",
+        "bun test tests/npm-manifest.spec.ts",
+        "bun test tests/generated-payload.test.ts",
+        "bun run build",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 10,
+      "title": "Consolidate tests and CI",
+      "simple": "Speed up the safety checks",
+      "size": "m",
+      "goal": "Phrase-checking tests and duplicated real-Git cases are removed while S11 and the orchestrator phase/gate assertions stay, the serial suite runs under 2 minutes twice in a row, mutation runs once per PR and the 3-OS matrix stays.",
+      "plain": {
+        "what": "The built-in checks finish in under two minutes and run once per change request.",
+        "why": "Slow, duplicated checks waste time and get skipped.",
+        "check": "Nothing to see yet, behind the scenes."
+      },
+      "builds_on": [9],
+      "tasks": [
+        "No new tests: delete phrase assertions in tests/skills.spec.ts, tests/workflow-handoff.spec.ts and tests/ai-pr.spec.ts now covered by tests/skills-lint.spec.ts and tests/ceremony-contract.spec.ts, keeping every orchestrator phase and gate assertion.",
+        "Collapse duplicated real-Git cases across tests/worktree-command.spec.ts and tests/worktree-lifecycle.spec.ts, keeping the S11 race test and the 6.8 mandatory merge cases.",
+        ".github/workflows/mutation.yml: one mutation campaign per PR (today two run).",
+        ".github/workflows/check.yml: the Sonar job reuses the coverage of the check run instead of running the suite again.",
+        ".github/workflows/platforms.yml: keep the 3-OS matrix green (S14); paths built with node:path."
+      ],
+      "files": [
+        "tests/skills.spec.ts",
+        "tests/workflow-handoff.spec.ts",
+        "tests/ai-pr.spec.ts",
+        "tests/worktree-command.spec.ts",
+        "tests/worktree-lifecycle.spec.ts",
+        ".github/workflows/mutation.yml",
+        ".github/workflows/check.yml",
+        ".github/workflows/platforms.yml"
+      ],
+      "acceptance": [
+        "The serial suite passes twice in a row, each run under 2 minutes.",
+        "S11 and the orchestrator phase/gate assertions are kept.",
+        "One mutation campaign per PR; Sonar reuses the check run's coverage.",
+        "S14: the 3-OS matrix in platforms.yml stays and passes."
+      ],
+      "verify": [
+        "bun test tests/ai-pr.spec.ts",
+        "grep -qF \"os: [ubuntu-latest, macos-latest, windows-latest]\" .github/workflows/platforms.yml",
+        "bun test tests/skills.spec.ts",
+        "bun test tests/workflow-handoff.spec.ts",
+        "bun test tests/worktree-command.spec.ts",
+        "bun test tests/worktree-lifecycle.spec.ts",
+        "bun test tests/ceremony-contract.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "sh -c 'start=$(date +%s); bun test --parallel=1 && [ $(( $(date +%s) - start )) -lt 120 ]'",
+        "sh -c 'start=$(date +%s); bun test --parallel=1 && [ $(( $(date +%s) - start )) -lt 120 ]'"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 11,
+      "title": "Add token budgets with a test and a tokens script",
+      "simple": "Keep the assistant's reading light",
+      "size": "m",
+      "goal": "A dependency-free `bun run tokens` (bytes/4) and a budget test keep core skill frontmatter at or under 2,500 tokens, the AGENTS.md template at or under 1,200, hook output at 0 lines on green and at most 3 on deny, with the ceremony behaviour unchanged.",
+      "plain": {
+        "what": "The assistant reads less boilerplate every session and hears nothing when all is well.",
+        "why": "Every extra word costs time and money in every session.",
+        "check": "Run the token count and see every budget within its limit."
+      },
+      "builds_on": [10],
+      "tasks": [
+        "Tests first: add tests/token-budget.spec.ts asserting core skill frontmatter totals at most 2,500 tokens (bytes/4), templates/AGENTS.md.tpl at most 1,200, chain allow and green `ai-eng git pre-commit|commit-msg|pre-push` print 0 lines, and each chain or floor deny prints at most 3 lines.",
+        "Add scripts/tokens.ts (bytes/4, no dependencies) and a `tokens` script in package.json that prints the same numbers the test checks.",
+        "Shorten the frontmatter descriptions in skills/*/SKILL.md and the prose of templates/AGENTS.md.tpl (and the matching AGENTS.md section) until the budgets pass; shorten ceremony prose without changing behaviour.",
+        "Trim deny output in src/chain/dialect.ts and src/floor/entry.ts to at most 3 lines without hiding the reason or the exit code.",
+        "Regenerate src/assets.ts."
+      ],
+      "files": [
+        "tests/token-budget.spec.ts",
+        "scripts/tokens.ts",
+        "package.json",
+        "skills/",
+        "templates/AGENTS.md.tpl",
+        "AGENTS.md",
+        "src/chain/dialect.ts",
+        "src/floor/entry.ts",
+        "src/assets.ts"
+      ],
+      "acceptance": [
+        "Core skill frontmatter at or under 2,500 tokens; AGENTS.md template at or under 1,200.",
+        "Hooks print 0 lines on green and at most 3 on deny, keeping exit codes and reasons.",
+        "The ceremony contract, skills lint and 'Where to work' match stay green."
+      ],
+      "verify": [
+        "bun test tests/token-budget.spec.ts",
+        "bun run tokens",
+        "bun test tests/ceremony-contract.spec.ts",
+        "bun test tests/skills-lint.spec.ts",
+        "bun test tests/agents-md-sections.spec.ts",
+        "bun test tests/floor-hooks.spec.ts",
+        "bun test tests/chain-deny-tool.spec.ts",
+        "bun test tests/generated-payload.test.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 12,
+      "title": "Fix docs and promises, and ship as 3.0.0",
+      "simple": "Update the guides and version",
+      "size": "m",
+      "goal": "Every command cited in docs exists in the CLI, the critical doc findings are fixed, the promise table has no broken rows, and a major changeset plus a 3.0 migration guide ship.",
+      "plain": {
+        "what": "The guides and website claims match what the tool really does, with an upgrade guide.",
+        "why": "Docs that promise missing commands mislead people and break trust.",
+        "check": "Read the upgrade guide and follow it on an existing project."
+      },
+      "builds_on": [11],
+      "tasks": [
+        "Tests first: add tests/docs-lint.spec.ts asserting every `ai-eng <verb>` cited in README.md, CONTRIBUTING.md, SECURITY.md, PERMISSIONS.md, NOTICE.md, docs/, skills/ and templates/ is in ALL_VERBS of src/shared-verbs.ts (derived from the CLI, not a copied list) and relative links resolve.",
+        "Fix the criticals: docs/blueprint.html:366 (`ai-eng recap`), docs/recap.html:1251 (`ai-eng complete`), NOTICE.md:16 (404 link); and the warnings SECURITY.md:28-29 (5 protective guards + 1 prompt guard + token savings in the same hook), PERMISSIONS.md:5-7, CONTRIBUTING.md:40-42.",
+        "README.md: promise table where every row holds or is rewritten (D8: one package, no service); wrap described as token savings apart from protection guards; packs and where-to-work explained.",
+        "CHANGELOG.md: 3.0 migration guide (removed verbs workspace, briefing, upgrade, spec, worktree rebase; reviewed_main to reviewed_base; packs; no auto-commit); add a major changeset in .changeset/; update FILEMAP.md and docs/global-carriers.md.",
+        "Run /ai-audit-docs and record 0 critical findings; run the full S1-S18 set and the serial suite twice as final evidence."
+      ],
+      "files": [
+        "tests/docs-lint.spec.ts",
+        "README.md",
+        "CONTRIBUTING.md",
+        "SECURITY.md",
+        "PERMISSIONS.md",
+        "NOTICE.md",
+        "docs/blueprint.html",
+        "docs/recap.html",
+        "docs/global-carriers.md",
+        "FILEMAP.md",
+        "CHANGELOG.md",
+        ".changeset/"
+      ],
+      "acceptance": [
+        "Every command cited in docs exists in the CLI.",
+        "0 critical findings in /ai-audit-docs.",
+        "The promise table has no broken rows.",
+        "A major changeset and a 3.0 migration guide exist.",
+        "All 18 cases (S1-S18) have green tests and the serial suite passes twice in a row."
+      ],
+      "verify": [
+        "bun test tests/docs-lint.spec.ts",
+        "bun test tests/npm-manifest.spec.ts",
+        "bun test tests/ceremony-contract.spec.ts",
+        "bun run build",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    }
+  ],
+  "assumptions": [
+    "The leftover test folders exist only in the main copy, which this build may not touch; step 1 proves no check creates them and lists them for the person to delete. [AGENTS.md Git workflow; P9; `ls -a tests` shows none in the worktree, four in the primary checkout]",
+    "Receipt cleanup runs from the agent hook, never from the save hook, and deletes a limited batch each time so nothing waits minutes. [5.1 metrics; F7; P5 no detached spawn; src/commands/doctor.ts gcReceipts]",
+    "This repository's own hook settings keep calling the installed Python checker until the release update, because it guards this very build. [section 08 Arranque; .github/hooks/ai-eng.json:12; .cursor/hooks.json:15]",
+    "The installer still recognises the old Python checker line so an update can remove it cleanly. [src/install.ts:47 MARKER; section 08 Compatibilidad]",
+    "When a step removes a command, it also fixes every instruction naming it, so nothing is left half-wired; full rewrites stay in steps 8 and 12. [agent rule 'every checkpoint shippable'; ceremony contract test from CP2]",
+    "The push block on 'main' becomes a block on the detected base branch, same intent. [src/floor/index.ts:178; 5.1 '0 literals'; P3]",
+    "Uninstall still restores the global Git setting an older version wrote, even after setup stops writing it. [src/commands/uninstall.ts:234; section 08 never lose user state]",
+    "Removing the spec command leaves the self-protection guard logic unchanged. [section 09 out of scope; src/guards/self-protect.ts:39 specPinned]",
+    "No new command is added for base detection; the pull-request skill follows the documented order with git, gh and az. [6.10 CLI final verb list]",
+    "The ai-verify tiers pack is named verify-tiers. [D5 names six packs plus 'the ai-verify tiers' without a name]",
+    "This plan uses the old reviewed_main field because the installed checker guarding this build requires it; step 4 reads it as reviewed_base. [scripts/checkpoint-gate.py lifecycle_shape_error; 6.5 compatibility]",
+    "New code layers git and workflow get their architecture entries in the step that creates them; the rest of the layer change lands in step 7. [tests/arch.spec.ts requires every layer glob to match a real directory]",
+    "Step 10 times the full check run against two minutes because 5.1 sets that target explicitly; elsewhere speed is never a pass condition. [5.1 Suite en serie; 5.3]",
+    "Workflow-file schema checks (actionlint) are proven in CI, not locally, because the tool is downloaded by the toolchain script. [.github/workflows/check.yml; scripts/toolchain.sh; actionlint not on PATH]",
+    "Plan text is in English, the repository's working language, although the brainstorm is in Spanish. [AGENTS.md; existing plans in .ai-engineering/workflow/checkpoints/]"
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "Twelve checkpoints, not 3-7, and sizes do not grow monotonically (CP3 s after CP2 m; CP10-CP12 m after l/xl): the approved brainstorm section 11 fixes count, order and scope, and each is sized honestly.",
+    "Dependency order honoured: 1 before all; 2 before 4; 3 and 4 before 5 and 6; 5 before 8; 9 after 8; 11 after 9; 10 and 12 at the end. builds_on is linear per the plan format.",
+    "UI gate is n/a in every checkpoint: no product UI. The static checkpoint viewer stays unchanged as ceremony.",
+    "Case map: S1, S2 -> CP8; S3 -> CP5 and CP6; S4, S13 -> CP5; S5, S8, S9, S10, S11, S17 -> CP6; S6, S7, S15, S16, S18 -> CP3 (PR side in CP8); S12 -> CP4; S14 -> CP10; F7 -> CP1.",
+    "Ceremony protected: no checkpoint changes phases, gates, agents, stops, prototypes, UI gate, adversarial review, viewer or wrap-up triggers beyond working without a worktree and with a detected base (P10, D6, D7).",
+    "D2 already executed (archive tag exists); the archived branch is not integrated. D3: wrap stays as token savings.",
+    "After release, run `ai-eng update` in this repository so its own carriers drop the Python checker entry.",
+    "Deferred: token-economy feature and the rtk + caveman benchmark (question 7); PRs on forges other than GitHub and Azure DevOps; questions 4, 5, 8, 9 and 10 are research, not tasks. Check question 8 (repos depending on workspace, briefing, upgrade, spec) before publishing 3.0.0.",
+    "Before the merge, the person removes the four untracked leftover folders under tests/ in the primary checkout (tests/.dirfd-probe-43993 and tests/.worktree-lifecycle-*)."
+  ]
+}
