@@ -1632,37 +1632,39 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
   });
 });
 
-describe("ai-orchestrator worktree lifecycle awareness (checkpoint 1)", () => {
-  test("uses exact local worktree identity and treats near-matches as advisory", () => {
+describe("ai-orchestrator checkout lifecycle awareness", () => {
+  test("uses exact feature identity while keeping worktrees optional", () => {
     const preflightStart = orchestratorSkill.indexOf("## Phase 0: Preflight");
     const planStart = orchestratorSkill.indexOf("## Phase 1: Plan", preflightStart);
-    const preflight = orchestratorSkill.slice(preflightStart, planStart);
+    const preflight = orchestratorSkill.slice(preflightStart, planStart).replace(/\s+/g, " ");
 
+    expect(preflight).toMatch(/current checkout by default/i);
+    expect(preflight).toMatch(/managed worktree is optional/i);
     expect(preflight).toContain("ai-eng worktree list <slug>");
-    expect(preflight).toMatch(/resume\s+it using its exact git-listed path/i);
+    expect(preflight).toMatch(/resume an exact same-slug feature[\s\S]{0,160}exact git-listed worktree path/i);
     expect(preflight).toMatch(/semantic near[- ]match[^.\n]{0,120}advisory/i);
     expect(preflight).toMatch(/near[- ]match[^.\n]{0,160}(?:not|never|must not)[^.\n]{0,80}(?:exact|substitut|resume|continue)/i);
   });
 
-  test("brainstorms never authorize work; checkpoints describe registered checkouts", () => {
+  test("brainstorms do not project approval; checkpoints describe registered checkouts", () => {
     const preflightStart = orchestratorSkill.indexOf("## Phase 0: Preflight");
     const planStart = orchestratorSkill.indexOf("## Phase 1: Plan", preflightStart);
-    const preflight = orchestratorSkill.slice(preflightStart, planStart);
+    const preflight = orchestratorSkill.slice(preflightStart, planStart).replace(/\s+/g, " ");
 
-    expect(preflight).toMatch(/list reports only Git-registered\s+checkouts/);
+    expect(preflight).toMatch(/list reports only Git-registered\s+worktrees/);
     expect(preflight).toMatch(/does not infer a feature from a\s+brainstorm/);
-    expect(preflight).toMatch(/projection\s+is read-only and is no longer emitted/);
-    expect(preflight).toMatch(/a brainstorm never authorizes work/);
+    expect(preflight).toMatch(/there is no pre-worktree approval projection/);
     expect(preflight).toContain("it alone is authoritative");
-    expect(preflight).toMatch(/never falls back to\s+brainstorm/);
     expect(preflight).toContain("awaiting-plan-approval");
     expect(preflight).toContain("awaiting-app-review");
     expect(preflight).toContain("ready-to-merge");
+    expect(preflight).not.toContain("approval-before-start");
   });
 
-  test("unknown lifecycle and file hints never authorize implementation", () => {
-    expect(orchestratorSkill).toMatch(/unknown\/pending and cannot authorize\s+work/);
-    expect(orchestratorSkill).toMatch(/hints\s+never authorize implementation/i);
+  test("unknown lifecycle state and removed file hints cannot authorize implementation", () => {
+    expect(orchestratorSkill).toMatch(/unknown lifecycle state is not approval/i);
+    expect(orchestratorSkill).toMatch(/no file hints are accepted/i);
+    expect(orchestratorSkill).toMatch(/checkpoint's `files` list remains authoritative/i);
     expect(orchestratorSkill).toMatch(/Never fetch or sync remote\s+state/);
   });
 });

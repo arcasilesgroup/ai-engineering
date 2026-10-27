@@ -1152,3 +1152,24 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Configure `develop`, prove the physical refs/base, then assert the exact push rejection.
 - **Lesson:** Prove base context before asserting push protection.
 - **Tags:** behavior, git, tests
+
+### L159 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** The skill-contract test found no Phase 3 rebase after CP7 removed the `worktree rebase` CLI verb.
+- **Root cause:** Removing the CLI command was conflated with removing the approved native Git rebase step.
+- **Fix:** Restore `git rebase <detected base>` and the post-rebase verification gates.
+- **Lesson:** Removing a CLI verb must not remove an approved native-Git behavior.
+- **Tags:** behavior, workflow, git
+
+### L160 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** Serial tests still expected mandatory managed worktrees, brainstorm projections, and legacy reviewed_main handoffs.
+- **Root cause:** Contract assertions encoded the prior workflow instead of the approved optional-worktree/checkpoint contract.
+- **Fix:** Update those assertions for optional worktrees, Git-only listing, reviewed_base and CAS behavior.
+- **Lesson:** Tests should assert the approved contract, not stale prose or field names.
+- **Tags:** behavior, contract, worktree
+
+### L161 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** `generated-payload.test.ts` found the chain bundle stale after the skill correction.
+- **Root cause:** The embedded bundle was not regenerated after the final skill/source edit.
+- **Fix:** Run `bun scripts/gen-assets.ts` after the last edit and verify generated-payload.
+- **Lesson:** Regenerate embedded assets after final skill or source changes.
+- **Tags:** behavior, bundle, generated

@@ -67,7 +67,8 @@ describe("orchestrator Phase 4 — app-review merge handoff", () => {
     expect(approveStart).toBeGreaterThan(-1);
     expect(stopHere).toBeGreaterThan(approveStart);
     expect(approval).toContain("lifecycle.reviewed_feature");
-    expect(approval).toContain("lifecycle.reviewed_main");
+    expect(approval).toContain("lifecycle.reviewed_base");
+    expect(approval).toContain("lifecycle.base_ref");
     expect(approval).toContain("lifecycle.app_review: approved");
     expect(approval).toContain("lifecycle.phase: ready-to-merge");
     expect(approval).toContain("Invoke exactly `ai-eng worktree merge <slug>`");

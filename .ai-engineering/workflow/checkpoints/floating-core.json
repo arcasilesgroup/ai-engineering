@@ -464,7 +464,7 @@
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "in_progress",
-      "changed_files": ["tests/floor-gates.spec.ts", "tests/floor-hooks.spec.ts", "tests/ceremony-contract.spec.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "FILEMAP.md", "skills/ai-brainstorm/SKILL.md", "skills/ai-orchestrator/SKILL.md", "src/commands/worktree.ts", "src/floor/index.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "src/git/merge.ts", "LEARNINGS.md"]
+      "changed_files": ["tests/floor-gates.spec.ts", "tests/floor-hooks.spec.ts", "tests/ceremony-contract.spec.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/git-cleanup-pass.spec.ts", "FILEMAP.md", "skills/ai-brainstorm/SKILL.md", "skills/ai-orchestrator/SKILL.md", "skills/.chain-bundle/ai-eng-chain.ts", "src/commands/worktree.ts", "src/floor/index.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "src/git/merge.ts", "LEARNINGS.md"]
     },
     {
       "id": 8,
