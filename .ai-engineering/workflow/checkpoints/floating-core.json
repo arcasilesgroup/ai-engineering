@@ -346,7 +346,7 @@
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "in_progress",
-      "changed_files": ["tests/adversarial/governance-gate.test.ts", "tests/chain-dispatch.spec.ts", "tests/carriers-install.spec.ts", "tests/workflow-doctor-surfaces.spec.ts", "tests/checkpoint-gate-carrier.spec.ts", "tests/ceremony-contract.spec.ts"]
+      "changed_files": ["tests/adversarial/governance-gate.test.ts", "tests/chain-dispatch.spec.ts", "tests/carriers-install.spec.ts", "tests/workflow-doctor-surfaces.spec.ts", "tests/checkpoint-gate-carrier.spec.ts", "tests/ceremony-contract.spec.ts", "tests/checkpoint-guard.spec.ts", "tests/chain-dialect.spec.ts"]
     },
     {
       "id": 6,
