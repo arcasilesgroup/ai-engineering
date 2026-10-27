@@ -44,8 +44,9 @@ function isSkillName(name: string): boolean {
  *  the host supplies and no agents/*.md file does. A script is a
  *  path with a script extension, in a code span or with a directory, outside src/ and
  *  tests/ (a bare "Next.js" in prose is a framework, not a file). A template is an explicit
- *  templates/*.tpl path, or a `.ai-engineering/<name>.html` design artifact, which init
- *  can only write from its `<name>.html.tpl`. */
+ *  templates/*.tpl path, or a `.ai-engineering/<name>.html` artifact at any depth (the
+ *  `.ai-engineering/workflow/checkpoints/viewer.html` viewer too), which init can only
+ *  write from its `<name>.html.tpl`. */
 function citationsIn(text: string, from: string): Citations {
   const skills = new Set<string>();
   const agents = new Set<string>();
@@ -81,7 +82,7 @@ function citationsIn(text: string, from: string): Citations {
     scripts.push({ from, token });
   }
   for (const match of text.matchAll(/templates\/([\w.-]+\.tpl)\b/g)) templates.add(match[1] ?? "");
-  for (const match of text.matchAll(/\.ai-engineering\/([\w-]+\.html)\b/g)) templates.add(`${match[1] ?? ""}.tpl`);
+  for (const match of text.matchAll(/\.ai-engineering\/(?:[\w-]+\/)*([\w-]+\.html)\b/g)) templates.add(`${match[1] ?? ""}.tpl`);
   return { skills, agents, scripts, templates, metaNames };
 }
 
@@ -178,6 +179,7 @@ describe("ceremony contract — every piece ai-orchestrator cites exists and shi
     expect([...cited.skills]).toEqual(expect.arrayContaining(["ai-adversarial-loop", "ai-test-planner", "ai-review-ui"]));
     expect([...cited.agents]).toEqual(expect.arrayContaining(["checkpoint-planner", "adversarial-reviewer", "fixer"]));
     expect(cited.scripts.map((citation) => citation.token)).toContain("scripts/checkpoint-gate.py");
+    expect([...cited.templates]).toEqual(expect.arrayContaining(["brainstorm.html.tpl", "plan.html.tpl", "viewer.html.tpl"]));
   });
 
   test("every cited skill, agent, script and template is in the repository and in the installed canon", () => {
@@ -197,12 +199,14 @@ describe("ceremony contract — every piece ai-orchestrator cites exists and shi
           "Run `/ai-ghost-skill` first, then start `ghost-reviewer`.",
           "Launch `stray-planner` and `ghost-fixer` in parallel.",
           "The hook (`scripts/ghost-gate.py`) blocks the call; write `.ai-engineering/ghost.html`.",
+          "Then `scripts/stray-gate.py` runs; open `.ai-engineering/workflow/board/ghost-viewer.html`.",
           "Start from `templates/stray.md.tpl`.",
         ].join("\n"),
       );
       // In the fixture repository but never embedded: only the canon check can catch these.
       write("agents/stray-planner.md", "# stray\n");
       write("templates/stray.md.tpl", "stray\n");
+      write("scripts/stray-gate.py", "# stray\n");
       expect(ceremonyGaps(fixtureRoot, "ai-fixture", canon).sort()).toEqual(
         [
           "skill ai-ghost-skill: no skills/ai-ghost-skill/SKILL.md",
@@ -211,7 +215,9 @@ describe("ceremony contract — every piece ai-orchestrator cites exists and shi
           "agent stray-planner: not installed by init",
           "agent ghost-fixer: no agents/ghost-fixer.md",
           "script scripts/ghost-gate.py (cited by ai-fixture): not in the repository",
+          "script scripts/stray-gate.py: not installed by init",
           "template ghost.html.tpl: no templates/ghost.html.tpl",
+          "template ghost-viewer.html.tpl: no templates/ghost-viewer.html.tpl",
           "template stray.md.tpl: not embedded as shipped",
         ].sort(),
       );

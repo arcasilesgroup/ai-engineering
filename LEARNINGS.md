@@ -1005,3 +1005,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** A private stdin fixture for the three suites that type keys, plus a test that injects a stray newline.
 - **Lesson:** A test that types into prompts must give them input only the test writes to, never stdin it shares with the runner.
 - **Tags:** behavior, tests, flake, stdin
+
+### L138 · 2026-10-27 · floating-core #2 · review
+- **Failure:** The ceremony contract test missed the nested viewer template, so removing it would stay green.
+- **Root cause:** The template matcher only accepted `.ai-engineering/<name>.html` at the top level.
+- **Fix:** Match any depth and require `viewer.html.tpl` in the minimum extraction; nested path in the negative fixture.
+- **Lesson:** Test every path shape the skill text actually cites, including nested ones, before trusting a citation pattern.
+- **Tags:** review, contract, tests

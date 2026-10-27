@@ -3,7 +3,7 @@
 // through the sandbox proofs (scripts/proof-cli-ux.sh), not here.
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ALL_VERBS, suggestVerb } from "../src/shared-verbs.ts";
@@ -80,9 +80,6 @@ describe("the workspace hub is gone (floating-core#2)", () => {
 
   beforeAll(() => {
     engHome = mkdtempSync(join(tmpdir(), "ai-eng-cli-ux-"));
-    // A malformed workspace.json makes any surviving hub refuse before it spawns a
-    // server or opens a browser, so this suite never leaves a process behind.
-    writeFileSync(join(engHome, "workspace.json"), "[]\n");
   });
   afterAll(() => rmSync(engHome, { recursive: true, force: true }));
 
