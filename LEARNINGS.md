@@ -1117,3 +1117,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Match exact command fields, remove managed entries individually, preserve remaining user entries.
 - **Lesson:** Remove a group only when no user hooks remain.
 - **Tags:** behavior, install, migration
+
+### L154 · 2026-10-27 · floating-core #6 · review
+- **Failure:** Managed hook recognition could drift from carrier templates as command forms changed.
+- **Root cause:** Installer maintained a duplicate hard-coded list of generated commands.
+- **Fix:** Derive exact managed hook commands from embedded settings templates.
+- **Lesson:** Derive managed entries from their canonical artifacts and remove only exact matches.
+- **Tags:** review, install, templates

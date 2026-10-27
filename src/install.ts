@@ -5,6 +5,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
+import { embeddedTemplate, embeddedUnder } from "./embed.ts";
 
 export type PlanEntry = {
   path: string; // repo-relative, e.g. ".claude/settings.json"
@@ -35,30 +36,38 @@ export function hashFile(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-/** Exact commands emitted by the settings templates. A user command that calls one of
- *  these as part of a wrapper is still theirs, not ours. */
-const MANAGED_CHAIN_HOOKS = new Set([
-  "ai-eng chain PreToolUse",
-  "ai-eng chain Stop",
-  "ai-eng chain PostToolUse",
-  "ai-eng chain UserPromptSubmit",
-  "ai-eng chain PreToolUse --surface cursor",
-  "ai-eng chain Stop --surface cursor",
-  "ai-eng chain PostToolUse --surface cursor",
-  "ai-eng chain PreToolUse --surface codex",
-  "ai-eng chain PostToolUse --surface codex",
-  "ai-eng chain UserPromptSubmit --surface codex",
-  "ai-eng chain PreToolUse --surface copilot-cli",
-  "ai-eng chain PostToolUse --surface copilot-cli",
-  "command -v ai-eng >/dev/null 2>&1 && ai-eng chain PreToolUse --surface copilot-cli || exit 0",
-  "command -v ai-eng >/dev/null 2>&1 && ai-eng chain PostToolUse --surface copilot-cli || exit 0",
-]);
+let managedHookCommands: Set<string> | undefined;
+
+function collectHookCommands(value: unknown, commands: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) collectHookCommands(entry, commands);
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+  const record = value as Record<string, unknown>;
+  if (typeof record["command"] === "string") commands.add(record["command"]);
+  for (const entry of Object.values(record)) collectHookCommands(entry, commands);
+}
+
+/** Match only exact hook commands emitted by the embedded settings templates. */
+function managedCommands(): Set<string> {
+  if (managedHookCommands !== undefined) return managedHookCommands;
+  const commands = new Set<string>();
+  for (const path of embeddedUnder("templates/settings.").keys()) {
+    if (!path.endsWith(".json.tpl")) continue;
+    const settings = JSON.parse(embeddedTemplate(path.slice("templates/".length))) as { hooks?: unknown };
+    collectHookCommands(settings.hooks, commands);
+  }
+  managedHookCommands = commands;
+  return commands;
+}
+
 const LEGACY_CHECKPOINT_HOOK = /^(?:\[ -f "\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py" \] \|\| exit 0; )?python3 "\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py" --surface [a-z0-9-]+$/;
 
 function isOurs(value: unknown): boolean {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
   const command = (value as { command?: unknown }).command;
-  return typeof command === "string" && (MANAGED_CHAIN_HOOKS.has(command) || LEGACY_CHECKPOINT_HOOK.test(command));
+  return typeof command === "string" && (managedCommands().has(command) || LEGACY_CHECKPOINT_HOOK.test(command));
 }
 
 const isEmptyContainer = (value: unknown): boolean =>

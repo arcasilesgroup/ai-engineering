@@ -22,6 +22,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
+import { embeddedTemplate, embeddedUnder } from "../src/embed.ts";
 import {
   chmodSync,
   existsSync,
@@ -67,6 +68,17 @@ const CHAIN = "ai-eng chain";
 let sandbox: string;
 const OWNED_ENV = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL"] as const;
 let inherited: Record<string, string | undefined> = {};
+
+function collectTemplateCommands(value: unknown, commands: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) collectTemplateCommands(entry, commands);
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+  const record = value as Record<string, unknown>;
+  if (typeof record["command"] === "string") commands.add(record["command"]);
+  for (const entry of Object.values(record)) collectTemplateCommands(entry, commands);
+}
 
 beforeAll(() => {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-carriers-"));
@@ -421,6 +433,23 @@ describe("installer: the files a user shares with us", () => {
     }, null, 2)}\n`;
 
     expect(stripSharedText(current)).toBe(restored);
+  });
+
+  test("recognizes every exact hook command from the embedded settings templates", () => {
+    const generatedCommands = new Set<string>();
+    for (const path of embeddedUnder("templates/settings.").keys()) {
+      if (!path.endsWith(".json.tpl")) continue;
+      const settings = JSON.parse(embeddedTemplate(path.slice("templates/".length))) as { hooks?: unknown };
+      collectTemplateCommands(settings.hooks, generatedCommands);
+    }
+
+    expect(generatedCommands.size).toBeGreaterThan(0);
+    for (const command of generatedCommands) {
+      const current = `${JSON.stringify({
+        hooks: { PreToolUse: [{ hooks: [{ command }] }] },
+      }, null, 2)}\n`;
+      expect(stripSharedText(current)).toBe("{}\n");
+    }
   });
 
   test("install refuses a settings file it cannot merge, and leaves every byte of it", () => {

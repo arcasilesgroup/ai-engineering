@@ -69,9 +69,13 @@ Carriers use the TypeScript checkpoint guard, updates replace only standalone ma
 **LESSON:** Model a host's native event key and its response dialect explicitly instead of assuming another surface's Stop contract.
 **Critic (r2):** Resolved. Cursor now declares and installs `stop`; `chain Stop --surface cursor` uses the `followup_message` denial envelope, and the carrier/dialect tests cover both.
 
-## F3 · MAJOR · open
+## F3 · MAJOR · fixed
 **Where:** src/install.ts:40
 **Critic (r2):** `MANAGED_CHAIN_HOOKS` hand-copies every command string from the settings templates, creating a second source of truth contrary to LEARNINGS R7. A future template command change can leave the new managed entry unmatched and duplicate it on update. Derive these exact forms from a canonical source shared with template generation and cover every emitted command.
+**Fixer (r2):** fixed — `src/install.ts` now derives exact hook commands from embedded settings templates, and `tests/carriers-install.spec.ts` verifies every emitted command is stripped while existing wrapper regressions stay intact · verify: `bun test tests/carriers-install.spec.ts`, `bun run typecheck`, `bun run lint`, `bun test tests/arch.spec.ts` ✓
+**ROOT CAUSE:** The installer duplicated generated command forms instead of reading the embedded templates that own them.
+**FIX:** Managed commands are collected from embedded settings-template hook entries; regression coverage discovers the same template commands and checks their exact removal.
+**LESSON:** Derive managed entries from the artifacts that emit them, while retaining exact-match ownership boundaries.
 
 ## Gate 1 · behavior attempt 1 follow-up
 
