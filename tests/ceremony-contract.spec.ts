@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, normalize } from "node:path";
-import { embeddedTemplate, materializeAgents, materializeScripts, materializeSkills } from "../src/embed.ts";
+import { embeddedChainBundle, embeddedTemplate, materializeAgents, materializeScripts, materializeSkills } from "../src/embed.ts";
 
 const REPO = join(import.meta.dir, "..");
 const ENTRY_SKILL = "ai-orchestrator";
@@ -24,7 +24,7 @@ const ENTRY_SKILL = "ai-orchestrator";
 const BINARY_NAMES = new Set(Object.keys((JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")) as { bin?: Record<string, string> }).bin ?? {}));
 
 type ScriptCitation = { from: string; token: string };
-type Citations = { skills: Set<string>; agents: Set<string>; scripts: ScriptCitation[]; templates: Set<string>; metaNames: Set<string> };
+type Citations = { skills: Set<string>; agents: Set<string>; scripts: ScriptCitation[]; guards: ScriptCitation[]; templates: Set<string>; metaNames: Set<string> };
 
 /** What init would install, materialized from the embedded payload the same way installCanon does. */
 type Canon = { skillsDir: string; agentsDir: string; scriptsDir: string; template: (name: string) => string | null };
@@ -50,6 +50,7 @@ function isSkillName(name: string): boolean {
 function citationsIn(text: string, from: string): Citations {
   const skills = new Set<string>();
   const agents = new Set<string>();
+  const guards: ScriptCitation[] = [];
   const templates = new Set<string>();
   const scripts: ScriptCitation[] = [];
   const metaNames = new Set([...text.matchAll(/name="([\w-]+)"/g)].map((match) => match[1] ?? ""));
@@ -81,14 +82,17 @@ function citationsIn(text: string, from: string): Citations {
     if (/^(?:src|tests)\//.test(token) || !(token.includes("/") || isInCodeSpan)) continue;
     scripts.push({ from, token });
   }
+  for (const match of text.matchAll(/(?<![\w/.:-])(src\/guards\/[\w-]+\.ts)\b/g)) {
+    guards.push({ from, token: match[1] ?? "" });
+  }
   for (const match of text.matchAll(/templates\/([\w.-]+\.tpl)\b/g)) templates.add(match[1] ?? "");
   for (const match of text.matchAll(/\.ai-engineering\/(?:[\w-]+\/)*([\w-]+\.html)\b/g)) templates.add(`${match[1] ?? ""}.tpl`);
-  return { skills, agents, scripts, templates, metaNames };
+  return { skills, agents, scripts, guards, templates, metaNames };
 }
 
 /** Every citation in the entry skill and in each SKILL.md it invokes directly. */
 function ceremonyCitations(root: string, entry: string): Citations & { read: string[] } {
-  const all: Citations = { skills: new Set([entry]), agents: new Set(), scripts: [], templates: new Set(), metaNames: new Set() };
+  const all: Citations = { skills: new Set([entry]), agents: new Set(), scripts: [], guards: [], templates: new Set(), metaNames: new Set() };
   const read: string[] = [];
   const absorb = (skill: string): Citations | null => {
     const skillFile = join(root, "skills", skill, "SKILL.md");
@@ -97,6 +101,7 @@ function ceremonyCitations(root: string, entry: string): Citations & { read: str
     const found = citationsIn(readFileSync(skillFile, "utf8"), skill);
     for (const name of found.skills) all.skills.add(name);
     for (const name of found.agents) all.agents.add(name);
+    all.guards.push(...found.guards);
     for (const name of found.templates) all.templates.add(name);
     for (const name of found.metaNames) all.metaNames.add(name);
     all.scripts.push(...found.scripts);
@@ -135,6 +140,11 @@ function ceremonyGaps(root: string, entry: string, canon: Canon): string[] {
     const [area, ...rest] = resolved.split("/");
     const installedDir = area === "skills" ? canon.skillsDir : area === "scripts" ? canon.scriptsDir : null;
     if (installedDir === null || !existsSync(join(installedDir, ...rest))) gaps.push(`script ${resolved}: not installed by init`);
+  }
+  const chainBundle = embeddedChainBundle();
+  for (const guard of cited.guards) {
+    if (!existsSync(join(root, guard.token))) gaps.push(`guard ${guard.token} (cited by ${guard.from}): not in the repository`);
+    else if (!chainBundle.includes(`// ${guard.token}`)) gaps.push(`guard ${guard.token}: not shipped in the chain bundle`);
   }
   for (const name of cited.templates) {
     const repoTemplate = join(root, "templates", name);
@@ -178,11 +188,11 @@ describe("ceremony contract — every piece ai-orchestrator cites exists and shi
     // Known pieces of the ceremony, as a floor on the extractor — not the list under test.
     expect([...cited.skills]).toEqual(expect.arrayContaining(["ai-adversarial-loop", "ai-test-planner", "ai-review-ui"]));
     expect([...cited.agents]).toEqual(expect.arrayContaining(["checkpoint-planner", "adversarial-reviewer", "fixer"]));
-    expect(cited.scripts.map((citation) => citation.token)).toContain("scripts/checkpoint-gate.py");
+    expect(cited.guards).toContainEqual({ from: ENTRY_SKILL, token: "src/guards/checkpoint.ts" });
     expect([...cited.templates]).toEqual(expect.arrayContaining(["brainstorm.html.tpl", "plan.html.tpl", "viewer.html.tpl"]));
   });
 
-  test("every cited skill, agent, script and template is in the repository and in the installed canon", () => {
+  test("every cited skill, agent, script, guard and template exists and ships", () => {
     expect(ceremonyGaps(REPO, ENTRY_SKILL, canon)).toEqual([]);
   });
 

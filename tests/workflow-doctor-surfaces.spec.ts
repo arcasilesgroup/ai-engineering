@@ -1,13 +1,14 @@
 /**
- * Workflow kit checkpoint 7 — doctor tells the truth about Zed vs denying surfaces.
+ * Workflow kit checkpoints 5 and 7 — doctor reports the TypeScript guard and truthful surfaces.
  *
  * Red until checkpoint-gate-report exists and names Zed gate unenforced while at
  * least one denying carrier (claude-code or cursor) that still runs ai-eng chain
  * reports chain active. Also pins the viewer poll loop.
  */
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { materializeScripts } from "../src/embed.ts";
 import { checkpointGateReportLines } from "../src/commands/checkpoint-gate-report.ts";
 
 const ROOT = join(import.meta.dir, "..");
@@ -45,6 +46,17 @@ describe("workflow kit — doctor surface truth for checkpoint gate", () => {
     expect(joined).toMatch(/Zed/i);
     expect(joined).toMatch(/chain active/i);
     expect(joined).toMatch(/claude-code|cursor/i);
+    expect(joined).toMatch(/typescript.*checkpoint|checkpoint.*typescript/i);
+  });
+
+  test("install materializes no Python checkpoint-gate script", () => {
+    const scriptsDir = mkdtempSync(join(import.meta.dir, ".workflow-doctor-scripts-"));
+    try {
+      materializeScripts(scriptsDir);
+      expect(existsSync(join(scriptsDir, "checkpoint-gate.py"))).toBe(false);
+    } finally {
+      rmSync(scriptsDir, { recursive: true, force: true });
+    }
   });
 
   test("viewer still polls with setInterval(tick", () => {

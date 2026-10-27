@@ -50,6 +50,7 @@ import {
   mirrorTargets,
   readMachineState,
   rememberTemplateDir,
+  repoCarrier,
   removeMachineArtifacts,
   removeMachineCarriers,
   surfaceCanGovern,
@@ -57,6 +58,7 @@ import {
   sweepMovedRepoCarriers,
 } from "../src/surfaces/adapters.ts";
 import { SHIMS, currentTemplateDir, installTemplateDir, restoreTemplateDir } from "../src/floor/template.ts";
+import { planEntries } from "../src/commands/init-shared.ts";
 import { VERSION } from "../src/version.ts";
 
 const SHIM_MARKER = "ai-eng git floor shim";
@@ -105,6 +107,22 @@ function setGlobalTemplateDir(dir: string | null): void {
 }
 
 const byId = (id: string) => SURFACES.find((surface) => surface.id === id)!;
+
+type StopSurface = (typeof SURFACES)[number] & {
+  readonly stopHook?: { readonly supported: boolean; readonly event?: string };
+};
+
+function emitsStop(surface: StopSurface): boolean {
+  return surface.stopHook?.supported === true && surface.stopHook.event === "Stop";
+}
+
+function hasStopHook(content: string, kind: "settings" | "module"): boolean {
+  if (kind === "settings") {
+    const parsed = JSON.parse(content) as { hooks?: Record<string, unknown> };
+    return Array.isArray(parsed.hooks?.["Stop"]);
+  }
+  return /\.on\(\s*["']Stop["']/.test(content);
+}
 
 /** A settings file a person has been keeping: their env, their hook, their indentation. */
 const USER_SETTINGS = `{
@@ -445,6 +463,56 @@ describe("installer: the files a user shares with us", () => {
 });
 
 describe("carriers on the machine", () => {
+  test("install registers Stop only on surfaces declared to emit it", () => {
+    useHome("machine-stop-scope");
+    const surfaces = SURFACES as StopSurface[];
+    expect(surfaces.some(emitsStop)).toBe(true);
+    expect(surfaces.some((surface) => !emitsStop(surface))).toBe(true);
+
+    const machineSurfaces = surfaces.filter((surface) => machineCarrier(surface) !== null);
+    expect(installMachineCarriers(machineSurfaces.map((surface) => surface.id)).refused).toEqual([]);
+    for (const surface of machineSurfaces) {
+      const placement = machineCarrier(surface)!;
+      const content = readFileSync(carrierPath(placement), "utf8");
+      expect(hasStopHook(content, placement.kind)).toBe(emitsStop(surface));
+    }
+
+    const repoRoot = join(sandbox, "repo-stop-scope");
+    mkdirSync(repoRoot, { recursive: true });
+    const repoSurfaces = surfaces.filter((surface) => repoCarrier(surface) !== null);
+    expect(install(repoRoot, planEntries(repoSurfaces.map((surface) => surface.id))).refused).toEqual([]);
+    for (const surface of repoSurfaces) {
+      const placement = repoCarrier(surface)!;
+      const content = readFileSync(join(repoRoot, placement.path), "utf8");
+      expect(hasStopHook(content, placement.kind)).toBe(emitsStop(surface));
+    }
+  });
+
+  test("an update replaces the old Python gate and keeps the user's hook", () => {
+    const base = useHome("machine-update-old-gate");
+    const settings = join(base, ".claude", "settings.json");
+    const oldPythonGate = '[ -f "$HOME/.ai-engineering/scripts/checkpoint-gate.py" ] || exit 0; python3 "$HOME/.ai-engineering/scripts/checkpoint-gate.py" --surface claude-code';
+    write(
+      settings,
+      `${JSON.stringify({
+        env: { MY_FLAG: "1" },
+        hooks: {
+          PreToolUse: [
+            { matcher: "Write|Edit|Task|Bash", hooks: [{ type: "command", command: oldPythonGate, timeout: 5 }] },
+            { matcher: "Bash", hooks: [{ type: "command", command: "my-own-audit.sh", timeout: 5 }] },
+          ],
+        },
+      }, null, 2)}\n`,
+    );
+
+    expect(installMachineCarriers(["claude-code"]).refused).toEqual([]);
+    const installed = readFileSync(settings, "utf8");
+    expect(installed).not.toContain("checkpoint-gate.py");
+    expect(installed).toContain("my-own-audit.sh");
+    expect(installed).toContain(`${CHAIN} PreToolUse`);
+    expect(JSON.parse(installed).env.MY_FLAG).toBe("1");
+  });
+
   test("carrierBase follows the host's agent dir env, and carrierPath rebases onto it", () => {
     const base = useHome("carrier-base");
     const omp = machineCarrier(byId("oh-my-pi"))!;

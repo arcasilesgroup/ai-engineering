@@ -8,11 +8,13 @@
 // fail-closed boundaries (unreadable payload, crashing guard).
 
 import { describe, expect, test, afterAll, beforeEach } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runChain, TABLE, type ChainOutcome } from "../src/chain/mod.ts";
 
+const cli = join(import.meta.dir, "..", "src", "cli.ts");
 let scratch: string;
 let cwdBefore: string;
 beforeEach(() => {
@@ -39,6 +41,43 @@ const bash = (command: string, id = "u1"): Record<string, unknown> =>
 const writeTool = (path: string, id = "u1"): Record<string, unknown> =>
   ({ tool_name: "Write", tool_input: { file_path: path, content: "x" }, tool_use_id: id, session_id: "dispatch" });
 
+function stopPlan(): Record<string, unknown> {
+  const gate = (status: string, attempts: number) => ({ status, attempts, findings: [] });
+  return {
+    slug: "dispatch",
+    feature: "Dispatch",
+    summary: "Stop routing fixture",
+    lifecycle: {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    },
+    halted: null,
+    assumptions: [],
+    notes: [],
+    checkpoints: [{
+      id: 1,
+      title: "Active checkpoint",
+      goal: "Keep Stop gated",
+      tasks: [],
+      files: [],
+      acceptance: [],
+      verify: [],
+      ui: null,
+      status: "in_progress",
+      changed_files: [],
+      gates: {
+        behavior: gate("failed", 1),
+        ui: gate("pending", 0),
+        review: gate("pending", 0),
+      },
+    }],
+  };
+}
+
 describe("TABLE — the routing invariants the outcomes cannot show", () => {
   test("every matcher is anchored: a prefix of a tool name must not sneak through", () => {
     for (const rows of [TABLE.PreToolUse!, TABLE.PostToolUse!, TABLE.UserPromptSubmit!]) {
@@ -47,6 +86,18 @@ describe("TABLE — the routing invariants the outcomes cannot show", () => {
         expect(row.matcher.source.endsWith("$")).toBe(true);
       }
     }
+  });
+
+  test("checkpoint guard routes every governed tool and the Stop event", () => {
+    const preToolCheckpoint = (TABLE.PreToolUse ?? []).filter((row) => String(row.name) === "checkpoint");
+    expect(preToolCheckpoint).toHaveLength(1);
+    for (const tool of ["Write", "Edit", "MultiEdit", "Task", "Agent", "Bash"]) {
+      expect(preToolCheckpoint[0]!.matcher.test(tool)).toBe(true);
+    }
+
+    const stopCheckpoint = (TABLE["Stop"] ?? []).filter((row) => String(row.name) === "checkpoint");
+    expect(stopCheckpoint).toHaveLength(1);
+    expect(stopCheckpoint[0]!.matcher.test("")).toBe(true);
   });
 });
 
@@ -296,5 +347,69 @@ describe("runChain — overrides and context", () => {
       rmSync(other, { recursive: true, force: true });
       void governed;
     }
+  });
+});
+
+describe("Stop — the checkpoint guard reaches the harness event envelope", () => {
+  test("an open checkpoint is denied with a Codex Stop envelope", () => {
+    const emptyGitConfig = join(scratch, "empty-gitconfig");
+    writeFileSync(emptyGitConfig, "");
+    const gitEnv = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: emptyGitConfig,
+      GIT_CONFIG_SYSTEM: emptyGitConfig,
+      GIT_TERMINAL_PROMPT: "0",
+    };
+    const git = (args: string[]) => {
+      const result = spawnSync("git", args, { cwd: scratch, encoding: "utf8", env: gitEnv });
+      if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+    };
+    git(["init", "-q", "-b", "main"]);
+    git(["config", "user.name", "Chain Dispatch Test"]);
+    git(["config", "user.email", "chain-dispatch@example.invalid"]);
+    writeFileSync(join(scratch, "base.txt"), "base\n");
+    git(["add", "base.txt"]);
+    git(["commit", "-q", "-m", "base"]);
+
+    const planPath = join(scratch, ".ai-engineering", "workflow", "checkpoints", "dispatch.json");
+    mkdirSync(join(scratch, ".ai-engineering", "workflow", "checkpoints"), { recursive: true });
+    writeFileSync(planPath, JSON.stringify(stopPlan()));
+    const transcriptPath = join(scratch, "transcript.jsonl");
+    writeFileSync(
+      transcriptPath,
+      '{"name":"Skill","input":{"skill":"ai-orchestrator"}} read .ai-engineering/workflow/checkpoints/dispatch.json\n',
+    );
+    expect(readFileSync(planPath, "utf8")).toContain('"status":"failed"');
+    expect(readFileSync(transcriptPath, "utf8")).toContain(".ai-engineering/workflow/checkpoints/dispatch.json");
+
+    const result = spawnSync(
+      process.execPath,
+      [cli, "chain", "Stop", "--surface", "codex"],
+      {
+        cwd: scratch,
+        encoding: "utf8",
+        env: {
+          ...gitEnv,
+          AI_ENG_HOME: join(scratch, "ai-eng-home"),
+          AI_ENG_NO_UPDATE_NOTICES: "1",
+        },
+        input: JSON.stringify({
+          hook_event_name: "Stop",
+          session_id: "dispatch-stop-envelope",
+          transcript_path: transcriptPath,
+          cwd: scratch,
+        }),
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).not.toBe("");
+    expect(JSON.parse(result.stdout)).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "Stop",
+        permissionDecision: "deny",
+        permissionDecisionReason: expect.stringContaining("checkpoint"),
+      },
+    });
   });
 });
