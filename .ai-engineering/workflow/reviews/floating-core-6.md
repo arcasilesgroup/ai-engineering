@@ -88,3 +88,7 @@ Carriers use the TypeScript checkpoint guard, updates replace only standalone ma
 **ROOT CAUSE:** `isOurs` searched recursively, so one exact managed command caused its enclosing hook group—and user wrapper siblings mentioning `ai-eng`—to be classified as ours.
 **FIX:** Match only exact `command` fields, recursively strip owned hook leaves and prune only now-empty generated groups; added exact-content wrapper regressions in `tests/carriers-install.spec.ts` and `tests/adversarial/carrier-merge.test.ts`.
 **LESSON:** Attribute ownership to each exact command leaf; remove a containing group only when it has no user hooks left.
+
+## F4 · BLOCKER · open
+**Where:** src/install.ts:8
+**Critic (r1):** This adds an `install.ts → embed.ts` import while `embed.ts:8` already imports `hashFile` from `install.ts`, creating a module cycle contrary to `.ai-engineering/arch.rules.json`'s `forbid: cycles`. Break the cycle by extracting `hashFile` into a lower-level helper imported by both modules.
