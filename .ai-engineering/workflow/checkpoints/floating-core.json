@@ -152,11 +152,11 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 1, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["Suite 1376/1376; re-check after test-only review fix: contract, cli-ux, arch, payload green."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 1, "findings": ["2 rounds: F1 MAJOR nested template citations, F2/F3 MINOR resolved."] }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": [".ai-engineering/arch.rules.json", "FILEMAP.md", "PERMISSIONS.md", "src/assets.ts", "src/cli.ts", "src/commands/workspace.ts", "src/embed.ts", "src/shared-verbs.ts", "src/workspace/", "templates/workspace.html.tpl", "tests/workspace-command.spec.ts", "tests/workspace-discovery.spec.ts", "tests/workspace-server.spec.ts", "tests/workspace-settings.spec.ts", "tests/workspace-ui.spec.ts", "tests/cli-ux.test.ts", "tests/ceremony-contract.spec.ts"]
     },
     {
