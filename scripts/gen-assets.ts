@@ -39,8 +39,6 @@ appendFileSync(join(bundleDir, "ai-eng-chain.ts"), '\nexport default "ai-eng-cha
 walk(join(root, "skills"));
 walk(join(root, "agents"));
 walk(join(root, "templates"));
-files.push(join(root, "scripts", "checkpoint-gate.py"));
-// tests/test_checkpoint_gate.py stays out of the payload: a test must not install into ~/.ai-engineering/scripts.
 // .json stays embeddable (P0-3): ai-security's report-schema.json is read at
 // runtime by validate-findings.cjs; excluding it shipped a broken validator.
 // TypeScript modules stay out EXCEPT the chain bundle itself and fixture data: a fixture

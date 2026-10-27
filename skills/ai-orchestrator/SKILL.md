@@ -29,7 +29,7 @@ Everywhere else, decide and keep going:
 - **Never read source code, diffs, test output or screenshots yourself.** Subagents read them and report back in a few lines.
 - **Checkpoint progress lives on disk** in `.ai-engineering/workflow/checkpoints/<slug>.json`; that file is the source of truth for checkpoint status. Phase 0's read-only `ai-eng worktree list` is the source of truth for worktree existence, paths, cleanliness and reported lifecycle status. Change the checkpoint file only with Edit or Write, never through Bash. The same hook validates every write to it: no gate can be passed out of order, no checkpoint can be marked passed with a gate still open, and no checkpoint can be touched while an earlier one is open. Update it after every step, so `/ai-orchestrator resume <slug>` can pick up after a crash or `/clear`.
 - **Every subagent prompt:**
-  - in Phase 2 and later, **starts with the gate marker** `[checkpoint <slug>#<id> <stage>]`, where `<slug>` is the feature slug you were asked to build and `<stage>` is one of `tests`, `implement`, `behavior`, `ui`, `review` or `fix`. The `checkpoint-gate` hook (`scripts/checkpoint-gate.py`, PreToolUse) reads it and blocks the call with exit code 2 if:
+  - in Phase 2 and later, **starts with the gate marker** `[checkpoint <slug>#<id> <stage>]`, where `<slug>` is the feature slug you were asked to build and `<stage>` is one of `tests`, `implement`, `behavior`, `ui`, `review` or `fix`. The TypeScript checkpoint guard (`src/guards/checkpoint.ts`, in the chain) reads it and blocks the call if:
     - an earlier checkpoint hasn't passed;
     - this checkpoint has already passed;
     - or the gate before this one hasn't passed.

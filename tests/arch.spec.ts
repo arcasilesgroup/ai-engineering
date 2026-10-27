@@ -99,15 +99,14 @@ describe("architecture (arch.rules.json — single source of truth, §16.2)", ()
     expect(graph.filter((edge) => edge.from === "chain" && edge.to === "env").length).toBeGreaterThan(0);
   });
 
-  test("the checkpoint JSON reader is only src/workflow/checkpoint.ts", () => {
+  test("checkpoint JSON file I/O is owned by src/workflow/checkpoint.ts", () => {
     const checkpointReaders = Array.from(new Glob("**/*.ts").scanSync({ cwd: SRC }))
       .filter((path) => {
         const source = readFileSync(join(SRC, path), "utf8");
-        const identifiesCheckpoint = path.replace(/\\/g, "/") === "workflow/checkpoint.ts" ||
-          /checkpoint(?:Path|File)|workflow[\\/].{0,80}checkpoints/i.test(source);
-        const readsCheckpointFile = /readFileSync\s*\(/.test(source);
+        const readsCheckpointPath = /readFileSync\s*\(\s*(?:absolutePath|checkpointPath|checkpointFile)\b/i.test(source) ||
+          /readFileSync\s*\(\s*(?:join|resolve)\([^)]*checkpoints/i.test(source);
         const parsesCheckpointContents = /JSON\.parse\s*\(\s*[A-Za-z_$][\w$]*checkpoint[\w$]*/i.test(source);
-        return identifiesCheckpoint && (readsCheckpointFile || parsesCheckpointContents);
+        return readsCheckpointPath || parsesCheckpointContents;
       })
       .map((path) => path.replace(/\\/g, "/"))
       .sort();

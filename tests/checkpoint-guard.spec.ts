@@ -64,7 +64,7 @@ let emptyGitConfig = "";
 let fixtureIndex = 0;
 
 function runGit(args: string[], cwd: string) {
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     GIT_CONFIG_GLOBAL: emptyGitConfig,
     GIT_CONFIG_SYSTEM: emptyGitConfig,
@@ -312,7 +312,7 @@ function orchestratorTranscript(fixture: Fixture): void {
 
 function stopPayload(
   fixture: Fixture,
-  session = randomUUID(),
+  session: string = randomUUID(),
   options: { transcriptPath?: string; reason?: string } = {},
 ): Payload {
   return {
@@ -520,7 +520,8 @@ describe("checkpoint guard G3 — checkpoint order", () => {
   test.each(["Write", "Edit", "MultiEdit"])("%s cannot pass checkpoint 3 while checkpoint 2 is open", (toolName) => {
     withFixture((fixture) => {
       const current = plan(fixture.slug);
-      const updated = withCheckpointStatus(allGatesPassed(current), 3, "passed");
+      const updated = allGatesPassed(current);
+      updated.checkpoints[1] = current.checkpoints[1]!;
       writePlan(fixture, current);
       let payload: Payload;
       if (toolName === "Write") {
@@ -744,10 +745,10 @@ describe("checkpoint guard G6 — lifecycle and detected base", () => {
         phase: "ready-to-merge",
         app_review: "approved",
       };
-      const awaiting = { ...completed, lifecycle: legacyReview } as CheckpointPlan;
-      const ready = { ...completed, lifecycle: legacyReady } as CheckpointPlan;
-      writePlan(fixture, awaiting);
-      expectAllowed(run(fixture, writePayload(fixture, ready)));
+      const awaiting = { ...completed, lifecycle: legacyReview };
+      const ready = { ...completed, lifecycle: legacyReady };
+      writePlan(fixture, JSON.stringify(awaiting));
+      expectAllowed(run(fixture, writePayload(fixture, JSON.stringify(ready))));
     }, { baseBranch: "develop" });
   });
 
@@ -831,10 +832,10 @@ describe("checkpoint guard G6 — lifecycle and detected base", () => {
   test("reviewed feature must descend from the detected base", () => {
     withFixture((fixture) => {
       git(["switch", "-q", "--orphan", "orphan-feature"], fixture.root);
-      git(["rm", "-rf", "."], fixture.root);
+      git(["rm", "-rf", "--ignore-unmatch", "."], fixture.root);
       writeFileSync(join(fixture.root, "orphan.txt"), "unrelated history\n");
       git(["add", "orphan.txt"], fixture.root);
-      git(["commit", "-q", "-m", "unrelated feature"]);
+      git(["commit", "-q", "-m", "unrelated feature"], fixture.root);
       const unrelatedSha = git(["rev-parse", "HEAD"], fixture.root);
       git(["switch", "-q", fixture.featureBranch], fixture.root);
       git(["update-ref", `refs/heads/${fixture.featureBranch}`, unrelatedSha], fixture.root);
@@ -938,7 +939,7 @@ describe("checkpoint guard G6 — lifecycle and detected base", () => {
       git(["switch", "-q", fixture.baseBranch], fixture.root);
       writeFileSync(join(fixture.root, "advanced-base.txt"), "new base\n");
       git(["add", "advanced-base.txt"], fixture.root);
-      git(["commit", "-q", "-m", "advance base"]);
+      git(["commit", "-q", "-m", "advance base"], fixture.root);
       git(["switch", "-q", fixture.featureBranch], fixture.root);
       const ready = withLifecycle(awaiting, lifecycle("ready-to-merge", {
         base_ref: baseRef,
@@ -977,7 +978,7 @@ describe("checkpoint guard G6 — lifecycle and detected base", () => {
       git(["switch", "-q", fixture.baseBranch], fixture.root);
       writeFileSync(join(fixture.root, "advanced-base.txt"), "new base\n");
       git(["add", "advanced-base.txt"], fixture.root);
-      git(["commit", "-q", "-m", "advance base"]);
+      git(["commit", "-q", "-m", "advance base"], fixture.root);
       git(["switch", "-q", fixture.featureBranch], fixture.root);
       writePlan(fixture, awaiting);
       expectAllowed(run(fixture, writePayload(fixture, withLifecycle(awaiting, lifecycle("implementation")))));
@@ -1050,7 +1051,7 @@ describe("checkpoint guard G7 — Bash writes to checkpoint JSON", () => {
 describe("checkpoint guard G8 — Stop and consecutive block limit", () => {
   const midPlan = (fixture: Fixture) => withGate(plan(fixture.slug), 2, "behavior", "failed");
   const donePlan = (fixture: Fixture) => allGatesPassed(plan(fixture.slug));
-  const invalidPlan = (fixture: Fixture) => withCheckpointStatus(allGatesPassed(plan(fixture.slug)), 3, "passed");
+  const invalidPlan = (fixture: Fixture) => withCheckpointStatus(allGatesPassed(plan(fixture.slug)), 3, "invalid");
 
   test.each([
     ["orchestrator session mid-checkpoint", "orchestrated", "end_turn", "mid", true],

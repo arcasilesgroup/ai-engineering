@@ -11,6 +11,12 @@
         "loop": "native",
         "loopEvidence": "claude 2.1.251: --permission-mode auto|bypassPermissions|dontAsk with -p, plus --bg, --resume and --agents"
       },
+      "stopHook": {
+        "supported": true,
+        "event": "Stop",
+        "source": "code.claude.com/docs/en/hooks: Stop fires when Claude finishes responding and exit 2 blocks the turn",
+        "measured": "2026-10-27"
+      },
       "promptHook": {
         "supported": true,
         "event": "UserPromptSubmit",

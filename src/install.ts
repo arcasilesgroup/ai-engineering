@@ -35,15 +35,15 @@ export function hashFile(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-/** Every entry we write runs `ai-eng chain` or the checkpoint-gate beside it: that is
- *  the whole marker, and the only thing that distinguishes our hooks from the user's
+/** Every entry we write runs `ai-eng chain` or carries the legacy checkpoint-gate
+ *  marker: that is the whole marker, and the only thing that distinguishes our hooks from the user's
  *  in a file we share. It has to be the command ITSELF, not the word anywhere in a
  *  string: `my-wrapper.sh -- ai-eng chain PreToolUse` is the user's hook, and an
  *  uninstall that deletes it takes away something we never installed. So the marker
  *  matches at the start of a command or after a shell separator — the Copilot CLI
  *  entry guards the call with `command -v ai-eng … && ai-eng chain …`, and that `&&`
- *  is where ours starts. `checkpoint-gate.py` marks the gate hook that runs beside
- *  the chain without replacing it. */
+ *  is where ours starts. `checkpoint-gate.py` remains here so update can retire the
+ *  old standalone hook without replacing the user's hooks. */
 const MARKER = /(?:^|[;&|]\s*)ai-eng chain|checkpoint-gate\.py/;
 
 function isOurs(value: unknown): boolean {

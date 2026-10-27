@@ -134,7 +134,7 @@ export function materializeAgents(destRoot: string): string[] {
   return materializePrefix("agents/", destRoot);
 }
 
-/** Materialize the checkpoint-gate scripts into ~/.ai-engineering/scripts. */
+/** Materialize embedded scripts into ~/.ai-engineering/scripts. */
 export function materializeScripts(destRoot: string): string[] {
   return materializePrefix("scripts/", destRoot);
 }

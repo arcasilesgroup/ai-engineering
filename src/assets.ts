@@ -146,7 +146,6 @@ import atemplates_PERMISSIONS_md_tpl from "../templates/PERMISSIONS.md.tpl" with
 import atemplates_recap_html_tpl from "../templates/recap.html.tpl" with { type: "file" };
 import atemplates_arch_rules_json_tpl from "../templates/arch.rules.json.tpl" with { type: "file" };
 import atemplates_viewer_html_tpl from "../templates/viewer.html.tpl" with { type: "file" };
-import ascripts_checkpoint_gate_py from "../scripts/checkpoint-gate.py" with { type: "file" };
 
 export const EMBEDDED: Record<string, string> = {
   "../skills/ai-verify/evals/README.md": askills_ai_verify_evals_README_md as unknown as string,
@@ -294,5 +293,4 @@ export const EMBEDDED: Record<string, string> = {
   "../templates/recap.html.tpl": atemplates_recap_html_tpl as unknown as string,
   "../templates/arch.rules.json.tpl": atemplates_arch_rules_json_tpl as unknown as string,
   "../templates/viewer.html.tpl": atemplates_viewer_html_tpl as unknown as string,
-  "../scripts/checkpoint-gate.py": ascripts_checkpoint_gate_py as unknown as string,
 };

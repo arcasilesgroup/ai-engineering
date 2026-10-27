@@ -1,5 +1,5 @@
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { resolveContext } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
 
@@ -346,42 +346,78 @@ function normalizeCheckpoint(value: unknown, context: CheckpointContext): Checkp
   return { ...value, slug: context.slug, checkpoints: checkpoints as CheckpointItem[], lifecycle } as Checkpoint;
 }
 
-export function parseCheckpoint(contents: string, context: CheckpointContext): Checkpoint {
+export function parseCheckpoint(
+  contents: string,
+  context: CheckpointContext,
+  options: { forWrite?: boolean } = {},
+): Checkpoint {
   let value: unknown;
   try {
     value = JSON.parse(contents);
   } catch (error) {
     fail("JSON", error instanceof Error ? error.message : String(error));
   }
+  if (
+    options.forWrite &&
+    isRecord(value) &&
+    isRecord(value.lifecycle) &&
+    value.lifecycle.phase === "complete"
+  ) {
+    fail("phase", "complete is a legacy read-only phase");
+  }
   const checkpoint = normalizeCheckpoint(value, context);
   verifiedCheckpoints.add(checkpoint);
   return checkpoint;
 }
 
-export function readCheckpoint(path: string, context: CheckpointContext): Checkpoint {
-  let contents: string;
+export function readCheckpointText(
+  path: string,
+  context: CheckpointContext,
+  allowMissing = false,
+): string | null {
   try {
     const repoRoot = realpathSync(context.repoPath);
-    const stat = lstatSync(path);
-    const realPath = realpathSync(path);
-    const relativePath = relative(repoRoot, realPath);
+    const absolutePath = isAbsolute(path) ? resolve(path) : resolve(repoRoot, path);
+    const relativePath = relative(repoRoot, absolutePath);
     const expectedPath = join(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
     if (
-      !stat.isFile() ||
-      stat.isSymbolicLink() ||
       relativePath === "" ||
       relativePath === ".." ||
       relativePath.startsWith(`..${sep}`) ||
       isAbsolute(relativePath) ||
-      realPath !== expectedPath
+      absolutePath !== expectedPath
     ) {
       fail("path", "is not the repository-local checkpoint file for this slug");
     }
-    contents = readFileSync(path, "utf8");
+    let currentPath = repoRoot;
+    const components = relativePath.split(sep);
+    for (const [index, component] of components.entries()) {
+      currentPath = join(currentPath, component);
+      let stat;
+      try {
+        stat = lstatSync(currentPath);
+      } catch (error) {
+        if (allowMissing && (error as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw error;
+      }
+      if (stat.isSymbolicLink()) fail("path", "must not contain a symbolic link");
+      if (index < components.length - 1 && !stat.isDirectory()) {
+        fail("path", "contains a non-directory component");
+      }
+      if (index === components.length - 1 && !stat.isFile()) {
+        fail("path", "is not a regular file");
+      }
+    }
+    return readFileSync(absolutePath, "utf8");
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("checkpoint ")) throw error;
     fail("path", error instanceof Error ? error.message : String(error));
   }
+}
+
+export function readCheckpoint(path: string, context: CheckpointContext): Checkpoint {
+  const contents = readCheckpointText(path, context);
+  if (contents === null) fail("path", "does not exist");
   return parseCheckpoint(contents, context);
 }
 
@@ -453,6 +489,13 @@ export function assertCheckpointTransition(
     }
     if (baseCommit(context) === oldState.reviewed_base && !hasVerifiedPrevious) {
       fail("base_ref", "review invalidation requires a lost base compare-and-swap");
+    }
+    verifiedCheckpoints.add(next);
+    return;
+  }
+  if (oldState.phase === "blocked" && newState.phase === "implementation") {
+    if (oldState.app_review !== "not-started" || !sameReview(oldState, newState)) {
+      fail("lifecycle", "blocked state may resume implementation only with its preserved approval");
     }
     verifiedCheckpoints.add(next);
     return;

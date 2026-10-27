@@ -17,11 +17,12 @@ import { policyModeFor, runPolicy } from "../guards/policy.ts";
 import { runInjection, type GuardResult as InjectionGuardResult } from "../guards/injection.ts";
 import { runSpokenSecret } from "../guards/spoken-secret.ts";
 import { runLoopGuard } from "../guards/loop.ts";
+import { runCheckpointGuard } from "../guards/checkpoint.ts";
 import { CircuitBreaker } from "../guards/circuit-breaker.ts";
 import { isTestCommand, rewrite } from "../guards/wrap.ts";
 import { writeReceipt, upsertDenyLedger, retainReceipts, type Receipt } from "../receipts.ts";
 
-export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret";
+export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret" | "checkpoint";
 
 type GuardRow = { name: GuardName; matcher: RegExp };
 type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | { deny: false; review: true; reason: string; rule: { id: string; name: string; risk: number } } | undefined;
@@ -43,7 +44,9 @@ export const TABLE: Record<string, GuardRow[]> = {
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
+    { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ },
   ],
+  Stop: [{ name: "checkpoint", matcher: /^$/ }],
   PostToolUse: [
     { name: "injection", matcher: /^(WebFetch|Fetch|WebSearch|mcp__.*|tool_result)$/ },
     { name: "loop", matcher: /^.*$/ },
@@ -291,6 +294,8 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
           return runInjection(payload);
         case "spoken-secret":
           return runSpokenSecret(payload);
+        case "checkpoint":
+          return runCheckpointGuard(payload, ctx.repoRoot);
         default:
           return runLoopGuard(payload, ctx.loopOverride);
       }

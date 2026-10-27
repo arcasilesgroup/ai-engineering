@@ -1,8 +1,8 @@
 // @bun
 // src/chain/mod.ts
-import { readFileSync as readFileSync8, writeFileSync as writeFileSync3, mkdirSync as mkdirSync3 } from "fs";
-import { createHash as createHash4 } from "crypto";
-import { dirname as dirname2, join as join7 } from "path";
+import { readFileSync as readFileSync11, writeFileSync as writeFileSync4, mkdirSync as mkdirSync4 } from "fs";
+import { createHash as createHash5 } from "crypto";
+import { dirname as dirname3, join as join10 } from "path";
 
 // src/env.ts
 import { homedir } from "os";
@@ -1281,6 +1281,1055 @@ function runLoopGuard(payload, overridesActiveLoop) {
   return;
 }
 
+// src/guards/checkpoint.ts
+import { createHash as createHash3 } from "crypto";
+import {
+  lstatSync as lstatSync2,
+  mkdirSync as mkdirSync2,
+  readFileSync as readFileSync9,
+  readdirSync,
+  unlinkSync,
+  writeFileSync as writeFileSync2
+} from "fs";
+import { dirname as dirname2, isAbsolute as isAbsolute5, join as join8, relative as relative2, resolve as resolve6, sep as sep3 } from "path";
+import { isDeepStrictEqual } from "util";
+
+// src/git/context.ts
+import { existsSync as existsSync5, readFileSync as readFileSync7, realpathSync as realpathSync3 } from "fs";
+import { join as join6 } from "path";
+
+// src/git/run.ts
+import { spawnSync } from "child_process";
+import { devNull } from "os";
+var repositoryEnvVars;
+function localEnvVars(cwd) {
+  if (repositoryEnvVars !== undefined)
+    return repositoryEnvVars;
+  const done = spawnSync("git", ["rev-parse", "--local-env-vars"], { cwd, encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+  const names = (done.stdout ?? "").split(`
+`).filter((name) => name !== "");
+  if (done.error !== undefined || done.status !== 0 || !names.includes("GIT_DIR")) {
+    return new Error(`cannot list git's repository variables (git rev-parse --local-env-vars): ${done.stderr || String(done.error ?? `exit ${done.status}`)}`);
+  }
+  repositoryEnvVars = names;
+  return names;
+}
+function isolatedEnv(cwd) {
+  const names = localEnvVars(cwd);
+  if (names instanceof Error)
+    return names;
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_SYSTEM: devNull, GIT_CONFIG_NOSYSTEM: "1" };
+  for (const name of names)
+    delete env[name];
+  return env;
+}
+function runGit(args, opts) {
+  try {
+    const baseEnv = opts.isolated === true ? isolatedEnv(opts.cwd) : process.env;
+    if (baseEnv instanceof Error)
+      return { status: 1, stdout: "", stderr: baseEnv.message };
+    const env = { ...baseEnv, GIT_TERMINAL_PROMPT: "0" };
+    const done = spawnSync("git", args, { cwd: opts.cwd, encoding: "utf8", env });
+    const stdout = done.stdout ?? "";
+    const stderr = done.stderr ?? "";
+    if (done.error !== undefined || done.status === null) {
+      return { status: 1, stdout, stderr: stderr || String(done.error ?? `git stopped by ${done.signal}`) };
+    }
+    return { status: done.status, stdout, stderr };
+  } catch (error) {
+    return { status: 1, stdout: "", stderr: String(error) };
+  }
+}
+
+// src/git/context.ts
+var HEADS = "refs/heads/";
+var FALLBACK_REMOTE = "origin";
+function git(cwd, args) {
+  return runGit(args, { cwd, isolated: true });
+}
+function realpathOr(path) {
+  try {
+    return realpathSync3(path);
+  } catch {
+    return path;
+  }
+}
+function locate(cwd) {
+  const done = git(cwd, ["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-dir", "--git-common-dir"]);
+  const lines = done.stdout.split(`
+`).filter((line) => line !== "");
+  const [toplevel, gitDir, commonDir] = lines;
+  if (done.status !== 0 || lines.length !== 3 || toplevel === undefined || gitDir === undefined || commonDir === undefined) {
+    const reason = done.stderr.trim() === "" ? "" : ` (${done.stderr.trim()})`;
+    throw new Error(`not inside a Git working tree: ${cwd}${reason}; run from inside the repository or one of its worktrees`);
+  }
+  return { root: realpathSync3(toplevel), isLinkedWorktree: realpathOr(gitDir) !== realpathOr(commonDir) };
+}
+function currentBranch(root) {
+  const done = git(root, ["symbolic-ref", "--quiet", "HEAD"]);
+  const ref = done.stdout.trim();
+  if (done.status === 0 && ref.startsWith(HEADS))
+    return ref.slice(HEADS.length);
+  if (done.status === 1 && done.stdout === "" && done.stderr === "")
+    return null;
+  const reason = done.stderr.trim() || ref || `git exited ${done.status}`;
+  throw new Error(`cannot read the current branch in ${root}: ${reason}; check HEAD with \`git -C ${root} symbolic-ref HEAD\``);
+}
+function requireBranchName(root, name, origin, fix) {
+  const done = git(root, ["check-ref-format", "--branch", name]);
+  if (done.status === 0 && done.stdout.trim() === name)
+    return name;
+  throw new Error(`${origin} is not a valid branch name: ${JSON.stringify(name)}; ${fix}`);
+}
+function readConfig(path) {
+  if (!existsSync5(path))
+    return;
+  try {
+    return Bun.TOML.parse(readFileSync7(path, "utf8"));
+  } catch (error) {
+    throw new Error(`cannot read ${path} (${error instanceof Error ? error.message : String(error)}): fix the TOML so it parses, or remove the file`);
+  }
+}
+function configuredBase(root) {
+  const path = join6(root, ".ai-engineering", "config.toml");
+  const config = readConfig(path);
+  const section = typeof config === "object" && config !== null && "git" in config ? config.git : undefined;
+  if (section === undefined)
+    return;
+  if (typeof section !== "object" || section === null || Array.isArray(section)) {
+    throw new Error(`git in ${path} must be a [git] table; write the base as [git] base = "<branch>"`);
+  }
+  const value = "base" in section ? section.base : undefined;
+  if (value === undefined)
+    return;
+  const fix = `set [git] base to a branch name in ${path}`;
+  if (typeof value !== "string")
+    throw new Error(`[git] base in ${path} must be a string; ${fix}`);
+  return requireBranchName(root, value, `[git] base in ${path}`, fix);
+}
+function baseRemote(root, branch) {
+  if (branch === null)
+    return FALLBACK_REMOTE;
+  const done = git(root, ["for-each-ref", "--format=%(refname)%00%(upstream:remotename)", `${HEADS}${branch}`]);
+  if (done.status !== 0) {
+    throw new Error(`cannot read the upstream of ${branch} in ${root}: ${done.stderr.trim()}; check it with \`git -C ${root} for-each-ref refs/heads/${branch}\``);
+  }
+  for (const line of done.stdout.split(`
+`)) {
+    const [refname, remote] = line.split("\x00");
+    if (refname === `${HEADS}${branch}` && remote !== undefined && remote !== "" && remote !== ".")
+      return remote;
+  }
+  return FALLBACK_REMOTE;
+}
+function remoteDefault(root, remote) {
+  const prefix = `refs/remotes/${remote}/`;
+  const done = git(root, ["symbolic-ref", "--quiet", `${prefix}HEAD`]);
+  const target = done.stdout.trim();
+  if (done.status !== 0 || !target.startsWith(prefix) || target === `${prefix}HEAD`)
+    return null;
+  const resolves = git(root, ["rev-parse", "--verify", "--quiet", `${target}^{commit}`]);
+  return resolves.status === 0 ? target.slice(prefix.length) : null;
+}
+function detectBase(root, branch, explicitBase) {
+  if (explicitBase !== undefined) {
+    const base = requireBranchName(root, explicitBase, "the explicit base", "pass a plain branch name such as release/2.6");
+    return { base, baseSource: "explicit", baseRemote: null };
+  }
+  const fromConfig = configuredBase(root);
+  if (fromConfig !== undefined)
+    return { base: fromConfig, baseSource: "config", baseRemote: null };
+  const remote = baseRemote(root, branch);
+  const fromRemote = remoteDefault(root, remote);
+  return fromRemote === null ? null : { base: fromRemote, baseSource: "remote-head", baseRemote: remote };
+}
+function resolveContext(cwd, opts = {}) {
+  const { root, isLinkedWorktree } = locate(cwd);
+  const branch = currentBranch(root);
+  const where = { root, branch, isDetached: branch === null, isLinkedWorktree };
+  const detected = detectBase(root, branch, opts.explicitBase);
+  if (detected === null || detected.base === branch)
+    return { ...where, base: null, baseSource: "ask", baseRemote: null };
+  return { ...where, ...detected };
+}
+
+// src/workflow/checkpoint.ts
+import { lstatSync, readFileSync as readFileSync8, realpathSync as realpathSync4 } from "fs";
+import { isAbsolute as isAbsolute4, join as join7, relative, resolve as resolve5, sep as sep2 } from "path";
+var SHA_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+var SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
+var GATE_STATUSES = ["pending", "failed", "passed", "n/a", "blocked"];
+var CHECKPOINT_STATUSES = ["pending", "in_progress", "passed", "blocked"];
+var verifiedCheckpoints = new WeakSet;
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function fail(field, message) {
+  throw new Error(`checkpoint ${field}: ${message}`);
+}
+function textList(value, field) {
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+    fail(field, "must be an array of strings");
+  }
+  return true;
+}
+function git2(context, args) {
+  return runGit(args, { cwd: context.repoPath, isolated: true });
+}
+function baseRefName(context) {
+  const prefix = "refs/heads/";
+  if (!context.baseRef.startsWith(prefix) || context.baseRef.length === prefix.length) {
+    fail("base_ref", `must be a local branch ref, got ${JSON.stringify(context.baseRef)}`);
+  }
+  return context.baseRef.slice(prefix.length);
+}
+function baseCommit(context) {
+  const branch = baseRefName(context);
+  let root;
+  try {
+    root = resolveContext(context.repoPath, { explicitBase: branch }).root;
+  } catch (error) {
+    fail("base_ref", error instanceof Error ? error.message : String(error));
+  }
+  const result = runGit(["rev-parse", "--verify", `${context.baseRef}^{commit}`], { cwd: root, isolated: true });
+  const commit = result.stdout.trim();
+  if (result.status !== 0 || result.stderr.trim() !== "" || !SHA_PATTERN.test(commit)) {
+    fail("base_ref", `cannot read ${context.baseRef} as a commit`);
+  }
+  return commit;
+}
+function knownCommit(context, sha, field) {
+  const result = git2(context, ["cat-file", "-e", `${sha}^{commit}`]);
+  if (result.status !== 0 || result.stderr.trim() !== "") {
+    fail(field, `${sha} is not a known commit`);
+  }
+}
+function requireAncestor(context, ancestor, descendant, field) {
+  const result = git2(context, ["merge-base", "--is-ancestor", ancestor, descendant]);
+  if (result.status !== 0 || result.stderr.trim() !== "") {
+    fail(field, `${descendant} is not a descendant of reviewed_base ${ancestor}`);
+  }
+}
+function normalizeLifecycle(value, context) {
+  if (!isRecord(value))
+    fail("lifecycle", "must be an object");
+  const keys = Object.keys(value);
+  const legacy = Object.hasOwn(value, "reviewed_main");
+  const allowed = new Set([
+    "phase",
+    "plan_approval",
+    "app_review",
+    "base_ref",
+    "reviewed_base",
+    "reviewed_main",
+    "reviewed_feature"
+  ]);
+  if (keys.some((key) => !allowed.has(key)) || keys.length < 4 || keys.length > (legacy ? 6 : 6) || legacy && Object.hasOwn(value, "reviewed_base")) {
+    fail("lifecycle", "contains missing, duplicate or unsupported fields");
+  }
+  const phase = value.phase === "complete" ? "ready-to-merge" : value.phase;
+  if (phase !== "awaiting-plan-approval" && phase !== "implementation" && phase !== "blocked" && phase !== "awaiting-app-review" && phase !== "ready-to-merge") {
+    fail("phase", `${String(value.phase)} is not supported`);
+  }
+  if (value.plan_approval !== "pending" && value.plan_approval !== "approved") {
+    fail("plan_approval", "must be pending or approved");
+  }
+  if (value.app_review !== "not-started" && value.app_review !== "pending" && value.app_review !== "approved") {
+    fail("app_review", "must be not-started, pending or approved");
+  }
+  const reviewedBase = legacy ? value.reviewed_main : value.reviewed_base;
+  const baseRef = typeof value.base_ref === "string" ? value.base_ref : reviewedBase !== null && reviewedBase !== undefined ? context.baseRef : null;
+  if (baseRef !== null && baseRef !== context.baseRef) {
+    fail("base_ref", `must match the detected base ${context.baseRef}`);
+  }
+  for (const [field, sha] of [
+    ["reviewed_base", reviewedBase],
+    ["reviewed_feature", value.reviewed_feature]
+  ]) {
+    if (sha !== null && sha !== undefined && (typeof sha !== "string" || !SHA_PATTERN.test(sha))) {
+      fail(field, "must be a full lowercase commit SHA");
+    }
+  }
+  const hasReviewedBase = typeof reviewedBase === "string";
+  const hasReviewedFeature = typeof value.reviewed_feature === "string";
+  const hasNoReview = reviewedBase === null || reviewedBase === undefined ? value.reviewed_feature === null || value.reviewed_feature === undefined : false;
+  if (phase === "awaiting-plan-approval" && value.plan_approval !== "pending" || phase !== "awaiting-plan-approval" && value.plan_approval !== "approved" && phase !== "blocked") {
+    fail("plan_approval", `does not match phase ${phase}`);
+  }
+  if (phase === "implementation" && (hasReviewedBase || hasReviewedFeature)) {
+    fail("reviewed_base", "must be cleared in implementation");
+  }
+  if (phase === "awaiting-plan-approval" || phase === "implementation") {
+    const expectedApproval = phase === "awaiting-plan-approval" ? "pending" : "approved";
+    if (value.plan_approval !== expectedApproval || value.app_review !== "not-started" || !hasNoReview) {
+      fail("app_review", `fields do not match phase ${phase}`);
+    }
+  }
+  if (phase === "awaiting-app-review" || phase === "ready-to-merge") {
+    const expectedReview = phase === "awaiting-app-review" ? "pending" : "approved";
+    if (value.app_review !== expectedReview)
+      fail("app_review", `must be ${expectedReview} in phase ${phase}`);
+    if (!hasReviewedBase || !hasReviewedFeature) {
+      fail("reviewed_base", `reviewed_base and reviewed_feature are required in phase ${phase}`);
+    }
+  }
+  if (phase === "blocked" && value.plan_approval === "pending" && (value.app_review !== "not-started" || !hasNoReview)) {
+    fail("app_review", "blocked must preserve pending plan approval");
+  }
+  if (phase === "blocked" && value.plan_approval === "approved" && (value.app_review === "not-started" && !hasNoReview || value.app_review !== "not-started" && (!hasReviewedBase || !hasReviewedFeature))) {
+    fail("reviewed_base", "blocked must preserve earlier review state");
+  }
+  if ((phase === "awaiting-app-review" || phase === "ready-to-merge" || phase === "blocked" && value.app_review !== "not-started") && baseRef !== context.baseRef) {
+    fail("base_ref", `is required for pinned review state and must match ${context.baseRef}`);
+  }
+  if (hasReviewedBase && hasReviewedFeature) {
+    baseCommit(context);
+    knownCommit(context, reviewedBase, "reviewed_base");
+    knownCommit(context, value.reviewed_feature, "reviewed_feature");
+    requireAncestor(context, reviewedBase, value.reviewed_feature, "reviewed_feature");
+  }
+  return {
+    phase,
+    plan_approval: value.plan_approval,
+    app_review: value.app_review,
+    base_ref: baseRef,
+    reviewed_base: reviewedBase,
+    reviewed_feature: value.reviewed_feature ?? null
+  };
+}
+function normalizeCheckpoint(value, context) {
+  if (!SLUG_PATTERN.test(context.slug) || /\p{C}/u.test(context.slug)) {
+    fail("slug", "context must contain a valid feature slug");
+  }
+  if (!isRecord(value))
+    fail("JSON", "must contain an object");
+  if (value.slug !== context.slug) {
+    fail("slug", `expected ${JSON.stringify(context.slug)}, got ${JSON.stringify(value.slug)}`);
+  }
+  if (!Array.isArray(value.checkpoints) || value.checkpoints.length === 0) {
+    fail("checkpoints", "must be a non-empty array");
+  }
+  const legacyShape = !isRecord(value.lifecycle) || Object.hasOwn(value.lifecycle, "reviewed_main");
+  for (const [index, checkpoint] of value.checkpoints.entries()) {
+    const prefix = `checkpoints[${index}]`;
+    if (!isRecord(checkpoint))
+      fail(prefix, "must be an object");
+    if (!Number.isSafeInteger(checkpoint.id) || checkpoint.id < 1) {
+      fail(`${prefix}.id`, "must be a positive finite integer");
+    }
+    if (!isRecord(checkpoint.gates))
+      fail(`${prefix}.gates`, "must be an object");
+    for (const name of ["behavior", "ui", "review"]) {
+      const gate = checkpoint.gates[name];
+      if (!isRecord(gate))
+        fail(`${prefix}.gates.${name}`, "must be an object");
+      if (!GATE_STATUSES.includes(String(gate.status))) {
+        fail(`${prefix}.gates.${name}.status`, "is not supported");
+      }
+      if (!Number.isSafeInteger(gate.attempts) || gate.attempts < 0) {
+        fail(`${prefix}.gates.${name}.attempts`, "must be a non-negative integer");
+      }
+      textList(gate.findings, `${prefix}.gates.${name}.findings`);
+    }
+    if (checkpoint.status === "passed" && ["behavior", "ui", "review"].some((name) => {
+      const status = checkpoint.gates[name]?.status;
+      return status !== "passed" && status !== "n/a";
+    })) {
+      fail(`${prefix}.status`, "passed requires every gate to be passed or n/a");
+    }
+    if (!CHECKPOINT_STATUSES.includes(String(checkpoint.status))) {
+      fail(`${prefix}.status`, "is not supported");
+    }
+    for (const field of ["title", "goal"]) {
+      if (!legacyShape && typeof checkpoint[field] !== "string" || checkpoint[field] !== undefined && typeof checkpoint[field] !== "string") {
+        fail(`${prefix}.${field}`, "must be text");
+      }
+    }
+    for (const field of ["tasks", "files", "acceptance", "verify", "changed_files"]) {
+      if (!legacyShape && checkpoint[field] === undefined) {
+        fail(`${prefix}.${field}`, "is required");
+      }
+      if (checkpoint[field] !== undefined)
+        textList(checkpoint[field], `${prefix}.${field}`);
+    }
+    if (!legacyShape && checkpoint.ui === undefined)
+      fail(`${prefix}.ui`, "is required");
+    if (checkpoint.ui !== undefined && checkpoint.ui !== null) {
+      if (!isRecord(checkpoint.ui))
+        fail(`${prefix}.ui`, "must be null or an object");
+      for (const field of ["route", "prototype", "scope"]) {
+        if (typeof checkpoint.ui[field] !== "string")
+          fail(`${prefix}.ui.${field}`, "must be text");
+      }
+      textList(checkpoint.ui.states, `${prefix}.ui.states`);
+    }
+  }
+  if (value.halted !== undefined && value.halted !== null) {
+    if (!isRecord(value.halted) || typeof value.halted.reason !== "string" || !Number.isSafeInteger(value.halted.checkpoint)) {
+      fail("halted", "must be null or include a reason and checkpoint number");
+    }
+  }
+  for (const field of ["assumptions", "notes"]) {
+    if (value[field] !== undefined)
+      textList(value[field], field);
+  }
+  const lifecycle = normalizeLifecycle(value.lifecycle, context);
+  const checkpoints = value.checkpoints.map((checkpoint) => {
+    if (!legacyShape || !isRecord(checkpoint))
+      return checkpoint;
+    return {
+      title: "",
+      goal: "",
+      tasks: [],
+      files: [],
+      acceptance: [],
+      verify: [],
+      changed_files: [],
+      ui: null,
+      ...checkpoint
+    };
+  });
+  return { ...value, slug: context.slug, checkpoints, lifecycle };
+}
+function parseCheckpoint(contents, context) {
+  let value;
+  try {
+    value = JSON.parse(contents);
+  } catch (error) {
+    fail("JSON", error instanceof Error ? error.message : String(error));
+  }
+  const checkpoint = normalizeCheckpoint(value, context);
+  verifiedCheckpoints.add(checkpoint);
+  return checkpoint;
+}
+function readCheckpointText(path, context, allowMissing = false) {
+  try {
+    const repoRoot = realpathSync4(context.repoPath);
+    const absolutePath = isAbsolute4(path) ? resolve5(path) : resolve5(repoRoot, path);
+    const relativePath = relative(repoRoot, absolutePath);
+    const expectedPath = join7(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
+    if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep2}`) || isAbsolute4(relativePath) || absolutePath !== expectedPath) {
+      fail("path", "is not the repository-local checkpoint file for this slug");
+    }
+    let currentPath = repoRoot;
+    const components = relativePath.split(sep2);
+    for (const [index, component] of components.entries()) {
+      currentPath = join7(currentPath, component);
+      let stat;
+      try {
+        stat = lstatSync(currentPath);
+      } catch (error) {
+        if (allowMissing && error.code === "ENOENT")
+          return null;
+        throw error;
+      }
+      if (stat.isSymbolicLink())
+        fail("path", "must not contain a symbolic link");
+      if (index < components.length - 1 && !stat.isDirectory()) {
+        fail("path", "contains a non-directory component");
+      }
+      if (index === components.length - 1 && !stat.isFile()) {
+        fail("path", "is not a regular file");
+      }
+    }
+    return readFileSync8(absolutePath, "utf8");
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("checkpoint "))
+      throw error;
+    fail("path", error instanceof Error ? error.message : String(error));
+  }
+}
+function gatesComplete(checkpoint) {
+  return checkpoint.checkpoints.every((item) => item.status === "passed" && ["behavior", "ui", "review"].every((name) => {
+    const status = item.gates[name].status;
+    return status === "passed" || status === "n/a";
+  }));
+}
+function sameReview(left, right) {
+  return left.plan_approval === right.plan_approval && left.app_review === right.app_review && left.base_ref === right.base_ref && left.reviewed_base === right.reviewed_base && left.reviewed_feature === right.reviewed_feature;
+}
+function assertCheckpointTransition(previous, next, context) {
+  if (isRecord(next.lifecycle) && next.lifecycle.phase === "complete") {
+    fail("phase", "complete is a legacy read-only phase");
+  }
+  const before = normalizeCheckpoint(previous, context);
+  const after = normalizeCheckpoint(next, context);
+  const hasVerifiedPrevious = verifiedCheckpoints.has(previous);
+  const oldState = before.lifecycle;
+  const newState = after.lifecycle;
+  if (before.slug !== after.slug || before.slug !== context.slug)
+    fail("slug", "cannot change during a transition");
+  if (newState.phase === "blocked") {
+    if (!sameReview(oldState, newState))
+      fail("lifecycle", "blocked must preserve earlier approvals");
+    verifiedCheckpoints.add(next);
+    return;
+  }
+  if (oldState.phase === "awaiting-plan-approval" && newState.phase === "implementation") {
+    if (newState.plan_approval !== "approved")
+      fail("plan_approval", "must be approved before implementation");
+    verifiedCheckpoints.add(next);
+    return;
+  }
+  if (oldState.phase === "implementation" && newState.phase === "awaiting-app-review") {
+    if (!gatesComplete(after))
+      fail("gates", "all checkpoints must pass before app review");
+    if (newState.reviewed_base !== baseCommit(context)) {
+      fail("reviewed_base", "must pin the current base before app review");
+    }
+    const featureTip = git2(context, ["rev-parse", "--verify", `refs/heads/feat/${context.slug}^{commit}`]);
+    if (featureTip.status !== 0 || featureTip.stderr.trim() !== "" || featureTip.stdout.trim() !== newState.reviewed_feature) {
+      fail("reviewed_feature", "must pin the current feature tip before app review");
+    }
+    verifiedCheckpoints.add(next);
+    return;
+  }
+  if (oldState.phase === "awaiting-app-review" && newState.phase === "implementation") {
+    if (newState.app_review !== "not-started" || newState.reviewed_base !== null || newState.reviewed_feature !== null) {
+      fail("reviewed_base", "request-changes must clear the reviewed SHAs");
+    }
+    if (baseCommit(context) === oldState.reviewed_base && !hasVerifiedPrevious) {
+      fail("base_ref", "review invalidation requires a lost base compare-and-swap");
+    }
+    verifiedCheckpoints.add(next);
+    return;
+  }
+  if (oldState.phase === "awaiting-app-review" && newState.phase === "ready-to-merge") {
+    if (!gatesComplete(after))
+      fail("gates", "all checkpoints must pass before approval");
+    if (newState.app_review !== "approved" || newState.reviewed_base !== oldState.reviewed_base || newState.reviewed_feature !== oldState.reviewed_feature || newState.base_ref !== oldState.base_ref || baseCommit(context) !== oldState.reviewed_base) {
+      fail("app_review", "approval must preserve the current reviewed base and feature SHAs");
+    }
+    verifiedCheckpoints.add(next);
+    return;
+  }
+  if (oldState.phase === "blocked" && newState.phase === "ready-to-merge") {
+    if (oldState.app_review !== "approved" || !sameReview(oldState, newState) || !gatesComplete(after)) {
+      fail("lifecycle", "blocked state may resume only with its preserved approval");
+    }
+    verifiedCheckpoints.add(next);
+    return;
+  }
+  fail("phase", `${oldState.phase} cannot transition to ${newState.phase}`);
+}
+function htmlAttributes(source) {
+  const attributes = {};
+  const attribute = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+  let cursor = 0;
+  for (const match of source.matchAll(attribute)) {
+    if (source.slice(cursor, match.index).trim() !== "")
+      return null;
+    const name = match[1]?.toLowerCase();
+    const value = match[2] ?? match[3];
+    if (name === undefined || value === undefined || Object.hasOwn(attributes, name))
+      return null;
+    attributes[name] = value;
+    cursor = (match.index ?? 0) + match[0].length;
+  }
+  return source.slice(cursor).replace(/\/\s*$/, "").trim() === "" ? attributes : null;
+}
+function htmlIsWellFormed(html) {
+  const withoutComments = html.replace(/<!--[\s\S]*?-->/gu, "");
+  if (/<!--|-->/u.test(withoutComments))
+    return false;
+  const withoutRawText = withoutComments.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/giu, "");
+  if (/<(?:script|style)\b/iu.test(withoutRawText))
+    return false;
+  const voidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+  const openTags = [];
+  let htmlRoots = 0;
+  for (const match of withoutRawText.matchAll(/<\/?([a-z][\w:-]*)\b[^>]*>/giu)) {
+    const tag = (match[1] ?? "").toLowerCase();
+    const isClosing = match[0]?.startsWith("</") === true;
+    if (tag === "html" && !isClosing)
+      htmlRoots += 1;
+    if (isClosing) {
+      if (openTags.pop() !== tag)
+        return false;
+    } else if (!voidTags.has(tag) && !match[0]?.endsWith("/>")) {
+      openTags.push(tag);
+    }
+  }
+  return htmlRoots === 1 && openTags.length === 0;
+}
+function decodedStatusLine(html) {
+  const lines = [];
+  const container = /<([a-z][\w:-]*)\b(?=[^>]*\bclass\s*=\s*(?:"[^"]*\bmeta\b[^"]*"|'[^']*\bmeta\b[^']*'))[^>]*>([\s\S]*?)<\/\1\s*>/giu;
+  for (const match of html.matchAll(container)) {
+    const line = (match[2] ?? "").split(/<br\b[^>]*>/iu, 1)[0] ?? "";
+    lines.push(line.replace(/<[^>]*>/gu, "").replace(/&middot;|&#183;|&#x0*b7;/giu, "\xB7").replace(/&nbsp;|&#160;|&#x0*a0;/giu, " ").replace(/&amp;/giu, "&").replace(/&lt;/giu, "<").replace(/&gt;/giu, ">").replace(/&quot;/giu, '"').replace(/&#39;|&apos;/giu, "'").replace(/\s+/gu, " ").trim());
+  }
+  return lines;
+}
+function brainstormApprovalResult(html, slug, now) {
+  if (slug !== "" && (!SLUG_PATTERN.test(slug) || /\p{C}/u.test(slug))) {
+    return { approval: null, problem: "brainstorm feature slug is missing or ambiguous" };
+  }
+  if (!htmlIsWellFormed(html))
+    return { approval: null, problem: "brainstorm is malformed" };
+  const metadata = { "ai-feature": [], "ai-approved": [] };
+  for (const match of html.matchAll(/<meta\b([^>]*)>/giu)) {
+    const attributes = htmlAttributes(match[1] ?? "");
+    if (attributes === null)
+      return { approval: null, problem: "brainstorm metadata is malformed" };
+    const name = attributes.name;
+    if (name === "ai-feature" || name === "ai-approved") {
+      metadata[name]?.push(attributes.content ?? "");
+    }
+  }
+  const feature = metadata["ai-feature"] ?? [];
+  const approved = metadata["ai-approved"] ?? [];
+  if (feature.length !== 1) {
+    return { approval: null, problem: "brainstorm feature slug is missing or ambiguous" };
+  }
+  if (approved.length !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(approved[0] ?? "")) {
+    return { approval: null, problem: "brainstorm approval date is missing or ambiguous" };
+  }
+  const featureSlug = feature[0] ?? "";
+  if (!SLUG_PATTERN.test(featureSlug) || /\p{C}/u.test(featureSlug)) {
+    return { approval: null, problem: "brainstorm feature slug is missing or ambiguous" };
+  }
+  if (slug !== "" && featureSlug !== slug) {
+    return { approval: null, problem: `brainstorm belongs to ${featureSlug}, not ${slug}` };
+  }
+  const approvedOn = approved[0] ?? "";
+  const [year, month, day] = approvedOn.split("-").map(Number);
+  const approvedDate = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 0));
+  if (approvedDate.getUTCFullYear() !== year || approvedDate.getUTCMonth() + 1 !== month || approvedDate.getUTCDate() !== day) {
+    return { approval: null, problem: "brainstorm approval date is malformed" };
+  }
+  const statusLines = decodedStatusLine(html);
+  if (statusLines.length !== 1 || statusLines[0] !== `complete \xB7 ${approvedOn}`) {
+    return { approval: null, problem: "brainstorm approval does not match its complete status" };
+  }
+  const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const ageDays = (todayStart - approvedDate.getTime()) / 86400000;
+  if (ageDays < 0 || ageDays > 14) {
+    return { approval: null, problem: "brainstorm approval is expired or future-dated" };
+  }
+  return { approval: { slug: featureSlug, approvedOn }, problem: null };
+}
+function brainstormApprovalProblem(html, slug, now) {
+  return brainstormApprovalResult(html, slug, now).problem;
+}
+
+// src/guards/checkpoint.ts
+var GATES = ["behavior", "ui", "review"];
+var STAGES = new Set(["tests", "implement", "behavior", "ui", "review", "fix"]);
+var MARKER = /^\s*\[checkpoint\s+([\w.-]+)#(\d+)\s+(\w+)\]/;
+var CHECKPOINT_PATH = /^\.ai-engineering\/workflow\/checkpoints\/([a-z0-9][a-z0-9._-]*)\.json$/;
+var CHECKPOINT_TARGET = /\.ai-engineering\/workflow\/checkpoints\/[^\s/]+\.json/;
+var BASH_WRITE = />|\btee\b|\bsed\s+-i|\bpython3?\b|\bnode\b|\bperl\b|\bjq\b.*>|\bmv\b|\bcp\b|\btruncate\b/;
+var MAX_STOP_BLOCKS = 3;
+function deny2(checkpoint, gate, detail, next) {
+  return {
+    deny: true,
+    reason: `${checkpoint} cannot pass: ${gate} ${detail}. Next: ${next}.`
+  };
+}
+function checkpointContext(repoRoot, slug) {
+  const context = resolveContext(repoRoot);
+  return {
+    repoPath: context.root,
+    slug,
+    baseRef: context.base === null ? "" : `refs/heads/${context.base}`
+  };
+}
+function checkpointTarget(repoRoot, filePath) {
+  if (typeof filePath !== "string" || filePath.length === 0)
+    return null;
+  const root = resolve6(repoRoot);
+  const absolutePath = isAbsolute5(filePath) ? resolve6(filePath) : resolve6(root, filePath);
+  const relativePath = relative2(root, absolutePath).split(sep3).join("/");
+  const match = CHECKPOINT_PATH.exec(relativePath);
+  return match?.[1] ? { path: absolutePath, slug: match[1] } : null;
+}
+function applyEdit(contents, edit) {
+  const oldString = edit.old_string ?? edit.oldString;
+  const newString = edit.new_string ?? edit.newString;
+  if (typeof oldString !== "string" || oldString.length === 0 || typeof newString !== "string")
+    return null;
+  if (!contents.includes(oldString))
+    return null;
+  if (edit.replace_all === true || edit.replaceAll === true)
+    return contents.split(oldString).join(newString);
+  return contents.replace(oldString, newString);
+}
+function proposedContents(payload, target, context) {
+  const toolInput = payload.tool_input;
+  if (payload.tool_name === "Write") {
+    return typeof toolInput.content === "string" ? toolInput.content : null;
+  }
+  const contents = readCheckpointText(target.path, context);
+  if (contents === null)
+    return null;
+  if (payload.tool_name === "Edit")
+    return applyEdit(contents, toolInput);
+  if (payload.tool_name !== "MultiEdit" || !Array.isArray(toolInput.edits))
+    return null;
+  let updated = contents;
+  for (const edit of toolInput.edits) {
+    if (edit === null || typeof edit !== "object" || Array.isArray(edit))
+      return null;
+    const result = applyEdit(updated, edit);
+    if (result === null)
+      return null;
+    updated = result;
+  }
+  return updated;
+}
+function completed(checkpoint) {
+  return checkpoint.status === "passed" && GATES.every((gate) => {
+    const status = checkpoint.gates[gate].status;
+    return status === "passed" || status === "n/a";
+  });
+}
+function runtimeState(checkpoint) {
+  return [
+    checkpoint.status,
+    ...GATES.map((gate) => checkpoint.gates[gate].status)
+  ];
+}
+function started(checkpoint) {
+  return GATES.some((gate) => {
+    const state = checkpoint.gates[gate];
+    return state.status === "passed" || state.status === "failed" || state.attempts > 0;
+  });
+}
+function requireSequentialCheckpoints(checkpoint, source) {
+  for (const [index, item] of checkpoint.checkpoints.entries()) {
+    if (item.id !== index + 1) {
+      return deny2(`CP${item.id}`, "checkpoint schema", `IDs in ${source} must be sequential starting at 1`, "renumber the checkpoints and retry the guarded write");
+    }
+  }
+  return;
+}
+function reviewedPayload(plan) {
+  const copy = JSON.parse(JSON.stringify(plan));
+  delete copy["lifecycle"];
+  const checkpoints = copy["checkpoints"];
+  if (!Array.isArray(checkpoints))
+    return copy;
+  for (const checkpointValue of checkpoints) {
+    if (checkpointValue === null || typeof checkpointValue !== "object")
+      continue;
+    const checkpoint = checkpointValue;
+    delete checkpoint["status"];
+    const gates = checkpoint["gates"];
+    if (gates === null || typeof gates !== "object")
+      continue;
+    for (const gateValue of Object.values(gates)) {
+      if (gateValue === null || typeof gateValue !== "object")
+        continue;
+      const gate = gateValue;
+      delete gate["status"];
+      delete gate["attempts"];
+      delete gate["findings"];
+    }
+  }
+  return copy;
+}
+function hasAppReviewClaim(checkpoint) {
+  const lifecycle = checkpoint.lifecycle;
+  return lifecycle.phase === "awaiting-app-review" || lifecycle.phase === "ready-to-merge" || lifecycle.phase === "blocked" && lifecycle.app_review !== "not-started";
+}
+function assertProgress(previous, next) {
+  for (const checkpoint of next.checkpoints) {
+    const behavior = checkpoint.gates.behavior.status;
+    const ui = checkpoint.gates.ui.status;
+    const review = checkpoint.gates.review.status;
+    if (ui === "passed" && behavior !== "passed") {
+      return deny2(`CP${checkpoint.id}`, "ui gate", "cannot pass before behavior has passed", `run the CP${checkpoint.id} behavior gate`);
+    }
+    if (review === "passed" && (behavior !== "passed" || ui !== "passed" && ui !== "n/a")) {
+      return deny2(`CP${checkpoint.id}`, "review gate", "cannot pass before behavior and ui have passed or ui is n/a", `run the CP${checkpoint.id} behavior and ui gates`);
+    }
+    if (checkpoint.status === "passed" && !completed(checkpoint)) {
+      return deny2(`CP${checkpoint.id}`, "checkpoint status", "cannot be passed until every gate is passed or n/a", `finish the CP${checkpoint.id} gates`);
+    }
+    const oldCheckpoint = previous?.checkpoints.find((candidate) => candidate.id === checkpoint.id);
+    const hasChanged = oldCheckpoint !== undefined && !isDeepStrictEqual(runtimeState(oldCheckpoint), runtimeState(checkpoint));
+    if ((hasChanged || oldCheckpoint === undefined && started(checkpoint)) && next.checkpoints.some((candidate) => candidate.id < checkpoint.id && !completed(candidate))) {
+      return deny2(`CP${checkpoint.id}`, "checkpoint order", "cannot change while an earlier checkpoint is still open", "finish every earlier checkpoint first");
+    }
+  }
+  return;
+}
+function checkFirstPlan(root, checkpoint) {
+  const state = checkpoint.lifecycle;
+  if (state.phase !== "implementation" || state.plan_approval !== "approved" || state.app_review !== "not-started" || state.reviewed_base !== null || state.reviewed_feature !== null) {
+    return deny2(`Checkpoint ${checkpoint.slug}`, "plan approval", "a first plan must start approved for implementation with no app review", "approve the matching brainstorm, then write the implementation plan");
+  }
+  let html;
+  try {
+    html = readFileSync9(join8(root, ".ai-engineering", "brainstorm.html"), "utf8");
+  } catch (error) {
+    return deny2(`Checkpoint ${checkpoint.slug}`, "plan approval", `cannot read the matching brainstorm (${error instanceof Error ? error.message : String(error)})`, "restore the approved brainstorm and retry the plan write");
+  }
+  const problem = brainstormApprovalProblem(html, checkpoint.slug, new Date);
+  if (problem !== null) {
+    return deny2(`Checkpoint ${checkpoint.slug}`, "plan approval", problem, "approve the matching brainstorm within the last 14 days");
+  }
+  return;
+}
+function checkPlanWrite(payload, repoRoot) {
+  const target = checkpointTarget(repoRoot, payload.tool_input.file_path);
+  if (target === null)
+    return;
+  let context;
+  try {
+    context = checkpointContext(repoRoot, target.slug);
+  } catch (error) {
+    return deny2(`Checkpoint ${target.slug}`, "checkpoint gate", `cannot detect the repository base (${error instanceof Error ? error.message : String(error)})`, "repair the repository Git context and retry the guarded write");
+  }
+  let previous = null;
+  let previousText;
+  try {
+    previousText = readCheckpointText(target.path, context, true);
+    if (previousText !== null)
+      previous = parseCheckpoint(previousText, context);
+  } catch (error) {
+    return deny2(`Checkpoint ${target.slug}`, "checkpoint gate", `cannot read ${target.path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint file and retry the guarded write");
+  }
+  const text = proposedContents(payload, target, context);
+  if (text === null)
+    return;
+  let next;
+  try {
+    next = parseCheckpoint(text, context);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const item = /checkpoints\[(\d+)\]/.exec(message);
+    const checkpoint = item?.[1] === undefined ? `Checkpoint ${target.slug}` : `CP${Number(item[1]) + 1}`;
+    return deny2(checkpoint, "checkpoint schema", message, "repair the checkpoint JSON schema and retry the guarded write");
+  }
+  const sequenceError = requireSequentialCheckpoints(next, target.path);
+  if (sequenceError !== undefined)
+    return sequenceError;
+  if (previous !== null) {
+    const oldSequenceError = requireSequentialCheckpoints(previous, target.path);
+    if (oldSequenceError !== undefined)
+      return oldSequenceError;
+  }
+  const progressError = assertProgress(previous, next);
+  if (progressError !== undefined)
+    return progressError;
+  if (previous === null) {
+    return checkFirstPlan(context.repoPath, next) ?? { deny: false };
+  }
+  if ((hasAppReviewClaim(next) || hasAppReviewClaim(previous) && next.lifecycle.phase !== "implementation") && !isDeepStrictEqual(reviewedPayload(previous), reviewedPayload(next))) {
+    return deny2(`Checkpoint ${target.slug}`, "app-review gate", "cannot change reviewed plan fields after app review begins", "request changes or repeat the app review for the updated plan");
+  }
+  if (!isDeepStrictEqual(previous.lifecycle, next.lifecycle)) {
+    try {
+      assertCheckpointTransition({ ...previous }, next, context);
+    } catch (error) {
+      return deny2(`Checkpoint ${target.slug}`, "lifecycle gate", error instanceof Error ? error.message : String(error), "make only an allowed lifecycle transition and retry the guarded write");
+    }
+  }
+  return { deny: false };
+}
+function checkMarker(payload, repoRoot) {
+  const prompt = payload.tool_input.prompt;
+  if (typeof prompt !== "string")
+    return;
+  const match = MARKER.exec(prompt);
+  if (!match)
+    return;
+  const slug = match[1] ?? "";
+  const checkpointId = Number(match[2]);
+  const stage = match[3] ?? "";
+  const label = `CP${checkpointId}`;
+  if (!STAGES.has(stage)) {
+    return deny2(label, "checkpoint stage", `does not recognize "${stage}"`, "use tests, implement, behavior, ui, review, or fix");
+  }
+  let context;
+  let checkpoint;
+  const path = join8(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+  try {
+    context = checkpointContext(repoRoot, slug);
+    const text = readCheckpointText(path, context);
+    if (text === null)
+      throw new Error("file does not exist");
+    checkpoint = parseCheckpoint(text, context);
+  } catch (error) {
+    return deny2(label, "checkpoint gate", `cannot read ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint file and retry the marked task");
+  }
+  if (checkpoint.slug !== slug) {
+    return deny2(label, "checkpoint gate", `plan slug does not match marker "${slug}"`, "use the slug from the checkpoint filename");
+  }
+  const sequenceError = requireSequentialCheckpoints(checkpoint, path);
+  if (sequenceError !== undefined)
+    return sequenceError;
+  if (checkpoint.lifecycle.phase !== "implementation" || checkpoint.lifecycle.plan_approval !== "approved") {
+    return deny2(label, "plan approval gate", "implementation is not authorized by the lifecycle approval", "approve the plan before starting checkpoint work");
+  }
+  const current = checkpoint.checkpoints.find((item) => item.id === checkpointId);
+  if (current === undefined) {
+    return deny2(label, "checkpoint order", `does not exist in ${slug}.json`, "use an existing checkpoint number");
+  }
+  if (checkpoint.checkpoints.some((item) => item.id < checkpointId && !completed(item))) {
+    return deny2(label, "checkpoint order", "cannot start while an earlier checkpoint is still open", "finish every earlier checkpoint first");
+  }
+  if (current.status === "passed") {
+    return deny2(label, "checkpoint status", "has already passed", `reopen CP${checkpointId} with a failing gate before working on it again`);
+  }
+  if (stage === "ui" && current.gates.behavior.status !== "passed") {
+    return deny2(label, "ui gate", `needs behavior passed first (behavior is "${current.gates.behavior.status}")`, `run the CP${checkpointId} behavior gate`);
+  }
+  if (stage === "review" && (current.gates.behavior.status !== "passed" || current.gates.ui.status !== "passed" && current.gates.ui.status !== "n/a")) {
+    return deny2(label, "review gate", `needs behavior passed and ui passed or n/a (behavior="${current.gates.behavior.status}", ui="${current.gates.ui.status}")`, `run the CP${checkpointId} behavior and ui gates`);
+  }
+  return { deny: false };
+}
+function checkBash2(payload) {
+  const command = payload.tool_input.command;
+  if (typeof command !== "string" || !CHECKPOINT_TARGET.test(command) || !BASH_WRITE.test(command) || /^\s*git\s/.test(command)) {
+    return;
+  }
+  return deny2("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
+}
+function orchestratorTranscript(payload, slug) {
+  const transcriptPath = payload.transcript_path;
+  if (typeof transcriptPath !== "string" || transcriptPath.length === 0)
+    return false;
+  try {
+    const transcript = readFileSync9(transcriptPath, "utf8");
+    const startedOrchestrator = /"skill"\s*:\s*"ai-orchestrator"|<command-name>\/ai-orchestrator<\/command-name>/.test(transcript);
+    return startedOrchestrator && transcript.includes(`.ai-engineering/workflow/checkpoints/${slug}.json`);
+  } catch {
+    return false;
+  }
+}
+function stopCounterPath(root, sessionId) {
+  const session = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : "unknown";
+  const hash = createHash3("sha256").update(session).digest("hex");
+  return join8(root, ".ai-engineering", "cache", "checkpoint-stop", `${hash}.txt`);
+}
+function ensureCounterDirectory(directory, root) {
+  let current = root;
+  for (const part of relative2(root, directory).split(sep3)) {
+    current = join8(current, part);
+    try {
+      const stat = lstatSync2(current);
+      if (stat.isSymbolicLink() || !stat.isDirectory())
+        throw new Error(`${current} is not a real directory`);
+    } catch (error) {
+      if (error.code !== "ENOENT")
+        throw error;
+      mkdirSync2(current);
+    }
+  }
+}
+function resetStopCounter(path) {
+  try {
+    unlinkSync(path);
+  } catch {}
+}
+function bumpStopCounter(path, root) {
+  ensureCounterDirectory(dirname2(path), root);
+  let count = 0;
+  try {
+    const stat = lstatSync2(path);
+    if (stat.isSymbolicLink() || !stat.isFile())
+      throw new Error(`${path} is not a regular file`);
+    const previous = Number(readFileSync9(path, "utf8"));
+    if (Number.isSafeInteger(previous) && previous > 0)
+      count = previous;
+  } catch (error) {
+    if (error.code !== "ENOENT")
+      throw error;
+  }
+  const next = count + 1;
+  writeFileSync2(path, String(next), { mode: 384 });
+  return next;
+}
+function checkStop(payload, repoRoot) {
+  if (payload.stop_reason === "user_interrupt" || payload.stop_reason === "ask_user_question") {
+    return { deny: false };
+  }
+  let root;
+  try {
+    root = resolveContext(repoRoot).root;
+  } catch (error) {
+    return deny2("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event");
+  }
+  const folder = join8(root, ".ai-engineering", "workflow", "checkpoints");
+  let files;
+  try {
+    files = readdirSync(folder).filter((file) => file.endsWith(".json")).sort();
+  } catch (error) {
+    if (error.code === "ENOENT")
+      return { deny: false };
+    return deny2("Checkpoint", "Stop gate", `cannot list ${folder} (${error instanceof Error ? error.message : String(error)})`, "restore access to the checkpoint directory before stopping");
+  }
+  const problems = [];
+  for (const file of files) {
+    const slug = file.slice(0, -".json".length);
+    if (!orchestratorTranscript(payload, slug))
+      continue;
+    const path = join8(folder, file);
+    let checkpoint;
+    let context;
+    try {
+      context = checkpointContext(root, slug);
+      const text = readCheckpointText(path, context);
+      if (text === null)
+        throw new Error("file does not exist");
+      checkpoint = parseCheckpoint(text, context);
+    } catch (error) {
+      return deny2(`Checkpoint ${slug}`, "Stop gate", `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint JSON before ending the turn");
+    }
+    const sequenceError = requireSequentialCheckpoints(checkpoint, path);
+    if (sequenceError !== undefined)
+      return sequenceError;
+    if (typeof checkpoint.halted?.reason === "string" && checkpoint.halted.reason.length > 0)
+      continue;
+    for (const item of checkpoint.checkpoints) {
+      if (item.status === "passed" || !started(item))
+        continue;
+      const openGates = GATES.filter((gate) => item.gates[gate].status !== "passed" && item.gates[gate].status !== "n/a").map((gate) => `${gate}=${item.gates[gate].status}`).join(", ");
+      problems.push(`${slug} CP${item.id} ${item.title ?? ""}: gates not yet proven (${openGates}) at ${path}`);
+    }
+  }
+  const counter = stopCounterPath(root, payload.session_id);
+  if (problems.length === 0) {
+    resetStopCounter(counter);
+    return { deny: false };
+  }
+  let blocks;
+  try {
+    blocks = bumpStopCounter(counter, root);
+  } catch (error) {
+    return deny2("Checkpoint", "Stop gate", `cannot persist the consecutive-stop limit (${error instanceof Error ? error.message : String(error)})`, "restore access to .ai-engineering/cache and retry");
+  }
+  if (blocks > MAX_STOP_BLOCKS) {
+    resetStopCounter(counter);
+    return { deny: false };
+  }
+  return deny2("Checkpoint", "Stop gate", `${problems.join("; ")}. Continue the checkpoint loop; if a human must take over, record halted with its reason and checkpoint`, "continue the loop or set the top-level halted reason before stopping");
+}
+function runCheckpointGuard(payload, repoRoot) {
+  if (repoRoot === null)
+    return;
+  try {
+    if (payload._event === "Stop" || payload.hook_event_name === "Stop") {
+      return checkStop(payload, repoRoot);
+    }
+    if (payload.tool_name === "Bash")
+      return checkBash2(payload);
+    if (payload.tool_name === "Task" || payload.tool_name === "Agent") {
+      return checkMarker(payload, repoRoot);
+    }
+    if (payload.tool_name === "Write" || payload.tool_name === "Edit" || payload.tool_name === "MultiEdit") {
+      return checkPlanWrite(payload, repoRoot);
+    }
+  } catch (error) {
+    return deny2("Checkpoint", "checkpoint gate", `could not decide safely (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint guard input and retry");
+  }
+  return;
+}
+
 // src/guards/circuit-breaker.ts
 class CircuitBreaker {
   consecutiveFailures = 0;
@@ -1338,9 +2387,9 @@ function rewrite(command) {
 }
 
 // src/receipts.ts
-import { closeSync, openSync, writeFileSync as writeFileSync2, readFileSync as readFileSync7, readdirSync, mkdirSync as mkdirSync2, existsSync as existsSync5, lstatSync, renameSync, rmSync, unlinkSync } from "fs";
-import { join as join6 } from "path";
-import { createHash as createHash3, randomUUID } from "crypto";
+import { closeSync, openSync, writeFileSync as writeFileSync3, readFileSync as readFileSync10, readdirSync as readdirSync2, mkdirSync as mkdirSync3, existsSync as existsSync6, lstatSync as lstatSync3, renameSync, rmSync, unlinkSync as unlinkSync2 } from "fs";
+import { join as join9 } from "path";
+import { createHash as createHash4, randomUUID } from "crypto";
 function writeReceipt(receipt, root) {
   const dir = receiptsDir(root);
   if (!dir)
@@ -1352,9 +2401,9 @@ function writeReceipt(receipt, root) {
     ...receipt
   };
   try {
-    mkdirSync2(dir, { recursive: true });
+    mkdirSync3(dir, { recursive: true });
     const stamp = full.ts.replace(/[:.]/g, "-");
-    writeFileSync2(join6(dir, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full));
+    writeFileSync3(join9(dir, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full));
     return full;
   } catch {
     return null;
@@ -1410,19 +2459,19 @@ function upsertDenyLedger(dir, key) {
   if (!dir)
     return 0;
   try {
-    const file = join6(dir, "denies.json");
+    const file = join9(dir, "denies.json");
     let ledger = {};
     try {
-      ledger = JSON.parse(readFileSync7(file, "utf8"));
+      ledger = JSON.parse(readFileSync10(file, "utf8"));
     } catch {}
     const prior = typeof ledger[key]?.n === "number" && Number.isFinite(ledger[key].n) ? Math.max(0, Math.floor(ledger[key].n)) : 0;
     ledger[key] = { n: prior + 1, last_seen: new Date().toISOString() };
-    mkdirSync2(dir, { recursive: true });
+    mkdirSync3(dir, { recursive: true });
     const fresh = Object.entries(ledger).filter(([, entry]) => typeof entry?.last_seen === "string" && Number.isFinite(entry?.n)).sort((a, b) => a[1].last_seen < b[1].last_seen ? 1 : -1).slice(0, LEDGER_CAP);
     const kept = {};
     for (const [k, entry] of fresh)
       kept[k] = { n: Math.max(1, Math.floor(entry.n)), last_seen: entry.last_seen };
-    writeFileSync2(file, JSON.stringify(kept));
+    writeFileSync3(file, JSON.stringify(kept));
     return prior;
   } catch {
     return 0;
@@ -1430,13 +2479,13 @@ function upsertDenyLedger(dir, key) {
 }
 function pruneDenyLedger(file, ttlDays = 90, cap = LEDGER_CAP, now = Date.now()) {
   try {
-    const ledger = JSON.parse(readFileSync7(file, "utf8"));
+    const ledger = JSON.parse(readFileSync10(file, "utf8"));
     const cutoff = new Date(now - ttlDays * 86400000).toISOString();
     const fresh = Object.entries(ledger).filter(([, entry]) => typeof entry?.last_seen === "string" && entry.last_seen >= cutoff).sort((a, b) => a[1].last_seen < b[1].last_seen ? 1 : -1).slice(0, cap);
     const kept = {};
     for (const [key, entry] of fresh)
       kept[key] = entry;
-    writeFileSync2(file, JSON.stringify(kept));
+    writeFileSync3(file, JSON.stringify(kept));
   } catch {}
 }
 var RECEIPTS_GC_BATCH = 500;
@@ -1448,7 +2497,7 @@ var stampOf = (ms) => new Date(ms).toISOString().replace(/[:.]/g, "-");
 function mergeAndWriteSummary(receipts, collected, total, now) {
   let prior = null;
   try {
-    prior = JSON.parse(readFileSync7(join6(receipts, "summary.json"), "utf8"));
+    prior = JSON.parse(readFileSync10(join9(receipts, "summary.json"), "utf8"));
   } catch {}
   const summed = {};
   for (const [day, point] of Object.entries(collected.daily)) {
@@ -1456,10 +2505,10 @@ function mergeAndWriteSummary(receipts, collected, total, now) {
     summed[day] = { runs: count(before?.runs) + point.runs, denies: count(before?.denies) + point.denies };
   }
   const merged = { ...collected, total, daily: mergeDaily(prior?.daily, summed, 90, now), gc: new Date(now).toISOString() };
-  const staging = join6(receipts, `.summary-${randomUUID()}.tmp`);
+  const staging = join9(receipts, `.summary-${randomUUID()}.tmp`);
   try {
-    writeFileSync2(staging, JSON.stringify(merged));
-    renameSync(staging, join6(receipts, "summary.json"));
+    writeFileSync3(staging, JSON.stringify(merged));
+    renameSync(staging, join9(receipts, "summary.json"));
   } finally {
     rmSync(staging, { force: true });
   }
@@ -1468,7 +2517,7 @@ function collectReceipts(receipts, ttlDays, maxDeletes, now) {
   const cutStamp = stampOf(now - ttlDays * 86400000);
   const stale = [];
   let stored = 0;
-  for (const name of readdirSync(receipts)) {
+  for (const name of readdirSync2(receipts)) {
     if (name === "summary.json" || name === "denies.json")
       continue;
     if (name.endsWith(".json"))
@@ -1480,7 +2529,7 @@ function collectReceipts(receipts, ttlDays, maxDeletes, now) {
       continue;
     }
     try {
-      const { mtimeMs } = lstatSync(join6(receipts, name));
+      const { mtimeMs } = lstatSync3(join9(receipts, name));
       const aged = stampOf(mtimeMs);
       if (aged < cutStamp)
         stale.push({ stamp: aged, name });
@@ -1495,12 +2544,12 @@ function collectReceipts(receipts, ttlDays, maxDeletes, now) {
     if (deleted >= limit)
       break;
     consumed += 1;
-    const path = join6(receipts, entry.name);
+    const path = join9(receipts, entry.name);
     try {
-      if (!lstatSync(path).isFile())
+      if (!lstatSync3(path).isFile())
         continue;
-      const text = readFileSync7(path, "utf8");
-      unlinkSync(path);
+      const text = readFileSync10(path, "utf8");
+      unlinkSync2(path);
       deleted += 1;
       try {
         tallyReceipt(JSON.parse(text), tally);
@@ -1509,34 +2558,34 @@ function collectReceipts(receipts, ttlDays, maxDeletes, now) {
   }
   if (deleted > 0)
     mergeAndWriteSummary(receipts, summaryOf(tally), stored, now);
-  const ledger = join6(receipts, "denies.json");
-  if (existsSync5(ledger))
+  const ledger = join9(receipts, "denies.json");
+  if (existsSync6(ledger))
     pruneDenyLedger(ledger, 90, LEDGER_CAP, now);
   return { deleted, hasBacklog: consumed < stale.length };
 }
 function retainReceipts(root, now = Date.now()) {
   const idle = { ran: false, deleted: 0 };
   const today = new Date(now).toISOString().slice(0, 10);
-  const cache = join6(root, ".ai-engineering", "cache");
-  const claim = join6(cache, `receipts-retention-${today}`);
+  const cache = join9(root, ".ai-engineering", "cache");
+  const claim = join9(cache, `receipts-retention-${today}`);
   try {
-    mkdirSync2(cache, { recursive: true });
+    mkdirSync3(cache, { recursive: true });
     closeSync(openSync(claim, "wx"));
   } catch {
     return idle;
   }
   let pass = { deleted: 0, hasBacklog: false };
   try {
-    const receipts = join6(root, ".ai-engineering", "receipts");
-    if (existsSync5(receipts))
+    const receipts = join9(root, ".ai-engineering", "receipts");
+    if (existsSync6(receipts))
       pass = collectReceipts(receipts, receiptsTtlDays(loadConfig(root)), RECEIPTS_GC_BATCH, now);
   } catch {}
   try {
     if (pass.hasBacklog)
       rmSync(claim, { force: true });
-    for (const name of readdirSync(cache)) {
+    for (const name of readdirSync2(cache)) {
       if (name.startsWith("receipts-retention-") && name !== `receipts-retention-${today}`)
-        rmSync(join6(cache, name), { force: true });
+        rmSync(join9(cache, name), { force: true });
     }
   } catch {}
   return { ran: true, deleted: pass.deleted };
@@ -1550,8 +2599,10 @@ var TABLE = {
     { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
-    { name: "loop", matcher: /^.*$/ }
+    { name: "loop", matcher: /^.*$/ },
+    { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ }
   ],
+  Stop: [{ name: "checkpoint", matcher: /^$/ }],
   PostToolUse: [
     { name: "injection", matcher: /^(WebFetch|Fetch|WebSearch|mcp__.*|tool_result)$/ },
     { name: "loop", matcher: /^.*$/ }
@@ -1568,7 +2619,7 @@ function selected(event, tool) {
 }
 function cachedVerdict(file, fp) {
   try {
-    const book = JSON.parse(readFileSync8(file, "utf8"));
+    const book = JSON.parse(readFileSync11(file, "utf8"));
     const entry = book[fp];
     if (!entry || typeof entry.deny !== "boolean")
       return null;
@@ -1583,14 +2634,14 @@ function rememberVerdict(file, fp, verdict) {
   try {
     let book = {};
     try {
-      book = JSON.parse(readFileSync8(file, "utf8"));
+      book = JSON.parse(readFileSync11(file, "utf8"));
     } catch {}
-    mkdirSync3(dirname2(file), { recursive: true });
+    mkdirSync4(dirname3(file), { recursive: true });
     book[fp] = verdict;
     const trimmed = {};
     for (const key of Object.keys(book).slice(-500))
       trimmed[key] = book[key];
-    writeFileSync3(file, JSON.stringify(trimmed));
+    writeFileSync4(file, JSON.stringify(trimmed));
   } catch {}
 }
 function hostCwd(raw) {
@@ -1633,7 +2684,7 @@ function runChain(rawPayload, event, options = {}) {
   }
   const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null, circuitBreaker: sharedCircuitBreaker };
   const dedup = deduplicable(payload) && event === "PreToolUse";
-  const cacheFile = join7(root, ".ai-engineering", "cache", "verdicts", `${createHash4("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
+  const cacheFile = join10(root, ".ai-engineering", "cache", "verdicts", `${createHash5("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {
@@ -1722,6 +2773,8 @@ function dispatchGuard(name, payload, ctx) {
           return runInjection(payload);
         case "spoken-secret":
           return runSpokenSecret(payload);
+        case "checkpoint":
+          return runCheckpointGuard(payload, ctx.repoRoot);
         default:
           return runLoopGuard(payload, ctx.loopOverride);
       }

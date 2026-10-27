@@ -1,4 +1,4 @@
-/** Pure lines for a doctor check: Zed cannot enforce the gate; denying carriers that still run the chain stay named. */
+/** Pure doctor lines: Zed cannot enforce the gate; denying chain carriers name the TypeScript checkpoint guard. */
 
 export type CheckpointGateSurface = {
   readonly id: string;
@@ -39,7 +39,7 @@ export function checkpointGateReportLines(
     if (!isDenying(surface.can.deny)) continue;
     const text = carrierTemplates[surface.id];
     if (text === undefined || !runsAiEngChain(text)) continue;
-    lines.push(`${surface.id}: chain active`);
+    lines.push(`${surface.id}: chain active (TypeScript checkpoint guard)`);
   }
 
   return lines;
