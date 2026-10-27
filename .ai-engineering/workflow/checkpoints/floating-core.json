@@ -212,7 +212,8 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "in_progress",
+      "changed_files": ["src/git/run.ts", "src/git/context.ts", "templates/config.toml.tpl", ".ai-engineering/arch.rules.json", "FILEMAP.md", "tests/git-context.spec.ts"]
     },
     {
       "id": 4,

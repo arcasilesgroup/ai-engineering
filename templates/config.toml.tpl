@@ -44,6 +44,15 @@ loop_failures = 5  # same signature failing → deny
 # failure_threshold = 5   # consecutive failures before opening (default: 5)
 # reset_ms = 30000        # milliseconds before half-open recovery (default: 30000)
 
+# Git — optional; leave commented out to let ai-eng detect it.
+# base: the branch your work merges into. Without it the base is the default branch
+# of the current branch's upstream remote (or origin), read from local refs; when
+# nothing answers, or it equals the current branch, ai-eng asks.
+# worktrees_dir: where `ai-eng worktree new` creates worktrees.
+# [git]
+# base = "develop"
+# worktrees_dir = "../<repo>.worktrees"
+
 [gc]
 # Growth caps for the NNN folders (research/, audits/, security/, reports/,
 # receipts/). WARN thresholds, not FAIL — growth is hygiene, not security (§12.1).

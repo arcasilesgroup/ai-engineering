@@ -11,7 +11,8 @@
     "shared": "src/shared-*.ts,src/{install,receipts,embed,skills-lint}.ts",
     "env": "src/env.ts",
     "templates-assets": "templates/**",
-    "sidecar": "src/sidecar/**"
+    "sidecar": "src/sidecar/**",
+    "git": "src/git/**"
   },
   "rules": [
     {
@@ -41,6 +42,10 @@
     {
       "from": "chain",
       "mayNotImport": "surfaces"
+    },
+    {
+      "from": "git",
+      "mayNotImport": "commands,cli,chain,guards"
     },
     {
       "any": [],

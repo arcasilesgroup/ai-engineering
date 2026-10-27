@@ -23,8 +23,12 @@ src/
   assets.ts                    Embedded skill, template and runtime asset registry
   commands/
     worktree.ts                CLI parser for checkpointed worktree lifecycle and advisory file hints
+  git/
+    run.ts                     The one Git runner: status, raw stdout/stderr, optional global/system-config isolation
+    context.ts                 resolveContext: root, branch or detached, linked worktree, base and its source (6.7)
   shared-worktree.ts           Worktree projection, lifecycle SHA-CAS, file hints, sync, merge and safe removal
 tests/
+  git-context.spec.ts          Git runner and context resolver over real temp repos with isolated config
   worktree-command.spec.ts     CLI contracts for worktree creation, projection, file hints, and review CAS
 scripts/
   gen-assets.ts                Generate embedded assets from their source files
