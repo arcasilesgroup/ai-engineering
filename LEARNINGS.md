@@ -1131,3 +1131,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Extract shared hash logic and test cycles across the complete module graph.
 - **Lesson:** Test declared architecture invariants against the module graph, not only layer boundaries.
 - **Tags:** review, architecture, imports
+
+### L156 · 2026-10-27 · floating-core #6 · review
+- **Failure:** The new `src/shared-hash.ts` helper was absent from FILEMAP.
+- **Root cause:** The source file was added without its repository map entry.
+- **Fix:** Add a concise description to FILEMAP.
+- **Lesson:** Update FILEMAP when adding source files.
+- **Tags:** review, docs, filemap

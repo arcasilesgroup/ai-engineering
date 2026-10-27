@@ -99,6 +99,10 @@ Carriers use the TypeScript checkpoint guard, updates replace only standalone ma
 **LESSON:** Shared low-level helpers belong below the modules that consume them, and a declared cycle prohibition must inspect module edges even within one layer.
 **Critic (r2):** Resolved. `embed.ts` and `install.ts` both import `hashFile` from `shared-hash.ts`, removing the cycle; the full-graph test detects the former same-layer cycle, and `bun test tests/arch.spec.ts` passes (31 tests). The canonical template-derived matcher and prior Cursor carrier/dialect fixes remain unchanged; Gate 1 passed after this fix.
 
-## F5 · MAJOR · open
+## F5 · MAJOR · fixed
 **Where:** src/shared-hash.ts:1
 **Critic (r2):** The fix adds a source file but does not update `FILEMAP.md`, whose instructions require updates whenever files are added and whose map currently omits this helper. Add a `src/shared-hash.ts` entry describing its shared file-hash role.
+**Fixer (r3):** fixed — documented the shared SHA-256 file hashing helper in `FILEMAP.md` · verify: `git diff --check` ✓
+**ROOT CAUSE:** The new `src/shared-hash.ts` helper was not added to the repository file map.
+**FIX:** Added a concise FILEMAP entry describing its shared SHA-256 file-hashing role.
+**LESSON:** Update FILEMAP whenever a source file is added.

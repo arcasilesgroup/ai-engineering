@@ -31,6 +31,7 @@ src/
   guards/
     checkpoint.ts              Checkpoint schema, lifecycle, gate order and Stop enforcement in the chain
   shared-worktree.ts           Worktree projection, lifecycle SHA-CAS, file hints, sync, merge and safe removal
+  shared-hash.ts               Shared SHA-256 file hashing helper
 tests/
   git-context.spec.ts          Git runner and context resolver over real temp repos with isolated config
   worktree-command.spec.ts     CLI contracts for worktree creation, projection, file hints, and review CAS
