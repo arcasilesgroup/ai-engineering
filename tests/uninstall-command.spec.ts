@@ -28,6 +28,8 @@ import { installMachineCarriers, machineStateFile, readMachineState, rememberTem
 import { VERSION } from "../src/version.ts";
 
 const cwdBefore = process.cwd();
+const SANDBOX_VARS = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL"] as const;
+const envBefore = Object.fromEntries(SANDBOX_VARS.map((name) => [name, process.env[name]]));
 process.env["NO_COLOR"] = "1";
 process.env["CI"] = "1";
 // scriptedInput adds one data listener per call and a question chain crosses Node's default
@@ -174,9 +176,12 @@ function everythingScope(contract: string, machine: string): Array<[string, stri
 
 afterEach(() => {
   process.chdir(cwdBefore);
-  delete process.env["AI_ENG_HOME"];
-  delete process.env["PI_CODING_AGENT_DIR"];
-  delete process.env["GIT_CONFIG_GLOBAL"];
+  // Restore, never delete: a later suite in the same process must see the home it started with.
+  for (const name of SANDBOX_VARS) {
+    const prior = envBefore[name];
+    if (prior === undefined) delete process.env[name];
+    else process.env[name] = prior;
+  }
   if (sandbox) rmSync(sandbox, { recursive: true, force: true });
   sandbox = undefined;
 });

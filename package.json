@@ -33,6 +33,7 @@
     "lint": "oxlint src tests",
     "typecheck": "oxlint --type-aware --type-check src tests",
     "arch": "bun test tests/arch.spec.ts",
+    "bench": "bun scripts/bench-chain.ts",
     "mutation": "stryker run",
     "changeset": "changeset"
   },

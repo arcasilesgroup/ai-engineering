@@ -11,10 +11,11 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 const CLI = join(import.meta.dir, "..", "src", "cli.ts");
-const root = mkdtempSync(join(import.meta.dir, ".worktree-lifecycle-"));
+const root = mkdtempSync(join(tmpdir(), "worktree-lifecycle-"));
 const emptyGitConfig = join(root, "empty-gitconfig");
 writeFileSync(emptyGitConfig, "");
 const childEnv: NodeJS.ProcessEnv = {

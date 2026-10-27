@@ -89,7 +89,8 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "in_progress",
+      "changed_files": [".ai-engineering/PRD.html", ".github/workflows/check.yml", "FILEMAP.md", "package.json", "skills/.chain-bundle/ai-eng-chain.ts", "src/chain/mod.ts", "src/commands/doctor.ts", "src/floor/entry.ts", "src/receipts.ts", "scripts/bench-chain.ts", "tests/adversarial/chain.test.ts", "tests/floor-gates.spec.ts", "tests/uninstall-command.spec.ts", "tests/worktree-lifecycle.spec.ts"]
     },
     {
       "id": 2,

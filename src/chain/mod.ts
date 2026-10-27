@@ -19,7 +19,7 @@ import { runSpokenSecret } from "../guards/spoken-secret.ts";
 import { runLoopGuard } from "../guards/loop.ts";
 import { CircuitBreaker } from "../guards/circuit-breaker.ts";
 import { isTestCommand, rewrite } from "../guards/wrap.ts";
-import { writeReceipt, upsertDenyLedger } from "../receipts.ts";
+import { writeReceipt, upsertDenyLedger, retainReceipts, type Receipt } from "../receipts.ts";
 
 export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret";
 
@@ -232,7 +232,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   // receipt but still allow the call. The receipt carries the review metadata
   // for later analysis; the call itself proceeds.
   if (reviewResult !== undefined) {
-    const receipt = writeReceipt({
+    const receipt = recordReceipt({
       event,
       surface: options.surface ?? "unknown",
       tool,
@@ -243,7 +243,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     }, root);
     return { action: "review", reason: reviewResult.reason, rule: reviewResult.rule, guards: ran, receiptId: receipt?.operation_id ?? null };
   }
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool,
@@ -253,6 +253,14 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     session_id: sessionId(),
   }, root);
   return { action: "allow", guards: ran, receiptId: receipt?.operation_id ?? null };
+}
+
+/** Write the chain's receipt, then let retention run (its daily stamp makes every
+ *  call but the first of the day a single small read). The git floor never calls this. */
+function recordReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | "ts">, root: string): Receipt | null {
+  const written = writeReceipt(receipt, root);
+  if (written) retainReceipts(root);
+  return written;
 }
 
 function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): GuardOutcome {
@@ -324,7 +332,7 @@ function denyOutcome(
     const repeats = upsertDenyLedger(receiptsDir(root), loopKey);
     if (repeats > 0) reason += ` · this exact call has been denied ${repeats} times before`;
   }
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool,
@@ -350,7 +358,7 @@ function rewriteOutcome(
   root: string,
 ): ChainOutcome {
   const latency = Math.max(1, Date.now() - started);
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool: "Bash",

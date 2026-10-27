@@ -4,7 +4,7 @@
 import { repoRoot, isGoverned } from "../env.ts";
 import { preCommit, commitMsg, prePush } from "./index.ts";
 import { createHash } from "node:crypto";
-import { writeReceipt, summarizeReceipts } from "../receipts.ts";
+import { writeReceipt } from "../receipts.ts";
 import { readOverrides, overrideActive } from "../chain/dialect.ts";
 
 export async function floor(hook: string, msgFile?: string): Promise<number> {
@@ -16,7 +16,7 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
   if (hook === "pre-commit") {
     const t0 = Date.now();
     const result = preCommit(root);
-    const receipt = writeReceipt({
+    writeReceipt({
       event: "git-pre-commit",
       surface: "git",
       tool: "pre-commit",
@@ -29,7 +29,6 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
       process.stderr.write("[git floor] pre-commit: BLOCKED — what the hooks would say is what needs fixing.\n");
       return 1;
     }
-    if (receipt) process.stderr.write(`[git floor] pre-commit ✓ (${Date.now() - t0}ms · ${summarizeReceipts().total} receipts)\n`);
     return 0;
   }
   if (hook === "commit-msg") {

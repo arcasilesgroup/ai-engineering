@@ -28,6 +28,7 @@ tests/
   worktree-command.spec.ts     CLI contracts for worktree creation, projection, file hints, and review CAS
 scripts/
   gen-assets.ts                Generate embedded assets from their source files
+  bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
   .embed/ai-triage/scripts/    Generated text payloads for triage scripts and declarations
 skills/                        Installed skill canon
   ai-triage/
@@ -55,7 +56,10 @@ tests/
   skills.spec.ts               Skill contracts, including the local recap handoff
   generated-payload.test.ts   Assert generated assets match their source files
   triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests
+  test-hygiene.spec.ts         No suite writes under tests/; sandboxed suites restore env and cwd
+  receipts-retention.spec.ts   Daily, batched receipt retention triggered by the chain
   fixtures/
+    env-snapshot.preload.ts    Records env and cwd after every test for test-hygiene.spec.ts
     triage-azure-signals-preview.mjs  Synthetic writer preview on loopback, memory-only reports
 templates/
   recap.html.tpl               Self-contained HTML recap shell and styles

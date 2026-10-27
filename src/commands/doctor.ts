@@ -2,11 +2,11 @@
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
 import { canonDrift } from "../embed.ts";
-import { existsSync, readFileSync, readdirSync, lstatSync, statSync, unlinkSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
-import { mergeDaily, pruneDenyLedger, summarizeReceipts, type DailyPoint, type DenyLedger, type ReceiptSummary } from "../receipts.ts";
+import { gcReceipts, receiptsTtlDays, summarizeReceipts, type DenyLedger } from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
 import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, readMachineState } from "../surfaces/adapters.ts";
 import { unmetTriggers } from "../spec/triggers.ts";
@@ -496,51 +496,6 @@ function committedAgeDays(root: string, path: string): number | null {
 }
 
 /** `doctor --gc` — execute what the audit proposes, in one commit (§21.3). */
-/** Merge the live summary with any prior summary.json and write it back. */
-function mergeAndWriteSummary(receipts: string, summary: ReceiptSummary): void {
-  let prior: { daily?: Record<string, DailyPoint> } | null = null;
-  try {
-    prior = JSON.parse(readFileSync(join(receipts, "summary.json"), "utf8")) as { daily?: Record<string, DailyPoint> };
-  } catch {
-    /* no prior summary, or a torn one: the live window starts the series */
-  }
-  const merged = { ...summary, daily: mergeDaily(prior?.daily, summary.daily), gc: new Date().toISOString() };
-  writeFileSync(join(receipts, "summary.json"), JSON.stringify(merged));
-}
-
-function gcReceipts(receipts: string, ttlDays: number): string[] {
-  // Receipts: aggregate, then delete. They carry no citation to respect — their
-  // permanent half is the Receipt-Id trailer on the commit. Two files are the gc's
-  // own memory, not its trash: summary.json (the series) and denies.json (the
-  // ledger). The mtime sweep skips both — leaving summary.json to age out was
-  // eating the only long-term memory on the second quiet month — and each is
-  // pruned by its own contents instead: the series by day-age, the ledger by
-  // last_seen and count.
-  const lines: string[] = [];
-  if (!existsSync(receipts)) return lines;
-  const summary = summarizeReceipts(receipts);
-  const cut = Date.now() - ttlDays * 86_400_000;
-  // Files only: a planted DIRECTORY named like a receipt (`mkdir bomb.json`) made
-  // unlinkSync throw EISDIR/EPERM before the summary write, bricking the gc on
-  // every future run and freezing the spike baseline at the forged state
-  // (audit run-1 F4). A directory in the receipts folder is not a receipt.
-  const stale = readdirSync(receipts)
-    .filter((name) => name !== "summary.json" && name !== "denies.json" && lstatSync(join(receipts, name)).isFile())
-    .map((name) => ({ name, ts: statMtime(join(receipts, name)) }))
-    .filter((entry) => entry.ts < cut);
-  for (const entry of stale) unlinkSync(join(receipts, entry.name));
-  if (stale.length > 0) {
-    // The stale files are part of the story the summary tells: the summarizer's
-    // name-window now skips receipts whose stamp predates the TTL, so the live
-    // count alone would understate the store by exactly the files being deleted.
-    mergeAndWriteSummary(receipts, { ...summary, total: summary.total + stale.length });
-    lines.push(`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
-  }
-  const ledger = join(receipts, "denies.json");
-  if (existsSync(ledger)) pruneDenyLedger(ledger);
-  return lines;
-}
-
 /** Should this entry be collected (deleted) during gc? Returns "immune" if cited
  *  by a governor, "collect" if old enough and tracked by git, "skip" otherwise. */
 function collectVerdict(root: string, folder: string, dir: string, name: string, olderDays: number): "immune" | "collect" | "skip" {
@@ -631,10 +586,11 @@ function gc(cwd = process.cwd()): string[] {
   const config = loadConfig();
   const gcConfig = config["gc"] ?? {};
   const maxFiles = Number(gcConfig["max_files"] ?? 25);
-  const ttlDays = Number(String(gcConfig["receipts_ttl"] ?? "30d").replace("d", ""));
+  const ttlDays = receiptsTtlDays(config);
   const olderDays = Number(String(gcConfig["older_than"] ?? "90d").replace("d", ""));
   const keepRuns = Number(gcConfig["keep_runs"] ?? 5);
-  lines.push(...gcReceipts(join(root, ".ai-engineering", "receipts"), ttlDays));
+  const collected = gcReceipts(join(root, ".ai-engineering", "receipts"), ttlDays);
+  if (collected > 0) lines.push(`✓ receipts: ${collected} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
   for (const folder of ["research", "reports", join("design", "audits")]) {
     lines.push(...gcFolder(root, folder, maxFiles, olderDays));
   }
@@ -642,14 +598,6 @@ function gc(cwd = process.cwd()): string[] {
   lines.push(...gcSecurity(root, join(root, ".ai-engineering", "security"), olderDays, keepRuns));
   if (lines.length === 0) lines.push("✓ gc: nothing to collect");
   return lines;
-}
-
-function statMtime(path: string): number {
-  try {
-    return lstatSync(path).mtimeMs;
-  } catch {
-    return 0;
-  }
 }
 
 function lintBehavior(content: string, folder: string): string | null {

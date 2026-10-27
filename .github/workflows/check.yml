@@ -23,14 +23,14 @@ jobs:
           set -euo pipefail
           sh scripts/toolchain.sh actionlint
           cp templates/ci.yml.tpl "$RUNNER_TEMP/ci-tpl.yml"
-          actionlint .github/workflows/{check,e2e,mutation,release,version}.yml "$RUNNER_TEMP/ci-tpl.yml"
+          actionlint .github/workflows/{check,e2e,mutation,platforms,release,version}.yml "$RUNNER_TEMP/ci-tpl.yml"
       - run: bun install --frozen-lockfile
       - name: Typecheck
         run: bun run typecheck
       - name: Lint (oxlint)
         run: bun run lint
       - name: Unit + adversarial tests
-        run: bun test
+        run: bun test --parallel=1
       - name: CLI sandbox proofs (NO_COLOR, six init paths, update idempotence, uninstall)
         run: sh scripts/proof-cli-ux.sh
       - name: Architecture

@@ -426,8 +426,8 @@ describe("floor gates — the entry dispatcher", () => {
     expect(receipt.tool).toBe("pre-commit");
     expect(receipt.latency_ms).toBeGreaterThanOrEqual(0);
     expect(receipt.latency_ms).toBeLessThan(10_000);
-    expect(err.text()).toMatch(/^\[git floor\] pre-commit ✓ \(\d+ms · \d+ receipts\)\n$/);
-    expect(Number(err.text().match(/✓ \((\d+)ms/)?.[1])).toBeLessThan(10_000);
+    // F7: a green pre-commit is silent — the receipt is the record, not a stderr line.
+    expect(err.text()).toBe("");
   });
 
   test("a foreign repo (root but not governed) also passes in silence", async () => {

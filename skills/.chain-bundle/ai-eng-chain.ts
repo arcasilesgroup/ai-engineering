@@ -2,7 +2,7 @@
 // src/chain/mod.ts
 import { readFileSync as readFileSync8, writeFileSync as writeFileSync3, mkdirSync as mkdirSync3 } from "fs";
 import { createHash as createHash4 } from "crypto";
-import { dirname as dirname2, join as join7 } from "path";
+import { dirname as dirname3, join as join7 } from "path";
 
 // src/env.ts
 import { homedir } from "os";
@@ -1338,8 +1338,8 @@ function rewrite(command) {
 }
 
 // src/receipts.ts
-import { writeFileSync as writeFileSync2, readFileSync as readFileSync7, readdirSync, mkdirSync as mkdirSync2 } from "fs";
-import { join as join6 } from "path";
+import { writeFileSync as writeFileSync2, readFileSync as readFileSync7, readdirSync, mkdirSync as mkdirSync2, existsSync as existsSync5, lstatSync, unlinkSync } from "fs";
+import { dirname as dirname2, join as join6 } from "path";
 import { createHash as createHash3, randomUUID } from "crypto";
 function writeReceipt(receipt, root) {
   const dir = receiptsDir(root);
@@ -1359,6 +1359,72 @@ function writeReceipt(receipt, root) {
   } catch {
     return null;
   }
+}
+function isChainReceipt(event) {
+  return !/^(git-|commit-msg|spec-)/.test(event);
+}
+function tallyReceipt(receipt, tally) {
+  tally.total += 1;
+  if (receipt.outcome === "deny") {
+    tally.denies += 1;
+    const guard = printable(receipt.guards?.denied_by ?? "chain");
+    const tool = printable(receipt.tool);
+    const surface = printable(receipt.surface);
+    tally.per.per_guard[guard] = (tally.per.per_guard[guard] ?? 0) + 1;
+    tally.per.per_tool[tool] = (tally.per.per_tool[tool] ?? 0) + 1;
+    tally.per.per_surface[surface] = (tally.per.per_surface[surface] ?? 0) + 1;
+  }
+  const day = typeof receipt.ts === "string" ? printable(receipt.ts.slice(0, 10)) : "";
+  if (day !== "") {
+    const point = tally.daily[day] ?? { runs: 0, denies: 0 };
+    point.runs += 1;
+    if (receipt.outcome === "deny")
+      point.denies += 1;
+    tally.daily[day] = point;
+  }
+  if (typeof receipt.latency_ms === "number" && isChainReceipt(receipt.event))
+    tally.latencies.push(receipt.latency_ms);
+}
+function summarizeReceipts(dir) {
+  const target = dir === undefined ? receiptsDir() : dir;
+  const tally = {
+    total: 0,
+    denies: 0,
+    latencies: [],
+    per: { per_guard: {}, per_tool: {}, per_surface: {} },
+    daily: {}
+  };
+  if (target) {
+    try {
+      const cutoff = new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10).replaceAll("-", "");
+      for (const name of readdirSync(target)) {
+        if (!name.endsWith(".json"))
+          continue;
+        if (name === "summary.json" || name === "denies.json")
+          continue;
+        if (/^\d{4}-\d{2}-\d{2}T/.test(name) && name.slice(0, 10).replaceAll("-", "") < cutoff)
+          continue;
+        try {
+          tallyReceipt(JSON.parse(readFileSync7(join6(target, name), "utf8")), tally);
+        } catch {}
+      }
+    } catch {}
+  }
+  const { latencies } = tally;
+  latencies.sort((a, b) => a - b);
+  const pick = (q) => latencies.length ? latencies[Math.min(latencies.length - 1, Math.floor(q * latencies.length))] : 0;
+  return { total: tally.total, denies: tally.denies, p50: pick(0.5), p95: pick(0.95), ...tally.per, daily: tally.daily };
+}
+var count = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
+function mergeDaily(prior, current, keepDays = 90, now = Date.now()) {
+  const merged = { ...prior, ...current };
+  const cutoff = new Date(now - keepDays * 86400000).toISOString().slice(0, 10);
+  const out = {};
+  for (const [day, point] of Object.entries(merged)) {
+    if (day >= cutoff)
+      out[day] = { runs: count(point?.runs), denies: count(point?.denies) };
+  }
+  return out;
 }
 var LEDGER_CAP = 500;
 function upsertDenyLedger(dir, key) {
@@ -1381,6 +1447,82 @@ function upsertDenyLedger(dir, key) {
     return prior;
   } catch {
     return 0;
+  }
+}
+function pruneDenyLedger(file, ttlDays = 90, cap = LEDGER_CAP, now = Date.now()) {
+  try {
+    const ledger = JSON.parse(readFileSync7(file, "utf8"));
+    const cutoff = new Date(now - ttlDays * 86400000).toISOString();
+    const fresh = Object.entries(ledger).filter(([, entry]) => typeof entry?.last_seen === "string" && entry.last_seen >= cutoff).sort((a, b) => a[1].last_seen < b[1].last_seen ? 1 : -1).slice(0, cap);
+    const kept = {};
+    for (const [key, entry] of fresh)
+      kept[key] = entry;
+    writeFileSync2(file, JSON.stringify(kept));
+  } catch {}
+}
+var RECEIPTS_GC_BATCH = 500;
+function receiptsTtlDays(config) {
+  return Number(String(config["gc"]?.["receipts_ttl"] ?? "30d").replace("d", ""));
+}
+function mergeAndWriteSummary(receipts, summary, now) {
+  let prior = null;
+  try {
+    prior = JSON.parse(readFileSync7(join6(receipts, "summary.json"), "utf8"));
+  } catch {}
+  const merged = { ...summary, daily: mergeDaily(prior?.daily, summary.daily, 90, now), gc: new Date(now).toISOString() };
+  writeFileSync2(join6(receipts, "summary.json"), JSON.stringify(merged));
+}
+function gcReceipts(receipts, ttlDays, options = {}) {
+  if (!existsSync5(receipts))
+    return 0;
+  const now = options.now ?? Date.now();
+  const summary = summarizeReceipts(receipts);
+  const cut = now - ttlDays * 86400000;
+  const stale = [];
+  for (const name of readdirSync(receipts)) {
+    if (name === "summary.json" || name === "denies.json")
+      continue;
+    try {
+      const stat = lstatSync(join6(receipts, name));
+      if (stat.isFile() && stat.mtimeMs < cut)
+        stale.push({ name, mtime: stat.mtimeMs });
+    } catch {}
+  }
+  stale.sort((a, b) => a.mtime - b.mtime);
+  let deleted = 0;
+  for (const entry of stale.slice(0, options.maxDeletes ?? stale.length)) {
+    try {
+      unlinkSync(join6(receipts, entry.name));
+      deleted += 1;
+    } catch {}
+  }
+  if (deleted > 0) {
+    mergeAndWriteSummary(receipts, { ...summary, total: summary.total + deleted }, now);
+  }
+  const ledger = join6(receipts, "denies.json");
+  if (existsSync5(ledger))
+    pruneDenyLedger(ledger, 90, LEDGER_CAP, now);
+  return deleted;
+}
+function retainReceipts(root, now = Date.now()) {
+  const idle = { ran: false, deleted: 0 };
+  const today = new Date(now).toISOString().slice(0, 10);
+  const stamp = join6(root, ".ai-engineering", "cache", "receipts-retention");
+  try {
+    if (readFileSync7(stamp, "utf8") === today)
+      return idle;
+  } catch {}
+  try {
+    mkdirSync2(dirname2(stamp), { recursive: true });
+    writeFileSync2(stamp, today);
+  } catch {
+    return idle;
+  }
+  try {
+    const ttlDays = receiptsTtlDays(loadConfig(root));
+    return { ran: true, deleted: gcReceipts(join6(root, ".ai-engineering", "receipts"), ttlDays, { maxDeletes: RECEIPTS_GC_BATCH, now }) };
+  } catch {
+    return { ran: true, deleted: 0 };
   }
 }
 
@@ -1427,7 +1569,7 @@ function rememberVerdict(file, fp, verdict) {
     try {
       book = JSON.parse(readFileSync8(file, "utf8"));
     } catch {}
-    mkdirSync3(dirname2(file), { recursive: true });
+    mkdirSync3(dirname3(file), { recursive: true });
     book[fp] = verdict;
     const trimmed = {};
     for (const key of Object.keys(book).slice(-500))
@@ -1506,7 +1648,7 @@ function runChain(rawPayload, event, options = {}) {
     rememberVerdict(cacheFile, fp, { deny: false });
   const latency = Math.max(1, Date.now() - started);
   if (reviewResult !== undefined) {
-    const receipt = writeReceipt({
+    const receipt = recordReceipt({
       event,
       surface: options.surface ?? "unknown",
       tool,
@@ -1517,7 +1659,7 @@ function runChain(rawPayload, event, options = {}) {
     }, root);
     return { action: "review", reason: reviewResult.reason, rule: reviewResult.rule, guards: ran, receiptId: receipt?.operation_id ?? null };
   }
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool,
@@ -1527,6 +1669,12 @@ function runChain(rawPayload, event, options = {}) {
     session_id: sessionId()
   }, root);
   return { action: "allow", guards: ran, receiptId: receipt?.operation_id ?? null };
+}
+function recordReceipt(receipt, root) {
+  const written = writeReceipt(receipt, root);
+  if (written)
+    retainReceipts(root);
+  return written;
 }
 function dispatchGuard(name, payload, ctx) {
   try {
@@ -1583,7 +1731,7 @@ function denyOutcome(by, reason, ran, event, options, started, root, tool, loopK
     if (repeats > 0)
       reason += ` \xB7 this exact call has been denied ${repeats} times before`;
   }
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool,
@@ -1603,7 +1751,7 @@ function denyOutcome(by, reason, ran, event, options, started, root, tool, loopK
 }
 function rewriteOutcome(command, ran, event, options, started, root) {
   const latency = Math.max(1, Date.now() - started);
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool: "Bash",
