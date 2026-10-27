@@ -90,3 +90,15 @@ Automatic replan split the previous CP7 into CP7 (detected-base merge/CAS/push) 
 - `bun run lint`
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
+
+## F1 · MAJOR · open
+**Where:** `src/git/merge.ts:626-630`
+**Critic (r1):** The retry path finds a previously published merge but refreshes base checkouts from that historical merge even when `currentBase` has since advanced. A clean checkout at the newer tip can have incoming paths reset to the old tree, leaving newer committed content overwritten in the worktree. Refresh from the current base tip and verify it is still the target; otherwise leave the checkout untouched and report it.
+
+## F2 · MAJOR · open
+**Where:** `src/git/merge.ts:501-509`
+**Critic (r1):** `initialStatuses` is captured before the temporary merge/commit, then trusted during checkout refresh. If an incoming path becomes dirty during that transaction (including from a hook), the stale clean snapshot authorizes `git restore --worktree` to overwrite it. Revalidate incoming index/worktree state against the reviewed base immediately before restoring; preserve and report any changed path.
+
+## F3 · MAJOR · open
+**Where:** `src/floor/index.ts:177-178`
+**Critic (r1):** Any `resolveContext` failure is swallowed and treated as no protected base, so malformed or unreadable base configuration allows pre-push to continue without this guard. Fail closed on resolution errors and give the caller a concrete base-resolution step.

@@ -455,7 +455,7 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 1, "findings": ["CP7 verify passed: worktree-command 88 (16 skipped), floor-gates 31, floor-hooks 34, git-context 30, workflow-checkpoint 10, ceremony-contract 4; source grep, typecheck, lint, arch 31 passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "failed", "attempts": 1, "findings": ["MAJOR src/git/merge.ts:626-630: retry can refresh from an old merge and overwrite newer checkout content; use current base tip or leave untouched.", "MAJOR src/git/merge.ts:501-509: stale status can permit overwriting incoming edits made during transaction; revalidate before restoring.", "MAJOR src/floor/index.ts:177-178: base-resolution errors are swallowed, bypassing push protection; fail closed with guidance."] }
       },
       "status": "in_progress",
       "changed_files": ["tests/floor-gates.spec.ts", "tests/floor-hooks.spec.ts", "tests/worktree-command.spec.ts", "tests/ceremony-contract.spec.ts", "FILEMAP.md", "skills/ai-orchestrator/SKILL.md", "skills/.chain-bundle/ai-eng-chain.ts", "src/commands/worktree.ts", "src/floor/index.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "src/git/merge.ts", "LEARNINGS.md"]
