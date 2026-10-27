@@ -89,7 +89,7 @@ Carriers use the TypeScript checkpoint guard, updates replace only standalone ma
 **FIX:** Match only exact `command` fields, recursively strip owned hook leaves and prune only now-empty generated groups; added exact-content wrapper regressions in `tests/carriers-install.spec.ts` and `tests/adversarial/carrier-merge.test.ts`.
 **LESSON:** Attribute ownership to each exact command leaf; remove a containing group only when it has no user hooks left.
 
-## F4 · BLOCKER · fixed
+## F4 · BLOCKER · resolved
 **Where:** src/install.ts:8
 **Critic (r1):** This adds an `install.ts → embed.ts` import while `embed.ts:8` already imports `hashFile` from `install.ts`, creating a module cycle contrary to `.ai-engineering/arch.rules.json`'s `forbid: cycles`. Break the cycle by extracting `hashFile` into a lower-level helper imported by both modules.
 
@@ -97,3 +97,8 @@ Carriers use the TypeScript checkpoint guard, updates replace only standalone ma
 **ROOT CAUSE:** `embed.ts` imported `hashFile` from `install.ts`, then deriving managed commands from embedded templates made `install.ts` import `embed.ts`, forming a cycle.
 **FIX:** Moved the shared file-hash helper to `src/shared-hash.ts`; managed commands still come from embedded settings templates and are matched exactly. The architecture test now checks the full module graph and proves its cycle detector catches same-layer loops.
 **LESSON:** Shared low-level helpers belong below the modules that consume them, and a declared cycle prohibition must inspect module edges even within one layer.
+**Critic (r2):** Resolved. `embed.ts` and `install.ts` both import `hashFile` from `shared-hash.ts`, removing the cycle; the full-graph test detects the former same-layer cycle, and `bun test tests/arch.spec.ts` passes (31 tests). The canonical template-derived matcher and prior Cursor carrier/dialect fixes remain unchanged; Gate 1 passed after this fix.
+
+## F5 · MAJOR · open
+**Where:** src/shared-hash.ts:1
+**Critic (r2):** The fix adds a source file but does not update `FILEMAP.md`, whose instructions require updates whenever files are added and whose map currently omits this helper. Add a `src/shared-hash.ts` entry describing its shared file-hash role.
