@@ -106,7 +106,7 @@
       "builds_on": [1],
       "tasks": [
         "Tests first in tests/cli-ux.test.ts: `ai-eng workspace` exits 2 with `unknown verb`, `ai-eng --help` does not list it, and ALL_VERBS in src/shared-verbs.ts does not contain it.",
-        "Tests first: add tests/ceremony-contract.spec.ts that reads skills/ai-orchestrator/SKILL.md and every SKILL.md it invokes, extracts each cited skill, agent, script and template, and fails if any is missing from the repository or from the embedded canon that init installs (src/assets.ts); the list is derived from the skill text at test time, never hard-coded. It stays green from here to CP12.",
+        "Tests first: add tests/ceremony-contract.spec.ts that reads skills/ai-orchestrator/SKILL.md and every SKILL.md it invokes, extracts each cited skill, agent, script and template, and fails if any is missing from the repository or from the embedded canon that init installs (src/assets.ts); the list is derived from the skill text at test time, never hard-coded. It stays green from here to CP13.",
         "Delete src/workspace/ (api.ts, discovery.ts, folder-picker.ts, instance.ts, server.ts, settings.ts, status.ts, ui.ts), src/commands/workspace.ts, templates/workspace.html.tpl and tests/workspace-command.spec.ts, tests/workspace-discovery.spec.ts, tests/workspace-server.spec.ts, tests/workspace-settings.spec.ts, tests/workspace-ui.spec.ts.",
         "Remove the workspace import, case, help line and the `serve` boolean flag from src/cli.ts, and `workspace` from ALL_VERBS in src/shared-verbs.ts.",
         "Remove the `workspace` layer from .ai-engineering/arch.rules.json (the arch test requires every layer glob to match a real directory).",
@@ -268,35 +268,82 @@
     },
     {
       "id": 5,
-      "title": "Port the checkpoint gate to a TypeScript guard in the chain",
-      "simple": "Enforce step order without Python",
+      "title": "Enforce checkpoint rules in the chain",
+      "simple": "Keep steps in the right order",
       "size": "xl",
-      "goal": "src/guards/checkpoint.ts enforces rules G1-G8 inside the chain for Write, Edit, Task/Agent, Bash and Stop, every case of tests/test_checkpoint_gate.py is ported as a table, plans are accepted outside a managed worktree, and no carrier calls python3.",
+      "goal": "src/guards/checkpoint.ts enforces G1-G8 for Write, Edit, Task/Agent, Bash and Stop; chain routing and verdict dialects are correct; normal checkouts and ungoverned repos retain the approved behavior.",
       "plain": {
-        "what": "The step-by-step order is still enforced, now also in your normal folder, with one tool.",
-        "why": "Today the order checker needs a second language and refuses work outside a separate copy.",
-        "check": "Nothing to see yet, behind the scenes."
+        "what": "The project keeps each work step safe and ordered, even in a normal checkout.",
+        "why": "Without these checks, work could skip approval or stop protecting the project.",
+        "check": "Nothing to see on screen yet; the checks run behind the scenes."
       },
       "builds_on": [4],
       "tasks": [
-        "Tests first: add tests/checkpoint-guard.spec.ts porting every case of tests/test_checkpoint_gate.py as table rows grouped by G1-G8 (schema and slug, first-plan brainstorm approval, checkpoint order, stage and gate order, passed only with closed gates, lifecycle transitions and full SHAs descending from the base, shell writes to the JSON via redirection/sed -i/tee/cp/mv, Stop with an open checkpoint and no halted plus the same consecutive-block limit). Invert the managed-worktree cases: a plan in a normal checkout is accepted (S3). Add S4 (ui gate and ui marker accepted outside a worktree), Stop with and without halted, an unreadable JSON denying with reason and path, allow without reading outside the three triggers, and S13 (ungoverned repo: no action, no receipt).",
+        "Tests first: add tests/checkpoint-guard.spec.ts porting every case of tests/test_checkpoint_gate.py as table rows grouped by G1-G8 (schema and slug, first-plan brainstorm approval, checkpoint order, stage and gate order, passed only with closed gates, lifecycle transitions and full SHAs descending from the detected base, shell writes to the JSON including compound Bash segments, Stop with an open checkpoint and no halted plus the same consecutive-block limit). Invert the managed-worktree cases: a plan in a normal checkout is accepted (S3). Add S4 (ui gate and ui marker accepted outside a worktree), Stop with and without halted, an unreadable JSON denying with reason and path, allow without reading outside the three triggers, and S13 (ungoverned repo: no action, no receipt).",
         "Create src/guards/checkpoint.ts on top of src/workflow/checkpoint.ts and src/git/context.ts (the base replaces local main in G6); refusals name the checkpoint, the gate and the next step (6.6).",
-        "Wire it in src/chain/mod.ts TABLE: PreToolUse rows for Write|Edit|MultiEdit, Task|Agent and Bash, and a new Stop event row; add the Stop verdict shape per harness in src/chain/dialect.ts.",
-        "Carriers: remove the python3 checkpoint-gate entries and wire the Stop event where the harness emits it in templates/settings.claude.json.tpl, templates/settings.codex.json.tpl, templates/settings.copilot.json.tpl, templates/settings.copilot.cli.json.tpl, templates/settings.cursor.json.tpl, templates/plugin.omp.ts.tpl, templates/plugin.opencode.ts.tpl, templates/plugin.pi.ts.tpl; record in src/surfaces/surfaces.json which harnesses emit Stop (section 10 question 11).",
-        "Keep the checkpoint-gate.py match in the MARKER of src/install.ts so `ai-eng update` recognises and retires old Python entries; cover it in tests/carriers-install.spec.ts.",
-        "Remove the checkpoint-gate script materialization from src/embed.ts and scripts/gen-assets.ts:42; delete scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py; update tests/checkpoint-gate-carrier.spec.ts and tests/workflow-doctor-surfaces.spec.ts.",
-        "In skills/ai-orchestrator/SKILL.md change only the hook name and path (`scripts/checkpoint-gate.py`) to the TypeScript checkpoint guard; no other ceremony text changes here.",
-        "Regenerate src/assets.ts with `bun scripts/gen-assets.ts`."
+        "Wire the guard in src/chain/mod.ts TABLE: PreToolUse rows for Write|Edit|MultiEdit, Task|Agent and Bash, and a new Stop event row; add the Stop verdict shape per harness in src/chain/dialect.ts."
       ],
       "files": [
         "tests/checkpoint-guard.spec.ts",
         "src/guards/checkpoint.ts",
         "src/chain/mod.ts",
         "src/chain/dialect.ts",
+        "tests/chain-dispatch.spec.ts",
+        "tests/chain-dialect.spec.ts",
+        "tests/adversarial/governance-gate.test.ts"
+      ],
+      "acceptance": [
+        "Every rule G1-G8 has passing and denying cases, ported from the Python suite.",
+        "G6 lifecycle validation uses the detected base, including a non-main base.",
+        "S3: a first plan written in a normal checkout (no managed worktree) is accepted.",
+        "S4: the ui gate and ui stage marker are accepted outside a worktree.",
+        "S13: in an ungoverned repo the guard does nothing and writes nothing.",
+        "The chain routes Write|Edit|MultiEdit, Task|Agent, Bash and Stop to the guard with each harness's correct verdict dialect.",
+        "Outside the three checkpoint triggers, the guard allows without reading the plan."
+      ],
+      "verify": [
+        "bun test tests/chain-dialect.spec.ts",
+        "bun test tests/checkpoint-guard.spec.ts",
+        "bun test tests/chain-dispatch.spec.ts",
+        "bun test tests/adversarial/governance-gate.test.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "in_progress",
+      "changed_files": []
+    },
+    {
+      "id": 6,
+      "title": "Retire Python checkpoint hooks without losing user hooks",
+      "simple": "Keep existing installs working",
+      "size": "xl",
+      "goal": "Carriers use the TypeScript checkpoint guard, updates replace only standalone managed Python hooks, the Python checker is retired, and the final embedded chain bundle matches its sources.",
+      "plain": {
+        "what": "Existing installations move to the new checks without losing hooks people added themselves.",
+        "why": "Old hooks can call retired Python code or accidentally remove someone's own hook.",
+        "check": "Update an older installation and confirm its own hooks remain."
+      },
+      "builds_on": [5],
+      "tasks": [
+        "Tests first: cover Stop-event carrier wiring and surface declarations, migration of an old checkpoint-gate.py hook while preserving unrelated user hooks, and doctor reporting the TypeScript guard without materializing the retired script.",
+        "Remove the python3 checkpoint-gate entries and wire Stop only for harnesses that emit it in templates/settings.claude.json.tpl, templates/settings.codex.json.tpl, templates/settings.copilot.json.tpl, templates/settings.copilot.cli.json.tpl, templates/settings.cursor.json.tpl, templates/plugin.omp.ts.tpl, templates/plugin.opencode.ts.tpl and templates/plugin.pi.ts.tpl; record Stop support in src/surfaces/surfaces.json (brainstorm section 6.2 bis and section 10 question 11), and confirm .github/hooks/ai-eng.json has no Python checkpoint hook.",
+        "Keep the checkpoint-gate.py match in the MARKER of src/install.ts so `ai-eng update` retires only standalone managed Python hooks and preserves user hooks; cover this in tests/carriers-install.spec.ts.",
+        "Remove checkpoint-gate script materialization from src/embed.ts and scripts/gen-assets.ts; delete scripts/checkpoint-gate.py and tests/test_checkpoint_gate.py; update tests/checkpoint-gate-carrier.spec.ts and tests/workflow-doctor-surfaces.spec.ts.",
+        "In skills/ai-orchestrator/SKILL.md change only the hook name and path (`scripts/checkpoint-gate.py`) to the TypeScript checkpoint guard; leave the rest of the ceremony unchanged.",
+        "After all carrier, install, embed and skill source edits, regenerate the embedded assets and final chain bundle with `bun scripts/gen-assets.ts`."
+      ],
+      "files": [
         "src/surfaces/surfaces.json",
+        ".github/hooks/ai-eng.json",
         "src/install.ts",
         "src/embed.ts",
-        "src/assets.ts",
         "scripts/gen-assets.ts",
         "scripts/checkpoint-gate.py",
         "tests/test_checkpoint_gate.py",
@@ -311,29 +358,27 @@
         "tests/carriers-install.spec.ts",
         "tests/checkpoint-gate-carrier.spec.ts",
         "tests/workflow-doctor-surfaces.spec.ts",
-        "tests/chain-dispatch.spec.ts",
-        "tests/adversarial/governance-gate.test.ts",
-        "skills/ai-orchestrator/SKILL.md"
+        "tests/ceremony-contract.spec.ts",
+        "skills/ai-orchestrator/SKILL.md",
+        "skills/.chain-bundle/ai-eng-chain.ts",
+        "src/assets.ts"
       ],
       "acceptance": [
-        "Every rule G1-G8 has passing and denying cases, ported from the Python suite.",
-        "S3: a first plan written in a normal checkout (no managed worktree) is accepted.",
-        "S4: the ui gate and ui stage marker are accepted outside a worktree.",
-        "S13: in an ungoverned repo the guard does nothing and writes nothing.",
-        "No carrier template calls python3; `ai-eng update` replaces an old Python gate entry.",
-        "The ceremony contract test stays green."
+        "No carrier template calls python3, and Stop hooks are present only for harnesses that emit Stop.",
+        "The checked-in .github hook does not invoke the retired Python checker.",
+        "`ai-eng update` retires an old standalone Python checkpoint hook while preserving unrelated user hooks.",
+        "The Python checker and its test are retired and are not materialized in the installed payload.",
+        "After source edits and regeneration, generated-payload verifies the final chain bundle byte for byte.",
+        "The ceremony contract test stays green with ai-orchestrator citing the TypeScript checkpoint guard."
       ],
       "verify": [
-        "bun test tests/chain-dialect.spec.ts",
-        "bun test tests/checkpoint-guard.spec.ts",
         "bun test tests/carriers-install.spec.ts",
         "bun test tests/checkpoint-gate-carrier.spec.ts",
         "bun test tests/workflow-doctor-surfaces.spec.ts",
-        "bun test tests/chain-dispatch.spec.ts",
-        "bun test tests/adversarial/governance-gate.test.ts",
         "bun test tests/ceremony-contract.spec.ts",
-        "bun test tests/generated-payload.test.ts",
         "sh -c '! grep -l python3 templates/settings.*.tpl templates/plugin.*.tpl'",
+        "sh -c '! grep -q checkpoint-gate.py .github/hooks/ai-eng.json'",
+        "bun test tests/generated-payload.test.ts",
         "bun run typecheck",
         "bun run lint",
         "bun test tests/arch.spec.ts",
@@ -341,15 +386,15 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "failed", "attempts": 4, "findings": ["Attempt 1 failed on the stale .github/hooks/ai-eng.json Python hook; fixed in 031e6751.", "Attempt 2 failed on stale generated payload; fixed in 5bba8688, followed by full suite 1547/1547.", "Attempt 3 passed before adversarial changes.", "Attempt 4 failed at verify command 9: generated-payload found the chain bundle stale again after the guard source fix; commands 10-14 did not run. Three behavior failures have accumulated; replan threshold reached."] },
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "failed", "attempts": 1, "findings": ["BLOCKER src/guards/checkpoint.ts:319: Git-prefixed compound commands can bypass Bash write detection; reject write-capable segments.", "MAJOR src/install.ts:47: legacy marker can remove a user hook mentioning checkpoint-gate.py; recognize only standalone managed hooks."] }
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "in_progress",
-      "changed_files": ["tests/adversarial/governance-gate.test.ts", "tests/chain-dispatch.spec.ts", "tests/carriers-install.spec.ts", "tests/workflow-doctor-surfaces.spec.ts", "tests/checkpoint-gate-carrier.spec.ts", "tests/ceremony-contract.spec.ts", "tests/checkpoint-guard.spec.ts", "tests/chain-dialect.spec.ts", "FILEMAP.md", "scripts/checkpoint-gate.py", "scripts/gen-assets.ts", "skills/.chain-bundle/ai-eng-chain.ts", "skills/ai-orchestrator/SKILL.md", "src/assets.ts", "src/chain/mod.ts", "src/commands/checkpoint-gate-report.ts", "src/embed.ts", "src/install.ts", "src/surfaces/surfaces.json", "src/workflow/checkpoint.ts", "src/guards/checkpoint.ts", "templates/plugin.omp.ts.tpl", "templates/plugin.opencode.ts.tpl", "templates/plugin.pi.ts.tpl", "templates/settings.claude.json.tpl", "templates/settings.codex.json.tpl", "templates/settings.copilot.cli.json.tpl", "templates/settings.copilot.json.tpl", "templates/settings.cursor.json.tpl", "tests/arch.spec.ts", "tests/test_checkpoint_gate.py", ".github/hooks/ai-eng.json", "LEARNINGS.md"]
+      "status": "pending",
+      "changed_files": []
     },
     {
-      "id": 6,
+      "id": 7,
       "title": "Make the worktree optional and merge from any checkout",
       "simple": "Work anywhere and merge safely",
       "size": "xl",
@@ -359,7 +404,7 @@
         "why": "Today unrelated files and a forced separate copy block or strand finished work.",
         "check": "Finish a feature in your usual folder and merge it into your team's branch."
       },
-      "builds_on": [5],
+      "builds_on": [6],
       "tasks": [
         "Tests first in tests/worktree-command.spec.ts with real temp repos under os.tmpdir(), every fixture proving its premise first (R5): the 6.8 mandatory set — feature in a normal checkout (S3), feature in a worktree, merge invoked from an unrelated checkout, two candidate sources refused with both listed, base moved between review and merge loses the CAS and sends the feature back to implementation (S11, the existing race test adapted to a detected base such as develop), untracked file colliding with an incoming path refused with that path and the next command (S9), foreign untracked files that do not collide pass (S9).",
         "Tests first for list/new/resume: `worktree list` shows only Git-registered worktrees and flags an active checkpoint of another feature in the current checkout (S5); an unregistered leftover folder is reported as not work, never as a feature (S10); `worktree new` with a dirty brainstorm.html/PRD.html creates from HEAD and warns those two files do not travel (S17); `worktree list <slug>` on a tree with the feature's own dirty files reports them as continuable and foreign files as left alone, never a refusal (S8, S9); `worktree rm` refuses an unintegrated branch naming `ai-eng worktree rm <slug> --force` and never deletes dirty work.",
@@ -369,7 +414,7 @@
         "`worktree new` takes the path from `[git] worktrees_dir` or proposes one, and the branch name given or proposed; no mandatory feat/ prefix.",
         "In src/floor/index.ts make the pre-push protection apply to the detected base from src/git/context.ts instead of the literal refs/heads/main; cover it in tests/floor-gates.spec.ts.",
         "Every refusal message names the exact path and a runnable next command (6.6, P8).",
-        "Fix any skill or doc line that names a removed verb or argument (`worktree rebase`, `worktree new <slug> [files...]`) with the minimal edit so the ceremony contract stays green; full skill rewrites wait for CP8."
+        "Fix any skill or doc line that names a removed verb or argument (`worktree rebase`, `worktree new <slug> [files...]`) with the minimal edit so the ceremony contract stays green; full skill rewrites wait for CP9."
       ],
       "files": [
         "tests/worktree-command.spec.ts",
@@ -418,7 +463,7 @@
       "status": "pending"
     },
     {
-      "id": 7,
+      "id": 8,
       "title": "Remove platform code from the runtime and enforce the final layers",
       "simple": "Remove leftover extras",
       "size": "l",
@@ -428,7 +473,7 @@
         "why": "Today setup commits by itself skipping checks, and unused parts cost upkeep.",
         "check": "Run an update and see your changes waiting for review, not already saved."
       },
-      "builds_on": [6],
+      "builds_on": [7],
       "tasks": [
         "Tests first: tests/init-command.spec.ts and tests/update-command.spec.ts assert HEAD is unchanged after init and update (changes left in the tree) and no git commit or --no-verify is spawned; tests/update-command.spec.ts asserts update does no network read (fetch stubbed to throw, no notice call); tests/wrap.test.ts asserts the full output is saved to `.ai-engineering/receipts/<receipt>.log`, its path is printed on the last line and the exit code is preserved (D11); tests/arch.spec.ts asserts no import cycles and that every src file belongs to exactly one layer.",
         "Delete src/sidecar/ (sidecar.ts, shadow.ts, queue.ts) and src/guards/circuit-breaker.ts with CircuitBreaker in src/chain/mod.ts and loadCircuitBreakerConfig in src/env.ts; delete tests/sidecar.spec.ts, tests/shadow-eval.spec.ts, tests/circuit-breaker.spec.ts.",
@@ -523,7 +568,7 @@
       "status": "pending"
     },
     {
-      "id": 8,
+      "id": 9,
       "title": "Rewrite the flow skills and the AGENTS.md contract for where-to-work",
       "simple": "Update the working instructions",
       "size": "l",
@@ -533,7 +578,7 @@
         "why": "Old instructions would keep forcing separate copies and the 'main' branch.",
         "check": "Ask for a one-line fix and see it done without planning documents."
       },
-      "builds_on": [7],
+      "builds_on": [8],
       "tasks": [
         "Tests first: add tests/skills-lint.spec.ts linting every skills/*/SKILL.md (frontmatter name and description, a `## Lifecycle` block, relative links that resolve) and asserting 0 `refs/heads/main`/`origin/main` literals and no mandatory `feat/` in skills/ and templates/; extend tests/agents-md-sections.spec.ts so AGENTS.md's 'Where to work' section equals the one in templates/AGENTS.md.tpl.",
         "skills/ai-orchestrator/SKILL.md: work in the current checkout by default, worktree when asked or another feature is active here (D1), native harness worktree first; resume continues the feature's own changes and leaves foreign files alone (S8); Phase 3 rebases with `git rebase <detected base>`; closing offers local merge, PR or keep the branch, recommending PR with a remote forge and local merge otherwise (D9); Direct rhythm has no brainstorm or worktree step (S1). Phases, gates, agents, stops, re-plan and circuit breaker stay as today (D6, D7).",
@@ -600,7 +645,7 @@
       "status": "pending"
     },
     {
-      "id": 9,
+      "id": 10,
       "title": "Split the canon into 23 core skills and opt-in packs",
       "simple": "Install only the essentials",
       "size": "l",
@@ -610,7 +655,7 @@
         "why": "Loading every specialist tool in every session wastes the assistant's attention.",
         "check": "Set up a new project and count the tools installed by default."
       },
-      "builds_on": [8],
+      "builds_on": [9],
       "tasks": [
         "Tests first: tests/init-command.spec.ts asserts `init --yes` and non-TTY write `packs = []` and install exactly the 23 core skills and every agent the ceremony cites, and interactive init asks with nothing preselected; tests/ceremony-contract.spec.ts runs with packs off; tests/update-command.spec.ts asserts the first update of an install without `[canon] packs` writes all six packs and removes nothing, with local edits still protected by the lock hashes; tests/uninstall-command.spec.ts asserts installed packs are removed; tests/embed-canon.spec.ts covers packs embedded apart from core.",
         "Move skills/ai-triage, skills/ai-design-md-planner, skills/ai-audit-design, skills/ai-visual-recap, skills/ai-writing-behavior, skills/ai-stress-test to packs/<name>/, and skills/ai-verify/tiers and evals to packs/verify-tiers/, keeping the 54-line ai-verify router in core; move, never delete content.",
@@ -678,7 +723,7 @@
       "status": "pending"
     },
     {
-      "id": 10,
+      "id": 11,
       "title": "Consolidate tests and CI",
       "simple": "Speed up the safety checks",
       "size": "m",
@@ -688,7 +733,7 @@
         "why": "Slow, duplicated checks waste time and get skipped.",
         "check": "Nothing to see yet, behind the scenes."
       },
-      "builds_on": [9],
+      "builds_on": [10],
       "tasks": [
         "No new tests: delete phrase assertions in tests/skills.spec.ts, tests/workflow-handoff.spec.ts and tests/ai-pr.spec.ts now covered by tests/skills-lint.spec.ts and tests/ceremony-contract.spec.ts, keeping every orchestrator phase and gate assertion.",
         "Collapse duplicated real-Git cases across tests/worktree-command.spec.ts and tests/worktree-lifecycle.spec.ts, keeping the S11 race test and the 6.8 mandatory merge cases.",
@@ -735,7 +780,7 @@
       "status": "pending"
     },
     {
-      "id": 11,
+      "id": 12,
       "title": "Add token budgets with a test and a tokens script",
       "simple": "Keep the assistant's reading light",
       "size": "m",
@@ -745,7 +790,7 @@
         "why": "Every extra word costs time and money in every session.",
         "check": "Run the token count and see every budget within its limit."
       },
-      "builds_on": [10],
+      "builds_on": [11],
       "tasks": [
         "Tests first: add tests/token-budget.spec.ts asserting core skill frontmatter totals at most 2,500 tokens (bytes/4), templates/AGENTS.md.tpl at most 1,200, chain allow and green `ai-eng git pre-commit|commit-msg|pre-push` print 0 lines, and each chain or floor deny prints at most 3 lines.",
         "Add scripts/tokens.ts (bytes/4, no dependencies) and a `tokens` script in package.json that prints the same numbers the test checks.",
@@ -792,7 +837,7 @@
       "status": "pending"
     },
     {
-      "id": 12,
+      "id": 13,
       "title": "Fix docs and promises, and ship as 3.0.0",
       "simple": "Update the guides and version",
       "size": "m",
@@ -802,7 +847,7 @@
         "why": "Docs that promise missing commands mislead people and break trust.",
         "check": "Read the upgrade guide and follow it on an existing project."
       },
-      "builds_on": [11],
+      "builds_on": [12],
       "tasks": [
         "Tests first: add tests/docs-lint.spec.ts asserting every `ai-eng <verb>` cited in README.md, CONTRIBUTING.md, SECURITY.md, PERMISSIONS.md, NOTICE.md, docs/, skills/ and templates/ is in ALL_VERBS of src/shared-verbs.ts (derived from the CLI, not a copied list) and relative links resolve.",
         "Fix the criticals: docs/blueprint.html:366 (`ai-eng recap`), docs/recap.html:1251 (`ai-eng complete`), NOTICE.md:16 (404 link); and the warnings SECURITY.md:28-29 (5 protective guards + 1 prompt guard + token savings in the same hook), PERMISSIONS.md:5-7, CONTRIBUTING.md:40-42.",
@@ -856,7 +901,7 @@
     "Receipt cleanup runs from the agent hook, never from the save hook, and deletes a limited batch each time so nothing waits minutes. [5.1 metrics; F7; P5 no detached spawn; src/commands/doctor.ts gcReceipts]",
     "This repository's own hook settings keep calling the installed Python checker until the release update, because it guards this very build. [section 08 Arranque; .github/hooks/ai-eng.json:12; .cursor/hooks.json:15]",
     "The installer still recognises the old Python checker line so an update can remove it cleanly. [src/install.ts:47 MARKER; section 08 Compatibilidad]",
-    "When a step removes a command, it also fixes every instruction naming it, so nothing is left half-wired; full rewrites stay in steps 8 and 12. [agent rule 'every checkpoint shippable'; ceremony contract test from CP2]",
+    "When a step removes a command, it also fixes every instruction naming it, so nothing is left half-wired; full rewrites stay in steps 9 and 13. [agent rule 'every checkpoint shippable'; ceremony contract test from CP2]",
     "The push block on 'main' becomes a block on the detected base branch, same intent. [src/floor/index.ts:178; 5.1 '0 literals'; P3]",
     "Uninstall still restores the global Git setting an older version wrote, even after setup stops writing it. [src/commands/uninstall.ts:234; section 08 never lose user state]",
     "Removing the spec command leaves the self-protection guard logic unchanged. [section 09 out of scope; src/guards/self-protect.ts:39 specPinned]",
@@ -870,18 +915,21 @@
   ],
   "new_dependencies": [],
   "notes": [
-    "CP1 review MINOR F5: test-hygiene re-runs 25 sandboxed suites in a nested bun test (+40 s to the serial suite); move the env/cwd before-after check into tests/preload.ts. Deferred to CP10 (suite under 2 min).",
+    "CP1 review MINOR F5: test-hygiene re-runs 25 sandboxed suites in a nested bun test (+40 s to the serial suite); move the env/cwd before-after check into tests/preload.ts. Deferred to CP11 (suite under 2 min).",
     "Primary checkout has untracked tests/.dirfd-probe-43993 and tests/.worktree-lifecycle-{jgjcJ0,LDPOY7,wKVTaQ,yLLd5r}: the person removes them; never deleted from the worktree.",
     "Run agility (user, 2026-10-27): full suite once per checkpoint (twice only at wrap-up); a flake unrelated to the diff gets one re-run, then is noted, not blocking; review capped at 2 rounds, only BLOCKER/MAJOR block.",
-    "Twelve checkpoints, not 3-7, and sizes do not grow monotonically (CP3 s after CP2 m; CP10-CP12 m after l/xl): the approved brainstorm section 11 fixes count, order and scope, and each is sized honestly.",
-    "Dependency order honoured: 1 before all; 2 before 4; 3 and 4 before 5 and 6; 5 before 8; 9 after 8; 11 after 9; 10 and 12 at the end. builds_on is linear per the plan format.",
+    "Thirteen checkpoints after the CP5 split; sizes do not grow monotonically (CP3 s after CP2 m; CP11-CP13 m after l/xl): the approved brainstorm section 11 fixes count, order and scope, and each is sized honestly.",
+    "Dependency order honoured: 1 before all; 2 before 4; 3 and 4 before 5; the new CP6 follows CP5; old CP6 is CP7; old CP8 is CP9; old CP9 is CP10; old CP11 is CP12; old CP10 and CP12 are CP11 and CP13 at the end. This preserves brainstorm section 11; builds_on is linear per the plan format.",
     "UI gate is n/a in every checkpoint: no product UI. The static checkpoint viewer stays unchanged as ceremony.",
-    "Case map: S1, S2 -> CP8; S3 -> CP5 and CP6; S4, S13 -> CP5; S5, S8, S9, S10, S11, S17 -> CP6; S6, S7, S15, S16, S18 -> CP3 (PR side in CP8); S12 -> CP4; S14 -> CP10; F7 -> CP1.",
+    "Case map: S1, S2 -> CP9; S3 -> CP5 and CP7; S4, S13 -> CP5; S5, S8, S9, S10, S11, S17 -> CP7; S6, S7, S15, S16, S18 -> CP3 (PR side in CP9); S12 -> CP4; S14 -> CP11; F7 -> CP1.",
     "Ceremony protected: no checkpoint changes phases, gates, agents, stops, prototypes, UI gate, adversarial review, viewer or wrap-up triggers beyond working without a worktree and with a detected base (P10, D6, D7).",
     "D2 already executed (archive tag exists); the archived branch is not integrated. D3: wrap stays as token savings.",
     "After release, run `ai-eng update` in this repository so its own carriers drop the Python checker entry.",
     "Deferred: token-economy feature and the rtk + caveman benchmark (question 7); PRs on forges other than GitHub and Azure DevOps; questions 4, 5, 8, 9 and 10 are research, not tasks. Check question 8 (repos depending on workspace, briefing, upgrade, spec) before publishing 3.0.0.",
     "Before the merge, the person removes the four untracked leftover folders under tests/ in the primary checkout (tests/.dirfd-probe-43993 and tests/.worktree-lifecycle-*).",
-    "CP4 review MINOR: src/shared-worktree.ts:1548 baseRef still defaults to refs/heads/main, but current callers pass detected base. Deferred; remove the default when all direct callers supply an explicit detected base."
+    "CP4 review MINOR: src/shared-worktree.ts:1548 baseRef still defaults to refs/heads/main, but current callers pass detected base. Deferred; remove the default when all direct callers supply an explicit detected base.",
+    "CP5 behavior gate history (4 attempts): Attempt 1 failed on the stale .github/hooks/ai-eng.json Python hook; fixed in 031e6751. Attempt 2 failed on stale generated payload; fixed in 5bba8688, followed by full suite 1547/1547. Attempt 3 passed before adversarial changes. Attempt 4 failed at verify command 9: generated-payload found the chain bundle stale again after the guard source fix; commands 10-14 did not run. Three behavior failures have accumulated; replan threshold reached.",
+    "CP5 review gate history (1 attempt): BLOCKER src/guards/checkpoint.ts:319: Git-prefixed compound commands can bypass Bash write detection; reject write-capable segments. MAJOR src/install.ts:47: legacy marker can remove a user hook mentioning checkpoint-gate.py; recognize only standalone managed hooks.",
+    "CP5 is split into sequential guard/routing and carrier/migration slices after the automatic re-plan threshold. Scope and dependencies remain those approved in brainstorm section 11; guard coverage and fail-closed behavior follow LEARNINGS Rules R1-R3."
   ]
 }
