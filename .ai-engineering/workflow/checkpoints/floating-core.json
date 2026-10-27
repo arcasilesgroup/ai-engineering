@@ -389,7 +389,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["All 11 CP6 verify commands passed; 83 focused tests, typecheck/lint, and arch passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
