@@ -61,3 +61,11 @@
 - `bun run lint`
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
+
+## F1 · BLOCKER · open
+**Where:** src/guards/checkpoint.ts:319
+**Critic (r1):** The Bash guard exempts the entire command when it starts with `git`, so a git-prefixed compound command can still run `cp` (or redirection) into a checkpoint JSON and bypass G7. Remove the blanket exemption; only allow a single known read-only git command or reject write-capable segments, with a compound-command regression test.
+
+## F2 · MAJOR · open
+**Where:** src/install.ts:47
+**Critic (r1):** The unanchored `checkpoint-gate.py` alternative marks any hook command mentioning that filename as managed; update then drops the whole array entry, including user-added commands in a wrapper. Recognize only the exact standalone legacy hook and preserve or refuse ambiguous combined entries; test a wrapped legacy hook with a user command.
