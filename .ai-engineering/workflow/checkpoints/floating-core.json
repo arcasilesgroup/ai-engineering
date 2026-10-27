@@ -459,7 +459,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "failed", "attempts": 1, "findings": ["Stopped at verify command 4: tests/floor-hooks.spec.ts:300 expected direct detected-base push rejection, but received a Gitleaks finding. Later commands were not run. Inspect prePush ordering and fixture premise."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
