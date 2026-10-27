@@ -522,7 +522,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["CP8 verify passed: worktree-command 90 (16 skipped), worktree-lifecycle 17, ceremony-contract 4, skills 26, workflow-handoff 9, git-cleanup-pass 11, git-context 30, workflow-checkpoint 10, arch 31; source grep, typecheck/lint passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
