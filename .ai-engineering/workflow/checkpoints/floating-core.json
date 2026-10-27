@@ -261,9 +261,9 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 3, "findings": ["Latest fix gate: workflow-checkpoint 10, worktree-command 88, worktree-lifecycle 17; typecheck/lint passed; arch 30/30. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "failed", "attempts": 1, "findings": ["F1-F3 resolved in round 2. New MAJOR: src/shared-worktree.ts:1120,1568 does not pass detected non-main base to chain validation; develop checkpoints fail request-changes and ready-state listing."] }
+        "review": { "status": "passed", "attempts": 2, "findings": ["Review attempt 1 fixed: legacy writes use normalized serialization, base is detected, approval transition is covered, and develop is passed through chain validation. Review attempt 2 PASS; MINOR src/shared-worktree.ts:1548: baseRef still defaults to refs/heads/main, but current callers pass the detected base. Deferred."] }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": ["tests/workflow-checkpoint.spec.ts", "tests/arch.spec.ts", ".ai-engineering/arch.rules.json", "FILEMAP.md", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts"]
     },
     {
@@ -880,6 +880,7 @@
     "D2 already executed (archive tag exists); the archived branch is not integrated. D3: wrap stays as token savings.",
     "After release, run `ai-eng update` in this repository so its own carriers drop the Python checker entry.",
     "Deferred: token-economy feature and the rtk + caveman benchmark (question 7); PRs on forges other than GitHub and Azure DevOps; questions 4, 5, 8, 9 and 10 are research, not tasks. Check question 8 (repos depending on workspace, briefing, upgrade, spec) before publishing 3.0.0.",
-    "Before the merge, the person removes the four untracked leftover folders under tests/ in the primary checkout (tests/.dirfd-probe-43993 and tests/.worktree-lifecycle-*)."
+    "Before the merge, the person removes the four untracked leftover folders under tests/ in the primary checkout (tests/.dirfd-probe-43993 and tests/.worktree-lifecycle-*).",
+    "CP4 review MINOR: src/shared-worktree.ts:1548 baseRef still defaults to refs/heads/main, but current callers pass detected base. Deferred; remove the default when all direct callers supply an explicit detected base."
   ]
 }

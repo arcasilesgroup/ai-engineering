@@ -39,7 +39,7 @@ One TypeScript module owns the checkpoint JSON schema, phases, transitions, the 
 **Fixer (r1):** fixed — added a passing approved plan-approval transition assertion alongside the existing pending refusal · verify: targeted checkpoint tests ✓
 **Critic (r2):** resolved — the passing approved transition case is present and the targeted checkpoint suite passes.
 
-## F4 · MAJOR · fixed (r3)
+## F4 · MAJOR · resolved
 **Where:** `src/shared-worktree.ts:1120, 1568`
 **Critic (r2):** `request-changes` calls `reviewedFeatureChainProblem` without its detected `baseRef`; the helper still parses checkpoint snapshots using hard-coded `refs/heads/main`. A canonical review checkpoint with `base_ref: refs/heads/develop` therefore fails validation during request-changes, and ready-to-merge lifecycle listing has the same mismatch. Thread the detected base through the helper and all its checkpoint parses; cover non-main request-changes and ready-state listing.
 
@@ -53,3 +53,8 @@ One TypeScript module owns the checkpoint JSON schema, phases, transitions, the 
 **ROOT CAUSE:** Chain validation parsed canonical checkpoint snapshots against hard-coded `refs/heads/main`, and request-changes reread its published checkpoint using that same wrong context.
 **FIX:** Threaded detected `baseRef` through chain validation, ready listing, merge-ready reads and request-changes synchronization; the real-repository regression uses a canonical `develop` review chain while `main` diverges.
 **LESSON:** Keep every checkpoint parse in a lifecycle operation pinned to its detected base, including verification reads after publishing.
+**Critic (r1):** resolved — all three production call sites pass the detected `baseRef`; the diverged-`main`/`develop` regression proves both ready listing and `request-changes` accept canonical `develop` history.
+
+## F5 · MINOR · open
+**Where:** `src/shared-worktree.ts:1548`
+**Critic (r1):** `reviewedFeatureChainProblem` still defaults `baseRef` to `refs/heads/main`. Current in-repo callers pass the detected base, so this does not block the fixed flows, but a caller that omits it silently reintroduces main-only parsing; make `baseRef` required.
