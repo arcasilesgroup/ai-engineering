@@ -2194,7 +2194,7 @@ function checkMarker(payload, repoRoot) {
 }
 function checkBash2(payload) {
   const command = payload.tool_input.command;
-  if (typeof command !== "string" || !CHECKPOINT_TARGET.test(command) || !BASH_WRITE.test(command) || /^\s*git\s/.test(command)) {
+  if (typeof command !== "string" || !CHECKPOINT_TARGET.test(command) || !BASH_WRITE.test(command)) {
     return;
   }
   return deny2("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
