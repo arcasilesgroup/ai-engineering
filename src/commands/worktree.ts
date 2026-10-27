@@ -1,18 +1,16 @@
-// The `ai-eng worktree` parser is thin. Root resolution, git argv and the
-// design-slot list live in src/shared-worktree.ts; this file prints results.
+// The `ai-eng worktree` parser is thin; git merge transactions live in src/git/merge.ts.
 
 import {
   worktreeList,
-  worktreeMerge,
   worktreeNew,
-  worktreeRebase,
   worktreeRequestChanges,
   worktreeRm,
 } from "../shared-worktree.ts";
+import { worktreeMerge } from "../git/merge.ts";
 
 const USAGE =
-  "usage: ai-eng worktree new <slug> [files...] | rm <slug> [--force] | rebase <slug> | merge <slug> | " +
-  "request-changes <slug> <pending-checkpoint-commit-sha> | list [<slug>]\n";
+  "usage: ai-eng worktree new <branch> | list [<slug>] | merge <slug> | request-changes <slug> <pending-checkpoint-commit-sha> | " +
+  "rm <slug> [--force]\n";
 
 export function worktreeMain(args: string[], force = false): number {
   const [action, slug, ...files] = args;
@@ -23,7 +21,11 @@ export function worktreeMain(args: string[], force = false): number {
         process.stderr.write(USAGE);
         return 2;
       }
-      result = worktreeNew(slug, files);
+      if (files.length > 0) {
+        process.stderr.write(USAGE);
+        return 2;
+      }
+      result = worktreeNew(slug);
       break;
     case "rm": {
       // A trailing positional is a typo the caller cannot see — `rm alpha typo`
@@ -36,13 +38,6 @@ export function worktreeMain(args: string[], force = false): number {
       result = worktreeRm(slug, force);
       break;
     }
-    case "rebase":
-      if (!slug || files.length > 0 || force) {
-        process.stderr.write(USAGE);
-        return 2;
-      }
-      result = worktreeRebase(slug);
-      break;
     case "merge":
       if (!slug || files.length > 0 || force) {
         process.stderr.write(USAGE);

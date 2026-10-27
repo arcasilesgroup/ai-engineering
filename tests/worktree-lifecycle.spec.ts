@@ -966,7 +966,7 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
     expect(readFileSync(join(feature, "src", "feature.ts"), "utf8")).toBe(featureContents);
   });
 
-  test("U31: ready lifecycle remains active until the CLI merge removes its Git-listed feature worktree", () => {
+  test("U31: merge leaves the ready lifecycle and feature worktree for explicit cleanup", () => {
     const repo = initRepo();
     const slug = "merge-lifecycle-close";
     const feature = addBranchWorktree(repo, slug);
@@ -1036,10 +1036,14 @@ describe("ai-eng worktree lifecycle (checkpoint 6)", () => {
       ["diff", "--quiet", reviewedFeature, "refs/heads/main", "--", ".", `:(exclude)${checkpointPath}`],
       repo,
     ).status).toBe(0);
-    expect(git(["worktree", "list", "--porcelain"], repo)).not.toContain(featurePath);
-    expect(runGit(["show-ref", "--verify", `refs/heads/feat/${slug}`], repo).status).not.toBe(0);
-    expect(existsSync(feature)).toBe(false);
-    expect(existsSync(checkpoint)).toBe(false);
+    expect(git(["worktree", "list", "--porcelain"], repo)).toContain(featurePath);
+    expect(runGit(["show-ref", "--verify", `refs/heads/feat/${slug}`], repo).status).toBe(0);
+    expect(existsSync(feature)).toBe(true);
+    expect(existsSync(checkpoint)).toBe(true);
+    expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
+    expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle.phase).toBe("ready-to-merge");
+    expect(git(["rev-parse", "HEAD"], feature).trim()).toBe(featureTip);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
     expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
   });
 });

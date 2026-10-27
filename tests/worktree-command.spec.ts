@@ -699,7 +699,7 @@ function isCaseInsensitiveFs(): boolean {
 const IS_CASE_INSENSITIVE_FS = isCaseInsensitiveFs();
 
 describe("ai-eng worktree verb (checkpoint 2)", () => {
-  test("list projects a fresh exact brainstorm approval before a feature worktree exists", () => {
+  test("list does not project a brainstorm approval before a feature worktree exists", () => {
     const repo = tempRepo();
     const artifact = writeBrainstorm(repo, "alpha");
     const before = worktreeEntries(repo);
@@ -707,9 +707,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const listed = runCli(["worktree", "list", "alpha"], repo);
 
     expect(listed.status).toBe(0);
-    expect(listed.stdout).toContain(
-      "alpha\t-\tpre-worktree\tunknown\tapproval-before-start (brainstorm approved ",
-    );
+    expect(listed.stdout).toBe("");
     expect(worktreeEntries(repo)).toEqual(before);
     expect(branchNames(repo)).not.toContain("feat/alpha");
     expect(existsSync(artifact)).toBe(true);
@@ -763,7 +761,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const listed = runCli(["worktree", "list", "alpha"], repo);
 
     expect(listed.status).toBe(0);
-    expect(listed.stdout).toContain("unknown (brainstorm is missing or unreadable)");
+    expect(listed.stdout).toContain(`${join(root, ".ai-eng-lifecycle")} is not registered in Git, not work`);
     expect(listed.stdout).not.toContain("approval-before-start");
     expect(listed.stdout).not.toContain("active-implementation");
     expect(readFileSync(recordPath, "utf8")).toBe(record);
@@ -771,21 +769,21 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(branchNames(repo)).toEqual(["main"]);
   });
 
-  test("list reports draft, expired, ambiguous, mismatched, and missing brainstorms as unknown", () => {
+  test("list does not project draft, expired, ambiguous, mismatched, or missing brainstorms", () => {
     const repo = tempRepo();
     const expiredDate = new Date();
     expiredDate.setDate(expiredDate.getDate() - 15);
     const expiredApproval =
       `${expiredDate.getFullYear()}-${String(expiredDate.getMonth() + 1).padStart(2, "0")}-${String(expiredDate.getDate()).padStart(2, "0")}`;
-    const cases: Array<[string, string, string | null, { approval?: string; status?: string; duplicateSlug?: string }]> = [
-      ["draft", "brainstorm approval does not match its complete status", "draft", { status: "draft · interview in progress" }],
-      ["malformed", "brainstorm is malformed", "malformed", {}],
-      ["expired", "brainstorm approval is expired or future-dated", "expired", { approval: expiredApproval }],
-      ["ambiguous", "brainstorm feature slug is missing or ambiguous", "ambiguous", { duplicateSlug: "other" }],
-      ["requested", "brainstorm belongs to different, not requested", "different", {}],
-      ["missing", "brainstorm is missing or unreadable", null, {}],
+    const cases: Array<[string, string | null, { approval?: string; status?: string; duplicateSlug?: string }]> = [
+      ["draft", "draft", { status: "draft · interview in progress" }],
+      ["malformed", "malformed", {}],
+      ["expired", "expired", { approval: expiredApproval }],
+      ["ambiguous", "ambiguous", { duplicateSlug: "other" }],
+      ["requested", "different", {}],
+      ["missing", null, {}],
     ];
-    for (const [slug, reason, artifactSlug, options] of cases) {
+    for (const [slug, artifactSlug, options] of cases) {
       if (artifactSlug !== null) {
         const artifact = writeBrainstorm(repo, artifactSlug, options);
         if (slug === "malformed") {
@@ -802,7 +800,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
       }
       const listed = runCli(["worktree", "list", slug], repo);
       expect(listed.status).toBe(0);
-      expect(listed.stdout).toContain(`unknown (${reason}`);
+      expect(listed.stdout).toBe("");
     }
   });
 
@@ -1646,16 +1644,16 @@ describe("ai-orchestrator worktree lifecycle awareness (checkpoint 1)", () => {
     expect(preflight).toMatch(/near[- ]match[^.\n]{0,160}(?:not|never|must not)[^.\n]{0,80}(?:exact|substitut|resume|continue)/i);
   });
 
-  test("uses the brainstorm projection only before a worktree, then checkpoints", () => {
+  test("brainstorms never authorize work; checkpoints describe registered checkouts", () => {
     const preflightStart = orchestratorSkill.indexOf("## Phase 0: Preflight");
     const planStart = orchestratorSkill.indexOf("## Phase 1: Plan", preflightStart);
     const preflight = orchestratorSkill.slice(preflightStart, planStart);
 
-    expect(preflight).toContain("approval-before-start");
-    expect(preflight).toContain("within 14 days");
-    expect(preflight).toContain("matching complete status line");
-    expect(preflight).toContain("projection is read-only");
-    expect(preflight).toContain("checkpoint alone is authoritative");
+    expect(preflight).toMatch(/list reports only Git-registered\s+checkouts/);
+    expect(preflight).toMatch(/does not infer a feature from a\s+brainstorm/);
+    expect(preflight).toMatch(/projection\s+is read-only and is no longer emitted/);
+    expect(preflight).toMatch(/a brainstorm never authorizes work/);
+    expect(preflight).toContain("it alone is authoritative");
     expect(preflight).toMatch(/never falls back to\s+brainstorm/);
     expect(preflight).toContain("awaiting-plan-approval");
     expect(preflight).toContain("awaiting-app-review");
@@ -2225,7 +2223,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expectNoMergeLock(repo);
   });
 
-  test("continues to refuse tracked primary changes without altering them", () => {
+  test("merges with non-colliding tracked primary changes without altering them", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -2235,10 +2233,18 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
 
     const run = runCli(["worktree", "merge", approved.slug], repo);
 
-    expect(run.status).not.toBe(0);
-    expect(`${run.stdout}${run.stderr}`).toContain("primary checkout is dirty");
-    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(mainBefore);
+    expect(run.status).toBe(0);
+    const mergeCommit = git(["rev-parse", "refs/heads/main"], repo).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ")).toEqual([
+      mergeCommit,
+      mainBefore,
+      approved.featureTip,
+    ]);
     expect(readFileSync(join(repo, "README.md"), "utf8")).toBe("local tracked change\n");
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toContain("README.md");
+    expect(readFileSync(join(repo, "src", "approved.ts"), "utf8")).toBe(
+      `${approved.slug} approved feature\n`,
+    );
     expect(existsSync(approved.feature)).toBe(true);
     expectWorktrees(repo, [repo, approved.feature]);
   });
@@ -2771,8 +2777,15 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
       }
       expect(existsSync(approved.feature)).toBe(true);
       expect(existsSync(approved.checkpoint)).toBe(true);
-      expect(readFileSync(join(approved.feature, "interrupted.txt"), "utf8"))
-        .toBe("interrupted feature\n");
+      if (interruption === "removal") {
+        expect(readFileSync(join(approved.feature, "interrupted.txt"), "utf8"))
+          .toBe("interrupted feature\n");
+        expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature))
+          .toContain("interrupted.txt");
+      } else {
+        expect(existsSync(join(approved.feature, "interrupted.txt"))).toBe(false);
+        expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
+      }
       expectWorktrees(repo, [repo, approved.feature]);
       expect(readFileSync(hookLog, "utf8").trim().split("\n")).toHaveLength(1);
       expectNoMergeLock(repo);

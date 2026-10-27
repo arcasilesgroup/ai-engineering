@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { parse } from "smol-toml";
 import { repoRoot } from "../env.ts";
+import { resolveContext } from "../git/context.ts";
 
 type FloorResult = { ok: boolean; lines: string[] };
 
@@ -169,14 +170,20 @@ export function commitMsg(msgFile: string, receiptId: string, overrideReason: st
  *  GitHub, but admins can bypass it — this local guard catches that. */
 export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const lines: string[] = [];
-  // Block direct pushes to main: every change goes through a PR.
+  let baseRef: string | null = null;
+  try {
+    const base = resolveContext(cwd).base;
+    if (base !== null) baseRef = `refs/heads/${base}`;
+  } catch {
+    // A missing base does not turn an unrelated push into a protected-base push.
+  }
   // The pre-push hook shim captures stdin into AI_ENG_PUSH_REFS before calling us,
   // so we read it from the environment instead of fd 0 (which may already be consumed).
   const refs = (process.env.AI_ENG_PUSH_REFS ?? "").split("\n");
   for (const line of refs) {
     const remoteRef = line.trim().split(/\s+/)[2];
-    if (remoteRef === "refs/heads/main") {
-      return { ok: false, lines: ["direct push to main is not allowed — open a PR instead."] };
+    if (baseRef !== null && remoteRef === baseRef) {
+      return { ok: false, lines: [`direct push to detected base ${baseRef} is not allowed — open a PR instead.`] };
     }
   }
   const gitleaks = whichGitleaks();

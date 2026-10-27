@@ -493,6 +493,21 @@ export function assertCheckpointTransition(
     verifiedCheckpoints.add(next);
     return;
   }
+  if (oldState.phase === "ready-to-merge" && newState.phase === "implementation") {
+    if (
+      newState.app_review !== "not-started" ||
+      newState.base_ref !== null ||
+      newState.reviewed_base !== null ||
+      newState.reviewed_feature !== null
+    ) {
+      fail("reviewed_base", "lost compare-and-swap must clear the reviewed SHAs");
+    }
+    if (baseCommit(context) === oldState.reviewed_base) {
+      fail("base_ref", "review invalidation requires a lost base compare-and-swap");
+    }
+    verifiedCheckpoints.add(next);
+    return;
+  }
   if (oldState.phase === "blocked" && newState.phase === "implementation") {
     if (oldState.app_review !== "not-started" || !sameReview(oldState, newState)) {
       fail("lifecycle", "blocked state may resume implementation only with its preserved approval");

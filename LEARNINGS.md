@@ -1138,3 +1138,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Add a concise description to FILEMAP.
 - **Lesson:** Update FILEMAP when adding source files.
 - **Tags:** review, docs, filemap
+
+### L157 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** Four tests still expected brainstorm projections, and U30 checked a path absent from its refresh fixture.
+- **Root cause:** Assertions were not updated with the approved Git-only listing/merge behavior, and the fixture premise was wrong.
+- **Fix:** Align expectations to Git-only listing and conditional refresh paths; preserve unrelated edits.
+- **Lesson:** Keep assertions aligned with approved behavior and verify each fixture's premise.
+- **Tags:** behavior, worktree, tests

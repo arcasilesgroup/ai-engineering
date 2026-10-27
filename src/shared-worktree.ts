@@ -8,6 +8,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync as readFile,
   realpathSync,
   renameSync,
@@ -16,13 +17,12 @@ import {
 } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { spawnSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
 import { loadConfig, printable } from "./env.ts";
 import { resolveContext } from "./git/context.ts";
+import { runGit } from "./git/run.ts";
+import { reviewedFeatureChainProblem } from "./git/merge.ts";
 import {
-  brainstormApprovalProblem,
-  parseBrainstormApproval,
   parseCheckpoint,
   readCheckpoint,
   serializeCheckpoint,
@@ -32,12 +32,6 @@ import {
 /** The four artifacts of a milestone. `spec open` scaffolds two and `spec close`
  *  sweeps all four; `ai-eng spec` is its only consumer. */
 export const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.html", "recap.html"] as const;
-
-/** The design artifacts that must be committed before a worktree is cut
- *  (AGENTS.md `## Git workflow`). `recap.html` is absent on purpose: it is
- *  generated at the app review and arrives with the merge, so a dirty one must
- *  not block. One definition here, distinct from the `spec close` sweep. */
-export const PRE_WORKTREE_SLOTS = ["brainstorm.html", "spec.html", "plan.html"] as const;
 
 /** The shape of a slug: the user types it, and it becomes both `feat/<slug>` and the
  *  worktree directory name. The orchestrator compares it literally against
@@ -58,8 +52,7 @@ interface GitRun {
 }
 
 function git(cwd: string, args: string[]): GitRun {
-  const done = spawnSync("git", args, { cwd, encoding: "utf8" });
-  return { status: done.status ?? 1, stdout: done.stdout ?? "", stderr: done.stderr ?? "" };
+  return runGit(args, { cwd, isolated: true });
 }
 
 /** git reports canonical paths — so the worktree root, and every comparison
@@ -70,21 +63,6 @@ function canonicalize(path: string): string {
   } catch {
     return resolve(path);
   }
-}
-
-/** Whether a status path names a design slot: the slot itself, or anything nested
- *  under it when the slot was replaced by a directory. Both sides are compared as
- *  git and the filesystem name them (realpath, then case-folded — a case alias of
- *  the slot is the same file on a case-insensitive filesystem, and refusing one is
- *  the fail-closed side of the comparison on a case-sensitive one). */
-function namesSlot(repo: string, path: string): string | null {
-  const key = canonicalize(join(repo, path)).toLowerCase();
-  for (const name of PRE_WORKTREE_SLOTS) {
-    const slot = `.ai-engineering/${name}`;
-    const slotKey = canonicalize(join(repo, slot)).toLowerCase();
-    if (key === slotKey || key.startsWith(`${slotKey}/`)) return slot;
-  }
-  return null;
 }
 
 /** The primary checkout, asked of git — never the nearest `.git`, which inside a
@@ -111,105 +89,6 @@ export function worktreeRoot(repo: string): string {
   const configured = loadConfig(repo).git?.["worktrees_dir"];
   if (typeof configured === "string" && configured.trim()) return canonicalize(resolve(repo, configured.trim()));
   return `${repo}.worktrees`;
-}
-
-type Declarations = Record<string, string[]>;
-
-const DECLARATIONS = ".ai-eng-worktrees.json";
-
-function emptyDeclarations(): Declarations {
-  return Object.create(null) as Declarations;
-}
-
-function declarationPath(path: string): string | null {
-  if (/\p{C}/u.test(path) || path.includes("\\") || /^[a-z]:/iu.test(path)) return null;
-  const normalized = normalizedEvidencePath(path);
-  if (normalized === null || normalized === "." || normalized.split("/").includes(".")) return null;
-  return normalized;
-}
-
-function readDeclarations(root: string): { declarations: Declarations; present: boolean } | { detail: string } {
-  const path = join(root, DECLARATIONS);
-  let stat;
-  try {
-    stat = lstatSync(path);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { declarations: emptyDeclarations(), present: false };
-    }
-    return { detail: `${path} is unreadable (${error instanceof Error ? error.message : String(error)})` };
-  }
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    return { detail: `${path} is not a worktree-root-local file` };
-  }
-  let contents: string;
-  try {
-    const relativePath = relative(canonicalize(root), realpathSync(path));
-    if (
-      relativePath === "" ||
-      relativePath === ".." ||
-      relativePath.startsWith(`..${sep}`) ||
-      isAbsolute(relativePath)
-    ) {
-      return { detail: `${path} is not a worktree-root-local file` };
-    }
-    contents = readFile(path, "utf8");
-  } catch (error) {
-    return { detail: `${path} is unreadable (${error instanceof Error ? error.message : String(error)})` };
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(contents);
-  } catch (error) {
-    return { detail: `${path} is not valid JSON (${error instanceof Error ? error.message : String(error)})` };
-  }
-  if (!isRecord(parsed)) {
-    return { detail: `${path} must map each slug to its declared files` };
-  }
-
-  const declarations = emptyDeclarations();
-  for (const [slug, values] of Object.entries(parsed)) {
-    if (!SLUG_PATTERN.test(slug) || /\p{C}/u.test(slug) || !Array.isArray(values)) {
-      return { detail: `${path} contains an invalid slug or file list` };
-    }
-    const files = values.map((value) =>
-      typeof value === "string" ? declarationPath(value) : null
-    );
-    if (files.some((file) => file === null)) {
-      return { detail: `${path} declares an invalid relative file path for "${slug}"` };
-    }
-    declarations[slug] = [...new Set(files as string[])];
-  }
-  return { declarations, present: true };
-}
-
-function pruneDeclarations(root: string, declarations: Declarations): Declarations {
-  const live = emptyDeclarations();
-  for (const [slug, files] of Object.entries(declarations)) {
-    if (existsSync(join(root, slug))) live[slug] = files;
-  }
-  return live;
-}
-
-function writeDeclarations(root: string, declarations: Declarations): string | null {
-  const path = join(root, DECLARATIONS);
-  try {
-    mkdirSync(root, { recursive: true });
-    let mode = 0o600;
-    try {
-      const stat = lstatSync(path);
-      if (!stat.isFile() || stat.isSymbolicLink()) return `${path} is not a worktree-root-local file`;
-      mode = stat.mode & 0o777;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        return `${path} is unreadable (${error instanceof Error ? error.message : String(error)})`;
-      }
-    }
-    return replaceFileAtomically(path, `${JSON.stringify(declarations, null, 2)}\n`, mode);
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
 }
 
 interface OpenWorktree {
@@ -352,10 +231,6 @@ export function repositoryWorktreeInventory(
   };
 }
 
-/** Why a cut is refused: a slot change seen at `path`, or the status detail
- *  that could not be read. A guard that cannot decide denies. */
-type SlotBlocker = { path: string } | { detail: string };
-
 /** The paths one `-z` record carries and how many tokens it used. `-z` keeps every
  *  path as raw bytes — NUL-separated, nothing quoted and nothing C-escaped, so no
  *  path ever needs unescaping and a non-ASCII one cannot slip past a comparison.
@@ -415,136 +290,110 @@ function ignoredRemovalNote(dropped: string[] | null, removalState: "removed" | 
     : ` — ignored content found before removal: ${paths.join(", ")}; its remaining state is unknown`;
 }
 
-/** The first design slot touched in the primary tree, or null. A slot counts as
- *  touched when a status record carries its path, the path a rename took it from, or
- *  anything nested under it (a slot replaced by a directory) — and an unreadable
- *  record blocks rather than passes.
- *
- *  The ceiling is git's own: a slot edit that git refuses to report (`assume-unchanged`,
- *  `skip-worktree`) or one hidden by `.gitignore` never reaches this status, and a slot
- *  that is a symlink is compared under its repository path, so an edit written through
- *  the link — to a target inside or outside the repository — is likewise invisible. Both
- *  are deliberate — the guard refuses what it cannot decide, and a status it cannot read
- *  has no record to inspect; neither is evidence that the primary tree is clean. */
-function dirtySlot(repo: string): SlotBlocker | null {
-  // `-uall` lists each untracked file instead of collapsing a wholly untracked
-  // directory to `?? .ai-engineering/`, so an uncommitted slot is still seen; `-z`
-  // carries the paths raw, so a quoted or escaped one is never misread.
-  const status = git(repo, ["status", "--porcelain", "-uall", "-z"]);
-  if (status.status !== 0) return { detail: `git status exited ${status.status}` };
+export function worktreeNew(branchInput: string): WorktreeResult {
+  const repo = primaryRepoRoot();
+  if (repo === null) return { code: 2, out: "", err: "worktree new: not inside a git repository.\n" };
+  if (branchInput === "" || /\p{C}/u.test(branchInput)) {
+    return { code: 2, out: "", err: `worktree new: invalid slug or branch name "${printable(branchInput)}"; pass a Git branch name.\n` };
+  }
+  const exactBranch = branchInput.includes("/")
+    ? null
+    : git(repo, ["show-ref", "--verify", "--quiet", `refs/heads/${branchInput}`]);
+  if (exactBranch !== null && exactBranch.status !== 0 && exactBranch.status !== 1) {
+    return { code: 1, out: "", err: `worktree new: cannot inspect branch ${branchInput}; check it with \`git -C ${repo} show-ref --verify refs/heads/${branchInput}\`.\n` };
+  }
+  const branch = branchInput.includes("/") || exactBranch?.status === 0 ? branchInput : `feat/${branchInput}`;
+  const validBranch = git(repo, ["check-ref-format", "--branch", branch]);
+  if (validBranch.status !== 0 || validBranch.stdout.trim() !== branch) {
+    return { code: 2, out: "", err: `worktree new: invalid branch name "${printable(branchInput)}"; check it with \`git -C ${repo} check-ref-format --branch ${printable(branch)}\`.\n` };
+  }
+  const root = worktreeRoot(repo);
+  const directoryName = branchInput.startsWith("feat/") ? branchInput.slice("feat/".length) : branchInput;
+  const target = resolve(root, directoryName);
+  const targetRelative = relative(canonicalize(root), target);
+  if (targetRelative === ".." || targetRelative.startsWith(`..${sep}`) || isAbsolute(targetRelative)) {
+    return { code: 2, out: "", err: `worktree new: ${target} is outside the configured worktree root; choose a branch with a repository-local path.\n` };
+  }
+  const listed = openWorktrees(repo);
+  if ("detail" in listed) {
+    return { code: 1, out: "", err: `worktree new: cannot inspect registered worktrees (${listed.detail}); run \`ai-eng worktree list\`.\n` };
+  }
+  const existing = listed.worktrees.find((entry) => entry.branch === branch);
+  if (existing !== undefined) {
+    return { code: 1, out: "", err: `worktree new: branch ${branch} is already checked out at ${existing.path}; use that checkout or choose another branch.\n` };
+  }
+  const branchExists = git(repo, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]);
+  if (branchExists.status === 0) {
+    return { code: 1, out: "", err: `worktree new: branch ${branch} already exists; choose another branch or inspect \`git -C ${repo} worktree list\`.\n` };
+  }
+  if (branchExists.status !== 1 || branchExists.stderr.trim() !== "") {
+    return { code: 1, out: "", err: `worktree new: cannot verify whether branch ${branch} exists; inspect \`git -C ${repo} show-ref --verify refs/heads/${branch}\`.\n` };
+  }
+  if (existsSync(target)) {
+    return { code: 1, out: "", err: `worktree new: path ${target} already exists; choose another branch or inspect that path.\n` };
+  }
+  const configuredBase = loadConfig(repo).git?.["base"];
+  const remotes = git(repo, ["remote"]);
+  if (remotes.status !== 0 || remotes.stderr.trim() !== "") {
+    return { code: 1, out: "", err: `worktree new: remotes for ${repo} are unreadable; inspect \`git -C ${repo} remote -v\`.\n` };
+  }
+  let baseBranch: string | null;
+  if (configuredBase !== undefined || remotes.stdout.trim() !== "") {
+    try {
+      baseBranch = resolveContext(process.cwd()).base;
+    } catch (error) {
+      return { code: 1, out: "", err: `worktree new: cannot detect the base (${error instanceof Error ? error.message : String(error)}); run \`ai-eng worktree list\`.\n` };
+    }
+  } else {
+    const branch = git(repo, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
+    baseBranch = branch.status === 0 && branch.stderr.trim() === "" ? branch.stdout.trim() : null;
+  }
+  if (baseBranch === null) {
+    return { code: 1, out: "", err: `worktree new: no base branch is detectable; set [git] base in ${join(repo, ".ai-engineering", "config.toml")} or check out a branch.\n` };
+  }
+  const baseRef = `refs/heads/${baseBranch}`;
+  const baseExists = git(repo, ["show-ref", "--verify", "--quiet", baseRef]);
+  if (baseExists.status !== 0 || baseExists.stderr.trim() !== "") {
+    return { code: 1, out: "", err: `worktree new: detected base ${baseRef} is unavailable; check it with \`git -C ${repo} show-ref --verify ${baseRef}\`.\n` };
+  }
+  const status = git(repo, ["status", "--porcelain", "--untracked-files=all", "-z"]);
+  if (status.status !== 0 || status.stderr.trim() !== "") {
+    return { code: 1, out: "", err: `worktree new: status for ${repo} is unreadable; inspect \`git -C ${repo} status --short\` before retrying.\n` };
+  }
+  const touchedSlots = new Set<string>();
   const tokens = status.stdout.split("\0");
   for (let index = 0; index < tokens.length; ) {
     if (tokens[index] === "") {
-      index += 1; // the NUL that closes the last record
+      index += 1;
       continue;
     }
-    const read = statusPaths(tokens, index);
-    if (read === null) return { detail: `unreadable status record ${JSON.stringify(printable(tokens[index] ?? ""))}` };
-    for (const path of read.paths) {
-      const slot = namesSlot(repo, path);
-      if (slot !== null) return { path: slot };
+    const record = statusPaths(tokens, index);
+    if (record === null) return { code: 1, out: "", err: `worktree new: status for ${repo} contains an unreadable path; inspect \`git -C ${repo} status --short\`.\n` };
+    for (const path of record.paths) {
+      const pathKey = path.toLowerCase();
+      if (
+        [".ai-engineering/brainstorm.html", ".ai-engineering/prd.html", ".ai-engineering/spec.html", ".ai-engineering/plan.html"]
+          .some((slot) => pathKey === slot || pathKey.startsWith(`${slot}/`))
+      ) touchedSlots.add(path);
     }
-    index = read.next;
+    index = record.next;
   }
-  return null;
-}
-
-export function worktreeNew(slug: string, requestedFileHints: string[] = []): WorktreeResult {
-  const repo = primaryRepoRoot();
-  if (repo === null) return { code: 2, out: "", err: "worktree new: not inside a git repository.\n" };
-  // A slug is a branch-name fragment and a directory name: the pattern alone would
-  // accept `alpha\n` (`$` matches before a final newline), and git would only refuse
-  // the ref after the worktree root had already been created.
-  if (!SLUG_PATTERN.test(slug) || /\p{C}/u.test(slug)) {
-    return {
-      code: 2,
-      out: "",
-      err: `worktree new: invalid slug "${printable(slug)}" — it must match ${SLUG_PATTERN} and carry no control character (no spaces, no "/", never starting with a separator).\n`,
-    };
-  }
-  const normalizedHints = requestedFileHints.map(declarationPath);
-  if (normalizedHints.some((path) => path === null)) {
-    const invalidHint = requestedFileHints[normalizedHints.findIndex((path) => path === null)] ?? "";
-    return {
-      code: 2,
-      out: "",
-      err: `worktree new: invalid relative file hint "${printable(invalidHint)}".\n`,
-    };
-  }
-  const fileHints = [...new Set(normalizedHints.filter((path): path is string => path !== null))];
-  const blocked = dirtySlot(repo);
-  if (blocked !== null) {
-    return {
-      code: 2,
-      out: "",
-      err:
-        "path" in blocked
-          ? `worktree new: ${blocked.path} has uncommitted changes in the primary tree — commit the design slot before opening a worktree.\n`
-          : `worktree new: the primary tree's status is unreadable (${JSON.stringify(blocked.detail)}) — refusing to cut a worktree while the design slots are unknown.\n`,
-    };
-  }
-
-  const root = worktreeRoot(repo);
-  const read = readDeclarations(root);
-  if ("detail" in read && fileHints.length > 0) {
-    return {
-      code: 2,
-      out: "",
-      err: `worktree new: the manifest is unusable (${read.detail}) — refusing to save requested file hints.\n`,
-    };
-  }
-  const declarations = "detail" in read
-    ? emptyDeclarations()
-    : pruneDeclarations(root, read.declarations);
-  const overlaps: string[] = [];
-  if (fileHints.length > 0) {
-    const listed = openWorktrees(repo);
-    if ("detail" in listed) {
-      return {
-        code: 2,
-        out: "",
-        err: `worktree new: the worktree list is unreadable (${listed.detail}) — refusing to cut a worktree blindly.\n`,
-      };
-    }
-    for (const entry of listed.worktrees) {
-      if (canonicalize(entry.path) === repo || entry.prunable || !existsSync(entry.path)) continue;
-      const declaredFiles = Object.hasOwn(declarations, entry.slug) ? declarations[entry.slug] ?? [] : [];
-      for (const file of fileHints) {
-        if (declaredFiles.includes(file)) overlaps.push(`${printable(entry.slug)} already declared ${file}`);
-      }
-    }
-  }
-  const target = join(root, slug);
-  const branch = `feat/${slug}`;
-  mkdirSync(root, { recursive: true });
-  const added = git(repo, ["worktree", "add", target, "-b", branch, "refs/heads/main"]);
+  mkdirSync(dirname(target), { recursive: true });
+  const added = git(repo, ["worktree", "add", target, "-b", branch, baseRef]);
   if (added.status !== 0) {
-    return { code: 1, out: "", err: `worktree new: git worktree add failed: ${added.stderr.trim()}\n` };
+    return { code: 1, out: "", err: `worktree new: git worktree add failed for ${target}: ${added.stderr.trim()}; inspect \`git -C ${repo} worktree list\`.\n` };
   }
-  git(repo, ["config", `branch.${branch}.remote`, "."]);
-  git(repo, ["config", `branch.${branch}.merge`, "refs/heads/main"]);
-  if (!("detail" in read)) {
-    if (fileHints.length > 0) declarations[slug] = fileHints;
-    const removedStaleDeclarations = read.present &&
-      Object.keys(declarations).length !== Object.keys(read.declarations).length;
-    if (fileHints.length > 0 || removedStaleDeclarations) {
-      const writeError = writeDeclarations(root, declarations);
-      if (writeError !== null) {
-        return {
-          code: 1,
-          out: `✓ worktree ${slug} → ${target}\n`,
-          err:
-            `worktree new: the worktree exists, but its advisory file hints were not saved ` +
-            `(${printable(writeError)}); no lifecycle approval was recorded.\n`,
-        };
-      }
-    }
+  const configuredRemote = git(repo, ["config", `branch.${branch}.remote`, "."]);
+  const configuredMerge = git(repo, ["config", `branch.${branch}.merge`, baseRef]);
+  if (configuredRemote.status !== 0 || configuredMerge.status !== 0) {
+    return { code: 1, out: `✓ worktree ${branch} → ${target}\n`, err: `worktree new: the worktree exists at ${target}, but its local upstream config could not be written; inspect \`git -C ${repo} config --get branch.${branch}.merge\`.\n` };
   }
-
   return {
     code: 0,
-    out: `✓ worktree ${slug} → ${target}\n`,
-    err: overlaps.length > 0 ? `worktree new: overlap — ${overlaps.join("; ")}\n` : "",
+    out: `✓ worktree ${branch} → ${target}\n`,
+    err: touchedSlots.size > 0
+      ? `worktree new: dirty design files stay in ${repo} and do not travel: ${[...touchedSlots].join(", ")}.\n`
+      : "",
   };
 }
 
@@ -573,51 +422,6 @@ function worktreeStatus(path: string): StatusRead {
   return { paths: [...new Set(paths)] };
 }
 
-function untrackedPaths(repo: string): { paths: string[] } | { detail: string } {
-  const untracked = git(repo, ["ls-files", "--others", "--exclude-standard", "-z"]);
-  if (untracked.status !== 0 || untracked.stderr.trim() !== "") {
-    return { detail: untracked.stderr.trim() || `git ls-files exited ${untracked.status}` };
-  }
-  return { paths: untracked.stdout.split("\0").filter(Boolean) };
-}
-
-function primaryStatus(repo: string): StatusRead {
-  const status = worktreeStatus(repo);
-  if (status.detail !== undefined) return status;
-  const untracked = untrackedPaths(repo);
-  if ("detail" in untracked) return { paths: [], detail: untracked.detail };
-  const untrackedSet = new Set(untracked.paths);
-  return { paths: status.paths.filter((path) => !untrackedSet.has(path)) };
-}
-
-function untrackedPathCollision(repo: string, current: string, incoming: string): string | null {
-  const untracked = untrackedPaths(repo);
-  if ("detail" in untracked) return `primary untracked files are unreadable (${untracked.detail})`;
-  if (untracked.paths.length === 0) return null;
-
-  const changed = git(repo, ["diff", "--no-renames", "--name-only", "-z", current, incoming]);
-  if (changed.status !== 0 || changed.stderr.trim() !== "") {
-    return `incoming merge paths are unreadable (${changed.stderr.trim() || `git diff exited ${changed.status}`})`;
-  }
-  const ignoreCase = git(repo, ["config", "--bool", "--get", "core.ignorecase"]);
-  if ((ignoreCase.status !== 0 && ignoreCase.status !== 1) || ignoreCase.stderr.trim() !== "") {
-    return `filesystem case handling is unreadable (${ignoreCase.stderr.trim() || `git config exited ${ignoreCase.status}`})`;
-  }
-  const isCaseInsensitive = ignoreCase.stdout.trim() === "true";
-  const normalize = (path: string): string => isCaseInsensitive ? path.toLowerCase() : path;
-  const changedPaths = changed.stdout.split("\0").filter(Boolean).map(normalize);
-  const collisions = untracked.paths.filter((untrackedPath) => {
-    const candidate = normalize(untrackedPath);
-    return changedPaths.some((changedPath) =>
-      candidate === changedPath ||
-      candidate.startsWith(`${changedPath}/`) ||
-      changedPath.startsWith(`${candidate}/`)
-    );
-  });
-  if (collisions.length === 0) return null;
-  return `primary untracked files collide with incoming merge paths (${collisions.map(displayPath).join(", ")})`;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -641,13 +445,6 @@ function gatesComplete(plan: Checkpoint): boolean {
       const status = checkpoint.gates[name as keyof Checkpoint["checkpoints"][number]["gates"]].status;
       return status === "passed" || status === "n/a";
     })
-  );
-}
-
-function rebaseGatesComplete(plan: Checkpoint): boolean {
-  return gatesComplete(plan) && plan.checkpoints.every((checkpoint) =>
-    checkpoint.gates.behavior.status === "passed" &&
-    checkpoint.gates.review.status === "passed"
   );
 }
 
@@ -738,46 +535,6 @@ function lifecycleStatus(
   };
 }
 
-export interface WorktreeBrainstormProjection {
-  slug: string | null;
-  label: string;
-}
-
-export function worktreeBrainstormProjection(repo: string, requestedSlug?: string): WorktreeBrainstormProjection {
-  const path = join(repo, ".ai-engineering", "brainstorm.html");
-  let html: string;
-  try {
-    const stat = lstatSync(path);
-    const artifactRelative = relative(canonicalize(repo), realpathSync(path));
-    if (
-      !stat.isFile() ||
-      stat.isSymbolicLink() ||
-      artifactRelative === "" ||
-      artifactRelative === ".." ||
-      artifactRelative.startsWith(`..${sep}`) ||
-      isAbsolute(artifactRelative)
-    ) {
-      return { slug: requestedSlug ?? null, label: "unknown (brainstorm is not a repository-local file)" };
-    }
-    html = readFile(path, "utf8");
-  } catch {
-    return { slug: requestedSlug ?? null, label: "unknown (brainstorm is missing or unreadable)" };
-  }
-  const approval = parseBrainstormApproval(html, requestedSlug ?? "", new Date());
-  if (approval === null) {
-    const reason = brainstormApprovalProblem(html, requestedSlug ?? "", new Date()) ??
-      "brainstorm approval is invalid";
-    return {
-      slug: requestedSlug ?? null,
-      label: `unknown (${reason})`,
-    };
-  }
-  return {
-    slug: approval.slug,
-    label: `approval-before-start (brainstorm approved ${approval.approvedOn})`,
-  };
-}
-
 function normalizedEvidencePath(path: string): string | null {
   const normalized = path.replace(/^(?:\.\/)+/, "").replace(/\/+/g, "/");
   if (normalized === "" || normalized.startsWith("/") || normalized.split("/").some((part) => part === "..")) return null;
@@ -864,15 +621,10 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
       )
     );
   const hasMatchingWorktree = requestedSlug !== undefined && hasWorktreeForSlug(requestedSlug);
-  const projection = requestedSlug !== undefined
-    ? hasMatchingWorktree
-      ? null
-      : worktreeBrainstormProjection(repo, requestedSlug)
-    : worktreeBrainstormProjection(repo);
-  const projectionSlug = projection === null ? null : requestedSlug ?? projection.slug;
-  const featureBranchRead = projectionSlug === null
+  const featureSlug = requestedSlug;
+  const featureBranchRead = featureSlug === undefined
     ? null
-    : git(repo, ["show-ref", "--verify", "--quiet", `refs/heads/feat/${projectionSlug}`]);
+    : git(repo, ["show-ref", "--verify", "--quiet", `refs/heads/feat/${featureSlug}`]);
   const hasFeatureBranch = featureBranchRead?.status === 0 && featureBranchRead.stderr.trim() === "";
   const featureBranchUnknown = featureBranchRead !== null &&
     !hasFeatureBranch &&
@@ -895,13 +647,60 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
       `${displayPath(requestedSlug)}\t-\tbranch-only\tunknown\tunknown (feature branch status is unreadable)`,
     );
   }
-  if (projection !== null && (projection.slug !== null || requestedSlug !== undefined)) {
-    const slug = requestedSlug ?? projection.slug ?? "unknown";
-    const alreadyListed = hasWorktreeForSlug(slug);
-    if (!alreadyListed && !hasFeatureBranch && !featureBranchUnknown) {
-      lines.push(
-        `${displayPath(slug)}\t-\tpre-worktree\tunknown\t${projection.label}`,
-      );
+  const currentPath = resolveContext(process.cwd()).root;
+  const currentCheckpointDir = join(currentPath, ".ai-engineering", "workflow", "checkpoints");
+  let currentBase: string | null = null;
+  try {
+    const detected = resolveContext(currentPath);
+    const base = detected.base ?? detected.branch;
+    if (base !== null) currentBase = `refs/heads/${base}`;
+  } catch {
+    // The active checkpoint line is advisory; the registered-worktree list remains authoritative.
+  }
+  if (currentBase !== null && existsSync(currentCheckpointDir)) {
+    for (const name of readdirSync(currentCheckpointDir).filter((entry) => entry.endsWith(".json"))) {
+      const slug = name.slice(0, -".json".length);
+      try {
+        const checkpoint = readCheckpoint(join(currentCheckpointDir, name), {
+          repoPath: currentPath,
+          slug,
+          baseRef: currentBase,
+        });
+        if (checkpoint.lifecycle.phase !== "implementation" &&
+          checkpoint.lifecycle.phase !== "awaiting-plan-approval" &&
+          checkpoint.lifecycle.phase !== "blocked") continue;
+        lines.push(`active checkpoint ${displayPath(slug)} in current checkout (${checkpoint.lifecycle.phase})`);
+      } catch {
+        // A malformed checkpoint is not active work.
+      }
+    }
+  }
+
+  if (existsSync(root)) {
+    const registeredPaths = listed.worktrees.map((entry) => canonicalize(entry.path));
+    for (const name of readdirSync(root)) {
+      const path = join(root, name);
+      const canonicalPath = canonicalize(path);
+      if (registeredPaths.includes(canonicalPath) ||
+        registeredPaths.some((registered) => registered.startsWith(`${canonicalPath}${sep}`))) continue;
+      lines.push(`worktree list: ${displayPath(path)} is not registered in Git, not work`);
+    }
+  }
+
+  if (requestedSlug !== undefined) {
+    const selected = matchingEntries.find(({ entry }) => entry.slug === requestedSlug);
+    if (selected !== undefined && selected.isFeature && selected.status.detail === undefined) {
+      const planned = new Set(selected.checkpointFiles.map(normalizedEvidencePath).filter((path) => path !== null));
+      const own = selected.status.paths.filter((path) => {
+        const normalized = normalizedEvidencePath(path);
+        return normalized !== null && planned.has(normalized);
+      });
+      const foreign = selected.status.paths.filter((path) => {
+        const normalized = normalizedEvidencePath(path);
+        return normalized === null || !planned.has(normalized);
+      });
+      if (own.length > 0) lines.push(`continue with feature-owned changes: ${own.map(displayPath).join(", ")}`);
+      if (foreign.length > 0) lines.push(`foreign files left alone: ${foreign.map(displayPath).join(", ")}`);
     }
   }
 
@@ -976,7 +775,20 @@ function cleanupRequestChangesWorktree(
       return `${path} was not clean after restoring its transaction checkpoint`;
     }
   }
-  return cleanupMergeWorktree(repo, path, baseCommit, baseCommit, head === baseCommit ? undefined : head);
+  const ancestry = git(path, ["merge-base", "--is-ancestor", baseCommit, head]);
+  if (ancestry.status !== 0 || ancestry.stderr.trim() !== "") {
+    return `${path} is not a transaction child of ${baseCommit}`;
+  }
+  const listed = openWorktrees(repo);
+  if ("detail" in listed) return `cannot verify transaction worktree registration (${listed.detail})`;
+  const matches = listed.worktrees.filter((entry) => canonicalize(entry.path) === canonicalize(path));
+  if (matches.length !== 1 || matches[0]?.branch !== undefined) {
+    return `${path} is not the expected detached transaction worktree`;
+  }
+  const removed = git(repo, ["worktree", "remove", path]);
+  if (removed.status !== 0) return `could not remove clean transaction worktree ${path}: ${removed.stderr.trim()}`;
+  if (existsSync(path)) return `transaction worktree path ${path} remains`;
+  return null;
 }
 
 export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: string): WorktreeResult {
@@ -1296,7 +1108,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     currentStatus.detail !== undefined ||
     currentStatus.paths.length > 0
   ) {
-    const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
+    const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
     return {
       code: 1,
       out: "",
@@ -1307,7 +1119,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   }
   const published = git(repo, ["update-ref", branch, transitionCommit, expectedCheckpointCommit]);
   if (published.status !== 0) {
-    const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
+    const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
     return {
       code: 1,
       out: "",
@@ -1336,7 +1148,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     !isDeepStrictEqual(sourceCheckpoint, checkpoint)
   ) {
     const rollback = git(repo, ["update-ref", branch, expectedCheckpointCommit, transitionCommit]);
-    const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
+    const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
     return {
       code: 1,
       out: "",
@@ -1398,7 +1210,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
           afterRestore.paths.length === 0;
       }
     }
-    const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
+    const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
     return {
       code: 1,
       out: "",
@@ -1409,7 +1221,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     };
   }
 
-  const cleanup = cleanupMergeWorktree(repo, transactionPath, expectedCheckpointCommit, expectedCheckpointCommit, transitionCommit);
+  const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
   if (cleanup !== null) {
     return {
       code: 1,
@@ -1447,42 +1259,6 @@ function findManagedWorktree(
   return { path: entry.path, branch: entry.branch };
 }
 
-function rebaseCheckpointProblem(path: string, slug: string): string | null {
-  const checkpointPath = join(path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
-  let checkpoint: Checkpoint;
-  try {
-    const stat = lstatSync(checkpointPath);
-    const checkpointRelative = relative(canonicalize(path), realpathSync(checkpointPath));
-    if (
-      !stat.isFile() ||
-      stat.isSymbolicLink() ||
-      checkpointRelative === "" ||
-      checkpointRelative === ".." ||
-      checkpointRelative.startsWith(`..${sep}`) ||
-      isAbsolute(checkpointRelative)
-    ) {
-      return "checkpoint is not a worktree-local file";
-    }
-    checkpoint = readCheckpoint(checkpointPath, {
-      repoPath: path,
-      slug,
-      baseRef: "refs/heads/main",
-    });
-  } catch {
-    return "checkpoint is missing, unreadable, malformed or legacy";
-  }
-
-  const lifecycle = checkpoint.lifecycle;
-  if (
-    lifecycle.phase !== "implementation" ||
-    lifecycle.plan_approval !== "approved" ||
-    !rebaseGatesComplete(checkpoint)
-  ) {
-    return "checkpoint is not approved implementation state with all planned gates passed";
-  }
-  return null;
-}
-
 function gitOperationState(path: string): { name: string } | { detail: string } | null {
   for (const name of ["rebase-merge", "rebase-apply", "MERGE_HEAD"]) {
     const location = git(path, ["rev-parse", "--git-path", name]);
@@ -1496,13 +1272,6 @@ function gitOperationState(path: string): { name: string } | { detail: string } 
   return null;
 }
 
-function fullCommitRef(repo: string): string | null {
-  const current = git(repo, ["rev-parse", "--verify", "refs/heads/main^{commit}"]);
-  if (current.status !== 0 || current.stderr.trim() !== "") return null;
-  const commit = current.stdout.trim();
-  return /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit) ? commit : null;
-}
-
 function fullHead(repo: string): string | null {
   const current = git(repo, ["rev-parse", "--verify", "HEAD^{commit}"]);
   if (current.status !== 0 || current.stderr.trim() !== "") return null;
@@ -1510,822 +1279,10 @@ function fullHead(repo: string): string | null {
   return /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit) ? commit : null;
 }
 
-function reviewedPlanPayload(plan: unknown): Record<string, unknown> | null {
-  if (!isRecord(plan) || !Array.isArray(plan.checkpoints)) return null;
-  const payload: Record<string, unknown> = { ...plan };
-  delete payload.lifecycle;
-  payload.checkpoints = plan.checkpoints.map((checkpoint) => {
-    if (!isRecord(checkpoint)) return checkpoint;
-    const checkpointPayload: Record<string, unknown> = { ...checkpoint };
-    delete checkpointPayload.status;
-    if (isRecord(checkpointPayload.gates)) {
-      const gates: Record<string, unknown> = {};
-      for (const [name, gate] of Object.entries(checkpointPayload.gates)) {
-        if (!isRecord(gate)) {
-          gates[name] = gate;
-          continue;
-        }
-        const gatePayload: Record<string, unknown> = { ...gate };
-        delete gatePayload.status;
-        delete gatePayload.attempts;
-        delete gatePayload.findings;
-        gates[name] = gatePayload;
-      }
-      checkpointPayload.gates = gates;
-    }
-    return checkpointPayload;
-  });
-  return payload;
-}
-
-export function reviewedFeatureChainProblem(
-  repo: string,
-  slug: string,
-  reviewedMain: string,
-  reviewedFeature: string,
-  featureTip: string,
-  phase: "awaiting-app-review" | "ready-to-merge" = "ready-to-merge",
-  baseRef = "refs/heads/main",
-): string | null {
-  const ancestry = git(repo, ["merge-base", "--is-ancestor", reviewedFeature, featureTip]);
-  if (ancestry.status !== 0 || ancestry.stderr.trim() !== "") {
-    return `reviewed_feature ${reviewedFeature} is not an ancestor of feat/${slug} ${featureTip}`;
-  }
-  const history = git(repo, ["rev-list", "--reverse", `${reviewedFeature}..${featureTip}`]);
-  if (history.status !== 0 || history.stderr.trim() !== "") return "feature commits after reviewed_feature are unreadable";
-  const commits = history.stdout.split("\n").map((commit) => commit.trim()).filter(Boolean);
-  if (
-    (phase === "awaiting-app-review" && commits.length !== 1) ||
-    (phase === "ready-to-merge" && commits.length < 2)
-  ) return "app-review lifecycle checkpoint commits are missing or duplicated";
-
-  const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
-  const reviewedCheckpoint = git(repo, ["show", `${reviewedFeature}:${checkpointPath}`]);
-  if (reviewedCheckpoint.status !== 0 || reviewedCheckpoint.stderr.trim() !== "") {
-    return "reviewed_feature has no readable checkpoint plan";
-  }
-  let reviewedPlan: Checkpoint;
-  try {
-    reviewedPlan = parseCheckpoint(reviewedCheckpoint.stdout, {
-      repoPath: repo,
-      slug,
-      baseRef,
-    });
-  } catch {
-    return "reviewed_feature has a malformed checkpoint plan";
-  }
-  const reviewedPayload = reviewedPlanPayload(reviewedPlan);
-  if (reviewedPayload === null) return "reviewed_feature has no verifiable checkpoint plan";
-
-  let previous = reviewedFeature;
-  for (const [index, commit] of commits.entries()) {
-    const parents = git(repo, ["rev-list", "--parents", "-n", "1", commit]);
-    if (
-      parents.status !== 0 ||
-      parents.stderr.trim() !== "" ||
-      parents.stdout.trim().split(" ").join(" ") !== `${commit} ${previous}`
-    ) {
-      return `feat/${slug} has a non-linear commit after reviewed_feature`;
-    }
-    const changed = git(repo, ["diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", "-z", commit]);
-    if (
-      changed.status !== 0 ||
-      changed.stderr.trim() !== "" ||
-      changed.stdout.split("\0").filter(Boolean).join("\0") !== checkpointPath
-    ) {
-      return `commit ${commit} after reviewed_feature changes paths other than ${checkpointPath}`;
-    }
-    const checkpoint = git(repo, ["show", `${commit}:${checkpointPath}`]);
-    if (checkpoint.status !== 0 || checkpoint.stderr.trim() !== "") {
-      return `commit ${commit} has no readable lifecycle checkpoint`;
-    }
-    let parsed: Checkpoint;
-    try {
-      parsed = parseCheckpoint(checkpoint.stdout, {
-        repoPath: repo,
-        slug,
-        baseRef,
-      });
-    } catch {
-      return `commit ${commit} has malformed lifecycle checkpoint metadata`;
-    }
-    const payload = reviewedPlanPayload(parsed);
-    if (payload === null || !isDeepStrictEqual(reviewedPayload, payload)) {
-      return `commit ${commit} changes the reviewed checkpoint plan`;
-    }
-    const lifecycle = parsed.lifecycle;
-    const isPendingReview = index === 0;
-    if (
-      !gatesComplete(parsed) ||
-      lifecycle.plan_approval !== "approved" ||
-      lifecycle.reviewed_base !== reviewedMain ||
-      lifecycle.reviewed_feature !== reviewedFeature ||
-      lifecycle.phase !== (isPendingReview ? "awaiting-app-review" : "ready-to-merge") ||
-      lifecycle.app_review !== (isPendingReview ? "pending" : "approved") ||
-      (phase === "awaiting-app-review" && !isPendingReview)
-    ) {
-      return `commit ${commit} has invalid app-review lifecycle metadata`;
-    }
-    previous = commit;
-  }
-  return null;
-}
-
-interface MergeReadyState {
-  path: string;
-  branch: string;
-  reviewedMain: string;
-  reviewedFeature: string;
-  featureTip: string;
-}
-
-function mergeReadyFeature(repo: string, slug: string): { state: MergeReadyState } | { detail: string } {
-  const root = worktreeRoot(repo);
-  const listed = openWorktrees(repo);
-  if ("detail" in listed) return { detail: `the worktree list is unreadable (${listed.detail})` };
-
-  const branch = `feat/${slug}`;
-  const matching = listed.worktrees.filter((entry) => entry.branch === branch);
-  const entry = findManagedWorktree(repo, root, slug, listed.worktrees);
-  if (matching.length !== 1 || entry === null || canonicalize(entry.path) !== canonicalize(join(root, slug))) {
-    return { detail: `no exact registered managed worktree for ${branch} under ${canonicalize(root)}` };
-  }
-  if (!existsSync(entry.path)) return { detail: `${entry.path} is missing` };
-
-  const checkedOutBranch = git(entry.path, ["symbolic-ref", "--quiet", "HEAD"]);
-  if (
-    checkedOutBranch.status !== 0 ||
-    checkedOutBranch.stderr.trim() !== "" ||
-    checkedOutBranch.stdout.trim() !== `refs/heads/${branch}`
-  ) {
-    return { detail: `${entry.path} is not checked out on ${branch}` };
-  }
-  const status = worktreeStatus(entry.path);
-  if (status.detail !== undefined) return { detail: `${branch} status is unreadable (${status.detail})` };
-  if (status.paths.length > 0) return { detail: `${branch} is dirty (${status.paths.map(displayPath).join(", ")})` };
-  const operation = gitOperationState(entry.path);
-  if (operation !== null) {
-    return { detail: "detail" in operation ? operation.detail : `${operation.name} is in progress` };
-  }
-
-  let baseRef: string;
-  try {
-    const detectedBase = resolveContext(entry.path).base;
-    if (detectedBase === null) return { detail: "detected base ref is unavailable" };
-    baseRef = `refs/heads/${detectedBase}`;
-  } catch {
-    return { detail: "detected base ref is unreadable" };
-  }
-
-  const featureRef = git(repo, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
-  const featureHead = fullHead(entry.path);
-  if (
-    featureRef.status !== 0 ||
-    featureRef.stderr.trim() !== "" ||
-    featureHead === null ||
-    featureRef.stdout.trim() !== featureHead
-  ) {
-    return { detail: `${branch} HEAD does not match its local branch ref` };
-  }
-
-  const checkpointPath = join(entry.path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
-  let checkpoint: Checkpoint;
-  try {
-    const stat = lstatSync(checkpointPath);
-    const checkpointRelative = relative(canonicalize(entry.path), realpathSync(checkpointPath));
-    if (
-      !stat.isFile() ||
-      stat.isSymbolicLink() ||
-      checkpointRelative === "" ||
-      checkpointRelative === ".." ||
-      checkpointRelative.startsWith(`..${sep}`) ||
-      isAbsolute(checkpointRelative)
-    ) {
-      return { detail: "checkpoint is not a worktree-local file" };
-    }
-    checkpoint = readCheckpoint(checkpointPath, {
-      repoPath: entry.path,
-      slug,
-      baseRef,
-    });
-  } catch {
-    return { detail: "checkpoint is missing, unreadable or malformed" };
-  }
-  const lifecycle = checkpoint.lifecycle;
-  if (
-    lifecycle.phase !== "ready-to-merge" ||
-    lifecycle.plan_approval !== "approved" ||
-    lifecycle.app_review !== "approved" ||
-    !gatesComplete(checkpoint)
-  ) {
-    return { detail: "checkpoint is not ready-to-merge with approved plan, app review and completed gates" };
-  }
-  if (typeof lifecycle.reviewed_base !== "string" || typeof lifecycle.reviewed_feature !== "string") {
-    return { detail: "checkpoint is missing full reviewed_base or reviewed_feature commit ids" };
-  }
-  const featureTip = featureHead;
-  const chainProblem = reviewedFeatureChainProblem(
-    repo,
-    slug,
-    lifecycle.reviewed_base,
-    lifecycle.reviewed_feature,
-    featureTip,
-    "ready-to-merge",
-    baseRef,
-  );
-  if (chainProblem !== null) {
-    return { detail: chainProblem };
-  }
-  return {
-    state: {
-      path: entry.path,
-      branch,
-      reviewedMain: lifecycle.reviewed_base,
-      reviewedFeature: lifecycle.reviewed_feature,
-      featureTip,
-    },
-  };
-}
-
-function primaryCheckout(repo: string): { head: string; main: string } | { detail: string } {
-  const branch = git(repo, ["symbolic-ref", "--quiet", "HEAD"]);
-  if (branch.status !== 0 || branch.stderr.trim() !== "" || branch.stdout.trim() !== "refs/heads/main") {
-    return { detail: "the primary checkout is not on local main" };
-  }
-  const status = primaryStatus(repo);
-  if (status.detail !== undefined) return { detail: `primary status is unreadable (${status.detail})` };
-  if (status.paths.length > 0) return { detail: `primary checkout is dirty (${status.paths.map(displayPath).join(", ")})` };
-  const operation = gitOperationState(repo);
-  if (operation !== null) {
-    return { detail: "detail" in operation ? operation.detail : `${operation.name} is in progress` };
-  }
-  const head = fullHead(repo);
-  const main = fullCommitRef(repo);
-  if (head === null || main === null) return { detail: "primary HEAD or refs/heads/main is unreadable" };
-  return { head, main };
-}
-
-function mergeParents(repo: string, commit: string): string[] | null {
-  const result = git(repo, ["rev-list", "--parents", "-n", "1", commit]);
-  if (result.status !== 0 || result.stderr.trim() !== "") return null;
-  return result.stdout.trim().split(" ");
-}
-
-function hasReviewedParents(repo: string, commit: string, reviewedMain: string, featureTip: string): boolean {
-  const parents = mergeParents(repo, commit);
-  return parents !== null && parents.length === 3 &&
-    parents[0] === commit &&
-    parents[1] === reviewedMain &&
-    parents[2] === featureTip;
-}
-
-function findPublishedMerge(
-  repo: string,
-  reviewedMain: string,
-  featureTip: string,
-): { commit: string } | { detail: string } | null {
-  const history = git(repo, ["rev-list", "--first-parent", "--merges", "--format=%H", "refs/heads/main"]);
-  if (history.status !== 0 || history.stderr.trim() !== "") {
-    return { detail: `local main history is unreadable (${history.stderr.trim() || `git exited ${history.status}`})` };
-  }
-  for (const candidate of history.stdout.split("\n")) {
-    const commit = candidate.trim();
-    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit)) continue;
-    if (hasReviewedParents(repo, commit, reviewedMain, featureTip)) return { commit };
-  }
-  return null;
-}
-
-function verifyPublishedMerge(
-  repo: string,
-  commit: string,
-  reviewedMain: string,
-  featureTip: string,
-  reviewedFeature: string,
-): string | null {
-  if (!hasReviewedParents(repo, commit, reviewedMain, featureTip)) {
-    return `published merge ${commit} does not have the exact reviewed parents`;
-  }
-  const published = git(repo, ["merge-base", "--is-ancestor", commit, "refs/heads/main"]);
-  if (published.status !== 0 || published.stderr.trim() !== "") {
-    return `merge ${commit} is not in local refs/heads/main history`;
-  }
-  const feature = git(repo, ["merge-base", "--is-ancestor", featureTip, "refs/heads/main"]);
-  if (feature.status !== 0 || feature.stderr.trim() !== "") {
-    return `feature tip ${featureTip} is not an ancestor of local main`;
-  }
-  const reviewed = git(repo, ["merge-base", "--is-ancestor", reviewedFeature, featureTip]);
-  if (reviewed.status !== 0 || reviewed.stderr.trim() !== "") {
-    return `reviewed feature ${reviewedFeature} is not an ancestor of feature tip ${featureTip}`;
-  }
-  return null;
-}
-
-function refreshPrimary(repo: string, reviewedMain: string): string | null {
-  const branch = git(repo, ["symbolic-ref", "--quiet", "HEAD"]);
-  if (branch.status !== 0 || branch.stderr.trim() !== "" || branch.stdout.trim() !== "refs/heads/main") {
-    return "the primary checkout is not on local main";
-  }
-  const operation = gitOperationState(repo);
-  if (operation !== null) return "detail" in operation ? operation.detail : `${operation.name} is in progress`;
-  const main = fullCommitRef(repo);
-  if (main === null) return "local refs/heads/main is unreadable";
-  const ancestry = git(repo, ["merge-base", "--is-ancestor", reviewedMain, "refs/heads/main"]);
-  if (ancestry.status !== 0 || ancestry.stderr.trim() !== "") {
-    return `reviewed_main ${reviewedMain} is no longer an ancestor of refs/heads/main ${main}`;
-  }
-  const history = git(repo, ["rev-list", "--first-parent", "refs/heads/main"]);
-  if (history.status !== 0 || history.stderr.trim() !== "") return "local main history is unreadable";
-  const snapshot = history.stdout.split("\n").find((candidate) => {
-    const index = git(repo, ["diff", "--cached", "--quiet", candidate, "--"]);
-    const working = git(repo, ["diff", "--quiet"]);
-    return index.status === 0 && index.stderr.trim() === "" && working.status === 0 && working.stderr.trim() === "";
-  });
-  if (snapshot === undefined) return "primary checkout has local changes; refusing to refresh";
-  const collision = untrackedPathCollision(repo, snapshot, "refs/heads/main");
-  if (collision !== null) return collision;
-  const reset = git(repo, ["reset", "--merge", "refs/heads/main"]);
-  if (reset.status !== 0) return `git reset --merge refs/heads/main failed: ${reset.stderr.trim()}`;
-  const refreshedBranch = git(repo, ["symbolic-ref", "--quiet", "HEAD"]);
-  const refreshed = fullHead(repo);
-  const refreshedMain = fullCommitRef(repo);
-  const status = primaryStatus(repo);
-  if (
-    refreshedBranch.status !== 0 ||
-    refreshedBranch.stdout.trim() !== "refs/heads/main" ||
-    refreshed === null ||
-    refreshedMain === null ||
-    refreshed !== refreshedMain ||
-    status.detail !== undefined ||
-    status.paths.length > 0
-  ) {
-    return "primary refresh did not leave a clean checkout at local main";
-  }
-  return null;
-}
-
-function cleanupMergeWorktree(
-  repo: string,
-  path: string,
-  reviewedMain: string,
-  featureTip: string,
-  allowedHead?: string,
-): string | null {
-  const listed = openWorktrees(repo);
-  if ("detail" in listed) return `cannot verify temporary worktree registration (${listed.detail})`;
-  const matches = listed.worktrees.filter((entry) => canonicalize(entry.path) === canonicalize(path));
-  if (matches.length === 0) return existsSync(path) ? `${path} is not a registered temporary worktree` : null;
-  if (matches.length !== 1 || matches[0]?.branch !== undefined) {
-    return `${path} is not the expected detached temporary worktree`;
-  }
-
-  const operation = gitOperationState(path);
-  if (operation !== null && "name" in operation) {
-    const mergeHead = git(path, ["rev-parse", "--verify", "MERGE_HEAD"]);
-    if (
-      operation.name !== "MERGE_HEAD" ||
-      mergeHead.status !== 0 ||
-      mergeHead.stderr.trim() !== "" ||
-      mergeHead.stdout.trim() !== featureTip
-    ) {
-      return `${path} has an operation that is not this transaction's merge`;
-    }
-    const aborted = git(path, ["merge", "--abort"]);
-    if (aborted.status !== 0) return `could not abort this temporary merge: ${aborted.stderr.trim()}`;
-    if (gitOperationState(path) !== null || fullHead(path) !== reviewedMain) {
-      return `${path} was not restored to reviewed_main after abort`;
-    }
-  } else if (operation !== null) {
-    return `cannot verify temporary merge state (${operation.detail})`;
-  }
-
-  const head = fullHead(path);
-  if (head === null || (head !== reviewedMain && head !== allowedHead)) {
-    return `${path} HEAD is not a known commit from this merge transaction`;
-  }
-  const status = worktreeStatus(path);
-  if (status.detail !== undefined || status.paths.length > 0) {
-    return `${path} is not clean${status.detail ? ` (${status.detail})` : ` (${status.paths.map(displayPath).join(", ")})`}`;
-  }
-  const removed = git(repo, ["worktree", "remove", path]);
-  if (removed.status !== 0) return `could not remove clean temporary worktree: ${removed.stderr.trim()}`;
-  if (existsSync(path)) return `temporary worktree path ${path} remains after removal`;
-  const after = openWorktrees(repo);
-  if ("detail" in after) return `cannot verify temporary worktree removal (${after.detail})`;
-  if (after.worktrees.some((entry) => canonicalize(entry.path) === canonicalize(path))) {
-    return `temporary worktree ${path} remains registered after removal`;
-  }
-  return null;
-}
-
-function removeMergedFeature(repo: string, slug: string, state: MergeReadyState, mergeCommit: string): WorktreeResult {
-  const current = mergeReadyFeature(repo, slug);
-  if ("detail" in current) {
-    return {
-      code: 1,
-      out: "",
-      err: `worktree merge: merge ${mergeCommit} is published, but ${current.detail}; preserve the feature worktree and retry after resolving it.\n`,
-    };
-  }
-  if (
-    current.state.path !== state.path ||
-    current.state.reviewedMain !== state.reviewedMain ||
-    current.state.reviewedFeature !== state.reviewedFeature ||
-    current.state.featureTip !== state.featureTip
-  ) {
-    return {
-      code: 1,
-      out: "",
-      err: `worktree merge: feature state changed after publishing ${mergeCommit}; preserve it and retry after review.\n`,
-    };
-  }
-  const removed = worktreeRm(slug);
-  if (removed.code !== 0) {
-    return {
-      code: 1,
-      out: removed.out,
-      err: `worktree merge: merge ${mergeCommit} is published, but safe feature cleanup failed: ${removed.err.trim()}\n`,
-    };
-  }
-  const listed = openWorktrees(repo);
-  const branchRef = git(repo, ["show-ref", "--verify", "--quiet", `refs/heads/${state.branch}`]);
-  const problems: string[] = [];
-  if ("detail" in listed) {
-    problems.push(`worktree inventory is unreadable (${listed.detail})`);
-  } else if (listed.worktrees.some((entry) => entry.branch === state.branch)) {
-    problems.push(`worktree for ${state.branch} remains registered`);
-  }
-  if (existsSync(state.path)) problems.push(`worktree path ${state.path} remains`);
-  if (branchRef.status === 0) {
-    problems.push(`branch ${state.branch} remains`);
-  } else if (branchRef.status !== 1 || branchRef.stderr.trim() !== "") {
-    problems.push(`branch ${state.branch} could not be verified (${branchRef.stderr.trim() || `git show-ref exited ${branchRef.status}`})`);
-  }
-  if (problems.length > 0) {
-    return {
-      code: 1,
-      out: removed.out,
-      err: `worktree merge: merge ${mergeCommit} is published, but post-removal verification failed: ${problems.join("; ")}. The cleanup command reported success; do not claim completion.\n`,
-    };
-  }
-  return {
-    code: 0,
-    out: `${removed.out}✓ merged ${slug} at ${mergeCommit} and removed its feature worktree\n`,
-    err: "",
-  };
-}
-
-export function worktreeMerge(slug: string): WorktreeResult {
-  const repo = primaryRepoRoot();
-  if (repo === null) return { code: 2, out: "", err: "worktree merge: not inside a git repository.\n" };
-  if (!SLUG_PATTERN.test(slug) || /\p{C}/u.test(slug)) {
-    return { code: 2, out: "", err: `worktree merge: invalid slug "${printable(slug)}".\n` };
-  }
-
-  const primaryBranch = git(repo, ["symbolic-ref", "--quiet", "HEAD"]);
-  if (
-    primaryBranch.status !== 0 ||
-    primaryBranch.stderr.trim() !== "" ||
-    primaryBranch.stdout.trim() !== "refs/heads/main"
-  ) {
-    return { code: 1, out: "", err: "worktree merge: the primary checkout is not on local main; refusing to merge.\n" };
-  }
-  const currentMain = fullCommitRef(repo);
-  if (currentMain === null) return { code: 1, out: "", err: "worktree merge: refs/heads/main is unreadable.\n" };
-  const ready = mergeReadyFeature(repo, slug);
-  if ("detail" in ready) return { code: 1, out: "", err: `worktree merge: ${ready.detail}; refusing to merge.\n` };
-  const state = ready.state;
-  if (state.reviewedMain !== currentMain) {
-    const alreadyPublished = findPublishedMerge(repo, state.reviewedMain, state.featureTip);
-    if (alreadyPublished !== null && "detail" in alreadyPublished) {
-      return { code: 1, out: "", err: `worktree merge: ${alreadyPublished.detail}; preserve the feature worktree.\n` };
-    }
-    if (alreadyPublished === null) {
-      return {
-        code: 1,
-        out: "",
-        err:
-          `worktree merge: reviewed_main ${state.reviewedMain} is stale; local main is ${currentMain}. ` +
-          "Preserve the feature worktree and rerun synchronization, affected gates and human review.\n",
-      };
-    }
-    const publishedError = verifyPublishedMerge(
-      repo,
-      alreadyPublished.commit,
-      state.reviewedMain,
-      state.featureTip,
-      state.reviewedFeature,
-    );
-    if (publishedError !== null) {
-      return { code: 1, out: "", err: `worktree merge: ${publishedError}; preserve the feature worktree.\n` };
-    }
-    const refreshed = refreshPrimary(repo, state.reviewedMain);
-    if (refreshed !== null) {
-      return {
-        code: 1,
-        out: "",
-        err: `worktree merge: ${refreshed}; merge ${alreadyPublished.commit} is already published, preserve the feature worktree and retry.\n`,
-      };
-    }
-    const verified = verifyPublishedMerge(
-      repo,
-      alreadyPublished.commit,
-      state.reviewedMain,
-      state.featureTip,
-      state.reviewedFeature,
-    );
-    if (verified !== null) return { code: 1, out: "", err: `worktree merge: ${verified}; preserve the feature worktree.\n` };
-    return removeMergedFeature(repo, slug, state, alreadyPublished.commit);
-  }
-  const primary = primaryCheckout(repo);
-  if ("detail" in primary) return { code: 1, out: "", err: `worktree merge: ${primary.detail}; refusing to merge.\n` };
-  if (primary.head !== state.reviewedMain) {
-    return {
-      code: 1,
-      out: "",
-      err: `worktree merge: primary HEAD ${primary.head} does not equal reviewed_main ${state.reviewedMain}; refusing to merge.\n`,
-    };
-  }
-  const collision = untrackedPathCollision(repo, state.reviewedMain, state.featureTip);
-  if (collision !== null) {
-    return { code: 1, out: "", err: `worktree merge: ${collision}; refusing to merge.\n` };
-  }
-
-  const root = worktreeRoot(repo);
-  mkdirSync(root, { recursive: true });
-  const temporaryPath = join(canonicalize(root), `.ai-eng-merge-${slug}-${randomUUID()}`);
-  const added = git(repo, ["worktree", "add", "--detach", temporaryPath, state.reviewedMain]);
-  if (added.status !== 0) {
-    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.featureTip);
-    return {
-      code: 1,
-      out: "",
-      err: `worktree merge: could not create detached merge worktree: ${added.stderr.trim()}${cleanup ? `; ${cleanup}` : ""}\n`,
-    };
-  }
-
-  const merged = git(temporaryPath, ["merge", "--no-commit", "--no-ff", `refs/heads/${state.branch}`]);
-  if (merged.status !== 0) {
-    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.featureTip);
-    return {
-      code: 1,
-      out: "",
-      err: `worktree merge: git merge --no-commit --no-ff failed: ${merged.stderr.trim()}${cleanup ? `; ${cleanup}` : ""}\n`,
-    };
-  }
-  const mergeHead = git(temporaryPath, ["rev-parse", "--verify", "MERGE_HEAD"]);
-  if (
-    mergeHead.status !== 0 ||
-    mergeHead.stderr.trim() !== "" ||
-    mergeHead.stdout.trim() !== state.featureTip
-  ) {
-    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.featureTip);
-    return {
-      code: 1,
-      out: "",
-      err: `worktree merge: temporary merge does not name current feature tip ${state.featureTip}${cleanup ? `; ${cleanup}` : ""}\n`,
-    };
-  }
-
-  const expectedMergeTree = git(temporaryPath, ["write-tree"]);
-  const expectedTreeId = expectedMergeTree.stdout.trim();
-  if (
-    expectedMergeTree.status !== 0 ||
-    expectedMergeTree.stderr.trim() !== "" ||
-    !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(expectedTreeId)
-  ) {
-    const cleanup = cleanupMergeWorktree(repo, temporaryPath, state.reviewedMain, state.featureTip);
-    const detail = expectedMergeTree.stderr.trim() || `git write-tree exited ${expectedMergeTree.status}`;
-    return {
-      code: 1,
-      out: "",
-      err: `worktree merge: could not snapshot temporary merge index tree: ${detail}${cleanup ? `; ${cleanup}` : ""}\n`,
-    };
-  }
-
-  const committed = git(temporaryPath, ["commit", "-m", `chore(${slug}): merge ${state.branch}`]);
-  const mergeCommit = fullHead(temporaryPath);
-  const hasExactParents =
-    mergeCommit !== null && hasReviewedParents(repo, mergeCommit, state.reviewedMain, state.featureTip);
-  const committedTree = mergeCommit === null
-    ? null
-    : git(temporaryPath, ["rev-parse", "--verify", `${mergeCommit}^{tree}`]);
-  const hasExpectedTree =
-    committedTree !== null &&
-    committedTree.status === 0 &&
-    committedTree.stderr.trim() === "" &&
-    committedTree.stdout.trim() === expectedTreeId;
-  if (committed.status !== 0 || !hasExactParents || mergeCommit === null || !hasExpectedTree) {
-    const cleanup = cleanupMergeWorktree(
-      repo,
-      temporaryPath,
-      state.reviewedMain,
-      state.featureTip,
-      hasExactParents ? mergeCommit : undefined,
-    );
-    const reason = committed.status !== 0
-      ? `git commit failed: ${committed.stderr.trim()}`
-      : !hasExactParents || mergeCommit === null
-        ? "temporary merge commit does not have the exact reviewed parents"
-        : committedTree === null || committedTree.status !== 0 || committedTree.stderr.trim() !== ""
-          ? `could not verify temporary merge commit tree: ${committedTree?.stderr.trim() || "git rev-parse failed"}`
-          : "temporary merge tree differs from reviewed merge result";
-    return { code: 1, out: "", err: `worktree merge: ${reason}${cleanup ? `; ${cleanup}` : ""}\n` };
-  }
-  const temporaryStatus = worktreeStatus(temporaryPath);
-  if (temporaryStatus.detail !== undefined || temporaryStatus.paths.length > 0 || gitOperationState(temporaryPath) !== null) {
-    const cleanup = cleanupMergeWorktree(
-      repo,
-      temporaryPath,
-      state.reviewedMain,
-      state.featureTip,
-      mergeCommit,
-    );
-    return {
-      code: 1,
-      out: "",
-      err:
-        `worktree merge: temporary merge worktree is not clean after commit; refusing publication.` +
-        `${cleanup ? ` ${cleanup}.` : ""}\n`,
-    };
-  }
-
-  const published = git(repo, ["update-ref", "refs/heads/main", mergeCommit, state.reviewedMain]);
-  if (published.status !== 0) {
-    const changedMain = fullCommitRef(repo);
-    const cleanup = cleanupMergeWorktree(
-      repo,
-      temporaryPath,
-      state.reviewedMain,
-      state.featureTip,
-      mergeCommit,
-    );
-    return {
-      code: 1,
-      out: "",
-      err:
-        `worktree merge: compare-and-swap lost; refs/heads/main changed from ${state.reviewedMain} ` +
-        `to ${changedMain ?? "unreadable"}. Preserve the feature worktree and rerun synchronization, affected gates and human review.` +
-        `${cleanup ? ` Temporary worktree was preserved: ${cleanup}.` : ""}\n`,
-    };
-  }
-
-  const refreshed = refreshPrimary(repo, state.reviewedMain);
-  if (refreshed !== null) {
-    const cleanup = cleanupMergeWorktree(
-      repo,
-      temporaryPath,
-      state.reviewedMain,
-      state.featureTip,
-      mergeCommit,
-    );
-    return {
-      code: 1,
-      out: "",
-      err:
-        `worktree merge: ${refreshed}; merge ${mergeCommit} is published. Preserve the feature worktree and retry.` +
-        `${cleanup ? ` Temporary worktree was preserved: ${cleanup}.` : ""}\n`,
-    };
-  }
-  const verification = verifyPublishedMerge(
-    repo,
-    mergeCommit,
-    state.reviewedMain,
-    state.featureTip,
-    state.reviewedFeature,
-  );
-  if (verification !== null) {
-    const cleanup = cleanupMergeWorktree(
-      repo,
-      temporaryPath,
-      state.reviewedMain,
-      state.featureTip,
-      mergeCommit,
-    );
-    return {
-      code: 1,
-      out: "",
-      err: `worktree merge: ${verification}; preserve the feature worktree.${cleanup ? ` ${cleanup}.` : ""}\n`,
-    };
-  }
-  const cleanup = cleanupMergeWorktree(
-    repo,
-    temporaryPath,
-    state.reviewedMain,
-    state.featureTip,
-    mergeCommit,
-  );
-  if (cleanup !== null) {
-    return {
-      code: 1,
-      out: "",
-      err: `worktree merge: merge ${mergeCommit} is published and verified, but ${cleanup}; preserve the feature worktree and retry.\n`,
-    };
-  }
-  return removeMergedFeature(repo, slug, state, mergeCommit);
-}
-
-export function worktreeRebase(slug: string): WorktreeResult {
-  const repo = primaryRepoRoot();
-  if (repo === null) return { code: 2, out: "", err: "worktree rebase: not inside a git repository.\n" };
-  if (!SLUG_PATTERN.test(slug) || /\p{C}/u.test(slug)) {
-    return { code: 2, out: "", err: `worktree rebase: invalid slug "${printable(slug)}".\n` };
-  }
-
-  const root = worktreeRoot(repo);
-  const listed = openWorktrees(repo);
-  if ("detail" in listed) {
-    return { code: 2, out: "", err: `worktree rebase: the worktree list is unreadable (${listed.detail}).\n` };
-  }
-  const entry = findManagedWorktree(repo, root, slug, listed.worktrees);
-  if (entry === null || !existsSync(entry.path)) {
-    return {
-      code: 1,
-      out: "",
-      err: `worktree rebase: no existing managed worktree for slug "${printable(slug)}" (expected feat/${slug} under ${canonicalize(root)}).\n`,
-    };
-  }
-
-  const head = git(entry.path, ["symbolic-ref", "--quiet", "HEAD"]);
-  if (head.status !== 0 || head.stderr.trim() !== "" || head.stdout.trim() !== `refs/heads/${entry.branch}`) {
-    return { code: 1, out: "", err: `worktree rebase: ${entry.path} is not registered on ${entry.branch}.\n` };
-  }
-
-  const status = worktreeStatus(entry.path);
-  if (status.detail !== undefined) {
-    return { code: 1, out: "", err: `worktree rebase: git status is unreadable (${printable(status.detail)}); refusing to rebase.\n` };
-  }
-  if (status.paths.length > 0) {
-    return {
-      code: 1,
-      out: "",
-      err: `worktree rebase: ${entry.branch} is dirty (${status.paths.map(displayPath).join(", ")}); refusing to rebase.\n`,
-    };
-  }
-
-  const checkpointProblem = rebaseCheckpointProblem(entry.path, slug);
-  if (checkpointProblem !== null) {
-    return { code: 1, out: "", err: `worktree rebase: ${checkpointProblem}; refusing to rebase.\n` };
-  }
-
-  const operation = gitOperationState(entry.path);
-  if (operation !== null) {
-    const detail = "detail" in operation ? operation.detail : `${operation.name} is in progress`;
-    return { code: 1, out: "", err: `worktree rebase: ${detail}; refusing to rebase.\n` };
-  }
-
-  const mainBefore = fullCommitRef(repo);
-  if (mainBefore === null) {
-    return { code: 1, out: "", err: "worktree rebase: local refs/heads/main is unreadable; refusing to rebase.\n" };
-  }
-
-  const rebased = git(entry.path, ["rebase", "refs/heads/main"]);
-  if (rebased.status !== 0) {
-    const detail = rebased.stderr.trim();
-    return {
-      code: 1,
-      out: "",
-      err:
-        `worktree rebase: git rebase refs/heads/main failed${detail ? `: ${printable(detail)}` : ` (exit ${rebased.status})`}; ` +
-        `any conflict remains in progress in ${entry.path} for resolution or abort.\n`,
-    };
-  }
-
-  const mainAfter = fullCommitRef(repo);
-  if (mainAfter === null) {
-    return {
-      code: 1,
-      out: "",
-      err: "worktree rebase: local refs/heads/main changed or became unreadable during rebase; verify the feature worktree before continuing.\n",
-    };
-  }
-  if (mainAfter !== mainBefore) {
-    return {
-      code: 1,
-      out: "",
-      err:
-        `worktree rebase: local refs/heads/main advanced during rebase from ${mainBefore} to ${mainAfter}; ` +
-        `the rewritten feature branch is preserved. Rerun sync with \`ai-eng worktree rebase ${slug}\` ` +
-        `to include the new local main tip.\n`,
-    };
-  }
-  const ancestry = git(entry.path, ["merge-base", "--is-ancestor", mainAfter, "HEAD"]);
-  if (ancestry.status !== 0 || ancestry.stderr.trim() !== "") {
-    return {
-      code: 1,
-      out: "",
-      err: `worktree rebase: could not verify that local main ${mainAfter} is an ancestor of ${entry.branch}.\n`,
-    };
-  }
-
-  return { code: 0, out: `✓ rebased worktree ${slug} onto local main ${mainAfter}\n`, err: "" };
-}
-
 export function worktreeRm(slug: string, force = false): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree rm: not inside a git repository.\n" };
   const root = worktreeRoot(repo);
-  const declarationsRead = readDeclarations(root);
   const listed = openWorktrees(repo);
   if ("detail" in listed) {
     return { code: 2, out: "", err: `worktree rm: the worktree list is unreadable (${listed.detail}).\n` };
@@ -2340,19 +1297,35 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   }
 
   const branch = entry.branch;
+  let baseBranch: string | null;
+  try {
+    const detected = resolveContext(process.cwd());
+    baseBranch = detected.base ?? resolveContext(repo).branch;
+  } catch {
+    baseBranch = null;
+  }
+  if (baseBranch === null) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree rm: detected base is unavailable; set [git] base in ${join(repo, ".ai-engineering", "config.toml")} or inspect \`git -C ${repo} branch --show-current\`.\n`,
+    };
+  }
+  const baseRef = `refs/heads/${baseBranch}`;
+  const baseLabel = baseBranch === "main" ? "local main" : `detected base ${baseRef}`;
 
   // Refuse before touching anything: the default delete deletes only a branch that
-  // proved it landed in the local `main`, and a refusal must leave the worktree and
+  // proved it landed in the detected base, and a refusal must leave the worktree and
   // the branch exactly as they were. `merge-base --is-ancestor` pins both refs, so
   // the answer never depends on the mutable HEAD. Only an explicit `--force` skips
   // the proof, for the deliberately abandoned branch.
   if (!force) {
-    const merged = git(repo, ["merge-base", "--is-ancestor", branch, "refs/heads/main"]);
+    const merged = git(repo, ["merge-base", "--is-ancestor", branch, baseRef]);
     if (merged.status !== 0) {
       return {
         code: 1,
         out: "",
-        err: `worktree rm: ${branch} is not merged into the local main — refusing to delete it, and the worktree is left in place. Pass --force to remove a deliberately abandoned branch.\n`,
+        err: `worktree rm: ${branch} is not merged into the ${baseLabel} — refusing to delete it, and ${entry.path} is left in place. Pass \`ai-eng worktree rm ${slug} --force\` to remove a deliberately abandoned branch.\n`,
       };
     }
   }
@@ -2365,6 +1338,17 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   const dropped = hasWorktreePath ? ignoredPaths(entry.path) : [];
 
   if (hasWorktreePath) {
+    const status = worktreeStatus(entry.path);
+    if (status.detail !== undefined || status.paths.length > 0) {
+      const state = status.detail === undefined
+        ? `dirty files: ${status.paths.map(displayPath).join(", ")}`
+        : `status unreadable: ${printable(status.detail)}`;
+      return {
+        code: 1,
+        out: "",
+        err: `worktree rm: refusing to delete ${entry.path} with ${state}; preserve or commit that work, inspect \`git -C ${entry.path} status --short\`, then rerun \`ai-eng worktree rm ${slug}\`.\n`,
+      };
+    }
     const removed = git(repo, ["worktree", "remove", entry.path]);
     if (removed.status !== 0) {
       const pathRemains = existsSync(entry.path);
@@ -2406,26 +1390,11 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
     };
   }
 
-  if (!("detail" in declarationsRead) && declarationsRead.present) {
-    const declarations = pruneDeclarations(root, declarationsRead.declarations);
-    delete declarations[slug];
-    const writeError = writeDeclarations(root, declarations);
-    if (writeError !== null) {
-      return {
-        code: 1,
-        out: `✓ removed worktree ${slug}${ignoredRemovalNote(dropped, "removed")}\n`,
-        err:
-          `worktree rm: the worktree and branch were removed, but the advisory declarations were not updated ` +
-          `(${printable(writeError)}).\n`,
-      };
-    }
-  }
-
   const droppedNote = ignoredRemovalNote(dropped, "removed");
   return {
     code: 0,
     out: force
-      ? `✓ removed worktree ${slug} — deleted ${branch} with --force: it was not merged into main${droppedNote}\n`
+      ? `✓ removed worktree ${slug} — deleted ${branch} with --force: it was not merged into ${baseRef}${droppedNote}\n`
       : `✓ removed worktree ${slug}${droppedNote}\n`,
     err: "",
   };

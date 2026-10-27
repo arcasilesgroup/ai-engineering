@@ -22,19 +22,20 @@ PERMISSIONS.md                 Endpoint × role access matrix (n/a until the pro
 src/
   assets.ts                    Embedded skill, template and runtime asset registry
   commands/
-    worktree.ts                CLI parser for checkpointed worktree lifecycle and advisory file hints
+    worktree.ts                CLI parser for new, list, merge, request-changes and rm
   git/
     run.ts                     The one Git runner: status, raw stdout/stderr, optional global/system-config isolation
     context.ts                 resolveContext: root, branch or detached, linked worktree, base and its source (6.7)
+    merge.ts                   Reviewed-SHA merge transaction, exact parents/tree, base-ref CAS and safe checkout refresh
   workflow/
     checkpoint.ts              Checkpoint schema, lifecycle transitions, legacy normalization and brainstorm approval
   guards/
     checkpoint.ts              Checkpoint schema, lifecycle, gate order and Stop enforcement in the chain
-  shared-worktree.ts           Worktree projection, lifecycle SHA-CAS, file hints, sync, merge and safe removal
+  shared-worktree.ts           Worktree inventory, creation, lifecycle SHA-CAS, listing and safe removal
   shared-hash.ts               Shared SHA-256 file hashing helper
 tests/
   git-context.spec.ts          Git runner and context resolver over real temp repos with isolated config
-  worktree-command.spec.ts     CLI contracts for worktree creation, projection, file hints, and review CAS
+  worktree-command.spec.ts     CLI contracts for worktree creation, registered-source merge, lifecycle and safe removal
 scripts/
   gen-assets.ts                Generate embedded assets from their source files
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
