@@ -970,3 +970,31 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Check that the declaration key is an own property before using its value; add a follow-up-creation regression.
 - **Lesson:** Check own-property membership before indexing ordinary objects with user-controlled keys.
 - **Tags:** review, security, prototype, worktree
+
+### L133 · 2026-10-27 · floating-core #1 · review
+- **Failure:** The daily receipts retention capped deletions but summarised and stat-ed every receipt, moving F7's cost into the PreToolUse hook.
+- **Root cause:** The pass read the whole 40-day window before choosing what to delete.
+- **Fix:** Pick stale receipts by filename timestamp; stat and tally only the batch being deleted.
+- **Lesson:** A bounded pass must be bounded in reads as well as deletions; test it with a spy on file opens.
+- **Tags:** review, receipts, performance
+
+### L134 · 2026-10-27 · floating-core #1 · review
+- **Failure:** At 500 deletions per day the receipts store still grew when the chain wrote more than 500 a day.
+- **Root cause:** The day was stamped done even when a full batch left stale receipts behind.
+- **Fix:** Release the day's claim while stale receipts remain, so later calls drain the backlog.
+- **Lesson:** Test retention with a write rate above the batch size.
+- **Tags:** review, receipts
+
+### L135 · 2026-10-27 · floating-core #1 · review
+- **Failure:** Four more suites deleted sandbox env vars instead of restoring them; the hygiene check covered one suite.
+- **Root cause:** Each suite hand-rolled its sandbox and the checked list was written by hand.
+- **Fix:** One shared snapshot/restore helper; the hygiene check discovers every suite that sets the vars.
+- **Lesson:** Build the list of suites to check from the test tree, not by hand.
+- **Tags:** review, tests, isolation
+
+### L136 · 2026-10-27 · floating-core #1 · review
+- **Failure:** Two chain calls could both run the day's retention pass, and summary.json could be torn.
+- **Root cause:** The daily stamp was read then written; summary.json was written in place.
+- **Fix:** Claim the day with an exclusive `wx` create; write summary.json via temp file and rename.
+- **Lesson:** Claim shared work with one atomic create, not a read followed by a write.
+- **Tags:** review, receipts, concurrency

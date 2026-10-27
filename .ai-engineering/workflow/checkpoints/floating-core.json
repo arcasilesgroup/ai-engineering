@@ -85,7 +85,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 1, "findings": ["Baseline failure was tests/skills.spec.ts:450: commit 12a9a521 dropped the recap rule from PRD.html; restored. Serial suite 1411/1411 twice (139s, 134s)."] },
+        "behavior": { "status": "failed", "attempts": 1, "findings": ["Re-check after review fixes: tests/uninstall-command.spec.ts:214 'an init-shaped install is swept: the contract, the spec and the plan stay' failed intermittently (a lock-listed file still existed after uninstall); passed 20/20 on 5 isolated reruns. Treat as an unstable test blocking the gate."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
