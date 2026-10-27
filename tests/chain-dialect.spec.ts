@@ -131,6 +131,9 @@ describe("CP5 U30 — deny and Stop envelopes", () => {
       user_message: stopReason,
       agent_message: stopReason,
     }],
+    ["Cursor Stop returns a follow-up message with exit 0", "cursor", "Stop", 0, {
+      followup_message: stopReason,
+    }],
     ["Codex Stop is hookSpecificOutput JSON with exit 0", "codex", "Stop", 0, {
       hookSpecificOutput: {
         hookEventName: "Stop",

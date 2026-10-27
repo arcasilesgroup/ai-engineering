@@ -35,20 +35,28 @@ export function hashFile(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-/** Every entry we write runs `ai-eng chain` or is the exact legacy checkpoint-gate
- *  command: that is the whole marker, and the only thing that distinguishes our hooks from the user's
- *  in a file we share. It has to be the command ITSELF, not the word anywhere in a
- *  string: `my-wrapper.sh -- ai-eng chain PreToolUse` is the user's hook, and an
- *  uninstall that deletes it takes away something we never installed. The chain marker
- *  matches at the start of a command or after a shell separator — the Copilot CLI entry
- *  guards the call with `command -v ai-eng … && ai-eng chain …`, and that `&&` is where
- *  ours starts; the legacy marker matches only its complete standalone invocation,
- *  with or without its generated file-existence guard. */
-const MARKER = /(?:^|[;&|]\s*)ai-eng chain/;
+/** Exact commands emitted by the settings templates. A user command that calls one of
+ *  these as part of a wrapper is still theirs, not ours. */
+const MANAGED_CHAIN_HOOKS = new Set([
+  "ai-eng chain PreToolUse",
+  "ai-eng chain Stop",
+  "ai-eng chain PostToolUse",
+  "ai-eng chain UserPromptSubmit",
+  "ai-eng chain PreToolUse --surface cursor",
+  "ai-eng chain Stop --surface cursor",
+  "ai-eng chain PostToolUse --surface cursor",
+  "ai-eng chain PreToolUse --surface codex",
+  "ai-eng chain PostToolUse --surface codex",
+  "ai-eng chain UserPromptSubmit --surface codex",
+  "ai-eng chain PreToolUse --surface copilot-cli",
+  "ai-eng chain PostToolUse --surface copilot-cli",
+  "command -v ai-eng >/dev/null 2>&1 && ai-eng chain PreToolUse --surface copilot-cli || exit 0",
+  "command -v ai-eng >/dev/null 2>&1 && ai-eng chain PostToolUse --surface copilot-cli || exit 0",
+]);
 const LEGACY_CHECKPOINT_HOOK = /^(?:\[ -f "\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py" \] \|\| exit 0; )?python3 "\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py" --surface [a-z0-9-]+$/;
 
 function isOurs(value: unknown): boolean {
-  if (typeof value === "string") return MARKER.test(value) || LEGACY_CHECKPOINT_HOOK.test(value);
+  if (typeof value === "string") return MANAGED_CHAIN_HOOKS.has(value) || LEGACY_CHECKPOINT_HOOK.test(value);
   if (Array.isArray(value)) return value.some(isOurs);
   if (value !== null && typeof value === "object") return Object.values(value).some(isOurs);
   return false;

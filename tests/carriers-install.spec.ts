@@ -113,15 +113,15 @@ type StopSurface = (typeof SURFACES)[number] & {
 };
 
 function emitsStop(surface: StopSurface): boolean {
-  return surface.stopHook?.supported === true && surface.stopHook.event === "Stop";
+  return surface.stopHook?.supported === true && typeof surface.stopHook.event === "string";
 }
 
-function hasStopHook(content: string, kind: "settings" | "module"): boolean {
+function hasStopHook(content: string, kind: "settings" | "module", event: string): boolean {
   if (kind === "settings") {
     const parsed = JSON.parse(content) as { hooks?: Record<string, unknown> };
-    return Array.isArray(parsed.hooks?.["Stop"]);
+    return Array.isArray(parsed.hooks?.[event]);
   }
-  return /\.on\(\s*["']Stop["']/.test(content);
+  return new RegExp(`\\.on\\(\\s*["']${event}["']`).test(content);
 }
 
 /** A settings file a person has been keeping: their env, their hook, their indentation. */
@@ -375,6 +375,31 @@ describe("installer: the files a user shares with us", () => {
     expect(readFileSync(settings, "utf8")).toBe(merged);
   });
 
+  test("an update replaces the exact managed command but preserves a wrapper containing it", () => {
+    const repo = join(sandbox, "update-managed-chain");
+    mkdirSync(repo, { recursive: true });
+    const settings = join(repo, "settings.json");
+    const oldManaged = "ai-eng chain PreToolUse";
+    const wrappedUser = `my-audit.sh && ${oldManaged}`;
+    write(settings, `${JSON.stringify({
+      hooks: { preToolUse: [{ command: oldManaged }, { command: wrappedUser }] },
+    }, null, 2)}\n`);
+    const updatedCommand = "ai-eng chain PreToolUse --surface cursor";
+    const entry: PlanEntry = {
+      path: "settings.json",
+      ours: `${JSON.stringify({ hooks: { preToolUse: [{ command: updatedCommand }] } }, null, 2)}\n`,
+      merge: true,
+    };
+
+    expect(install(repo, [entry]).refused).toEqual([]);
+    const commands = (JSON.parse(readFileSync(settings, "utf8")) as {
+      hooks: { preToolUse: Array<{ command: string }> };
+    }).hooks.preToolUse.map(({ command }) => command);
+    expect(commands).not.toContain(oldManaged);
+    expect(commands).toContain(updatedCommand);
+    expect(commands).toContain(wrappedUser);
+  });
+
   test("install refuses a settings file it cannot merge, and leaves every byte of it", () => {
     const repo = join(sandbox, "install-refused");
     mkdirSync(repo, { recursive: true });
@@ -474,7 +499,7 @@ describe("carriers on the machine", () => {
     for (const surface of machineSurfaces) {
       const placement = machineCarrier(surface)!;
       const content = readFileSync(carrierPath(placement), "utf8");
-      expect(hasStopHook(content, placement.kind)).toBe(emitsStop(surface));
+      expect(hasStopHook(content, placement.kind, (surface as StopSurface).stopHook?.event ?? "Stop")).toBe(emitsStop(surface));
     }
 
     const repoRoot = join(sandbox, "repo-stop-scope");
@@ -484,8 +509,15 @@ describe("carriers on the machine", () => {
     for (const surface of repoSurfaces) {
       const placement = repoCarrier(surface)!;
       const content = readFileSync(join(repoRoot, placement.path), "utf8");
-      expect(hasStopHook(content, placement.kind)).toBe(emitsStop(surface));
+      expect(hasStopHook(content, placement.kind, (surface as StopSurface).stopHook?.event ?? "Stop")).toBe(emitsStop(surface));
     }
+
+    const cursor = byId("cursor") as StopSurface;
+    expect(cursor.stopHook?.event).toBe("stop");
+    const cursorHooks = JSON.parse(carrierFiles("cursor", "repo")!.main) as {
+      hooks: { stop: Array<{ command: string }> };
+    };
+    expect(cursorHooks.hooks.stop[0]?.command).toBe("ai-eng chain Stop --surface cursor");
   });
 
   test("an update replaces the old Python gate and keeps the user's hook", () => {

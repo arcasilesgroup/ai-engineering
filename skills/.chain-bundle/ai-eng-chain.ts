@@ -259,6 +259,8 @@ function deny(guard, message, dialect = "claude", event = "PreToolUse") {
     writeJsonAndExit({ hookSpecificOutput: { hookEventName: event, permissionDecision: "deny", permissionDecisionReason: text } }, 0);
   }
   if (dialect === "cursor") {
+    if (event === "Stop")
+      writeJsonAndExit({ followup_message: text }, 0);
     writeJsonAndExit({ permission: "deny", user_message: text, agent_message: text }, 0);
   }
   if (dialect === "copilot") {

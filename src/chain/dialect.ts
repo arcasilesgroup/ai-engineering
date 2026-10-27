@@ -9,8 +9,9 @@
 // - codex: stdout {"hookSpecificOutput":{...,"permissionDecision":"deny"}}, exit 0.
 //   A non-zero exit is NOT the contract, and `continue: false` is on Codex's
 //   unsupported list — "hook fails, tool proceeds". The wrong envelope fail-opens.
-// - cursor: stdout {"permission":"deny",...}, exit 0. A non-zero exit is a hook
-//   ERROR to Cursor, not a denial (3.12+ validators, cursor.com/docs/hooks).
+// - cursor: stdout {"permission":"deny",...}, exit 0. Stop instead uses
+//   {"followup_message":...}; a non-zero exit is a hook ERROR, not a denial
+//   (3.12+ validators, cursor.com/docs/hooks).
 // - copilot: stdout {"permissionDecision":"deny","permissionDecisionReason"}, exit 0;
 //   exit 2 also denies, but the JSON is the contract that carries the reason.
 // - throw (OpenCode/Oh My Pi) is not here: those two hosts run the chain in-process
@@ -44,6 +45,7 @@ export function deny(guard: string, message: string, dialect: Dialect = "claude"
     writeJsonAndExit({ hookSpecificOutput: { hookEventName: event, permissionDecision: "deny", permissionDecisionReason: text } }, 0);
   }
   if (dialect === "cursor") {
+    if (event === "Stop") writeJsonAndExit({ followup_message: text }, 0);
     writeJsonAndExit({ permission: "deny", user_message: text, agent_message: text }, 0);
   }
   if (dialect === "copilot") {

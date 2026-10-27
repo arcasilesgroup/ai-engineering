@@ -11,6 +11,15 @@
         "comment": "ai-eng guards. The answer is JSON on stdout with exit 0: a non-zero exit is a hook ERROR to Cursor, not a denial."
       }
     ],
+    "stop": [
+      {
+        "type": "command",
+        "command": "ai-eng chain Stop --surface cursor",
+        "timeout": 10,
+        "failClosed": true,
+        "comment": "Cursor sends followup_message as the next user message to continue the checkpoint loop."
+      }
+    ],
     "postToolUse": [
       {
         "type": "command",

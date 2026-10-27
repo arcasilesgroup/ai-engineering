@@ -1089,3 +1089,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Regenerate after the final source edit and rerun the generated-payload check.
 - **Lesson:** Run bundle generation after the last source change, not before a follow-up fix.
 - **Tags:** behavior, bundle, generated
+
+### L150 · 2026-10-27 · floating-core #6 · review
+- **Failure:** Migration could remove a user wrapper that contained `ai-eng chain`.
+- **Root cause:** The installer matched command fragments rather than complete managed hook commands.
+- **Fix:** Match exact generated command shapes and test that wrappers survive update.
+- **Lesson:** Remove a shared hook only when its complete command is managed.
+- **Tags:** review, install, migration
+
+### L151 · 2026-10-27 · floating-core #6 · review
+- **Failure:** Cursor's Stop event had no carrier, leaving G8 unenforced for that harness.
+- **Root cause:** The lowercase native event key and its follow-up response dialect were not declared.
+- **Fix:** Add Cursor's `stop` carrier, response, and event-specific regression tests.
+- **Lesson:** Declare native event keys and response dialects per host.
+- **Tags:** review, carriers, dialect

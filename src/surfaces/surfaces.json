@@ -97,6 +97,12 @@
         "loop": "native",
         "loopEvidence": "cursor-agent: --mode plan plus --force/--yolo (allow commands unless explicitly denied) and --sandbox"
       },
+      "stopHook": {
+        "supported": true,
+        "event": "stop",
+        "source": "cursor.com/docs/hooks: stop can send followup_message as the next user message",
+        "measured": "2026-10-27"
+      },
       "promptHook": {
         "supported": false,
         "source": "cursor.com/docs/hooks (2026-09-25): beforeSubmitPrompt can block with continue false. research/009 did not fire it, so it stays unwired",
