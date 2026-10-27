@@ -48,3 +48,11 @@ Carriers use the TypeScript checkpoint guard, updates replace only standalone ma
 - `bun run lint`
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
+
+## F1 · BLOCKER · open
+**Where:** src/install.ts:47
+**Critic (r1):** The chain marker matches any command segment after `;`, `&` or `|`, so `isOurs` removes an entire user hook such as `my-audit.sh && ai-eng chain PreToolUse` during update/uninstall. Match only the exact generated chain command forms (including Copilot's availability wrapper), and add a regression proving a user wrapper is retained.
+
+## F2 · MAJOR · open
+**Where:** src/surfaces/surfaces.json:90
+**Critic (r1):** Cursor's documented `stop` hook (`.ai-engineering/research/011-shopify-workflow-en-ai-engineering.html:306,314`) is omitted from surface support and its carrier, so G8 never runs there despite the harness emitting the event. Record the lowercase event, wire its supported follow-up response, and assert the emitted event—not only exact `"Stop"`—in carrier tests.
