@@ -400,6 +400,29 @@ describe("installer: the files a user shares with us", () => {
     expect(commands).toContain(wrappedUser);
   });
 
+  test("stripping a managed hook keeps its user's sibling wrapper that mentions ai-eng", () => {
+    const wrappedUser = "command -v ai-eng >/dev/null 2>&1 && ai-eng chain PreToolUse || exit 0";
+    const current = `${JSON.stringify({
+      hooks: {
+        PreToolUse: [{
+          hooks: [
+            { command: wrappedUser },
+            { command: "ai-eng chain PreToolUse" },
+          ],
+        }],
+      },
+    }, null, 2)}\n`;
+    const restored = `${JSON.stringify({
+      hooks: {
+        PreToolUse: [{
+          hooks: [{ command: wrappedUser }],
+        }],
+      },
+    }, null, 2)}\n`;
+
+    expect(stripSharedText(current)).toBe(restored);
+  });
+
   test("install refuses a settings file it cannot merge, and leaves every byte of it", () => {
     const repo = join(sandbox, "install-refused");
     mkdirSync(repo, { recursive: true });

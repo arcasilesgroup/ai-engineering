@@ -365,8 +365,11 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     const canonical = (command: string) =>
       `{\n  "hooks": {\n    "PreToolUse": [\n      {\n        "hooks": [\n          {\n            "command": "${command}"\n          }\n        ]\n      }\n    ]\n  }\n}\n`;
     expect(stripSharedText(canonical("ai-eng chain PreToolUse"))).toBe("{}\n");
-    expect(stripSharedText(canonical("my-wrapper.sh -- ai-eng chain PreToolUse"))).toInclude("my-wrapper.sh");
-    expect(stripSharedText(canonical("command -v ai-eng >/dev/null 2>&1 && ai-eng chain PreToolUse || exit 0"))).toBe("{}\n");
+    const wrappers = [
+      "my-wrapper.sh -- ai-eng chain PreToolUse",
+      "command -v ai-eng >/dev/null 2>&1 && ai-eng chain PreToolUse || exit 0",
+    ];
+    for (const wrapper of wrappers) expect(stripSharedText(canonical(wrapper))).toBe(canonical(wrapper));
   });
 
 

@@ -66,3 +66,15 @@ Carriers use the TypeScript checkpoint guard, updates replace only standalone ma
 **ROOT CAUSE:** Cursor's native Stop event and follow-up response were absent from the surface declaration, carrier, and dialect.
 **FIX:** Added Cursor's `stop` carrier, event-specific follow-up envelope, and regressions for the lowercase carrier event and Stop response.
 **LESSON:** Model a host's native event key and its response dialect explicitly instead of assuming another surface's Stop contract.
+
+## Gate 1 · behavior attempt 1 follow-up
+
+### Finding 1 · test-hygiene serial assertion
+**ROOT CAUSE:** The hygiene check's child serial run exited non-zero because the carrier-merge test still expected a generic `ai-eng` shell wrapper to be removed; the environment and cwd restoration assertions were not the cause.
+**FIX:** Corrected the wrapper assertion and its shared matcher regression; `bun test tests/test-hygiene.spec.ts` now passes with both hygiene checks green.
+**LESSON:** When an outer serial-run assertion fails, inspect the child suite's actual failure before changing cleanup behavior.
+
+### Finding 2 · carrier merge drops sibling user hooks
+**ROOT CAUSE:** `isOurs` searched recursively, so one exact managed command caused its enclosing hook group—and user wrapper siblings mentioning `ai-eng`—to be classified as ours.
+**FIX:** Match only exact `command` fields, recursively strip owned hook leaves and prune only now-empty generated groups; added exact-content wrapper regressions in `tests/carriers-install.spec.ts` and `tests/adversarial/carrier-merge.test.ts`.
+**LESSON:** Attribute ownership to each exact command leaf; remove a containing group only when it has no user hooks left.

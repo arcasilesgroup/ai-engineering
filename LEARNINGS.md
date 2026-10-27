@@ -1103,3 +1103,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Add Cursor's `stop` carrier, response, and event-specific regression tests.
 - **Lesson:** Declare native event keys and response dialects per host.
 - **Tags:** review, carriers, dialect
+
+### L152 · 2026-10-27 · floating-core #6 · behavior
+- **Failure:** The hygiene check reported environment/cwd leakage after a nested carrier test failed.
+- **Root cause:** The outer assertion collapsed the child's test failure into a misleading cleanup message.
+- **Fix:** Correct the stale carrier wrapper expectation; no cleanup leak was present.
+- **Lesson:** Check the nested suite's failure before changing cleanup.
+- **Tags:** behavior, tests, diagnostics
+
+### L153 · 2026-10-27 · floating-core #6 · behavior
+- **Failure:** Update removed a whole hook group when it contained one managed command.
+- **Root cause:** Recursive ownership matching classified the group instead of each command field.
+- **Fix:** Match exact command fields, remove managed entries individually, preserve remaining user entries.
+- **Lesson:** Remove a group only when no user hooks remain.
+- **Tags:** behavior, install, migration
