@@ -341,7 +341,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 3, "findings": ["Attempt 1 residual Python hook in .github/hooks/ai-eng.json fixed in 031e6751; attempt 2 stale chain bundle fixed in 5bba8688. Final Gate 1: all 14 verify commands passed; targeted suites 24+105+37+7+3+28+13+3+3, arch 30/30, typecheck/lint; full serial suite 1547/1547 in 191.637s."] },
+        "behavior": { "status": "failed", "attempts": 4, "findings": ["Attempt 1 failed on the stale .github/hooks/ai-eng.json Python hook; fixed in 031e6751.", "Attempt 2 failed on stale generated payload; fixed in 5bba8688, followed by full suite 1547/1547.", "Attempt 3 passed before adversarial changes.", "Attempt 4 failed at verify command 9: generated-payload found the chain bundle stale again after the guard source fix; commands 10-14 did not run. Three behavior failures have accumulated; replan threshold reached."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 1, "findings": ["BLOCKER src/guards/checkpoint.ts:319: Git-prefixed compound commands can bypass Bash write detection; reject write-capable segments.", "MAJOR src/install.ts:47: legacy marker can remove a user hook mentioning checkpoint-gate.py; recognize only standalone managed hooks."] }
       },

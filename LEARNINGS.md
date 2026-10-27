@@ -1082,3 +1082,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Match only the exact standalone managed legacy hook forms.
 - **Lesson:** Identify managed commands by their complete shape, not a path mention.
 - **Tags:** review, install, migration
+
+### L149 · 2026-10-27 · floating-core #5 · behavior
+- **Failure:** `generated-payload.test.ts` found the chain bundle stale again after the guard fix.
+- **Root cause:** A later chain-source edit was not followed by bundle regeneration.
+- **Fix:** Regenerate after the final source edit and rerun the generated-payload check.
+- **Lesson:** Run bundle generation after the last source change, not before a follow-up fix.
+- **Tags:** behavior, bundle, generated
