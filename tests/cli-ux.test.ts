@@ -1,8 +1,12 @@
 // tests/cli-ux.test.ts — unit gates for cli-ux-14: the verb suggestion seam and
 // the terminal identity. The frame layer's scripted-input replay is exercised
 // through the sandbox proofs (scripts/proof-cli-ux.sh), not here.
-import { describe, expect, spyOn, test } from "bun:test";
-import { suggestVerb } from "../src/shared-verbs.ts";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { ALL_VERBS, suggestVerb } from "../src/shared-verbs.ts";
 
 
 describe("verb suggestion (§14.5b — no error without the line of action)", () => {
@@ -66,5 +70,48 @@ describe("branding · the terminal identity", () => {
       if (ambientNoColor !== undefined) process.env["NO_COLOR"] = ambientNoColor;
     }
     expect(chunks.join("")).toContain("\u001B[38;2;0;237;100m");
+  });
+});
+
+
+describe("the workspace hub is gone (floating-core#2)", () => {
+  const cli = join(import.meta.dir, "..", "src", "cli.ts");
+  let engHome: string;
+
+  beforeAll(() => {
+    engHome = mkdtempSync(join(tmpdir(), "ai-eng-cli-ux-"));
+    // A malformed workspace.json makes any surviving hub refuse before it spawns a
+    // server or opens a browser, so this suite never leaves a process behind.
+    writeFileSync(join(engHome, "workspace.json"), "[]\n");
+  });
+  afterAll(() => rmSync(engHome, { recursive: true, force: true }));
+
+  function eng(args: string[]): { status: number | null; stdout: string; stderr: string } {
+    const run = spawnSync(process.execPath, [cli, ...args], {
+      cwd: engHome,
+      encoding: "utf8",
+      env: { ...process.env, AI_ENG_HOME: engHome, NO_COLOR: "1", CI: "1", AI_ENG_NO_UPDATE_NOTICES: "1" },
+      input: "",
+      timeout: 20_000,
+    });
+    return { status: run.status, stdout: run.stdout ?? "", stderr: run.stderr ?? "" };
+  }
+
+  test("`ai-eng workspace` is an unknown verb", () => {
+    const run = eng(["workspace"]);
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain("unknown verb: workspace\n");
+  });
+
+  test("`ai-eng --help` does not list workspace", () => {
+    const help = eng(["--help"]);
+    expect(help.status).toBe(0);
+    expect(help.stdout).toContain("ai-eng init");
+    expect(help.stdout).not.toContain("workspace");
+  });
+
+  test("ALL_VERBS does not carry workspace", () => {
+    expect(ALL_VERBS).toContain("init");
+    expect(ALL_VERBS).not.toContain("workspace");
   });
 });
