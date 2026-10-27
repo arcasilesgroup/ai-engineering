@@ -1,5 +1,5 @@
-// tests/worktree-command.spec.ts — CLI contract of `ai-eng worktree new|rm|list|rebase|merge`
-// (git-worktree-flow test plan, unit layer, checkpoint 2). Every case drives the
+// tests/worktree-command.spec.ts — CLI contract of `ai-eng worktree new|rm|list|merge`
+// (floating-core test plan, integration layer, checkpoints 2 and 7). Every case drives the
 // real CLI as a subprocess inside a throwaway git repository in a temp dir: the
 // verb owns the filesystem and the git state, so only its observable effects count
 // and no implementation module is imported.
@@ -61,10 +61,6 @@ writeFileSync(
     '  printf "injected worktree-remove failure\\n" >&2',
     "  exit 1",
     "fi",
-    'if [ "$GIT_TEST_FAIL_POST_REMOVE_LIST" = "1" ] && [ -f "$GIT_TEST_POST_REMOVE_MARKER" ] && [ "$1" = "worktree" ] && [ "$2" = "list" ]; then',
-    '  printf "injected post-removal inventory failure\\n" >&2',
-    "  exit 1",
-    "fi",
     'if [ "$GIT_TEST_UNREADABLE_IGNORED_SCAN" = "1" ] && [ "$1" = "status" ]; then',
     "  for argument do",
     '    if [ "$argument" = "--ignored" ]; then',
@@ -74,12 +70,6 @@ writeFileSync(
     "      exit \"$status\"",
     "    fi",
     "  done",
-    "fi",
-    'if [ "$GIT_TEST_FAIL_POST_REMOVE_LIST" = "1" ] && [ "$1" = "branch" ] && [ "$2" = "-d" ]; then',
-    `  "${REAL_GIT}" "$@"`,
-    "  status=$?",
-    '  if [ "$status" -eq 0 ]; then : > "$GIT_TEST_POST_REMOVE_MARKER"; fi',
-    "  exit \"$status\"",
     "fi",
     `exec "${REAL_GIT}" "$@"`,
     "",
@@ -491,6 +481,20 @@ interface MergeFixture {
   featureTip: string;
 }
 
+interface CanonicalMergeFixture {
+  repo: string;
+  feature: string;
+  slug: string;
+  branch: string;
+  baseRef: string;
+  checkpoint: string;
+  checkpointPath: string;
+  reviewedBase: string;
+  reviewedFeature: string;
+  featureTip: string;
+  checkpointContents: string;
+}
+
 function prepareMergeFixture(repo: string, slug: string): MergeFixture {
   configureDetectedBase(repo, "main");
   const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
@@ -534,6 +538,118 @@ function prepareMergeFixture(repo: string, slug: string): MergeFixture {
     awaitingReviewCommit,
     featureTip,
   };
+}
+
+function prepareCanonicalMergeFixture(
+  repo: string,
+  slug: string,
+  options: {
+    baseBranch?: string;
+    source?: "checkout" | "worktree";
+    branch?: string;
+    worktreePath?: string;
+  } = {},
+): CanonicalMergeFixture {
+  const baseBranch = options.baseBranch ?? "main";
+  const baseRef = `refs/heads/${baseBranch}`;
+  const source = options.source ?? "worktree";
+  const branch = options.branch ?? `feat/${slug}`;
+  configureDetectedBase(repo, baseBranch);
+  if (gitOut(["show-ref", "--verify", "--quiet", baseRef], repo).status !== 0) {
+    git(["branch", baseBranch, "HEAD"], repo);
+  }
+  const reviewedBase = git(["rev-parse", baseRef], repo).trim();
+  let feature: string;
+  if (source === "checkout") {
+    git(["checkout", "--quiet", "-b", branch, baseRef], repo);
+    feature = repo;
+  } else {
+    feature = options.worktreePath ?? join(defaultRoot(repo), slug);
+    mkdirSync(dirname(feature), { recursive: true });
+    git(["worktree", "add", "--quiet", "-b", branch, feature, baseRef], repo);
+  }
+
+  const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+  const checkpoint = writeCanonicalCheckpoint(feature, slug, {
+    phase: "implementation",
+    plan_approval: "approved",
+    app_review: "not-started",
+    base_ref: null,
+    reviewed_base: null,
+    reviewed_feature: null,
+  });
+  git(["add", checkpointPath], feature);
+  git(["commit", "-q", "-m", `${slug} approved implementation plan`], feature);
+  const reviewedFeature = commitRebaseFixtureFile(
+    feature,
+    "src/approved.ts",
+    `${slug} approved feature\n`,
+    `${slug} approved feature`,
+  );
+  const reviewedLifecycle = {
+    phase: "awaiting-app-review",
+    plan_approval: "approved",
+    app_review: "pending",
+    base_ref: baseRef,
+    reviewed_base: reviewedBase,
+    reviewed_feature: reviewedFeature,
+  };
+  writeCanonicalCheckpoint(feature, slug, reviewedLifecycle);
+  git(["add", checkpointPath], feature);
+  git(["commit", "-q", "-m", `${slug} checkpoint awaiting app review`], feature);
+  writeCanonicalCheckpoint(feature, slug, {
+    ...reviewedLifecycle,
+    phase: "ready-to-merge",
+    app_review: "approved",
+  });
+  git(["add", checkpointPath], feature);
+  git(["commit", "-q", "-m", `${slug} checkpoint approved`], feature);
+
+  const featureTip = git(["rev-parse", "HEAD"], feature).trim();
+  const checkpointContents = readFileSync(checkpoint, "utf8");
+  const lifecycle = JSON.parse(checkpointContents).lifecycle as Record<string, unknown>;
+  if (
+    git(["rev-parse", baseRef], repo).trim() !== reviewedBase ||
+    git(["rev-parse", `refs/heads/${branch}`], repo).trim() !== featureTip ||
+    gitOut(["merge-base", "--is-ancestor", reviewedBase, reviewedFeature], repo).status !== 0 ||
+    git(["status", "--porcelain", "--untracked-files=all"], feature) !== "" ||
+    lifecycle.phase !== "ready-to-merge" ||
+    lifecycle.base_ref !== baseRef ||
+    lifecycle.reviewed_base !== reviewedBase ||
+    lifecycle.reviewed_feature !== reviewedFeature
+  ) {
+    throw new Error(`canonical merge fixture ${slug} does not meet its reviewed-state premise`);
+  }
+  if (source === "worktree" && !worktreeEntries(repo).some((entry) => realpathSync(entry.path) === realpathSync(feature))) {
+    throw new Error(`canonical merge fixture ${slug} is not registered in Git`);
+  }
+
+  return {
+    repo,
+    feature,
+    slug,
+    branch,
+    baseRef,
+    checkpoint,
+    checkpointPath,
+    reviewedBase,
+    reviewedFeature,
+    featureTip,
+    checkpointContents,
+  };
+}
+
+function expectCanonicalMergePremise(fixture: CanonicalMergeFixture): void {
+  expect(git(["rev-parse", fixture.baseRef], fixture.repo).trim()).toBe(fixture.reviewedBase);
+  expect(git(["rev-parse", `refs/heads/${fixture.branch}`], fixture.repo).trim()).toBe(fixture.featureTip);
+  expect(gitOut(["merge-base", "--is-ancestor", fixture.reviewedBase, fixture.reviewedFeature], fixture.repo).status).toBe(0);
+  expect(git(["status", "--porcelain", "--untracked-files=all"], fixture.feature)).toBe("");
+  expect(JSON.parse(fixture.checkpointContents).lifecycle).toMatchObject({
+    phase: "ready-to-merge",
+    base_ref: fixture.baseRef,
+    reviewed_base: fixture.reviewedBase,
+    reviewed_feature: fixture.reviewedFeature,
+  });
 }
 
 /** The canonical default root: a sibling of the repo's real path. */
@@ -764,23 +880,40 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(git(["rev-parse", "feat/alpha"], repo).trim()).toBe(git(["rev-parse", "main"], repo).trim());
   });
 
-  test("design slot: an uncommitted slot file makes new refuse and create nothing", () => {
+  test("I41: dirty brainstorm and PRD slots warn while new branches from HEAD", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
-    const slot = join(repo, ".ai-engineering", "brainstorm.html");
-    mkdirSync(dirname(slot), { recursive: true });
-    writeFileSync(slot, "<html>committed</html>\n");
+    const brainstorm = join(repo, ".ai-engineering", "brainstorm.html");
+    const prd = join(repo, ".ai-engineering", "PRD.html");
+    mkdirSync(dirname(brainstorm), { recursive: true });
+    writeFileSync(brainstorm, "<html>approved brainstorm</html>\n");
+    writeFileSync(prd, "<html>approved PRD</html>\n");
     git(["add", "-A"], repo);
-    git(["commit", "-q", "-m", "add design slot"], repo);
-    writeFileSync(slot, "<html>uncommitted edit</html>\n");
+    git(["commit", "-q", "-m", "add approved design slots"], repo);
+    const headBefore = git(["rev-parse", "HEAD"], repo).trim();
+    const dirtyBrainstorm = "<html>uncommitted brainstorm edit</html>\n";
+    const dirtyPrd = "<html>uncommitted PRD edit</html>\n";
+    writeFileSync(brainstorm, dirtyBrainstorm);
+    writeFileSync(prd, dirtyPrd);
+    const dirtyStatus = git(["status", "--porcelain", "--untracked-files=all"], repo);
+    expect(dirtyStatus).toContain(".ai-engineering/brainstorm.html");
+    expect(dirtyStatus).toContain(".ai-engineering/PRD.html");
 
     const run = runCli(["worktree", "new", "alpha"], repo);
-    expect(run.status).not.toBe(0);
-    expect(run.stderr).toContain("brainstorm.html");
-    expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("feat/alpha");
-    expect(worktreeEntries(repo)).toHaveLength(1);
+    const warning = `${run.stdout}${run.stderr}`;
+    const created = join(root, "alpha");
+    expect(run.status).toBe(0);
+    expect(warning).toContain("brainstorm.html");
+    expect(warning).toContain("PRD.html");
+    expect(git(["rev-parse", "HEAD"], created).trim()).toBe(headBefore);
+    expect(readFileSync(join(created, ".ai-engineering", "brainstorm.html"), "utf8"))
+      .toBe("<html>approved brainstorm</html>\n");
+    expect(readFileSync(join(created, ".ai-engineering", "PRD.html"), "utf8"))
+      .toBe("<html>approved PRD</html>\n");
+    expect(readFileSync(brainstorm, "utf8")).toBe(dirtyBrainstorm);
+    expect(readFileSync(prd, "utf8")).toBe(dirtyPrd);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(dirtyStatus);
   });
 
   test("fallback: with no [git] worktrees_dir the root is <repo>.worktrees", () => {
@@ -808,18 +941,17 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(existsSync(join(defaultRoot(repo), "gamma"))).toBe(false);
   });
 
-  test("new: optional file hints are saved outside the repo and do not become lifecycle state", () => {
+  test("I45: removed file hints are refused as unknown usage", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
 
     const run = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
-    expect(run.status).toBe(0);
-    expect(existsSync(join(root, "alpha"))).toBe(true);
-    expect(JSON.parse(readFileSync(join(root, ".ai-eng-worktrees.json"), "utf8"))).toEqual({
-      alpha: ["docs/shared.md"],
-    });
-    expect(existsSync(join(root, ".ai-eng-lifecycle", "alpha.json"))).toBe(false);
+    expect(run.status).toBe(2);
+    expect(run.stderr).toMatch(/usage/i);
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(branchNames(repo)).toEqual(["main"]);
+    expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
   test("list strips terminal controls from registered worktree paths", () => {
@@ -837,21 +969,21 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(run.stdout).toContain("alpha\t");
   });
 
-  test("new: overlapping file hints warn but never prevent worktree creation", () => {
+  test("new: multiple removed file hints are refused without affecting existing worktrees", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
-    expect(runCli(["worktree", "new", "alpha", "docs/shared.md"], repo).status).toBe(0);
 
-    const overlapping = runCli(["worktree", "new", "beta", "docs/shared.md"], repo);
+    const refused = runCli(["worktree", "new", "beta", "docs/shared.md", "README.md"], repo);
 
-    expect(overlapping.status).toBe(0);
-    expect(overlapping.stderr).toContain("overlap");
-    expect(overlapping.stderr).toContain("alpha already declared docs/shared.md");
-    expect(existsSync(join(root, "beta"))).toBe(true);
+    expect(refused.status).toBe(2);
+    expect(refused.stderr).toMatch(/usage/i);
+    expect(existsSync(join(root, "beta"))).toBe(false);
+    expect(branchNames(repo)).toEqual(["main"]);
+    expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
-  test("new: invalid file hints refuse before creating a worktree", () => {
+  test("new: invalid removed file hints are rejected as unknown usage", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -859,7 +991,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     for (const file of ["../outside.ts", "/absolute/file.ts", "C:\\outside.ts"]) {
       const run = runCli(["worktree", "new", "alpha", file], repo);
       expect(run.status).toBe(2);
-      expect(run.stderr).toContain("invalid relative file hint");
+      expect(run.stderr).toMatch(/usage/i);
       expect(existsSync(join(root, "alpha"))).toBe(false);
     }
     expect(branchNames(repo)).toEqual(["main"]);
@@ -926,17 +1058,17 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     }
   });
 
-  test("invalid slug: a space or a slash is refused before anything is created", () => {
+  test("invalid branch name: spaces and control characters are refused", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
 
-    for (const slug of ["bad slug", "bad/slug"]) {
-      const run = runCli(["worktree", "new", slug], repo);
+    for (const branch of ["bad slug", "bad\nbranch"]) {
+      const run = runCli(["worktree", "new", branch], repo);
       expect(run.status).not.toBe(0);
       expect(run.stderr.trim().length).toBeGreaterThan(0);
-      expect(run.stderr).toMatch(/slug/i);
-      expect(existsSync(join(root, slug))).toBe(false);
+      expect(run.stderr).toMatch(/branch|ref|slug/i);
+      expect(existsSync(join(root, branch))).toBe(false);
     }
     // Nothing was created: main is still the only branch and the only worktree.
     expect(branchNames(repo)).toEqual(["main"]);
@@ -1003,22 +1135,23 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(branchNames(repo)).not.toContain("feat/alpha");
   });
 
-  test("untracked design slot: a never-committed .ai-engineering slot still makes new refuse", () => {
+  test("untracked brainstorm slot warns and new uses HEAD without consuming it", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
-    // `.ai-engineering/` has never been committed, so git status collapses the whole
-    // directory to `?? .ai-engineering/` unless the guard asks for untracked files.
     const slot = join(repo, ".ai-engineering", "brainstorm.html");
     mkdirSync(dirname(slot), { recursive: true });
     writeFileSync(slot, "<html>untracked slot</html>\n");
+    const headBefore = git(["rev-parse", "HEAD"], repo).trim();
 
     const run = runCli(["worktree", "new", "alpha"], repo);
-    expect(run.status).not.toBe(0);
-    expect(run.stderr).toContain("brainstorm.html");
-    expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("feat/alpha");
-    expect(worktreeEntries(repo)).toHaveLength(1);
+    expect(run.status).toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toContain("brainstorm.html");
+    expect(git(["rev-parse", "HEAD"], join(root, "alpha")).trim()).toBe(headBefore);
+    expect(existsSync(join(root, "alpha", ".ai-engineering", "brainstorm.html"))).toBe(false);
+    expect(readFileSync(slot, "utf8")).toBe("<html>untracked slot</html>\n");
+    expect(branchNames(repo)).toContain("feat/alpha");
+    expect(worktreeEntries(repo)).toHaveLength(2);
   });
 
   test("recap does not block: a dirty recap.html leaves new succeeding", () => {
@@ -1058,7 +1191,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(run.stdout).toContain("beta");
   });
 
-  test("slot as a directory: brainstorm.html turned into a directory still makes new refuse", () => {
+  test("slot as a directory: new starts from HEAD and leaves the primary directory intact", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1068,15 +1201,19 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     mkdirSync(slotDir, { recursive: true });
     writeFileSync(join(slotDir, "inner.txt"), "not the slot\n");
 
+    const headBefore = git(["rev-parse", "HEAD"], repo).trim();
+    const treeBefore = treeFiles(repo);
     const run = runCli(["worktree", "new", "alpha"], repo);
-    expect(run.status).not.toBe(0);
-    expect(run.stderr).toContain("brainstorm.html");
-    expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("feat/alpha");
-    expect(worktreeEntries(repo)).toHaveLength(1);
+    const created = join(root, "alpha");
+    expect(run.status).toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toContain("brainstorm.html");
+    expect(git(["rev-parse", "HEAD"], created).trim()).toBe(headBefore);
+    expect(existsSync(join(created, ".ai-engineering", "brainstorm.html"))).toBe(false);
+    expect(treeFiles(repo)).toEqual(treeBefore);
+    expect(worktreeEntries(repo)).toHaveLength(2);
   });
 
-  test("renamed slot: git mv of a committed design slot still makes new refuse", () => {
+  test("renamed slot: new uses the committed slot while preserving the staged rename", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1085,18 +1222,21 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     writeFileSync(slot, "<html>slot</html>\n");
     git(["add", "-A"], repo);
     git(["commit", "-q", "-m", "add slot"], repo);
-    // A rename line `R  brainstorm.html -> brainstorm2.html` hides that the slot left.
     git(["mv", ".ai-engineering/brainstorm.html", ".ai-engineering/brainstorm2.html"], repo);
+    const headBefore = git(["rev-parse", "HEAD"], repo).trim();
+    const treeBefore = treeFiles(repo);
 
     const run = runCli(["worktree", "new", "alpha"], repo);
-    expect(run.status).not.toBe(0);
-    expect(run.stderr).toContain("brainstorm");
-    expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("feat/alpha");
-    expect(worktreeEntries(repo)).toHaveLength(1);
+    const created = join(root, "alpha");
+    expect(run.status).toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toContain("brainstorm");
+    expect(git(["rev-parse", "HEAD"], created).trim()).toBe(headBefore);
+    expect(readFileSync(join(created, ".ai-engineering", "brainstorm.html"), "utf8")).toBe("<html>slot</html>\n");
+    expect(existsSync(join(created, ".ai-engineering", "brainstorm2.html"))).toBe(false);
+    expect(treeFiles(repo)).toEqual(treeBefore);
   });
 
-  test("deleted slot: git rm of a committed design slot still makes new refuse", () => {
+  test("deleted slot: new uses the committed slot while preserving the staged deletion", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1106,18 +1246,22 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     git(["add", "-A"], repo);
     git(["commit", "-q", "-m", "add plan"], repo);
     git(["rm", "-q", ".ai-engineering/plan.html"], repo);
+    const headBefore = git(["rev-parse", "HEAD"], repo).trim();
+    const treeBefore = treeFiles(repo);
 
     const run = runCli(["worktree", "new", "alpha"], repo);
-    expect(run.status).not.toBe(0);
-    expect(run.stderr).toContain("plan.html");
-    expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("feat/alpha");
+    const created = join(root, "alpha");
+    expect(run.status).toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toContain("plan.html");
+    expect(git(["rev-parse", "HEAD"], created).trim()).toBe(headBefore);
+    expect(readFileSync(join(created, ".ai-engineering", "plan.html"), "utf8")).toBe("<html>plan</html>\n");
+    expect(treeFiles(repo)).toEqual(treeBefore);
   });
 
   // On a case-insensitive filesystem `brainstorm.HTML` is the same file as
   // `brainstorm.html`, but porcelain reports it in the written case.
   test.skipIf(!IS_CASE_INSENSITIVE_FS)(
-    "case-alias slot: brainstorm.HTML dirty still makes new refuse (case-insensitive fs only)",
+    "case-alias slot: new warns about brainstorm.HTML and starts from HEAD (case-insensitive fs only)",
     () => {
       const repo = tempRepo();
       const root = defaultRoot(repo);
@@ -1126,31 +1270,35 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
       mkdirSync(dirname(slot), { recursive: true });
       writeFileSync(slot, "dirt\n");
 
+      const headBefore = git(["rev-parse", "HEAD"], repo).trim();
+      const treeBefore = treeFiles(repo);
       const run = runCli(["worktree", "new", "alpha"], repo);
-      expect(run.status).not.toBe(0);
-      expect(run.stderr).toMatch(/brainstorm\.html/i);
-      expect(existsSync(join(root, "alpha"))).toBe(false);
-      expect(branchNames(repo)).not.toContain("feat/alpha");
-      expect(worktreeEntries(repo)).toHaveLength(1);
+      const created = join(root, "alpha");
+      expect(run.status).toBe(0);
+      expect(`${run.stdout}${run.stderr}`).toMatch(/brainstorm\.html/i);
+      expect(git(["rev-parse", "HEAD"], created).trim()).toBe(headBefore);
+      expect(existsSync(join(created, ".ai-engineering", "brainstorm.html"))).toBe(false);
+      expect(treeFiles(repo)).toEqual(treeBefore);
     },
   );
 
-  test("non-ascii inside a slot directory: escape-decorated porcelain still makes new refuse", () => {
+  test("non-ascii inside a slot directory: warning and worktree preserve quoted local data", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
-    // git quotes the path as `"?? .ai-engineering/brainstorm.html/caf\303\251.txt"`,
-    // so a parser that keeps the C escapes never matches the slot prefix.
     const slotDir = join(repo, ".ai-engineering", "brainstorm.html");
     mkdirSync(slotDir, { recursive: true });
     writeFileSync(join(slotDir, "café.txt"), "dirt\n");
+    const headBefore = git(["rev-parse", "HEAD"], repo).trim();
+    const treeBefore = treeFiles(repo);
 
     const run = runCli(["worktree", "new", "alpha"], repo);
-    expect(run.status).not.toBe(0);
-    expect(run.stderr).toMatch(/brainstorm\.html/);
-    expect(existsSync(join(root, "alpha"))).toBe(false);
-    expect(branchNames(repo)).not.toContain("feat/alpha");
-    expect(worktreeEntries(repo)).toHaveLength(1);
+    const created = join(root, "alpha");
+    expect(run.status).toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toMatch(/brainstorm\.html/);
+    expect(git(["rev-parse", "HEAD"], created).trim()).toBe(headBefore);
+    expect(existsSync(join(created, ".ai-engineering", "brainstorm.html"))).toBe(false);
+    expect(treeFiles(repo)).toEqual(treeBefore);
   });
 
   test("from inside a worktree: list lists sessions and new cuts from the primary main", () => {
@@ -1215,7 +1363,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(readFileSync(declarations, "utf8")).toBe(malformedBytes);
   });
 
-  test("new: refuses requested hints rather than overwriting a malformed manifest", () => {
+  test("new: refuses removed file hints without changing a malformed legacy manifest", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1227,7 +1375,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const run = runCli(["worktree", "new", "alpha", "docs/shared.md"], repo);
 
     expect(run.status).toBe(2);
-    expect(run.stderr).toContain("manifest is unusable");
+    expect(run.stderr).toMatch(/usage/i);
     expect(existsSync(join(root, "alpha"))).toBe(false);
     expect(branchNames(repo)).toEqual(["main"]);
     expect(readFileSync(declarations, "utf8")).toBe(malformedBytes);
@@ -1538,6 +1686,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     const run = runCli(["worktree", "rm", "alpha"], repo);
     expect(run.status).not.toBe(0);
     expect(run.stderr).toMatch(/not merged|unmerged|merge/i);
+    expect(run.stderr).toContain("ai-eng worktree rm alpha --force");
     // The refusal is total: neither side of the pair is touched.
     expect(existsSync(join(root, "alpha"))).toBe(true);
     expect(worktreeEntries(repo).map((entry) => entry.path)).toContain(created);
@@ -1687,7 +1836,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
   });
 });
 
-describe("ai-eng worktree rebase (checkpoint 5)", () => {
+describe.skip("legacy rebase implementation tests replaced by CP7 removal coverage", () => {
   function expectRefusalWithoutMutation(
     repo: string,
     slug: string,
@@ -2049,7 +2198,9 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
       expect(readFileSync(join(repo, path), "utf8")).toBe(contents);
     }
     expect(git(["rev-parse", "refs/heads/main"], repo).trim()).not.toBe(approved.reviewedMain);
-    expect(existsSync(approved.feature)).toBe(false);
+    expect(existsSync(approved.feature)).toBe(true);
+    expect(git(["rev-parse", `refs/heads/feat/${approved.slug}`], repo).trim()).toBe(approved.featureTip);
+    expectWorktrees(repo, [repo, approved.feature]);
   });
 
   test("refuses an untracked file at an incoming feature path without publishing or losing it", () => {
@@ -2194,7 +2345,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expectNoMergeLock(repo);
   });
 
-  test("F5: merged feature cleanup surfaces the ignored paths it removes", () => {
+  test("F5: explicit rm surfaces the ignored paths it removes after merge", () => {
     const repo = tempRepo();
     cleanups.push(defaultRoot(repo));
     writeFileSync(join(repo, ".gitignore"), "local.env\n");
@@ -2202,8 +2353,9 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     git(["commit", "-q", "-m", "ignore local environment file"], repo);
     const approved = prepareMergeFixture(repo, "merge-ignored-content");
     writeFileSync(join(approved.feature, "local.env"), "LOCAL_ONLY=1\n");
+    git(["merge", "--no-ff", "-q", "-m", "integrate reviewed feature", `refs/heads/feat/${approved.slug}`], repo);
 
-    const run = runCli(["worktree", "merge", approved.slug], repo);
+    const run = runCli(["worktree", "rm", approved.slug], repo);
 
     expect(run.status).toBe(0);
     expect(`${run.stdout}${run.stderr}`).toContain("dropped ignored: local.env");
@@ -2211,7 +2363,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expect(gitOut(["show-ref", "--verify", `refs/heads/feat/${approved.slug}`], repo).status).not.toBe(0);
   });
 
-  test("F5: branch-delete failure forwards unreadable scan warning after worktree removal", () => {
+  test("F5: rm branch-delete failure forwards unreadable scan warning after worktree removal", () => {
     const repo = tempRepo();
     cleanups.push(defaultRoot(repo));
     writeFileSync(join(repo, ".gitignore"), "local.env\n");
@@ -2219,8 +2371,9 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     git(["commit", "-q", "-m", "ignore local environment file"], repo);
     const approved = prepareMergeFixture(repo, "merge-branch-delete-failure");
     writeFileSync(join(approved.feature, "local.env"), "LOCAL_ONLY=1\n");
+    git(["merge", "--no-ff", "-q", "-m", "integrate reviewed feature", `refs/heads/feat/${approved.slug}`], repo);
 
-    const run = runCli(["worktree", "merge", approved.slug], repo, {
+    const run = runCli(["worktree", "rm", approved.slug], repo, {
       ...shimEnv(join(repo, ".git", "branch-delete-failure.log")),
       GIT_TEST_FAIL_BRANCH_DELETE: "1",
       GIT_TEST_UNREADABLE_IGNORED_SCAN: "1",
@@ -2228,7 +2381,6 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     const output = `${run.stdout}${run.stderr}`;
 
     expect(run.status).not.toBe(0);
-    expect(output).toContain("is published, but safe feature cleanup failed");
     expect(output).toContain(`worktree ${approved.slug} was removed`);
     expect(output).toContain(`branch feat/${approved.slug} remains`);
     expect(output).toContain("ignored content could not be read");
@@ -2237,33 +2389,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expect(branchNames(repo)).toContain(`feat/${approved.slug}`);
   });
 
-  test("F5: post-removal verification failure reports ignored files and completed removal", () => {
-    const repo = tempRepo();
-    cleanups.push(defaultRoot(repo));
-    writeFileSync(join(repo, ".gitignore"), "local.env\n");
-    git(["add", ".gitignore"], repo);
-    git(["commit", "-q", "-m", "ignore local environment file"], repo);
-    const approved = prepareMergeFixture(repo, "merge-post-removal-verification");
-    writeFileSync(join(approved.feature, "local.env"), "LOCAL_ONLY=1\n");
-    const marker = join(repo, ".git", "test-feature-removal-complete");
-
-    const run = runCli(["worktree", "merge", approved.slug], repo, {
-      ...shimEnv(join(repo, ".git", "post-removal-verification-failure.log")),
-      GIT_TEST_FAIL_POST_REMOVE_LIST: "1",
-      GIT_TEST_POST_REMOVE_MARKER: marker,
-    });
-    const output = `${run.stdout}${run.stderr}`;
-
-    expect(run.status).not.toBe(0);
-    expect(output).toContain("dropped ignored: local.env");
-    expect(output).toContain("post-removal verification failed");
-    expect(output).toContain("worktree inventory is unreadable");
-    expect(output).toContain("cleanup command reported success");
-    expect(existsSync(approved.feature)).toBe(false);
-    expect(gitOut(["show-ref", "--verify", `refs/heads/feat/${approved.slug}`], repo).status).not.toBe(0);
-  });
-
-  test("U26-U27: runs commit hooks in a detached temporary worktree, publishes exact reviewed parents, refreshes main, then safely removes only the approved feature", () => {
+  test("U26-U27: publishes exact reviewed parents, refreshes main, and leaves feature cleanup explicit", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -2334,20 +2460,22 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
         repo,
       ).status,
     ).toBe(0);
-    expect(existsSync(approved.feature)).toBe(false);
-    expect(gitOut(["show-ref", "--verify", `refs/heads/feat/${approved.slug}`], repo).status).not.toBe(0);
+    expect(existsSync(approved.feature)).toBe(true);
+    expect(git(["rev-parse", `refs/heads/feat/${approved.slug}`], repo).trim()).toBe(approved.featureTip);
+    expect(git(["rev-parse", "HEAD"], approved.feature).trim()).toBe(approved.featureTip);
+    expect(existsSync(approved.checkpoint)).toBe(true);
     expect(readFileSync(siblingCheckpoint, "utf8")).toBe(siblingCheckpointContents);
     expect(git(["rev-parse", "refs/heads/feat/merge-sibling"], repo).trim()).toBe(siblingTip);
     expect(readFileSync(join(sibling, "src", "sibling.ts"), "utf8")).toBe("unapproved sibling\n");
     expect(gitOut(["merge-base", "--is-ancestor", siblingTip, mergeCommit], repo).status).not.toBe(0);
-    expectWorktrees(repo, [repo, sibling]);
+    expectWorktrees(repo, [repo, sibling, approved.feature]);
     expectNoMergeLock(repo);
     const invocations = loggedInvocations(log);
     expect(invocations.some((args) => args[0] === "worktree" && args[1] === "lock")).toBe(false);
     expect(invocations.some((args) => args.some((arg) => /\.lock\b/i.test(arg)))).toBe(false);
     expect(JSON.parse(approved.checkpointContents).lifecycle.phase).toBe("ready-to-merge");
     expect(approved.checkpointContents).not.toContain('"phase": "complete"');
-    expect(existsSync(approved.checkpoint)).toBe(false);
+    expect(existsSync(approved.checkpoint)).toBe(true);
   });
 
   test("U29: a post-commit main advance loses the reviewed-main CAS without publishing stale merge or changing feature state", () => {
@@ -2435,10 +2563,9 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
 
     expect(runs.filter((run) => run.status === 0)).toHaveLength(1);
     expect(runs.filter((run) => run.status !== 0)).toHaveLength(1);
-    const surviving = features.filter((feature) => existsSync(feature.feature));
-    expect(surviving).toHaveLength(1);
-    const loser = surviving[0]!;
-    const winner = features.find((feature) => feature.slug !== loser.slug)!;
+    const winnerIndex = runs.findIndex((run) => run.status === 0);
+    const winner = features[winnerIndex]!;
+    const loser = features[1 - winnerIndex]!;
     const mergeCommit = git(["rev-parse", "refs/heads/main"], repo).trim();
     const mergeParents = git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ");
     expect(mergeParents).toEqual([mergeCommit, winner.reviewedMain, winner.featureTip]);
@@ -2449,13 +2576,16 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expect(gitOut(["merge-base", "--is-ancestor", winner.reviewedFeature, winner.featureTip], repo).status).toBe(0);
     expect(gitOut(["merge-base", "--is-ancestor", loser.featureTip, mergeCommit], repo).status).not.toBe(0);
     expect(git(["rev-parse", `refs/heads/feat/${loser.slug}`], repo).trim()).toBe(loser.featureTip);
+    expect(git(["rev-parse", `refs/heads/feat/${winner.slug}`], repo).trim()).toBe(winner.featureTip);
     expect(readFileSync(loser.checkpoint, "utf8")).toBe(loser.checkpointContents);
+    expect(readFileSync(winner.checkpoint, "utf8")).toBe(winner.checkpointContents);
     expect(readFileSync(join(loser.feature, "src", "approved.ts"), "utf8")).toBe(
       `${loser.slug} approved feature\n`,
     );
-    expect(existsSync(winner.feature)).toBe(false);
-    expect(existsSync(winner.checkpoint)).toBe(false);
-    expectWorktrees(repo, [repo, loser.feature]);
+    expect(existsSync(winner.feature)).toBe(true);
+    expect(existsSync(loser.feature)).toBe(true);
+    expect(existsSync(winner.checkpoint)).toBe(true);
+    expectWorktrees(repo, [repo, loser.feature, winner.feature]);
     const loserRun = runs[features.indexOf(loser)]!;
     expect(`${loserRun.stdout}${loserRun.stderr}`).toContain(winner.reviewedMain);
     expect(`${loserRun.stdout}${loserRun.stderr}`).toContain(mergeCommit);
@@ -2559,7 +2689,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expect(approved.checkpointContents).not.toContain('"phase": "complete"');
   });
 
-  test("U30: retry recognizes an already-published merge after refresh or safe removal is interrupted", () => {
+  test("U30: retry recognizes the published merge and preserves both checkouts", () => {
     for (const interruption of ["refresh", "removal"] as const) {
       const repo = tempRepo();
       const root = defaultRoot(repo);
@@ -2596,7 +2726,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
 
       const firstAttempt = runCli(["worktree", "merge", approved.slug], repo, hookEnv);
       const publishedMerge = git(["rev-parse", "refs/heads/main"], repo).trim();
-      expect(firstAttempt.status).not.toBe(0);
+      expect(firstAttempt.status).toBe(0);
       expect(git(["rev-list", "--parents", "-n", "1", publishedMerge], repo).trim().split(" ")).toEqual([
         publishedMerge,
         approved.reviewedMain,
@@ -2612,17 +2742,16 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
       if (interruption === "refresh") {
         expect(readFileSync(join(repo, "README.md"), "utf8")).toBe("interrupted primary\n");
         expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toContain("README.md");
-        writeFileSync(join(repo, "README.md"), "# fixture\n");
-        expect(gitOut(["diff", "--quiet", approved.reviewedMain, "--"], repo).status).toBe(0);
-        expect(existsSync(join(repo, "src", "approved.ts"))).toBe(false);
+        expect(readFileSync(join(repo, "src", "approved.ts"), "utf8"))
+          .toBe(`${approved.slug} approved feature\n`);
       } else {
         expect(readFileSync(join(approved.feature, "interrupted.txt"), "utf8")).toBe("interrupted feature\n");
         expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(primaryStatus);
-        rmSync(join(approved.feature, "interrupted.txt"));
-        expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
         expect(readFileSync(join(repo, "src", "approved.ts"), "utf8")).toBe(
           `${approved.slug} approved feature\n`,
         );
+        expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature))
+          .toContain("interrupted.txt");
       }
 
       const retry = runCli(["worktree", "merge", approved.slug], repo);
@@ -2635,12 +2764,519 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
         approved.featureTip,
       ]);
       expect(gitOut(["merge-base", "--is-ancestor", approved.reviewedFeature, publishedMerge], repo).status).toBe(0);
-      expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(primaryStatus);
-      expect(existsSync(approved.feature)).toBe(false);
-      expect(existsSync(approved.checkpoint)).toBe(false);
-      expectWorktrees(repo, [repo]);
+      if (interruption === "refresh") {
+        expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toContain("README.md");
+      } else {
+        expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(primaryStatus);
+      }
+      expect(existsSync(approved.feature)).toBe(true);
+      expect(existsSync(approved.checkpoint)).toBe(true);
+      expect(readFileSync(join(approved.feature, "interrupted.txt"), "utf8"))
+        .toBe("interrupted feature\n");
+      expectWorktrees(repo, [repo, approved.feature]);
       expect(readFileSync(hookLog, "utf8").trim().split("\n")).toHaveLength(1);
       expectNoMergeLock(repo);
     }
   }, 30_000);
+});
+
+describe("ai-eng worktree merge (checkpoint 7)", () => {
+  test("I30: merges a ready feature from the normal checkout with exact parents and tree", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareCanonicalMergeFixture(repo, "normal-checkout", {
+      source: "checkout",
+      branch: "feature/pagos",
+    });
+    expectCanonicalMergePremise(approved);
+    expect(git(["symbolic-ref", "--short", "HEAD"], repo).trim()).toBe(approved.branch);
+    const expectedTree = git(["rev-parse", `${approved.featureTip}^{tree}`], repo).trim();
+
+    const run = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(run.status).toBe(0);
+    const mergeCommit = git(["rev-parse", approved.baseRef], repo).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ")).toEqual([
+      mergeCommit,
+      approved.reviewedBase,
+      approved.featureTip,
+    ]);
+    expect(git(["rev-parse", `${mergeCommit}^{tree}`], repo).trim()).toBe(expectedTree);
+    expect(git(["rev-parse", `refs/heads/${approved.branch}`], repo).trim()).toBe(approved.featureTip);
+    expect(git(["symbolic-ref", "--short", "HEAD"], repo).trim()).toBe(approved.branch);
+    expect(existsSync(approved.checkpoint)).toBe(true);
+    expectWorktrees(repo, [repo]);
+  });
+
+  test("I31: merges a linked feature without deleting or switching its checkout", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareCanonicalMergeFixture(repo, "linked-checkout");
+    expectCanonicalMergePremise(approved);
+    const expectedTree = git(["rev-parse", `${approved.featureTip}^{tree}`], repo).trim();
+
+    const run = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(run.status).toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toContain(`ai-eng worktree rm ${approved.slug}`);
+    const mergeCommit = git(["rev-parse", approved.baseRef], repo).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ")).toEqual([
+      mergeCommit,
+      approved.reviewedBase,
+      approved.featureTip,
+    ]);
+    expect(git(["rev-parse", `${mergeCommit}^{tree}`], repo).trim()).toBe(expectedTree);
+    expect(git(["rev-parse", "HEAD"], approved.feature).trim()).toBe(approved.featureTip);
+    expect(git(["symbolic-ref", "--short", "HEAD"], approved.feature).trim()).toBe(approved.branch);
+    expect(existsSync(approved.feature)).toBe(true);
+    expect(existsSync(approved.checkpoint)).toBe(true);
+    expect(git(["rev-parse", `refs/heads/${approved.branch}`], repo).trim()).toBe(approved.featureTip);
+    expectWorktrees(repo, [repo, approved.feature]);
+  });
+
+  test("I32: discovers the ready source when merge starts in another registered checkout", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareCanonicalMergeFixture(repo, "discovered-source");
+    const unrelated = join(root, "unrelated-session");
+    mkdirSync(dirname(unrelated), { recursive: true });
+    git(["worktree", "add", "--quiet", "-b", "session/unrelated", unrelated, approved.baseRef], repo);
+    expectCanonicalMergePremise(approved);
+    expect(worktreeEntries(repo).map(({ path }) => realpathSync(path))).toContain(realpathSync(unrelated));
+    expect(existsSync(join(unrelated, approved.checkpointPath))).toBe(false);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], unrelated)).toBe("");
+    const unrelatedHead = git(["rev-parse", "HEAD"], unrelated).trim();
+
+    const run = runCli(["worktree", "merge", approved.slug], unrelated);
+
+    expect(run.status).toBe(0);
+    const mergeCommit = git(["rev-parse", approved.baseRef], repo).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ")).toEqual([
+      mergeCommit,
+      approved.reviewedBase,
+      approved.featureTip,
+    ]);
+    expect(git(["rev-parse", "HEAD"], unrelated).trim()).toBe(unrelatedHead);
+    expect(existsSync(approved.feature)).toBe(true);
+    expect(git(["rev-parse", `refs/heads/${approved.branch}`], repo).trim()).toBe(approved.featureTip);
+    expectWorktrees(repo, [repo, approved.feature, unrelated]);
+  });
+
+  test("I33: refuses zero candidates with a next command", () => {
+    const emptyRepo = tempRepo();
+    const emptyRoot = defaultRoot(emptyRepo);
+    cleanups.push(emptyRoot);
+    expect(worktreeEntries(emptyRepo).map(({ path }) => realpathSync(path))).toEqual([realpathSync(emptyRepo)]);
+    expect(existsSync(join(emptyRepo, ".ai-engineering", "workflow", "checkpoints", "missing.json"))).toBe(false);
+
+    const noCandidate = runCli(["worktree", "merge", "missing"], emptyRepo);
+    const noCandidateOutput = `${noCandidate.stdout}${noCandidate.stderr}`;
+    expect(noCandidate.status).not.toBe(0);
+    expect(noCandidateOutput).toMatch(/ai-eng worktree (?:new|list)/i);
+  });
+
+  test("I33: refuses multiple ready candidates and names both source paths", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const slug = "ambiguous";
+    const first = prepareCanonicalMergeFixture(repo, slug, {
+      source: "checkout",
+      branch: "feature/ambiguous-one",
+    });
+    const secondPath = join(root, "second-candidate");
+    const second = prepareCanonicalMergeFixture(repo, slug, {
+      branch: "review/ambiguous-two",
+      worktreePath: secondPath,
+    });
+    expectCanonicalMergePremise(first);
+    expectCanonicalMergePremise(second);
+    expect(first.branch).not.toBe(second.branch);
+    expect(realpathSync(first.feature)).not.toBe(realpathSync(second.feature));
+    expect(worktreeEntries(repo).map(({ path }) => realpathSync(path))).toContain(realpathSync(secondPath));
+    const baseBefore = git(["rev-parse", first.baseRef], repo).trim();
+
+    const ambiguous = runCli(["worktree", "merge", slug], repo);
+    const ambiguousOutput = `${ambiguous.stdout}${ambiguous.stderr}`;
+
+    expect(ambiguous.status).not.toBe(0);
+    expect(ambiguousOutput).toContain(first.feature);
+    expect(ambiguousOutput).toContain(second.feature);
+    expect(git(["rev-parse", first.baseRef], repo).trim()).toBe(baseBefore);
+    expect(existsSync(first.checkpoint)).toBe(true);
+    expect(existsSync(second.checkpoint)).toBe(true);
+  });
+
+  test("I34: moving detected develop loses the reviewed-base CAS and clears review evidence", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareCanonicalMergeFixture(repo, "develop-cas", { baseBranch: "develop" });
+    expectCanonicalMergePremise(approved);
+    const advancedBase = git([
+      "commit-tree",
+      `${approved.reviewedBase}^{tree}`,
+      "-p",
+      approved.reviewedBase,
+      "-m",
+      "advance develop after feature review",
+    ], repo).trim();
+    git(["update-ref", approved.baseRef, advancedBase, approved.reviewedBase], repo);
+    expect(git(["rev-parse", approved.baseRef], repo).trim()).toBe(advancedBase);
+    expect(advancedBase).not.toBe(approved.reviewedBase);
+
+    const run = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(run.status).not.toBe(0);
+    expect(git(["rev-parse", approved.baseRef], repo).trim()).toBe(advancedBase);
+    const lifecycle = JSON.parse(readFileSync(approved.checkpoint, "utf8")).lifecycle;
+    expect(lifecycle).toMatchObject({
+      phase: "implementation",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    expect(git(["rev-parse", `refs/heads/${approved.branch}`], repo).trim()).not.toBe(approved.featureTip);
+    expect(existsSync(approved.feature)).toBe(true);
+    expectWorktrees(repo, [repo, approved.feature]);
+  });
+
+  test("I35: refuses a colliding untracked path with the merge command and leaves both sides intact", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareCanonicalMergeFixture(repo, "incoming-collision");
+    expectCanonicalMergePremise(approved);
+    const baseBefore = git(["rev-parse", approved.baseRef], repo).trim();
+    const collision = join(repo, "src", "approved.ts");
+    mkdirSync(dirname(collision), { recursive: true });
+    writeFileSync(collision, "keep untracked local data\n");
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toContain("?? src/approved.ts");
+    expect(git(["diff", "--name-only", `${approved.reviewedBase}..${approved.featureTip}`], repo))
+      .toContain("src/approved.ts");
+
+    const run = runCli(["worktree", "merge", approved.slug], repo);
+    const output = `${run.stdout}${run.stderr}`;
+
+    expect(run.status).not.toBe(0);
+    expect(output).toContain("src/approved.ts");
+    expect(output).toContain(`ai-eng worktree merge ${approved.slug}`);
+    expect(git(["rev-parse", approved.baseRef], repo).trim()).toBe(baseBefore);
+    expect(readFileSync(collision, "utf8")).toBe("keep untracked local data\n");
+    expect(git(["rev-parse", `refs/heads/${approved.branch}`], repo).trim()).toBe(approved.featureTip);
+    expect(existsSync(approved.feature)).toBe(true);
+    expectWorktrees(repo, [repo, approved.feature]);
+  });
+
+  test("I36: merges past foreign untracked files and preserves their exact bytes", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareCanonicalMergeFixture(repo, "foreign-untracked");
+    expectCanonicalMergePremise(approved);
+    const foreignPath = ".ai-engineering/security/run-4/scan.json";
+    const foreignContents = '{"finding":"local report"}\n';
+    const foreignFile = join(repo, foreignPath);
+    mkdirSync(dirname(foreignFile), { recursive: true });
+    writeFileSync(foreignFile, foreignContents);
+    expect(git(["diff", "--name-only", `${approved.reviewedBase}..${approved.featureTip}`], repo))
+      .not.toContain(foreignPath);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toContain(foreignPath);
+    const expectedTree = git(["rev-parse", `${approved.featureTip}^{tree}`], repo).trim();
+
+    const run = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(run.status).toBe(0);
+    const mergeCommit = git(["rev-parse", approved.baseRef], repo).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ")).toEqual([
+      mergeCommit,
+      approved.reviewedBase,
+      approved.featureTip,
+    ]);
+    expect(git(["rev-parse", `${mergeCommit}^{tree}`], repo).trim()).toBe(expectedTree);
+    expect(readFileSync(foreignFile, "utf8")).toBe(foreignContents);
+    expect(existsSync(approved.feature)).toBe(true);
+    expect(git(["rev-parse", `refs/heads/${approved.branch}`], repo).trim()).toBe(approved.featureTip);
+    expectWorktrees(repo, [repo, approved.feature]);
+  });
+
+  test("I37: integrates post-review checkpoint-only commits", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareCanonicalMergeFixture(repo, "checkpoint-tail");
+    expectCanonicalMergePremise(approved);
+    updateMergeRuntimeFields(approved.checkpoint);
+    git(["add", approved.checkpointPath], approved.feature);
+    git(["commit", "-q", "-m", "record a post-review checkpoint rerun"], approved.feature);
+    const checkpointTail = git(["rev-parse", "HEAD"], approved.feature).trim();
+    expect(git(["diff-tree", "--no-commit-id", "--name-only", "-r", checkpointTail], repo).trim())
+      .toBe(approved.checkpointPath);
+    expect(gitOut(["merge-base", "--is-ancestor", approved.reviewedFeature, checkpointTail], repo).status).toBe(0);
+    const expectedTree = git(["rev-parse", `${checkpointTail}^{tree}`], repo).trim();
+
+    const allowed = runCli(["worktree", "merge", approved.slug], repo);
+
+    expect(allowed.status).toBe(0);
+    const mergeCommit = git(["rev-parse", approved.baseRef], repo).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ")).toEqual([
+      mergeCommit,
+      approved.reviewedBase,
+      checkpointTail,
+    ]);
+    expect(git(["rev-parse", `${mergeCommit}^{tree}`], repo).trim()).toBe(expectedTree);
+    expect(existsSync(approved.feature)).toBe(true);
+    expect(git(["rev-parse", `refs/heads/${approved.branch}`], repo).trim()).toBe(checkpointTail);
+  });
+
+  test("I37: refuses post-review code commits and asks for a new review", () => {
+    const otherRepo = tempRepo();
+    const otherRoot = defaultRoot(otherRepo);
+    cleanups.push(otherRoot);
+    const other = prepareCanonicalMergeFixture(otherRepo, "unreviewed-tail");
+    expectCanonicalMergePremise(other);
+    const unreviewedTip = commitRebaseFixtureFile(
+      other.feature,
+      "src/unreviewed.ts",
+      "not reviewed\n",
+      "post-review code",
+    );
+    expect(git(["diff-tree", "--no-commit-id", "--name-only", "-r", unreviewedTip], otherRepo).trim())
+      .toBe("src/unreviewed.ts");
+    const otherBaseBefore = git(["rev-parse", other.baseRef], otherRepo).trim();
+
+    const refused = runCli(["worktree", "merge", other.slug], otherRepo);
+    const refusal = `${refused.stdout}${refused.stderr}`;
+
+    expect(refused.status).not.toBe(0);
+    expect(refusal.toLowerCase()).toMatch(/review|re-review/);
+    expect(git(["rev-parse", other.baseRef], otherRepo).trim()).toBe(otherBaseBefore);
+    expect(git(["rev-parse", `refs/heads/${other.branch}`], otherRepo).trim()).toBe(unreviewedTip);
+    expect(readFileSync(join(other.feature, "src", "unreviewed.ts"), "utf8")).toBe("not reviewed\n");
+    expect(existsSync(other.feature)).toBe(true);
+  });
+
+  test("I38: advances a clean detected-base checkout and preserves a dirty one", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const approved = prepareCanonicalMergeFixture(repo, "base-refresh", { baseBranch: "develop" });
+    const cleanBase = join(root, "clean-develop");
+    const dirtyBase = join(root, "dirty-develop");
+    git(["worktree", "add", "--quiet", cleanBase, "develop"], repo);
+    git(["worktree", "add", "--quiet", "--force", dirtyBase, "develop"], repo);
+    const dirtyIncoming = join(dirtyBase, "src", "approved.ts");
+    mkdirSync(dirname(dirtyIncoming), { recursive: true });
+    writeFileSync(dirtyIncoming, "local untracked draft\n");
+    expectCanonicalMergePremise(approved);
+    expect(git(["symbolic-ref", "--short", "HEAD"], cleanBase).trim()).toBe("develop");
+    expect(git(["symbolic-ref", "--short", "HEAD"], dirtyBase).trim()).toBe("develop");
+    expect(git(["rev-parse", "HEAD"], cleanBase).trim()).toBe(approved.reviewedBase);
+    expect(git(["rev-parse", "HEAD"], dirtyBase).trim()).toBe(approved.reviewedBase);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], cleanBase)).toBe("");
+    expect(git(["status", "--porcelain", "--untracked-files=all"], dirtyBase)).toContain("src/approved.ts");
+    expect(readFileSync(dirtyIncoming, "utf8")).toBe("local untracked draft\n");
+
+    const run = runCli(["worktree", "merge", approved.slug], approved.feature);
+    const output = `${run.stdout}${run.stderr}`;
+
+    expect(run.status).toBe(0);
+    const mergeCommit = git(["rev-parse", approved.baseRef], repo).trim();
+    expect(git(["rev-parse", "HEAD"], cleanBase).trim()).toBe(mergeCommit);
+    expect(existsSync(join(cleanBase, "src", "approved.ts"))).toBe(true);
+    expect(readFileSync(join(cleanBase, "src", "approved.ts"), "utf8"))
+      .toBe("base-refresh approved feature\n");
+    expect(git(["status", "--porcelain", "--untracked-files=all"], cleanBase)).toBe("");
+    expect(readFileSync(dirtyIncoming, "utf8")).toBe("local untracked draft\n");
+    expect(output).toContain(dirtyBase);
+    expect(output).toContain("src/approved.ts");
+    expect(git(["rev-parse", "HEAD"], approved.feature).trim()).toBe(approved.featureTip);
+    expect(existsSync(approved.feature)).toBe(true);
+    expectWorktrees(repo, [repo, approved.feature, cleanBase, dirtyBase]);
+  });
+});
+
+describe("ai-eng worktree list and new (checkpoint 7)", () => {
+  test("I39: lists registered worktrees and flags an active feature in the current checkout", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const activeSlug = "current-feature";
+    const checkpointPath = writeCanonicalCheckpoint(repo, activeSlug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    git(["add", `.ai-engineering/workflow/checkpoints/${activeSlug}.json`], repo);
+    git(["commit", "-q", "-m", "record active feature"], repo);
+    const registered = addRebaseWorktree(repo, "registered-only");
+    expect(existsSync(checkpointPath)).toBe(true);
+    expect(JSON.parse(readFileSync(checkpointPath, "utf8")).lifecycle.phase).toBe("implementation");
+    expect(worktreeEntries(repo).map(({ path }) => realpathSync(path)))
+      .toContain(realpathSync(registered));
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+
+    const run = runCli(["worktree", "list"], repo);
+
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain(realpathSync(registered));
+    expect(run.stdout).toContain(activeSlug);
+    expect(run.stdout).toMatch(/active|implementation/i);
+    expect(run.stdout).not.toContain(`${realpathSync(repo)}\t`);
+  });
+
+  test("I40: reports a leftover folder as unregistered rather than a feature", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const orphan = join(root, "orphan-folder");
+    mkdirSync(orphan, { recursive: true });
+    writeFileSync(join(orphan, "notes.txt"), "not a worktree\n");
+    expect(worktreeEntries(repo).map(({ path }) => realpathSync(path))).toEqual([realpathSync(repo)]);
+    expect(branchNames(repo)).toEqual(["main"]);
+
+    const run = runCli(["worktree", "list"], repo);
+
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain(orphan);
+    expect(run.stdout).toMatch(/not registered in git, not work/i);
+    expect(run.stdout).not.toMatch(/orphan-folder\t.*\tfeature\t/i);
+    expect(worktreeEntries(repo)).toHaveLength(1);
+    expect(readFileSync(join(orphan, "notes.txt"), "utf8")).toBe("not a worktree\n");
+  });
+
+  test("I42: accepts an arbitrary branch name under the configured root and names existing holders", () => {
+    const repo = tempRepo();
+    const customRoot = mkdtempSync(join(tmpdir(), "ai-eng-custom-worktrees-"));
+    cleanups.push(customRoot);
+    mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
+    writeFileSync(
+      join(repo, ".ai-engineering", "config.toml"),
+      `[git]\nworktrees_dir = ${JSON.stringify(customRoot)}\n`,
+    );
+
+    const arbitraryBranch = "feature/pagos";
+    const created = runCli(["worktree", "new", arbitraryBranch], repo);
+
+    expect(created.status).toBe(0);
+    const branchEntry = worktreeEntries(repo).find((entry) => entry.branch === `refs/heads/${arbitraryBranch}`);
+    expect(branchEntry).toBeDefined();
+    expect(branchEntry?.path.startsWith(realpathSync(customRoot))).toBe(true);
+
+    const holder = join(customRoot, "branch-holder");
+    git(["worktree", "add", "--quiet", "-b", "already-held", holder, "refs/heads/main"], repo);
+    expect(worktreeEntries(repo).some((entry) => entry.branch === "refs/heads/already-held")).toBe(true);
+    const heldRefusal = runCli(["worktree", "new", "already-held"], repo);
+    expect(heldRefusal.status).not.toBe(0);
+    expect(`${heldRefusal.stdout}${heldRefusal.stderr}`).toContain(holder);
+
+    const occupied = join(customRoot, "path-holder");
+    mkdirSync(occupied);
+    expect(existsSync(occupied)).toBe(true);
+    const pathRefusal = runCli(["worktree", "new", "path-holder"], repo);
+    expect(pathRefusal.status).not.toBe(0);
+    expect(`${pathRefusal.stdout}${pathRefusal.stderr}`).toContain(occupied);
+    expect(existsSync(occupied)).toBe(true);
+  });
+
+  test("I43: continues with feature-owned dirty files and leaves foreign reports untouched", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    configureDetectedBase(repo, "main");
+    const slug = "resume-dirty";
+    const feature = addRebaseWorktree(repo, slug);
+    const checkpoint = writeCanonicalCheckpoint(feature, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    const plan = JSON.parse(readFileSync(checkpoint, "utf8")) as {
+      checkpoints: Array<{ files: string[] }>;
+    };
+    plan.checkpoints[0]!.files = ["src/own-work.ts"];
+    writeFileSync(checkpoint, `${JSON.stringify(plan, null, 2)}\n`);
+    git(["add", `.ai-engineering/workflow/checkpoints/${slug}.json`], feature);
+    git(["commit", "-q", "-m", "record resumable feature"], feature);
+    commitRebaseFixtureFile(feature, "src/own-work.ts", "before crash\n", "feature-owned file");
+    const ownFile = join(feature, "src", "own-work.ts");
+    const ownContents = "continue with this in-progress edit\n";
+    writeFileSync(ownFile, ownContents);
+    const foreignPath = join(feature, ".ai-engineering", "security", "run-4", "report.json");
+    const foreignContents = '{"owner":"another skill"}\n';
+    mkdirSync(dirname(foreignPath), { recursive: true });
+    writeFileSync(foreignPath, foreignContents);
+    const headBefore = git(["rev-parse", "HEAD"], feature).trim();
+    const statusBefore = git(["status", "--porcelain", "--untracked-files=all"], feature);
+    const stashBefore = git(["stash", "list", "--format=%H"], feature);
+    expect(statusBefore).toContain("src/own-work.ts");
+    expect(statusBefore).toContain(".ai-engineering/security/run-4/report.json");
+    expect(stashBefore).toBe("");
+    expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle.phase).toBe("implementation");
+    expect(worktreeEntries(repo).some(({ path }) => realpathSync(path) === realpathSync(feature))).toBe(true);
+
+    const run = runCli(["worktree", "list", slug], repo);
+    const output = `${run.stdout}${run.stderr}`;
+
+    expect(run.status).toBe(0);
+    expect(output).toContain("src/own-work.ts");
+    expect(output).toMatch(/continu(?:e|able)/i);
+    expect(output).toContain(".ai-engineering/security/run-4/report.json");
+    expect(output).toMatch(/left alone|untouched/i);
+    expect(git(["rev-parse", "HEAD"], feature).trim()).toBe(headBefore);
+    expect(git(["stash", "list", "--format=%H"], feature)).toBe(stashBefore);
+    expect(readFileSync(ownFile, "utf8")).toBe(ownContents);
+    expect(readFileSync(foreignPath, "utf8")).toBe(foreignContents);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe(statusBefore);
+  });
+});
+
+describe("ai-eng worktree rm and removed usage (checkpoint 7)", () => {
+  test("I44: forced removal refuses dirty work and preserves the unmerged checkout", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "dirty-remove"], repo).status).toBe(0);
+    const feature = join(root, "dirty-remove");
+    git(["commit", "--allow-empty", "-q", "-m", "work in dirty-remove"], feature);
+    const notes = join(feature, "local-notes.txt");
+    writeFileSync(notes, "keep before removal\n");
+    const branchBefore = git(["rev-parse", "refs/heads/feat/dirty-remove"], repo).trim();
+    expect(worktreeEntries(repo).some(({ path }) => realpathSync(path) === realpathSync(feature))).toBe(true);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toContain("local-notes.txt");
+    expect(gitOut(["merge-base", "--is-ancestor", branchBefore, "refs/heads/main"], repo).status).not.toBe(0);
+
+    const run = runCli(["worktree", "rm", "dirty-remove", "--force"], repo);
+    const output = `${run.stdout}${run.stderr}`;
+
+    expect(run.status).not.toBe(0);
+    expect(output).toContain("local-notes.txt");
+    expect(output).toMatch(/dirty|uncommitted|local/i);
+    expect(existsSync(feature)).toBe(true);
+    expect(readFileSync(notes, "utf8")).toBe("keep before removal\n");
+    expect(git(["rev-parse", "refs/heads/feat/dirty-remove"], repo).trim()).toBe(branchBefore);
+    expect(worktreeEntries(repo).some(({ path }) => realpathSync(path) === realpathSync(feature))).toBe(true);
+  });
+
+  test("I45: removed rebase usage is refused without changing Git state", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const branchesBefore = branchNames(repo);
+    const worktreesBefore = worktreeEntries(repo);
+    const rebase = runCli(["worktree", "rebase", "alpha"], repo);
+    expect(rebase.status).toBe(2);
+    expect(rebase.stderr).toMatch(/usage/i);
+    expect(worktreeEntries(repo)).toEqual(worktreesBefore);
+    expect(branchNames(repo)).toEqual(branchesBefore);
+  });
 });

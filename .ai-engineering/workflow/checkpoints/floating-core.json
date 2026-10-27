@@ -464,7 +464,7 @@
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "in_progress",
-      "changed_files": ["tests/floor-gates.spec.ts", "tests/ceremony-contract.spec.ts"]
+      "changed_files": ["tests/floor-gates.spec.ts", "tests/ceremony-contract.spec.ts", "tests/worktree-command.spec.ts"]
     },
     {
       "id": 8,
