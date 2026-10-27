@@ -47,3 +47,46 @@
 - **ROOT CAUSE:** The fixture had no `[git] base` or remote HEAD, so `resolveContext` classified the base as `ask` and `prePush` correctly skipped the protected-base guard before reaching Gitleaks. The fixture contains no secret, and `src/floor/index.ts` checks the detected base before scanning.
 - **FIX:** Create a feature commit, configure `main` as the base, prove `refs/heads/main` physically points to that commit and `resolveContext` reports `baseSource: "config"`, then assert the exact detected-base rejection with Gitleaks absent from PATH. No production change.
 - **LESSON:** Physical branch presence is not base/lifecycle certainty: prove the physical ref and its classification together, and test the exact guard reason; an unresolved base remains `ask`.
+
+## Replanned CP7 review scope
+
+Automatic replan split the previous CP7 into CP7 (detected-base merge/CAS/push) and CP8 (list/new/resume/rm and ceremony contracts). This review covers only the CP7 runtime merge and push slice.
+
+### Goal
+`ai-eng worktree merge` works from any checkout against the detected base, integrates only reviewed work, preserves exact parents and tree with a compare-and-swap, and pre-push protects the detected base.
+
+### Acceptance
+- S3: merge works for a feature built in a normal checkout.
+- S9: foreign untracked files never block; a collision is refused with the path and next command.
+- S11: base moved after review loses the CAS and invalidates the review.
+- I30-I33: normal, linked and unrelated checkouts resolve the correct source; zero or multiple candidates are refused.
+- I34-I36: CAS loss invalidates review, collisions refuse safely, and non-colliding foreign files remain unchanged.
+- I37-I38: only allowed checkpoint commits are included; the base checkout advances only when clean on incoming paths.
+- I46: pre-push protection follows the detected base.
+
+### changed_files
+- tests/floor-gates.spec.ts
+- tests/floor-hooks.spec.ts
+- tests/worktree-command.spec.ts
+- FILEMAP.md
+- skills/ai-orchestrator/SKILL.md
+- skills/.chain-bundle/ai-eng-chain.ts
+- src/commands/worktree.ts
+- src/floor/index.ts
+- src/shared-worktree.ts
+- src/workflow/checkpoint.ts
+- src/git/merge.ts
+- LEARNINGS.md
+
+### Verify
+- `bun test tests/worktree-command.spec.ts`
+- `bun test tests/floor-gates.spec.ts`
+- `bun test tests/floor-hooks.spec.ts`
+- `bun test ./tests/git-context.spec.ts`
+- `bun test tests/workflow-checkpoint.spec.ts`
+- `bun test tests/ceremony-contract.spec.ts`
+- `sh -c '! grep -rn "refs/heads/main" src'`
+- `bun run typecheck`
+- `bun run lint`
+- `bun test tests/arch.spec.ts`
+- `bun test --parallel=1`
