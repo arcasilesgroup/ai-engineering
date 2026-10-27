@@ -16,6 +16,7 @@ import { stripVTControlCharacters } from "node:util";
 import { configMain } from "../src/commands/config.ts";
 import { isGoverned } from "../src/env.ts";
 import { cancelled, confirmDefault, end, fail, frame, info, ok, pathList, scriptedInput, section, spinner, summary, warn } from "../src/ui.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
 // scriptedInput() adds a data listener to the real stdin on every call; a file that
 // drives several prompts crosses Node's cap of 10 and prints a leak warning in the middle
@@ -24,12 +25,12 @@ process.stdin.setMaxListeners(0);
 
 const roots: string[] = [];
 const savedCwd = process.cwd();
+const savedEnv = snapshotSandboxEnv();
 
 afterEach(() => {
   process.chdir(savedCwd);
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
-  delete process.env["AI_ENG_HOME"];
-  delete process.env["PI_CODING_AGENT_DIR"];
+  restoreSandboxEnv(savedEnv);
 });
 
 function tempDir(prefix: string): string {

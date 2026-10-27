@@ -26,10 +26,10 @@ import { buildLock, install, lockText, sha256 } from "../src/install.ts";
 import { SHIMS, installTemplateDir } from "../src/floor/template.ts";
 import { installMachineCarriers, machineStateFile, readMachineState, rememberTemplateDir } from "../src/surfaces/adapters.ts";
 import { VERSION } from "../src/version.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
 const cwdBefore = process.cwd();
-const SANDBOX_VARS = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL"] as const;
-const envBefore = Object.fromEntries(SANDBOX_VARS.map((name) => [name, process.env[name]]));
+const envBefore = snapshotSandboxEnv();
 process.env["NO_COLOR"] = "1";
 process.env["CI"] = "1";
 // scriptedInput adds one data listener per call and a question chain crosses Node's default
@@ -177,11 +177,7 @@ function everythingScope(contract: string, machine: string): Array<[string, stri
 afterEach(() => {
   process.chdir(cwdBefore);
   // Restore, never delete: a later suite in the same process must see the home it started with.
-  for (const name of SANDBOX_VARS) {
-    const prior = envBefore[name];
-    if (prior === undefined) delete process.env[name];
-    else process.env[name] = prior;
-  }
+  restoreSandboxEnv(envBefore);
   if (sandbox) rmSync(sandbox, { recursive: true, force: true });
   sandbox = undefined;
 });

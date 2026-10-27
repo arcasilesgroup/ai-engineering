@@ -3,23 +3,26 @@
 //
 // The chain writes one receipt per tool call; a busy repo accumulated tens of thousands
 // and every reader paid for them. Retention is the gc's receipts pass, run on its own:
-// at most once per day (a stamp), at most RECEIPTS_GC_BATCH deletions per pass, and
-// only from the chain after its receipt is written — never from the git floor
-// (tests/floor-hooks.spec.ts F7 pins that side).
+// at most RECEIPTS_GC_BATCH deletions per pass, at most once per day once no backlog is
+// left (a per-day claim), and only from the chain after its receipt is written — never
+// from the git floor (tests/floor-hooks.spec.ts F7 pins that side).
 //
 // The contract under test, exported from src/receipts.ts:
 //   RECEIPTS_GC_BATCH: number                      — the most one pass deletes
 //   retainReceipts(root: string, now?: number): { ran: boolean; deleted: number }
 //     reads [gc].receipts_ttl from root's config.toml (default 30d), returns
-//     { ran: false, deleted: 0 } without touching the folder when the stamp already
-//     holds `now`'s day, otherwise stamps the day and runs the bounded gcReceipts pass.
+//     { ran: false, deleted: 0 } without touching the folder when `now`'s day is already
+//     claimed, otherwise claims the day and runs the bounded gcReceipts pass; a pass
+//     that leaves stale receipts behind releases the claim so the next call drains on.
 // `now` is injected so no case here depends on the wall clock; mtimes are set relative
 // to it with utimesSync.
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { spawn } from "node:child_process";
+import * as fs from "node:fs";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import * as receiptsModule from "../src/receipts.ts";
 import { runChain } from "../src/chain/mod.ts";
 
@@ -217,4 +220,79 @@ describe("retention is triggered by the chain after its receipt is written", () 
     const afterSecond = receiptNames(root);
     expect(lateArrivals.filter((name) => !afterSecond.includes(name))).toEqual([]);
   });
+});
+
+describe("retainReceipts — bounded in work, not only in deletions", () => {
+  test("with thousands of receipts inside the ttl, the pass opens and stats only the stale ones it deletes", () => {
+    const root = governedRepo("7d");
+    const dir = receiptsOf(root);
+    const young = seedMany(root, 3000, NOW - 2 * DAY);
+    const stale = seedMany(root, 5, NOW - 10 * DAY);
+    // Premise: the store really holds the thousands the pass must not open.
+    expect(receiptNames(root)).toHaveLength(young.length + stale.length);
+
+    const spies = [spyOn(fs, "readFileSync"), spyOn(fs, "lstatSync"), spyOn(fs, "statSync"), spyOn(fs, "openSync")];
+    let result: Retention;
+    let touched: string[];
+    try {
+      result = retainReceipts(root, NOW);
+    } finally {
+      // Read the calls before restoring: mockRestore() clears them.
+      touched = spies.flatMap((spy) => spy.mock.calls.map((call) => String((call as unknown[])[0])));
+      for (const spy of spies) spy.mockRestore();
+    }
+    const receiptsTouched = [...new Set(touched.filter((path) => path.startsWith(dir) && isReceiptName(basename(path))).map((path) => basename(path)))];
+
+    expect(result).toEqual({ ran: true, deleted: stale.length });
+    // Positive control: the spies see the pass's own reads, so an empty list below is not vacuous.
+    expect(receiptsTouched.length).toBeGreaterThan(0);
+    expect(receiptsTouched.sort()).toEqual([...stale].sort());
+    expect(receiptNames(root)).toEqual([...young].sort());
+  });
+});
+
+describe("retainReceipts — a backlog bigger than one batch drains the same day", () => {
+  test("3×batch stale receipts clear over three same-day calls, the fourth does no scan, and the series counts each once", () => {
+    const batch = batchSize();
+    const root = governedRepo("7d");
+    const staleDay = new Date(NOW - 10 * DAY).toISOString().slice(0, 10);
+    seedMany(root, 3 * batch, NOW - 10 * DAY);
+    const young = seedMany(root, 3, NOW - DAY);
+
+    expect(retainReceipts(root, NOW)).toEqual({ ran: true, deleted: batch });
+    expect(retainReceipts(root, NOW + 60_000)).toEqual({ ran: true, deleted: batch });
+    expect(retainReceipts(root, NOW + 120_000)).toEqual({ ran: true, deleted: batch });
+    expect(receiptNames(root)).toEqual([...young].sort());
+
+    const lateArrival = seedMany(root, 1, NOW - 10 * DAY);
+    expect(retainReceipts(root, NOW + 180_000)).toEqual({ ran: false, deleted: 0 });
+    expect(receiptNames(root)).toEqual([...lateArrival, ...young].sort());
+
+    // A day split across three batches is summed, never overwritten by the last batch.
+    const summary = JSON.parse(readFileSync(join(receiptsOf(root), "summary.json"), "utf8")) as { daily: Record<string, unknown> };
+    expect(summary.daily[staleDay]).toEqual({ runs: 3 * batch, denies: 0 });
+  });
+});
+
+describe("retainReceipts — parallel calls that open a day", () => {
+  test("of six processes racing on the first call of the day exactly one runs the pass, and the series counts each receipt once", async () => {
+    const root = governedRepo("7d");
+    const staleDay = new Date(NOW - 10 * DAY).toISOString().slice(0, 10);
+    const stale = seedMany(root, 40, NOW - 10 * DAY);
+    const script = `const { retainReceipts } = await import(${JSON.stringify(join(import.meta.dir, "..", "src", "receipts.ts"))}); console.log(JSON.stringify(retainReceipts(${JSON.stringify(root)}, ${NOW})));`;
+    const racer = (): Promise<Retention> =>
+      new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, ["-e", script], { stdio: ["ignore", "pipe", "inherit"] });
+        let out = "";
+        child.stdout.on("data", (chunk: Buffer) => (out += chunk.toString()));
+        child.on("close", (status) => (status === 0 ? resolve(JSON.parse(out) as Retention) : reject(new Error(`racer exited ${status}`))));
+      });
+
+    const results = await Promise.all(Array.from({ length: 6 }, racer));
+
+    expect(results.filter((r) => r.ran)).toEqual([{ ran: true, deleted: stale.length }]);
+    expect(receiptNames(root)).toEqual([]);
+    const summary = JSON.parse(readFileSync(join(receiptsOf(root), "summary.json"), "utf8")) as { daily: Record<string, unknown> };
+    expect(summary.daily[staleDay]).toEqual({ runs: stale.length, denies: 0 });
+  }, 60_000);
 });

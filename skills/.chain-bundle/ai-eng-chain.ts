@@ -2,7 +2,7 @@
 // src/chain/mod.ts
 import { readFileSync as readFileSync8, writeFileSync as writeFileSync3, mkdirSync as mkdirSync3 } from "fs";
 import { createHash as createHash4 } from "crypto";
-import { dirname as dirname3, join as join7 } from "path";
+import { dirname as dirname2, join as join7 } from "path";
 
 // src/env.ts
 import { homedir } from "os";
@@ -1338,8 +1338,8 @@ function rewrite(command) {
 }
 
 // src/receipts.ts
-import { writeFileSync as writeFileSync2, readFileSync as readFileSync7, readdirSync, mkdirSync as mkdirSync2, existsSync as existsSync5, lstatSync, unlinkSync } from "fs";
-import { dirname as dirname2, join as join6 } from "path";
+import { closeSync, openSync, writeFileSync as writeFileSync2, readFileSync as readFileSync7, readdirSync, mkdirSync as mkdirSync2, existsSync as existsSync5, lstatSync, renameSync, rmSync, unlinkSync } from "fs";
+import { join as join6 } from "path";
 import { createHash as createHash3, randomUUID } from "crypto";
 function writeReceipt(receipt, root) {
   const dir = receiptsDir(root);
@@ -1385,31 +1385,10 @@ function tallyReceipt(receipt, tally) {
   if (typeof receipt.latency_ms === "number" && isChainReceipt(receipt.event))
     tally.latencies.push(receipt.latency_ms);
 }
-function summarizeReceipts(dir) {
-  const target = dir === undefined ? receiptsDir() : dir;
-  const tally = {
-    total: 0,
-    denies: 0,
-    latencies: [],
-    per: { per_guard: {}, per_tool: {}, per_surface: {} },
-    daily: {}
-  };
-  if (target) {
-    try {
-      const cutoff = new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10).replaceAll("-", "");
-      for (const name of readdirSync(target)) {
-        if (!name.endsWith(".json"))
-          continue;
-        if (name === "summary.json" || name === "denies.json")
-          continue;
-        if (/^\d{4}-\d{2}-\d{2}T/.test(name) && name.slice(0, 10).replaceAll("-", "") < cutoff)
-          continue;
-        try {
-          tallyReceipt(JSON.parse(readFileSync7(join6(target, name), "utf8")), tally);
-        } catch {}
-      }
-    } catch {}
-  }
+function emptyTally() {
+  return { total: 0, denies: 0, latencies: [], per: { per_guard: {}, per_tool: {}, per_surface: {} }, daily: {} };
+}
+function summaryOf(tally) {
   const { latencies } = tally;
   latencies.sort((a, b) => a - b);
   const pick = (q) => latencies.length ? latencies[Math.min(latencies.length - 1, Math.floor(q * latencies.length))] : 0;
@@ -1464,66 +1443,103 @@ var RECEIPTS_GC_BATCH = 500;
 function receiptsTtlDays(config) {
   return Number(String(config["gc"]?.["receipts_ttl"] ?? "30d").replace("d", ""));
 }
-function mergeAndWriteSummary(receipts, summary, now) {
+var RECEIPT_STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z/;
+var stampOf = (ms) => new Date(ms).toISOString().replace(/[:.]/g, "-");
+function mergeAndWriteSummary(receipts, collected, total, now) {
   let prior = null;
   try {
     prior = JSON.parse(readFileSync7(join6(receipts, "summary.json"), "utf8"));
   } catch {}
-  const merged = { ...summary, daily: mergeDaily(prior?.daily, summary.daily, 90, now), gc: new Date(now).toISOString() };
-  writeFileSync2(join6(receipts, "summary.json"), JSON.stringify(merged));
+  const summed = {};
+  for (const [day, point] of Object.entries(collected.daily)) {
+    const before = prior?.daily?.[day];
+    summed[day] = { runs: count(before?.runs) + point.runs, denies: count(before?.denies) + point.denies };
+  }
+  const merged = { ...collected, total, daily: mergeDaily(prior?.daily, summed, 90, now), gc: new Date(now).toISOString() };
+  const staging = join6(receipts, `.summary-${randomUUID()}.tmp`);
+  try {
+    writeFileSync2(staging, JSON.stringify(merged));
+    renameSync(staging, join6(receipts, "summary.json"));
+  } finally {
+    rmSync(staging, { force: true });
+  }
 }
-function gcReceipts(receipts, ttlDays, options = {}) {
-  if (!existsSync5(receipts))
-    return 0;
-  const now = options.now ?? Date.now();
-  const summary = summarizeReceipts(receipts);
-  const cut = now - ttlDays * 86400000;
+function collectReceipts(receipts, ttlDays, maxDeletes, now) {
+  const cutStamp = stampOf(now - ttlDays * 86400000);
   const stale = [];
+  let stored = 0;
   for (const name of readdirSync(receipts)) {
     if (name === "summary.json" || name === "denies.json")
       continue;
+    if (name.endsWith(".json"))
+      stored += 1;
+    const named = RECEIPT_STAMP.exec(name)?.[0];
+    if (named !== undefined) {
+      if (named < cutStamp)
+        stale.push({ stamp: named, name });
+      continue;
+    }
     try {
-      const stat = lstatSync(join6(receipts, name));
-      if (stat.isFile() && stat.mtimeMs < cut)
-        stale.push({ name, mtime: stat.mtimeMs });
+      const { mtimeMs } = lstatSync(join6(receipts, name));
+      const aged = stampOf(mtimeMs);
+      if (aged < cutStamp)
+        stale.push({ stamp: aged, name });
     } catch {}
   }
-  stale.sort((a, b) => a.mtime - b.mtime);
+  stale.sort((a, b) => a.stamp < b.stamp ? -1 : a.stamp > b.stamp ? 1 : 0);
+  const limit = maxDeletes ?? stale.length;
+  const tally = emptyTally();
   let deleted = 0;
-  for (const entry of stale.slice(0, options.maxDeletes ?? stale.length)) {
+  let consumed = 0;
+  for (const entry of stale) {
+    if (deleted >= limit)
+      break;
+    consumed += 1;
+    const path = join6(receipts, entry.name);
     try {
-      unlinkSync(join6(receipts, entry.name));
+      if (!lstatSync(path).isFile())
+        continue;
+      const text = readFileSync7(path, "utf8");
+      unlinkSync(path);
       deleted += 1;
+      try {
+        tallyReceipt(JSON.parse(text), tally);
+      } catch {}
     } catch {}
   }
-  if (deleted > 0) {
-    mergeAndWriteSummary(receipts, { ...summary, total: summary.total + deleted }, now);
-  }
+  if (deleted > 0)
+    mergeAndWriteSummary(receipts, summaryOf(tally), stored, now);
   const ledger = join6(receipts, "denies.json");
   if (existsSync5(ledger))
     pruneDenyLedger(ledger, 90, LEDGER_CAP, now);
-  return deleted;
+  return { deleted, hasBacklog: consumed < stale.length };
 }
 function retainReceipts(root, now = Date.now()) {
   const idle = { ran: false, deleted: 0 };
   const today = new Date(now).toISOString().slice(0, 10);
-  const stamp = join6(root, ".ai-engineering", "cache", "receipts-retention");
+  const cache = join6(root, ".ai-engineering", "cache");
+  const claim = join6(cache, `receipts-retention-${today}`);
   try {
-    if (readFileSync7(stamp, "utf8") === today)
-      return idle;
-  } catch {}
-  try {
-    mkdirSync2(dirname2(stamp), { recursive: true });
-    writeFileSync2(stamp, today);
+    mkdirSync2(cache, { recursive: true });
+    closeSync(openSync(claim, "wx"));
   } catch {
     return idle;
   }
+  let pass = { deleted: 0, hasBacklog: false };
   try {
-    const ttlDays = receiptsTtlDays(loadConfig(root));
-    return { ran: true, deleted: gcReceipts(join6(root, ".ai-engineering", "receipts"), ttlDays, { maxDeletes: RECEIPTS_GC_BATCH, now }) };
-  } catch {
-    return { ran: true, deleted: 0 };
-  }
+    const receipts = join6(root, ".ai-engineering", "receipts");
+    if (existsSync5(receipts))
+      pass = collectReceipts(receipts, receiptsTtlDays(loadConfig(root)), RECEIPTS_GC_BATCH, now);
+  } catch {}
+  try {
+    if (pass.hasBacklog)
+      rmSync(claim, { force: true });
+    for (const name of readdirSync(cache)) {
+      if (name.startsWith("receipts-retention-") && name !== `receipts-retention-${today}`)
+        rmSync(join6(cache, name), { force: true });
+    }
+  } catch {}
+  return { ran: true, deleted: pass.deleted };
 }
 
 // src/chain/mod.ts
@@ -1569,7 +1585,7 @@ function rememberVerdict(file, fp, verdict) {
     try {
       book = JSON.parse(readFileSync8(file, "utf8"));
     } catch {}
-    mkdirSync3(dirname3(file), { recursive: true });
+    mkdirSync3(dirname2(file), { recursive: true });
     book[fp] = verdict;
     const trimmed = {};
     for (const key of Object.keys(book).slice(-500))

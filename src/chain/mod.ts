@@ -255,8 +255,8 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   return { action: "allow", guards: ran, receiptId: receipt?.operation_id ?? null };
 }
 
-/** Write the chain's receipt, then let retention run (its daily stamp makes every
- *  call but the first of the day a single small read). The git floor never calls this. */
+/** Write the chain's receipt, then let retention run (its daily claim makes every
+ *  call after the backlog is clear a single failed create). The git floor never calls this. */
 function recordReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | "ts">, root: string): Receipt | null {
   const written = writeReceipt(receipt, root);
   if (written) retainReceipts(root);

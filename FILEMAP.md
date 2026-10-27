@@ -59,7 +59,8 @@ tests/
   test-hygiene.spec.ts         No suite writes under tests/; sandboxed suites restore env and cwd
   receipts-retention.spec.ts   Daily, batched receipt retention triggered by the chain
   fixtures/
-    env-snapshot.preload.ts    Records env and cwd after every test for test-hygiene.spec.ts
+    env-snapshot.preload.ts    Records env and cwd before and after every suite for test-hygiene.spec.ts
+    sandbox-env.ts             Snapshot/restore of AI_ENG_HOME, PI_CODING_AGENT_DIR, GIT_CONFIG_GLOBAL for sandboxed suites
     triage-azure-signals-preview.mjs  Synthetic writer preview on loopback, memory-only reports
 templates/
   recap.html.tpl               Self-contained HTML recap shell and styles

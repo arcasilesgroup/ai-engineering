@@ -39,8 +39,10 @@ import {
 import { SURFACES, type Surface } from "../src/surfaces/adapters.ts";
 import { parseLock } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
 const cwdBefore = process.cwd();
+const envBefore = snapshotSandboxEnv();
 const GIT_IDENTITY = ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"] as const;
 
 process.env["NO_COLOR"] = "1";
@@ -51,7 +53,8 @@ let sandbox: string | undefined;
 
 /** A repo-shaped sandbox of its own and a machine of its own. Nothing outside it is
  *  written: AI_ENG_HOME redirects the canon and the carrier base, and template.ts puts
- *  the global git config under the same override. */
+ *  the global git config under the same override — only while GIT_CONFIG_GLOBAL is
+ *  unset, so the sandbox owns that variable too instead of writing to an inherited one. */
 function sandboxed(): { cwd: string; machine: string } {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-init-"));
   const cwd = join(sandbox, "project");
@@ -60,6 +63,7 @@ function sandboxed(): { cwd: string; machine: string } {
   mkdirSync(machine, { recursive: true });
   process.env["AI_ENG_HOME"] = machine;
   process.env["PI_CODING_AGENT_DIR"] = join(machine, "pi-agent");
+  delete process.env["GIT_CONFIG_GLOBAL"];
   process.chdir(cwd);
   return { cwd, machine };
 }
@@ -135,9 +139,7 @@ async function driven(flags: Parameters<typeof initMain>[0], steps: Array<[strin
 
 afterEach(() => {
   process.chdir(cwdBefore);
-  delete process.env["AI_ENG_HOME"];
-  delete process.env["PI_CODING_AGENT_DIR"];
-  delete process.env["GIT_CONFIG_GLOBAL"];
+  restoreSandboxEnv(envBefore);
   for (const name of GIT_IDENTITY) delete process.env[name];
   // scriptedInput attaches one data listener per call; a suite that runs the verb a
   // dozen times would otherwise cross Node's cap of 10 and print a leak warning.

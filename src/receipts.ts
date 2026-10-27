@@ -2,8 +2,8 @@
 // hash-chain: the real signature is the Receipt-Id trailer in the commit — git
 // already is the chain.
 
-import { writeFileSync, readFileSync, readdirSync, mkdirSync, existsSync, lstatSync, unlinkSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { closeSync, openSync, writeFileSync, readFileSync, readdirSync, mkdirSync, existsSync, lstatSync, renameSync, rmSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { loadConfig, printable, receiptsDir, type Config } from "./env.ts";
 
@@ -114,13 +114,7 @@ export function summarizeReceipts(dir?: string | null): ReceiptSummary {
   // `dir` is tri-state: `undefined` = resolve the caller's repo, `null` = no store
   // at all (the caller already knows this root has none), a string = that store.
   const target = dir === undefined ? receiptsDir() : dir;
-  const tally: ReceiptTally = {
-    total: 0,
-    denies: 0,
-    latencies: [],
-    per: { per_guard: {}, per_tool: {}, per_surface: {} },
-    daily: {},
-  };
+  const tally = emptyTally();
   if (target) {
     try {
       // The filename carries the ISO timestamp the receipt was written with, so the
@@ -149,6 +143,14 @@ export function summarizeReceipts(dir?: string | null): ReceiptSummary {
       /* no receipts yet */
     }
   }
+  return summaryOf(tally);
+}
+
+function emptyTally(): ReceiptTally {
+  return { total: 0, denies: 0, latencies: [], per: { per_guard: {}, per_tool: {}, per_surface: {} }, daily: {} };
+}
+
+function summaryOf(tally: ReceiptTally): ReceiptSummary {
   const { latencies } = tally;
   latencies.sort((a, b) => a - b);
   const pick = (q: number) => (latencies.length ? latencies[Math.min(latencies.length - 1, Math.floor(q * latencies.length))]! : 0);
@@ -313,7 +315,8 @@ export function pruneDenyLedger(file: string, ttlDays = 90, cap = LEDGER_CAP, no
 
 /** The most receipts one automatic retention pass deletes. A repo that never ran the
  *  gc may hold tens of thousands, and the chain call that triggers the pass must not
- *  pay for all of them at once: the next day's pass takes the next batch. */
+ *  pay for all of them at once: while a backlog remains, the next call takes the next
+ *  batch. */
 export const RECEIPTS_GC_BATCH = 500;
 
 /** `[gc].receipts_ttl` in days ("30d" when the key is absent). */
@@ -321,92 +324,146 @@ export function receiptsTtlDays(config: Config): number {
   return Number(String(config["gc"]?.["receipts_ttl"] ?? "30d").replace("d", ""));
 }
 
-/** Merge the live summary with any prior summary.json and write it back. */
-function mergeAndWriteSummary(receipts: string, summary: ReceiptSummary, now: number): void {
+/** The ISO timestamp writeReceipt puts at the front of every receipt name. */
+const RECEIPT_STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z/;
+const stampOf = (ms: number): string => new Date(ms).toISOString().replace(/[:.]/g, "-");
+
+/** Fold the receipts this pass collected into summary.json. The daily series is the
+ *  gc's long-term memory and is additive — each receipt is tallied once, on the pass
+ *  that deletes it, so a day split across batches sums instead of being overwritten.
+ *  The other figures describe the receipts this pass collected; `total` is how many
+ *  receipts the store held when the pass ran. Written via rename so a reader never
+ *  sees a torn file — a torn summary reads back as no prior and loses the series. */
+function mergeAndWriteSummary(receipts: string, collected: ReceiptSummary, total: number, now: number): void {
   let prior: { daily?: Record<string, DailyPoint> } | null = null;
   try {
     prior = JSON.parse(readFileSync(join(receipts, "summary.json"), "utf8")) as { daily?: Record<string, DailyPoint> };
   } catch {
-    /* no prior summary, or a torn one: the live window starts the series */
+    /* no prior summary, or a torn one: the collected batch starts the series */
   }
-  const merged = { ...summary, daily: mergeDaily(prior?.daily, summary.daily, 90, now), gc: new Date(now).toISOString() };
-  writeFileSync(join(receipts, "summary.json"), JSON.stringify(merged));
+  const summed: Record<string, DailyPoint> = {};
+  for (const [day, point] of Object.entries(collected.daily)) {
+    const before = prior?.daily?.[day];
+    summed[day] = { runs: count(before?.runs) + point.runs, denies: count(before?.denies) + point.denies };
+  }
+  const merged = { ...collected, total, daily: mergeDaily(prior?.daily, summed, 90, now), gc: new Date(now).toISOString() };
+  // Not a .json name, and never a receipt stamp: no reader counts it, no sweep ages it as a receipt.
+  const staging = join(receipts, `.summary-${randomUUID()}.tmp`);
+  try {
+    writeFileSync(staging, JSON.stringify(merged));
+    renameSync(staging, join(receipts, "summary.json"));
+  } finally {
+    rmSync(staging, { force: true });
+  }
 }
 
-/** The gc's receipts pass; returns how many receipts it deleted. `maxDeletes` bounds
- *  one pass (oldest first) — `doctor --gc` leaves it unbounded. */
-export function gcReceipts(receipts: string, ttlDays: number, options: { maxDeletes?: number; now?: number } = {}): number {
-  // Receipts: aggregate, then delete. They carry no citation to respect — their
-  // permanent half is the Receipt-Id trailer on the commit. Two files are the gc's
-  // own memory, not its trash: summary.json (the series) and denies.json (the
-  // ledger). The mtime sweep skips both — leaving summary.json to age out was
-  // eating the only long-term memory on the second quiet month — and each is
-  // pruned by its own contents instead: the series by day-age, the ledger by
-  // last_seen and count.
-  if (!existsSync(receipts)) return 0;
-  const now = options.now ?? Date.now();
-  const summary = summarizeReceipts(receipts);
-  const cut = now - ttlDays * 86_400_000;
-  // Files only: a planted DIRECTORY named like a receipt (`mkdir bomb.json`) made
-  // unlinkSync throw EISDIR/EPERM before the summary write, bricking the gc on
-  // every future run and freezing the spike baseline at the forged state
-  // (audit run-1 F4). A directory in the receipts folder is not a receipt.
-  const stale: { name: string; mtime: number }[] = [];
+/** One gc pass over the receipts folder: how many it deleted, and whether stale
+ *  receipts were left for a later pass. */
+type ReceiptsPass = { deleted: number; hasBacklog: boolean };
+
+/** The pass behind gcReceipts. Its cost is bounded by the batch, not by the store:
+ *  staleness comes from the timestamp writeReceipt put in the name, so the folder is
+ *  listed once and only the receipts being deleted are stat-ed and opened (F7: 36k
+ *  opens cost 5 s, and the automatic pass runs inside a tool-use hook). A name
+ *  without that stamp (a fixture, a future shape) is aged by its mtime instead. */
+function collectReceipts(receipts: string, ttlDays: number, maxDeletes: number | undefined, now: number): ReceiptsPass {
+  const cutStamp = stampOf(now - ttlDays * 86_400_000);
+  const stale: { stamp: string; name: string }[] = [];
+  let stored = 0;
   for (const name of readdirSync(receipts)) {
+    // The gc's own memory, not its trash: summary.json (the series) and denies.json
+    // (the ledger) are pruned by their contents, never swept by age.
     if (name === "summary.json" || name === "denies.json") continue;
+    if (name.endsWith(".json")) stored += 1;
+    const named = RECEIPT_STAMP.exec(name)?.[0];
+    if (named !== undefined) {
+      if (named < cutStamp) stale.push({ stamp: named, name });
+      continue;
+    }
     try {
-      const stat = lstatSync(join(receipts, name));
-      if (stat.isFile() && stat.mtimeMs < cut) stale.push({ name, mtime: stat.mtimeMs });
+      const { mtimeMs } = lstatSync(join(receipts, name));
+      const aged = stampOf(mtimeMs);
+      if (aged < cutStamp) stale.push({ stamp: aged, name });
     } catch {
       /* gone between the listing and the stat: nothing left to collect */
     }
   }
-  stale.sort((a, b) => a.mtime - b.mtime);
+  stale.sort((a, b) => (a.stamp < b.stamp ? -1 : a.stamp > b.stamp ? 1 : 0));
+  const limit = maxDeletes ?? stale.length;
+  const tally = emptyTally();
   let deleted = 0;
-  for (const entry of stale.slice(0, options.maxDeletes ?? stale.length)) {
+  let consumed = 0;
+  for (const entry of stale) {
+    if (deleted >= limit) break;
+    consumed += 1;
+    const path = join(receipts, entry.name);
     try {
-      unlinkSync(join(receipts, entry.name));
+      // Files only: a planted DIRECTORY named like a receipt (`mkdir bomb.json`) made
+      // unlinkSync throw before the summary write, bricking the gc on every future
+      // run (audit run-1 F4). A directory in the receipts folder is not a receipt.
+      if (!lstatSync(path).isFile()) continue;
+      const text = readFileSync(path, "utf8");
+      unlinkSync(path);
       deleted += 1;
+      // Tallied only once the unlink succeeded, so two passes never count one receipt twice.
+      try {
+        tallyReceipt(JSON.parse(text) as Receipt, tally);
+      } catch {
+        /* a torn write is data, not a crash */
+      }
     } catch {
       /* a concurrent pass took it first */
     }
   }
-  if (deleted > 0) {
-    // The stale files are part of the story the summary tells: the summarizer's
-    // name-window skips receipts whose stamp predates the TTL, so the live count
-    // alone would understate the store by exactly the files being deleted.
-    mergeAndWriteSummary(receipts, { ...summary, total: summary.total + deleted }, now);
-  }
+  if (deleted > 0) mergeAndWriteSummary(receipts, summaryOf(tally), stored, now);
   const ledger = join(receipts, "denies.json");
   if (existsSync(ledger)) pruneDenyLedger(ledger, 90, LEDGER_CAP, now);
-  return deleted;
+  return { deleted, hasBacklog: consumed < stale.length };
 }
 
-/** Automatic retention, run by the chain after it writes its receipt: at most once
- *  per calendar day (UTC) per repo, at most RECEIPTS_GC_BATCH deletions. Never throws —
- *  housekeeping must not change a verdict. */
+/** The gc's receipts pass; returns how many receipts it deleted. `maxDeletes` bounds
+ *  one pass (oldest first) — `doctor --gc` leaves it unbounded. Receipts carry no
+ *  citation to respect: their permanent half is the Receipt-Id trailer on the commit. */
+export function gcReceipts(receipts: string, ttlDays: number, options: { maxDeletes?: number; now?: number } = {}): number {
+  if (!existsSync(receipts)) return 0;
+  return collectReceipts(receipts, ttlDays, options.maxDeletes, options.now ?? Date.now()).deleted;
+}
+
+/** Automatic retention, run by the chain after it writes its receipt: at most
+ *  RECEIPTS_GC_BATCH deletions per pass, and once the backlog is clear, at most one
+ *  pass per calendar day (UTC) per repo. Never throws — housekeeping must not change
+ *  a verdict. */
 export function retainReceipts(root: string, now = Date.now()): { ran: boolean; deleted: number } {
   const idle = { ran: false, deleted: 0 };
   const today = new Date(now).toISOString().slice(0, 10);
-  // The stamp lives in the gitignored cache, not the receipts folder, so no reader
-  // of receipts ever sees it and the sweep can never delete it.
-  const stamp = join(root, ".ai-engineering", "cache", "receipts-retention");
+  // The claim lives in the gitignored cache, not the receipts folder, so no reader of
+  // receipts ever sees it and the sweep can never delete it.
+  const cache = join(root, ".ai-engineering", "cache");
+  const claim = join(cache, `receipts-retention-${today}`);
   try {
-    if (readFileSync(stamp, "utf8") === today) return idle;
+    mkdirSync(cache, { recursive: true });
+    // Exclusive create: of the parallel tool calls that open a day, exactly one runs
+    // the pass. Already claimed, or an unwritable cache — either way, skip.
+    closeSync(openSync(claim, "wx"));
   } catch {
-    /* no stamp yet: today's pass has not run */
-  }
-  try {
-    mkdirSync(dirname(stamp), { recursive: true });
-    writeFileSync(stamp, today);
-  } catch {
-    // Without a stamp every call would rescan the folder; skip instead.
     return idle;
   }
+  let pass: ReceiptsPass = { deleted: 0, hasBacklog: false };
   try {
-    const ttlDays = receiptsTtlDays(loadConfig(root));
-    return { ran: true, deleted: gcReceipts(join(root, ".ai-engineering", "receipts"), ttlDays, { maxDeletes: RECEIPTS_GC_BATCH, now }) };
+    const receipts = join(root, ".ai-engineering", "receipts");
+    if (existsSync(receipts)) pass = collectReceipts(receipts, receiptsTtlDays(loadConfig(root)), RECEIPTS_GC_BATCH, now);
   } catch {
-    return { ran: true, deleted: 0 };
+    /* the day stays claimed: a pass that throws is not retried on every call */
   }
+  try {
+    // A backlog bigger than one batch drains over the next calls; the day is only
+    // done once a pass leaves nothing stale behind.
+    if (pass.hasBacklog) rmSync(claim, { force: true });
+    for (const name of readdirSync(cache)) {
+      if (name.startsWith("receipts-retention-") && name !== `receipts-retention-${today}`) rmSync(join(cache, name), { force: true });
+    }
+  } catch {
+    /* a claim that cannot be released only delays the next batch to tomorrow */
+  }
+  return { ran: true, deleted: pass.deleted };
 }

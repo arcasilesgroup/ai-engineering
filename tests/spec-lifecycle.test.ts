@@ -10,11 +10,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { summarizeReceipts } from "../src/receipts.ts";
 import { normalizeSpec } from "../src/spec/index.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
 const cli = join(import.meta.dir, "..", "src", "cli.ts");
 let sandbox: string;
 let engHome: string;
 let repo: string;
+const envBefore = snapshotSandboxEnv();
 
 function eng(args: string[]): { status: number; output: string } {
   const r = spawnSync(process.execPath, [cli, ...args], {
@@ -112,7 +114,7 @@ beforeEach(() => {
 });
 
 afterAll(() => {
-  delete process.env["GIT_CONFIG_GLOBAL"];
+  restoreSandboxEnv(envBefore);
   rmSync(sandbox, { recursive: true, force: true });
 });
 

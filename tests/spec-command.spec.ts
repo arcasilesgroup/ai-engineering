@@ -18,6 +18,7 @@ import {
   readTriggers,
   unmetTriggers,
 } from "../src/spec/triggers.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
 let sandbox: string;
 let engHome: string;
@@ -117,6 +118,8 @@ const JUDGMENT_SKILL = [
   "",
 ].join("\n");
 
+const envBefore = snapshotSandboxEnv();
+
 beforeEach(() => {
   cwd = process.cwd();
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-spec-command-"));
@@ -140,8 +143,7 @@ beforeEach(() => {
 
 afterEach(() => {
   process.chdir(cwd);
-  delete process.env["AI_ENG_HOME"];
-  delete process.env["GIT_CONFIG_GLOBAL"];
+  restoreSandboxEnv(envBefore);
   rmSync(sandbox, { recursive: true, force: true });
 });
 

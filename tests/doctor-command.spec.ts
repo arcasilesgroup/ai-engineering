@@ -16,9 +16,10 @@ import { doctorMain } from "../src/commands/doctor.ts";
 import { lockText, sha256 } from "../src/install.ts";
 import { carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES } from "../src/surfaces/adapters.ts";
 import { VERSION } from "../src/version.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
 const GOVERNED = '[surfaces]\nenabled = ["claude-code"]\n';
-const ORIGINAL = { cwd: process.cwd(), path: process.env.PATH ?? "" };
+const ORIGINAL = { cwd: process.cwd(), path: process.env.PATH ?? "", sandbox: snapshotSandboxEnv() };
 const temps: string[] = [];
 
 function tempDir(prefix: string): string {
@@ -29,8 +30,7 @@ function tempDir(prefix: string): string {
 
 afterEach(() => {
   process.chdir(ORIGINAL.cwd);
-  delete process.env.AI_ENG_HOME;
-  delete process.env.PI_CODING_AGENT_DIR;
+  restoreSandboxEnv(ORIGINAL.sandbox);
   process.env.PATH = ORIGINAL.path;
   for (const dir of temps.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
