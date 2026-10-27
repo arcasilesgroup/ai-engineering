@@ -263,7 +263,8 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending"
+      "status": "in_progress",
+      "changed_files": ["tests/workflow-checkpoint.spec.ts", "tests/arch.spec.ts"]
     },
     {
       "id": 5,
