@@ -421,6 +421,16 @@ function addRebaseWorktree(repo: string, slug: string, branch = `feat/${slug}`, 
   return path;
 }
 
+function configureDetectedBase(repo: string, base: string): void {
+  const configPath = join(repo, ".ai-engineering", "config.toml");
+  const contents = `[git]\nbase = "${base}"\n`;
+  if (existsSync(configPath) && readFileSync(configPath, "utf8") === contents) return;
+  mkdirSync(dirname(configPath), { recursive: true });
+  writeFileSync(configPath, contents);
+  git(["add", configPath], repo);
+  git(["commit", "-q", "-m", "configure detected base"], repo);
+}
+
 function writeRebasePlan(worktree: string, slug: string, plan: Record<string, unknown>): string {
   const path = join(worktree, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   mkdirSync(dirname(path), { recursive: true });
@@ -455,6 +465,7 @@ interface MergeFixture {
 }
 
 function prepareMergeFixture(repo: string, slug: string): MergeFixture {
+  configureDetectedBase(repo, "main");
   const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
   const feature = addRebaseWorktree(repo, slug);
   const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
@@ -656,6 +667,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
+    configureDetectedBase(repo, "main");
     writeBrainstorm(repo, "alpha");
     const feature = addRebaseWorktree(repo, "alpha");
 
@@ -1277,9 +1289,11 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
       phase: "implementation",
       plan_approval: "approved",
       app_review: "not-started",
-      reviewed_main: null,
+      base_ref: null,
+      reviewed_base: null,
       reviewed_feature: null,
     });
+    expect(Object.hasOwn(transitioned.lifecycle, "reviewed_main")).toBe(false);
     expect(git(["status", "--porcelain", "--untracked-files=all"], approved.feature)).toBe("");
   });
 

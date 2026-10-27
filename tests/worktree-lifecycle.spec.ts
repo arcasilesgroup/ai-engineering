@@ -100,6 +100,8 @@ function initRepo(): string {
   git(["config", "user.name", "Ada Lovelace"], repo);
   git(["config", "user.email", "ada@example.com"], repo);
   git(["config", "commit.gpgsign", "false"], repo);
+  mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
+  writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[git]\nbase = "main"\n');
   mkdirSync(join(repo, "src"));
   writeFileSync(join(repo, "README.md"), "# fixture\n");
   writeFileSync(join(repo, "src", "shared.ts"), "export const value = 1;\n");
@@ -254,6 +256,39 @@ describe("ai-eng worktree lifecycle (checkpoint 2)", () => {
     expect(result.stdout).not.toContain("primary-only");
     expect(result.stdout).not.toContain("not-listed");
     expect(result.stdout).not.toContain("ghost");
+  });
+
+  test("legacy review checkpoints translate against the detected non-main base", () => {
+    const repo = initRepo();
+    const configPath = join(repo, ".ai-engineering", "config.toml");
+    writeFileSync(configPath, '[git]\nbase = "develop"\n');
+    git(["add", configPath], repo);
+    git(["commit", "-q", "-m", "configure detected base"], repo);
+    const reviewedBase = git(["rev-parse", "HEAD"], repo).trim();
+    git(["branch", "develop", reviewedBase], repo);
+
+    const feature = worktreePath(repo, "alpha");
+    mkdirSync(dirname(feature), { recursive: true });
+    git(["worktree", "add", "--quiet", "-b", "feat/alpha", feature, "refs/heads/develop"], repo);
+    const reviewedFeature = commitFile(feature, "feature.txt", "feature\n", "feature work");
+    writeCheckpoint(feature, "alpha", mergeLifecyclePlan(
+      "alpha",
+      "awaiting-app-review",
+      "pending",
+      reviewedBase,
+      reviewedFeature,
+    ));
+    commitFile(repo, "main-only.txt", "main\n", "advance main");
+
+    expect(git(["rev-parse", "refs/heads/develop"], repo).trim()).toBe(reviewedBase);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).not.toBe(reviewedBase);
+    expect(runGit(["merge-base", "--is-ancestor", reviewedBase, reviewedFeature], repo).status).toBe(0);
+
+    const result = runList(repo);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("awaiting-app-review (plan approved, app review pending)");
+    expect(result.stdout).not.toContain("unknown (reviewed_base is stale)");
   });
 
   test("U6: clean, dirty, detached and unclassified Git worktrees report their status and evidence read-only", () => {

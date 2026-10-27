@@ -19,6 +19,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { spawnSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
 import { loadConfig, printable } from "./env.ts";
+import { resolveContext } from "./git/context.ts";
 import {
   brainstormApprovalProblem,
   parseBrainstormApproval,
@@ -654,10 +655,24 @@ function lifecycleStatus(
   checkpointPath: string,
   worktreePath: string,
   slug: string,
-  currentMain: string | null,
   repo: string,
   branch: string,
 ): { label: string; files: string[] } {
+  if (!existsSync(worktreePath) || !existsSync(checkpointPath)) {
+    return { label: "unknown (missing, unreadable or malformed checkpoint)", files: [] };
+  }
+  let baseRef: string;
+  try {
+    const detectedBase = resolveContext(worktreePath).base;
+    if (detectedBase === null) return { label: "unknown (base ref is not detectable)", files: [] };
+    baseRef = `refs/heads/${detectedBase}`;
+  } catch {
+    return { label: "unknown (base ref is not readable)", files: [] };
+  }
+  const currentBaseRead = git(repo, ["rev-parse", "--verify", `${baseRef}^{commit}`]);
+  const currentBase = currentBaseRead.status === 0 && currentBaseRead.stderr.trim() === ""
+    ? currentBaseRead.stdout.trim()
+    : null;
   let parsed: Checkpoint;
   try {
     const checkpointStat = lstatSync(checkpointPath);
@@ -672,7 +687,7 @@ function lifecycleStatus(
     ) {
       return { label: "unknown (checkpoint is not a worktree-local file)", files: [] };
     }
-    parsed = readCheckpoint(checkpointPath, { repoPath: worktreePath, slug, baseRef: "refs/heads/main" });
+    parsed = readCheckpoint(checkpointPath, { repoPath: worktreePath, slug, baseRef });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/checkpoint lifecycle: must be an object/i.test(message)) {
@@ -694,7 +709,7 @@ function lifecycleStatus(
     return { label: "unknown (lifecycle gates are incomplete)", files };
   }
   if (lifecycle.reviewed_base !== null) {
-    if (currentMain === null || lifecycle.reviewed_base !== currentMain) {
+    if (currentBase === null || lifecycle.reviewed_base !== currentBase) {
       return { label: "unknown (reviewed_base is stale)", files };
     }
   }
@@ -791,8 +806,6 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
   if ("detail" in listed) {
     return { code: 2, out: "", err: `worktree list: the worktree list is unreadable (${listed.detail}).\n` };
   }
-  const currentMainRead = git(repo, ["rev-parse", "--verify", "refs/heads/main^{commit}"]);
-  const currentMain = currentMainRead.status === 0 ? currentMainRead.stdout.trim() : null;
   let statusUnreadable = false;
   const entries: ListedWorktree[] = listed.worktrees
     .filter((entry) => canonicalize(entry.path) !== repo)
@@ -809,7 +822,7 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
         : null;
       const state = checkpointPath === null
         ? { label: "unknown (no feature branch)", files: [] }
-        : lifecycleStatus(checkpointPath, entry.path, entry.slug, currentMain, repo, entry.branch ?? "");
+        : lifecycleStatus(checkpointPath, entry.path, entry.slug, repo, entry.branch ?? "");
       return {
         entry,
         isFeature,
@@ -999,6 +1012,16 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   }
 
   const branch = `refs/heads/feat/${slug}`;
+  let baseRef: string;
+  try {
+    const detectedBase = resolveContext(entry.path).base;
+    if (detectedBase === null) {
+      return { code: 1, out: "", err: "worktree request-changes: detected base ref is unavailable.\n" };
+    }
+    baseRef = `refs/heads/${detectedBase}`;
+  } catch {
+    return { code: 1, out: "", err: "worktree request-changes: detected base ref is unreadable.\n" };
+  }
   const head = fullHead(entry.path);
   const branchTip = git(repo, ["rev-parse", "--verify", `${branch}^{commit}`]);
   if (
@@ -1061,7 +1084,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     checkpoint = readCheckpoint(checkpointPath, {
       repoPath: entry.path,
       slug,
-      baseRef: "refs/heads/main",
+      baseRef,
     });
     const snapshot = git(entry.path, ["show", `${expectedCheckpointCommit}:${checkpointRelative}`]);
     if (snapshot.status !== 0 || snapshot.stderr.trim() !== "") {
@@ -1071,7 +1094,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     if (!isDeepStrictEqual(parseCheckpoint(checkpointContents, {
       repoPath: entry.path,
       slug,
-      baseRef: "refs/heads/main",
+      baseRef,
     }), checkpoint)) {
       return { code: 1, out: "", err: "worktree request-changes: checkpoint does not match this worktree.\n" };
     }
@@ -1117,19 +1140,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
       base_ref: null,
     },
   };
-  const rawLifecycle = (JSON.parse(checkpointContents) as Record<string, unknown>).lifecycle;
-  const nextContents = isRecord(rawLifecycle) && Object.hasOwn(rawLifecycle, "reviewed_main")
-    ? `${JSON.stringify({
-      ...nextPlan,
-      lifecycle: {
-        phase: "implementation",
-        plan_approval: "approved",
-        app_review: "not-started",
-        reviewed_main: null,
-        reviewed_feature: null,
-      },
-    }, null, 2)}\n`
-    : serializeCheckpoint(nextPlan);
+  const nextContents = serializeCheckpoint(nextPlan);
 
   const transactionPath = join(root, `.request-changes-${slug}-${randomUUID()}`);
   const added = git(repo, ["worktree", "add", "--detach", transactionPath, expectedCheckpointCommit]);
@@ -1166,7 +1177,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     transactionPlan = readCheckpoint(transactionCheckpoint, {
       repoPath: transactionPath,
       slug,
-      baseRef: "refs/heads/main",
+      baseRef,
     });
   } catch {
     const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
@@ -1238,7 +1249,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
       transitionedPlan = parseCheckpoint(committedCheckpoint.stdout, {
         repoPath: transactionPath,
         slug,
-        baseRef: "refs/heads/main",
+        baseRef,
       });
     }
   } catch {

@@ -329,7 +329,21 @@ function normalizeCheckpoint(value: unknown, context: CheckpointContext): Checkp
     if (value[field] !== undefined) textList(value[field], field);
   }
   const lifecycle = normalizeLifecycle(value.lifecycle, context);
-  return { ...value, slug: context.slug, checkpoints: value.checkpoints as CheckpointItem[], lifecycle } as Checkpoint;
+  const checkpoints = value.checkpoints.map((checkpoint) => {
+    if (!legacyShape || !isRecord(checkpoint)) return checkpoint;
+    return {
+      title: "",
+      goal: "",
+      tasks: [],
+      files: [],
+      acceptance: [],
+      verify: [],
+      changed_files: [],
+      ui: null,
+      ...checkpoint,
+    };
+  });
+  return { ...value, slug: context.slug, checkpoints: checkpoints as CheckpointItem[], lifecycle } as Checkpoint;
 }
 
 export function parseCheckpoint(contents: string, context: CheckpointContext): Checkpoint {

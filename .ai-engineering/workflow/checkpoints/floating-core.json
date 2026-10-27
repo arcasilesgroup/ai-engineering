@@ -264,7 +264,7 @@
         "review": { "status": "failed", "attempts": 1, "findings": ["MAJOR src/shared-worktree.ts:1120: legacy request-changes reparses/writes reviewed_main and bypasses normalized serialization.", "MAJOR src/shared-worktree.ts:675: legacy translation uses hard-coded main instead of detected base.", "MAJOR tests/workflow-checkpoint.spec.ts:398: no passing test covers plan approval → implementation."] }
       },
       "status": "in_progress",
-      "changed_files": ["tests/workflow-checkpoint.spec.ts", "tests/arch.spec.ts", ".ai-engineering/arch.rules.json", "FILEMAP.md", "src/shared-worktree.ts", "src/workflow/checkpoint.ts"]
+      "changed_files": ["tests/workflow-checkpoint.spec.ts", "tests/arch.spec.ts", ".ai-engineering/arch.rules.json", "FILEMAP.md", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts"]
     },
     {
       "id": 5,

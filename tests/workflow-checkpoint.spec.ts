@@ -264,6 +264,53 @@ describe("workflow checkpoint state (CP4)", () => {
     expect(serialized.slug).toBe(legacy.slug);
   });
 
+  test("normalizes legacy checkpoint fields before canonical serialization", () => {
+    const legacy = checkpoint(fixture.slug, "implementation");
+    const legacyItem = legacy.checkpoints[0]!;
+    delete legacyItem.title;
+    delete legacyItem.goal;
+    delete legacyItem.verify;
+    delete legacyItem.changed_files;
+    delete legacyItem.ui;
+    legacy.lifecycle = {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      reviewed_main: null,
+      reviewed_feature: null,
+    } as Checkpoint["lifecycle"];
+
+    const canonical = serializeCheckpoint(readPlan(fixture, legacy));
+    const reread = readPlan(fixture, canonical);
+
+    expect(reread.checkpoints[0]).toMatchObject({
+      title: "",
+      goal: "",
+      verify: [],
+      changed_files: [],
+      ui: null,
+    });
+  });
+
+  test("allows approved plan approval to enter implementation", () => {
+    const awaitingApproval = checkpoint(fixture.slug, "awaiting-plan-approval");
+    const implementation = checkpoint(fixture.slug, "implementation");
+
+    expect(() => assertCheckpointTransition(
+      awaitingApproval,
+      implementation,
+      contextFor(fixture),
+    )).not.toThrow();
+    expect(implementation.lifecycle).toMatchObject({
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+  });
+
   test("rejects malformed schemas and checkpoint slug/path mismatches by field", () => {
     const valid = checkpoint(fixture.slug, "implementation");
     const one = valid.checkpoints[0]!;

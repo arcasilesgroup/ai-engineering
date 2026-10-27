@@ -1026,3 +1026,24 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Clear every variable `git rev-parse --local-env-vars` lists; fail if that list can't be read.
 - **Lesson:** Isolating a git read means clearing the repository-locating environment as well as config.
 - **Tags:** review, git, isolation
+
+### L141 · 2026-10-27 · floating-core #4 · review
+- **Failure:** The legacy request-changes path re-emitted `reviewed_main` instead of normalized lifecycle fields.
+- **Root cause:** That write path bypassed the shared checkpoint serializer.
+- **Fix:** Serialize normalized checkpoint state through the shared codec.
+- **Lesson:** Canonical writes must use the shared codec.
+- **Tags:** review, lifecycle, serialization
+
+### L142 · 2026-10-27 · floating-core #4 · review
+- **Failure:** Legacy checkpoint translation could select `main` even when another base branch was detected.
+- **Root cause:** The parser received a hard-coded branch instead of Git context.
+- **Fix:** Resolve and pass the detected base; cover a diverged `develop` case.
+- **Lesson:** Derive base context from Git.
+- **Tags:** review, git, lifecycle
+
+### L143 · 2026-10-27 · floating-core #4 · review
+- **Failure:** The checkpoint transition tests had no successful plan-approval-to-implementation case.
+- **Root cause:** Coverage asserted refusal without proving the corresponding allowed transition.
+- **Fix:** Add the passing transition case alongside the existing refusal.
+- **Lesson:** Test each transition's passing and refusing cases.
+- **Tags:** review, lifecycle, tests

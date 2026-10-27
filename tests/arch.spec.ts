@@ -105,7 +105,9 @@ describe("architecture (arch.rules.json — single source of truth, §16.2)", ()
         const source = readFileSync(join(SRC, path), "utf8");
         const identifiesCheckpoint = path.replace(/\\/g, "/") === "workflow/checkpoint.ts" ||
           /checkpoint(?:Path|File)|workflow[\\/].{0,80}checkpoints/i.test(source);
-        return identifiesCheckpoint && /readFileSync\s*\(/.test(source);
+        const readsCheckpointFile = /readFileSync\s*\(/.test(source);
+        const parsesCheckpointContents = /JSON\.parse\s*\(\s*[A-Za-z_$][\w$]*checkpoint[\w$]*/i.test(source);
+        return identifiesCheckpoint && (readsCheckpointFile || parsesCheckpointContents);
       })
       .map((path) => path.replace(/\\/g, "/"))
       .sort();
