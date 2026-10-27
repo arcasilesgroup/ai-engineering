@@ -216,8 +216,7 @@ Before opening Phase 4, finish and commit Phase 3 changes under the commit-as-yo
    than guessing. Identify its full local ref as `base_ref`; run
    `git rev-parse <base_ref>` and retain its exact full commit as the rebase target.
    Never fetch or sync remote state, or merge an unapproved sibling.
-2. From the selected checkout run `git rebase <detected base>`. This is Git's rebase
-   command, not a removed `ai-eng worktree rebase` verb. If a conflict is clear, resolve
+2. From the selected checkout run `git rebase <detected base>`. If a conflict is clear, resolve
    it in the selected checkout, stage only the resolved paths, and continue the rebase.
    If either side's intent is unclear, run `git rebase --abort` first. Verify the original branch,
    feature commit, tree ID and clean status are restored before writing

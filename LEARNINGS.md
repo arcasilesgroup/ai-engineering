@@ -1173,3 +1173,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Run `bun scripts/gen-assets.ts` after the last edit and verify generated-payload.
 - **Lesson:** Regenerate embedded assets after final skill or source changes.
 - **Tags:** behavior, bundle, generated
+
+### L162 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** Ceremony contract found a citation to the removed `ai-eng worktree rebase` command.
+- **Root cause:** Phase 3 text still named the deleted CLI verb.
+- **Fix:** Remove the stale command citation while retaining native `git rebase <detected base>` and the Phase 4 merge command.
+- **Lesson:** Contract text should cite only current commands.
+- **Tags:** behavior, workflow, docs
