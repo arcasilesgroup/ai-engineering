@@ -40,10 +40,11 @@ Worktree list/new/request-changes/rm honor arbitrary branch names, current-HEAD 
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
 
-## F1 · MAJOR · fixed
+## F1 · MAJOR · resolved
 **Where:** src/shared-worktree.ts:318,390-391
 **Critic (r1):** The containment check is lexical, but `mkdirSync(dirname(target), { recursive: true })` follows an existing symlink inside the worktree root. With a branch like `feature/pagos` and `root/feature` symlinked outside the root, `worktree add` creates the checkout outside the configured root; `worktree rm feature/pagos` then cannot find it because `findManagedWorktree` requires the checkout to remain under that root. Resolve and verify the actual parent path remains inside the canonical root before adding, or refuse symlinked path components.
 **Fixer (r1):** fixed — canonicalize the configured root and target parent before creating directories, then revalidate containment after creation; add real-filesystem escape and safe-root-symlink coverage · verify: `bun test tests/worktree-command.spec.ts`, `bun run typecheck`, `bun run lint`, `bun test tests/arch.spec.ts` ✓
 - **ROOT CAUSE:** The guard compared a lexical target against the root and never resolved an existing symlinked parent.
 - **FIX:** Resolve the root and nearest existing parent physically, deny escape with a repair step, and re-check after making parent directories.
 - **LESSON:** Check canonical filesystem paths both before and after creating missing parents; use `relative` plus the platform `sep` for containment.
+**Critic (r2):** Resolved. `canonicalizeForCreation` resolves the configured root through safe root symlinks and the target's nearest existing parent; the command checks parent containment before and after creating it. The new fixture verifies safe configured-root symlink creation and refuses an escaped branch-component symlink without creating the outside target or registering the branch.
