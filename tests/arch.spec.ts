@@ -142,6 +142,13 @@ describe("architecture (arch.rules.json — single source of truth, §16.2)", ()
     ["payload", "cli"],
     ["payload", "surfaces"],
     ["commands", "cli"],
+    ["git", "commands"],
+    ["git", "cli"],
+    ["git", "chain"],
+    ["git", "guards"],
+    ["workflow", "commands"],
+    ["workflow", "cli"],
+    ["workflow", "chain"],
   ] as const;
 
   for (const rule of config.rules) {

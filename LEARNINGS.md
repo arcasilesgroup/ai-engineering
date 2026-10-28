@@ -1334,3 +1334,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Replace the obsolete suite entry with active `tests/update-command.spec.ts`; keep the restoration assertion intact.
 - **Lesson:** Keep test-hygiene inputs aligned with the active suite set.
 - **Tags:** behavior, tests, hygiene
+
+### L185 · 2026-10-27 · floating-core #10 · review
+- **Failure:** Removing a required git/workflow architecture rule did not fail `tests/arch.spec.ts`.
+- **Root cause:** `requiredRestrictions` omitted those source-target fences.
+- **Fix:** Assert each required git and workflow restriction explicitly.
+- **Lesson:** Pin each required source-target fence so removing its config rule fails the test.
+- **Tags:** review, architecture, tests
