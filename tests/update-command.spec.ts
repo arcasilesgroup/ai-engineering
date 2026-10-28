@@ -14,18 +14,27 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join, dirname } from "node:path";
+import { delimiter, join, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { PassThrough } from "node:stream";
 import { syncPlan, updateMain } from "../src/commands/update.ts";
 import { planEntries } from "../src/commands/init-shared.ts";
-import { mergeSharedText, sha256 } from "../src/install.ts";
+import { buildLock, install, lockText, mergeSharedText, sha256 } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import type { PlanEntry } from "../src/install.ts";
 
 const SANDBOX = mkdtempSync(join(tmpdir(), "ai-eng-update-cmd-"));
 const ENG_HOME = join(SANDBOX, "home");
 const CWD = process.cwd();
+const REPO_ROOT = resolve(import.meta.dir, "..");
+const OPTIONAL_PACKS = [
+  { id: "triage", skill: "ai-triage" },
+  { id: "design-md-planner", skill: "ai-design-md-planner" },
+  { id: "audit-design", skill: "ai-audit-design" },
+  { id: "visual-recap", skill: "ai-visual-recap" },
+  { id: "writing-behavior", skill: "ai-writing-behavior" },
+  { id: "stress-test", skill: "ai-stress-test" },
+] as const;
 const KEYS = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL", "NO_COLOR", "CI", "AI_ENG_NO_UPDATE_NOTICES", "PATH"] as const;
 const saved: Partial<Record<(typeof KEYS)[number], string | undefined>> = {};
 let savedStdin: PropertyDescriptor | undefined;
@@ -145,6 +154,25 @@ function entryFor(entries: PlanEntry[], path: string): PlanEntry {
   return found;
 }
 
+function sourceSkillFile(skillName: string, packId?: string): string {
+  const candidates = [
+    join(REPO_ROOT, "skills", skillName, "SKILL.md"),
+    ...(packId === undefined ? [] : [
+      join(REPO_ROOT, "packs", packId, "SKILL.md"),
+      join(REPO_ROOT, "packs", skillName, "SKILL.md"),
+    ]),
+  ];
+  const found = candidates.find(existsSync);
+  if (!found) throw new Error(`the canonical inventory has no SKILL.md for ${skillName}`);
+  return found;
+}
+
+function canonPacks(config: string): string[] | null {
+  const section = /^\[canon\]\s*\n([\s\S]*?)(?=^\[|$)/m.exec(config)?.[1];
+  const values = section?.match(/^packs = \[(.*)\]$/m)?.[1];
+  return values === undefined ? null : [...values.matchAll(/"([^"]+)"/g)].map((match) => match[1] ?? "");
+}
+
 describe("syncPlan · what the binary decides to write, keep or refuse", () => {
   const entries = planEntries(["claude-code"]);
   const paths = entries.map((entry) => entry.path).sort();
@@ -203,6 +231,22 @@ describe("syncPlan · what the binary decides to write, keep or refuse", () => {
     const edited = syncPlan(entries, root, { [target]: sha256(previousOurs) });
     expect(edited.conflicts).toEqual([target]);
     expect(edited.updates).toEqual([]);
+  });
+
+  test("a locally edited pack skill stays protected by its recorded hash", () => {
+    const skillPath = "skills/ai-triage/SKILL.md";
+    const ours = readFileSync(sourceSkillFile("ai-triage", "triage"), "utf8");
+    const root = join(SANDBOX, "plan-edited-skill");
+    const absolute = join(root, skillPath);
+    const localEdit = `${ours}\n# local edit\n`;
+    mkdirSync(dirname(absolute), { recursive: true });
+    writeFileSync(absolute, localEdit);
+
+    const plan = syncPlan([{ path: skillPath, ours }], root, { [skillPath]: sha256(ours) });
+
+    expect(plan.conflicts).toEqual([skillPath]);
+    expect(plan.updates).toEqual([]);
+    expect(readFileSync(absolute, "utf8")).toBe(localEdit);
   });
 
   test("a shared settings file is updated by its merge, never called a conflict", () => {
@@ -292,6 +336,37 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(second.out).not.toInclude("machine carrier · written");
     expect(readFileSync(lockPath, "utf8")).toBe(bytes);
     expect(statSync(lockPath).mtimeMs).toBe(mtime);
+  });
+
+  test("the first update adopts every legacy pack and preserves unrelated canon files", async () => {
+    const repo = governedRepo("repo-legacy-packs");
+    const configPath = ".ai-engineering/config.toml";
+    const legacyConfig = '[surfaces]\nenabled = ["claude-code"]\n';
+    const legacyEntries = planEntries(["claude-code"]).map((entry) =>
+      entry.path === configPath ? { ...entry, ours: legacyConfig } : entry,
+    );
+    install(repo, legacyEntries);
+    writeFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), lockText(buildLock(legacyEntries, "2.5.0")));
+    const localSkill = join(ENG_HOME, "skills", "my-local-skill", "SKILL.md");
+    mkdirSync(dirname(localSkill), { recursive: true });
+    writeFileSync(localSkill, "# mine\n");
+    for (const pack of OPTIONAL_PACKS) {
+      const installedSkill = join(ENG_HOME, "skills", pack.skill, "SKILL.md");
+      mkdirSync(dirname(installedSkill), { recursive: true });
+      writeFileSync(installedSkill, readFileSync(sourceSkillFile(pack.skill, pack.id), "utf8"));
+    }
+    process.chdir(repo);
+
+    const run = await captured(() => updateMain({ yes: true }));
+
+    expect(run.value).toBe(0);
+    expect(canonPacks(readFileSync(join(repo, ".ai-engineering", "config.toml"), "utf8"))).toEqual(
+      OPTIONAL_PACKS.map((pack) => pack.id),
+    );
+    for (const pack of OPTIONAL_PACKS) {
+      expect(existsSync(join(ENG_HOME, "skills", pack.skill, "SKILL.md"))).toBe(true);
+    }
+    expect(readFileSync(localSkill, "utf8")).toBe("# mine\n");
   });
 
   test("update leaves HEAD unchanged, spawns no commit, and leaves global config untouched", async () => {

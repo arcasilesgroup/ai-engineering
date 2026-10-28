@@ -18,6 +18,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -173,6 +174,35 @@ const byId = (id: string): Surface => {
   if (!found) throw new Error(`surface ${id} is not declared in surfaces.json`);
   return found;
 };
+
+const REPO_ROOT = resolve(import.meta.dir, "..");
+
+function skillNames(root: string): string[] {
+  if (!existsSync(root)) return [];
+  return readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && existsSync(join(root, entry.name, "SKILL.md")))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+function canonPacks(config: string): string[] | null {
+  const section = /^\[canon\]\s*\n([\s\S]*?)(?=^\[|$)/m.exec(config)?.[1];
+  const values = section?.match(/^packs = \[(.*)\]$/m)?.[1];
+  return values === undefined ? null : [...values.matchAll(/"([^"]+)"/g)].map((match) => match[1] ?? "");
+}
+
+function assertCoreCanon(home: string): void {
+  expect(skillNames(join(home, "skills"))).toEqual(skillNames(join(REPO_ROOT, "skills")));
+
+  const sourceAgents = join(REPO_ROOT, "agents");
+  const installedAgents = join(home, "agents");
+  const agentNames = readdirSync(sourceAgents).filter((name) => name.endsWith(".md")).sort();
+  expect(existsSync(installedAgents)).toBe(true);
+  expect(readdirSync(installedAgents).filter((name) => name.endsWith(".md")).sort()).toEqual(agentNames);
+  for (const name of agentNames) {
+    expect(readFileSync(join(installedAgents, name), "utf8")).toBe(readFileSync(join(sourceAgents, name), "utf8"));
+  }
+}
 
 describe("init · the plan seams (src/commands/init-shared.ts)", () => {
   test("detectCommands reads the target tree", () => {
@@ -343,6 +373,8 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(decisions).toContain(`Date: ${new Date().toISOString().slice(0, 10)}`);
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
     expect(config).toContain('enabled = ["claude-code"]');
+    expect(canonPacks(config)).toEqual([]);
+    assertCoreCanon(home);
 
     // Claude Code reads AGENTS.md natively now — no CLAUDE.md shim is written.
     expect(existsSync(join(cwd, "CLAUDE.md"))).toBe(false);
@@ -551,7 +583,35 @@ describe("init · the git floor's own housekeeping", () => {
 
 });
 
-describe("init · the prompt paths a non-TTY --yes run never reaches", () => {
+describe("init · pack selection in interactive and non-TTY runs", () => {
+  test("non-TTY init installs core only and records no packs", async () => {
+    const { cwd, machine: home } = sandboxed();
+    const { result } = await driven({}, [
+      ["Create", "\r"],
+      ["Which agent surfaces", " \n"],
+    ]);
+
+    expect(result).toBe(0);
+    expect(canonPacks(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8"))).toEqual([]);
+    assertCoreCanon(home);
+  });
+
+  test("interactive init asks for optional packs with none preselected", async () => {
+    const { cwd } = sandboxed();
+    await initMain({ yes: true, global: true });
+    mkdirSync(join(cwd, ".cursor"));
+    gitIn(["init", "-q"], cwd);
+
+    const { result, out } = await driven({}, [
+      ["Which agent surfaces", "\n"],
+      ["pack", "\n"],
+    ]);
+
+    expect(result).toBe(0);
+    expect(out.toLowerCase()).toContain("pack");
+    expect(canonPacks(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8"))).toEqual([]);
+  });
+
   test("declining the canon offer installs nothing at all", async () => {
     const { cwd, machine: home } = sandboxed();
     mkdirSync(join(cwd, ".git"));

@@ -48,6 +48,14 @@ const EVERYTHING_KEYS = "\x1b[B\r";
 const CANCEL_KEYS = "\x1b[B\x1b[B\r";
 const LEGACY_SHIMS = ["pre-commit", "commit-msg", "pre-push"] as const;
 const LEGACY_SHIM_MARKER = "ai-eng git floor shim";
+const OPTIONAL_PACKS = [
+  { id: "triage", skill: "ai-triage" },
+  { id: "design-md-planner", skill: "ai-design-md-planner" },
+  { id: "audit-design", skill: "ai-audit-design" },
+  { id: "visual-recap", skill: "ai-visual-recap" },
+  { id: "writing-behavior", skill: "ai-writing-behavior" },
+  { id: "stress-test", skill: "ai-stress-test" },
+] as const;
 
 let sandbox: string | undefined;
 
@@ -107,6 +115,18 @@ function recordLegacyTemplateDir(previous: string | null, ours: string | null): 
     machineStateFile(),
     `${JSON.stringify({ version: "2.5.0", carriers: {}, templateDir: { previous, ours } }, null, 2)}\n`,
   );
+}
+
+function sourceSkillFile(skillName: string, packId: string): string {
+  const repo = join(import.meta.dir, "..");
+  const candidates = [
+    join(repo, "skills", skillName, "SKILL.md"),
+    join(repo, "packs", packId, "SKILL.md"),
+    join(repo, "packs", skillName, "SKILL.md"),
+  ];
+  const found = candidates.find(existsSync);
+  if (!found) throw new Error(`the canonical inventory has no SKILL.md for ${skillName}`);
+  return found;
 }
 
 /** A real init-shaped install: the contract files once, the plan's files, the shims made
@@ -584,10 +604,28 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(out).toContain("✓ git init.templateDir unset (it was unset before)");
   });
 
-  test("an older templateDir setting is restored without deleting the user's prior hooks", async () => {
-    const { cwd } = sandboxed();
+  test("an older templateDir is restored and selected packs are removed", async () => {
+    const { cwd, machine } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
+    writeFileSync(
+      join(cwd, ".ai-engineering", "config.toml"),
+      `[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = [${[...OPTIONAL_PACKS.map((pack) => pack.id), "verify-tiers"].map((pack) => `"${pack}"`).join(", ")}]\n`,
+    );
+    const coreSkill = join(machine, "skills", "ai-orchestrator", "SKILL.md");
+    mkdirSync(join(machine, "skills", "ai-orchestrator"), { recursive: true });
+    writeFileSync(coreSkill, readFileSync(join(import.meta.dir, "..", "skills", "ai-orchestrator", "SKILL.md"), "utf8"));
+    const installedPacks = OPTIONAL_PACKS.map(({ id, skill }) => {
+      const path = join(machine, "skills", skill, "SKILL.md");
+      mkdirSync(join(machine, "skills", skill), { recursive: true });
+      writeFileSync(path, readFileSync(sourceSkillFile(skill, id), "utf8"));
+      return path;
+    });
+    const verifyTiersPack = join(machine, "skills", "ai-verify", "tiers", "installed-pack-check");
+    mkdirSync(join(machine, "skills", "ai-verify", "tiers"), { recursive: true });
+    writeFileSync(verifyTiersPack, "selected verify-tiers pack\n");
+    installedPacks.push(verifyTiersPack);
+    expect(installedPacks.every(existsSync)).toBe(true);
 
     const previous = join(sandbox!, "older-template");
     const ours = join(sandbox!, "legacy-owned-template");
@@ -602,6 +640,9 @@ describe("uninstall · the machine side (Everything scope)", () => {
     const { result, out } = await uninstall(everythingScope("n", "y"));
 
     expect(result).toBe(0);
+    expect(existsSync(coreSkill)).toBe(false);
+    for (const path of installedPacks) expect(existsSync(path)).toBe(false);
+    expect(existsSync(machine)).toBe(false);
     expect(globalTemplateDir()).toBe(previous);
     expect(existsSync(ours)).toBe(false);
     expect(readFileSync(join(previous, "hooks", "pre-commit"), "utf8")).toBe(existingHook);

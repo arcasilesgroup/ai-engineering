@@ -832,7 +832,7 @@
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "in_progress",
-      "changed_files": ["tests/embed-canon.spec.ts", "tests/npm-manifest.spec.ts", "tests/skills-eval-score.spec.ts", "tests/skills.spec.ts", "tests/triage-azure-signals.integration.spec.ts", "tests/triage-azure-signals.unit.spec.ts", "tests/triage-azure.integration.spec.ts", "tests/triage-azure.unit.spec.ts", "tests/triage-github.spec.ts", "tests/triage-report.integration.spec.ts", "tests/triage-report.unit.spec.ts", "tests/triage-routing.integration.spec.ts", "tests/triage-routing.unit.spec.ts", "tests/ceremony-contract.spec.ts", "tests/carriers-install.spec.ts"]
+      "changed_files": ["tests/embed-canon.spec.ts", "tests/npm-manifest.spec.ts", "tests/skills-eval-score.spec.ts", "tests/skills.spec.ts", "tests/triage-azure-signals.integration.spec.ts", "tests/triage-azure-signals.unit.spec.ts", "tests/triage-azure.integration.spec.ts", "tests/triage-azure.unit.spec.ts", "tests/triage-github.spec.ts", "tests/triage-report.integration.spec.ts", "tests/triage-report.unit.spec.ts", "tests/triage-routing.integration.spec.ts", "tests/triage-routing.unit.spec.ts", "tests/ceremony-contract.spec.ts", "tests/carriers-install.spec.ts", "tests/init-command.spec.ts", "tests/update-command.spec.ts", "tests/uninstall-command.spec.ts"]
     },
     {
       "id": 13,
