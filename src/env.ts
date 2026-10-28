@@ -178,34 +178,6 @@ export interface LocalRuleConfig {
   risk: number;
 }
 
-/** Circuit breaker settings from config.toml. */
-export interface CircuitBreakerConfig {
-  failureThreshold?: number;
-  resetMs?: number;
-}
-
-/** Load circuit breaker settings from config.toml. Returns defaults when absent. */
-export function loadCircuitBreakerConfig(root?: string | null): CircuitBreakerConfig {
-  const resolved = root === undefined ? repoRoot() : root;
-  if (!resolved) return {};
-  const path = configPath(resolved);
-  if (!existsSync(path)) return {};
-  try {
-    const doc = Bun.TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
-    const guards = doc["guards"];
-    if (!guards || typeof guards !== "object" || Array.isArray(guards)) return {};
-    const cb = (guards as Record<string, unknown>)["circuit_breaker"];
-    if (!cb || typeof cb !== "object" || Array.isArray(cb)) return {};
-    const cfg = cb as Record<string, unknown>;
-    const result: CircuitBreakerConfig = {};
-    if (typeof cfg["failure_threshold"] === "number") result.failureThreshold = cfg["failure_threshold"];
-    if (typeof cfg["reset_ms"] === "number") result.resetMs = cfg["reset_ms"];
-    return result;
-  } catch {
-    return {};
-  }
-}
-
 /** Load local rules from the repo's config.toml. Returns [] when absent or unparseable. */
 export function loadLocalRules(root?: string | null): LocalRuleConfig[] {
   const resolved = root === undefined ? repoRoot() : root;

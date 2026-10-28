@@ -299,7 +299,12 @@ export type MachineReport = { written: string[]; untouched: string[]; refused: A
  *   - Codex's trust. Its approval is a hash of the hook DEFINITION, and a definition that
  *     changed re-asks in /hooks. Comparing the shipped bytes against what was recorded is
  *     the only way to know the change happened. */
-export type MachineState = { version: string; carriers: Record<string, string>; templateDir?: { previous: string | null; ours: string | null } };
+export type MachineState = {
+  version: string;
+  carriers: Record<string, string>;
+  /** Legacy state retained so uninstall can restore settings written by older versions. */
+  templateDir?: { previous: string | null; ours: string | null };
+};
 
 export function machineStateFile(): string {
   return join(home(), "machine.json");
@@ -325,16 +330,6 @@ export function readMachineState(): MachineState {
   } catch {
     return { version: "", carriers: {} };
   }
-}
-
-/** Remember what the git floor did to `init.templateDir`, so uninstall can undo exactly
- *  that: the value it replaced, and the directory this install owns (null when we joined
- *  one the user already had). */
-export function rememberTemplateDir(previous: string | null, ours: string | null): void {
-  const state = readMachineState();
-  state.version = VERSION;
-  state.templateDir = { previous, ours };
-  writeMachineState(state);
 }
 
 function writeMachineState(state: MachineState): void {

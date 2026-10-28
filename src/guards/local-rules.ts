@@ -4,7 +4,7 @@
 // Rules are evaluated in priority order: block before review, higher risk first.
 // Inspired by Pyro's local-rules pattern (DelvisorLabs/Pyro).
 
-import type { Payload } from "../chain/payload.ts";
+import type { Payload } from "../payload.ts";
 
 export type LocalRuleScope = "all_text" | "tool_name" | "raw_json";
 export type LocalRuleMatch = "contains" | "equals";

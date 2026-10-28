@@ -117,7 +117,7 @@
           "measured": "2026-09-11"
         }
       ],
-      "note": "keeps its carrier in the repo because its user level loses to the project and its cloud VMs never read your home (research/003). a shell's output is not replaced: postToolUse can add context, and only an MCP result can be swapped (research/009, Cursor 3.21.18, 2026-09-25)"
+      "note": "keeps its carrier in the repo because its user level loses to the project and its cloud VMs never read your home (research/003). a shell's output is not replaced: postToolUse can add context, and only an MCP result can be swapped (research/009, Cursor 3.21.18, 2026-09-25); no token savings from output rewriting"
     },
     {
       "id": "codex",
@@ -179,7 +179,7 @@
           "measured": "2026-09-25"
         }
       ],
-      "note": "Copilot CLI only: command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; cloud/VS Code are intentionally outside this surface"
+      "note": "Copilot CLI only: command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; cloud/VS Code are intentionally outside this surface; no token savings from output rewriting"
     },
     {
       "id": "pi",

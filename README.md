@@ -301,44 +301,35 @@ it.
 
 ## CLI
 
-Six verbs for people:
+Five verbs for people:
 
 ```bash
-ai-eng init        # install governance into this repo, or globally without one
+ai-eng init        # install governance; leaves changes for your review
 ai-eng doctor      # every check it knows, plus one real adversarial probe
 ai-eng config      # add or remove surfaces, and regenerate their adapters
-ai-eng update      # rewrite ai-eng's files from the installed binary (zero network)
-ai-eng upgrade     # delegate to bun or npm
+ai-eng update      # sync files from the installed binary (offline; leaves changes for review)
 ai-eng uninstall   # revert ours, keep yours
 ```
 
-Seven machine verbs for hooks, CI and agents: `chain`, `git`, `wrap`, `spec`, `worktree`,
-`adapt`, `briefing`. `--help` names them on one line. The three you will meet in the README:
+To upgrade the installed package, run `bun add -g ai-engineering@latest`.
+
+Five machine verbs for hooks, CI and agents: `chain`, `git`, `wrap`, `worktree`,
+`adapt`. `--help` names them on one line. The three you will meet in the README:
 
 ```bash
 echo "$PAYLOAD" | ai-eng chain PreToolUse       # the guard dispatcher, reads the host payload on stdin
 ai-eng git pre-commit                           # the pre-commit, commit-msg and pre-push checks
-ai-eng worktree new <slug> [files...]            # start a feature worktree with optional advisory hints
-ai-eng worktree rebase <slug>                   # sync a clean managed feature with all required implementation gates passed
-ai-eng worktree merge <slug>                    # merge the human-approved, SHA-reviewed feature and close its worktree
+ai-eng worktree new <branch>                    # start a worktree from the detected base
+ai-eng worktree merge <slug>                    # merge the human-approved, SHA-reviewed feature
 ai-eng worktree request-changes <slug> <sha>     # CAS the exact pending app-review checkpoint back to implementation
-ai-eng worktree rm <slug>                       # remove a feature already merged to local main
-ai-eng worktree list [<slug>]                   # show active worktrees or exact pre-worktree lifecycle evidence
+ai-eng worktree rm <slug>                       # remove a worktree after confirming it is safe
+ai-eng worktree list [<slug>]                   # show active worktrees or matching checkpoint evidence
 ```
 
-Before a feature worktree exists, `list <slug>` projects approval only from the
-primary-tree brainstorm with the same feature slug, a fresh approval date, a matching
-complete status line, and no existing local `feat/<slug>` branch. A branch without
-an open worktree is reported as unknown, never as pre-worktree approval. The projection
-is read-only and writes no lifecycle record. Once a worktree exists, its checkpoint is
-authoritative; unknown checkpoint state never falls back to the brainstorm. `request-changes` accepts only
+`merge` uses the reviewed SHAs and detected base; it does not delete the worktree.
+`request-changes` accepts only
 the full SHA of the current pending, checkpoint-only app-review commit and commits a
 lifecycle-only return to implementation; a stale SHA leaves review state untouched.
-
-The optional `files...` on `worktree new` are advisory overlap hints stored in
-`.ai-eng-worktrees.json` beside the worktrees. They can warn about likely file overlap,
-but never approve implementation or replace checkpoint gates. A malformed manifest is
-preserved and not rewritten; a requested hint is refused when it cannot be validated.
 Carry any hint that remains in scope into the approved checkpoint's `files` list.
 Worktrees live under `[git].worktrees_dir` when configured, or beside the repository in
 `<repo>.worktrees` by default. `ai-eng worktree list` reports only that local root and

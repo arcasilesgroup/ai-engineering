@@ -17,7 +17,7 @@ import {
   hooksPathTargets,
   runNoVerify,
 } from "../src/guards/no-verify.ts";
-import type { Payload } from "../src/chain/payload.ts";
+import type { Payload } from "../src/payload.ts";
 
 const hookReason = (target: string) => `this points core.hooksPath at ${target || "nothing"} instead`;
 const skipReason = (label: string) => `${label} skips the git hooks`;

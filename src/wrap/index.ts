@@ -4,11 +4,31 @@
 // line with the receipt id — the trace must not lie about which command ran.
 
 import { spawnSync } from "node:child_process";
-import { writeReceipt, receiptId } from "../receipts.ts";
+import { lstatSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { receiptsDir, repoRoot } from "../env.ts";
+import { writeReceipt, receiptId, type Receipt } from "../receipts.ts";
 import { detectRunner, paint, paintVitestJson, countSummary } from "./paint.ts";
 
 /** A hung runner must not hang the agent's context forever. */
 const TIMEOUT_MS = 10 * 60 * 1000;
+
+function saveFullOutput(receipt: Receipt | null, output: string): string | null {
+  const root = repoRoot();
+  const directory = root === null ? null : receiptsDir(root);
+  if (receipt === null || root === null || directory === null) return null;
+  try {
+    for (const path of [join(root, ".ai-engineering"), directory]) {
+      const stat = lstatSync(path);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) return null;
+    }
+    const id = receiptId(receipt);
+    writeFileSync(join(directory, `${id}.log`), output, { flag: "wx", mode: 0o600 });
+    return `.ai-engineering/receipts/${id}.log`;
+  } catch {
+    return null;
+  }
+}
 
 export function wrapMain(args: string[]): number {
   if (args[0] === "test") args = args.slice(1);
@@ -57,5 +77,7 @@ export function wrapMain(args: string[]): number {
   process.stdout.write(
     `[ai-eng] wrap: ${runner} · salida filtrada${receipt ? ` · receipt ${receiptId(receipt)}` : ""}${timedOut ? " · TIMEOUT" : ""}\n`,
   );
+  const logPath = saveFullOutput(receipt, `${stdout}${done.stderr ?? ""}`);
+  if (logPath !== null) process.stdout.write(`full output: ${logPath}\n`);
   return status;
 }

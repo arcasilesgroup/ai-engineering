@@ -1,54 +1,12 @@
-/**
- * Workflow kit checkpoints 5 and 7 — doctor reports the TypeScript guard and truthful surfaces.
- *
- * Red until checkpoint-gate-report exists and names Zed gate unenforced while at
- * least one denying carrier (claude-code or cursor) that still runs ai-eng chain
- * reports chain active. Also pins the viewer poll loop.
- */
+/** Workflow kit checkpoints 5 and 7 — install artifacts and viewer poll loop. */
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { materializeScripts } from "../src/embed.ts";
-import { checkpointGateReportLines } from "../src/commands/checkpoint-gate-report.ts";
 
 const ROOT = join(import.meta.dir, "..");
 
-type SurfaceRow = {
-  id: string;
-  carriers: unknown[];
-  can: { deny: boolean | "throw" | "host-only" };
-};
-
-const TEMPLATE_BY_SURFACE: Record<string, string> = {
-  "claude-code": "settings.claude.json.tpl",
-  cursor: "settings.cursor.json.tpl",
-  codex: "settings.codex.json.tpl",
-  "copilot-cli": "settings.copilot.cli.json.tpl",
-  opencode: "plugin.opencode.ts.tpl",
-  "oh-my-pi": "plugin.omp.ts.tpl",
-  pi: "plugin.pi.ts.tpl",
-};
-
-describe("workflow kit — doctor surface truth for checkpoint gate", () => {
-  test("report lines: Zed unenforced and a denying surface still chain active", () => {
-    const catalog = JSON.parse(readFileSync(join(ROOT, "src", "surfaces", "surfaces.json"), "utf8")) as {
-      surfaces: SurfaceRow[];
-    };
-    const templates: Record<string, string> = {};
-    for (const [id, file] of Object.entries(TEMPLATE_BY_SURFACE)) {
-      templates[id] = readFileSync(join(ROOT, "templates", file), "utf8");
-    }
-
-    const lines = checkpointGateReportLines(catalog.surfaces, templates);
-    const joined = lines.join("\n");
-
-    expect(joined).toMatch(/checkpoint gate unenforced/i);
-    expect(joined).toMatch(/Zed/i);
-    expect(joined).toMatch(/chain active/i);
-    expect(joined).toMatch(/claude-code|cursor/i);
-    expect(joined).toMatch(/typescript.*checkpoint|checkpoint.*typescript/i);
-  });
-
+describe("workflow kit — install artifacts and viewer poll loop", () => {
   test("install materializes no Python checkpoint-gate script", () => {
     const scriptsDir = mkdtempSync(join(import.meta.dir, ".workflow-doctor-scripts-"));
     try {

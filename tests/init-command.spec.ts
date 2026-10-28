@@ -309,12 +309,16 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(false);
   });
 
-  test("--yes in a bare folder creates the repo and scaffolds the whole contract", async () => {
+  test("--yes in a bare folder creates the repo and leaves the whole contract for review", async () => {
     const { cwd, machine: home } = sandboxed();
-    // OS droppings present BEFORE init: the baseline commit must not carry them.
+    // OS droppings present before init stay ignored while project files await review.
     mkdirSync(join(cwd, "node_modules", "dep"), { recursive: true });
     writeFileSync(join(cwd, ".DS_Store"), "junk");
     writeFileSync(join(cwd, "node_modules", "dep", "index.js"), "junk");
+    const globalConfig = join(home, "isolated-gitconfig");
+    const globalConfigBefore = "[user]\n\tname = Isolated test\n";
+    writeFileSync(globalConfig, globalConfigBefore);
+    process.env["GIT_CONFIG_GLOBAL"] = globalConfig;
     for (const name of GIT_IDENTITY) process.env[name] = name === "GIT_AUTHOR_EMAIL" || name === "GIT_COMMITTER_EMAIL" ? "test@example.com" : "Test";
     const { result, out } = await capture(() => initMain({ yes: true }));
     expect(result).toBe(0);
@@ -324,9 +328,16 @@ describe("init · initMain, phase 1 and phase 2", () => {
     // The chain's runtime state, dropped after install, stays out of git status too.
     mkdirSync(join(cwd, ".ai-engineering", "receipts"), { recursive: true });
     writeFileSync(join(cwd, ".ai-engineering", "receipts", "r.json"), "{}");
-    expect(gitIn(["status", "--porcelain"], cwd)).toBe("");
+    const status = gitIn(["status", "--porcelain"], cwd);
+    expect(status).toContain("?? AGENTS.md");
+    expect(status).toContain("?? .ai-engineering/");
+    expect(status).not.toContain(".DS_Store");
+    expect(status).not.toContain("node_modules");
+    expect(status).not.toContain("receipts");
 
     expect(existsSync(join(cwd, ".git"))).toBe(true); // it created the repo itself (§14.1)
+    expect(gitIn(["rev-parse", "--verify", "HEAD"], cwd)).toBe("");
+    expect(readFileSync(globalConfig, "utf8")).toBe(globalConfigBefore);
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true);
     const decisions = readFileSync(join(cwd, "DECISIONS.md"), "utf8");
     expect(decisions).toContain(`Date: ${new Date().toISOString().slice(0, 10)}`);
@@ -349,13 +360,8 @@ describe("init · initMain, phase 1 and phase 2", () => {
       expect(readFileSync(path, "utf8")).toContain("ai-eng");
     }
 
-    // The machine carrier and the git floor's second life, both under the sandbox home.
+    // The machine carrier is under the sandbox home; init leaves global Git config alone.
     expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toContain("ai-eng chain");
-    const templateDir = gitIn(["config", "--get", "init.templateDir"], cwd, { GIT_CONFIG_GLOBAL: join(home, "gitconfig") }).trim();
-    expect(templateDir).toBe(join(home, "git-template"));
-    expect(existsSync(join(templateDir, "hooks", "pre-commit"))).toBe(true);
-
-    expect(gitIn(["log", "--oneline", "-1"], cwd)).toContain(`install governance ${VERSION}`);
     expect(out).toContain("machine carrier");
     expect(out).toContain("Bootstrap mode"); // no src/ yet, so arch-tests hold off
   });
@@ -543,16 +549,6 @@ describe("init · the git floor's own housekeeping", () => {
     expect(out).toContain("core.hooksPath is yours");
   });
 
-  test("git refusing the template dir is reported, not claimed", async () => {
-    const { cwd, machine: home } = sandboxed();
-    mkdirSync(join(cwd, ".git"));
-    process.env["GIT_CONFIG_GLOBAL"] = join(home, "no-such-dir", "gitconfig"); // git cannot write here
-
-    const { result, out } = await capture(() => initMain({ yes: true }));
-    expect(result).toBe(0);
-    expect(out).toContain("git init.templateDir not set");
-    expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true); // the repo install still happened
-  });
 });
 
 describe("init · the prompt paths a non-TTY --yes run never reaches", () => {
@@ -596,7 +592,6 @@ describe("init · the prompt paths a non-TTY --yes run never reaches", () => {
     const { result, out } = await driven({}, [
       ["governed", "\n"],
       ["carriers", "n"],
-      ["templateDir", "n"],
     ]);
     expect(result).toBe(0);
     expect(out).toContain("global canon intact"); // a healthy machine is never re-written without a question
@@ -610,7 +605,7 @@ describe("init · the prompt paths a non-TTY --yes run never reaches", () => {
     expect(existsSync(join(home, ".claude", "settings.json"))).toBe(false);
     expect(existsSync(join(home, ".omp", "agent", "hooks", "pre", "ai-eng.ts"))).toBe(false);
     expect(existsSync(join(home, ".config", "opencode", "plugins", "ai-eng.ts"))).toBe(false);
-    expect(existsSync(join(home, "gitconfig"))).toBe(false); // the floor's templateDir was refused too
+    expect(existsSync(join(home, "gitconfig"))).toBe(false); // init does not write global Git config
     expect(out).toContain("machine carriers not written");
     expect(out).toContain("4 surfaces");
   });

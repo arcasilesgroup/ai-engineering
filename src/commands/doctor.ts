@@ -9,11 +9,9 @@ import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir
 import { gcReceipts, receiptsTtlDays, summarizeReceipts, type DenyLedger } from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
 import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, readMachineState } from "../surfaces/adapters.ts";
-import { unmetTriggers } from "../spec/triggers.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
 import { readOverrides, overrideDaysLeft } from "../chain/dialect.ts";
-import { checkpointGateReportLines } from "./checkpoint-gate-report.ts";
 import * as ui from "../ui.ts";
 
 export type CheckResult = { readonly name: string; readonly status: "ok" | "warn" | "fail"; readonly detail: string };
@@ -319,21 +317,6 @@ function checkResearchCache(root: string | null): CheckResult {
   return { name: "research cache", status: stale.length > 0 ? "warn" : "ok", detail: lines.join(" · ") };
 }
 
-async function checkTriggers(root: string | null): Promise<CheckResult | null> {
-  // 10b. conditional nodes: a trigger that fired and left no artifact. This is the
-  //      "if it touches UI" sentence made checkable (§20.1).
-  const specPath = root ? join(root, ".ai-engineering", "spec.html") : null;
-  const hasContract = specPath !== null && existsSync(specPath);
-  if (!hasContract || !root) return null;
-  const lock = parseLock(readFileSync(join(root, ".ai-engineering", "ai-eng.lock"), "utf8"));
-  if (!lock.base_sha) return { name: "triggers", status: "warn", detail: "no base_sha in the lock — this milestone cannot judge its conditional nodes; reopen it with ai-eng spec open" };
-  const spec = readFileSync(join(root, ".ai-engineering", "spec.html"), "utf8");
-  const abandoned = new Set([...spec.matchAll(/^ABANDON:\s*(\S+)/gm)].map((m) => m[1]!));
-  const unmet = unmetTriggers(root, lock.base_sha, abandoned);
-  if (unmet.length === 0) return { name: "triggers", status: "ok", detail: "no fired trigger is missing its artifact" };
-  return { name: "triggers", status: "warn", detail: unmet.map((entry) => `${entry.id} fired on ${entry.sample} → ${entry.skill} left no artifact`).join(" · ") };
-}
-
 function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
   // 11. surfaces: two questions that must never share one line.
   //     (a) the MACHINE carrier — is it where that host actually reads, and is it the
@@ -451,10 +434,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   results.push(checkArch(root));
   results.push(checkSpecSlot(root));
   results.push(checkResearchCache(root));
-  const triggers = await checkTriggers(root);
-  if (triggers) results.push(triggers);
   results.push(...checkSurfaces(root, surfaces));
-  results.push({ name: "checkpoint gate", status: "ok", detail: checkpointGateReportLines(SURFACES, Object.fromEntries(SURFACES.flatMap((s) => { const files = carrierFiles(s.id, "machine") ?? carrierFiles(s.id, "repo"); return files ? [[s.id, files.main] as const] : []; }))).join(" · ") });
   const state = checkMachineState(surfaces);
   if (state) results.push(state);
   results.push(checkBehaviors(root));

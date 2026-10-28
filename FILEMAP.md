@@ -21,6 +21,7 @@ PERMISSIONS.md                 Endpoint × role access matrix (n/a until the pro
     prototypes/                /ai-prototype HTML mockups + <name>.states.json scenarios
 src/
   assets.ts                    Embedded skill, template and runtime asset registry
+  payload.ts                   Normalized tool payloads and shared call fingerprints
   commands/
     worktree.ts                CLI parser for new, list, merge, request-changes and rm
   git/

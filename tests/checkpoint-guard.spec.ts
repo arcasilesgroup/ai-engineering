@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { normalise, type Payload } from "../src/chain/payload.ts";
+import { normalise, type Payload } from "../src/payload.ts";
 import { runCheckpointGuard } from "../src/guards/checkpoint.ts";
 
 type GateState = { status: string; attempts: number; findings: string[] };

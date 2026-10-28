@@ -10,6 +10,7 @@ export interface GitResult {
 
 export interface GitRunOptions {
   cwd: string;
+  env?: NodeJS.ProcessEnv;
   /** Ignore the user's global and system config, config injected through the environment,
    *  and the repository-discovery variables (GIT_DIR, GIT_WORK_TREE, ...) a hook inherits,
    *  so cwd and the repository's own config alone decide what git sees (R8). */
@@ -40,7 +41,7 @@ function isolatedEnv(cwd: string): NodeJS.ProcessEnv | Error {
 
 export function runGit(args: string[], opts: GitRunOptions): GitResult {
   try {
-    const baseEnv = opts.isolated === true ? isolatedEnv(opts.cwd) : process.env;
+    const baseEnv = opts.isolated === true ? isolatedEnv(opts.cwd) : opts.env ?? process.env;
     // Isolation that cannot be established denies: the run never falls back to the ambient environment.
     if (baseEnv instanceof Error) return { status: 1, stdout: "", stderr: baseEnv.message };
     const env = { ...baseEnv, GIT_TERMINAL_PROMPT: "0" };

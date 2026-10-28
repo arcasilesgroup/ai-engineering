@@ -7,7 +7,6 @@
 import { describe, test, expect } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative, resolve, dirname } from "node:path";
-import { Glob } from "bun";
 
 interface ArchRule {
   from?: string;

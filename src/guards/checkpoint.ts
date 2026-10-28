@@ -21,7 +21,7 @@ import {
   type CheckpointContext,
   type CheckpointItem,
 } from "../workflow/checkpoint.ts";
-import type { Payload } from "../chain/payload.ts";
+import type { Payload } from "../payload.ts";
 
 type CheckpointGuardResult = { deny: true; reason: string } | { deny: false } | undefined;
 

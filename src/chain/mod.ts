@@ -7,9 +7,9 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
-import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules, loadCircuitBreakerConfig } from "../env.ts";
-import { normalise, deduplicable, fingerprint, loopExact } from "./payload.ts";
-import type { Payload } from "./payload.ts";
+import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules } from "../env.ts";
+import { normalise, deduplicable, fingerprint, loopExact } from "../payload.ts";
+import type { Payload } from "../payload.ts";
 import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
@@ -18,7 +18,6 @@ import { runInjection, type GuardResult as InjectionGuardResult } from "../guard
 import { runSpokenSecret } from "../guards/spoken-secret.ts";
 import { runLoopGuard } from "../guards/loop.ts";
 import { runCheckpointGuard } from "../guards/checkpoint.ts";
-import { CircuitBreaker } from "../guards/circuit-breaker.ts";
 import { isTestCommand, rewrite } from "../guards/wrap.ts";
 import { writeReceipt, upsertDenyLedger, retainReceipts, type Receipt } from "../receipts.ts";
 
@@ -30,8 +29,6 @@ type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | { deny:
 export type ChainContext = {
   repoRoot: string | null;
   loopOverride: boolean;
-  /** Circuit breaker for external service calls (Jev, MCP). Shared per process. */
-  circuitBreaker: CircuitBreaker;
 };
 
 /** event -> [(guard, tool matcher)]. Adding an entry point means adding a row here,
@@ -58,9 +55,6 @@ export const TABLE: Record<string, GuardRow[]> = {
 };
 
 const HOT_PATH_BUDGET_MS = 200;
-
-/** Shared circuit breaker instance per process. Created once, reused across runs. */
-const sharedCircuitBreaker = new CircuitBreaker();
 
 export type ChainOptions = {
   surface?: string;
@@ -179,13 +173,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   const fp = fingerprint(payload);
 
   const overrides = readOverrides(root);
-  // Configure the shared circuit breaker from config.toml (once per process;
-  // subsequent reads update the thresholds without creating new instances).
-  const cbConfig = loadCircuitBreakerConfig(root);
-  if (cbConfig.failureThreshold !== undefined || cbConfig.resetMs !== undefined) {
-    sharedCircuitBreaker.configure(cbConfig);
-  }
-  const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null, circuitBreaker: sharedCircuitBreaker };
+  const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
 
   // Same call, same answer: no guard decides the same call twice. The cache lives inside
   // .ai-engineering/ — the directory the lock owns and uninstall sweeps — and not at the

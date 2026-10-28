@@ -17,9 +17,7 @@ export type Receipt = {
   latency_ms: number;
   outcome: "allow" | "deny" | "error";
   ts: string;
-  /** The session this receipt belongs to. Present when the surface sent a session
-   *  id; absent in legacy receipts and git-floor writes. Groupable via
-   *  summarizeBySession(). */
+  /** The session this receipt belongs to when the surface supplied an id. */
   session_id?: string;
 };
 
@@ -155,69 +153,6 @@ function summaryOf(tally: ReceiptTally): ReceiptSummary {
   latencies.sort((a, b) => a - b);
   const pick = (q: number) => (latencies.length ? latencies[Math.min(latencies.length - 1, Math.floor(q * latencies.length))]! : 0);
   return { total: tally.total, denies: tally.denies, p50: pick(0.5), p95: pick(0.95), ...tally.per, daily: tally.daily };
-}
-
-export type SessionSummary = {
-  session_id: string;
-  runs: number;
-  denies: number;
-  first_ts: string;
-  last_ts: string;
-  tools: string[];
-  guards_denied: string[];
-};
-
-/** Group receipts by session_id. Sessions without a session_id are grouped under
- *  "unknown". Returns sessions sorted by last_ts descending (most recent first). */
-export function summarizeBySession(dir?: string): SessionSummary[] {
-  const target = dir ?? receiptsDir();
-  const sessions = new Map<string, { runs: number; denies: number; first_ts: string; last_ts: string; tools: Set<string>; guards_denied: Set<string> }>();
-  if (target) {
-    try {
-      for (const name of readdirSync(target)) {
-        if (!name.endsWith(".json")) continue;
-        if (name === "summary.json" || name === "denies.json") continue;
-        try {
-          const receipt = JSON.parse(readFileSync(join(target, name), "utf8")) as Receipt;
-          const sid = receipt.session_id ?? "unknown";
-          const existing = sessions.get(sid);
-          const tools = existing?.tools ?? new Set<string>();
-          const guards_denied = existing?.guards_denied ?? new Set<string>();
-          if (typeof receipt.tool === "string") tools.add(printable(receipt.tool));
-          if (receipt.outcome === "deny" && typeof receipt.guards?.denied_by === "string") {
-            guards_denied.add(printable(receipt.guards.denied_by));
-          }
-          sessions.set(sid, {
-            runs: (existing?.runs ?? 0) + 1,
-            denies: (existing?.denies ?? 0) + (receipt.outcome === "deny" ? 1 : 0),
-            first_ts: existing === undefined || (typeof receipt.ts === "string" && receipt.ts < existing.first_ts)
-              ? (typeof receipt.ts === "string" ? receipt.ts : (existing?.first_ts ?? ""))
-              : existing.first_ts,
-            last_ts: existing === undefined || (typeof receipt.ts === "string" && receipt.ts > existing.last_ts)
-              ? (typeof receipt.ts === "string" ? receipt.ts : (existing?.last_ts ?? ""))
-              : existing.last_ts,
-            tools,
-            guards_denied,
-          });
-        } catch {
-          /* torn write */
-        }
-      }
-    } catch {
-      /* no receipts */
-    }
-  }
-  return [...sessions.entries()]
-    .map(([session_id, s]) => ({
-      session_id,
-      runs: s.runs,
-      denies: s.denies,
-      first_ts: s.first_ts,
-      last_ts: s.last_ts,
-      tools: [...s.tools],
-      guards_denied: [...s.guards_denied],
-    }))
-    .sort((a, b) => b.last_ts.localeCompare(a.last_ts));
 }
 
 /** A summand from a file an adversary may have written: finite, non-negative, whole,

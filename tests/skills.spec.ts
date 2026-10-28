@@ -14,7 +14,6 @@
 import { describe, test, expect } from "bun:test";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { lifecycleBlock, blockFields } from "../src/spec/triggers.ts";
 
 const SKILLS = join(import.meta.dir, "..", "skills");
 const ACCENTS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
@@ -226,8 +225,15 @@ function skillName(dir: string): string {
 }
 
 function lifecycleFields(dir: string): Record<string, string> {
-  const block = lifecycleBlock(readFileSync(join(dir, "SKILL.md"), "utf8"));
-  return block ? blockFields(block) : {};
+  const sections = readFileSync(join(dir, "SKILL.md"), "utf8").split(/\n(?=## )/);
+  const lifecycle = sections.find((section) => /^## Lifecycle\s*$/m.test(section.split("\n")[0] ?? ""));
+  if (!lifecycle) return {};
+  const fields: Record<string, string> = {};
+  for (const line of lifecycle.split("\n")) {
+    const field = /^([A-Z][A-Za-z ]*):\s*(.+?)\s*$/.exec(line);
+    if (field && fields[field[1]!] === undefined) fields[field[1]!] = field[2]!;
+  }
+  return fields;
 }
 
 function markdownSection(content: string, heading: string): string {

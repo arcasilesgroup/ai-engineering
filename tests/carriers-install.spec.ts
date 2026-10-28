@@ -1,11 +1,9 @@
 // The install side of the carriers, driven in-process so the coverage is the module's and
-// not a spawned CLI's: the git floor's `init.templateDir` (ours, the user's, someone
-// else's hooks), the merge that shares a settings file with the user, the machine carriers
-// and their machine.json record, and the artefacts installCanon leaves outside the canon.
+// not a spawned CLI's: shared settings merges, machine carriers and their machine.json
+// record, legacy template cleanup, and artifacts installCanon leaves outside the canon.
 //
 // Every test owns a machine of its own: AI_ENG_HOME isolates the canon, the mirrors and
-// the carriers, and GIT_CONFIG_GLOBAL keeps the git floor's GLOBAL setting off the
-// developer's config — the pattern tests/adversarial/isolation.test.ts documents.
+// the carriers, and GIT_CONFIG_GLOBAL isolates legacy template restoration.
 //
 // DEFECT found while writing these tests, reported and NOT fixed here (src is out of scope):
 // `templates/settings.claude.json.tpl:7,13` write the hooks arrays inline, and `shapeOf`
@@ -24,7 +22,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { spawnSync } from "node:child_process";
 import { embeddedTemplate, embeddedUnder } from "../src/embed.ts";
 import {
-  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -50,7 +47,6 @@ import {
   machineStateFile,
   mirrorTargets,
   readMachineState,
-  rememberTemplateDir,
   repoCarrier,
   removeMachineArtifacts,
   removeMachineCarriers,
@@ -58,11 +54,12 @@ import {
   surfaceDialect,
   sweepMovedRepoCarriers,
 } from "../src/surfaces/adapters.ts";
-import { SHIMS, currentTemplateDir, installTemplateDir, restoreTemplateDir } from "../src/floor/template.ts";
+import { restoreTemplateDir } from "../src/floor/template.ts";
 import { planEntries } from "../src/commands/init-shared.ts";
 import { VERSION } from "../src/version.ts";
 
 const SHIM_MARKER = "ai-eng git floor shim";
+const LEGACY_SHIMS = ["pre-commit", "commit-msg", "pre-push"] as const;
 const CHAIN = "ai-eng chain";
 
 let sandbox: string;
@@ -118,6 +115,18 @@ function setGlobalTemplateDir(dir: string | null): void {
   spawnSync("git", ["config", "--global", ...args], { env: process.env, encoding: "utf8" });
 }
 
+function getGlobalTemplateDir(): string | null {
+  const result = spawnSync("git", ["config", "--global", "--get", "init.templateDir"], {
+    env: process.env,
+    encoding: "utf8",
+  });
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+function writeLegacyShims(dir: string, names: readonly string[] = LEGACY_SHIMS): void {
+  for (const name of names) write(join(dir, "hooks", name), `#!/bin/sh\n# ${SHIM_MARKER}\n`);
+}
+
 const byId = (id: string) => SURFACES.find((surface) => surface.id === id)!;
 
 type StopSurface = (typeof SURFACES)[number] & {
@@ -158,115 +167,17 @@ const USER_SETTINGS = `{
 }
 `;
 
-describe("the git floor: init.templateDir", () => {
-  test("no templateDir: ours, with the three shims marked and executable", () => {
-    const base = useHome("tpl-created");
-    const report = installTemplateDir();
-    expect(report.status).toBe("created");
-    expect(report.previous).toBeNull();
-    expect(report.ours).toBe(join(base, "git-template"));
-    expect(report.line).toInclude("new clones are born with the floor");
-    expect(currentTemplateDir()).toBe(join(base, "git-template"));
-    for (const shim of SHIMS) {
-      const path = join(base, "git-template", "hooks", shim);
-      expect(existsSync(path)).toBe(true);
-      expect(readFileSync(path, "utf8")).toInclude(SHIM_MARKER);
-      expect(lstatSync(path).mode & 0o777).toBe(0o755);
-    }
-
-    // The directory is ours: a second run finds our own shims current and writes nothing.
-    const again = installTemplateDir();
-    expect(again.status).toBe("current");
-    expect(again.line).toInclude(`keeps your ${join(base, "git-template")}`);
-    expect(currentTemplateDir()).toBe(join(base, "git-template"));
-  });
-
-  test("with no git config of its own, the sandbox gets one beside the canon — never the developer's", () => {
-    const base = useHome("tpl-sandbox");
-    delete process.env["GIT_CONFIG_GLOBAL"];
-    const realBefore = spawnSync("git", ["config", "--global", "--get", "init.templateDir"], { encoding: "utf8" }).stdout.trim();
-
-    expect(installTemplateDir().status).toBe("created");
-    // The setting the floor writes is a GLOBAL one, so it lands in the sandbox's own git
-    // config instead of the config of whoever ran the suite.
-    expect(existsSync(join(base, "gitconfig"))).toBe(true);
-    expect(currentTemplateDir()).toBe(join(base, "git-template"));
-
-    const realAfter = spawnSync("git", ["config", "--global", "--get", "init.templateDir"], { encoding: "utf8" }).stdout.trim();
-    expect(realAfter).toBe(realBefore);
-  });
-
-  test("a templateDir of the user's: ours go inside it, theirs is never the file we overwrite", () => {
-    useHome("tpl-joined");
-    const theirs = join(sandbox, "tpl-joined-theirs");
-    const theirHook = "#!/bin/sh\n# mine, do not touch\necho hello\n";
-    write(join(theirs, "hooks", "pre-commit"), theirHook);
-    setGlobalTemplateDir(theirs);
-
-    const joined = installTemplateDir();
-    expect(joined.status).toBe("joined");
-    expect(joined.previous).toBe(theirs);
-    expect(joined.ours).toBeNull();
-    expect(joined.line).toInclude(`keeps your ${theirs}`);
-    // Their hook, byte for byte, and their setting is still theirs.
-    expect(readFileSync(join(theirs, "hooks", "pre-commit"), "utf8")).toBe(theirHook);
-    for (const shim of ["commit-msg", "pre-push"]) {
-      expect(readFileSync(join(theirs, "hooks", shim), "utf8")).toInclude(SHIM_MARKER);
-    }
-    expect(currentTemplateDir()).toBe(theirs);
-
-    // A second run finds our shims current and writes nothing.
-    expect(installTemplateDir().status).toBe("current");
-    expect(installTemplateDir().line).toInclude("already current");
-
-    // A shim of ours that went stale is made current again — "current" was a measurement.
-    const stale = join(theirs, "hooks", "commit-msg");
-    writeFileSync(stale, `${readFileSync(stale, "utf8")}# edited by hand\n`);
-    expect(installTemplateDir().status).toBe("joined");
-    expect(readFileSync(stale, "utf8")).not.toInclude("# edited by hand");
-    // …and the user's own hook is still standing through all of it.
-    expect(readFileSync(join(theirs, "hooks", "pre-commit"), "utf8")).toBe(theirHook);
-  });
-
-  test("a hook a person wrote is theirs whether or not it can be read", () => {
-    useHome("tpl-theirs");
-    const theirs = join(sandbox, "tpl-theirs-dir");
-    const unreadable = join(theirs, "hooks", "pre-commit");
-    const foreign = "#!/bin/sh\necho foreign\n";
-    write(unreadable, "#!/bin/sh\necho unreadable\n");
-    write(join(theirs, "hooks", "pre-push"), foreign);
-    chmodSync(unreadable, 0o000);
-    setGlobalTemplateDir(theirs);
-
-    try {
-      const report = installTemplateDir();
-      expect(report.status).toBe("joined");
-      // The one thing this must never do: write over a hook a person wrote.
-      expect(readFileSync(join(theirs, "hooks", "pre-push"), "utf8")).toBe(foreign);
-    } finally {
-      chmodSync(unreadable, 0o644);
-    }
-    expect(readFileSync(unreadable, "utf8")).toBe("#!/bin/sh\necho unreadable\n");
-    // The shim that was absent is ours, so the floor still arrives.
-    expect(readFileSync(join(theirs, "hooks", "commit-msg"), "utf8")).toInclude(SHIM_MARKER);
-  });
-
-  test("a templateDir with no hooks dir: ours go in, and come out again with the dir they filled", () => {
+describe("legacy git template cleanup", () => {
+  test("restore removes only recorded ai-eng shims and prunes empty hooks", () => {
     useHome("tpl-prune");
     const theirs = join(sandbox, "tpl-prune-dir");
-    mkdirSync(theirs, { recursive: true });
+    writeLegacyShims(theirs);
     setGlobalTemplateDir(theirs);
 
-    const joined = installTemplateDir();
-    expect(joined.status).toBe("joined");
-    for (const shim of SHIMS) expect(existsSync(join(theirs, "hooks", shim))).toBe(true);
-
-    const line = restoreTemplateDir(joined.previous, joined.ours);
+    const line = restoreTemplateDir(theirs, null);
     expect(line).toInclude(`kept yours (${theirs})`);
     expect(line).toInclude("3 ai-eng shim(s) removed from it");
-    // The setting the user had is still theirs…
-    expect(currentTemplateDir()).toBe(theirs);
-    // …and an empty scaffold we emptied is not left behind.
+    expect(getGlobalTemplateDir()).toBe(theirs);
     expect(existsSync(join(theirs, "hooks"))).toBe(false);
   });
 
@@ -275,39 +186,40 @@ describe("the git floor: init.templateDir", () => {
     const theirs = join(sandbox, "tpl-restore-joined-dir");
     const theirHook = "#!/bin/sh\n# mine\nexit 0\n";
     write(join(theirs, "hooks", "pre-commit"), theirHook);
+    writeLegacyShims(theirs, ["commit-msg", "pre-push"]);
     setGlobalTemplateDir(theirs);
-    const joined = installTemplateDir();
-    expect(joined.status).toBe("joined");
 
-    const line = restoreTemplateDir(joined.previous, joined.ours);
+    const line = restoreTemplateDir(theirs, null);
     expect(line).toInclude("2 ai-eng shim(s) removed from it");
     expect(readFileSync(join(theirs, "hooks", "pre-commit"), "utf8")).toBe(theirHook);
     for (const shim of ["commit-msg", "pre-push"]) expect(existsSync(join(theirs, "hooks", shim))).toBe(false);
-    expect(currentTemplateDir()).toBe(theirs);
+    expect(getGlobalTemplateDir()).toBe(theirs);
   });
 
-  test("restore: a setting that now points somewhere else is left alone, and our dir with it", () => {
+  test("restore leaves a changed setting and its old directory alone", () => {
     useHome("tpl-restore-elsewhere");
-    const first = installTemplateDir();
+    const first = join(sandbox, "legacy-owned-template");
+    writeLegacyShims(first);
     const third = join(sandbox, "tpl-restore-elsewhere-third");
     mkdirSync(third, { recursive: true });
     setGlobalTemplateDir(third);
 
-    const line = restoreTemplateDir(first.previous, first.ours);
+    const line = restoreTemplateDir(null, first);
     expect(line).toInclude("left as it is (it is not the one this install set)");
-    expect(currentTemplateDir()).toBe(third);
-    expect(existsSync(first.ours!)).toBe(true);
+    expect(getGlobalTemplateDir()).toBe(third);
+    expect(existsSync(first)).toBe(true);
   });
 
-  test("restore: our own directory goes back to an unset setting, and is deleted with it", () => {
-    const base = useHome("tpl-restore-ours");
-    const first = installTemplateDir();
-    expect(first.status).toBe("created");
+  test("restore unsets and removes a directory recorded by an older version", () => {
+    useHome("tpl-restore-ours");
+    const ours = join(sandbox, "legacy-owned-template");
+    writeLegacyShims(ours);
+    setGlobalTemplateDir(ours);
 
-    const line = restoreTemplateDir(first.previous, first.ours);
+    const line = restoreTemplateDir(null, ours);
     expect(line).toBe("git init.templateDir unset (it was unset before)");
-    expect(currentTemplateDir()).toBeNull();
-    expect(existsSync(join(base, "git-template"))).toBe(false);
+    expect(getGlobalTemplateDir()).toBeNull();
+    expect(existsSync(ours)).toBe(false);
   });
 
   test("restore: the setting the user moved while we were installed is put back", () => {
@@ -316,15 +228,11 @@ describe("the git floor: init.templateDir", () => {
     const b = join(sandbox, "tpl-restore-previous-b");
     mkdirSync(a, { recursive: true });
     mkdirSync(b, { recursive: true });
-    setGlobalTemplateDir(a);
-    const joined = installTemplateDir();
-    expect(joined.previous).toBe(a);
-    expect(joined.ours).toBeNull();
     setGlobalTemplateDir(b);
 
-    const line = restoreTemplateDir(joined.previous, joined.ours);
+    const line = restoreTemplateDir(a, null);
     expect(line).toBe(`git init.templateDir restored to ${a}`);
-    expect(currentTemplateDir()).toBe(a);
+    expect(getGlobalTemplateDir()).toBe(a);
   });
 
   test("restore with nothing set says so instead of inventing a restore", () => {
@@ -807,22 +715,29 @@ describe("carriers on the machine", () => {
     expect(readFileSync(carrier, "utf8")).toBe(comments);
   });
 
-  test("machine.json keeps the git floor's record, and reads as nothing when it is garbage", () => {
+  test("machine.json keeps legacy restore state, and reads as nothing when it is garbage", () => {
     useHome("machine-state");
-    rememberTemplateDir("/some/other/templateDir", null);
+    writeFileSync(
+      machineStateFile(),
+      JSON.stringify({
+        version: "2.5.0",
+        carriers: {},
+        templateDir: { previous: "/some/other/templateDir", ours: null },
+      }),
+    );
     expect(readMachineState()).toEqual({
-      version: VERSION,
+      version: "2.5.0",
       carriers: {},
       templateDir: { previous: "/some/other/templateDir", ours: null },
     });
 
-    // A carrier install records itself and does not erase what the floor wrote.
+    // A current carrier install must preserve restore data from an older version.
     installMachineCarriers(["claude-code"]);
     const state = readMachineState();
     expect(state.carriers["claude-code"]).toBe(sha256(carrierFiles("claude-code", "machine")!.main));
     expect(state.templateDir).toEqual({ previous: "/some/other/templateDir", ours: null });
 
-    // The floor still needs the file: taking the carriers out does not take the record.
+    // Uninstall still needs the legacy record after the carriers are removed.
     removeMachineCarriers(["claude-code"]);
     expect(existsSync(machineStateFile())).toBe(true);
     expect(readMachineState()).toEqual({

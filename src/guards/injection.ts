@@ -9,7 +9,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, isAbsolute, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Payload } from "../chain/payload.ts";
+import type { Payload } from "../payload.ts";
 import { evaluateLocalRules, localRuleReason, type LocalRule } from "./local-rules.ts";
 
 

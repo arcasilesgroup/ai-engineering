@@ -6,8 +6,8 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import type { Payload } from "../chain/payload.ts";
-import { loopExact, loopSignature } from "../chain/payload.ts";
+import type { Payload } from "../payload.ts";
+import { loopExact, loopSignature } from "../payload.ts";
 import { guardLimits, home, printable, sessionId } from "../env.ts";
 
 const SIGNATURES_KEPT = 20; // distinct failing signatures remembered per session

@@ -129,8 +129,8 @@ These are the mistakes that make security audits useless:
    with the sha of the commit that carries the fix — so the ledger can tell a live
    vulnerability from a closed one.
 2. When the milestone includes an audit, its phases become executable gates of the
-   spec: "findings validated against the schema" and "zero open HIGH findings" are
-   gates `ai-eng spec close` checks — not courtesy reading. The second one
+   checkpoint plan: "findings validated against the schema" and "zero open HIGH findings"
+   are acceptance gates — not courtesy reading. The second one
    reads `disposition`: on `verdict` alone every finding stays `confirmed` forever,
    fixed or not, and the CHECK has nothing to evaluate.
 3. You only report what you can exploit. No demonstrable exploit, no finding.

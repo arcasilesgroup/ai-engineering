@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { IOC_PATTERNS, fold, hit, readTargets, runInjection } from "../src/guards/injection.ts";
 import { runLoopGuard } from "../src/guards/loop.ts";
-import type { Payload } from "../src/chain/payload.ts";
+import type { Payload } from "../src/payload.ts";
 
 const roots: string[] = [];
 const HOME_BEFORE = process.env.AI_ENG_HOME;

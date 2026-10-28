@@ -9,14 +9,13 @@
 
 import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { select, confirm, isCancel } from "@clack/prompts";
 import { install, buildLock, lockText, parseLock, sha256, mergeSharedText } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
 import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
-import { installCanon, installMachineCarriers, machineStateFile, rememberTemplateDir, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
-import { installTemplateDir } from "../floor/template.ts";
+import { installCanon, installMachineCarriers, machineStateFile, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
+import { runGit } from "../git/run.ts";
 import { planEntries, refuseLine } from "./init-shared.ts";
 import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
@@ -102,16 +101,6 @@ function installMachineSide(root: string, canon: CanonDrift, canonRepair: string
   written += moved.removed.length;
   rows.push(...moved.removed.map((path): ui.Row => ({ mark: "ok", text: path, dim: "moved to the machine — removed from the repo" })));
   rows.push(...moved.kept.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "not ours any more — review by hand" })));
-  const template = installTemplateDir();
-  if (template.status !== "failed") rememberTemplateDir(template.previous, template.ours);
-  if (template.status === "created" || template.status === "joined") {
-    written += 1;
-    rows.push({ mark: "ok", text: template.line });
-  } else if (template.status === "current") {
-    rows.push({ mark: "muted", text: template.line });
-  } else {
-    rows.push({ mark: "warn", text: template.line });
-  }
   // The ledger this half is written into: version + the hash of every carrier. Named
   // because it is the file a later `uninstall` reads, and an unreported write is the
   // question this report exists to answer.
@@ -286,15 +275,9 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     { spec_sha256: previous.spec_sha256, base_sha: previous.base_sha },
   );
   writeFileSync(lockPath, lockText(lock));
-  let commitLine = "commit skipped — nothing staged or git refused (your call to commit by hand)";
-  try {
-    spawnSync("git", ["-C", root, "add", "-A"]);
-    const committed = spawnSync("git", ["-C", root, "commit", "-q", "-m", `chore(ai-eng): assets → ${VERSION}`, "--no-verify", "--no-gpg-sign"]);
-    if (committed.status === 0) commitLine = `chore(ai-eng): assets → ${VERSION} · git revert is the rollback`;
-  } catch {
-    /* git absent or refused — the hand-commit note above stands */
-  }
-  ui.section("Recorded", [{ mark: "ok", text: `ai-eng.lock · ${Object.keys(lock.assets).length} assets with sha256` }, { mark: "ok", text: `commit: ${commitLine}` }]);
-  ui.end(`Repo and machine now match ai-eng ${VERSION} · Next: ai-eng doctor — verify the chain responds`);
+  ui.section("Recorded", [{ mark: "ok", text: `ai-eng.lock · ${Object.keys(lock.assets).length} assets with sha256` }]);
+  const status = runGit(["status", "--porcelain"], { cwd: root });
+  const changesAreVisible = status.status !== 0 || status.stdout.trim().length > 0;
+  ui.end(`${changesAreVisible ? "Changes are waiting for your review" : "Nothing to commit"}; nothing was committed · Next: ai-eng doctor — verify the chain responds`);
   return 0;
 }

@@ -7,7 +7,6 @@ import type { PlanEntry } from "../install.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate } from "../embed.ts";
 import { SURFACES, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
-import { plantWorkflowFiles } from "./plant-workflow.ts";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
@@ -103,7 +102,6 @@ export function surfaceOptions(): Surface[] {
  *  with them: a project that already owns one keeps it (`install()` reports it as
  *  "yours, untouched"), and uninstall's project sweep never takes it back. */
 export function contractEntries(date: string, root: string = repoTemplateRoot()): PlanEntry[] {
-  plantWorkflowFiles(root);
   return [
     { path: "AGENTS.md", ours: render(embeddedTemplate("AGENTS.md.tpl"), { version: VERSION, commands: detectCommands(root) }) },
     { path: "DECISIONS.md", ours: render(embeddedTemplate("DECISIONS.md.tpl"), { date, version: VERSION }) },

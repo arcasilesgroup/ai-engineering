@@ -1,12 +1,12 @@
 // tests/uninstall-command.spec.ts — behaviour gates for `ai-eng uninstall`
 // (src/commands/uninstall.ts). The product's promise is "revert ai-eng's files, keep
 // yours", so every claim here is about the disk afterwards: the files that are gone, the
-// files still there with their original bytes, the restored `git config
+// files still there with their original bytes, the restored legacy `git config
 // init.templateDir`, the machine record, and the number uninstallMain() returns.
 //
 // The starting states are built with the real installers — `install()` over
 // planEntries()/contractEntries() plus lockText(), exactly init's shape;
-// installMachineCarriers(); installTemplateDir() — and only the end state is asserted.
+// installMachineCarriers(); legacy template state is seeded as older versions wrote it.
 // The interactive path is driven through src/ui.ts's scriptedInput: keys are fed only
 // after the prompt that reads them has rendered, so nothing here can block on a TTY.
 //
@@ -23,8 +23,7 @@ import { join } from "node:path";
 import { uninstallMain } from "../src/commands/uninstall.ts";
 import { contractEntries, planEntries } from "../src/commands/init-shared.ts";
 import { buildLock, install, lockText, sha256 } from "../src/install.ts";
-import { SHIMS, installTemplateDir } from "../src/floor/template.ts";
-import { installMachineCarriers, machineStateFile, readMachineState, rememberTemplateDir } from "../src/surfaces/adapters.ts";
+import { installMachineCarriers, machineStateFile, readMachineState } from "../src/surfaces/adapters.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 import { usePrivateStdin } from "./fixtures/private-stdin.ts";
@@ -47,6 +46,8 @@ const MACHINE = "Delete the machine side";
 const PROJECT_KEYS = "\r";
 const EVERYTHING_KEYS = "\x1b[B\r";
 const CANCEL_KEYS = "\x1b[B\x1b[B\r";
+const LEGACY_SHIMS = ["pre-commit", "commit-msg", "pre-push"] as const;
+const LEGACY_SHIM_MARKER = "ai-eng git floor shim";
 
 let sandbox: string | undefined;
 
@@ -77,8 +78,7 @@ function gitInit(cwd: string): void {
   if (done.status !== 0) throw new Error(`git init failed: ${done.stderr}`);
 }
 
-/** The global `init.templateDir` exactly as git sees it for this sandbox — the file
- *  template.ts writes into, read back with the same variable. */
+/** The global `init.templateDir` exactly as git sees it for this sandbox. */
 function globalTemplateDir(): string | null {
   const done = spawnSync("git", ["config", "--global", "--get", "init.templateDir"], {
     encoding: "utf8",
@@ -94,6 +94,21 @@ function setGlobalTemplateDir(dir: string): void {
   });
 }
 
+function writeLegacyTemplateShims(dir: string, names: readonly string[] = LEGACY_SHIMS): void {
+  for (const name of names) {
+    const path = join(dir, "hooks", name);
+    mkdirSync(join(dir, "hooks"), { recursive: true });
+    writeFileSync(path, `#!/bin/sh\n# ${LEGACY_SHIM_MARKER}\n`, { mode: 0o755 });
+  }
+}
+
+function recordLegacyTemplateDir(previous: string | null, ours: string | null): void {
+  writeFileSync(
+    machineStateFile(),
+    `${JSON.stringify({ version: "2.5.0", carriers: {}, templateDir: { previous, ours } }, null, 2)}\n`,
+  );
+}
+
 /** A real init-shaped install: the contract files once, the plan's files, the shims made
  *  executable, and the lock built from the same entries — src/commands/init.ts's
  *  scaffoldProject(), with the human's lines left out. Returns the paths it owns. */
@@ -102,7 +117,7 @@ function initShaped(surfaces: string[]): string[] {
   install(cwd, contractEntries("2026-09-14"));
   const entries = planEntries(surfaces);
   install(cwd, entries);
-  for (const shim of SHIMS) {
+  for (const shim of LEGACY_SHIMS) {
     const path = join(cwd, ".git", "hooks", shim);
     if (existsSync(path)) chmodSync(path, 0o755);
   }
@@ -550,17 +565,16 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true);
   });
 
-  test("a templateDir we created is removed and the setting goes back to unset", async () => {
-    const { cwd } = sandboxed();
+  test("an older version's templateDir is removed and the setting goes back to unset", async () => {
+    const { cwd, machine } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
 
-    const floor = installTemplateDir();
-    expect(floor.status).toBe("created");
-    const ours = floor.ours ?? "";
-    for (const shim of SHIMS) expect(existsSync(join(ours, "hooks", shim))).toBe(true);
+    const ours = join(machine, "git-template");
+    writeLegacyTemplateShims(ours);
+    recordLegacyTemplateDir(null, ours);
+    setGlobalTemplateDir(ours);
     expect(globalTemplateDir()).toBe(ours);
-    rememberTemplateDir(floor.previous, floor.ours);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 
@@ -570,26 +584,26 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(out).toContain("✓ git init.templateDir unset (it was unset before)");
   });
 
-  test("a templateDir recorded by an older version is restored", async () => {
+  test("an older templateDir setting is restored without deleting the user's prior hooks", async () => {
     const { cwd } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
 
     const previous = join(sandbox!, "older-template");
+    const ours = join(sandbox!, "legacy-owned-template");
+    writeLegacyTemplateShims(ours);
     mkdirSync(join(previous, "hooks"), { recursive: true });
     const existingHook = "#!/bin/sh\necho older template\n";
     writeFileSync(join(previous, "hooks", "pre-commit"), existingHook);
-
-    const floor = installTemplateDir();
-    expect(floor.status).toBe("created");
-    expect(floor.ours).not.toBeNull();
-    rememberTemplateDir(previous, floor.ours);
-    expect(globalTemplateDir()).toBe(floor.ours);
+    setGlobalTemplateDir(ours);
+    recordLegacyTemplateDir(previous, ours);
+    expect(globalTemplateDir()).toBe(ours);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 
     expect(result).toBe(0);
     expect(globalTemplateDir()).toBe(previous);
+    expect(existsSync(ours)).toBe(false);
     expect(readFileSync(join(previous, "hooks", "pre-commit"), "utf8")).toBe(existingHook);
     expect(out).toContain(`✓ git init.templateDir restored to ${previous}`);
   });
@@ -602,15 +616,9 @@ describe("uninstall · the machine side (Everything scope)", () => {
     mkdirSync(join(userDir, "hooks"), { recursive: true });
     const theirs = "#!/bin/sh\necho my own pre-push\n";
     writeFileSync(join(userDir, "hooks", "pre-push"), theirs);
+    writeLegacyTemplateShims(userDir, ["pre-commit", "commit-msg"]);
     setGlobalTemplateDir(userDir);
-
-    const floor = installTemplateDir();
-    expect(floor.status).toBe("joined");
-    expect(floor.ours).toBeNull(); // we joined their directory; we own no directory here
-    expect(floor.previous).toBe(userDir);
-    expect(existsSync(join(userDir, "hooks", "pre-commit"))).toBe(true);
-    expect(existsSync(userDir)).toBe(true);
-    rememberTemplateDir(floor.previous, floor.ours);
+    recordLegacyTemplateDir(userDir, null);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 

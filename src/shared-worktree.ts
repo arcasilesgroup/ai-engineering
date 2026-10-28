@@ -1,7 +1,5 @@
 // src/shared-worktree.ts — where a worktree lives, what a slug may be, and the git
-// argv the `ai-eng worktree` verb runs. It sits in the shared layer because the
-// design-slot list is needed by both this verb and `ai-eng spec`, and shared may not
-// import spec — so the one definition moves down rather than up (arch.rules.json).
+// argv the `ai-eng worktree` verb runs.
 // Every git value is an argv element: no command is ever assembled as a shell string.
 
 import {
@@ -29,8 +27,7 @@ import {
   type Checkpoint,
 } from "./workflow/checkpoint.ts";
 
-/** The four artifacts of a milestone. `spec open` scaffolds two and `spec close`
- *  sweeps all four; `ai-eng spec` is its only consumer. */
+/** The four milestone artifacts whose paths worktree operations protect. */
 export const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.html", "recap.html"] as const;
 
 /** The shape of a slug: the user types it, and it becomes both `feat/<slug>` and the

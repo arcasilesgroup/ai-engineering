@@ -285,9 +285,9 @@ period, or `·`.
 ## The ai-engineering seam
 
 1. Output path: `.ai-engineering/brainstorm.html`. Approval does not delete it.
-   `ai-orchestrator` reads it for the whole build. `spec close` sweeps it when the
-   feature is finished, along with `recap.html` if the user created one. The recap
-   is optional and never a prerequisite to close. Write it with the file
+   `ai-orchestrator` reads it for the whole build. Git integration closes the
+   feature; `brainstorm.html` and an optional `recap.html` remain local evidence.
+   The recap is optional and never a prerequisite to integrate. Write it with the file
    tools, or with a redirect: `rm`, `mv` and `tee` into `.ai-engineering/` are denied,
    because a verb that can act on several paths is judged as a whole command.
    Render it with the artifact design system —
@@ -322,7 +322,7 @@ failures (/ai-debug).
 Lane: light, standard, full
 Writes: .ai-engineering/brainstorm.html, .ai-engineering/PRD.html
 Read by: ai-orchestrator, the agent that opens the next session
-Dies: when a brainstorm for a different feature replaces it, or ai-eng spec close
+Dies: when a brainstorm for a different feature replaces it, or the feature is integrated
 Next: ai-research when questions are still open; ai-architect on the architectural lane; ai-orchestrator on the standard lane; ai-verify on the light lane
 Stop: interview
 Stop words: approve, ok, go, adelante

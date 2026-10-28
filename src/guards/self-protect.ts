@@ -14,7 +14,7 @@
 
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import type { Payload } from "../chain/payload.ts";
+import type { Payload } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.

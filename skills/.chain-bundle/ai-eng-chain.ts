@@ -108,32 +108,6 @@ function intOr(value, fallback) {
 function printable(text) {
   return text.replace(/[\p{C}]/gu, "").slice(0, 200);
 }
-function loadCircuitBreakerConfig(root) {
-  const resolved = root === undefined ? repoRoot() : root;
-  if (!resolved)
-    return {};
-  const path = configPath(resolved);
-  if (!existsSync(path))
-    return {};
-  try {
-    const doc = Bun.TOML.parse(readFileSync(path, "utf8"));
-    const guards = doc["guards"];
-    if (!guards || typeof guards !== "object" || Array.isArray(guards))
-      return {};
-    const cb = guards["circuit_breaker"];
-    if (!cb || typeof cb !== "object" || Array.isArray(cb))
-      return {};
-    const cfg = cb;
-    const result = {};
-    if (typeof cfg["failure_threshold"] === "number")
-      result.failureThreshold = cfg["failure_threshold"];
-    if (typeof cfg["reset_ms"] === "number")
-      result.resetMs = cfg["reset_ms"];
-    return result;
-  } catch {
-    return {};
-  }
-}
 function loadLocalRules(root) {
   const resolved = root === undefined ? repoRoot() : root;
   if (!resolved)
@@ -155,7 +129,7 @@ function loadLocalRules(root) {
   }
 }
 
-// src/chain/payload.ts
+// src/payload.ts
 import { createHash } from "crypto";
 var BUILT_IN_ALIASES = {
   toolName: "tool_name",
@@ -1327,7 +1301,7 @@ function isolatedEnv(cwd) {
 }
 function runGit(args, opts) {
   try {
-    const baseEnv = opts.isolated === true ? isolatedEnv(opts.cwd) : process.env;
+    const baseEnv = opts.isolated === true ? isolatedEnv(opts.cwd) : opts.env ?? process.env;
     if (baseEnv instanceof Error)
       return { status: 1, stdout: "", stderr: baseEnv.message };
     const env = { ...baseEnv, GIT_TERMINAL_PROMPT: "0" };
@@ -2353,47 +2327,6 @@ function runCheckpointGuard(payload, repoRoot) {
   return;
 }
 
-// src/guards/circuit-breaker.ts
-class CircuitBreaker {
-  consecutiveFailures = 0;
-  openUntil = 0;
-  options;
-  constructor(options = {}) {
-    this.options = options;
-  }
-  configure(options) {
-    if (options.failureThreshold !== undefined)
-      this.options.failureThreshold = options.failureThreshold;
-    if (options.resetMs !== undefined)
-      this.options.resetMs = options.resetMs;
-  }
-  get state() {
-    if (this.openUntil === 0)
-      return "closed";
-    if (Date.now() >= this.openUntil)
-      return "half-open";
-    return "open";
-  }
-  get allowRequest() {
-    const s = this.state;
-    return s === "closed" || s === "half-open";
-  }
-  recordSuccess() {
-    this.consecutiveFailures = 0;
-    this.openUntil = 0;
-  }
-  recordFailure() {
-    this.consecutiveFailures += 1;
-    const threshold = this.options.failureThreshold ?? 5;
-    if (this.consecutiveFailures >= threshold) {
-      this.openUntil = Date.now() + (this.options.resetMs ?? 30000);
-    }
-  }
-  snapshot() {
-    return { state: this.state, consecutiveFailures: this.consecutiveFailures, openUntil: this.openUntil };
-  }
-}
-
 // src/guards/wrap.ts
 var RUNNERS = /\b(vitest|jest|playwright|turbo\s+run\s+test|bun\s+test|npm\s+test|npm\s+run\s+test|yarn\s+test|pnpm\s+test|pytest|go\s+test|cargo\s+test)\b/;
 var SKIPS2 = /(--watch|--ui|--help|-h\b|--list|--reporter|&\s*$|\|\s*[^|]*$|\bgrep\b|\btail\b|\bhead\b)/;
@@ -2633,7 +2566,6 @@ var TABLE = {
   UserPromptSubmit: [{ name: "spoken-secret", matcher: /^$/ }]
 };
 var HOT_PATH_BUDGET_MS = 200;
-var sharedCircuitBreaker = new CircuitBreaker;
 function selected(event, tool) {
   if (!(event in TABLE))
     return [];
@@ -2701,11 +2633,7 @@ function runChain(rawPayload, event, options = {}) {
   const tool = payload.tool_name;
   const fp = fingerprint(payload);
   const overrides = readOverrides(root);
-  const cbConfig = loadCircuitBreakerConfig(root);
-  if (cbConfig.failureThreshold !== undefined || cbConfig.resetMs !== undefined) {
-    sharedCircuitBreaker.configure(cbConfig);
-  }
-  const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null, circuitBreaker: sharedCircuitBreaker };
+  const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
   const dedup = deduplicable(payload) && event === "PreToolUse";
   const cacheFile = join10(root, ".ai-engineering", "cache", "verdicts", `${createHash5("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {

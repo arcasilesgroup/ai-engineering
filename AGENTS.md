@@ -31,7 +31,7 @@ typecheck: bun run typecheck (oxlint --type-aware --type-check) · lint: bun run
 ## Lifecycle
 - Every skill declares its own contract — lane, artifact, successor — in a `## Lifecycle` block inside its SKILL.md: follow the `Next:` a skill hands you instead of asking what comes first.
 - The lanes are light (spike and bounded work — no contract), standard (`ai-brainstorm` then `ai-orchestrator`) and full (architectural, with the triggered nodes).
-- Approvals are spoken: the human says approve, ok, go or close, and **you** run `ai-eng spec approve` or `ai-eng spec close` underneath. Never ask the human to type a command; never run an approval on your own initiative.
+- Approvals are spoken: the human says approve, ok or go; record approval in the brainstorm and let Git integration close the feature. Never run an approval on your own initiative.
 
 ## Architecture layers
 You may edit `src/**` freely; the arch-test reads `.ai-engineering/arch.rules.json` — propose layer changes there via PR, never by editing the test in silence.

@@ -1,15 +1,9 @@
-// tests/update-command.spec.ts — the two verbs the CLI delegates to and no test
-// measured end to end: `update` (re-install this repo's assets from the installed
-// binary, zero network) and `upgrade` (frame, inline changelog, hand the install to
-// bun/npm).
+// tests/update-command.spec.ts — `update` re-installs this repo's assets from the
+// installed binary, with zero network.
 //
 // Every run is sandboxed in a mkdtemp tree: AI_ENG_HOME and PI_CODING_AGENT_DIR so the
-// machine half (canon, mirrors, carriers, git templateDir) lands in the temp dir and
-// never in the developer's real home, and GIT_CONFIG_GLOBAL so the templateDir write
-// never reaches ~/.gitconfig. `upgrade`'s registry read and its install hand-off are
-// served by a fake `bun`/`npm` first on PATH — deterministic, offline, and no real
-// `bun add -g`. The fake writes down its argv, so what the verb spawned is asserted,
-// not inferred.
+// machine half (canon, mirrors and carriers) lands in the temp dir and never in the
+// developer's real home.
 //
 // syncPlan is pure — a directory of prepared files plus a lock's asset map in, the
 // verdict out. updateMain runs in-process (its lines are what coverage counts). The
@@ -24,7 +18,6 @@ import { delimiter, join, dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { PassThrough } from "node:stream";
 import { syncPlan, updateMain } from "../src/commands/update.ts";
-import { changelogSection, installCommand, upgradeMain } from "../src/commands/upgrade.ts";
 import { planEntries } from "../src/commands/init-shared.ts";
 import { mergeSharedText, sha256 } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
@@ -33,9 +26,7 @@ import type { PlanEntry } from "../src/install.ts";
 const SANDBOX = mkdtempSync(join(tmpdir(), "ai-eng-update-cmd-"));
 const ENG_HOME = join(SANDBOX, "home");
 const CWD = process.cwd();
-/** A version the registry does not have, so upgrade takes its long path. */
-const NEWER = "99.0.0";
-const KEYS = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL", "NO_COLOR", "CI", "AI_ENG_NO_UPDATE_NOTICES", "FAKE_MANAGER_LOG", "PATH"] as const;
+const KEYS = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL", "NO_COLOR", "CI", "AI_ENG_NO_UPDATE_NOTICES", "PATH"] as const;
 const saved: Partial<Record<(typeof KEYS)[number], string | undefined>> = {};
 let savedStdin: PropertyDescriptor | undefined;
 
@@ -45,8 +36,6 @@ beforeEach(() => {
   process.env.AI_ENG_HOME = ENG_HOME;
   process.env.PI_CODING_AGENT_DIR = join(SANDBOX, "pi-agent");
   process.env.GIT_CONFIG_GLOBAL = join(ENG_HOME, "gitconfig");
-  process.env.FAKE_MANAGER_LOG = join(SANDBOX, "manager.log");
-  rmSync(process.env.FAKE_MANAGER_LOG, { force: true }); // one log per test, or the argv of the last one lies about this one
   process.env.NO_COLOR = "1";
   process.env.CI = "true";
   process.env.AI_ENG_NO_UPDATE_NOTICES = "1";
@@ -104,14 +93,6 @@ function pipeStdin(): PassThrough {
   return stream;
 }
 
-/** A keypress as clack reads it. `upgrade` hands its prompt `process.stdin` itself — the
- *  binding inside @clack/core is taken at import, so replacing process.stdin after the
- *  fact does not reach it — and the event is emitted on that stream, which is exactly
- *  what the reader would do with a key pressed in a terminal. */
-function press(name: string, sequence: string): void {
-  process.stdin.emit("keypress", sequence, { name, sequence, ctrl: name === "cancel" });
-}
-
 const DOWN = "\x1b[B";
 const ENTER = "\n";
 const CANCEL = "\x03";
@@ -162,31 +143,6 @@ function entryFor(entries: PlanEntry[], path: string): PlanEntry {
   const found = entries.find((entry) => entry.path === path);
   if (!found) throw new Error(`the payload has no entry for ${path}`);
   return found;
-}
-
-/** A `bun` and an `npm` first on PATH that answer `pm view`/`view` with a version, record
- *  their argv, and exit with the code the manager would. No registry is ever reached. */
-function fakeManagers(name: string): string {
-  const bin = join(SANDBOX, name);
-  mkdirSync(bin, { recursive: true });
-  const script = [
-    "#!/bin/sh",
-    'printf "%s\\n" "$*" >> "$FAKE_MANAGER_LOG"',
-    'case "$1" in',
-    "  pm|view) echo " + NEWER + " ;;",
-    "  install) exit 4 ;;",
-    "  *) exit 0 ;;",
-    "esac",
-    "",
-  ].join("\n");
-  for (const manager of ["bun", "npm"]) writeFileSync(join(bin, manager), script, { mode: 0o755 });
-  process.env.PATH = `${bin}:${process.env.PATH}`;
-  return bin;
-}
-
-function managerLog(): string {
-  const path = join(SANDBOX, "manager.log");
-  return existsSync(path) ? readFileSync(path, "utf8").trimEnd() : "";
 }
 
 describe("syncPlan · what the binary decides to write, keep or refuse", () => {
@@ -330,7 +286,6 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(second.out).toInclude("nothing to write");
     expect(second.out).toInclude("global canon");
     expect(second.out).toInclude("machine carrier already current");
-    expect(second.out).toInclude("git init.templateDir");
     expect(second.out).toInclude("Nothing written");
     // The carrier the first run wrote is current now: reported as checked, never counted
     // as a write — the module carrier used to be rewritten and reported every run.
@@ -417,7 +372,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
       await import(${quote(cliUrl)});
     `);
 
-    const env = {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       AI_ENG_HOME: isolatedHome,
       PI_CODING_AGENT_DIR: join(SANDBOX, "no-notice-pi"),
@@ -430,7 +385,6 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(run.status).toBe(0);
     expect(existsSync(fetchLog)).toBe(false);
     expect(existsSync(noticeLog)).toBe(false);
-    expect(run.stdout).not.toContain("available → ai-eng upgrade");
   });
 
   test("--yes keeps a patched hook: nothing written and the lock left as it was", async () => {
@@ -530,150 +484,5 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     // Its bytes are not ours, so it is not ours to delete — and the line says so.
     expect(readFileSync(join(repo, ".pi/extensions/ai-eng.ts"), "utf8")).toInclude("hand-written");
     expect(run.out).toInclude("kept");
-  });
-});
-
-describe("upgrade · the frame, the changelog, and the hand-off", () => {
-  test("the print-command helper chooses by the manager the user picked", () => {
-    expect(installCommand("bun", "2.1.0")).toBe("bun add -g ai-engineering@2.1.0");
-    expect(installCommand("npm", "2.1.0")).toBe("npm install -g ai-engineering@2.1.0");
-  });
-
-  test("the inline changelog section is found, and its absence is answered honestly", () => {
-    const root = join(SANDBOX, "changelog");
-    mkdirSync(root, { recursive: true });
-    const path = join(root, "CHANGELOG.md");
-    writeFileSync(path, "# Changes\n\n## 9.9.9\n\n### Added\n\n- a thing\n\n## 9.9.8\n\n- an older thing\n");
-
-    // The section the file actually carries, headings and all — the bug this pins is
-    // fixed: `$` under the `m` flag used to close the group on the blank line under the
-    // heading, so a real section came back as "" and upgrade printed the URL instead.
-    const section = changelogSection(root, "9.9.9");
-    expect(section).toBe("### Added\n\n- a thing");
-
-    // A body on the very next line is one section too, not one line of it.
-    writeFileSync(path, "# Changes\n\n## 9.9.9\n- the first line of the release notes\n- the second\n\n## 9.9.8\n- old\n");
-    expect(changelogSection(root, "9.9.9")).toBe("- the first line of the release notes\n- the second");
-
-    writeFileSync(path, "# Changes\n\n## 9.9.9\n\n### Added\n\n- a thing\n\n## 9.9.8\n\n- an older thing\n");
-    expect(changelogSection(root, "9.9.7")).toBeNull();
-    // The dots are literal: a version is not a regex, and 9x9x9 is not 9.9.9.
-    writeFileSync(path, "## 9x9x9\n\n- nothing to do with that release\n");
-    expect(changelogSection(root, "9.9.9")).toBeNull();
-    rmSync(path);
-    expect(changelogSection(root, "9.9.9")).toBeNull();
-  });
-
-  test("offline: the registry read fails, so upgrade says nothing and returns 0", async () => {
-    const bin = join(SANDBOX, "bin-offline");
-    mkdirSync(bin, { recursive: true });
-    for (const manager of ["bun", "npm"]) writeFileSync(join(bin, manager), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
-    process.env.PATH = `${bin}:${process.env.PATH}`;
-
-    const run = await captured(() => upgradeMain());
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude("could not read the registry version");
-    expect(run.out).toInclude("Nothing done.");
-  });
-
-  test("already the latest: no prompt, no command, nothing done", async () => {
-    const bin = join(SANDBOX, "bin-latest");
-    mkdirSync(bin, { recursive: true });
-    for (const manager of ["bun", "npm"]) writeFileSync(join(bin, manager), `#!/bin/sh\necho ${VERSION}\n`, { mode: 0o755 });
-    process.env.PATH = `${bin}:${process.env.PATH}`;
-
-    const run = await captured(() => upgradeMain());
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude("already the latest");
-    expect(run.out).toInclude("Nothing to upgrade.");
-  });
-
-  test("a local changelog section renders inline instead of the URL", async () => {
-    // The shape matters: the regex only returns a body that starts on the line right under
-    // the heading, and only its first line (see the bug pinned in the changelog test), so
-    // this is the one input that takes the inline branch at all.
-    const cwd = join(SANDBOX, "inline-changelog");
-    mkdirSync(cwd, { recursive: true });
-    writeFileSync(join(cwd, "CHANGELOG.md"), `# Changes\n\n## ${NEWER}\n- the inline body\n- never rendered\n\n## 1.0.0\n- old\n`);
-    process.chdir(cwd);
-    fakeManagers("bin-inline");
-
-    const run = await captured(async () => {
-      const running = upgradeMain();
-      await tick(20);
-      press("cancel", CANCEL); // the frame is what is under test, not the choice
-      return running;
-    });
-
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude(`What's new in ${NEWER}`);
-    expect(run.out).toInclude("· the inline body"); // the `- ` bullet becomes the frame's mark
-    expect(run.out).not.toInclude("blob/main/CHANGELOG.md");
-  });
-
-  test("bun chosen: the frame shows what's new and the hand-off runs the command it printed", async () => {
-    fakeManagers("bin-bun");
-
-    const run = await captured(async () => {
-      const running = upgradeMain();
-      await tick(20);
-      press("return", ENTER); // the highlighted option: bun
-      return running;
-    });
-
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude(`What's new in ${NEWER}`);
-    expect(run.out).toInclude(`bun add -g ai-engineering@${NEWER}`);
-    expect(run.out).toInclude("Upgraded");
-    expect(run.out).toInclude("ai-eng update");
-    expect(managerLog().split("\n")).toEqual(["pm view ai-engineering version", `add -g ai-engineering@${NEWER}`]);
-  });
-
-  test("print chosen: the command is printed and nothing is spawned", async () => {
-    fakeManagers("bin-print");
-
-    const run = await captured(async () => {
-      const running = upgradeMain();
-      await tick(20);
-      press("down", DOWN);
-      press("down", DOWN); // "Just print the command, I'll run it myself"
-      press("return", ENTER);
-      return running;
-    });
-
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude(`Run: bun add -g ai-engineering@${NEWER} (or the npm equivalent)`);
-    // The registry read is all that ran: no install was handed to any manager.
-    expect(managerLog()).toBe("pm view ai-engineering version");
-  });
-
-  test("npm chosen and the manager fails: its exit code is the verb's", async () => {
-    fakeManagers("bin-npm");
-
-    const run = await captured(async () => {
-      const running = upgradeMain();
-      await tick(20);
-      press("down", DOWN); // npm
-      press("return", ENTER);
-      return running;
-    });
-
-    expect(run.value).toBe(4);
-    expect(managerLog().split("\n")).toEqual(["pm view ai-engineering version", `install -g ai-engineering@${NEWER}`]);
-  });
-
-  test("a cancelled prompt upgrades nothing", async () => {
-    fakeManagers("bin-cancel");
-
-    const run = await captured(async () => {
-      const running = upgradeMain();
-      await tick(20);
-      press("cancel", CANCEL);
-      return running;
-    });
-
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude("Nothing done — upgrade proposes, the human disposes.");
-    expect(managerLog()).toBe("pm view ai-engineering version");
   });
 });

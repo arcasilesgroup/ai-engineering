@@ -9,21 +9,17 @@ import { tmpdir } from "node:os";
 import { parse } from "smol-toml";
 import { repoRoot } from "../env.ts";
 import { resolveContext } from "../git/context.ts";
+import { runGit } from "../git/run.ts";
 
 type FloorResult = { ok: boolean; lines: string[] };
-
-function git(args: string[], cwd: string): { code: number; out: string } {
-  const done = spawnSync("git", args, { cwd, encoding: "utf8" });
-  return { code: done.status ?? 1, out: `${done.stdout ?? ""}${done.stderr ?? ""}` };
-}
 
 /** pre-commit: diff --check · gitleaks --staged · DECISIONS.md if >10 files or new dep. */
 export function preCommit(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const lines: string[] = [];
-  const check = git(["diff", "--cached", "--check"], cwd);
-  if (check.code !== 0) {
+  const check = runGit(["diff", "--cached", "--check"], { cwd });
+  if (check.status !== 0) {
     lines.push("diff --check found whitespace problems:");
-    lines.push(check.out.trim());
+    lines.push(`${check.stdout}${check.stderr}`.trim());
     return { ok: false, lines };
   }
   const leaks = stageSecrets(cwd);
@@ -42,7 +38,7 @@ function whichGitleaks(): string | null {
 
 /** >10 files touched or a dependency changed → a DECISIONS.md block is required. */
 function decisionsBlock(cwd: string): FloorResult {
-  const nameOnly = git(["diff", "--cached", "--name-only"], cwd).out.trim();
+  const nameOnly = runGit(["diff", "--cached", "--name-only"], { cwd }).stdout.trim();
   const files = nameOnly ? nameOnly.split("\n").filter((f) => f.length > 0) : [];
   const dependencyTouched = files.some((f) => /^(package\.json|Cargo\.toml|go\.mod|pyproject\.toml|Gemfile|composer\.json|pom\.xml|Package\.swift|.*\.csproj)$/.test(f));
   if (files.length <= 10 && !dependencyTouched) return { ok: true, lines: [] };
@@ -67,10 +63,10 @@ function decisionsBlock(cwd: string): FloorResult {
  *  decide, which is the fail-narrow direction. The argv never changes — the
  *  contract test pins `dir --redact --no-banner --exit-code 1 <dir>` byte-exact. */
 function headAllowlistEnv(cwd: string, scratch: string): NodeJS.ProcessEnv | undefined {
-  const head = git(["show", "HEAD:.gitleaksrc.toml"], cwd);
-  if (head.code !== 0) return undefined;
+  const head = runGit(["show", "HEAD:.gitleaksrc.toml"], { cwd });
+  if (head.status !== 0) return undefined;
   try {
-    const parsed = parse(head.out) as unknown as { allowlist?: { paths?: unknown } };
+    const parsed = parse(head.stdout) as unknown as { allowlist?: { paths?: unknown } };
     const paths = Array.isArray(parsed.allowlist?.paths)
       ? (parsed.allowlist.paths as unknown[]).filter((entry): entry is string => typeof entry === "string")
       : [];
@@ -93,7 +89,7 @@ function stageSecrets(cwd: string): FloorResult {
   }
   // `git --staged` scans 0 commits on a fresh HEAD and passes silently, so the
   // floor scans the files actually staged.
-  const staged = git(["diff", "--cached", "--name-only", "--diff-filter=ACM"], cwd).out
+  const staged = runGit(["diff", "--cached", "--name-only", "--diff-filter=ACM"], { cwd }).stdout
     .split("\n")
     .map((f) => f.trim())
     .filter((f) => f.length > 0);
