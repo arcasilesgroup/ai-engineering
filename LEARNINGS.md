@@ -1446,3 +1446,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Use `bun test ./tests/ceremony-contract.spec.ts`; the focused command passed all four tests.
 - **Lesson:** Use explicit `./` relative paths when selecting Bun tests by file.
 - **Tags:** behavior, tests, bun
+
+### L201 · 2026-10-28 · floating-core #12 · behavior
+- **Failure:** Dirty recovery for a legacy governed config without `[canon] packs` omitted the expected `stale` classification.
+- **Root cause:** `doctor` treated an absent packs key as an explicit empty selection, classifying installed pack files as foreign.
+- **Fix:** Use legacy packs only when the governed config omits the key; preserve an explicit empty selection.
+- **Lesson:** Keep absent and explicitly empty configuration values distinct across readers.
+- **Tags:** behavior, doctor, config, packs, recovery
