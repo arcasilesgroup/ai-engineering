@@ -92,3 +92,13 @@ The flow skills, the checkpoint-planner agent and AGENTS.md describe working in 
 **ROOT CAUSE:** The full remote-tracking ref was reused as a forge target.
 **FIX:** Derive a short `$base_branch` and use it for create and protection commands, while retaining `$base_ref` for Git comparisons.
 **LESSON:** Keep Git revisions and forge branch names distinct at the boundary.
+## Round 2 rulings
+**Critic (r2):** F1 resolved — verified the selected base is filtered before candidates are shown and the contract test pins that filter.
+**Critic (r2):** F2 resolved — verified light paths now explicitly write no slots and end at ai-verify; slot/handoff steps are lane-scoped.
+**Critic (r2):** F3 resolved — verified Direct/light exclusions in the trigger, hard gate, routing text, and cross-skill test.
+**Critic (r2):** F4 resolved — verified the requested-PR path pushes the selected branch and checks its remote hash against HEAD before creation.
+**Critic (r2):** F5 resolved — verified Git retains `$base_ref` while forge create/protection commands use normalized `$base_branch`.
+
+## F6 · MAJOR · open (r2)
+**Where:** skills/ai-brainstorm/SKILL.md:312
+**Critic (r2):** The approval handoff still always sends the user to `/ai-orchestrator`, but Lifecycle `Next` says the architectural lane goes to `ai-architect`; this skips the required architecture step and contradicts the lane contract. Route standard to orchestrator and architectural to ai-architect before orchestration.
