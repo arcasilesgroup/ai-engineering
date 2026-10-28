@@ -36,6 +36,7 @@ src/
   shared-hash.ts               Shared SHA-256 file hashing helper
 tests/
   git-context.spec.ts          Git runner and context resolver over real temp repos with isolated config
+  docs-lint.spec.ts            CLI verb citations and relative Markdown/HTML link integrity
   worktree-command.spec.ts     CLI contracts for worktree creation, registered-source merge, lifecycle and safe removal
 scripts/
   gen-assets.ts                Generate embedded assets from skills/, packs/, agents/ and templates/
