@@ -1719,6 +1719,63 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
     expect(worktreeEntries(repo)).toEqual(worktreesBefore);
   });
 
+  test("request-changes ignores an inherited stale review pin when selecting the fresh checkout", () => {
+    const repo = tempRepo();
+    const slug = "fresh-review-copy";
+    configureDetectedBase(repo, "main");
+    const staleReviewedBase = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const staleReviewedFeature = commitRebaseFixtureFile(
+      repo,
+      "src/stale-review.ts",
+      "stale review base\n",
+      "record stale review base",
+    );
+    const staleCheckpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    const staleCheckpoint = writeCanonicalCheckpoint(repo, slug, {
+      phase: "ready-to-merge",
+      plan_approval: "approved",
+      app_review: "approved",
+      base_ref: "refs/heads/main",
+      reviewed_base: staleReviewedBase,
+      reviewed_feature: staleReviewedFeature,
+    });
+    git(["add", staleCheckpointPath], repo);
+    git(["commit", "-q", "-m", "record inherited ready review"], repo);
+    const staleBaseTip = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const staleContents = readFileSync(staleCheckpoint, "utf8");
+    const staleLifecycle = JSON.parse(staleContents).lifecycle;
+    expect(staleBaseTip).not.toBe(staleReviewedBase);
+    expect(staleLifecycle).toMatchObject({
+      phase: "ready-to-merge",
+      reviewed_base: staleReviewedBase,
+    });
+
+    const approved = prepareMergeFixture(repo, slug);
+    git(["reset", "--hard", approved.awaitingReviewCommit], approved.feature);
+    const freshHead = git(["rev-parse", "HEAD"], approved.feature).trim();
+    expect(freshHead).toBe(approved.awaitingReviewCommit);
+    expect(git(["rev-parse", `refs/heads/feat/${slug}`], repo).trim()).toBe(freshHead);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(staleBaseTip);
+    expect(worktreeEntries(repo)).toHaveLength(2);
+
+    const requested = runCli(
+      ["worktree", "request-changes", slug, approved.awaitingReviewCommit],
+      repo,
+    );
+
+    if (requested.status !== 0) throw new Error(requested.stderr);
+    expect(requested.status).toBe(0);
+    expect(requested.stdout).toContain("→ implementation");
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(staleBaseTip);
+    expect(readFileSync(staleCheckpoint, "utf8")).toBe(staleContents);
+    expect(JSON.parse(readFileSync(approved.checkpoint, "utf8")).lifecycle).toMatchObject({
+      phase: "implementation",
+      app_review: "not-started",
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+  });
+
   test("request-changes and ready listing validate canonical develop checkpoint history", () => {
     const repo = tempRepo();
     const slug = "develop-review-chain";

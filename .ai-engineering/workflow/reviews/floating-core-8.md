@@ -42,9 +42,14 @@
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
 
-## F13 · MAJOR · open
+## F13 · MAJOR · fixed
 **Where:** `src/shared-worktree.ts:919-927`
 **Critic (r1):** `request-changes` counts every registered checkout containing the checkpoint before reading its lifecycle or comparing `reviewed_base` to the detected base. If the primary checkout has an inherited stale `ready-to-merge` pin and the one feature worktree has the live `awaiting-app-review` checkpoint, `matching.length` is 2 and the command refuses to locate the active owner. Filter stale/non-actionable pins by the same detected-base ownership rule before counting candidates, while still refusing duplicate active identities; add a real-Git regression for this pair of checkouts.
+
+**Fixer (r1):** fixed — filter stale pins against each checkout's detected base, then select the unique exact checkpoint SHA/ref while retaining duplicate refusal; the real-Git regression verifies only the fresh checkout transitions · verify: `bun test tests/worktree-command.spec.ts tests/worktree-lifecycle.spec.ts` (118 pass, 0 fail), `bun run typecheck`, `bun run lint`, `bun test tests/arch.spec.ts` ✓
+**ROOT CAUSE:** Candidate ambiguity was counted before validating detected-base freshness or exact checkpoint ownership.
+**FIX:** Exclude positively stale review pins, select by exact checkout HEAD and branch-ref SHA, and preserve the existing reviewed-chain and CAS checks.
+**LESSON:** Resolve active ownership from fresh lifecycle state and exact Git refs before counting ambiguity.
 
 ## F1 · BLOCKER · resolved
 **Where:** `src/shared-worktree.ts:813-824,1250-1255`; `skills/ai-orchestrator/SKILL.md:48,265`

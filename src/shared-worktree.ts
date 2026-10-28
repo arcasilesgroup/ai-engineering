@@ -916,7 +916,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     return { code: 2, out: "", err: `worktree request-changes: the worktree list is unreadable (${listed.detail}).\n` };
   }
   const checkpointRelative = `.ai-engineering/workflow/checkpoints/${slug}.json`;
-  const matching = listed.worktrees.filter((candidate) => {
+  const candidates = listed.worktrees.filter((candidate) => {
     if (
       candidate.branch === undefined ||
       !existsSync(candidate.path) ||
@@ -924,8 +924,43 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     ) return false;
     return true;
   });
-  const entry = matching.length === 1 ? matching[0] : undefined;
+  const matching = candidates.filter((candidate) => {
+    try {
+      const detectedBase = resolveContext(candidate.path).base;
+      if (detectedBase === null) return true;
+      const candidateBaseRef = `refs/heads/${detectedBase}`;
+      const currentBase = git(repo, ["rev-parse", "--verify", `${candidateBaseRef}^{commit}`]);
+      if (currentBase.status !== 0 || currentBase.stderr.trim() !== "") return true;
+      const checkpoint = readCheckpoint(join(candidate.path, checkpointRelative), {
+        repoPath: candidate.path,
+        slug,
+        baseRef: candidateBaseRef,
+      });
+      return !isStaleReviewPin(checkpoint, currentBase.stdout.trim());
+    } catch {
+      return true;
+    }
+  });
+  const exactMatches = matching.filter((candidate) => {
+    if (fullHead(candidate.path) !== expectedCheckpointCommit || candidate.branch === undefined) return false;
+    const branchTip = git(repo, ["rev-parse", "--verify", `refs/heads/${candidate.branch}^{commit}`]);
+    return branchTip.status === 0 &&
+      branchTip.stderr.trim() === "" &&
+      branchTip.stdout.trim() === expectedCheckpointCommit;
+  });
+  const entry = exactMatches.length === 1
+    ? exactMatches[0]
+    : exactMatches.length === 0 && matching.length === 1
+      ? matching[0]
+      : undefined;
   if (entry === undefined || entry.branch === undefined) {
+    if (matching.length > 1) {
+      return {
+        code: 1,
+        out: "",
+        err: `worktree request-changes: active checkpoint ${slug} is ambiguous across Git-listed worktrees; preserve the review state.\n`,
+      };
+    }
     return {
       code: 1,
       out: "",

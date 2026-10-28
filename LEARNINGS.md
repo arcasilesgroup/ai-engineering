@@ -1292,3 +1292,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Mark stale app-review pins non-actionable and exclude them from active ambiguity; keep duplicate active implementation plans ambiguous.
 - **Lesson:** A checkpoint's presence does not prove current ownership; its reviewed base must still match.
 - **Tags:** review, lifecycle, git
+
+### L179 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `request-changes` counted a stale inherited pin before finding the unique fresh checkpoint.
+- **Root cause:** Candidate ambiguity was computed before checking reviewed-base freshness and exact branch refs.
+- **Fix:** Filter stale pins and resolve the exact checkout/ref before counting active candidates.
+- **Lesson:** Check freshness and exact Git refs before counting ambiguity.
+- **Tags:** review, git, lifecycle
