@@ -220,6 +220,7 @@ test('install honors the "sha256:" sentinel: take writes, unedited updates apply
 test("update repairs missing global canon files and preserves local edits", () => {
   const locallyEdited = join(engHome, "skills", "ai-brainstorm", "SKILL.md");
   const missing = join(engHome, "skills", "ai-debug", "SKILL.md");
+  const expectedPayload = readFileSync(join(import.meta.dir, "../../skills/ai-debug/SKILL.md"), "utf8");
   expect(eng(["init", "--yes"]).status).toBe(0);
   expect(existsSync(locallyEdited)).toBe(true);
   expect(existsSync(missing)).toBe(true);
@@ -231,6 +232,7 @@ test("update repairs missing global canon files and preserves local edits", () =
   expect(run.stdout + run.stderr).toContain("global canon repaired · local changes kept");
   expect(readFileSync(locallyEdited, "utf8")).toBe(localEdit);
   expect(existsSync(missing)).toBe(true);
+  expect(readFileSync(missing, "utf8")).toBe(expectedPayload);
 });
 
 test("a repo with no machine-side canon is offered it, never handed it (§14.5b)", () => {

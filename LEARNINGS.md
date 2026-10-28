@@ -1488,3 +1488,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Reuse worktree-list metadata and commit tracked fixture paths directly; 118 focused tests and 1,045 assertions passed.
 - **Lesson:** Reuse Git state already fetched in integration fixtures, and measure the full suite before claiming a speedup.
 - **Tags:** behavior, tests, performance, git
+
+### L207 · 2026-10-28 · floating-core #14 · review
+- **Failure:** Review found the brainstorm-to-orchestrator handoff assertion missing, and canon recovery asserted file existence without checking repaired content.
+- **Root cause:** Consolidation removed a handoff check not covered elsewhere; the recovery test checked presence rather than payload integrity.
+- **Fix:** Assert the standard-lane handoff boundary and compare repaired content to the shipped payload while preserving local edits.
+- **Lesson:** Test workflow links at the handoff boundary and verify repaired payloads exactly.
+- **Tags:** review, tests, workflow, canon, packs

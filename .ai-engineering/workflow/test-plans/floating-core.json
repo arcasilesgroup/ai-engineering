@@ -119,7 +119,7 @@
       { "id": "I56", "checkpoint": 12, "covers": [], "case": "uninstall removes every installed pack along with core", "file": "tests/uninstall-command.spec.ts", "command": "bun test tests/uninstall-command.spec.ts" },
       { "id": "I57", "checkpoint": 12, "covers": [], "case": "carriers install core plus only the selected packs", "file": "tests/carriers-install.spec.ts", "command": "bun test tests/carriers-install.spec.ts" },
       { "id": "I61", "checkpoint": 12, "covers": [], "case": "dirty recovery reports stale installed pack files for a legacy governed config without [canon] packs", "file": "tests/adversarial/init-recovery.test.ts", "command": "bun test ./tests/adversarial/init-recovery.test.ts" },
-      { "id": "I62", "checkpoint": 14, "covers": [], "case": "update repairs missing global core canon files while preserving locally edited global skills and repository assets", "file": "tests/adversarial/init-recovery.test.ts", "command": "bun test ./tests/adversarial/init-recovery.test.ts" },
+      { "id": "I62", "checkpoint": 14, "covers": [], "case": "update repairs missing global core canon files with exact shipped payload content while preserving locally edited global skills and repository assets", "file": "tests/adversarial/init-recovery.test.ts", "command": "bun test ./tests/adversarial/init-recovery.test.ts" },
 
       { "id": "I58", "checkpoint": 14, "covers": ["S11"], "case": "after consolidating duplicated real-Git cases, the S11 race and every 6.8 mandatory merge case still run and pass", "file": "tests/worktree-command.spec.ts", "command": "bun test tests/worktree-command.spec.ts" },
 
