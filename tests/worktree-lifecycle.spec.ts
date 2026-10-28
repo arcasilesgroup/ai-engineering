@@ -409,53 +409,6 @@ describe("ai-eng worktree lifecycle (checkpoint 2)", () => {
 });
 
 describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
-  test("U20: a clean feature worktree rebases onto the exact current local main commit", () => {
-    const repo = initRepo();
-    const feature = addBranchWorktree(repo, "sync-clean");
-    const base = git(["rev-parse", "refs/heads/main"], repo).trim();
-    const baseRef = pinRef(repo, "clean-base", base);
-    const featureBefore = commitFile(feature, "src/feature.ts", "export const feature = true;\n", "feature change");
-    const featureBeforeRef = pinRef(repo, "clean-feature-before", featureBefore);
-    const localMain = commitFile(repo, "src/main.ts", "export const main = true;\n", "advance local main");
-    const localMainRef = pinRef(repo, "clean-local-main", localMain);
-
-    git(["branch", "remote-fixture", base], repo);
-    git(["switch", "remote-fixture"], repo);
-    const remoteTip = commitFile(repo, "src/remote.ts", "export const remote = true;\n", "advance remote fixture");
-    git(["switch", "main"], repo);
-    git(["update-ref", "refs/remotes/origin/main", remoteTip], repo);
-    const remoteRef = pinRef(repo, "clean-remote-main", "refs/remotes/origin/main");
-    git(["branch", "-D", "remote-fixture"], repo);
-
-    expect(git(["rev-parse", baseRef], repo).trim()).toBe(base);
-    expect(git(["rev-parse", featureBeforeRef], repo).trim()).toBe(featureBefore);
-    expect(git(["rev-parse", localMainRef], repo).trim()).toBe(localMain);
-    expect(git(["rev-parse", remoteRef], repo).trim()).toBe(remoteTip);
-    expect(git(["rev-list", "--parents", "-n", "1", localMain], repo).trim().split(" ")).toEqual([
-      localMain,
-      base,
-    ]);
-    expect(git(["rev-list", "--parents", "-n", "1", remoteTip], repo).trim().split(" ")).toEqual([
-      remoteTip,
-      base,
-    ]);
-
-    const rebase = runGit(["rebase", "refs/heads/main"], feature);
-    expect(rebase.status).toBe(0);
-
-    const rebasedFeature = git(["rev-parse", "refs/heads/feat/sync-clean"], repo).trim();
-    expect(git(["rev-list", "--parents", "-n", "1", rebasedFeature], repo).trim().split(" ")).toEqual([
-      rebasedFeature,
-      localMain,
-    ]);
-    expect(runGit(["merge-base", "--is-ancestor", remoteTip, rebasedFeature], repo).status).not.toBe(0);
-    expect(git(["rev-parse", baseRef], repo).trim()).toBe(base);
-    expect(git(["rev-parse", featureBeforeRef], repo).trim()).toBe(featureBefore);
-    expect(git(["rev-parse", localMainRef], repo).trim()).toBe(localMain);
-    expect(git(["rev-parse", remoteRef], repo).trim()).toBe(remoteTip);
-    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
-  });
-
   test("U21: a clear rebase conflict is resolved in the feature worktree and checked after sync", () => {
     const repo = initRepo();
     const feature = addBranchWorktree(repo, "sync-conflict");
@@ -490,72 +443,6 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     expect(readFileSync(join(repo, "src", "shared.ts"), "utf8")).toBe(mainContents);
     expect(runGit(["diff", "--check", `${featureRef}..${rebasedFeature}`], feature).status).toBe(0);
     expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
-  });
-
-  test("U22: dirty preconditions refuse before rebase and preserve branch, worktree and edits", () => {
-    const repo = initRepo();
-    const feature = addBranchWorktree(repo, "sync-dirty");
-    const checkpoint = writeCheckpoint(feature, "sync-dirty", checkpointPlan("sync-dirty", "implementation"));
-    commitCheckpoint(feature, checkpoint);
-    const checkpointContents = readFileSync(checkpoint, "utf8");
-    const mainContents = "# main edit\n";
-    const localMain = commitFile(repo, "README.md", mainContents, "advance local main");
-    const dirtyContents = "# uncommitted feature edit\n";
-    writeFileSync(join(feature, "README.md"), dirtyContents);
-    const featureBefore = git(["rev-parse", "HEAD"], feature).trim();
-    const before = repoSnapshot(repo, [feature], [checkpoint]);
-
-    const rebase = runGit(["rebase", "refs/heads/main"], feature);
-
-    expect(rebase.status).not.toBe(0);
-    expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
-    expect(git(["rev-parse", "HEAD"], feature).trim()).toBe(featureBefore);
-    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(localMain);
-    expect(readFileSync(join(feature, "README.md"), "utf8")).toBe(dirtyContents);
-    expect(repoSnapshot(repo, [feature], [checkpoint])).toBe(before);
-    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toContain("README.md");
-    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).not.toContain("rebase");
-  });
-
-  test("U22: missing, unreadable and malformed lifecycle state refuses sync without mutation", () => {
-    const repo = initRepo();
-    const missing = addBranchWorktree(repo, "sync-missing-state");
-    const malformed = addBranchWorktree(repo, "sync-malformed-state");
-    const unreadable = addBranchWorktree(repo, "sync-unreadable-state");
-    const missingCheckpoint = checkpointPath(missing, "sync-missing-state");
-    const malformedCheckpoint = checkpointPath(malformed, "sync-malformed-state");
-    const unreadableCheckpoint = checkpointPath(unreadable, "sync-unreadable-state");
-    const malformedBytes = "{ malformed lifecycle checkpoint\n";
-
-    mkdirSync(dirname(malformedCheckpoint), { recursive: true });
-    writeFileSync(malformedCheckpoint, malformedBytes);
-    git(["add", malformedCheckpoint], malformed);
-    git(["commit", "-q", "-m", "add malformed checkpoint"], malformed);
-    mkdirSync(unreadableCheckpoint, { recursive: true });
-    commitFile(repo, "src/main.ts", "export const main = true;\n", "advance local main");
-
-    expect(existsSync(missingCheckpoint)).toBe(false);
-    expect(readFileSync(malformedCheckpoint, "utf8")).toBe(malformedBytes);
-    expect(statSync(unreadableCheckpoint).isDirectory()).toBe(true);
-
-    const checkpoints = [missingCheckpoint, malformedCheckpoint, unreadableCheckpoint];
-    const before = repoSnapshot(repo, [missing, malformed, unreadable], checkpoints);
-    const listing = runList(repo);
-
-    expect(listing.status).toBe(0);
-    for (const { slug, path } of [
-      { slug: "sync-missing-state", path: missing },
-      { slug: "sync-malformed-state", path: malformed },
-      { slug: "sync-unreadable-state", path: unreadable },
-    ]) {
-      expect(listing.stdout).toContain(slug);
-      expect(listing.stdout).toContain(realpathSync(path));
-    }
-    expect(listing.stdout.match(/unknown/gi)?.length ?? 0).toBeGreaterThanOrEqual(3);
-    expect(existsSync(missingCheckpoint)).toBe(false);
-    expect(readFileSync(malformedCheckpoint, "utf8")).toBe(malformedBytes);
-    expect(statSync(unreadableCheckpoint).isDirectory()).toBe(true);
-    expect(repoSnapshot(repo, [missing, malformed, unreadable], checkpoints)).toBe(before);
   });
 
   test("U22: unresolved conflicts abort before checkpoint updates and preserve original refs, status and content", () => {

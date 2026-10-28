@@ -186,15 +186,6 @@ function branchNames(repo: string): string[] {
     .filter(Boolean);
 }
 
-/** Every git surface a read-only verb could plausibly disturb. */
-function repoState(repo: string): string {
-  return [
-    git(["status", "--porcelain"], repo),
-    git(["worktree", "list", "--porcelain"], repo),
-    git(["branch", "--format=%(refname:short)"], repo),
-  ].join("\n===\n");
-}
-
 function treeFiles(root: string): unknown {
   if (!existsSync(root)) return "missing";
   const entries: unknown[] = [];
@@ -1072,28 +1063,6 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
-  test("list: reports every open worktree with its slug and path and mutates nothing", () => {
-    const repo = tempRepo();
-    const root = defaultRoot(repo);
-    cleanups.push(root);
-    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
-    expect(runCli(["worktree", "new", "beta"], repo).status).toBe(0);
-
-    const before = repoState(repo);
-    const run = runCli(["worktree", "list"], repo);
-    expect(run.status).toBe(0);
-
-    const lines = run.stdout.split("\n");
-    const alphaLine = lines.find((line) => line.includes("alpha"));
-    const betaLine = lines.find((line) => line.includes("beta"));
-    expect(alphaLine).toBeDefined();
-    expect(alphaLine).toContain(join(root, "alpha"));
-    expect(betaLine).toBeDefined();
-    expect(betaLine).toContain(join(root, "beta"));
-
-    expect(repoState(repo)).toBe(before);
-  });
-
   test("remove: rm <slug> deletes the worktree and its branch", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
@@ -1243,26 +1212,6 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const run = runCli(["worktree", "new", "alpha"], repo);
     expect(run.status).toBe(0);
     expect(existsSync(join(root, "alpha"))).toBe(true);
-  });
-
-  test("list omits the primary checkout: only open sessions are printed", () => {
-    const repo = tempRepo();
-    const root = defaultRoot(repo);
-    cleanups.push(root);
-    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
-    expect(runCli(["worktree", "new", "beta"], repo).status).toBe(0);
-
-    const run = runCli(["worktree", "list"], repo);
-    expect(run.status).toBe(0);
-    const primary = realpathSync(repo);
-    // The primary checkout must not carry a line, but its worktrees (paths that extend
-    // it with `.worktrees/`) are exactly what must.
-    const mentionsPrimary = run.stdout
-      .split("\n")
-      .some((line) => line.includes(primary) && !line.includes(`${primary}.worktrees`));
-    expect(mentionsPrimary).toBe(false);
-    expect(run.stdout).toContain("alpha");
-    expect(run.stdout).toContain("beta");
   });
 
   test("slot as a directory: new starts from HEAD and leaves the primary directory intact", () => {

@@ -923,6 +923,7 @@
         "No new tests: delete phrase assertions in tests/skills.spec.ts, tests/workflow-handoff.spec.ts and tests/ai-pr.spec.ts now covered by tests/skills-lint.spec.ts and tests/ceremony-contract.spec.ts, keeping every orchestrator phase and gate assertion.",
         "Collapse duplicated real-Git cases across tests/worktree-command.spec.ts and tests/worktree-lifecycle.spec.ts, keeping the S11 race test and the 6.8 mandatory merge cases.",
         "Keep suite setup single-pass: replace test-hygiene child suite reruns with preload guards and reuse Git fixture templates without weakening the assertions.",
+        "Align init-recovery behavior with canon ownership: repair missing core files while preserving locally edited global canon files.",
         ".github/workflows/mutation.yml: one mutation campaign per PR (today two run).",
         ".github/workflows/check.yml: the Sonar job reuses the coverage of the check run instead of running the suite again.",
         ".github/workflows/platforms.yml: keep the 3-OS matrix green (S14); paths built with node:path."
@@ -934,6 +935,8 @@
         "tests/worktree-command.spec.ts",
         "tests/worktree-lifecycle.spec.ts",
         "tests/doctor-command.spec.ts",
+        "tests/adversarial/init-recovery.test.ts",
+        "tests/adversarial/init-recovery.test.ts",
         "tests/test-hygiene.spec.ts",
         "tests/preload.ts",
         "tests/fixtures/worktree-command.ts",
@@ -957,6 +960,7 @@
         "bun test tests/worktree-command.spec.ts",
         "bun test tests/worktree-lifecycle.spec.ts",
         "bun test tests/doctor-command.spec.ts",
+        "bun test ./tests/adversarial/init-recovery.test.ts",
         "bun test tests/test-hygiene.spec.ts",
         "bun test tests/checkpoint-guard.spec.ts",
         "bun test tests/floor-hooks.spec.ts",
@@ -971,9 +975,10 @@
       "gates": {
         "behavior": {
           "status": "failed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "Serial suite run 1 took 204.83s, exceeding the 120s target, and reported four test failures. First: tests/doctor-command.spec.ts:178 expected zero missing canon files but got 36 (44/80 verified); run 2 was not run."
+            "Serial suite run 1 took 204.83s, exceeding the 120s target, and reported four test failures. First: tests/doctor-command.spec.ts:178 expected zero missing canon files but got 36 (44/80 verified); run 2 was not run.",
+            "Gate 1 retry stopped at `update repairs a drifted global canon, not only the repo's assets`; serial suite took 158.25s (target <120s), and suite run 2 was not run."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -981,7 +986,7 @@
       },
       "status": "in_progress",
       "changed_files": [
-        "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/ai-pr.spec.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/doctor-command.spec.ts", "tests/test-hygiene.spec.ts", "tests/preload.ts", "tests/fixtures/worktree-command.ts", "tests/checkpoint-guard.spec.ts", "tests/floor-hooks.spec.ts",
+        "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/ai-pr.spec.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/doctor-command.spec.ts", "tests/adversarial/init-recovery.test.ts", "tests/test-hygiene.spec.ts", "tests/preload.ts", "tests/fixtures/worktree-command.ts", "tests/checkpoint-guard.spec.ts", "tests/floor-hooks.spec.ts",
         ".github/workflows/mutation.yml", ".github/workflows/check.yml"
       ]
     },

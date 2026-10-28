@@ -1474,3 +1474,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Declare core-only fixture intent, test selected and legacy packs, replace nested suite reruns with preload guards, and reuse Git fixture templates.
 - **Lesson:** Distinguish omitted packs (legacy) from explicit `[]` (core-only), and enforce suite hygiene during normal runs.
 - **Tags:** behavior, tests, performance, config, packs
+
+### L205 · 2026-10-28 · floating-core #14 · behavior
+- **Failure:** The next full-suite run stopped at the global-canon recovery test, which expected update to overwrite a locally edited global skill.
+- **Root cause:** The test's expected overwrite contradicted CP13's ownership rule: changed canon files have no machine-side ownership hash.
+- **Fix:** Test repair of missing core files separately and preserve locally edited files; remove duplicate worktree setup and raw-Git cases.
+- **Lesson:** Without a machine-side ownership hash, preserve changed canon files and test repair using missing files.
+- **Tags:** behavior, tests, update, canon, performance
