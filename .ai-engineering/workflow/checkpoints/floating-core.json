@@ -670,7 +670,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "failed", "attempts": 1, "findings": ["CP10 verify commands 1-16 all passed (including proof script and build), but `bun test --parallel=1` exited 1. Captured output was truncated and omitted failed names/counts/duration; bounded diagnostic rerun required."] },
+        "behavior": { "status": "failed", "attempts": 2, "findings": ["Attempt 1: all 16 targeted/proof/build/typecheck/lint/arch commands passed; serial suite exit 1 with output truncated.", "Attempt 2 diagnostic: serial suite 1512 pass, 1 fail, 16 skip in 169.16s. Failing test: test hygiene checks env/cwd restoration after every suite that sets AI_ENG_HOME, PI_CODING_AGENT_DIR, or GIT_CONFIG_GLOBAL; detailed assertion not captured yet."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
