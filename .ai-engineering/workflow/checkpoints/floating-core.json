@@ -1016,9 +1016,9 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 1, "findings": [] }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": [
         ".github/workflows/mutation.yml",
         ".github/workflows/check.yml"
@@ -1178,6 +1178,7 @@
     "CP8 review history (automatic replan after three failed review attempts; six attempts recorded): fixed findings covered request-changes ownership from the current checkout, arbitrary branch names, current-HEAD worktree creation, ignored-file safety, invocation from a linked checkout, D9's PR/local-merge/keep-branch choice, and arbitrary-branch list/resume by exact checkpoint identity. Behavior attempt 6, after checkpoint-identity fix `3cff5224`, recorded all 13 verify commands green; test counts and duration were not surfaced, and no result carries forward to the replanned gates. Current unresolved MAJOR at src/shared-worktree.ts:514-539,592-605,652-658,723-745: inherited stale checkpoints can create false ambiguity, causing ordinary `list` to exit 2. CP8 now owns exact-checkpoint list/resume/request-changes ownership in the current and Git-registered checkouts; CP9 owns creation/removal safety and the final ceremony contract.",
     "Automatic CP12 replan after three Gate 1 failures: split CP12 into pack/config defaults and CP13 legacy update migration. The initial serial-suite report omitted its failing test; the first diagnostic was invalid because it set TMPDIR inside the repo, so the original failure remains undiagnosed. U9 config render left keys active/uncommented until ecec4783 defaulted omitted embed packs. A legacy update without `[canon] packs` expected six packs but got none until 48c4fe44 preserved update pack selection; targeted checks passed.",
     "CP12 replan verification: keep pack/config targeted checks on CP12, the legacy update check on CP13, and the original full serial suite once on CP13 only.",
-    "CP14 was split after three Gate 1 failures: CP14 owns test consolidation, fixture hygiene and two timed serial runs under 180 seconds; CP15 owns CI consolidation. The cap was raised from 120s after safe consolidation reduced a passing serial run from 234s to 149.20s; coverage remains intact and Phase 3 retains the final full-suite run."
+    "CP14 was split after three Gate 1 failures: CP14 owns test consolidation, fixture hygiene and two timed serial runs under 180 seconds; CP15 owns CI consolidation. The cap was raised from 120s after safe consolidation reduced a passing serial run from 234s to 149.20s; coverage remains intact and Phase 3 retains the final full-suite run.",
+    "CP15 CI workflow review passed locally; no GitHub CI run was performed, so runtime green status is unconfirmed. The 3-OS platforms workflow remained unchanged."
   ]
 }
