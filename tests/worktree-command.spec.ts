@@ -3564,6 +3564,57 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
     expect(existsSync(registeredCheckpoint)).toBe(true);
   });
 
+  test("ignores an inherited stale checkpoint in a registered worktree when listing", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    configureDetectedBase(repo, "main");
+    const slug = "historical-plan";
+    const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    const h1 = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const checkpoint = writeCanonicalCheckpoint(repo, slug, {
+      phase: "ready-to-merge",
+      plan_approval: "approved",
+      app_review: "approved",
+      base_ref: "refs/heads/main",
+      reviewed_base: h1,
+      reviewed_feature: h1,
+    });
+    git(["add", checkpointPath], repo);
+    git(["commit", "-q", "-m", "record historical ready checkpoint"], repo);
+    const h2 = commitRebaseFixtureFile(repo, "main-only.txt", "main advanced\n", "advance main");
+    const branch = "native/stale-one";
+    const feature = join(root, "native-stale-one");
+    mkdirSync(root, { recursive: true });
+    git(["worktree", "add", "--quiet", "-b", branch, feature, "refs/heads/main"], repo);
+
+    expect(h2).not.toBe(h1);
+    expect(gitOut(["merge-base", "--is-ancestor", h1, h2], repo).status).toBe(0);
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(h2);
+    expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle).toMatchObject({
+      phase: "ready-to-merge",
+      base_ref: "refs/heads/main",
+      reviewed_base: h1,
+      reviewed_feature: h1,
+    });
+    expect(branchNames(repo)).toContain(branch);
+    expect(git(["rev-parse", `refs/heads/${branch}`], repo).trim()).toBe(h2);
+    expect(worktreeEntries(repo).some(({ path, branch: registeredBranch }) =>
+      realpathSync(path) === realpathSync(feature) && registeredBranch === `refs/heads/${branch}`
+    )).toBe(true);
+    expect(git(["rev-parse", `refs/heads/main:${checkpointPath}`], repo).trim()).toBe(
+      git(["rev-parse", `refs/heads/${branch}:${checkpointPath}`], repo).trim(),
+    );
+
+    const listed = runCli(["worktree", "list"], repo);
+    const requested = runCli(["worktree", "list", slug], repo);
+
+    const output = `${listed.stdout}${listed.stderr}\n${requested.stdout}${requested.stderr}`;
+    expect(output).not.toMatch(/ambiguous/i);
+    expect(listed.status).toBe(0);
+    expect(requested.status).toBe(0);
+  });
+
   test("I42: accepts an arbitrary branch name under the configured root and names existing holders", () => {
     const repo = tempRepo();
     const customRoot = mkdtempSync(join(tmpdir(), "ai-eng-custom-worktrees-"));
