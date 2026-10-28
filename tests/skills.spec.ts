@@ -17,14 +17,26 @@ import { join, relative } from "node:path";
 
 const SKILLS = join(import.meta.dir, "..", "skills");
 const ROOT = join(import.meta.dir, "..");
+const PACKS = join(ROOT, "packs");
 const ACCENTS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
 const TOKEN_LIMIT = /(límite de tokens|token limit|token budget for this (file|skill)|keep (it|this) (under|below) \d+\s*(chars|caracteres|characters|tokens)|≤\s*\d+\s*(chars|caracteres|characters)\s*(max|limit|límite)?)/i;
 const MACHINE_PATH = /(\/Users\/|\/private\/tmp\/|\/tmp\/ai-eng-home-test|~\/\.agents\/skills)/;
 
 function listSkillDirs(): string[] {
-  return readdirSync(SKILLS, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !e.name.startsWith("."))
-    .map((e) => join(SKILLS, e.name));
+  const directSkills = (root: string): string[] =>
+    readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+      .map((entry) => join(root, entry.name))
+      .filter((directory) => existsSync(join(directory, "SKILL.md")));
+  return [...directSkills(SKILLS), ...directSkills(PACKS)].sort((a, b) => a.localeCompare(b, "en"));
+}
+
+function skillContentRoots(): string[] {
+  const packRoots = readdirSync(PACKS, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .map((entry) => join(PACKS, entry.name))
+    .filter((directory) => !existsSync(join(directory, "SKILL.md")));
+  return [...listSkillDirs(), ...packRoots];
 }
 
 function walk(dir: string): string[] {
@@ -71,10 +83,16 @@ function parseFrontmatter(content: string): { fields: Record<string, string>; bo
 
 const SPDX = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "Unlicense", "CC0-1.0", "LicenseRef-Attributed"];
 
+function expectedSkillName(dir: string): string {
+  const path = relative(ROOT, dir).split("/");
+  if (path[0] === "packs" && path.length === 2) return `ai-${path[1]}`;
+  return path.at(-1)!;
+}
+
 describe("G1 — one SKILL.md per skill", () => {
   test("no *-SKILL.md files anywhere in skills/", () => {
     const offenders: string[] = [];
-    for (const dir of listSkillDirs()) {
+    for (const dir of skillContentRoots()) {
       for (const f of walk(dir)) {
         if (f.endsWith('-SKILL.md')) offenders.push(f);
       }
@@ -92,7 +110,7 @@ describe("G2 — frontmatter parses like Zed loads it", () => {
   test("every SKILL.md: name = folder, license SPDX, folded description", () => {
     const problems: string[] = [];
     for (const dir of listSkillDirs()) {
-      const skill = dir.split("/").pop()!;
+      const skill = expectedSkillName(dir);
       const content = readFileSync(join(dir, "SKILL.md"), "utf8");
       try {
         const { fields } = parseFrontmatter(content);
@@ -109,7 +127,7 @@ describe("G2 — frontmatter parses like Zed loads it", () => {
 
 describe("G3 — corpus.md is dead", () => {
   test("zero corpus.md files in skills/", () => {
-    const offenders = listSkillDirs().flatMap((d) => walk(d)).filter((f) => f.endsWith("corpus.md"));
+    const offenders = skillContentRoots().flatMap((d) => walk(d)).filter((f) => f.endsWith("corpus.md"));
     expect(offenders).toEqual([]);
   });
   test("no SKILL.md still links a corpus.md", () => {
@@ -125,7 +143,7 @@ describe("G3 — corpus.md is dead", () => {
 describe("G4 — skills are named, never pathed", () => {
   test("no machine paths in any skill markdown", () => {
     const offenders: string[] = [];
-    for (const dir of listSkillDirs()) {
+    for (const dir of skillContentRoots()) {
       for (const f of walk(dir)) {
         if (!f.endsWith(".md")) continue;
         const content = readFileSync(f, "utf8");
@@ -139,7 +157,7 @@ describe("G4 — skills are named, never pathed", () => {
 describe("G5 — no token/length-limit statements", () => {
   test("zero limit language in skill markdown", () => {
     const offenders: string[] = [];
-    for (const dir of listSkillDirs()) {
+    for (const dir of skillContentRoots()) {
       for (const f of walk(dir)) {
         if (!f.endsWith(".md")) continue;
         const content = readFileSync(f, "utf8");
@@ -162,7 +180,7 @@ describe("G6 — the canon is English", () => {
   });
   test("no accented-Spanish prose in reference markdown", () => {
     const offenders: string[] = [];
-    for (const dir of listSkillDirs()) {
+    for (const dir of skillContentRoots()) {
       for (const f of walk(dir)) {
         const rel = f.slice(dir.length + 1);
         if (!f.endsWith(".md")) continue;
@@ -186,7 +204,8 @@ describe("G7 — links inside each skill resolve", () => {
       const links = [...content.matchAll(/\]\(([^)#\s]+)\)/g)].map((m) => m[1]!);
       for (const link of links) {
         if (/^[a-z]+:\/\//.test(link) || link.startsWith("/")) continue;
-        if (!existsSync(join(dir, link))) broken.push(`${dir.split("/").pop()}: ${link}`);
+        const installedPath = join(SKILLS, skillName(dir), link);
+        if (!existsSync(join(dir, link)) && !existsSync(installedPath)) broken.push(`${skillName(dir)}: ${link}`);
       }
     }
     expect(broken).toEqual([]);
@@ -222,7 +241,7 @@ const REQUIRED_KEYS = ["Lane", "Writes", "Read by", "Dies", "Next"];
 const SLOTS = ["spec.html", "plan.html", "brainstorm.html", "recap.html"];
 
 function skillName(dir: string): string {
-  return dir.split("/").pop()!;
+  return /^name:\s*(\S+)/m.exec(readFileSync(join(dir, "SKILL.md"), "utf8"))?.[1] ?? dir.split("/").pop()!;
 }
 
 function lifecycleFields(dir: string): Record<string, string> {

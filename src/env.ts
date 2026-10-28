@@ -135,6 +135,15 @@ export function loadConfig(root?: string | null): Config {
   }
 }
 
+/** A missing packs key is distinct from an explicit empty list: update uses the
+ *  former to keep the specialist tools in installations predating pack selection. */
+export function declaredCanonPacks(root?: string | null): string[] | null {
+  const canon: unknown = loadConfig(root)["canon"];
+  if (canon === null || typeof canon !== "object" || Array.isArray(canon)) return null;
+  const packs = (canon as Record<string, unknown>)["packs"];
+  return Array.isArray(packs) ? packs.filter((pack): pack is string => typeof pack === "string") : null;
+}
+
 /** Which surfaces this repo runs: the surfaces key of config.toml, read with
  *  type guards — no assertions. Default: the one surface init installs when
  *  config.toml is silent. Both update and uninstall ask this question. */

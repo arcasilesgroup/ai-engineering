@@ -12,7 +12,7 @@
 // and frameworks, which is noise for a contract about this ceremony. The skills the
 // level-one skills name are still checked to exist and ship; only their text is not read.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, normalize } from "node:path";
 import { embeddedChainBundle, embeddedTemplate, materializeAgents, materializeScripts, materializeSkills } from "../src/embed.ts";
@@ -34,6 +34,20 @@ const KEBAB = String.raw`[a-z][a-z0-9]*(?:-[a-z0-9]+)*`;
 
 function isSkillName(name: string): boolean {
   return new RegExp(`^${SKILL_NAME}$`).test(name) && !BINARY_NAMES.has(name);
+}
+
+function packSkillFile(root: string, name: string): string | null {
+  const pending = [join(root, "packs")];
+  while (pending.length > 0) {
+    const directory = pending.pop()!;
+    if (!existsSync(directory)) continue;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) pending.push(path);
+      else if (entry.name === "SKILL.md" && new RegExp(`^name:\\s*${name}$`, "m").test(readFileSync(path, "utf8"))) return path;
+    }
+  }
+  return null;
 }
 
 /** Every piece one SKILL.md cites. A skill is a `/ai-x` invocation, an exact `ai-x` code
@@ -124,8 +138,12 @@ function ceremonyGaps(root: string, entry: string, canon: Canon): string[] {
   const cited = ceremonyCitations(root, entry);
   const gaps: string[] = [];
   for (const skill of cited.skills) {
-    if (!existsSync(join(root, "skills", skill, "SKILL.md"))) gaps.push(`skill ${skill}: no skills/${skill}/SKILL.md`);
-    else if (!existsSync(join(canon.skillsDir, skill, "SKILL.md"))) gaps.push(`skill ${skill}: not installed by init`);
+    const coreSkill = join(root, "skills", skill, "SKILL.md");
+    if (!existsSync(coreSkill)) {
+      if (packSkillFile(root, skill) === null) gaps.push(`skill ${skill}: no skills/${skill}/SKILL.md`);
+    } else if (!existsSync(join(canon.skillsDir, skill, "SKILL.md"))) {
+      gaps.push(`skill ${skill}: not installed by init`);
+    }
   }
   for (const agent of cited.agents) {
     if (!existsSync(join(root, "agents", `${agent}.md`))) gaps.push(`agent ${agent}: no agents/${agent}.md`);
@@ -201,7 +219,13 @@ describe("ceremony contract — every piece ai-orchestrator cites exists and shi
     expect(ceremonyGaps(REPO, ENTRY_SKILL, canon)).toEqual([]);
     const cited = ceremonyCitations(REPO, ENTRY_SKILL);
     for (const skill of cited.skills) {
-      const source = readFileSync(join(REPO, "skills", skill, "SKILL.md"), "utf8");
+      const coreSkill = join(REPO, "skills", skill, "SKILL.md");
+      if (!existsSync(coreSkill)) {
+        expect(packSkillFile(REPO, skill)).not.toBeNull();
+        expect(existsSync(join(canon.skillsDir, skill, "SKILL.md"))).toBe(false);
+        continue;
+      }
+      const source = readFileSync(coreSkill, "utf8");
       expect(readFileSync(join(canon.skillsDir, skill, "SKILL.md"), "utf8")).toBe(source);
     }
     for (const agent of cited.agents) {

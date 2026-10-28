@@ -5,7 +5,7 @@ import { canonDrift } from "../embed.ts";
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
+import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, declaredCanonPacks, receiptsDir } from "../env.ts";
 import { gcReceipts, receiptsTtlDays, summarizeReceipts, type DenyLedger } from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
 import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, readMachineState } from "../surfaces/adapters.ts";
@@ -76,7 +76,7 @@ function checkCanon(): CheckResult {
   //    settings, config), so filtering the lock by skills/ counts 0 forever.
   //    Same predicate as materializeSkills: the dot-entries (chain bundle) are
   //    payload, not canon, so they are neither verified nor counted.
-  const canon = canonDrift(home());
+  const canon = canonDrift(home(), declaredCanonPacks() ?? []);
   const canonTotal = canon.verified + canon.drift + canon.missing;
   // A canon can be complete and dirty at once: an orphan is invisible to a payload
   // walk, so without the extras walk a renamed asset sits in every install while

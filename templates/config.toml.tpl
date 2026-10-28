@@ -8,6 +8,9 @@
 # `ai-eng config` rewrites this list and installs/removes each surface's adapter files.
 enabled = [{{surfaces}}]
 
+# Optional specialist packs. A fresh init leaves all of them off.
+[canon]
+packs = [{{packs}}]
 
 [guards]
 # Loop guard thresholds: identical-call repetition and failure streaks (§10).

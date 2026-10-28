@@ -20,7 +20,7 @@ PERMISSIONS.md                 Endpoint × role access matrix (n/a until the pro
     reviews/                   /ai-adversarial-loop debate threads
     prototypes/                /ai-prototype HTML mockups + <name>.states.json scenarios
 src/
-  assets.ts                    Embedded skill, template and runtime asset registry
+  assets.ts                    Embedded core skill, pack, template and runtime asset registry
   payload.ts                   Normalized tool payloads and shared call fingerprints
   commands/
     worktree.ts                CLI parser for new, list, merge, request-changes and rm
@@ -38,40 +38,31 @@ tests/
   git-context.spec.ts          Git runner and context resolver over real temp repos with isolated config
   worktree-command.spec.ts     CLI contracts for worktree creation, registered-source merge, lifecycle and safe removal
 scripts/
-  gen-assets.ts                Generate embedded assets from their source files
+  gen-assets.ts                Generate embedded assets from skills/, packs/, agents/ and templates/
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
-  .embed/ai-triage/scripts/    Generated text payloads for triage scripts and declarations
+  .embed/packs/                 Generated text payloads for pack scripts and eval fixtures
 skills/                        Installed skill canon
   ai-brainstorm/SKILL.md       Interview, classify and record approved feature intent
   ai-orchestrator/SKILL.md     Gated feature workflow in the selected checkout
   ai-pr/SKILL.md               Provider-neutral PR base selection and review loop
   ai-git-cleanup/SKILL.md      Native-Git preview and safe local cleanup
-  ai-triage/
-    SKILL.md                   Single entry point; routes to the selected provider
-    references/
-      azure-devops.md          Azure DevOps Services scope, reads and report contract
-      github.md                GitHub inventory, ranking and report procedure
-    scripts/
-      collect-azure.mjs        Scoped Azure backlog collector
-      collect-azure.d.mts      Collector types
-      azure-signals.mjs        Normalize evidence; validate claims and derive recommendations
-      azure-signals.d.mts      Signal, claim, assessment and recommendation types
-      render-report.mjs        Safe report rendering and atomic write
-      render-report.d.mts      Report writer types
-      resolve-target.mjs       Explicit provider and target resolution
-      resolve-target.d.mts     Target resolver types
-  ai-visual-recap/
-    SKILL.md                   Local HTML recap procedure used during app review
-    references/
-      wireframe.md             Guidance for recap visuals
-    assets/
-      highlight.mjs            Syntax highlighting for code excerpts
+  ai-verify/                   Core verification router and setup guide; optional tiers live in packs/
+packs/                         Optional specialist skills, embedded separately from the core canon
+  triage/                      Provider-neutral GitHub and Azure backlog analysis
+  design-md-planner/           Product taste interview and DESIGN.md creation
+  audit-design/                Measured browser-based interface audit
+  visual-recap/                User-invoked HTML recap procedure and assets
+  writing-behavior/            Agent behavior specification and calibration
+  stress-test/                 Adversarial stress-test planning
+  verify-tiers/
+    tiers/                     Standalone, embedded and chain verification skills
+    evals/                     Bug fixtures and verifier scoring tools
 tests/
   worktree-command.spec.ts     Managed worktree rebase, merge, hook and recovery tests
   skills.spec.ts               Skill contracts, including the local recap handoff
   ceremony-contract.spec.ts    Every skill, agent, script and template ai-orchestrator cites exists and ships embedded
   generated-payload.test.ts   Assert generated assets match their source files
-  triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests
+  triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests for packs/triage
   test-hygiene.spec.ts         No suite writes under tests/; sandboxed suites restore env and cwd
   receipts-retention.spec.ts   Daily, batched receipt retention triggered by the chain
   fixtures/

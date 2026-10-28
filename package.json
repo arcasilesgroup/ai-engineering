@@ -12,6 +12,7 @@
     "bin",
     "src",
     "skills",
+    "packs",
     "agents",
     "scripts/.embed",
     "templates",

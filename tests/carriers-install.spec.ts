@@ -67,7 +67,7 @@ let sandbox: string;
 const OWNED_ENV = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL"] as const;
 let inherited: Record<string, string | undefined> = {};
 
-type SkillInventory = { name: string; files: Map<string, string> };
+type SkillInventory = { name: string; sourceDir: string; files: Map<string, string> };
 
 function skillsInInventory(prefix: string, directOnly = false): SkillInventory[] {
   const assets = [...embeddedUnder(prefix)];

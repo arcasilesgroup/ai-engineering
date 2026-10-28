@@ -18,15 +18,49 @@ export function embeddedUnder(prefix: string): Map<string, string> {
   return out;
 }
 
+/** Pack IDs come from the embedded source tree, so init and update cannot drift from
+ *  the payload they can actually install. */
+export function availablePacks(): string[] {
+  const found = new Set([...embeddedUnder("packs/").keys()].map((path) => path.slice("packs/".length).split("/")[0]!));
+  const order = ["triage", "design-md-planner", "audit-design", "visual-recap", "writing-behavior", "stress-test", "verify-tiers"];
+  return [...order.filter((pack) => found.delete(pack)), ...[...found].sort((a, b) => a.localeCompare(b, "en"))];
+}
+
+/** Older installations already had the six specialist skills enabled. The
+ *  separately split verify-tiers pack remains opt-in when migrating their config. */
+export function legacyCanonPacks(): string[] {
+  return availablePacks().filter((pack) => pack !== "verify-tiers");
+}
+
+function packSkills(pack: string): Map<string, string> {
+  const entries = embeddedUnder(`packs/${pack}/`);
+  const skills = [...entries]
+    .filter(([path]) => path.endsWith("/SKILL.md"))
+    .map(([path, ref]) => {
+      const name = /^name:\s*([^\s]+)/m.exec(readEmbeddedText(ref))?.[1];
+      if (!name) throw new Error(`pack skill has no name: ${path}`);
+      return { path: path.slice(0, -"/SKILL.md".length), name };
+    });
+  const out = new Map<string, string>();
+  for (const [path, ref] of entries) {
+    const skill = skills.find((candidate) => path.startsWith(`${candidate.path}/`));
+    if (skill) out.set(`skills/${skill.name}/${path.slice(skill.path.length + 1)}`, ref);
+  }
+  return out;
+}
+
 /** The skills canon proper: dot-entries under skills/ hold the generated chain
  *  bundle, payload for the plugin hosts and not a skill anyone loads. Materializing
  *  them writes a 33 KB build artifact in every canon and every mirror, counted as
  *  canon by doctor. One predicate, every consumer. */
-export function canonSkills(): Map<string, string> {
+export function canonSkills(packs: readonly string[] = []): Map<string, string> {
   const out = new Map<string, string>();
   for (const [path, ref] of embeddedUnder("skills/")) {
     if (path.slice("skills/".length).startsWith(".")) continue;
     out.set(path, ref);
+  }
+  for (const pack of packs) {
+    for (const [path, ref] of packSkills(pack)) out.set(path, ref);
   }
   return out;
 }
@@ -40,8 +74,8 @@ export type CanonDrift = { verified: number; drift: number; missing: number; sta
  *  own, a symlink) is not ours to delete. Dot entries are the OS talking (.DS_Store)
  *  and are ignored either way. A payload walk never sees an orphan, so without this
  *  walk a renamed asset lives in every installed canon forever. */
-export function canonExtras(homeDir: string): { stale: string[]; foreign: string[] } {
-  const payload = canonSkills();
+export function canonExtras(homeDir: string, packs: readonly string[] = []): { stale: string[]; foreign: string[] } {
+  const payload = canonSkills(packs);
   const shipped = new Set([...payload.keys()].map((path) => path.split("/")[1] ?? ""));
   const stale: string[] = [];
   const foreign: string[] = [];
@@ -76,10 +110,10 @@ export function canonExtras(homeDir: string): { stale: string[]; foreign: string
 /** Sweep the stale files inside folders we ship, then the directories they leave
  *  empty. Never touches a foreign path: deleting a file we did not install is the
  *  worst class of bug a governance tool can have (§14.3). */
-export function removeStaleCanonFiles(homeDir: string): string[] {
+export function removeStaleCanonFiles(homeDir: string, packs: readonly string[] = []): string[] {
   const skillsRoot = join(homeDir, "skills");
   const removed: string[] = [];
-  for (const key of canonExtras(homeDir).stale) {
+  for (const key of canonExtras(homeDir, packs).stale) {
     const absolute = join(homeDir, key);
     try {
       unlinkSync(absolute);
@@ -109,10 +143,10 @@ export function removeStaleCanonFiles(homeDir: string): string[] {
  *  34 files missing. It counts the files the payload does not have as well: a
  *  canon can be complete and dirty at once, and only the payload walk sees both
  *  halves. */
-export function canonDrift(homeDir: string): CanonDrift {
-  const extras = canonExtras(homeDir);
+export function canonDrift(homeDir: string, packs: readonly string[] = []): CanonDrift {
+  const extras = canonExtras(homeDir, packs);
   const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale: extras.stale.length, foreign: extras.foreign.length };
-  for (const [path, ref] of canonSkills()) {
+  for (const [path, ref] of canonSkills(packs)) {
     const installed = join(homeDir, path);
     const embedded = embeddedPath(ref);
     if (!existsSync(installed)) out.missing += 1;
@@ -125,8 +159,12 @@ export function canonDrift(homeDir: string): CanonDrift {
 /** Materialize all embedded skills into a target directory. The embedded refs are
  *  absolute paths at runtime — Bun rewrites the import to the asset's real location,
  *  and in a compiled binary it is the virtualized copy inside the executable. */
-export function materializeSkills(destRoot: string): string[] {
-  return materializePrefix("skills/", destRoot);
+export function materializeSkills(destRoot: string, packs: readonly string[] = []): string[] {
+  const skills = new Map(embeddedUnder("skills/"));
+  for (const pack of packs) {
+    for (const [path, ref] of packSkills(pack)) skills.set(path, ref);
+  }
+  return materializePrefix("skills/", destRoot, skills);
 }
 
 /** Materialize embedded agents/*.md into a target directory (workflow-kit agents canon). */
@@ -139,12 +177,12 @@ export function materializeScripts(destRoot: string): string[] {
   return materializePrefix("scripts/", destRoot);
 }
 
-function materializePrefix(prefix: string, destRoot: string): string[] {
+function materializePrefix(prefix: string, destRoot: string, embedded = embeddedUnder(prefix)): string[] {
   const lines: string[] = [];
   const executablePattern = /\.(mjs|sh)$/;
   mkdirSync(destRoot, { recursive: true });
   let count = 0;
-  for (const [path, ref] of embeddedUnder(prefix)) {
+  for (const [path, ref] of embedded) {
     const dest = join(destRoot, path.slice(prefix.length));
     const pathname = embeddedPath(ref);
     if (!existsSync(pathname)) {
