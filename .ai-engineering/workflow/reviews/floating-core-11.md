@@ -122,7 +122,7 @@ The flow skills, the checkpoint-planner agent and AGENTS.md describe working in 
 **FIX:** List every ignored path and its deletion consequence before approval, require explicit path-by-path consent, and keep the candidate if the scan fails or changes before removal.
 **LESSON:** Treat ignored paths as user data until their exact loss is visible, approved, and revalidated.
 
-## F9 · BLOCKER · fixed (r4)
+## F9 · BLOCKER · resolved
 **Where:** src/workflow/checkpoint.ts:476; skills/.chain-bundle/ai-eng-chain.ts:1759
 **Critic (r1):** Both transition guards still synthesize `refs/heads/feat/${context.slug}` to verify `reviewed_feature`. The new contract allows any valid branch name and works in the current checkout, so a feature on e.g. `feature/<slug>` or `bugfix/<slug>` cannot transition to app review. Resolve the actual selected/current feature ref instead of hard-coding the prefix, update both guard copies, and test a non-`feat/` feature branch.
 
@@ -130,3 +130,7 @@ The flow skills, the checkpoint-planner agent and AGENTS.md describe working in 
 **ROOT CAUSE:** The transition guard synthesized a feature ref from the checkpoint slug and only checked the feature SHA when entering app review.
 **FIX:** Resolve `HEAD`'s local branch ref dynamically, validate its tip both when review begins and when approval is recorded, regenerate the chain bundle, and test approval, request-changes, stale SHA rejection, and stale-tip rejection on a `hotfix/` branch.
 **LESSON:** Compare reviewed SHAs with the current selected Git ref at every transition that relies on them; never derive branch identity from a slug.
+
+## Round 2 final ruling
+**Critic (r2):** F9 resolved — both transition guards now resolve and validate the checked-out local ref, compare its tip at review entry and approval, and retain the base-ref SHA comparison; the real-Git regression covers a non-`feat/` branch and stale feature tips.
+ROUND 2: resolved 1 · withdrawn 0 · upheld 0 · new 0

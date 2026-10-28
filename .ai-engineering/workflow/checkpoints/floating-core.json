@@ -750,9 +750,9 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 5, "findings": ["After arbitrary-branch app-review fix `ae31031e`, all 15 checkpoint verify commands passed. Targeted tests: 180 pass; arch 54; typecheck/lint, build/proof and main-ref grep pass. Full serial suite 1538 pass, 16 skip, 0 fail (1554 tests across 73 files in 224.56s)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "failed", "attempts": 4, "findings": ["Prior findings resolved: base-safe cleanup, lane-specific brainstorm Lifecycle, PR publication/target normalization, and ignored-path consent. New BLOCKER src/workflow/checkpoint.ts:476 and skills/.chain-bundle/ai-eng-chain.ts:1759: hard-coded feat/${slug} prevents app review on valid arbitrary branches; resolve selected branch and test non-feat branch review."] }
+        "review": { "status": "passed", "attempts": 5, "findings": ["All prior CP11 findings resolved, including arbitrary-branch app-review pins with selected-ref SHA/CAS checks. Final review round 2 PASS; no open BLOCKER/MAJOR."] }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": ["tests/agents-md-sections.spec.ts", "tests/agents-canon.spec.ts", "tests/skills-lint.spec.ts", "tests/ai-pr.spec.ts", "tests/git-cleanup-pass.spec.ts", "tests/workflow-checkpoint.spec.ts", "AGENTS.md", "FILEMAP.md", "agents/checkpoint-planner.md", "skills/ai-adversarial-loop/SKILL.md", "skills/ai-agents-md/SKILL.md", "skills/ai-brainstorm/SKILL.md", "skills/ai-git-cleanup/SKILL.md", "skills/ai-orchestrator/SKILL.md", "skills/ai-pr/SKILL.md", "skills/ai-test-planner/SKILL.md", "skills/ai-verify/tiers/1-standalone/verify-feature/SKILL.md", "skills/ai-verify/tiers/3-chain/_support/review/CONVENTIONS.md", "skills/.chain-bundle/ai-eng-chain.ts", "src/workflow/checkpoint.ts", "templates/AGENTS.md.tpl", "templates/gitignore.tpl", "LEARNINGS.md"]
     },
     {
