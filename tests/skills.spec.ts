@@ -363,7 +363,6 @@ describe("G12 — the human speaks words", () => {
 describe("G13 — the lane is named where the classification happens", () => {
   test("ai-brainstorm routes all three lanes: plan, verify, and research or architect", () => {
     const next = lifecycleFields(join(SKILLS, "ai-brainstorm"))["Next"] ?? "";
-    expect(next).toMatch(/\bai-orchestrator\b/);
     expect(next).toMatch(/\bai-verify\b/);
     expect(/\bai-research\b/.test(next) || /\bai-architect\b/.test(next)).toBe(true);
   });

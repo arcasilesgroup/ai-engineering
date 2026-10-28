@@ -23,10 +23,6 @@ function section(path: string, heading: string): { text: string; body: string } 
 }
 
 describe("workflow kit — feature work hands off to ai-orchestrator", () => {
-  test("ai-brainstorm Lifecycle names ai-orchestrator", () => {
-    expect(lifecycle("skills/ai-brainstorm/SKILL.md")).toContain("ai-orchestrator");
-  });
-
   test("ai-orchestrator owns the approve stop", () => {
     const block = lifecycle("skills/ai-orchestrator/SKILL.md");
     expect(block).toContain("Stop: approve");

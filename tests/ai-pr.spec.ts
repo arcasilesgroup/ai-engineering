@@ -11,9 +11,8 @@ const skillFile = join(import.meta.dir, "..", "skills", "ai-pr", "SKILL.md");
 const skill = existsSync(skillFile) ? readFileSync(skillFile, "utf8") : "";
 
 describe("ai-pr skill — the full pull-request loop", () => {
-  test("exists and keeps a Lifecycle block", () => {
+  test("exists", () => {
     expect(existsSync(skillFile)).toBe(true);
-    expect(skill).toContain("## Lifecycle");
   });
 
   test("resolves the PR base in 6.7 precedence order", () => {

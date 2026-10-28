@@ -2204,7 +2204,22 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     cleanups.push(root);
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     const created = realpathSync(join(root, "alpha"));
-    commitInWorktree(repo, "alpha");
+    const feature = join(root, "alpha");
+    const featureContents = "unmerged feature data\n";
+    mkdirSync(join(feature, "src"), { recursive: true });
+    writeFileSync(join(feature, "src", "feature.ts"), featureContents);
+    git(["add", "src/feature.ts"], feature);
+    git(["commit", "-q", "-m", "work in alpha"], feature);
+    const reviewedMain = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const reviewedFeature = git(["rev-parse", "HEAD"], feature).trim();
+    const checkpointPath = ".ai-engineering/workflow/checkpoints/alpha.json";
+    const checkpoint = writeMergeCheckpoint(feature, "alpha", reviewedMain, reviewedFeature);
+    git(["add", checkpointPath], feature);
+    git(["commit", "-q", "-m", "record alpha review"], feature);
+    const featureTip = git(["rev-parse", "HEAD"], feature).trim();
+    const checkpointContents = readFileSync(checkpoint, "utf8");
+    const mainBefore = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const registrationsBefore = git(["worktree", "list", "--porcelain"], repo);
 
     const run = runCli(["worktree", "rm", "alpha"], repo);
     expect(run.status).not.toBe(0);
@@ -2214,6 +2229,12 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(existsSync(join(root, "alpha"))).toBe(true);
     expect(worktreeEntries(repo).map((entry) => entry.path)).toContain(created);
     expect(branchNames(repo)).toContain("feat/alpha");
+    expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(mainBefore);
+    expect(git(["rev-parse", "refs/heads/feat/alpha"], repo).trim()).toBe(featureTip);
+    expect(git(["worktree", "list", "--porcelain"], repo)).toBe(registrationsBefore);
+    expect(readFileSync(join(feature, "src", "feature.ts"), "utf8")).toBe(featureContents);
+    expect(readFileSync(checkpoint, "utf8")).toBe(checkpointContents);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
   });
 
   test("force: rm --force removes an unmerged worktree and its branch", () => {
@@ -2236,6 +2257,14 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     cleanups.push(root);
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     commitInWorktree(repo, "alpha");
+    expect(runCli(["worktree", "new", "beta"], repo).status).toBe(0);
+    const sibling = join(root, "beta");
+    const siblingContents = "unapproved sibling data\n";
+    mkdirSync(join(sibling, "src"), { recursive: true });
+    writeFileSync(join(sibling, "src", "sibling.ts"), siblingContents);
+    git(["add", "src/sibling.ts"], sibling);
+    git(["commit", "-q", "-m", "work in beta"], sibling);
+    const siblingTip = git(["rev-parse", "refs/heads/feat/beta"], repo).trim();
     // Bring main up to include the branch's work, so feat/alpha is genuinely merged.
     git(["merge", "--no-ff", "-q", "-m", "merge feat/alpha", "feat/alpha"], repo);
 
@@ -2243,7 +2272,11 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(run.status).toBe(0);
     expect(existsSync(join(root, "alpha"))).toBe(false);
     expect(branchNames(repo)).not.toContain("feat/alpha");
-    expect(worktreeEntries(repo)).toHaveLength(1);
+    expect(existsSync(sibling)).toBe(true);
+    expect(branchNames(repo)).toContain("feat/beta");
+    expect(git(["rev-parse", "refs/heads/feat/beta"], repo).trim()).toBe(siblingTip);
+    expect(readFileSync(join(sibling, "src", "sibling.ts"), "utf8")).toBe(siblingContents);
+    expect(worktreeEntries(repo)).toHaveLength(2);
   });
 
   test("default path: no emitted command contains git branch -D", () => {
@@ -3016,6 +3049,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expect(JSON.parse(approved.checkpointContents).lifecycle.phase).toBe("ready-to-merge");
     expect(approved.checkpointContents).not.toContain('"phase": "complete"');
     expect(existsSync(approved.checkpoint)).toBe(true);
+    expect(readFileSync(approved.checkpoint, "utf8")).toBe(approved.checkpointContents);
   });
 
   test("U29: a post-commit main advance loses the reviewed-main CAS without publishing stale merge or changing feature state", () => {
