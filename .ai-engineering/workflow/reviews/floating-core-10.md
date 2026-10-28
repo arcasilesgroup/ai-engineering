@@ -104,3 +104,7 @@ Dead and platform code is gone (sidecar, circuit breaker, briefing, upgrade, glo
 - `bun run lint`
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
+
+## F1 · MAJOR · open
+**Where:** tests/arch.spec.ts:135
+**Critic (r1):** `requiredRestrictions` pins the guards, payload and commands fences but omits the required git and workflow fences from §6.3. The current JSON has those rules, but deleting either rule silently drops its protection without failing the arch test → include git→commands/cli/chain/guards and workflow→commands/cli/chain in `requiredRestrictions`.
