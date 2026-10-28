@@ -748,7 +748,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 4, "findings": ["After lane/cleanup safety fixes `a899a23d`, all 15 CP11 verify commands passed: targeted 127, arch 54, typecheck/lint and no-main grep; full serial suite 1537 passed, 16 skipped, 0 failed across 73 files in 238.13s."] },
+        "behavior": { "status": "passed", "attempts": 5, "findings": ["After arbitrary-branch app-review fix `ae31031e`, all 15 checkpoint verify commands passed. Targeted tests: 180 pass; arch 54; typecheck/lint, build/proof and main-ref grep pass. Full serial suite 1538 pass, 16 skip, 0 fail (1554 tests across 73 files in 224.56s)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 4, "findings": ["Prior findings resolved: base-safe cleanup, lane-specific brainstorm Lifecycle, PR publication/target normalization, and ignored-path consent. New BLOCKER src/workflow/checkpoint.ts:476 and skills/.chain-bundle/ai-eng-chain.ts:1759: hard-coded feat/${slug} prevents app review on valid arbitrary branches; resolve selected branch and test non-feat branch review."] }
       },
