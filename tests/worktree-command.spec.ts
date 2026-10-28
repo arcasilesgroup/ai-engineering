@@ -3918,6 +3918,43 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
     expect(existsSync(occupied)).toBe(true);
   });
 
+  test("new refuses a symlinked branch path that escapes a safe symlinked configured root", () => {
+    const repo = tempRepo();
+    const base = mkdtempSync(join(tmpdir(), "ai-eng-worktree-symlink-"));
+    cleanups.push(base);
+    const canonicalRoot = join(base, "worktrees");
+    const configuredRoot = join(base, "worktrees-alias");
+    const outside = join(base, "outside");
+    mkdirSync(canonicalRoot);
+    mkdirSync(outside);
+    symlinkSync(canonicalRoot, configuredRoot, "junction");
+    mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
+    writeFileSync(
+      join(repo, ".ai-engineering", "config.toml"),
+      `[git]\nworktrees_dir = ${JSON.stringify(configuredRoot)}\n`,
+    );
+
+    const safeRootRun = runCli(["worktree", "new", "safe"], repo);
+    expect(safeRootRun.status).toBe(0);
+    expect(worktreeEntries(repo).some((entry) => entry.path === realpathSync(join(canonicalRoot, "safe")))).toBe(true);
+
+    const escapedComponent = join(canonicalRoot, "feature");
+    symlinkSync(outside, escapedComponent, "junction");
+    const escapedTarget = join(realpathSync(escapedComponent), "pagos");
+    expect(realpathSync(escapedComponent)).toBe(realpathSync(outside));
+    expect(existsSync(escapedTarget)).toBe(false);
+
+    const refused = runCli(["worktree", "new", "feature/pagos"], repo);
+
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toContain(escapedComponent);
+    expect(refused.stderr).toContain(realpathSync(outside));
+    expect(refused.stderr).toContain("repair the symlink");
+    expect(worktreeEntries(repo).some((entry) => entry.path === escapedTarget)).toBe(false);
+    expect(branchNames(repo)).not.toContain("feature/pagos");
+    expect(existsSync(escapedTarget)).toBe(false);
+  });
+
   test("I43: continues with feature-owned dirty files and leaves foreign reports untouched", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);

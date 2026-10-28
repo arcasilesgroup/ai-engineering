@@ -1320,3 +1320,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Put stale owners on feature branches with a detectable advanced base; register I39's worktree before committing its checkpoint and assert refs/inheritance.
 - **Lesson:** Prove base detectability and owner count in real-Git fixtures; unknown bases remain ambiguous.
 - **Tags:** behavior, git, tests
+
+### L183 · 2026-10-27 · floating-core #9 · review
+- **Failure:** A symlinked parent could redirect worktree creation outside the configured worktrees root.
+- **Root cause:** Containment was lexical and did not resolve existing symlink components.
+- **Fix:** Canonicalize root and parent, check containment before/after creating parents, and test the escaped target.
+- **Lesson:** Verify canonical paths at filesystem boundaries with `relative` and platform `sep`, then revalidate after directory creation.
+- **Tags:** review, filesystem, paths

@@ -65,6 +65,35 @@ function canonicalize(path: string): string {
   }
 }
 
+function canonicalizeForCreation(path: string): string {
+  let ancestor = resolve(path);
+  const missing: string[] = [];
+  while (true) {
+    try {
+      return resolve(realpathSync(ancestor), ...missing.reverse());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      try {
+        lstatSync(ancestor);
+      } catch (statError) {
+        if ((statError as NodeJS.ErrnoException).code !== "ENOENT") throw statError;
+        const parent = dirname(ancestor);
+        if (parent === ancestor) throw error;
+        missing.push(basename(ancestor));
+        ancestor = parent;
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+function isPathWithin(root: string, candidate: string): boolean {
+  const pathFromRoot = relative(root, candidate);
+  return pathFromRoot === "" ||
+    (pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep}`) && !isAbsolute(pathFromRoot));
+}
+
 /** The primary checkout, asked of git — never the nearest `.git`, which inside a
  *  session worktree is that worktree. The common git dir of a non-bare repository is
  *  `<primary>/.git`, so its parent is the primary tree; anything else (bare repo,
@@ -313,10 +342,19 @@ export function worktreeNew(branchInput: string): WorktreeResult {
     return { code: 2, out: "", err: `worktree new: invalid branch name "${printable(branchInput)}"; check it with \`git -C ${repo} check-ref-format --branch ${printable(branch)}\`.\n` };
   }
   const root = worktreeRoot(repo);
+  let canonicalRoot: string;
+  try {
+    canonicalRoot = canonicalizeForCreation(root);
+  } catch (error) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree new: cannot resolve configured worktree root ${root} (${error instanceof Error ? error.message : String(error)}); inspect or repair that path, then retry.\n`,
+    };
+  }
   const directoryName = branchInput.startsWith("feat/") ? branchInput.slice("feat/".length) : branchInput;
-  const target = resolve(root, directoryName);
-  const targetRelative = relative(canonicalize(root), target);
-  if (targetRelative === ".." || targetRelative.startsWith(`..${sep}`) || isAbsolute(targetRelative)) {
+  const target = resolve(canonicalRoot, directoryName);
+  if (!isPathWithin(canonicalRoot, target)) {
     return { code: 2, out: "", err: `worktree new: ${target} is outside the configured worktree root; choose a branch with a repository-local path.\n` };
   }
   const listed = openWorktrees(repo);
@@ -387,7 +425,44 @@ export function worktreeNew(branchInput: string): WorktreeResult {
   if (sourceHead === null) {
     return { code: 1, out: "", err: `worktree new: current HEAD for ${source} is unreadable; inspect \`git -C ${source} rev-parse --verify HEAD^{commit}\`.\n` };
   }
-  mkdirSync(dirname(target), { recursive: true });
+  const parent = dirname(target);
+  let canonicalParent: string;
+  try {
+    canonicalParent = canonicalizeForCreation(parent);
+  } catch (error) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree new: cannot resolve target parent ${parent} safely (${error instanceof Error ? error.message : String(error)}); inspect or repair its path components, then retry.\n`,
+    };
+  }
+  if (!isPathWithin(canonicalRoot, canonicalParent)) {
+    return {
+      code: 2,
+      out: "",
+      err: `worktree new: target parent ${parent} resolves to ${canonicalParent}, outside configured worktree root ${canonicalRoot}; remove or repair the symlink, then retry.\n`,
+    };
+  }
+  mkdirSync(parent, { recursive: true });
+  let currentRoot: string;
+  let currentParent: string;
+  try {
+    currentRoot = canonicalizeForCreation(root);
+    currentParent = canonicalizeForCreation(parent);
+  } catch (error) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree new: cannot revalidate target ${target} after creating its parent (${error instanceof Error ? error.message : String(error)}); inspect or repair the configured root and parent, then retry.\n`,
+    };
+  }
+  if (currentRoot !== canonicalRoot || !isPathWithin(currentRoot, currentParent)) {
+    return {
+      code: 2,
+      out: "",
+      err: `worktree new: refusing target ${target}; parent ${parent} resolves to ${currentParent}, outside or redirected from configured worktree root ${canonicalRoot}; repair the path or symlink, then retry.\n`,
+    };
+  }
   const added = git(repo, ["worktree", "add", target, "-b", branch, sourceHead]);
   if (added.status !== 0) {
     return { code: 1, out: "", err: `worktree new: git worktree add failed for ${target}: ${added.stderr.trim()}; inspect \`git -C ${repo} worktree list\`.\n` };

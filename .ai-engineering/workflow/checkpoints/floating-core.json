@@ -569,7 +569,7 @@
         "review": { "status": "failed", "attempts": 1, "findings": ["MAJOR src/shared-worktree.ts:318,390-391: a symlinked branch-path component can redirect worktree creation outside the configured root, where rm cannot find it. Canonicalize/contain the target parent under the worktree root or reject symlinked components."] }
       },
       "status": "in_progress",
-      "changed_files": ["tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/ceremony-contract.spec.ts", "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/git-cleanup-pass.spec.ts", "src/commands/worktree.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "skills/ai-orchestrator/SKILL.md", "skills/ai-brainstorm/SKILL.md", "skills/.chain-bundle/ai-eng-chain.ts", "FILEMAP.md"]
+      "changed_files": ["tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/ceremony-contract.spec.ts", "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/git-cleanup-pass.spec.ts", "src/commands/worktree.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "skills/ai-orchestrator/SKILL.md", "skills/ai-brainstorm/SKILL.md", "skills/.chain-bundle/ai-eng-chain.ts", "FILEMAP.md", "LEARNINGS.md"]
     },
     {
       "id": 10,
