@@ -146,3 +146,8 @@
 **ROOT CAUSE:** Listing inferred identity from `feat/<slug>` and branch-derived slugs, so registered arbitrary-branch checkouts never reached exact checkpoint or dirty-file handling.
 **FIX:** Validate checkpoint slugs within Git-registered worktree paths, use that identity for list/resume and dirty-file ownership, filter unrelated checkpoints, and return an ambiguity refusal for duplicate registered identities; preserve legacy branch/path handling.
 **LESSON:** Resume ownership comes from a validated checkpoint in a real Git registration, not a branch prefix or directory name.
+**Critic (r2):** resolved — the targeted real-Git test confirms `list <slug>` finds the exact checkpoint on an arbitrary `native/topic` worktree, excludes an unregistered copy and an unrelated checkpoint, distinguishes owned from foreign dirty files without changing the worktree, and refuses duplicate ownership.
+
+## F12 · MAJOR · open (r2)
+**Where:** `src/shared-worktree.ts:514-539,592-605,652-658,723-745`
+**Critic (r2):** Unfiltered `list` treats every valid checkpoint file in each registered worktree as an owner; stale checkpoints still get `identity: true` at lines 517-539. Checkpoint files committed to a base are inherited by later worktrees, so those historical copies are counted as duplicate ownership and can make ordinary `worktree list` exit 2 even when no feature is active in those checkouts. Resolve ownership using active lifecycle/ref evidence rather than file presence alone, and add a real-Git case where a base checkpoint is inherited by multiple worktrees; normal listing must remain usable while a genuinely duplicated active checkpoint is refused.
