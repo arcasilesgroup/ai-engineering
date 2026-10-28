@@ -68,8 +68,8 @@ function canonicalize(path: string): string {
 /** The primary checkout, asked of git — never the nearest `.git`, which inside a
  *  session worktree is that worktree. The common git dir of a non-bare repository is
  *  `<primary>/.git`, so its parent is the primary tree; anything else (bare repo,
- *  submodule) is refused rather than guessed. Every verb reasons about the primary
- *  tree and cuts the worktree from it. */
+ *  submodule) is refused rather than guessed. Shared refs and worktree registration
+ *  use this root; `worktree new` reads source state from its invoking checkout. */
 function primaryRepoRoot(): string | null {
   const cwd = process.cwd();
   const common = git(cwd, ["rev-parse", "--git-common-dir"]);
@@ -293,6 +293,7 @@ function ignoredRemovalNote(dropped: string[] | null, removalState: "removed" | 
 export function worktreeNew(branchInput: string): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree new: not inside a git repository.\n" };
+  const source = canonicalize(process.cwd());
   if (branchInput === "" || /\p{C}/u.test(branchInput)) {
     return { code: 2, out: "", err: `worktree new: invalid slug or branch name "${printable(branchInput)}"; pass a Git branch name.\n` };
   }
@@ -345,7 +346,7 @@ export function worktreeNew(branchInput: string): WorktreeResult {
       return { code: 1, out: "", err: `worktree new: cannot detect the base (${error instanceof Error ? error.message : String(error)}); run \`ai-eng worktree list\`.\n` };
     }
   } else {
-    const branch = git(repo, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
+    const branch = git(source, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
     baseBranch = branch.status === 0 && branch.stderr.trim() === "" ? branch.stdout.trim() : null;
   }
   if (baseBranch === null) {
@@ -356,9 +357,9 @@ export function worktreeNew(branchInput: string): WorktreeResult {
   if (baseExists.status !== 0 || baseExists.stderr.trim() !== "") {
     return { code: 1, out: "", err: `worktree new: detected base ${baseRef} is unavailable; check it with \`git -C ${repo} show-ref --verify ${baseRef}\`.\n` };
   }
-  const status = git(repo, ["status", "--porcelain", "--untracked-files=all", "-z"]);
+  const status = git(source, ["status", "--porcelain", "--untracked-files=all", "-z"]);
   if (status.status !== 0 || status.stderr.trim() !== "") {
-    return { code: 1, out: "", err: `worktree new: status for ${repo} is unreadable; inspect \`git -C ${repo} status --short\` before retrying.\n` };
+    return { code: 1, out: "", err: `worktree new: status for ${source} is unreadable; inspect \`git -C ${source} status --short\` before retrying.\n` };
   }
   const touchedSlots = new Set<string>();
   const tokens = status.stdout.split("\0");
@@ -368,7 +369,7 @@ export function worktreeNew(branchInput: string): WorktreeResult {
       continue;
     }
     const record = statusPaths(tokens, index);
-    if (record === null) return { code: 1, out: "", err: `worktree new: status for ${repo} contains an unreadable path; inspect \`git -C ${repo} status --short\`.\n` };
+    if (record === null) return { code: 1, out: "", err: `worktree new: status for ${source} contains an unreadable path; inspect \`git -C ${source} status --short\`.\n` };
     for (const path of record.paths) {
       const pathKey = path.toLowerCase();
       if (
@@ -378,9 +379,9 @@ export function worktreeNew(branchInput: string): WorktreeResult {
     }
     index = record.next;
   }
-  const sourceHead = fullHead(repo);
+  const sourceHead = fullHead(source);
   if (sourceHead === null) {
-    return { code: 1, out: "", err: `worktree new: current HEAD for ${repo} is unreadable; inspect \`git -C ${repo} rev-parse --verify HEAD^{commit}\`.\n` };
+    return { code: 1, out: "", err: `worktree new: current HEAD for ${source} is unreadable; inspect \`git -C ${source} rev-parse --verify HEAD^{commit}\`.\n` };
   }
   mkdirSync(dirname(target), { recursive: true });
   const added = git(repo, ["worktree", "add", target, "-b", branch, sourceHead]);
@@ -396,7 +397,7 @@ export function worktreeNew(branchInput: string): WorktreeResult {
     code: 0,
     out: `✓ worktree ${branch} → ${target}\n`,
     err: touchedSlots.size > 0
-      ? `worktree new: dirty design files stay in ${repo} and do not travel: ${[...touchedSlots].join(", ")}.\n`
+      ? `worktree new: dirty design files stay in ${source} and do not travel: ${[...touchedSlots].join(", ")}.\n`
       : "",
   };
 }

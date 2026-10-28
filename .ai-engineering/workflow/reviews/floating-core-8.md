@@ -94,14 +94,26 @@
 **FIX:** State that creation starts at current `HEAD` and warns dirty brainstorm/PRD files do not travel; leave the detected-base rebase and merge handoff intact.
 **LESSON:** Keep source-ref documentation aligned with command behavior while distinguishing creation from integration.
 
-## F6 · BLOCKER · open
+## F6 · BLOCKER · fixed
 **Where:** `src/shared-worktree.ts:359-386`
 **Critic (r1):** `worktreeNew` resolves `repo` to the primary checkout, then reads its dirty design slots and `HEAD` even when invoked from another Git-listed checkout. From a linked feature worktree with unique commits or dirty brainstorm/PRD files, it starts the new worktree from the wrong checkout and omits the required warning. Read source `HEAD` and dirty-slot status from the invoking checkout; keep the primary root only for registration and destination resolution, and test invocation from a diverged, dirty linked worktree.
+**Fixer (r2):** fixed — `worktree new` reads branch, status, and HEAD from the invoking checkout while retaining the primary root for shared refs and worktree registration; a real linked-worktree regression covers caller HEAD, branch, and dirty design preservation · verify: targeted tests 133 pass/0 fail, typecheck, lint, arch 31 pass ✓
+**ROOT CAUSE:** `worktreeNew` used the primary root for both shared Git metadata and checkout-specific branch/status/HEAD reads.
+**FIX:** Separate the invoking checkout from the primary root; derive source branch, status, dirty-slot warnings, and start SHA from the caller, while retaining primary-root destination and registration behavior.
+**LESSON:** Shared repository metadata may use the primary checkout, but source state must come from the checkout that invoked the command.
 
-## F7 · MAJOR · open
+## F7 · MAJOR · fixed
 **Where:** `skills/ai-orchestrator/SKILL.md:46,265-268,285`
 **Critic (r1):** The ceremony still says changes are committed on `feat/<slug>`, tells Phase 4 request-changes to run from the primary checkout, and claims the command accepts only a managed `feat/<slug>` worktree. The implementation now resolves the exact checkpoint and Git-listed branch ref, including the current checkout and arbitrary branch names; this stale guidance contradicts D1 and can route request-changes to a rejected checkout. Describe exact-checkpoint/current-or-managed checkout selection without assuming `feat/`, and align the branch wording.
+**Fixer (r2):** fixed — updated the request-changes procedure to resolve the exact Git-listed checkpoint checkout and actual branch ref, and made branch wording convention-neutral · verify: targeted tests 133 pass/0 fail ✓
+**ROOT CAUSE:** The ceremony retained managed-`feat/<slug>` and primary-checkout assumptions after lifecycle selection became checkpoint- and ref-based.
+**FIX:** Document the exact current-or-managed checkout, pending checkpoint SHA, and actual branch-ref checks; describe commits and stop behavior on the selected branch without a naming convention.
+**LESSON:** Ceremony guidance must name the same exact checkout and ref that the command validates, not infer either from a branch prefix.
 
-## F8 · MAJOR · open
+## F8 · MAJOR · fixed
 **Where:** `skills/ai-orchestrator/SKILL.md:278-283`
 **Critic (r1):** After app approval, Phase 4 unconditionally invokes local `ai-eng worktree merge <slug>`; it offers neither `/ai-pr` nor keeping the branch, and never gives the D9 recommendation (PR with a forge remote, local merge otherwise). Preserve the `worktree merge` handoff for the local-merge choice, but expose the approved closure choices and recommendation.
+**Fixer (r2):** fixed — Phase 4 recommends PR with a forge remote and local merge otherwise, then offers PR, local merge, or keep-branch choices; the local merge transaction remains `ai-eng worktree merge <slug>` · verify: targeted tests 133 pass/0 fail ✓
+**ROOT CAUSE:** App-review approval was treated as unconditional consent to the local merge transaction.
+**FIX:** Expose the D9 route recommendation and human choice; reserve the existing merge handoff for the explicit local-merge choice and leave PR/keep-branch routes unmerged locally.
+**LESSON:** App approval and integration route are separate decisions; preserve the human's choice after approval.

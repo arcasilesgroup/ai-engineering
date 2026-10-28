@@ -933,6 +933,54 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(dirtyStatus);
   });
 
+  test("new uses the linked invoking checkout's branch, HEAD, and dirty design slots", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    const caller = join(dirname(repo), `${basename(repo)}-caller`);
+    cleanups.push(root, caller);
+    const brainstorm = join(repo, ".ai-engineering", "brainstorm.html");
+    const prd = join(repo, ".ai-engineering", "PRD.html");
+    mkdirSync(dirname(brainstorm), { recursive: true });
+    writeFileSync(brainstorm, "<html>approved brainstorm</html>\n");
+    writeFileSync(prd, "<html>approved PRD</html>\n");
+    git(["add", ".ai-engineering/brainstorm.html", ".ai-engineering/PRD.html"], repo);
+    git(["commit", "-q", "-m", "add approved design slots"], repo);
+    const primaryHead = git(["rev-parse", "HEAD"], repo).trim();
+    git(["worktree", "add", "--quiet", "-b", "feature/caller", caller, "HEAD"], repo);
+    const sourceHead = commitRebaseFixtureFile(caller, "src/caller-only.ts", "caller checkout\n", "caller-only change");
+    expect(sourceHead).not.toBe(primaryHead);
+
+    const dirtyBrainstorm = "<html>uncommitted caller brainstorm edit</html>\n";
+    const dirtyPrd = "<html>uncommitted caller PRD edit</html>\n";
+    writeFileSync(join(caller, ".ai-engineering", "brainstorm.html"), dirtyBrainstorm);
+    writeFileSync(join(caller, ".ai-engineering", "PRD.html"), dirtyPrd);
+    const dirtyStatus = git(["status", "--porcelain", "--untracked-files=all"], caller);
+    expect(dirtyStatus).toContain(".ai-engineering/brainstorm.html");
+    expect(dirtyStatus).toContain(".ai-engineering/PRD.html");
+
+    const created = runCli(["worktree", "new", "alpha"], caller);
+    const warning = `${created.stdout}${created.stderr}`;
+    const destination = join(root, "alpha");
+
+    expect(created.status).toBe(0);
+    expect(warning).toContain("brainstorm.html");
+    expect(warning).toContain("PRD.html");
+    expect(warning).toContain("do not travel");
+    expect(warning).toContain(caller);
+    expect(git(["rev-parse", "HEAD"], destination).trim()).toBe(sourceHead);
+    expect(git(["rev-parse", "refs/heads/feat/alpha"], repo).trim()).toBe(sourceHead);
+    expect(git(["config", "--get", "branch.feat/alpha.merge"], repo).trim()).toBe("refs/heads/feature/caller");
+    expect(readFileSync(join(destination, "src", "caller-only.ts"), "utf8")).toBe("caller checkout\n");
+    expect(readFileSync(join(destination, ".ai-engineering", "brainstorm.html"), "utf8"))
+      .toBe("<html>approved brainstorm</html>\n");
+    expect(readFileSync(join(destination, ".ai-engineering", "PRD.html"), "utf8"))
+      .toBe("<html>approved PRD</html>\n");
+    expect(readFileSync(join(caller, ".ai-engineering", "brainstorm.html"), "utf8")).toBe(dirtyBrainstorm);
+    expect(readFileSync(join(caller, ".ai-engineering", "PRD.html"), "utf8")).toBe(dirtyPrd);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], caller)).toBe(dirtyStatus);
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(primaryHead);
+  });
+
   test("fallback: with no [git] worktrees_dir the root is <repo>.worktrees", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);

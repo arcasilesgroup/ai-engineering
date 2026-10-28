@@ -1243,3 +1243,24 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Document current HEAD and the dirty brainstorm/PRD warning, preserving Phase 3 rebase and Phase 4 merge.
 - **Lesson:** Keep command guidance aligned with behavior.
 - **Tags:** review, docs, worktree
+
+### L172 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `worktree new` read the primary checkout's branch, HEAD and dirty design files when invoked from a linked worktree.
+- **Root cause:** Source state was derived from the primary checkout instead of the invoking checkout.
+- **Fix:** Read the caller checkout for branch, HEAD and dirty files while keeping the common repository root for shared refs/registration.
+- **Lesson:** Use the invoking checkout for source state; keep the primary root for shared refs and registration.
+- **Tags:** review, git, worktree
+
+### L173 · 2026-10-27 · floating-core #8 · review
+- **Failure:** Request-changes guidance assumed `feat/<slug>` and a managed-worktree-only flow.
+- **Root cause:** The prose inferred branch identity from a naming convention.
+- **Fix:** Resolve the exact checkpoint checkout and actual branch ref.
+- **Lesson:** Describe the checkout/ref the command validates, not one inferred from naming.
+- **Tags:** review, docs, git
+
+### L174 · 2026-10-27 · floating-core #8 · review
+- **Failure:** App approval unconditionally triggered local merge.
+- **Root cause:** The human approval step was coupled to one integration route.
+- **Fix:** Recommend PR with a forge, local merge otherwise, and offer PR, local merge or keep-branch.
+- **Lesson:** App approval and integration route are separate decisions.
+- **Tags:** review, workflow, git

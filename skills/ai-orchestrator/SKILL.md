@@ -43,7 +43,7 @@ Everywhere else, decide and keep going:
 
 ## Commits: commit as you go
 
-Every step that changes files ends with a commit on `feat/<slug>`, so the git history is a full, resumable record of the run. You make the commits yourself with Bash; the output is small.
+Every step that changes files ends with a commit on the selected feature branch, which need not follow a `feat/<slug>` naming convention, so the git history is a full, resumable record of the run. You make the commits yourself with Bash; the output is small.
 
 - **Tree and branch:** Work in the current checkout by default. Use a worktree only when isolation is requested or another active feature makes it useful; `ai-eng worktree new <branch>` starts it from the current `HEAD` and warns that dirty brainstorm/PRD files do not travel. On resume, use its exact Git-listed path and continue the feature's own changes without stashing or resetting them; leave foreign files untouched. Never derive a path or switch branches. Everything is committed on the selected feature branch, and `ai-eng worktree merge <slug>` makes one `--no-ff` merge against the detected base after app review.
 - **Stage explicit paths only.** Never use `git add -A` or `git add .`. The selected checkout may contain other work, so a loose stage could sweep unrelated edits; an explicit list keeps each commit the slice it claims. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage a design slot (`.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html`, `.ai-engineering/plan.html`) unless the step explicitly owns it. Do not stage `.ai-engineering/workflow/playwright/`, `.env*` or files that were in the Phase 0 baseline.
@@ -257,32 +257,41 @@ then use `AskUserQuestion` to ask the user to try the feature. Include:
 
 Offer three choices: **Approve**, **Request changes**, **Stop here**.
 
-Do not use the former manual `git merge --no-ff feat/<slug>` and `ai-eng worktree rm <slug>` close flow.
+Do not use the former manual Git merge and `ai-eng worktree rm` close flow.
 
-- **Request changes:** before asking, capture the full current `HEAD` SHA of the
-  checkpoint-only pending-review commit as `PENDING_REVIEW_SHA`. After the human
-  chooses Request changes, first run
-  `ai-eng worktree request-changes <slug> <PENDING_REVIEW_SHA>` from the primary
-  checkout. The command accepts only a clean, live managed `feat/<slug>` worktree
-  whose current full checkpoint-only commit SHA still equals that token and whose
-  checkpoint is `awaiting-app-review` with `app_review: pending`. It atomically
-  commits only the transition to `implementation`, clears app-review status and both
-  reviewed SHAs, then reports the new commit. If the SHA is stale or any check fails,
-  preserve all work and return to app review; never substitute a newer SHA. Only
-  after that transition succeeds, log the feedback in `LEARNINGS.md` with the gate
-  `human`. Something every automated gate missed is the highest-value learning, so
-  also promote it to a Rule right away and say which gate should have caught it.
-  Turn the feedback into new checkpoints appended to the JSON (next `id`, with
-  `builds_on` the last one). Run them through Phase 2 and Phase 3 without asking
+- **Request changes:** before asking, resolve the exact Git-listed checkout holding
+  `.ai-engineering/workflow/checkpoints/<slug>.json`—the current checkout or a
+  configured managed worktree—and record its actual checked-out branch ref
+  (`refs/heads/<branch>`) and full `HEAD` SHA of the checkpoint-only pending-review
+  commit as `PENDING_REVIEW_SHA`. After the human chooses Request changes, first run
+  `ai-eng worktree request-changes <slug> <PENDING_REVIEW_SHA>` from the repository.
+  The command resolves the unique checkout from that exact checkpoint and verifies
+  that its `HEAD` and actual branch-ref tip still equal the token and its checkpoint
+  is `awaiting-app-review` with `app_review: pending`; the branch may have any name.
+  It atomically commits only the transition to `implementation`, clears app-review
+  status and both reviewed SHAs, then reports the new commit. If the SHA is stale or
+  any check fails, preserve all work and return to app review; never substitute a
+  newer SHA. Only after that transition succeeds, log the feedback in `LEARNINGS.md`
+  with the gate `human`. Something every automated gate missed is the highest-value
+  learning, so also promote it to a Rule right away and say which gate should have
+  caught it. Turn the feedback into new checkpoints appended to the JSON (next `id`,
+  with `builds_on` the last one). Run them through Phase 2 and Phase 3 without asking
   again at checkpoint level, because the feedback is the approval. Then return to
   this app review.
 - **Approve:** Never invoke `ai-visual-recap` automatically or create `.ai-engineering/recap.html`. The recap is optional and never required for merge. Only when the user explicitly invokes `/ai-visual-recap` themselves may a recap be created; its absence must not delay approval, merge, or worktree removal.
+  After app approval, recommend **PR** when a forge remote is available and
+  **Local merge** otherwise. Then let the human choose **PR**, **Local merge**, or
+  **Keep the branch**; app approval alone does not choose an integration route.
+  - **PR:** hand off to `/ai-pr`; do not invoke the local merge transaction.
+  - **Keep the branch:** leave the approved branch and checkout in place and do not
+    merge or remove them.
+  - **Local merge:** continue below.
   1. Confirm the selected checkout is clean and its full `HEAD` equals its checked-out branch ref. All review artifacts must already be committed before the Phase 3 review pin. If any new artifact or code change remains, return to Phase 3 and obtain renewed app review instead of committing it after the pin. Read the already pinned `lifecycle.reviewed_feature` from the checkpoint and record `REVIEWED_FEATURE_SHA=<that exact full commit ID>`; never recapture the metadata-only `HEAD`.
   2. After the human approves, verify `lifecycle.reviewed_base` still equals the exact commit at `lifecycle.base_ref` and `lifecycle.reviewed_feature` is still an ancestor of the selected branch tip. Do not replace either reviewed SHA with a later metadata-commit tip. Use the checkpoint-gated state update in the selected checkout to retain the exact full `lifecycle.reviewed_base` and `lifecycle.reviewed_feature` SHAs, then set `lifecycle.app_review: approved` and `lifecycle.phase: ready-to-merge`. Confirm the update passed its gate, all gates passed, both reviewed refs are current, and the checkout remains clean. Stage and make a second, distinct checkpoint-only commit containing only `.ai-engineering/workflow/checkpoints/<slug>.json`; verify it preserves both reviewed SHAs and leaves the reviewed feature code tree unchanged. If the checkpoint is missing, invalid, stale, or the update makes the checkout dirty, stop without closing or removing anything.
   3. Invoke exactly `ai-eng worktree merge <slug>` for the close transaction. This command owns the compare-and-swap transaction, exact-parent verification and safe refresh of any checkout holding the detected base; do not perform any part of that transaction yourself. It leaves the feature branch and checkout in place and proposes `ai-eng worktree rm <slug>` for explicit cleanup. Do not switch branches, fetch, or close an unapproved sibling. If the detected base moved before merge, preserve the feature files; the command clears the stale review SHAs and returns it to `implementation`. Rerun affected gates and obtain renewed human app review before retrying. Never write lifecycle phase `complete`.
   4. Claim the feature integrated only after the command succeeds and Git confirms the exact reviewed-parent merge on `lifecycle.base_ref`. The feature checkout remains available until someone explicitly removes it. Never push.
   The merge commit is the single integration point for shared files — `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md`, and `.ai-engineering/PRD.html` when scope changed.
-- **Stop here:** commit whatever is outstanding on `feat/<slug>` and leave it unmerged.
+- **Stop here:** commit whatever is outstanding on the selected feature branch and leave it unmerged.
 
 ## Lifecycle
 

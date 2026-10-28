@@ -527,7 +527,7 @@
         "review": { "status": "failed", "attempts": 3, "findings": ["Previous findings resolved: arbitrary-branch request-changes, HEAD-based creation docs, and ignored-file safety. New BLOCKER src/shared-worktree.ts:359-386: `worktree new` reads status/HEAD from primary checkout instead of invoking linked checkout; use caller checkout and test distinct HEAD/dirty design files.", "MAJOR skills/ai-orchestrator/SKILL.md:46,265-268,285: request-changes guidance assumes feat/<slug>/managed worktree; document exact checkpoint checkout/ref resolution.", "MAJOR skills/ai-orchestrator/SKILL.md:278-283: Phase 4 mandates local merge, omitting D9 PR recommendation and keep-branch choice. Expose PR/keep/merge choices while retaining local merge handoff."] }
       },
       "status": "in_progress",
-      "changed_files": ["tests/ceremony-contract.spec.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/git-cleanup-pass.spec.ts", "FILEMAP.md", "skills/ai-brainstorm/SKILL.md", "skills/ai-orchestrator/SKILL.md", "skills/.chain-bundle/ai-eng-chain.ts", "src/commands/worktree.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts"]
+      "changed_files": ["tests/ceremony-contract.spec.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/git-cleanup-pass.spec.ts", "FILEMAP.md", "skills/ai-brainstorm/SKILL.md", "skills/ai-orchestrator/SKILL.md", "skills/.chain-bundle/ai-eng-chain.ts", "src/commands/worktree.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "LEARNINGS.md"]
     },
     {
       "id": 9,
