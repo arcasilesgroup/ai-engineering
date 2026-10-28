@@ -105,7 +105,7 @@ Dead and platform code is gone (sidecar, circuit breaker, briefing, upgrade, glo
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
 
-## F1 · MAJOR · fixed
+## F1 · MAJOR · resolved
 **Where:** tests/arch.spec.ts:135
 **Critic (r1):** `requiredRestrictions` pins the guards, payload and commands fences but omits the required git and workflow fences from §6.3. The current JSON has those rules, but deleting either rule silently drops its protection without failing the arch test → include git→commands/cli/chain/guards and workflow→commands/cli/chain in `requiredRestrictions`.
 
@@ -113,3 +113,4 @@ Dead and platform code is gone (sidecar, circuit breaker, briefing, upgrade, glo
 **ROOT CAUSE:** `requiredRestrictions` omitted the required git and workflow layer fences.
 **FIX:** Added explicit git→commands/cli/chain/guards and workflow→commands/cli/chain assertions.
 **LESSON:** Pin every required source-target fence so removing its config rule fails the architecture test.
+**Critic (r2):** Resolved; all seven git/workflow restrictions are now required assertions, and the 54-test arch suite passes. Runtime files were not changed by the fix, so the prior CP10 runtime review remains valid.
