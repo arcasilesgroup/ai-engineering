@@ -1467,3 +1467,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Preserve and report differing canon skills during update repair; add regression coverage for edits and explicit pack selections.
 - **Lesson:** Without a machine-side ownership hash, preserve differing canon files rather than treating them as disposable.
 - **Tags:** review, update, canon, data-loss, packs
+
+### L204 · 2026-10-28 · floating-core #14 · behavior
+- **Failure:** The serial suite took 204.83 seconds against a 120-second target and failed four tests; the first doctor case expected zero missing files but found 36.
+- **Root cause:** The doctor fixture omitted `canon.packs`, invoking legacy-pack expectations while installing only core; test hygiene also reran sandbox suites.
+- **Fix:** Declare core-only fixture intent, test selected and legacy packs, replace nested suite reruns with preload guards, and reuse Git fixture templates.
+- **Lesson:** Distinguish omitted packs (legacy) from explicit `[]` (core-only), and enforce suite hygiene during normal runs.
+- **Tags:** behavior, tests, performance, config, packs

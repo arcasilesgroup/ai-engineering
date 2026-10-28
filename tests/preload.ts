@@ -1,3 +1,7 @@
+import { afterAll } from "bun:test";
+import { readdirSync, watch } from "node:fs";
+import { SANDBOX_VARS, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
+
 // The suite is written for a piped runner, and an interactive shell leaks its TTY-ness
 // into every test: ui.ts replays stdin as keypresses only off a TTY, wraps rendered rows
 // only on a TTY stdout, and its frame module keeps one `frameOpen` flag per process —
@@ -10,3 +14,35 @@
 Object.defineProperty(process.stdin, "isTTY", { value: false, configurable: true });
 Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
 Object.defineProperty(process.stdout, "columns", { value: undefined, configurable: true });
+
+const initialEnv = snapshotSandboxEnv();
+const initialCwd = process.cwd();
+// Watch lifecycle tests directly so cleanup cannot hide a transient temp root.
+const leakPrefixes = [".worktree-lifecycle-", ".dirfd-probe-"];
+const isLeakedName = (name: string): boolean => leakPrefixes.some((prefix) => name.startsWith(prefix));
+const watchTestTree = Bun.main.endsWith("worktree-lifecycle.spec.ts") || process.env["HYGIENE_LEAK_PROBE"] === "1";
+const existingLeaks = watchTestTree ? readdirSync(import.meta.dir).filter(isLeakedName) : [];
+const observedNames: string[] = [];
+const testTreeWatcher = watchTestTree
+  ? watch(import.meta.dir, (_event, name) => {
+    if (typeof name !== "string" || isLeakedName(name)) observedNames.push(name ?? "<unknown>");
+  })
+  : null;
+afterAll(() => {
+  const changedEnv = SANDBOX_VARS.filter((name) => process.env[name] !== initialEnv[name]);
+  const changedCwd = process.cwd() !== initialCwd;
+  testTreeWatcher?.close();
+  const leakedNames = [...new Set([
+    ...existingLeaks,
+    ...observedNames.filter((name) => name === "<unknown>" || isLeakedName(name)),
+    ...readdirSync(import.meta.dir).filter(isLeakedName),
+  ])];
+  if (changedEnv.length > 0 || changedCwd || leakedNames.length > 0) {
+    const changed = [
+      ...changedEnv,
+      ...(changedCwd ? ["cwd"] : []),
+      ...(leakedNames.length > 0 ? ["temporary paths under tests/"] : []),
+    ].join(", ");
+    throw new Error(`test suite leaked sandbox state: ${changed}`);
+  }
+});

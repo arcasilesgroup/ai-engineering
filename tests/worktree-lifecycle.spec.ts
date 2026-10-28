@@ -1,7 +1,8 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -13,11 +14,12 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { runWorktreeCommand } from "./fixtures/worktree-command.ts";
 
-const CLI = join(import.meta.dir, "..", "src", "cli.ts");
 const root = mkdtempSync(join(tmpdir(), "worktree-lifecycle-"));
 const emptyGitConfig = join(root, "empty-gitconfig");
 writeFileSync(emptyGitConfig, "");
+let repoTemplate = "";
 const childEnv: NodeJS.ProcessEnv = {
   ...process.env,
   GIT_CONFIG_GLOBAL: emptyGitConfig,
@@ -25,6 +27,10 @@ const childEnv: NodeJS.ProcessEnv = {
   GIT_EDITOR: `"${process.execPath}" -e "process.exit(0)"`,
   GIT_TERMINAL_PROMPT: "0",
 };
+
+beforeAll(() => {
+  repoTemplate = initializeRepo(join(root, "template"));
+});
 
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
@@ -52,16 +58,7 @@ function runGit(args: string[], cwd: string): Run {
 }
 
 function runList(cwd: string): Run {
-  const result = spawnSync(process.execPath, [CLI, "worktree", "list"], {
-    cwd,
-    encoding: "utf8",
-    env: childEnv,
-  });
-  return {
-    status: result.status ?? 1,
-    stdout: result.stdout ?? "",
-    stderr: result.stderr ?? "",
-  };
+  return runWorktreeCommand(["worktree", "list"], cwd, childEnv);
 }
 
 function commitFile(worktree: string, relativePath: string, contents: string, message: string): string {
@@ -79,10 +76,8 @@ function pinRef(repo: string, name: string, source: string): string {
   return ref;
 }
 
-function initRepo(): string {
-  const base = mkdtempSync(join(root, "repo-"));
-  const repo = join(base, "primary");
-  mkdirSync(repo);
+function initializeRepo(repo: string): string {
+  mkdirSync(repo, { recursive: true });
   git(["init", "-q", "-b", "main"], repo);
   git(["config", "user.name", "Ada Lovelace"], repo);
   git(["config", "user.email", "ada@example.com"], repo);
@@ -94,6 +89,12 @@ function initRepo(): string {
   writeFileSync(join(repo, "src", "shared.ts"), "export const value = 1;\n");
   git(["add", "-A"], repo);
   git(["commit", "-q", "-m", "fixture base"], repo);
+  return repo;
+}
+
+function initRepo(): string {
+  const repo = join(mkdtempSync(join(root, "repo-")), "primary");
+  cpSync(repoTemplate, repo, { recursive: true });
   return repo;
 }
 

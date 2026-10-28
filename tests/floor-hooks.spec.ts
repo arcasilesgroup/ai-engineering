@@ -13,7 +13,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { execFileSync, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
@@ -25,13 +25,30 @@ const roots: string[] = [];
 const HOME_BEFORE = process.env.AI_ENG_HOME;
 const PATH_BEFORE = process.env.PATH ?? "";
 const CWD_BEFORE = process.cwd();
+let templateRoot = "";
+const repoTemplates = new Map<boolean, string>();
 
 beforeAll(() => {
   process.env.AI_ENG_HOME = mkdtempSync(join(tmpdir(), "ai-eng-floor-home-"));
+  templateRoot = mkdtempSync(join(tmpdir(), "ai-eng-floor-template-"));
+  for (const governed of [false, true]) {
+    const dir = join(templateRoot, governed ? "governed" : "foreign");
+    mkdirSync(dir);
+    run("git", dir, ["init", "-q"]);
+    run("git", dir, ["config", "user.email", "floor@example.com"]);
+    run("git", dir, ["config", "user.name", "floor test"]);
+    run("git", dir, ["config", "commit.gpgsign", "false"]);
+    if (governed) {
+      mkdirSync(join(dir, ".ai-engineering"), { recursive: true });
+      writeFileSync(join(dir, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+    }
+    repoTemplates.set(governed, dir);
+  }
 });
 afterAll(() => {
   if (HOME_BEFORE === undefined) delete process.env.AI_ENG_HOME;
   else process.env.AI_ENG_HOME = HOME_BEFORE;
+  if (templateRoot) rmSync(templateRoot, { recursive: true, force: true });
 });
 beforeEach(() => {
   process.env.PATH = PATH_BEFORE;
@@ -57,15 +74,11 @@ function run(bin: string, cwd: string, args: string[]): { status: number; stdout
 /** A throwaway repo. `governed` writes the declaration `.ai-engineering/config.toml`
  *  — the only thing that makes the floor judge a commit at all (§A). */
 function tempRepo(governed: boolean): string {
-  const dir = tempDir(governed ? "ai-eng-floor-repo-" : "ai-eng-floor-foreign-");
-  run("git", dir, ["init", "-q"]);
-  run("git", dir, ["config", "user.email", "floor@example.com"]);
-  run("git", dir, ["config", "user.name", "floor test"]);
-  run("git", dir, ["config", "commit.gpgsign", "false"]);
-  if (governed) {
-    mkdirSync(join(dir, ".ai-engineering"), { recursive: true });
-    writeFileSync(join(dir, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
-  }
+  const parent = tempDir(governed ? "ai-eng-floor-repo-" : "ai-eng-floor-foreign-");
+  const dir = join(parent, "repo");
+  const template = repoTemplates.get(governed);
+  if (!template) throw new Error(`missing ${governed ? "governed" : "foreign"} Git fixture template`);
+  cpSync(template, dir, { recursive: true });
   return dir;
 }
 

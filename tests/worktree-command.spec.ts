@@ -1,8 +1,7 @@
 // tests/worktree-command.spec.ts — CLI contract of `ai-eng worktree new|rm|list|merge`
-// (floating-core test plan, integration layer, checkpoints 2 and 7). Every case drives the
-// real CLI as a subprocess inside a throwaway git repository in a temp dir: the
-// verb owns the filesystem and the git state, so only its observable effects count
-// and no implementation module is imported.
+// (floating-core test plan, integration layer, checkpoints 2 and 7). Cases drive the
+// command handler inside a throwaway git repository; representative cases retain the
+// real CLI subprocess boundary so each Git scenario avoids repeated Bun startup.
 // GIT_CONFIG_GLOBAL/GIT_CONFIG_SYSTEM point at empty files so the machine's real
 // ~/.gitconfig (hooks, signing, identity) can never decide what a child git does.
 // One test swaps a logging `git` shim onto PATH to read back the exact argv the
@@ -12,6 +11,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -26,6 +26,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
+import { runWorktreeCommand } from "./fixtures/worktree-command.ts";
 
 const CLI = join(import.meta.dir, "..", "src", "cli.ts");
 const REAL_GIT = Bun.which("git") ?? "git";
@@ -106,10 +107,14 @@ function git(args: string[], cwd: string): string {
   return done.stdout;
 }
 
-/** The verb under test, spawned exactly as a script would run it. */
-function runCli(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Run {
+/** Representative process-level checks keep CLI dispatch and flag parsing covered. */
+function runCliProcess(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Run {
   const done = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf8", env: { ...childEnv, ...env } });
   return { status: done.status ?? 1, stdout: done.stdout ?? "", stderr: done.stderr ?? "" };
+}
+
+function runCli(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Run {
+  return runWorktreeCommand(args, cwd, { ...childEnv, ...env });
 }
 
 function runCliAsync(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): Promise<Run> {
@@ -678,10 +683,14 @@ function initRepo(dir: string): string {
   return dir;
 }
 
+const repoTemplate = initRepo(join(sandboxRoot, "template-repo"));
+
 function tempRepo(): string {
-  const root = mkdtempSync(join(tmpdir(), "ai-eng-worktree-repo-"));
-  cleanups.push(root);
-  return initRepo(root);
+  const parent = mkdtempSync(join(tmpdir(), "ai-eng-worktree-repo-"));
+  const root = join(parent, "repo");
+  cleanups.push(parent);
+  cpSync(repoTemplate, root, { recursive: true });
+  return root;
 }
 
 /** APFS/HFS+ fold case, ext4 does not: probe by writing the same name in two cases. */
@@ -704,7 +713,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const artifact = writeBrainstorm(repo, "alpha");
     const before = worktreeEntries(repo);
 
-    const listed = runCli(["worktree", "list", "alpha"], repo);
+    const listed = runCliProcess(["worktree", "list", "alpha"], repo);
 
     expect(listed.status).toBe(0);
     expect(listed.stdout).toBe("");
@@ -847,7 +856,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const root = `${canonicalRepo}.worktrees`;
     cleanups.push(root);
 
-    const run = runCli(["worktree", "new", "alpha"], viaAlias);
+    const run = runCliProcess(["worktree", "new", "alpha"], viaAlias);
     expect(run.status).toBe(0);
 
     const created = join(root, "alpha");
@@ -1552,7 +1561,7 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
     expect(stale.stderr).toContain("stale checkpoint");
     expect(fullRepoSnapshot(repo, [repo], [checkpoint])).toBe(pendingState);
 
-    const requested = runCli(["worktree", "request-changes", slug, pendingCommit], repo);
+    const requested = runCliProcess(["worktree", "request-changes", slug, pendingCommit], repo);
 
     if (requested.status !== 0) throw new Error(requested.stderr);
     expect(requested.status).toBe(0);
@@ -2244,7 +2253,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     commitInWorktree(repo, "alpha");
 
-    const run = runCli(["worktree", "rm", "alpha", "--force"], repo);
+    const run = runCliProcess(["worktree", "rm", "alpha", "--force"], repo);
     expect(run.status).toBe(0);
     expect(existsSync(join(root, "alpha"))).toBe(false);
     expect(worktreeEntries(repo)).toHaveLength(1);
@@ -2758,7 +2767,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
       writeFileSync(file, contents);
     }
 
-    const run = runCli(["worktree", "merge", approved.slug], repo);
+    const run = runCliProcess(["worktree", "merge", approved.slug], repo);
 
     expect(run.status).toBe(0);
     for (const [path, contents] of untrackedFiles) {

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -62,6 +63,7 @@ type GuardResult = ReturnType<typeof runCheckpointGuard>;
 let fixtureRoot = "";
 let emptyGitConfig = "";
 let fixtureIndex = 0;
+const fixtureTemplates = new Map<string, string>();
 
 function runGit(args: string[], cwd: string) {
   const env: NodeJS.ProcessEnv = {
@@ -85,11 +87,8 @@ function git(args: string[], cwd: string): string {
   return result.stdout.trim();
 }
 
-function createFixture(options: { slug?: string; baseBranch?: string; featureBranch?: string } = {}): Fixture {
-  const slug = options.slug ?? "demo";
-  const baseBranch = options.baseBranch ?? "main";
-  const featureBranch = options.featureBranch ?? `feat/${slug}`;
-  const root = join(fixtureRoot, `repo-${fixtureIndex++}`);
+function createTemplate(baseBranch: string): string {
+  const root = join(fixtureRoot, `template-${baseBranch}`);
   mkdirSync(root);
   git(["init", "-q", "-b", baseBranch], root);
   git(["config", "user.name", "Checkpoint Test"], root);
@@ -103,11 +102,24 @@ function createFixture(options: { slug?: string; baseBranch?: string; featureBra
   writeFileSync(join(root, "base.txt"), "base\n");
   git(["add", ".ai-engineering/config.toml", "base.txt"], root);
   git(["commit", "-q", "-m", "base"], root);
-  const baseSha = git(["rev-parse", `refs/heads/${baseBranch}`], root);
-  git(["switch", "-q", "-c", featureBranch], root);
+  git(["switch", "-q", "-c", "feat/demo"], root);
   writeFileSync(join(root, "feature.txt"), "feature\n");
   git(["add", "feature.txt"], root);
   git(["commit", "-q", "-m", "feature"], root);
+  return root;
+}
+
+function createFixture(options: { slug?: string; baseBranch?: string; featureBranch?: string } = {}): Fixture {
+  const slug = options.slug ?? "demo";
+  const baseBranch = options.baseBranch ?? "main";
+  const featureBranch = options.featureBranch ?? `feat/${slug}`;
+  const root = join(fixtureRoot, `repo-${fixtureIndex++}`);
+  const template = fixtureTemplates.get(baseBranch);
+  if (!template) throw new Error(`no checkpoint fixture template for ${baseBranch}`);
+  cpSync(template, root, { recursive: true });
+  if (featureBranch !== "feat/demo") git(["branch", "-m", "feat/demo", featureBranch], root);
+
+  const baseSha = git(["rev-parse", `refs/heads/${baseBranch}`], root);
   const featureSha = git(["rev-parse", `refs/heads/${featureBranch}`], root);
 
   const planDirectory = join(root, ".ai-engineering", "workflow", "checkpoints");
@@ -340,6 +352,9 @@ beforeAll(() => {
   mkdirSync(fixtureRoot);
   emptyGitConfig = join(fixtureRoot, "empty-git-config");
   writeFileSync(emptyGitConfig, "");
+  for (const baseBranch of ["main", "develop"]) {
+    fixtureTemplates.set(baseBranch, createTemplate(baseBranch));
+  }
 });
 
 afterAll(() => {
