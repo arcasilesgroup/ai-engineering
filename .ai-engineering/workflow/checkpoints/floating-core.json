@@ -670,7 +670,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "failed", "attempts": 1, "findings": ["CP10 verify commands 1-16 all passed (including proof script and build), but `bun test --parallel=1` exited 1. Captured output was truncated and omitted failed names/counts/duration; bounded diagnostic rerun required."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
