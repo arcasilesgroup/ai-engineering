@@ -44,20 +44,45 @@ function layerRegex(glob: string): RegExp {
 
 const LAYERS = Object.entries(config.layers).map(([name, glob]) => ({ name, re: layerRegex(glob) }));
 
-const layerOf = (file: string): string | undefined => LAYERS.find((layer) => layer.re.test(file))?.name;
+type Layer = { name: string; re: RegExp };
+
+const layerMatches = (file: string, layers: Layer[] = LAYERS): string[] =>
+  layers.filter((layer) => layer.re.test(file)).map((layer) => layer.name);
+
+const layerOf = (file: string): string | undefined => layerMatches(file)[0];
+
+function layerCoverageIssues(files: string[], layers: Layer[] = LAYERS): { file: string; matches: string[] }[] {
+  return files.flatMap((file) => {
+    const matches = layerMatches("src/" + file, layers);
+    return matches.length === 1 ? [] : [{ file, matches }];
+  });
+}
 
 type ImportEdge = { from: string; to: string };
 
-/** Every relative TypeScript import, with paths relative to src/. */
+/** Every source file under src/, relative to src/. */
 const SRC = resolve(import.meta.dir, "..", "src");
-const moduleEdges = (): ImportEdge[] => {
+function sourceFiles(directory = SRC): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...sourceFiles(path));
+    else if (entry.isFile()) files.push(relative(SRC, path).replace(/\\/g, "/"));
+  }
+  return files.sort();
+}
+
+/** Every relative TypeScript import, with paths relative to src/. */
+const moduleEdges = (files: string[]): ImportEdge[] => {
   const out: ImportEdge[] = [];
-  for (const path of new Glob("**/*.ts").scanSync({ cwd: SRC })) {
+  for (const path of files.filter((file) => /\.(?:[cm]?ts|tsx)$/.test(file))) {
     const text = readFileSync(join(SRC, path), "utf8");
-    for (const m of text.matchAll(/from\s+["'](\.[^"']+)["']/g)) {
+    const imports = /\bfrom\s*["'](\.[^"']+)["']|\bimport\s*\(\s*["'](\.[^"']+)["']|\bimport\s+["'](\.[^"']+)["']/g;
+    for (const m of text.matchAll(imports)) {
+      const specifier = m[1] ?? m[2] ?? m[3]!;
       out.push({
         from: path.replace(/\\/g, "/"),
-        to: relative(SRC, resolve(dirname(join(SRC, path)), m[1]!)).replace(/\\/g, "/"),
+        to: relative(SRC, resolve(dirname(join(SRC, path)), specifier)).replace(/\\/g, "/"),
       });
     }
   }
@@ -105,13 +130,28 @@ function findCycle(imports: ImportEdge[]): string[] | undefined {
 /** One check per mayNotImport target in the JSON (projected rules). */
 describe("architecture (arch.rules.json — single source of truth, §16.2)", () => {
   const known = Object.keys(config.layers);
-  const modules = moduleEdges();
+  const files = sourceFiles();
+  const modules = moduleEdges(files);
   const graph = edges(modules);
+  const requiredRestrictions = [
+    ["guards", "chain"],
+    ["guards", "commands"],
+    ["guards", "cli"],
+    ["payload", "guards"],
+    ["payload", "chain"],
+    ["payload", "commands"],
+    ["payload", "cli"],
+    ["payload", "surfaces"],
+    ["commands", "cli"],
+  ] as const;
+
   for (const rule of config.rules) {
     if (rule.forbid === "cycles") {
       test("forbids import cycles, including same-layer cycles", () => {
-        expect(findCycle([{ from: "install.ts", to: "embed.ts" }, { from: "embed.ts", to: "install.ts" }]))
-          .toEqual(["install.ts", "embed.ts", "install.ts"]);
+        expect(findCycle([
+          { from: "chain/mod.ts", to: "chain/dialect.ts" },
+          { from: "chain/dialect.ts", to: "chain/mod.ts" },
+        ])).toEqual(["chain/mod.ts", "chain/dialect.ts", "chain/mod.ts"]);
         expect(findCycle(modules)).toBeUndefined();
       });
       continue;
@@ -125,6 +165,17 @@ describe("architecture (arch.rules.json — single source of truth, §16.2)", ()
         expect(graph.filter((edge) => edge.from === rule.from && edge.to === target)).toEqual([]);
       });
     }
+  }
+
+  for (const [source, target] of requiredRestrictions) {
+    test(`${source} must not import ${target} (§6.3)`, () => {
+      const hasLayers = known.includes(source) && known.includes(target);
+      const hasRule = config.rules.some((rule) =>
+        rule.from === source && rule.mayNotImport?.split(",").map((layer) => layer.trim()).includes(target),
+      );
+      const violations = graph.filter((edge) => edge.from === source && edge.to === target);
+      expect({ hasLayers, hasRule, violations }).toEqual({ hasLayers: true, hasRule: true, violations: [] });
+    });
   }
 
   test("slices matched real files and real imports (empty-test protection)", () => {
@@ -146,8 +197,24 @@ describe("architecture (arch.rules.json — single source of truth, §16.2)", ()
     expect(graph.filter((edge) => edge.from === "chain" && edge.to === "env").length).toBeGreaterThan(0);
   });
 
+  test("assigns every src file to exactly one layer", () => {
+    expect(layerCoverageIssues(files)).toEqual([]);
+  });
+
+  test("rejects uncovered and overlapping file fixtures", () => {
+    const fixtureLayers = [
+      { name: "first", re: layerRegex("src/first/**,src/shared.ts") },
+      { name: "second", re: layerRegex("src/second/**,src/shared.ts") },
+    ];
+    expect(layerCoverageIssues(["uncovered.ts"], fixtureLayers))
+      .toEqual([{ file: "uncovered.ts", matches: [] }]);
+    expect(layerCoverageIssues(["shared.ts"], fixtureLayers))
+      .toEqual([{ file: "shared.ts", matches: ["first", "second"] }]);
+  });
+
   test("checkpoint JSON file I/O is owned by src/workflow/checkpoint.ts", () => {
-    const checkpointReaders = Array.from(new Glob("**/*.ts").scanSync({ cwd: SRC }))
+    const checkpointReaders = files
+      .filter((path) => path.endsWith(".ts"))
       .filter((path) => {
         const source = readFileSync(join(SRC, path), "utf8");
         const readsCheckpointPath = /readFileSync\s*\(\s*(?:absolutePath|checkpointPath|checkpointFile)\b/i.test(source) ||
@@ -155,7 +222,6 @@ describe("architecture (arch.rules.json — single source of truth, §16.2)", ()
         const parsesCheckpointContents = /JSON\.parse\s*\(\s*[A-Za-z_$][\w$]*checkpoint[\w$]*/i.test(source);
         return readsCheckpointPath || parsesCheckpointContents;
       })
-      .map((path) => path.replace(/\\/g, "/"))
       .sort();
     expect(checkpointReaders).toEqual(["workflow/checkpoint.ts"]);
   });
