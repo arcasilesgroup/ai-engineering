@@ -502,12 +502,12 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["Replanned CP8 verify passed: worktree-command 100 (16 skipped), lifecycle 17, git-context 30, workflow-checkpoint 10, arch 31; typecheck/lint passed. Full serial suite 1572 passed, 16 skipped, 0 failed across 79 files in 218.59s."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "in_progress",
-      "changed_files": []
+      "changed_files": ["tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "src/commands/worktree.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "LEARNINGS.md"]
     },
     {
       "id": 9,

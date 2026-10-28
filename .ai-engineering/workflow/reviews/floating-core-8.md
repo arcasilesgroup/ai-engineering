@@ -155,3 +155,34 @@
 **ROOT CAUSE:** A valid inherited checkpoint with an outdated `reviewed_base` still received active identity, so its duplicate blob counted as a second owner.
 **FIX:** Treat a provably stale app-review pin as a non-feature stale row, exclude it from current-checkout ownership, and retain ambiguity for active identities; fail closed when the detected base cannot be read.
 **LESSON:** Checkpoint file presence proves historical identity, not current ownership; lifecycle pins are actionable only while their reviewed base matches the detected base.
+
+## Replanned CP8 review scope
+
+Automatic replan split the previous CP8 into CP8 (list/resume/request-changes ownership) and CP9 (new/rm and final ceremony choices). This review covers the stale-checkpoint and exact-owner slice only.
+
+### Goal
+List, resume, and request-changes resolve the exact feature checkpoint in the current checkout or a Git-registered worktree; inherited stale checkpoints outside that scope cannot create false ambiguity or make ordinary list fail.
+
+### Acceptance
+- I39: list considers the current checkout and Git-registered worktrees only, flags another active feature, ignores inherited stale checkpoints, and exits 0 for an ordinary list.
+- I40: an unregistered leftover folder is reported as not registered in Git and never as a feature.
+- I43: list/resume identifies the exact feature checkpoint, reports its own dirty files as continuable, leaves foreign files untouched, and does not stash or move HEAD.
+- I45: request-changes uses the detected base and clears both SHAs; removed worktree rebase and file-hint usage is rejected.
+
+### changed_files
+- tests/worktree-command.spec.ts
+- tests/worktree-lifecycle.spec.ts
+- src/commands/worktree.ts
+- src/shared-worktree.ts
+- src/workflow/checkpoint.ts
+- LEARNINGS.md
+
+### Verify
+- `bun test tests/worktree-command.spec.ts`
+- `bun test tests/worktree-lifecycle.spec.ts`
+- `bun test ./tests/git-context.spec.ts`
+- `bun test tests/workflow-checkpoint.spec.ts`
+- `bun run typecheck`
+- `bun run lint`
+- `bun test tests/arch.spec.ts`
+- `bun test --parallel=1`
