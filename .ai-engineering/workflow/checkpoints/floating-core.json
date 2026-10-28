@@ -765,10 +765,10 @@
     },
     {
       "id": 12,
-      "title": "Split the canon into 23 core skills and opt-in packs",
+      "title": "Default installs to core and selected packs",
       "simple": "Install only the essentials",
       "size": "l",
-      "goal": "init without packs installs the 23 core skills and every ceremony agent, six specialist skills plus the ai-verify tiers live in packs/ and install only when chosen, ai-code-review is merged into ai-verify, update keeps every pack for existing installs and uninstall removes packs.",
+      "goal": "Fresh installs get the 23 core skills and ceremony agents by default; optional skills live in packs and install only when selected, and uninstall removes packs.",
       "plain": {
         "what": "A fresh setup installs only the essentials; extra specialist tools are added when you choose them.",
         "why": "Loading every specialist tool in every session wastes the assistant's attention.",
@@ -776,18 +776,18 @@
       },
       "builds_on": [11],
       "tasks": [
-        "Tests first: tests/init-command.spec.ts asserts `init --yes` and non-TTY write `packs = []` and install exactly the 23 core skills and every agent the ceremony cites, and interactive init asks with nothing preselected; tests/ceremony-contract.spec.ts runs with packs off; tests/update-command.spec.ts asserts the first update of an install without `[canon] packs` writes all six packs and removes nothing, with local edits still protected by the lock hashes; tests/uninstall-command.spec.ts asserts installed packs are removed; tests/embed-canon.spec.ts covers packs embedded apart from core.",
+        "Tests first: tests/init-command.spec.ts asserts `init --yes` and non-TTY write `packs = []` and install exactly the 23 core skills and every agent the ceremony cites, and interactive init asks with nothing preselected; tests/ceremony-contract.spec.ts runs with packs off; tests/uninstall-command.spec.ts asserts installed packs are removed; tests/embed-canon.spec.ts covers packs embedded apart from core; tests/carriers-install.spec.ts asserts carriers install core plus only the selected packs.",
         "Move skills/ai-triage, skills/ai-design-md-planner, skills/ai-audit-design, skills/ai-visual-recap, skills/ai-writing-behavior, skills/ai-stress-test to packs/<name>/, and skills/ai-verify/tiers and evals to packs/verify-tiers/, keeping the 54-line ai-verify router in core; move, never delete content.",
         "Merge skills/ai-code-review into skills/ai-verify and remove the separate skill.",
-        "scripts/gen-assets.ts walks packs/; src/embed.ts and src/install.ts tell core from pack; src/surfaces/adapters.ts installs core plus the selected packs; src/commands/init.ts, src/commands/config.ts, src/commands/update.ts and src/commands/uninstall.ts read and write `[canon] packs` via src/env.ts; document it in templates/config.toml.tpl; add packs to `files` in package.json.",
+        "scripts/gen-assets.ts walks packs/; src/embed.ts and src/install.ts tell core from pack; src/surfaces/adapters.ts installs core plus the selected packs; src/commands/init.ts, src/commands/config.ts and src/commands/uninstall.ts read and write `[canon] packs` via src/env.ts; document it in templates/config.toml.tpl; add packs to `files` in package.json.",
         "Repoint tests that read moved skills (tests/triage-*.spec.ts, tests/skills-eval-score.spec.ts, tests/skills.spec.ts) to packs/ paths; update FILEMAP.md; regenerate src/assets.ts."
       ],
       "files": [
         "tests/init-command.spec.ts",
-        "tests/update-command.spec.ts",
         "tests/uninstall-command.spec.ts",
         "tests/ceremony-contract.spec.ts",
         "tests/embed-canon.spec.ts",
+        "tests/carriers-install.spec.ts",
         "tests/agents-canon.spec.ts",
         "tests/npm-manifest.spec.ts",
         "tests/skills-eval-score.spec.ts",
@@ -801,7 +801,6 @@
         "src/surfaces/adapters.ts",
         "src/commands/init.ts",
         "src/commands/config.ts",
-        "src/commands/update.ts",
         "src/commands/uninstall.ts",
         "src/env.ts",
         "src/assets.ts",
@@ -812,21 +811,67 @@
       "acceptance": [
         "init without packs installs 23 skills and every ceremony agent; the ceremony contract passes without packs.",
         "ai-code-review is merged into ai-verify; the full ceremony stays in core.",
-        "The first update of an existing install keeps every pack; uninstall removes packs.",
+        "Uninstall removes installed packs along with core.",
         "Pack content is moved, not deleted."
       ],
       "verify": [
         "bun test tests/skills-eval-score.spec.ts",
         "bun test ./tests/triage-azure-signals.integration.spec.ts ./tests/triage-azure-signals.unit.spec.ts ./tests/triage-azure.integration.spec.ts ./tests/triage-azure.unit.spec.ts ./tests/triage-github.spec.ts ./tests/triage-report.integration.spec.ts ./tests/triage-report.unit.spec.ts ./tests/triage-routing.integration.spec.ts ./tests/triage-routing.unit.spec.ts",
         "bun test tests/init-command.spec.ts",
-        "bun test tests/update-command.spec.ts",
         "bun test tests/uninstall-command.spec.ts",
         "bun test tests/ceremony-contract.spec.ts",
         "bun test tests/embed-canon.spec.ts",
         "bun test tests/agents-canon.spec.ts",
         "bun test tests/carriers-install.spec.ts",
         "bun test tests/npm-manifest.spec.ts",
-        "bun test tests/generated-payload.test.ts",
+        "bun test tests/generated-payload.test.ts"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": {
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
+        },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending",
+      "changed_files": [
+        ".snyk", "FILEMAP.md", "package.json", "scripts/gen-assets.ts", "scripts/.embed/",
+        "skills/ai-code-review/SKILL.md", "skills/ai-audit-design/", "skills/ai-design-md-planner/", "skills/ai-stress-test/", "skills/ai-triage/", "skills/ai-verify/SKILL.md", "skills/ai-verify/evals/", "skills/ai-verify/tiers/", "skills/ai-visual-recap/", "skills/ai-writing-behavior/", "packs/",
+        "src/assets.ts", "src/commands/config.ts", "src/commands/doctor.ts", "src/commands/init-shared.ts", "src/commands/init.ts", "src/commands/uninstall.ts", "src/embed.ts", "src/env.ts", "src/surfaces/adapters.ts", "templates/config.toml.tpl",
+        "tests/carriers-install.spec.ts", "tests/ceremony-contract.spec.ts", "tests/embed-canon.spec.ts", "tests/fixtures/triage-azure-signals-preview.mjs", "tests/generated-payload.test.ts", "tests/init-command.spec.ts", "tests/npm-manifest.spec.ts", "tests/skills-eval-score.spec.ts", "tests/skills.spec.ts", "tests/triage-azure-signals.integration.spec.ts", "tests/triage-azure-signals.unit.spec.ts", "tests/triage-azure.integration.spec.ts", "tests/triage-azure.unit.spec.ts", "tests/triage-github.spec.ts", "tests/triage-report.integration.spec.ts", "tests/triage-report.unit.spec.ts", "tests/triage-routing.integration.spec.ts", "tests/triage-routing.unit.spec.ts", "tests/uninstall-command.spec.ts"
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Migrate legacy installs to all packs",
+      "simple": "Keep older setups complete",
+      "size": "s",
+      "goal": "Existing installs without `[canon] packs` adopt all six packs on their first update, explicit pack choices remain selected, and local edits stay protected.",
+      "plain": {
+        "what": "Older installations gain all six tools after updating, without losing local changes.",
+        "why": "People who already installed the tools must not lose them after upgrading.",
+        "check": "Update a copy without a pack setting and check all six tools remain."
+      },
+      "builds_on": [12],
+      "tasks": [
+        "Tests first: tests/update-command.spec.ts asserts the first update of an install without `[canon] packs` writes all six packs and removes nothing, with local edits still protected by the lock hashes.",
+        "src/commands/update.ts and src/env.ts preserve explicitly selected packs when writing config; when a legacy config omits `[canon] packs`, select all six packs on the first update without removing protected local edits."
+      ],
+      "files": [
+        "tests/update-command.spec.ts",
+        "src/commands/update.ts",
+        "src/env.ts"
+      ],
+      "acceptance": [
+        "The first update of an existing install keeps all six packs and removes none.",
+        "An update preserves explicitly selected packs.",
+        "A locally edited skill remains protected by its lock hash."
+      ],
+      "verify": [
+        "bun test tests/update-command.spec.ts",
         "bun run build",
         "bun run typecheck",
         "bun run lint",
@@ -835,28 +880,19 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": {
-          "status": "failed",
-          "attempts": 3,
-          "findings": [
-            "The first serial-suite failure had no test name in the runner summary; fix attempt 1 did not reproduce because its repo-local TMPDIR triggered the environment guard.",
-            "Gate retry failed at U9: rendered config.toml did not keep both expected keys inactive and documented as comments.",
-            "Gate retry after the U9 fix stopped at tests/update-command.spec.ts: updateMain; a legacy install without [canon] packs expected six packs, got []."
-          ]
-        },
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "in_progress",
+      "status": "pending",
       "changed_files": [
-        ".snyk", "FILEMAP.md", "package.json", "scripts/gen-assets.ts", "scripts/.embed/",
-        "skills/ai-code-review/SKILL.md", "skills/ai-audit-design/", "skills/ai-design-md-planner/", "skills/ai-stress-test/", "skills/ai-triage/", "skills/ai-verify/SKILL.md", "skills/ai-verify/evals/", "skills/ai-verify/tiers/", "skills/ai-visual-recap/", "skills/ai-writing-behavior/", "packs/",
-        "src/assets.ts", "src/commands/config.ts", "src/commands/doctor.ts", "src/commands/init-shared.ts", "src/commands/init.ts", "src/commands/uninstall.ts", "src/commands/update.ts", "src/embed.ts", "src/env.ts", "src/surfaces/adapters.ts", "templates/config.toml.tpl",
-        "tests/carriers-install.spec.ts", "tests/ceremony-contract.spec.ts", "tests/embed-canon.spec.ts", "tests/fixtures/triage-azure-signals-preview.mjs", "tests/generated-payload.test.ts", "tests/init-command.spec.ts", "tests/npm-manifest.spec.ts", "tests/skills-eval-score.spec.ts", "tests/skills.spec.ts", "tests/triage-azure-signals.integration.spec.ts", "tests/triage-azure-signals.unit.spec.ts", "tests/triage-azure.integration.spec.ts", "tests/triage-azure.unit.spec.ts", "tests/triage-github.spec.ts", "tests/triage-report.integration.spec.ts", "tests/triage-report.unit.spec.ts", "tests/triage-routing.integration.spec.ts", "tests/triage-routing.unit.spec.ts", "tests/uninstall-command.spec.ts", "tests/update-command.spec.ts"
+        "src/commands/update.ts",
+        "src/env.ts",
+        "tests/update-command.spec.ts"
       ]
     },
     {
-      "id": 13,
+      "id": 14,
       "title": "Consolidate tests and CI",
       "simple": "Speed up the safety checks",
       "size": "m",
@@ -866,7 +902,7 @@
         "why": "Slow, duplicated checks waste time and get skipped.",
         "check": "Nothing to see yet, behind the scenes."
       },
-      "builds_on": [12],
+      "builds_on": [13],
       "tasks": [
         "No new tests: delete phrase assertions in tests/skills.spec.ts, tests/workflow-handoff.spec.ts and tests/ai-pr.spec.ts now covered by tests/skills-lint.spec.ts and tests/ceremony-contract.spec.ts, keeping every orchestrator phase and gate assertion.",
         "Collapse duplicated real-Git cases across tests/worktree-command.spec.ts and tests/worktree-lifecycle.spec.ts, keeping the S11 race test and the 6.8 mandatory merge cases.",
@@ -913,7 +949,7 @@
       "status": "pending"
     },
     {
-      "id": 14,
+      "id": 15,
       "title": "Add token budgets with a test and a tokens script",
       "simple": "Keep the assistant's reading light",
       "size": "m",
@@ -923,7 +959,7 @@
         "why": "Every extra word costs time and money in every session.",
         "check": "Run the token count and see every budget within its limit."
       },
-      "builds_on": [13],
+      "builds_on": [14],
       "tasks": [
         "Tests first: add tests/token-budget.spec.ts asserting core skill frontmatter totals at most 2,500 tokens (bytes/4), templates/AGENTS.md.tpl at most 1,200, chain allow and green `ai-eng git pre-commit|commit-msg|pre-push` print 0 lines, and each chain or floor deny prints at most 3 lines.",
         "Add scripts/tokens.ts (bytes/4, no dependencies) and a `tokens` script in package.json that prints the same numbers the test checks.",
@@ -970,7 +1006,7 @@
       "status": "pending"
     },
     {
-      "id": 15,
+      "id": 16,
       "title": "Fix docs and promises, and ship as 3.0.0",
       "simple": "Update the guides and version",
       "size": "m",
@@ -980,7 +1016,7 @@
         "why": "Docs that promise missing commands mislead people and break trust.",
         "check": "Read the upgrade guide and follow it on an existing project."
       },
-      "builds_on": [14],
+      "builds_on": [15],
       "tasks": [
         "Tests first: add tests/docs-lint.spec.ts asserting every `ai-eng <verb>` cited in README.md, CONTRIBUTING.md, SECURITY.md, PERMISSIONS.md, NOTICE.md, docs/, skills/ and templates/ is in ALL_VERBS of src/shared-verbs.ts (derived from the CLI, not a copied list) and relative links resolve.",
         "Fix the criticals: docs/blueprint.html:366 (`ai-eng recap`), docs/recap.html:1251 (`ai-eng complete`), NOTICE.md:16 (404 link); and the warnings SECURITY.md:28-29 (5 protective guards + 1 prompt guard + token savings in the same hook), PERMISSIONS.md:5-7, CONTRIBUTING.md:40-42.",
@@ -1049,13 +1085,13 @@
   ],
   "new_dependencies": [],
   "notes": [
-    "CP1 review MINOR F5: test-hygiene re-runs 25 sandboxed suites in a nested bun test (+40 s to the serial suite); move the env/cwd before-after check into tests/preload.ts. Deferred to CP13 (suite under 2 min).",
+    "CP1 review MINOR F5: test-hygiene re-runs 25 sandboxed suites in a nested bun test (+40 s to the serial suite); move the env/cwd before-after check into tests/preload.ts. Deferred to CP14 (suite under 2 min).",
     "Primary checkout has untracked tests/.dirfd-probe-43993 and tests/.worktree-lifecycle-{jgjcJ0,LDPOY7,wKVTaQ,yLLd5r}: the person removes them; never deleted from the worktree.",
     "Run agility (user, 2026-10-27): full suite once per checkpoint (twice only at wrap-up); a flake unrelated to the diff gets one re-run, then is noted, not blocking; review capped at 2 rounds, only BLOCKER/MAJOR block.",
-    "Fifteen checkpoints after the CP5, CP7, and CP8 splits; sizes do not grow monotonically (CP3 s after CP2 m; CP8-CP10 l after CP7 xl; CP13-CP15 m after l/xl): the approved brainstorm section 11 fixes scope and dependency order, and each checkpoint is sized honestly.",
-    "Dependency order honoured: 1 before all; 2 before 4; 3 and 4 before 5 and 6; 5 before CP11 (skills); CP12 (packs) follows CP11; CP14 (tokens) follows CP12; CP13 (test consolidation) and CP15 (docs) remain at the end. CP6 follows CP5; old CP6 became CP7 and old CP7 was split into sequential CP7-CP8; old CP8 is now split into sequential CP8-CP9 and old CP9-CP14 shift to CP10-CP15. This preserves brainstorm section 11; builds_on is linear per the plan format.",
+    "Sixteen checkpoints after the CP5, CP7, CP8, and CP12 splits; sizes do not grow monotonically (CP3 s after CP2 m; CP8-CP10 l after CP7 xl; CP13 s after CP12 l; CP14-CP16 m after l/xl): the approved brainstorm section 11 fixes scope and dependency order, and each checkpoint is sized honestly.",
+    "Dependency order honoured: 1 before all; 2 before 4; 3 and 4 before 5 and 6; 5 before CP11 (skills); CP12 (pack/config defaults) follows CP11; CP13 (legacy update migration) follows CP12; CP14 (test consolidation) precedes CP15 (tokens); CP16 (docs) remains last. CP6 follows CP5; old CP6 became CP7 and old CP7 was split into sequential CP7-CP8; old CP8 is now split into sequential CP8-CP9 and old CP9-CP15 shift to CP10-CP16. This preserves brainstorm section 11; builds_on is linear per the plan format.",
     "UI gate is n/a in every checkpoint: no product UI. The static checkpoint viewer stays unchanged as ceremony.",
-    "Case map: S1, S2 -> CP11; S3 -> CP5 and CP7; S4, S13 -> CP5; S5, S8, S10 -> CP8; S9 -> CP7 and CP8; S17 -> CP9; S11 -> CP7 and CP13; S6, S7, S15, S16, S18 -> CP3 (PR side in CP11); S12 -> CP4; S14 -> CP13; F7 -> CP1.",
+    "Case map: S1, S2 -> CP11; S3 -> CP5 and CP7; S4, S13 -> CP5; S5, S8, S10 -> CP8; S9 -> CP7 and CP8; S17 -> CP9; S11 -> CP7 and CP14; S6, S7, S15, S16, S18 -> CP3 (PR side in CP11); S12 -> CP4; S14 -> CP14; F7 -> CP1.",
     "Ceremony protected: no checkpoint changes phases, gates, agents, stops, prototypes, UI gate, adversarial review, viewer or wrap-up triggers beyond working without a worktree and with a detected base (P10, D6, D7).",
     "D2 already executed (archive tag exists); the archived branch is not integrated. D3: wrap stays as token savings.",
     "After release, run `ai-eng update` in this repository so its own carriers drop the Python checker entry.",
@@ -1067,6 +1103,8 @@
     "CP5 is split into sequential guard/routing and carrier/migration slices after the automatic re-plan threshold. Scope and dependencies remain those approved in brainstorm section 11; guard coverage and fail-closed behavior follow LEARNINGS Rules R1-R3.",
     "CP6 review MINOR F6: tests/carriers-install.spec.ts:10 contains a stale Claude-template note and an assertion that can treat refusal as idempotence; deferred because only BLOCKER/MAJOR findings block.",
     "CP7 behavior gate history (3 attempts): Attempt 1: floor-hooks fixture lacked a detected base; corrected in 674ab681. Attempt 2: serial suite 1547/1575, 12 failed, 16 skipped in 198.46s; stale workflow contracts and generated bundle were corrected in dd42d15d. Attempt 3 stopped at command 7: ceremony-contract still found a citation to a removed worktree command. Commands 8-12 did not run. Three behavior failures accumulated; automatic replan required.",
-    "CP8 review history (automatic replan after three failed review attempts; six attempts recorded): fixed findings covered request-changes ownership from the current checkout, arbitrary branch names, current-HEAD worktree creation, ignored-file safety, invocation from a linked checkout, D9's PR/local-merge/keep-branch choice, and arbitrary-branch list/resume by exact checkpoint identity. Behavior attempt 6, after checkpoint-identity fix `3cff5224`, recorded all 13 verify commands green; test counts and duration were not surfaced, and no result carries forward to the replanned gates. Current unresolved MAJOR at src/shared-worktree.ts:514-539,592-605,652-658,723-745: inherited stale checkpoints can create false ambiguity, causing ordinary `list` to exit 2. CP8 now owns exact-checkpoint list/resume/request-changes ownership in the current and Git-registered checkouts; CP9 owns creation/removal safety and the final ceremony contract."
+    "CP8 review history (automatic replan after three failed review attempts; six attempts recorded): fixed findings covered request-changes ownership from the current checkout, arbitrary branch names, current-HEAD worktree creation, ignored-file safety, invocation from a linked checkout, D9's PR/local-merge/keep-branch choice, and arbitrary-branch list/resume by exact checkpoint identity. Behavior attempt 6, after checkpoint-identity fix `3cff5224`, recorded all 13 verify commands green; test counts and duration were not surfaced, and no result carries forward to the replanned gates. Current unresolved MAJOR at src/shared-worktree.ts:514-539,592-605,652-658,723-745: inherited stale checkpoints can create false ambiguity, causing ordinary `list` to exit 2. CP8 now owns exact-checkpoint list/resume/request-changes ownership in the current and Git-registered checkouts; CP9 owns creation/removal safety and the final ceremony contract.",
+    "Automatic CP12 replan after three Gate 1 failures: split CP12 into pack/config defaults and CP13 legacy update migration. The initial serial-suite report omitted its failing test; the first diagnostic was invalid because it set TMPDIR inside the repo, so the original failure remains undiagnosed. U9 config render left keys active/uncommented until ecec4783 defaulted omitted embed packs. A legacy update without `[canon] packs` expected six packs but got none until 48c4fe44 preserved update pack selection; targeted checks passed.",
+    "CP12 replan verification: keep pack/config targeted checks on CP12, the legacy update check on CP13, and the original full serial suite once on CP13 only."
   ]
 }
