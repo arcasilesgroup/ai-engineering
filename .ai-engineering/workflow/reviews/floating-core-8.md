@@ -214,3 +214,9 @@ List, resume, and request-changes resolve the exact feature checkpoint in the cu
 **ROOT CAUSE:** The branch fallback was treated as base evidence, so a feature tip could falsely prove a review pin stale and hide an active owner.
 **FIX:** Compare freshness only when a base is detected and readable; validate unknown-base pins without marking them stale, retain their ambiguity, and fail closed before request-changes mutates an owner.
 **LESSON:** Unknown freshness cannot prove staleness; preserve ownership ambiguity until the detected base is readable.
+
+## CP8 stale-owner fixture recheck
+
+**ROOT CAUSE:** The stale-pin fixtures ran the primary checkout on `main` while configuring `main` as its own base, so `resolveContext` correctly returned an unknown base and retained ambiguity. I39 also committed the active checkpoint before creating a worktree from that commit, producing two real active copies instead of one.
+**FIX:** Put stale-pin fixtures on a separate feature branch with an advanced, configured `main` base and assert that real Git state; create I39's registered worktree before committing the current-checkout checkpoint and assert it did not inherit the checkpoint. Kept unknown-base fail-closed and duplicate-owner behavior unchanged.
+**LESSON:** A real-Git fixture must prove its base is detectable and its owner count is what the test claims; a configured base equal to HEAD is unknown, and later worktrees inherit committed checkpoint files.

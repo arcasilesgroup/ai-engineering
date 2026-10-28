@@ -1724,6 +1724,8 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
     const slug = "fresh-review-copy";
     configureDetectedBase(repo, "main");
     const staleReviewedBase = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const staleParentBranch = `feature/${slug}-stale-parent`;
+    git(["checkout", "-q", "-b", staleParentBranch], repo);
     const staleReviewedFeature = commitRebaseFixtureFile(
       repo,
       "src/stale-review.ts",
@@ -1741,10 +1743,23 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
     });
     git(["add", staleCheckpointPath], repo);
     git(["commit", "-q", "-m", "record inherited ready review"], repo);
-    const staleBaseTip = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const staleParentHead = git(["rev-parse", "HEAD"], repo).trim();
+    git(["checkout", "-q", "main"], repo);
+    const staleBaseTip = commitRebaseFixtureFile(
+      repo,
+      "src/main-advance.ts",
+      "advance detected base\n",
+      "advance detected base",
+    );
+    git(["checkout", "-q", staleParentBranch], repo);
     const staleContents = readFileSync(staleCheckpoint, "utf8");
     const staleLifecycle = JSON.parse(staleContents).lifecycle;
     expect(staleBaseTip).not.toBe(staleReviewedBase);
+    expect(git(["symbolic-ref", "--short", "HEAD"], repo).trim()).toBe(staleParentBranch);
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(staleParentHead);
+    expect(readFileSync(join(repo, ".ai-engineering", "config.toml"), "utf8"))
+      .toContain('base = "main"');
+    expect(gitOut(["merge-base", "--is-ancestor", staleReviewedBase, staleBaseTip], repo).status).toBe(0);
     expect(staleLifecycle).toMatchObject({
       phase: "ready-to-merge",
       reviewed_base: staleReviewedBase,
@@ -1767,6 +1782,8 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
     expect(requested.status).toBe(0);
     expect(requested.stdout).toContain("→ implementation");
     expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(staleBaseTip);
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(staleParentHead);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
     expect(readFileSync(staleCheckpoint, "utf8")).toBe(staleContents);
     expect(JSON.parse(readFileSync(approved.checkpoint, "utf8")).lifecycle).toMatchObject({
       phase: "implementation",
@@ -3686,6 +3703,7 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
     const root = defaultRoot(repo);
     cleanups.push(root);
     const activeSlug = "current-feature";
+    const registered = addRebaseWorktree(repo, "registered-only");
     const checkpointPath = writeCanonicalCheckpoint(repo, activeSlug, {
       phase: "implementation",
       plan_approval: "approved",
@@ -3696,9 +3714,10 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
     });
     git(["add", `.ai-engineering/workflow/checkpoints/${activeSlug}.json`], repo);
     git(["commit", "-q", "-m", "record active feature"], repo);
-    const registered = addRebaseWorktree(repo, "registered-only");
     expect(existsSync(checkpointPath)).toBe(true);
     expect(JSON.parse(readFileSync(checkpointPath, "utf8")).lifecycle.phase).toBe("implementation");
+    expect(existsSync(join(registered, ".ai-engineering", "workflow", "checkpoints", `${activeSlug}.json`)))
+      .toBe(false);
     expect(worktreeEntries(repo).map(({ path }) => realpathSync(path)))
       .toContain(realpathSync(registered));
     expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
@@ -3790,7 +3809,12 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
     });
     git(["add", checkpointPath], repo);
     git(["commit", "-q", "-m", "record historical ready checkpoint"], repo);
+    const staleParentBranch = "feature/historical-parent";
+    git(["checkout", "-q", "-b", staleParentBranch], repo);
+    const staleParentHead = git(["rev-parse", "HEAD"], repo).trim();
+    git(["checkout", "-q", "main"], repo);
     const h2 = commitRebaseFixtureFile(repo, "main-only.txt", "main advanced\n", "advance main");
+    git(["checkout", "-q", staleParentBranch], repo);
     const branch = "native/stale-one";
     const feature = join(root, "native-stale-one");
     mkdirSync(root, { recursive: true });
@@ -3799,6 +3823,10 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
     expect(h2).not.toBe(h1);
     expect(gitOut(["merge-base", "--is-ancestor", h1, h2], repo).status).toBe(0);
     expect(git(["rev-parse", "refs/heads/main"], repo).trim()).toBe(h2);
+    expect(git(["symbolic-ref", "--short", "HEAD"], repo).trim()).toBe(staleParentBranch);
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(staleParentHead);
+    expect(readFileSync(join(repo, ".ai-engineering", "config.toml"), "utf8"))
+      .toContain('base = "main"');
     expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle).toMatchObject({
       phase: "ready-to-merge",
       base_ref: "refs/heads/main",

@@ -1313,3 +1313,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Unknown bases no longer prove staleness; list preserves ambiguity and request-changes fails closed.
 - **Lesson:** Unknown freshness cannot prove staleness.
 - **Tags:** review, git, fail-closed
+
+### L182 · 2026-10-27 · floating-core #8 · behavior
+- **Failure:** Three stale-pin/list regressions failed because their Git fixtures did not represent the intended active/stale owners.
+- **Root cause:** Stale-pin fixtures ran on the configured base with unresolved base detection; I39 created two active owners.
+- **Fix:** Put stale owners on feature branches with a detectable advanced base; register I39's worktree before committing its checkpoint and assert refs/inheritance.
+- **Lesson:** Prove base detectability and owner count in real-Git fixtures; unknown bases remain ambiguous.
+- **Tags:** behavior, git, tests
