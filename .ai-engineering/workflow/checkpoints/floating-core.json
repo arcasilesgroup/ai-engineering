@@ -970,15 +970,15 @@
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "failed",
-          "attempts": 1,
+          "status": "passed",
+          "attempts": 2,
           "findings": [
-            "F1 MAJOR: the ai-brainstorm to ai-orchestrator handoff assertion was removed from both test files.",
-            "F2 MINOR: canon recovery checks that a file exists, not that its repaired content is correct."
+            "F1 MAJOR resolved: the ai-brainstorm to ai-orchestrator handoff assertion is restored.",
+            "F2 MINOR resolved: recovery verifies shipped payload content and preserves locally edited files."
           ]
         }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": [
         "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/ai-pr.spec.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/doctor-command.spec.ts", "tests/adversarial/init-recovery.test.ts", "tests/test-hygiene.spec.ts", "tests/preload.ts", "tests/fixtures/worktree-command.ts", "tests/checkpoint-guard.spec.ts", "tests/floor-hooks.spec.ts"
       ]
