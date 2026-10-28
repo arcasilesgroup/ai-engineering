@@ -42,7 +42,7 @@
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
 
-## F13 · MAJOR · fixed
+## F13 · MAJOR · resolved
 **Where:** `src/shared-worktree.ts:919-927`
 **Critic (r1):** `request-changes` counts every registered checkout containing the checkpoint before reading its lifecycle or comparing `reviewed_base` to the detected base. If the primary checkout has an inherited stale `ready-to-merge` pin and the one feature worktree has the live `awaiting-app-review` checkpoint, `matching.length` is 2 and the command refuses to locate the active owner. Filter stale/non-actionable pins by the same detected-base ownership rule before counting candidates, while still refusing duplicate active identities; add a real-Git regression for this pair of checkouts.
 
@@ -50,6 +50,7 @@
 **ROOT CAUSE:** Candidate ambiguity was counted before validating detected-base freshness or exact checkpoint ownership.
 **FIX:** Exclude positively stale review pins, select by exact checkout HEAD and branch-ref SHA, and preserve the existing reviewed-chain and CAS checks.
 **LESSON:** Resolve active ownership from fresh lifecycle state and exact Git refs before counting ambiguity.
+**Critic (r2):** resolved — the added real-Git regression confirms a stale inherited `ready-to-merge` pin is filtered against its detected base before selection, while the sole fresh `awaiting-app-review` checkout transitions and the stale checkpoint remains unchanged.
 
 ## F1 · BLOCKER · resolved
 **Where:** `src/shared-worktree.ts:813-824,1250-1255`; `skills/ai-orchestrator/SKILL.md:48,265`
@@ -195,3 +196,7 @@ List, resume, and request-changes resolve the exact feature checkpoint in the cu
 - `bun run lint`
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
+
+## F14 · MAJOR · open (r2)
+**Where:** `src/shared-worktree.ts:951-955`
+**Critic (r2):** After stale pins are filtered, a unique SHA/ref match is selected even when `matching` still contains multiple non-stale checkpoints for the slug. A live `implementation` checkpoint in the current checkout plus a pending-review checkpoint in another branch can therefore bypass duplicate-identity refusal when the supplied SHA matches only the latter, allowing one checkout to be mutated despite active duplicate ownership. Refuse when multiple non-stale identities remain; add a request-changes regression for divergent active copies while preserving stale-pin filtering.
