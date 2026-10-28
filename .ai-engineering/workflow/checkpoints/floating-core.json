@@ -502,7 +502,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "failed", "attempts": 4, "findings": ["After unknown-base fail-closed fix `37b1fbeb`, Gate 1 stopped at command 1: `bun test tests/worktree-command.spec.ts` exited 1, but the runner summary was truncated and failed test names/counts were unavailable. Commands 2-8 did not run; cause pending bounded diagnostic output."] },
+        "behavior": { "status": "failed", "attempts": 4, "findings": ["After unknown-base fail-closed fix `37b1fbeb`, `worktree-command.spec.ts` had 100 pass, 3 fail, 16 skip. Failures: request-changes ignores an inherited stale review pin; I39 current checkout active feature list returns exit 2 instead of 0; inherited stale checkpoint list reports historical-plan ambiguous across Git-listed worktrees. Unknown base must fail closed, but when base is known stale reviewed_base copies must not count as active owners."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 3, "findings": ["F14 resolved: stale pins are filtered before active-owner/SHA selection; active duplicates refuse. New MAJOR src/shared-worktree.ts:730,930: when base resolution is unknown, code falls back to the feature tip, falsely marks active owners stale, and can bypass duplicate-owner refusal. Fail closed without treating feature tip as the base."] }
       },
