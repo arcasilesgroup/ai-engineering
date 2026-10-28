@@ -830,7 +830,7 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "failed",
+          "status": "passed",
           "attempts": 2,
           "findings": [
             "Gate 1 command `bun test tests/ceremony-contract.spec.ts` did not match the test file; Bun suggested `./tests/ceremony-contract.spec.ts`.",
@@ -840,7 +840,7 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending",
+      "status": "in_progress",
       "changed_files": [
         ".snyk", "FILEMAP.md", "package.json", "scripts/gen-assets.ts", "scripts/.embed/",
         "skills/ai-code-review/SKILL.md", "skills/ai-audit-design/", "skills/ai-design-md-planner/", "skills/ai-stress-test/", "skills/ai-triage/", "skills/ai-verify/SKILL.md", "skills/ai-verify/evals/", "skills/ai-verify/tiers/", "skills/ai-visual-recap/", "skills/ai-writing-behavior/", "packs/",
