@@ -39,3 +39,9 @@ Existing installs without `[canon] packs` adopt all six packs on their first upd
 - **FIX:** Update now preserves existing canon skills whose hashes differ from the selected payload and reports them as kept. Added an update integration test for an edited selected pack skill and coverage for explicit empty and partial pack selections.
 - **LESSON:** Without a machine-side ownership hash, preserve differing canon files instead of treating them as disposable.
 - **Verification:** `bun test ./tests/update-command.spec.ts` (18 pass), `bun test ./tests/embed-canon.spec.ts` (15 pass), and `bun run typecheck` passed. Full serial suite not run.
+
+## Round 2 verdict
+
+- **F13-1 — MAJOR — RESOLVED:** Update skips differing selected canon files during repair; the integration test verifies a locally edited skill survives.
+- **F13-2 — MINOR — RESOLVED:** Update integration coverage now checks explicit empty and partial selections; the legacy test checks all six packs and an unrelated skill.
+- **PASS:** No blocker or major remains. All five listed verification commands passed.
