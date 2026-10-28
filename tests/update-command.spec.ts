@@ -18,9 +18,10 @@
 
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { delimiter, join, dirname } from "node:path";
+import { pathToFileURL } from "node:url";
 import { PassThrough } from "node:stream";
 import { syncPlan, updateMain } from "../src/commands/update.ts";
 import { changelogSection, installCommand, upgradeMain } from "../src/commands/upgrade.ts";
@@ -124,6 +125,24 @@ function governedRepo(name: string): string {
   writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
   spawnSync("git", ["init", "-q"], { cwd: repo });
   return repo;
+}
+
+function gitIn(repo: string, args: string[]): string {
+  const result = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+  if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+  return result.stdout ?? "";
+}
+
+function recordGitCommands(directory: string): { path: string; log: string } {
+  const git = spawnSync("which", ["git"], { encoding: "utf8" }).stdout?.trim();
+  if (!git) throw new Error("git is not on PATH");
+  const bin = join(directory, "git-bin");
+  const log = join(bin, "commands");
+  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, "git"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${quote(log)}\nexec ${quote(git)} "$@"\n`);
+  chmodSync(join(bin, "git"), 0o755);
+  return { path: `${bin}${delimiter}${process.env.PATH ?? ""}`, log };
 }
 
 /** A repo the binary has already installed into, with one hook patched by hand: the one
@@ -318,6 +337,100 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(second.out).not.toInclude("machine carrier · written");
     expect(readFileSync(lockPath, "utf8")).toBe(bytes);
     expect(statSync(lockPath).mtimeMs).toBe(mtime);
+  });
+
+  test("update leaves HEAD unchanged, spawns no commit, and leaves global config untouched", async () => {
+    const globalConfig = join(SANDBOX, "isolated-gitconfig-update");
+    const globalConfigBefore = "[user]\n\tname = Isolated test\n";
+    writeFileSync(globalConfig, globalConfigBefore);
+    process.env.GIT_CONFIG_GLOBAL = globalConfig;
+
+    const repo = governedRepo("repo-no-commit");
+    gitIn(repo, ["config", "user.name", "CP10 test"]);
+    gitIn(repo, ["config", "user.email", "cp10@example.com"]);
+    writeFileSync(join(repo, "baseline.txt"), "review me\n");
+    gitIn(repo, ["add", "baseline.txt"]);
+    gitIn(repo, ["commit", "-qm", "test: add CP10 baseline"]);
+
+    const headBefore = gitIn(repo, ["rev-parse", "HEAD"]).trim();
+    const countBefore = gitIn(repo, ["rev-list", "--count", "HEAD"]).trim();
+    const recorder = recordGitCommands(SANDBOX);
+    const pathBefore = process.env.PATH;
+    let result: number;
+    try {
+      process.chdir(repo);
+      process.env.PATH = recorder.path;
+      result = (await captured(() => updateMain({ yes: true }))).value;
+    } finally {
+      if (pathBefore === undefined) delete process.env.PATH;
+      else process.env.PATH = pathBefore;
+    }
+
+    const commands = readFileSync(recorder.log, "utf8").trim().split(/\r?\n/).filter(Boolean);
+    expect({
+      result,
+      head: gitIn(repo, ["rev-parse", "HEAD"]).trim(),
+      commitCount: gitIn(repo, ["rev-list", "--count", "HEAD"]).trim(),
+      hasUncommittedChanges: gitIn(repo, ["status", "--porcelain"]).trim().length > 0,
+      spawnedCommit: commands.some((args) => /(^|\s)commit(\s|$)/.test(args)),
+      spawnedNoVerify: commands.some((args) => /(^|\s)--no-verify(\s|$)/.test(args)),
+      globalConfig: readFileSync(globalConfig, "utf8"),
+    }).toEqual({
+      result: 0,
+      head: headBefore,
+      commitCount: countBefore,
+      hasUncommittedChanges: true,
+      spawnedCommit: false,
+      spawnedNoVerify: false,
+      globalConfig: globalConfigBefore,
+    });
+  });
+
+  test("the update CLI does not fetch or enter the notice path", () => {
+    const isolatedHome = join(SANDBOX, "no-notice-home");
+    const noNoticeConfig = join(isolatedHome, "gitconfig");
+    const shimDir = join(SANDBOX, "notice-bin");
+    const noticeLog = join(SANDBOX, "notice-calls");
+    const fetchLog = join(SANDBOX, "fetch-calls");
+    const runner = join(SANDBOX, "run-update.ts");
+    mkdirSync(isolatedHome, { recursive: true });
+    writeFileSync(noNoticeConfig, "[user]\n\tname = Isolated test\n");
+    process.env.GIT_CONFIG_GLOBAL = noNoticeConfig;
+    const repo = governedRepo("repo-no-notice");
+    mkdirSync(shimDir, { recursive: true });
+
+    const quote = (value: string) => JSON.stringify(value);
+    writeFileSync(join(shimDir, "bun"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${quote(noticeLog)}\nprintf '99.0.0\\n'\n`);
+    writeFileSync(join(shimDir, "npm"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${quote(noticeLog)}\nprintf '99.0.0\\n'\n`);
+    chmodSync(join(shimDir, "bun"), 0o755);
+    chmodSync(join(shimDir, "npm"), 0o755);
+
+    const cli = join(import.meta.dir, "..", "src", "cli.ts");
+    const cliUrl = pathToFileURL(cli).href;
+    writeFileSync(runner, `
+      import { writeFileSync } from "node:fs";
+      globalThis.fetch = () => {
+        writeFileSync(${quote(fetchLog)}, "called");
+        throw new Error("update unexpectedly fetched");
+      };
+      process.argv = [process.argv[0], ${quote(cli)}, "update", "--yes"];
+      await import(${quote(cliUrl)});
+    `);
+
+    const env = {
+      ...process.env,
+      AI_ENG_HOME: isolatedHome,
+      PI_CODING_AGENT_DIR: join(SANDBOX, "no-notice-pi"),
+      GIT_CONFIG_GLOBAL: join(isolatedHome, "gitconfig"),
+      PATH: `${shimDir}${delimiter}${process.env.PATH ?? ""}`,
+    };
+    delete env.AI_ENG_NO_UPDATE_NOTICES;
+    const run = spawnSync(process.execPath, [runner], { cwd: repo, encoding: "utf8", env });
+
+    expect(run.status).toBe(0);
+    expect(existsSync(fetchLog)).toBe(false);
+    expect(existsSync(noticeLog)).toBe(false);
+    expect(run.stdout).not.toContain("available → ai-eng upgrade");
   });
 
   test("--yes keeps a patched hook: nothing written and the lock left as it was", async () => {

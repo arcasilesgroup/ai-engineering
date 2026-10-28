@@ -570,6 +570,30 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(out).toContain("✓ git init.templateDir unset (it was unset before)");
   });
 
+  test("a templateDir recorded by an older version is restored", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+
+    const previous = join(sandbox!, "older-template");
+    mkdirSync(join(previous, "hooks"), { recursive: true });
+    const existingHook = "#!/bin/sh\necho older template\n";
+    writeFileSync(join(previous, "hooks", "pre-commit"), existingHook);
+
+    const floor = installTemplateDir();
+    expect(floor.status).toBe("created");
+    expect(floor.ours).not.toBeNull();
+    rememberTemplateDir(previous, floor.ours);
+    expect(globalTemplateDir()).toBe(floor.ours);
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(globalTemplateDir()).toBe(previous);
+    expect(readFileSync(join(previous, "hooks", "pre-commit"), "utf8")).toBe(existingHook);
+    expect(out).toContain(`✓ git init.templateDir restored to ${previous}`);
+  });
+
   test("a templateDir the user owned keeps their setting and loses only our shims", async () => {
     const { cwd } = sandboxed();
     gitInit(cwd);

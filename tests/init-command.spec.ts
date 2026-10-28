@@ -24,7 +24,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { initMain, surfaceHint } from "../src/commands/init.ts";
 import {
   contractEntries,
@@ -75,6 +75,18 @@ function sandboxed(): { cwd: string; machine: string } {
 function gitIn(args: string[], cwd: string, env: Record<string, string> = {}): string {
   const r = spawnSync("git", args, { cwd, encoding: "utf8", env: { ...process.env, ...env } });
   return r.stdout ?? "";
+}
+
+function recordGitCommands(directory: string): { path: string; log: string } {
+  const git = spawnSync("which", ["git"], { encoding: "utf8" }).stdout?.trim();
+  if (!git) throw new Error("git is not on PATH");
+  const bin = join(directory, "git-bin");
+  const log = join(bin, "commands");
+  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, "git"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${quote(log)}\nexec ${quote(git)} "$@"\n`);
+  chmodSync(join(bin, "git"), 0o755);
+  return { path: `${bin}${delimiter}${process.env["PATH"] ?? ""}`, log };
 }
 
 const sleep = (ms: number): Promise<void> => {
@@ -346,6 +358,54 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(gitIn(["log", "--oneline", "-1"], cwd)).toContain(`install governance ${VERSION}`);
     expect(out).toContain("machine carrier");
     expect(out).toContain("Bootstrap mode"); // no src/ yet, so arch-tests hold off
+  });
+
+  test("init leaves the existing commit alone, spawns no commit, and leaves global config untouched", async () => {
+    const { cwd, machine: home } = sandboxed();
+    const globalConfig = join(home, "isolated-gitconfig");
+    const globalConfigBefore = "[user]\n\tname = Isolated test\n";
+    writeFileSync(globalConfig, globalConfigBefore);
+    process.env["GIT_CONFIG_GLOBAL"] = globalConfig;
+
+    gitIn(["init", "-q"], cwd);
+    gitIn(["config", "user.name", "CP10 test"], cwd);
+    gitIn(["config", "user.email", "cp10@example.com"], cwd);
+    writeFileSync(join(cwd, "baseline.txt"), "review me\n");
+    gitIn(["add", "baseline.txt"], cwd);
+    gitIn(["commit", "-qm", "baseline"], cwd);
+
+    const headBefore = gitIn(["rev-parse", "HEAD"], cwd).trim();
+    const countBefore = gitIn(["rev-list", "--count", "HEAD"], cwd).trim();
+    expect(headBefore).not.toBe("");
+    const recorder = recordGitCommands(sandbox!);
+    const pathBefore = process.env["PATH"];
+    let result: number;
+    try {
+      process.env["PATH"] = recorder.path;
+      result = (await capture(() => initMain({ yes: true }))).result;
+    } finally {
+      if (pathBefore === undefined) delete process.env["PATH"];
+      else process.env["PATH"] = pathBefore;
+    }
+
+    const commands = readFileSync(recorder.log, "utf8").trim().split(/\r?\n/).filter(Boolean);
+    expect({
+      result,
+      head: gitIn(["rev-parse", "HEAD"], cwd).trim(),
+      commitCount: gitIn(["rev-list", "--count", "HEAD"], cwd).trim(),
+      hasUncommittedChanges: gitIn(["status", "--porcelain"], cwd).trim().length > 0,
+      spawnedCommit: commands.some((args) => /(^|\s)commit(\s|$)/.test(args)),
+      spawnedNoVerify: commands.some((args) => /(^|\s)--no-verify(\s|$)/.test(args)),
+      globalConfig: readFileSync(globalConfig, "utf8"),
+    }).toEqual({
+      result: 0,
+      head: headBefore,
+      commitCount: countBefore,
+      hasUncommittedChanges: true,
+      spawnedCommit: false,
+      spawnedNoVerify: false,
+      globalConfig: globalConfigBefore,
+    });
   });
 
   test("a second --yes run hands off to update and never touches the contract", async () => {
