@@ -457,6 +457,14 @@ function gatesComplete(plan: Checkpoint): boolean {
   );
 }
 
+function isStaleReviewPin(checkpoint: Checkpoint, currentBase: string | null): boolean {
+  const { phase, reviewed_base } = checkpoint.lifecycle;
+  return ["awaiting-app-review", "ready-to-merge"].includes(phase) &&
+    reviewed_base !== null &&
+    currentBase !== null &&
+    reviewed_base !== currentBase;
+}
+
 function lifecycleStatus(
   checkpointPath: string,
   worktreePath: string,
@@ -511,6 +519,9 @@ function lifecycleStatus(
   if (files === null) return { label: "unknown (checkpoint does not match this worktree)", files: [] };
   const lifecycle = parsed.lifecycle;
   const phase = lifecycle.phase;
+  if (isStaleReviewPin(parsed, currentBase)) {
+    return { label: "stale (reviewed_base is stale)", files, identity: false };
+  }
   if (["awaiting-app-review", "ready-to-merge"].includes(phase) && !gatesComplete(parsed)) {
     return { label: "unknown (lifecycle gates are incomplete)", files, identity: true };
   }
@@ -603,13 +614,13 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
     for (const slug of checkpointSlugs) {
       const checkpointPath = join(checkpointDir, `${slug}.json`);
       const state = lifecycleStatus(checkpointPath, entry.path, slug, repo, entry.branch ?? "");
-      if (state.identity !== true) continue;
+      if (state.identity === undefined) continue;
       matchedSlugs.add(slug);
       entries.push({
         entry,
         slug,
-        identity: true,
-        isFeature: true,
+        identity: state.identity,
+        isFeature: state.identity,
         status,
         checkpointPath,
         checkpointFiles: state.files,
@@ -713,10 +724,17 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
   const currentCheckpointDir = join(currentPath, ".ai-engineering", "workflow", "checkpoints");
   const currentCheckpointSlugs = new Set<string>();
   let currentBase: string | null = null;
+  let currentBaseCommit: string | null = null;
   try {
     const detected = resolveContext(currentPath);
     const base = detected.base ?? detected.branch;
-    if (base !== null) currentBase = `refs/heads/${base}`;
+    if (base !== null) {
+      currentBase = `refs/heads/${base}`;
+      const baseCommitRead = git(currentPath, ["rev-parse", "--verify", `${currentBase}^{commit}`]);
+      if (baseCommitRead.status === 0 && baseCommitRead.stderr.trim() === "") {
+        currentBaseCommit = baseCommitRead.stdout.trim();
+      }
+    }
   } catch {
     // The active checkpoint line is advisory; the registered-worktree list remains authoritative.
   }
@@ -730,7 +748,9 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
           slug,
           baseRef: currentBase,
         });
-        if (canonicalize(currentPath) === repo) currentCheckpointSlugs.add(slug);
+        const hasStaleReviewPin = isStaleReviewPin(checkpoint, currentBaseCommit);
+        if (canonicalize(currentPath) === repo && !hasStaleReviewPin) currentCheckpointSlugs.add(slug);
+        if (hasStaleReviewPin) continue;
         if (checkpoint.lifecycle.phase !== "implementation" &&
           checkpoint.lifecycle.phase !== "awaiting-plan-approval" &&
           checkpoint.lifecycle.phase !== "blocked") continue;

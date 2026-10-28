@@ -1285,3 +1285,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Resolve unique checkpoint ownership from Git registration and preserve dirty-file safety.
 - **Lesson:** A checkpoint's registered checkout—not its branch prefix or directory name—defines resume ownership.
 - **Tags:** review, git, lifecycle
+
+### L178 · 2026-10-27 · floating-core #8 · review
+- **Failure:** Inherited ready-to-merge pins with an old reviewed_base counted as active owners and made ordinary list ambiguous.
+- **Root cause:** Checkpoint presence was treated as current ownership without comparing its reviewed base to the detected base.
+- **Fix:** Mark stale app-review pins non-actionable and exclude them from active ambiguity; keep duplicate active implementation plans ambiguous.
+- **Lesson:** A checkpoint's presence does not prove current ownership; its reviewed base must still match.
+- **Tags:** review, lifecycle, git

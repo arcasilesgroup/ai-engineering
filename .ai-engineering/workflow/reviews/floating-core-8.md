@@ -148,6 +148,10 @@
 **LESSON:** Resume ownership comes from a validated checkpoint in a real Git registration, not a branch prefix or directory name.
 **Critic (r2):** resolved — the targeted real-Git test confirms `list <slug>` finds the exact checkpoint on an arbitrary `native/topic` worktree, excludes an unregistered copy and an unrelated checkpoint, distinguishes owned from foreign dirty files without changing the worktree, and refuses duplicate ownership.
 
-## F12 · MAJOR · open (r2)
+## F12 · MAJOR · fixed (r3)
 **Where:** `src/shared-worktree.ts:514-539,592-605,652-658,723-745`
 **Critic (r2):** Unfiltered `list` treats every valid checkpoint file in each registered worktree as an owner; stale checkpoints still get `identity: true` at lines 517-539. Checkpoint files committed to a base are inherited by later worktrees, so those historical copies are counted as duplicate ownership and can make ordinary `worktree list` exit 2 even when no feature is active in those checkouts. Resolve ownership using active lifecycle/ref evidence rather than file presence alone, and add a real-Git case where a base checkpoint is inherited by multiple worktrees; normal listing must remain usable while a genuinely duplicated active checkpoint is refused.
+**Fixer (r3):** fixed — stale app-review pins are labeled stale and excluded from ambiguity/actionable selection in registered and current checkouts; active implementation duplicates remain ambiguous; verify: `bun test tests/worktree-command.spec.ts tests/worktree-lifecycle.spec.ts` (117 pass, 16 skip), `bun run typecheck`, `bun run lint`, `bun test tests/arch.spec.ts` (31 pass) ✓
+**ROOT CAUSE:** A valid inherited checkpoint with an outdated `reviewed_base` still received active identity, so its duplicate blob counted as a second owner.
+**FIX:** Treat a provably stale app-review pin as a non-feature stale row, exclude it from current-checkout ownership, and retain ambiguity for active identities; fail closed when the detected base cannot be read.
+**LESSON:** Checkpoint file presence proves historical identity, not current ownership; lifecycle pins are actionable only while their reviewed base matches the detected base.

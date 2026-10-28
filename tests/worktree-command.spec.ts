@@ -3606,6 +3606,25 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
       git(["rev-parse", `refs/heads/${branch}:${checkpointPath}`], repo).trim(),
     );
 
+    const activeBranch = "native/live-one";
+    const activeFeature = join(root, "native-live-one");
+    git(["worktree", "add", "--quiet", "-b", activeBranch, activeFeature, "refs/heads/main"], repo);
+    const activeCheckpoint = writeCanonicalCheckpoint(activeFeature, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    git(["add", checkpointPath], activeFeature);
+    git(["commit", "-q", "-m", "record active implementation checkpoint"], activeFeature);
+    expect(JSON.parse(readFileSync(activeCheckpoint, "utf8")).lifecycle.phase).toBe("implementation");
+    expect(worktreeEntries(repo).some(({ path: worktreePath, branch: registeredBranch }) =>
+      realpathSync(worktreePath) === realpathSync(activeFeature) &&
+      registeredBranch === `refs/heads/${activeBranch}`
+    )).toBe(true);
+
     const listed = runCli(["worktree", "list"], repo);
     const requested = runCli(["worktree", "list", slug], repo);
 
@@ -3613,6 +3632,13 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
     expect(output).not.toMatch(/ambiguous/i);
     expect(listed.status).toBe(0);
     expect(requested.status).toBe(0);
+    expect(listed.stdout).toMatch(
+      new RegExp(`${slug}\\t.*\\tunclassified \\(native/stale-one\\)\\tclean\\tstale \\(reviewed_base is stale\\)`),
+    );
+    expect(listed.stdout).toMatch(
+      new RegExp(`${slug}\\t.*\\tfeature\\t.*implementation \\(plan approved, app review not-started\\)`),
+    );
+    expect(requested.stdout).not.toContain("continue with feature-owned changes");
   });
 
   test("I42: accepts an arbitrary branch name under the configured root and names existing holders", () => {
