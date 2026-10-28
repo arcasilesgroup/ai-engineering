@@ -100,11 +100,20 @@ describe("the workspace hub is gone (floating-core#2)", () => {
     expect(run.stderr).toContain("unknown verb: workspace\n");
   });
 
-  test("`ai-eng --help` does not list workspace", () => {
+  for (const verb of ["briefing", "upgrade", "spec"]) {
+    test(`\`ai-eng ${verb}\` is an unknown verb`, () => {
+      const run = eng([verb]);
+      expect(run.status).toBe(2);
+      expect(run.stderr).toContain(`unknown verb: ${verb}\n`);
+    });
+  }
+
+  test("`ai-eng --help` omits retired verbs", () => {
     const help = eng(["--help"]);
     expect(help.status).toBe(0);
     expect(help.stdout).toContain("ai-eng init");
     expect(help.stdout).not.toContain("workspace");
+    expect(help.stdout).not.toMatch(/\b(?:briefing|upgrade|spec)\b/);
   });
 
   test("ALL_VERBS does not carry workspace", () => {

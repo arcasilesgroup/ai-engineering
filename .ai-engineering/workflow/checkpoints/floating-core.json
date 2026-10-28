@@ -675,7 +675,7 @@
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "in_progress",
-      "changed_files": ["tests/arch.spec.ts"]
+      "changed_files": ["tests/arch.spec.ts", "tests/wrap.test.ts", "tests/cli-ux.test.ts", "tests/doctor-command.spec.ts"]
     },
     {
       "id": 11,

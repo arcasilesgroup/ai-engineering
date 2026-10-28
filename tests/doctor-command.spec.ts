@@ -163,7 +163,7 @@ function gitInit(root: string): string {
 }
 
 describe("doctor · a repo where everything is green", () => {
-  test("every check passes, the summary says so and the exit code is 0", async () => {
+  test("reports chain, canon, carriers and receipts without retired reports", async () => {
     healthy();
     const run = await doctor();
     expect(run.code).toBe(0);
@@ -182,9 +182,11 @@ describe("doctor · a repo where everything is green", () => {
     expect(detail(run, "receipts")).toMatch(/^\d+ runs · \d+ denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)( · top [^ ]+)?$/);
     expect(detail(run, "overrides")).toBe("none active");
     expect(detail(run, "arch")).toBe("active — src/ present");
-    expect(detail(run, "spec slot")).toBe("clean slot: 0 zombie contracts");
     expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
     expect(detail(run, "behaviors")).toBe("no behaviors declared");
+    expect(run.out).not.toContain("checkpoint gate");
+    expect(run.out).not.toContain("checkpoint-gate-report");
+    expect(run.out).not.toContain("plant-workflow");
   });
 
   test("a warn is not a failure: warnings alone return 0 under an Attention block", async () => {
@@ -544,7 +546,7 @@ describe("doctor · receipts and overrides", () => {
   });
 });
 
-describe("doctor · arch, the spec slot and the triggers", () => {
+describe("doctor · arch", () => {
   test("arch is active with src/ present and bootstrap without it", async () => {
     const { root } = sandbox();
     writeFileSync(join(root, ".ai-engineering", "arch.rules.json"), "{}");
@@ -569,80 +571,6 @@ describe("doctor · arch, the spec slot and the triggers", () => {
     expect(detail(run, "arch")).not.toBe("bootstrap mode — src/ empty");
   });
 
-  test("spec slot: approved is ok, unapproved warns, orphans name the artifact", async () => {
-    const { root } = sandbox();
-    const spec = join(root, ".ai-engineering", "spec.html");
-    const lock = join(root, ".ai-engineering", "ai-eng.lock");
-
-    writeFileSync(spec, "<html>contract</html>");
-    writeFileSync(lock, lockText({ version: VERSION, assets: {}, spec_sha256: "abc123" }));
-    let run = await doctor();
-    expect(row(run, "spec slot")).toContain("✓");
-    expect(detail(run, "spec slot")).toBe("contract approved (sha256 in lock)");
-
-    writeFileSync(lock, lockText({ version: VERSION, assets: {} }));
-    run = await doctor();
-    expect(row(run, "spec slot")).toContain("▲");
-    expect(detail(run, "spec slot")).toBe("live spec.html WITHOUT approval — STOP 1 pending or zombie contract");
-
-    rmSync(spec);
-    writeFileSync(join(root, ".ai-engineering", "brainstorm.html"), "# brainstorm\n");
-    writeFileSync(join(root, ".ai-engineering", "recap.html"), "<html>recap</html>");
-    run = await doctor();
-    expect(detail(run, "spec slot")).toContain("orphan brainstorm.html + recap.html with no live contract");
-
-    rmSync(join(root, ".ai-engineering", "recap.html"));
-    run = await doctor();
-    expect(detail(run, "spec slot")).toContain("orphan brainstorm.html with no live contract");
-  });
-
-  test("triggers: no base_sha cannot judge, a base_sha with nothing changed is ok", async () => {
-    const { root } = sandbox();
-    const ai = join(root, ".ai-engineering");
-    writeFileSync(join(ai, "spec.html"), "<html>contract</html>");
-
-    writeFileSync(join(ai, "ai-eng.lock"), lockText({ version: VERSION, assets: {}, spec_sha256: "abc123" }));
-    let run = await doctor();
-    expect(row(run, "triggers")).toContain("▲");
-    expect(detail(run, "triggers")).toBe("no base_sha in the lock — this milestone cannot judge its conditional nodes; reopen it with ai-eng spec open");
-
-    writeFileSync(join(ai, "ai-eng.lock"), lockText({ version: VERSION, assets: {}, spec_sha256: "abc123", base_sha: "0".repeat(40) }));
-    run = await doctor();
-    expect(row(run, "triggers")).toContain("✓");
-    expect(detail(run, "triggers")).toBe("no fired trigger is missing its artifact");
-  });
-
-  test("triggers: a fired conditional node that left no artifact is named", async () => {
-    const { root } = sandbox();
-    const ai = join(root, ".ai-engineering");
-    writeFileSync(join(ai, "spec.html"), "<html>contract</html>");
-    gitInit(root);
-    commit(root, "base");
-    const base = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
-    writeFileSync(join(ai, "ai-eng.lock"), lockText({ version: VERSION, assets: {}, spec_sha256: "abc123", base_sha: base }));
-    commit(root, "lock");
-    writeFileSync(join(root, "app.css"), "body { color: red }\n");
-
-    const run = await doctor();
-    expect(row(run, "triggers")).toContain("▲");
-    expect(detail(run, "triggers")).toContain("ui fired on app.css → ai-audit-design left no artifact");
-  });
-
-  test("triggers: an ABANDON id silences the node it abandons", async () => {
-    const { root } = sandbox();
-    const ai = join(root, ".ai-engineering");
-    writeFileSync(join(ai, "spec.html"), "ABANDON: ui\n<html>contract</html>");
-    gitInit(root);
-    commit(root, "base");
-    const base = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
-    writeFileSync(join(ai, "ai-eng.lock"), lockText({ version: VERSION, assets: {}, spec_sha256: "abc123", base_sha: base }));
-    commit(root, "lock");
-    writeFileSync(join(root, "app.css"), "body { color: red }\n");
-
-    const run = await doctor();
-    expect(row(run, "triggers")).toContain("✓");
-    expect(detail(run, "triggers")).toBe("no fired trigger is missing its artifact");
-  });
 });
 
 describe("doctor · surface carriers", () => {
