@@ -106,7 +106,7 @@
       "builds_on": [1],
       "tasks": [
         "Tests first in tests/cli-ux.test.ts: `ai-eng workspace` exits 2 with `unknown verb`, `ai-eng --help` does not list it, and ALL_VERBS in src/shared-verbs.ts does not contain it.",
-        "Tests first: add tests/ceremony-contract.spec.ts that reads skills/ai-orchestrator/SKILL.md and every SKILL.md it invokes, extracts each cited skill, agent, script and template, and fails if any is missing from the repository or from the embedded canon that init installs (src/assets.ts); the list is derived from the skill text at test time, never hard-coded. It stays green from here to CP14.",
+        "Tests first: add tests/ceremony-contract.spec.ts that reads skills/ai-orchestrator/SKILL.md and every SKILL.md it invokes, extracts each cited skill, agent, script and template, and fails if any is missing from the repository or from the embedded canon that init installs (src/assets.ts); the list is derived from the skill text at test time, never hard-coded. It stays green from here to CP15.",
         "Delete src/workspace/ (api.ts, discovery.ts, folder-picker.ts, instance.ts, server.ts, settings.ts, status.ts, ui.ts), src/commands/workspace.ts, templates/workspace.html.tpl and tests/workspace-command.spec.ts, tests/workspace-discovery.spec.ts, tests/workspace-server.spec.ts, tests/workspace-settings.spec.ts, tests/workspace-ui.spec.ts.",
         "Remove the workspace import, case, help line and the `serve` boolean flag from src/cli.ts, and `workspace` from ALL_VERBS in src/shared-verbs.ts.",
         "Remove the `workspace` layer from .ai-engineering/arch.rules.json (the arch test requires every layer glob to match a real directory).",
@@ -462,24 +462,71 @@
     },
     {
       "id": 8,
-      "title": "Complete worktree lifecycle commands and ceremony contracts",
-      "simple": "Manage work areas safely",
-      "size": "xl",
-      "goal": "`worktree list|new|request-changes|rm` and resume behavior match the approved contracts, obsolete rebase and file-hint usage is rejected, and the skill/ceremony contract no longer cites removed commands.",
+      "title": "Resolve worktree ownership by exact checkpoint",
+      "simple": "Continue the right work",
+      "size": "l",
+      "goal": "List, resume, and request-changes resolve the exact feature checkpoint in the current checkout or Git-registered worktrees; stale inherited checkpoints outside those checkouts cannot create false ambiguity or make ordinary list fail.",
       "plain": {
-        "what": "You can create, continue, inspect, and safely remove a separate copy without disturbing other work.",
-        "why": "Unsafe cleanup or stale instructions can lose work or send someone down a removed path.",
-        "check": "List, continue, and remove a work area with both its own and unrelated changes present."
+        "what": "You can find and continue the right feature without stale notes confusing the list.",
+        "why": "Old checkpoint files can make ordinary work look ambiguous and stop a safe continuation.",
+        "check": "List registered work areas and continue the feature while unrelated changes stay untouched."
       },
       "builds_on": [7],
       "tasks": [
-        "Tests first: I39-I45 cover registered-only listing, active-feature warnings, unregistered leftovers, dirty design slots when creating, arbitrary branch names and path conflicts, resumable feature changes with foreign files untouched, safe rm, detected-base request-changes, and rejection of worktree rebase and file hints.",
-        "Implement list/new/request-changes/rm in src/commands/worktree.ts and related lifecycle handling in src/shared-worktree.ts; do not stash, reset, delete dirty work, or classify an unregistered folder as a worktree.",
-        "For new, use [git] worktrees_dir or propose a path, accept any branch name, and create from HEAD while warning that dirty brainstorm.html and PRD.html do not travel.",
-        "For resume/list, report feature-owned dirty files as continuable and unrelated files as left alone; for rm, refuse unintegrated work with the exact force command and never delete dirty work.",
-        "Remove the worktree rebase command and file-hint arguments; request-changes uses the detected base.",
-        "Fix the remaining skill and ceremony citation to use native git rebase <detected base> and Phase 4 ai-eng worktree merge; keep the skill edits minimal and run the ceremony contract in this checkpoint.",
-        "Keep src/ free of refs/heads/main literals and expose exactly the approved worktree verbs: new, list, merge, request-changes, rm."
+        "Tests first: I39, I40, I43, and I45 cover Git-registered listing, current-checkout ownership, unregistered leftovers, feature-owned resumable changes with foreign files untouched, and detected-base request-changes.",
+        "Resolve list/resume/request-changes ownership by the exact checkpoint in the current checkout or a Git-registered worktree; inherited stale checkpoints outside that scope must not create ambiguity or make ordinary list exit 2.",
+        "Keep unregistered folders out of the worktree inventory and report them as not registered in Git, not work; never stash, reset, or alter unrelated files."
+      ],
+      "files": [
+        "tests/worktree-command.spec.ts",
+        "tests/worktree-lifecycle.spec.ts",
+        "src/commands/worktree.ts",
+        "src/shared-worktree.ts",
+        "src/workflow/checkpoint.ts"
+      ],
+      "acceptance": [
+        "I39: list considers the current checkout and Git-registered worktrees only, flags another active feature, ignores inherited stale checkpoints, and exits 0 for an ordinary list.",
+        "I40: an unregistered leftover folder is reported as not registered in Git and never as a feature.",
+        "I43: list/resume identifies the exact feature checkpoint, reports its own dirty files as continuable, leaves foreign files untouched, and does not stash or move HEAD.",
+        "I45: request-changes uses the detected base and clears both SHAs; removed worktree rebase and file-hint usage is rejected."
+      ],
+      "verify": [
+        "bun test tests/worktree-command.spec.ts",
+        "bun test tests/worktree-lifecycle.spec.ts",
+        "bun test ./tests/git-context.spec.ts",
+        "bun test tests/workflow-checkpoint.spec.ts",
+        "bun run typecheck",
+        "bun run lint",
+        "bun test tests/arch.spec.ts",
+        "bun test --parallel=1"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "in_progress",
+      "changed_files": []
+    },
+    {
+      "id": 9,
+      "title": "Make worktree creation and removal safe",
+      "simple": "Create and remove work areas",
+      "size": "l",
+      "goal": "Worktree creation and removal honor arbitrary branch names, current-HEAD creation, design-file and ignored-file warnings, and safe deletion; the final ceremony contract excludes removed worktree commands.",
+      "plain": {
+        "what": "You can create and remove separate work areas without losing existing work.",
+        "why": "Unsafe branch choices or cleanup could overwrite changes or delete unfinished work.",
+        "check": "Create and remove a work area while existing design files and dirty work stay unchanged."
+      },
+      "builds_on": [8],
+      "tasks": [
+        "Tests first: I41, I42, I44, C15, and C16 cover current-HEAD creation, dirty design-slot warnings, arbitrary branch names and path conflicts, safe rm and ignored-file warnings, the source base-literal check, and the final ceremony contract.",
+        "For new, use [git] worktrees_dir or propose a path, accept any branch name, refuse an existing branch or path while naming its owning worktree, and create from current HEAD.",
+        "Warn when dirty brainstorm.html or PRD.html cannot travel to the new worktree; leave both source files unchanged.",
+        "For rm, refuse unintegrated work with the exact force command, warn about ignored files, never delete dirty work, and remove a clean unintegrated tree only when explicitly forced.",
+        "Keep the worktree verbs exactly new, list, merge, request-changes, rm; remove stale worktree rebase and file-hint citations from the skills and preserve the approved PR, local-merge, and keep-branch choices."
       ],
       "files": [
         "tests/worktree-command.spec.ts",
@@ -490,20 +537,17 @@
         "tests/git-cleanup-pass.spec.ts",
         "src/commands/worktree.ts",
         "src/shared-worktree.ts",
-        "src/workflow/checkpoint.ts",
         "skills/ai-orchestrator/SKILL.md",
         "skills/ai-brainstorm/SKILL.md",
         "skills/.chain-bundle/ai-eng-chain.ts",
         "FILEMAP.md"
       ],
       "acceptance": [
-        "S5: list shows only Git records and flags another active feature in this checkout.",
-        "S8: resume with the feature's own dirty files continues without reset or stash.",
-        "S10: a leftover unregistered folder is reported as not work.",
-        "S17: new worktree with dirty design slots is created and warns.",
-        "0 `refs/heads/main` literals in src/; worktree verbs are exactly new, list, merge, request-changes, rm.",
-        "I39-I45: list, new, resume, rm, and request-changes match their observable contracts and reject removed usages.",
-        "C15-C16: no refs/heads/main literal remains in src/, and the ceremony contract has no removed worktree command citation."
+        "I41: new creates from current HEAD, warns naming dirty brainstorm.html and PRD.html, and leaves both primary files unchanged.",
+        "I42: new accepts any branch name, uses the configured or proposed path, and refuses existing branch/path conflicts naming the owning worktree.",
+        "I44: rm refuses unintegrated work with the exact force command, warns about ignored files, never deletes dirty work, and force-removes a clean unintegrated tree.",
+        "C15: src/ contains no refs/heads/main literal.",
+        "C16: the ceremony contract passes after removed worktree rebase and file-hint citations are removed; the approved PR/local-merge/keep-branch choices remain intact."
       ],
       "verify": [
         "bun test tests/worktree-command.spec.ts",
@@ -512,8 +556,6 @@
         "bun test tests/skills.spec.ts",
         "bun test tests/workflow-handoff.spec.ts",
         "bun test tests/git-cleanup-pass.spec.ts",
-        "bun test ./tests/git-context.spec.ts",
-        "bun test tests/workflow-checkpoint.spec.ts",
         "sh -c '! grep -rn \"refs/heads/main\" src'",
         "bun run typecheck",
         "bun run lint",
@@ -522,15 +564,15 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 6, "findings": ["After checkpoint-identity fix `3cff5224`, all 13 CP8 verify commands passed in order; typecheck/lint, source grep, arch and full serial suite exit 0. This run's individual test counts and suite duration were not surfaced."] },
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "failed", "attempts": 6, "findings": ["Previous MAJOR resolved: list/resume now resolves arbitrary branches by checkpoint identity. New MAJOR src/shared-worktree.ts:514-539,592-605,652-658,723-745: inherited stale checkpoints can falsely create ambiguity and make ordinary listing exit 2. Automatic replan threshold reached."] }
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "in_progress",
-      "changed_files": ["tests/ceremony-contract.spec.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/git-cleanup-pass.spec.ts", "FILEMAP.md", "skills/ai-brainstorm/SKILL.md", "skills/ai-orchestrator/SKILL.md", "skills/.chain-bundle/ai-eng-chain.ts", "src/commands/worktree.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "LEARNINGS.md"]
+      "status": "pending",
+      "changed_files": []
     },
     {
-      "id": 9,
+      "id": 10,
       "title": "Remove platform code from the runtime and enforce the final layers",
       "simple": "Remove leftover extras",
       "size": "l",
@@ -540,7 +582,7 @@
         "why": "Today setup commits by itself skipping checks, and unused parts cost upkeep.",
         "check": "Run an update and see your changes waiting for review, not already saved."
       },
-      "builds_on": [8],
+      "builds_on": [9],
       "tasks": [
         "Tests first: tests/init-command.spec.ts and tests/update-command.spec.ts assert HEAD is unchanged after init and update (changes left in the tree) and no git commit or --no-verify is spawned; tests/update-command.spec.ts asserts update does no network read (fetch stubbed to throw, no notice call); tests/wrap.test.ts asserts the full output is saved to `.ai-engineering/receipts/<receipt>.log`, its path is printed on the last line and the exit code is preserved (D11); tests/arch.spec.ts asserts no import cycles and that every src file belongs to exactly one layer.",
         "Delete src/sidecar/ (sidecar.ts, shadow.ts, queue.ts) and src/guards/circuit-breaker.ts with CircuitBreaker in src/chain/mod.ts and loadCircuitBreakerConfig in src/env.ts; delete tests/sidecar.spec.ts, tests/shadow-eval.spec.ts, tests/circuit-breaker.spec.ts.",
@@ -635,7 +677,7 @@
       "status": "pending"
     },
     {
-      "id": 10,
+      "id": 11,
       "title": "Rewrite the flow skills and the AGENTS.md contract for where-to-work",
       "simple": "Update the working instructions",
       "size": "l",
@@ -645,7 +687,7 @@
         "why": "Old instructions would keep forcing separate copies and the 'main' branch.",
         "check": "Ask for a one-line fix and see it done without planning documents."
       },
-      "builds_on": [9],
+      "builds_on": [10],
       "tasks": [
         "Tests first: add tests/skills-lint.spec.ts linting every skills/*/SKILL.md (frontmatter name and description, a `## Lifecycle` block, relative links that resolve) and asserting 0 `refs/heads/main`/`origin/main` literals and no mandatory `feat/` in skills/ and templates/; extend tests/agents-md-sections.spec.ts so AGENTS.md's 'Where to work' section equals the one in templates/AGENTS.md.tpl.",
         "skills/ai-orchestrator/SKILL.md: work in the current checkout by default, worktree when asked or another feature is active here (D1), native harness worktree first; resume continues the feature's own changes and leaves foreign files alone (S8); Phase 3 rebases with `git rebase <detected base>`; closing offers local merge, PR or keep the branch, recommending PR with a remote forge and local merge otherwise (D9); Direct rhythm has no brainstorm or worktree step (S1). Phases, gates, agents, stops, re-plan and circuit breaker stay as today (D6, D7).",
@@ -712,7 +754,7 @@
       "status": "pending"
     },
     {
-      "id": 11,
+      "id": 12,
       "title": "Split the canon into 23 core skills and opt-in packs",
       "simple": "Install only the essentials",
       "size": "l",
@@ -722,7 +764,7 @@
         "why": "Loading every specialist tool in every session wastes the assistant's attention.",
         "check": "Set up a new project and count the tools installed by default."
       },
-      "builds_on": [10],
+      "builds_on": [11],
       "tasks": [
         "Tests first: tests/init-command.spec.ts asserts `init --yes` and non-TTY write `packs = []` and install exactly the 23 core skills and every agent the ceremony cites, and interactive init asks with nothing preselected; tests/ceremony-contract.spec.ts runs with packs off; tests/update-command.spec.ts asserts the first update of an install without `[canon] packs` writes all six packs and removes nothing, with local edits still protected by the lock hashes; tests/uninstall-command.spec.ts asserts installed packs are removed; tests/embed-canon.spec.ts covers packs embedded apart from core.",
         "Move skills/ai-triage, skills/ai-design-md-planner, skills/ai-audit-design, skills/ai-visual-recap, skills/ai-writing-behavior, skills/ai-stress-test to packs/<name>/, and skills/ai-verify/tiers and evals to packs/verify-tiers/, keeping the 54-line ai-verify router in core; move, never delete content.",
@@ -790,7 +832,7 @@
       "status": "pending"
     },
     {
-      "id": 12,
+      "id": 13,
       "title": "Consolidate tests and CI",
       "simple": "Speed up the safety checks",
       "size": "m",
@@ -800,7 +842,7 @@
         "why": "Slow, duplicated checks waste time and get skipped.",
         "check": "Nothing to see yet, behind the scenes."
       },
-      "builds_on": [11],
+      "builds_on": [12],
       "tasks": [
         "No new tests: delete phrase assertions in tests/skills.spec.ts, tests/workflow-handoff.spec.ts and tests/ai-pr.spec.ts now covered by tests/skills-lint.spec.ts and tests/ceremony-contract.spec.ts, keeping every orchestrator phase and gate assertion.",
         "Collapse duplicated real-Git cases across tests/worktree-command.spec.ts and tests/worktree-lifecycle.spec.ts, keeping the S11 race test and the 6.8 mandatory merge cases.",
@@ -847,7 +889,7 @@
       "status": "pending"
     },
     {
-      "id": 13,
+      "id": 14,
       "title": "Add token budgets with a test and a tokens script",
       "simple": "Keep the assistant's reading light",
       "size": "m",
@@ -857,7 +899,7 @@
         "why": "Every extra word costs time and money in every session.",
         "check": "Run the token count and see every budget within its limit."
       },
-      "builds_on": [12],
+      "builds_on": [13],
       "tasks": [
         "Tests first: add tests/token-budget.spec.ts asserting core skill frontmatter totals at most 2,500 tokens (bytes/4), templates/AGENTS.md.tpl at most 1,200, chain allow and green `ai-eng git pre-commit|commit-msg|pre-push` print 0 lines, and each chain or floor deny prints at most 3 lines.",
         "Add scripts/tokens.ts (bytes/4, no dependencies) and a `tokens` script in package.json that prints the same numbers the test checks.",
@@ -904,7 +946,7 @@
       "status": "pending"
     },
     {
-      "id": 14,
+      "id": 15,
       "title": "Fix docs and promises, and ship as 3.0.0",
       "simple": "Update the guides and version",
       "size": "m",
@@ -914,7 +956,7 @@
         "why": "Docs that promise missing commands mislead people and break trust.",
         "check": "Read the upgrade guide and follow it on an existing project."
       },
-      "builds_on": [13],
+      "builds_on": [14],
       "tasks": [
         "Tests first: add tests/docs-lint.spec.ts asserting every `ai-eng <verb>` cited in README.md, CONTRIBUTING.md, SECURITY.md, PERMISSIONS.md, NOTICE.md, docs/, skills/ and templates/ is in ALL_VERBS of src/shared-verbs.ts (derived from the CLI, not a copied list) and relative links resolve.",
         "Fix the criticals: docs/blueprint.html:366 (`ai-eng recap`), docs/recap.html:1251 (`ai-eng complete`), NOTICE.md:16 (404 link); and the warnings SECURITY.md:28-29 (5 protective guards + 1 prompt guard + token savings in the same hook), PERMISSIONS.md:5-7, CONTRIBUTING.md:40-42.",
@@ -969,7 +1011,7 @@
     "This repository's own hook settings keep calling the installed Python checker until the release update, because it guards this very build. [section 08 Arranque; .github/hooks/ai-eng.json:12; .cursor/hooks.json:15]",
     "The installer still recognises the old Python checker line so an update can remove it cleanly. [src/install.ts:47 MARKER; section 08 Compatibilidad]",
     "CP5 owns final guard/chain bundle generation and parity after all guard source edits; CP6 regenerates final assets after carrier migration. Each split checkpoint still runs the serial suite per section 08. [automatic replan after three behavior failures; L149; brainstorm §08]",
-    "When a step removes a command, it also fixes every instruction naming it, so nothing is left half-wired; full rewrites stay in steps 10 and 14. [agent rule 'every checkpoint shippable'; ceremony contract test from CP2]",
+    "When a step removes a command, it also fixes every instruction naming it, so nothing is left half-wired; full rewrites stay in steps 11 and 15. [agent rule 'every checkpoint shippable'; ceremony contract test from CP2]",
     "The push block on 'main' becomes a block on the detected base branch, same intent. [src/floor/index.ts:178; 5.1 '0 literals'; P3]",
     "Uninstall still restores the global Git setting an older version wrote, even after setup stops writing it. [src/commands/uninstall.ts:234; section 08 never lose user state]",
     "Removing the spec command leaves the self-protection guard logic unchanged. [section 09 out of scope; src/guards/self-protect.ts:39 specPinned]",
@@ -983,13 +1025,13 @@
   ],
   "new_dependencies": [],
   "notes": [
-    "CP1 review MINOR F5: test-hygiene re-runs 25 sandboxed suites in a nested bun test (+40 s to the serial suite); move the env/cwd before-after check into tests/preload.ts. Deferred to CP12 (suite under 2 min).",
+    "CP1 review MINOR F5: test-hygiene re-runs 25 sandboxed suites in a nested bun test (+40 s to the serial suite); move the env/cwd before-after check into tests/preload.ts. Deferred to CP13 (suite under 2 min).",
     "Primary checkout has untracked tests/.dirfd-probe-43993 and tests/.worktree-lifecycle-{jgjcJ0,LDPOY7,wKVTaQ,yLLd5r}: the person removes them; never deleted from the worktree.",
     "Run agility (user, 2026-10-27): full suite once per checkpoint (twice only at wrap-up); a flake unrelated to the diff gets one re-run, then is noted, not blocking; review capped at 2 rounds, only BLOCKER/MAJOR block.",
-    "Fourteen checkpoints after the CP5 and CP7 splits; sizes do not grow monotonically (CP3 s after CP2 m; CP12-CP14 m after l/xl): the approved brainstorm section 11 fixes count, order and scope, and each is sized honestly.",
-    "Dependency order honoured: 1 before all; 2 before 4; 3 and 4 before 5 and 6; 5 before CP10 (skills); CP11 (packs) follows CP10; CP13 (tokens) follows CP11; CP12 (test consolidation) and CP14 (docs) remain at the end. CP6 follows CP5; old CP6 became CP7 and is now split into sequential CP7-CP8; old CP8-CP13 shift to CP9-CP14. This preserves brainstorm section 11; builds_on is linear per the plan format.",
+    "Fifteen checkpoints after the CP5, CP7, and CP8 splits; sizes do not grow monotonically (CP3 s after CP2 m; CP8-CP10 l after CP7 xl; CP13-CP15 m after l/xl): the approved brainstorm section 11 fixes scope and dependency order, and each checkpoint is sized honestly.",
+    "Dependency order honoured: 1 before all; 2 before 4; 3 and 4 before 5 and 6; 5 before CP11 (skills); CP12 (packs) follows CP11; CP14 (tokens) follows CP12; CP13 (test consolidation) and CP15 (docs) remain at the end. CP6 follows CP5; old CP6 became CP7 and old CP7 was split into sequential CP7-CP8; old CP8 is now split into sequential CP8-CP9 and old CP9-CP14 shift to CP10-CP15. This preserves brainstorm section 11; builds_on is linear per the plan format.",
     "UI gate is n/a in every checkpoint: no product UI. The static checkpoint viewer stays unchanged as ceremony.",
-    "Case map: S1, S2 -> CP10; S3 -> CP5 and CP7; S4, S13 -> CP5; S5, S8, S10, S17 -> CP8; S9 -> CP7 and CP8; S11 -> CP7 and CP12; S6, S7, S15, S16, S18 -> CP3 (PR side in CP10); S12 -> CP4; S14 -> CP12; F7 -> CP1.",
+    "Case map: S1, S2 -> CP11; S3 -> CP5 and CP7; S4, S13 -> CP5; S5, S8, S10 -> CP8; S9 -> CP7 and CP8; S17 -> CP9; S11 -> CP7 and CP13; S6, S7, S15, S16, S18 -> CP3 (PR side in CP11); S12 -> CP4; S14 -> CP13; F7 -> CP1.",
     "Ceremony protected: no checkpoint changes phases, gates, agents, stops, prototypes, UI gate, adversarial review, viewer or wrap-up triggers beyond working without a worktree and with a detected base (P10, D6, D7).",
     "D2 already executed (archive tag exists); the archived branch is not integrated. D3: wrap stays as token savings.",
     "After release, run `ai-eng update` in this repository so its own carriers drop the Python checker entry.",
@@ -1000,6 +1042,7 @@
     "CP5 review gate history (1 attempt): BLOCKER src/guards/checkpoint.ts:319: Git-prefixed compound commands can bypass Bash write detection; reject write-capable segments. MAJOR src/install.ts:47: legacy marker can remove a user hook mentioning checkpoint-gate.py; recognize only standalone managed hooks.",
     "CP5 is split into sequential guard/routing and carrier/migration slices after the automatic re-plan threshold. Scope and dependencies remain those approved in brainstorm section 11; guard coverage and fail-closed behavior follow LEARNINGS Rules R1-R3.",
     "CP6 review MINOR F6: tests/carriers-install.spec.ts:10 contains a stale Claude-template note and an assertion that can treat refusal as idempotence; deferred because only BLOCKER/MAJOR findings block.",
-    "CP7 behavior gate history (3 attempts): Attempt 1: floor-hooks fixture lacked a detected base; corrected in 674ab681. Attempt 2: serial suite 1547/1575, 12 failed, 16 skipped in 198.46s; stale workflow contracts and generated bundle were corrected in dd42d15d. Attempt 3 stopped at command 7: ceremony-contract still found a citation to a removed worktree command. Commands 8-12 did not run. Three behavior failures accumulated; automatic replan required."
+    "CP7 behavior gate history (3 attempts): Attempt 1: floor-hooks fixture lacked a detected base; corrected in 674ab681. Attempt 2: serial suite 1547/1575, 12 failed, 16 skipped in 198.46s; stale workflow contracts and generated bundle were corrected in dd42d15d. Attempt 3 stopped at command 7: ceremony-contract still found a citation to a removed worktree command. Commands 8-12 did not run. Three behavior failures accumulated; automatic replan required.",
+    "CP8 review history (automatic replan after three failed review attempts; six attempts recorded): fixed findings covered request-changes ownership from the current checkout, arbitrary branch names, current-HEAD worktree creation, ignored-file safety, invocation from a linked checkout, D9's PR/local-merge/keep-branch choice, and arbitrary-branch list/resume by exact checkpoint identity. Behavior attempt 6, after checkpoint-identity fix `3cff5224`, recorded all 13 verify commands green; test counts and duration were not surfaced, and no result carries forward to the replanned gates. Current unresolved MAJOR at src/shared-worktree.ts:514-539,592-605,652-658,723-745: inherited stale checkpoints can create false ambiguity, causing ordinary `list` to exit 2. CP8 now owns exact-checkpoint list/resume/request-changes ownership in the current and Git-registered checkouts; CP9 owns creation/removal safety and the final ceremony contract."
   ]
 }
