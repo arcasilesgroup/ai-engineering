@@ -48,3 +48,22 @@ The flow skills, the checkpoint-planner agent and AGENTS.md describe working in 
 - `bun run lint`
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
+## F1 · BLOCKER · open
+**Where:** skills/ai-git-cleanup/SKILL.md:21
+**Critic (r1):** `git branch --merged "$base_ref"` includes the selected base branch itself; the keep rules omit it, so when that branch is not checked out the approved preview can offer the integration target for deletion with `git branch -d`. Exclude the selected local base branch from candidates and test that case.
+
+## F2 · MAJOR · open
+**Where:** skills/ai-brainstorm/SKILL.md:299
+**Critic (r1):** This seam unconditionally requires stamping and committing brainstorm/PRD slots, then hands off to ai-orchestrator, contradicting the light-lane rule that spikes write no slots and end at ai-verify (and the bounded light path). Scope these steps to Acordado/architectural work and give light paths an explicit no-slot exit; extend the spike contract test to cover the seam.
+
+## F3 · MAJOR · open
+**Where:** skills/ai-brainstorm/SKILL.md:6
+**Critic (r1):** The `before ANY creative work` trigger and all-path hard gate route Direct bugs and one-session changes through ai-brainstorm despite ai-orchestrator saying Direct has no brainstorm. Limit the trigger/gate to paths that need it and test the cross-skill contract; the current Direct test only scans list items, while the Direct section is prose.
+
+## F4 · MAJOR · open
+**Where:** skills/ai-pr/SKILL.md:73
+**Critic (r1):** The publish path fetches but never pushes the current branch before either forge create command. Since orchestrator keeps commits local until `/ai-pr`, Azure DevOps cannot create a PR from a normal unpushed branch (and GitHub may prompt interactively). Push the selected branch to the resolved remote before creation, then verify its remote ref.
+
+## F5 · MAJOR · open
+**Where:** skills/ai-pr/SKILL.md:36
+**Critic (r1):** `git symbolic-ref` returns a full `refs/remotes/<remote>/<branch>` ref, but the create commands pass `$base_ref` directly to forge target options that take branch names. Normalize the detected ref for forge commands while retaining the full ref for Git comparisons; test the symbolic-ref path end to end.
