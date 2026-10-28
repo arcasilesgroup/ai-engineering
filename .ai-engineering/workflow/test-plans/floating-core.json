@@ -2,7 +2,7 @@
   "feature": "Floating core: the floor stays, the platform goes",
   "slug": "floating-core",
   "order": ["unit", "integration", "contract"],
-  "gating": "Run layers in order inside each checkpoint. Do not run a layer until every case of that checkpoint in the layer before it passes. No UI layer: the product has no UI (ui gate n/a in every checkpoint).",
+  "gating": "Run layers in order inside each checkpoint. Do not run a layer until every case of that checkpoint in the layer before it passes. Checkpoint-independent final evidence runs in Phase 3 wrap-up. No UI layer: the product has no UI (ui gate n/a in every checkpoint).",
   "conventions": [
     "Unit: no network, no wall clock (inject the clock), temp roots under os.tmpdir(), env vars and cwd restored in afterEach.",
     "Integration: real git in temp repos under os.tmpdir(), GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM pointed at an empty file, GIT_TERMINAL_PROMPT=0; every case proves its fixture premise (branch, HEAD, remote HEAD, sha, count) before asserting what the code derives from it (R5).",
@@ -51,7 +51,7 @@
       { "id": "U32", "checkpoint": 10, "covers": [], "case": "summarizeBySession is gone and the remaining receipts-summary cases pass", "file": "tests/receipts-summary.spec.ts", "command": "bun test tests/receipts-summary.spec.ts" },
       { "id": "U33", "checkpoint": 12, "covers": [], "case": "interactive init asks for packs with nothing preselected", "file": "tests/init-command.spec.ts", "command": "bun test tests/init-command.spec.ts" },
       { "id": "U34", "checkpoint": 12, "covers": [], "case": "embedded canon keeps packs apart from core: core embed has no pack skill, each pack embeds its full moved content", "file": "tests/embed-canon.spec.ts", "command": "bun test tests/embed-canon.spec.ts" },
-      { "id": "U35", "checkpoint": 15, "covers": [], "case": "scripts/tokens.ts (bytes/4) prints the same per-budget numbers the token-budget test computes", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" }
+      { "id": "U35", "checkpoint": 16, "covers": [], "case": "scripts/tokens.ts (bytes/4) prints the same per-budget numbers the token-budget test computes", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" }
     ],
     "integration": [
       { "id": "I1", "checkpoint": 1, "covers": [], "case": "running tests/worktree-lifecycle.spec.ts in a child bun test leaves the tests/ listing unchanged (no .worktree-lifecycle-*, no .dirfd-probe-*); premise: listing captured before the child run", "file": "tests/test-hygiene.spec.ts", "command": "bun test tests/test-hygiene.spec.ts" },
@@ -123,8 +123,8 @@
 
       { "id": "I58", "checkpoint": 14, "covers": ["S11"], "case": "after consolidating duplicated real-Git cases, the S11 race and every 6.8 mandatory merge case still run and pass", "file": "tests/worktree-command.spec.ts", "command": "bun test tests/worktree-command.spec.ts" },
 
-      { "id": "I59", "checkpoint": 15, "covers": [], "case": "chain allow and green ai-eng git pre-commit, commit-msg and pre-push print 0 lines", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" },
-      { "id": "I60", "checkpoint": 15, "covers": [], "case": "each chain deny and floor deny prints at most 3 lines and keeps its reason and exit code", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" }
+      { "id": "I59", "checkpoint": 16, "covers": [], "case": "chain allow and green ai-eng git pre-commit, commit-msg and pre-push print 0 lines", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" },
+      { "id": "I60", "checkpoint": 16, "covers": [], "case": "each chain deny and floor deny prints at most 3 lines and keeps its reason and exit code", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" }
     ],
     "contract": [
       { "id": "C1", "checkpoint": 1, "covers": [], "case": "the p95 latency assertion is out of tests/adversarial/chain.test.ts and bun run bench prints p95 and exits 0", "command": "bun run bench" },
@@ -171,16 +171,16 @@
 
       { "id": "C34", "checkpoint": 14, "covers": [], "case": "orchestrator phase and gate assertions kept after phrase-test removal", "file": "tests/workflow-handoff.spec.ts", "command": "bun test tests/workflow-handoff.spec.ts" },
       { "id": "C35", "checkpoint": 14, "covers": [], "case": "ai-pr spec keeps its non-phrase assertions after consolidation", "file": "tests/ai-pr.spec.ts", "command": "bun test tests/ai-pr.spec.ts" },
-      { "id": "C36", "checkpoint": 14, "covers": ["S14"], "case": "platforms.yml keeps the ubuntu/macos/windows matrix (green run proven in CI)", "command": "grep -qF \"os: [ubuntu-latest, macos-latest, windows-latest]\" .github/workflows/platforms.yml" },
+      { "id": "C36", "checkpoint": 15, "covers": ["S14"], "case": "platforms.yml keeps the ubuntu/macos/windows matrix (green run proven in CI)", "command": "grep -qF \"os: [ubuntu-latest, macos-latest, windows-latest]\" .github/workflows/platforms.yml" },
       { "id": "C37", "checkpoint": 14, "covers": [], "case": "serial suite under 2 minutes, twice in a row", "command": "sh -c 'start=$(date +%s); bun test --parallel=1 && [ $(( $(date +%s) - start )) -lt 120 ]'" },
 
-      { "id": "C38", "checkpoint": 15, "covers": [], "case": "core skill frontmatter totals at most 2,500 tokens and templates/AGENTS.md.tpl at most 1,200 (bytes/4)", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" },
-      { "id": "C39", "checkpoint": 15, "covers": [], "case": "ceremony contract, skills lint and 'Where to work' match stay green after shortening", "file": "tests/skills-lint.spec.ts", "command": "bun test tests/skills-lint.spec.ts" },
+      { "id": "C38", "checkpoint": 16, "covers": [], "case": "core skill frontmatter totals at most 2,500 tokens and templates/AGENTS.md.tpl at most 1,200 (bytes/4)", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" },
+      { "id": "C39", "checkpoint": 16, "covers": [], "case": "ceremony contract, skills lint and 'Where to work' match stay green after shortening", "file": "tests/skills-lint.spec.ts", "command": "bun test tests/skills-lint.spec.ts" },
 
-      { "id": "C40", "checkpoint": 16, "covers": [], "case": "every ai-eng <verb> cited in README.md, CONTRIBUTING.md, SECURITY.md, PERMISSIONS.md, NOTICE.md, docs/, skills/ and templates/ is in ALL_VERBS imported from src/shared-verbs.ts; a fixture citing ai-eng recap fails", "file": "tests/docs-lint.spec.ts", "command": "bun test tests/docs-lint.spec.ts" },
-      { "id": "C41", "checkpoint": 16, "covers": [], "case": "relative links in those docs resolve", "file": "tests/docs-lint.spec.ts", "command": "bun test tests/docs-lint.spec.ts" },
-      { "id": "C42", "checkpoint": 16, "covers": [], "case": "CHANGELOG.md has a 3.0 migration guide naming removed verbs (workspace, briefing, upgrade, spec, worktree rebase), reviewed_main→reviewed_base, packs and no auto-commit; .changeset/ holds a major changeset", "file": "tests/docs-lint.spec.ts", "command": "bun test tests/docs-lint.spec.ts" },
-      { "id": "C43", "checkpoint": 16, "covers": ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13", "S14", "S15", "S16", "S17", "S18"], "case": "final evidence: the full S1-S18 set green and the serial suite green twice", "command": "bun test --parallel=1" }
+      { "id": "C40", "checkpoint": 17, "covers": [], "case": "every ai-eng <verb> cited in README.md, CONTRIBUTING.md, SECURITY.md, PERMISSIONS.md, NOTICE.md, docs/, skills/ and templates/ is in ALL_VERBS imported from src/shared-verbs.ts; a fixture citing ai-eng recap fails", "file": "tests/docs-lint.spec.ts", "command": "bun test tests/docs-lint.spec.ts" },
+      { "id": "C41", "checkpoint": 17, "covers": [], "case": "relative links in those docs resolve", "file": "tests/docs-lint.spec.ts", "command": "bun test tests/docs-lint.spec.ts" },
+      { "id": "C42", "checkpoint": 17, "covers": [], "case": "CHANGELOG.md has a 3.0 migration guide naming removed verbs (workspace, briefing, upgrade, spec, worktree rebase), reviewed_main→reviewed_base, packs and no auto-commit; .changeset/ holds a major changeset", "file": "tests/docs-lint.spec.ts", "command": "bun test tests/docs-lint.spec.ts" },
+      { "id": "C43", "covers": ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13", "S14", "S15", "S16", "S17", "S18"], "case": "Phase 3 final evidence: the full S1-S18 set and serial suite are green", "command": "bun test --parallel=1" }
     ]
   },
   "scenario_map": {

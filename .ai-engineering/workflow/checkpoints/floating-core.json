@@ -909,13 +909,13 @@
     },
     {
       "id": 14,
-      "title": "Consolidate tests and CI",
-      "simple": "Speed up the safety checks",
+      "title": "Make the serial suite green and fast",
+      "simple": "Make the checks dependable",
       "size": "m",
-      "goal": "Phrase-checking tests and duplicated real-Git cases are removed while S11 and the orchestrator phase/gate assertions stay, the serial suite runs under 2 minutes twice in a row, mutation runs once per PR and the 3-OS matrix stays.",
+      "goal": "Test consolidation and fixture hygiene preserve every behavior assertion, including S11 and the orchestrator phase/gate assertions, while the serial suite passes under 2 minutes twice in a row.",
       "plain": {
-        "what": "The built-in checks finish in under two minutes and run once per change request.",
-        "why": "Slow, duplicated checks waste time and get skipped.",
+        "what": "The built-in checks finish in under two minutes, twice in a row.",
+        "why": "Slow or unreliable checks waste time and get skipped.",
         "check": "Nothing to see yet, behind the scenes."
       },
       "builds_on": [13],
@@ -923,10 +923,7 @@
         "No new tests: delete phrase assertions in tests/skills.spec.ts, tests/workflow-handoff.spec.ts and tests/ai-pr.spec.ts now covered by tests/skills-lint.spec.ts and tests/ceremony-contract.spec.ts, keeping every orchestrator phase and gate assertion.",
         "Collapse duplicated real-Git cases across tests/worktree-command.spec.ts and tests/worktree-lifecycle.spec.ts, keeping the S11 race test and the 6.8 mandatory merge cases.",
         "Keep suite setup single-pass: replace test-hygiene child suite reruns with preload guards and reuse Git fixture templates without weakening the assertions.",
-        "Align init-recovery behavior with canon ownership: repair missing core files while preserving locally edited global canon files.",
-        ".github/workflows/mutation.yml: one mutation campaign per PR (today two run).",
-        ".github/workflows/check.yml: the Sonar job reuses the coverage of the check run instead of running the suite again.",
-        ".github/workflows/platforms.yml: keep the 3-OS matrix green (S14); paths built with node:path."
+        "Align init-recovery behavior with canon ownership: repair missing core files while preserving locally edited global canon files."
       ],
       "files": [
         "tests/skills.spec.ts",
@@ -936,25 +933,18 @@
         "tests/worktree-lifecycle.spec.ts",
         "tests/doctor-command.spec.ts",
         "tests/adversarial/init-recovery.test.ts",
-        "tests/adversarial/init-recovery.test.ts",
         "tests/test-hygiene.spec.ts",
         "tests/preload.ts",
         "tests/fixtures/worktree-command.ts",
         "tests/checkpoint-guard.spec.ts",
-        "tests/floor-hooks.spec.ts",
-        ".github/workflows/mutation.yml",
-        ".github/workflows/check.yml",
-        ".github/workflows/platforms.yml"
+        "tests/floor-hooks.spec.ts"
       ],
       "acceptance": [
         "The serial suite passes twice in a row, each run under 2 minutes.",
-        "S11 and the orchestrator phase/gate assertions are kept.",
-        "One mutation campaign per PR; Sonar reuses the check run's coverage.",
-        "S14: the 3-OS matrix in platforms.yml stays and passes."
+        "S11 and the orchestrator phase/gate assertions are kept."
       ],
       "verify": [
         "bun test tests/ai-pr.spec.ts",
-        "grep -qF \"os: [ubuntu-latest, macos-latest, windows-latest]\" .github/workflows/platforms.yml",
         "bun test tests/skills.spec.ts",
         "bun test tests/workflow-handoff.spec.ts",
         "bun test tests/worktree-command.spec.ts",
@@ -977,9 +967,9 @@
           "status": "failed",
           "attempts": 3,
           "findings": [
-            "Serial suite run 1 took 204.83s, exceeding the 120s target, and reported four test failures. First: tests/doctor-command.spec.ts:178 expected zero missing canon files but got 36 (44/80 verified); run 2 was not run.",
-            "Gate 1 retry stopped at `update repairs a drifted global canon, not only the repo's assets`; serial suite took 158.25s (target <120s), and suite run 2 was not run.",
-            "Gate 1 retry after cleanup passed its targeted commands and the serial suite tests but still took 149.20s, exceeding the 120s target; suite run 2 was not run."
+            "Attempt 1: the serial suite took 204.83s, exceeding 120s, and reported four failures. The doctor fixture omitted `[canon] packs` (tests/doctor-command.spec.ts:178); it was fixed. The second required timed run was not run.",
+            "Attempt 2: the canon recovery test expected an overwrite contrary to CP13's ownership rule; the test was corrected. The serial suite took 158.25s, and the second required timed run was not run.",
+            "Attempt 3: targeted commands and serial suite tests passed, but the suite still took 149.20s, exceeding 120s; the second required timed run was not run."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -987,12 +977,52 @@
       },
       "status": "in_progress",
       "changed_files": [
-        "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/ai-pr.spec.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/doctor-command.spec.ts", "tests/adversarial/init-recovery.test.ts", "tests/test-hygiene.spec.ts", "tests/preload.ts", "tests/fixtures/worktree-command.ts", "tests/checkpoint-guard.spec.ts", "tests/floor-hooks.spec.ts",
-        ".github/workflows/mutation.yml", ".github/workflows/check.yml"
+        "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/ai-pr.spec.ts", "tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/doctor-command.spec.ts", "tests/adversarial/init-recovery.test.ts", "tests/test-hygiene.spec.ts", "tests/preload.ts", "tests/fixtures/worktree-command.ts", "tests/checkpoint-guard.spec.ts", "tests/floor-hooks.spec.ts"
       ]
     },
     {
       "id": 15,
+      "title": "Consolidate the CI workflows",
+      "simple": "Run CI checks once",
+      "size": "m",
+      "goal": "Each pull request runs one mutation campaign, Sonar reuses check coverage, and the 3-OS platforms matrix remains green.",
+      "plain": {
+        "what": "Each change request checks all three operating systems without repeating the same checks.",
+        "why": "Repeated checks waste time, while missing a system can hide bugs.",
+        "check": "The workflows show one mutation run, shared coverage, and all three operating systems."
+      },
+      "builds_on": [14],
+      "tasks": [
+        ".github/workflows/mutation.yml: one mutation campaign per PR (today two run).",
+        ".github/workflows/check.yml: the Sonar job reuses the coverage of the check run instead of running the suite again.",
+        ".github/workflows/platforms.yml: keep the 3-OS matrix green (S14); paths built with node:path."
+      ],
+      "files": [
+        ".github/workflows/mutation.yml",
+        ".github/workflows/check.yml",
+        ".github/workflows/platforms.yml"
+      ],
+      "acceptance": [
+        "One mutation campaign per PR; Sonar reuses the check run's coverage.",
+        "S14: the 3-OS matrix in platforms.yml stays and passes."
+      ],
+      "verify": [
+        "grep -qF \"os: [ubuntu-latest, macos-latest, windows-latest]\" .github/workflows/platforms.yml"
+      ],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending",
+      "changed_files": [
+        ".github/workflows/mutation.yml",
+        ".github/workflows/check.yml"
+      ]
+    },
+    {
+      "id": 16,
       "title": "Add token budgets with a test and a tokens script",
       "simple": "Keep the assistant's reading light",
       "size": "m",
@@ -1002,7 +1032,7 @@
         "why": "Every extra word costs time and money in every session.",
         "check": "Run the token count and see every budget within its limit."
       },
-      "builds_on": [14],
+      "builds_on": [15],
       "tasks": [
         "Tests first: add tests/token-budget.spec.ts asserting core skill frontmatter totals at most 2,500 tokens (bytes/4), templates/AGENTS.md.tpl at most 1,200, chain allow and green `ai-eng git pre-commit|commit-msg|pre-push` print 0 lines, and each chain or floor deny prints at most 3 lines.",
         "Add scripts/tokens.ts (bytes/4, no dependencies) and a `tokens` script in package.json that prints the same numbers the test checks.",
@@ -1048,7 +1078,7 @@
       "status": "pending"
     },
     {
-      "id": 16,
+      "id": 17,
       "title": "Fix docs and promises, and ship as 3.0.0",
       "simple": "Update the guides and version",
       "size": "m",
@@ -1058,13 +1088,13 @@
         "why": "Docs that promise missing commands mislead people and break trust.",
         "check": "Read the upgrade guide and follow it on an existing project."
       },
-      "builds_on": [15],
+      "builds_on": [16],
       "tasks": [
         "Tests first: add tests/docs-lint.spec.ts asserting every `ai-eng <verb>` cited in README.md, CONTRIBUTING.md, SECURITY.md, PERMISSIONS.md, NOTICE.md, docs/, skills/ and templates/ is in ALL_VERBS of src/shared-verbs.ts (derived from the CLI, not a copied list) and relative links resolve.",
         "Fix the criticals: docs/blueprint.html:366 (`ai-eng recap`), docs/recap.html:1251 (`ai-eng complete`), NOTICE.md:16 (404 link); and the warnings SECURITY.md:28-29 (5 protective guards + 1 prompt guard + token savings in the same hook), PERMISSIONS.md:5-7, CONTRIBUTING.md:40-42.",
         "README.md: promise table where every row holds or is rewritten (D8: one package, no service); wrap described as token savings apart from protection guards; packs and where-to-work explained.",
         "CHANGELOG.md: 3.0 migration guide (removed verbs workspace, briefing, upgrade, spec, worktree rebase; reviewed_main to reviewed_base; packs; no auto-commit); add a major changeset in .changeset/; update FILEMAP.md and docs/global-carriers.md.",
-        "Run /ai-audit-docs and record 0 critical findings; run the full S1-S18 set and the serial suite twice as final evidence."
+        "Run /ai-audit-docs and record 0 critical findings."
       ],
       "files": [
         "tests/docs-lint.spec.ts",
@@ -1084,8 +1114,7 @@
         "Every command cited in docs exists in the CLI.",
         "0 critical findings in /ai-audit-docs.",
         "The promise table has no broken rows.",
-        "A major changeset and a 3.0 migration guide exist.",
-        "All 18 cases (S1-S18) have green tests and the serial suite passes twice in a row."
+        "A major changeset and a 3.0 migration guide exist."
       ],
       "verify": [
         "bun test tests/docs-lint.spec.ts",
@@ -1127,11 +1156,11 @@
   "notes": [
     "CP1 review MINOR F5: test-hygiene re-runs 25 sandboxed suites in a nested bun test (+40 s to the serial suite); move the env/cwd before-after check into tests/preload.ts. Deferred to CP14 (suite under 2 min).",
     "Primary checkout has untracked tests/.dirfd-probe-43993 and tests/.worktree-lifecycle-{jgjcJ0,LDPOY7,wKVTaQ,yLLd5r}: the person removes them; never deleted from the worktree.",
-    "Run agility (user, 2026-10-27): full suite once per checkpoint (twice only at wrap-up); a flake unrelated to the diff gets one re-run, then is noted, not blocking; review capped at 2 rounds, only BLOCKER/MAJOR block.",
-    "Sixteen checkpoints after the CP5, CP7, CP8, and CP12 splits; sizes do not grow monotonically (CP3 s after CP2 m; CP8-CP10 l after CP7 xl; CP13 s after CP12 l; CP14-CP16 m after l/xl): the approved brainstorm section 11 fixes scope and dependency order, and each checkpoint is sized honestly.",
-    "Dependency order honoured: 1 before all; 2 before 4; 3 and 4 before 5 and 6; 5 before CP11 (skills); CP12 (pack/config defaults) follows CP11; CP13 (legacy update migration) follows CP12; CP14 (test consolidation) precedes CP15 (tokens); CP16 (docs) remains last. CP6 follows CP5; old CP6 became CP7 and old CP7 was split into sequential CP7-CP8; old CP8 is now split into sequential CP8-CP9 and old CP9-CP15 shift to CP10-CP16. This preserves brainstorm section 11; builds_on is linear per the plan format.",
+    "Run agility (user, 2026-10-27): full suite once per checkpoint except CP14's two timed performance runs; Phase 3 wrap-up retains the final full-suite run twice. A flake unrelated to the diff gets one re-run, then is noted, not blocking; review capped at 2 rounds, only BLOCKER/MAJOR block.",
+    "Seventeen checkpoints after the CP5, CP7, CP8, CP12, and CP14 splits; sizes do not grow monotonically (CP3 s after CP2 m; CP8-CP10 l after CP7 xl; CP13 s after CP12 l; CP14-CP17 m after CP13 s): the approved brainstorm section 11 fixes scope and dependency order, and each checkpoint is sized honestly.",
+    "Dependency order honoured: 1 before all; 2 before 4; 3 and 4 before 5 and 6; 5 before CP11 (skills); CP12 (pack/config defaults) follows CP11; CP13 (legacy update migration) follows CP12; CP14 (serial-suite correctness/performance) precedes CP15 (CI consolidation), then CP16 (tokens) and CP17 (docs). CP6 follows CP5; old CP6 became CP7 and old CP7 was split into sequential CP7-CP8; old CP8 is now split into sequential CP8-CP9 and old CP9-CP16 shift to CP10-CP17. This preserves brainstorm section 11; builds_on is linear per the plan format.",
     "UI gate is n/a in every checkpoint: no product UI. The static checkpoint viewer stays unchanged as ceremony.",
-    "Case map: S1, S2 -> CP11; S3 -> CP5 and CP7; S4, S13 -> CP5; S5, S8, S10 -> CP8; S9 -> CP7 and CP8; S17 -> CP9; S11 -> CP7 and CP14; S6, S7, S15, S16, S18 -> CP3 (PR side in CP11); S12 -> CP4; S14 -> CP14; F7 -> CP1.",
+    "Case map: S1, S2 -> CP11; S3 -> CP5 and CP7; S4, S13 -> CP5; S5, S8, S10 -> CP8; S9 -> CP7 and CP8; S17 -> CP9; S11 -> CP7 and CP14; S6, S7, S15, S16, S18 -> CP3 (PR side in CP11); S12 -> CP4; S14 -> CP15; F7 -> CP1.",
     "Ceremony protected: no checkpoint changes phases, gates, agents, stops, prototypes, UI gate, adversarial review, viewer or wrap-up triggers beyond working without a worktree and with a detected base (P10, D6, D7).",
     "D2 already executed (archive tag exists); the archived branch is not integrated. D3: wrap stays as token savings.",
     "After release, run `ai-eng update` in this repository so its own carriers drop the Python checker entry.",
@@ -1145,6 +1174,7 @@
     "CP7 behavior gate history (3 attempts): Attempt 1: floor-hooks fixture lacked a detected base; corrected in 674ab681. Attempt 2: serial suite 1547/1575, 12 failed, 16 skipped in 198.46s; stale workflow contracts and generated bundle were corrected in dd42d15d. Attempt 3 stopped at command 7: ceremony-contract still found a citation to a removed worktree command. Commands 8-12 did not run. Three behavior failures accumulated; automatic replan required.",
     "CP8 review history (automatic replan after three failed review attempts; six attempts recorded): fixed findings covered request-changes ownership from the current checkout, arbitrary branch names, current-HEAD worktree creation, ignored-file safety, invocation from a linked checkout, D9's PR/local-merge/keep-branch choice, and arbitrary-branch list/resume by exact checkpoint identity. Behavior attempt 6, after checkpoint-identity fix `3cff5224`, recorded all 13 verify commands green; test counts and duration were not surfaced, and no result carries forward to the replanned gates. Current unresolved MAJOR at src/shared-worktree.ts:514-539,592-605,652-658,723-745: inherited stale checkpoints can create false ambiguity, causing ordinary `list` to exit 2. CP8 now owns exact-checkpoint list/resume/request-changes ownership in the current and Git-registered checkouts; CP9 owns creation/removal safety and the final ceremony contract.",
     "Automatic CP12 replan after three Gate 1 failures: split CP12 into pack/config defaults and CP13 legacy update migration. The initial serial-suite report omitted its failing test; the first diagnostic was invalid because it set TMPDIR inside the repo, so the original failure remains undiagnosed. U9 config render left keys active/uncommented until ecec4783 defaulted omitted embed packs. A legacy update without `[canon] packs` expected six packs but got none until 48c4fe44 preserved update pack selection; targeted checks passed.",
-    "CP12 replan verification: keep pack/config targeted checks on CP12, the legacy update check on CP13, and the original full serial suite once on CP13 only."
+    "CP12 replan verification: keep pack/config targeted checks on CP12, the legacy update check on CP13, and the original full serial suite once on CP13 only.",
+    "CP14 was split after three Gate 1 failures: CP14 owns test consolidation, fixture hygiene and two timed serial runs under 120 seconds; CP15 owns CI consolidation. Phase 3 retains final full-suite evidence outside the docs/token checkpoints, including the all-S1-S18 acceptance."
   ]
 }
