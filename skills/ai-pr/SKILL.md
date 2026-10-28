@@ -39,6 +39,12 @@ Read sources in this order; keep the first valid result:
    or `az repos show --query defaultBranch`.
 5. If none resolves, ask once and offer to save the answer in `[git] base`.
 
+Keep the selected Git revision as `$base_ref` for comparisons. Resolve the
+forge target separately as `$base_branch`, a short branch name: strip
+`refs/remotes/<remote>/` (or its `<remote>/` prefix) from a remote-tracking
+ref, strip `refs/heads/` from a local full ref, and keep an already-short
+branch name. Never pass a full ref or remote prefix as a forge target.
+
 A repository without a remote cannot publish a PR: offer a local merge or ask
 once. If the selected base equals the current branch, ask once for a different
 base; do not create a self-targeting PR.
@@ -70,11 +76,27 @@ gh pr view "$branch" --json number,state
 az repos pr list --source-branch "$branch" --status active --output json
 ```
 
-Create a PR with the resolved base, never a literal target:
+Only in this explicitly requested PR flow, push the selected source branch to
+the selected remote before creating a PR. This publishes a local-only branch
+without pushing as a side effect of another task. Use a normal, non-force push,
+then verify the remote branch tip matches local `HEAD`; stop on a push failure,
+missing ref, or mismatch. With no remote, do not push or create a PR; retain
+the local-merge-or-ask path above.
 
 ```bash
-gh pr create --base "$base_ref" --head "$branch" --title "$title" --body-file "$body_file"
-az repos pr create --target-branch "$base_ref" --source-branch "$branch" --title "$title" --description "$body"
+git push "$remote" "$branch"
+git rev-parse HEAD
+git ls-remote --heads "$remote" "refs/heads/$branch"
+```
+
+Compare the `git rev-parse HEAD` commit with the hash returned by
+`git ls-remote` before either create command.
+
+Create a PR with the normalized branch name, never a literal target:
+
+```bash
+gh pr create --base "$base_branch" --head "$branch" --title "$title" --body-file "$body_file"
+az repos pr create --target-branch "$base_branch" --source-branch "$branch" --title "$title" --description "$body"
 ```
 
 After creation, read back its number and state. A rerun reuses the same open PR;
@@ -85,7 +107,7 @@ it never creates a second one for the same branch.
 Read required checks from branch protection, not from a guessed list:
 
 ```bash
-gh api "repos/{owner}/{repo}/branches/<base_ref>/protection" --jq '.required_status_checks.contexts'
+gh api "repos/{owner}/{repo}/branches/<base_branch>/protection" --jq '.required_status_checks.contexts'
 gh pr checks "$number" --required
 gh pr view "$number" --json reviewDecision,reviews
 gh pr view "$number" --comments

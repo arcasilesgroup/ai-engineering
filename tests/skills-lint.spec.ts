@@ -190,6 +190,21 @@ describe("CP11 skills lint", () => {
     expect(actions).toEqual([]);
   });
 
+  test("Direct/light work bypasses the brainstorm gate across both skill contracts", () => {
+    const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
+    const brainstorm = readFileSync(join(SKILLS, "ai-brainstorm", "SKILL.md"), "utf8");
+    const direct = markdownSection(orchestrator, "Direct rhythm");
+    const routing = markdownSection(brainstorm, "Routing");
+    const hardGate = /<HARD-GATE>([\s\S]*?)<\/HARD-GATE>/.exec(brainstorm)?.[1] ?? "";
+    const description = parseFrontmatter(brainstorm).description;
+
+    expect(direct).toMatch(/no brainstorm/i);
+    expect(description).not.toMatch(/before ANY creative work/i);
+    expect(description).toMatch(/Do not use as a preflight for Direct\/light work/i);
+    expect(routing).toMatch(/Direct\/light[\s\S]*without ai-brainstorm/i);
+    expect(hardGate).toMatch(/only to this brainstorm flow/i);
+  });
+
   test("the ai-brainstorm spike path writes no design slots", () => {
     const brainstorm = readFileSync(join(SKILLS, "ai-brainstorm", "SKILL.md"), "utf8");
     const paths = markdownSection(brainstorm, "Three paths (classify out loud before the first question)");
@@ -199,6 +214,8 @@ describe("CP11 skills lint", () => {
     expect(spike).toContain("No design doc.");
     expect(spike).toContain("output is an answer");
     expect(lightLane.replace(/\s+/g, " ")).toMatch(/on the light lane nothing is written to a slot at all/i);
+    expect(brainstorm).toMatch(/Spike and light\/bounded paths write no design slots and do not invoke `ai-orchestrator`/i);
+    expect(brainstorm).toMatch(/On light lanes, use the spike answer or approved in-chat design and finish at `ai-verify`/i);
     expect(spike).not.toMatch(DESIGN_SLOTS);
   });
 });

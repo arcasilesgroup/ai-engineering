@@ -48,22 +48,47 @@ The flow skills, the checkpoint-planner agent and AGENTS.md describe working in 
 - `bun run lint`
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
-## F1 · BLOCKER · open
+## F1 · BLOCKER · fixed
 **Where:** skills/ai-git-cleanup/SKILL.md:21
 **Critic (r1):** `git branch --merged "$base_ref"` includes the selected base branch itself; the keep rules omit it, so when that branch is not checked out the approved preview can offer the integration target for deletion with `git branch -d`. Exclude the selected local base branch from candidates and test that case.
 
-## F2 · MAJOR · open
+**Fixer (r2):** fixed — excluded `$base_branch` from the merged candidate list (`skills/ai-git-cleanup/SKILL.md:23`, `tests/git-cleanup-pass.spec.ts:16`) · verify: `bun test tests/git-cleanup-pass.spec.ts tests/skills-lint.spec.ts tests/ai-pr.spec.ts` ✓
+**ROOT CAUSE:** The merged-branch preview included the selected base itself.
+**FIX:** Filter the exact selected short base name before presenting deletion candidates and pin the filter in the skill contract test.
+**LESSON:** Remove protected refs at candidate selection, before any deletion path can see them.
+
+## F2 · MAJOR · fixed
 **Where:** skills/ai-brainstorm/SKILL.md:299
 **Critic (r1):** This seam unconditionally requires stamping and committing brainstorm/PRD slots, then hands off to ai-orchestrator, contradicting the light-lane rule that spikes write no slots and end at ai-verify (and the bounded light path). Scope these steps to Acordado/architectural work and give light paths an explicit no-slot exit; extend the spike contract test to cover the seam.
 
-## F3 · MAJOR · open
+**Fixer (r2):** fixed — scoped artifact writes and orchestrator handoff to standard/full lanes (`skills/ai-brainstorm/SKILL.md:196,279,324`) · verify: `bun test tests/git-cleanup-pass.spec.ts tests/skills-lint.spec.ts tests/ai-pr.spec.ts` ✓
+**ROOT CAUSE:** The artifact seam and lifecycle promised slot writes and orchestrator handoff without checking the lane.
+**FIX:** Limit those steps to standard/full, explicitly end light paths at `ai-verify` with no slot, and test the spike/light contract.
+**LESSON:** Make artifact ownership and handoff conditional on the classified lane.
+
+## F3 · MAJOR · fixed
 **Where:** skills/ai-brainstorm/SKILL.md:6
 **Critic (r1):** The `before ANY creative work` trigger and all-path hard gate route Direct bugs and one-session changes through ai-brainstorm despite ai-orchestrator saying Direct has no brainstorm. Limit the trigger/gate to paths that need it and test the cross-skill contract; the current Direct test only scans list items, while the Direct section is prose.
 
-## F4 · MAJOR · open
+**Fixer (r2):** fixed — narrowed trigger and gate to brainstorm-owned paths (`skills/ai-brainstorm/SKILL.md:4,23`, `tests/skills-lint.spec.ts:193`) · verify: `bun test tests/git-cleanup-pass.spec.ts tests/skills-lint.spec.ts tests/ai-pr.spec.ts` ✓
+**ROOT CAUSE:** A broad creative-work trigger and all-path approval gate contradicted the orchestrator's Direct rhythm.
+**FIX:** Exclude clear Direct/light tasks and add a cross-skill contract that pins the bypass.
+**LESSON:** Route clear work to its execution skill instead of imposing a separate brainstorm gate.
+
+## F4 · MAJOR · fixed
 **Where:** skills/ai-pr/SKILL.md:73
 **Critic (r1):** The publish path fetches but never pushes the current branch before either forge create command. Since orchestrator keeps commits local until `/ai-pr`, Azure DevOps cannot create a PR from a normal unpushed branch (and GitHub may prompt interactively). Push the selected branch to the resolved remote before creation, then verify its remote ref.
 
-## F5 · MAJOR · open
+**Fixer (r2):** fixed — publish and verify the selected source ref before creation, only in requested PR flow (`skills/ai-pr/SKILL.md:79-93`, `tests/ai-pr.spec.ts:63`) · verify: `bun test tests/git-cleanup-pass.spec.ts tests/skills-lint.spec.ts tests/ai-pr.spec.ts` ✓
+**ROOT CAUSE:** The create path had no publication step for a local-only branch.
+**FIX:** Push the selected branch to its selected remote and compare the remote ref's hash with local `HEAD`; keep no-remote local-merge/ask behavior.
+**LESSON:** Publish and verify the source ref only after an explicit PR request and before forge creation.
+
+## F5 · MAJOR · fixed
 **Where:** skills/ai-pr/SKILL.md:36
 **Critic (r1):** `git symbolic-ref` returns a full `refs/remotes/<remote>/<branch>` ref, but the create commands pass `$base_ref` directly to forge target options that take branch names. Normalize the detected ref for forge commands while retaining the full ref for Git comparisons; test the symbolic-ref path end to end.
+
+**Fixer (r2):** fixed — keep full `$base_ref` for Git and use normalized `$base_branch` for forge targets (`skills/ai-pr/SKILL.md:42-46,98-110`, `tests/ai-pr.spec.ts:51`) · verify: `bun test tests/git-cleanup-pass.spec.ts tests/skills-lint.spec.ts tests/ai-pr.spec.ts` ✓
+**ROOT CAUSE:** The full remote-tracking ref was reused as a forge target.
+**FIX:** Derive a short `$base_branch` and use it for create and protection commands, while retaining `$base_ref` for Git comparisons.
+**LESSON:** Keep Git revisions and forge branch names distinct at the boundary.

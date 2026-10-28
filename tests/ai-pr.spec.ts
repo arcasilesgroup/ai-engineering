@@ -41,19 +41,39 @@ describe("ai-pr skill — the full pull-request loop", () => {
       const commandBlock = commandBlocks.find((block) => block.includes(command)) ?? "";
       expect(commandBlock).not.toBe("");
 
-      const targetArguments = [...commandBlock.matchAll(targetArgumentPattern)].map(
+      const commandLine = commandBlock.split(/\r?\n/).find((line) => line.includes(command)) ?? "";
+      const targetArguments = [...commandLine.matchAll(targetArgumentPattern)].map(
         ([, doubleQuoted, singleQuoted, unquoted]) => doubleQuoted ?? singleQuoted ?? unquoted,
       );
-      expect(
-        targetArguments.every(
-          (argument) => typeof argument === "string" && (argument.startsWith("$") || /^<[^>]+>$/.test(argument)),
-        ),
-      ).toBe(true);
+      expect(targetArguments).toEqual(["$base_branch"]);
     }
+  });
+
+  test("normalizes remote-tracking refs before passing forge target arguments", () => {
+    expect(skill).toMatch(/keep the selected Git revision as `\$base_ref` for comparisons/i);
+    expect(skill).toMatch(/forge target separately as `\$base_branch`, a short branch name/i);
+    expect(skill).toMatch(/strip\s+`refs\/remotes\/<remote>\/`/i);
+    expect(skill).toMatch(/never pass a full ref or remote prefix as a forge target/i);
+    expect(skill).toContain("branches/<base_branch>/protection");
   });
 
   test("routes a repository without a remote to local merge or one ask", () => {
     expect(skill).toMatch(/(?:no remote|without a remote)[\s\S]{0,160}(?:local merge|ask)/i);
+  });
+
+  test("pushes and verifies the selected branch only in a requested PR flow before creation", () => {
+    const push = skill.indexOf('git push "$remote" "$branch"');
+    const verify = skill.indexOf('git ls-remote --heads "$remote" "refs/heads/$branch"');
+    const create = skill.indexOf("gh pr create");
+
+    expect(skill).toMatch(/only in this explicitly requested PR flow, push the selected source branch/i);
+    expect(skill).toMatch(/publishes a local-only branch/i);
+    expect(skill).toMatch(/normal, non-force push/i);
+    expect(skill).toMatch(/verify the remote branch tip matches local `HEAD`/i);
+    expect(skill).toMatch(/With no remote, do not push or create a PR/i);
+    expect(push).toBeGreaterThan(-1);
+    expect(verify).toBeGreaterThan(push);
+    expect(create).toBeGreaterThan(verify);
   });
 
   test("asks once when the detected base is the current branch", () => {
@@ -179,7 +199,7 @@ describe("ai-pr skill — the full pull-request loop", () => {
     // The blocking gates are queried from branch protection, not guessed.
     expect(skill).toMatch(/required_status_checks/);
     expect(skill).toMatch(/gh api/);
-    expect(skill).toMatch(/branches\/(?:<base(?:_ref)?>|\$\{?base(?:_ref)?\}?|\$base(?:_ref)?)\/protection/i);
+    expect(skill).toMatch(/branches\/(?:<base_branch>|\$\{?base_branch\}?|\$base_branch)\/protection/i);
     // Everything else is advisory.
     expect(skill).toMatch(
       /(rest|other|remaining|non-required)[^.]{0,150}(workflow|check|job)[^.]{0,150}(inform|advisory|non-?blocking|do(es)? not block|don't block|report only)/i,

@@ -12,13 +12,15 @@ license: Apache-2.0
 
 Start with a read-only preview. Never fetch, push, delete remote branches, or
 assume a default branch. Resolve the local base from the person's explicit
-choice or repository configuration; if neither identifies one, ask once.
+choice or repository configuration; if neither identifies one, ask once. Keep
+`$base_ref` for Git comparisons and resolve `$base_branch` to that selected
+base's short local branch name; the base itself is never a deletion candidate.
 The cleanup pass never asks for a branch or worktree name.
 
 ```bash
 git worktree list
 git worktree prune --dry-run
-git branch --merged "$base_ref"
+git branch --merged "$base_ref" --format='%(refname:short)' | grep -Fvx -- "$base_branch"
 ```
 
 For each candidate, show its branch, checkout path, and status before changing

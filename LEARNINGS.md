@@ -1355,3 +1355,38 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Assert native preview, detected base and safe deletion defaults.
 - **Lesson:** Tests must assert the current approved contract.
 - **Tags:** behavior, git, tests
+
+### L188 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Cleanup preview could list the selected base branch as a deletion candidate.
+- **Root cause:** Candidate filtering did not exclude the protected base ref.
+- **Fix:** Filter the selected base before showing deletion candidates.
+- **Lesson:** Exclude protected refs before presenting deletion candidates.
+- **Tags:** review, git, cleanup
+
+### L189 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Brainstorm unconditionally wrote design slots and handed every path to the full orchestrator.
+- **Root cause:** Slot/handoff actions were not scoped by work lane.
+- **Fix:** Limit them to standard/full; light paths end at `ai-verify`.
+- **Lesson:** Gate artifacts by lane.
+- **Tags:** review, workflow, skills
+
+### L190 · 2026-10-27 · floating-core #11 · review
+- **Failure:** The brainstorm's broad creative-work trigger conflicted with Direct's no-brainstorm path.
+- **Root cause:** Trigger wording ignored clear one-step work.
+- **Fix:** Exclude clear Direct/light tasks and add cross-skill coverage.
+- **Lesson:** Route clear work to its relevant skill.
+- **Tags:** review, workflow, skills
+
+### L191 · 2026-10-27 · floating-core #11 · review
+- **Failure:** A requested PR for a local-only branch could be created without first publishing the branch.
+- **Root cause:** The PR guidance skipped push/verification before forge creation.
+- **Fix:** Push and verify the selected remote branch only when a PR is requested.
+- **Lesson:** Verify publication before creation.
+- **Tags:** review, git, pr
+
+### L192 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Forge create commands could receive full remote-tracking refs as branch arguments.
+- **Root cause:** Git refs and forge branch names were treated as the same value.
+- **Fix:** Keep `$base_ref` for Git and use short `$base_branch` for forge calls.
+- **Lesson:** Separate Git refs from forge branch names.
+- **Tags:** review, git, pr

@@ -1,31 +1,30 @@
 ---
 name: ai-brainstorm
 description: >-
-  Use when the user brings a fuzzy idea that must be pinned down before research or
-  planning — "handshake", "get on the same page", "align on this idea", "let me explain my
-  vision", or before ANY creative work (a feature, a component, a behavior change). One
-  question at a time until the whole idea can be explained in 3rd-grader language, the
-  request classified (spike / bounded / architectural), the design approved, and the result
-  captured in a self-contained doc that a researcher agent and a planner agent can run with
-  without asking anything. Includes an optional spec self-review pass. Not for turning an
-  aligned idea into a build — use /ai-orchestrator. Not for external evidence — use
-  /ai-research.
+  Use when a fuzzy idea needs alignment before research or planning — "handshake", "get on
+  the same page", "align on this idea", or "let me explain my vision". Do not use as a
+  preflight for Direct/light work with a clear outcome, such as a bug fix or one-session
+  change; follow its relevant skill or ai-orchestrator's Direct rhythm. For standard/full
+  feature work, align and classify the request, then capture the approved result in a
+  self-contained doc for the researcher and planner. Light paths use no design slot.
+  Includes an optional spec self-review pass. Not for turning an aligned idea into a build
+  — use /ai-orchestrator. Not for external evidence — use /ai-research.
 license: MIT
 ---
 
 # ai-brainstorm — interrogate until shared understanding, then design
 
 Two methods, one flow. **Handshake** interrogates the user until the idea is understood so
-completely it can be explained in 3rd-grader language, and captures it in a self-contained
-doc. **Design gating** (obra/superpowers) classifies how much process the request needs and
-puts a hard approval gate before any implementation. The union: understand first, classify
-second, approve before building, and leave a doc the next agent can run with.
+completely it can be explained in 3rd-grader language. **Design gating** (obra/superpowers)
+classifies how much process the request needs and puts an approval gate before
+implementation on the paths this skill owns. Standard/full feature lanes capture a
+self-contained doc; light lanes end with an answer or an in-chat design and write no slot.
 
 <HARD-GATE>
-Do NOT invoke any implementation skill, write any code, scaffold any project, or take any
-implementation action until you have told your human partner what you intend and they have
-approved it. This applies to EVERY task on EVERY path — the ceremony scales with the task;
-the approval gate never does.
+On a path owned by this skill, do NOT invoke an implementation skill, write code, scaffold a
+project, or take implementation action until you have told your human partner what you intend
+and they have approved it. This gate applies only to this brainstorm flow; Direct/light work
+routed elsewhere does not enter it.
 </HARD-GATE>
 
 ## Three paths (classify out loud before the first question)
@@ -62,10 +61,9 @@ diff.
 
 ## Anti-pattern: "too simple to need approval"
 
-Every path ends with your human partner approving your intent before implementation. A
-todo list, a single-function utility, a config change — the design may be two sentences in
-chat, but you MUST present it and get approval. What scales with simplicity is the
-artifact, never the approval.
+Every brainstorm path that proceeds to implementation ends with your human partner approving
+your intent first. A small change may need only a few sentences in chat, but you MUST present
+that design and get approval. Direct/light work routed elsewhere does not enter this gate.
 
 ## Red flags
 
@@ -162,10 +160,11 @@ wrong read-back surfaces misunderstandings faster than ten more questions.
 ### 5. Early exit
 
 If the user says "enough" or "just write it": offer one last read-back (cheap, catches the
-worst errors), respect a no, and write the doc with what you have. Unanswered **decisions**
-go under "Decisions still open" with your recommended default; unknown **facts** go under
-"Open questions for research". Never silently drop a question — a visible hole is useful,
-an invisible one is a trap.
+worst errors) and respect a no. On standard/full lanes, write the doc with what you have.
+On light lanes, give the answer or in-chat design without writing a slot. In the doc,
+unanswered **decisions** go under "Decisions still open" with your recommended default;
+unknown **facts** go under "Open questions for research". Never silently drop a question —
+a visible hole is useful, an invisible one is a trap.
 
 ## Design (architectural path, after the read-back passes)
 
@@ -194,7 +193,7 @@ For a deeper pass, dispatch a reviewer with
 (a fresh subagent with no stake in the doc). Only flag issues that would cause real
 problems during planning; approve unless there are serious gaps.
 
-## User review gate
+## User review gate (standard/full feature lanes)
 
 When the page is written, stop. The last line to the user is: the interview is in `.ai-engineering/brainstorm.html`. Say approve, or say what to change. Do not start `ai-orchestrator` in this turn.
 
@@ -202,7 +201,10 @@ If they request changes, make them and re-run the self-review, then ask again.
 
 When they approve, do step 5 of the seam, then stop again. The last line is: next step is `/ai-orchestrator`. That call starts the build. Do not open checkpoints in this turn.
 
-## Doc structure
+On light lanes, use the spike answer or approved in-chat design and finish at `ai-verify`.
+Do not write a design slot or invoke `ai-orchestrator`.
+
+## Doc structure (standard/full feature lanes only)
 
 ```markdown
 # Handshake · <idea name>
@@ -268,10 +270,15 @@ period, or `·`.
 
 - The read-back passed clean (or the early-exit doc honestly lists what is still open).
 - The path was classified out loud and the approval gate was honored.
-- The doc is self-contained and lives where the next agent will find it.
+- On standard/full lanes, the doc is self-contained and lives where the next agent will find it.
+- On light lanes, no slot is written; the answer or diff ends at `ai-verify`.
 - For architectural: the doc passed self-review and the user approved it.
 
 ## The ai-engineering seam
+
+Only standard/full feature lanes use the slot-writing and orchestrator-handoff steps below.
+Spike and light/bounded paths write no design slots and do not invoke `ai-orchestrator`;
+they finish at `ai-verify`. The grounding duty in step 3 applies on every lane.
 
 1. Output path: `.ai-engineering/brainstorm.html`. Approval does not delete it.
    `ai-orchestrator` reads it for the whole build. Git integration closes the
@@ -293,7 +300,7 @@ period, or `·`.
    become the orchestrator's question queue.
 3. Grounding duty (§11.6): never cite a file or API you have not opened this session —
    /ai-explore and /ai-read-docs are the lenses.
-4. The approval gate here IS blueprint STOP 0. After approval, a new checkpoint plan
+4. On standard/full lanes, the approval gate here IS blueprint STOP 0. After approval, a new checkpoint plan
    proceeds to implementation without another approval stop; resumed legacy pending plans
    retain their checkpoint review. The final app review remains a human stop.
 5. After approval, set `ai-approved` to today's date and the status line to `complete · YYYY-MM-DD`. Copy only the conclusions into `.ai-engineering/PRD.html`: Problem (why it matters), Goal (what success looks like), Users & roles, the Feature plus its Rules (decisions already made), and Out of scope. Leave the interview in `brainstorm.html`. If the PRD already has other features, update the matching one and leave the others. Commit only these two files using explicit paths:
@@ -307,21 +314,22 @@ period, or `·`.
 ## Routing
 
 In scope: fuzzy ideas needing alignment, pre-build design, feasibility spikes, vision
-capture. Not for: evidence from outside the repo (/ai-research), turning an aligned idea
-into a build (/ai-orchestrator), diagnosing
-failures (/ai-debug).
+capture. Not for: clear Direct/light tasks such as bug fixes or one-session changes (follow
+their relevant skill or Direct rhythm without ai-brainstorm), evidence from outside the repo
+(/ai-research), turning an aligned idea into a build (/ai-orchestrator), or diagnosing failures
+(/ai-debug).
 
 ## Lifecycle
 
 Lane: light, standard, full
-Writes: .ai-engineering/brainstorm.html, .ai-engineering/PRD.html
-Read by: ai-orchestrator, the agent that opens the next session
+Writes: standard/full only: .ai-engineering/brainstorm.html, .ai-engineering/PRD.html; light: none
+Read by: ai-orchestrator on standard/full, the agent that opens the next session
 Dies: when a brainstorm for a different feature replaces it, or the feature is integrated
 Next: ai-research when questions are still open; ai-architect on the architectural lane; ai-orchestrator on the standard lane; ai-verify on the light lane
 Stop: interview
 Stop words: approve, ok, go, adelante
 Stop confirms: the brainstorm
-Stop runs: write the PRD conclusions, then tell the user the next step is /ai-orchestrator
+Stop runs: standard/full writes the PRD conclusions and hands off to /ai-orchestrator; light writes no slot and ends at ai-verify
 
 Source: handshake by obra (https://obra.sh, MIT; obra/superpowers attributed by URL) +
 brainstorming from obra/superpowers

@@ -14,7 +14,15 @@ describe("ai-git-cleanup skill — the one-pass, name-free rewrite", () => {
   test("uses native Git commands for a read-only preview", () => {
     expect(skill).toContain("git worktree list");
     expect(skill).toContain("git worktree prune --dry-run");
-    expect(skill).toContain('git branch --merged "$base_ref"');
+    expect(skill).toContain(
+      `git branch --merged "$base_ref" --format='%(refname:short)' | grep -Fvx -- "$base_branch"`,
+    );
+  });
+
+  test("never offers the selected base branch as a deletion candidate", () => {
+    expect(skill).toContain("base's short local branch name");
+    expect(skill).toContain("the base itself is never a deletion candidate");
+    expect(skill).toContain('grep -Fvx -- "$base_branch"');
   });
 
   test("detects the base from user choice or repository configuration", () => {
