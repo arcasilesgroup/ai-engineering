@@ -93,3 +93,15 @@
 **ROOT CAUSE:** The ceremony sentence still described the pre-CP8 start ref after `worktree new` had changed to use current `HEAD`.
 **FIX:** State that creation starts at current `HEAD` and warns dirty brainstorm/PRD files do not travel; leave the detected-base rebase and merge handoff intact.
 **LESSON:** Keep source-ref documentation aligned with command behavior while distinguishing creation from integration.
+
+## F6 · BLOCKER · open
+**Where:** `src/shared-worktree.ts:359-386`
+**Critic (r1):** `worktreeNew` resolves `repo` to the primary checkout, then reads its dirty design slots and `HEAD` even when invoked from another Git-listed checkout. From a linked feature worktree with unique commits or dirty brainstorm/PRD files, it starts the new worktree from the wrong checkout and omits the required warning. Read source `HEAD` and dirty-slot status from the invoking checkout; keep the primary root only for registration and destination resolution, and test invocation from a diverged, dirty linked worktree.
+
+## F7 · MAJOR · open
+**Where:** `skills/ai-orchestrator/SKILL.md:46,265-268,285`
+**Critic (r1):** The ceremony still says changes are committed on `feat/<slug>`, tells Phase 4 request-changes to run from the primary checkout, and claims the command accepts only a managed `feat/<slug>` worktree. The implementation now resolves the exact checkpoint and Git-listed branch ref, including the current checkout and arbitrary branch names; this stale guidance contradicts D1 and can route request-changes to a rejected checkout. Describe exact-checkpoint/current-or-managed checkout selection without assuming `feat/`, and align the branch wording.
+
+## F8 · MAJOR · open
+**Where:** `skills/ai-orchestrator/SKILL.md:278-283`
+**Critic (r1):** After app approval, Phase 4 unconditionally invokes local `ai-eng worktree merge <slug>`; it offers neither `/ai-pr` nor keeping the branch, and never gives the D9 recommendation (PR with a forge remote, local merge otherwise). Preserve the `worktree merge` handoff for the local-merge choice, but expose the approved closure choices and recommendation.
