@@ -502,7 +502,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 2, "findings": ["After stale request-changes fix `f1d408c7`, all 8 CP8 verify commands passed; worktree-command 101 (16 skipped), lifecycle 17, git-context 30, workflow-checkpoint 10, arch 31; typecheck/lint passed. Full serial suite 1573 passed, 16 skipped, 0 failed across 79 files in 218.75s."] },
+        "behavior": { "status": "passed", "attempts": 3, "findings": ["After active-owner fix `7b56f563`, all 8 CP8 verify commands passed; targeted suites 118+17+30+10 = 175 pass, 16 skipped, 0 fail; typecheck/lint and arch 31 pass. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 2, "findings": ["F12 resolved: stale inherited app-review pins are filtered before candidate selection. New MAJOR src/shared-worktree.ts:951-955: a unique SHA/ref match bypasses ambiguity even when another non-stale checkpoint with the same slug remains registered; refuse before SHA selection when multiple active owners remain."] }
       },
