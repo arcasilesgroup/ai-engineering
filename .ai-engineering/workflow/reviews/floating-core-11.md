@@ -99,6 +99,10 @@ The flow skills, the checkpoint-planner agent and AGENTS.md describe working in 
 **Critic (r2):** F4 resolved — verified the requested-PR path pushes the selected branch and checks its remote hash against HEAD before creation.
 **Critic (r2):** F5 resolved — verified Git retains `$base_ref` while forge create/protection commands use normalized `$base_branch`.
 
-## F6 · MAJOR · open (r2)
+## F6 · MAJOR · fixed (r2)
 **Where:** skills/ai-brainstorm/SKILL.md:312
 **Critic (r2):** The approval handoff still always sends the user to `/ai-orchestrator`, but Lifecycle `Next` says the architectural lane goes to `ai-architect`; this skips the required architecture step and contradicts the lane contract. Route standard to orchestrator and architectural to ai-architect before orchestration.
+**Fixer (r3):** fixed — made approval handoff lane-specific and added a parsed route comparison against Lifecycle `Next` (`skills/ai-brainstorm/SKILL.md:313`, `tests/skills-lint.spec.ts:222`) · verify: `bun test tests/skills-lint.spec.ts tests/skills.spec.ts`; `bun run typecheck`; `bun run lint`; `bun test tests/arch.spec.ts` ✓
+**ROOT CAUSE:** The shared approval handoff hard-coded ai-orchestrator despite Lifecycle's lane-specific successor.
+**FIX:** Route architectural approval to ai-architect and standard approval to ai-orchestrator; test the route mapping against Lifecycle `Next`.
+**LESSON:** Keep approval handoffs lane-specific and verify each against its Lifecycle contract.

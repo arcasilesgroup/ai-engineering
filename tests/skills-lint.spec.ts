@@ -218,4 +218,25 @@ describe("CP11 skills lint", () => {
     expect(brainstorm).toMatch(/On light lanes, use the spike answer or approved in-chat design and finish at `ai-verify`/i);
     expect(spike).not.toMatch(DESIGN_SLOTS);
   });
+
+  test("the brainstorm approval handoff matches its Lifecycle routes", () => {
+    const brainstorm = readFileSync(join(SKILLS, "ai-brainstorm", "SKILL.md"), "utf8");
+    const seam = markdownSection(brainstorm, "The ai-engineering seam");
+    const lifecycle = markdownSection(brainstorm, "Lifecycle");
+    const lifecycleNext = /^Next:\s*(.+)$/m.exec(lifecycle)?.[1] ?? "";
+    const handoffRoutes = Object.fromEntries(
+      [...seam.matchAll(/^\s*\|\s*(Architectural|Standard)\s*\|\s*`\/(ai-[\w-]+)`\s*\|$/gim)]
+        .map(([, lane, skill]) => [lane!.toLowerCase(), skill!]),
+    );
+    const lifecycleRoutes = Object.fromEntries(
+      [...lifecycleNext.matchAll(/(?:^|;\s*)(ai-[\w-]+)\s+on\s+the\s+(architectural|standard)\s+lane(?=;|$)/gi)]
+        .map(([, skill, lane]) => [lane!.toLowerCase(), skill!]),
+    );
+
+    expect(handoffRoutes).toEqual({
+      architectural: "ai-architect",
+      standard: "ai-orchestrator",
+    });
+    expect(handoffRoutes).toEqual(lifecycleRoutes);
+  });
 });

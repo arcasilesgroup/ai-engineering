@@ -1390,3 +1390,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Keep `$base_ref` for Git and use short `$base_branch` for forge calls.
 - **Lesson:** Separate Git refs from forge branch names.
 - **Tags:** review, git, pr
+
+### L193 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Architectural brainstorm approval routed directly to the orchestrator despite Lifecycle naming `ai-architect` next.
+- **Root cause:** The handoff ignored the selected work lane.
+- **Fix:** Route architecture to `ai-architect`, standard to `ai-orchestrator`, and test route/Lifecycle consistency.
+- **Lesson:** Keep approval handoffs lane-specific and verify them against Lifecycle.
+- **Tags:** review, workflow, skills

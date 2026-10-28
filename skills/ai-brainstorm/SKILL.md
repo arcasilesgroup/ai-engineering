@@ -276,7 +276,7 @@ period, or `·`.
 
 ## The ai-engineering seam
 
-Only standard/full feature lanes use the slot-writing and orchestrator-handoff steps below.
+Only standard/full feature lanes use the slot-writing steps below. Handoff follows the lane.
 Spike and light/bounded paths write no design slots and do not invoke `ai-orchestrator`;
 they finish at `ai-verify`. The grounding duty in step 3 applies on every lane.
 
@@ -296,8 +296,9 @@ they finish at `ai-verify`. The grounding duty in step 3 applies on every lane.
    The markdown
    structure in §Doc structure maps to sections of that page; the file is HTML only,
    no `.md` twin.
-2. The gaps feed ai-orchestrator as files, not chat: "Decisions still open" and "Open questions"
-   become the orchestrator's question queue.
+2. Keep the gaps in the approved documents, not chat: "Decisions still open" and "Open questions"
+   stay available to the next skill. On the standard lane, they become the orchestrator's
+   question queue.
 3. Grounding duty (§11.6): never cite a file or API you have not opened this session —
    /ai-explore and /ai-read-docs are the lenses.
 4. On standard/full lanes, the approval gate here IS blueprint STOP 0. After approval, a new checkpoint plan
@@ -309,7 +310,12 @@ they finish at `ai-verify`. The grounding duty in step 3 applies on every lane.
    git commit -m "docs: approve brainstorm" --only -- .ai-engineering/brainstorm.html .ai-engineering/PRD.html
    ```
    This skill never writes spec.html or plan.html.
-6. Handoff, said out loud after approval: next step is `/ai-orchestrator`. That is the start of the build. This turn does not run it.
+6. Handoff, said out loud after approval, follows the lane:
+   | Lane | Next step |
+   | --- | --- |
+   | Architectural | `/ai-architect` |
+   | Standard | `/ai-orchestrator` |
+   This turn does not run the next skill.
 
 ## Routing
 
