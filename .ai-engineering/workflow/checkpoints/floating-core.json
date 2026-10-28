@@ -522,7 +522,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 5, "findings": ["After native-worktree fix `d5c2705d`, all 13 CP8 verify commands passed; worktree-command 96 (16 skipped), lifecycle 17, ceremony 4, skills 26, workflow-handoff 9, git-cleanup 11, git-context 30, checkpoint 10, arch 31; typecheck/lint and source grep passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
+        "behavior": { "status": "passed", "attempts": 6, "findings": ["After checkpoint-identity fix `3cff5224`, all 13 CP8 verify commands passed in order; typecheck/lint, source grep, arch and full serial suite exit 0. This run's individual test counts and suite duration were not surfaced."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 5, "findings": ["Prior findings resolved: current-checkout/native-worktree request-changes, arbitrary branch handoff, HEAD creation, ignored-file safety, nested-root scanning, and D9 close choices. New MAJOR src/shared-worktree.ts:584-606,623-646: list/resume still relies on feat/ names, so arbitrary-branch Git checkouts with matching checkpoints are not recognized; resolve by checkpoint identity."] }
       },
