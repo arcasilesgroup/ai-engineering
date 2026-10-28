@@ -522,7 +522,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 4, "findings": ["After linked-checkout and D9 fixes `58b18cb8`, all 13 CP8 verify commands passed: worktree-command 94 (16 skipped), lifecycle 17, ceremony 4, skills 26, workflow-handoff 9, git-cleanup 11, git-context 30, checkpoint 10, arch 31; typecheck/lint and source grep passed. Full serial suite 1566 passed, 16 skipped, 0 failed across 79 files in 210.80s."] },
+        "behavior": { "status": "passed", "attempts": 5, "findings": ["After native-worktree fix `d5c2705d`, all 13 CP8 verify commands passed; worktree-command 96 (16 skipped), lifecycle 17, ceremony 4, skills 26, workflow-handoff 9, git-cleanup 11, git-context 30, checkpoint 10, arch 31; typecheck/lint and source grep passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 4, "findings": ["Prior findings resolved: current-checkout/arbitrary-branch request-changes, HEAD creation, ignored-file safety, invoking linked-checkout source, and D9 close choices. New MAJOR src/shared-worktree.ts:819-828,1252-1266: request-changes rejects Git-listed native worktrees outside managed root; accept exact checkpoint-bearing checkout while retaining SHA/CAS checks.", "MINOR src/shared-worktree.ts:296,360-376: `worktree new` from a nested directory misses root-level dirty brainstorm/PRD files; resolve checkout root before scanning."] }
       },
