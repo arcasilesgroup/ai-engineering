@@ -1439,3 +1439,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Pass surfaces and packs directly to the template renderer; focused update, init, and config tests passed.
 - **Lesson:** Apply defaults and explicit values in a single render.
 - **Tags:** behavior, update, config, packs
+
+### L200 · 2026-10-28 · floating-core #12 · behavior
+- **Failure:** Bun stopped at the ceremony-contract command because it did not match the test file using a path without `./`.
+- **Root cause:** Bun's file selector did not resolve this test from the bare relative path.
+- **Fix:** Use `bun test ./tests/ceremony-contract.spec.ts`; the focused command passed all four tests.
+- **Lesson:** Use explicit `./` relative paths when selecting Bun tests by file.
+- **Tags:** behavior, tests, bun

@@ -819,7 +819,7 @@
         "bun test ./tests/triage-azure-signals.integration.spec.ts ./tests/triage-azure-signals.unit.spec.ts ./tests/triage-azure.integration.spec.ts ./tests/triage-azure.unit.spec.ts ./tests/triage-github.spec.ts ./tests/triage-report.integration.spec.ts ./tests/triage-report.unit.spec.ts ./tests/triage-routing.integration.spec.ts ./tests/triage-routing.unit.spec.ts",
         "bun test tests/init-command.spec.ts",
         "bun test tests/uninstall-command.spec.ts",
-        "bun test tests/ceremony-contract.spec.ts",
+        "bun test ./tests/ceremony-contract.spec.ts",
         "bun test tests/embed-canon.spec.ts",
         "bun test tests/agents-canon.spec.ts",
         "bun test tests/carriers-install.spec.ts",
@@ -829,9 +829,9 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "failed",
+          "attempts": 1,
+          "findings": ["Gate 1 command `bun test tests/ceremony-contract.spec.ts` did not match the test file; Bun suggested `./tests/ceremony-contract.spec.ts`."]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
