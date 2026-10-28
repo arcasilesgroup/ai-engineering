@@ -13,9 +13,10 @@
  */
 import { describe, test, expect } from "bun:test";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 const SKILLS = join(import.meta.dir, "..", "skills");
+const ROOT = join(import.meta.dir, "..");
 const ACCENTS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
 const TOKEN_LIMIT = /(límite de tokens|token limit|token budget for this (file|skill)|keep (it|this) (under|below) \d+\s*(chars|caracteres|characters|tokens)|≤\s*\d+\s*(chars|caracteres|characters)\s*(max|limit|límite)?)/i;
 const MACHINE_PATH = /(\/Users\/|\/private\/tmp\/|\/tmp\/ai-eng-home-test|~\/\.agents\/skills)/;
@@ -370,14 +371,20 @@ const WORKFLOW_KIT_SKILLS = [
   "ai-design-md-planner",
 ] as const;
 
+function workflowKitSkillDirectory(skill: (typeof WORKFLOW_KIT_SKILLS)[number]): string {
+  return skill === "ai-design-md-planner"
+    ? join(ROOT, "packs", "design-md-planner")
+    : join(SKILLS, skill);
+}
+
 const KIT_FORBIDDEN_PATH =
   /CLAUDE\.md|docs\/checkpoints|docs\/PRD\.md|docs\/LEARNINGS\.md|docs\/FILEMAP\.md|docs\/PERMISSIONS\.md|docs\/CHANGELOG\.md/;
 
 describe("workflow kit — six skills ship with valid frontmatter", () => {
-  test("U1: each kit skill has SKILL.md with name = folder, license SPDX, folded description", () => {
+  test("U1: each kit skill has SKILL.md with canonical name, license SPDX, folded description", () => {
     const problems: string[] = [];
     for (const skill of WORKFLOW_KIT_SKILLS) {
-      const skillFile = join(SKILLS, skill, "SKILL.md");
+      const skillFile = join(workflowKitSkillDirectory(skill), "SKILL.md");
       if (!existsSync(skillFile)) {
         problems.push(`${skill}: missing SKILL.md`);
         continue;
@@ -399,14 +406,14 @@ describe("workflow kit — six skills ship with valid frontmatter", () => {
   test("U2: kit skill trees contain no CLAUDE.md or docs/checkpoints|PRD|LEARNINGS|FILEMAP|PERMISSIONS|CHANGELOG path strings", () => {
     const offenders: string[] = [];
     for (const skill of WORKFLOW_KIT_SKILLS) {
-      const dir = join(SKILLS, skill);
+      const dir = workflowKitSkillDirectory(skill);
       if (!existsSync(dir)) {
         offenders.push(`${skill}: skill directory missing`);
         continue;
       }
       for (const file of walk(dir)) {
         const content = readFileSync(file, "utf8");
-        if (KIT_FORBIDDEN_PATH.test(content)) offenders.push(file.slice(SKILLS.length + 1));
+        if (KIT_FORBIDDEN_PATH.test(content)) offenders.push(relative(ROOT, file));
       }
     }
     expect(offenders).toEqual([]);
@@ -416,7 +423,9 @@ describe("workflow kit — six skills ship with valid frontmatter", () => {
 describe("workflow kit — visual recap is opt-in", () => {
   test("the orchestrator never requires or automatically invokes a recap", () => {
     const orchestratorSkill = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
-    const recapSkill = readFileSync(join(SKILLS, "ai-visual-recap", "SKILL.md"), "utf8");
+    const recapSkillPath = join(ROOT, "packs", "visual-recap", "SKILL.md");
+    expect(existsSync(recapSkillPath)).toBe(true);
+    const recapSkill = readFileSync(recapSkillPath, "utf8");
     const agents = readFileSync(join(SKILLS, "..", "AGENTS.md"), "utf8");
     const agentsTemplate = readFileSync(join(SKILLS, "..", "templates", "AGENTS.md.tpl"), "utf8");
     const prd = readFileSync(join(SKILLS, "..", ".ai-engineering", "PRD.html"), "utf8");
@@ -449,7 +458,7 @@ describe("workflow kit — visual recap is opt-in", () => {
     expect(appReview).toContain("Never write lifecycle phase `complete`.");
     expect(appReview).toContain("its absence must not delay approval, merge, or worktree removal");
     expect(appReview).not.toContain(
-      "follow the repository-owned procedure at `skills/ai-visual-recap/SKILL.md`",
+      "follow the repository-owned procedure at `packs/visual-recap/SKILL.md`",
     );
     expect(recapSkill).toContain("manually invoked by the user");
     expect(agents).toContain("optional and never required for merge");

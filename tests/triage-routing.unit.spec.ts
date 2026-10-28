@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveTarget } from "../skills/ai-triage/scripts/resolve-target.mjs";
+import { resolveTarget } from "../packs/triage/scripts/resolve-target.mjs";
 
 const githubUrl = "https://github.com/example-owner/example-repo";
 const githubRemote = `${githubUrl}.git`;

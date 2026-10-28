@@ -5,9 +5,9 @@
 // temp directory: the real canon home is never touched.
 
 import { describe, expect, test, afterEach } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, symlinkSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, symlinkSync, rmSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import {
   embeddedUnder,
   canonSkills,
@@ -21,6 +21,16 @@ import {
 } from "../src/embed.ts";
 
 const roots: string[] = [];
+const root = join(import.meta.dir, "..");
+
+function filesBelow(directory: string): string[] {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? filesBelow(path) : [path];
+  });
+}
+
 function sandbox(): string {
   const dir = mkdtempSync(join(tmpdir(), "ai-eng-embed-"));
   roots.push(dir);
@@ -40,6 +50,32 @@ describe("the embedded payload", () => {
     for (const key of templates.keys()) {
       expect(key.startsWith("templates/")).toBe(true);
       expect(key.startsWith("..")).toBe(false);
+    }
+  });
+
+  test("packs are embedded in full and their skills are absent from the core payload", () => {
+    const packRoot = join(root, "packs");
+    const packFiles = filesBelow(packRoot);
+    expect(packFiles.length).toBeGreaterThan(0);
+
+    const sourcePaths = packFiles.map((path) => relative(root, path).split(sep).join("/")).sort();
+    const embeddedPacks = embeddedUnder("packs/");
+    expect([...embeddedPacks.keys()].sort()).toEqual(sourcePaths);
+    for (const path of sourcePaths) {
+      expect(readFileSync(embeddedPath(embeddedPacks.get(path)!))).toEqual(readFileSync(join(root, path)));
+    }
+
+    const packSkillNames = packFiles
+      .filter((path) => path.endsWith(`${sep}SKILL.md`))
+      .map((path) => /^name:\s*(.+)$/m.exec(readFileSync(path, "utf8"))?.[1]?.trim())
+      .filter((name): name is string => name !== undefined);
+    expect(packSkillNames.length).toBeGreaterThan(0);
+
+    const coreSkillNames = [...canonSkills()]
+      .filter(([path]) => path.endsWith("/SKILL.md"))
+      .map(([, ref]) => /^name:\s*(.+)$/m.exec(readFileSync(embeddedPath(ref), "utf8"))?.[1]?.trim());
+    for (const skillName of packSkillNames) {
+      expect(coreSkillNames).not.toContain(skillName);
     }
   });
 
@@ -123,10 +159,13 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
 });
 
 describe("workflow kit — embedded payload includes kit skill paths", () => {
-  test("U3: embedded payload includes ai-orchestrator and ai-design-md-planner skill paths", () => {
-    const paths = [...canonSkills().keys()];
-    expect(paths.some((path) => path.startsWith("skills/ai-orchestrator/"))).toBe(true);
-    expect(paths.some((path) => path.startsWith("skills/ai-design-md-planner/"))).toBe(true);
+  test("U3: ai-orchestrator stays core and ai-design-md-planner is in a pack", () => {
+    const corePaths = [...canonSkills().keys()];
+    const packSkillFiles = [...embeddedUnder("packs/")]
+      .filter(([path]) => path.endsWith("/SKILL.md"))
+      .map(([, ref]) => readFileSync(embeddedPath(ref), "utf8"));
+    expect(corePaths.some((path) => path.startsWith("skills/ai-orchestrator/"))).toBe(true);
+    expect(packSkillFiles.some((content) => /^name:\s*ai-design-md-planner$/m.test(content))).toBe(true);
   });
 });
 
