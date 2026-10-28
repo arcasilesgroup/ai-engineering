@@ -3524,6 +3524,46 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
     expect(readFileSync(join(orphan, "notes.txt"), "utf8")).toBe("not a worktree\n");
   });
 
+  test("ignores a valid stale checkpoint under an unregistered folder when listing", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    configureDetectedBase(repo, "main");
+    const slug = "orphan-feature";
+    const registered = addRebaseWorktree(repo, slug);
+    const orphan = join(root, "orphan-folder");
+    mkdirSync(orphan, { recursive: true });
+
+    const listedPaths = worktreeEntries(repo).map(({ path }) => realpathSync(path));
+    expect(listedPaths).toContain(realpathSync(registered));
+    expect(listedPaths).not.toContain(realpathSync(orphan));
+
+    const lifecycle = {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    };
+    const registeredCheckpoint = writeCanonicalCheckpoint(registered, slug, lifecycle);
+    const staleCheckpoint = writeCanonicalCheckpoint(orphan, slug, lifecycle);
+    expect(JSON.parse(readFileSync(staleCheckpoint, "utf8"))).toMatchObject({
+      slug,
+      lifecycle: { phase: "implementation" },
+    });
+
+    const run = runCli(["worktree", "list"], repo);
+
+    expect(run.status).toBe(0);
+    expect(run.stdout).toMatch(
+      new RegExp(`${slug}\\t.*\\tfeature\\t.*implementation \\(plan approved, app review not-started\\)`),
+    );
+    expect(run.stdout).not.toContain(`${realpathSync(orphan)}\tfeature\t`);
+    expect(run.stdout).not.toContain(`checkpoint ${slug} is ambiguous`);
+    expect(existsSync(registeredCheckpoint)).toBe(true);
+  });
+
   test("I42: accepts an arbitrary branch name under the configured root and names existing holders", () => {
     const repo = tempRepo();
     const customRoot = mkdtempSync(join(tmpdir(), "ai-eng-custom-worktrees-"));
