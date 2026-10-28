@@ -748,7 +748,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["All 15 CP11 verify commands passed: init 32, skills-lint 6, agents-md-sections 5, skills 26, workflow-handoff 9, ai-pr 20, git-cleanup 11, agents-canon 5, ceremony 4, generated-payload 3, arch 54; proof/grefs/typecheck/lint passed. Full serial suite 1531 passed, 16 skipped, 0 failed (1547 total) in 208.68s."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
