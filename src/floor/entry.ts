@@ -7,6 +7,16 @@ import { createHash } from "node:crypto";
 import { writeReceipt } from "../receipts.ts";
 import { readOverrides, overrideActive } from "../chain/dialect.ts";
 
+function writeHookOutput(lines: string[]): void {
+  if (lines.length === 0) return;
+  const output = lines.join("\n").replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+  const outputLines = output.split("\n");
+  const limitedLines = outputLines.length <= 3
+    ? outputLines
+    : [...outputLines.slice(0, 2), outputLines.slice(2).join(" | ")];
+  for (const line of limitedLines) process.stderr.write(`${line}\n`);
+}
+
 export async function floor(hook: string, msgFile?: string): Promise<number> {
   const root = repoRoot();
   // The same gate as the chain, for the same reason: a repo that never declared
@@ -24,11 +34,11 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
       latency_ms: Date.now() - t0,
       outcome: result.ok ? "allow" : "deny",
     });
-    for (const line of result.lines) process.stderr.write(`${line}\n`);
     if (!result.ok) {
-      process.stderr.write("[git floor] pre-commit: BLOCKED — what the hooks would say is what needs fixing.\n");
+      writeHookOutput([...result.lines, "[git floor] pre-commit: BLOCKED — what the hooks would say is what needs fixing."]);
       return 1;
     }
+    writeHookOutput(result.lines);
     return 0;
   }
   if (hook === "commit-msg") {
@@ -40,12 +50,12 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
     const active = overrides.find((o) => overrideActive(overrides, o.name) !== null) ?? null;
     const id = createHash("sha256").update(`${new Date().toISOString()}:floor`).digest("hex").slice(0, 8);
     const result = commitMsg(msgFile, id, active?.reason ?? null);
-    for (const line of result.lines) process.stderr.write(`${line}\n`);
+    writeHookOutput(result.lines);
     return result.ok ? 0 : 1;
   }
   if (hook === "pre-push") {
     const result = prePush(root);
-    for (const line of result.lines) process.stderr.write(`${line}\n`);
+    writeHookOutput(result.lines);
     return result.ok ? 0 : 1;
   }
   process.stderr.write("usage: ai-eng git pre-commit|commit-msg|pre-push\n");

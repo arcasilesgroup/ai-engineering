@@ -47,10 +47,10 @@ Replies to a person, and handoffs to another agent, follow the voice standard in
 `/clear` between tasks · `/compact` before stopping, not after · batch prompting · check `/usage` when the context inflates.
 
 ## Where to work
-- **Current checkout by default:** work on the checkout and branch already open. Use a separate worktree only when requested or another feature is active here; if work may overlap, pause and ask before isolating it.
-- **Native worktree first:** use the host's worktree support (`claude -w <branch>` or Cursor `/worktree`) when available; otherwise run `ai-eng worktree new <branch>` and use its exact reported path. The person chooses or approves a branch name; any valid Git name works.
-- **Resume safely:** continue the feature's own changes in its checkout. Never stash, reset, overwrite, or remove foreign files; preserve uncertain work and ask.
-- **Close deliberately:** after review, offer a PR from the current branch, a local merge into the detected base, or keeping the branch. Recommend a PR when a forge remote is available and a local merge otherwise. `ai-eng worktree merge <slug>` handles the local merge from either a checkout or worktree.
+- Work in the open checkout. Use a worktree only when requested or another feature is active; pause if work may overlap.
+- Prefer host worktree support; otherwise run `ai-eng worktree new <branch>` and use its reported path. The person chooses or approves the branch.
+- Resume in the feature checkout. Never stash, reset, overwrite, or remove foreign work; preserve uncertainty and ask.
+- After review, offer a PR, local merge, or keeping the branch. Prefer PR with a forge remote, otherwise local merge; `ai-eng worktree merge <slug>` handles it.
 
 ## Git workflow
 See **Where to work** for checkout, worktree, and integration choices. `.ai-engineering/recap.html` is optional and never required for merge.

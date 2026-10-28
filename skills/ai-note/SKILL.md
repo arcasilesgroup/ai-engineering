@@ -1,14 +1,9 @@
 ---
 name: ai-note
 description: >-
-  Saves a finding that took real time to reach — a non-obvious behaviour, an integration
-  trap, a workaround and the reason it is needed — as committed markdown, stamped with the
-  commit and the file patterns it describes so that it can be detected as stale later.
-  Searches those notes too. Trigger for "save this", "note that", "remember this", "we
-  worked this out the hard way", "do we have notes on", "what did we find about". Not for
-  project decisions — use /ai-brainstorm, which is where a decision has its context. Not for
-  documentation somebody reads to learn the system — use /ai-write, which is where a
-  document gets written against the tree.
+  Saves and searches hard-won, non-obvious findings as committed Markdown, stamped with the
+  commit and affected file patterns for stale detection. Trigger: "save this", "remember
+  this", or "what did we find about". Not for decisions (/ai-brainstorm) or user docs (/ai-write).
 license: Apache-2.0
 ---
 

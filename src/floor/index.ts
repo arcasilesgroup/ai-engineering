@@ -19,7 +19,7 @@ export function preCommit(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const check = runGit(["diff", "--cached", "--check"], { cwd });
   if (check.status !== 0) {
     lines.push("diff --check found whitespace problems:");
-    lines.push(`${check.stdout}${check.stderr}`.trim());
+    lines.push(`${check.stdout}${check.stderr}`.trim().replace(/\r\n?/g, "\n").replace(/\n+/g, " | "));
     return { ok: false, lines };
   }
   const leaks = stageSecrets(cwd);

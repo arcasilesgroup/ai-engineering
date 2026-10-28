@@ -1,14 +1,10 @@
 ---
 name: ai-issue-report
 description: >-
-  Reports a reproducible fault to a team or an upstream project — for ai-engineering itself
-  or for any service the client is building — as a governed payload: closed allow-listed
-  fields, scanned for machine paths, personal data (PII) and secrets before anything is
-  written, draft kept local, and the exact bytes shown with their SHA-256 before anybody
-  confirms anything. Trigger for "report this bug", "file an issue", "the framework is
-  broken", "send this upstream", "write the incident report". Not for a fault in your own
-  code that still needs a diagnosis — use /ai-debug first. Not for a vulnerability sent
-  anywhere public: that routes to private disclosure, and this skill refuses the other way.
+  Reports reproducible faults as a local, allow-listed draft scanned for machine paths, PII,
+  and secrets; shows exact bytes and SHA-256 before confirmation. Trigger: "report this bug",
+  "file an issue", "send this upstream", or "write the incident report". Diagnose own-code
+  failures first (/ai-debug); vulnerabilities require private disclosure.
 license: Apache-2.0
 ---
 

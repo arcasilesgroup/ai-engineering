@@ -35,7 +35,7 @@ function writeJsonAndExit(decision: unknown, status: number): never {
 
 export function deny(guard: string, message: string, dialect: Dialect = "claude", event = "PreToolUse"): never {
   const text = `[ai-eng] ${guard}: ${message}`;
-  process.stderr.write(`${text}\n`);
+  process.stderr.write(`${text.replace(/[\r\n]/g, " ")}\n`);
   if (guard === "loop") {
     process.stderr.write(
       "[ai-eng] loop: a person — not you — can grant an exception: .ai-engineering/overrides.toml [[guard.off]] with reason + until.\n",

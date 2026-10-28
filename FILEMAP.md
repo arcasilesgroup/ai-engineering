@@ -40,6 +40,7 @@ tests/
 scripts/
   gen-assets.ts                Generate embedded assets from skills/, packs/, agents/ and templates/
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
+  tokens.ts                    `bun run tokens`: report skill-frontmatter and AGENTS-template byte/4 counts
   .embed/packs/                 Generated text payloads for pack scripts and eval fixtures
 skills/                        Installed skill canon
   ai-brainstorm/SKILL.md       Interview, classify and record approved feature intent

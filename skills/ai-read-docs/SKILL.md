@@ -1,16 +1,10 @@
 ---
 name: ai-read-docs
 description: >-
-  Use when the work depends on versioned or external behaviour — adding a package, writing
-  setup or config, integrating an SDK or a paid API, debugging a framework change — or on
-  anything involving third-party APIs, libraries, frameworks, CLIs, cloud services,
-  model/provider SDKs, fast-moving product behavior, user requests for
-  latest/current/official behavior, unfamiliar repo docs/specs, errors that may
-  indicate API drift, or high-stakes auth, security, billing, data, migration,
-  deployment, compliance, or privacy behavior. Forces a docs pass (web-search of
-  official sources) and reading primary docs before assuming from memory. Not for
-  evidence from outside this repository generally — use /ai-research; not for questions
-  the repository answers — use /ai-explore.
+  Checks primary official docs for versioned/external behavior: packages, SDKs, APIs, CLIs,
+  cloud services, current behavior, API drift, setup/config, or high-stakes auth, security,
+  billing, data, migration, deployment, compliance, or privacy. Not general external research
+  (/ai-research) or questions the repo answers (/ai-explore).
 license: Apache-2.0
 ---
 

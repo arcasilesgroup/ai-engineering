@@ -1079,7 +1079,31 @@
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "pending",
-      "changed_files": ["tests/token-budget.spec.ts"]
+      "changed_files": [
+        "AGENTS.md",
+        "FILEMAP.md",
+        "package.json",
+        "scripts/tokens.ts",
+        "skills/.chain-bundle/ai-eng-chain.ts",
+        "skills/ai-agents-md/SKILL.md",
+        "skills/ai-architect/SKILL.md",
+        "skills/ai-audit-code/SKILL.md",
+        "skills/ai-audit-docs/SKILL.md",
+        "skills/ai-brainstorm/SKILL.md",
+        "skills/ai-codegraph/SKILL.md",
+        "skills/ai-debug/SKILL.md",
+        "skills/ai-explore/SKILL.md",
+        "skills/ai-issue-report/SKILL.md",
+        "skills/ai-note/SKILL.md",
+        "skills/ai-read-docs/SKILL.md",
+        "skills/ai-research/SKILL.md",
+        "skills/ai-security/SKILL.md",
+        "src/chain/dialect.ts",
+        "src/floor/entry.ts",
+        "src/floor/index.ts",
+        "templates/AGENTS.md.tpl",
+        "tests/token-budget.spec.ts"
+      ]
     },
     {
       "id": 17,

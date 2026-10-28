@@ -1,14 +1,10 @@
 ---
 name: ai-debug
 description: >-
-  Finds the root cause of broken behaviour and names it at file:line, then writes the check
-  that fails for that reason before changing anything. Also resolves merge and rebase
-  conflicts by intent rather than by taking a side. Trigger for "it's not working", "this
-  used to work", "I'm getting an error", "CI is failing", "why is X happening", "I have
-  conflicts", "the rebase failed". Not for adding test coverage to working code — use
-  /ai-verify. Not for exploring an unfamiliar area — use /ai-explore. Not for designing the
-  fix — once the cause is named, use /ai-orchestrator. Not for reporting the fault to outsiders —
-  use /ai-issue-report.
+  Finds the root cause at file:line and writes a failing check before the fix; resolves merge
+  and rebase conflicts by intent. Trigger: "it's not working", "CI is failing", "why does
+  this fail", or "rebase failed". Not for coverage (/ai-verify), repo tours (/ai-explore),
+  feature design (/ai-orchestrator), or external reports (/ai-issue-report).
 license: Apache-2.0
 ---
 

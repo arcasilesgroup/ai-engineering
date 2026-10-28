@@ -1,18 +1,11 @@
 ---
 name: ai-agents-md
 description: >-
-  Creates, audits and maintains the AGENTS.md a repository owes its coding agents, following
-  the agents.md convention (https://agents.md/). Decides root-only versus nested AGENTS.md
-  files from the repo's real shape, interviews the tree (not the user) for build/test/lint
-  commands, and writes only what an agent cannot deduce from the code. Audits a set that
-  already exists: a rule the code states, a child repeating its parent, a command that no
-  longer runs, a zone with no route in. Also the in-session maintenance path: a governed agent
-  MAY edit AGENTS.md directly (blueprint §9.2 — it is not sacred) when the repo's real state
-  made a rule stale. Trigger for "create AGENTS.md", "update AGENTS.md", "audit AGENTS.md",
-  "split AGENTS.md", "AGENTS.md is too long", "the agent reads the wrong file", "the agent
-  ignores our conventions", "set up agent instructions", "edit AGENTS.md". Not for runtime
-  agent contracts (goals, gates, budgets) — use /ai-orchestrator. Not for documentation users read —
-  use /ai-write.
+  Creates, audits, updates, or splits AGENTS.md using agents.md conventions. Derives commands
+  and non-obvious rules from the repo; finds stale, redundant, misplaced, or missing guidance.
+  Trigger: "create/update/audit/split AGENTS.md", "instructions too long", "agent reads the
+  wrong file", or "agent ignores our conventions". Not for runtime contracts (/ai-orchestrator)
+  or user documentation (/ai-write).
 license: Apache-2.0
 ---
 

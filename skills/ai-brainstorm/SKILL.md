@@ -1,14 +1,11 @@
 ---
 name: ai-brainstorm
 description: >-
-  Use when a fuzzy idea needs alignment before research or planning — "handshake", "get on
-  the same page", "align on this idea", or "let me explain my vision". Do not use as a
-  preflight for Direct/light work with a clear outcome, such as a bug fix or one-session
-  change; follow its relevant skill or ai-orchestrator's Direct rhythm. For standard/full
-  feature work, align and classify the request, then capture the approved result in a
-  self-contained doc for the researcher and planner. Light paths use no design slot.
-  Includes an optional spec self-review pass. Not for turning an aligned idea into a build
-  — use /ai-orchestrator. Not for external evidence — use /ai-research.
+  Aligns fuzzy ideas before research or planning: interview, classify, and capture the
+  approved intent. Trigger: "handshake", "align on this idea", "my vision", or a new
+  feature/component/behavior. Do not use as a preflight for Direct/light work with a clear outcome.
+  An aligned build goes to
+  /ai-orchestrator; external evidence goes to /ai-research.
 license: MIT
 ---
 
