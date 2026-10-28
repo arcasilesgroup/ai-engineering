@@ -670,7 +670,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "failed", "attempts": 2, "findings": ["Attempt 1: all 16 targeted/proof/build/typecheck/lint/arch commands passed; serial suite exit 1 with output truncated.", "Attempt 2 diagnostic: serial suite 1512 pass, 1 fail, 16 skip in 169.16s. Hygiene failure was stale test input referencing deleted tests/spec-command.spec.ts; no env/cwd leak occurred. Fixed by replacing it with active tests/update-command.spec.ts."] },
+        "behavior": { "status": "passed", "attempts": 3, "findings": ["Final CP10 Gate 1: all 17 verify commands passed; init 32, update 14, wrap 13, doctor 29, uninstall 22, CLI UX 12, receipts 7, ceremony 4, generated-payload 3, arch 47; proof/build/typecheck/lint passed. Full serial suite 1513 passed, 16 skipped, 0 failed (1529 total). Hygiene failure was stale test input referencing deleted tests/spec-command.spec.ts; no env/cwd leak occurred."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
