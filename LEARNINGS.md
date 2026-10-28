@@ -1425,3 +1425,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** No source change; reproduce with the default environment and capture the first failing test before choosing a fix.
 - **Lesson:** Do not set `TMPDIR` inside the repository when diagnosing tests; the environment guard treats the resulting home path as repo-local.
 - **Tags:** behavior, tests, bun, environment
+
+### L198 · 2026-10-28 · floating-core #12 · behavior
+- **Failure:** The serial suite failed at U9 because the rendered `config.toml` did not keep optional pack configuration valid and commented out.
+- **Root cause:** `src/embed.ts` left the new `{{packs}}` template placeholder unresolved when the render caller omitted the optional value, so `loadConfig` returned an empty config.
+- **Fix:** Default omitted packs to an empty list; the focused U9 test then passed.
+- **Lesson:** Give optional template fields safe defaults at the rendering boundary.
+- **Tags:** behavior, config, templates, tests

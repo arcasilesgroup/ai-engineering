@@ -224,11 +224,12 @@ function readEmbeddedText(ref: string): string {
 /** One embedded template, rendered with {{vars}}. Lookup by suffix so callers can
  *  use plain names ("AGENTS.md.tpl") regardless of the generated key prefix. */
 export function embeddedTemplate(name: string, vars: Record<string, string> = {}): string {
+  const effectiveVars = name === "config.toml.tpl" ? { packs: "", ...vars } : vars;
   for (const [key, ref] of Object.entries(EMBEDDED)) {
     if (key === `templates/${name}` || key === `../templates/${name}`) {
       const content = readEmbeddedText(ref);
       let out = content;
-      for (const [k, v] of Object.entries(vars)) out = out.split(`{{${k}}}`).join(v);
+      for (const [k, v] of Object.entries(effectiveVars)) out = out.split(`{{${k}}}`).join(v);
       return out;
     }
   }
