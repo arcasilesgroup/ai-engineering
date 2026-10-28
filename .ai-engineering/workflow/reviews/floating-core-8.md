@@ -205,3 +205,7 @@ List, resume, and request-changes resolve the exact feature checkpoint in the cu
 **ROOT CAUSE:** Exact SHA/ref matching could override ambiguity among multiple active checkpoints sharing a slug.
 **FIX:** Refuse ambiguity immediately after stale reviewed-base pins are filtered, and verify both branches and checkpoint trees remain unchanged in a two-worktree real-Git regression.
 **LESSON:** Resolve lifecycle freshness first, then require a unique active owner before considering which owner matches a supplied ref.
+
+## F15 · MAJOR · open
+**Where:** `src/shared-worktree.ts:730,930`
+**Critic (r1):** Both current-checkout listing and `request-changes` substitute the feature branch when `resolveContext(...).base` is unavailable, then compare `reviewed_base` to that feature tip as if it were the detected base. A pending review normally has a different `reviewed_base` from its checkpoint commit, so this falsely marks an owner stale without evidence that its actual base moved; `list` can miss a duplicate current owner, and `request-changes` can exclude it before ambiguity counting and mutate another same-slug checkout. Only classify a pin as stale against a successfully detected and readable base; keep unknown-base owners non-actionable and ambiguity-blocking. Add a real-Git regression with a same-slug current checkout whose base is undetectable and a registered fresh owner, asserting refusal/no ref or file changes.
