@@ -39,14 +39,14 @@ Lines the critic treats as blockers. Fill in project-specific rules here; leave 
 ## Shared helpers
 - codegraph — use for call chains and blast-radius before editing across modules.
 
+## Where to work
+- **Current checkout by default:** work on the checkout and branch already open. Use a separate worktree only when requested or another feature is active here; if work may overlap, pause and ask before isolating it.
+- **Native worktree first:** use the host's worktree support (`claude -w <branch>` or Cursor `/worktree`) when available; otherwise run `ai-eng worktree new <branch>` and use its exact reported path. The person chooses or approves a branch name; any valid Git name works.
+- **Resume safely:** continue the feature's own changes in its checkout. Never stash, reset, overwrite, or remove foreign files; preserve uncertain work and ask.
+- **Close deliberately:** after review, offer a PR from the current branch, a local merge into the detected base, or keeping the branch. Recommend a PR when a forge remote is available and a local merge otherwise. `ai-eng worktree merge <slug>` handles the local merge from either a checkout or worktree.
+
 ## Git workflow
-- A session that writes code works in `<repo>.worktrees/<slug>` on the branch `feat/<slug>`, cut from the local `main`; a session that only reads opens no worktree.
-- The merge destination is the local `main`, never `origin`: rebase inside the worktree, then, from the primary tree on `main`, `git merge --no-ff feat/<slug>` — one merge commit per feature, the one undoable unit.
-- A build session never pushes: the only push is the pull-request step the human triggers, against `origin/main`, cut from the local `main` without a worktree.
-- A build session does not touch the primary tree; only the merge step writes there, once, after that session's branch has merged.
-- The design artifacts `.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html` and `.ai-engineering/plan.html` are written and committed in the primary tree before any worktree is cut, and no worktree ever stages them.
-- `.ai-engineering/recap.html` is optional and never required for merge; it is created on the feature branch only when the user explicitly invokes `/ai-visual-recap`.
-- A session may edit the shared files on its own branch like any other change, and the merge step is their single writer in the primary tree, never a parallel session writing them there: `.ai-engineering/PRD.html` when the feature changes scope, plus `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md` and `PERMISSIONS.md`.
+See **Where to work** for checkout, worktree, and integration choices. `.ai-engineering/recap.html` is optional and never required for merge.
 
 ## Workflow
 - Green gate before "done": show the output of the check that proves it.
@@ -64,7 +64,7 @@ Lines the critic treats as blockers. Fill in project-specific rules here; leave 
 ## Lifecycle
 - Every skill declares its own contract — lane, artifact, successor — in a `## Lifecycle` block inside its SKILL.md: follow the `Next:` a skill hands you instead of asking what comes first.
 - The lanes are light (spike and bounded work — no contract), standard (`ai-brainstorm` then `ai-orchestrator`) and full (architectural, with the triggered nodes).
-- Approvals are spoken: the human says approve, ok or go; record approval in the brainstorm and let Git integration close the feature. Never run an approval on your own initiative.
+- Approvals are spoken: when the human says approve, ok, or go, record that approval in the appropriate artifact and follow its next step. Never ask the human to type a command; never approve on your own initiative.
 
 ## Architecture layers
 You may edit `src/**` freely; the arch-test reads `.ai-engineering/arch.rules.json` — propose layer changes there via PR, never by editing the test in silence.

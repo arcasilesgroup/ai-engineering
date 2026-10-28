@@ -41,11 +41,15 @@ Everywhere else, decide and keep going:
 - **Subagents can't spawn subagents.** When a prompt points a worker at a skill that says "launch a subagent", add: *"You are already a subagent. Do those steps yourself."* Anything that needs parallel subagents (prototypes, test writers, UI reviewers), you launch directly, several `Agent` calls in one message.
 - **Fresh workers only:** use a new subagent for each step and each fix attempt. Don't continue an earlier one with SendMessage. A worker that wrote the code never reviews it.
 
+## Direct rhythm
+
+Use the Direct rhythm for a bug, spike, or one-session change that does not alter an interface other work depends on. It stays in the current checkout and uses the smallest relevant checks. It has no brainstorm or worktree step; this orchestrator is for the multi-session feature ceremony.
+
 ## Commits: commit as you go
 
 Every step that changes files ends with a commit on the selected feature branch, which need not follow a `feat/<slug>` naming convention, so the git history is a full, resumable record of the run. You make the commits yourself with Bash; the output is small.
 
-- **Tree and branch:** Work in the current checkout by default. Use a worktree only when isolation is requested or another active feature makes it useful; `ai-eng worktree new <branch>` starts it from the current `HEAD` and warns that dirty brainstorm/PRD files do not travel. On resume, use its exact Git-listed path and continue the feature's own changes without stashing or resetting them; leave foreign files untouched. Never derive a path or switch branches. Everything is committed on the selected feature branch, and `ai-eng worktree merge <slug>` makes one `--no-ff` merge against the detected base after app review.
+- **Tree and branch:** Work in the current checkout by default. Use a worktree when requested or another feature is active here. Prefer the host's native worktree (`claude -w <branch>` or Cursor `/worktree`); if unavailable, `ai-eng worktree new <branch>` starts it from the current `HEAD`. On resume, use its exact Git-listed path and continue the feature's own changes without stashing or resetting them; leave foreign files untouched. Never derive a path or switch branches. Everything is committed on the selected feature branch, and `ai-eng worktree merge <slug>` makes one `--no-ff` merge against the detected base after app review.
 - **Stage explicit paths only.** Never use `git add -A` or `git add .`. The selected checkout may contain other work, so a loose stage could sweep unrelated edits; an explicit list keeps each commit the slice it claims. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage a design slot (`.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html`, `.ai-engineering/plan.html`) unless the step explicitly owns it. Do not stage `.ai-engineering/workflow/playwright/`, `.env*` or files that were in the Phase 0 baseline.
 - **When to commit, and with which message.** The `commit-msg` hook (`src/floor/index.ts`) accepts any of the eleven Conventional Commit types — `feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert` — with an optional scope matching `[a-z0-9._/-]+` (no `#`); it checks nothing about the body. This repo's house convention still puts the checkpoint number in the body rather than the scope — the hook does not enforce that — so `plan`, `gate` and `wip` are gone and the number moved off the scope. Each message ends with the co-author trailer.
 
@@ -108,11 +112,14 @@ When the gate passes, every later phase reads both files. `.ai-engineering/PRD.h
 - Semantic near-matches are advisory only, never a substitute for the exact slug.
 - Clearly unrelated work may continue untouched. If another active feature could
   overlap, pause and ask the human to choose whether to isolate it; do not guess from a
-  near-match or from dirty files alone. When isolation is useful or requested, run
-  `ai-eng worktree new <branch>` and use the exact Git-listed path; the branch may
-  have any valid Git name. Dirty design files stay in the current checkout and the
-  command warns that they do not travel. If creation refuses, report the reason and
-  stop; do not modify files or branches to force it. No file hints are accepted;
+  near-match or from dirty files alone. When isolation is useful or requested,
+  including when another active feature is here, prefer the host's native worktree
+  (`claude -w <branch>` or Cursor
+  `/worktree`); if unavailable, run `ai-eng worktree new <branch>` and use the exact
+  Git-listed path. The branch may have any valid Git name. Dirty design files stay in
+  the current checkout and the managed-worktree command warns that they do not travel.
+  If creation refuses, report the reason and stop; do not modify files or branches to
+  force it. No file hints are accepted;
   the checkpoint's `files` list remains authoritative.
 - Record the selected checkout's status and existing paths as a baseline; never clean up unrelated work. Delegate environment
   readiness to one `general-purpose` subagent, which reports ready or blocked, and

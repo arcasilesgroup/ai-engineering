@@ -48,7 +48,7 @@ Sections that earn their place, in this order when present:
 4. **Project config** — short fill-in (domain, roles, paths, commands, URLs, sign-in, do-not-touch paths, context the code cannot tell; n/a when absent).
 5. **Architecture rules** — lines the critic treats as blockers.
 6. **Shared helpers** — codegraph for call chains and other project helpers.
-7. **Git workflow** — commit-as-you-go on feat/<slug>, explicit paths, no --no-verify, no push unless asked.
+7. **Git workflow** — commit-as-you-go on the selected feature branch, explicit paths, no --no-verify, no push unless asked.
 8. **Workflow** — the definition of done: green gate before "done", status conventions,
    the verification floor (never weaken a test, an assertion or a type to make a check
    pass), and scope discipline (an unrelated find is reported as "noticed, not fixed").

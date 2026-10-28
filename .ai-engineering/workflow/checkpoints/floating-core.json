@@ -753,7 +753,7 @@
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "in_progress",
-      "changed_files": ["tests/agents-md-sections.spec.ts", "tests/agents-canon.spec.ts", "tests/skills-lint.spec.ts", "tests/ai-pr.spec.ts"]
+      "changed_files": ["tests/agents-md-sections.spec.ts", "tests/agents-canon.spec.ts", "tests/skills-lint.spec.ts", "tests/ai-pr.spec.ts", "tests/git-cleanup-pass.spec.ts", "AGENTS.md", "FILEMAP.md", "agents/checkpoint-planner.md", "skills/ai-adversarial-loop/SKILL.md", "skills/ai-agents-md/SKILL.md", "skills/ai-brainstorm/SKILL.md", "skills/ai-git-cleanup/SKILL.md", "skills/ai-orchestrator/SKILL.md", "skills/ai-pr/SKILL.md", "skills/ai-test-planner/SKILL.md", "skills/ai-verify/tiers/1-standalone/verify-feature/SKILL.md", "skills/ai-verify/tiers/3-chain/_support/review/CONVENTIONS.md", "templates/AGENTS.md.tpl", "templates/gitignore.tpl", "LEARNINGS.md"]
     },
     {
       "id": 12,

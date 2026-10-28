@@ -42,6 +42,10 @@ scripts/
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
   .embed/ai-triage/scripts/    Generated text payloads for triage scripts and declarations
 skills/                        Installed skill canon
+  ai-brainstorm/SKILL.md       Interview, classify and record approved feature intent
+  ai-orchestrator/SKILL.md     Gated feature workflow in the selected checkout
+  ai-pr/SKILL.md               Provider-neutral PR base selection and review loop
+  ai-git-cleanup/SKILL.md      Native-Git preview and safe local cleanup
   ai-triage/
     SKILL.md                   Single entry point; routes to the selected provider
     references/
@@ -78,6 +82,7 @@ tests/
 templates/
   recap.html.tpl               Self-contained HTML recap shell and styles
 agents/                        Specialist agents for the feature workflow
+  checkpoint-planner.md        Checkpoint plan schema and initial lifecycle
 .ai-engineering/workflow/playwright/  Sign-in sessions and review screenshots (gitignored)
 ```
 

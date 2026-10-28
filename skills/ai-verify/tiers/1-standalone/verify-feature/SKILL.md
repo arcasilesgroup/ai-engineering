@@ -115,10 +115,10 @@ false verification happens, so hunt specifically for:
   lives in application code rather than in the datastore**, where a missing
   server-side check is a real authorization hole even though every test passes.
 
-Read the actual diff (`git diff <base>...HEAD`, `git status` — resolve `<base>` to the
-first of `origin/main`, `origin/master`, `main`, `master` that exists) so you know what this change
-touched, but don't stop there — a requirement can be unmet because of code that *wasn't*
-written, and that never appears in a diff.
+Read the actual diff (`git diff <base_ref>...HEAD`, `git status`) using the base
+explicitly selected for this feature or configured by the repository. If no base
+is clear, ask once instead of guessing. Then look beyond the diff too: a requirement
+can be unmet because of code that *wasn't* written, and that never appears in a diff.
 
 ## 4. Report
 

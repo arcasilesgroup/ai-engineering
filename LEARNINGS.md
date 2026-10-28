@@ -1341,3 +1341,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Assert each required git and workflow restriction explicitly.
 - **Lesson:** Pin each required source-target fence so removing its config rule fails the test.
 - **Tags:** review, architecture, tests
+
+### L186 · 2026-10-27 · floating-core #11 · behavior
+- **Failure:** Typecheck rejected optional regex capture groups in `tests/ai-pr.spec.ts`.
+- **Root cause:** The test treated a possibly absent capture as a definite string.
+- **Fix:** Narrow each capture at the point of use.
+- **Lesson:** Narrow optional values where they are consumed.
+- **Tags:** behavior, types, tests
+
+### L187 · 2026-10-27 · floating-core #11 · behavior
+- **Failure:** Git cleanup tests required a hard-coded main branch and force-deletion by default.
+- **Root cause:** Assertions pinned the prior workflow rather than the approved detected-base/preview contract.
+- **Fix:** Assert native preview, detected base and safe deletion defaults.
+- **Lesson:** Tests must assert the current approved contract.
+- **Tags:** behavior, git, tests

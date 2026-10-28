@@ -82,33 +82,22 @@ artifact, never the approval.
 
 ### 0. Check what already exists
 
-- Before any new or resumed brainstorm work, run the same read-only, local preflight
-  used by ai-orchestrator: `ai-eng worktree list`. For the feature in this conversation,
-  also run `ai-eng worktree list <slug>` when its exact state is not already listed.
-  The list reports Git-registered checkouts, their paths and clean/dirty/unknown
-  status, and lifecycle checkpoints. It does not project a pre-worktree approval from
-  the brainstorm: a brainstorm approval is not Git work or lifecycle state. Once a
-  feature checkpoint exists, it is authoritative; a missing or contradictory
-  checkpoint is unknown, with no fallback to brainstorm. The list creates or changes nothing.
-- Before deciding whether work may continue, explicitly surface a pending plan approval
-  as `awaiting-plan-approval` with `plan_approval: pending`, a pending app review as
+The brainstorm does not run a worktree preflight. The orchestrator owns the
+read-only local `ai-eng worktree list` before build work begins; there is no
+pre-worktree approval projection. Keep the interview in the current clone or
+selected worktree. Never merge an unapproved sibling; never fetch or sync remote
+state.
+
+- If lifecycle state is already available, surface a pending plan approval as
+  `awaiting-plan-approval` with `plan_approval: pending`, a pending app review as
   `awaiting-app-review` with `app_review: pending`, and `ready-to-merge` with
   `app_review: approved`. Do not reduce these to a generic pending-approval label.
-  For pending plan approval, pause and ask the human to **Approve**, **Edit**, or
-  **Stop** before implementation continues. For pending app review, pause and ask the
-  human to **Approve**, **Request changes**, or **Stop here** before merging. For
-  `ready-to-merge`, report that state and ask whether to continue the merge before any
-  merge action.
-- Report the existing work relevant to this feature. A listed worktree with the same
-  slug means resume that feature, not start parallel work; use only its Git-listed
-  path if it must be entered, and continue only when it is clean and trusted. Preserve
-  and report dirty, missing, untrusted or unknown work without switching, resetting,
-  removing or syncing it; pause rather than starting a replacement worktree.
-  Clearly unrelated work can continue untouched. If another task may likely overlap,
-  or uncertain work could overlap, pause for the human's decision. Call out pending
-  human approvals shown by the listing; unknown lifecycle state is not approval.
-  Never fetch or sync remote state, merge an unapproved sibling, or create a worktree
-  from brainstorm.
+  For pending plan approval, ask the human to **Approve**, **Edit**, or **Stop**
+  before implementation continues. For pending app review, ask the human to
+  **Approve**, **Request changes**, or **Stop here** before merging. For
+  `ready-to-merge`, ask whether to continue the merge before any merge action.
+  Unknown lifecycle state is not approval.
+
 - **Scan this conversation.** If the user already explained the idea, do not ask them to
   repeat it. Extract everything said, build the gap list from it, and open with either the
   first targeted question or an early read-back.
@@ -255,7 +244,7 @@ one family with the research pages and the recap:
 - Two meta tags in `<head>`, so a later run can tell this interview from an older one:
   `<meta name="ai-feature" content="<slug>">` and, only after approval,
   `<meta name="ai-approved" content="YYYY-MM-DD">`. The slug is the kebab-case name
-  of this idea, the same slug `ai-orchestrator` will use for `feat/<slug>`.
+  of this idea and the identifier `ai-orchestrator` will use for it.
 - One `<section>` per markdown heading above, each with `h2 .num` (`01`–`11`), in the
   same order. "Decisions already made" and "Decisions still open" use `note ok` /
   `note warn`; "Open questions for research" is a numbered `ol` (the numbers are what
@@ -307,7 +296,12 @@ period, or `·`.
 4. The approval gate here IS blueprint STOP 0. After approval, a new checkpoint plan
    proceeds to implementation without another approval stop; resumed legacy pending plans
    retain their checkpoint review. The final app review remains a human stop.
-5. After approval, set `ai-approved` to today's date and the status line to `complete · YYYY-MM-DD`. Copy only the conclusions into `.ai-engineering/PRD.html`: Problem (why it matters), Goal (what success looks like), Users & roles, the Feature plus its Rules (decisions already made), and Out of scope. Leave the interview in `brainstorm.html`. If the PRD already has other features, update the matching one and leave the others. This skill never writes spec.html or plan.html.
+5. After approval, set `ai-approved` to today's date and the status line to `complete · YYYY-MM-DD`. Copy only the conclusions into `.ai-engineering/PRD.html`: Problem (why it matters), Goal (what success looks like), Users & roles, the Feature plus its Rules (decisions already made), and Out of scope. Leave the interview in `brainstorm.html`. If the PRD already has other features, update the matching one and leave the others. Commit only these two files using explicit paths:
+   ```bash
+   git add -- .ai-engineering/brainstorm.html .ai-engineering/PRD.html
+   git commit -m "docs: approve brainstorm" --only -- .ai-engineering/brainstorm.html .ai-engineering/PRD.html
+   ```
+   This skill never writes spec.html or plan.html.
 6. Handoff, said out loud after approval: next step is `/ai-orchestrator`. That is the start of the build. This turn does not run it.
 
 ## Routing

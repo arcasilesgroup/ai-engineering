@@ -70,7 +70,8 @@ target/
 
 # ── ai-engineering runtime state ─────────────────────────
 # Receipts and the verdict cache are local execution evidence — committing them
-# commits machine paths. spec/, research/, config.toml and ai-eng.lock DO belong in git.
+# commits machine paths. Research, config.toml and ai-eng.lock DO belong in git.
 .ai-engineering/receipts/
 .ai-engineering/cache/
+.ai-engineering/workflow/playwright/
 .claude/reviews/

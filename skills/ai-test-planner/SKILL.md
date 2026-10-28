@@ -10,6 +10,8 @@ license: MIT
 
 **Project specifics** (test file locations, commands, frameworks, how to act as a role, e2e sign-in) come from the **Project config** section of `AGENTS.md`. Read it first. If a value you need is missing there, infer it from the existing tests and config files, and say so in your report.
 
+Keep plans and tests in the task's selected checkout, whether that is the current checkout or its chosen worktree.
+
 Rule: **push every check to the lowest layer that can prove it.** A browser test is only for things that exist only in the browser. Layers run in order, and a layer runs only once the one below it passes:
 
 | # | Layer | Proves | Where / Run |

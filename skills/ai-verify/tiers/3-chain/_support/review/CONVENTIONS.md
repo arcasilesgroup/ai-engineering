@@ -74,9 +74,9 @@ dependency specifically.
 Default scope is **the current change**, not the whole repo:
 
 1. Uncommitted work — `git status --porcelain`, `git diff`, `git diff --staged`
-2. Branch commits — `git diff <base>...HEAD`, where base is the first of
-   `origin/main`, `origin/master`, `origin/develop`, `main`, `master` that exists
-   and is not HEAD
+2. Branch commits — `git diff <base_ref>...HEAD`, with the base selected explicitly
+   or read from repository configuration and the current branch's upstream. If none
+   is clear or it is HEAD, ask once instead of guessing.
 3. If that yields nothing (fresh repo, or you are on the base branch with no
    diff), fall back to a **whole-repo review of first-party source** and say so
    explicitly in the report header.

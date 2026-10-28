@@ -44,7 +44,11 @@ describe("ai-pr skill — the full pull-request loop", () => {
       const targetArguments = [...commandBlock.matchAll(targetArgumentPattern)].map(
         ([, doubleQuoted, singleQuoted, unquoted]) => doubleQuoted ?? singleQuoted ?? unquoted,
       );
-      expect(targetArguments.every((argument) => argument.startsWith("$") || /^<[^>]+>$/.test(argument))).toBe(true);
+      expect(
+        targetArguments.every(
+          (argument) => typeof argument === "string" && (argument.startsWith("$") || /^<[^>]+>$/.test(argument)),
+        ),
+      ).toBe(true);
     }
   });
 
