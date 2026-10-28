@@ -926,7 +926,8 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   });
   const matching = candidates.filter((candidate) => {
     try {
-      const detectedBase = resolveContext(candidate.path).base;
+      const context = resolveContext(candidate.path);
+      const detectedBase = context.base ?? context.branch;
       if (detectedBase === null) return true;
       const candidateBaseRef = `refs/heads/${detectedBase}`;
       const currentBase = git(repo, ["rev-parse", "--verify", `${candidateBaseRef}^{commit}`]);
@@ -941,6 +942,13 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
       return true;
     }
   });
+  if (matching.length > 1) {
+    return {
+      code: 1,
+      out: "",
+      err: `worktree request-changes: active checkpoint ${slug} is ambiguous across Git-listed worktrees; preserve the review state.\n`,
+    };
+  }
   const exactMatches = matching.filter((candidate) => {
     if (fullHead(candidate.path) !== expectedCheckpointCommit || candidate.branch === undefined) return false;
     const branchTip = git(repo, ["rev-parse", "--verify", `refs/heads/${candidate.branch}^{commit}`]);
@@ -950,17 +958,10 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   });
   const entry = exactMatches.length === 1
     ? exactMatches[0]
-    : exactMatches.length === 0 && matching.length === 1
+    : matching.length === 1
       ? matching[0]
       : undefined;
   if (entry === undefined || entry.branch === undefined) {
-    if (matching.length > 1) {
-      return {
-        code: 1,
-        out: "",
-        err: `worktree request-changes: active checkpoint ${slug} is ambiguous across Git-listed worktrees; preserve the review state.\n`,
-      };
-    }
     return {
       code: 1,
       out: "",

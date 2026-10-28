@@ -1776,6 +1776,60 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
     });
   });
 
+  test("request-changes refuses multiple active owners even when the SHA matches one", () => {
+    const repo = tempRepo();
+    const slug = "duplicate-active-review";
+    configureDetectedBase(repo, "main");
+    const firstBranch = `feature/${slug}-one`;
+    const secondBranch = `feature/${slug}-two`;
+    const firstWorktree = addRebaseWorktree(repo, slug, firstBranch);
+    const secondWorktree = join(defaultRoot(repo), `${slug}-second`);
+    mkdirSync(dirname(secondWorktree), { recursive: true });
+    git(["worktree", "add", "--quiet", "-b", secondBranch, secondWorktree, "refs/heads/main"], repo);
+
+    const checkpointRelative = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    const firstCheckpoint = join(firstWorktree, checkpointRelative);
+    const secondCheckpoint = join(secondWorktree, checkpointRelative);
+    const lifecycle = {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    };
+    for (const [worktree, owner] of [[firstWorktree, "one"], [secondWorktree, "two"]] as const) {
+      writeFileSync(join(worktree, `${owner}.txt`), `${owner}\n`);
+      git(["add", `${owner}.txt`], worktree);
+      git(["commit", "-q", "-m", `record ${owner} owner`], worktree);
+      writeCanonicalCheckpoint(worktree, slug, lifecycle);
+      git(["add", checkpointRelative], worktree);
+      git(["commit", "-q", "-m", `record ${owner} checkpoint`], worktree);
+    }
+
+    const firstSha = git(["rev-parse", "HEAD"], firstWorktree).trim();
+    const secondSha = git(["rev-parse", "HEAD"], secondWorktree).trim();
+    expect(firstSha).not.toBe(secondSha);
+    expect(git(["rev-parse", `refs/heads/${firstBranch}`], repo).trim()).toBe(firstSha);
+    expect(git(["rev-parse", `refs/heads/${secondBranch}`], repo).trim()).toBe(secondSha);
+    expect(worktreeEntries(repo).map((entry) => entry.branch)).toContain(`refs/heads/${firstBranch}`);
+    expect(worktreeEntries(repo).map((entry) => entry.branch)).toContain(`refs/heads/${secondBranch}`);
+    expect(JSON.parse(readFileSync(firstCheckpoint, "utf8")).lifecycle.phase).toBe("implementation");
+    expect(JSON.parse(readFileSync(secondCheckpoint, "utf8")).lifecycle.phase).toBe("implementation");
+    const activeOwnersBefore = fullRepoSnapshot(
+      repo,
+      [firstWorktree, secondWorktree],
+      [firstCheckpoint, secondCheckpoint],
+    );
+
+    const refused = runCli(["worktree", "request-changes", slug, firstSha], repo);
+
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toContain(`active checkpoint ${slug} is ambiguous`);
+    expect(fullRepoSnapshot(repo, [firstWorktree, secondWorktree], [firstCheckpoint, secondCheckpoint]))
+      .toBe(activeOwnersBefore);
+  });
+
   test("request-changes and ready listing validate canonical develop checkpoint history", () => {
     const repo = tempRepo();
     const slug = "develop-review-chain";

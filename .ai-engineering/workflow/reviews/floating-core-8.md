@@ -197,6 +197,11 @@ List, resume, and request-changes resolve the exact feature checkpoint in the cu
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
 
-## F14 · MAJOR · open (r2)
+## F14 · MAJOR · fixed (r3)
 **Where:** `src/shared-worktree.ts:951-955`
 **Critic (r2):** After stale pins are filtered, a unique SHA/ref match is selected even when `matching` still contains multiple non-stale checkpoints for the slug. A live `implementation` checkpoint in the current checkout plus a pending-review checkpoint in another branch can therefore bypass duplicate-identity refusal when the supplied SHA matches only the latter, allowing one checkout to be mutated despite active duplicate ownership. Refuse when multiple non-stale identities remain; add a request-changes regression for divergent active copies while preserving stale-pin filtering.
+
+**Fixer (r3):** fixed — reject multiple non-stale checkpoint owners before SHA/ref matching; a real-Git regression confirms matching one ref still refuses without changing either owner · verify: targeted worktree tests (119 pass, 16 skipped, 0 fail), typecheck, lint, arch (31 pass) ✓
+**ROOT CAUSE:** Exact SHA/ref matching could override ambiguity among multiple active checkpoints sharing a slug.
+**FIX:** Refuse ambiguity immediately after stale reviewed-base pins are filtered, and verify both branches and checkpoint trees remain unchanged in a two-worktree real-Git regression.
+**LESSON:** Resolve lifecycle freshness first, then require a unique active owner before considering which owner matches a supplied ref.

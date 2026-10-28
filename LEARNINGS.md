@@ -1299,3 +1299,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Filter stale pins and resolve the exact checkout/ref before counting active candidates.
 - **Lesson:** Check freshness and exact Git refs before counting ambiguity.
 - **Tags:** review, git, lifecycle
+
+### L180 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `request-changes` selected one SHA-matching checkout despite multiple active owners of the same slug.
+- **Root cause:** Ambiguity was checked after filtering by the supplied SHA.
+- **Fix:** Filter stale pins, then refuse multiple active owners before matching the SHA.
+- **Lesson:** Establish fresh ownership before matching a supplied SHA.
+- **Tags:** review, git, lifecycle
