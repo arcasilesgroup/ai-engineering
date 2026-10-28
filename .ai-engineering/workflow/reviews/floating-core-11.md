@@ -121,3 +121,7 @@ The flow skills, the checkpoint-planner agent and AGENTS.md describe working in 
 **ROOT CAUSE:** Git status omitted ignored content from the cleanup preview, hiding user data before worktree removal.
 **FIX:** List every ignored path and its deletion consequence before approval, require explicit path-by-path consent, and keep the candidate if the scan fails or changes before removal.
 **LESSON:** Treat ignored paths as user data until their exact loss is visible, approved, and revalidated.
+
+## F9 · BLOCKER · open
+**Where:** src/workflow/checkpoint.ts:476; skills/.chain-bundle/ai-eng-chain.ts:1759
+**Critic (r1):** Both transition guards still synthesize `refs/heads/feat/${context.slug}` to verify `reviewed_feature`. The new contract allows any valid branch name and works in the current checkout, so a feature on e.g. `feature/<slug>` or `bugfix/<slug>` cannot transition to app review. Resolve the actual selected/current feature ref instead of hard-coding the prefix, update both guard copies, and test a non-`feat/` feature branch.
