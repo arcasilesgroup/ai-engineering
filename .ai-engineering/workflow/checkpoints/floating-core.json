@@ -817,7 +817,7 @@
       ],
       "verify": [
         "bun test tests/skills-eval-score.spec.ts",
-        "bun test tests/triage-",
+        "bun test ./tests/triage-azure-signals.integration.spec.ts ./tests/triage-azure-signals.unit.spec.ts ./tests/triage-azure.integration.spec.ts ./tests/triage-azure.unit.spec.ts ./tests/triage-github.spec.ts ./tests/triage-report.integration.spec.ts ./tests/triage-report.unit.spec.ts ./tests/triage-routing.integration.spec.ts ./tests/triage-routing.unit.spec.ts",
         "bun test tests/init-command.spec.ts",
         "bun test tests/update-command.spec.ts",
         "bun test tests/uninstall-command.spec.ts",
