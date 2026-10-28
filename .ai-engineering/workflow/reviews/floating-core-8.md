@@ -206,7 +206,7 @@ List, resume, and request-changes resolve the exact feature checkpoint in the cu
 **FIX:** Refuse ambiguity immediately after stale reviewed-base pins are filtered, and verify both branches and checkpoint trees remain unchanged in a two-worktree real-Git regression.
 **LESSON:** Resolve lifecycle freshness first, then require a unique active owner before considering which owner matches a supplied ref.
 
-## F15 · MAJOR · fixed (r3)
+## F15 · MAJOR · resolved
 **Where:** `src/shared-worktree.ts:730,930`
 **Critic (r1):** Both current-checkout listing and `request-changes` substitute the feature branch when `resolveContext(...).base` is unavailable, then compare `reviewed_base` to that feature tip as if it were the detected base. A pending review normally has a different `reviewed_base` from its checkpoint commit, so this falsely marks an owner stale without evidence that its actual base moved; `list` can miss a duplicate current owner, and `request-changes` can exclude it before ambiguity counting and mutate another same-slug checkout. Only classify a pin as stale against a successfully detected and readable base; keep unknown-base owners non-actionable and ambiguity-blocking. Add a real-Git regression with a same-slug current checkout whose base is undetectable and a registered fresh owner, asserting refusal/no ref or file changes.
 
@@ -214,6 +214,7 @@ List, resume, and request-changes resolve the exact feature checkpoint in the cu
 **ROOT CAUSE:** The branch fallback was treated as base evidence, so a feature tip could falsely prove a review pin stale and hide an active owner.
 **FIX:** Compare freshness only when a base is detected and readable; validate unknown-base pins without marking them stale, retain their ambiguity, and fail closed before request-changes mutates an owner.
 **LESSON:** Unknown freshness cannot prove staleness; preserve ownership ambiguity until the detected base is readable.
+**Critic (r2):** resolved — freshness decisions now use only a detected, readable base; unknown-base current and registered owners remain in ambiguity counting, and the added real-Git regression confirms both `list` and `request-changes` refuse without changing refs or checkpoint files. Duplicate active owners are rejected before SHA matching, while known-stale pins remain filtered.
 
 ## CP8 stale-owner fixture recheck
 
