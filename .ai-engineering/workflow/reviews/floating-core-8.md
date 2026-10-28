@@ -42,6 +42,10 @@
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
 
+## F13 · MAJOR · open
+**Where:** `src/shared-worktree.ts:919-927`
+**Critic (r1):** `request-changes` counts every registered checkout containing the checkpoint before reading its lifecycle or comparing `reviewed_base` to the detected base. If the primary checkout has an inherited stale `ready-to-merge` pin and the one feature worktree has the live `awaiting-app-review` checkpoint, `matching.length` is 2 and the command refuses to locate the active owner. Filter stale/non-actionable pins by the same detected-base ownership rule before counting candidates, while still refusing duplicate active identities; add a real-Git regression for this pair of checkouts.
+
 ## F1 · BLOCKER · resolved
 **Where:** `src/shared-worktree.ts:813-824,1250-1255`; `skills/ai-orchestrator/SKILL.md:48,265`
 **Critic (r1):** `request-changes` only selects a live managed `feat/<slug>` worktree, and `findManagedWorktree` explicitly excludes the primary checkout. That makes the approved default-current-checkout flow (D1; the worktree is optional) unable to handle Phase 4's unconditional request-changes action: it refuses and cannot return the checkpoint to implementation. Support the selected current checkout with the same checkpoint-only CAS safeguards, or provide a working current-checkout transition in the ceremony.
