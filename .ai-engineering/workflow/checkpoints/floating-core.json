@@ -568,8 +568,8 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "pending",
-      "changed_files": []
+      "status": "in_progress",
+      "changed_files": ["tests/worktree-command.spec.ts", "tests/worktree-lifecycle.spec.ts", "tests/ceremony-contract.spec.ts", "tests/skills.spec.ts", "tests/workflow-handoff.spec.ts", "tests/git-cleanup-pass.spec.ts", "src/commands/worktree.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "skills/ai-orchestrator/SKILL.md", "skills/ai-brainstorm/SKILL.md", "skills/.chain-bundle/ai-eng-chain.ts", "FILEMAP.md"]
     },
     {
       "id": 10,
