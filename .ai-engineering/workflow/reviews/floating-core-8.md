@@ -138,3 +138,7 @@
 **ROOT CAUSE:** `git status` ran from the nested process directory, so root-level design-slot paths were outside its reported scope.
 **FIX:** Resolve the invoking checkout root first and run the existing root-relative dirty-slot scan there; leave the files unstaged and unmoved.
 **LESSON:** Normalize Git status to the checkout root before applying repository-root path rules.
+
+## F11 · MAJOR · open (r1)
+**Where:** `src/shared-worktree.ts:584-606,623-646`
+**Critic (r1):** `worktree new` accepts arbitrary branch names and D1 says `feat/` is not required, but `list`/resume still recognizes features only from `feat/` and derives the requested slug from the branch name. A Git-listed `feature/pagos` or native `native/pagos` checkout carrying `checkpoints/pagos.json` is therefore unclassified; `list pagos` cannot find it or report feature-owned dirty files as continuable versus foreign files left alone. Resolve feature identity from the exact checkpoint slug in registered checkouts (refusing ambiguity) and add a resume regression for an arbitrary/native branch with both own and foreign dirty files.
