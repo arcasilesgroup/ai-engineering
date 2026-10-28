@@ -748,7 +748,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 3, "findings": ["After brainstorm lane-route fix `31a216e5`, all 15 CP11 verify commands passed: targeted 180, typecheck/lint, no-main/feat grep, proof, and arch 54 passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
+        "behavior": { "status": "passed", "attempts": 4, "findings": ["After lane/cleanup safety fixes `a899a23d`, all 15 CP11 verify commands passed: targeted 127, arch 54, typecheck/lint and no-main grep; full serial suite 1537 passed, 16 skipped, 0 failed across 73 files in 238.13s."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 3, "findings": ["Previous findings resolved: lane narrative now names ai-architect. New MAJOR skills/ai-brainstorm/SKILL.md:338: Lifecycle still routes architectural work directly to orchestrator, contradicting ai-architect handoff. New BLOCKER skills/ai-git-cleanup/SKILL.md:36: ignored user data may be removed without being surfaced before approval; list affected ignored paths and obtain explicit consent or refuse."] }
       },
