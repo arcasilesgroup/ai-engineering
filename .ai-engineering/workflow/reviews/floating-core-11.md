@@ -106,3 +106,9 @@ The flow skills, the checkpoint-planner agent and AGENTS.md describe working in 
 **ROOT CAUSE:** The shared approval handoff hard-coded ai-orchestrator despite Lifecycle's lane-specific successor.
 **FIX:** Route architectural approval to ai-architect and standard approval to ai-orchestrator; test the route mapping against Lifecycle `Next`.
 **LESSON:** Keep approval handoffs lane-specific and verify each against its Lifecycle contract.
+## F7 · MAJOR · open
+**Where:** skills/ai-brainstorm/SKILL.md:338
+**Critic (r1):** `Stop runs` still says both standard and architectural lanes hand off to `/ai-orchestrator`, contradicting the corrected architectural route to `/ai-architect` and permitting this seam to skip the architect. Make the stop handoff lane-specific and test all routes, including this Lifecycle line.
+## F8 · BLOCKER · open
+**Where:** skills/ai-git-cleanup/SKILL.md:36
+**Critic (r1):** The preview asks for status but does not require listing ignored paths until removal; Git status omits ignored files, so an approved clean/merged worktree can lose ignored user data despite the “anything else ignored is data” rule. Force-scan ignored paths before approval and keep candidates with out-of-allowlist data unless the person explicitly approves those exact losses.
