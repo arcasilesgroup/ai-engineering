@@ -1830,6 +1830,103 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
       .toBe(activeOwnersBefore);
   });
 
+  test("unknown base cannot hide a current active owner from request-changes", () => {
+    const repo = tempRepo();
+    cleanups.push(defaultRoot(repo));
+    const slug = "unknown-base-active-review";
+    configureDetectedBase(repo, "main");
+    const reviewedBase = git(["rev-parse", "refs/heads/main"], repo).trim();
+    const currentBranch = `feature/${slug}-current`;
+    git(["checkout", "-q", "-b", currentBranch], repo);
+    expect(git(["rev-parse", `refs/heads/${currentBranch}`], repo).trim()).toBe(reviewedBase);
+    const reviewerBranch = `feature/${slug}-reviewer`;
+    git(["checkout", "-q", "-b", reviewerBranch], repo);
+    writeFileSync(
+      join(repo, ".ai-engineering", "config.toml"),
+      `[git]\nbase = "${currentBranch}"\n`,
+    );
+    git(["add", ".ai-engineering/config.toml"], repo);
+    git(["commit", "-q", "-m", "configure current branch as reviewer base"], repo);
+    const reviewedFeature = commitRebaseFixtureFile(
+      repo,
+      "src/unknown-base-feature.ts",
+      "reviewed feature\n",
+      "record reviewed feature",
+    );
+    const currentCheckpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    const currentCheckpoint = writeCanonicalCheckpoint(repo, slug, {
+      phase: "awaiting-app-review",
+      plan_approval: "approved",
+      app_review: "pending",
+      base_ref: `refs/heads/${currentBranch}`,
+      reviewed_base: reviewedBase,
+      reviewed_feature: reviewedFeature,
+    });
+    git(["add", currentCheckpointPath], repo);
+    git(["commit", "-q", "-m", "record unknown-base owner"], repo);
+    const reviewedCheckpointCommit = git(["rev-parse", "HEAD"], repo).trim();
+    git(["checkout", "-q", currentBranch], repo);
+    git(["merge", "--ff-only", reviewerBranch], repo);
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(reviewedCheckpointCommit);
+    expect(readFileSync(join(repo, ".ai-engineering", "config.toml"), "utf8"))
+      .toContain(`base = "${currentBranch}"`);
+    expect(git(["remote"], repo).trim()).toBe("");
+    const currentTip = git(["rev-parse", `refs/heads/${currentBranch}`], repo).trim();
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(currentTip);
+    expect(currentTip).not.toBe(reviewedBase);
+
+    const freshBranch = `feature/${slug}-fresh`;
+    const freshWorktree = join(defaultRoot(repo), `${slug}-fresh`);
+    mkdirSync(dirname(freshWorktree), { recursive: true });
+    git(["worktree", "add", "--quiet", "-b", freshBranch, freshWorktree, reviewedBase], repo);
+    expect(readFileSync(join(freshWorktree, ".ai-engineering", "config.toml"), "utf8"))
+      .toContain('base = "main"');
+    const freshReviewedFeature = commitRebaseFixtureFile(
+      freshWorktree,
+      "src/fresh-owner-feature.ts",
+      "fresh feature\n",
+      "record fresh reviewed feature",
+    );
+    const freshCheckpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    const freshCheckpoint = writeCanonicalCheckpoint(freshWorktree, slug, {
+      phase: "awaiting-app-review",
+      plan_approval: "approved",
+      app_review: "pending",
+      base_ref: "refs/heads/main",
+      reviewed_base: reviewedBase,
+      reviewed_feature: freshReviewedFeature,
+    });
+    git(["add", freshCheckpointPath], freshWorktree);
+    git(["commit", "-q", "-m", "record fresh review owner"], freshWorktree);
+    const freshCheckpointCommit = git(["rev-parse", "HEAD"], freshWorktree).trim();
+    expect(git(["rev-parse", "HEAD"], freshWorktree).trim()).toBe(freshCheckpointCommit);
+    expect(git(["rev-parse", `refs/heads/${freshBranch}`], repo).trim()).toBe(freshCheckpointCommit);
+    expect(git(["merge-base", "--is-ancestor", reviewedBase, reviewedFeature], repo)).toBe("");
+    expect(git(["merge-base", "--is-ancestor", reviewedBase, freshReviewedFeature], repo)).toBe("");
+    expect(worktreeEntries(repo)).toHaveLength(2);
+    expect(worktreeEntries(repo).map(({ branch }) => branch)).toContain(`refs/heads/${currentBranch}`);
+    expect(worktreeEntries(repo).map(({ branch }) => branch)).toContain(`refs/heads/${freshBranch}`);
+    const activeOwnersBefore = fullRepoSnapshot(
+      repo,
+      [repo, freshWorktree],
+      [currentCheckpoint, freshCheckpoint],
+    );
+
+    const listed = runCli(["worktree", "list", slug], repo);
+    expect(listed.status).toBe(2);
+    expect(listed.stdout).toContain(`checkpoint ${slug} is ambiguous`);
+
+    const refused = runCli(
+      ["worktree", "request-changes", slug, freshCheckpointCommit],
+      repo,
+    );
+
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toContain(`active checkpoint ${slug} is ambiguous`);
+    expect(fullRepoSnapshot(repo, [repo, freshWorktree], [currentCheckpoint, freshCheckpoint]))
+      .toBe(activeOwnersBefore);
+  });
+
   test("request-changes and ready listing validate canonical develop checkpoint history", () => {
     const repo = tempRepo();
     const slug = "develop-review-chain";

@@ -206,6 +206,11 @@ List, resume, and request-changes resolve the exact feature checkpoint in the cu
 **FIX:** Refuse ambiguity immediately after stale reviewed-base pins are filtered, and verify both branches and checkpoint trees remain unchanged in a two-worktree real-Git regression.
 **LESSON:** Resolve lifecycle freshness first, then require a unique active owner before considering which owner matches a supplied ref.
 
-## F15 · MAJOR · open
+## F15 · MAJOR · fixed (r3)
 **Where:** `src/shared-worktree.ts:730,930`
 **Critic (r1):** Both current-checkout listing and `request-changes` substitute the feature branch when `resolveContext(...).base` is unavailable, then compare `reviewed_base` to that feature tip as if it were the detected base. A pending review normally has a different `reviewed_base` from its checkpoint commit, so this falsely marks an owner stale without evidence that its actual base moved; `list` can miss a duplicate current owner, and `request-changes` can exclude it before ambiguity counting and mutate another same-slug checkout. Only classify a pin as stale against a successfully detected and readable base; keep unknown-base owners non-actionable and ambiguity-blocking. Add a real-Git regression with a same-slug current checkout whose base is undetectable and a registered fresh owner, asserting refusal/no ref or file changes.
+
+**Fixer (r3):** fixed — freshness filtering now uses only a detected base; list retains unknown-base ownership for ambiguity and request-changes refuses unknown-base duplicates before mutation · verify: `bun run typecheck`, `bun run lint`, `bun test tests/arch.spec.ts` (31 pass) ✓; requested worktree tests not run because their fixtures write temporary directories.
+**ROOT CAUSE:** The branch fallback was treated as base evidence, so a feature tip could falsely prove a review pin stale and hide an active owner.
+**FIX:** Compare freshness only when a base is detected and readable; validate unknown-base pins without marking them stale, retain their ambiguity, and fail closed before request-changes mutates an owner.
+**LESSON:** Unknown freshness cannot prove staleness; preserve ownership ambiguity until the detected base is readable.

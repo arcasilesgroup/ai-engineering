@@ -1306,3 +1306,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Filter stale pins, then refuse multiple active owners before matching the SHA.
 - **Lesson:** Establish fresh ownership before matching a supplied SHA.
 - **Tags:** review, git, lifecycle
+
+### L181 · 2026-10-27 · floating-core #8 · review
+- **Failure:** An unresolved base made active pins appear stale by comparing against the feature tip.
+- **Root cause:** Feature-branch state was treated as evidence of the detected base.
+- **Fix:** Unknown bases no longer prove staleness; list preserves ambiguity and request-changes fails closed.
+- **Lesson:** Unknown freshness cannot prove staleness.
+- **Tags:** review, git, fail-closed

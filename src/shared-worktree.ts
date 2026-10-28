@@ -465,6 +465,24 @@ function isStaleReviewPin(checkpoint: Checkpoint, currentBase: string | null): b
     reviewed_base !== currentBase;
 }
 
+function checkpointBaseRefForValidation(
+  checkpointPath: string,
+  detectedBaseRef: string | null,
+  branch: string | null,
+): string | null {
+  // This ref validates checkpoint structure only; only a detected ref proves freshness.
+  if (detectedBaseRef !== null) return detectedBaseRef;
+  try {
+    const parsed = JSON.parse(readFile(checkpointPath, "utf8")) as {
+      lifecycle?: { base_ref?: unknown };
+    };
+    if (typeof parsed.lifecycle?.base_ref === "string") return parsed.lifecycle.base_ref;
+  } catch {
+    // A malformed checkpoint has no declared base ref to validate against.
+  }
+  return branch === null ? null : `refs/heads/${branch}`;
+}
+
 function lifecycleStatus(
   checkpointPath: string,
   worktreePath: string,
@@ -475,18 +493,26 @@ function lifecycleStatus(
   if (!existsSync(worktreePath) || !existsSync(checkpointPath)) {
     return { label: "unknown (missing, unreadable or malformed checkpoint)", files: [] };
   }
-  let baseRef: string;
+  let detectedBaseRef: string | null = null;
   try {
     const detectedBase = resolveContext(worktreePath).base;
-    if (detectedBase === null) return { label: "unknown (base ref is not detectable)", files: [] };
-    baseRef = `refs/heads/${detectedBase}`;
+    if (detectedBase !== null) detectedBaseRef = `refs/heads/${detectedBase}`;
   } catch {
-    return { label: "unknown (base ref is not readable)", files: [] };
+    // Validate a declared pin without treating it as evidence of current freshness.
   }
-  const currentBaseRead = git(repo, ["rev-parse", "--verify", `${baseRef}^{commit}`]);
-  const currentBase = currentBaseRead.status === 0 && currentBaseRead.stderr.trim() === ""
-    ? currentBaseRead.stdout.trim()
-    : null;
+  const baseRef = checkpointBaseRefForValidation(
+    checkpointPath,
+    detectedBaseRef,
+    branch === "" ? null : branch,
+  );
+  if (baseRef === null) return { label: "unknown (base ref is not detectable)", files: [] };
+  let currentBase: string | null = null;
+  if (detectedBaseRef !== null) {
+    const currentBaseRead = git(repo, ["rev-parse", "--verify", `${detectedBaseRef}^{commit}`]);
+    if (currentBaseRead.status === 0 && currentBaseRead.stderr.trim() === "") {
+      currentBase = currentBaseRead.stdout.trim();
+    }
+  }
   let parsed: Checkpoint;
   try {
     const checkpointStat = lstatSync(checkpointPath);
@@ -526,7 +552,10 @@ function lifecycleStatus(
     return { label: "unknown (lifecycle gates are incomplete)", files, identity: true };
   }
   if (lifecycle.reviewed_base !== null) {
-    if (currentBase === null || lifecycle.reviewed_base !== currentBase) {
+    if (currentBase === null) {
+      return { label: "unknown (base ref is not detectable)", files, identity: true };
+    }
+    if (lifecycle.reviewed_base !== currentBase) {
       return { label: "unknown (reviewed_base is stale)", files, identity: true };
     }
   }
@@ -723,14 +752,15 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
   const currentPath = resolveContext(process.cwd()).root;
   const currentCheckpointDir = join(currentPath, ".ai-engineering", "workflow", "checkpoints");
   const currentCheckpointSlugs = new Set<string>();
-  let currentBase: string | null = null;
+  let currentBaseRef: string | null = null;
   let currentBaseCommit: string | null = null;
+  let currentBranch: string | null = null;
   try {
     const detected = resolveContext(currentPath);
-    const base = detected.base ?? detected.branch;
-    if (base !== null) {
-      currentBase = `refs/heads/${base}`;
-      const baseCommitRead = git(currentPath, ["rev-parse", "--verify", `${currentBase}^{commit}`]);
+    currentBranch = detected.branch;
+    if (detected.base !== null) {
+      currentBaseRef = `refs/heads/${detected.base}`;
+      const baseCommitRead = git(currentPath, ["rev-parse", "--verify", `${currentBaseRef}^{commit}`]);
       if (baseCommitRead.status === 0 && baseCommitRead.stderr.trim() === "") {
         currentBaseCommit = baseCommitRead.stdout.trim();
       }
@@ -738,15 +768,22 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
   } catch {
     // The active checkpoint line is advisory; the registered-worktree list remains authoritative.
   }
-  if (currentBase !== null && existsSync(currentCheckpointDir)) {
+  if (existsSync(currentCheckpointDir)) {
     for (const name of readdirSync(currentCheckpointDir).filter((entry) => entry.endsWith(".json"))) {
       const slug = name.slice(0, -".json".length);
       if (requestedSlug !== undefined && slug !== requestedSlug) continue;
       try {
-        const checkpoint = readCheckpoint(join(currentCheckpointDir, name), {
+        const checkpointPath = join(currentCheckpointDir, name);
+        const checkpointBaseRef = checkpointBaseRefForValidation(
+          checkpointPath,
+          currentBaseRef,
+          currentBranch,
+        );
+        if (checkpointBaseRef === null) continue;
+        const checkpoint = readCheckpoint(checkpointPath, {
           repoPath: currentPath,
           slug,
-          baseRef: currentBase,
+          baseRef: checkpointBaseRef,
         });
         const hasStaleReviewPin = isStaleReviewPin(checkpoint, currentBaseCommit);
         if (canonicalize(currentPath) === repo && !hasStaleReviewPin) currentCheckpointSlugs.add(slug);
@@ -927,7 +964,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   const matching = candidates.filter((candidate) => {
     try {
       const context = resolveContext(candidate.path);
-      const detectedBase = context.base ?? context.branch;
+      const detectedBase = context.base;
       if (detectedBase === null) return true;
       const candidateBaseRef = `refs/heads/${detectedBase}`;
       const currentBase = git(repo, ["rev-parse", "--verify", `${candidateBaseRef}^{commit}`]);
