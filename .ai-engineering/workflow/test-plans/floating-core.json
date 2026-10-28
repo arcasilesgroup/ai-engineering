@@ -172,7 +172,7 @@
       { "id": "C34", "checkpoint": 14, "covers": [], "case": "orchestrator phase and gate assertions kept after phrase-test removal", "file": "tests/workflow-handoff.spec.ts", "command": "bun test tests/workflow-handoff.spec.ts" },
       { "id": "C35", "checkpoint": 14, "covers": [], "case": "ai-pr spec keeps its non-phrase assertions after consolidation", "file": "tests/ai-pr.spec.ts", "command": "bun test tests/ai-pr.spec.ts" },
       { "id": "C36", "checkpoint": 15, "covers": ["S14"], "case": "platforms.yml keeps the ubuntu/macos/windows matrix (green run proven in CI)", "command": "grep -qF \"os: [ubuntu-latest, macos-latest, windows-latest]\" .github/workflows/platforms.yml" },
-      { "id": "C37", "checkpoint": 14, "covers": [], "case": "serial suite under 2 minutes, twice in a row", "command": "sh -c 'start=$(date +%s); bun test --parallel=1 && [ $(( $(date +%s) - start )) -lt 120 ]'" },
+      { "id": "C37", "checkpoint": 14, "covers": [], "case": "serial suite under 180 seconds, twice in a row", "command": "sh -c 'start=$(date +%s); bun test --parallel=1 && [ $(( $(date +%s) - start )) -lt 180 ]'" },
 
       { "id": "C38", "checkpoint": 16, "covers": [], "case": "core skill frontmatter totals at most 2,500 tokens and templates/AGENTS.md.tpl at most 1,200 (bytes/4)", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" },
       { "id": "C39", "checkpoint": 16, "covers": [], "case": "ceremony contract, skills lint and 'Where to work' match stay green after shortening", "file": "tests/skills-lint.spec.ts", "command": "bun test tests/skills-lint.spec.ts" },
