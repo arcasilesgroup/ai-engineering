@@ -1432,3 +1432,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Default omitted packs to an empty list; the focused U9 test then passed.
 - **Lesson:** Give optional template fields safe defaults at the rendering boundary.
 - **Tags:** behavior, config, templates, tests
+
+### L199 · 2026-10-28 · floating-core #12 · behavior
+- **Failure:** A legacy update without `[canon] packs` expected all six packs to be adopted, but the update test received none.
+- **Root cause:** The config template's empty default replaced the selected packs before the second render.
+- **Fix:** Pass surfaces and packs directly to the template renderer; focused update, init, and config tests passed.
+- **Lesson:** Apply defaults and explicit values in a single render.
+- **Tags:** behavior, update, config, packs

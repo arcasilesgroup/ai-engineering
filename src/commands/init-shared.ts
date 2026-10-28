@@ -59,7 +59,7 @@ export function planEntries(surfaces: string[], packs: string[] = []): PlanEntry
     { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
     {
       path: ".ai-engineering/config.toml",
-      ours: render(embeddedTemplate("config.toml.tpl"), {
+      ours: embeddedTemplate("config.toml.tpl", {
         surfaces: surfaces.map((s) => `"${s}"`).join(", "),
         packs: packs.map((pack) => `"${pack}"`).join(", "),
       }),

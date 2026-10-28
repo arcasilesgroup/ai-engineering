@@ -837,10 +837,11 @@
       "gates": {
         "behavior": {
           "status": "failed",
-          "attempts": 2,
+          "attempts": 3,
           "findings": [
             "The first serial-suite failure had no test name in the runner summary; fix attempt 1 did not reproduce because its repo-local TMPDIR triggered the environment guard.",
-            "Gate retry failed at U9: rendered config.toml did not keep both expected keys inactive and documented as comments."
+            "Gate retry failed at U9: rendered config.toml did not keep both expected keys inactive and documented as comments.",
+            "Gate retry after the U9 fix stopped at tests/update-command.spec.ts: updateMain; a legacy install without [canon] packs expected six packs, got []."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
