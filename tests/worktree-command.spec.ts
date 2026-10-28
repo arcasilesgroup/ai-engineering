@@ -3618,6 +3618,139 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
     expect(readFileSync(foreignPath, "utf8")).toBe(foreignContents);
     expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe(statusBefore);
   });
+
+  test("I43b: resumes the exact checkpoint in a registered native worktree", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    configureDetectedBase(repo, "main");
+    const slug = "resume-native";
+    const otherSlug = "other-checkpoint";
+    const branch = "native/topic";
+    const feature = join(root, "native-checkout");
+    mkdirSync(root, { recursive: true });
+    git(["worktree", "add", "--quiet", "-b", branch, feature, "refs/heads/main"], repo);
+    const registered = worktreeEntries(repo).find(({ path }) => realpathSync(path) === realpathSync(feature));
+    expect(registered?.branch).toBe(`refs/heads/${branch}`);
+    expect(branch).not.toMatch(/^feat\//);
+
+    const checkpoint = writeCanonicalCheckpoint(feature, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    const plan = JSON.parse(readFileSync(checkpoint, "utf8")) as {
+      checkpoints: Array<{ files: string[] }>;
+    };
+    plan.checkpoints[0]!.files = ["src/own-work.ts"];
+    writeFileSync(checkpoint, `${JSON.stringify(plan, null, 2)}\n`);
+    const otherCheckpoint = writeCanonicalCheckpoint(feature, otherSlug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    git([
+      "add",
+      `.ai-engineering/workflow/checkpoints/${slug}.json`,
+      `.ai-engineering/workflow/checkpoints/${otherSlug}.json`,
+    ], feature);
+    git(["commit", "-q", "-m", "record native worktree checkpoints"], feature);
+    expect(existsSync(otherCheckpoint)).toBe(true);
+    commitRebaseFixtureFile(feature, "src/own-work.ts", "before crash\n", "feature-owned file");
+
+    const ownFile = join(feature, "src", "own-work.ts");
+    const ownContents = "continue with this in-progress edit\n";
+    writeFileSync(ownFile, ownContents);
+    const foreignPath = join(feature, ".ai-engineering", "security", "run-5", "report.json");
+    const foreignContents = '{"owner":"another skill"}\n';
+    mkdirSync(dirname(foreignPath), { recursive: true });
+    writeFileSync(foreignPath, foreignContents);
+    const unregistered = join(root, slug);
+    mkdirSync(unregistered, { recursive: true });
+    writeCanonicalCheckpoint(unregistered, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    const headBefore = git(["rev-parse", "HEAD"], feature).trim();
+    const statusBefore = git(["status", "--porcelain", "--untracked-files=all"], feature);
+    const stashBefore = git(["stash", "list", "--format=%H"], feature);
+    expect(statusBefore).toContain("src/own-work.ts");
+    expect(statusBefore).toContain(".ai-engineering/security/run-5/report.json");
+    expect(stashBefore).toBe("");
+
+    const run = runCli(["worktree", "list", slug], repo);
+    const output = `${run.stdout}${run.stderr}`;
+
+    expect(run.status).toBe(0);
+    expect(output).toContain(`${slug}\t${realpathSync(feature)}\tfeature\t`);
+    expect(output).toContain(`${unregistered} is not registered in Git, not work`);
+    expect(output).not.toContain(`${slug}\t${unregistered}\tfeature`);
+    expect(output).not.toContain(otherSlug);
+    expect(output).toContain("src/own-work.ts");
+    expect(output).toMatch(/continue with feature-owned changes/i);
+    expect(output).toContain(".ai-engineering/security/run-5/report.json");
+    expect(output).toMatch(/foreign files left alone/i);
+    expect(git(["rev-parse", "HEAD"], feature).trim()).toBe(headBefore);
+    expect(git(["stash", "list", "--format=%H"], feature)).toBe(stashBefore);
+    expect(readFileSync(ownFile, "utf8")).toBe(ownContents);
+    expect(readFileSync(foreignPath, "utf8")).toBe(foreignContents);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe(statusBefore);
+  });
+
+  test("I43c: refuses an exact checkpoint registered in multiple worktrees", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    configureDetectedBase(repo, "main");
+    const slug = "ambiguous-native";
+    const feature = join(root, "native-checkout");
+    mkdirSync(root, { recursive: true });
+    git(["worktree", "add", "--quiet", "-b", "native/copy", feature, "refs/heads/main"], repo);
+    const currentCheckpoint = writeCanonicalCheckpoint(repo, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    git(["add", `.ai-engineering/workflow/checkpoints/${slug}.json`], repo);
+    git(["commit", "-q", "-m", "record current checkout checkpoint"], repo);
+    const nativeCheckpoint = writeCanonicalCheckpoint(feature, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    git(["add", `.ai-engineering/workflow/checkpoints/${slug}.json`], feature);
+    git(["commit", "-q", "-m", "record native checkout checkpoint"], feature);
+    expect(existsSync(currentCheckpoint)).toBe(true);
+    expect(existsSync(nativeCheckpoint)).toBe(true);
+    expect(worktreeEntries(repo).some(({ path, branch }) =>
+      realpathSync(path) === realpathSync(feature) && branch === "refs/heads/native/copy"
+    )).toBe(true);
+
+    const run = runCli(["worktree", "list", slug], repo);
+    const output = `${run.stdout}${run.stderr}`;
+
+    expect(run.status).toBe(2);
+    expect(output).toContain(`${slug}\t${realpathSync(feature)}\tfeature\t`);
+    expect(output).toContain(`active checkpoint ${slug} in current checkout`);
+    expect(output).toContain("ambiguous across Git-listed worktrees; no checkout selected");
+    expect(output).not.toContain("continue with feature-owned changes");
+  });
 });
 
 describe("ai-eng worktree rm and removed usage (checkpoint 7)", () => {

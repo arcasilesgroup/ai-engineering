@@ -463,7 +463,7 @@ function lifecycleStatus(
   slug: string,
   repo: string,
   branch: string,
-): { label: string; files: string[] } {
+): { label: string; files: string[]; identity?: boolean } {
   if (!existsSync(worktreePath) || !existsSync(checkpointPath)) {
     return { label: "unknown (missing, unreadable or malformed checkpoint)", files: [] };
   }
@@ -512,18 +512,18 @@ function lifecycleStatus(
   const lifecycle = parsed.lifecycle;
   const phase = lifecycle.phase;
   if (["awaiting-app-review", "ready-to-merge"].includes(phase) && !gatesComplete(parsed)) {
-    return { label: "unknown (lifecycle gates are incomplete)", files };
+    return { label: "unknown (lifecycle gates are incomplete)", files, identity: true };
   }
   if (lifecycle.reviewed_base !== null) {
     if (currentBase === null || lifecycle.reviewed_base !== currentBase) {
-      return { label: "unknown (reviewed_base is stale)", files };
+      return { label: "unknown (reviewed_base is stale)", files, identity: true };
     }
   }
   if (phase === "ready-to-merge") {
     const reviewedFeature = lifecycle.reviewed_feature;
     const featureRef = git(repo, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
     if (typeof reviewedFeature !== "string" || featureRef.status !== 0) {
-      return { label: "unknown (reviewed_feature or feature tip is unreadable)", files };
+      return { label: "unknown (reviewed_feature or feature tip is unreadable)", files, identity: true };
     }
     const chainProblem = reviewedFeatureChainProblem(
       repo,
@@ -535,12 +535,13 @@ function lifecycleStatus(
       baseRef,
     );
     if (chainProblem !== null) {
-      return { label: `unknown (${chainProblem})`, files };
+      return { label: `unknown (${chainProblem})`, files, identity: true };
     }
   }
   return {
     label: `${phase} (plan ${String(lifecycle.plan_approval)}, app review ${String(lifecycle.app_review)})`,
     files,
+    identity: true,
   };
 }
 
@@ -556,6 +557,8 @@ function displayPath(path: string): string {
 
 interface ListedWorktree {
   entry: OpenWorktree;
+  slug: string;
+  identity: boolean;
   isFeature: boolean;
   status: StatusRead;
   checkpointPath: string | null;
@@ -575,36 +578,85 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
     return { code: 2, out: "", err: `worktree list: the worktree list is unreadable (${listed.detail}).\n` };
   }
   let statusUnreadable = false;
-  const entries: ListedWorktree[] = listed.worktrees
-    .filter((entry) => canonicalize(entry.path) !== repo)
-    .map((entry) => {
-      const pathExists = existsSync(entry.path);
-      const status = pathExists ? worktreeStatus(entry.path) : { paths: [], detail: "worktree path is missing" };
-      statusUnreadable ||= pathExists && status.detail !== undefined;
-      const isFeature =
-        entry.branch?.startsWith("feat/") === true &&
-        SLUG_PATTERN.test(entry.slug) &&
-        !/\p{C}/u.test(entry.slug);
-      const checkpointPath = isFeature
-        ? join(entry.path, ".ai-engineering", "workflow", "checkpoints", `${entry.slug}.json`)
-        : null;
-      const state = checkpointPath === null
-        ? { label: "unknown (no feature branch)", files: [] }
-        : lifecycleStatus(checkpointPath, entry.path, entry.slug, repo, entry.branch ?? "");
-      return {
+  const entries: ListedWorktree[] = [];
+  for (const entry of listed.worktrees) {
+    if (canonicalize(entry.path) === repo) continue;
+    const pathExists = existsSync(entry.path);
+    const status: StatusRead = pathExists
+      ? worktreeStatus(entry.path)
+      : { paths: [], detail: "worktree path is missing" };
+    statusUnreadable ||= pathExists && status.detail !== undefined;
+    const checkpointDir = join(entry.path, ".ai-engineering", "workflow", "checkpoints");
+    let checkpointSlugs: string[] = [];
+    try {
+      checkpointSlugs = readdirSync(checkpointDir)
+        .filter((name) => name.endsWith(".json"))
+        .map((name) => name.slice(0, -".json".length))
+        .filter((slug) => SLUG_PATTERN.test(slug) && !/\p{C}/u.test(slug));
+    } catch {
+      // A checkout without a readable checkpoint directory has no checkpoint identity to classify.
+    }
+    if (requestedSlug !== undefined) {
+      checkpointSlugs = checkpointSlugs.includes(requestedSlug) ? [requestedSlug] : [];
+    }
+    const matchedSlugs = new Set<string>();
+    for (const slug of checkpointSlugs) {
+      const checkpointPath = join(checkpointDir, `${slug}.json`);
+      const state = lifecycleStatus(checkpointPath, entry.path, slug, repo, entry.branch ?? "");
+      if (state.identity !== true) continue;
+      matchedSlugs.add(slug);
+      entries.push({
         entry,
-        isFeature,
+        slug,
+        identity: true,
+        isFeature: true,
         status,
         checkpointPath,
         checkpointFiles: state.files,
         lifecycle: state.label,
-      };
+      });
+    }
+
+    const isLegacyFeature =
+      entry.branch?.startsWith("feat/") === true &&
+      SLUG_PATTERN.test(entry.slug) &&
+      !/\p{C}/u.test(entry.slug);
+    const matchesLegacyRequest = requestedSlug === undefined ||
+      entry.slug === requestedSlug ||
+      canonicalize(entry.path) === canonicalize(join(root, requestedSlug));
+    const shouldKeepLegacyEntry = requestedSlug === undefined
+      ? matchedSlugs.size === 0 || (isLegacyFeature && !matchedSlugs.has(entry.slug))
+      : matchesLegacyRequest && !matchedSlugs.has(requestedSlug);
+    if (!shouldKeepLegacyEntry) continue;
+    const checkpointPath = isLegacyFeature
+      ? join(entry.path, ".ai-engineering", "workflow", "checkpoints", `${entry.slug}.json`)
+      : null;
+    const state = checkpointPath === null
+      ? { label: "unknown (no feature branch)", files: [] }
+      : lifecycleStatus(checkpointPath, entry.path, entry.slug, repo, entry.branch ?? "");
+    entries.push({
+      entry,
+      slug: entry.slug,
+      identity: state.identity === true,
+      isFeature: isLegacyFeature,
+      status,
+      checkpointPath,
+      checkpointFiles: state.files,
+      lifecycle: state.label,
     });
+  }
 
   const matchingEntries = requestedSlug === undefined
     ? entries
-    : entries.filter(({ entry }) => entry.slug === requestedSlug);
-  const lines = matchingEntries.map(({ entry, isFeature, status, lifecycle }) => {
+    : entries.filter(({ slug }) => slug === requestedSlug);
+  const checkpointCounts = new Map<string, number>();
+  for (const { slug, identity } of entries) {
+    if (identity) checkpointCounts.set(slug, (checkpointCounts.get(slug) ?? 0) + 1);
+  }
+  const ambiguousSlugs = [...checkpointCounts]
+    .filter(([, count]) => count > 1)
+    .map(([slug]) => slug);
+  const lines = matchingEntries.map(({ entry, slug, isFeature, status, lifecycle }) => {
     const classification = isFeature
       ? "feature"
       : entry.detached
@@ -617,10 +669,11 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
       : status.paths.length === 0
         ? "clean"
         : `dirty (${status.paths.map(displayPath).join(", ")})`;
-    return `${displayPath(entry.slug)}\t${displayPath(entry.path)}\t${classification}\t${cleanliness}\t${lifecycle}`;
+    return `${displayPath(slug)}\t${displayPath(entry.path)}\t${classification}\t${cleanliness}\t${lifecycle}`;
   });
 
   const hasWorktreeForSlug = (slug: string): boolean =>
+    entries.some(({ slug: checkpointSlug, isFeature }) => isFeature && checkpointSlug === slug) ||
     listed.worktrees.some((entry) =>
       canonicalize(entry.path) !== repo &&
       (
@@ -658,6 +711,7 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
   }
   const currentPath = resolveContext(process.cwd()).root;
   const currentCheckpointDir = join(currentPath, ".ai-engineering", "workflow", "checkpoints");
+  const currentCheckpointSlugs = new Set<string>();
   let currentBase: string | null = null;
   try {
     const detected = resolveContext(currentPath);
@@ -669,12 +723,14 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
   if (currentBase !== null && existsSync(currentCheckpointDir)) {
     for (const name of readdirSync(currentCheckpointDir).filter((entry) => entry.endsWith(".json"))) {
       const slug = name.slice(0, -".json".length);
+      if (requestedSlug !== undefined && slug !== requestedSlug) continue;
       try {
         const checkpoint = readCheckpoint(join(currentCheckpointDir, name), {
           repoPath: currentPath,
           slug,
           baseRef: currentBase,
         });
+        if (canonicalize(currentPath) === repo) currentCheckpointSlugs.add(slug);
         if (checkpoint.lifecycle.phase !== "implementation" &&
           checkpoint.lifecycle.phase !== "awaiting-plan-approval" &&
           checkpoint.lifecycle.phase !== "blocked") continue;
@@ -682,6 +738,19 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
       } catch {
         // A malformed checkpoint is not active work.
       }
+    }
+  }
+  const ambiguousCheckpointSlugs = new Set(ambiguousSlugs);
+  for (const slug of currentCheckpointSlugs) {
+    if (checkpointCounts.has(slug)) ambiguousCheckpointSlugs.add(slug);
+  }
+  const isRequestedCheckpointAmbiguous =
+    requestedSlug !== undefined && ambiguousCheckpointSlugs.has(requestedSlug);
+  if (isRequestedCheckpointAmbiguous) {
+    lines.push(`worktree list: checkpoint ${displayPath(requestedSlug)} is ambiguous across Git-listed worktrees; no checkout selected`);
+  } else if (requestedSlug === undefined) {
+    for (const slug of ambiguousCheckpointSlugs) {
+      lines.push(`worktree list: checkpoint ${displayPath(slug)} is ambiguous across Git-listed worktrees; no checkout selected`);
     }
   }
 
@@ -696,8 +765,14 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
     }
   }
 
-  if (requestedSlug !== undefined) {
-    const selected = matchingEntries.find(({ entry }) => entry.slug === requestedSlug);
+  if (requestedSlug !== undefined && !isRequestedCheckpointAmbiguous) {
+    const exactMatches = matchingEntries.filter(({ identity }) => identity);
+    const featureMatches = matchingEntries.filter(({ isFeature }) => isFeature);
+    const selected = exactMatches.length === 1
+      ? exactMatches[0]
+      : exactMatches.length === 0 && featureMatches.length === 1
+        ? featureMatches[0]
+        : undefined;
     if (selected !== undefined && selected.isFeature && selected.status.detail === undefined) {
       const planned = new Set(selected.checkpointFiles.map(normalizedEvidencePath).filter((path) => path !== null));
       const own = selected.status.paths.filter((path) => {
@@ -731,7 +806,7 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
       for (const path of secondStatus) if (firstFiles.has(path)) evidence.add(path);
       if (evidence.size === 0) continue;
       overlaps.add(
-        `likely overlap: ${displayPath(first.entry.slug)} and ${displayPath(second.entry.slug)} ` +
+        `likely overlap: ${displayPath(first.slug)} and ${displayPath(second.slug)} ` +
         `(${[...evidence].map(displayPath).join(", ")}); ` +
         `checkpoints: ${displayPath(first.checkpointPath ?? "")}, ${displayPath(second.checkpointPath ?? "")}`,
       );
@@ -741,7 +816,8 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
   if (requestedSlug === undefined) lines.push(...overlaps);
   const out = lines.join("\n");
   return {
-    code: statusUnreadable ? 2 : 0,
+    code: statusUnreadable || isRequestedCheckpointAmbiguous ||
+      (requestedSlug === undefined && ambiguousCheckpointSlugs.size > 0) ? 2 : 0,
     out: out.length > 0 ? `${out}\n` : "",
     err: "",
   };

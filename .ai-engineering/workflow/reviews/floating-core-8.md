@@ -139,6 +139,10 @@
 **FIX:** Resolve the invoking checkout root first and run the existing root-relative dirty-slot scan there; leave the files unstaged and unmoved.
 **LESSON:** Normalize Git status to the checkout root before applying repository-root path rules.
 
-## F11 · MAJOR · open (r1)
+## F11 · MAJOR · fixed (r2)
 **Where:** `src/shared-worktree.ts:584-606,623-646`
 **Critic (r1):** `worktree new` accepts arbitrary branch names and D1 says `feat/` is not required, but `list`/resume still recognizes features only from `feat/` and derives the requested slug from the branch name. A Git-listed `feature/pagos` or native `native/pagos` checkout carrying `checkpoints/pagos.json` is therefore unclassified; `list pagos` cannot find it or report feature-owned dirty files as continuable versus foreign files left alone. Resolve feature identity from the exact checkpoint slug in registered checkouts (refusing ambiguity) and add a resume regression for an arbitrary/native branch with both own and foreign dirty files.
+**Fixer (r2):** fixed — `worktree list` now resolves exact checkpoint identities from Git-listed checkout paths, selects only the requested slug, and refuses duplicate checkpoint ownership; real-Git regressions cover native branches, unrelated checkpoints, unregistered folders, dirty-file safety, and ambiguity · verify: targeted 124 pass/16 skip, typecheck, lint, arch 31 pass ✓
+**ROOT CAUSE:** Listing inferred identity from `feat/<slug>` and branch-derived slugs, so registered arbitrary-branch checkouts never reached exact checkpoint or dirty-file handling.
+**FIX:** Validate checkpoint slugs within Git-registered worktree paths, use that identity for list/resume and dirty-file ownership, filter unrelated checkpoints, and return an ambiguity refusal for duplicate registered identities; preserve legacy branch/path handling.
+**LESSON:** Resume ownership comes from a validated checkpoint in a real Git registration, not a branch prefix or directory name.

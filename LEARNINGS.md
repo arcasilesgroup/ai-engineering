@@ -1278,3 +1278,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Resolve the checkout root before scanning and verify warnings leave files/status unchanged.
 - **Lesson:** Normalize status to the checkout root before applying root-relative rules.
 - **Tags:** review, git, paths
+
+### L177 · 2026-10-27 · floating-core #8 · review
+- **Failure:** List/resume did not recognize an arbitrary-branch worktree carrying the exact checkpoint slug.
+- **Root cause:** Feature identity was inferred from branch names instead of checkpoint content in Git-registered checkouts.
+- **Fix:** Resolve unique checkpoint ownership from Git registration and preserve dirty-file safety.
+- **Lesson:** A checkpoint's registered checkout—not its branch prefix or directory name—defines resume ownership.
+- **Tags:** review, git, lifecycle
