@@ -166,17 +166,31 @@ interface Entry {
   branch: string | undefined;
 }
 
+interface WorktreeRegistration extends Entry {
+  head: string | undefined;
+}
+
 function worktreeEntries(repo: string): Entry[] {
-  const blocks = git(["worktree", "list", "--porcelain"], repo).split("\n\n");
+  return parseWorktreeEntries(git(["worktree", "list", "--porcelain"], repo))
+    .map(({ path, branch }) => ({ path, branch }));
+}
+
+function parseWorktreeEntries(registrations: string): WorktreeRegistration[] {
+  const blocks = registrations.split("\n\n");
   return blocks
     .map((block) => {
       const lines = block.split("\n");
       const pathLine = lines.find((line) => line.startsWith("worktree "));
       if (!pathLine) return undefined;
       const branchLine = lines.find((line) => line.startsWith("branch "));
-      return { path: pathLine.slice("worktree ".length), branch: branchLine?.slice("branch ".length) };
+      const headLine = lines.find((line) => line.startsWith("HEAD "));
+      return {
+        path: pathLine.slice("worktree ".length),
+        branch: branchLine?.slice("branch ".length),
+        head: headLine?.slice("HEAD ".length),
+      };
     })
-    .filter((entry): entry is Entry => entry !== undefined);
+    .filter((entry): entry is WorktreeRegistration => entry !== undefined);
 }
 
 function branchNames(repo: string): string[] {
@@ -221,20 +235,28 @@ function checkpointBytes(path: string): unknown {
 
 /** Includes repository refs, every registered index/status and all visible tree bytes. */
 function fullRepoSnapshot(repo: string, extraTrees: string[], checkpoints: string[]): string {
-  const registrations = worktreeEntries(repo);
+  const registrationOutput = git(["worktree", "list", "--porcelain"], repo);
+  const registrations = parseWorktreeEntries(registrationOutput);
   const worktrees = [realpathSync(repo), ...registrations.map((entry) => entry.path)];
   const uniqueWorktrees = [...new Set(worktrees)];
   const uniqueTrees = [...new Set([...uniqueWorktrees, ...extraTrees])];
+  const registrationsByPath = new Map(
+    registrations.map((entry) => [realpathSync(entry.path), entry]),
+  );
   return JSON.stringify({
     refs: git(["for-each-ref", "--format=%(refname) %(objectname)"], repo),
-    registrations: git(["worktree", "list", "--porcelain"], repo),
-    worktrees: uniqueWorktrees.map((worktree) => ({
-      path: worktree,
-      head: git(["rev-parse", "HEAD"], worktree).trim(),
-      branch: gitOut(["symbolic-ref", "--short", "-q", "HEAD"], worktree).stdout.trim() || "detached",
-      status: git(["status", "--porcelain", "--untracked-files=all"], worktree),
-      index: readFileSync(resolve(worktree, git(["rev-parse", "--git-path", "index"], worktree).trim())).toString("base64"),
-    })),
+    registrations: registrationOutput,
+    worktrees: uniqueWorktrees.map((worktree) => {
+      const registration = registrationsByPath.get(worktree);
+      if (!registration?.head) throw new Error(`worktree snapshot is missing Git metadata for ${worktree}`);
+      return {
+        path: worktree,
+        head: registration.head,
+        branch: registration.branch?.replace(/^refs\/heads\//, "") ?? "detached",
+        status: git(["status", "--porcelain", "--untracked-files=all"], worktree),
+        index: readFileSync(resolve(worktree, git(["rev-parse", "--git-path", "index"], worktree).trim())).toString("base64"),
+      };
+    }),
     files: uniqueTrees.map((tree) => [tree, treeFiles(tree)]),
     checkpoints: checkpoints.map(checkpointBytes),
   });
@@ -512,13 +534,11 @@ function prepareMergeFixture(repo: string, slug: string): MergeFixture {
     "pending",
   );
   updateMergeRuntimeFields(checkpoint);
-  git(["add", checkpointPath], feature);
-  git(["commit", "-q", "-m", `${slug} checkpoint awaiting app review`], feature);
+  git(["commit", "-q", "-m", `${slug} checkpoint awaiting app review`, "--", checkpointPath], feature);
   const awaitingReviewCommit = git(["rev-parse", "HEAD"], feature).trim();
   writeMergeCheckpoint(feature, slug, reviewedMain, reviewedFeature);
   updateMergeRuntimeFields(checkpoint);
-  git(["add", checkpointPath], feature);
-  git(["commit", "-q", "-m", `${slug} checkpoint approved`], feature);
+  git(["commit", "-q", "-m", `${slug} checkpoint approved`, "--", checkpointPath], feature);
   const featureTip = git(["rev-parse", "HEAD"], feature).trim();
   const checkpointContents = readFileSync(checkpoint, "utf8");
   if (git(["status", "--porcelain", "--untracked-files=all"], feature) !== "") {
@@ -591,15 +611,13 @@ function prepareCanonicalMergeFixture(
     reviewed_feature: reviewedFeature,
   };
   writeCanonicalCheckpoint(feature, slug, reviewedLifecycle);
-  git(["add", checkpointPath], feature);
-  git(["commit", "-q", "-m", `${slug} checkpoint awaiting app review`], feature);
+  git(["commit", "-q", "-m", `${slug} checkpoint awaiting app review`, "--", checkpointPath], feature);
   writeCanonicalCheckpoint(feature, slug, {
     ...reviewedLifecycle,
     phase: "ready-to-merge",
     app_review: "approved",
   });
-  git(["add", checkpointPath], feature);
-  git(["commit", "-q", "-m", `${slug} checkpoint approved`], feature);
+  git(["commit", "-q", "-m", `${slug} checkpoint approved`, "--", checkpointPath], feature);
 
   const featureTip = git(["rev-parse", "HEAD"], feature).trim();
   const checkpointContents = readFileSync(checkpoint, "utf8");

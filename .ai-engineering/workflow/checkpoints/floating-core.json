@@ -975,10 +975,11 @@
       "gates": {
         "behavior": {
           "status": "failed",
-          "attempts": 2,
+          "attempts": 3,
           "findings": [
             "Serial suite run 1 took 204.83s, exceeding the 120s target, and reported four test failures. First: tests/doctor-command.spec.ts:178 expected zero missing canon files but got 36 (44/80 verified); run 2 was not run.",
-            "Gate 1 retry stopped at `update repairs a drifted global canon, not only the repo's assets`; serial suite took 158.25s (target <120s), and suite run 2 was not run."
+            "Gate 1 retry stopped at `update repairs a drifted global canon, not only the repo's assets`; serial suite took 158.25s (target <120s), and suite run 2 was not run.",
+            "Gate 1 retry after cleanup passed its targeted commands and the serial suite tests but still took 149.20s, exceeding the 120s target; suite run 2 was not run."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },

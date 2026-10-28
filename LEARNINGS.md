@@ -1481,3 +1481,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Test repair of missing core files separately and preserve locally edited files; remove duplicate worktree setup and raw-Git cases.
 - **Lesson:** Without a machine-side ownership hash, preserve changed canon files and test repair using missing files.
 - **Tags:** behavior, tests, update, canon, performance
+
+### L206 · 2026-10-28 · floating-core #14 · behavior
+- **Failure:** The serial suite passed its tests but took 149.20 seconds against the 120-second target.
+- **Root cause:** Worktree fixtures repeated Git queries and staging work; the focused-suite timing did not confirm a runtime improvement.
+- **Fix:** Reuse worktree-list metadata and commit tracked fixture paths directly; 118 focused tests and 1,045 assertions passed.
+- **Lesson:** Reuse Git state already fetched in integration fixtures, and measure the full suite before claiming a speedup.
+- **Tags:** behavior, tests, performance, git
