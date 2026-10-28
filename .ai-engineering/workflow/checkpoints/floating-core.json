@@ -914,7 +914,7 @@
       "size": "m",
       "goal": "Test consolidation and fixture hygiene preserve every behavior assertion, including S11 and the orchestrator phase/gate assertions, while the serial suite passes twice in a row under 180 seconds.",
       "plain": {
-        "what": "The built-in checks finish in under two minutes, twice in a row.",
+        "what": "The serial suite finishes in under three minutes, twice in a row.",
         "why": "Slow or unreliable checks waste time and get skipped.",
         "check": "Nothing to see yet, behind the scenes."
       },
