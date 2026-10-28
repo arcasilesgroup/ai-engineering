@@ -122,6 +122,11 @@ The flow skills, the checkpoint-planner agent and AGENTS.md describe working in 
 **FIX:** List every ignored path and its deletion consequence before approval, require explicit path-by-path consent, and keep the candidate if the scan fails or changes before removal.
 **LESSON:** Treat ignored paths as user data until their exact loss is visible, approved, and revalidated.
 
-## F9 · BLOCKER · open
+## F9 · BLOCKER · fixed (r4)
 **Where:** src/workflow/checkpoint.ts:476; skills/.chain-bundle/ai-eng-chain.ts:1759
 **Critic (r1):** Both transition guards still synthesize `refs/heads/feat/${context.slug}` to verify `reviewed_feature`. The new contract allows any valid branch name and works in the current checkout, so a feature on e.g. `feature/<slug>` or `bugfix/<slug>` cannot transition to app review. Resolve the actual selected/current feature ref instead of hard-coding the prefix, update both guard copies, and test a non-`feat/` feature branch.
+
+**Fixer (r4):** fixed — resolve the current local branch ref and compare its commit tip at app-review entry and approval; generated the chain bundle and added a real-Git non-`feat/` lifecycle regression · verify: targeted tests, generated-payload test, typecheck, lint, and architecture tests ✓
+**ROOT CAUSE:** The transition guard synthesized a feature ref from the checkpoint slug and only checked the feature SHA when entering app review.
+**FIX:** Resolve `HEAD`'s local branch ref dynamically, validate its tip both when review begins and when approval is recorded, regenerate the chain bundle, and test approval, request-changes, stale SHA rejection, and stale-tip rejection on a `hotfix/` branch.
+**LESSON:** Compare reviewed SHAs with the current selected Git ref at every transition that relies on them; never derive branch identity from a slug.

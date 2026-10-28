@@ -1411,3 +1411,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** List paths and consequences before approval, require per-path consent, and fail closed if the list changes or cannot be verified.
 - **Lesson:** Treat ignored paths as user data until their loss is visible and approved.
 - **Tags:** review, data-loss, cleanup
+
+### L196 · 2026-10-27 · floating-core #11 · review
+- **Failure:** App-review transitions on arbitrary branches could not validate the reviewed feature SHA.
+- **Root cause:** The guard inferred the feature ref from `feat/${slug}` and checked it only on review entry.
+- **Fix:** Resolve HEAD's local branch ref dynamically and revalidate the tip at both review entry and approval.
+- **Lesson:** Validate reviewed SHAs against the selected Git ref; do not infer branch identity from slugs.
+- **Tags:** review, git, lifecycle

@@ -53,7 +53,7 @@ function git(args: string[], cwd: string): string {
   return result.stdout.trim();
 }
 
-function createGitFixture(name: string): GitFixture {
+function createGitFixture(name: string, featureBranch?: string): GitFixture {
   const repoPath = join(fixtureRoot, name);
   mkdirSync(repoPath);
   git(["init", "-q", "-b", "main"], repoPath);
@@ -66,7 +66,7 @@ function createGitFixture(name: string): GitFixture {
   const base = git(["rev-parse", "HEAD"], repoPath);
 
   const slug = "checkpoint-fixture";
-  git(["switch", "-q", "-c", `feat/${slug}`], repoPath);
+  git(["switch", "-q", "-c", featureBranch ?? `feat/${slug}`], repoPath);
   writeFileSync(join(repoPath, "feature.txt"), "feature\n");
   git(["add", "feature.txt"], repoPath);
   git(["commit", "-q", "-m", "feature"], repoPath);
@@ -394,6 +394,60 @@ describe("workflow checkpoint state (CP4)", () => {
       reviewed_feature: fixture.feature,
     });
     expect(() => assertCheckpointTransition(blocked, ready, context)).not.toThrow();
+  });
+
+  test("uses the checked-out branch for review lifecycle and rejects stale feature tips", () => {
+    const branchFixture = createGitFixture("non-feat-review", "hotfix/unrelated-name");
+    const context = contextFor(branchFixture);
+    expect(git(["symbolic-ref", "--quiet", "HEAD"], branchFixture.repoPath))
+      .toBe("refs/heads/hotfix/unrelated-name");
+    expect(runGit(
+      ["show-ref", "--verify", "--quiet", `refs/heads/feat/${branchFixture.slug}`],
+      branchFixture.repoPath,
+    ).status).not.toBe(0);
+
+    const implementation = checkpoint(branchFixture.slug, "implementation");
+    const review = checkpoint(branchFixture.slug, "awaiting-app-review", {
+      base_ref: "refs/heads/main",
+      reviewed_base: branchFixture.base,
+      reviewed_feature: branchFixture.feature,
+    });
+    const ready = checkpoint(branchFixture.slug, "ready-to-merge", {
+      base_ref: "refs/heads/main",
+      reviewed_base: branchFixture.base,
+      reviewed_feature: branchFixture.feature,
+    });
+    const returned = checkpoint(branchFixture.slug, "implementation");
+
+    expect(() => assertCheckpointTransition(implementation, review, context)).not.toThrow();
+    expect(() => assertCheckpointTransition(review, ready, context)).not.toThrow();
+    expect(() => assertCheckpointTransition(review, returned, context)).not.toThrow();
+
+    git(["commit", "--allow-empty", "-q", "-m", "advance feature"], branchFixture.repoPath);
+    const currentFeature = git(["rev-parse", "HEAD"], branchFixture.repoPath);
+    expect(currentFeature).not.toBe(branchFixture.feature);
+    const staleReview = checkpoint(branchFixture.slug, "awaiting-app-review", {
+      base_ref: "refs/heads/main",
+      reviewed_base: branchFixture.base,
+      reviewed_feature: branchFixture.feature,
+    });
+    expect(() => assertCheckpointTransition(implementation, staleReview, context))
+      .toThrow(/reviewed_feature/i);
+
+    const currentReview = checkpoint(branchFixture.slug, "awaiting-app-review", {
+      base_ref: "refs/heads/main",
+      reviewed_base: branchFixture.base,
+      reviewed_feature: currentFeature,
+    });
+    expect(() => assertCheckpointTransition(implementation, currentReview, context)).not.toThrow();
+    git(["commit", "--allow-empty", "-q", "-m", "advance feature again"], branchFixture.repoPath);
+    const staleApproval = checkpoint(branchFixture.slug, "ready-to-merge", {
+      base_ref: "refs/heads/main",
+      reviewed_base: branchFixture.base,
+      reviewed_feature: currentFeature,
+    });
+    expect(() => assertCheckpointTransition(currentReview, staleApproval, context))
+      .toThrow(/app_review/i);
   });
 
   test("invalidates a review when the detected base ref loses its pinned compare-and-swap", () => {

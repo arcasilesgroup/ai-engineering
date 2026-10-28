@@ -110,6 +110,29 @@ function baseCommit(context: CheckpointContext): string {
   return commit;
 }
 
+function currentFeatureTip(context: CheckpointContext): string {
+  const branch = git(context, ["symbolic-ref", "--quiet", "HEAD"]);
+  const ref = branch.stdout.trim();
+  if (
+    branch.status !== 0 ||
+    branch.stderr.trim() !== "" ||
+    !ref.startsWith("refs/heads/") ||
+    ref === "refs/heads/"
+  ) {
+    fail("reviewed_feature", "cannot resolve the current feature branch ref");
+  }
+  const validRef = git(context, ["check-ref-format", ref]);
+  if (validRef.status !== 0 || validRef.stderr.trim() !== "") {
+    fail("reviewed_feature", "current feature branch ref is invalid");
+  }
+  const tip = git(context, ["rev-parse", "--verify", `${ref}^{commit}`]);
+  const sha = tip.stdout.trim();
+  if (tip.status !== 0 || tip.stderr.trim() !== "" || !SHA_PATTERN.test(sha)) {
+    fail("reviewed_feature", `cannot read current feature tip from ${ref}`);
+  }
+  return sha;
+}
+
 function knownCommit(context: CheckpointContext, sha: string, field: string): void {
   const result = git(context, ["cat-file", "-e", `${sha}^{commit}`]);
   if (result.status !== 0 || result.stderr.trim() !== "") {
@@ -473,9 +496,7 @@ export function assertCheckpointTransition(
     if (newState.reviewed_base !== baseCommit(context)) {
       fail("reviewed_base", "must pin the current base before app review");
     }
-    const featureTip = git(context, ["rev-parse", "--verify", `refs/heads/feat/${context.slug}^{commit}`]);
-    if (featureTip.status !== 0 || featureTip.stderr.trim() !== "" ||
-      featureTip.stdout.trim() !== newState.reviewed_feature) {
+    if (currentFeatureTip(context) !== newState.reviewed_feature) {
       fail("reviewed_feature", "must pin the current feature tip before app review");
     }
     verifiedCheckpoints.add(next);
@@ -522,7 +543,8 @@ export function assertCheckpointTransition(
       newState.reviewed_base !== oldState.reviewed_base ||
       newState.reviewed_feature !== oldState.reviewed_feature ||
       newState.base_ref !== oldState.base_ref ||
-      baseCommit(context) !== oldState.reviewed_base
+      baseCommit(context) !== oldState.reviewed_base ||
+      currentFeatureTip(context) !== oldState.reviewed_feature
     ) {
       fail("app_review", "approval must preserve the current reviewed base and feature SHAs");
     }
