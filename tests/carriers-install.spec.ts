@@ -20,7 +20,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { embeddedTemplate, embeddedUnder } from "../src/embed.ts";
+import { embeddedPath, embeddedTemplate, embeddedUnder } from "../src/embed.ts";
 import {
   existsSync,
   lstatSync,
@@ -61,10 +61,79 @@ import { VERSION } from "../src/version.ts";
 const SHIM_MARKER = "ai-eng git floor shim";
 const LEGACY_SHIMS = ["pre-commit", "commit-msg", "pre-push"] as const;
 const CHAIN = "ai-eng chain";
+const SPECIALIST_PACKS = ["triage", "design-md-planner", "audit-design", "visual-recap", "writing-behavior", "stress-test", "verify-tiers"] as const;
 
 let sandbox: string;
 const OWNED_ENV = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL"] as const;
 let inherited: Record<string, string | undefined> = {};
+
+type SkillInventory = { name: string; files: Map<string, string> };
+
+function skillsInInventory(prefix: string, directOnly = false): SkillInventory[] {
+  const assets = [...embeddedUnder(prefix)];
+  return assets
+    .filter(([path]) => path.endsWith("/SKILL.md"))
+    .filter(([path]) => !directOnly || path.slice(prefix.length).split("/").length === 2)
+    .map(([skillFile, skillRef]) => {
+      const sourceDir = skillFile.slice(0, -"/SKILL.md".length);
+      const skillText = readFileSync(embeddedPath(skillRef), "utf8");
+      const name = /^name:\s*(\S+)/m.exec(skillText)?.[1];
+      if (name === undefined) throw new Error(`skill inventory has no name: ${skillFile}`);
+      const files = new Map(
+        assets
+          .filter(([path]) => path === `${sourceDir}/SKILL.md` || path.startsWith(`${sourceDir}/`))
+          .map(([path, ref]) => [path.slice(sourceDir.length + 1), readFileSync(embeddedPath(ref), "utf8")]),
+      );
+      return { name, sourceDir, files };
+    });
+}
+
+function coreSkillInventory(): SkillInventory[] {
+  const legacyPackPrefixes = SPECIALIST_PACKS.map((pack) =>
+    pack === "verify-tiers" ? "skills/ai-verify/tiers/" : `skills/ai-${pack}/`,
+  );
+  return skillsInInventory("skills/", true)
+    .filter((skill) => !legacyPackPrefixes.some((prefix) => skill.sourceDir === prefix.slice(0, -1)))
+    .map((skill) => ({
+      ...skill,
+      files: new Map(
+        [...skill.files].filter(([relative]) =>
+          !legacyPackPrefixes.some((prefix) => `${skill.sourceDir}/${relative}`.startsWith(prefix)),
+        ),
+      ),
+    }));
+}
+
+function packSkillInventory(pack: (typeof SPECIALIST_PACKS)[number]): SkillInventory[] {
+  const embedded = skillsInInventory(`packs/${pack}/`);
+  if (embedded.length > 0) return embedded;
+  const legacyPrefix = pack === "verify-tiers" ? "skills/ai-verify/tiers/" : `skills/ai-${pack}/`;
+  return skillsInInventory(legacyPrefix);
+}
+
+function installedSkillNames(home: string): string[] {
+  return readdirSync(join(home, "skills"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+function expectInventoryInstalled(home: string, skills: SkillInventory[]): void {
+  for (const skill of skills) {
+    for (const [relative, content] of skill.files) {
+      expect(readFileSync(join(home, "skills", skill.name, relative), "utf8")).toBe(content);
+    }
+  }
+}
+
+function expectPackNotInstalled(home: string, skill: SkillInventory): void {
+  expect(existsSync(join(home, "skills", skill.name))).toBe(false);
+  if (!skill.sourceDir.startsWith("skills/")) return;
+  const legacyDir = skill.sourceDir.slice("skills/".length);
+  for (const relative of skill.files.keys()) {
+    expect(existsSync(join(home, "skills", legacyDir, relative))).toBe(false);
+  }
+}
 
 function collectTemplateCommands(value: unknown, commands: Set<string>): void {
   if (Array.isArray(value)) {
@@ -852,6 +921,39 @@ describe("installCanon and what leaves with it", () => {
     expect(longLine.length).toBeLessThanOrEqual(202);
     expect(/[^\s]…$/.test(longLine)).toBe(true);
     expect(longLine.length).toBeLessThan(long.length);
+  });
+
+  test("installCanon defaults to core inventory and leaves every specialist pack out", () => {
+    const base = useHome("canon-core-only");
+    const core = coreSkillInventory();
+
+    installCanon("2.2.0");
+
+    expect(core.length).toBeGreaterThan(0);
+    expect(installedSkillNames(base)).toEqual(core.map((skill) => skill.name).sort());
+    expectInventoryInstalled(base, core);
+    for (const pack of SPECIALIST_PACKS) {
+      const packSkills = packSkillInventory(pack);
+      expect(packSkills.length).toBeGreaterThan(0);
+      for (const skill of packSkills) expectPackNotInstalled(base, skill);
+    }
+  });
+
+  test("installCanon adds only the explicitly selected pack to core", () => {
+    const base = useHome("canon-selected-pack");
+    const core = coreSkillInventory();
+    const selected = packSkillInventory("triage");
+    const unselected = SPECIALIST_PACKS.filter((pack) => pack !== "triage")
+      .flatMap(packSkillInventory);
+
+    installCanon("2.2.0", ["triage"]);
+
+    expect(core.length).toBeGreaterThan(0);
+    expect(selected.length).toBeGreaterThan(0);
+    expect(unselected.length).toBeGreaterThan(0);
+    expect(installedSkillNames(base)).toEqual([...core, ...selected].map((skill) => skill.name).sort());
+    expectInventoryInstalled(base, [...core, ...selected]);
+    for (const skill of unselected) expectPackNotInstalled(base, skill);
   });
 
   test("installCanon sweeps a page this binary no longer ships", () => {

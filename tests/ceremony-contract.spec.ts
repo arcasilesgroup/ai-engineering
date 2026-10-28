@@ -197,8 +197,17 @@ describe("ceremony contract — every piece ai-orchestrator cites exists and shi
     expect(orchestrator).not.toMatch(/worktree rebase|worktree new <slug> \[files\.\.\.\]/);
   });
 
-  test("every cited skill, agent, script, guard and template exists and ships", () => {
+  test("every cited skill, agent, script, guard and template exists and ships with packs off", () => {
     expect(ceremonyGaps(REPO, ENTRY_SKILL, canon)).toEqual([]);
+    const cited = ceremonyCitations(REPO, ENTRY_SKILL);
+    for (const skill of cited.skills) {
+      const source = readFileSync(join(REPO, "skills", skill, "SKILL.md"), "utf8");
+      expect(readFileSync(join(canon.skillsDir, skill, "SKILL.md"), "utf8")).toBe(source);
+    }
+    for (const agent of cited.agents) {
+      const source = readFileSync(join(REPO, "agents", `${agent}.md`), "utf8");
+      expect(readFileSync(join(canon.agentsDir, `${agent}.md`), "utf8")).toBe(source);
+    }
   });
 
   test("a skill citing pieces that do not exist, or are not embedded, fails the contract", () => {
