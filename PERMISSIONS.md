@@ -2,9 +2,11 @@
 
 Who can call what. This is the authorization spec: any change to access must update this file in the same commit, and the adversarial reviewer checks endpoints against it.
 
-The product exposes no server endpoints and runs no local server. Its Azure triage adapter permits only
-the outbound reads below, through the existing Azure CLI sign-in. Azure DevOps
-enforces the signed-in user's permissions; the adapter does not grant access.
+`ai-engineering` has no hosted API or product server. This table covers the
+outbound Azure DevOps reads made by the optional triage adapter through the
+existing Azure CLI sign-in. Azure DevOps enforces the signed-in user's
+permissions; the adapter does not grant access. The optional version notice
+separately reads package metadata and does not download install assets.
 
 | Azure DevOps REST read | Triage agent | Scope and permission boundary |
 |---|---|---|

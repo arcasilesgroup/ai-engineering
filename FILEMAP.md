@@ -8,7 +8,13 @@ DECISIONS.md                   Standing decisions (## D-NNN)
 CHANGELOG.md                   User-facing change log
 LEARNINGS.md                   Append-only failure log + promoted Rules
 FILEMAP.md                     This file
-PERMISSIONS.md                 Endpoint × role access matrix (n/a until the product has endpoints)
+PERMISSIONS.md                 Azure DevOps triage read routes and scope boundaries
+docs/
+  blueprint.html               Product design context and decisions
+  recap.html                   Product architecture and implemented behavior
+  global-carriers.md           Host carrier paths and their machine/repository scope
+.changeset/
+  <slug>.md                    Pending package version and release summary
 .ai-engineering/
   PRD.html                     Product scope, roles, business rules
   DESIGN.md                    Design system (created by /ai-design-md-planner)

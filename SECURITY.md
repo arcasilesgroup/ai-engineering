@@ -11,8 +11,8 @@ Do **not** open a public issue for exploitable findings.
 
 - Acknowledgement within 72 hours; triage verdict within 7 days.
 - The reporter validates the fix — the one who validates is never the one who found.
-- Please include: affected verb (`init`/`chain`/`git`/`spec`/…), reproduction
-  steps, and `ai-eng doctor` output where relevant.
+- Please include the affected command, hook or surface, reproduction steps, and
+  `ai-eng doctor` output where relevant.
 
 ## Supported versions
 
@@ -25,12 +25,18 @@ and unsupported.
 
 ## Scope
 
-- **Guard bypass (any of the five: no-verify, self-protect, injection, loop,
-  wrap)** — critical.
+- **Bypass of a protection guard** — critical. The five protection guards are
+  `self-protect`, `no-verify`, `policy`, `injection` and `loop`. The separate
+  `wrap` rewrite filters test output to reduce context use; it is not a
+  protection guard. The `spoken-secret` prompt guard denies likely credential
+  disclosures on surfaces that support prompt hooks.
+- **Checkpoint-gate bypass** that permits a workflow action before its required
+  approval or gate — high.
 - Lockfile/canon tampering that survives without a `doctor` FAIL — high.
 - Receipt forgery that survives `Receipt-Id` correlation — high.
-- Install payload fetched from the network by any verb — critical **by design**
-  it cannot exist; if you find a path that makes one, that is the report.
+- An `ai-eng` command that fetches install assets from the network — critical.
+  `init` and `update` materialize assets shipped in the installed package. The
+  optional version notice reads registry metadata only; it does not fetch assets.
 
 Out of scope: social engineering of human approvals, and vulnerabilities in
 the surfaces ai-engineering governs (Claude Code, OpenCode, …) — report those
@@ -40,9 +46,10 @@ upstream.
 
 - Overrides require `reason` + `until`; expired exceptions re-arm the guard.
 - gitleaks missing under a governed repo is a HARD FAIL, never silent degradation.
-- The `update` verb never touches the network; it reinstalls from the binary.
-- A contract is pinned by `spec approve`: the sha256 lands in `ai-eng.lock`,
-  and `spec close` refuses a spec whose sha256 differs (§9.3).
+- `update` reinstalls packaged assets locally. The optional registry notice is
+  separate from installation.
+- The checkpoint guard rejects workflow writes that violate the checkpoint
+  phase, approval or gate contract.
 - The chain dispatcher is fail-closed: any guard crash denies the tool call.
 
 ## Disclosure policy

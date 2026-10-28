@@ -1165,7 +1165,20 @@
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
       "status": "pending",
-      "changed_files": ["FILEMAP.md", "tests/docs-lint.spec.ts"]
+      "changed_files": [
+        ".changeset/calm-wolves-migrate.md",
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "FILEMAP.md",
+        "NOTICE.md",
+        "PERMISSIONS.md",
+        "README.md",
+        "SECURITY.md",
+        "docs/blueprint.html",
+        "docs/global-carriers.md",
+        "docs/recap.html",
+        "tests/docs-lint.spec.ts"
+      ]
     }
   ],
   "assumptions": [

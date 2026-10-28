@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### 3.0 migration guide (unreleased)
+
+The 3.0 major release removes the `workspace`, `briefing`, `upgrade` and `spec`
+CLI verbs and the `worktree rebase` subcommand. Use `ai-eng worktree new`,
+`list`, `merge` and `rm` for worktree operations; use the `ai-orchestrator`
+skill and `.ai-engineering/workflow/checkpoints/<slug>.json` for feature
+checkpoints; use native `git rebase <detected base>` when a feature needs
+synchronization. Upgrade the installed package with
+`bun add -g ai-engineering@latest`, then run `ai-eng update` to reconcile packaged assets.
+
+Checkpoint lifecycle data now uses `reviewed_base` instead of `reviewed_main`.
+The reader accepts the legacy field and normalizes it; new plans and writes use
+`reviewed_base`. Optional specialist packs are selected in `ai-eng init` and
+recorded under `[canon].packs` in `.ai-engineering/config.toml`.
+
+`init` and `update` leave their file changes for review; they do not commit.
+Only the explicitly approved worktree merge flow creates its reviewed merge
+commit, and the feature checkout remains available afterward. Verify the
+migrated installation with `ai-eng doctor`.
+
 - Worktree lifecycle awareness now reads pre-worktree approval from the exact fresh
   brainstorm artifact only when no local feature branch exists, without writing a
   second state store. Existing worktree checkpoints remain authoritative;
