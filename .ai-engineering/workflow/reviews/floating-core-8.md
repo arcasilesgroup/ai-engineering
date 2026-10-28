@@ -42,7 +42,7 @@
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
 
-## F1 · BLOCKER · fixed
+## F1 · BLOCKER · upheld
 **Where:** `src/shared-worktree.ts:813-824,1250-1255`; `skills/ai-orchestrator/SKILL.md:48,265`
 **Critic (r1):** `request-changes` only selects a live managed `feat/<slug>` worktree, and `findManagedWorktree` explicitly excludes the primary checkout. That makes the approved default-current-checkout flow (D1; the worktree is optional) unable to handle Phase 4's unconditional request-changes action: it refuses and cannot return the checkpoint to implementation. Support the selected current checkout with the same checkpoint-only CAS safeguards, or provide a working current-checkout transition in the ceremony.
 
@@ -50,8 +50,9 @@
 **ROOT CAUSE:** The selector accepted only the managed sibling path, excluding the primary checkout even when it held the exact feature branch.
 **FIX:** Accept the sole exact `feat/<slug>` entry when it is either the canonical current repository or the validated managed path; the existing checkpoint-only transaction and ref CAS remain unchanged.
 **LESSON:** Optional worktrees require lifecycle transitions to recognize the current checkout without weakening feature identity or SHA guards.
+**Critic (r2):** upheld — the added regression covers a current primary checkout on `feat/<slug>` only. The selector at `src/shared-worktree.ts:817` still infers `feat/${slug}`, so an allowed current checkout on an arbitrary branch such as `feature/pagos` still cannot request changes under D1. Resolve the checkpoint slug in the selected checkout without assuming a branch prefix, retaining the SHA and compare-and-swap guards.
 
-## F2 · MAJOR · fixed
+## F2 · MAJOR · resolved
 **Where:** `src/shared-worktree.ts:293-382,1244-1256`
 **Critic (r1):** `worktree new` accepts arbitrary slash-qualified branches (I42 creates `feature/pagos`), but `worktree rm` only finds `feat/<slug>` branches under the managed root. Thus a branch the CLI successfully creates cannot be removed through its lifecycle command, contrary to D1's “no feat/ required.” Make `rm` address the exact registered branch/path created by `new`, or constrain `new` consistently with the approved naming contract.
 
@@ -59,8 +60,9 @@
 **ROOT CAUSE:** Removal inferred `feat/<slug>` even though creation preserves arbitrary branch names.
 **FIX:** Search the raw branch and `feat/<slug>` candidates, accepting only the exact root-relative path each branch maps to; I42 now removes `feature/pagos` via `worktree rm feature/pagos`.
 **LESSON:** Create and remove must share the same branch-to-path contract, not one command's naming convention.
+**Critic (r2):** resolved — the arbitrary `feature/pagos` regression verifies the derived path and removes that exact registered branch; targeted lifecycle tests passed.
 
-## F3 · MAJOR · fixed
+## F3 · MAJOR · resolved
 **Where:** `src/shared-worktree.ts:343-382`
 **Critic (r1):** When a remote or configured base exists, `new` passes that base ref to `git worktree add`, not the current `HEAD`, despite CP8's creation contract. From a non-base feature checkout this silently omits that checkout's committed work from the new branch. Start from the invoking checkout's exact `HEAD` (and test from a non-base branch), or explicitly revise the checkpoint contract and ceremony wording.
 
@@ -68,8 +70,9 @@
 **ROOT CAUSE:** Worktree creation used the detected base ref as its start point, silently dropping commits on the current feature branch.
 **FIX:** Capture the current checkout's full `HEAD` SHA and pass that commit to `git worktree add`; a non-base real-Git regression proves ancestry and dirty brainstorm/PRD warnings remain.
 **LESSON:** A detected integration base is not a substitute for the caller's current commit.
+**Critic (r2):** resolved — the non-base checkout test verifies the new branch and worktree both start at the captured current `HEAD`; targeted lifecycle tests passed.
 
-## F4 · BLOCKER · fixed
+## F4 · BLOCKER · resolved
 **Where:** `src/shared-worktree.ts:1338-1352,1389-1397`
 **Critic (r1):** `rm` inventories ignored files but proceeds to `git worktree remove` without requiring an explicit destructive choice; ignored files such as local environment data are then irreversibly deleted, with the warning only printed afterward. This contradicts the safe-rm/no-data-loss focus and §6.6's ignored-file protection. Refuse when ignored content exists and preserve the worktree unless the person explicitly authorizes that deletion before it occurs.
 
@@ -77,3 +80,8 @@
 **ROOT CAUSE:** The scan only informed a post-removal report, so default removal silently destroyed ignored user files.
 **FIX:** Refuse when ignored files exist without `--force` and list the exact paths; fail closed when inspection is unreadable, and print the exact irreversible deletion warning before executing forced removal.
 **LESSON:** Inventory destructive data before every removal path and require an explicit, informed opt-in.
+**Critic (r2):** resolved — `rm` refuses and preserves ignored files by default, refuses unreadable scans even with `--force`, and warns before an explicitly forced deletion; targeted tests passed.
+
+## F5 · MAJOR · open (r2)
+**Where:** `skills/ai-orchestrator/SKILL.md:48`
+**Critic (r2):** The updated `worktree new` behavior starts from the current `HEAD`, as CP8 requires, but this ceremony line still says it creates from the detected base. That gives agents a materially incorrect source-ref expectation. Update it to say current `HEAD` is the start point and the detected base is retained for integration/upstream configuration.
