@@ -65,6 +65,18 @@ export function canonSkills(packs: readonly string[] = []): Map<string, string> 
   return out;
 }
 
+/** Existing canon files without a matching payload hash are not safe to replace:
+ *  unlike repo assets, the machine canon has no ownership lock. */
+export function changedCanonSkills(homeDir: string, packs: readonly string[] = []): string[] {
+  return [...canonSkills(packs)]
+    .filter(([path, ref]) => {
+      const installed = join(homeDir, path);
+      const embedded = embeddedPath(ref);
+      return existsSync(installed) && existsSync(embedded) && hashFile(installed) !== hashFile(embedded);
+    })
+    .map(([path]) => path);
+}
+
 export type CanonDrift = { verified: number; drift: number; missing: number; stale: number; foreign: number };
 
 /** Files sitting in the canon home that this binary does not ship. The line between
@@ -159,11 +171,16 @@ export function canonDrift(homeDir: string, packs: readonly string[] = []): Cano
 /** Materialize all embedded skills into a target directory. The embedded refs are
  *  absolute paths at runtime — Bun rewrites the import to the asset's real location,
  *  and in a compiled binary it is the virtualized copy inside the executable. */
-export function materializeSkills(destRoot: string, packs: readonly string[] = []): string[] {
+export function materializeSkills(
+  destRoot: string,
+  packs: readonly string[] = [],
+  preserve: readonly string[] = [],
+): string[] {
   const skills = new Map(embeddedUnder("skills/"));
   for (const pack of packs) {
     for (const [path, ref] of packSkills(pack)) skills.set(path, ref);
   }
+  for (const path of preserve) skills.delete(path);
   return materializePrefix("skills/", destRoot, skills);
 }
 

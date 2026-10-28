@@ -369,6 +369,48 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(readFileSync(localSkill, "utf8")).toBe("# mine\n");
   });
 
+  test("an edited selected canon skill survives update repair", async () => {
+    rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
+    const repo = governedRepo("repo-edited-canon-pack");
+    writeFileSync(
+      join(repo, ".ai-engineering", "config.toml"),
+      '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = ["triage"]\n',
+    );
+    process.chdir(repo);
+    await captured(() => updateMain({ yes: true }));
+
+    const skill = join(ENG_HOME, "skills", "ai-triage", "SKILL.md");
+    const localEdit = `${readFileSync(skill, "utf8")}\nLocal change.\n`;
+    writeFileSync(skill, localEdit);
+    await captured(() => updateMain({ yes: true }));
+
+    expect(readFileSync(skill, "utf8")).toBe(localEdit);
+  });
+
+  test("update preserves explicit empty and partial canon pack selections", async () => {
+    const selections: { name: string; selected: string[] }[] = [
+      { name: "empty", selected: [] },
+      { name: "partial", selected: ["triage"] },
+    ];
+    for (const { name, selected } of selections) {
+      rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
+      const repo = governedRepo(`repo-explicit-${name}-packs`);
+      writeFileSync(
+        join(repo, ".ai-engineering", "config.toml"),
+        `[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = [${selected.map((pack) => `"${pack}"`).join(", ")}]\n`,
+      );
+      process.chdir(repo);
+
+      const run = await captured(() => updateMain({ yes: true }));
+
+      expect(run.value).toBe(0);
+      expect(canonPacks(readFileSync(join(repo, ".ai-engineering", "config.toml"), "utf8"))).toEqual(selected);
+      for (const pack of OPTIONAL_PACKS) {
+        expect(existsSync(join(ENG_HOME, "skills", pack.skill, "SKILL.md"))).toBe(selected.includes(pack.id));
+      }
+    }
+  });
+
   test("update leaves HEAD unchanged, spawns no commit, and leaves global config untouched", async () => {
     const globalConfig = join(SANDBOX, "isolated-gitconfig-update");
     const globalConfigBefore = "[user]\n\tname = Isolated test\n";

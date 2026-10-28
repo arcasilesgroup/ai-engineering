@@ -1460,3 +1460,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Update the source/install paths and assert the selected pack payload in `tests/embed-canon.spec.ts`.
 - **Lesson:** Keep setup paths tied to the pack source and installed inventory.
 - **Tags:** review, docs, packs, paths, tests
+
+### L203 · 2026-10-28 · floating-core #13 · review
+- **Failure:** Update canon repair could overwrite a selected skill changed on the machine.
+- **Root cause:** The repair trusted installed canon files as disposable, but the repository lock does not record machine-side edits.
+- **Fix:** Preserve and report differing canon skills during update repair; add regression coverage for edits and explicit pack selections.
+- **Lesson:** Without a machine-side ownership hash, preserve differing canon files rather than treating them as disposable.
+- **Tags:** review, update, canon, data-loss, packs

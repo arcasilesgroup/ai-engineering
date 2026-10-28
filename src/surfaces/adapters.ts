@@ -172,10 +172,10 @@ export function mirrorTargets(): MirrorTarget[] {
  *
  *  The carriers are NOT here: they follow the declared surfaces, not the canon, and
  *  `installMachineCarriers()` owns them (§13.2). */
-export function installCanon(version: string, packs: readonly string[] = []): string[] {
+export function installCanon(version: string, packs: readonly string[] = [], preserveSkills: readonly string[] = []): string[] {
   const lines: string[] = [];
   const canonDir = join(home(), "skills");
-  materializeSkills(canonDir, packs);
+  materializeSkills(canonDir, packs, preserveSkills);
   const swept = removeStaleCanonFiles(home(), packs);
   if (swept.length > 0) lines.push(`✓ swept ${swept.length} file(s) this binary no longer ships: ${swept.join(", ")}`);
   const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));

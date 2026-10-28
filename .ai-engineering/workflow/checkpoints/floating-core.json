@@ -889,12 +889,21 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "F13-1 MAJOR: canon repair can overwrite locally edited selected skills; the lock hash does not protect this path.",
+            "F13-2 MINOR: update lacks integration coverage for explicit empty or partial pack selections."
+          ]
+        }
       },
       "status": "in_progress",
       "changed_files": [
         "src/commands/update.ts",
+        "src/embed.ts",
         "src/env.ts",
+        "src/surfaces/adapters.ts",
         "tests/update-command.spec.ts"
       ]
     },
