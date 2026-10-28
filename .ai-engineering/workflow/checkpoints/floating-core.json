@@ -748,7 +748,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 2, "findings": ["After CP11 review fixes `5ef1a336`, all 15 verify commands passed: targeted 179, arch 54; typecheck/lint, proof and grep passed. Full serial suite 1535 passed, 16 skipped, 0 failed (1551 total) in 209.51s."] },
+        "behavior": { "status": "passed", "attempts": 3, "findings": ["After brainstorm lane-route fix `31a216e5`, all 15 CP11 verify commands passed: targeted 180, typecheck/lint, no-main/feat grep, proof, and arch 54 passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 2, "findings": ["F1-F5 resolved: base-safe cleanup, lane-scoped brainstorm/Direct routing, PR branch publication, and short forge target normalization. New MAJOR skills/ai-brainstorm/SKILL.md:312: architecture approval routes to ai-orchestrator, contradicting Lifecycle Next ai-architect; align the route."] }
       },
