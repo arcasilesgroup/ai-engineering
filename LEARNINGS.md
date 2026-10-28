@@ -1327,3 +1327,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Canonicalize root and parent, check containment before/after creating parents, and test the escaped target.
 - **Lesson:** Verify canonical paths at filesystem boundaries with `relative` and platform `sep`, then revalidate after directory creation.
 - **Tags:** review, filesystem, paths
+
+### L184 · 2026-10-27 · floating-core #10 · behavior
+- **Failure:** Test hygiene reported env/cwd leakage after CP10 removed `tests/spec-command.spec.ts`.
+- **Root cause:** The hygiene check still enumerated a deleted test suite and failed before running child suites.
+- **Fix:** Replace the obsolete suite entry with active `tests/update-command.spec.ts`; keep the restoration assertion intact.
+- **Lesson:** Keep test-hygiene inputs aligned with the active suite set.
+- **Tags:** behavior, tests, hygiene

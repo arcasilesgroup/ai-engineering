@@ -95,7 +95,7 @@ describe("test hygiene — a sandboxed suite restores what it changed", () => {
     async () => {
       const suites = sandboxedSuites();
       // Premise: the derivation finds the suites this rule was written for.
-      for (const known of ["tests/uninstall-command.spec.ts", "tests/doctor-command.spec.ts", "tests/config-command.spec.ts", "tests/init-command.spec.ts", "tests/spec-command.spec.ts"]) {
+      for (const known of ["tests/uninstall-command.spec.ts", "tests/doctor-command.spec.ts", "tests/config-command.spec.ts", "tests/init-command.spec.ts", "tests/update-command.spec.ts"]) {
         expect(suites).toContain(known);
       }
       const outer = tempDir("ai-eng-hygiene-");
