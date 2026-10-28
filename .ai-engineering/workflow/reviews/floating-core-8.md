@@ -42,7 +42,7 @@
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
 
-## F1 · BLOCKER · fixed (r3)
+## F1 · BLOCKER · resolved
 **Where:** `src/shared-worktree.ts:813-824,1250-1255`; `skills/ai-orchestrator/SKILL.md:48,265`
 **Critic (r1):** `request-changes` only selects a live managed `feat/<slug>` worktree, and `findManagedWorktree` explicitly excludes the primary checkout. That makes the approved default-current-checkout flow (D1; the worktree is optional) unable to handle Phase 4's unconditional request-changes action: it refuses and cannot return the checkpoint to implementation. Support the selected current checkout with the same checkpoint-only CAS safeguards, or provide a working current-checkout transition in the ceremony.
 
@@ -55,6 +55,7 @@
 **ROOT CAUSE:** The source selector and ref checks inferred `feat/<slug>` instead of using the branch attached to the checkout holding that slug's checkpoint.
 **FIX:** Select the sole current or branch-derived managed checkout carrying the exact slug checkpoint, then use its Git-listed branch ref for all existing reviewed-SHA and compare-and-swap checks; a real Git worktree on `feature/<slug>` now transitions successfully.
 **LESSON:** Resolve lifecycle ownership from the exact checkpoint and Git checkout identity, not from a branch naming convention.
+**Critic (r2):** resolved — the selector uses the exact checkpoint path, accepts the primary checkout or exact managed path, then validates the Git-listed branch ref against the supplied full SHA; the arbitrary `feature/<slug>` test exercises the managed path.
 
 ## F2 · MAJOR · resolved
 **Where:** `src/shared-worktree.ts:293-382,1244-1256`
@@ -86,34 +87,46 @@
 **LESSON:** Inventory destructive data before every removal path and require an explicit, informed opt-in.
 **Critic (r2):** resolved — `rm` refuses and preserves ignored files by default, refuses unreadable scans even with `--force`, and warns before an explicitly forced deletion; targeted tests passed.
 
-## F5 · MAJOR · fixed (r3)
+## F5 · MAJOR · resolved
 **Where:** `skills/ai-orchestrator/SKILL.md:48`
 **Critic (r2):** The updated `worktree new` behavior starts from the current `HEAD`, as CP8 requires, but this ceremony line still says it creates from the detected base. That gives agents a materially incorrect source-ref expectation. Update it to say current `HEAD` is the start point and the detected base is retained for integration/upstream configuration.
 **Fixer (r3):** fixed — corrected only the source sentence; Phase 3 rebase and Phase 4 merge handoff remain unchanged; verify: `bun test tests/worktree-command.spec.ts tests/worktree-lifecycle.spec.ts tests/workflow-handoff.spec.ts tests/ceremony-contract.spec.ts`, `bun run typecheck`, `bun run lint`, `bun test tests/arch.spec.ts` ✓
 **ROOT CAUSE:** The ceremony sentence still described the pre-CP8 start ref after `worktree new` had changed to use current `HEAD`.
 **FIX:** State that creation starts at current `HEAD` and warns dirty brainstorm/PRD files do not travel; leave the detected-base rebase and merge handoff intact.
 **LESSON:** Keep source-ref documentation aligned with command behavior while distinguishing creation from integration.
+**Critic (r2):** resolved — the skill now says `worktree new` starts from current `HEAD` and warns dirty brainstorm/PRD files do not travel; Phase 3 still uses native `git rebase <detected base>`.
 
-## F6 · BLOCKER · fixed
+## F6 · BLOCKER · resolved
 **Where:** `src/shared-worktree.ts:359-386`
 **Critic (r1):** `worktreeNew` resolves `repo` to the primary checkout, then reads its dirty design slots and `HEAD` even when invoked from another Git-listed checkout. From a linked feature worktree with unique commits or dirty brainstorm/PRD files, it starts the new worktree from the wrong checkout and omits the required warning. Read source `HEAD` and dirty-slot status from the invoking checkout; keep the primary root only for registration and destination resolution, and test invocation from a diverged, dirty linked worktree.
 **Fixer (r2):** fixed — `worktree new` reads branch, status, and HEAD from the invoking checkout while retaining the primary root for shared refs and worktree registration; a real linked-worktree regression covers caller HEAD, branch, and dirty design preservation · verify: targeted tests 133 pass/0 fail, typecheck, lint, arch 31 pass ✓
 **ROOT CAUSE:** `worktreeNew` used the primary root for both shared Git metadata and checkout-specific branch/status/HEAD reads.
 **FIX:** Separate the invoking checkout from the primary root; derive source branch, status, dirty-slot warnings, and start SHA from the caller, while retaining primary-root destination and registration behavior.
 **LESSON:** Shared repository metadata may use the primary checkout, but source state must come from the checkout that invoked the command.
+**Critic (r2):** resolved — source branch, status, and HEAD now come from the invoking linked checkout, and the added real-worktree regression verifies its diverged HEAD and dirty design slots are preserved and reported.
 
-## F7 · MAJOR · fixed
+## F7 · MAJOR · resolved
 **Where:** `skills/ai-orchestrator/SKILL.md:46,265-268,285`
 **Critic (r1):** The ceremony still says changes are committed on `feat/<slug>`, tells Phase 4 request-changes to run from the primary checkout, and claims the command accepts only a managed `feat/<slug>` worktree. The implementation now resolves the exact checkpoint and Git-listed branch ref, including the current checkout and arbitrary branch names; this stale guidance contradicts D1 and can route request-changes to a rejected checkout. Describe exact-checkpoint/current-or-managed checkout selection without assuming `feat/`, and align the branch wording.
 **Fixer (r2):** fixed — updated the request-changes procedure to resolve the exact Git-listed checkpoint checkout and actual branch ref, and made branch wording convention-neutral · verify: targeted tests 133 pass/0 fail ✓
 **ROOT CAUSE:** The ceremony retained managed-`feat/<slug>` and primary-checkout assumptions after lifecycle selection became checkpoint- and ref-based.
 **FIX:** Document the exact current-or-managed checkout, pending checkpoint SHA, and actual branch-ref checks; describe commits and stop behavior on the selected branch without a naming convention.
 **LESSON:** Ceremony guidance must name the same exact checkout and ref that the command validates, not infer either from a branch prefix.
+**Critic (r2):** resolved — the skill now records the exact checkpoint-bearing checkout and its actual branch ref, allows any branch name, and no longer requires `feat/<slug>` or a primary-checkout-only invocation.
 
-## F8 · MAJOR · fixed
+## F8 · MAJOR · resolved
 **Where:** `skills/ai-orchestrator/SKILL.md:278-283`
 **Critic (r1):** After app approval, Phase 4 unconditionally invokes local `ai-eng worktree merge <slug>`; it offers neither `/ai-pr` nor keeping the branch, and never gives the D9 recommendation (PR with a forge remote, local merge otherwise). Preserve the `worktree merge` handoff for the local-merge choice, but expose the approved closure choices and recommendation.
 **Fixer (r2):** fixed — Phase 4 recommends PR with a forge remote and local merge otherwise, then offers PR, local merge, or keep-branch choices; the local merge transaction remains `ai-eng worktree merge <slug>` · verify: targeted tests 133 pass/0 fail ✓
 **ROOT CAUSE:** App-review approval was treated as unconditional consent to the local merge transaction.
 **FIX:** Expose the D9 route recommendation and human choice; reserve the existing merge handoff for the explicit local-merge choice and leave PR/keep-branch routes unmerged locally.
 **LESSON:** App approval and integration route are separate decisions; preserve the human's choice after approval.
+**Critic (r2):** resolved — Phase 4 now recommends PR with a forge remote and local merge otherwise, offers PR/local-merge/keep-branch, and retains `ai-eng worktree merge <slug>` only for the local-merge choice.
+
+## F9 · MAJOR · open (r2)
+**Where:** `src/shared-worktree.ts:819-828,1252-1266`
+**Critic (r2):** `request-changes` still rejects a Git-listed native-harness worktree outside the configured managed root: it accepts the primary path, then requires every other candidate to satisfy `findManagedWorktree`. D1 prefers native harness worktrees, and the updated Phase 4 guidance says to resolve the current checkout. Allow the unique exact-checkpoint Git-listed checkout (retaining branch-ref, SHA, and CAS checks), and cover a native worktree outside the managed root.
+
+## F10 · MINOR · open (r2)
+**Where:** `src/shared-worktree.ts:296,360-376`
+**Critic (r2):** `source` is `process.cwd()`, not the caller checkout's root. When `worktree new` runs from a nested directory such as `src/`, Git status is scoped there and does not report root-level `.ai-engineering/brainstorm.html` or `PRD.html`; the path matcher therefore misses those dirty slots and omits the required warning. Resolve the invoking checkout root before scanning and test from a nested directory.
