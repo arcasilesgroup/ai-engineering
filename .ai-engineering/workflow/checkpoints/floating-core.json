@@ -564,7 +564,7 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 1, "findings": ["All 13 CP9 verify commands passed: worktree-command 103 (16 skipped), lifecycle 17, ceremony 4, skills 26, workflow-handoff 9, cleanup 11, git-context 30, checkpoint 10, arch 31; typecheck/lint and source scan passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
+        "behavior": { "status": "passed", "attempts": 2, "findings": ["After symlink containment fix `3e45c398`, all 13 CP9 verify commands passed: worktree-command 104 (16 skipped), lifecycle 17, ceremony 4, skills 26, handoff 9, cleanup 11, git-context 30, checkpoint 10, arch 31; typecheck/lint and source scan passed. Full serial suite exit 0 (runner output omitted count and duration)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "failed", "attempts": 1, "findings": ["MAJOR src/shared-worktree.ts:318,390-391: a symlinked branch-path component can redirect worktree creation outside the configured root, where rm cannot find it. Canonicalize/contain the target parent under the worktree root or reject symlinked components."] }
       },
