@@ -883,8 +883,7 @@
         "bun run build",
         "bun run typecheck",
         "bun run lint",
-        "bun test tests/arch.spec.ts",
-        "bun test --parallel=1"
+        "bun test tests/arch.spec.ts"
       ],
       "ui": null,
       "gates": {
@@ -1002,8 +1001,7 @@
         "bun test tests/generated-payload.test.ts",
         "bun run typecheck",
         "bun run lint",
-        "bun test tests/arch.spec.ts",
-        "bun test --parallel=1"
+        "bun test tests/arch.spec.ts"
       ],
       "ui": null,
       "gates": {
@@ -1060,9 +1058,7 @@
         "bun run build",
         "bun run typecheck",
         "bun run lint",
-        "bun test tests/arch.spec.ts",
-        "bun test --parallel=1",
-        "bun test --parallel=1"
+        "bun test tests/arch.spec.ts"
       ],
       "ui": null,
       "gates": {
