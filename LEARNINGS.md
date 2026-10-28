@@ -1453,3 +1453,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Use legacy packs only when the governed config omits the key; preserve an explicit empty selection.
 - **Lesson:** Keep absent and explicitly empty configuration values distinct across readers.
 - **Tags:** behavior, doctor, config, packs, recovery
+
+### L202 · 2026-10-28 · floating-core #12 · review
+- **Failure:** The verify setup guide still referenced `skills/ai-verify/tiers/` after those tools moved into the optional pack.
+- **Root cause:** The guide hard-coded the retired core path instead of following the pack source and installed inventory.
+- **Fix:** Update the source/install paths and assert the selected pack payload in `tests/embed-canon.spec.ts`.
+- **Lesson:** Keep setup paths tied to the pack source and installed inventory.
+- **Tags:** review, docs, packs, paths, tests

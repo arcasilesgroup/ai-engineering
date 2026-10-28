@@ -838,12 +838,16 @@
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 2,
+          "findings": ["Round 1 F1 (MAJOR) was resolved in the setup guide and embed-path test; round 2 found no remaining blocker or major."]
+        }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": [
         ".snyk", "FILEMAP.md", "package.json", "scripts/gen-assets.ts", "scripts/.embed/",
-        "skills/ai-code-review/SKILL.md", "skills/ai-audit-design/", "skills/ai-design-md-planner/", "skills/ai-stress-test/", "skills/ai-triage/", "skills/ai-verify/SKILL.md", "skills/ai-verify/evals/", "skills/ai-verify/tiers/", "skills/ai-visual-recap/", "skills/ai-writing-behavior/", "packs/",
+        "skills/ai-code-review/SKILL.md", "skills/ai-audit-design/", "skills/ai-design-md-planner/", "skills/ai-stress-test/", "skills/ai-triage/", "skills/ai-verify/SKILL.md", "skills/ai-verify/VERIFICATION-SETUP-GUIDE.md", "skills/ai-verify/evals/", "skills/ai-verify/tiers/", "skills/ai-visual-recap/", "skills/ai-writing-behavior/", "packs/",
         "src/assets.ts", "src/commands/config.ts", "src/commands/doctor.ts", "src/commands/init-shared.ts", "src/commands/init.ts", "src/commands/uninstall.ts", "src/embed.ts", "src/env.ts", "src/surfaces/adapters.ts", "templates/config.toml.tpl",
         "tests/carriers-install.spec.ts", "tests/ceremony-contract.spec.ts", "tests/embed-canon.spec.ts", "tests/fixtures/triage-azure-signals-preview.mjs", "tests/generated-payload.test.ts", "tests/init-command.spec.ts", "tests/npm-manifest.spec.ts", "tests/skills-eval-score.spec.ts", "tests/skills.spec.ts", "tests/triage-azure-signals.integration.spec.ts", "tests/triage-azure-signals.unit.spec.ts", "tests/triage-azure.integration.spec.ts", "tests/triage-azure.unit.spec.ts", "tests/triage-github.spec.ts", "tests/triage-report.integration.spec.ts", "tests/triage-report.unit.spec.ts", "tests/triage-routing.integration.spec.ts", "tests/triage-routing.unit.spec.ts", "tests/uninstall-command.spec.ts"
       ]

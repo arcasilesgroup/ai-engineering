@@ -79,6 +79,28 @@ describe("the embedded payload", () => {
     }
   });
 
+  test("verify setup guide paths exist in the source pack and selected install payload", () => {
+    const selectedCanon = canonSkills(["verify-tiers"]);
+    const guideRef = selectedCanon.get("skills/ai-verify/VERIFICATION-SETUP-GUIDE.md");
+    if (guideRef === undefined) throw new Error("selected verify-tiers payload is missing the setup guide");
+    const guide = readFileSync(embeddedPath(guideRef), "utf8");
+    const packSource = embeddedUnder("packs/verify-tiers/");
+    const sourceSkillPath = /^VERIFY=\/path\/to\/(skills\/[^\s]+)$/m.exec(guide)?.[1];
+    if (sourceSkillPath === undefined) throw new Error("guide is missing the selected skill source path");
+    expect(selectedCanon.has(`${sourceSkillPath}/SKILL.md`)).toBe(true);
+    expect(guide).toContain('cp -R "$VERIFY" "$SKILLS/"');
+    const references = [...guide.matchAll(/`((?:packs\/verify-tiers|skills)\/[^`]+)`/g)]
+      .map(([, path]) => path)
+      .filter((path): path is string => path !== undefined);
+
+    expect(references.length).toBeGreaterThan(0);
+    for (const path of references) {
+      const assets = path.startsWith("packs/") ? packSource : selectedCanon;
+      const prefix = path.endsWith("/") ? path : `${path}/`;
+      expect([...assets.keys()].some((asset) => asset === path || asset.startsWith(prefix))).toBe(true);
+    }
+  });
+
   test("the canon proper is the payload minus the dot-entries that are plugin payload, not skills", () => {
     const everyEmbeddedSkillPath = embeddedUnder("skills/");
     const canon = canonSkills();
