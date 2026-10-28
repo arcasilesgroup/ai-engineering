@@ -1418,3 +1418,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Resolve HEAD's local branch ref dynamically and revalidate the tip at both review entry and approval.
 - **Lesson:** Validate reviewed SHAs against the selected Git ref; do not infer branch identity from slugs.
 - **Tags:** review, git, lifecycle
+
+### L197 · 2026-10-28 · floating-core #12 · behavior
+- **Failure:** The serial Gate 1 suite exited 1, but its runner summary omitted the failing test; the first diagnostic rerun could not reproduce it.
+- **Root cause:** The diagnostic set `TMPDIR` inside the worktree, causing the environment guard to reject the repo-local `AI_ENG_HOME`; the original failure remains undiagnosed.
+- **Fix:** No source change; reproduce with the default environment and capture the first failing test before choosing a fix.
+- **Lesson:** Do not set `TMPDIR` inside the repository when diagnosing tests; the environment guard treats the resulting home path as repo-local.
+- **Tags:** behavior, tests, bun, environment

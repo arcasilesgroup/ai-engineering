@@ -835,7 +835,11 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": ["The serial suite `bun test --parallel=1` exited 1 in Gate 1; the runner summary omitted the failing test and cause. Fix attempt 1 did not reproduce: its repo-local TMPDIR triggered the environment guard, so the original failure remains unresolved."]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
