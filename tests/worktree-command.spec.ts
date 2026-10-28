@@ -1503,6 +1503,75 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
     expect(worktreeEntries(repo)).toEqual(worktreesBefore);
   });
 
+  test("request-changes finds an exact checkpoint on an arbitrary managed branch", () => {
+    const repo = tempRepo();
+    const slug = "arbitrary-branch-review";
+    const branch = `feature/${slug}`;
+    configureDetectedBase(repo, "main");
+    const reviewedBase = git(["rev-parse", "refs/heads/main"], repo).trim();
+    git(["checkout", "-q", "-b", "feature/current-head"], repo);
+    commitRebaseFixtureFile(repo, "src/current-head.ts", "current checkout\n", "current checkout");
+    const created = runCli(["worktree", "new", branch], repo);
+    if (created.status !== 0) throw new Error(created.stderr);
+    const feature = join(defaultRoot(repo), branch);
+    expect(git(["symbolic-ref", "--short", "HEAD"], feature).trim()).toBe(branch);
+    const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    const checkpoint = writeCanonicalCheckpoint(feature, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    git(["add", checkpointPath], feature);
+    git(["commit", "-q", "-m", "approved implementation plan"], feature);
+    const reviewedFeature = commitRebaseFixtureFile(feature, "src/approved.ts", "approved\n", "approved feature");
+    writeCanonicalCheckpoint(feature, slug, {
+      phase: "awaiting-app-review",
+      plan_approval: "approved",
+      app_review: "pending",
+      base_ref: "refs/heads/main",
+      reviewed_base: reviewedBase,
+      reviewed_feature: reviewedFeature,
+    });
+    git(["add", checkpointPath], feature);
+    git(["commit", "-q", "-m", "await app review"], feature);
+    const pendingCommit = git(["rev-parse", "HEAD"], feature).trim();
+    expect(reviewedFeature).not.toBe(pendingCommit);
+    expect(git(["rev-parse", `refs/heads/${branch}`], repo).trim()).toBe(pendingCommit);
+    const worktreesBefore = worktreeEntries(repo);
+    const pendingState = fullRepoSnapshot(repo, [repo, feature], [checkpoint]);
+
+    const stale = runCli(["worktree", "request-changes", slug, reviewedFeature], repo);
+    expect(stale.status).toBe(1);
+    expect(stale.stderr).toContain("stale checkpoint");
+    expect(fullRepoSnapshot(repo, [repo, feature], [checkpoint])).toBe(pendingState);
+
+    const requested = runCli(["worktree", "request-changes", slug, pendingCommit], repo);
+
+    if (requested.status !== 0) throw new Error(requested.stderr);
+    expect(requested.stdout).toContain("→ implementation");
+    const transitionCommit = git(["rev-parse", "HEAD"], feature).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", transitionCommit], feature).trim())
+      .toBe(`${transitionCommit} ${pendingCommit}`);
+    expect(git(
+      ["diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", transitionCommit],
+      feature,
+    ).trim()).toBe(checkpointPath);
+    expect(git(["rev-parse", `refs/heads/${branch}`], repo).trim()).toBe(transitionCommit);
+    expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle).toMatchObject({
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
+    expect(worktreeEntries(repo)).toEqual(worktreesBefore);
+  });
+
   test("request-changes and ready listing validate canonical develop checkpoint history", () => {
     const repo = tempRepo();
     const slug = "develop-review-chain";

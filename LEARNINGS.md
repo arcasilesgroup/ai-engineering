@@ -1229,3 +1229,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Refuse by default, fail closed on unreadable scans, and warn before forced deletion.
 - **Lesson:** Inspect and explain loss before removal.
 - **Tags:** review, data-loss, worktree
+
+### L170 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `request-changes` could not transition a feature on an arbitrary branch name.
+- **Root cause:** Source and ref resolution assumed the `feat/<slug>` naming convention.
+- **Fix:** Resolve the exact checkpoint in the Git-listed/current checkout and use its registered branch ref.
+- **Lesson:** Identify lifecycle ownership by checkpoint and checkout, not branch naming.
+- **Tags:** review, git, lifecycle
+
+### L171 · 2026-10-27 · floating-core #8 · review
+- **Failure:** The worktree skill described creation from the detected integration base instead of current HEAD.
+- **Root cause:** The documentation was not updated with the CP8 creation contract.
+- **Fix:** Document current HEAD and the dirty brainstorm/PRD warning, preserving Phase 3 rebase and Phase 4 merge.
+- **Lesson:** Keep command guidance aligned with behavior.
+- **Tags:** review, docs, worktree

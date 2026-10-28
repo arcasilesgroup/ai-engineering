@@ -814,27 +814,29 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   if ("detail" in listed) {
     return { code: 2, out: "", err: `worktree request-changes: the worktree list is unreadable (${listed.detail}).\n` };
   }
-  const matching = listed.worktrees.filter((entry) => entry.branch === `feat/${slug}`);
+  const checkpointRelative = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+  const matching = listed.worktrees.filter((candidate) => {
+    if (
+      candidate.branch === undefined ||
+      !existsSync(candidate.path) ||
+      !existsSync(join(candidate.path, checkpointRelative))
+    ) return false;
+    const path = canonicalize(candidate.path);
+    if (path === canonicalize(repo)) return true;
+    const managed = findManagedWorktree(repo, root, slug, listed.worktrees, candidate.branch);
+    return managed !== null && canonicalize(managed.path) === path;
+  });
   const entry = matching.length === 1 ? matching[0] : undefined;
-  const isCurrentFeatureCheckout = entry !== undefined && canonicalize(entry.path) === canonicalize(repo);
-  const isManagedFeatureWorktree =
-    entry !== undefined &&
-    canonicalize(entry.path) === canonicalize(join(root, slug)) &&
-    findManagedWorktree(repo, root, slug, listed.worktrees) !== null;
-  if (
-    matching.length !== 1 ||
-    entry === undefined ||
-    (!isCurrentFeatureCheckout && !isManagedFeatureWorktree) ||
-    !existsSync(entry.path)
-  ) {
+  if (entry === undefined || entry.branch === undefined) {
     return {
       code: 1,
       out: "",
-      err: `worktree request-changes: no exact live feat/${slug} checkout in the current repository or managed worktrees; preserve the review state.\n`,
+      err: `worktree request-changes: no exact live checkout for ${slug} in the current repository or managed worktrees; preserve the review state.\n`,
     };
   }
 
-  const branch = `refs/heads/feat/${slug}`;
+  const branchName = entry.branch;
+  const branch = `refs/heads/${branchName}`;
   let baseRef: string;
   try {
     const detectedBase = resolveContext(entry.path).base;
@@ -858,7 +860,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
       out: "",
       err:
         `worktree request-changes: stale checkpoint; expected ${expectedCheckpointCommit}, ` +
-        `but the current feat/${slug} tip is ${head ?? "unreadable"}. Return to app review; no files were changed.\n`,
+        `but the current ${printable(branchName)} tip is ${head ?? "unreadable"}. Return to app review; no files were changed.\n`,
     };
   }
 
@@ -868,7 +870,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     checkedOutBranch.stderr.trim() !== "" ||
     checkedOutBranch.stdout.trim() !== branch
   ) {
-    return { code: 1, out: "", err: `worktree request-changes: ${entry.path} is not checked out on feat/${slug}.\n` };
+    return { code: 1, out: "", err: `worktree request-changes: ${entry.path} is not checked out on ${printable(branchName)}.\n` };
   }
   const status = worktreeStatus(entry.path);
   if (status.detail !== undefined || status.paths.length > 0) {
@@ -876,7 +878,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
       code: 1,
       out: "",
       err:
-        `worktree request-changes: feat/${slug} is not clean` +
+        `worktree request-changes: ${printable(branchName)} is not clean` +
         `${status.detail ? ` (${printable(status.detail)})` : ` (${status.paths.map(displayPath).join(", ")})`}; ` +
         "preserve the review state and return to app review.\n",
     };
@@ -887,8 +889,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     return { code: 1, out: "", err: `worktree request-changes: ${printable(detail)}; preserve the review state.\n` };
   }
 
-  const checkpointPath = join(entry.path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
-  const checkpointRelative = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+  const checkpointPath = join(entry.path, checkpointRelative);
   let checkpointContents: string;
   let checkpoint: Checkpoint;
   try {
@@ -1133,7 +1134,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
       code: 1,
       out: "",
       err:
-        `worktree request-changes: compare-and-swap lost; feat/${slug} no longer points to ` +
+        `worktree request-changes: compare-and-swap lost; ${printable(branchName)} no longer points to ` +
         `${expectedCheckpointCommit}. Return to app review; ${cleanup ? `${cleanup}.` : "the feature worktree is unchanged"}\n`,
     };
   }

@@ -42,7 +42,7 @@
 - `bun test tests/arch.spec.ts`
 - `bun test --parallel=1`
 
-## F1 · BLOCKER · upheld
+## F1 · BLOCKER · fixed (r3)
 **Where:** `src/shared-worktree.ts:813-824,1250-1255`; `skills/ai-orchestrator/SKILL.md:48,265`
 **Critic (r1):** `request-changes` only selects a live managed `feat/<slug>` worktree, and `findManagedWorktree` explicitly excludes the primary checkout. That makes the approved default-current-checkout flow (D1; the worktree is optional) unable to handle Phase 4's unconditional request-changes action: it refuses and cannot return the checkpoint to implementation. Support the selected current checkout with the same checkpoint-only CAS safeguards, or provide a working current-checkout transition in the ceremony.
 
@@ -51,6 +51,10 @@
 **FIX:** Accept the sole exact `feat/<slug>` entry when it is either the canonical current repository or the validated managed path; the existing checkpoint-only transaction and ref CAS remain unchanged.
 **LESSON:** Optional worktrees require lifecycle transitions to recognize the current checkout without weakening feature identity or SHA guards.
 **Critic (r2):** upheld — the added regression covers a current primary checkout on `feat/<slug>` only. The selector at `src/shared-worktree.ts:817` still infers `feat/${slug}`, so an allowed current checkout on an arbitrary branch such as `feature/pagos` still cannot request changes under D1. Resolve the checkpoint slug in the selected checkout without assuming a branch prefix, retaining the SHA and compare-and-swap guards.
+**Fixer (r3):** fixed — resolve the exact checkpoint in the Git-listed current or managed checkout and use its registered branch ref for the preserved SHA/CAS guards; verify: `bun test tests/worktree-command.spec.ts tests/worktree-lifecycle.spec.ts tests/workflow-handoff.spec.ts tests/ceremony-contract.spec.ts`, `bun run typecheck`, `bun run lint`, `bun test tests/arch.spec.ts` ✓
+**ROOT CAUSE:** The source selector and ref checks inferred `feat/<slug>` instead of using the branch attached to the checkout holding that slug's checkpoint.
+**FIX:** Select the sole current or branch-derived managed checkout carrying the exact slug checkpoint, then use its Git-listed branch ref for all existing reviewed-SHA and compare-and-swap checks; a real Git worktree on `feature/<slug>` now transitions successfully.
+**LESSON:** Resolve lifecycle ownership from the exact checkpoint and Git checkout identity, not from a branch naming convention.
 
 ## F2 · MAJOR · resolved
 **Where:** `src/shared-worktree.ts:293-382,1244-1256`
@@ -82,6 +86,10 @@
 **LESSON:** Inventory destructive data before every removal path and require an explicit, informed opt-in.
 **Critic (r2):** resolved — `rm` refuses and preserves ignored files by default, refuses unreadable scans even with `--force`, and warns before an explicitly forced deletion; targeted tests passed.
 
-## F5 · MAJOR · open (r2)
+## F5 · MAJOR · fixed (r3)
 **Where:** `skills/ai-orchestrator/SKILL.md:48`
 **Critic (r2):** The updated `worktree new` behavior starts from the current `HEAD`, as CP8 requires, but this ceremony line still says it creates from the detected base. That gives agents a materially incorrect source-ref expectation. Update it to say current `HEAD` is the start point and the detected base is retained for integration/upstream configuration.
+**Fixer (r3):** fixed — corrected only the source sentence; Phase 3 rebase and Phase 4 merge handoff remain unchanged; verify: `bun test tests/worktree-command.spec.ts tests/worktree-lifecycle.spec.ts tests/workflow-handoff.spec.ts tests/ceremony-contract.spec.ts`, `bun run typecheck`, `bun run lint`, `bun test tests/arch.spec.ts` ✓
+**ROOT CAUSE:** The ceremony sentence still described the pre-CP8 start ref after `worktree new` had changed to use current `HEAD`.
+**FIX:** State that creation starts at current `HEAD` and warns dirty brainstorm/PRD files do not travel; leave the detected-base rebase and merge handoff intact.
+**LESSON:** Keep source-ref documentation aligned with command behavior while distinguishing creation from integration.
