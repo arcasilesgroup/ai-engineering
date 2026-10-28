@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { delimiter, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -34,9 +34,9 @@ function tokenLine(output: string, label: string): number {
 
 function runAiEng(
   args: string[],
-  options: { cwd?: string; env?: NodeJS.ProcessEnv; input?: string } = {},
+  options: { cwd?: string; env?: NodeJS.ProcessEnv; input?: string; useSource?: boolean } = {},
 ): { status: number | null; stdout: string; stderr: string } {
-  const result = spawnSync(process.execPath, [BIN, ...args], {
+  const result = spawnSync(process.execPath, [options.useSource ? join(ROOT, "src", "cli.ts") : BIN, ...args], {
     cwd: options.cwd ?? ROOT,
     env: options.env ?? BASE_ENV,
     input: options.input,
@@ -116,6 +116,28 @@ describe("token budgets", () => {
       rmSync(`${index.path}.lock`, { force: true });
       rmSync(message, { force: true });
       rmSync(shim, { force: true });
+    }
+  });
+
+  test("a successful commit-msg with an active override prints no lines", () => {
+    const repo = join(import.meta.dir, `.token-budget-override-${randomUUID()}`);
+    const configDir = join(repo, ".ai-engineering");
+    const message = join(repo, "COMMIT_EDITMSG");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(join(configDir, "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+    writeFileSync(
+      join(configDir, "overrides.toml"),
+      '[[guard.off]]\nname = "floor"\nreason = "freeze exception"\nuntil = "2999-01-01"\n',
+    );
+    writeFileSync(message, "chore: commit during freeze\n");
+    try {
+      const commitMsg = runAiEng(["git", "commit-msg", message], { cwd: repo, useSource: true });
+
+      expect(commitMsg.status).toBe(0);
+      expect(outputLineCount(commitMsg)).toBe(0);
+      expect(readFileSync(message, "utf8")).toContain("Override-Reason: freeze exception");
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
     }
   });
 

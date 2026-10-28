@@ -7,9 +7,9 @@ import { createHash } from "node:crypto";
 import { writeReceipt } from "../receipts.ts";
 import { readOverrides, overrideActive } from "../chain/dialect.ts";
 
-function writeHookOutput(lines: string[]): void {
-  if (lines.length === 0) return;
-  const output = lines.join("\n").replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+function writeHookOutput(result: { ok: boolean; lines: string[] }): void {
+  if (result.ok || result.lines.length === 0) return;
+  const output = result.lines.join("\n").replace(/\r\n?/g, "\n").replace(/\n+$/, "");
   const outputLines = output.split("\n");
   const limitedLines = outputLines.length <= 3
     ? outputLines
@@ -35,10 +35,13 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
       outcome: result.ok ? "allow" : "deny",
     });
     if (!result.ok) {
-      writeHookOutput([...result.lines, "[git floor] pre-commit: BLOCKED — what the hooks would say is what needs fixing."]);
+      writeHookOutput({
+        ...result,
+        lines: [...result.lines, "[git floor] pre-commit: BLOCKED — what the hooks would say is what needs fixing."],
+      });
       return 1;
     }
-    writeHookOutput(result.lines);
+    writeHookOutput(result);
     return 0;
   }
   if (hook === "commit-msg") {
@@ -50,12 +53,12 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
     const active = overrides.find((o) => overrideActive(overrides, o.name) !== null) ?? null;
     const id = createHash("sha256").update(`${new Date().toISOString()}:floor`).digest("hex").slice(0, 8);
     const result = commitMsg(msgFile, id, active?.reason ?? null);
-    writeHookOutput(result.lines);
+    writeHookOutput(result);
     return result.ok ? 0 : 1;
   }
   if (hook === "pre-push") {
     const result = prePush(root);
-    writeHookOutput(result.lines);
+    writeHookOutput(result);
     return result.ok ? 0 : 1;
   }
   process.stderr.write("usage: ai-eng git pre-commit|commit-msg|pre-push\n");

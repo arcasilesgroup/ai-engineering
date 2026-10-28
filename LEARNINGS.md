@@ -1495,3 +1495,11 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Assert the standard-lane handoff boundary and compare repaired content to the shipped payload while preserving local edits.
 - **Lesson:** Test workflow links at the handoff boundary and verify repaired payloads exactly.
 - **Tags:** review, tests, workflow, canon, packs
+
+### L208 · 2026-10-28 · floating-core #16 · review
+- **Failure:** A successful `commit-msg` with an active override printed a notice despite the zero-line green-hook contract.
+- **Root cause:** The shared hook writer emitted every result's lines without checking whether the hook had succeeded.
+- **Fix:** Suppress output for successful hook results while retaining denial lines and exit behavior; cover the active-override hook path.
+- **Lesson:** Gate shared hook output on result status, while keeping success metadata in the commit and denial reasons visible.
+- **Proof:** `bun test ./tests/token-budget.spec.ts` — 6 pass, 0 fail, 37 assertions.
+- **Tags:** review, hooks, overrides, output, tests

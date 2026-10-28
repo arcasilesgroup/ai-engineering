@@ -523,7 +523,7 @@ describe("floor — the dispatcher the shims exec into", () => {
     }
 
     expect(code).toBe(0);
-    expect(err.text()).toContain("active override travels in the commit: sealed build window");
+    expect(err.text()).toBe("");
     expect(readFileSync(msg, "utf8")).toContain("Override-Reason: sealed build window");
   });
 

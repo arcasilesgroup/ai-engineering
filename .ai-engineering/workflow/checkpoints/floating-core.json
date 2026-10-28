@@ -1076,7 +1076,11 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": ["F1 MAJOR: successful `commit-msg` with an active override still prints a notice, violating the zero-line green-hook acceptance."]
+        }
       },
       "status": "in_progress",
       "changed_files": [
@@ -1101,6 +1105,7 @@
         "src/chain/dialect.ts",
         "src/floor/entry.ts",
         "src/floor/index.ts",
+        "tests/floor-hooks.spec.ts",
         "templates/AGENTS.md.tpl",
         "tests/token-budget.spec.ts"
       ]
