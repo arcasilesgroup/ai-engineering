@@ -68,3 +68,7 @@ LESSON: Gate shared hook output on result status; keep success metadata in the c
 FILES: `src/floor/entry.ts`, `tests/token-budget.spec.ts`, `tests/floor-hooks.spec.ts`, `LEARNINGS.md`, `.ai-engineering/workflow/checkpoints/floating-core.json`, `.ai-engineering/workflow/reviews/floating-core-16.md`
 
 PROOF: The regression failed before the fix with 1 output line. `bun test ./tests/token-budget.spec.ts` passes: 6 tests, 37 assertions.
+
+## Round 2 verdict
+
+**Verdict:** PASS — F1 resolved; successful active-override commit-msg is silent and retains the `Override-Reason` trailer. No blocker or major remains.

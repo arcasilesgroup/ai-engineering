@@ -1077,12 +1077,12 @@
         "behavior": { "status": "passed", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "failed",
-          "attempts": 1,
-          "findings": ["F1 MAJOR: successful `commit-msg` with an active override still prints a notice, violating the zero-line green-hook acceptance."]
+          "status": "passed",
+          "attempts": 2,
+          "findings": ["F1 MAJOR resolved: successful commit-msg with active override is silent; trailer, deny reason and exit code remain."]
         }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": [
         "AGENTS.md",
         "FILEMAP.md",
