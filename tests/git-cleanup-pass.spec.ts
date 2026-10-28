@@ -25,6 +25,21 @@ describe("ai-git-cleanup skill — the one-pass, name-free rewrite", () => {
     expect(skill).toContain('grep -Fvx -- "$base_branch"');
   });
 
+  test("previews every ignored path and requires consent before deleting it", () => {
+    const previewStart = skill.search(/Before\s+requesting approval, list every ignored path/);
+    const removalStart = skill.indexOf("After the person approves the preview");
+    const preview = skill.slice(previewStart, removalStart);
+
+    expect(previewStart).toBeGreaterThan(-1);
+    expect(removalStart).toBeGreaterThan(previewStart);
+    expect(preview).toContain('git -C "$worktree_path" ls-files --others --ignored --exclude-standard');
+    expect(preview).toMatch(/Show every returned path[\s\S]*removing\s+the worktree deletes it/i);
+    expect(preview).toMatch(/If the command fails or cannot prove the complete list,\s*keep the candidate/i);
+    expect(preview).toMatch(/explicitly approve deletion of every listed path/i);
+    expect(preview).toMatch(/including paths classified as regenerable/i);
+    expect(preview).toMatch(/Immediately before\s+removal, rerun the listing[\s\S]*keep the candidate/i);
+  });
+
   test("detects the base from user choice or repository configuration", () => {
     expect(skill).toMatch(/explicit\s+choice or repository configuration/);
     expect(skill).toMatch(/if neither identifies one, ask once/i);

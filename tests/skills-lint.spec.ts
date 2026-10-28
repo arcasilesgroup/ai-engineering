@@ -219,24 +219,45 @@ describe("CP11 skills lint", () => {
     expect(spike).not.toMatch(DESIGN_SLOTS);
   });
 
-  test("the brainstorm approval handoff matches its Lifecycle routes", () => {
+  test("brainstorm handoffs match Lifecycle routes across the architecture chain", () => {
     const brainstorm = readFileSync(join(SKILLS, "ai-brainstorm", "SKILL.md"), "utf8");
+    const architect = readFileSync(join(SKILLS, "ai-architect", "SKILL.md"), "utf8");
     const seam = markdownSection(brainstorm, "The ai-engineering seam");
     const lifecycle = markdownSection(brainstorm, "Lifecycle");
     const lifecycleNext = /^Next:\s*(.+)$/m.exec(lifecycle)?.[1] ?? "";
-    const handoffRoutes = Object.fromEntries(
+    const stopRuns = /^Stop runs:\s*(.+)$/m.exec(lifecycle)?.[1] ?? "";
+    const handoffRoutes: Record<string, string> = Object.fromEntries(
       [...seam.matchAll(/^\s*\|\s*(Architectural|Standard)\s*\|\s*`\/(ai-[\w-]+)`\s*\|$/gim)]
-        .map(([, lane, skill]) => [lane!.toLowerCase(), skill!]),
+        .map(([, lane, skill]): [string, string] => [lane!.toLowerCase(), skill!]),
     );
-    const lifecycleRoutes = Object.fromEntries(
-      [...lifecycleNext.matchAll(/(?:^|;\s*)(ai-[\w-]+)\s+on\s+the\s+(architectural|standard)\s+lane(?=;|$)/gi)]
-        .map(([, skill, lane]) => [lane!.toLowerCase(), skill!]),
+    const lifecycleRoutes: Record<string, string[]> = Object.fromEntries(
+      [...lifecycleNext.matchAll(/(?:^|;\s*)(architectural|standard)\s*→\s*(ai-[\w-]+)(?:\s*→\s*(ai-[\w-]+))?/gi)]
+        .map(([, lane, firstSkill, nextSkill]): [string, string[]] => [
+          lane!.toLowerCase(),
+          [firstSkill!, ...(nextSkill ? [nextSkill] : [])],
+        ]),
     );
+    const stopRunRoutes: Record<string, string> = Object.fromEntries(
+      [...stopRuns.matchAll(/\b(Architectural|Standard)\b(?:(?!;).)*?hands off (?:first )?to \/(ai-[\w-]+)/gi)]
+        .map(([, lane, skill]): [string, string] => [lane!.toLowerCase(), skill!]),
+    );
+    const architectNext = /^Next:\s*(ai-[\w-]+)/m.exec(markdownSection(architect, "Lifecycle"))?.[1];
+    const architecturalRoute = lifecycleRoutes.architectural ?? [];
+    const standardRoute = lifecycleRoutes.standard ?? [];
 
-    expect(handoffRoutes).toEqual({
-      architectural: "ai-architect",
-      standard: "ai-orchestrator",
+    expect(lifecycleRoutes).toEqual({
+      architectural: ["ai-architect", "ai-orchestrator"],
+      standard: ["ai-orchestrator"],
     });
-    expect(handoffRoutes).toEqual(lifecycleRoutes);
+    expect(handoffRoutes).toEqual({
+      architectural: architecturalRoute[0] ?? "",
+      standard: standardRoute[0] ?? "",
+    });
+    expect(stopRunRoutes).toEqual({
+      architectural: architecturalRoute[0] ?? "",
+      standard: standardRoute[0] ?? "",
+    });
+    expect(architecturalRoute[1] ?? "").toBe(architectNext ?? "");
+    expect(stopRuns).toMatch(/Direct\/light\/spike do not invoke the full brainstorm path/i);
   });
 });

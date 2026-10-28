@@ -1397,3 +1397,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Route architecture to `ai-architect`, standard to `ai-orchestrator`, and test route/Lifecycle consistency.
 - **Lesson:** Keep approval handoffs lane-specific and verify them against Lifecycle.
 - **Tags:** review, workflow, skills
+
+### L194 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Architectural brainstorm Lifecycle still routed directly to the orchestrator.
+- **Root cause:** The handoff did not distinguish architecture from standard work.
+- **Fix:** Route architecture through ai-architect, standard through ai-orchestrator, and test both Lifecycle contracts.
+- **Lesson:** Keep each lane's handoff aligned with Lifecycle.
+- **Tags:** review, workflow, skills
+
+### L195 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Cleanup preview omitted ignored files that deletion could remove.
+- **Root cause:** Ignored files were treated as absent rather than user data.
+- **Fix:** List paths and consequences before approval, require per-path consent, and fail closed if the list changes or cannot be verified.
+- **Lesson:** Treat ignored paths as user data until their loss is visible and approved.
+- **Tags:** review, data-loss, cleanup

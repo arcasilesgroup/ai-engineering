@@ -331,11 +331,11 @@ Lane: light, standard, full
 Writes: standard/full only: .ai-engineering/brainstorm.html, .ai-engineering/PRD.html; light: none
 Read by: ai-orchestrator on standard/full, the agent that opens the next session
 Dies: when a brainstorm for a different feature replaces it, or the feature is integrated
-Next: ai-research when questions are still open; ai-architect on the architectural lane; ai-orchestrator on the standard lane; ai-verify on the light lane
+Next: ai-research when questions are still open; architectural → ai-architect → ai-orchestrator; standard → ai-orchestrator; Direct/light/spike → follow the relevant skill or Direct rhythm without the full brainstorm path (brainstorm light paths end at ai-verify)
 Stop: interview
 Stop words: approve, ok, go, adelante
 Stop confirms: the brainstorm
-Stop runs: standard/full writes the PRD conclusions and hands off to /ai-orchestrator; light writes no slot and ends at ai-verify
+Stop runs: Standard writes the PRD conclusions and hands off to /ai-orchestrator; Architectural writes the PRD conclusions and hands off first to /ai-architect, whose Lifecycle continues to /ai-orchestrator; Direct/light/spike do not invoke the full brainstorm path, and brainstorm light paths end at ai-verify
 
 Source: handshake by obra (https://obra.sh, MIT; obra/superpowers attributed by URL) +
 brainstorming from obra/superpowers

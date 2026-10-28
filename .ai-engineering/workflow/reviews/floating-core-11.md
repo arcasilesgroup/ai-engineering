@@ -106,9 +106,18 @@ The flow skills, the checkpoint-planner agent and AGENTS.md describe working in 
 **ROOT CAUSE:** The shared approval handoff hard-coded ai-orchestrator despite Lifecycle's lane-specific successor.
 **FIX:** Route architectural approval to ai-architect and standard approval to ai-orchestrator; test the route mapping against Lifecycle `Next`.
 **LESSON:** Keep approval handoffs lane-specific and verify each against its Lifecycle contract.
-## F7 · MAJOR · open
+## F7 · MAJOR · fixed (r3)
 **Where:** skills/ai-brainstorm/SKILL.md:338
 **Critic (r1):** `Stop runs` still says both standard and architectural lanes hand off to `/ai-orchestrator`, contradicting the corrected architectural route to `/ai-architect` and permitting this seam to skip the architect. Make the stop handoff lane-specific and test all routes, including this Lifecycle line.
-## F8 · BLOCKER · open
+**Fixer (r3):** fixed — made Lifecycle explicit for architectural, standard, and Direct/light/spike routes; aligned `Stop runs` and tested the chain through `ai-architect`'s Lifecycle (`skills/ai-brainstorm/SKILL.md`, `tests/skills-lint.spec.ts`) · verify: `bun test tests/git-cleanup-pass.spec.ts tests/skills-lint.spec.ts` ✓
+**ROOT CAUSE:** `Stop runs` still flattened standard and architectural lanes into one orchestrator handoff.
+**FIX:** Route architectural work through `ai-architect`, keep standard on `ai-orchestrator`, and name Direct/light/spike as outside the full brainstorm path; dynamically compare both handoffs and the architect's Lifecycle.
+**LESSON:** Keep each lane's handoff aligned with Lifecycle, including the next skill's own successor.
+
+## F8 · BLOCKER · fixed (r3)
 **Where:** skills/ai-git-cleanup/SKILL.md:36
 **Critic (r1):** The preview asks for status but does not require listing ignored paths until removal; Git status omits ignored files, so an approved clean/merged worktree can lose ignored user data despite the “anything else ignored is data” rule. Force-scan ignored paths before approval and keep candidates with out-of-allowlist data unless the person explicitly approves those exact losses.
+**Fixer (r3):** fixed — enumerate ignored paths with Git before approval, fail closed when listing is uncertain, require consent for each path, and compare the listing again before removal (`skills/ai-git-cleanup/SKILL.md`, `tests/git-cleanup-pass.spec.ts`) · verify: `bun test tests/git-cleanup-pass.spec.ts tests/skills-lint.spec.ts` ✓
+**ROOT CAUSE:** Git status omitted ignored content from the cleanup preview, hiding user data before worktree removal.
+**FIX:** List every ignored path and its deletion consequence before approval, require explicit path-by-path consent, and keep the candidate if the scan fails or changes before removal.
+**LESSON:** Treat ignored paths as user data until their exact loss is visible, approved, and revalidated.
