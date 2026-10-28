@@ -123,10 +123,18 @@
 **LESSON:** App approval and integration route are separate decisions; preserve the human's choice after approval.
 **Critic (r2):** resolved — Phase 4 now recommends PR with a forge remote and local merge otherwise, offers PR/local-merge/keep-branch, and retains `ai-eng worktree merge <slug>` only for the local-merge choice.
 
-## F9 · MAJOR · open (r2)
+## F9 · MAJOR · fixed (r3)
 **Where:** `src/shared-worktree.ts:819-828,1252-1266`
 **Critic (r2):** `request-changes` still rejects a Git-listed native-harness worktree outside the configured managed root: it accepts the primary path, then requires every other candidate to satisfy `findManagedWorktree`. D1 prefers native harness worktrees, and the updated Phase 4 guidance says to resolve the current checkout. Allow the unique exact-checkpoint Git-listed checkout (retaining branch-ref, SHA, and CAS checks), and cover a native worktree outside the managed root.
+**Fixer (r3):** fixed — `worktreeRequestChanges` now selects the sole branch-bearing Git-listed checkout carrying the slug checkpoint, independent of its path or branch prefix; the branch-ref, full-SHA, CAS, and lifecycle checks remain; a real-Git regression uses `native/<slug>` outside the managed root; verify: targeted tests 122 pass/16 skip, typecheck, lint, arch 31 pass ✓
+**ROOT CAUSE:** The selector rejected non-primary checkouts unless their paths matched the configured managed-root layout, before the existing SHA and lifecycle checks could run.
+**FIX:** Select the unique Git-listed checkout with the exact checkpoint path and branch, then retain all existing branch-ref, full-SHA, CAS, and lifecycle validation.
+**LESSON:** Resolve lifecycle ownership from Git registration and checkpoint identity; managed-directory layout is not checkout identity.
 
-## F10 · MINOR · open (r2)
+## F10 · MINOR · fixed (r3)
 **Where:** `src/shared-worktree.ts:296,360-376`
 **Critic (r2):** `source` is `process.cwd()`, not the caller checkout's root. When `worktree new` runs from a nested directory such as `src/`, Git status is scoped there and does not report root-level `.ai-engineering/brainstorm.html` or `PRD.html`; the path matcher therefore misses those dirty slots and omits the required warning. Resolve the invoking checkout root before scanning and test from a nested directory.
+**Fixer (r3):** fixed — `worktreeNew` resolves the invoking checkout with `git rev-parse --show-toplevel` before scanning status; a nested-directory regression verifies brainstorm/PRD warnings, unchanged status, and preserved source bytes; verify: targeted tests 122 pass/16 skip, typecheck, lint, arch 31 pass ✓
+**ROOT CAUSE:** `git status` ran from the nested process directory, so root-level design-slot paths were outside its reported scope.
+**FIX:** Resolve the invoking checkout root first and run the existing root-relative dirty-slot scan there; leave the files unstaged and unmoved.
+**LESSON:** Normalize Git status to the checkout root before applying repository-root path rules.

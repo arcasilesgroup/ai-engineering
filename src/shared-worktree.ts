@@ -293,7 +293,11 @@ function ignoredRemovalNote(dropped: string[] | null, removalState: "removed" | 
 export function worktreeNew(branchInput: string): WorktreeResult {
   const repo = primaryRepoRoot();
   if (repo === null) return { code: 2, out: "", err: "worktree new: not inside a git repository.\n" };
-  const source = canonicalize(process.cwd());
+  const topLevel = git(process.cwd(), ["rev-parse", "--path-format=absolute", "--show-toplevel"]);
+  if (topLevel.status !== 0 || topLevel.stderr.trim() !== "" || topLevel.stdout.trim() === "") {
+    return { code: 1, out: "", err: `worktree new: cannot resolve the invoking checkout root; inspect \`git -C ${process.cwd()} rev-parse --show-toplevel\`.\n` };
+  }
+  const source = canonicalize(topLevel.stdout.trim());
   if (branchInput === "" || /\p{C}/u.test(branchInput)) {
     return { code: 2, out: "", err: `worktree new: invalid slug or branch name "${printable(branchInput)}"; pass a Git branch name.\n` };
   }
@@ -822,17 +826,14 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
       !existsSync(candidate.path) ||
       !existsSync(join(candidate.path, checkpointRelative))
     ) return false;
-    const path = canonicalize(candidate.path);
-    if (path === canonicalize(repo)) return true;
-    const managed = findManagedWorktree(repo, root, slug, listed.worktrees, candidate.branch);
-    return managed !== null && canonicalize(managed.path) === path;
+    return true;
   });
   const entry = matching.length === 1 ? matching[0] : undefined;
   if (entry === undefined || entry.branch === undefined) {
     return {
       code: 1,
       out: "",
-      err: `worktree request-changes: no exact live checkout for ${slug} in the current repository or managed worktrees; preserve the review state.\n`,
+      err: `worktree request-changes: no exact live checkout for ${slug} in the current repository or registered Git worktrees; preserve the review state.\n`,
     };
   }
 

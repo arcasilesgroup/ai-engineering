@@ -1366,6 +1366,32 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(treeFiles(repo)).toEqual(treeBefore);
   });
 
+  test("new from a nested directory warns about and preserves root-level dirty design slots", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    const nested = join(repo, "src", "nested");
+    const brainstorm = join(repo, ".ai-engineering", "brainstorm.html");
+    const prd = join(repo, ".ai-engineering", "PRD.html");
+    mkdirSync(nested, { recursive: true });
+    mkdirSync(dirname(brainstorm), { recursive: true });
+    writeFileSync(brainstorm, "local brainstorm\n");
+    writeFileSync(prd, "local PRD\n");
+    const treeBefore = treeFiles(repo);
+    const statusBefore = git(["status", "--porcelain", "--untracked-files=all"], repo);
+
+    const run = runCli(["worktree", "new", "nested-source"], nested);
+    const created = join(root, "nested-source");
+
+    expect(run.status).toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toContain(".ai-engineering/brainstorm.html");
+    expect(`${run.stdout}${run.stderr}`).toContain(".ai-engineering/PRD.html");
+    expect(existsSync(join(created, ".ai-engineering", "brainstorm.html"))).toBe(false);
+    expect(existsSync(join(created, ".ai-engineering", "PRD.html"))).toBe(false);
+    expect(treeFiles(repo)).toEqual(treeBefore);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe(statusBefore);
+  });
+
   test("from inside a worktree: list lists sessions and new cuts from the primary main", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
@@ -1597,6 +1623,79 @@ describe("ai-eng worktree request-changes (checkpoint 7)", () => {
     expect(fullRepoSnapshot(repo, [repo, feature], [checkpoint])).toBe(pendingState);
 
     const requested = runCli(["worktree", "request-changes", slug, pendingCommit], repo);
+
+    if (requested.status !== 0) throw new Error(requested.stderr);
+    expect(requested.stdout).toContain("→ implementation");
+    const transitionCommit = git(["rev-parse", "HEAD"], feature).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", transitionCommit], feature).trim())
+      .toBe(`${transitionCommit} ${pendingCommit}`);
+    expect(git(
+      ["diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", transitionCommit],
+      feature,
+    ).trim()).toBe(checkpointPath);
+    expect(git(["rev-parse", `refs/heads/${branch}`], repo).trim()).toBe(transitionCommit);
+    expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle).toMatchObject({
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
+    expect(worktreeEntries(repo)).toEqual(worktreesBefore);
+  });
+
+  test("request-changes accepts the exact checkpoint on an unmanaged Git worktree", () => {
+    const repo = tempRepo();
+    const slug = "native-review";
+    const branch = `native/${slug}`;
+    configureDetectedBase(repo, "main");
+    const reviewedBase = git(["rev-parse", "refs/heads/main"], repo).trim();
+    cleanups.push(defaultRoot(repo));
+    const nativeRoot = join(dirname(repo), "native-worktrees");
+    const feature = join(nativeRoot, slug);
+    mkdirSync(nativeRoot, { recursive: true });
+    cleanups.push(nativeRoot);
+    git(["worktree", "add", "-q", "-b", branch, feature], repo);
+    expect(relative(defaultRoot(repo), feature).startsWith("..")).toBe(true);
+    expect(git(["symbolic-ref", "--short", "HEAD"], feature).trim()).toBe(branch);
+
+    const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    const checkpoint = writeCanonicalCheckpoint(feature, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    git(["add", checkpointPath], feature);
+    git(["commit", "-q", "-m", "approved implementation plan"], feature);
+    const reviewedFeature = commitRebaseFixtureFile(feature, "src/approved.ts", "approved\n", "approved feature");
+    writeCanonicalCheckpoint(feature, slug, {
+      phase: "awaiting-app-review",
+      plan_approval: "approved",
+      app_review: "pending",
+      base_ref: "refs/heads/main",
+      reviewed_base: reviewedBase,
+      reviewed_feature: reviewedFeature,
+    });
+    git(["add", checkpointPath], feature);
+    git(["commit", "-q", "-m", "await app review"], feature);
+    const pendingCommit = git(["rev-parse", "HEAD"], feature).trim();
+    expect(pendingCommit).toMatch(/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/);
+    expect(git(["rev-parse", `refs/heads/${branch}`], repo).trim()).toBe(pendingCommit);
+    const worktreesBefore = worktreeEntries(repo);
+    expect(worktreesBefore.some((entry) => realpathSync(entry.path) === realpathSync(feature))).toBe(true);
+    const pendingState = fullRepoSnapshot(repo, [repo, feature], [checkpoint]);
+
+    const stale = runCli(["worktree", "request-changes", slug, reviewedFeature], feature);
+    expect(stale.status).toBe(1);
+    expect(stale.stderr).toContain("stale checkpoint");
+    expect(fullRepoSnapshot(repo, [repo, feature], [checkpoint])).toBe(pendingState);
+
+    const requested = runCli(["worktree", "request-changes", slug, pendingCommit], feature);
 
     if (requested.status !== 0) throw new Error(requested.stderr);
     expect(requested.stdout).toContain("→ implementation");

@@ -1264,3 +1264,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Recommend PR with a forge, local merge otherwise, and offer PR, local merge or keep-branch.
 - **Lesson:** App approval and integration route are separate decisions.
 - **Tags:** review, workflow, git
+
+### L175 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `request-changes` rejected a Git-listed checkpoint checkout outside the managed root.
+- **Root cause:** Source selection filtered candidates by directory layout instead of checkpoint ownership.
+- **Fix:** Accept the unique checkpoint-bearing Git checkout while retaining branch-ref, SHA, CAS and lifecycle checks.
+- **Lesson:** Identify lifecycle ownership by Git registration and checkpoint, not directory layout.
+- **Tags:** review, git, lifecycle
+
+### L176 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `worktree new` missed root-level dirty design files when invoked from a nested directory.
+- **Root cause:** `git status` was scoped to the nested path rather than the checkout root.
+- **Fix:** Resolve the checkout root before scanning and verify warnings leave files/status unchanged.
+- **Lesson:** Normalize status to the checkout root before applying root-relative rules.
+- **Tags:** review, git, paths
