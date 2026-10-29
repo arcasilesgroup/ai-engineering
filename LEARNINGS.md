@@ -1503,3 +1503,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Gate shared hook output on result status, while keeping success metadata in the commit and denial reasons visible.
 - **Proof:** `bun test ./tests/token-budget.spec.ts` — 6 pass, 0 fail, 37 assertions.
 - **Tags:** review, hooks, overrides, output, tests
+
+### L209 · 2026-10-28 · floating-core #17 · review
+- **Failure:** Review found unsupported worktree file hints, stale worktree lifecycle claims, and incomplete comment-read scope in the docs.
+- **Root cause:** The docs had drifted from the current CLI, worktree lifecycle, and comment-read contract.
+- **Fix:** Remove unsupported hints, mark superseded lifecycle notes as historical, and document relation-target comment reads.
+- **Lesson:** Verify documented behavior against the current CLI and adapter contract.
+- **Tags:** review, docs, cli, lifecycle, permissions
