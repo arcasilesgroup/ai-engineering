@@ -1587,3 +1587,11 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Capture the failing assertion and matching test environment before changing code when a gate failure is not reproducible.
 - **Proof:** Focused `tests/init-command.spec.ts` suite: 33 passed; typecheck passed.
 - **Tags:** behavior, tests, reproducibility
+
+### L217 · 2026-10-29 · floating-core #19 · behavior
+- **Failure:** One clean-clone Gate 1 run reported nine init-command failures; a focused rerun of the same suite passed all 33 tests.
+- **Root cause:** Not established; the gate and focused rerun did not reproduce the same result.
+- **Fix:** No code change; stop rather than guess after two diagnostic attempts.
+- **Lesson:** Capture the failing assertion and matching test environment before changing code when a gate failure is not reproducible.
+- **Proof:** Focused `tests/init-command.spec.ts` suite: 33 passed; typecheck passed.
+- **Tags:** behavior, tests, reproducibility
