@@ -15,7 +15,9 @@ import { join } from "node:path";
 import { doctorMain } from "../src/commands/doctor.ts";
 import { canonSkills, legacyCanonPacks } from "../src/embed.ts";
 import { lockText, sha256 } from "../src/install.ts";
+import * as receiptsModule from "../src/receipts.ts";
 import { carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES } from "../src/surfaces/adapters.ts";
+import * as uiModule from "../src/ui.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
@@ -182,7 +184,7 @@ describe("doctor · a repo where everything is green", () => {
     expect(detail(run, "assets")).toBe(`installed by ${VERSION}`);
     expect(detail(run, "git floor")).toBe("marker hooks in .git/hooks/ · gitleaks present");
     expect(detail(run, "chain test")).toMatch(/^adversarial payload \(git commit -n\) → DENY in \d+ms$/);
-    expect(detail(run, "receipts")).toMatch(/^\d+ runs · \d+ denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)( · top [^ ]+)?$/);
+    expect(detail(run, "receipts")).toMatch(/^last 14d: \d+ runs · \d+ denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)( · top [^ ]+)?$/);
     expect(detail(run, "overrides")).toBe("none active");
     expect(detail(run, "arch")).toBe("active — src/ present");
     expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
@@ -256,7 +258,7 @@ describe("doctor · config.toml is the gate", () => {
     expect(row(run, "config.toml")).toContain("✗");
     expect(detail(run, "config.toml")).toBe("absent — the gate reads this file; without it this repo is not governed");
     expect(detail(run, "chain test")).toBe("not governed (no-config) — the chain applies no policy here, so an allow is the gate working");
-    expect(detail(run, "receipts")).toContain("0 runs · 0 denies");
+    expect(detail(run, "receipts")).toContain("last 14d: 0 runs · 0 denies");
     expect(run.code).toBe(2);
 
     sandbox("this is not = toml = at all\n");
@@ -404,6 +406,24 @@ describe("doctor · the git floor", () => {
 });
 
 describe("doctor · receipts and overrides", () => {
+  test("doctor opens its frame before reusing one raw receipt summary", async () => {
+    sandbox();
+    const events: string[] = [];
+    const originalSummary = receiptsModule.summarizeReceipts;
+    const summarize = spyOn(receiptsModule, "summarizeReceipts").mockImplementation((dir) => {
+      events.push("summary");
+      return originalSummary(dir);
+    });
+    spyOn(uiModule, "frame").mockImplementation(() => {
+      events.push("frame");
+    });
+
+    await doctor();
+
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(events.slice(0, 2)).toEqual(["frame", "summary"]);
+  });
+
   test("receipts under the ceiling are ok; a slow one warns with the p95 that says so", async () => {
     const { root } = sandbox();
     const receipts = join(root, ".ai-engineering", "receipts");
@@ -411,12 +431,12 @@ describe("doctor · receipts and overrides", () => {
     writeFileSync(join(receipts, "fast.json"), receipt(2, "allow"));
     let run = await doctor();
     expect(row(run, "receipts")).toContain("✓");
-    expect(detail(run, "receipts")).toMatch(/^2 runs · 1 denies · p50 \d+ms · p95 \d+ms \(ceiling 50\) · top no-verify\/Bash$/);
+    expect(detail(run, "receipts")).toMatch(/^last 14d: 2 runs · 1 denies · p50 \d+ms · p95 \d+ms \(ceiling 50\) · top no-verify\/Bash$/);
 
     writeFileSync(join(receipts, "slow.json"), receipt(400, "deny"));
     run = await doctor();
     expect(row(run, "receipts")).toContain("▲");
-    expect(detail(run, "receipts")).toMatch(/^\d+ runs · \d+ denies · p50 \d+ms · p95 400ms \(ceiling 50\)( · top .*)?$/);
+    expect(detail(run, "receipts")).toMatch(/^last 14d: \d+ runs · \d+ denies · p50 \d+ms · p95 400ms \(ceiling 50\)( · top .*)?$/);
   });
 
   test("deviation: the receipts row WARNs with the spike named when 7-day denies pass 3x the prior week", async () => {

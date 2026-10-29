@@ -78,6 +78,24 @@ describe("summarizeReceipts — the aggregates the gc keeps (G2-G4, G7)", () => 
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test("the doctor summary ignores timestamped receipts outside the 14-day health window", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-eng-summary-window-"));
+    const recent = receipt({ ts: new Date(Date.now() - 13 * 86_400_000).toISOString() });
+    const old = receipt({ ts: new Date(Date.now() - 15 * 86_400_000).toISOString() });
+    const write = (value: Receipt): void => {
+      const stamp = value.ts.replace(/[:.]/g, "-");
+      writeFileSync(join(dir, `${stamp}-${value.event}-${value.operation_id}.json`), JSON.stringify(value));
+    };
+    write(recent);
+    write(old);
+
+    try {
+      const summary = summarizeReceipts(dir);
+      expect(summary.total).toBe(1);
+      expect(summary.daily[recent.ts.slice(0, 10)]).toEqual({ runs: 1, denies: 0 });
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test("denies.json is not counted as a receipt, exactly like summary.json", () => {
     const dir = dirWith([receipt({}), receipt({})]);
     try {
