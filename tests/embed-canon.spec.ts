@@ -53,51 +53,42 @@ describe("the embedded payload", () => {
     }
   });
 
-  test("packs are embedded in full and their skills are absent from the core payload", () => {
-    const packRoot = join(root, "packs");
-    const packFiles = filesBelow(packRoot);
-    expect(packFiles.length).toBeGreaterThan(0);
-
-    const sourcePaths = packFiles.map((path) => relative(root, path).split(sep).join("/")).sort();
-    const embeddedPacks = embeddedUnder("packs/");
-    expect([...embeddedPacks.keys()].sort()).toEqual(sourcePaths);
+  test("the generated payload embeds every skills asset and no packs or test-only eval fixtures", () => {
+    const skillFiles = filesBelow(join(root, "skills")).filter((path) => !path.endsWith(`${sep}.DS_Store`));
+    const sourcePaths = skillFiles.map((path) => relative(root, path).split(sep).join("/")).sort();
+    const embeddedSkills = embeddedUnder("skills/");
+    expect(sourcePaths.length).toBeGreaterThan(0);
+    expect([...embeddedSkills.keys()].sort()).toEqual(sourcePaths);
     for (const path of sourcePaths) {
-      expect(readFileSync(embeddedPath(embeddedPacks.get(path)!))).toEqual(readFileSync(join(root, path)));
+      expect(readFileSync(embeddedPath(embeddedSkills.get(path)!))).toEqual(readFileSync(join(root, path)));
     }
-
-    const packSkillNames = packFiles
-      .filter((path) => path.endsWith(`${sep}SKILL.md`))
-      .map((path) => /^name:\s*(.+)$/m.exec(readFileSync(path, "utf8"))?.[1]?.trim())
-      .filter((name): name is string => name !== undefined);
-    expect(packSkillNames.length).toBeGreaterThan(0);
-
-    const coreSkillNames = [...canonSkills()]
-      .filter(([path]) => path.endsWith("/SKILL.md"))
-      .map(([, ref]) => /^name:\s*(.+)$/m.exec(readFileSync(embeddedPath(ref), "utf8"))?.[1]?.trim());
-    for (const skillName of packSkillNames) {
-      expect(coreSkillNames).not.toContain(skillName);
-    }
+    expect(embeddedUnder("packs/").size).toBe(0);
   });
 
-  test("verify setup guide paths exist in the source pack and selected install payload", () => {
-    const selectedCanon = canonSkills(["verify-tiers"]);
-    const guideRef = selectedCanon.get("skills/ai-verify/VERIFICATION-SETUP-GUIDE.md");
-    if (guideRef === undefined) throw new Error("selected verify-tiers payload is missing the setup guide");
+  test("test-only verification eval fixtures are absent from the generated payload", () => {
+    expect(embeddedUnder("packs/verify-tiers/evals/").size).toBe(0);
+    expect(embeddedUnder("tests/fixtures/verify-tiers/evals/").size).toBe(0);
+  });
+
+  test("verify setup guide paths resolve in the skills inventory and installed payload", () => {
+    const canon = canonSkills();
+    const guidePath = "skills/ai-verify/VERIFICATION-SETUP-GUIDE.md";
+    const guideRef = canon.get(guidePath);
+    if (guideRef === undefined) throw new Error("the skills inventory is missing the verify setup guide");
     const guide = readFileSync(embeddedPath(guideRef), "utf8");
-    const packSource = embeddedUnder("packs/verify-tiers/");
     const sourceSkillPath = /^VERIFY=\/path\/to\/(skills\/[^\s]+)$/m.exec(guide)?.[1];
     if (sourceSkillPath === undefined) throw new Error("guide is missing the selected skill source path");
-    expect(selectedCanon.has(`${sourceSkillPath}/SKILL.md`)).toBe(true);
+    expect(canon.has(`${sourceSkillPath}/SKILL.md`)).toBe(true);
     expect(guide).toContain('cp -R "$VERIFY" "$SKILLS/"');
-    const references = [...guide.matchAll(/`((?:packs\/verify-tiers|skills)\/[^`]+)`/g)]
+    expect(guide).not.toContain("packs/");
+    const references = [...guide.matchAll(/`(skills\/[^`]+)`/g)]
       .map(([, path]) => path)
       .filter((path): path is string => path !== undefined);
 
     expect(references.length).toBeGreaterThan(0);
     for (const path of references) {
-      const assets = path.startsWith("packs/") ? packSource : selectedCanon;
       const prefix = path.endsWith("/") ? path : `${path}/`;
-      expect([...assets.keys()].some((asset) => asset === path || asset.startsWith(prefix))).toBe(true);
+      expect([...canon.keys()].some((asset) => asset === path || asset.startsWith(prefix))).toBe(true);
     }
   });
 
@@ -181,13 +172,10 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
 });
 
 describe("workflow kit — embedded payload includes kit skill paths", () => {
-  test("U3: ai-orchestrator stays core and ai-design-md-planner is in a pack", () => {
-    const corePaths = [...canonSkills().keys()];
-    const packSkillFiles = [...embeddedUnder("packs/")]
-      .filter(([path]) => path.endsWith("/SKILL.md"))
-      .map(([, ref]) => readFileSync(embeddedPath(ref), "utf8"));
-    expect(corePaths.some((path) => path.startsWith("skills/ai-orchestrator/"))).toBe(true);
-    expect(packSkillFiles.some((content) => /^name:\s*ai-design-md-planner$/m.test(content))).toBe(true);
+  test("the orchestrator and every specialist skill are in the default skills inventory", () => {
+    const skillPaths = [...canonSkills().keys()];
+    expect(skillPaths.some((path) => path.startsWith("skills/ai-orchestrator/"))).toBe(true);
+    expect(skillPaths.some((path) => path.startsWith("skills/ai-design-md-planner/"))).toBe(true);
   });
 });
 

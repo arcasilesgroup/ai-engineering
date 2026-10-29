@@ -5,8 +5,8 @@
 // and every install warned 404. The runtime replaces the binaries — engines.bun is
 // the requirement v0.13.0 carried as `requires-python`.
 import { test, expect } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 
 const root = join(import.meta.dir, "..");
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
@@ -14,6 +14,22 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
   engines?: { bun?: string };
   files?: string[];
 };
+
+function filesBelow(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? filesBelow(path) : [path];
+  });
+}
+
+function packageFiles(): string[] {
+  return (pkg.files ?? []).flatMap((entry) => {
+    const path = join(root, entry);
+    if (!existsSync(path)) return [];
+    const paths = statSync(path).isDirectory() ? filesBelow(path) : [path];
+    return paths.map((file) => relative(root, file).split(sep).join("/"));
+  });
+}
 
 test("the package declares no optionalDependencies — the platform scheme is gone", () => {
   expect(pkg.optionalDependencies).toBeUndefined();
@@ -28,8 +44,20 @@ test("the runtime the source-only package requires is declared", () => {
   expect(pkg.engines?.bun).toBeDefined();
 });
 
-test("packs ship in npm and ai-code-review's review and debt workflows live in ai-verify", () => {
-  expect(pkg.files?.some((path) => path === "packs" || path === "packs/")).toBe(true);
+test("skills ship in npm and packs do not", () => {
+  expect(pkg.files?.some((path) => path === "skills" || path === "skills/")).toBe(true);
+  const files = packageFiles();
+  expect(files.some((path) => path.startsWith("skills/") && path.endsWith("/SKILL.md"))).toBe(true);
+  expect(files.some((path) => path.startsWith("packs/"))).toBe(false);
+});
+
+test("test-only eval fixtures are absent from the npm package", () => {
+  const files = packageFiles();
+  expect(files.some((path) => /(?:^|\/)verify-tiers\/evals\//.test(path))).toBe(false);
+  expect(files.some((path) => path.startsWith("tests/fixtures/verify-tiers/evals/"))).toBe(false);
+});
+
+test("ai-code-review's review and debt workflows live in ai-verify", () => {
   expect(existsSync(join(root, "skills", "ai-code-review"))).toBe(false);
 
   const aiVerify = readFileSync(join(root, "skills", "ai-verify", "SKILL.md"), "utf8");

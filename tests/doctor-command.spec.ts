@@ -9,11 +9,11 @@
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { doctorMain } from "../src/commands/doctor.ts";
-import { canonSkills, legacyCanonPacks } from "../src/embed.ts";
+import { canonSkills } from "../src/embed.ts";
 import { lockText, sha256 } from "../src/install.ts";
 import * as receiptsModule from "../src/receipts.ts";
 import { carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES } from "../src/surfaces/adapters.ts";
@@ -21,9 +21,7 @@ import * as uiModule from "../src/ui.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
-const governed = (packs: readonly string[] = []): string =>
-  `[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = [${packs.map((pack) => `"${pack}"`).join(", ")}]\n`;
-const GOVERNED = governed();
+const GOVERNED = '[surfaces]\nenabled = ["claude-code"]\n';
 const ORIGINAL = { cwd: process.cwd(), path: process.env.PATH ?? "", sandbox: snapshotSandboxEnv() };
 const temps: string[] = [];
 
@@ -135,12 +133,12 @@ function shipClaudeCarrier(_home: string): void {
 
 /** A repo where every check the caller did not deliberately break is green: the
  *  contract installed, the canon materialized, the floor wired, the carrier shipped. */
-function healthy(config = GOVERNED, packs: readonly string[] = []): { home: string } {
+function healthy(config = GOVERNED): { home: string } {
   const box = sandbox(config);
   writeFileSync(join(box.root, "AGENTS.md"), agentsMd(6, 20));
   writeFloor(box.root);
   gitleaks(0);
-  installCanon(VERSION, packs);
+  installCanon(VERSION);
   writeFileSync(join(box.root, ".ai-engineering", "ai-eng.lock"), lockText({ version: VERSION, assets: {} }));
   mkdirSync(join(box.root, "src"));
   writeFileSync(join(box.root, ".ai-engineering", "arch.rules.json"), "{}");
@@ -310,24 +308,24 @@ describe("doctor · the canon and the lock", () => {
     expect(detail(run, "canon")).toContain("1 not ours (left alone)");
   });
 
-  test("a selected optional pack is verified, while unselected packs are not missing", async () => {
-    const packs = ["triage"];
-    const { home } = healthy(governed(packs), packs);
+  test("the full installed skill inventory is verified despite a legacy pack filter", async () => {
+    const legacyConfig = `${GOVERNED}\n[canon]\npacks = ["triage"]\n`;
+    const { home } = healthy(legacyConfig);
+    const sourceSkills = join(import.meta.dir, "..", "skills");
+    const expectedSkillNames = readdirSync(sourceSkills, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && existsSync(join(sourceSkills, entry.name, "SKILL.md")))
+      .map((entry) => entry.name)
+      .sort();
+    const installedSkillNames = readdirSync(join(home, "skills"), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && existsSync(join(home, "skills", entry.name, "SKILL.md")))
+      .map((entry) => entry.name)
+      .sort();
+    expect(installedSkillNames).toEqual(expectedSkillNames);
+
     const run = await doctor();
-    const expectedFiles = canonSkills(packs).size;
+    const expectedFiles = canonSkills().size;
     expect(detail(run, "canon")).toBe(`${expectedFiles}/${expectedFiles} files verified · 0 drift · 0 missing`);
     expect(row(run, "canon")).toContain("✓");
-    expect(existsSync(join(home, "skills", "ai-triage", "SKILL.md"))).toBe(true);
-  });
-
-  test("a legacy config without a pack list still checks its previously enabled packs", async () => {
-    const packs = legacyCanonPacks();
-    const legacyConfig = '[surfaces]\nenabled = ["claude-code"]\n';
-    const { home } = healthy(legacyConfig, packs);
-    const run = await doctor();
-    const expectedFiles = canonSkills(packs).size;
-    expect(detail(run, "canon")).toBe(`${expectedFiles}/${expectedFiles} files verified · 0 drift · 0 missing`);
-    expect(existsSync(join(home, "skills", "ai-triage", "SKILL.md"))).toBe(true);
   });
 
   test("assets: a matching lock is ok, a stale one names both versions, no lock and no version warn", async () => {

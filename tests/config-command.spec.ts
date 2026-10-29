@@ -14,10 +14,13 @@ import { join } from "node:path";
 import type { PassThrough } from "node:stream";
 import { stripVTControlCharacters } from "node:util";
 import { configMain } from "../src/commands/config.ts";
+import { canonSkills, embeddedPath } from "../src/embed.ts";
 import { isGoverned } from "../src/env.ts";
+import { installCanon } from "../src/surfaces/adapters.ts";
 import { cancelled, confirmDefault, end, fail, frame, info, ok, pathList, scriptedInput, section, spinner, summary, warn } from "../src/ui.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 import { usePrivateStdin } from "./fixtures/private-stdin.ts";
+import { VERSION } from "../src/version.ts";
 
 // The keys go through a stdin only this suite writes to: on the runner's real one, a stray
 // byte from whatever launched `bun test` lands in the open picker (tests/fixtures/private-stdin.ts).
@@ -75,6 +78,14 @@ function governedRepo(config = SOURCE): { repo: string; home: string } {
 
 const configOf = (repo: string): string => readFileSync(join(repo, ".ai-engineering", "config.toml"), "utf8");
 
+function expectFullCanonInstalled(home: string): void {
+  const inventory = canonSkills();
+  expect(inventory.size).toBeGreaterThan(0);
+  for (const [path, ref] of inventory) {
+    expect(readFileSync(join(home, path), "utf8")).toBe(readFileSync(embeddedPath(ref), "utf8"));
+  }
+}
+
 /** `configMain` resolves the repo from the cwd: the test owns the cwd for the call. */
 function runConfig(repo: string, flags: { add?: string; remove?: string }): Promise<{ result: number; out: string }> {
   process.chdir(repo);
@@ -126,6 +137,21 @@ describe("ai-eng config · --add and --remove", () => {
     };
     expect(carrier.hooks.preToolUse.map((hook) => hook.command)).toContain("ai-eng chain PreToolUse --surface cursor");
     expect(isGoverned(repo)).toBe(true);
+  });
+
+  test("--add changes only the surface setting and preserves a legacy pack block and full canon", async () => {
+    const config =
+      '# keep me\n[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = ["triage"]\n\n[models]\ndecide = "x"\n';
+    const { repo, home } = governedRepo(config);
+    installCanon(VERSION);
+
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe(
+      '# keep me\n[surfaces]\nenabled = ["claude-code", "cursor"]\n\n[canon]\npacks = ["triage"]\n\n[models]\ndecide = "x"\n',
+    );
+    expectFullCanonInstalled(home);
   });
 
   test("--add refuses a surface with no adapter and leaves the config byte-identical", async () => {

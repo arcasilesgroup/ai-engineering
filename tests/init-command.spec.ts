@@ -25,7 +25,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join, resolve } from "node:path";
+import { basename, delimiter, join, relative, resolve } from "node:path";
 import { initMain, surfaceHint } from "../src/commands/init.ts";
 import {
   contractEntries,
@@ -185,14 +185,33 @@ function skillNames(root: string): string[] {
     .sort();
 }
 
+function filesBelow(directory: string): string[] {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? filesBelow(path) : [path];
+  });
+}
+
 function canonPacks(config: string): string[] | null {
   const section = /^\[canon\]\s*\n([\s\S]*?)(?=^\[|$)/m.exec(config)?.[1];
   const values = section?.match(/^packs = \[(.*)\]$/m)?.[1];
   return values === undefined ? null : [...values.matchAll(/"([^"]+)"/g)].map((match) => match[1] ?? "");
 }
 
-function assertCoreCanon(home: string): void {
-  expect(skillNames(join(home, "skills"))).toEqual(skillNames(join(REPO_ROOT, "skills")));
+function assertCanon(home: string): void {
+  const sourceSkills = join(REPO_ROOT, "skills");
+  const installedSkills = join(home, "skills");
+  const names = skillNames(sourceSkills);
+  expect(names.length).toBeGreaterThan(0);
+  expect(skillNames(installedSkills)).toEqual(names);
+  for (const name of names) {
+    const source = join(sourceSkills, name);
+    const installed = join(installedSkills, name);
+    for (const path of filesBelow(source).filter((file) => basename(file) !== ".DS_Store")) {
+      expect(readFileSync(join(installed, relative(source, path)), "utf8")).toBe(readFileSync(path, "utf8"));
+    }
+  }
 
   const sourceAgents = join(REPO_ROOT, "agents");
   const installedAgents = join(home, "agents");
@@ -374,7 +393,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
     expect(config).toContain('enabled = ["claude-code"]');
     expect(canonPacks(config)).toEqual([]);
-    assertCoreCanon(home);
+    assertCanon(home);
 
     // Claude Code reads AGENTS.md natively now — no CLAUDE.md shim is written.
     expect(existsSync(join(cwd, "CLAUDE.md"))).toBe(false);
@@ -583,33 +602,16 @@ describe("init · the git floor's own housekeeping", () => {
 
 });
 
-describe("init · pack selection in interactive and non-TTY runs", () => {
-  test("non-TTY init installs core only and records no packs", async () => {
+describe("init · non-interactive default skill installation", () => {
+  test("fresh init installs every skill and resource without a pack prompt or config key", async () => {
     const { cwd, machine: home } = sandboxed();
-    const { result } = await driven({}, [
-      ["Create", "\r"],
-      ["Which agent surfaces", " \n"],
-    ]);
+    const { result, out } = await capture(() => initMain({ yes: true }));
 
     expect(result).toBe(0);
-    expect(canonPacks(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8"))).toEqual([]);
-    assertCoreCanon(home);
-  });
-
-  test("interactive init asks for optional packs with none preselected", async () => {
-    const { cwd } = sandboxed();
-    await initMain({ yes: true, global: true });
-    mkdirSync(join(cwd, ".cursor"));
-    gitIn(["init", "-q"], cwd);
-
-    const { result, out } = await driven({}, [
-      ["Which agent surfaces", "\n"],
-      ["pack", "\n"],
-    ]);
-
-    expect(result).toBe(0);
-    expect(out.toLowerCase()).toContain("pack");
-    expect(canonPacks(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8"))).toEqual([]);
+    expect(out).not.toMatch(/(?:which|select|choose)[^\n]*packs?/i);
+    const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
+    expect(canonPacks(config)).toBeNull();
+    assertCanon(home);
   });
 
   test("declining the canon offer installs nothing at all", async () => {

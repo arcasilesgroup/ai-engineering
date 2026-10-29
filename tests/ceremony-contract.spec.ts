@@ -23,8 +23,16 @@ const ENTRY_SKILL = "ai-orchestrator";
 /** Names that look like skills but are the binary itself (`ai-eng`), owned by package.json. */
 const BINARY_NAMES = new Set(Object.keys((JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")) as { bin?: Record<string, string> }).bin ?? {}));
 
-type ScriptCitation = { from: string; token: string };
-type Citations = { skills: Set<string>; agents: Set<string>; scripts: ScriptCitation[]; guards: ScriptCitation[]; templates: Set<string>; metaNames: Set<string> };
+type PathCitation = { from: string; token: string };
+type Citations = {
+  skills: Set<string>;
+  agents: Set<string>;
+  scripts: PathCitation[];
+  resources: PathCitation[];
+  guards: PathCitation[];
+  templates: Set<string>;
+  metaNames: Set<string>;
+};
 
 /** What init would install, materialized from the embedded payload the same way installCanon does. */
 type Canon = { skillsDir: string; agentsDir: string; scriptsDir: string; template: (name: string) => string | null };
@@ -34,20 +42,6 @@ const KEBAB = String.raw`[a-z][a-z0-9]*(?:-[a-z0-9]+)*`;
 
 function isSkillName(name: string): boolean {
   return new RegExp(`^${SKILL_NAME}$`).test(name) && !BINARY_NAMES.has(name);
-}
-
-function packSkillFile(root: string, name: string): string | null {
-  const pending = [join(root, "packs")];
-  while (pending.length > 0) {
-    const directory = pending.pop()!;
-    if (!existsSync(directory)) continue;
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) pending.push(path);
-      else if (entry.name === "SKILL.md" && new RegExp(`^name:\\s*${name}$`, "m").test(readFileSync(path, "utf8"))) return path;
-    }
-  }
-  return null;
 }
 
 /** Every piece one SKILL.md cites. A skill is a `/ai-x` invocation, an exact `ai-x` code
@@ -65,6 +59,7 @@ function citationsIn(text: string, from: string): Citations {
   const skills = new Set<string>();
   const agents = new Set<string>();
   const guards: ScriptCitation[] = [];
+  const resources: ScriptCitation[] = [];
   const templates = new Set<string>();
   const scripts: ScriptCitation[] = [];
   const metaNames = new Set([...text.matchAll(/name="([\w-]+)"/g)].map((match) => match[1] ?? ""));
@@ -96,17 +91,30 @@ function citationsIn(text: string, from: string): Citations {
     if (/^(?:src|tests)\//.test(token) || !(token.includes("/") || isInCodeSpan)) continue;
     scripts.push({ from, token });
   }
+  for (const match of text.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
+    const token = (match[1] ?? "").split("#", 1)[0] ?? "";
+    if (token === "" || /^(?:[a-z]+:|\/|#)/i.test(token) || /^(?:scripts|templates|src)\//.test(token)) continue;
+    resources.push({ from, token });
+  }
   for (const match of text.matchAll(/(?<![\w/.:-])(src\/guards\/[\w-]+\.ts)\b/g)) {
     guards.push({ from, token: match[1] ?? "" });
   }
   for (const match of text.matchAll(/templates\/([\w.-]+\.tpl)\b/g)) templates.add(match[1] ?? "");
   for (const match of text.matchAll(/\.ai-engineering\/(?:[\w-]+\/)*([\w-]+\.html)\b/g)) templates.add(`${match[1] ?? ""}.tpl`);
-  return { skills, agents, scripts, guards, templates, metaNames };
+  return { skills, agents, scripts, resources, guards, templates, metaNames };
 }
 
 /** Every citation in the entry skill and in each SKILL.md it invokes directly. */
 function ceremonyCitations(root: string, entry: string): Citations & { read: string[] } {
-  const all: Citations = { skills: new Set([entry]), agents: new Set(), scripts: [], guards: [], templates: new Set(), metaNames: new Set() };
+  const all: Citations = {
+    skills: new Set([entry]),
+    agents: new Set(),
+    scripts: [],
+    resources: [],
+    guards: [],
+    templates: new Set(),
+    metaNames: new Set(),
+  };
   const read: string[] = [];
   const absorb = (skill: string): Citations | null => {
     const skillFile = join(root, "skills", skill, "SKILL.md");
@@ -116,6 +124,7 @@ function ceremonyCitations(root: string, entry: string): Citations & { read: str
     for (const name of found.skills) all.skills.add(name);
     for (const name of found.agents) all.agents.add(name);
     all.guards.push(...found.guards);
+    all.resources.push(...found.resources);
     for (const name of found.templates) all.templates.add(name);
     for (const name of found.metaNames) all.metaNames.add(name);
     all.scripts.push(...found.scripts);
@@ -128,9 +137,15 @@ function ceremonyCitations(root: string, entry: string): Citations & { read: str
 }
 
 /** A script path resolves inside the citing skill first, then from the repository root. */
-function resolveScript(root: string, citation: ScriptCitation): string | null {
+function resolveScript(root: string, citation: PathCitation): string | null {
   const candidates = [normalize(join("skills", citation.from, citation.token)), normalize(citation.token)];
   return candidates.find((candidate) => !candidate.startsWith("..") && existsSync(join(root, candidate))) ?? null;
+}
+
+function resolveResource(root: string, citation: PathCitation): string | null {
+  const candidate = normalize(join("skills", citation.from, citation.token));
+  if (candidate.startsWith("..") || !candidate.startsWith("skills/")) return null;
+  return existsSync(join(root, candidate)) ? candidate : null;
 }
 
 /** One line per cited piece that the repository or the installed canon lacks. */
@@ -140,7 +155,7 @@ function ceremonyGaps(root: string, entry: string, canon: Canon): string[] {
   for (const skill of cited.skills) {
     const coreSkill = join(root, "skills", skill, "SKILL.md");
     if (!existsSync(coreSkill)) {
-      if (packSkillFile(root, skill) === null) gaps.push(`skill ${skill}: no skills/${skill}/SKILL.md`);
+      gaps.push(`skill ${skill}: no skills/${skill}/SKILL.md`);
     } else if (!existsSync(join(canon.skillsDir, skill, "SKILL.md"))) {
       gaps.push(`skill ${skill}: not installed by init`);
     }
@@ -158,6 +173,16 @@ function ceremonyGaps(root: string, entry: string, canon: Canon): string[] {
     const [area, ...rest] = resolved.split("/");
     const installedDir = area === "skills" ? canon.skillsDir : area === "scripts" ? canon.scriptsDir : null;
     if (installedDir === null || !existsSync(join(installedDir, ...rest))) gaps.push(`script ${resolved}: not installed by init`);
+  }
+  for (const citation of cited.resources) {
+    const resolved = resolveResource(root, citation);
+    if (resolved === null) {
+      gaps.push(`resource ${citation.token} (cited by ${citation.from}): not in the repository`);
+      continue;
+    }
+    if (!existsSync(join(canon.skillsDir, resolved.slice("skills/".length)))) {
+      gaps.push(`resource ${resolved}: not installed by init`);
+    }
   }
   const chainBundle = embeddedChainBundle();
   for (const guard of cited.guards) {
@@ -215,16 +240,11 @@ describe("ceremony contract — every piece ai-orchestrator cites exists and shi
     expect(orchestrator).not.toMatch(/worktree rebase|worktree new <slug> \[files\.\.\.\]/);
   });
 
-  test("every cited skill, agent, script, guard and template exists and ships with packs off", () => {
+  test("every cited skill, agent, script, guard and template exists and ships in the default canon", () => {
     expect(ceremonyGaps(REPO, ENTRY_SKILL, canon)).toEqual([]);
     const cited = ceremonyCitations(REPO, ENTRY_SKILL);
     for (const skill of cited.skills) {
       const coreSkill = join(REPO, "skills", skill, "SKILL.md");
-      if (!existsSync(coreSkill)) {
-        expect(packSkillFile(REPO, skill)).not.toBeNull();
-        expect(existsSync(join(canon.skillsDir, skill, "SKILL.md"))).toBe(false);
-        continue;
-      }
       const source = readFileSync(coreSkill, "utf8");
       expect(readFileSync(join(canon.skillsDir, skill, "SKILL.md"), "utf8")).toBe(source);
     }
@@ -248,6 +268,7 @@ describe("ceremony contract — every piece ai-orchestrator cites exists and shi
           "Launch `stray-planner` and `ghost-fixer` in parallel.",
           "The hook (`scripts/ghost-gate.py`) blocks the call; write `.ai-engineering/ghost.html`.",
           "Then `scripts/stray-gate.py` runs; open `.ai-engineering/workflow/board/ghost-viewer.html`.",
+          "Read [local guidance](references/local-guide.md) and [missing guidance](references/missing.md).",
           "Start from `templates/stray.md.tpl`.",
         ].join("\n"),
       );
@@ -255,10 +276,13 @@ describe("ceremony contract — every piece ai-orchestrator cites exists and shi
       write("agents/stray-planner.md", "# stray\n");
       write("templates/stray.md.tpl", "stray\n");
       write("scripts/stray-gate.py", "# stray\n");
+      write("skills/ai-fixture/references/local-guide.md", "# local guide\n");
       expect(ceremonyGaps(fixtureRoot, "ai-fixture", canon).sort()).toEqual(
         [
           "skill ai-ghost-skill: no skills/ai-ghost-skill/SKILL.md",
           "skill ai-fixture: not installed by init",
+          "resource skills/ai-fixture/references/local-guide.md: not installed by init",
+          "resource references/missing.md (cited by ai-fixture): not in the repository",
           "agent ghost-reviewer: no agents/ghost-reviewer.md",
           "agent stray-planner: not installed by init",
           "agent ghost-fixer: no agents/ghost-fixer.md",
