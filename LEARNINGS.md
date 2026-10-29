@@ -1517,3 +1517,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Document the precise relation/query limits and supported command with selected-base behavior.
 - **Lesson:** Keep documentation aligned with enforced scope and actual commands.
 - **Tags:** review, docs, permissions, git, cli
+
+### L211 · 2026-10-28 · floating-core #17 · review
+- **Failure:** The blueprint said ai-pr creates a branch from local main and targets main.
+- **Root cause:** The prose conflated PR publishing with worktree branch creation and integration.
+- **Fix:** Describe publishing the current checkout/worktree branch with the supported base selection and no branch creation or switching.
+- **Lesson:** Keep PR publishing distinct from worktree branch creation and integration.
+- **Tags:** review, docs, ai-pr, git, base-selection

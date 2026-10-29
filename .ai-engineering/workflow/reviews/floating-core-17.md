@@ -63,3 +63,13 @@ FAIL — F1 and F2 resolved; F3 and F4 remain MAJOR. Focused docs, worktree and 
 - **F4 fixed:** The blueprint now describes base selection from explicit choice or repository configuration, asks once if neither identifies a base, and uses the cleanup skill's merged-branch listing and safe deletion commands instead of the nonexistent command or hardcoded `main`.
 - **Focused checks:** `tests/docs-lint.spec.ts`, `tests/triage-azure.integration.spec.ts`, `tests/triage-azure-signals.integration.spec.ts`, and `tests/git-cleanup-pass.spec.ts`: 151 pass, 0 fail.
 - **Report-only docs audit:** Scoped to the corrected F3/F4 claims; 0 critical, 0 warnings, 0 info (0 findings).
+
+## Round 3 findings
+- **F5 · MAJOR — docs/blueprint.html:1819:** The `ai-pr` section still says it creates a PR branch from local `main` and targets `main`; the shipped skill publishes the current branch from the current checkout/worktree and resolves its base from explicit choice, config, remote default, or forge (`skills/ai-pr/SKILL.md:13–16,29–40`).
+
+## Round 3 verdict
+FAIL — F1–F4 resolved; F5 remains MAJOR, 0 BLOCKER. Focused docs, worktree, cleanup, and Azure tests passed.
+
+## Round 3 response
+- **F5 fixed:** The blueprint now says `ai-pr` publishes the current checkout/worktree branch without creating or switching branches, resolves the base from the supported precedence, and targets that selected base. The worktree implementation separately creates a branch from the invoking checkout's `HEAD` and uses the detected base for integration.
+- **Focused checks:** `bun test ./tests/docs-lint.spec.ts` — 3 pass, 0 fail; `bun test ./tests/ai-pr.spec.ts` — 22 pass, 0 fail.
