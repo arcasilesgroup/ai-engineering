@@ -5,7 +5,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="ai-feature" content="floating-core">
-<meta name="ai-approved" content="2026-10-27">
+<meta name="ai-approved" content="2026-10-29">
 <title>Brainstorm · floating core</title>
 <style>
 :root{
@@ -201,10 +201,10 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Brainstorm · floating core · complete · 2026-10-27</div>
+  <div class="stamp">Brainstorm · floating core · complete · 2026-10-29</div>
   <h1>Floating core: menos plataforma, el mismo suelo</h1>
-  <p class="sub">ai-engineering es un suelo de seguridad debajo del agente que ya usas. El agente trabaja donde tú estás; el suelo mira cada acción y la apunta; Git, tu editor y tu forge hacen lo suyo, y nosotros quitamos nuestras copias.</p>
-  <div class="meta"><b>complete · 2026-10-27</b><br>Slug <b>floating-core</b> · camino arquitectónico · aprobado para implementación</div>
+  <p class="sub">Quieres una sola raíz para las skills: <code>skills/</code>. Todas se instalan y quedan disponibles; ninguna se ejecuta por instalarla. Si una deja de hacer falta, se elimina con evidencia.</p>
+  <div class="meta"><b>complete · 2026-10-29</b><br>Slug <b>floating-core</b> · camino arquitectónico · alcance revisado y aprobado</div>
 </header>
 
 <nav>
@@ -327,23 +327,8 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   </ul>
 
   <h3>4.3 Canon de skills</h3>
-  <p>30 skills, 21.556 líneas. La auditoría proponía 8 packs; tras revisar las dependencias del orchestrator, <b>la ceremonia completa se queda en core</b> (ver 6.2 bis). Resultado final: <b>23 skills core, 6 pasan a packs opcionales, 1 se fusiona, 0 se borran.</b> Los 6 packs suman ≈9.350 líneas que hoy se cargan en cada surface.</p>
-  <div class="tbl-wrap"><table>
-    <thead><tr><th>Skill</th><th>Líneas</th><th>Veredicto</th><th>Por qué</th></tr></thead>
-    <tbody>
-      <tr><td>ai-agents-md, ai-audit-code, ai-audit-docs, ai-codegraph, ai-debug, ai-explore, ai-issue-report, ai-note, ai-read-docs, ai-research</td><td>≈1.150</td><td>Core, sin cambios de fondo</td><td>Pequeñas, componibles, sin acoplamiento a worktree ni a <code>main</code></td></tr>
-      <tr><td>ai-brainstorm</td><td>1.180</td><td>Se queda; solo cambia lo de ubicación</td><td>Entrada de la ceremonia: misma entrevista, mismo HTML, misma aprobación. Se quita el preflight de worktree duplicado y la aprobación en el ritmo Directo</td></tr>
-      <tr><td>ai-orchestrator</td><td>285</td><td>Se queda; solo cambia lo de ubicación</td><td>Mismas fases, gates, agentes, paradas y recetas de commit. Cambian worktree obligatorio, <code>main</code> fijo y el hook Python por el guard TS</td></tr>
-      <tr><td>ai-pr</td><td>356</td><td>Adelgazar a ≈90</td><td>Proveedor neutral (<code>gh</code>/<code>az</code>), base detectada, sin bloqueos por ramas ajenas</td></tr>
-      <tr><td>ai-git-cleanup</td><td>170</td><td>Adelgazar a ≈40</td><td>Vista previa con Git nativo; sin borrado forzado por defecto</td></tr>
-
-      <tr><td>ai-architect, ai-config-to-project</td><td>595, 79</td><td>Adelgazar</td><td>Menos ritual fijo, mismo juicio</td></tr>
-      <tr><td>ai-verify</td><td>6.063</td><td>Core el router de 54 líneas; 6.009 a pack</td><td>Los tiers y evals son especialistas</td></tr>
-      <tr><td>ai-code-review</td><td>126</td><td>Fusionar en ai-verify</td><td>Solapa con la revisión de diff</td></tr>
-      <tr><td>ai-test-planner, ai-prototype, ai-review-ui, ai-adversarial-loop, ai-security, ai-write</td><td>≈2.400</td><td>Core, ceremonia protegida</td><td>El orchestrator las invoca en sus fases (tests, prototipos, gate UI, review, triggers de wrap-up). Se quedan con su comportamiento</td></tr>
-      <tr><td>ai-triage, ai-design-md-planner, ai-audit-design, ai-visual-recap, ai-writing-behavior, ai-stress-test</td><td>≈9.350</td><td>Pack opcional</td><td>Especialistas; se instalan cuando se eligen</td></tr>
-    </tbody>
-  </table></div>
+  <p>La fuente actual separa las skills principales en <code>skills/</code> y las especializadas en <code>packs/</code>. La persona reemplazó esa decisión el 2026-10-29: cada skill y sus recursos instalables vivirán bajo <code>skills/&lt;nombre&gt;/</code>; todas se instalarán por defecto y no habrá selector de packs. Instalar una skill solo la hace disponible, no la ejecuta.</p>
+  <p>El árbol <code>packs/verify-tiers/evals/</code> contiene fixtures, respuestas esperadas y scripts de evaluación. No son skills y hoy no se instalan. La propuesta es moverlos a <code>tests/fixtures/verify-tiers/</code> y dejarlos fuera del payload de skills.</p>
   <p>Flujo actual de una feature de 3 checkpoints sin UI: 2 paradas humanas, 3 gates por checkpoint, 9 archivos de workflow, <b>19 agentes como mínimo</b> (29 con UI).</p>
 <pre>idea
   -> /ai-brainstorm (HTML + PRD en el checkout principal)   PERSONA 1
@@ -390,7 +375,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
       <tr><td>Base de una PR</td><td><code>gh pr create</code> usa <code>--base</code>, luego <code>gh-merge-base</code>, luego la rama por defecto. <code>az repos pr create</code> usa la rama por defecto del repo. <code>git symbolic-ref refs/remotes/origin/HEAD</code></td><td>Nunca escribimos <code>main</code>: detectamos</td></tr>
     </tbody>
   </table></div>
-  <p><b>Comparables.</b> <a href="https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/skills/using-git-worktrees/SKILL.md">obra/superpowers</a> (v7.0.1, 21 oct 2026): prefiere el worktree nativo del harness, pregunta si no sabe, y si se rechaza trabaja en el sitio; al terminar ofrece merge local a una base confirmada, PR o mantener rama. Lo copiamos. Lo que no copiamos: su ejecución de planes exige aislamiento siempre. <a href="https://github.com/github/spec-kit/blob/7ea1146b9469996b211c581961717038da4f11b6/README.md">GitHub Spec Kit</a> (1.2.3, 22 oct 2026): procesos como overlays opcionales. Lo copiamos para los packs; no copiamos su toolchain Python. La cita exacta de Hohpe sobre "floating vs sinking" no está verificada en una fuente permitida.</p>
+  <p><b>Comparables.</b> <a href="https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/skills/using-git-worktrees/SKILL.md">obra/superpowers</a> (v7.0.1, 21 oct 2026): prefiere el worktree nativo del harness, pregunta si no sabe, y si se rechaza trabaja en el sitio; al terminar ofrece merge local a una base confirmada, PR o mantener rama. Lo copiamos. Lo que no copiamos: su ejecución de planes exige aislamiento siempre. <a href="https://github.com/github/spec-kit/blob/7ea1146b9469996b211c581961717038da4f11b6/README.md">GitHub Spec Kit</a> (1.2.3, 22 oct 2026): procesos como overlays opcionales. La separación anterior entre packs y core queda reemplazada por la decisión de una sola raíz en <code>skills/</code>. La cita exacta de Hohpe sobre "floating vs sinking" no está verificada en una fuente permitida.</p>
 </section>
 <section id="s5">
   <h2><span class="num">05</span>Cómo se ve el éxito</h2>
@@ -410,8 +395,8 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
       <tr><td>Líneas en <code>src/</code></td><td>13.111</td><td>≤ 7.000</td><td><code>wc -l</code> en CI como informe, no como gate</td></tr>
       <tr><td>Fuentes del estado de una feature</td><td>4 validadores, 2 parsers, 2 lenguajes</td><td>1 módulo TS</td><td>Arch test: solo <code>src/workflow/checkpoint.ts</code> lee el JSON</td></tr>
       <tr><td>Runtimes del suelo</td><td>Bun + Python (hook)</td><td>Solo Bun en los hooks</td><td>Sin <code>python3</code> en carriers. El visor del orchestrator sigue sirviéndose con <code>python3 -m http.server</code> como hoy</td></tr>
-      <tr><td>Skills core instaladas por defecto</td><td>30 (21,5k líneas)</td><td>23 core (≈6,2k) + packs elegidos</td><td>Test de install: <code>init</code> sin packs instala 23</td></tr>
-      <tr><td>Ceremonia del orchestrator</td><td>Funciona solo en worktree y con <code>main</code></td><td>Mismas fases, gates, agentes y paradas, en checkout o worktree</td><td>Test de contrato: todo skill, agente, script y plantilla que cita <code>ai-orchestrator</code> existe en core y lo instala <code>init</code> sin packs</td></tr>
+      <tr><td>Skills instaladas por defecto</td><td>Skill sources repartidos entre <code>skills/</code> y <code>packs/</code></td><td>Todas las skills bajo <code>skills/</code>, instaladas por defecto</td><td>Test de install: <code>init</code> instala cada skill declarada</td></tr>
+      <tr><td>Ceremonia del orchestrator</td><td>Funciona solo en worktree y con <code>main</code></td><td>Mismas fases, gates, agentes y paradas, en checkout o worktree</td><td>Test de contrato: cada skill, agente, script y plantilla que cita <code>ai-orchestrator</code> existe y se instala</td></tr>
                   <tr><td>Suite en serie</td><td>Roja, duración desconocida, flakes</td><td>Verde, &lt; 2 min, dos veces seguidas</td><td><code>bun test --parallel=1</code> en CI</td></tr>
       <tr><td>Promesas de la web</td><td>3 rotas, 4 derivando</td><td>Todas se cumplen o se reescriben</td><td>Tabla de promesas revisada en CP12</td></tr>
     </tbody>
@@ -464,7 +449,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
       <tr><td>P3</td><td>Detectar, nunca suponer</td><td>Rama actual, rama base, si es worktree, la forge: se leen de Git. Si no se pueden leer, se pregunta una vez.</td></tr>
       <tr><td>P4</td><td>Un estado, una fuente, un validador</td><td>El checkpoint JSON de la feature es el único estado. Un módulo TypeScript lo valida para todos.</td></tr>
       <tr><td>P5</td><td>El suelo no tiene servidor</td><td>Nada residente, nada escuchando en un puerto, un solo runtime (Bun).</td></tr>
-      <tr><td>P6</td><td>Lo especialista es pack</td><td>Core pequeño instalado siempre; packs que eliges. Mover no es borrar.</td></tr>
+      <tr><td>P6</td><td>Una raíz de skills</td><td>Todas las skills y sus recursos instalables viven bajo <code>skills/</code> y se instalan por defecto. Una skill solo se elimina si se decide que ya no hace falta.</td></tr>
       <tr><td>P7</td><td>Código para lo fijo, prosa para el juicio</td><td>Orden de gates y transiciones de estado: código (el guard). Elegir ritmo, alcance o riesgo: el modelo y la persona.</td></tr>
       <tr><td>P8</td><td>Nunca sin salida</td><td>Cada refusal dice qué protege, qué ruta exacta y el siguiente paso. "Desconocido" no es aprobación, pero tampoco es un callejón.</td></tr>
       <tr><td>P9</td><td>Nunca perder trabajo</td><td>Sin <code>stash</code>, <code>reset</code>, <code>clean</code> ni borrado automático. Forzar solo con orden explícita de la persona.</td></tr>
@@ -495,18 +480,18 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
       <tr><td><code>scripts/checkpoint-gate.py</code> + 931 líneas de test</td><td>Se reconstruye</td><td>Segundo runtime, no corre en CI, duplica validación</td><td>Guard <code>checkpoint</code> en TypeScript dentro del chain (≈200 líneas) que usa <code>src/workflow/checkpoint.ts</code>. Solo actúa si existe un checkpoint JSON</td><td>≈ -1.600</td></tr>
       <tr><td>Checkpoint JSON</td><td>Se queda, simplificado</td><td>Es el único estado útil y legible por cualquier harness</td><td>Fases nuevas (6.5), lector de fases antiguas, un validador</td><td>-</td></tr>
       <tr><td>Visor estático de checkpoints</td><td>Se queda tal cual</td><td>Parte de la ceremonia: Fase 1 abre el plan en él</td><td>Sin cambios; se sirve con <code>python3 -m http.server</code> desde el checkout o worktree elegido</td><td>0</td></tr>
-      <tr><td>Skills</td><td>23 core + 6 packs</td><td>Sección 4.3 y 6.2 bis</td><td>Directorio <code>packs/&lt;nombre&gt;/</code>, instalados según <code>[canon] packs</code></td><td>≈ -15,3k cargadas por defecto</td></tr>
+      <tr><td>Skills</td><td>Hoy: dos raíces de origen</td><td>Sección 4.3 y D5, revisada el 2026-10-29</td><td>Objetivo: un árbol <code>skills/&lt;nombre&gt;/</code>; todas instaladas y disponibles</td><td>Medir el payload y el costo de descubrimiento</td></tr>
       <tr><td>Sección Git de <code>AGENTS.md</code> y su plantilla</td><td>Se reescribe</td><td>Hoy impone el flujo (roto respecto a la promesa)</td><td>Sección corta "Dónde trabajar" (6.4) en la plantilla; el <code>AGENTS.md</code> del repo la copia y un test comprueba que coinciden</td><td>-</td></tr>
       <tr><td>Informes de skills dentro del árbol (<code>security/run-*</code>, <code>workflow/playwright/</code>)</td><td>Se quedan donde están</td><td><code>ai-security</code> versiona a propósito sus <code>findings.json</code>; moverlos rompería esa conducta</td><td>Dejan de bloquear por P2: reanudar y cerrar solo miran las rutas que escriben</td><td>0</td></tr>
       <tr><td>Tests de frases de skills</td><td>Se reemplazan</td><td>Comprueban redacción, no conducta</td><td>Una lint de esquema, frontmatter y enlaces, más el test de contrato de la ceremonia (todo lo que cita el orchestrator existe y se instala). Los asserts sobre fases y gates del orchestrator se conservan</td><td>≈ -900</td></tr>
       <tr><td>p95 de 50 ms como gate</td><td>Se va del gate</td><td>Mide el host, no el código</td><td>Benchmark aparte, no bloqueante</td><td>-</td></tr>
     </tbody>
   </table></div>
-  <p class="dim">Estimación total: <code>src/</code> de 13,1k a ≈6,8k líneas; tests de 27,9k a ≈18k; scripts sin Python; canon por defecto de 21,5k a ≈6,2k líneas. Cero dependencias nuevas, cero quitadas (las dos actuales se siguen usando).</p>
+  <p class="dim">Las estimaciones del tamaño del canon quedan pendientes. El cálculo anterior suponía instalar solo 23 skills core y ya no es válido. Medir el payload y el costo de descubrimiento después de unificar el árbol y actualizar el presupuesto de tokens.</p>
 
 
   <h3>6.2 bis Ceremonia protegida del orchestrator</h3>
-  <p>Inventario verificado de lo que <code>skills/ai-orchestrator/SKILL.md</code> invoca. Todo es core, todo se instala sin packs y todo mantiene su comportamiento. La columna "Cambia" lista lo único que se toca.</p>
+  <p>Inventario verificado de lo que <code>skills/ai-orchestrator/SKILL.md</code> invoca. Todas las skills quedan bajo <code>skills/</code> y se instalan por defecto; su comportamiento no cambia. La columna "Cambia" lista lo único que se toca.</p>
   <div class="tbl-wrap"><table>
     <thead><tr><th>Pieza</th><th>Fase</th><th>Dependencias propias</th><th>Cambia</th></tr></thead>
     <tbody>
@@ -520,10 +505,10 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
       <tr><td><code>ai-security</code>, <code>ai-write</code></td><td>Fase 3 (triggers)</td><td>esquema de findings, <code>references/voice.md</code></td><td>Nada; <code>ai-security</code> deja de exigir <code>spec close</code> solo si D4</td></tr>
       <tr><td>Hook de checkpoints</td><td>Todas</td><td>hoy <code>scripts/checkpoint-gate.py</code></td><td>Se porta 1 a 1 al guard TS: mismos gates (<code>behavior</code>, <code>ui</code>, <code>review</code>), mismos stages (<code>tests</code>, <code>implement</code>, <code>behavior</code>, <code>ui</code>, <code>review</code>, <code>fix</code>), mismo <code>halted</code>, mismo bloqueo en <code>Stop</code>. Se quita solo la regla "plan solo dentro de un worktree gestionado"</td></tr>
       <tr><td><code>ai-eng worktree merge</code>, <code>request-changes</code></td><td>Fase 4</td><td>Git</td><td>Merge desde cualquier checkout y base detectada; <code>request-changes</code> se mantiene (ver 6.5)</td></tr>
-      <tr><td><code>ai-visual-recap</code></td><td>Solo si la persona lo invoca</td><td>plantilla <code>recap.html.tpl</code></td><td>Pasa a pack: el orchestrator nunca lo llama solo</td></tr>
+      <tr><td><code>ai-visual-recap</code></td><td>Se instala siempre; se ejecuta solo si la persona lo invoca</td><td>plantilla <code>recap.html.tpl</code></td><td>Permanece como skill disponible</td></tr>
     </tbody>
   </table></div>
-  <p>Garantía ejecutable: un test lee <code>ai-orchestrator/SKILL.md</code> y los SKILL que invoca, extrae cada skill, agente, script y plantilla citados, y falla si alguno no existe en core o si <code>init</code> sin packs no lo instala.</p>
+  <p>Garantía ejecutable: un test lee <code>ai-orchestrator/SKILL.md</code> y los SKILL que invoca, extrae cada skill, agente, script y plantilla citados, y falla si alguno no existe o si <code>init</code> no lo instala.</p>
   <h3>6.3 Arquitectura objetivo</h3>
   <p>Diagrama interactivo: <a href="../.archify/architecture-floating-core-20261026-162613/floating-core.html">floating-core.html</a>. Vista de capas del código, con la dirección permitida de dependencias (de arriba abajo):</p>
 <pre>Persona ──> Harness (Claude · Copilot · Codex · Cursor)
@@ -705,16 +690,33 @@ Gate = { "status": "pending"|"failed"|"passed"|"n/a"|"blocked",
       <tr><td><code>src/git/merge.ts</code></td><td>Merge <code>--no-ff</code> de <code>reviewed_feature</code> sobre <code>base_ref</code>, verificación de padres exactos, <code>git update-ref &lt;base&gt; &lt;nuevo&gt; &lt;esperado&gt;</code>, colisiones de rutas sin seguimiento, refresco del checkout que tiene la base si está limpio en esas rutas</td></tr>
       <tr><td><code>src/workflow/checkpoint.ts</code></td><td>Esquema actual, fases, transiciones, lectura de <code>reviewed_main</code> antiguo, parser del meta de aprobación del brainstorm</td></tr>
       <tr><td><code>src/guards/checkpoint.ts</code></td><td>Reglas G1 a G8 de 6.5, en la tabla del chain para Write, Edit, Task y Stop</td></tr>
-      <tr><td>Config</td><td><code>[git] base</code> y <code>[git] worktrees_dir</code> opcionales; <code>[canon] packs</code></td></tr>
-      <tr><td>Packs al instalar</td><td><code>init</code> interactivo pregunta, nada marcado. <code>init --yes</code> o sin TTY escribe <code>packs = []</code>: las 23 core, con la ceremonia completa</td></tr>
-      <tr><td>Packs al actualizar</td><td>La primera vez que <code>update</code> ve una instalación sin <code>[canon] packs</code>, escribe los 6 packs: nada desaparece. La persona quita los que no quiera. Las ediciones locales siguen protegidas por los hashes del lock</td></tr>
+      <tr><td>Config</td><td><code>[git] base</code> y <code>[git] worktrees_dir</code> opcionales; sin selector de skills</td></tr>
+      <tr><td>Skills al instalar o actualizar</td><td><code>init</code> y <code>update</code> instalan todas las skills bajo <code>skills/</code>. No hay selector opcional. Los valores antiguos de <code>[canon] packs</code> no cambian esta regla; la configuración existente no se reescribe.</td></tr>
       <tr><td>Versión</td><td>3.0.0 (quita verbos). Changeset mayor y guía de migración en <code>CHANGELOG.md</code></td></tr>
     </tbody>
   </table></div>
+
+  <h3>6.11 Una sola fuente de skills</h3>
+  <p><b>Recomendación:</b> mover cada skill y sus recursos instalables a <code>skills/&lt;nombre&gt;/</code>. El escáner existente incluirá todos los directorios al instalar. Eliminar <code>packs/</code>, el selector de <code>init</code> y el campo <code>[canon].packs</code>. Instalar no ejecuta la skill: la deja disponible para invocarla.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Opción</th><th>Gana</th><th>Pierde</th><th>Veredicto</th></tr></thead>
+    <tbody>
+      <tr><td>Una raíz <code>skills/</code>, todo instalado</td><td>Una fuente, un inventario y un flujo de instalación</td><td>Más archivos disponibles en cada instalación</td><td>Elegida por la persona</td></tr>
+      <tr><td>Una raíz <code>skills/</code>, selección opcional</td><td>Instalaciones más pequeñas</td><td>Conserva selector, configuración y rutas distintas</td><td>Descartada: contradice la decisión de instalar todas</td></tr>
+      <tr><td>Dejar <code>packs/</code> y crear copias o enlaces</td><td>Evita algunos movimientos inmediatos</td><td>Dos fuentes pueden separarse</td><td>Descartada: duplica el catálogo</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>Flujo:</b> <code>skills/</code> → <code>scripts/gen-assets.ts</code> → <code>src/assets.ts</code> → <code>canonSkills()</code> → <code>installCanon()</code>. El inventario completo se instala sin consultar una lista de packs.</li>
+    <li><b>Configuración antigua:</b> dejar el archivo del usuario intacto. Un valor existente en <code>[canon].packs</code> no puede limitar la nueva instalación completa.</li>
+    <li><b>Datos de usuario:</b> mantener la protección de hashes para skills editadas y no borrar skills ajenas. Probar colisiones entre un nombre de skill nuevo y una carpeta ya existente.</li>
+    <li><b>Evaluaciones:</b> los fixtures y respuestas de <code>verify-tiers</code> son datos de test, no skills. Moverlos a <code>tests/fixtures/verify-tiers/</code>, fuera del payload instalable.</li>
+    <li><b>Medición:</b> recalcular el tamaño instalado y el presupuesto de frontmatter después del cambio; la estimación anterior asumía instalaciones opcionales.</li>
+  </ul>
 </section>
 <section id="s7">
   <h2><span class="num">07</span>Decisiones aún abiertas</h2>
-  <div class="note ok"><h4>Cerradas el 2026-10-27</h4><p>La persona aprobó el brainstorm: cada decisión queda con su valor recomendado. D3 la decidió la persona (<code>wrap</code> se queda) y D2 se ejecutó al aprobar (rama archivada).</p></div>
+  <div class="note ok"><h4>Revisión aprobada · 2026-10-29</h4><p>La persona cambió D5: una sola raíz <code>skills/</code> y todas las skills instaladas por defecto. La selección opcional anterior queda cancelada. Los fixtures de evaluación van a <code>tests/fixtures/verify-tiers/</code>, no se instalan. El plan de checkpoints anterior queda supersedido y debe regenerarse antes de implementar esta estructura.</p></div>
   <div class="tbl-wrap"><table>
     <thead><tr><th>#</th><th>Decisión</th><th>Recomendado</th><th>Alternativa</th><th>Impacto</th></tr></thead>
     <tbody>
@@ -722,7 +724,6 @@ Gate = { "status": "pending"|"failed"|"passed"|"n/a"|"blocked",
       <tr><td>D2</td><td>Rama <code>feat/worktree-lifecycle-governance</code> (287 commits, CP18 pendiente)</td><td>No integrarla. Etiqueta <code>archive/worktree-lifecycle-governance</code> y quitar su worktree con tu ok. Lo valioso (colisiones acotadas, CAS) ya está en <code>main</code></td><td>Terminar CP18 e integrarla antes</td><td>Sin D2 resuelta, el preflight actual verá solapamiento y parará</td></tr>
       <tr><td>D3</td><td><code>wrap</code> (filtra la salida de tests)</td><td><b>Decidida por la persona el 2026-10-27</b>: se queda. Ahorra tokens enseñando solo los fallos; el ahorro de tokens pasa a ser parte del suelo (P11)</td><td>-</td><td>La web cuenta "5 guards de protección + 1 de prompt + ahorro de tokens en el mismo hook"</td></tr>
       <tr><td>D4</td><td>Verbo <code>ai-eng spec open|approve|close</code></td><td>Quitarlo. Aprobar = commit del brainstorm con <code>ai-approved</code>; cerrar = integración derivada de Git. <code>ai-brainstorm</code>, <code>ai-security</code> y <code>ai-stress-test</code> dejan de citar <code>spec close</code></td><td>Mantener <code>spec approve</code> como pin de hash</td><td>-300 líneas; texto de Lifecycle en <code>AGENTS.md</code></td></tr>
-      <tr><td>D5</td><td>Packs: dónde y cuáles por defecto</td><td>Mismo repo en <code>packs/&lt;nombre&gt;/</code>. Seis packs (triage, design-md-planner, audit-design, visual-recap, writing-behavior, stress-test) más los tiers de ai-verify. Ninguno por defecto; la ceremonia nunca depende de un pack</td><td>Repo aparte por pack</td><td>Install, update, uninstall, surfaces</td></tr>
       <tr><td>D6</td><td>Qué pasa tras 3 fallos en un gate</td><td>Mantener la ceremonia de hoy: re-plan automático y circuit breaker <code>halted</code></td><td>Parar en <code>blocked</code> y preguntar tras 3 fallos</td><td>La alternativa reduce churn (287 commits) pero cambia la ceremonia; solo con tu ok</td></tr>
       <tr><td>D7</td><td>Revisión adversarial</td><td>Mantener hasta 4 rondas, como hoy</td><td>1 crítico y máximo 2 rondas</td><td>Agentes por checkpoint; solo con tu ok</td></tr>
       <tr><td>D8</td><td>"No runtime to adopt" con Bun obligatorio</td><td>Mantener Bun y corregir la promesa: "un paquete, ningún servicio". Los binarios compilados siguen en cada release</td><td>Publicar el binario compilado por npm</td><td>Texto de web y README</td></tr>
@@ -750,7 +751,7 @@ Gate = { "status": "pending"|"failed"|"passed"|"n/a"|"blocked",
 
 <section id="s9">
   <h2><span class="num">09</span>Fuera de alcance</h2>
-  <div class="note danger"><h4>No forma parte de esta idea</h4><p>Cambiar la lógica de los guards de seguridad o añadir guards nuevos (salvo <code>checkpoint</code>, port 1 a 1 del hook Python). Cambiar el comportamiento de la ceremonia del orchestrator más allá de trabajar sin worktree y con base detectada. Cualquier servicio hospedado, telemetría o UI propia nueva. Coordinar trabajo entre clones o máquinas. Borrar el contenido de los packs (se mueven, no se borran). Rediseñar la web (solo se corrigen sus afirmaciones). Consumidores externos de lifecycle como Copilotline. Cambiar el formato de los receipts. El benchmark contra rtk + caveman y los nuevos filtros de ahorro de tokens (siguiente feature <code>token-economy</code>, pregunta 7). PR en forges distintas de GitHub y Azure DevOps (la detección de base es genérica; la PR en otras forges queda en instrucciones manuales).</p></div>
+  <div class="note danger"><h4>No forma parte de esta idea</h4><p>Cambiar la lógica de los guards de seguridad o añadir guards nuevos (salvo <code>checkpoint</code>, port 1 a 1 del hook Python). Cambiar el comportamiento de la ceremonia del orchestrator más allá de trabajar sin worktree y con base detectada. Cualquier servicio hospedado, telemetría o UI propia nueva. Coordinar trabajo entre clones o máquinas. Borrar skills durante el traslado, salvo una decisión posterior basada en evidencia de que ya no hacen falta. Rediseñar la web (solo se corrigen sus afirmaciones). Consumidores externos de lifecycle como Copilotline. Cambiar el formato de los receipts. El benchmark contra rtk + caveman y los nuevos filtros de ahorro de tokens (siguiente feature <code>token-economy</code>, pregunta 7). PR en forges distintas de GitHub y Azure DevOps (la detección de base es genérica; la PR en otras forges queda en instrucciones manuales).</p></div>
 </section>
 
 <section id="s10">
@@ -784,9 +785,9 @@ Gate = { "status": "pending"|"failed"|"passed"|"n/a"|"blocked",
       <tr><td>6</td><td>Worktree opcional y merge desde cualquier checkout</td><td>S3, S5, S8, S9, S10, S11, S17</td><td><code>src/git/merge.ts</code>, <code>src/commands/worktree.ts</code>, reducir <code>src/shared-worktree.ts</code></td><td>0 literales <code>refs/heads/main</code> en <code>src/</code>; verbos <code>new|list|merge|rm</code></td></tr>
       <tr><td>7</td><td>Quitar plataforma del runtime</td><td>Tests de <code>init</code> y <code>update</code>: no hacen commit; <code>update</code> no abre red</td><td>sidecar, circuit breaker, briefing, upgrade, <code>floor/template.ts</code>, plant-workflow, spec (D4), <code>wrap</code> guarda la salida completa (D11), helpers DRY, <code>arch.rules.json</code> y su test</td><td>Arch comprueba ciclos y que todo archivo tiene capa</td></tr>
       <tr><td>8</td><td>Skills de flujo y contrato</td><td>Lint de esquema de skills (sustituye frases); test de que la sección "Dónde trabajar" de <code>AGENTS.md</code> coincide con la plantilla</td><td><code>skills/ai-brainstorm</code>, <code>ai-orchestrator</code>, <code>ai-pr</code>, <code>ai-git-cleanup</code>, <code>ai-adversarial-loop</code>, <code>ai-test-planner</code>, <code>agents/checkpoint-planner.md</code>, <code>AGENTS.md</code>, <code>templates/AGENTS.md.tpl</code>, <code>.gitignore</code> plantilla</td><td>0 literales <code>origin/main</code> y <code>feat/</code> obligatorios en skills; S1, S2, S7 descritos</td></tr>
-      <tr><td>9</td><td>Core y packs</td><td><code>init</code> sin packs instala 23 skills y todos los agentes de la ceremonia; el test de contrato de ceremonia pasa sin packs; <code>uninstall</code> limpia packs</td><td><code>packs/</code>, <code>src/install.ts</code>, <code>src/surfaces/adapters.ts</code>, <code>src/commands/init.ts</code>, <code>config.ts</code>, <code>update.ts</code>, <code>uninstall.ts</code>, <code>scripts/gen-assets.ts</code></td><td>ai-code-review fusionada en ai-verify; la ceremonia completa sigue en core</td></tr>
+      <tr><td>9</td><td>Unificar e instalar todas las skills</td><td><code>init</code> y <code>update</code> instalan todos los skills desde <code>skills/</code>; no queda selector ni directorio de packs; <code>uninstall</code> elimina solo archivos de skills que pertenecen al canon</td><td><code>skills/</code>, <code>src/embed.ts</code>, <code>src/install.ts</code>, <code>src/surfaces/adapters.ts</code>, <code>src/commands/init.ts</code>, <code>config.ts</code>, <code>update.ts</code>, <code>uninstall.ts</code>, <code>scripts/gen-assets.ts</code></td><td>ai-code-review fusionada en ai-verify; toda skill queda disponible</td></tr>
       <tr><td>10</td><td>Consolidar tests y CI</td><td>Ninguno nuevo: borrar tests de frases y casos Git duplicados conservando S11 y los asserts de fases y gates del orchestrator</td><td><code>tests/skills.spec.ts</code>, <code>tests/workflow-handoff.spec.ts</code>, <code>tests/ai-pr.spec.ts</code>, <code>tests/worktree-*.spec.ts</code>, <code>.github/workflows/mutation.yml</code>, <code>check.yml</code></td><td>Suite en serie &lt; 2 min; una campaña de mutación por PR</td></tr>
-      <tr><td>11</td><td>Presupuesto de tokens</td><td>Test de presupuesto: frontmatter de skills core ≤ 2.500 tokens, plantilla <code>AGENTS.md</code> ≤ 1.200, salida de hooks en verde = 0 líneas y en deny ≤ 3</td><td>Script <code>scripts/tokens.ts</code> (bytes/4, sin dependencias), <code>package.json</code>, descripciones de <code>skills/*/SKILL.md</code>, <code>templates/AGENTS.md.tpl</code></td><td>Presupuestos verdes; prosa de la ceremonia más corta sin cambiar su comportamiento (el test de contrato sigue verde)</td></tr>
+      <tr><td>11</td><td>Presupuesto de tokens</td><td>Medir el frontmatter de todas las skills instaladas y revisar su presupuesto; plantilla <code>AGENTS.md</code> ≤ 1.200, salida de hooks en verde = 0 líneas y en deny ≤ 3</td><td>Script <code>scripts/tokens.ts</code> (bytes/4, sin dependencias), <code>package.json</code>, descripciones bajo <code>skills/</code>, <code>templates/AGENTS.md.tpl</code></td><td>El límite refleja el costo real y las pruebas siguen verdes</td></tr>
       <tr><td>12</td><td>Docs, promesa y versión</td><td>Lint de docs: comandos citados existen en la CLI</td><td><code>README.md</code>, <code>CONTRIBUTING.md</code>, <code>SECURITY.md</code>, <code>PERMISSIONS.md</code>, <code>NOTICE.md</code>, <code>docs/</code>, <code>FILEMAP.md</code>, <code>CHANGELOG.md</code>, changeset mayor</td><td>0 críticos en ai-audit-docs; tabla de promesas sin filas rotas; guía de migración 3.0</td></tr>
     </tbody>
   </table></div>
@@ -800,7 +801,7 @@ Gate = { "status": "pending"|"failed"|"passed"|"n/a"|"blocked",
 
 <footer>
   <span class="x">{</span>ai<span class="x">}</span> Engineering · Brainstorm · floating core<br>
-  complete · 2026-10-27
+  complete · 2026-10-29
   <a href="#main">↑ top</a>
 </footer>
 <script>
