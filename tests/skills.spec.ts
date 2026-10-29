@@ -17,7 +17,6 @@ import { join, relative } from "node:path";
 
 const SKILLS = join(import.meta.dir, "..", "skills");
 const ROOT = join(import.meta.dir, "..");
-const PACKS = join(ROOT, "packs");
 const ACCENTS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
 const TOKEN_LIMIT = /(límite de tokens|token limit|token budget for this (file|skill)|keep (it|this) (under|below) \d+\s*(chars|caracteres|characters|tokens)|≤\s*\d+\s*(chars|caracteres|characters)\s*(max|limit|límite)?)/i;
 const MACHINE_PATH = /(\/Users\/|\/private\/tmp\/|\/tmp\/ai-eng-home-test|~\/\.agents\/skills)/;
@@ -28,15 +27,11 @@ function listSkillDirs(): string[] {
       .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
       .map((entry) => join(root, entry.name))
       .filter((directory) => existsSync(join(directory, "SKILL.md")));
-  return [...directSkills(SKILLS), ...directSkills(PACKS)].sort((a, b) => a.localeCompare(b, "en"));
+  return directSkills(SKILLS).sort((a, b) => a.localeCompare(b, "en"));
 }
 
 function skillContentRoots(): string[] {
-  const packRoots = readdirSync(PACKS, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
-    .map((entry) => join(PACKS, entry.name))
-    .filter((directory) => !existsSync(join(directory, "SKILL.md")));
-  return [...listSkillDirs(), ...packRoots];
+  return listSkillDirs();
 }
 
 function walk(dir: string): string[] {
@@ -84,9 +79,7 @@ function parseFrontmatter(content: string): { fields: Record<string, string>; bo
 const SPDX = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "Unlicense", "CC0-1.0", "LicenseRef-Attributed"];
 
 function expectedSkillName(dir: string): string {
-  const path = relative(ROOT, dir).split("/");
-  if (path[0] === "packs" && path.length === 2) return `ai-${path[1]}`;
-  return path.at(-1)!;
+  return relative(ROOT, dir).split("/").at(-1)!;
 }
 
 describe("G1 — one SKILL.md per skill", () => {
@@ -390,9 +383,7 @@ const WORKFLOW_KIT_SKILLS = [
 ] as const;
 
 function workflowKitSkillDirectory(skill: (typeof WORKFLOW_KIT_SKILLS)[number]): string {
-  return skill === "ai-design-md-planner"
-    ? join(ROOT, "packs", "design-md-planner")
-    : join(SKILLS, skill);
+  return join(SKILLS, skill);
 }
 
 const KIT_FORBIDDEN_PATH =
@@ -441,7 +432,7 @@ describe("workflow kit — six skills ship with valid frontmatter", () => {
 describe("workflow kit — visual recap is opt-in", () => {
   test("the orchestrator never requires or automatically invokes a recap", () => {
     const orchestratorSkill = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
-    const recapSkillPath = join(ROOT, "packs", "visual-recap", "SKILL.md");
+    const recapSkillPath = join(SKILLS, "ai-visual-recap", "SKILL.md");
     expect(existsSync(recapSkillPath)).toBe(true);
     const recapSkill = readFileSync(recapSkillPath, "utf8");
     const agents = readFileSync(join(SKILLS, "..", "AGENTS.md"), "utf8");
@@ -476,7 +467,7 @@ describe("workflow kit — visual recap is opt-in", () => {
     expect(appReview).toContain("Never write lifecycle phase `complete`.");
     expect(appReview).toContain("its absence must not delay approval, merge, or worktree removal");
     expect(appReview).not.toContain(
-      "follow the repository-owned procedure at `packs/visual-recap/SKILL.md`",
+      "follow the repository-owned procedure at `skills/ai-visual-recap/SKILL.md`",
     );
     expect(recapSkill).toContain("manually invoked by the user");
     expect(agents).toContain("optional and never required for merge");

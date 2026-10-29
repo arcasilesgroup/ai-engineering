@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { partitionWorkItemIds } from "../packs/triage/scripts/collect-azure.mjs";
+import { partitionWorkItemIds } from "../skills/ai-triage/scripts/collect-azure.mjs";
 
 describe("partitionWorkItemIds", () => {
   test("returns no batches for an empty inventory", () => {

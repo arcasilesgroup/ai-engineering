@@ -24,7 +24,7 @@ import { EMBEDDED } from "../src/assets";
 
 const root = join(import.meta.dir, "..");
 
-test("triage pack script modules and declarations are embedded as their exact text", () => {
+test("triage skill script modules and declarations are embedded as their exact text", () => {
   for (const filename of [
     "resolve-target.mjs",
     "resolve-target.d.mts",
@@ -33,7 +33,7 @@ test("triage pack script modules and declarations are embedded as their exact te
     "collect-azure.mjs",
     "collect-azure.d.mts",
   ]) {
-    const assetPath = `packs/triage/scripts/${filename}`;
+    const assetPath = `skills/ai-triage/scripts/${filename}`;
     expect(readFileSync(EMBEDDED[`../${assetPath}`]!, "utf8")).toBe(readFileSync(join(root, assetPath), "utf8"));
   }
 });
@@ -57,9 +57,7 @@ test("every .embed fixture copy is the byte-for-byte twin of the skill it came f
   for (const entry of copies) {
     const rel = String(entry);
     const sourcePath = rel.slice(0, -".txt".length);
-    const source = sourcePath.startsWith("packs/")
-      ? join(root, sourcePath)
-      : join(root, "skills", sourcePath);
+    const source = join(root, "skills", sourcePath);
     expect(existsSync(source)).toBe(true);
     expect(readFileSync(join(copyDir, rel), "utf8")).toBe(readFileSync(source, "utf8"));
   }

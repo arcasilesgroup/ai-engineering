@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveTargetAndRead } from "../packs/triage/scripts/resolve-target.mjs";
+import { resolveTargetAndRead } from "../skills/ai-triage/scripts/resolve-target.mjs";
 
 type AmbiguousField = "provider" | "project" | "team" | "board" | "backlog";
 

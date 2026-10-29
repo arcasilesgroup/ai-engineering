@@ -117,16 +117,11 @@ function recordLegacyTemplateDir(previous: string | null, ours: string | null): 
   );
 }
 
-function sourceSkillFile(skillName: string, packId: string): string {
+function sourceSkillFile(skillName: string): string {
   const repo = join(import.meta.dir, "..");
-  const candidates = [
-    join(repo, "skills", skillName, "SKILL.md"),
-    join(repo, "packs", packId, "SKILL.md"),
-    join(repo, "packs", skillName, "SKILL.md"),
-  ];
-  const found = candidates.find(existsSync);
-  if (!found) throw new Error(`the canonical inventory has no SKILL.md for ${skillName}`);
-  return found;
+  const path = join(repo, "skills", skillName, "SKILL.md");
+  if (!existsSync(path)) throw new Error(`the canonical inventory has no SKILL.md for ${skillName}`);
+  return path;
 }
 
 /** A real init-shaped install: the contract files once, the plan's files, the shims made
@@ -604,7 +599,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(out).toContain("✓ git init.templateDir unset (it was unset before)");
   });
 
-  test("an older templateDir is restored and selected packs are removed", async () => {
+  test("an older templateDir is restored and legacy pack settings do not limit uninstall", async () => {
     const { cwd, machine } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
@@ -615,10 +610,10 @@ describe("uninstall · the machine side (Everything scope)", () => {
     const coreSkill = join(machine, "skills", "ai-orchestrator", "SKILL.md");
     mkdirSync(join(machine, "skills", "ai-orchestrator"), { recursive: true });
     writeFileSync(coreSkill, readFileSync(join(import.meta.dir, "..", "skills", "ai-orchestrator", "SKILL.md"), "utf8"));
-    const installedPacks = OPTIONAL_PACKS.map(({ id, skill }) => {
+    const installedPacks = OPTIONAL_PACKS.map(({ skill }) => {
       const path = join(machine, "skills", skill, "SKILL.md");
       mkdirSync(join(machine, "skills", skill), { recursive: true });
-      writeFileSync(path, readFileSync(sourceSkillFile(skill, id), "utf8"));
+      writeFileSync(path, readFileSync(sourceSkillFile(skill), "utf8"));
       return path;
     });
     const verifyTiersPack = join(machine, "skills", "ai-verify", "tiers", "installed-pack-check");

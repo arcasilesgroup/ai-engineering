@@ -3,10 +3,10 @@ import { describe, expect, test } from "bun:test";
 import {
   renderAnalysis,
   renderHierarchy,
-} from "../packs/triage/scripts/render-report.mjs";
+} from "../skills/ai-triage/scripts/render-report.mjs";
 
 const githubInstructions = readFileSync(
-  new URL("../packs/triage/references/github.md", import.meta.url),
+  new URL("../skills/ai-triage/references/github.md", import.meta.url),
   "utf8",
 );
 const reportTemplate = readFileSync(

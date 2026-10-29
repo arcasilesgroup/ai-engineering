@@ -3,7 +3,7 @@ import {
   escapeHtml,
   renderAnalysis,
   sanitizeEvidenceUrl,
-} from "../packs/triage/scripts/render-report.mjs";
+} from "../skills/ai-triage/scripts/render-report.mjs";
 
 describe("report HTML sanitization", () => {
   test("formats analysis emphasis, code, paragraphs, and safe provider links", () => {

@@ -6,12 +6,12 @@ import {
   createAzureDevOpsInvoker,
   type AzureInvokeRequest,
   type AzureWorkItem,
-} from "../packs/triage/scripts/collect-azure.mjs";
+} from "../skills/ai-triage/scripts/collect-azure.mjs";
 import {
   atomicWriteReport,
   writeAzureTriageReport,
-} from "../packs/triage/scripts/render-report.mjs";
-import { resolveTargetAndRead } from "../packs/triage/scripts/resolve-target.mjs";
+} from "../skills/ai-triage/scripts/render-report.mjs";
+import { resolveTargetAndRead } from "../skills/ai-triage/scripts/resolve-target.mjs";
 
 const scope = {
   organization: "https://dev.azure.com/synthetic-org",

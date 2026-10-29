@@ -861,11 +861,11 @@ describe("installCanon and what leaves with it", () => {
       .map((entry) => entry.name);
     const withSkillFile = canonDirs.filter((name) => existsSync(join(base, "skills", name, "SKILL.md")));
 
-    expect(lines).toContain(`✓ ${base}/skills/ — ${canonDirs.length} ai-* skills installed`);
+    expect(lines).toContain(`✓ ${base}/skills/ — ${canonDirs.length} skills installed`);
     expect(lines).toContain(`✓ Symlink → ~/.claude/skills (${canonDirs.length} skills)`);
     expect(lines).toContain(`✓ Symlink → ~/.agents/skills (${canonDirs.length} skills)`);
     expect(lines).toContain(`✓ Symlink → ~/.config/opencode/skill (${canonDirs.length} skills)`);
-    expect(lines).toContain(`✓ ~/.config/opencode/commands/ — ${withSkillFile.length} slash commands (/ai-*)`);
+    expect(lines).toContain(`✓ ~/.config/opencode/commands/ — ${withSkillFile.length} slash commands (/<skill-name>)`);
 
     // The version cache the 24h notice reads, stamped with this binary's version.
     const cached = JSON.parse(readFileSync(join(base, "version.json"), "utf8")) as { version: string; ts: number };
