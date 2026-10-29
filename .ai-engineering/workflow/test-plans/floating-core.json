@@ -51,7 +51,8 @@
       { "id": "U32", "checkpoint": 10, "covers": [], "case": "summarizeBySession is gone and the remaining receipts-summary cases pass", "file": "tests/receipts-summary.spec.ts", "command": "bun test tests/receipts-summary.spec.ts" },
       { "id": "U33", "checkpoint": 12, "covers": [], "case": "interactive init asks for packs with nothing preselected", "file": "tests/init-command.spec.ts", "command": "bun test tests/init-command.spec.ts" },
       { "id": "U34", "checkpoint": 12, "covers": [], "case": "embedded canon keeps packs apart from core: core embed has no pack skill, each pack embeds its full moved content", "file": "tests/embed-canon.spec.ts", "command": "bun test tests/embed-canon.spec.ts" },
-      { "id": "U35", "checkpoint": 16, "covers": [], "case": "scripts/tokens.ts (bytes/4) prints the same per-budget numbers the token-budget test computes", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" }
+      { "id": "U35", "checkpoint": 16, "covers": [], "case": "scripts/tokens.ts (bytes/4) prints the same per-budget numbers the token-budget test computes", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" },
+      { "id": "U36", "checkpoint": 18, "covers": [], "case": "the verifier scorer still rejects unsafe patterns and matches paths when its development source is relocated under tests/fixtures/verify-tiers/evals", "file": "tests/skills-eval-score.spec.ts", "command": "bun test tests/skills-eval-score.spec.ts" }
     ],
     "integration": [
       { "id": "I1", "checkpoint": 1, "covers": [], "case": "running tests/worktree-lifecycle.spec.ts in a child bun test leaves the tests/ listing unchanged (no .worktree-lifecycle-*, no .dirfd-probe-*); premise: listing captured before the child run", "file": "tests/test-hygiene.spec.ts", "command": "bun test tests/test-hygiene.spec.ts" },
@@ -124,7 +125,13 @@
       { "id": "I58", "checkpoint": 14, "covers": ["S11"], "case": "after consolidating duplicated real-Git cases, the S11 race and every 6.8 mandatory merge case still run and pass", "file": "tests/worktree-command.spec.ts", "command": "bun test tests/worktree-command.spec.ts" },
 
       { "id": "I59", "checkpoint": 16, "covers": [], "case": "chain allow and green ai-eng git pre-commit, commit-msg and pre-push print 0 lines", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" },
-      { "id": "I60", "checkpoint": 16, "covers": [], "case": "each chain deny and floor deny prints at most 3 lines and keeps its reason and exit code", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" }
+      { "id": "I60", "checkpoint": 16, "covers": [], "case": "each chain deny and floor deny prints at most 3 lines and keeps its reason and exit code", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" },
+      { "id": "I63", "checkpoint": 18, "covers": [], "case": "fresh non-interactive init offers no pack prompt, writes no [canon].packs entry, installs every skill and resource, and executes none of them", "file": "tests/init-command.spec.ts", "command": "bun test tests/init-command.spec.ts" },
+      { "id": "I64", "checkpoint": 18, "covers": [], "case": "update ignores absent, empty, partial and otherwise legacy [canon].packs values, installs the complete inventory, and leaves config.toml byte-identical", "file": "tests/update-command.spec.ts", "command": "bun test tests/update-command.spec.ts" },
+      { "id": "I65", "checkpoint": 18, "covers": [], "case": "update repairs missing shipped payload byte-for-byte while preserving a locally edited skill and an unrelated user-owned skill directory", "file": "tests/update-command.spec.ts", "command": "bun test tests/update-command.spec.ts" },
+      { "id": "I66", "checkpoint": 18, "covers": [], "case": "doctor verifies the full installed skill inventory and does not classify valid skills as missing because of a legacy [canon].packs value", "file": "tests/doctor-command.spec.ts", "command": "bun test tests/doctor-command.spec.ts" },
+      { "id": "I67", "checkpoint": 18, "covers": [], "case": "config changes only the requested surface setting, preserves legacy [canon].packs bytes, and keeps the full skill inventory installed", "file": "tests/config-command.spec.ts", "command": "bun test tests/config-command.spec.ts" },
+      { "id": "I68", "checkpoint": 18, "covers": [], "case": "machine canon and its skill mirrors receive every skill and nested resource from the single skills source root", "file": "tests/carriers-install.spec.ts", "command": "bun test tests/carriers-install.spec.ts" }
     ],
     "contract": [
       { "id": "C1", "checkpoint": 1, "covers": [], "case": "the p95 latency assertion is out of tests/adversarial/chain.test.ts and bun run bench prints p95 and exits 0", "command": "bun run bench" },
@@ -180,7 +187,10 @@
       { "id": "C40", "checkpoint": 17, "covers": [], "case": "every ai-eng <verb> cited in README.md, CONTRIBUTING.md, SECURITY.md, PERMISSIONS.md, NOTICE.md, docs/, skills/ and templates/ is in ALL_VERBS imported from src/shared-verbs.ts; a fixture citing ai-eng recap fails", "file": "tests/docs-lint.spec.ts", "command": "bun test tests/docs-lint.spec.ts" },
       { "id": "C41", "checkpoint": 17, "covers": [], "case": "relative links in those docs resolve", "file": "tests/docs-lint.spec.ts", "command": "bun test tests/docs-lint.spec.ts" },
       { "id": "C42", "checkpoint": 17, "covers": [], "case": "CHANGELOG.md has a 3.0 migration guide naming removed verbs (workspace, briefing, upgrade, spec, worktree rebase), reviewed_main→reviewed_base, packs and no auto-commit; .changeset/ holds a major changeset", "file": "tests/docs-lint.spec.ts", "command": "bun test tests/docs-lint.spec.ts" },
-      { "id": "C43", "covers": ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13", "S14", "S15", "S16", "S17", "S18"], "case": "Phase 3 final evidence: the full S1-S18 set and serial suite are green", "command": "bun test --parallel=1" }
+      { "id": "C43", "covers": ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13", "S14", "S15", "S16", "S17", "S18"], "case": "Phase 3 final evidence: the full S1-S18 set and serial suite are green", "command": "bun test --parallel=1" },
+      { "id": "C44", "checkpoint": 18, "covers": [], "case": "the generated payload contains installable assets only from skills/, with no packs/ namespace or content from tests/fixtures/verify-tiers/evals", "file": "tests/embed-canon.spec.ts", "command": "bun test tests/embed-canon.spec.ts" },
+      { "id": "C45", "checkpoint": 18, "covers": [], "case": "the package includes skills/ and omits packs/ and the test-only verification fixtures", "file": "tests/npm-manifest.spec.ts", "command": "bun test tests/npm-manifest.spec.ts" },
+      { "id": "C46", "checkpoint": 18, "covers": [], "case": "all skills, resources, agents and scripts cited by the orchestrator ceremony resolve in the repository and the default installed canon without pack fallback", "file": "tests/ceremony-contract.spec.ts", "command": "bun test tests/ceremony-contract.spec.ts" }
     ]
   },
   "scenario_map": {
