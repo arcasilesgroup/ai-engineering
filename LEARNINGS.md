@@ -1571,3 +1571,11 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Automatically split CP18 into focused source/asset and install-behavior checkpoints, then rerun their targeted commands before the next full suite.
 - **Lesson:** A failed full-suite gate must preserve the first failing test and assertion before selecting a code fix.
 - **Tags:** behavior, tests, reporting
+
+### L216 · 2026-10-29 · floating-core #19 · behavior
+- **Failure:** `tests/adversarial/init-recovery.test.ts` expected zero canon drift after update but observed one.
+- **Root cause:** A previous test left a locally edited skill in shared test state; update correctly preserved that edit, so the later clean-canon assertion was invalid.
+- **Fix:** Restore the shipped skill fixture before the clean-canon check.
+- **Lesson:** Reset intentional shared-state mutations before tests that expect a clean baseline.
+- **Proof:** Focused init-recovery suite: 13 tests passed; full serial suite: 1,556 passed, 16 skipped.
+- **Tags:** behavior, tests, install, state

@@ -1357,6 +1357,7 @@
         "tests/config-command.spec.ts",
         "tests/doctor-command.spec.ts",
         "tests/uninstall-command.spec.ts",
+        "tests/adversarial/init-recovery.test.ts",
         "tests/carriers-install.spec.ts",
         "tests/ceremony-contract.spec.ts",
         "tests/token-budget.spec.ts"
@@ -1367,10 +1368,12 @@
         "Update repairs missing shipped payloads while preserving byte-different installed skills and unrelated user-owned skill directories.",
         "Doctor verifies the complete skill inventory regardless of legacy config; config changes retain unrelated bytes.",
         "Uninstall removes only canon-owned skill files and preserves user-owned skill directories.",
-        "All installable skill frontmatter stays at or below 5,000 tokens (bytes/4), and templates/AGENTS.md.tpl stays at or below 1,200."
+        "All installable skill frontmatter stays at or below 5,000 tokens (bytes/4), and templates/AGENTS.md.tpl stays at or below 1,200.",
+        "The init-recovery test restores its edited skill fixture before asserting zero drift."
       ],
       "verify": [
         "bun test tests/init-command.spec.ts",
+        "bun test tests/adversarial/init-recovery.test.ts",
         "bun test tests/update-command.spec.ts",
         "bun test tests/config-command.spec.ts",
         "bun test tests/doctor-command.spec.ts",
@@ -1387,9 +1390,11 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "Gate 1 attempt 1 failed: tests/adversarial/init-recovery.test.ts:291 saw 1 drift after update because a preceding test left a locally edited skill in shared state; update correctly preserved it. Fixed the test to restore the shipped skill before the clean-canon check. Focused suite passed 13 tests and full bun test passed 1,556 with 16 skipped; rerun Gate 1 from the first command."
+          ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
@@ -1412,9 +1417,11 @@
         "tests/config-command.spec.ts",
         "tests/doctor-command.spec.ts",
         "tests/uninstall-command.spec.ts",
+        "tests/adversarial/init-recovery.test.ts",
         "tests/carriers-install.spec.ts",
         "tests/ceremony-contract.spec.ts",
-        "tests/token-budget.spec.ts"
+        "tests/token-budget.spec.ts",
+        "LEARNINGS.md"
       ]
     }
   ],

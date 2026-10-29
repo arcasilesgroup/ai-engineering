@@ -271,6 +271,10 @@ test("the canon is swept of what we no longer ship, and nothing else is touched"
   // have is stale and gets swept, and doctor names it. Anything else in the canon
   // home is somebody's.
   expect(eng(["init", "--yes"]).status).toBe(0);
+  // The preceding case deliberately leaves a locally edited shipped skill behind.
+  // Restore its fixture before this test measures stale and foreign canon entries.
+  const editedSkillPath = join(engHome, "skills", "ai-brainstorm", "SKILL.md");
+  writeFileSync(editedSkillPath, readFileSync(join(import.meta.dir, "../../skills/ai-brainstorm/SKILL.md"), "utf8"));
   const staleFile = join(engHome, "skills", "ai-visual-recap", "assets", "highlight.js");
   const foreignFile = join(engHome, "skills", "my-own-skill", "SKILL.md");
   mkdirSync(dirname(staleFile), { recursive: true });

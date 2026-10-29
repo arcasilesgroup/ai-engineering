@@ -131,7 +131,8 @@
       { "id": "I65", "checkpoint": 19, "covers": [], "case": "update repairs missing shipped payload byte-for-byte while preserving a locally edited skill and an unrelated user-owned skill directory", "file": "tests/update-command.spec.ts", "command": "bun test tests/update-command.spec.ts" },
       { "id": "I66", "checkpoint": 19, "covers": [], "case": "doctor verifies the full installed skill inventory and does not classify valid skills as missing because of a legacy [canon].packs value", "file": "tests/doctor-command.spec.ts", "command": "bun test tests/doctor-command.spec.ts" },
       { "id": "I67", "checkpoint": 19, "covers": [], "case": "config changes only the requested surface setting, preserves legacy [canon].packs bytes, and keeps the full skill inventory installed", "file": "tests/config-command.spec.ts", "command": "bun test tests/config-command.spec.ts" },
-      { "id": "I68", "checkpoint": 19, "covers": [], "case": "machine canon and its skill mirrors receive every skill and nested resource from the single skills source root", "file": "tests/carriers-install.spec.ts", "command": "bun test tests/carriers-install.spec.ts" }
+      { "id": "I68", "checkpoint": 19, "covers": [], "case": "machine canon and its skill mirrors receive every skill and nested resource from the single skills source root", "file": "tests/carriers-install.spec.ts", "command": "bun test tests/carriers-install.spec.ts" },
+      { "id": "I69", "checkpoint": 19, "covers": [], "case": "init-recovery resets its locally edited skill fixture before asserting that a subsequent clean update has zero drift", "file": "tests/adversarial/init-recovery.test.ts", "command": "bun test tests/adversarial/init-recovery.test.ts" }
     ],
     "contract": [
       { "id": "C1", "checkpoint": 1, "covers": [], "case": "the p95 latency assertion is out of tests/adversarial/chain.test.ts and bun run bench prints p95 and exits 0", "command": "bun run bench" },
