@@ -1391,9 +1391,10 @@
       "gates": {
         "behavior": {
           "status": "failed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "Gate 1 attempt 1 failed: tests/adversarial/init-recovery.test.ts:291 saw 1 drift after update because a preceding test left a locally edited skill in shared state; update correctly preserved it. Fixed the test to restore the shipped skill before the clean-canon check. Focused suite passed 13 tests and full bun test passed 1,556 with 16 skipped; rerun Gate 1 from the first command."
+            "Gate 1 attempt 1 failed: tests/adversarial/init-recovery.test.ts:291 saw 1 drift after update because a preceding test left a locally edited skill in shared state; update correctly preserved it. Fixed the test to restore the shipped skill before the clean-canon check. Focused suite passed 13 tests and full bun test passed 1,556 with 16 skipped.",
+            "Gate 1 attempt 2 failed at `bun test tests/init-command.spec.ts`: 24 passed and 9 failed because the all-skills install assertion found no installed skills. A focused clean-clone rerun then passed all 33 tests and typecheck; root cause remains unconfirmed, so no code change was made."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -1421,6 +1422,7 @@
         "tests/carriers-install.spec.ts",
         "tests/ceremony-contract.spec.ts",
         "tests/token-budget.spec.ts",
+        "LEARNINGS.md",
         "LEARNINGS.md"
       ]
     }
