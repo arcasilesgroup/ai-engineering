@@ -1564,3 +1564,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Validate concrete documented paths against the inventory, not generic template placeholders.
 - **Proof:** `bun test tests/embed-canon.spec.ts` — 16 tests passed; `bun run typecheck` passed.
 - **Tags:** behavior, tests, assets, skills
+
+### L215 · 2026-10-29 · floating-core #18 · behavior
+- **Failure:** Gate 1's full `bun test` exited 1 after 247 targeted tests and the build passed; the gate report omitted the failing test name and assertion.
+- **Root cause:** Not established; the report retained the command exit but not the full failure details.
+- **Fix:** Automatically split CP18 into focused source/asset and install-behavior checkpoints, then rerun their targeted commands before the next full suite.
+- **Lesson:** A failed full-suite gate must preserve the first failing test and assertion before selecting a code fix.
+- **Tags:** behavior, tests, reporting
