@@ -6,7 +6,14 @@ import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } f
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, declaredCanonPacks, isGoverned, receiptsDir } from "../env.ts";
-import { gcReceipts, receiptsTtlDays, summarizeReceipts, type DenyLedger } from "../receipts.ts";
+import {
+  gcReceipts,
+  RECEIPT_HEALTH_WINDOW_DAYS,
+  receiptsTtlDays,
+  summarizeReceipts,
+  type DenyLedger,
+  type ReceiptSummary,
+} from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
 import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, readMachineState } from "../surfaces/adapters.ts";
 import { VERSION, compareVersions } from "../version.ts";
@@ -166,9 +173,8 @@ function checkChainTest(gap: string | null): CheckResult {
  *  the honest absence of history, not a forgery.
  *  todo: names the dominant guard of the whole live window, not of the spike
  *  week per day — upgrade only if it ever misnames a real one. */
-function denySpike(dir: string | null): { last7: number; prior7: number; guard: string } | null {
-  if (!dir) return null;
-  const live = summarizeReceipts(dir);
+function denySpike(live: ReceiptSummary | null): { last7: number; prior7: number; guard: string } | null {
+  if (live === null) return null;
   const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
   let last7 = 0;
   let prior7 = 0;
@@ -192,7 +198,7 @@ function checkReceipts(root?: string | null): CheckResult {
   // ledger's repeats and the 7-day deviation, all on the same line.
   const dir = receiptsDir(root);
   const summary = summarizeReceipts(dir ?? undefined);
-  let detail = `${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`;
+  let detail = `last ${RECEIPT_HEALTH_WINDOW_DAYS}d: ${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`;
   if (summary.denies > 0) {
     const topOf = (m: Record<string, number>) => Object.entries(m).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
     detail += ` · top ${topOf(summary.per_guard)}/${topOf(summary.per_tool)}`;
@@ -211,7 +217,7 @@ function checkReceipts(root?: string | null): CheckResult {
     /* no ledger yet */
   }
   if (repeats > 0) detail += ` · repeats ${repeats}`;
-  const spike = denySpike(dir);
+  const spike = denySpike(dir === null ? null : summary);
   if (spike) detail += ` · spike ${spike.last7} vs ${spike.prior7} the week before (${spike.guard})`;
   return { name: "receipts", status: summary.p95 <= CEILING_MS && spike === null ? "ok" : "warn", detail };
 }
@@ -599,9 +605,9 @@ export async function doctorMain(flags: { gc?: boolean; cwd?: string }): Promise
     return 0;
   }
   const root = repoRoot(flags.cwd) ?? flags.cwd ?? process.cwd();
-  const { results, fail } = await runChecks(flags.cwd);
   const runtime = `bun ${typeof Bun !== "undefined" ? Bun.version : "?"}`;
   ui.frame(`Health check · ${root.split("/").pop()} · ${runtime} · ai-eng ${VERSION}`);
+  const { results, fail } = await runChecks(flags.cwd);
   // One block per status — the eye scans three ideas, not twelve lines
   // (the ✓/▲/✗ families of §14.2).
   const toRow = (r: CheckResult): ui.Row => ({ mark: r.status, text: `${r.name} · ${r.detail}` });
