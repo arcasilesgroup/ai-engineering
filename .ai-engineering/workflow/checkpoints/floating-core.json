@@ -1175,9 +1175,13 @@
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 1,
+          "findings": ["Phase 3 follow-up review PASS: floor-gates checks diagnostic content, reason, exit status, and output budget without requiring newline formatting."]
+        }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": [
         ".changeset/calm-wolves-migrate.md",
         "CHANGELOG.md",
