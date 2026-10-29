@@ -109,3 +109,33 @@ Split broad checkpoint test-writing into bounded deliverables with a clear first
 ### Alternatives considered
 
 - **One comprehensive test-writing assignment:** it obscures stalled scope and delays the first useful result. Rejected.
+
+## D-006: Bound focused checks and verify stalls in a fresh task
+
+Status: Accepted · Date: 2026-10-29
+
+### Context
+
+During floating-core CP17 documentation verification, `cp17-docs-test-check` was still running after 20,496 seconds and 19 tool calls for one focused Bun test. A STOP message was delivered; after another 180 seconds it remained running. No force-cancel was available. This records the observed state and does not infer a runner root cause or claim that the old task stopped. The worktree had only the intended `FILEMAP.md` and `tests/docs-lint.spec.ts` edits.
+
+found: A fresh task ran `bun test ./tests/docs-lint.spec.ts` in 196 ms: 2 passed, 1 failed on stale command references.
+
+commit: `4b9cb17d` (`test(floating-core): CP17 documentation contracts`).
+
+files: `tests/docs-lint.spec.ts`, `FILEMAP.md`, and the CP17 verify entry in `.ai-engineering/workflow/checkpoints/floating-core.json`.
+
+still_true_when: a focused-check task remains active after STOP and no force-cancel is available; a fresh task can run the exact command and provide independent evidence.
+
+### Decision
+
+Give focused-check tasks an explicit time bound and checkable stop condition. If a task remains active after STOP and cannot be force-cancelled, run the exact command in a fresh bounded task; keep the original marked running unless a tool confirms it stopped.
+
+### Consequences
+
+- A focused check can produce independent evidence without waiting indefinitely on an unresponsive task.
+- The original task's execution state remains unknown until the runner confirms termination.
+
+### Alternatives considered
+
+- **Treat STOP as proof of termination:** the task still reported running afterward. Rejected.
+- **Wait indefinitely for the original task:** no new check result or confirmed stop was available. Rejected.

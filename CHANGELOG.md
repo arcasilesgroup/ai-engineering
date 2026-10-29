@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Floating core keeps the guard floor and orchestration ceremony in core, using the
+  user's existing Git, host, and forge for the rest of the workflow.
+
 ### 3.0 migration guide (unreleased)
 
 The 3.0 major release removes the `workspace`, `briefing`, `upgrade` and `spec`

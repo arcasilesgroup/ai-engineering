@@ -42,8 +42,12 @@ src/
   shared-hash.ts               Shared SHA-256 file hashing helper
 tests/
   git-context.spec.ts          Git runner and context resolver over real temp repos with isolated config
-  docs-lint.spec.ts            CLI verb citations and relative Markdown/HTML link integrity
-  worktree-command.spec.ts     CLI contracts for worktree creation, registered-source merge, lifecycle and safe removal
+  checkpoint-guard.spec.ts     Checkpoint schema, lifecycle gates and Stop enforcement
+  workflow-checkpoint.spec.ts  Checkpoint codec, legacy normalization and lifecycle transitions
+  docs-lint.spec.ts             CLI verb citations and relative Markdown/HTML link integrity
+  worktree-command.spec.ts     CLI contracts for worktree creation, registered-checkout lifecycle and safe removal
+  skills-lint.spec.ts           Skill frontmatter, Lifecycle, relative links and workflow contracts
+  token-budget.spec.ts          Core token budgets and silent successful-hook output
 scripts/
   gen-assets.ts                Generate embedded assets from skills/, packs/, agents/ and templates/
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
@@ -66,7 +70,6 @@ packs/                         Optional specialist skills, embedded separately f
     tiers/                     Standalone, embedded and chain verification skills
     evals/                     Bug fixtures and verifier scoring tools
 tests/
-  worktree-command.spec.ts     Managed worktree rebase, merge, hook and recovery tests
   skills.spec.ts               Skill contracts, including the local recap handoff
   ceremony-contract.spec.ts    Every skill, agent, script and template ai-orchestrator cites exists and ships embedded
   generated-payload.test.ts   Assert generated assets match their source files
@@ -77,6 +80,7 @@ tests/
     env-snapshot.preload.ts    Records env and cwd before and after every suite for test-hygiene.spec.ts
     sandbox-env.ts             Snapshot/restore of AI_ENG_HOME, PI_CODING_AGENT_DIR, GIT_CONFIG_GLOBAL for sandboxed suites
     private-stdin.ts           A suite-owned stdin for prompt-driving suites, so runner input never answers a prompt
+    worktree-command.ts        In-process worktree command harness with isolated cwd, env and captured output
     triage-azure-signals-preview.mjs  Synthetic writer preview on loopback, memory-only reports
 templates/
   recap.html.tpl               Self-contained HTML recap shell and styles
