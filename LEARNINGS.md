@@ -1524,3 +1524,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Describe publishing the current checkout/worktree branch with the supported base selection and no branch creation or switching.
 - **Lesson:** Keep PR publishing distinct from worktree branch creation and integration.
 - **Tags:** review, docs, ai-pr, git, base-selection
+
+### L212 · 2026-10-28 · floating-core #17 · behavior
+- **Failure:** Phase 3 failed because the floor-gates test expected Git stderr newlines verbatim after the output cap flattened them.
+- **Root cause:** The test asserted incidental formatting, although the hook preserves diagnostic content, exit status, and the three-line budget.
+- **Fix:** Assert diagnostic content independently of line formatting.
+- **Lesson:** Check preserved diagnostics, exit status, and output budget—not incidental formatting.
+- **Tags:** behavior, tests, hooks, output

@@ -1127,7 +1127,8 @@
         "Fix the criticals: docs/blueprint.html:366 (`ai-eng recap`), docs/recap.html:1251 (`ai-eng complete`), NOTICE.md:16 (404 link); and the warnings SECURITY.md:28-29 (5 protective guards + 1 prompt guard + token savings in the same hook), PERMISSIONS.md:5-7, CONTRIBUTING.md:40-42.",
         "README.md: promise table where every row holds or is rewritten (D8: one package, no service); wrap described as token savings apart from protection guards; packs and where-to-work explained.",
         "CHANGELOG.md: 3.0 migration guide (removed verbs workspace, briefing, upgrade, spec, worktree rebase; reviewed_main to reviewed_base; packs; no auto-commit); add a major changeset in .changeset/; update FILEMAP.md and docs/global-carriers.md.",
-        "Run /ai-audit-docs and record 0 critical findings."
+        "Run /ai-audit-docs and record 0 critical findings.",
+        "Phase 3 follow-up: preserve diagnostic reason and exit code while enforcing the hook output cap."
       ],
       "files": [
         "tests/docs-lint.spec.ts",
@@ -1138,6 +1139,9 @@
         "NOTICE.md",
         "docs/blueprint.html",
         "docs/recap.html",
+        "src/floor/entry.ts",
+        "tests/floor-gates.spec.ts",
+        "tests/token-budget.spec.ts",
         "docs/global-carriers.md",
         "FILEMAP.md",
         "CHANGELOG.md",
@@ -1156,25 +1160,24 @@
         "bun run build",
         "bun run typecheck",
         "bun run lint",
-        "bun test tests/arch.spec.ts"
+        "bun test tests/arch.spec.ts",
+        "bun test tests/floor-gates.spec.ts",
+        "bun test tests/token-budget.spec.ts"
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 0, "findings": [] },
-        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": {
-          "status": "passed",
-          "attempts": 4,
+        "behavior": {
+          "status": "failed",
+          "attempts": 2,
           "findings": [
-            "F1 MAJOR resolved: the migration guide no longer advertises unsupported worktree file hints.",
-            "F2 MAJOR resolved: CHANGELOG and blueprint lifecycle claims were corrected.",
-            "F3 MAJOR resolved: PERMISSIONS.md documents hierarchy-only relation scope and the exact recent-comment query.",
-            "F4 MAJOR resolved: blueprint uses supported Git commands with selected-base behavior.",
-            "F5 MAJOR resolved: ai-pr publishing uses the current branch and selected base without branch creation or switching."
+            "Phase 3 final check sequence exited 1; the Phase 3 runner output was truncated before the first failing command or cause.",
+            "Reproduction failed at tests/floor-gates.spec.ts:183: expected multiline Git stderr, but the hook flattened it; `git diff --no-index` reported `unknown option 'cached'`. Suite: 1549 passed, 16 skipped, 1 failed."
           ]
-        }
+        },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
-      "status": "passed",
+      "status": "pending",
       "changed_files": [
         ".changeset/calm-wolves-migrate.md",
         "CHANGELOG.md",
@@ -1187,6 +1190,9 @@
         "docs/blueprint.html",
         "docs/global-carriers.md",
         "docs/recap.html",
+        "src/floor/entry.ts",
+        "tests/floor-gates.spec.ts",
+        "tests/token-budget.spec.ts",
         "tests/docs-lint.spec.ts"
       ]
     }

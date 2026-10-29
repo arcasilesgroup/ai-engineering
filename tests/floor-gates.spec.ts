@@ -173,14 +173,15 @@ function stagedBlobErrorOut(): string {
 }
 
 describe("floor gates — git() plumbing and the diff --check branch", () => {
-  test("a git failure outside any repository surfaces git's stderr bytes verbatim, trimmed", () => {
+  test("a git failure outside any repository preserves stderr content across line normalization", () => {
     const nowhere = tempDir("ai-eng-gates-nowhere-");
     const result = preCommit(nowhere);
     const done = spawnSync("git", ["diff", "--cached", "--check"], { cwd: nowhere, encoding: "utf8" });
     expect(done.status).not.toBe(0);
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toBe("diff --check found whitespace problems:");
-    expect(result.lines[1]).toBe((done.stderr ?? "").trim());
+    const normalize = (text: string) => text.replace(/\s*\|\s*/g, " ").replace(/\s+/g, " ").trim();
+    expect(normalize(result.lines[1] ?? "")).toBe(normalize(done.stderr ?? ""));
     expect(result.lines[1]!.length).toBeGreaterThan(0);
   });
 
