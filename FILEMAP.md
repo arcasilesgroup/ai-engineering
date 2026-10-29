@@ -11,7 +11,7 @@ FILEMAP.md                     This file
 PERMISSIONS.md                 Azure DevOps triage read routes and scope boundaries
 docs/
   blueprint.html               Product design context and decisions
-  recap.html                   Product architecture and implemented behavior
+  recap.html                   Historical product snapshot; use README.md and the source tree for current guidance
   global-carriers.md           Host carrier paths and their machine/repository scope
 .changeset/
   <slug>.md                    Pending package version and release summary
@@ -26,7 +26,7 @@ docs/
     reviews/                   /ai-adversarial-loop debate threads
     prototypes/                /ai-prototype HTML mockups + <name>.states.json scenarios
 src/
-  assets.ts                    Embedded core skill, pack, template and runtime asset registry
+  assets.ts                    Embedded skill, template and runtime asset registry
   payload.ts                   Normalized tool payloads and shared call fingerprints
   commands/
     worktree.ts                CLI parser for new, list, merge, request-changes and rm
@@ -49,31 +49,29 @@ tests/
   skills-lint.spec.ts           Skill frontmatter, Lifecycle, relative links and workflow contracts
   token-budget.spec.ts          Core token budgets and silent successful-hook output
 scripts/
-  gen-assets.ts                Generate embedded assets from skills/, packs/, agents/ and templates/
+  gen-assets.ts                Generate embedded assets from skills/, agents/ and templates/
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
   tokens.ts                    `bun run tokens`: report skill-frontmatter and AGENTS-template byte/4 counts
-  .embed/packs/                 Generated text payloads for pack scripts and eval fixtures
+  .embed/skills/                Generated text payloads for skill scripts
 skills/                        Installed skill canon
   ai-brainstorm/SKILL.md       Interview, classify and record approved feature intent
   ai-orchestrator/SKILL.md     Gated feature workflow in the selected checkout
   ai-pr/SKILL.md               Provider-neutral PR base selection and review loop
   ai-git-cleanup/SKILL.md      Native-Git preview and safe local cleanup
-  ai-verify/                   Core verification router and setup guide; optional tiers live in packs/
-packs/                         Optional specialist skills, embedded separately from the core canon
-  triage/                      Provider-neutral GitHub and Azure backlog analysis
-  design-md-planner/           Product taste interview and DESIGN.md creation
-  audit-design/                Measured browser-based interface audit
-  visual-recap/                User-invoked HTML recap procedure and assets
-  writing-behavior/            Agent behavior specification and calibration
-  stress-test/                 Adversarial stress-test planning
-  verify-tiers/
-    tiers/                     Standalone, embedded and chain verification skills
-    evals/                     Bug fixtures and verifier scoring tools
+  ai-verify/                   Verification router, setup guide and shared review conventions
+  ai-triage/                   Provider-neutral GitHub and Azure backlog analysis
+  ai-design-md-planner/        Product taste interview and DESIGN.md creation
+  ai-audit-design/             Measured browser-based interface audit
+  ai-visual-recap/             User-invoked HTML recap procedure and assets
+  ai-writing-behavior/         Agent behavior specification and calibration
+  ai-stress-test/              Adversarial stress-test planning
+  <skill-name>/                Every other shipped skill and its resources
 tests/
   skills.spec.ts               Skill contracts, including the local recap handoff
   ceremony-contract.spec.ts    Every skill, agent, script and template ai-orchestrator cites exists and ships embedded
   generated-payload.test.ts   Assert generated assets match their source files
-  triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests for packs/triage
+  triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests for skills/ai-triage
+  fixtures/verify-tiers/evals/ Test-only verifier scoring tools and evaluation fixtures
   test-hygiene.spec.ts         No suite writes under tests/; sandboxed suites restore env and cwd
   receipts-retention.spec.ts   Daily, batched receipt retention triggered by the chain
   fixtures/

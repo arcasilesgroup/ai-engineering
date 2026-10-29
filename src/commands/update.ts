@@ -1,6 +1,6 @@
 // `ai-eng update` — re-install this repo's assets from the installed binary. ZERO
 // network: the payload leaves the binary the user already installed (§14.3). What
-// is the user's (AGENTS.md, DECISIONS.md, spec/plan, arch.rules) is never touched.
+// User-owned contract and config files are never rewritten.
 // It refreshes BOTH halves ai-eng installed: the machine side (the global canon and
 // its mirrors) and this repo's assets. cli-ux-14 work point 04: compute the sync
 // plan first, show it, resolve conflicts with the human (keep-yours default),
@@ -12,8 +12,8 @@ import { join } from "node:path";
 import { select, confirm, isCancel } from "@clack/prompts";
 import { install, buildLock, lockText, parseLock, sha256, mergeSharedText } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
-import { repoRoot, enabledSurfaces, declaredCanonPacks, home, isGoverned } from "../env.ts";
-import { canonDrift, changedCanonSkills, legacyCanonPacks, type CanonDrift } from "../embed.ts";
+import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
+import { canonDrift, changedCanonSkills, type CanonDrift } from "../embed.ts";
 import { installCanon, installMachineCarriers, machineStateFile, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
 import { runGit } from "../git/run.ts";
 import { planEntries, refuseLine } from "./init-shared.ts";
@@ -139,8 +139,8 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // file on disk is treated as the user's, and the lock is rebuilt at the end.
   const previous = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: "", assets: {} };
   const surfaces = enabledSurfaces();
-  const packs = declaredCanonPacks(root) ?? legacyCanonPacks();
-  const entries: PlanEntry[] = planEntries(surfaces, packs);
+  // Config is user-owned; update must not rewrite legacy keys or their bytes.
+  const entries: PlanEntry[] = planEntries(surfaces).filter((entry) => entry.path !== ".ai-engineering/config.toml");
   const plan = syncPlan(entries, root, previous.assets);
   const pending = [...plan.updates, ...plan.fresh];
 
@@ -161,9 +161,9 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // Repaired here, reported with the rest of the machine half: one block, printed
   // once. A canon section of its own printed before the questions left the run
   // looking like two unrelated commands (cli-ux-14).
-  const canon = canonDrift(home(), packs);
-  const preservedSkills = canon.drift > 0 ? changedCanonSkills(home(), packs) : [];
-  const canonRepair = canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? [] : installCanon(VERSION, packs, preservedSkills);
+  const canon = canonDrift(home());
+  const preservedSkills = canon.drift > 0 ? changedCanonSkills(home()) : [];
+  const canonRepair = canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? [] : installCanon(VERSION, preservedSkills);
   if (pending.length === 0 && plan.conflicts.length === 0) {
     // The repo half reports what it holds, not only how many: a bare "all 7 assets
     // current" cannot say whether anything was verified (cli-ux-14).

@@ -17,23 +17,23 @@ skills that fire themselves mid-workflow, and a chain of review lanes. The
 chain's router decides which lanes run from the evidence in the diff, never
 from its size.
 
-### Tier 1 — standalone (you run it on purpose; available in the optional verify-tiers pack)
+### Tier 1 — standalone (you run it on purpose)
 
 - Per-requirement verdict against what was actually asked, with a list of gaps → `verify-feature`
 - Extract the requirements from the conversation into numbered, falsifiable claims → `spec-extract`
 
-### Tier 2 — embedded (fires by itself, mid-workflow; available in the optional verify-tiers pack)
+### Tier 2 — embedded (fires by itself, mid-workflow)
 
 - Browser verification of the finished feature + blast radius of the routes that depend on the change → `feature-verify`, with its scripts and references
 - A second opinion from a fresh model instance with no visibility into your reasoning → `second-opinion`
 
-### Tier 3 — chain (review lanes picked by evidence; available in the optional verify-tiers pack)
+### Tier 3 — chain (review lanes picked by evidence)
 
 - Router that picks lanes, estimates cost, and executes → `review-router`
 - Lanes: `code-audit` · `security-audit` · `a11y-audit` · `perf-audit` · `design-check` · `build-check`
-- Merge of all lanes into one deduplicated report → `full-review`; the pack includes the lane conventions
+- Merge of all lanes into one deduplicated report → `full-review`; shared lane conventions are in `references/review/CONVENTIONS.md`
 
-Setup guide and entry router → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETUP-GUIDE.md). The optional pack also contains internal evals that apply real bugs and score the reviewer.
+Setup guide and entry router → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETUP-GUIDE.md). The internal eval fixtures apply real bugs and score the reviewer in ai-engineering's own tests.
 
 ## Lifecycle
 
@@ -49,7 +49,7 @@ Source: Graph Engineering — Verification Skills (skills from the video, genera
 
 1. The router picks the tier using the source's taxonomy.
 2. The judge runs at tier `decide`; the model comes from the ai-engineering `config.toml` pin. Binary checks run at tier `verify`.
-3. The evals (`apply-pack.ts`/`score.ts`) run in ai-engineering's own CI, not in the user's project.
+3. The evals (`tests/fixtures/verify-tiers/evals/scripts/apply-pack.ts` and `score.ts`) run in ai-engineering's own CI, not in the user's project.
 4. Outputs: the verdict is the report. When a checkpoint is open, the same verdict
    is written into that checkpoint's review notes. Style follows
    [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md).

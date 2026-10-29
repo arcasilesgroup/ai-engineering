@@ -1,4 +1,4 @@
-// Generator for src/assets.ts: embeds every skill, pack and template file into the
+// Generator for src/assets.ts: embeds every skill and template file into the
 // binary as Bun file imports. The binary IS the payload (blueprint 07). Run:
 //   bun scripts/gen-assets.ts
 // Also bundles src/chain for in-process plugin hosts (P0-2): the
@@ -37,24 +37,16 @@ execSync(`bun build scripts/chain-entry.ts --target=bun --format=esm --outfile=$
 appendFileSync(join(bundleDir, "ai-eng-chain.ts"), '\nexport default "ai-eng-chain";\n');
 
 walk(join(root, "skills"));
-walk(join(root, "packs"));
 walk(join(root, "agents"));
 walk(join(root, "templates"));
 // .json stays embeddable (P0-3): ai-security's report-schema.json is read at
 // runtime by validate-findings.cjs; excluding it shipped a broken validator.
-// TypeScript modules stay out EXCEPT the chain bundle itself and fixture data: a fixture
-// repo is the SUBJECT an eval measures, never host code the binary executes —
-// dropping fixtures ships an eval pack whose answer key cites files that are never
-// materialized (example-node-web cites 4 of them).
-//
 // TypeScript source cannot be imported as an asset directly: tsc resolves it as a
-// real module and refuses. The payload key
-// stays the fixture's real path and the import points at a generated .txt copy —
-// same bytes, an extension no resolver claims. Regenerated every build, so the copy
-// cannot drift. The copies live OUTSIDE skills/ and templates/, so they are payload
-// refs, never payload of their own.
+// real module and refuses. The payload key stays the skill's real path and the import
+// points at a generated .txt copy — same bytes, an extension no resolver claims.
+// Regenerated every build, so the copy cannot drift. The copies live OUTSIDE skills/
+// and templates/, so they are payload refs, never payload of their own.
 const chainPrefix = bundleDir + "/";
-const isFixtureData = (f: string): boolean => f.includes("/fixtures/");
 // Skill scripts are payload, not host code. Copy TypeScript files and JS modules with
 // declarations as text so tsc cannot resolve them as imports.
 const isTypeScriptFile = (f: string): boolean => /\.(?:[cm]?ts|tsx)$/.test(f);
@@ -72,8 +64,8 @@ for (const file of files) {
     if (file.endsWith(".ts")) entries.push({ key, source: file });
     continue;
   }
-  if ((isFixtureData(file) && isTypeScriptFile(file)) || isSkillScript(file)) {
-    const skillRelative = file.startsWith(`${join(root, "skills")}/`) ? relative(join(root, "skills"), file) : relative(root, file);
+  if (isSkillScript(file)) {
+    const skillRelative = relative(join(root, "skills"), file);
     const copy = join(copyDir, `${skillRelative}.txt`);
     mkdirSync(dirname(copy), { recursive: true });
     writeFileSync(copy, readFileSync(file));

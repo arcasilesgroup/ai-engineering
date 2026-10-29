@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { PlanEntry } from "../install.ts";
 import { VERSION } from "../version.ts";
-import { availablePacks, embeddedTemplate } from "../embed.ts";
+import { embeddedTemplate } from "../embed.ts";
 import { SURFACES, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
 
 export function repoTemplateRoot(): string {
@@ -53,7 +53,7 @@ export function gitHookEntries(): PlanEntry[] {
   ];
 }
 
-export function planEntries(surfaces: string[], packs: string[] = []): PlanEntry[] {
+export function planEntries(surfaces: string[]): PlanEntry[] {
   return [
     { path: ".ai-engineering/overrides.toml", ours: embeddedTemplate("overrides.toml.tpl") },
     { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
@@ -61,7 +61,6 @@ export function planEntries(surfaces: string[], packs: string[] = []): PlanEntry
       path: ".ai-engineering/config.toml",
       ours: embeddedTemplate("config.toml.tpl", {
         surfaces: surfaces.map((s) => `"${s}"`).join(", "),
-        packs: packs.map((pack) => `"${pack}"`).join(", "),
       }),
     },
     // The merge gate belongs to the project, not to one editor: it hung off the
@@ -99,16 +98,9 @@ export function hasAdapter(id: string): boolean {
 /** The question init and config ask. Options sit on the next lines, with no tier headers. */
 export const SURFACE_PICK_MESSAGE = "Which agent surfaces is this project governed on?";
 
-/** Optional specialist tools; none are selected for a fresh project. */
-export const PACK_PICK_MESSAGE = "Which optional specialist packs should this machine install?";
-
 /** The flat picker options shared by init and config. */
 export function surfaceOptions(): Surface[] {
   return SURFACES.filter((surface) => hasAdapter(surface.id));
-}
-
-export function packOptions(): Array<{ value: string; label: string }> {
-  return availablePacks().map((pack) => ({ value: pack, label: pack }));
 }
 
 /** The contract files init writes ONCE (untouchable by update). The .gitignore rides

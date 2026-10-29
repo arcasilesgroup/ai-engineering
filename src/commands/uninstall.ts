@@ -11,7 +11,7 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSyn
 import { join, resolve, sep } from "node:path";
 import { SURFACES, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
-import { repoRoot, home, enabledSurfaces, declaredCanonPacks, isGoverned } from "../env.ts";
+import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
 import { parseLock, sha256, stripSharedText } from "../install.ts";
 import { hashFile } from "../install.ts";
 import { embeddedTemplate } from "../embed.ts";
@@ -202,7 +202,7 @@ function pruneCreatedDirs(root: string, removed: ui.Row[]): void {
   }
 }
 
-async function removeEverything(root: string, input: unknown, declared: string[], packs: string[]): Promise<ui.Row[]> {
+async function removeEverything(root: string, input: unknown, declared: string[]): Promise<ui.Row[]> {
   const extra: ui.Row[] = [];
   const agents = join(root, "AGENTS.md");
   const decisions = join(root, "DECISIONS.md");
@@ -235,8 +235,7 @@ async function removeEverything(root: string, input: unknown, declared: string[]
     const floor = floorState === undefined ? null : restoreTemplateDir(floorState.previous, floorState.ours);
     const swept = removeMachineArtifacts();
     rmSync(machineDir, { recursive: true, force: true });
-    const packDetail = packs.length > 0 ? ` · ${packs.length} project pack(s)` : "";
-    extra.push({ mark: "warn", text: `${machineDir} deleted`, dim: `global skills and mirrors removed${packDetail} · ${swept} machine artifacts swept` });
+    extra.push({ mark: "warn", text: `${machineDir} deleted`, dim: `global skills and mirrors removed · ${swept} machine artifacts swept` });
     if (floor !== null) extra.push({ mark: "ok", text: floor });
     for (const line of carriers.lines) extra.push({ mark: "ok", text: line });
     for (const path of carriers.refused) extra.push({ mark: "warn", text: `${path} left alone — not JSON this installer can rewrite without reformatting it` });
@@ -263,7 +262,6 @@ export async function uninstallMain(): Promise<number> {
   // no-config fallback (["claude-code"]): a repo declaring any other surface kept that
   // host's carrier behind as an orphan pointing at a chain nothing serves.
   const declared = enabledSurfaces();
-  const packs = declaredCanonPacks(root) ?? [];
   // ── project side ──────────────────────────────────────────────
   const removed: ui.Row[] = [];
   spawnSync("git", ["-C", root, "config", "--unset", "core.hooksPath"]);
@@ -272,7 +270,7 @@ export async function uninstallMain(): Promise<number> {
   // Rendered as one block: what went, at a glance.
   ui.section("Removed", removed);
   if (scope === "everything") {
-    const extra = await removeEverything(root, input, declared, packs);
+    const extra = await removeEverything(root, input, declared);
     ui.section("Everything scope — the extra sweep", extra);
   }
   ui.end(scope === "everything" ? "ai-eng removed from this machine as far as you chose. Your work survives unless you said otherwise." : "ai-eng is no longer active in this repo. Your contract files remain.");

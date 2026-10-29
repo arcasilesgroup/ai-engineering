@@ -51,8 +51,6 @@ A receipt for every verdict, on disk, in git.</p>
 | **5** protection guards | Tool-specific checks; the workflow checkpoint gate is separate |
 | **1** prompt guard | `spoken-secret`, on surfaces with a prompt hook |
 | **1** output filter | `wrap` reduces test-output context; it is not a protection guard |
-| **23** core skills | Optional specialist packs add more skills |
-| **8** surfaces | One payload, with host-specific carrier scope |
 | **1** npm package | `ai-engineering`; release binaries are separate assets |
 | **0** hosted services | No daemon or hosted control plane |
 | **0** model calls | By `ai-eng` itself. Your key, your model |
@@ -91,7 +89,7 @@ the judgment calls where they belong: with you.
 - [How a tool call is decided](#how-a-tool-call-is-decided)
 - [What it stops](#what-it-stops)
 - [The loop and the skills](#the-loop-and-the-skills)
-- [Optional packs](#optional-packs)
+- [Skills](#skills)
 - [Surfaces](#surfaces)
 - [CLI](#cli)
 - [Where to work](#where-to-work)
@@ -137,7 +135,7 @@ git clone https://github.com/arcasilesgroup/ai-engineering.git
 cd ai-engineering && bun install && bun run build && bun link
 ```
 
-The npm package ships the CLI launcher, source, skills, packs, agents and templates.
+The npm package ships the CLI launcher, source, skills, agents and templates.
 GitHub releases separately ship compiled binaries for eight targets.
 
 ## Quick start
@@ -205,16 +203,16 @@ A block earns its place when it explains itself. These are real verdicts from th
 
 ## The loop and the skills
 
-`ai-eng` installs 23 core skills. One of them is the workflow: `ai-orchestrator`. Give it a
+`ai-eng` installs every shipped skill. One of them is the workflow: `ai-orchestrator`. Give it a
 feature and it splits the work into checkpoints you approve, then builds each checkpoint
 through its gates, one at a time, smallest first. Start with `ai-brainstorm` to pin the idea in
-plain language, or hand the feature straight to the orchestrator. Optional packs add specialist
-skills; the selected set depends on your project configuration.
+plain language, or hand the feature straight to the orchestrator. Every shipped skill is
+installed from the single `skills/` source tree and is available on demand.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/skill-chain-dark.svg">
-    <img src=".github/assets/skill-chain-light.svg" alt="The orchestrator loop: ai-brainstorm, ai-research and ai-architect are optional inputs; ai-orchestrator splits a feature into numbered checkpoints, builds each through behavior, UI and adversarial review gates, and stops for a human twice; ai-verify, ai-security and ai-write are optional outputs; other core and selected-pack skills run on demand" width="100%">
+    <img src=".github/assets/skill-chain-light.svg" alt="The orchestrator loop: ai-brainstorm, ai-research and ai-architect are optional inputs; ai-orchestrator splits a feature into numbered checkpoints, builds each through behavior, UI and adversarial review gates, and stops for a human twice; ai-verify, ai-security and ai-write are optional outputs; other skills run on demand" width="100%">
   </picture>
 </p>
 
@@ -225,26 +223,26 @@ once to review the app. Everything else is a tool you reach for when the work ne
 - `ai-brainstorm`, `ai-research` and `ai-architect` feed the loop from outside: the idea, the
   evidence and the layer rules.
 - `ai-verify`, `ai-security` and `ai-write` can follow it with a verdict, an audit or updated
-  documentation. `ai-visual-recap` is available in the optional `visual-recap` pack.
-- The remaining core skills and selected-pack skills are on demand. They add no required step
+  documentation. `ai-visual-recap` is available as a shipped skill.
+- The remaining skills are on demand. They add no required step
   to the orchestrator.
 
 **Five triggers** route work to the skills that declare them. A **path** trigger is evaluated
 against the milestone's diff. A **judgment** trigger cannot be read from a diff, so it is
-asked out loud, once. The UI trigger uses the optional `audit-design` pack.
+asked out loud, once. The UI trigger uses the `ai-audit-design` skill.
 
 | Trigger | Kind | Routes to | Fires when |
 |---|---|---|---|
-| `ui` | path | `ai-audit-design` (`audit-design` pack) | the diff touches TSX, JSX, CSS/SCSS/SASS/LESS, Vue, Svelte, components or Tailwind config; excludes `docs/` and `.ai-engineering/` |
+| `ui` | path | `ai-audit-design` | the diff touches TSX, JSX, CSS/SCSS/SASS/LESS, Vue, Svelte, components or Tailwind config; excludes `docs/` and `.ai-engineering/` |
 | `security` | path | `ai-security` | the diff touches auth, authz, session, crypto, secrets, SQL, migrations, `**/package.json`, `**/requirements.txt`, `**/Cargo.toml`, `.github/workflows/`, `src/chain/` or `src/guards/` |
 | `open-questions` | judgment | `ai-research` | the brainstorm lists open questions, or the plan cites an external API or version |
 | `arch-change` | judgment | `ai-architect` | the milestone adds a subsystem, changes a layer contract or changes dependency direction |
 | `public-interface` | judgment | `ai-write` | the diff changes a public interface, documented behavior or a command shown in the README |
 
 <details>
-<summary><b>Core skills and pack tools</b></summary>
+<summary><b>Shipped skills</b></summary>
 
-| Skill or pack | What it does |
+| Skill | What it does |
 |---|---|
 | `ai-adversarial-loop` | Multi-round debate between a critic and a fixer until the code is clean. The review gate inside the orchestrator |
 | `ai-agents-md` | Creates, audits and maintains the `AGENTS.md` a repository owes its coding agents |
@@ -275,46 +273,36 @@ asked out loud, once. The UI trigger uses the optional `audit-design` pack.
 | `ai-visual-recap` | Turns a diff into an interactive recap: diagrams, file map, annotated diff |
 | `ai-write` | Writes the README, the wiki page or the API doc, verified against the tree |
 | `ai-writing-behavior` | Authors `BEHAVIOR.md` specs for recurring, judgeable agent conduct |
-| `verify-tiers` pack | Adds standalone, embedded and chain verification skills with eval fixtures |
+| `spec-extract` | Turns an agreement into a checkable, numbered specification |
+| `verify-feature` | Verifies that a feature matches what was requested |
+| `feature-verify` | Cross-verifies a completed feature with throwaway browser tests |
+| `second-opinion` | Requests an independent review of completed code |
+| `a11y-audit` | Audits a UI against WCAG 2.2 AA |
+| `build-check` | Runs the project's typecheck, lint, test and build gates |
+| `code-audit` | Reviews code for concrete correctness and maintainability defects |
+| `design-check` | Checks implementation against its design specification |
+| `full-review` | Coordinates the complete set of review skills |
+| `perf-audit` | Audits performance for measurable, user-visible costs |
+| `review-router` | Selects the review lanes a change needs |
+| `security-audit` | Traces attacker-controlled input to exploitable sinks |
 
 </details>
 
 Attribution for every upstream skill travels with the payload: [NOTICE.md](NOTICE.md) and
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
-## Optional packs
+## Skills
 
-The seven specialist packs are separate from the 23-skill core canon. `ai-eng init` offers
-them as optional selections and selects none by default. The chosen names are stored in
-`.ai-engineering/config.toml` under `[canon].packs`; edit that list and run `ai-eng update`
-to reconcile an existing installation.
-
-| Pack | Adds |
-|---|---|
-| `triage` | GitHub and Azure DevOps backlog analysis |
-| `design-md-planner` | A product-taste interview and `DESIGN.md` creation |
-| `audit-design` | A measured browser audit of a rendered interface |
-| `visual-recap` | An interactive HTML recap of a change |
-| `writing-behavior` | `BEHAVIOR.md` specifications for recurring agent conduct |
-| `stress-test` | Adversarial stress-test planning |
-| `verify-tiers` | Standalone, embedded and chain verification skills and eval fixtures |
+Every installable skill and its resources have one source under `skills/<skill-name>/`.
+`ai-eng init` and `ai-eng update` install the complete inventory without a picker; they
+write skill files but never execute them. Existing `[canon].packs` entries are legacy
+settings: update preserves their config bytes and ignores their values.
 
 ## Surfaces
 
 One canonical payload, mirrored into every surface you enable, so the same guard judges the
-same call whichever client sent it. The capability of each surface is measured against the
-host's own CLI; the evidence lives in `src/surfaces/surfaces.json`.
-
-| Surface | Tier | Carrier |
-|---|---|---|
-| Claude Code | core | `.claude/settings.json` (machine) |
-| Oh My Pi | core | `.omp/agent/hooks/pre/` (machine) |
-| OpenCode | core | `.config/opencode/plugins/` (machine) |
-| Cursor | core | `.cursor/hooks.json` (repo) |
-| Pi | core | `.pi/agent/extensions/` (machine) |
-| Codex CLI | experimental | `.codex/hooks.json` (machine) |
-| Copilot CLI | best-effort | `.github/hooks/` (repo) and `.copilot/hooks/` (machine) |
-| Zed | skills-only | none. It denies through its own tool permissions |
+same call whichever client sent it. The canonical registry records each surface's measured
+capabilities and carrier declarations in [`src/surfaces/surfaces.json`](src/surfaces/surfaces.json).
 
 The tiers are honest about the host. **core** means deny and, where the host allows it, a
 rewritten command. **experimental** works but is less proven. **best-effort** means the host
@@ -322,8 +310,7 @@ limits the outcome. **skills-only** means no interception at all.
 
 `ai-eng config` ticks surfaces on and off (`--add <id>`, `--remove <id>`) and regenerates the
 adapters. `doctor` reports, per surface, whether the carrier is where that host actually
-reads it. [Global carriers](docs/global-carriers.md) lists the machine- and repository-level
-paths.
+reads it. [Global carriers](docs/global-carriers.md) explains carrier installation and cleanup.
 
 ## CLI
 
@@ -404,8 +391,8 @@ receipt and in the commit.
 - **`update` uses local assets.** It reconciles files from the installed package and makes no
   network request; use Bun or npm separately to upgrade the package.
 
-The design document is [docs/blueprint.html](docs/blueprint.html); the product as it stands is
-[docs/recap.html](docs/recap.html).
+The design document is [docs/blueprint.html](docs/blueprint.html). [The recap](docs/recap.html)
+is a historical snapshot; use this README and the source tree for current guidance.
 
 ## Troubleshooting
 
@@ -455,7 +442,7 @@ attribution in [NOTICE.md](NOTICE.md) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-N
 </p>
 
 <p align="center">
-  <a href="https://star-history.com/#arcasilesgroup/ai-engineering&amp;Date">
+  <a href="https://www.star-history.com/#arcasilesgroup/ai-engineering&amp;Date">
     <img src="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&amp;type=Date" alt="star history" width="720">
   </a>
 </p>

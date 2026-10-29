@@ -14,9 +14,9 @@ import { select, multiselect, isCancel } from "@clack/prompts";
 import { scriptedInput } from "../ui.ts";
 import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, type Surface } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
-import { canonDrift, legacyCanonPacks, type CanonDrift } from "../embed.ts";
-import { canonicalSurfaceId, declaredCanonPacks, home, isGoverned } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, SURFACE_PICK_MESSAGE, surfaceOptions, PACK_PICK_MESSAGE, packOptions, refuseLine } from "./init-shared.ts";
+import { canonDrift, changedCanonSkills, type CanonDrift } from "../embed.ts";
+import { canonicalSurfaceId, home, isGoverned } from "../env.ts";
+import { planEntries, contractEntries, hasAdapter, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { VERSION } from "../version.ts";
@@ -59,7 +59,7 @@ export function surfaceHint(s: Surface): string {
   return delta.join(" · ");
 }
 
-function scaffoldProject(surfaces: string[], packs: string[], contract: PlanEntry[]): string[] {
+function scaffoldProject(surfaces: string[], contract: PlanEntry[]): string[] {
   const cwd = process.cwd();
   const lines: string[] = [];
   // Contract files: written ONCE. The AGENTS.md question is already resolved where the
@@ -68,7 +68,7 @@ function scaffoldProject(surfaces: string[], packs: string[], contract: PlanEntr
   const contractReport = install(cwd, contract);
   for (const written of contractReport.written) lines.push(`✓ ${written} (contract)`);
   for (const untouched of contractReport.untouched) lines.push(`· ${untouched} — yours, untouched`);
-  const entries = planEntries(surfaces, packs);
+  const entries = planEntries(surfaces);
   const report = install(cwd, entries);
   for (const written of report.written) lines.push(`✓ ${written}`);
   for (const conflict of report.conflicts) lines.push(`⚠ ${conflict} — edited by you: 3-way diff required, not touched`);
@@ -125,14 +125,13 @@ async function resolveMachineSide(
   // install" with 34 skills deleted, because notice.ts caches the REGISTRY
   // version in the very version.json that installCanon wrote the INSTALLED
   // version into.
-  const packs = declaredCanonPacks() ?? (inRepo && isGoverned() ? legacyCanonPacks() : []);
-  const canon = canonDrift(home(), packs);
+  const canon = canonDrift(home());
   const canonHealthy = canon.drift === 0 && canon.missing === 0 && canon.stale === 0;
   // Did a machine-side write get agreed in this run? The canon install asks once (§14.5b)
   // and the carriers ride with the same answer — a second question for the same "write
   // outside the repo" would be noise, and silence would be a write nobody agreed to.
   const machineAgreed = flags.global === true || flags.yes === true || !canonHealthy;
-  const canonExit = await installCanonOrReport(flags, inRepo, canonDir, canon, canonHealthy, confirmWithInput, packs);
+  const canonExit = await installCanonOrReport(flags, inRepo, canonDir, canon, canonHealthy, confirmWithInput);
   if (canonExit !== null) return canonExit;
   if (flags.global) {
     ui.end("Machine side done. Inside a repo, ai-eng init governs the project too.");
@@ -149,7 +148,6 @@ async function installCanonOrReport(
   canon: CanonDrift,
   canonHealthy: boolean,
   confirmWithInput: ConfirmInput,
-  packs: string[],
 ): Promise<number | null> {
   if (flags.global || !canonHealthy) {
     const reinstalling: boolean = existsSync(canonDir) && !canonHealthy;
@@ -166,7 +164,8 @@ async function installCanonOrReport(
         return 0;
       }
     }
-    const canonLines = installCanon(VERSION, packs).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
+    const preservedSkills = canon.drift > 0 ? changedCanonSkills(home()) : [];
+    const canonLines = installCanon(VERSION, preservedSkills).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
     if (reinstalling) {
       ui.section("global canon outdated or incomplete — re-installing", canonLines, canonSummary(canon));
     } else {
@@ -263,22 +262,6 @@ async function pickSurfaces(
   return picked.map(canonicalSurfaceId);
 }
 
-async function pickPacks(flags: { yes?: boolean }, input: NodeJS.ReadStream | PassThrough): Promise<string[]> {
-  if (flags.yes === true) return [];
-  if (process.stdin.isTTY !== true) {
-    ui.info("Optional packs skipped in non-interactive init; none selected.");
-    return [];
-  }
-  const answer = await multiselect({
-    message: PACK_PICK_MESSAGE,
-    options: packOptions(),
-    initialValues: [],
-    required: false,
-    input: input as never,
-  });
-  return isCancel(answer) ? [] : answer;
-}
-
 /** Refuse a surface this release cannot actually enforce, before any promise is printed. */
 function validateSurfaces(picked: string[]): number | null {
   // Abort before promising what a surface cannot deliver (§13): one that cannot deny
@@ -310,7 +293,6 @@ function validateSurfaces(picked: string[]): number | null {
 async function scaffoldAndCarriers(
   flags: { yes?: boolean; global?: boolean; surface?: string[] },
   picked: string[],
-  packs: string[],
   machineAgreed: boolean,
   confirmWithInput: ConfirmInput,
 ): Promise<string[]> {
@@ -341,8 +323,7 @@ async function scaffoldAndCarriers(
   }
   const sp = ui.spinner();
   sp.start("Scaffolding governance…");
-  const packLines = packs.length > 0 ? installCanon(VERSION, packs) : [];
-  const lines = [...packLines, ...scaffoldProject(picked, packs, contract)];
+  const lines = scaffoldProject(picked, contract);
   if (replacedExisting) lines.unshift("✓ AGENTS.md (contract) — replaced the file that was there");
   if (keptExisting) lines.unshift("· AGENTS.md — yours, untouched");
   sp.stop();
@@ -414,7 +395,7 @@ async function resolvePhase(
   inRepo: boolean,
   input: NodeJS.ReadStream | PassThrough,
   confirmWithInput: ConfirmInput,
-): Promise<number | { machineAgreed: boolean; picked: string[]; packs: string[] }> {
+): Promise<number | { machineAgreed: boolean; picked: string[] }> {
   const machineSide = await resolveMachineSide(flags, inRepo, confirmWithInput);
   if (typeof machineSide === "number") return machineSide;
   const machineAgreed = machineSide.machineAgreed;
@@ -426,8 +407,7 @@ async function resolvePhase(
   if (typeof pickedResult === "number") return pickedResult;
   const invalid = validateSurfaces(pickedResult);
   if (invalid !== null) return invalid;
-  const packs = await pickPacks(flags, input);
-  return { machineAgreed, picked: pickedResult, packs };
+  return { machineAgreed, picked: pickedResult };
 }
 
 export async function initMain(flags: { yes?: boolean; global?: boolean; surface?: string[] }): Promise<number> {
@@ -438,7 +418,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   const inRepo = existsSync(join(cwd, ".git")) || existsSync(join(cwd, ".ai-engineering"));
   const resolved = await resolvePhase(flags, cwd, inRepo, input, confirmWithInput);
   if (typeof resolved === "number") return resolved;
-  const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.packs, resolved.machineAgreed, confirmWithInput);
+  const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.machineAgreed, confirmWithInput);
   renderSections(cwd, resolved.picked, lines);
   ui.section("Governance installed", [{ mark: "ok", text: "Changes are waiting for your review; nothing was committed." }]);
   ui.end("Three steps I can't do for you: 1. Trust the workspace in your surface (without trust, hooks do not run) · 2. ai-eng doctor — verify the chain responds · 3. Open the IDE and load /ai-config-to-project — adapt this project's rules");

@@ -172,14 +172,14 @@ export function mirrorTargets(): MirrorTarget[] {
  *
  *  The carriers are NOT here: they follow the declared surfaces, not the canon, and
  *  `installMachineCarriers()` owns them (§13.2). */
-export function installCanon(version: string, packs: readonly string[] = [], preserveSkills: readonly string[] = []): string[] {
+export function installCanon(version: string, preserveSkills: readonly string[] = []): string[] {
   const lines: string[] = [];
   const canonDir = join(home(), "skills");
-  materializeSkills(canonDir, packs, preserveSkills);
-  const swept = removeStaleCanonFiles(home(), packs);
+  materializeSkills(canonDir, preserveSkills);
+  const swept = removeStaleCanonFiles(home());
   if (swept.length > 0) lines.push(`✓ swept ${swept.length} file(s) this binary no longer ships: ${swept.join(", ")}`);
   const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
-  lines.push(`✓ ${home()}/skills/ — ${entries.length} ai-* skills installed`);
+  lines.push(`✓ ${home()}/skills/ — ${entries.length} skills installed`);
   // Seeds the 24h notice cache (§14.0). Health never reads this file: init and
   // doctor byte-compare the canon against the payload (canonDrift) — this same
   // path also carries the REGISTRY version after a notice check.
@@ -191,7 +191,7 @@ export function installCanon(version: string, packs: readonly string[] = [], pre
     lines.push(`✓ Symlink → ${target.label} (${count} skills)`);
   }
   const commands = installCommands(canonDir);
-  if (commands.count > 0) lines.push(`✓ ~/.config/opencode/commands/ — ${commands.count} slash commands (/ai-*)`);
+  if (commands.count > 0) lines.push(`✓ ~/.config/opencode/commands/ — ${commands.count} slash commands (/<skill-name>)`);
   lines.push(...installAgentsCanon());
   const scriptLines = materializeScripts(join(home(), "scripts"));
   if (scriptLines.length > 0) lines.push(`✓ ~/.ai-engineering/scripts/ — checkpoint gate`);

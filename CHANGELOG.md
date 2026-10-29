@@ -17,8 +17,9 @@ synchronization. Upgrade the installed package with
 
 Checkpoint lifecycle data now uses `reviewed_base` instead of `reviewed_main`.
 The reader accepts the legacy field and normalizes it; new plans and writes use
-`reviewed_base`. Optional specialist packs are selected in `ai-eng init` and
-recorded under `[canon].packs` in `.ai-engineering/config.toml`.
+`reviewed_base`. Every shipped skill now comes from `skills/` and is installed by
+`ai-eng init` and `ai-eng update`. Existing `[canon].packs` values are legacy settings:
+update preserves their config bytes and ignores their values.
 
 `init` and `update` leave their file changes for review; they do not commit.
 Only the explicitly approved worktree merge flow creates its reviewed merge

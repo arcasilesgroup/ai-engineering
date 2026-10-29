@@ -18,57 +18,23 @@ export function embeddedUnder(prefix: string): Map<string, string> {
   return out;
 }
 
-/** Pack IDs come from the embedded source tree, so init and update cannot drift from
- *  the payload they can actually install. */
-export function availablePacks(): string[] {
-  const found = new Set([...embeddedUnder("packs/").keys()].map((path) => path.slice("packs/".length).split("/")[0]!));
-  const order = ["triage", "design-md-planner", "audit-design", "visual-recap", "writing-behavior", "stress-test", "verify-tiers"];
-  return [...order.filter((pack) => found.delete(pack)), ...[...found].sort((a, b) => a.localeCompare(b, "en"))];
-}
-
-/** Older installations already had the six specialist skills enabled. The
- *  separately split verify-tiers pack remains opt-in when migrating their config. */
-export function legacyCanonPacks(): string[] {
-  return availablePacks().filter((pack) => pack !== "verify-tiers");
-}
-
-function packSkills(pack: string): Map<string, string> {
-  const entries = embeddedUnder(`packs/${pack}/`);
-  const skills = [...entries]
-    .filter(([path]) => path.endsWith("/SKILL.md"))
-    .map(([path, ref]) => {
-      const name = /^name:\s*([^\s]+)/m.exec(readEmbeddedText(ref))?.[1];
-      if (!name) throw new Error(`pack skill has no name: ${path}`);
-      return { path: path.slice(0, -"/SKILL.md".length), name };
-    });
-  const out = new Map<string, string>();
-  for (const [path, ref] of entries) {
-    const skill = skills.find((candidate) => path.startsWith(`${candidate.path}/`));
-    if (skill) out.set(`skills/${skill.name}/${path.slice(skill.path.length + 1)}`, ref);
-  }
-  return out;
-}
-
 /** The skills canon proper: dot-entries under skills/ hold the generated chain
  *  bundle, payload for the plugin hosts and not a skill anyone loads. Materializing
  *  them writes a 33 KB build artifact in every canon and every mirror, counted as
  *  canon by doctor. One predicate, every consumer. */
-export function canonSkills(packs: readonly string[] = []): Map<string, string> {
+export function canonSkills(): Map<string, string> {
   const out = new Map<string, string>();
   for (const [path, ref] of embeddedUnder("skills/")) {
     if (path.slice("skills/".length).startsWith(".")) continue;
     out.set(path, ref);
-  }
-  for (const pack of packs) {
-    for (const [path, ref] of packSkills(pack)) out.set(path, ref);
   }
   return out;
 }
 
 /** Existing canon files without a matching payload hash are not safe to replace:
  *  unlike repo assets, the machine canon has no ownership lock. */
-export function changedCanonSkills(homeDir: string, packs: readonly string[] = []): string[] {
-  return [...canonSkills(packs)]
+export function changedCanonSkills(homeDir: string): string[] {
+  return [...canonSkills()]
     .filter(([path, ref]) => {
       const installed = join(homeDir, path);
       const embedded = embeddedPath(ref);
@@ -86,8 +52,8 @@ export type CanonDrift = { verified: number; drift: number; missing: number; sta
  *  own, a symlink) is not ours to delete. Dot entries are the OS talking (.DS_Store)
  *  and are ignored either way. A payload walk never sees an orphan, so without this
  *  walk a renamed asset lives in every installed canon forever. */
-export function canonExtras(homeDir: string, packs: readonly string[] = []): { stale: string[]; foreign: string[] } {
-  const payload = canonSkills(packs);
+export function canonExtras(homeDir: string): { stale: string[]; foreign: string[] } {
+  const payload = canonSkills();
   const shipped = new Set([...payload.keys()].map((path) => path.split("/")[1] ?? ""));
   const stale: string[] = [];
   const foreign: string[] = [];
@@ -122,10 +88,10 @@ export function canonExtras(homeDir: string, packs: readonly string[] = []): { s
 /** Sweep the stale files inside folders we ship, then the directories they leave
  *  empty. Never touches a foreign path: deleting a file we did not install is the
  *  worst class of bug a governance tool can have (§14.3). */
-export function removeStaleCanonFiles(homeDir: string, packs: readonly string[] = []): string[] {
+export function removeStaleCanonFiles(homeDir: string): string[] {
   const skillsRoot = join(homeDir, "skills");
   const removed: string[] = [];
-  for (const key of canonExtras(homeDir, packs).stale) {
+  for (const key of canonExtras(homeDir).stale) {
     const absolute = join(homeDir, key);
     try {
       unlinkSync(absolute);
@@ -155,10 +121,10 @@ export function removeStaleCanonFiles(homeDir: string, packs: readonly string[] 
  *  34 files missing. It counts the files the payload does not have as well: a
  *  canon can be complete and dirty at once, and only the payload walk sees both
  *  halves. */
-export function canonDrift(homeDir: string, packs: readonly string[] = []): CanonDrift {
-  const extras = canonExtras(homeDir, packs);
+export function canonDrift(homeDir: string): CanonDrift {
+  const extras = canonExtras(homeDir);
   const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale: extras.stale.length, foreign: extras.foreign.length };
-  for (const [path, ref] of canonSkills(packs)) {
+  for (const [path, ref] of canonSkills()) {
     const installed = join(homeDir, path);
     const embedded = embeddedPath(ref);
     if (!existsSync(installed)) out.missing += 1;
@@ -173,13 +139,9 @@ export function canonDrift(homeDir: string, packs: readonly string[] = []): Cano
  *  and in a compiled binary it is the virtualized copy inside the executable. */
 export function materializeSkills(
   destRoot: string,
-  packs: readonly string[] = [],
   preserve: readonly string[] = [],
 ): string[] {
   const skills = new Map(embeddedUnder("skills/"));
-  for (const pack of packs) {
-    for (const [path, ref] of packSkills(pack)) skills.set(path, ref);
-  }
   for (const path of preserve) skills.delete(path);
   return materializePrefix("skills/", destRoot, skills);
 }
@@ -241,12 +203,11 @@ function readEmbeddedText(ref: string): string {
 /** One embedded template, rendered with {{vars}}. Lookup by suffix so callers can
  *  use plain names ("AGENTS.md.tpl") regardless of the generated key prefix. */
 export function embeddedTemplate(name: string, vars: Record<string, string> = {}): string {
-  const effectiveVars = name === "config.toml.tpl" ? { packs: "", ...vars } : vars;
   for (const [key, ref] of Object.entries(EMBEDDED)) {
     if (key === `templates/${name}` || key === `../templates/${name}`) {
       const content = readEmbeddedText(ref);
       let out = content;
-      for (const [k, v] of Object.entries(effectiveVars)) out = out.split(`{{${k}}}`).join(v);
+      for (const [k, v] of Object.entries(vars)) out = out.split(`{{${k}}}`).join(v);
       return out;
     }
   }

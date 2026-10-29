@@ -12,7 +12,6 @@
     "bin",
     "src",
     "skills",
-    "packs",
     "agents",
     "scripts/.embed",
     "templates",
@@ -31,8 +30,8 @@
   "scripts": {
     "build": "bun scripts/build.ts",
     "test": "bun test",
-    "lint": "oxlint src tests",
-    "typecheck": "oxlint --type-aware --type-check src tests",
+    "lint": "oxlint src tests --ignore-pattern 'tests/fixtures/verify-tiers/evals/**'",
+    "typecheck": "oxlint --type-aware --type-check src tests --ignore-pattern 'tests/fixtures/verify-tiers/evals/**'",
     "arch": "bun test tests/arch.spec.ts",
     "bench": "bun scripts/bench-chain.ts",
     "tokens": "bun scripts/tokens.ts",

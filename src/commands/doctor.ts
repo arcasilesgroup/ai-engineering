@@ -1,11 +1,11 @@
 // `ai-eng doctor` — 12 checks + one real test. The difference with theater: it
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
-import { canonDrift, legacyCanonPacks } from "../embed.ts";
+import { canonDrift } from "../embed.ts";
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, declaredCanonPacks, isGoverned, receiptsDir } from "../env.ts";
+import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, isGoverned, receiptsDir } from "../env.ts";
 import {
   gcReceipts,
   RECEIPT_HEALTH_WINDOW_DAYS,
@@ -83,9 +83,7 @@ function checkCanon(): CheckResult {
   //    settings, config), so filtering the lock by skills/ counts 0 forever.
   //    Same predicate as materializeSkills: the dot-entries (chain bundle) are
   //    payload, not canon, so they are neither verified nor counted.
-  // An old governed config omitted packs; a new init writes an explicit empty list.
-  const packs = declaredCanonPacks() ?? (isGoverned() ? legacyCanonPacks() : []);
-  const canon = canonDrift(home(), packs);
+  const canon = canonDrift(home());
   const canonTotal = canon.verified + canon.drift + canon.missing;
   // A canon can be complete and dirty at once: an orphan is invisible to a payload
   // walk, so without the extras walk a renamed asset sits in every install while
