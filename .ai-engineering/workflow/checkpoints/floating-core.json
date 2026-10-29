@@ -1276,9 +1276,11 @@
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "passed",
+          "attempts": 1,
+          "findings": [
+            "All 18 CP18 verify commands passed in order on a clean clone of main HEAD 7a4fc9d4. Test-plan results: unit 1/1, contract 2/2, integration 0 planned; build, lint, typecheck, and arch passed."
+          ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
