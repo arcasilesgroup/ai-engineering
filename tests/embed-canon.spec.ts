@@ -83,7 +83,7 @@ describe("the embedded payload", () => {
     expect(guide).not.toContain("packs/");
     const references = [...guide.matchAll(/`(skills\/[^`]+)`/g)]
       .map(([, path]) => path)
-      .filter((path): path is string => path !== undefined);
+      .filter((path): path is string => path !== undefined && !path.includes("<"));
 
     expect(references.length).toBeGreaterThan(0);
     for (const path of references) {

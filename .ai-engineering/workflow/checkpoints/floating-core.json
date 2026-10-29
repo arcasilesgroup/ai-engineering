@@ -1301,9 +1301,10 @@
       "gates": {
         "behavior": {
           "status": "failed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "Gate 1 attempt 1 failed in tests/init-command.spec.ts:395: the test expected the obsolete empty [canon].packs entry. Fixed to assert the key is absent and to match the prompt without relying on terminal wrapping. The permission message was from a passing case; rerun Gate 1 from the first command."
+            "Gate 1 attempt 1 failed in tests/init-command.spec.ts:395: the test expected the obsolete empty [canon].packs entry. Fixed to assert the key is absent and to match the prompt without relying on terminal wrapping. The permission message was from a passing case.",
+            "Gate 1 attempt 2 passed skills-eval-score, init, update, config, doctor and carriers, then failed at tests/embed-canon.spec.ts:91. The guide was shipped; the test treated its generic skills/<skill-name>/ example as a literal installed path. Fixed to validate concrete references and ignore placeholders; focused embed-canon test and typecheck pass. Rerun Gate 1 from the first command."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },

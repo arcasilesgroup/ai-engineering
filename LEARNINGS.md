@@ -1556,3 +1556,11 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Assert the approved config contract, not obsolete serialization or wrapped terminal text.
 - **Proof:** Focused `init-command` suite: 33 tests passed; typecheck passed.
 - **Tags:** behavior, tests, config, skills
+
+### L214 · 2026-10-29 · floating-core #18 · behavior
+- **Failure:** `tests/embed-canon.spec.ts` treated the verification setup guide's generic `skills/<skill-name>/` example as a missing installed skill.
+- **Root cause:** The test checked every displayed reference as a literal payload path, including a placeholder.
+- **Fix:** Check concrete guide paths against the payload and ignore placeholder examples.
+- **Lesson:** Validate concrete documented paths against the inventory, not generic template placeholders.
+- **Proof:** `bun test tests/embed-canon.spec.ts` — 16 tests passed; `bun run typecheck` passed.
+- **Tags:** behavior, tests, assets, skills
