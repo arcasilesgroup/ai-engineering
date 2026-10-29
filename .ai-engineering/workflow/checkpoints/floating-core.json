@@ -1283,9 +1283,15 @@
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "passed",
+          "attempts": 1,
+          "findings": [
+            "Adversarial review PASS with no code findings. Main-checkout focused test and arch runs still encounter pre-existing protected test directories and .DS_Store; Gate 1 passed in a clean clone."
+          ]
+        }
       },
-      "status": "pending",
+      "status": "passed",
       "changed_files": [
         ".snyk",
         "FILEMAP.md",
