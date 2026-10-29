@@ -7,9 +7,9 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
-import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules, loadCircuitBreakerConfig } from "../env.ts";
-import { normalise, deduplicable, fingerprint, loopExact } from "./payload.ts";
-import type { Payload } from "./payload.ts";
+import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules } from "../env.ts";
+import { normalise, deduplicable, fingerprint, loopExact } from "../payload.ts";
+import type { Payload } from "../payload.ts";
 import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
@@ -17,11 +17,11 @@ import { policyModeFor, runPolicy } from "../guards/policy.ts";
 import { runInjection, type GuardResult as InjectionGuardResult } from "../guards/injection.ts";
 import { runSpokenSecret } from "../guards/spoken-secret.ts";
 import { runLoopGuard } from "../guards/loop.ts";
-import { CircuitBreaker } from "../guards/circuit-breaker.ts";
+import { runCheckpointGuard } from "../guards/checkpoint.ts";
 import { isTestCommand, rewrite } from "../guards/wrap.ts";
-import { writeReceipt, upsertDenyLedger } from "../receipts.ts";
+import { writeReceipt, upsertDenyLedger, retainReceipts, type Receipt } from "../receipts.ts";
 
-export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret";
+export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret" | "checkpoint";
 
 type GuardRow = { name: GuardName; matcher: RegExp };
 type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | { deny: false; review: true; reason: string; rule: { id: string; name: string; risk: number } } | undefined;
@@ -29,8 +29,6 @@ type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | { deny:
 export type ChainContext = {
   repoRoot: string | null;
   loopOverride: boolean;
-  /** Circuit breaker for external service calls (Jev, MCP). Shared per process. */
-  circuitBreaker: CircuitBreaker;
 };
 
 /** event -> [(guard, tool matcher)]. Adding an entry point means adding a row here,
@@ -43,7 +41,9 @@ export const TABLE: Record<string, GuardRow[]> = {
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
+    { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ },
   ],
+  Stop: [{ name: "checkpoint", matcher: /^$/ }],
   PostToolUse: [
     { name: "injection", matcher: /^(WebFetch|Fetch|WebSearch|mcp__.*|tool_result)$/ },
     { name: "loop", matcher: /^.*$/ },
@@ -55,9 +55,6 @@ export const TABLE: Record<string, GuardRow[]> = {
 };
 
 const HOT_PATH_BUDGET_MS = 200;
-
-/** Shared circuit breaker instance per process. Created once, reused across runs. */
-const sharedCircuitBreaker = new CircuitBreaker();
 
 export type ChainOptions = {
   surface?: string;
@@ -176,13 +173,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   const fp = fingerprint(payload);
 
   const overrides = readOverrides(root);
-  // Configure the shared circuit breaker from config.toml (once per process;
-  // subsequent reads update the thresholds without creating new instances).
-  const cbConfig = loadCircuitBreakerConfig(root);
-  if (cbConfig.failureThreshold !== undefined || cbConfig.resetMs !== undefined) {
-    sharedCircuitBreaker.configure(cbConfig);
-  }
-  const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null, circuitBreaker: sharedCircuitBreaker };
+  const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
 
   // Same call, same answer: no guard decides the same call twice. The cache lives inside
   // .ai-engineering/ — the directory the lock owns and uninstall sweeps — and not at the
@@ -232,7 +223,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   // receipt but still allow the call. The receipt carries the review metadata
   // for later analysis; the call itself proceeds.
   if (reviewResult !== undefined) {
-    const receipt = writeReceipt({
+    const receipt = recordReceipt({
       event,
       surface: options.surface ?? "unknown",
       tool,
@@ -243,7 +234,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     }, root);
     return { action: "review", reason: reviewResult.reason, rule: reviewResult.rule, guards: ran, receiptId: receipt?.operation_id ?? null };
   }
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool,
@@ -253,6 +244,14 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     session_id: sessionId(),
   }, root);
   return { action: "allow", guards: ran, receiptId: receipt?.operation_id ?? null };
+}
+
+/** Write the chain's receipt, then let retention run (its daily claim makes every
+ *  call after the backlog is clear a single failed create). The git floor never calls this. */
+function recordReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | "ts">, root: string): Receipt | null {
+  const written = writeReceipt(receipt, root);
+  if (written) retainReceipts(root);
+  return written;
 }
 
 function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): GuardOutcome {
@@ -283,6 +282,8 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
           return runInjection(payload);
         case "spoken-secret":
           return runSpokenSecret(payload);
+        case "checkpoint":
+          return runCheckpointGuard(payload, ctx.repoRoot);
         default:
           return runLoopGuard(payload, ctx.loopOverride);
       }
@@ -324,7 +325,7 @@ function denyOutcome(
     const repeats = upsertDenyLedger(receiptsDir(root), loopKey);
     if (repeats > 0) reason += ` · this exact call has been denied ${repeats} times before`;
   }
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool,
@@ -350,7 +351,7 @@ function rewriteOutcome(
   root: string,
 ): ChainOutcome {
   const latency = Math.max(1, Date.now() - started);
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool: "Bash",

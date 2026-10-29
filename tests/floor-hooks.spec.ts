@@ -12,24 +12,43 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import * as fs from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
 import { floor } from "../src/floor/entry.ts";
+import { resolveContext } from "../src/git/context.ts";
 
 const SECRET = "AKIAIOSFODNN7EXAMPLE";
 const roots: string[] = [];
 const HOME_BEFORE = process.env.AI_ENG_HOME;
 const PATH_BEFORE = process.env.PATH ?? "";
 const CWD_BEFORE = process.cwd();
+let templateRoot = "";
+const repoTemplates = new Map<boolean, string>();
 
 beforeAll(() => {
   process.env.AI_ENG_HOME = mkdtempSync(join(tmpdir(), "ai-eng-floor-home-"));
+  templateRoot = mkdtempSync(join(tmpdir(), "ai-eng-floor-template-"));
+  for (const governed of [false, true]) {
+    const dir = join(templateRoot, governed ? "governed" : "foreign");
+    mkdirSync(dir);
+    run("git", dir, ["init", "-q"]);
+    run("git", dir, ["config", "user.email", "floor@example.com"]);
+    run("git", dir, ["config", "user.name", "floor test"]);
+    run("git", dir, ["config", "commit.gpgsign", "false"]);
+    if (governed) {
+      mkdirSync(join(dir, ".ai-engineering"), { recursive: true });
+      writeFileSync(join(dir, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+    }
+    repoTemplates.set(governed, dir);
+  }
 });
 afterAll(() => {
   if (HOME_BEFORE === undefined) delete process.env.AI_ENG_HOME;
   else process.env.AI_ENG_HOME = HOME_BEFORE;
+  if (templateRoot) rmSync(templateRoot, { recursive: true, force: true });
 });
 beforeEach(() => {
   process.env.PATH = PATH_BEFORE;
@@ -55,15 +74,11 @@ function run(bin: string, cwd: string, args: string[]): { status: number; stdout
 /** A throwaway repo. `governed` writes the declaration `.ai-engineering/config.toml`
  *  — the only thing that makes the floor judge a commit at all (§A). */
 function tempRepo(governed: boolean): string {
-  const dir = tempDir(governed ? "ai-eng-floor-repo-" : "ai-eng-floor-foreign-");
-  run("git", dir, ["init", "-q"]);
-  run("git", dir, ["config", "user.email", "floor@example.com"]);
-  run("git", dir, ["config", "user.name", "floor test"]);
-  run("git", dir, ["config", "commit.gpgsign", "false"]);
-  if (governed) {
-    mkdirSync(join(dir, ".ai-engineering"), { recursive: true });
-    writeFileSync(join(dir, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
-  }
+  const parent = tempDir(governed ? "ai-eng-floor-repo-" : "ai-eng-floor-foreign-");
+  const dir = join(parent, "repo");
+  const template = repoTemplates.get(governed);
+  if (!template) throw new Error(`missing ${governed ? "governed" : "foreign"} Git fixture template`);
+  cpSync(template, dir, { recursive: true });
   return dir;
 }
 
@@ -291,14 +306,53 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
   // The refs arrive through AI_ENG_PUSH_REFS: the shim captures pre-push stdin before
   // exec eats it (src/floor/index.ts:167). No gitleaks on PATH here on purpose — if the
   // branch check ever moves behind the scan, this test fails on the HARD FAIL line.
-  test("blocks a push targeting main before any scan runs", () => {
+  test("blocks a push targeting the physically present detected base before any scan runs", () => {
     const repo = tempRepo(true);
-    process.env.AI_ENG_PUSH_REFS = "refs/heads/main 0123456789abcdef refs/heads/main 0123456789abcdef";
+    const branch = "feature/direct-push";
+    run("git", repo, ["checkout", "-b", branch]);
+    write(repo, "fixture.txt", "fixture\n");
+    run("git", repo, ["add", "fixture.txt"]);
+    run("git", repo, ["commit", "-q", "-m", "test: create push fixture"]);
+    const sha = run("git", repo, ["rev-parse", "HEAD"]).stdout.trim();
+    run("git", repo, ["branch", "main", sha]);
+    expect(run("git", repo, ["show-ref", "--verify", "--hash", "refs/heads/main"]).stdout.trim()).toBe(sha);
+    expect(resolveContext(repo)).toMatchObject({ base: null, baseSource: "ask" });
+
+    write(repo, ".ai-engineering/config.toml", '[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "main"\n');
+
+    expect(resolveContext(repo)).toMatchObject({ branch, base: "main", baseSource: "config" });
+
+    pathWithoutGitleaks();
+    const previousRefs = process.env.AI_ENG_PUSH_REFS;
+    process.env.AI_ENG_PUSH_REFS = `refs/heads/${branch} ${sha} refs/heads/main ${"0".repeat(40)}`;
+    try {
+      expect(prePush(repo)).toEqual({
+        ok: false,
+        lines: ["direct push to detected base refs/heads/main is not allowed — open a PR instead."],
+      });
+    } finally {
+      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+      else process.env.AI_ENG_PUSH_REFS = previousRefs;
+    }
+  });
+
+  test("fails closed with a repair step when base configuration cannot be resolved", () => {
+    const repo = tempRepo(true);
+    const branch = "feature/unreadable-base";
+    run("git", repo, ["checkout", "-b", branch]);
+    write(repo, ".ai-engineering/config.toml", '[git\nbase = "main"\n');
+    pathWithoutGitleaks();
+    const previousRefs = process.env.AI_ENG_PUSH_REFS;
+    process.env.AI_ENG_PUSH_REFS = `refs/heads/${branch} ${"0".repeat(40)} refs/heads/main ${"0".repeat(40)}`;
     try {
       const result = prePush(repo);
-      expect(result).toEqual({ ok: false, lines: ["direct push to main is not allowed — open a PR instead."] });
+
+      expect(result.ok).toBe(false);
+      expect(result.lines[0]).toContain("pre-push: cannot resolve detected base:");
+      expect(result.lines[0]).toContain("fix the TOML so it parses");
     } finally {
-      delete process.env.AI_ENG_PUSH_REFS;
+      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+      else process.env.AI_ENG_PUSH_REFS = previousRefs;
     }
   });
 
@@ -469,7 +523,7 @@ describe("floor — the dispatcher the shims exec into", () => {
     }
 
     expect(code).toBe(0);
-    expect(err.text()).toContain("active override travels in the commit: sealed build window");
+    expect(err.text()).toBe("");
     expect(readFileSync(msg, "utf8")).toContain("Override-Reason: sealed build window");
   });
 
@@ -539,5 +593,164 @@ describe("floor — the dispatcher the shims exec into", () => {
     expect(code).toBe(0);
     expect(err.text()).toBe("");
     expect(existsSync(join(repo, ".ai-engineering"))).toBe(false);
+  });
+});
+
+describe("floor — F7: a green pre-commit is silent and never reads the receipts folder", () => {
+  const SEEDED = 3000;
+  // Far older than any [gc].receipts_ttl: if anything collected receipts from the floor,
+  // these are the first files it would delete.
+  const STALE = new Date("2000-01-01T00:00:00.000Z");
+
+  function receiptsFolder(repo: string): string {
+    return join(repo, ".ai-engineering", "receipts");
+  }
+
+  /** Thousands of well-formed receipts, named the way writeReceipt names them, so any
+   *  summarizer that enumerated the folder would have to open every one. */
+  function seedReceipts(repo: string, mtime: Date | null): string[] {
+    const dir = receiptsFolder(repo);
+    mkdirSync(dir, { recursive: true });
+    const names: string[] = [];
+    for (let i = 0; i < SEEDED; i++) {
+      const ts = new Date(Date.UTC(2026, 9, 1) + i * 1000).toISOString();
+      const id = i.toString(16).padStart(8, "0");
+      const name = `${ts.replace(/[:.]/g, "-")}-PreToolUse-${id}.json`;
+      const path = join(dir, name);
+      writeFileSync(
+        path,
+        JSON.stringify({
+          schema: "urn:ai-eng:receipt:2",
+          operation_id: id,
+          event: "PreToolUse",
+          surface: "claude-code",
+          tool: "Bash",
+          guards: { ran: ["policy"], denied_by: null },
+          latency_ms: 3,
+          outcome: "allow",
+          ts,
+        }),
+      );
+      if (mtime) utimesSync(path, mtime, mtime);
+      names.push(name);
+    }
+    return names;
+  }
+
+  function captureStdout(): { text: () => string; restore: () => void } {
+    const chunks: string[] = [];
+    const spy = spyOn(process.stdout, "write").mockImplementation(((chunk: string) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as never);
+    return { text: () => chunks.join(""), restore: () => spy.mockRestore() };
+  }
+
+  /** Every directory listing the process asks for whose target is the receipts folder.
+   *  The spies call through, so the floor behaves exactly as it would unobserved. */
+  function watchReceiptListings(): { stop: () => string[] } {
+    const spies = [spyOn(fs, "readdirSync"), spyOn(fs, "opendirSync"), spyOn(fs, "readdir"), spyOn(fs, "opendir")];
+    return {
+      // Read the calls before restoring: mockRestore() clears them.
+      stop: () => {
+        const targets = spies
+          .flatMap((spy) => spy.mock.calls.map((call) => String((call as unknown[])[0])))
+          .filter((target) => target.replaceAll("\\", "/").includes(".ai-engineering/receipts"));
+        for (const spy of spies) spy.mockRestore();
+        return targets;
+      },
+    };
+  }
+
+  test("with thousands of receipts present, a green pre-commit exits 0 and writes nothing to stdout or stderr", async () => {
+    const repo = tempRepo(true);
+    installGitleaksShim();
+    const seeded = seedReceipts(repo, null);
+    // Premise: the folder really holds thousands of receipts before the hook runs.
+    expect(readdirSync(receiptsFolder(repo)).filter((n) => seeded.includes(n))).toHaveLength(SEEDED);
+    stage(repo, { "clean.txt": "clean\n" });
+    process.chdir(repo);
+
+    const err = captureStderr();
+    const out = captureStdout();
+    let code: number;
+    try {
+      code = await floor("pre-commit");
+    } finally {
+      out.restore();
+      err.restore();
+    }
+
+    expect(code).toBe(0);
+    expect(err.text()).toBe("");
+    expect(out.text()).toBe("");
+  });
+
+  test.skipIf(process.platform === "win32")(
+    "never lists the receipts folder: unreadable, it still passes in silence and every stale receipt survives",
+    async () => {
+      const repo = tempRepo(true);
+      installGitleaksShim();
+      const seeded = seedReceipts(repo, STALE);
+      stage(repo, { "clean.txt": "clean\n" });
+      process.chdir(repo);
+      const dir = receiptsFolder(repo);
+      // Write and traverse, no read: a receipt can still land, a listing cannot.
+      chmodSync(dir, 0o300);
+      let denied = false;
+      try {
+        readdirSync(dir);
+      } catch (error) {
+        denied = (error as NodeJS.ErrnoException).code === "EACCES";
+      }
+
+      const err = captureStderr();
+      const out = captureStdout();
+      const listings = watchReceiptListings();
+      let code: number;
+      let listed: string[] = [];
+      try {
+        // Premise: this process really cannot list the folder (not true for root).
+        expect(denied).toBe(true);
+        code = await floor("pre-commit");
+      } finally {
+        listed = listings.stop();
+        out.restore();
+        err.restore();
+        chmodSync(dir, 0o755);
+      }
+
+      expect(listed).toEqual([]);
+      expect(code).toBe(0);
+      expect(err.text()).toBe("");
+      expect(out.text()).toBe("");
+      const after = readdirSync(dir);
+      expect(seeded.filter((name) => !after.includes(name))).toEqual([]);
+    },
+  );
+
+  test("a denied pre-commit keeps today's deny output, byte for byte, and exits 1", async () => {
+    const repo = tempRepo(true);
+    installGitleaksShim();
+    seedReceipts(repo, STALE);
+    stage(repo, { "note.txt": "trailing spaces   \n" });
+    const verdict = preCommit(repo);
+    // Premise: the staged change really is refused, with the hook's own lines.
+    expect(verdict.ok).toBe(false);
+    expect(verdict.lines.length).toBeGreaterThan(0);
+    process.chdir(repo);
+
+    const err = captureStderr();
+    let code: number;
+    try {
+      code = await floor("pre-commit");
+    } finally {
+      err.restore();
+    }
+
+    expect(code).toBe(1);
+    expect(err.text()).toBe(
+      `${verdict.lines.join("\n")}\n[git floor] pre-commit: BLOCKED — what the hooks would say is what needs fixing.\n`,
+    );
   });
 });

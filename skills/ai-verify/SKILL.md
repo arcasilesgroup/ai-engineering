@@ -2,10 +2,11 @@
 name: ai-verify
 description: >-
   Use when work has to be verified — "verify the feature", "did we build what
-  was asked", "review this diff", "is it ready to commit" — by choosing the
-  right verification tier (standalone, embedded, or chain) and producing
-  verdicts with evidence, not impressions. Not for milestone-declared security
-  audits — use /ai-security. Not for diagnosing a failure — use /ai-debug.
+  was asked", "review this diff", "is it ready to commit", or when the user
+  wants over-engineering findings or a debt ledger. Choose the right
+  verification tier and produce verdicts with evidence, not impressions.
+  Not for milestone-declared security audits — use /ai-security. Not for
+  diagnosing a failure — use /ai-debug.
 license: LicenseRef-Attributed
 ---
 
@@ -16,23 +17,23 @@ skills that fire themselves mid-workflow, and a chain of review lanes. The
 chain's router decides which lanes run from the evidence in the diff, never
 from its size.
 
-### Tier 1 — standalone (you run it on purpose)
+### Tier 1 — standalone (you run it on purpose; available in the optional verify-tiers pack)
 
-- Per-requirement verdict against what was actually asked, with a list of gaps → [tiers/1-standalone/verify-feature/SKILL.md](tiers/1-standalone/verify-feature/SKILL.md)
-- Extract the requirements from the conversation into numbered, falsifiable claims → [tiers/1-standalone/spec-extract/SKILL.md](tiers/1-standalone/spec-extract/SKILL.md)
+- Per-requirement verdict against what was actually asked, with a list of gaps → `verify-feature`
+- Extract the requirements from the conversation into numbered, falsifiable claims → `spec-extract`
 
-### Tier 2 — embedded (fires by itself, mid-workflow)
+### Tier 2 — embedded (fires by itself, mid-workflow; available in the optional verify-tiers pack)
 
-- Browser verification of the finished feature + blast radius of the routes that depend on the change → [tiers/2-embedded/feature-verify/SKILL.md](tiers/2-embedded/feature-verify/SKILL.md), with [blast_radius.ts](tiers/2-embedded/feature-verify/scripts/blast_radius.ts), [setup_harness.sh](tiers/2-embedded/feature-verify/scripts/setup_harness.sh) and [references/](tiers/2-embedded/feature-verify/references/)
-- A second opinion from a fresh model instance with no visibility into your reasoning → [tiers/2-embedded/second-opinion/SKILL.md](tiers/2-embedded/second-opinion/SKILL.md)
+- Browser verification of the finished feature + blast radius of the routes that depend on the change → `feature-verify`, with its scripts and references
+- A second opinion from a fresh model instance with no visibility into your reasoning → `second-opinion`
 
-### Tier 3 — chain (review lanes picked by evidence)
+### Tier 3 — chain (review lanes picked by evidence; available in the optional verify-tiers pack)
 
-- Router that picks lanes, estimates cost, and executes → [tiers/3-chain/review-router/SKILL.md](tiers/3-chain/review-router/SKILL.md)
-- Lanes: [code-audit](tiers/3-chain/code-audit/SKILL.md) · [security-audit](tiers/3-chain/security-audit/SKILL.md) · [a11y-audit](tiers/3-chain/a11y-audit/SKILL.md) · [perf-audit](tiers/3-chain/perf-audit/SKILL.md) · [design-check](tiers/3-chain/design-check/SKILL.md) · [build-check](tiers/3-chain/build-check/SKILL.md)
-- Merge of all lanes into one deduplicated report → [full-review](tiers/3-chain/full-review/SKILL.md); scope and diff conventions → [CONVENTIONS.md](tiers/3-chain/_support/review/CONVENTIONS.md)
+- Router that picks lanes, estimates cost, and executes → `review-router`
+- Lanes: `code-audit` · `security-audit` · `a11y-audit` · `perf-audit` · `design-check` · `build-check`
+- Merge of all lanes into one deduplicated report → `full-review`; the pack includes the lane conventions
 
-Setup guide and entry router → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETUP-GUIDE.md). Evals (apply real bugs and score the reviewer) → [evals/README.md](evals/README.md): [apply-pack.ts](evals/scripts/apply-pack.ts), [score.ts](evals/scripts/score.ts), [bug-catalog.md](evals/bug-catalog.md), example pack [answer-key.json](evals/packs/example-node-web/answer-key.json).
+Setup guide and entry router → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETUP-GUIDE.md). The optional pack also contains internal evals that apply real bugs and score the reviewer.
 
 ## Lifecycle
 
@@ -52,3 +53,22 @@ Source: Graph Engineering — Verification Skills (skills from the video, genera
 4. Outputs: the verdict is the report. When a checkpoint is open, the same verdict
    is written into that checkpoint's review notes. Style follows
    [ai-brainstorm › references/artifact-design.md](../ai-brainstorm/references/artifact-design.md).
+
+## Over-engineering review and debt collection
+
+Use this route for "review code", "code review", "find over-engineering", "check for bloat", or "what can we simplify". It is distinct from judging whether requirements were met: use the verification tiers above for correctness.
+
+### Diff review (default)
+
+Review the current PR, branch, or requested diff against the AGENTS.md code style rules. Return ranked findings, one line each: location, problem, fix.
+
+```text
+src/utils/parser.ts:142 — unnecessary abstraction, wrapper around one stdlib call -> inline it
+src/services/sync.ts:87-94 — generic name hides purpose -> rename it to describe the value
+```
+
+### Debt collection
+
+Use `/ai-verify --debt` or "collect debt", "list deferred shortcuts", or "what did we defer". Scan the codebase for `todo:` comments and return a structured ledger with file, line, comment, and category (`lock`, `perf`, `simplification`, `test`, `correctness`, or `other`).
+
+For both modes, check findings against the AGENTS.md code style rules: KISS, YAGNI, DRY, early returns, one function/one job, purpose-named values, comments that explain why, and the shortest working solution. Cite the applicable rule in each finding. Do not refactor working code or report a style preference without a concrete improvement.

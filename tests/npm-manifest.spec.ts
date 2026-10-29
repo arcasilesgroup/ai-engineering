@@ -12,6 +12,7 @@ const root = join(import.meta.dir, "..");
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
   optionalDependencies?: Record<string, string>;
   engines?: { bun?: string };
+  files?: string[];
 };
 
 test("the package declares no optionalDependencies — the platform scheme is gone", () => {
@@ -25,4 +26,14 @@ test("the platform-package scripts are gone with the scheme", () => {
 
 test("the runtime the source-only package requires is declared", () => {
   expect(pkg.engines?.bun).toBeDefined();
+});
+
+test("packs ship in npm and ai-code-review's review and debt workflows live in ai-verify", () => {
+  expect(pkg.files?.some((path) => path === "packs" || path === "packs/")).toBe(true);
+  expect(existsSync(join(root, "skills", "ai-code-review"))).toBe(false);
+
+  const aiVerify = readFileSync(join(root, "skills", "ai-verify", "SKILL.md"), "utf8");
+  expect(aiVerify).toMatch(/over-engineering findings/i);
+  expect(aiVerify).toMatch(/debt collection/i);
+  expect(aiVerify).toMatch(/AGENTS\.md code style rules/i);
 });

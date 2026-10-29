@@ -5,7 +5,8 @@ output becomes the next node's input.
 
 Covers the three kinds of verification skill, the Skill Creator prompts to generate each,
 how to chain several under one orchestrator, and how to test that a review skill actually
-works. The skills in `tiers/` are working implementations of everything described here.
+works. The optional `verify-tiers` pack contains working implementations of everything
+described here.
 
 ## Read this much
 
@@ -16,8 +17,9 @@ your agent-rules file. Ten minutes, no skill-writing, no Skill Creator.
 > verification is worth the tokens before spending an afternoon on it. `second-opinion`
 > needs nothing configured — no conventions file, no thresholds, no stack assumptions,
 > just a way to spawn a fresh reviewer — so it works on any language from the first run.
-> (`verify-feature` in `tiers/1-standalone/` is the other zero-config one, if you'd
-> rather check the build against the requirements than hunt for bugs.)
+> (`skills/verify-feature/SKILL.md` in an installation with `verify-tiers` selected is the
+> other zero-config one, if you'd rather check the build against the requirements than hunt
+> for bugs.)
 >
 > **What you give up:** it's generic. It reviews the change against whatever spec you
 > hand it, so it catches bugs and dropped requirements — but it doesn't know your
@@ -89,7 +91,7 @@ its own slice. It doesn't know the original requirement, so it *cannot* notice t
 drifted — there's nothing to compare against. It hands back work that is internally
 consistent and wrong, and the next node builds on top of it. *Fix: the criteria-first
 rule in §7 — the node writes down what was asked for before it looks at what was built.
-The ready-made version is `verify-feature` in `tiers/1-standalone/`.*
+The ready-made version is `skills/verify-feature/SKILL.md` when `verify-tiers` is selected.*
 
 The pattern across all three: verification has to happen **at each node, before its output
 becomes someone else's input.** Verifying at the end is too late by definition — by then
@@ -123,7 +125,7 @@ where you put things, and why a verification skill can end up never firing.
 The asymmetry is the whole design. Your description is competing for attention against
 every other installed skill's description on every single turn — so it's the one place
 where a wasted word costs you on turns the skill never even fires. The body only costs
-you on the runs that use it, which is why the good skills in `tiers/` are long,
+you on the runs that use it, which is why the good skills in the `verify-tiers` pack are long,
 specific, and full of exact commands rather than gestures at them.
 
 That asymmetry should change how you build:
@@ -193,7 +195,7 @@ It also feeds directly into lane discipline once an orchestrator is fanning them
 Project scope wins on a name collision. Useful deliberately: install a skill globally,
 then shadow it in one repo with a stricter variant under the same name.
 
-The skills in `tiers/` are written to be project-agnostic — they detect the stack at
+The skills in the `verify-tiers` pack are written to be project-agnostic — they detect the stack at
 runtime rather than hardcoding it — so most of them work at user scope as-is. The
 exception is the chain, which reads `.claude/review/CONVENTIONS.md` by project-relative
 path; that file has to exist in each repo even when the skills are installed globally.
@@ -356,9 +358,12 @@ four. That's what [chaining](#10-chain-several-skills-under-one-orchestrator) so
 
 ### Try the finished ones first
 
-`tiers/3-chain/` in this folder has six of these already written — `code-audit`,
-`security-audit`, `perf-audit`, `a11y-audit`, `design-check`, `build-check`. Read one
-before you write your own. `code-audit` is the best starting point.
+`packs/verify-tiers/tiers/3-chain/` has six of these already written — `code-audit`,
+`security-audit`, `perf-audit`, `a11y-audit`, `design-check`, `build-check`. When selected,
+they install at `skills/code-audit/SKILL.md`, `skills/security-audit/SKILL.md`,
+`skills/perf-audit/SKILL.md`, `skills/a11y-audit/SKILL.md`,
+`skills/design-check/SKILL.md`, and `skills/build-check/SKILL.md`. Read one before you
+write your own. `code-audit` is the best starting point.
 
 ---
 
@@ -424,7 +429,8 @@ git diff --name-only HEAD          # what changed
 
 Then walk the import graph backwards to find which routes consume those files. A shared
 `Button.tsx` lights up ten routes; an isolated page lights up one. That spread is your
-regression surface. `tiers/2-embedded/feature-verify/scripts/blast_radius.ts` does exactly
+regression surface. The source at
+`packs/verify-tiers/tiers/2-embedded/feature-verify/scripts/blast_radius.ts` does exactly
 this, following `tsconfig` path aliases.
 
 Two things an import graph can't see, so add them by hand:
@@ -509,19 +515,23 @@ verifier changing the code it's verifying defeats the point.
 
 ## 9. Add a second opinion
 
-If you only install one skill from this bundle, install this one — it needs no
-configuration and applies to any language. It ships ready to use — from your project root:
+If you only add one skill to a project, choose this one — it needs no configuration and
+applies to any language. Select `verify-tiers` first so it is installed at
+`skills/second-opinion/`; then, from your project root:
 
 ```bash
-# VERIFY = this skill's folder; SKILLS = your harness's project skill directory
-# (in Claude Code, that's .claude/skills)
-VERIFY=/path/to/ai-verify
+# VERIFY = the selected pack's installed second-opinion skill directory
+# SKILLS = your harness's project skill directory (in Claude Code, .claude/skills)
+VERIFY=/path/to/skills/second-opinion
 SKILLS=.claude/skills
 
 mkdir -p "$SKILLS"
-cp -R "$VERIFY/tiers/2-embedded/second-opinion" "$SKILLS/"
+cp -R "$VERIFY" "$SKILLS/"
 chmod +x "$SKILLS/second-opinion/scripts/second-opinion.sh"
 ```
+
+The source is `packs/verify-tiers/tiers/2-embedded/second-opinion`; after selecting
+`verify-tiers`, its installed skill path is `skills/second-opinion/`.
 
 Restart your agent and it will start firing on its own after implementations. The rest of
 this section is why it works and how not to waste it — read it before you trust its output.
@@ -538,7 +548,9 @@ them shows up as a gap. That's the entire mechanism.
 ### How it works
 
 The wrapper spawns a whole separate reviewer session in the background by handing the
-`claude` CLI a prompt. `tiers/2-embedded/second-opinion/scripts/second-opinion.sh` wraps it:
+`claude` CLI a prompt. Its source at
+`packs/verify-tiers/tiers/2-embedded/second-opinion/scripts/second-opinion.sh` installs as
+`skills/second-opinion/scripts/second-opinion.sh`:
 
 ```bash
 claude -p "Read $PACKET and follow its instructions exactly." \
@@ -709,7 +721,8 @@ This is the payoff. When you build a graph, the only verification instruction yo
 
 Each node loads that one skill, and the whole review fans out underneath it on its own.
 
-`tiers/3-chain/full-review/SKILL.md` is a complete working version. Read it.
+`packs/verify-tiers/tiers/3-chain/full-review/SKILL.md` is a complete working version,
+installed as `skills/full-review/SKILL.md`. Read it.
 
 ---
 
@@ -898,7 +911,8 @@ scales and the merge is meaningless — a "critical" from the perf lane and a "c
 from the security lane aren't remotely the same thing, and the orchestrator can't rank
 them against each other.
 
-There's a copy in `tiers/3-chain/_support/review/CONVENTIONS.md`. Read it before writing
+There's a source copy in
+`packs/verify-tiers/tiers/3-chain/_support/review/CONVENTIONS.md`. Read it before writing
 your own.
 
 ### And in the graph prompt
@@ -1020,12 +1034,16 @@ Before trusting it:
 
 ## Where to go next
 
-Read the real skills in `tiers/`, in this order:
+Read the real skills in `packs/verify-tiers/tiers/`, in this order:
 
-1. `2-embedded/second-opinion/SKILL.md` — shortest, highest value, mostly portable
-2. `3-chain/code-audit/SKILL.md` — what a tight false-positive gate looks like
-3. `3-chain/full-review/SKILL.md` — how orchestration and merging actually work
-4. `2-embedded/feature-verify/SKILL.md` — the browser harness, blast radius, evidence
+1. `packs/verify-tiers/tiers/2-embedded/second-opinion/SKILL.md`
+   (installed as `skills/second-opinion/SKILL.md`) — shortest, highest value, mostly portable
+2. `packs/verify-tiers/tiers/3-chain/code-audit/SKILL.md`
+   (installed as `skills/code-audit/SKILL.md`) — what a tight false-positive gate looks like
+3. `packs/verify-tiers/tiers/3-chain/full-review/SKILL.md`
+   (installed as `skills/full-review/SKILL.md`) — how orchestration and merging actually work
+4. `packs/verify-tiers/tiers/2-embedded/feature-verify/SKILL.md`
+   (installed as `skills/feature-verify/SKILL.md`) — the browser harness, blast radius, evidence
 
 They're written to be project-agnostic — each one detects the stack from your manifest
 and lockfile at runtime instead of hardcoding it, and verifies claims about a library

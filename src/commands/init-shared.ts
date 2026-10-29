@@ -5,9 +5,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { PlanEntry } from "../install.ts";
 import { VERSION } from "../version.ts";
-import { embeddedTemplate } from "../embed.ts";
+import { availablePacks, embeddedTemplate } from "../embed.ts";
 import { SURFACES, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
-import { plantWorkflowFiles } from "./plant-workflow.ts";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
@@ -54,11 +53,17 @@ export function gitHookEntries(): PlanEntry[] {
   ];
 }
 
-export function planEntries(surfaces: string[]): PlanEntry[] {
+export function planEntries(surfaces: string[], packs: string[] = []): PlanEntry[] {
   return [
     { path: ".ai-engineering/overrides.toml", ours: embeddedTemplate("overrides.toml.tpl") },
     { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
-    { path: ".ai-engineering/config.toml", ours: render(embeddedTemplate("config.toml.tpl"), { surfaces: surfaces.map((s) => `"${s}"`).join(", ") }) },
+    {
+      path: ".ai-engineering/config.toml",
+      ours: embeddedTemplate("config.toml.tpl", {
+        surfaces: surfaces.map((s) => `"${s}"`).join(", "),
+        packs: packs.map((pack) => `"${pack}"`).join(", "),
+      }),
+    },
     // The merge gate belongs to the project, not to one editor: it hung off the
     // claude-code case, so choosing OpenCode/OMP/Codex/Cursor/Copilot CLI/Pi installed
     // guards and adapters with no workflow at all, and nothing said so (§17).
@@ -94,16 +99,22 @@ export function hasAdapter(id: string): boolean {
 /** The question init and config ask. Options sit on the next lines, with no tier headers. */
 export const SURFACE_PICK_MESSAGE = "Which agent surfaces is this project governed on?";
 
+/** Optional specialist tools; none are selected for a fresh project. */
+export const PACK_PICK_MESSAGE = "Which optional specialist packs should this machine install?";
+
 /** The flat picker options shared by init and config. */
 export function surfaceOptions(): Surface[] {
   return SURFACES.filter((surface) => hasAdapter(surface.id));
+}
+
+export function packOptions(): Array<{ value: string; label: string }> {
+  return availablePacks().map((pack) => ({ value: pack, label: pack }));
 }
 
 /** The contract files init writes ONCE (untouchable by update). The .gitignore rides
  *  with them: a project that already owns one keeps it (`install()` reports it as
  *  "yours, untouched"), and uninstall's project sweep never takes it back. */
 export function contractEntries(date: string, root: string = repoTemplateRoot()): PlanEntry[] {
-  plantWorkflowFiles(root);
   return [
     { path: "AGENTS.md", ours: render(embeddedTemplate("AGENTS.md.tpl"), { version: VERSION, commands: detectCommands(root) }) },
     { path: "DECISIONS.md", ours: render(embeddedTemplate("DECISIONS.md.tpl"), { date, version: VERSION }) },

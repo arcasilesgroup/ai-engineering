@@ -34,7 +34,7 @@ export function registryVersion(): string | null {
   return null;
 }
 
-/** The notice line for init/doctor/update tails. Silent unless a newer version
+/** The notice line for init/doctor tails. Silent unless a newer version
  *  exists, the cache is stale (one network read/day max), and opt-out is off. */
 export function maybeNotice(): void {
   if (process.env["AI_ENG_NO_UPDATE_NOTICES"]) return;
@@ -55,5 +55,5 @@ export function maybeNotice(): void {
     }
   }
   if (latest === VERSION || compareVersions(latest, VERSION) < 0) return;
-  ui.warn(`${latest} available → ai-eng upgrade · changelog: CHANGELOG.md (current: ${VERSION})`);
+  ui.warn(`${latest} available → bun add -g ai-engineering@latest · changelog: CHANGELOG.md (current: ${VERSION})`);
 }

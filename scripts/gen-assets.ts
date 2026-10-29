@@ -1,11 +1,11 @@
-// Generator for src/assets.ts: embeds every skills/ and templates/ file into the
+// Generator for src/assets.ts: embeds every skill, pack and template file into the
 // binary as Bun file imports. The binary IS the payload (blueprint 07). Run:
 //   bun scripts/gen-assets.ts
 // Also bundles src/chain for in-process plugin hosts (P0-2): the
 // OMP/OpenCode plugin templates import ./ai-eng-chain.ts, which must be a
 // self-contained module — not a re-export of src/ (its relative imports die in
 // a foreign repo) and not a placeholder comment (the plugin never loaded).
-import { readdirSync, writeFileSync, mkdirSync, appendFileSync, readFileSync, existsSync } from "node:fs";
+import { readdirSync, writeFileSync, mkdirSync, appendFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { join, relative, dirname } from "node:path";
 
 const root = join(import.meta.dir, "..");
@@ -37,10 +37,9 @@ execSync(`bun build scripts/chain-entry.ts --target=bun --format=esm --outfile=$
 appendFileSync(join(bundleDir, "ai-eng-chain.ts"), '\nexport default "ai-eng-chain";\n');
 
 walk(join(root, "skills"));
+walk(join(root, "packs"));
 walk(join(root, "agents"));
 walk(join(root, "templates"));
-files.push(join(root, "scripts", "checkpoint-gate.py"));
-// tests/test_checkpoint_gate.py stays out of the payload: a test must not install into ~/.ai-engineering/scripts.
 // .json stays embeddable (P0-3): ai-security's report-schema.json is read at
 // runtime by validate-findings.cjs; excluding it shipped a broken validator.
 // TypeScript modules stay out EXCEPT the chain bundle itself and fixture data: a fixture
@@ -63,6 +62,8 @@ const isSkillScript = (f: string): boolean =>
   /\/scripts\/[^/]+$/.test(f) &&
   (isTypeScriptFile(f) || (f.endsWith(".mjs") && existsSync(f.replace(/\.mjs$/, ".d.mts"))));
 const copyDir = join(root, "scripts", ".embed");
+rmSync(copyDir, { recursive: true, force: true });
+mkdirSync(copyDir, { recursive: true });
 const entries: Array<{ key: string; source: string }> = [];
 for (const file of files) {
   if (file.endsWith(".DS_Store")) continue;
@@ -72,7 +73,8 @@ for (const file of files) {
     continue;
   }
   if ((isFixtureData(file) && isTypeScriptFile(file)) || isSkillScript(file)) {
-    const copy = join(copyDir, `${relative(join(root, "skills"), file)}.txt`);
+    const skillRelative = file.startsWith(`${join(root, "skills")}/`) ? relative(join(root, "skills"), file) : relative(root, file);
+    const copy = join(copyDir, `${skillRelative}.txt`);
     mkdirSync(dirname(copy), { recursive: true });
     writeFileSync(copy, readFileSync(file));
     entries.push({ key, source: copy });

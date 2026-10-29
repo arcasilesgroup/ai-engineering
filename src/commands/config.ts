@@ -6,8 +6,9 @@ import { PassThrough } from "node:stream";
 import { install, stripSharedText } from "../install.ts";
 import { join } from "node:path";
 import { multiselect, isCancel } from "@clack/prompts";
-import { canonicalSurfaceId, repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
-import { SURFACES, mirrorTargets, surfaceCanGovern, repoCarrier, machineCarrier, installMachineCarriers, type Surface } from "../surfaces/adapters.ts";
+import { canonicalSurfaceId, repoRoot, enabledSurfaces, declaredCanonPacks, isGoverned } from "../env.ts";
+import { legacyCanonPacks } from "../embed.ts";
+import { SURFACES, mirrorTargets, surfaceCanGovern, repoCarrier, machineCarrier, installMachineCarriers, installCanon, type Surface } from "../surfaces/adapters.ts";
 import { hasAdapter, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions } from "./init-shared.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
@@ -124,10 +125,14 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   }
   // Governed means the declaration parsed, so enabledSurfaces() cannot be guessing here.
   const surfacesBefore = enabledSurfaces();
+  // Keep the machine canon aligned with the repo's declaration. A legacy config that
+  // predates the key keeps all packs instead of losing tools during a surface edit.
+  const packs = declaredCanonPacks(root) ?? legacyCanonPacks();
   const resolved = await resolveSurfaces(input, flags, root, surfacesBefore);
   if (resolved.kind === "exit") return resolved.code;
   const { current, addedNow } = resolved;
   writeConfigSurfaces(join(root, ".ai-engineering", "config.toml"), current);
+  installCanon(VERSION, packs);
   installNewSurfaces(root, current, surfacesBefore, addedNow);
   showSurfaceDelta(current, surfacesBefore);
   const mirrors = mirrorTargets().length;

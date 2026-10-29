@@ -3,22 +3,19 @@
 Guidance for AI coding agents working in this repository. Human teammates should be able to follow every line too. Only rules an agent CANNOT deduce from the code live here; if a rule becomes obvious from reading the code, delete it from this file.
 
 ## Security
-- Never bypass a git hook or a check: no `--no-verify`, no `-n` on commit, no `HUSKY=0`.
-- Never silence a linter: no `noqa`, `@ts-ignore`, `eslint-disable`, `nosec`.
-- No secrets, no personal data, no machine-specific absolute paths in any file.
+- Never bypass hooks or checks (`--no-verify`, `-n`, `HUSKY=0`).
+- Never suppress lint (`noqa`, `@ts-ignore`, `eslint-disable`, `nosec`).
+- Never write secrets, personal data, or machine-specific absolute paths.
 
 ## Code style
 - KISS, YAGNI, DRY, SOLID, TDD, Clean Code.
-- Explain it so someone who doesn't code can follow along, and always give the context: the reader is not in the details.
-- **Readable code** (Boswell & Foucher): minimize the time it takes someone else to understand your code.
-  - Names say purpose or value; no generic names (`data`, `temp`, `helper` are forbidden).
-  - Prefix booleans (`is`, `has`, `can`, `should`); prefix limits (`max`, `min`).
-  - Use positive conditions (`if (isValid)` over `if (!isInvalid)`).
-  - Early returns over deep nesting; flat control flow wins.
-  - Comments explain *why*, not *what*; never repeat the function signature in prose.
-  - Explain "huh?" moments; skip the obvious.
-  - One function, one job. Extract unrelated subproblems.
-  - Write less code: rethink requirements, use stdlib, prune unused code.
+- Explain with enough context for a non-coder.
+- **Readable code** (Boswell & Foucher): make code quick to understand.
+  - Use purpose-naming; avoid generic names (`data`, `temp`, `helper`).
+  - Prefix booleans (`is`, `has`, `can`, `should`) and limits (`max`, `min`).
+  - Prefer positive conditions and early returns over deep nesting.
+  - Comments explain why, not what; clarify surprises, skip the obvious.
+  - Give each function one job. Reconsider requirements, use stdlib, prune.
 
 ## Build and test commands
 {{commands}}
@@ -39,53 +36,49 @@ Lines the critic treats as blockers. Fill in project-specific rules here; leave 
 ## Shared helpers
 - codegraph — use for call chains and blast-radius before editing across modules.
 
+## Where to work
+- Work in the open checkout. Use a worktree only when requested or another feature is active; pause if work may overlap.
+- Prefer host worktree support; otherwise run `ai-eng worktree new <branch>` and use its reported path. The person chooses or approves the branch.
+- Resume in the feature checkout. Never stash, reset, overwrite, or remove foreign work; preserve uncertainty and ask.
+- After review, offer a PR, local merge, or keeping the branch. Prefer PR with a forge remote, otherwise local merge; `ai-eng worktree merge <slug>` handles it.
+
 ## Git workflow
-- A session that writes code works in `<repo>.worktrees/<slug>` on the branch `feat/<slug>`, cut from the local `main`; a session that only reads opens no worktree.
-- The merge destination is the local `main`, never `origin`: rebase inside the worktree, then, from the primary tree on `main`, `git merge --no-ff feat/<slug>` — one merge commit per feature, the one undoable unit.
-- A build session never pushes: the only push is the pull-request step the human triggers, against `origin/main`, cut from the local `main` without a worktree.
-- A build session does not touch the primary tree; only the merge step writes there, once, after that session's branch has merged.
-- The design artifacts `.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html` and `.ai-engineering/plan.html` are written and committed in the primary tree before any worktree is cut, and no worktree ever stages them.
-- `.ai-engineering/recap.html` is optional and never required for merge; it is created on the feature branch only when the user explicitly invokes `/ai-visual-recap`.
-- A session may edit the shared files on its own branch like any other change, and the merge step is their single writer in the primary tree, never a parallel session writing them there: `.ai-engineering/PRD.html` when the feature changes scope, plus `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md` and `PERMISSIONS.md`.
+See **Where to work** for checkout, worktree, and integration choices. `.ai-engineering/recap.html` is optional and never required for merge.
 
 ## Workflow
-- Green gate before "done": show the output of the check that proves it.
-- A decision that always comes out the same is code, not a prompt.
-- Never make a check pass by deleting or skipping a test, weakening an assertion, or loosening a type; a test that looks wrong is reported, not weakened.
-- Stay inside the task: an unrelated bug or refactor you notice goes in the report as "noticed, not fixed", never into the diff.
-- Task status convention (when a todo list exists): mark each task 🟢 done (paste the proving output) · 🟡 pending (name the next action) · 🔴 blocked on you (ask the exact question). No todo list → state status inline: done-with-proof, pending, or blocked.
+- Show the passing check before saying "done"; deterministic decisions belong in code.
+- Never pass by deleting/skipping tests, weakening assertions, or loosening types; report a faulty test, do not weaken it.
+- Stay in scope; report unrelated issues as "noticed, not fixed".
+- If todos exist, mark each 🟢 done with proof, 🟡 pending with its next action, or 🔴 blocked with the exact question. Otherwise state status inline.
 
 ## Unattended runs
-- Nobody is watching: do not stop to ask. Pick the reading a careful colleague would pick, record the assumption in the final report, and continue with every part that is still reachable.
-- Run the full test suite once before the first edit and record which failures already exist; every new failure is yours.
-- No interactive commands (editors, `rebase -i`, login flows): pass non-interactive flags, set `CI=true`, redirect stdin from `/dev/null` when unsure, and put a timeout on every command that talks to the network.
-- Run servers, watchers and long-lived processes in the background with a timeout; never wait on one in the foreground.
+- Do not stop to ask. State a careful assumption and continue with reachable work.
+- Run the full suite once before editing; record existing failures, and own new ones.
+- Use non-interactive commands, `CI=true`, and `/dev/null` stdin when unsure; timeout network commands.
+- Run long-lived processes in the background with a timeout.
 
 ## Lifecycle
-- Every skill declares its own contract — lane, artifact, successor — in a `## Lifecycle` block inside its SKILL.md: follow the `Next:` a skill hands you instead of asking what comes first.
-- The lanes are light (spike and bounded work — no contract), standard (`ai-brainstorm` then `ai-orchestrator`) and full (architectural, with the triggered nodes).
-- Approvals are spoken: the human says approve, ok, go or close, and **you** run `ai-eng spec approve` or `ai-eng spec close` underneath. Never ask the human to type a command; never run an approval on your own initiative.
+- Follow each skill's `## Lifecycle` and its `Next:` handoff.
+- Lanes: light (no contract), standard (`ai-brainstorm` → `ai-orchestrator`), full (triggered nodes).
+- Record spoken approval in the artifact and follow its next step. Never ask for a command or approve yourself.
 
 ## Architecture layers
 You may edit `src/**` freely; the arch-test reads `.ai-engineering/arch.rules.json` — propose layer changes there via PR, never by editing the test in silence.
 
 ## Voice
-Replies to a person, and handoffs to another agent, follow the voice standard in the `ai-write` skill (`references/voice.md`). The file ships in the binary and is installed with the skill canon; this section is the part that has to be in context:
-- First line is the action.
-- More than one step is a numbered list, one action per step.
-- Last line is one next action that takes under two minutes.
-- Say which step just finished before starting the next.
-- A closing report leads with what is blocked, then what was done and how it was proven.
+- Follow `ai-write`'s `references/voice.md` (shipped in the binary and skill canon).
+- Lead with the action; number multi-step actions, one per step.
+- State the finished step before the next. End with a next action under two minutes.
+- Closing reports lead with blockers, then work and proof.
 
 ## Session hygiene (context economy)
-`/clear` between tasks · `/compact` before stopping, not after · batch prompting · check `/usage` when the context inflates.
+`/clear` between tasks · `/compact` before stopping · batch prompts · check `/usage` as context grows.
 
 ## Pull requests
-- Run lint and the full test suite before committing; the commit must pass everything it will face in CI.
-- Add or update tests for the code you change, even if nobody asked.
-- After moving files or changing imports, re-run lint and typecheck.
-- Title format: `<area>: <imperative summary>` (e.g. `chain: cache verdicts per tool_use_id`).
-- Commit messages: subject ≤ 50 chars; body explains WHY when it is not obvious.
+- Before committing, run lint and the full suite; the commit must pass CI checks.
+- Add or update tests for changed behavior. After moves/import changes, rerun lint and typecheck.
+- Title: `<area>: <imperative summary>` (e.g. `chain: cache verdicts per tool_use_id`).
+- Commit subject ≤50 chars; explain why in the body when not obvious.
 
 ## Anti-drift
 This list contains only what the agent CANNOT deduce from the project.

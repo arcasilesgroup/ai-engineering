@@ -7,26 +7,43 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 
 ## Rules
 
-- R1: Assert behaviour and exact contents, never a proxy such as source text or a bare type check. (from L2, L11)
-- R2: Assert every field and linkage a consumer relies on — in a test, and in a guard that reads output: every path a record can carry, not one string that happens to equal the value. (from L13, L14, L22)
-- R3: Cover every acceptance branch, and test each guard in the exact configuration where it alone stands between the input and the harmful path. (from L7, L12, L18)
+- R1: Assert the current approved behavior, ordering, and exact consumer-visible contents, not source text, stale prose or field names, or a bare type check. (from L2, L11, L102, L160, L187)
+- R2: Assert every field and linkage a consumer relies on — in a test, and in a guard that reads output: every path a record can carry, not one string that happens to equal the value. (from L13, L14, L22, L207)
+- R3: Check status and approval gates before continuation; cover every acceptance branch, test passing and refusing transitions, and place each guard in the exact configuration where it alone stands between input and harm. (from L7, L12, L18, L83, L84, L143)
 - R4: Emit only commands whose target is unambiguous — pin the ref or worktree a command mutates, and never anchor what a command targets (default-branch selection during analysis included) to mutable HEAD. (from L16, L17; the cp2 adversarial review and behavior spot-check both passed it — run emitted commands in the current≠default configuration)
-- R5: A test fixture must hold its premise against the real git state it creates — prove the input (sha, HEAD, count) before asserting the classification the code derives from it, and never let a fixture sit on the guarded branch, or it pins the bug it claims to forbid. (from L19, L20)
-- R6: Enforce protection at the one choke point every categorization funnels through, not per path — a guard placed only where a test pinned one configuration is forgotten by the next path — and let every destructive step assert its own safety first, with a command an agent can run, before it deletes. (from L18, L20, L30)
+- R5: A fixture must hold its premise against real Git state — prove the relevant SHA, HEAD, base, and owner count before asserting a derived classification, and never let it sit on the guarded branch. (from L19, L20, L158, L182)
+- R6: Enforce protection at the one choke point every categorization funnels through, not per path — a guard placed only where a test pinned one configuration is forgotten by the next path — and exclude protected refs before presenting deletion candidates. (from L18, L20, L30, L188)
 - R7: Derive every list, count and path from the thing that owns it — the command's own contract, re-derived at write time — never a neighbour command's sweep, a remembered list, or a number copied into prose, which is only a cache of the command that produces it. (from L15, L21, L27)
-- R8: Pin the scope of every read and fail closed: ambient mutable state — HEAD, a user or global git config — must not decide what it sees, an exit code is never the result (only the message naming the expected absence may branch), and a guard that cannot decide denies. (from L16, L23)
+- R8: Pin read scope and fail closed: HEAD, user/global config, or repository-locating environment must not decide what a read sees; a read failure is not absence, and a guard that cannot decide denies. (from L16, L23, L139, L140, L165)
 - R9: Define remote commands with a closed allowlist; inspect complete command examples before acceptance, reject shell composition and unsafe forms, and accept only bare allowlisted executable names. A static Markdown allowlist cannot secure executable resolution from `PATH`. (from L37–L42, L44–L45)
 - R10: Use the already-authenticated Azure CLI and its Azure DevOps extension for Azure DevOps access; never write tokens or credentials. (from L57)
 - R11: Scope each contract assertion to the specific command it governs; a neighboring command or generic assertion cannot stand in for it. (from L34–L36)
-- R12: Narrow optional and indexed values before typed use, and fail closed when a required value is absent. (from L46, L50–L51)
-- R13: Validate untrusted output values at the output boundary; HTML-escape text, validate raw and decoded URL values separately, and do not reprocess inserted content. (from L52–L55)
+- R12: Narrow optional and indexed values where they are consumed, and fail closed when a required value is absent. (from L46, L50–L51, L94, L110, L186)
+- R13: Sanitize untrusted values at the output boundary; HTML-escape text, validate raw and decoded URLs separately, and do not reprocess inserted content. (from L52–L55, L131)
 - R14: Redact credential assignments at the shared output boundary by semantic key families, including nested assignments, while preserving safe near-matches. (from L58–L62)
 - R15: Keep executable `.mjs` APIs explicitly declared, and embed script/declaration payloads as text when they are data rather than host modules. (from L47, L64)
 - R16: Route repository-owned artifacts through their repository procedure and test the caller-to-procedure handoff; a same-named installed copy may have a conflicting contract. (from L66)
 - R17: For runtime p95 checks under parallel test load, use enough samples for nearest-rank p95 to tolerate scheduler outliers without loosening the budget. (from L65, L67)
-- R18: Normalize Markdown formatting without altering identifiers; preserve underscores, case, and other contract-significant characters before matching. (from L82, L89, L97)
-- R19: Carry destructive-cleanup warnings and accurately describe the irreversible action and remaining state through every outcome and caller. (from L105, L107)
+- R18: Normalize Markdown formatting without altering identifiers; preserve underscores, case, and other contract-significant characters before matching. (from L82, L89, L97, L103)
+- R19: Treat ignored paths as user data: explain destructive loss before approval, then carry the irreversible action and actual remaining state through every outcome and caller. (from L105, L107, L169, L195)
 - R20: Gate 1 CLI acceptance must assert physical total and unknown classification together; physical presence is not lifecycle certainty. (from L126)
+- R21: Preserve state before recording a failure; report rollback only after restoration is proven. (from L91, L92)
+- R22: When a workflow moves into a command, update and test the caller handoff before documenting or reviewing the lifecycle. (from L99, L100)
+- R23: Bind approval and closure to every immutable plan field and the exact reviewed revision; keep runtime gate state outside that fingerprint. (from L115, L117, L124)
+- R24: Regenerate embedded assets after the final source or skill edit, then verify the generated payload. (from L146, L149, L161)
+- R25: Keep documentation aligned with current behavior, enforced scope, and supported commands; mark superseded behavior as historical. (from L162, L171, L209, L210)
+- R26: Route artifacts and next-step handoffs from the selected lane, as declared by each skill's Lifecycle. (from L189, L193, L194)
+- R27: Resolve worktree source and ownership from the invoking or Git-registered checkout, consistent branch-to-path mapping, and a fresh checkpoint—not branch prefixes or directory layout. Establish freshness and owner ambiguity before matching a supplied SHA; unknown ownership stays ambiguous. (from L86, L167, L170, L172, L175, L177–L182)
+- R28: Without a machine-side ownership hash, preserve changed canon files and test repair with missing files. (from L203, L205)
+- R29: Apply defaults and explicit values in one render, and preserve the distinction between omitted and explicitly empty configuration. (from L198, L199, L201, L204)
+- R30: Serialize shared claims at the claim boundary; a liveness check or read-then-write does not provide exclusive ownership. (from L125, L136)
+- R31: Verify path identity and containment at filesystem boundaries, including alternate and symlinked inputs, then revalidate after directory creation. (from L87, L88, L183)
+- R32: Reconcile evidence by chronology and direct identity before classifying status; a current comment or shared field does not prove event time or identity. (from L76, L77, L78)
+- R33: A PR publishes the existing current branch and verifies publication before forge creation; opening a PR does not create or switch branches. (from L191, L211)
+- R34: Derive managed hook commands from canonical artifacts and remove only exact owned entries, preserving user commands and groups. (from L148, L150, L153, L154)
+- R35: Derive test-hygiene scope from the active test tree rather than a handwritten suite list. (from L135, L184)
+- R36: Keep the invoking checkout's source HEAD separate from its integration base; never refresh from a historical base. (from L163, L168)
+- R37: Separate baseline configuration/test-contract failures from feature regressions; do not change feature code or budgets to hide them. (from L129, L130)
 
 ## Log
 
@@ -970,3 +987,564 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Check that the declaration key is an own property before using its value; add a follow-up-creation regression.
 - **Lesson:** Check own-property membership before indexing ordinary objects with user-controlled keys.
 - **Tags:** review, security, prototype, worktree
+
+### L133 · 2026-10-27 · floating-core #1 · review
+- **Failure:** The daily receipts retention capped deletions but summarised and stat-ed every receipt, moving F7's cost into the PreToolUse hook.
+- **Root cause:** The pass read the whole 40-day window before choosing what to delete.
+- **Fix:** Pick stale receipts by filename timestamp; stat and tally only the batch being deleted.
+- **Lesson:** A bounded pass must be bounded in reads as well as deletions; test it with a spy on file opens.
+- **Tags:** review, receipts, performance
+
+### L134 · 2026-10-27 · floating-core #1 · review
+- **Failure:** At 500 deletions per day the receipts store still grew when the chain wrote more than 500 a day.
+- **Root cause:** The day was stamped done even when a full batch left stale receipts behind.
+- **Fix:** Release the day's claim while stale receipts remain, so later calls drain the backlog.
+- **Lesson:** Test retention with a write rate above the batch size.
+- **Tags:** review, receipts
+
+### L135 · 2026-10-27 · floating-core #1 · review
+- **Failure:** Four more suites deleted sandbox env vars instead of restoring them; the hygiene check covered one suite.
+- **Root cause:** Each suite hand-rolled its sandbox and the checked list was written by hand.
+- **Fix:** One shared snapshot/restore helper; the hygiene check discovers every suite that sets the vars.
+- **Lesson:** Build the list of suites to check from the test tree, not by hand.
+- **Tags:** review, tests, isolation
+
+### L136 · 2026-10-27 · floating-core #1 · review
+- **Failure:** Two chain calls could both run the day's retention pass, and summary.json could be torn.
+- **Root cause:** The daily stamp was read then written; summary.json was written in place.
+- **Fix:** Claim the day with an exclusive `wx` create; write summary.json via temp file and rename.
+- **Lesson:** Claim shared work with one atomic create, not a read followed by a write.
+- **Tags:** review, receipts, concurrency
+
+### L137 · 2026-10-27 · floating-core #1 · behavior
+- **Failure:** tests/uninstall-command.spec.ts:214 failed intermittently: "Nothing removed", all lock-listed files stayed.
+- **Root cause:** Prompt tests typed answers on the runner's real stdin, so any stray byte answered the scope picker first.
+- **Fix:** A private stdin fixture for the three suites that type keys, plus a test that injects a stray newline.
+- **Lesson:** A test that types into prompts must give them input only the test writes to, never stdin it shares with the runner.
+- **Tags:** behavior, tests, flake, stdin
+
+### L138 · 2026-10-27 · floating-core #2 · review
+- **Failure:** The ceremony contract test missed the nested viewer template, so removing it would stay green.
+- **Root cause:** The template matcher only accepted `.ai-engineering/<name>.html` at the top level.
+- **Fix:** Match any depth and require `viewer.html.tpl` in the minimum extraction; nested path in the negative fixture.
+- **Lesson:** Test every path shape the skill text actually cites, including nested ones, before trusting a citation pattern.
+- **Tags:** review, contract, tests
+
+### L139 · 2026-10-27 · floating-core #3 · review
+- **Failure:** An unparsable config.toml silently dropped `[git] base`; the resolver fell through to the remote default.
+- **Root cause:** `loadConfig` treats an unreadable file as empty.
+- **Fix:** The base reader throws on an unreadable or malformed config, naming the path and the fix.
+- **Lesson:** A missing value is only "absent" when the source was actually readable; a read that fails must throw, not answer empty.
+- **Tags:** review, git, config, fail-closed
+
+### L140 · 2026-10-27 · floating-core #3 · review
+- **Failure:** Isolated git reads followed an inherited `GIT_DIR` and mixed two repositories.
+- **Root cause:** Isolation removed config injection but kept the repository-locating env vars git sets inside hooks.
+- **Fix:** Clear every variable `git rev-parse --local-env-vars` lists; fail if that list can't be read.
+- **Lesson:** Isolating a git read means clearing the repository-locating environment as well as config.
+- **Tags:** review, git, isolation
+
+### L141 · 2026-10-27 · floating-core #4 · review
+- **Failure:** The legacy request-changes path re-emitted `reviewed_main` instead of normalized lifecycle fields.
+- **Root cause:** That write path bypassed the shared checkpoint serializer.
+- **Fix:** Serialize normalized checkpoint state through the shared codec.
+- **Lesson:** Canonical writes must use the shared codec.
+- **Tags:** review, lifecycle, serialization
+
+### L142 · 2026-10-27 · floating-core #4 · review
+- **Failure:** Legacy checkpoint translation could select `main` even when another base branch was detected.
+- **Root cause:** The parser received a hard-coded branch instead of Git context.
+- **Fix:** Resolve and pass the detected base; cover a diverged `develop` case.
+- **Lesson:** Derive base context from Git.
+- **Tags:** review, git, lifecycle
+
+### L143 · 2026-10-27 · floating-core #4 · review
+- **Failure:** The checkpoint transition tests had no successful plan-approval-to-implementation case.
+- **Root cause:** Coverage asserted refusal without proving the corresponding allowed transition.
+- **Fix:** Add the passing transition case alongside the existing refusal.
+- **Lesson:** Test each transition's passing and refusing cases.
+- **Tags:** review, lifecycle, tests
+
+### L144 · 2026-10-27 · floating-core #4 · review
+- **Failure:** Canonical `develop` checkpoints failed request-changes and ready-state listing.
+- **Root cause:** Chain validation parsed checkpoints against hard-coded `main`.
+- **Fix:** Pass the detected base through chain validation and checkpoint reads; cover a diverged `main` and `develop`.
+- **Lesson:** Use the detected base for every checkpoint parse in a lifecycle operation.
+- **Tags:** review, git, lifecycle
+
+### L145 · 2026-10-27 · floating-core #5 · behavior
+- **Failure:** The repository Copilot hook still invoked the Python checkpoint gate after carrier templates had migrated.
+- **Root cause:** `.github/hooks/ai-eng.json` is a checked-in config, not generated from the templates.
+- **Fix:** Remove only its obsolete Python hook while preserving chain and post-tool hooks.
+- **Lesson:** Verify checked-in local configs separately; template updates do not migrate them.
+- **Tags:** behavior, carriers, migration
+
+### L146 · 2026-10-27 · floating-core #5 · behavior
+- **Failure:** Generated-payload verification found the committed chain bundle differed from its source.
+- **Root cause:** Chain source changed after the last bundle generation.
+- **Fix:** Regenerate the bundle with `bun scripts/gen-assets.ts`.
+- **Lesson:** Regenerate the committed bundle after chain-source changes.
+- **Tags:** behavior, bundle, generated
+
+### L147 · 2026-10-27 · floating-core #5 · review
+- **Failure:** Git-prefixed compound Bash commands bypassed checkpoint-write detection.
+- **Root cause:** The guard exempted the leading Git command and missed a later write segment.
+- **Fix:** Inspect every compound command segment for writes to governed paths.
+- **Lesson:** Check every command segment for writes to governed paths.
+- **Tags:** review, guard, shell
+
+### L148 · 2026-10-27 · floating-core #5 · review
+- **Failure:** Migration could remove a user hook that merely mentioned `checkpoint-gate.py`.
+- **Root cause:** The legacy marker matched a path substring rather than the managed command shape.
+- **Fix:** Match only the exact standalone managed legacy hook forms.
+- **Lesson:** Identify managed commands by their complete shape, not a path mention.
+- **Tags:** review, install, migration
+
+### L149 · 2026-10-27 · floating-core #5 · behavior
+- **Failure:** `generated-payload.test.ts` found the chain bundle stale again after the guard fix.
+- **Root cause:** A later chain-source edit was not followed by bundle regeneration.
+- **Fix:** Regenerate after the final source edit and rerun the generated-payload check.
+- **Lesson:** Run bundle generation after the last source change, not before a follow-up fix.
+- **Tags:** behavior, bundle, generated
+
+### L150 · 2026-10-27 · floating-core #6 · review
+- **Failure:** Migration could remove a user wrapper that contained `ai-eng chain`.
+- **Root cause:** The installer matched command fragments rather than complete managed hook commands.
+- **Fix:** Match exact generated command shapes and test that wrappers survive update.
+- **Lesson:** Remove a shared hook only when its complete command is managed.
+- **Tags:** review, install, migration
+
+### L151 · 2026-10-27 · floating-core #6 · review
+- **Failure:** Cursor's Stop event had no carrier, leaving G8 unenforced for that harness.
+- **Root cause:** The lowercase native event key and its follow-up response dialect were not declared.
+- **Fix:** Add Cursor's `stop` carrier, response, and event-specific regression tests.
+- **Lesson:** Declare native event keys and response dialects per host.
+- **Tags:** review, carriers, dialect
+
+### L152 · 2026-10-27 · floating-core #6 · behavior
+- **Failure:** The hygiene check reported environment/cwd leakage after a nested carrier test failed.
+- **Root cause:** The outer assertion collapsed the child's test failure into a misleading cleanup message.
+- **Fix:** Correct the stale carrier wrapper expectation; no cleanup leak was present.
+- **Lesson:** Check the nested suite's failure before changing cleanup.
+- **Tags:** behavior, tests, diagnostics
+
+### L153 · 2026-10-27 · floating-core #6 · behavior
+- **Failure:** Update removed a whole hook group when it contained one managed command.
+- **Root cause:** Recursive ownership matching classified the group instead of each command field.
+- **Fix:** Match exact command fields, remove managed entries individually, preserve remaining user entries.
+- **Lesson:** Remove a group only when no user hooks remain.
+- **Tags:** behavior, install, migration
+
+### L154 · 2026-10-27 · floating-core #6 · review
+- **Failure:** Managed hook recognition could drift from carrier templates as command forms changed.
+- **Root cause:** Installer maintained a duplicate hard-coded list of generated commands.
+- **Fix:** Derive exact managed hook commands from embedded settings templates.
+- **Lesson:** Derive managed entries from their canonical artifacts and remove only exact matches.
+- **Tags:** review, install, templates
+
+### L155 · 2026-10-27 · floating-core #6 · review
+- **Failure:** `install.ts` importing `embed.ts` created an import cycle back into `install.ts`.
+- **Root cause:** Template-derived managed commands added an edge to a module that already depended on `hashFile` from install.
+- **Fix:** Extract shared hash logic and test cycles across the complete module graph.
+- **Lesson:** Test declared architecture invariants against the module graph, not only layer boundaries.
+- **Tags:** review, architecture, imports
+
+### L156 · 2026-10-27 · floating-core #6 · review
+- **Failure:** The new `src/shared-hash.ts` helper was absent from FILEMAP.
+- **Root cause:** The source file was added without its repository map entry.
+- **Fix:** Add a concise description to FILEMAP.
+- **Lesson:** Update FILEMAP when adding source files.
+- **Tags:** review, docs, filemap
+
+### L157 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** Four tests still expected brainstorm projections, and U30 checked a path absent from its refresh fixture.
+- **Root cause:** Assertions were not updated with the approved Git-only listing/merge behavior, and the fixture premise was wrong.
+- **Fix:** Align expectations to Git-only listing and conditional refresh paths; preserve unrelated edits.
+- **Lesson:** Keep assertions aligned with approved behavior and verify each fixture's premise.
+- **Tags:** behavior, worktree, tests
+
+### L158 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** The push test expected a base-branch refusal but received Gitleaks.
+- **Root cause:** The fixture had no configured or remote base, so `resolveContext` correctly returned `ask`.
+- **Fix:** Configure `develop`, prove the physical refs/base, then assert the exact push rejection.
+- **Lesson:** Prove base context before asserting push protection.
+- **Tags:** behavior, git, tests
+
+### L159 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** The skill-contract test found no Phase 3 rebase after CP7 removed the `worktree rebase` CLI verb.
+- **Root cause:** Removing the CLI command was conflated with removing the approved native Git rebase step.
+- **Fix:** Restore `git rebase <detected base>` and the post-rebase verification gates.
+- **Lesson:** Removing a CLI verb must not remove an approved native-Git behavior.
+- **Tags:** behavior, workflow, git
+
+### L160 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** Serial tests still expected mandatory managed worktrees, brainstorm projections, and legacy reviewed_main handoffs.
+- **Root cause:** Contract assertions encoded the prior workflow instead of the approved optional-worktree/checkpoint contract.
+- **Fix:** Update those assertions for optional worktrees, Git-only listing, reviewed_base and CAS behavior.
+- **Lesson:** Tests should assert the approved contract, not stale prose or field names.
+- **Tags:** behavior, contract, worktree
+
+### L161 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** `generated-payload.test.ts` found the chain bundle stale after the skill correction.
+- **Root cause:** The embedded bundle was not regenerated after the final skill/source edit.
+- **Fix:** Run `bun scripts/gen-assets.ts` after the last edit and verify generated-payload.
+- **Lesson:** Regenerate embedded assets after final skill or source changes.
+- **Tags:** behavior, bundle, generated
+
+### L162 · 2026-10-27 · floating-core #7 · behavior
+- **Failure:** Ceremony contract found a citation to the removed `ai-eng worktree rebase` command.
+- **Root cause:** Phase 3 text still named the deleted CLI verb.
+- **Fix:** Remove the stale command citation while retaining native `git rebase <detected base>` and the Phase 4 merge command.
+- **Lesson:** Contract text should cite only current commands.
+- **Tags:** behavior, workflow, docs
+
+### L163 · 2026-10-27 · floating-core #7 · review
+- **Failure:** A retry could refresh a checkout from an older merge after the base had advanced.
+- **Root cause:** Refresh used the historical merge tree without verifying it was still the base tip.
+- **Fix:** Skip refresh when the base advanced and verify the target before restoring.
+- **Lesson:** Never refresh from a historical base.
+- **Tags:** review, git, merge
+
+### L164 · 2026-10-27 · floating-core #7 · review
+- **Failure:** Incoming edits made during merge could be overwritten by checkout refresh.
+- **Root cause:** The operation reused a cached status snapshot from before the transaction.
+- **Fix:** Recheck incoming index, worktree and untracked paths at the restore boundary.
+- **Lesson:** Revalidate at the restore boundary.
+- **Tags:** review, git, worktree
+
+### L165 · 2026-10-27 · floating-core #7 · review
+- **Failure:** A base-resolution error was swallowed, allowing a push without protection.
+- **Root cause:** The push guard converted resolution failure into an implicit allow.
+- **Fix:** Deny the push and return actionable base-resolution guidance.
+- **Lesson:** Failed base resolution must fail closed.
+- **Tags:** review, git, fail-closed
+
+### L166 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `request-changes` refused a feature built in the current checkout.
+- **Root cause:** Source resolution only considered Git-listed worktrees.
+- **Fix:** Include the current checkout's exact feature branch while retaining reviewed-SHA/CAS checks.
+- **Lesson:** Optional worktrees must not block lifecycle transitions.
+- **Tags:** review, worktree, lifecycle
+
+### L167 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `worktree rm <slug>` could not manage a worktree created on a branch without `feat/`.
+- **Root cause:** Removal assumed branch names always had the `feat/` prefix.
+- **Fix:** Resolve the exact branch and derived worktree path without prefix assumptions.
+- **Lesson:** Create and remove must share the branch-to-path contract.
+- **Tags:** review, git, worktree
+
+### L168 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `worktree new` started from the detected integration base instead of current HEAD.
+- **Root cause:** The integration destination was confused with the user's current commit.
+- **Fix:** Pin new worktrees to current HEAD and warn dirty design files do not travel.
+- **Lesson:** The integration base is not the current commit.
+- **Tags:** review, git, worktree
+
+### L169 · 2026-10-27 · floating-core #8 · review
+- **Failure:** Worktree removal could delete ignored user data before explaining the loss.
+- **Root cause:** Ignored files were reported only after removal.
+- **Fix:** Refuse by default, fail closed on unreadable scans, and warn before forced deletion.
+- **Lesson:** Inspect and explain loss before removal.
+- **Tags:** review, data-loss, worktree
+
+### L170 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `request-changes` could not transition a feature on an arbitrary branch name.
+- **Root cause:** Source and ref resolution assumed the `feat/<slug>` naming convention.
+- **Fix:** Resolve the exact checkpoint in the Git-listed/current checkout and use its registered branch ref.
+- **Lesson:** Identify lifecycle ownership by checkpoint and checkout, not branch naming.
+- **Tags:** review, git, lifecycle
+
+### L171 · 2026-10-27 · floating-core #8 · review
+- **Failure:** The worktree skill described creation from the detected integration base instead of current HEAD.
+- **Root cause:** The documentation was not updated with the CP8 creation contract.
+- **Fix:** Document current HEAD and the dirty brainstorm/PRD warning, preserving Phase 3 rebase and Phase 4 merge.
+- **Lesson:** Keep command guidance aligned with behavior.
+- **Tags:** review, docs, worktree
+
+### L172 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `worktree new` read the primary checkout's branch, HEAD and dirty design files when invoked from a linked worktree.
+- **Root cause:** Source state was derived from the primary checkout instead of the invoking checkout.
+- **Fix:** Read the caller checkout for branch, HEAD and dirty files while keeping the common repository root for shared refs/registration.
+- **Lesson:** Use the invoking checkout for source state; keep the primary root for shared refs and registration.
+- **Tags:** review, git, worktree
+
+### L173 · 2026-10-27 · floating-core #8 · review
+- **Failure:** Request-changes guidance assumed `feat/<slug>` and a managed-worktree-only flow.
+- **Root cause:** The prose inferred branch identity from a naming convention.
+- **Fix:** Resolve the exact checkpoint checkout and actual branch ref.
+- **Lesson:** Describe the checkout/ref the command validates, not one inferred from naming.
+- **Tags:** review, docs, git
+
+### L174 · 2026-10-27 · floating-core #8 · review
+- **Failure:** App approval unconditionally triggered local merge.
+- **Root cause:** The human approval step was coupled to one integration route.
+- **Fix:** Recommend PR with a forge, local merge otherwise, and offer PR, local merge or keep-branch.
+- **Lesson:** App approval and integration route are separate decisions.
+- **Tags:** review, workflow, git
+
+### L175 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `request-changes` rejected a Git-listed checkpoint checkout outside the managed root.
+- **Root cause:** Source selection filtered candidates by directory layout instead of checkpoint ownership.
+- **Fix:** Accept the unique checkpoint-bearing Git checkout while retaining branch-ref, SHA, CAS and lifecycle checks.
+- **Lesson:** Identify lifecycle ownership by Git registration and checkpoint, not directory layout.
+- **Tags:** review, git, lifecycle
+
+### L176 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `worktree new` missed root-level dirty design files when invoked from a nested directory.
+- **Root cause:** `git status` was scoped to the nested path rather than the checkout root.
+- **Fix:** Resolve the checkout root before scanning and verify warnings leave files/status unchanged.
+- **Lesson:** Normalize status to the checkout root before applying root-relative rules.
+- **Tags:** review, git, paths
+
+### L177 · 2026-10-27 · floating-core #8 · review
+- **Failure:** List/resume did not recognize an arbitrary-branch worktree carrying the exact checkpoint slug.
+- **Root cause:** Feature identity was inferred from branch names instead of checkpoint content in Git-registered checkouts.
+- **Fix:** Resolve unique checkpoint ownership from Git registration and preserve dirty-file safety.
+- **Lesson:** A checkpoint's registered checkout—not its branch prefix or directory name—defines resume ownership.
+- **Tags:** review, git, lifecycle
+
+### L178 · 2026-10-27 · floating-core #8 · review
+- **Failure:** Inherited ready-to-merge pins with an old reviewed_base counted as active owners and made ordinary list ambiguous.
+- **Root cause:** Checkpoint presence was treated as current ownership without comparing its reviewed base to the detected base.
+- **Fix:** Mark stale app-review pins non-actionable and exclude them from active ambiguity; keep duplicate active implementation plans ambiguous.
+- **Lesson:** A checkpoint's presence does not prove current ownership; its reviewed base must still match.
+- **Tags:** review, lifecycle, git
+
+### L179 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `request-changes` counted a stale inherited pin before finding the unique fresh checkpoint.
+- **Root cause:** Candidate ambiguity was computed before checking reviewed-base freshness and exact branch refs.
+- **Fix:** Filter stale pins and resolve the exact checkout/ref before counting active candidates.
+- **Lesson:** Check freshness and exact Git refs before counting ambiguity.
+- **Tags:** review, git, lifecycle
+
+### L180 · 2026-10-27 · floating-core #8 · review
+- **Failure:** `request-changes` selected one SHA-matching checkout despite multiple active owners of the same slug.
+- **Root cause:** Ambiguity was checked after filtering by the supplied SHA.
+- **Fix:** Filter stale pins, then refuse multiple active owners before matching the SHA.
+- **Lesson:** Establish fresh ownership before matching a supplied SHA.
+- **Tags:** review, git, lifecycle
+
+### L181 · 2026-10-27 · floating-core #8 · review
+- **Failure:** An unresolved base made active pins appear stale by comparing against the feature tip.
+- **Root cause:** Feature-branch state was treated as evidence of the detected base.
+- **Fix:** Unknown bases no longer prove staleness; list preserves ambiguity and request-changes fails closed.
+- **Lesson:** Unknown freshness cannot prove staleness.
+- **Tags:** review, git, fail-closed
+
+### L182 · 2026-10-27 · floating-core #8 · behavior
+- **Failure:** Three stale-pin/list regressions failed because their Git fixtures did not represent the intended active/stale owners.
+- **Root cause:** Stale-pin fixtures ran on the configured base with unresolved base detection; I39 created two active owners.
+- **Fix:** Put stale owners on feature branches with a detectable advanced base; register I39's worktree before committing its checkpoint and assert refs/inheritance.
+- **Lesson:** Prove base detectability and owner count in real-Git fixtures; unknown bases remain ambiguous.
+- **Tags:** behavior, git, tests
+
+### L183 · 2026-10-27 · floating-core #9 · review
+- **Failure:** A symlinked parent could redirect worktree creation outside the configured worktrees root.
+- **Root cause:** Containment was lexical and did not resolve existing symlink components.
+- **Fix:** Canonicalize root and parent, check containment before/after creating parents, and test the escaped target.
+- **Lesson:** Verify canonical paths at filesystem boundaries with `relative` and platform `sep`, then revalidate after directory creation.
+- **Tags:** review, filesystem, paths
+
+### L184 · 2026-10-27 · floating-core #10 · behavior
+- **Failure:** Test hygiene reported env/cwd leakage after CP10 removed `tests/spec-command.spec.ts`.
+- **Root cause:** The hygiene check still enumerated a deleted test suite and failed before running child suites.
+- **Fix:** Replace the obsolete suite entry with active `tests/update-command.spec.ts`; keep the restoration assertion intact.
+- **Lesson:** Keep test-hygiene inputs aligned with the active suite set.
+- **Tags:** behavior, tests, hygiene
+
+### L185 · 2026-10-27 · floating-core #10 · review
+- **Failure:** Removing a required git/workflow architecture rule did not fail `tests/arch.spec.ts`.
+- **Root cause:** `requiredRestrictions` omitted those source-target fences.
+- **Fix:** Assert each required git and workflow restriction explicitly.
+- **Lesson:** Pin each required source-target fence so removing its config rule fails the test.
+- **Tags:** review, architecture, tests
+
+### L186 · 2026-10-27 · floating-core #11 · behavior
+- **Failure:** Typecheck rejected optional regex capture groups in `tests/ai-pr.spec.ts`.
+- **Root cause:** The test treated a possibly absent capture as a definite string.
+- **Fix:** Narrow each capture at the point of use.
+- **Lesson:** Narrow optional values where they are consumed.
+- **Tags:** behavior, types, tests
+
+### L187 · 2026-10-27 · floating-core #11 · behavior
+- **Failure:** Git cleanup tests required a hard-coded main branch and force-deletion by default.
+- **Root cause:** Assertions pinned the prior workflow rather than the approved detected-base/preview contract.
+- **Fix:** Assert native preview, detected base and safe deletion defaults.
+- **Lesson:** Tests must assert the current approved contract.
+- **Tags:** behavior, git, tests
+
+### L188 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Cleanup preview could list the selected base branch as a deletion candidate.
+- **Root cause:** Candidate filtering did not exclude the protected base ref.
+- **Fix:** Filter the selected base before showing deletion candidates.
+- **Lesson:** Exclude protected refs before presenting deletion candidates.
+- **Tags:** review, git, cleanup
+
+### L189 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Brainstorm unconditionally wrote design slots and handed every path to the full orchestrator.
+- **Root cause:** Slot/handoff actions were not scoped by work lane.
+- **Fix:** Limit them to standard/full; light paths end at `ai-verify`.
+- **Lesson:** Gate artifacts by lane.
+- **Tags:** review, workflow, skills
+
+### L190 · 2026-10-27 · floating-core #11 · review
+- **Failure:** The brainstorm's broad creative-work trigger conflicted with Direct's no-brainstorm path.
+- **Root cause:** Trigger wording ignored clear one-step work.
+- **Fix:** Exclude clear Direct/light tasks and add cross-skill coverage.
+- **Lesson:** Route clear work to its relevant skill.
+- **Tags:** review, workflow, skills
+
+### L191 · 2026-10-27 · floating-core #11 · review
+- **Failure:** A requested PR for a local-only branch could be created without first publishing the branch.
+- **Root cause:** The PR guidance skipped push/verification before forge creation.
+- **Fix:** Push and verify the selected remote branch only when a PR is requested.
+- **Lesson:** Verify publication before creation.
+- **Tags:** review, git, pr
+
+### L192 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Forge create commands could receive full remote-tracking refs as branch arguments.
+- **Root cause:** Git refs and forge branch names were treated as the same value.
+- **Fix:** Keep `$base_ref` for Git and use short `$base_branch` for forge calls.
+- **Lesson:** Separate Git refs from forge branch names.
+- **Tags:** review, git, pr
+
+### L193 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Architectural brainstorm approval routed directly to the orchestrator despite Lifecycle naming `ai-architect` next.
+- **Root cause:** The handoff ignored the selected work lane.
+- **Fix:** Route architecture to `ai-architect`, standard to `ai-orchestrator`, and test route/Lifecycle consistency.
+- **Lesson:** Keep approval handoffs lane-specific and verify them against Lifecycle.
+- **Tags:** review, workflow, skills
+
+### L194 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Architectural brainstorm Lifecycle still routed directly to the orchestrator.
+- **Root cause:** The handoff did not distinguish architecture from standard work.
+- **Fix:** Route architecture through ai-architect, standard through ai-orchestrator, and test both Lifecycle contracts.
+- **Lesson:** Keep each lane's handoff aligned with Lifecycle.
+- **Tags:** review, workflow, skills
+
+### L195 · 2026-10-27 · floating-core #11 · review
+- **Failure:** Cleanup preview omitted ignored files that deletion could remove.
+- **Root cause:** Ignored files were treated as absent rather than user data.
+- **Fix:** List paths and consequences before approval, require per-path consent, and fail closed if the list changes or cannot be verified.
+- **Lesson:** Treat ignored paths as user data until their loss is visible and approved.
+- **Tags:** review, data-loss, cleanup
+
+### L196 · 2026-10-27 · floating-core #11 · review
+- **Failure:** App-review transitions on arbitrary branches could not validate the reviewed feature SHA.
+- **Root cause:** The guard inferred the feature ref from `feat/${slug}` and checked it only on review entry.
+- **Fix:** Resolve HEAD's local branch ref dynamically and revalidate the tip at both review entry and approval.
+- **Lesson:** Validate reviewed SHAs against the selected Git ref; do not infer branch identity from slugs.
+- **Tags:** review, git, lifecycle
+
+### L197 · 2026-10-28 · floating-core #12 · behavior
+- **Failure:** The serial Gate 1 suite exited 1, but its runner summary omitted the failing test; the first diagnostic rerun could not reproduce it.
+- **Root cause:** The diagnostic set `TMPDIR` inside the worktree, causing the environment guard to reject the repo-local `AI_ENG_HOME`; the original failure remains undiagnosed.
+- **Fix:** No source change; reproduce with the default environment and capture the first failing test before choosing a fix.
+- **Lesson:** Do not set `TMPDIR` inside the repository when diagnosing tests; the environment guard treats the resulting home path as repo-local.
+- **Tags:** behavior, tests, bun, environment
+
+### L198 · 2026-10-28 · floating-core #12 · behavior
+- **Failure:** The serial suite failed at U9 because the rendered `config.toml` did not keep optional pack configuration valid and commented out.
+- **Root cause:** `src/embed.ts` left the new `{{packs}}` template placeholder unresolved when the render caller omitted the optional value, so `loadConfig` returned an empty config.
+- **Fix:** Default omitted packs to an empty list; the focused U9 test then passed.
+- **Lesson:** Give optional template fields safe defaults at the rendering boundary.
+- **Tags:** behavior, config, templates, tests
+
+### L199 · 2026-10-28 · floating-core #12 · behavior
+- **Failure:** A legacy update without `[canon] packs` expected all six packs to be adopted, but the update test received none.
+- **Root cause:** The config template's empty default replaced the selected packs before the second render.
+- **Fix:** Pass surfaces and packs directly to the template renderer; focused update, init, and config tests passed.
+- **Lesson:** Apply defaults and explicit values in a single render.
+- **Tags:** behavior, update, config, packs
+
+### L200 · 2026-10-28 · floating-core #12 · behavior
+- **Failure:** Bun stopped at the ceremony-contract command because it did not match the test file using a path without `./`.
+- **Root cause:** Bun's file selector did not resolve this test from the bare relative path.
+- **Fix:** Use `bun test ./tests/ceremony-contract.spec.ts`; the focused command passed all four tests.
+- **Lesson:** Use explicit `./` relative paths when selecting Bun tests by file.
+- **Tags:** behavior, tests, bun
+
+### L201 · 2026-10-28 · floating-core #12 · behavior
+- **Failure:** Dirty recovery for a legacy governed config without `[canon] packs` omitted the expected `stale` classification.
+- **Root cause:** `doctor` treated an absent packs key as an explicit empty selection, classifying installed pack files as foreign.
+- **Fix:** Use legacy packs only when the governed config omits the key; preserve an explicit empty selection.
+- **Lesson:** Keep absent and explicitly empty configuration values distinct across readers.
+- **Tags:** behavior, doctor, config, packs, recovery
+
+### L202 · 2026-10-28 · floating-core #12 · review
+- **Failure:** The verify setup guide still referenced `skills/ai-verify/tiers/` after those tools moved into the optional pack.
+- **Root cause:** The guide hard-coded the retired core path instead of following the pack source and installed inventory.
+- **Fix:** Update the source/install paths and assert the selected pack payload in `tests/embed-canon.spec.ts`.
+- **Lesson:** Keep setup paths tied to the pack source and installed inventory.
+- **Tags:** review, docs, packs, paths, tests
+
+### L203 · 2026-10-28 · floating-core #13 · review
+- **Failure:** Update canon repair could overwrite a selected skill changed on the machine.
+- **Root cause:** The repair trusted installed canon files as disposable, but the repository lock does not record machine-side edits.
+- **Fix:** Preserve and report differing canon skills during update repair; add regression coverage for edits and explicit pack selections.
+- **Lesson:** Without a machine-side ownership hash, preserve differing canon files rather than treating them as disposable.
+- **Tags:** review, update, canon, data-loss, packs
+
+### L204 · 2026-10-28 · floating-core #14 · behavior
+- **Failure:** The serial suite took 204.83 seconds against a 120-second target and failed four tests; the first doctor case expected zero missing files but found 36.
+- **Root cause:** The doctor fixture omitted `canon.packs`, invoking legacy-pack expectations while installing only core; test hygiene also reran sandbox suites.
+- **Fix:** Declare core-only fixture intent, test selected and legacy packs, replace nested suite reruns with preload guards, and reuse Git fixture templates.
+- **Lesson:** Distinguish omitted packs (legacy) from explicit `[]` (core-only), and enforce suite hygiene during normal runs.
+- **Tags:** behavior, tests, performance, config, packs
+
+### L205 · 2026-10-28 · floating-core #14 · behavior
+- **Failure:** The next full-suite run stopped at the global-canon recovery test, which expected update to overwrite a locally edited global skill.
+- **Root cause:** The test's expected overwrite contradicted CP13's ownership rule: changed canon files have no machine-side ownership hash.
+- **Fix:** Test repair of missing core files separately and preserve locally edited files; remove duplicate worktree setup and raw-Git cases.
+- **Lesson:** Without a machine-side ownership hash, preserve changed canon files and test repair using missing files.
+- **Tags:** behavior, tests, update, canon, performance
+
+### L206 · 2026-10-28 · floating-core #14 · behavior
+- **Failure:** The serial suite passed its tests but took 149.20 seconds against the 120-second target.
+- **Root cause:** Worktree fixtures repeated Git queries and staging work; the focused-suite timing did not confirm a runtime improvement.
+- **Fix:** Reuse worktree-list metadata and commit tracked fixture paths directly; 118 focused tests and 1,045 assertions passed.
+- **Lesson:** Reuse Git state already fetched in integration fixtures, and measure the full suite before claiming a speedup.
+- **Tags:** behavior, tests, performance, git
+
+### L207 · 2026-10-28 · floating-core #14 · review
+- **Failure:** Review found the brainstorm-to-orchestrator handoff assertion missing, and canon recovery asserted file existence without checking repaired content.
+- **Root cause:** Consolidation removed a handoff check not covered elsewhere; the recovery test checked presence rather than payload integrity.
+- **Fix:** Assert the standard-lane handoff boundary and compare repaired content to the shipped payload while preserving local edits.
+- **Lesson:** Test workflow links at the handoff boundary and verify repaired payloads exactly.
+- **Tags:** review, tests, workflow, canon, packs
+
+### L208 · 2026-10-28 · floating-core #16 · review
+- **Failure:** A successful `commit-msg` with an active override printed a notice despite the zero-line green-hook contract.
+- **Root cause:** The shared hook writer emitted every result's lines without checking whether the hook had succeeded.
+- **Fix:** Suppress output for successful hook results while retaining denial lines and exit behavior; cover the active-override hook path.
+- **Lesson:** Gate shared hook output on result status, while keeping success metadata in the commit and denial reasons visible.
+- **Proof:** `bun test ./tests/token-budget.spec.ts` — 6 pass, 0 fail, 37 assertions.
+- **Tags:** review, hooks, overrides, output, tests
+
+### L209 · 2026-10-28 · floating-core #17 · review
+- **Failure:** Review found unsupported worktree file hints, stale worktree lifecycle claims, and incomplete comment-read scope in the docs.
+- **Root cause:** The docs had drifted from the current CLI, worktree lifecycle, and comment-read contract.
+- **Fix:** Remove unsupported hints, mark superseded lifecycle notes as historical, and document relation-target comment reads.
+- **Lesson:** Verify documented behavior against the current CLI and adapter contract.
+- **Tags:** review, docs, cli, lifecycle, permissions
+
+### L210 · 2026-10-28 · floating-core #17 · review
+- **Failure:** Review found that PERMISSIONS.md omitted hierarchy-only relation scope and the exact recent-comment query; blueprint used a nonexistent Git command and fixed base.
+- **Root cause:** The docs described broader permission scope and stale command/base behavior than the implementation enforces.
+- **Fix:** Document the precise relation/query limits and supported command with selected-base behavior.
+- **Lesson:** Keep documentation aligned with enforced scope and actual commands.
+- **Tags:** review, docs, permissions, git, cli
+
+### L211 · 2026-10-28 · floating-core #17 · review
+- **Failure:** The blueprint said ai-pr creates a branch from local main and targets main.
+- **Root cause:** The prose conflated PR publishing with worktree branch creation and integration.
+- **Fix:** Describe publishing the current checkout/worktree branch with the supported base selection and no branch creation or switching.
+- **Lesson:** Keep PR publishing distinct from worktree branch creation and integration.
+- **Tags:** review, docs, ai-pr, git, base-selection
+
+### L212 · 2026-10-28 · floating-core #17 · behavior
+- **Failure:** Phase 3 failed because the floor-gates test expected Git stderr newlines verbatim after the output cap flattened them.
+- **Root cause:** The test asserted incidental formatting, although the hook preserves diagnostic content, exit status, and the three-line budget.
+- **Fix:** Assert diagnostic content independently of line formatting.
+- **Lesson:** Check preserved diagnostics, exit status, and output budget—not incidental formatting.
+- **Tags:** behavior, tests, hooks, output

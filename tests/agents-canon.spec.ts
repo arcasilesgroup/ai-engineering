@@ -85,6 +85,21 @@ describe("workflow kit — five agents ship with matching frontmatter", () => {
     const source = readFileSync(ADAPTERS, "utf8");
     expect(source).toContain(".ai-engineering/agents");
   });
+
+  test("checkpoint planner's initial lifecycle uses the detected base fields", () => {
+    const planner = readFileSync(join(AGENTS, "checkpoint-planner.md"), "utf8");
+    const output = planner.split("## Output")[1] ?? "";
+    const nextHeading = output.search(/\n## /);
+    const outputSection = nextHeading === -1 ? output : output.slice(0, nextHeading);
+    const jsonBlock = /```json\n([\s\S]*?)\n```/.exec(outputSection);
+    const plan = JSON.parse(jsonBlock?.[1] ?? "{}") as {
+      lifecycle?: Record<string, unknown>;
+    };
+
+    expect(jsonBlock).not.toBeNull();
+    expect(plan.lifecycle).toMatchObject({ base_ref: null, reviewed_base: null });
+    expect(plan.lifecycle).not.toHaveProperty("reviewed_main");
+  });
 });
 
 describe("installAgentsCanon under AI_ENG_HOME", () => {

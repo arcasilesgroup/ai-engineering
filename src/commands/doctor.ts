@@ -1,19 +1,17 @@
 // `ai-eng doctor` — 12 checks + one real test. The difference with theater: it
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
-import { canonDrift } from "../embed.ts";
-import { existsSync, readFileSync, readdirSync, lstatSync, statSync, unlinkSync, writeFileSync, rmSync } from "node:fs";
+import { canonDrift, legacyCanonPacks } from "../embed.ts";
+import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
-import { mergeDaily, pruneDenyLedger, summarizeReceipts, type DailyPoint, type DenyLedger, type ReceiptSummary } from "../receipts.ts";
+import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, declaredCanonPacks, isGoverned, receiptsDir } from "../env.ts";
+import { gcReceipts, receiptsTtlDays, summarizeReceipts, type DenyLedger } from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
 import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, readMachineState } from "../surfaces/adapters.ts";
-import { unmetTriggers } from "../spec/triggers.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
 import { readOverrides, overrideDaysLeft } from "../chain/dialect.ts";
-import { checkpointGateReportLines } from "./checkpoint-gate-report.ts";
 import * as ui from "../ui.ts";
 
 export type CheckResult = { readonly name: string; readonly status: "ok" | "warn" | "fail"; readonly detail: string };
@@ -78,7 +76,9 @@ function checkCanon(): CheckResult {
   //    settings, config), so filtering the lock by skills/ counts 0 forever.
   //    Same predicate as materializeSkills: the dot-entries (chain bundle) are
   //    payload, not canon, so they are neither verified nor counted.
-  const canon = canonDrift(home());
+  // An old governed config omitted packs; a new init writes an explicit empty list.
+  const packs = declaredCanonPacks() ?? (isGoverned() ? legacyCanonPacks() : []);
+  const canon = canonDrift(home(), packs);
   const canonTotal = canon.verified + canon.drift + canon.missing;
   // A canon can be complete and dirty at once: an orphan is invisible to a payload
   // walk, so without the extras walk a renamed asset sits in every install while
@@ -319,21 +319,6 @@ function checkResearchCache(root: string | null): CheckResult {
   return { name: "research cache", status: stale.length > 0 ? "warn" : "ok", detail: lines.join(" · ") };
 }
 
-async function checkTriggers(root: string | null): Promise<CheckResult | null> {
-  // 10b. conditional nodes: a trigger that fired and left no artifact. This is the
-  //      "if it touches UI" sentence made checkable (§20.1).
-  const specPath = root ? join(root, ".ai-engineering", "spec.html") : null;
-  const hasContract = specPath !== null && existsSync(specPath);
-  if (!hasContract || !root) return null;
-  const lock = parseLock(readFileSync(join(root, ".ai-engineering", "ai-eng.lock"), "utf8"));
-  if (!lock.base_sha) return { name: "triggers", status: "warn", detail: "no base_sha in the lock — this milestone cannot judge its conditional nodes; reopen it with ai-eng spec open" };
-  const spec = readFileSync(join(root, ".ai-engineering", "spec.html"), "utf8");
-  const abandoned = new Set([...spec.matchAll(/^ABANDON:\s*(\S+)/gm)].map((m) => m[1]!));
-  const unmet = unmetTriggers(root, lock.base_sha, abandoned);
-  if (unmet.length === 0) return { name: "triggers", status: "ok", detail: "no fired trigger is missing its artifact" };
-  return { name: "triggers", status: "warn", detail: unmet.map((entry) => `${entry.id} fired on ${entry.sample} → ${entry.skill} left no artifact`).join(" · ") };
-}
-
 function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
   // 11. surfaces: two questions that must never share one line.
   //     (a) the MACHINE carrier — is it where that host actually reads, and is it the
@@ -451,10 +436,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   results.push(checkArch(root));
   results.push(checkSpecSlot(root));
   results.push(checkResearchCache(root));
-  const triggers = await checkTriggers(root);
-  if (triggers) results.push(triggers);
   results.push(...checkSurfaces(root, surfaces));
-  results.push({ name: "checkpoint gate", status: "ok", detail: checkpointGateReportLines(SURFACES, Object.fromEntries(SURFACES.flatMap((s) => { const files = carrierFiles(s.id, "machine") ?? carrierFiles(s.id, "repo"); return files ? [[s.id, files.main] as const] : []; }))).join(" · ") });
   const state = checkMachineState(surfaces);
   if (state) results.push(state);
   results.push(checkBehaviors(root));
@@ -496,51 +478,6 @@ function committedAgeDays(root: string, path: string): number | null {
 }
 
 /** `doctor --gc` — execute what the audit proposes, in one commit (§21.3). */
-/** Merge the live summary with any prior summary.json and write it back. */
-function mergeAndWriteSummary(receipts: string, summary: ReceiptSummary): void {
-  let prior: { daily?: Record<string, DailyPoint> } | null = null;
-  try {
-    prior = JSON.parse(readFileSync(join(receipts, "summary.json"), "utf8")) as { daily?: Record<string, DailyPoint> };
-  } catch {
-    /* no prior summary, or a torn one: the live window starts the series */
-  }
-  const merged = { ...summary, daily: mergeDaily(prior?.daily, summary.daily), gc: new Date().toISOString() };
-  writeFileSync(join(receipts, "summary.json"), JSON.stringify(merged));
-}
-
-function gcReceipts(receipts: string, ttlDays: number): string[] {
-  // Receipts: aggregate, then delete. They carry no citation to respect — their
-  // permanent half is the Receipt-Id trailer on the commit. Two files are the gc's
-  // own memory, not its trash: summary.json (the series) and denies.json (the
-  // ledger). The mtime sweep skips both — leaving summary.json to age out was
-  // eating the only long-term memory on the second quiet month — and each is
-  // pruned by its own contents instead: the series by day-age, the ledger by
-  // last_seen and count.
-  const lines: string[] = [];
-  if (!existsSync(receipts)) return lines;
-  const summary = summarizeReceipts(receipts);
-  const cut = Date.now() - ttlDays * 86_400_000;
-  // Files only: a planted DIRECTORY named like a receipt (`mkdir bomb.json`) made
-  // unlinkSync throw EISDIR/EPERM before the summary write, bricking the gc on
-  // every future run and freezing the spike baseline at the forged state
-  // (audit run-1 F4). A directory in the receipts folder is not a receipt.
-  const stale = readdirSync(receipts)
-    .filter((name) => name !== "summary.json" && name !== "denies.json" && lstatSync(join(receipts, name)).isFile())
-    .map((name) => ({ name, ts: statMtime(join(receipts, name)) }))
-    .filter((entry) => entry.ts < cut);
-  for (const entry of stale) unlinkSync(join(receipts, entry.name));
-  if (stale.length > 0) {
-    // The stale files are part of the story the summary tells: the summarizer's
-    // name-window now skips receipts whose stamp predates the TTL, so the live
-    // count alone would understate the store by exactly the files being deleted.
-    mergeAndWriteSummary(receipts, { ...summary, total: summary.total + stale.length });
-    lines.push(`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
-  }
-  const ledger = join(receipts, "denies.json");
-  if (existsSync(ledger)) pruneDenyLedger(ledger);
-  return lines;
-}
-
 /** Should this entry be collected (deleted) during gc? Returns "immune" if cited
  *  by a governor, "collect" if old enough and tracked by git, "skip" otherwise. */
 function collectVerdict(root: string, folder: string, dir: string, name: string, olderDays: number): "immune" | "collect" | "skip" {
@@ -631,10 +568,11 @@ function gc(cwd = process.cwd()): string[] {
   const config = loadConfig();
   const gcConfig = config["gc"] ?? {};
   const maxFiles = Number(gcConfig["max_files"] ?? 25);
-  const ttlDays = Number(String(gcConfig["receipts_ttl"] ?? "30d").replace("d", ""));
+  const ttlDays = receiptsTtlDays(config);
   const olderDays = Number(String(gcConfig["older_than"] ?? "90d").replace("d", ""));
   const keepRuns = Number(gcConfig["keep_runs"] ?? 5);
-  lines.push(...gcReceipts(join(root, ".ai-engineering", "receipts"), ttlDays));
+  const collected = gcReceipts(join(root, ".ai-engineering", "receipts"), ttlDays);
+  if (collected > 0) lines.push(`✓ receipts: ${collected} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
   for (const folder of ["research", "reports", join("design", "audits")]) {
     lines.push(...gcFolder(root, folder, maxFiles, olderDays));
   }
@@ -642,14 +580,6 @@ function gc(cwd = process.cwd()): string[] {
   lines.push(...gcSecurity(root, join(root, ".ai-engineering", "security"), olderDays, keepRuns));
   if (lines.length === 0) lines.push("✓ gc: nothing to collect");
   return lines;
-}
-
-function statMtime(path: string): number {
-  try {
-    return lstatSync(path).mtimeMs;
-  } catch {
-    return 0;
-  }
 }
 
 function lintBehavior(content: string, folder: string): string | null {

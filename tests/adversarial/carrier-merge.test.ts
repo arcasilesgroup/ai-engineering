@@ -96,11 +96,7 @@ let gitConfigBefore: string | undefined;
 
 beforeAll(() => {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-merge-"));
-  // Every git this file spawns — including the fixtures' `git init` — reads a config of
-  // our own: the floor's templateDir is a GLOBAL setting, and a test that lets a child
-  // write the developer's git config (or read it) is a test that changes the machine.
-  // It is borrowed for the length of the file and given back: a process-wide variable set
-  // here and never restored is another file's surprise.
+  // Every git fixture reads a config of our own, so git init cannot inherit real hooks.
   gitConfigBefore = process.env["GIT_CONFIG_GLOBAL"];
   process.env["GIT_CONFIG_GLOBAL"] = join(sandbox, "gitconfig");
   writeFileSync(process.env["GIT_CONFIG_GLOBAL"], "");
@@ -173,25 +169,22 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     expect(parsed.version).toBe(1);
   });
 
-  test("a template dir the user already had keeps its own hooks, and gets ours beside them", () => {
+  test("init leaves a user's global template setting and hooks untouched", () => {
     useHome();
     const theirs = join(sandbox, "their-template");
     mkdirSync(join(theirs, "hooks"), { recursive: true });
     const theirHook = "#!/bin/sh\n# mine, do not touch\necho hello\n";
     writeFileSync(join(theirs, "hooks", "pre-commit"), theirHook);
     spawnSync("git", ["config", "--global", "init.templateDir", theirs], { env: process.env });
+    const configBefore = spawnSync("git", ["config", "--global", "--get", "init.templateDir"], { encoding: "utf8", env: process.env }).stdout.trim();
     const repo = join(sandbox, "join-repo");
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
     expect(run(["init", "--yes", "--surface", "cursor"], repo).status).toBe(0);
-    // The one thing this must never do: overwrite a hook a person wrote. It used to —
-    // a directory holding THEIR pre-commit was read as "empty" and force-written.
     expect(readFileSync(join(theirs, "hooks", "pre-commit"), "utf8")).toBe(theirHook);
-    // And our floor still arrives: the other two shims are ours, marked.
-    for (const shim of ["commit-msg", "pre-push"]) {
-      expect(readFileSync(join(theirs, "hooks", shim), "utf8")).toInclude("ai-eng git floor shim");
-    }
-    expect(spawnSync("git", ["config", "--global", "--get", "init.templateDir"], { encoding: "utf8", env: process.env }).stdout.trim()).toBe(theirs);
+    expect(existsSync(join(theirs, "hooks", "commit-msg"))).toBe(false);
+    expect(existsSync(join(theirs, "hooks", "pre-push"))).toBe(false);
+    expect(spawnSync("git", ["config", "--global", "--get", "init.templateDir"], { encoding: "utf8", env: process.env }).stdout.trim()).toBe(configBefore);
   });
 
   test("codex carrier: an unchanged definition is never rewritten, and a changed one is named", () => {
@@ -365,8 +358,11 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     const canonical = (command: string) =>
       `{\n  "hooks": {\n    "PreToolUse": [\n      {\n        "hooks": [\n          {\n            "command": "${command}"\n          }\n        ]\n      }\n    ]\n  }\n}\n`;
     expect(stripSharedText(canonical("ai-eng chain PreToolUse"))).toBe("{}\n");
-    expect(stripSharedText(canonical("my-wrapper.sh -- ai-eng chain PreToolUse"))).toInclude("my-wrapper.sh");
-    expect(stripSharedText(canonical("command -v ai-eng >/dev/null 2>&1 && ai-eng chain PreToolUse || exit 0"))).toBe("{}\n");
+    const wrappers = [
+      "my-wrapper.sh -- ai-eng chain PreToolUse",
+      "command -v ai-eng >/dev/null 2>&1 && ai-eng chain PreToolUse || exit 0",
+    ];
+    for (const wrapper of wrappers) expect(stripSharedText(canonical(wrapper))).toBe(canonical(wrapper));
   });
 
 

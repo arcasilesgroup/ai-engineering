@@ -18,7 +18,7 @@ import {
   loopSignature,
   normalise,
   type Payload,
-} from "../src/chain/payload.ts";
+} from "../src/payload.ts";
 import { allow, allowRewrite, deny } from "../src/chain/dialect.ts";
 import { isTestCommand, rewrite } from "../src/guards/wrap.ts";
 

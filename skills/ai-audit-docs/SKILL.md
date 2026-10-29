@@ -1,13 +1,9 @@
 ---
 name: ai-audit-docs
 description: >-
-  Audits documentation files against actual repo state. Detects dead references (links to
-  nonexistent files/URLs), false claims (doc says feature X exists but the code doesn't),
-  outdated version numbers, and references to commands that don't exist. Input: path to docs
-  dir or specific files (defaults to docs/ README.md AGENTS.md). Output: ranked markdown
-  table of findings with severity and location. Report-only, NO auto-fix.
-  Trigger phrases: "audit docs", "check documentation", "verify docs", "docs review",
-  "documentation audit".
+  Audits docs against repo state for dead links, false claims, stale versions, and nonexistent
+  commands. Input: paths or default docs/, README.md, AGENTS.md. Output: ranked findings only;
+  no auto-fix. Trigger: "audit docs", "verify docs", or "documentation review".
 license: MIT
 ---
 

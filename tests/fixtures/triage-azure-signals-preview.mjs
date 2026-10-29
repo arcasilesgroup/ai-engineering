@@ -1,5 +1,5 @@
-import { normalizeAzureSignals } from "../../skills/ai-triage/scripts/azure-signals.mjs";
-import { writeAzureTriageReport } from "../../skills/ai-triage/scripts/render-report.mjs";
+import { normalizeAzureSignals } from "../../packs/triage/scripts/azure-signals.mjs";
+import { writeAzureTriageReport } from "../../packs/triage/scripts/render-report.mjs";
 
 const observedAt = "2026-10-08T10:00:00Z";
 const dueReference = "Microsoft.VSTS.Scheduling.DueDate";

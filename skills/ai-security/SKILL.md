@@ -1,16 +1,10 @@
 ---
 name: ai-security
 description: >-
-  Six-phase security audit of a codebase — web apps, APIs, services, CLI tools,
-  libraries, and daemons — with adversarial validation: the agent that verifies a
-  finding is never the one that found it. Recon, parallel hunting across 8 attack
-  classes, validation, reporting, schema-validated findings.json, and independent
-  verification. Only exploitable issues with real impact are reported — never
-  theoretical concerns or industry-standard behavior. Use when a milestone declares
-  a security audit, when findings must be validated adversarially, or for trigger
-  phrases "security review", "audit for vulnerabilities", "find security bugs", and
-  "pen-test the code". Not for diagnosing a runtime failure — use /ai-debug. Not for
-  judging a diff for correctness — use /ai-verify.
+  Audits code for exploitable vulnerabilities with independent validation and schema-checked
+  findings. Trigger: milestone security audits, "security review", "find security bugs", or
+  "pen-test". Reports real impact, not theory. Not for runtime diagnosis (/ai-debug) or diff
+  correctness (/ai-verify).
 license: MIT
 ---
 
@@ -129,8 +123,8 @@ These are the mistakes that make security audits useless:
    with the sha of the commit that carries the fix — so the ledger can tell a live
    vulnerability from a closed one.
 2. When the milestone includes an audit, its phases become executable gates of the
-   spec: "findings validated against the schema" and "zero open HIGH findings" are
-   gates `ai-eng spec close` checks — not courtesy reading. The second one
+   checkpoint plan: "findings validated against the schema" and "zero open HIGH findings"
+   are acceptance gates — not courtesy reading. The second one
    reads `disposition`: on `verdict` alone every finding stays `confirmed` forever,
    fixed or not, and the CHECK has nothing to evaluate.
 3. You only report what you can exploit. No demonstrable exploit, no finding.

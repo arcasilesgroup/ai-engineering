@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { evaluateLocalRules, localRuleReason, type LocalRule } from "../src/guards/local-rules.ts";
 import { runInjection } from "../src/guards/injection.ts";
 import { runChain, type ChainOutcome } from "../src/chain/mod.ts";
-import type { Payload } from "../src/chain/payload.ts";
+import type { Payload } from "../src/payload.ts";
 
 let scratch: string;
 let engHome: string;

@@ -1,17 +1,9 @@
 ---
 name: ai-audit-code
 description: >-
-  Forces the laziest solution that actually works, simplest, shortest, most minimal.
-  Channels a senior dev who has seen everything: question whether the task needs to
-  exist at all (YAGNI), reach for the standard library before custom code, native
-  platform features before dependencies, one line before fifty. Supports intensity
-  levels: lite, full (default), ultra. Use on ANY coding task: writing, adding,
-  refactoring, fixing, reviewing, or designing code, and choosing libraries or
-  dependencies. Also use whenever the user says "be lazy", "lazy mode",
-  "simplest solution", "minimal solution", "yagni", "do less", "shortest path", or
-  complains about over-engineering, bloat, boilerplate, or unnecessary dependencies.
-  Do NOT use for non-coding requests (general knowledge, prose, translation, summaries,
-  recipes).
+  Finds the simplest working solution for any code change, review, or design; favors
+  YAGNI, stdlib, and native features. Trigger: "minimal", "lazy", "simplest", "do less",
+  or complaints about bloat/over-engineering. Supports lite/full/ultra. Not for prose.
 license: MIT
 ---
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { normalizeAzureDiscussion, normalizeAzureSignals } from "../skills/ai-triage/scripts/azure-signals.mjs";
-import * as azureRecommendationApi from "../skills/ai-triage/scripts/azure-signals.mjs";
+import { normalizeAzureDiscussion, normalizeAzureSignals } from "../packs/triage/scripts/azure-signals.mjs";
+import * as azureRecommendationApi from "../packs/triage/scripts/azure-signals.mjs";
 
 type WorkItemFixture = {
   id: number;

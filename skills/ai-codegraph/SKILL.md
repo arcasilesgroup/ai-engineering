@@ -1,13 +1,9 @@
 ---
 name: ai-codegraph
 description: >-
-  Semantic code intelligence via MCP: call chains, blast radius, cross-file symbol
-  relationships. Uses CodeGraph (colbymchenry/codegraph) — a local-first Rust server
-  that builds a SQLite knowledge graph from tree-sitter ASTs. One tool: codegraph_explore.
-  Use when the question involves "how does X work", "what calls Y", "if I change X what
-  breaks", or cross-file dependency analysis. Not for literal text search — use find/grep
-  for that. Not for file discovery — use glob. Trigger for "codegraph", "code graph",
-  "call chain", "blast radius", "what depends on", "impact analysis".
+  Uses local CodeGraph MCP for symbol relationships, call chains, and blast radius. Trigger:
+  "how does X work", "what calls Y", "what depends on", or "what breaks if changed". Not for
+  text search (rg) or file discovery (glob).
 license: Apache-2.0
 ---
 

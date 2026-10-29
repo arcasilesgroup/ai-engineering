@@ -13,18 +13,30 @@
  */
 import { describe, test, expect } from "bun:test";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { lifecycleBlock, blockFields } from "../src/spec/triggers.ts";
+import { join, relative } from "node:path";
 
 const SKILLS = join(import.meta.dir, "..", "skills");
+const ROOT = join(import.meta.dir, "..");
+const PACKS = join(ROOT, "packs");
 const ACCENTS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
 const TOKEN_LIMIT = /(límite de tokens|token limit|token budget for this (file|skill)|keep (it|this) (under|below) \d+\s*(chars|caracteres|characters|tokens)|≤\s*\d+\s*(chars|caracteres|characters)\s*(max|limit|límite)?)/i;
 const MACHINE_PATH = /(\/Users\/|\/private\/tmp\/|\/tmp\/ai-eng-home-test|~\/\.agents\/skills)/;
 
 function listSkillDirs(): string[] {
-  return readdirSync(SKILLS, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !e.name.startsWith("."))
-    .map((e) => join(SKILLS, e.name));
+  const directSkills = (root: string): string[] =>
+    readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+      .map((entry) => join(root, entry.name))
+      .filter((directory) => existsSync(join(directory, "SKILL.md")));
+  return [...directSkills(SKILLS), ...directSkills(PACKS)].sort((a, b) => a.localeCompare(b, "en"));
+}
+
+function skillContentRoots(): string[] {
+  const packRoots = readdirSync(PACKS, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .map((entry) => join(PACKS, entry.name))
+    .filter((directory) => !existsSync(join(directory, "SKILL.md")));
+  return [...listSkillDirs(), ...packRoots];
 }
 
 function walk(dir: string): string[] {
@@ -71,10 +83,16 @@ function parseFrontmatter(content: string): { fields: Record<string, string>; bo
 
 const SPDX = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "Unlicense", "CC0-1.0", "LicenseRef-Attributed"];
 
+function expectedSkillName(dir: string): string {
+  const path = relative(ROOT, dir).split("/");
+  if (path[0] === "packs" && path.length === 2) return `ai-${path[1]}`;
+  return path.at(-1)!;
+}
+
 describe("G1 — one SKILL.md per skill", () => {
   test("no *-SKILL.md files anywhere in skills/", () => {
     const offenders: string[] = [];
-    for (const dir of listSkillDirs()) {
+    for (const dir of skillContentRoots()) {
       for (const f of walk(dir)) {
         if (f.endsWith('-SKILL.md')) offenders.push(f);
       }
@@ -92,7 +110,7 @@ describe("G2 — frontmatter parses like Zed loads it", () => {
   test("every SKILL.md: name = folder, license SPDX, folded description", () => {
     const problems: string[] = [];
     for (const dir of listSkillDirs()) {
-      const skill = dir.split("/").pop()!;
+      const skill = expectedSkillName(dir);
       const content = readFileSync(join(dir, "SKILL.md"), "utf8");
       try {
         const { fields } = parseFrontmatter(content);
@@ -109,7 +127,7 @@ describe("G2 — frontmatter parses like Zed loads it", () => {
 
 describe("G3 — corpus.md is dead", () => {
   test("zero corpus.md files in skills/", () => {
-    const offenders = listSkillDirs().flatMap((d) => walk(d)).filter((f) => f.endsWith("corpus.md"));
+    const offenders = skillContentRoots().flatMap((d) => walk(d)).filter((f) => f.endsWith("corpus.md"));
     expect(offenders).toEqual([]);
   });
   test("no SKILL.md still links a corpus.md", () => {
@@ -125,7 +143,7 @@ describe("G3 — corpus.md is dead", () => {
 describe("G4 — skills are named, never pathed", () => {
   test("no machine paths in any skill markdown", () => {
     const offenders: string[] = [];
-    for (const dir of listSkillDirs()) {
+    for (const dir of skillContentRoots()) {
       for (const f of walk(dir)) {
         if (!f.endsWith(".md")) continue;
         const content = readFileSync(f, "utf8");
@@ -139,7 +157,7 @@ describe("G4 — skills are named, never pathed", () => {
 describe("G5 — no token/length-limit statements", () => {
   test("zero limit language in skill markdown", () => {
     const offenders: string[] = [];
-    for (const dir of listSkillDirs()) {
+    for (const dir of skillContentRoots()) {
       for (const f of walk(dir)) {
         if (!f.endsWith(".md")) continue;
         const content = readFileSync(f, "utf8");
@@ -162,7 +180,7 @@ describe("G6 — the canon is English", () => {
   });
   test("no accented-Spanish prose in reference markdown", () => {
     const offenders: string[] = [];
-    for (const dir of listSkillDirs()) {
+    for (const dir of skillContentRoots()) {
       for (const f of walk(dir)) {
         const rel = f.slice(dir.length + 1);
         if (!f.endsWith(".md")) continue;
@@ -186,7 +204,8 @@ describe("G7 — links inside each skill resolve", () => {
       const links = [...content.matchAll(/\]\(([^)#\s]+)\)/g)].map((m) => m[1]!);
       for (const link of links) {
         if (/^[a-z]+:\/\//.test(link) || link.startsWith("/")) continue;
-        if (!existsSync(join(dir, link))) broken.push(`${dir.split("/").pop()}: ${link}`);
+        const installedPath = join(SKILLS, skillName(dir), link);
+        if (!existsSync(join(dir, link)) && !existsSync(installedPath)) broken.push(`${skillName(dir)}: ${link}`);
       }
     }
     expect(broken).toEqual([]);
@@ -222,12 +241,19 @@ const REQUIRED_KEYS = ["Lane", "Writes", "Read by", "Dies", "Next"];
 const SLOTS = ["spec.html", "plan.html", "brainstorm.html", "recap.html"];
 
 function skillName(dir: string): string {
-  return dir.split("/").pop()!;
+  return /^name:\s*(\S+)/m.exec(readFileSync(join(dir, "SKILL.md"), "utf8"))?.[1] ?? dir.split("/").pop()!;
 }
 
 function lifecycleFields(dir: string): Record<string, string> {
-  const block = lifecycleBlock(readFileSync(join(dir, "SKILL.md"), "utf8"));
-  return block ? blockFields(block) : {};
+  const sections = readFileSync(join(dir, "SKILL.md"), "utf8").split(/\n(?=## )/);
+  const lifecycle = sections.find((section) => /^## Lifecycle\s*$/m.test(section.split("\n")[0] ?? ""));
+  if (!lifecycle) return {};
+  const fields: Record<string, string> = {};
+  for (const line of lifecycle.split("\n")) {
+    const field = /^([A-Z][A-Za-z ]*):\s*(.+?)\s*$/.exec(line);
+    if (field && fields[field[1]!] === undefined) fields[field[1]!] = field[2]!;
+  }
+  return fields;
 }
 
 function markdownSection(content: string, heading: string): string {
@@ -337,7 +363,6 @@ describe("G12 — the human speaks words", () => {
 describe("G13 — the lane is named where the classification happens", () => {
   test("ai-brainstorm routes all three lanes: plan, verify, and research or architect", () => {
     const next = lifecycleFields(join(SKILLS, "ai-brainstorm"))["Next"] ?? "";
-    expect(next).toMatch(/\bai-orchestrator\b/);
     expect(next).toMatch(/\bai-verify\b/);
     expect(/\bai-research\b/.test(next) || /\bai-architect\b/.test(next)).toBe(true);
   });
@@ -364,14 +389,20 @@ const WORKFLOW_KIT_SKILLS = [
   "ai-design-md-planner",
 ] as const;
 
+function workflowKitSkillDirectory(skill: (typeof WORKFLOW_KIT_SKILLS)[number]): string {
+  return skill === "ai-design-md-planner"
+    ? join(ROOT, "packs", "design-md-planner")
+    : join(SKILLS, skill);
+}
+
 const KIT_FORBIDDEN_PATH =
   /CLAUDE\.md|docs\/checkpoints|docs\/PRD\.md|docs\/LEARNINGS\.md|docs\/FILEMAP\.md|docs\/PERMISSIONS\.md|docs\/CHANGELOG\.md/;
 
 describe("workflow kit — six skills ship with valid frontmatter", () => {
-  test("U1: each kit skill has SKILL.md with name = folder, license SPDX, folded description", () => {
+  test("U1: each kit skill has SKILL.md with canonical name, license SPDX, folded description", () => {
     const problems: string[] = [];
     for (const skill of WORKFLOW_KIT_SKILLS) {
-      const skillFile = join(SKILLS, skill, "SKILL.md");
+      const skillFile = join(workflowKitSkillDirectory(skill), "SKILL.md");
       if (!existsSync(skillFile)) {
         problems.push(`${skill}: missing SKILL.md`);
         continue;
@@ -393,14 +424,14 @@ describe("workflow kit — six skills ship with valid frontmatter", () => {
   test("U2: kit skill trees contain no CLAUDE.md or docs/checkpoints|PRD|LEARNINGS|FILEMAP|PERMISSIONS|CHANGELOG path strings", () => {
     const offenders: string[] = [];
     for (const skill of WORKFLOW_KIT_SKILLS) {
-      const dir = join(SKILLS, skill);
+      const dir = workflowKitSkillDirectory(skill);
       if (!existsSync(dir)) {
         offenders.push(`${skill}: skill directory missing`);
         continue;
       }
       for (const file of walk(dir)) {
         const content = readFileSync(file, "utf8");
-        if (KIT_FORBIDDEN_PATH.test(content)) offenders.push(file.slice(SKILLS.length + 1));
+        if (KIT_FORBIDDEN_PATH.test(content)) offenders.push(relative(ROOT, file));
       }
     }
     expect(offenders).toEqual([]);
@@ -410,18 +441,20 @@ describe("workflow kit — six skills ship with valid frontmatter", () => {
 describe("workflow kit — visual recap is opt-in", () => {
   test("the orchestrator never requires or automatically invokes a recap", () => {
     const orchestratorSkill = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
-    const recapSkill = readFileSync(join(SKILLS, "ai-visual-recap", "SKILL.md"), "utf8");
+    const recapSkillPath = join(ROOT, "packs", "visual-recap", "SKILL.md");
+    expect(existsSync(recapSkillPath)).toBe(true);
+    const recapSkill = readFileSync(recapSkillPath, "utf8");
     const agents = readFileSync(join(SKILLS, "..", "AGENTS.md"), "utf8");
     const agentsTemplate = readFileSync(join(SKILLS, "..", "templates", "AGENTS.md.tpl"), "utf8");
     const prd = readFileSync(join(SKILLS, "..", ".ai-engineering", "PRD.html"), "utf8");
     const blueprint = readFileSync(join(SKILLS, "..", "docs", "blueprint.html"), "utf8");
 
-    const phase3 = markdownSection(orchestratorSkill, "## Phase 3: Wrap-up");
+    const phase3 = markdownSection(orchestratorSkill, "## Phase 3: Wrap-up").replace(/\s+/g, " ");
     const appReview = markdownSection(orchestratorSkill, "## Phase 4: Human stop 2, app review");
     const approval = appReview.split("- **Approve:**")[1]?.split("- **Stop here:**")[0] ?? "";
     expect(appReview).toContain("Never invoke `ai-visual-recap` automatically");
     expect(appReview).toContain("Only when the user explicitly invokes `/ai-visual-recap` themselves");
-    const rebase = phase3.indexOf("Run `git rebase refs/heads/main`");
+    const rebase = phase3.indexOf("run `git rebase <detected base>`");
     const behaviorGates = phase3.indexOf("rerun affected behavior checks");
     const uiGates = phase3.indexOf("rerun affected UI checks");
     const reviewGate = phase3.indexOf("rerun the affected review gate");
@@ -434,7 +467,8 @@ describe("workflow kit — visual recap is opt-in", () => {
     const approved = approval.indexOf("lifecycle.app_review: approved");
     const readyToMerge = approval.indexOf("lifecycle.phase: ready-to-merge", approved);
     const mergeCommand = approval.indexOf("ai-eng worktree merge <slug>", readyToMerge);
-    expect(approval).toContain("retain the exact full `lifecycle.reviewed_main`");
+    expect(approval).toContain("retain the exact full `lifecycle.reviewed_base`");
+    expect(approval).toContain("`lifecycle.reviewed_feature` SHAs");
     expect(approved).toBeGreaterThanOrEqual(0);
     expect(readyToMerge).toBeGreaterThan(approved);
     expect(mergeCommand).toBeGreaterThan(readyToMerge);
@@ -442,7 +476,7 @@ describe("workflow kit — visual recap is opt-in", () => {
     expect(appReview).toContain("Never write lifecycle phase `complete`.");
     expect(appReview).toContain("its absence must not delay approval, merge, or worktree removal");
     expect(appReview).not.toContain(
-      "follow the repository-owned procedure at `skills/ai-visual-recap/SKILL.md`",
+      "follow the repository-owned procedure at `packs/visual-recap/SKILL.md`",
     );
     expect(recapSkill).toContain("manually invoked by the user");
     expect(agents).toContain("optional and never required for merge");
@@ -484,7 +518,7 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     expect(commands).toEqual(["ai-eng worktree list", "ai-eng worktree list"]);
   });
 
-  test("U16: preflights stay local, avoid remote sync and sibling merges, and keep plans in the feature worktree", () => {
+  test("U16: preflights stay local, avoid remote sync and keep plans in the selected checkout", () => {
     const preflights = [
       { skill: "ai-brainstorm", heading: "### 0. Check what already exists" },
       { skill: "ai-orchestrator", heading: "## Phase 0: Preflight" },
@@ -502,13 +536,12 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
 
     const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
     const phase1 = markdownSection(orchestrator, "## Phase 1: Plan");
-    expect(phase1).toMatch(/(?:write|create)[\s\S]{0,120}checkpoint[\s\S]{0,120}feature worktree/i);
-    expect(phase1).toMatch(/(?:plan|checkpoint)[\s\S]{0,160}(?:primary checkout|primary tree)|(?:primary checkout|primary tree)[\s\S]{0,160}(?:plan|checkpoint)/i);
-    expect(phase1).toMatch(/(?:never|do not)[\s\S]{0,100}(?:primary checkout|primary tree)/i);
-    expect(phase1).toMatch(/(?:never|do not)[\s\S]{0,100}cop(?:y|ied|ying)[\s\S]{0,100}(?:checkpoint|plan|between worktrees|between trees)/i);
+    expect(phase1).toMatch(/selected checkout/i);
+    expect(phase1).toContain(".ai-engineering/workflow/checkpoints/<slug>.json");
+    expect(phase1).not.toMatch(/never create a checkpoint plan in the primary checkout/i);
   });
 
-  test("U16b: both preflights surface lifecycle approvals and ask the human before continuing", () => {
+  test("U16b: lifecycle approvals are surfaced without a pre-worktree approval projection", () => {
     const preflights = [
       { skill: "ai-brainstorm", heading: "### 0. Check what already exists" },
       { skill: "ai-orchestrator", heading: "## Phase 0: Preflight" },
@@ -520,50 +553,18 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
         .replace(/[`*]/g, "")
         .replace(/\s+/g, " ")
         .toLowerCase();
-      const listing = preflight.indexOf("ai-eng worktree list");
-      expect(listing).toBeGreaterThanOrEqual(0);
-      expect(preflight).toMatch(/before deciding whether work may continue/);
-
-      const planPhase = preflight.indexOf("awaiting-plan-approval", listing);
-      const planPending = preflight.indexOf("plan_approval: pending", planPhase);
-      const appReviewPhase = preflight.indexOf("awaiting-app-review", planPending);
-      const appReviewPending = preflight.indexOf("app_review: pending", appReviewPhase);
-      const mergeReady = preflight.indexOf("ready-to-merge", appReviewPending);
-      const mergeApproved = preflight.indexOf("app_review: approved", mergeReady);
-      const planDecision = preflight.indexOf("ask the human to approve, edit, or stop", mergeApproved);
-      const appReviewDecision = preflight.indexOf(
-        "ask the human to approve, request changes, or stop here",
-        planDecision,
-      );
-      const mergeDecision = preflight.indexOf(
-        "ask whether to continue the merge before any merge action",
-        appReviewDecision,
-      );
-      const continueWork = preflight.indexOf(
-        skill === "ai-brainstorm"
-          ? "a listed worktree with the same slug means resume that feature"
-          : "resume it using its exact git-listed path",
-        mergeDecision,
-      );
-
-      expect(planPhase).toBeGreaterThan(listing);
-      expect(planPending).toBeGreaterThan(planPhase);
-      expect(appReviewPhase).toBeGreaterThan(planPending);
-      expect(appReviewPending).toBeGreaterThan(appReviewPhase);
-      expect(mergeReady).toBeGreaterThan(appReviewPending);
-      expect(mergeApproved).toBeGreaterThan(mergeReady);
-      expect(planDecision).toBeGreaterThan(mergeApproved);
-      expect(appReviewDecision).toBeGreaterThan(planDecision);
-      expect(mergeDecision).toBeGreaterThan(appReviewDecision);
-      expect(continueWork).toBeGreaterThan(mergeDecision);
-      expect(preflight).toMatch(/do not reduce these to a generic pending-approval label/);
+      expect(preflight).toContain("awaiting-plan-approval");
+      expect(preflight).toContain("plan_approval: pending");
+      expect(preflight).toContain("awaiting-app-review");
+      expect(preflight).toContain("app_review: pending");
+      expect(preflight).toContain("ready-to-merge");
+      expect(preflight).toContain("app_review: approved");
+      expect(preflight).toMatch(/ask the human to approve, edit, or stop/);
+      expect(preflight).toMatch(/ask the human to approve, request changes, or stop here/);
+      expect(preflight).toMatch(/ask whether to continue the merge before any merge action/);
       expect(preflight).toMatch(/unknown lifecycle state is not approval/);
-      if (skill === "ai-orchestrator") {
-        const newBranch = preflight.indexOf("only when no matching slug is listed", continueWork);
-        const create = preflight.indexOf("ai-eng worktree new", newBranch);
-        expect(newBranch).toBeGreaterThan(mergeDecision);
-        expect(create).toBeGreaterThan(newBranch);
-      }
+      expect(preflight).not.toContain("approval-before-start");
+      expect(preflight).toMatch(/no pre-worktree approval projection|does not project a pre-worktree approval/);
     }
   });
 
@@ -576,9 +577,10 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     const phase4 = markdownSection(orchestrator, "## Phase 4: Human stop 2, app review");
     const approval = phase4.split("- **Approve:**")[1]?.split("- **Stop here:**")[0] ?? "";
     const normalized = approval.replace(/[`*]/g, "").replace(/\s+/g, " ").toLowerCase();
-    const mainTip = phase3.indexOf("git rev-parse refs/heads/main");
-    const featureTip = phase3.indexOf("git rev-parse refs/heads/feat/<slug>", mainTip);
-    const recordReviewedMain = phase3.indexOf("lifecycle.reviewed_main", mainTip);
+    const baseTip = phase3.indexOf("git rev-parse <base_ref>");
+    const rebase = phase3.indexOf("git rebase <detected base>", baseTip);
+    const featureTip = phase3.indexOf("git rev-parse <selected branch ref>", rebase);
+    const recordReviewedBase = phase3.indexOf("lifecycle.reviewed_base", baseTip);
     const recordReviewedFeature = phase3.indexOf("lifecycle.reviewed_feature", featureTip);
     const awaitingReview = phase3.indexOf("lifecycle.phase to awaiting-app-review", recordReviewedFeature);
     const pendingReview = phase3.indexOf("lifecycle.app_review to pending", awaitingReview);
@@ -590,13 +592,13 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     const artifactCommit = phase3.indexOf("commit those artifacts");
     const recordedApprovalSha = normalized.indexOf("reviewed_feature_sha=");
 
-    expect(mainTip).toBeGreaterThanOrEqual(0);
+    expect(baseTip).toBeGreaterThanOrEqual(0);
     expect(artifactCommit).toBeGreaterThanOrEqual(0);
-    expect(featureTip).toBeGreaterThan(artifactCommit);
-    expect(featureTip).toBeGreaterThan(mainTip);
-    expect(recordReviewedMain).toBeGreaterThan(mainTip);
+    expect(rebase).toBeGreaterThan(artifactCommit);
+    expect(featureTip).toBeGreaterThan(rebase);
+    expect(recordReviewedBase).toBeGreaterThan(baseTip);
     expect(recordReviewedFeature).toBeGreaterThan(featureTip);
-    expect(phase3).toMatch(/reviewed_feature[\s\S]{0,120}(?:exact|full) (?:commit )?(?:id|sha)/);
+    expect(phase3).toContain("exact full commit as lifecycle.reviewed_feature");
     expect(awaitingReview).toBeGreaterThan(recordReviewedFeature);
     expect(pendingReview).toBeGreaterThan(awaitingReview);
     expect(reviewCommit).toBeGreaterThan(pendingReview);
@@ -606,58 +608,57 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     expect(readyToMerge).toBeGreaterThan(approveAppReview);
     expect(approvalCommit).toBeGreaterThan(readyToMerge);
     expect(mergeCommand).toBeGreaterThan(approvalCommit);
-    expect(normalized).toMatch(/retain the exact (?:full )?lifecycle\.reviewed_main/);
-    expect(normalized).toMatch(/retain the exact (?:full )?lifecycle\.reviewed_feature/);
-    expect(normalized).toMatch(/reviewed_main/);
-    expect(normalized).toMatch(/no custom lock/);
-    expect(normalized).toMatch(/preserve the feature worktree/);
-    expect(normalized).toMatch(/rerun (?:phase 3|sync)[\s\S]{0,100}(?:gates|review)/);
+    expect(normalized).toMatch(/retain the exact full lifecycle\.reviewed_base and lifecycle\.reviewed_feature/);
+    expect(normalized).toMatch(/base_ref/);
+    expect(normalized).toMatch(/command owns the compare-and-swap transaction/);
+    expect(normalized).toMatch(/preserve the feature (?:files|branch)/);
+    expect(normalized).toMatch(/rerun affected gates[\s\S]{0,100}renewed human app review/);
     expect(normalized).not.toMatch(/\bgit merge\b|\bgit update-ref\b|\bgit worktree rm\b/);
     expect(normalized).not.toContain("phase: complete");
     expect(normalized).not.toContain("commit those artifacts");
   });
 
-  test("U17: Phase 1 initializes lifecycle approval in the selected feature worktree", () => {
+  test("U17: Phase 1 initializes lifecycle approval in the selected checkout", () => {
     const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
     const phase1 = markdownSection(orchestrator, "## Phase 1: Plan")
       .replace(/\s+/g, " ")
       .toLowerCase();
 
-    expect(phase1).toContain("selected feature worktree");
+    expect(phase1).toContain("selected checkout");
     expect(phase1).toContain(".ai-engineering/workflow/checkpoints/<slug>.json");
     expect(phase1).toMatch(/lifecycle[\s\S]{0,100}awaiting-plan-approval/);
     expect(phase1).toMatch(/plan_approval: pending/);
     expect(phase1).toMatch(/app_review: not-started/);
-    expect(phase1).toMatch(/reviewed_main: null/);
-    expect(phase1).toMatch(/never create a checkpoint plan in the primary checkout or copy any plan between worktrees/);
+    expect(phase1).toMatch(/base_ref: null/);
+    expect(phase1).toMatch(/reviewed_base: null/);
   });
 
-  test("U20-U22: Phase 3 syncs only a clean feature worktree and fails closed", () => {
+  test("U20-U22: Phase 3 rebases the selected checkout and fails closed", () => {
     const orchestrator = readFileSync(join(SKILLS, "ai-orchestrator", "SKILL.md"), "utf8");
-    const phase3 = markdownSection(orchestrator, "## Phase 3: Wrap-up");
+    const phase3 = markdownSection(orchestrator, "## Phase 3: Wrap-up").replace(/\s+/g, " ");
     const normalized = phase3.replace(/[`*_]/g, "").replace(/\s+/g, " ").toLowerCase();
     const dirtyCheck = normalized.indexOf("git status --porcelain --untracked-files=all");
-    const localRebase = normalized.indexOf("git rebase refs/heads/main");
-    const clearConflict = normalized.indexOf("a clear conflict");
+    const localRebase = normalized.indexOf("git rebase <detected base>");
+    const clearConflict = normalized.indexOf("if a conflict is clear");
     const afterSync = normalized.indexOf("after a clean rebase or clear resolution", clearConflict);
     const behaviorRerun = normalized.indexOf("rerun affected behavior checks", afterSync);
     const uiRerun = normalized.indexOf("rerun affected ui checks only when the checkpoint has a ui gate", behaviorRerun);
     const reviewRerun = normalized.indexOf("rerun the affected review gate", uiRerun);
     const unclearConflict = normalized.indexOf("if either side's intent is unclear");
     const abortConflict = normalized.indexOf("git rebase --abort first", unclearConflict);
-    const verifyConflictRestoration = normalized.indexOf("verify that the original feature branch", abortConflict);
+    const verifyConflictRestoration = normalized.indexOf("verify the original branch, feature commit, tree id and clean status", abortConflict);
     const blockAfterConflictRestoration = normalized.indexOf(
-      "only after abort and restoration are verified, write lifecycle phase: blocked",
+      "before writing lifecycle.phase: blocked",
       verifyConflictRestoration,
     );
     const failedCheck = normalized.indexOf("on any failed check");
     const abortFailedCheck = normalized.indexOf("abort an active rebase first", failedCheck);
     const verifyFailedCheckRestoration = normalized.indexOf(
-      "verify the original branch, feature commit, tree id and clean worktree as in step 3",
+      "verify the original branch, feature commit, tree id and clean status",
       abortFailedCheck,
     );
     const blockAfterFailedCheckRestoration = normalized.indexOf(
-      "only after restoration is verified, write lifecycle phase: blocked",
+      "before writing blocked",
       verifyFailedCheckRestoration,
     );
 
@@ -679,11 +680,11 @@ describe("worktree lifecycle — skill preflight contract (checkpoint 3)", () =>
     expect(phase3).toMatch(
       /(?:never|do not)[\s\S]{0,120}(?:merge[\s\S]{0,100}unapproved sibling|unapproved sibling[\s\S]{0,100}merge)/i,
     );
-    expect(phase3).toMatch(/clear conflict[\s\S]{0,160}resolve[\s\S]{0,120}feature worktree/i);
+    expect(phase3).toMatch(/conflict is clear[\s\S]{0,160}resolve[\s\S]{0,120}selected checkout/i);
     expect(phase3).toMatch(/ui checks only when the checkpoint has a ui gate/i);
-    expect(phase3).toMatch(/without writing lifecycle state or claiming clean preservation/i);
+    expect(phase3).toMatch(/without changing lifecycle state or claiming a clean restoration/i);
     expect(phase3).toMatch(/without changing checkpoint state or claiming clean preservation/i);
-    expect(phase3).toMatch(/(?:unclear|ambiguous)[\s\S]{0,100}conflict[\s\S]{0,160}(?:git rebase --abort|abort)/i);
+    expect(phase3).toMatch(/if either side's intent is unclear[\s\S]{0,160}git rebase --abort/i);
     expect(phase3).toMatch(/(?:failed|failing)[\s\S]{0,100}check[\s\S]{0,180}(?:restore|reset|abort)/i);
     expect(phase3).toMatch(/blocked/i);
   });

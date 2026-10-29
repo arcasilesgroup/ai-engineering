@@ -1,12 +1,12 @@
 // tests/uninstall-command.spec.ts — behaviour gates for `ai-eng uninstall`
 // (src/commands/uninstall.ts). The product's promise is "revert ai-eng's files, keep
 // yours", so every claim here is about the disk afterwards: the files that are gone, the
-// files still there with their original bytes, the restored `git config
+// files still there with their original bytes, the restored legacy `git config
 // init.templateDir`, the machine record, and the number uninstallMain() returns.
 //
 // The starting states are built with the real installers — `install()` over
 // planEntries()/contractEntries() plus lockText(), exactly init's shape;
-// installMachineCarriers(); installTemplateDir() — and only the end state is asserted.
+// installMachineCarriers(); legacy template state is seeded as older versions wrote it.
 // The interactive path is driven through src/ui.ts's scriptedInput: keys are fed only
 // after the prompt that reads them has rendered, so nothing here can block on a TTY.
 //
@@ -23,16 +23,18 @@ import { join } from "node:path";
 import { uninstallMain } from "../src/commands/uninstall.ts";
 import { contractEntries, planEntries } from "../src/commands/init-shared.ts";
 import { buildLock, install, lockText, sha256 } from "../src/install.ts";
-import { SHIMS, installTemplateDir } from "../src/floor/template.ts";
-import { installMachineCarriers, machineStateFile, readMachineState, rememberTemplateDir } from "../src/surfaces/adapters.ts";
+import { installMachineCarriers, machineStateFile, readMachineState } from "../src/surfaces/adapters.ts";
 import { VERSION } from "../src/version.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
+import { usePrivateStdin } from "./fixtures/private-stdin.ts";
 
 const cwdBefore = process.cwd();
+const envBefore = snapshotSandboxEnv();
 process.env["NO_COLOR"] = "1";
 process.env["CI"] = "1";
-// scriptedInput adds one data listener per call and a question chain crosses Node's default
-// cap of 10; the wrapper raises it for its own stream, not for the real stdin it listens on.
-process.stdin.setMaxListeners(0);
+// The keys go through a stdin only this suite writes to: on the runner's real one, a stray
+// byte from whatever launched `bun test` answers the open prompt (tests/fixtures/private-stdin.ts).
+const stdin = usePrivateStdin();
 
 /** The prompt fragments. Each one is text that appears for the FIRST time at the prompt
  *  it belongs to — a fragment already on screen would match instantly and the key would
@@ -44,6 +46,16 @@ const MACHINE = "Delete the machine side";
 const PROJECT_KEYS = "\r";
 const EVERYTHING_KEYS = "\x1b[B\r";
 const CANCEL_KEYS = "\x1b[B\x1b[B\r";
+const LEGACY_SHIMS = ["pre-commit", "commit-msg", "pre-push"] as const;
+const LEGACY_SHIM_MARKER = "ai-eng git floor shim";
+const OPTIONAL_PACKS = [
+  { id: "triage", skill: "ai-triage" },
+  { id: "design-md-planner", skill: "ai-design-md-planner" },
+  { id: "audit-design", skill: "ai-audit-design" },
+  { id: "visual-recap", skill: "ai-visual-recap" },
+  { id: "writing-behavior", skill: "ai-writing-behavior" },
+  { id: "stress-test", skill: "ai-stress-test" },
+] as const;
 
 let sandbox: string | undefined;
 
@@ -74,8 +86,7 @@ function gitInit(cwd: string): void {
   if (done.status !== 0) throw new Error(`git init failed: ${done.stderr}`);
 }
 
-/** The global `init.templateDir` exactly as git sees it for this sandbox — the file
- *  template.ts writes into, read back with the same variable. */
+/** The global `init.templateDir` exactly as git sees it for this sandbox. */
 function globalTemplateDir(): string | null {
   const done = spawnSync("git", ["config", "--global", "--get", "init.templateDir"], {
     encoding: "utf8",
@@ -91,6 +102,33 @@ function setGlobalTemplateDir(dir: string): void {
   });
 }
 
+function writeLegacyTemplateShims(dir: string, names: readonly string[] = LEGACY_SHIMS): void {
+  for (const name of names) {
+    const path = join(dir, "hooks", name);
+    mkdirSync(join(dir, "hooks"), { recursive: true });
+    writeFileSync(path, `#!/bin/sh\n# ${LEGACY_SHIM_MARKER}\n`, { mode: 0o755 });
+  }
+}
+
+function recordLegacyTemplateDir(previous: string | null, ours: string | null): void {
+  writeFileSync(
+    machineStateFile(),
+    `${JSON.stringify({ version: "2.5.0", carriers: {}, templateDir: { previous, ours } }, null, 2)}\n`,
+  );
+}
+
+function sourceSkillFile(skillName: string, packId: string): string {
+  const repo = join(import.meta.dir, "..");
+  const candidates = [
+    join(repo, "skills", skillName, "SKILL.md"),
+    join(repo, "packs", packId, "SKILL.md"),
+    join(repo, "packs", skillName, "SKILL.md"),
+  ];
+  const found = candidates.find(existsSync);
+  if (!found) throw new Error(`the canonical inventory has no SKILL.md for ${skillName}`);
+  return found;
+}
+
 /** A real init-shaped install: the contract files once, the plan's files, the shims made
  *  executable, and the lock built from the same entries — src/commands/init.ts's
  *  scaffoldProject(), with the human's lines left out. Returns the paths it owns. */
@@ -99,7 +137,7 @@ function initShaped(surfaces: string[]): string[] {
   install(cwd, contractEntries("2026-09-14"));
   const entries = planEntries(surfaces);
   install(cwd, entries);
-  for (const shim of SHIMS) {
+  for (const shim of LEGACY_SHIMS) {
     const path = join(cwd, ".git", "hooks", shim);
     if (existsSync(path)) chmodSync(path, 0o755);
   }
@@ -174,18 +212,14 @@ function everythingScope(contract: string, machine: string): Array<[string, stri
 
 afterEach(() => {
   process.chdir(cwdBefore);
-  delete process.env["AI_ENG_HOME"];
-  delete process.env["PI_CODING_AGENT_DIR"];
-  delete process.env["GIT_CONFIG_GLOBAL"];
+  // Restore, never delete: a later suite in the same process must see the home it started with.
+  restoreSandboxEnv(envBefore);
   if (sandbox) rmSync(sandbox, { recursive: true, force: true });
   sandbox = undefined;
 });
 
 afterAll(() => {
-  // scriptedInput attaches a data listener to the real stdin on every call; leaving the
-  // stream flowing keeps the process alive after the last test.
-  process.stdin.pause();
-  process.stdin.removeAllListeners("data");
+  stdin.restore();
 });
 
 describe("uninstall · this project (the lock is the ownership register)", () => {
@@ -222,6 +256,33 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(out).toContain("✓ .cursor/hooks.json removed · still the template ai-eng installed");
     expect(out).toContain("✓ ai-eng.lock deleted · 8 owned files swept");
     expect(out).toContain("ai-eng is no longer active in this repo. Your contract files remain.");
+  });
+
+  test("a byte on the runner's own stdin never answers a prompt: the sweep still runs", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    initShaped(["cursor"]);
+    // Premise: the suite's prompts read a stream of their own, not the runner's.
+    expect(process.stdin).not.toBe(stdin.runnerStdin);
+
+    const cap = startCapture();
+    const run = uninstallMain();
+    try {
+      await until(cap, SELECT);
+      // A newline from the shell that launched the run — on a shared stdin it is Enter on
+      // the scope picker, the scripted Enter then lands on "Confirm?" (default No), and
+      // nothing is removed.
+      stdin.runnerStdin.emit("data", Buffer.from("\n"));
+      await sleep(40);
+      process.stdin.emit("data", Buffer.from(PROJECT_KEYS));
+      await until(cap, CONFIRM);
+      process.stdin.emit("data", Buffer.from("y"));
+      expect(await run).toBe(0);
+    } finally {
+      cap.stop();
+    }
+    expect(existsSync(join(cwd, ".ai-engineering", "ai-eng.lock"))).toBe(false);
+    expect(existsSync(join(cwd, ".cursor", "hooks.json"))).toBe(false);
   });
 
   test("a settings file the user already owned: their hook entries survive verbatim, ours do not", async () => {
@@ -524,17 +585,16 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true);
   });
 
-  test("a templateDir we created is removed and the setting goes back to unset", async () => {
-    const { cwd } = sandboxed();
+  test("an older version's templateDir is removed and the setting goes back to unset", async () => {
+    const { cwd, machine } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
 
-    const floor = installTemplateDir();
-    expect(floor.status).toBe("created");
-    const ours = floor.ours ?? "";
-    for (const shim of SHIMS) expect(existsSync(join(ours, "hooks", shim))).toBe(true);
+    const ours = join(machine, "git-template");
+    writeLegacyTemplateShims(ours);
+    recordLegacyTemplateDir(null, ours);
+    setGlobalTemplateDir(ours);
     expect(globalTemplateDir()).toBe(ours);
-    rememberTemplateDir(floor.previous, floor.ours);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 
@@ -542,6 +602,51 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(globalTemplateDir()).toBeNull(); // it was unset before, so it is unset after
     expect(existsSync(ours)).toBe(false);
     expect(out).toContain("✓ git init.templateDir unset (it was unset before)");
+  });
+
+  test("an older templateDir is restored and selected packs are removed", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    writeFileSync(
+      join(cwd, ".ai-engineering", "config.toml"),
+      `[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = [${[...OPTIONAL_PACKS.map((pack) => pack.id), "verify-tiers"].map((pack) => `"${pack}"`).join(", ")}]\n`,
+    );
+    const coreSkill = join(machine, "skills", "ai-orchestrator", "SKILL.md");
+    mkdirSync(join(machine, "skills", "ai-orchestrator"), { recursive: true });
+    writeFileSync(coreSkill, readFileSync(join(import.meta.dir, "..", "skills", "ai-orchestrator", "SKILL.md"), "utf8"));
+    const installedPacks = OPTIONAL_PACKS.map(({ id, skill }) => {
+      const path = join(machine, "skills", skill, "SKILL.md");
+      mkdirSync(join(machine, "skills", skill), { recursive: true });
+      writeFileSync(path, readFileSync(sourceSkillFile(skill, id), "utf8"));
+      return path;
+    });
+    const verifyTiersPack = join(machine, "skills", "ai-verify", "tiers", "installed-pack-check");
+    mkdirSync(join(machine, "skills", "ai-verify", "tiers"), { recursive: true });
+    writeFileSync(verifyTiersPack, "selected verify-tiers pack\n");
+    installedPacks.push(verifyTiersPack);
+    expect(installedPacks.every(existsSync)).toBe(true);
+
+    const previous = join(sandbox!, "older-template");
+    const ours = join(sandbox!, "legacy-owned-template");
+    writeLegacyTemplateShims(ours);
+    mkdirSync(join(previous, "hooks"), { recursive: true });
+    const existingHook = "#!/bin/sh\necho older template\n";
+    writeFileSync(join(previous, "hooks", "pre-commit"), existingHook);
+    setGlobalTemplateDir(ours);
+    recordLegacyTemplateDir(previous, ours);
+    expect(globalTemplateDir()).toBe(ours);
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(existsSync(coreSkill)).toBe(false);
+    for (const path of installedPacks) expect(existsSync(path)).toBe(false);
+    expect(existsSync(machine)).toBe(false);
+    expect(globalTemplateDir()).toBe(previous);
+    expect(existsSync(ours)).toBe(false);
+    expect(readFileSync(join(previous, "hooks", "pre-commit"), "utf8")).toBe(existingHook);
+    expect(out).toContain(`✓ git init.templateDir restored to ${previous}`);
   });
 
   test("a templateDir the user owned keeps their setting and loses only our shims", async () => {
@@ -552,15 +657,9 @@ describe("uninstall · the machine side (Everything scope)", () => {
     mkdirSync(join(userDir, "hooks"), { recursive: true });
     const theirs = "#!/bin/sh\necho my own pre-push\n";
     writeFileSync(join(userDir, "hooks", "pre-push"), theirs);
+    writeLegacyTemplateShims(userDir, ["pre-commit", "commit-msg"]);
     setGlobalTemplateDir(userDir);
-
-    const floor = installTemplateDir();
-    expect(floor.status).toBe("joined");
-    expect(floor.ours).toBeNull(); // we joined their directory; we own no directory here
-    expect(floor.previous).toBe(userDir);
-    expect(existsSync(join(userDir, "hooks", "pre-commit"))).toBe(true);
-    expect(existsSync(userDir)).toBe(true);
-    rememberTemplateDir(floor.previous, floor.ours);
+    recordLegacyTemplateDir(userDir, null);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 

@@ -3,7 +3,7 @@
 
 import { resolve, isAbsolute } from "node:path";
 import { existsSync } from "node:fs";
-import type { Payload } from "../chain/payload.ts";
+import type { Payload } from "../payload.ts";
 
 type Skip = { pattern: RegExp; label: string };
 

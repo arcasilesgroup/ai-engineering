@@ -12,6 +12,7 @@
     "bin",
     "src",
     "skills",
+    "packs",
     "agents",
     "scripts/.embed",
     "templates",
@@ -33,6 +34,8 @@
     "lint": "oxlint src tests",
     "typecheck": "oxlint --type-aware --type-check src tests",
     "arch": "bun test tests/arch.spec.ts",
+    "bench": "bun scripts/bench-chain.ts",
+    "tokens": "bun scripts/tokens.ts",
     "mutation": "stryker run",
     "changeset": "changeset"
   },

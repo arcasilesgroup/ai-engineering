@@ -217,23 +217,22 @@ test('install honors the "sha256:" sentinel: take writes, unedited updates apply
   expect(readFileSync(join(root, ".claude", "settings.json"), "utf8")).toBe(unrecorded);
 });
 
-test("update repairs a drifted global canon, not only the repo's assets", () => {
-  // The machine side is half of what ai-eng installed, and it is the half a surface
-  // actually reads. A repo whose own assets are current must not report "all assets
-  // current — nothing to sync" over a drifted canon: `update` repairs the global
-  // canon too, not only the repo's assets.
-  const installed = join(engHome, "skills", "ai-brainstorm", "SKILL.md");
+test("update repairs missing global canon files and preserves local edits", () => {
+  const locallyEdited = join(engHome, "skills", "ai-brainstorm", "SKILL.md");
+  const missing = join(engHome, "skills", "ai-debug", "SKILL.md");
+  const expectedPayload = readFileSync(join(import.meta.dir, "../../skills/ai-debug/SKILL.md"), "utf8");
   expect(eng(["init", "--yes"]).status).toBe(0);
-  expect(existsSync(installed)).toBe(true);
-  const original = readFileSync(installed, "utf8");
+  expect(existsSync(locallyEdited)).toBe(true);
+  expect(existsSync(missing)).toBe(true);
 
-  writeFileSync(installed, "# drifted by hand\n");
+  const localEdit = "# locally edited\n";
+  writeFileSync(locallyEdited, localEdit);
+  rmSync(missing);
   const run = eng(["update", "--yes"]);
-  expect(run.stdout + run.stderr).toContain("global canon outdated or incomplete");
-  expect(readFileSync(installed, "utf8")).toBe(original);
-
-  const doctor = eng(["doctor"]);
-  expect(doctor.stdout + doctor.stderr).toContain("0 drift");
+  expect(run.stdout + run.stderr).toContain("global canon repaired · local changes kept");
+  expect(readFileSync(locallyEdited, "utf8")).toBe(localEdit);
+  expect(existsSync(missing)).toBe(true);
+  expect(readFileSync(missing, "utf8")).toBe(expectedPayload);
 });
 
 test("a repo with no machine-side canon is offered it, never handed it (§14.5b)", () => {

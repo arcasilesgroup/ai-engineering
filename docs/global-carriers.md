@@ -13,12 +13,14 @@ A carrier is the file a host reads to reach `ai-eng chain`. It lives where that 
 | OpenCode | machine | `.config/opencode/plugins/ai-eng.ts` | module | `.config/opencode/plugins/ai-eng-chain.ts` | research/004 §01 (opencode loads plugins from `~/.config/opencode/plugins/`) | 2026-09-14 |
 | Cursor | repo | `.cursor/hooks.json` | settings | — | research/003 · cursor.com/docs/cloud-agent: cloud VMs have no access to your local home directory, and the user level loses to the project one | 2026-09-11 |
 | Codex CLI | machine | `.codex/hooks.json` | settings | — | research/004 §01 (user hooks load even when the project is untrusted) · openai/codex#20321: trust is per hook definition, pinned by hash | 2026-09-14 |
-| Copilot | repo | `.github/hooks/ai-eng.json` | settings | — | research/003: VS Code Copilot Chat and the cloud agent read the repo copy only | 2026-09-11 |
-| Copilot | machine | `.copilot/hooks/ai-eng.json` | settings | — | research/004 §01: Copilot CLI 1.0.83 reads `~/.copilot/hooks/*.json` and never fires the repo copy | 2026-09-14 |
-| Pi | machine | `.pi/agent/extensions/ai-eng.ts` | module | `.pi/agent/extensions/ai-eng-chain.ts` | pi.dev/docs/latest/extensions · brainstorm TrustFacts §3: pi has no native user-level HOOKS, only extensions | 2026-09-14 |
+| Copilot CLI | repo | `.github/hooks/ai-eng.json` | settings | — | research/003: the cloud agent reads the repo copy; VS Code support is not documented | 2026-09-11 |
+| Copilot CLI | machine | `.copilot/hooks/ai-eng.json` | settings | — | research/004 §01: Copilot CLI reads `~/.copilot/hooks/*.json` | 2026-09-14 |
+| Pi | machine | `.pi/agent/extensions/ai-eng.ts` | module | `.pi/agent/extensions/.ai-eng-chain.ts` | pi.dev/docs/latest/extensions · brainstorm TrustFacts §3: pi has no native user-level hooks, only extensions | 2026-09-14 |
 | Zed | — | — | — | — | `carriers: []` — it denies through its OWN tool permissions (`agent.tool_permissions`, `always_deny` regexes) and never by running our chain; its WASM extension API adds languages, themes, debuggers, MCP servers and slash commands, none of which intercepts a tool call, so there is no seat for a guard (`zed.dev/docs/ai/tool-permissions`, measured 2026-09-14 on Zed 1.19.2) | — |
 
-Machine paths are relative to the base every machine-side path hangs off (`machineBase()` in `src/surfaces/adapters.ts`): `AI_ENG_HOME` when a test set it, otherwise the real physical home. A test install must never rewrite the real `~/.claude`, `~/.omp`, `~/.pi` or `~/.config`.
+Machine paths are relative to the base every machine-side path hangs off (`machineBase()` in `src/surfaces/adapters.ts`): the physical home by default, or the alternate base supplied by `AI_ENG_HOME`. A test install must never rewrite the real `~/.claude`, `~/.omp`, `~/.pi` or `~/.config`.
+
+When `PI_CODING_AGENT_DIR` is set, Oh My Pi and Pi carriers are placed under that host-provided agent directory instead of the default `.omp/agent` or `.pi/agent` path.
 
 `chain` is a second file that must sit beside the entry: hosts that run the carrier in-process import the chain from it. The OMP bundle is dot-prefixed because the host's hook scanner loads every `*.ts` in that directory. `carrierFiles(id, scope)` decides whether a surface has a generator at all — no adapter, no offer — and `init` refuses a surface that cannot carry a required guard (`surfaceCanGovern`).
 

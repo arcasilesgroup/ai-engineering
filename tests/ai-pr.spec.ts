@@ -11,14 +11,74 @@ const skillFile = join(import.meta.dir, "..", "skills", "ai-pr", "SKILL.md");
 const skill = existsSync(skillFile) ? readFileSync(skillFile, "utf8") : "";
 
 describe("ai-pr skill — the full pull-request loop", () => {
-  test("exists and keeps a Lifecycle block", () => {
+  test("exists", () => {
     expect(existsSync(skillFile)).toBe(true);
-    expect(skill).toContain("## Lifecycle");
   });
 
-  test("opens the pull request against main with gh pr create --base main", () => {
-    expect(skill).toMatch(/gh pr create/);
-    expect(skill).toMatch(/--base\s+main|--base=main/);
+  test("resolves the PR base in 6.7 precedence order", () => {
+    const precedence = [
+      skill.search(/explicit (?:base|ref|branch)/i),
+      skill.search(/\[git\]\s*base/i),
+      skill.search(/git symbolic-ref --quiet refs\/remotes\/[^`\s]+\/HEAD/i),
+      skill.search(/gh repo view --json defaultBranchRef/),
+      skill.search(/az repos show --query defaultBranch/),
+      skill.search(/ask once/i),
+    ];
+
+    expect(precedence.every((position) => position >= 0)).toBe(true);
+    expect(precedence).toEqual([...precedence].sort((left, right) => left - right));
+    expect(skill).toMatch(/upstream.{0,80}origin|origin.{0,80}upstream/i);
+    expect(skill).toMatch(/(?:only.{0,100}(?:PR|pull request)|(?:PR|pull request).{0,100}only)/i);
+  });
+
+  test("uses each forge's create command without a hard-coded target branch", () => {
+    const commandBlocks = [...skill.matchAll(/```[\s\S]*?```/g)].map(([block]) => block);
+    const targetArgumentPattern =
+      /(?:--base|-B|--target-branch)(?:=|\s+)(?:"([^"]+)"|'([^']+)'|([^\s\\]+))/g;
+
+    for (const command of ["gh pr create", "az repos pr create"]) {
+      const commandBlock = commandBlocks.find((block) => block.includes(command)) ?? "";
+      expect(commandBlock).not.toBe("");
+
+      const commandLine = commandBlock.split(/\r?\n/).find((line) => line.includes(command)) ?? "";
+      const targetArguments = [...commandLine.matchAll(targetArgumentPattern)].map(
+        ([, doubleQuoted, singleQuoted, unquoted]) => doubleQuoted ?? singleQuoted ?? unquoted,
+      );
+      expect(targetArguments).toEqual(["$base_branch"]);
+    }
+  });
+
+  test("normalizes remote-tracking refs before passing forge target arguments", () => {
+    expect(skill).toMatch(/keep the selected Git revision as `\$base_ref` for comparisons/i);
+    expect(skill).toMatch(/forge target separately as `\$base_branch`, a short branch name/i);
+    expect(skill).toMatch(/strip\s+`refs\/remotes\/<remote>\/`/i);
+    expect(skill).toMatch(/never pass a full ref or remote prefix as a forge target/i);
+    expect(skill).toContain("branches/<base_branch>/protection");
+  });
+
+  test("routes a repository without a remote to local merge or one ask", () => {
+    expect(skill).toMatch(/(?:no remote|without a remote)[\s\S]{0,160}(?:local merge|ask)/i);
+  });
+
+  test("pushes and verifies the selected branch only in a requested PR flow before creation", () => {
+    const push = skill.indexOf('git push "$remote" "$branch"');
+    const verify = skill.indexOf('git ls-remote --heads "$remote" "refs/heads/$branch"');
+    const create = skill.indexOf("gh pr create");
+
+    expect(skill).toMatch(/only in this explicitly requested PR flow, push the selected source branch/i);
+    expect(skill).toMatch(/publishes a local-only branch/i);
+    expect(skill).toMatch(/normal, non-force push/i);
+    expect(skill).toMatch(/verify the remote branch tip matches local `HEAD`/i);
+    expect(skill).toMatch(/With no remote, do not push or create a PR/i);
+    expect(push).toBeGreaterThan(-1);
+    expect(verify).toBeGreaterThan(push);
+    expect(create).toBeGreaterThan(verify);
+  });
+
+  test("asks once when the detected base is the current branch", () => {
+    expect(skill).toMatch(
+      /base[\s\S]{0,120}(?:equals?|equal to|matches?|same as)[\s\S]{0,60}(?:current|working) branch[\s\S]{0,80}ask.{0,20}once/i,
+    );
   });
 
   test("assembles the pull-request body from the merge commits the branch carries", () => {
@@ -109,11 +169,12 @@ describe("ai-pr skill — the full pull-request loop", () => {
     expect(skill).toMatch(/allow_(squash|merge|rebase)|allowed_merge_methods/);
   });
 
-  test("U-PR-d: fetches before reading origin/main..HEAD for the body", () => {
+  test("U-PR-d: fetches before reading the selected base..HEAD for the body", () => {
     expect(skill).toMatch(/git fetch/);
-    const range = /origin\/main\s*\.\.\s*HEAD/;
+    const range = /(?:<base(?:_ref)?>|\$base(?:_ref)?|\$\{base(?:_ref)?\}|base(?:_ref)?)["']?\s*\.\.\s*HEAD/i;
     expect(skill).toMatch(range);
-    // The fetch precedes the range in the text of the body assembly.
+    expect(skill).not.toMatch(/origin\/main\s*\.\.\s*HEAD/);
+    // The selected base is fetched before the range used for the body.
     expect(skill.search(/git fetch/)).toBeGreaterThan(-1);
     expect(skill.search(/git fetch/)).toBeLessThan(skill.search(range));
   });
@@ -137,7 +198,7 @@ describe("ai-pr skill — the full pull-request loop", () => {
     // The blocking gates are queried from branch protection, not guessed.
     expect(skill).toMatch(/required_status_checks/);
     expect(skill).toMatch(/gh api/);
-    expect(skill).toMatch(/branches\/main\/protection|branch protection/i);
+    expect(skill).toMatch(/branches\/(?:<base_branch>|\$\{?base_branch\}?|\$base_branch)\/protection/i);
     // Everything else is advisory.
     expect(skill).toMatch(
       /(rest|other|remaining|non-required)[^.]{0,150}(workflow|check|job)[^.]{0,150}(inform|advisory|non-?blocking|do(es)? not block|don't block|report only)/i,

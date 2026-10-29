@@ -11,7 +11,7 @@ import { describe, expect, test } from "bun:test";
 import {
   atomicWriteReport,
   writeAzureTriageReport,
-} from "../skills/ai-triage/scripts/render-report.mjs";
+} from "../packs/triage/scripts/render-report.mjs";
 
 const targetReport = ".ai-engineering/triage.html";
 const syntheticOrganization = "https://dev.azure.com/synthetic-org";

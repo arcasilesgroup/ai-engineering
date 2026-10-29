@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   collectAzureBacklog,
   createAzureDevOpsInvoker,
-} from "../skills/ai-triage/scripts/collect-azure.mjs";
+} from "../packs/triage/scripts/collect-azure.mjs";
 
 const scope = {
   organization: "https://dev.azure.com/synthetic-org",

@@ -1,15 +1,10 @@
 ---
 name: ai-research
 description: >-
-  Finds evidence from outside this repository and reports it with numbered citations, or
-  marks a claim [unsourced] and leaves it marked. Uses only the tools the client actually
-  has: the local floor is always on, web search / Tavily / Exa run only when the client
-  configured them, and NotebookLM deep research runs only when `notebooklm doctor` passes —
-  an absent tool degrades and is named, never an error. Ends with three cited directions
-  worth taking. Trigger for "what does the state of the art say", "compare the options
-  for", "find sources on", "is this still true", "what do the docs say about". Not for
-  questions whose answer is in this repository — use /ai-explore. Not for diagnosing a
-  failure — use /ai-debug. Not for deciding what to build — use /ai-orchestrator.
+  Finds external evidence with numbered citations; marks unsupported claims unsourced and
+  names unavailable tools. Trigger: "state of the art", "compare options", "find sources",
+  "is this still true", or "what do the docs say". Not for repo answers (/ai-explore), bugs
+  (/ai-debug), or deciding what to build (/ai-orchestrator).
 license: Apache-2.0
 ---
 

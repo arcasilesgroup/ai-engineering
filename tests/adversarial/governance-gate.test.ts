@@ -75,6 +75,42 @@ describe("adversarial · the gate (config.toml decides, not .git)", () => {
     }
   });
 
+  test("ungoverned repo allows Write, checkpoint markers and Stop without creating state", () => {
+    const foreign = foreignRepo();
+    try {
+      const before = readdirSync(foreign).sort();
+      const checkpointPath = join(foreign, ".ai-engineering", "workflow", "checkpoints", "foreign.json");
+      const calls = [
+        [
+          { tool_name: "Write", tool_input: { file_path: checkpointPath, content: "{}" }, cwd: foreign },
+          "PreToolUse",
+        ],
+        [
+          { tool_name: "Agent", tool_input: { prompt: "[checkpoint foreign#1 tests]\nDo the work." }, cwd: foreign },
+          "PreToolUse",
+        ],
+        [
+          { hook_event_name: "Stop", session_id: "foreign-stop", cwd: foreign },
+          "Stop",
+        ],
+      ] as const;
+
+      for (const [payload, event] of calls) {
+        const outcome = runChain(payload, event, { inProcess: true });
+        expect(outcome.action).toBe("allow");
+        if (outcome.action === "allow") {
+          expect(outcome.guards).toEqual([]);
+          expect(outcome.receiptId).toBeNull();
+        }
+      }
+
+      expect(existsSync(join(foreign, ".ai-engineering"))).toBe(false);
+      expect(readdirSync(foreign).sort()).toEqual(before);
+    } finally {
+      rmSync(foreign, { recursive: true, force: true });
+    }
+  });
+
   test("no writes in a foreign repo: no receipts, no .ai-engineering invented", () => {
     const foreign = foreignRepo();
     try {

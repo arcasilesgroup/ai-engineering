@@ -42,12 +42,6 @@ INSTALLED="$P2DIR/.github/workflows/ai-eng-check.yml"
 cmp -s "$INSTALLED" "$TEMPLATE" || die "P2: the installed workflow differs from $TEMPLATE"
 say "P2 evidence: workflow installed, byte-identical to $TEMPLATE"
 
-# ── P3: close with no contract is fail-closed, and says why ─────────────────────
-P3OUT=$($AI_ENG_BIN spec close 2>&1); P3CODE=$?
-[ "$P3CODE" = "2" ] || die "P3: spec close with no contract exited $P3CODE (expected 2)"
-printf '%s' "$P3OUT" | grep -q 'no live contract' || die "P3: spec close did not name the missing contract"
-say "P3 evidence: no contract → exit 2, message names it"
-
 # The template's own rules (no fail-open, nothing from npm, every action SHA-pinned,
 # one declared version) are asserted in tests/installed-ci.spec.ts, against the same
 # bytes P2 proved identical to what init installs. Re-checking them here would be the

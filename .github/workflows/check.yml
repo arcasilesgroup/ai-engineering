@@ -23,14 +23,23 @@ jobs:
           set -euo pipefail
           sh scripts/toolchain.sh actionlint
           cp templates/ci.yml.tpl "$RUNNER_TEMP/ci-tpl.yml"
-          actionlint .github/workflows/{check,e2e,mutation,release,version}.yml "$RUNNER_TEMP/ci-tpl.yml"
+          actionlint .github/workflows/{check,e2e,mutation,platforms,release,version}.yml "$RUNNER_TEMP/ci-tpl.yml"
       - run: bun install --frozen-lockfile
       - name: Typecheck
         run: bun run typecheck
       - name: Lint (oxlint)
         run: bun run lint
       - name: Unit + adversarial tests
-        run: bun test
+        run: |
+          set -euo pipefail
+          # Keep the check's single serial suite run as the coverage source for Sonar.
+          trap 'rm -f .bunfig.coverage.toml' EXIT
+          printf '[test]\ncoverage = true\ncoverageReporter = ["lcov"]\ncoverageDir = "coverage"\npreload = ["./tests/preload.ts"]\n' > .bunfig.coverage.toml
+          bun --config=.bunfig.coverage.toml test --parallel=1
+          # Ignore carrier copies materialized outside the source tree; Sonar cannot map them.
+          awk '/^SF:/{keep = ($0 ~ /^SF:src\//)} keep' coverage/lcov.info > coverage/lcov.src.info
+          mv coverage/lcov.src.info coverage/lcov.info
+          test -s coverage/lcov.info
       - name: CLI sandbox proofs (NO_COLOR, six init paths, update idempotence, uninstall)
         run: sh scripts/proof-cli-ux.sh
       - name: Architecture
@@ -52,6 +61,12 @@ jobs:
         run: ./dist/ai-eng update --yes
       - name: Doctor (canon drift · lock version · spec pin · receipts)
         run: ./dist/ai-eng doctor
+      - name: Upload check coverage for SonarCloud
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: check-coverage
+          path: coverage/lcov.info
+          if-no-files-found: error
 
   security:
     runs-on: ubuntu-latest
@@ -106,7 +121,7 @@ jobs:
 
   sonarcloud:
     name: SonarCloud
-    needs: [tokens]
+    needs: [tokens, check]
     if: needs.tokens.outputs.sonar == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -115,24 +130,10 @@ jobs:
         with:
           # Sonar cannot tell new code from old without the history.
           fetch-depth: 0
-      - run: npm install -g bun@1.4.2
-      - run: bun install --frozen-lockfile
-      # Coverage is off in bunfig (`[test] coverage = false`), and bun 1.4.2 lets the
-      # config file beat the flag: `bun test --coverage` alone wrote no report
-      # (measured). So this job runs the suite against a config of its own and leaves
-      # the fast local default untouched.
-      - name: Tests with the lcov report Sonar reads
-        run: |
-          set -euo pipefail
-          printf '[test]\ncoverage = true\ncoverageReporter = ["lcov"]\ncoverageDir = "coverage"\n' > "$RUNNER_TEMP/bunfig.coverage.toml"
-          bun --config="$RUNNER_TEMP/bunfig.coverage.toml" test
-          # bun records every file it loaded, and the carrier tests materialize their own
-          # copies under the system temp dir — files that are not in this project, so
-          # Sonar can map them nowhere and they only blur the metric. Keep what Sonar
-          # can resolve: the sources it analyzes.
-          awk '/^SF:/{keep = ($0 ~ /^SF:src\//)} keep' coverage/lcov.info > coverage/lcov.src.info
-          mv coverage/lcov.src.info coverage/lcov.info
-          test -s coverage/lcov.info
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: check-coverage
+          path: coverage
       - name: SonarCloud scan
         uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
         env:

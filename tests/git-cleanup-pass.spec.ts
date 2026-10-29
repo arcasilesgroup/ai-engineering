@@ -11,33 +11,45 @@ const skill = readFileSync(join(import.meta.dir, "..", "skills", "ai-git-cleanup
 const orchestrator = readFileSync(join(import.meta.dir, "..", "skills", "ai-orchestrator", "SKILL.md"), "utf8");
 
 describe("ai-git-cleanup skill — the one-pass, name-free rewrite", () => {
-  test("documents the merged-branch delete with the explicit main ref", () => {
-    expect(skill).toContain("git branch --delete-merged refs/heads/main");
+  test("uses native Git commands for a read-only preview", () => {
+    expect(skill).toContain("git worktree list");
+    expect(skill).toContain("git worktree prune --dry-run");
+    expect(skill).toContain(
+      `git branch --merged "$base_ref" --format='%(refname:short)' | grep -Fvx -- "$base_branch"`,
+    );
   });
 
-  test("documents the --merged main + -d fallback for branches without that upstream", () => {
-    expect(skill).toContain("git branch --merged main");
+  test("never offers the selected base branch as a deletion candidate", () => {
+    expect(skill).toContain("base's short local branch name");
+    expect(skill).toContain("the base itself is never a deletion candidate");
+    expect(skill).toContain('grep -Fvx -- "$base_branch"');
   });
 
-  test("force-deletes only behind the step-5 whole-tree proof", () => {
-    // This test used to read "-D appears nowhere". That held until a squash landed:
-    // a branch whose tree is byte-identical to origin/main is provably finished even
-    // though ancestry never merged it, so the pass earned exactly one -D for it. The
-    // narrowing is the rule — no new force-delete, and the one keeps its proof.
-    const forceDeletes = skill.match(/branch -D/g) ?? [];
-    expect(forceDeletes).toHaveLength(2); // the step-5 command, quoted once in the invariants
-    // The ordinary delete stays soft, tested against the branch's own upstream.
+  test("previews every ignored path and requires consent before deleting it", () => {
+    const previewStart = skill.search(/Before\s+requesting approval, list every ignored path/);
+    const removalStart = skill.indexOf("After the person approves the preview");
+    const preview = skill.slice(previewStart, removalStart);
+
+    expect(previewStart).toBeGreaterThan(-1);
+    expect(removalStart).toBeGreaterThan(previewStart);
+    expect(preview).toContain('git -C "$worktree_path" ls-files --others --ignored --exclude-standard');
+    expect(preview).toMatch(/Show every returned path[\s\S]*removing\s+the worktree deletes it/i);
+    expect(preview).toMatch(/If the command fails or cannot prove the complete list,\s*keep the candidate/i);
+    expect(preview).toMatch(/explicitly approve deletion of every listed path/i);
+    expect(preview).toMatch(/including paths classified as regenerable/i);
+    expect(preview).toMatch(/Immediately before\s+removal, rerun the listing[\s\S]*keep the candidate/i);
+  });
+
+  test("detects the base from user choice or repository configuration", () => {
+    expect(skill).toMatch(/explicit\s+choice or repository configuration/);
+    expect(skill).toMatch(/if neither identifies one, ask once/i);
+  });
+
+  test("never force-deletes by default", () => {
     expect(skill).toContain('git branch -d -- "<branch>"');
-    // The proof, the receipt tag and the refusal-without-proof sit with the command.
-    const step = skill.indexOf('git branch -D -- "<branch>"');
-    expect(step).toBeGreaterThan(-1);
-    const around = skill.slice(Math.max(0, step - 900), step + 900);
-    expect(around).toContain("archive/<branch>");
-    expect(around).toMatch(/byte-identical to\s+`origin\/main`/);
-    expect(around).toMatch(/refuse the whole step when `origin\/main` cannot be fetched/);
-    expect(around).toMatch(/only force-delete/);
-    // And the invariant still refuses a force-delete that has no proof.
-    expect(skill).toContain("Never force-delete anything without a proof in hand");
+    expect(skill).toContain("Never use `-D`, `--force`, or retry a refusal.");
+    expect(skill).not.toContain("git branch -D");
+    expect(skill).not.toContain("git branch --force");
   });
 
   test("asks for no name and has no interactive question", () => {
@@ -67,7 +79,8 @@ describe("orchestrator Phase 4 — app-review merge handoff", () => {
     expect(approveStart).toBeGreaterThan(-1);
     expect(stopHere).toBeGreaterThan(approveStart);
     expect(approval).toContain("lifecycle.reviewed_feature");
-    expect(approval).toContain("lifecycle.reviewed_main");
+    expect(approval).toContain("lifecycle.reviewed_base");
+    expect(approval).toContain("lifecycle.base_ref");
     expect(approval).toContain("lifecycle.app_review: approved");
     expect(approval).toContain("lifecycle.phase: ready-to-merge");
     expect(approval).toContain("Invoke exactly `ai-eng worktree merge <slug>`");

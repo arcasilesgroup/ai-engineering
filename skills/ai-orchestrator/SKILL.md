@@ -27,9 +27,9 @@ Everywhere else, decide and keep going:
 ## Context rules (non-negotiable)
 
 - **Never read source code, diffs, test output or screenshots yourself.** Subagents read them and report back in a few lines.
-- **Checkpoint progress lives on disk** in `.ai-engineering/workflow/checkpoints/<slug>.json`; that file is the source of truth for checkpoint status. Phase 0's read-only `ai-eng worktree list` is the source of truth for worktree existence, paths, cleanliness and reported lifecycle status. Change the checkpoint file only with Edit or Write, never through Bash. The same hook validates every write to it: no gate can be passed out of order, no checkpoint can be marked passed with a gate still open, and no checkpoint can be touched while an earlier one is open. Update it after every step, so `/ai-orchestrator resume <slug>` can pick up after a crash or `/clear`.
+- **Checkpoint progress lives on disk** in `.ai-engineering/workflow/checkpoints/<slug>.json`; that file is the source of truth for checkpoint status. Phase 0's read-only `ai-eng worktree list` reports registered worktrees and their lifecycle status; the current checkout may also be the selected feature checkout. Change the checkpoint file only with Edit or Write, never through Bash. The same hook validates every write to it: no gate can be passed out of order, no checkpoint can be marked passed with a gate still open, and no checkpoint can be touched while an earlier one is open. Update it after every step, so `/ai-orchestrator resume <slug>` can pick up after a crash or `/clear`.
 - **Every subagent prompt:**
-  - in Phase 2 and later, **starts with the gate marker** `[checkpoint <slug>#<id> <stage>]`, where `<slug>` is the feature slug you were asked to build and `<stage>` is one of `tests`, `implement`, `behavior`, `ui`, `review` or `fix`. The `checkpoint-gate` hook (`scripts/checkpoint-gate.py`, PreToolUse) reads it and blocks the call with exit code 2 if:
+  - in Phase 2 and later, **starts with the gate marker** `[checkpoint <slug>#<id> <stage>]`, where `<slug>` is the feature slug you were asked to build and `<stage>` is one of `tests`, `implement`, `behavior`, `ui`, `review` or `fix`. The TypeScript checkpoint guard (`src/guards/checkpoint.ts`, in the chain) reads it and blocks the call if:
     - an earlier checkpoint hasn't passed;
     - this checkpoint has already passed;
     - or the gate before this one hasn't passed.
@@ -41,12 +41,16 @@ Everywhere else, decide and keep going:
 - **Subagents can't spawn subagents.** When a prompt points a worker at a skill that says "launch a subagent", add: *"You are already a subagent. Do those steps yourself."* Anything that needs parallel subagents (prototypes, test writers, UI reviewers), you launch directly, several `Agent` calls in one message.
 - **Fresh workers only:** use a new subagent for each step and each fix attempt. Don't continue an earlier one with SendMessage. A worker that wrote the code never reviews it.
 
+## Direct rhythm
+
+Use the Direct rhythm for a bug, spike, or one-session change that does not alter an interface other work depends on. It stays in the current checkout and uses the smallest relevant checks. It has no brainstorm or worktree step; this orchestrator is for the multi-session feature ceremony.
+
 ## Commits: commit as you go
 
-Every step that changes files ends with a commit on `feat/<slug>`, so the git history is a full, resumable record of the run. You make the commits yourself with Bash; the output is small.
+Every step that changes files ends with a commit on the selected feature branch, which need not follow a `feat/<slug>` naming convention, so the git history is a full, resumable record of the run. You make the commits yourself with Bash; the output is small.
 
-- **Tree and branch:** After the Phase 0 preflight, `ai-eng worktree new <slug>` creates a new worktree from local `main`; on resume, use the exact Git-listed path for the same slug and continue only if it is clean, trusted and already on `feat/<slug>`. Never derive a path or switch a branch. Every later step — code, commits, tests, prototypes and plans — happens in that selected worktree. Everything is committed on `feat/<slug>`, and the local `main` gets one `--no-ff` merge commit per feature at the app review, per the `AGENTS.md` git workflow.
-- **Stage explicit paths only.** Never use `git add -A` or `git add .`. The session owns its worktree now, so a loose stage can no longer sweep a sibling session's edits, but an explicit list keeps each commit the slice it claims and keeps the design slots out. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage a design slot (`.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html`, `.ai-engineering/plan.html`) from inside the feature worktree; these primary-tree artifacts must already be committed before new worktree creation, and preflight reports rather than changes any dirty slot. Do not stage `.ai-engineering/workflow/playwright/`, `.env*` or files that were in the Phase 0 baseline.
+- **Tree and branch:** Work in the current checkout by default. Use a worktree when requested or another feature is active here. Prefer the host's native worktree (`claude -w <branch>` or Cursor `/worktree`); if unavailable, `ai-eng worktree new <branch>` starts it from the current `HEAD`. On resume, use its exact Git-listed path and continue the feature's own changes without stashing or resetting them; leave foreign files untouched. Never derive a path or switch branches. Everything is committed on the selected feature branch, and `ai-eng worktree merge <slug>` makes one `--no-ff` merge against the detected base after app review.
+- **Stage explicit paths only.** Never use `git add -A` or `git add .`. The selected checkout may contain other work, so a loose stage could sweep unrelated edits; an explicit list keeps each commit the slice it claims. Stage the step's `changed_files`, its test files, `.ai-engineering/workflow/checkpoints/<slug>.json`, `.ai-engineering/workflow/test-plans/<slug>.json`, `.ai-engineering/workflow/prototypes/<slug>*`, `.ai-engineering/workflow/reviews/<slug>-*.md`, and whichever of `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md` and `CHANGELOG.md` the step touched. Never stage a design slot (`.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html`, `.ai-engineering/plan.html`) unless the step explicitly owns it. Do not stage `.ai-engineering/workflow/playwright/`, `.env*` or files that were in the Phase 0 baseline.
 - **When to commit, and with which message.** The `commit-msg` hook (`src/floor/index.ts`) accepts any of the eleven Conventional Commit types — `feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert` — with an optional scope matching `[a-z0-9._/-]+` (no `#`); it checks nothing about the body. This repo's house convention still puts the checkpoint number in the body rather than the scope — the hook does not enforce that — so `plan`, `gate` and `wip` are gone and the number moved off the scope. Each message ends with the co-author trailer.
 
 | After | Message |
@@ -81,21 +85,16 @@ When the gate passes, every later phase reads both files. `.ai-engineering/PRD.h
 
 ## Phase 0: Preflight
 
-- Before any new or resumed work, run the same read-only, local preflight used by
-  ai-brainstorm: `ai-eng worktree list`, then `ai-eng worktree list <slug>` when the
-  exact requested state is not already present. Use only this current clone's Git
-  inventory, listed paths, dirty/trusted state, lifecycle checkpoint and overlap
-  evidence; report pending human approvals rather than treating them as granted.
-  Before a worktree exists, the list may project `approval-before-start` only from
-  the primary brainstorm with one exact matching feature slug, one fresh approval
-  date (within 14 days), the matching complete status line, and no local
-  `feat/<slug>` branch. A branch without an open worktree is unknown, never
-  pre-worktree approval. This projection is read-only, writes no lifecycle record,
-  and never substitutes for the brainstorm gate above. A missing, draft, malformed,
-  ambiguous, expired or mismatched artifact is unknown/pending and cannot authorize
-  work. Once a worktree exists, its checkpoint alone is authoritative; missing,
-  malformed or contradictory checkpoint state is unknown and never falls back to
-  brainstorm. Before deciding
+- Work in the current checkout by default; a managed worktree is optional, not a
+  prerequisite. Use the local read-only `ai-eng worktree list` to find registered
+  worktrees and active checkpoints, and `ai-eng worktree list <slug>` when checking a
+  specific existing feature. The list reports only Git-registered worktrees and their
+  lifecycle checkpoints; it does not infer a feature from a brainstorm or an
+  unregistered folder. A brainstorm approval is not worktree or lifecycle state, and
+  there is no pre-worktree approval projection. Once a checkpoint exists, it alone is
+  authoritative; missing, malformed or contradictory checkpoint state is unknown and
+  cannot authorize work.
+  Before deciding
   whether work may continue, explicitly surface a pending plan approval as
   `awaiting-plan-approval` with `plan_approval: pending`, a pending app review as
   `awaiting-app-review` with `app_review: pending`, and `ready-to-merge` with
@@ -106,32 +105,25 @@ When the gate passes, every later phase reads both files. `.ai-engineering/PRD.h
   `ready-to-merge`, report that state and ask whether to continue the merge before any
   merge action. Unknown lifecycle state is not approval. Never fetch or sync remote
   state, and never merge an unapproved sibling.
-- If a listed worktree with the same slug has dirty or unknown status, or is missing
-  or untrusted, preserve it, report its exact Git-listed path and evidence, and stop
-  Phase 0 immediately. Do not run `ai-eng worktree new`, resume it, rebase it, run
-  `ai-eng worktree rm`, reset it, switch branches, or otherwise mutate it.
-- Only if that same-slug entry is clean, trusted and already on `feat/<slug>`, resume
-  it using its exact Git-listed path; never derive a path or switch a branch.
-- If the slug is not listed, first classify the other work. Clearly unrelated work
-  may continue untouched. A likely overlap, or dirty/missing/uncertain work that could
-  overlap, means pause here and ask the human for a decision. Only when no matching
-  slug is listed and no likely or uncertain overlap remains, run
-  `ai-eng worktree new <slug>`; it creates a clean feature worktree from local `main`.
-  Semantic near-matches are advisory only, never a substitute for the exact slug.
-  When known relative file paths exist, pass them as `files...` overlap hints to
-  `ai-eng worktree new <slug> [files...]`. Hints can warn about likely overlap.
-  Hints never authorize implementation or replace the approved checkpoint's `files`.
-  Carry any hint that remains in scope into the matching checkpoint's `files` list.
-  Then run `ai-eng worktree list` again and use the exact Git-listed path. If creation
-  refuses, report the reason and stop; do not modify dirty design slots, branches or
-  other work to force it.
-- Record the primary checkout path for the close step using a read-only Git query
-  before entering the selected worktree. Do not switch its branch or stage/commit
-  design slots from preflight. If creation is refused because primary design slots
-  are dirty, report that state and stop without changing it.
-- Record the selected worktree's clean state as a baseline. Delegate environment
+- Resume an exact same-slug feature from its current checkout or its exact Git-listed
+  worktree path. Feature-owned dirty files are continuable; do not stash or reset them.
+  Leave foreign files untouched. If the checkpoint or ownership is unknown, or more
+  than one checkout could be the source, preserve all work and ask instead of guessing.
+- Semantic near-matches are advisory only, never a substitute for the exact slug.
+- Clearly unrelated work may continue untouched. If another active feature could
+  overlap, pause and ask the human to choose whether to isolate it; do not guess from a
+  near-match or from dirty files alone. When isolation is useful or requested,
+  including when another active feature is here, prefer the host's native worktree
+  (`claude -w <branch>` or Cursor
+  `/worktree`); if unavailable, run `ai-eng worktree new <branch>` and use the exact
+  Git-listed path. The branch may have any valid Git name. Dirty design files stay in
+  the current checkout and the managed-worktree command warns that they do not travel.
+  If creation refuses, report the reason and stop; do not modify files or branches to
+  force it. No file hints are accepted;
+  the checkpoint's `files` list remains authoritative.
+- Record the selected checkout's status and existing paths as a baseline; never clean up unrelated work. Delegate environment
   readiness to one `general-purpose` subagent, which reports ready or blocked, and
-  runs from the selected feature worktree without modifying any other worktree:
+  runs from the selected checkout without modifying any other checkout:
   - the local DB is up, if the project has one (Project config → *DB status*; if it's
     down, run *DB start/reset* to apply migrations and the seed);
   - the API health check and the web URL both answer (if not, run the *Dev server*
@@ -153,18 +145,18 @@ Only if automatic sign-in is impossible (Project config gives no way), add the m
 
 ## Phase 1: Plan
 
-Run Phase 1 and its workers from the selected feature worktree. Create the checkpoint
-plan, test plan and prototypes only in the selected feature worktree. Never create a
-checkpoint plan in the primary checkout or copy any plan between worktrees.
+Run Phase 1 and its workers from the selected checkout, normally the current checkout.
+Create the checkpoint plan, test plan and prototypes only there; do not copy plans
+between checkouts.
 
-1. **Checkpoints:** run the `checkpoint-planner` agent with the feature request. Its first write of `.ai-engineering/workflow/checkpoints/<slug>.json` in the selected feature worktree must include `gates` and `ui` for each checkpoint and this lifecycle: `phase: implementation`, `plan_approval: approved`, `app_review: not-started`, `reviewed_main: null`, and `reviewed_feature: null` (`{"phase":"implementation","plan_approval":"approved","app_review":"not-started","reviewed_main":null,"reviewed_feature":null}`). The checkpoint gate rejects a new plan with missing or contradictory state or one written outside the selected worktree at its matching slug path. If it comes back with questions, don't ask the user. Answer them yourself from the PRD, the decisions and the code, re-run it with those answers, and log them as `assumptions`.
-   - Resumed legacy plans keep their existing lifecycle: `awaiting-plan-approval` requires `plan_approval: pending`, `app_review: not-started`, and `reviewed_main: null`.
+1. **Checkpoints:** run the `checkpoint-planner` agent with the feature request. Its first write of `.ai-engineering/workflow/checkpoints/<slug>.json` in the selected checkout must include `gates` and `ui` for each checkpoint and this lifecycle: `phase: implementation`, `plan_approval: approved`, `app_review: not-started`, `base_ref: null`, `reviewed_base: null`, and `reviewed_feature: null`. The checkpoint gate rejects a new plan with missing or contradictory state or one written outside the selected checkout at its matching slug path. If it comes back with questions, don't ask the user. Answer them yourself from the PRD, the decisions and the code, re-run it with those answers, and log them as `assumptions`.
+   - Resumed legacy plans keep their existing lifecycle: `awaiting-plan-approval` requires `plan_approval: pending`, `app_review: not-started`, and cleared review SHAs.
 2. **Test plan:** run a `general-purpose` subagent to do steps 1–2 of `ai-test-planner`. That's the plan only, no tests yet: it writes `.ai-engineering/workflow/test-plans/<slug>.json`, with every case linked to a `checkpoint` and each checkpoint's test commands added to its `verify` array.
 3. **Prototypes:** list the distinct `ui.prototype` paths across the checkpoints. Launch one `general-purpose` subagent per prototype **in parallel**. Each one follows `ai-prototype` for its screen, covering the states named in `ui.states`, and skips the `open` step.
 
-4. **Open the plan:** start the viewer if it isn't already running with `python3 -m http.server 8765` from the selected feature worktree root in the background (not `docs/`, so prototype links resolve), then open `http://localhost:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=<slug>`. It updates live as the JSON changes and remains the progress view for the run. The checkpoint hook checks the local brainstorm artifact's matching feature slug, approval date within 14 days, and matching `complete ·` status line on this first approved lifecycle write. This is local guardrail validation of the HTML approval stamp, not independent proof of who approved it. Then proceed directly to Phase 2 without another approval question.
+4. **Open the plan:** start the viewer if it isn't already running with `python3 -m http.server 8765` from the selected checkout root in the background (not `docs/`, so prototype links resolve), then open `http://localhost:8765/.ai-engineering/workflow/checkpoints/viewer.html?plan=<slug>`. It updates live as the JSON changes and remains the progress view for the run. The checkpoint hook checks the local brainstorm artifact's matching feature slug, approval date within 14 days, and matching `complete ·` status line on this first approved lifecycle write. This is local guardrail validation of the HTML approval stamp, not independent proof of who approved it. Then proceed directly to Phase 2 without another approval question.
 
-For a resumed legacy plan that is still pending at its checkpoint review, preserve its prior human _stop_ 1: checkpoint review. Show the viewer details and use `ask_user_question` to offer: **Approve**, **Edit**, or **Stop**. Do not begin Phase 2 or dispatch its workers until the human approves the checkpoint plan. After approval, set the lifecycle phase to `implementation`, persist `plan_approval: approved`, `app_review: not-started`, `reviewed_main: null`, and `reviewed_feature: null`, and confirm the guarded write succeeded. On **Edit**, keep plan approval pending, update the plan and ask again. This legacy path does not apply to a new plan started from an approved brainstorm.
+For a resumed legacy plan that is still pending at its checkpoint review, preserve its prior human _stop_ 1: checkpoint review. Show the viewer details and use `ask_user_question` to offer: **Approve**, **Edit**, or **Stop**. Do not begin Phase 2 or dispatch its workers until the human approves the checkpoint plan. After approval, set the lifecycle phase to `implementation`, persist `plan_approval: approved`, `app_review: not-started`, and cleared review SHAs, and confirm the guarded write succeeded. On **Edit**, keep plan approval pending, update the plan and ask again. This legacy path does not apply to a new plan started from an approved brainstorm.
 
 ## Phase 2: Checkpoint loop
 
@@ -215,27 +207,54 @@ Use one `general-purpose` subagent to:
 - add an entry under Unreleased in `CHANGELOG.md`;
 - check `FILEMAP.md` is complete, and update `.ai-engineering/PRD.html` if the feature changed scope or business rules;
 - consolidate `LEARNINGS.md`: promote any lesson that now appears in 2 or more Log entries (across all features, not just this one) to a **Rule** citing those entries, and merge Rules that say the same thing. It must never edit or delete a Log entry.
-- these shared-file edits are made on `feat/<slug>` inside the worktree; they reach the primary tree only through the Phase 4 merge step, which is their single writer there.
+- these shared-file edits are made on the selected feature branch; they reach the detected base only through the Phase 4 merge step.
 - in the same pass, when the feature diff matches a trigger, run that skill. `ai-security` when it touches auth, SQL, migrations, or workflows. `ai-write` when it changes a public interface, a documented behaviour, or a command a README shows. Both run when both match. Neither waits for the other.
 
 If anything fails, treat it as a Gate 1 failure on the last checkpoint. First reopen that checkpoint in the JSON: set `gates.behavior.status` to `"failed"`, set `ui` and `review` back to `"pending"` (leave `ui` alone if it's `"n/a"`), and set `status` to `"pending"`. Then run the fixer with `[checkpoint <slug>#<id> fix]`.
 
-Before opening Phase 4, finish and commit Phase 3 changes under the commit-as-you-go rule. Finish any outstanding review artifacts on the feature branch before pinning approval. Stage each existing `.ai-engineering/workflow/reviews/<slug>-*.md` separately; include `.ai-engineering/recap.html` only if the user explicitly requested and created it. Never use a glob with no match. Commit those artifacts, then synchronize the feature worktree:
+Before opening Phase 4, finish and commit Phase 3 changes under the commit-as-you-go rule. Finish any outstanding review artifacts on the selected branch before pinning approval. Stage each existing `.ai-engineering/workflow/reviews/<slug>-*.md` separately; include `.ai-engineering/recap.html` only if the user explicitly requested and created it. Never use a glob with no match. Commit those artifacts, then synchronize the selected checkout:
 
-1. Reconfirm the same slug with read-only `ai-eng worktree list`; use its exact Git-listed path and proceed only when it is the trusted, clean `feat/<slug>` worktree with a present, trusted lifecycle checkpoint. From that path, confirm `git rev-parse --show-toplevel` matches the listed path, `git branch --show-current` is `feat/<slug>`, and `git status --porcelain --untracked-files=all` is empty. Save the original feature commit and its tree ID, and record the exact output of `git rev-parse refs/heads/main` as the local-main target. If the worktree is missing, dirty, unknown or untrusted, or its lifecycle/checkpoint state is missing or untrusted, do not rebase or write any file: preserve the checkpoint and every worktree file unchanged, report the exact path and evidence, and stop. The same no-mutation stop applies if the worktree is on another branch or any read fails; never write `phase: blocked` for a pre-rebase condition.
-2. Run `git rebase refs/heads/main` from only that feature worktree. Do not fetch or otherwise sync remote state, and do not merge an unapproved sibling.
-3. If rebase reports a conflict, first establish that both sides' intent is clear. A clear conflict may be resolved only inside this feature worktree; delegate only that resolution to a fresh `general-purpose` worker with its exact path and an instruction not to touch another worktree, then continue the rebase there. If either side's intent is unclear for this conflict, run `git rebase --abort` first. Only after it succeeds, verify that the original feature branch is checked out, `git rev-parse HEAD` equals the saved original feature commit, `git rev-parse HEAD^{tree}` equals the saved original tree ID, `git rev-parse refs/heads/main` equals the saved local-main target, and `git status --porcelain --untracked-files=all` is empty. If abort fails or any verification is missing or mismatched, stop without writing lifecycle state or claiming clean preservation. Only after abort and restoration are verified, write lifecycle `phase: blocked` with `app_review: not-started` and `reviewed_main: null`, report the conflict and stop. Never force.
-4. After a clean rebase or clear resolution, rerun affected behavior checks, then rerun affected UI checks only when the checkpoint has a UI gate, then rerun the affected review gate before showing the human the integrated result. On any failed check, abort an active rebase first and verify the original branch, feature commit, tree ID and clean worktree as in Step 3. If rebase already completed, restore the feature branch with `git reset --keep <saved-original-feature-sha>` only when the exact feature branch is checked out and the worktree is clean, then verify the original feature commit, tree ID and clean worktree. Only after restoration is verified, write lifecycle `phase: blocked` with `app_review: not-started` and `reviewed_main: null`, report the failure and stop. If abort or restoration fails or cannot be verified, stop without changing checkpoint state or claiming clean preservation. Never force.
-5. After all affected gates pass, confirm the feature worktree is still clean and trusted, then run `git rev-parse refs/heads/main` and require it to equal the exact local-main target used for the rebase. If local main advanced during the gates, repeat this sync procedure against the current ref and rerun affected gates before review. Once stable, run `git rev-parse refs/heads/feat/<slug>` and capture its exact full commit ID. Use a guarded Edit or Write in the feature worktree to set `lifecycle.reviewed_main` to the exact full commit ID returned by that command (never an abbreviated ID), `lifecycle.reviewed_feature` to the exact full commit ID returned by the feature-tip command, `lifecycle.phase` to `awaiting-app-review`, and `lifecycle.app_review` to `pending`. Confirm the guarded write succeeded, then stage and make a checkpoint-only commit containing only `.ai-engineering/workflow/checkpoints/<slug>.json`; verify that commit changes only that checkpoint and leaves the reviewed feature code tree unchanged. Only then proceed to Phase 4.
+1. Reconfirm the selected checkout and branch. The current checkout is valid; if using
+   a linked worktree, confirm its exact Git-listed path. Run
+   `git status --porcelain --untracked-files=all` and require a clean tree. Capture
+   the full branch ref with `git symbolic-ref --quiet HEAD`, then capture its full
+   commit with `git rev-parse <selected branch ref>`. Resolve the base using the detection
+   order in `.ai-engineering/brainstorm.html` §6.7; if it says ask, ask once rather
+   than guessing. Identify its full local ref as `base_ref`; run
+   `git rev-parse <base_ref>` and retain its exact full commit as the rebase target.
+   Never fetch or sync remote state, or merge an unapproved sibling.
+2. From the selected checkout run `git rebase <detected base>`. If a conflict is clear, resolve
+   it in the selected checkout, stage only the resolved paths, and continue the rebase.
+   If either side's intent is unclear, run `git rebase --abort` first. Verify the original branch,
+   feature commit, tree ID and clean status are restored before writing
+   `lifecycle.phase: blocked`; if restoration cannot be verified, preserve the current
+   state and stop without changing lifecycle state or claiming a clean restoration.
+3. After a clean rebase or clear resolution, rerun affected behavior checks, rerun
+   affected UI checks only when the checkpoint has a UI gate, then rerun the affected
+   review gate. On any failed check, abort an active rebase first, restore the selected
+   feature branch to its captured pre-rebase commit only when the tree is clean, and
+   verify the original branch, feature commit, tree ID and clean status before writing
+   `blocked`. If any restoration check fails, stop without changing checkpoint state or
+   claiming clean preservation.
+4. After all affected gates pass, rerun `git rev-parse <base_ref>` and require its exact
+   full commit to equal the target used for the rebase. If it moved, rebase onto the
+   detected base again and rerun affected gates before review. Run
+   `git rev-parse <selected branch ref>` and capture that exact full commit as
+   `lifecycle.reviewed_feature`. Use the checkpoint-gated state update to set
+   `lifecycle.base_ref`, retain the exact full commit as `lifecycle.reviewed_base`, set
+   `lifecycle.phase` to `awaiting-app-review` and `lifecycle.app_review` to `pending`,
+   then make and verify a checkpoint-only commit.
+5. Only then proceed to Phase 4 with the exact pending checkpoint commit SHA. Keep the
+   selected checkout and branch in place.
 
 ## Phase 4: Human stop 2, app review
 
 The feature isn't done until a human has looked at it. Before asking, verify the
-lifecycle is `awaiting-app-review` with `app_review: pending`, `reviewed_main` equal
-to the exact local main commit synchronized in Phase 3, and a clean feature worktree
-whose `HEAD` equals `refs/heads/feat/<slug>`. Capture that exact full branch SHA from
-`git rev-parse refs/heads/feat/<slug>` as `PENDING_REVIEW_SHA`; Phase 3 guarantees it
-is the pending checkpoint-only review commit. Make sure the dev server is running,
+lifecycle is `awaiting-app-review` with `app_review: pending`, `reviewed_base` equal
+to the exact detected base commit recorded in Phase 3, and a clean selected checkout
+whose `HEAD` equals its checked-out branch ref. Capture that exact full branch SHA
+from `git rev-parse <selected branch ref>` as `PENDING_REVIEW_SHA`; Phase 3 guarantees
+it is the pending checkpoint-only review commit. Make sure the dev server is running,
 then use `AskUserQuestion` to ask the user to try the feature. Include:
 
 - the routes to open, and which role or test login to use for each (from Project config → *Roles* and *Automated sign-in*);
@@ -245,32 +264,41 @@ then use `AskUserQuestion` to ask the user to try the feature. Include:
 
 Offer three choices: **Approve**, **Request changes**, **Stop here**.
 
-Do not use the former manual `git merge --no-ff feat/<slug>` and `ai-eng worktree rm <slug>` close flow.
+Do not use the former manual Git merge and `ai-eng worktree rm` close flow.
 
-- **Request changes:** before asking, capture the full current `HEAD` SHA of the
-  checkpoint-only pending-review commit as `PENDING_REVIEW_SHA`. After the human
-  chooses Request changes, first run
-  `ai-eng worktree request-changes <slug> <PENDING_REVIEW_SHA>` from the primary
-  checkout. The command accepts only a clean, live managed `feat/<slug>` worktree
-  whose current full checkpoint-only commit SHA still equals that token and whose
-  checkpoint is `awaiting-app-review` with `app_review: pending`. It atomically
-  commits only the transition to `implementation`, clears app-review status and both
-  reviewed SHAs, then reports the new commit. If the SHA is stale or any check fails,
-  preserve all work and return to app review; never substitute a newer SHA. Only
-  after that transition succeeds, log the feedback in `LEARNINGS.md` with the gate
-  `human`. Something every automated gate missed is the highest-value learning, so
-  also promote it to a Rule right away and say which gate should have caught it.
-  Turn the feedback into new checkpoints appended to the JSON (next `id`, with
-  `builds_on` the last one). Run them through Phase 2 and Phase 3 without asking
+- **Request changes:** before asking, resolve the exact Git-listed checkout holding
+  `.ai-engineering/workflow/checkpoints/<slug>.json`—the current checkout or a
+  configured managed worktree—and record its actual checked-out branch ref
+  (`refs/heads/<branch>`) and full `HEAD` SHA of the checkpoint-only pending-review
+  commit as `PENDING_REVIEW_SHA`. After the human chooses Request changes, first run
+  `ai-eng worktree request-changes <slug> <PENDING_REVIEW_SHA>` from the repository.
+  The command resolves the unique checkout from that exact checkpoint and verifies
+  that its `HEAD` and actual branch-ref tip still equal the token and its checkpoint
+  is `awaiting-app-review` with `app_review: pending`; the branch may have any name.
+  It atomically commits only the transition to `implementation`, clears app-review
+  status and both reviewed SHAs, then reports the new commit. If the SHA is stale or
+  any check fails, preserve all work and return to app review; never substitute a
+  newer SHA. Only after that transition succeeds, log the feedback in `LEARNINGS.md`
+  with the gate `human`. Something every automated gate missed is the highest-value
+  learning, so also promote it to a Rule right away and say which gate should have
+  caught it. Turn the feedback into new checkpoints appended to the JSON (next `id`,
+  with `builds_on` the last one). Run them through Phase 2 and Phase 3 without asking
   again at checkpoint level, because the feedback is the approval. Then return to
   this app review.
 - **Approve:** Never invoke `ai-visual-recap` automatically or create `.ai-engineering/recap.html`. The recap is optional and never required for merge. Only when the user explicitly invokes `/ai-visual-recap` themselves may a recap be created; its absence must not delay approval, merge, or worktree removal.
-  1. Confirm the feature worktree is clean and its full `HEAD` equals `refs/heads/feat/<slug>`. All review artifacts must already be committed before the Phase 3 review pin. If any new artifact or code change remains, return to Phase 3 and obtain renewed app review instead of committing it after the pin. Read the already pinned `lifecycle.reviewed_feature` from the checkpoint and record `REVIEWED_FEATURE_SHA=<that exact full commit ID>`; never recapture the metadata-only `HEAD`.
-  2. After the human approves, verify `lifecycle.reviewed_main` still equals the exact local main and `lifecycle.reviewed_feature` is still an ancestor of the current `refs/heads/feat/<slug>` tip. Do not replace either reviewed SHA with a later metadata-commit tip. Use the checkpoint-gated state update in the feature worktree to retain the exact full `lifecycle.reviewed_main` and retain the exact full `lifecycle.reviewed_feature`, then set `lifecycle.app_review: approved` and `lifecycle.phase: ready-to-merge`. Confirm the update passed its gate, all gates passed, both reviewed refs are current, and the feature worktree remains clean. Stage and make a second, distinct checkpoint-only commit containing only `.ai-engineering/workflow/checkpoints/<slug>.json`; verify it preserves both reviewed SHAs and leaves the reviewed feature code tree unchanged. If the checkpoint is missing, invalid, stale, or the update makes the worktree dirty, stop without closing or removing anything.
-  3. Invoke exactly `ai-eng worktree merge <slug>` for the close transaction. This command owns the compare-and-swap transaction with no custom lock, exact-parent verification and safe feature-worktree removal; do not perform any part of that transaction yourself. Do not switch branches, fetch, or close an unapproved sibling. If the command refuses because compare-and-swap lost or local main moved, preserve the feature worktree and state, then first invalidate review in a checkpoint-only commit: set `phase: implementation`, `app_review: not-started`, `reviewed_main: null`, and `reviewed_feature: null`. Only after that commit, rerun Phase 3 synchronization and affected gates, then obtain renewed human app review before retrying. Never write lifecycle phase `complete`.
-  4. Claim the feature closed only after the command succeeds and its output plus Git inventory confirm the merge is on local `main` and the approved feature worktree and branch are absent. Its successful removal means it is no longer active. Never push.
+  After app approval, recommend **PR** when a forge remote is available and
+  **Local merge** otherwise. Then let the human choose **PR**, **Local merge**, or
+  **Keep the branch**; app approval alone does not choose an integration route.
+  - **PR:** hand off to `/ai-pr`; do not invoke the local merge transaction.
+  - **Keep the branch:** leave the approved branch and checkout in place and do not
+    merge or remove them.
+  - **Local merge:** continue below.
+  1. Confirm the selected checkout is clean and its full `HEAD` equals its checked-out branch ref. All review artifacts must already be committed before the Phase 3 review pin. If any new artifact or code change remains, return to Phase 3 and obtain renewed app review instead of committing it after the pin. Read the already pinned `lifecycle.reviewed_feature` from the checkpoint and record `REVIEWED_FEATURE_SHA=<that exact full commit ID>`; never recapture the metadata-only `HEAD`.
+  2. After the human approves, verify `lifecycle.reviewed_base` still equals the exact commit at `lifecycle.base_ref` and `lifecycle.reviewed_feature` is still an ancestor of the selected branch tip. Do not replace either reviewed SHA with a later metadata-commit tip. Use the checkpoint-gated state update in the selected checkout to retain the exact full `lifecycle.reviewed_base` and `lifecycle.reviewed_feature` SHAs, then set `lifecycle.app_review: approved` and `lifecycle.phase: ready-to-merge`. Confirm the update passed its gate, all gates passed, both reviewed refs are current, and the checkout remains clean. Stage and make a second, distinct checkpoint-only commit containing only `.ai-engineering/workflow/checkpoints/<slug>.json`; verify it preserves both reviewed SHAs and leaves the reviewed feature code tree unchanged. If the checkpoint is missing, invalid, stale, or the update makes the checkout dirty, stop without closing or removing anything.
+  3. Invoke exactly `ai-eng worktree merge <slug>` for the close transaction. This command owns the compare-and-swap transaction, exact-parent verification and safe refresh of any checkout holding the detected base; do not perform any part of that transaction yourself. It leaves the feature branch and checkout in place and proposes `ai-eng worktree rm <slug>` for explicit cleanup. Do not switch branches, fetch, or close an unapproved sibling. If the detected base moved before merge, preserve the feature files; the command clears the stale review SHAs and returns it to `implementation`. Rerun affected gates and obtain renewed human app review before retrying. Never write lifecycle phase `complete`.
+  4. Claim the feature integrated only after the command succeeds and Git confirms the exact reviewed-parent merge on `lifecycle.base_ref`. The feature checkout remains available until someone explicitly removes it. Never push.
   The merge commit is the single integration point for shared files — `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md`, `PERMISSIONS.md`, and `.ai-engineering/PRD.html` when scope changed.
-- **Stop here:** commit whatever is outstanding on `feat/<slug>` and leave it unmerged.
+- **Stop here:** commit whatever is outstanding on the selected feature branch and leave it unmerged.
 
 ## Lifecycle
 

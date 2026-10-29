@@ -9,14 +9,13 @@
 
 import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { select, confirm, isCancel } from "@clack/prompts";
 import { install, buildLock, lockText, parseLock, sha256, mergeSharedText } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
-import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
-import { canonDrift, type CanonDrift } from "../embed.ts";
-import { installCanon, installMachineCarriers, machineStateFile, rememberTemplateDir, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
-import { installTemplateDir } from "../floor/template.ts";
+import { repoRoot, enabledSurfaces, declaredCanonPacks, home, isGoverned } from "../env.ts";
+import { canonDrift, changedCanonSkills, legacyCanonPacks, type CanonDrift } from "../embed.ts";
+import { installCanon, installMachineCarriers, machineStateFile, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
+import { runGit } from "../git/run.ts";
 import { planEntries, refuseLine } from "./init-shared.ts";
 import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
@@ -81,15 +80,25 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
  *  verified reads as a half that never looked, and "all 7 assets current" then buries the
  *  only question the run was asked. The rows carry the outcome, so there is no need for
  *  two kinds of proof: `written` for a change, `muted` for a part that checked out. */
-function installMachineSide(root: string, canon: CanonDrift, canonRepair: string[]): { rows: ui.Row[]; written: number } {
+function installMachineSide(
+  root: string,
+  canon: CanonDrift,
+  canonRepair: string[],
+  preservedSkills: string[],
+): { rows: ui.Row[]; written: number } {
   const rows: ui.Row[] = [];
   let written = 0;
   if (canonRepair.length > 0) {
     written += 1;
     const counts: Array<[number, string]> = [[canon.drift, "drifted"], [canon.missing, "missing"], [canon.stale, "stale"]];
     const why = counts.filter(([count]) => count > 0).map(([count, word]) => `${count} ${word}`).join(" · ");
-    rows.push({ mark: "ok", text: "global canon outdated or incomplete — re-installed", dim: why });
+    rows.push({
+      mark: "ok",
+      text: preservedSkills.length > 0 ? "global canon repaired · local changes kept" : "global canon outdated or incomplete — re-installed",
+      dim: why,
+    });
     rows.push(...canonRepair.map((line): ui.Row => ({ mark: "sub", text: line.replace(/^✓ /, "") })));
+    rows.push(...preservedSkills.map((path): ui.Row => ({ mark: "warn", text: `${path} · local change kept` })));
   } else {
     rows.push({ mark: "muted", text: `global canon · ${canon.verified} files match ai-eng ${VERSION}` });
   }
@@ -102,16 +111,6 @@ function installMachineSide(root: string, canon: CanonDrift, canonRepair: string
   written += moved.removed.length;
   rows.push(...moved.removed.map((path): ui.Row => ({ mark: "ok", text: path, dim: "moved to the machine — removed from the repo" })));
   rows.push(...moved.kept.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "not ours any more — review by hand" })));
-  const template = installTemplateDir();
-  if (template.status !== "failed") rememberTemplateDir(template.previous, template.ours);
-  if (template.status === "created" || template.status === "joined") {
-    written += 1;
-    rows.push({ mark: "ok", text: template.line });
-  } else if (template.status === "current") {
-    rows.push({ mark: "muted", text: template.line });
-  } else {
-    rows.push({ mark: "warn", text: template.line });
-  }
   // The ledger this half is written into: version + the hash of every carrier. Named
   // because it is the file a later `uninstall` reads, and an unreported write is the
   // question this report exists to answer.
@@ -140,7 +139,8 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // file on disk is treated as the user's, and the lock is rebuilt at the end.
   const previous = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: "", assets: {} };
   const surfaces = enabledSurfaces();
-  const entries: PlanEntry[] = planEntries(surfaces);
+  const packs = declaredCanonPacks(root) ?? legacyCanonPacks();
+  const entries: PlanEntry[] = planEntries(surfaces, packs);
   const plan = syncPlan(entries, root, previous.assets);
   const pending = [...plan.updates, ...plan.fresh];
 
@@ -161,8 +161,9 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // Repaired here, reported with the rest of the machine half: one block, printed
   // once. A canon section of its own printed before the questions left the run
   // looking like two unrelated commands (cli-ux-14).
-  const canon = canonDrift(home());
-  const canonRepair = canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? [] : installCanon(VERSION);
+  const canon = canonDrift(home(), packs);
+  const preservedSkills = canon.drift > 0 ? changedCanonSkills(home(), packs) : [];
+  const canonRepair = canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? [] : installCanon(VERSION, packs, preservedSkills);
   if (pending.length === 0 && plan.conflicts.length === 0) {
     // The repo half reports what it holds, not only how many: a bare "all 7 assets
     // current" cannot say whether anything was verified (cli-ux-14).
@@ -170,7 +171,7 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
       { mark: "muted", text: `all ${plan.current.length} assets current — nothing to sync` },
       ...(plan.current.length > 0 ? [{ mark: "sub", text: ui.pathList(plan.current) } satisfies ui.Row] : []),
     ]);
-    const machine = installMachineSide(root, canon, canonRepair);
+    const machine = installMachineSide(root, canon, canonRepair, preservedSkills);
     machineSection(machine);
     ui.end(
       machine.written === 0
@@ -227,7 +228,7 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     // The machine half runs anyway: it is not part of the plan, so "the repo needs
     // nothing" is not the same question as "the machine needs nothing".
     ui.section("Kept", [{ mark: "info", text: "your patches stay", dim: ui.pathList(plan.conflicts) }, { mark: "muted", text: "nothing written — the repo is exactly as you left it" }]);
-    const machine = installMachineSide(root, canon, canonRepair);
+    const machine = installMachineSide(root, canon, canonRepair, preservedSkills);
     machineSection(machine);
     ui.end(
       machine.written === 0
@@ -267,7 +268,7 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   ui.section("Synced", resultRows, plan.conflicts.length > 0
     ? `${plan.conflicts.length} conflict${plan.conflicts.length === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`
     : "nothing of yours touched");
-  machineSection(installMachineSide(root, canon, canonRepair));
+  machineSection(installMachineSide(root, canon, canonRepair, preservedSkills));
   // The lock is the ownership ledger: it may only claim files this run actually
   // made ours — written now, taken over by explicit human resolution, or
   // already byte-identical to ours (verbatim). A MERGED file is ours by entry, not by
@@ -286,15 +287,9 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     { spec_sha256: previous.spec_sha256, base_sha: previous.base_sha },
   );
   writeFileSync(lockPath, lockText(lock));
-  let commitLine = "commit skipped — nothing staged or git refused (your call to commit by hand)";
-  try {
-    spawnSync("git", ["-C", root, "add", "-A"]);
-    const committed = spawnSync("git", ["-C", root, "commit", "-q", "-m", `chore(ai-eng): assets → ${VERSION}`, "--no-verify", "--no-gpg-sign"]);
-    if (committed.status === 0) commitLine = `chore(ai-eng): assets → ${VERSION} · git revert is the rollback`;
-  } catch {
-    /* git absent or refused — the hand-commit note above stands */
-  }
-  ui.section("Recorded", [{ mark: "ok", text: `ai-eng.lock · ${Object.keys(lock.assets).length} assets with sha256` }, { mark: "ok", text: `commit: ${commitLine}` }]);
-  ui.end(`Repo and machine now match ai-eng ${VERSION} · Next: ai-eng doctor — verify the chain responds`);
+  ui.section("Recorded", [{ mark: "ok", text: `ai-eng.lock · ${Object.keys(lock.assets).length} assets with sha256` }]);
+  const status = runGit(["status", "--porcelain"], { cwd: root });
+  const changesAreVisible = status.status !== 0 || status.stdout.trim().length > 0;
+  ui.end(`${changesAreVisible ? "Changes are waiting for your review" : "Nothing to commit"}; nothing was committed · Next: ai-eng doctor — verify the chain responds`);
   return 0;
 }

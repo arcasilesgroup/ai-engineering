@@ -11,17 +11,13 @@ export const ALL_VERBS: readonly string[] = [
   "init",
   "doctor",
   "config",
-  "workspace",
   "adapt",
   "update",
-  "upgrade",
   "uninstall",
   "chain",
   "git",
   "wrap",
-  "spec",
   "worktree",
-  "briefing",
 ];
 
 /** Levenshtein, two rows. The inputs are short and there is no dependency to add. */

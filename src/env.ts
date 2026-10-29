@@ -135,6 +135,15 @@ export function loadConfig(root?: string | null): Config {
   }
 }
 
+/** A missing packs key is distinct from an explicit empty list: update uses the
+ *  former to keep the specialist tools in installations predating pack selection. */
+export function declaredCanonPacks(root?: string | null): string[] | null {
+  const canon: unknown = loadConfig(root)["canon"];
+  if (canon === null || typeof canon !== "object" || Array.isArray(canon)) return null;
+  const packs = (canon as Record<string, unknown>)["packs"];
+  return Array.isArray(packs) ? packs.filter((pack): pack is string => typeof pack === "string") : null;
+}
+
 /** Which surfaces this repo runs: the surfaces key of config.toml, read with
  *  type guards — no assertions. Default: the one surface init installs when
  *  config.toml is silent. Both update and uninstall ask this question. */
@@ -176,34 +185,6 @@ export interface LocalRuleConfig {
   case_sensitive?: boolean;
   action: "block" | "review";
   risk: number;
-}
-
-/** Circuit breaker settings from config.toml. */
-export interface CircuitBreakerConfig {
-  failureThreshold?: number;
-  resetMs?: number;
-}
-
-/** Load circuit breaker settings from config.toml. Returns defaults when absent. */
-export function loadCircuitBreakerConfig(root?: string | null): CircuitBreakerConfig {
-  const resolved = root === undefined ? repoRoot() : root;
-  if (!resolved) return {};
-  const path = configPath(resolved);
-  if (!existsSync(path)) return {};
-  try {
-    const doc = Bun.TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
-    const guards = doc["guards"];
-    if (!guards || typeof guards !== "object" || Array.isArray(guards)) return {};
-    const cb = (guards as Record<string, unknown>)["circuit_breaker"];
-    if (!cb || typeof cb !== "object" || Array.isArray(cb)) return {};
-    const cfg = cb as Record<string, unknown>;
-    const result: CircuitBreakerConfig = {};
-    if (typeof cfg["failure_threshold"] === "number") result.failureThreshold = cfg["failure_threshold"];
-    if (typeof cfg["reset_ms"] === "number") result.resetMs = cfg["reset_ms"];
-    return result;
-  } catch {
-    return {};
-  }
 }
 
 /** Load local rules from the repo's config.toml. Returns [] when absent or unparseable. */

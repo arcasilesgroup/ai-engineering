@@ -3,8 +3,8 @@
 // and a path that is compared segment by segment rather than as a string.
 
 import { describe, expect, test } from "bun:test";
-import { riskyPattern } from "../skills/ai-verify/evals/scripts/score.ts";
-import { pathMatches } from "../skills/ai-verify/evals/scripts/score.ts";
+import { riskyPattern } from "../packs/verify-tiers/evals/scripts/score.ts";
+import { pathMatches } from "../packs/verify-tiers/evals/scripts/score.ts";
 
 describe("riskyPattern — a typo in a manifest must not hang the scorer", () => {
   test("the patterns a manifest actually carries are accepted", () => {

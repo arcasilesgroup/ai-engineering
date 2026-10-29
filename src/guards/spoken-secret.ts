@@ -16,7 +16,7 @@
 // file-scanning bootstrap (the floor's gitleaks gate already owns what lands in a
 // commit; this guard's surface is the PROMPT, the one place gitleaks cannot see).
 
-import type { Payload } from "../chain/payload.ts";
+import type { Payload } from "../payload.ts";
 
 export const MIN_BYTES = 8; // a rule shorter than this matches inside unrelated words
 export const SHORT_FLOOR = 4; // below this no rule should exist at all

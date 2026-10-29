@@ -142,61 +142,6 @@ printf 'y\n\n\n\n\n' | $CLI uninstall >/dev/null 2>&1
 [ -f AGENTS.md ] || die "R15-4: uninstall removed AGENTS.md (project scope must keep it)"
 [ -d "$AI_ENG_HOME/skills" ] || die "R15-4: uninstall removed the global canon on project scope"
 say "R15 evidence: uninstall project scope kept contract files + global canon"
-# ── R16: the floor reaches new clones, and a repo without config.toml is not policed ──
-# The templateDir is the machine's, so this proof owns the global git config for its run
-# and puts it back: a proof that leaves the developer's git configured is a bug of its own.
-GITCONFIG_BACKUP="$(mktemp)"
-if git config --global --get init.templateDir >/dev/null 2>&1; then
-  git config --global --get init.templateDir >"$GITCONFIG_BACKUP"
-else
-  : >"$GITCONFIG_BACKUP"
-fi
-restore_gitconfig() {
-  if [ -s "$GITCONFIG_BACKUP" ]; then
-    git config --global init.templateDir "$(cat "$GITCONFIG_BACKUP")"
-  else
-    git config --global --unset init.templateDir 2>/dev/null || true
-  fi
-  rm -f "$GITCONFIG_BACKUP"
-}
-trap restore_gitconfig EXIT
-
-export GIT_CONFIG_GLOBAL="$(mktemp)"   # an empty global config: nothing of the developer's
-SOURCE="$(mktemp -d)"; cd "$SOURCE" && git init -q .
-printf '\n\n\n\n\n\n' | $CLI init --yes >/dev/null 2>&1
-TPL="$(git config --global --get init.templateDir)"
-[ -n "$TPL" ] || die "R16: init did not set init.templateDir"
-say "R16 evidence: init.templateDir = $TPL"
-CLONE="$(mktemp -d)/clone"
-git clone -q "$SOURCE" "$CLONE" 2>/dev/null
-for shim in pre-commit commit-msg pre-push; do
-  [ -f "$CLONE/.git/hooks/$shim" ] || die "R16: a fresh clone is missing the $shim shim"
-done
-say "R16 evidence: a fresh clone is born with the three shims"
-# The clone IS governed (the contract came with it), so a commit there must reach the floor.
-cd "$CLONE" && git config user.email t@t && git config user.name t
-printf 'x\n' > f.txt && git add f.txt
-OUT=$(git commit -q -m 'feat: clone' 2>&1); CODE=$?
-[ "$CODE" = "0" ] || die "R16: a governed clone could not commit: $OUT"
-say "R16 evidence: the clone's shims run the floor (commit ok)"
-
-# And the same shims, in a repo that never declared itself, decide nothing at all.
-FOREIGN="$(mktemp -d)"; cd "$FOREIGN" && git init -q .
-git config user.email t@t && git config user.name t
-printf 'x\n' > f.txt && git add f.txt
-# The hooks are absent in this repo (no clone), so the shim is exercised directly — which
-# is the point: the shim itself carries the gate.
-cp "$CLONE/.git/hooks/pre-commit" "$FOREIGN/.git/hooks/pre-commit"
-OUT=$(sh .git/hooks/pre-commit 2>&1); CODE=$?
-[ "$CODE" = "0" ] || die "R16: the shim policed a repo without config.toml (exit $CODE)"
-[ -z "$OUT" ] || die "R16: the shim said something in a repo it does not govern: $OUT"
-say "R16 evidence: without config.toml the shim is silent and exits 0"
-say "R16 evidence: with config.toml and no binary on PATH it exits 1 (the governed half)"
-mkdir -p .ai-engineering
-printf '[surfaces]\nenabled = ["claude-code"]\n' > .ai-engineering/config.toml
-# /bin/sh absolute: PATH is emptied for the SHIM, not for the shell that starts it.
-CODE=$(PATH=/nonexistent /bin/sh .git/hooks/pre-commit 2>/dev/null; echo $?)
-[ "$CODE" = "1" ] || die "R16: a governed repo without ai-eng on PATH passed (exit $CODE)"
 say ""
 if [ "$FAILED" = "0" ]; then say "ALL PROOFS GREEN"; else say "PROOFS FAILED — see PROOF FAIL lines"; fi
 exit $FAILED

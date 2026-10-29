@@ -31,7 +31,7 @@ typecheck: bun run typecheck (oxlint --type-aware --type-check) · lint: bun run
 ## Lifecycle
 - Every skill declares its own contract — lane, artifact, successor — in a `## Lifecycle` block inside its SKILL.md: follow the `Next:` a skill hands you instead of asking what comes first.
 - The lanes are light (spike and bounded work — no contract), standard (`ai-brainstorm` then `ai-orchestrator`) and full (architectural, with the triggered nodes).
-- Approvals are spoken: the human says approve, ok, go or close, and **you** run `ai-eng spec approve` or `ai-eng spec close` underneath. Never ask the human to type a command; never run an approval on your own initiative.
+- Approvals are spoken: when the human says approve, ok, or go, record that approval in the appropriate artifact and follow its next step. Never ask the human to type a command; never approve on your own initiative.
 
 ## Architecture layers
 You may edit `src/**` freely; the arch-test reads `.ai-engineering/arch.rules.json` — propose layer changes there via PR, never by editing the test in silence.
@@ -46,14 +46,14 @@ Replies to a person, and handoffs to another agent, follow the voice standard in
 ## Session hygiene (context economy)
 `/clear` between tasks · `/compact` before stopping, not after · batch prompting · check `/usage` when the context inflates.
 
+## Where to work
+- Work in the open checkout. Use a worktree only when requested or another feature is active; pause if work may overlap.
+- Prefer host worktree support; otherwise run `ai-eng worktree new <branch>` and use its reported path. The person chooses or approves the branch.
+- Resume in the feature checkout. Never stash, reset, overwrite, or remove foreign work; preserve uncertainty and ask.
+- After review, offer a PR, local merge, or keeping the branch. Prefer PR with a forge remote, otherwise local merge; `ai-eng worktree merge <slug>` handles it.
+
 ## Git workflow
-- A session that writes code works in `<repo>.worktrees/<slug>` on the branch `feat/<slug>`, cut from the local `main`. A session that only reads opens no worktree.
-- The merge destination is the local `main`, never `origin`: rebase inside the worktree, then, from the primary tree on `main`, `git merge --no-ff feat/<slug>` — one merge commit per feature, the one undoable unit.
-- A build session never pushes: the only push is the pull-request step the human triggers, against `origin/main`, cut from the local `main` without a worktree.
-- A build session does not touch the primary tree; only the merge step writes there, once, after that session's branch has merged.
-- The design artifacts `.ai-engineering/brainstorm.html`, `.ai-engineering/spec.html` and `.ai-engineering/plan.html` are written and committed in the primary tree before any worktree is cut, and no worktree ever stages them.
-- `.ai-engineering/recap.html` is optional and never required for merge; it is created on the feature branch only when the user explicitly invokes `/ai-visual-recap`.
-- A session may edit the shared files on its own branch like any other change, and the merge step is their single writer in the primary tree, never a parallel session writing them there: `.ai-engineering/PRD.html` when the feature changes scope, plus `CHANGELOG.md`, `LEARNINGS.md`, `FILEMAP.md` and `PERMISSIONS.md`.
+See **Where to work** for checkout, worktree, and integration choices. `.ai-engineering/recap.html` is optional and never required for merge.
 
 ## Pull requests
 - Run lint and the full test suite before committing; the commit must pass everything it will face in CI.

@@ -2,8 +2,8 @@
 // guard rewrites; this proves the rewrite is worth making: failures survive,
 // noise dies, counts are true, and the receipt id rides the trace line.
 
-import { beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { detectRunner, paint, paintVitestJson, countSummary } from "../src/wrap/paint.ts";
@@ -142,32 +142,63 @@ test("checkout page loads", () => { expect("x").toBe("Total") });
 `,
     );
   });
-  test("filters a real bun run: noise gone, counts true, receipt line present", () => {
-    const prevCwd = process.cwd();
-    const prevHome = process.env.AI_ENG_HOME;
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  function runWrap(command: string): { status: number; out: string } {
+    const previousCwd = process.cwd();
+    const previousHome = process.env.AI_ENG_HOME;
     process.chdir(dir);
     process.env.AI_ENG_HOME = home;
-    const lines: string[] = [];
+    const chunks: string[] = [];
     const write = process.stdout.write.bind(process.stdout);
     process.stdout.write = ((chunk: string | Uint8Array) => {
-      lines.push(String(chunk));
+      chunks.push(String(chunk));
       return true;
     }) as typeof process.stdout.write;
-    let status: number;
     try {
-      status = wrapMain(["test", "--", "bun test"]);
+      const status = wrapMain(["test", "--", command]);
+      return { status, out: chunks.join("") };
     } finally {
       process.stdout.write = write;
-      process.chdir(prevCwd);
-      if (prevHome === undefined) delete process.env.AI_ENG_HOME;
-      else process.env.AI_ENG_HOME = prevHome;
+      process.chdir(previousCwd);
+      if (previousHome === undefined) delete process.env.AI_ENG_HOME;
+      else process.env.AI_ENG_HOME = previousHome;
     }
-    const out = lines.join("");
+  }
+
+  function expectReceiptLog(out: string, stdout: string): void {
+    const lastLine = out.trimEnd().split("\n").at(-1) ?? "";
+    const receiptPath = /(?:^|\s)(\.ai-engineering\/receipts\/[^/\s]+\.log)$/.exec(lastLine)?.[1];
+    expect(receiptPath).toBeDefined();
+    if (receiptPath === undefined) return;
+    expect(readFileSync(join(dir, receiptPath))).toEqual(Buffer.from(stdout));
+  }
+
+  test("filters a real bun run: noise gone, counts true, receipt line present", () => {
+    const { status, out } = runWrap("bun test");
     expect(status).toBe(1); // the failing run keeps its exit code
     expect(out).toContain("× checkout page loads");
     expect(out).not.toContain("a passes");
     expect(out).toContain("2 passed · 1 failed");
     expect(out).toMatch(/\[ai-eng\] wrap: bun · salida filtrada · receipt [0-9a-f]{8}\n/);
+  });
+  test("saves byte-exact stdout, prints its path last, filters passes, and preserves non-zero status", () => {
+    const stdout = "passing output\nFAIL visible failure\n";
+    const { status, out } = runWrap("printf 'passing output\\nFAIL visible failure\\n'; exit 7");
+    expect(status).toBe(7);
+    expect(out).toContain("FAIL visible failure");
+    expect(out).not.toContain("passing output");
+    expectReceiptLog(out, stdout);
+  });
+  test("preserves zero status and still saves the full output", () => {
+    const stdout = "clean run noise\n";
+    const { status, out } = runWrap("printf 'clean run noise\\n'");
+    expect(status).toBe(0);
+    expect(out).not.toContain("clean run noise");
+    expectReceiptLog(out, stdout);
   });
   test("usage error without a command", () => {
     const err = process.stderr.write.bind(process.stderr);

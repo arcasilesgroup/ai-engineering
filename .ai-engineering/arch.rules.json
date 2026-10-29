@@ -4,23 +4,27 @@
     "commands": "src/commands/**",
     "guards": "src/guards/**",
     "chain": "src/chain/**",
+    "payload": "src/payload.ts",
     "floor": "src/floor/**",
-    "spec": "src/spec/**",
     "wrap": "src/wrap/**",
     "surfaces": "src/surfaces/**",
-    "shared": "src/shared-*.ts,src/{install,receipts,embed,skills-lint}.ts",
+    "shared": "src/shared-*.ts,src/{install,receipts,embed,skills-lint,assets,branding,notice,theme,ui,version}.ts,src/embedded.d.ts",
     "env": "src/env.ts",
-    "workspace": "src/workspace/**",
     "templates-assets": "templates/**",
-    "sidecar": "src/sidecar/**"
+    "git": "src/git/**",
+    "workflow": "src/workflow/**"
   },
   "rules": [
     {
       "from": "guards",
-      "mayNotImport": "commands"
+      "mayNotImport": "chain,commands,cli"
     },
     {
-      "from": "guards",
+      "from": "payload",
+      "mayNotImport": "guards,chain,commands,cli,surfaces"
+    },
+    {
+      "from": "commands",
       "mayNotImport": "cli"
     },
     {
@@ -33,15 +37,23 @@
     },
     {
       "from": "shared",
-      "mayNotImport": "commands,guards,chain,floor,spec,wrap,surfaces,cli"
+      "mayNotImport": "commands,guards,chain,floor,wrap,surfaces,cli"
     },
     {
       "from": "env",
-      "mayNotImport": "commands,guards,chain,floor,spec,wrap,surfaces,cli"
+      "mayNotImport": "commands,guards,chain,floor,wrap,surfaces,cli"
     },
     {
       "from": "chain",
       "mayNotImport": "surfaces"
+    },
+    {
+      "from": "git",
+      "mayNotImport": "commands,cli,chain,guards"
+    },
+    {
+      "from": "workflow",
+      "mayNotImport": "commands,cli,chain"
     },
     {
       "any": [],

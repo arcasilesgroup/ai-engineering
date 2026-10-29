@@ -25,6 +25,26 @@ describe("workflow kit — AGENTS.md sections and doctor ceiling", () => {
     }
   });
 
+  test("Where to work matches the template section", () => {
+    function section(markdown: string): string | undefined {
+      const sectionStart = markdown.indexOf("## Where to work\n");
+      if (sectionStart === -1) return undefined;
+      const contentStart = sectionStart + "## Where to work\n".length;
+      const remaining = markdown.slice(contentStart);
+      const nextHeading = remaining.search(/\n## /);
+      return (nextHeading === -1 ? remaining : remaining.slice(0, nextHeading)).trim();
+    }
+
+    const agents = readFileSync(join(ROOT, "AGENTS.md"), "utf8");
+    const template = readFileSync(TEMPLATE, "utf8");
+    const agentsSection = section(agents);
+    const templateSection = section(template);
+
+    expect(agentsSection).toBeDefined();
+    expect(templateSection).toBeDefined();
+    expect(agentsSection).toBe(templateSection);
+  });
+
   test("Shared helpers mentions codegraph", () => {
     const template = readFileSync(TEMPLATE, "utf8");
     const sharedHelpers = template.split("## Shared helpers")[1] ?? "";

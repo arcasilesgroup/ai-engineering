@@ -1,31 +1,27 @@
 ---
 name: ai-brainstorm
 description: >-
-  Use when the user brings a fuzzy idea that must be pinned down before research or
-  planning — "handshake", "get on the same page", "align on this idea", "let me explain my
-  vision", or before ANY creative work (a feature, a component, a behavior change). One
-  question at a time until the whole idea can be explained in 3rd-grader language, the
-  request classified (spike / bounded / architectural), the design approved, and the result
-  captured in a self-contained doc that a researcher agent and a planner agent can run with
-  without asking anything. Includes an optional spec self-review pass. Not for turning an
-  aligned idea into a build — use /ai-orchestrator. Not for external evidence — use
-  /ai-research.
+  Aligns fuzzy ideas before research or planning: interview, classify, and capture the
+  approved intent. Trigger: "handshake", "align on this idea", "my vision", or a new
+  feature/component/behavior. Do not use as a preflight for Direct/light work with a clear outcome.
+  An aligned build goes to
+  /ai-orchestrator; external evidence goes to /ai-research.
 license: MIT
 ---
 
 # ai-brainstorm — interrogate until shared understanding, then design
 
 Two methods, one flow. **Handshake** interrogates the user until the idea is understood so
-completely it can be explained in 3rd-grader language, and captures it in a self-contained
-doc. **Design gating** (obra/superpowers) classifies how much process the request needs and
-puts a hard approval gate before any implementation. The union: understand first, classify
-second, approve before building, and leave a doc the next agent can run with.
+completely it can be explained in 3rd-grader language. **Design gating** (obra/superpowers)
+classifies how much process the request needs and puts an approval gate before
+implementation on the paths this skill owns. Standard/full feature lanes capture a
+self-contained doc; light lanes end with an answer or an in-chat design and write no slot.
 
 <HARD-GATE>
-Do NOT invoke any implementation skill, write any code, scaffold any project, or take any
-implementation action until you have told your human partner what you intend and they have
-approved it. This applies to EVERY task on EVERY path — the ceremony scales with the task;
-the approval gate never does.
+On a path owned by this skill, do NOT invoke an implementation skill, write code, scaffold a
+project, or take implementation action until you have told your human partner what you intend
+and they have approved it. This gate applies only to this brainstorm flow; Direct/light work
+routed elsewhere does not enter it.
 </HARD-GATE>
 
 ## Three paths (classify out loud before the first question)
@@ -62,10 +58,9 @@ diff.
 
 ## Anti-pattern: "too simple to need approval"
 
-Every path ends with your human partner approving your intent before implementation. A
-todo list, a single-function utility, a config change — the design may be two sentences in
-chat, but you MUST present it and get approval. What scales with simplicity is the
-artifact, never the approval.
+Every brainstorm path that proceeds to implementation ends with your human partner approving
+your intent first. A small change may need only a few sentences in chat, but you MUST present
+that design and get approval. Direct/light work routed elsewhere does not enter this gate.
 
 ## Red flags
 
@@ -82,38 +77,22 @@ artifact, never the approval.
 
 ### 0. Check what already exists
 
-- Before any new or resumed brainstorm work, run the same read-only, local preflight
-  used by ai-orchestrator: `ai-eng worktree list`. For the feature in this conversation,
-  also run `ai-eng worktree list <slug>` when its exact state is not already listed.
-  The list reports Git-listed worktrees, their paths and clean/dirty/trusted/unknown
-  state, lifecycle checkpoints and overlap evidence. Before a worktree exists, it
-  projects `approval-before-start` only from the primary-tree brainstorm whose exact
-  feature slug, approval date within 14 days, matching `complete · <date>` status,
-  and absent local `feat/<slug>` branch all validate. A branch without an open
-  worktree is unknown, never pre-worktree approval. This is read-only; no lifecycle
-  file is written. A missing, draft, malformed, ambiguous, expired or mismatched
-  artifact is `unknown`, never approval.
-  Once a worktree exists, its checkpoint is authoritative; a missing or contradictory
-  checkpoint is unknown, with no fallback to brainstorm. The list creates or changes nothing.
-- Before deciding whether work may continue, explicitly surface a pending plan approval
-  as `awaiting-plan-approval` with `plan_approval: pending`, a pending app review as
+The brainstorm does not run a worktree preflight. The orchestrator owns the
+read-only local `ai-eng worktree list` before build work begins; there is no
+pre-worktree approval projection. Keep the interview in the current clone or
+selected worktree. Never merge an unapproved sibling; never fetch or sync remote
+state.
+
+- If lifecycle state is already available, surface a pending plan approval as
+  `awaiting-plan-approval` with `plan_approval: pending`, a pending app review as
   `awaiting-app-review` with `app_review: pending`, and `ready-to-merge` with
   `app_review: approved`. Do not reduce these to a generic pending-approval label.
-  For pending plan approval, pause and ask the human to **Approve**, **Edit**, or
-  **Stop** before implementation continues. For pending app review, pause and ask the
-  human to **Approve**, **Request changes**, or **Stop here** before merging. For
-  `ready-to-merge`, report that state and ask whether to continue the merge before any
-  merge action.
-- Report the existing work relevant to this feature. A listed worktree with the same
-  slug means resume that feature, not start parallel work; use only its Git-listed
-  path if it must be entered, and continue only when it is clean and trusted. Preserve
-  and report dirty, missing, untrusted or unknown work without switching, resetting,
-  removing or syncing it; pause rather than starting a replacement worktree.
-  Clearly unrelated work can continue untouched. If another task may likely overlap,
-  or uncertain work could overlap, pause for the human's decision. Call out pending
-  human approvals shown by the listing; unknown lifecycle state is not approval.
-  Never fetch or sync remote state, merge an unapproved sibling, or create a worktree
-  from brainstorm.
+  For pending plan approval, ask the human to **Approve**, **Edit**, or **Stop**
+  before implementation continues. For pending app review, ask the human to
+  **Approve**, **Request changes**, or **Stop here** before merging. For
+  `ready-to-merge`, ask whether to continue the merge before any merge action.
+  Unknown lifecycle state is not approval.
+
 - **Scan this conversation.** If the user already explained the idea, do not ask them to
   repeat it. Extract everything said, build the gap list from it, and open with either the
   first targeted question or an early read-back.
@@ -178,10 +157,11 @@ wrong read-back surfaces misunderstandings faster than ten more questions.
 ### 5. Early exit
 
 If the user says "enough" or "just write it": offer one last read-back (cheap, catches the
-worst errors), respect a no, and write the doc with what you have. Unanswered **decisions**
-go under "Decisions still open" with your recommended default; unknown **facts** go under
-"Open questions for research". Never silently drop a question — a visible hole is useful,
-an invisible one is a trap.
+worst errors) and respect a no. On standard/full lanes, write the doc with what you have.
+On light lanes, give the answer or in-chat design without writing a slot. In the doc,
+unanswered **decisions** go under "Decisions still open" with your recommended default;
+unknown **facts** go under "Open questions for research". Never silently drop a question —
+a visible hole is useful, an invisible one is a trap.
 
 ## Design (architectural path, after the read-back passes)
 
@@ -210,7 +190,7 @@ For a deeper pass, dispatch a reviewer with
 (a fresh subagent with no stake in the doc). Only flag issues that would cause real
 problems during planning; approve unless there are serious gaps.
 
-## User review gate
+## User review gate (standard/full feature lanes)
 
 When the page is written, stop. The last line to the user is: the interview is in `.ai-engineering/brainstorm.html`. Say approve, or say what to change. Do not start `ai-orchestrator` in this turn.
 
@@ -218,7 +198,10 @@ If they request changes, make them and re-run the self-review, then ask again.
 
 When they approve, do step 5 of the seam, then stop again. The last line is: next step is `/ai-orchestrator`. That call starts the build. Do not open checkpoints in this turn.
 
-## Doc structure
+On light lanes, use the spike answer or approved in-chat design and finish at `ai-verify`.
+Do not write a design slot or invoke `ai-orchestrator`.
+
+## Doc structure (standard/full feature lanes only)
 
 ```markdown
 # Handshake · <idea name>
@@ -260,7 +243,7 @@ one family with the research pages and the recap:
 - Two meta tags in `<head>`, so a later run can tell this interview from an older one:
   `<meta name="ai-feature" content="<slug>">` and, only after approval,
   `<meta name="ai-approved" content="YYYY-MM-DD">`. The slug is the kebab-case name
-  of this idea, the same slug `ai-orchestrator` will use for `feat/<slug>`.
+  of this idea and the identifier `ai-orchestrator` will use for it.
 - One `<section>` per markdown heading above, each with `h2 .num` (`01`–`11`), in the
   same order. "Decisions already made" and "Decisions still open" use `note ok` /
   `note warn`; "Open questions for research" is a numbered `ol` (the numbers are what
@@ -284,15 +267,20 @@ period, or `·`.
 
 - The read-back passed clean (or the early-exit doc honestly lists what is still open).
 - The path was classified out loud and the approval gate was honored.
-- The doc is self-contained and lives where the next agent will find it.
+- On standard/full lanes, the doc is self-contained and lives where the next agent will find it.
+- On light lanes, no slot is written; the answer or diff ends at `ai-verify`.
 - For architectural: the doc passed self-review and the user approved it.
 
 ## The ai-engineering seam
 
+Only standard/full feature lanes use the slot-writing steps below. Handoff follows the lane.
+Spike and light/bounded paths write no design slots and do not invoke `ai-orchestrator`;
+they finish at `ai-verify`. The grounding duty in step 3 applies on every lane.
+
 1. Output path: `.ai-engineering/brainstorm.html`. Approval does not delete it.
-   `ai-orchestrator` reads it for the whole build. `spec close` sweeps it when the
-   feature is finished, along with `recap.html` if the user created one. The recap
-   is optional and never a prerequisite to close. Write it with the file
+   `ai-orchestrator` reads it for the whole build. Git integration closes the
+   feature; `brainstorm.html` and an optional `recap.html` remain local evidence.
+   The recap is optional and never a prerequisite to integrate. Write it with the file
    tools, or with a redirect: `rm`, `mv` and `tee` into `.ai-engineering/` are denied,
    because a verb that can act on several paths is judged as a whole command.
    Render it with the artifact design system —
@@ -305,34 +293,46 @@ period, or `·`.
    The markdown
    structure in §Doc structure maps to sections of that page; the file is HTML only,
    no `.md` twin.
-2. The gaps feed ai-orchestrator as files, not chat: "Decisions still open" and "Open questions"
-   become the orchestrator's question queue.
+2. Keep the gaps in the approved documents, not chat: "Decisions still open" and "Open questions"
+   stay available to the next skill. On the standard lane, they become the orchestrator's
+   question queue.
 3. Grounding duty (§11.6): never cite a file or API you have not opened this session —
    /ai-explore and /ai-read-docs are the lenses.
-4. The approval gate here IS blueprint STOP 0. After approval, a new checkpoint plan
+4. On standard/full lanes, the approval gate here IS blueprint STOP 0. After approval, a new checkpoint plan
    proceeds to implementation without another approval stop; resumed legacy pending plans
    retain their checkpoint review. The final app review remains a human stop.
-5. After approval, set `ai-approved` to today's date and the status line to `complete · YYYY-MM-DD`. Copy only the conclusions into `.ai-engineering/PRD.html`: Problem (why it matters), Goal (what success looks like), Users & roles, the Feature plus its Rules (decisions already made), and Out of scope. Leave the interview in `brainstorm.html`. If the PRD already has other features, update the matching one and leave the others. This skill never writes spec.html or plan.html.
-6. Handoff, said out loud after approval: next step is `/ai-orchestrator`. That is the start of the build. This turn does not run it.
+5. After approval, set `ai-approved` to today's date and the status line to `complete · YYYY-MM-DD`. Copy only the conclusions into `.ai-engineering/PRD.html`: Problem (why it matters), Goal (what success looks like), Users & roles, the Feature plus its Rules (decisions already made), and Out of scope. Leave the interview in `brainstorm.html`. If the PRD already has other features, update the matching one and leave the others. Commit only these two files using explicit paths:
+   ```bash
+   git add -- .ai-engineering/brainstorm.html .ai-engineering/PRD.html
+   git commit -m "docs: approve brainstorm" --only -- .ai-engineering/brainstorm.html .ai-engineering/PRD.html
+   ```
+   This skill never writes spec.html or plan.html.
+6. Handoff, said out loud after approval, follows the lane:
+   | Lane | Next step |
+   | --- | --- |
+   | Architectural | `/ai-architect` |
+   | Standard | `/ai-orchestrator` |
+   This turn does not run the next skill.
 
 ## Routing
 
 In scope: fuzzy ideas needing alignment, pre-build design, feasibility spikes, vision
-capture. Not for: evidence from outside the repo (/ai-research), turning an aligned idea
-into a build (/ai-orchestrator), diagnosing
-failures (/ai-debug).
+capture. Not for: clear Direct/light tasks such as bug fixes or one-session changes (follow
+their relevant skill or Direct rhythm without ai-brainstorm), evidence from outside the repo
+(/ai-research), turning an aligned idea into a build (/ai-orchestrator), or diagnosing failures
+(/ai-debug).
 
 ## Lifecycle
 
 Lane: light, standard, full
-Writes: .ai-engineering/brainstorm.html, .ai-engineering/PRD.html
-Read by: ai-orchestrator, the agent that opens the next session
-Dies: when a brainstorm for a different feature replaces it, or ai-eng spec close
-Next: ai-research when questions are still open; ai-architect on the architectural lane; ai-orchestrator on the standard lane; ai-verify on the light lane
+Writes: standard/full only: .ai-engineering/brainstorm.html, .ai-engineering/PRD.html; light: none
+Read by: ai-orchestrator on standard/full, the agent that opens the next session
+Dies: when a brainstorm for a different feature replaces it, or the feature is integrated
+Next: ai-research when questions are still open; architectural → ai-architect → ai-orchestrator; standard → ai-orchestrator; Direct/light/spike → follow the relevant skill or Direct rhythm without the full brainstorm path (brainstorm light paths end at ai-verify)
 Stop: interview
 Stop words: approve, ok, go, adelante
 Stop confirms: the brainstorm
-Stop runs: write the PRD conclusions, then tell the user the next step is /ai-orchestrator
+Stop runs: Standard writes the PRD conclusions and hands off to /ai-orchestrator; Architectural writes the PRD conclusions and hands off first to /ai-architect, whose Lifecycle continues to /ai-orchestrator; Direct/light/spike do not invoke the full brainstorm path, and brainstorm light paths end at ai-verify
 
 Source: handshake by obra (https://obra.sh, MIT; obra/superpowers attributed by URL) +
 brainstorming from obra/superpowers

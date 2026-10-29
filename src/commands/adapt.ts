@@ -1,13 +1,13 @@
 // `ai-eng adapt apply` — the only writer of the four files a session must not
 // Edit. The skill shows config-proposal.html. A spoken yes runs this verb.
 // self-protect stays: it still denies Write/Edit of those paths. This process
-// is the person, the same seam as `ai-eng spec approve`.
+// applies only a proposal the person explicitly approved.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { home } from "../env.ts";
 import { lockText, parseLock, sha256 } from "../install.ts";
+import { runGit } from "../git/run.ts";
 
 export const PROPOSAL_RELATIVE = ".ai-engineering/config-proposal.html";
 
@@ -44,11 +44,6 @@ function gitEnv(): NodeJS.ProcessEnv {
   return { ...process.env, GIT_CONFIG_GLOBAL: join(home(), "gitconfig") };
 }
 
-function git(root: string, args: string[]): { status: number; stdout: string; stderr: string } {
-  const result = spawnSync("git", args, { cwd: root, env: gitEnv(), encoding: "utf8" });
-  return { status: result.status ?? 1, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
-}
-
 function fail(message: string): number {
   process.stderr.write(`${message}\n`);
   return 2;
@@ -69,11 +64,12 @@ function releaseProjectFiles(root: string): void {
 
 /** Apply the proposal in `root`. Refuses before any write. */
 export function adaptApply(root: string): number {
-  const top = git(root, ["rev-parse", "--show-toplevel"]);
+  const gitOptions = { cwd: root, env: gitEnv() };
+  const top = runGit(["rev-parse", "--show-toplevel"], gitOptions);
   if (top.status !== 0) return fail("adapt apply: not a git repo.");
 
-  const name = git(root, ["config", "--get", "user.name"]).stdout.trim();
-  const email = git(root, ["config", "--get", "user.email"]).stdout.trim();
+  const name = runGit(["config", "--get", "user.name"], gitOptions).stdout.trim();
+  const email = runGit(["config", "--get", "user.email"], gitOptions).stdout.trim();
   if (name.length === 0 || email.length === 0) {
     return fail("adapt apply: git user.name and user.email must both be set. Refusing to record an empty user.name.");
   }
@@ -115,10 +111,10 @@ export function adaptApply(root: string): number {
 
   const toAdd = writes.map((entry) => entry.path);
   if (existsSync(join(root, ".ai-engineering", "ai-eng.lock"))) toAdd.push(".ai-engineering/ai-eng.lock");
-  const added = git(root, ["add", "--", ...toAdd]);
+  const added = runGit(["add", "--", ...toAdd], gitOptions);
   if (added.status !== 0) return fail(`adapt apply: git add failed.\n${added.stderr}`);
 
-  const staged = git(root, ["diff", "--cached", "--quiet"]);
+  const staged = runGit(["diff", "--cached", "--quiet"], gitOptions);
   if (staged.status === 0) {
     process.stdout.write("adapt apply: files already match the proposal. Nothing to commit.\n");
     return 0;
@@ -126,7 +122,7 @@ export function adaptApply(root: string): number {
   if (staged.status !== 1) return fail(`adapt apply: git diff failed.\n${staged.stderr}`);
 
   const message = [`adapt: apply the approved project config`, `Approved-by: ${name} <${email}>`];
-  const commit = git(root, ["commit", "-m", message[0]!, "-m", message[1]!]);
+  const commit = runGit(["commit", "-m", message[0]!, "-m", message[1]!], gitOptions);
   if (commit.status !== 0) return fail(`adapt apply: the commit hook refused the commit.\n${commit.stderr}${commit.stdout}`);
   process.stdout.write(`adapt apply: committed. Approved-by: ${name} <${email}>\n`);
   return 0;
