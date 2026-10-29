@@ -1163,18 +1163,18 @@
         "behavior": { "status": "passed", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "failed",
-          "attempts": 3,
+          "status": "passed",
+          "attempts": 4,
           "findings": [
             "F1 MAJOR resolved: the migration guide no longer advertises unsupported worktree file hints.",
             "F2 MAJOR resolved: CHANGELOG and blueprint lifecycle claims were corrected.",
             "F3 MAJOR resolved: PERMISSIONS.md documents hierarchy-only relation scope and the exact recent-comment query.",
             "F4 MAJOR resolved: blueprint uses supported Git commands with selected-base behavior.",
-            "F5 MAJOR: docs/blueprint.html:1819 misstates ai-pr branch creation and base selection."
+            "F5 MAJOR resolved: ai-pr publishing uses the current branch and selected base without branch creation or switching."
           ]
         }
       },
-      "status": "in_progress",
+      "status": "passed",
       "changed_files": [
         ".changeset/calm-wolves-migrate.md",
         "CHANGELOG.md",
