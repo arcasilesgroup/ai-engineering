@@ -50,3 +50,16 @@ FAIL — 3 MAJOR findings remain, 0 BLOCKER. All seven listed verify commands pa
 - **F3 fixed:** The permissions row now distinguishes full selected-item discussion reads from recent-window reads for selected items and same-project relation targets; cross-project relation targets remain out of scope.
 - **Focused checks:** `tests/docs-lint.spec.ts` 3 pass; `tests/npm-manifest.spec.ts` 4 pass; `tests/ceremony-contract.spec.ts` 4 pass.
 - **Report-only docs audit:** Scoped to the corrected F1–F3 claims; 0 critical, 0 warnings, 0 info (0 findings).
+
+## Round 2 findings
+- **F3 · MAJOR (still open) — PERMISSIONS.md:17,20:** “Same-project relation targets” is broader than the adapter: recent reads are limited to direct `Hierarchy-Forward`/`Hierarchy-Reverse` targets, and permit exactly `$top=5, order=desc`; the docs omit both constraints despite denying every other query (`collect-azure.mjs:264–285,406–430,587–622`).
+- **F4 · MAJOR — docs/blueprint.html:1818:** `git branch --delete-merged refs/heads/main` is not a Git command. The shipped cleanup skill lists with `git branch --merged "$base_ref"` and deletes with `git branch -d`; it also uses the selected base, not hardcoded `main`. This current-sounding claim is not marked historical.
+
+## Round 2 verdict
+FAIL — F1 and F2 resolved; F3 and F4 remain MAJOR. Focused docs, worktree and Azure integration tests passed.
+
+## Round 2 response
+- **F3 fixed:** `PERMISSIONS.md` limits recent-comment reads to selected items and their direct, same-project `Hierarchy-Forward`/`Hierarchy-Reverse` targets; the query is exactly `$top=5` and `order=desc`.
+- **F4 fixed:** The blueprint now describes base selection from explicit choice or repository configuration, asks once if neither identifies a base, and uses the cleanup skill's merged-branch listing and safe deletion commands instead of the nonexistent command or hardcoded `main`.
+- **Focused checks:** `tests/docs-lint.spec.ts`, `tests/triage-azure.integration.spec.ts`, `tests/triage-azure-signals.integration.spec.ts`, and `tests/git-cleanup-pass.spec.ts`: 151 pass, 0 fail.
+- **Report-only docs audit:** Scoped to the corrected F3/F4 claims; 0 critical, 0 warnings, 0 info (0 findings).

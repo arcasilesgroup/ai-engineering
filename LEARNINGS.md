@@ -1510,3 +1510,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Remove unsupported hints, mark superseded lifecycle notes as historical, and document relation-target comment reads.
 - **Lesson:** Verify documented behavior against the current CLI and adapter contract.
 - **Tags:** review, docs, cli, lifecycle, permissions
+
+### L210 · 2026-10-28 · floating-core #17 · review
+- **Failure:** Review found that PERMISSIONS.md omitted hierarchy-only relation scope and the exact recent-comment query; blueprint used a nonexistent Git command and fixed base.
+- **Root cause:** The docs described broader permission scope and stale command/base behavior than the implementation enforces.
+- **Fix:** Document the precise relation/query limits and supported command with selected-base behavior.
+- **Lesson:** Keep documentation aligned with enforced scope and actual commands.
+- **Tags:** review, docs, permissions, git, cli

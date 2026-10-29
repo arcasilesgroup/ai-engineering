@@ -1164,11 +1164,12 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
           "status": "failed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "F1 MAJOR: the migration guide advertises unsupported worktree file hints.",
-            "F2 MAJOR: CHANGELOG and blueprint retain stale worktree commands and lifecycle claims.",
-            "F3 MAJOR: PERMISSIONS.md understates comment-read scope."
+            "F1 MAJOR resolved: the migration guide no longer advertises unsupported worktree file hints.",
+            "F2 MAJOR resolved: CHANGELOG and blueprint lifecycle claims were corrected.",
+            "F3 MAJOR remains: PERMISSIONS.md omits hierarchy-only relation scope and the exact recent-comment query.",
+            "F4 MAJOR: blueprint documents a nonexistent Git command and hardcodes main."
           ]
         }
       },
