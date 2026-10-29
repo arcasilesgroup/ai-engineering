@@ -392,7 +392,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(decisions).toContain(`Date: ${new Date().toISOString().slice(0, 10)}`);
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
     expect(config).toContain('enabled = ["claude-code"]');
-    expect(canonPacks(config)).toEqual([]);
+    expect(canonPacks(config)).toBeNull();
     assertCanon(home);
 
     // Claude Code reads AGENTS.md natively now — no CLAUDE.md shim is written.
@@ -617,7 +617,7 @@ describe("init · non-interactive default skill installation", () => {
   test("declining the canon offer installs nothing at all", async () => {
     const { cwd, machine: home } = sandboxed();
     mkdirSync(join(cwd, ".git"));
-    const { result, out } = await driven({}, [["install it now", "n"]]);
+    const { result, out } = await driven({}, [["install", "n"]]);
     expect(result).toBe(0);
     expect(existsSync(join(home, "skills"))).toBe(false);
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(false);

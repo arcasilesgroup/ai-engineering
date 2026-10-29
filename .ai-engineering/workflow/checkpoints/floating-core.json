@@ -1299,7 +1299,13 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "Gate 1 attempt 1 failed in tests/init-command.spec.ts:395: the test expected the obsolete empty [canon].packs entry. Fixed to assert the key is absent and to match the prompt without relying on terminal wrapping. The permission message was from a passing case; rerun Gate 1 from the first command."
+          ]
+        },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
@@ -1347,7 +1353,8 @@
         "tests/triage-report.unit.spec.ts",
         "tests/triage-routing.integration.spec.ts",
         "tests/triage-routing.unit.spec.ts",
-        "tests/uninstall-command.spec.ts"
+        "tests/uninstall-command.spec.ts",
+        "LEARNINGS.md"
       ]
     }
   ],

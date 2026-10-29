@@ -1548,3 +1548,11 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Assert diagnostic content independently of line formatting.
 - **Lesson:** Check preserved diagnostics, exit status, and output budget—not incidental formatting.
 - **Tags:** behavior, tests, hooks, output
+
+### L213 · 2026-10-29 · floating-core #18 · behavior
+- **Failure:** `tests/init-command.spec.ts` expected init to write an empty `[canon].packs` list after the approved contract removed pack selection.
+- **Root cause:** The test still asserted the old optional-pack config shape.
+- **Fix:** Assert the key is absent and match the prompt on a stable short label that does not depend on terminal wrapping.
+- **Lesson:** Assert the approved config contract, not obsolete serialization or wrapped terminal text.
+- **Proof:** Focused `init-command` suite: 33 tests passed; typecheck passed.
+- **Tags:** behavior, tests, config, skills
