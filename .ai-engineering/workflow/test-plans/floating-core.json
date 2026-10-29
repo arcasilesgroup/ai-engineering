@@ -190,7 +190,8 @@
       { "id": "C43", "covers": ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13", "S14", "S15", "S16", "S17", "S18"], "case": "Phase 3 final evidence: the full S1-S18 set and serial suite are green", "command": "bun test --parallel=1" },
       { "id": "C44", "checkpoint": 18, "covers": [], "case": "the generated payload contains installable assets only from skills/, with no packs/ namespace or content from tests/fixtures/verify-tiers/evals", "file": "tests/embed-canon.spec.ts", "command": "bun test tests/embed-canon.spec.ts" },
       { "id": "C45", "checkpoint": 18, "covers": [], "case": "the package includes skills/ and omits packs/ and the test-only verification fixtures", "file": "tests/npm-manifest.spec.ts", "command": "bun test tests/npm-manifest.spec.ts" },
-      { "id": "C46", "checkpoint": 18, "covers": [], "case": "all skills, resources, agents and scripts cited by the orchestrator ceremony resolve in the repository and the default installed canon without pack fallback", "file": "tests/ceremony-contract.spec.ts", "command": "bun test tests/ceremony-contract.spec.ts" }
+      { "id": "C46", "checkpoint": 18, "covers": [], "case": "all skills, resources, agents and scripts cited by the orchestrator ceremony resolve in the repository and the default installed canon without pack fallback", "file": "tests/ceremony-contract.spec.ts", "command": "bun test tests/ceremony-contract.spec.ts" },
+      { "id": "C47", "checkpoint": 18, "covers": [], "case": "all installable skill frontmatter stays at or below 5,000 tokens (bytes/4) after consolidation; the AGENTS template stays at or below 1,200", "file": "tests/token-budget.spec.ts", "command": "bun test tests/token-budget.spec.ts" }
     ]
   },
   "scenario_map": {

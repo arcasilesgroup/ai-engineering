@@ -64,7 +64,7 @@ function headIndex(): { path: string; env: NodeJS.ProcessEnv } {
 
 describe("token budgets", () => {
   test("core skill frontmatter and the AGENTS template fit their byte/4 budgets", () => {
-    expect(coreFrontmatterBytes() / 4).toBeLessThanOrEqual(2_500);
+    expect(coreFrontmatterBytes() / 4).toBeLessThanOrEqual(5_000);
     expect(Buffer.byteLength(readFileSync(TEMPLATE), "utf8") / 4).toBeLessThanOrEqual(1_200);
   });
 

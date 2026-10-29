@@ -1286,6 +1286,7 @@
         "bun test tests/generated-payload.test.ts",
         "bun test tests/npm-manifest.spec.ts",
         "bun test tests/uninstall-command.spec.ts",
+        "bun test tests/token-budget.spec.ts",
         "bun run build",
         "bun test",
         "bun run lint",

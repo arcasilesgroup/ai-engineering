@@ -58,10 +58,10 @@ function isSkillName(name: string): boolean {
 function citationsIn(text: string, from: string): Citations {
   const skills = new Set<string>();
   const agents = new Set<string>();
-  const guards: ScriptCitation[] = [];
-  const resources: ScriptCitation[] = [];
+  const guards: PathCitation[] = [];
+  const resources: PathCitation[] = [];
   const templates = new Set<string>();
-  const scripts: ScriptCitation[] = [];
+  const scripts: PathCitation[] = [];
   const metaNames = new Set([...text.matchAll(/name="([\w-]+)"/g)].map((match) => match[1] ?? ""));
   const skillPatterns = [
     new RegExp(String.raw`(?<![\w/.-])/(${SKILL_NAME})\b`, "g"),
