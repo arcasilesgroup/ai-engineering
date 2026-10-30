@@ -12,6 +12,10 @@
     "reviewed_feature": null
   },
   "halted": null,
+  "assumptions": [
+    "The supplied viewer URL is served from the current checkout; treat it as the selected source despite same-slug checkpoint copies in other worktrees.",
+    "Preserve the four empty untracked lifecycle artifacts in the selected checkout; run verification in a Git-backed clone under the session files directory so the hygiene guard sees a clean test tree."
+  ],
   "checkpoints": [
     {
       "id": 1,
