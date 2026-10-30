@@ -1321,7 +1321,7 @@ describe("what 2.2.0 moved out of the repo", () => {
     write(join(root, ".codex", "hooks.json"), comments);
     write(join(root, ".pi", "extensions", "ai-eng.ts"), extension);
 
-    expect(sweepMovedRepoCarriers(root)).toEqual({ removed: [], kept: [".codex/hooks.json", ".pi/extensions/ai-eng.ts"] });
+    expect(sweepMovedRepoCarriers(root)).toEqual({ removed: [], kept: [".codex/hooks.json", ".pi/extensions/ai-eng.ts"], refused: [] });
     expect(readFileSync(join(root, ".codex", "hooks.json"), "utf8")).toBe(comments);
     expect(readFileSync(join(root, ".pi", "extensions", "ai-eng.ts"), "utf8")).toBe(extension);
   });
@@ -1333,7 +1333,7 @@ describe("what 2.2.0 moved out of the repo", () => {
     write(join(root, ".claude", "settings.json"), projectSettings);
     write(join(root, ".codex", "hooks.json"), codexHooks);
 
-    expect(sweepMovedRepoCarriers(root)).toEqual({ removed: [], kept: [] });
+    expect(sweepMovedRepoCarriers(root)).toEqual({ removed: [], kept: [], refused: [] });
     expect(readFileSync(join(root, ".claude", "settings.json"), "utf8")).toBe(projectSettings);
     expect(readFileSync(join(root, ".codex", "hooks.json"), "utf8")).toBe(codexHooks);
   });
@@ -1358,6 +1358,7 @@ describe("what 2.2.0 moved out of the repo", () => {
       expect(sweepMovedRepoCarriers(root)).toEqual({
         removed: [],
         kept: [".claude/settings.json", ".opencode/plugins/ai-eng.ts"],
+        refused: [],
       });
       expect(readFileSync(homeSettings, "utf8")).toBe(merged);
       if (aliasType === "symlink") expect(readlinkSync(repoSettings)).toBe(homeSettings);

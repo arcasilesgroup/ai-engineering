@@ -511,7 +511,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(race.wasTriggered()).toBe(true);
     expect(readFileSync(victim, "utf8")).toBe(payload);
     expect(readFileSync(join(`${parent}-before-race`, "hooks.json"), "utf8")).toBe(payload);
-    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall — preserved");
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
   });
 
   test("a parent replaced by a symlink before write remains untouched", async () => {
@@ -546,7 +546,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(race.wasTriggered()).toBe(true);
     expect(readFileSync(victim, "utf8")).toBe("outside settings\n");
     expect(readFileSync(join(`${parent}-before-race`, "hooks.json"), "utf8")).toBe(originalSettings);
-    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall — preserved");
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
   });
 
   test("a same-content file replacement before unlink is preserved", async () => {
@@ -581,7 +581,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(race.wasTriggered()).toBe(true);
     expect(readFileSync(file, "utf8")).toBe(payload);
     expect(readFileSync(`${file}-before-race`, "utf8")).toBe(payload);
-    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall — preserved");
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
   });
 
   test("changed settings content before write is preserved", async () => {
@@ -613,7 +613,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(race.wasTriggered()).toBe(true);
     expect(lstatSync(settings).ino).toBe(originalIdentity);
     expect(readFileSync(settings, "utf8")).toBe(replacement);
-    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall — preserved");
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
   });
 
   test("project pruning keeps a non-empty carrier directory", async () => {

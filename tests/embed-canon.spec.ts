@@ -161,7 +161,7 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
     mkdirSync(join(home, "skills", "somebody-elses-skill"), { recursive: true });
     writeFileSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"), "mine");
 
-    expect(removeStaleCanonFiles(home)).toEqual({ removed: [`skills/${folder}/old/orphan.md`], kept: [], unproven: [] });
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: [`skills/${folder}/old/orphan.md`], kept: [], unproven: [], refused: [] });
     expect(existsSync(join(home, "skills", folder, "old"))).toBe(false);
     expect(existsSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"))).toBe(true);
   });
@@ -178,6 +178,7 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
       removed: [],
       kept: [`skills/${folder}/my-notes.md`, `skills/${folder}/renamed-page.md`],
       unproven: [],
+      refused: [],
     });
     expect(readFileSync(join(home, "skills", folder, "my-notes.md"), "utf8")).toBe("mine");
     expect(readFileSync(join(home, "skills", folder, "renamed-page.md"), "utf8")).toBe("edited by hand");

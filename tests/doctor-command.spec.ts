@@ -283,6 +283,44 @@ describe("doctor · config.toml is the gate", () => {
 });
 
 describe("doctor · the canon and the lock", () => {
+  test("F26: a stale page ai-eng proved its own but could not remove stays stale across runs, keeps its hash, and is named as removal refused", async () => {
+    // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+    if (process.platform === "win32" || process.getuid?.() === 0) return;
+    const { home } = healthy();
+    const key = "skills/ai-verify/evals/README.md";
+    const folder = join(home, "skills", "ai-verify", "evals");
+    const page = "# Evals — an outdated page this binary no longer ships\n";
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(home, key), page);
+    const recordPath = join(home, "canon-owned.json");
+    const before = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
+    writeFileSync(recordPath, JSON.stringify({ files: { ...before.files, [key]: sha256(page) } }));
+    const refusedText = `1 stale file(s) ai-eng shipped earlier — removal refused by the filesystem (a read-only, locked or busy folder), kept and retried by the next ai-eng update: ${key}. Make the folder writable, then run ai-eng update`;
+
+    chmodSync(folder, 0o555);
+    try {
+      for (let pass = 0; pass < 2; pass += 1) {
+        const lines = installCanon(VERSION);
+        expect(lines).toContain(`⚠ ${refusedText}`);
+        expect(lines.join("\n")).not.toContain("user file");
+        const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string>; refused: string[] };
+        expect(record.files[key]).toBe(sha256(page));
+        expect(record.refused).toEqual([key]);
+      }
+      const run = await doctor();
+      expect(row(run, "canon")).toContain("▲");
+      expect(detail(run, "canon")).toContain(`1 stale, removal refused: ${key} — make the folder writable, then ai-eng update`);
+      expect(detail(run, "canon")).not.toContain("kept user file");
+    } finally {
+      chmodSync(folder, 0o755);
+    }
+
+    // Once the folder lets it, the next run removes it: it was ours all along.
+    installCanon(VERSION);
+    expect(existsSync(join(home, key))).toBe(false);
+    expect(row(await doctor(), "canon")).toContain("✓");
+  });
+
   test("an intact canon is ok; an edited skill drifts; a file we do not ship is named but not held against it", async () => {
     const { home } = healthy();
     let run = await doctor();

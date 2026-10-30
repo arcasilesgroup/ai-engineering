@@ -53,6 +53,9 @@ export function refuseLine(refused: { path: string; reason: string }): string {
   if (refused.reason === "carrier-edited") {
     return `⚠ ${refused.path} — changed since ai-eng wrote it; kept`;
   }
+  if (refused.reason === "removal-refused") {
+    return `⚠ ${refused.path} — still exactly ai-eng's, but it could not be removed (changed meanwhile, or a read-only, locked or busy folder); kept. Make the folder writable, then run again`;
+  }
   const why =
     refused.reason === "not-json"
       ? "not valid JSON"

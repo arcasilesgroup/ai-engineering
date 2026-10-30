@@ -644,4 +644,36 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(readFileSync(machineSettings, "utf8")).toBe(settingsBefore);
     expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toInclude(`version = "${VERSION}"`);
   });
+
+  test("F25: a recorded stale page the filesystem will not delete is kept and named, and the lock is still written", async () => {
+    // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+    if (process.platform === "win32" || process.getuid?.() === 0) return;
+    process.chdir(governedRepo("repo-undeletable-stale-page-first"));
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const key = "skills/ai-verify/evals/README.md";
+    const folder = join(ENG_HOME, "skills", "ai-verify", "evals");
+    const page = "# Evals — an outdated page this binary no longer ships\n";
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(ENG_HOME, key), page);
+    const recordPath = join(ENG_HOME, "canon-owned.json");
+    const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
+    writeFileSync(recordPath, JSON.stringify({ files: { ...record.files, [key]: sha256(page) } }));
+    // A repo with nothing installed yet: the run has repo assets to write and a lock to record.
+    const repo = governedRepo("repo-undeletable-stale-page");
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    process.chdir(repo);
+    chmodSync(folder, 0o555);
+
+    try {
+      const run = await captured(() => updateMain({ yes: true })).finally(() => chmodSync(folder, 0o755));
+
+      expect(run.value).toBe(0);
+      expect(run.out).toInclude(`removal refused by the filesystem (a read-only, locked or busy folder), kept and retried by the next ai-eng update: ${key}`);
+      expect(run.out).not.toInclude("user file");
+      expect(readFileSync(join(ENG_HOME, key), "utf8")).toBe(page);
+      expect(readFileSync(lockPath, "utf8")).toInclude(`version = "${VERSION}"`);
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
 });

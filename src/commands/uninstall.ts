@@ -15,8 +15,8 @@ import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
 import { parseLock, sha256, stripSharedText } from "../install.ts";
 import { hashFile } from "../install.ts";
 import {
-  embeddedPath, embeddedTemplate, embeddedUnder, isRemovableCanonOwnershipRecord, pruneEmptyDirectoryWithin,
-  readProjectFileSnapshot, safeProjectPath, unlinkProjectPath, withSafeProjectParent, writeProjectFile,
+  embeddedPath, embeddedTemplate, embeddedUnder, isFilesystemRefusal, isRemovableCanonOwnershipRecord, pruneEmptyDirectoryWithin,
+  readProjectFileSnapshot, refusedChangeText, safeProjectPath, unlinkProjectPath, withSafeProjectParent, writeProjectFile,
   CANON_OWNERSHIP_NAME, type ProjectFileSnapshot,
 } from "../embed.ts";
 import { planEntries, refuseLine } from "./init-shared.ts";
@@ -24,6 +24,10 @@ import { select, isCancel } from "@clack/prompts";
 import * as ui from "../ui.ts";
 import { VERSION } from "../version.ts";
 import { scriptedInput } from "../ui.ts";
+
+/** Why a file ai-eng meant to remove or rewrite is still there: it changed under the run,
+ *  or the filesystem refused (a read-only, locked or busy folder). Either way it stays. */
+const PRESERVED = "file changed during uninstall, or the filesystem refused the change — preserved";
 
 /** Our hook entries out of a surface settings file; the user's hooks stay. The
  *  marker logic lives in install.ts beside its inverse, so what init merges in and
@@ -37,14 +41,14 @@ function stripAiEngHooks(root: string, absolute: string, rel: string, snapshot: 
   }
   if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
     if (!unlinkProjectPath(root, absolute, snapshot)) {
-      removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
+      removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
       return;
     }
     removed.push({ mark: "ok", text: `${rel} removed`, dim: "it held only ai-eng entries" });
     return;
   }
   if (!writeProjectFile(root, absolute, snapshot, stripped)) {
-    removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
+    removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
     return;
   }
   removed.push({ mark: "ok", text: `${rel}: removed the ai-eng hook entries, kept yours` });
@@ -70,7 +74,7 @@ function readAssetsFromLock(
   }
   const lockSnapshot = hasLock && lockPath !== null ? readProjectFileSnapshot(root, lockPath) : null;
   if (hasLock && lockSnapshot === null) {
-    removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: "file changed during uninstall — preserved" });
+    removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: PRESERVED });
     return { assets: {}, hasLock: false, lockSnapshot: null };
   }
   let assets: Record<string, string> = lockSnapshot === null ? {} : parseLock(lockSnapshot.content.toString("utf8")).assets;
@@ -97,7 +101,7 @@ function sweepProjectSide(
   if (hasLock) {
     const lockPath = safeProjectPath(root, ".ai-engineering/ai-eng.lock");
     if (lockPath === null || lockSnapshot === null || !unlinkProjectPath(root, lockPath, lockSnapshot)) {
-      removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: "file changed during uninstall — preserved" });
+      removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: PRESERVED });
     } else {
       removed.push({ mark: "ok", text: "ai-eng.lock deleted", dim: `${Object.keys(assets).length} owned files swept` });
     }
@@ -193,7 +197,7 @@ function sweepAsset(
   }
   const snapshot = readProjectFileSnapshot(root, safeAbsolute);
   if (snapshot === null) {
-    removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
+    removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
     return;
   }
   if (settingsByPath.has(rel)) {
@@ -201,7 +205,7 @@ function sweepAsset(
     // user's keys stay, only our hook entries come out.
     if (snapshot.hash === assets[rel]) {
       if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
-        removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
+        removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
         return;
       }
       removed.push({ mark: "ok", text: `${rel} removed`, dim: "still the template ai-eng installed" });
@@ -216,7 +220,7 @@ function sweepAsset(
   if (rel.startsWith(".git/hooks/")) {
     if (snapshot.content.includes(Buffer.from("ai-eng git floor shim"))) {
       if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
-        removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
+        removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
         return;
       }
       removed.push({ mark: "ok", text: `${rel} removed`, dim: "marker-matched — never by name alone" });
@@ -227,7 +231,7 @@ function sweepAsset(
   }
   if (snapshot.hash === assets[rel]) {
     if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
-      removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
+      removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
       return;
     }
     removed.push({ mark: "ok", text: `${rel} removed` });
@@ -256,7 +260,7 @@ function pruneEmptyDirectory(directory: string): boolean {
   }
 }
 
-function removeEmbeddedAssets(machineDir: string, prefix: string): number {
+function removeEmbeddedAssets(machineDir: string, prefix: string, refused: string[]): number {
   // The machine home can contain user data: remove only byte-identical payloads, never follow
   // links, and bind each unlink to the checked parent and the hashed inode (R38).
   const assetRoot = join(machineDir, prefix.slice(0, -1));
@@ -267,7 +271,12 @@ function removeEmbeddedAssets(machineDir: string, prefix: string): number {
     return 0;
   }
   if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) return 0;
-  const canonicalRoot = realpathSync(assetRoot);
+  let canonicalRoot: string;
+  try {
+    canonicalRoot = realpathSync(assetRoot);
+  } catch {
+    return 0;
+  }
   let removed = 0;
 
   for (const [path, ref] of embeddedUnder(prefix)) {
@@ -279,7 +288,10 @@ function removeEmbeddedAssets(machineDir: string, prefix: string): number {
       if (!existsSync(payload)) continue;
       const snapshot = readProjectFileSnapshot(canonicalRoot, destination);
       if (snapshot === null || snapshot.hash !== hashFile(payload)) continue;
-      if (!unlinkProjectPath(canonicalRoot, destination, snapshot)) continue;
+      if (!unlinkProjectPath(canonicalRoot, destination, snapshot)) {
+        refused.push(destination);
+        continue;
+      }
       removed += 1;
       let directory = dirname(destination);
       while (directory !== canonicalRoot) {
@@ -314,13 +326,14 @@ function isVersionCacheRecord(text: string): boolean {
   }
 }
 
-function removeInstallerRecords(machineDir: string): number {
+function removeInstallerRecords(machineDir: string, refused: string[]): number {
   let removed = 0;
   for (const record of INSTALLER_RECORDS) {
     const absolute = safeProjectPath(machineDir, record.name);
     const snapshot = absolute === null ? null : readProjectFileSnapshot(machineDir, absolute);
     if (absolute === null || snapshot === null || !record.isRemovable(machineDir, snapshot.content.toString("utf8"))) continue;
     if (unlinkProjectPath(machineDir, absolute, snapshot)) removed += 1;
+    else refused.push(absolute);
   }
   return removed;
 }
@@ -354,16 +367,28 @@ async function removeEverything(root: string, input: unknown, declared: string[]
   const decisions = join(root, "DECISIONS.md");
   const confirmedAll = await ui.confirmDefault("Delete this project's AGENTS.md, DECISIONS.md, .gitignore and .ai-engineering/ too? They hold your work.", false, input as never);
   if (confirmedAll) {
-    if (existsSync(agents)) unlinkSync(agents);
-    if (existsSync(decisions)) unlinkSync(decisions);
+    const refusals: ui.Row[] = [];
+    // A refused delete is named and the sweep goes on: the machine side is still to come.
+    const attempt = (path: string, remove: () => void): void => {
+      try {
+        remove();
+      } catch (error) {
+        if (!isFilesystemRefusal(error)) throw error;
+        refusals.push({ mark: "warn", text: refusedChangeText(path, error) });
+      }
+    };
+    if (existsSync(agents)) attempt(agents, () => unlinkSync(agents));
+    if (existsSync(decisions)) attempt(decisions, () => unlinkSync(decisions));
     // A .gitignore is the one scaffold file a project very often already owned before
     // init: ours goes only while it is byte-identical to the template — an edited one
     // holds the user's rules and stays, named.
     const gitignore = join(root, ".gitignore");
     const ours = existsSync(gitignore) && hashFile(gitignore) === sha256(embeddedTemplate("gitignore.tpl"));
-    if (ours) unlinkSync(gitignore);
-    rmSync(join(root, ".ai-engineering"), { recursive: true, force: true });
-    extra.push({ mark: "warn", text: "project contract files removed (your choice)", dim: `AGENTS.md · DECISIONS.md${ours ? " · .gitignore" : ""} · .ai-engineering/` });
+    if (ours) attempt(gitignore, () => unlinkSync(gitignore));
+    const projectHome = join(root, ".ai-engineering");
+    attempt(projectHome, () => rmSync(projectHome, { recursive: true, force: true }));
+    extra.push({ mark: "warn", text: refusals.length === 0 ? "project contract files removed (your choice)" : "project contract files removed (your choice), except the ones named below", dim: `AGENTS.md · DECISIONS.md${ours ? " · .gitignore" : ""} · .ai-engineering/` });
+    extra.push(...refusals);
   } else {
     extra.push({ mark: "ok", text: "kept: AGENTS.md, DECISIONS.md, .gitignore, .ai-engineering/" });
   }
@@ -378,11 +403,12 @@ async function removeEverything(root: string, input: unknown, declared: string[]
     // The git floor first: the recorded state lives inside the canon home this scope is
     // about to delete, so reading it afterwards would restore nothing.
     const floor = restoreRecordedTemplateDir();
-    const swept = removeMachineArtifacts();
+    const refusedPaths: string[] = [];
+    const swept = removeMachineArtifacts(refusedPaths);
     const canonAssetsRemoved = ["skills/", "agents/", "scripts/"].reduce(
-      (count, prefix) => count + removeEmbeddedAssets(machineDir, prefix),
+      (count, prefix) => count + removeEmbeddedAssets(machineDir, prefix, refusedPaths),
       0,
-    ) + removeInstallerRecords(machineDir);
+    ) + removeInstallerRecords(machineDir, refusedPaths);
     pruneEmptyDirectory(machineDir);
     const userFilesRemain = existsSync(machineDir);
     const cleanup = `${canonAssetsRemoved} canon-owned file(s) removed · ${swept} machine artifacts swept`;
@@ -390,6 +416,7 @@ async function removeEverything(root: string, input: unknown, declared: string[]
       ? { mark: "ok", text: `${machineDir} kept`, dim: `${cleanup} · other files kept` }
       : { mark: "warn", text: `${machineDir} deleted`, dim: cleanup });
     if (floor !== null) extra.push(floor);
+    for (const path of refusedPaths) extra.push({ mark: "warn", text: `${path} kept`, dim: "still ai-eng's, but it changed during uninstall or the filesystem refused the change — preserved" });
     for (const line of carriers.lines) extra.push({ mark: "ok", text: line });
     for (const refused of carriers.refused) extra.push({ mark: "warn", text: machineRefusalText(refused) });
   } else {

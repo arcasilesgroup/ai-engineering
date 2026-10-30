@@ -1,7 +1,7 @@
 // `ai-eng doctor` — 12 checks + one real test. The difference with theater: it
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
-import { canonDrift, canonExtras, unprovenCanonText } from "../embed.ts";
+import { canonDrift, canonExtras, refusedStaleCanonFiles, unprovenCanonText } from "../embed.ts";
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -91,7 +91,10 @@ function checkCanon(): CheckResult {
   // this line reads 101/101. `foreign` is reported and never counted against
   // health — it is somebody's, and we do not delete it.
   const canonBits = [`${canon.verified}/${canonTotal} files verified`, `${canon.drift} drift`, `${canon.missing} missing`];
-  if (canon.stale > 0) canonBits.push(`${canon.stale} stale (ai-eng update sweeps what we shipped)`);
+  // A stale file whose last removal was refused is still ours: named with the step that clears it.
+  const refused = canon.stale === 0 ? [] : refusedStaleCanonFiles(home());
+  if (canon.stale > refused.length) canonBits.push(`${canon.stale - refused.length} stale (ai-eng update sweeps what we shipped)`);
+  if (refused.length > 0) canonBits.push(`${refused.length} stale, removal refused: ${refused.join(", ")} — make the folder writable, then ai-eng update`);
   // Kept user files are reported, never counted against health: update keeps them by
   // design, so a warning about them could never be cleared.
   if (canon.kept > 0) canonBits.push(`${canon.kept} kept user file(s) in shipped skill folders (never deleted)`);

@@ -1766,3 +1766,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Add an `unproven` class that is never deleted, carried in `canon-owned.json`, and shown in one doctor warn row; record boot ID and pid namespace on Linux and hold the lock when they cannot be read.
 - **Lesson:** When no ownership proof ever existed, label the file unproven, never the user's, and keep it visible until a person clears it.
 - **Tags:** review, ownership, migration, lock, doctor
+
+### L242 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F25/F26: a refused canon delete or write made update and uninstall throw before writing `ai-eng.lock`, and a provably canon-owned stale page that could not be removed was reclassified as a user file and lost its hash.
+- **Root cause:** The shared `withSafeProjectParent` helper had no refusal handling, and a failed deletion moved the file into the kept class.
+- **Fix:** The helper returns a refusal for errno failures and callers warn with the path; refused stale pages keep their hash in a separate `refused` list and are retried; an unwritable lock exits 1 with a warning.
+- **Lesson:** Catch filesystem refusals once at the shared helper, and never let a failed cleanup change a file's ownership class.
+- **Tags:** review, fail-closed, cleanup, ownership

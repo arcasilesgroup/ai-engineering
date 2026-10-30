@@ -13,7 +13,7 @@ import { select, confirm, isCancel } from "@clack/prompts";
 import { install, buildLock, lockText, parseLock, sha256, mergeSharedText } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
 import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
-import { canonDrift, changedCanonSkills, type CanonDrift } from "../embed.ts";
+import { canonDrift, changedCanonSkills, isFilesystemRefusal, refusedChangeText, type CanonDrift } from "../embed.ts";
 import { installCanon, installMachineCarriers, machineStateFile, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
 import { runGit } from "../git/run.ts";
 import { planEntries, refuseLine } from "./init-shared.ts";
@@ -97,7 +97,7 @@ function installMachineSide(
       text: preservedSkills.length > 0 ? "global canon repaired · local changes kept" : "global canon outdated or incomplete — re-installed",
       dim: why,
     });
-    rows.push(...canonRepair.map((line): ui.Row => ({ mark: "sub", text: line.replace(/^✓ /, "") })));
+    rows.push(...canonRepair.map((line): ui.Row => (line.startsWith("⚠ ") ? { mark: "warn", text: line.slice(2) } : { mark: "sub", text: line.replace(/^✓ /, "") })));
     rows.push(...preservedSkills.map((path): ui.Row => ({ mark: "warn", text: `${path} · local change kept` })));
   } else {
     rows.push({ mark: "muted", text: `global canon · ${canon.verified} files match ai-eng ${VERSION}` });
@@ -111,6 +111,7 @@ function installMachineSide(
   written += moved.removed.length;
   rows.push(...moved.removed.map((path): ui.Row => ({ mark: "ok", text: path, dim: "moved to the machine — removed from the repo" })));
   rows.push(...moved.kept.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "not ours any more — review by hand" })));
+  rows.push(...moved.refused.map((path): ui.Row => ({ mark: "warn", text: `${path} kept`, dim: "still ai-eng's, but it could not be removed or rewritten (changed meanwhile, or a read-only, locked or busy folder) — the next ai-eng update retries" })));
   // The ledger this half is written into: version + the hash of every carrier. Named
   // because it is the file a later `uninstall` reads, and an unreported write is the
   // question this report exists to answer.
@@ -254,9 +255,15 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     return hash ? `sha256:${hash}` : null;
   }, take);
   // Freshly written git shims must stay executable or git silently ignores them.
+  const shimRefusals: ui.Row[] = [];
   for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
     const shimPath = join(root, ".git", "hooks", shim);
-    if (existsSync(shimPath)) chmodSync(shimPath, 0o755);
+    try {
+      if (existsSync(shimPath)) chmodSync(shimPath, 0o755);
+    } catch (error) {
+      if (!isFilesystemRefusal(error)) throw error;
+      shimRefusals.push({ mark: "warn", text: refusedChangeText(shimPath, error) });
+    }
   }
   const keptPaths = takeAll ? [] : plan.conflicts;
   const keptCount = keptPaths.length;
@@ -264,6 +271,7 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     { mark: "ok", text: `${report.written.length} asset${report.written.length === 1 ? "" : "s"} synced`, dim: "sha256 recorded in ai-eng.lock" },
     ...(keptCount > 0 ? [{ mark: "info", text: "kept yours", dim: keptPaths.join("  ·  ") } satisfies ui.Row] : []),
     ...report.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })),
+    ...shimRefusals,
   ];
   ui.section("Synced", resultRows, plan.conflicts.length > 0
     ? `${plan.conflicts.length} conflict${plan.conflicts.length === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`
@@ -286,7 +294,14 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     VERSION,
     { spec_sha256: previous.spec_sha256, base_sha: previous.base_sha },
   );
-  writeFileSync(lockPath, lockText(lock));
+  try {
+    writeFileSync(lockPath, lockText(lock));
+  } catch (error) {
+    if (!isFilesystemRefusal(error)) throw error;
+    ui.section("Recorded", [{ mark: "warn", text: `ai-eng.lock not written — ${refusedChangeText(lockPath, error)}` }]);
+    ui.end("The ownership ledger was not recorded · Next: make .ai-engineering/ writable, then ai-eng update");
+    return 1;
+  }
   ui.section("Recorded", [{ mark: "ok", text: `ai-eng.lock · ${Object.keys(lock.assets).length} assets with sha256` }]);
   const status = runGit(["status", "--porcelain"], { cwd: root });
   const changesAreVisible = status.status !== 0 || status.stdout.trim().length > 0;

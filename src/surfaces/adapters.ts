@@ -12,6 +12,7 @@ import { VERSION } from "../version.ts";
 import {
   materializeSkills, materializeAgents, materializeScripts, embeddedTemplate, embeddedChainBundle, removeStaleCanonFiles,
   recordCanonOwnership, unprovenCanonText, safeProjectPath, readProjectFileSnapshot, unlinkProjectPath, writeProjectFile,
+  refusedStaleCanonText, refusedChangeText, isFilesystemRefusal,
 } from "../embed.ts";
 import type { Dialect } from "../chain/dialect.ts";
 
@@ -180,40 +181,63 @@ export function mirrorTargets(): MirrorTarget[] {
 export function installCanon(version: string, preserveSkills: readonly string[] = []): string[] {
   const lines: string[] = [];
   const canonDir = join(home(), "skills");
-  materializeSkills(canonDir, preserveSkills);
+  lines.push(...warningsOf(materializeSkills(canonDir, preserveSkills)));
   const swept = removeStaleCanonFiles(home());
   if (swept.removed.length > 0) lines.push(`✓ swept ${swept.removed.length} file(s) this binary no longer ships: ${swept.removed.join(", ")}`);
+  if (swept.refused.length > 0) lines.push(`⚠ ${refusedStaleCanonText(swept.refused)}`);
   if (swept.kept.length > 0) lines.push(`✓ kept ${swept.kept.length} user file(s) — not shipped by this binary and not provably written by ai-eng, so never deleted: ${swept.kept.join(", ")}`);
   if (swept.unproven.length > 0) lines.push(`⚠ ${unprovenCanonText(swept.unproven)}`);
-  const recordRefusal = recordCanonOwnership(home(), swept.unproven);
+  const recordRefusal = recordCanonOwnership(home(), swept.unproven, swept.refused);
   if (recordRefusal !== null) lines.push(`⚠ ${recordRefusal}`);
-  const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
-  lines.push(`✓ ${home()}/skills/ — ${entries.length} skills installed`);
+  lines.push(...refusalAsLines(canonDir, () => {
+    const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
+    return [`✓ ${home()}/skills/ — ${entries.length} skills installed`];
+  }));
   // Seeds the 24h notice cache (§14.0). Health never reads this file: init and
   // doctor byte-compare the canon against the payload (canonDrift) — this same
   // path also carries the REGISTRY version after a notice check.
-  writeFileSync(versionFile(), JSON.stringify({ version, ts: Date.now() }));
-  lines.push("✓ ~/.ai-engineering/version.json — version + 24h cache");
+  lines.push(...refusalAsLines(versionFile(), () => {
+    writeFileSync(versionFile(), JSON.stringify({ version, ts: Date.now() }));
+    return ["✓ ~/.ai-engineering/version.json — version + 24h cache"];
+  }));
   for (const target of mirrorTargets()) {
-    mkdirSync(target.dir, { recursive: true });
-    const count = linkSkills(canonDir, target.dir);
-    lines.push(`✓ Symlink → ${target.label} (${count} skills)`);
+    lines.push(...refusalAsLines(target.dir, () => {
+      mkdirSync(target.dir, { recursive: true });
+      return [`✓ Symlink → ${target.label} (${linkSkills(canonDir, target.dir)} skills)`];
+    }));
   }
   const commands = installCommands(canonDir);
   if (commands.count > 0) lines.push(`✓ ~/.config/opencode/commands/ — ${commands.count} slash commands (/<skill-name>)`);
-  lines.push(...installAgentsCanon());
+  lines.push(...commands.refused.map((path) => `⚠ ${path}`));
+  lines.push(...refusalAsLines(join(machineBase(), ".claude", "agents"), installAgentsCanon));
   const scriptLines = materializeScripts(join(home(), "scripts"));
-  if (scriptLines.length > 0) lines.push(`✓ ~/.ai-engineering/scripts/ — checkpoint gate`);
+  if (scriptLines.some((line) => line.startsWith("materialized "))) lines.push(`✓ ~/.ai-engineering/scripts/ — checkpoint gate`);
+  lines.push(...warningsOf(scriptLines));
   return lines;
+}
+
+function warningsOf(lines: readonly string[]): string[] {
+  return lines.filter((line) => line.startsWith("⚠ "));
+}
+
+/** One install step whose filesystem refusal becomes a warning naming the path, so the rest
+ *  of the install, and the lock the calling command writes after it, still happen. */
+function refusalAsLines(path: string, step: () => string[]): string[] {
+  try {
+    return step();
+  } catch (error) {
+    if (!isFilesystemRefusal(error)) throw error;
+    return [`⚠ ${refusedChangeText(error.path ?? path, error)}`];
+  }
 }
 
 /** Materialize ~/.ai-engineering/agents and mirror it at ~/.claude/agents (symlink, or copy).
  *  Exported so tests can drive the mirror under AI_ENG_HOME without writing the real home. */
 export function installAgentsCanon(): string[] {
   const agentsCanon = join(home(), "agents");
-  materializeAgents(agentsCanon);
+  const materialized = warningsOf(materializeAgents(agentsCanon));
   const agentFiles = readdirSync(agentsCanon).filter((name) => name.endsWith(".md"));
-  const lines = [`✓ ~/.ai-engineering/agents/ — ${agentFiles.length} agents installed`];
+  const lines = [`✓ ~/.ai-engineering/agents/ — ${agentFiles.length} agents installed`, ...materialized];
   const agentsMirror = join(machineBase(), ".claude", "agents");
   mkdirSync(dirname(agentsMirror), { recursive: true });
   // Same as linkSkills: lstat + unlink any symlink (including dangling). existsSync is
@@ -263,19 +287,23 @@ const MOVED_REPO_CARRIERS: Record<string, string> = {
 /** Take the moved-out carriers out of a repo that still has them, and say what went. An
  *  edited file is kept and named — the same rule as uninstall: ours goes only when the
  *  bytes are still ours. A linked path is kept too: rewriting through it would change the
- *  file it points at, which can be the user's own settings in their home. */
-export function sweepMovedRepoCarriers(root: string): { removed: string[]; kept: string[] } {
+ *  file it points at, which can be the user's own settings in their home. A carrier still
+ *  ours whose delete or rewrite failed is `refused`: ours, not the user's, and swept by the
+ *  next update. */
+export function sweepMovedRepoCarriers(root: string): { removed: string[]; kept: string[]; refused: string[] } {
   const removed: string[] = [];
   const kept: string[] = [];
+  const refused: string[] = [];
   for (const [rel, owner] of Object.entries(MOVED_REPO_CARRIERS)) {
     const outcome = sweepMovedRepoCarrier(root, rel, owner);
     if (outcome === "removed") removed.push(rel);
     if (outcome === "kept") kept.push(rel);
+    if (outcome === "refused") refused.push(rel);
   }
-  return { removed, kept };
+  return { removed, kept, refused };
 }
 
-function sweepMovedRepoCarrier(root: string, rel: string, owner: string): "removed" | "kept" | "absent" {
+function sweepMovedRepoCarrier(root: string, rel: string, owner: string): "removed" | "kept" | "refused" | "absent" {
   if (!pathEntryExists(join(root, rel))) return "absent";
   const absolute = safeProjectPath(root, rel);
   const snapshot = absolute === null ? null : readProjectFileSnapshot(root, absolute);
@@ -283,7 +311,8 @@ function sweepMovedRepoCarrier(root: string, rel: string, owner: string): "remov
   if (!rel.endsWith(".json")) {
     // A module is ours whole only while it is byte for byte a carrier this binary ships.
     const isShipped = shippedCarrierModules(owner).some((shipped) => snapshot.content.equals(Buffer.from(shipped)));
-    return isShipped && unlinkProjectPath(root, absolute, snapshot) ? "removed" : "kept";
+    if (!isShipped) return "kept";
+    return unlinkProjectPath(root, absolute, snapshot) ? "removed" : "refused";
   }
   // A settings file we merged into is stripped, not deleted: the user's own keys are in it.
   // One that never held an entry of ours is the repo's own (Claude Code project settings):
@@ -298,8 +327,10 @@ function sweepMovedRepoCarrier(root: string, rel: string, owner: string): "remov
   } catch {
     return "kept";
   }
-  const isDone = isOnlyOurs ? unlinkProjectPath(root, absolute, snapshot) : writeProjectFile(root, absolute, snapshot, stripped);
-  return isDone ? "removed" : "kept";
+  if (isOnlyOurs) return unlinkProjectPath(root, absolute, snapshot) ? "removed" : "refused";
+  // A second name (a hard link from the user's home) would receive the rewrite: not ours to change.
+  if (snapshot.nlink !== 1) return "kept";
+  return writeProjectFile(root, absolute, snapshot, stripped) ? "removed" : "refused";
 }
 
 /** Whether a JSON settings text carries anything the strip would take out. Judged on a
@@ -343,6 +374,7 @@ const SETTINGS_MUTATION_REFUSED = "identity-bound-settings-mutation-unavailable"
 const SETTINGS_UNREADABLE = "settings-unreadable";
 const CARRIER_UNWRITABLE = "carrier-path-unwritable";
 const CARRIER_EDITED = "carrier-edited";
+const REMOVAL_REFUSED = "removal-refused";
 
 /** What the machine side remembers: which version wrote each surface's carrier, keyed by
  *  surface id, and the sha256 of the definition it wrote. Two questions depend on it and
@@ -1285,7 +1317,7 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
     const absolute = carrierPath(placement);
     if (placement.kind === "module") {
       const outcome = removeCarrierModule(id, placement);
-      refused.push(...outcome.kept.map((path) => ({ path, reason: CARRIER_EDITED })));
+      refused.push(...outcome.kept);
       if (outcome.isEntryKept) continue;
       delete state.carriers[id];
       if (outcome.isEntryRemoved) lines.push(`~/${placement.path} removed`);
@@ -1329,31 +1361,39 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
 /** A module carrier and its bundle leave only while they are byte for byte what this
  *  binary writes; an edited entry is the user's now and is kept and named, together with
  *  the bundle it imports. */
-function removeCarrierModule(id: string, placement: Carrier): { isEntryRemoved: boolean; isEntryKept: boolean; kept: string[] } {
+function removeCarrierModule(id: string, placement: Carrier): { isEntryRemoved: boolean; isEntryKept: boolean; kept: MachineRefusal[] } {
   const files = carrierFiles(id, "machine");
   const entry = removeExactFile(carrierPath(placement), files?.main ?? null);
-  if (entry === "kept") return { isEntryRemoved: false, isEntryKept: true, kept: [`~/${placement.path}`] };
-  const isChainKept = placement.chain !== undefined
-    && removeExactFile(carrierPath(placement, placement.chain), files?.chain ?? null) === "kept";
-  return { isEntryRemoved: entry === "removed", isEntryKept: false, kept: isChainKept ? [`~/${placement.chain}`] : [] };
+  if (entry === "kept" || entry === "refused") {
+    return { isEntryRemoved: false, isEntryKept: true, kept: [{ path: `~/${placement.path}`, reason: carrierKeptReason(entry) }] };
+  }
+  const chain = placement.chain === undefined ? "absent" : removeExactFile(carrierPath(placement, placement.chain), files?.chain ?? null);
+  const kept = chain === "kept" || chain === "refused" ? [{ path: `~/${placement.chain}`, reason: carrierKeptReason(chain) }] : [];
+  return { isEntryRemoved: entry === "removed", isEntryKept: false, kept };
 }
 
-/** Remove one file through its checked parent, only while it holds exactly `expected`. */
-function removeExactFile(absolute: string, expected: string | null): "removed" | "kept" | "absent" {
+function carrierKeptReason(outcome: "kept" | "refused"): string {
+  return outcome === "refused" ? REMOVAL_REFUSED : CARRIER_EDITED;
+}
+
+/** Remove one file through its checked parent, only while it holds exactly `expected`.
+ *  `refused` is a file still exactly ours whose delete failed: not the user's edit. */
+function removeExactFile(absolute: string, expected: string | null): "removed" | "kept" | "refused" | "absent" {
   if (!pathEntryExists(absolute)) return "absent";
   const root = dirname(absolute);
   const checked = safeProjectPath(root, basename(absolute));
   const snapshot = checked === null ? null : readProjectFileSnapshot(root, checked);
   if (checked === null || snapshot === null || expected === null || !snapshot.content.equals(Buffer.from(expected))) return "kept";
-  return unlinkProjectPath(root, checked, snapshot) ? "removed" : "kept";
+  return unlinkProjectPath(root, checked, snapshot) ? "removed" : "refused";
 }
 
 /** Everything installCanon wrote OUTSIDE the canon home, removed on uninstall's
  *  "everything" scope: the mirrors would otherwise point into a deleted canon and the
  *  command shims and machine hook would survive as orphans.
  *  Only ai-eng's own entries go — a real directory a person put in a mirror stays, and so
- *  does a link of theirs into the canon under another name or written another way. */
-export function removeMachineArtifacts(): number {
+ *  does a link of theirs into the canon under another name or written another way. An
+ *  entry still ours whose delete the filesystem refused is added to `refused`, by path. */
+export function removeMachineArtifacts(refused: string[] = []): number {
   const base = machineBase();
   const canonDir = join(home(), "skills");
   // Resolved on both sides: macOS tmpdir() hands out /var/... while the symlink
@@ -1409,7 +1449,12 @@ export function removeMachineArtifacts(): number {
       ) {
         return false;
       }
-      unlinkSync(name);
+      try {
+        unlinkSync(name);
+      } catch (error) {
+        if (isFilesystemRefusal(error)) refused.push(link);
+        return false;
+      }
       return true;
     } finally {
       process.chdir(previousDirectory);
@@ -1428,7 +1473,10 @@ export function removeMachineArtifacts(): number {
   const commandsDir = join(base, ".config", "opencode", "commands");
   for (const name of names(canonDir)) {
     // Ours only while it is exactly the body installCommands renders: an edited one stays.
-    if (removeExactFile(join(commandsDir, `${name}.md`), commandBody(canonDir, name)) === "removed") removed += 1;
+    const command = join(commandsDir, `${name}.md`);
+    const outcome = removeExactFile(command, commandBody(canonDir, name));
+    if (outcome === "removed") removed += 1;
+    if (outcome === "refused") refused.push(command);
   }
   pruneIfEmpty(commandsDir);
   return removed;
@@ -1449,17 +1497,31 @@ function pruneIfEmpty(dir: string): void {
  *  skill is a command the day it ships — never a second list to keep in sync.
  *  Cursor, Copilot CLI and Copilot Chat in VS Code read the mirrors themselves
  *  (.agents/skills, .claude/skills) and need no shim. */
-function installCommands(canonDir: string): { count: number } {
+function installCommands(canonDir: string): { count: number; refused: string[] } {
   const dir = join(machineBase(), ".config", "opencode", "commands");
   let count = 0;
-  for (const name of readdirSync(canonDir)) {
+  const refused: string[] = [];
+  let names: string[];
+  try {
+    names = readdirSync(canonDir);
+  } catch (error) {
+    if (!isFilesystemRefusal(error)) throw error;
+    return { count, refused: [refusedChangeText(canonDir, error)] };
+  }
+  for (const name of names) {
     const body = commandBody(canonDir, name);
     if (body === null) continue;
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, `${name}.md`), body);
-    count += 1;
+    const path = join(dir, `${name}.md`);
+    try {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path, body);
+      count += 1;
+    } catch (error) {
+      if (!isFilesystemRefusal(error)) throw error;
+      refused.push(refusedChangeText(error.path ?? path, error));
+    }
   }
-  return { count };
+  return { count, refused };
 }
 
 /** The one rendering of a skill's slash command: install writes it, uninstall removes only

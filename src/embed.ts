@@ -98,6 +98,18 @@ export function canonExtras(homeDir: string): CanonExtras {
   return { stale: stale.sort(byPath), kept: kept.sort(byPath), unproven: unproven.sort(byPath), foreign: foreign.sort(byPath) };
 }
 
+/** The one line doctor and installCanon print for stale files ai-eng proved its own but could
+ *  not remove: they stay stale, so the next run tries again once the folder lets it. */
+export function refusedStaleCanonText(paths: readonly string[]): string {
+  return `${paths.length} stale file(s) ai-eng shipped earlier — removal refused by the filesystem (a read-only, locked or busy folder), kept and retried by the next ai-eng update: ${paths.join(", ")}. Make the folder writable, then run ai-eng update`;
+}
+
+/** The stale files whose removal the last install was refused. */
+export function refusedStaleCanonFiles(homeDir: string): string[] {
+  const refused = readCanonOwnership(homeDir)?.refused ?? new Set<string>();
+  return canonExtras(homeDir).stale.filter((path) => refused.has(path));
+}
+
 /** The one line doctor and installCanon print for unproven files, with the step that clears it. */
 export function unprovenCanonText(paths: readonly string[]): string {
   return `${paths.length} file(s) in shipped skill folders that ai-eng cannot prove it wrote (left from before ownership was recorded: an outdated page of ours or a file of yours) — never deleted: ${paths.join(", ")}. Review each: delete it by hand, or move a file you keep out of the skill folder`;
@@ -114,15 +126,16 @@ function isRecordedCanonFile(owned: Map<string, string>, key: string, absolute: 
 }
 
 /** The record of every canon file installCanon last wrote, path → sha256, in the canon home,
- *  and the extras it found with no record to prove them either way (`unproven`). */
+ *  the extras it found with no record to prove them either way (`unproven`), and the stale
+ *  files it proved its own but could not remove (`refused`, whose hashes stay in `files`). */
 export const CANON_OWNERSHIP_NAME = "canon-owned.json";
 
-type CanonOwnership = { files: Map<string, string>; unproven: Set<string> };
+type CanonOwnership = { files: Map<string, string>; unproven: Set<string>; refused: Set<string> };
 
-/** Only a `{ files: { path: sha256 }, unproven?: path[] }` document is this installer's record. */
+/** Only a `{ files: { path: sha256 }, unproven?: path[], refused?: path[] }` document is this installer's record. */
 function parseCanonOwnership(text: string): CanonOwnership | null {
   try {
-    const record = JSON.parse(text) as { files?: unknown; unproven?: unknown };
+    const record = JSON.parse(text) as { files?: unknown; unproven?: unknown; refused?: unknown };
     if (record === null || typeof record !== "object" || record.files === null || typeof record.files !== "object") return null;
     const files = new Map<string, string>();
     for (const [path, hash] of Object.entries(record.files as Record<string, unknown>)) {
@@ -130,11 +143,16 @@ function parseCanonOwnership(text: string): CanonOwnership | null {
       files.set(path, hash);
     }
     const unproven = record.unproven ?? [];
-    if (!Array.isArray(unproven) || !unproven.every((path) => typeof path === "string")) return null;
-    return { files, unproven: new Set(unproven) };
+    const refused = record.refused ?? [];
+    if (!isPathList(unproven) || !isPathList(refused)) return null;
+    return { files, unproven: new Set(unproven), refused: new Set(refused) };
   } catch {
     return null;
   }
+}
+
+function isPathList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((path) => typeof path === "string");
 }
 
 /** The record is removable only while it parses and no file it vouches for is left: it is
@@ -166,16 +184,21 @@ function readCanonOwnership(homeDir: string): CanonOwnership | null {
 /** Remember the payload this binary just installed, so a later binary that stops shipping
  *  a page can prove the page on disk is still the one it wrote. `unproven` carries the
  *  extras no record covered forward: the new record lists only this payload, and without
- *  the list they would read as files the user added after it. The record is staged under
+ *  the list they would read as files the user added after it. `refused` carries the stale
+ *  files whose removal the filesystem refused, with the hash that proved them ours: without
+ *  it they would read as user files too, and no later run would retry. The record is staged under
  *  a private name and renamed over its own: a rename replaces the directory entry, so a
  *  file of the user's hard-linked at that name keeps its bytes. A link or a non-file at
  *  the name is refused, and the warning is returned. */
-export function recordCanonOwnership(homeDir: string, unproven: readonly string[] = []): string | null {
+export function recordCanonOwnership(homeDir: string, unproven: readonly string[] = [], refused: readonly string[] = []): string | null {
   const files: Record<string, string> = {};
   for (const [path, ref] of canonSkills()) {
     const embedded = embeddedPath(ref);
     if (existsSync(embedded)) files[path] = hashFile(embedded);
   }
+  const previous = readCanonOwnership(homeDir)?.files ?? new Map<string, string>();
+  const stillOwned = refused.filter((path) => previous.has(path));
+  for (const path of stillOwned) files[path] = previous.get(path)!;
   const refusal = `${join(homeDir, CANON_OWNERSHIP_NAME)} is a link, not a regular file, or not writable — ownership record not written; stale canon files will be kept, not swept`;
   let canonicalHome: string;
   try {
@@ -183,7 +206,8 @@ export function recordCanonOwnership(homeDir: string, unproven: readonly string[
   } catch {
     return refusal;
   }
-  const record = `${JSON.stringify({ files, unproven: [...unproven].sort((a, b) => a.localeCompare(b, "en")) }, null, 2)}\n`;
+  const byPath = (a: string, b: string): number => a.localeCompare(b, "en");
+  const record = `${JSON.stringify({ files, unproven: [...unproven].sort(byPath), refused: stillOwned.sort(byPath) }, null, 2)}\n`;
   const isWritten = withSafeProjectParent(canonicalHome, join(canonicalHome, CANON_OWNERSHIP_NAME), (name) => replaceRegularFile(name, record));
   return isWritten ? null : refusal;
 }
@@ -216,9 +240,12 @@ function replaceRegularFile(name: string, contents: string): boolean {
 
 /** Sweep the stale files inside folders we ship, then the directories they leave empty.
  *  A stale file goes only while its bytes equal the hash recorded when this installer
- *  wrote it: a page the user added or edited has no such proof and stays (§14.3). */
-export function removeStaleCanonFiles(homeDir: string): { removed: string[]; kept: string[]; unproven: string[] } {
+ *  wrote it: a page the user added or edited has no such proof and stays (§14.3). A stale
+ *  file still ours that could not be removed (a refused delete, or one that could not be
+ *  re-read) is `refused`: still ai-eng's, never a user file. */
+export function removeStaleCanonFiles(homeDir: string): { removed: string[]; kept: string[]; unproven: string[]; refused: string[] } {
   const removed: string[] = [];
+  const refused: string[] = [];
   const extras = canonExtras(homeDir);
   const kept: string[] = [...extras.kept];
   const owned = readCanonOwnership(homeDir)?.files ?? new Map<string, string>();
@@ -226,9 +253,12 @@ export function removeStaleCanonFiles(homeDir: string): { removed: string[]; kep
   for (const key of extras.stale) {
     const absolute = safeProjectPath(homeDir, key);
     const snapshot = absolute === null ? null : readProjectFileSnapshot(homeDir, absolute);
-    const isOwned = snapshot !== null && snapshot.hash === owned.get(key);
-    if (absolute === null || snapshot === null || !isOwned || !unlinkProjectPath(homeDir, absolute, snapshot)) {
-      kept.push(key);
+    if (snapshot !== null && snapshot.hash !== owned.get(key)) {
+      kept.push(key); // edited since the walk proved it ours: the user's now
+      continue;
+    }
+    if (absolute === null || snapshot === null || !unlinkProjectPath(homeDir, absolute, snapshot)) {
+      refused.push(key);
       continue;
     }
     removed.push(key);
@@ -238,7 +268,7 @@ export function removeStaleCanonFiles(homeDir: string): { removed: string[]; kep
       directory = dirname(directory);
     }
   }
-  return { removed, kept: kept.sort((a, b) => a.localeCompare(b, "en")), unproven: extras.unproven };
+  return { removed, kept: kept.sort((a, b) => a.localeCompare(b, "en")), unproven: extras.unproven, refused };
 }
 
 /** The installed canon against this binary's payload, byte for byte — the one
@@ -287,28 +317,44 @@ export function materializeScripts(destRoot: string): string[] {
 function materializePrefix(prefix: string, destRoot: string, embedded = embeddedUnder(prefix)): string[] {
   const lines: string[] = [];
   const executablePattern = /\.(mjs|sh)$/;
-  mkdirSync(destRoot, { recursive: true });
+  try {
+    mkdirSync(destRoot, { recursive: true });
+  } catch (error) {
+    if (!isFilesystemRefusal(error)) throw error;
+    return [`⚠ ${refusedChangeText(destRoot, error)}`];
+  }
   const rootStat = lstatSync(destRoot);
   if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
     throw new Error(`refusing to materialize through a symlink or non-directory: ${destRoot}`);
   }
   const canonicalRoot = realpathSync(destRoot);
   let count = 0;
+  const refused: string[] = [];
   for (const [path, ref] of embedded) {
     const dest = resolve(canonicalRoot, path.slice(prefix.length));
     assertInsideRoot(canonicalRoot, dest);
     const pathname = embeddedPath(ref);
-    if (!existsSync(pathname)) {
-      // Inside a compiled binary the asset lives at its ORIGINAL absolute path —
-      // Bun --compile preserves the string. The ref is already the path.
-      resolvedFromRef(ref, dest, executablePattern, canonicalRoot);
-    } else {
-      resolvedFromRef(pathname, dest, executablePattern, canonicalRoot);
+    // Inside a compiled binary the asset lives at its ORIGINAL absolute path —
+    // Bun --compile preserves the string. The ref is already the path.
+    const source = existsSync(pathname) ? pathname : ref;
+    try {
+      resolvedFromRef(source, dest, executablePattern, canonicalRoot);
+    } catch (error) {
+      // One refused file must not stop the rest of the payload, or the lock after it.
+      if (!isFilesystemRefusal(error)) throw error;
+      refused.push(`${dest} (${error.code})`);
+      continue;
     }
     count += 1;
   }
   lines.push(`materialized ${count} assets → ${destRoot}`);
+  if (refused.length > 0) lines.push(`⚠ ${refused.length} file(s) not written — the filesystem refused (read-only, locked or busy); left as they are: ${refused.join(", ")}. Make them writable, then run ai-eng update`);
   return lines;
+}
+
+/** One warning for a write, delete or rename the filesystem refused: the path, the errno and the step. */
+export function refusedChangeText(path: string, error: NodeJS.ErrnoException): string {
+  return `${path} — the filesystem refused the change (${error.code}); left as it is. Make it writable, then run again`;
 }
 
 /** The filesystem path an embedded ref points at. In a compiled binary the ref is
@@ -419,8 +465,23 @@ export function safeProjectPath(root: string, rel: string): string | null {
   return absolute;
 }
 
+/** A refusal from the filesystem (EACCES, EPERM, EBUSY, ENOTEMPTY, EROFS, ENOSPC…) carries
+ *  an errno code. Anything without one is a bug, and callers rethrow it. */
+export function isFilesystemRefusal(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && typeof (error as NodeJS.ErrnoException).code === "string";
+}
+
+/** Runs `action` from inside the checked parent. A filesystem refusal anywhere in it is a
+ *  returned `false`, never a throw: every caller already keeps the file and says so, and the
+ *  command around it still has to finish its other work and write its lock. */
 export function withSafeProjectParent(root: string, absolute: string, action: (name: string) => boolean): boolean {
-  const canonicalRoot = realpathSync(root);
+  let canonicalRoot: string;
+  try {
+    canonicalRoot = realpathSync(root);
+  } catch (error) {
+    if (isFilesystemRefusal(error)) return false;
+    throw error;
+  }
   const parent = dirname(absolute);
   const previousDirectory = process.cwd();
   let changedDirectory = false;
@@ -439,13 +500,18 @@ export function withSafeProjectParent(root: string, absolute: string, action: (n
     }
     if (currentDirectory !== parent || !pathIsWithin(canonicalRoot, currentDirectory)) return false;
     // Relative operations stay anchored here if the parent pathname is replaced.
-    return action(basename(absolute));
+    try {
+      return action(basename(absolute));
+    } catch (error) {
+      if (isFilesystemRefusal(error)) return false;
+      throw error;
+    }
   } finally {
     if (changedDirectory) process.chdir(previousDirectory);
   }
 }
 
-export type ProjectFileSnapshot = Pick<Stats, "dev" | "ino" | "size" | "mtimeMs" | "ctimeMs"> & {
+export type ProjectFileSnapshot = Pick<Stats, "dev" | "ino" | "nlink" | "size" | "mtimeMs" | "ctimeMs"> & {
   content: Buffer;
   hash: string;
 };
@@ -487,6 +553,7 @@ export function readProjectFileSnapshot(root: string, absolute: string): Project
       snapshot = {
         dev: afterRead.dev,
         ino: afterRead.ino,
+        nlink: afterRead.nlink,
         size: afterRead.size,
         mtimeMs: afterRead.mtimeMs,
         ctimeMs: afterRead.ctimeMs,
@@ -565,18 +632,34 @@ export function writeProjectFile(root: string, absolute: string, snapshot: Proje
       // A second name (a hard link from the user's home) would receive the rewrite too.
       if (fstatSync(descriptor).nlink !== 1 || !fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return false;
       const bytes = Buffer.from(contents);
-      ftruncateSync(descriptor, 0);
-      let written = 0;
-      while (written < bytes.length) {
-        const count = writeSync(descriptor, bytes, written, bytes.length - written, written);
-        if (count === 0) return false;
-        written += count;
+      try {
+        ftruncateSync(descriptor, 0);
+        writeAll(descriptor, bytes);
+        return true;
+      } catch (error) {
+        // Refused midway (ENOSPC, EIO): put the bytes that were read back, so the file is
+        // never left half-written. The refusal still reaches the caller as `false`.
+        try {
+          ftruncateSync(descriptor, 0);
+          writeAll(descriptor, snapshot.content);
+        } catch {
+          /* nothing more this run can do; the caller keeps the path and names it */
+        }
+        throw error;
       }
-      return true;
     } finally {
       closeSync(descriptor);
     }
   });
+}
+
+function writeAll(descriptor: number, bytes: Buffer): void {
+  let written = 0;
+  while (written < bytes.length) {
+    const count = writeSync(descriptor, bytes, written, bytes.length - written, written);
+    if (count === 0) throw Object.assign(new Error("short write"), { code: "EIO" });
+    written += count;
+  }
 }
 
 export function pathIsWithin(root: string, candidate: string): boolean {
