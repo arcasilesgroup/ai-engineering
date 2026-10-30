@@ -1,7 +1,7 @@
 // `ai-eng doctor` — 12 checks + one real test. The difference with theater: it
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
-import { canonDrift } from "../embed.ts";
+import { canonDrift, canonExtras, unprovenCanonText } from "../embed.ts";
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -97,6 +97,13 @@ function checkCanon(): CheckResult {
   if (canon.kept > 0) canonBits.push(`${canon.kept} kept user file(s) in shipped skill folders (never deleted)`);
   if (canon.foreign > 0) canonBits.push(`${canon.foreign} not ours (left alone)`);
   return { name: "canon", status: canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? "ok" : "warn", detail: canonBits.join(" · ") };
+}
+
+/** Unproven extras get a row of their own: update never deletes them (no hash proves them
+ *  ours), so only the person can clear it, and the row says how. */
+function checkCanonUnproven(): CheckResult | null {
+  const { unproven } = canonExtras(home());
+  return unproven.length === 0 ? null : { name: "canon unproven", status: "warn", detail: unprovenCanonText(unproven) };
 }
 
 function checkAssets(root: string | null): CheckResult | null {
@@ -436,6 +443,8 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   const mirrors = await checkMirrors(root);
   if (mirrors) results.push(mirrors);
   results.push(checkCanon());
+  const unproven = checkCanonUnproven();
+  if (unproven) results.push(unproven);
   const assets = checkAssets(root);
   if (assets) results.push(assets);
   const floor = checkGitFloor(root);

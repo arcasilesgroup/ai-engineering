@@ -41,6 +41,7 @@ import {
   machineCarrier,
   machineStateFile,
   machineStateLockFile,
+  machineStateLockScope,
   mirrorTargets,
   readMachineState,
   repoCarrier,
@@ -1156,7 +1157,7 @@ describe("carriers on the machine", () => {
     const base = useHome("machine-state-stale-lock");
     const lockPath = machineStateLockFile();
     const deadPid = spawnSync("true").pid;
-    const lockOf = (pid: number, host: string) => `${JSON.stringify({ pid, hostname: host, startedAt: "2026-01-01T00:00:00.000Z" })}\n`;
+    const lockOf = (pid: number, host: string) => `${JSON.stringify({ pid, hostname: host, startedAt: "2026-01-01T00:00:00.000Z", ...machineStateLockScope() })}\n`;
 
     writeFileSync(lockPath, lockOf(deadPid, hostname()));
     expect(installMachineCarriers(["opencode"]).refused).toEqual([]);
@@ -1171,6 +1172,22 @@ describe("carriers on the machine", () => {
       expect(refuseLine(refused[0]!)).toBe(
         `⚠ ${lockPath} — held by another ai-eng run, one on another host, or one this run cannot prove has stopped; machine state left untouched. If no ai-eng run is using this home, delete ${lockPath} and run again`,
       );
+    }
+    rmSync(lockPath);
+    expect(readdirSync(base).filter((name) => name.startsWith(".machine.json."))).toEqual([]);
+  });
+
+  test("F24: a dead pid proves nothing from another boot or pid namespace: that lock stays held and named", () => {
+    const base = useHome("machine-state-foreign-scope");
+    const lockPath = machineStateLockFile();
+    const deadPid = spawnSync("true").pid;
+    const scope = machineStateLockScope();
+    const owner = { pid: deadPid, hostname: hostname(), startedAt: "2026-01-01T00:00:00.000Z" };
+    for (const foreign of [{ ...scope, bootId: "another-boot" }, { ...scope, pidNamespace: "pid:[4026531836-container]" }]) {
+      const held = `${JSON.stringify({ ...owner, ...foreign })}\n`;
+      writeFileSync(lockPath, held);
+      expect(installMachineCarriers(["opencode"]).refused).toEqual([{ path: lockPath, reason: "machine-state-busy" }]);
+      expect(readFileSync(lockPath, "utf8")).toBe(held);
     }
     rmSync(lockPath);
     expect(readdirSync(base).filter((name) => name.startsWith(".machine.json."))).toEqual([]);

@@ -25,7 +25,7 @@ import { uninstallMain } from "../src/commands/uninstall.ts";
 import { embeddedPath, embeddedUnder, recordCanonOwnership } from "../src/embed.ts";
 import { contractEntries, planEntries } from "../src/commands/init-shared.ts";
 import { buildLock, install, lockText, sha256 } from "../src/install.ts";
-import { installMachineCarriers, machineStateFile, machineStateLockFile, readMachineState } from "../src/surfaces/adapters.ts";
+import { installMachineCarriers, machineStateFile, machineStateLockFile, machineStateLockScope, readMachineState } from "../src/surfaces/adapters.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 import { usePrivateStdin } from "./fixtures/private-stdin.ts";
@@ -922,7 +922,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     recordLegacyTemplateDir(null, ours);
     setGlobalTemplateDir(ours);
     const deadPid = spawnSync("true").pid;
-    writeFileSync(machineStateLockFile(), JSON.stringify({ pid: deadPid, hostname: hostname(), startedAt: "2026-01-01T00:00:00.000Z" }));
+    writeFileSync(machineStateLockFile(), JSON.stringify({ pid: deadPid, hostname: hostname(), startedAt: "2026-01-01T00:00:00.000Z", ...machineStateLockScope() }));
     renameSync(machineStateFile(), join(machine, ".machine.json.4242.abcdef012345.claim"));
 
     const { result, out } = await uninstall(everythingScope("n", "y"));

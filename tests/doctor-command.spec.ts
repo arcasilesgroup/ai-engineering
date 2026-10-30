@@ -325,6 +325,40 @@ describe("doctor · the canon and the lock", () => {
     expect(detail(run, "canon")).toContain("1 stale (ai-eng update sweeps what we shipped)");
   });
 
+  test("F23: pages an install left before ownership was recorded are unproven, never a user file: warned with the manual step, kept, and cleared only by hand", async () => {
+    const { home } = healthy();
+    // A v2.6.0 install: it shipped these pages and wrote no canon-owned.json.
+    rmSync(join(home, "canon-owned.json"));
+    const readme = "skills/ai-verify/evals/README.md";
+    const catalog = "skills/ai-verify/evals/bug-catalog.md";
+    mkdirSync(join(home, "skills", "ai-verify", "evals"), { recursive: true });
+    writeFileSync(join(home, readme), "# Evals — test the reviewer, not just the code\n");
+    writeFileSync(join(home, catalog), "# Bug catalog\n");
+    const unprovenText = (paths: string[]) =>
+      `${paths.length} file(s) in shipped skill folders that ai-eng cannot prove it wrote (left from before ownership was recorded: an outdated page of ours or a file of yours) — never deleted: ${paths.join(", ")}. Review each: delete it by hand, or move a file you keep out of the skill folder`;
+
+    let run = await doctor();
+    expect(row(run, "canon")).toContain("✓");
+    expect(detail(run, "canon")).not.toContain("kept user file");
+    expect(row(run, "canon unproven")).toContain("▲");
+    expect(detail(run, "canon unproven")).toBe(unprovenText([catalog, readme]));
+
+    // The repair update runs keeps them and carries them into the new record, so a second
+    // run does not mistake them for files the user added after it.
+    for (let pass = 0; pass < 2; pass += 1) expect(installCanon(VERSION)).toContain(`⚠ ${unprovenText([catalog, readme])}`);
+    expect(readFileSync(join(home, readme), "utf8")).toBe("# Evals — test the reviewer, not just the code\n");
+    expect((JSON.parse(readFileSync(join(home, "canon-owned.json"), "utf8")) as { unproven: string[] }).unproven).toEqual([catalog, readme]);
+    run = await doctor();
+    expect(detail(run, "canon unproven")).toBe(unprovenText([catalog, readme]));
+
+    rmSync(join(home, catalog));
+    expect(detail(await doctor(), "canon unproven")).toBe(unprovenText([readme]));
+    rmSync(join(home, readme));
+    run = await doctor();
+    expect(row(run, "canon unproven")).toBe("(no row for canon unproven)");
+    expect(row(run, "canon")).toContain("✓");
+  });
+
   test("the full installed skill inventory is verified despite a legacy pack filter", async () => {
     const legacyConfig = `${GOVERNED}\n[canon]\npacks = ["triage"]\n`;
     const { home } = healthy(legacyConfig);

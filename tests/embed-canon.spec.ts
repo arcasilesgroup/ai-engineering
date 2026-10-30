@@ -161,7 +161,7 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
     mkdirSync(join(home, "skills", "somebody-elses-skill"), { recursive: true });
     writeFileSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"), "mine");
 
-    expect(removeStaleCanonFiles(home)).toEqual({ removed: [`skills/${folder}/old/orphan.md`], kept: [] });
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: [`skills/${folder}/old/orphan.md`], kept: [], unproven: [] });
     expect(existsSync(join(home, "skills", folder, "old"))).toBe(false);
     expect(existsSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"))).toBe(true);
   });
@@ -177,6 +177,7 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
     expect(removeStaleCanonFiles(home)).toEqual({
       removed: [],
       kept: [`skills/${folder}/my-notes.md`, `skills/${folder}/renamed-page.md`],
+      unproven: [],
     });
     expect(readFileSync(join(home, "skills", folder, "my-notes.md"), "utf8")).toBe("mine");
     expect(readFileSync(join(home, "skills", folder, "renamed-page.md"), "utf8")).toBe("edited by hand");
@@ -232,7 +233,7 @@ describe("drift is a measurement, not a claim", () => {
   test("a freshly materialized canon is intact: nothing missing, nothing drifted, nothing stale", () => {
     const home = sandbox();
     expect(materializeSkills(join(home, "skills"))[0]).toMatch(/^materialized \d+ assets → /);
-    expect(canonDrift(home)).toEqual({ verified: canonSkills().size, drift: 0, missing: 0, stale: 0, kept: 0, foreign: 0 });
+    expect(canonDrift(home)).toEqual({ verified: canonSkills().size, drift: 0, missing: 0, stale: 0, kept: 0, unproven: 0, foreign: 0 });
   });
 
   test("a canon can be complete and dirty at once: an edited file counts as drift, a deleted one as missing", () => {
@@ -254,9 +255,12 @@ describe("drift is a measurement, not a claim", () => {
     mkdirSync(join(home, "skills", skillFolder()), { recursive: true });
     const key = `skills/${skillFolder()}/left-behind.md`;
     writeFileSync(join(home, key), "x");
-    expect(canonDrift(home)).toMatchObject({ stale: 0, kept: 1 });
+    expect(canonDrift(home)).toMatchObject({ stale: 0, kept: 0, unproven: 1 });
+
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: {} }));
+    expect(canonDrift(home)).toMatchObject({ stale: 0, kept: 1, unproven: 0 });
 
     writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [key]: sha256("x") } }));
-    expect(canonDrift(home)).toMatchObject({ stale: 1, kept: 0 });
+    expect(canonDrift(home)).toMatchObject({ stale: 1, kept: 0, unproven: 0 });
   });
 });

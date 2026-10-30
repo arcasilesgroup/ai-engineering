@@ -11,7 +11,7 @@ import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
 import {
   materializeSkills, materializeAgents, materializeScripts, embeddedTemplate, embeddedChainBundle, removeStaleCanonFiles,
-  recordCanonOwnership, safeProjectPath, readProjectFileSnapshot, unlinkProjectPath, writeProjectFile,
+  recordCanonOwnership, unprovenCanonText, safeProjectPath, readProjectFileSnapshot, unlinkProjectPath, writeProjectFile,
 } from "../embed.ts";
 import type { Dialect } from "../chain/dialect.ts";
 
@@ -184,7 +184,8 @@ export function installCanon(version: string, preserveSkills: readonly string[] 
   const swept = removeStaleCanonFiles(home());
   if (swept.removed.length > 0) lines.push(`✓ swept ${swept.removed.length} file(s) this binary no longer ships: ${swept.removed.join(", ")}`);
   if (swept.kept.length > 0) lines.push(`✓ kept ${swept.kept.length} user file(s) — not shipped by this binary and not provably written by ai-eng, so never deleted: ${swept.kept.join(", ")}`);
-  const recordRefusal = recordCanonOwnership(home());
+  if (swept.unproven.length > 0) lines.push(`⚠ ${unprovenCanonText(swept.unproven)}`);
+  const recordRefusal = recordCanonOwnership(home(), swept.unproven);
   if (recordRefusal !== null) lines.push(`⚠ ${recordRefusal}`);
   const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
   lines.push(`✓ ${home()}/skills/ — ${entries.length} skills installed`);
@@ -724,7 +725,8 @@ export function machineStateLockFile(): string {
 
 type MachineStateFile = { dev: number; ino: number; content: Buffer };
 type OwnedMachineEntry = { name: string; dev: number; ino: number };
-type MachineStateLockOwner = { pid: number; hostname: string; startedAt: string };
+type MachineStateLockScope = { bootId: string | null; pidNamespace: string | null };
+type MachineStateLockOwner = MachineStateLockScope & { pid: number; hostname: string; startedAt: string };
 type MachineStateLock = { dev: number; ino: number; content: Buffer; owner: MachineStateLockOwner | null };
 /** The state file as this run read it, bound to the directory that holds it. `unsafe`
  *  means another path could see its bytes: a link, not a regular file, or a second name.
@@ -857,7 +859,7 @@ function acquireMachineStateLock(): OwnedMachineEntry | null {
  *  and a link never replaces a name that exists, so no run ever sees an empty lock. */
 function createMachineStateLock(): OwnedMachineEntry | null {
   const processStart = new Date(Date.now() - process.uptime() * 1000).toISOString();
-  const owner: MachineStateLockOwner = { pid: process.pid, hostname: hostname(), startedAt: processStart };
+  const owner: MachineStateLockOwner = { pid: process.pid, hostname: hostname(), startedAt: processStart, ...machineStateLockScope() };
   const staged = stageMachineState(`${JSON.stringify(owner)}\n`);
   if (staged === null) return null;
   try {
@@ -918,19 +920,48 @@ function parseLockOwner(text: string): MachineStateLockOwner | null {
   try {
     const owner = JSON.parse(text) as Partial<MachineStateLockOwner> | null;
     if (owner === null || typeof owner !== "object") return null;
-    const { pid, hostname: host, startedAt } = owner;
+    const { pid, hostname: host, startedAt, bootId = null, pidNamespace = null } = owner;
     if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return null;
     if (typeof host !== "string" || typeof startedAt !== "string") return null;
-    return { pid, hostname: host, startedAt };
+    if (!isOptionalName(bootId) || !isOptionalName(pidNamespace)) return null;
+    return { pid, hostname: host, startedAt, bootId, pidNamespace };
   } catch {
     return null;
   }
 }
 
-/** Only ESRCH from this host proves the owner gone: a live pid (even another user's, which
- *  answers EPERM), another host's pid, or a lock we cannot parse all stay held. */
+function isOptionalName(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+/** The boot and the pid namespace this run's pids belong to, where the kernel names them
+ *  (Linux /proc); null elsewhere. A container that shares the host name and this home sees
+ *  other pids than the host, so a pid it cannot find is not proof the owner is gone. */
+export function machineStateLockScope(): MachineStateLockScope {
+  return {
+    bootId: readKernelName(() => readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim()),
+    pidNamespace: readKernelName(() => readlinkSync("/proc/self/ns/pid")),
+  };
+}
+
+function readKernelName(read: () => string): string | null {
+  try {
+    const name = read();
+    return name.length > 0 ? name : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Only ESRCH from this host, this boot and this pid namespace proves the owner gone: a
+ *  live pid (even another user's, which answers EPERM), another host's, boot's or
+ *  namespace's pid, a Linux run that cannot read its own scope, or a lock we cannot parse
+ *  all stay held. */
 function isLockOwnerGone(owner: MachineStateLockOwner | null): boolean {
   if (owner === null || owner.hostname !== hostname()) return false;
+  const scope = machineStateLockScope();
+  if (owner.bootId !== scope.bootId || owner.pidNamespace !== scope.pidNamespace) return false;
+  if (process.platform === "linux" && (scope.bootId === null || scope.pidNamespace === null)) return false;
   try {
     process.kill(owner.pid, 0);
     return false;

@@ -1759,3 +1759,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Replace the record by temp-file rename; classify unprovable extras as kept user files; warn only for files holding ai-eng entries; keep the record while recorded files exist.
 - **Lesson:** A warning must only count what its fix can clear, and a proof stays while what it proves is still there.
 - **Tags:** review, cleanup, ownership, doctor
+
+### L241 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F23: outdated canon files from earlier releases were labelled "kept user file" because no release up to v2.6.0 recorded canon hashes; F24: lock staleness relied on host name and pid only.
+- **Root cause:** There was no ownership proof to migrate, and a dead pid does not prove the owner is gone across boots or pid namespaces.
+- **Fix:** Add an `unproven` class that is never deleted, carried in `canon-owned.json`, and shown in one doctor warn row; record boot ID and pid namespace on Linux and hold the lock when they cannot be read.
+- **Lesson:** When no ownership proof ever existed, label the file unproven, never the user's, and keep it visible until a person clears it.
+- **Tags:** review, ownership, migration, lock, doctor
