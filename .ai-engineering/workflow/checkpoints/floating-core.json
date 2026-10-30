@@ -1337,7 +1337,7 @@
         "Correct tests/adversarial/carrier-merge.test.ts:258 to expect machine-home settings to remain; the reproduced full-suite assertion conflicts with the approved user-owned-file preservation requirement.",
         "Ensure uninstall removes only byte-identical canon-owned skill files, refuses linked paths, and prunes empty directories without removing user-owned content.",
         "Cover preservation of custom, edited, and unrelated user files in the carrier-merge and uninstall regressions.",
-        "Fail closed with a warning when portable machine-settings creation, replacement, or removal cannot be bound to a validated filesystem identity; do not mutate a pathname that may have been replaced."
+        "Fail closed with a warning when portable machine-settings creation, replacement, or removal cannot be bound to a validated filesystem identity, while completing local canon installation and configuration."
       ],
       "files": [
         "src/commands/uninstall.ts",
@@ -1346,17 +1346,30 @@
         "src/surfaces/adapters.ts",
         "tests/adversarial/carrier-merge.test.ts",
         "tests/carriers-install.spec.ts",
-        "tests/uninstall-command.spec.ts"
+        "tests/uninstall-command.spec.ts",
+        "tests/init-command.spec.ts",
+        "tests/update-command.spec.ts",
+        "tests/config-command.spec.ts",
+        "tests/surfaces.test.ts",
+        "tests/adversarial/lock-security.test.ts",
+        "tests/adversarial/init-recovery.test.ts"
       ],
       "acceptance": [
         "Carrier cleanup and uninstall preserve machine-home settings, custom skill directories, edited files, and unrelated user-owned content.",
         "Uninstall removes only byte-identical canon-owned skill files, refuses linked paths, and prunes only empty directories.",
-        "Unsafe machine-settings creation, replacement, or removal is refused with a warning; existing settings and external symlink targets remain unchanged."
+        "Unsafe machine-settings creation, replacement, or removal is refused with a warning; existing settings and external symlink targets remain unchanged.",
+        "Local canon skill installation, configuration, updates, and lock recovery still complete when machine-settings registration is refused."
       ],
       "verify": [
         "bun test tests/adversarial/carrier-merge.test.ts",
         "bun test tests/carriers-install.spec.ts",
         "bun test tests/uninstall-command.spec.ts",
+        "bun test tests/init-command.spec.ts",
+        "bun test tests/update-command.spec.ts",
+        "bun test tests/config-command.spec.ts",
+        "bun test tests/surfaces.test.ts",
+        "bun test tests/adversarial/lock-security.test.ts",
+        "bun test tests/adversarial/init-recovery.test.ts",
         "bun test"
       ],
       "changed_files": [
@@ -1367,6 +1380,12 @@
         "tests/adversarial/carrier-merge.test.ts",
         "tests/carriers-install.spec.ts",
         "tests/uninstall-command.spec.ts",
+        "tests/init-command.spec.ts",
+        "tests/update-command.spec.ts",
+        "tests/config-command.spec.ts",
+        "tests/surfaces.test.ts",
+        "tests/adversarial/lock-security.test.ts",
+        "tests/adversarial/init-recovery.test.ts",
         ".ai-engineering/workflow/reviews/floating-core-19-replan.md",
         ".ai-engineering/workflow/reviews/floating-core-19-write-safety.md",
         ".ai-engineering/workflow/test-plans/floating-core.json",
@@ -1376,7 +1395,7 @@
       "gates": {
         "behavior": {
           "status": "passed",
-          "attempts": 7,
+          "attempts": 9,
           "findings": [
             "Gate 1 attempt 1 passed carrier-merge (13), carriers-install (38), and uninstall (22), then `bun test` failed because the isolated source archive omitted `.git`; two Git-dependent tests in `tests/token-budget.spec.ts` failed at `git read-tree HEAD`. Rerun in a Git-backed local clone before judging CP19.",
             "Gate 1 attempt 2 passed all four verify commands in order in a local Git-backed clone at main HEAD 5f8a3454: carrier-merge 13, carriers-install 38, uninstall 22, and full suite 1,561 passed with 0 failures.",
@@ -1384,7 +1403,9 @@
             "Gate 1 attempt 4 passed all four verify commands in order at main HEAD 81b6214d: carrier-merge 13, carriers-install 38, uninstall 24, and full suite 1,563 passed across 75 files with 0 failures.",
             "Gate 1 attempt 5 passed all four commands in order at main HEAD baf18d4c: carrier-merge 13, carriers-install 38, uninstall 26, and full suite 1,565 passed across 75 files with 0 failures.",
             "Gate 1 attempt 6 passed all four commands in order at main HEAD 7eb879ab: carrier-merge 13, carriers-install 39, uninstall 28, and full suite 1,568 passed across 75 files with 0 failures.",
-            "Gate 1 attempt 7 passed all four commands in order at main HEAD 4430949f: carrier-merge 13, carriers-install 44, uninstall 28, and full suite 1,573 passed, 16 skipped, and 0 failed across 75 files."
+            "Gate 1 attempt 7 passed all four commands in order at main HEAD 4430949f: carrier-merge 13, carriers-install 44, uninstall 28, and full suite 1,573 passed, 16 skipped, and 0 failed across 75 files.",
+            "Gate 1 attempt 8 at fbca3529 passed the three focused CP19 commands but the full suite failed 7 tests (1,563 passed, 16 skipped). Failures were init/update/config carrier-integration expectations after machine-settings operations began refusing path mutations; the tests and plan were aligned to the explicit refusal/warning contract while retaining local canon assertions.",
+            "Gate 1 attempt 9 passed all 10 verify commands in order on a clean Git-backed copy of main HEAD ff1f5b84 with the four CP19 files overlaid: carrier-merge 13, carriers-install 42, uninstall 28, init 33, update 20, config 30, surfaces 18, lock-security 2, init-recovery 13, and full suite 1,571 passed with 16 skipped and 0 failures across 75 files."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
@@ -1393,7 +1414,9 @@
           "attempts": 2,
           "findings": [
             "Adversarial review loop attempt 1 failed after four critic rounds: F1-F4 were resolved; F5 remains open because a write error can leave user-owned settings truncated or partial.",
-            "Adversarial review loop attempt 2 round 1 confirmed F5: adapters.ts:409 and :450 write settings in place, so an error can leave partial contents; I73 reproduces this. The atomic staging fix resolved F5, but review round 2 found F6: snapshot validation is separate from renameSync/unlinkSync, leaving a race where a replacement can still be overwritten or removed."
+            "Adversarial review loop attempt 2 round 1 confirmed F5: adapters.ts:409 and :450 write settings in place, so an error can leave partial contents; I73 reproduces this. The atomic staging fix resolved F5, but review round 2 found F6: snapshot validation is separate from renameSync/unlinkSync, leaving a race where a replacement can still be overwritten or removed.",
+            "Adversarial review loop attempt 2 round 3 found F7: a user settings symlink can target machine.json, so init/update writes or uninstall deletion of that internal path can still mutate user-owned content despite the settings refusal.",
+            "Adversarial review loop attempt 2 round 3 found F7: a user settings symlink can target machine.json, so init/update writes or uninstall deletion of that internal path can still mutate user-owned content despite the settings refusal."
           ]
         }
       },
