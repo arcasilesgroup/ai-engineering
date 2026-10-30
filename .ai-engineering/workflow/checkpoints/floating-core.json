@@ -1401,7 +1401,7 @@
       "gates": {
         "behavior": {
           "status": "passed",
-          "attempts": 13,
+          "attempts": 14,
           "findings": [
             "Gate 1 attempt 1 passed carrier-merge (13), carriers-install (38), and uninstall (22), then `bun test` failed because the isolated source archive omitted `.git`; two Git-dependent tests in `tests/token-budget.spec.ts` failed at `git read-tree HEAD`. Rerun in a Git-backed local clone before judging CP19.",
             "Gate 1 attempt 2 passed all four verify commands in order in a local Git-backed clone at main HEAD 5f8a3454: carrier-merge 13, carriers-install 38, uninstall 22, and full suite 1,561 passed with 0 failures.",
@@ -1415,7 +1415,8 @@
             "Gate 1 re-run after the review fix stopped at the first command: bun test tests/adversarial/carrier-merge.test.ts reported temporary paths under tests/ at tests/preload.ts:46. The selected checkout baseline already contained four untracked tests/.worktree-lifecycle-* paths, so this run may be contaminated; later verify commands were not run.",
             "Gate 1 attempt 11 stopped at command 1 due to clone setup: dependencies were missing, and the isolated test home inside the clone was rejected by src/env.ts:18. With locked dependencies installed and the test home outside the clone, carrier-merge passed 13 tests; the remaining verify commands were not run.",
             "Gate 1 attempt 12 passed commands 1-7 (186 tests total) then stopped at command 8, bun test tests/adversarial/lock-security.test.ts: 8 passed and 1 failed at the refusal-message assertion near line 192. The output rendered the compared value identically; cause unconfirmed, and commands 9-10 were not run. Follow-up fix: use Bun's array membership matcher `toContain`; command 8 then passed 9/9, with full Gate 1 retry pending.",
-            "Gate 1 attempt 13 passed all ten CP19 verify commands in order at commit c37f26da in a clean Git-backed clone with locked dependencies and test homes outside the clone. The four baseline artifacts remained untouched."
+            "Gate 1 attempt 13 passed all ten CP19 verify commands in order at commit c37f26da in a clean Git-backed clone with locked dependencies and test homes outside the clone. The four baseline artifacts remained untouched.",
+            "Gate 1 attempt 14 after the F8-F10 fix (112565f3) passed all ten verify commands in a clean clone: carrier-merge 13, carriers-install 47, uninstall 29, init 33, update 20, config 30, surfaces 18, lock-security 9, init-recovery 13, full suite 1,584 pass / 16 skip / 0 fail; typecheck, lint and arch (54) green."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
