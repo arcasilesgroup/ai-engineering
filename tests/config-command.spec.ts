@@ -179,16 +179,25 @@ describe("ai-eng config · --add and --remove", () => {
     expect(existsSync(join(home, ".claude", "settings.json"))).toBe(false);
   });
 
-  test("--add writes both carriers of a surface that reads the repo and the machine", async () => {
+  test("--add writes the repo carrier and refuses unsafe machine settings unchanged", async () => {
     const { repo, home } = governedRepo();
+    installCanon(VERSION);
+    const machineSettings = join(home, ".copilot", "hooks", "ai-eng.json");
+    const machineSettingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(join(home, ".copilot", "hooks"), { recursive: true });
+    writeFileSync(machineSettings, machineSettingsBefore);
 
     const { result: code, out } = await runConfig(repo, { add: "copilot" });
 
     expect(code).toBe(0);
-    expect(out).toContain("✓  ~/.copilot/hooks/ai-eng.json written (machine carrier)");
     expect(out).toContain("✓  .github/hooks/ai-eng.json written (repo carrier)");
+    expect(out).toContain("~/.copilot/hooks/ai-eng.json");
+    expect(out).toContain("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
     expect(existsSync(join(repo, ".github", "hooks", "ai-eng.json"))).toBe(true);
-    expect(existsSync(join(home, ".copilot", "hooks", "ai-eng.json"))).toBe(true);
+    expect(readFileSync(join(repo, ".github", "hooks", "ai-eng.json"), "utf8")).toContain("ai-eng chain PreToolUse --surface copilot-cli");
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "copilot-cli"]\n');
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
+    expectFullCanonInstalled(home);
   });
 
   test("--remove takes our entries out of a shared settings file and keeps the user's", async () => {

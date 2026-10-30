@@ -64,14 +64,20 @@ test("init recovers a repo whose lock was uninstalled (no update↔init deadlock
   // State `uninstall --scope project` leaves behind: config.toml without a lock.
   mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
   writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+  const machineSettings = join(engHome, ".claude", "settings.json");
+  const machineSettingsBefore = '{\n  "editor": "vim"\n}\n';
+  mkdirSync(join(engHome, ".claude"), { recursive: true });
+  writeFileSync(machineSettings, machineSettingsBefore);
   const run = eng(["init", "--yes"]);
-  expect(run.stdout + run.stderr).not.toInclude("run ai-eng init first");
+  const output = run.stdout + run.stderr;
+  expect(output).not.toInclude("run ai-eng init first");
   expect(run.status).toBe(0);
   expect(existsSync(join(repo, ".ai-engineering", "ai-eng.lock"))).toBe(true);
   expect(existsSync(join(repo, ".git", "hooks", "pre-commit"))).toBe(true);
-  // The claude-code carrier is the MACHINE's now: the repo keeps only the two hosts whose
-  // readers live in the checkout, and this one reads from the user's home.
-  expect(existsSync(join(engHome, ".claude", "settings.json"))).toBe(true);
+  expect(existsSync(join(engHome, "skills", "ai-brainstorm", "SKILL.md"))).toBe(true);
+  expect(output).toInclude("~/.claude/settings.json");
+  expect(output).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
+  expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
   expect(existsSync(join(repo, ".claude", "settings.json"))).toBe(false);
 });
 

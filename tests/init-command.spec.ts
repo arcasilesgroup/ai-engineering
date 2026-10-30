@@ -367,6 +367,10 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const globalConfig = join(home, "isolated-gitconfig");
     const globalConfigBefore = "[user]\n\tname = Isolated test\n";
     writeFileSync(globalConfig, globalConfigBefore);
+    const machineSettings = join(home, ".claude", "settings.json");
+    const machineSettingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(machineSettings, machineSettingsBefore);
     process.env["GIT_CONFIG_GLOBAL"] = globalConfig;
     for (const name of GIT_IDENTITY) process.env[name] = name === "GIT_AUTHOR_EMAIL" || name === "GIT_COMMITTER_EMAIL" ? "test@example.com" : "Test";
     const { result, out } = await capture(() => initMain({ yes: true }));
@@ -411,9 +415,9 @@ describe("init · initMain, phase 1 and phase 2", () => {
       expect(readFileSync(path, "utf8")).toContain("ai-eng");
     }
 
-    // The machine carrier is under the sandbox home; init leaves global Git config alone.
-    expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toContain("ai-eng chain");
-    expect(out).toContain("machine carrier");
+    expect(out).toContain("~/.claude/settings.json");
+    expect(out).toContain("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
     expect(out).toContain("Bootstrap mode"); // no src/ yet, so arch-tests hold off
   });
 

@@ -311,6 +311,10 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const repo = governedRepo("repo-fresh");
     writeFileSync(join(repo, "AGENTS.md"), "# my contract, never yours\n");
     const declaration = '[surfaces]\nenabled = ["claude-code"]\n';
+    const machineSettings = join(ENG_HOME, ".claude", "settings.json");
+    const machineSettingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(dirname(machineSettings), { recursive: true });
+    writeFileSync(machineSettings, machineSettingsBefore);
     process.chdir(repo);
 
     const first = await captured(() => updateMain({ yes: true }));
@@ -329,10 +333,12 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(readFileSync(join(repo, "AGENTS.md"), "utf8")).toBe("# my contract, never yours\n");
     // A git shim that is not executable is a git hook that silently never runs.
     expect(statSync(join(repo, ".git", "hooks", "pre-commit")).mode & 0o111).not.toBe(0);
-    // The machine half went to the sandbox home — the canon, and claude-code's carrier,
-    // which no longer belongs in the repo.
-    expect(existsSync(join(ENG_HOME, ".claude", "settings.json"))).toBe(true);
+    // The local canon still installs completely; unsafe machine-settings mutation is refused.
+    expect(first.out).toInclude("~/.claude/settings.json");
+    expect(first.out).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
     expect(existsSync(join(repo, ".claude", "settings.json"))).toBe(false);
+    assertAllSkillsInstalled();
 
     const bytes = readFileSync(lockPath, "utf8");
     const mtime = statSync(lockPath).mtimeMs;
@@ -346,11 +352,11 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(second.out).toInclude("Machine side");
     expect(second.out).toInclude("nothing to write");
     expect(second.out).toInclude("global canon");
-    expect(second.out).toInclude("machine carrier already current");
+    expect(second.out).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
     expect(second.out).toInclude("Nothing written");
-    // The carrier the first run wrote is current now: reported as checked, never counted
-    // as a write — the module carrier used to be rewritten and reported every run.
+    // A refused settings registration is never reported as a successful write.
     expect(second.out).not.toInclude("machine carrier · written");
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
     expect(readFileSync(lockPath, "utf8")).toBe(bytes);
     expect(statSync(lockPath).mtimeMs).toBe(mtime);
   });

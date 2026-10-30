@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { removeMachineArtifacts, SURFACES, machineCarrier, repoCarrier } from "../src/surfaces/adapters.ts";
+import { canonSkills, embeddedPath } from "../src/embed.ts";
 import { machineBase } from "../src/env.ts";
 import { surfaceHint } from "../src/commands/init.ts";
 import { runChain } from "../src/chain/mod.ts";
@@ -25,6 +26,14 @@ const ENV = () => ({ ...process.env, AI_ENG_HOME: home, NO_COLOR: "1", CI: "1", 
 function run(args: string[], cwd = repo, input = ""): { status: number; stdout: string; stderr: string } {
   const r = spawnSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8", env: ENV(), input });
   return { status: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+}
+
+function expectLocalCanon(): void {
+  const inventory = canonSkills();
+  expect(inventory.size).toBeGreaterThan(0);
+  for (const [path, ref] of inventory) {
+    expect(readFileSync(join(home, path), "utf8")).toBe(readFileSync(embeddedPath(ref), "utf8"));
+  }
 }
 
 const chain = (surface: string, payload: Record<string, unknown>) =>
@@ -105,10 +114,19 @@ test("an ordinary command is never denied on any surface", () => {
 
 test("init scaffolds each surface's carrier where its host reads it", () => {
   const fresh = join(sandbox, "scaffold");
+  const codexSettings = join(home, ".codex", "hooks.json");
+  const copilotSettings = join(home, ".copilot", "hooks", "ai-eng.json");
+  const codexSettingsBefore = '{\n  "user": "keep-codex"\n}\n';
+  const copilotSettingsBefore = '{\n  "user": "keep-copilot"\n}\n';
+  mkdirSync(join(home, ".codex"), { recursive: true });
+  mkdirSync(join(home, ".copilot", "hooks"), { recursive: true });
+  writeFileSync(codexSettings, codexSettingsBefore);
+  writeFileSync(copilotSettings, copilotSettingsBefore);
   mkdirSync(fresh, { recursive: true });
   spawnSync("git", ["init", "-q"], { cwd: fresh });
   const r = run(["init", "--yes", "--surface", "codex,cursor,copilot"], fresh);
   expect(r.status).toBe(0);
+  const output = r.stdout + r.stderr;
   // Repo carriers: only the hosts whose readers live in the checkout.
   const inRepo: Array<[string, string]> = [
     [".cursor/hooks.json", "--surface cursor"],
@@ -121,13 +139,17 @@ test("init scaffolds each surface's carrier where its host reads it", () => {
   }
   // Cursor must fail CLOSED: a hook that cannot run cannot silently allow.
   expect(readFileSync(join(fresh, ".cursor/hooks.json"), "utf8")).toInclude('"failClosed": true');
-  // Machine carriers: the rest, once per machine, at the path that host reads.
-  expect(readFileSync(join(home, ".codex", "hooks.json"), "utf8")).toInclude("--surface codex");
-  expect(readFileSync(join(home, ".copilot", "hooks", "ai-eng.json"), "utf8")).toInclude("--surface copilot-cli");
+  // Repo-owned carriers still install; unsafe machine settings remain untouched.
+  expect(output).toInclude("~/.codex/hooks.json");
+  expect(output).toInclude("~/.copilot/hooks/ai-eng.json");
+  expect(output).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
+  expect(readFileSync(codexSettings, "utf8")).toBe(codexSettingsBefore);
+  expect(readFileSync(copilotSettings, "utf8")).toBe(copilotSettingsBefore);
   // And the repo is NOT carrying them: a hook file nobody reads is the bug this
   // milestone exists to end, not a harmless extra.
   expect(existsSync(join(fresh, ".codex"))).toBe(false);
   expect(existsSync(join(fresh, ".copilot"))).toBe(false);
+  expectLocalCanon();
 });
 
 test("machine carrier paths match each host's documented root, with source and date", () => {
@@ -310,21 +332,19 @@ test("the generated pi extension blocks through the chain", async () => {
   expect(contained.content?.[0]?.text).toInclude("containment, not prevention");
 });
 
-test("init --global installs the machine hook for the CLI", () => {
-  // The CLI combines repository and user hooks; the machine copy keeps the
-  // installation useful outside a governed checkout as well.
+test("init --global installs the local canon without registering machine hook settings", () => {
   const hookFile = join(home, ".copilot", "hooks", "ai-eng.json");
-  expect(existsSync(hookFile)).toBe(true);
-  const doc = JSON.parse(readFileSync(hookFile, "utf8")) as { version?: number; hooks?: { preToolUse?: Array<{ command?: string }> } };
-  expect(doc.version).toBe(1);
-  const command = doc.hooks?.preToolUse?.[0]?.command ?? "";
-  expect(command).toInclude("ai-eng chain PreToolUse --surface copilot-cli");
-  // Fail OPEN when ai-eng is not on PATH: a machine-wide hook that fails closed with a
-  // missing binary denies every tool call in every repo ("Hook command failed with
-  // code 127 ... (fail-closed)").
-  const withoutAiEng = spawnSync("/bin/sh", ["-c", command], { encoding: "utf8", env: { PATH: "/nonexistent" } });
-  expect(withoutAiEng.status).toBe(0);
-  expect(withoutAiEng.stdout.trim()).toBe("");
+  const settingsBefore = '{\n  "user": "keep-copilot"\n}\n';
+  mkdirSync(join(home, ".copilot", "hooks"), { recursive: true });
+  writeFileSync(hookFile, settingsBefore);
+
+  const r = run(["init", "--global"]);
+
+  expect(r.status).toBe(0);
+  expect(r.stdout + r.stderr).toInclude("global canon (the machine side)");
+  expect(r.stdout + r.stderr).not.toInclude("~/.copilot/hooks/ai-eng.json");
+  expect(readFileSync(hookFile, "utf8")).toBe(settingsBefore);
+  expectLocalCanon();
 });
 
 test("uninstall's machine sweep takes ours and leaves a person's skills alone", () => {

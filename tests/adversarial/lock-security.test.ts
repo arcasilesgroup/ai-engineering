@@ -78,6 +78,10 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
     const husky = "#!/bin/sh\n# husky: my own hook\nnpx lint-staged\n";
     writeFileSync(join(repo, ".git", "hooks", "pre-commit"), husky);
     writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+    const machineSettings = join(sandbox, "home", ".claude", "settings.json");
+    const machineSettingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(join(sandbox, "home", ".claude"), { recursive: true });
+    writeFileSync(machineSettings, machineSettingsBefore);
     // NO lock: the recovery state. update must install what is absent and leave
     // the user's files alone — and the rebuilt lock must NOT claim them.
     const first = spawnSync(process.execPath, [cli, "update", "--yes"], {
@@ -87,14 +91,19 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
       input: "\r",
     });
     expect(first.status).toBe(0);
+    expect(existsSync(join(repo, ".ai-engineering", "overrides.toml"))).toBe(true);
+    expect(existsSync(join(repo, ".github", "workflows", "ai-eng-check.yml"))).toBe(true);
     // The user's hook is untouched, byte for byte.
     expect(readFileSync(join(repo, ".git", "hooks", "pre-commit"), "utf8")).toBe(husky);
-    // A repo settings file is not a plan entry any more: claude-code reads from the
-    // machine, so the repo copy — the user's — is not touched at all. The machine copy
-    // is where our entries go (carrier-merge.test.ts proves the merge itself).
+    // The repo settings are not a plan entry, and unsafe machine-settings mutation is
+    // refused rather than risking a write to the user's settings.
     expect(readFileSync(join(repo, ".claude", "settings.json"), "utf8")).toBe('{\n  "editor": "vim"\n}\n');
-    expect(readFileSync(join(sandbox, "home", ".claude", "settings.json"), "utf8")).toInclude("ai-eng chain PreToolUse");
+    expect(first.stdout + first.stderr).toInclude("~/.claude/settings.json");
+    expect(first.stdout + first.stderr).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
     const lock = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
+    expect(lock).toInclude('".ai-engineering/overrides.toml"');
+    expect(lock).toInclude('".github/workflows/ai-eng-check.yml"');
     // The lock must not carry the user's hook at all.
     expect(lock).not.toInclude(".git/hooks/pre-commit");
     expect(lock).not.toInclude(".claude/settings.json");
@@ -108,6 +117,7 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
     expect(second.status).toBe(0);
     expect(second.stdout + second.stderr).not.toInclude("patched by you");
     expect(readFileSync(join(repo, ".git", "hooks", "pre-commit"), "utf8")).toBe(husky);
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }

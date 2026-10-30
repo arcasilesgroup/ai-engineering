@@ -1659,3 +1659,11 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Machine-settings creation, replacement, and removal fail closed when pathname mutation is required; warnings explain the refusal, while other cleanup removes only temp files created by the current attempt.
 - **Lesson:** A pathname check cannot bind a later syscall to an inode; when the portable filesystem API cannot make that binding, refuse the mutation instead of claiming the race is closed.
 - **Tags:** review, filesystem, race, fail-closed, carriers
+
+### L227 · 2026-10-30 · floating-core #19 · behavior
+- **Failure:** Seven full-suite tests expected init, update, config, or uninstall to mutate machine settings after the fail-closed safety change.
+- **Root cause:** Those tests treated machine-settings registration as required even when the path could not be safely mutated; they did not separate local canon behavior from host registration.
+- **Fix:** Assert local skill installation/configuration and lock recovery independently, while expecting an explicit warning and unchanged machine settings when registration is refused.
+- **Lesson:** Test local canon behavior separately from machine-settings registration and assert the warning on a safe refusal.
+- **Proof:** Clean Git-backed full suite: 1,570 passed, 16 skipped, 0 failed.
+- **Tags:** behavior, tests, carriers, fail-closed
