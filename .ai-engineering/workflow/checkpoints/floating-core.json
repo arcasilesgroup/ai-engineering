@@ -1366,6 +1366,8 @@
         "tests/carriers-install.spec.ts",
         "tests/uninstall-command.spec.ts",
         ".ai-engineering/workflow/reviews/floating-core-19-replan.md",
+        ".ai-engineering/workflow/reviews/floating-core-19-write-safety.md",
+        ".ai-engineering/workflow/test-plans/floating-core.json",
         "LEARNINGS.md"
       ],
       "ui": null,
