@@ -1703,3 +1703,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Use `toContain`; the focused lock-security test passed 9 cases.
 - **Lesson:** Use the matcher that fits the value's type.
 - **Tags:** behavior, tests, security, assertion
+
+### L233 · 2026-10-30 · floating-core #19 · circuit-breaker
+- **Failure:** Replanned CP19 adversarial review attempt 3 returned with F8, F9, and F10 open.
+- **Root cause:** Unresolved; detailed findings remain in `.ai-engineering/workflow/reviews/floating-core-19.md` and need human interpretation before further destructive changes.
+- **Fix:** Halted at the review circuit breaker and preserved the selected checkout, baseline artifacts, and review thread.
+- **Lesson:** After a split checkpoint exhausts three review attempts, stop and retain the exact findings rather than applying another unreviewed cleanup change.
+- **Tags:** circuit-breaker, review, filesystem, data-loss, cleanup

@@ -11,7 +11,7 @@
     "reviewed_main": null,
     "reviewed_feature": null
   },
-  "halted": null,
+  "halted": { "reason": "review failed 3× after split", "checkpoint": 19 },
   "assumptions": [
     "The supplied viewer URL is served from the current checkout; treat it as the selected source despite same-slug checkpoint copies in other worktrees.",
     "Preserve the four empty untracked lifecycle artifacts in the selected checkout; run verification in a Git-backed clone under the session files directory, install locked dependencies there, and keep test homes outside the clone."
@@ -1397,6 +1397,7 @@
         ".ai-engineering/workflow/reviews/floating-core-19-replan.md",
         ".ai-engineering/workflow/reviews/floating-core-19-write-safety.md",
         ".ai-engineering/workflow/reviews/floating-core-19-machine-state.md",
+        ".ai-engineering/workflow/reviews/floating-core-19.md",
         ".ai-engineering/workflow/test-plans/floating-core.json",
         "LEARNINGS.md"
       ],
@@ -1424,14 +1425,15 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
           "status": "failed",
-          "attempts": 2,
+          "attempts": 3,
           "findings": [
             "Adversarial review loop attempt 1 failed after four critic rounds: F1-F4 were resolved; F5 remains open because a write error can leave user-owned settings truncated or partial.",
             "Adversarial review loop attempt 2 round 1 confirmed F5: adapters.ts:409 and :450 write settings in place, so an error can leave partial contents; I73 reproduces this. The atomic staging fix resolved F5, but review round 2 found F6: snapshot validation is separate from renameSync/unlinkSync, leaving a race where a replacement can still be overwritten or removed.",
             "Adversarial review loop attempt 2 round 3 found F7: a user settings symlink can target machine.json, so init/update writes or uninstall deletion of that internal path can still mutate user-owned content despite the settings refusal.",
             "Adversarial review loop attempt 2 round 4 resolved F5/F6 but found F8: unselected settings aliases and a symlink swapped after validation can still expose machine.json to writes or deletion.",
             "Adversarial review loop attempt 2 round 3 found F7: a user settings symlink can target machine.json, so init/update writes or uninstall deletion of that internal path can still mutate user-owned content despite the settings refusal.",
-            "Adversarial review loop attempt 2 round 4 found F8: unselected settings aliases and a symlink swapped after validation can still expose machine.json to writes or deletion."
+            "Adversarial review loop attempt 2 round 4 found F8: unselected settings aliases and a symlink swapped after validation can still expose machine.json to writes or deletion.",
+            "Adversarial review attempt 3 round 1 returned FAIL with F8, F9, and F10 open. Details are in `.ai-engineering/workflow/reviews/floating-core-19.md`; no source or test files changed. The reviewer also reported local test-hygiene and `src/.DS_Store` architecture failures, while Gate 1 attempt 13 passed in an isolated Git-backed clone."
           ]
         }
       },

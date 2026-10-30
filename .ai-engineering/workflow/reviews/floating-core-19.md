@@ -96,3 +96,65 @@ F4 (Resolved): Halted and active banners link to the current step, findings rend
 New actionable findings: none. Resolved: 4; withdrawn: 0; arbitrated: 0; open: none.
 Changed files: no round-two changes; round-one FILES remain as listed above.
 Failures: focused regression run had 115 passing tests; preload teardown failed on pre-existing `tests/.worktree-lifecycle-*` paths. `bun run typecheck` and `bun run lint` exited 0 with warnings.
+
+## Attempt 3 — Round 1 · Preserve User Files During Cleanup
+
+### Goal
+Cleanup and uninstall remove only canon-owned skill files and preserve unrelated user-owned files, including machine-home settings.
+
+### Acceptance
+- Preserve custom, edited, and unrelated content; remove only byte-identical canon-owned skill files; refuse linked paths and prune only empty directories.
+- Unsafe machine-settings creation, replacement, or removal warns and preserves original/external targets.
+- Local canon installation/configuration/updates/lock recovery still complete when machine registration is refused.
+- Protect all settings aliases to `machine.json`, including unselected surfaces and replacements at mutation time.
+
+### changed_files
+- `src/commands/uninstall.ts`
+- `src/commands/init-shared.ts`
+- `src/embed.ts`
+- `src/surfaces/adapters.ts`
+- `tests/adversarial/carrier-merge.test.ts`
+- `tests/carriers-install.spec.ts`
+- `tests/uninstall-command.spec.ts`
+- `tests/init-command.spec.ts`
+- `tests/update-command.spec.ts`
+- `tests/config-command.spec.ts`
+- `tests/surfaces.test.ts`
+- `tests/adversarial/lock-security.test.ts`
+- `tests/adversarial/init-recovery.test.ts`
+- `.ai-engineering/workflow/reviews/floating-core-19-replan.md`
+- `.ai-engineering/workflow/reviews/floating-core-19-write-safety.md`
+- `.ai-engineering/workflow/reviews/floating-core-19-machine-state.md`
+- `.ai-engineering/workflow/test-plans/floating-core.json`
+- `LEARNINGS.md`
+
+### verify
+- `bun test tests/adversarial/carrier-merge.test.ts`
+- `bun test tests/carriers-install.spec.ts`
+- `bun test tests/uninstall-command.spec.ts`
+- `bun test tests/init-command.spec.ts`
+- `bun test tests/update-command.spec.ts`
+- `bun test tests/config-command.spec.ts`
+- `bun test tests/surfaces.test.ts`
+- `bun test tests/adversarial/lock-security.test.ts`
+- `bun test tests/adversarial/init-recovery.test.ts`
+- `bun test`
+
+### Findings
+
+## F8 · BLOCKER · open
+**Where:** `src/surfaces/adapters.ts:336-338, 741-747, 794-803`
+**Critic (r1):** The final all-surface alias scan is still separate from `writeMachineState`/`unlinkSync`; replacing an unselected settings path with an alias after that scan but immediately before the state syscall still mutates or deletes the aliased file. The state writer also follows a symlinked `machine.json`. The added race test changes the alias before the final scan, not at the state syscall. → Fail closed when the alias set or state-file identity cannot be bound to the mutation; preserve the state rather than make a pathname-only commit.
+
+## F9 · BLOCKER · open
+**Where:** `src/commands/uninstall.ts:480-483`
+**Critic (r1):** Cleanup hashes an asset by pathname, then unlinks that pathname without revalidating its parent or inode. Replacing a checked parent with a symlink between the hash and unlink redirects deletion outside the canon and can erase an unrelated user file. → Bind unlink to a validated directory/entry, or refuse deletion when that cannot be guaranteed.
+
+## F10 · BLOCKER · open
+**Where:** `src/surfaces/adapters.ts:845-866`
+**Critic (r1):** Any symlink in a skill mirror is treated as owned solely because its resolved target is somewhere under the canon. A user-created alias such as `my-shortcut -> .../skills/ai-debug` is therefore deleted by the machine sweep despite not being an installed mirror entry. → Remove only the exact generated name/target pairs (or otherwise prove ownership) and preserve other links.
+
+### Verification results
+- All nine focused entries passed their test cases but exited 1 in preload teardown because the four pre-existing `tests/.worktree-lifecycle-*` directories remain in the checkout.
+- Full `bun test`: 1,579 passed, 16 skipped, 3 failed; failures were the same baseline test-hygiene artifacts plus the pre-existing `src/.DS_Store` architecture scan result. No test artifacts were removed.
+- Source/tests not modified; only this review thread was appended.
