@@ -62,7 +62,15 @@ function expectMachineAliasPreserved(alias: MachineAlias): void {
     }
   })();
   const settingsIsSymlink = settingsEntryExists && lstatSync(alias.settingsPath).isSymbolicLink();
-  const preserved = {
+  const preserved: {
+    stateExists: boolean;
+    stateBytes: Buffer | null;
+    settingsEntryExists: boolean;
+    settingsIsSymlink: boolean;
+    settingsLinkText: string | null;
+    settingsBytes: Buffer | null;
+    sharesInode: boolean;
+  } = {
     stateExists,
     stateBytes: stateExists ? readFileSync(alias.statePath) : null,
     settingsEntryExists,

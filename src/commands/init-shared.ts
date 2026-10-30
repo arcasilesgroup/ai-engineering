@@ -20,6 +20,9 @@ export function refuseLine(refused: { path: string; reason: string }): string {
   if (refused.reason === "identity-bound-settings-mutation-unavailable") {
     return `⚠ ${refused.path} — safe machine-settings replacement/removal is unavailable on this platform; left untouched`;
   }
+  if (refused.reason === "machine-state-identity-unverified") {
+    return `⚠ ${refused.path} — machine state is linked, changed, or shared with another path; left untouched`;
+  }
   if (refused.reason === "settings-changed-after-validation") {
     return `⚠ ${refused.path} — settings changed during validation; left untouched`;
   }

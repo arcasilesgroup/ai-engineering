@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { closeSync, constants, existsSync, fstatSync, ftruncateSync, openSync, readFileSync, readSync, writeSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, rmdirSync, type Stats } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { SURFACES, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
+import { SURFACES, machineStateFile, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
 import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
 import { parseLock, sha256, stripSharedText } from "../install.ts";
@@ -441,8 +441,21 @@ function pruneEmptyDirectory(directory: string): boolean {
   }
 }
 
+/** rmdir bound to the checked parent: a parent swapped for a link cannot redirect it. */
+function pruneEmptyDirectoryWithin(root: string, directory: string): boolean {
+  try {
+    return withSafeProjectParent(root, directory, (name) => {
+      rmdirSync(name);
+      return true;
+    });
+  } catch {
+    return false;
+  }
+}
+
 function removeEmbeddedAssets(machineDir: string, prefix: string): number {
-  // The machine home can contain user data: remove only byte-identical payloads and never follow links.
+  // The machine home can contain user data: remove only byte-identical payloads, never follow
+  // links, and bind each unlink to the checked parent and the hashed inode (R38).
   const assetRoot = join(machineDir, prefix.slice(0, -1));
   let rootStat;
   try {
@@ -455,39 +468,22 @@ function removeEmbeddedAssets(machineDir: string, prefix: string): number {
   let removed = 0;
 
   for (const [path, ref] of embeddedUnder(prefix)) {
-    const components = path.slice(prefix.length).split("/");
-    const destination = resolve(canonicalRoot, ...components);
-    if (!pathIsWithin(canonicalRoot, destination)) continue;
-
-    let parent = canonicalRoot;
-    let isSafe = true;
-    for (const component of components.slice(0, -1)) {
-      parent = join(parent, component);
-      try {
-        const stat = lstatSync(parent);
-        if (stat.isSymbolicLink() || !stat.isDirectory() || !pathIsWithin(canonicalRoot, realpathSync(parent))) {
-          isSafe = false;
-          break;
-        }
-      } catch {
-        isSafe = false;
-        break;
-      }
-    }
-    if (!isSafe) continue;
+    const destination = safeProjectPath(canonicalRoot, path.slice(prefix.length));
+    if (destination === null || destination === canonicalRoot) continue;
 
     try {
-      const stat = lstatSync(destination);
       const payload = embeddedPath(ref);
-      if (stat.isSymbolicLink() || !stat.isFile() || !existsSync(payload) || hashFile(destination) !== hashFile(payload)) continue;
-      unlinkSync(destination);
+      if (!existsSync(payload)) continue;
+      const snapshot = readProjectFileSnapshot(canonicalRoot, destination);
+      if (snapshot === null || snapshot.hash !== hashFile(payload)) continue;
+      if (!unlinkProjectPath(canonicalRoot, destination, snapshot)) continue;
       removed += 1;
       let directory = dirname(destination);
       while (directory !== canonicalRoot) {
-        if (!pruneEmptyDirectory(directory)) break;
+        if (!pruneEmptyDirectoryWithin(canonicalRoot, directory)) break;
         directory = dirname(directory);
       }
-      pruneEmptyDirectory(canonicalRoot);
+      pruneEmptyDirectoryWithin(dirname(canonicalRoot), canonicalRoot);
     } catch {
       /* changed, unreadable, or already removed: preserve it */
     }
@@ -539,7 +535,12 @@ async function removeEverything(root: string, input: unknown, declared: string[]
       : { mark: "warn", text: `${machineDir} deleted`, dim: cleanup });
     if (floor !== null) extra.push({ mark: "ok", text: floor });
     for (const line of carriers.lines) extra.push({ mark: "ok", text: line });
-    for (const path of carriers.refused) extra.push({ mark: "warn", text: `${path} left alone — safe machine-settings removal is unavailable on this platform` });
+    for (const path of carriers.refused) {
+      const reason = path === machineStateFile()
+        ? "it is linked, changed, or shared with another path"
+        : "safe machine-settings removal is unavailable on this platform";
+      extra.push({ mark: "warn", text: `${path} left alone — ${reason}` });
+    }
   } else {
     extra.push({ mark: "ok", text: `kept: ${machineDir}`, dim: "global skills stay installed" });
   }

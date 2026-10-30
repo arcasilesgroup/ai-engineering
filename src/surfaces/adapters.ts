@@ -2,7 +2,8 @@
 // or TS module (OpenCode/OMP). Surface = ~150 LOC of adapter + its proof (§13).
 
 import surfacesJson from "./surfaces.json";
-import { closeSync, constants, copyFileSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, rmSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { closeSync, constants, copyFileSync, existsSync, fstatSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { basename, join, dirname, relative, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
 import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
@@ -313,7 +314,15 @@ export function machineStateFile(): string {
 
 export function readMachineState(): MachineState {
   try {
-    const doc = JSON.parse(readFileSync(machineStateFile(), "utf8")) as Partial<MachineState>;
+    return parseMachineState(readFileSync(machineStateFile(), "utf8"));
+  } catch {
+    return { version: "", carriers: {} };
+  }
+}
+
+function parseMachineState(text: string): MachineState {
+  try {
+    const doc = JSON.parse(text) as Partial<MachineState>;
     const carriers: Record<string, string> = {};
     if (doc.carriers !== null && typeof doc.carriers === "object") {
       for (const [id, hash] of Object.entries(doc.carriers as Record<string, unknown>)) if (typeof hash === "string") carriers[id] = hash;
@@ -330,14 +339,6 @@ export function readMachineState(): MachineState {
     return state;
   } catch {
     return { version: "", carriers: {} };
-  }
-}
-
-function writeMachineState(state: MachineState): void {
-  try {
-    writeFileSync(machineStateFile(), `${JSON.stringify(state, null, 2)}\n`);
-  } catch {
-    /* an unwritable state file is a missing warning, never a broken install */
   }
 }
 
@@ -641,6 +642,190 @@ function machineSettingsMutationRefusals(initial: MachineSettingsSurfaceSnapshot
   return [...refused];
 }
 
+const MACHINE_STATE_REFUSED = "machine-state-identity-unverified";
+const MACHINE_STATE_NAME = "machine.json";
+
+type MachineStateFile = { dev: number; ino: number; content: Buffer };
+type OwnedMachineEntry = { name: string; dev: number; ino: number };
+/** The state file as this run read it, bound to the directory that holds it. `unsafe`
+ *  means another path could see its bytes: a link, not a regular file, or a second name. */
+type MachineStateRecord =
+  | { kind: "no-home" }
+  | { kind: "unsafe" }
+  | { kind: "ready"; directory: MachineSettingsDirectory; file: MachineStateFile | null };
+
+/** The bytes behind a descriptor, only while that inode has exactly one name. */
+function soleMachineStateFile(descriptor: number): MachineStateFile | null {
+  const before = fstatSync(descriptor);
+  if (!before.isFile() || before.nlink !== 1) return null;
+  const content = readFileSync(descriptor);
+  const after = fstatSync(descriptor);
+  const isUnchanged = after.nlink === 1
+    && after.dev === before.dev
+    && after.ino === before.ino
+    && after.mtimeMs === before.mtimeMs
+    && after.size === content.length;
+  return isUnchanged ? { dev: after.dev, ino: after.ino, content } : null;
+}
+
+function readOwnMachineStateFile(): MachineStateFile | "unsafe" | null {
+  const entry = machineSettingsEntry(MACHINE_STATE_NAME);
+  if (entry === null) return null;
+  if (!entry.isFile()) return "unsafe";
+  const descriptor = openSync(MACHINE_STATE_NAME, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    return soleMachineStateFile(descriptor) ?? "unsafe";
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+function readMachineStateRecord(): MachineStateRecord {
+  let directory: MachineSettingsDirectory;
+  try {
+    directory = machineSettingsDirectory(home());
+  } catch (error) {
+    return missingPath(error) ? { kind: "no-home" } : { kind: "unsafe" };
+  }
+  try {
+    const read = withMachineSettingsDirectory(directory, () => ({ file: readOwnMachineStateFile() }));
+    if (read === null || read.file === "unsafe") return { kind: "unsafe" };
+    return { kind: "ready", directory, file: read.file };
+  } catch {
+    return { kind: "unsafe" };
+  }
+}
+
+function machineStateFromRecord(record: MachineStateRecord): MachineState {
+  if (record.kind !== "ready" || record.file === null) return { version: "", carriers: {} };
+  return parseMachineState(record.file.content.toString("utf8"));
+}
+
+function privateMachineStateName(purpose: "tmp" | "claim"): string {
+  return `.${MACHINE_STATE_NAME}.${process.pid}.${randomBytes(6).toString("hex")}.${purpose}`;
+}
+
+function stageMachineState(content: string): OwnedMachineEntry | null {
+  const name = privateMachineStateName("tmp");
+  const descriptor = openSync(name, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o666);
+  let entry: OwnedMachineEntry | null = null;
+  try {
+    const stat = fstatSync(descriptor);
+    entry = { name, dev: stat.dev, ino: stat.ino };
+    writeFileSync(descriptor, content);
+    return entry;
+  } catch {
+    if (entry !== null) removeOwnedMachineEntry(entry);
+    return null;
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+function claimedMachineStateMatches(name: string, file: MachineStateFile): boolean {
+  if (!lstatSync(name).isFile()) return false;
+  const descriptor = openSync(name, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const claimed = soleMachineStateFile(descriptor);
+    return claimed !== null && claimed.dev === file.dev && claimed.ino === file.ino && claimed.content.equals(file.content);
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+/** Move whatever is named machine.json right now to a private name, so the identity check
+ *  judges exactly the entry the mutation will act on instead of a pathname that can change. */
+function claimMachineState(file: MachineStateFile): { entry: OwnedMachineEntry; isOurs: boolean } | null {
+  const name = privateMachineStateName("claim");
+  try {
+    renameSync(MACHINE_STATE_NAME, name);
+  } catch {
+    return null;
+  }
+  const stat = lstatSync(name);
+  let isOurs = false;
+  try {
+    isOurs = claimedMachineStateMatches(name, file);
+  } catch {
+    isOurs = false;
+  }
+  return { entry: { name, dev: stat.dev, ino: stat.ino }, isOurs };
+}
+
+/** Put a claimed entry back without replacing anything that took its name meanwhile; when
+ *  that is impossible the bytes stay under the claim name rather than being lost. */
+function restoreClaimedMachineState(entry: OwnedMachineEntry): void {
+  try {
+    const stat = lstatSync(entry.name);
+    if (stat.dev !== entry.dev || stat.ino !== entry.ino) return;
+    if (stat.isFile()) linkSync(entry.name, MACHINE_STATE_NAME);
+    else if (stat.isSymbolicLink()) symlinkSync(readlinkSync(entry.name), MACHINE_STATE_NAME);
+    else return;
+    unlinkSync(entry.name);
+  } catch {
+    /* name taken or unreadable: the claimed bytes stay where they are */
+  }
+}
+
+function removeOwnedMachineEntry(entry: OwnedMachineEntry): void {
+  try {
+    const stat = lstatSync(entry.name);
+    if (stat.dev === entry.dev && stat.ino === entry.ino) unlinkSync(entry.name);
+  } catch {
+    /* already gone or replaced: not ours to remove */
+  }
+}
+
+/** Replace (content) or remove (null) machine.json without ever writing an existing inode:
+ *  the old file is claimed and verified as the single-named bytes this run read, a new file
+ *  is linked in only where no name exists, and anything unproven is put back untouched. */
+function commitMachineState(record: MachineStateRecord, content: string | null): boolean {
+  if (record.kind === "no-home") return true;
+  if (record.kind === "unsafe") return false;
+  const { directory, file } = record;
+  if (content === null && file === null) return true;
+  let staged: OwnedMachineEntry | null = null;
+  let claimed: OwnedMachineEntry | null = null;
+  let isCommitted = false;
+  try {
+    if (content !== null) {
+      staged = withMachineSettingsDirectory(directory, () => stageMachineState(content));
+      if (staged === null) return false;
+    }
+    if (file !== null) {
+      const claim = withMachineSettingsDirectory(directory, () => claimMachineState(file));
+      if (claim === null) return false;
+      claimed = claim.entry;
+      if (!claim.isOurs) return false;
+    }
+    // With the state claimed, any settings path still reaching its name is an alias.
+    if (snapshotMachineSettingsSurfaces().some((entry) => entry.failed || entry.aliasesMachineState)) return false;
+    const stagedEntry = staged;
+    isCommitted = withMachineSettingsDirectory(directory, () => {
+      if (stagedEntry !== null) linkSync(stagedEntry.name, MACHINE_STATE_NAME);
+      return true;
+    }) === true;
+    return isCommitted;
+  } catch {
+    return false;
+  } finally {
+    const claimedEntry = claimed;
+    const stagedEntry = staged;
+    withMachineSettingsDirectory(directory, () => {
+      if (claimedEntry !== null) {
+        if (isCommitted) removeOwnedMachineEntry(claimedEntry);
+        else restoreClaimedMachineState(claimedEntry);
+      }
+      if (stagedEntry !== null) removeOwnedMachineEntry(stagedEntry);
+      return true;
+    });
+  }
+}
+
+function serializeMachineState(state: MachineState): string {
+  return `${JSON.stringify(state, null, 2)}\n`;
+}
+
 /** Write the machine-side carriers of the declared surfaces, once per machine.
  *
  *  This is the inversion the milestone makes on purpose, said out loud: until now only
@@ -654,7 +839,8 @@ function machineSettingsMutationRefusals(initial: MachineSettingsSurfaceSnapshot
  *  bind that replacement to the identity that was validated. */
 export function installMachineCarriers(surfaceIds: string[]): MachineReport {
   const report: MachineReport = { written: [], untouched: [], refused: [] };
-  const state = readMachineState();
+  const stateRecord = readMachineStateRecord();
+  const state = machineStateFromRecord(stateRecord);
   const settingsSnapshots = snapshotMachineSettingsSurfaces();
   let mayWriteMachineState = !settingsSnapshots.some((entry) => entry.aliasesMachineState || entry.failed);
   state.version = VERSION;
@@ -744,7 +930,9 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       report.refused.push({ path, reason: SETTINGS_MUTATION_REFUSED });
     }
   }
-  if (mayWriteMachineState) writeMachineState(state);
+  if (mayWriteMachineState && !commitMachineState(stateRecord, serializeMachineState(state))) {
+    report.refused.push({ path: machineStateFile(), reason: MACHINE_STATE_REFUSED });
+  }
   return report;
 }
 
@@ -756,7 +944,8 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
 export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; refused: string[] } {
   const lines: string[] = [];
   const refused: string[] = [];
-  const state = readMachineState();
+  const stateRecord = readMachineStateRecord();
+  const state = machineStateFromRecord(stateRecord);
   const settingsSnapshots = snapshotMachineSettingsSurfaces();
   let mayMutateMachineState = !settingsSnapshots.some((entry) => entry.aliasesMachineState || entry.failed);
   for (const id of surfaceIds) {
@@ -798,17 +987,19 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
   // The record of what wrote what goes with the carriers: an empty machine.json is a
   // leftover that would make the next doctor read a version that is no longer there.
   const keepsTemplateDir = state.templateDir !== undefined;
-  if (mayMutateMachineState) {
-    if (Object.keys(state.carriers).length === 0 && !keepsTemplateDir && existsSync(machineStateFile())) unlinkSync(machineStateFile());
-    else writeMachineState(state);
-  }
+  const hasStateFile = stateRecord.kind === "unsafe" || (stateRecord.kind === "ready" && stateRecord.file !== null);
+  const nextState = Object.keys(state.carriers).length === 0 && !keepsTemplateDir && hasStateFile
+    ? null
+    : serializeMachineState(state);
+  if (mayMutateMachineState && !commitMachineState(stateRecord, nextState)) refused.push(machineStateFile());
   return { lines, refused };
 }
 
 /** Everything installCanon wrote OUTSIDE the canon home, removed on uninstall's
  *  "everything" scope: the mirrors would otherwise point into a deleted canon and the
  *  command shims and machine hook would survive as orphans.
- *  Only ai-eng's own entries go — a real directory a person put in a mirror stays. */
+ *  Only ai-eng's own entries go — a real directory a person put in a mirror stays, and so
+ *  does a link of theirs into the canon under another name or written another way. */
 export function removeMachineArtifacts(): number {
   const base = machineBase();
   const canonDir = join(home(), "skills");
@@ -841,6 +1032,8 @@ export function removeMachineArtifacts(): number {
     const originalStat = lstatSync(link);
     if (!originalStat.isSymbolicLink()) return false;
     const originalTarget = readlinkSync(link);
+    // Only the exact pair linkSkills writes is ours; any other name or target is a user's alias.
+    if (name.startsWith(".") || originalTarget !== join(canonDir, name)) return false;
     const originalCanonical = canonical(link);
     if (!isCanonPath(originalCanonical)) return false;
     const verifiedStat = lstatSync(link);

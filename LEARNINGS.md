@@ -1710,3 +1710,24 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Halted at the review circuit breaker and preserved the selected checkout, baseline artifacts, and review thread.
 - **Lesson:** After a split checkpoint exhausts three review attempts, stop and retain the exact findings rather than applying another unreviewed cleanup change.
 - **Tags:** circuit-breaker, review, filesystem, data-loss, cleanup
+
+### L234 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F8: `machine.json` could still be written or deleted by pathname after a separate alias scan, and writes followed a symlinked `machine.json`.
+- **Root cause:** The alias check and the mutation were separate pathname operations.
+- **Fix:** Never rewrite `machine.json` in place; refuse links, non-files and second names; move it to a private name, verify bytes and aliases, then replace without overwriting, restoring and warning on mismatch.
+- **Lesson:** Bind the check to the exact file being changed; when that fails, refuse and keep the original.
+- **Tags:** review, data-loss, machine-state, symlink, fail-closed
+
+### L235 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F9: canon cleanup hashed and deleted files by pathname without rechecking the parent folder or the file.
+- **Root cause:** Ownership was proven on a path, not on the file in the checked folder at deletion time.
+- **Fix:** Delete and prune from inside the checked folder and recheck the file immediately before deletion.
+- **Lesson:** A hash is not proof of ownership unless the deletion acts on the same file in the same folder.
+- **Tags:** review, data-loss, cleanup, ownership
+
+### L236 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F10: any mirror link pointing into the canon was treated as installer-owned and removed.
+- **Root cause:** Ownership was inferred from the link target's location instead of the exact pair the installer writes.
+- **Fix:** Remove only exact `name -> <home>/skills/name` links.
+- **Lesson:** Ownership means the exact name and target pair we created, not "points somewhere ours".
+- **Tags:** review, cleanup, symlink, ownership

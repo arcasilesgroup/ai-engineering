@@ -15,12 +15,14 @@
 // over the developer's), so ~/.claude, ~/.ai-engineering, ~/.pi and ~/.gitconfig are never
 // read or written.
 
-import { afterAll, afterEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { uninstallMain } from "../src/commands/uninstall.ts";
+import { embeddedPath, embeddedUnder } from "../src/embed.ts";
 import { contractEntries, planEntries } from "../src/commands/init-shared.ts";
 import { buildLock, install, lockText, sha256 } from "../src/install.ts";
 import { installMachineCarriers, machineStateFile, readMachineState } from "../src/surfaces/adapters.ts";
@@ -758,6 +760,43 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(readFileSync(copilotSettings, "utf8")).toBe(originalSettings);
     expect(existsSync(machine)).toBe(true);
     expect(existsSync(join(cwd, ".ai-engineering", "config.toml"))).toBe(true); // "no" kept the project's files
+  });
+
+  test("F9: a canon parent swapped for a link at unlink time never redirects deletion outside the canon", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const [assetPath, assetRef] = [...embeddedUnder("skills/")].find(([path]) => path.endsWith("/SKILL.md"))!;
+    const payload = readFileSync(embeddedPath(assetRef));
+    const canonFile = join(realpathSync(machine), assetPath);
+    const canonParent = dirname(canonFile);
+    mkdirSync(canonParent, { recursive: true });
+    writeFileSync(canonFile, payload);
+    const outside = join(sandbox!, "outside");
+    mkdirSync(outside);
+    const victim = join(outside, "SKILL.md");
+    writeFileSync(victim, payload);
+
+    const originalUnlinkSync = fs.unlinkSync;
+    let wasSwapped = false;
+    const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path) => {
+      const isCanonUnlink = String(path) === canonFile || (String(path) === "SKILL.md" && process.cwd() === canonParent);
+      if (!wasSwapped && isCanonUnlink) {
+        wasSwapped = true;
+        renameSync(canonParent, `${canonParent}-before-race`);
+        symlinkSync(outside, canonParent, "dir");
+      }
+      return originalUnlinkSync(path);
+    });
+    try {
+      await uninstall(everythingScope("n", "y"));
+    } finally {
+      unlinkSpy.mockRestore();
+    }
+
+    expect(wasSwapped).toBe(true);
+    expect(readFileSync(victim)).toEqual(payload);
+    expect(lstatSync(canonParent).isSymbolicLink()).toBe(true);
   });
 
   test("the project scope stops at the repo: carriers and their record stay", async () => {

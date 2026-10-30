@@ -29,7 +29,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { buildLock, install, lockText, mergeSharedText, parseLock, sha256, stripSharedText, type PlanEntry } from "../src/install.ts";
 import {
   SURFACES,
@@ -155,6 +155,45 @@ function replaceLinkOnChdir(
 
 /** A machine of its own: the canon home, the mirrors, the carriers and the git floor's
  *  global setting all resolve inside it, and none of them can leak into the next test. */
+/** Run `onStateSyscall` once, at the first filesystem mutation that names machine.json —
+ *  whichever syscall the writer uses — so a test can race the state commit itself. */
+function onMachineStateSyscall(onStateSyscall: () => void): { wasTriggered: () => boolean; restore: () => void } {
+  let wasTriggered = false;
+  const fire = (...paths: unknown[]) => {
+    if (wasTriggered || !paths.some((path) => typeof path === "string" && basename(path) === "machine.json")) return;
+    wasTriggered = true;
+    onStateSyscall();
+  };
+  const originalWriteFileSync = fs.writeFileSync;
+  const originalUnlinkSync = fs.unlinkSync;
+  const originalRenameSync = fs.renameSync;
+  const originalLinkSync = fs.linkSync;
+  const spies = [
+    spyOn(fs, "writeFileSync").mockImplementation((...args) => {
+      fire(args[0]);
+      return originalWriteFileSync(...args);
+    }),
+    spyOn(fs, "unlinkSync").mockImplementation((path) => {
+      fire(path);
+      return originalUnlinkSync(path);
+    }),
+    spyOn(fs, "renameSync").mockImplementation((from, to) => {
+      fire(from, to);
+      return originalRenameSync(from, to);
+    }),
+    spyOn(fs, "linkSync").mockImplementation((existing, created) => {
+      fire(existing, created);
+      return originalLinkSync(existing, created);
+    }),
+  ];
+  return {
+    wasTriggered: () => wasTriggered,
+    restore: () => {
+      for (const spy of spies) spy.mockRestore();
+    },
+  };
+}
+
 function useHome(name: string): string {
   const dir = join(sandbox, name);
   mkdirSync(join(dir, "skills"), { recursive: true });
@@ -784,6 +823,62 @@ describe("carriers on the machine", () => {
     }
   });
 
+  test("F8: a settings alias made at the machine-state syscall leaves both paths' bytes untouched", () => {
+    for (const operation of ["install", "remove"] as const) {
+      for (const aliasType of ["symlink", "hard-link"] as const) {
+        const base = useHome(`machine-state-syscall-alias-${operation}-${aliasType}`);
+        const statePath = machineStateFile();
+        const unselectedSettings = join(base, ".codex", "hooks.json");
+        const originalBytes = Buffer.from('{"version":"prior","carriers":{"opencode":"owned"}}\n');
+        writeFileSync(statePath, originalBytes);
+        mkdirSync(dirname(unselectedSettings), { recursive: true });
+        const race = onMachineStateSyscall(() => {
+          if (aliasType === "symlink") symlinkSync("../machine.json", unselectedSettings);
+          else linkSync(statePath, unselectedSettings);
+        });
+
+        let refusedPaths: string[];
+        try {
+          refusedPaths = operation === "install"
+            ? installMachineCarriers(["opencode"]).refused.map((entry) => entry.path)
+            : removeMachineCarriers(["opencode"]).refused;
+        } finally {
+          race.restore();
+        }
+
+        expect(race.wasTriggered()).toBe(true);
+        expect(readFileSync(statePath)).toEqual(originalBytes);
+        expect(readFileSync(unselectedSettings)).toEqual(originalBytes);
+        expect(refusedPaths).toEqual([statePath]);
+        expect(readdirSync(base).filter((name) => name.startsWith(".machine.json."))).toEqual([]);
+      }
+    }
+  });
+
+  test("F8: a symlinked machine.json is never written or removed through", () => {
+    for (const operation of ["install", "remove"] as const) {
+      const base = useHome(`machine-state-symlinked-${operation}`);
+      const statePath = machineStateFile();
+      const userFile = join(base, "user-state.json");
+      const userBytes = Buffer.from('{"version":"user","carriers":{}}\n');
+      writeFileSync(userFile, userBytes);
+      symlinkSync("user-state.json", statePath);
+
+      if (operation === "install") {
+        const refused = installMachineCarriers(["opencode"]).refused;
+        expect(refused).toEqual([{ path: statePath, reason: "machine-state-identity-unverified" }]);
+        expect(refuseLine(refused[0]!)).toBe(
+          `⚠ ${statePath} — machine state is linked, changed, or shared with another path; left untouched`,
+        );
+      } else {
+        expect(removeMachineCarriers(["opencode"]).refused).toEqual([statePath]);
+      }
+      expect(lstatSync(statePath).isSymbolicLink()).toBe(true);
+      expect(readlinkSync(statePath)).toBe("user-state.json");
+      expect(readFileSync(userFile)).toEqual(userBytes);
+    }
+  });
+
   test("a settings replacement at the commit boundary is preserved because no identity-bound syscall runs", () => {
     const base = useHome("machine-commit-boundary");
     const settings = join(base, ".claude", "settings.json");
@@ -792,29 +887,36 @@ describe("carriers on the machine", () => {
     const originalWriteFileSync = fs.writeFileSync;
     const originalUnlinkSync = fs.unlinkSync;
     const originalRenameSync = fs.renameSync;
+    const originalLinkSync = fs.linkSync;
     let replacedBeforeInstallReturned = false;
     let replacedBeforeRemovalReturned = false;
     let didAttemptSettingsPathMutation = false;
+    const isStateSyscall = (...paths: unknown[]) =>
+      paths.some((path) => typeof path === "string" && basename(path) === "machine.json");
     const writeFileSpy = spyOn(fs, "writeFileSync").mockImplementation((...args) => {
-      const [path] = args;
-      if (!replacedBeforeInstallReturned && String(path) === machineStateFile()) {
+      if (String(args[0]) === settings) didAttemptSettingsPathMutation = true;
+      return originalWriteFileSync(...args);
+    });
+    const linkSpy = spyOn(fs, "linkSync").mockImplementation((existing, created) => {
+      if (String(created) === settings) didAttemptSettingsPathMutation = true;
+      if (!replacedBeforeInstallReturned && isStateSyscall(created)) {
         replacedBeforeInstallReturned = true;
         originalRenameSync(settings, `${settings}.before-install`);
         originalWriteFileSync(settings, replacementBytes);
       }
-      return originalWriteFileSync(...args);
+      return originalLinkSync(existing, created);
     });
     const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path, ...args) => {
       if (String(path) === settings) didAttemptSettingsPathMutation = true;
-      if (!replacedBeforeRemovalReturned && String(path) === machineStateFile()) {
-        replacedBeforeRemovalReturned = true;
-        originalRenameSync(settings, `${settings}.before-removal`);
-        originalWriteFileSync(settings, Buffer.from('{"model":"second replacement"}\n'));
-      }
       return originalUnlinkSync(path, ...args);
     });
     const renameSpy = spyOn(fs, "renameSync").mockImplementation((...args) => {
       if (String(args[1]) === settings) didAttemptSettingsPathMutation = true;
+      if (!replacedBeforeRemovalReturned && isStateSyscall(args[0])) {
+        replacedBeforeRemovalReturned = true;
+        originalRenameSync(settings, `${settings}.before-removal`);
+        originalWriteFileSync(settings, Buffer.from('{"model":"second replacement"}\n'));
+      }
       return originalRenameSync(...args);
     });
 
@@ -825,6 +927,7 @@ describe("carriers on the machine", () => {
     } finally {
       renameSpy.mockRestore();
       unlinkSpy.mockRestore();
+      linkSpy.mockRestore();
       writeFileSpy.mockRestore();
     }
 
@@ -1181,6 +1284,26 @@ describe("installCanon and what leaves with it", () => {
     expect(existsSync(join(base, ".agents", "skills"))).toBe(false);
     expect(existsSync(join(base, ".config", "opencode", "commands"))).toBe(false);
     expect(existsSync(join(base, ".claude", "skills"))).toBe(true);
+  });
+
+  test("F10: removeMachineArtifacts keeps a user's own alias into the canon", () => {
+    const base = useHome("canon-remove-user-alias");
+    installCanon("2.2.0");
+    const target = mirrorTargets()[0]!;
+    const canonSkill = join(base, "skills", "ai-debug");
+    const shortcut = join(target.dir, "my-shortcut");
+    symlinkSync(canonSkill, shortcut, "dir");
+    const relativeAlias = join(target.dir, "ai-explore");
+    rmSync(relativeAlias);
+    symlinkSync(join("..", "..", "skills", "ai-explore"), relativeAlias, "dir");
+
+    removeMachineArtifacts();
+
+    expect(lstatSync(shortcut).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(shortcut)).toBe(canonSkill);
+    expect(lstatSync(relativeAlias).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(relativeAlias)).toBe(join("..", "..", "skills", "ai-explore"));
+    expect(existsSync(join(target.dir, "ai-debug"))).toBe(false);
   });
 
   test("removeMachineArtifacts preserves a mirror link replaced after validation", () => {
