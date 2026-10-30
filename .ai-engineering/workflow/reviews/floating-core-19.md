@@ -86,3 +86,13 @@ ROOT CAUSE: The four failures came from a strict table-header regex, unchecked s
 FIX: Config rewrites now accept commented table headers, materialization rejects symlinked asset paths, uninstall removes only byte-identical embedded assets and prunes empty directories, and halted banners retain a safe current-checkpoint link.
 
 LESSON: Treat configuration syntax, filesystem ownership, and every viewer state as explicit boundaries, and verify each with a behavior-level regression.
+
+## Critic — round 2
+VERDICT: PASS
+F1 (Resolved): The commented `[surfaces]` header is recognized and rewritten in place; the regression asserts preserved comment and a single table.
+F2 (Resolved): Materialization rejects symlinked destination roots, descendants, and files before writing; the symlink regression confirms the external target stays empty.
+F3 (Resolved): Uninstall now removes only byte-identical embedded assets, refuses linked paths, and prunes only empty directories; the regression preserves custom, edited, and unrelated files.
+F4 (Resolved): Halted and active banners link to the current step, findings render outside Technical details, and live progress opens the new current step.
+New actionable findings: none. Resolved: 4; withdrawn: 0; arbitrated: 0; open: none.
+Changed files: no round-two changes; round-one FILES remain as listed above.
+Failures: focused regression run had 115 passing tests; preload teardown failed on pre-existing `tests/.worktree-lifecycle-*` paths. `bun run typecheck` and `bun run lint` exited 0 with warnings.
