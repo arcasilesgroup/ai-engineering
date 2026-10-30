@@ -18,6 +18,8 @@ import { dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { surfaceOptions } from "../../src/commands/init-shared.ts";
+import { CANON_OWNERSHIP_NAME } from "../../src/embed.ts";
+import { sha256 } from "../../src/install.ts";
 
 const cli = join(import.meta.dir, "..", "..", "src", "cli.ts");
 let sandbox: string;
@@ -274,8 +276,8 @@ test("a repo with no machine-side canon is offered it, never handed it (§14.5b)
 
 test("the canon is swept of what we no longer ship, and nothing else is touched", () => {
   // The line is the skill folder: inside one we ship, a path the payload does not
-  // have is stale and gets swept, and doctor names it. Anything else in the canon
-  // home is somebody's.
+  // have is stale and doctor names it; update sweeps it only while its bytes match the
+  // hash an earlier install recorded writing. Anything else in the canon home is somebody's.
   expect(eng(["init", "--yes"]).status).toBe(0);
   // The preceding case deliberately leaves a locally edited shipped skill behind.
   // Restore its fixture before this test measures stale and foreign canon entries.
@@ -287,6 +289,13 @@ test("the canon is swept of what we no longer ship, and nothing else is touched"
   mkdirSync(dirname(foreignFile), { recursive: true });
   writeFileSync(staleFile, "// a file this binary no longer ships\n");
   writeFileSync(foreignFile, "# mine\n");
+  // An earlier binary shipped this page and recorded its hash when it wrote it.
+  const ownershipPath = join(engHome, CANON_OWNERSHIP_NAME);
+  const ownership = existsSync(ownershipPath)
+    ? (JSON.parse(readFileSync(ownershipPath, "utf8")) as { files: Record<string, string> })
+    : { files: {} as Record<string, string> };
+  ownership.files["skills/ai-visual-recap/assets/highlight.js"] = sha256("// a file this binary no longer ships\n");
+  writeFileSync(ownershipPath, JSON.stringify(ownership));
 
   const dirty = eng(["doctor"]);
   expect(dirty.stdout + dirty.stderr).toContain("stale");

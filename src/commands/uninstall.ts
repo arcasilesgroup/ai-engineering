@@ -7,16 +7,19 @@
 // contract files survive "This project", and "Everything" asks twice.
 
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { closeSync, constants, existsSync, fstatSync, ftruncateSync, openSync, readFileSync, readSync, writeSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, rmdirSync, type Stats } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { SURFACES, machineStateFile, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
+import { existsSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, rmdirSync } from "node:fs";
+import { dirname, join, resolve, sep } from "node:path";
+import { SURFACES, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
 import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
 import { parseLock, sha256, stripSharedText } from "../install.ts";
 import { hashFile } from "../install.ts";
-import { embeddedPath, embeddedTemplate, embeddedUnder } from "../embed.ts";
-import { planEntries } from "./init-shared.ts";
+import {
+  embeddedPath, embeddedTemplate, embeddedUnder, isCanonOwnershipRecord, pruneEmptyDirectoryWithin,
+  readProjectFileSnapshot, safeProjectPath, unlinkProjectPath, withSafeProjectParent, writeProjectFile,
+  CANON_OWNERSHIP_NAME, type ProjectFileSnapshot,
+} from "../embed.ts";
+import { planEntries, refuseLine } from "./init-shared.ts";
 import { select, isCancel } from "@clack/prompts";
 import * as ui from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -109,7 +112,7 @@ function sweepProjectSide(
 async function confirmUninstall(input: unknown): Promise<"project" | "everything" | null> {
   ui.section("Two scopes", [
     { mark: "info", text: "This project", dim: "sweeps every file the lock says ai-eng owns: hooks, settings entries, adapters, CI workflow, config, lock. Keeps AGENTS.md, DECISIONS.md, spec/plan." },
-    { mark: "warn", text: "Everything", dim: `the project side ABOVE, plus the machine side: deletes ${home()} (global skills, mirrors, caches). Asks twice.` },
+    { mark: "warn", text: "Everything", dim: `the project side ABOVE, plus the machine side: deletes ${home()} (global skills, mirrors, caches); files of yours inside it stay. Asks twice.` },
   ]);
   const scope = await pickScope(input);
   if (scope === null) {
@@ -164,187 +167,6 @@ function collectSettingsByPath(): Map<string, string> {
     if (placement?.kind === "settings") settingsByPath.set(placement.path, surface.label);
   }
   return settingsByPath;
-}
-
-function safeProjectPath(root: string, rel: string): string | null {
-  let canonicalRoot: string;
-  try {
-    canonicalRoot = realpathSync(root);
-  } catch {
-    return null;
-  }
-  const absolute = resolve(canonicalRoot, rel);
-  if (!pathIsWithin(canonicalRoot, absolute)) return null;
-
-  let current = canonicalRoot;
-  for (const component of relative(canonicalRoot, absolute).split(sep).filter(Boolean)) {
-    current = join(current, component);
-    try {
-      if (lstatSync(current).isSymbolicLink() || !pathIsWithin(canonicalRoot, realpathSync(current))) return null;
-    } catch {
-      return null;
-    }
-  }
-  return absolute;
-}
-
-function withSafeProjectParent(root: string, absolute: string, action: (name: string) => boolean): boolean {
-  const canonicalRoot = realpathSync(root);
-  const parent = dirname(absolute);
-  const previousDirectory = process.cwd();
-  let changedDirectory = false;
-  try {
-    try {
-      process.chdir(parent);
-      changedDirectory = true;
-    } catch {
-      return false;
-    }
-    let currentDirectory: string;
-    try {
-      currentDirectory = realpathSync(".");
-    } catch {
-      return false;
-    }
-    if (currentDirectory !== parent || !pathIsWithin(canonicalRoot, currentDirectory)) return false;
-    // Relative operations stay anchored here if the parent pathname is replaced.
-    return action(basename(absolute));
-  } finally {
-    if (changedDirectory) process.chdir(previousDirectory);
-  }
-}
-
-type ProjectFileSnapshot = Pick<Stats, "dev" | "ino" | "size" | "mtimeMs" | "ctimeMs"> & {
-  content: Buffer;
-  hash: string;
-};
-
-function sameFileVersion(left: Stats, right: Stats): boolean {
-  return left.isFile() && right.isFile()
-    && left.dev === right.dev
-    && left.ino === right.ino
-    && left.size === right.size
-    && left.mtimeMs === right.mtimeMs
-    && left.ctimeMs === right.ctimeMs;
-}
-
-function matchesProjectFile(stat: Stats, snapshot: ProjectFileSnapshot): boolean {
-  return stat.isFile()
-    && stat.dev === snapshot.dev
-    && stat.ino === snapshot.ino
-    && stat.size === snapshot.size
-    && stat.mtimeMs === snapshot.mtimeMs
-    && stat.ctimeMs === snapshot.ctimeMs;
-}
-
-function readProjectFileSnapshot(root: string, absolute: string): ProjectFileSnapshot | null {
-  let snapshot: ProjectFileSnapshot | null = null;
-  const didRead = withSafeProjectParent(root, absolute, (name) => {
-    let descriptor: number | null = null;
-    try {
-      const entryBefore = lstatSync(name);
-      if (entryBefore.isSymbolicLink() || !entryBefore.isFile()) return false;
-      descriptor = openSync(name, constants.O_RDONLY | constants.O_NOFOLLOW);
-      const opened = fstatSync(descriptor);
-      if (!sameFileVersion(entryBefore, opened)) return false;
-      const content = readFileSync(descriptor);
-      const afterRead = fstatSync(descriptor);
-      const entryAfter = lstatSync(name);
-      if (!sameFileVersion(opened, afterRead) || !sameFileVersion(afterRead, entryAfter) || content.length !== afterRead.size) {
-        return false;
-      }
-      snapshot = {
-        dev: afterRead.dev,
-        ino: afterRead.ino,
-        size: afterRead.size,
-        mtimeMs: afterRead.mtimeMs,
-        ctimeMs: afterRead.ctimeMs,
-        content,
-        hash: createHash("sha256").update(content).digest("hex"),
-      };
-      return true;
-    } catch {
-      return false;
-    } finally {
-      if (descriptor !== null) closeSync(descriptor);
-    }
-  });
-  return didRead ? snapshot : null;
-}
-
-function fileMatchesSnapshotAtPath(name: string, descriptor: number, snapshot: ProjectFileSnapshot): boolean {
-  try {
-    const beforeRead = fstatSync(descriptor);
-    if (!matchesProjectFile(beforeRead, snapshot)) return false;
-    const content = Buffer.alloc(snapshot.size);
-    let bytesRead = 0;
-    while (bytesRead < content.length) {
-      const count = readSync(descriptor, content, bytesRead, content.length - bytesRead, bytesRead);
-      if (count === 0) return false;
-      bytesRead += count;
-    }
-    const afterRead = fstatSync(descriptor);
-    const currentEntry = lstatSync(name);
-    return content.equals(snapshot.content)
-      && matchesProjectFile(afterRead, snapshot)
-      && sameFileVersion(beforeRead, afterRead)
-      && sameFileVersion(afterRead, currentEntry);
-  } catch {
-    return false;
-  }
-}
-
-function openMatchingProjectFile(name: string, snapshot: ProjectFileSnapshot, flags: number): number | null {
-  let descriptor: number | null = null;
-  let isValid = false;
-  try {
-    const entryBefore = lstatSync(name);
-    if (!matchesProjectFile(entryBefore, snapshot)) return null;
-    descriptor = openSync(name, flags | constants.O_NOFOLLOW);
-    const opened = fstatSync(descriptor);
-    if (!sameFileVersion(entryBefore, opened) || !fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return null;
-    isValid = true;
-    return descriptor;
-  } catch {
-    return null;
-  } finally {
-    if (descriptor !== null && !isValid) closeSync(descriptor);
-  }
-}
-
-function unlinkProjectPath(root: string, absolute: string, snapshot: ProjectFileSnapshot): boolean {
-  return withSafeProjectParent(root, absolute, (name) => {
-    const descriptor = openMatchingProjectFile(name, snapshot, constants.O_RDONLY);
-    if (descriptor === null) return false;
-    try {
-      if (!fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return false;
-      unlinkSync(name);
-      return true;
-    } finally {
-      closeSync(descriptor);
-    }
-  });
-}
-
-function writeProjectFile(root: string, absolute: string, snapshot: ProjectFileSnapshot, contents: string): boolean {
-  return withSafeProjectParent(root, absolute, (name) => {
-    const descriptor = openMatchingProjectFile(name, snapshot, constants.O_RDWR);
-    if (descriptor === null) return false;
-    try {
-      if (!fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return false;
-      const bytes = Buffer.from(contents);
-      ftruncateSync(descriptor, 0);
-      let written = 0;
-      while (written < bytes.length) {
-        const count = writeSync(descriptor, bytes, written, bytes.length - written, written);
-        if (count === 0) return false;
-        written += count;
-      }
-      return true;
-    } finally {
-      closeSync(descriptor);
-    }
-  });
 }
 
 function sweepAsset(
@@ -424,30 +246,11 @@ function pruneCreatedDirs(root: string, removed: ui.Row[]): void {
   }
 }
 
-function pathIsWithin(root: string, candidate: string): boolean {
-  const pathFromRoot = relative(root, candidate);
-  return pathFromRoot === "" || (
-    pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep}`) && !isAbsolute(pathFromRoot)
-  );
-}
-
 function pruneEmptyDirectory(directory: string): boolean {
   try {
     if (readdirSync(directory).length !== 0) return false;
     rmdirSync(directory);
     return true;
-  } catch {
-    return false;
-  }
-}
-
-/** rmdir bound to the checked parent: a parent swapped for a link cannot redirect it. */
-function pruneEmptyDirectoryWithin(root: string, directory: string): boolean {
-  try {
-    return withSafeProjectParent(root, directory, (name) => {
-      rmdirSync(name);
-      return true;
-    });
   } catch {
     return false;
   }
@@ -491,6 +294,46 @@ function removeEmbeddedAssets(machineDir: string, prefix: string): number {
   return removed;
 }
 
+/** The two small records installCanon and the notice check write into the machine home.
+ *  Each goes only while it still has the exact shape this installer writes, so a home
+ *  holding nothing else of the user's can be removed whole. */
+const INSTALLER_RECORDS: ReadonlyArray<{ name: string; isOurs: (text: string) => boolean }> = [
+  { name: "version.json", isOurs: isVersionCacheRecord },
+  { name: CANON_OWNERSHIP_NAME, isOurs: isCanonOwnershipRecord },
+];
+
+function isVersionCacheRecord(text: string): boolean {
+  try {
+    const record = JSON.parse(text) as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    return keys.length === 2 && keys[0] === "ts" && keys[1] === "version"
+      && typeof record["version"] === "string" && typeof record["ts"] === "number";
+  } catch {
+    return false;
+  }
+}
+
+function removeInstallerRecords(machineDir: string): number {
+  let removed = 0;
+  for (const record of INSTALLER_RECORDS) {
+    const absolute = safeProjectPath(machineDir, record.name);
+    const snapshot = absolute === null ? null : readProjectFileSnapshot(machineDir, absolute);
+    if (absolute === null || snapshot === null || !record.isOurs(snapshot.content.toString("utf8"))) continue;
+    if (unlinkProjectPath(machineDir, absolute, snapshot)) removed += 1;
+  }
+  return removed;
+}
+
+function machineRefusalText(refused: { path: string; reason: string }): string {
+  if (refused.reason === "identity-bound-settings-mutation-unavailable") {
+    return `${refused.path} left alone — safe machine-settings removal is unavailable on this platform`;
+  }
+  if (refused.reason === "machine-state-identity-unverified") {
+    return `${refused.path} left alone — it is linked, changed, or shared with another path`;
+  }
+  return refuseLine(refused).replace(/^⚠ /, "");
+}
+
 async function removeEverything(root: string, input: unknown, declared: string[]): Promise<ui.Row[]> {
   const extra: ui.Row[] = [];
   const agents = join(root, "AGENTS.md");
@@ -526,7 +369,7 @@ async function removeEverything(root: string, input: unknown, declared: string[]
     const canonAssetsRemoved = ["skills/", "agents/", "scripts/"].reduce(
       (count, prefix) => count + removeEmbeddedAssets(machineDir, prefix),
       0,
-    );
+    ) + removeInstallerRecords(machineDir);
     pruneEmptyDirectory(machineDir);
     const userFilesRemain = existsSync(machineDir);
     const cleanup = `${canonAssetsRemoved} canon-owned file(s) removed · ${swept} machine artifacts swept`;
@@ -535,12 +378,7 @@ async function removeEverything(root: string, input: unknown, declared: string[]
       : { mark: "warn", text: `${machineDir} deleted`, dim: cleanup });
     if (floor !== null) extra.push({ mark: "ok", text: floor });
     for (const line of carriers.lines) extra.push({ mark: "ok", text: line });
-    for (const path of carriers.refused) {
-      const reason = path === machineStateFile()
-        ? "it is linked, changed, or shared with another path"
-        : "safe machine-settings removal is unavailable on this platform";
-      extra.push({ mark: "warn", text: `${path} left alone — ${reason}` });
-    }
+    for (const refused of carriers.refused) extra.push({ mark: "warn", text: machineRefusalText(refused) });
   } else {
     extra.push({ mark: "ok", text: `kept: ${machineDir}`, dim: "global skills stay installed" });
   }

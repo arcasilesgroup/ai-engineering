@@ -2,8 +2,9 @@
 // skill and template from EMBEDDED — never from disk paths, never from the network.
 
 import { EMBEDDED } from "./assets.ts";
-import { writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, unlinkSync, rmdirSync, lstatSync, realpathSync } from "node:fs";
-import { join, dirname, resolve, relative, sep, isAbsolute } from "node:path";
+import { createHash } from "node:crypto";
+import { closeSync, constants, fstatSync, ftruncateSync, openSync, readSync, writeSync, writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, unlinkSync, rmdirSync, lstatSync, realpathSync, type Stats } from "node:fs";
+import { basename, join, dirname, resolve, relative, sep, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hashFile } from "./shared-hash.ts";
 
@@ -85,32 +86,83 @@ export function canonExtras(homeDir: string): { stale: string[]; foreign: string
   return { stale: stale.sort((a, b) => a.localeCompare(b, "en")), foreign: foreign.sort((a, b) => a.localeCompare(b, "en")) };
 }
 
-/** Sweep the stale files inside folders we ship, then the directories they leave
- *  empty. Never touches a foreign path: deleting a file we did not install is the
- *  worst class of bug a governance tool can have (§14.3). */
-export function removeStaleCanonFiles(homeDir: string): string[] {
-  const skillsRoot = join(homeDir, "skills");
+/** The record of every canon file installCanon last wrote, path → sha256, in the canon home. */
+export const CANON_OWNERSHIP_NAME = "canon-owned.json";
+
+/** Only a `{ files: { path: sha256 } }` document is this installer's record. */
+function parseCanonOwnership(text: string): Map<string, string> | null {
+  try {
+    const record = JSON.parse(text) as { files?: unknown };
+    if (record === null || typeof record !== "object" || record.files === null || typeof record.files !== "object") return null;
+    const owned = new Map<string, string>();
+    for (const [path, hash] of Object.entries(record.files as Record<string, unknown>)) {
+      if (typeof hash !== "string") return null;
+      owned.set(path, hash);
+    }
+    return owned;
+  } catch {
+    return null;
+  }
+}
+
+export function isCanonOwnershipRecord(text: string): boolean {
+  return parseCanonOwnership(text) !== null;
+}
+
+function readCanonOwnership(homeDir: string): Map<string, string> {
+  const absolute = safeProjectPath(homeDir, CANON_OWNERSHIP_NAME);
+  const snapshot = absolute === null ? null : readProjectFileSnapshot(homeDir, absolute);
+  return (snapshot === null ? null : parseCanonOwnership(snapshot.content.toString("utf8"))) ?? new Map();
+}
+
+/** Remember the payload this binary just installed, so a later binary that stops shipping
+ *  a page can prove the page on disk is still the one it wrote. A record that cannot be
+ *  written means nothing is provably ours later: the sweep keeps every file. */
+export function recordCanonOwnership(homeDir: string): void {
+  const files: Record<string, string> = {};
+  for (const [path, ref] of canonSkills()) {
+    const embedded = embeddedPath(ref);
+    if (existsSync(embedded)) files[path] = hashFile(embedded);
+  }
+  let descriptor: number | null = null;
+  try {
+    descriptor = openSync(
+      join(homeDir, CANON_OWNERSHIP_NAME),
+      constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      0o644,
+    );
+    if (fstatSync(descriptor).isFile()) writeFileSync(descriptor, `${JSON.stringify({ files }, null, 2)}\n`);
+  } catch {
+    /* a link, a directory or an unwritable path: no record, so nothing is swept later */
+  } finally {
+    if (descriptor !== null) closeSync(descriptor);
+  }
+}
+
+/** Sweep the stale files inside folders we ship, then the directories they leave empty.
+ *  A stale file goes only while its bytes equal the hash recorded when this installer
+ *  wrote it: a page the user added or edited has no such proof and stays (§14.3). */
+export function removeStaleCanonFiles(homeDir: string): { removed: string[]; kept: string[] } {
   const removed: string[] = [];
+  const kept: string[] = [];
+  const owned = readCanonOwnership(homeDir);
+  const skillsRoot = safeProjectPath(homeDir, "skills");
   for (const key of canonExtras(homeDir).stale) {
-    const absolute = join(homeDir, key);
-    try {
-      unlinkSync(absolute);
-    } catch {
+    const absolute = safeProjectPath(homeDir, key);
+    const snapshot = absolute === null ? null : readProjectFileSnapshot(homeDir, absolute);
+    const isOwned = snapshot !== null && snapshot.hash === owned.get(key);
+    if (absolute === null || snapshot === null || !isOwned || !unlinkProjectPath(homeDir, absolute, snapshot)) {
+      kept.push(key);
       continue;
     }
     removed.push(key);
-    let dir = dirname(absolute);
-    while (dir.length > skillsRoot.length && dir.startsWith(skillsRoot)) {
-      try {
-        if (readdirSync(dir).length > 0) break;
-        rmdirSync(dir);
-      } catch {
-        break;
-      }
-      dir = dirname(dir);
+    let directory = dirname(absolute);
+    while (skillsRoot !== null && directory !== skillsRoot && pathIsWithin(skillsRoot, directory)) {
+      if (!pruneEmptyDirectoryWithin(homeDir, directory)) break;
+      directory = dirname(directory);
     }
   }
-  return removed;
+  return { removed, kept };
 }
 
 /** The installed canon against this binary's payload, byte for byte — the one
@@ -263,4 +315,209 @@ export function embeddedChainBundle(): string {
   const ref = bundled.get("skills/.chain-bundle/ai-eng-chain.ts");
   if (!ref) throw new Error("chain bundle not embedded — regenerate assets: bun scripts/gen-assets.ts");
   return readEmbeddedText(ref);
+}
+
+// Root-bound file operations, shared by the canon sweep, carrier cleanup and uninstall: a
+// file is read, rewritten or removed only through its checked parent, and only while it is
+// still the exact file that was read (R38).
+
+export function safeProjectPath(root: string, rel: string): string | null {
+  let canonicalRoot: string;
+  try {
+    canonicalRoot = realpathSync(root);
+  } catch {
+    return null;
+  }
+  const absolute = resolve(canonicalRoot, rel);
+  if (!pathIsWithin(canonicalRoot, absolute)) return null;
+
+  let current = canonicalRoot;
+  for (const component of relative(canonicalRoot, absolute).split(sep).filter(Boolean)) {
+    current = join(current, component);
+    try {
+      if (lstatSync(current).isSymbolicLink() || !pathIsWithin(canonicalRoot, realpathSync(current))) return null;
+    } catch {
+      return null;
+    }
+  }
+  return absolute;
+}
+
+export function withSafeProjectParent(root: string, absolute: string, action: (name: string) => boolean): boolean {
+  const canonicalRoot = realpathSync(root);
+  const parent = dirname(absolute);
+  const previousDirectory = process.cwd();
+  let changedDirectory = false;
+  try {
+    try {
+      process.chdir(parent);
+      changedDirectory = true;
+    } catch {
+      return false;
+    }
+    let currentDirectory: string;
+    try {
+      currentDirectory = realpathSync(".");
+    } catch {
+      return false;
+    }
+    if (currentDirectory !== parent || !pathIsWithin(canonicalRoot, currentDirectory)) return false;
+    // Relative operations stay anchored here if the parent pathname is replaced.
+    return action(basename(absolute));
+  } finally {
+    if (changedDirectory) process.chdir(previousDirectory);
+  }
+}
+
+export type ProjectFileSnapshot = Pick<Stats, "dev" | "ino" | "size" | "mtimeMs" | "ctimeMs"> & {
+  content: Buffer;
+  hash: string;
+};
+
+function sameFileVersion(left: Stats, right: Stats): boolean {
+  return left.isFile() && right.isFile()
+    && left.dev === right.dev
+    && left.ino === right.ino
+    && left.size === right.size
+    && left.mtimeMs === right.mtimeMs
+    && left.ctimeMs === right.ctimeMs;
+}
+
+function matchesProjectFile(stat: Stats, snapshot: ProjectFileSnapshot): boolean {
+  return stat.isFile()
+    && stat.dev === snapshot.dev
+    && stat.ino === snapshot.ino
+    && stat.size === snapshot.size
+    && stat.mtimeMs === snapshot.mtimeMs
+    && stat.ctimeMs === snapshot.ctimeMs;
+}
+
+export function readProjectFileSnapshot(root: string, absolute: string): ProjectFileSnapshot | null {
+  let snapshot: ProjectFileSnapshot | null = null;
+  const didRead = withSafeProjectParent(root, absolute, (name) => {
+    let descriptor: number | null = null;
+    try {
+      const entryBefore = lstatSync(name);
+      if (entryBefore.isSymbolicLink() || !entryBefore.isFile()) return false;
+      descriptor = openSync(name, constants.O_RDONLY | constants.O_NOFOLLOW);
+      const opened = fstatSync(descriptor);
+      if (!sameFileVersion(entryBefore, opened)) return false;
+      const content = readFileSync(descriptor);
+      const afterRead = fstatSync(descriptor);
+      const entryAfter = lstatSync(name);
+      if (!sameFileVersion(opened, afterRead) || !sameFileVersion(afterRead, entryAfter) || content.length !== afterRead.size) {
+        return false;
+      }
+      snapshot = {
+        dev: afterRead.dev,
+        ino: afterRead.ino,
+        size: afterRead.size,
+        mtimeMs: afterRead.mtimeMs,
+        ctimeMs: afterRead.ctimeMs,
+        content,
+        hash: createHash("sha256").update(content).digest("hex"),
+      };
+      return true;
+    } catch {
+      return false;
+    } finally {
+      if (descriptor !== null) closeSync(descriptor);
+    }
+  });
+  return didRead ? snapshot : null;
+}
+
+function fileMatchesSnapshotAtPath(name: string, descriptor: number, snapshot: ProjectFileSnapshot): boolean {
+  try {
+    const beforeRead = fstatSync(descriptor);
+    if (!matchesProjectFile(beforeRead, snapshot)) return false;
+    const content = Buffer.alloc(snapshot.size);
+    let bytesRead = 0;
+    while (bytesRead < content.length) {
+      const count = readSync(descriptor, content, bytesRead, content.length - bytesRead, bytesRead);
+      if (count === 0) return false;
+      bytesRead += count;
+    }
+    const afterRead = fstatSync(descriptor);
+    const currentEntry = lstatSync(name);
+    return content.equals(snapshot.content)
+      && matchesProjectFile(afterRead, snapshot)
+      && sameFileVersion(beforeRead, afterRead)
+      && sameFileVersion(afterRead, currentEntry);
+  } catch {
+    return false;
+  }
+}
+
+function openMatchingProjectFile(name: string, snapshot: ProjectFileSnapshot, flags: number): number | null {
+  let descriptor: number | null = null;
+  let isValid = false;
+  try {
+    const entryBefore = lstatSync(name);
+    if (!matchesProjectFile(entryBefore, snapshot)) return null;
+    descriptor = openSync(name, flags | constants.O_NOFOLLOW);
+    const opened = fstatSync(descriptor);
+    if (!sameFileVersion(entryBefore, opened) || !fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return null;
+    isValid = true;
+    return descriptor;
+  } catch {
+    return null;
+  } finally {
+    if (descriptor !== null && !isValid) closeSync(descriptor);
+  }
+}
+
+export function unlinkProjectPath(root: string, absolute: string, snapshot: ProjectFileSnapshot): boolean {
+  return withSafeProjectParent(root, absolute, (name) => {
+    const descriptor = openMatchingProjectFile(name, snapshot, constants.O_RDONLY);
+    if (descriptor === null) return false;
+    try {
+      if (!fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return false;
+      unlinkSync(name);
+      return true;
+    } finally {
+      closeSync(descriptor);
+    }
+  });
+}
+
+export function writeProjectFile(root: string, absolute: string, snapshot: ProjectFileSnapshot, contents: string): boolean {
+  return withSafeProjectParent(root, absolute, (name) => {
+    const descriptor = openMatchingProjectFile(name, snapshot, constants.O_RDWR);
+    if (descriptor === null) return false;
+    try {
+      // A second name (a hard link from the user's home) would receive the rewrite too.
+      if (fstatSync(descriptor).nlink !== 1 || !fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return false;
+      const bytes = Buffer.from(contents);
+      ftruncateSync(descriptor, 0);
+      let written = 0;
+      while (written < bytes.length) {
+        const count = writeSync(descriptor, bytes, written, bytes.length - written, written);
+        if (count === 0) return false;
+        written += count;
+      }
+      return true;
+    } finally {
+      closeSync(descriptor);
+    }
+  });
+}
+
+export function pathIsWithin(root: string, candidate: string): boolean {
+  const pathFromRoot = relative(root, candidate);
+  return pathFromRoot === "" || (
+    pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep}`) && !isAbsolute(pathFromRoot)
+  );
+}
+
+/** rmdir bound to the checked parent: a parent swapped for a link cannot redirect it. */
+export function pruneEmptyDirectoryWithin(root: string, directory: string): boolean {
+  try {
+    return withSafeProjectParent(root, directory, (name) => {
+      rmdirSync(name);
+      return true;
+    });
+  } catch {
+    return false;
+  }
 }

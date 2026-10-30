@@ -19,6 +19,7 @@ import { pathToFileURL } from "node:url";
 import { PassThrough } from "node:stream";
 import { syncPlan, updateMain } from "../src/commands/update.ts";
 import { planEntries } from "../src/commands/init-shared.ts";
+import { carrierFiles } from "../src/surfaces/adapters.ts";
 import { mergeSharedText, sha256 } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import type { PlanEntry } from "../src/install.ts";
@@ -594,7 +595,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const repo = governedRepo("repo-moved");
     mkdirSync(join(repo, ".agents", "hooks"), { recursive: true });
     mkdirSync(join(repo, ".pi", "extensions"), { recursive: true });
-    writeFileSync(join(repo, ".agents/hooks/ai-eng.ts"), "#!/usr/bin/env bun\n// ai-eng chain\n");
+    writeFileSync(join(repo, ".agents/hooks/ai-eng.ts"), carrierFiles("oh-my-pi", "repo")!.main);
     writeFileSync(join(repo, ".pi/extensions/ai-eng.ts"), "// hand-written by a person, nothing to do with the product\n");
     process.chdir(repo);
 
@@ -605,5 +606,23 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     // Its bytes are not ours, so it is not ours to delete — and the line says so.
     expect(readFileSync(join(repo, ".pi/extensions/ai-eng.ts"), "utf8")).toInclude("hand-written");
     expect(run.out).toInclude("kept");
+  });
+
+  test("F11: an unreadable machine settings file is refused, and the lock is still written", async () => {
+    if (process.getuid?.() === 0) return; // root reads a mode-000 file, so there is nothing to refuse
+    const repo = governedRepo("repo-unreadable-machine-settings");
+    const machineSettings = join(ENG_HOME, ".claude", "settings.json");
+    const settingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(dirname(machineSettings), { recursive: true });
+    writeFileSync(machineSettings, settingsBefore);
+    chmodSync(machineSettings, 0o000);
+    process.chdir(repo);
+
+    const run = await captured(() => updateMain({ yes: true })).finally(() => chmodSync(machineSettings, 0o644));
+
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude("~/.claude/settings.json — unreadable, a dangling link, not a regular file, or changing while read; left untouched");
+    expect(readFileSync(machineSettings, "utf8")).toBe(settingsBefore);
+    expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toInclude(`version = "${VERSION}"`);
   });
 });

@@ -295,7 +295,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
 
     // Machine scope refuses to mutate the user-owned settings path.
     const swept = withHome(() => removeMachineCarriers(["claude-code"]));
-    expect(swept.refused).toEqual(["~/.claude/settings.json"]);
+    expect(swept.refused).toEqual([{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }]);
     const afterUninstall = readFileSync(settings, "utf8");
     expect(afterUninstall).toBe(beforeBytes);
     expect(JSON.parse(afterUninstall)).toEqual(before);

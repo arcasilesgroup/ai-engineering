@@ -20,12 +20,14 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, delimiter, join, relative, resolve } from "node:path";
+import { basename, delimiter, dirname, join, relative, resolve } from "node:path";
 import { initMain, surfaceHint } from "../src/commands/init.ts";
 import {
   contractEntries,
@@ -568,6 +570,23 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(result).toBe(0);
     expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toBe(userSettings);
     expect(out).toContain("not valid JSON");
+  });
+
+  test("F11: a dangling machine settings link is refused and init still records its lock", async () => {
+    const { cwd, machine: home } = sandboxed();
+    mkdirSync(join(cwd, ".git"));
+    const settings = join(home, ".claude", "settings.json");
+    const dotfilesTarget = join(home, "dotfiles", "claude-settings.json");
+    mkdirSync(dirname(settings), { recursive: true });
+    symlinkSync(dotfilesTarget, settings);
+
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["claude-code"] }));
+
+    expect(result).toBe(0);
+    expect(out).toContain("~/.claude/settings.json — unreadable, a dangling link, not a regular file, or changing while read; left untouched");
+    expect(readlinkSync(settings)).toBe(dotfilesTarget);
+    expect(existsSync(dotfilesTarget)).toBe(false);
+    expect(parseLock(readFileSync(join(cwd, ".ai-engineering", "ai-eng.lock"), "utf8")).version).toBe(VERSION);
   });
 
   test("closing line names /ai-config-to-project", async () => {

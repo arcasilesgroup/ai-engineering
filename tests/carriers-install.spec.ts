@@ -11,7 +11,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { embeddedPath, embeddedTemplate, embeddedUnder } from "../src/embed.ts";
+import { CANON_OWNERSHIP_NAME, embeddedPath, embeddedTemplate, embeddedUnder } from "../src/embed.ts";
 import * as fs from "node:fs";
 import {
   existsSync,
@@ -731,7 +731,7 @@ describe("carriers on the machine", () => {
 
       expect(removeMachineCarriers(["claude-code"])).toEqual({
         lines: [],
-        refused: ["~/.claude/settings.json"],
+        refused: [{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }],
       });
       expect(existsSync(statePath)).toBe(true);
       expect(readFileSync(statePath)).toEqual(originalBytes);
@@ -759,7 +759,7 @@ describe("carriers on the machine", () => {
       });
       expect(readFileSync(statePath)).toEqual(originalBytes);
 
-      expect(removeMachineCarriers(["claude-code"]).refused).toContain("~/.codex/hooks.json");
+      expect(removeMachineCarriers(["claude-code"]).refused.map((entry) => entry.path)).toContain("~/.codex/hooks.json");
       expect(existsSync(statePath)).toBe(true);
       expect(readFileSync(statePath)).toEqual(originalBytes);
       expect(existsSync(settings)).toBe(true);
@@ -788,10 +788,10 @@ describe("carriers on the machine", () => {
           }
         };
         if (operation === "install") {
-          const originalWriteFileSync = fs.writeFileSync;
-          const writeSpy = spyOn(fs, "writeFileSync").mockImplementation((...args) => {
+          const originalOpenSync = fs.openSync;
+          const writeSpy = spyOn(fs, "openSync").mockImplementation((...args) => {
             if (String(args[0]) === moduleCarrier) addAlias();
-            return originalWriteFileSync(...args);
+            return originalOpenSync(...args);
           });
           try {
             expect(installMachineCarriers(["claude-code", "opencode"]).refused).toContainEqual({
@@ -803,14 +803,14 @@ describe("carriers on the machine", () => {
           }
         } else {
           mkdirSync(dirname(moduleCarrier), { recursive: true });
-          writeFileSync(moduleCarrier, "owned");
+          writeFileSync(moduleCarrier, carrierFiles("opencode", "machine")!.main);
           const originalUnlinkSync = fs.unlinkSync;
           const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path) => {
-            if (String(path) === moduleCarrier) addAlias();
+            if (String(path) === moduleCarrier || String(path) === basename(moduleCarrier)) addAlias();
             return originalUnlinkSync(path);
           });
           try {
-            expect(removeMachineCarriers(["claude-code", "opencode"]).refused).toContain("~/.codex/hooks.json");
+            expect(removeMachineCarriers(["claude-code", "opencode"]).refused.map((entry) => entry.path)).toContain("~/.codex/hooks.json");
           } finally {
             unlinkSpy.mockRestore();
           }
@@ -841,7 +841,7 @@ describe("carriers on the machine", () => {
         try {
           refusedPaths = operation === "install"
             ? installMachineCarriers(["opencode"]).refused.map((entry) => entry.path)
-            : removeMachineCarriers(["opencode"]).refused;
+            : removeMachineCarriers(["opencode"]).refused.map((entry) => entry.path);
         } finally {
           race.restore();
         }
@@ -871,7 +871,7 @@ describe("carriers on the machine", () => {
           `⚠ ${statePath} — machine state is linked, changed, or shared with another path; left untouched`,
         );
       } else {
-        expect(removeMachineCarriers(["opencode"]).refused).toEqual([statePath]);
+        expect(removeMachineCarriers(["opencode"]).refused).toEqual([{ path: statePath, reason: "machine-state-identity-unverified" }]);
       }
       expect(lstatSync(statePath).isSymbolicLink()).toBe(true);
       expect(readlinkSync(statePath)).toBe("user-state.json");
@@ -923,7 +923,7 @@ describe("carriers on the machine", () => {
     try {
       expect(installMachineCarriers(["claude-code"]).refused).toHaveLength(1);
       expect(readFileSync(settings)).toEqual(replacementBytes);
-      expect(removeMachineCarriers(["claude-code"]).refused).toEqual(["~/.claude/settings.json"]);
+      expect(removeMachineCarriers(["claude-code"]).refused).toEqual([{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }]);
     } finally {
       renameSpy.mockRestore();
       unlinkSpy.mockRestore();
@@ -1022,7 +1022,7 @@ describe("carriers on the machine", () => {
     );
 
     const swept = removeMachineCarriers(["claude-code", "opencode", "zed", "no-such-host"]);
-    expect(swept.refused).toEqual(["~/.claude/settings.json"]);
+    expect(swept.refused).toEqual([{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }]);
     expect(swept.lines).toEqual([
       "~/.config/opencode/plugins/ai-eng.ts removed",
     ]);
@@ -1039,7 +1039,7 @@ describe("carriers on the machine", () => {
     write(carrier, USER_SETTINGS);
 
     const swept = removeMachineCarriers(["claude-code"]);
-    expect(swept.refused).toEqual(["~/.claude/settings.json"]);
+    expect(swept.refused).toEqual([{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }]);
     expect(swept.lines).toEqual([]);
     expect(readFileSync(carrier, "utf8")).toBe(USER_SETTINGS);
   });
@@ -1050,8 +1050,128 @@ describe("carriers on the machine", () => {
     const comments = '{\n  // mine\n  "model": "opus"\n}\n';
     write(carrier, comments);
 
-    expect(removeMachineCarriers(["claude-code"])).toEqual({ lines: [], refused: ["~/.claude/settings.json"] });
+    expect(removeMachineCarriers(["claude-code"])).toEqual({ lines: [], refused: [{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }] });
     expect(readFileSync(carrier, "utf8")).toBe(comments);
+  });
+
+  test("F11: an unreadable, dangling or directory settings path is refused, not thrown, and left as it was", () => {
+    const unreadable = { path: "~/.claude/settings.json", reason: "settings-unreadable" };
+    const kinds = process.getuid?.() === 0 ? (["dangling", "directory"] as const) : (["unreadable", "dangling", "directory"] as const);
+    for (const kind of kinds) {
+      const base = useHome(`machine-settings-${kind}`);
+      const settings = join(base, ".claude", "settings.json");
+      const danglingTarget = join(base, "dotfiles", "settings.json");
+      mkdirSync(dirname(settings), { recursive: true });
+      if (kind === "unreadable") {
+        writeFileSync(settings, USER_SETTINGS);
+        fs.chmodSync(settings, 0o000);
+      }
+      if (kind === "dangling") symlinkSync(danglingTarget, settings);
+      if (kind === "directory") mkdirSync(settings);
+
+      let installed: ReturnType<typeof installMachineCarriers>;
+      let removed: ReturnType<typeof removeMachineCarriers>;
+      try {
+        installed = installMachineCarriers(["claude-code"]);
+        removed = removeMachineCarriers(["claude-code"]);
+      } finally {
+        if (kind === "unreadable") fs.chmodSync(settings, 0o644);
+      }
+
+      expect(installed.refused).toEqual([unreadable]);
+      expect(refuseLine(installed.refused[0]!)).toBe(
+        "⚠ ~/.claude/settings.json — unreadable, a dangling link, not a regular file, or changing while read; left untouched",
+      );
+      expect(removed).toEqual({ lines: [], refused: [unreadable] });
+      if (kind === "unreadable") expect(readFileSync(settings, "utf8")).toBe(USER_SETTINGS);
+      if (kind === "dangling") {
+        expect(readlinkSync(settings)).toBe(danglingTarget);
+        expect(existsSync(danglingTarget)).toBe(false);
+      }
+      if (kind === "directory") expect(lstatSync(settings).isDirectory()).toBe(true);
+      expect(existsSync(machineStateFile())).toBe(false);
+    }
+  });
+
+  test("F13: a second run inside the commit window is refused, and a state that appears there wins without losing ours", () => {
+    const base = useHome("machine-state-concurrent");
+    const statePath = machineStateFile();
+    const original = Buffer.from(
+      `${JSON.stringify({ version: "prior", carriers: { pi: "owned" }, templateDir: { previous: "/theirs", ours: null } }, null, 2)}\n`,
+    );
+    const privateNames = () => readdirSync(base).filter((name) => name.startsWith(".machine.json."));
+    const duringClaim = (action: () => void) => {
+      const originalRenameSync = fs.renameSync;
+      let wasTriggered = false;
+      const spy = spyOn(fs, "renameSync").mockImplementation((from, to) => {
+        originalRenameSync(from, to);
+        if (!wasTriggered && String(to).endsWith(".claim")) {
+          wasTriggered = true;
+          action();
+        }
+      });
+      return { wasTriggered: () => wasTriggered, restore: () => spy.mockRestore() };
+    };
+
+    writeFileSync(statePath, original);
+    let second: ReturnType<typeof installMachineCarriers> | undefined;
+    const concurrentRun = duringClaim(() => { second = installMachineCarriers(["opencode"]); });
+    let first: ReturnType<typeof installMachineCarriers>;
+    try {
+      first = installMachineCarriers(["opencode"]);
+    } finally {
+      concurrentRun.restore();
+    }
+    expect(concurrentRun.wasTriggered()).toBe(true);
+    expect(second!.refused).toEqual([{ path: statePath, reason: "machine-state-busy" }]);
+    expect(first.refused).toEqual([]);
+    const committed = readMachineState();
+    expect(committed.carriers).toEqual({ pi: "owned", opencode: sha256(carrierFiles("opencode", "machine")!.main) });
+    expect(committed.templateDir).toEqual({ previous: "/theirs", ours: null });
+    expect(privateNames()).toEqual([]);
+
+    writeFileSync(statePath, original);
+    const foreign = Buffer.from('{"version":"written meanwhile","carriers":{}}\n');
+    const appearingState = duringClaim(() => writeFileSync(statePath, foreign));
+    let refused: ReturnType<typeof installMachineCarriers>["refused"];
+    try {
+      refused = installMachineCarriers(["opencode"]).refused;
+    } finally {
+      appearingState.restore();
+    }
+    expect(appearingState.wasTriggered()).toBe(true);
+    expect(readFileSync(statePath)).toEqual(foreign);
+    const keptAside = privateNames().filter((name) => name.endsWith(".claim"));
+    expect(keptAside).toHaveLength(1);
+    const keptPath = join(realpathSync(base), keptAside[0]!);
+    expect(readFileSync(keptPath)).toEqual(original);
+    expect(refused).toEqual([{ path: keptPath, reason: "machine-state-kept-aside" }]);
+    expect(refuseLine(refused[0]!)).toBe(
+      `⚠ machine.json changed while this run was replacing it; its previous contents are kept at ${keptPath} — move them back by hand`,
+    );
+  });
+
+  test("F16: an edited module carrier and its bundle are kept, and a directory there does not abort removal", () => {
+    const base = useHome("machine-remove-edited-module");
+    installMachineCarriers(["opencode"]);
+    const plugin = join(base, ".config", "opencode", "plugins", "ai-eng.ts");
+    const bundle = join(base, ".config", "opencode", "plugins", "ai-eng-chain.ts");
+    const edited = `${readFileSync(plugin, "utf8")}// my own tweak\n`;
+    writeFileSync(plugin, edited);
+    const omp = carrierPath(machineCarrier(byId("oh-my-pi"))!);
+    mkdirSync(omp, { recursive: true });
+
+    const swept = removeMachineCarriers(["opencode", "oh-my-pi"]);
+
+    expect(swept.lines).toEqual([]);
+    expect(swept.refused).toEqual([
+      { path: "~/.config/opencode/plugins/ai-eng.ts", reason: "carrier-edited" },
+      { path: `~/${machineCarrier(byId("oh-my-pi"))!.path}`, reason: "carrier-edited" },
+    ]);
+    expect(readFileSync(plugin, "utf8")).toBe(edited);
+    expect(readFileSync(bundle, "utf8")).toBe(carrierFiles("opencode", "machine")!.chain!);
+    expect(lstatSync(omp).isDirectory()).toBe(true);
+    expect(readMachineState().carriers["opencode"]).toBe(sha256(carrierFiles("opencode", "machine")!.main));
   });
 
   test("machine.json keeps legacy restore state, and reads as nothing when it is garbage", () => {
@@ -1101,7 +1221,7 @@ describe("what 2.2.0 moved out of the repo", () => {
     const root = join(sandbox, "moved-basic");
     const onlyOurs = `${JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ command: `${CHAIN} PreToolUse` }] }] } }, null, 2)}\n`;
     write(join(root, ".claude", "settings.json"), onlyOurs);
-    write(join(root, ".agents", "hooks", "ai-eng.ts"), "export default 1; // ai-eng\n");
+    write(join(root, ".agents", "hooks", "ai-eng.ts"), carrierFiles("oh-my-pi", "machine")!.main);
     const theirs = "// a plugin of theirs that mentions nothing\nconsole.log('mine');\n";
     write(join(root, ".opencode", "plugins", "ai-eng.ts"), theirs);
 
@@ -1139,6 +1259,34 @@ describe("what 2.2.0 moved out of the repo", () => {
     expect(sweepMovedRepoCarriers(root)).toEqual({ removed: [], kept: [".codex/hooks.json", ".pi/extensions/ai-eng.ts"] });
     expect(readFileSync(join(root, ".codex", "hooks.json"), "utf8")).toBe(comments);
     expect(readFileSync(join(root, ".pi", "extensions", "ai-eng.ts"), "utf8")).toBe(extension);
+  });
+
+  test("F12: a repo settings file linked to the user's home settings is kept, and the home file is never rewritten", () => {
+    for (const aliasType of ["symlink", "hard-link"] as const) {
+      const root = join(sandbox, `moved-linked-${aliasType}`);
+      const homeSettings = join(sandbox, `moved-linked-${aliasType}-home`, ".claude", "settings.json");
+      const merged = `${JSON.stringify(
+        { env: { MINE: "1" }, hooks: { PreToolUse: [{ hooks: [{ command: `${CHAIN} PreToolUse` }] }] } },
+        null,
+        2,
+      )}\n`;
+      write(homeSettings, merged);
+      const repoSettings = join(root, ".claude", "settings.json");
+      mkdirSync(dirname(repoSettings), { recursive: true });
+      if (aliasType === "symlink") symlinkSync(homeSettings, repoSettings);
+      else linkSync(homeSettings, repoSettings);
+      const plugin = join(root, ".opencode", "plugins", "ai-eng.ts");
+      write(plugin, `${carrierFiles("opencode", "machine")!.main}// my own line\n`);
+
+      expect(sweepMovedRepoCarriers(root)).toEqual({
+        removed: [],
+        kept: [".claude/settings.json", ".opencode/plugins/ai-eng.ts"],
+      });
+      expect(readFileSync(homeSettings, "utf8")).toBe(merged);
+      if (aliasType === "symlink") expect(readlinkSync(repoSettings)).toBe(homeSettings);
+      else expect(lstatSync(repoSettings).ino).toBe(lstatSync(homeSettings).ino);
+      expect(readFileSync(plugin, "utf8")).toEndWith("// my own line\n");
+    }
   });
 });
 
@@ -1230,14 +1378,24 @@ describe("installCanon and what leaves with it", () => {
     }
   });
 
-  test("installCanon sweeps a page this binary no longer ships", () => {
+  test("installCanon sweeps a page it recorded writing and keeps one it cannot prove", () => {
     const base = useHome("canon-sweep");
-    write(join(base, "skills", "ai-brainstorm", "a-page-that-was-renamed.md"), "old\n");
+    const renamed = "skills/ai-brainstorm/a-page-that-was-renamed.md";
+    const notes = "skills/ai-brainstorm/my-notes.md";
+    write(join(base, renamed), "old\n");
+    write(join(base, notes), "mine\n");
+    writeFileSync(join(base, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [renamed]: sha256("old\n") } }));
 
     const lines = installCanon("2.2.0");
-    expect(lines).toContain("✓ swept 1 file(s) this binary no longer ships: skills/ai-brainstorm/a-page-that-was-renamed.md");
-    expect(existsSync(join(base, "skills", "ai-brainstorm", "a-page-that-was-renamed.md"))).toBe(false);
+    expect(lines).toContain(`✓ swept 1 file(s) this binary no longer ships: ${renamed}`);
+    expect(lines).toContain(`✓ kept 1 file(s) this binary does not ship and did not provably write: ${notes}`);
+    expect(existsSync(join(base, renamed))).toBe(false);
+    expect(readFileSync(join(base, notes), "utf8")).toBe("mine\n");
     expect(existsSync(join(base, "skills", "ai-brainstorm", "SKILL.md"))).toBe(true);
+    // The new record is this payload: the kept page is not in it, so it stays the user's.
+    const record = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
+    expect(record.files[notes]).toBeUndefined();
+    expect(record.files["skills/ai-brainstorm/SKILL.md"]).toBe(sha256(readFileSync(join(base, "skills", "ai-brainstorm", "SKILL.md"), "utf8")));
   });
 
   test("removeMachineArtifacts removes only what points into the canon, and prunes what it emptied", () => {
@@ -1304,6 +1462,20 @@ describe("installCanon and what leaves with it", () => {
     expect(lstatSync(relativeAlias).isSymbolicLink()).toBe(true);
     expect(readlinkSync(relativeAlias)).toBe(join("..", "..", "skills", "ai-explore"));
     expect(existsSync(join(target.dir, "ai-debug"))).toBe(false);
+  });
+
+  test("F14: removeMachineArtifacts keeps an edited slash command and removes the untouched ones", () => {
+    const base = useHome("canon-remove-edited-command");
+    installCanon("2.2.0");
+    const commands = join(base, ".config", "opencode", "commands");
+    const edited = join(commands, "ai-debug.md");
+    const editedBytes = `${readFileSync(edited, "utf8")}\nMy own notes for this command.\n`;
+    writeFileSync(edited, editedBytes);
+
+    removeMachineArtifacts();
+
+    expect(readdirSync(commands)).toEqual(["ai-debug.md"]);
+    expect(readFileSync(edited, "utf8")).toBe(editedBytes);
   });
 
   test("removeMachineArtifacts preserves a mirror link replaced after validation", () => {

@@ -3,12 +3,15 @@
 
 import surfacesJson from "./surfaces.json";
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, copyFileSync, existsSync, fstatSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { closeSync, constants, copyFileSync, existsSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { basename, join, dirname, relative, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
 import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
-import { materializeSkills, materializeAgents, materializeScripts, embeddedTemplate, embeddedChainBundle, removeStaleCanonFiles } from "../embed.ts";
+import {
+  materializeSkills, materializeAgents, materializeScripts, embeddedTemplate, embeddedChainBundle, removeStaleCanonFiles,
+  recordCanonOwnership, safeProjectPath, readProjectFileSnapshot, unlinkProjectPath, writeProjectFile,
+} from "../embed.ts";
 import type { Dialect } from "../chain/dialect.ts";
 
 export type Surface = {
@@ -178,7 +181,9 @@ export function installCanon(version: string, preserveSkills: readonly string[] 
   const canonDir = join(home(), "skills");
   materializeSkills(canonDir, preserveSkills);
   const swept = removeStaleCanonFiles(home());
-  if (swept.length > 0) lines.push(`✓ swept ${swept.length} file(s) this binary no longer ships: ${swept.join(", ")}`);
+  if (swept.removed.length > 0) lines.push(`✓ swept ${swept.removed.length} file(s) this binary no longer ships: ${swept.removed.join(", ")}`);
+  if (swept.kept.length > 0) lines.push(`✓ kept ${swept.kept.length} file(s) this binary does not ship and did not provably write: ${swept.kept.join(", ")}`);
+  recordCanonOwnership(home());
   const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
   lines.push(`✓ ${home()}/skills/ — ${entries.length} skills installed`);
   // Seeds the 24h notice cache (§14.0). Health never reads this file: init and
@@ -254,43 +259,70 @@ const MOVED_REPO_CARRIERS: Record<string, string> = {
 
 /** Take the moved-out carriers out of a repo that still has them, and say what went. An
  *  edited file is kept and named — the same rule as uninstall: ours goes only when the
- *  bytes are still ours. */
+ *  bytes are still ours. A linked path is kept too: rewriting through it would change the
+ *  file it points at, which can be the user's own settings in their home. */
 export function sweepMovedRepoCarriers(root: string): { removed: string[]; kept: string[] } {
   const removed: string[] = [];
   const kept: string[] = [];
-  for (const rel of Object.keys(MOVED_REPO_CARRIERS)) {
-    const absolute = join(root, rel);
-    if (!existsSync(absolute)) continue;
-    // A settings file we merged into is stripped, not deleted: the user's own keys are in
-    // it. Anything else carries our marker or is not ours to touch.
-    if (rel.endsWith(".json")) {
-      const stripped = stripSharedText(readFileSync(absolute, "utf8"));
-      if (stripped === null) {
-        kept.push(rel);
-        continue;
-      }
-      if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
-        rmSync(absolute, { force: true });
-        removed.push(rel);
-        continue;
-      }
-      writeFileSync(absolute, stripped);
-      removed.push(rel);
-      continue;
-    }
-    const current = readFileSync(absolute, "utf8");
-    if (!current.includes("ai-eng")) {
-      kept.push(rel);
-      continue;
-    }
-    rmSync(absolute, { force: true });
-    removed.push(rel);
+  for (const [rel, owner] of Object.entries(MOVED_REPO_CARRIERS)) {
+    const outcome = sweepMovedRepoCarrier(root, rel, owner);
+    if (outcome === "removed") removed.push(rel);
+    if (outcome === "kept") kept.push(rel);
   }
   return { removed, kept };
 }
 
+function sweepMovedRepoCarrier(root: string, rel: string, owner: string): "removed" | "kept" | "absent" {
+  if (!pathEntryExists(join(root, rel))) return "absent";
+  const absolute = safeProjectPath(root, rel);
+  const snapshot = absolute === null ? null : readProjectFileSnapshot(root, absolute);
+  if (absolute === null || snapshot === null) return "kept";
+  if (!rel.endsWith(".json")) {
+    // A module is ours whole only while it is byte for byte a carrier this binary ships.
+    const isShipped = shippedCarrierModules(owner).some((shipped) => snapshot.content.equals(Buffer.from(shipped)));
+    return isShipped && unlinkProjectPath(root, absolute, snapshot) ? "removed" : "kept";
+  }
+  // A settings file we merged into is stripped, not deleted: the user's own keys are in it.
+  const current = snapshot.content.toString("utf8");
+  const stripped = stripSharedText(current);
+  if (stripped === null || stripped === current) return "kept";
+  let isOnlyOurs: boolean;
+  try {
+    isOnlyOurs = Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0;
+  } catch {
+    return "kept";
+  }
+  const isDone = isOnlyOurs ? unlinkProjectPath(root, absolute, snapshot) : writeProjectFile(root, absolute, snapshot, stripped);
+  return isDone ? "removed" : "kept";
+}
+
+function shippedCarrierModules(owner: string): string[] {
+  const shipped: string[] = [];
+  for (const scope of ["machine", "repo"] as const) {
+    const files = carrierFiles(owner, scope);
+    if (files === null) continue;
+    shipped.push(files.main);
+    if (files.chain !== null) shipped.push(files.chain);
+  }
+  return shipped;
+}
+
+/** Whether anything — a file, a directory, a dangling link — has this name. A path that
+ *  cannot be inspected counts as present, so it is judged instead of treated as absent. */
+function pathEntryExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    return !(missingPath(error) || (typeof error === "object" && error !== null && "code" in error && error.code === "ENOTDIR"));
+  }
+}
+
 export type MachineReport = { written: string[]; untouched: string[]; refused: Array<{ path: string; reason: string }> };
 const SETTINGS_MUTATION_REFUSED = "identity-bound-settings-mutation-unavailable";
+const SETTINGS_UNREADABLE = "settings-unreadable";
+const CARRIER_UNWRITABLE = "carrier-path-unwritable";
+const CARRIER_EDITED = "carrier-edited";
 
 /** What the machine side remembers: which version wrote each surface's carrier, keyed by
  *  surface id, and the sha256 of the definition it wrote. Two questions depend on it and
@@ -528,6 +560,16 @@ function snapshotMachineSettings(absolute: string): MachineSettingsSnapshot {
   }
 }
 
+/** A settings path that cannot be read as one regular file — unreadable, a dangling link, a
+ *  directory, or changing while read — is refused instead of aborting the whole command. */
+function readableMachineSettings(absolute: string): MachineSettingsSnapshot | null {
+  try {
+    return snapshotMachineSettings(absolute);
+  } catch {
+    return null;
+  }
+}
+
 function machineSettingsSnapshotMatches(snapshot: MachineSettingsSnapshot): boolean {
   try {
     const matches = withMachineSettingsDirectory(snapshot.sourceParent, () => {
@@ -620,9 +662,9 @@ function snapshotMachineSettingsSurfaces(): MachineSettingsSurfaceSnapshot[] {
   return snapshots;
 }
 
-function machineSettingsMutationRefusals(initial: MachineSettingsSurfaceSnapshot[]): string[] {
+function machineSettingsMutationRefusals(initial: MachineSettingsSurfaceSnapshot[]): Array<{ path: string; reason: string }> {
   const currentBySurface = new Map(snapshotMachineSettingsSurfaces().map((entry) => [entry.id, entry]));
-  const refused = new Set<string>();
+  const refused: Array<{ path: string; reason: string }> = [];
   for (const before of initial) {
     const current = currentBySurface.get(before.id);
     if (
@@ -636,14 +678,21 @@ function machineSettingsMutationRefusals(initial: MachineSettingsSurfaceSnapshot
         ? current.snapshot !== null
         : current.snapshot === null || !machineSettingsSnapshotMatches(before.snapshot))
     ) {
-      refused.add(before.path);
+      const isUnreadable = before.failed || current?.failed === true;
+      refused.push({ path: before.path, reason: isUnreadable ? SETTINGS_UNREADABLE : SETTINGS_MUTATION_REFUSED });
     }
   }
-  return [...refused];
+  return refused;
 }
 
 const MACHINE_STATE_REFUSED = "machine-state-identity-unverified";
+const MACHINE_STATE_BUSY = "machine-state-busy";
+const MACHINE_STATE_KEPT_ASIDE = "machine-state-kept-aside";
 const MACHINE_STATE_NAME = "machine.json";
+/** Held for the whole commit, so a second run never reads the claim window's absence as
+ *  "no state" and links a fresh record over the user's. */
+const MACHINE_STATE_LOCK = `.${MACHINE_STATE_NAME}.lock`;
+type MachineRefusal = { path: string; reason: string };
 
 type MachineStateFile = { dev: number; ino: number; content: Buffer };
 type OwnedMachineEntry = { name: string; dev: number; ino: number };
@@ -652,6 +701,7 @@ type OwnedMachineEntry = { name: string; dev: number; ino: number };
 type MachineStateRecord =
   | { kind: "no-home" }
   | { kind: "unsafe" }
+  | { kind: "busy" }
   | { kind: "ready"; directory: MachineSettingsDirectory; file: MachineStateFile | null };
 
 /** The bytes behind a descriptor, only while that inode has exactly one name. */
@@ -688,11 +738,42 @@ function readMachineStateRecord(): MachineStateRecord {
     return missingPath(error) ? { kind: "no-home" } : { kind: "unsafe" };
   }
   try {
-    const read = withMachineSettingsDirectory(directory, () => ({ file: readOwnMachineStateFile() }));
+    const read = withMachineSettingsDirectory(directory, () => ({ isBusy: isMachineStateBusy(), file: readOwnMachineStateFile() }));
     if (read === null || read.file === "unsafe") return { kind: "unsafe" };
+    if (read.isBusy) return { kind: "busy" };
     return { kind: "ready", directory, file: read.file };
   } catch {
     return { kind: "unsafe" };
+  }
+}
+
+/** Another run is mid-commit, or one stopped there and left the original under a private
+ *  claim name: either way an absent machine.json is not proof that there is no state. */
+function isMachineStateBusy(): boolean {
+  return readdirSync(".").some((name) =>
+    name === MACHINE_STATE_LOCK || (name.startsWith(`.${MACHINE_STATE_NAME}.`) && name.endsWith(".claim")));
+}
+
+function acquireMachineStateLock(): OwnedMachineEntry | null {
+  let descriptor: number;
+  try {
+    descriptor = openSync(MACHINE_STATE_LOCK, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+  } catch {
+    return null;
+  }
+  try {
+    const stat = fstatSync(descriptor);
+    return { name: MACHINE_STATE_LOCK, dev: stat.dev, ino: stat.ino };
+  } catch {
+    // O_EXCL made this name ours: a lock we cannot describe must not outlive the attempt.
+    try {
+      unlinkSync(MACHINE_STATE_LOCK);
+    } catch {
+      /* left behind: the next run reports the lock by name instead of guessing */
+    }
+    return null;
+  } finally {
+    closeSync(descriptor);
   }
 }
 
@@ -707,7 +788,12 @@ function privateMachineStateName(purpose: "tmp" | "claim"): string {
 
 function stageMachineState(content: string): OwnedMachineEntry | null {
   const name = privateMachineStateName("tmp");
-  const descriptor = openSync(name, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o666);
+  let descriptor: number;
+  try {
+    descriptor = openSync(name, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o666);
+  } catch {
+    return null;
+  }
   let entry: OwnedMachineEntry | null = null;
   try {
     const stat = fstatSync(descriptor);
@@ -742,28 +828,29 @@ function claimMachineState(file: MachineStateFile): { entry: OwnedMachineEntry; 
   } catch {
     return null;
   }
-  const stat = lstatSync(name);
-  let isOurs = false;
+  // From here the original lives under `name`: every outcome must name it, never drop it.
   try {
-    isOurs = claimedMachineStateMatches(name, file);
+    const stat = lstatSync(name);
+    return { entry: { name, dev: stat.dev, ino: stat.ino }, isOurs: claimedMachineStateMatches(name, file) };
   } catch {
-    isOurs = false;
+    return { entry: { name, dev: -1, ino: -1 }, isOurs: false };
   }
-  return { entry: { name, dev: stat.dev, ino: stat.ino }, isOurs };
 }
 
 /** Put a claimed entry back without replacing anything that took its name meanwhile; when
- *  that is impossible the bytes stay under the claim name rather than being lost. */
-function restoreClaimedMachineState(entry: OwnedMachineEntry): void {
+ *  that is impossible the bytes stay under the claim name rather than being lost, and the
+ *  caller has to say where. */
+function restoreClaimedMachineState(entry: OwnedMachineEntry): boolean {
   try {
     const stat = lstatSync(entry.name);
-    if (stat.dev !== entry.dev || stat.ino !== entry.ino) return;
+    if (stat.dev !== entry.dev || stat.ino !== entry.ino) return false;
     if (stat.isFile()) linkSync(entry.name, MACHINE_STATE_NAME);
     else if (stat.isSymbolicLink()) symlinkSync(readlinkSync(entry.name), MACHINE_STATE_NAME);
-    else return;
+    else return false;
     unlinkSync(entry.name);
+    return true;
   } catch {
-    /* name taken or unreadable: the claimed bytes stay where they are */
+    return false;
   }
 }
 
@@ -777,48 +864,66 @@ function removeOwnedMachineEntry(entry: OwnedMachineEntry): void {
 }
 
 /** Replace (content) or remove (null) machine.json without ever writing an existing inode:
- *  the old file is claimed and verified as the single-named bytes this run read, a new file
- *  is linked in only where no name exists, and anything unproven is put back untouched. */
-function commitMachineState(record: MachineStateRecord, content: string | null): boolean {
-  if (record.kind === "no-home") return true;
-  if (record.kind === "unsafe") return false;
+ *  under the commit lock the old file is claimed and verified as the single-named bytes this
+ *  run read, a new file is linked in only where no name exists, and anything unproven is put
+ *  back. Returns null on success, or what was refused and where the original now lives. */
+function commitMachineState(record: MachineStateRecord, content: string | null): MachineRefusal | null {
+  if (record.kind === "no-home") return null;
+  if (record.kind === "unsafe") return { path: machineStateFile(), reason: MACHINE_STATE_REFUSED };
+  if (record.kind === "busy") return { path: machineStateFile(), reason: MACHINE_STATE_BUSY };
   const { directory, file } = record;
-  if (content === null && file === null) return true;
-  let staged: OwnedMachineEntry | null = null;
-  let claimed: OwnedMachineEntry | null = null;
-  let isCommitted = false;
+  if (content === null && file === null) return null;
+  const lock = withMachineSettingsDirectory(directory, acquireMachineStateLock);
+  if (lock === null) return { path: machineStateFile(), reason: MACHINE_STATE_BUSY };
   try {
-    if (content !== null) {
-      staged = withMachineSettingsDirectory(directory, () => stageMachineState(content));
-      if (staged === null) return false;
-    }
-    if (file !== null) {
-      const claim = withMachineSettingsDirectory(directory, () => claimMachineState(file));
-      if (claim === null) return false;
-      claimed = claim.entry;
-      if (!claim.isOurs) return false;
-    }
-    // With the state claimed, any settings path still reaching its name is an alias.
-    if (snapshotMachineSettingsSurfaces().some((entry) => entry.failed || entry.aliasesMachineState)) return false;
-    const stagedEntry = staged;
-    isCommitted = withMachineSettingsDirectory(directory, () => {
-      if (stagedEntry !== null) linkSync(stagedEntry.name, MACHINE_STATE_NAME);
-      return true;
-    }) === true;
-    return isCommitted;
-  } catch {
-    return false;
+    return commitLockedMachineState(directory, file, content);
   } finally {
-    const claimedEntry = claimed;
-    const stagedEntry = staged;
     withMachineSettingsDirectory(directory, () => {
-      if (claimedEntry !== null) {
-        if (isCommitted) removeOwnedMachineEntry(claimedEntry);
-        else restoreClaimedMachineState(claimedEntry);
-      }
-      if (stagedEntry !== null) removeOwnedMachineEntry(stagedEntry);
+      removeOwnedMachineEntry(lock);
       return true;
     });
+  }
+}
+
+function commitLockedMachineState(
+  directory: MachineSettingsDirectory,
+  file: MachineStateFile | null,
+  content: string | null,
+): MachineRefusal | null {
+  const refused: MachineRefusal = { path: machineStateFile(), reason: MACHINE_STATE_REFUSED };
+  const staged = content === null ? null : withMachineSettingsDirectory(directory, () => stageMachineState(content));
+  if (content !== null && staged === null) return refused;
+  const claim = file === null ? null : withMachineSettingsDirectory(directory, () => claimMachineState(file));
+  const isClaimed = file === null || (claim !== null && claim.isOurs);
+  // With the state claimed, any settings path still reaching its name is an alias.
+  const isCommitted = isClaimed
+    && !snapshotMachineSettingsSurfaces().some((entry) => entry.failed || entry.aliasesMachineState)
+    && linkStagedMachineState(directory, staged);
+  const isOriginalInPlace = withMachineSettingsDirectory(directory, () => {
+    if (staged !== null) removeOwnedMachineEntry(staged);
+    if (claim === null) return true;
+    if (isCommitted) {
+      removeOwnedMachineEntry(claim.entry);
+      return true;
+    }
+    return restoreClaimedMachineState(claim.entry);
+  }) === true;
+  if (isCommitted) return null;
+  if (claim !== null && !isOriginalInPlace) {
+    return { path: join(directory.path, claim.entry.name), reason: MACHINE_STATE_KEPT_ASIDE };
+  }
+  return refused;
+}
+
+/** linkSync never replaces an existing name: a machine.json that appeared meanwhile wins. */
+function linkStagedMachineState(directory: MachineSettingsDirectory, staged: OwnedMachineEntry | null): boolean {
+  try {
+    return withMachineSettingsDirectory(directory, () => {
+      if (staged !== null) linkSync(staged.name, MACHINE_STATE_NAME);
+      return true;
+    }) === true;
+  } catch {
+    return false;
   }
 }
 
@@ -865,17 +970,19 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       } catch {
         identical = false; // unreadable is not ours to call current — write it
       }
-      state.carriers[id] = definition;
       if (identical) {
+        state.carriers[id] = definition;
         report.untouched.push(`~/${placement.path}`);
         continue;
       }
-      mkdirSync(dirname(absolute), { recursive: true });
-      writeFileSync(absolute, files.main);
-      if (files.chain && chainPath) {
-        mkdirSync(dirname(chainPath), { recursive: true });
-        writeFileSync(chainPath, files.chain);
+      // The bundle first: an entry written beside a missing bundle imports nothing.
+      const isWritten = (files.chain === null || chainPath === null || writeCarrierModule(chainPath, files.chain))
+        && writeCarrierModule(absolute, files.main);
+      if (!isWritten) {
+        report.refused.push({ path: `~/${placement.path}`, reason: CARRIER_UNWRITABLE });
+        continue;
       }
+      state.carriers[id] = definition;
       report.written.push(`~/${placement.path}`);
       continue;
     }
@@ -886,7 +993,12 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       });
       continue;
     }
-    const snapshot = snapshotMachineSettings(absolute);
+    const snapshot = readableMachineSettings(absolute);
+    if (snapshot === null) {
+      mayWriteMachineState = false;
+      report.refused.push({ path: `~/${placement.path}`, reason: SETTINGS_UNREADABLE });
+      continue;
+    }
     if (machineSettingsAliasMachineState(snapshot) !== false) {
       mayWriteMachineState = false;
       report.refused.push({
@@ -924,16 +1036,31 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       reason: SETTINGS_MUTATION_REFUSED,
     });
   }
-  for (const path of machineSettingsMutationRefusals(settingsSnapshots)) {
+  for (const refusal of machineSettingsMutationRefusals(settingsSnapshots)) {
     mayWriteMachineState = false;
-    if (!report.refused.some((entry) => entry.path === path)) {
-      report.refused.push({ path, reason: SETTINGS_MUTATION_REFUSED });
-    }
+    if (!report.refused.some((entry) => entry.path === refusal.path)) report.refused.push(refusal);
   }
-  if (mayWriteMachineState && !commitMachineState(stateRecord, serializeMachineState(state))) {
-    report.refused.push({ path: machineStateFile(), reason: MACHINE_STATE_REFUSED });
-  }
+  const stateRefusal = mayWriteMachineState ? commitMachineState(stateRecord, serializeMachineState(state)) : null;
+  if (stateRefusal !== null) report.refused.push(stateRefusal);
   return report;
+}
+
+/** A module carrier is ours whole, but only as a regular file: never through a link, into a
+ *  directory, or by blocking on a FIFO. */
+function writeCarrierModule(path: string, content: string): boolean {
+  let descriptor: number | null = null;
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    descriptor = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | constants.O_NONBLOCK, 0o644);
+    if (!fstatSync(descriptor).isFile()) return false;
+    ftruncateSync(descriptor, 0);
+    writeFileSync(descriptor, content);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (descriptor !== null) closeSync(descriptor);
+  }
 }
 
 /** Take the machine carriers back out. Our entries out of a shared settings file by
@@ -941,9 +1068,9 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
  *  looks like ours is not evidence, so a settings file we cannot rewrite is left alone
  *  and said. The portable filesystem API cannot bind a pathname replacement and
  *  rename/unlink into one operation, so shared settings changes fail closed. */
-export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; refused: string[] } {
+export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; refused: MachineRefusal[] } {
   const lines: string[] = [];
-  const refused: string[] = [];
+  const refused: MachineRefusal[] = [];
   const stateRecord = readMachineStateRecord();
   const state = machineStateFromRecord(stateRecord);
   const settingsSnapshots = snapshotMachineSettingsSurfaces();
@@ -954,45 +1081,68 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
     if (!surface || !placement) continue;
     const absolute = carrierPath(placement);
     if (placement.kind === "module") {
+      const outcome = removeCarrierModule(id, placement);
+      refused.push(...outcome.kept.map((path) => ({ path, reason: CARRIER_EDITED })));
+      if (outcome.isEntryKept) continue;
       delete state.carriers[id];
-      if (!existsSync(absolute)) continue;
-      unlinkSync(absolute);
-      if (placement.chain) {
-        const chainPath = carrierPath(placement, placement.chain);
-        if (existsSync(chainPath)) unlinkSync(chainPath);
-      }
-      lines.push(`~/${placement.path} removed`);
+      if (outcome.isEntryRemoved) lines.push(`~/${placement.path} removed`);
       continue;
     }
-    if (!existsSync(absolute)) {
+    if (!pathEntryExists(absolute)) {
       delete state.carriers[id];
       continue;
     }
-    const snapshot = snapshotMachineSettings(absolute);
+    const snapshot = readableMachineSettings(absolute);
+    if (snapshot === null) {
+      mayMutateMachineState = false;
+      refused.push({ path: `~/${placement.path}`, reason: SETTINGS_UNREADABLE });
+      continue;
+    }
     if (machineSettingsAliasMachineState(snapshot) !== false) {
       mayMutateMachineState = false;
-      refused.push(`~/${placement.path}`);
+      refused.push({ path: `~/${placement.path}`, reason: SETTINGS_MUTATION_REFUSED });
       continue;
     }
     if (snapshot.file === null) {
       delete state.carriers[id];
       continue;
     }
-    refused.push(`~/${placement.path}`);
+    refused.push({ path: `~/${placement.path}`, reason: SETTINGS_MUTATION_REFUSED });
   }
-  for (const path of machineSettingsMutationRefusals(settingsSnapshots)) {
+  for (const refusal of machineSettingsMutationRefusals(settingsSnapshots)) {
     mayMutateMachineState = false;
-    if (!refused.includes(path)) refused.push(path);
+    if (!refused.some((entry) => entry.path === refusal.path)) refused.push(refusal);
   }
   // The record of what wrote what goes with the carriers: an empty machine.json is a
   // leftover that would make the next doctor read a version that is no longer there.
-  const keepsTemplateDir = state.templateDir !== undefined;
-  const hasStateFile = stateRecord.kind === "unsafe" || (stateRecord.kind === "ready" && stateRecord.file !== null);
-  const nextState = Object.keys(state.carriers).length === 0 && !keepsTemplateDir && hasStateFile
-    ? null
-    : serializeMachineState(state);
-  if (mayMutateMachineState && !commitMachineState(stateRecord, nextState)) refused.push(machineStateFile());
+  // Nothing left to remember and no file there means nothing to write either.
+  const isStateEmpty = Object.keys(state.carriers).length === 0 && state.templateDir === undefined;
+  const nextState = isStateEmpty ? null : serializeMachineState(state);
+  const stateRefusal = mayMutateMachineState ? commitMachineState(stateRecord, nextState) : null;
+  if (stateRefusal !== null) refused.push(stateRefusal);
   return { lines, refused };
+}
+
+/** A module carrier and its bundle leave only while they are byte for byte what this
+ *  binary writes; an edited entry is the user's now and is kept and named, together with
+ *  the bundle it imports. */
+function removeCarrierModule(id: string, placement: Carrier): { isEntryRemoved: boolean; isEntryKept: boolean; kept: string[] } {
+  const files = carrierFiles(id, "machine");
+  const entry = removeExactFile(carrierPath(placement), files?.main ?? null);
+  if (entry === "kept") return { isEntryRemoved: false, isEntryKept: true, kept: [`~/${placement.path}`] };
+  const isChainKept = placement.chain !== undefined
+    && removeExactFile(carrierPath(placement, placement.chain), files?.chain ?? null) === "kept";
+  return { isEntryRemoved: entry === "removed", isEntryKept: false, kept: isChainKept ? [`~/${placement.chain}`] : [] };
+}
+
+/** Remove one file through its checked parent, only while it holds exactly `expected`. */
+function removeExactFile(absolute: string, expected: string | null): "removed" | "kept" | "absent" {
+  if (!pathEntryExists(absolute)) return "absent";
+  const root = dirname(absolute);
+  const checked = safeProjectPath(root, basename(absolute));
+  const snapshot = checked === null ? null : readProjectFileSnapshot(root, checked);
+  if (checked === null || snapshot === null || expected === null || !snapshot.content.equals(Buffer.from(expected))) return "kept";
+  return unlinkProjectPath(root, checked, snapshot) ? "removed" : "kept";
 }
 
 /** Everything installCanon wrote OUTSIDE the canon home, removed on uninstall's
@@ -1072,18 +1222,12 @@ export function removeMachineArtifacts(): number {
     }
     pruneIfEmpty(target.dir);
   }
+  const commandsDir = join(base, ".config", "opencode", "commands");
   for (const name of names(canonDir)) {
-    const command = join(base, ".config", "opencode", "commands", `${name}.md`);
-    try {
-      if (readFileSync(command, "utf8").includes(`Load the \`${name}\` skill`)) {
-        unlinkSync(command);
-        removed += 1;
-      }
-    } catch {
-      /* absent or not ours */
-    }
+    // Ours only while it is exactly the body installCommands renders: an edited one stays.
+    if (removeExactFile(join(commandsDir, `${name}.md`), commandBody(canonDir, name)) === "removed") removed += 1;
   }
-  pruneIfEmpty(join(base, ".config", "opencode", "commands"));
+  pruneIfEmpty(commandsDir);
   return removed;
 }
 
@@ -1106,16 +1250,26 @@ function installCommands(canonDir: string): { count: number } {
   const dir = join(machineBase(), ".config", "opencode", "commands");
   let count = 0;
   for (const name of readdirSync(canonDir)) {
-    if (name.startsWith(".")) continue;
-    const skillFile = join(canonDir, name, "SKILL.md");
-    if (!existsSync(skillFile)) continue;
-    const description = skillDescription(readFileSync(skillFile, "utf8"));
-    const body = `---\ndescription: ${description}\n---\n\nLoad the \`${name}\` skill via the skill tool, then execute it for this request:\n\n$ARGUMENTS\n`;
+    const body = commandBody(canonDir, name);
+    if (body === null) continue;
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, `${name}.md`), body);
     count += 1;
   }
   return { count };
+}
+
+/** The one rendering of a skill's slash command: install writes it, uninstall removes only
+ *  a file that still equals it. Null when the name is not a skill with a SKILL.md. */
+function commandBody(canonDir: string, name: string): string | null {
+  if (name.startsWith(".")) return null;
+  let description: string;
+  try {
+    description = skillDescription(readFileSync(join(canonDir, name, "SKILL.md"), "utf8"));
+  } catch {
+    return null;
+  }
+  return `---\ndescription: ${description}\n---\n\nLoad the \`${name}\` skill via the skill tool, then execute it for this request:\n\n$ARGUMENTS\n`;
 }
 
 /** One palette line out of a SKILL.md description: folded YAML collapsed to a single

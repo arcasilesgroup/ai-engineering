@@ -1731,3 +1731,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Remove only exact `name -> <home>/skills/name` links.
 - **Lesson:** Ownership means the exact name and target pair we created, not "points somewhere ours".
 - **Tags:** review, cleanup, symlink, ownership
+
+### L237 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F11/F12: an unreadable or linked machine-settings path made carrier install/removal throw, and the moved-carrier sweep wrote through a symlink into the user's home settings.
+- **Root cause:** Snapshot errors escaped the carrier loops, and the sweep used plain path reads and writes instead of the guarded no-follow helpers.
+- **Fix:** Refuse unreadable settings as `settings-unreadable` and continue so `ai-eng.lock` is written; route every cleanup through the shared no-follow helpers in `src/embed.ts`.
+- **Lesson:** Every cleanup path must use the same guarded file helpers, and every snapshot call must fail closed, not only the bulk scan.
+- **Tags:** review, data-loss, symlink, fail-closed, carriers
+
+### L238 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F13-F16: a concurrent run could overwrite `machine.json` mid-commit, and uninstall or update deleted user-edited commands, module carriers and user-added skill files.
+- **Root cause:** The claim rename left `machine.json` absent without a lock, and ownership was guessed from names or substrings instead of recorded hashes or exact bytes.
+- **Fix:** Hold a lock across the whole claim; remove only byte-identical installer files; record canon hashes in `canon-owned.json` and delete only on a hash match.
+- **Lesson:** Ownership means exact bytes or a recorded hash; without one, keep the file.
+- **Tags:** review, data-loss, cleanup, ownership, concurrency

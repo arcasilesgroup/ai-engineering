@@ -2,7 +2,7 @@
 // definition — the payload init installs is exactly the payload update re-installs.
 
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { PlanEntry } from "../install.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate } from "../embed.ts";
@@ -25,6 +25,21 @@ export function refuseLine(refused: { path: string; reason: string }): string {
   }
   if (refused.reason === "settings-changed-after-validation") {
     return `⚠ ${refused.path} — settings changed during validation; left untouched`;
+  }
+  if (refused.reason === "settings-unreadable") {
+    return `⚠ ${refused.path} — unreadable, a dangling link, not a regular file, or changing while read; left untouched`;
+  }
+  if (refused.reason === "machine-state-busy") {
+    return `⚠ ${refused.path} — another ai-eng run is changing machine state, or one stopped mid-change and left .machine.json.lock or a .machine.json.*.claim in ${dirname(refused.path)}; left untouched`;
+  }
+  if (refused.reason === "machine-state-kept-aside") {
+    return `⚠ machine.json changed while this run was replacing it; its previous contents are kept at ${refused.path} — move them back by hand`;
+  }
+  if (refused.reason === "carrier-path-unwritable") {
+    return `⚠ ${refused.path} — a link, a directory, or a file this installer cannot write is there; the carrier was not written`;
+  }
+  if (refused.reason === "carrier-edited") {
+    return `⚠ ${refused.path} — changed since ai-eng wrote it; kept`;
   }
   const why =
     refused.reason === "not-json"

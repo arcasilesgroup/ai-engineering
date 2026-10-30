@@ -22,7 +22,7 @@ import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { uninstallMain } from "../src/commands/uninstall.ts";
-import { embeddedPath, embeddedUnder } from "../src/embed.ts";
+import { embeddedPath, embeddedUnder, recordCanonOwnership } from "../src/embed.ts";
 import { contractEntries, planEntries } from "../src/commands/init-shared.ts";
 import { buildLock, install, lockText, sha256 } from "../src/install.ts";
 import { installMachineCarriers, machineStateFile, readMachineState } from "../src/surfaces/adapters.ts";
@@ -760,6 +760,41 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(readFileSync(copilotSettings, "utf8")).toBe(originalSettings);
     expect(existsSync(machine)).toBe(true);
     expect(existsSync(join(cwd, ".ai-engineering", "config.toml"))).toBe(true); // "no" kept the project's files
+  });
+
+  test("F11: an unreadable machine settings file is refused and the canon sweep still runs", async () => {
+    if (process.getuid?.() === 0) return; // root reads a mode-000 file, so there is nothing to refuse
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const [assetPath, assetRef] = [...embeddedUnder("skills/")].find(([path]) => path.endsWith("/SKILL.md"))!;
+    mkdirSync(dirname(join(machine, assetPath)), { recursive: true });
+    writeFileSync(join(machine, assetPath), readFileSync(embeddedPath(assetRef)));
+    const settings = join(machine, ".claude", "settings.json");
+    mkdirSync(dirname(settings), { recursive: true });
+    writeFileSync(settings, '{\n  "user": "keep"\n}\n');
+    chmodSync(settings, 0o000);
+
+    const run = await uninstall(everythingScope("n", "y")).finally(() => chmodSync(settings, 0o644));
+
+    expect(run.result).toBe(0);
+    expect(run.out).toContain("~/.claude/settings.json — unreadable, a dangling link, not a regular file, or changing while read; left untouched");
+    expect(existsSync(join(machine, assetPath))).toBe(false);
+    expect(readFileSync(settings, "utf8")).toBe('{\n  "user": "keep"\n}\n');
+  });
+
+  test("F17: Everything removes the version cache and ownership record it wrote, so an otherwise empty home goes", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    writeFileSync(join(machine, "version.json"), JSON.stringify({ version: VERSION, ts: Date.now() }));
+    recordCanonOwnership(machine);
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(out).toContain(`${machine} deleted`);
+    expect(existsSync(machine)).toBe(false);
   });
 
   test("F9: a canon parent swapped for a link at unlink time never redirects deletion outside the canon", async () => {

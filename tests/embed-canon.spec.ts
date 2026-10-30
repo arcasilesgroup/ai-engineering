@@ -18,7 +18,9 @@ import {
   embeddedPath,
   embeddedTemplate,
   embeddedChainBundle,
+  CANON_OWNERSHIP_NAME,
 } from "../src/embed.ts";
+import { sha256 } from "../src/install.ts";
 
 const roots: string[] = [];
 const root = join(import.meta.dir, "..");
@@ -146,17 +148,34 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
     expect(foreign).toContain(`skills/${folder}/linked.md`);
   });
 
-  test("the sweep takes the stale file and the folder it empties, and leaves the foreign skill standing", () => {
+  test("the sweep takes a stale file whose recorded hash still matches, and the folder it empties", () => {
     const home = sandbox();
     const folder = skillFolder();
-    mkdirSync(join(home, "skills", folder), { recursive: true });
-    writeFileSync(join(home, "skills", folder, "orphan.md"), "x");
+    mkdirSync(join(home, "skills", folder, "old"), { recursive: true });
+    writeFileSync(join(home, "skills", folder, "old", "orphan.md"), "x");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/old/orphan.md`]: sha256("x") } }));
     mkdirSync(join(home, "skills", "somebody-elses-skill"), { recursive: true });
     writeFileSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"), "mine");
 
-    expect(removeStaleCanonFiles(home)).toEqual([`skills/${folder}/orphan.md`]);
-    expect(existsSync(join(home, "skills", folder, "orphan.md"))).toBe(false);
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: [`skills/${folder}/old/orphan.md`], kept: [] });
+    expect(existsSync(join(home, "skills", folder, "old"))).toBe(false);
     expect(existsSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"))).toBe(true);
+  });
+
+  test("F15: a file the user added or edited inside a shipped folder is kept: no recorded hash proves it ours", () => {
+    const home = sandbox();
+    const folder = skillFolder();
+    mkdirSync(join(home, "skills", folder), { recursive: true });
+    writeFileSync(join(home, "skills", folder, "my-notes.md"), "mine");
+    writeFileSync(join(home, "skills", folder, "renamed-page.md"), "edited by hand");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/renamed-page.md`]: sha256("as shipped") } }));
+
+    expect(removeStaleCanonFiles(home)).toEqual({
+      removed: [],
+      kept: [`skills/${folder}/my-notes.md`, `skills/${folder}/renamed-page.md`],
+    });
+    expect(readFileSync(join(home, "skills", folder, "my-notes.md"), "utf8")).toBe("mine");
+    expect(readFileSync(join(home, "skills", folder, "renamed-page.md"), "utf8")).toBe("edited by hand");
   });
 
   test("a folder that still holds a shipped file is not emptied", () => {
@@ -164,8 +183,9 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
     materializeSkills(join(home, "skills"));
     const folder = skillFolder();
     writeFileSync(join(home, "skills", folder, "orphan.md"), "x");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/orphan.md`]: sha256("x") } }));
 
-    removeStaleCanonFiles(home);
+    expect(removeStaleCanonFiles(home).removed).toEqual([`skills/${folder}/orphan.md`]);
     expect(existsSync(join(home, "skills", folder))).toBe(true);
     expect(existsSync(join(home, "skills", aSkillPath().slice("skills/".length)))).toBe(true);
   });
