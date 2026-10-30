@@ -243,7 +243,8 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
     mkdirSync(join(home, ".claude"), { recursive: true });
-    writeFileSync(join(home, ".claude", "settings.json"), '{\n  "env": {\n    "KEEP": "yes"\n  }\n}\n');
+    const userSettings = { env: { KEEP: "yes" } };
+    writeFileSync(join(home, ".claude", "settings.json"), `${JSON.stringify(userSettings, null, 2)}\n`);
     expect(run(["init", "--yes", "--surface", "claude-code,cursor"], repo).status).toBe(0);
     expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toInclude("ai-eng chain");
     expect(existsSync(join(home, "machine.json"))).toBe(true);
@@ -252,10 +253,11 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     const out = run(["uninstall"], repo, "\u001b[B\ryyy");
     const text = out.stdout + out.stderr;
     expect(text).toInclude("ai-eng entries removed, yours kept");
-    // The sandbox's canon home IS the machine base here, so this scope deletes the whole
-    // base — the byte-exact restoration of the user's file is the round trip proven in the
-    // test above, which is the one that can measure it.
-    expect(existsSync(join(home, ".claude", "settings.json"))).toBe(false);
+    const settings = join(home, ".claude", "settings.json");
+    expect(existsSync(settings)).toBe(true);
+    const afterUninstall = readFileSync(settings, "utf8");
+    expect(JSON.parse(afterUninstall)).toEqual(userSettings);
+    expect(afterUninstall).not.toInclude("ai-eng chain");
     expect(existsSync(join(home, "machine.json"))).toBe(false);
   });
 
