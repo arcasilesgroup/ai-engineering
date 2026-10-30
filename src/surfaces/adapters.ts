@@ -559,17 +559,86 @@ function machineSettingsSnapshotMatches(snapshot: MachineSettingsSnapshot): bool
   }
 }
 
-function machineSettingsAliasMachineState(snapshot: MachineSettingsSnapshot): boolean {
+function machineSettingsAliasMachineState(snapshot: MachineSettingsSnapshot): boolean | null {
   if (snapshot.file === null) return false;
   try {
     if (snapshot.targetPath === realpathSync(machineStateFile())) return true;
+  } catch (error) {
+    if (!missingPath(error)) return null;
+  }
+  try {
     const stateFile = statSync(machineStateFile());
     return stateFile.isFile()
       && stateFile.dev === snapshot.file.stat.dev
       && stateFile.ino === snapshot.file.stat.ino;
-  } catch {
-    return false;
+  } catch (error) {
+    return missingPath(error) ? false : null;
   }
+}
+
+type MachineSettingsSurfaceSnapshot = {
+  id: string;
+  path: string;
+  absolute: string;
+  snapshot: MachineSettingsSnapshot | null;
+  aliasesMachineState: boolean;
+  failed: boolean;
+};
+
+function snapshotMachineSettingsSurfaces(): MachineSettingsSurfaceSnapshot[] {
+  const snapshots: MachineSettingsSurfaceSnapshot[] = [];
+  for (const surface of SURFACES) {
+    const placement = machineCarrier(surface);
+    if (!placement || placement.kind !== "settings") continue;
+    const absolute = carrierPath(placement);
+    const path = `~/${placement.path}`;
+    try {
+      try {
+        lstatSync(dirname(absolute));
+      } catch (error) {
+        if (missingPath(error)) {
+          snapshots.push({ id: surface.id, path, absolute, snapshot: null, aliasesMachineState: false, failed: false });
+          continue;
+        }
+        throw error;
+      }
+      const snapshot = snapshotMachineSettings(absolute);
+      const alias = machineSettingsAliasMachineState(snapshot);
+      snapshots.push({
+        id: surface.id,
+        path,
+        absolute,
+        snapshot,
+        aliasesMachineState: alias === true,
+        failed: alias === null,
+      });
+    } catch {
+      snapshots.push({ id: surface.id, path, absolute, snapshot: null, aliasesMachineState: false, failed: true });
+    }
+  }
+  return snapshots;
+}
+
+function machineSettingsMutationRefusals(initial: MachineSettingsSurfaceSnapshot[]): string[] {
+  const currentBySurface = new Map(snapshotMachineSettingsSurfaces().map((entry) => [entry.id, entry]));
+  const refused = new Set<string>();
+  for (const before of initial) {
+    const current = currentBySurface.get(before.id);
+    if (
+      current === undefined
+      || before.absolute !== current.absolute
+      || before.aliasesMachineState
+      || current.aliasesMachineState
+      || before.failed
+      || current.failed
+      || (before.snapshot === null
+        ? current.snapshot !== null
+        : current.snapshot === null || !machineSettingsSnapshotMatches(before.snapshot))
+    ) {
+      refused.add(before.path);
+    }
+  }
+  return [...refused];
 }
 
 /** Write the machine-side carriers of the declared surfaces, once per machine.
@@ -586,7 +655,8 @@ function machineSettingsAliasMachineState(snapshot: MachineSettingsSnapshot): bo
 export function installMachineCarriers(surfaceIds: string[]): MachineReport {
   const report: MachineReport = { written: [], untouched: [], refused: [] };
   const state = readMachineState();
-  let mayWriteMachineState = true;
+  const settingsSnapshots = snapshotMachineSettingsSurfaces();
+  let mayWriteMachineState = !settingsSnapshots.some((entry) => entry.aliasesMachineState || entry.failed);
   state.version = VERSION;
   for (const id of surfaceIds) {
     const surface = SURFACES.find((s) => s.id === id);
@@ -631,7 +701,7 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       continue;
     }
     const snapshot = snapshotMachineSettings(absolute);
-    if (machineSettingsAliasMachineState(snapshot)) {
+    if (machineSettingsAliasMachineState(snapshot) !== false) {
       mayWriteMachineState = false;
       report.refused.push({
         path: `~/${placement.path}`,
@@ -668,6 +738,12 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       reason: SETTINGS_MUTATION_REFUSED,
     });
   }
+  for (const path of machineSettingsMutationRefusals(settingsSnapshots)) {
+    mayWriteMachineState = false;
+    if (!report.refused.some((entry) => entry.path === path)) {
+      report.refused.push({ path, reason: SETTINGS_MUTATION_REFUSED });
+    }
+  }
   if (mayWriteMachineState) writeMachineState(state);
   return report;
 }
@@ -681,7 +757,8 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
   const lines: string[] = [];
   const refused: string[] = [];
   const state = readMachineState();
-  let mayMutateMachineState = true;
+  const settingsSnapshots = snapshotMachineSettingsSurfaces();
+  let mayMutateMachineState = !settingsSnapshots.some((entry) => entry.aliasesMachineState || entry.failed);
   for (const id of surfaceIds) {
     const surface = SURFACES.find((s) => s.id === id);
     const placement = surface ? machineCarrier(surface) : null;
@@ -703,7 +780,7 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
       continue;
     }
     const snapshot = snapshotMachineSettings(absolute);
-    if (machineSettingsAliasMachineState(snapshot)) {
+    if (machineSettingsAliasMachineState(snapshot) !== false) {
       mayMutateMachineState = false;
       refused.push(`~/${placement.path}`);
       continue;
@@ -713,6 +790,10 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
       continue;
     }
     refused.push(`~/${placement.path}`);
+  }
+  for (const path of machineSettingsMutationRefusals(settingsSnapshots)) {
+    mayMutateMachineState = false;
+    if (!refused.includes(path)) refused.push(path);
   }
   // The record of what wrote what goes with the carriers: an empty machine.json is a
   // leftover that would make the next doctor read a version that is no longer there.

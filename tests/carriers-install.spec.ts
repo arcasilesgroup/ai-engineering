@@ -702,6 +702,88 @@ describe("carriers on the machine", () => {
     }
   });
 
+  test("machine state is preserved when an unselected settings surface aliases it", () => {
+    for (const aliasType of ["symlink", "hard-link"] as const) {
+      const base = useHome(`unselected-machine-state-alias-${aliasType}`);
+      const statePath = machineStateFile();
+      const settings = join(base, ".codex", "hooks.json");
+      const originalBytes = Buffer.from('{"version":"prior","carriers":{"claude-code":"owned"}}\n');
+      writeFileSync(statePath, originalBytes);
+      mkdirSync(dirname(settings), { recursive: true });
+      if (aliasType === "symlink") symlinkSync("../machine.json", settings);
+      else linkSync(statePath, settings);
+
+      const installed = installMachineCarriers(["claude-code"]);
+      expect(installed.refused).toContainEqual({
+        path: "~/.codex/hooks.json",
+        reason: "identity-bound-settings-mutation-unavailable",
+      });
+      expect(readFileSync(statePath)).toEqual(originalBytes);
+
+      expect(removeMachineCarriers(["claude-code"]).refused).toContain("~/.codex/hooks.json");
+      expect(existsSync(statePath)).toBe(true);
+      expect(readFileSync(statePath)).toEqual(originalBytes);
+      expect(existsSync(settings)).toBe(true);
+    }
+  });
+
+  test("an unselected settings alias added after validation blocks machine-state mutation", () => {
+    for (const operation of ["install", "remove"] as const) {
+      for (const aliasType of ["symlink", "hard-link"] as const) {
+        const base = useHome(`machine-state-alias-race-${operation}-${aliasType}`);
+        const statePath = machineStateFile();
+        const selectedSettings = join(base, ".claude", "settings.json");
+        const unselectedSettings = join(base, ".codex", "hooks.json");
+        const moduleCarrier = join(base, ".config", "opencode", "plugins", "ai-eng.ts");
+        const originalBytes = Buffer.from('{"version":"prior","carriers":{"claude-code":"owned"}}\n');
+        write(selectedSettings, USER_SETTINGS);
+        mkdirSync(dirname(unselectedSettings), { recursive: true });
+        writeFileSync(statePath, originalBytes);
+
+        let didAddAlias = false;
+        const addAlias = () => {
+          if (!didAddAlias) {
+            if (aliasType === "symlink") symlinkSync("../machine.json", unselectedSettings);
+            else linkSync(statePath, unselectedSettings);
+            didAddAlias = true;
+          }
+        };
+        if (operation === "install") {
+          const originalWriteFileSync = fs.writeFileSync;
+          const writeSpy = spyOn(fs, "writeFileSync").mockImplementation((...args) => {
+            if (String(args[0]) === moduleCarrier) addAlias();
+            return originalWriteFileSync(...args);
+          });
+          try {
+            expect(installMachineCarriers(["claude-code", "opencode"]).refused).toContainEqual({
+              path: "~/.codex/hooks.json",
+              reason: "identity-bound-settings-mutation-unavailable",
+            });
+          } finally {
+            writeSpy.mockRestore();
+          }
+        } else {
+          mkdirSync(dirname(moduleCarrier), { recursive: true });
+          writeFileSync(moduleCarrier, "owned");
+          const originalUnlinkSync = fs.unlinkSync;
+          const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path) => {
+            if (String(path) === moduleCarrier) addAlias();
+            return originalUnlinkSync(path);
+          });
+          try {
+            expect(removeMachineCarriers(["claude-code", "opencode"]).refused).toContain("~/.codex/hooks.json");
+          } finally {
+            unlinkSpy.mockRestore();
+          }
+        }
+
+        expect(didAddAlias).toBe(true);
+        expect(readFileSync(statePath)).toEqual(originalBytes);
+        expect(existsSync(unselectedSettings)).toBe(true);
+      }
+    }
+  });
+
   test("a settings replacement at the commit boundary is preserved because no identity-bound syscall runs", () => {
     const base = useHome("machine-commit-boundary");
     const settings = join(base, ".claude", "settings.json");

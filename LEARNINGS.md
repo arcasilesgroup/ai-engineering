@@ -1675,3 +1675,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Refuse indirect aliases too; protecting only the requested pathname leaves user data exposed.
 - **Proof:** Git-backed focused CP19 tests: 136 passed; typecheck and lint passed.
 - **Tags:** review, filesystem, alias, ownership, fail-closed
+
+### L229 · 2026-10-30 · floating-core #19 · review
+- **Failure:** Review found unselected settings aliases and aliases changed after validation could still expose `machine.json` to writes or deletion.
+- **Root cause:** Alias checks covered selected surfaces only and were not repeated at the mutation boundary.
+- **Fix:** Check every settings surface, refuse mutation when aliases or snapshots changed, and add symlink/hard-link regressions.
+- **Lesson:** Revalidate the complete alias set immediately before machine-state writes or deletion.
+- **Tags:** review, data-loss, cleanup, machine-state, symlink
