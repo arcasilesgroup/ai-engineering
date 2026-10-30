@@ -1652,3 +1652,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Stage a complete sibling replacement and revalidate ownership snapshots before atomic replacement; preserve concurrent changes and clean only this attempt's staged inode.
 - **Lesson:** Preserve user-owned settings by staging writes and revalidating the exact filesystem identity at the commit boundary.
 - **Tags:** review, filesystem, write, atomic, ownership
+
+### L226 · 2026-10-30 · floating-core #19 · review
+- **Failure:** Review found the atomic staging fix could still overwrite or remove a replacement between snapshot validation and `renameSync`/`unlinkSync`.
+- **Root cause:** The F5 snapshot checks still preceded path-based `renameSync`/`unlinkSync`; portable Node/Bun filesystem APIs provide no operation that conditionally mutates a pathname only while it names the validated inode.
+- **Fix:** Machine-settings creation, replacement, and removal fail closed when pathname mutation is required; warnings explain the refusal, while other cleanup removes only temp files created by the current attempt.
+- **Lesson:** A pathname check cannot bind a later syscall to an inode; when the portable filesystem API cannot make that binding, refuse the mutation instead of claiming the race is closed.
+- **Tags:** review, filesystem, race, fail-closed, carriers

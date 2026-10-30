@@ -2,9 +2,8 @@
 // or TS module (OpenCode/OMP). Surface = ~150 LOC of adapter + its proof (§13).
 
 import surfacesJson from "./surfaces.json";
-import { closeSync, constants, copyFileSync, fchmodSync, fstatSync, existsSync, lstatSync, linkSync, mkdirSync, openSync, readFileSync, readlinkSync, readSync, readdirSync, realpathSync, renameSync, rmSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { closeSync, constants, copyFileSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, rmSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { basename, join, dirname, relative, sep, isAbsolute } from "node:path";
-import { randomUUID } from "node:crypto";
 import { home, versionFile, machineBase } from "../env.ts";
 import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
@@ -290,6 +289,7 @@ export function sweepMovedRepoCarriers(root: string): { removed: string[]; kept:
 }
 
 export type MachineReport = { written: string[]; untouched: string[]; refused: Array<{ path: string; reason: string }> };
+const SETTINGS_MUTATION_REFUSED = "identity-bound-settings-mutation-unavailable";
 
 /** What the machine side remembers: which version wrote each surface's carrier, keyed by
  *  surface id, and the sha256 of the definition it wrote. Two questions depend on it and
@@ -559,124 +559,6 @@ function machineSettingsSnapshotMatches(snapshot: MachineSettingsSnapshot): bool
   }
 }
 
-function settingsError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function cleanupMachineSettingsStage(name: string, identity: { dev: number; ino: number } | null): string | null {
-  if (identity === null) return "the staged file identity could not be verified";
-  try {
-    const current = lstatSync(name);
-    if (!current.isFile() || current.dev !== identity.dev || current.ino !== identity.ino) {
-      return "the staged path changed, so it was preserved";
-    }
-    unlinkSync(name);
-    return null;
-  } catch (error) {
-    return missingPath(error) ? null : settingsError(error);
-  }
-}
-
-function writeMachineSettingsAtomically(
-  snapshot: MachineSettingsSnapshot,
-  replacement: string,
-  displayPath: string,
-): void {
-  const replaced = withMachineSettingsDirectory(snapshot.targetParent, () => {
-    const temporaryName = `.${snapshot.targetName}.${randomUUID()}.tmp`;
-    const replacementBytes = Buffer.from(replacement);
-    let descriptor: number | null = null;
-    let stagedIdentity: { dev: number; ino: number } | null = null;
-    let didCreateStage = false;
-    let didCommit = false;
-    let writeError: unknown = null;
-    let cleanupError: string | null = null;
-    try {
-      descriptor = openSync(
-        temporaryName,
-        constants.O_RDWR | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
-        snapshot.file === null ? 0o666 : snapshot.file.stat.mode & 0o777,
-      );
-      didCreateStage = true;
-      const opened = fstatSync(descriptor);
-      stagedIdentity = { dev: opened.dev, ino: opened.ino };
-      if (snapshot.file !== null) fchmodSync(descriptor, snapshot.file.stat.mode & 0o777);
-      writeFileSync(descriptor, replacementBytes);
-      const beforeRead = fstatSync(descriptor);
-      if (beforeRead.size !== replacementBytes.length) throw new Error("the staged settings file is incomplete");
-      const stagedBytes = Buffer.alloc(replacementBytes.length);
-      let bytesRead = 0;
-      while (bytesRead < stagedBytes.length) {
-        const count = readSync(descriptor, stagedBytes, bytesRead, stagedBytes.length - bytesRead, bytesRead);
-        if (count === 0) throw new Error("the staged settings file is incomplete");
-        bytesRead += count;
-      }
-      if (!sameMachineSettingsStat(beforeRead, fstatSync(descriptor)) || !stagedBytes.equals(replacementBytes)) {
-        throw new Error("the staged settings file changed before replacement");
-      }
-      closeSync(descriptor);
-      descriptor = null;
-      const staged = lstatSync(temporaryName);
-      if (
-        stagedIdentity === null
-        || !staged.isFile()
-        || staged.dev !== stagedIdentity.dev
-        || staged.ino !== stagedIdentity.ino
-        || staged.size !== replacementBytes.length
-      ) {
-        throw new Error("the staged settings path changed before replacement");
-      }
-      if (!machineSettingsSnapshotMatches(snapshot)) {
-        throw new Error(`Machine settings ${displayPath} changed after validation; refusing replacement`);
-      }
-      if (snapshot.file === null) {
-        linkSync(temporaryName, snapshot.targetName);
-      } else {
-        renameSync(temporaryName, snapshot.targetName);
-        didCreateStage = false;
-      }
-      didCommit = true;
-    } catch (error) {
-      writeError = error;
-    } finally {
-      if (descriptor !== null) {
-        try {
-          closeSync(descriptor);
-        } catch (error) {
-          writeError = writeError === null
-            ? error
-            : new Error(`${settingsError(writeError)}; staged file close failed: ${settingsError(error)}`);
-        }
-      }
-      if (didCreateStage) cleanupError = cleanupMachineSettingsStage(temporaryName, stagedIdentity);
-    }
-    if (writeError !== null) {
-      const message = settingsError(writeError);
-      if (cleanupError !== null) throw new Error(`${message}; temporary settings cleanup failed: ${cleanupError}`);
-      throw writeError;
-    }
-    if (cleanupError !== null) {
-      throw new Error(`Machine settings ${displayPath} were replaced, but temporary settings cleanup failed: ${cleanupError}`);
-    }
-    return didCommit;
-  });
-  if (replaced !== true) throw new Error(`Machine settings parent for ${displayPath} changed; refusing replacement`);
-}
-
-function removeMachineSettings(snapshot: MachineSettingsSnapshot, displayPath: string): void {
-  if (snapshot.file === null) return;
-  const parent = snapshot.link === null ? snapshot.targetParent : snapshot.sourceParent;
-  const name = snapshot.link === null ? snapshot.targetName : snapshot.sourceName;
-  const removed = withMachineSettingsDirectory(parent, () => {
-    if (!machineSettingsSnapshotMatches(snapshot)) {
-      throw new Error(`Machine settings ${displayPath} changed after validation; refusing removal`);
-    }
-    unlinkSync(name);
-    return true;
-  });
-  if (removed !== true) throw new Error(`Machine settings parent for ${displayPath} changed; refusing removal`);
-}
-
 /** Write the machine-side carriers of the declared surfaces, once per machine.
  *
  *  This is the inversion the milestone makes on purpose, said out loud: until now only
@@ -685,8 +567,9 @@ function removeMachineSettings(snapshot: MachineSettingsSnapshot, displayPath: s
  *  from the user's home now gets its carrier there; the repo keeps only the carriers
  *  whose readers live in the repo (§13.2).
  *
- *  A `settings` carrier goes through the same merge as any other shared file: it can be
- *  one the user already owns, and nothing of theirs is touched or reformatted. */
+ *  A `settings` carrier can be user-owned. Read-only checks are allowed, but writes that
+ *  need a pathname replacement are refused because the portable filesystem API cannot
+ *  bind that replacement to the identity that was validated. */
 export function installMachineCarriers(surfaceIds: string[]): MachineReport {
   const report: MachineReport = { written: [], untouched: [], refused: [] };
   const state = readMachineState();
@@ -726,12 +609,19 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       report.written.push(`~/${placement.path}`);
       continue;
     }
-    mkdirSync(dirname(absolute), { recursive: true });
+    if (!existsSync(dirname(absolute))) {
+      report.refused.push({
+        path: `~/${placement.path}`,
+        reason: SETTINGS_MUTATION_REFUSED,
+      });
+      continue;
+    }
     const snapshot = snapshotMachineSettings(absolute);
     if (snapshot.file === null) {
-      writeMachineSettingsAtomically(snapshot, files.main, `~/${placement.path}`);
-      state.carriers[id] = definition;
-      report.written.push(`~/${placement.path}`);
+      report.refused.push({
+        path: `~/${placement.path}`,
+        reason: SETTINGS_MUTATION_REFUSED,
+      });
       continue;
     }
     const merged = mergeSharedText(snapshot.file.content.toString("utf8"), files.main);
@@ -739,13 +629,22 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       report.refused.push({ path: `~/${placement.path}`, reason: merged.refused });
       continue;
     }
-    state.carriers[id] = definition;
     if (!merged.changed) {
-      report.untouched.push(`~/${placement.path}`);
+      if (machineSettingsSnapshotMatches(snapshot)) {
+        state.carriers[id] = definition;
+        report.untouched.push(`~/${placement.path}`);
+      } else {
+        report.refused.push({
+          path: `~/${placement.path}`,
+          reason: "settings-changed-after-validation",
+        });
+      }
       continue;
     }
-    writeMachineSettingsAtomically(snapshot, merged.text, `~/${placement.path}`);
-    report.written.push(`~/${placement.path}`);
+    report.refused.push({
+      path: `~/${placement.path}`,
+      reason: SETTINGS_MUTATION_REFUSED,
+    });
   }
   writeMachineState(state);
   return report;
@@ -754,7 +653,8 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
 /** Take the machine carriers back out. Our entries out of a shared settings file by
  *  marker, our module and its bundle away whole — and nothing else: a name that merely
  *  looks like ours is not evidence, so a settings file we cannot rewrite is left alone
- *  and said. Returns what it did, for the uninstall report. */
+ *  and said. The portable filesystem API cannot bind a pathname replacement and
+ *  rename/unlink into one operation, so shared settings changes fail closed. */
 export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; refused: string[] } {
   const lines: string[] = [];
   const refused: string[] = [];
@@ -763,9 +663,9 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
     const surface = SURFACES.find((s) => s.id === id);
     const placement = surface ? machineCarrier(surface) : null;
     if (!surface || !placement) continue;
-    delete state.carriers[id];
     const absolute = carrierPath(placement);
     if (placement.kind === "module") {
+      delete state.carriers[id];
       if (!existsSync(absolute)) continue;
       unlinkSync(absolute);
       if (placement.chain) {
@@ -775,21 +675,16 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
       lines.push(`~/${placement.path} removed`);
       continue;
     }
-    if (!existsSync(absolute)) continue;
+    if (!existsSync(absolute)) {
+      delete state.carriers[id];
+      continue;
+    }
     const snapshot = snapshotMachineSettings(absolute);
-    if (snapshot.file === null) continue;
-    const stripped = stripSharedText(snapshot.file.content.toString("utf8"));
-    if (stripped === null) {
-      refused.push(`~/${placement.path}`);
+    if (snapshot.file === null) {
+      delete state.carriers[id];
       continue;
     }
-    if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
-      removeMachineSettings(snapshot, `~/${placement.path}`);
-      lines.push(`~/${placement.path} removed (it held only ai-eng entries)`);
-      continue;
-    }
-    writeMachineSettingsAtomically(snapshot, stripped, `~/${placement.path}`);
-    lines.push(`~/${placement.path}: ai-eng entries removed, yours kept`);
+    refused.push(`~/${placement.path}`);
   }
   // The record of what wrote what goes with the carriers: an empty machine.json is a
   // leftover that would make the next doctor read a version that is no longer there.

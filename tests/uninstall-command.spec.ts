@@ -733,7 +733,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(out).toContain("AGENTS.md · DECISIONS.md · .ai-engineering/");
   });
 
-  test("a machine settings carrier is stripped of our entries, and said", async () => {
+  test("a machine settings carrier is refused without identity-bound mutation, and said", async () => {
     const { cwd, machine } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
@@ -741,14 +741,21 @@ describe("uninstall · the machine side (Everything scope)", () => {
     // lock predates, so the project sweep keeps it as the user's and the declaration is
     // still readable when the machine side runs.
     writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["copilot"]\n');
-    expect(installMachineCarriers(["copilot-cli"]).written).toEqual(["~/.copilot/hooks/ai-eng.json"]);
+    const copilotSettings = join(machine, ".copilot", "hooks", "ai-eng.json");
+    mkdirSync(join(machine, ".copilot", "hooks"), { recursive: true });
+    const originalSettings = `${JSON.stringify({ user: "owned" }, null, 2)}\n`;
+    writeFileSync(copilotSettings, originalSettings);
+    expect(installMachineCarriers(["copilot-cli"]).refused).toEqual([{
+      path: "~/.copilot/hooks/ai-eng.json",
+      reason: "identity-bound-settings-mutation-unavailable",
+    }]);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 
     expect(result).toBe(0);
-    // Our entries came out of the user-scope file the CLI reads and never the repo copy.
-    expect(out).toContain("✓ ~/.copilot/hooks/ai-eng.json: ai-eng entries removed, yours kept");
+    expect(out).toContain("safe machine-settings removal is unavailable");
     expect(out).toContain(`✓ ${machine} kept · 0 canon-owned file(s) removed · 0 machine artifacts swept · other files kept`);
+    expect(readFileSync(copilotSettings, "utf8")).toBe(originalSettings);
     expect(existsSync(machine)).toBe(true);
     expect(existsSync(join(cwd, ".ai-engineering", "config.toml"))).toBe(true); // "no" kept the project's files
   });

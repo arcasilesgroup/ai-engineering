@@ -17,6 +17,12 @@ export function repoTemplateRoot(): string {
  *  exactly as it was — and the line says what that costs, because a surface whose
  *  settings file could not be merged has no hooks behind it (§13). */
 export function refuseLine(refused: { path: string; reason: string }): string {
+  if (refused.reason === "identity-bound-settings-mutation-unavailable") {
+    return `⚠ ${refused.path} — safe machine-settings replacement/removal is unavailable on this platform; left untouched`;
+  }
+  if (refused.reason === "settings-changed-after-validation") {
+    return `⚠ ${refused.path} — settings changed during validation; left untouched`;
+  }
   const why =
     refused.reason === "not-json"
       ? "not valid JSON"

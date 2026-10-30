@@ -539,7 +539,7 @@ async function removeEverything(root: string, input: unknown, declared: string[]
       : { mark: "warn", text: `${machineDir} deleted`, dim: cleanup });
     if (floor !== null) extra.push({ mark: "ok", text: floor });
     for (const line of carriers.lines) extra.push({ mark: "ok", text: line });
-    for (const path of carriers.refused) extra.push({ mark: "warn", text: `${path} left alone — not JSON this installer can rewrite without reformatting it` });
+    for (const path of carriers.refused) extra.push({ mark: "warn", text: `${path} left alone — safe machine-settings removal is unavailable on this platform` });
   } else {
     extra.push({ mark: "ok", text: `kept: ${machineDir}`, dim: "global skills stay installed" });
   }

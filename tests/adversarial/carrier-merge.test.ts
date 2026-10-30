@@ -1,7 +1,5 @@
-// Adversarial: the files ai-eng shares with the user. Every carrier that is a settings
-// file can be one the user already owns — their hooks, permissions, env — and the one
-// thing a governance tool may never do is write our policy over their configuration.
-// Merge in by marker, take out by marker, and never touch what cannot be read.
+// Adversarial: settings files can be user-owned. Repo settings merge by marker; machine
+// settings fail closed when pathname mutation cannot be bound to the validated identity.
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -9,8 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mergeSharedText, stripSharedText } from "../../src/install.ts";
-import { removeMachineCarriers, readMachineState, carrierFiles } from "../../src/surfaces/adapters.ts";
-import { sha256 } from "../../src/install.ts";
+import { removeMachineCarriers, readMachineState } from "../../src/surfaces/adapters.ts";
 
 type HookGroup = { matcher?: string; hooks?: Array<{ command?: string }> };
 type Settings = { permissions?: unknown; env?: unknown; hooks?: Record<string, HookGroup[]>; $comment?: string };
@@ -123,16 +120,21 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
     expect(run(["init", "--yes", "--surface", "claude-code,oh-my-pi,opencode,cursor,copilot,codex,pi"], repo).status).toBe(0);
-    // Every host that reads from the user's home got its carrier there.
+    // Machine settings are refused because path-based replacement is not identity-bound;
+    // host-owned modules can still be installed.
     const machine: string[] = [
-      join(home, ".claude", "settings.json"),
       join(home, ".omp", "agent", "hooks", "pre", "ai-eng.ts"),
       join(home, ".config", "opencode", "plugins", "ai-eng.ts"),
       join(home, ".pi", "agent", "extensions", "ai-eng.ts"),
-      join(home, ".codex", "hooks.json"),
-      join(home, ".copilot", "hooks", "ai-eng.json"),
     ];
     for (const path of machine) expect(existsSync(path)).toBe(true);
+    for (const path of [
+      join(home, ".claude", "settings.json"),
+      join(home, ".codex", "hooks.json"),
+      join(home, ".copilot", "hooks", "ai-eng.json"),
+    ]) {
+      expect(existsSync(path)).toBe(false);
+    }
     // The OMP carrier is a hook FACTORY (default export, pi.on) at the path omp's own
     // loader scans. The module it used to ship exported beforeToolCall and lived in
     // `.agents/hooks/`, which no OMP code path reads.
@@ -187,33 +189,25 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     expect(spawnSync("git", ["config", "--global", "--get", "init.templateDir"], { encoding: "utf8", env: process.env }).stdout.trim()).toBe(configBefore);
   });
 
-  test("codex carrier: an unchanged definition is never rewritten, and a changed one is named", () => {
+  test("codex machine settings fail closed without identity-bound replacement", () => {
     useHome();
     const repo = join(sandbox, "codex-repo");
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
-    expect(run(["init", "--yes", "--surface", "codex"], repo).status).toBe(0);
+    const initialized = run(["init", "--yes", "--surface", "codex"], repo);
+    expect(initialized.status).toBe(0);
+    expect(initialized.stdout + initialized.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
     const carrier = join(home, ".codex", "hooks.json");
-    const first = readFileSync(carrier, "utf8");
-    // Two more updates over the same binary: Codex's trust is a hash of this definition,
-    // so rewriting it identical bytes would ask a human to re-approve for nothing.
-    expect(run(["update", "--yes"], repo).status).toBe(0);
-    expect(run(["update", "--yes"], repo).status).toBe(0);
-    expect(readFileSync(carrier, "utf8")).toBe(first);
+    expect(existsSync(carrier)).toBe(false);
+    const updated = run(["update", "--yes"], repo);
+    expect(updated.status).toBe(0);
+    expect(updated.stdout + updated.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
+    expect(existsSync(carrier)).toBe(false);
     const state = withHome(() => readMachineState());
-    expect(state.carriers["codex"]).toBe(sha256(carrierFiles("codex", "machine")?.main ?? ""));
-    // A definition that changed since the record is the one that re-asks for trust, and
-    // doctor has to name /hooks — the place the human has to go.
-    writeFileSync(join(home, "machine.json"), `${JSON.stringify({ version: "2.0.0", carriers: { codex: "0".repeat(64) } }, null, 2)}\n`);
+    expect(state.carriers["codex"]).toBeUndefined();
     const doctor = run(["doctor"], repo);
     const out = doctor.stdout + doctor.stderr;
-    expect(out).toInclude("/hooks");
-    expect(out).toInclude("carrier definition changed");
-    // And a DOWNGRADE is its own line: the carriers are the newer binary's, the chain they
-    // call would be the older one, which has no gate.
-    writeFileSync(join(home, "machine.json"), `${JSON.stringify({ version: "99.0.0", carriers: { codex: sha256(carrierFiles("codex", "machine")?.main ?? "") } }, null, 2)}\n`);
-    const downgraded = run(["doctor"], repo);
-    expect((downgraded.stdout + downgraded.stderr)).toInclude("DOWNGRADE");
+    expect(out).toInclude("machine carrier ~/.codex/hooks.json missing");
   });
 
   test("doctor splits the machine carrier from the repo declaration and from the version state", () => {
@@ -221,17 +215,14 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     const repo = join(sandbox, "doctor-split");
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
-    expect(run(["init", "--yes", "--surface", "claude-code,cursor"], repo).status).toBe(0);
+    const initialized = run(["init", "--yes", "--surface", "claude-code,cursor"], repo);
+    expect(initialized.status).toBe(0);
+    expect(initialized.stdout + initialized.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
     const ok = run(["doctor"], repo);
     const okOut = ok.stdout + ok.stderr;
-    // Three separate lines, because they are three separate questions. One "surfaces ok"
-    // would let a machine carrier that loads nowhere read as a governed repo.
-    expect(okOut).toInclude("machine carrier ~/.claude/settings.json");
+    // The repo declaration is present, but the settings carrier was refused.
+    expect(okOut).toInclude("machine carrier ~/.claude/settings.json missing");
     expect(okOut).toInclude("repo carrier .cursor/hooks.json present");
-    expect(okOut).toInclude("machine state");
-    expect(okOut).toInclude("definitions unchanged");
-    // A machine carrier that is gone is a FAIL for a core surface, and it says the action.
-    rmSync(join(home, ".claude", "settings.json"));
     const missing = run(["doctor"], repo);
     expect((missing.stdout + missing.stderr)).toInclude("machine carrier ~/.claude/settings.json missing → ai-eng update");
     expect(missing.status).toBe(2);
@@ -245,39 +236,36 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     mkdirSync(join(home, ".claude"), { recursive: true });
     const userSettings = { env: { KEEP: "yes" } };
     writeFileSync(join(home, ".claude", "settings.json"), `${JSON.stringify(userSettings, null, 2)}\n`);
-    expect(run(["init", "--yes", "--surface", "claude-code,cursor"], repo).status).toBe(0);
-    expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toInclude("ai-eng chain");
+    const initialized = run(["init", "--yes", "--surface", "claude-code,cursor"], repo);
+    expect(initialized.status).toBe(0);
+    expect(initialized.stdout + initialized.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
+    const settings = join(home, ".claude", "settings.json");
+    const beforeUninstall = readFileSync(settings, "utf8");
+    expect(beforeUninstall).toBe(`${JSON.stringify(userSettings, null, 2)}\n`);
     expect(existsSync(join(home, "machine.json"))).toBe(true);
     // Everything scope: down-arrow to it, then a bare `y` per confirmation (clack answers
     // on the key, not on Enter).
     const out = run(["uninstall"], repo, "\u001b[B\ryyy");
     const text = out.stdout + out.stderr;
-    expect(text).toInclude("ai-eng entries removed, yours kept");
-    const settings = join(home, ".claude", "settings.json");
+    expect(text).toInclude("safe machine-settings removal is unavailable");
     expect(existsSync(settings)).toBe(true);
     const afterUninstall = readFileSync(settings, "utf8");
-    expect(JSON.parse(afterUninstall)).toEqual(userSettings);
-    expect(afterUninstall).not.toInclude("ai-eng chain");
-    expect(existsSync(join(home, "machine.json"))).toBe(false);
+    expect(afterUninstall).toBe(beforeUninstall);
   });
 
-  test("the machine loses its carrier, and update — the remedy doctor names — puts it back", () => {
+  test("update refuses to create a missing machine settings carrier", () => {
     useHome();
     const repo = join(sandbox, "lost-carrier");
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
-    expect(run(["init", "--yes", "--surface", "claude-code"], repo).status).toBe(0);
+    const initialized = run(["init", "--yes", "--surface", "claude-code"], repo);
+    expect(initialized.status).toBe(0);
     const carrier = join(home, ".claude", "settings.json");
-    expect(existsSync(carrier)).toBe(true);
-    // The machine loses it — `uninstall --scope everything` is one way, a wiped home is
-    // another. `doctor` reads that state and answers "→ ai-eng update"; the repo's own
-    // assets are current, which is the normal shape of that machine, so an update that
-    // returns on "nothing to sync" before touching the machine turns the remedy into a
-    // no-op that loops.
-    rmSync(carrier);
+    expect(existsSync(carrier)).toBe(false);
     const out = run(["update", "--yes"], repo);
     expect(out.status, out.stdout + out.stderr).toBe(0);
-    expect(existsSync(carrier), out.stdout + out.stderr).toBe(true);
+    expect(out.stdout + out.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
+    expect(existsSync(carrier)).toBe(false);
   });
 
   test("user hooks survive init, update and uninstall, and ours leave with us", () => {
@@ -285,17 +273,14 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     const repo = repoWithUserSettings(USER_SETTINGS);
     const settings = join(home, ".claude", "settings.json");
     const before = JSON.parse(USER_SETTINGS) as Settings;
+    const beforeBytes = readFileSync(settings, "utf8");
 
-    expect(run(["init", "--yes", "--surface", "claude-code"], repo).status).toBe(0);
+    const initialized = run(["init", "--yes", "--surface", "claude-code"], repo);
+    expect(initialized.status).toBe(0);
+    expect(initialized.stdout + initialized.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
     const afterInit = JSON.parse(readFileSync(settings, "utf8")) as Settings;
-    // Everything the user had is still there, value for value.
-    expect(afterInit.permissions).toEqual(before.permissions);
-    expect(afterInit.env).toEqual(before.env);
-    expect(afterInit.hooks?.["SessionStart"]).toEqual(before.hooks?.["SessionStart"]);
-    // Their hook, and ours, in the same event, without theirs being eaten.
-    const preToolUse = JSON.stringify(afterInit.hooks?.["PreToolUse"]);
-    expect(preToolUse).toInclude("my-own-audit.sh");
-    expect(preToolUse).toInclude("ai-eng chain PreToolUse");
+    expect(afterInit).toEqual(before);
+    expect(readFileSync(settings, "utf8")).toBe(beforeBytes);
 
     // Idempotent: a second install is not a second copy.
     const once = readFileSync(settings, "utf8");
@@ -308,12 +293,11 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     run(["uninstall", "--project"], repo, "\ry");
     expect(readFileSync(settings, "utf8")).toBe(once);
 
-    // The machine scope is the one that takes ours back out, and it leaves exactly what
-    // the user had before init touched the file.
+    // Machine scope refuses to mutate the user-owned settings path.
     const swept = withHome(() => removeMachineCarriers(["claude-code"]));
-    expect(swept.lines.length).toBeGreaterThan(0);
+    expect(swept.refused).toEqual(["~/.claude/settings.json"]);
     const afterUninstall = readFileSync(settings, "utf8");
-    expect(afterUninstall).not.toInclude("ai-eng chain");
+    expect(afterUninstall).toBe(beforeBytes);
     expect(JSON.parse(afterUninstall)).toEqual(before);
   });
 
@@ -369,15 +353,15 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
 
 
 
-  test("a fresh repo still gets the whole template, banner and all", () => {
+  test("a fresh repo refuses a missing machine settings path", () => {
     useHome();
     const repo = join(sandbox, "fresh");
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
-    expect(run(["init", "--yes", "--surface", "claude-code"], repo).status).toBe(0);
-    const settings = JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf8")) as { $comment?: string; hooks?: unknown };
-    expect(settings.$comment).toInclude("ai-eng");
-    expect(JSON.stringify(settings.hooks)).toInclude("ai-eng chain PreToolUse");
+    const initialized = run(["init", "--yes", "--surface", "claude-code"], repo);
+    expect(initialized.status).toBe(0);
+    expect(initialized.stdout + initialized.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
+    expect(existsSync(join(home, ".claude", "settings.json"))).toBe(false);
     expect(existsSync(join(repo, ".claude"))).toBe(false); // the carrier is not the repo's copy
   });
 });

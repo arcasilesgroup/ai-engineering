@@ -1337,10 +1337,11 @@
         "Correct tests/adversarial/carrier-merge.test.ts:258 to expect machine-home settings to remain; the reproduced full-suite assertion conflicts with the approved user-owned-file preservation requirement.",
         "Ensure uninstall removes only byte-identical canon-owned skill files, refuses linked paths, and prunes empty directories without removing user-owned content.",
         "Cover preservation of custom, edited, and unrelated user files in the carrier-merge and uninstall regressions.",
-        "Write machine-home settings atomically so a failed write or rename cannot leave the user's original bytes truncated or partial."
+        "Fail closed with a warning when portable machine-settings creation, replacement, or removal cannot be bound to a validated filesystem identity; do not mutate a pathname that may have been replaced."
       ],
       "files": [
         "src/commands/uninstall.ts",
+        "src/commands/init-shared.ts",
         "src/embed.ts",
         "src/surfaces/adapters.ts",
         "tests/adversarial/carrier-merge.test.ts",
@@ -1350,7 +1351,7 @@
       "acceptance": [
         "Carrier cleanup and uninstall preserve machine-home settings, custom skill directories, edited files, and unrelated user-owned content.",
         "Uninstall removes only byte-identical canon-owned skill files, refuses linked paths, and prunes only empty directories.",
-        "If a machine-home settings update fails, its original bytes remain intact and no partial file is left."
+        "Unsafe machine-settings creation, replacement, or removal is refused with a warning; existing settings and external symlink targets remain unchanged."
       ],
       "verify": [
         "bun test tests/adversarial/carrier-merge.test.ts",
@@ -1360,6 +1361,7 @@
       ],
       "changed_files": [
         "src/commands/uninstall.ts",
+        "src/commands/init-shared.ts",
         "src/embed.ts",
         "src/surfaces/adapters.ts",
         "tests/adversarial/carrier-merge.test.ts",
@@ -1391,7 +1393,7 @@
           "attempts": 2,
           "findings": [
             "Adversarial review loop attempt 1 failed after four critic rounds: F1-F4 were resolved; F5 remains open because a write error can leave user-owned settings truncated or partial.",
-            "Adversarial review loop attempt 2 round 1 confirmed F5: adapters.ts:409 and :450 write settings in place, so an error can leave partial contents; I73 reproduces this."
+            "Adversarial review loop attempt 2 round 1 confirmed F5: adapters.ts:409 and :450 write settings in place, so an error can leave partial contents; I73 reproduces this. The atomic staging fix resolved F5, but review round 2 found F6: snapshot validation is separate from renameSync/unlinkSync, leaving a race where a replacement can still be overwritten or removed."
           ]
         }
       },
@@ -1600,7 +1602,9 @@
     "Step 10 times the full check run against two minutes because 5.1 sets that target explicitly; elsewhere speed is never a pass condition. [5.1 Suite en serie; 5.3]",
     "Workflow-file schema checks (actionlint) are proven in CI, not locally, because the tool is downloaded by the toolchain script. [.github/workflows/check.yml; scripts/toolchain.sh; actionlint not on PATH]",
     "Plan text is in English, the repository's working language, although the brainstorm is in Spanish. [AGENTS.md; existing plans in .ai-engineering/workflow/checkpoints/]",
-    "If a file or symlink changes after ownership validation, cleanup aborts and preserves the replacement instead of retrying against the new path; this is the least-destructive behavior consistent with CP19's preserve-user-owned-files acceptance."
+    "If a file or symlink changes after ownership validation, cleanup aborts and preserves the replacement instead of retrying against the new path; this is the least-destructive behavior consistent with CP19's preserve-user-owned-files acceptance.",
+    "Where the portable runtime cannot bind machine-settings rename/unlink to a validated inode, fail closed with an explicit warning rather than mutate the user's shared settings file.",
+    "Because portable Bun/Node path operations cannot atomically prove a machine-settings pathname still names the validated inode at rename/unlink time, machine-settings mutations that need those operations are refused with a warning."
   ],
   "new_dependencies": [],
   "notes": [
