@@ -135,7 +135,8 @@
       { "id": "I69", "checkpoint": 21, "covers": [], "case": "init-recovery resets its locally edited skill fixture before asserting that a subsequent clean update has zero drift", "file": "tests/adversarial/init-recovery.test.ts", "command": "bun test tests/adversarial/init-recovery.test.ts" },
       { "id": "I70", "checkpoint": 19, "covers": [], "case": "everything-scope uninstall removes the ai-eng carrier while preserving the user's machine-home settings file and data", "file": "tests/adversarial/carrier-merge.test.ts", "command": "bun test tests/adversarial/carrier-merge.test.ts" },
       { "id": "I71", "checkpoint": 19, "covers": [], "case": "machine uninstall strips the carrier entries, reports that the user's settings are kept, and keeps the machine base", "file": "tests/uninstall-command.spec.ts", "command": "bun test tests/uninstall-command.spec.ts" },
-      { "id": "I72", "checkpoint": 23, "covers": [], "case": "live progress opens the new checkpoint and keeps current and halted findings visible and linked from the status banner", "file": "tests/viewer-audit.spec.ts", "command": "bun test tests/viewer-audit.spec.ts" }
+      { "id": "I72", "checkpoint": 23, "covers": [], "case": "live progress opens the new checkpoint and keeps current and halted findings visible and linked from the status banner", "file": "tests/viewer-audit.spec.ts", "command": "bun test tests/viewer-audit.spec.ts" },
+      { "id": "I73", "checkpoint": 19, "covers": [], "case": "a deterministic partial-write failure while updating machine-home settings preserves the original bytes and leaves no partial replacement file", "file": "tests/carriers-install.spec.ts", "command": "bun test tests/carriers-install.spec.ts" }
     ],
     "contract": [
       { "id": "C1", "checkpoint": 1, "covers": [], "case": "the p95 latency assertion is out of tests/adversarial/chain.test.ts and bun run bench prints p95 and exits 0", "command": "bun run bench" },

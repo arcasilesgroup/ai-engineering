@@ -18,9 +18,10 @@
 // asserted below; the tests here assert the contract that still holds for Claude (bytes
 // unchanged on a second install) rather than freezing the refusal in place.
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { embeddedPath, embeddedTemplate, embeddedUnder } from "../src/embed.ts";
+import * as fs from "node:fs";
 import {
   existsSync,
   lstatSync,
@@ -649,6 +650,36 @@ describe("carriers on the machine", () => {
     expect(refused.refused).toEqual([{ path: "~/.claude/settings.json", reason: "not-json" }]);
     expect(refused.written).toEqual([]);
     expect(readFileSync(carrier, "utf8")).toBe(comments);
+  });
+
+  test("a failed machine settings write preserves the original bytes and removes its partial replacement", () => {
+    const base = useHome("machine-write-failure");
+    const settings = join(base, ".claude", "settings.json");
+    write(settings, USER_SETTINGS);
+    const originalBytes = readFileSync(settings);
+    const settingsDirectory = dirname(settings);
+    const originalWriteFileSync = fs.writeFileSync;
+    let injectedFailure = false;
+
+    const writeFileSpy = spyOn(fs, "writeFileSync").mockImplementation((...args) => {
+      const [path] = args;
+      if (!injectedFailure && dirname(String(path)) === settingsDirectory) {
+        injectedFailure = true;
+        originalWriteFileSync(path, "partial replacement");
+        throw new Error("Synthetic machine settings write failure");
+      }
+      return originalWriteFileSync(...args);
+    });
+
+    try {
+      expect(() => installMachineCarriers(["claude-code"])).toThrow("Synthetic machine settings write failure");
+    } finally {
+      writeFileSpy.mockRestore();
+    }
+
+    expect(injectedFailure).toBe(true);
+    expect(readdirSync(settingsDirectory)).toEqual(["settings.json"]);
+    expect(readFileSync(settings).equals(originalBytes)).toBe(true);
   });
 
   test("carrierFiles: the machine copy and the repo copy are different files, and the in-process hosts ship a bundle", () => {
