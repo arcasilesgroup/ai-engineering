@@ -1645,3 +1645,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Snapshot file identity/version/bytes from no-follow descriptors and revalidate before unlink or truncating writes; pin mirror parents and recheck symlink identity, target text, and canonical target before unlink, aborting without retry on mismatch.
 - **Lesson:** Cleanup must preserve any replacement whose file identity, content, or symlink target no longer matches the ownership snapshot.
 - **Tags:** review, filesystem, race, symlink, ownership
+
+### L225 · 2026-10-30 · floating-core #19 · review
+- **Failure:** I73 showed a failed machine-carrier settings write could leave the user's original bytes partially overwritten.
+- **Root cause:** `installMachineCarriers` and `removeMachineCarriers` wrote merged settings in place, so a failed write could truncate a user-owned file before I73 asserted its original bytes.
+- **Fix:** Stage a complete sibling replacement and revalidate ownership snapshots before atomic replacement; preserve concurrent changes and clean only this attempt's staged inode.
+- **Lesson:** Preserve user-owned settings by staging writes and revalidating the exact filesystem identity at the commit boundary.
+- **Tags:** review, filesystem, write, atomic, ownership

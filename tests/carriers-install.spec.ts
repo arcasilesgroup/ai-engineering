@@ -657,13 +657,13 @@ describe("carriers on the machine", () => {
     const settings = join(base, ".claude", "settings.json");
     write(settings, USER_SETTINGS);
     const originalBytes = readFileSync(settings);
-    const settingsDirectory = dirname(settings);
+    const settingsDirectory = realpathSync(dirname(settings));
     const originalWriteFileSync = fs.writeFileSync;
     let injectedFailure = false;
 
     const writeFileSpy = spyOn(fs, "writeFileSync").mockImplementation((...args) => {
       const [path] = args;
-      if (!injectedFailure && dirname(String(path)) === settingsDirectory) {
+      if (!injectedFailure && typeof path === "number") {
         injectedFailure = true;
         originalWriteFileSync(path, "partial replacement");
         throw new Error("Synthetic machine settings write failure");
@@ -680,6 +680,154 @@ describe("carriers on the machine", () => {
     expect(injectedFailure).toBe(true);
     expect(readdirSync(settingsDirectory)).toEqual(["settings.json"]);
     expect(readFileSync(settings).equals(originalBytes)).toBe(true);
+  });
+
+  test("a failed machine settings stage reports when its owned temporary file cannot be cleaned", () => {
+    const base = useHome("machine-write-cleanup-failure");
+    const settings = join(base, ".claude", "settings.json");
+    write(settings, USER_SETTINGS);
+    const originalBytes = readFileSync(settings);
+    const settingsDirectory = realpathSync(dirname(settings));
+    const originalWriteFileSync = fs.writeFileSync;
+    const originalUnlinkSync = fs.unlinkSync;
+    let injectedFailure = false;
+    let stagedPath: string | null = null;
+    const writeFileSpy = spyOn(fs, "writeFileSync").mockImplementation((...args) => {
+      const [path] = args;
+      if (!injectedFailure && typeof path === "number") {
+        injectedFailure = true;
+        originalWriteFileSync(path, "partial replacement");
+        throw new Error("Synthetic machine settings write failure");
+      }
+      return originalWriteFileSync(...args);
+    });
+    const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path, ...args) => {
+      if (process.cwd() === settingsDirectory && String(path).endsWith(".tmp")) {
+        stagedPath = join(process.cwd(), String(path));
+        throw new Error("Synthetic temporary cleanup failure");
+      }
+      return originalUnlinkSync(path, ...args);
+    });
+
+    try {
+      expect(() => installMachineCarriers(["claude-code"])).toThrow(
+        "Synthetic machine settings write failure; temporary settings cleanup failed: Synthetic temporary cleanup failure",
+      );
+    } finally {
+      unlinkSpy.mockRestore();
+      writeFileSpy.mockRestore();
+      if (stagedPath !== null) originalUnlinkSync(stagedPath);
+    }
+
+    expect(injectedFailure).toBe(true);
+    expect(stagedPath).not.toBeNull();
+    expect(readFileSync(settings)).toEqual(originalBytes);
+  });
+
+  test("a changed machine settings file is preserved instead of being replaced", () => {
+    const base = useHome("machine-write-race");
+    const settings = join(base, ".claude", "settings.json");
+    write(settings, USER_SETTINGS);
+    const settingsDirectory = realpathSync(dirname(settings));
+    const replacementBytes = Buffer.from('{"model":"replacement"}\n');
+    const originalChdir = process.chdir.bind(process);
+    let settingsDirectoryEntries = 0;
+    let replaced = false;
+    process.chdir = (directory: string) => {
+      if (directory === settingsDirectory) {
+        settingsDirectoryEntries += 1;
+        if (settingsDirectoryEntries === 2) {
+          replaced = true;
+          renameSync(settings, `${settings}.before-race`);
+          writeFileSync(settings, replacementBytes);
+        }
+      }
+      originalChdir(directory);
+    };
+
+    try {
+      expect(() => installMachineCarriers(["claude-code"])).toThrow("changed after validation; refusing replacement");
+    } finally {
+      process.chdir = originalChdir;
+    }
+
+    expect(replaced).toBe(true);
+    expect(readFileSync(settings)).toEqual(replacementBytes);
+    expect(readdirSync(dirname(settings)).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+  });
+
+  test("a changed machine settings parent preserves the replacement", () => {
+    const base = useHome("machine-parent-write-race");
+    const settingsDirectory = join(base, ".claude");
+    const settings = join(settingsDirectory, "settings.json");
+    write(settings, USER_SETTINGS);
+    const pinnedDirectory = realpathSync(settingsDirectory);
+    const replacementBytes = Buffer.from('{"model":"replacement"}\n');
+    const originalChdir = process.chdir.bind(process);
+    let settingsDirectoryEntries = 0;
+    let replaced = false;
+    process.chdir = (directory: string) => {
+      if (directory === pinnedDirectory) {
+        settingsDirectoryEntries += 1;
+        if (settingsDirectoryEntries === 2) {
+          replaced = true;
+          renameSync(settingsDirectory, `${settingsDirectory}.before-race`);
+          mkdirSync(settingsDirectory);
+          writeFileSync(settings, replacementBytes);
+        }
+      }
+      originalChdir(directory);
+    };
+
+    try {
+      expect(() => installMachineCarriers(["claude-code"])).toThrow("parent for ~/.claude/settings.json changed");
+    } finally {
+      process.chdir = originalChdir;
+    }
+
+    expect(replaced).toBe(true);
+    expect(readFileSync(settings)).toEqual(replacementBytes);
+    expect(readFileSync(join(`${settingsDirectory}.before-race`, "settings.json"), "utf8")).toBe(USER_SETTINGS);
+    expect(readdirSync(settingsDirectory).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+  });
+
+  test("a changed machine settings symlink is preserved instead of updating its replacement target", () => {
+    const base = useHome("machine-symlink-write-race");
+    const settingsDirectory = join(base, ".claude");
+    const settings = join(settingsDirectory, "settings.json");
+    const originalTarget = join(settingsDirectory, "original.json");
+    const replacementTarget = join(settingsDirectory, "replacement.json");
+    write(originalTarget, USER_SETTINGS);
+    write(replacementTarget, '{"model":"replacement"}\n');
+    symlinkSync(originalTarget, settings);
+    const directoryIdentity = realpathSync(settingsDirectory);
+    const replacementBytes = readFileSync(replacementTarget);
+    const originalChdir = process.chdir.bind(process);
+    let settingsDirectoryEntries = 0;
+    let replaced = false;
+    process.chdir = (directory: string) => {
+      if (directory === directoryIdentity) {
+        settingsDirectoryEntries += 1;
+        if (settingsDirectoryEntries === 4) {
+          replaced = true;
+          renameSync(settings, `${settings}.before-race`);
+          symlinkSync(replacementTarget, settings);
+        }
+      }
+      originalChdir(directory);
+    };
+
+    try {
+      expect(() => installMachineCarriers(["claude-code"])).toThrow("changed after validation; refusing replacement");
+    } finally {
+      process.chdir = originalChdir;
+    }
+
+    expect(replaced).toBe(true);
+    expect(readlinkSync(settings)).toBe(replacementTarget);
+    expect(readFileSync(replacementTarget)).toEqual(replacementBytes);
+    expect(readFileSync(originalTarget, "utf8")).toBe(USER_SETTINGS);
+    expect(readdirSync(settingsDirectory).filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 
   test("carrierFiles: the machine copy and the repo copy are different files, and the in-process hosts ship a bundle", () => {

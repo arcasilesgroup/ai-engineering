@@ -2,8 +2,9 @@
 // or TS module (OpenCode/OMP). Surface = ~150 LOC of adapter + its proof (§13).
 
 import surfacesJson from "./surfaces.json";
-import { writeFileSync, mkdirSync, symlinkSync, unlinkSync, readdirSync, lstatSync, existsSync, readFileSync, readlinkSync, rmSync, realpathSync, rmdirSync, copyFileSync } from "node:fs";
-import { join, dirname, relative, sep, isAbsolute } from "node:path";
+import { closeSync, constants, copyFileSync, fchmodSync, fstatSync, existsSync, lstatSync, linkSync, mkdirSync, openSync, readFileSync, readlinkSync, readSync, readdirSync, realpathSync, renameSync, rmSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { basename, join, dirname, relative, sep, isAbsolute } from "node:path";
+import { randomUUID } from "node:crypto";
 import { home, versionFile, machineBase } from "../env.ts";
 import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
@@ -340,6 +341,342 @@ function writeMachineState(state: MachineState): void {
   }
 }
 
+type MachineSettingsDirectory = {
+  path: string;
+  requestedPath: string;
+  dev: number;
+  ino: number;
+  link: { dev: number; ino: number; target: string } | null;
+};
+type MachineSettingsFile = { stat: Stats; content: Buffer };
+type MachineSettingsSnapshot = {
+  sourceParent: MachineSettingsDirectory;
+  sourceName: string;
+  targetParent: MachineSettingsDirectory;
+  targetName: string;
+  targetPath: string | null;
+  link: { stat: Stats; target: string } | null;
+  file: MachineSettingsFile | null;
+};
+
+function missingPath(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+
+function machineSettingsDirectory(path: string): MachineSettingsDirectory {
+  const requestedEntry = lstatSync(path);
+  const canonicalPath = realpathSync(path);
+  const stat = lstatSync(canonicalPath);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("Machine settings parent is not a directory");
+  return {
+    path: canonicalPath,
+    requestedPath: path,
+    dev: stat.dev,
+    ino: stat.ino,
+    link: requestedEntry.isSymbolicLink()
+      ? { dev: requestedEntry.dev, ino: requestedEntry.ino, target: readlinkSync(path) }
+      : null,
+  };
+}
+
+function withMachineSettingsDirectory<T>(directory: MachineSettingsDirectory, action: () => T): T | null {
+  const previousDirectory = process.cwd();
+  let changedDirectory = false;
+  try {
+    try {
+      if (realpathSync(directory.requestedPath) !== directory.path) return null;
+      if (directory.link !== null) {
+        const requestedEntry = lstatSync(directory.requestedPath);
+        if (
+          !requestedEntry.isSymbolicLink()
+          || requestedEntry.dev !== directory.link.dev
+          || requestedEntry.ino !== directory.link.ino
+          || readlinkSync(directory.requestedPath) !== directory.link.target
+        ) {
+          return null;
+        }
+      }
+      process.chdir(directory.path);
+      changedDirectory = true;
+      const currentStat = lstatSync(".");
+      if (
+        realpathSync(".") !== directory.path
+        || !currentStat.isDirectory()
+        || currentStat.dev !== directory.dev
+        || currentStat.ino !== directory.ino
+      ) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+    return action();
+  } finally {
+    if (changedDirectory) process.chdir(previousDirectory);
+  }
+}
+
+function sameMachineSettingsStat(left: Stats, right: Stats): boolean {
+  return left.isFile() === right.isFile()
+    && left.isSymbolicLink() === right.isSymbolicLink()
+    && left.dev === right.dev
+    && left.ino === right.ino
+    && left.size === right.size
+    && left.mtimeMs === right.mtimeMs
+    && left.ctimeMs === right.ctimeMs
+    && left.mode === right.mode;
+}
+
+function machineSettingsEntry(name: string): Stats | null {
+  try {
+    return lstatSync(name);
+  } catch (error) {
+    if (missingPath(error)) return null;
+    throw error;
+  }
+}
+
+function readMachineSettingsFile(name: string, expected?: Stats): MachineSettingsFile | null {
+  let descriptor: number | null = null;
+  let file: MachineSettingsFile | null = null;
+  try {
+    const entry = lstatSync(name);
+    if (entry.isFile() && (!expected || sameMachineSettingsStat(entry, expected))) {
+      descriptor = openSync(name, constants.O_RDONLY | constants.O_NOFOLLOW);
+      const opened = fstatSync(descriptor);
+      if (sameMachineSettingsStat(entry, opened)) {
+        const content = readFileSync(descriptor);
+        const afterRead = fstatSync(descriptor);
+        if (
+          sameMachineSettingsStat(opened, afterRead)
+          && sameMachineSettingsStat(afterRead, lstatSync(name))
+          && content.length === afterRead.size
+        ) {
+          file = { stat: afterRead, content };
+        }
+      }
+    }
+  } catch {
+    file = null;
+  }
+  if (descriptor !== null) {
+    try {
+      closeSync(descriptor);
+    } catch {
+      return null;
+    }
+  }
+  return file;
+}
+
+function sameMachineSettingsFile(left: MachineSettingsFile | null, right: MachineSettingsFile): boolean {
+  return left !== null
+    && sameMachineSettingsStat(left.stat, right.stat)
+    && left.content.equals(right.content);
+}
+
+function snapshotMachineSettings(absolute: string): MachineSettingsSnapshot {
+  let snapshot: MachineSettingsSnapshot | null = null;
+  try {
+    const sourceParent = machineSettingsDirectory(dirname(absolute));
+    const sourceName = basename(absolute);
+    const didSnapshot = withMachineSettingsDirectory(sourceParent, () => {
+      const entry = machineSettingsEntry(sourceName);
+      if (entry === null) {
+        snapshot = {
+          sourceParent, sourceName, targetParent: sourceParent, targetName: sourceName,
+          targetPath: null, link: null, file: null,
+        };
+        return true;
+      }
+      if (entry.isSymbolicLink()) {
+        const target = readlinkSync(sourceName);
+        const targetPath = realpathSync(sourceName);
+        const targetParent = machineSettingsDirectory(dirname(targetPath));
+        const targetName = basename(targetPath);
+        const file = withMachineSettingsDirectory(targetParent, () => readMachineSettingsFile(targetName));
+        const currentEntry = machineSettingsEntry(sourceName);
+        if (
+          file === null
+          || currentEntry === null
+          || !sameMachineSettingsStat(entry, currentEntry)
+          || readlinkSync(sourceName) !== target
+          || realpathSync(sourceName) !== targetPath
+        ) {
+          return false;
+        }
+        snapshot = {
+          sourceParent, sourceName, targetParent, targetName, targetPath,
+          link: { stat: entry, target }, file,
+        };
+        return true;
+      }
+      if (!entry.isFile()) return false;
+      const file = readMachineSettingsFile(sourceName, entry);
+      if (file === null) return false;
+      snapshot = {
+        sourceParent, sourceName, targetParent: sourceParent, targetName: sourceName,
+        targetPath: join(sourceParent.path, sourceName), link: null, file,
+      };
+      return true;
+    });
+    if (didSnapshot !== true || snapshot === null) throw new Error("the file, link, or target changed while being read");
+    return snapshot;
+  } catch (error) {
+    throw new Error(`Unable to safely snapshot machine settings: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function machineSettingsSnapshotMatches(snapshot: MachineSettingsSnapshot): boolean {
+  try {
+    const matches = withMachineSettingsDirectory(snapshot.sourceParent, () => {
+      const entry = machineSettingsEntry(snapshot.sourceName);
+      if (snapshot.file === null) return entry === null;
+      if (snapshot.link === null) {
+        return entry !== null
+          && sameMachineSettingsFile(readMachineSettingsFile(snapshot.sourceName, entry), snapshot.file);
+      }
+      if (
+        entry === null
+        || !sameMachineSettingsStat(entry, snapshot.link.stat)
+        || readlinkSync(snapshot.sourceName) !== snapshot.link.target
+        || realpathSync(snapshot.sourceName) !== snapshot.targetPath
+      ) {
+        return false;
+      }
+      const targetMatches = withMachineSettingsDirectory(snapshot.targetParent, () =>
+        sameMachineSettingsFile(readMachineSettingsFile(snapshot.targetName), snapshot.file!));
+      const entryAfter = machineSettingsEntry(snapshot.sourceName);
+      return targetMatches === true
+        && entryAfter !== null
+        && sameMachineSettingsStat(entry, entryAfter)
+        && readlinkSync(snapshot.sourceName) === snapshot.link.target
+        && realpathSync(snapshot.sourceName) === snapshot.targetPath;
+    });
+    return matches === true;
+  } catch {
+    return false;
+  }
+}
+
+function settingsError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function cleanupMachineSettingsStage(name: string, identity: { dev: number; ino: number } | null): string | null {
+  if (identity === null) return "the staged file identity could not be verified";
+  try {
+    const current = lstatSync(name);
+    if (!current.isFile() || current.dev !== identity.dev || current.ino !== identity.ino) {
+      return "the staged path changed, so it was preserved";
+    }
+    unlinkSync(name);
+    return null;
+  } catch (error) {
+    return missingPath(error) ? null : settingsError(error);
+  }
+}
+
+function writeMachineSettingsAtomically(
+  snapshot: MachineSettingsSnapshot,
+  replacement: string,
+  displayPath: string,
+): void {
+  const replaced = withMachineSettingsDirectory(snapshot.targetParent, () => {
+    const temporaryName = `.${snapshot.targetName}.${randomUUID()}.tmp`;
+    const replacementBytes = Buffer.from(replacement);
+    let descriptor: number | null = null;
+    let stagedIdentity: { dev: number; ino: number } | null = null;
+    let didCreateStage = false;
+    let didCommit = false;
+    let writeError: unknown = null;
+    let cleanupError: string | null = null;
+    try {
+      descriptor = openSync(
+        temporaryName,
+        constants.O_RDWR | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+        snapshot.file === null ? 0o666 : snapshot.file.stat.mode & 0o777,
+      );
+      didCreateStage = true;
+      const opened = fstatSync(descriptor);
+      stagedIdentity = { dev: opened.dev, ino: opened.ino };
+      if (snapshot.file !== null) fchmodSync(descriptor, snapshot.file.stat.mode & 0o777);
+      writeFileSync(descriptor, replacementBytes);
+      const beforeRead = fstatSync(descriptor);
+      if (beforeRead.size !== replacementBytes.length) throw new Error("the staged settings file is incomplete");
+      const stagedBytes = Buffer.alloc(replacementBytes.length);
+      let bytesRead = 0;
+      while (bytesRead < stagedBytes.length) {
+        const count = readSync(descriptor, stagedBytes, bytesRead, stagedBytes.length - bytesRead, bytesRead);
+        if (count === 0) throw new Error("the staged settings file is incomplete");
+        bytesRead += count;
+      }
+      if (!sameMachineSettingsStat(beforeRead, fstatSync(descriptor)) || !stagedBytes.equals(replacementBytes)) {
+        throw new Error("the staged settings file changed before replacement");
+      }
+      closeSync(descriptor);
+      descriptor = null;
+      const staged = lstatSync(temporaryName);
+      if (
+        stagedIdentity === null
+        || !staged.isFile()
+        || staged.dev !== stagedIdentity.dev
+        || staged.ino !== stagedIdentity.ino
+        || staged.size !== replacementBytes.length
+      ) {
+        throw new Error("the staged settings path changed before replacement");
+      }
+      if (!machineSettingsSnapshotMatches(snapshot)) {
+        throw new Error(`Machine settings ${displayPath} changed after validation; refusing replacement`);
+      }
+      if (snapshot.file === null) {
+        linkSync(temporaryName, snapshot.targetName);
+      } else {
+        renameSync(temporaryName, snapshot.targetName);
+        didCreateStage = false;
+      }
+      didCommit = true;
+    } catch (error) {
+      writeError = error;
+    } finally {
+      if (descriptor !== null) {
+        try {
+          closeSync(descriptor);
+        } catch (error) {
+          writeError = writeError === null
+            ? error
+            : new Error(`${settingsError(writeError)}; staged file close failed: ${settingsError(error)}`);
+        }
+      }
+      if (didCreateStage) cleanupError = cleanupMachineSettingsStage(temporaryName, stagedIdentity);
+    }
+    if (writeError !== null) {
+      const message = settingsError(writeError);
+      if (cleanupError !== null) throw new Error(`${message}; temporary settings cleanup failed: ${cleanupError}`);
+      throw writeError;
+    }
+    if (cleanupError !== null) {
+      throw new Error(`Machine settings ${displayPath} were replaced, but temporary settings cleanup failed: ${cleanupError}`);
+    }
+    return didCommit;
+  });
+  if (replaced !== true) throw new Error(`Machine settings parent for ${displayPath} changed; refusing replacement`);
+}
+
+function removeMachineSettings(snapshot: MachineSettingsSnapshot, displayPath: string): void {
+  if (snapshot.file === null) return;
+  const parent = snapshot.link === null ? snapshot.targetParent : snapshot.sourceParent;
+  const name = snapshot.link === null ? snapshot.targetName : snapshot.sourceName;
+  const removed = withMachineSettingsDirectory(parent, () => {
+    if (!machineSettingsSnapshotMatches(snapshot)) {
+      throw new Error(`Machine settings ${displayPath} changed after validation; refusing removal`);
+    }
+    unlinkSync(name);
+    return true;
+  });
+  if (removed !== true) throw new Error(`Machine settings parent for ${displayPath} changed; refusing removal`);
+}
+
 /** Write the machine-side carriers of the declared surfaces, once per machine.
  *
  *  This is the inversion the milestone makes on purpose, said out loud: until now only
@@ -389,14 +726,15 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       report.written.push(`~/${placement.path}`);
       continue;
     }
-    if (!existsSync(absolute)) {
-      mkdirSync(dirname(absolute), { recursive: true });
-      writeFileSync(absolute, files.main);
+    mkdirSync(dirname(absolute), { recursive: true });
+    const snapshot = snapshotMachineSettings(absolute);
+    if (snapshot.file === null) {
+      writeMachineSettingsAtomically(snapshot, files.main, `~/${placement.path}`);
       state.carriers[id] = definition;
       report.written.push(`~/${placement.path}`);
       continue;
     }
-    const merged = mergeSharedText(readFileSync(absolute, "utf8"), files.main);
+    const merged = mergeSharedText(snapshot.file.content.toString("utf8"), files.main);
     if ("refused" in merged) {
       report.refused.push({ path: `~/${placement.path}`, reason: merged.refused });
       continue;
@@ -406,7 +744,7 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       report.untouched.push(`~/${placement.path}`);
       continue;
     }
-    writeFileSync(absolute, merged.text);
+    writeMachineSettingsAtomically(snapshot, merged.text, `~/${placement.path}`);
     report.written.push(`~/${placement.path}`);
   }
   writeMachineState(state);
@@ -427,8 +765,8 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
     if (!surface || !placement) continue;
     delete state.carriers[id];
     const absolute = carrierPath(placement);
-    if (!existsSync(absolute)) continue;
     if (placement.kind === "module") {
+      if (!existsSync(absolute)) continue;
       unlinkSync(absolute);
       if (placement.chain) {
         const chainPath = carrierPath(placement, placement.chain);
@@ -437,17 +775,20 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
       lines.push(`~/${placement.path} removed`);
       continue;
     }
-    const stripped = stripSharedText(readFileSync(absolute, "utf8"));
+    if (!existsSync(absolute)) continue;
+    const snapshot = snapshotMachineSettings(absolute);
+    if (snapshot.file === null) continue;
+    const stripped = stripSharedText(snapshot.file.content.toString("utf8"));
     if (stripped === null) {
       refused.push(`~/${placement.path}`);
       continue;
     }
     if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
-      unlinkSync(absolute);
+      removeMachineSettings(snapshot, `~/${placement.path}`);
       lines.push(`~/${placement.path} removed (it held only ai-eng entries)`);
       continue;
     }
-    writeFileSync(absolute, stripped);
+    writeMachineSettingsAtomically(snapshot, stripped, `~/${placement.path}`);
     lines.push(`~/${placement.path}: ai-eng entries removed, yours kept`);
   }
   // The record of what wrote what goes with the carriers: an empty machine.json is a
