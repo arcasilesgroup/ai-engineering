@@ -1689,3 +1689,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Preserve those files and rerun verification in a clean Git-backed scratch clone; the isolated carrier-merge suite passed 13 tests.
 - **Lesson:** Separate baseline hygiene artifacts from leaks created by the test run.
 - **Tags:** behavior, tests, hygiene, cleanup
+
+### L231 · 2026-10-30 · floating-core #19 · behavior
+- **Failure:** The first isolated Gate 1 retry stopped at carrier-merge before the remaining commands ran.
+- **Root cause:** The clone lacked installed dependencies, and its test-home path was inside the checkout, which `src/env.ts:18` rejects.
+- **Fix:** Install locked dependencies in the clone and place isolated test homes outside it; carrier-merge then passed 13 tests.
+- **Lesson:** Git-backed test clones need locked dependencies and test-home paths outside the checkout.
+- **Tags:** behavior, tests, isolation, clone

@@ -14,7 +14,7 @@
   "halted": null,
   "assumptions": [
     "The supplied viewer URL is served from the current checkout; treat it as the selected source despite same-slug checkpoint copies in other worktrees.",
-    "Preserve the four empty untracked lifecycle artifacts in the selected checkout; run verification in a Git-backed clone under the session files directory so the hygiene guard sees a clean test tree."
+    "Preserve the four empty untracked lifecycle artifacts in the selected checkout; run verification in a Git-backed clone under the session files directory, install locked dependencies there, and keep test homes outside the clone."
   ],
   "checkpoints": [
     {
@@ -1404,7 +1404,7 @@
       "gates": {
         "behavior": {
           "status": "failed",
-          "attempts": 10,
+          "attempts": 11,
           "findings": [
             "Gate 1 attempt 1 passed carrier-merge (13), carriers-install (38), and uninstall (22), then `bun test` failed because the isolated source archive omitted `.git`; two Git-dependent tests in `tests/token-budget.spec.ts` failed at `git read-tree HEAD`. Rerun in a Git-backed local clone before judging CP19.",
             "Gate 1 attempt 2 passed all four verify commands in order in a local Git-backed clone at main HEAD 5f8a3454: carrier-merge 13, carriers-install 38, uninstall 22, and full suite 1,561 passed with 0 failures.",
@@ -1415,7 +1415,8 @@
             "Gate 1 attempt 7 passed all four commands in order at main HEAD 4430949f: carrier-merge 13, carriers-install 44, uninstall 28, and full suite 1,573 passed, 16 skipped, and 0 failed across 75 files.",
             "Gate 1 attempt 8 at fbca3529 passed the three focused CP19 commands but the full suite failed 7 tests (1,563 passed, 16 skipped). Failures were init/update/config carrier-integration expectations after machine-settings operations began refusing path mutations; the tests and plan were aligned to the explicit refusal/warning contract while retaining local canon assertions.",
             "Gate 1 attempt 9 passed all 10 verify commands in order on a clean Git-backed copy of main HEAD ff1f5b84 with the four CP19 files overlaid: carrier-merge 13, carriers-install 42, uninstall 28, init 33, update 20, config 30, surfaces 18, lock-security 2, init-recovery 13, and full suite 1,571 passed with 16 skipped and 0 failures across 75 files.",
-            "Gate 1 re-run after the review fix stopped at the first command: bun test tests/adversarial/carrier-merge.test.ts reported temporary paths under tests/ at tests/preload.ts:46. The selected checkout baseline already contained four untracked tests/.worktree-lifecycle-* paths, so this run may be contaminated; later verify commands were not run."
+            "Gate 1 re-run after the review fix stopped at the first command: bun test tests/adversarial/carrier-merge.test.ts reported temporary paths under tests/ at tests/preload.ts:46. The selected checkout baseline already contained four untracked tests/.worktree-lifecycle-* paths, so this run may be contaminated; later verify commands were not run.",
+            "Gate 1 attempt 11 stopped at command 1 due to clone setup: dependencies were missing, and the isolated test home inside the clone was rejected by src/env.ts:18. With locked dependencies installed and the test home outside the clone, carrier-merge passed 13 tests; the remaining verify commands were not run."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
