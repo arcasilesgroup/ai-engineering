@@ -946,6 +946,11 @@ describe("installCanon and what leaves with it", () => {
 
     installCanon("2.2.0");
     write(join(base, ".claude", "skills", "mine", "SKILL.md"), "mine\n");
+    const opencodeSkills = mirrorTargets().find((target) => target.dir.endsWith("skill"))!;
+    const backupTarget = join(base, "skills-backup", "ai-debug");
+    write(join(backupTarget, "SKILL.md"), "backup\n");
+    const backupLink = join(opencodeSkills.dir, "backup-skill");
+    symlinkSync(backupTarget, backupLink, "dir");
     // A symlink whose target is gone: not evidence of ours, so it stays.
     const ghost = join(base, ".config", "opencode", "skill", "ghost");
     mkdirSync(dirname(ghost), { recursive: true });
@@ -962,9 +967,14 @@ describe("installCanon and what leaves with it", () => {
 
     for (const target of mirrorTargets()) {
       const left = existsSync(target.dir) ? readdirSync(target.dir) : [];
-      expect(left.filter((name) => lstatSync(join(target.dir, name)).isSymbolicLink())).toEqual(target.dir.endsWith("skill") ? ["ghost"] : []);
+      expect(left.filter((name) => lstatSync(join(target.dir, name)).isSymbolicLink()).sort()).toEqual(
+        target.dir.endsWith("skill") ? ["backup-skill", "ghost"] : [],
+      );
     }
     expect(readFileSync(join(base, ".claude", "skills", "mine", "SKILL.md"), "utf8")).toBe("mine\n");
+    expect(lstatSync(backupLink).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(backupLink)).toBe(backupTarget);
+    expect(readFileSync(join(backupTarget, "SKILL.md"), "utf8")).toBe("backup\n");
     // A symlink whose target is gone is not evidence of ours: it is still there, pointing
     // where it did.
     expect(lstatSync(ghost).isSymbolicLink()).toBe(true);

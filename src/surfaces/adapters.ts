@@ -3,7 +3,7 @@
 
 import surfacesJson from "./surfaces.json";
 import { writeFileSync, mkdirSync, symlinkSync, unlinkSync, readdirSync, lstatSync, existsSync, readFileSync, rmSync, realpathSync, rmdirSync, copyFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, relative, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
 import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
@@ -487,7 +487,11 @@ export function removeMachineArtifacts(): number {
     for (const name of names(target.dir)) {
       const link = join(target.dir, name);
       try {
-        if (lstatSync(link).isSymbolicLink() && canonical(link).startsWith(canonReal)) {
+        const pathFromCanon = relative(canonReal, canonical(link));
+        const isInsideCanon = pathFromCanon === "" || (
+          pathFromCanon !== ".." && !pathFromCanon.startsWith(`..${sep}`) && !isAbsolute(pathFromCanon)
+        );
+        if (lstatSync(link).isSymbolicLink() && isInsideCanon) {
           unlinkSync(link);
           removed += 1;
         }

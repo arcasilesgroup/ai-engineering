@@ -1362,7 +1362,9 @@
         "src/surfaces/adapters.ts",
         "tests/adversarial/carrier-merge.test.ts",
         "tests/carriers-install.spec.ts",
-        "tests/uninstall-command.spec.ts"
+        "tests/uninstall-command.spec.ts",
+        ".ai-engineering/workflow/reviews/floating-core-19-replan.md",
+        "LEARNINGS.md"
       ],
       "ui": null,
       "gates": {
@@ -1433,7 +1435,13 @@
       "gates": {
         "behavior": { "status": "pending", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": {
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "Adversarial review round 1 found F1 high: cleanup can follow a symlinked parent outside the repo; F2 medium: mirror cleanup can mistake skills-backup/ for a path inside skills/; F3 medium: recursive pruning can delete files created after the emptiness check."
+          ]
+        }
       },
       "status": "pending"
     },

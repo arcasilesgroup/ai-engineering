@@ -25,15 +25,23 @@ import { scriptedInput } from "../ui.ts";
  *  marker logic lives in install.ts beside its inverse, so what init merges in and
  *  what uninstall takes out can never drift apart. Unparseable → left alone with a
  *  warn: never rewrite what you cannot read. */
-function stripAiEngHooks(absolute: string, rel: string, removed: ui.Row[]): void {
+function stripAiEngHooks(root: string, absolute: string, rel: string, removed: ui.Row[]): void {
   const stripped = stripSharedText(readFileSync(absolute, "utf8"));
   if (stripped === null) {
     removed.push({ mark: "warn", text: `${rel} not rewritten — not JSON this installer can rewrite without reformatting it (review by hand)` });
     return;
   }
   if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
+    if (safeProjectPath(root, rel) !== absolute) {
+      removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
+      return;
+    }
     unlinkSync(absolute);
     removed.push({ mark: "ok", text: `${rel} removed`, dim: "it held only ai-eng entries" });
+    return;
+  }
+  if (safeProjectPath(root, rel) !== absolute) {
+    removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
     return;
   }
   writeFileSync(absolute, stripped);
@@ -52,8 +60,12 @@ function readAssetsFromLock(
   // uninstall, a hand-deletion), the binary's own planEntries list is the
   // fallback — same paths, hashes recomputed from the payload it installs.
   // Never a hardcoded subset, never a file it did not install.
-  const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
-  const hasLock = existsSync(lockPath);
+  const lockRel = ".ai-engineering/ai-eng.lock";
+  const lockPath = safeProjectPath(root, lockRel);
+  const hasLock = lockPath !== null && existsSync(lockPath);
+  if (lockPath === null && existsSync(join(root, lockRel))) {
+    removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: "linked path — not ai-eng's" });
+  }
   let assets: Record<string, string> = hasLock ? parseLock(readFileSync(lockPath, "utf8")).assets : {};
   if (Object.keys(assets).length === 0) {
     assets = Object.fromEntries(
@@ -76,8 +88,13 @@ function sweepProjectSide(
     sweepAsset(root, rel, assets, settingsByPath, removed);
   }
   if (hasLock) {
-    unlinkSync(join(root, ".ai-engineering", "ai-eng.lock"));
-    removed.push({ mark: "ok", text: "ai-eng.lock deleted", dim: `${Object.keys(assets).length} owned files swept` });
+    const lockPath = safeProjectPath(root, ".ai-engineering/ai-eng.lock");
+    if (lockPath === null) {
+      removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: "linked path — not ai-eng's" });
+    } else {
+      unlinkSync(lockPath);
+      removed.push({ mark: "ok", text: "ai-eng.lock deleted", dim: `${Object.keys(assets).length} owned files swept` });
+    }
   } else {
     removed.push({ mark: "muted", text: `${Object.keys(assets).length} owned files swept` });
   }
@@ -107,14 +124,14 @@ async function confirmUninstall(input: unknown): Promise<"project" | "everything
 
 /** Remove a directory only when it is empty — ai-eng created it, the sweep
  *  emptied it, and an empty scaffold is noise. */
-function pruneIfEmpty(dir: string): boolean {
+function pruneIfEmpty(root: string, rel: string): boolean {
+  const dir = safeProjectPath(root, rel);
+  if (dir === null) return false;
   try {
-    if (readdirSync(dir).length === 0) {
-      rmSync(dir, { recursive: true, force: true });
-      return true;
-    }
+    rmdirSync(dir);
+    return true;
   } catch {
-    /* absent or unreadable: nothing to prune */
+    /* absent, non-empty, or unreadable: nothing to prune */
   }
   return false;
 }
@@ -144,6 +161,28 @@ function collectSettingsByPath(): Map<string, string> {
   return settingsByPath;
 }
 
+function safeProjectPath(root: string, rel: string): string | null {
+  let canonicalRoot: string;
+  try {
+    canonicalRoot = realpathSync(root);
+  } catch {
+    return null;
+  }
+  const absolute = resolve(canonicalRoot, rel);
+  if (!pathIsWithin(canonicalRoot, absolute)) return null;
+
+  let current = canonicalRoot;
+  for (const component of relative(canonicalRoot, absolute).split(sep).filter(Boolean)) {
+    current = join(current, component);
+    try {
+      if (lstatSync(current).isSymbolicLink() || !pathIsWithin(canonicalRoot, realpathSync(current))) return null;
+    } catch {
+      return null;
+    }
+  }
+  return absolute;
+}
+
 function sweepAsset(
   root: string,
   rel: string,
@@ -161,14 +200,23 @@ function sweepAsset(
     return;
   }
   if (!existsSync(absolute)) return;
+  const safeAbsolute = safeProjectPath(root, rel);
+  if (safeAbsolute === null) {
+    removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
+    return;
+  }
   if (settingsByPath.has(rel)) {
     // Unedited: the whole file is ai-eng's template — it goes. Edited: the
     // user's keys stay, only our hook entries come out.
-    if (hashFile(absolute) === assets[rel]) {
-      unlinkSync(absolute);
+    if (hashFile(safeAbsolute) === assets[rel]) {
+      if (safeProjectPath(root, rel) !== safeAbsolute) {
+        removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
+        return;
+      }
+      unlinkSync(safeAbsolute);
       removed.push({ mark: "ok", text: `${rel} removed`, dim: "still the template ai-eng installed" });
     } else {
-      stripAiEngHooks(absolute, rel, removed);
+      stripAiEngHooks(root, safeAbsolute, rel, removed);
     }
     return;
   }
@@ -176,16 +224,24 @@ function sweepAsset(
   // user re-chmod); everything else by the lock's hash: delete only what
   // still matches what we installed — an edited file is yours now, kept and named.
   if (rel.startsWith(".git/hooks/")) {
-    if (readFileSync(absolute, "utf8").includes("ai-eng git floor shim")) {
-      unlinkSync(absolute);
+    if (readFileSync(safeAbsolute, "utf8").includes("ai-eng git floor shim")) {
+      if (safeProjectPath(root, rel) !== safeAbsolute) {
+        removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
+        return;
+      }
+      unlinkSync(safeAbsolute);
       removed.push({ mark: "ok", text: `${rel} removed`, dim: "marker-matched — never by name alone" });
     } else {
       removed.push({ mark: "warn", text: `${rel} kept`, dim: "no ai-eng marker: it is yours now" });
     }
     return;
   }
-  if (hashFile(absolute) === assets[rel]) {
-    unlinkSync(absolute);
+  if (hashFile(safeAbsolute) === assets[rel]) {
+    if (safeProjectPath(root, rel) !== safeAbsolute) {
+      removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
+      return;
+    }
+    unlinkSync(safeAbsolute);
     removed.push({ mark: "ok", text: `${rel} removed` });
   } else {
     removed.push({ mark: "warn", text: `${rel} kept`, dim: "you edited it after install — it is yours now" });
@@ -195,10 +251,10 @@ function sweepAsset(
 function pruneCreatedDirs(root: string, removed: ui.Row[]): void {
   // Dirs ai-eng created are pruned only when the sweep left them empty.
   for (const dir of [".ai-engineering", ".claude", ".cursor", ".codex", ".copilot", ".opencode/plugins", ".agents/hooks", ".pi/extensions", ".github/workflows"]) {
-    if (pruneIfEmpty(join(root, dir))) removed.push({ mark: "muted", text: `${dir}/ removed (empty)` });
+    if (pruneIfEmpty(root, dir)) removed.push({ mark: "muted", text: `${dir}/ removed (empty)` });
   }
   for (const dir of [".opencode", ".agents", ".pi", ".github"]) {
-    if (pruneIfEmpty(join(root, dir))) removed.push({ mark: "muted", text: `${dir}/ removed (empty)` });
+    if (pruneIfEmpty(root, dir)) removed.push({ mark: "muted", text: `${dir}/ removed (empty)` });
   }
 }
 

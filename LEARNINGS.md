@@ -1609,3 +1609,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Rerun the gate from a local Git-backed clone at the exact selected HEAD, without fetching.
 - **Lesson:** Do not run Git-dependent tests from an archive; use a local Git-backed checkout when repository metadata is part of the test precondition.
 - **Tags:** behavior, tests, git, isolation
+
+### L220 · 2026-10-30 · floating-core #19 · review
+- **Failure:** Review found cleanup could follow a symlinked parent, misclassify `skills-backup/`, and prune a directory after another process created a file.
+- **Root cause:** Containment, component identity, and deletion-time emptiness were not enforced at the filesystem operation boundary.
+- **Fix:** Require canonical component-checked containment and use atomic empty-directory pruning.
+- **Lesson:** Cleanup ownership requires canonical, component-checked containment, and directory pruning must use the filesystem's atomic empty-directory operation.
+- **Tags:** review, filesystem, symlink, uninstall

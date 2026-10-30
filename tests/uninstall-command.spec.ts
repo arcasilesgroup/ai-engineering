@@ -17,7 +17,7 @@
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { uninstallMain } from "../src/commands/uninstall.ts";
@@ -414,6 +414,50 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(result).toBe(0);
     expect(readFileSync(victim, "utf8")).toBe(payload);
     expect(out).toContain("▲ ../victim.txt kept · lock path escapes this repo — not ai-eng's");
+  });
+
+  test("a linked parent in the project sweep is refused", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    mkdirSync(join(cwd, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["cursor"]\n');
+    const outside = join(sandbox!, "outside");
+    mkdirSync(outside);
+    const victim = join(outside, "hooks.json");
+    const payload = "outside project\n";
+    writeFileSync(victim, payload);
+    symlinkSync(outside, join(cwd, ".cursor"), "dir");
+    writeFileSync(
+      join(cwd, ".ai-engineering", "ai-eng.lock"),
+      lockText({ version: VERSION, assets: { ".cursor/hooks.json": sha256(payload) } }),
+    );
+
+    const { result, out } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+
+    expect(result).toBe(0);
+    expect(readFileSync(victim, "utf8")).toBe(payload);
+    expect(lstatSync(join(cwd, ".cursor")).isSymbolicLink()).toBe(true);
+    expect(out).toContain("▲ .cursor/hooks.json kept · linked path — not ai-eng's");
+  });
+
+  test("project pruning keeps a non-empty carrier directory", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    initShaped(["cursor"]);
+    const userFile = join(cwd, ".cursor", "notes.txt");
+    writeFileSync(userFile, "keep this\n");
+
+    const { result } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+
+    expect(result).toBe(0);
+    expect(readFileSync(userFile, "utf8")).toBe("keep this\n");
+    expect(existsSync(join(cwd, ".cursor"))).toBe(true);
   });
 
   test("Cancel at the scope question removes nothing", async () => {
