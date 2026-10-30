@@ -16,7 +16,7 @@ import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
 import { canonDrift, changedCanonSkills, isFilesystemRefusal, refusedChangeText, type CanonDrift } from "../embed.ts";
 import { installCanon, installMachineCarriers, machineStateFile, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
 import { runGit } from "../git/run.ts";
-import { planEntries, refuseLine } from "./init-shared.ts";
+import { installLineRow, planEntries, refuseLine } from "./init-shared.ts";
 import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
@@ -97,7 +97,7 @@ function installMachineSide(
       text: preservedSkills.length > 0 ? "global canon repaired · local changes kept" : "global canon outdated or incomplete — re-installed",
       dim: why,
     });
-    rows.push(...canonRepair.map((line): ui.Row => (line.startsWith("⚠ ") ? { mark: "warn", text: line.slice(2) } : { mark: "sub", text: line.replace(/^✓ /, "") })));
+    rows.push(...canonRepair.map((line) => installLineRow(line, "sub")));
     rows.push(...preservedSkills.map((path): ui.Row => ({ mark: "warn", text: `${path} · local change kept` })));
   } else {
     rows.push({ mark: "muted", text: `global canon · ${canon.verified} files match ai-eng ${VERSION}` });

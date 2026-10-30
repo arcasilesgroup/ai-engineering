@@ -318,21 +318,21 @@ function materializePrefix(prefix: string, destRoot: string, embedded = embedded
   const lines: string[] = [];
   const executablePattern = /\.(mjs|sh)$/;
   try {
-    mkdirSync(destRoot, { recursive: true });
+    ensureRealDirectory(destRoot);
   } catch (error) {
+    if (error instanceof LinkedPathRefusal) return [`⚠ ${linkedPathsText([error.path])}`];
     if (!isFilesystemRefusal(error)) throw error;
     return [`⚠ ${refusedChangeText(destRoot, error)}`];
-  }
-  const rootStat = lstatSync(destRoot);
-  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
-    throw new Error(`refusing to materialize through a symlink or non-directory: ${destRoot}`);
   }
   const canonicalRoot = realpathSync(destRoot);
   let count = 0;
   const refused: string[] = [];
+  const linked: string[] = [];
   for (const [path, ref] of embedded) {
     const dest = resolve(canonicalRoot, path.slice(prefix.length));
     assertInsideRoot(canonicalRoot, dest);
+    // Everything under a link already refused is skipped: it is named once, by the link.
+    if (linked.some((link) => pathIsWithin(link, dest))) continue;
     const pathname = embeddedPath(ref);
     // Inside a compiled binary the asset lives at its ORIGINAL absolute path —
     // Bun --compile preserves the string. The ref is already the path.
@@ -341,6 +341,10 @@ function materializePrefix(prefix: string, destRoot: string, embedded = embedded
       resolvedFromRef(source, dest, executablePattern, canonicalRoot);
     } catch (error) {
       // One refused file must not stop the rest of the payload, or the lock after it.
+      if (error instanceof LinkedPathRefusal) {
+        linked.push(error.path);
+        continue;
+      }
       if (!isFilesystemRefusal(error)) throw error;
       refused.push(`${dest} (${error.code})`);
       continue;
@@ -348,8 +352,36 @@ function materializePrefix(prefix: string, destRoot: string, embedded = embedded
     count += 1;
   }
   lines.push(`materialized ${count} assets → ${destRoot}`);
+  if (linked.length > 0) lines.push(`⚠ ${linkedPathsText(linked)}`);
   if (refused.length > 0) lines.push(`⚠ ${refused.length} file(s) not written — the filesystem refused (read-only, locked or busy); left as they are: ${refused.join(", ")}. Make them writable, then run ai-eng update`);
   return lines;
+}
+
+/** A link, or a file where a folder belongs (or the reverse), on a path the payload writes.
+ *  It is somebody's setup (a dotfiles link, say): a refusal to report, never written through. */
+class LinkedPathRefusal extends Error {
+  readonly code = "ELOOP";
+  constructor(readonly path: string) {
+    super(`refusing to materialize through a symlink or a path of another kind: ${path}`);
+  }
+}
+
+/** The one line for the paths materialize would not write through. */
+function linkedPathsText(paths: readonly string[]): string {
+  return `${paths.length} path(s) where ai-eng installs are links or not its own folders or files — never written through, left as they are (the link and what it points at untouched): ${paths.join(", ")}. Move one aside to let ai-eng install there`;
+}
+
+/** The root folder of a payload: created when absent, refused when a link or not a folder. */
+function ensureRealDirectory(directory: string): void {
+  let stat: Stats;
+  try {
+    stat = lstatSync(directory);
+  } catch (error) {
+    if (!isFilesystemRefusal(error) || error.code !== "ENOENT") throw error;
+    mkdirSync(directory, { recursive: true });
+    stat = lstatSync(directory);
+  }
+  if (stat.isSymbolicLink() || !stat.isDirectory()) throw new LinkedPathRefusal(directory);
 }
 
 /** One warning for a write, delete or rename the filesystem refused: the path, the errno and the step. */
@@ -389,9 +421,7 @@ function ensureContainedDirectory(root: string, directory: string): void {
       mkdirSync(current);
       stat = lstatSync(current);
     }
-    if (stat.isSymbolicLink() || !stat.isDirectory()) {
-      throw new Error(`refusing to materialize through a symlink or non-directory: ${current}`);
-    }
+    if (stat.isSymbolicLink() || !stat.isDirectory()) throw new LinkedPathRefusal(current);
     assertInsideRoot(root, realpathSync(current));
   }
 }
@@ -401,13 +431,17 @@ function resolvedFromRef(source: string, dest: string, executablePattern: RegExp
   ensureContainedDirectory(root, dirname(dest));
   try {
     const stat = lstatSync(dest);
-    if (stat.isSymbolicLink() || !stat.isFile()) {
-      throw new Error(`refusing to materialize through a symlink or non-file: ${dest}`);
-    }
+    if (stat.isSymbolicLink() || !stat.isFile()) throw new LinkedPathRefusal(dest);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  writeFileSync(dest, readFileSync(source));
+  // O_NOFOLLOW: a link that appears after the check is refused (ELOOP), never written through.
+  const descriptor = openSync(dest, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o666);
+  try {
+    writeFileSync(descriptor, readFileSync(source));
+  } finally {
+    closeSync(descriptor);
+  }
   if (executablePattern.test(dest)) chmodSync(dest, 0o755);
 }
 

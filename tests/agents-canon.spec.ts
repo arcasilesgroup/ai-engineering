@@ -124,9 +124,10 @@ describe("installAgentsCanon under AI_ENG_HOME", () => {
 
   test("canon holds the five markdown files and ~/.claude/agents is a symlink", () => {
     const base = useHome("symlink");
-    // Broken link: existsSync is false, but the path is occupied — install must unlink it.
+    // The installer's own link, dangling before the canon exists: existsSync is false, but the
+    // path is occupied, and it must not make the install throw.
     mkdirSync(join(base, ".claude"), { recursive: true });
-    symlinkSync(join(base, "gone"), join(base, ".claude", "agents"), "dir");
+    symlinkSync(join(base, "agents"), join(base, ".claude", "agents"), "dir");
 
     const lines = installAgentsCanon();
     const canon = join(base, "agents");

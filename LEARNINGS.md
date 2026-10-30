@@ -1773,3 +1773,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** The helper returns a refusal for errno failures and callers warn with the path; refused stale pages keep their hash in a separate `refused` list and are retried; an unwritable lock exits 1 with a warning.
 - **Lesson:** Catch filesystem refusals once at the shared helper, and never let a failed cleanup change a file's ownership class.
 - **Tags:** review, fail-closed, cleanup, ownership
+
+### L243 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F27-F30: a symlinked canon skill or folder crashed update/init/config before `ai-eng.lock`; install warnings were dropped or shown as ✓; the uninstall refusal had no regression; agent install overwrote same-named user files and repointed user links.
+- **Root cause:** Deliberate symlink refusals threw a plain error that handlers treated as a bug; callers were not updated when install started returning warnings; install did not share cleanup's ownership rule.
+- **Fix:** Symlink refusals return a named refusal and the rest installs; one shared row helper shows ⚠ warnings; agents install replaces only the exact installer link or prior install bytes.
+- **Lesson:** A deliberate refusal must look like a refusal, and install needs the same ownership rule as cleanup: exact bytes or the exact link.
+- **Tags:** review, symlink, ownership, fail-closed, carriers

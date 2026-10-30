@@ -8,7 +8,7 @@
 // or a real TTY would hang the suite).
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PassThrough } from "node:stream";
@@ -152,6 +152,21 @@ describe("ai-eng config · --add and --remove", () => {
       '# keep me\n[surfaces]\nenabled = ["claude-code", "cursor"]\n\n[canon]\npacks = ["triage"]\n\n[models]\ndecide = "x"\n',
     );
     expectFullCanonInstalled(home);
+  });
+
+  test("F28: what the canon install could not do is shown as a warning, never dropped or marked ✓", async () => {
+    const { repo, home } = governedRepo();
+    installCanon(VERSION);
+    const skill = join(home, "skills", "ai-debug");
+    const dotfiles = join(home, "dotfiles-ai-debug");
+    renameSync(skill, dotfiles);
+    symlinkSync(dotfiles, skill, "dir");
+
+    const { result, out } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(out).toContain(`▲ 1 path(s) where ai-eng installs are links or not its own folders or files — never written through, left as they are (the link and what it points at untouched): ${join(realpathSync(join(home, "skills")), "ai-debug")}`);
+    expect(out).not.toContain("✓ ⚠");
   });
 
   test("--add refuses a surface with no adapter and leaves the config byte-identical", async () => {

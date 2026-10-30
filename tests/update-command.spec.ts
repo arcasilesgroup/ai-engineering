@@ -12,7 +12,7 @@
 
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, delimiter, join, dirname, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -644,6 +644,41 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(readFileSync(machineSettings, "utf8")).toBe(settingsBefore);
     expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toInclude(`version = "${VERSION}"`);
   });
+
+  for (const linked of ["skills/ai-verify", "skills"] as const) {
+    test(`F27: a symlinked \`${linked}\` is a refusal, not a crash: the link and its target stay, the path is named, the lock is written`, async () => {
+      process.chdir(governedRepo(`repo-linked-${linked.replace("/", "-")}-first`));
+      expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+      // A dotfiles setup: the user's own copy, lacking one shipped page, linked in its place.
+      const inCanon = join(ENG_HOME, linked);
+      // A linked skill is found under the canon's resolved root; the linked root by its own name.
+      const linkPath = linked === "skills" ? inCanon : join(realpathSync(dirname(inCanon)), basename(inCanon));
+      const dotfiles = join(SANDBOX, `dotfiles-${linked.replace("/", "-")}`);
+      renameSync(inCanon, dotfiles);
+      const page = join(dotfiles, linked === "skills" ? "ai-verify" : "", "VERIFICATION-SETUP-GUIDE.md");
+      const shipped = readFileSync(page);
+      rmSync(page);
+      symlinkSync(dotfiles, inCanon, "dir");
+      const before = filesBelow(dotfiles).map((path) => [path, readFileSync(path)] as const);
+      const repo = governedRepo(`repo-linked-${linked.replace("/", "-")}`);
+      process.chdir(repo);
+
+      try {
+        const run = await captured(() => updateMain({ yes: true }));
+
+        expect(run.value).toBe(0);
+        expect(run.out).toInclude(`path(s) where ai-eng installs are links or not its own folders or files — never written through, left as they are (the link and what it points at untouched): ${linkPath}`);
+        expect(readlinkSync(inCanon)).toBe(dotfiles);
+        expect(existsSync(page)).toBe(false);
+        expect(filesBelow(dotfiles).map((path) => [path, readFileSync(path)] as const)).toEqual(before);
+        expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toInclude(`version = "${VERSION}"`);
+      } finally {
+        rmSync(inCanon);
+        renameSync(dotfiles, inCanon);
+        writeFileSync(join(inCanon, linked === "skills" ? "ai-verify" : "", "VERIFICATION-SETUP-GUIDE.md"), shipped);
+      }
+    });
+  }
 
   test("F25: a recorded stale page the filesystem will not delete is kept and named, and the lock is still written", async () => {
     // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.

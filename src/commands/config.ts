@@ -9,7 +9,7 @@ import { multiselect, isCancel } from "@clack/prompts";
 import { canonicalSurfaceId, repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
 import { changedCanonSkills } from "../embed.ts";
 import { SURFACES, mirrorTargets, surfaceCanGovern, repoCarrier, machineCarrier, installMachineCarriers, installCanon, type Surface } from "../surfaces/adapters.ts";
-import { hasAdapter, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions } from "./init-shared.ts";
+import { hasAdapter, installLineRow, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions } from "./init-shared.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -129,7 +129,9 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   if (resolved.kind === "exit") return resolved.code;
   const { current, addedNow } = resolved;
   writeConfigSurfaces(join(root, ".ai-engineering", "config.toml"), current);
-  installCanon(VERSION, changedCanonSkills(home()));
+  // The canon is refreshed quietly; only what it could not do is said, as a warning.
+  const canonWarnings = installCanon(VERSION, changedCanonSkills(home())).filter((line) => line.startsWith("⚠ ")).map((line) => installLineRow(line));
+  if (canonWarnings.length > 0) ui.section("Global canon", canonWarnings);
   installNewSurfaces(root, current, surfacesBefore, addedNow);
   showSurfaceDelta(current, surfacesBefore);
   const mirrors = mirrorTargets().length;

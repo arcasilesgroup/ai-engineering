@@ -25,7 +25,7 @@ import { uninstallMain } from "../src/commands/uninstall.ts";
 import { embeddedPath, embeddedUnder, recordCanonOwnership } from "../src/embed.ts";
 import { contractEntries, planEntries } from "../src/commands/init-shared.ts";
 import { buildLock, install, lockText, sha256 } from "../src/install.ts";
-import { installMachineCarriers, machineStateFile, machineStateLockFile, machineStateLockScope, readMachineState } from "../src/surfaces/adapters.ts";
+import { installCanon, installMachineCarriers, machineStateFile, machineStateLockFile, machineStateLockScope, readMachineState } from "../src/surfaces/adapters.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 import { usePrivateStdin } from "./fixtures/private-stdin.ts";
@@ -795,6 +795,36 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(result).toBe(0);
     expect(out).toContain(`${machine} deleted`);
     expect(existsSync(machine)).toBe(false);
+  });
+
+  test("F29: a canon file and a slash command in read-only folders are kept and named, and the machine home stays", async () => {
+    // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+    if (process.platform === "win32" || process.getuid?.() === 0) return;
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    installCanon(VERSION);
+    const skillFolder = join(machine, "skills", "ai-debug");
+    const commands = join(machine, ".config", "opencode", "commands");
+    const canonFile = join(realpathSync(machine), "skills", "ai-debug", "SKILL.md");
+    const command = join(commands, "ai-debug.md");
+    const canonBytes = readFileSync(canonFile, "utf8");
+    const commandBytes = readFileSync(command, "utf8");
+    chmodSync(skillFolder, 0o555);
+    chmodSync(commands, 0o555);
+
+    const run = await uninstall(everythingScope("n", "y")).finally(() => {
+      chmodSync(skillFolder, 0o755);
+      chmodSync(commands, 0o755);
+    });
+
+    const keptText = "kept · still ai-eng's, but it changed during uninstall or the filesystem refused the change — preserved";
+    expect(run.result).toBe(0);
+    expect(run.out).toContain(`${canonFile} ${keptText}`);
+    expect(run.out).toContain(`${command} ${keptText}`);
+    expect(readFileSync(canonFile, "utf8")).toBe(canonBytes);
+    expect(readFileSync(command, "utf8")).toBe(commandBytes);
+    expect(run.out).toContain(`${machine} kept`);
   });
 
   test("F22: the ownership record stays while a file it vouches for remains", async () => {

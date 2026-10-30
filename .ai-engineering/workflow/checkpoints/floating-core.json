@@ -1709,7 +1709,8 @@
     "Preserve the four empty untracked lifecycle artifacts in the selected checkout; run verification in a Git-backed clone under the session files directory, install locked dependencies there, and keep test homes outside the clone.",
     "On 2026-10-30 the user directed autonomous completion of every checkpoint and asked the orchestrator to audit, decide, and fix all changes to ai-engineering standard; CP19 resumes after its circuit breaker under that instruction, choosing fail-closed preservation of user data for every open finding.",
     "Pre-existing dirty files outside the floating-core checkpoint scope stay untouched; the standards audit covers floating-core commits and checkpoint-owned changes only.",
-    "The 2026-10-30 standards audit found five issues in already-passed checkpoints (pre-push base fail-open, isolated-runner commit identity, worktree rm base fallback, duplicated Git helpers, dead worktree inventory code); they are fixed in a new final checkpoint 24 rather than by reopening passed checkpoints."
+    "The 2026-10-30 standards audit found five issues in already-passed checkpoints (pre-push base fail-open, isolated-runner commit identity, worktree rm base fallback, duplicated Git helpers, dead worktree inventory code); they are fixed in a new final checkpoint 24 rather than by reopening passed checkpoints.",
+    "When `ai-eng.lock` itself cannot be written, update warns with the path and exits 1; a failed lock write must never look like success. [CP19 F25; R21]"
   ],
   "new_dependencies": [],
   "notes": [

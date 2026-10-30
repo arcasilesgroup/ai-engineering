@@ -16,7 +16,7 @@ import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machi
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, changedCanonSkills, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home, isGoverned } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
+import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { VERSION } from "../version.ts";
@@ -165,7 +165,7 @@ async function installCanonOrReport(
       }
     }
     const preservedSkills = canon.drift > 0 ? changedCanonSkills(home()) : [];
-    const canonLines = installCanon(VERSION, preservedSkills).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
+    const canonLines = installCanon(VERSION, preservedSkills).map((line) => installLineRow(line));
     if (reinstalling) {
       ui.section("global canon outdated or incomplete — re-installing", canonLines, canonSummary(canon));
     } else {

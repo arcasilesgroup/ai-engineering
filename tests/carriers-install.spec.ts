@@ -36,6 +36,7 @@ import {
   carrierBase,
   carrierFiles,
   carrierPath,
+  installAgentsCanon,
   installCanon,
   installMachineCarriers,
   machineCarrier,
@@ -1369,7 +1370,7 @@ describe("what 2.2.0 moved out of the repo", () => {
 });
 
 describe("installCanon and what leaves with it", () => {
-  test("installCanon refuses a symlinked skill directory instead of writing outside the canon", () => {
+  test("installCanon refuses a symlinked skill directory instead of writing outside the canon, and says so", () => {
     const base = useHome("canon-symlink");
     const nestedAsset = [...embeddedUnder("skills/")].find(([path]) => {
       const parts = path.slice("skills/".length).split("/");
@@ -1384,8 +1385,28 @@ describe("installCanon and what leaves with it", () => {
     mkdirSync(escaped);
     symlinkSync(escaped, join(skillDir, parts[1]!), "dir");
 
-    expect(() => installCanon("2.2.0")).toThrow("symlink");
+    const lines = installCanon("2.2.0");
+    expect(lines).toContain(`⚠ 1 path(s) where ai-eng installs are links or not its own folders or files — never written through, left as they are (the link and what it points at untouched): ${join(realpathSync(skillDir), parts[1]!)}. Move one aside to let ai-eng install there`);
     expect(readdirSync(escaped)).toEqual([]);
+  });
+
+  test("F30: the agents mirror never overwrites a same-named file of the user's, nor repoints a link of theirs", () => {
+    const base = useHome("agents-mirror-user");
+    const mirror = join(base, ".claude", "agents");
+    const agent = readdirSync(join(import.meta.dir, "..", "agents")).filter((name) => name.endsWith(".md")).sort()[0]!;
+    write(join(mirror, agent), "# my own agent of the same name\n");
+
+    const lines = installAgentsCanon();
+    expect(readFileSync(join(mirror, agent), "utf8")).toBe("# my own agent of the same name\n");
+    expect(lines).toContain(`⚠ 1 file(s) in ~/.claude/agents are yours (they differ from ai-eng's agent of the same name) — kept: ${agent}. Delete or rename one to receive ai-eng's version`);
+
+    rmSync(mirror, { recursive: true });
+    const dotfiles = join(base, "dotfiles-agents");
+    write(join(dotfiles, "mine.md"), "mine\n");
+    symlinkSync(dotfiles, mirror, "dir");
+    expect(installAgentsCanon()).toContain(`⚠ ~/.claude/agents is a link of yours (→ ${dotfiles}), not ai-eng's — left as it is; ai-eng's agents are not mirrored there`);
+    expect(readlinkSync(mirror)).toBe(dotfiles);
+    expect(readdirSync(dotfiles)).toEqual(["mine.md"]);
   });
 
   test("installCanon writes the canon, the three mirrors and one slash command per skill", () => {

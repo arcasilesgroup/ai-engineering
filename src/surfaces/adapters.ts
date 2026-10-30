@@ -3,9 +3,9 @@
 
 import surfacesJson from "./surfaces.json";
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, copyFileSync, existsSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { closeSync, constants, existsSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { hostname } from "node:os";
-import { basename, join, dirname, relative, sep, isAbsolute } from "node:path";
+import { basename, join, dirname, relative, resolve, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
 import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
@@ -232,41 +232,95 @@ function refusalAsLines(path: string, step: () => string[]): string[] {
 }
 
 /** Materialize ~/.ai-engineering/agents and mirror it at ~/.claude/agents (symlink, or copy).
+ *  The mirror is ours only as the exact link this installer writes (`<home>/agents`, the F10
+ *  rule) or, in a real folder, as files holding ai-eng's bytes; a link or a file of the user's
+ *  is kept and named, never repointed or overwritten.
  *  Exported so tests can drive the mirror under AI_ENG_HOME without writing the real home. */
 export function installAgentsCanon(): string[] {
   const agentsCanon = join(home(), "agents");
+  // The bytes the previous install wrote, read before this one replaces them: a mirror copy
+  // still equal to them is ours to refresh.
+  const earlier = readAgentFiles(agentsCanon);
   const materialized = warningsOf(materializeAgents(agentsCanon));
   const agentFiles = readdirSync(agentsCanon).filter((name) => name.endsWith(".md"));
   const lines = [`✓ ~/.ai-engineering/agents/ — ${agentFiles.length} agents installed`, ...materialized];
   const agentsMirror = join(machineBase(), ".claude", "agents");
   mkdirSync(dirname(agentsMirror), { recursive: true });
-  // Same as linkSkills: lstat + unlink any symlink (including dangling). existsSync is
-  // false for a broken link, so skipping the unlink lets symlinkSync throw EEXIST and
-  // abort installCanon. A real directory is not ours to replace — copy into it instead.
+  let mirror: Stats | null = null;
   try {
-    if (lstatSync(agentsMirror).isSymbolicLink()) {
-      unlinkSync(agentsMirror);
-    } else {
-      for (const name of agentFiles) {
-        copyFileSync(join(agentsCanon, name), join(agentsMirror, name));
-      }
-      lines.push("✓ Copy → ~/.claude/agents (copy)");
-      return lines;
-    }
-  } catch {
-    /* absent: create the symlink below */
+    mirror = lstatSync(agentsMirror);
+  } catch (error) {
+    if (!isFilesystemRefusal(error) || error.code !== "ENOENT") throw error;
   }
+  if (mirror?.isSymbolicLink() === true) {
+    const target = readlinkSync(agentsMirror);
+    if (resolve(dirname(agentsMirror), target) === resolve(agentsCanon)) return [...lines, "✓ Symlink → ~/.claude/agents"];
+    return [...lines, `⚠ ~/.claude/agents is a link of yours (→ ${target}), not ai-eng's — left as it is; ai-eng's agents are not mirrored there`];
+  }
+  if (mirror !== null && !mirror.isDirectory()) {
+    return [...lines, "⚠ ~/.claude/agents is a file, not a folder — left as it is; ai-eng's agents are not mirrored there"];
+  }
+  if (mirror === null) {
+    try {
+      symlinkSync(agentsCanon, agentsMirror, "dir");
+      return [...lines, "✓ Symlink → ~/.claude/agents"];
+    } catch {
+      mkdirSync(agentsMirror, { recursive: true });
+    }
+  }
+  return [...lines, ...copyAgentsInto(agentsMirror, agentsCanon, agentFiles, earlier)];
+}
+
+/** The regular agent files in a folder, by name; links and anything unreadable are skipped. */
+function readAgentFiles(directory: string): Map<string, Buffer> {
+  const files = new Map<string, Buffer>();
+  let names: string[];
   try {
-    symlinkSync(agentsCanon, agentsMirror, "dir");
-    lines.push("✓ Symlink → ~/.claude/agents");
+    names = readdirSync(directory).filter((name) => name.endsWith(".md"));
   } catch {
-    mkdirSync(agentsMirror, { recursive: true });
-    for (const name of agentFiles) {
-      copyFileSync(join(agentsCanon, name), join(agentsMirror, name));
-    }
-    lines.push("✓ Copy → ~/.claude/agents (copy)");
+    return files;
   }
+  for (const name of names) {
+    const absolute = safeProjectPath(directory, name);
+    const snapshot = absolute === null ? null : readProjectFileSnapshot(directory, absolute);
+    if (snapshot !== null) files.set(name, snapshot.content);
+  }
+  return files;
+}
+
+/** Copy the agents into a real mirror folder: a missing file is created, a file still holding
+ *  this or the previous install's bytes is refreshed, anything else is the user's and stays. */
+function copyAgentsInto(mirror: string, canon: string, names: readonly string[], earlier: ReadonlyMap<string, Buffer>): string[] {
+  const kept: string[] = [];
+  const refused: string[] = [];
+  for (const name of names) {
+    const outcome = copyAgentFile(mirror, name, readFileSync(join(canon, name)), earlier.get(name));
+    if (outcome === "kept") kept.push(name);
+    if (outcome === "refused") refused.push(join(mirror, name));
+  }
+  const lines = ["✓ Copy → ~/.claude/agents (copy)"];
+  if (kept.length > 0) lines.push(`⚠ ${kept.length} file(s) in ~/.claude/agents are yours (they differ from ai-eng's agent of the same name) — kept: ${kept.join(", ")}. Delete or rename one to receive ai-eng's version`);
+  if (refused.length > 0) lines.push(`⚠ ${refused.length} agent file(s) not written — changed meanwhile, or the filesystem refused; left as they are: ${refused.join(", ")}`);
   return lines;
+}
+
+function copyAgentFile(mirror: string, name: string, ours: Buffer, earlier: Buffer | undefined): "written" | "current" | "kept" | "refused" {
+  if (!pathEntryExists(join(mirror, name))) {
+    try {
+      // wx: never through a link or over a file that appeared since the check.
+      writeFileSync(join(mirror, name), ours, { flag: "wx" });
+      return "written";
+    } catch (error) {
+      if (!isFilesystemRefusal(error)) throw error;
+      return "refused";
+    }
+  }
+  const absolute = safeProjectPath(mirror, name);
+  const snapshot = absolute === null ? null : readProjectFileSnapshot(mirror, absolute);
+  if (absolute === null || snapshot === null) return "kept";
+  if (snapshot.content.equals(ours)) return "current";
+  if (earlier === undefined || !snapshot.content.equals(earlier)) return "kept";
+  return writeProjectFile(mirror, absolute, snapshot, ours.toString("utf8")) ? "written" : "refused";
 }
 
 /** The pre-2.2.0 repo paths of the carriers that now live on the machine, keyed to the

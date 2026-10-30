@@ -4,6 +4,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { PlanEntry } from "../install.ts";
+import type { Row } from "../ui.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate } from "../embed.ts";
 import { SURFACES, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
@@ -63,6 +64,12 @@ export function refuseLine(refused: { path: string; reason: string }): string {
         ? "laid out in a style this installer would have to reformat (tabs, CRLF, a compact one-liner)"
         : "not a JSON object";
   return `⚠ ${refused.path} — ${why}: left exactly as it is, so this surface runs without guards until you move it aside or reformat it`;
+}
+
+/** An install line as a report row: a ⚠ line is a warning, never shown under a ✓. */
+export function installLineRow(line: string, mark: "ok" | "sub" = "ok"): Row {
+  if (line.startsWith("⚠ ")) return { mark: "warn", text: line.slice(2) };
+  return { mark, text: line.replace(/^✓ /, "") };
 }
 
 function render(template: string, vars: Record<string, string>): string {
