@@ -1336,7 +1336,8 @@
       "tasks": [
         "Correct tests/adversarial/carrier-merge.test.ts:258 to expect machine-home settings to remain; the reproduced full-suite assertion conflicts with the approved user-owned-file preservation requirement.",
         "Ensure uninstall removes only byte-identical canon-owned skill files, refuses linked paths, and prunes empty directories without removing user-owned content.",
-        "Cover preservation of custom, edited, and unrelated user files in the carrier-merge and uninstall regressions."
+        "Cover preservation of custom, edited, and unrelated user files in the carrier-merge and uninstall regressions.",
+        "Write machine-home settings atomically so a failed write or rename cannot leave the user's original bytes truncated or partial."
       ],
       "files": [
         "src/commands/uninstall.ts",
@@ -1348,7 +1349,8 @@
       ],
       "acceptance": [
         "Carrier cleanup and uninstall preserve machine-home settings, custom skill directories, edited files, and unrelated user-owned content.",
-        "Uninstall removes only byte-identical canon-owned skill files, refuses linked paths, and prunes only empty directories."
+        "Uninstall removes only byte-identical canon-owned skill files, refuses linked paths, and prunes only empty directories.",
+        "If a machine-home settings update fails, its original bytes remain intact and no partial file is left."
       ],
       "verify": [
         "bun test tests/adversarial/carrier-merge.test.ts",
@@ -1383,11 +1385,9 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
           "status": "failed",
-          "attempts": 3,
+          "attempts": 1,
           "findings": [
-            "Adversarial review round 1 found F1 high: cleanup can follow a symlinked parent outside the repo; F2 medium: mirror cleanup can mistake skills-backup/ for a path inside skills/; F3 medium: recursive pruning can delete files created after the emptiness check.",
-            "Adversarial review round 2 resolved F2 and F3; F1 remains open because path checks can be raced before writeFileSync or unlinkSync.",
-            "Adversarial review round 3 kept F1 open because file identity/content can change after validation and before unlink or truncating write; it added F4 because mirror cleanup can unlink a newly replaced user symlink based on a stale target check."
+            "Adversarial review loop attempt 1 failed after four critic rounds: F1-F4 were resolved; F5 remains open because a write error can leave user-owned settings truncated or partial."
           ]
         }
       },
