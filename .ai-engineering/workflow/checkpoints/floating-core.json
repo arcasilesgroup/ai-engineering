@@ -1337,7 +1337,9 @@
         "Correct tests/adversarial/carrier-merge.test.ts:258 to expect machine-home settings to remain; the reproduced full-suite assertion conflicts with the approved user-owned-file preservation requirement.",
         "Ensure uninstall removes only byte-identical canon-owned skill files, refuses linked paths, and prunes empty directories without removing user-owned content.",
         "Cover preservation of custom, edited, and unrelated user files in the carrier-merge and uninstall regressions.",
-        "Fail closed with a warning when portable machine-settings creation, replacement, or removal cannot be bound to a validated filesystem identity, while completing local canon installation and configuration."
+        "Fail closed with a warning when portable machine-settings creation, replacement, or removal cannot be bound to a validated filesystem identity, while completing local canon installation and configuration.",
+        "Skip machine-state writes or deletion when any user settings alias targets machine.json, including unselected surfaces and aliases changed at the mutation boundary.",
+        "Refuse machine-state writes or deletion when any user settings alias targets machine.json, including unselected surfaces, or when an alias changes at the mutation boundary."
       ],
       "files": [
         "src/commands/uninstall.ts",
@@ -1358,7 +1360,9 @@
         "Carrier cleanup and uninstall preserve machine-home settings, custom skill directories, edited files, and unrelated user-owned content.",
         "Uninstall removes only byte-identical canon-owned skill files, refuses linked paths, and prunes only empty directories.",
         "Unsafe machine-settings creation, replacement, or removal is refused with a warning; existing settings and external symlink targets remain unchanged.",
-        "Local canon skill installation, configuration, updates, and lock recovery still complete when machine-settings registration is refused."
+        "Local canon skill installation, configuration, updates, and lock recovery still complete when machine-settings registration is refused.",
+        "A user settings symlink or hard link to machine.json is preserved across init/update/uninstall, even for an unselected surface or a replacement racing the operation.",
+        "A user settings symlink to machine.json is not overwritten or deleted, even when it belongs to an unselected surface or changes during the operation; the machine operation warns and fails closed."
       ],
       "verify": [
         "bun test tests/adversarial/carrier-merge.test.ts",
@@ -1388,6 +1392,7 @@
         "tests/adversarial/init-recovery.test.ts",
         ".ai-engineering/workflow/reviews/floating-core-19-replan.md",
         ".ai-engineering/workflow/reviews/floating-core-19-write-safety.md",
+        ".ai-engineering/workflow/reviews/floating-core-19-machine-state.md",
         ".ai-engineering/workflow/test-plans/floating-core.json",
         "LEARNINGS.md"
       ],
@@ -1416,7 +1421,9 @@
             "Adversarial review loop attempt 1 failed after four critic rounds: F1-F4 were resolved; F5 remains open because a write error can leave user-owned settings truncated or partial.",
             "Adversarial review loop attempt 2 round 1 confirmed F5: adapters.ts:409 and :450 write settings in place, so an error can leave partial contents; I73 reproduces this. The atomic staging fix resolved F5, but review round 2 found F6: snapshot validation is separate from renameSync/unlinkSync, leaving a race where a replacement can still be overwritten or removed.",
             "Adversarial review loop attempt 2 round 3 found F7: a user settings symlink can target machine.json, so init/update writes or uninstall deletion of that internal path can still mutate user-owned content despite the settings refusal.",
-            "Adversarial review loop attempt 2 round 3 found F7: a user settings symlink can target machine.json, so init/update writes or uninstall deletion of that internal path can still mutate user-owned content despite the settings refusal."
+            "Adversarial review loop attempt 2 round 4 resolved F5/F6 but found F8: unselected settings aliases and a symlink swapped after validation can still expose machine.json to writes or deletion.",
+            "Adversarial review loop attempt 2 round 3 found F7: a user settings symlink can target machine.json, so init/update writes or uninstall deletion of that internal path can still mutate user-owned content despite the settings refusal.",
+            "Adversarial review loop attempt 2 round 4 found F8: unselected settings aliases and a symlink swapped after validation can still expose machine.json to writes or deletion."
           ]
         }
       },
@@ -1627,6 +1634,8 @@
     "Plan text is in English, the repository's working language, although the brainstorm is in Spanish. [AGENTS.md; existing plans in .ai-engineering/workflow/checkpoints/]",
     "If a file or symlink changes after ownership validation, cleanup aborts and preserves the replacement instead of retrying against the new path; this is the least-destructive behavior consistent with CP19's preserve-user-owned-files acceptance.",
     "Where the portable runtime cannot bind machine-settings rename/unlink to a validated inode, fail closed with an explicit warning rather than mutate the user's shared settings file.",
+    "Before mutating machine.json, treat aliases from every surface settings path as user ownership; if alias identity cannot be locked through the mutation, skip the machine-state write or deletion.",
+    "Machine-state writes and deletion must also consider aliases from unselected user settings surfaces; a settings symlink target remains user-owned even when its caller is not selected.",
     "Because portable Bun/Node path operations cannot atomically prove a machine-settings pathname still names the validated inode at rename/unlink time, machine-settings mutations that need those operations are refused with a warning."
   ],
   "new_dependencies": [],
