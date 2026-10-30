@@ -9,12 +9,15 @@
 //    FULL plan records our template hash for files install() classified as the
 //    user's, and the next update reports a false conflict while uninstall strips a
 //    file the binary never owned.
-import { test, expect } from "bun:test";
+import { test, expect, spyOn } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { existsSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import * as fs from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { createHash } from "node:crypto";
+import { installMachineCarriers } from "../../src/surfaces/adapters.ts";
+import { refuseLine } from "../../src/commands/init-shared.ts";
 
 const cli = join(import.meta.dir, "..", "..", "src", "cli.ts");
 
@@ -24,6 +27,72 @@ const cli = join(import.meta.dir, "..", "..", "src", "cli.ts");
  *  what happened once, and why this constant exists. */
 function envWithHome(home: string): Record<string, string> {
   return { ...(process.env as Record<string, string>), AI_ENG_HOME: home, NO_COLOR: "1", CI: "1", AI_ENG_NO_UPDATE_NOTICES: "1" };
+}
+
+type AliasType = "symlink" | "hard-link";
+
+type MachineAlias = {
+  statePath: string;
+  settingsPath: string;
+  stateBytes: Buffer;
+  aliasType: AliasType;
+};
+
+const MACHINE_STATE_BYTES = Buffer.from('{\n  "version": "user-owned",\n  "carriers": { "opencode": "previous" }\n}\n');
+
+function createMachineAlias(home: string, aliasType: AliasType, stateBytes = MACHINE_STATE_BYTES): MachineAlias {
+  const statePath = join(home, "machine.json");
+  const settingsPath = join(home, ".claude", "settings.json");
+  mkdirSync(dirname(settingsPath), { recursive: true });
+  writeFileSync(statePath, stateBytes);
+  if (aliasType === "symlink") symlinkSync("../machine.json", settingsPath);
+  else linkSync(statePath, settingsPath);
+  return { statePath, settingsPath, stateBytes, aliasType };
+}
+
+function expectMachineAliasPreserved(alias: MachineAlias): void {
+  const stateExists = existsSync(alias.statePath);
+  const settingsExists = existsSync(alias.settingsPath);
+  const settingsEntryExists = (() => {
+    try {
+      lstatSync(alias.settingsPath);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  const settingsIsSymlink = settingsEntryExists && lstatSync(alias.settingsPath).isSymbolicLink();
+  const preserved = {
+    stateExists,
+    stateBytes: stateExists ? readFileSync(alias.statePath) : null,
+    settingsEntryExists,
+    settingsIsSymlink,
+    settingsLinkText: settingsIsSymlink ? readlinkSync(alias.settingsPath) : null,
+    settingsBytes: settingsExists ? readFileSync(alias.settingsPath) : null,
+    sharesInode: stateExists && settingsEntryExists
+      ? lstatSync(alias.statePath).ino === lstatSync(alias.settingsPath).ino
+      : false,
+  };
+  expect(preserved).toEqual({
+    stateExists: true,
+    stateBytes: alias.stateBytes,
+    settingsEntryExists: true,
+    settingsIsSymlink: alias.aliasType === "symlink",
+    settingsLinkText: alias.aliasType === "symlink" ? "../machine.json" : null,
+    settingsBytes: alias.aliasType === "hard-link" || settingsExists ? alias.stateBytes : null,
+    sharesInode: alias.aliasType === "hard-link",
+  });
+}
+
+function createRepo(sandbox: string, isGoverned: boolean): string {
+  const repo = join(sandbox, "repo");
+  mkdirSync(repo, { recursive: true });
+  spawnSync("git", ["init", "-q"], { cwd: repo });
+  if (isGoverned) {
+    mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["opencode"]\n');
+  }
+  return repo;
 }
 
 test("uninstall refuses lock keys that escape the repo", () => {
@@ -57,6 +126,78 @@ test("uninstall refuses lock keys that escape the repo", () => {
     // And the sweep says why, in plain words.
     expect(run.stdout + run.stderr).toInclude("escapes this repo");
   } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+for (const aliasType of ["symlink", "hard-link"] as const) {
+  for (const operation of ["init", "update", "uninstall"] as const) {
+    test(`I76: ${operation} preserves an unselected ${aliasType} to machine.json`, () => {
+      const sandbox = mkdtempSync(join(tmpdir(), `ai-eng-i76-${operation}-${aliasType}-`));
+      const repo = createRepo(sandbox, operation !== "init");
+      const home = join(sandbox, "home");
+      const alias = createMachineAlias(home, aliasType);
+      try {
+        const args = operation === "init"
+          ? ["init", "--yes", "--surface", "opencode"]
+          : operation === "update"
+            ? ["update", "--yes"]
+            : ["uninstall"];
+        const run = spawnSync(process.execPath, [cli, ...args], {
+          cwd: repo,
+          encoding: "utf8",
+          env: envWithHome(home),
+          input: operation === "uninstall" ? "\u001b[B\ryyy" : "\r",
+        });
+        const output = run.stdout + run.stderr;
+        expect(run.status, output).toBe(0);
+        expectMachineAliasPreserved(alias);
+        expect(output).toInclude("~/.claude/settings.json");
+        expect(output).toInclude("safe machine-settings");
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
+    });
+  }
+}
+
+test("I76: an unselected settings link replaced before the machine-state commit is preserved", () => {
+  const sandbox = mkdtempSync(join(tmpdir(), "ai-eng-i76-replacement-"));
+  const repo = createRepo(sandbox, false);
+  const home = join(sandbox, "home");
+  const statePath = join(home, "machine.json");
+  const settingsPath = join(home, ".claude", "settings.json");
+  mkdirSync(dirname(settingsPath), { recursive: true });
+  writeFileSync(statePath, MACHINE_STATE_BYTES);
+  writeFileSync(settingsPath, '{"user":"keep"}\n');
+
+  const previousCwd = process.cwd();
+  const previousHome = process.env["AI_ENG_HOME"];
+  const originalWriteFileSync = fs.writeFileSync;
+  let wasReplaced = false;
+  let report: ReturnType<typeof installMachineCarriers> | undefined;
+  process.chdir(repo);
+  process.env["AI_ENG_HOME"] = home;
+  const writeSpy = spyOn(fs, "writeFileSync").mockImplementation((...args) => {
+    if (!wasReplaced && String(args[0]) !== statePath) {
+      wasReplaced = true;
+      fs.renameSync(settingsPath, `${settingsPath}.before-replacement`);
+      fs.symlinkSync("../machine.json", settingsPath);
+    }
+    return originalWriteFileSync(...args);
+  });
+  try {
+    report = installMachineCarriers(["opencode"]);
+    expect(wasReplaced).toBe(true);
+    expect(report.refused.map(refuseLine)).toContain(
+      "⚠ ~/.claude/settings.json — safe machine-settings replacement/removal is unavailable on this platform; left untouched",
+    );
+    expectMachineAliasPreserved({ statePath, settingsPath, stateBytes: MACHINE_STATE_BYTES, aliasType: "symlink" });
+  } finally {
+    writeSpy.mockRestore();
+    process.chdir(previousCwd);
+    if (previousHome === undefined) delete process.env["AI_ENG_HOME"];
+    else process.env["AI_ENG_HOME"] = previousHome;
     rmSync(sandbox, { recursive: true, force: true });
   }
 });

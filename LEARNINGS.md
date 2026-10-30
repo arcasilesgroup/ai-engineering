@@ -1696,3 +1696,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Install locked dependencies in the clone and place isolated test homes outside it; carrier-merge then passed 13 tests.
 - **Lesson:** Git-backed test clones need locked dependencies and test-home paths outside the checkout.
 - **Tags:** behavior, tests, isolation, clone
+
+### L232 · 2026-10-30 · floating-core #19 · behavior
+- **Failure:** The lock-security verification failed a refusal-message membership assertion even though the expected string appeared in the array.
+- **Root cause:** The test used Bun's `toInclude` matcher for array membership.
+- **Fix:** Use `toContain`; the focused lock-security test passed 9 cases.
+- **Lesson:** Use the matcher that fits the value's type.
+- **Tags:** behavior, tests, security, assertion
