@@ -66,3 +66,10 @@ Cleanup and uninstall remove only canon-owned skill files and preserve unrelated
 
 **LESSON**
 - Bind mutations to the checked directory at the operation boundary instead of reusing a previously checked pathname.
+
+### Critic — round 3
+- **F1 (high, still open):** Pinning the parent closes the symlink-parent race, but the file itself is not bound to the content checked: `hashFile()` is followed by `unlinkProjectPath()`, whose `lstat` only rejects symlinks before unlinking any regular replacement (`src/commands/uninstall.ts:271-275,200-205`). For settings, the earlier read is followed by `openSync(...O_TRUNC|O_NOFOLLOW)`, which can truncate a different regular file substituted before open (`src/commands/uninstall.ts:29,42-47,208-216`). Preserve the file if its identity/content changes before mutation.
+- **F2 (resolved):** The static `skills-backup/` prefix collision is fixed by path-boundary containment.
+- **F3 (resolved):** Project pruning uses atomic `rmdirSync`.
+- **F4 (medium):** Machine mirror cleanup resolves a link target, then separately checks/unlinks the link (`src/surfaces/adapters.ts:490-495`). Replacing that symlink after `canonical(link)` but before `unlinkSync(link)` lets the stale ownership result remove a newly user-owned mirror link; bind the target check to the link removed.
+**VERDICT: FAIL**

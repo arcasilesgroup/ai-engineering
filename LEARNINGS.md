@@ -1630,3 +1630,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Pin mutations to the checked directory for unlink, write, and prune operations.
 - **Lesson:** Bind mutations to the checked directory at the operation boundary instead of reusing a previously checked pathname.
 - **Tags:** review, filesystem, race, symlink, uninstall
+
+### L223 · 2026-10-30 · floating-core #19 · circuit-breaker
+- **Failure:** Replanned CP19 review failed three rounds; F1 path-identity races remained and round 3 found a replaced-symlink cleanup case.
+- **Root cause:** Not established; further changes could alter destructive behavior without a confirmed ownership invariant.
+- **Fix:** Stop at the circuit breaker and request the intended behavior for concurrent file or symlink replacement.
+- **Lesson:** Do not guess at destructive filesystem semantics after repeated review failures; confirm the ownership invariant before continuing.
+- **Tags:** circuit-breaker, review, filesystem, race
