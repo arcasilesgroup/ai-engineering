@@ -17,7 +17,7 @@
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { uninstallMain } from "../src/commands/uninstall.ts";
@@ -193,6 +193,23 @@ async function uninstall(steps: Array<[string, string]>): Promise<{ result: numb
   } finally {
     cap.stop();
   }
+}
+
+function replaceParentOnChdir(parent: string, outside: string): { wasTriggered: () => boolean; restore: () => void } {
+  const originalChdir = process.chdir.bind(process);
+  let wasTriggered = false;
+  process.chdir = (directory: string) => {
+    if (!wasTriggered && String(directory) === parent) {
+      wasTriggered = true;
+      renameSync(parent, `${parent}-before-race`);
+      symlinkSync(outside, parent, "dir");
+    }
+    originalChdir(directory);
+  };
+  return {
+    wasTriggered: () => wasTriggered,
+    restore: () => { process.chdir = originalChdir; },
+  };
 }
 
 /** The "Everything" scope: scope, Confirm?, the contract question, the machine question. */
@@ -440,6 +457,76 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(result).toBe(0);
     expect(readFileSync(victim, "utf8")).toBe(payload);
     expect(lstatSync(join(cwd, ".cursor")).isSymbolicLink()).toBe(true);
+    expect(out).toContain("▲ .cursor/hooks.json kept · linked path — not ai-eng's");
+  });
+
+  test("a parent replaced by a symlink before unlink remains untouched", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    mkdirSync(join(cwd, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["cursor"]\n');
+    const parent = join(cwd, ".cursor");
+    mkdirSync(parent);
+    const outside = join(sandbox!, "outside");
+    mkdirSync(outside);
+    const payload = "same hash, outside the project\n";
+    writeFileSync(join(parent, "hooks.json"), payload);
+    const victim = join(outside, "hooks.json");
+    writeFileSync(victim, payload);
+    writeFileSync(
+      join(cwd, ".ai-engineering", "ai-eng.lock"),
+      lockText({ version: VERSION, assets: { ".cursor/hooks.json": sha256(payload) } }),
+    );
+    const race = replaceParentOnChdir(realpathSync(parent), outside);
+
+    let out = "";
+    try {
+      ({ out } = await uninstall([
+        [SELECT, PROJECT_KEYS],
+        [CONFIRM, "y"],
+      ]));
+    } finally {
+      race.restore();
+    }
+
+    expect(race.wasTriggered()).toBe(true);
+    expect(readFileSync(victim, "utf8")).toBe(payload);
+    expect(readFileSync(join(`${parent}-before-race`, "hooks.json"), "utf8")).toBe(payload);
+    expect(out).toContain("▲ .cursor/hooks.json kept · linked path — not ai-eng's");
+  });
+
+  test("a parent replaced by a symlink before write remains untouched", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    const mine = {
+      version: 1,
+      hooks: { preToolUse: [{ type: "command", command: "echo my own guard", timeout: 5 }] },
+    };
+    const settings = join(cwd, ".cursor", "hooks.json");
+    mkdirSync(join(cwd, ".cursor"), { recursive: true });
+    writeFileSync(settings, `${JSON.stringify(mine, null, 2)}\n`);
+    initShaped(["cursor"]);
+    const originalSettings = readFileSync(settings, "utf8");
+    const parent = realpathSync(join(cwd, ".cursor"));
+    const outside = join(sandbox!, "outside");
+    mkdirSync(outside);
+    const victim = join(outside, "hooks.json");
+    writeFileSync(victim, "outside settings\n");
+    const race = replaceParentOnChdir(parent, outside);
+
+    let out = "";
+    try {
+      ({ out } = await uninstall([
+        [SELECT, PROJECT_KEYS],
+        [CONFIRM, "y"],
+      ]));
+    } finally {
+      race.restore();
+    }
+
+    expect(race.wasTriggered()).toBe(true);
+    expect(readFileSync(victim, "utf8")).toBe("outside settings\n");
+    expect(readFileSync(join(`${parent}-before-race`, "hooks.json"), "utf8")).toBe(originalSettings);
     expect(out).toContain("▲ .cursor/hooks.json kept · linked path — not ai-eng's");
   });
 

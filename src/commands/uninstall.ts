@@ -7,8 +7,8 @@
 // contract files survive "This project", and "Everything" asks twice.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, rmdirSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { closeSync, constants, existsSync, openSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, rmdirSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { SURFACES, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
 import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
@@ -32,19 +32,17 @@ function stripAiEngHooks(root: string, absolute: string, rel: string, removed: u
     return;
   }
   if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
-    if (safeProjectPath(root, rel) !== absolute) {
+    if (safeProjectPath(root, rel) !== absolute || !unlinkProjectPath(root, absolute)) {
       removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
       return;
     }
-    unlinkSync(absolute);
     removed.push({ mark: "ok", text: `${rel} removed`, dim: "it held only ai-eng entries" });
     return;
   }
-  if (safeProjectPath(root, rel) !== absolute) {
+  if (safeProjectPath(root, rel) !== absolute || !writeProjectFile(root, absolute, stripped)) {
     removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
     return;
   }
-  writeFileSync(absolute, stripped);
   removed.push({ mark: "ok", text: `${rel}: removed the ai-eng hook entries, kept yours` });
 }
 
@@ -89,10 +87,9 @@ function sweepProjectSide(
   }
   if (hasLock) {
     const lockPath = safeProjectPath(root, ".ai-engineering/ai-eng.lock");
-    if (lockPath === null) {
+    if (lockPath === null || !unlinkProjectPath(root, lockPath)) {
       removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: "linked path — not ai-eng's" });
     } else {
-      unlinkSync(lockPath);
       removed.push({ mark: "ok", text: "ai-eng.lock deleted", dim: `${Object.keys(assets).length} owned files swept` });
     }
   } else {
@@ -128,8 +125,10 @@ function pruneIfEmpty(root: string, rel: string): boolean {
   const dir = safeProjectPath(root, rel);
   if (dir === null) return false;
   try {
-    rmdirSync(dir);
-    return true;
+    return withSafeProjectParent(root, dir, (name) => {
+      rmdirSync(name);
+      return true;
+    });
   } catch {
     /* absent, non-empty, or unreadable: nothing to prune */
   }
@@ -183,6 +182,41 @@ function safeProjectPath(root: string, rel: string): string | null {
   return absolute;
 }
 
+function withSafeProjectParent(root: string, absolute: string, action: (name: string) => boolean): boolean {
+  const canonicalRoot = realpathSync(root);
+  const parent = dirname(absolute);
+  const previousDirectory = process.cwd();
+  try {
+    process.chdir(parent);
+    const currentDirectory = realpathSync(".");
+    if (currentDirectory !== parent || !pathIsWithin(canonicalRoot, currentDirectory)) return false;
+    // Relative operations stay anchored here if the parent pathname is replaced.
+    return action(basename(absolute));
+  } finally {
+    process.chdir(previousDirectory);
+  }
+}
+
+function unlinkProjectPath(root: string, absolute: string): boolean {
+  return withSafeProjectParent(root, absolute, (name) => {
+    if (lstatSync(name).isSymbolicLink()) return false;
+    unlinkSync(name);
+    return true;
+  });
+}
+
+function writeProjectFile(root: string, absolute: string, contents: string): boolean {
+  return withSafeProjectParent(root, absolute, (name) => {
+    const descriptor = openSync(name, constants.O_WRONLY | constants.O_TRUNC | constants.O_NOFOLLOW);
+    try {
+      writeFileSync(descriptor, contents);
+    } finally {
+      closeSync(descriptor);
+    }
+    return true;
+  });
+}
+
 function sweepAsset(
   root: string,
   rel: string,
@@ -209,11 +243,10 @@ function sweepAsset(
     // Unedited: the whole file is ai-eng's template — it goes. Edited: the
     // user's keys stay, only our hook entries come out.
     if (hashFile(safeAbsolute) === assets[rel]) {
-      if (safeProjectPath(root, rel) !== safeAbsolute) {
+      if (safeProjectPath(root, rel) !== safeAbsolute || !unlinkProjectPath(root, safeAbsolute)) {
         removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
         return;
       }
-      unlinkSync(safeAbsolute);
       removed.push({ mark: "ok", text: `${rel} removed`, dim: "still the template ai-eng installed" });
     } else {
       stripAiEngHooks(root, safeAbsolute, rel, removed);
@@ -225,11 +258,10 @@ function sweepAsset(
   // still matches what we installed — an edited file is yours now, kept and named.
   if (rel.startsWith(".git/hooks/")) {
     if (readFileSync(safeAbsolute, "utf8").includes("ai-eng git floor shim")) {
-      if (safeProjectPath(root, rel) !== safeAbsolute) {
+      if (safeProjectPath(root, rel) !== safeAbsolute || !unlinkProjectPath(root, safeAbsolute)) {
         removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
         return;
       }
-      unlinkSync(safeAbsolute);
       removed.push({ mark: "ok", text: `${rel} removed`, dim: "marker-matched — never by name alone" });
     } else {
       removed.push({ mark: "warn", text: `${rel} kept`, dim: "no ai-eng marker: it is yours now" });
@@ -237,11 +269,10 @@ function sweepAsset(
     return;
   }
   if (hashFile(safeAbsolute) === assets[rel]) {
-    if (safeProjectPath(root, rel) !== safeAbsolute) {
+    if (safeProjectPath(root, rel) !== safeAbsolute || !unlinkProjectPath(root, safeAbsolute)) {
       removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
       return;
     }
-    unlinkSync(safeAbsolute);
     removed.push({ mark: "ok", text: `${rel} removed` });
   } else {
     removed.push({ mark: "warn", text: `${rel} kept`, dim: "you edited it after install — it is yours now" });

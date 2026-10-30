@@ -1380,9 +1380,12 @@
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "failed",
+          "attempts": 2,
+          "findings": [
+            "Adversarial review round 1 found F1 high: cleanup can follow a symlinked parent outside the repo; F2 medium: mirror cleanup can mistake skills-backup/ for a path inside skills/; F3 medium: recursive pruning can delete files created after the emptiness check.",
+            "Adversarial review round 2 resolved F2 and F3; F1 remains open because path checks can be raced before writeFileSync or unlinkSync."
+          ]
         }
       },
       "status": "pending"
@@ -1438,11 +1441,9 @@
         "behavior": { "status": "pending", "attempts": 0, "findings": [] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "failed",
-          "attempts": 1,
-          "findings": [
-            "Adversarial review round 1 found F1 high: cleanup can follow a symlinked parent outside the repo; F2 medium: mirror cleanup can mistake skills-backup/ for a path inside skills/; F3 medium: recursive pruning can delete files created after the emptiness check."
-          ]
+          "status": "pending",
+          "attempts": 0,
+          "findings": []
         }
       },
       "status": "pending"

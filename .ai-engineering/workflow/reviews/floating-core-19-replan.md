@@ -45,3 +45,24 @@ Cleanup and uninstall remove only canon-owned skill files and preserve unrelated
 
 **LESSON**
 - Cleanup ownership requires canonical, component-checked containment, and directory pruning must use the filesystem's atomic empty-directory operation.
+
+### Critic — round 2
+- **F1 (high, unresolved):** The static linked-parent case is fixed, but `safeProjectPath()` returns a pathname that is later used by `writeFileSync`/`unlinkSync` (`src/commands/uninstall.ts:35-47,174-183,212-216,240-244`). A concurrent replacement of a checked parent with a symlink after the final check still redirects the mutation outside the repo. Bind validation to the filesystem operation or otherwise prevent path replacement between check and use.
+- **F2 (resolved):** `relative()` boundary containment now preserves a `skills-backup/` mirror link, with a regression test.
+- **F3 (resolved):** Project pruning now uses `rmdirSync`, so a newly non-empty directory is retained.
+**VERDICT: FAIL**
+
+## Replan — round 2
+**FILES**
+- `src/commands/uninstall.ts`
+- `tests/uninstall-command.spec.ts`
+- `.ai-engineering/workflow/reviews/floating-core-19-replan.md`
+
+**ROOT CAUSE**
+- The path was checked, then reopened by absolute name for mutation, leaving a race where replacing its parent with a symlink redirected the operation.
+
+**FIX**
+- Pin the checked parent as the process working directory, verify its canonical identity before relative unlink/rmdir, and write through an `O_NOFOLLOW` file descriptor; add deterministic parent-swap regressions for unlink and write.
+
+**LESSON**
+- Bind mutations to the checked directory at the operation boundary instead of reusing a previously checked pathname.

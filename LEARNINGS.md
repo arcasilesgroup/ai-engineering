@@ -1623,3 +1623,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Remove the unrelated override and rerun Gate 1 with only the required isolated paths.
 - **Lesson:** Isolate test homes without injecting unrelated global or system configuration.
 - **Tags:** behavior, tests, configuration, isolation
+
+### L222 · 2026-10-30 · floating-core #19 · review
+- **Failure:** Review found path checks could be raced before `writeFileSync` or `unlinkSync` by replacing the checked parent with a symlink.
+- **Root cause:** The path was checked, then reopened by absolute name for mutation, leaving a race where replacing its parent with a symlink redirected the operation.
+- **Fix:** Pin mutations to the checked directory for unlink, write, and prune operations.
+- **Lesson:** Bind mutations to the checked directory at the operation boundary instead of reusing a previously checked pathname.
+- **Tags:** review, filesystem, race, symlink, uninstall
