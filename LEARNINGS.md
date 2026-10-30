@@ -1616,3 +1616,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Require canonical component-checked containment and use atomic empty-directory pruning.
 - **Lesson:** Cleanup ownership requires canonical, component-checked containment, and directory pruning must use the filesystem's atomic empty-directory operation.
 - **Tags:** review, filesystem, symlink, uninstall
+
+### L221 · 2026-10-30 · floating-core #19 · behavior
+- **Failure:** An initial post-fix carrier test run failed after the verification runner added a system-config override.
+- **Root cause:** The runner altered the system-config contract while isolating the home directory.
+- **Fix:** Remove the unrelated override and rerun Gate 1 with only the required isolated paths.
+- **Lesson:** Isolate test homes without injecting unrelated global or system configuration.
+- **Tags:** behavior, tests, configuration, isolation

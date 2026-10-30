@@ -1370,10 +1370,12 @@
       "gates": {
         "behavior": {
           "status": "passed",
-          "attempts": 2,
+          "attempts": 4,
           "findings": [
             "Gate 1 attempt 1 passed carrier-merge (13), carriers-install (38), and uninstall (22), then `bun test` failed because the isolated source archive omitted `.git`; two Git-dependent tests in `tests/token-budget.spec.ts` failed at `git read-tree HEAD`. Rerun in a Git-backed local clone before judging CP19.",
-            "Gate 1 attempt 2 passed all four verify commands in order in a local Git-backed clone at main HEAD 5f8a3454: carrier-merge 13, carriers-install 38, uninstall 22, and full suite 1,561 passed with 0 failures."
+            "Gate 1 attempt 2 passed all four verify commands in order in a local Git-backed clone at main HEAD 5f8a3454: carrier-merge 13, carriers-install 38, uninstall 22, and full suite 1,561 passed with 0 failures.",
+            "Gate 1 attempt 3 failed after the runner added an unnecessary system-config override; the carrier-merge I19 assertion observed the altered config. This was an environment setup error, not a product failure.",
+            "Gate 1 attempt 4 passed all four verify commands in order at main HEAD 81b6214d: carrier-merge 13, carriers-install 38, uninstall 24, and full suite 1,563 passed across 75 files with 0 failures."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
