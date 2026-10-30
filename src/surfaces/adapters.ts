@@ -2,7 +2,7 @@
 // or TS module (OpenCode/OMP). Surface = ~150 LOC of adapter + its proof (§13).
 
 import surfacesJson from "./surfaces.json";
-import { writeFileSync, mkdirSync, symlinkSync, unlinkSync, readdirSync, lstatSync, existsSync, readFileSync, rmSync, realpathSync, rmdirSync, copyFileSync } from "node:fs";
+import { writeFileSync, mkdirSync, symlinkSync, unlinkSync, readdirSync, lstatSync, existsSync, readFileSync, readlinkSync, rmSync, realpathSync, rmdirSync, copyFileSync } from "node:fs";
 import { join, dirname, relative, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
 import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
@@ -483,18 +483,49 @@ export function removeMachineArtifacts(): number {
       return [];
     }
   };
+  const isCanonPath = (candidate: string): boolean => {
+    const pathFromCanon = relative(canonReal, candidate);
+    return pathFromCanon === "" || (
+      pathFromCanon !== ".." && !pathFromCanon.startsWith(`..${sep}`) && !isAbsolute(pathFromCanon)
+    );
+  };
+  const removeCanonLink = (directory: string, name: string): boolean => {
+    const link = join(directory, name);
+    const originalStat = lstatSync(link);
+    if (!originalStat.isSymbolicLink()) return false;
+    const originalTarget = readlinkSync(link);
+    const originalCanonical = canonical(link);
+    if (!isCanonPath(originalCanonical)) return false;
+    const verifiedStat = lstatSync(link);
+    if (verifiedStat.dev !== originalStat.dev || verifiedStat.ino !== originalStat.ino || readlinkSync(link) !== originalTarget) {
+      return false;
+    }
+
+    const parent = canonical(directory);
+    const previousDirectory = process.cwd();
+    try {
+      process.chdir(parent);
+      if (realpathSync(".") !== parent) return false;
+      const currentStat = lstatSync(name);
+      if (
+        !currentStat.isSymbolicLink()
+        || currentStat.dev !== originalStat.dev
+        || currentStat.ino !== originalStat.ino
+        || readlinkSync(name) !== originalTarget
+        || canonical(name) !== originalCanonical
+      ) {
+        return false;
+      }
+      unlinkSync(name);
+      return true;
+    } finally {
+      process.chdir(previousDirectory);
+    }
+  };
   for (const target of mirrorTargets()) {
     for (const name of names(target.dir)) {
-      const link = join(target.dir, name);
       try {
-        const pathFromCanon = relative(canonReal, canonical(link));
-        const isInsideCanon = pathFromCanon === "" || (
-          pathFromCanon !== ".." && !pathFromCanon.startsWith(`..${sep}`) && !isAbsolute(pathFromCanon)
-        );
-        if (lstatSync(link).isSymbolicLink() && isInsideCanon) {
-          unlinkSync(link);
-          removed += 1;
-        }
+        if (removeCanonLink(target.dir, name)) removed += 1;
       } catch {
         /* not ours or not readable: leave it */
       }

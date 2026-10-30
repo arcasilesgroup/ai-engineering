@@ -1638,3 +1638,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Stop at the circuit breaker and request the intended behavior for concurrent file or symlink replacement.
 - **Lesson:** Do not guess at destructive filesystem semantics after repeated review failures; confirm the ownership invariant before continuing.
 - **Tags:** circuit-breaker, review, filesystem, race
+
+### L224 · 2026-10-30 · floating-core #19 · review
+- **Failure:** Review found ownership checks could authorize unlink or truncating writes after the file or symlink had been replaced.
+- **Root cause:** Cleanup authorized later path operations from stale ownership checks, without verifying the same file identity/content or symlink target was still present.
+- **Fix:** Snapshot file identity/version/bytes from no-follow descriptors and revalidate before unlink or truncating writes; pin mirror parents and recheck symlink identity, target text, and canonical target before unlink, aborting without retry on mismatch.
+- **Lesson:** Cleanup must preserve any replacement whose file identity, content, or symlink target no longer matches the ownership snapshot.
+- **Tags:** review, filesystem, race, symlink, ownership

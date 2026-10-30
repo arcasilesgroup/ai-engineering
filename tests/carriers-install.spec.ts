@@ -26,9 +26,11 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  realpathSync,
   readdirSync,
   readFileSync,
   readlinkSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -135,6 +137,27 @@ afterAll(() => {
 function write(path: string, content: string): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content);
+}
+
+function replaceLinkOnChdir(
+  parent: string,
+  link: string,
+  replacement: string,
+): { wasTriggered: () => boolean; restore: () => void } {
+  const originalChdir = process.chdir.bind(process);
+  let wasTriggered = false;
+  process.chdir = (directory: string) => {
+    if (!wasTriggered && directory === parent) {
+      wasTriggered = true;
+      renameSync(link, `${link}-before-race`);
+      symlinkSync(replacement, link, "dir");
+    }
+    originalChdir(directory);
+  };
+  return {
+    wasTriggered: () => wasTriggered,
+    restore: () => { process.chdir = originalChdir; },
+  };
 }
 
 /** A machine of its own: the canon home, the mirrors, the carriers and the git floor's
@@ -983,5 +1006,26 @@ describe("installCanon and what leaves with it", () => {
     expect(existsSync(join(base, ".agents", "skills"))).toBe(false);
     expect(existsSync(join(base, ".config", "opencode", "commands"))).toBe(false);
     expect(existsSync(join(base, ".claude", "skills"))).toBe(true);
+  });
+
+  test("removeMachineArtifacts preserves a mirror link replaced after validation", () => {
+    const base = useHome("canon-remove-race");
+    installCanon("2.2.0");
+    const target = mirrorTargets()[0]!;
+    const link = join(target.dir, "ai-debug");
+    const replacement = join(base, "skills-backup", "ai-debug");
+    write(join(replacement, "SKILL.md"), "user skill\n");
+    const race = replaceLinkOnChdir(realpathSync(target.dir), link, replacement);
+
+    try {
+      removeMachineArtifacts();
+    } finally {
+      race.restore();
+    }
+
+    expect(race.wasTriggered()).toBe(true);
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(link)).toBe(replacement);
+    expect(readFileSync(join(replacement, "SKILL.md"), "utf8")).toBe("user skill\n");
   });
 });

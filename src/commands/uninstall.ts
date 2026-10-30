@@ -7,7 +7,8 @@
 // contract files survive "This project", and "Everything" asks twice.
 
 import { spawnSync } from "node:child_process";
-import { closeSync, constants, existsSync, openSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, rmdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { closeSync, constants, existsSync, fstatSync, ftruncateSync, openSync, readFileSync, readSync, writeSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, rmdirSync, type Stats } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { SURFACES, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
@@ -25,22 +26,22 @@ import { scriptedInput } from "../ui.ts";
  *  marker logic lives in install.ts beside its inverse, so what init merges in and
  *  what uninstall takes out can never drift apart. Unparseable → left alone with a
  *  warn: never rewrite what you cannot read. */
-function stripAiEngHooks(root: string, absolute: string, rel: string, removed: ui.Row[]): void {
-  const stripped = stripSharedText(readFileSync(absolute, "utf8"));
+function stripAiEngHooks(root: string, absolute: string, rel: string, snapshot: ProjectFileSnapshot, removed: ui.Row[]): void {
+  const stripped = stripSharedText(snapshot.content.toString("utf8"));
   if (stripped === null) {
     removed.push({ mark: "warn", text: `${rel} not rewritten — not JSON this installer can rewrite without reformatting it (review by hand)` });
     return;
   }
   if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
-    if (safeProjectPath(root, rel) !== absolute || !unlinkProjectPath(root, absolute)) {
-      removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
+    if (!unlinkProjectPath(root, absolute, snapshot)) {
+      removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
       return;
     }
     removed.push({ mark: "ok", text: `${rel} removed`, dim: "it held only ai-eng entries" });
     return;
   }
-  if (safeProjectPath(root, rel) !== absolute || !writeProjectFile(root, absolute, stripped)) {
-    removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
+  if (!writeProjectFile(root, absolute, snapshot, stripped)) {
+    removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
     return;
   }
   removed.push({ mark: "ok", text: `${rel}: removed the ai-eng hook entries, kept yours` });
@@ -53,7 +54,7 @@ function readAssetsFromLock(
   root: string,
   declared: string[],
   removed: ui.Row[],
-): { assets: Record<string, string>; hasLock: boolean } {
+): { assets: Record<string, string>; hasLock: boolean; lockSnapshot: ProjectFileSnapshot | null } {
   // The lock is the ownership register; when it is gone (a half-finished
   // uninstall, a hand-deletion), the binary's own planEntries list is the
   // fallback — same paths, hashes recomputed from the payload it installs.
@@ -64,14 +65,19 @@ function readAssetsFromLock(
   if (lockPath === null && existsSync(join(root, lockRel))) {
     removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: "linked path — not ai-eng's" });
   }
-  let assets: Record<string, string> = hasLock ? parseLock(readFileSync(lockPath, "utf8")).assets : {};
+  const lockSnapshot = hasLock && lockPath !== null ? readProjectFileSnapshot(root, lockPath) : null;
+  if (hasLock && lockSnapshot === null) {
+    removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: "file changed during uninstall — preserved" });
+    return { assets: {}, hasLock: false, lockSnapshot: null };
+  }
+  let assets: Record<string, string> = lockSnapshot === null ? {} : parseLock(lockSnapshot.content.toString("utf8")).assets;
   if (Object.keys(assets).length === 0) {
     assets = Object.fromEntries(
       planEntries(declared).map((entry) => [entry.path, sha256(entry.ours)]),
     );
     removed.push({ mark: "muted", text: "no lock — swept by the binary's own file list" });
   }
-  return { assets, hasLock };
+  return { assets, hasLock, lockSnapshot };
 }
 
 /** Sweep every declared asset from the project tree and prune empty dirs. */
@@ -80,15 +86,15 @@ function sweepProjectSide(
   declared: string[],
   removed: ui.Row[],
 ): void {
-  const { assets, hasLock } = readAssetsFromLock(root, declared, removed);
+  const { assets, hasLock, lockSnapshot } = readAssetsFromLock(root, declared, removed);
   const settingsByPath = collectSettingsByPath();
   for (const rel of Object.keys(assets)) {
     sweepAsset(root, rel, assets, settingsByPath, removed);
   }
   if (hasLock) {
     const lockPath = safeProjectPath(root, ".ai-engineering/ai-eng.lock");
-    if (lockPath === null || !unlinkProjectPath(root, lockPath)) {
-      removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: "linked path — not ai-eng's" });
+    if (lockPath === null || lockSnapshot === null || !unlinkProjectPath(root, lockPath, lockSnapshot)) {
+      removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: "file changed during uninstall — preserved" });
     } else {
       removed.push({ mark: "ok", text: "ai-eng.lock deleted", dim: `${Object.keys(assets).length} owned files swept` });
     }
@@ -186,34 +192,158 @@ function withSafeProjectParent(root: string, absolute: string, action: (name: st
   const canonicalRoot = realpathSync(root);
   const parent = dirname(absolute);
   const previousDirectory = process.cwd();
+  let changedDirectory = false;
   try {
-    process.chdir(parent);
-    const currentDirectory = realpathSync(".");
+    try {
+      process.chdir(parent);
+      changedDirectory = true;
+    } catch {
+      return false;
+    }
+    let currentDirectory: string;
+    try {
+      currentDirectory = realpathSync(".");
+    } catch {
+      return false;
+    }
     if (currentDirectory !== parent || !pathIsWithin(canonicalRoot, currentDirectory)) return false;
     // Relative operations stay anchored here if the parent pathname is replaced.
     return action(basename(absolute));
   } finally {
-    process.chdir(previousDirectory);
+    if (changedDirectory) process.chdir(previousDirectory);
   }
 }
 
-function unlinkProjectPath(root: string, absolute: string): boolean {
-  return withSafeProjectParent(root, absolute, (name) => {
-    if (lstatSync(name).isSymbolicLink()) return false;
-    unlinkSync(name);
-    return true;
-  });
+type ProjectFileSnapshot = Pick<Stats, "dev" | "ino" | "size" | "mtimeMs" | "ctimeMs"> & {
+  content: Buffer;
+  hash: string;
+};
+
+function sameFileVersion(left: Stats, right: Stats): boolean {
+  return left.isFile() && right.isFile()
+    && left.dev === right.dev
+    && left.ino === right.ino
+    && left.size === right.size
+    && left.mtimeMs === right.mtimeMs
+    && left.ctimeMs === right.ctimeMs;
 }
 
-function writeProjectFile(root: string, absolute: string, contents: string): boolean {
-  return withSafeProjectParent(root, absolute, (name) => {
-    const descriptor = openSync(name, constants.O_WRONLY | constants.O_TRUNC | constants.O_NOFOLLOW);
+function matchesProjectFile(stat: Stats, snapshot: ProjectFileSnapshot): boolean {
+  return stat.isFile()
+    && stat.dev === snapshot.dev
+    && stat.ino === snapshot.ino
+    && stat.size === snapshot.size
+    && stat.mtimeMs === snapshot.mtimeMs
+    && stat.ctimeMs === snapshot.ctimeMs;
+}
+
+function readProjectFileSnapshot(root: string, absolute: string): ProjectFileSnapshot | null {
+  let snapshot: ProjectFileSnapshot | null = null;
+  const didRead = withSafeProjectParent(root, absolute, (name) => {
+    let descriptor: number | null = null;
     try {
-      writeFileSync(descriptor, contents);
+      const entryBefore = lstatSync(name);
+      if (entryBefore.isSymbolicLink() || !entryBefore.isFile()) return false;
+      descriptor = openSync(name, constants.O_RDONLY | constants.O_NOFOLLOW);
+      const opened = fstatSync(descriptor);
+      if (!sameFileVersion(entryBefore, opened)) return false;
+      const content = readFileSync(descriptor);
+      const afterRead = fstatSync(descriptor);
+      const entryAfter = lstatSync(name);
+      if (!sameFileVersion(opened, afterRead) || !sameFileVersion(afterRead, entryAfter) || content.length !== afterRead.size) {
+        return false;
+      }
+      snapshot = {
+        dev: afterRead.dev,
+        ino: afterRead.ino,
+        size: afterRead.size,
+        mtimeMs: afterRead.mtimeMs,
+        ctimeMs: afterRead.ctimeMs,
+        content,
+        hash: createHash("sha256").update(content).digest("hex"),
+      };
+      return true;
+    } catch {
+      return false;
+    } finally {
+      if (descriptor !== null) closeSync(descriptor);
+    }
+  });
+  return didRead ? snapshot : null;
+}
+
+function fileMatchesSnapshotAtPath(name: string, descriptor: number, snapshot: ProjectFileSnapshot): boolean {
+  try {
+    const beforeRead = fstatSync(descriptor);
+    if (!matchesProjectFile(beforeRead, snapshot)) return false;
+    const content = Buffer.alloc(snapshot.size);
+    let bytesRead = 0;
+    while (bytesRead < content.length) {
+      const count = readSync(descriptor, content, bytesRead, content.length - bytesRead, bytesRead);
+      if (count === 0) return false;
+      bytesRead += count;
+    }
+    const afterRead = fstatSync(descriptor);
+    const currentEntry = lstatSync(name);
+    return content.equals(snapshot.content)
+      && matchesProjectFile(afterRead, snapshot)
+      && sameFileVersion(beforeRead, afterRead)
+      && sameFileVersion(afterRead, currentEntry);
+  } catch {
+    return false;
+  }
+}
+
+function openMatchingProjectFile(name: string, snapshot: ProjectFileSnapshot, flags: number): number | null {
+  let descriptor: number | null = null;
+  let isValid = false;
+  try {
+    const entryBefore = lstatSync(name);
+    if (!matchesProjectFile(entryBefore, snapshot)) return null;
+    descriptor = openSync(name, flags | constants.O_NOFOLLOW);
+    const opened = fstatSync(descriptor);
+    if (!sameFileVersion(entryBefore, opened) || !fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return null;
+    isValid = true;
+    return descriptor;
+  } catch {
+    return null;
+  } finally {
+    if (descriptor !== null && !isValid) closeSync(descriptor);
+  }
+}
+
+function unlinkProjectPath(root: string, absolute: string, snapshot: ProjectFileSnapshot): boolean {
+  return withSafeProjectParent(root, absolute, (name) => {
+    const descriptor = openMatchingProjectFile(name, snapshot, constants.O_RDONLY);
+    if (descriptor === null) return false;
+    try {
+      if (!fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return false;
+      unlinkSync(name);
+      return true;
     } finally {
       closeSync(descriptor);
     }
-    return true;
+  });
+}
+
+function writeProjectFile(root: string, absolute: string, snapshot: ProjectFileSnapshot, contents: string): boolean {
+  return withSafeProjectParent(root, absolute, (name) => {
+    const descriptor = openMatchingProjectFile(name, snapshot, constants.O_RDWR);
+    if (descriptor === null) return false;
+    try {
+      if (!fileMatchesSnapshotAtPath(name, descriptor, snapshot)) return false;
+      const bytes = Buffer.from(contents);
+      ftruncateSync(descriptor, 0);
+      let written = 0;
+      while (written < bytes.length) {
+        const count = writeSync(descriptor, bytes, written, bytes.length - written, written);
+        if (count === 0) return false;
+        written += count;
+      }
+      return true;
+    } finally {
+      closeSync(descriptor);
+    }
   });
 }
 
@@ -239,17 +369,22 @@ function sweepAsset(
     removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
     return;
   }
+  const snapshot = readProjectFileSnapshot(root, safeAbsolute);
+  if (snapshot === null) {
+    removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
+    return;
+  }
   if (settingsByPath.has(rel)) {
     // Unedited: the whole file is ai-eng's template — it goes. Edited: the
     // user's keys stay, only our hook entries come out.
-    if (hashFile(safeAbsolute) === assets[rel]) {
-      if (safeProjectPath(root, rel) !== safeAbsolute || !unlinkProjectPath(root, safeAbsolute)) {
-        removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
+    if (snapshot.hash === assets[rel]) {
+      if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
+        removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
         return;
       }
       removed.push({ mark: "ok", text: `${rel} removed`, dim: "still the template ai-eng installed" });
     } else {
-      stripAiEngHooks(root, safeAbsolute, rel, removed);
+      stripAiEngHooks(root, safeAbsolute, rel, snapshot, removed);
     }
     return;
   }
@@ -257,9 +392,9 @@ function sweepAsset(
   // user re-chmod); everything else by the lock's hash: delete only what
   // still matches what we installed — an edited file is yours now, kept and named.
   if (rel.startsWith(".git/hooks/")) {
-    if (readFileSync(safeAbsolute, "utf8").includes("ai-eng git floor shim")) {
-      if (safeProjectPath(root, rel) !== safeAbsolute || !unlinkProjectPath(root, safeAbsolute)) {
-        removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
+    if (snapshot.content.includes(Buffer.from("ai-eng git floor shim"))) {
+      if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
+        removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
         return;
       }
       removed.push({ mark: "ok", text: `${rel} removed`, dim: "marker-matched — never by name alone" });
@@ -268,9 +403,9 @@ function sweepAsset(
     }
     return;
   }
-  if (hashFile(safeAbsolute) === assets[rel]) {
-    if (safeProjectPath(root, rel) !== safeAbsolute || !unlinkProjectPath(root, safeAbsolute)) {
-      removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
+  if (snapshot.hash === assets[rel]) {
+    if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
+      removed.push({ mark: "warn", text: `${rel} kept`, dim: "file changed during uninstall — preserved" });
       return;
     }
     removed.push({ mark: "ok", text: `${rel} removed` });

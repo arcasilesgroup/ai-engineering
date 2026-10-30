@@ -73,3 +73,20 @@ Cleanup and uninstall remove only canon-owned skill files and preserve unrelated
 - **F3 (resolved):** Project pruning uses atomic `rmdirSync`.
 - **F4 (medium):** Machine mirror cleanup resolves a link target, then separately checks/unlinks the link (`src/surfaces/adapters.ts:490-495`). Replacing that symlink after `canonical(link)` but before `unlinkSync(link)` lets the stale ownership result remove a newly user-owned mirror link; bind the target check to the link removed.
 **VERDICT: FAIL**
+
+## Replan — round 3
+**FILES**
+- `src/commands/uninstall.ts`
+- `src/surfaces/adapters.ts`
+- `tests/uninstall-command.spec.ts`
+- `tests/carriers-install.spec.ts`
+- `.ai-engineering/workflow/reviews/floating-core-19-replan.md`
+
+**ROOT CAUSE**
+- Cleanup authorized later path operations from stale ownership checks, without verifying the same file identity/content or symlink target was still present.
+
+**FIX**
+- Snapshot file identity/version/bytes from no-follow descriptors and revalidate before unlink or truncating writes; pin mirror parents and recheck symlink identity, target text, and canonical target before unlink, aborting without retry on mismatch.
+
+**LESSON**
+- Cleanup must preserve any replacement whose file identity, content, or symlink target no longer matches the ownership snapshot.

@@ -212,6 +212,23 @@ function replaceParentOnChdir(parent: string, outside: string): { wasTriggered: 
   };
 }
 
+function mutateFileOnSecondChdir(parent: string, mutate: () => void): { wasTriggered: () => boolean; restore: () => void } {
+  const originalChdir = process.chdir.bind(process);
+  let parentChanges = 0;
+  let wasTriggered = false;
+  process.chdir = (directory: string) => {
+    if (directory === parent && ++parentChanges === 2) {
+      wasTriggered = true;
+      mutate();
+    }
+    originalChdir(directory);
+  };
+  return {
+    wasTriggered: () => wasTriggered,
+    restore: () => { process.chdir = originalChdir; },
+  };
+}
+
 /** The "Everything" scope: scope, Confirm?, the contract question, the machine question. */
 function everythingScope(contract: string, machine: string): Array<[string, string]> {
   return [
@@ -492,7 +509,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(race.wasTriggered()).toBe(true);
     expect(readFileSync(victim, "utf8")).toBe(payload);
     expect(readFileSync(join(`${parent}-before-race`, "hooks.json"), "utf8")).toBe(payload);
-    expect(out).toContain("▲ .cursor/hooks.json kept · linked path — not ai-eng's");
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall — preserved");
   });
 
   test("a parent replaced by a symlink before write remains untouched", async () => {
@@ -527,7 +544,74 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(race.wasTriggered()).toBe(true);
     expect(readFileSync(victim, "utf8")).toBe("outside settings\n");
     expect(readFileSync(join(`${parent}-before-race`, "hooks.json"), "utf8")).toBe(originalSettings);
-    expect(out).toContain("▲ .cursor/hooks.json kept · linked path — not ai-eng's");
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall — preserved");
+  });
+
+  test("a same-content file replacement before unlink is preserved", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    mkdirSync(join(cwd, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["cursor"]\n');
+    const parent = join(cwd, ".cursor");
+    mkdirSync(parent);
+    const file = join(parent, "hooks.json");
+    const payload = "canon payload\n";
+    writeFileSync(file, payload);
+    writeFileSync(
+      join(cwd, ".ai-engineering", "ai-eng.lock"),
+      lockText({ version: VERSION, assets: { ".cursor/hooks.json": sha256(payload) } }),
+    );
+    const race = mutateFileOnSecondChdir(realpathSync(parent), () => {
+      renameSync(file, `${file}-before-race`);
+      writeFileSync(file, payload);
+    });
+
+    let out = "";
+    try {
+      ({ out } = await uninstall([
+        [SELECT, PROJECT_KEYS],
+        [CONFIRM, "y"],
+      ]));
+    } finally {
+      race.restore();
+    }
+
+    expect(race.wasTriggered()).toBe(true);
+    expect(readFileSync(file, "utf8")).toBe(payload);
+    expect(readFileSync(`${file}-before-race`, "utf8")).toBe(payload);
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall — preserved");
+  });
+
+  test("changed settings content before write is preserved", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    const mine = {
+      version: 1,
+      hooks: { preToolUse: [{ type: "command", command: "echo my own guard", timeout: 5 }] },
+    };
+    const settings = join(cwd, ".cursor", "hooks.json");
+    mkdirSync(join(cwd, ".cursor"), { recursive: true });
+    writeFileSync(settings, `${JSON.stringify(mine, null, 2)}\n`);
+    initShaped(["cursor"]);
+    const originalIdentity = lstatSync(settings).ino;
+    const replacement = "replacement user content\n";
+    const parent = realpathSync(join(cwd, ".cursor"));
+    const race = mutateFileOnSecondChdir(parent, () => writeFileSync(settings, replacement));
+
+    let out = "";
+    try {
+      ({ out } = await uninstall([
+        [SELECT, PROJECT_KEYS],
+        [CONFIRM, "y"],
+      ]));
+    } finally {
+      race.restore();
+    }
+
+    expect(race.wasTriggered()).toBe(true);
+    expect(lstatSync(settings).ino).toBe(originalIdentity);
+    expect(readFileSync(settings, "utf8")).toBe(replacement);
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall — preserved");
   });
 
   test("project pruning keeps a non-empty carrier directory", async () => {
