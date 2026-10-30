@@ -1387,9 +1387,10 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
           "status": "failed",
-          "attempts": 1,
+          "attempts": 2,
           "findings": [
-            "Adversarial review loop attempt 1 failed after four critic rounds: F1-F4 were resolved; F5 remains open because a write error can leave user-owned settings truncated or partial."
+            "Adversarial review loop attempt 1 failed after four critic rounds: F1-F4 were resolved; F5 remains open because a write error can leave user-owned settings truncated or partial.",
+            "Adversarial review loop attempt 2 round 1 confirmed F5: adapters.ts:409 and :450 write settings in place, so an error can leave partial contents; I73 reproduces this."
           ]
         }
       },
