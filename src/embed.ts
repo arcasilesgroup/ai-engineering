@@ -2,8 +2,8 @@
 // skill and template from EMBEDDED — never from disk paths, never from the network.
 
 import { EMBEDDED } from "./assets.ts";
-import { createHash } from "node:crypto";
-import { closeSync, constants, fstatSync, ftruncateSync, openSync, readSync, writeSync, writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, unlinkSync, rmdirSync, lstatSync, realpathSync, type Stats } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import { closeSync, constants, fstatSync, ftruncateSync, openSync, readSync, writeSync, writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, renameSync, unlinkSync, rmdirSync, lstatSync, realpathSync, type Stats } from "node:fs";
 import { basename, join, dirname, resolve, relative, sep, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hashFile } from "./shared-hash.ts";
@@ -44,19 +44,22 @@ export function changedCanonSkills(homeDir: string): string[] {
     .map(([path]) => path);
 }
 
-export type CanonDrift = { verified: number; drift: number; missing: number; stale: number; foreign: number };
+export type CanonDrift = { verified: number; drift: number; missing: number; stale: number; kept: number; foreign: number };
 
-/** Files sitting in the canon home that this binary does not ship. The line between
- *  "ours to sweep" and "somebody else's to leave alone" is the skill folder: a path
- *  inside a folder we ship but absent from the payload is ours to sweep — a renamed
- *  asset, a deleted page — while anything else in the canon home (a skill of your
- *  own, a symlink) is not ours to delete. Dot entries are the OS talking (.DS_Store)
- *  and are ignored either way. A payload walk never sees an orphan, so without this
- *  walk a renamed asset lives in every installed canon forever. */
-export function canonExtras(homeDir: string): { stale: string[]; foreign: string[] } {
+/** Files sitting in the canon home that this binary does not ship. Inside a folder we
+ *  ship, a file is `stale` — ours to sweep, a renamed asset or a deleted page — only
+ *  while its bytes still equal the hash recorded when an installer wrote it; any other
+ *  file there is a `kept` user file: added or edited by hand, or left by an install that
+ *  kept no record, and never deleted. Anything else in the canon home (a skill of your
+ *  own, a symlink) is `foreign`. Dot entries are the OS talking (.DS_Store) and are
+ *  ignored either way. A payload walk never sees an orphan, so without this walk a
+ *  renamed asset lives in every installed canon forever. */
+export function canonExtras(homeDir: string): { stale: string[]; kept: string[]; foreign: string[] } {
   const payload = canonSkills();
   const shipped = new Set([...payload.keys()].map((path) => path.split("/")[1] ?? ""));
+  const owned = readCanonOwnership(homeDir);
   const stale: string[] = [];
+  const kept: string[] = [];
   const foreign: string[] = [];
   const walk = (dir: string, relative: string): void => {
     let entries;
@@ -77,13 +80,26 @@ export function canonExtras(homeDir: string): { stale: string[]; foreign: string
         walk(absolute, rel);
         continue;
       }
-      if (payload.has(`skills/${rel}`)) continue;
-      if (shipped.has(rel.split("/")[0]!)) stale.push(`skills/${rel}`);
-      else foreign.push(`skills/${rel}`);
+      const key = `skills/${rel}`;
+      if (payload.has(key)) continue;
+      if (!shipped.has(rel.split("/")[0]!)) foreign.push(key);
+      else if (isRecordedCanonFile(owned, key, absolute)) stale.push(key);
+      else kept.push(key);
     }
   };
   walk(join(homeDir, "skills"), "");
-  return { stale: stale.sort((a, b) => a.localeCompare(b, "en")), foreign: foreign.sort((a, b) => a.localeCompare(b, "en")) };
+  const byPath = (a: string, b: string): number => a.localeCompare(b, "en");
+  return { stale: stale.sort(byPath), kept: kept.sort(byPath), foreign: foreign.sort(byPath) };
+}
+
+function isRecordedCanonFile(owned: Map<string, string>, key: string, absolute: string): boolean {
+  const recorded = owned.get(key);
+  if (recorded === undefined) return false;
+  try {
+    return hashFile(absolute) === recorded;
+  } catch {
+    return false;
+  }
 }
 
 /** The record of every canon file installCanon last wrote, path → sha256, in the canon home. */
@@ -105,8 +121,23 @@ function parseCanonOwnership(text: string): Map<string, string> | null {
   }
 }
 
-export function isCanonOwnershipRecord(text: string): boolean {
-  return parseCanonOwnership(text) !== null;
+/** The record is removable only while it parses and no file it vouches for is left: it is
+ *  the one proof that such a file is ai-eng's, so deleting it first strands that file. */
+export function isRemovableCanonOwnershipRecord(homeDir: string, text: string): boolean {
+  const owned = parseCanonOwnership(text);
+  if (owned === null) return false;
+  return ![...owned.keys()].some((path) => isPathPresent(join(homeDir, path)));
+}
+
+function isPathPresent(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    // Only a plain "no such entry" is absence; anything we cannot inspect may still be there.
+    const code = typeof error === "object" && error !== null && "code" in error ? error.code : null;
+    return code !== "ENOENT" && code !== "ENOTDIR";
+  }
 }
 
 function readCanonOwnership(homeDir: string): Map<string, string> {
@@ -116,26 +147,51 @@ function readCanonOwnership(homeDir: string): Map<string, string> {
 }
 
 /** Remember the payload this binary just installed, so a later binary that stops shipping
- *  a page can prove the page on disk is still the one it wrote. A record that cannot be
- *  written means nothing is provably ours later: the sweep keeps every file. */
-export function recordCanonOwnership(homeDir: string): void {
+ *  a page can prove the page on disk is still the one it wrote. The record is staged under
+ *  a private name and renamed over its own: a rename replaces the directory entry, so a
+ *  file of the user's hard-linked at that name keeps its bytes. A link or a non-file at
+ *  the name is refused, and the warning is returned. */
+export function recordCanonOwnership(homeDir: string): string | null {
   const files: Record<string, string> = {};
   for (const [path, ref] of canonSkills()) {
     const embedded = embeddedPath(ref);
     if (existsSync(embedded)) files[path] = hashFile(embedded);
   }
-  let descriptor: number | null = null;
+  const refusal = `${join(homeDir, CANON_OWNERSHIP_NAME)} is a link, not a regular file, or not writable — ownership record not written; stale canon files will be kept, not swept`;
+  let canonicalHome: string;
   try {
-    descriptor = openSync(
-      join(homeDir, CANON_OWNERSHIP_NAME),
-      constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW | constants.O_NONBLOCK,
-      0o644,
-    );
-    if (fstatSync(descriptor).isFile()) writeFileSync(descriptor, `${JSON.stringify({ files }, null, 2)}\n`);
+    canonicalHome = realpathSync(homeDir);
   } catch {
-    /* a link, a directory or an unwritable path: no record, so nothing is swept later */
-  } finally {
-    if (descriptor !== null) closeSync(descriptor);
+    return refusal;
+  }
+  const record = `${JSON.stringify({ files }, null, 2)}\n`;
+  const isWritten = withSafeProjectParent(canonicalHome, join(canonicalHome, CANON_OWNERSHIP_NAME), (name) => replaceRegularFile(name, record));
+  return isWritten ? null : refusal;
+}
+
+/** Replace `name` (in the current directory) through a private staged file and a rename. */
+function replaceRegularFile(name: string, contents: string): boolean {
+  try {
+    if (!lstatSync(name).isFile()) return false;
+  } catch (error) {
+    if (!(typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT")) return false;
+  }
+  const staged = `.${name}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  let isStaged = false;
+  try {
+    writeFileSync(staged, contents, { flag: "wx", mode: 0o644 });
+    isStaged = true;
+    renameSync(staged, name);
+    return true;
+  } catch {
+    if (isStaged) {
+      try {
+        unlinkSync(staged);
+      } catch {
+        /* already gone */
+      }
+    }
+    return false;
   }
 }
 
@@ -144,10 +200,11 @@ export function recordCanonOwnership(homeDir: string): void {
  *  wrote it: a page the user added or edited has no such proof and stays (§14.3). */
 export function removeStaleCanonFiles(homeDir: string): { removed: string[]; kept: string[] } {
   const removed: string[] = [];
-  const kept: string[] = [];
+  const extras = canonExtras(homeDir);
+  const kept: string[] = [...extras.kept];
   const owned = readCanonOwnership(homeDir);
   const skillsRoot = safeProjectPath(homeDir, "skills");
-  for (const key of canonExtras(homeDir).stale) {
+  for (const key of extras.stale) {
     const absolute = safeProjectPath(homeDir, key);
     const snapshot = absolute === null ? null : readProjectFileSnapshot(homeDir, absolute);
     const isOwned = snapshot !== null && snapshot.hash === owned.get(key);
@@ -162,7 +219,7 @@ export function removeStaleCanonFiles(homeDir: string): { removed: string[]; kep
       directory = dirname(directory);
     }
   }
-  return { removed, kept };
+  return { removed, kept: kept.sort((a, b) => a.localeCompare(b, "en")) };
 }
 
 /** The installed canon against this binary's payload, byte for byte — the one
@@ -175,7 +232,7 @@ export function removeStaleCanonFiles(homeDir: string): { removed: string[]; kep
  *  halves. */
 export function canonDrift(homeDir: string): CanonDrift {
   const extras = canonExtras(homeDir);
-  const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale: extras.stale.length, foreign: extras.foreign.length };
+  const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale: extras.stale.length, kept: extras.kept.length, foreign: extras.foreign.length };
   for (const [path, ref] of canonSkills()) {
     const installed = join(homeDir, path);
     const embedded = embeddedPath(ref);

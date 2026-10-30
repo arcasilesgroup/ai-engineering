@@ -19,13 +19,13 @@ import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { uninstallMain } from "../src/commands/uninstall.ts";
 import { embeddedPath, embeddedUnder, recordCanonOwnership } from "../src/embed.ts";
 import { contractEntries, planEntries } from "../src/commands/init-shared.ts";
 import { buildLock, install, lockText, sha256 } from "../src/install.ts";
-import { installMachineCarriers, machineStateFile, readMachineState } from "../src/surfaces/adapters.ts";
+import { installMachineCarriers, machineStateFile, machineStateLockFile, readMachineState } from "../src/surfaces/adapters.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 import { usePrivateStdin } from "./fixtures/private-stdin.ts";
@@ -797,6 +797,24 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(existsSync(machine)).toBe(false);
   });
 
+  test("F22: the ownership record stays while a file it vouches for remains", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const olderPage = "skills/ai-debug/a-page-an-older-version-shipped.md";
+    mkdirSync(join(machine, "skills", "ai-debug"), { recursive: true });
+    writeFileSync(join(machine, olderPage), "older payload\n");
+    const record = JSON.stringify({ files: { [olderPage]: sha256("older payload\n") } });
+    writeFileSync(join(machine, "canon-owned.json"), record);
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(readFileSync(join(machine, olderPage), "utf8")).toBe("older payload\n");
+    expect(readFileSync(join(machine, "canon-owned.json"), "utf8")).toBe(record);
+    expect(out).toContain(`${machine} kept`);
+  });
+
   test("F9: a canon parent swapped for a link at unlink time never redirects deletion outside the canon", async () => {
     const { cwd, machine } = sandboxed();
     gitInit(cwd);
@@ -893,6 +911,46 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(globalTemplateDir()).toBeNull(); // it was unset before, so it is unset after
     expect(existsSync(ours)).toBe(false);
     expect(out).toContain("✓ git init.templateDir unset (it was unset before)");
+  });
+
+  test("F18: a dead run's lock and claim are recovered before the git floor is read", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const ours = join(machine, "git-template");
+    writeLegacyTemplateShims(ours);
+    recordLegacyTemplateDir(null, ours);
+    setGlobalTemplateDir(ours);
+    const deadPid = spawnSync("true").pid;
+    writeFileSync(machineStateLockFile(), JSON.stringify({ pid: deadPid, hostname: hostname(), startedAt: "2026-01-01T00:00:00.000Z" }));
+    renameSync(machineStateFile(), join(machine, ".machine.json.4242.abcdef012345.claim"));
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(globalTemplateDir()).toBeNull();
+    expect(out).toContain("✓ git init.templateDir unset (it was unset before)");
+    expect(existsSync(machineStateLockFile())).toBe(false);
+  });
+
+  test("F18: a lock this run cannot prove stale leaves git init.templateDir alone, and says so", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const ours = join(machine, "git-template");
+    writeLegacyTemplateShims(ours);
+    recordLegacyTemplateDir(null, ours);
+    setGlobalTemplateDir(ours);
+    const lockPath = machineStateLockFile();
+    const foreignLock = JSON.stringify({ pid: 1, hostname: "another-host", startedAt: "2026-01-01T00:00:00.000Z" });
+    writeFileSync(lockPath, foreignLock);
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(globalTemplateDir()).toBe(ours);
+    expect(out).toContain(`git init.templateDir not restored — ${lockPath} — held by another ai-eng run`);
+    expect(readFileSync(lockPath, "utf8")).toBe(foreignLock);
   });
 
   test("an older templateDir is restored and legacy pack settings do not limit uninstall", async () => {

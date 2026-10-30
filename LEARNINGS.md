@@ -1745,3 +1745,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Hold a lock across the whole claim; remove only byte-identical installer files; record canon hashes in `canon-owned.json` and delete only on a hash match.
 - **Lesson:** Ownership means exact bytes or a recorded hash; without one, keep the file.
 - **Tags:** review, data-loss, cleanup, ownership, concurrency
+
+### L239 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F18: a lock left by a crash blocked machine state forever, and an interrupted claim hid `machine.json`, so uninstall silently skipped restoring git `init.templateDir`.
+- **Root cause:** The lock had no owner record and no recovery path; a missing `machine.json` read as "no state".
+- **Fix:** Record pid, host and start time; reclaim atomically only when the owner is dead on this host; restore a lone claim copy under the lock; warn instead of skipping the restore.
+- **Lesson:** A lock needs an owner record and a provable-stale recovery path.
+- **Tags:** review, concurrency, lock, machine-state, fail-closed
+
+### L240 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F19-F22: the ownership record truncated through a hard link, kept user files counted as stale forever, a repo settings file without ai-eng entries was warned about, and uninstall dropped the record while recorded files remained.
+- **Root cause:** Shared names were truncated instead of replaced, and warnings counted states their fix could not clear.
+- **Fix:** Replace the record by temp-file rename; classify unprovable extras as kept user files; warn only for files holding ai-eng entries; keep the record while recorded files exist.
+- **Lesson:** A warning must only count what its fix can clear, and a proof stays while what it proves is still there.
+- **Tags:** review, cleanup, ownership, doctor

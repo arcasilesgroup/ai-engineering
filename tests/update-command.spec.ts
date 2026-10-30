@@ -416,6 +416,25 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     assertAllSkillsInstalled(["my-local-skill"], [`${editedSource.skill}/${editedSource.relativePath}`]);
   });
 
+  test("F20: a user file kept in a shipped skill folder does not make every update re-run the canon repair", async () => {
+    rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
+    const repo = governedRepo("repo-kept-user-file");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const notes = join(ENG_HOME, "skills", "ai-debug", "my-notes.md");
+    writeFileSync(notes, "mine\n");
+    try {
+      const second = await captured(() => updateMain({ yes: true }));
+      expect(second.value).toBe(0);
+      expect(second.out).not.toInclude("re-installed");
+      expect(second.out).not.toInclude("global canon repaired");
+      expect(second.out).toInclude("global canon ·");
+      expect(readFileSync(notes, "utf8")).toBe("mine\n");
+    } finally {
+      rmSync(notes);
+    }
+  });
+
   test("update leaves HEAD unchanged, spawns no commit, and leaves global config untouched", async () => {
     const globalConfig = join(SANDBOX, "isolated-gitconfig-update");
     const globalConfigBefore = "[user]\n\tname = Isolated test\n";

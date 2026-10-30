@@ -28,7 +28,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { buildLock, install, lockText, mergeSharedText, parseLock, sha256, stripSharedText, type PlanEntry } from "../src/install.ts";
 import {
@@ -40,6 +40,7 @@ import {
   installMachineCarriers,
   machineCarrier,
   machineStateFile,
+  machineStateLockFile,
   mirrorTargets,
   readMachineState,
   repoCarrier,
@@ -1123,7 +1124,7 @@ describe("carriers on the machine", () => {
       concurrentRun.restore();
     }
     expect(concurrentRun.wasTriggered()).toBe(true);
-    expect(second!.refused).toEqual([{ path: statePath, reason: "machine-state-busy" }]);
+    expect(second!.refused).toEqual([{ path: machineStateLockFile(), reason: "machine-state-busy" }]);
     expect(first.refused).toEqual([]);
     const committed = readMachineState();
     expect(committed.carriers).toEqual({ pi: "owned", opencode: sha256(carrierFiles("opencode", "machine")!.main) });
@@ -1148,6 +1149,53 @@ describe("carriers on the machine", () => {
     expect(refused).toEqual([{ path: keptPath, reason: "machine-state-kept-aside" }]);
     expect(refuseLine(refused[0]!)).toBe(
       `⚠ machine.json changed while this run was replacing it; its previous contents are kept at ${keptPath} — move them back by hand`,
+    );
+  });
+
+  test("F18: a lock left by a dead run on this host is reclaimed; a live, foreign-host or unreadable lock stays and is named", () => {
+    const base = useHome("machine-state-stale-lock");
+    const lockPath = machineStateLockFile();
+    const deadPid = spawnSync("true").pid;
+    const lockOf = (pid: number, host: string) => `${JSON.stringify({ pid, hostname: host, startedAt: "2026-01-01T00:00:00.000Z" })}\n`;
+
+    writeFileSync(lockPath, lockOf(deadPid, hostname()));
+    expect(installMachineCarriers(["opencode"]).refused).toEqual([]);
+    expect(existsSync(lockPath)).toBe(false);
+    expect(readMachineState().carriers["opencode"]).toBe(sha256(carrierFiles("opencode", "machine")!.main));
+
+    for (const held of [lockOf(process.pid, hostname()), lockOf(deadPid, `${hostname()}-elsewhere`), "", "{not json"]) {
+      writeFileSync(lockPath, held);
+      const { refused } = installMachineCarriers(["opencode"]);
+      expect(refused).toEqual([{ path: lockPath, reason: "machine-state-busy" }]);
+      expect(readFileSync(lockPath, "utf8")).toBe(held);
+      expect(refuseLine(refused[0]!)).toBe(
+        `⚠ ${lockPath} — held by another ai-eng run, one on another host, or one this run cannot prove has stopped; machine state left untouched. If no ai-eng run is using this home, delete ${lockPath} and run again`,
+      );
+    }
+    rmSync(lockPath);
+    expect(readdirSync(base).filter((name) => name.startsWith(".machine.json."))).toEqual([]);
+  });
+
+  test("F18: an interrupted commit's claim goes back under machine.json; beside an existing machine.json both are kept and named", () => {
+    const base = useHome("machine-state-claim-recovery");
+    const original = `${JSON.stringify({ version: "prior", carriers: { pi: "owned" }, templateDir: { previous: "/theirs", ours: null } }, null, 2)}\n`;
+    const claim = join(base, ".machine.json.4242.abcdef012345.claim");
+    writeFileSync(claim, original);
+
+    expect(installMachineCarriers(["opencode"]).refused).toEqual([]);
+    expect(existsSync(claim)).toBe(false);
+    const recovered = readMachineState();
+    expect(recovered.templateDir).toEqual({ previous: "/theirs", ours: null });
+    expect(recovered.carriers).toEqual({ pi: "owned", opencode: sha256(carrierFiles("opencode", "machine")!.main) });
+
+    writeFileSync(claim, original);
+    const { refused } = installMachineCarriers(["opencode"]);
+    const keptPath = join(realpathSync(base), basename(claim));
+    expect(refused).toEqual([{ path: keptPath, reason: "machine-state-copy-kept" }]);
+    expect(readFileSync(claim, "utf8")).toBe(original);
+    expect(readMachineState().templateDir).toEqual({ previous: "/theirs", ours: null });
+    expect(refuseLine(refused[0]!)).toBe(
+      `⚠ ${keptPath} — an earlier copy of machine.json left by an interrupted ai-eng run; kept beside the current one — compare them and delete the one you do not need`,
     );
   });
 
@@ -1259,6 +1307,18 @@ describe("what 2.2.0 moved out of the repo", () => {
     expect(sweepMovedRepoCarriers(root)).toEqual({ removed: [], kept: [".codex/hooks.json", ".pi/extensions/ai-eng.ts"] });
     expect(readFileSync(join(root, ".codex", "hooks.json"), "utf8")).toBe(comments);
     expect(readFileSync(join(root, ".pi", "extensions", "ai-eng.ts"), "utf8")).toBe(extension);
+  });
+
+  test("F21: a repo settings file that never held an ai-eng entry is the repo's own: no row, bytes untouched", () => {
+    const root = join(sandbox, "moved-never-ours");
+    const projectSettings = '{"permissions":{"allow":["Bash(ls)"]}}';
+    const codexHooks = `${JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: "my-own-script.sh" }] }] } }, null, 2)}\n`;
+    write(join(root, ".claude", "settings.json"), projectSettings);
+    write(join(root, ".codex", "hooks.json"), codexHooks);
+
+    expect(sweepMovedRepoCarriers(root)).toEqual({ removed: [], kept: [] });
+    expect(readFileSync(join(root, ".claude", "settings.json"), "utf8")).toBe(projectSettings);
+    expect(readFileSync(join(root, ".codex", "hooks.json"), "utf8")).toBe(codexHooks);
   });
 
   test("F12: a repo settings file linked to the user's home settings is kept, and the home file is never rewritten", () => {
@@ -1388,7 +1448,7 @@ describe("installCanon and what leaves with it", () => {
 
     const lines = installCanon("2.2.0");
     expect(lines).toContain(`✓ swept 1 file(s) this binary no longer ships: ${renamed}`);
-    expect(lines).toContain(`✓ kept 1 file(s) this binary does not ship and did not provably write: ${notes}`);
+    expect(lines).toContain(`✓ kept 1 user file(s) — not shipped by this binary and not provably written by ai-eng, so never deleted: ${notes}`);
     expect(existsSync(join(base, renamed))).toBe(false);
     expect(readFileSync(join(base, notes), "utf8")).toBe("mine\n");
     expect(existsSync(join(base, "skills", "ai-brainstorm", "SKILL.md"))).toBe(true);

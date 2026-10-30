@@ -2,7 +2,7 @@
 // definition — the payload init installs is exactly the payload update re-installs.
 
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { PlanEntry } from "../install.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate } from "../embed.ts";
@@ -30,7 +30,19 @@ export function refuseLine(refused: { path: string; reason: string }): string {
     return `⚠ ${refused.path} — unreadable, a dangling link, not a regular file, or changing while read; left untouched`;
   }
   if (refused.reason === "machine-state-busy") {
-    return `⚠ ${refused.path} — another ai-eng run is changing machine state, or one stopped mid-change and left .machine.json.lock or a .machine.json.*.claim in ${dirname(refused.path)}; left untouched`;
+    return `⚠ ${refused.path} — held by another ai-eng run, one on another host, or one this run cannot prove has stopped; machine state left untouched. If no ai-eng run is using this home, delete ${refused.path} and run again`;
+  }
+  if (refused.reason === "machine-state-lock-stale") {
+    return `⚠ ${refused.path} — left by an ai-eng run that is no longer running; the next ai-eng update reclaims it`;
+  }
+  if (refused.reason === "machine-state-stranded") {
+    return `⚠ machine.json is missing; an interrupted ai-eng run left its previous contents at ${refused.path} — move the right copy back to machine.json by hand; machine state left untouched`;
+  }
+  if (refused.reason === "machine-state-copy-kept") {
+    return `⚠ ${refused.path} — an earlier copy of machine.json left by an interrupted ai-eng run; kept beside the current one — compare them and delete the one you do not need`;
+  }
+  if (refused.reason === "machine-state-unreadable") {
+    return `⚠ ${refused.path} — machine state cannot be read or is not valid JSON; left untouched`;
   }
   if (refused.reason === "machine-state-kept-aside") {
     return `⚠ machine.json changed while this run was replacing it; its previous contents are kept at ${refused.path} — move them back by hand`;

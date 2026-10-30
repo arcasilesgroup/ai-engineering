@@ -9,13 +9,13 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, rmdirSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
-import { SURFACES, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
+import { SURFACES, machineStateUnavailable, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
 import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
 import { parseLock, sha256, stripSharedText } from "../install.ts";
 import { hashFile } from "../install.ts";
 import {
-  embeddedPath, embeddedTemplate, embeddedUnder, isCanonOwnershipRecord, pruneEmptyDirectoryWithin,
+  embeddedPath, embeddedTemplate, embeddedUnder, isRemovableCanonOwnershipRecord, pruneEmptyDirectoryWithin,
   readProjectFileSnapshot, safeProjectPath, unlinkProjectPath, withSafeProjectParent, writeProjectFile,
   CANON_OWNERSHIP_NAME, type ProjectFileSnapshot,
 } from "../embed.ts";
@@ -296,10 +296,11 @@ function removeEmbeddedAssets(machineDir: string, prefix: string): number {
 
 /** The two small records installCanon and the notice check write into the machine home.
  *  Each goes only while it still has the exact shape this installer writes, so a home
- *  holding nothing else of the user's can be removed whole. */
-const INSTALLER_RECORDS: ReadonlyArray<{ name: string; isOurs: (text: string) => boolean }> = [
-  { name: "version.json", isOurs: isVersionCacheRecord },
-  { name: CANON_OWNERSHIP_NAME, isOurs: isCanonOwnershipRecord },
+ *  holding nothing else of the user's can be removed whole. The ownership record also
+ *  stays while any file it vouches for remains: it is the only proof a later run has. */
+const INSTALLER_RECORDS: ReadonlyArray<{ name: string; isRemovable: (machineDir: string, text: string) => boolean }> = [
+  { name: "version.json", isRemovable: (_machineDir, text) => isVersionCacheRecord(text) },
+  { name: CANON_OWNERSHIP_NAME, isRemovable: isRemovableCanonOwnershipRecord },
 ];
 
 function isVersionCacheRecord(text: string): boolean {
@@ -318,7 +319,7 @@ function removeInstallerRecords(machineDir: string): number {
   for (const record of INSTALLER_RECORDS) {
     const absolute = safeProjectPath(machineDir, record.name);
     const snapshot = absolute === null ? null : readProjectFileSnapshot(machineDir, absolute);
-    if (absolute === null || snapshot === null || !record.isOurs(snapshot.content.toString("utf8"))) continue;
+    if (absolute === null || snapshot === null || !record.isRemovable(machineDir, snapshot.content.toString("utf8"))) continue;
     if (unlinkProjectPath(machineDir, absolute, snapshot)) removed += 1;
   }
   return removed;
@@ -332,6 +333,19 @@ function machineRefusalText(refused: { path: string; reason: string }): string {
     return `${refused.path} left alone — it is linked, changed, or shared with another path`;
   }
   return refuseLine(refused).replace(/^⚠ /, "");
+}
+
+/** Restore git `init.templateDir` from the machine state. State that cannot be read now
+ *  (a held lock, an interrupted run's copy) is never read as "nothing recorded": the
+ *  restore is skipped out loud, with the path that blocks it. */
+function restoreRecordedTemplateDir(): ui.Row | null {
+  const unavailable = machineStateUnavailable();
+  if (unavailable !== null) {
+    return { mark: "warn", text: `git init.templateDir not restored — ${refuseLine(unavailable).replace(/^⚠ /, "")}` };
+  }
+  const floorState = readMachineState().templateDir;
+  if (floorState === undefined) return null;
+  return { mark: "ok", text: restoreTemplateDir(floorState.previous, floorState.ours) };
 }
 
 async function removeEverything(root: string, input: unknown, declared: string[]): Promise<ui.Row[]> {
@@ -363,8 +377,7 @@ async function removeEverything(root: string, input: unknown, declared: string[]
     const carriers = removeMachineCarriers(declared);
     // The git floor first: the recorded state lives inside the canon home this scope is
     // about to delete, so reading it afterwards would restore nothing.
-    const floorState = readMachineState().templateDir;
-    const floor = floorState === undefined ? null : restoreTemplateDir(floorState.previous, floorState.ours);
+    const floor = restoreRecordedTemplateDir();
     const swept = removeMachineArtifacts();
     const canonAssetsRemoved = ["skills/", "agents/", "scripts/"].reduce(
       (count, prefix) => count + removeEmbeddedAssets(machineDir, prefix),
@@ -376,7 +389,7 @@ async function removeEverything(root: string, input: unknown, declared: string[]
     extra.push(userFilesRemain
       ? { mark: "ok", text: `${machineDir} kept`, dim: `${cleanup} · other files kept` }
       : { mark: "warn", text: `${machineDir} deleted`, dim: cleanup });
-    if (floor !== null) extra.push({ mark: "ok", text: floor });
+    if (floor !== null) extra.push(floor);
     for (const line of carriers.lines) extra.push({ mark: "ok", text: line });
     for (const refused of carriers.refused) extra.push({ mark: "warn", text: machineRefusalText(refused) });
   } else {

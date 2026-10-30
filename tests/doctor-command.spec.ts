@@ -304,8 +304,25 @@ describe("doctor · the canon and the lock", () => {
     writeFileSync(join(home, "skills", "ai-debug", "orphan.md"), "a file this binary no longer ships\n");
     run = await doctor();
     expect(row(run, "canon")).toContain("▲");
-    expect(detail(run, "canon")).toContain("1 stale (ai-eng update sweeps what we shipped)");
+    expect(detail(run, "canon")).toContain("1 kept user file(s) in shipped skill folders (never deleted)");
     expect(detail(run, "canon")).toContain("1 not ours (left alone)");
+  });
+
+  test("F20: a user file in a shipped skill folder is reported as kept and never warned about; a recorded one is stale", async () => {
+    const { home } = healthy();
+    const key = "skills/ai-debug/my-notes.md";
+    writeFileSync(join(home, key), "mine\n");
+    let run = await doctor();
+    expect(row(run, "canon")).toContain("✓");
+    expect(detail(run, "canon")).toContain("1 kept user file(s) in shipped skill folders (never deleted)");
+    expect(detail(run, "canon")).not.toContain("stale");
+
+    const recordPath = join(home, "canon-owned.json");
+    const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
+    writeFileSync(recordPath, JSON.stringify({ files: { ...record.files, [key]: sha256("mine\n") } }));
+    run = await doctor();
+    expect(row(run, "canon")).toContain("▲");
+    expect(detail(run, "canon")).toContain("1 stale (ai-eng update sweeps what we shipped)");
   });
 
   test("the full installed skill inventory is verified despite a legacy pack filter", async () => {
@@ -375,6 +392,30 @@ describe("doctor · the canon and the lock", () => {
     run = await doctor();
     expect(row(run, "machine state")).toContain("✓");
     expect(detail(run, "machine state")).toBe(`carriers written by ${VERSION} · definitions unchanged`);
+  });
+
+  test("F18: machine state held by a lock or left under a claim name is named, never read as no state", async () => {
+    const { home } = sandbox();
+    const state = join(home, "machine.json");
+    const recorded = JSON.stringify({ version: VERSION, carriers: { "claude-code": sha256(carrierFiles("claude-code", "machine")!.main) } });
+    writeFileSync(state, recorded);
+    const lock = join(home, ".machine.json.lock");
+    writeFileSync(lock, JSON.stringify({ pid: 1, hostname: "another-host", startedAt: "2026-01-01T00:00:00.000Z" }));
+    let run = await doctor();
+    expect(row(run, "machine state")).toContain("▲");
+    expect(detail(run, "machine state")).toBe(
+      `${lock} — held by another ai-eng run, one on another host, or one this run cannot prove has stopped; machine state left untouched. If no ai-eng run is using this home, delete ${lock} and run again`,
+    );
+
+    rmSync(lock);
+    rmSync(state);
+    const claim = join(home, ".machine.json.4242.abcdef012345.claim");
+    writeFileSync(claim, recorded);
+    run = await doctor();
+    expect(row(run, "machine state")).toContain("▲");
+    expect(detail(run, "machine state")).toBe(
+      `machine.json is missing; an interrupted ai-eng run left its previous contents at ${claim} — move the right copy back to machine.json by hand; machine state left untouched`,
+    );
   });
 });
 

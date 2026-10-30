@@ -15,7 +15,8 @@ import {
   type ReceiptSummary,
 } from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
-import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, readMachineState } from "../surfaces/adapters.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
+import { refuseLine } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
 import { readOverrides, overrideDaysLeft } from "../chain/dialect.ts";
@@ -91,6 +92,9 @@ function checkCanon(): CheckResult {
   // health — it is somebody's, and we do not delete it.
   const canonBits = [`${canon.verified}/${canonTotal} files verified`, `${canon.drift} drift`, `${canon.missing} missing`];
   if (canon.stale > 0) canonBits.push(`${canon.stale} stale (ai-eng update sweeps what we shipped)`);
+  // Kept user files are reported, never counted against health: update keeps them by
+  // design, so a warning about them could never be cleared.
+  if (canon.kept > 0) canonBits.push(`${canon.kept} kept user file(s) in shipped skill folders (never deleted)`);
   if (canon.foreign > 0) canonBits.push(`${canon.foreign} not ours (left alone)`);
   return { name: "canon", status: canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? "ok" : "warn", detail: canonBits.join(" · ") };
 }
@@ -383,6 +387,8 @@ function checkMachineState(surfaces: string[]): CheckResult | null {
   //      downgrade is not cosmetic: the carrier is the new binary's, the chain it calls
   //      would be the old one, and the old one has no gate — so the policy would fall
   //      back onto repos that never asked for it (F7).
+  const unavailable = machineStateUnavailable();
+  if (unavailable !== null) return { name: "machine state", status: "warn", detail: refuseLine(unavailable).replace(/^⚠ /, "") };
   const state = readMachineState();
   if (Object.keys(state.carriers).length === 0) return null;
   const downgrade = state.version !== "" && state.version !== VERSION && compareVersions(state.version, VERSION) > 0;

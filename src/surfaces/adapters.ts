@@ -4,6 +4,7 @@
 import surfacesJson from "./surfaces.json";
 import { randomBytes } from "node:crypto";
 import { closeSync, constants, copyFileSync, existsSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { hostname } from "node:os";
 import { basename, join, dirname, relative, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
 import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
@@ -182,8 +183,9 @@ export function installCanon(version: string, preserveSkills: readonly string[] 
   materializeSkills(canonDir, preserveSkills);
   const swept = removeStaleCanonFiles(home());
   if (swept.removed.length > 0) lines.push(`✓ swept ${swept.removed.length} file(s) this binary no longer ships: ${swept.removed.join(", ")}`);
-  if (swept.kept.length > 0) lines.push(`✓ kept ${swept.kept.length} file(s) this binary does not ship and did not provably write: ${swept.kept.join(", ")}`);
-  recordCanonOwnership(home());
+  if (swept.kept.length > 0) lines.push(`✓ kept ${swept.kept.length} user file(s) — not shipped by this binary and not provably written by ai-eng, so never deleted: ${swept.kept.join(", ")}`);
+  const recordRefusal = recordCanonOwnership(home());
+  if (recordRefusal !== null) lines.push(`⚠ ${recordRefusal}`);
   const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
   lines.push(`✓ ${home()}/skills/ — ${entries.length} skills installed`);
   // Seeds the 24h notice cache (§14.0). Health never reads this file: init and
@@ -283,9 +285,12 @@ function sweepMovedRepoCarrier(root: string, rel: string, owner: string): "remov
     return isShipped && unlinkProjectPath(root, absolute, snapshot) ? "removed" : "kept";
   }
   // A settings file we merged into is stripped, not deleted: the user's own keys are in it.
+  // One that never held an entry of ours is the repo's own (Claude Code project settings):
+  // nothing to sweep and nothing to say.
   const current = snapshot.content.toString("utf8");
+  if (!holdsAiEngEntries(current)) return "absent";
   const stripped = stripSharedText(current);
-  if (stripped === null || stripped === current) return "kept";
+  if (stripped === null) return "kept";
   let isOnlyOurs: boolean;
   try {
     isOnlyOurs = Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0;
@@ -294,6 +299,20 @@ function sweepMovedRepoCarrier(root: string, rel: string, owner: string): "remov
   }
   const isDone = isOnlyOurs ? unlinkProjectPath(root, absolute, snapshot) : writeProjectFile(root, absolute, snapshot, stripped);
   return isDone ? "removed" : "kept";
+}
+
+/** Whether a JSON settings text carries anything the strip would take out. Judged on a
+ *  2-space rendering so a layout this installer cannot rewrite (a compact one-liner, tabs)
+ *  is still read; text that is not JSON cannot be judged and counts as holding ours. */
+function holdsAiEngEntries(current: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(current);
+  } catch {
+    return true;
+  }
+  const rendered = `${JSON.stringify(parsed, null, 2)}\n`;
+  return stripSharedText(rendered) !== rendered;
 }
 
 function shippedCarrierModules(owner: string): string[] {
@@ -687,22 +706,36 @@ function machineSettingsMutationRefusals(initial: MachineSettingsSurfaceSnapshot
 
 const MACHINE_STATE_REFUSED = "machine-state-identity-unverified";
 const MACHINE_STATE_BUSY = "machine-state-busy";
+const MACHINE_STATE_LOCK_STALE = "machine-state-lock-stale";
 const MACHINE_STATE_KEPT_ASIDE = "machine-state-kept-aside";
+const MACHINE_STATE_STRANDED = "machine-state-stranded";
+const MACHINE_STATE_COPY_KEPT = "machine-state-copy-kept";
+const MACHINE_STATE_UNREADABLE = "machine-state-unreadable";
 const MACHINE_STATE_NAME = "machine.json";
 /** Held for the whole commit, so a second run never reads the claim window's absence as
- *  "no state" and links a fresh record over the user's. */
+ *  "no state" and links a fresh record over the user's. It names its owner, so a lock
+ *  left by a run that was killed can be told apart from one that is still working. */
 const MACHINE_STATE_LOCK = `.${MACHINE_STATE_NAME}.lock`;
 type MachineRefusal = { path: string; reason: string };
 
+export function machineStateLockFile(): string {
+  return join(home(), MACHINE_STATE_LOCK);
+}
+
 type MachineStateFile = { dev: number; ino: number; content: Buffer };
 type OwnedMachineEntry = { name: string; dev: number; ino: number };
+type MachineStateLockOwner = { pid: number; hostname: string; startedAt: string };
+type MachineStateLock = { dev: number; ino: number; content: Buffer; owner: MachineStateLockOwner | null };
 /** The state file as this run read it, bound to the directory that holds it. `unsafe`
- *  means another path could see its bytes: a link, not a regular file, or a second name. */
+ *  means another path could see its bytes: a link, not a regular file, or a second name.
+ *  `stranded` means machine.json is gone and an interrupted run's copies could not be put
+ *  back; `copies` on `ready` are such copies kept beside a machine.json that exists. */
 type MachineStateRecord =
   | { kind: "no-home" }
   | { kind: "unsafe" }
   | { kind: "busy" }
-  | { kind: "ready"; directory: MachineSettingsDirectory; file: MachineStateFile | null };
+  | { kind: "stranded"; copies: string[] }
+  | { kind: "ready"; directory: MachineSettingsDirectory; file: MachineStateFile | null; copies: string[] };
 
 /** The bytes behind a descriptor, only while that inode has exactly one name. */
 function soleMachineStateFile(descriptor: number): MachineStateFile | null {
@@ -738,43 +771,179 @@ function readMachineStateRecord(): MachineStateRecord {
     return missingPath(error) ? { kind: "no-home" } : { kind: "unsafe" };
   }
   try {
-    const read = withMachineSettingsDirectory(directory, () => ({ isBusy: isMachineStateBusy(), file: readOwnMachineStateFile() }));
+    const read = withMachineSettingsDirectory(directory, () => {
+      const recovery = recoverInterruptedCommit();
+      return { ...recovery, file: readOwnMachineStateFile() };
+    });
     if (read === null || read.file === "unsafe") return { kind: "unsafe" };
     if (read.isBusy) return { kind: "busy" };
-    return { kind: "ready", directory, file: read.file };
+    const copies = read.copies.map((name) => join(directory.path, name));
+    if (read.file === null && copies.length > 0) return { kind: "stranded", copies };
+    return { kind: "ready", directory, file: read.file, copies };
   } catch {
     return { kind: "unsafe" };
   }
 }
 
-/** Another run is mid-commit, or one stopped there and left the original under a private
- *  claim name: either way an absent machine.json is not proof that there is no state. */
-function isMachineStateBusy(): boolean {
-  return readdirSync(".").some((name) =>
-    name === MACHINE_STATE_LOCK || (name.startsWith(`.${MACHINE_STATE_NAME}.`) && name.endsWith(".claim")));
+/** Why readMachineState() is not the whole truth right now, or null when it is: a lock (a
+ *  run mid-commit, or one that stopped there), an interrupted run's copy while machine.json
+ *  is missing, or a machine.json that cannot be read. Read-only: the next init, update,
+ *  config or uninstall is what recovers. A read failure is not absence (R8). */
+export function machineStateUnavailable(): MachineRefusal | null {
+  const directory = home();
+  let names: string[];
+  try {
+    names = readdirSync(directory);
+  } catch (error) {
+    return missingPath(error) ? null : { path: machineStateFile(), reason: MACHINE_STATE_UNREADABLE };
+  }
+  if (names.includes(MACHINE_STATE_LOCK)) {
+    const held = readMachineStateLock(machineStateLockFile());
+    const isStale = held !== null && isLockOwnerGone(held.owner);
+    return { path: machineStateLockFile(), reason: isStale ? MACHINE_STATE_LOCK_STALE : MACHINE_STATE_BUSY };
+  }
+  if (!names.includes(MACHINE_STATE_NAME)) {
+    const copies = names.filter(isClaimName).sort().map((name) => join(directory, name));
+    return copies.length === 0 ? null : { path: copies.join(", "), reason: MACHINE_STATE_STRANDED };
+  }
+  try {
+    JSON.parse(readFileSync(machineStateFile(), "utf8"));
+    return null;
+  } catch {
+    return { path: machineStateFile(), reason: MACHINE_STATE_UNREADABLE };
+  }
+}
+
+function isClaimName(name: string): boolean {
+  return name.startsWith(`.${MACHINE_STATE_NAME}.`) && name.endsWith(".claim");
+}
+
+/** A run stopped inside the commit (Ctrl-C, a kill, a crash) leaves its lock, and maybe the
+ *  original machine.json under a private claim name. Under the lock — a provably dead
+ *  owner's is reclaimed, never anyone else's — a lone claim goes back under its real name
+ *  while that name is free; every other copy is kept and returned to be named. Busy while
+ *  a live, foreign-host or unreadable lock is held. Runs inside the machine home. */
+function recoverInterruptedCommit(): { isBusy: boolean; copies: string[] } {
+  if (!pathEntryExists(MACHINE_STATE_LOCK) && readdirSync(".").filter(isClaimName).length === 0) {
+    return { isBusy: false, copies: [] };
+  }
+  const lock = acquireMachineStateLock();
+  if (lock === null) return { isBusy: true, copies: [] };
+  try {
+    return { isBusy: false, copies: restoreLoneClaim() };
+  } finally {
+    removeOwnedMachineEntry(lock);
+  }
+}
+
+function restoreLoneClaim(): string[] {
+  const claims = readdirSync(".").filter(isClaimName).sort();
+  if (claims.length !== 1 || pathEntryExists(MACHINE_STATE_NAME)) return claims;
+  const name = claims[0]!;
+  try {
+    const stat = lstatSync(name);
+    if (restoreClaimedMachineState({ name, dev: stat.dev, ino: stat.ino })) return [];
+  } catch {
+    /* not restorable: kept and named below */
+  }
+  return claims;
 }
 
 function acquireMachineStateLock(): OwnedMachineEntry | null {
-  let descriptor: number;
+  return createMachineStateLock() ?? (reclaimStaleMachineStateLock() ? createMachineStateLock() : null);
+}
+
+/** The lock appears whole: its owner record is staged under a private name and linked in,
+ *  and a link never replaces a name that exists, so no run ever sees an empty lock. */
+function createMachineStateLock(): OwnedMachineEntry | null {
+  const processStart = new Date(Date.now() - process.uptime() * 1000).toISOString();
+  const owner: MachineStateLockOwner = { pid: process.pid, hostname: hostname(), startedAt: processStart };
+  const staged = stageMachineState(`${JSON.stringify(owner)}\n`);
+  if (staged === null) return null;
   try {
-    descriptor = openSync(MACHINE_STATE_LOCK, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    linkSync(staged.name, MACHINE_STATE_LOCK);
+    return { name: MACHINE_STATE_LOCK, dev: staged.dev, ino: staged.ino };
   } catch {
-    return null;
-  }
-  try {
-    const stat = fstatSync(descriptor);
-    return { name: MACHINE_STATE_LOCK, dev: stat.dev, ino: stat.ino };
-  } catch {
-    // O_EXCL made this name ours: a lock we cannot describe must not outlive the attempt.
-    try {
-      unlinkSync(MACHINE_STATE_LOCK);
-    } catch {
-      /* left behind: the next run reports the lock by name instead of guessing */
-    }
     return null;
   } finally {
-    closeSync(descriptor);
+    removeOwnedMachineEntry(staged);
   }
+}
+
+/** A lock is taken back only from an owner provably gone: written on this host by a pid
+ *  that no longer exists. It is moved aside first and deleted only while it is still the
+ *  exact lock judged stale; anything else is linked back under its name, never replacing
+ *  a lock that took the name meanwhile. */
+function reclaimStaleMachineStateLock(): boolean {
+  const held = readMachineStateLock(MACHINE_STATE_LOCK);
+  if (held === null || !isLockOwnerGone(held.owner)) return false;
+  const aside = privateMachineStateName("stale-lock");
+  try {
+    renameSync(MACHINE_STATE_LOCK, aside);
+  } catch {
+    return false;
+  }
+  const moved = readMachineStateLock(aside);
+  const isJudgedLock = moved !== null && moved.dev === held.dev && moved.ino === held.ino && moved.content.equals(held.content);
+  try {
+    if (isJudgedLock) {
+      unlinkSync(aside);
+      return true;
+    }
+    linkSync(aside, MACHINE_STATE_LOCK);
+    unlinkSync(aside);
+  } catch {
+    /* the lock that holds the name wins; the moved one stays under its private name */
+  }
+  return isJudgedLock;
+}
+
+function readMachineStateLock(path: string): MachineStateLock | null {
+  let descriptor: number | null = null;
+  try {
+    if (!lstatSync(path).isFile()) return null;
+    descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const stat = fstatSync(descriptor);
+    if (!stat.isFile()) return null;
+    const content = readFileSync(descriptor);
+    return { dev: stat.dev, ino: stat.ino, content, owner: parseLockOwner(content.toString("utf8")) };
+  } catch {
+    return null;
+  } finally {
+    if (descriptor !== null) closeSync(descriptor);
+  }
+}
+
+function parseLockOwner(text: string): MachineStateLockOwner | null {
+  try {
+    const owner = JSON.parse(text) as Partial<MachineStateLockOwner> | null;
+    if (owner === null || typeof owner !== "object") return null;
+    const { pid, hostname: host, startedAt } = owner;
+    if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return null;
+    if (typeof host !== "string" || typeof startedAt !== "string") return null;
+    return { pid, hostname: host, startedAt };
+  } catch {
+    return null;
+  }
+}
+
+/** Only ESRCH from this host proves the owner gone: a live pid (even another user's, which
+ *  answers EPERM), another host's pid, or a lock we cannot parse all stay held. */
+function isLockOwnerGone(owner: MachineStateLockOwner | null): boolean {
+  if (owner === null || owner.hostname !== hostname()) return false;
+  try {
+    process.kill(owner.pid, 0);
+    return false;
+  } catch (error) {
+    return typeof error === "object" && error !== null && "code" in error && error.code === "ESRCH";
+  }
+}
+
+/** The copies an interrupted run left that this run kept, each named in the report. */
+function interruptedCopyRefusals(record: MachineStateRecord): MachineRefusal[] {
+  if (record.kind === "stranded") return record.copies.map((path) => ({ path, reason: MACHINE_STATE_STRANDED }));
+  if (record.kind === "ready") return record.copies.map((path) => ({ path, reason: MACHINE_STATE_COPY_KEPT }));
+  return [];
 }
 
 function machineStateFromRecord(record: MachineStateRecord): MachineState {
@@ -782,7 +951,7 @@ function machineStateFromRecord(record: MachineStateRecord): MachineState {
   return parseMachineState(record.file.content.toString("utf8"));
 }
 
-function privateMachineStateName(purpose: "tmp" | "claim"): string {
+function privateMachineStateName(purpose: "tmp" | "claim" | "stale-lock"): string {
   return `.${MACHINE_STATE_NAME}.${process.pid}.${randomBytes(6).toString("hex")}.${purpose}`;
 }
 
@@ -870,11 +1039,14 @@ function removeOwnedMachineEntry(entry: OwnedMachineEntry): void {
 function commitMachineState(record: MachineStateRecord, content: string | null): MachineRefusal | null {
   if (record.kind === "no-home") return null;
   if (record.kind === "unsafe") return { path: machineStateFile(), reason: MACHINE_STATE_REFUSED };
-  if (record.kind === "busy") return { path: machineStateFile(), reason: MACHINE_STATE_BUSY };
+  if (record.kind === "busy") return { path: machineStateLockFile(), reason: MACHINE_STATE_BUSY };
+  // machine.json is gone and its copies are named by interruptedCopyRefusals: writing a
+  // fresh record now would bury the user's recorded state, so nothing is written.
+  if (record.kind === "stranded") return null;
   const { directory, file } = record;
   if (content === null && file === null) return null;
   const lock = withMachineSettingsDirectory(directory, acquireMachineStateLock);
-  if (lock === null) return { path: machineStateFile(), reason: MACHINE_STATE_BUSY };
+  if (lock === null) return { path: machineStateLockFile(), reason: MACHINE_STATE_BUSY };
   try {
     return commitLockedMachineState(directory, file, content);
   } finally {
@@ -943,8 +1115,8 @@ function serializeMachineState(state: MachineState): string {
  *  need a pathname replacement are refused because the portable filesystem API cannot
  *  bind that replacement to the identity that was validated. */
 export function installMachineCarriers(surfaceIds: string[]): MachineReport {
-  const report: MachineReport = { written: [], untouched: [], refused: [] };
   const stateRecord = readMachineStateRecord();
+  const report: MachineReport = { written: [], untouched: [], refused: interruptedCopyRefusals(stateRecord) };
   const state = machineStateFromRecord(stateRecord);
   const settingsSnapshots = snapshotMachineSettingsSurfaces();
   let mayWriteMachineState = !settingsSnapshots.some((entry) => entry.aliasesMachineState || entry.failed);
@@ -1070,8 +1242,8 @@ function writeCarrierModule(path: string, content: string): boolean {
  *  rename/unlink into one operation, so shared settings changes fail closed. */
 export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; refused: MachineRefusal[] } {
   const lines: string[] = [];
-  const refused: MachineRefusal[] = [];
   const stateRecord = readMachineStateRecord();
+  const refused: MachineRefusal[] = interruptedCopyRefusals(stateRecord);
   const state = machineStateFromRecord(stateRecord);
   const settingsSnapshots = snapshotMachineSettingsSurfaces();
   let mayMutateMachineState = !settingsSnapshots.some((entry) => entry.aliasesMachineState || entry.failed);
