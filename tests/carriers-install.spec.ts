@@ -842,6 +842,25 @@ describe("what 2.2.0 moved out of the repo", () => {
 });
 
 describe("installCanon and what leaves with it", () => {
+  test("installCanon refuses a symlinked skill directory instead of writing outside the canon", () => {
+    const base = useHome("canon-symlink");
+    const nestedAsset = [...embeddedUnder("skills/")].find(([path]) => {
+      const parts = path.slice("skills/".length).split("/");
+      return parts.length > 2 && !parts[0]!.startsWith(".");
+    });
+    if (!nestedAsset) throw new Error("the skills inventory has no nested resource for symlink coverage");
+
+    const parts = nestedAsset[0].slice("skills/".length).split("/");
+    const skillDir = join(base, "skills", parts[0]!);
+    const escaped = join(sandbox, "canon-symlink-target");
+    mkdirSync(skillDir, { recursive: true });
+    mkdirSync(escaped);
+    symlinkSync(escaped, join(skillDir, parts[1]!), "dir");
+
+    expect(() => installCanon("2.2.0")).toThrow("symlink");
+    expect(readdirSync(escaped)).toEqual([]);
+  });
+
   test("installCanon writes the canon, the three mirrors and one slash command per skill", () => {
     const base = useHome("canon");
     // A skill of our own, whose description is folded YAML, and one with a description long

@@ -1595,3 +1595,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Capture the failing assertion and matching test environment before changing code when a gate failure is not reproducible.
 - **Proof:** Focused `tests/init-command.spec.ts` suite: 33 passed; typecheck passed.
 - **Tags:** behavior, tests, reproducibility
+
+### L218 · 2026-10-30 · floating-core #19 · review
+- **Failure:** Adversarial review found defects in config parsing, symlink containment, uninstall scope, and halted-viewer findings links.
+- **Root cause:** The config, filesystem ownership, and viewer-state boundaries lacked complete behavior-level coverage.
+- **Fix:** Corrected the four behaviors and added focused regression tests.
+- **Lesson:** Treat configuration syntax, filesystem ownership, and every viewer state as explicit boundaries, and verify each with a behavior-level regression.
+- **Tags:** review, config, filesystem, uninstall, viewer

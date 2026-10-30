@@ -62,8 +62,8 @@ let sandbox: string | undefined;
 /** A repo-shaped project and a machine of its own. Nothing outside this directory is
  *  written: AI_ENG_HOME redirects the canon, the carrier base and — through template.ts —
  *  the global git config; PI_CODING_AGENT_DIR redirects the two relocatable agent dirs
- *  OUTSIDE the canon home, so a carrier removed there is removed by the sweep and not by
- *  the rmSync of the canon home. */
+ *  OUTSIDE the canon home, so a carrier removed there is removed by the sweep rather than
+ *  by deleting the machine home. */
 function sandboxed(): { cwd: string; machine: string; agentDir: string } {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-uninstall-"));
   const cwd = join(sandbox, "project");
@@ -74,8 +74,8 @@ function sandboxed(): { cwd: string; machine: string; agentDir: string } {
   process.env["AI_ENG_HOME"] = machine;
   process.env["PI_CODING_AGENT_DIR"] = agentDir;
   // template.ts honours a caller that brought its own global git config, and this one is
-  // deliberately OUTSIDE the canon home: the Everything scope deletes that home, so a
-  // config kept inside it could not show whether the setting was restored.
+  // deliberately OUTSIDE the canon home, so the test proves the setting is restored
+  // independently of the selective machine-asset sweep.
   process.env["GIT_CONFIG_GLOBAL"] = join(sandbox, "gitconfig");
   process.chdir(cwd);
   return { cwd, machine, agentDir };
@@ -471,7 +471,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
 
     expect(result).toBe(0);
     // The reported line is the carriers step's own: these two files live in the HOST's agent
-    // dir, outside the canon home this scope deletes, so an orphan is exactly what is left
+    // dir, outside the canon home this scope sweeps, so an orphan is exactly what is left
     // if the sweep misses them.
     expect(out).toContain("✓ ~/.pi/agent/extensions/ai-eng.ts removed");
     expect(existsSync(entry)).toBe(false);
@@ -533,8 +533,8 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(result).toBe(0);
     // Our entries came out of the user-scope file the CLI reads and never the repo copy.
     expect(out).toContain("✓ ~/.copilot/hooks/ai-eng.json: ai-eng entries removed, yours kept");
-    expect(out).toContain(`▲ ${machine} deleted`);
-    expect(existsSync(machine)).toBe(false);
+    expect(out).toContain(`✓ ${machine} kept · 0 canon-owned file(s) removed · 0 machine artifacts swept · other files kept`);
+    expect(existsSync(machine)).toBe(true);
     expect(existsSync(join(cwd, ".ai-engineering", "config.toml"))).toBe(true); // "no" kept the project's files
   });
 
@@ -610,7 +610,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     const coreSkill = join(machine, "skills", "ai-orchestrator", "SKILL.md");
     mkdirSync(join(machine, "skills", "ai-orchestrator"), { recursive: true });
     writeFileSync(coreSkill, readFileSync(join(import.meta.dir, "..", "skills", "ai-orchestrator", "SKILL.md"), "utf8"));
-    const installedPacks = OPTIONAL_PACKS.map(({ skill }) => {
+    const installedPackSkills = OPTIONAL_PACKS.map(({ skill }) => {
       const path = join(machine, "skills", skill, "SKILL.md");
       mkdirSync(join(machine, "skills", skill), { recursive: true });
       writeFileSync(path, readFileSync(sourceSkillFile(skill), "utf8"));
@@ -619,8 +619,15 @@ describe("uninstall · the machine side (Everything scope)", () => {
     const verifyTiersPack = join(machine, "skills", "ai-verify", "tiers", "installed-pack-check");
     mkdirSync(join(machine, "skills", "ai-verify", "tiers"), { recursive: true });
     writeFileSync(verifyTiersPack, "selected verify-tiers pack\n");
-    installedPacks.push(verifyTiersPack);
-    expect(installedPacks.every(existsSync)).toBe(true);
+    const customSkill = join(machine, "skills", "my-local-skill", "SKILL.md");
+    mkdirSync(join(machine, "skills", "my-local-skill"), { recursive: true });
+    writeFileSync(customSkill, "my local skill\n");
+    const editedSkill = join(machine, "skills", "ai-debug", "SKILL.md");
+    mkdirSync(join(machine, "skills", "ai-debug"), { recursive: true });
+    writeFileSync(editedSkill, "my edited skill\n");
+    const unrelated = join(machine, "notes.txt");
+    writeFileSync(unrelated, "keep this file\n");
+    expect([...installedPackSkills, verifyTiersPack, customSkill, editedSkill, unrelated].every(existsSync)).toBe(true);
 
     const previous = join(sandbox!, "older-template");
     const ours = join(sandbox!, "legacy-owned-template");
@@ -636,8 +643,12 @@ describe("uninstall · the machine side (Everything scope)", () => {
 
     expect(result).toBe(0);
     expect(existsSync(coreSkill)).toBe(false);
-    for (const path of installedPacks) expect(existsSync(path)).toBe(false);
-    expect(existsSync(machine)).toBe(false);
+    for (const path of installedPackSkills) expect(existsSync(path)).toBe(false);
+    expect(existsSync(verifyTiersPack)).toBe(true);
+    expect(readFileSync(customSkill, "utf8")).toBe("my local skill\n");
+    expect(readFileSync(editedSkill, "utf8")).toBe("my edited skill\n");
+    expect(readFileSync(unrelated, "utf8")).toBe("keep this file\n");
+    expect(existsSync(machine)).toBe(true);
     expect(globalTemplateDir()).toBe(previous);
     expect(existsSync(ours)).toBe(false);
     expect(readFileSync(join(previous, "hooks", "pre-commit"), "utf8")).toBe(existingHook);

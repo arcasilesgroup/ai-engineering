@@ -185,7 +185,7 @@ function removeSurfaceFiles(root: string, id: string): void {
  *  same name), and a file with no table gets one, at the end. */
 function withSurfacesEnabled(raw: string, list: string): string {
   const lines = raw.split("\n");
-  const header = lines.findIndex((line) => /^\s*\[surfaces\]\s*$/.test(line));
+  const header = lines.findIndex((line) => /^\s*\[surfaces\]\s*(?:#.*)?$/.test(line));
   if (header >= 0) {
     for (let i = header + 1; i < lines.length; i += 1) {
       const line = lines[i] ?? "";

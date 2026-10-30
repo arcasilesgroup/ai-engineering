@@ -2,8 +2,8 @@
 // skill and template from EMBEDDED — never from disk paths, never from the network.
 
 import { EMBEDDED } from "./assets.ts";
-import { writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, unlinkSync, rmdirSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, unlinkSync, rmdirSync, lstatSync, realpathSync } from "node:fs";
+import { join, dirname, resolve, relative, sep, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hashFile } from "./shared-hash.ts";
 
@@ -160,16 +160,22 @@ function materializePrefix(prefix: string, destRoot: string, embedded = embedded
   const lines: string[] = [];
   const executablePattern = /\.(mjs|sh)$/;
   mkdirSync(destRoot, { recursive: true });
+  const rootStat = lstatSync(destRoot);
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+    throw new Error(`refusing to materialize through a symlink or non-directory: ${destRoot}`);
+  }
+  const canonicalRoot = realpathSync(destRoot);
   let count = 0;
   for (const [path, ref] of embedded) {
-    const dest = join(destRoot, path.slice(prefix.length));
+    const dest = resolve(canonicalRoot, path.slice(prefix.length));
+    assertInsideRoot(canonicalRoot, dest);
     const pathname = embeddedPath(ref);
     if (!existsSync(pathname)) {
       // Inside a compiled binary the asset lives at its ORIGINAL absolute path —
       // Bun --compile preserves the string. The ref is already the path.
-      resolvedFromRef(ref, dest, executablePattern);
+      resolvedFromRef(ref, dest, executablePattern, canonicalRoot);
     } else {
-      resolvedFromRef(pathname, dest, executablePattern);
+      resolvedFromRef(pathname, dest, executablePattern, canonicalRoot);
     }
     count += 1;
   }
@@ -189,9 +195,44 @@ export function embeddedPath(ref: string, base: string = import.meta.url): strin
   return fileURLToPath(new URL(ref, base));
 }
 
-function resolvedFromRef(source: string, dest: string, executablePattern: RegExp): void {
+function assertInsideRoot(root: string, candidate: string): void {
+  const pathFromRoot = relative(root, candidate);
+  if (pathFromRoot === ".." || pathFromRoot.startsWith(`..${sep}`) || isAbsolute(pathFromRoot)) {
+    throw new Error(`embedded asset destination escapes its root: ${candidate}`);
+  }
+}
+
+function ensureContainedDirectory(root: string, directory: string): void {
+  assertInsideRoot(root, directory);
+  let current = root;
+  for (const component of relative(root, directory).split(sep).filter(Boolean)) {
+    current = join(current, component);
+    let stat;
+    try {
+      stat = lstatSync(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      mkdirSync(current);
+      stat = lstatSync(current);
+    }
+    if (stat.isSymbolicLink() || !stat.isDirectory()) {
+      throw new Error(`refusing to materialize through a symlink or non-directory: ${current}`);
+    }
+    assertInsideRoot(root, realpathSync(current));
+  }
+}
+
+function resolvedFromRef(source: string, dest: string, executablePattern: RegExp, root: string): void {
   if (!existsSync(source)) return; // missing asset: init reports the count, doctor catches drift
-  mkdirSync(dirname(dest), { recursive: true });
+  ensureContainedDirectory(root, dirname(dest));
+  try {
+    const stat = lstatSync(dest);
+    if (stat.isSymbolicLink() || !stat.isFile()) {
+      throw new Error(`refusing to materialize through a symlink or non-file: ${dest}`);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
   writeFileSync(dest, readFileSync(source));
   if (executablePattern.test(dest)) chmodSync(dest, 0o755);
 }

@@ -222,6 +222,94 @@ const samplePlan = JSON.stringify({
 
 const twoPlanIndex = '<a href="demo.json">demo</a><a href="other.json">other</a>';
 
+describe("viewer-audit — current checkpoint findings", () => {
+  test("a halted plan keeps the current checkpoint findings link in the status banner", async () => {
+    const plan = JSON.stringify({
+      feature: "Floating core",
+      halted: { reason: "review <input> is needed" },
+      checkpoints: [
+        {
+          id: 19,
+          title: "Install every skill",
+          size: "xl",
+          status: "pending",
+          gates: { behavior: { status: "failed", attempts: 2, findings: ["Gate failed"] } },
+        },
+      ],
+    });
+
+    await withViewer({}, ({ api, nodes }) => {
+      expect(api.load(plan)).toBe(true);
+      expect(nodes.bannerText.innerHTML).toContain("Stopped. Needs your input: review &lt;input&gt; is needed");
+      expect(nodes.bannerText.innerHTML).toContain('href="#step-19"');
+      expect(nodes.bannerText.innerHTML).toContain("View 1 finding");
+    });
+  });
+
+  test("failed gate findings are visible and linked from the status banner", async () => {
+    const finding = "9 init-command tests failed; focused rerun passed 33 tests";
+    const plan = JSON.stringify({
+      feature: "Floating core",
+      slug: "floating-core",
+      checkpoints: [
+        {
+          id: 19,
+          title: "Install every skill",
+          simple: "Get every tool during setup",
+          size: "xl",
+          status: "pending",
+          gates: {
+            behavior: { status: "failed", attempts: 2, findings: [finding] },
+          },
+        },
+      ],
+    });
+
+    await withViewer({}, ({ api, nodes }) => {
+      expect(api.load(plan)).toBe(true);
+
+      const card = nodes.steps.innerHTML;
+      expect(card.indexOf(finding)).toBeGreaterThan(-1);
+      expect(card.indexOf(finding)).toBeLessThan(card.indexOf('<details class="tech"'));
+      expect(nodes.bannerText.innerHTML).toContain('href="#step-19"');
+      expect(nodes.bannerText.innerHTML).toContain("View 1 finding");
+    });
+  });
+
+  test("opens the new current checkpoint when live progress advances", async () => {
+    const initialPlan = JSON.stringify({
+      feature: "Floating core",
+      checkpoints: [
+        { id: 18, title: "Move skill sources", size: "l", status: "pending", gates: {} },
+        { id: 19, title: "Install every skill", size: "xl", status: "pending", gates: {} },
+      ],
+    });
+    const advancedPlan = JSON.stringify({
+      feature: "Floating core",
+      checkpoints: [
+        { id: 18, title: "Move skill sources", size: "l", status: "passed", gates: {} },
+        {
+          id: 19,
+          title: "Install every skill",
+          size: "xl",
+          status: "pending",
+          gates: {
+            behavior: { status: "failed", attempts: 2, findings: ["Gate failed"] },
+          },
+        },
+      ],
+    });
+
+    await withViewer({}, ({ api, nodes }) => {
+      expect(api.load(initialPlan)).toBe(true);
+      expect(api.load(advancedPlan)).toBe(true);
+      expect(nodes.steps.innerHTML).toContain(
+        '<details class="step failed current" id="step-19" data-id="19" open>',
+      );
+    });
+  });
+});
+
 describe("viewer-audit — checkpoint 1 offline on failed plan load", () => {
   test("U1: invalid JSON → load false, #empty shown, #app hidden", async () => {
     await withViewer({}, ({ api, nodes }) => {

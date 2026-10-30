@@ -537,6 +537,17 @@ describe("the rewrite never turns a governed repo ungoverned (§09.2 regression)
     expect(isGoverned(repo)).toBe(true);
   });
 
+  test("a commented [surfaces] header is rewritten without adding a duplicate", async () => {
+    const source = '# keep me\n[surfaces] # keep this comment\nenabled = ["claude-code"]\n';
+    const { repo } = governedRepo(source);
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe('# keep me\n[surfaces] # keep this comment\nenabled = ["claude-code", "cursor"]\n');
+    expect(configOf(repo).match(/^\[surfaces\]/gm)).toHaveLength(1);
+    expect(isGoverned(repo)).toBe(true);
+  });
+
   test("the [notices] key of the same name is not the key this verb manages", async () => {
     const { repo } = governedRepo('[notices]\nenabled = true\n\n[surfaces]\nenabled = ["claude-code"]\n');
     const { result } = await runConfig(repo, { add: "cursor" });

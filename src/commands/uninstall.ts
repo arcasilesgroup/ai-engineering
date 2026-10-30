@@ -7,14 +7,14 @@
 // contract files survive "This project", and "Everything" asks twice.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, rmdirSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { SURFACES, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
 import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
 import { parseLock, sha256, stripSharedText } from "../install.ts";
 import { hashFile } from "../install.ts";
-import { embeddedTemplate } from "../embed.ts";
+import { embeddedPath, embeddedTemplate, embeddedUnder } from "../embed.ts";
 import { planEntries } from "./init-shared.ts";
 import { select, isCancel } from "@clack/prompts";
 import * as ui from "../ui.ts";
@@ -202,6 +202,77 @@ function pruneCreatedDirs(root: string, removed: ui.Row[]): void {
   }
 }
 
+function pathIsWithin(root: string, candidate: string): boolean {
+  const pathFromRoot = relative(root, candidate);
+  return pathFromRoot === "" || (
+    pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep}`) && !isAbsolute(pathFromRoot)
+  );
+}
+
+function pruneEmptyDirectory(directory: string): boolean {
+  try {
+    if (readdirSync(directory).length !== 0) return false;
+    rmdirSync(directory);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeEmbeddedAssets(machineDir: string, prefix: string): number {
+  // The machine home can contain user data: remove only byte-identical payloads and never follow links.
+  const assetRoot = join(machineDir, prefix.slice(0, -1));
+  let rootStat;
+  try {
+    rootStat = lstatSync(assetRoot);
+  } catch {
+    return 0;
+  }
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) return 0;
+  const canonicalRoot = realpathSync(assetRoot);
+  let removed = 0;
+
+  for (const [path, ref] of embeddedUnder(prefix)) {
+    const components = path.slice(prefix.length).split("/");
+    const destination = resolve(canonicalRoot, ...components);
+    if (!pathIsWithin(canonicalRoot, destination)) continue;
+
+    let parent = canonicalRoot;
+    let isSafe = true;
+    for (const component of components.slice(0, -1)) {
+      parent = join(parent, component);
+      try {
+        const stat = lstatSync(parent);
+        if (stat.isSymbolicLink() || !stat.isDirectory() || !pathIsWithin(canonicalRoot, realpathSync(parent))) {
+          isSafe = false;
+          break;
+        }
+      } catch {
+        isSafe = false;
+        break;
+      }
+    }
+    if (!isSafe) continue;
+
+    try {
+      const stat = lstatSync(destination);
+      const payload = embeddedPath(ref);
+      if (stat.isSymbolicLink() || !stat.isFile() || !existsSync(payload) || hashFile(destination) !== hashFile(payload)) continue;
+      unlinkSync(destination);
+      removed += 1;
+      let directory = dirname(destination);
+      while (directory !== canonicalRoot) {
+        if (!pruneEmptyDirectory(directory)) break;
+        directory = dirname(directory);
+      }
+      pruneEmptyDirectory(canonicalRoot);
+    } catch {
+      /* changed, unreadable, or already removed: preserve it */
+    }
+  }
+  return removed;
+}
+
 async function removeEverything(root: string, input: unknown, declared: string[]): Promise<ui.Row[]> {
   const extra: ui.Row[] = [];
   const agents = join(root, "AGENTS.md");
@@ -234,8 +305,16 @@ async function removeEverything(root: string, input: unknown, declared: string[]
     const floorState = readMachineState().templateDir;
     const floor = floorState === undefined ? null : restoreTemplateDir(floorState.previous, floorState.ours);
     const swept = removeMachineArtifacts();
-    rmSync(machineDir, { recursive: true, force: true });
-    extra.push({ mark: "warn", text: `${machineDir} deleted`, dim: `global skills and mirrors removed · ${swept} machine artifacts swept` });
+    const canonAssetsRemoved = ["skills/", "agents/", "scripts/"].reduce(
+      (count, prefix) => count + removeEmbeddedAssets(machineDir, prefix),
+      0,
+    );
+    pruneEmptyDirectory(machineDir);
+    const userFilesRemain = existsSync(machineDir);
+    const cleanup = `${canonAssetsRemoved} canon-owned file(s) removed · ${swept} machine artifacts swept`;
+    extra.push(userFilesRemain
+      ? { mark: "ok", text: `${machineDir} kept`, dim: `${cleanup} · other files kept` }
+      : { mark: "warn", text: `${machineDir} deleted`, dim: cleanup });
     if (floor !== null) extra.push({ mark: "ok", text: floor });
     for (const line of carriers.lines) extra.push({ mark: "ok", text: line });
     for (const path of carriers.refused) extra.push({ mark: "warn", text: `${path} left alone — not JSON this installer can rewrite without reformatting it` });
