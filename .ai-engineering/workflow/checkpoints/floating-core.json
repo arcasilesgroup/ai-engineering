@@ -1422,7 +1422,7 @@
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
           "status": "failed",
-          "attempts": 3,
+          "attempts": 4,
           "findings": [
             "Adversarial review loop attempt 1 failed after four critic rounds: F1-F4 were resolved; F5 remains open because a write error can leave user-owned settings truncated or partial.",
             "Adversarial review loop attempt 2 round 1 confirmed F5: adapters.ts:409 and :450 write settings in place, so an error can leave partial contents; I73 reproduces this. The atomic staging fix resolved F5, but review round 2 found F6: snapshot validation is separate from renameSync/unlinkSync, leaving a race where a replacement can still be overwritten or removed.",
@@ -1430,7 +1430,8 @@
             "Adversarial review loop attempt 2 round 4 resolved F5/F6 but found F8: unselected settings aliases and a symlink swapped after validation can still expose machine.json to writes or deletion.",
             "Adversarial review loop attempt 2 round 3 found F7: a user settings symlink can target machine.json, so init/update writes or uninstall deletion of that internal path can still mutate user-owned content despite the settings refusal.",
             "Adversarial review loop attempt 2 round 4 found F8: unselected settings aliases and a symlink swapped after validation can still expose machine.json to writes or deletion.",
-            "Adversarial review attempt 3 round 1 returned FAIL with F8, F9, and F10 open. Details are in `.ai-engineering/workflow/reviews/floating-core-19.md`; no source or test files changed. The reviewer also reported local test-hygiene and `src/.DS_Store` architecture failures, while Gate 1 attempt 13 passed in an isolated Git-backed clone."
+            "Adversarial review attempt 3 round 1 returned FAIL with F8, F9, and F10 open. Details are in `.ai-engineering/workflow/reviews/floating-core-19.md`; no source or test files changed. The reviewer also reported local test-hygiene and `src/.DS_Store` architecture failures, while Gate 1 attempt 13 passed in an isolated Git-backed clone.",
+            "Review attempt 4 (resumed after the circuit breaker by the user's autonomous-delivery instruction) ran 4 rounds: F8-F10 fixed (112565f3), then F11-F24 found and resolved across fixer rounds (515c2e8f, 11ce043d, be557ace). Round cap reached with F25 BLOCKER (update/uninstall throw on a refused canon delete or write, so ai-eng.lock is not written) and F26 MAJOR (a provably canon-owned stale page that cannot be removed is reported as a user file and its hash dropped) open."
           ]
         }
       },
