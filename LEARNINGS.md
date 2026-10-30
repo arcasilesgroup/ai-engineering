@@ -44,6 +44,7 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R35: Derive test-hygiene scope from the active test tree rather than a handwritten suite list. (from L135, L184)
 - R36: Keep the invoking checkout's source HEAD separate from its integration base; never refresh from a historical base. (from L163, L168)
 - R37: Separate baseline configuration/test-contract failures from feature regressions; do not change feature code or budgets to hide them. (from L129, L130)
+- R38: For destructive filesystem cleanup, prove ownership at the mutation boundary and abort while preserving replacements; a path checked earlier does not establish the current inode or symlink ownership. (from L220, L222, L223)
 
 ## Log
 

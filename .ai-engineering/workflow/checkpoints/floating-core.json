@@ -11,10 +11,7 @@
     "reviewed_main": null,
     "reviewed_feature": null
   },
-  "halted": {
-    "reason": "review failed 3x after split",
-    "checkpoint": 19
-  },
+  "halted": null,
   "checkpoints": [
     {
       "id": 1,
@@ -1597,7 +1594,8 @@
     "New code layers git and workflow get their architecture entries in the step that creates them; the rest of the layer change lands in step 7. [tests/arch.spec.ts requires every layer glob to match a real directory]",
     "Step 10 times the full check run against two minutes because 5.1 sets that target explicitly; elsewhere speed is never a pass condition. [5.1 Suite en serie; 5.3]",
     "Workflow-file schema checks (actionlint) are proven in CI, not locally, because the tool is downloaded by the toolchain script. [.github/workflows/check.yml; scripts/toolchain.sh; actionlint not on PATH]",
-    "Plan text is in English, the repository's working language, although the brainstorm is in Spanish. [AGENTS.md; existing plans in .ai-engineering/workflow/checkpoints/]"
+    "Plan text is in English, the repository's working language, although the brainstorm is in Spanish. [AGENTS.md; existing plans in .ai-engineering/workflow/checkpoints/]",
+    "If a file or symlink changes after ownership validation, cleanup aborts and preserves the replacement instead of retrying against the new path; this is the least-destructive behavior consistent with CP19's preserve-user-owned-files acceptance."
   ],
   "new_dependencies": [],
   "notes": [
