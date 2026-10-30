@@ -16,6 +16,7 @@ import * as fs from "node:fs";
 import {
   existsSync,
   lstatSync,
+  linkSync,
   mkdirSync,
   mkdtempSync,
   realpathSync,
@@ -49,7 +50,7 @@ import {
   sweepMovedRepoCarriers,
 } from "../src/surfaces/adapters.ts";
 import { restoreTemplateDir } from "../src/floor/template.ts";
-import { planEntries } from "../src/commands/init-shared.ts";
+import { planEntries, refuseLine } from "../src/commands/init-shared.ts";
 import { VERSION } from "../src/version.ts";
 
 const SHIM_MARKER = "ai-eng git floor shim";
@@ -665,6 +666,40 @@ describe("carriers on the machine", () => {
 
     expect(didAttemptSettingsRename).toBe(false);
     expect(readFileSync(settings).equals(originalBytes)).toBe(true);
+  });
+
+  test("I74: settings aliases to machine.json are refused without changing or deleting either path", () => {
+    for (const aliasType of ["symlink", "hard-link"] as const) {
+      const base = useHome(`machine-state-alias-${aliasType}`);
+      const statePath = machineStateFile();
+      const settings = join(base, ".claude", "settings.json");
+      const originalBytes = Buffer.from('{\n  "version": "user-owned",\n  "carriers": {}\n}\n');
+      writeFileSync(statePath, originalBytes);
+      mkdirSync(dirname(settings), { recursive: true });
+      if (aliasType === "symlink") symlinkSync("../machine.json", settings);
+      else linkSync(statePath, settings);
+
+      const linkText = aliasType === "symlink" ? readlinkSync(settings) : null;
+      const installed = installMachineCarriers(["claude-code"]);
+      expect(installed.refused).toEqual([{
+        path: "~/.claude/settings.json",
+        reason: "identity-bound-settings-mutation-unavailable",
+      }]);
+      expect(refuseLine(installed.refused[0]!)).toBe(
+        "⚠ ~/.claude/settings.json — safe machine-settings replacement/removal is unavailable on this platform; left untouched",
+      );
+      expect(readFileSync(statePath)).toEqual(originalBytes);
+
+      expect(removeMachineCarriers(["claude-code"])).toEqual({
+        lines: [],
+        refused: ["~/.claude/settings.json"],
+      });
+      expect(existsSync(statePath)).toBe(true);
+      expect(readFileSync(statePath)).toEqual(originalBytes);
+      expect(existsSync(settings)).toBe(true);
+      if (linkText !== null) expect(readlinkSync(settings)).toBe(linkText);
+      else expect(lstatSync(settings).ino).toBe(lstatSync(statePath).ino);
+    }
   });
 
   test("a settings replacement at the commit boundary is preserved because no identity-bound syscall runs", () => {

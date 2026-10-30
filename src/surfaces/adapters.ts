@@ -2,7 +2,7 @@
 // or TS module (OpenCode/OMP). Surface = ~150 LOC of adapter + its proof (§13).
 
 import surfacesJson from "./surfaces.json";
-import { closeSync, constants, copyFileSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, rmSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { closeSync, constants, copyFileSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, rmSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { basename, join, dirname, relative, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
 import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
@@ -559,6 +559,19 @@ function machineSettingsSnapshotMatches(snapshot: MachineSettingsSnapshot): bool
   }
 }
 
+function machineSettingsAliasMachineState(snapshot: MachineSettingsSnapshot): boolean {
+  if (snapshot.file === null) return false;
+  try {
+    if (snapshot.targetPath === realpathSync(machineStateFile())) return true;
+    const stateFile = statSync(machineStateFile());
+    return stateFile.isFile()
+      && stateFile.dev === snapshot.file.stat.dev
+      && stateFile.ino === snapshot.file.stat.ino;
+  } catch {
+    return false;
+  }
+}
+
 /** Write the machine-side carriers of the declared surfaces, once per machine.
  *
  *  This is the inversion the milestone makes on purpose, said out loud: until now only
@@ -573,6 +586,7 @@ function machineSettingsSnapshotMatches(snapshot: MachineSettingsSnapshot): bool
 export function installMachineCarriers(surfaceIds: string[]): MachineReport {
   const report: MachineReport = { written: [], untouched: [], refused: [] };
   const state = readMachineState();
+  let mayWriteMachineState = true;
   state.version = VERSION;
   for (const id of surfaceIds) {
     const surface = SURFACES.find((s) => s.id === id);
@@ -617,6 +631,14 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       continue;
     }
     const snapshot = snapshotMachineSettings(absolute);
+    if (machineSettingsAliasMachineState(snapshot)) {
+      mayWriteMachineState = false;
+      report.refused.push({
+        path: `~/${placement.path}`,
+        reason: SETTINGS_MUTATION_REFUSED,
+      });
+      continue;
+    }
     if (snapshot.file === null) {
       report.refused.push({
         path: `~/${placement.path}`,
@@ -646,7 +668,7 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       reason: SETTINGS_MUTATION_REFUSED,
     });
   }
-  writeMachineState(state);
+  if (mayWriteMachineState) writeMachineState(state);
   return report;
 }
 
@@ -659,6 +681,7 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
   const lines: string[] = [];
   const refused: string[] = [];
   const state = readMachineState();
+  let mayMutateMachineState = true;
   for (const id of surfaceIds) {
     const surface = SURFACES.find((s) => s.id === id);
     const placement = surface ? machineCarrier(surface) : null;
@@ -680,6 +703,11 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
       continue;
     }
     const snapshot = snapshotMachineSettings(absolute);
+    if (machineSettingsAliasMachineState(snapshot)) {
+      mayMutateMachineState = false;
+      refused.push(`~/${placement.path}`);
+      continue;
+    }
     if (snapshot.file === null) {
       delete state.carriers[id];
       continue;
@@ -689,8 +717,10 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
   // The record of what wrote what goes with the carriers: an empty machine.json is a
   // leftover that would make the next doctor read a version that is no longer there.
   const keepsTemplateDir = state.templateDir !== undefined;
-  if (Object.keys(state.carriers).length === 0 && !keepsTemplateDir && existsSync(machineStateFile())) unlinkSync(machineStateFile());
-  else writeMachineState(state);
+  if (mayMutateMachineState) {
+    if (Object.keys(state.carriers).length === 0 && !keepsTemplateDir && existsSync(machineStateFile())) unlinkSync(machineStateFile());
+    else writeMachineState(state);
+  }
   return { lines, refused };
 }
 

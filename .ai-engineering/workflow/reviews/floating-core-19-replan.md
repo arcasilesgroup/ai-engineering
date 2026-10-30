@@ -90,3 +90,9 @@ Cleanup and uninstall remove only canon-owned skill files and preserve unrelated
 
 **LESSON**
 - Cleanup must preserve any replacement whose file identity, content, or symlink target no longer matches the ownership snapshot.
+
+### Critic — round 4
+- **F1 (resolved):** Project cleanup now snapshots bytes and identity through `O_NOFOLLOW` descriptors and rechecks before mutation; same-content replacement and changed-settings regressions cover the previously missed cases.
+- **F4 (resolved):** Mirror cleanup pins its parent and rechecks link inode, target text, and canonical target before relative unlink; the replacement regression covers this path.
+- **F5 (high):** `writeProjectFile()` truncates the user settings file before writing all replacement bytes, and neither a thrown/short write nor `count === 0` restores the snapshot (`src/commands/uninstall.ts:329-346`). Machine carrier cleanup also rewrites user settings in place (`src/surfaces/adapters.ts:440-451`). A disk-full or I/O error can leave user settings empty or partial; stage the complete replacement and preserve the original on failure.
+**VERDICT: FAIL**

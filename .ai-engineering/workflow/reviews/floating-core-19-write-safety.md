@@ -49,3 +49,23 @@ FILES: `src/surfaces/adapters.ts`, `src/commands/init-shared.ts`, `src/commands/
 ROOT CAUSE: The F5 snapshot checks still preceded path-based `renameSync`/`unlinkSync`; portable Node/Bun filesystem APIs provide no operation that conditionally mutates a pathname only while it names the validated inode.
 FIX: Machine settings creation, replacement, and removal now fail closed when a pathname mutation would be needed; no stage cleanup, rename, or unlink touches those settings paths, warnings explain the refusal, I73 now asserts refusal preserves the original bytes, and deterministic boundary tests prove injected replacements survive without a settings-path mutation.
 LESSON: A pathname check cannot bind a later syscall to an inode; when the portable filesystem API cannot make that binding, refuse the mutation instead of claiming the race is closed.
+
+### Critic — attempt 2, round 3
+VERDICT: FAIL
+F6 (Resolved) — Direct machine-settings pathname create/replace/remove operations now fail closed, and the I70/I71/I73 command assertions confirm warnings and unchanged ordinary settings files.
+F7 (High) — Refusal is not side-effect-free when a settings path aliases machine state. After `installMachineCarriers` refuses a settings change, it still calls `writeMachineState(state)` (`src/surfaces/adapters.ts:649`); that writes `home()/machine.json` directly (`:336`). If `~/.claude/settings.json` is a symlink to `../machine.json`, init/update warns but overwrites the settings target. On removal, the refused symlink remains in `refused`, but the empty-state branch can `unlinkSync(machineStateFile())` (`:692`), deleting its target and leaving the user symlink dangling. I73's stated symlink-target contract has no alias-to-machine-state regression.
+Fix: do not write or unlink machine state when that operation aliases a refused settings target; compare resolved path and file identity (including hard-link aliases), and preserve the target. Add I73/I70/I71 coverage for a settings symlink to `machineStateFile()` and assert target bytes, link text, and unrelated user files remain.
+Failures: I70, I71, and I73 assertions pass; each targeted run then fails the teardown leak guard on pre-existing `tests/.worktree-lifecycle-*` paths. Open: F7.
+
+### Fixer — F7
+FILES: `src/surfaces/adapters.ts`, `tests/carriers-install.spec.ts`, `.ai-engineering/workflow/test-plans/floating-core.json`, `.ai-engineering/workflow/reviews/floating-core-19-write-safety.md`.
+ROOT CAUSE: Refusing a settings-path mutation did not prevent the follow-up machine-state write or deletion; a user-owned settings symlink to `machine.json` redirected those side effects into the user's target.
+FIX: Detect aliases by resolved path and file identity, refuse the settings operation, and skip machine-state writes/removal when any settings alias is found. Added deterministic symlink and hard-link coverage; I74 links to CP19 and the former CP20 I74 case is now I75.
+LESSON: A fail-closed refusal must also block secondary writes or deletes through aliases to the same user-owned file.
+
+### Critic — attempt 2, round 4
+VERDICT: FAIL
+F7 (Resolved for static aliases) — I74 detects symlink and hard-link aliases to `machine.json`; it verifies refusal, warning text, preserved bytes, and preserved link/inode. The test-plan renumbering is consistent: I74 is CP19; the former global-init case is I75/CP20.
+F8 (High) — Alias checking only runs for settings surfaces in `surfaceIds` (`src/surfaces/adapters.ts:634-635, 706-709`), while machine-state write/delete is global (`:671, 720-722`). A module-only call such as `installMachineCarriers(["opencode"])` bypasses the alias check, then writes `machine.json`; an unselected `~/.claude/settings.json -> ../machine.json` is overwritten despite no settings mutation being requested. Removal can unlink the same target. Even for a selected surface, a link swapped to `machine.json` after the alias check but before the final metadata write/delete has the same gap. I74 covers only a static alias on the selected `claude-code` surface.
+Fix: make machine-state writes/deletes safe against aliases from all machine-settings paths, including unselected surfaces and replacements at the final metadata-mutation boundary; otherwise fail closed and skip the metadata mutation. Extend I74 with module-only and post-check symlink-swap cases.
+Verification: I70/I71/I73/I74 assertions pass; the six cross-checkpoint suites (init, update, config, surfaces, lock-security, init-recovery) also pass their assertions. Each runner ends with the leak guard failing on pre-existing `tests/.worktree-lifecycle-*` paths. Open: F8.

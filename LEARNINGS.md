@@ -1667,3 +1667,11 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Lesson:** Test local canon behavior separately from machine-settings registration and assert the warning on a safe refusal.
 - **Proof:** Clean Git-backed full suite: 1,570 passed, 16 skipped, 0 failed.
 - **Tags:** behavior, tests, carriers, fail-closed
+
+### L228 · 2026-10-30 · floating-core #19 · review
+- **Failure:** A user settings symlink or hard link could alias `machine.json`, allowing internal writes or deletion to affect user-owned data.
+- **Root cause:** Refusal checked the requested settings pathname but did not check whether another user-owned name resolved to the same target or inode.
+- **Fix:** Detect resolved-path and inode aliases; refuse the settings operation, warn, and skip machine-state mutation.
+- **Lesson:** Refuse indirect aliases too; protecting only the requested pathname leaves user data exposed.
+- **Proof:** Git-backed focused CP19 tests: 136 passed; typecheck and lint passed.
+- **Tags:** review, filesystem, alias, ownership, fail-closed
