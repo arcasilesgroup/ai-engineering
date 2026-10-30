@@ -1356,12 +1356,22 @@
         "bun test tests/uninstall-command.spec.ts",
         "bun test"
       ],
+      "changed_files": [
+        "src/commands/uninstall.ts",
+        "src/embed.ts",
+        "src/surfaces/adapters.ts",
+        "tests/adversarial/carrier-merge.test.ts",
+        "tests/carriers-install.spec.ts",
+        "tests/uninstall-command.spec.ts"
+      ],
       "ui": null,
       "gates": {
         "behavior": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "failed",
+          "attempts": 1,
+          "findings": [
+            "Gate 1 attempt 1 passed carrier-merge (13), carriers-install (38), and uninstall (22), then `bun test` failed because the isolated source archive omitted `.git`; two Git-dependent tests in `tests/token-budget.spec.ts` failed at `git read-tree HEAD`. Rerun in a Git-backed local clone before judging CP19."
+          ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {

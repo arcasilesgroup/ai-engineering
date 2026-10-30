@@ -1602,3 +1602,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Corrected the four behaviors and added focused regression tests.
 - **Lesson:** Treat configuration syntax, filesystem ownership, and every viewer state as explicit boundaries, and verify each with a behavior-level regression.
 - **Tags:** review, config, filesystem, uninstall, viewer
+
+### L219 · 2026-10-30 · floating-core #19 · behavior
+- **Failure:** Two full-suite tests failed in the isolated CP19 gate copy at `git read-tree HEAD`.
+- **Root cause:** The gate copy was created with `git archive`, which omits `.git` even though the tests require Git metadata.
+- **Fix:** Rerun the gate from a local Git-backed clone at the exact selected HEAD, without fetching.
+- **Lesson:** Do not run Git-dependent tests from an archive; use a local Git-backed checkout when repository metadata is part of the test precondition.
+- **Tags:** behavior, tests, git, isolation
