@@ -1682,3 +1682,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Check every settings surface, refuse mutation when aliases or snapshots changed, and add symlink/hard-link regressions.
 - **Lesson:** Revalidate the complete alias set immediately before machine-state writes or deletion.
 - **Tags:** review, data-loss, cleanup, machine-state, symlink
+
+### L230 · 2026-10-30 · floating-core #19 · behavior
+- **Failure:** The carrier-merge Gate 1 command failed its suite-level hygiene guard because temporary paths already existed under `tests/`.
+- **Root cause:** Verification ran in the selected checkout with four pre-existing `.worktree-lifecycle-*` files, which the hygiene guard treats as contamination.
+- **Fix:** Preserve those files and rerun verification in a clean Git-backed scratch clone; the isolated carrier-merge suite passed 13 tests.
+- **Lesson:** Separate baseline hygiene artifacts from leaks created by the test run.
+- **Tags:** behavior, tests, hygiene, cleanup
