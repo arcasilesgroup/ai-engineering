@@ -155,6 +155,18 @@ function isPathList(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((path) => typeof path === "string");
 }
 
+/** The `{ version, ts }` record installCanon and the notice check write to version.json, and nothing else. */
+export function isVersionCacheRecord(text: string): boolean {
+  try {
+    const record = JSON.parse(text) as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    return keys.length === 2 && keys[0] === "ts" && keys[1] === "version"
+      && typeof record["version"] === "string" && typeof record["ts"] === "number";
+  } catch {
+    return false;
+  }
+}
+
 /** The record is removable only while it parses and no file it vouches for is left: it is
  *  the one proof that such a file is ai-eng's, so deleting it first strands that file. */
 export function isRemovableCanonOwnershipRecord(homeDir: string, text: string): boolean {

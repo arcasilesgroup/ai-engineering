@@ -983,13 +983,22 @@ describe("carriers on the machine", () => {
     expect(readFileSync(chain, "utf8")).toBe(files.chain!);
     expect(readMachineState().carriers["opencode"]).toBe(sha256(files.main));
 
-    // Ours whole means ours whole: a reinstall never merges into it, and a file a hand
-    // edits is written over. Bytes already ours are not a write at all — the count is
-    // what update's report prints, and a no-op reported as a write is a lie the frame
-    // cannot afford (cli-ux-14).
-    writeFileSync(main, `${files.main}\n// patched by hand\n`);
+    // Ours whole, while it is ours: a reinstall never merges into it. The bytes an earlier
+    // install recorded are refreshed; a file a hand edited is the user's, kept and named.
+    // Bytes already ours are not a write at all — the count is what update's report
+    // prints, and a no-op reported as a write is a lie the frame cannot afford (cli-ux-14).
+    const earlier = "// the carrier an earlier release wrote\n";
+    writeFileSync(main, earlier);
+    const state = JSON.parse(readFileSync(machineStateFile(), "utf8")) as { carriers: Record<string, string> };
+    writeFileSync(machineStateFile(), JSON.stringify({ ...state, carriers: { ...state.carriers, opencode: sha256(earlier) } }));
     expect(installMachineCarriers(["opencode"]).written).toEqual(["~/.config/opencode/plugins/ai-eng.ts"]);
     expect(readFileSync(main, "utf8")).toBe(files.main);
+    const patched = `${files.main}\n// patched by hand\n`;
+    writeFileSync(main, patched);
+    expect(installMachineCarriers(["opencode"]).refused).toEqual([{ path: "~/.config/opencode/plugins/ai-eng.ts", reason: "carrier-edited" }]);
+    expect(readFileSync(main, "utf8")).toBe(patched);
+    rmSync(main);
+    expect(installMachineCarriers(["opencode"]).written).toEqual(["~/.config/opencode/plugins/ai-eng.ts"]);
 
     expect(installMachineCarriers(["opencode"])).toEqual({ written: [], untouched: ["~/.config/opencode/plugins/ai-eng.ts"], refused: [] });
     // A missing chain bundle beside an identical main is still a write: half a carrier is
@@ -1541,6 +1550,60 @@ describe("installCanon and what leaves with it", () => {
     expect(existsSync(join(base, ".agents", "skills"))).toBe(false);
     expect(existsSync(join(base, ".config", "opencode", "commands"))).toBe(false);
     expect(existsSync(join(base, ".claude", "skills"))).toBe(true);
+  });
+
+  test("F31: a slash command that is a link or edited is the user's: kept, named, never written through", () => {
+    const base = useHome("canon-commands-user");
+    installCanon("2.2.0");
+    const commands = join(base, ".config", "opencode", "commands");
+    const dotfile = join(base, "dotfiles", "ai-debug.md");
+    write(dotfile, "my own ai-debug command\n");
+    rmSync(join(commands, "ai-debug.md"));
+    symlinkSync(dotfile, join(commands, "ai-debug.md"));
+    const edited = `${readFileSync(join(commands, "ai-verify.md"), "utf8")}\nMy own notes.\n`;
+    writeFileSync(join(commands, "ai-verify.md"), edited);
+    // A shim an earlier release rendered from an older SKILL.md is still ai-eng's: refreshed.
+    write(join(base, "skills", "ai-explore", "SKILL.md"), "---\nname: ai-explore\ndescription: Older description.\n---\n\nbody\n");
+    const olderBody = "---\ndescription: Older description.\n---\n\nLoad the `ai-explore` skill via the skill tool, then execute it for this request:\n\n$ARGUMENTS\n";
+    writeFileSync(join(commands, "ai-explore.md"), olderBody);
+
+    const lines = installCanon("2.2.0");
+
+    expect(lines).toContain("⚠ 2 slash command(s) in ~/.config/opencode/commands are yours (a link, or edited since ai-eng wrote them) — kept: ai-debug.md, ai-verify.md. Delete one to receive ai-eng's version");
+    expect(readlinkSync(join(commands, "ai-debug.md"))).toBe(dotfile);
+    expect(readFileSync(dotfile, "utf8")).toBe("my own ai-debug command\n");
+    expect(readFileSync(join(commands, "ai-verify.md"), "utf8")).toBe(edited);
+    expect(readFileSync(join(commands, "ai-explore.md"), "utf8")).not.toBe(olderBody);
+    expect(readFileSync(join(commands, "ai-explore.md"), "utf8")).toInclude("Load the `ai-explore` skill");
+  });
+
+  test("F32: a skill mirror entry that is the user's own link is kept and named, never repointed", () => {
+    const base = useHome("canon-mirror-user-link");
+    installCanon("2.2.0");
+    const target = mirrorTargets()[0]!;
+    const mine = join(base, "dotfiles", "my-ai-explore");
+    mkdirSync(mine, { recursive: true });
+    const entry = join(target.dir, "ai-explore");
+    rmSync(entry);
+    symlinkSync(mine, entry, "dir");
+
+    const lines = installCanon("2.2.0");
+
+    expect(lines).toContain(`⚠ ${target.label}: 1 link(s) of yours under a skill's name point elsewhere — kept, never repointed: ai-explore`);
+    expect(readlinkSync(entry)).toBe(mine);
+    expect(readlinkSync(join(target.dir, "ai-debug"))).toBe(join(base, "skills", "ai-debug"));
+  });
+
+  test("F31 sibling: a linked version.json is kept, never written through", () => {
+    const base = useHome("canon-version-link");
+    const elsewhere = join(base, "dotfiles", "version.json");
+    write(elsewhere, "theirs\n");
+    symlinkSync(elsewhere, join(base, "version.json"));
+
+    const lines = installCanon("2.2.0");
+
+    expect(lines).toContain(`⚠ ${join(base, "version.json")} is a link, not a regular file, or not ai-eng's version cache — left as it is; the 24h notice cache was not refreshed`);
+    expect(readFileSync(elsewhere, "utf8")).toBe("theirs\n");
   });
 
   test("F10: removeMachineArtifacts keeps a user's own alias into the canon", () => {

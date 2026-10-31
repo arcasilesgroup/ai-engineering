@@ -11,7 +11,7 @@ import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
 import {
   materializeSkills, materializeAgents, materializeScripts, embeddedTemplate, embeddedChainBundle, removeStaleCanonFiles,
-  recordCanonOwnership, unprovenCanonText, safeProjectPath, readProjectFileSnapshot, unlinkProjectPath, writeProjectFile,
+  recordCanonOwnership, unprovenCanonText, isVersionCacheRecord, safeProjectPath, readProjectFileSnapshot, unlinkProjectPath, writeProjectFile,
   refusedStaleCanonText, refusedChangeText, isFilesystemRefusal,
 } from "../embed.ts";
 import type { Dialect } from "../chain/dialect.ts";
@@ -181,6 +181,9 @@ export function mirrorTargets(): MirrorTarget[] {
 export function installCanon(version: string, preserveSkills: readonly string[] = []): string[] {
   const lines: string[] = [];
   const canonDir = join(home(), "skills");
+  // The command bodies the previous install rendered, read before this one rewrites the canon:
+  // a shim still holding one of them is ours to refresh.
+  const earlierCommands = renderCommands(canonDir);
   lines.push(...warningsOf(materializeSkills(canonDir, preserveSkills)));
   const swept = removeStaleCanonFiles(home());
   if (swept.removed.length > 0) lines.push(`✓ swept ${swept.removed.length} file(s) this binary no longer ships: ${swept.removed.join(", ")}`);
@@ -196,24 +199,41 @@ export function installCanon(version: string, preserveSkills: readonly string[] 
   // Seeds the 24h notice cache (§14.0). Health never reads this file: init and
   // doctor byte-compare the canon against the payload (canonDrift) — this same
   // path also carries the REGISTRY version after a notice check.
-  lines.push(...refusalAsLines(versionFile(), () => {
-    writeFileSync(versionFile(), JSON.stringify({ version, ts: Date.now() }));
-    return ["✓ ~/.ai-engineering/version.json — version + 24h cache"];
-  }));
+  lines.push(...refusalAsLines(versionFile(), () => writeVersionCache(version)));
   for (const target of mirrorTargets()) {
     lines.push(...refusalAsLines(target.dir, () => {
       mkdirSync(target.dir, { recursive: true });
-      return [`✓ Symlink → ${target.label} (${linkSkills(canonDir, target.dir)} skills)`];
+      const mirrored = linkSkills(canonDir, target.dir);
+      const kept = mirrored.kept.length === 0 ? [] : [`⚠ ${target.label}: ${mirrored.kept.length} link(s) of yours under a skill's name point elsewhere — kept, never repointed: ${mirrored.kept.join(", ")}`];
+      return [`✓ Symlink → ${target.label} (${mirrored.count} skills)`, ...kept];
     }));
   }
-  const commands = installCommands(canonDir);
-  if (commands.count > 0) lines.push(`✓ ~/.config/opencode/commands/ — ${commands.count} slash commands (/<skill-name>)`);
-  lines.push(...commands.refused.map((path) => `⚠ ${path}`));
+  lines.push(...installCommands(canonDir, earlierCommands));
   lines.push(...refusalAsLines(join(machineBase(), ".claude", "agents"), installAgentsCanon));
   const scriptLines = materializeScripts(join(home(), "scripts"));
   if (scriptLines.some((line) => line.startsWith("materialized "))) lines.push(`✓ ~/.ai-engineering/scripts/ — checkpoint gate`);
   lines.push(...warningsOf(scriptLines));
   return lines;
+}
+
+/** version.json is created, or refreshed only while it is a single-named regular file holding
+ *  the `{ version, ts }` record ai-eng writes; a link or anything else there is kept. */
+function writeVersionCache(version: string): string[] {
+  const path = versionFile();
+  const record = JSON.stringify({ version, ts: Date.now() });
+  const done = ["✓ ~/.ai-engineering/version.json — version + 24h cache"];
+  if (!pathEntryExists(path)) {
+    writeFileSync(path, record, { flag: "wx" });
+    return done;
+  }
+  const directory = dirname(path);
+  const absolute = safeProjectPath(directory, basename(path));
+  const snapshot = absolute === null ? null : readProjectFileSnapshot(directory, absolute);
+  if (absolute === null || snapshot === null || !isVersionCacheRecord(snapshot.content.toString("utf8"))) {
+    return [`⚠ ${path} is a link, not a regular file, or not ai-eng's version cache — left as it is; the 24h notice cache was not refreshed`];
+  }
+  if (writeProjectFile(directory, absolute, snapshot, record)) return done;
+  return [`⚠ ${path} — changed meanwhile, shared with another name, or the filesystem refused; left as it is, the 24h notice cache was not refreshed`];
 }
 
 function warningsOf(lines: readonly string[]): string[] {
@@ -1251,17 +1271,24 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       // changed nothing came back with a line claiming the machine side was the work
       // (cli-ux-14): the count has to mean something or the report cannot.
       const chainPath = placement.chain ? carrierPath(placement, placement.chain) : null;
-      let identical = false;
-      try {
-        identical =
-          readFileSync(absolute, "utf8") === files.main &&
-          (chainPath === null || !files.chain || readFileSync(chainPath, "utf8") === files.chain);
-      } catch {
-        identical = false; // unreadable is not ours to call current — write it
-      }
-      if (identical) {
+      // Ours to rewrite: this binary's bytes, or the bytes whose hash the last install recorded.
+      // The bundle is ours with its entry: both are written together, and only the entry's
+      // hash is recorded. Anything else is an edit of the user's, kept and named (R28).
+      const recorded = state.carriers[id];
+      const entry = carrierFileOwner(absolute, files.main, (content) => recorded !== undefined && sha256(content) === recorded);
+      const isEntryOurs = entry === "current" || entry === "ours";
+      const chain = chainPath === null || !files.chain ? "current" : carrierFileOwner(chainPath, files.chain, () => isEntryOurs);
+      if (entry === "current" && chain === "current") {
         state.carriers[id] = definition;
         report.untouched.push(`~/${placement.path}`);
+        continue;
+      }
+      if (entry === "blocked" || chain === "blocked") {
+        report.refused.push({ path: `~/${entry === "blocked" ? placement.path : placement.chain ?? ""}`, reason: CARRIER_UNWRITABLE });
+        continue;
+      }
+      if (entry === "theirs" || chain === "theirs") {
+        report.refused.push({ path: `~/${entry === "theirs" ? placement.path : placement.chain ?? ""}`, reason: CARRIER_EDITED });
         continue;
       }
       // The bundle first: an entry written beside a missing bundle imports nothing.
@@ -1332,6 +1359,21 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
   const stateRefusal = mayWriteMachineState ? commitMachineState(stateRecord, serializeMachineState(state)) : null;
   if (stateRefusal !== null) report.refused.push(stateRefusal);
   return report;
+}
+
+/** Whose a module carrier file is: absent, already this binary's bytes, ai-eng's by `isOurs`,
+ *  the user's (any other bytes), or blocked (a link, a non-file, or unreadable). */
+function carrierFileOwner(path: string, ours: string, isOurs: (content: string) => boolean): "absent" | "current" | "ours" | "theirs" | "blocked" {
+  if (!pathEntryExists(path)) return "absent";
+  let content: string;
+  try {
+    if (!lstatSync(path).isFile()) return "blocked";
+    content = readFileSync(path, "utf8");
+  } catch {
+    return "blocked";
+  }
+  if (content === ours) return "current";
+  return isOurs(content) ? "ours" : "theirs";
 }
 
 /** A module carrier is ours whole, but only as a regular file: never through a link, into a
@@ -1551,31 +1593,71 @@ function pruneIfEmpty(dir: string): void {
  *  skill is a command the day it ships — never a second list to keep in sync.
  *  Cursor, Copilot CLI and Copilot Chat in VS Code read the mirrors themselves
  *  (.agents/skills, .claude/skills) and need no shim. */
-function installCommands(canonDir: string): { count: number; refused: string[] } {
+function installCommands(canonDir: string, earlier: ReadonlyMap<string, string>): string[] {
   const dir = join(machineBase(), ".config", "opencode", "commands");
   let count = 0;
+  const kept: string[] = [];
   const refused: string[] = [];
+  let bodies: Map<string, string>;
+  try {
+    bodies = renderCommands(canonDir, true);
+  } catch (error) {
+    if (!isFilesystemRefusal(error)) throw error;
+    return [`⚠ ${refusedChangeText(canonDir, error)}`];
+  }
+  for (const [name, body] of bodies) {
+    const outcome = writeOwnedText(dir, `${name}.md`, body, earlier.get(name));
+    if (outcome === "written" || outcome === "current") count += 1;
+    if (outcome === "kept") kept.push(`${name}.md`);
+    if (outcome === "refused") refused.push(join(dir, `${name}.md`));
+  }
+  kept.sort((a, b) => a.localeCompare(b, "en"));
+  const lines = count > 0 ? [`✓ ~/.config/opencode/commands/ — ${count} slash commands (/<skill-name>)`] : [];
+  if (kept.length > 0) lines.push(`⚠ ${kept.length} slash command(s) in ~/.config/opencode/commands are yours (a link, or edited since ai-eng wrote them) — kept: ${kept.join(", ")}. Delete one to receive ai-eng's version`);
+  if (refused.length > 0) lines.push(`⚠ ${refused.length} slash command(s) not written — changed meanwhile, or the filesystem refused; left as they are: ${refused.join(", ")}`);
+  return lines;
+}
+
+/** Every skill's command body as the canon renders it now, by skill name. An unreadable canon
+ *  is no earlier render (empty) unless the caller needs to know (`isStrict`). */
+function renderCommands(canonDir: string, isStrict = false): Map<string, string> {
+  const bodies = new Map<string, string>();
   let names: string[];
   try {
     names = readdirSync(canonDir);
   } catch (error) {
-    if (!isFilesystemRefusal(error)) throw error;
-    return { count, refused: [refusedChangeText(canonDir, error)] };
+    if (isStrict) throw error;
+    return bodies;
   }
   for (const name of names) {
     const body = commandBody(canonDir, name);
-    if (body === null) continue;
-    const path = join(dir, `${name}.md`);
+    if (body !== null) bodies.set(name, body);
+  }
+  return bodies;
+}
+
+/** Write a file only ai-eng owns: a missing one is created (`wx`, never through a link); an
+ *  existing one is refreshed only while it is a single-named regular file holding ai-eng's
+ *  current bytes or the bytes it wrote last time. A link or anything else is the user's. */
+function writeOwnedText(dir: string, name: string, ours: string, earlier: string | undefined): "written" | "current" | "kept" | "refused" {
+  const path = join(dir, name);
+  if (!pathEntryExists(path)) {
     try {
       mkdirSync(dir, { recursive: true });
-      writeFileSync(path, body);
-      count += 1;
+      writeFileSync(path, ours, { flag: "wx" });
+      return "written";
     } catch (error) {
       if (!isFilesystemRefusal(error)) throw error;
-      refused.push(refusedChangeText(error.path ?? path, error));
+      return "refused";
     }
   }
-  return { count, refused };
+  const absolute = safeProjectPath(dir, name);
+  const snapshot = absolute === null ? null : readProjectFileSnapshot(dir, absolute);
+  if (absolute === null || snapshot === null) return "kept";
+  const current = snapshot.content.toString("utf8");
+  if (current === ours) return "current";
+  if (earlier === undefined || current !== earlier) return "kept";
+  return writeProjectFile(dir, absolute, snapshot, ours) ? "written" : "refused";
 }
 
 /** The one rendering of a skill's slash command: install writes it, uninstall removes only
@@ -1600,19 +1682,34 @@ function skillDescription(markdown: string): string {
   return text.length <= 200 ? text : `${text.slice(0, 200).replace(/\s\S*$/, "")}…`;
 }
 
-function linkSkills(canonDir: string, mirrorDir: string): number {
+function isLinkTo(link: string, target: string): boolean {
+  try {
+    return resolve(dirname(link), readlinkSync(link)) === resolve(target);
+  } catch {
+    return false;
+  }
+}
+
+/** Link each skill into a mirror. Only the exact link ai-eng writes (`<name> -> <canon>/<name>`,
+ *  live or dangling) is ours and is left as is; a link of the user's under that name is kept and
+ *  named, and a real directory there is theirs too. */
+function linkSkills(canonDir: string, mirrorDir: string): { count: number; kept: string[] } {
   let count = 0;
+  const kept: string[] = [];
   for (const name of readdirSync(canonDir)) {
     if (name.startsWith(".")) continue; // the canon's dot-entries are payload, not skills
     const linkPath = join(mirrorDir, name);
+    let entry: Stats | null = null;
     try {
-      if (lstatSync(linkPath).isSymbolicLink()) {
-        unlinkSync(linkPath);
-      } else {
-        continue; // a real directory there is not ours to replace
-      }
+      entry = lstatSync(linkPath);
     } catch {
       /* absent: create */
+    }
+    if (entry !== null) {
+      if (!entry.isSymbolicLink()) continue; // a real directory there is not ours to replace
+      if (isLinkTo(linkPath, join(canonDir, name))) count += 1;
+      else kept.push(name);
+      continue;
     }
     try {
       symlinkSync(join(canonDir, name), linkPath, "dir");
@@ -1621,5 +1718,5 @@ function linkSkills(canonDir: string, mirrorDir: string): number {
       /* FS refused: leave absent, doctor reports the mirror gap */
     }
   }
-  return count;
+  return { count, kept };
 }

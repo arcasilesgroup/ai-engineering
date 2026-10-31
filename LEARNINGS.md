@@ -1780,3 +1780,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Symlink refusals return a named refusal and the rest installs; one shared row helper shows ⚠ warnings; agents install replaces only the exact installer link or prior install bytes.
 - **Lesson:** A deliberate refusal must look like a refusal, and install needs the same ownership rule as cleanup: exact bytes or the exact link.
 - **Tags:** review, symlink, ownership, fail-closed, carriers
+
+### L244 · 2026-10-30 · floating-core #19 · review
+- **Failure:** F31/F32: slash-command shims were written through user links and over edited files, and skill-mirror links owned by the user were repointed; a sweep found the same pattern for `version.json` and module carriers.
+- **Root cause:** Install paths wrote by pathname without the ownership rule cleanup already used.
+- **Fix:** Create missing files with `wx`, refresh only bytes ai-eng rendered (current or previous), replace only the exact link ai-eng writes, and keep and name everything else.
+- **Lesson:** Install and cleanup must share one ownership rule; when a finding names one write path, sweep every sibling write in the same pass.
+- **Tags:** review, ownership, symlink, install, carriers

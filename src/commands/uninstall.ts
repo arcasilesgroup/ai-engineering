@@ -15,7 +15,7 @@ import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
 import { parseLock, sha256, stripSharedText } from "../install.ts";
 import { hashFile } from "../install.ts";
 import {
-  embeddedPath, embeddedTemplate, embeddedUnder, isFilesystemRefusal, isRemovableCanonOwnershipRecord, pruneEmptyDirectoryWithin,
+  embeddedPath, embeddedTemplate, embeddedUnder, isFilesystemRefusal, isRemovableCanonOwnershipRecord, isVersionCacheRecord, pruneEmptyDirectoryWithin,
   readProjectFileSnapshot, refusedChangeText, safeProjectPath, unlinkProjectPath, withSafeProjectParent, writeProjectFile,
   CANON_OWNERSHIP_NAME, type ProjectFileSnapshot,
 } from "../embed.ts";
@@ -314,17 +314,6 @@ const INSTALLER_RECORDS: ReadonlyArray<{ name: string; isRemovable: (machineDir:
   { name: "version.json", isRemovable: (_machineDir, text) => isVersionCacheRecord(text) },
   { name: CANON_OWNERSHIP_NAME, isRemovable: isRemovableCanonOwnershipRecord },
 ];
-
-function isVersionCacheRecord(text: string): boolean {
-  try {
-    const record = JSON.parse(text) as Record<string, unknown>;
-    const keys = Object.keys(record).sort();
-    return keys.length === 2 && keys[0] === "ts" && keys[1] === "version"
-      && typeof record["version"] === "string" && typeof record["ts"] === "number";
-  } catch {
-    return false;
-  }
-}
 
 function removeInstallerRecords(machineDir: string, refused: string[]): number {
   let removed = 0;
