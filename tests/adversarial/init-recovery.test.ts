@@ -18,7 +18,7 @@ import { dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { surfaceOptions } from "../../src/commands/init-shared.ts";
-import { CANON_OWNERSHIP_NAME } from "../../src/embed.ts";
+import { CANON_OWNERSHIP_NAME, canonDrift } from "../../src/embed.ts";
 import { sha256 } from "../../src/install.ts";
 
 const cli = join(import.meta.dir, "..", "..", "src", "cli.ts");
@@ -227,6 +227,7 @@ test('install honors the "sha256:" sentinel: take writes, unedited updates apply
 
 test("update repairs missing global canon files and preserves local edits", () => {
   const locallyEdited = join(engHome, "skills", "ai-brainstorm", "SKILL.md");
+  const shippedBrainstorm = readFileSync(join(import.meta.dir, "../../skills/ai-brainstorm/SKILL.md"));
   const missing = join(engHome, "skills", "ai-debug", "SKILL.md");
   const expectedPayload = readFileSync(join(import.meta.dir, "../../skills/ai-debug/SKILL.md"), "utf8");
   expect(eng(["init", "--yes"]).status).toBe(0);
@@ -236,11 +237,28 @@ test("update repairs missing global canon files and preserves local edits", () =
   const localEdit = "# locally edited\n";
   writeFileSync(locallyEdited, localEdit);
   rmSync(missing);
-  const run = eng(["update", "--yes"]);
-  expect(run.stdout + run.stderr).toContain("global canon repaired · local changes kept");
-  expect(readFileSync(locallyEdited, "utf8")).toBe(localEdit);
-  expect(existsSync(missing)).toBe(true);
-  expect(readFileSync(missing, "utf8")).toBe(expectedPayload);
+  try {
+    const run = eng(["update", "--yes"]);
+    expect(run.stdout + run.stderr).toContain("global canon repaired · local changes kept");
+    expect(readFileSync(locallyEdited, "utf8")).toBe(localEdit);
+    expect(existsSync(missing)).toBe(true);
+    expect(readFileSync(missing, "utf8")).toBe(expectedPayload);
+  } finally {
+    // The edit is this case's fixture, not state for the cases after it.
+    writeFileSync(locallyEdited, shippedBrainstorm);
+  }
+
+  // With the fixture restored, a clean update has nothing to repair and leaves zero drift.
+  expect(readFileSync(locallyEdited)).toEqual(shippedBrainstorm);
+  const clean = eng(["update", "--yes"]);
+  const cleanOut = clean.stdout + clean.stderr;
+  expect(clean.status).toBe(0);
+  expect(cleanOut).not.toContain("local change kept");
+  expect(cleanOut).not.toContain("global canon repaired");
+  expect(cleanOut).not.toContain("re-installed");
+  expect(canonDrift(engHome)).toMatchObject({ drift: 0, missing: 0, stale: 0 });
+  const doctor = eng(["doctor"]);
+  expect(doctor.stdout + doctor.stderr).toContain("0 drift · 0 missing");
 });
 
 test("a repo with no machine-side canon is offered it, never handed it (§14.5b)", () => {
@@ -279,10 +297,6 @@ test("the canon is swept of what we no longer ship, and nothing else is touched"
   // have is stale and doctor names it; update sweeps it only while its bytes match the
   // hash an earlier install recorded writing. Anything else in the canon home is somebody's.
   expect(eng(["init", "--yes"]).status).toBe(0);
-  // The preceding case deliberately leaves a locally edited shipped skill behind.
-  // Restore its fixture before this test measures stale and foreign canon entries.
-  const editedSkillPath = join(engHome, "skills", "ai-brainstorm", "SKILL.md");
-  writeFileSync(editedSkillPath, readFileSync(join(import.meta.dir, "../../skills/ai-brainstorm/SKILL.md"), "utf8"));
   const staleFile = join(engHome, "skills", "ai-visual-recap", "assets", "highlight.js");
   const foreignFile = join(engHome, "skills", "my-own-skill", "SKILL.md");
   mkdirSync(dirname(staleFile), { recursive: true });

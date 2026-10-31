@@ -255,10 +255,15 @@ function assertExecutedNothingFrom(machine: string, executions: Execution[]): vo
   expect({ touchingCanon, interpreters }).toEqual({ touchingCanon: [], interpreters: [] });
 }
 
-function canonPacks(config: string): string[] | null {
-  const section = /^\[canon\]\s*\n([\s\S]*?)(?=^\[|$)/m.exec(config)?.[1];
-  const values = section?.match(/^packs = \[(.*)\]$/m)?.[1];
-  return values === undefined ? null : [...values.matchAll(/"([^"]+)"/g)].map((match) => match[1] ?? "");
+/** The [canon].packs value as TOML itself reads it, or null when the document has none.
+ *  Parsing instead of matching text means every layout TOML allows counts, so "writes no
+ *  [canon].packs" cannot pass because the key was spelled in a shape a regex missed. */
+function canonPacks(config: string): unknown[] | null {
+  const document = Bun.TOML.parse(config) as Record<string, unknown>;
+  const canon = document["canon"];
+  if (typeof canon !== "object" || canon === null || !("packs" in canon)) return null;
+  const packs: unknown = canon.packs;
+  return Array.isArray(packs) ? packs : [packs];
 }
 
 function assertCanon(home: string): void {
@@ -284,6 +289,31 @@ function assertCanon(home: string): void {
     expect(readFileSync(join(installedAgents, name), "utf8")).toBe(readFileSync(join(sourceAgents, name), "utf8"));
   }
 }
+
+describe("init · the [canon].packs probe the no-pack assertions rely on", () => {
+  const surfaces = '[surfaces]\nenabled = ["claude-code"]\n';
+  for (const { layout, config } of [
+    { layout: "standard table", config: `${surfaces}\n[canon]\npacks = ["triage", "review"]\n` },
+    { layout: "standard table with spacing and a comment", config: `${surfaces}\n[canon]   # legacy\n  packs   =   [ "triage" , "review" ]  # chosen\n` },
+    { layout: "inline table", config: `canon = { packs = ["triage", "review"] }\n${surfaces}` },
+    { layout: "dotted key", config: `canon.packs = ["triage", "review"]\n${surfaces}` },
+    { layout: "quoted dotted key", config: `"canon"."packs" = ["triage", "review"]\n${surfaces}` },
+    { layout: "multiline array", config: `${surfaces}\n[canon]\npacks = [\n  "triage", # first\n  "review",\n]\n` },
+    { layout: "CRLF line endings", config: `${surfaces}\n[canon]\npacks = ["triage", "review"]\n`.replaceAll("\n", "\r\n") },
+  ]) {
+    test(`detects [canon].packs in the ${layout} layout`, () => {
+      expect(canonPacks(config)).toEqual(["triage", "review"]);
+    });
+  }
+
+  test("detects an explicitly empty or non-array packs value, and reports only a truly absent key as null", () => {
+    expect(canonPacks(`${surfaces}\n[canon]\npacks = []\n`)).toEqual([]);
+    expect(canonPacks(`${surfaces}\n[canon]\npacks = "all"\n`)).toEqual(["all"]);
+    expect(canonPacks(surfaces)).toBeNull();
+    expect(canonPacks(`${surfaces}\n[canon]\n# packs = ["triage"]\n`)).toBeNull();
+    expect(canonPacks(`${surfaces}\n[other]\npacks = ["triage"]\n`)).toBeNull();
+  });
+});
 
 describe("init · the plan seams (src/commands/init-shared.ts)", () => {
   test("detectCommands reads the target tree", () => {

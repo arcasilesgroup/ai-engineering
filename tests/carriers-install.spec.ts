@@ -11,7 +11,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { CANON_OWNERSHIP_NAME, embeddedPath, embeddedTemplate, embeddedUnder } from "../src/embed.ts";
+import { CANON_OWNERSHIP_NAME, canonDrift, changedCanonSkills, embeddedPath, embeddedTemplate, embeddedUnder } from "../src/embed.ts";
 import * as fs from "node:fs";
 import {
   existsSync,
@@ -1530,6 +1530,38 @@ describe("installCanon and what leaves with it", () => {
       reason: "identity-bound-settings-mutation-unavailable",
     })));
     for (const [path, bytes] of settingsBefore) expect(readFileSync(path, "utf8")).toBe(bytes);
+  });
+
+  test("installCanon repairs missing payload byte-for-byte, keeps the changed files it is told to preserve, and leaves a user's own skill folder alone", () => {
+    const base = useHome("canon-repair-preserve");
+    const skills = allSkillInventory();
+    installCanon("2.2.0");
+    const withResource = skills.find((skill) => [...skill.files.keys()].some((path) => path !== "SKILL.md"));
+    const wholeSkill = skills.find((skill) => skill.name !== withResource?.name);
+    if (withResource === undefined || wholeSkill === undefined) throw new Error("the skills inventory needs a skill with a resource and a second skill");
+    const resource = [...withResource.files.keys()].find((path) => path !== "SKILL.md")!;
+    const editedPath = join(base, "skills", withResource.name, "SKILL.md");
+    const edited = Buffer.concat([readFileSync(editedPath), Buffer.from("\nmy local change\n")]);
+    writeFileSync(editedPath, edited);
+    rmSync(join(base, "skills", withResource.name, resource));
+    rmSync(join(base, "skills", wholeSkill.name), { recursive: true });
+    write(join(base, "skills", "my-own-skill", "SKILL.md"), "# mine\n");
+    write(join(base, "skills", "my-own-skill", "scripts", "run.sh"), "echo mine\n");
+    expect(canonDrift(base)).toMatchObject({ drift: 1 });
+    const preserved = changedCanonSkills(base);
+    expect(preserved).toEqual([`skills/${withResource.name}/SKILL.md`]);
+
+    installCanon("2.2.0", preserved);
+
+    expect(readFileSync(editedPath)).toEqual(edited);
+    expect(readFileSync(join(base, "skills", "my-own-skill", "SKILL.md"), "utf8")).toBe("# mine\n");
+    expect(readFileSync(join(base, "skills", "my-own-skill", "scripts", "run.sh"), "utf8")).toBe("echo mine\n");
+    expect(installedSkillNames(base)).toEqual([...skills.map((skill) => skill.name), "my-own-skill"].sort());
+    for (const [path, ref] of embeddedUnder("skills/")) {
+      if (path === `skills/${withResource.name}/SKILL.md`) continue;
+      expect(readFileSync(join(base, path))).toEqual(readFileSync(embeddedPath(ref)));
+    }
+    expect(canonDrift(base)).toMatchObject({ drift: 1, missing: 0, stale: 0 });
   });
 
   test("installCanon sweeps a page it recorded writing and keeps one it cannot prove", () => {

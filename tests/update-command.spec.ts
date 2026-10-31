@@ -155,7 +155,7 @@ function filesBelow(directory: string): string[] {
   });
 }
 
-type SourceSkillFile = { skill: string; relativePath: string; content: string };
+type SourceSkillFile = { skill: string; relativePath: string; content: string; bytes: Buffer<ArrayBuffer> };
 
 function sourceSkillFiles(): SourceSkillFile[] {
   const skillsRoot = join(REPO_ROOT, "skills");
@@ -167,6 +167,7 @@ function sourceSkillFiles(): SourceSkillFile[] {
         skill: entry.name,
         relativePath: relative(skillRoot, path),
         content: readFileSync(path, "utf8"),
+        bytes: readFileSync(path),
       }));
     });
 }
@@ -186,7 +187,7 @@ function assertAllSkillsInstalled(additionalNames: string[] = [], editedFiles: s
     if (editedFiles.includes(`${file.skill}/${file.relativePath}`)) {
       expect(existsSync(installedPath)).toBe(true);
     } else {
-      expect(readFileSync(installedPath, "utf8")).toBe(file.content);
+      expect(readFileSync(installedPath)).toEqual(file.bytes);
     }
   }
 }
@@ -367,21 +368,55 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     { name: "empty", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = []\n' },
     { name: "partial", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = ["triage"]\n' },
     { name: "legacy", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = ["triage", "removed-pack"]\n' },
+    { name: "inline-table", bytes: 'canon = { packs = ["triage"] }\n[surfaces]\nenabled = ["claude-code"]\n' },
+    { name: "dotted-key", bytes: 'canon.packs = ["triage"]\n\n[surfaces]\nenabled = ["claude-code"]\n' },
+    { name: "multiline", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = [\n  "triage", # kept by hand\n  "review",\n]\n' },
+    { name: "non-array", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = "all"\n' },
+    { name: "crlf", bytes: '[surfaces]\r\nenabled = ["claude-code"]\r\n\r\n[canon]\r\npacks = ["triage"]   # legacy\r\n' },
   ]) {
     test(`update ignores ${name} legacy pack settings and installs all skills`, async () => {
       rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
       const repo = governedRepo(`repo-legacy-packs-${name}`);
       const configPath = join(repo, ".ai-engineering", "config.toml");
       writeFileSync(configPath, bytes);
+      const mtime = statSync(configPath).mtimeMs;
       process.chdir(repo);
 
       const run = await captured(() => updateMain({ yes: true }));
 
       expect(run.value).toBe(0);
-      expect(readFileSync(configPath, "utf8")).toBe(bytes);
+      expect(readFileSync(configPath)).toEqual(Buffer.from(bytes));
+      expect(statSync(configPath).mtimeMs).toBe(mtime);
       assertAllSkillsInstalled();
     });
   }
+
+  test("a canon an earlier pack-filtered install left partial gains every missing skill, and config.toml keeps its bytes", async () => {
+    rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
+    const repo = governedRepo("repo-legacy-partial-canon");
+    const configPath = join(repo, ".ai-engineering", "config.toml");
+    const legacyConfig = '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = []\n';
+    writeFileSync(configPath, legacyConfig);
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const lockBefore = readFileSync(lockPath, "utf8");
+    // The shape a core-only install left: whole skill folders absent, the lock in place.
+    const skillNames = [...new Set(sourceSkillFiles().map((file) => file.skill))].sort();
+    const removed = skillNames.filter((_, index) => index % 2 === 1);
+    expect(removed.length).toBeGreaterThan(0);
+    for (const name of removed) rmSync(join(ENG_HOME, "skills", name), { recursive: true });
+    const mtime = statSync(configPath).mtimeMs;
+
+    const run = await captured(() => updateMain({ yes: true }));
+
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude("global canon outdated or incomplete — re-installed");
+    expect(readFileSync(configPath)).toEqual(Buffer.from(legacyConfig));
+    expect(statSync(configPath).mtimeMs).toBe(mtime);
+    expect(readFileSync(lockPath, "utf8")).toBe(lockBefore);
+    assertAllSkillsInstalled();
+  });
 
   test("update repairs a missing skill resource and preserves edited and user-owned skills", async () => {
     rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
@@ -389,30 +424,50 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const configPath = join(repo, ".ai-engineering", "config.toml");
     const legacyConfig = '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = ["removed-pack"]\n';
     writeFileSync(configPath, legacyConfig);
+    const machineSettings = join(ENG_HOME, ".claude", "settings.json");
+    const machineSettingsBefore = '{\n  "user": "repair"\n}\n';
+    mkdirSync(dirname(machineSettings), { recursive: true });
+    writeFileSync(machineSettings, machineSettingsBefore);
     process.chdir(repo);
     expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
 
     const sourceFiles = sourceSkillFiles();
-    const editedSource = sourceFiles.find((file) => file.skill === "ai-debug" && file.relativePath === "SKILL.md");
-    const missingSource = sourceFiles.find((file) => file.skill !== "ai-debug" && file.relativePath !== "SKILL.md");
-    if (editedSource === undefined || missingSource === undefined) {
-      throw new Error("the skills inventory needs a SKILL.md and a nested resource for repair coverage");
+    // A shipped sibling of the edited file: preserving one edited file must not stop the
+    // rest of its skill folder from being repaired.
+    const missingSibling = sourceFiles.find((file) => file.relativePath !== "SKILL.md");
+    const editedSource = sourceFiles.find((file) => file.skill === missingSibling?.skill && file.relativePath === "SKILL.md");
+    const missingSource = sourceFiles.find((file) => file.skill !== editedSource?.skill && file.relativePath !== "SKILL.md");
+    const missingSkill = sourceFiles.find((file) => file.skill !== editedSource?.skill && file.skill !== missingSource?.skill)?.skill;
+    if (editedSource === undefined || missingSource === undefined || missingSibling === undefined || missingSkill === undefined) {
+      throw new Error("the skills inventory needs a SKILL.md, nested resources and a third skill for repair coverage");
     }
     const skill = join(ENG_HOME, "skills", editedSource.skill, editedSource.relativePath);
-    const localEdit = `${readFileSync(skill, "utf8")}\nLocal change.\n`;
+    const localEdit = Buffer.concat([readFileSync(skill), Buffer.from("\nLocal change.\n")]);
     writeFileSync(skill, localEdit);
     const missingPath = join(ENG_HOME, "skills", missingSource.skill, missingSource.relativePath);
     rmSync(missingPath);
+    const missingSiblingPath = join(ENG_HOME, "skills", missingSibling.skill, missingSibling.relativePath);
+    rmSync(missingSiblingPath);
+    rmSync(join(ENG_HOME, "skills", missingSkill), { recursive: true });
     const userOwnedSkill = join(ENG_HOME, "skills", "my-local-skill", "SKILL.md");
-    mkdirSync(dirname(userOwnedSkill), { recursive: true });
+    const userOwnedResource = join(ENG_HOME, "skills", "my-local-skill", "references", "notes.md");
+    mkdirSync(dirname(userOwnedResource), { recursive: true });
     writeFileSync(userOwnedSkill, "# mine\n");
+    writeFileSync(userOwnedResource, "my notes\n");
 
-    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const repair = await captured(() => updateMain({ yes: true }));
 
-    expect(readFileSync(skill, "utf8")).toBe(localEdit);
-    expect(readFileSync(missingPath, "utf8")).toBe(missingSource.content);
+    expect(repair.value).toBe(0);
+    expect(repair.out).toInclude("global canon repaired · local changes kept");
+    expect(repair.out).toInclude(`skills/${editedSource.skill}/${editedSource.relativePath} · local change kept`);
+    expect(readFileSync(skill)).toEqual(localEdit);
+    expect(readFileSync(missingPath)).toEqual(missingSource.bytes);
+    expect(readFileSync(missingSiblingPath)).toEqual(missingSibling.bytes);
     expect(readFileSync(userOwnedSkill, "utf8")).toBe("# mine\n");
-    expect(readFileSync(configPath, "utf8")).toBe(legacyConfig);
+    expect(readFileSync(userOwnedResource, "utf8")).toBe("my notes\n");
+    expect(readFileSync(configPath)).toEqual(Buffer.from(legacyConfig));
+    // Machine settings are not part of the canon: the repair neither writes nor removes them.
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
     assertAllSkillsInstalled(["my-local-skill"], [`${editedSource.skill}/${editedSource.relativePath}`]);
   });
 
