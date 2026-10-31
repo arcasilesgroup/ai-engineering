@@ -1693,11 +1693,11 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 2, "findings": ["Gate 1 at aad6279c: floor-gates 35, floor-hooks 35, worktree-command 107 (16 skipped), workflow-checkpoint 11, checkpoint-guard 108, arch 54; typecheck, lint, build green; gen-assets clean; full suite 1,679 pass / 16 skip / 0 fail.", "Re-check after review fix 5051e277: floor-gates 35, floor-hooks 36, worktree-command 112 (16 skipped), workflow-checkpoint 11, checkpoint-guard 108, git-context 30, arch 54; typecheck, lint, build green; gen-assets clean; full suite 1,685 pass / 16 skip / 0 fail."] },
+        "behavior": { "status": "failed", "attempts": 3, "findings": ["Gate 1 at aad6279c: floor-gates 35, floor-hooks 35, worktree-command 107 (16 skipped), workflow-checkpoint 11, checkpoint-guard 108, arch 54; typecheck, lint, build green; gen-assets clean; full suite 1,679 pass / 16 skip / 0 fail.", "Re-check after review fix 5051e277: floor-gates 35, floor-hooks 36, worktree-command 112 (16 skipped), workflow-checkpoint 11, checkpoint-guard 108, git-context 30, arch 54; typecheck, lint, build green; gen-assets clean; full suite 1,685 pass / 16 skip / 0 fail.", "Phase 3 security audit (reopened as a Gate 1 failure): HIGH src/receipts.ts:300-345,370-392 via src/chain/mod.ts:249-255 — automatic receipt retention follows a committed `.ai-engineering/receipts` symlink and deletes old regular files outside the repository; the repo-supplied `[gc].receipts_ttl` (e.g. \"0d\") widens it. LOW src/guards/checkpoint.ts:33-61,314-324 — checkpoint write guard matches path text only (cd into the directory, case or symlink aliases bypass it)."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "passed", "attempts": 1, "findings": ["2 rounds: round 1 PASS with MINOR F1-F4; the orchestrator had them fixed (Git decides identity, rm --force needs no base, parse errors named, base normalised so origin/main protects main). Round 2 PASS; MINOR F5 deferred (see notes)."] }
+        "review": { "status": "pending", "attempts": 1, "findings": ["2 rounds: round 1 PASS with MINOR F1-F4; the orchestrator had them fixed (Git decides identity, rm --force needs no base, parse errors named, base normalised so origin/main protects main). Round 2 PASS; MINOR F5 deferred (see notes)."] }
       },
-      "status": "passed"
+      "status": "pending"
     }
   ],
   "assumptions": [
