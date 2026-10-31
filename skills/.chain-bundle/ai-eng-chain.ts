@@ -1325,6 +1325,7 @@ function runGit(args, opts) {
 
 // src/git/context.ts
 var HEADS = "refs/heads/";
+var REMOTES = "refs/remotes/";
 var FALLBACK_REMOTE = "origin";
 function git(cwd, args) {
   return runGit(args, { cwd, isolated: true });
@@ -1387,7 +1388,24 @@ function configuredBase(root) {
   const fix = `set [git] base to a branch name in ${path}`;
   if (typeof value !== "string")
     throw new Error(`[git] base in ${path} must be a string; ${fix}`);
-  return requireBranchName(root, value, `[git] base in ${path}`, fix);
+  return requireBranchName(root, localBranchName(root, value, path), `[git] base in ${path}`, fix);
+}
+function localBranchName(root, value, path) {
+  if (value.startsWith(HEADS))
+    return value.slice(HEADS.length);
+  const isRemoteRef = value.startsWith(REMOTES);
+  const name = isRemoteRef ? value.slice(REMOTES.length) : value;
+  const listed = git(root, ["remote"]);
+  if (listed.status !== 0) {
+    throw new Error(`cannot list the remotes of ${root} to read [git] base in ${path}: ${listed.stderr.trim()}; check them with \`git -C ${root} remote -v\``);
+  }
+  const remote = listed.stdout.split(`
+`).filter((candidate) => candidate !== "" && name.startsWith(`${candidate}/`)).sort((left, right) => right.length - left.length)[0];
+  if (remote !== undefined)
+    return name.slice(remote.length + 1);
+  if (isRemoteRef)
+    throw new Error(`[git] base in ${path} is ${JSON.stringify(value)}, but no remote named by it is configured; set [git] base to the local branch name`);
+  return name;
 }
 function baseRemote(root, branch) {
   if (branch === null)

@@ -1379,28 +1379,27 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
         "only if you intend to permanently delete those files.\n",
     };
   }
-  let baseBranch: string | null;
-  try {
-    baseBranch = namedBase(process.cwd());
-  } catch {
-    baseBranch = null;
-  }
-  if (baseBranch === null) {
-    return {
-      code: 1,
-      out: "",
-      err: `worktree rm: no base branch is detectable; set [git] base in ${join(repo, ".ai-engineering", "config.toml")}, then rerun \`ai-eng worktree rm ${slug}\`.\n`,
-    };
-  }
-  const baseRef = `refs/heads/${baseBranch}`;
-  const baseLabel = baseBranch === "main" ? "local main" : `detected base ${baseRef}`;
-
   // Refuse before touching anything: the default delete deletes only a branch that
   // proved it landed in the detected base, and a refusal must leave the worktree and
   // the branch exactly as they were. `merge-base --is-ancestor` pins both refs, so
   // the answer never depends on the mutable HEAD. Only an explicit `--force` skips
-  // the proof, for the deliberately abandoned branch.
+  // the proof, for the deliberately abandoned branch, and so needs no base at all.
   if (!force) {
+    let baseBranch: string | null;
+    try {
+      baseBranch = namedBase(process.cwd());
+    } catch (error) {
+      return { code: 1, out: "", err: `worktree rm: cannot detect the base (${error instanceof Error ? error.message : String(error)}); then rerun \`ai-eng worktree rm ${slug}\`.\n` };
+    }
+    if (baseBranch === null) {
+      return {
+        code: 1,
+        out: "",
+        err: `worktree rm: no base branch is detectable; set [git] base in ${join(repo, ".ai-engineering", "config.toml")}, then rerun \`ai-eng worktree rm ${slug}\`.\n`,
+      };
+    }
+    const baseRef = `refs/heads/${baseBranch}`;
+    const baseLabel = baseBranch === "main" ? "local main" : `detected base ${baseRef}`;
     const merged = git(repo, ["merge-base", "--is-ancestor", branch, baseRef]);
     if (merged.status !== 0) {
       return {
@@ -1473,7 +1472,7 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   return {
     code: 0,
     out: force
-      ? `✓ removed worktree ${slug} — deleted ${branch} with --force: it was not merged into ${baseRef}${droppedNote}\n`
+      ? `✓ removed worktree ${slug} — deleted ${branch} with --force, without proving it was merged${droppedNote}\n`
       : `✓ removed worktree ${slug}${droppedNote}\n`,
     err: "",
   };

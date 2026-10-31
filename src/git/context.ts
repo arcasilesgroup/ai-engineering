@@ -25,6 +25,7 @@ export interface GitContext {
 }
 
 const HEADS = "refs/heads/";
+const REMOTES = "refs/remotes/";
 const FALLBACK_REMOTE = "origin";
 
 /** Every read is isolated from global and system config: only the repo decides (R8). */
@@ -93,7 +94,28 @@ function configuredBase(root: string): string | undefined {
   if (value === undefined) return undefined;
   const fix = `set [git] base to a branch name in ${path}`;
   if (typeof value !== "string") throw new Error(`[git] base in ${path} must be a string; ${fix}`);
-  return requireBranchName(root, value, `[git] base in ${path}`, fix);
+  return requireBranchName(root, localBranchName(root, value, path), `[git] base in ${path}`, fix);
+}
+
+/** The local branch a configured base names: `<remote>/<branch>`, `refs/heads/<branch>`
+ *  and `refs/remotes/<remote>/<branch>` all mean `<branch>`, so the pre-push guard
+ *  protects the branch a push actually targets. A leading segment is taken as a remote only when such a
+ *  remote is configured; a remote-tracking ref of an unknown remote names no branch. */
+function localBranchName(root: string, value: string, path: string): string {
+  if (value.startsWith(HEADS)) return value.slice(HEADS.length);
+  const isRemoteRef = value.startsWith(REMOTES);
+  const name = isRemoteRef ? value.slice(REMOTES.length) : value;
+  const listed = git(root, ["remote"]);
+  if (listed.status !== 0) {
+    throw new Error(`cannot list the remotes of ${root} to read [git] base in ${path}: ${listed.stderr.trim()}; check them with \`git -C ${root} remote -v\``);
+  }
+  // Remote names may contain "/": the longest configured remote that prefixes the name wins.
+  const remote = listed.stdout.split("\n")
+    .filter((candidate) => candidate !== "" && name.startsWith(`${candidate}/`))
+    .sort((left, right) => right.length - left.length)[0];
+  if (remote !== undefined) return name.slice(remote.length + 1);
+  if (isRemoteRef) throw new Error(`[git] base in ${path} is ${JSON.stringify(value)}, but no remote named by it is configured; set [git] base to the local branch name`);
+  return name;
 }
 
 /** The current branch's upstream remote, else origin (also for a detached HEAD). */

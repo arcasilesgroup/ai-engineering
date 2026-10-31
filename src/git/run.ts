@@ -68,32 +68,29 @@ export function runGit(args: string[], opts: GitRunOptions): GitResult {
 
 const IDENTITY_FIX = 'set it with `git config --global user.name "Your Name"` and `git config --global user.email "you@example.com"`';
 
+/** `git var GIT_*_IDENT` prints `Name <email> <epoch> <offset>`. */
+const IDENT_LINE = /^(.+) <([^<>]*)> \d+ [+-]\d{4}$/;
+
 /** The author and committer an isolated commit records. The isolated runner ignores the
- *  global config where most machines keep `user.name` and `user.email`, so the identity
- *  is read the normal way (local, then global and system config) and passed explicitly;
- *  an identity already set in the environment still wins, as it would for git itself.
- *  Only the repository-relocating variables are dropped, so cwd still decides the
- *  repository (R8). A failed read or a missing value refuses rather than guessing. */
+ *  global config where most machines keep the identity, so git itself is asked, with the
+ *  normal config and environment, through `git var`: it applies git's own precedence
+ *  (GIT_AUTHOR_* / GIT_COMMITTER_* env, then author.* / committer.*, then user.*, then
+ *  EMAIL) and the names are passed explicitly. Only the repository-relocating variables
+ *  are dropped, so cwd still decides the repository (R8). Where git would refuse to
+ *  commit, this refuses too. */
 export function commitIdentityEnv(cwd: string): NodeJS.ProcessEnv | Error {
   const env = repositoryScopedEnv(cwd);
   if (env instanceof Error) return env;
-  const configured: Record<string, string> = {};
-  for (const key of ["user.name", "user.email"]) {
-    const read = runGit(["config", "--get", key], { cwd, env });
-    if (read.status === 1 && read.stderr.trim() === "") continue;
-    if (read.status !== 0 || read.stderr.trim() !== "") {
-      return new Error(`cannot read git ${key} (${read.stderr.trim() || `git config exited ${read.status}`})`);
+  const identity: NodeJS.ProcessEnv = {};
+  for (const role of ["AUTHOR", "COMMITTER"]) {
+    const read = runGit(["var", `GIT_${role}_IDENT`], { cwd, env });
+    const parsed = IDENT_LINE.exec(read.stdout.trim());
+    if (read.status !== 0 || parsed === null) {
+      const reason = read.stderr.trim().split("\n").pop() || `git var GIT_${role}_IDENT exited ${read.status}`;
+      return new Error(`no Git commit identity (${reason}); ${IDENTITY_FIX}`);
     }
-    const value = read.stdout.trim();
-    if (value !== "") configured[key] = value;
+    identity[`GIT_${role}_NAME`] = parsed[1];
+    identity[`GIT_${role}_EMAIL`] = parsed[2];
   }
-  const identity: NodeJS.ProcessEnv = {
-    GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME || configured["user.name"],
-    GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL || configured["user.email"],
-    GIT_COMMITTER_NAME: process.env.GIT_COMMITTER_NAME || configured["user.name"],
-    GIT_COMMITTER_EMAIL: process.env.GIT_COMMITTER_EMAIL || configured["user.email"],
-  };
-  const missing = Object.keys(identity).filter((name) => !identity[name]);
-  if (missing.length > 0) return new Error(`no Git commit identity (${missing.join(", ")} unresolved); ${IDENTITY_FIX}`);
   return identity;
 }

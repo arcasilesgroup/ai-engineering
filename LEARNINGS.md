@@ -1808,3 +1808,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Tests open and close cards before polls and assert that state survives; the fake page wires banner links and the click test asserts the card opens and scrolls.
 - **Lesson:** Before a poll, change the state the person controls, then assert it survives; prove each test with the mutation it guards against.
 - **Tags:** review, tests, viewer, mutation
+
+### L248 · 2026-10-30 · floating-core #24 · review
+- **Failure:** `[git] base = "origin/main"` let pushes to `main` through; `rm --force` required a base it never used; a broken config was reported as "no base"; commit identity ignored `author.*`, `committer.*` and `EMAIL`.
+- **Root cause:** The configured base was never normalised, the base was resolved before the branch that needs it, every read error collapsed into absence, and identity precedence was re-implemented instead of asked from Git.
+- **Fix:** Normalise the base at the one function every consumer reads, resolve it only for the merged check, report the parse error with its file, and take identity from `git var GIT_AUTHOR_IDENT`/`GIT_COMMITTER_IDENT`.
+- **Lesson:** Normalise a value where every consumer reads it, resolve it only where it is used, and let the tool decide its own precedence.
+- **Tags:** review, git, push, identity, fail-closed

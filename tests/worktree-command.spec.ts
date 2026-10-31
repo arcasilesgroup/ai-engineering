@@ -4305,33 +4305,8 @@ describe("ai-eng worktree identity and base (checkpoint 24)", () => {
   test("request-changes commits with an identity that exists only in the global Git config", () => {
     const repo = tempRepo();
     const slug = "global-identity-review";
-    configureDetectedBase(repo, "main");
-    const reviewedBase = git(["rev-parse", "refs/heads/main"], repo).trim();
-    git(["checkout", "-q", "-b", `feat/${slug}`], repo);
-    const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
-    const checkpoint = writeCanonicalCheckpoint(repo, slug, {
-      phase: "implementation",
-      plan_approval: "approved",
-      app_review: "not-started",
-      base_ref: null,
-      reviewed_base: null,
-      reviewed_feature: null,
-    });
-    git(["add", checkpointPath], repo);
-    git(["commit", "-q", "-m", "approved implementation plan"], repo);
-    const reviewedFeature = commitRebaseFixtureFile(repo, "src/approved.ts", "approved\n", "approved feature");
-    writeCanonicalCheckpoint(repo, slug, {
-      phase: "awaiting-app-review",
-      plan_approval: "approved",
-      app_review: "pending",
-      base_ref: "refs/heads/main",
-      reviewed_base: reviewedBase,
-      reviewed_feature: reviewedFeature,
-    });
-    git(["add", checkpointPath], repo);
-    git(["commit", "-q", "-m", "await app review"], repo);
-    const pendingCommit = git(["rev-parse", "HEAD"], repo).trim();
-    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+    const pendingCommit = prepareRequestChangesFixture(repo, slug);
+    const checkpoint = join(repo, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
     const env = useGlobalOnlyIdentity(repo);
 
     const requested = runCli(["worktree", "request-changes", slug, pendingCommit], repo, env);
@@ -4367,4 +4342,137 @@ describe("ai-eng worktree identity and base (checkpoint 24)", () => {
     expect(branchNames(repo)).toContain("feat/alpha");
     expect(fullRepoSnapshot(repo, [feature], [])).toBe(before);
   });
+
+  test("rm --force needs no base: it removes an unmerged worktree in a repo that names none", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    git(["commit", "--allow-empty", "-q", "-m", "work in alpha"], join(root, "alpha"));
+    // Premise: nothing names a base and alpha is not contained in main.
+    expect(existsSync(join(repo, ".ai-engineering", "config.toml"))).toBe(false);
+    expect(git(["remote"], repo).trim()).toBe("");
+    expect(gitOut(["merge-base", "--is-ancestor", "refs/heads/feat/alpha", "refs/heads/main"], repo).status).toBe(1);
+
+    const run = runCli(["worktree", "rm", "alpha", "--force"], repo);
+
+    expect(run.stderr).toBe("");
+    expect(run.status).toBe(0);
+    expect(run.stdout).toBe("✓ removed worktree alpha — deleted feat/alpha with --force, without proving it was merged\n");
+    expect(existsSync(join(root, "alpha"))).toBe(false);
+    expect(branchNames(repo)).not.toContain("feat/alpha");
+  });
+
+  test("rm with an unparseable config.toml names the parse error and the file, not a missing base", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    configureDetectedBase(repo, "main");
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    const feature = join(root, "alpha");
+    const configPath = join(realpathSync(repo), ".ai-engineering", "config.toml");
+    writeFileSync(configPath, '[git\nbase = "main"\n');
+    const before = fullRepoSnapshot(repo, [feature], []);
+
+    const run = runCli(["worktree", "rm", "alpha"], repo);
+
+    expect(run.status).toBe(1);
+    expect(run.stderr).toStartWith(`worktree rm: cannot detect the base (cannot read ${configPath} (`);
+    expect(run.stderr).toContain("fix the TOML so it parses");
+    expect(run.stderr).not.toContain("no base branch is detectable");
+    expect(existsSync(feature)).toBe(true);
+    expect(branchNames(repo)).toContain("feat/alpha");
+    expect(fullRepoSnapshot(repo, [feature], [])).toBe(before);
+  });
+
+  const identityCases: Array<{ name: string; globalConfig: string; localConfig: Array<[string, string]>; extraEnv: NodeJS.ProcessEnv; expected: string[] }> = [
+    {
+      name: "repo-local author.* keys outrank the global user.* identity",
+      globalConfig: "[user]\n\tname = Global Person\n\temail = global@example.com\n",
+      localConfig: [["author.name", "Repo Author"], ["author.email", "repo-author@example.com"]],
+      extraEnv: {},
+      expected: ["Repo Author <repo-author@example.com>", GLOBAL_IDENTITY],
+    },
+    {
+      name: "EMAIL supplies the address when no config names one",
+      globalConfig: "[user]\n\tname = Global Person\n",
+      localConfig: [],
+      extraEnv: { EMAIL: "env-mail@example.com" },
+      expected: ["Global Person <env-mail@example.com>", "Global Person <env-mail@example.com>"],
+    },
+  ];
+  for (const identityCase of identityCases) {
+    test(`request-changes commits with git's own identity: ${identityCase.name}`, () => {
+      const repo = tempRepo();
+      const slug = "identity-precedence";
+      const pendingCommit = prepareRequestChangesFixture(repo, slug);
+      const env = { ...useGlobalOnlyIdentity(repo), ...identityCase.extraEnv };
+      writeFileSync(env.GIT_CONFIG_GLOBAL ?? "", identityCase.globalConfig);
+      for (const [key, value] of identityCase.localConfig) git(["config", "--local", key, value], repo);
+      // Premise: plain git, with the same config and environment, records exactly this identity.
+      const plainIdentity = (name: string) =>
+        spawnSync("git", ["var", name], { cwd: repo, encoding: "utf8", env: { ...childEnv, ...env } }).stdout.replace(/ \d+ [+-]\d{4}\n$/, "");
+      expect([plainIdentity("GIT_AUTHOR_IDENT"), plainIdentity("GIT_COMMITTER_IDENT")]).toEqual(identityCase.expected);
+
+      const requested = runCli(["worktree", "request-changes", slug, pendingCommit], repo, env);
+
+      expect(requested.stderr).toBe("");
+      expect(requested.status).toBe(0);
+      const transitionCommit = git(["rev-parse", `refs/heads/feat/${slug}`], repo).trim();
+      expect(git(["rev-list", "--parents", "-n", "1", transitionCommit], repo).trim()).toBe(`${transitionCommit} ${pendingCommit}`);
+      expect(identities(repo, transitionCommit)).toEqual(identityCase.expected);
+    });
+  }
+
+  test("request-changes refuses, changing nothing, when git itself has no commit identity", () => {
+    const repo = tempRepo();
+    const slug = "identity-missing";
+    const pendingCommit = prepareRequestChangesFixture(repo, slug);
+    const env = useGlobalOnlyIdentity(repo);
+    writeFileSync(env.GIT_CONFIG_GLOBAL ?? "", "[user]\n\tname = Global Person\n");
+    git(["config", "--local", "user.useConfigOnly", "true"], repo);
+    // Premise: plain git cannot name a committer here either.
+    expect(spawnSync("git", ["var", "GIT_COMMITTER_IDENT"], { cwd: repo, encoding: "utf8", env: { ...childEnv, ...env } }).status).not.toBe(0);
+    const before = fullRepoSnapshot(repo, [], []);
+
+    const requested = runCli(["worktree", "request-changes", slug, pendingCommit], repo, env);
+
+    expect(requested.status).toBe(1);
+    expect(requested.stderr).toStartWith("worktree request-changes: cannot commit the checkpoint: no Git commit identity (");
+    expect(requested.stderr).toContain('git config --global user.email "you@example.com"');
+    expect(requested.stderr).toEndWith("; no files were changed.\n");
+    expect(git(["rev-parse", `refs/heads/feat/${slug}`], repo).trim()).toBe(pendingCommit);
+    expect(fullRepoSnapshot(repo, [], [])).toBe(before);
+  });
+
+  /** A feature branch checked out in the main checkout, awaiting app review; returns the pending commit. */
+  function prepareRequestChangesFixture(repo: string, slug: string): string {
+    configureDetectedBase(repo, "main");
+    const reviewedBase = git(["rev-parse", "refs/heads/main"], repo).trim();
+    git(["checkout", "-q", "-b", `feat/${slug}`], repo);
+    const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    writeCanonicalCheckpoint(repo, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    git(["add", checkpointPath], repo);
+    git(["commit", "-q", "-m", "approved implementation plan"], repo);
+    const reviewedFeature = commitRebaseFixtureFile(repo, "src/approved.ts", "approved\n", "approved feature");
+    writeCanonicalCheckpoint(repo, slug, {
+      phase: "awaiting-app-review",
+      plan_approval: "approved",
+      app_review: "pending",
+      base_ref: "refs/heads/main",
+      reviewed_base: reviewedBase,
+      reviewed_feature: reviewedFeature,
+    });
+    git(["add", checkpointPath], repo);
+    git(["commit", "-q", "-m", "await app review"], repo);
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+    return git(["rev-parse", "HEAD"], repo).trim();
+  }
 });

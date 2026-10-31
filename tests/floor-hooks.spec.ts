@@ -361,6 +361,36 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
     }
   });
 
+  test("a base written as a remote or full ref still guards the local branch it names", () => {
+    const repo = tempRepo(true);
+    const branch = "feature/spelled-base";
+    run("git", repo, ["checkout", "-b", branch]);
+    run("git", repo, ["remote", "add", "origin", join(repo, "no-such-remote.git")]);
+    expect(run("git", repo, ["remote"]).stdout).toBe("origin\n");
+    pathWithoutGitleaks();
+    const previousRefs = process.env.AI_ENG_PUSH_REFS;
+    process.env.AI_ENG_PUSH_REFS = `refs/heads/${branch} ${"0".repeat(40)} refs/heads/main ${"0".repeat(40)}`;
+    try {
+      for (const spelling of ["main", "origin/main", "refs/heads/main", "refs/remotes/origin/main"]) {
+        write(repo, ".ai-engineering/config.toml", `[git]\nbase = "${spelling}"\n`);
+        expect(resolveContext(repo), spelling).toMatchObject({ branch, base: "main", baseSource: "config" });
+        expect(prePush(repo), spelling).toEqual({
+          ok: false,
+          lines: ["direct push to detected base refs/heads/main is not allowed — open a PR instead."],
+        });
+      }
+      // A remote-tracking spelling whose remote does not exist names no local branch: deny.
+      write(repo, ".ai-engineering/config.toml", '[git]\nbase = "refs/remotes/nosuch/main"\n');
+      const unknown = prePush(repo);
+      expect(unknown.ok).toBe(false);
+      expect(unknown.lines[0]).toStartWith("pre-push: cannot resolve detected base:");
+      expect(unknown.lines[0]).toContain("no remote named");
+    } finally {
+      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+      else process.env.AI_ENG_PUSH_REFS = previousRefs;
+    }
+  });
+
   test("any other ref keeps the gate on the scan, not the branch", () => {
     const repo = tempRepo(true);
     declareBase(repo);
