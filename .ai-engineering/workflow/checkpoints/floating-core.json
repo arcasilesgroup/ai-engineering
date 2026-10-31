@@ -1395,13 +1395,20 @@
         ".ai-engineering/workflow/reviews/floating-core-19-machine-state.md",
         ".ai-engineering/workflow/reviews/floating-core-19.md",
         ".ai-engineering/workflow/test-plans/floating-core.json",
+        "src/commands/update.ts",
+        "src/commands/init.ts",
+        "src/commands/config.ts",
+        "src/commands/doctor.ts",
+        "tests/embed-canon.spec.ts",
+        "tests/doctor-command.spec.ts",
+        "tests/agents-canon.spec.ts",
         "LEARNINGS.md"
       ],
       "ui": null,
       "gates": {
         "behavior": {
           "status": "passed",
-          "attempts": 14,
+          "attempts": 15,
           "findings": [
             "Gate 1 attempt 1 passed carrier-merge (13), carriers-install (38), and uninstall (22), then `bun test` failed because the isolated source archive omitted `.git`; two Git-dependent tests in `tests/token-budget.spec.ts` failed at `git read-tree HEAD`. Rerun in a Git-backed local clone before judging CP19.",
             "Gate 1 attempt 2 passed all four verify commands in order in a local Git-backed clone at main HEAD 5f8a3454: carrier-merge 13, carriers-install 38, uninstall 22, and full suite 1,561 passed with 0 failures.",
@@ -1416,13 +1423,14 @@
             "Gate 1 attempt 11 stopped at command 1 due to clone setup: dependencies were missing, and the isolated test home inside the clone was rejected by src/env.ts:18. With locked dependencies installed and the test home outside the clone, carrier-merge passed 13 tests; the remaining verify commands were not run.",
             "Gate 1 attempt 12 passed commands 1-7 (186 tests total) then stopped at command 8, bun test tests/adversarial/lock-security.test.ts: 8 passed and 1 failed at the refusal-message assertion near line 192. The output rendered the compared value identically; cause unconfirmed, and commands 9-10 were not run. Follow-up fix: use Bun's array membership matcher `toContain`; command 8 then passed 9/9, with full Gate 1 retry pending.",
             "Gate 1 attempt 13 passed all ten CP19 verify commands in order at commit c37f26da in a clean Git-backed clone with locked dependencies and test homes outside the clone. The four baseline artifacts remained untouched.",
-            "Gate 1 attempt 14 after the F8-F10 fix (112565f3) passed all ten verify commands in a clean clone: carrier-merge 13, carriers-install 47, uninstall 29, init 33, update 20, config 30, surfaces 18, lock-security 9, init-recovery 13, full suite 1,584 pass / 16 skip / 0 fail; typecheck, lint and arch (54) green."
+            "Gate 1 attempt 14 after the F8-F10 fix (112565f3) passed all ten verify commands in a clean clone: carrier-merge 13, carriers-install 47, uninstall 29, init 33, update 20, config 30, surfaces 18, lock-security 9, init-recovery 13, full suite 1,584 pass / 16 skip / 0 fail; typecheck, lint and arch (54) green.",
+            "Gate 1 attempt 15 re-check after review attempt 5 fixes (436467c1) passed all ten verify commands in a clean clone: carrier-merge 13, carriers-install 60, uninstall 35, init 34, update 25, config 31, surfaces 18, lock-security 9, init-recovery 13, full suite 1,616 pass / 16 skip / 0 fail; typecheck, lint, arch (54) and build green."
           ]
         },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "failed",
-          "attempts": 4,
+          "status": "passed",
+          "attempts": 5,
           "findings": [
             "Adversarial review loop attempt 1 failed after four critic rounds: F1-F4 were resolved; F5 remains open because a write error can leave user-owned settings truncated or partial.",
             "Adversarial review loop attempt 2 round 1 confirmed F5: adapters.ts:409 and :450 write settings in place, so an error can leave partial contents; I73 reproduces this. The atomic staging fix resolved F5, but review round 2 found F6: snapshot validation is separate from renameSync/unlinkSync, leaving a race where a replacement can still be overwritten or removed.",
@@ -1431,11 +1439,12 @@
             "Adversarial review loop attempt 2 round 3 found F7: a user settings symlink can target machine.json, so init/update writes or uninstall deletion of that internal path can still mutate user-owned content despite the settings refusal.",
             "Adversarial review loop attempt 2 round 4 found F8: unselected settings aliases and a symlink swapped after validation can still expose machine.json to writes or deletion.",
             "Adversarial review attempt 3 round 1 returned FAIL with F8, F9, and F10 open. Details are in `.ai-engineering/workflow/reviews/floating-core-19.md`; no source or test files changed. The reviewer also reported local test-hygiene and `src/.DS_Store` architecture failures, while Gate 1 attempt 13 passed in an isolated Git-backed clone.",
-            "Review attempt 4 (resumed after the circuit breaker by the user's autonomous-delivery instruction) ran 4 rounds: F8-F10 fixed (112565f3), then F11-F24 found and resolved across fixer rounds (515c2e8f, 11ce043d, be557ace). Round cap reached with F25 BLOCKER (update/uninstall throw on a refused canon delete or write, so ai-eng.lock is not written) and F26 MAJOR (a provably canon-owned stale page that cannot be removed is reported as a user file and its hash dropped) open."
+            "Review attempt 4 (resumed after the circuit breaker by the user's autonomous-delivery instruction) ran 4 rounds: F8-F10 fixed (112565f3), then F11-F24 found and resolved across fixer rounds (515c2e8f, 11ce043d, be557ace). Round cap reached with F25 BLOCKER (update/uninstall throw on a refused canon delete or write, so ai-eng.lock is not written) and F26 MAJOR (a provably canon-owned stale page that cannot be removed is reported as a user file and its hash dropped) open.",
+            "Review attempt 5 PASS after 4 rounds: F25-F32 resolved (76896d97, b1b6fa88, 436467c1), including a sweep that applied the shared ownership rule to version.json and module carriers. MINOR F33 deferred (see notes)."
           ]
         }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 20,
@@ -1714,6 +1723,7 @@
   ],
   "new_dependencies": [],
   "notes": [
+    "CP19 review MINOR F33 (src/surfaces/adapters.ts:1277-1280): an old ai-eng module carrier or bundle without a matching hash in machine.json is kept as a user edit and named every run until deleted by hand; no bytes lost. Accepting earlier shipped carrier renders would let upgrades refresh it.",
     "CP1 review MINOR F5: test-hygiene re-runs 25 sandboxed suites in a nested bun test (+40 s to the serial suite); move the env/cwd before-after check into tests/preload.ts. Deferred to CP14 (suite under 2 min).",
     "Primary checkout has untracked tests/.dirfd-probe-43993 and tests/.worktree-lifecycle-{jgjcJ0,LDPOY7,wKVTaQ,yLLd5r}: the person removes them; never deleted from the worktree.",
     "Run agility (user, 2026-10-28): targeted tests per checkpoint; full serial suite runs twice in CP14 and once in Phase 3 only. No full serial suite in CP13, CP15 or CP16; PR CI remains one serial gate. A flake unrelated to the diff gets one rerun then is noted; review is capped at 2 rounds and only BLOCKER/MAJOR block.",
