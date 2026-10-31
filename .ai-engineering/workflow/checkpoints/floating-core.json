@@ -1498,12 +1498,12 @@
         "behavior": { "status": "passed", "attempts": 1, "findings": ["Gate 1 at aaa8972e: init 35, carriers-install 61, ceremony-contract 4, embed-canon 21, token-budget 7, arch 54; typecheck, lint, build green; full suite 1,622 pass / 16 skip / 0 fail. Tests passed before implementation because CP12/CP18/CP19 delivered the behavior; a mutation probe confirmed the no-execution check bites."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
-          "status": "pending",
-          "attempts": 0,
-          "findings": []
+          "status": "passed",
+          "attempts": 1,
+          "findings": ["Round 1 PASS; no BLOCKER/MAJOR. MINOR F1 (tests/init-command.spec.ts:258 canonPacks matches one layout) and F2 (README.md:299 'never rewrite your config' overclaims; re-init 'config' rewrites [surfaces]) carried into CP21."]
         }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 21,
@@ -1520,7 +1520,8 @@
       "tasks": [
         "Remove legacy pack filtering from update and keep config.toml byte-identical for absent, empty, partial, and other legacy [canon].packs values.",
         "Repair missing shipped payloads byte-for-byte while preserving locally edited installed skills and unrelated user-owned skill directories.",
-        "Restore the edited skill fixture before init-recovery checks a subsequent clean update for zero drift."
+        "Restore the edited skill fixture before init-recovery checks a subsequent clean update for zero drift.",
+        "From CP20 review MINORs: make the test helper that detects [canon].packs recognise any TOML layout (inline table, dotted key, multiline) so 'writes no [canon].packs' cannot pass vacuously; correct README.md so it states exactly which commands keep config bytes and which rewrite only the requested section."
       ],
       "files": [
         "src/env.ts",
@@ -1529,7 +1530,9 @@
         "src/surfaces/adapters.ts",
         "tests/update-command.spec.ts",
         "tests/adversarial/init-recovery.test.ts",
-        "tests/carriers-install.spec.ts"
+        "tests/carriers-install.spec.ts",
+        "tests/init-command.spec.ts",
+        "README.md"
       ],
       "acceptance": [
         "Update installs the complete inventory for absent, empty, partial, and other legacy [canon].packs values without changing config bytes.",
