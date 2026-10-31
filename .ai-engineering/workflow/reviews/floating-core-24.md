@@ -98,10 +98,11 @@ The audit rated this guard LOW and text matching can never be complete, so this 
 
 VERDICT: PASS — no BLOCKER or MAJOR; open MINOR: F5, F6, F7, F8. ROUND 3: resolved 0 · withdrawn 0 · upheld 0 · new 3
 
-## F9 · MAJOR · fixed (r4)
+## F9 · MAJOR · resolved (r4)
 **Where:** src/guards/checkpoint.ts:461-466 (used at :468-472 and :505)
 **Critic (r4):** The F7 fix reopened a named write to the checkpoint JSON. `isJsonToolRead` drops every word that starts with `-` before counting operands, so it also drops a bare `-`. To json.tool, `-` is the input file (stdin), and the operand after it is the output file. As a result, `echo '{}' | python3 -m json.tool - .ai-engineering/workflow/checkpoints/demo.json` is classed as a read and allowed. So are `/usr/bin/python3 -m json.tool --sort-keys - <ckpt>` and, with the cwd in the checkpoints folder, `echo '{}' | python3 -m json.tool - demo.json`. Run for real, this rewrites demo.json with arbitrary JSON and bypasses every checkpoint gate. The guard at 8d1dd20a denied all three. This is a regression in the guard that keeps lifecycle state behind Edit/Write validation. → Count `-` as an operand: treat only words longer than one character that start with `-` as flags, and skip the value after `--indent`. Classify json.tool as a read only when it has at most one operand and that operand is not `-` followed by another. Add the three commands above as denies in G7.
 **Fixer (r4):** fixed — `jsonToolOperands` (src/guards/checkpoint.ts:463) counts a bare `-` as an operand, takes everything after `--` as operands and skips the value after `--indent`; `isJsonToolRead` (:479) accepts json.tool only with exactly one operand that is not `-` and is the checkpoint file — `CHECKPOINT_TARGET` for the named check (:490), a path that lands in the checkpoints folder from the tracked cwd for the opaque-writer check (:531). Zero operands, `-`, or a second operand fall back to the write rules and deny. All three critic commands are denied (G7 :1045-1046, G7b :1121 with the host cwd in the folder); `json.tool <ckpt> > /dev/null`, `--sort-keys --indent 2 <ckpt> > /dev/null`, the cwd-in-folder validation and `git diff … 2>&1 | head` stay allowed. Reverting the guard to 94473a65 fails 4 of the new tests. Assets regenerated. · verify: clean clone at 94473a65 + overlay — checkpoint-guard, chain-dispatch, tests/adversarial 265 pass / 0 fail; `bun run typecheck` ✓; `bun run lint` ✓; `bun test` 1729 pass / 16 skip / 0 fail ✓
+**Critic (r5):** resolved. All three critic commands are now denied, and so are these variants: `--indent=2 -`, `--indent 2 -`, `--json-lines -`, `python -m`, `python3.12 -m` (through `BASH_WRITE`), `env python3 -m … -`, a quoted `'-'`/`"-"`, an escaped `\-`, `-- -`, two operands in either order, `< new.json <ckpt>`, and `- ../../../../<ckpt>`. The reads stay allowed: `<ckpt> > /dev/null`, `--indent=2`, `--json-lines`, `env python3 … <ckpt> > /dev/null`, `-- <ckpt>`, `demo.json` with the cwd in the folder, and `git diff … 2>&1 | head`. `--indent - <ckpt>` is allowed, but run for real, json.tool exits 2 (`invalid int value: '-'`) and the file is unchanged, so that allow is harmless. The `--ind` abbreviation is not skipped, so it over-counts and denies, which is the safe direction. Reverting the guard to 94473a65 fails 4 of the new tests.
 
 ## Critic r4 · evidence
 
@@ -111,3 +112,15 @@ VERDICT: PASS — no BLOCKER or MAJOR; open MINOR: F5, F6, F7, F8. ROUND 3: reso
 ## Critic r4 · verdict
 
 VERDICT: FAIL — open: F9 (MAJOR); MINOR: F5, F6. ROUND 4: resolved 2 · withdrawn 0 · upheld 0 · new 1
+
+## F10 · MINOR · open (r5)
+**Where:** src/guards/checkpoint.ts:463-484, :49; agents/checkpoint-planner.md:94
+**Critic (r5):** The json.tool read allowance trusts the module name, but `python3 -m` puts the cwd first on `sys.path`. Probe: with a `json/__init__.py` and `json/tool.py` planted in the repo root (Write to those paths is not guarded), the allowed command `python3 -m json.tool <ckpt> > /dev/null` ran the planted module and rewrote the checkpoint (`{"pwned":1}`). Under `python3 -I -m json.tool` the file stayed unchanged. `commandWords` also strips a `PYTHONPATH=/x` prefix, so `PYTHONPATH=/x python3 -m json.tool <ckpt> > /dev/null` is allowed as a read. This gives no new capability, since `python3 planted.py` was always allowed (the F6 class), so it does not fail the gate. → Classify json.tool as a read only in isolated mode (`python3 -I -m json.tool <ckpt>`), never with a `VAR=` prefix, and change agents/checkpoint-planner.md:94 to that form.
+
+## Critic r5 · evidence
+
+- Verify ran in a clean clone at 92caf441: the eight targeted files gave 448 pass / 16 skip / 0 fail; the full suite gave 1729 pass / 16 skip / 0 fail; typecheck, lint and gen-assets exited 0, and the clone was left clean.
+
+## Critic r5 · verdict
+
+VERDICT: PASS — no BLOCKER or MAJOR; open MINOR: F5, F6, F10. ROUND 5: resolved 1 · withdrawn 0 · upheld 0 · new 1
