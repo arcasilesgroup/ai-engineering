@@ -1545,9 +1545,10 @@
         "bun test tests/carriers-install.spec.ts",
         "bun run build"
       ],
+      "changed_files": ["README.md", "tests/update-command.spec.ts", "tests/adversarial/init-recovery.test.ts", "tests/carriers-install.spec.ts", "tests/init-command.spec.ts"],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["Gate 1 at b64a70cc: update 31, init-recovery 13, carriers-install 62, init 43, arch 54; typecheck, lint, build green; full suite 1,637 pass / 16 skip / 0 fail. Tests passed before implementation (behavior already present) and fail when update is broken in a probe."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
