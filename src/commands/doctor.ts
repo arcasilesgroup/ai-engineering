@@ -5,7 +5,7 @@ import { canonDrift, canonExtras, refusedStaleCanonFiles, unprovenCanonText } fr
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, isGoverned, receiptsDir } from "../env.ts";
+import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
 import {
   gcReceipts,
   RECEIPT_HEALTH_WINDOW_DAYS,

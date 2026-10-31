@@ -221,7 +221,8 @@ function withSurfacesEnabled(raw: string, list: string): string {
       const line = lines[i] ?? "";
       if (/^\s*\[/.test(line)) break; // the next table: `enabled` belongs to it, not to us
       if (/^\s*enabled\s*=/.test(line)) {
-        lines.splice(i, arrayEndLine(lines, i) - i + 1, `enabled = ${list}`);
+        const { endLine, trailingComment } = valueExtent(lines, i);
+        lines.splice(i, endLine - i + 1, `enabled = ${list}${trailingComment}`);
         return lines.join("\n");
       }
     }
@@ -232,14 +233,16 @@ function withSurfacesEnabled(raw: string, list: string): string {
   return `${body}[surfaces]\nenabled = ${list}\n`;
 }
 
-/** The line on which the value that starts on line `start` closes: a TOML array may
- *  span lines, and replacing only its first line would orphan the rest. Brackets
- *  inside strings and comments do not count. */
-function arrayEndLine(lines: string[], start: number): number {
+/** Where the value that starts on line `start` closes, and the comment that follows it
+ *  there. A TOML array may span lines, and replacing only its first line would orphan
+ *  the rest; a `# note` after the value is the user's and survives the rewrite, with
+ *  the spacing before it. Brackets inside strings and comments do not count. */
+function valueExtent(lines: string[], start: number): { endLine: number; trailingComment: string } {
   let depth = 0;
   for (let i = start; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
     let quote: string | null = null;
+    let commentStart = line.length;
     for (let j = i === start ? line.indexOf("=") + 1 : 0; j < line.length; j += 1) {
       const char = line[j];
       if (quote !== null) {
@@ -247,14 +250,20 @@ function arrayEndLine(lines: string[], start: number): number {
         else if (char === quote) quote = null;
         continue;
       }
-      if (char === "#") break;
+      if (char === "#") {
+        commentStart = j;
+        break;
+      }
       if (char === '"' || char === "'") quote = char;
       else if (char === "[") depth += 1;
       else if (char === "]") depth -= 1;
     }
-    if (depth <= 0) return i;
+    if (depth > 0) continue;
+    const spacingBefore = /\s*$/.exec(line.slice(0, commentStart))?.[0] ?? "";
+    const trailingComment = commentStart < line.length ? `${spacingBefore}${line.slice(commentStart)}` : "";
+    return { endLine: i, trailingComment };
   }
-  return lines.length - 1;
+  return { endLine: lines.length - 1, trailingComment: "" };
 }
 
 /** Write the carriers a surface needs, wherever it reads them. A `config --add` that
