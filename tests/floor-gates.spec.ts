@@ -597,3 +597,86 @@ describe("floor gates — the staged scan's exception is HEAD's allowlist paths,
     expect(readFileSync(record, "utf8")).toBe("unset");
   });
 });
+
+describe("floor gates — pre-push fails closed on the base (checkpoint 24)", () => {
+  const ZERO = "0".repeat(40);
+
+  function pushRefs(localRef: string, sha: string, remoteRef: string): () => void {
+    const previousRefs = process.env.AI_ENG_PUSH_REFS;
+    process.env.AI_ENG_PUSH_REFS = `${localRef} ${sha} ${remoteRef} ${ZERO}`;
+    return () => {
+      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+      else process.env.AI_ENG_PUSH_REFS = previousRefs;
+    };
+  }
+
+  /** A governed repo checked out on `branch` with one commit; `base` is written as [git] base when given. */
+  function pushRepo(branch: string, base: string | null): { repo: string; sha: string } {
+    const repo = tempRepo(true);
+    run("git", repo, ["symbolic-ref", "HEAD", `refs/heads/${branch}`]);
+    write(repo, "fixture.txt", "fixture\n");
+    run("git", repo, ["add", "fixture.txt"]);
+    run("git", repo, ["commit", "-q", "-m", "test: create push fixture"]);
+    const sha = run("git", repo, ["rev-parse", "HEAD"]).stdout.trim();
+    expect(sha).toMatch(/^[a-f0-9]{40}$/);
+    const declared = base === null ? "" : `\n[git]\nbase = "${base}"\n`;
+    write(repo, ".ai-engineering/config.toml", `[surfaces]\nenabled = ["claude-code"]\n${declared}`);
+    expect(run("git", repo, ["symbolic-ref", "--quiet", "HEAD"]).stdout.trim()).toBe(`refs/heads/${branch}`);
+    expect(run("git", repo, ["remote"]).stdout.trim()).toBe("");
+    return { repo, sha };
+  }
+
+  test("a direct push to the base is denied when the base is the current branch", () => {
+    const { repo, sha } = pushRepo("main", "main");
+    expect(readFileSync(join(repo, ".ai-engineering", "config.toml"), "utf8")).toContain('[git]\nbase = "main"\n');
+    expect(resolveContext(repo)).toMatchObject({ branch: "main" });
+    expect(run("git", repo, ["show-ref", "--verify", "--hash", "refs/heads/main"]).stdout.trim()).toBe(sha);
+    // The scan would pass: only the base rule can stop this push.
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs("refs/heads/main", sha, "refs/heads/main");
+    try {
+      expect(prePush(repo)).toEqual({
+        ok: false,
+        lines: ["direct push to detected base refs/heads/main is not allowed — open a PR instead."],
+      });
+    } finally {
+      restore();
+    }
+  });
+
+  test("a push is denied with the next step named when no base can be resolved", () => {
+    const { repo, sha } = pushRepo("feature/no-base", null);
+    expect(resolveContext(repo)).toMatchObject({ branch: "feature/no-base", base: null, baseSource: "ask" });
+    expect(run("git", repo, ["for-each-ref", "--format=%(refname)", "refs/remotes"]).stdout.trim()).toBe("");
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs("refs/heads/feature/no-base", sha, "refs/heads/feature/no-base");
+    try {
+      const result = prePush(repo);
+      expect(result.ok).toBe(false);
+      expect(result.lines.join("\n")).toContain("[git] base");
+    } finally {
+      restore();
+    }
+  });
+
+  test("a feature branch pushed to its own upstream stays allowed", () => {
+    const branch = "feature/own-upstream";
+    const { repo, sha } = pushRepo(branch, null);
+    run("git", repo, ["branch", "main", sha]);
+    run("git", repo, ["remote", "add", "origin", join(repo, "unused-remote.git")]);
+    run("git", repo, ["update-ref", "refs/remotes/origin/main", sha]);
+    run("git", repo, ["update-ref", `refs/remotes/origin/${branch}`, sha]);
+    run("git", repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+    run("git", repo, ["config", `branch.${branch}.remote`, "origin"]);
+    run("git", repo, ["config", `branch.${branch}.merge`, `refs/heads/${branch}`]);
+    expect(run("git", repo, ["rev-parse", "--abbrev-ref", "@{upstream}"]).stdout.trim()).toBe(`origin/${branch}`);
+    expect(resolveContext(repo)).toMatchObject({ branch, base: "main", baseSource: "remote-head", baseRemote: "origin" });
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs(`refs/heads/${branch}`, sha, `refs/heads/${branch}`);
+    try {
+      expect(prePush(repo)).toEqual({ ok: true, lines: [] });
+    } finally {
+      restore();
+    }
+  });
+});

@@ -139,7 +139,14 @@
       { "id": "I73", "checkpoint": 19, "covers": [], "case": "machine-settings updates that require unsafe pathname mutation are refused, leaving original bytes and symlink targets unchanged", "file": "tests/carriers-install.spec.ts", "command": "bun test tests/carriers-install.spec.ts" },
       { "id": "I74", "checkpoint": 19, "covers": [], "case": "init and uninstall refuse settings symlink or hard-link aliases to machine.json, warn, and preserve both paths and their original bytes", "file": "tests/carriers-install.spec.ts", "command": "bun test tests/carriers-install.spec.ts" },
       { "id": "I75", "checkpoint": 20, "covers": [], "case": "init --global installs the complete isolated canon without executing skills, does not attempt machine hook registration, and preserves an existing machine hook file", "file": "tests/surfaces.test.ts", "command": "bun test tests/surfaces.test.ts" },
-      { "id": "I76", "checkpoint": 19, "covers": [], "case": "unselected or replaced settings aliases to machine.json cause init/update/uninstall to refuse machine-state mutation, warn, and preserve link and target bytes", "file": "tests/adversarial/lock-security.test.ts", "command": "bun test tests/adversarial/lock-security.test.ts" }
+      { "id": "I76", "checkpoint": 19, "covers": [], "case": "unselected or replaced settings aliases to machine.json cause init/update/uninstall to refuse machine-state mutation, warn, and preserve link and target bytes", "file": "tests/adversarial/lock-security.test.ts", "command": "bun test tests/adversarial/lock-security.test.ts" },
+      { "id": "I77", "checkpoint": 24, "covers": [], "case": "pre-push denies a direct push to the configured base when that base is the current branch (on main, [git] base = \"main\", refs/heads/main → refs/heads/main) with the exact detected-base refusal, before the scan", "file": "tests/floor-gates.spec.ts", "command": "bun test tests/floor-gates.spec.ts" },
+      { "id": "I78", "checkpoint": 24, "covers": [], "case": "pre-push denies any push when no base can be resolved (no [git] base, no remote HEAD) and names [git] base as the next step, even when the scan would pass", "file": "tests/floor-gates.spec.ts", "command": "bun test tests/floor-gates.spec.ts" },
+      { "id": "I79", "checkpoint": 24, "covers": [], "case": "pre-push still allows a feature branch pushed to its own upstream when the remote-head base is main", "file": "tests/floor-gates.spec.ts", "command": "bun test tests/floor-gates.spec.ts" },
+      { "id": "I80", "checkpoint": 24, "covers": [], "case": "worktree merge commits the no-ff merge with exact parents and tree when user.name/user.email exist only in the global Git config (GIT_CONFIG_GLOBAL temp file, no repo-local identity), authored and committed by that identity", "file": "tests/worktree-command.spec.ts", "command": "bun test tests/worktree-command.spec.ts" },
+      { "id": "I81", "checkpoint": 24, "covers": [], "case": "worktree merge after a base advance commits the checkpoint-only review invalidation with a global-only Git identity and reports the new feature tip", "file": "tests/worktree-command.spec.ts", "command": "bun test tests/worktree-command.spec.ts" },
+      { "id": "I82", "checkpoint": 24, "covers": [], "case": "worktree request-changes commits the checkpoint transition with a global-only Git identity", "file": "tests/worktree-command.spec.ts", "command": "bun test tests/worktree-command.spec.ts" },
+      { "id": "I83", "checkpoint": 24, "covers": [], "case": "worktree rm with no detectable base (no [git] base, no remote, main checkout on main, branch already contained in main) refuses with exit 1, names [git] base, and leaves refs, registrations and trees unchanged", "file": "tests/worktree-command.spec.ts", "command": "bun test tests/worktree-command.spec.ts" }
     ],
     "contract": [
       { "id": "C1", "checkpoint": 1, "covers": [], "case": "the p95 latency assertion is out of tests/adversarial/chain.test.ts and bun run bench prints p95 and exits 0", "command": "bun run bench" },
@@ -217,6 +224,7 @@
     "S14 Windows behaviour: proven by the 3-OS matrix in CI, not locally.",
     "External link liveness (NOTICE.md 404): network; covered by the /ai-audit-docs run recorded in CP15.",
     "Performance (p95, suite time) is never a unit gate: p95 is bun run bench; only CP13 times the serial suite because 5.1 sets that target.",
-    "Lines in src/ (≤ 7,000): a CI report, not a gate (5.1)."
+    "Lines in src/ (≤ 7,000): a CI report, not a gate (5.1).",
+    "CP24 items 4 (one definition per Git helper and gatesComplete) and 5 (no dead worktree inventory code) are refactors: proven by the arch test, typecheck and lint, never by source-text tests (R1)."
   ]
 }

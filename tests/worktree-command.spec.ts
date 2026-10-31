@@ -4193,3 +4193,149 @@ describe("ai-eng worktree rm and removed usage (checkpoint 7)", () => {
     expect(branchNames(repo)).toEqual(branchesBefore);
   });
 });
+
+describe("ai-eng worktree identity and base (checkpoint 24)", () => {
+  const GLOBAL_IDENTITY = "Global Person <global@example.com>";
+
+  /** Move the identity out of the repository into a temporary global config, the way a
+   *  real machine carries it, and return the env that points git at that file. */
+  function useGlobalOnlyIdentity(repo: string): NodeJS.ProcessEnv {
+    const globalConfig = join(mkdtempSync(join(sandboxRoot, "global-identity-")), "gitconfig");
+    writeFileSync(globalConfig, "[user]\n\tname = Global Person\n\temail = global@example.com\n");
+    git(["config", "--local", "--unset", "user.name"], repo);
+    git(["config", "--local", "--unset", "user.email"], repo);
+    const env: NodeJS.ProcessEnv = {
+      GIT_CONFIG_GLOBAL: globalConfig,
+      GIT_AUTHOR_NAME: undefined,
+      GIT_AUTHOR_EMAIL: undefined,
+      GIT_COMMITTER_NAME: undefined,
+      GIT_COMMITTER_EMAIL: undefined,
+      EMAIL: undefined,
+    };
+    for (const key of ["user.name", "user.email"]) {
+      expect(gitOut(["config", "--local", "--get", key], repo).status).toBe(1);
+      expect(gitOut(["config", "--get", key], repo).status).toBe(1);
+    }
+    const withGlobal = spawnSync("git", ["config", "--get", "user.email"], {
+      cwd: repo,
+      encoding: "utf8",
+      env: { ...childEnv, GIT_CONFIG_GLOBAL: globalConfig },
+    });
+    expect(withGlobal.stdout.trim()).toBe("global@example.com");
+    return env;
+  }
+
+  function identities(repo: string, commit: string): string[] {
+    return git(["log", "-1", "--format=%an <%ae>%n%cn <%ce>", commit], repo).trim().split("\n");
+  }
+
+  test("merge commits with an identity that exists only in the global Git config", () => {
+    const repo = tempRepo();
+    cleanups.push(defaultRoot(repo));
+    const approved = prepareCanonicalMergeFixture(repo, "global-identity-merge");
+    expectCanonicalMergePremise(approved);
+    const expectedTree = git(["rev-parse", `${approved.featureTip}^{tree}`], repo).trim();
+    const env = useGlobalOnlyIdentity(repo);
+
+    const run = runCli(["worktree", "merge", approved.slug], repo, env);
+
+    expect(run.stderr).not.toContain("temporary commit failed");
+    expect(run.status).toBe(0);
+    const mergeCommit = git(["rev-parse", approved.baseRef], repo).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", mergeCommit], repo).trim().split(" ")).toEqual([
+      mergeCommit,
+      approved.reviewedBase,
+      approved.featureTip,
+    ]);
+    expect(git(["rev-parse", `${mergeCommit}^{tree}`], repo).trim()).toBe(expectedTree);
+    expect(identities(repo, mergeCommit)).toEqual([GLOBAL_IDENTITY, GLOBAL_IDENTITY]);
+  });
+
+  test("review invalidation commits with an identity that exists only in the global Git config", () => {
+    const repo = tempRepo();
+    cleanups.push(defaultRoot(repo));
+    const approved = prepareCanonicalMergeFixture(repo, "global-identity-invalidation");
+    expectCanonicalMergePremise(approved);
+    expect(git(["symbolic-ref", "HEAD"], repo).trim()).toBe(approved.baseRef);
+    const advancedBase = advanceRebaseMain(repo);
+    expect(advancedBase).not.toBe(approved.reviewedBase);
+    expect(git(["rev-parse", approved.baseRef], repo).trim()).toBe(advancedBase);
+    const env = useGlobalOnlyIdentity(repo);
+
+    const run = runCli(["worktree", "merge", approved.slug], repo, env);
+
+    expect(run.status).toBe(1);
+    const transition = git(["rev-parse", `refs/heads/${approved.branch}`], repo).trim();
+    expect(transition).not.toBe(approved.featureTip);
+    expect(run.stderr).toContain(`review invalidated; refs/heads/${approved.branch} now points to ${transition}`);
+    expect(git(["rev-list", "--parents", "-n", "1", transition], repo).trim()).toBe(`${transition} ${approved.featureTip}`);
+    expect(identities(repo, transition)).toEqual([GLOBAL_IDENTITY, GLOBAL_IDENTITY]);
+    expect(git(["rev-parse", approved.baseRef], repo).trim()).toBe(advancedBase);
+  });
+
+  test("request-changes commits with an identity that exists only in the global Git config", () => {
+    const repo = tempRepo();
+    const slug = "global-identity-review";
+    configureDetectedBase(repo, "main");
+    const reviewedBase = git(["rev-parse", "refs/heads/main"], repo).trim();
+    git(["checkout", "-q", "-b", `feat/${slug}`], repo);
+    const checkpointPath = `.ai-engineering/workflow/checkpoints/${slug}.json`;
+    const checkpoint = writeCanonicalCheckpoint(repo, slug, {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    });
+    git(["add", checkpointPath], repo);
+    git(["commit", "-q", "-m", "approved implementation plan"], repo);
+    const reviewedFeature = commitRebaseFixtureFile(repo, "src/approved.ts", "approved\n", "approved feature");
+    writeCanonicalCheckpoint(repo, slug, {
+      phase: "awaiting-app-review",
+      plan_approval: "approved",
+      app_review: "pending",
+      base_ref: "refs/heads/main",
+      reviewed_base: reviewedBase,
+      reviewed_feature: reviewedFeature,
+    });
+    git(["add", checkpointPath], repo);
+    git(["commit", "-q", "-m", "await app review"], repo);
+    const pendingCommit = git(["rev-parse", "HEAD"], repo).trim();
+    expect(git(["status", "--porcelain", "--untracked-files=all"], repo)).toBe("");
+    const env = useGlobalOnlyIdentity(repo);
+
+    const requested = runCli(["worktree", "request-changes", slug, pendingCommit], repo, env);
+
+    expect(requested.stderr).not.toContain("checkpoint commit failed");
+    expect(requested.status).toBe(0);
+    const transitionCommit = git(["rev-parse", `refs/heads/feat/${slug}`], repo).trim();
+    expect(git(["rev-list", "--parents", "-n", "1", transitionCommit], repo).trim())
+      .toBe(`${transitionCommit} ${pendingCommit}`);
+    expect(identities(repo, transitionCommit)).toEqual([GLOBAL_IDENTITY, GLOBAL_IDENTITY]);
+    expect(JSON.parse(readFileSync(checkpoint, "utf8")).lifecycle).toMatchObject({ phase: "implementation" });
+  });
+
+  test("rm with no detectable base refuses and names [git] base instead of using the checked-out branch", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
+    const feature = join(root, "alpha");
+    // Premise: nothing names a base, the main checkout sits on main, and alpha is
+    // already contained in main — so only the missing base can stop this removal.
+    expect(existsSync(join(repo, ".ai-engineering", "config.toml"))).toBe(false);
+    expect(git(["for-each-ref", "--format=%(refname)", "refs/remotes"], repo).trim()).toBe("");
+    expect(git(["symbolic-ref", "HEAD"], repo).trim()).toBe("refs/heads/main");
+    expect(gitOut(["merge-base", "--is-ancestor", "refs/heads/feat/alpha", "refs/heads/main"], repo).status).toBe(0);
+    const before = fullRepoSnapshot(repo, [feature], []);
+
+    const run = runCli(["worktree", "rm", "alpha"], repo);
+
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain("[git] base");
+    expect(existsSync(feature)).toBe(true);
+    expect(branchNames(repo)).toContain("feat/alpha");
+    expect(fullRepoSnapshot(repo, [feature], [])).toBe(before);
+  });
+});
