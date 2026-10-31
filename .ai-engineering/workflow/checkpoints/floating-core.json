@@ -1590,11 +1590,11 @@
       "changed_files": ["src/commands/config.ts", "src/commands/doctor.ts", "tests/config-command.spec.ts", "tests/doctor-command.spec.ts"],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 1, "findings": ["Gate 1 at d4befb6e: config 46, doctor 40, arch 54; typecheck, lint, build green; full suite 1,657 pass / 16 skip / 0 fail."] },
+        "behavior": { "status": "passed", "attempts": 2, "findings": ["Gate 1 at d4befb6e: config 46, doctor 40, arch 54; typecheck, lint, build green; full suite 1,657 pass / 16 skip / 0 fail.", "Re-check after review fix 569e2123: config 53, doctor 40, init 43, arch 54; typecheck, lint, build green; full suite 1,664 pass / 16 skip / 0 fail."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 1, "findings": ["2 rounds: F1-F3 MAJOR (CRLF endings lost, CRLF commented header refused, multi-line list comments dropped) and F4 MINOR (spacing normalised) resolved by byte-offset item edits. MINOR F5-F7 deferred (see notes)."] }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 23,
@@ -1729,6 +1729,7 @@
   ],
   "new_dependencies": [],
   "notes": [
+    "CP22 review MINORs: F5 removing every item from a one-per-line enabled list leaves `enabled = [` / `]` split and the next --add refuses it; F6 removing an item that shares its line with `]` leaves stray indentation; F7 no test covers the new refusal layouts. No bytes lost; refusals leave the file identical.",
     "CP19 review MINOR F33 (src/surfaces/adapters.ts:1277-1280): an old ai-eng module carrier or bundle without a matching hash in machine.json is kept as a user edit and named every run until deleted by hand; no bytes lost. Accepting earlier shipped carrier renders would let upgrades refresh it.",
     "CP1 review MINOR F5: test-hygiene re-runs 25 sandboxed suites in a nested bun test (+40 s to the serial suite); move the env/cwd before-after check into tests/preload.ts. Deferred to CP14 (suite under 2 min).",
     "Primary checkout has untracked tests/.dirfd-probe-43993 and tests/.worktree-lifecycle-{jgjcJ0,LDPOY7,wKVTaQ,yLLd5r}: the person removes them; never deleted from the worktree.",
