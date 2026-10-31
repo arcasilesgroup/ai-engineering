@@ -576,10 +576,19 @@ describe("the rewrite never turns a governed repo ungoverned (§09.2 regression)
     const { result } = await runConfig(repo, { add: "cursor" });
 
     expect(result).toBe(0);
-    const config = configOf(repo);
-    expect(config.match(/^\[surfaces\]$/gm)).toHaveLength(1);
-    expect(config).toContain('enabled = ["claude-code", "cursor"]');
+    expect(configOf(repo)).toBe('[surfaces]\n  enabled = ["claude-code", "cursor"]\n');
     expect(isGoverned(repo)).toBe(true);
+  });
+
+  // F4: the key line is the user's — its indentation and the spacing around `=` survive.
+  test("the key's indentation and spacing around = are kept when the list changes", async () => {
+    const layout = (list: string): string => `[surfaces]\n\tenabled\t=\t${list}\n`;
+    const { repo } = governedRepo(layout('["claude-code"]'));
+
+    expect((await runConfig(repo, { add: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe(layout('["claude-code", "cursor"]'));
+    expect((await runConfig(repo, { remove: "claude-code" })).result).toBe(0);
+    expect(configOf(repo)).toBe(layout('["cursor"]'));
   });
 
   test("a commented [surfaces] header is rewritten without adding a duplicate", async () => {
@@ -637,12 +646,57 @@ describe("the rewrite never turns a governed repo ungoverned (§09.2 regression)
     expect(isGoverned(repo)).toBe(true);
   });
 
-  test("a multi-line enabled list is replaced whole, leaving no orphaned lines", async () => {
+  test("a multi-line enabled list gains a line in its own style, keeping its comments", async () => {
     const { repo } = governedRepo('[surfaces]\nenabled = [\n  "claude-code", # the main one\n]\n\n[models]\ndecide = "x"\n');
     const { result } = await runConfig(repo, { add: "cursor" });
 
     expect(result).toBe(0);
-    expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "cursor"]\n\n[models]\ndecide = "x"\n');
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = [\n  "claude-code", # the main one\n  "cursor",\n]\n\n[models]\ndecide = "x"\n');
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  // F3: every comment in a multi-line list is the user's. An item comes and goes as one
+  // line in the existing style; the opening-line comment, the comments between items and
+  // the one after `]` all stay.
+  test("a commented multi-line list is edited item by item, every other comment kept", async () => {
+    const { repo } = governedRepo('[surfaces]\nenabled = [ # hosts\n  "claude-code", # main\n  # cursor later\n] # end\n');
+
+    expect((await runConfig(repo, { add: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = [ # hosts\n  "claude-code", # main\n  "cursor",\n  # cursor later\n] # end\n');
+
+    expect((await runConfig(repo, { remove: "claude-code" })).result).toBe(0);
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = [ # hosts\n  "cursor",\n  # cursor later\n] # end\n');
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  test("a multi-line list written without a trailing comma keeps that style", async () => {
+    const { repo } = governedRepo("[surfaces]\nenabled = [\n    'claude-code'\n]\n");
+
+    expect((await runConfig(repo, { add: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe("[surfaces]\nenabled = [\n    'claude-code',\n    'cursor'\n]\n");
+  });
+
+  // F1: a CRLF file stays CRLF everywhere — no line loses its `\r`, no new line lacks one.
+  test.each([
+    ["a one-line list", '[surfaces]\r\nenabled = LIST\r\n\r\n[models]\r\ndecide = "x"\r\n', '["claude-code"]', '["claude-code", "cursor"]'],
+    ["a one-line list with a comment", "[surfaces]\r\nenabled = LIST # hosts\r\n", '["claude-code"]', '["claude-code", "cursor"]'],
+    ["a multi-line list", "[surfaces]\r\nenabled = LIST\r\n", '[\r\n  "claude-code", # main\r\n]', '[\r\n  "claude-code", # main\r\n  "cursor",\r\n]'],
+  ])("a CRLF config with %s keeps its line endings", async (_layout, template, before, after) => {
+    const { repo } = governedRepo(template.replace("LIST", before));
+
+    expect((await runConfig(repo, { add: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe(template.replace("LIST", after));
+    expect((await runConfig(repo, { remove: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe(template.replace("LIST", before));
+  });
+
+  // F2: under CRLF the header's comment runs up to `\r`, and the table is still found.
+  test("a commented [surfaces] header in a CRLF file is rewritten in place", async () => {
+    const { repo } = governedRepo('[surfaces] # gate\r\nenabled = ["claude-code"]\r\n');
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe('[surfaces] # gate\r\nenabled = ["claude-code", "cursor"]\r\n');
     expect(isGoverned(repo)).toBe(true);
   });
 

@@ -1794,3 +1794,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Parse original and result, write only when the sole difference is `surfaces.enabled`, otherwise refuse with the file byte-identical and exit 2; remove carriers only after a successful write; README names every command that rewrites config.toml.
 - **Lesson:** Judge a text edit of a config file by parsing the result before writing, and run destructive steps only after that write succeeds.
 - **Tags:** review, configuration, toml, fail-closed
+
+### L246 · 2026-10-30 · floating-core #22 · review
+- **Failure:** `ai-eng config` dropped `\r` on CRLF files, refused `[surfaces] # comment` under CRLF, dropped comments inside multi-line lists, and normalised spacing around `=`.
+- **Root cause:** The writer split on `\n`, matched lines with `\r` attached, and replaced the whole `enabled = [...]` span.
+- **Fix:** Splice only the changed items by byte offset, copy the neighbouring line ending, match headers with `\r` removed, and refuse layouts that cannot be edited in place.
+- **Lesson:** Change the smallest unit the request names, by byte offset, and assert exact bytes rather than `toContain`.
+- **Tags:** review, configuration, toml, crlf

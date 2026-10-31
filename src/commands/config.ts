@@ -86,38 +86,57 @@ function deltaRows(added: string[], removedSurfaces: string[]): ui.Row[] {
 
 /** Write the new surface list, or refuse and write nothing. Returns whether it wrote. */
 function writeConfigSurfaces(configPath: string, surfaces: string[]): boolean {
-  // The config file holds what cannot be deduced: rewrite only the surfaces key,
-  // in place — the comments and the [models]/[guards]/[gc] blocks the template
-  // ships are the user's, and a re-serialize would delete them.
+  // The config file holds what cannot be deduced: only the items of the surfaces list
+  // change, in place — the comments, the layout, the line endings and the
+  // [models]/[guards]/[gc] blocks the template ships are the user's, and a
+  // re-serialize would rewrite them.
   const raw = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
-  const list = `[${surfaces.map((id) => `"${id}"`).join(", ")}]`;
-  const rewritten = withSurfacesEnabled(raw, list);
-  if (!isOnlySurfacesChange(raw, rewritten, surfaces)) {
+  const rewritten = withSurfacesEnabled(raw, surfaces);
+  if (rewritten === null || !isOnlySurfacesChange(raw, rewritten, surfaces)) {
     ui.fail(`.ai-engineering/config.toml is laid out in a way this command cannot rewrite without changing more than [surfaces].enabled.`);
-    ui.info(`Edit it by hand: under [surfaces], set enabled = ${list}`);
+    ui.info(`Edit it by hand: under [surfaces], set enabled = [${renderItems(surfaces, '"')}]`);
     ui.end("Nothing changed.");
     return false;
   }
-  writeFileSync(configPath, rewritten);
+  if (rewritten !== raw) writeFileSync(configPath, rewritten);
   return true;
 }
 
-/** The line edit below knows one layout family. Anything else — a dotted
+/** The text edit below knows one layout family. Anything else — a dotted
  *  `surfaces.enabled`, an inline `surfaces = { … }`, a quoted key — would come out
  *  unparseable or saying something else, and an unparseable config.toml turns
  *  governance off. So the result is judged by what it means, not by its text: it must
- *  parse, and differ from the original only in `[surfaces].enabled`. A file that does
+ *  parse, and differ from the original only in `[surfaces].enabled` — which keeps the
+ *  listed surfaces that stay, in their order, then names the new ones. A file that does
  *  not parse cannot be judged, so it is refused too. */
 function isOnlySurfacesChange(raw: string, rewritten: string, surfaces: string[]): boolean {
   try {
     const before = Bun.TOML.parse(raw) as Record<string, unknown>;
-    const after = Bun.TOML.parse(rewritten);
-    const table = before["surfaces"] ?? {};
-    if (typeof table !== "object" || table === null || Array.isArray(table)) return false;
-    return Bun.deepEquals(after, { ...before, surfaces: { ...table, enabled: surfaces } });
+    const after = Bun.TOML.parse(rewritten) as Record<string, unknown>;
+    const tableBefore = before["surfaces"] ?? {};
+    const tableAfter = after["surfaces"];
+    if (!isTable(tableBefore) || !isTable(tableAfter)) return false;
+    const enabledBefore = surfaceIds(tableBefore["enabled"] ?? []);
+    const enabledAfter = surfaceIds(tableAfter["enabled"]);
+    if (enabledBefore === null || enabledAfter === null) return false;
+    const expected = [...enabledBefore.filter((id) => surfaces.includes(id)), ...surfaces.filter((id) => !enabledBefore.includes(id))];
+    return (
+      Bun.deepEquals(enabledAfter, expected) &&
+      Bun.deepEquals({ ...after, surfaces: { ...tableAfter, enabled: null } }, { ...before, surfaces: { ...tableBefore, enabled: null } })
+    );
   } catch {
     return false;
   }
+}
+
+function isTable(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** The canonical ids of a list of strings, or null when it is anything else. */
+function surfaceIds(value: unknown): string[] | null {
+  if (!Array.isArray(value) || !value.every((item): item is string => typeof item === "string")) return null;
+  return value.map((id) => canonicalSurfaceId(id));
 }
 
 function installNewSurfaces(root: string, current: string[], before: string[], addedNow: string | null): void {
@@ -203,7 +222,7 @@ function removeSurfaceFiles(root: string, id: string): void {
   }
 }
 
-/** Rewrite the surfaces key in place, and never grow a second `[surfaces]` table.
+/** Edit the surfaces list in place, and never grow a second `[surfaces]` table.
  *
  *  Two shapes would do exactly that, at exit 0: an `enabled` key indented under an
  *  existing table (valid TOML a blind `/^enabled\s*=/m` misses) and a `[surfaces]`
@@ -212,58 +231,165 @@ function removeSurfaceFiles(root: string, id: string): void {
  *  command that manages governance silently turns it off. That is the one class of bug
  *  this product exists to prevent (§09.2), so the rewrite is table-aware: the key is
  *  scoped to `[surfaces]` (a bare `enabled =` also matched the `[notices]` key of the
- *  same name), and a file with no table gets one, at the end. */
-function withSurfacesEnabled(raw: string, list: string): string {
-  const lines = raw.split("\n");
-  const header = lines.findIndex((line) => /^\s*\[\s*surfaces\s*\]\s*(?:#.*)?$/.test(line));
-  if (header >= 0) {
-    for (let i = header + 1; i < lines.length; i += 1) {
-      const line = lines[i] ?? "";
-      if (/^\s*\[/.test(line)) break; // the next table: `enabled` belongs to it, not to us
-      if (/^\s*enabled\s*=/.test(line)) {
-        const { endLine, trailingComment } = valueExtent(lines, i);
-        lines.splice(i, endLine - i + 1, `enabled = ${list}${trailingComment}`);
-        return lines.join("\n");
-      }
-    }
-    lines.splice(header + 1, 0, `enabled = ${list}`);
-    return lines.join("\n");
+ *  same name), and a file with no table gets one, at the end. New lines use the file's
+ *  own line ending. Null: a list this edit cannot change item by item. */
+function withSurfacesEnabled(raw: string, surfaces: string[]): string | null {
+  const eol = raw.includes("\r\n") ? "\r\n" : "\n";
+  const declared = `enabled = [${renderItems(surfaces, '"')}]`;
+  const located = locateEnabled(raw);
+  if (located === null) {
+    const body = raw.trim() === "" ? "" : `${raw.trimEnd()}${eol}${eol}`;
+    return `${body}[surfaces]${eol}${declared}${eol}`;
   }
-  const body = raw.trim() === "" ? "" : `${raw.trimEnd()}\n\n`;
-  return `${body}[surfaces]\nenabled = ${list}\n`;
+  if ("valueStart" in located) return withListItems(raw, located.valueStart, surfaces);
+  if (located.headerEnd > raw.length) return `${raw}${eol}${declared}`;
+  return `${raw.slice(0, located.headerEnd)}${declared}${eol}${raw.slice(located.headerEnd)}`;
 }
 
-/** Where the value that starts on line `start` closes, and the comment that follows it
- *  there. A TOML array may span lines, and replacing only its first line would orphan
- *  the rest; a `# note` after the value is the user's and survives the rewrite, with
- *  the spacing before it. Brackets inside strings and comments do not count. */
-function valueExtent(lines: string[], start: number): { endLine: number; trailingComment: string } {
-  let depth = 0;
-  for (let i = start; i < lines.length; i += 1) {
-    const line = lines[i] ?? "";
-    let quote: string | null = null;
-    let commentStart = line.length;
-    for (let j = i === start ? line.indexOf("=") + 1 : 0; j < line.length; j += 1) {
-      const char = line[j];
-      if (quote !== null) {
-        if (char === "\\" && quote === '"') j += 1;
-        else if (char === quote) quote = null;
-        continue;
-      }
-      if (char === "#") {
-        commentStart = j;
-        break;
-      }
-      if (char === '"' || char === "'") quote = char;
-      else if (char === "[") depth += 1;
-      else if (char === "]") depth -= 1;
+const SURFACES_HEADER = /^\s*\[\s*surfaces\s*\]\s*(?:#.*)?$/;
+
+/** Where the `[surfaces]` table's `enabled` value starts; else where its header line
+ *  ends (past the text when the header is the last line, with no newline); else null,
+ *  there is no table. Lines are matched without their `\r`: a CRLF file is the same file. */
+function locateEnabled(raw: string): { valueStart: number } | { headerEnd: number } | null {
+  let headerEnd: number | null = null;
+  let lineStart = 0;
+  for (const line of raw.split("\n")) {
+    const text = line.endsWith("\r") ? line.slice(0, -1) : line;
+    const lineEnd = lineStart + line.length + 1;
+    if (headerEnd === null) {
+      if (SURFACES_HEADER.test(text)) headerEnd = lineEnd;
+    } else {
+      if (/^\s*\[/.test(text)) break; // the next table: `enabled` belongs to it, not to us
+      const key = /^\s*enabled\s*=/.exec(text);
+      if (key !== null) return { valueStart: lineStart + key[0].length };
     }
-    if (depth > 0) continue;
-    const spacingBefore = /\s*$/.exec(line.slice(0, commentStart))?.[0] ?? "";
-    const trailingComment = commentStart < line.length ? `${spacingBefore}${line.slice(commentStart)}` : "";
-    return { endLine: i, trailingComment };
+    lineStart = lineEnd;
   }
-  return { endLine: lines.length - 1, trailingComment: "" };
+  return headerEnd === null ? null : { headerEnd };
+}
+
+interface ListItem {
+  start: number;
+  end: number;
+  value: string;
+}
+
+interface ScannedList {
+  open: number;
+  close: number;
+  items: ListItem[];
+}
+
+/** Add the surfaces the list lacks after its last item, then take out the ones no
+ *  longer wanted. Each edit touches only that item's bytes — or, in a list written one
+ *  item per line, that item's line — so the key, its spacing, every comment and every
+ *  line ending elsewhere stay as the user wrote them. Additions go first, so a list
+ *  whose old items all leave still has an item style to copy. */
+function withListItems(raw: string, valueStart: number, surfaces: string[]): string | null {
+  const list = scanList(raw, valueStart);
+  if (list === null) return null;
+  const listed = list.items.map((item) => canonicalSurfaceId(item.value));
+  const adding = surfaces.filter((id) => !listed.includes(id));
+  let text = adding.length === 0 ? raw : appendItems(raw, list, adding);
+  if (text === null) return null;
+  for (let current = scanList(text, valueStart); current !== null; current = scanList(text, valueStart)) {
+    const unwanted = current.items.find((item) => !surfaces.includes(canonicalSurfaceId(item.value)));
+    if (unwanted === undefined) return text;
+    text = withoutItem(text, unwanted);
+  }
+  return null;
+}
+
+/** The string array whose `[` follows `from`, with each item's span; null for any other
+ *  value (nested arrays, numbers, multi-line strings…), which is left to the human.
+ *  Brackets inside strings and comments do not count. */
+function scanList(raw: string, from: number): ScannedList | null {
+  const opening = /^[ \t]*\[/.exec(raw.slice(from));
+  if (opening === null) return null;
+  const open = from + opening[0].length - 1;
+  const items: ListItem[] = [];
+  let i = open + 1;
+  while (i < raw.length) {
+    const char = raw[i] ?? "";
+    if (char === "]") return { open, close: i, items };
+    if (char === "#") {
+      const newline = raw.indexOf("\n", i);
+      i = newline < 0 ? raw.length : newline;
+    } else if (/[\s,]/.test(char)) {
+      i += 1;
+    } else {
+      const item = stringAt(raw, i);
+      if (item === null) return null;
+      items.push(item);
+      i = item.end;
+    }
+  }
+  return null;
+}
+
+/** The one-line TOML string that starts at `start`, decoded by the TOML parser itself. */
+function stringAt(raw: string, start: number): ListItem | null {
+  const quote = raw[start];
+  if ((quote !== '"' && quote !== "'") || raw.startsWith(quote.repeat(3), start)) return null;
+  for (let i = start + 1; i < raw.length && raw[i] !== "\n"; i += 1) {
+    if (quote === '"' && raw[i] === "\\") {
+      i += 1;
+      continue;
+    }
+    if (raw[i] !== quote) continue;
+    try {
+      const value = (Bun.TOML.parse(`v = ${raw.slice(start, i + 1)}`) as Record<string, unknown>)["v"];
+      return typeof value === "string" ? { start, end: i + 1, value } : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function renderItems(ids: string[], quote: string): string {
+  return ids.map((id) => `${quote}${id}${quote}`).join(", ");
+}
+
+/** The item's line, when nothing but its comma and a comment shares it. */
+function ownLine(raw: string, item: ListItem): { start: number; end: number } | null {
+  const start = raw.lastIndexOf("\n", item.start - 1) + 1;
+  const newline = raw.indexOf("\n", item.end);
+  if (newline < 0) return null;
+  const isAlone = /^[ \t]*$/.test(raw.slice(start, item.start)) && /^[ \t]*,?[ \t]*(?:#[^\n]*)?\r?$/.test(raw.slice(item.end, newline));
+  return isAlone ? { start, end: newline + 1 } : null;
+}
+
+/** New items after the last one, in its style: its quote, and — when it has a line of
+ *  its own — its indentation, trailing comma and line ending, one item per line. An empty
+ *  list has no style to copy, so only `[]` on one line is filled in. */
+function appendItems(raw: string, list: ScannedList, ids: string[]): string | null {
+  const last = list.items.at(-1);
+  if (last === undefined) {
+    if (!/^[ \t]*$/.test(raw.slice(list.open + 1, list.close))) return null;
+    return `${raw.slice(0, list.open + 1)}${renderItems(ids, '"')}${raw.slice(list.close)}`;
+  }
+  const quote = raw[last.start] ?? '"';
+  const line = ownLine(raw, last);
+  if (line === null) return `${raw.slice(0, last.end)}, ${renderItems(ids, quote)}${raw.slice(last.end)}`;
+  const indent = raw.slice(line.start, last.start);
+  const hasComma = /^[ \t]*,/.test(raw.slice(last.end, line.end));
+  const eol = raw[line.end - 2] === "\r" ? "\r\n" : "\n";
+  const added = ids.map((id, index) => `${indent}${quote}${id}${quote}${hasComma || index < ids.length - 1 ? "," : ""}${eol}`).join("");
+  // The last item now has a successor: written without a trailing comma, it needs one.
+  const comma = hasComma ? "" : ",";
+  return `${raw.slice(0, last.end)}${comma}${raw.slice(last.end, line.end)}${added}${raw.slice(line.end)}`;
+}
+
+/** One item out: its whole line when it has one, else the item and one comma beside it. */
+function withoutItem(raw: string, item: ListItem): string {
+  const line = ownLine(raw, item);
+  if (line !== null) return `${raw.slice(0, line.start)}${raw.slice(line.end)}`;
+  const before = /[ \t]*,[ \t]*$/.exec(raw.slice(0, item.start))?.[0];
+  if (before !== undefined) return `${raw.slice(0, item.start - before.length)}${raw.slice(item.end)}`;
+  const after = /^[ \t]*,[ \t]*/.exec(raw.slice(item.end))?.[0] ?? "";
+  return `${raw.slice(0, item.start)}${raw.slice(item.end + after.length)}`;
 }
 
 /** Write the carriers a surface needs, wherever it reads them. A `config --add` that
