@@ -448,14 +448,17 @@ export function serializeCheckpoint(checkpoint: Checkpoint): string {
   return `${JSON.stringify(checkpoint, null, 2)}\n`;
 }
 
-function gatesComplete(checkpoint: Checkpoint): boolean {
-  return checkpoint.checkpoints.every((item) =>
-    item.status === "passed" &&
-    ["behavior", "ui", "review"].every((name) => {
-      const status = item.gates[name as keyof CheckpointItem["gates"]].status;
+/** One checkpoint is complete when it passed and every gate passed or does not apply. */
+export function checkpointComplete(item: CheckpointItem): boolean {
+  return item.status === "passed" &&
+    (["behavior", "ui", "review"] as const).every((name) => {
+      const status = item.gates[name].status;
       return status === "passed" || status === "n/a";
-    })
-  );
+    });
+}
+
+export function gatesComplete(checkpoint: Checkpoint): boolean {
+  return checkpoint.checkpoints.every(checkpointComplete);
 }
 
 function sameReview(left: CheckpointLifecycle, right: CheckpointLifecycle): boolean {

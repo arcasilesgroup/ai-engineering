@@ -6,9 +6,8 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
-import { parse } from "smol-toml";
 import { repoRoot } from "../env.ts";
-import { resolveContext } from "../git/context.ts";
+import { namedBase } from "../git/context.ts";
 import { runGit } from "../git/run.ts";
 
 type FloorResult = { ok: boolean; lines: string[] };
@@ -66,7 +65,7 @@ function headAllowlistEnv(cwd: string, scratch: string): NodeJS.ProcessEnv | und
   const head = runGit(["show", "HEAD:.gitleaksrc.toml"], { cwd });
   if (head.status !== 0) return undefined;
   try {
-    const parsed = parse(head.stdout) as unknown as { allowlist?: { paths?: unknown } };
+    const parsed = Bun.TOML.parse(head.stdout) as { allowlist?: { paths?: unknown } };
     const paths = Array.isArray(parsed.allowlist?.paths)
       ? (parsed.allowlist.paths as unknown[]).filter((entry): entry is string => typeof entry === "string")
       : [];
@@ -161,15 +160,20 @@ export function commitMsg(msgFile: string, receiptId: string, overrideReason: st
   return { ok: true, lines };
 }
 
-/** pre-push: block direct pushes to main + gitleaks over the whole unpushed surface
- *  + expiry of dated overrides. The branch protection rule (PR required) lives on
+/** pre-push: block direct pushes to the detected base + gitleaks over the whole unpushed
+ *  surface + expiry of dated overrides. The branch protection rule (PR required) lives on
  *  GitHub, but admins can bypass it — this local guard catches that. */
 export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const lines: string[] = [];
-  let baseRef: string | null = null;
+  let baseRef: string;
   try {
-    const base = resolveContext(cwd).base;
-    if (base !== null) baseRef = `refs/heads/${base}`;
+    // namedBase, not resolveContext: a base that is the current branch must still be guarded.
+    const base = namedBase(cwd);
+    // A guard that cannot name the base cannot rule out a push to it, so it denies (R8).
+    if (base === null) {
+      return { ok: false, lines: ['pre-push: no base branch could be resolved — set [git] base = "<branch>" in .ai-engineering/config.toml, then push again.'] };
+    }
+    baseRef = `refs/heads/${base}`;
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     return { ok: false, lines: [`pre-push: cannot resolve detected base: ${detail}`] };
@@ -179,7 +183,7 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const refs = (process.env.AI_ENG_PUSH_REFS ?? "").split("\n");
   for (const line of refs) {
     const remoteRef = line.trim().split(/\s+/)[2];
-    if (baseRef !== null && remoteRef === baseRef) {
+    if (remoteRef === baseRef) {
       return { ok: false, lines: [`direct push to detected base ${baseRef} is not allowed — open a PR instead.`] };
     }
   }

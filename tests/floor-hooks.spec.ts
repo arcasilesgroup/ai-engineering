@@ -89,6 +89,11 @@ function write(root: string, name: string, content: string): string {
   return path;
 }
 
+/** Declares `[git] base` so pre-push, which denies when no base resolves, reaches the scan. */
+function declareBase(root: string): void {
+  write(root, ".ai-engineering/config.toml", '[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "main"\n');
+}
+
 function stage(root: string, files: Record<string, string>): void {
   for (const [name, content] of Object.entries(files)) write(root, name, content);
   run("git", root, ["add", ...Object.keys(files)]);
@@ -358,6 +363,7 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
 
   test("any other ref keeps the gate on the scan, not the branch", () => {
     const repo = tempRepo(true);
+    declareBase(repo);
     installGitleaksShim();
     write(repo, "app.ts", "export const name = 'clean';\n");
     process.env.AI_ENG_PUSH_REFS = "refs/heads/feat1234 abcdef1234 refs/heads/feat1234 abcdef1234";
@@ -370,6 +376,7 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
 
   test("passes a surface with nothing to leak", () => {
     const repo = tempRepo(true);
+    declareBase(repo);
     installGitleaksShim();
     write(repo, "app.ts", "export const name = 'clean';\n");
 
@@ -378,6 +385,7 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
 
   test("blocks the push when the surface carries a secret", () => {
     const repo = tempRepo(true);
+    declareBase(repo);
     installGitleaksShim();
     write(repo, "leak.env", `AWS_ACCESS_KEY_ID=${SECRET}\n`);
 
@@ -391,6 +399,7 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
 
   test("HARD FAILS when gitleaks is not on PATH", () => {
     const repo = tempRepo(true);
+    declareBase(repo);
     pathWithoutGitleaks();
 
     const result = prePush(repo);
@@ -401,6 +410,7 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
 
   test("an expired dated override leaves the gate live again (§09.1)", () => {
     const repo = tempRepo(true);
+    declareBase(repo);
     installGitleaksShim();
     write(repo, ".ai-engineering/overrides.toml", '[[guard.off]]\nname = "floor"\nreason = "pushed under duress"\nuntil = "2020-01-01"\n');
     write(repo, "leak.env", `AWS_ACCESS_KEY_ID=${SECRET}\n`);
@@ -549,6 +559,7 @@ describe("floor — the dispatcher the shims exec into", () => {
 
   test("pre-push: exit 0 on a clean surface, exit 1 when it leaks", async () => {
     const repo = tempRepo(true);
+    declareBase(repo);
     installGitleaksShim();
     write(repo, "app.ts", "export const name = 'clean';\n");
     process.chdir(repo);

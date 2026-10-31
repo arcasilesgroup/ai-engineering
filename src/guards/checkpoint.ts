@@ -15,6 +15,7 @@ import { resolveContext } from "../git/context.ts";
 import {
   assertCheckpointTransition,
   brainstormApprovalProblem,
+  checkpointComplete,
   parseCheckpoint,
   readCheckpointText,
   type Checkpoint,
@@ -87,14 +88,6 @@ function proposedContents(payload: Payload, target: { path: string; slug: string
   return updated;
 }
 
-function completed(checkpoint: CheckpointItem): boolean {
-  return checkpoint.status === "passed" &&
-    GATES.every((gate) => {
-      const status = checkpoint.gates[gate].status;
-      return status === "passed" || status === "n/a";
-    });
-}
-
 function runtimeState(checkpoint: CheckpointItem): unknown {
   return [
     checkpoint.status,
@@ -158,7 +151,7 @@ function assertProgress(previous: Checkpoint | null, next: Checkpoint): Checkpoi
     if (review === "passed" && (behavior !== "passed" || (ui !== "passed" && ui !== "n/a"))) {
       return deny(`CP${checkpoint.id}`, "review gate", "cannot pass before behavior and ui have passed or ui is n/a", `run the CP${checkpoint.id} behavior and ui gates`);
     }
-    if (checkpoint.status === "passed" && !completed(checkpoint)) {
+    if (checkpoint.status === "passed" && !checkpointComplete(checkpoint)) {
       return deny(`CP${checkpoint.id}`, "checkpoint status", "cannot be passed until every gate is passed or n/a", `finish the CP${checkpoint.id} gates`);
     }
 
@@ -166,7 +159,7 @@ function assertProgress(previous: Checkpoint | null, next: Checkpoint): Checkpoi
     const hasChanged = oldCheckpoint !== undefined &&
       !isDeepStrictEqual(runtimeState(oldCheckpoint), runtimeState(checkpoint));
     if ((hasChanged || (oldCheckpoint === undefined && started(checkpoint))) &&
-      next.checkpoints.some((candidate) => candidate.id < checkpoint.id && !completed(candidate))) {
+      next.checkpoints.some((candidate) => candidate.id < checkpoint.id && !checkpointComplete(candidate))) {
       return deny(`CP${checkpoint.id}`, "checkpoint order", "cannot change while an earlier checkpoint is still open", "finish every earlier checkpoint first");
     }
   }
@@ -295,7 +288,7 @@ function checkMarker(payload: Payload, repoRoot: string): CheckpointGuardResult 
   if (current === undefined) {
     return deny(label, "checkpoint order", `does not exist in ${slug}.json`, "use an existing checkpoint number");
   }
-  if (checkpoint.checkpoints.some((item) => item.id < checkpointId && !completed(item))) {
+  if (checkpoint.checkpoints.some((item) => item.id < checkpointId && !checkpointComplete(item))) {
     return deny(label, "checkpoint order", "cannot start while an earlier checkpoint is still open", "finish every earlier checkpoint first");
   }
   if (current.status === "passed") {

@@ -1672,6 +1672,7 @@
         "tests/checkpoint-guard.spec.ts",
         "FILEMAP.md"
       ],
+      "changed_files": ["src/floor/index.ts", "src/git/context.ts", "src/git/merge.ts", "src/git/run.ts", "src/git/worktree.ts", "src/guards/checkpoint.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "skills/.chain-bundle/ai-eng-chain.ts", "FILEMAP.md", "tests/floor-gates.spec.ts", "tests/floor-hooks.spec.ts", "tests/worktree-command.spec.ts", ".ai-engineering/workflow/test-plans/floating-core.json"],
       "acceptance": [
         "A direct push to the detected base is denied even when it is the current branch; an unresolved base denies with the next step named.",
         "Merge, invalidation and request-changes commits work with a global-only Git identity.",
@@ -1726,7 +1727,10 @@
     "On 2026-10-30 the user directed autonomous completion of every checkpoint and asked the orchestrator to audit, decide, and fix all changes to ai-engineering standard; CP19 resumes after its circuit breaker under that instruction, choosing fail-closed preservation of user data for every open finding.",
     "Pre-existing dirty files outside the floating-core checkpoint scope stay untouched; the standards audit covers floating-core commits and checkpoint-owned changes only.",
     "The 2026-10-30 standards audit found five issues in already-passed checkpoints (pre-push base fail-open, isolated-runner commit identity, worktree rm base fallback, duplicated Git helpers, dead worktree inventory code); they are fixed in a new final checkpoint 24 rather than by reopening passed checkpoints.",
-    "When `ai-eng.lock` itself cannot be written, update warns with the path and exits 1; a failed lock write must never look like success. [CP19 F25; R21]"
+    "When `ai-eng.lock` itself cannot be written, update warns with the path and exits 1; a failed lock write must never look like success. [CP19 F25; R21]",
+    "CP24: pre-push denies a direct push to the detected base even when it is the current branch, and denies when no base resolves; existing test fixtures that relied on 'no base means allow' gain an explicit `[git] base` (fixture setup only, assertions unchanged). [audit finding 1; brainstorm 6.7; R8]",
+    "CP24: commits made through the isolated Git runner take the person's identity from a normal `git config user.name`/`user.email` read (global and local) passed as GIT_AUTHOR_*/GIT_COMMITTER_* environment; if none resolves, the command refuses and names `git config --global user.email`. [audit finding 2; R8]",
+    "CP24 adopts three small pre-existing uncommitted hunks that became entangled with its edits: `src/floor/index.ts` parses committed gitleaks TOML with Bun.TOML, its fallback test in `tests/floor-gates.spec.ts`, and `src/shared-worktree.ts` uses the `GitResult` type from `src/git/run.ts`. They are coherent, tested, and pass every CP24 gate; separating them was not possible without rewriting them."
   ],
   "new_dependencies": [],
   "notes": [

@@ -31,9 +31,10 @@ src/
   commands/
     worktree.ts                CLI parser for new, list, merge, request-changes and rm
   git/
-    run.ts                     The one Git runner: status, raw stdout/stderr, optional global/system-config isolation
+    run.ts                     The one Git runner: status, raw stdout/stderr, optional global/system-config isolation, commit identity
     context.ts                 resolveContext: root, branch or detached, linked worktree, base and its source (6.7)
     merge.ts                   Reviewed-SHA merge transaction, exact parents/tree, base-ref CAS and safe checkout refresh
+    worktree.ts                Shared worktree reads: root, registered list, status, in-progress operation
   workflow/
     checkpoint.ts              Checkpoint schema, lifecycle transitions, legacy normalization and brainstorm approval
   guards/

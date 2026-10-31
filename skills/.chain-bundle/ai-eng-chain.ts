@@ -1290,18 +1290,24 @@ function localEnvVars(cwd) {
   repositoryEnvVars = names;
   return names;
 }
-function isolatedEnv(cwd) {
+function repositoryScopedEnv(cwd) {
   const names = localEnvVars(cwd);
   if (names instanceof Error)
     return names;
-  const env = { ...process.env, GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_SYSTEM: devNull, GIT_CONFIG_NOSYSTEM: "1" };
+  const env = { ...process.env };
   for (const name of names)
     delete env[name];
   return env;
 }
+function isolatedEnv(cwd, overrides) {
+  const env = repositoryScopedEnv(cwd);
+  if (env instanceof Error)
+    return env;
+  return { ...env, GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_SYSTEM: devNull, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
+}
 function runGit(args, opts) {
   try {
-    const baseEnv = opts.isolated === true ? isolatedEnv(opts.cwd) : opts.env ?? process.env;
+    const baseEnv = opts.isolated === true ? isolatedEnv(opts.cwd, opts.env) : opts.env ?? process.env;
     if (baseEnv instanceof Error)
       return { status: 1, stdout: "", stderr: baseEnv.message };
     const env = { ...baseEnv, GIT_TERMINAL_PROMPT: "0" };
@@ -1735,11 +1741,14 @@ function readCheckpointText(path, context, allowMissing = false) {
     fail("path", error instanceof Error ? error.message : String(error));
   }
 }
-function gatesComplete(checkpoint) {
-  return checkpoint.checkpoints.every((item) => item.status === "passed" && ["behavior", "ui", "review"].every((name) => {
+function checkpointComplete(item) {
+  return item.status === "passed" && ["behavior", "ui", "review"].every((name) => {
     const status = item.gates[name].status;
     return status === "passed" || status === "n/a";
-  }));
+  });
+}
+function gatesComplete(checkpoint) {
+  return checkpoint.checkpoints.every(checkpointComplete);
 }
 function sameReview(left, right) {
   return left.plan_approval === right.plan_approval && left.app_review === right.app_review && left.base_ref === right.base_ref && left.reviewed_base === right.reviewed_base && left.reviewed_feature === right.reviewed_feature;
@@ -1990,12 +1999,6 @@ function proposedContents(payload, target, context) {
   }
   return updated;
 }
-function completed(checkpoint) {
-  return checkpoint.status === "passed" && GATES.every((gate) => {
-    const status = checkpoint.gates[gate].status;
-    return status === "passed" || status === "n/a";
-  });
-}
 function runtimeState(checkpoint) {
   return [
     checkpoint.status,
@@ -2056,12 +2059,12 @@ function assertProgress(previous, next) {
     if (review === "passed" && (behavior !== "passed" || ui !== "passed" && ui !== "n/a")) {
       return deny2(`CP${checkpoint.id}`, "review gate", "cannot pass before behavior and ui have passed or ui is n/a", `run the CP${checkpoint.id} behavior and ui gates`);
     }
-    if (checkpoint.status === "passed" && !completed(checkpoint)) {
+    if (checkpoint.status === "passed" && !checkpointComplete(checkpoint)) {
       return deny2(`CP${checkpoint.id}`, "checkpoint status", "cannot be passed until every gate is passed or n/a", `finish the CP${checkpoint.id} gates`);
     }
     const oldCheckpoint = previous?.checkpoints.find((candidate) => candidate.id === checkpoint.id);
     const hasChanged = oldCheckpoint !== undefined && !isDeepStrictEqual(runtimeState(oldCheckpoint), runtimeState(checkpoint));
-    if ((hasChanged || oldCheckpoint === undefined && started(checkpoint)) && next.checkpoints.some((candidate) => candidate.id < checkpoint.id && !completed(candidate))) {
+    if ((hasChanged || oldCheckpoint === undefined && started(checkpoint)) && next.checkpoints.some((candidate) => candidate.id < checkpoint.id && !checkpointComplete(candidate))) {
       return deny2(`CP${checkpoint.id}`, "checkpoint order", "cannot change while an earlier checkpoint is still open", "finish every earlier checkpoint first");
     }
   }
@@ -2180,7 +2183,7 @@ function checkMarker(payload, repoRoot) {
   if (current === undefined) {
     return deny2(label, "checkpoint order", `does not exist in ${slug}.json`, "use an existing checkpoint number");
   }
-  if (checkpoint.checkpoints.some((item) => item.id < checkpointId && !completed(item))) {
+  if (checkpoint.checkpoints.some((item) => item.id < checkpointId && !checkpointComplete(item))) {
     return deny2(label, "checkpoint order", "cannot start while an earlier checkpoint is still open", "finish every earlier checkpoint first");
   }
   if (current.status === "passed") {

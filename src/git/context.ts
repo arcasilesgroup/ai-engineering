@@ -146,3 +146,12 @@ export function resolveContext(cwd: string, opts: { explicitBase?: string } = {}
   if (detected === null || detected.base === branch) return { ...where, base: null, baseSource: "ask", baseRemote: null };
   return { ...where, ...detected };
 }
+
+/** The base the repository names — config or the remote default — even when it is the
+ *  branch cwd has checked out; null when nothing names one. Worktree creation, branch
+ *  removal and the pre-push guard need this: the checkout sitting on its base still has
+ *  that base, and a checked-out branch alone never stands in for one (R4, R36). */
+export function namedBase(cwd: string): string | null {
+  const { root } = locate(cwd);
+  return detectBase(root, currentBranch(root), undefined)?.base ?? null;
+}

@@ -9,23 +9,21 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { loadConfig, printable } from "../env.ts";
+import { printable } from "../env.ts";
 import { assertCheckpointTransition, parseCheckpoint, readCheckpoint, serializeCheckpoint, type Checkpoint, type CheckpointContext } from "../workflow/checkpoint.ts";
 import { resolveContext } from "./context.ts";
-import { runGit, type GitResult } from "./run.ts";
-
-interface Worktree {
-  path: string;
-  branch: string | null;
-}
-
-interface FileStatus {
-  paths: string[];
-  untracked: string[];
-  detail?: string;
-}
+import { commitIdentityEnv, runGit, type GitResult } from "./run.ts";
+import {
+  canonicalize,
+  gitOperationState,
+  listWorktrees,
+  worktreeRoot,
+  worktreeStatus,
+  type RegisteredWorktree,
+  type WorktreeStatus,
+} from "./worktree.ts";
 
 interface ReadySource {
   path: string;
@@ -46,14 +44,6 @@ function git(cwd: string, args: string[]): GitResult {
   return runGit(args, { cwd, isolated: true });
 }
 
-function canonical(path: string): string {
-  try {
-    return realpathSync(path);
-  } catch {
-    return resolve(path);
-  }
-}
-
 function fullCommit(cwd: string, revision: string): string | null {
   const result = git(cwd, ["rev-parse", "--verify", `${revision}^{commit}`]);
   const commit = result.stdout.trim();
@@ -66,86 +56,12 @@ function fullObject(cwd: string, revision: string): string | null {
   return result.status === 0 && result.stderr.trim() === "" && SHA.test(object) ? object : null;
 }
 
-function worktreeList(repo: string): { entries: Worktree[] } | { detail: string } {
-  const listed = git(repo, ["worktree", "list", "--porcelain"]);
-  if (listed.status !== 0 || listed.stderr.trim() !== "") {
-    return { detail: listed.stderr.trim() || `git worktree list exited ${listed.status}` };
-  }
-  const entries: Worktree[] = [];
-  for (const block of listed.stdout.split("\n\n")) {
-    if (block.trim() === "") continue;
-    const pathLine = block.split("\n").find((line) => line.startsWith("worktree "));
-    if (pathLine === undefined) return { detail: `unreadable worktree entry ${JSON.stringify(printable(block))}` };
-    const branchLine = block.split("\n").find((line) => line.startsWith("branch "));
-    entries.push({
-      path: pathLine.slice("worktree ".length),
-      branch: branchLine?.slice("branch ".length) ?? null,
-    });
-  }
-  return { entries };
-}
-
-function parseStatus(cwd: string): FileStatus {
-  const status = git(cwd, ["--no-optional-locks", "status", "--porcelain", "--untracked-files=all", "-z"]);
-  if (status.status !== 0 || status.stderr.trim() !== "") {
-    return { paths: [], untracked: [], detail: status.stderr.trim() || `git status exited ${status.status}` };
-  }
-  const paths: string[] = [];
-  const untracked: string[] = [];
-  const tokens = status.stdout.split("\0");
-  for (let index = 0; index < tokens.length; ) {
-    const record = tokens[index] ?? "";
-    if (record === "") {
-      index += 1;
-      continue;
-    }
-    if (record.length < 4 || record[2] !== " ") {
-      return { paths: [], untracked: [], detail: "unreadable git status record" };
-    }
-    const path = record.slice(3);
-    paths.push(path);
-    if (record.startsWith("?? ")) untracked.push(path);
-    const isRename = record.slice(0, 2).split("").some((flag) => flag === "R" || flag === "C");
-    if (isRename) {
-      const source = tokens[index + 1];
-      if (source === undefined || source === "") {
-        return { paths: [], untracked: [], detail: "unreadable renamed git status record" };
-      }
-      paths.push(source);
-      index += 1;
-    }
-    index += 1;
-  }
-  return { paths: [...new Set(paths)], untracked: [...new Set(untracked)] };
-}
-
-function operationState(path: string): string | null {
-  for (const name of ["rebase-merge", "rebase-apply", "MERGE_HEAD"]) {
-    const location = git(path, ["rev-parse", "--git-path", name]);
-    if (location.status !== 0 || location.stderr.trim() !== "") {
-      return `cannot read git ${name} state (${location.stderr.trim() || `git exited ${location.status}`})`;
-    }
-    const gitPath = location.stdout.trim();
-    if (gitPath === "") return `cannot read git ${name} state path`;
-    if (existsSync(resolve(path, gitPath))) return `${name} is in progress`;
-  }
-  return null;
-}
-
-function worktreesRoot(repo: string): string {
-  const configured = loadConfig(repo).git?.["worktrees_dir"];
-  if (typeof configured === "string" && configured.trim() !== "") {
-    return canonical(resolve(repo, configured.trim()));
-  }
-  return `${repo}.worktrees`;
-}
-
 function safeCheckpointPath(path: string, slug: string): string | null {
   const checkpointPath = join(path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   try {
     const stat = lstatSync(checkpointPath);
     const resolved = realpathSync(checkpointPath);
-    const relativePath = relative(canonical(path), resolved);
+    const relativePath = relative(canonicalize(path), resolved);
     if (
       !stat.isFile() ||
       stat.isSymbolicLink() ||
@@ -160,8 +76,8 @@ function safeCheckpointPath(path: string, slug: string): string | null {
   }
 }
 
-function readySource(entry: Worktree, slug: string): ReadySource | null {
-  if (entry.branch === null || !existsSync(entry.path)) return null;
+function readySource(entry: RegisteredWorktree, slug: string): ReadySource | null {
+  if (entry.branchRef === null || !existsSync(entry.path)) return null;
   const checkpointPath = safeCheckpointPath(entry.path, slug);
   if (checkpointPath === null) return null;
   let context;
@@ -188,8 +104,8 @@ function readySource(entry: Worktree, slug: string): ReadySource | null {
   ) return null;
   return {
     path: entry.path,
-    branch: entry.branch.slice("refs/heads/".length),
-    branchRef: entry.branch,
+    branch: entry.branchRef.slice("refs/heads/".length),
+    branchRef: entry.branchRef,
     baseRef,
     reviewedBase: checkpoint.lifecycle.reviewed_base,
     reviewedFeature: checkpoint.lifecycle.reviewed_feature,
@@ -360,7 +276,7 @@ function intersects(path: string, incoming: string, ignoreCase: boolean): boolea
   return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
 }
 
-function incomingCollisions(repo: string, status: FileStatus, incoming: string[]): string[] | null {
+function incomingCollisions(repo: string, status: WorktreeStatus, incoming: string[]): string[] | null {
   const config = git(repo, ["config", "--bool", "--get", "core.ignorecase"]);
   if ((config.status !== 0 && config.status !== 1) || config.stderr.trim() !== "") return null;
   const ignoreCase = config.stdout.trim() === "true";
@@ -384,11 +300,11 @@ function atomicallyWrite(path: string, contents: string, mode: number): string |
 }
 
 function cleanupTemporary(repo: string, path: string, base: string, feature: string, allowedCommit?: string): string | null {
-  const listed = worktreeList(repo);
+  const listed = listWorktrees(repo);
   if ("detail" in listed) return `cannot verify temporary worktree registration (${listed.detail})`;
-  const matches = listed.entries.filter((entry) => canonical(entry.path) === canonical(path));
+  const matches = listed.worktrees.filter((entry) => canonicalize(entry.path) === canonicalize(path));
   if (matches.length === 0) return existsSync(path) ? `${path} is not registered in Git` : null;
-  if (matches.length !== 1 || matches[0]?.branch !== null) return `${path} is not the expected detached transaction worktree`;
+  if (matches.length !== 1 || matches[0]?.branchRef !== null) return `${path} is not the expected detached transaction worktree`;
   const mergeHead = git(path, ["rev-parse", "--verify", "--quiet", "MERGE_HEAD"]);
   if (mergeHead.status === 0 && mergeHead.stderr.trim() === "") {
     if (mergeHead.stdout.trim() !== feature) return `${path} has an unexpected merge in progress`;
@@ -399,7 +315,7 @@ function cleanupTemporary(repo: string, path: string, base: string, feature: str
   }
   const head = fullCommit(path, "HEAD");
   if (head === null || (head !== base && head !== allowedCommit)) return `${path} has an unexpected transaction commit`;
-  const status = parseStatus(path);
+  const status = worktreeStatus(path);
   if (status.detail !== undefined || status.paths.length > 0) {
     return `${path} is not clean${status.detail ? ` (${status.detail})` : ` (${status.paths.map(printable).join(", ")})`}`;
   }
@@ -423,7 +339,9 @@ function invalidateReview(repo: string, source: ReadySource, context: Checkpoint
     },
   };
   assertCheckpointTransition(source.checkpoint, next, context);
-  const root = worktreesRoot(repo);
+  const identity = commitIdentityEnv(repo);
+  if (identity instanceof Error) return `cannot commit the review invalidation: ${identity.message}`;
+  const root = worktreeRoot(repo);
   mkdirSync(root, { recursive: true });
   const transaction = join(root, `.ai-eng-review-${randomUUID()}`);
   const added = git(repo, ["worktree", "add", "--detach", transaction, source.featureTip]);
@@ -451,7 +369,7 @@ function invalidateReview(repo: string, source: ReadySource, context: Checkpoint
     const cleanup = cleanupTemporary(repo, transaction, source.featureTip, source.featureTip);
     return `could not stage only ${source.checkpointPath}${writeError ? ` (${writeError})` : ""}${cleanup ? `; ${cleanup}` : ""}`;
   }
-  const committed = git(transaction, ["commit", "-m", `chore(${source.branch}): invalidate stale review`]);
+  const committed = runGit(["commit", "-m", `chore(${source.branch}): invalidate stale review`], { cwd: transaction, isolated: true, env: identity });
   const transition = fullCommit(transaction, "HEAD");
   const parents = transition === null ? null : mergeParents(repo, transition);
   const changed = transition === null
@@ -483,7 +401,7 @@ function invalidateReview(repo: string, source: ReadySource, context: Checkpoint
     return `feature branch compare-and-swap lost; ${source.branchRef} is ${current}, expected ${source.featureTip}${cleanup ? `; ${cleanup}` : ""}`;
   }
   const synced = git(source.path, ["restore", `--source=${transition}`, "--staged", "--worktree", "--", source.checkpointRelative]);
-  const sourceStatus = parseStatus(source.path);
+  const sourceStatus = worktreeStatus(source.path);
   const syncProblem = synced.status !== 0 || synced.stderr.trim() !== "" ||
     sourceStatus.detail !== undefined || sourceStatus.paths.length > 0
     ? `could not synchronize ${source.checkpointPath}; run \`git -C ${source.path} restore --source=${transition} --staged --worktree -- ${source.checkpointRelative}\``
@@ -497,7 +415,7 @@ function invalidateReview(repo: string, source: ReadySource, context: Checkpoint
 
 function refreshBaseCheckouts(
   repo: string,
-  entries: Worktree[],
+  entries: RegisteredWorktree[],
   baseRef: string,
   reviewedBase: string,
   mergeCommit: string,
@@ -505,8 +423,8 @@ function refreshBaseCheckouts(
   invokingPath: string,
 ): string[] {
   const notes: string[] = [];
-  for (const entry of entries.filter((candidate) => candidate.branch === baseRef)) {
-    const path = canonical(entry.path);
+  for (const entry of entries.filter((candidate) => candidate.branchRef === baseRef)) {
+    const path = canonicalize(entry.path);
     if (!existsSync(path)) {
       notes.push(`${path}: base checkout is missing`);
       continue;
@@ -515,7 +433,7 @@ function refreshBaseCheckouts(
       notes.push(`${path}: left untouched (base checkout no longer matches ${mergeCommit})`);
       continue;
     }
-    const status = parseStatus(path);
+    const status = worktreeStatus(path);
     const changed = status.detail === undefined ? changedWorkingPaths(path, reviewedBase, incoming) : null;
     if (status.detail !== undefined || changed === null || changed.length > 0) {
       const reason = status.detail ?? (changed === null ? "cannot revalidate incoming paths" : changed.map(printable).join(", "));
@@ -532,7 +450,7 @@ function refreshBaseCheckouts(
         "--",
         ...incoming.map((file) => `:(literal)${file}`),
       ]);
-    const after = parseStatus(path);
+    const after = worktreeStatus(path);
     if (restored.status !== 0 || restored.stderr.trim() !== "" || after.detail !== undefined ||
       after.paths.some((changed) => incoming.some((file) => intersects(changed, file, false)))) {
       notes.push(`${path}: could not safely refresh incoming paths${after.detail ? ` (${after.detail})` : ""}`);
@@ -555,11 +473,11 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
     return { code: 2, out: "", err: `worktree merge: ${error instanceof Error ? error.message : String(error)}\n` };
   }
   const repo = context.root;
-  const listed = worktreeList(repo);
+  const listed = listWorktrees(repo);
   if ("detail" in listed) {
     return { code: 1, out: "", err: `worktree merge: cannot list Git worktrees (${listed.detail}); run \`ai-eng worktree list\`.\n` };
   }
-  const candidates = listed.entries
+  const candidates = listed.worktrees
     .map((entry) => readySource(entry, slug))
     .filter((source): source is ReadySource => source !== null);
   if (candidates.length === 0) {
@@ -577,7 +495,7 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
     };
   }
   const source = candidates[0]!;
-  const sourcePath = canonical(source.path);
+  const sourcePath = canonicalize(source.path);
   const sourceHead = fullCommit(sourcePath, "HEAD");
   const branchHead = fullCommit(repo, source.branchRef);
   if (sourceHead === null || sourceHead !== source.featureTip || branchHead !== source.featureTip) {
@@ -588,7 +506,7 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
     sourceBranch.stdout.trim() !== source.branchRef || source.branchRef === source.baseRef) {
     return { code: 1, out: "", err: `worktree merge: ${sourcePath} is not checked out on a distinct feature branch; preserve it and rerun \`ai-eng worktree list\`.\n` };
   }
-  const operation = operationState(sourcePath);
+  const operation = gitOperationState(sourcePath);
   if (operation !== null) {
     return { code: 1, out: "", err: `worktree merge: ${sourcePath} ${operation}; finish or resolve that operation before rerunning \`ai-eng worktree merge ${slug}\`.\n` };
   }
@@ -634,14 +552,14 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
       const refreshed = currentBase === publishedMerge
         ? refreshBaseCheckouts(
           repo,
-          listed.entries,
+          listed.worktrees,
           source.baseRef,
           source.reviewedBase,
           currentBase,
           incoming,
-          canonical(context.root),
+          canonicalize(context.root),
         )
-        : [`${canonical(context.root)}: left untouched (base advanced from ${publishedMerge} to ${currentBase ?? "unreadable"})`];
+        : [`${canonicalize(context.root)}: left untouched (base advanced from ${publishedMerge} to ${currentBase ?? "unreadable"})`];
       return {
         code: 0,
         out: `✓ merged ${slug} at ${publishedMerge} into ${source.baseRef}; the feature checkout remains at ${source.path}. When ready, remove it with \`ai-eng worktree rm ${slug}\`.\n`,
@@ -655,7 +573,7 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
       err: `worktree merge: reviewed base ${source.reviewedBase} moved to ${currentBase}; ${invalidation}. Rerun affected gates and app review before \`ai-eng worktree merge ${slug}\`.\n`,
     };
   }
-  const status = parseStatus(sourcePath);
+  const status = worktreeStatus(sourcePath);
   if (status.detail !== undefined || status.paths.length > 0) {
     return {
       code: 1,
@@ -667,19 +585,19 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
   if (incoming === null) {
     return { code: 1, out: "", err: `worktree merge: incoming paths from ${source.reviewedBase} to ${source.featureTip} are unreadable; rerun \`ai-eng worktree list\`.\n` };
   }
-  const entries = listed.entries;
-  const invokingPath = canonical(context.root);
+  const entries = listed.worktrees;
+  const invokingPath = canonicalize(context.root);
   const initialStatuses = new Map(
     entries
-      .filter((entry) => entry.branch === source.baseRef)
+      .filter((entry) => entry.branchRef === source.baseRef)
       .map((entry) => {
-        const path = canonical(entry.path);
-        return [path, existsSync(path) ? parseStatus(path) : { paths: [], untracked: [], detail: "worktree path is missing" }] as const;
+        const path = canonicalize(entry.path);
+        return [path, existsSync(path) ? worktreeStatus(path) : { paths: [], untracked: [], detail: "worktree path is missing" }] as const;
       }),
   );
-  const invokingEntry = entries.find((entry) => canonical(entry.path) === invokingPath);
-  if (invokingEntry?.branch === source.baseRef) {
-    const destinationStatus = initialStatuses.get(invokingPath) ?? parseStatus(invokingPath);
+  const invokingEntry = entries.find((entry) => canonicalize(entry.path) === invokingPath);
+  if (invokingEntry?.branchRef === source.baseRef) {
+    const destinationStatus = initialStatuses.get(invokingPath) ?? worktreeStatus(invokingPath);
     if (destinationStatus.detail !== undefined) {
       return { code: 1, out: "", err: `worktree merge: ${invokingPath} status is unreadable (${destinationStatus.detail}); preserve it and rerun \`ai-eng worktree merge ${slug}\`.\n` };
     }
@@ -705,14 +623,18 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
     }
   }
 
-  const root = worktreesRoot(repo);
+  const identity = commitIdentityEnv(repo);
+  if (identity instanceof Error) {
+    return { code: 1, out: "", err: `worktree merge: cannot commit the merge: ${identity.message}; then rerun \`ai-eng worktree merge ${slug}\`.\n` };
+  }
+  const root = worktreeRoot(repo);
   mkdirSync(root, { recursive: true });
   const transaction = join(root, `.ai-eng-merge-${randomUUID()}`);
   const added = git(repo, ["worktree", "add", "--detach", transaction, source.reviewedBase]);
   if (added.status !== 0) {
     return { code: 1, out: "", err: `worktree merge: could not create detached transaction at ${transaction}: ${printable(added.stderr.trim())}; preserve the feature checkout.\n` };
   }
-  const merged = git(transaction, ["merge", "--no-commit", "--no-ff", source.featureTip]);
+  const merged = runGit(["merge", "--no-commit", "--no-ff", source.featureTip], { cwd: transaction, isolated: true, env: identity });
   if (merged.status !== 0) {
     const cleanup = cleanupTemporary(repo, transaction, source.reviewedBase, source.featureTip);
     return { code: 1, out: "", err: `worktree merge: no-ff merge failed: ${printable(merged.stderr.trim())}${cleanup ? `; ${cleanup}` : ""}; rerun \`ai-eng worktree merge ${slug}\` after resolving the conflict.\n` };
@@ -726,7 +648,7 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
     const cleanup = cleanupTemporary(repo, transaction, source.reviewedBase, source.featureTip);
     return { code: 1, out: "", err: `worktree merge: temporary merge tree or parent differs from the reviewed feature${cleanup ? `; ${cleanup}` : ""}; rerun \`ai-eng worktree merge ${slug}\` after review.\n` };
   }
-  const committed = git(transaction, ["commit", "-m", `chore(${slug}): merge ${source.branch}`]);
+  const committed = runGit(["commit", "-m", `chore(${slug}): merge ${source.branch}`], { cwd: transaction, isolated: true, env: identity });
   const mergeCommit = fullCommit(transaction, "HEAD");
   const parents = mergeCommit === null ? null : mergeParents(repo, mergeCommit);
   const committedTree = mergeCommit === null ? null : fullObject(repo, `${mergeCommit}^{tree}`);
@@ -739,8 +661,8 @@ export function worktreeMerge(slug: string, cwd = process.cwd()): { code: number
     const cleanup = cleanupTemporary(repo, transaction, source.reviewedBase, source.featureTip, mergeCommit ?? undefined);
     return { code: 1, out: "", err: `worktree merge: temporary commit failed exact-parent or merge tree verification${cleanup ? `; ${cleanup}` : ""}; preserve the feature checkout and rerun \`ai-eng worktree merge ${slug}\` after review.\n` };
   }
-  const temporaryStatus = parseStatus(transaction);
-  if (temporaryStatus.detail !== undefined || temporaryStatus.paths.length > 0 || operationState(transaction) !== null) {
+  const temporaryStatus = worktreeStatus(transaction);
+  if (temporaryStatus.detail !== undefined || temporaryStatus.paths.length > 0 || gitOperationState(transaction) !== null) {
     const cleanup = cleanupTemporary(repo, transaction, source.reviewedBase, source.featureTip, mergeCommit);
     return { code: 1, out: "", err: `worktree merge: temporary checkout ${transaction} is not clean after commit${cleanup ? `; ${cleanup}` : ""}; preserve the feature checkout.\n` };
   }

@@ -104,6 +104,11 @@ function write(root: string, name: string, content: string): string {
   return path;
 }
 
+/** Declares `[git] base` so pre-push, which denies when no base resolves, reaches the scan. */
+function declareBase(root: string): void {
+  write(root, ".ai-engineering/config.toml", '[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "main"\n');
+}
+
 function stage(root: string, files: Record<string, string>): void {
   for (const [name, content] of Object.entries(files)) write(root, name, content);
   run("git", root, ["add", ...Object.keys(files)]);
@@ -196,6 +201,7 @@ describe("floor gates — git() plumbing and the diff --check branch", () => {
 describe("floor gates — whichGitleaks missing is a HARD FAIL", () => {
   test("preCommit without gitleaks refuses with the install hint, prePush likewise", () => {
     const repo = tempRepo(true);
+    declareBase(repo);
     stage(repo, { "clean.txt": "clean\n" });
     pathWithoutGitleaks();
     const commit = preCommit(repo);
@@ -351,6 +357,7 @@ describe("floor gates — the staged-secret scan contract", () => {
 
   test("a pre-push scan must arrive as `git --redact -v`, truncated to 2000 chars on failure", () => {
     const repo = tempRepo(true);
+    declareBase(repo);
     installStrictShim({ scanExit: 0 });
     write(repo, "app.ts", "clean\n");
     expect(prePush(repo)).toEqual({ ok: true, lines: [] });
@@ -595,6 +602,26 @@ describe("floor gates — the staged scan's exception is HEAD's allowlist paths,
     stage(repo, { "clean.txt": "clean\n" });
     expect(preCommit(repo)).toEqual({ ok: true, lines: [] });
     expect(readFileSync(record, "utf8")).toBe("unset");
+  });
+
+  test("invalid committed TOML falls back to the default gitleaks rules", () => {
+    const repo = tempRepo(true);
+    write(repo, ".gitleaksrc.toml", "[allowlist\npaths = [\n");
+    run("git", repo, ["add", ".gitleaksrc.toml"]);
+    run("git", repo, ["commit", "-q", "-m", "chore: add invalid fixture config"]);
+    const record = join(tempDir("ai-eng-gates-rec-"), "env");
+    installEnvShim(record);
+    stage(repo, { "clean.txt": "clean\n" });
+
+    const previousConfig = process.env.GITLEAKS_CONFIG;
+    delete process.env.GITLEAKS_CONFIG;
+    try {
+      expect(preCommit(repo)).toEqual({ ok: true, lines: [] });
+      expect(readFileSync(record, "utf8")).toBe("unset");
+    } finally {
+      if (previousConfig === undefined) delete process.env.GITLEAKS_CONFIG;
+      else process.env.GITLEAKS_CONFIG = previousConfig;
+    }
   });
 });
 

@@ -914,6 +914,21 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(readFileSync(join(root, "alpha", "src", "current-head.ts"), "utf8")).toBe("current checkout\n");
   });
 
+  test("new starts a feature from a checkout sitting on the configured base branch", () => {
+    const repo = tempRepo();
+    const root = defaultRoot(repo);
+    cleanups.push(root);
+    configureDetectedBase(repo, "main");
+    expect(git(["symbolic-ref", "--short", "HEAD"], repo).trim()).toBe("main");
+
+    const created = runCli(["worktree", "new", "feature/x"], repo);
+
+    expect(created.status).toBe(0);
+    expect(git(["rev-parse", "refs/heads/feature/x"], repo).trim()).toBe(git(["rev-parse", "refs/heads/main"], repo).trim());
+    expect(git(["config", "--get", "branch.feature/x.merge"], repo).trim()).toBe("refs/heads/main");
+    expect(existsSync(join(root, "feature", "x"))).toBe(true);
+  });
+
   test("I41: dirty brainstorm and PRD slots warn while new branches from HEAD", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
@@ -1085,6 +1100,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     const created = realpathSync(join(root, "alpha"));
 
@@ -1102,6 +1118,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     cleanups.push(root);
     const log = join(repo, "invocations.log");
     const env = shimEnv(log);
+    configureDetectedBase(repo, "main");
     const runs = [
       runCli(["worktree", "new", "alpha"], repo, env),
       runCli(["worktree", "list"], repo, env),
@@ -1182,6 +1199,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
 
     rmSync(join(root, "alpha"), { recursive: true, force: true });
@@ -1452,6 +1470,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
 
     const declarations = join(root, ".ai-eng-worktrees.json");
@@ -2178,6 +2197,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     const created = realpathSync(join(root, "alpha"));
     const feature = join(root, "alpha");
@@ -2217,6 +2237,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     commitInWorktree(repo, "alpha");
 
@@ -2231,6 +2252,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     commitInWorktree(repo, "alpha");
     expect(runCli(["worktree", "new", "beta"], repo).status).toBe(0);
@@ -2260,6 +2282,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     const root = defaultRoot(repo);
     cleanups.push(root);
     const log = join(repo, "invocations.log");
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo, shimEnv(log)).status).toBe(0);
 
     const run = runCli(["worktree", "rm", "alpha"], repo, shimEnv(log));
@@ -2280,6 +2303,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     writeFileSync(join(repo, ".gitignore"), "local.env\n");
     git(["add", "-A"], repo);
     git(["commit", "-q", "-m", "ignore local.env"], repo);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     commitInWorktree(repo, "alpha");
     writeFileSync(join(root, "alpha", "local.env"), "SECRET=1\n");
@@ -2308,6 +2332,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     writeFileSync(join(repo, ".gitignore"), "local.env\n");
     git(["add", ".gitignore"], repo);
     git(["commit", "-q", "-m", "ignore local environment file"], repo);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     const feature = join(root, "alpha");
     writeFileSync(join(feature, "local.env"), "LOCAL_ONLY=1\n");
@@ -2334,6 +2359,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     writeFileSync(join(repo, ".gitignore"), "*.txt\n");
     git(["add", "-A"], repo);
     git(["commit", "-q", "-m", "ignore txt files"], repo);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     writeFileSync(join(root, "alpha", "spoof\u001b[2J.txt"), "ignored\n");
 
@@ -2353,6 +2379,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     git(["commit", "-q", "-m", "ignore local.env"], repo);
     // A hostile local config must not hide the ignored file the verb is about to drop.
     git(["config", "status.showUntrackedFiles", "no"], repo);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     writeFileSync(join(root, "alpha", "local.env"), "SECRET=1\n");
 
@@ -2369,6 +2396,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     writeFileSync(join(repo, ".gitignore"), ".DS_Store\n");
     git(["add", "-A"], repo);
     git(["commit", "-q", "-m", "ignore .DS_Store"], repo);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "alpha"], repo).status).toBe(0);
     writeFileSync(join(root, "alpha", ".DS_Store"), "junk\n");
 
@@ -3894,7 +3922,7 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
     mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
     writeFileSync(
       join(repo, ".ai-engineering", "config.toml"),
-      `[git]\nworktrees_dir = ${JSON.stringify(customRoot)}\n`,
+      `[git]\nworktrees_dir = ${JSON.stringify(customRoot)}\nbase = "main"\n`,
     );
 
     const arbitraryBranch = "feature/pagos";
@@ -4158,6 +4186,7 @@ describe("ai-eng worktree rm and removed usage (checkpoint 7)", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
+    configureDetectedBase(repo, "main");
     expect(runCli(["worktree", "new", "dirty-remove"], repo).status).toBe(0);
     const feature = join(root, "dirty-remove");
     git(["commit", "--allow-empty", "-q", "-m", "work in dirty-remove"], feature);

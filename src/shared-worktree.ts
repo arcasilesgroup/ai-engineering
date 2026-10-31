@@ -17,18 +17,25 @@ import { randomUUID } from "node:crypto";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { loadConfig, printable } from "./env.ts";
-import { resolveContext } from "./git/context.ts";
-import { runGit } from "./git/run.ts";
+import { namedBase, resolveContext } from "./git/context.ts";
+import { commitIdentityEnv, type GitResult, runGit } from "./git/run.ts";
 import { reviewedFeatureChainProblem } from "./git/merge.ts";
 import {
+  canonicalize,
+  gitOperationState,
+  listWorktrees,
+  statusPaths,
+  worktreeRoot,
+  worktreeStatus,
+  type WorktreeStatus,
+} from "./git/worktree.ts";
+import {
+  gatesComplete,
   parseCheckpoint,
   readCheckpoint,
   serializeCheckpoint,
   type Checkpoint,
 } from "./workflow/checkpoint.ts";
-
-/** The four milestone artifacts whose paths worktree operations protect. */
-export const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.html", "recap.html"] as const;
 
 /** The shape of a slug: the user types it, and it becomes both `feat/<slug>` and the
  *  worktree directory name. The orchestrator compares it literally against
@@ -42,24 +49,8 @@ export interface WorktreeResult {
   err: string;
 }
 
-interface GitRun {
-  status: number;
-  stdout: string;
-  stderr: string;
-}
-
-function git(cwd: string, args: string[]): GitRun {
+function git(cwd: string, args: string[]): GitResult {
   return runGit(args, { cwd, isolated: true });
-}
-
-/** git reports canonical paths — so the worktree root, and every comparison
- *  against a registered path, happens in the same realpathed form. */
-function canonicalize(path: string): string {
-  try {
-    return realpathSync(path);
-  } catch {
-    return resolve(path);
-  }
 }
 
 function canonicalizeForCreation(path: string): string {
@@ -106,17 +97,6 @@ function primaryRepoRoot(): string | null {
   return existsSync(root) ? root : null;
 }
 
-/** `<repo>.worktrees` beside the repository, or `[git].worktrees_dir` from the
- *  primary checkout's `.ai-engineering/config.toml` when that key is present. The
- *  config is read from the primary tree, so a relative value is resolved there too:
- *  resolving it against the process directory would make the same repository report
- *  one root from the primary tree and another from inside an open worktree. */
-export function worktreeRoot(repo: string): string {
-  const configured = loadConfig(repo).git?.["worktrees_dir"];
-  if (typeof configured === "string" && configured.trim()) return canonicalize(resolve(repo, configured.trim()));
-  return `${repo}.worktrees`;
-}
-
 interface OpenWorktree {
   path: string;
   /** The branch short name, absent when the worktree is detached. */
@@ -127,150 +107,22 @@ interface OpenWorktree {
   prunable: boolean;
 }
 
-/** Every worktree git knows, or the reason it could not be read — a list that cannot
- *  be read is never an empty list, because that would let a guard pass unexamined. */
+/** Every worktree git knows, as the worktree verbs name it: the short branch and the slug. */
 function openWorktrees(repo: string): { worktrees: OpenWorktree[] } | { detail: string } {
-  const listed = git(repo, ["worktree", "list", "--porcelain"]);
-  if (listed.status !== 0 || listed.stderr.trim() !== "") {
-    return { detail: `git worktree list exited ${listed.status}: ${listed.stderr.trim()}` };
-  }
-  const worktrees: OpenWorktree[] = [];
-  for (const block of listed.stdout.split("\n\n")) {
-    if (block.trim() === "") continue;
-    const lines = block.split("\n");
-    const pathLine = lines.find((line) => line.startsWith("worktree "));
-    if (!pathLine) return { detail: `unreadable worktree list entry ${JSON.stringify(printable(block))}` };
-    const path = pathLine.slice("worktree ".length);
-    const ref = lines.find((line) => line.startsWith("branch "))?.slice("branch ".length);
-    const branch = ref?.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : undefined;
-    worktrees.push({
-      path,
-      branch,
-      slug: branch === undefined ? basename(path) : branch.replace(/^feat\//, ""),
-      detached: lines.includes("detached"),
-      prunable: lines.some((line) => line.startsWith("prunable")),
-    });
-  }
-  return { worktrees };
-}
-
-export interface RepositoryWorktree {
-  path: string;
-  registeredPath: string;
-  branch: string | null;
-  slug: string;
-  detached: boolean;
-  prunable: boolean;
-}
-
-export interface RepositoryWorktreeInventory {
-  repositoryRoot: string;
-  worktreesRoot: string;
-  worktrees: RepositoryWorktree[];
-}
-
-function inventoryWorktreesRoot(repo: string): { path: string } | { detail: string } {
-  const metadataPath = join(repo, ".ai-engineering");
-  try {
-    const metadataStat = lstatSync(metadataPath);
-    if (!metadataStat.isDirectory() || metadataStat.isSymbolicLink()) {
-      return { detail: ".ai-engineering is not a repository-local directory" };
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-      return { detail: `cannot read .ai-engineering: ${error instanceof Error ? error.message : String(error)}` };
-    }
-    return { path: canonicalize(`${repo}.worktrees`) };
-  }
-
-  const configPath = join(metadataPath, "config.toml");
-  try {
-    const configStat = lstatSync(configPath);
-    const canonicalConfig = realpathSync(configPath);
-    const configRelative = relative(repo, canonicalConfig);
-    if (
-      !configStat.isFile() ||
-      configStat.isSymbolicLink() ||
-      configRelative === ".." ||
-      configRelative.startsWith(`..${sep}`) ||
-      isAbsolute(configRelative)
-    ) {
-      return { detail: "config.toml is not a repository-local file" };
-    }
-    const parsed: unknown = Bun.TOML.parse(readFile(configPath, "utf8"));
-    if (!isRecord(parsed)) return { detail: "config.toml is not a TOML table" };
-    if (
-      parsed.git !== undefined &&
-      (!isRecord(parsed.git) ||
-        (parsed.git.worktrees_dir !== undefined && typeof parsed.git.worktrees_dir !== "string"))
-    ) {
-      return { detail: "config.toml [git].worktrees_dir is malformed" };
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { path: canonicalize(`${repo}.worktrees`) };
-    }
-    return { detail: `config.toml read failed: ${error instanceof Error ? error.message : String(error)}` };
-  }
-  return { path: canonicalize(worktreeRoot(repo)) };
-}
-
-/** A read-only inventory for callers that already resolved a repository root. */
-export function repositoryWorktreeInventory(
-  repositoryPath: string,
-): RepositoryWorktreeInventory | { detail: string } {
-  let repositoryRoot: string;
-  try {
-    repositoryRoot = realpathSync(repositoryPath);
-  } catch (error) {
-    return { detail: `repository root is unreadable: ${error instanceof Error ? error.message : String(error)}` };
-  }
-
-  const topLevel = git(repositoryRoot, ["rev-parse", "--show-toplevel"]);
-  if (topLevel.status !== 0 || topLevel.stderr.trim() !== "") {
-    return {
-      detail: topLevel.stderr.trim() || `git rev-parse --show-toplevel exited ${topLevel.status}`,
-    };
-  }
-  if (canonicalize(topLevel.stdout.trim()) !== repositoryRoot) {
-    return { detail: "path is not the Git repository root" };
-  }
-
-  const configuredWorktreesRoot = inventoryWorktreesRoot(repositoryRoot);
-  if ("detail" in configuredWorktreesRoot) return configuredWorktreesRoot;
-  const listed = openWorktrees(repositoryRoot);
-  if ("detail" in listed) return { detail: listed.detail };
+  const listed = listWorktrees(repo);
+  if ("detail" in listed) return listed;
   return {
-    repositoryRoot,
-    worktreesRoot: configuredWorktreesRoot.path,
     worktrees: listed.worktrees.map((entry) => {
-      const registeredPath = isAbsolute(entry.path) ? resolve(entry.path) : resolve(repositoryRoot, entry.path);
+      const branch = entry.branchRef?.startsWith("refs/heads/") ? entry.branchRef.slice("refs/heads/".length) : undefined;
       return {
-        path: canonicalize(registeredPath),
-        registeredPath,
-        branch: entry.branch ?? null,
-        slug: entry.slug,
+        path: entry.path,
+        branch,
+        slug: branch === undefined ? basename(entry.path) : branch.replace(/^feat\//, ""),
         detached: entry.detached,
         prunable: entry.prunable,
       };
     }),
   };
-}
-
-/** The paths one `-z` record carries and how many tokens it used. `-z` keeps every
- *  path as raw bytes — NUL-separated, nothing quoted and nothing C-escaped, so no
- *  path ever needs unescaping and a non-ASCII one cannot slip past a comparison.
- *  A rename or copy (R/C in either status column) carries its source as the next
- *  token. null means the record is unreadable, which blocks. */
-function statusPaths(tokens: string[], index: number): { paths: string[]; next: number } | null {
-  const record = tokens[index];
-  if (record === undefined || record.length < 4 || record[2] !== " ") return null;
-  const path = record.slice(3);
-  const renamed = record.slice(0, 2).split("").some((flag) => flag === "R" || flag === "C");
-  if (!renamed) return { paths: [path], next: index + 1 };
-  const source = tokens[index + 1];
-  if (source === undefined || source === "") return null;
-  return { paths: [path, source], next: index + 2 };
 }
 
 /** The ignored paths a worktree holds, so `worktree rm` can name what its removal
@@ -380,7 +232,8 @@ export function worktreeNew(branchInput: string): WorktreeResult {
   let baseBranch: string | null;
   if (configuredBase !== undefined || remotes.stdout.trim() !== "") {
     try {
-      baseBranch = resolveContext(process.cwd()).base;
+      // namedBase: starting a feature from a checkout on the base is the normal flow.
+      baseBranch = namedBase(process.cwd());
     } catch (error) {
       return { code: 1, out: "", err: `worktree new: cannot detect the base (${error instanceof Error ? error.message : String(error)}); run \`ai-eng worktree list\`.\n` };
     }
@@ -478,31 +331,6 @@ export function worktreeNew(branchInput: string): WorktreeResult {
   };
 }
 
-interface StatusRead {
-  paths: string[];
-  detail?: string;
-}
-
-function worktreeStatus(path: string): StatusRead {
-  const status = git(path, ["--no-optional-locks", "status", "--porcelain", "--untracked-files=all", "-z"]);
-  if (status.status !== 0 || status.stderr.trim() !== "") {
-    return { paths: [], detail: status.stderr.trim() || `git status exited ${status.status}` };
-  }
-  const paths: string[] = [];
-  const tokens = status.stdout.split("\0");
-  for (let index = 0; index < tokens.length; ) {
-    if (tokens[index] === "") {
-      index += 1;
-      continue;
-    }
-    const read = statusPaths(tokens, index);
-    if (read === null) return { paths: [], detail: "unreadable git status record" };
-    paths.push(...read.paths);
-    index = read.next;
-  }
-  return { paths: [...new Set(paths)] };
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -517,16 +345,6 @@ function checkpointFiles(plan: unknown, slug: string): string[] | null {
     files.push(...checkpoint.files);
   }
   return files;
-}
-
-function gatesComplete(plan: Checkpoint): boolean {
-  return plan.checkpoints.every((checkpoint) =>
-    checkpoint.status === "passed" &&
-    ["behavior", "ui", "review"].every((name) => {
-      const status = checkpoint.gates[name as keyof Checkpoint["checkpoints"][number]["gates"]].status;
-      return status === "passed" || status === "n/a";
-    })
-  );
 }
 
 function isStaleReviewPin(checkpoint: Checkpoint, currentBase: string | null): boolean {
@@ -672,7 +490,7 @@ interface ListedWorktree {
   slug: string;
   identity: boolean;
   isFeature: boolean;
-  status: StatusRead;
+  status: WorktreeStatus;
   checkpointPath: string | null;
   checkpointFiles: string[];
   lifecycle: string;
@@ -694,9 +512,9 @@ export function worktreeList(requestedSlug?: string): WorktreeResult {
   for (const entry of listed.worktrees) {
     if (canonicalize(entry.path) === repo) continue;
     const pathExists = existsSync(entry.path);
-    const status: StatusRead = pathExists
+    const status: WorktreeStatus = pathExists
       ? worktreeStatus(entry.path)
-      : { paths: [], detail: "worktree path is missing" };
+      : { paths: [], untracked: [], detail: "worktree path is missing" };
     statusUnreadable ||= pathExists && status.detail !== undefined;
     const checkpointDir = join(entry.path, ".ai-engineering", "workflow", "checkpoints");
     let checkpointSlugs: string[] = [];
@@ -1128,8 +946,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   }
   const operation = gitOperationState(entry.path);
   if (operation !== null) {
-    const detail = "detail" in operation ? operation.detail : `${operation.name} is in progress`;
-    return { code: 1, out: "", err: `worktree request-changes: ${printable(detail)}; preserve the review state.\n` };
+    return { code: 1, out: "", err: `worktree request-changes: ${printable(operation)}; preserve the review state.\n` };
   }
 
   const checkpointPath = join(entry.path, checkpointRelative);
@@ -1209,6 +1026,10 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     },
   };
   const nextContents = serializeCheckpoint(nextPlan);
+  const identity = commitIdentityEnv(repo);
+  if (identity instanceof Error) {
+    return { code: 1, out: "", err: `worktree request-changes: cannot commit the checkpoint: ${identity.message}; no files were changed.\n` };
+  }
 
   const transactionPath = join(root, `.request-changes-${slug}-${randomUUID()}`);
   const added = git(repo, ["worktree", "add", "--detach", transactionPath, expectedCheckpointCommit]);
@@ -1290,7 +1111,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     };
   }
 
-  const committed = git(transactionPath, ["commit", "-m", `chore(${slug}): record requested changes`]);
+  const committed = runGit(["commit", "-m", `chore(${slug}): record requested changes`], { cwd: transactionPath, isolated: true, env: identity });
   if (committed.status !== 0) {
     const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
     return {
@@ -1511,19 +1332,6 @@ function findManagedWorktree(
   return { path: entry.path, branch: entry.branch };
 }
 
-function gitOperationState(path: string): { name: string } | { detail: string } | null {
-  for (const name of ["rebase-merge", "rebase-apply", "MERGE_HEAD"]) {
-    const location = git(path, ["rev-parse", "--git-path", name]);
-    if (location.status !== 0 || location.stderr.trim() !== "") {
-      return { detail: `cannot read git ${name} state: ${location.stderr.trim() || `git exited ${location.status}`}` };
-    }
-    const gitPath = location.stdout.endsWith("\n") ? location.stdout.slice(0, -1) : location.stdout;
-    if (gitPath === "") return { detail: `cannot read git ${name} state path` };
-    if (existsSync(resolve(path, gitPath))) return { name };
-  }
-  return null;
-}
-
 function fullHead(repo: string): string | null {
   const current = git(repo, ["rev-parse", "--verify", "HEAD"]);
   if (current.status !== 0 || current.stderr.trim() !== "") return null;
@@ -1573,8 +1381,7 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
   }
   let baseBranch: string | null;
   try {
-    const detected = resolveContext(process.cwd());
-    baseBranch = detected.base ?? resolveContext(repo).branch;
+    baseBranch = namedBase(process.cwd());
   } catch {
     baseBranch = null;
   }
@@ -1582,7 +1389,7 @@ export function worktreeRm(slug: string, force = false): WorktreeResult {
     return {
       code: 1,
       out: "",
-      err: `worktree rm: detected base is unavailable; set [git] base in ${join(repo, ".ai-engineering", "config.toml")} or inspect \`git -C ${repo} branch --show-current\`.\n`,
+      err: `worktree rm: no base branch is detectable; set [git] base in ${join(repo, ".ai-engineering", "config.toml")}, then rerun \`ai-eng worktree rm ${slug}\`.\n`,
     };
   }
   const baseRef = `refs/heads/${baseBranch}`;
