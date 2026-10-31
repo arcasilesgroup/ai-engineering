@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import {
   cpSync,
   existsSync,
+  linkSync,
   mkdirSync,
   readFileSync,
   rmSync,
@@ -1062,6 +1063,128 @@ describe("checkpoint guard G7 — Bash writes to checkpoint JSON", () => {
       );
       expect(cursorShell.tool_name).toBe("Bash");
       expectDenied(run(fixture, cursorShell));
+    });
+  });
+});
+
+describe("checkpoint guard G7b — Bash writes that reach checkpoint JSON by another path", () => {
+  const folder = ".ai-engineering/workflow/checkpoints";
+  const deniedCommands = [
+    ["redirection after cd", `cd ${folder} && printf x > demo.json`],
+    ["append after cd with ;", `cd ${folder}; printf x >> demo.json`],
+    ["tee after cd", `cd ${folder} && printf x | tee demo.json`],
+    ["sed -i after cd", `cd ${folder} && sed -i 's/a/b/' demo.json`],
+    ["cp after cd", `cd ${folder} && cp ../../../base.txt demo.json`],
+    ["mv after cd", `cd ${folder} && mv demo.json ../demo.bak`],
+    ["rm after cd", `cd ${folder} && rm demo.json`],
+    ["rm by name", `rm ${folder}/demo.json`],
+    ["pushd into the parent", `pushd .ai-engineering/workflow && printf x > checkpoints/demo.json && popd`],
+    ["two cd steps and an opaque writer", `cd .ai-engineering && cd workflow/checkpoints && python3 -c "open('demo.json','w')"`],
+    ["a cd the guard cannot follow, then a write naming checkpoints", `cd "$PLANS" && printf x > checkpoints/demo.json`],
+  ] as const;
+
+  test.each(deniedCommands)("denies %s", (_name, command) => {
+    withFixture((fixture) => {
+      writePlan(fixture, plan(fixture.slug));
+      expectDenied(run(fixture, tool("Bash", { command })), "shell gate");
+    });
+  });
+
+  test.each([
+    ["git add of the plan", `git add -- ${folder}/demo.json`],
+    ["git add after cd", `cd ${folder} && git add -- demo.json`],
+    ["git diff after cd", `cd ${folder} && git diff -- demo.json 2>&1 | cat`],
+    ["cat after cd", `cd ${folder} && cat demo.json`],
+    ["a copy out of the folder", `cd ${folder} && cat demo.json > ../../../plan-copy.json`],
+    ["a write after leaving with popd", `pushd ${folder} && cat demo.json && popd && printf x > notes.txt`],
+  ])("allows %s", (_name, command) => {
+    withFixture((fixture) => {
+      writePlan(fixture, plan(fixture.slug));
+      expectAllowed(run(fixture, tool("Bash", { command })));
+    });
+  });
+
+  test("a write through a linked folder is denied, starting from the host's cwd", () => {
+    withFixture((fixture) => {
+      writePlan(fixture, plan(fixture.slug));
+      try {
+        symlinkSync(join(fixture.root, folder), join(fixture.root, "plans"), "dir");
+      } catch (error) {
+        const reason = symlinkUnavailable(error);
+        if (reason !== null) {
+          console.warn(`SKIP symlink test: this platform cannot create symlinks (${reason})`);
+          return;
+        }
+        throw error;
+      }
+      mkdirSync(join(fixture.root, "sub"));
+      const fromSub = { ...tool("Bash", { command: "cd ../plans && printf x > demo.json" }), cwd: join(fixture.root, "sub") };
+      expectDenied(run(fixture, fromSub), "shell gate");
+      expectDenied(run(fixture, tool("Bash", { command: "printf x > plans/demo.json" })), "shell gate");
+      expectAllowed(run(fixture, tool("Bash", { command: "cat plans/demo.json" })));
+    });
+  });
+});
+
+describe("checkpoint guard G7c — Edit/Write that reach checkpoint JSON by another path", () => {
+  function linkOrSkip(create: () => void): boolean {
+    try {
+      create();
+      return true;
+    } catch (error) {
+      const reason = symlinkUnavailable(error);
+      if (reason !== null) {
+        console.warn(`SKIP link test: this platform cannot create links (${reason})`);
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  test("a linked folder, a linked file, a dangling link and a hard link are all denied", () => {
+    withFixture((fixture) => {
+      writePlan(fixture, plan(fixture.slug));
+      const folder = join(fixture.root, ".ai-engineering", "workflow", "checkpoints");
+      const created = linkOrSkip(() => {
+        symlinkSync(folder, join(fixture.root, "plans"), "dir");
+        symlinkSync(fixture.planPath, join(fixture.root, "plan-link.json"));
+        symlinkSync(join(folder, "next.json"), join(fixture.root, "next-link.json"));
+        linkSync(fixture.planPath, join(fixture.root, "plan-hard.json"));
+      });
+      if (!created) return;
+      const forged = withGate(plan(fixture.slug), 2, "review", "passed");
+      const reason = expectDenied(run(fixture, writePayload(fixture, forged, join(fixture.root, "plans", "demo.json"))), "write gate", `${".ai-engineering/workflow/checkpoints"}/demo.json`);
+      expect(reason).toContain("through another path");
+      expectDenied(run(fixture, writePayload(fixture, forged, join(fixture.root, "plan-link.json"))), "write gate", "demo.json");
+      expectDenied(run(fixture, writePayload(fixture, forged, join(fixture.root, "next-link.json"))), "write gate", "next.json");
+      expectDenied(
+        run(fixture, tool("Edit", { file_path: join(fixture.root, "plan-hard.json"), old_string: "\"failed\"", new_string: "\"passed\"" })),
+        "write gate",
+        "demo.json",
+      );
+      expectDenied(run(fixture, writePayload(fixture, forged, "plans/demo.json")), "write gate");
+    });
+  });
+
+  test("a case-variant path is denied where the filesystem ignores case", () => {
+    withFixture((fixture) => {
+      writePlan(fixture, plan(fixture.slug));
+      const variant = join(fixture.root, ".AI-Engineering", "Workflow", "Checkpoints", "DEMO.json");
+      if (!existsSync(variant)) {
+        console.warn("SKIP case-variant test: this filesystem is case-sensitive");
+        return;
+      }
+      expectDenied(run(fixture, writePayload(fixture, plan(fixture.slug), variant)), "write gate", "demo.json");
+      expectDenied(run(fixture, writePayload(fixture, plan("other"), join(fixture.root, ".ai-engineering", "workflow", "CHECKPOINTS", "other.json"))), "write gate", "other.json");
+    });
+  });
+
+  test("the canonical path still validates, and an unrelated file is not the guard's business", () => {
+    withFixture((fixture) => {
+      writePlan(fixture, plan(fixture.slug));
+      expectAllowed(run(fixture, writePayload(fixture, plan(fixture.slug))));
+      expect(run(fixture, tool("Write", { file_path: join(fixture.root, "notes.json"), content: "{}" }))).toBeUndefined();
+      expect(run(fixture, tool("Write", { file_path: join(fixture.root, ".ai-engineering", "workflow", "checkpoints", "notes.md"), content: "x" }))).toBeUndefined();
     });
   });
 });

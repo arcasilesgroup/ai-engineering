@@ -9,7 +9,7 @@
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { doctorMain } from "../src/commands/doctor.ts";
@@ -868,6 +868,23 @@ describe("doctor --gc", () => {
     const summary = JSON.parse(readFileSync(join(receipts, "summary.json"), "utf8")) as { total: number; gc?: unknown };
     expect(summary.total).toBe(2);
     expect(typeof summary.gc).toBe("string");
+  });
+
+  test("a receipts folder that is a link is named in a warning and nothing at its target is deleted", async () => {
+    const { root } = sandbox(`${GOVERNED}\n[gc]\nreceipts_ttl = "0d"\n`);
+    const outside = tempDir("ai-eng-doc-outside-");
+    const stale = join(outside, "2026-01-01T00-00-00-000Z-PreToolUse-abcdef12.json");
+    writeFileSync(stale, receipt(12, "allow"));
+    const old = new Date(Date.now() - 60 * 86_400_000);
+    utimesSync(stale, old, old);
+    symlinkSync(outside, join(root, ".ai-engineering", "receipts"), "dir");
+
+    const run = await doctor({ gc: true });
+
+    expect(run.code).toBe(0);
+    expect(run.out).toContain("⚠ receipts: .ai-engineering/receipts is a link or resolves outside the repository — retention skipped, nothing deleted");
+    expect(readdirSync(outside)).toEqual(["2026-01-01T00-00-00-000Z-PreToolUse-abcdef12.json"]);
+    expect(readFileSync(stale, "utf8")).toBe(receipt(12, "allow"));
   });
 
   test("old artifacts are archived in git, cited ones stay, a full folder is flagged", async () => {

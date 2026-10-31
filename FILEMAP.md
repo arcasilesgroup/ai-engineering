@@ -41,6 +41,7 @@ src/
     checkpoint.ts              Checkpoint schema, lifecycle, gate order and Stop enforcement in the chain
   shared-worktree.ts           Worktree inventory, creation, lifecycle SHA-CAS, listing and safe removal
   shared-hash.ts               Shared SHA-256 file hashing helper
+  shared-project-fs.ts         Guarded project-path reads and writes: refuse links and paths that leave the repository
 tests/
   git-context.spec.ts          Git runner and context resolver over real temp repos with isolated config
   checkpoint-guard.spec.ts     Checkpoint schema, lifecycle gates and Stop enforcement

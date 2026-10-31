@@ -6,10 +6,15 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
+  realpathSync,
+  statSync,
   unlinkSync,
   writeFileSync,
+  type Stats,
 } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { homedir } from "node:os";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { resolveContext } from "../git/context.ts";
 import {
@@ -31,7 +36,17 @@ const STAGES = new Set(["tests", "implement", "behavior", "ui", "review", "fix"]
 const MARKER = /^\s*\[checkpoint\s+([\w.-]+)#(\d+)\s+(\w+)\]/;
 const CHECKPOINT_PATH = /^\.ai-engineering\/workflow\/checkpoints\/([a-z0-9][a-z0-9._-]*)\.json$/;
 const CHECKPOINT_TARGET = /\.ai-engineering\/workflow\/checkpoints\/[^\s/]+\.json/;
-const BASH_WRITE = />|\btee\b|\bsed\s+-i|\bpython3?\b|\bnode\b|\bperl\b|\bjq\b.*>|\bmv\b|\bcp\b|\btruncate\b/;
+const BASH_WRITE = />|\btee\b|\bsed\s+-i|\bpython3?\b|\bnode\b|\bperl\b|\bjq\b.*>|\bmv\b|\bcp\b|\brm\b|\btruncate\b/;
+const CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
+const MAX_LINK_HOPS = 40;
+// Command separators: `&&`, `||`, `;`, newlines, pipes and a background `&` — but not the
+// `|` of `>|` nor the `&` of `2>&1` / `&>`.
+const SHELL_SEGMENT = /&&|\|\||;|\n|(?<!>)\|&?|(?<![<>])&(?!>)/;
+// A redirection target: `>f`, `> f`, `>>f`, `2>f`, `&>f`, `>|f`; never an fd copy like `>&1`.
+const REDIRECTION = /(?:^|[^<>&\d])(?:\d*|&)>{1,2}\|?\s*([^\s;&|<>()]+)/g;
+const COMMAND_PREFIXES = new Set(["sudo", "command", "builtin", "exec", "env", "time", "nohup", "nice"]);
+// Writers whose target cannot be read off the command line.
+const OPAQUE_WRITERS = new Set(["python", "python3", "node", "perl", "ruby", "bun", "deno", "jq", "awk"]);
 const MAX_STOP_BLOCKS = 3;
 
 function deny(checkpoint: string, gate: string, detail: string, next: string): CheckpointGuardResult {
@@ -50,13 +65,121 @@ function checkpointContext(repoRoot: string, slug: string): CheckpointContext {
   };
 }
 
+function realRootOf(root: string): string {
+  try {
+    return realpathSync(root);
+  } catch {
+    return root;
+  }
+}
+
 function checkpointTarget(repoRoot: string, filePath: unknown): { path: string; slug: string } | null {
   if (typeof filePath !== "string" || filePath.length === 0) return null;
   const root = resolve(repoRoot);
   const absolutePath = isAbsolute(filePath) ? resolve(filePath) : resolve(root, filePath);
-  const relativePath = relative(root, absolutePath).split(sep).join("/");
-  const match = CHECKPOINT_PATH.exec(relativePath);
-  return match?.[1] ? { path: absolutePath, slug: match[1] } : null;
+  // The repository's own path, as named or as resolved (a root reached through /var vs /private/var).
+  for (const base of new Set([root, realRootOf(root)])) {
+    const match = CHECKPOINT_PATH.exec(relative(base, absolutePath).split(sep).join("/"));
+    if (match?.[1]) return { path: absolutePath, slug: match[1] };
+  }
+  return null;
+}
+
+/** `path` with every part that exists resolved: the realpath of its deepest existing
+ *  ancestor plus the rest as named, following a dangling link at any level. */
+function realTarget(path: string, hops = 0): string {
+  const rest: string[] = [];
+  let current = path;
+  for (;;) {
+    try {
+      return join(realpathSync(current), ...rest);
+    } catch {
+      /* missing, or a link to something missing: resolved below */
+    }
+    try {
+      if (hops < MAX_LINK_HOPS && lstatSync(current).isSymbolicLink()) {
+        return realTarget(join(resolve(dirname(current), readlinkSync(current)), ...rest), hops + 1);
+      }
+    } catch {
+      /* nothing at this name: look one level up */
+    }
+    const parent = dirname(current);
+    if (parent === current) return path;
+    rest.unshift(basename(current));
+    current = parent;
+  }
+}
+
+/** True when the filesystem holding `path` ignores case (macOS and Windows defaults):
+ *  the same folder answers under the case-swapped name. */
+function isCaseInsensitive(path: string): boolean {
+  const swapped = path.replace(/[a-z]/gi, (letter) => (letter === letter.toLowerCase() ? letter.toUpperCase() : letter.toLowerCase()));
+  if (swapped === path) return false;
+  try {
+    const named = statSync(path);
+    const other = statSync(swapped);
+    return named.dev === other.dev && named.ino === other.ino;
+  } catch {
+    return false;
+  }
+}
+
+/** Where a path really lands relative to the real repository root, in `/` form,
+ *  lower-cased where the filesystem ignores case. */
+type RealRepo = { root: string; isCaseInsensitive: boolean };
+
+function realRepo(repoRoot: string): RealRepo {
+  const root = realpathSync(repoRoot);
+  return { root, isCaseInsensitive: isCaseInsensitive(root) };
+}
+
+function landsAt(repo: RealRepo, absolutePath: string): string {
+  const landed = relative(repo.root, realTarget(absolutePath)).split(sep).join("/");
+  return repo.isCaseInsensitive ? landed.toLowerCase() : landed;
+}
+
+function landsInCheckpoints(repo: RealRepo, absolutePath: string): boolean {
+  const landed = landsAt(repo, absolutePath);
+  return landed === CHECKPOINTS_DIR || landed.startsWith(`${CHECKPOINTS_DIR}/`);
+}
+
+/** The checkpoint file that is the same file as `path` (a hard link, a symlink, a
+ *  case-variant name), by device and inode. */
+function checkpointWithSameInode(folder: string, path: string): string | null {
+  let target: Stats;
+  try {
+    target = statSync(path);
+  } catch {
+    return null;
+  }
+  if (!target.isFile()) return null;
+  let names: string[];
+  try {
+    names = readdirSync(folder);
+  } catch {
+    return null;
+  }
+  for (const name of names) {
+    if (!name.endsWith(".json")) continue;
+    try {
+      const candidate = statSync(join(folder, name));
+      if (candidate.dev === target.dev && candidate.ino === target.ino) return name.slice(0, -".json".length);
+    } catch {
+      /* gone since the listing */
+    }
+  }
+  return null;
+}
+
+/** The slug of the checkpoint file an Edit/Write lands on when its path text does not name
+ *  that file: the guard reads paths, so another name for the same file would skip it. */
+function aliasedCheckpoint(repoRoot: string, filePath: unknown): string | null {
+  if (typeof filePath !== "string" || filePath.length === 0) return null;
+  const repo = realRepo(repoRoot);
+  const absolutePath = isAbsolute(filePath) ? resolve(filePath) : resolve(repoRoot, filePath);
+  const sameFile = checkpointWithSameInode(join(repo.root, CHECKPOINTS_DIR), absolutePath);
+  if (sameFile !== null) return sameFile;
+  return CHECKPOINT_PATH.exec(landsAt(repo, absolutePath))?.[1] ?? null;
 }
 
 function applyEdit(contents: string, edit: Record<string, unknown>): string | null {
@@ -192,7 +315,11 @@ function checkFirstPlan(root: string, checkpoint: Checkpoint): CheckpointGuardRe
 
 function checkPlanWrite(payload: Payload, repoRoot: string): CheckpointGuardResult {
   const target = checkpointTarget(repoRoot, payload.tool_input.file_path);
-  if (target === null) return undefined;
+  if (target === null) {
+    const alias = aliasedCheckpoint(repoRoot, payload.tool_input.file_path);
+    if (alias === null) return undefined;
+    return deny(`Checkpoint ${alias}`, "write gate", `does not allow writing ${CHECKPOINTS_DIR}/${alias}.json through another path (${String(payload.tool_input.file_path)})`, `edit ${CHECKPOINTS_DIR}/${alias}.json by that path so checkpoint gates are validated`);
+  }
   let context: CheckpointContext;
   try {
     context = checkpointContext(repoRoot, target.slug);
@@ -304,15 +431,77 @@ function checkMarker(payload: Payload, repoRoot: string): CheckpointGuardResult 
   return { deny: false };
 }
 
-function checkBash(payload: Payload): CheckpointGuardResult {
-  const command = payload.tool_input.command;
-  if (
-    typeof command !== "string" ||
-    !CHECKPOINT_TARGET.test(command) ||
-    !BASH_WRITE.test(command)
-  ) {
-    return undefined;
+function unquote(word: string): string {
+  return word.replace(/^(['"])(.*)\1$/s, "$2");
+}
+
+/** The words of one shell segment, quotes removed, with leading `VAR=value` and
+ *  wrapper commands (sudo, env, …) dropped so the first word is the real command. */
+function commandWords(segment: string): string[] {
+  const words = (segment.replace(/^[\s({]+|[\s)}]+$/g, "").match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map(unquote);
+  while (words.length > 0 && (/^\w+=/.test(words[0]!) || COMMAND_PREFIXES.has(words[0]!))) words.shift();
+  return words;
+}
+
+/** The paths one segment writes, unresolved: redirection targets, and the operands of
+ *  tee, sed -i, cp (destination), mv, rm and truncate. */
+function writeTargets(segment: string, words: readonly string[]): string[] {
+  const targets = [...segment.matchAll(REDIRECTION)].map((match) => unquote(match[1] ?? ""));
+  const [name, ...rest] = words;
+  const operands = rest.filter((word) => !word.startsWith("-"));
+  const isInPlaceSed = name === "sed" && rest.some((word) => /^-[a-zA-Z]*i/.test(word) || word.startsWith("--in-place"));
+  if (name === "cp") targets.push(...operands.slice(-1));
+  if (name === "tee" || name === "mv" || name === "rm" || name === "truncate" || isInPlaceSed) targets.push(...operands);
+  return targets.filter((target) => target.length > 0);
+}
+
+/** A path as the shell would resolve it from `cwd`, or null when it hangs off a variable,
+ *  a substitution or `~user` that the guard cannot know. */
+function shellPath(cwd: string, word: string): string | null {
+  if (/[$`]/.test(word) || /^~[^/]/.test(word)) return null;
+  if (word === "~" || word.startsWith("~/")) return join(homedir(), word.slice(1));
+  return resolve(cwd, word);
+}
+
+/** True when a command writes into the checkpoints folder by a path the text check cannot
+ *  see: after a cd/pushd into (or towards) it, through a link, or under another case.
+ *  Reads (cat, git diff, git add) are never write forms. A directory the guard cannot
+ *  follow (cd $DIR, cd -) decides nothing — then any write that mentions the checkpoints
+ *  folder by name is refused. */
+function shellWritesIntoCheckpoints(command: string, cwd: string, repo: RealRepo): boolean {
+  let directory: string | null = cwd;
+  const stack: Array<string | null> = [];
+  const mentionsCheckpoints = /checkpoints/i.test(command);
+  for (const segment of command.split(SHELL_SEGMENT)) {
+    const words = commandWords(segment);
+    const [name, ...rest] = words;
+    if (name === "cd" || name === "pushd") {
+      const operand = rest.find((word) => !word.startsWith("-") || word === "-");
+      if (name === "pushd") stack.push(directory);
+      const next: string | null = operand === undefined ? homedir() : operand === "-" || directory === null ? null : shellPath(directory, operand);
+      directory = next;
+      continue;
+    }
+    if (name === "popd") {
+      directory = stack.pop() ?? null;
+      continue;
+    }
+    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename(name)) && landsInCheckpoints(repo, directory)) return true;
+    for (const target of writeTargets(segment, words)) {
+      const absolute = isAbsolute(target) || target.startsWith("~") ? shellPath("/", target) : directory === null ? null : shellPath(directory, target);
+      if (absolute === null ? mentionsCheckpoints : landsInCheckpoints(repo, absolute)) return true;
+    }
   }
+  return false;
+}
+
+function checkBash(payload: Payload, repoRoot: string): CheckpointGuardResult {
+  const command = payload.tool_input.command;
+  if (typeof command !== "string") return undefined;
+  const isNamedWrite = CHECKPOINT_TARGET.test(command) && BASH_WRITE.test(command);
+  const hostCwd = payload["cwd"];
+  const cwd = typeof hostCwd === "string" && hostCwd.length > 0 ? resolve(repoRoot, hostCwd) : resolve(repoRoot);
+  if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot))) return undefined;
   return deny("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
 }
 
@@ -454,7 +643,7 @@ export function runCheckpointGuard(payload: Payload, repoRoot: string | null): C
     if (payload._event === "Stop" || payload.hook_event_name === "Stop") {
       return checkStop(payload, repoRoot);
     }
-    if (payload.tool_name === "Bash") return checkBash(payload);
+    if (payload.tool_name === "Bash") return checkBash(payload, repoRoot);
     if (payload.tool_name === "Task" || payload.tool_name === "Agent") {
       return checkMarker(payload, repoRoot);
     }

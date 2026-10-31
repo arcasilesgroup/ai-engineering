@@ -20,10 +20,11 @@
 import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import * as receiptsModule from "../src/receipts.ts";
+import { gcReceipts, upsertDenyLedger, writeReceipt } from "../src/receipts.ts";
 import { runChain } from "../src/chain/mod.ts";
 
 type Retention = { ran: boolean; deleted: number };
@@ -241,7 +242,9 @@ describe("retainReceipts — bounded in work, not only in deletions", () => {
       touched = spies.flatMap((spy) => spy.mock.calls.map((call) => String((call as unknown[])[0])));
       for (const spy of spies) spy.mockRestore();
     }
-    const receiptsTouched = [...new Set(touched.filter((path) => path.startsWith(dir) && isReceiptName(basename(path))).map((path) => basename(path)))];
+    // The pass acts from inside the checked folder, so its calls name a receipt by its bare name.
+    const isInFolder = (path: string): boolean => path.startsWith(dir) || !path.includes("/");
+    const receiptsTouched = [...new Set(touched.filter((path) => isInFolder(path) && isReceiptName(basename(path))).map((path) => basename(path)))];
 
     expect(result).toEqual({ ran: true, deleted: stale.length });
     // Positive control: the spies see the pass's own reads, so an empty list below is not vacuous.
@@ -295,4 +298,117 @@ describe("retainReceipts — parallel calls that open a day", () => {
     const summary = JSON.parse(readFileSync(join(receiptsOf(root), "summary.json"), "utf8")) as { daily: Record<string, unknown> };
     expect(summary.daily[staleDay]).toEqual({ runs: stale.length, denies: 0 });
   }, 60_000);
+});
+
+/** Every entry under `dir` with its bytes (or "<dir>"/"-> target"), sorted: equal before
+ *  and after means nothing in it was created, changed or deleted. */
+function treeOf(dir: string, prefix = ""): string[] {
+  const entries: string[] = [];
+  for (const name of readdirSync(dir).sort()) {
+    const path = join(dir, name);
+    const stat = lstatSync(path);
+    if (stat.isSymbolicLink()) entries.push(`${prefix}${name} -> link`);
+    else if (stat.isDirectory()) entries.push(`${prefix}${name}/`, ...treeOf(path, `${prefix}${name}/`));
+    else entries.push(`${prefix}${name}:${readFileSync(path, "utf8")}:${stat.mtimeMs}`);
+  }
+  return entries;
+}
+
+/** A folder outside the repo — the user's home in the attack — holding files that look
+ *  stale to every rule retention has ever used: receipt-stamped names and old mtimes. */
+function outsideFolder(): string {
+  const outside = mkdtempSync(join(tmpdir(), "ai-eng-retention-outside-"));
+  roots.push(outside);
+  const old = new Date(NOW - 400 * DAY);
+  for (const name of ["2020-01-01T00-00-00-000Z-PreToolUse-0000beef.json", "abcdef12.log", "notes.txt", "photo.json"]) {
+    writeFileSync(join(outside, name), `user data ${name}\n`);
+    utimesSync(join(outside, name), old, old);
+  }
+  return outside;
+}
+
+function linkOrSkip(target: string, path: string): boolean {
+  try {
+    symlinkSync(target, path, "dir");
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code ?? "";
+    if (["EACCES", "EPERM", "ENOSYS", "ENOTSUP"].includes(code)) {
+      console.warn(`SKIP symlink test: this platform cannot create symlinks (${code})`);
+      return false;
+    }
+    throw error;
+  }
+}
+
+const allowReceipt = { event: "PreToolUse", surface: "claude-code", tool: "Read", guards: { ran: ["policy"], denied_by: null }, latency_ms: 1, outcome: "allow" as const };
+
+describe("retention never reaches outside the repository", () => {
+  test("a receipts folder committed as a link: nothing at its target is read for deletion, deleted, written or created", () => {
+    const root = governedRepo("7d");
+    const outside = outsideFolder();
+    rmSync(receiptsOf(root), { recursive: true });
+    if (!linkOrSkip(outside, receiptsOf(root))) return;
+    const before = treeOf(outside);
+
+    expect(retainReceipts(root, NOW)).toEqual({ ran: true, deleted: 0 });
+    expect(gcReceipts(root, 7, { now: NOW })).toEqual({ deleted: 0, refused: ".ai-engineering/receipts" });
+    expect(writeReceipt(allowReceipt, root)).toBeNull();
+    expect(upsertDenyLedger(receiptsOf(root), "Bash:rm -rf /")).toBe(0);
+
+    expect(treeOf(outside)).toEqual(before);
+  });
+
+  test("an .ai-engineering folder committed as a link: no claim, no pass, no receipt at its target", () => {
+    const outside = outsideFolder();
+    const realAi = join(outside, "ai");
+    mkdirSync(join(realAi, "receipts"), { recursive: true });
+    writeFileSync(join(realAi, "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n\n[gc]\nreceipts_ttl = "7d"\n');
+    const stale = join(realAi, "receipts", "2020-01-01T00-00-00-000Z-PreToolUse-0000cafe.json");
+    writeFileSync(stale, "user data\n");
+    const root = mkdtempSync(join(tmpdir(), "ai-eng-retention-"));
+    roots.push(root);
+    if (!linkOrSkip(realAi, join(root, ".ai-engineering"))) return;
+    const before = treeOf(outside);
+
+    expect(retainReceipts(root, NOW)).toEqual({ ran: false, deleted: 0 });
+    expect(gcReceipts(root, 7, { now: NOW })).toEqual({ deleted: 0, refused: ".ai-engineering" });
+    expect(writeReceipt(allowReceipt, root)).toBeNull();
+
+    expect(treeOf(outside)).toEqual(before);
+  });
+
+  test("in the repo's own folder only names a receipt writer produces are deleted; every other name, and a link named like a receipt, stays", () => {
+    const root = governedRepo("7d");
+    const dir = receiptsOf(root);
+    const outside = outsideFolder();
+    const stale = seedReceipt(root, NOW - 10 * DAY);
+    const old = new Date(NOW - 400 * DAY);
+    const kept = ["notes.txt", "backup.json", "2020-01-01T00-00-00-000Z-user-data.txt", "2020-01-01T00-00-00-000Z-PreToolUse-0000beef.json.bak"];
+    for (const name of kept) {
+      writeFileSync(join(dir, name), `user data ${name}\n`);
+      utimesSync(join(dir, name), old, old);
+    }
+    symlinkSync(join(outside, "2020-01-01T00-00-00-000Z-PreToolUse-0000beef.json"), join(dir, "2020-01-01T00-00-00-000Z-PreToolUse-0000f00d.json"));
+    const outsideBefore = treeOf(outside);
+
+    expect(retainReceipts(root, NOW)).toEqual({ ran: true, deleted: 1 });
+
+    const left = readdirSync(dir);
+    expect(left.includes(stale)).toBe(false);
+    for (const name of kept) expect(readFileSync(join(dir, name), "utf8")).toBe(`user data ${name}\n`);
+    expect(lstatSync(join(dir, "2020-01-01T00-00-00-000Z-PreToolUse-0000f00d.json")).isSymbolicLink()).toBe(true);
+    expect(treeOf(outside)).toEqual(outsideBefore);
+  });
+
+  test('a repo-supplied receipts_ttl of "0d" is clamped to one day: receipts from the last day stay', () => {
+    const root = governedRepo("0d");
+    const young = seedMany(root, 3, NOW - 12 * 3_600_000);
+    const stale = seedMany(root, 2, NOW - 2 * DAY);
+    // Premise: both groups are on disk before the pass.
+    expect(receiptNames(root)).toEqual([...young, ...stale].sort());
+
+    expect(retainReceipts(root, NOW)).toEqual({ ran: true, deleted: stale.length });
+    expect(receiptNames(root)).toEqual([...young].sort());
+  });
 });

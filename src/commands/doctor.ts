@@ -593,8 +593,13 @@ function gc(cwd = process.cwd()): string[] {
   const ttlDays = receiptsTtlDays(config);
   const olderDays = Number(String(gcConfig["older_than"] ?? "90d").replace("d", ""));
   const keepRuns = Number(gcConfig["keep_runs"] ?? 5);
-  const collected = gcReceipts(join(root, ".ai-engineering", "receipts"), ttlDays);
-  if (collected > 0) lines.push(`✓ receipts: ${collected} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
+  const receipts = gcReceipts(root, ttlDays);
+  if (receipts.refused !== null) {
+    lines.push(`⚠ receipts: ${receipts.refused} is a link or resolves outside the repository — retention skipped, nothing deleted`);
+    // Every folder below hangs off .ai-engineering: when that is not the repo's own, none is collected.
+    if (receipts.refused === ".ai-engineering") return lines;
+  }
+  if (receipts.deleted > 0) lines.push(`✓ receipts: ${receipts.deleted} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
   for (const folder of ["research", "reports", join("design", "audits")]) {
     lines.push(...gcFolder(root, folder, maxFiles, olderDays));
   }

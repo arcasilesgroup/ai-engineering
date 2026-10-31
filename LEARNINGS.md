@@ -1819,3 +1819,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Normalise the base at the one function every consumer reads, resolve it only for the merged check, report the parse error with its file, and take identity from `git var GIT_AUTHOR_IDENT`/`GIT_COMMITTER_IDENT`.
 - **Lesson:** Normalise a value where every consumer reads it, resolve it only where it is used, and let the tool decide its own precedence.
 - **Tags:** review, git, push, identity, fail-closed
+
+### L249 · 2026-10-30 · floating-core #24 · behavior
+- **Failure:** Phase 3 security audit: automatic receipt retention followed a committed `.ai-engineering/receipts` symlink and could delete old files outside the repository, with a repo-supplied `0d` TTL widening it; the checkpoint write guard matched path text only.
+- **Root cause:** Retention and receipt writes used plain paths and any file name, and the guard judged spelling instead of where a path lands.
+- **Fix:** Refuse linked or escaping receipts folders, delete only writer-produced names bound to the checked folder, clamp TTL to one day, and deny checkpoint writes by resolved identity, including after `cd`.
+- **Lesson:** An automatic cleanup on repo-supplied paths must prove the folder is the repo's own before it lists anything, and a write guard must judge where a path lands, not how it is spelled.
+- **Tags:** behavior, security, symlink, cleanup, receipts, guard

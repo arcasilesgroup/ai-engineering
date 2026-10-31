@@ -1,8 +1,8 @@
 // @bun
 // src/chain/mod.ts
-import { readFileSync as readFileSync11, writeFileSync as writeFileSync4, mkdirSync as mkdirSync4 } from "fs";
-import { createHash as createHash5 } from "crypto";
-import { dirname as dirname3, join as join10 } from "path";
+import { readFileSync as readFileSync12, writeFileSync as writeFileSync4, mkdirSync as mkdirSync4 } from "fs";
+import { createHash as createHash6 } from "crypto";
+import { dirname as dirname5, join as join11 } from "path";
 
 // src/env.ts
 import { homedir } from "os";
@@ -1264,10 +1264,14 @@ import {
   mkdirSync as mkdirSync2,
   readFileSync as readFileSync9,
   readdirSync,
+  readlinkSync,
+  realpathSync as realpathSync5,
+  statSync,
   unlinkSync,
   writeFileSync as writeFileSync2
 } from "fs";
-import { dirname as dirname2, isAbsolute as isAbsolute5, join as join8, relative as relative2, resolve as resolve6, sep as sep3 } from "path";
+import { homedir as homedir2 } from "os";
+import { basename as basename2, dirname as dirname2, isAbsolute as isAbsolute5, join as join8, relative as relative2, resolve as resolve6, sep as sep3 } from "path";
 import { isDeepStrictEqual } from "util";
 
 // src/git/context.ts
@@ -1958,7 +1962,13 @@ var STAGES = new Set(["tests", "implement", "behavior", "ui", "review", "fix"]);
 var MARKER = /^\s*\[checkpoint\s+([\w.-]+)#(\d+)\s+(\w+)\]/;
 var CHECKPOINT_PATH = /^\.ai-engineering\/workflow\/checkpoints\/([a-z0-9][a-z0-9._-]*)\.json$/;
 var CHECKPOINT_TARGET = /\.ai-engineering\/workflow\/checkpoints\/[^\s/]+\.json/;
-var BASH_WRITE = />|\btee\b|\bsed\s+-i|\bpython3?\b|\bnode\b|\bperl\b|\bjq\b.*>|\bmv\b|\bcp\b|\btruncate\b/;
+var BASH_WRITE = />|\btee\b|\bsed\s+-i|\bpython3?\b|\bnode\b|\bperl\b|\bjq\b.*>|\bmv\b|\bcp\b|\brm\b|\btruncate\b/;
+var CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
+var MAX_LINK_HOPS = 40;
+var SHELL_SEGMENT = /&&|\|\||;|\n|(?<!>)\|&?|(?<![<>])&(?!>)/;
+var REDIRECTION = /(?:^|[^<>&\d])(?:\d*|&)>{1,2}\|?\s*([^\s;&|<>()]+)/g;
+var COMMAND_PREFIXES = new Set(["sudo", "command", "builtin", "exec", "env", "time", "nohup", "nice"]);
+var OPAQUE_WRITERS = new Set(["python", "python3", "node", "perl", "ruby", "bun", "deno", "jq", "awk"]);
 var MAX_STOP_BLOCKS = 3;
 function deny2(checkpoint, gate, detail, next) {
   return {
@@ -1974,14 +1984,103 @@ function checkpointContext(repoRoot, slug) {
     baseRef: context.base === null ? "" : `refs/heads/${context.base}`
   };
 }
+function realRootOf(root) {
+  try {
+    return realpathSync5(root);
+  } catch {
+    return root;
+  }
+}
 function checkpointTarget(repoRoot, filePath) {
   if (typeof filePath !== "string" || filePath.length === 0)
     return null;
   const root = resolve6(repoRoot);
   const absolutePath = isAbsolute5(filePath) ? resolve6(filePath) : resolve6(root, filePath);
-  const relativePath = relative2(root, absolutePath).split(sep3).join("/");
-  const match = CHECKPOINT_PATH.exec(relativePath);
-  return match?.[1] ? { path: absolutePath, slug: match[1] } : null;
+  for (const base of new Set([root, realRootOf(root)])) {
+    const match = CHECKPOINT_PATH.exec(relative2(base, absolutePath).split(sep3).join("/"));
+    if (match?.[1])
+      return { path: absolutePath, slug: match[1] };
+  }
+  return null;
+}
+function realTarget(path, hops = 0) {
+  const rest = [];
+  let current = path;
+  for (;; ) {
+    try {
+      return join8(realpathSync5(current), ...rest);
+    } catch {}
+    try {
+      if (hops < MAX_LINK_HOPS && lstatSync2(current).isSymbolicLink()) {
+        return realTarget(join8(resolve6(dirname2(current), readlinkSync(current)), ...rest), hops + 1);
+      }
+    } catch {}
+    const parent = dirname2(current);
+    if (parent === current)
+      return path;
+    rest.unshift(basename2(current));
+    current = parent;
+  }
+}
+function isCaseInsensitive(path) {
+  const swapped = path.replace(/[a-z]/gi, (letter) => letter === letter.toLowerCase() ? letter.toUpperCase() : letter.toLowerCase());
+  if (swapped === path)
+    return false;
+  try {
+    const named = statSync(path);
+    const other = statSync(swapped);
+    return named.dev === other.dev && named.ino === other.ino;
+  } catch {
+    return false;
+  }
+}
+function realRepo(repoRoot) {
+  const root = realpathSync5(repoRoot);
+  return { root, isCaseInsensitive: isCaseInsensitive(root) };
+}
+function landsAt(repo, absolutePath) {
+  const landed = relative2(repo.root, realTarget(absolutePath)).split(sep3).join("/");
+  return repo.isCaseInsensitive ? landed.toLowerCase() : landed;
+}
+function landsInCheckpoints(repo, absolutePath) {
+  const landed = landsAt(repo, absolutePath);
+  return landed === CHECKPOINTS_DIR || landed.startsWith(`${CHECKPOINTS_DIR}/`);
+}
+function checkpointWithSameInode(folder, path) {
+  let target;
+  try {
+    target = statSync(path);
+  } catch {
+    return null;
+  }
+  if (!target.isFile())
+    return null;
+  let names;
+  try {
+    names = readdirSync(folder);
+  } catch {
+    return null;
+  }
+  for (const name of names) {
+    if (!name.endsWith(".json"))
+      continue;
+    try {
+      const candidate = statSync(join8(folder, name));
+      if (candidate.dev === target.dev && candidate.ino === target.ino)
+        return name.slice(0, -".json".length);
+    } catch {}
+  }
+  return null;
+}
+function aliasedCheckpoint(repoRoot, filePath) {
+  if (typeof filePath !== "string" || filePath.length === 0)
+    return null;
+  const repo = realRepo(repoRoot);
+  const absolutePath = isAbsolute5(filePath) ? resolve6(filePath) : resolve6(repoRoot, filePath);
+  const sameFile = checkpointWithSameInode(join8(repo.root, CHECKPOINTS_DIR), absolutePath);
+  if (sameFile !== null)
+    return sameFile;
+  return CHECKPOINT_PATH.exec(landsAt(repo, absolutePath))?.[1] ?? null;
 }
 function applyEdit(contents, edit) {
   const oldString = edit.old_string ?? edit.oldString;
@@ -2107,8 +2206,12 @@ function checkFirstPlan(root, checkpoint) {
 }
 function checkPlanWrite(payload, repoRoot) {
   const target = checkpointTarget(repoRoot, payload.tool_input.file_path);
-  if (target === null)
-    return;
+  if (target === null) {
+    const alias = aliasedCheckpoint(repoRoot, payload.tool_input.file_path);
+    if (alias === null)
+      return;
+    return deny2(`Checkpoint ${alias}`, "write gate", `does not allow writing ${CHECKPOINTS_DIR}/${alias}.json through another path (${String(payload.tool_input.file_path)})`, `edit ${CHECKPOINTS_DIR}/${alias}.json by that path so checkpoint gates are validated`);
+  }
   let context;
   try {
     context = checkpointContext(repoRoot, target.slug);
@@ -2215,11 +2318,71 @@ function checkMarker(payload, repoRoot) {
   }
   return { deny: false };
 }
-function checkBash2(payload) {
-  const command = payload.tool_input.command;
-  if (typeof command !== "string" || !CHECKPOINT_TARGET.test(command) || !BASH_WRITE.test(command)) {
-    return;
+function unquote2(word) {
+  return word.replace(/^(['"])(.*)\1$/s, "$2");
+}
+function commandWords(segment) {
+  const words = (segment.replace(/^[\s({]+|[\s)}]+$/g, "").match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map(unquote2);
+  while (words.length > 0 && (/^\w+=/.test(words[0]) || COMMAND_PREFIXES.has(words[0])))
+    words.shift();
+  return words;
+}
+function writeTargets(segment, words) {
+  const targets = [...segment.matchAll(REDIRECTION)].map((match) => unquote2(match[1] ?? ""));
+  const [name, ...rest] = words;
+  const operands = rest.filter((word) => !word.startsWith("-"));
+  const isInPlaceSed = name === "sed" && rest.some((word) => /^-[a-zA-Z]*i/.test(word) || word.startsWith("--in-place"));
+  if (name === "cp")
+    targets.push(...operands.slice(-1));
+  if (name === "tee" || name === "mv" || name === "rm" || name === "truncate" || isInPlaceSed)
+    targets.push(...operands);
+  return targets.filter((target) => target.length > 0);
+}
+function shellPath(cwd, word) {
+  if (/[$`]/.test(word) || /^~[^/]/.test(word))
+    return null;
+  if (word === "~" || word.startsWith("~/"))
+    return join8(homedir2(), word.slice(1));
+  return resolve6(cwd, word);
+}
+function shellWritesIntoCheckpoints(command, cwd, repo) {
+  let directory = cwd;
+  const stack = [];
+  const mentionsCheckpoints = /checkpoints/i.test(command);
+  for (const segment of command.split(SHELL_SEGMENT)) {
+    const words = commandWords(segment);
+    const [name, ...rest] = words;
+    if (name === "cd" || name === "pushd") {
+      const operand = rest.find((word) => !word.startsWith("-") || word === "-");
+      if (name === "pushd")
+        stack.push(directory);
+      const next = operand === undefined ? homedir2() : operand === "-" || directory === null ? null : shellPath(directory, operand);
+      directory = next;
+      continue;
+    }
+    if (name === "popd") {
+      directory = stack.pop() ?? null;
+      continue;
+    }
+    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename2(name)) && landsInCheckpoints(repo, directory))
+      return true;
+    for (const target of writeTargets(segment, words)) {
+      const absolute = isAbsolute5(target) || target.startsWith("~") ? shellPath("/", target) : directory === null ? null : shellPath(directory, target);
+      if (absolute === null ? mentionsCheckpoints : landsInCheckpoints(repo, absolute))
+        return true;
+    }
   }
+  return false;
+}
+function checkBash2(payload, repoRoot) {
+  const command = payload.tool_input.command;
+  if (typeof command !== "string")
+    return;
+  const isNamedWrite = CHECKPOINT_TARGET.test(command) && BASH_WRITE.test(command);
+  const hostCwd = payload["cwd"];
+  const cwd = typeof hostCwd === "string" && hostCwd.length > 0 ? resolve6(repoRoot, hostCwd) : resolve6(repoRoot);
+  if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot)))
+    return;
   return deny2("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
 }
 function orchestratorTranscript(payload, slug) {
@@ -2351,7 +2514,7 @@ function runCheckpointGuard(payload, repoRoot) {
       return checkStop(payload, repoRoot);
     }
     if (payload.tool_name === "Bash")
-      return checkBash2(payload);
+      return checkBash2(payload, repoRoot);
     if (payload.tool_name === "Task" || payload.tool_name === "Agent") {
       return checkMarker(payload, repoRoot);
     }
@@ -2380,9 +2543,212 @@ function rewrite(command) {
 }
 
 // src/receipts.ts
-import { closeSync, openSync, writeFileSync as writeFileSync3, readFileSync as readFileSync10, readdirSync as readdirSync2, mkdirSync as mkdirSync3, existsSync as existsSync6, lstatSync as lstatSync3, renameSync, rmSync, unlinkSync as unlinkSync2 } from "fs";
-import { join as join9 } from "path";
-import { createHash as createHash4, randomUUID } from "crypto";
+import { closeSync as closeSync2, constants as constants2, openSync as openSync2, writeFileSync as writeFileSync3, readFileSync as readFileSync11, readdirSync as readdirSync2, mkdirSync as mkdirSync3, lstatSync as lstatSync4, renameSync, rmSync, unlinkSync as unlinkSync3 } from "fs";
+import { dirname as dirname4, join as join10 } from "path";
+import { createHash as createHash5, randomUUID } from "crypto";
+
+// src/shared-project-fs.ts
+import { createHash as createHash4 } from "crypto";
+import { closeSync, constants, fstatSync, ftruncateSync, lstatSync as lstatSync3, openSync, readFileSync as readFileSync10, readSync, realpathSync as realpathSync6, rmdirSync, unlinkSync as unlinkSync2, writeSync } from "fs";
+import { basename as basename3, dirname as dirname3, isAbsolute as isAbsolute6, join as join9, relative as relative3, resolve as resolve7, sep as sep4 } from "path";
+function safeProjectPath(root, rel) {
+  let canonicalRoot;
+  try {
+    canonicalRoot = realpathSync6(root);
+  } catch {
+    return null;
+  }
+  const absolute = resolve7(canonicalRoot, rel);
+  if (!pathIsWithin(canonicalRoot, absolute))
+    return null;
+  let current = canonicalRoot;
+  for (const component of relative3(canonicalRoot, absolute).split(sep4).filter(Boolean)) {
+    current = join9(current, component);
+    try {
+      if (lstatSync3(current).isSymbolicLink() || !pathIsWithin(canonicalRoot, realpathSync6(current)))
+        return null;
+    } catch {
+      return null;
+    }
+  }
+  return absolute;
+}
+function isFilesystemRefusal(error) {
+  return error instanceof Error && typeof error.code === "string";
+}
+function withSafeProjectParent(root, absolute, action) {
+  let canonicalRoot;
+  try {
+    canonicalRoot = realpathSync6(root);
+  } catch (error) {
+    if (isFilesystemRefusal(error))
+      return false;
+    throw error;
+  }
+  const parent = dirname3(absolute);
+  const previousDirectory = process.cwd();
+  let changedDirectory = false;
+  try {
+    try {
+      process.chdir(parent);
+      changedDirectory = true;
+    } catch {
+      return false;
+    }
+    let currentDirectory;
+    try {
+      currentDirectory = realpathSync6(".");
+    } catch {
+      return false;
+    }
+    if (currentDirectory !== parent || !pathIsWithin(canonicalRoot, currentDirectory))
+      return false;
+    try {
+      return action(basename3(absolute));
+    } catch (error) {
+      if (isFilesystemRefusal(error))
+        return false;
+      throw error;
+    }
+  } finally {
+    if (changedDirectory)
+      process.chdir(previousDirectory);
+  }
+}
+function sameFileVersion(left, right) {
+  return left.isFile() && right.isFile() && left.dev === right.dev && left.ino === right.ino && left.size === right.size && left.mtimeMs === right.mtimeMs && left.ctimeMs === right.ctimeMs;
+}
+function matchesProjectFile(stat, snapshot) {
+  return stat.isFile() && stat.dev === snapshot.dev && stat.ino === snapshot.ino && stat.size === snapshot.size && stat.mtimeMs === snapshot.mtimeMs && stat.ctimeMs === snapshot.ctimeMs;
+}
+function readProjectFileSnapshot(root, absolute) {
+  let snapshot = null;
+  const didRead = withSafeProjectParent(root, absolute, (name) => {
+    let descriptor = null;
+    try {
+      const entryBefore = lstatSync3(name);
+      if (entryBefore.isSymbolicLink() || !entryBefore.isFile())
+        return false;
+      descriptor = openSync(name, constants.O_RDONLY | constants.O_NOFOLLOW);
+      const opened = fstatSync(descriptor);
+      if (!sameFileVersion(entryBefore, opened))
+        return false;
+      const content = readFileSync10(descriptor);
+      const afterRead = fstatSync(descriptor);
+      const entryAfter = lstatSync3(name);
+      if (!sameFileVersion(opened, afterRead) || !sameFileVersion(afterRead, entryAfter) || content.length !== afterRead.size) {
+        return false;
+      }
+      snapshot = {
+        dev: afterRead.dev,
+        ino: afterRead.ino,
+        nlink: afterRead.nlink,
+        size: afterRead.size,
+        mtimeMs: afterRead.mtimeMs,
+        ctimeMs: afterRead.ctimeMs,
+        content,
+        hash: createHash4("sha256").update(content).digest("hex")
+      };
+      return true;
+    } catch {
+      return false;
+    } finally {
+      if (descriptor !== null)
+        closeSync(descriptor);
+    }
+  });
+  return didRead ? snapshot : null;
+}
+function fileMatchesSnapshotAtPath(name, descriptor, snapshot) {
+  try {
+    const beforeRead = fstatSync(descriptor);
+    if (!matchesProjectFile(beforeRead, snapshot))
+      return false;
+    const content = Buffer.alloc(snapshot.size);
+    let bytesRead = 0;
+    while (bytesRead < content.length) {
+      const count = readSync(descriptor, content, bytesRead, content.length - bytesRead, bytesRead);
+      if (count === 0)
+        return false;
+      bytesRead += count;
+    }
+    const afterRead = fstatSync(descriptor);
+    const currentEntry = lstatSync3(name);
+    return content.equals(snapshot.content) && matchesProjectFile(afterRead, snapshot) && sameFileVersion(beforeRead, afterRead) && sameFileVersion(afterRead, currentEntry);
+  } catch {
+    return false;
+  }
+}
+function openMatchingProjectFile(name, snapshot, flags) {
+  let descriptor = null;
+  let isValid = false;
+  try {
+    const entryBefore = lstatSync3(name);
+    if (!matchesProjectFile(entryBefore, snapshot))
+      return null;
+    descriptor = openSync(name, flags | constants.O_NOFOLLOW);
+    const opened = fstatSync(descriptor);
+    if (!sameFileVersion(entryBefore, opened) || !fileMatchesSnapshotAtPath(name, descriptor, snapshot))
+      return null;
+    isValid = true;
+    return descriptor;
+  } catch {
+    return null;
+  } finally {
+    if (descriptor !== null && !isValid)
+      closeSync(descriptor);
+  }
+}
+function unlinkProjectPath(root, absolute, snapshot) {
+  return withSafeProjectParent(root, absolute, (name) => {
+    const descriptor = openMatchingProjectFile(name, snapshot, constants.O_RDONLY);
+    if (descriptor === null)
+      return false;
+    try {
+      if (!fileMatchesSnapshotAtPath(name, descriptor, snapshot))
+        return false;
+      unlinkSync2(name);
+      return true;
+    } finally {
+      closeSync(descriptor);
+    }
+  });
+}
+function pathIsWithin(root, candidate) {
+  const pathFromRoot = relative3(root, candidate);
+  return pathFromRoot === "" || pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep4}`) && !isAbsolute6(pathFromRoot);
+}
+
+// src/receipts.ts
+var AI_DIR = ".ai-engineering";
+var RECEIPTS_REL = `${AI_DIR}/receipts`;
+function receiptsFolder(root) {
+  for (const rel of [AI_DIR, RECEIPTS_REL]) {
+    try {
+      lstatSync4(join10(root, rel));
+    } catch (error) {
+      if (error.code === "ENOENT")
+        return { kind: "absent" };
+      return { kind: "refused", rel };
+    }
+    if (safeProjectPath(root, rel) === null)
+      return { kind: "refused", rel };
+  }
+  const path = safeProjectPath(root, RECEIPTS_REL);
+  return path === null ? { kind: "refused", rel: RECEIPTS_REL } : { kind: "checked", path };
+}
+function ensureReceiptsFolder(root) {
+  const aiDir = safeProjectPath(root, AI_DIR);
+  if (aiDir === null)
+    return null;
+  try {
+    mkdirSync3(join10(aiDir, "receipts"));
+  } catch (error) {
+    if (error.code !== "EEXIST")
+      return null;
+  }
+  return safeProjectPath(root, RECEIPTS_REL);
+}
 function writeReceipt(receipt, root) {
   const dir = receiptsDir(root);
   if (!dir)
@@ -2394,9 +2760,11 @@ function writeReceipt(receipt, root) {
     ...receipt
   };
   try {
-    mkdirSync3(dir, { recursive: true });
+    const folder = ensureReceiptsFolder(dirname4(dirname4(dir)));
+    if (folder === null)
+      return null;
     const stamp = full.ts.replace(/[:.]/g, "-");
-    writeFileSync3(join9(dir, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full));
+    writeFileSync3(join10(folder, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
     return full;
   } catch {
     return null;
@@ -2452,19 +2820,21 @@ function upsertDenyLedger(dir, key) {
   if (!dir)
     return 0;
   try {
-    const file = join9(dir, "denies.json");
+    const folder = ensureReceiptsFolder(dirname4(dirname4(dir)));
+    if (folder === null)
+      return 0;
+    const file = join10(folder, "denies.json");
     let ledger = {};
     try {
-      ledger = JSON.parse(readFileSync10(file, "utf8"));
+      ledger = JSON.parse(readNoFollow(file));
     } catch {}
     const prior = typeof ledger[key]?.n === "number" && Number.isFinite(ledger[key].n) ? Math.max(0, Math.floor(ledger[key].n)) : 0;
     ledger[key] = { n: prior + 1, last_seen: new Date().toISOString() };
-    mkdirSync3(dir, { recursive: true });
     const fresh = Object.entries(ledger).filter(([, entry]) => typeof entry?.last_seen === "string" && Number.isFinite(entry?.n)).sort((a, b) => a[1].last_seen < b[1].last_seen ? 1 : -1).slice(0, LEDGER_CAP);
     const kept = {};
     for (const [k, entry] of fresh)
       kept[k] = { n: Math.max(1, Math.floor(entry.n)), last_seen: entry.last_seen };
-    writeFileSync3(file, JSON.stringify(kept));
+    writeNoFollow(file, JSON.stringify(kept));
     return prior;
   } catch {
     return 0;
@@ -2472,25 +2842,50 @@ function upsertDenyLedger(dir, key) {
 }
 function pruneDenyLedger(file, ttlDays = 90, cap = LEDGER_CAP, now = Date.now()) {
   try {
-    const ledger = JSON.parse(readFileSync10(file, "utf8"));
+    const ledger = JSON.parse(readNoFollow(file));
     const cutoff = new Date(now - ttlDays * 86400000).toISOString();
     const fresh = Object.entries(ledger).filter(([, entry]) => typeof entry?.last_seen === "string" && entry.last_seen >= cutoff).sort((a, b) => a[1].last_seen < b[1].last_seen ? 1 : -1).slice(0, cap);
     const kept = {};
     for (const [key, entry] of fresh)
       kept[key] = entry;
-    writeFileSync3(file, JSON.stringify(kept));
+    writeNoFollow(file, JSON.stringify(kept));
   } catch {}
 }
-var RECEIPTS_GC_BATCH = 500;
-function receiptsTtlDays(config) {
-  return Number(String(config["gc"]?.["receipts_ttl"] ?? "30d").replace("d", ""));
-}
-var RECEIPT_STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z/;
-var stampOf = (ms) => new Date(ms).toISOString().replace(/[:.]/g, "-");
-function mergeAndWriteSummary(receipts, collected, total, now) {
-  let prior = null;
+function readNoFollow(path) {
+  const descriptor = openSync2(path, constants2.O_RDONLY | constants2.O_NOFOLLOW);
   try {
-    prior = JSON.parse(readFileSync10(join9(receipts, "summary.json"), "utf8"));
+    return readFileSync11(descriptor, "utf8");
+  } finally {
+    closeSync2(descriptor);
+  }
+}
+function writeNoFollow(path, text) {
+  const descriptor = openSync2(path, constants2.O_WRONLY | constants2.O_CREAT | constants2.O_TRUNC | constants2.O_NOFOLLOW, 438);
+  try {
+    writeFileSync3(descriptor, text);
+  } finally {
+    closeSync2(descriptor);
+  }
+}
+var RECEIPTS_GC_BATCH = 500;
+var DEFAULT_RECEIPTS_TTL_DAYS = 30;
+var MIN_RECEIPTS_TTL_DAYS = 1;
+function receiptsTtlDays(config) {
+  const days = Number(String(config["gc"]?.["receipts_ttl"] ?? `${DEFAULT_RECEIPTS_TTL_DAYS}d`).replace("d", ""));
+  if (!Number.isFinite(days))
+    return DEFAULT_RECEIPTS_TTL_DAYS;
+  return Math.max(MIN_RECEIPTS_TTL_DAYS, days);
+}
+var RECEIPT_NAME = /^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)-[A-Za-z0-9_-]+-[0-9a-f]{8}\.json$/;
+var WRAP_LOG_NAME = /^[0-9a-f]{8}\.log$/;
+var stampOf = (ms) => new Date(ms).toISOString().replace(/[:.]/g, "-");
+function mergeAndWriteSummary(root, folder, collected, total, now) {
+  const summaryPath = join10(folder, "summary.json");
+  let prior = null;
+  const snapshot = readProjectFileSnapshot(root, summaryPath);
+  try {
+    if (snapshot !== null)
+      prior = JSON.parse(snapshot.content.toString("utf8"));
   } catch {}
   const summed = {};
   for (const [day, point] of Object.entries(collected.daily)) {
@@ -2498,36 +2893,51 @@ function mergeAndWriteSummary(receipts, collected, total, now) {
     summed[day] = { runs: count(before?.runs) + point.runs, denies: count(before?.denies) + point.denies };
   }
   const merged = { ...collected, total, daily: mergeDaily(prior?.daily, summed, 90, now), gc: new Date(now).toISOString() };
-  const staging = join9(receipts, `.summary-${randomUUID()}.tmp`);
-  try {
-    writeFileSync3(staging, JSON.stringify(merged));
-    renameSync(staging, join9(receipts, "summary.json"));
-  } finally {
-    rmSync(staging, { force: true });
-  }
-}
-function collectReceipts(receipts, ttlDays, maxDeletes, now) {
-  const cutStamp = stampOf(now - ttlDays * 86400000);
-  const stale = [];
-  let stored = 0;
-  for (const name of readdirSync2(receipts)) {
-    if (name === "summary.json" || name === "denies.json")
-      continue;
-    if (name.endsWith(".json"))
-      stored += 1;
-    const named = RECEIPT_STAMP.exec(name)?.[0];
-    if (named !== undefined) {
-      if (named < cutStamp)
-        stale.push({ stamp: named, name });
-      continue;
-    }
+  withSafeProjectParent(root, summaryPath, (name) => {
+    const staging = `.summary-${randomUUID()}.tmp`;
     try {
-      const { mtimeMs } = lstatSync3(join9(receipts, name));
-      const aged = stampOf(mtimeMs);
-      if (aged < cutStamp)
-        stale.push({ stamp: aged, name });
-    } catch {}
-  }
+      writeFileSync3(staging, JSON.stringify(merged), { flag: "wx" });
+      renameSync(staging, name);
+    } finally {
+      rmSync(staging, { force: true });
+    }
+    return true;
+  });
+}
+function listStaleReceipts(root, folder, cutStamp) {
+  let listing = null;
+  const isListed = withSafeProjectParent(root, join10(folder, "summary.json"), () => {
+    const stale = [];
+    let stored = 0;
+    for (const name of readdirSync2(".")) {
+      if (name === "summary.json" || name === "denies.json")
+        continue;
+      if (name.endsWith(".json"))
+        stored += 1;
+      const named = RECEIPT_NAME.exec(name)?.[1];
+      if (named !== undefined) {
+        if (named < cutStamp)
+          stale.push({ stamp: named, name });
+        continue;
+      }
+      if (!WRAP_LOG_NAME.test(name))
+        continue;
+      try {
+        const aged = stampOf(lstatSync4(name).mtimeMs);
+        if (aged < cutStamp)
+          stale.push({ stamp: aged, name });
+      } catch {}
+    }
+    listing = { stale, stored };
+    return true;
+  });
+  return isListed ? listing : null;
+}
+function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
+  const listing = listStaleReceipts(root, folder, stampOf(now - ttlDays * 86400000));
+  if (listing === null)
+    return null;
+  const { stale, stored } = listing;
   stale.sort((a, b) => a.stamp < b.stamp ? -1 : a.stamp > b.stamp ? 1 : 0);
   const limit = maxDeletes ?? stale.length;
   const tally = emptyTally();
@@ -2537,50 +2947,65 @@ function collectReceipts(receipts, ttlDays, maxDeletes, now) {
     if (deleted >= limit)
       break;
     consumed += 1;
-    const path = join9(receipts, entry.name);
+    const path = join10(folder, entry.name);
+    const snapshot = readProjectFileSnapshot(root, path);
+    if (snapshot === null || !unlinkProjectPath(root, path, snapshot))
+      continue;
+    deleted += 1;
+    if (!entry.name.endsWith(".json"))
+      continue;
     try {
-      if (!lstatSync3(path).isFile())
-        continue;
-      const text = readFileSync10(path, "utf8");
-      unlinkSync2(path);
-      deleted += 1;
-      try {
-        tallyReceipt(JSON.parse(text), tally);
-      } catch {}
+      tallyReceipt(JSON.parse(snapshot.content.toString("utf8")), tally);
     } catch {}
   }
   if (deleted > 0)
-    mergeAndWriteSummary(receipts, summaryOf(tally), stored, now);
-  const ledger = join9(receipts, "denies.json");
-  if (existsSync6(ledger))
-    pruneDenyLedger(ledger, 90, LEDGER_CAP, now);
+    mergeAndWriteSummary(root, folder, summaryOf(tally), stored, now);
+  withSafeProjectParent(root, join10(folder, "denies.json"), (name) => {
+    pruneDenyLedger(name, 90, LEDGER_CAP, now);
+    return true;
+  });
   return { deleted, hasBacklog: consumed < stale.length };
 }
 function retainReceipts(root, now = Date.now()) {
   const idle = { ran: false, deleted: 0 };
-  const today = new Date(now).toISOString().slice(0, 10);
-  const cache = join9(root, ".ai-engineering", "cache");
-  const claim = join9(cache, `receipts-retention-${today}`);
-  try {
-    mkdirSync3(cache, { recursive: true });
-    closeSync(openSync(claim, "wx"));
-  } catch {
+  const today = `receipts-retention-${new Date(now).toISOString().slice(0, 10)}`;
+  const aiDir = safeProjectPath(root, AI_DIR);
+  if (aiDir === null)
     return idle;
+  try {
+    mkdirSync3(join10(aiDir, "cache"));
+  } catch (error) {
+    if (error.code !== "EEXIST")
+      return idle;
   }
+  const cache = safeProjectPath(root, `${AI_DIR}/cache`);
+  if (cache === null)
+    return idle;
+  const claim = join10(cache, today);
+  const isClaimed = withSafeProjectParent(root, claim, (name) => {
+    closeSync2(openSync2(name, "wx"));
+    return true;
+  });
+  if (!isClaimed)
+    return idle;
   let pass = { deleted: 0, hasBacklog: false };
   try {
-    const receipts = join9(root, ".ai-engineering", "receipts");
-    if (existsSync6(receipts))
-      pass = collectReceipts(receipts, receiptsTtlDays(loadConfig(root)), RECEIPTS_GC_BATCH, now);
-  } catch {}
-  try {
-    if (pass.hasBacklog)
-      rmSync(claim, { force: true });
-    for (const name of readdirSync2(cache)) {
-      if (name.startsWith("receipts-retention-") && name !== `receipts-retention-${today}`)
-        rmSync(join9(cache, name), { force: true });
+    const folder = receiptsFolder(root);
+    if (folder.kind === "checked") {
+      pass = collectReceipts(root, folder.path, receiptsTtlDays(loadConfig(root)), RECEIPTS_GC_BATCH, now) ?? pass;
     }
   } catch {}
+  withSafeProjectParent(root, claim, (name) => {
+    for (const entry of readdirSync2(".")) {
+      const isOldClaim = entry.startsWith("receipts-retention-") && entry !== name;
+      if (!isOldClaim && !(entry === name && pass.hasBacklog))
+        continue;
+      try {
+        unlinkSync3(entry);
+      } catch {}
+    }
+    return true;
+  });
   return { ran: true, deleted: pass.deleted };
 }
 
@@ -2611,7 +3036,7 @@ function selected(event, tool) {
 }
 function cachedVerdict(file, fp) {
   try {
-    const book = JSON.parse(readFileSync11(file, "utf8"));
+    const book = JSON.parse(readFileSync12(file, "utf8"));
     const entry = book[fp];
     if (!entry || typeof entry.deny !== "boolean")
       return null;
@@ -2626,9 +3051,9 @@ function rememberVerdict(file, fp, verdict) {
   try {
     let book = {};
     try {
-      book = JSON.parse(readFileSync11(file, "utf8"));
+      book = JSON.parse(readFileSync12(file, "utf8"));
     } catch {}
-    mkdirSync4(dirname3(file), { recursive: true });
+    mkdirSync4(dirname5(file), { recursive: true });
     book[fp] = verdict;
     const trimmed = {};
     for (const key of Object.keys(book).slice(-500))
@@ -2672,7 +3097,7 @@ function runChain(rawPayload, event, options = {}) {
   const overrides = readOverrides(root);
   const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
   const dedup = deduplicable(payload) && event === "PreToolUse";
-  const cacheFile = join10(root, ".ai-engineering", "cache", "verdicts", `${createHash5("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
+  const cacheFile = join11(root, ".ai-engineering", "cache", "verdicts", `${createHash6("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {
