@@ -1826,3 +1826,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Refuse linked or escaping receipts folders, delete only writer-produced names bound to the checked folder, clamp TTL to one day, and deny checkpoint writes by resolved identity, including after `cd`.
 - **Lesson:** An automatic cleanup on repo-supplied paths must prove the folder is the repo's own before it lists anything, and a write guard must judge where a path lands, not how it is spelled.
 - **Tags:** behavior, security, symlink, cleanup, receipts, guard
+
+### L250 · 2026-10-30 · floating-core #24 · review
+- **Failure:** Receipt retention changed the host process's working directory on every tool call and could throw when that directory was deleted; the checkpoint guard blocked `json.tool <checkpoint> > /dev/null`.
+- **Root cause:** Retention reused the directory-changing helper built for CLI commands, its daily claim sat outside the `try`, and the guard treated any `>` as a write.
+- **Fix:** Retention uses a path-checked helper that never changes directory and returns "did nothing" on any error; the guard judges each command part and ignores output sent to `/dev/null` or another stream.
+- **Lesson:** Code the chain runs inside a host must never change that host's working directory, and a write guard judges where output lands, not whether `>` appears.
+- **Tags:** review, chain, host, guard, receipts

@@ -6,7 +6,7 @@ import { closeSync, constants, openSync, writeFileSync, readFileSync, readdirSyn
 import { dirname, join } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { loadConfig, printable, receiptsDir, type Config } from "./env.ts";
-import { readProjectFileSnapshot, safeProjectPath, unlinkProjectPath, withSafeProjectParent } from "./shared-project-fs.ts";
+import { readProjectFileSnapshot, safeProjectPath, unlinkProjectPath, withCheckedProjectParent } from "./shared-project-fs.ts";
 
 export type Receipt = {
   schema: "urn:ai-eng:receipt:2";
@@ -342,7 +342,7 @@ const stampOf = (ms: number): string => new Date(ms).toISOString().replace(/[:.]
 function mergeAndWriteSummary(root: string, folder: string, collected: ReceiptSummary, total: number, now: number): void {
   const summaryPath = join(folder, "summary.json");
   let prior: { daily?: Record<string, DailyPoint> } | null = null;
-  const snapshot = readProjectFileSnapshot(root, summaryPath);
+  const snapshot = readProjectFileSnapshot(root, summaryPath, withCheckedProjectParent);
   try {
     if (snapshot !== null) prior = JSON.parse(snapshot.content.toString("utf8")) as { daily?: Record<string, DailyPoint> };
   } catch {
@@ -354,12 +354,12 @@ function mergeAndWriteSummary(root: string, folder: string, collected: ReceiptSu
     summed[day] = { runs: count(before?.runs) + point.runs, denies: count(before?.denies) + point.denies };
   }
   const merged = { ...collected, total, daily: mergeDaily(prior?.daily, summed, 90, now), gc: new Date(now).toISOString() };
-  withSafeProjectParent(root, summaryPath, (name) => {
+  withCheckedProjectParent(root, summaryPath, (path) => {
     // Not a .json name, and never a receipt stamp: no reader counts it, no sweep ages it as a receipt.
-    const staging = `.summary-${randomUUID()}.tmp`;
+    const staging = join(dirname(path), `.summary-${randomUUID()}.tmp`);
     try {
       writeFileSync(staging, JSON.stringify(merged), { flag: "wx" });
-      renameSync(staging, name);
+      renameSync(staging, path);
     } finally {
       rmSync(staging, { force: true });
     }
@@ -372,15 +372,15 @@ function mergeAndWriteSummary(root: string, folder: string, collected: ReceiptSu
 type ReceiptsPass = { deleted: number; hasBacklog: boolean };
 type StaleReceipt = { stamp: string; name: string };
 
-/** The listing behind a pass, taken from inside the checked folder: the receipts older
+/** The listing behind a pass, taken from the checked folder: the receipts older
  *  than `cutStamp` and how many receipts the store holds. Only names a receipt writer
  *  produces are candidates; anything else in the folder is never aged or deleted. */
 function listStaleReceipts(root: string, folder: string, cutStamp: string): { stale: StaleReceipt[]; stored: number } | null {
   let listing: { stale: StaleReceipt[]; stored: number } | null = null;
-  const isListed = withSafeProjectParent(root, join(folder, "summary.json"), () => {
+  const isListed = withCheckedProjectParent(root, join(folder, "summary.json"), () => {
     const stale: StaleReceipt[] = [];
     let stored = 0;
-    for (const name of readdirSync(".")) {
+    for (const name of readdirSync(folder)) {
       // The gc's own memory, not its trash: summary.json (the series) and denies.json
       // (the ledger) are pruned by their contents, never swept by age.
       if (name === "summary.json" || name === "denies.json") continue;
@@ -392,7 +392,7 @@ function listStaleReceipts(root: string, folder: string, cutStamp: string): { st
       }
       if (!WRAP_LOG_NAME.test(name)) continue;
       try {
-        const aged = stampOf(lstatSync(name).mtimeMs);
+        const aged = stampOf(lstatSync(join(folder, name)).mtimeMs);
         if (aged < cutStamp) stale.push({ stamp: aged, name });
       } catch {
         /* gone between the listing and the stat: nothing left to collect */
@@ -422,11 +422,11 @@ function collectReceipts(root: string, folder: string, ttlDays: number, maxDelet
     if (deleted >= limit) break;
     consumed += 1;
     const path = join(folder, entry.name);
-    // Regular files only, read and removed from inside the checked folder while still the
-    // exact file read: a link, a directory (audit run-1 F4) or a file swapped after the
-    // listing is kept.
-    const snapshot = readProjectFileSnapshot(root, path);
-    if (snapshot === null || !unlinkProjectPath(root, path, snapshot)) continue;
+    // Regular files only, read and removed through the folder re-checked before each step
+    // while still the exact file read: a link, a directory (audit run-1 F4) or a file
+    // swapped after the listing is kept.
+    const snapshot = readProjectFileSnapshot(root, path, withCheckedProjectParent);
+    if (snapshot === null || !unlinkProjectPath(root, path, snapshot, withCheckedProjectParent)) continue;
     deleted += 1;
     // Tallied only once the unlink succeeded, so two passes never count one receipt twice.
     if (!entry.name.endsWith(".json")) continue;
@@ -437,8 +437,8 @@ function collectReceipts(root: string, folder: string, ttlDays: number, maxDelet
     }
   }
   if (deleted > 0) mergeAndWriteSummary(root, folder, summaryOf(tally), stored, now);
-  withSafeProjectParent(root, join(folder, "denies.json"), (name) => {
-    pruneDenyLedger(name, 90, LEDGER_CAP, now);
+  withCheckedProjectParent(root, join(folder, "denies.json"), (path) => {
+    pruneDenyLedger(path, 90, LEDGER_CAP, now);
     return true;
   });
   return { deleted, hasBacklog: consumed < stale.length };
@@ -462,8 +462,17 @@ export function gcReceipts(root: string, ttlDays: number, options: { maxDeletes?
 /** Automatic retention, run by the chain after it writes its receipt: at most
  *  RECEIPTS_GC_BATCH deletions per pass, and once the backlog is clear, at most one
  *  pass per calendar day (UTC) per repo. A receipts folder that is not the repo's own is
- *  skipped. Never throws — housekeeping must not change a verdict. */
+ *  skipped. It runs inside the host's process, so it never changes the working directory,
+ *  and it never throws — housekeeping must not change a verdict. */
 export function retainReceipts(root: string, now = Date.now()): { ran: boolean; deleted: number } {
+  try {
+    return runRetention(root, now);
+  } catch {
+    return { ran: false, deleted: 0 };
+  }
+}
+
+function runRetention(root: string, now: number): { ran: boolean; deleted: number } {
   const idle = { ran: false, deleted: 0 };
   const today = `receipts-retention-${new Date(now).toISOString().slice(0, 10)}`;
   // The claim lives in the gitignored cache, not the receipts folder, so no reader of
@@ -480,8 +489,8 @@ export function retainReceipts(root: string, now = Date.now()): { ran: boolean; 
   const claim = join(cache, today);
   // Exclusive create: of the parallel tool calls that open a day, exactly one runs
   // the pass. Already claimed, or an unwritable cache — either way, skip.
-  const isClaimed = withSafeProjectParent(root, claim, (name) => {
-    closeSync(openSync(name, "wx"));
+  const isClaimed = withCheckedProjectParent(root, claim, (path) => {
+    closeSync(openSync(path, "wx"));
     return true;
   });
   if (!isClaimed) return idle;
@@ -497,17 +506,20 @@ export function retainReceipts(root: string, now = Date.now()): { ran: boolean; 
   // A backlog bigger than one batch drains over the next calls; the day is only
   // done once a pass leaves nothing stale behind. A claim that cannot be released
   // only delays the next batch to tomorrow.
-  withSafeProjectParent(root, claim, (name) => {
-    for (const entry of readdirSync(".")) {
-      const isOldClaim = entry.startsWith("receipts-retention-") && entry !== name;
-      if (!isOldClaim && !(entry === name && pass.hasBacklog)) continue;
-      try {
-        unlinkSync(entry);
-      } catch {
-        /* not a file, or already gone */
-      }
-    }
-    return true;
-  });
+  let entries: string[] = [];
+  try {
+    entries = readdirSync(cache);
+  } catch {
+    /* an unreadable cache keeps its claims; the next day tries again */
+  }
+  for (const entry of entries) {
+    const isOldClaim = entry.startsWith("receipts-retention-") && entry !== today;
+    if (!isOldClaim && !(entry === today && pass.hasBacklog)) continue;
+    // The cache is re-checked before each unlink: a folder swapped for a link meanwhile is left alone.
+    withCheckedProjectParent(root, join(cache, entry), (path) => {
+      unlinkSync(path);
+      return true;
+    });
+  }
   return { ran: true, deleted: pass.deleted };
 }

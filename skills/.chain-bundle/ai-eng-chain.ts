@@ -1967,6 +1967,7 @@ var CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 var MAX_LINK_HOPS = 40;
 var SHELL_SEGMENT = /&&|\|\||;|\n|(?<!>)\|&?|(?<![<>])&(?!>)/;
 var REDIRECTION = /(?:^|[^<>&\d])(?:\d*|&)>{1,2}\|?\s*([^\s;&|<>()]+)/g;
+var DISCARD_REDIRECTION = /(?:\d*|&)>{1,2}\|?\s*(['"]?)\/dev\/null\1(?![^\s;&|<>()])|\d*>&\d+(?![^\s;&|<>()])/g;
 var COMMAND_PREFIXES = new Set(["sudo", "command", "builtin", "exec", "env", "time", "nohup", "nice"]);
 var OPAQUE_WRITERS = new Set(["python", "python3", "node", "perl", "ruby", "bun", "deno", "jq", "awk"]);
 var MAX_STOP_BLOCKS = 3;
@@ -2338,6 +2339,16 @@ function writeTargets(segment, words) {
     targets.push(...operands);
   return targets.filter((target) => target.length > 0);
 }
+function isJsonToolRead(words) {
+  const [name, flag, module, ...rest] = words;
+  return /^(?:.*\/)?python3?$/.test(name ?? "") && flag === "-m" && module === "json.tool" && rest.filter((word) => !word.startsWith("-")).length <= 1;
+}
+function hasWriteForm(segment) {
+  const kept = segment.replace(DISCARD_REDIRECTION, " ");
+  if (isJsonToolRead(commandWords(kept)))
+    return kept.includes(">");
+  return BASH_WRITE.test(kept);
+}
 function shellPath(cwd, word) {
   if (/[$`]/.test(word) || /^~[^/]/.test(word))
     return null;
@@ -2364,7 +2375,8 @@ function shellWritesIntoCheckpoints(command, cwd, repo) {
       directory = stack.pop() ?? null;
       continue;
     }
-    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename2(name)) && landsInCheckpoints(repo, directory))
+    const isOpaqueWriter = name !== undefined && OPAQUE_WRITERS.has(basename2(name)) && !isJsonToolRead(commandWords(segment.replace(DISCARD_REDIRECTION, " ")));
+    if (directory !== null && isOpaqueWriter && landsInCheckpoints(repo, directory))
       return true;
     for (const target of writeTargets(segment, words)) {
       const absolute = isAbsolute5(target) || target.startsWith("~") ? shellPath("/", target) : directory === null ? null : shellPath(directory, target);
@@ -2378,7 +2390,7 @@ function checkBash2(payload, repoRoot) {
   const command = payload.tool_input.command;
   if (typeof command !== "string")
     return;
-  const isNamedWrite = CHECKPOINT_TARGET.test(command) && BASH_WRITE.test(command);
+  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasWriteForm);
   const hostCwd = payload["cwd"];
   const cwd = typeof hostCwd === "string" && hostCwd.length > 0 ? resolve6(repoRoot, hostCwd) : resolve6(repoRoot);
   if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot)))
@@ -2615,15 +2627,28 @@ function withSafeProjectParent(root, absolute, action) {
       process.chdir(previousDirectory);
   }
 }
+function withCheckedProjectParent(root, absolute, action) {
+  try {
+    const canonicalRoot = realpathSync6(root);
+    const parent = dirname3(absolute);
+    if (!lstatSync3(parent).isDirectory() || realpathSync6(parent) !== parent || !pathIsWithin(canonicalRoot, parent))
+      return false;
+    return action(absolute);
+  } catch (error) {
+    if (isFilesystemRefusal(error))
+      return false;
+    throw error;
+  }
+}
 function sameFileVersion(left, right) {
   return left.isFile() && right.isFile() && left.dev === right.dev && left.ino === right.ino && left.size === right.size && left.mtimeMs === right.mtimeMs && left.ctimeMs === right.ctimeMs;
 }
 function matchesProjectFile(stat, snapshot) {
   return stat.isFile() && stat.dev === snapshot.dev && stat.ino === snapshot.ino && stat.size === snapshot.size && stat.mtimeMs === snapshot.mtimeMs && stat.ctimeMs === snapshot.ctimeMs;
 }
-function readProjectFileSnapshot(root, absolute) {
+function readProjectFileSnapshot(root, absolute, bindParent = withSafeProjectParent) {
   let snapshot = null;
-  const didRead = withSafeProjectParent(root, absolute, (name) => {
+  const didRead = bindParent(root, absolute, (name) => {
     let descriptor = null;
     try {
       const entryBefore = lstatSync3(name);
@@ -2699,8 +2724,8 @@ function openMatchingProjectFile(name, snapshot, flags) {
       closeSync(descriptor);
   }
 }
-function unlinkProjectPath(root, absolute, snapshot) {
-  return withSafeProjectParent(root, absolute, (name) => {
+function unlinkProjectPath(root, absolute, snapshot, bindParent = withSafeProjectParent) {
+  return bindParent(root, absolute, (name) => {
     const descriptor = openMatchingProjectFile(name, snapshot, constants.O_RDONLY);
     if (descriptor === null)
       return false;
@@ -2882,7 +2907,7 @@ var stampOf = (ms) => new Date(ms).toISOString().replace(/[:.]/g, "-");
 function mergeAndWriteSummary(root, folder, collected, total, now) {
   const summaryPath = join10(folder, "summary.json");
   let prior = null;
-  const snapshot = readProjectFileSnapshot(root, summaryPath);
+  const snapshot = readProjectFileSnapshot(root, summaryPath, withCheckedProjectParent);
   try {
     if (snapshot !== null)
       prior = JSON.parse(snapshot.content.toString("utf8"));
@@ -2893,11 +2918,11 @@ function mergeAndWriteSummary(root, folder, collected, total, now) {
     summed[day] = { runs: count(before?.runs) + point.runs, denies: count(before?.denies) + point.denies };
   }
   const merged = { ...collected, total, daily: mergeDaily(prior?.daily, summed, 90, now), gc: new Date(now).toISOString() };
-  withSafeProjectParent(root, summaryPath, (name) => {
-    const staging = `.summary-${randomUUID()}.tmp`;
+  withCheckedProjectParent(root, summaryPath, (path) => {
+    const staging = join10(dirname4(path), `.summary-${randomUUID()}.tmp`);
     try {
       writeFileSync3(staging, JSON.stringify(merged), { flag: "wx" });
-      renameSync(staging, name);
+      renameSync(staging, path);
     } finally {
       rmSync(staging, { force: true });
     }
@@ -2906,10 +2931,10 @@ function mergeAndWriteSummary(root, folder, collected, total, now) {
 }
 function listStaleReceipts(root, folder, cutStamp) {
   let listing = null;
-  const isListed = withSafeProjectParent(root, join10(folder, "summary.json"), () => {
+  const isListed = withCheckedProjectParent(root, join10(folder, "summary.json"), () => {
     const stale = [];
     let stored = 0;
-    for (const name of readdirSync2(".")) {
+    for (const name of readdirSync2(folder)) {
       if (name === "summary.json" || name === "denies.json")
         continue;
       if (name.endsWith(".json"))
@@ -2923,7 +2948,7 @@ function listStaleReceipts(root, folder, cutStamp) {
       if (!WRAP_LOG_NAME.test(name))
         continue;
       try {
-        const aged = stampOf(lstatSync4(name).mtimeMs);
+        const aged = stampOf(lstatSync4(join10(folder, name)).mtimeMs);
         if (aged < cutStamp)
           stale.push({ stamp: aged, name });
       } catch {}
@@ -2948,8 +2973,8 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
       break;
     consumed += 1;
     const path = join10(folder, entry.name);
-    const snapshot = readProjectFileSnapshot(root, path);
-    if (snapshot === null || !unlinkProjectPath(root, path, snapshot))
+    const snapshot = readProjectFileSnapshot(root, path, withCheckedProjectParent);
+    if (snapshot === null || !unlinkProjectPath(root, path, snapshot, withCheckedProjectParent))
       continue;
     deleted += 1;
     if (!entry.name.endsWith(".json"))
@@ -2960,13 +2985,20 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
   }
   if (deleted > 0)
     mergeAndWriteSummary(root, folder, summaryOf(tally), stored, now);
-  withSafeProjectParent(root, join10(folder, "denies.json"), (name) => {
-    pruneDenyLedger(name, 90, LEDGER_CAP, now);
+  withCheckedProjectParent(root, join10(folder, "denies.json"), (path) => {
+    pruneDenyLedger(path, 90, LEDGER_CAP, now);
     return true;
   });
   return { deleted, hasBacklog: consumed < stale.length };
 }
 function retainReceipts(root, now = Date.now()) {
+  try {
+    return runRetention(root, now);
+  } catch {
+    return { ran: false, deleted: 0 };
+  }
+}
+function runRetention(root, now) {
   const idle = { ran: false, deleted: 0 };
   const today = `receipts-retention-${new Date(now).toISOString().slice(0, 10)}`;
   const aiDir = safeProjectPath(root, AI_DIR);
@@ -2982,8 +3014,8 @@ function retainReceipts(root, now = Date.now()) {
   if (cache === null)
     return idle;
   const claim = join10(cache, today);
-  const isClaimed = withSafeProjectParent(root, claim, (name) => {
-    closeSync2(openSync2(name, "wx"));
+  const isClaimed = withCheckedProjectParent(root, claim, (path) => {
+    closeSync2(openSync2(path, "wx"));
     return true;
   });
   if (!isClaimed)
@@ -2995,17 +3027,19 @@ function retainReceipts(root, now = Date.now()) {
       pass = collectReceipts(root, folder.path, receiptsTtlDays(loadConfig(root)), RECEIPTS_GC_BATCH, now) ?? pass;
     }
   } catch {}
-  withSafeProjectParent(root, claim, (name) => {
-    for (const entry of readdirSync2(".")) {
-      const isOldClaim = entry.startsWith("receipts-retention-") && entry !== name;
-      if (!isOldClaim && !(entry === name && pass.hasBacklog))
-        continue;
-      try {
-        unlinkSync3(entry);
-      } catch {}
-    }
-    return true;
-  });
+  let entries = [];
+  try {
+    entries = readdirSync2(cache);
+  } catch {}
+  for (const entry of entries) {
+    const isOldClaim = entry.startsWith("receipts-retention-") && entry !== today;
+    if (!isOldClaim && !(entry === today && pass.hasBacklog))
+      continue;
+    withCheckedProjectParent(root, join10(cache, entry), (path) => {
+      unlinkSync3(path);
+      return true;
+    });
+  }
   return { ran: true, deleted: pass.deleted };
 }
 

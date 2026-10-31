@@ -37,7 +37,9 @@ export function isFilesystemRefusal(error: unknown): error is NodeJS.ErrnoExcept
 
 /** Runs `action` from inside the checked parent. A filesystem refusal anywhere in it is a
  *  returned `false`, never a throw: every caller already keeps the file and says so, and the
- *  command around it still has to finish its other work and write its lock. */
+ *  command around it still has to finish its other work and write its lock. It changes the
+ *  process's working directory, so only the CLI commands (each its own process) use it;
+ *  anything the chain reaches uses withCheckedProjectParent. */
 export function withSafeProjectParent(root: string, absolute: string, action: (name: string) => boolean): boolean {
   let canonicalRoot: string;
   try {
@@ -75,6 +77,28 @@ export function withSafeProjectParent(root: string, absolute: string, action: (n
   }
 }
 
+/** How a guarded operation reaches the folder it acts in: it checks that folder, then runs
+ *  `action` on the name to act through. */
+export type ParentBinding = (root: string, absolute: string, action: (name: string) => boolean) => boolean;
+
+/** withSafeProjectParent without the chdir, for code that runs inside a host's process: the
+ *  chain is imported by the OMP/OpenCode plugins, and their working directory is not ours to
+ *  move. The parent is proven a real folder inside the root right before `action` runs on
+ *  `absolute`; Node has no *at() calls, so the window between that check and the action is
+ *  the accepted pathname TOCTOU, and each action re-checks the file's own identity before it
+ *  acts. A filesystem refusal is a returned `false`, never a throw. */
+export function withCheckedProjectParent(root: string, absolute: string, action: (path: string) => boolean): boolean {
+  try {
+    const canonicalRoot = realpathSync(root);
+    const parent = dirname(absolute);
+    if (!lstatSync(parent).isDirectory() || realpathSync(parent) !== parent || !pathIsWithin(canonicalRoot, parent)) return false;
+    return action(absolute);
+  } catch (error) {
+    if (isFilesystemRefusal(error)) return false;
+    throw error;
+  }
+}
+
 export type ProjectFileSnapshot = Pick<Stats, "dev" | "ino" | "nlink" | "size" | "mtimeMs" | "ctimeMs"> & {
   content: Buffer;
   hash: string;
@@ -98,9 +122,9 @@ function matchesProjectFile(stat: Stats, snapshot: ProjectFileSnapshot): boolean
     && stat.ctimeMs === snapshot.ctimeMs;
 }
 
-export function readProjectFileSnapshot(root: string, absolute: string): ProjectFileSnapshot | null {
+export function readProjectFileSnapshot(root: string, absolute: string, bindParent: ParentBinding = withSafeProjectParent): ProjectFileSnapshot | null {
   let snapshot: ProjectFileSnapshot | null = null;
-  const didRead = withSafeProjectParent(root, absolute, (name) => {
+  const didRead = bindParent(root, absolute, (name) => {
     let descriptor: number | null = null;
     try {
       const entryBefore = lstatSync(name);
@@ -174,8 +198,8 @@ function openMatchingProjectFile(name: string, snapshot: ProjectFileSnapshot, fl
   }
 }
 
-export function unlinkProjectPath(root: string, absolute: string, snapshot: ProjectFileSnapshot): boolean {
-  return withSafeProjectParent(root, absolute, (name) => {
+export function unlinkProjectPath(root: string, absolute: string, snapshot: ProjectFileSnapshot, bindParent: ParentBinding = withSafeProjectParent): boolean {
+  return bindParent(root, absolute, (name) => {
     const descriptor = openMatchingProjectFile(name, snapshot, constants.O_RDONLY);
     if (descriptor === null) return false;
     try {

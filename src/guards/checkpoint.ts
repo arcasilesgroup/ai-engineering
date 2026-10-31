@@ -44,6 +44,8 @@ const MAX_LINK_HOPS = 40;
 const SHELL_SEGMENT = /&&|\|\||;|\n|(?<!>)\|&?|(?<![<>])&(?!>)/;
 // A redirection target: `>f`, `> f`, `>>f`, `2>f`, `&>f`, `>|f`; never an fd copy like `>&1`.
 const REDIRECTION = /(?:^|[^<>&\d])(?:\d*|&)>{1,2}\|?\s*([^\s;&|<>()]+)/g;
+// Redirections that write no file: into /dev/null, or onto another descriptor (`2>&1`, `>&2`).
+const DISCARD_REDIRECTION = /(?:\d*|&)>{1,2}\|?\s*(['"]?)\/dev\/null\1(?![^\s;&|<>()])|\d*>&\d+(?![^\s;&|<>()])/g;
 const COMMAND_PREFIXES = new Set(["sudo", "command", "builtin", "exec", "env", "time", "nohup", "nice"]);
 // Writers whose target cannot be read off the command line.
 const OPAQUE_WRITERS = new Set(["python", "python3", "node", "perl", "ruby", "bun", "deno", "jq", "awk"]);
@@ -455,6 +457,20 @@ function writeTargets(segment: string, words: readonly string[]): string[] {
   return targets.filter((target) => target.length > 0);
 }
 
+/** `python3 -m json.tool [file]` only prints; a second operand is the file it would write. */
+function isJsonToolRead(words: readonly string[]): boolean {
+  const [name, flag, module, ...rest] = words;
+  return /^(?:.*\/)?python3?$/.test(name ?? "") && flag === "-m" && module === "json.tool" && rest.filter((word) => !word.startsWith("-")).length <= 1;
+}
+
+/** Whether one segment of a command that names a checkpoint has a write form. Output thrown
+ *  away (`> /dev/null`, `2>&1`, `>&2`) writes no file, and json.tool on one file only reads it. */
+function hasWriteForm(segment: string): boolean {
+  const kept = segment.replace(DISCARD_REDIRECTION, " ");
+  if (isJsonToolRead(commandWords(kept))) return kept.includes(">");
+  return BASH_WRITE.test(kept);
+}
+
 /** A path as the shell would resolve it from `cwd`, or null when it hangs off a variable,
  *  a substitution or `~user` that the guard cannot know. */
 function shellPath(cwd: string, word: string): string | null {
@@ -486,7 +502,8 @@ function shellWritesIntoCheckpoints(command: string, cwd: string, repo: RealRepo
       directory = stack.pop() ?? null;
       continue;
     }
-    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename(name)) && landsInCheckpoints(repo, directory)) return true;
+    const isOpaqueWriter = name !== undefined && OPAQUE_WRITERS.has(basename(name)) && !isJsonToolRead(commandWords(segment.replace(DISCARD_REDIRECTION, " ")));
+    if (directory !== null && isOpaqueWriter && landsInCheckpoints(repo, directory)) return true;
     for (const target of writeTargets(segment, words)) {
       const absolute = isAbsolute(target) || target.startsWith("~") ? shellPath("/", target) : directory === null ? null : shellPath(directory, target);
       if (absolute === null ? mentionsCheckpoints : landsInCheckpoints(repo, absolute)) return true;
@@ -498,7 +515,7 @@ function shellWritesIntoCheckpoints(command: string, cwd: string, repo: RealRepo
 function checkBash(payload: Payload, repoRoot: string): CheckpointGuardResult {
   const command = payload.tool_input.command;
   if (typeof command !== "string") return undefined;
-  const isNamedWrite = CHECKPOINT_TARGET.test(command) && BASH_WRITE.test(command);
+  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasWriteForm);
   const hostCwd = payload["cwd"];
   const cwd = typeof hostCwd === "string" && hostCwd.length > 0 ? resolve(repoRoot, hostCwd) : resolve(repoRoot);
   if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot))) return undefined;

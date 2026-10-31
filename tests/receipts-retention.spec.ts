@@ -20,7 +20,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import * as receiptsModule from "../src/receipts.ts";
@@ -242,8 +242,9 @@ describe("retainReceipts — bounded in work, not only in deletions", () => {
       touched = spies.flatMap((spy) => spy.mock.calls.map((call) => String((call as unknown[])[0])));
       for (const spy of spies) spy.mockRestore();
     }
-    // The pass acts from inside the checked folder, so its calls name a receipt by its bare name.
-    const isInFolder = (path: string): boolean => path.startsWith(dir) || !path.includes("/");
+    // The pass names a receipt by its path in the checked (real) folder.
+    const folders = [dir, realpathSync(dir)];
+    const isInFolder = (path: string): boolean => folders.some((folder) => path.startsWith(folder));
     const receiptsTouched = [...new Set(touched.filter((path) => isInFolder(path) && isReceiptName(basename(path))).map((path) => basename(path)))];
 
     expect(result).toEqual({ ran: true, deleted: stale.length });
@@ -410,5 +411,55 @@ describe("retention never reaches outside the repository", () => {
 
     expect(retainReceipts(root, NOW)).toEqual({ ran: true, deleted: stale.length });
     expect(receiptNames(root)).toEqual([...young].sort());
+  });
+});
+
+describe("retainReceipts — runs inside the host's process", () => {
+  test("a pass never changes the process's working directory", () => {
+    const root = governedRepo("7d");
+    seedMany(root, 5, NOW - 10 * DAY);
+    const cwdBefore = process.cwd();
+    const chdir = spyOn(process, "chdir");
+    let result: Retention;
+    let chdirCalls: number;
+    try {
+      result = retainReceipts(root, NOW);
+      chdirCalls = chdir.mock.calls.length;
+    } finally {
+      chdir.mockRestore();
+    }
+
+    expect(result).toEqual({ ran: true, deleted: 5 });
+    expect(receiptNames(root)).toEqual([]);
+    expect(chdirCalls).toBe(0);
+    expect(process.cwd()).toBe(cwdBefore);
+  });
+
+  test("a host whose working directory was deleted still gets its pass, and no throw", () => {
+    const root = governedRepo("7d");
+    seedMany(root, 3, NOW - 10 * DAY);
+    const gone = mkdtempSync(join(tmpdir(), "ai-eng-retention-gone-cwd-"));
+    process.chdir(gone);
+    rmSync(gone, { recursive: true, force: true });
+
+    expect(retainReceipts(root, NOW)).toEqual({ ran: true, deleted: 3 });
+    expect(receiptNames(root)).toEqual([]);
+  });
+
+  test("an unexpected error while claiming the day is swallowed: no verdict changes, nothing is deleted", () => {
+    const root = governedRepo("7d");
+    const stale = seedMany(root, 2, NOW - 10 * DAY);
+    const open = spyOn(fs, "openSync").mockImplementation(() => {
+      throw new Error("host filesystem bug");
+    });
+    let result: Retention;
+    try {
+      result = retainReceipts(root, NOW);
+    } finally {
+      open.mockRestore();
+    }
+
+    expect(result).toEqual({ ran: false, deleted: 0 });
+    expect(receiptNames(root)).toEqual([...stale].sort());
   });
 });

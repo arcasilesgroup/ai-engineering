@@ -1038,6 +1038,10 @@ describe("checkpoint guard G7 — Bash writes to checkpoint JSON", () => {
     ["truncate", `truncate -s 0 ${relativePlan}`],
     ["Git-prefixed compound copy", `git status --short && cp source.json ${relativePlan}`],
     ["Git-prefixed compound redirection", `git status --short; printf x > ${relativePlan}`],
+    ["a redirection into the plan beside a discarded stderr", `printf x 2>/dev/null > ${relativePlan}`],
+    ["json.tool writing its second operand", `python3 -m json.tool source.json ${relativePlan}`],
+    ["json.tool redirected into the plan", `python3 -m json.tool source.json > ${relativePlan}`],
+    ["a discarded validation, then a write", `python3 -m json.tool ${relativePlan} > /dev/null && python3 -c "open('${relativePlan}','w')"`],
   ] as const;
 
   test.each(deniedCommands)("denies %s", (_name, command) => {
@@ -1048,6 +1052,10 @@ describe("checkpoint guard G7 — Bash writes to checkpoint JSON", () => {
     ["git add", `git add ${relativePlan}`],
     ["read-only git status", `git status --short -- ${relativePlan}`],
     ["cat read", `cat ${relativePlan}`],
+    ["the planner's json.tool validation", `python3 -m json.tool ${relativePlan} > /dev/null`],
+    ["git diff with stderr folded into a pipe", `git diff -- ${relativePlan} 2>&1 | head`],
+    ["a read with all output discarded", `cat ${relativePlan} &>/dev/null`],
+    ["a read echoed to stderr", `cat ${relativePlan} >&2`],
   ])("allows %s", (_name, command) => {
     withFixture((fixture) => {
       writePlan(fixture, plan(fixture.slug));
@@ -1081,6 +1089,7 @@ describe("checkpoint guard G7b — Bash writes that reach checkpoint JSON by ano
     ["pushd into the parent", `pushd .ai-engineering/workflow && printf x > checkpoints/demo.json && popd`],
     ["two cd steps and an opaque writer", `cd .ai-engineering && cd workflow/checkpoints && python3 -c "open('demo.json','w')"`],
     ["a cd the guard cannot follow, then a write naming checkpoints", `cd "$PLANS" && printf x > checkpoints/demo.json`],
+    ["json.tool writing a second operand after cd", `cd ${folder} && python3 -m json.tool other.json demo.json`],
   ] as const;
 
   test.each(deniedCommands)("denies %s", (_name, command) => {
@@ -1095,6 +1104,7 @@ describe("checkpoint guard G7b — Bash writes that reach checkpoint JSON by ano
     ["git add after cd", `cd ${folder} && git add -- demo.json`],
     ["git diff after cd", `cd ${folder} && git diff -- demo.json 2>&1 | cat`],
     ["cat after cd", `cd ${folder} && cat demo.json`],
+    ["json.tool validation after cd", `cd ${folder} && python3 -m json.tool demo.json > /dev/null`],
     ["a copy out of the folder", `cd ${folder} && cat demo.json > ../../../plan-copy.json`],
     ["a write after leaving with popd", `pushd ${folder} && cat demo.json && popd && printf x > notes.txt`],
   ])("allows %s", (_name, command) => {
