@@ -5,7 +5,19 @@
 - Floating core keeps the guard floor and orchestration ceremony in core, using the
   user's existing Git, host, and forge for the rest of the workflow.
 - `ai-eng init` installs every skill and its resources by default, with no pack prompt
-  or selection; a fresh init writes no `[canon].packs`, and a legacy value is ignored.
+  or selection; a fresh init writes no `[canon].packs`, and a legacy value is ignored
+  with its config bytes preserved.
+- Cleanup and uninstall delete only files ai-eng can prove it wrote, by exact bytes or a
+  recorded hash; edited, user-added, linked and unproven files are kept and named. A
+  settings file that cannot be changed safely is refused with a warning and left as it was.
+- `ai-eng config` changes only `surfaces.enabled` and keeps every other byte, comments and
+  line endings included; a layout it cannot edit safely is refused with the file unchanged.
+- The checkpoint viewer opens the new current checkpoint during live updates and keeps its
+  findings visible, linked from the status banner.
+- The pre-push hook denies a direct push to the detected base, and denies when no base can
+  be detected.
+- Worktree merge and review commits use your own Git identity, and
+  `ai-eng worktree rm --force` no longer needs a detected base.
 
 ### 3.0 migration guide (unreleased)
 

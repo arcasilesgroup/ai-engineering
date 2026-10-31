@@ -355,7 +355,6 @@ It never pushes.
 `request-changes` accepts only
 the full SHA of the current pending, checkpoint-only app-review commit and commits a
 lifecycle-only return to implementation; a stale SHA leaves review state untouched.
-Carry any hint that remains in scope into the approved checkpoint's `files` list.
 Worktrees live under `[git].worktrees_dir` when configured, or beside the repository in
 `<repo>.worktrees` by default. `ai-eng worktree list` reports only that local root and
 prints the exact path to use when resuming a registered worktree.
