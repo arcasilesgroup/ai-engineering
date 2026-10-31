@@ -589,4 +589,52 @@ describe("the rewrite never turns a governed repo ungoverned (§09.2 regression)
     expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "cursor"]\n\n[notices]\nenabled = false\n');
     expect(isGoverned(repo)).toBe(true);
   });
+
+  test("a multi-line enabled list is replaced whole, leaving no orphaned lines", async () => {
+    const { repo } = governedRepo('[surfaces]\nenabled = [\n  "claude-code", # the main one\n]\n\n[models]\ndecide = "x"\n');
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "cursor"]\n\n[models]\ndecide = "x"\n');
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  test("a [ surfaces ] header written with spaces is the same table, rewritten in place", async () => {
+    const { repo } = governedRepo('[ surfaces ]\nenabled = ["claude-code"]\n');
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe('[ surfaces ]\nenabled = ["claude-code", "cursor"]\n');
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  // Layouts the line edit cannot rewrite: refused before any write, file byte-identical.
+  test.each([
+    ["a dotted surfaces.enabled key", 'surfaces.enabled = ["claude-code"]\n\n[models]\ndecide = "x"\n'],
+    ["an inline surfaces table", 'surfaces = { enabled = ["claude-code"] }\n\n[models]\ndecide = "x"\n'],
+  ])("%s is refused and left byte-identical", async (_layout, source) => {
+    const { repo } = governedRepo(source);
+    const { result, out } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(2);
+    expect(out).toContain("✗  .ai-engineering/config.toml is laid out in a way this command cannot rewrite");
+    expect(out).toContain('Edit it by hand: under [surfaces], set enabled = ["claude-code", "cursor"]');
+    expect(out).toContain("└  Nothing changed.");
+    expect(configOf(repo)).toBe(source);
+    expect(isGoverned(repo)).toBe(true);
+    expect(existsSync(join(repo, ".cursor"))).toBe(false);
+  });
+
+  test("a refused --remove leaves the surface's carrier in place too", async () => {
+    const source = 'surfaces = { enabled = ["claude-code", "cursor"] }\n';
+    const { repo } = governedRepo(source);
+    mkdirSync(join(repo, ".cursor"), { recursive: true });
+    writeFileSync(join(repo, ".cursor", "hooks.json"), '{ "hooks": {} }\n');
+
+    const { result } = await runConfig(repo, { remove: "cursor" });
+
+    expect(result).toBe(2);
+    expect(configOf(repo)).toBe(source);
+    expect(readFileSync(join(repo, ".cursor", "hooks.json"), "utf8")).toBe('{ "hooks": {} }\n');
+  });
 });

@@ -1787,3 +1787,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Create missing files with `wx`, refresh only bytes ai-eng rendered (current or previous), replace only the exact link ai-eng writes, and keep and name everything else.
 - **Lesson:** Install and cleanup must share one ownership rule; when a finding names one write path, sweep every sibling write in the same pass.
 - **Tags:** review, ownership, symlink, install, carriers
+
+### L245 · 2026-10-30 · floating-core #21 · review
+- **Failure:** `ai-eng config` produced unparseable config.toml for multi-line lists, dotted keys, inline tables and `[ surfaces ]` headers, and `--remove` deleted carriers before the config write; the README claim about config bytes was false and omitted `adapt apply`.
+- **Root cause:** The writer edited lines and wrote the result without parsing it, and destructive steps ran before the write succeeded.
+- **Fix:** Parse original and result, write only when the sole difference is `surfaces.enabled`, otherwise refuse with the file byte-identical and exit 2; remove carriers only after a successful write; README names every command that rewrites config.toml.
+- **Lesson:** Judge a text edit of a config file by parsing the result before writing, and run destructive steps only after that write succeeds.
+- **Tags:** review, configuration, toml, fail-closed

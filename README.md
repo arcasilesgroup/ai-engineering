@@ -302,7 +302,11 @@ and `ai-eng doctor` leave `.ai-engineering/config.toml` byte-identical, and a le
 value never makes any command rewrite it. `ai-eng config`, and re-running `ai-eng init` on a
 governed repo and choosing "config", rewrite only the `enabled` key under `[surfaces]`
 (adding that table when it is missing) and leave every other section, `[canon]` included,
-as you wrote it.
+as you wrote it. When the file declares surfaces in a layout that command cannot rewrite
+that way, such as a dotted `surfaces.enabled` key or an inline `surfaces = { … }` table, it
+writes nothing, exits non-zero and asks you to edit `enabled` under `[surfaces]` by hand.
+`ai-eng adapt apply` replaces the whole of `.ai-engineering/config.toml`, `[canon]`
+included, with the text in the proposal you approved, when that proposal carries the file.
 
 ## Surfaces
 

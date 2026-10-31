@@ -15,20 +15,22 @@ import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
 
 type ResolveResult =
-  | { kind: "continue"; current: string[]; addedNow: string | null }
+  | { kind: "continue"; current: string[]; addedNow: string | null; removing: string[] }
   | { kind: "exit"; code: number };
 
 /** Resolve the new surface list by mutating branch. The two early exits — no adapter
  *  on `--add`, and a cancelled picker — are folded into the result so the caller can
- *  return their exit code without duplicating the message or the side-effect order. */
+ *  return their exit code without duplicating the message or the side-effect order.
+ *  Nothing is removed here: the caller takes carriers out only once the declaration
+ *  has been written, so a refused rewrite leaves the repo exactly as it was. */
 async function resolveSurfaces(
   input: NodeJS.ReadStream | PassThrough,
   flags: { add?: string; remove?: string },
-  root: string,
   surfacesBefore: string[],
 ): Promise<ResolveResult> {
   let addedNow: string | null = null;
   let current = surfacesBefore;
+  let removing: string[] = [];
   if (flags.add) {
     flags.add = canonicalSurfaceId(flags.add);
     // Same rule as the picker: no adapter, no declaration.
@@ -44,13 +46,14 @@ async function resolveSurfaces(
   } else if (flags.remove) {
     flags.remove = canonicalSurfaceId(flags.remove);
     current = current.filter((id) => id !== flags.remove);
-    removeSurfaceFiles(root, flags.remove);
+    removing = [flags.remove];
   } else {
-    const picked = await pickSurfaces(input, current, root);
+    const picked = await pickSurfaces(input, current);
     if (picked === null) return { kind: "exit", code: 0 };
+    removing = current.filter((id) => !picked.includes(id));
     current = picked;
   }
-  return { kind: "continue", current, addedNow };
+  return { kind: "continue", current, addedNow, removing };
 }
 
 /** The interactive multiselect (no flags). Returns null when the user cancels
@@ -58,7 +61,6 @@ async function resolveSurfaces(
 async function pickSurfaces(
   input: NodeJS.ReadStream | PassThrough,
   current: string[],
-  root: string,
 ): Promise<string[] | null> {
   const picked = await multiselect({
     message: SURFACE_PICK_MESSAGE,
@@ -71,8 +73,6 @@ async function pickSurfaces(
     ui.cancelled("Nothing changed.");
     return null;
   }
-  const removed = current.filter((id) => !picked.includes(id));
-  for (const id of removed) removeSurfaceFiles(root, id);
   return picked;
 }
 
@@ -84,13 +84,40 @@ function deltaRows(added: string[], removedSurfaces: string[]): ui.Row[] {
   ];
 }
 
-function writeConfigSurfaces(configPath: string, surfaces: string[]): void {
+/** Write the new surface list, or refuse and write nothing. Returns whether it wrote. */
+function writeConfigSurfaces(configPath: string, surfaces: string[]): boolean {
   // The config file holds what cannot be deduced: rewrite only the surfaces key,
   // in place — the comments and the [models]/[guards]/[gc] blocks the template
   // ships are the user's, and a re-serialize would delete them.
   const raw = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
   const list = `[${surfaces.map((id) => `"${id}"`).join(", ")}]`;
-  writeFileSync(configPath, withSurfacesEnabled(raw, list));
+  const rewritten = withSurfacesEnabled(raw, list);
+  if (!isOnlySurfacesChange(raw, rewritten, surfaces)) {
+    ui.fail(`.ai-engineering/config.toml is laid out in a way this command cannot rewrite without changing more than [surfaces].enabled.`);
+    ui.info(`Edit it by hand: under [surfaces], set enabled = ${list}`);
+    ui.end("Nothing changed.");
+    return false;
+  }
+  writeFileSync(configPath, rewritten);
+  return true;
+}
+
+/** The line edit below knows one layout family. Anything else — a dotted
+ *  `surfaces.enabled`, an inline `surfaces = { … }`, a quoted key — would come out
+ *  unparseable or saying something else, and an unparseable config.toml turns
+ *  governance off. So the result is judged by what it means, not by its text: it must
+ *  parse, and differ from the original only in `[surfaces].enabled`. A file that does
+ *  not parse cannot be judged, so it is refused too. */
+function isOnlySurfacesChange(raw: string, rewritten: string, surfaces: string[]): boolean {
+  try {
+    const before = Bun.TOML.parse(raw) as Record<string, unknown>;
+    const after = Bun.TOML.parse(rewritten);
+    const table = before["surfaces"] ?? {};
+    if (typeof table !== "object" || table === null || Array.isArray(table)) return false;
+    return Bun.deepEquals(after, { ...before, surfaces: { ...table, enabled: surfaces } });
+  } catch {
+    return false;
+  }
 }
 
 function installNewSurfaces(root: string, current: string[], before: string[], addedNow: string | null): void {
@@ -125,10 +152,11 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   }
   // Governed means the declaration parsed, so enabledSurfaces() cannot be guessing here.
   const surfacesBefore = enabledSurfaces();
-  const resolved = await resolveSurfaces(input, flags, root, surfacesBefore);
+  const resolved = await resolveSurfaces(input, flags, surfacesBefore);
   if (resolved.kind === "exit") return resolved.code;
-  const { current, addedNow } = resolved;
-  writeConfigSurfaces(join(root, ".ai-engineering", "config.toml"), current);
+  const { current, addedNow, removing } = resolved;
+  if (!writeConfigSurfaces(join(root, ".ai-engineering", "config.toml"), current)) return 2;
+  for (const id of removing) removeSurfaceFiles(root, id);
   // The canon is refreshed quietly; only what it could not do is said, as a warning.
   const canonWarnings = installCanon(VERSION, changedCanonSkills(home())).filter((line) => line.startsWith("⚠ ")).map((line) => installLineRow(line));
   if (canonWarnings.length > 0) ui.section("Global canon", canonWarnings);
@@ -187,13 +215,13 @@ function removeSurfaceFiles(root: string, id: string): void {
  *  same name), and a file with no table gets one, at the end. */
 function withSurfacesEnabled(raw: string, list: string): string {
   const lines = raw.split("\n");
-  const header = lines.findIndex((line) => /^\s*\[surfaces\]\s*(?:#.*)?$/.test(line));
+  const header = lines.findIndex((line) => /^\s*\[\s*surfaces\s*\]\s*(?:#.*)?$/.test(line));
   if (header >= 0) {
     for (let i = header + 1; i < lines.length; i += 1) {
       const line = lines[i] ?? "";
       if (/^\s*\[/.test(line)) break; // the next table: `enabled` belongs to it, not to us
       if (/^\s*enabled\s*=/.test(line)) {
-        lines[i] = `enabled = ${list}`;
+        lines.splice(i, arrayEndLine(lines, i) - i + 1, `enabled = ${list}`);
         return lines.join("\n");
       }
     }
@@ -202,6 +230,31 @@ function withSurfacesEnabled(raw: string, list: string): string {
   }
   const body = raw.trim() === "" ? "" : `${raw.trimEnd()}\n\n`;
   return `${body}[surfaces]\nenabled = ${list}\n`;
+}
+
+/** The line on which the value that starts on line `start` closes: a TOML array may
+ *  span lines, and replacing only its first line would orphan the rest. Brackets
+ *  inside strings and comments do not count. */
+function arrayEndLine(lines: string[], start: number): number {
+  let depth = 0;
+  for (let i = start; i < lines.length; i += 1) {
+    const line = lines[i] ?? "";
+    let quote: string | null = null;
+    for (let j = i === start ? line.indexOf("=") + 1 : 0; j < line.length; j += 1) {
+      const char = line[j];
+      if (quote !== null) {
+        if (char === "\\" && quote === '"') j += 1;
+        else if (char === quote) quote = null;
+        continue;
+      }
+      if (char === "#") break;
+      if (char === '"' || char === "'") quote = char;
+      else if (char === "[") depth += 1;
+      else if (char === "]") depth -= 1;
+    }
+    if (depth <= 0) return i;
+  }
+  return lines.length - 1;
 }
 
 /** Write the carriers a surface needs, wherever it reads them. A `config --add` that
