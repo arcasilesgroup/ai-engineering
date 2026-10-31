@@ -1042,6 +1042,9 @@ describe("checkpoint guard G7 — Bash writes to checkpoint JSON", () => {
     ["json.tool writing its second operand", `python3 -m json.tool source.json ${relativePlan}`],
     ["json.tool redirected into the plan", `python3 -m json.tool source.json > ${relativePlan}`],
     ["a discarded validation, then a write", `python3 -m json.tool ${relativePlan} > /dev/null && python3 -c "open('${relativePlan}','w')"`],
+    ["json.tool copying stdin into the plan", `echo '{}' | python3 -m json.tool - ${relativePlan}`],
+    ["json.tool with an option copying stdin into the plan", `echo '{}' | /usr/bin/python3 -m json.tool --sort-keys - ${relativePlan}`],
+    ["json.tool writing the plan after --", `python3 -m json.tool -- source.json ${relativePlan}`],
   ] as const;
 
   test.each(deniedCommands)("denies %s", (_name, command) => {
@@ -1053,6 +1056,7 @@ describe("checkpoint guard G7 — Bash writes to checkpoint JSON", () => {
     ["read-only git status", `git status --short -- ${relativePlan}`],
     ["cat read", `cat ${relativePlan}`],
     ["the planner's json.tool validation", `python3 -m json.tool ${relativePlan} > /dev/null`],
+    ["json.tool validation with options", `python3 -m json.tool --sort-keys --indent 2 ${relativePlan} > /dev/null`],
     ["git diff with stderr folded into a pipe", `git diff -- ${relativePlan} 2>&1 | head`],
     ["a read with all output discarded", `cat ${relativePlan} &>/dev/null`],
     ["a read echoed to stderr", `cat ${relativePlan} >&2`],
@@ -1111,6 +1115,16 @@ describe("checkpoint guard G7b — Bash writes that reach checkpoint JSON by ano
     withFixture((fixture) => {
       writePlan(fixture, plan(fixture.slug));
       expectAllowed(run(fixture, tool("Bash", { command })));
+    });
+  });
+
+  test("json.tool run from inside the folder may validate the plan but not copy stdin into it", () => {
+    withFixture((fixture) => {
+      writePlan(fixture, plan(fixture.slug));
+      const fromFolder = (command: string) => ({ ...tool("Bash", { command }), cwd: join(fixture.root, folder) });
+      expectDenied(run(fixture, fromFolder("echo '{}' | python3 -m json.tool - demo.json")), "shell gate");
+      expectDenied(run(fixture, fromFolder("echo '{}' | python3 -m json.tool -")), "shell gate");
+      expectAllowed(run(fixture, fromFolder("python3 -m json.tool --sort-keys demo.json > /dev/null")));
     });
   });
 

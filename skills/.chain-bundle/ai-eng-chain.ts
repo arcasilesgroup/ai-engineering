@@ -2339,13 +2339,33 @@ function writeTargets(segment, words) {
     targets.push(...operands);
   return targets.filter((target) => target.length > 0);
 }
-function isJsonToolRead(words) {
+function jsonToolOperands(words) {
   const [name, flag, module, ...rest] = words;
-  return /^(?:.*\/)?python3?$/.test(name ?? "") && flag === "-m" && module === "json.tool" && rest.filter((word) => !word.startsWith("-")).length <= 1;
+  if (!/^(?:.*\/)?python3?$/.test(name ?? "") || flag !== "-m" || module !== "json.tool")
+    return null;
+  const operands = [];
+  for (let index = 0;index < rest.length; index += 1) {
+    const word = rest[index];
+    if (word === "--")
+      return [...operands, ...rest.slice(index + 1)];
+    const isOption = word.length > 1 && word.startsWith("-");
+    if (!isOption)
+      operands.push(word);
+    if (word === "--indent")
+      index += 1;
+  }
+  return operands;
+}
+function isJsonToolRead(words, isCheckpointFile) {
+  const operands = jsonToolOperands(words);
+  if (operands?.length !== 1)
+    return false;
+  const operand = operands[0];
+  return operand !== "-" && isCheckpointFile(operand);
 }
 function hasWriteForm(segment) {
   const kept = segment.replace(DISCARD_REDIRECTION, " ");
-  if (isJsonToolRead(commandWords(kept)))
+  if (isJsonToolRead(commandWords(kept), (operand) => CHECKPOINT_TARGET.test(operand)))
     return kept.includes(">");
   return BASH_WRITE.test(kept);
 }
@@ -2375,9 +2395,15 @@ function shellWritesIntoCheckpoints(command, cwd, repo) {
       directory = stack.pop() ?? null;
       continue;
     }
-    const isOpaqueWriter = name !== undefined && OPAQUE_WRITERS.has(basename2(name)) && !isJsonToolRead(commandWords(segment.replace(DISCARD_REDIRECTION, " ")));
-    if (directory !== null && isOpaqueWriter && landsInCheckpoints(repo, directory))
-      return true;
+    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename2(name)) && landsInCheckpoints(repo, directory)) {
+      const here = directory;
+      const isCheckpointFile = (operand) => {
+        const absolute = shellPath(here, operand);
+        return absolute !== null && landsInCheckpoints(repo, absolute);
+      };
+      if (!isJsonToolRead(commandWords(segment.replace(DISCARD_REDIRECTION, " ")), isCheckpointFile))
+        return true;
+    }
     for (const target of writeTargets(segment, words)) {
       const absolute = isAbsolute5(target) || target.startsWith("~") ? shellPath("/", target) : directory === null ? null : shellPath(directory, target);
       if (absolute === null ? mentionsCheckpoints : landsInCheckpoints(repo, absolute))

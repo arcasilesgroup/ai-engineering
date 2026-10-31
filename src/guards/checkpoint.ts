@@ -457,17 +457,37 @@ function writeTargets(segment: string, words: readonly string[]): string[] {
   return targets.filter((target) => target.length > 0);
 }
 
-/** `python3 -m json.tool [file]` only prints; a second operand is the file it would write. */
-function isJsonToolRead(words: readonly string[]): boolean {
+/** The operands of `python3 -m json.tool …`, or null for any other command. A bare `-`
+ *  is an operand (stdin), everything after `--` is an operand, and `--indent` takes the
+ *  next word as its value. */
+function jsonToolOperands(words: readonly string[]): string[] | null {
   const [name, flag, module, ...rest] = words;
-  return /^(?:.*\/)?python3?$/.test(name ?? "") && flag === "-m" && module === "json.tool" && rest.filter((word) => !word.startsWith("-")).length <= 1;
+  if (!/^(?:.*\/)?python3?$/.test(name ?? "") || flag !== "-m" || module !== "json.tool") return null;
+  const operands: string[] = [];
+  for (let index = 0; index < rest.length; index += 1) {
+    const word = rest[index]!;
+    if (word === "--") return [...operands, ...rest.slice(index + 1)];
+    const isOption = word.length > 1 && word.startsWith("-");
+    if (!isOption) operands.push(word);
+    if (word === "--indent") index += 1;
+  }
+  return operands;
+}
+
+/** json.tool only reads when its one operand is the checkpoint file. A second operand is
+ *  the file it writes, and `-` makes it read stdin, so the operand after `-` is written. */
+function isJsonToolRead(words: readonly string[], isCheckpointFile: (operand: string) => boolean): boolean {
+  const operands = jsonToolOperands(words);
+  if (operands?.length !== 1) return false;
+  const operand = operands[0]!;
+  return operand !== "-" && isCheckpointFile(operand);
 }
 
 /** Whether one segment of a command that names a checkpoint has a write form. Output thrown
- *  away (`> /dev/null`, `2>&1`, `>&2`) writes no file, and json.tool on one file only reads it. */
+ *  away (`> /dev/null`, `2>&1`, `>&2`) writes no file, and json.tool on the checkpoint only reads it. */
 function hasWriteForm(segment: string): boolean {
   const kept = segment.replace(DISCARD_REDIRECTION, " ");
-  if (isJsonToolRead(commandWords(kept))) return kept.includes(">");
+  if (isJsonToolRead(commandWords(kept), (operand) => CHECKPOINT_TARGET.test(operand))) return kept.includes(">");
   return BASH_WRITE.test(kept);
 }
 
@@ -502,8 +522,14 @@ function shellWritesIntoCheckpoints(command: string, cwd: string, repo: RealRepo
       directory = stack.pop() ?? null;
       continue;
     }
-    const isOpaqueWriter = name !== undefined && OPAQUE_WRITERS.has(basename(name)) && !isJsonToolRead(commandWords(segment.replace(DISCARD_REDIRECTION, " ")));
-    if (directory !== null && isOpaqueWriter && landsInCheckpoints(repo, directory)) return true;
+    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename(name)) && landsInCheckpoints(repo, directory)) {
+      const here = directory;
+      const isCheckpointFile = (operand: string): boolean => {
+        const absolute = shellPath(here, operand);
+        return absolute !== null && landsInCheckpoints(repo, absolute);
+      };
+      if (!isJsonToolRead(commandWords(segment.replace(DISCARD_REDIRECTION, " ")), isCheckpointFile)) return true;
+    }
     for (const target of writeTargets(segment, words)) {
       const absolute = isAbsolute(target) || target.startsWith("~") ? shellPath("/", target) : directory === null ? null : shellPath(directory, target);
       if (absolute === null ? mentionsCheckpoints : landsInCheckpoints(repo, absolute)) return true;

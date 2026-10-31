@@ -1833,3 +1833,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Retention uses a path-checked helper that never changes directory and returns "did nothing" on any error; the guard judges each command part and ignores output sent to `/dev/null` or another stream.
 - **Lesson:** Code the chain runs inside a host must never change that host's working directory, and a write guard judges where output lands, not whether `>` appears.
 - **Tags:** review, chain, host, guard, receipts
+
+### L251 · 2026-10-30 · floating-core #24 · review
+- **Failure:** The `python3 -m json.tool` read exception let `json.tool - <checkpoint>` through, which overwrote the checkpoint from stdin.
+- **Root cause:** The exception treated every word starting with `-` as an option, so the stdin operand `-` was skipped and the real output operand looked like the only input.
+- **Fix:** Count `-` as an operand, honour `--`, skip option values, and allow json.tool only with exactly one operand that is the checkpoint file.
+- **Lesson:** An exception to a write guard must parse the tool's real argument syntax; `-` is an operand, not an option.
+- **Tags:** review, guard, security, parsing
