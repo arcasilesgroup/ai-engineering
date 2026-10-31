@@ -1587,9 +1587,10 @@
         "bun test tests/doctor-command.spec.ts",
         "bun run build"
       ],
+      "changed_files": ["src/commands/config.ts", "src/commands/doctor.ts", "tests/config-command.spec.ts", "tests/doctor-command.spec.ts"],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["Gate 1 at d4befb6e: config 46, doctor 40, arch 54; typecheck, lint, build green; full suite 1,657 pass / 16 skip / 0 fail."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
