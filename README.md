@@ -296,8 +296,13 @@ Attribution for every upstream skill travels with the payload: [NOTICE.md](NOTIC
 Every installable skill and its resources have one source under `skills/<skill-name>/`.
 `ai-eng init` and `ai-eng update` install every skill and its resources by default, with no
 pack selection; they write skill files but never execute them. A fresh init writes no
-`[canon].packs`. Existing `[canon].packs` entries are legacy settings: init and update
-ignore their values and never rewrite your config.
+`[canon].packs`. Existing `[canon].packs` entries are legacy settings: every command ignores
+their value, whether the key is absent, empty, partial or something else. `ai-eng update`
+and `ai-eng doctor` leave `.ai-engineering/config.toml` byte-identical, and a legacy packs
+value never makes any command rewrite it. `ai-eng config`, and re-running `ai-eng init` on a
+governed repo and choosing "config", rewrite only the `enabled` key under `[surfaces]`
+(adding that table when it is missing) and leave every other section, `[canon]` included,
+as you wrote it.
 
 ## Surfaces
 
