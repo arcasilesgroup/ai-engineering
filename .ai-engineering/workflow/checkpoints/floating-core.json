@@ -1629,9 +1629,10 @@
         "bun run typecheck",
         "bun test tests/arch.spec.ts"
       ],
+      "changed_files": ["tests/viewer-audit.spec.ts"],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["Gate 1 at 4d588f67: viewer-audit 29, arch 54; build, lint, typecheck green; full suite 1,668 pass / 16 skip / 0 fail. The viewer already implemented the behavior; four mutation probes each fail the matching new test; template and installed copy are byte-identical and embedded assets current."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": { "status": "pending", "attempts": 0, "findings": [] }
       },
