@@ -4,6 +4,8 @@
 
 - Floating core keeps the guard floor and orchestration ceremony in core, using the
   user's existing Git, host, and forge for the rest of the workflow.
+- `ai-eng init` installs every skill and its resources by default, with no pack prompt
+  or selection; a fresh init writes no `[canon].packs`, and a legacy value is ignored.
 
 ### 3.0 migration guide (unreleased)
 

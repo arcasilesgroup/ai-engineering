@@ -15,7 +15,7 @@ import { scriptedInput } from "../ui.ts";
 import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, type Surface } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, changedCanonSkills, type CanonDrift } from "../embed.ts";
-import { canonicalSurfaceId, home, isGoverned } from "../env.ts";
+import { canonicalSurfaceId, home } from "../env.ts";
 import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";

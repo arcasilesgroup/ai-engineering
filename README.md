@@ -294,9 +294,10 @@ Attribution for every upstream skill travels with the payload: [NOTICE.md](NOTIC
 ## Skills
 
 Every installable skill and its resources have one source under `skills/<skill-name>/`.
-`ai-eng init` and `ai-eng update` install the complete inventory without a picker; they
-write skill files but never execute them. Existing `[canon].packs` entries are legacy
-settings: update preserves their config bytes and ignores their values.
+`ai-eng init` and `ai-eng update` install every skill and its resources by default, with no
+pack selection; they write skill files but never execute them. A fresh init writes no
+`[canon].packs`. Existing `[canon].packs` entries are legacy settings: init and update
+ignore their values and never rewrite your config.
 
 ## Surfaces
 

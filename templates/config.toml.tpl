@@ -1,6 +1,8 @@
 # .ai-engineering/config.toml — what CANNOT be deduced from code (§08).
 # This file is the right place for your thresholds and pins: edit it by hand or
 # run `ai-eng config` for surfaces. The chain reads it; it never edits it.
+# Skills: every shipped skill and its resources install by default; there is no
+# pack selection. A legacy [canon].packs value is ignored and never rewritten.
 
 [surfaces]
 # Which agent surfaces (IDEs/CLIs) this project is governed on. Every client uses
