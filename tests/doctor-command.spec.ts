@@ -417,6 +417,25 @@ describe("doctor · the canon and the lock", () => {
     expect(row(run, "canon")).toContain("✓");
   });
 
+  // A legacy pack list once narrowed what doctor looked at: a skill outside it could be
+  // gone and the canon row still read green. Every shape the old key took must be ignored.
+  test.each([
+    ["absent", ""],
+    ["empty", "\n[canon]\npacks = []\n"],
+    ["partial", '\n[canon]\npacks = ["ai-debug"]\n'],
+    ["an unknown pack name", '\n[canon]\npacks = ["no-such-pack"]\n'],
+    ["not a list", '\n[canon]\npacks = "everything"\n'],
+  ])("a skill missing outside the legacy pack list (%s) is still reported missing", async (_shape, legacy) => {
+    const { home } = healthy(`${GOVERNED}${legacy}`);
+    rmSync(join(home, "skills", "ai-verify", "SKILL.md"));
+
+    const run = await doctor();
+    const expectedFiles = canonSkills().size;
+    expect(detail(run, "canon")).toBe(`${expectedFiles - 1}/${expectedFiles} files verified · 0 drift · 1 missing`);
+    expect(row(run, "canon")).toContain("▲");
+    expect(row(run, "config.toml")).toContain("✓");
+  });
+
   test("assets: a matching lock is ok, a stale one names both versions, no lock and no version warn", async () => {
     const { root } = sandbox();
     const lock = join(root, ".ai-engineering", "ai-eng.lock");

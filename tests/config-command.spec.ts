@@ -154,6 +154,27 @@ describe("ai-eng config · --add and --remove", () => {
     expectFullCanonInstalled(home);
   });
 
+  // Every byte outside the one list survives, whatever shape the legacy pack key had.
+  test.each([
+    ["no legacy pack block", ""],
+    ["an empty pack list", "[canon]\npacks = []\n\n"],
+    ["a commented multi-line pack list", '[canon] # legacy, ignored now\n# packs once filtered the canon\npacks = [\n  "triage", # keep\n  "debug",\n]\n\n'],
+    ["a pack value that is not a list", '[canon]\npacks = "everything"\n\n'],
+  ])("--add then --remove change only the surface list beside %s", async (_shape, legacy) => {
+    const layout = (list: string): string =>
+      `# keep me\n\n${legacy}[surfaces]  # the gate\n# enabled = ["old"]\nenabled = ${list}\n\n[models]\ndecide = "x" # mine\n`;
+    const { repo, home } = governedRepo(layout('["claude-code"]'));
+    installCanon(VERSION);
+
+    expect((await runConfig(repo, { add: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe(layout('["claude-code", "cursor"]'));
+
+    expect((await runConfig(repo, { remove: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe(layout('["claude-code"]'));
+    expect(isGoverned(repo)).toBe(true);
+    expectFullCanonInstalled(home);
+  });
+
   test("F28: what the canon install could not do is shown as a warning, never dropped or marked ✓", async () => {
     const { repo, home } = governedRepo();
     installCanon(VERSION);
@@ -569,6 +590,32 @@ describe("the rewrite never turns a governed repo ungoverned (§09.2 regression)
     expect(result).toBe(0);
     expect(configOf(repo)).toBe('# keep me\n[surfaces] # keep this comment\nenabled = ["claude-code", "cursor"]\n');
     expect(configOf(repo).match(/^\[surfaces\]/gm)).toHaveLength(1);
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  // A commented header is a comment, not a table: the real [surfaces] below or around it
+  // is the one rewritten, in place, and no second table is appended.
+  test.each([
+    ["a commented header above the real one", '# [surfaces]\n# enabled = ["old"]\n[surfaces]\nenabled = LIST\n\n[models]\ndecide = "x"\n'],
+    ["a commented header with no space after the hash", '#[surfaces]\n[surfaces]\nenabled = LIST\n'],
+    ["a commented header inside another table", '[models]\ndecide = "x"\n# [surfaces] lives below\n\n[surfaces] # the gate\nenabled = LIST\n'],
+    ["a commented header of another table before the key", '[surfaces]\n# [models] moved below\n  # [notices]\nenabled = LIST\n\n[models]\ndecide = "x"\n'],
+    ["a header comment that itself holds brackets", '[surfaces] # see [models] and [notices]\nenabled = LIST\n\n[notices]\nenabled = true\n'],
+  ])("%s: the valid [surfaces] table is updated in place", async (_layout, template) => {
+    const { repo } = governedRepo(template.replace("LIST", '["claude-code"]'));
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe(template.replace("LIST", '["claude-code", "cursor"]'));
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  test("a comment after the enabled list is kept when the list is rewritten", async () => {
+    const { repo } = governedRepo('[surfaces]\nenabled = ["claude-code"] # the hosts this repo governs\n');
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "cursor"] # the hosts this repo governs\n');
     expect(isGoverned(repo)).toBe(true);
   });
 
