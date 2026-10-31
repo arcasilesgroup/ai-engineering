@@ -18,6 +18,11 @@
   be detected.
 - Worktree merge and review commits use your own Git identity, and
   `ai-eng worktree rm --force` no longer needs a detected base.
+- Automatic receipt retention refuses a linked or escaping `.ai-engineering/receipts`
+  folder, deletes only receipt files it wrote, keeps at least one day of history, and never
+  changes the host's working directory.
+- The checkpoint guard judges where a write lands, so case, link, `cd` and `json.tool -`
+  aliases no longer reach the checkpoint file.
 
 ### 3.0 migration guide (unreleased)
 
