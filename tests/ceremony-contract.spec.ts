@@ -3,7 +3,7 @@
 // skills, agents, scripts and templates by name; an installed machine has only what
 // init materializes from the embedded canon. This reads the skill text at test time,
 // follows each skill ai-orchestrator invokes one level deep, and fails on any citation
-// that is missing from the repository or from what init would install. Nothing is
+// that is missing from the repository or from what a default init installs. Nothing is
 // listed by hand: delete a piece, or stop embedding it, and this goes red (LEARNINGS R7).
 //
 // One level, not the transitive closure: the ceremony is the orchestrator plus the
@@ -15,7 +15,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, normalize } from "node:path";
-import { embeddedChainBundle, embeddedTemplate, materializeAgents, materializeScripts, materializeSkills } from "../src/embed.ts";
+import { embeddedChainBundle, embeddedTemplate } from "../src/embed.ts";
+import { installCanon } from "../src/surfaces/adapters.ts";
+import { VERSION } from "../src/version.ts";
 
 const REPO = join(import.meta.dir, "..");
 const ENTRY_SKILL = "ai-orchestrator";
@@ -34,7 +36,7 @@ type Citations = {
   metaNames: Set<string>;
 };
 
-/** What init would install, materialized from the embedded payload the same way installCanon does. */
+/** What init installs by default: the canon installCanon itself writes into an isolated home. */
 type Canon = { skillsDir: string; agentsDir: string; scriptsDir: string; template: (name: string) => string | null };
 
 const SKILL_NAME = String.raw`ai-[a-z0-9]+(?:-[a-z0-9]+)*`;
@@ -199,9 +201,13 @@ function ceremonyGaps(root: string, entry: string, canon: Canon): string[] {
 
 let canonRoot: string;
 let canon: Canon;
+const OWNED_ENV = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR"] as const;
+const inheritedEnv = Object.fromEntries(OWNED_ENV.map((key) => [key, process.env[key]]));
 
 beforeAll(() => {
   canonRoot = mkdtempSync(join(tmpdir(), "ai-eng-ceremony-canon-"));
+  process.env["AI_ENG_HOME"] = canonRoot;
+  delete process.env["PI_CODING_AGENT_DIR"];
   canon = {
     skillsDir: join(canonRoot, "skills"),
     agentsDir: join(canonRoot, "agents"),
@@ -214,12 +220,18 @@ beforeAll(() => {
       }
     },
   };
-  materializeSkills(canon.skillsDir);
-  materializeAgents(canon.agentsDir);
-  materializeScripts(canon.scriptsDir);
+  const warnings = installCanon(VERSION).filter((line) => line.startsWith("⚠"));
+  if (warnings.length > 0) throw new Error(`the default canon install warned:\n${warnings.join("\n")}`);
 });
 
-afterAll(() => rmSync(canonRoot, { recursive: true, force: true }));
+afterAll(() => {
+  for (const key of OWNED_ENV) {
+    const value = inheritedEnv[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  rmSync(canonRoot, { recursive: true, force: true });
+});
 
 describe("ceremony contract — every piece ai-orchestrator cites exists and ships", () => {
   test("the extraction finds the ceremony, not an empty set", () => {

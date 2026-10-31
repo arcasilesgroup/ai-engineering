@@ -5,7 +5,7 @@
 // temp directory: the real canon home is never touched.
 
 import { describe, expect, test, afterEach } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, symlinkSync, linkSync, rmSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, symlinkSync, linkSync, rmSync, readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import {
@@ -15,6 +15,7 @@ import {
   removeStaleCanonFiles,
   canonDrift,
   materializeSkills,
+  materializeAgents,
   embeddedPath,
   embeddedTemplate,
   embeddedChainBundle,
@@ -219,6 +220,61 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
     expect(removeStaleCanonFiles(home).removed).toEqual([`skills/${folder}/orphan.md`]);
     expect(existsSync(join(home, "skills", folder))).toBe(true);
     expect(existsSync(join(home, "skills", aSkillPath().slice("skills/".length)))).toBe(true);
+  });
+});
+
+describe("materialization never writes through a link (§14.3)", () => {
+  const linkedLine = (paths: string[]): string =>
+    `⚠ ${paths.length} path(s) where ai-eng installs are links or not its own folders or files — never written through, left as they are (the link and what it points at untouched): ${paths.join(", ")}. Move one aside to let ai-eng install there`;
+
+  test("a linked skill file is refused, its external target keeps its bytes, and the rest of the payload still lands", () => {
+    const home = sandbox();
+    const external = join(home, "dotfiles", "SKILL.md");
+    mkdirSync(join(home, "dotfiles"), { recursive: true });
+    writeFileSync(external, "theirs\n");
+    const [linkedKey] = [...canonSkills().keys()].filter((key) => key.endsWith("/SKILL.md"));
+    const skillsRoot = join(home, "skills");
+    const linked = join(skillsRoot, linkedKey!.slice("skills/".length));
+    mkdirSync(join(linked, ".."), { recursive: true });
+    symlinkSync(external, linked);
+
+    const lines = materializeSkills(skillsRoot);
+
+    expect(lines).toContain(linkedLine([join(realpathSync(skillsRoot), linkedKey!.slice("skills/".length))]));
+    expect(readlinkSync(linked)).toBe(external);
+    expect(readFileSync(external, "utf8")).toBe("theirs\n");
+    for (const [key, ref] of canonSkills()) {
+      if (key === linkedKey) continue;
+      expect(readFileSync(join(home, key))).toEqual(readFileSync(embeddedPath(ref)));
+    }
+  });
+
+  test("a linked canon root is refused and nothing is written into the folder it points at", () => {
+    const home = sandbox();
+    const external = join(home, "elsewhere");
+    mkdirSync(external);
+    const skillsRoot = join(home, "skills");
+    symlinkSync(external, skillsRoot, "dir");
+
+    expect(materializeSkills(skillsRoot)).toEqual([linkedLine([skillsRoot])]);
+    expect(readlinkSync(skillsRoot)).toBe(external);
+    expect(readdirSync(external)).toEqual([]);
+  });
+
+  test("a linked agent file is refused and its external target keeps its bytes", () => {
+    const home = sandbox();
+    const agentsRoot = join(home, "agents");
+    const [agentKey] = [...embeddedUnder("agents/").keys()];
+    if (agentKey === undefined) throw new Error("the payload ships no agents");
+    const external = join(home, "my-agent.md");
+    writeFileSync(external, "mine\n");
+    mkdirSync(agentsRoot);
+    const linked = join(agentsRoot, agentKey.slice("agents/".length));
+    symlinkSync(external, linked);
+
+    expect(materializeAgents(agentsRoot)).toContain(linkedLine([join(realpathSync(agentsRoot), agentKey.slice("agents/".length))]));
+    expect(readlinkSync(linked)).toBe(external);
+    expect(readFileSync(external, "utf8")).toBe("mine\n");
   });
 });
 

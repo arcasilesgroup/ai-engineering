@@ -4,6 +4,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, wr
 import { randomUUID } from "node:crypto";
 import { delimiter, join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { canonSkills, embeddedPath } from "../src/embed.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const SKILLS = join(ROOT, "skills");
@@ -24,6 +25,13 @@ function coreFrontmatterBytes(): number {
     .map((entry) => join(SKILLS, entry.name, "SKILL.md"));
   if (skillFiles.length === 0) throw new Error("no core skill files found");
   return skillFiles.reduce((total, file) => total + frontmatterBytes(file), 0);
+}
+
+/** Frontmatter bytes of every skill init installs, read from the shipped payload itself. */
+function installableFrontmatterBytes(): number {
+  const skillFiles = [...canonSkills()].filter(([path]) => /^skills\/[^/]+\/SKILL\.md$/.test(path));
+  if (skillFiles.length === 0) throw new Error("the payload ships no skills");
+  return skillFiles.reduce((total, [, ref]) => total + frontmatterBytes(embeddedPath(ref)), 0);
 }
 
 function tokenLine(output: string, label: string): number {
@@ -66,6 +74,11 @@ describe("token budgets", () => {
   test("core skill frontmatter and the AGENTS template fit their byte/4 budgets", () => {
     expect(coreFrontmatterBytes() / 4).toBeLessThanOrEqual(5_000);
     expect(Buffer.byteLength(readFileSync(TEMPLATE), "utf8") / 4).toBeLessThanOrEqual(1_200);
+  });
+
+  test("every installable skill's frontmatter fits 5,000 tokens, and the core count covers each of them", () => {
+    expect(installableFrontmatterBytes() / 4).toBeLessThanOrEqual(5_000);
+    expect(installableFrontmatterBytes()).toBe(coreFrontmatterBytes());
   });
 
   test("bun run tokens prints the same actual counts", () => {

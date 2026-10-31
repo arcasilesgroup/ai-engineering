@@ -11,7 +11,8 @@
 // canon, the machine carriers and — through template.ts's gitEnv — the global git config
 // of the developer running the suite are never touched.
 
-import { describe, test, expect, afterEach, afterAll } from "bun:test";
+import { describe, test, expect, afterEach, afterAll, spyOn } from "bun:test";
+import * as childProcess from "node:child_process";
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,
@@ -21,6 +22,7 @@ import {
   readdirSync,
   readFileSync,
   readlinkSync,
+  realpathSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -193,6 +195,64 @@ function filesBelow(directory: string): string[] {
     const path = join(directory, entry.name);
     return entry.isDirectory() ? filesBelow(path) : [path];
   });
+}
+
+type Execution = { command: string; args: string[]; cwd: string; isShell: boolean };
+
+const INTERPRETERS = new Set(["sh", "bash", "zsh", "dash", "fish", "node", "bun", "bunx", "npx", "deno", "tsx", "python", "python3", "perl", "ruby", "pwsh", "powershell", "cmd", "env"]);
+
+/** Every process the code under test starts, through node:child_process or Bun's own
+ *  spawn, recorded and then run as asked. */
+function recordExecutions(): { executions: Execution[]; restore: () => void } {
+  const executions: Execution[] = [];
+  const asStrings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
+  const optionsOf = (values: unknown[]): { cwd?: unknown; shell?: unknown } =>
+    (values.find((value) => value !== null && typeof value === "object" && !Array.isArray(value)) ?? {}) as { cwd?: unknown; shell?: unknown };
+  const recordNode = (command: unknown, rest: unknown[], isShellCommand: boolean) => {
+    const options = optionsOf(rest);
+    executions.push({
+      command: String(command),
+      args: asStrings(rest.find(Array.isArray)),
+      cwd: typeof options.cwd === "string" ? options.cwd : process.cwd(),
+      isShell: isShellCommand || Boolean(options.shell),
+    });
+  };
+  const spies: Array<{ mockRestore: () => void }> = [];
+  for (const name of ["spawn", "spawnSync", "execFile", "execFileSync", "fork"] as const) {
+    const original = childProcess[name] as (...values: unknown[]) => unknown;
+    spies.push(spyOn(childProcess, name).mockImplementation(((...values: unknown[]) => {
+      recordNode(values[0], values.slice(1), false);
+      return original(...values);
+    }) as never));
+  }
+  for (const name of ["exec", "execSync"] as const) {
+    const original = childProcess[name] as (...values: unknown[]) => unknown;
+    spies.push(spyOn(childProcess, name).mockImplementation(((...values: unknown[]) => {
+      recordNode(values[0], values.slice(1), true);
+      return original(...values);
+    }) as never));
+  }
+  for (const name of ["spawn", "spawnSync"] as const) {
+    const original = Bun[name].bind(Bun) as (...values: unknown[]) => unknown;
+    spies.push(spyOn(Bun, name).mockImplementation(((...values: unknown[]) => {
+      const first = values[0] as { cmd?: unknown; cwd?: unknown } | unknown[];
+      const command = Array.isArray(first) ? asStrings(first) : asStrings(first.cmd);
+      const options = (Array.isArray(first) ? values[1] : first) as { cwd?: unknown } | undefined;
+      executions.push({ command: command[0] ?? "", args: command.slice(1), cwd: typeof options?.cwd === "string" ? options.cwd : process.cwd(), isShell: false });
+      return original(...values);
+    }) as never));
+  }
+  return { executions, restore: () => { for (const spy of spies) spy.mockRestore(); } };
+}
+
+/** Proof that installing the canon ran nothing out of it: no started process names,
+ *  or runs inside, the machine home, and none is a shell or an interpreter. */
+function assertExecutedNothingFrom(machine: string, executions: Execution[]): void {
+  const machinePaths = [machine, realpathSync(machine)];
+  const isUnderMachine = (value: string) => machinePaths.some((path) => value === path || value.includes(`${path}/`));
+  const touchingCanon = executions.filter((run) => [run.command, run.cwd, ...run.args].some(isUnderMachine));
+  const interpreters = executions.filter((run) => run.isShell || run.command === process.execPath || INTERPRETERS.has(basename(run.command)));
+  expect({ touchingCanon, interpreters }).toEqual({ touchingCanon: [], interpreters: [] });
 }
 
 function canonPacks(config: string): string[] | null {
@@ -626,15 +686,45 @@ describe("init · the git floor's own housekeeping", () => {
 });
 
 describe("init · non-interactive default skill installation", () => {
-  test("fresh init installs every skill and resource without a pack prompt or config key", async () => {
+  test("fresh init installs every skill and resource without a pack prompt or config key, and runs none of them", async () => {
     const { cwd, machine: home } = sandboxed();
-    const { result, out } = await capture(() => initMain({ yes: true }));
+    const recorder = recordExecutions();
+    let run: { result: number; out: string };
+    try {
+      run = await capture(() => initMain({ yes: true }));
+    } finally {
+      recorder.restore();
+    }
 
-    expect(result).toBe(0);
-    expect(out).not.toMatch(/(?:which|select|choose)[^\n]*packs?/i);
+    expect(run.result).toBe(0);
+    expect(run.out).not.toMatch(/(?:which|select|choose)[^\n]*packs?/i);
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
     expect(canonPacks(config)).toBeNull();
     assertCanon(home);
+    // The recorder sees what init really starts: it created the repo with git itself.
+    expect(recorder.executions.some((execution) => basename(execution.command) === "git" && execution.args.includes("init"))).toBe(true);
+    assertExecutedNothingFrom(home, recorder.executions);
+  });
+
+  test("init --global installs the complete canon, runs none of it, and leaves an existing machine hook file alone", async () => {
+    const { machine: home } = sandboxed();
+    const settings = join(home, ".claude", "settings.json");
+    const settingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(dirname(settings), { recursive: true });
+    writeFileSync(settings, settingsBefore);
+    const recorder = recordExecutions();
+    let run: { result: number; out: string };
+    try {
+      run = await capture(() => initMain({ yes: true, global: true }));
+    } finally {
+      recorder.restore();
+    }
+
+    expect(run.result).toBe(0);
+    expect(run.out).not.toMatch(/(?:which|select|choose)[^\n]*packs?/i);
+    assertCanon(home);
+    expect(readFileSync(settings, "utf8")).toBe(settingsBefore);
+    assertExecutedNothingFrom(home, recorder.executions);
   });
 
   test("declining the canon offer installs nothing at all", async () => {
@@ -656,16 +746,20 @@ describe("init · non-interactive default skill installation", () => {
     expect(out).toContain("Inside a repo, ai-eng init governs it too");
   });
 
-  test("a bare folder answered yes creates the repo and takes the surface the human picks", async () => {
+  test("a bare folder answered yes creates the repo, takes the surface the human picks, and asks nothing about packs", async () => {
     const { cwd, machine: home } = sandboxed();
-    const { result } = await driven({}, [
+    // Only the repo and surface questions are answered: any further prompt leaves init waiting.
+    const { result, out } = await driven({}, [
       ["Create", "y"],
       ["governed", " \n"],
     ]);
     expect(result).toBe(0);
-    expect(existsSync(join(home, "skills"))).toBe(true);
+    expect(out).not.toMatch(/packs?\b/i);
+    assertCanon(home);
     expect(existsSync(join(cwd, ".git"))).toBe(true);
-    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('enabled = ["claude-code"]');
+    const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
+    expect(config).toContain('enabled = ["claude-code"]');
+    expect(canonPacks(config)).toBeNull();
   });
 
   test("detected surfaces are ticked by default, and the machine writes can be declined", async () => {

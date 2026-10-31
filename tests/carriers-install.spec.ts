@@ -1486,6 +1486,52 @@ describe("installCanon and what leaves with it", () => {
     }
   });
 
+  test("I68: the canon and every mirror hold each file of the single skills source while repo carriers scaffold and machine settings stay as they were", () => {
+    const base = useHome("canon-single-source");
+    const sourceRoot = join(import.meta.dir, "..", "skills");
+    const filesBelow = (directory: string): string[] =>
+      readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        const path = join(directory, entry.name);
+        return entry.isDirectory() ? filesBelow(path) : entry.name === ".DS_Store" ? [] : [path];
+      });
+    const sourceSkills = readdirSync(sourceRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && existsSync(join(sourceRoot, entry.name, "SKILL.md")))
+      .map((entry) => entry.name)
+      .sort();
+    const sourceFiles = sourceSkills.flatMap((name) => filesBelow(join(sourceRoot, name)).map((path) => path.slice(sourceRoot.length + 1)));
+    expect(sourceFiles.some((path) => path.split("/").length > 2)).toBe(true);
+
+    const machineSurfaces = SURFACES.filter((surface) => machineCarrier(surface) !== null);
+    const settingsSurfaces = machineSurfaces.filter((surface) => machineCarrier(surface)!.kind === "settings");
+    expect(settingsSurfaces.length).toBeGreaterThan(0);
+    const settingsBefore = new Map(settingsSurfaces.map((surface) => [carrierPath(machineCarrier(surface)!), `{\n  "user": "${surface.id}"\n}\n`]));
+    for (const [path, bytes] of settingsBefore) write(path, bytes);
+
+    installCanon("2.2.0");
+    const repoRoot = join(sandbox, "repo-single-source");
+    mkdirSync(repoRoot, { recursive: true });
+    const repoSurfaces = SURFACES.filter((surface) => repoCarrier(surface) !== null);
+    const repoReport = install(repoRoot, planEntries(repoSurfaces.map((surface) => surface.id)));
+    const machineReport = installMachineCarriers(machineSurfaces.map((surface) => surface.id));
+
+    expect(installedSkillNames(base)).toEqual(sourceSkills);
+    for (const directory of [join(base, "skills"), ...mirrorTargets().map((target) => target.dir)]) {
+      for (const path of sourceFiles) {
+        expect(readFileSync(join(directory, path))).toEqual(readFileSync(join(sourceRoot, path)));
+      }
+    }
+    expect(repoSurfaces.length).toBeGreaterThan(0);
+    expect(repoReport.refused).toEqual([]);
+    for (const surface of repoSurfaces) {
+      expect(readFileSync(join(repoRoot, repoCarrier(surface)!.path), "utf8")).toInclude(CHAIN);
+    }
+    expect(machineReport.refused).toEqual(settingsSurfaces.map((surface) => ({
+      path: `~/${machineCarrier(surface)!.path}`,
+      reason: "identity-bound-settings-mutation-unavailable",
+    })));
+    for (const [path, bytes] of settingsBefore) expect(readFileSync(path, "utf8")).toBe(bytes);
+  });
+
   test("installCanon sweeps a page it recorded writing and keeps one it cannot prove", () => {
     const base = useHome("canon-sweep");
     const renamed = "skills/ai-brainstorm/a-page-that-was-renamed.md";
