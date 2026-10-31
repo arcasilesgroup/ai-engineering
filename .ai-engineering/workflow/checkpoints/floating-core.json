@@ -1672,7 +1672,7 @@
         "tests/checkpoint-guard.spec.ts",
         "FILEMAP.md"
       ],
-      "changed_files": ["src/floor/index.ts", "src/git/context.ts", "src/git/merge.ts", "src/git/run.ts", "src/git/worktree.ts", "src/guards/checkpoint.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "skills/.chain-bundle/ai-eng-chain.ts", "FILEMAP.md", "tests/floor-gates.spec.ts", "tests/floor-hooks.spec.ts", "tests/worktree-command.spec.ts", ".ai-engineering/workflow/test-plans/floating-core.json"],
+      "changed_files": ["src/floor/index.ts", "src/git/context.ts", "src/git/merge.ts", "src/git/run.ts", "src/git/worktree.ts", "src/guards/checkpoint.ts", "src/shared-worktree.ts", "src/workflow/checkpoint.ts", "skills/.chain-bundle/ai-eng-chain.ts", "FILEMAP.md", "tests/floor-gates.spec.ts", "tests/floor-hooks.spec.ts", "tests/worktree-command.spec.ts", ".ai-engineering/workflow/test-plans/floating-core.json", ".ai-engineering/workflow/reviews/floating-core-24.md"],
       "acceptance": [
         "A direct push to the detected base is denied even when it is the current branch; an unresolved base denies with the next step named.",
         "Merge, invalidation and request-changes commits work with a global-only Git identity.",
@@ -1693,11 +1693,11 @@
       ],
       "ui": null,
       "gates": {
-        "behavior": { "status": "passed", "attempts": 1, "findings": ["Gate 1 at aad6279c: floor-gates 35, floor-hooks 35, worktree-command 107 (16 skipped), workflow-checkpoint 11, checkpoint-guard 108, arch 54; typecheck, lint, build green; gen-assets clean; full suite 1,679 pass / 16 skip / 0 fail."] },
+        "behavior": { "status": "passed", "attempts": 2, "findings": ["Gate 1 at aad6279c: floor-gates 35, floor-hooks 35, worktree-command 107 (16 skipped), workflow-checkpoint 11, checkpoint-guard 108, arch 54; typecheck, lint, build green; gen-assets clean; full suite 1,679 pass / 16 skip / 0 fail.", "Re-check after review fix 5051e277: floor-gates 35, floor-hooks 36, worktree-command 112 (16 skipped), workflow-checkpoint 11, checkpoint-guard 108, git-context 30, arch 54; typecheck, lint, build green; gen-assets clean; full suite 1,685 pass / 16 skip / 0 fail."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 1, "findings": ["2 rounds: round 1 PASS with MINOR F1-F4; the orchestrator had them fixed (Git decides identity, rm --force needs no base, parse errors named, base normalised so origin/main protects main). Round 2 PASS; MINOR F5 deferred (see notes)."] }
       },
-      "status": "pending"
+      "status": "passed"
     }
   ],
   "assumptions": [
@@ -1734,6 +1734,7 @@
   ],
   "new_dependencies": [],
   "notes": [
+    "CP24 review MINOR F5 (src/git/context.ts:104-116): with a remote `origin` and a local branch literally named `origin/x`, a configured base `origin/x` normalises to `x`, so pushes to the real `origin/x` branch pass; keep the literal name when that local branch exists.",
     "CP22 review MINORs: F5 removing every item from a one-per-line enabled list leaves `enabled = [` / `]` split and the next --add refuses it; F6 removing an item that shares its line with `]` leaves stray indentation; F7 no test covers the new refusal layouts. No bytes lost; refusals leave the file identical.",
     "CP19 review MINOR F33 (src/surfaces/adapters.ts:1277-1280): an old ai-eng module carrier or bundle without a matching hash in machine.json is kept as a user edit and named every run until deleted by hand; no bytes lost. Accepting earlier shipped carrier renders would let upgrades refresh it.",
     "CP1 review MINOR F5: test-hygiene re-runs 25 sandboxed suites in a nested bun test (+40 s to the serial suite); move the env/cwd before-after check into tests/preload.ts. Deferred to CP14 (suite under 2 min).",
