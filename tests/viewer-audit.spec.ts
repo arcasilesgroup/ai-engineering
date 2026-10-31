@@ -67,6 +67,7 @@ type NodeId =
 
 type ViewerNodes = Record<NodeId, DomNode>;
 type StepDetails = { dataset: { id: string }; open: boolean; ontoggle: (() => void) | null };
+type GoLink = { dataset: { go: string }; onclick: (() => void) | null };
 type ViewerHarness = {
   api: ViewerApi;
   nodes: ViewerNodes;
@@ -74,6 +75,10 @@ type ViewerHarness = {
   tickAgain: () => Promise<void>;
   /** Simulates the person opening or closing a rendered step card. */
   setStepOpen: (id: number, isOpen: boolean) => void;
+  /** Simulates the person clicking the link rendered in the status banner. */
+  clickBannerLink: () => void;
+  /** Element ids the viewer scrolled into view, in order. */
+  scrolledTo: string[];
 };
 
 function templateHtml(): string {
@@ -162,10 +167,17 @@ async function withViewer(
 
   let pendingTick: (() => void | Promise<void>) | null = null;
   let stepDetails: StepDetails[] = [];
+  let bannerLinks: GoLink[] = [];
+  const scrolledTo: string[] = [];
+  const goLinksIn = (html: string): GoLink[] =>
+    [...html.matchAll(/data-go="([^"]*)"/g)].map((m) => ({ dataset: { go: m[1] ?? "" }, onclick: null }));
   const fetchMap = opts.fetchText;
   Object.assign(globalThis, {
     document: {
       getElementById(id: string) {
+        if (id.startsWith("step-") && nodes.steps.innerHTML.includes(`id="${id}"`)) {
+          return { scrollIntoView: () => scrolledTo.push(id) };
+        }
         return byId[id] ?? null;
       },
       createElement(_tag: string) {
@@ -176,6 +188,10 @@ async function withViewer(
         return node;
       },
       querySelectorAll(selector: string) {
+        if (selector === "[data-go]") {
+          bannerLinks = goLinksIn(nodes.bannerText.innerHTML);
+          return [...bannerLinks, ...goLinksIn(nodes.journey.innerHTML)];
+        }
         if (selector !== "details.step") return [];
         stepDetails = [
           ...nodes.steps.innerHTML.matchAll(/<details class="step[^"]*" id="step-[^"]*" data-id="([^"]*)"\s*(open)?\s*>/g),
@@ -220,8 +236,18 @@ async function withViewer(
         const details = stepDetails.find((d) => d.dataset.id === String(id));
         if (!details?.ontoggle) throw new Error(`step ${id} has no toggle handler`);
         details.open = isOpen;
+        nodes.steps.innerHTML = nodes.steps.innerHTML.replace(
+          new RegExp(`(<details class="step[^"]*" id="step-${id}" data-id="${id}")\\s*(?:open)?\\s*>`),
+          isOpen ? "$1 open>" : "$1 >",
+        );
         details.ontoggle();
       },
+      clickBannerLink: () => {
+        const [link] = bannerLinks;
+        if (!link?.onclick) throw new Error("banner has no clickable link");
+        link.onclick();
+      },
+      scrolledTo,
     });
   } finally {
     Object.assign(globalThis, previous);
@@ -379,36 +405,33 @@ function expectCurrentFindingsVisibleAndEscaped(stepsHtml: string): void {
 }
 
 describe("viewer-audit — checkpoint 23 live progress and visible findings", () => {
-  test("a polled update that advances the current step opens the new step and leaves the closed previous step collapsed", async () => {
-    const before = JSON.stringify({
+  const progressPlan = (opts: { isStep18Passed: boolean; step19Behavior?: object }): string =>
+    JSON.stringify({
       feature: "Floating core",
       checkpoints: [
-        { id: 18, title: "Move skill sources", size: "l", status: "pending", gates: {} },
-        { id: 19, title: "Install every skill", size: "xl", status: "pending", gates: {} },
-      ],
-    });
-    const advanced = JSON.stringify({
-      feature: "Floating core",
-      checkpoints: [
-        { id: 18, title: "Move skill sources", size: "l", status: "passed", gates: {} },
-        { id: 19, title: "Install every skill", size: "xl", status: "pending", gates: {} },
-      ],
-    });
-    const retried = JSON.stringify({
-      feature: "Floating core",
-      checkpoints: [
-        { id: 18, title: "Move skill sources", size: "l", status: "passed", gates: {} },
+        { id: 18, title: "Move skill sources", size: "l", status: opts.isStep18Passed ? "passed" : "pending", gates: {} },
         {
           id: 19,
           title: "Install every skill",
           size: "xl",
           status: "pending",
-          gates: { behavior: { status: "failed", attempts: 1, findings: ["Gate failed"] } },
+          gates: opts.step19Behavior ? { behavior: opts.step19Behavior } : {},
         },
+        { id: 20, title: "Ship the release", size: "m", status: "pending", gates: {} },
       ],
     });
-    let servedPlan = before;
+  const before = progressPlan({ isStep18Passed: false });
+  const advanced = progressPlan({ isStep18Passed: true });
+  const retried = progressPlan({
+    isStep18Passed: true,
+    step19Behavior: { status: "failed", attempts: 1, findings: ["Gate failed"] },
+  });
 
+  async function withServedPlan(
+    firstPlan: string,
+    run: (harness: ViewerHarness, serve: (plan: string) => void) => Promise<void>,
+  ): Promise<void> {
+    let servedPlan = firstPlan;
     await withViewer(
       {
         search: "?plan=demo",
@@ -418,25 +441,58 @@ describe("viewer-audit — checkpoint 23 live progress and visible findings", ()
           throw new Error("404");
         },
       },
-      async ({ api, nodes, tickAgain, setStepOpen }) => {
-        await api.servedInit();
-        expect(isStepOpen(nodes.steps.innerHTML, 18)).toBe(true);
-        expect(isStepOpen(nodes.steps.innerHTML, 19)).toBe(false);
-
-        setStepOpen(18, false);
-        servedPlan = advanced;
-        await tickAgain();
-        expect(stepCardHtml(nodes.steps.innerHTML, 19)).toStartWith(
-          '<details class="step running current" id="step-19" data-id="19" open>',
-        );
-        expect(isStepOpen(nodes.steps.innerHTML, 18)).toBe(false);
-
-        servedPlan = retried;
-        await tickAgain();
-        expect(isStepOpen(nodes.steps.innerHTML, 19)).toBe(true);
-        expect(isStepOpen(nodes.steps.innerHTML, 18)).toBe(false);
+      async (harness) => {
+        await harness.api.servedInit();
+        await run(harness, (plan) => {
+          servedPlan = plan;
+        });
       },
     );
+  }
+
+  test("a polled update that advances the current step opens the new step and keeps every other card as the person left it", async () => {
+    await withServedPlan(before, async ({ nodes, tickAgain, setStepOpen }, serve) => {
+      expect(isStepOpen(nodes.steps.innerHTML, 18)).toBe(true);
+      expect(isStepOpen(nodes.steps.innerHTML, 19)).toBe(false);
+      expect(isStepOpen(nodes.steps.innerHTML, 20)).toBe(false);
+
+      setStepOpen(18, false);
+      setStepOpen(20, true);
+      serve(advanced);
+      await tickAgain();
+      expect(stepCardHtml(nodes.steps.innerHTML, 19)).toStartWith(
+        '<details class="step running current" id="step-19" data-id="19" open>',
+      );
+      expect(isStepOpen(nodes.steps.innerHTML, 18)).toBe(false);
+      expect(isStepOpen(nodes.steps.innerHTML, 20)).toBe(true);
+    });
+  });
+
+  test("a polled update that keeps the current step leaves open and closed cards exactly as the person set them", async () => {
+    await withServedPlan(advanced, async ({ nodes, tickAgain, setStepOpen }, serve) => {
+      expect(isStepOpen(nodes.steps.innerHTML, 19)).toBe(true);
+
+      setStepOpen(18, true);
+      setStepOpen(19, false);
+      serve(retried);
+      await tickAgain();
+      expect(nodes.steps.innerHTML).toContain("Gate failed");
+      expect(isStepOpen(nodes.steps.innerHTML, 18)).toBe(true);
+      expect(isStepOpen(nodes.steps.innerHTML, 19)).toBe(false);
+      expect(isStepOpen(nodes.steps.innerHTML, 20)).toBe(false);
+    });
+  });
+
+  test("clicking the banner link reopens the closed current card with its findings and scrolls to it", async () => {
+    await withViewer({}, ({ api, nodes, setStepOpen, clickBannerLink, scrolledTo }) => {
+      expect(api.load(findingsPlan({ behaviorAttempts: 1 }))).toBe(true);
+      setStepOpen(23, false);
+      expect(isStepOpen(nodes.steps.innerHTML, 23)).toBe(false);
+
+      clickBannerLink();
+      expectCurrentFindingsVisibleAndEscaped(nodes.steps.innerHTML);
+      expect(scrolledTo).toEqual(["step-23"]);
+    });
   });
 
   for (const { label, behaviorAttempts, bannerClass } of [

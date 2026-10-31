@@ -1801,3 +1801,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Splice only the changed items by byte offset, copy the neighbouring line ending, match headers with `\r` removed, and refuse layouts that cannot be edited in place.
 - **Lesson:** Change the smallest unit the request names, by byte offset, and assert exact bytes rather than `toContain`.
 - **Tags:** review, configuration, toml, crlf
+
+### L247 · 2026-10-30 · floating-core #23 · review
+- **Failure:** The CP23 viewer tests still passed when open-card state was rebuilt on every render, when the current card reopened on every poll, when other cards closed on advance, and when the banner-link click handler was removed.
+- **Root cause:** No test changed the person-controlled open state before a poll, and the fake page never returned `[data-go]` links, so the click handler never ran.
+- **Fix:** Tests open and close cards before polls and assert that state survives; the fake page wires banner links and the click test asserts the card opens and scrolls.
+- **Lesson:** Before a poll, change the state the person controls, then assert it survives; prove each test with the mutation it guards against.
+- **Tags:** review, tests, viewer, mutation
