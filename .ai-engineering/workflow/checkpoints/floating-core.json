@@ -1492,9 +1492,10 @@
         "bun test tests/token-budget.spec.ts",
         "bun run build"
       ],
+      "changed_files": ["src/commands/init.ts", "README.md", "templates/config.toml.tpl", "CHANGELOG.md", "tests/init-command.spec.ts", "tests/carriers-install.spec.ts", "tests/ceremony-contract.spec.ts", "tests/embed-canon.spec.ts", "tests/token-budget.spec.ts"],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 1, "findings": ["Gate 1 at aaa8972e: init 35, carriers-install 61, ceremony-contract 4, embed-canon 21, token-budget 7, arch 54; typecheck, lint, build green; full suite 1,622 pass / 16 skip / 0 fail. Tests passed before implementation because CP12/CP18/CP19 delivered the behavior; a mutation probe confirmed the no-execution check bites."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
         "review": {
           "status": "pending",
