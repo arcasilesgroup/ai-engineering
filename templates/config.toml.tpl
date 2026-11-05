@@ -18,9 +18,10 @@ loop_failures = 5  # same signature failing → deny
 
 # Command-scope policy (ported from bash-guard): four octal digits, left to
 # right system/external/network/workspace, bits 4:read 2:write 1:execute.
-# Default 0467 — workspace everything, network read+write, external read,
-# system nothing. An invalid value fails closed as 0000.
-# policy_mode = "0467"
+# Default 4667 — workspace everything, network read+write, external read+write,
+# system read (system write and execute stay denied). An invalid value fails
+# closed as 0000.
+# policy_mode = "4667"
 
 # Local rules — declarative injection rules evaluated by the injection guard.
 # Each rule matches against a scope (all_text, tool_name, or raw_json) with

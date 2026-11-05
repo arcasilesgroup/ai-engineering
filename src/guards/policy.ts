@@ -3,8 +3,8 @@
 // the original: every expectation in tests/policy-guard.spec.ts was first
 // confirmed by running policy.rs itself. A command is classified into scopes
 // (system / external / network / workspace) × permissions (read 4 / write 2 /
-// execute 1), as four octal digits, left to right: `0467` = workspace
-// everything, network read+write, external read, system nothing. A command
+// execute 1), as four octal digits, left to right: `4667` = workspace
+// everything, network read+write, external read+write, system read. A command
 // runs when its required bits are a subset of the configured mode; an invalid
 // mode normalises to `0000` — the same fail-closed as a crashing guard.
 //
@@ -16,7 +16,10 @@ import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-export const DEFAULT_MODE = "0467";
+/** What every install and new project gets while config.toml says nothing. System read
+ *  includes the paths this file calls sensitive (~/.ssh, .env, *.pem): reading them is
+ *  allowed; writing or executing anything at system scope is not. */
+export const DEFAULT_MODE = "4667";
 
 const SCOPE_SYSTEM = 8;
 const SCOPE_EXTERNAL = 4;

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The command-scope policy now defaults to `4667` for every install and new project
+  (was `0467`): system read and external write are allowed; system write and execute
+  stay denied. Set `guards.policy_mode` in `.ai-engineering/config.toml` to narrow it.
 - Floating core keeps the guard floor and orchestration ceremony in core, using the
   user's existing Git, host, and forge for the rest of the workflow.
 - `ai-eng init` installs every skill and its resources by default, with no pack prompt
