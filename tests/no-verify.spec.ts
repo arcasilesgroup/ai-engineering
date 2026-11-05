@@ -7,7 +7,7 @@
 // avoid contiguous silencer bytes: this file is itself judged by the guard it
 // tests when it is written.
 import { describe, expect, test, beforeAll, afterAll } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -38,13 +38,18 @@ const payload = (tool_name: string, tool_input: Record<string, unknown>): Payloa
   tool_input,
 });
 
-// Fixture root for the exists/does-not-exist arms. The relative-name case also
-// needs the name to be absent from the test cwd, which the unique name gives.
-const FX = "noverify-hooks-fixture";
+// Fixture root for the floor/no-floor arms: FX is the repo's own .git/hooks (the only
+// accepted hooksPath); EMPTY and LOOKALIKE exist but are not it.
+const FX = join(".git", "hooks");
+const EMPTY = "noverify-empty-dir";
+const LOOKALIKE = "noverify-lookalike-hooks";
 let root = "";
 beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), "noverify-"));
-  mkdirSync(join(root, FX));
+  mkdirSync(join(root, FX), { recursive: true });
+  mkdirSync(join(root, EMPTY));
+  mkdirSync(join(root, LOOKALIKE));
+  writeFileSync(join(root, LOOKALIKE, "pre-commit"), "#!/bin/sh\n# ai-eng git floor shim\nexit 0\n");
 });
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
@@ -95,9 +100,35 @@ describe("hooksPathElsewhere", () => {
     expect(hooksPathElsewhere(join(root, "no-such-dir"), root)).toBe(true);
   });
 
+  test("a path that exists but is not this repo's .git/hooks, or sits outside the repo, is elsewhere", () => {
+    expect(hooksPathElsewhere(EMPTY, root)).toBe(true);
+    expect(hooksPathElsewhere(LOOKALIKE, root)).toBe(true);
+    expect(hooksPathElsewhere("/dev/null", root)).toBe(true);
+    expect(checkBash("git commit --no-veri -m x", root)?.deny).toBe(true);
+    expect(checkBash("git commit --no-ver''ify -m x", root)?.deny).toBe(true);
+    expect(checkBash("GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m x", root)?.deny).toBe(true);
+    for (const command of [
+      "x=--no-verify; git commit $x -m y", "git commit -m x $(echo --no-ver)ify", "git commit -m x --no-ver?fy",
+      "git commit -m x --no-ver{ify,}", 'git commit -m "$(printf a)" --no-verify', "GIT_CONFIG_GLOBAL=h.cfg git commit -m x",
+      "git -c include.path=h.cfg commit -m x", "git config include.path ../h.cfg", "git pull --no-verify",
+      "git -ccore.hooksPath=/x commit -m x", "git -c core.hooksPath commit -m x", "git -c alias.c='commit --no-verify' c -m x",
+      "git config alias.c 'commit --no-verify'", "git -c alias.x='!git commit -n' x", "GIT_DIR=x git commit -m x",
+      "HOME=. git commit -m x", "git --git-dir=x commit -m x",
+    ]) {
+      expect(checkBash(command, root)?.deny, command).toBe(true);
+    }
+    for (const command of [
+      'git commit -m "fix: handle -n flag"', "git commit -m 'docs: never use --no-verify'",
+      "git commit -m \"$(cat <<'EOF'\nfeat: x\n\nUse -n carefully\nEOF\n)\"", 'git push origin "$(git branch --show-current)"',
+      "git log -n 5", 'git commit -m "fix: $(date)"',
+    ]) {
+      expect(checkBash(command, root), command).toBeUndefined();
+    }
+  });
+
   test("relative path resolves against repoRoot, not cwd", () => {
-    expect(existsSync(join(process.cwd(), FX))).toBe(false);
     expect(hooksPathElsewhere(FX, root)).toBe(false);
+    expect(hooksPathElsewhere(FX, join(root, EMPTY))).toBe(true);
   });
 });
 

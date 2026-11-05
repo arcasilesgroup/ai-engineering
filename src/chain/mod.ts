@@ -39,9 +39,9 @@ export const TABLE: Record<string, GuardRow[]> = {
     { name: "no-verify", matcher: /^(Bash|PowerShell|shell|command|Edit|Write|MultiEdit|NotebookEdit)$/ },
     { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
-    { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
     { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ },
+    { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
   ],
   Stop: [{ name: "checkpoint", matcher: /^$/ }],
   PostToolUse: [
@@ -156,12 +156,25 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   // uncaught exception — a crashing hook is a hook that lets the call through.
   let payload: Payload;
   try {
-    payload = normalise(rawPayload, options.surface);
+    payload = normalise(rawPayload, options.surface, event);
   } catch {
     return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
   }
   adoptSession(payload.session_id);
   payload._event = event;
+  const tool = payload.tool_name;
+  if (event === "PreToolUse" && (typeof tool !== "string" || tool.trim().length === 0)) {
+    return denyOutcome(
+      "chain",
+      "BLOCKED: PreToolUse payload has no tool name, so it cannot be evaluated safely.",
+      [],
+      event,
+      options,
+      started,
+      root,
+      "unknown",
+    );
+  }
   // Phase 1: attach declarative local rules from config.toml to the payload.
   // The injection guard reads payload.localRules and evaluates them before
   // falling through to the built-in IOC catalogue.
@@ -169,7 +182,6 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   if (localRules.length > 0) {
     (payload as Record<string, unknown>)["localRules"] = localRules;
   }
-  const tool = payload.tool_name;
   const fp = fingerprint(payload);
 
   const overrides = readOverrides(root);
@@ -252,6 +264,27 @@ function recordReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | "ts">,
   const written = writeReceipt(receipt, root);
   if (written) retainReceipts(root);
   return written;
+}
+
+/** What `ai-eng wrap` asks before it runs anything, so the wrapper can never run a command
+ *  the guards did not see: the guards that judge what a command DOES, in the governed
+ *  root of the directory it runs in. Loop keeps its per-call count on the original call;
+ *  replaying it would count one call twice. */
+export function judgeWrappedCommand(command: string, cwd: string): string | null {
+  const root = repoRoot(cwd);
+  // The chain only rewrites inside a governed repo, so a wrap anywhere else was not ours:
+  // run from outside, it would be a way to reach the governed repo with nothing judging.
+  if (root === null || !isGoverned(root)) return "ai-eng wrap only runs inside the governed repository that rewrote the command";
+  const payload = normalise({ tool_name: "Bash", tool_input: { command }, cwd });
+  payload._event = "PreToolUse";
+  const localRules = loadLocalRules(root);
+  if (localRules.length > 0) (payload as Record<string, unknown>)["localRules"] = localRules;
+  const ctx: ChainContext = { repoRoot: root, loopOverride: false };
+  for (const name of ["self-protect", "no-verify", "policy", "injection", "checkpoint"] as const) {
+    const outcome = dispatchGuard(name, payload, ctx);
+    if (outcome?.deny === true) return outcome.reason;
+  }
+  return null;
 }
 
 function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): GuardOutcome {

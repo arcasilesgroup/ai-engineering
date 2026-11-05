@@ -8,6 +8,7 @@
 // fail-closed boundaries (unreadable payload, crashing guard).
 
 import { describe, expect, test, afterAll, beforeEach } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -180,17 +181,20 @@ describe("runChain — routing observed through outcomes", () => {
     const outcome = RUN(bash("bun test"));
     expect(outcome.action).toBe("rewrite");
     if (outcome.action === "rewrite") {
-      expect(outcome.command).toBe("ai-eng wrap test -- bun test");
+      expect(outcome.command).toBe(`ai-eng wrap test --base64 ${Buffer.from("bun test").toString("base64url")}`);
       expect(outcome.guards).toContain("wrap");
+      expect(outcome.guards).toContain("loop");
+      expect(outcome.guards).toContain("checkpoint");
     }
   });
 
   test("a redelivered wrapped call rewrites again — a rewrite is never cached as a deny", () => {
     // Pre-fix, rememberVerdict stored wrap's deny:true shape and the second delivery
     // of the same physical call replayed it as a hard deny (audit run-1).
-    const first = RUN(bash("bun test", "u-rewrite"));
+    const wrapped = { ...bash("bun test", "u-rewrite"), session_id: `rewrite-redelivery-${randomUUID()}` };
+    const first = RUN(wrapped);
     expect(first.action).toBe("rewrite");
-    const second = RUN(bash("bun test", "u-rewrite"));
+    const second = RUN(wrapped);
     expect(second.action).toBe("rewrite");
   });
 
@@ -213,6 +217,73 @@ describe("runChain — routing observed through outcomes", () => {
     } finally {
       rmSync(bare, { recursive: true, force: true });
     }
+  });
+
+  test("a nested .git marker cannot escape a governed ancestor", () => {
+    const nested = join(scratch, "nested");
+    mkdirSync(join(nested, ".git"), { recursive: true });
+    const target = join(scratch, ".ai-engineering", "config.toml");
+    const outcome = RUN({ ...bash(`rm -f ${target}`), cwd: nested });
+    expect(outcome.action).toBe("deny");
+    if (outcome.action === "deny") expect(outcome.by).toBe("self-protect");
+    const relative = RUN({ ...bash("rm -f ../.ai-engineering/config.toml", "u-nested-relative"), cwd: nested });
+    expect(relative.action).toBe("deny");
+    const hookBypass = RUN({ ...bash("git -C .. commit --no-verify -m x", "u-nested-no-verify"), cwd: nested });
+    expect(hookBypass.action).toBe("deny");
+    // Outermost governed wins, so a config written ABOVE the repo would move the root.
+    const hijack = runChain(
+      { sessionId: `copilot-hijack-${randomUUID()}`, toolName: "create", toolArgs: { path: "../.ai-engineering/config.toml", file_text: "[surfaces]\nenabled = []\n" }, cwd: scratch },
+      "PreToolUse",
+      { inProcess: true, surface: "copilot-cli" },
+    );
+    expect(hijack.action).toBe("deny");
+  });
+
+  test("Copilot apply_patch is judged per file: governed or ambiguous denies, plain source passes", () => {
+    const run = randomUUID();
+    const copilot = (toolArgs: unknown, id: string) => runChain(
+      { sessionId: `copilot-patch-${id}-${run}`, toolName: "apply_patch", toolArgs, cwd: scratch },
+      "PreToolUse",
+      { inProcess: true, surface: "copilot-cli" },
+    );
+    const governed = copilot("*** Begin Patch\n*** Add File: notes.md\n+x\n*** Update File: src/a.ts\n*** Move to: .ai-engineering/config.toml\n*** End Patch", "governed");
+    expect(governed.action).toBe("deny");
+    if (governed.action === "deny") expect(governed.by).toBe("self-protect");
+    const ambiguous = copilot("*** Begin Patch\n*** Add File: notes.md\n+x\n*** Rename File: .ai-engineering/config.toml\n*** End Patch", "ambiguous");
+    expect(ambiguous.action).toBe("deny");
+    if (ambiguous.action === "deny") expect(ambiguous.by).toBe("chain");
+    expect(copilot({ input: "*** Begin Patch\n*** Add File: notes.md\n+x\n*** End Patch" }, "plain").action).toBe("allow");
+  });
+
+  test("Copilot camelCase Bash payloads reach the same write guard", () => {
+    const target = join(scratch, ".ai-engineering", "config.toml");
+    const outcome = runChain({
+      sessionId: "copilot-session",
+      toolName: "bash",
+      toolArgs: JSON.stringify({ command: `echo x > ${target}` }),
+      cwd: scratch,
+    }, "PreToolUse", { inProcess: true, surface: "copilot-cli" });
+    expect(outcome.action).toBe("deny");
+    if (outcome.action === "deny") expect(outcome.by).toBe("self-protect");
+  });
+
+  test("Copilot interactive write and patch tools fail closed", () => {
+    for (const toolName of ["write_bash", "apply_patch"]) {
+      const outcome = runChain({
+        sessionId: `copilot-${toolName}`,
+        toolName,
+        toolArgs: { input: "echo x > .ai-engineering/config.toml{enter}" },
+        cwd: scratch,
+      }, "PreToolUse", { inProcess: true, surface: "copilot-cli" });
+      expect(outcome.action, toolName).toBe("deny");
+      if (outcome.action === "deny") expect(outcome.by, toolName).toBe("chain");
+    }
+  });
+
+  test("a PreToolUse payload without a tool name is denied", () => {
+    const outcome = RUN({ tool_use_id: "e1", session_id: "dispatch" });
+    expect(outcome.action).toBe("deny");
+    if (outcome.action === "deny") expect(outcome.by).toBe("chain");
   });
 });
 
@@ -240,12 +311,6 @@ describe("runChain — fail-closed boundaries", () => {
     const outcome = runChain(hostile as unknown as Record<string, unknown>, "PreToolUse", { inProcess: true });
     expect(outcome.action).toBe("deny");
     if (outcome.action === "deny") expect(outcome.reason).toBe("BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.");
-  });
-
-  test("a missing tool_name normalises to empty and still routes loop", () => {
-    const outcome = RUN({ tool_use_id: "e1", session_id: "dispatch" });
-    expect(outcome.action).toBe("allow");
-    if (outcome.action === "allow") expect(outcome.guards).toEqual(["loop"]);
   });
 
   test("a deny carries a receipt id; the receipt lands under .ai-engineering/receipts", () => {

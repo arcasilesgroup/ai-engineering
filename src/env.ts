@@ -20,14 +20,18 @@ export function home(): string {
   return join(homedir(), ".ai-engineering");
 }
 
-/** The repo this call happens in: the nearest ancestor with .git or .ai-engineering.
- *  NOT the gate — a repo having a root says nothing about it having asked for policy. */
+/** Prefer the outermost governed ancestor so a nested .git cannot escape its policy.
+ *  For an ungoverned tree, preserve the nearest repository boundary. */
 export function repoRoot(start?: string): string | null {
   let dir = resolve(start ?? process.cwd());
+  let nearestBoundary: string | null = null;
+  let outermostGoverned: string | null = null;
   for (;;) {
-    if (existsSync(join(dir, ".git")) || existsSync(join(dir, ".ai-engineering", "config.toml"))) return dir;
+    const hasConfig = existsSync(join(dir, ".ai-engineering", "config.toml"));
+    if (existsSync(join(dir, ".git")) || hasConfig) nearestBoundary ??= dir;
+    if (hasConfig && isGoverned(dir)) outermostGoverned = dir;
     const parent = resolve(dir, "..");
-    if (parent === dir) return null;
+    if (parent === dir) return outermostGoverned ?? nearestBoundary;
     dir = parent;
   }
 }

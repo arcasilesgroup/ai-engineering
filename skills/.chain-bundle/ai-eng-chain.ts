@@ -2,7 +2,7 @@
 // src/chain/mod.ts
 import { readFileSync as readFileSync12, writeFileSync as writeFileSync4, mkdirSync as mkdirSync4 } from "fs";
 import { createHash as createHash6 } from "crypto";
-import { dirname as dirname5, join as join11 } from "path";
+import { dirname as dirname5, join as join12 } from "path";
 
 // src/env.ts
 import { homedir } from "os";
@@ -20,12 +20,17 @@ function home() {
 }
 function repoRoot(start) {
   let dir = resolve(start ?? process.cwd());
+  let nearestBoundary = null;
+  let outermostGoverned = null;
   for (;; ) {
-    if (existsSync(join(dir, ".git")) || existsSync(join(dir, ".ai-engineering", "config.toml")))
-      return dir;
+    const hasConfig = existsSync(join(dir, ".ai-engineering", "config.toml"));
+    if (existsSync(join(dir, ".git")) || hasConfig)
+      nearestBoundary ??= dir;
+    if (hasConfig && isGoverned(dir))
+      outermostGoverned = dir;
     const parent = resolve(dir, "..");
     if (parent === dir)
-      return null;
+      return outermostGoverned ?? nearestBoundary;
     dir = parent;
   }
 }
@@ -160,21 +165,259 @@ var TOOL_ALIASES_BY_SURFACE = {
   pi: LOWER_TOOLS,
   "oh-my-pi": LOWER_TOOLS
 };
-function normalise(raw, surface) {
-  const out = { ...raw };
-  out.tool_name = out.tool_name ?? out.tool ?? "";
-  if (surface && typeof out.tool_name === "string") {
-    out.tool_name = TOOL_ALIASES_BY_SURFACE[surface]?.[out.tool_name] ?? out.tool_name;
+var COPILOT_TOOLS = {
+  bash: "Bash",
+  powershell: "PowerShell",
+  view: "Read",
+  create: "Write",
+  edit: "Edit",
+  str_replace_editor: "Edit",
+  apply_patch: "Edit",
+  grep: "Grep",
+  rg: "Grep",
+  glob: "Glob",
+  web_fetch: "WebFetch",
+  web_search: "WebSearch",
+  ask_user: "AskUserQuestion",
+  update_todo: "TodoWrite",
+  task: "Task"
+};
+var COPILOT_GUARDED = new Set([...Object.values(COPILOT_TOOLS), "Agent"]);
+var COPILOT_INTERNAL = new Set([
+  "report_intent",
+  "task_complete",
+  "skill",
+  "sql",
+  "session_store_sql",
+  "read_bash",
+  "stop_bash",
+  "list_bash",
+  "read_powershell",
+  "stop_powershell",
+  "list_powershell",
+  "read_agent",
+  "list_agents",
+  "write_agent",
+  "store_memory",
+  "vote_memory",
+  "fetch_copilot_cli_documentation",
+  "exit_plan_mode"
+]);
+var SQL_FILE_WRITE = /\b(attach|vacuum|load_extension|backup|writefile)\b/i;
+var COPILOT_ARGS = {
+  path: "file_path",
+  old_str: "old_string",
+  new_str: "new_string",
+  file_text: "content"
+};
+var PATCH_FILE = /^\*\*\* (Add|Update|Delete) File: (.+)$/;
+var PATCH_MOVE = /^\*\*\* Move to: (.+)$/;
+function patchPaths(patch) {
+  if (/[\v\f\u0085\u2028\u2029]/.test(patch))
+    throw new TypeError("apply_patch input uses an ambiguous line separator.");
+  const lines = patch.replace(/\r\n?/g, `
+`).split(`
+`).map((line) => line.trim());
+  while (lines.length > 0 && lines[0] === "")
+    lines.shift();
+  while (lines.length > 0 && lines.at(-1) === "")
+    lines.pop();
+  if (lines[0] !== "*** Begin Patch" || lines.at(-1) !== "*** End Patch" || lines.length < 3) {
+    throw new TypeError("apply_patch input is not one *** Begin Patch / *** End Patch envelope.");
   }
-  out.tool_input = out.tool_input ?? out.input ?? {};
+  const paths = [];
+  let previous = "";
+  for (const line of lines.slice(1, -1)) {
+    if (!line.startsWith("***")) {
+      previous = "body";
+      continue;
+    }
+    const file = PATCH_FILE.exec(line);
+    const move = PATCH_MOVE.exec(line);
+    if (file) {
+      paths.push(file[2].trim());
+      previous = file[1];
+    } else if (move && previous === "Update") {
+      paths.push(move[1].trim());
+      previous = "Move";
+    } else if (line !== "*** End of File") {
+      throw new TypeError(`apply_patch header cannot be read safely: ${line.slice(0, 80)}`);
+    }
+  }
+  if (paths.length === 0 || paths.some((path) => path.length === 0 || path.includes("\x00"))) {
+    throw new TypeError("apply_patch names no file, or an empty one.");
+  }
+  return paths;
+}
+function embeddedPatchPaths(text) {
+  const paths = [];
+  const end = "*** End Patch";
+  let from = 0;
+  for (;; ) {
+    const start = text.indexOf("*** Begin Patch", from);
+    if (start < 0)
+      return paths;
+    const close = text.indexOf(end, start);
+    paths.push(...patchPaths(text.slice(start, close < 0 ? undefined : close + end.length)));
+    if (close < 0)
+      return paths;
+    from = close + end.length;
+  }
+}
+function patchText(input) {
+  if (typeof input === "string")
+    return input;
+  if (input === null || typeof input !== "object" || Array.isArray(input))
+    return null;
+  const record = input;
+  const texts = ["input", "patch"].map((key) => record[key]).filter((value) => typeof value === "string" && value.includes("*** Begin Patch"));
+  if (new Set(texts).size > 1)
+    throw new TypeError("the call carries two different patches.");
+  return texts[0] ?? null;
+}
+function patchInput(patch, explicitPath) {
+  const filePaths = [...new Set([...explicitPath === undefined ? [] : [explicitPath], ...patchPaths(patch)])];
+  const added = patch.split(/\r?\n/).filter((line) => line.startsWith("+")).map((line) => line.slice(1));
+  return { file_path: filePaths[0], file_paths: filePaths, patch, content: added.join(`
+`) };
+}
+function targetOf(input) {
+  if (input === null || typeof input !== "object" || Array.isArray(input))
+    return;
+  const record = input;
+  assertOneTarget(record);
+  return TARGET_KEYS.map((key) => record[key]).find((value) => typeof value === "string" && value.length > 0);
+}
+function decodeArgs(args) {
+  let parsed = args ?? {};
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return parsed;
+    }
+    if (typeof parsed === "string")
+      return parsed;
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
+    throw new TypeError("Copilot toolArgs must be an object.");
+  return parsed;
+}
+var TARGET_KEYS = ["file_path", "path", "filePath", "notebook_path", "notebookPath"];
+function assertOneTarget(input) {
+  const targets = new Set(TARGET_KEYS.map((key) => input[key]).filter((value) => typeof value === "string" && value.length > 0));
+  if (targets.size > 1)
+    throw new TypeError("the call names more than one target path.");
+}
+function parseArgs(args) {
+  const decoded = decodeArgs(args);
+  if (typeof decoded === "string")
+    throw new TypeError("Copilot toolArgs must contain a JSON object.");
+  return decoded;
+}
+function normaliseCopilot(out, strict) {
+  const spellings = [out.tool_name, out.tool, out.toolName].filter((name) => typeof name === "string");
+  if (strict && new Set(spellings).size > 1)
+    throw new TypeError("the payload names two different tools.");
+  const runtimeName = out.tool_name ?? out.tool ?? out.toolName;
+  if (typeof runtimeName !== "string" || runtimeName.length === 0) {
+    out.tool_name = "";
+    out.tool_input = {};
+    return;
+  }
+  const rawArgs = out.tool_input ?? out.input ?? out.toolArgs;
+  out.session_id ??= out.sessionId;
+  out.tool_response ??= out.tool_result ?? out.toolResult;
+  if (!strict) {
+    out.tool_name = COPILOT_TOOLS[runtimeName] ?? runtimeName;
+    out.tool_input = typeof rawArgs === "object" && rawArgs !== null ? rawArgs : {};
+    return;
+  }
+  if (COPILOT_INTERNAL.has(runtimeName)) {
+    out.tool_name = runtimeName;
+    const args = parseArgs(rawArgs);
+    const query = typeof args["query"] === "string" ? args["query"] : "";
+    if (runtimeName === "sql" && SQL_FILE_WRITE.test(query)) {
+      throw new TypeError("Copilot sql calls that attach or write database files cannot be inspected safely.");
+    }
+    out.tool_input = args;
+    return;
+  }
+  const name = COPILOT_TOOLS[runtimeName] ?? runtimeName;
+  if (!COPILOT_GUARDED.has(name))
+    throw new TypeError(`Copilot tool ${runtimeName} is not one the guards can inspect.`);
+  const decoded = decodeArgs(rawArgs);
+  if (typeof decoded === "string" && name !== "Edit")
+    throw new TypeError("Copilot toolArgs must contain a JSON object.");
+  const patch = name === "Edit" || name === "Write" ? patchText(decoded) : null;
+  if (runtimeName === "apply_patch" && patch === null)
+    throw new TypeError("Copilot apply_patch input is not a readable patch.");
+  if (patch !== null) {
+    out.tool_name = "Edit";
+    out.tool_input = patchInput(patch, targetOf(decoded));
+    return;
+  }
+  const args = decoded;
+  assertOneTarget(args);
+  const mapped = {};
+  for (const [key, value] of Object.entries(args))
+    mapped[COPILOT_ARGS[key] ?? key] = value;
+  let guardName = name;
+  if (runtimeName === "str_replace_editor") {
+    const verb = mapped["command"];
+    delete mapped["command"];
+    mapped["editor_command"] = verb;
+    guardName = verb === "view" ? "Read" : verb === "create" ? "Write" : "Edit";
+  }
+  out.tool_name = guardName;
+  out.tool_input = mapped;
+}
+function requireArgs(tool, input) {
+  const text = (key) => typeof input[key] === "string" && input[key].trim().length > 0;
+  if ((tool === "Bash" || tool === "PowerShell") && !text("command"))
+    throw new TypeError(`${tool} calls must include a command.`);
+  if ((tool === "Write" || tool === "Edit" || tool === "Read") && !text("file_path"))
+    throw new TypeError(`${tool} calls must include a path.`);
+  if (tool === "WebFetch" && !text("url"))
+    throw new TypeError("WebFetch calls must include a url.");
+}
+function normalise(raw, surface, event) {
+  const out = { ...raw };
+  const strict = event === undefined || event === "PreToolUse";
+  const isCopilot = surface === "copilot-cli" || surface === "copilot";
+  if (isCopilot) {
+    normaliseCopilot(out, strict);
+  } else {
+    out.tool_name = out.tool_name ?? out.tool ?? "";
+    if (surface && typeof out.tool_name === "string") {
+      out.tool_name = TOOL_ALIASES_BY_SURFACE[surface]?.[out.tool_name] ?? out.tool_name;
+    }
+    const toolInput = out.tool_input ?? out.input ?? {};
+    const isPatchTool = out.tool_name === "apply_patch";
+    const patch = isPatchTool || out.tool_name === "Edit" || out.tool_name === "Write" ? patchText(toolInput) : null;
+    if (isPatchTool && patch === null)
+      throw new TypeError("apply_patch input is not a readable patch.");
+    if (patch !== null) {
+      out.tool_name = "Edit";
+      out.tool_input = patchInput(patch, targetOf(toolInput));
+    } else {
+      out.tool_input = toolInput;
+    }
+  }
   if (typeof out.tool_input !== "object" || out.tool_input === null)
     out.tool_input = {};
   const input = out.tool_input;
+  assertOneTarget(input);
   const mapped = {};
   for (const [k, v] of Object.entries(input))
     mapped[BUILT_IN_ALIASES[k] ?? k] = v;
   if (!mapped.file_path && typeof mapped.notebook_path === "string")
     mapped.file_path = mapped.notebook_path;
+  if (isCopilot && strict && typeof out.tool_name === "string") {
+    if (!mapped.file_path && typeof mapped.path === "string")
+      mapped.file_path = mapped.path;
+    requireArgs(out.tool_name, mapped);
+  }
   out.tool_input = mapped;
   return out;
 }
@@ -312,14 +555,310 @@ function overrideActive(overrides, guard) {
 }
 
 // src/guards/no-verify.ts
-import { resolve as resolve2, isAbsolute } from "path";
-import { existsSync as existsSync2 } from "fs";
+import { basename, resolve as resolve2, isAbsolute, join as join3 } from "path";
+import { realpathSync } from "fs";
+
+// src/guards/shell.ts
+var REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/g;
+function normalizeRedirects(command) {
+  return command.replace(REDIRECT_OPERATOR, (operator) => operator.includes("<&") ? " < " : " > ");
+}
+var HEREDOC = /^<<(-?)[ \t]*(\\?)(['"]?)([^\s'"<>|;&()]+)\3/;
+var SUBSTITUTION = "$__SUB__";
+function shellSegments(command) {
+  const segments = [];
+  const nesting = [];
+  const pending = [];
+  let current = "";
+  let quote = null;
+  let isAfterPipe = false;
+  let isProcessSubstitution = false;
+  let substitutions = [];
+  let heredocs = [];
+  const cut = (nextIsAfterPipe = false) => {
+    segments.push({ text: current, isAfterPipe, opensSubstitution: current.includes(SUBSTITUTION), isProcessSubstitution, heredocs, substitutions });
+    current = "";
+    isAfterPipe = nextIsAfterPipe;
+    isProcessSubstitution = false;
+    substitutions = [];
+    heredocs = [];
+  };
+  const open = (closer) => {
+    nesting.push({ quote, closer, parent: current, parentIsAfterPipe: isAfterPipe, parentSubstitutions: substitutions, parentHeredocs: heredocs, innerStart: segments.length });
+    quote = null;
+    current = "";
+    isAfterPipe = false;
+    substitutions = [];
+    heredocs = [];
+  };
+  const close = () => {
+    cut();
+    const frame = nesting.pop();
+    quote = frame.quote;
+    current = frame.parent + SUBSTITUTION;
+    isAfterPipe = frame.parentIsAfterPipe;
+    heredocs = frame.parentHeredocs;
+    const isSingleCommand = segments.length - frame.innerStart === 1;
+    substitutions = [...frame.parentSubstitutions, isSingleCommand ? segments[frame.innerStart].text.trim() : ""];
+  };
+  const source = command.replace(/\\\r?\n/g, "");
+  for (let index = 0;index < source.length; index++) {
+    const char = source[index];
+    const next = source[index + 1];
+    if (quote === "'") {
+      if (char === "'")
+        quote = null;
+      current += char;
+    } else if (char === "\\") {
+      current += char + (next ?? "");
+      index++;
+    } else if (char === "$" && next === "(") {
+      open(")");
+      index++;
+    } else if (char === "`") {
+      if (quote === null && nesting.at(-1)?.closer === "`")
+        close();
+      else
+        open("`");
+    } else if (quote === '"') {
+      if (char === '"')
+        quote = null;
+      current += char;
+    } else if (char === "'" || char === '"') {
+      quote = char;
+      current += char;
+    } else if ((char === "<" || char === ">") && next === "(") {
+      open(")");
+      isProcessSubstitution = true;
+      index++;
+    } else if (char === "#" && /(^|\s)$/.test(current)) {
+      while (index + 1 < source.length && source[index + 1] !== `
+`)
+        index++;
+    } else if (char === "<" && next === "<" && source[index + 2] === "<") {
+      current += "<<<";
+      index += 2;
+    } else if (char === "<" && next === "<") {
+      const heredoc = HEREDOC.exec(source.slice(index));
+      if (heredoc === null)
+        return null;
+      pending.push({ delimiter: heredoc[4], isLiteral: heredoc[2] !== "" || heredoc[3] !== "", stripsTabs: heredoc[1] === "-", owner: heredocs });
+      current += heredoc[0];
+      index += heredoc[0].length - 1;
+    } else if (char === `
+` && pending.length > 0) {
+      cut();
+      for (const heredoc of pending.splice(0)) {
+        const bodyStart = index + 1;
+        let lineStart = bodyStart;
+        let bodyEnd = source.length;
+        for (;; ) {
+          const lineEnd = source.indexOf(`
+`, lineStart);
+          const line = source.slice(lineStart, lineEnd < 0 ? source.length : lineEnd);
+          if ((heredoc.stripsTabs ? line.replace(/^\t+/, "") : line) === heredoc.delimiter) {
+            bodyEnd = lineStart;
+            index = (lineEnd < 0 ? source.length : lineEnd) - 1;
+            break;
+          }
+          if (lineEnd < 0) {
+            index = source.length - 1;
+            break;
+          }
+          lineStart = lineEnd + 1;
+        }
+        const body = source.slice(bodyStart, bodyEnd);
+        heredoc.owner.push({ body, isLiteral: heredoc.isLiteral });
+        if (!heredoc.isLiteral && /\$\(|`/.test(body)) {
+          const expanded = shellSegments(body.replace(/['"]/g, " "));
+          if (expanded === null)
+            return null;
+          segments.push(...expanded);
+        }
+      }
+    } else if (char === "|") {
+      const isOr = next === "|";
+      if (isOr || next === "&")
+        index++;
+      cut(!isOr);
+    } else if (char === ")" && nesting.at(-1)?.closer === ")") {
+      close();
+    } else if (`;&
+()`.includes(char)) {
+      if (char === "&" && next === "&")
+        index++;
+      cut();
+    } else {
+      current += char;
+    }
+  }
+  cut();
+  return quote === null && nesting.length === 0 ? segments : null;
+}
+var ANSI_ESCAPES = { n: `
+`, t: "\t", r: "\r", "\\": "\\", "'": "'", '"': '"', e: "\x1B", a: "\x07", "0": "\x00" };
+function shellWords(text) {
+  const words = [];
+  let value = "";
+  let isQuoted = false;
+  let hasWord = false;
+  const end = () => {
+    if (hasWord)
+      words.push({ value, isQuoted, isOperator: false });
+    value = "";
+    isQuoted = false;
+    hasWord = false;
+  };
+  for (let index = 0;index < text.length; index++) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (/\s/.test(char)) {
+      end();
+    } else if (char === "<" || char === ">") {
+      end();
+      let operator = char;
+      while (text[index + 1] === "<" || text[index + 1] === ">")
+        operator += text[++index];
+      words.push({ value: operator, isQuoted: false, isOperator: true });
+    } else if (char === "\\") {
+      value += next ?? "";
+      hasWord = true;
+      isQuoted = true;
+      index++;
+    } else if (char === "'" || char === "$" && next === "'") {
+      const isAnsi = char === "$";
+      let close = text.indexOf("'", index + (isAnsi ? 2 : 1));
+      if (isAnsi) {
+        while (close > 0 && text[close - 1] === "\\")
+          close = text.indexOf("'", close + 1);
+      }
+      const body = text.slice(index + (isAnsi ? 2 : 1), close < 0 ? text.length : close);
+      value += isAnsi ? body.replace(/\\x([0-9a-fA-F]{1,2})|\\([0-7]{1,3})|\\(.)/g, (_all, hex, octal, other) => hex ? String.fromCharCode(parseInt(hex, 16)) : octal ? String.fromCharCode(parseInt(octal, 8)) : ANSI_ESCAPES[other] ?? other) : body;
+      hasWord = true;
+      isQuoted = true;
+      index = close < 0 ? text.length : close;
+    } else if (char === '"' || char === "$" && next === '"') {
+      let cursor = index + (char === "$" ? 2 : 1);
+      while (cursor < text.length && text[cursor] !== '"') {
+        if (text[cursor] === "\\" && /["\\$`]/.test(text[cursor + 1] ?? ""))
+          cursor++;
+        value += text[cursor];
+        cursor++;
+      }
+      hasWord = true;
+      isQuoted = true;
+      index = cursor;
+    } else {
+      value += char;
+      hasWord = true;
+    }
+  }
+  end();
+  return words;
+}
+function unquoteShell(command) {
+  return shellWords(command.replace(/\\\r?\n/g, "")).map((word) => word.value).join(" ");
+}
+function staticOutput(inner) {
+  const words = shellWords(inner);
+  if (words.length === 0 || words.some((word) => word.isOperator || /[$`]/.test(word.value)))
+    return null;
+  const [verb, ...args] = words.map((word) => word.value);
+  let output;
+  if (verb === "echo") {
+    while (/^-[neE]+$/.test(args[0] ?? ""))
+      args.shift();
+    output = args.join(" ");
+  } else if (verb === "printf" && args.length > 0) {
+    const [format, ...values] = args;
+    output = values.length === 0 ? format : format.replace(/%s/g, () => values.shift() ?? "");
+    output = output.replace(/\\n$/, "");
+  } else {
+    return null;
+  }
+  return /["'\\$`\n]/.test(output) ? null : output;
+}
+function resolveSubstitutions(segment) {
+  let index = 0;
+  return segment.text.replace(/\$__SUB__/g, () => staticOutput(segment.substitutions[index++] ?? "") ?? SUBSTITUTION);
+}
+
+// src/guards/no-verify.ts
 var SKIPS = [
-  { pattern: /\bgit\b[^|;&]*\b(commit|push|merge|rebase|am)\b[^|;&]*--no-verify/, label: "--no-verify" },
-  { pattern: /\bgit\b[^|;&]*\bcommit\b[^|;&]*(?<![\w-])-[a-zA-Z]*n/, label: "git commit -n" },
   { pattern: /\bHUSKY=0\b|\bPRE_COMMIT_ALLOW_NO_VERIFY\b|\bSKIP_HOOKS\b/, label: "an environment flag" },
+  { pattern: /\bGIT_CONFIG_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM)\b|\bGIT_CONFIG\b|--config-env\b/, label: "git config from the environment" },
+  { pattern: /\bgit\b[^|;&]*\binclude(?:if\.[^\s=]*)?\.path\b/i, label: "a git config include" },
   { pattern: /\brm\b[^|;&]*\.git\/hooks/, label: "deleting .git/hooks" }
 ];
+var RAW_SKIPS = [
+  { pattern: /\bgit\b[^|;&]*\b(commit|push|merge|rebase|am|pull)\b[^|;&]*--no-veri/, label: "--no-verify" },
+  { pattern: /\bgit\b[^|;&]*\bcommit\b[^|;&]*(?<![\w-])-[a-zA-Z]*n/, label: "git commit -n" }
+];
+var HOOKED = new Set(["commit", "push", "merge", "pull", "rebase", "am", "cherry-pick", "revert"]);
+var VALUE_OPTIONS = new Set(["-m", "--message", "-F", "--file", "-t", "--template", "--author", "--date", "--trailer", "--cleanup", "-C", "--reuse-message", "-c", "--reedit-message", "--fixup", "--squash"]);
+var GLOBAL_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace"]);
+var RUN_PREFIXES = new Set(["sudo", "env", "command", "exec", "nohup", "time", "nice", "xargs"]);
+function gitHookSkip(command, depth = 0) {
+  if (depth > 3)
+    return "git aliases nested too deep to read";
+  const segments = shellSegments(normalizeRedirects(command));
+  if (segments === null)
+    return;
+  for (const segment of segments) {
+    const words = shellWords(segment.text).filter((word) => !word.isOperator);
+    let index = 0;
+    while (index < words.length && (/^[A-Za-z_]\w*=/.test(words[index].value) || RUN_PREFIXES.has(basename(words[index].value))))
+      index++;
+    if (basename(words[index]?.value ?? "") !== "git")
+      continue;
+    const environment = words.slice(0, index).map((word) => word.value);
+    let position = index + 1;
+    const globals = [];
+    while (position < words.length && words[position].value.startsWith("-")) {
+      const option = words[position].value;
+      const takesNext = GLOBAL_VALUE_OPTIONS.has(option);
+      globals.push(takesNext ? `${option}=${words[position + 1]?.value ?? ""}` : option);
+      position += takesNext ? 2 : 1;
+    }
+    const sub = words[position]?.value ?? "";
+    const aliases = globals.map((option) => /^-c=?(alias\.[^=]+)=(.*)$/s.exec(option.replace(/^-c(?=[^=])/, "-c="))).filter((match) => match !== null).map((match) => match[2]);
+    if (sub === "config") {
+      const rest = words.slice(position + 1).map((word) => word.value).filter((value) => !value.startsWith("-"));
+      if (/^alias\./i.test(rest[0] ?? "") && rest[1] !== undefined)
+        aliases.push(rest[1]);
+    }
+    for (const alias of aliases) {
+      const expanded = gitHookSkip(alias.startsWith("!") ? alias.slice(1) : `git ${alias}`, depth + 1);
+      if (expanded)
+        return expanded;
+    }
+    if (!HOOKED.has(sub))
+      continue;
+    if (environment.some((value) => /^(?:GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|GIT_TEMPLATE_DIR|HOME|XDG_CONFIG_HOME)=/.test(value)) || globals.some((option) => /^--(?:git-dir|exec-path)(?:=|$)/.test(option))) {
+      return "pointing git at another directory or config";
+    }
+    const takesValue = (value) => VALUE_OPTIONS.has(value) || /^-[a-zA-Z]*[mFtCc]$/.test(value);
+    for (let at = position + 1;at < words.length; at++) {
+      const word = words[at];
+      const value = word.value;
+      if (value.includes(SUBSTITUTION) && segment.substitutions.every((inner) => /^git\s+(?:rev-parse|branch|symbolic-ref|describe)\b/.test(inner)))
+        continue;
+      if (/[$`]/.test(value) || !word.isQuoted && (/[*?[]/.test(value) || /\{[^}]*,/.test(value)))
+        return "an option computed at run time";
+      if (takesValue(value)) {
+        if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value))
+          return "git commit -n";
+        at++;
+        continue;
+      }
+      if (value.startsWith("--no-veri"))
+        return "--no-verify";
+      if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value))
+        return "git commit -n";
+    }
+  }
+  return null;
+}
 var SILENCES = [
   /\/\/\s*eslint-disable(?!-next-line\s+prettier)/,
   /\/\*\s*eslint-disable(?!-next-line\s+prettier)/,
@@ -328,12 +867,12 @@ var SILENCES = [
   /\bNOLINTNEXTLINE\b/,
   /"\$allow-list"\s*:/
 ];
-var INLINE = /-c\s+core\.hooksPath=(\S*)/gi;
+var INLINE = /-c\s*core\.hookspath(?:=(\S*))?(?=\s|$)/gi;
 function hooksPathTargets(command) {
   const words = command.split(/\s+/);
   const found = [];
   for (const match of command.matchAll(INLINE))
-    found.push(match[1].replace(/^["']|["']$/g, ""));
+    found.push((match[1] ?? "true").replace(/^["']|["']$/g, ""));
   if (words.some((w) => w === "config") && words.some((w) => w.toLowerCase() === "core.hookspath")) {
     if (words.some((w) => w.startsWith("--unset"))) {
       found.push("");
@@ -352,12 +891,31 @@ function hooksPathElsewhere(value, repoRoot) {
   const root = repoRoot ?? process.cwd();
   try {
     const candidate = isAbsolute(value) ? value : resolve2(root, value);
-    return !existsSync2(candidate);
+    const floor = join3(root, ".git", "hooks");
+    return realpathSync(candidate) !== realpathSync(floor);
   } catch {
     return true;
   }
 }
-function checkBash(command, repoRoot) {
+function skipDenial(label) {
+  return {
+    deny: true,
+    reason: `${label} skips the git hooks, the floor every agent and every person in this repository commits through. Whatever the hooks would have said is what needs fixing. Run the command without it.`
+  };
+}
+function checkBash(rawCommand, repoRoot) {
+  const tokenSkip = gitHookSkip(rawCommand);
+  if (tokenSkip)
+    return skipDenial(tokenSkip);
+  const skips = tokenSkip === undefined ? [...SKIPS, ...RAW_SKIPS] : SKIPS;
+  for (const command of [rawCommand, unquoteShell(rawCommand)]) {
+    const denied = checkBashForm(command, repoRoot, skips);
+    if (denied)
+      return denied;
+  }
+  return;
+}
+function checkBashForm(command, repoRoot, skips) {
   for (const target of hooksPathTargets(command)) {
     if (hooksPathElsewhere(target, repoRoot)) {
       return {
@@ -366,15 +924,8 @@ function checkBash(command, repoRoot) {
       };
     }
   }
-  for (const skip of SKIPS) {
-    if (skip.pattern.test(command)) {
-      return {
-        deny: true,
-        reason: `${skip.label} skips the git hooks, the floor every agent and every person in this repository commits through. Whatever the hooks would have said is what needs fixing. Run the command without it.`
-      };
-    }
-  }
-  return;
+  const skip = skips.find((candidate) => candidate.pattern.test(command));
+  return skip === undefined ? undefined : skipDenial(skip.label);
 }
 function checkContent(content) {
   for (const rule of SILENCES) {
@@ -401,8 +952,8 @@ function runNoVerify(payload, repoRoot) {
 }
 
 // src/guards/self-protect.ts
-import { basename, isAbsolute as isAbsolute2, join as join3, resolve as resolve3 } from "path";
-import { existsSync as existsSync3, readFileSync as readFileSync3, realpathSync } from "fs";
+import { basename as basename2, isAbsolute as isAbsolute2, join as join4, resolve as resolve3 } from "path";
+import { existsSync as existsSync2, readFileSync as readFileSync3, realpathSync as realpathSync2 } from "fs";
 var WRITERS = {
   rm: true,
   mv: true,
@@ -426,48 +977,662 @@ var WRITERS = {
 };
 var REDIRECT = /\d*>>?\s*("[^"]*"|'[^']*'|[^\s;|&]+)/g;
 var SEPARATORS = /[\n;|&]+/;
+var REDIRECTION = /^(?:\{[\w]+\})?\d*(?:&>>?|>>?[|!&]?|<>|<{1,3}|<&)(.*)$/;
 var RELATIVE_PATH = /(^|[\s"'=<>|;&(])((?:\.\.?\/)?[\w.@+-]+(?:\/[\w.@+-]+)+)/g;
+var AI_ENG_COMMANDS = new Set(["ai-eng", "ai-eng.js", "ai-eng.cmd", "ai-eng.exe", "ai-engineering"]);
+var CLI_WRAPPERS = new Set(["bunx", "command", "env", "exec", "nohup", "npx", "npm", "pnpm", "script", "sudo", "time", "timeout", "xargs", "yarn"]);
+function commandName(word) {
+  const unquoted = word.replace(/['"]/g, "").replace(/^[()]+|[()]+$/g, "");
+  const isQuoted = /^['"].*['"]$/.test(word);
+  const withoutRedirect = isQuoted ? unquoted : unquoted.replace(/(?:\{[\w]+\})?\d*(?:&>>?|>>?[|!&]?|<>|<{1,3}|<&).*$/, "");
+  const isWindowsPath = /^(?:[A-Za-z]:|\.{1,2})\\/.test(withoutRedirect);
+  const normalized = isWindowsPath || withoutRedirect.includes("/") ? withoutRedirect.replace(/\\/g, "/") : withoutRedirect.replace(/\\(.)/g, "$1");
+  return basename2(normalized);
+}
+function stripRedirections(args) {
+  const kept = [];
+  for (let index = 0;index < args.length; index++) {
+    const word = args[index];
+    if (/^['"].*['"]$/.test(word)) {
+      kept.push(word);
+      continue;
+    }
+    const redirect = REDIRECTION.exec(word);
+    if (!redirect) {
+      kept.push(word);
+      continue;
+    }
+    if (redirect[1] === "" && index + 1 < args.length)
+      index++;
+  }
+  return kept;
+}
+function isCliEntrypoint(word) {
+  return ["cli.ts", "cli.js"].includes(commandName(word)) || AI_ENG_COMMANDS.has(commandName(word));
+}
+function restrictedAiEngArgs(args) {
+  const words = stripRedirections(args);
+  const has = (word) => words.includes(word);
+  return has("uninstall") || has("wrap") || has("adapt") && has("apply") || has("config") && words.some((word) => /^--remove(?:=|$)/.test(word));
+}
+var SHELL_KEYWORDS = new Set(["", "!", "{", "}", "(", ")", "then", "do", "else", "elif", "if", "while", "until"]);
+function commandStart(words) {
+  let index = 0;
+  while (index < words.length) {
+    const word = words[index];
+    if (SHELL_KEYWORDS.has(word) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) {
+      index++;
+      continue;
+    }
+    const redirect = /^['"]/.test(word) ? null : REDIRECTION.exec(word);
+    if (redirect === null)
+      return index;
+    index += redirect[1] === "" ? 2 : 1;
+  }
+  return index;
+}
+var COMMAND_PREFIXES = new Set(["sudo", "doas", "command", "builtin", "exec", "env", "nohup", "time", "nice", "xargs", "timeout", "stdbuf", "busybox"]);
+var SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish", "csh", "tcsh", "pwsh", "powershell"]);
+var INTERPRETERS = new Set([...SHELLS, "python", "python3", "node", "perl", "ruby", "bun", "deno", "php"]);
+var STDIN_FILES = new Set(["-", "/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"]);
+var PREFIX_VALUE_OPTIONS = {
+  xargs: /^-[0-9A-Za-z]*[aIiLlnsPEed]$/,
+  sudo: /^-[A-Za-z]*[ugCDhpRrT]$/,
+  doas: /^-[A-Za-z]*[uC]$/,
+  env: /^-[A-Za-z]*[uCS]$/,
+  nice: /^-n$/,
+  timeout: /^-[sk]$/
+};
+function verbOf(words) {
+  let index = commandStart(words);
+  while (index < words.length && COMMAND_PREFIXES.has(commandName(words[index]))) {
+    const prefix = commandName(words[index]);
+    index++;
+    while (index < words.length && /^(?:-|[A-Za-z_]\w*=|\d+[smhd]?$)/.test(words[index])) {
+      index += PREFIX_VALUE_OPTIONS[prefix]?.test(words[index]) ? 2 : 1;
+    }
+  }
+  return { index, name: commandName(words[index] ?? "") };
+}
+var INFO_FLAGS = /^(?:--version|--help|-V|-v|-h)$/;
+function readsProgramFromStdin(name, args) {
+  const inline = SHELLS.has(name) ? /^-[A-Za-z]*c[A-Za-z]*$/ : /^-[A-Za-z]*[ceE][A-Za-z]*$/;
+  if (args.some((arg) => INFO_FLAGS.test(arg) || inline.test(arg)))
+    return false;
+  return !args.some((arg) => !arg.startsWith("-"));
+}
+var READERS = new Set([
+  "cat",
+  "less",
+  "more",
+  "head",
+  "tail",
+  "grep",
+  "egrep",
+  "fgrep",
+  "rg",
+  "ag",
+  "wc",
+  "diff",
+  "cmp",
+  "ls",
+  "stat",
+  "file",
+  "sha256sum",
+  "sha1sum",
+  "sha512sum",
+  "shasum",
+  "md5",
+  "md5sum",
+  "cksum",
+  "test",
+  "[",
+  "[[",
+  "echo",
+  "printf",
+  "realpath",
+  "readlink",
+  "basename",
+  "dirname",
+  "jq",
+  "nl",
+  "od",
+  "hexdump",
+  "strings",
+  "du",
+  "bat",
+  "tree",
+  "cd",
+  "pushd",
+  "popd",
+  "get-content",
+  "gc",
+  "type",
+  "select-string",
+  "sls",
+  "test-path",
+  "get-item",
+  "gi",
+  "get-childitem",
+  "gci",
+  "dir",
+  "resolve-path",
+  "write-output",
+  "write-host"
+]);
+var GIT_READERS = new Set(["diff", "log", "show", "status", "blame", "ls-files", "cat-file", "grep", "check-ignore", "rev-parse", "shortlog", "describe"]);
+var FIND_ACTIONS = /^-(?:delete|exec|execdir|ok|okdir|fprint0?|fprintf|fls)$/;
+var TREE_WRITERS = new Set([
+  "rm",
+  "rmdir",
+  "mv",
+  "cp",
+  "ln",
+  "chmod",
+  "chown",
+  "chgrp",
+  "rsync",
+  "tar",
+  "unzip",
+  "ditto",
+  "install",
+  "find",
+  "tee",
+  "truncate",
+  "dd",
+  "split",
+  "csplit",
+  "touch",
+  "remove-item",
+  "ri",
+  "del",
+  "erase",
+  "rd",
+  "move-item",
+  "mi",
+  "copy-item",
+  "cpi",
+  "rename-item",
+  "rni",
+  "set-content",
+  "sc",
+  "add-content",
+  "ac",
+  "out-file",
+  "clear-content",
+  "new-item",
+  "ni"
+]);
+var DIFF_APPLIERS = new Set(["patch", "ed", "ex"]);
+var GIT_TREE_WRITERS = new Set(["mv", "rm", "checkout", "restore", "clean"]);
+var GLOB_CHARS = /[*?[]/;
+var OUTPUT_OPTION = /^(?:-o|-O|-out|--out|--output|--output-document|--outfile|--log-file)$/;
+var ATTACHED_OUTPUT = /^(?:-o.|-O.|--out=|--output=|--output-document=|--outfile=|--log-file=|of=)/;
+var MAX_GLOB_MATCHES = 2000;
+var MAX_SHELL_DEPTH = 4;
+function gitSubcommand(args) {
+  for (let index = 0;index < args.length; index++) {
+    const arg = args[index];
+    if (["-C", "-c", "--git-dir", "--work-tree", "--namespace"].includes(arg))
+      index++;
+    else if (!arg.startsWith("-"))
+      return { name: arg, index };
+  }
+  return { name: "", index: args.length };
+}
+function isReader(verb, args) {
+  if (args.some((arg) => /^--(?:output|out|output-document|outfile|log-file)(?:=|$)/.test(arg)))
+    return false;
+  if (verb === "git")
+    return GIT_READERS.has(gitSubcommand(args).name);
+  if (verb === "find")
+    return !args.some((arg) => FIND_ACTIONS.test(arg));
+  return READERS.has(verb);
+}
+function isTreeWriter(verb, args) {
+  if (verb === "git")
+    return GIT_TREE_WRITERS.has(gitSubcommand(args).name);
+  if (verb === "find") {
+    return args.some((arg, index) => arg === "-delete" || /^-(?:exec|execdir|ok|okdir)$/.test(arg) && !isReader(commandName(args[index + 1] ?? "").toLowerCase(), args.slice(index + 2)));
+  }
+  return TREE_WRITERS.has(verb) || verb === "sed" && args.some((arg) => /^-[A-Za-z]*i/.test(arg));
+}
+var EMBEDDED_PATH = /(?:~|\.{1,2})?\/?[\w.@+-]*(?:\/[\w.@+-]+)+|\.ai-engineering\b[\w./-]*|\.git\b[\w./-]*/g;
+function expandBraces(pattern, found = []) {
+  const group = /\{([^{}]*,[^{}]*)\}/.exec(pattern);
+  if (group === null) {
+    found.push(pattern);
+    return found;
+  }
+  for (const option of group[1].split(",")) {
+    if (found.length >= 64)
+      break;
+    expandBraces(pattern.slice(0, group.index) + option + pattern.slice(group.index + group[0].length), found);
+  }
+  return found;
+}
+function pathCandidates(word, bases) {
+  const forms = [word];
+  const equals = word.indexOf("=");
+  if (equals > 0)
+    forms.push(word.slice(equals + 1));
+  const attached = /^-[A-Za-z](.+)$/.exec(word)?.[1];
+  if (attached !== undefined)
+    forms.push(attached);
+  const found = [];
+  for (const form of forms) {
+    if (form.length === 0 || form.startsWith("-") && !form.includes("/"))
+      continue;
+    for (const pattern of expandBraces(expandTilde(form))) {
+      for (const base of bases) {
+        if (!GLOB_CHARS.test(pattern)) {
+          found.push(resolve3(base, pattern));
+          continue;
+        }
+        const isRooted = isAbsolute2(pattern);
+        let count = 0;
+        try {
+          for (const match of new Bun.Glob(isRooted ? pattern.slice(1) : pattern).scanSync({ cwd: isRooted ? "/" : base, dot: true, absolute: true, onlyFiles: false })) {
+            if (++count > MAX_GLOB_MATCHES)
+              return null;
+            found.push(match);
+          }
+        } catch {}
+      }
+    }
+  }
+  return found;
+}
+function isAncestorOfProtected(paths, candidate) {
+  let canonical = candidate;
+  try {
+    canonical = realpathSync2(candidate);
+  } catch {}
+  const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute2(path))];
+  return protectedRoots.some((root) => {
+    let real = root;
+    try {
+      real = realpathSync2(root);
+    } catch {}
+    return [root, real].some((form) => [candidate, canonical].some((path) => form.toLowerCase().startsWith(path.toLowerCase())));
+  });
+}
+function shellVariables(segments) {
+  const variables = new Map([["HOME", machineBase()]]);
+  for (const segment of segments) {
+    for (const word of shellWords(segment.text)) {
+      const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word.value);
+      if (assignment)
+        variables.set(assignment[1], assignment[2]);
+    }
+  }
+  return variables;
+}
+function substitute(value, variables) {
+  return value.replace(/\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)/g, (all, braced, bare) => variables.get(braced ?? bare ?? "") ?? all);
+}
+function judgeShell(command, context, depth = 0) {
+  if (depth > MAX_SHELL_DEPTH)
+    return "it nests shells too deep to read";
+  if (context.isPowerShell) {
+    const unreadable = powerShellUnreadable(command);
+    if (unreadable !== null)
+      return unreadable;
+  }
+  if (/\b(?:pwsh|powershell)(?:\.exe)?\b/i.test(command) && POWERSHELL_ENCODED.test(command))
+    return "an encoded PowerShell command hides what it runs";
+  const expanded = command.replace(/\$\(\s*(?:which|command\s+-v)\s+([^)\s]+)\s*\)/g, "$1");
+  const segments = shellSegments(normalizeRedirects(expanded));
+  if (segments === null)
+    return "its quoting cannot be read, so neither can what it runs";
+  const variables = shellVariables(segments);
+  const bases = [...context.bases];
+  const parsed = segments.map((segment) => {
+    const words = shellWords(resolveSubstitutions(segment)).map((word) => ({ ...word, original: word.value, value: substitute(word.value, variables) }));
+    const plain = [];
+    const writeTargets = [];
+    const inputs = [];
+    for (let index = 0;index < words.length; index++) {
+      const word = words[index];
+      if (!word.isOperator) {
+        plain.push(word.value);
+        continue;
+      }
+      const target = words[index + 1];
+      if (word.value.includes(">") && target !== undefined)
+        writeTargets.push(target.value);
+      if (word.value === "<<<" && target !== undefined)
+        inputs.push(target.value);
+      index++;
+    }
+    const verb = verbOf(plain);
+    return { segment, words, plain, writeTargets, inputs, verb, name: verb.name.toLowerCase(), args: plain.slice(verb.index + 1) };
+  });
+  let hasUnknownBase = false;
+  for (const { name, args } of parsed) {
+    if (name !== "cd" && name !== "pushd")
+      continue;
+    const target = args.find((arg) => !/^-[LPe@]*$/.test(arg) && arg !== "--");
+    if (target === undefined || target === "-")
+      continue;
+    if (/[$`]/.test(target))
+      hasUnknownBase = true;
+    else
+      bases.push(...pathCandidates(target, [...bases]) ?? []);
+  }
+  const names = (word, includesCheckpoints = true) => {
+    const candidates = pathCandidates(word, bases);
+    if (candidates === null)
+      return word;
+    const hit = candidates.find((candidate) => offendingTarget(context.paths, candidate, bases) !== null || includesCheckpoints && CHECKPOINT_FILE.test(candidate));
+    return hit ?? globNamesProtected(word, bases, context.paths);
+  };
+  const isRelative = (word) => !isAbsolute2(expandTilde(word)) && !word.startsWith("-");
+  for (const { segment, words, plain, writeTargets, inputs, verb, name, args } of parsed) {
+    const verbWord = words.find((word) => !word.isOperator && word.value === plain[verb.index]);
+    const rawVerb = verbWord?.original ?? "";
+    if (segment.isProcessSubstitution)
+      return "process substitution runs a command whose text is not on the line";
+    if (!context.isPowerShell && (rawVerb.startsWith("$") || rawVerb.startsWith("`")))
+      return "the command name is computed at run time";
+    const isTestBracket = rawVerb === "[" || rawVerb === "[[";
+    if (verbWord !== undefined && !verbWord.isQuoted && !isTestBracket && (GLOB_CHARS.test(rawVerb) || /\{[^}]*,/.test(rawVerb)))
+      return "the command name is a pattern the shell expands";
+    if (name === "eval" || name === "iex" || name === "invoke-expression")
+      return `${name} runs text the guards cannot read`;
+    if (name === "alias" && args.some((arg) => arg.includes("=")))
+      return "an alias renames commands the guards judge by name";
+    if (name === "hash" && args.includes("-p"))
+      return "hash -p renames a command the guards judge by name";
+    if ((name === "source" || name === ".") && STDIN_FILES.has(args[0] ?? ""))
+      return "sourcing stdin runs text the guards cannot read";
+    if (segment.isAfterPipe && SHELLS.has(name))
+      return "piping text into a shell runs code the guards cannot read";
+    if (INTERPRETERS.has(name) && segment.heredocs.length === 0 && inputs.length === 0 && readsProgramFromStdin(name, args)) {
+      return "an interpreter reading its program from stdin runs code the guards cannot read";
+    }
+    const inline = SHELLS.has(name) ? /^-[A-Za-z]*c[A-Za-z]*$/ : /^-[A-Za-z]*[ceE][A-Za-z]*$/;
+    const program = args[args.findIndex((arg) => inline.test(arg)) + 1];
+    if (INTERPRETERS.has(name) && (program !== undefined && /[$`]/.test(program) && args.some((arg) => inline.test(arg)) || inputs.some((input) => /[$`]/.test(input)))) {
+      return "an interpreter fed generated text runs code the guards cannot read";
+    }
+    const isPowerShellHost = name === "pwsh" || name === "powershell";
+    if (isPowerShellHost && args.some((arg) => isOptionPrefix(arg, "-encodedcommand") || arg.toLowerCase() === "-ec")) {
+      return "an encoded PowerShell command hides what it runs";
+    }
+    if (plain.slice(0, verb.index).some((word) => /^(?:BASH_ENV|ENV)=/.test(word)))
+      return "BASH_ENV sources a file the guards cannot read";
+    if (name === "base64" && args.some((arg) => /^(?:-d|-D|--decode)$/.test(arg)))
+      return "decoding base64 hides the command it carries";
+    if (name === "apply_patch") {
+      const isReadable = segment.heredocs.length > 0 && segment.heredocs.every(({ body, isLiteral }) => {
+        try {
+          return isLiteral && embeddedPatchPaths(body).length > 0;
+        } catch {
+          return false;
+        }
+      });
+      if (!isReadable)
+        return "apply_patch reads a patch the guards cannot see; pass it as one quoted heredoc";
+    }
+    for (const target of writeTargets) {
+      if (target.includes("$") || target.includes("`"))
+        return "it writes to a path computed at run time";
+      if (hasUnknownBase && isRelative(target))
+        return "it writes to a relative path after a cd to a directory computed at run time";
+      const hit = names(target);
+      if (hit !== null)
+        return `it writes to ${hit}, which governs this session`;
+    }
+    const isWriter = isTreeWriter(name, args);
+    if (isWriter && plain.slice(0, verb.index).some((before) => commandName(before) === "xargs")) {
+      return `${name} acts on paths read from stdin`;
+    }
+    if (DIFF_APPLIERS.has(name) || name === "git" && ["apply", "am"].includes(gitSubcommand(args).name)) {
+      return `${name} applies edits whose target files are not on the command line; use the edit tool`;
+    }
+    if ((isWriter || writeTargets.length > 0) && args.some((arg) => AI_ENG_COMMANDS.has(commandName(arg)))) {
+      return "it copies or links the ai-eng binary, which would let its verbs run under another name";
+    }
+    const extractTo = extractionTarget(name, args);
+    if (extractTo !== null && (names(extractTo) !== null || (pathCandidates(extractTo, bases) ?? []).some((dir) => isAncestorOfProtected(context.paths, dir)))) {
+      return `${name} extracts files into ${extractTo}, which holds what governs this session; extract somewhere else`;
+    }
+    if (!isReader(name, args)) {
+      const computedOutput = args.findIndex((arg, index) => OUTPUT_OPTION.test(arg) && /[$`]/.test(args[index + 1] ?? "") || ATTACHED_OUTPUT.test(arg) && /[$`]/.test(arg));
+      if (computedOutput >= 0)
+        return `${name} writes to an output path computed at run time`;
+      for (const arg of args) {
+        if (isWriter && (arg.includes("$") || arg.includes("`")))
+          return `${name} acts on a path computed at run time`;
+        if (isWriter && hasUnknownBase && isRelative(arg))
+          return `${name} acts on a relative path after a cd to a directory computed at run time`;
+        const embedded = name === "git" ? [] : (arg.match(EMBEDDED_PATH) ?? []).filter((path) => path !== arg);
+        for (const path of [arg, ...embedded]) {
+          const hit = names(path, name !== "git");
+          if (hit !== null)
+            return `${name} names ${hit}, which governs this session, and ${name} is not a read-only command`;
+        }
+        if (isWriter && (pathCandidates(arg, bases) ?? []).some((candidate) => isAncestorOfProtected(context.paths, candidate))) {
+          return `${name} acts on ${arg}, which contains what governs this session; name the files you mean`;
+        }
+      }
+      if (!SHELLS.has(name) && name !== "git") {
+        for (const text of [...segment.heredocs.map(({ body }) => body), ...inputs]) {
+          if (RESTRICTED_TEXT.test(text))
+            return `${name} reads input that invokes a governance-changing ai-eng verb`;
+          const hit = (text.match(EMBEDDED_PATH) ?? []).map((path) => names(path)).find((found) => found !== null);
+          if (hit)
+            return `${name} reads input that names ${hit}, which governs this session`;
+        }
+        if (name !== "echo" && args.some((arg) => RESTRICTED_TEXT.test(arg)))
+          return `${name} is handed code that invokes a governance-changing ai-eng verb`;
+      }
+    }
+    for (let index = 0;index < plain.length; index++) {
+      const word = plain[index];
+      const viaRuntime = index > 0 && isCliEntrypoint(word) && plain.slice(0, index).some((before) => ["bun", "node"].includes(commandName(before)));
+      if (!AI_ENG_COMMANDS.has(commandName(word)) && !viaRuntime)
+        continue;
+      const rest = plain.slice(index + 1).flatMap((arg) => expandBraces(arg));
+      if (rest.some((arg) => /[$`]/.test(arg) || GLOB_CHARS.test(arg)) || plain.slice(0, index).some((before) => commandName(before) === "xargs")) {
+        return "it runs ai-eng with arguments computed at run time";
+      }
+      if (restrictedAiEngArgs(rest))
+        return "it invokes a governance-changing or internal ai-eng verb";
+    }
+    const nested = [];
+    if (SHELLS.has(name)) {
+      const flag = args.findIndex((arg) => (isPowerShellHost ? isOptionPrefix(arg, "-command") : /^-[A-Za-z]*c[A-Za-z]*$/.test(arg)) || /^\/[ck]$/i.test(arg));
+      if (flag >= 0 && args[flag + 1] !== undefined)
+        nested.push(args.slice(flag + 1).join(" "));
+      if (isPowerShellHost)
+        nested.push(args.filter((arg) => !arg.startsWith("-")).join(" "));
+      nested.push(...segment.heredocs.map(({ body }) => body), ...inputs);
+    }
+    if (COMMAND_RUNNERS.has(name))
+      nested.push(...args.filter((arg) => !arg.startsWith("-")));
+    if (name === "find") {
+      args.forEach((arg, index) => {
+        if (!/^-(?:exec|execdir|ok|okdir)$/.test(arg))
+          return;
+        const end = args.findIndex((word, position) => position > index && (word === ";" || word === "+"));
+        nested.push(args.slice(index + 1, end < 0 ? undefined : end).join(" "));
+      });
+    }
+    if (name === "git")
+      nested.push(...gitCodeValues(args));
+    for (const word of plain.slice(0, verb.index).concat(name === "export" || name === "declare" ? args : [])) {
+      const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word);
+      if (assignment && CODE_VARIABLES.has(assignment[1]))
+        nested.push(assignment[2]);
+    }
+    for (const body of nested) {
+      const inner = judgeShell(body, { ...context, bases, isPowerShell: context.isPowerShell || isPowerShellHost }, depth + 1);
+      if (inner !== null)
+        return inner;
+    }
+  }
+  return null;
+}
+var RESTRICTED_TEXT = /\bai-eng(?:ineering)?\b[^\n|;&]*?\b(?:uninstall|wrap|adapt\s+apply)\b|\bai-eng(?:ineering)?\b[^\n|;&]*\bconfig\b[^\n|;&]*--remove\b/;
+var CHECKPOINT_FILE = /(?:^|\/)\.ai-engineering\/workflow\/checkpoints\//i;
+var POWERSHELL_ENCODED = /(?:^|[\s,'"(])(?:-{1,2}|\/)e(?:c|n|nc|nco|ncod|ncode|ncoded|ncodedc|ncodedco|ncodedcom|ncodedcomm|ncodedcomma|ncodedcomman|ncodedcommand)?(?=$|[\s,'")])/i;
+function extractionTarget(name, args) {
+  const after = (flags) => {
+    const index = args.findIndex((arg) => flags.includes(arg));
+    if (index >= 0)
+      return args[index + 1];
+    const attached = args.find((arg) => flags.some((flag) => flag.startsWith("--") && arg.startsWith(`${flag}=`)));
+    return attached?.slice(attached.indexOf("=") + 1);
+  };
+  if (["tar", "bsdtar", "gtar"].includes(name)) {
+    const isExtract = args.includes("--extract") || args.includes("--get") || args.some((arg) => /^-[A-Za-z]*x[A-Za-z]*$/.test(arg)) || /^[A-Za-z]*x[A-Za-z]*$/.test(args[0] ?? "");
+    return isExtract ? after(["-C", "--directory"]) ?? "." : null;
+  }
+  if (name === "unzip")
+    return args.some((arg) => /^-[A-Za-z]*[lvtZ]/.test(arg)) ? null : after(["-d"]) ?? ".";
+  if (name === "cpio")
+    return args.some((arg) => /^-[A-Za-z]*i/.test(arg) || arg === "--extract") ? "." : null;
+  if (["7z", "7za", "7zz"].includes(name) && ["x", "e"].includes(args[0] ?? "")) {
+    return args.find((arg) => arg.startsWith("-o"))?.slice(2) || ".";
+  }
+  return null;
+}
+function globNamesProtected(word, bases, paths) {
+  if (!GLOB_CHARS.test(word) && !/\{[^}]*,/.test(word))
+    return null;
+  const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute2(path))];
+  for (const pattern of expandBraces(expandTilde(word))) {
+    for (const base of bases) {
+      const segments = resolve3(base, pattern).toLowerCase().split("/");
+      for (const root of protectedRoots) {
+        const depth = root.split("/").length;
+        const prefix = segments.slice(0, depth).join("/");
+        try {
+          if (new Bun.Glob(prefix).match(root.toLowerCase()))
+            return root;
+        } catch {
+          return word;
+        }
+      }
+    }
+  }
+  return null;
+}
+var GIT_CODE_KEYS = /^(?:core\.(?:fsmonitor|editor|pager|sshcommand)|diff\.external|sequence\.editor|credential\.helper|gpg\.program|alias\..*|filter\..*|.*\.(?:askpass|textconv|command|cmd|driver|tool))$/i;
+var CODE_VARIABLES = new Set(["GIT_EDITOR", "GIT_PAGER", "GIT_SSH_COMMAND", "GIT_SSH", "GIT_EXTERNAL_DIFF", "GIT_ASKPASS", "GIT_SEQUENCE_EDITOR", "EDITOR", "VISUAL", "PAGER", "SSH_ASKPASS", "PROMPT_COMMAND", "BASH_ENV", "ENV"]);
+var COMMAND_RUNNERS = new Set(["watch", "su", "runuser", "flock", "script", "trap"]);
+function gitCodeValues(args) {
+  const values = [];
+  const consider = (key, value) => {
+    if (GIT_CODE_KEYS.test(key))
+      values.push(value.replace(/^!/, ""));
+  };
+  args.forEach((arg, index) => {
+    if (args[index - 1] === "-c" || /^[\w.-]+\.[\w.-]+=/.test(arg)) {
+      const equals = arg.indexOf("=");
+      if (equals > 0)
+        consider(arg.slice(0, equals), arg.slice(equals + 1));
+    }
+  });
+  const sub = gitSubcommand(args);
+  if (sub.name === "config") {
+    const rest = args.slice(sub.index + 1).filter((arg) => !arg.startsWith("-"));
+    if (rest[0] !== undefined && rest[1] !== undefined)
+      consider(rest[0], rest[1]);
+  }
+  return values;
+}
+function isOptionPrefix(arg, option) {
+  const lower = arg.toLowerCase();
+  return lower.length >= 2 && lower.startsWith("-") && option.startsWith(lower);
+}
+function powerShellUnreadable(command) {
+  for (const call of command.matchAll(/\[([\w.]+)\]\s*::/g)) {
+    if (/(?:^|\.)(?:file|directory|path|scriptblock|process|convert|activator|assembly|environment|appdomain|marshal|webclient|registry|runspace|powershell)$|^(?:system\.)?(?:io|reflection|management|diagnostics|runtime|net)\b|^microsoft\.win32\b/i.test(call[1])) {
+      return `[${call[1]}]:: reaches files or code without a command the guards can read`;
+    }
+  }
+  if (/(?:^|[\s;|{(])[&.]\s*[($]/.test(command))
+    return "the call operator runs a command name computed at run time";
+  if (/\(\s*(['"])[^'"]*\1\s*\+/.test(command))
+    return "it builds a name or path by concatenation at run time";
+  return null;
+}
+function restrictedCommandWords(words, depth) {
+  if (depth > 4 || words.length === 0)
+    return false;
+  const index = commandStart(words);
+  const executable = commandName(words[index] ?? "");
+  if (AI_ENG_COMMANDS.has(executable))
+    return restrictedAiEngArgs(words.slice(index + 1));
+  if (executable === "bun" || executable === "node") {
+    const entrypoint = words.findIndex((word, position) => position > index && isCliEntrypoint(word));
+    if (entrypoint >= 0)
+      return restrictedAiEngArgs(words.slice(entrypoint + 1));
+  }
+  if (["sh", "bash", "zsh", "pwsh", "powershell", "cmd"].includes(executable)) {
+    const commandIndex = words.findIndex((word, position) => position > index && ["-c", "-lc", "-Command", "/c", "/k"].includes(word));
+    if (commandIndex >= 0)
+      return isRestrictedCliCommand(words.slice(commandIndex + 1).join(" "), depth + 1);
+  }
+  if (CLI_WRAPPERS.has(executable)) {
+    const invocation = words.findIndex((word, position) => position > index && AI_ENG_COMMANDS.has(commandName(word)));
+    if (invocation >= 0)
+      return restrictedAiEngArgs(words.slice(invocation + 1));
+    const entrypoint = words.findIndex((word, position) => position > index && isCliEntrypoint(word));
+    if (entrypoint >= 0)
+      return restrictedAiEngArgs(words.slice(entrypoint + 1));
+  }
+  return false;
+}
+function isRestrictedCliCommand(command, depth = 0) {
+  const expanded = command.replace(/\$\(\s*(?:which|command\s+-v)\s+([^)\s]+)\s*\)/g, "$1");
+  const words = expanded.trim().split(/\s+/).map((word) => word.replace(/['"]/g, "").replace(/^[()]+|[()]+$/g, ""));
+  return restrictedCommandWords(words, depth);
+}
 function surfacesSettings(repoRoot) {
   const out = [];
   const candidates = [
-    join3(repoRoot, ".claude", "settings.json"),
-    join3(repoRoot, ".opencode", "plugins", "ai-eng.ts"),
-    join3(repoRoot, ".agents", "hooks", "ai-eng.ts")
+    join4(repoRoot, ".claude", "settings.json"),
+    join4(repoRoot, ".opencode", "plugins", "ai-eng.ts"),
+    join4(repoRoot, ".agents", "hooks", "ai-eng.ts")
   ];
   for (const path of candidates)
-    if (existsSync3(path))
+    if (existsSync2(path))
       out.push(path);
   return out;
 }
 function protectedPaths(repoRoot) {
   const literals = [];
-  const globalHome = join3(home(), "");
-  literals.push(join3(home(), "skills"));
-  literals.push(join3(machineBase(), ".claude", "skills"));
-  literals.push(join3(machineBase(), ".agents", "skills"));
-  literals.push(join3(machineBase(), ".config", "opencode", "skill"));
+  const globalHome = join4(home(), "");
+  literals.push(join4(home(), "skills"));
+  literals.push(join4(machineBase(), ".claude", "skills"));
+  literals.push(join4(machineBase(), ".agents", "skills"));
+  literals.push(join4(machineBase(), ".config", "opencode", "skill"));
   literals.push(globalHome);
-  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json"]) {
-    literals.push(join3(machineBase(), carrier));
+  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json", ".gitconfig", ".config/git/config"]) {
+    literals.push(join4(machineBase(), carrier));
   }
   if (!repoRoot)
     return { literals: literals.filter((p) => p.length > 0), specPinned: false, terminal: [] };
-  const aiEng = join3(repoRoot, ".ai-engineering");
+  const aiEng = join4(repoRoot, ".ai-engineering");
   const terminal = [".ai-engineering", aiEng];
   for (const name of ["config.toml", "overrides.toml", "ai-eng.lock", "arch.rules.json"]) {
-    literals.push(join3(aiEng, name));
+    literals.push(join4(aiEng, name));
   }
-  literals.push(join3(repoRoot, ".git", "hooks"));
+  literals.push(join4(repoRoot, ".git", "hooks"));
   let specPinned = false;
   try {
-    const lock = Bun.TOML.parse(readFileSync3(join3(aiEng, "ai-eng.lock"), "utf8"));
+    const lock = Bun.TOML.parse(readFileSync3(join4(aiEng, "ai-eng.lock"), "utf8"));
     const pinned = lock["spec_sha256"];
     specPinned = typeof pinned === "string" && pinned.length >= 64;
   } catch {
     specPinned = false;
   }
   if (specPinned)
-    literals.push(join3(aiEng, "spec.html"));
+    literals.push(join4(aiEng, "spec.html"));
   literals.push(...surfacesSettings(repoRoot));
   return { literals: literals.filter((p) => p.length > 0), specPinned, terminal };
 }
@@ -475,7 +1640,7 @@ function writesTo(paths, command) {
   const words = command.trim().split(/\s+/).filter((w) => w.length > 0);
   if (words.length === 0)
     return null;
-  const verb = basename(words[0].replace(/["']/g, ""));
+  const verb = verbOf(words).name;
   if (WRITERS[verb] === true || verb === "sed" && words.includes("-i")) {
     return offendingPath(paths, command);
   }
@@ -499,63 +1664,104 @@ function expandTilde(path) {
   if (path === "~")
     return machineBase();
   if (path.startsWith("~/"))
-    return join3(machineBase(), path.slice(2));
+    return join4(machineBase(), path.slice(2));
   return path;
 }
-function offendingPath(paths, text) {
+var GOVERNANCE_FILE = new RegExp([
+  String.raw`(?:^|/)\.ai-engineering/(?:config\.toml|overrides\.toml|ai-eng\.lock|arch\.rules\.json)$`,
+  String.raw`(?:^|/)\.git/(?:hooks(?:/|$)|config$)`,
+  String.raw`(?:^|/)\.github/hooks(?:/|$)`,
+  String.raw`(?:^|/)\.github/copilot/settings(?:\.local)?\.json$`,
+  String.raw`(?:^|/)\.claude/settings(?:\.local)?\.json$`,
+  String.raw`(?:^|/)\.cursor/hooks\.json$`,
+  String.raw`(?:^|/)\.codex/hooks\.json$`,
+  String.raw`(?:^|/)\.(?:opencode/plugins|agents/hooks)/ai-eng[^/]*$`
+].join("|"), "i");
+function offendingPath(paths, rawText) {
+  const text = rawText.toLowerCase();
   for (const path of paths.terminal) {
-    const segment = new RegExp(`(^|/)${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+    const segment = new RegExp(`(^|/)${path.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
     if (segment.test(text))
       return path;
   }
   for (const path of paths.literals) {
-    const bare = path === basename(path);
+    const bare = path === basename2(path);
     if (bare) {
-      const segment = new RegExp(`(^|/)${path.replace(/\./g, "\\.")}$`);
+      const segment = new RegExp(`(^|/)${path.toLowerCase().replace(/\./g, "\\.")}$`);
       if (segment.test(text))
         return path;
       continue;
     }
-    if (!text.includes(path))
+    if (!text.includes(path.toLowerCase()))
       continue;
     return path;
   }
+  if (GOVERNANCE_FILE.test(text))
+    return rawText.split(/\s+/).at(-1) ?? rawText;
   return null;
 }
-function runSelfProtect(payload, repoRoot) {
-  const paths = protectedPaths(repoRoot);
-  const args = payload.tool_input;
-  const target = args["file_path"] ?? args["path"] ?? "";
-  if (typeof target === "string" && target.length > 0) {
-    const expanded = expandTilde(target);
-    const resolved = isAbsolute2(expanded) ? resolve3(expanded) : resolve3(repoRoot ?? process.cwd(), expanded);
+function offendingTarget(paths, target, bases) {
+  const expanded = expandTilde(target);
+  for (const base of bases) {
+    const resolved = isAbsolute2(expanded) ? resolve3(expanded) : resolve3(base, expanded);
     let canonical = resolved;
     try {
-      canonical = realpathSync(resolved);
+      canonical = realpathSync2(resolved);
     } catch {
-      const parts = resolved.split("/");
-      let prefix = resolved.startsWith("/") ? "/" : process.cwd();
-      for (const part of parts) {
-        const next = join3(prefix, part);
+      let prefix = "/";
+      for (const part of resolved.split("/")) {
+        const next = join4(prefix, part);
         try {
-          prefix = realpathSync(next);
+          prefix = realpathSync2(next);
         } catch {
           prefix = next;
         }
       }
       canonical = prefix;
     }
-    const candidates = [canonical, resolved, expanded, target];
-    const found = candidates.map((form) => offendingPath(paths, form)).find((hit) => hit != null) ?? null;
-    if (found) {
+    const found = [canonical, resolved, expanded, target].map((form) => offendingPath(paths, form)).find((hit) => hit != null);
+    if (found)
+      return found;
+  }
+  return null;
+}
+function governedFileReason(target) {
+  return `${target} is part of what governs this session \u2014 it is how the rules reach you and how what happens here is recorded. Changing it from inside the session it governs is not a change a session gets to make. A person edits it, in a diff, in a pull request.`;
+}
+function runSelfProtect(payload, repoRoot) {
+  const paths = protectedPaths(repoRoot);
+  const args = payload.tool_input;
+  const cwd = typeof payload["cwd"] === "string" && payload["cwd"].length > 0 ? payload["cwd"] : null;
+  const bases = [...new Set([repoRoot ?? process.cwd(), ...cwd === null ? [] : [cwd]])];
+  const targets = [args["file_path"] ?? args["path"], ...Array.isArray(args["file_paths"]) ? args["file_paths"] : []];
+  for (const target of targets) {
+    if (typeof target !== "string" || target.length === 0)
+      continue;
+    if (offendingTarget(paths, target, bases))
+      return { deny: true, reason: governedFileReason(target) };
+  }
+  const rawCommand = args["command"];
+  if (typeof rawCommand === "string" && rawCommand.length > 0) {
+    const isPowerShell = payload.tool_name === "PowerShell";
+    const spaced = rawCommand.replace(/\$\{IFS\}|\$IFS(?![\w])/g, " ");
+    const command = isPowerShell ? spaced.replace(/`(.)/gs, "$1").replace(/\\/g, "/") : spaced;
+    if (command.includes("*** Begin Patch")) {
+      let patched;
+      try {
+        patched = embeddedPatchPaths(command);
+      } catch {
+        return { deny: true, reason: "this command carries a patch whose files cannot be read safely. Use well-formed *** Begin Patch / *** End Patch blocks." };
+      }
+      const governed = patched.find((target) => offendingTarget(paths, target, bases) !== null);
+      if (governed !== undefined)
+        return { deny: true, reason: governedFileReason(governed) };
+    }
+    if (isRestrictedCliCommand(command)) {
       return {
         deny: true,
-        reason: `${target} is part of what governs this session \u2014 it is how the rules reach you and how what happens here is recorded. Changing it from inside the session it governs is not a change a session gets to make. A person edits it, in a diff, in a pull request.`
+        reason: "this command invokes a governance-changing or internal ai-eng verb. Run it from outside the governed agent session."
       };
     }
-  }
-  const command = args["command"];
-  if (typeof command === "string" && command.length > 0) {
     const canonPath = (target) => {
       const parts = target.split("/");
       let current = target.startsWith("/") ? "/" : process.cwd();
@@ -563,31 +1769,30 @@ function runSelfProtect(payload, repoRoot) {
         if (part === "" || part === ".")
           continue;
         if (part === "..") {
-          current = join3(current, "..");
+          current = join4(current, "..");
           try {
-            current = realpathSync(current);
+            current = realpathSync2(current);
           } catch {}
           continue;
         }
-        const next = join3(current, part);
+        const next = join4(current, part);
         try {
-          current = realpathSync(next);
+          current = realpathSync2(next);
         } catch {
           current = next;
         }
       }
       return current;
     };
-    const canon = (text) => {
+    const canon = (text, base) => {
       const expanded = text.replace(/(^|[\s"'=])~\//g, `$1${machineBase()}/`);
       const absolute = expanded.replace(/(\/[\w.@+-]+)+/g, (m) => canonPath(m));
-      const base = repoRoot ?? process.cwd();
-      return absolute.replace(RELATIVE_PATH, (match, lead, token) => `${lead}${canonPath(join3(base, token))}`);
+      return absolute.replace(RELATIVE_PATH, (match, lead, token) => `${lead}${canonPath(join4(base, token))}`);
     };
     const canonicalPaths = {
       literals: paths.literals.map((p) => {
         try {
-          return realpathSync(p);
+          return realpathSync2(p);
         } catch {
           return p;
         }
@@ -597,34 +1802,49 @@ function runSelfProtect(payload, repoRoot) {
         if (!isAbsolute2(p))
           return p;
         try {
-          return realpathSync(p);
+          return realpathSync2(p);
         } catch {
           return p;
         }
       })
     };
-    const expandedCommand = canon(command);
-    const pieces = expandedCommand.split(SEPARATORS).filter((p) => p.trim().length > 0);
-    for (let index = 0;index < pieces.length; index++) {
-      const one = pieces[index];
-      const judged = one.includes("<<") ? pieces.slice(index).join(" ") : one;
-      const found = writesTo(canonicalPaths, judged);
-      if (found) {
-        return {
-          deny: true,
-          reason: `this command writes to ${found}, which is part of what governs this session. A person changes that, in a reviewed diff \u2014 not the session it governs.`
-        };
+    for (const base of bases) {
+      const expandedCommand = canon(normalizeRedirects(command), base);
+      const pieces = expandedCommand.split(SEPARATORS).filter((p) => p.trim().length > 0);
+      for (let index = 0;index < pieces.length; index++) {
+        const one = pieces[index];
+        const judged = one.includes("<<") ? pieces.slice(index).join(" ") : one;
+        if (isRestrictedCliCommand(judged)) {
+          return {
+            deny: true,
+            reason: "this command invokes a governance-changing or internal ai-eng verb. Run it from outside the governed agent session."
+          };
+        }
+        const found = writesTo(canonicalPaths, judged);
+        if (found) {
+          return {
+            deny: true,
+            reason: `this command writes to ${found}, which is part of what governs this session. A person changes that, in a reviewed diff \u2014 not the session it governs.`
+          };
+        }
       }
+    }
+    const unreadable = judgeShell(command, { paths, bases, isPowerShell });
+    if (unreadable !== null) {
+      return {
+        deny: true,
+        reason: `this command cannot run here: ${unreadable}. Write the command out plainly, and leave governance files to a person. This check reads the shell; it is not a sandbox.`
+      };
     }
   }
   return;
 }
 
 // src/guards/policy.ts
-import { readFileSync as readFileSync4, realpathSync as realpathSync2 } from "fs";
-import { join as join4 } from "path";
+import { readFileSync as readFileSync4, realpathSync as realpathSync3 } from "fs";
+import { join as join5 } from "path";
 import { tmpdir } from "os";
-var DEFAULT_MODE = "0467";
+var DEFAULT_MODE = "4667";
 var SCOPE_SYSTEM = 8;
 var SCOPE_EXTERNAL = 4;
 var SCOPE_NETWORK = 2;
@@ -637,7 +1857,7 @@ var RE_SYSTEM_PATH = /(^|[\s"'`])(\/etc|\/usr|\/bin|\/sbin|\/var|\/library|\/sys
 var RE_SENSITIVE_PATH = /(^|[\s"'`])(~|\$home)\/(\.ssh|\.gnupg|\.aws|\.docker)(\/|[\s"'`]|$)|(^|[\s"'`])([^\s"'`]*\.(env|pem|key)|[^\s"'`]*(token|credential|secret)[^\s"'`]*)/i;
 var RE_EXTERNAL_PATH = /(^|[\s"'`])(~|\$home)(\/|[\s"'`]|$)|(^|[\s"'`])\/[A-Za-z0-9._-]/i;
 var RE_DEVICE_WRITE = /(^|[\s])(of=|>|1>|>>|1>>)\s*\/dev\/(sd[a-z][0-9]*|disk[0-9]+|rdisk[0-9]+|nvme[0-9]+n[0-9]+(p[0-9]+)?|vd[a-z][0-9]*|xvd[a-z][0-9]*|hd[a-z][0-9]*)([\s]|$)/i;
-var TEMP_ROOTS = [...new Set([tmpdir(), realpathSync2(tmpdir())])].map((r) => r.replace(/\/$/, "").toLowerCase());
+var TEMP_ROOTS = [...new Set([tmpdir(), realpathSync3(tmpdir())])].map((r) => r.replace(/\/$/, "").toLowerCase());
 function isTempPath(resolved) {
   return resolved === "/tmp" || resolved.startsWith("/tmp/") || TEMP_ROOTS.some((root) => resolved === root || resolved.startsWith(`${root}/`));
 }
@@ -659,7 +1879,7 @@ function policyModeFor(root) {
   if (!root)
     return DEFAULT_MODE;
   try {
-    const doc = Bun.TOML.parse(readFileSync4(join4(root, ".ai-engineering", "config.toml"), "utf8"));
+    const doc = Bun.TOML.parse(readFileSync4(join5(root, ".ai-engineering", "config.toml"), "utf8"));
     const guards = doc["guards"];
     const mode = guards !== null && typeof guards === "object" && !Array.isArray(guards) ? guards["policy_mode"] : undefined;
     return typeof mode === "string" ? mode : DEFAULT_MODE;
@@ -801,7 +2021,7 @@ function runPolicy(command, cwd, allowedMode) {
 }
 
 // src/guards/injection.ts
-import { readFileSync as readFileSync5, existsSync as existsSync4 } from "fs";
+import { readFileSync as readFileSync5, existsSync as existsSync3 } from "fs";
 import { dirname, isAbsolute as isAbsolute3, resolve as resolve4, sep } from "path";
 import { fileURLToPath } from "url";
 
@@ -903,11 +2123,11 @@ function trustedRoot() {
     return TRUSTED_ROOT;
   let dir = dirname(fileURLToPath(import.meta.url));
   for (let i = 0;i < 8 && dir.includes(sep); i += 1) {
-    if (existsSync4(`${dir}${sep}package.json`))
+    if (existsSync3(`${dir}${sep}package.json`))
       break;
     dir = dirname(dir);
   }
-  TRUSTED_ROOT = existsSync4(`${dir}${sep}package.json`) ? `${dir}${sep}` : null;
+  TRUSTED_ROOT = existsSync3(`${dir}${sep}package.json`) ? `${dir}${sep}` : null;
   return TRUSTED_ROOT;
 }
 var MAX_BYTES = 400000;
@@ -942,7 +2162,7 @@ function hit(text) {
   return null;
 }
 var SHELL_TOOLS = /^(Bash|PowerShell|shell|command)$/;
-var READERS = new Set([
+var READERS2 = new Set([
   "cat",
   "bat",
   "tac",
@@ -983,7 +2203,7 @@ function readTargets(command) {
       else if (token === "<" && tokens[i + 1])
         targets.add(tokens[i + 1]);
     }
-    const name = tokens.findIndex((token) => READERS.has(token.split("/").pop() ?? ""));
+    const name = tokens.findIndex((token) => READERS2.has(token.split("/").pop() ?? ""));
     if (name < 0)
       continue;
     const rest = tokens.slice(name + 1);
@@ -1176,10 +2396,10 @@ function runSpokenSecret(payload) {
 // src/guards/loop.ts
 import { readFileSync as readFileSync6, writeFileSync, mkdirSync } from "fs";
 import { createHash as createHash2 } from "crypto";
-import { join as join5 } from "path";
+import { join as join6 } from "path";
 var SIGNATURES_KEPT = 20;
 function stateFile() {
-  return join5(home(), "cache", "loop", `${createHash2("sha256").update(sessionId()).digest("hex").slice(0, 32)}.json`);
+  return join6(home(), "cache", "loop", `${createHash2("sha256").update(sessionId()).digest("hex").slice(0, 32)}.json`);
 }
 function loadState() {
   try {
@@ -1196,7 +2416,7 @@ function loadState() {
 function saveState(state) {
   try {
     const file = stateFile();
-    mkdirSync(join5(file, ".."), { recursive: true });
+    mkdirSync(join6(file, ".."), { recursive: true });
     writeFileSync(file, JSON.stringify(state));
   } catch {}
 }
@@ -1265,18 +2485,18 @@ import {
   readFileSync as readFileSync9,
   readdirSync,
   readlinkSync,
-  realpathSync as realpathSync5,
+  realpathSync as realpathSync6,
   statSync,
   unlinkSync,
   writeFileSync as writeFileSync2
 } from "fs";
 import { homedir as homedir2 } from "os";
-import { basename as basename2, dirname as dirname2, isAbsolute as isAbsolute5, join as join8, relative as relative2, resolve as resolve6, sep as sep3 } from "path";
+import { basename as basename3, dirname as dirname2, isAbsolute as isAbsolute5, join as join9, relative as relative2, resolve as resolve6, sep as sep3 } from "path";
 import { isDeepStrictEqual } from "util";
 
 // src/git/context.ts
-import { existsSync as existsSync5, readFileSync as readFileSync7, realpathSync as realpathSync3 } from "fs";
-import { join as join6 } from "path";
+import { existsSync as existsSync4, readFileSync as readFileSync7, realpathSync as realpathSync4 } from "fs";
+import { join as join7 } from "path";
 
 // src/git/run.ts
 import { spawnSync } from "child_process";
@@ -1336,7 +2556,7 @@ function git(cwd, args) {
 }
 function realpathOr(path) {
   try {
-    return realpathSync3(path);
+    return realpathSync4(path);
   } catch {
     return path;
   }
@@ -1350,7 +2570,7 @@ function locate(cwd) {
     const reason = done.stderr.trim() === "" ? "" : ` (${done.stderr.trim()})`;
     throw new Error(`not inside a Git working tree: ${cwd}${reason}; run from inside the repository or one of its worktrees`);
   }
-  return { root: realpathSync3(toplevel), isLinkedWorktree: realpathOr(gitDir) !== realpathOr(commonDir) };
+  return { root: realpathSync4(toplevel), isLinkedWorktree: realpathOr(gitDir) !== realpathOr(commonDir) };
 }
 function currentBranch(root) {
   const done = git(root, ["symbolic-ref", "--quiet", "HEAD"]);
@@ -1369,7 +2589,7 @@ function requireBranchName(root, name, origin, fix) {
   throw new Error(`${origin} is not a valid branch name: ${JSON.stringify(name)}; ${fix}`);
 }
 function readConfig(path) {
-  if (!existsSync5(path))
+  if (!existsSync4(path))
     return;
   try {
     return Bun.TOML.parse(readFileSync7(path, "utf8"));
@@ -1378,7 +2598,7 @@ function readConfig(path) {
   }
 }
 function configuredBase(root) {
-  const path = join6(root, ".ai-engineering", "config.toml");
+  const path = join7(root, ".ai-engineering", "config.toml");
   const config = readConfig(path);
   const section = typeof config === "object" && config !== null && "git" in config ? config.git : undefined;
   if (section === undefined)
@@ -1458,8 +2678,8 @@ function resolveContext(cwd, opts = {}) {
 }
 
 // src/workflow/checkpoint.ts
-import { lstatSync, readFileSync as readFileSync8, realpathSync as realpathSync4 } from "fs";
-import { isAbsolute as isAbsolute4, join as join7, relative, resolve as resolve5, sep as sep2 } from "path";
+import { lstatSync, readFileSync as readFileSync8, realpathSync as realpathSync5 } from "fs";
+import { isAbsolute as isAbsolute4, join as join8, relative, resolve as resolve5, sep as sep2 } from "path";
 var SHA_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 var SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 var GATE_STATUSES = ["pending", "failed", "passed", "n/a", "blocked"];
@@ -1728,17 +2948,17 @@ function parseCheckpoint(contents, context, options = {}) {
 }
 function readCheckpointText(path, context, allowMissing = false) {
   try {
-    const repoRoot = realpathSync4(context.repoPath);
+    const repoRoot = realpathSync5(context.repoPath);
     const absolutePath = isAbsolute4(path) ? resolve5(path) : resolve5(repoRoot, path);
     const relativePath = relative(repoRoot, absolutePath);
-    const expectedPath = join7(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
+    const expectedPath = join8(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
     if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep2}`) || isAbsolute4(relativePath) || absolutePath !== expectedPath) {
       fail("path", "is not the repository-local checkpoint file for this slug");
     }
     let currentPath = repoRoot;
     const components = relativePath.split(sep2);
     for (const [index, component] of components.entries()) {
-      currentPath = join7(currentPath, component);
+      currentPath = join8(currentPath, component);
       let stat;
       try {
         stat = lstatSync(currentPath);
@@ -1966,9 +3186,9 @@ var BASH_WRITE = />|\btee\b|\bsed\s+-i|\bpython3?\b|\bnode\b|\bperl\b|\bjq\b.*>|
 var CHECKPOINTS_DIR = ".ai-engineering/workflow/checkpoints";
 var MAX_LINK_HOPS = 40;
 var SHELL_SEGMENT = /&&|\|\||;|\n|(?<!>)\|&?|(?<![<>])&(?!>)/;
-var REDIRECTION = /(?:^|[^<>&\d])(?:\d*|&)>{1,2}\|?\s*([^\s;&|<>()]+)/g;
+var REDIRECTION2 = /(?:^|[^<>&\d])(?:\d*|&)>{1,2}\|?\s*([^\s;&|<>()]+)/g;
 var DISCARD_REDIRECTION = /(?:\d*|&)>{1,2}\|?\s*(['"]?)\/dev\/null\1(?![^\s;&|<>()])|\d*>&\d+(?![^\s;&|<>()])/g;
-var COMMAND_PREFIXES = new Set(["sudo", "command", "builtin", "exec", "env", "time", "nohup", "nice"]);
+var COMMAND_PREFIXES2 = new Set(["sudo", "command", "builtin", "exec", "env", "time", "nohup", "nice"]);
 var OPAQUE_WRITERS = new Set(["python", "python3", "node", "perl", "ruby", "bun", "deno", "jq", "awk"]);
 var MAX_STOP_BLOCKS = 3;
 function deny2(checkpoint, gate, detail, next) {
@@ -1987,7 +3207,7 @@ function checkpointContext(repoRoot, slug) {
 }
 function realRootOf(root) {
   try {
-    return realpathSync5(root);
+    return realpathSync6(root);
   } catch {
     return root;
   }
@@ -2009,17 +3229,17 @@ function realTarget(path, hops = 0) {
   let current = path;
   for (;; ) {
     try {
-      return join8(realpathSync5(current), ...rest);
+      return join9(realpathSync6(current), ...rest);
     } catch {}
     try {
       if (hops < MAX_LINK_HOPS && lstatSync2(current).isSymbolicLink()) {
-        return realTarget(join8(resolve6(dirname2(current), readlinkSync(current)), ...rest), hops + 1);
+        return realTarget(join9(resolve6(dirname2(current), readlinkSync(current)), ...rest), hops + 1);
       }
     } catch {}
     const parent = dirname2(current);
     if (parent === current)
       return path;
-    rest.unshift(basename2(current));
+    rest.unshift(basename3(current));
     current = parent;
   }
 }
@@ -2036,7 +3256,7 @@ function isCaseInsensitive(path) {
   }
 }
 function realRepo(repoRoot) {
-  const root = realpathSync5(repoRoot);
+  const root = realpathSync6(repoRoot);
   return { root, isCaseInsensitive: isCaseInsensitive(root) };
 }
 function landsAt(repo, absolutePath) {
@@ -2066,7 +3286,7 @@ function checkpointWithSameInode(folder, path) {
     if (!name.endsWith(".json"))
       continue;
     try {
-      const candidate = statSync(join8(folder, name));
+      const candidate = statSync(join9(folder, name));
       if (candidate.dev === target.dev && candidate.ino === target.ino)
         return name.slice(0, -".json".length);
     } catch {}
@@ -2078,7 +3298,7 @@ function aliasedCheckpoint(repoRoot, filePath) {
     return null;
   const repo = realRepo(repoRoot);
   const absolutePath = isAbsolute5(filePath) ? resolve6(filePath) : resolve6(repoRoot, filePath);
-  const sameFile = checkpointWithSameInode(join8(repo.root, CHECKPOINTS_DIR), absolutePath);
+  const sameFile = checkpointWithSameInode(join9(repo.root, CHECKPOINTS_DIR), absolutePath);
   if (sameFile !== null)
     return sameFile;
   return CHECKPOINT_PATH.exec(landsAt(repo, absolutePath))?.[1] ?? null;
@@ -2195,7 +3415,7 @@ function checkFirstPlan(root, checkpoint) {
   }
   let html;
   try {
-    html = readFileSync9(join8(root, ".ai-engineering", "brainstorm.html"), "utf8");
+    html = readFileSync9(join9(root, ".ai-engineering", "brainstorm.html"), "utf8");
   } catch (error) {
     return deny2(`Checkpoint ${checkpoint.slug}`, "plan approval", `cannot read the matching brainstorm (${error instanceof Error ? error.message : String(error)})`, "restore the approved brainstorm and retry the plan write");
   }
@@ -2282,7 +3502,7 @@ function checkMarker(payload, repoRoot) {
   }
   let context;
   let checkpoint;
-  const path = join8(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+  const path = join9(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   try {
     context = checkpointContext(repoRoot, slug);
     const text = readCheckpointText(path, context);
@@ -2324,12 +3544,12 @@ function unquote2(word) {
 }
 function commandWords(segment) {
   const words = (segment.replace(/^[\s({]+|[\s)}]+$/g, "").match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map(unquote2);
-  while (words.length > 0 && (/^\w+=/.test(words[0]) || COMMAND_PREFIXES.has(words[0])))
+  while (words.length > 0 && (/^\w+=/.test(words[0]) || COMMAND_PREFIXES2.has(words[0])))
     words.shift();
   return words;
 }
 function writeTargets(segment, words) {
-  const targets = [...segment.matchAll(REDIRECTION)].map((match) => unquote2(match[1] ?? ""));
+  const targets = [...segment.matchAll(REDIRECTION2)].map((match) => unquote2(match[1] ?? ""));
   const [name, ...rest] = words;
   const operands = rest.filter((word) => !word.startsWith("-"));
   const isInPlaceSed = name === "sed" && rest.some((word) => /^-[a-zA-Z]*i/.test(word) || word.startsWith("--in-place"));
@@ -2373,7 +3593,7 @@ function shellPath(cwd, word) {
   if (/[$`]/.test(word) || /^~[^/]/.test(word))
     return null;
   if (word === "~" || word.startsWith("~/"))
-    return join8(homedir2(), word.slice(1));
+    return join9(homedir2(), word.slice(1));
   return resolve6(cwd, word);
 }
 function shellWritesIntoCheckpoints(command, cwd, repo) {
@@ -2395,7 +3615,7 @@ function shellWritesIntoCheckpoints(command, cwd, repo) {
       directory = stack.pop() ?? null;
       continue;
     }
-    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename2(name)) && landsInCheckpoints(repo, directory)) {
+    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename3(name)) && landsInCheckpoints(repo, directory)) {
       const here = directory;
       const isCheckpointFile = (operand) => {
         const absolute = shellPath(here, operand);
@@ -2416,9 +3636,21 @@ function checkBash2(payload, repoRoot) {
   const command = payload.tool_input.command;
   if (typeof command !== "string")
     return;
-  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasWriteForm);
   const hostCwd = payload["cwd"];
   const cwd = typeof hostCwd === "string" && hostCwd.length > 0 ? resolve6(repoRoot, hostCwd) : resolve6(repoRoot);
+  if (command.includes("*** Begin Patch")) {
+    let patched;
+    try {
+      patched = embeddedPatchPaths(command);
+    } catch {
+      patched = [];
+    }
+    const gated = patched.map((path) => resolve6(cwd, path)).find((path) => checkpointTarget(repoRoot, path) !== null || aliasedCheckpoint(repoRoot, path) !== null);
+    if (gated !== undefined) {
+      return deny2("Checkpoint", "shell gate", `does not accept a patch to ${gated}`, "use Edit or Write so checkpoint gates are validated");
+    }
+  }
+  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasWriteForm);
   if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot)))
     return;
   return deny2("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
@@ -2438,12 +3670,12 @@ function orchestratorTranscript(payload, slug) {
 function stopCounterPath(root, sessionId) {
   const session = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : "unknown";
   const hash = createHash3("sha256").update(session).digest("hex");
-  return join8(root, ".ai-engineering", "cache", "checkpoint-stop", `${hash}.txt`);
+  return join9(root, ".ai-engineering", "cache", "checkpoint-stop", `${hash}.txt`);
 }
 function ensureCounterDirectory(directory, root) {
   let current = root;
   for (const part of relative2(root, directory).split(sep3)) {
-    current = join8(current, part);
+    current = join9(current, part);
     try {
       const stat = lstatSync2(current);
       if (stat.isSymbolicLink() || !stat.isDirectory())
@@ -2488,7 +3720,7 @@ function checkStop(payload, repoRoot) {
   } catch (error) {
     return deny2("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event");
   }
-  const folder = join8(root, ".ai-engineering", "workflow", "checkpoints");
+  const folder = join9(root, ".ai-engineering", "workflow", "checkpoints");
   let files;
   try {
     files = readdirSync(folder).filter((file) => file.endsWith(".json")).sort();
@@ -2502,7 +3734,7 @@ function checkStop(payload, repoRoot) {
     const slug = file.slice(0, -".json".length);
     if (!orchestratorTranscript(payload, slug))
       continue;
-    const path = join8(folder, file);
+    const path = join9(folder, file);
     let checkpoint;
     let context;
     try {
@@ -2557,6 +3789,13 @@ function runCheckpointGuard(payload, repoRoot) {
       return checkMarker(payload, repoRoot);
     }
     if (payload.tool_name === "Write" || payload.tool_name === "Edit" || payload.tool_name === "MultiEdit") {
+      const patched = payload.tool_input.file_paths;
+      if (Array.isArray(patched)) {
+        const gated = patched.find((path) => checkpointTarget(repoRoot, path) !== null || aliasedCheckpoint(repoRoot, path) !== null);
+        if (gated !== undefined) {
+          return deny2("Checkpoint", "write gate", `does not accept a patch to ${String(gated)}`, `edit ${CHECKPOINTS_DIR}/<slug>.json with the edit or create tool so checkpoint gates are validated`);
+        }
+      }
       return checkPlanWrite(payload, repoRoot);
     }
   } catch (error) {
@@ -2577,22 +3816,22 @@ function isTestCommand(command) {
   return { wrap: true, runner: found[1] ?? "test" };
 }
 function rewrite(command) {
-  return `ai-eng wrap test -- ${command}`;
+  return `ai-eng wrap test --base64 ${Buffer.from(command, "utf8").toString("base64url")}`;
 }
 
 // src/receipts.ts
 import { closeSync as closeSync2, constants as constants2, openSync as openSync2, writeFileSync as writeFileSync3, readFileSync as readFileSync11, readdirSync as readdirSync2, mkdirSync as mkdirSync3, lstatSync as lstatSync4, renameSync, rmSync, unlinkSync as unlinkSync3 } from "fs";
-import { dirname as dirname4, join as join10 } from "path";
+import { dirname as dirname4, join as join11 } from "path";
 import { createHash as createHash5, randomUUID } from "crypto";
 
 // src/shared-project-fs.ts
 import { createHash as createHash4 } from "crypto";
-import { closeSync, constants, fstatSync, ftruncateSync, lstatSync as lstatSync3, openSync, readFileSync as readFileSync10, readSync, realpathSync as realpathSync6, rmdirSync, unlinkSync as unlinkSync2, writeSync } from "fs";
-import { basename as basename3, dirname as dirname3, isAbsolute as isAbsolute6, join as join9, relative as relative3, resolve as resolve7, sep as sep4 } from "path";
+import { closeSync, constants, fstatSync, ftruncateSync, lstatSync as lstatSync3, openSync, readFileSync as readFileSync10, readSync, realpathSync as realpathSync7, rmdirSync, unlinkSync as unlinkSync2, writeSync } from "fs";
+import { basename as basename4, dirname as dirname3, isAbsolute as isAbsolute6, join as join10, relative as relative3, resolve as resolve7, sep as sep4 } from "path";
 function safeProjectPath(root, rel) {
   let canonicalRoot;
   try {
-    canonicalRoot = realpathSync6(root);
+    canonicalRoot = realpathSync7(root);
   } catch {
     return null;
   }
@@ -2601,9 +3840,9 @@ function safeProjectPath(root, rel) {
     return null;
   let current = canonicalRoot;
   for (const component of relative3(canonicalRoot, absolute).split(sep4).filter(Boolean)) {
-    current = join9(current, component);
+    current = join10(current, component);
     try {
-      if (lstatSync3(current).isSymbolicLink() || !pathIsWithin(canonicalRoot, realpathSync6(current)))
+      if (lstatSync3(current).isSymbolicLink() || !pathIsWithin(canonicalRoot, realpathSync7(current)))
         return null;
     } catch {
       return null;
@@ -2617,7 +3856,7 @@ function isFilesystemRefusal(error) {
 function withSafeProjectParent(root, absolute, action) {
   let canonicalRoot;
   try {
-    canonicalRoot = realpathSync6(root);
+    canonicalRoot = realpathSync7(root);
   } catch (error) {
     if (isFilesystemRefusal(error))
       return false;
@@ -2635,14 +3874,14 @@ function withSafeProjectParent(root, absolute, action) {
     }
     let currentDirectory;
     try {
-      currentDirectory = realpathSync6(".");
+      currentDirectory = realpathSync7(".");
     } catch {
       return false;
     }
     if (currentDirectory !== parent || !pathIsWithin(canonicalRoot, currentDirectory))
       return false;
     try {
-      return action(basename3(absolute));
+      return action(basename4(absolute));
     } catch (error) {
       if (isFilesystemRefusal(error))
         return false;
@@ -2655,9 +3894,9 @@ function withSafeProjectParent(root, absolute, action) {
 }
 function withCheckedProjectParent(root, absolute, action) {
   try {
-    const canonicalRoot = realpathSync6(root);
+    const canonicalRoot = realpathSync7(root);
     const parent = dirname3(absolute);
-    if (!lstatSync3(parent).isDirectory() || realpathSync6(parent) !== parent || !pathIsWithin(canonicalRoot, parent))
+    if (!lstatSync3(parent).isDirectory() || realpathSync7(parent) !== parent || !pathIsWithin(canonicalRoot, parent))
       return false;
     return action(absolute);
   } catch (error) {
@@ -2776,7 +4015,7 @@ var RECEIPTS_REL = `${AI_DIR}/receipts`;
 function receiptsFolder(root) {
   for (const rel of [AI_DIR, RECEIPTS_REL]) {
     try {
-      lstatSync4(join10(root, rel));
+      lstatSync4(join11(root, rel));
     } catch (error) {
       if (error.code === "ENOENT")
         return { kind: "absent" };
@@ -2793,7 +4032,7 @@ function ensureReceiptsFolder(root) {
   if (aiDir === null)
     return null;
   try {
-    mkdirSync3(join10(aiDir, "receipts"));
+    mkdirSync3(join11(aiDir, "receipts"));
   } catch (error) {
     if (error.code !== "EEXIST")
       return null;
@@ -2815,7 +4054,7 @@ function writeReceipt(receipt, root) {
     if (folder === null)
       return null;
     const stamp = full.ts.replace(/[:.]/g, "-");
-    writeFileSync3(join10(folder, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
+    writeFileSync3(join11(folder, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
     return full;
   } catch {
     return null;
@@ -2874,7 +4113,7 @@ function upsertDenyLedger(dir, key) {
     const folder = ensureReceiptsFolder(dirname4(dirname4(dir)));
     if (folder === null)
       return 0;
-    const file = join10(folder, "denies.json");
+    const file = join11(folder, "denies.json");
     let ledger = {};
     try {
       ledger = JSON.parse(readNoFollow(file));
@@ -2931,7 +4170,7 @@ var RECEIPT_NAME = /^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)-[A-Za-z0-9_-]+
 var WRAP_LOG_NAME = /^[0-9a-f]{8}\.log$/;
 var stampOf = (ms) => new Date(ms).toISOString().replace(/[:.]/g, "-");
 function mergeAndWriteSummary(root, folder, collected, total, now) {
-  const summaryPath = join10(folder, "summary.json");
+  const summaryPath = join11(folder, "summary.json");
   let prior = null;
   const snapshot = readProjectFileSnapshot(root, summaryPath, withCheckedProjectParent);
   try {
@@ -2945,7 +4184,7 @@ function mergeAndWriteSummary(root, folder, collected, total, now) {
   }
   const merged = { ...collected, total, daily: mergeDaily(prior?.daily, summed, 90, now), gc: new Date(now).toISOString() };
   withCheckedProjectParent(root, summaryPath, (path) => {
-    const staging = join10(dirname4(path), `.summary-${randomUUID()}.tmp`);
+    const staging = join11(dirname4(path), `.summary-${randomUUID()}.tmp`);
     try {
       writeFileSync3(staging, JSON.stringify(merged), { flag: "wx" });
       renameSync(staging, path);
@@ -2957,7 +4196,7 @@ function mergeAndWriteSummary(root, folder, collected, total, now) {
 }
 function listStaleReceipts(root, folder, cutStamp) {
   let listing = null;
-  const isListed = withCheckedProjectParent(root, join10(folder, "summary.json"), () => {
+  const isListed = withCheckedProjectParent(root, join11(folder, "summary.json"), () => {
     const stale = [];
     let stored = 0;
     for (const name of readdirSync2(folder)) {
@@ -2974,7 +4213,7 @@ function listStaleReceipts(root, folder, cutStamp) {
       if (!WRAP_LOG_NAME.test(name))
         continue;
       try {
-        const aged = stampOf(lstatSync4(join10(folder, name)).mtimeMs);
+        const aged = stampOf(lstatSync4(join11(folder, name)).mtimeMs);
         if (aged < cutStamp)
           stale.push({ stamp: aged, name });
       } catch {}
@@ -2998,7 +4237,7 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
     if (deleted >= limit)
       break;
     consumed += 1;
-    const path = join10(folder, entry.name);
+    const path = join11(folder, entry.name);
     const snapshot = readProjectFileSnapshot(root, path, withCheckedProjectParent);
     if (snapshot === null || !unlinkProjectPath(root, path, snapshot, withCheckedProjectParent))
       continue;
@@ -3011,7 +4250,7 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
   }
   if (deleted > 0)
     mergeAndWriteSummary(root, folder, summaryOf(tally), stored, now);
-  withCheckedProjectParent(root, join10(folder, "denies.json"), (path) => {
+  withCheckedProjectParent(root, join11(folder, "denies.json"), (path) => {
     pruneDenyLedger(path, 90, LEDGER_CAP, now);
     return true;
   });
@@ -3031,7 +4270,7 @@ function runRetention(root, now) {
   if (aiDir === null)
     return idle;
   try {
-    mkdirSync3(join10(aiDir, "cache"));
+    mkdirSync3(join11(aiDir, "cache"));
   } catch (error) {
     if (error.code !== "EEXIST")
       return idle;
@@ -3039,7 +4278,7 @@ function runRetention(root, now) {
   const cache = safeProjectPath(root, `${AI_DIR}/cache`);
   if (cache === null)
     return idle;
-  const claim = join10(cache, today);
+  const claim = join11(cache, today);
   const isClaimed = withCheckedProjectParent(root, claim, (path) => {
     closeSync2(openSync2(path, "wx"));
     return true;
@@ -3061,7 +4300,7 @@ function runRetention(root, now) {
     const isOldClaim = entry.startsWith("receipts-retention-") && entry !== today;
     if (!isOldClaim && !(entry === today && pass.hasBacklog))
       continue;
-    withCheckedProjectParent(root, join10(cache, entry), (path) => {
+    withCheckedProjectParent(root, join11(cache, entry), (path) => {
       unlinkSync3(path);
       return true;
     });
@@ -3076,9 +4315,9 @@ var TABLE = {
     { name: "no-verify", matcher: /^(Bash|PowerShell|shell|command|Edit|Write|MultiEdit|NotebookEdit)$/ },
     { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
-    { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
-    { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ }
+    { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ },
+    { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ }
   ],
   Stop: [{ name: "checkpoint", matcher: /^$/ }],
   PostToolUse: [
@@ -3142,22 +4381,25 @@ function runChain(rawPayload, event, options = {}) {
   }
   let payload;
   try {
-    payload = normalise(rawPayload, options.surface);
+    payload = normalise(rawPayload, options.surface, event);
   } catch {
     return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
   }
   adoptSession(payload.session_id);
   payload._event = event;
+  const tool = payload.tool_name;
+  if (event === "PreToolUse" && (typeof tool !== "string" || tool.trim().length === 0)) {
+    return denyOutcome("chain", "BLOCKED: PreToolUse payload has no tool name, so it cannot be evaluated safely.", [], event, options, started, root, "unknown");
+  }
   const localRules = loadLocalRules(root);
   if (localRules.length > 0) {
     payload["localRules"] = localRules;
   }
-  const tool = payload.tool_name;
   const fp = fingerprint(payload);
   const overrides = readOverrides(root);
   const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
   const dedup = deduplicable(payload) && event === "PreToolUse";
-  const cacheFile = join11(root, ".ai-engineering", "cache", "verdicts", `${createHash6("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
+  const cacheFile = join12(root, ".ai-engineering", "cache", "verdicts", `${createHash6("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {

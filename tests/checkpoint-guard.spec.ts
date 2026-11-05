@@ -383,6 +383,17 @@ describe("checkpoint guard G1 — plan schema, file slug, and malformed input", 
     });
   });
 
+  test("a patch that touches a checkpoint file is refused: a diff cannot be gate-checked", () => {
+    withFixture((fixture) => {
+      writePlan(fixture, plan(fixture.slug));
+      const patch = `*** Begin Patch\n*** Add File: notes.md\n+x\n*** Update File: ${fixture.planPath}\n@@\n-a\n+b\n*** End Patch`;
+      expectDenied(run(fixture, normalise({ tool_name: "apply_patch", tool_input: { input: patch } })), "patch");
+      expectAllowed(run(fixture, normalise({ tool_name: "apply_patch", tool_input: { input: "*** Begin Patch\n*** Add File: notes.md\n+x\n*** End Patch" } })));
+      const shellPatch = `apply_patch <<'EOF'\n${patch}\nEOF`;
+      expectDenied(run(fixture, { tool_name: "Bash", tool_input: { command: shellPatch } }), "patch");
+    });
+  });
+
   test("a plan whose slug differs from its filename is refused", () => {
     withFixture((fixture) => {
       const otherPath = join(fixture.root, ".ai-engineering", "workflow", "checkpoints", "other.json");

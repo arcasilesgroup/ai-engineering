@@ -28,6 +28,7 @@ import {
   type CheckpointItem,
 } from "../workflow/checkpoint.ts";
 import type { Payload } from "../payload.ts";
+import { embeddedPatchPaths } from "../payload.ts";
 
 type CheckpointGuardResult = { deny: true; reason: string } | { deny: false } | undefined;
 
@@ -541,9 +542,22 @@ function shellWritesIntoCheckpoints(command: string, cwd: string, repo: RealRepo
 function checkBash(payload: Payload, repoRoot: string): CheckpointGuardResult {
   const command = payload.tool_input.command;
   if (typeof command !== "string") return undefined;
-  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasWriteForm);
   const hostCwd = payload["cwd"];
   const cwd = typeof hostCwd === "string" && hostCwd.length > 0 ? resolve(repoRoot, hostCwd) : resolve(repoRoot);
+  // A shell apply_patch is a write by another name: its headers are the files it touches.
+  if (command.includes("*** Begin Patch")) {
+    let patched: string[];
+    try {
+      patched = embeddedPatchPaths(command);
+    } catch {
+      patched = [];
+    }
+    const gated = patched.map((path) => resolve(cwd, path)).find((path) => checkpointTarget(repoRoot, path) !== null || aliasedCheckpoint(repoRoot, path) !== null);
+    if (gated !== undefined) {
+      return deny("Checkpoint", "shell gate", `does not accept a patch to ${gated}`, "use Edit or Write so checkpoint gates are validated");
+    }
+  }
+  const isNamedWrite = CHECKPOINT_TARGET.test(command) && command.split(SHELL_SEGMENT).some(hasWriteForm);
   if (!isNamedWrite && !shellWritesIntoCheckpoints(command, cwd, realRepo(repoRoot))) return undefined;
   return deny("Checkpoint", "shell gate", "does not allow direct Bash writes to checkpoint JSON", "use Edit or Write so checkpoint gates are validated");
 }
@@ -691,6 +705,14 @@ export function runCheckpointGuard(payload: Payload, repoRoot: string | null): C
       return checkMarker(payload, repoRoot);
     }
     if (payload.tool_name === "Write" || payload.tool_name === "Edit" || payload.tool_name === "MultiEdit") {
+      // A patch is a diff, not the file's next contents: the gates cannot be checked on it.
+      const patched = payload.tool_input.file_paths;
+      if (Array.isArray(patched)) {
+        const gated = patched.find((path) => checkpointTarget(repoRoot, path) !== null || aliasedCheckpoint(repoRoot, path) !== null);
+        if (gated !== undefined) {
+          return deny("Checkpoint", "write gate", `does not accept a patch to ${String(gated)}`, `edit ${CHECKPOINTS_DIR}/<slug>.json with the edit or create tool so checkpoint gates are validated`);
+        }
+      }
       return checkPlanWrite(payload, repoRoot);
     }
   } catch (error) {

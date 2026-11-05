@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { canonSkills, embeddedPath } from "../src/embed.ts";
@@ -133,7 +134,7 @@ describe("token budgets", () => {
   });
 
   test("a successful commit-msg with an active override prints no lines", () => {
-    const repo = join(import.meta.dir, `.token-budget-override-${randomUUID()}`);
+    const repo = mkdtempSync(join(tmpdir(), "ai-eng-token-budget-override-"));
     const configDir = join(repo, ".ai-engineering");
     const message = join(repo, "COMMIT_EDITMSG");
     mkdirSync(configDir, { recursive: true });

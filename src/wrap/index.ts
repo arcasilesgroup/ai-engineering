@@ -1,4 +1,4 @@
-// `ai-eng wrap test -- <cmd>` — the deterministic filter the wrap guard rewrites to.
+// `ai-eng wrap test --base64 <cmd>` — the deterministic filter the guard rewrites to.
 // Runs the REAL command (vitest gets its JSON reporter), prints only failures
 // grouped by file (§15): 14 tests → 3 blocks, ~85% less context. Always prints its
 // line with the receipt id — the trace must not lie about which command ran.
@@ -7,11 +7,23 @@ import { spawnSync } from "node:child_process";
 import { lstatSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { receiptsDir, repoRoot } from "../env.ts";
+import { judgeWrappedCommand } from "../chain/mod.ts";
+import { isTestCommand } from "../guards/wrap.ts";
 import { writeReceipt, receiptId, type Receipt } from "../receipts.ts";
 import { detectRunner, paint, paintVitestJson, countSummary } from "./paint.ts";
 
 /** A hung runner must not hang the agent's context forever. */
 const TIMEOUT_MS = 10 * 60 * 1000;
+
+function decodeCommand(args: string[]): string | null {
+  if (args.length !== 3 || args[0] !== "test" || args[1] !== "--base64") return null;
+  const encoded = args[2]!;
+  if (!/^[A-Za-z0-9_-]+$/.test(encoded)) return null;
+  const bytes = Buffer.from(encoded, "base64url");
+  if (bytes.toString("base64url") !== encoded) return null;
+  const command = bytes.toString("utf8");
+  return Buffer.from(command, "utf8").equals(bytes) ? command : null;
+}
 
 function saveFullOutput(receipt: Receipt | null, output: string): string | null {
   const root = repoRoot();
@@ -31,11 +43,18 @@ function saveFullOutput(receipt: Receipt | null, output: string): string | null 
 }
 
 export function wrapMain(args: string[]): number {
-  if (args[0] === "test") args = args.slice(1);
-  if (args[0] === "--") args = args.slice(1);
-  const command = args.join(" ").trim();
-  if (!command) {
-    process.stderr.write("usage: ai-eng wrap test -- <test command>\n");
+  const command = decodeCommand(args);
+  if (command === null || command.trim().length === 0) {
+    process.stderr.write("usage: ai-eng wrap test --base64 <encoded test command>\n");
+    return 2;
+  }
+  // The wrapper is not a second way to run code: only a test command, and only one the
+  // guards allow from here — the same answer the agent would get running it directly.
+  const refusal = isTestCommand(command).wrap
+    ? judgeWrappedCommand(command, process.cwd())
+    : "only a test-runner command can be wrapped";
+  if (refusal !== null) {
+    process.stderr.write(`ai-eng wrap: refused. ${refusal}\n`);
     return 2;
   }
   const runner = detectRunner(command);

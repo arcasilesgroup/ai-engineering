@@ -3,11 +3,12 @@
 // noise dies, counts are true, and the receipt id rides the trace line.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { detectRunner, paint, paintVitestJson, countSummary } from "../src/wrap/paint.ts";
 import { wrapMain } from "../src/wrap/index.ts";
+import { rewrite } from "../src/guards/wrap.ts";
 
 describe("wrap · detectRunner", () => {
   test("names the runner from the command", () => {
@@ -159,7 +160,7 @@ test("checkout page loads", () => { expect("x").toBe("Total") });
       return true;
     }) as typeof process.stdout.write;
     try {
-      const status = wrapMain(["test", "--", command]);
+      const status = wrapMain(["test", "--base64", Buffer.from(command).toString("base64url")]);
       return { status, out: chunks.join("") };
     } finally {
       process.stdout.write = write;
@@ -187,7 +188,8 @@ test("checkout page loads", () => { expect("x").toBe("Total") });
   });
   test("saves byte-exact stdout, prints its path last, filters passes, and preserves non-zero status", () => {
     const stdout = "passing output\nFAIL visible failure\n";
-    const { status, out } = runWrap("printf 'passing output\\nFAIL visible failure\\n'; exit 7");
+    // The trailing comment names a runner: the wrapper only runs test-shaped commands.
+    const { status, out } = runWrap("printf 'passing output\\nFAIL visible failure\\n'; exit 7 # npm test");
     expect(status).toBe(7);
     expect(out).toContain("FAIL visible failure");
     expect(out).not.toContain("passing output");
@@ -195,11 +197,61 @@ test("checkout page loads", () => { expect("x").toBe("Total") });
   });
   test("preserves zero status and still saves the full output", () => {
     const stdout = "clean run noise\n";
-    const { status, out } = runWrap("printf 'clean run noise\\n'");
+    const { status, out } = runWrap("printf 'clean run noise\\n' # npm test");
     expect(status).toBe(0);
     expect(out).not.toContain("clean run noise");
     expectReceiptLog(out, stdout);
   });
+
+  test("an encoded rewrite preserves quoted shell text without evaluating it", () => {
+    const marker = join(dir, "quoted-shell-payload");
+    const redirected = join(dir, "quoted-redirect-target");
+    const command = `printf '%s\\n' '$(touch ${marker})' '>' '${redirected}' # npm test`;
+    const rewritten = rewrite(command);
+    expect(rewritten).toBe(`ai-eng wrap test --base64 ${Buffer.from(command).toString("base64url")}`);
+    expect(runWrap(command).status).toBe(0);
+    expect(existsSync(marker)).toBe(false);
+    expect(existsSync(redirected)).toBe(false);
+  });
+
+  test("the wrapper runs only test commands the guards allow from where it runs", () => {
+    const marker = join(dir, "trampoline");
+    const config = join(dir, ".ai-engineering", "config.toml");
+    const error = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (() => true) as typeof process.stderr.write;
+    try {
+      expect(runWrap(`touch ${marker}`).status).toBe(2);
+      expect(runWrap(`npm test; rm -f ${config}`).status).toBe(2);
+      expect(runWrap("npm test; git commit --no-verify -m x").status).toBe(2);
+      // Outside a governed repo the chain never rewrote anything: the wrapper refuses.
+      const outside = mkdtempSync(join(tmpdir(), "wrap-ungoverned-"));
+      const previousCwd = process.cwd();
+      process.chdir(outside);
+      try {
+        expect(wrapMain(["test", "--base64", Buffer.from(`npm test; rm -f ${config}`).toString("base64url")])).toBe(2);
+      } finally {
+        process.chdir(previousCwd);
+        rmSync(outside, { recursive: true, force: true });
+      }
+    } finally {
+      process.stderr.write = error;
+    }
+    expect(existsSync(marker)).toBe(false);
+    expect(existsSync(config)).toBe(true);
+  });
+
+  test("legacy raw wrapper arguments are refused", () => {
+    const marker = join(dir, "legacy-raw-command");
+    const error = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (() => true) as typeof process.stderr.write;
+    try {
+      expect(wrapMain(["test", "--", `touch ${marker}`])).toBe(2);
+    } finally {
+      process.stderr.write = error;
+    }
+    expect(existsSync(marker)).toBe(false);
+  });
+
   test("usage error without a command", () => {
     const err = process.stderr.write.bind(process.stderr);
     process.stderr.write = (() => true) as typeof process.stderr.write;

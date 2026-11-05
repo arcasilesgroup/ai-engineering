@@ -78,6 +78,13 @@ describe("adversarial · self-protect", () => {
     const r = RUN({ tool_name: "Edit", tool_input: { file_path: join(scratch, ".ai-engineering", "config.toml"), new_string: "x" }, tool_use_id: "s1b", session_id: "adv" });
     expect(r.action).toBe("deny");
   });
+  test("governance-changing CLI verbs are denied from the governed session", () => {
+    for (const command of ["ai-eng adapt apply", "ai-eng config --remove cursor", "ai-eng uninstall"]) {
+      const r = RUN({ tool_name: "Bash", tool_input: { command }, tool_use_id: `governance-${command}`, session_id: "adv" });
+      expect(r.action).toBe("deny");
+      if (r.action === "deny") expect(r.by).toBe("self-protect");
+    }
+  });
   test("write overrides.toml via Bash tee is denied", () => {
     const r = RUN({ tool_name: "Bash", tool_input: { command: `echo x | tee ${join(scratch, ".ai-engineering", "overrides.toml")}` }, tool_use_id: "s2", session_id: "adv" });
     expect(r.action).toBe("deny");
@@ -195,7 +202,11 @@ describe("adversarial · wrap", () => {
   test("npm test is rewritten, not denied", () => {
     const r = RUN({ tool_name: "Bash", tool_input: { command: "npm test" }, tool_use_id: "w1", session_id: "adv" });
     expect(r.action).toBe("rewrite");
-    if (r.action === "rewrite") expect(r.command).toContain("ai-eng wrap test -- npm test");
+    if (r.action === "rewrite") {
+      expect(r.command).toBe(`ai-eng wrap test --base64 ${Buffer.from("npm test").toString("base64url")}`);
+      expect(r.guards).toContain("loop");
+      expect(r.guards).toContain("checkpoint");
+    }
   });
   test("bun test is rewritten", () => {
     const r = RUN({ tool_name: "Bash", tool_input: { command: "bun test" }, tool_use_id: "w2", session_id: "adv" });

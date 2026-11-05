@@ -175,7 +175,7 @@ governs, in a fixed order, and the first deny wins.
 |---|---|---|
 | 1 | `self-protect` | writes against anything that governs the agent: `.ai-engineering/` (except the milestone slots a session owns), the surface settings, the git hooks, the global canon |
 | 2 | `no-verify` | `--no-verify`, `git commit -n`, `HUSKY=0`, deleting `.git/hooks/`, repointing `core.hooksPath`, and every linter silence: `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `noqa`, `nosec`, `NOLINTNEXTLINE` |
-| 3 | `policy` | commands outside the configured scope. Four octal digits for system, external, network and workspace, each read, write or execute. The default is `0467` |
+| 3 | `policy` | commands outside the configured scope. Four octal digits for system, external, network and workspace, each read, write or execute. The default is `4667`: system read only, everything else read and write, workspace execute too |
 | 4 | `injection` | reading a file whose text carries an instruction payload, and acting on a fetched page that carries one. The text is treated as data, never as an order |
 | 5 | `wrap` | output optimization, not a protection guard. It rewrites recognized test commands so `ai-eng wrap test -- <command>` prints failing blocks and a summary, reducing test-output context |
 | 6 | `loop` | the same call repeated, or the same failure retried with the arguments tweaked. Thresholds live in `config.toml` |
@@ -305,8 +305,8 @@ governed repo and choosing "config", rewrite only the `enabled` key under `[surf
 as you wrote it. When the file declares surfaces in a layout that command cannot rewrite
 that way, such as a dotted `surfaces.enabled` key or an inline `surfaces = { … }` table, it
 writes nothing, exits non-zero and asks you to edit `enabled` under `[surfaces]` by hand.
-`ai-eng adapt apply` replaces the whole of `.ai-engineering/config.toml`, `[canon]`
-included, with the text in the proposal you approved, when that proposal carries the file.
+`ai-eng adapt apply` is disabled: a proposal's hash cannot prove that a person approved it,
+so you apply an approved proposal by hand, outside the governed agent session.
 
 ## Surfaces
 
