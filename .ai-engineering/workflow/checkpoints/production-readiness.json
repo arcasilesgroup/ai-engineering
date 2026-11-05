@@ -1,0 +1,212 @@
+{
+  "feature": "Production readiness",
+  "slug": "production-readiness",
+  "summary": "Prove that the packed package installs and runs on a clean consumer, then bind release checks, a package-scoped CycloneDX SBOM, and cross-platform tests to the exact artifact. Keep publication blocked until bundled-content rights and an allowlisted signing fingerprint are verified, and document the guards' security limits.",
+  "plain_summary": "New users can install the tool from a clean device; maintainers can release only a tested, attributable package and explain its security limits.",
+  "gating": "Plan approved on 2026-11-05. Work checkpoints in order. Within each checkpoint, behavior runs before UI, then review. A checkpoint passes only when every gate is passed or n/a. Do not start checkpoint N+1 until checkpoint N has passed.",
+  "lifecycle": {
+    "phase": "implementation",
+    "plan_approval": "approved",
+    "app_review": "not-started",
+    "base_ref": null,
+    "reviewed_base": null,
+    "reviewed_feature": null
+  },
+  "checkpoints": [
+    {
+      "id": 1,
+      "title": "Prove the packed package runs",
+      "simple": "Make the package work",
+      "size": "xs",
+      "goal": "The exact packed tarball installs in an isolated consumer and `ai-eng --version` succeeds under Bun without Node.",
+      "plain": {
+        "what": "A first-time user can install the package and see the tool start from a clean folder.",
+        "why": "A broken launcher or omitted file stops every new user before their first command.",
+        "check": "Install the packed file in a clean folder, then ask the tool to show its version."
+      },
+      "builds_on": [],
+      "tasks": [
+        "Change bin/ai-eng.js so the installed command starts with Bun, while preserving the npm-install path and the clear refusal when Bun is unavailable.",
+        "Add a package-consumer smoke procedure that creates and installs the actual npm tarball in a fresh consumer; include a Bun-only PATH case that cannot find Node.",
+        "Test the installed consumer's exact version output and exit status, the launcher entry point, and the files actually present in the tarball rather than inspecting only the checkout.",
+        "Keep TOML parsing on Bun.TOML; do not add smol-toml or another runtime dependency."
+      ],
+      "files": [
+        "bin/ai-eng.js",
+        "scripts/package-consumer-smoke.ts",
+        "tests/package-consumer.spec.ts",
+        "tests/launcher.spec.ts",
+        "tests/npm-manifest.spec.ts"
+      ],
+      "acceptance": [
+        "A tarball produced from the checkout installs in a clean npm consumer and its installed ai-eng command reports the package version successfully.",
+        "The installed command also runs with Bun available and Node absent; a missing Bun runtime returns a clear nonzero refusal rather than a stack trace.",
+        "Assertions cover exact consumer output and the complete relevant packed-file contents, not source-string presence.",
+        "No smol-toml runtime import or new dependency is introduced."
+      ],
+      "verify": [
+        "bun test --parallel=1 tests/package-consumer.spec.ts tests/launcher.spec.ts tests/npm-manifest.spec.ts",
+        "bun run lint",
+        "bun run typecheck",
+        "bun test --parallel=1",
+        "bun run build"
+      ],
+      "changed_files": [],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Run the full suite on every platform",
+      "simple": "Test every supported system",
+      "size": "s",
+      "goal": "The complete serial Bun suite and existing platform smoke checks pass on Linux, macOS, and Windows, including receipt-retention coverage.",
+      "plain": {
+        "what": "Maintainers see the complete checks pass on Linux, macOS, and Windows.",
+        "why": "A green result on one computer cannot show that every supported user is covered.",
+        "check": "Read three separate system results, each showing the same complete checks passed."
+      },
+      "builds_on": [1],
+      "tasks": [
+        "Extend .github/workflows/platforms.yml so each supported operating-system job runs bun test --parallel=1 in addition to the existing init, doctor, uninstall, and build checks.",
+        "Reproduce and retain the first receipt-retention timeout's test, assertion, and environment before changing it; fix its cause without hiding failures or weakening its behavior assertions.",
+        "Keep retention bounded and correct under the existing batch, concurrency, and late-arrival cases; use the receipt-retention lessons in LEARNINGS.md rather than relaxing its limits."
+      ],
+      "files": [
+        ".github/workflows/platforms.yml",
+        "src/receipts.ts",
+        "tests/receipts-retention.spec.ts"
+      ],
+      "acceptance": [
+        "Linux, macOS, and Windows each run the full serial suite and preserve the existing platform smoke checks.",
+        "The receipt-retention timeout is reproducibly resolved on the affected runner without removing assertions, skipping failures, increasing a performance budget, or masking the first failure.",
+        "Retention still deletes only the intended stale batch and preserves young receipts, late arrivals, and single-claim concurrency behavior."
+      ],
+      "verify": [
+        "bun test --parallel=1 tests/receipts-retention.spec.ts",
+        "bun run lint",
+        "bun run typecheck",
+        "bun test --parallel=1",
+        "bun run build"
+      ],
+      "changed_files": [],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Bind release proof to the packed SHA",
+      "simple": "Prove what gets published",
+      "size": "m",
+      "goal": "Release checks and build inputs use the exact dispatched SHA, and the same packed tarball is smoke-tested, represented by a licensed runtime-only CycloneDX SBOM, and published.",
+      "plain": {
+        "what": "The package people receive is the same one maintainers tested and described.",
+        "why": "Testing a nearby copy cannot prove what a release actually contains.",
+        "check": "Compare the tested package and its inventory with the package named in the release."
+      },
+      "builds_on": [2],
+      "tasks": [
+        "Add a release verification job in .github/workflows/release.yml that checks out and asserts the exact workflow-dispatch SHA, then runs lint, typecheck, the serial full suite, and build before any release build or publication job.",
+        "Pack once from that verified SHA, retain the tarball and its digest as an artifact, run the checkpoint-1 clean-consumer smoke against that exact file, and publish that same tarball without repacking.",
+        "Generate CycloneDX from the installed tarball's runtime dependency graph, not the repository root; include the package and runtime transitive components, exclude development-only dependencies, and fail if any component lacks license metadata.",
+        "Attach the package-scoped SBOM and its checksum/provenance with the release artifacts; preserve the existing version/channel checks."
+      ],
+      "files": [
+        ".github/workflows/release.yml",
+        "scripts/package-consumer-smoke.ts",
+        "tests/package-consumer.spec.ts",
+        "tests/release-sbom.spec.ts"
+      ],
+      "acceptance": [
+        "The verification job proves its checkout SHA equals the dispatched SHA; checks finish successfully before release builds and before any registry or GitHub publication mutation.",
+        "The smoke test, SBOM, and npm publication all name the same tarball digest produced from that SHA; the workflow does not repack during publication.",
+        "The CycloneDX SBOM describes the installed package's runtime dependency graph and contains license metadata for every included component; missing metadata blocks release.",
+        "The SBOM is not repository-wide and does not include development-only dependencies."
+      ],
+      "verify": [
+        "bun test --parallel=1 tests/package-consumer.spec.ts tests/release-sbom.spec.ts",
+        "bun run lint",
+        "bun run typecheck",
+        "bun test --parallel=1",
+        "bun run build"
+      ],
+      "changed_files": [],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Require verified signing and rights before release",
+      "simple": "Publish only when cleared",
+      "size": "l",
+      "goal": "Every future publication requires an annotated tag signed by an owner-configured allowlisted fingerprint and verified redistribution rights for all bundled content; user documentation states the guard boundary accurately.",
+      "plain": {
+        "what": "People can see who approved a release and what the tool can and cannot protect.",
+        "why": "An unknown signer or unresolved content rights must never be treated as permission to publish.",
+        "check": "Confirm an unapproved release stops and the guide explains when extra isolation is needed."
+      },
+      "builds_on": [3],
+      "tasks": [
+        "Add a release-policy check that requires an existing annotated, cryptographically signed tag and verifies its signer against a configured allowlisted fingerprint before either npm or GitHub publication.",
+        "Fail closed when the signer fingerprint is absent, malformed, or does not match; do not supply, guess, or commit an authorized fingerprint. Keep tag 2.6.0 unchanged.",
+        "Gate every publication channel while any bundled content lacks owner-verified redistribution rights. Keep the existing unresolved attribution entries as blockers; do not invent licenses, claim permission, or delete content.",
+        "Test refusal before publication for unresolved rights, missing or untrusted signer configuration, unannotated tags, and invalid signatures, plus a controlled fixture where all required evidence is supplied.",
+        "Update README.md to say that the Copilot CLI adapter can fail open and that command guards do not sandbox opaque programs or scripts prepared in earlier calls; recommend OS-level isolation for untrusted code."
+      ],
+      "files": [
+        ".github/workflows/release.yml",
+        "scripts/release-policy.ts",
+        "tests/release-policy.spec.ts",
+        "NOTICE.md",
+        "THIRD-PARTY-NOTICES.md",
+        "README.md"
+      ],
+      "acceptance": [
+        "Before any publish step, future tags must be annotated, cryptographically verified, and signed by the exact configured allowlisted fingerprint; missing or mismatched configuration refuses publication.",
+        "Both release channels remain blocked while any bundled content has unresolved redistribution rights, including the currently documented H4 items; tests cannot silently resolve those facts.",
+        "No rights, license, or signer identity is invented, and no existing tag—especially 2.6.0—is rewritten.",
+        "README.md accurately explains Copilot fail-open behavior, the lack of OS sandboxing, and the need for OS-level isolation when running untrusted code."
+      ],
+      "verify": [
+        "bun test --parallel=1 tests/release-policy.spec.ts",
+        "bun run lint",
+        "bun run typecheck",
+        "bun test --parallel=1",
+        "bun run build"
+      ],
+      "changed_files": [],
+      "ui": null,
+      "gates": {
+        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "ui": { "status": "n/a", "attempts": 0, "findings": [] },
+        "review": { "status": "pending", "attempts": 0, "findings": [] }
+      },
+      "status": "pending"
+    }
+  ],
+  "assumptions": [
+    "Bun remains the supported runtime, and the built-in TOML parser remains in use [approved production-readiness brainstorm; package.json and src].",
+    "No signing fingerprint or redistribution right is inferred; an authorized owner must supply and verify each fact [approved brainstorm; current NOTICE.md and THIRD-PARTY-NOTICES.md].",
+    "The published 2.6.0 tag and all remote release state remain unchanged [approved brainstorm]."
+  ],
+  "new_dependencies": [],
+  "notes": [
+    "The allowlisted signer fingerprint and proof of redistribution rights are unresolved owner-controlled blockers; publication stays disabled until both are verified.",
+    "Do not rewrite tag 2.6.0, publish, push, or dispatch remote workflows."
+  ]
+}
