@@ -112,6 +112,22 @@ a{color:var(--accent)}
 </ul>
 <p><strong>Out of scope:</strong> Azure DevOps Server, remote mutations, multiple boards in one report unless explicitly requested, persisted board configuration, guessing from Azure CLI defaults, changing GitHub behavior, configurable weighted scoring, automatic parent or sprint deadline inheritance, and committing, pushing, or sending private backlog data to external services.</p>
 
+<h2>Production readiness (production-readiness)</h2>
+<p><strong>Problem:</strong> the current install and release evidence does not prove that a new user can install the package from a clean machine on macOS, Linux, or Windows and run the actual distributed artifact. The audit also found incomplete release checks, a repository-wide SBOM instead of a consumer SBOM, unresolved bundled-content licenses, and security limits that are easy to overstate.</p>
+<p><strong>Goal:</strong> test the packed package in clean Bun and npm consumers, run the full suite on all supported operating systems, bind release verification to the exact dispatched commit, publish a package-scoped SBOM with dependency license metadata, require a signed allowlisted tag, and state clearly where the guards fail open or cannot replace OS isolation. A release must stop when legal rights or signer identity cannot be verified.</p>
+<p><strong>Users &amp; roles:</strong> new users need a working install on their supported OS; maintainers need repeatable evidence for the artifact and a release gate; users of agent hooks need an honest statement of the security boundary.</p>
+<p><strong>Feature:</strong> production readiness. Approved on 2026-11-05.</p>
+<ul>
+  <li><strong>Runtime:</strong> Bun is the declared package runtime. The launcher must work in a Bun-only global install. Keep TOML parsing on <code>Bun.TOML</code>; do not add <code>smol-toml</code> unless runtime code imports it.</li>
+  <li><strong>Package proof:</strong> pack the npm artifact, install it in an isolated consumer, invoke <code>ai-eng --version</code>, and produce the CycloneDX SBOM from that installed runtime dependency graph. Fail the release if component license metadata is missing.</li>
+  <li><strong>Test proof:</strong> run the full serial suite in CI on Linux, macOS, and Windows. Fix the observed receipt-retention timeout without hiding assertion failures.</li>
+  <li><strong>Release proof:</strong> a release run must lint, typecheck, and test the exact dispatched SHA before building or publishing. Require an annotated signed tag from a configured signer fingerprint. Do not rewrite the published 2.6.0 tag.</li>
+  <li><strong>Attribution:</strong> include verified runtime transitive notices. Do not redistribute content with unresolved rights; fail publication until licenses or removal decisions are authorized.</li>
+  <li><strong>Security boundary:</strong> document that the Copilot CLI adapter can fail open and that visible-command guards do not sandbox opaque programs or scripts prepared in previous calls. Recommend OS-level isolation for untrusted code.</li>
+  <li><strong>Operational limit:</strong> do not push, publish, mutate remote repository settings, or start external workflows as part of implementation.</li>
+</ul>
+<p><strong>Out of scope:</strong> creating an OS sandbox, inventing or selecting a signing identity, asserting legal permission without evidence, changing existing published tags, and publishing a release.</p>
+
 <h2>Out of scope</h2>
 <ul>
   <li>External lifecycle sidecars or status consumers; Git and feature checkpoints remain canonical.</li>
@@ -119,6 +135,7 @@ a{color:var(--accent)}
   <li>Changing the 3-way diff of <code>update</code>, or <code>uninstall</code>'s contract handling.</li>
   <li>A <code>CLAUDE.md</code> shim, or a PROGRESS.md file (the memory slot belongs to <code>plan.html</code>; a second map is forbidden by ai-goal).</li>
   <li>New CI or lint rules; the load-gating header ("do not load this file for short work"), since AGENTS.md always loads.</li>
+  <li><strong>Production readiness:</strong> creating an OS sandbox; claiming unverified rights; selecting a signing key without the authorized fingerprint; changing the 2.6.0 tag; publishing a package or starting a remote workflow.</li>
   <li><strong>Floating core:</strong> changing guard security logic or adding guards (except the checkpoint port); any hosted service, telemetry or new own UI; coordinating work across clones or machines; deleting skills as part of the move (later removal requires evidence that a skill is not needed); redesigning the website (only its claims are corrected); external lifecycle consumers; changing the receipt format; PRs on forges other than GitHub and Azure DevOps; new token-saving filters for lint, typecheck or build (next feature); changing the orchestrator ceremony beyond working without a worktree and with a detected base.</li>
   <li><strong>Git flow:</strong>
     <ul>
