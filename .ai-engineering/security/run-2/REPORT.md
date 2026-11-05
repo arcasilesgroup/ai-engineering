@@ -2,7 +2,7 @@
 
 ## Executive summary
 
-**No-go for production use as a security boundary.** Four new exploitable issues survived independent validation: three HIGH and one MEDIUM. They affect shell-command rewriting, repository-root selection, the Copilot CLI hook contract, and human approval of protected configuration changes. Each was reproduced in a local scratch repository. No source fixes were made during the audit itself; the fixes that followed are listed under [Remediation status](#remediation-status-uncommitted-working-tree) and stay `open` until committed.
+**No-go for production use as a security boundary.** Four new exploitable issues survived independent validation: three HIGH and one MEDIUM. They affect shell-command rewriting, repository-root selection, the Copilot CLI hook contract, and human approval of protected configuration changes. Each was reproduced in a local scratch repository. No source fixes were made during the audit itself; the fixes that followed are listed under [Remediation status](#remediation-status) and landed in commit `1e3eaa13`.
 
 The target is a local CLI and host-hook system, so its security boundary is the agent host's event payload and the CLI's allow/deny decision. No direct product comparator was used; host hook documentation was used only to establish payload and working-directory contracts. The audit did not exercise a live host session.
 
@@ -61,9 +61,9 @@ The target is a local CLI and host-hook system, so its security boundary is the 
 - The workflow definitions use SHA-pinned actions and mostly default to read-only repository permissions.
 - Reproductions used isolated local repositories; no external target was attacked and no source files were changed.
 
-## Remediation status (uncommitted working tree)
+## Remediation status
 
-All four findings are fixed in the working tree, together with the bypasses that two independent adversarial reviews found while testing those fixes. **Nothing is committed yet**, so every disposition in `findings.json` stays `open` until a commit SHA exists.
+All four findings are fixed, together with the bypasses that two independent adversarial reviews found while testing those fixes. The fixes landed in commit `1e3eaa13` (`guards: close run-2 hook bypasses`), and `findings.json` records that commit for each finding.
 
 | # | Finding | What changed | Regression tests |
 |---|---|---|---|
@@ -108,7 +108,7 @@ These checks read commands. They are not an OS sandbox and do not replace one.
 - **Accepted over-denials:** process substitution (`diff <(a) <(b)`), `find . -delete`, archive extraction in the repo root, copying a governance file elsewhere, and a commit message that names an absolute governed path. Each denial says what to do instead.
 - **Persistent state from earlier calls:** an alias, git config value or script set up in an earlier call that the guards allowed is judged only by its visible text when it runs.
 
-### Validation (uncommitted working tree)
+### Validation
 
 - **Regressions:** attack and benign-control regressions are in `tests/self-protect.spec.ts`, `tests/no-verify.spec.ts`, `tests/payload-dialect.spec.ts`, `tests/chain-dispatch.spec.ts`, `tests/wrap.test.ts` and `tests/checkpoint-guard.spec.ts`.
 - **Fresh clone with this tree applied:** `bun run lint` exit 0, `bun run typecheck` exit 0, `bun test --parallel=1` 1745 pass / 0 fail / 16 skip, and `bun run build` exit 0. The original checkout fails 77 tests only because of untracked leftovers (`tests/.worktree-lifecycle-*`, `src/.DS_Store`), which were left in place.
@@ -124,4 +124,4 @@ These checks read commands. They are not an OS sandbox and do not replace one.
 
 ## Disposition
 
-All four findings remain `open` in `findings.json`. The fixes are in the uncommitted working tree and are not yet identifiable by a commit. Set each disposition to `fixed` with the fixing commit SHA once it lands.
+All four findings are `fixed` in `findings.json`, with `landed_in` set to commit `1e3eaa134bbc45c35305b01cd82b125ca2cb8b25`. That commit is on local `main` and not yet on `origin/main`. The residual risks above remain open; they are a sandbox's job, not a denylist's.

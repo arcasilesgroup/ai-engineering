@@ -77,7 +77,8 @@
       "reason": "Reproduced with the real chain and shell; host execution of the rewritten command is the surface contract."
     },
     "disposition": {
-      "status": "open"
+      "status": "fixed",
+      "landed_in": "1e3eaa134bbc45c35305b01cd82b125ca2cb8b25"
     }
   },
   {
@@ -148,7 +149,8 @@
       "reason": "The code path and local CLI behavior were reproduced; host cwd propagation is documented but was not exercised live."
     },
     "disposition": {
-      "status": "open"
+      "status": "fixed",
+      "landed_in": "1e3eaa134bbc45c35305b01cd82b125ca2cb8b25"
     }
   },
   {
@@ -229,7 +231,8 @@
       "reason": "The CLI behavior and source mapping were reproduced; payload casing is based on the official host reference and SDK types, not a live Copilot process."
     },
     "disposition": {
-      "status": "open"
+      "status": "fixed",
+      "landed_in": "1e3eaa134bbc45c35305b01cd82b125ca2cb8b25"
     }
   },
   {
@@ -299,7 +302,8 @@
       "reason": "The full chain, CLI write, and resulting Git commit were reproduced in a local scratch repository."
     },
     "disposition": {
-      "status": "open"
+      "status": "fixed",
+      "landed_in": "1e3eaa134bbc45c35305b01cd82b125ca2cb8b25"
     }
   }
 ]
