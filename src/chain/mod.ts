@@ -157,8 +157,11 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   let payload: Payload;
   try {
     payload = normalise(rawPayload, options.surface, event);
-  } catch {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
+  } catch (error) {
+    // normalise refuses on purpose (an unmeasured tool, an ambiguous patch) with a TypeError
+    // that says which; anything else is a payload that could not be read at all.
+    const why = error instanceof TypeError && error.message ? `BLOCKED: ${error.message} Nothing here can say whether this action is safe, so it was not run.` : "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.";
+    return denyOutcome("chain", why, [], event, options, started, root, "unknown");
   }
   adoptSession(payload.session_id);
   payload._event = event;

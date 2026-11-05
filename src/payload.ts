@@ -93,6 +93,22 @@ const COPILOT_INTERNAL = new Set([
   "fetch_copilot_cli_documentation", "exit_plan_mode",
 ]);
 
+/** MCP tools measured as read-only queries, by their Copilot runtime name (`<server>-<tool>`).
+ *  Every other MCP tool stays unknown and denies. codegraph_explore reads the local graph. */
+const COPILOT_READ_ONLY_MCP = new Set(["codegraph-codegraph_explore"]);
+
+/** Tools that read or steer the session without acting on the repo or the machine. Asking
+ *  the same question twice is not a stuck loop, so the loop guard does not count them. */
+const READ_OR_CONTROL = new Set([
+  ...COPILOT_INTERNAL, ...COPILOT_READ_ONLY_MCP,
+  "Read", "NotebookRead", "ReadFile", "LS", "Grep", "Glob",
+  "AskUserQuestion", "TodoWrite", "Skill", "ExitPlanMode",
+]);
+
+export function isReadOrControl(tool: string): boolean {
+  return READ_OR_CONTROL.has(tool);
+}
+
 /** SQLite statements that write a file the guards cannot see. */
 const SQL_FILE_WRITE = /\b(attach|vacuum|load_extension|backup|writefile)\b/i;
 
@@ -235,7 +251,7 @@ function normaliseCopilot(out: Record<string, unknown>, strict: boolean): void {
     out.tool_input = typeof rawArgs === "object" && rawArgs !== null ? rawArgs : {};
     return;
   }
-  if (COPILOT_INTERNAL.has(runtimeName)) {
+  if (COPILOT_INTERNAL.has(runtimeName) || COPILOT_READ_ONLY_MCP.has(runtimeName)) {
     out.tool_name = runtimeName;
     const args = parseArgs(rawArgs);
     const query = typeof args["query"] === "string" ? args["query"] : "";

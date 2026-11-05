@@ -287,6 +287,79 @@ describe("runChain — routing observed through outcomes", () => {
   });
 });
 
+describe("Copilot deliveries — one physical call, every registration", () => {
+  // Copilot runs the chain once per registered carrier: the repo `.github/hooks` entry and
+  // the machine `preToolUse` (copilot-cli) plus `PreToolUse` (copilot) entries. The shapes
+  // below are the ones recorded in a real session's hook log.
+  const vscodeName: Record<string, string> = { bash: "Bash", view: "Read", apply_patch: "Edit" };
+  const deliver = (format: "cli" | "vscode", tool: string, args: unknown, session: string, at: number): ChainOutcome =>
+    runChain(
+      format === "cli"
+        ? { sessionId: session, timestamp: at, cwd: scratch, toolName: tool, toolArgs: args }
+        : { hook_event_name: "PreToolUse", session_id: session, timestamp: new Date(at).toISOString(), cwd: scratch, tool_name: vscodeName[tool] ?? tool, tool_input: args },
+      "PreToolUse",
+      { inProcess: true, surface: format === "cli" ? "copilot-cli" : "copilot" },
+    );
+  /** One call as the host delivers it: the same payload to all three registrations. */
+  const call = (tool: string, args: unknown, session: string, at: number): ChainOutcome[] =>
+    [deliver("cli", tool, args, session, at), deliver("cli", tool, args, session, at), deliver("vscode", tool, args, session, at)];
+  const patch = "*** Begin Patch\n*** Update File: src/a.ts\n@@\n-a\n+b\n*** End Patch";
+  const MINUTE = 60_000;
+
+  test("a first call reaching three registrations is judged once, not as three attempts", () => {
+    const run = randomUUID();
+    const calls: Array<[string, unknown]> = [
+      ["skill", { skill: "ai-explore" }],
+      ["task_complete", { summary: "Read-only repository review is complete." }],
+      ["ask_user", { message: "¿Cómo prefieres desbloquearlo?" }],
+      ["view", { path: join(scratch, "src", "a.ts") }],
+      ["bash", { command: "git --no-pager status --short --branch", description: "Check current worktree status" }],
+      ["apply_patch", patch],
+      ["codegraph-codegraph_explore", { projectPath: scratch, query: "Find runtime imports", maxFiles: 12 }],
+    ];
+    calls.forEach(([tool, args], index) => {
+      for (const outcome of call(tool, args, `first-${run}-${index}`, 1_000_000)) expect(outcome.action, tool).not.toBe("deny");
+    });
+  });
+
+  test("repeated read and control calls keep working", () => {
+    const session = `read-control-${randomUUID()}`;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const at = 2_000_000 + attempt * MINUTE;
+      for (const [tool, args] of [
+        ["view", { path: join(scratch, "src", "a.ts") }],
+        ["task_complete", { summary: "done" }],
+        ["report_intent", { intent: "Reviewing" }],
+        ["codegraph-codegraph_explore", { projectPath: scratch, query: "callers of runChain" }],
+      ] as Array<[string, unknown]>) {
+        for (const outcome of call(tool, args, session, at + 1)) expect(outcome.action, `${tool} #${attempt + 1}`).not.toBe("deny");
+      }
+    }
+  });
+
+  test("retrying the same action is still bounded", () => {
+    for (const [tool, args] of [
+      ["bash", { command: "rm -rf build", description: "Clean" }],
+      ["apply_patch", patch],
+    ] as Array<[string, unknown]>) {
+      const session = `retry-${randomUUID()}`;
+      expect(call(tool, args, session, 3_000_000).every((outcome) => outcome.action !== "deny"), tool).toBe(true);
+      expect(call(tool, args, session, 3_000_000 + MINUTE).every((outcome) => outcome.action !== "deny"), tool).toBe(true);
+      const third = call(tool, args, session, 3_000_000 + 2 * MINUTE);
+      expect(third.some((outcome) => outcome.action === "deny" && outcome.by === "loop"), tool).toBe(true);
+    }
+  });
+
+  test("unknown MCP tools and ambiguous patches still deny, and say why", () => {
+    const run = randomUUID();
+    const unknown = deliver("cli", "github-mcp-server-create_pull_request", { title: "x" }, `mcp-${run}`, 4_000_000);
+    expect(unknown.action).toBe("deny");
+    if (unknown.action === "deny") expect(unknown.reason).toContain("github-mcp-server-create_pull_request");
+    const ambiguous = deliver("cli", "apply_patch", "*** Begin Patch\n***Update File: .ai-engineering/config.toml\n*** End Patch", `amb-${run}`, 4_000_000);
+    expect(ambiguous.action).toBe("deny");
+  });
+});
+
 describe("runChain — fail-closed boundaries", () => {
   test("a null payload is denied by chain, with the exact blocked message", () => {
     const outcome = runChain(null as unknown as Record<string, unknown>, "PreToolUse", { inProcess: true });

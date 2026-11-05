@@ -203,6 +203,24 @@ var COPILOT_INTERNAL = new Set([
   "fetch_copilot_cli_documentation",
   "exit_plan_mode"
 ]);
+var COPILOT_READ_ONLY_MCP = new Set(["codegraph-codegraph_explore"]);
+var READ_OR_CONTROL = new Set([
+  ...COPILOT_INTERNAL,
+  ...COPILOT_READ_ONLY_MCP,
+  "Read",
+  "NotebookRead",
+  "ReadFile",
+  "LS",
+  "Grep",
+  "Glob",
+  "AskUserQuestion",
+  "TodoWrite",
+  "Skill",
+  "ExitPlanMode"
+]);
+function isReadOrControl(tool) {
+  return READ_OR_CONTROL.has(tool);
+}
 var SQL_FILE_WRITE = /\b(attach|vacuum|load_extension|backup|writefile)\b/i;
 var COPILOT_ARGS = {
   path: "file_path",
@@ -333,7 +351,7 @@ function normaliseCopilot(out, strict) {
     out.tool_input = typeof rawArgs === "object" && rawArgs !== null ? rawArgs : {};
     return;
   }
-  if (COPILOT_INTERNAL.has(runtimeName)) {
+  if (COPILOT_INTERNAL.has(runtimeName) || COPILOT_READ_ONLY_MCP.has(runtimeName)) {
     out.tool_name = runtimeName;
     const args = parseArgs(rawArgs);
     const query = typeof args["query"] === "string" ? args["query"] : "";
@@ -2398,6 +2416,7 @@ import { readFileSync as readFileSync6, writeFileSync, mkdirSync } from "fs";
 import { createHash as createHash2 } from "crypto";
 import { join as join6 } from "path";
 var SIGNATURES_KEPT = 20;
+var SAME_CALL_MS = 3000;
 function stateFile() {
   return join6(home(), "cache", "loop", `${createHash2("sha256").update(sessionId()).digest("hex").slice(0, 32)}.json`);
 }
@@ -2407,11 +2426,20 @@ function loadState() {
     return {
       recent: Array.isArray(parsed.recent) ? parsed.recent : [],
       failures: parsed.failures ?? {},
-      denials: parsed.denials ?? {}
+      denials: parsed.denials ?? {},
+      delivered: parsed.delivered ?? {}
     };
   } catch {
-    return { recent: [], failures: {}, denials: {} };
+    return { recent: [], failures: {}, denials: {}, delivered: {} };
   }
+}
+function callTime(payload) {
+  const stamp = payload["timestamp"];
+  if (typeof stamp === "number" && Number.isFinite(stamp))
+    return stamp;
+  if (typeof stamp === "string" && Number.isFinite(Date.parse(stamp)))
+    return Date.parse(stamp);
+  return null;
 }
 function saveState(state) {
   try {
@@ -2431,6 +2459,8 @@ function failed(payload) {
 function runLoopGuard(payload, overridesActiveLoop) {
   if (overridesActiveLoop)
     return;
+  if (isReadOrControl(payload.tool_name))
+    return;
   const limits = guardLimits();
   const state = loadState();
   const sig = loopSignature(payload);
@@ -2446,15 +2476,27 @@ function runLoopGuard(payload, overridesActiveLoop) {
     return;
   }
   const call = loopExact(payload);
-  state.recent = [...state.recent, call].slice(-limits.window);
+  const at = callTime(payload);
+  const previous = state.delivered[call];
+  if (at !== null && previous !== undefined && Math.abs(at - previous.at) <= SAME_CALL_MS) {
+    return previous.reason === undefined ? undefined : { deny: true, reason: previous.reason };
+  }
+  const verdict = judgeCall(state, call, payload, sig, limits);
+  if (at !== null) {
+    state.delivered[call] = { at, ...verdict?.deny === true ? { reason: verdict.reason } : {} };
+    state.delivered = Object.fromEntries(Object.entries(state.delivered).slice(-SIGNATURES_KEPT));
+  }
   saveState(state);
+  return verdict;
+}
+function judgeCall(state, call, payload, sig, limits) {
+  state.recent = [...state.recent, call].slice(-limits.window);
   const seen = state.recent.filter((c) => c === call).length;
   if (seen >= limits.repeats) {
     const denials = Math.min((state.denials[call] ?? 0) + 1, limits.window);
     state.denials[call] = denials;
     const denialEntries = Object.entries(state.denials);
     state.denials = Object.fromEntries(denialEntries.slice(-limits.window));
-    saveState(state);
     if (denials >= 3) {
       const who = printable(loopSignature(payload));
       return {
@@ -4382,8 +4424,9 @@ function runChain(rawPayload, event, options = {}) {
   let payload;
   try {
     payload = normalise(rawPayload, options.surface, event);
-  } catch {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
+  } catch (error) {
+    const why = error instanceof TypeError && error.message ? `BLOCKED: ${error.message} Nothing here can say whether this action is safe, so it was not run.` : "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.";
+    return denyOutcome("chain", why, [], event, options, started, root, "unknown");
   }
   adoptSession(payload.session_id);
   payload._event = event;
