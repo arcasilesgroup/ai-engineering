@@ -104,7 +104,7 @@ jobs:
           subject-path: dist/ai-eng-${{ matrix.target }}*
       # The binary is a GitHub-release asset (client's CI downloads one by name);
       # npm ships source and runs it under bun, so nothing is staged for npm here.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ai-eng-${{ matrix.target }}
           path: dist/ai-eng-*
@@ -273,7 +273,7 @@ jobs:
           if [ "$PRERELEASE" = "true" ]; then published_flags+=(--prerelease); fi
           gh release edit "$TAG" --draft=false "${published_flags[@]}"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: publish-proof
           path: publish-proof.txt
