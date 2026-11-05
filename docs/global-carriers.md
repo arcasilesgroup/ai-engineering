@@ -1,22 +1,12 @@
 # Global carriers
 
-A carrier is the file a host reads to reach `ai-eng chain`. It lives where that host actually reads: under the user's home for the surfaces that load user scope, in the checkout for the two whose cloud readers only see the repo. The repository declares itself in `.ai-engineering/config.toml`, and only that declaration makes the policy apply: the gate is `declaration()` in `src/env.ts` — the file exists, parses, and names `[surfaces] enabled` — and it is the only fail-open in the system. A repo that never declared itself is not governed: the chain allows, and nothing is written there, not even a receipts directory. Nothing else in the codebase answers "is this repo governed"; `enabledSurfaces()` and the gate read the same call, so they cannot disagree about what was said.
+A carrier is the file a host reads to reach `ai-eng chain`. Machine-side carriers live under the user's machine base; repo-side carriers live in the checkout. The repository's `[surfaces].enabled` declaration in `.ai-engineering/config.toml` is the gate: `declaration()` in `src/env.ts` accepts a file that exists, parses, and names that list. Without it, the chain allows and does not create receipts or other repo files.
 
-## The carrier table
+## Canonical registry
 
-`src/surfaces/surfaces.json` is the registry. Every path carries its `source` and the date it was read, so a stale claim is a delta against a recorded measurement instead of against somebody's memory. A path claimed from memory is the failure this table exists to end: a carrier in a directory the host never reads leaves the repo ungoverned while `doctor` reports green (the OMP carrier once sat in `.agents/hooks/` for exactly that reason — the miss is why every row is measured).
-
-| Surface | Scope | Path | Kind | Chain bundle | Evidence source | Measured |
-|---|---|---|---|---|---|---|
-| Claude Code | machine | `.claude/settings.json` | settings | — | research/004 §01 (user scope applies to every project) · anthropics/claude-code#83502: user-scope hooks run without workspace trust | 2026-09-14 |
-| Oh My Pi | machine | `.omp/agent/hooks/pre/ai-eng.ts` | module | `.omp/agent/hooks/pre/.ai-eng-chain.ts` | omp://hooks.md (native hook capability: `<configDir>/hooks/pre\|post`, agent dir is `PI_CODING_AGENT_DIR` aware) · live probe on omp 18.1.17 2026-09-14: a default-export factory written there loaded and blocked a bash call; the old `.agents/hooks/` path loads nothing; the chain bundle is dot-prefixed because omp's hook scanner loads EVERY `*.ts` in that directory and a bundle is not a hook factory | 2026-09-14 |
-| OpenCode | machine | `.config/opencode/plugins/ai-eng.ts` | module | `.config/opencode/plugins/ai-eng-chain.ts` | research/004 §01 (opencode loads plugins from `~/.config/opencode/plugins/`) | 2026-09-14 |
-| Cursor | repo | `.cursor/hooks.json` | settings | — | research/003 · cursor.com/docs/cloud-agent: cloud VMs have no access to your local home directory, and the user level loses to the project one | 2026-09-11 |
-| Codex CLI | machine | `.codex/hooks.json` | settings | — | research/004 §01 (user hooks load even when the project is untrusted) · openai/codex#20321: trust is per hook definition, pinned by hash | 2026-09-14 |
-| Copilot CLI | repo | `.github/hooks/ai-eng.json` | settings | — | research/003: the cloud agent reads the repo copy; VS Code support is not documented | 2026-09-11 |
-| Copilot CLI | machine | `.copilot/hooks/ai-eng.json` | settings | — | research/004 §01: Copilot CLI reads `~/.copilot/hooks/*.json` | 2026-09-14 |
-| Pi | machine | `.pi/agent/extensions/ai-eng.ts` | module | `.pi/agent/extensions/.ai-eng-chain.ts` | pi.dev/docs/latest/extensions · brainstorm TrustFacts §3: pi has no native user-level hooks, only extensions | 2026-09-14 |
-| Zed | — | — | — | — | `carriers: []` — it denies through its OWN tool permissions (`agent.tool_permissions`, `always_deny` regexes) and never by running our chain; its WASM extension API adds languages, themes, debuggers, MCP servers and slash commands, none of which intercepts a tool call, so there is no seat for a guard (`zed.dev/docs/ai/tool-permissions`, measured 2026-09-14 on Zed 1.19.2) | — |
+Carrier paths, scopes, kinds, evidence sources and measurement dates live in the
+[canonical surface registry](../src/surfaces/surfaces.json). Update that file when host
+evidence changes; this guide covers the installation behavior around those declarations.
 
 Machine paths are relative to the base every machine-side path hangs off (`machineBase()` in `src/surfaces/adapters.ts`): the physical home by default, or the alternate base supplied by `AI_ENG_HOME`. A test install must never rewrite the real `~/.claude`, `~/.omp`, `~/.pi` or `~/.config`.
 
@@ -31,7 +21,7 @@ When `PI_CODING_AGENT_DIR` is set, Oh My Pi and Pi carriers are placed under tha
 | `settings` | merged by marker into the file that is already there | our entries out by marker, theirs kept |
 | `module` | the whole file written, plus its chain bundle beside it | entry and bundle unlinked whole |
 
-Both placements go through the same merge (`mergeSharedText` in `src/install.ts`). A machine `settings` file that does not exist is written from our template as is; one that exists is merged, because it can be one the user already owns and nothing of theirs is touched or reformatted. Repo carriers are planned by `surfaceEntries()` in `src/commands/init-shared.ts` as `{ path, ours, merge: kind === "settings" }`, so Cursor and Copilot take the merge in the checkout too.
+Both placements go through the same merge (`mergeSharedText` in `src/install.ts`). A machine `settings` file that does not exist is written from our template as is; one that exists is merged, because it can be one the user already owns and nothing of theirs is touched or reformatted. Repo carriers are planned by `surfaceEntries()` in `src/commands/init-shared.ts` as `{ path, ours, merge: kind === "settings" }`, so repo-side settings are merged too.
 
 The merge rules, from the source:
 
@@ -52,7 +42,7 @@ Three questions, and they are separate on purpose.
 | `surface <id>` (check 11, row b) | the repo carrier: for the hosts whose readers live in the checkout, is their carrier in the repo? | present, or missing (fail, warn for best-effort) |
 | `machine state` (check 11b) | which binary wrote the carriers, and is this one older than that record? | a downgrade warns; a changed definition warns and names the surfaces |
 
-Existence is not the question for check 11, row a: a carrier only counts where its host reads it, and a file in an unread directory means an ungoverned repo with a green `doctor` (the OMP surface's `.agents/hooks/` miss is the lesson that question exists to repeat). Row b is the declaration, and no file answers the third question: a downgrade is not cosmetic, because the carrier is the new binary's and the chain it calls would be the old one, which has no gate — the policy would fall back onto repos that never asked for it. Codex re-asks for trust in `/hooks` after any byte change, so a changed definition is the only way to know that happened. A surface with no carrier row gets `no carrier: guard wiring is not implemented for this host`.
+Existence is not enough for check 11, row a: a carrier counts only where its host reads it. Row b checks the repository declaration. A downgrade also warns because the older binary may not provide the chain the carrier calls. Codex re-asks for trust in `/hooks` after any byte change, so a changed definition is the only way to know that happened. A surface with no carrier row gets `no carrier: guard wiring is not implemented for this host`.
 
 ## The git hooks
 
@@ -86,7 +76,7 @@ sh scripts/proof-cli-ux.sh     # R16: the hooks reach new clones, and a repo wit
 
 ## Adding a new surface
 
-1. A row in `src/surfaces/surfaces.json`: `id`, `label`, `tier`, `can`, and `carriers` with `scope`, `kind`, `path`, `source` and `measured`. The `source` names the document or probe the path was read from, with its date. `carriers: []` is a valid answer — a surface that cannot deny has no carrier to place — and `can.deny: false` makes `init` refuse it rather than promise falsely.
+1. A measured declaration in [`src/surfaces/surfaces.json`](../src/surfaces/surfaces.json). A surface with no carrier can still be valid; `init` refuses it when it cannot provide a required guard.
 2. `carrierFiles(id, scope)` in `src/surfaces/adapters.ts`: a case returning the entry template and, for an in-process host, the chain bundle. No case means no adapter, and no offer at init.
 3. A template under `templates/` (`settings.<id>.json.tpl` for a settings host, `plugin.<id>.ts.tpl` for a module host). Then regenerate the payload: `bun scripts/gen-assets.ts` is not optional after touching `templates/`, because the binary carries `src/assets.ts` and a file that is not in it does not ship.
 4. A load proof. A path is declared when the host loads it, not when it exists: add a proof script alongside `scripts/proof-cli-ux.sh` — drive the host's own loader, assert the handler blocks, and check the receipt the chain wrote.

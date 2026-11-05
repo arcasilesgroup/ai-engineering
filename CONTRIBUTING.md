@@ -76,8 +76,10 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
 - Local flow: create a feature worktree with `ai-eng worktree new <branch>`,
   synchronize with native `git rebase <detected base>` when needed, publish the
   reviewed merge with `ai-eng worktree merge <slug>`, then remove the worktree
-  explicitly when it is no longer needed. A session never pushes.
-- The pull request against `origin/main` is your decision. It is cut from the local `main`, never from a worktree.
+  explicitly when it is no longer needed.
+- When the user requests a PR, `ai-pr` pushes and verifies the current branch
+  from the current checkout or selected worktree before opening it. It does not
+  create or switch branches, and it uses the selected base without assuming local `main`.
 - CI runs build, lint, typecheck, the full test suite, gitleaks, semgrep,
   trivy and `bun audit`. SonarCloud and Snyk jobs run when their tokens are
   configured. Your commit must pass the jobs it will face there.
