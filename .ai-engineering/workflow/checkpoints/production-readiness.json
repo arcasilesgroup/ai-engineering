@@ -56,7 +56,7 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 0, "findings": ["Focused 14/14, lint, typecheck, build green. Full serial suite 1747 pass / 16 skip / 1 fail: pre-existing artifact-scroll-spy failure from the approved brainstorm's minified script (on main since 40a18cab); fixed in 214adac5, scroll-spy 4/4."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "failed", "attempts": 1, "findings": ["MAJOR tests/launcher.spec.ts:47-101 runs the real checkout launcher, so results depend on dist/ (built checkout: missing-Bun refusal test gets exit 0); deleted staged coverage for dist preference, dev-checkout detection, published install without binary, leftover platform-package refusal.", "MINOR launcher.spec.ts:61 Bun-only PATH dir created inside repo root (R41).", "MINOR Windows: smoke bypasses installed .cmd shim; PATH='' launcher test.", "MINOR smoke script: shell:true unquoted paths on Windows; tar -tzf needs --force-local with GNU tar on Windows."] }
+        "review": { "status": "failed", "attempts": 2, "findings": ["Round 2: MAJOR tests/launcher.spec.ts:207-245 dev-checkout tests all run under node, where bin/ai-eng.js:105-115 behaves the same with or without the scripts/build.ts marker; nothing pins isDevCheckout or dist-before-source ordering under bun (the shebang path). Fix: run the staged launcher under bun with a fake bun on PATH, with and without the marker, expecting different output.", "Round 2 MINOR tests/npm-manifest.spec.ts:33 spawns npm without a shell; ENOENT on Windows (npm.cmd).", "Round 1 findings 1, 3, 4, 5 verified fixed."] }
       },
       "status": "pending"
     },
