@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { embeddedTemplate } from "../src/embed.ts";
 import { loadConfig } from "../src/env.ts";
 import { resolveContext } from "../src/git/context.ts";
@@ -24,7 +24,8 @@ import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts
 const sandboxEnv = snapshotSandboxEnv();
 const priorSystemConfig = process.env["GIT_CONFIG_SYSTEM"];
 const priorTerminalPrompt = process.env["GIT_TERMINAL_PROMPT"];
-const sandboxRoot = realpathSync(mkdtempSync(join(tmpdir(), "ai-eng-git-context-")));
+// `.native` expands Windows 8.3 names (RUNNER~1) the way git and the resolver do.
+const sandboxRoot = realpathSync.native(mkdtempSync(join(tmpdir(), "ai-eng-git-context-")));
 const emptyGitConfig = join(sandboxRoot, "empty-gitconfig");
 writeFileSync(emptyGitConfig, "");
 
@@ -74,7 +75,7 @@ function git(cwd: string, ...args: string[]): string {
 }
 
 function freshDir(prefix: string): string {
-  return realpathSync(mkdtempSync(join(sandboxRoot, prefix)));
+  return realpathSync.native(mkdtempSync(join(sandboxRoot, prefix)));
 }
 
 /** A repo with one commit on `branch` and no remote. */
@@ -98,7 +99,7 @@ function bareRemote(defaultBranch: string, branches: string[]): string {
 function cloneOf(bare: string): string {
   const work = join(freshDir("clone-"), "work");
   git(sandboxRoot, "clone", "--quiet", bare, work);
-  return realpathSync(work);
+  return realpathSync.native(work);
 }
 
 function writeConfig(root: string, toml: string): void {
@@ -126,6 +127,8 @@ interface GitPremise {
   at: string;
   args: string[];
   out: string | null;
+  /** git prints paths as `C:/...` on Windows: compare them in the platform's own form. */
+  isPath?: boolean;
 }
 
 interface Arranged {
@@ -151,7 +154,7 @@ const remoteHead = (at: string, remote: string, target: string | null): GitPremi
 });
 const noRemotes = (at: string): GitPremise => ({ at, args: ["remote"], out: "" });
 const noRef = (at: string, ref: string): GitPremise => ({ at, args: ["rev-parse", "--verify", "--quiet", ref], out: null });
-const toplevel = (at: string, root: string): GitPremise => ({ at, args: ["rev-parse", "--show-toplevel"], out: root });
+const toplevel = (at: string, root: string): GitPremise => ({ at, args: ["rev-parse", "--show-toplevel"], out: root, isPath: true });
 
 /** A clone of a remote whose default branch is develop and which has no main anywhere. */
 function developClone(): { bare: string; work: string } {
@@ -173,7 +176,7 @@ const cases: ContextCase[] = [
         premises: [
           onBranch(work, "feature"),
           toplevel(deep, work),
-          { at: work, args: ["rev-parse", "--path-format=absolute", "--git-dir"], out: join(work, ".git") },
+          { at: work, args: ["rev-parse", "--path-format=absolute", "--git-dir"], out: join(work, ".git"), isPath: true },
           remoteHead(work, "origin", "develop"),
         ],
         configBase: { root: work, value: undefined },
@@ -188,15 +191,15 @@ const cases: ContextCase[] = [
       const { work } = developClone();
       const tree = join(freshDir("wt-"), "feat-x");
       git(work, "worktree", "add", "--quiet", "-b", "feat/x", tree);
-      const wt = realpathSync(tree);
+      const wt = realpathSync.native(tree);
       return {
         cwd: wt,
         premises: [
           onBranch(work, "develop"),
           onBranch(wt, "feat/x"),
           toplevel(wt, wt),
-          { at: wt, args: ["rev-parse", "--path-format=absolute", "--git-common-dir"], out: join(work, ".git") },
-          { at: wt, args: ["rev-parse", "--path-format=absolute", "--git-dir"], out: join(work, ".git", "worktrees", "feat-x") },
+          { at: wt, args: ["rev-parse", "--path-format=absolute", "--git-common-dir"], out: join(work, ".git"), isPath: true },
+          { at: wt, args: ["rev-parse", "--path-format=absolute", "--git-dir"], out: join(work, ".git", "worktrees", "feat-x"), isPath: true },
           remoteHead(wt, "origin", "develop"),
         ],
         configBase: { root: wt, value: undefined },
@@ -455,7 +458,8 @@ describe("resolveContext — root, branch, worktree and base in the 6.7 order", 
         if (premise.out === null) expect(done.status, label).not.toBe(0);
         else {
           expect(done.status, `${label}: ${done.stderr}`).toBe(0);
-          expect(done.stdout.trim(), label).toBe(premise.out);
+          const printed = done.stdout.trim();
+          expect(premise.isPath === true ? resolve(printed) : printed, label).toBe(premise.out);
         }
       }
       // The config file must parse, or a missing base would only mean "unreadable".

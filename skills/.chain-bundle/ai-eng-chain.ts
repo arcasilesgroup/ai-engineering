@@ -6,14 +6,14 @@ import { dirname as dirname5, join as join12 } from "path";
 
 // src/env.ts
 import { homedir } from "os";
-import { join, resolve } from "path";
+import { join, resolve, sep } from "path";
 import { existsSync, readFileSync } from "fs";
 function home() {
   const override = process.env.AI_ENG_HOME;
   if (override) {
     const root = repoRoot();
     const resolved = resolve(override);
-    if (root === null || !(resolved === root || resolved.startsWith(root + "/")))
+    if (root === null || !(resolved === root || resolved.startsWith(root + sep)))
       return override;
   }
   return join(homedir(), ".ai-engineering");
@@ -970,7 +970,7 @@ function runNoVerify(payload, repoRoot) {
 }
 
 // src/guards/self-protect.ts
-import { basename as basename2, isAbsolute as isAbsolute2, join as join4, resolve as resolve3 } from "path";
+import { basename as basename2, isAbsolute as isAbsolute2, join as join4, parse, resolve as resolve3, sep as sep2 } from "path";
 import { existsSync as existsSync2, readFileSync as readFileSync3, realpathSync as realpathSync2 } from "fs";
 var WRITERS = {
   rm: true,
@@ -1216,6 +1216,9 @@ function isTreeWriter(verb, args) {
   return TREE_WRITERS.has(verb) || verb === "sed" && args.some((arg) => /^-[A-Za-z]*i/.test(arg));
 }
 var EMBEDDED_PATH = /(?:~|\.{1,2})?\/?[\w.@+-]*(?:\/[\w.@+-]+)+|\.ai-engineering\b[\w./-]*|\.git\b[\w./-]*/g;
+function slashed(path) {
+  return sep2 === "\\" ? path.replaceAll("\\", "/") : path;
+}
 function expandBraces(pattern, found = []) {
   const group = /\{([^{}]*,[^{}]*)\}/.exec(pattern);
   if (group === null) {
@@ -1342,7 +1345,7 @@ function judgeShell(command, context, depth = 0) {
     const candidates = pathCandidates(word, bases);
     if (candidates === null)
       return word;
-    const hit = candidates.find((candidate) => offendingTarget(context.paths, candidate, bases) !== null || includesCheckpoints && CHECKPOINT_FILE.test(candidate));
+    const hit = candidates.find((candidate) => offendingTarget(context.paths, candidate, bases) !== null || includesCheckpoints && CHECKPOINT_FILE.test(slashed(candidate)));
     return hit ?? globNamesProtected(word, bases, context.paths);
   };
   const isRelative = (word) => !isAbsolute2(expandTilde(word)) && !word.startsWith("-");
@@ -1523,12 +1526,13 @@ function globNamesProtected(word, bases, paths) {
   const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute2(path))];
   for (const pattern of expandBraces(expandTilde(word))) {
     for (const base of bases) {
-      const segments = resolve3(base, pattern).toLowerCase().split("/");
+      const segments = slashed(resolve3(base, pattern)).toLowerCase().split("/");
       for (const root of protectedRoots) {
-        const depth = root.split("/").length;
+        const rootForm = slashed(root).toLowerCase();
+        const depth = rootForm.split("/").length;
         const prefix = segments.slice(0, depth).join("/");
         try {
-          if (new Bun.Glob(prefix).match(root.toLowerCase()))
+          if (new Bun.Glob(prefix).match(rootForm))
             return root;
         } catch {
           return word;
@@ -1696,9 +1700,9 @@ var GOVERNANCE_FILE = new RegExp([
   String.raw`(?:^|/)\.(?:opencode/plugins|agents/hooks)/ai-eng[^/]*$`
 ].join("|"), "i");
 function offendingPath(paths, rawText) {
-  const text = rawText.toLowerCase();
+  const text = slashed(rawText).toLowerCase();
   for (const path of paths.terminal) {
-    const segment = new RegExp(`(^|/)${path.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+    const segment = new RegExp(`(^|/)${slashed(path).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
     if (segment.test(text))
       return path;
   }
@@ -1710,7 +1714,7 @@ function offendingPath(paths, rawText) {
         return path;
       continue;
     }
-    if (!text.includes(path.toLowerCase()))
+    if (!text.includes(slashed(path).toLowerCase()))
       continue;
     return path;
   }
@@ -1726,8 +1730,8 @@ function offendingTarget(paths, target, bases) {
     try {
       canonical = realpathSync2(resolved);
     } catch {
-      let prefix = "/";
-      for (const part of resolved.split("/")) {
+      let prefix = parse(resolved).root;
+      for (const part of resolved.slice(prefix.length).split(sep2)) {
         const next = join4(prefix, part);
         try {
           prefix = realpathSync2(next);
@@ -1781,8 +1785,9 @@ function runSelfProtect(payload, repoRoot) {
       };
     }
     const canonPath = (target) => {
-      const parts = target.split("/");
-      let current = target.startsWith("/") ? "/" : process.cwd();
+      const root = parse(target).root;
+      const parts = target.slice(root.length).split(sep2 === "\\" ? /[\\/]/ : "/");
+      let current = root === "" ? process.cwd() : root;
       for (const part of parts) {
         if (part === "" || part === ".")
           continue;
@@ -2040,7 +2045,7 @@ function runPolicy(command, cwd, allowedMode) {
 
 // src/guards/injection.ts
 import { readFileSync as readFileSync5, existsSync as existsSync3 } from "fs";
-import { dirname, isAbsolute as isAbsolute3, resolve as resolve4, sep } from "path";
+import { dirname, isAbsolute as isAbsolute3, resolve as resolve4, sep as sep3 } from "path";
 import { fileURLToPath } from "url";
 
 // src/guards/local-rules.ts
@@ -2140,12 +2145,12 @@ function trustedRoot() {
   if (TRUSTED_ROOT !== undefined)
     return TRUSTED_ROOT;
   let dir = dirname(fileURLToPath(import.meta.url));
-  for (let i = 0;i < 8 && dir.includes(sep); i += 1) {
-    if (existsSync3(`${dir}${sep}package.json`))
+  for (let i = 0;i < 8 && dir.includes(sep3); i += 1) {
+    if (existsSync3(`${dir}${sep3}package.json`))
       break;
     dir = dirname(dir);
   }
-  TRUSTED_ROOT = existsSync3(`${dir}${sep}package.json`) ? `${dir}${sep}` : null;
+  TRUSTED_ROOT = existsSync3(`${dir}${sep3}package.json`) ? `${dir}${sep3}` : null;
   return TRUSTED_ROOT;
 }
 var MAX_BYTES = 400000;
@@ -2533,7 +2538,7 @@ import {
   writeFileSync as writeFileSync2
 } from "fs";
 import { homedir as homedir2 } from "os";
-import { basename as basename3, dirname as dirname2, isAbsolute as isAbsolute5, join as join9, relative as relative2, resolve as resolve6, sep as sep3 } from "path";
+import { basename as basename3, dirname as dirname2, isAbsolute as isAbsolute5, join as join9, relative as relative2, resolve as resolve6, sep as sep5 } from "path";
 import { isDeepStrictEqual } from "util";
 
 // src/git/context.ts
@@ -2542,7 +2547,7 @@ import { join as join7 } from "path";
 
 // src/git/run.ts
 import { spawnSync } from "child_process";
-import { devNull } from "os";
+var NO_CONFIG_FILE = "/dev/null";
 var repositoryEnvVars;
 function localEnvVars(cwd) {
   if (repositoryEnvVars !== undefined)
@@ -2569,7 +2574,7 @@ function isolatedEnv(cwd, overrides) {
   const env = repositoryScopedEnv(cwd);
   if (env instanceof Error)
     return env;
-  return { ...env, GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_SYSTEM: devNull, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
+  return { ...env, GIT_CONFIG_GLOBAL: NO_CONFIG_FILE, GIT_CONFIG_SYSTEM: NO_CONFIG_FILE, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
 }
 function runGit(args, opts) {
   try {
@@ -2598,7 +2603,7 @@ function git(cwd, args) {
 }
 function realpathOr(path) {
   try {
-    return realpathSync4(path);
+    return realpathSync4.native(path);
   } catch {
     return path;
   }
@@ -2612,7 +2617,7 @@ function locate(cwd) {
     const reason = done.stderr.trim() === "" ? "" : ` (${done.stderr.trim()})`;
     throw new Error(`not inside a Git working tree: ${cwd}${reason}; run from inside the repository or one of its worktrees`);
   }
-  return { root: realpathSync4(toplevel), isLinkedWorktree: realpathOr(gitDir) !== realpathOr(commonDir) };
+  return { root: realpathSync4.native(toplevel), isLinkedWorktree: realpathOr(gitDir) !== realpathOr(commonDir) };
 }
 function currentBranch(root) {
   const done = git(root, ["symbolic-ref", "--quiet", "HEAD"]);
@@ -2721,7 +2726,7 @@ function resolveContext(cwd, opts = {}) {
 
 // src/workflow/checkpoint.ts
 import { lstatSync, readFileSync as readFileSync8, realpathSync as realpathSync5 } from "fs";
-import { isAbsolute as isAbsolute4, join as join8, relative, resolve as resolve5, sep as sep2 } from "path";
+import { isAbsolute as isAbsolute4, join as join8, relative, resolve as resolve5, sep as sep4 } from "path";
 var SHA_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 var SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 var GATE_STATUSES = ["pending", "failed", "passed", "n/a", "blocked"];
@@ -2990,15 +2995,15 @@ function parseCheckpoint(contents, context, options = {}) {
 }
 function readCheckpointText(path, context, allowMissing = false) {
   try {
-    const repoRoot = realpathSync5(context.repoPath);
+    const repoRoot = realpathSync5.native(context.repoPath);
     const absolutePath = isAbsolute4(path) ? resolve5(path) : resolve5(repoRoot, path);
     const relativePath = relative(repoRoot, absolutePath);
     const expectedPath = join8(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
-    if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep2}`) || isAbsolute4(relativePath) || absolutePath !== expectedPath) {
+    if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep4}`) || isAbsolute4(relativePath) || absolutePath !== expectedPath) {
       fail("path", "is not the repository-local checkpoint file for this slug");
     }
     let currentPath = repoRoot;
-    const components = relativePath.split(sep2);
+    const components = relativePath.split(sep4);
     for (const [index, component] of components.entries()) {
       currentPath = join8(currentPath, component);
       let stat;
@@ -3260,7 +3265,7 @@ function checkpointTarget(repoRoot, filePath) {
   const root = resolve6(repoRoot);
   const absolutePath = isAbsolute5(filePath) ? resolve6(filePath) : resolve6(root, filePath);
   for (const base of new Set([root, realRootOf(root)])) {
-    const match = CHECKPOINT_PATH.exec(relative2(base, absolutePath).split(sep3).join("/"));
+    const match = CHECKPOINT_PATH.exec(relative2(base, absolutePath).split(sep5).join("/"));
     if (match?.[1])
       return { path: absolutePath, slug: match[1] };
   }
@@ -3302,7 +3307,7 @@ function realRepo(repoRoot) {
   return { root, isCaseInsensitive: isCaseInsensitive(root) };
 }
 function landsAt(repo, absolutePath) {
-  const landed = relative2(repo.root, realTarget(absolutePath)).split(sep3).join("/");
+  const landed = relative2(repo.root, realTarget(absolutePath)).split(sep5).join("/");
   return repo.isCaseInsensitive ? landed.toLowerCase() : landed;
 }
 function landsInCheckpoints(repo, absolutePath) {
@@ -3716,7 +3721,7 @@ function stopCounterPath(root, sessionId) {
 }
 function ensureCounterDirectory(directory, root) {
   let current = root;
-  for (const part of relative2(root, directory).split(sep3)) {
+  for (const part of relative2(root, directory).split(sep5)) {
     current = join9(current, part);
     try {
       const stat = lstatSync2(current);
@@ -3869,7 +3874,7 @@ import { createHash as createHash5, randomUUID } from "crypto";
 // src/shared-project-fs.ts
 import { createHash as createHash4 } from "crypto";
 import { closeSync, constants, fstatSync, ftruncateSync, lstatSync as lstatSync3, openSync, readFileSync as readFileSync10, readSync, realpathSync as realpathSync7, rmdirSync, unlinkSync as unlinkSync2, writeSync } from "fs";
-import { basename as basename4, dirname as dirname3, isAbsolute as isAbsolute6, join as join10, relative as relative3, resolve as resolve7, sep as sep4 } from "path";
+import { basename as basename4, dirname as dirname3, isAbsolute as isAbsolute6, join as join10, relative as relative3, resolve as resolve7, sep as sep6 } from "path";
 function safeProjectPath(root, rel) {
   let canonicalRoot;
   try {
@@ -3881,7 +3886,7 @@ function safeProjectPath(root, rel) {
   if (!pathIsWithin(canonicalRoot, absolute))
     return null;
   let current = canonicalRoot;
-  for (const component of relative3(canonicalRoot, absolute).split(sep4).filter(Boolean)) {
+  for (const component of relative3(canonicalRoot, absolute).split(sep6).filter(Boolean)) {
     current = join10(current, component);
     try {
       if (lstatSync3(current).isSymbolicLink() || !pathIsWithin(canonicalRoot, realpathSync7(current)))
@@ -4020,7 +4025,7 @@ function readProjectFileSnapshot(root, absolute, bindParent = withSafeProjectPar
 }
 function pathIsWithin(root, candidate) {
   const pathFromRoot = relative3(root, candidate);
-  return pathFromRoot === "" || pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep4}`) && !isAbsolute6(pathFromRoot);
+  return pathFromRoot === "" || pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep6}`) && !isAbsolute6(pathFromRoot);
 }
 
 // src/receipts.ts

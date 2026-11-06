@@ -50,7 +50,9 @@ const FORBIDDEN_PACKED_FILES = ["scripts/build.ts"];
 
 /** npm and npm's `.cmd` shims are batch files on Windows, which only run
  *  through cmd.exe. With `shell`, the command line is joined unquoted, so every
- *  part is quoted here: a temp path with a space must stay one argument. */
+ *  path is quoted here: a temp path with a space must stay one argument. A bare
+ *  name stays unquoted: cmd.exe expands `%~dp0` of a quoted bare `"npm"` to the
+ *  working directory, and npm.cmd then looks for `node_modules/npm` there. */
 function needsWindowsShell(command: string): boolean {
   return process.platform === "win32" && (command === "npm" || command.endsWith(".cmd"));
 }
@@ -64,7 +66,8 @@ export function runCommand(
 ): CommandResult {
   const isShell = needsWindowsShell(command);
   const quote = (part: string) => (isShell ? `"${part}"` : part);
-  const result = spawnSync(quote(command), args.map(quote), {
+  const isBareName = !/[\\/]/.test(command);
+  const result = spawnSync(isBareName ? command : quote(command), args.map(quote), {
     cwd,
     env,
     input,

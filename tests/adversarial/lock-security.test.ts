@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import * as fs from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { installMachineCarriers } from "../../src/surfaces/adapters.ts";
 import { refuseLine } from "../../src/commands/init-shared.ts";
@@ -39,13 +39,15 @@ type MachineAlias = {
 };
 
 const MACHINE_STATE_BYTES = Buffer.from('{\n  "version": "user-owned",\n  "carriers": { "opencode": "previous" }\n}\n');
+// Windows stores a relative symlink target with backslashes, whatever separator it was given.
+const MACHINE_LINK_TARGET = join("..", "machine.json");
 
 function createMachineAlias(home: string, aliasType: AliasType, stateBytes = MACHINE_STATE_BYTES): MachineAlias {
   const statePath = join(home, "machine.json");
   const settingsPath = join(home, ".claude", "settings.json");
   mkdirSync(dirname(settingsPath), { recursive: true });
   writeFileSync(statePath, stateBytes);
-  if (aliasType === "symlink") symlinkSync("../machine.json", settingsPath);
+  if (aliasType === "symlink") symlinkSync(MACHINE_LINK_TARGET, settingsPath);
   else linkSync(statePath, settingsPath);
   return { statePath, settingsPath, stateBytes, aliasType };
 }
@@ -86,7 +88,7 @@ function expectMachineAliasPreserved(alias: MachineAlias): void {
     stateBytes: alias.stateBytes,
     settingsEntryExists: true,
     settingsIsSymlink: alias.aliasType === "symlink",
-    settingsLinkText: alias.aliasType === "symlink" ? "../machine.json" : null,
+    settingsLinkText: alias.aliasType === "symlink" ? MACHINE_LINK_TARGET : null,
     settingsBytes: alias.aliasType === "hard-link" || settingsExists ? alias.stateBytes : null,
     sharesInode: alias.aliasType === "hard-link",
   });
@@ -116,8 +118,9 @@ test("uninstall refuses lock keys that escape the repo", () => {
     writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
     writeFileSync(victim, "you-are-the-victim\n");
     // The malicious lock: a quoted TOML key that escapes root, keyed with the
-    // victim's real sha256.
-    const escapeKey = relative(repo, victim);
+    // victim's real sha256. Lock keys are "/"-separated; a Windows backslash would be an
+    // invalid TOML escape and fail the parse before the sweep is ever reached.
+    const escapeKey = relative(repo, victim).split(sep).join("/");
     writeFileSync(
       join(repo, ".ai-engineering", "ai-eng.lock"),
       `version = "2.0.0"\n\n[assets]\n"${escapeKey}" = "${createHash("sha256").update(readFileSync(victim)).digest("hex")}"\n`,
@@ -190,7 +193,7 @@ test("I76: an unselected settings link replaced before the machine-state commit 
     if (!wasReplaced && String(args[0]) !== statePath) {
       wasReplaced = true;
       fs.renameSync(settingsPath, `${settingsPath}.before-replacement`);
-      fs.symlinkSync("../machine.json", settingsPath);
+      fs.symlinkSync(MACHINE_LINK_TARGET, settingsPath);
     }
     return originalWriteFileSync(...args);
   });

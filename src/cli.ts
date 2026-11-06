@@ -62,6 +62,15 @@ if (flags.help || !verb) {
   process.exit(flags.help ? 0 : 2);
 }
 
+/** The hook payload. Not `Bun.stdin.text()`: on Windows (Bun 1.4) that read, awaited after
+ *  module evaluation, does not keep the process alive, so `chain` exited 0 before the
+ *  payload arrived and every hook allowed (oven-sh/bun#41850). The stream iterator holds
+ *  the event loop until EOF. */
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+  return Buffer.concat(chunks).toString("utf8");
+}
 
 async function main(): Promise<number> {
   switch (verb) {
@@ -71,7 +80,7 @@ async function main(): Promise<number> {
         process.stderr.write("usage: ai-eng chain <event> < payload-json\n");
         return 2;
       }
-      const raw = await Bun.stdin.text();
+      const raw = await readStdin();
       const surface = surfaceList[0] ?? "claude-code";
       chainMain(event, raw, { surface, dialect: surfaceDialect(surface) });
       return 0; // chainMain exits on its own when it denies

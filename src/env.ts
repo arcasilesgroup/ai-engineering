@@ -2,7 +2,7 @@
 // floor every module needs and none may guess at.
 
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 
 /** AI_ENG_HOME for tests; ~/.ai-engineering in the wild. An override that resolves
@@ -15,7 +15,7 @@ export function home(): string {
   if (override) {
     const root = repoRoot();
     const resolved = resolve(override);
-    if (root === null || !(resolved === root || resolved.startsWith(root + "/"))) return override;
+    if (root === null || !(resolved === root || resolved.startsWith(root + sep))) return override;
   }
   return join(homedir(), ".ai-engineering");
 }

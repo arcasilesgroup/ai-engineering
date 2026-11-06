@@ -34,7 +34,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Bun
-        run: npm install -g bun@1.4.2
+        run: npm install -g bun@1.4.4
       - name: Dependencies
         run: bun install --frozen-lockfile
       - name: Node the campaign runs on

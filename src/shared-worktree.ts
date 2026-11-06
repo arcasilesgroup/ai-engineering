@@ -58,7 +58,7 @@ function canonicalizeForCreation(path: string): string {
   const missing: string[] = [];
   while (true) {
     try {
-      return resolve(realpathSync(ancestor), ...missing.reverse());
+      return resolve(realpathSync.native(ancestor), ...missing.reverse());
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       try {
@@ -406,7 +406,7 @@ function lifecycleStatus(
   let parsed: Checkpoint;
   try {
     const checkpointStat = lstatSync(checkpointPath);
-    const checkpointRelative = relative(canonicalize(worktreePath), realpathSync(checkpointPath));
+    const checkpointRelative = relative(canonicalize(worktreePath), realpathSync.native(checkpointPath));
     if (
       !checkpointStat.isFile() ||
       checkpointStat.isSymbolicLink() ||
@@ -954,7 +954,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   let checkpoint: Checkpoint;
   try {
     const stat = lstatSync(checkpointPath);
-    const relativePath = relative(canonicalize(entry.path), realpathSync(checkpointPath));
+    const relativePath = relative(canonicalize(entry.path), realpathSync.native(checkpointPath));
     if (
       !stat.isFile() ||
       stat.isSymbolicLink() ||
@@ -1046,7 +1046,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   let transactionPlan: Checkpoint;
   try {
     const stat = lstatSync(transactionCheckpoint);
-    const relativePath = relative(canonicalize(transactionPath), realpathSync(transactionCheckpoint));
+    const relativePath = relative(canonicalize(transactionPath), realpathSync.native(transactionCheckpoint));
     if (
       !stat.isFile() ||
       stat.isSymbolicLink() ||

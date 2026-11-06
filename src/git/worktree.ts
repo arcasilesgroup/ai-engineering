@@ -26,10 +26,11 @@ function git(cwd: string, args: string[]): GitResult {
 }
 
 /** git reports canonical paths — so the worktree root, and every comparison
- *  against a registered path, happens in the same realpathed form. */
+ *  against a registered path, happens in the same realpathed form. `.native`, because
+ *  on Windows the plain call keeps 8.3 short names (C:\Users\RUNNER~1) that git expands. */
 export function canonicalize(path: string): string {
   try {
-    return realpathSync(path);
+    return realpathSync.native(path);
   } catch {
     return resolve(path);
   }
@@ -60,7 +61,8 @@ export function listWorktrees(repo: string): { worktrees: RegisteredWorktree[] }
     const pathLine = lines.find((line) => line.startsWith("worktree "));
     if (!pathLine) return { detail: `unreadable worktree list entry ${JSON.stringify(printable(block))}` };
     worktrees.push({
-      path: pathLine.slice("worktree ".length),
+      // git prints `C:/...` on Windows; resolve gives the platform's own separators.
+      path: resolve(pathLine.slice("worktree ".length)),
       branchRef: lines.find((line) => line.startsWith("branch "))?.slice("branch ".length) ?? null,
       detached: lines.includes("detached"),
       prunable: lines.some((line) => line.startsWith("prunable")),

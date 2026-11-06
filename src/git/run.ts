@@ -1,6 +1,9 @@
 // src/git/run.ts — the one Git runner: status, raw stdout and stderr, never a throw.
 import { spawnSync } from "node:child_process";
-import { devNull } from "node:os";
+
+/** Git's documented "no config file" value. Not os.devNull: Git for Windows maps the literal
+ *  "/dev/null" to NUL, but cannot access(2) node's `\\.\nul` and fails every command. */
+const NO_CONFIG_FILE = "/dev/null";
 
 export interface GitResult {
   status: number;
@@ -44,7 +47,7 @@ function repositoryScopedEnv(cwd: string): NodeJS.ProcessEnv | Error {
 function isolatedEnv(cwd: string, overrides: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv | Error {
   const env = repositoryScopedEnv(cwd);
   if (env instanceof Error) return env;
-  return { ...env, GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_SYSTEM: devNull, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
+  return { ...env, GIT_CONFIG_GLOBAL: NO_CONFIG_FILE, GIT_CONFIG_SYSTEM: NO_CONFIG_FILE, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
 }
 
 export function runGit(args: string[], opts: GitRunOptions): GitResult {

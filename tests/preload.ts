@@ -2,6 +2,15 @@ import { afterAll } from "bun:test";
 import { readdirSync, watch } from "node:fs";
 import { SANDBOX_VARS, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
+// On Linux, Bun before 1.4.4 can miss a spawnSync child's exit when a garbage collection
+// runs during the wait (oven-sh/bun#47257, fixed by #44581): the call blocks until the
+// test's 5 s timeout, prints "killed 1 dangling process", and dozens of unrelated tests
+// fail at random. One clear refusal beats that storm.
+const minBunOnLinux = "1.4.4";
+if (process.platform === "linux" && Bun.semver.order(Bun.version, minBunOnLinux) < 0) {
+  throw new Error(`bun ${Bun.version} loses spawnSync exits on Linux (oven-sh/bun#47257); run the suite on bun >= ${minBunOnLinux}`);
+}
+
 // The suite is written for a piped runner, and an interactive shell leaks its TTY-ness
 // into every test: ui.ts replays stdin as keypresses only off a TTY, wraps rendered rows
 // only on a TTY stdout, and its frame module keeps one `frameOpen` flag per process —

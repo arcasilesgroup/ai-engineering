@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { canonSkills, embeddedPath } from "../src/embed.ts";
+import { envWithPath, writeFakeCommand } from "./fixtures/fake-command.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const SKILLS = join(ROOT, "skills");
@@ -104,24 +105,26 @@ describe("token budgets", () => {
 
     const index = headIndex();
     const message = join(import.meta.dir, `.token-budget-message-${randomUUID()}`);
-    const shim = join(import.meta.dir, "gitleaks");
+    const shimDir = mkdtempSync(join(tmpdir(), "ai-eng-token-budget-bin-"));
+    // pre-push denies when no base resolves (R8); CI's detached PR checkout has no
+    // origin/HEAD, so the green push runs in a repo that declares its base.
+    const pushRepo = mkdtempSync(join(tmpdir(), "ai-eng-token-budget-push-"));
     try {
       // Both hooks hard-fail without gitleaks (§12.1); CI's check job has none, so the
       // green path is measured against a shim that passes for both.
-      if (existsSync(shim)) throw new Error("tests/gitleaks is already in use");
-      writeFileSync(shim, "#!/bin/sh\nexit 0\n");
-      chmodSync(shim, 0o755);
-      const shimPath = `${import.meta.dir}${delimiter}${process.env.PATH ?? ""}`;
-      const preCommit = runAiEng(["git", "pre-commit"], { env: { ...index.env, PATH: shimPath } });
+      writeFakeCommand(shimDir, "gitleaks", { exitCode: 0 });
+      const shimPath = `${shimDir}${delimiter}${process.env.PATH ?? ""}`;
+      const preCommit = runAiEng(["git", "pre-commit"], { env: envWithPath(index.env, shimPath) });
       writeFileSync(message, "docs: verify silent hooks\n");
       const commitMsg = runAiEng(["git", "commit-msg", message]);
 
+      const init = spawnSync("git", ["init", "-q", "-b", "feature", pushRepo], { encoding: "utf8" });
+      if (init.status !== 0) throw new Error(`git init failed: ${init.stderr}`);
+      mkdirSync(join(pushRepo, ".ai-engineering"));
+      writeFileSync(join(pushRepo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "main"\n');
       const prePush = runAiEng(["git", "pre-push"], {
-        env: {
-          ...BASE_ENV,
-          PATH: shimPath,
-          AI_ENG_PUSH_REFS: "",
-        },
+        cwd: pushRepo,
+        env: envWithPath({ ...BASE_ENV, AI_ENG_PUSH_REFS: "" }, shimPath),
       });
 
       // One comparison per hook, so a CI failure names the hook and shows what it printed.
@@ -136,7 +139,8 @@ describe("token budgets", () => {
       rmSync(index.path, { force: true });
       rmSync(`${index.path}.lock`, { force: true });
       rmSync(message, { force: true });
-      rmSync(shim, { force: true });
+      rmSync(shimDir, { recursive: true, force: true });
+      rmSync(pushRepo, { recursive: true, force: true });
     }
   });
 

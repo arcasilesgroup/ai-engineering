@@ -14,6 +14,9 @@ import { detectRunner, paint, paintVitestJson, countSummary } from "./paint.ts";
 
 /** A hung runner must not hang the agent's context forever. */
 const TIMEOUT_MS = 10 * 60 * 1000;
+/** The wrapped command is the agent's shell text. Windows has no /bin/sh: the POSIX
+ *  shell the agent's Bash tool runs there (Git for Windows) is found on PATH. */
+const SHELL = process.platform === "win32" ? "sh" : "/bin/sh";
 
 function decodeCommand(args: string[]): string | null {
   if (args.length !== 3 || args[0] !== "test" || args[1] !== "--base64") return null;
@@ -62,12 +65,18 @@ export function wrapMain(args: string[]): number {
   // are painted from their own text, which the guard's SKIPS already protects.
   const useJson = runner === "vitest" && !/--reporter/.test(command);
   const t0 = Date.now();
-  const done = spawnSync("/bin/sh", ["-c", useJson ? `${command} --reporter=json` : command], {
+  const done = spawnSync(SHELL, ["-c", useJson ? `${command} --reporter=json` : command], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     timeout: TIMEOUT_MS,
   });
   const timedOut = done.error != null && (done.error as NodeJS.ErrnoException).code === "ETIMEDOUT";
+  // A command that never started has no counts to paint: "? passed · 0 failed" with a
+  // receipt would report a run that did not happen.
+  if (done.error != null && !timedOut) {
+    process.stderr.write(`ai-eng wrap: could not start ${SHELL}: ${done.error.message}\n`);
+    return 127;
+  }
   const stdout = done.stdout ?? "";
   const output = `${stdout}\n${done.stderr ?? ""}`;
 

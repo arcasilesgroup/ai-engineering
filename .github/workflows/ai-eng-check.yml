@@ -25,7 +25,7 @@ jobs:
       # third-party action, and one that does not makes the whole workflow fail at
       # startup with no logs at all. Node is on every hosted runner, and the registry
       # pins the version's integrity itself.
-      - run: npm install -g bun@1.4.2
+      - run: npm install -g bun@1.4.4
 
       # The checksum alone proves nothing: binary and manifest come from the same
       # place, so whoever can write one can write both. The attestation is what binds

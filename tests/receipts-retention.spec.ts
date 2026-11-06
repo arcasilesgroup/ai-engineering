@@ -495,7 +495,9 @@ describe("retainReceipts — runs inside the host's process", () => {
     expect(process.cwd()).toBe(cwdBefore);
   });
 
-  test("a host whose working directory was deleted still gets its pass, and no throw", () => {
+  // Windows refuses to delete a process's working directory (EBUSY), so the premise
+  // cannot be built there.
+  test.skipIf(process.platform === "win32")("a host whose working directory was deleted still gets its pass, and no throw", () => {
     const root = governedRepo("7d");
     seedMany(root, 3, NOW - 10 * DAY);
     const gone = mkdtempSync(join(tmpdir(), "ai-eng-retention-gone-cwd-"));

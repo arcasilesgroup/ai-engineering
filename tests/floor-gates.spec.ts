@@ -15,13 +15,14 @@
 // tmpdir must be gone after every preCommit call that materialised blobs.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
 import { floor } from "../src/floor/entry.ts";
 import { resolveContext } from "../src/git/context.ts";
+import { compileGitleaksShim, pathWithOnlyGit, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
 
 const SECRET = "AKIAIOSFODNN7EXAMPLE";
 const roots: string[] = [];
@@ -30,12 +31,16 @@ const PATH_BEFORE = process.env.PATH ?? "";
 const CWD_BEFORE = process.cwd();
 const GIT_CONFIG_GLOBAL_BEFORE = process.env.GIT_CONFIG_GLOBAL;
 
+let shimDir = "";
+
 beforeAll(() => {
   process.env.AI_ENG_HOME = mkdtempSync(join(tmpdir(), "ai-eng-floor-gates-home-"));
+  shimDir = compileGitleaksShim();
 });
 afterAll(() => {
   if (HOME_BEFORE === undefined) delete process.env.AI_ENG_HOME;
   else process.env.AI_ENG_HOME = HOME_BEFORE;
+  if (shimDir) rmSync(shimDir, { recursive: true, force: true });
 });
 afterEach(() => {
   process.chdir(CWD_BEFORE);
@@ -114,11 +119,9 @@ function stage(root: string, files: Record<string, string>): void {
   run("git", root, ["add", ...Object.keys(files)]);
 }
 
-/** Path with git symlinked and nothing else: proves the "gitleaks missing" HARD FAIL. */
+/** Path with git and no gitleaks: proves the "gitleaks missing" HARD FAIL. */
 function pathWithoutGitleaks(): void {
-  const dir = tempDir("ai-eng-gates-gitonly-");
-  symlinkSync(execFileSync("which", ["git"], { encoding: "utf8" }).trim(), join(dir, "git"));
-  process.env.PATH = dir;
+  process.env.PATH = pathWithOnlyGit();
 }
 
 function captureStderr(): { text: () => string; restore: () => void } {
@@ -139,30 +142,8 @@ function stagedScratchCount(): number {
 /** The argv-strict gitleaks shim. The floor's argument contract, executable:
  *  `version` probe and the two scan shapes must arrive byte-exact or the shim
  *  exits 42 with BADECHO on stderr (so an unexpected run is visible in lines). */
-function installStrictShim(opts: { scanExit: number; scanOut?: string; versionExit?: number }): string {
-  const dir = tempDir("ai-eng-gates-bin-");
-  const shim = join(dir, "gitleaks");
-  const out = JSON.stringify(opts.scanOut ?? "");
-  writeFileSync(
-    shim,
-    [
-      "#!/bin/sh",
-      'if [ "$1" = "version" ]; then',
-      `  echo "8.18.0"; exit ${opts.versionExit ?? 0};`,
-      "fi",
-      'if [ "$1" = "dir" ] && [ "$2" = "--redact" ] && [ "$3" = "--no-banner" ] && [ "$4" = "--exit-code" ] && [ "$5" = "1" ] && [ -d "$6" ]; then',
-      `  printf '%b' ${out}; exit ${opts.scanExit};`,
-      "fi",
-      'if [ "$1" = "git" ] && [ "$2" = "--redact" ] && [ "$3" = "-v" ]; then',
-      `  printf '%b' ${out}; exit ${opts.scanExit};`,
-      "fi",
-      'echo "BADECHO: $*" >&2; exit 42;',
-      "",
-    ].join("\n"),
-  );
-  execFileSync("chmod", ["0755", shim]);
-  process.env.PATH = `${dir}:${PATH_BEFORE}`;
-  return dir;
+function installStrictShim(opts: { scanExit: number; scanOut?: string; versionExit?: number }): void {
+  useGitleaksShim(shimDir, { mode: "strict", ...opts }, PATH_BEFORE);
 }
 
 
@@ -547,21 +528,7 @@ describe("floor gates — the staged scan's exception is HEAD's allowlist paths,
   /** A gitleaks shim that records the GITLEAKS_CONFIG it was handed (and copies the
    *  config's bytes out before the floor's scratch is cleaned), then passes the scan. */
   const installEnvShim = (record: string): void => {
-    const dir = tempDir("ai-eng-gates-env-");
-    const shim = join(dir, "gitleaks");
-    writeFileSync(
-      shim,
-      [
-        "#!/bin/sh",
-        'if [ "$1" = "version" ]; then echo "8.18.0"; exit 0; fi',
-        `printf '%s' "\${GITLEAKS_CONFIG-unset}" > "${record}"`,
-        `if [ -n "\${GITLEAKS_CONFIG-}" ]; then cp "$GITLEAKS_CONFIG" "${record}.copy"; fi`,
-        "exit 0",
-        "",
-      ].join("\n"),
-    );
-    chmodSync(shim, "0755");
-    process.env.PATH = `${dir}:${PATH_BEFORE}`;
+    useGitleaksShim(shimDir, { mode: "record-env", record }, PATH_BEFORE);
   };
 
   const committedAllowlist = (repo: string, paths: string[]): void => {

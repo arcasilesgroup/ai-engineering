@@ -15,7 +15,7 @@ jobs:
       # policy allows GitHub-owned actions plus nine org patterns, and a workflow that
       # names anything else never starts (startup_failure, no logs). Node is on every
       # hosted runner, and the registry pins the version's integrity itself.
-      - run: npm install -g bun@1.4.2
+      - run: npm install -g bun@1.4.4
       # A workflow GitHub cannot parse never starts: startup_failure, no logs, no jobs.
       # The schema is linted here, template included.
       - name: Workflow schema
@@ -78,7 +78,7 @@ jobs:
       # policy allows GitHub-owned actions plus nine org patterns, and a workflow that
       # names anything else never starts (startup_failure, no logs). Node is on every
       # hosted runner, and the registry pins the version's integrity itself.
-      - run: npm install -g bun@1.4.2
+      - run: npm install -g bun@1.4.4
       - name: The scanners (version + sha256, no action, no unpinned download)
         run: sh scripts/toolchain.sh gitleaks trivy
       - run: gitleaks detect --redact -v --no-banner -c .gitleaksrc.toml

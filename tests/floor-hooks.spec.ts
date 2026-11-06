@@ -11,14 +11,15 @@
 // the only thing that varies (the real gitleaks is not a dependency of this suite).
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
 import { floor } from "../src/floor/entry.ts";
 import { resolveContext } from "../src/git/context.ts";
+import { compileGitleaksShim, pathWithOnlyGit, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
 
 const SECRET = "AKIAIOSFODNN7EXAMPLE";
 const roots: string[] = [];
@@ -26,10 +27,12 @@ const HOME_BEFORE = process.env.AI_ENG_HOME;
 const PATH_BEFORE = process.env.PATH ?? "";
 const CWD_BEFORE = process.cwd();
 let templateRoot = "";
+let shimDir = "";
 const repoTemplates = new Map<boolean, string>();
 
 beforeAll(() => {
   process.env.AI_ENG_HOME = mkdtempSync(join(tmpdir(), "ai-eng-floor-home-"));
+  shimDir = compileGitleaksShim();
   templateRoot = mkdtempSync(join(tmpdir(), "ai-eng-floor-template-"));
   for (const governed of [false, true]) {
     const dir = join(templateRoot, governed ? "governed" : "foreign");
@@ -49,6 +52,7 @@ afterAll(() => {
   if (HOME_BEFORE === undefined) delete process.env.AI_ENG_HOME;
   else process.env.AI_ENG_HOME = HOME_BEFORE;
   if (templateRoot) rmSync(templateRoot, { recursive: true, force: true });
+  if (shimDir) rmSync(shimDir, { recursive: true, force: true });
 });
 beforeEach(() => {
   process.env.PATH = PATH_BEFORE;
@@ -103,38 +107,14 @@ function stage(root: string, files: Record<string, string>): void {
  *  the marker token only when the scanned surface actually carries it. Both outcomes
  *  come from this shim's exit code and output, so the suite runs with or without the
  *  real binary installed. */
-function installGitleaksShim(): string {
-  const dir = tempDir("ai-eng-floor-bin-");
-  const shim = join(dir, "gitleaks");
-  writeFileSync(
-    shim,
-    [
-      "#!/bin/sh",
-      'if [ "$1" = "version" ]; then echo "8.18.0"; exit 0; fi',
-      'target="."',
-      'for arg in "$@"; do if [ -d "$arg" ]; then target="$arg"; fi; done',
-      "hit=$(grep -rIl 'AKIA[0-9A-Z][0-9A-Z]*' \"$target\" 2>/dev/null | head -n 1)",
-      'if [ -n "$hit" ]; then',
-      '  echo "Finding:     AWS access token"',
-      '  echo "File:        $hit"',
-      '  echo "RuleID:      aws-access-token"',
-      "  exit 1",
-      "fi",
-      "exit 0",
-      "",
-    ].join("\n"),
-  );
-  execFileSync("chmod", ["0755", shim]);
-  process.env.PATH = `${dir}:${PATH_BEFORE}`;
-  return dir;
+function installGitleaksShim(): void {
+  useGitleaksShim(shimDir, { mode: "grep" }, PATH_BEFORE);
 }
 
 /** A PATH with git and nothing else — how "gitleaks is not installed" is proved
  *  without depending on what this machine happens to have in /opt/homebrew. */
 function pathWithoutGitleaks(): void {
-  const dir = tempDir("ai-eng-floor-gitonly-");
-  symlinkSync(execFileSync("which", ["git"], { encoding: "utf8" }).trim(), join(dir, "git"));
-  process.env.PATH = dir;
+  process.env.PATH = pathWithOnlyGit();
 }
 
 function captureStderr(): { text: () => string; restore: () => void } {

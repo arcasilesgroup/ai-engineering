@@ -29,7 +29,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, delimiter, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { initMain, surfaceHint } from "../src/commands/init.ts";
 import {
   contractEntries,
@@ -46,6 +46,7 @@ import { parseLock } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 import { usePrivateStdin } from "./fixtures/private-stdin.ts";
+import { recordGitCommands } from "./fixtures/git-recorder.ts";
 
 const cwdBefore = process.cwd();
 const envBefore = snapshotSandboxEnv();
@@ -80,18 +81,6 @@ function sandboxed(): { cwd: string; machine: string } {
 function gitIn(args: string[], cwd: string, env: Record<string, string> = {}): string {
   const r = spawnSync("git", args, { cwd, encoding: "utf8", env: { ...process.env, ...env } });
   return r.stdout ?? "";
-}
-
-function recordGitCommands(directory: string): { path: string; log: string } {
-  const git = spawnSync("which", ["git"], { encoding: "utf8" }).stdout?.trim();
-  if (!git) throw new Error("git is not on PATH");
-  const bin = join(directory, "git-bin");
-  const log = join(bin, "commands");
-  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-  mkdirSync(bin, { recursive: true });
-  writeFileSync(join(bin, "git"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${quote(log)}\nexec ${quote(git)} "$@"\n`);
-  chmodSync(join(bin, "git"), 0o755);
-  return { path: `${bin}${delimiter}${process.env["PATH"] ?? ""}`, log };
 }
 
 const sleep = (ms: number): Promise<void> => {
@@ -503,7 +492,8 @@ describe("init · initMain, phase 1 and phase 2", () => {
     // git silently ignores a hook that is not executable.
     for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
       const path = join(cwd, ".git", "hooks", shim);
-      expect(statSync(path).mode & 0o111).toBeGreaterThan(0);
+      // Windows has no execute bit; Git for Windows runs a hook whatever its mode.
+      if (process.platform !== "win32") expect(statSync(path).mode & 0o111).toBeGreaterThan(0);
       expect(readFileSync(path, "utf8")).toContain("ai-eng");
     }
 
@@ -531,17 +521,14 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const countBefore = gitIn(["rev-list", "--count", "HEAD"], cwd).trim();
     expect(headBefore).not.toBe("");
     const recorder = recordGitCommands(sandbox!);
-    const pathBefore = process.env["PATH"];
     let result: number;
     try {
-      process.env["PATH"] = recorder.path;
       result = (await capture(() => initMain({ yes: true }))).result;
     } finally {
-      if (pathBefore === undefined) delete process.env["PATH"];
-      else process.env["PATH"] = pathBefore;
+      recorder.stop();
     }
 
-    const commands = readFileSync(recorder.log, "utf8").trim().split(/\r?\n/).filter(Boolean);
+    const commands = recorder.commands();
     expect({
       result,
       head: gitIn(["rev-parse", "HEAD"], cwd).trim(),
@@ -699,7 +686,9 @@ describe("init · the git floor's own housekeeping", () => {
     expect(out).toContain("unset — it pointed at ai-eng's own floor");
     // git only reads .git/hooks while the setting is unset, so the floor runs again.
     expect(gitIn(["config", "--get", "core.hooksPath"], cwd).trim()).toBe("");
-    expect(statSync(join(cwd, ".git", "hooks", "pre-commit")).mode & 0o111).toBeGreaterThan(0);
+    expect(readFileSync(join(cwd, ".git", "hooks", "pre-commit"), "utf8")).toContain("ai-eng");
+    // Windows has no execute bit; Git for Windows runs a hook whatever its mode.
+    if (process.platform !== "win32") expect(statSync(join(cwd, ".git", "hooks", "pre-commit")).mode & 0o111).toBeGreaterThan(0);
   });
 
   test("a core.hooksPath the user set is named and never deleted", async () => {
@@ -844,7 +833,8 @@ describe("init · non-interactive default skill installation", () => {
     expect(existsSync(join(cwd, ".ai-engineering"))).toBe(false);
   });
 
-  test("git init failing is a hard stop, not a silent half-install", async () => {
+  // A read-only folder is a POSIX mode: Windows ignores 0o555 on a directory, so git init succeeds there.
+  test.skipIf(process.platform === "win32")("git init failing is a hard stop, not a silent half-install", async () => {
     const { cwd } = sandboxed();
     chmodSync(cwd, 0o555);
     try {

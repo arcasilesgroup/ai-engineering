@@ -152,7 +152,8 @@ describe("checkBash", () => {
   });
 
   test("allows a target that exists under repoRoot", () => {
-    expect(checkBash(`git config core.hooksPath ${FX}`, root)).toBeUndefined();
+    // Spelled as a shell reads it: a backslash in an unquoted word is an escape, not a separator.
+    expect(checkBash("git config core.hooksPath .git/hooks", root)).toBeUndefined();
   });
 
   test.each([

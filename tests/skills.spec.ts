@@ -13,7 +13,7 @@
  */
 import { describe, test, expect } from "bun:test";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { basename, join, relative, sep } from "node:path";
 
 const SKILLS = join(import.meta.dir, "..", "skills");
 const ROOT = join(import.meta.dir, "..");
@@ -79,7 +79,7 @@ function parseFrontmatter(content: string): { fields: Record<string, string>; bo
 const SPDX = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "Unlicense", "CC0-1.0", "LicenseRef-Attributed"];
 
 function expectedSkillName(dir: string): string {
-  return relative(ROOT, dir).split("/").at(-1)!;
+  return basename(dir);
 }
 
 describe("G1 — one SKILL.md per skill", () => {
@@ -175,7 +175,7 @@ describe("G6 — the canon is English", () => {
     const offenders: string[] = [];
     for (const dir of skillContentRoots()) {
       for (const f of walk(dir)) {
-        const rel = f.slice(dir.length + 1);
+        const rel = relative(dir, f).split(sep).join("/");
         if (!f.endsWith(".md")) continue;
         if (rel === "SKILL.md") continue;
         // The kit's style catalog spells proper names (Müller, László). That is not Spanish prose.
@@ -212,7 +212,7 @@ describe("G8 — official names only", () => {
       const content = readFileSync(join(dir, "SKILL.md"), "utf8");
       const firstHeading = /^#\s+(.+)$/m.exec(content)?.[1] ?? "";
       if (/(^|[^-\w])(headstart|handshake|wayfinder|unlazy|read-the-damn-docs|design-orchestrator)([^-\w]|$)/i.test(firstHeading)) {
-        offenders.push(`${dir.split("/").pop()}: H1=${firstHeading}`);
+        offenders.push(`${basename(dir)}: H1=${firstHeading}`);
       }
     }
     expect(offenders).toEqual([]);
@@ -234,7 +234,7 @@ const REQUIRED_KEYS = ["Lane", "Writes", "Read by", "Dies", "Next"];
 const SLOTS = ["spec.html", "plan.html", "brainstorm.html", "recap.html"];
 
 function skillName(dir: string): string {
-  return /^name:\s*(\S+)/m.exec(readFileSync(join(dir, "SKILL.md"), "utf8"))?.[1] ?? dir.split("/").pop()!;
+  return /^name:\s*(\S+)/m.exec(readFileSync(join(dir, "SKILL.md"), "utf8"))?.[1] ?? basename(dir);
 }
 
 function lifecycleFields(dir: string): Record<string, string> {

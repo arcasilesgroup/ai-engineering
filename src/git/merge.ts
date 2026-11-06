@@ -60,7 +60,7 @@ function safeCheckpointPath(path: string, slug: string): string | null {
   const checkpointPath = join(path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   try {
     const stat = lstatSync(checkpointPath);
-    const resolved = realpathSync(checkpointPath);
+    const resolved = realpathSync.native(checkpointPath);
     const relativePath = relative(canonicalize(path), resolved);
     if (
       !stat.isFile() ||

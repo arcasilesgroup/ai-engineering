@@ -66,7 +66,7 @@ jobs:
       # policy allows GitHub-owned actions plus org patterns, and a workflow that
       # names anything else never starts (startup_failure, no logs). Node is on every
       # hosted runner, and the registry pins the version's integrity itself.
-      - run: npm install -g bun@1.4.2
+      - run: npm install -g bun@1.4.4
       - run: bun install --frozen-lockfile
       # build.ts names the artifact after the target (dist/ai-eng-<target>): eight
       # legs writing dist/ai-eng collide on the release page, where asset names must
@@ -122,7 +122,7 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: npm install -g bun@1.4.2
+      - run: npm install -g bun@1.4.4
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: dist-artifacts

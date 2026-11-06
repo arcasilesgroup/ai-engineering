@@ -11,7 +11,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { doctorMain } from "../src/commands/doctor.ts";
 import { canonSkills } from "../src/embed.ts";
 import { lockText, sha256 } from "../src/install.ts";
@@ -19,6 +19,7 @@ import * as receiptsModule from "../src/receipts.ts";
 import { carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES } from "../src/surfaces/adapters.ts";
 import * as uiModule from "../src/ui.ts";
 import { VERSION } from "../src/version.ts";
+import { writeFakeCommand } from "./fixtures/fake-command.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
 const GOVERNED = '[surfaces]\nenabled = ["claude-code"]\n';
@@ -103,10 +104,8 @@ function writeFloor(root: string): void {
 /** A `gitleaks` the test owns, so the check never depends on the machine. */
 function gitleaks(status: number): void {
   const dir = tempDir("ai-eng-doc-bin-");
-  const file = join(dir, "gitleaks");
-  writeFileSync(file, `#!/bin/sh\nexit ${status}\n`);
-  chmodSync(file, 0o755);
-  process.env.PATH = `${dir}:${ORIGINAL.path}`;
+  writeFakeCommand(dir, "gitleaks", { exitCode: status });
+  process.env.PATH = `${dir}${delimiter}${ORIGINAL.path}`;
 }
 
 function receipt(latency: number, outcome: "allow" | "deny", event = "PreToolUse"): string {

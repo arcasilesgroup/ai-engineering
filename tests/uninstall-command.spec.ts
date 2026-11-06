@@ -762,7 +762,8 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(existsSync(join(cwd, ".ai-engineering", "config.toml"))).toBe(true); // "no" kept the project's files
   });
 
-  test("F11: an unreadable machine settings file is refused and the canon sweep still runs", async () => {
+  // Windows has no unreadable mode: chmod 0o000 only clears the write bit, so the file stays readable.
+  test.skipIf(process.platform === "win32")("F11: an unreadable machine settings file is refused and the canon sweep still runs", async () => {
     if (process.getuid?.() === 0) return; // root reads a mode-000 file, so there is nothing to refuse
     const { cwd, machine } = sandboxed();
     gitInit(cwd);
@@ -845,7 +846,8 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(out).toContain(`${machine} kept`);
   });
 
-  test("F9: a canon parent swapped for a link at unlink time never redirects deletion outside the canon", async () => {
+  // Windows will not rename a directory that is a process's working directory, so the swap cannot be staged there.
+  test.skipIf(process.platform === "win32")("F9: a canon parent swapped for a link at unlink time never redirects deletion outside the canon", async () => {
     const { cwd, machine } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);

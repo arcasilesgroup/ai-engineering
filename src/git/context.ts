@@ -35,7 +35,7 @@ function git(cwd: string, args: string[]): GitResult {
 
 function realpathOr(path: string): string {
   try {
-    return realpathSync(path);
+    return realpathSync.native(path);
   } catch {
     return path;
   }
@@ -49,7 +49,7 @@ function locate(cwd: string): { root: string; isLinkedWorktree: boolean } {
     const reason = done.stderr.trim() === "" ? "" : ` (${done.stderr.trim()})`;
     throw new Error(`not inside a Git working tree: ${cwd}${reason}; run from inside the repository or one of its worktrees`);
   }
-  return { root: realpathSync(toplevel), isLinkedWorktree: realpathOr(gitDir) !== realpathOr(commonDir) };
+  return { root: realpathSync.native(toplevel), isLinkedWorktree: realpathOr(gitDir) !== realpathOr(commonDir) };
 }
 
 /** The checked-out branch, or null for a detached HEAD; anything else fails closed. */

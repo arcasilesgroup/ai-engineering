@@ -34,7 +34,9 @@ const orchestratorSkill = readFileSync(
   join(import.meta.dir, "..", "skills", "ai-orchestrator", "SKILL.md"),
   "utf8",
 );
-const sandboxRoot = mkdtempSync(join(tmpdir(), "ai-eng-worktree-"));
+// `.native` expands Windows 8.3 names (RUNNER~1) the way git and the product do.
+const tempRoot = realpathSync.native(tmpdir());
+const sandboxRoot = mkdtempSync(join(tempRoot, "ai-eng-worktree-"));
 const emptyGitConfig = join(sandboxRoot, "empty-gitconfig");
 writeFileSync(emptyGitConfig, "");
 
@@ -132,6 +134,9 @@ function runCliAsync(args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): 
     child.on("close", (status) => resolveRun({ status: status ?? 1, stdout, stderr }));
   });
 }
+
+// The shim is an extensionless sh script; Windows only runs .exe/.cmd files found on PATH.
+const canShimGit = process.platform !== "win32";
 
 function shimEnv(log: string): NodeJS.ProcessEnv {
   return { PATH: `${shimDir}:${process.env.PATH ?? ""}`, GIT_INVOCATION_LOG: log };
@@ -695,7 +700,7 @@ function initRepo(dir: string): string {
 const repoTemplate = initRepo(join(sandboxRoot, "template-repo"));
 
 function tempRepo(): string {
-  const parent = mkdtempSync(join(tmpdir(), "ai-eng-worktree-repo-"));
+  const parent = mkdtempSync(join(tempRoot, "ai-eng-worktree-repo-"));
   const root = join(parent, "repo");
   cleanups.push(parent);
   cpSync(repoTemplate, root, { recursive: true });
@@ -704,7 +709,7 @@ function tempRepo(): string {
 
 /** APFS/HFS+ fold case, ext4 does not: probe by writing the same name in two cases. */
 function isCaseInsensitiveFs(): boolean {
-  const probe = mkdtempSync(join(tmpdir(), "ai-eng-case-probe-"));
+  const probe = mkdtempSync(join(tempRoot, "ai-eng-case-probe-"));
   try {
     writeFileSync(join(probe, "probe"), "a");
     writeFileSync(join(probe, "PROBE"), "b");
@@ -853,7 +858,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
   });
 
   test("canonical: new <slug> lands at the realpathed sibling root, even from a symlinked cwd", () => {
-    const base = mkdtempSync(join(tmpdir(), "ai-eng-worktree-base-"));
+    const base = mkdtempSync(join(tempRoot, "ai-eng-worktree-base-"));
     cleanups.push(base);
     initRepo(join(base, "repo"));
     const alias = join(base, "alias");
@@ -1028,7 +1033,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
 
   test("worktrees_dir: [git] worktrees_dir in config.toml moves the root", () => {
     const repo = tempRepo();
-    const custom = mkdtempSync(join(tmpdir(), "ai-eng-worktrees-dir-"));
+    const custom = mkdtempSync(join(tempRoot, "ai-eng-worktrees-dir-"));
     cleanups.push(custom);
     mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
     writeFileSync(join(repo, ".ai-engineering", "config.toml"), `[git]\nworktrees_dir = ${JSON.stringify(custom)}\n`);
@@ -1052,8 +1057,9 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(worktreeEntries(repo)).toHaveLength(1);
   });
 
-  test("list strips terminal controls from registered worktree paths", () => {
-    const repo = mkdtempSync(join(tmpdir(), "ai-eng-\u001b[2J-repo-"));
+  // Windows forbids control characters in file names, so no such path can exist there.
+  test.skipIf(process.platform === "win32")("list strips terminal controls from registered worktree paths", () => {
+    const repo = mkdtempSync(join(tempRoot, "ai-eng-\u001b[2J-repo-"));
     cleanups.push(repo);
     initRepo(repo);
     const root = defaultRoot(repo);
@@ -1112,7 +1118,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(branchNames(repo)).not.toContain("feat/alpha");
   });
 
-  test("no push: no git command the verb emits ever pushes", () => {
+  test.skipIf(!canShimGit)("no push: no git command the verb emits ever pushes", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -1177,7 +1183,7 @@ describe("ai-eng worktree verb (checkpoint 2)", () => {
     expect(existsSync(join(root, "followup"))).toBe(true);
   });
 
-  test("no unquoted: every value reaches git as its own argv element", () => {
+  test.skipIf(!canShimGit)("no unquoted: every value reaches git as its own argv element", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -2277,7 +2283,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(worktreeEntries(repo)).toHaveLength(2);
   });
 
-  test("default path: no emitted command contains git branch -D", () => {
+  test.skipIf(!canShimGit)("default path: no emitted command contains git branch -D", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -2325,7 +2331,7 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(branchNames(repo)).not.toContain("feat/alpha");
   });
 
-  test("failed removal reports scanned ignored content without claiming it was dropped", () => {
+  test.skipIf(!canShimGit)("failed removal reports scanned ignored content without claiming it was dropped", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -2422,7 +2428,7 @@ describe.skip("legacy rebase implementation tests replaced by CP7 removal covera
     return run;
   }
 
-  test("U20a: rebases only the registered feature onto local main and reports its full SHA", () => {
+  test.skipIf(!canShimGit)("U20a: rebases only the registered feature onto local main and reports its full SHA", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -2672,7 +2678,7 @@ describe.skip("legacy rebase implementation tests replaced by CP7 removal covera
     expectRefusalWithoutMutation(repo, slug, [root, unmanaged], [checkpoint]);
   });
 
-  test("U20c: leaves a conflicting CLI rebase active for agent handling without changing lifecycle bytes", () => {
+  test.skipIf(!canShimGit)("U20c: leaves a conflicting CLI rebase active for agent handling without changing lifecycle bytes", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -2702,7 +2708,7 @@ describe.skip("legacy rebase implementation tests replaced by CP7 removal covera
     }
   });
 
-  test("U20d: preserves rewritten work and reports a main advance during rebase", () => {
+  test.skipIf(!canShimGit)("U20d: preserves rewritten work and reports a main advance during rebase", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -2942,7 +2948,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expect(gitOut(["show-ref", "--verify", `refs/heads/feat/${approved.slug}`], repo).status).not.toBe(0);
   });
 
-  test("F5: unreadable ignored scan refuses removal even with --force", () => {
+  test.skipIf(!canShimGit)("F5: unreadable ignored scan refuses removal even with --force", () => {
     const repo = tempRepo();
     cleanups.push(defaultRoot(repo));
     writeFileSync(join(repo, ".gitignore"), "local.env\n");
@@ -2966,7 +2972,7 @@ describe("ai-eng worktree merge (checkpoint 6)", () => {
     expect(branchNames(repo)).toContain(`feat/${approved.slug}`);
   });
 
-  test("U26-U27: publishes exact reviewed parents, refreshes main, and leaves feature cleanup explicit", () => {
+  test.skipIf(!canShimGit)("U26-U27: publishes exact reviewed parents, refreshes main, and leaves feature cleanup explicit", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);
@@ -3917,7 +3923,7 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
 
   test("I42: accepts an arbitrary branch name under the configured root and names existing holders", () => {
     const repo = tempRepo();
-    const customRoot = mkdtempSync(join(tmpdir(), "ai-eng-custom-worktrees-"));
+    const customRoot = mkdtempSync(join(tempRoot, "ai-eng-custom-worktrees-"));
     cleanups.push(customRoot);
     mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
     writeFileSync(
@@ -3958,7 +3964,7 @@ describe("ai-eng worktree list and new (checkpoint 7)", () => {
 
   test("new refuses a symlinked branch path that escapes a safe symlinked configured root", () => {
     const repo = tempRepo();
-    const base = mkdtempSync(join(tmpdir(), "ai-eng-worktree-symlink-"));
+    const base = mkdtempSync(join(tempRoot, "ai-eng-worktree-symlink-"));
     cleanups.push(base);
     const canonicalRoot = join(base, "worktrees");
     const configuredRoot = join(base, "worktrees-alias");

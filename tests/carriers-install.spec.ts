@@ -29,7 +29,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { hostname, tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { buildLock, install, lockText, mergeSharedText, parseLock, sha256, stripSharedText, type PlanEntry } from "../src/install.ts";
 import {
   SURFACES,
@@ -1068,7 +1068,9 @@ describe("carriers on the machine", () => {
 
   test("F11: an unreadable, dangling or directory settings path is refused, not thrown, and left as it was", () => {
     const unreadable = { path: "~/.claude/settings.json", reason: "settings-unreadable" };
-    const kinds = process.getuid?.() === 0 ? (["dangling", "directory"] as const) : (["unreadable", "dangling", "directory"] as const);
+    // Root reads a mode-000 file, and Windows has no unreadable mode: neither can build that premise.
+    const canBeUnreadable = process.getuid?.() !== 0 && process.platform !== "win32";
+    const kinds = canBeUnreadable ? (["unreadable", "dangling", "directory"] as const) : (["dangling", "directory"] as const);
     for (const kind of kinds) {
       const base = useHome(`machine-settings-${kind}`);
       const settings = join(base, ".claude", "settings.json");
@@ -1498,7 +1500,7 @@ describe("installCanon and what leaves with it", () => {
       .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && existsSync(join(sourceRoot, entry.name, "SKILL.md")))
       .map((entry) => entry.name)
       .sort();
-    const sourceFiles = sourceSkills.flatMap((name) => filesBelow(join(sourceRoot, name)).map((path) => path.slice(sourceRoot.length + 1)));
+    const sourceFiles = sourceSkills.flatMap((name) => filesBelow(join(sourceRoot, name)).map((path) => relative(sourceRoot, path).split(sep).join("/")));
     expect(sourceFiles.some((path) => path.split("/").length > 2)).toBe(true);
 
     const machineSurfaces = SURFACES.filter((surface) => machineCarrier(surface) !== null);

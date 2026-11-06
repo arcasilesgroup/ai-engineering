@@ -14,7 +14,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, normalize } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { embeddedChainBundle, embeddedTemplate } from "../src/embed.ts";
 import { installCanon } from "../src/surfaces/adapters.ts";
 import { VERSION } from "../src/version.ts";
@@ -138,14 +138,16 @@ function ceremonyCitations(root: string, entry: string): Citations & { read: str
   return { ...all, read };
 }
 
-/** A script path resolves inside the citing skill first, then from the repository root. */
+/** A script path resolves inside the citing skill first, then from the repository root.
+ *  Citations are repository paths written with `/`, so they are joined the POSIX way on
+ *  every platform: the result is matched against `skills/` and split on `/`. */
 function resolveScript(root: string, citation: PathCitation): string | null {
-  const candidates = [normalize(join("skills", citation.from, citation.token)), normalize(citation.token)];
+  const candidates = [posix.join("skills", citation.from, citation.token), posix.normalize(citation.token)];
   return candidates.find((candidate) => !candidate.startsWith("..") && existsSync(join(root, candidate))) ?? null;
 }
 
 function resolveResource(root: string, citation: PathCitation): string | null {
-  const candidate = normalize(join("skills", citation.from, citation.token));
+  const candidate = posix.join("skills", citation.from, citation.token);
   if (candidate.startsWith("..") || !candidate.startsWith("skills/")) return null;
   return existsSync(join(root, candidate)) ? candidate : null;
 }

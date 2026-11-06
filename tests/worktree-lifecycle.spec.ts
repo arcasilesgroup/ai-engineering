@@ -13,10 +13,11 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { runWorktreeCommand } from "./fixtures/worktree-command.ts";
 
-const root = mkdtempSync(join(tmpdir(), "worktree-lifecycle-"));
+// `.native` expands Windows 8.3 names (RUNNER~1) the way git and the product do.
+const root = mkdtempSync(join(realpathSync.native(tmpdir()), "worktree-lifecycle-"));
 const emptyGitConfig = join(root, "empty-gitconfig");
 writeFileSync(emptyGitConfig, "");
 let repoTemplate = "";
@@ -55,6 +56,14 @@ function runGit(args: string[], cwd: string): Run {
     stdout: result.stdout ?? "",
     stderr: result.stderr ?? "",
   };
+}
+
+/** The worktree paths git registers, in the platform's own separators (git prints `C:/...` on Windows). */
+function registeredPaths(repo: string): string[] {
+  return git(["worktree", "list", "--porcelain"], repo)
+    .split("\n")
+    .filter((line) => line.startsWith("worktree "))
+    .map((line) => resolve(line.slice("worktree ".length)));
 }
 
 function runList(cwd: string): Run {
@@ -423,7 +432,7 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     const rebase = runGit(["rebase", "refs/heads/main"], feature);
     expect(rebase.status).not.toBe(0);
     expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toContain("src/shared.ts");
-    expect(git(["rev-parse", "--show-toplevel"], feature).trim()).toBe(realpathSync(feature));
+    expect(resolve(git(["rev-parse", "--show-toplevel"], feature).trim())).toBe(realpathSync(feature));
     expect(readFileSync(join(feature, "src", "shared.ts"), "utf8")).not.toBe(mainContents);
     expect(readFileSync(join(repo, "src", "shared.ts"), "utf8")).toBe(mainContents);
 
@@ -472,7 +481,7 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     expect(git(["rev-parse", mainRef], repo).trim()).toBe(localMain);
     expect(git(["status", "--porcelain", "--untracked-files=all"], feature)).toBe("");
     expect(readFileSync(join(feature, "src", "shared.ts"), "utf8")).toBe(originalFeatureContents);
-    expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(feature));
+    expect(registeredPaths(repo)).toContain(realpathSync(feature));
     writeCheckpoint(feature, "sync-abort", checkpointPlan("sync-abort", "blocked"));
     const abortedPlan = JSON.parse(readFileSync(blockedCheckpoint, "utf8")) as {
       lifecycle: {
@@ -522,7 +531,7 @@ describe("ai-eng worktree lifecycle (checkpoint 5)", () => {
     expect(readFileSync(join(failedGate, "src", "shared.ts"), "utf8")).toBe(originalFeatureContentsWithTrailingSpace);
     expect(readFileSync(join(repo, "src", "shared.ts"), "utf8")).toBe(mainContentsForFailedGate);
     expect(readFileSync(checkpoint, "utf8")).toBe(originalFailedGateCheckpoint);
-    expect(git(["worktree", "list", "--porcelain"], repo)).toContain(realpathSync(failedGate));
+    expect(registeredPaths(repo)).toContain(realpathSync(failedGate));
 
     const blockedPlan = checkpointPlan("sync-failed-gate", "blocked");
     writeCheckpoint(failedGate, "sync-failed-gate", blockedPlan);

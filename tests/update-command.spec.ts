@@ -23,6 +23,7 @@ import { carrierFiles } from "../src/surfaces/adapters.ts";
 import { mergeSharedText, sha256 } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import type { PlanEntry } from "../src/install.ts";
+import { recordGitCommands } from "./fixtures/git-recorder.ts";
 
 const SANDBOX = mkdtempSync(join(tmpdir(), "ai-eng-update-cmd-"));
 const ENG_HOME = join(SANDBOX, "home");
@@ -114,18 +115,6 @@ function gitIn(repo: string, args: string[]): string {
   const result = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
   if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
   return result.stdout ?? "";
-}
-
-function recordGitCommands(directory: string): { path: string; log: string } {
-  const git = spawnSync("which", ["git"], { encoding: "utf8" }).stdout?.trim();
-  if (!git) throw new Error("git is not on PATH");
-  const bin = join(directory, "git-bin");
-  const log = join(bin, "commands");
-  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-  mkdirSync(bin, { recursive: true });
-  writeFileSync(join(bin, "git"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${quote(log)}\nexec ${quote(git)} "$@"\n`);
-  chmodSync(join(bin, "git"), 0o755);
-  return { path: `${bin}${delimiter}${process.env.PATH ?? ""}`, log };
 }
 
 /** A repo the binary has already installed into, with one hook patched by hand: the one
@@ -334,7 +323,8 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(lock).not.toInclude(".ai-engineering/config.toml");
     expect(readFileSync(join(repo, "AGENTS.md"), "utf8")).toBe("# my contract, never yours\n");
     // A git shim that is not executable is a git hook that silently never runs.
-    expect(statSync(join(repo, ".git", "hooks", "pre-commit")).mode & 0o111).not.toBe(0);
+    // Windows has no execute bit; Git for Windows runs a hook whatever its mode.
+    if (process.platform !== "win32") expect(statSync(join(repo, ".git", "hooks", "pre-commit")).mode & 0o111).not.toBe(0);
     // The local canon still installs completely; unsafe machine-settings mutation is refused.
     expect(first.out).toInclude("~/.claude/settings.json");
     expect(first.out).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
@@ -505,19 +495,16 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
 
     const headBefore = gitIn(repo, ["rev-parse", "HEAD"]).trim();
     const countBefore = gitIn(repo, ["rev-list", "--count", "HEAD"]).trim();
+    process.chdir(repo);
     const recorder = recordGitCommands(SANDBOX);
-    const pathBefore = process.env.PATH;
     let result: number;
     try {
-      process.chdir(repo);
-      process.env.PATH = recorder.path;
       result = (await captured(() => updateMain({ yes: true }))).value;
     } finally {
-      if (pathBefore === undefined) delete process.env.PATH;
-      else process.env.PATH = pathBefore;
+      recorder.stop();
     }
 
-    const commands = readFileSync(recorder.log, "utf8").trim().split(/\r?\n/).filter(Boolean);
+    const commands = recorder.commands();
     expect({
       result,
       head: gitIn(repo, ["rev-parse", "HEAD"]).trim(),
@@ -682,7 +669,8 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(run.out).toInclude("kept");
   });
 
-  test("F11: an unreadable machine settings file is refused, and the lock is still written", async () => {
+  // Windows has no unreadable mode: chmod 0o000 only clears the write bit, so the file stays readable.
+  test.skipIf(process.platform === "win32")("F11: an unreadable machine settings file is refused, and the lock is still written", async () => {
     if (process.getuid?.() === 0) return; // root reads a mode-000 file, so there is nothing to refuse
     const repo = governedRepo("repo-unreadable-machine-settings");
     const machineSettings = join(ENG_HOME, ".claude", "settings.json");

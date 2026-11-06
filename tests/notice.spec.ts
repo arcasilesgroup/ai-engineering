@@ -4,11 +4,13 @@
 // lookup is answered either by a stale cache or by a shim named `bun` on PATH.
 
 import { describe, expect, test, afterEach, spyOn } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { VERSION } from "../src/version.ts";
 import { home as moduleHome, repoRoot } from "../src/env.ts";
+import { envWithPath, writeFakeCommand } from "./fixtures/fake-command.ts";
 
 const roots: string[] = [];
 const savedEnv = { home: process.env["AI_ENG_HOME"], path: process.env["PATH"], opt: process.env["AI_ENG_NO_UPDATE_NOTICES"] };
@@ -30,8 +32,7 @@ function sandbox(prefix: string): string {
 /** A PATH whose `bun` answers with a version — the registry read without the network. */
 function pathWithRegistryShim(version: string): string {
   const bin = sandbox("shim");
-  writeFileSync(join(bin, "bun"), `#!/bin/sh\nif [ "$1" = "pm" ]; then echo "${version}"; exit 0; fi\nexit 1\n`);
-  chmodSync(join(bin, "bun"), 0o755);
+  writeFakeCommand(bin, "bun", { whenFirstArg: "pm", stdout: version, exitCode: 0 });
   return bin;
 }
 
@@ -187,10 +188,10 @@ describe("maybeNotice — silent unless there is something to say", () => {
     const entry = join(process.cwd(), "src/notice.ts");
     // The shim IS a file named `bun`, so the child is launched through the running
     // interpreter by absolute path — resolving "bun" through PATH would run the shim.
-    const run = Bun.spawnSync([process.execPath, "-e", `import { maybeNotice } from "${entry}"; maybeNotice();`], {
+    const run = Bun.spawnSync([process.execPath, "-e", `import { maybeNotice } from ${JSON.stringify(pathToFileURL(entry).href)}; maybeNotice();`], {
       // An empty opt-out is no opt-out: the runner or a sibling test file may have set
       // AI_ENG_NO_UPDATE_NOTICES=1, and this child has to ask for the notice.
-      env: { ...process.env, AI_ENG_HOME: home, PATH: bin, NO_COLOR: "1", AI_ENG_NO_UPDATE_NOTICES: "" },
+      env: envWithPath({ ...process.env, AI_ENG_HOME: home, NO_COLOR: "1", AI_ENG_NO_UPDATE_NOTICES: "" }, bin),
       stdout: "pipe",
       stderr: "pipe",
     });

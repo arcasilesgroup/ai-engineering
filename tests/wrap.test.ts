@@ -2,7 +2,8 @@
 // guard rewrites; this proves the rewrite is worth making: failures survive,
 // noise dies, counts are true, and the receipt id rides the trace line.
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import * as childProcess from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -238,6 +239,25 @@ test("checkout page loads", () => { expect("x").toBe("Total") });
     }
     expect(existsSync(marker)).toBe(false);
     expect(existsSync(config)).toBe(true);
+  });
+
+  test("a shell that cannot start is named and exits 127, never painted as a run", () => {
+    const missing = Object.assign(new Error("spawnSync sh ENOENT"), { code: "ENOENT" });
+    const spawn = spyOn(childProcess, "spawnSync").mockReturnValue({
+      pid: 0, output: [], stdout: "", stderr: "", status: null, signal: null, error: missing,
+    } as never);
+    const errors: string[] = [];
+    const error = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string) => (errors.push(String(chunk)), true)) as typeof process.stderr.write;
+    try {
+      const { status, out } = runWrap("npm test");
+      expect({ status, out }).toEqual({ status: 127, out: "" });
+    } finally {
+      process.stderr.write = error;
+      spawn.mockRestore();
+    }
+    const shell = process.platform === "win32" ? "sh" : "/bin/sh";
+    expect(errors.join("")).toBe(`ai-eng wrap: could not start ${shell}: spawnSync sh ENOENT\n`);
   });
 
   test("legacy raw wrapper arguments are refused", () => {

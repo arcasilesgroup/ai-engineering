@@ -7,8 +7,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { protectedPaths, writesTo, runSelfProtect, type ProtectedPaths } from "../src/guards/self-protect.ts";
+
+/** A path as a Bash command line carries it: a backslash in an unquoted word is an escape
+ *  to the shell, so a Windows path is written with `/`, the way Git Bash takes it. */
+const shellSpelling = (path: string): string => path.split(sep).join("/");
 
 const roots: string[] = [];
 const HOME_BEFORE = process.env.AI_ENG_HOME;
@@ -525,10 +529,10 @@ describe("runSelfProtect — shell commands", () => {
 
   test("the git floor: the hooks directory and the .git that holds it are protected", () => {
     const repo = tempRepo();
-    const hooks = join(repo, ".git", "hooks");
+    const hooks = shellSpelling(join(repo, ".git", "hooks"));
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm -rf ${hooks}` } }, repo)?.deny).toBe(true);
     // `mv .git .g2 && echo x > .g2/hooks/pre-commit && mv .g2 .git` replaced the floor.
-    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm -rf ${join(repo, ".git")}` } }, repo)?.deny).toBe(true);
+    expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm -rf ${shellSpelling(join(repo, ".git"))}` } }, repo)?.deny).toBe(true);
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "mv .git .g2" } }, repo)?.deny).toBe(true);
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "git status" } }, repo)).toBeUndefined();
   });
@@ -563,7 +567,7 @@ describe("runSelfProtect — shell commands", () => {
 
   test("a path spelled with .. still resolves to the file it names", () => {
     const repo = tempRepo();
-    const cmd = `rm ${repo}/nowhere/../.ai-engineering/ai-eng.lock`;
+    const cmd = `rm ${shellSpelling(repo)}/nowhere/../.ai-engineering/ai-eng.lock`;
     expect(cmd).toContain(".."); // the spelling itself, not one join() normalized away
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: cmd } }, repo)?.deny).toBe(true);
   });
@@ -574,13 +578,13 @@ describe("runSelfProtect — shell commands", () => {
     mkdirSync(join(repo, ".ai-engineering"));
     writeFileSync(join(repo, ".ai-engineering", "config.toml"), 'surfaces = ["claude"]\n');
     symlinkSync(join(repo, ".ai-engineering"), join(repo, "linkdir"));
-    const viaLink = `${realpathSync(repo)}/linkdir/config.toml`;
+    const viaLink = `${shellSpelling(realpathSync(repo))}/linkdir/config.toml`;
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm ${viaLink}` } }, repo)?.deny).toBe(true);
   });
 
   test("the heredoc body is the writer's argument; a bare verb line after it is not", () => {
     const repo = tempRepo();
-    const lock = join(repo, ".ai-engineering", "ai-eng.lock");
+    const lock = shellSpelling(join(repo, ".ai-engineering", "ai-eng.lock"));
     // The heredoc tail is judged as one command; "rm" alone on its own line names nothing.
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `cat <<EOF\nhello\nEOF\nrm\n${lock}` } }, repo)).toBeUndefined();
     // A heredoc started on a writer line carries the paths of the lines below it.

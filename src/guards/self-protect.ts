@@ -12,7 +12,7 @@
 // and breaks the loop it governs. What stays protected is the machinery a session could
 // use to unpin, unhook or re-date itself.
 
-import { basename, isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, join, parse, resolve, sep } from "node:path";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
@@ -210,6 +210,12 @@ function isTreeWriter(verb: string, args: string[]): boolean {
  *  `node -e "fs.writeFileSync('.git/hooks/pre-commit', …)"`. */
 const EMBEDDED_PATH = /(?:~|\.{1,2})?\/?[\w.@+-]*(?:\/[\w.@+-]+)+|\.ai-engineering\b[\w./-]*|\.git\b[\w./-]*/g;
 
+/** A native path in the `/`-separated form the patterns here are written in: on Windows a
+ *  resolved path separates with `\`, and `(?:^|/)\.git/hooks` would never see it. */
+function slashed(path: string): string {
+  return sep === "\\" ? path.replaceAll("\\", "/") : path;
+}
+
 function expandBraces(pattern: string, found: string[] = []): string[] {
   const group = /\{([^{}]*,[^{}]*)\}/.exec(pattern);
   if (group === null) {
@@ -343,7 +349,7 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
   const names = (word: string, includesCheckpoints = true): string | null => {
     const candidates = pathCandidates(word, bases);
     if (candidates === null) return word;
-    const hit = candidates.find((candidate) => offendingTarget(context.paths, candidate, bases) !== null || (includesCheckpoints && CHECKPOINT_FILE.test(candidate)));
+    const hit = candidates.find((candidate) => offendingTarget(context.paths, candidate, bases) !== null || (includesCheckpoints && CHECKPOINT_FILE.test(slashed(candidate))));
     return hit ?? globNamesProtected(word, bases, context.paths);
   };
   const isRelative = (word: string): boolean => !isAbsolute(expandTilde(word)) && !word.startsWith("-");
@@ -510,12 +516,13 @@ function globNamesProtected(word: string, bases: string[], paths: ProtectedPaths
   const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute(path))];
   for (const pattern of expandBraces(expandTilde(word))) {
     for (const base of bases) {
-      const segments = resolve(base, pattern).toLowerCase().split("/");
+      const segments = slashed(resolve(base, pattern)).toLowerCase().split("/");
       for (const root of protectedRoots) {
-        const depth = root.split("/").length;
+        const rootForm = slashed(root).toLowerCase();
+        const depth = rootForm.split("/").length;
         const prefix = segments.slice(0, depth).join("/");
         try {
-          if (new Bun.Glob(prefix).match(root.toLowerCase())) return root;
+          if (new Bun.Glob(prefix).match(rootForm)) return root;
         } catch {
           return word;
         }
@@ -743,12 +750,12 @@ const GOVERNANCE_FILE = new RegExp([
 /** Case-folded on purpose: macOS and Windows filesystems ignore case, so
  *  `.Ai-Engineering/CONFIG.TOML` is the governed file there. On Linux the fold over-denies. */
 function offendingPath(paths: ProtectedPaths, rawText: string): string | null {
-  const text = rawText.toLowerCase();
+  const text = slashed(rawText).toLowerCase();
   // The directory, as the last segment only. A child of it is the session's material, so
   // this cannot be a substring test: `.ai-engineering/research/x.html` contains the
   // directory and is not it.
   for (const path of paths.terminal) {
-    const segment = new RegExp(`(^|/)${path.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+    const segment = new RegExp(`(^|/)${slashed(path).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
     if (segment.test(text)) return path;
   }
   for (const path of paths.literals) {
@@ -759,7 +766,7 @@ function offendingPath(paths: ProtectedPaths, rawText: string): string | null {
       if (segment.test(text)) return path;
       continue;
     }
-    if (!text.includes(path.toLowerCase())) continue;
+    if (!text.includes(slashed(path).toLowerCase())) continue;
     return path;
   }
   if (GOVERNANCE_FILE.test(text)) return rawText.split(/\s+/).at(-1) ?? rawText;
@@ -780,8 +787,8 @@ function offendingTarget(paths: ProtectedPaths, target: string, bases: string[])
       canonical = realpathSync(resolved);
     } catch {
       // Not-yet-existing file: canonicalize the longest existing prefix.
-      let prefix = "/";
-      for (const part of resolved.split("/")) {
+      let prefix = parse(resolved).root;
+      for (const part of resolved.slice(prefix.length).split(sep)) {
         const next = join(prefix, part);
         try {
           prefix = realpathSync(next);
@@ -842,8 +849,9 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
     const canonPath = (target: string): string => {
       // Canonicalize the longest existing prefix; a not-yet-created file inherits the
       // real prefix of its directory (rm -rf into a symlinked tmpdir must not evade).
-      const parts = target.split("/");
-      let current = target.startsWith("/") ? "/" : process.cwd();
+      const root = parse(target).root;
+      const parts = target.slice(root.length).split(sep === "\\" ? /[\\/]/ : "/");
+      let current = root === "" ? process.cwd() : root;
       for (const part of parts) {
         if (part === "" || part === ".") continue;
         if (part === "..") {

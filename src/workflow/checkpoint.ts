@@ -399,7 +399,7 @@ export function readCheckpointText(
   allowMissing = false,
 ): string | null {
   try {
-    const repoRoot = realpathSync(context.repoPath);
+    const repoRoot = realpathSync.native(context.repoPath);
     const absolutePath = isAbsolute(path) ? resolve(path) : resolve(repoRoot, path);
     const relativePath = relative(repoRoot, absolutePath);
     const expectedPath = join(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
