@@ -1861,3 +1861,31 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Regenerate with `bun scripts/gen-assets.ts`.
 - **Lesson:** Regenerate the committed bundle after any change to code the chain imports, not only chain sources (repeats L146).
 - **Tags:** behavior, bundle, generated
+
+### L255 · 2026-11-06 · production-readiness #2 · behavior
+- **Failure:** On ubuntu CI ~70 tests timed out at 5 s with "killed 1 dangling process"; the same SHA passed in another job.
+- **Root cause:** On Linux, Bun before 1.4.4 can miss a `spawnSync` child's exit if garbage collection runs during the wait (oven-sh/bun#47257).
+- **Fix:** Pin Bun 1.4.4 in every workflow and the CI template; the test preload refuses older Bun on Linux.
+- **Lesson:** When dangling-process timeouts hit one OS and come and go on the same code, check the runtime's issue tracker before blaming the tests.
+- **Tags:** behavior, ci, bun, linux
+
+### L256 · 2026-11-06 · production-readiness #2 · behavior
+- **Failure:** On Windows ~50 git-backed tests reported "not inside a git repository"; others compared `RUNNER~1` short names with git's long paths.
+- **Root cause:** Isolated git calls pointed the global and system config at `os.devNull` (`\\.\nul`), which Git for Windows cannot open; Bun's `realpathSync` keeps 8.3 short names.
+- **Fix:** Hand git the literal `/dev/null`; canonicalize with `realpathSync.native` wherever a path is compared with git output.
+- **Lesson:** Hand git `/dev/null`, never `os.devNull`; compare paths with git only after native canonicalization.
+- **Tags:** behavior, windows, git, paths
+
+### L257 · 2026-11-06 · production-readiness #2 · behavior
+- **Failure:** On Windows every chain hook allowed (exit 0) and self-protect let writes to governed files through.
+- **Root cause:** `await Bun.stdin.text()` in a floating `main()` does not hold the event loop on Windows (oven-sh/bun#41850), so the chain exited before reading; self-protect matched governed names with `/`-only regexes against native `\` paths.
+- **Fix:** Read stdin through the `process.stdin` stream; convert paths to `/` form before matching and split canonicalization on `sep`.
+- **Lesson:** An early exit 0 in a hook is an allow — payload reads must hold the event loop, and every path match must be separator-agnostic.
+- **Tags:** behavior, windows, security, fail-open, guards
+
+### L258 · 2026-11-06 · production-readiness #2 · behavior
+- **Failure:** Windows-only failures in wrap, npm helpers, notice/doctor/token-budget and lock-security tests.
+- **Root cause:** Product code ran commands through `/bin/sh` and quoted a bare `"npm"`; tests used shell-script stand-ins, `:` PATH joins, `relative()` paths inside TOML keys (`\v` escape) and POSIX symlink text.
+- **Fix:** Windows-aware fake commands, a compiled gitleaks shim and a git recorder; wrap uses `sh` from PATH with an honest 127; unquoted npm; explicit `/` in TOML and link text; POSIX-only properties skip on win32 with a reason.
+- **Lesson:** A test must build its own premise with platform-neutral stand-ins; never rely on `/bin/sh`, `:` or the CI checkout's git state.
+- **Tags:** behavior, windows, tests, fixtures
