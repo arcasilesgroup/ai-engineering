@@ -1854,3 +1854,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** An "under bun" group runs each staged launcher with a fake bun on PATH and a stand-in `src/cli.ts`, each case printing its own line; the manifest spec reuses the smoke's Windows-aware command runner.
 - **Lesson:** Run a launcher test under the runtime its shebang names; a branch only that runtime reaches is untested otherwise.
 - **Tags:** review, launcher, tests, mutation
+
+### L254 · 2026-11-06 · production-readiness #2 · behavior
+- **Failure:** The full suite failed `generated-payload`: the committed chain bundle no longer matched its source.
+- **Root cause:** The retention change touched `src/receipts.ts` and `src/shared-project-fs.ts`, which the chain bundle embeds; the implementer ran only targeted suites.
+- **Fix:** Regenerate with `bun scripts/gen-assets.ts`.
+- **Lesson:** Regenerate the committed bundle after any change to code the chain imports, not only chain sources (repeats L146).
+- **Tags:** behavior, bundle, generated
