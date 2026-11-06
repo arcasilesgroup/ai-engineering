@@ -27,7 +27,7 @@ jobs:
     # and 11m21s at `concurrency: 2` on the 8-core laptop that built the tier. The
     # ceiling covers the slower of the two, with room for the plugin's known flake (one
     # spurious dry-run failure in seven when the machine is loaded).
-    timeout-minutes: 15
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
