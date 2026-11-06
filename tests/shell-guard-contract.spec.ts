@@ -5,6 +5,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   normalizeRedirects,
+  rawShellWords,
   resolveSubstitutions,
   shellSegments,
   shellWords,
@@ -22,8 +23,8 @@ const segment = (text: string, extra: Partial<ShellSegment> = {}): ShellSegment 
   substitutions: [],
   ...extra,
 });
-const word = (value: string, isQuoted = false) => ({ value, isQuoted, isOperator: false });
-const operator = (value: string) => ({ value, isQuoted: false, isOperator: true });
+const word = (value: string, isQuoted = false, unquoted = isQuoted ? "" : value) => ({ value, isQuoted, isOperator: false, unquoted });
+const operator = (value: string) => ({ value, isQuoted: false, isOperator: true, unquoted: value });
 const resolved = (command: string): string[] => shellSegments(command)!.map(resolveSubstitutions);
 
 describe("normalizeRedirects", () => {
@@ -203,7 +204,7 @@ describe("shellWords", () => {
   });
 
   test("escapes and single quotes are removed and mark the word quoted", () => {
-    expect(shellWords("\\-\\-x 'it s' a\\")).toEqual([word("--x", true), word("it s", true), word("a", true)]);
+    expect(shellWords("\\-\\-x 'it s' a\\")).toEqual([word("--x", true, "x"), word("it s", true), word("a", true, "a")]);
     expect(shellWords("'abc")).toEqual([word("abc", true)]);
     expect(shellWords("'d\\' e")).toEqual([word("d\\", true), word("e")]);
   });
@@ -219,6 +220,33 @@ describe("shellWords", () => {
 
   test("unquoteShell joins continued lines before removing quotes", () => {
     expect(unquoteShell("git com\\\nmit 'x y'")).toBe("git commit x y");
+  });
+
+  test("a word records what the shell reads unquoted, where it expands", () => {
+    expect(shellWords('"fix "{a,b} ${x:-y} \'*\'$v')).toEqual([word("fix {a,b}", true, "{a,b}"), word("${x:-y}", false), word("*$v", true, "$v")]);
+  });
+});
+
+describe("shellSegments: $'…' and ${…}", () => {
+  test("$'…' closes only at an unescaped quote, so what follows `$'\\''` is code", () => {
+    expect(shellSegments("echo $'\\'' ; ls #'")).toEqual([segment("echo $'\\'' "), segment(" ls ")]);
+    expect(shellSegments("echo $'a;b' \"$'\" ; ls")).toEqual([segment("echo $'a;b' \"$'\" "), segment(" ls")]);
+    expect(shellSegments("echo $'\\'")).toBeNull();
+  });
+
+  test("a one-word ${…} is part of its word; one that expands to words, or hides a quote, is unreadable", () => {
+    expect(shellSegments("echo ${x:-a;b}x")).toBeNull();
+    expect(shellSegments("echo ${HOME}/${#a[@]};ls")).toEqual([segment("echo ${HOME}/${#a[@]}"), segment("ls")]);
+    expect(shellSegments('echo "${x:-a > b}"')).toEqual([segment('echo "${x:-a > b}"')]);
+    for (const command of ["echo ${x:-> f}", "echo ${x:-a b}", "echo ${x:-$(id)}", "echo ${a:-${b}}", 'echo "${x:-"}"', "echo ${x"]) {
+      expect(shellSegments(command), command).toBeNull();
+    }
+  });
+});
+
+describe("rawShellWords", () => {
+  test("splits only on unquoted space: quotes, escapes, $'…' and ${…} stay in their word, as written", () => {
+    expect(rawShellWords(`echo "a b">x $'\\' y' \${x:-a b} c\\ d 'e`)).toEqual(['echo', '"a b">x', "$'\\' y'", "${x:-a b}", "c\\ d", "'e"]);
   });
 });
 

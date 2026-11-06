@@ -15,6 +15,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { join, posix } from "node:path";
 import { homedir, tmpdir } from "node:os";
+import { quotedSpanEnd, rawShellWords } from "./shell.ts";
 
 /** What every install and new project gets while config.toml says nothing. System read
  *  includes the paths this file calls sensitive (~/.ssh, .env, *.pem): reading them is
@@ -125,11 +126,11 @@ function resolvePath(rawPath: string, cwd: string): string {
  *  directory and is written back as `~/…` so the sensitive-path rule still reads it.
  *  With no absolute cwd to resolve against the path stays as written, and its `..`
  *  sends it to external. */
-function resolveParentSegments(path: string, cwd: string): string {
+export function resolveParentSegments(path: string, cwd: string, homeDirectory = homedir()): string {
   if (path === "~" || path.startsWith("~/")) {
     // Git Bash spells the Windows home `C:\Users\me` as `/c/users/me`; left as written, a
     // `..` detour (`~/x/../.ssh/id_rsa`) would never be read back as `~/.ssh`.
-    const home = homedir().toLowerCase().replaceAll("\\", "/").replace(/^([a-z]):/, "/$1");
+    const home = homeDirectory.toLowerCase().replaceAll("\\", "/").replace(/^([a-z]):/, "/$1");
     if (!home.startsWith("/")) return path;
     const landed = posix.resolve(home, path.slice(2));
     return landed === home || landed.startsWith(`${home}/`) ? `~${landed.slice(home.length)}` : landed;
@@ -270,20 +271,12 @@ function splitAttachedRedirect(token: string): string[] {
 }
 
 /** Where the first of `operators` the shell reads as an operator sits, or -1: one inside
- *  quotes or after a backslash is a character. */
+ *  quotes (`$'…'` included), `${…}` or after a backslash is a character. */
 function bareOperatorIndex(text: string, operators: string): number {
-  let quote: string | null = null;
   for (let at = 0; at < text.length; at++) {
-    const char = text[at]!;
-    if (char === "\\" && quote !== "'") {
-      at++;
-    } else if (quote !== null) {
-      if (char === quote) quote = null;
-    } else if (char === "'" || char === '"' || char === "`") {
-      quote = char;
-    } else if (operators.includes(char)) {
-      return at;
-    }
+    const spanEnd = quotedSpanEnd(text, at);
+    if (spanEnd >= 0) at = spanEnd;
+    else if (operators.includes(text[at]!)) return at;
   }
   return -1;
 }
@@ -316,7 +309,7 @@ function scanSegment(mask: { value: number }, segment: string, cwd: string): voi
     addPath(mask, target, permissions, cwd);
     flags = 3;
   };
-  for (const token of segment.split(/\s+/).flatMap(splitAttachedRedirect)) {
+  for (const token of rawShellWords(segment).flatMap(splitAttachedRedirect)) {
     if (pending !== null) {
       judgeRedirect(token, pending.permissions, pending.isDuplicate);
       pending = null;

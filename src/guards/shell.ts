@@ -3,9 +3,9 @@
 // code (substitutions, a heredoc fed to a shell) rather than data. A guard that reads
 // `unin\stall` as one thing while bash runs `uninstall` is a guard with a hole in it.
 //
-// ponytail: a reader, not a shell. It knows quotes, escapes, $( ), backticks, heredocs,
-// comments and redirections; it does not expand aliases, functions or arithmetic. Shapes
-// it cannot read come back as null and the caller denies.
+// ponytail: a reader, not a shell. It knows quotes (`$'…'` included), escapes, $( ),
+// backticks, heredocs, comments, redirections and one-word `${…}`; it does not expand
+// aliases, functions or arithmetic. Shapes it cannot read come back as null and the caller denies.
 
 /** A redirection operator starting at `lastIndex`. `>(` is process substitution, not a redirect. */
 const REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/y;
@@ -36,6 +36,53 @@ export type ShellSegment = {
 };
 
 const HEREDOC = /^<<(-?)[ \t]*(\\?)(['"]?)([^\s'"<>|;&()]+)\3/;
+
+/** Where the quoted text, escape or `${…}` starting at `at` ends (its last character), -1
+ *  when none starts there, or past the end when it never closes. Inside `$'…'` a backslash
+ *  escapes, so `$'\''` is one quote character and not the start of a quoted run. */
+export function quotedSpanEnd(text: string, at: number): number {
+  const closeOf = (from: number, closer: string, hasEscapes: boolean): number => {
+    for (let index = from; index < text.length; index++) {
+      if (hasEscapes && text[index] === "\\") index++;
+      else if (text[index] === closer) return index;
+    }
+    return text.length;
+  };
+  const char = text[at];
+  const next = text[at + 1];
+  if (char === "\\") return at + 1;
+  if (char === "'") return closeOf(at + 1, "'", false);
+  if (char === '"' || char === "`") return closeOf(at + 1, char, true);
+  if (char === "$" && next === "'") return closeOf(at + 2, "'", true);
+  if (char === "$" && next === "{") return closeOf(at + 2, "}", false);
+  return -1;
+}
+
+/** A `${…}` this reader can hold as one word. Unquoted, `${x:-> --no-verify}` expands to
+ *  words and its `>` is no redirect; quoted, a nested quote or command changes where the
+ *  word ends. Either way the reader would misjudge it, so it is unreadable. */
+function isReadableParameter(body: string, isInDoubleQuotes: boolean): boolean {
+  return !(isInDoubleQuotes ? /["`\\(){}]/ : /[\s<>|;&'"`\\(){}]/).test(body);
+}
+
+/** The words of `text` as written, split only where the shell splits them: quotes,
+ *  escapes and `${…}` stay inside their word, so `"a b">x` is one word, not two. */
+export function rawShellWords(text: string): string[] {
+  const words: string[] = [];
+  let start = -1;
+  for (let at = 0; at < text.length; at++) {
+    if (/\s/.test(text[at]!)) {
+      if (start >= 0) words.push(text.slice(start, at));
+      start = -1;
+      continue;
+    }
+    if (start < 0) start = at;
+    const end = quotedSpanEnd(text, at);
+    if (end >= 0) at = end;
+  }
+  if (start >= 0) words.push(text.slice(start));
+  return words;
+}
 
 /** What a `$(…)`, backtick or `<(…)` leaves in the command that contains it: a word whose
  *  value the shell computes. It starts with `$` so every "computed at run time" test sees it. */
@@ -105,6 +152,12 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
     } else if (char === "\\") {
       current += char + (next ?? "");
       index++;
+    } else if (char === "$" && ((next === "'" && quote === null) || next === "{")) {
+      const end = quotedSpanEnd(source, index);
+      if (end >= source.length) return UNREADABLE;
+      if (next === "{" && !isReadableParameter(source.slice(index + 2, end), quote === '"')) return UNREADABLE;
+      current += source.slice(index, end + 1);
+      index = end;
     } else if (char === "$" && next === "(") {
       open(")");
       index++;
@@ -187,7 +240,13 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
 }
 const UNREADABLE = { segments: null, normalized: null };
 
-export type ShellWord = { value: string; isQuoted: boolean; isOperator: boolean };
+export type ShellWord = {
+  value: string;
+  isQuoted: boolean;
+  isOperator: boolean;
+  /** The characters the shell reads unquoted: where `$x`, `*` and `{a,b}` split or expand. */
+  unquoted: string;
+};
 
 const ANSI_ESCAPES: Record<string, string> = { n: "\n", t: "\t", r: "\r", "\\": "\\", "'": "'", '"': '"', e: "\x1b", a: "\x07", "0": "\0" };
 
@@ -196,11 +255,13 @@ const ANSI_ESCAPES: Record<string, string> = { n: "\n", t: "\t", r: "\r", "\\": 
 export function shellWords(text: string): ShellWord[] {
   const words: ShellWord[] = [];
   let value = "";
+  let unquoted = "";
   let isQuoted = false;
   let hasWord = false;
   const end = (): void => {
-    if (hasWord) words.push({ value, isQuoted, isOperator: false });
+    if (hasWord) words.push({ value, isQuoted, isOperator: false, unquoted });
     value = "";
+    unquoted = "";
     isQuoted = false;
     hasWord = false;
   };
@@ -213,26 +274,29 @@ export function shellWords(text: string): ShellWord[] {
       end();
       let operator = char;
       while (text[index + 1] === "<" || text[index + 1] === ">") operator += text[++index];
-      words.push({ value: operator, isQuoted: false, isOperator: true });
+      words.push({ value: operator, isQuoted: false, isOperator: true, unquoted: operator });
     } else if (char === "\\") {
       value += next ?? "";
       hasWord = true;
       isQuoted = true;
       index++;
+    } else if (char === "$" && next === "{") {
+      const close = Math.min(quotedSpanEnd(text, index), text.length - 1);
+      value += text.slice(index, close + 1);
+      unquoted += text.slice(index, close + 1);
+      hasWord = true;
+      index = close;
     } else if (char === "'" || (char === "$" && next === "'")) {
       const isAnsi = char === "$";
-      let close = text.indexOf("'", index + (isAnsi ? 2 : 1));
-      if (isAnsi) {
-        while (close > 0 && text[close - 1] === "\\") close = text.indexOf("'", close + 1);
-      }
-      const body = text.slice(index + (isAnsi ? 2 : 1), close < 0 ? text.length : close);
+      const close = quotedSpanEnd(text, index);
+      const body = text.slice(index + (isAnsi ? 2 : 1), close);
       value += isAnsi
         ? body.replace(/\\x([0-9a-fA-F]{1,2})|\\([0-7]{1,3})|\\(.)/g, (_all, hex: string, octal: string, other: string) =>
           hex ? String.fromCharCode(parseInt(hex, 16)) : octal ? String.fromCharCode(parseInt(octal, 8)) : ANSI_ESCAPES[other] ?? other)
         : body;
       hasWord = true;
       isQuoted = true;
-      index = close < 0 ? text.length : close;
+      index = close;
     } else if (char === '"' || (char === "$" && next === '"')) {
       let cursor = index + (char === "$" ? 2 : 1);
       while (cursor < text.length && text[cursor] !== '"') {
@@ -245,6 +309,7 @@ export function shellWords(text: string): ShellWord[] {
       index = cursor;
     } else {
       value += char;
+      unquoted += char;
       hasWord = true;
     }
   }

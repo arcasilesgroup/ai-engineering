@@ -87,16 +87,23 @@ function gitHookSkip(command: string, depth = 0): string | null | undefined {
       return "pointing git at another directory or config";
     }
     const takesValue = (value: string): boolean => VALUE_OPTIONS.has(value) || /^-[a-zA-Z]*[mFtCc]$/.test(value);
+    // A `$(…)` may name a ref from a read-only git query (`git push origin "$(git branch
+    // --show-current)"`); anywhere else a computed word could be `--no-verify`.
+    const isGitQuery = (word: ShellWord): boolean =>
+      word.value.includes(SUBSTITUTION) && segment.substitutions.every((inner) => /^git\s+(?:rev-parse|branch|symbolic-ref|describe)\b/.test(inner));
+    // Unquoted, `$x`, `*` and `{a,b}` become several words — a message value included:
+    // `-m {x,--no-verify}` is `-m x --no-verify`.
+    const splitsIntoWords = (word: ShellWord): boolean => /[$`*?[]|\{[^}]*,/.test(word.unquoted);
     for (let at = position + 1; at < words.length; at++) {
       const word = words[at]!;
       const value = word.value;
-      // A `$(…)` may name a ref from a read-only git query (`git push origin "$(git branch
-      // --show-current)"`); anywhere else a computed word could be `--no-verify`.
-      if (value.includes(SUBSTITUTION) && segment.substitutions.every((inner) => /^git\s+(?:rev-parse|branch|symbolic-ref|describe)\b/.test(inner))) continue;
-      if (/[$`]/.test(value) || (!word.isQuoted && (/[*?[]/.test(value) || /\{[^}]*,/.test(value)))) return "an option computed at run time";
+      if (isGitQuery(word)) continue;
+      if (/[$`]/.test(value) || splitsIntoWords(word)) return "an option computed at run time";
       if (takesValue(value)) {
         if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value)) return "git commit -n";
         at++;
+        const optionValue = words[at];
+        if (optionValue !== undefined && !isGitQuery(optionValue) && splitsIntoWords(optionValue)) return "an option computed at run time";
         continue;
       }
       if (value.startsWith("--no-veri")) return "--no-verify";
@@ -173,6 +180,8 @@ export function checkBash(rawCommand: string, repoRoot: string | null): GuardRes
     const denied = checkBashForm(command, repoRoot, skips);
     if (denied) return denied;
   }
+  // The raw patterns name what they recognise; a git command they miss is still unread.
+  if (tokenSkip === undefined && /\bgit\b/.test(rawCommand)) return skipDenial("a git command whose quoting or expansion cannot be read");
   return undefined;
 }
 

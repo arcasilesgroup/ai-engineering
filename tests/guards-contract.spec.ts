@@ -16,7 +16,7 @@ import { evaluateLocalRules, type LocalRule } from "../src/guards/local-rules.ts
 import { runLoopGuard } from "../src/guards/loop.ts";
 import { checkBash, hooksPathTargets } from "../src/guards/no-verify.ts";
 import { runInjection } from "../src/guards/injection.ts";
-import { runPolicy } from "../src/guards/policy.ts";
+import { resolveParentSegments, runPolicy } from "../src/guards/policy.ts";
 import type { Payload } from "../src/payload.ts";
 import { adoptSession } from "../src/env.ts";
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -353,10 +353,37 @@ describe("no-verify: how a git command is read", () => {
     expect(label("git push origin $(echo git branch)")).toBe("an option computed at run time");
   });
 
-  test("unreadable shell falls back to the raw patterns, and both spellings are judged", () => {
-    expect(label("git commit -m 'x")).toBeNull();
+  test("unreadable shell falls back to the raw patterns, both spellings are judged, and a git command they miss is denied", () => {
+    expect(label("git commit -m 'x")).toBe("a git command whose quoting or expansion cannot be read");
     expect(label("git commit -n -m 'x")).toBe("git commit -n");
     expect(label('HUSK"Y"=0 git commit -m ok')).toBe("an environment flag");
+    expect(label("echo 'x")).toBeNull();
+  });
+
+  test("$'…' closes only at an unescaped quote, so a `;` after `$'\\''` ends the command", () => {
+    expect(label("echo $'\\'' ; git commit -n #'")).toBe("git commit -n");
+    expect(label("echo $'\\\\' ; git commit -n #'")).toBe("git commit -n");
+    expect(label("echo $'a;b' 'x;y'")).toBeNull();
+  });
+
+  test("a ${…} that expands to words is unreadable; a one-word one is an option computed at run time", () => {
+    expect(label(`git commit -m \${x:-> ${NV}}`)).toBe(NV);
+    expect(label("git commit -m ${x:-a --no-ve${y:-rify}}")).toBe("a git command whose quoting or expansion cannot be read");
+    expect(label(`git commit \${x:-${NV}}`)).toBe("an option computed at run time");
+    expect(label("git commit -m ${x}")).toBe("an option computed at run time");
+    expect(label('git commit -m "${x:-a > b}"')).toBeNull();
+    expect(label("echo ${HOME}")).toBeNull();
+  });
+
+  test("an option's value is expanded like any word: a bare brace, glob or variable can add words", () => {
+    expect(label(`git commit -m {x,${NV}}`)).toBe("an option computed at run time");
+    expect(label(`git commit -m "fix "{x,${NV}}`)).toBe("an option computed at run time");
+    expect(label("git commit -m fix*")).toBe("an option computed at run time");
+    expect(label("git commit -m $msg")).toBe("an option computed at run time");
+    expect(label('git commit -m "fix {a,b}"')).toBeNull();
+    expect(label('git commit -m "$msg"')).toBeNull();
+    expect(label("git commit -m $(git rev-parse HEAD)")).toBeNull();
+    expect(label("ls {a,b}")).toBeNull();
   });
 
   test("a bare -c hooks-path setting reads as the boolean true", () => {
@@ -490,6 +517,20 @@ describe("policy: what a command needs", () => {
     expect(needs("echo x\\>/etc/ai-eng-policy")).toBe("0004");
   });
 
+  test("a word is split where the shell splits it: a quoted space keeps an attached redirect in its word", () => {
+    expect(needs('echo "a b">/etc/ai-eng-policy')).toBe("2000");
+    expect(needs('echo "a b">~/.ssh/authorized_keys')).toBe(needs("echo x>~/.ssh/authorized_keys"));
+    expect(needs('echo "a b">~/.ssh/authorized_keys')).toBe("2000");
+  });
+
+  test("$'\\'' is one quote, so the > after it is a redirect; a > inside ${…} is no operator", () => {
+    expect(needs("echo $'\\'' >| /etc/ai-eng-policy #'")).toBe("2000");
+    expect(needs("echo $'a>b'")).toBe("0004");
+    // `{` reads as a control structure (workspace execute), as before; no write either way.
+    expect(needs("echo ${HOME}")).toBe("0001");
+    expect(needs("echo ${x:->/etc/ai-eng-policy}")).toBe("0005");
+  });
+
   test("a descriptor copy names no file; a stderr target in the workspace is a workspace write", () => {
     expect(needs("echo x 2>&1")).toBe("0002");
     expect(needs("echo x 2>/dev/null")).toBe("0004");
@@ -508,15 +549,11 @@ describe("policy: what a command needs", () => {
   });
 
   test("a Windows home is read in its Git Bash spelling, so a .. detour still lands in ~/.ssh", () => {
-    const homeBefore = process.env.HOME;
-    process.env.HOME = "C:\\Users\\Me";
-    try {
-      expect(needs("cat ~/x/../.ssh/id_rsa")).toBe("4000");
-      expect(needs("echo x > ~/x/../.ssh/authorized_keys")).toBe("2000");
-    } finally {
-      if (homeBefore === undefined) delete process.env.HOME;
-      else process.env.HOME = homeBefore;
-    }
+    // The home is passed in, never faked in process.env: Bun writes its cache under $HOME.
+    const windowsHome = "C:\\Users\\Me";
+    expect(resolveParentSegments("~/x/../.ssh/id_rsa", "/c/users/me/repo", windowsHome)).toBe("~/.ssh/id_rsa");
+    expect(resolveParentSegments("~/x/../.ssh/authorized_keys", "/c/users/me/repo", windowsHome)).toBe("~/.ssh/authorized_keys");
+    expect(resolveParentSegments("~/../other/x", "/c/users/me/repo", windowsHome)).toBe("/c/users/other/x");
   });
 });
 

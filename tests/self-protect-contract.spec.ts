@@ -232,6 +232,15 @@ describe("the shell reader: each unreadable shape names itself", () => {
 });
 
 describe("the shell reader: write targets and paths", () => {
+  test("$'\\'' is one quote, so the redirect after it is read; a ${…} that expands to words is unreadable", () => {
+    expectCases([
+      ["echo $'\\'' >| .git/hooks/pre-commit #'", WRITES(inRepo(".git", "hooks"))],
+      ["echo ${x:-> notes.txt}", UNREADABLE("its quoting cannot be read, so neither can what it runs")],
+      ["echo $'a' >| notes.txt #'", null],
+      ["echo ${HOME}", null],
+      ['echo "a>b"', null],
+    ]);
+  });
   test("redirect targets are judged where they land; input redirects are not writes", () => {
     expectCases([
       ["echo x > $f", UNREADABLE("it writes to a path computed at run time")],

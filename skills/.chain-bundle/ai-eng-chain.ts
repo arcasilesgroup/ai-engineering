@@ -587,6 +587,53 @@ function normalizeRedirects(command) {
   return readShell(command).normalized ?? command.replace(new RegExp(REDIRECT_OPERATOR.source, "g"), asOperator);
 }
 var HEREDOC = /^<<(-?)[ \t]*(\\?)(['"]?)([^\s'"<>|;&()]+)\3/;
+function quotedSpanEnd(text, at) {
+  const closeOf = (from, closer, hasEscapes) => {
+    for (let index = from;index < text.length; index++) {
+      if (hasEscapes && text[index] === "\\")
+        index++;
+      else if (text[index] === closer)
+        return index;
+    }
+    return text.length;
+  };
+  const char = text[at];
+  const next = text[at + 1];
+  if (char === "\\")
+    return at + 1;
+  if (char === "'")
+    return closeOf(at + 1, "'", false);
+  if (char === '"' || char === "`")
+    return closeOf(at + 1, char, true);
+  if (char === "$" && next === "'")
+    return closeOf(at + 2, "'", true);
+  if (char === "$" && next === "{")
+    return closeOf(at + 2, "}", false);
+  return -1;
+}
+function isReadableParameter(body, isInDoubleQuotes) {
+  return !(isInDoubleQuotes ? /["`\\(){}]/ : /[\s<>|;&'"`\\(){}]/).test(body);
+}
+function rawShellWords(text) {
+  const words = [];
+  let start = -1;
+  for (let at = 0;at < text.length; at++) {
+    if (/\s/.test(text[at])) {
+      if (start >= 0)
+        words.push(text.slice(start, at));
+      start = -1;
+      continue;
+    }
+    if (start < 0)
+      start = at;
+    const end = quotedSpanEnd(text, at);
+    if (end >= 0)
+      at = end;
+  }
+  if (start >= 0)
+    words.push(text.slice(start));
+  return words;
+}
 var SUBSTITUTION = "$__SUB__";
 function shellSegments(command) {
   return readShell(command).segments;
@@ -640,6 +687,14 @@ function readShell(command) {
     } else if (char === "\\") {
       current += char + (next ?? "");
       index++;
+    } else if (char === "$" && (next === "'" && quote === null || next === "{")) {
+      const end = quotedSpanEnd(source, index);
+      if (end >= source.length)
+        return UNREADABLE;
+      if (next === "{" && !isReadableParameter(source.slice(index + 2, end), quote === '"'))
+        return UNREADABLE;
+      current += source.slice(index, end + 1);
+      index = end;
     } else if (char === "$" && next === "(") {
       open(")");
       index++;
@@ -737,12 +792,14 @@ var ANSI_ESCAPES = { n: `
 function shellWords(text) {
   const words = [];
   let value = "";
+  let unquoted = "";
   let isQuoted = false;
   let hasWord = false;
   const end = () => {
     if (hasWord)
-      words.push({ value, isQuoted, isOperator: false });
+      words.push({ value, isQuoted, isOperator: false, unquoted });
     value = "";
+    unquoted = "";
     isQuoted = false;
     hasWord = false;
   };
@@ -756,24 +813,26 @@ function shellWords(text) {
       let operator = char;
       while (text[index + 1] === "<" || text[index + 1] === ">")
         operator += text[++index];
-      words.push({ value: operator, isQuoted: false, isOperator: true });
+      words.push({ value: operator, isQuoted: false, isOperator: true, unquoted: operator });
     } else if (char === "\\") {
       value += next ?? "";
       hasWord = true;
       isQuoted = true;
       index++;
+    } else if (char === "$" && next === "{") {
+      const close = Math.min(quotedSpanEnd(text, index), text.length - 1);
+      value += text.slice(index, close + 1);
+      unquoted += text.slice(index, close + 1);
+      hasWord = true;
+      index = close;
     } else if (char === "'" || char === "$" && next === "'") {
       const isAnsi = char === "$";
-      let close = text.indexOf("'", index + (isAnsi ? 2 : 1));
-      if (isAnsi) {
-        while (close > 0 && text[close - 1] === "\\")
-          close = text.indexOf("'", close + 1);
-      }
-      const body = text.slice(index + (isAnsi ? 2 : 1), close < 0 ? text.length : close);
+      const close = quotedSpanEnd(text, index);
+      const body = text.slice(index + (isAnsi ? 2 : 1), close);
       value += isAnsi ? body.replace(/\\x([0-9a-fA-F]{1,2})|\\([0-7]{1,3})|\\(.)/g, (_all, hex, octal, other) => hex ? String.fromCharCode(parseInt(hex, 16)) : octal ? String.fromCharCode(parseInt(octal, 8)) : ANSI_ESCAPES[other] ?? other) : body;
       hasWord = true;
       isQuoted = true;
-      index = close < 0 ? text.length : close;
+      index = close;
     } else if (char === '"' || char === "$" && next === '"') {
       let cursor = index + (char === "$" ? 2 : 1);
       while (cursor < text.length && text[cursor] !== '"') {
@@ -787,6 +846,7 @@ function shellWords(text) {
       index = cursor;
     } else {
       value += char;
+      unquoted += char;
       hasWord = true;
     }
   }
@@ -887,17 +947,22 @@ function gitHookSkip(command, depth = 0) {
       return "pointing git at another directory or config";
     }
     const takesValue = (value) => VALUE_OPTIONS.has(value) || /^-[a-zA-Z]*[mFtCc]$/.test(value);
+    const isGitQuery = (word) => word.value.includes(SUBSTITUTION) && segment.substitutions.every((inner) => /^git\s+(?:rev-parse|branch|symbolic-ref|describe)\b/.test(inner));
+    const splitsIntoWords = (word) => /[$`*?[]|\{[^}]*,/.test(word.unquoted);
     for (let at = position + 1;at < words.length; at++) {
       const word = words[at];
       const value = word.value;
-      if (value.includes(SUBSTITUTION) && segment.substitutions.every((inner) => /^git\s+(?:rev-parse|branch|symbolic-ref|describe)\b/.test(inner)))
+      if (isGitQuery(word))
         continue;
-      if (/[$`]/.test(value) || !word.isQuoted && (/[*?[]/.test(value) || /\{[^}]*,/.test(value)))
+      if (/[$`]/.test(value) || splitsIntoWords(word))
         return "an option computed at run time";
       if (takesValue(value)) {
         if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value))
           return "git commit -n";
         at++;
+        const optionValue = words[at];
+        if (optionValue !== undefined && !isGitQuery(optionValue) && splitsIntoWords(optionValue))
+          return "an option computed at run time";
         continue;
       }
       if (value.startsWith("--no-veri"))
@@ -962,6 +1027,8 @@ function checkBash(rawCommand, repoRoot) {
     if (denied)
       return denied;
   }
+  if (tokenSkip === undefined && /\bgit\b/.test(rawCommand))
+    return skipDenial("a git command whose quoting or expansion cannot be read");
   return;
 }
 function checkBashForm(command, repoRoot, skips) {
@@ -1986,9 +2053,9 @@ function resolvePath(rawPath, cwd) {
   }
   return `${cwd}/${path}`;
 }
-function resolveParentSegments(path, cwd) {
+function resolveParentSegments(path, cwd, homeDirectory = homedir2()) {
   if (path === "~" || path.startsWith("~/")) {
-    const home = homedir2().toLowerCase().replaceAll("\\", "/").replace(/^([a-z]):/, "/$1");
+    const home = homeDirectory.toLowerCase().replaceAll("\\", "/").replace(/^([a-z]):/, "/$1");
     if (!home.startsWith("/"))
       return path;
     const landed = posix.resolve(home, path.slice(2));
@@ -2024,19 +2091,12 @@ function splitAttachedRedirect(token) {
   return start === 0 ? [token] : [token.slice(0, start), token.slice(start)];
 }
 function bareOperatorIndex(text, operators) {
-  let quote = null;
   for (let at = 0;at < text.length; at++) {
-    const char = text[at];
-    if (char === "\\" && quote !== "'") {
-      at++;
-    } else if (quote !== null) {
-      if (char === quote)
-        quote = null;
-    } else if (char === "'" || char === '"' || char === "`") {
-      quote = char;
-    } else if (operators.includes(char)) {
+    const spanEnd = quotedSpanEnd(text, at);
+    if (spanEnd >= 0)
+      at = spanEnd;
+    else if (operators.includes(text[at]))
       return at;
-    }
   }
   return -1;
 }
@@ -2070,7 +2130,7 @@ function scanSegment(mask, segment, cwd) {
     addPath(mask, target, permissions, cwd);
     flags = 3;
   };
-  for (const token of segment.split(/\s+/).flatMap(splitAttachedRedirect)) {
+  for (const token of rawShellWords(segment).flatMap(splitAttachedRedirect)) {
     if (pending !== null) {
       judgeRedirect(token, pending.permissions, pending.isDuplicate);
       pending = null;
