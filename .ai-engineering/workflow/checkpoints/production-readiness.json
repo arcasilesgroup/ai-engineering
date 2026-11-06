@@ -56,9 +56,9 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 0, "findings": ["Focused 14/14, lint, typecheck, build green. Full serial suite 1747 pass / 16 skip / 1 fail: pre-existing artifact-scroll-spy failure from the approved brainstorm's minified script (on main since 40a18cab); fixed in 214adac5, scroll-spy 4/4."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "failed", "attempts": 2, "findings": ["Round 2: MAJOR tests/launcher.spec.ts:207-245 dev-checkout tests all run under node, where bin/ai-eng.js:105-115 behaves the same with or without the scripts/build.ts marker; nothing pins isDevCheckout or dist-before-source ordering under bun (the shebang path). Fix: run the staged launcher under bun with a fake bun on PATH, with and without the marker, expecting different output.", "Round 2 MINOR tests/npm-manifest.spec.ts:33 spawns npm without a shell; ENOENT on Windows (npm.cmd).", "Round 1 findings 1, 3, 4, 5 verified fixed."] }
+        "review": { "status": "passed", "attempts": 2, "findings": ["Round 3 PASS: dev-checkout and dist ordering pinned under bun (launcher.spec.ts:261, :272); npm-manifest uses the Windows-aware runner. Behavior re-run after fixes: focused 23/23, suite 1757 pass / 16 skip / 0 fail, lint, typecheck, build green.", "Earlier rounds: dist/-dependent tests (L252), bun path untested (L253) — fixed."] }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 2,
