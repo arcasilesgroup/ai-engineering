@@ -1910,3 +1910,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Restore stand-ins in `finally`; `git add --force` into the test's private index.
 - **Lesson:** A test that replaces a module function must restore it in `finally` — file order differs by OS and runner.
 - **Tags:** behavior, tests, isolation, mutation
+
+### L262 · 2026-11-06 · production-readiness #2 · review
+- **Failure:** wrap reported a test run with more than ~1 MiB of output as "could not start" (127) and dropped its output, receipt and log.
+- **Root cause:** The Windows fix treated every spawn error except a timeout as "never started"; ENOBUFS also stops a child that did run.
+- **Fix:** Return 127 only when the spawn has no pid; on ENOBUFS print what was captured, record the receipt and log, exit 1.
+- **Lesson:** A spawn error does not mean the command never ran — check the pid before throwing away a run's evidence.
+- **Tags:** review, wrap, evidence
