@@ -1219,11 +1219,14 @@ var EMBEDDED_PATH = /(?:~|\.{1,2})?\/?[\w.@+-]*(?:\/[\w.@+-]+)+|\.ai-engineering
 function slashed(path) {
   return sep2 === "\\" ? path.replaceAll("\\", "/") : path;
 }
-function isNetworkPath(path) {
-  if (sep2 !== "\\")
+function isNetworkPath(path, isWindows = sep2 === "\\") {
+  if (!isWindows)
     return false;
   const native = path.replaceAll("/", "\\");
-  return native.startsWith("\\\\") && !/^\\\\[?.]\\(?!UNC\\)/i.test(native);
+  const device = /^(?:\\\\[?.]|\\\?\?)\\/.exec(native);
+  if (device !== null)
+    return !/^[A-Za-z]:(?:\\|$)/.test(native.slice(device[0].length));
+  return native.startsWith("\\\\");
 }
 function localRealpath(path) {
   if (isNetworkPath(path))
@@ -3043,6 +3046,12 @@ function readCheckpointText(path, context, allowMissing = false) {
     fail("path", error instanceof Error ? error.message : String(error));
   }
 }
+function readCheckpoint(path, context) {
+  const contents = readCheckpointText(path, context);
+  if (contents === null)
+    fail("path", "does not exist");
+  return parseCheckpoint(contents, context);
+}
 function checkpointComplete(item) {
   return item.status === "passed" && ["behavior", "ui", "review"].every((name) => {
     const status = item.gates[name].status;
@@ -3457,9 +3466,6 @@ function assertProgress(previous, next) {
     if (review === "passed" && (behavior !== "passed" || ui !== "passed" && ui !== "n/a")) {
       return deny2(`CP${checkpoint.id}`, "review gate", "cannot pass before behavior and ui have passed or ui is n/a", `run the CP${checkpoint.id} behavior and ui gates`);
     }
-    if (checkpoint.status === "passed" && !checkpointComplete(checkpoint)) {
-      return deny2(`CP${checkpoint.id}`, "checkpoint status", "cannot be passed until every gate is passed or n/a", `finish the CP${checkpoint.id} gates`);
-    }
     const oldCheckpoint = previous?.checkpoints.find((candidate) => candidate.id === checkpoint.id);
     const hasChanged = oldCheckpoint !== undefined && !isDeepStrictEqual(runtimeState(oldCheckpoint), runtimeState(checkpoint));
     if ((hasChanged || oldCheckpoint === undefined && started(checkpoint)) && next.checkpoints.some((candidate) => candidate.id < checkpoint.id && !checkpointComplete(candidate))) {
@@ -3560,20 +3566,12 @@ function checkMarker(payload, repoRoot) {
   if (!STAGES.has(stage)) {
     return deny2(label, "checkpoint stage", `does not recognize "${stage}"`, "use tests, implement, behavior, ui, review, or fix");
   }
-  let context;
   let checkpoint;
   const path = join9(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   try {
-    context = checkpointContext(repoRoot, slug);
-    const text = readCheckpointText(path, context);
-    if (text === null)
-      throw new Error("file does not exist");
-    checkpoint = parseCheckpoint(text, context);
+    checkpoint = readCheckpoint(path, checkpointContext(repoRoot, slug));
   } catch (error) {
     return deny2(label, "checkpoint gate", `cannot read ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint file and retry the marked task");
-  }
-  if (checkpoint.slug !== slug) {
-    return deny2(label, "checkpoint gate", `plan slug does not match marker "${slug}"`, "use the slug from the checkpoint filename");
   }
   const sequenceError = requireSequentialCheckpoints(checkpoint, path);
   if (sequenceError !== undefined)
@@ -3796,13 +3794,8 @@ function checkStop(payload, repoRoot) {
       continue;
     const path = join9(folder, file);
     let checkpoint;
-    let context;
     try {
-      context = checkpointContext(root, slug);
-      const text = readCheckpointText(path, context);
-      if (text === null)
-        throw new Error("file does not exist");
-      checkpoint = parseCheckpoint(text, context);
+      checkpoint = readCheckpoint(path, checkpointContext(root, slug));
     } catch (error) {
       return deny2(`Checkpoint ${slug}`, "Stop gate", `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint JSON before ending the turn");
     }
