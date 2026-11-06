@@ -54,6 +54,7 @@ scripts/
   gen-assets.ts                Generate embedded assets from skills/, agents/ and templates/
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
   tokens.ts                    `bun run tokens`: report skill-frontmatter and AGENTS-template byte/4 counts
+  package-consumer-smoke.ts    Pack (or take `--tarball`), install in temp npm and Bun consumers, run `ai-eng --version`
   .embed/<skill-name>/scripts/  Generated text payloads for skill scripts
 skills/                        Installed skill canon
   ai-brainstorm/SKILL.md       Interview, classify and record approved feature intent
@@ -75,6 +76,7 @@ tests/
   triage-*.spec.ts             Synthetic GitHub, Azure, routing and report contract tests for skills/ai-triage
   fixtures/verify-tiers/evals/ Test-only verifier scoring tools and evaluation fixtures
   test-hygiene.spec.ts         No suite writes under tests/; sandboxed suites restore env and cwd
+  package-consumer.spec.ts     The packed tarball installs and reports its version, Bun-only PATH included
   receipts-retention.spec.ts   Daily, batched receipt retention triggered by the chain
   fixtures/
     env-snapshot.preload.ts    Records env and cwd before and after every suite for test-hygiene.spec.ts

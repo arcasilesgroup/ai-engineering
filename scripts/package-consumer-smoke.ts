@@ -1,16 +1,20 @@
 import { spawnSync } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   copyFileSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, sep } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 
 type CommandResult = {
   status: number | null;
@@ -110,6 +114,25 @@ function packSummary(output: string): { filename: string; files: string[] } {
   return { filename: summary.filename, files: (files as string[]).sort() };
 }
 
+function packTarball(packDirectory: string): { tarballPath: string; files: string[] } {
+  const pack = runCommand("npm", ["pack", "--json", "--pack-destination", packDirectory], PACKAGE_ROOT);
+  requireCommandSuccess("npm pack", pack);
+  const packed = packSummary(pack.stdout);
+  return { tarballPath: join(packDirectory, packed.filename), files: packed.files };
+}
+
+/** An already-packed tarball's file inventory, in the `npm pack --json` shape:
+ *  npm roots every entry under `package/`, and directories are not files. */
+function tarballFiles(tarballPath: string): string[] {
+  const listing = runCommand("tar", ["-tzf", tarballPath], PACKAGE_ROOT);
+  requireCommandSuccess("tar listing", listing);
+  return listing.stdout
+    .split("\n")
+    .filter((entry) => entry !== "" && !entry.endsWith("/"))
+    .map((entry) => entry.replace(/^package\//, ""))
+    .sort();
+}
+
 function installPath(consumerRoot: string): string {
   return join(consumerRoot, "node_modules", "ai-engineering");
 }
@@ -123,8 +146,15 @@ function installedCommandPath(consumerRoot: string): string {
   );
 }
 
-export async function runPackageConsumerSmoke(): Promise<PackageConsumerResult> {
-  const smokeRoot = join(PACKAGE_ROOT, `.package-consumer-smoke-${process.pid}-${randomUUID()}`);
+/** Without a tarball, packs this checkout; with one, smoke-tests that exact
+ *  file so a release can verify what it is about to publish. */
+export async function runPackageConsumerSmoke(
+  options: { tarball?: string } = {},
+): Promise<PackageConsumerResult> {
+  // Outside the checkout, so module resolution in a consumer can never walk up
+  // into the repo's node_modules, and an aborted run leaves nothing in the tree.
+  // realpath: macOS hands out /var/... for what is really /private/var/....
+  const smokeRoot = mkdtempSync(join(realpathSync(tmpdir()), "ai-eng-package-consumer-"));
   const packDirectory = join(smokeRoot, "packed");
   const npmConsumer = join(smokeRoot, "npm-consumer");
   const bunConsumer = join(smokeRoot, "bun-consumer");
@@ -133,14 +163,10 @@ export async function runPackageConsumerSmoke(): Promise<PackageConsumerResult> 
   mkdirSync(bunConsumer);
 
   try {
-    const pack = runCommand(
-      "npm",
-      ["pack", "--json", "--pack-destination", packDirectory],
-      PACKAGE_ROOT,
-    );
-    requireCommandSuccess("npm pack", pack);
-    const packed = packSummary(pack.stdout);
-    const tarballPath = join(packDirectory, packed.filename);
+    const packed = options.tarball
+      ? { tarballPath: resolve(options.tarball), files: tarballFiles(resolve(options.tarball)) }
+      : packTarball(packDirectory);
+    const { tarballPath } = packed;
     const tarballHashBefore = sha256File(tarballPath);
 
     writeFileSync(join(npmConsumer, "package.json"), '{"name":"npm-consumer","private":true}\n');
@@ -250,7 +276,8 @@ export function packageConsumerFailures(result: PackageConsumerResult): string[]
 }
 
 if (import.meta.main) {
-  runPackageConsumerSmoke()
+  const { values } = parseArgs({ options: { tarball: { type: "string" } } });
+  runPackageConsumerSmoke({ tarball: values.tarball })
     .then((result) => {
       const failures = packageConsumerFailures(result);
       if (failures.length > 0) {

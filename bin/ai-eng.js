@@ -1,5 +1,8 @@
-#!/usr/bin/env node
-// bin/ai-eng.js — the npm entry. Two layouts, two orders:
+#!/usr/bin/env bun
+// bin/ai-eng.js — the npm entry. Bun is the runtime, so the shebang names bun:
+// the installed command must start on a host with bun and no node.
+//
+// Two layouts, two orders:
 //
 //   Dev checkout (scripts/build.ts is here; it is not in the published tarball):
 //     1. dist/ai-eng-<target> or dist/ai-eng from `bun run build`;
@@ -10,10 +13,10 @@
 //     and engines.bun names the runtime it needs (the v0.13.0 requires-python
 //     contract, in npm terms).
 //
-// No bun: an honest error, never a stack trace. This file is plain
-// Node-compatible JS on purpose: it runs under node (npm path) and bun (the
-// source path), and must not import anything from src/ statically — the source
-// path is spawned through bun, which is the one runtime that can load it.
+// Still plain Node-compatible JS on purpose: `node bin/ai-eng.js` (or a shim
+// that picks node) must keep working by handing the source to the bun on
+// PATH. No bun there: an honest error, never a stack trace. It must not import
+// anything from src/ statically — only bun can load the TypeScript source.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
@@ -78,8 +81,8 @@ function localBinary(root, target) {
   return null;
 }
 
-/** The source through bun, even when this launcher itself is node (the npm
- *  shebang). Never returns: honest error if bun is not on PATH. */
+/** The source through bun, even when this launcher itself is node (invoked as
+ *  `node bin/ai-eng.js`). Never returns: honest error if bun is not on PATH. */
 function runSource(root) {
   const cli = join(root, "src", "cli.ts");
   const run = spawnSync("bun", [cli, ...process.argv.slice(2)], { stdio: "inherit" });
@@ -108,8 +111,8 @@ async function main() {
     await import(join(root, "src", "cli.ts"));
     return;
   }
-  // npm's shebang runs this under node; the source still runs — through the
-  // bun on PATH. runSource never returns (honest error when bun is absent).
+  // Started by node rather than the bun shebang; the source still runs —
+  // through the bun on PATH. runSource never returns (honest error when bun is absent).
   runSource(root);
 }
 
