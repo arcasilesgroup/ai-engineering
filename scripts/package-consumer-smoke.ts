@@ -55,7 +55,7 @@ function needsWindowsShell(command: string): boolean {
   return process.platform === "win32" && (command === "npm" || command.endsWith(".cmd"));
 }
 
-function runCommand(
+export function runCommand(
   command: string,
   args: string[],
   cwd: string,

@@ -1847,3 +1847,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Each case stages its own launcher copy under `os.tmpdir()` with exactly the files it is about; the Windows smoke runs the real installed shims.
 - **Lesson:** A launcher test must control everything next to the launcher, so stage it outside the repo instead of trusting the checkout's state.
 - **Tags:** review, launcher, tests, isolation
+
+### L253 · 2026-11-06 · production-readiness #1 · review
+- **Failure:** Dev-checkout and dist-ordering launcher tests ran only under node, so mutating `isDevCheckout` or the dist-before-source order stayed green.
+- **Root cause:** Under node the `scripts/build.ts` marker makes no difference; only the bun shebang path reaches that branch.
+- **Fix:** An "under bun" group runs each staged launcher with a fake bun on PATH and a stand-in `src/cli.ts`, each case printing its own line; the manifest spec reuses the smoke's Windows-aware command runner.
+- **Lesson:** Run a launcher test under the runtime its shebang names; a branch only that runtime reaches is untested otherwise.
+- **Tags:** review, launcher, tests, mutation

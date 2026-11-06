@@ -75,6 +75,16 @@ function addRealSource({ packageRoot }: Staged): void {
   copyFileSync(join(ROOT, "package.json"), join(packageRoot, "package.json"));
 }
 
+/** A stand-in src/cli.ts whose output names the in-process import, so it can
+ *  never be mistaken for a spawned bun or a dist binary. */
+function addMarkerSource({ packageRoot }: Staged): void {
+  mkdirSync(join(packageRoot, "src"), { recursive: true });
+  writeFileSync(
+    join(packageRoot, "src", "cli.ts"),
+    'console.log("from-in-process-import", ...process.argv.slice(2));\n',
+  );
+}
+
 function markDevCheckout({ packageRoot }: Staged): void {
   mkdirSync(join(packageRoot, "scripts"), { recursive: true });
   writeFileSync(join(packageRoot, "scripts", "build.ts"), "// dev checkout marker\n");
@@ -221,6 +231,52 @@ describe.skipIf(IS_WINDOWS)("dev checkout", () => {
       status: 1,
       stdout: "",
       stderr: NO_BUN_ERROR,
+    });
+  });
+});
+
+// The shebang path: the launcher itself runs under bun, so in a published
+// install it imports the source in-process, while a dev checkout still spawns
+// the bun on PATH. The fake bun and the marker source print different lines,
+// so the output names the branch the launcher took.
+describe.skipIf(IS_WINDOWS)("under bun", () => {
+  function stageUnderBun(prefix: string): { staged: Staged; fakeBin: string } {
+    const staged = stageLauncher(prefix);
+    addMarkerSource(staged);
+    const fakeBin = join(staged.stagingRoot, "fake-bin");
+    writeFakeExecutable(join(fakeBin, "bun"), "from-spawned-bun");
+    return { staged, fakeBin };
+  }
+
+  test("a published install imports the source in-process", () => {
+    const { staged, fakeBin } = stageUnderBun("ai-eng-launcher-bun-published-");
+
+    expect(run(process.execPath, [staged.launcher, "--version"], fakeBin)).toEqual({
+      status: 0,
+      stdout: "from-in-process-import --version\n",
+      stderr: "",
+    });
+  });
+
+  test("a dev checkout spawns the source through the bun on PATH", () => {
+    const { staged, fakeBin } = stageUnderBun("ai-eng-launcher-bun-dev-");
+    markDevCheckout(staged);
+
+    expect(run(process.execPath, [staged.launcher, "--version"], fakeBin)).toEqual({
+      status: 0,
+      stdout: `from-spawned-bun ${join(staged.packageRoot, "src", "cli.ts")} --version\n`,
+      stderr: "",
+    });
+  });
+
+  test("a published install runs a dist build for this host before the in-process source", () => {
+    const { staged, fakeBin } = stageUnderBun("ai-eng-launcher-bun-dist-");
+    writeFakeExecutable(join(staged.packageRoot, "dist", `ai-eng-${TARGET}`), "from-dist");
+
+    expect(run(process.execPath, [staged.launcher, "--version"], fakeBin)).toEqual({
+      status: 0,
+      stdout: "from-dist --version\n",
+      stderr: "",
     });
   });
 });

@@ -5,9 +5,9 @@
 // and every install warned 404. The runtime replaces the binaries — engines.bun is
 // the requirement v0.13.0 carried as `requires-python`.
 import { test, expect } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
+import { runCommand } from "../scripts/package-consumer-smoke.ts";
 
 const root = join(import.meta.dir, "..");
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
@@ -30,12 +30,11 @@ let packedFilesCache: string[] | undefined;
 function packedFiles(): string[] {
   if (packedFilesCache) return packedFilesCache;
 
-  const result = spawnSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], {
-    cwd: root,
-    encoding: "utf8",
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`npm pack dry run failed: ${result.stderr}`);
+  // runCommand runs npm through cmd.exe on Windows, where npm is npm.cmd.
+  const result = runCommand("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], root);
+  if (result.status !== 0) {
+    throw new Error(`npm pack dry run failed (${result.status ?? result.errorCode}): ${result.stderr}`);
+  }
 
   const packResults = JSON.parse(result.stdout) as Array<{ files: Array<{ path: string }> }>;
   if (packResults.length !== 1) throw new Error(`Expected one npm pack result, got ${packResults.length}`);
