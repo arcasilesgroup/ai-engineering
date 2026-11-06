@@ -198,7 +198,8 @@ describe("token budgets", () => {
     const message = join(import.meta.dir, `.token-budget-invalid-message-${randomUUID()}`);
     try {
       writeFileSync(whitespaceFile, "trailing whitespace \n");
-      git(["add", "--", relativeWhitespaceFile], index.env);
+      // --force: under Stryker the suite runs inside an ignored sandbox folder; the index is private.
+      git(["add", "--force", "--", relativeWhitespaceFile], index.env);
       const preCommit = runAiEng(["git", "pre-commit"], { env: index.env });
       expect(preCommit.status).toBe(1);
       expect(outputLineCount(preCommit)).toBeLessThanOrEqual(3);
