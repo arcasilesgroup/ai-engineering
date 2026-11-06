@@ -353,6 +353,36 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(statSync(lockPath).mtimeMs).toBe(mtime);
   });
 
+  test("a fresh machine gets the missing settings carriers doctor sends it here for", async () => {
+    // The CI runner's shape: no ~/.claude/settings.json, no ~/.codex, no ~/.copilot.
+    const freshHome = join(SANDBOX, "home-fresh-settings");
+    mkdirSync(freshHome, { recursive: true });
+    process.env.AI_ENG_HOME = freshHome;
+    const repo = governedRepo("repo-fresh-settings");
+    writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code", "codex", "copilot-cli"]\n');
+    process.chdir(repo);
+    const carriers: Array<[string, string]> = [
+      ["claude-code", ".claude/settings.json"],
+      ["codex", ".codex/hooks.json"],
+      ["copilot-cli", ".copilot/hooks/ai-eng.json"],
+    ];
+
+    const first = await captured(() => updateMain({ yes: true }));
+    expect(first.value).toBe(0);
+    for (const [id, path] of carriers) {
+      expect(readFileSync(join(freshHome, path), "utf8")).toBe(carrierFiles(id, "machine")!.main);
+      expect(first.out).toInclude(`~/${path} · machine carrier · written`);
+    }
+    expect(first.out).not.toInclude("unavailable on this platform");
+    const recorded = JSON.parse(readFileSync(join(freshHome, "machine.json"), "utf8")) as { carriers: Record<string, string> };
+    for (const [id] of carriers) expect(recorded.carriers[id]).toBe(sha256(carrierFiles(id, "machine")!.main));
+
+    const second = await captured(() => updateMain({ yes: true }));
+    expect(second.value).toBe(0);
+    for (const [, path] of carriers) expect(second.out).toInclude(`~/${path} · machine carrier already current`);
+    expect(second.out).not.toInclude("machine carrier · written");
+  });
+
   for (const { name, bytes } of [
     { name: "absent", bytes: '[surfaces]\nenabled = ["claude-code"]\n' },
     { name: "empty", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = []\n' },

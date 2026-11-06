@@ -21,7 +21,7 @@ When `PI_CODING_AGENT_DIR` is set, Oh My Pi and Pi carriers are placed under tha
 | `settings` | merged by marker into the file that is already there | our entries out by marker, theirs kept |
 | `module` | the whole file written, plus its chain bundle beside it | entry and bundle unlinked whole |
 
-Both placements go through the same merge (`mergeSharedText` in `src/install.ts`). A machine `settings` file that does not exist is written from our template as is; one that exists is merged, because it can be one the user already owns and nothing of theirs is touched or reformatted. Repo carriers are planned by `surfaceEntries()` in `src/commands/init-shared.ts` as `{ path, ours, merge: kind === "settings" }`, so repo-side settings are merged too.
+Both placements go through the same merge (`mergeSharedText` in `src/install.ts`). A machine `settings` file that does not exist is created from our template as is, folder included, with an exclusive create (`O_CREAT|O_EXCL|O_NOFOLLOW`) inside the validated folder: the kernel refuses it if any name appeared there, so nothing of the user's is replaced. This is what `init` and `update` do on a fresh machine, and what doctor's `missing → ai-eng update` relies on. One that exists can be the user's: a merge that would change it needs a pathname replacement the portable filesystem API cannot bind to the validated file, so it is refused, left byte-identical, and reported. Repo carriers are planned by `surfaceEntries()` in `src/commands/init-shared.ts` as `{ path, ours, merge: kind === "settings" }`, so repo-side settings are merged too.
 
 The merge rules, from the source:
 

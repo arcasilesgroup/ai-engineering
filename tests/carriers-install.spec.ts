@@ -552,17 +552,9 @@ describe("carriers on the machine", () => {
 
     const machineSurfaces = surfaces.filter((surface) => machineCarrier(surface) !== null);
     const report = installMachineCarriers(machineSurfaces.map((surface) => surface.id));
-    const settingsSurfaces = machineSurfaces.filter((surface) => machineCarrier(surface)?.kind === "settings");
-    expect(report.refused).toEqual(settingsSurfaces.map((surface) => ({
-      path: `~/${machineCarrier(surface)!.path}`,
-      reason: "identity-bound-settings-mutation-unavailable",
-    })));
+    expect(report.refused).toEqual([]);
     for (const surface of machineSurfaces) {
       const placement = machineCarrier(surface)!;
-      if (placement.kind === "settings") {
-        expect(existsSync(carrierPath(placement))).toBe(false);
-        continue;
-      }
       const content = readFileSync(carrierPath(placement), "utf8");
       expect(hasStopHook(content, placement.kind, (surface as StopSurface).stopHook?.event ?? "Stop")).toBe(emitsStop(surface));
     }
@@ -650,22 +642,22 @@ describe("carriers on the machine", () => {
     expect(surfaceCanGovern(byId("zed"))).toBe(false); // denies through its own permissions, never by running us
   });
 
-  test("installMachineCarriers: missing and changed settings fail closed, garbage remains refused", () => {
+  test("installMachineCarriers: a missing settings file is created from the template; changed settings fail closed, garbage remains refused", () => {
     const base = useHome("machine-install");
     const carrier = join(base, ".claude", "settings.json");
+    const ours = carrierFiles("claude-code", "machine")!.main;
 
+    // Nothing of the user's is at that name, so exclusive creation replaces nothing.
     expect(installMachineCarriers(["claude-code", "zed", "no-such-host"])).toEqual({
-      written: [],
+      written: ["~/.claude/settings.json"],
       untouched: [],
-      refused: [{
-        path: "~/.claude/settings.json",
-        reason: "identity-bound-settings-mutation-unavailable",
-      }],
+      refused: [],
     });
-    expect(existsSync(carrier)).toBe(false);
+    expect(readFileSync(carrier, "utf8")).toBe(ours);
     const state = readMachineState();
     expect(state.version).toBe(VERSION);
-    expect(state.carriers["claude-code"]).toBeUndefined();
+    expect(state.carriers["claude-code"]).toBe(sha256(ours));
+    expect(installMachineCarriers(["claude-code"])).toEqual({ written: [], untouched: ["~/.claude/settings.json"], refused: [] });
 
     // A settings file belongs to the person; the machine carrier is not written into it.
     write(carrier, USER_SETTINGS);
@@ -962,14 +954,19 @@ describe("carriers on the machine", () => {
     expect(carrierFiles("cursor", "repo")!.main).toInclude('"failClosed": true');
   });
 
-  test("installMachineCarriers: a machine settings definition is not written without identity-bound replacement", () => {
+  test("installMachineCarriers: a missing settings carrier and its folder are created; a dangling link at that name is refused", () => {
     const base = useHome("machine-current");
     const carrier = join(base, ".codex", "hooks.json");
-    expect(installMachineCarriers(["codex"]).refused).toEqual([{
-      path: "~/.codex/hooks.json",
-      reason: "identity-bound-settings-mutation-unavailable",
-    }]);
-    expect(existsSync(carrier)).toBe(false);
+    expect(installMachineCarriers(["codex"])).toEqual({ written: ["~/.codex/hooks.json"], untouched: [], refused: [] });
+    expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("codex", "machine")!.main);
+
+    // A name that is there — even a link to nothing — is not missing: it is never written through.
+    rmSync(carrier);
+    const elsewhere = join(base, "elsewhere.json");
+    symlinkSync(elsewhere, carrier);
+    expect(installMachineCarriers(["codex"]).refused).toEqual([{ path: "~/.codex/hooks.json", reason: "settings-unreadable" }]);
+    expect(existsSync(elsewhere)).toBe(false);
+    expect(lstatSync(carrier).isSymbolicLink()).toBe(true);
   });
 
   test("installMachineCarriers: a module carrier is written whole, with its chain bundle beside it", () => {
@@ -1252,7 +1249,7 @@ describe("carriers on the machine", () => {
   });
 
   test("machine.json keeps legacy restore state, and reads as nothing when it is garbage", () => {
-    useHome("machine-state");
+    const base = useHome("machine-state");
     writeFileSync(
       machineStateFile(),
       JSON.stringify({
@@ -1268,6 +1265,7 @@ describe("carriers on the machine", () => {
     });
 
     // A refused carrier update must preserve restore data from an older version.
+    write(join(base, ".claude", "settings.json"), USER_SETTINGS);
     installMachineCarriers(["claude-code"]);
     const state = readMachineState();
     expect(state.carriers["claude-code"]).toBeUndefined();

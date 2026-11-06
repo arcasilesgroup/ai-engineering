@@ -6,8 +6,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mergeSharedText, stripSharedText } from "../../src/install.ts";
-import { removeMachineCarriers, readMachineState } from "../../src/surfaces/adapters.ts";
+import { mergeSharedText, sha256, stripSharedText } from "../../src/install.ts";
+import { carrierFiles, removeMachineCarriers, readMachineState } from "../../src/surfaces/adapters.ts";
 
 type HookGroup = { matcher?: string; hooks?: Array<{ command?: string }> };
 type Settings = { permissions?: unknown; env?: unknown; hooks?: Record<string, HookGroup[]>; $comment?: string };
@@ -120,20 +120,20 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
     expect(run(["init", "--yes", "--surface", "claude-code,oh-my-pi,opencode,cursor,copilot,codex,pi"], repo).status).toBe(0);
-    // Machine settings are refused because path-based replacement is not identity-bound;
-    // host-owned modules can still be installed.
+    // Host-owned modules are installed; settings carriers nobody had are created from the
+    // template, because an exclusive create cannot replace anything of the user's.
     const machine: string[] = [
       join(home, ".omp", "agent", "hooks", "pre", "ai-eng.ts"),
       join(home, ".config", "opencode", "plugins", "ai-eng.ts"),
       join(home, ".pi", "agent", "extensions", "ai-eng.ts"),
     ];
     for (const path of machine) expect(existsSync(path)).toBe(true);
-    for (const path of [
-      join(home, ".claude", "settings.json"),
-      join(home, ".codex", "hooks.json"),
-      join(home, ".copilot", "hooks", "ai-eng.json"),
-    ]) {
-      expect(existsSync(path)).toBe(false);
+    for (const [id, path] of [
+      ["claude-code", join(home, ".claude", "settings.json")],
+      ["codex", join(home, ".codex", "hooks.json")],
+      ["copilot-cli", join(home, ".copilot", "hooks", "ai-eng.json")],
+    ] as const) {
+      expect(readFileSync(path, "utf8")).toBe(carrierFiles(id, "machine")!.main);
     }
     // The OMP carrier is a hook FACTORY (default export, pi.on) at the path omp's own
     // loader scans. The module it used to ship exported beforeToolCall and lived in
@@ -189,43 +189,49 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     expect(spawnSync("git", ["config", "--global", "--get", "init.templateDir"], { encoding: "utf8", env: process.env }).stdout.trim()).toBe(configBefore);
   });
 
-  test("codex machine settings fail closed without identity-bound replacement", () => {
+  test("codex: a missing machine settings file is created once, recorded, and left alone after", () => {
     useHome();
     const repo = join(sandbox, "codex-repo");
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
     const initialized = run(["init", "--yes", "--surface", "codex"], repo);
     expect(initialized.status).toBe(0);
-    expect(initialized.stdout + initialized.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
+    expect(initialized.stdout + initialized.stderr).not.toInclude("safe machine-settings replacement/removal is unavailable");
     const carrier = join(home, ".codex", "hooks.json");
-    expect(existsSync(carrier)).toBe(false);
+    const ours = carrierFiles("codex", "machine")!.main;
+    expect(readFileSync(carrier, "utf8")).toBe(ours);
     const updated = run(["update", "--yes"], repo);
     expect(updated.status).toBe(0);
-    expect(updated.stdout + updated.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
-    expect(existsSync(carrier)).toBe(false);
+    expect(updated.stdout + updated.stderr).toInclude("~/.codex/hooks.json · machine carrier already current");
+    expect(readFileSync(carrier, "utf8")).toBe(ours);
     const state = withHome(() => readMachineState());
-    expect(state.carriers["codex"]).toBeUndefined();
+    expect(state.carriers["codex"]).toBe(sha256(ours));
     const doctor = run(["doctor"], repo);
-    const out = doctor.stdout + doctor.stderr;
-    expect(out).toInclude("machine carrier ~/.codex/hooks.json missing");
+    expect(doctor.stdout + doctor.stderr).toInclude("machine carrier ~/.codex/hooks.json carries the ai-eng entries");
   });
 
-  test("doctor splits the machine carrier from the repo declaration and from the version state", () => {
+  test("doctor splits the machine carrier from the repo declaration, and its remedy for a lost one works", () => {
     useHome();
     const repo = join(sandbox, "doctor-split");
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
     const initialized = run(["init", "--yes", "--surface", "claude-code,cursor"], repo);
     expect(initialized.status).toBe(0);
-    expect(initialized.stdout + initialized.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
-    const ok = run(["doctor"], repo);
-    const okOut = ok.stdout + ok.stderr;
-    // The repo declaration is present, but the settings carrier was refused.
-    expect(okOut).toInclude("machine carrier ~/.claude/settings.json missing");
-    expect(okOut).toInclude("repo carrier .cursor/hooks.json present");
+    const carrier = join(home, ".claude", "settings.json");
+    rmSync(carrier);
     const missing = run(["doctor"], repo);
-    expect((missing.stdout + missing.stderr)).toInclude("machine carrier ~/.claude/settings.json missing → ai-eng update");
+    const missingOut = missing.stdout + missing.stderr;
+    // The repo declaration is present; the machine carrier is a separate row.
+    expect(missingOut).toInclude("machine carrier ~/.claude/settings.json missing → ai-eng update");
+    expect(missingOut).toInclude("repo carrier .cursor/hooks.json present");
     expect(missing.status).toBe(2);
+    // The command doctor names is the one that fixes it.
+    expect(run(["update", "--yes"], repo).status).toBe(0);
+    expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("claude-code", "machine")!.main);
+    const fixed = run(["doctor"], repo);
+    const fixedOut = fixed.stdout + fixed.stderr;
+    expect(fixedOut).toInclude("machine carrier ~/.claude/settings.json carries the ai-eng entries");
+    expect(fixedOut).not.toInclude("~/.claude/settings.json missing");
   });
 
   test("machine round trip: uninstall's everything scope takes our carriers out and says so", () => {
@@ -253,7 +259,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     expect(afterUninstall).toBe(beforeUninstall);
   });
 
-  test("update refuses to create a missing machine settings carrier", () => {
+  test("update recreates a lost machine settings carrier", () => {
     useHome();
     const repo = join(sandbox, "lost-carrier");
     mkdirSync(repo, { recursive: true });
@@ -261,11 +267,11 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     const initialized = run(["init", "--yes", "--surface", "claude-code"], repo);
     expect(initialized.status).toBe(0);
     const carrier = join(home, ".claude", "settings.json");
-    expect(existsSync(carrier)).toBe(false);
+    rmSync(carrier);
     const out = run(["update", "--yes"], repo);
     expect(out.status, out.stdout + out.stderr).toBe(0);
-    expect(out.stdout + out.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
-    expect(existsSync(carrier)).toBe(false);
+    expect(out.stdout + out.stderr).toInclude("~/.claude/settings.json · machine carrier · written");
+    expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("claude-code", "machine")!.main);
   });
 
   test("user hooks survive init, update and uninstall, and ours leave with us", () => {
@@ -353,15 +359,14 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
 
 
 
-  test("a fresh repo refuses a missing machine settings path", () => {
+  test("a fresh repo gets its missing machine settings carrier on the machine, not in the repo", () => {
     useHome();
     const repo = join(sandbox, "fresh");
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo });
     const initialized = run(["init", "--yes", "--surface", "claude-code"], repo);
     expect(initialized.status).toBe(0);
-    expect(initialized.stdout + initialized.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
-    expect(existsSync(join(home, ".claude", "settings.json"))).toBe(false);
+    expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toBe(carrierFiles("claude-code", "machine")!.main);
     expect(existsSync(join(repo, ".claude"))).toBe(false); // the carrier is not the repo's copy
   });
 });

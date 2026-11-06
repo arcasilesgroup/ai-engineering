@@ -3,7 +3,7 @@
 
 import surfacesJson from "./surfaces.json";
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, existsSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { closeSync, constants, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { hostname } from "node:os";
 import { basename, join, dirname, relative, resolve, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
@@ -1248,9 +1248,10 @@ function serializeMachineState(state: MachineState): string {
  *  from the user's home now gets its carrier there; the repo keeps only the carriers
  *  whose readers live in the repo (§13.2).
  *
- *  A `settings` carrier can be user-owned. Read-only checks are allowed, but writes that
- *  need a pathname replacement are refused because the portable filesystem API cannot
- *  bind that replacement to the identity that was validated. */
+ *  A `settings` carrier can be user-owned. A missing one is created exclusively from our
+ *  template; read-only checks are allowed, but writes that need a pathname replacement
+ *  are refused because the portable filesystem API cannot bind that replacement to the
+ *  identity that was validated. */
 export function installMachineCarriers(surfaceIds: string[]): MachineReport {
   const stateRecord = readMachineStateRecord();
   const report: MachineReport = { written: [], untouched: [], refused: interruptedCopyRefusals(stateRecord) };
@@ -1302,11 +1303,10 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       report.written.push(`~/${placement.path}`);
       continue;
     }
-    if (!existsSync(dirname(absolute))) {
-      report.refused.push({
-        path: `~/${placement.path}`,
-        reason: SETTINGS_MUTATION_REFUSED,
-      });
+    try {
+      mkdirSync(dirname(absolute), { recursive: true });
+    } catch {
+      report.refused.push({ path: `~/${placement.path}`, reason: CARRIER_UNWRITABLE });
       continue;
     }
     const snapshot = readableMachineSettings(absolute);
@@ -1324,10 +1324,17 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       continue;
     }
     if (snapshot.file === null) {
-      report.refused.push({
-        path: `~/${placement.path}`,
-        reason: SETTINGS_MUTATION_REFUSED,
-      });
+      const created = createMachineSettings(snapshot, absolute, files.main);
+      if (created === null) {
+        report.refused.push({ path: `~/${placement.path}`, reason: CARRIER_UNWRITABLE });
+        continue;
+      }
+      // The re-check before machine.json is written compares against this file now: it is
+      // the one this run created, not a change that appeared behind the snapshot.
+      const settingsEntry = settingsSnapshots.find((entry) => entry.id === id);
+      if (settingsEntry !== undefined) settingsEntry.snapshot = created;
+      state.carriers[id] = definition;
+      report.written.push(`~/${placement.path}`);
       continue;
     }
     const merged = mergeSharedText(snapshot.file.content.toString("utf8"), files.main);
@@ -1378,6 +1385,34 @@ function carrierFileOwner(path: string, ours: string, isOurs: (content: string) 
 
 /** A module carrier is ours whole, but only as a regular file: never through a link, into a
  *  directory, or by blocking on a FIFO. */
+/** Create a missing machine settings file from our template. Exclusive creation inside the
+ *  validated directory is the one settings write that binds to an identity: the kernel
+ *  refuses it if any name — a file, a link, a dangling link — appeared there, so nothing
+ *  of the user's can be replaced. Returns the snapshot of the file this call created, or
+ *  null when creation was refused or the name no longer holds exactly that file. */
+function createMachineSettings(snapshot: MachineSettingsSnapshot, absolute: string, content: string): MachineSettingsSnapshot | null {
+  const created = withMachineSettingsDirectory(snapshot.sourceParent, () => {
+    let descriptor: number | null = null;
+    try {
+      descriptor = openSync(snapshot.sourceName, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o644);
+      writeFileSync(descriptor, content);
+      return fstatSync(descriptor);
+    } catch {
+      return null;
+    } finally {
+      if (descriptor !== null) closeSync(descriptor);
+    }
+  });
+  if (created === null) return null;
+  const after = readableMachineSettings(absolute);
+  const isOurs = after?.link === null
+    && after.file !== null
+    && after.file.stat.dev === created.dev
+    && after.file.stat.ino === created.ino
+    && after.file.content.toString("utf8") === content;
+  return isOurs ? after : null;
+}
+
 function writeCarrierModule(path: string, content: string): boolean {
   let descriptor: number | null = null;
   try {
