@@ -1924,3 +1924,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Drop redirect operators with their targets before parsing; one redirect parser for policy and `..` resolved against cwd; fingerprint failure denies with a receipt; key words matching a value are dropped from labels.
 - **Lesson:** A surviving mutant in a guard is a question about a real input — answer it with that input before calling the mutant equivalent.
 - **Tags:** review, guards, security, mutation
+
+### L264 · 2026-11-06 · production-readiness #2 · behavior
+- **Failure:** `chain-dispatch` "wrap rewrites a test command" flaked: deny instead of rewrite in some full runs.
+- **Root cause:** The test never pointed `AI_ENG_HOME` at a scratch folder, so the loop guard kept history in the real `~/.ai-engineering/cache/loop/` under a fixed session id, across runs and concurrent suites.
+- **Fix:** A per-file scratch machine home, restored and deleted in `afterAll`.
+- **Lesson:** A test that runs the chain in-process must point `AI_ENG_HOME` at a scratch folder; the hygiene check only sees env and `tests/` folders, not writes into the real home.
+- **Tags:** behavior, tests, isolation, flaky
