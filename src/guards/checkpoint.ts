@@ -22,6 +22,7 @@ import {
   brainstormApprovalProblem,
   checkpointComplete,
   parseCheckpoint,
+  readCheckpoint,
   readCheckpointText,
   type Checkpoint,
   type CheckpointContext,
@@ -277,9 +278,6 @@ function assertProgress(previous: Checkpoint | null, next: Checkpoint): Checkpoi
     if (review === "passed" && (behavior !== "passed" || (ui !== "passed" && ui !== "n/a"))) {
       return deny(`CP${checkpoint.id}`, "review gate", "cannot pass before behavior and ui have passed or ui is n/a", `run the CP${checkpoint.id} behavior and ui gates`);
     }
-    if (checkpoint.status === "passed" && !checkpointComplete(checkpoint)) {
-      return deny(`CP${checkpoint.id}`, "checkpoint status", "cannot be passed until every gate is passed or n/a", `finish the CP${checkpoint.id} gates`);
-    }
 
     const oldCheckpoint = previous?.checkpoints.find((candidate) => candidate.id === checkpoint.id);
     const hasChanged = oldCheckpoint !== undefined &&
@@ -394,19 +392,12 @@ function checkMarker(payload: Payload, repoRoot: string): CheckpointGuardResult 
     return deny(label, "checkpoint stage", `does not recognize "${stage}"`, "use tests, implement, behavior, ui, review, or fix");
   }
 
-  let context: CheckpointContext;
   let checkpoint: Checkpoint;
   const path = join(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   try {
-    context = checkpointContext(repoRoot, slug);
-    const text = readCheckpointText(path, context);
-    if (text === null) throw new Error("file does not exist");
-    checkpoint = parseCheckpoint(text, context);
+    checkpoint = readCheckpoint(path, checkpointContext(repoRoot, slug));
   } catch (error) {
     return deny(label, "checkpoint gate", `cannot read ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint file and retry the marked task");
-  }
-  if (checkpoint.slug !== slug) {
-    return deny(label, "checkpoint gate", `plan slug does not match marker "${slug}"`, "use the slug from the checkpoint filename");
   }
   const sequenceError = requireSequentialCheckpoints(checkpoint, path);
   if (sequenceError !== undefined) return sequenceError;
@@ -645,12 +636,8 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     if (!orchestratorTranscript(payload, slug)) continue;
     const path = join(folder, file);
     let checkpoint: Checkpoint;
-    let context: CheckpointContext;
     try {
-      context = checkpointContext(root, slug);
-      const text = readCheckpointText(path, context);
-      if (text === null) throw new Error("file does not exist");
-      checkpoint = parseCheckpoint(text, context);
+      checkpoint = readCheckpoint(path, checkpointContext(root, slug));
     } catch (error) {
       return deny(`Checkpoint ${slug}`, "Stop gate", `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint JSON before ending the turn");
     }
