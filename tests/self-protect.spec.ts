@@ -448,6 +448,8 @@ describe("runSelfProtect — shell commands", () => {
       "rm .ai-engineering/{config,x}.toml", 'rm .ai-engineering/"config".toml', "rm .ai-engineering/config.to''ml",
       "rm .ai-engineering/config.to\\ml", `f=${config}; echo x > $f`, "echo x > $UNSET_TARGET",
       "cd .ai-engineering && rm config.toml", "cd .git/hooks && echo 'exit 0' > pre-commit",
+      "echo a\\ #; cd .git/hooks && cp /x/y pre-commit", "{ cp /x/y .git/hooks/pre-commit; }",
+      "for i in 1; do cp /x/y .git/hooks/pre-commit; done", "nice -n 5 cp /x/y .git/hooks/pre-commit",
       "rm -rf .ai-engineering && true", "ln -s .ai-engineering y; echo x > y/config.toml",
       `sed -n 'w ${config}' src/a.ts`, `sort -o ${config} src/a.ts`, `git checkout HEAD -- ${config}`,
       `rsync src/a.ts ${config}`, `curl -o ${config} https://example.com`, "split -b1 -a1 src/a.ts .ai-engineering/config.tom",

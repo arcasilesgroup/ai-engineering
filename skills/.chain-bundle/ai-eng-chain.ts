@@ -573,10 +573,11 @@ function overrideActive(overrides, guard) {
 }
 
 // src/guards/no-verify.ts
-import { basename, resolve as resolve2, isAbsolute, join as join3 } from "path";
+import { basename as basename2, resolve as resolve2, isAbsolute, join as join3 } from "path";
 import { realpathSync } from "fs";
 
 // src/guards/shell.ts
+import { basename } from "path";
 var REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/y;
 var asOperator = (operator) => operator.includes("<&") ? " < " : " > ";
 function redirectAt(text, at) {
@@ -677,9 +678,12 @@ function readShell(command) {
     substitutions = [...frame.parentSubstitutions, isSingleCommand ? segments[frame.innerStart].text.trim() : ""];
   };
   const source = command.replace(/\\\r?\n/g, "");
+  let isWordStart = true;
   for (let index = 0;index < source.length; index++) {
     const char = source[index];
     const next = source[index + 1];
+    const wasWordStart = isWordStart;
+    isWordStart = false;
     if (quote === "'") {
       if (char === "'")
         quote = null;
@@ -697,12 +701,15 @@ function readShell(command) {
       index = end;
     } else if (char === "$" && next === "(") {
       open(")");
+      isWordStart = true;
       index++;
     } else if (char === "`") {
-      if (quote === null && nesting.at(-1)?.closer === "`")
+      if (quote === null && nesting.at(-1)?.closer === "`") {
         close();
-      else
+      } else {
         open("`");
+        isWordStart = true;
+      }
     } else if (quote === '"') {
       if (char === '"')
         quote = null;
@@ -713,13 +720,15 @@ function readShell(command) {
     } else if ((char === "<" || char === ">") && next === "(") {
       open(")");
       isProcessSubstitution = true;
+      isWordStart = true;
       index++;
-    } else if (char === "#" && /(^|\s)$/.test(current)) {
+    } else if (char === "#" && wasWordStart) {
       while (index + 1 < source.length && source[index + 1] !== `
 `)
         index++;
     } else if (char === "<" && next === "<" && source[index + 2] === "<") {
       current += "<<<";
+      isWordStart = true;
       index += 2;
     } else if (char === "<" && next === "<") {
       const heredoc = HEREDOC.exec(source.slice(index));
@@ -727,16 +736,19 @@ function readShell(command) {
         return UNREADABLE;
       pending.push({ delimiter: heredoc[4], isLiteral: heredoc[2] !== "" || heredoc[3] !== "", stripsTabs: heredoc[1] === "-", owner: heredocs });
       current += heredoc[0];
+      isWordStart = true;
       index += heredoc[0].length - 1;
     } else if (redirectAt(source, index) !== null) {
       const operator = redirectAt(source, index);
       normalized += source.slice(copiedUpTo, index) + asOperator(operator);
       copiedUpTo = index + operator.length;
       current += operator;
+      isWordStart = true;
       index += operator.length - 1;
     } else if (char === `
 ` && pending.length > 0) {
       cut();
+      isWordStart = true;
       for (const heredoc of pending.splice(0)) {
         const bodyStart = index + 1;
         let lineStart = bodyStart;
@@ -770,6 +782,7 @@ function readShell(command) {
       if (isOr || next === "&")
         index++;
       cut(!isOr);
+      isWordStart = true;
     } else if (char === ")" && nesting.at(-1)?.closer === ")") {
       close();
     } else if (`;&
@@ -777,8 +790,10 @@ function readShell(command) {
       if (char === "&" && next === "&")
         index++;
       cut();
+      isWordStart = true;
     } else {
       current += char;
+      isWordStart = /\s/.test(char);
     }
   }
   cut();
@@ -787,6 +802,36 @@ function readShell(command) {
   return { segments, normalized: normalized + source.slice(copiedUpTo) };
 }
 var UNREADABLE = { segments: null, normalized: null };
+var RESERVED_WORDS = new Set(["!", "{", "}", "if", "then", "elif", "else", "fi", "do", "done", "while", "until", "esac", "coproc"]);
+var COMMAND_PREFIXES = new Set(["sudo", "doas", "command", "builtin", "exec", "env", "nohup", "time", "nice", "xargs", "timeout", "stdbuf", "busybox"]);
+var PREFIX_VALUE_OPTIONS = {
+  xargs: /^-[0-9A-Za-z]*[aIiLlnsPEed]$/,
+  sudo: /^-[A-Za-z]*[ugCDhpRrT]$/,
+  doas: /^-[A-Za-z]*[uC]$/,
+  env: /^-[A-Za-z]*[uCS]$/,
+  nice: /^-n$/,
+  timeout: /^-[sk]$/,
+  stdbuf: /^-[ioe]$/,
+  exec: /^-a$/
+};
+function commandIndex(words, nameOf = basename, start = 0) {
+  let index = start;
+  while (index < words.length) {
+    const word = words[index];
+    if (RESERVED_WORDS.has(word) || /^[A-Za-z_]\w*=/.test(word)) {
+      index++;
+      continue;
+    }
+    const prefix = nameOf(word);
+    if (!COMMAND_PREFIXES.has(prefix))
+      return index;
+    index++;
+    while (index < words.length && /^(?:-|[A-Za-z_]\w*=|\d+(?:\.\d+)?[smhd]?$)/.test(words[index])) {
+      index += PREFIX_VALUE_OPTIONS[prefix]?.test(words[index]) ? 2 : 1;
+    }
+  }
+  return index;
+}
 var ANSI_ESCAPES = { n: `
 `, t: "\t", r: "\r", "\\": "\\", "'": "'", '"': '"', e: "\x1B", a: "\x07", "0": "\x00" };
 function shellWords(text) {
@@ -894,7 +939,6 @@ var RAW_SKIPS = [
 var HOOKED = new Set(["commit", "push", "merge", "pull", "rebase", "am", "cherry-pick", "revert"]);
 var VALUE_OPTIONS = new Set(["-m", "--message", "-F", "--file", "-t", "--template", "--author", "--date", "--trailer", "--cleanup", "-C", "--reuse-message", "-c", "--reedit-message", "--fixup", "--squash"]);
 var GLOBAL_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix", "--attr-source"]);
-var RUN_PREFIXES = new Set(["sudo", "env", "command", "exec", "nohup", "time", "nice", "xargs"]);
 function argumentWords(text) {
   const words = shellWords(text);
   const kept = [];
@@ -915,61 +959,72 @@ function gitHookSkip(command, depth = 0) {
     return;
   for (const segment of segments) {
     const words = argumentWords(segment.text);
-    let index = 0;
-    while (index < words.length && (/^[A-Za-z_]\w*=/.test(words[index].value) || RUN_PREFIXES.has(basename(words[index].value))))
-      index++;
-    if (basename(words[index]?.value ?? "") !== "git")
-      continue;
-    const environment = words.slice(0, index).map((word) => word.value);
-    let position = index + 1;
-    const globals = [];
-    while (position < words.length && words[position].value.startsWith("-")) {
-      const option = words[position].value;
-      const takesNext = GLOBAL_VALUE_OPTIONS.has(option);
-      globals.push(takesNext ? `${option}=${words[position + 1]?.value ?? ""}` : option);
-      position += takesNext ? 2 : 1;
-    }
-    const sub = words[position]?.value ?? "";
-    const aliases = globals.map((option) => /^-c=?(alias\.[^=]+)=(.*)$/s.exec(option.replace(/^-c(?=[^=])/, "-c="))).filter((match) => match !== null).map((match) => match[2]);
-    if (sub === "config") {
-      const rest = words.slice(position + 1).map((word) => word.value).filter((value) => !value.startsWith("-"));
-      if (/^alias\./i.test(rest[0] ?? "") && rest[1] !== undefined)
-        aliases.push(rest[1]);
-    }
-    for (const alias of aliases) {
-      const expanded = gitHookSkip(alias.startsWith("!") ? alias.slice(1) : `git ${alias}`, depth + 1);
-      if (expanded)
-        return expanded;
-    }
-    if (!HOOKED.has(sub))
-      continue;
-    if (environment.some((value) => /^(?:GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|GIT_TEMPLATE_DIR|HOME|XDG_CONFIG_HOME)=/.test(value)) || globals.some((option) => /^--(?:git-dir|exec-path)(?:=|$)/.test(option))) {
-      return "pointing git at another directory or config";
-    }
-    const takesValue = (value) => VALUE_OPTIONS.has(value) || /^-[a-zA-Z]*[mFtCc]$/.test(value);
-    const isGitQuery = (word) => word.value.includes(SUBSTITUTION) && segment.substitutions.every((inner) => /^git\s+(?:rev-parse|branch|symbolic-ref|describe)\b/.test(inner));
-    const splitsIntoWords = (word) => /[$`*?[]|\{[^}]*,/.test(word.unquoted);
-    for (let at = position + 1;at < words.length; at++) {
-      const word = words[at];
-      const value = word.value;
-      if (isGitQuery(word))
+    const commandAt = commandIndex(words.map((word) => word.value));
+    for (let gitAt = 0;gitAt < words.length; gitAt++) {
+      if (basename2(words[gitAt].value) !== "git")
         continue;
-      if (/[$`]/.test(value) || splitsIntoWords(word))
-        return "an option computed at run time";
-      if (takesValue(value)) {
-        if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value))
-          return "git commit -n";
-        at++;
-        const optionValue = words[at];
-        if (optionValue !== undefined && !isGitQuery(optionValue) && splitsIntoWords(optionValue))
-          return "an option computed at run time";
-        continue;
-      }
-      if (value.startsWith("--no-veri"))
-        return "--no-verify";
+      const skip = gitInvocationSkip(segment, words, gitAt, gitAt !== commandAt, depth);
+      if (skip)
+        return skip;
+    }
+  }
+  return null;
+}
+function gitInvocationSkip(segment, words, gitAt, isWrapped, depth) {
+  const environment = words.slice(0, gitAt).map((word) => word.value);
+  let position = gitAt + 1;
+  const globals = [];
+  while (position < words.length && words[position].value.startsWith("-")) {
+    const option = words[position].value;
+    const takesNext = GLOBAL_VALUE_OPTIONS.has(option);
+    globals.push(takesNext ? `${option}=${words[position + 1]?.value ?? ""}` : option);
+    position += takesNext ? 2 : 1;
+  }
+  if (isWrapped && !HOOKED.has(words[position]?.value ?? "")) {
+    const hooked = words.findIndex((word, at) => at > position && HOOKED.has(word.value));
+    if (hooked >= 0)
+      position = hooked;
+  }
+  const sub = words[position]?.value ?? "";
+  const aliases = globals.map((option) => /^-c=?(alias\.[^=]+)=(.*)$/s.exec(option.replace(/^-c(?=[^=])/, "-c="))).filter((match) => match !== null).map((match) => match[2]);
+  if (sub === "config") {
+    const rest = words.slice(position + 1).map((word) => word.value).filter((value) => !value.startsWith("-"));
+    if (/^alias\./i.test(rest[0] ?? "") && rest[1] !== undefined)
+      aliases.push(rest[1]);
+  }
+  for (const alias of aliases) {
+    const expanded = gitHookSkip(alias.startsWith("!") ? alias.slice(1) : `git ${alias}`, depth + 1);
+    if (expanded)
+      return expanded;
+  }
+  if (!HOOKED.has(sub))
+    return null;
+  if (environment.some((value) => /^(?:GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|GIT_TEMPLATE_DIR|HOME|XDG_CONFIG_HOME)=/.test(value)) || globals.some((option) => /^--(?:git-dir|exec-path)(?:=|$)/.test(option))) {
+    return "pointing git at another directory or config";
+  }
+  const takesValue = (value) => VALUE_OPTIONS.has(value) || /^-[a-zA-Z]*[mFtCc]$/.test(value);
+  const isGitQuery = (word) => word.value.includes(SUBSTITUTION) && segment.substitutions.every((inner) => /^git\s+(?:rev-parse|branch|symbolic-ref|describe)\b/.test(inner));
+  const splitsIntoWords = (word) => /[$`*?[]|\{[^}]*,/.test(word.unquoted);
+  for (let at = position + 1;at < words.length; at++) {
+    const word = words[at];
+    const value = word.value;
+    if (isGitQuery(word))
+      continue;
+    if (/[$`]/.test(value) || splitsIntoWords(word))
+      return "an option computed at run time";
+    if (takesValue(value)) {
       if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value))
         return "git commit -n";
+      at++;
+      const optionValue = words[at];
+      if (optionValue !== undefined && !isGitQuery(optionValue) && splitsIntoWords(optionValue))
+        return "an option computed at run time";
+      continue;
     }
+    if (value.startsWith("--no-veri"))
+      return "--no-verify";
+    if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value))
+      return "git commit -n";
   }
   return null;
 }
@@ -1068,7 +1123,7 @@ function runNoVerify(payload, repoRoot) {
 }
 
 // src/guards/self-protect.ts
-import { basename as basename2, isAbsolute as isAbsolute2, join as join4, parse, resolve as resolve3, sep as sep2 } from "path";
+import { basename as basename3, isAbsolute as isAbsolute2, join as join4, parse, resolve as resolve3, sep as sep2 } from "path";
 import { existsSync as existsSync2, readFileSync as readFileSync3, realpathSync as realpathSync2 } from "fs";
 var WRITERS = {
   rm: true,
@@ -1103,7 +1158,7 @@ function commandName(word) {
   const withoutRedirect = isQuoted ? unquoted : unquoted.replace(/(?:\{[\w]+\})?\d*(?:&>>?|>>?[|!&]?|<>|<{1,3}|<&).*$/, "");
   const isWindowsPath = /^(?:[A-Za-z]:|\.{1,2})\\/.test(withoutRedirect);
   const normalized = isWindowsPath || withoutRedirect.includes("/") ? withoutRedirect.replace(/\\/g, "/") : withoutRedirect.replace(/\\(.)/g, "$1");
-  return basename2(normalized);
+  return basename3(normalized);
 }
 function stripRedirections(args) {
   const kept = [];
@@ -1131,7 +1186,7 @@ function restrictedAiEngArgs(args) {
   const has = (word) => words.includes(word);
   return has("uninstall") || has("wrap") || has("adapt") && has("apply") || has("config") && words.some((word) => /^--remove(?:=|$)/.test(word));
 }
-var SHELL_KEYWORDS = new Set(["", "!", "{", "}", "(", ")", "then", "do", "else", "elif", "if", "while", "until"]);
+var SHELL_KEYWORDS = new Set(["", "(", ")", ...RESERVED_WORDS]);
 function commandStart(words) {
   let index = 0;
   while (index < words.length) {
@@ -1147,27 +1202,11 @@ function commandStart(words) {
   }
   return index;
 }
-var COMMAND_PREFIXES = new Set(["sudo", "doas", "command", "builtin", "exec", "env", "nohup", "time", "nice", "xargs", "timeout", "stdbuf", "busybox"]);
 var SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish", "csh", "tcsh", "pwsh", "powershell"]);
 var INTERPRETERS = new Set([...SHELLS, "python", "python3", "node", "perl", "ruby", "bun", "deno", "php"]);
 var STDIN_FILES = new Set(["-", "/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"]);
-var PREFIX_VALUE_OPTIONS = {
-  xargs: /^-[0-9A-Za-z]*[aIiLlnsPEed]$/,
-  sudo: /^-[A-Za-z]*[ugCDhpRrT]$/,
-  doas: /^-[A-Za-z]*[uC]$/,
-  env: /^-[A-Za-z]*[uCS]$/,
-  nice: /^-n$/,
-  timeout: /^-[sk]$/
-};
 function verbOf(words) {
-  let index = commandStart(words);
-  while (index < words.length && COMMAND_PREFIXES.has(commandName(words[index]))) {
-    const prefix = commandName(words[index]);
-    index++;
-    while (index < words.length && /^(?:-|[A-Za-z_]\w*=|\d+[smhd]?$)/.test(words[index])) {
-      index += PREFIX_VALUE_OPTIONS[prefix]?.test(words[index]) ? 2 : 1;
-    }
-  }
+  const index = commandIndex(words, commandName, commandStart(words));
   return { index, name: commandName(words[index] ?? "") };
 }
 var INFO_FLAGS = /^(?:--version|--help|-V|-v|-h)$/;
@@ -1821,7 +1860,7 @@ function offendingPath(paths, rawText) {
       return path;
   }
   for (const path of paths.literals) {
-    const bare = path === basename2(path);
+    const bare = path === basename3(path);
     if (bare) {
       const segment = new RegExp(`(^|/)${path.toLowerCase().replace(/\./g, "\\.")}$`);
       if (segment.test(text))
@@ -2710,7 +2749,7 @@ import {
   writeFileSync as writeFileSync2
 } from "fs";
 import { homedir as homedir3 } from "os";
-import { basename as basename3, dirname as dirname2, isAbsolute as isAbsolute5, join as join9, relative as relative2, resolve as resolve6, sep as sep5 } from "path";
+import { basename as basename4, dirname as dirname2, isAbsolute as isAbsolute5, join as join9, relative as relative2, resolve as resolve6, sep as sep5 } from "path";
 import { isDeepStrictEqual } from "util";
 
 // src/git/context.ts
@@ -3464,7 +3503,7 @@ function realTarget(path, hops = 0) {
     const parent = dirname2(current);
     if (parent === current)
       return path;
-    rest.unshift(basename3(current));
+    rest.unshift(basename4(current));
     current = parent;
   }
 }
@@ -3829,7 +3868,7 @@ function shellWritesIntoCheckpoints(command, cwd, repo) {
       directory = stack.pop() ?? null;
       continue;
     }
-    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename3(name)) && landsInCheckpoints(repo, directory)) {
+    if (directory !== null && name !== undefined && OPAQUE_WRITERS.has(basename4(name)) && landsInCheckpoints(repo, directory)) {
       const here = directory;
       const isCheckpointFile = (operand) => {
         const absolute = shellPath(here, operand);
@@ -4036,7 +4075,7 @@ import { createHash as createHash5, randomUUID } from "crypto";
 // src/shared-project-fs.ts
 import { createHash as createHash4 } from "crypto";
 import { closeSync, constants, fstatSync, ftruncateSync, lstatSync as lstatSync3, openSync, readFileSync as readFileSync10, readSync, realpathSync as realpathSync7, rmdirSync, unlinkSync as unlinkSync2, writeSync } from "fs";
-import { basename as basename4, dirname as dirname3, isAbsolute as isAbsolute6, join as join10, relative as relative3, resolve as resolve7, sep as sep6 } from "path";
+import { basename as basename5, dirname as dirname3, isAbsolute as isAbsolute6, join as join10, relative as relative3, resolve as resolve7, sep as sep6 } from "path";
 function safeProjectPath(root, rel) {
   let canonicalRoot;
   try {
@@ -4090,7 +4129,7 @@ function withSafeProjectParent(root, absolute, action) {
     if (currentDirectory !== parent || !pathIsWithin(canonicalRoot, currentDirectory))
       return false;
     try {
-      return action(basename4(absolute));
+      return action(basename5(absolute));
     } catch (error) {
       if (isFilesystemRefusal(error))
         return false;

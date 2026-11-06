@@ -4,6 +4,7 @@
 // that splits, joins or decodes one character differently from the shell fails here.
 import { describe, expect, test } from "bun:test";
 import {
+  commandIndex,
   normalizeRedirects,
   rawShellWords,
   resolveSubstitutions,
@@ -66,6 +67,17 @@ describe("shellSegments: comments", () => {
 
   test("a `#` inside a word is not a comment", () => {
     expect(shellSegments("echo a#b c")).toEqual([segment("echo a#b c")]);
+  });
+
+  test("a `#` after an escaped space is inside the word: bash runs the next command", () => {
+    expect(shellSegments("echo a\\ #; echo SECOND")).toEqual([segment("echo a\\ #"), segment(" echo SECOND")]);
+    expect(shellSegments("echo a\\\t#; b")).toEqual([segment("echo a\\\t#"), segment(" b")]);
+  });
+
+  test("a `#` starting a word after an operator or a quoted word's space is a comment", () => {
+    expect(shellSegments("a;#x\nb")).toEqual([segment("a"), segment(""), segment("b")]);
+    expect(shellSegments("echo \"a # b\"; git status")).toEqual([segment("echo \"a # b\""), segment(" git status")]);
+    expect(shellSegments("echo 'x' # c\nb")).toEqual([segment("echo 'x' "), segment("b")]);
   });
 });
 
@@ -241,6 +253,36 @@ describe("shellSegments: $'…' and ${…}", () => {
     for (const command of ["echo ${x:-> f}", "echo ${x:-a b}", "echo ${x:-$(id)}", "echo ${a:-${b}}", 'echo "${x:-"}"', "echo ${x"]) {
       expect(shellSegments(command), command).toBeNull();
     }
+  });
+});
+
+describe("commandIndex", () => {
+  const nameAt = (command: string): string => {
+    const words = command.split(" ");
+    return words[commandIndex(words)] ?? "";
+  };
+
+  test.each([
+    ["{ git commit", "git"],
+    ["! git commit", "git"],
+    ["if git diff", "git"],
+    ["do git commit", "git"],
+    ["FOO=1 BAR=2 git push", "git"],
+    ["command -p git commit", "git"],
+    ["env -i -u FOO BAR=1 git commit", "git"],
+    ["nice -n 5 git commit", "git"],
+    ["time -p git push", "git"],
+    ["xargs -n 1 git commit", "git"],
+    ["sudo -u root git commit", "git"],
+    ["timeout -s KILL 5 git push", "git"],
+    ["stdbuf -o L git push", "git"],
+    ["exec -a name git push", "git"],
+    ["/usr/bin/env git push", "git"],
+    ["for git in commit", "for"],
+    ["chronic git commit", "chronic"],
+    ["env FOO=1", ""],
+  ])("%s runs %s", (command, name) => {
+    expect(nameAt(command)).toBe(name);
   });
 });
 

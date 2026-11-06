@@ -319,8 +319,9 @@ describe("no-verify: how a git command is read", () => {
     expect(label("git config alias.st status; git commit -n")).toBe("git commit -n");
   });
 
-  test("only git, after leading assignments, is read; assignments are judged by name", () => {
-    expect(label("./x=1 git commit -n")).toBeNull();
+  test("assignments are judged by name; git is read wherever its word stands", () => {
+    expect(label("./GIT_DIR=x git commit -m ok")).toBeNull();
+    expect(label("./x=1 git commit -n")).toBe("git commit -n");
     expect(label("hg commit -n -m x")).toBeNull();
     expect(label("git commit -m HOME=x")).toBeNull();
     expect(label("FOO_HOME=x git commit -m ok")).toBeNull();

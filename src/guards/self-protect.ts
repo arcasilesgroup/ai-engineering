@@ -17,7 +17,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
 import { embeddedPatchPaths } from "../payload.ts";
 import { home, machineBase } from "../env.ts";
-import { normalizeRedirects, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
+import { commandIndex, normalizeRedirects, RESERVED_WORDS, resolveSubstitutions, shellSegments, shellWords, type ShellSegment } from "./shell.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -93,7 +93,7 @@ function restrictedAiEngArgs(args: string[]): boolean {
     || (has("config") && words.some((word) => /^--remove(?:=|$)/.test(word)));
 }
 
-const SHELL_KEYWORDS = new Set(["", "!", "{", "}", "(", ")", "then", "do", "else", "elif", "if", "while", "until"]);
+const SHELL_KEYWORDS = new Set(["", "(", ")", ...RESERVED_WORDS]);
 
 /** Where the command word sits: past keywords, `NAME=value` and redirections, which the
  *  shell lets come BEFORE the verb (`>/dev/null ai-eng uninstall`, `2>&1 rm x`). */
@@ -112,31 +112,13 @@ function commandStart(words: string[]): number {
   return index;
 }
 
-const COMMAND_PREFIXES = new Set(["sudo", "doas", "command", "builtin", "exec", "env", "nohup", "time", "nice", "xargs", "timeout", "stdbuf", "busybox"]);
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish", "csh", "tcsh", "pwsh", "powershell"]);
 const INTERPRETERS = new Set([...SHELLS, "python", "python3", "node", "perl", "ruby", "bun", "deno", "php"]);
 const STDIN_FILES = new Set(["-", "/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"]);
 
-/** Prefix options that take the next word as their value (`xargs -a list rm`). */
-const PREFIX_VALUE_OPTIONS: Record<string, RegExp> = {
-  xargs: /^-[0-9A-Za-z]*[aIiLlnsPEed]$/,
-  sudo: /^-[A-Za-z]*[ugCDhpRrT]$/,
-  doas: /^-[A-Za-z]*[uC]$/,
-  env: /^-[A-Za-z]*[uCS]$/,
-  nice: /^-n$/,
-  timeout: /^-[sk]$/,
-};
-
 /** The verb a segment runs, past redirections and run-it-for-me prefixes (`command rm`). */
 function verbOf(words: string[]): { index: number; name: string } {
-  let index = commandStart(words);
-  while (index < words.length && COMMAND_PREFIXES.has(commandName(words[index]!))) {
-    const prefix = commandName(words[index]!);
-    index++;
-    while (index < words.length && /^(?:-|[A-Za-z_]\w*=|\d+[smhd]?$)/.test(words[index]!)) {
-      index += PREFIX_VALUE_OPTIONS[prefix]?.test(words[index]!) ? 2 : 1;
-    }
-  }
+  const index = commandIndex(words, commandName, commandStart(words));
   return { index, name: commandName(words[index] ?? "") };
 }
 

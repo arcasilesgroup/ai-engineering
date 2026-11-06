@@ -4,7 +4,7 @@
 import { basename, resolve, isAbsolute, join } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
-import { normalizeRedirects, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellWord } from "./shell.ts";
+import { commandIndex, normalizeRedirects, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellSegment, type ShellWord } from "./shell.ts";
 
 type Skip = { pattern: RegExp; label: string };
 
@@ -28,7 +28,6 @@ const HOOKED = new Set(["commit", "push", "merge", "pull", "rebase", "am", "cher
 /** Options whose next word is a value (a message, a file, an author), never an option. */
 const VALUE_OPTIONS = new Set(["-m", "--message", "-F", "--file", "-t", "--template", "--author", "--date", "--trailer", "--cleanup", "-C", "--reuse-message", "-c", "--reedit-message", "--fixup", "--squash"]);
 const GLOBAL_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix", "--attr-source"]);
-const RUN_PREFIXES = new Set(["sudo", "env", "command", "exec", "nohup", "time", "nice", "xargs"]);
 
 /** The words git receives: the shell strips every redirection (`2>/dev/null`, `>log`,
  *  `<in`, `&>out`, `2>&1`) wherever it stands, so the operator and its target are not
@@ -56,59 +55,74 @@ function gitHookSkip(command: string, depth = 0): string | null | undefined {
   if (segments === null) return undefined;
   for (const segment of segments) {
     const words = argumentWords(segment.text);
-    let index = 0;
-    while (index < words.length && (/^[A-Za-z_]\w*=/.test(words[index]!.value) || RUN_PREFIXES.has(basename(words[index]!.value)))) index++;
-    if (basename(words[index]?.value ?? "") !== "git") continue;
-    const environment = words.slice(0, index).map((word) => word.value);
-    let position = index + 1;
-    const globals: string[] = [];
-    while (position < words.length && words[position]!.value.startsWith("-")) {
-      const option = words[position]!.value;
-      const takesNext = GLOBAL_VALUE_OPTIONS.has(option);
-      globals.push(takesNext ? `${option}=${words[position + 1]?.value ?? ""}` : option);
-      position += takesNext ? 2 : 1;
+    const commandAt = commandIndex(words.map((word) => word.value));
+    // Every `git` word is judged, not only the one in command position: a wrapper this
+    // reader does not know (`chronic git commit -n`) still runs git with its flags.
+    for (let gitAt = 0; gitAt < words.length; gitAt++) {
+      if (basename(words[gitAt]!.value) !== "git") continue;
+      const skip = gitInvocationSkip(segment, words, gitAt, gitAt !== commandAt, depth);
+      if (skip) return skip;
     }
-    const sub = words[position]?.value ?? "";
-    // An alias is a command git will run later under another name: judge what it expands to.
-    const aliases = globals.map((option) => /^-c=?(alias\.[^=]+)=(.*)$/s.exec(option.replace(/^-c(?=[^=])/, "-c=")))
-      .filter((match) => match !== null).map((match) => match[2]!);
-    if (sub === "config") {
-      const rest = words.slice(position + 1).map((word) => word.value).filter((value) => !value.startsWith("-"));
-      if (/^alias\./i.test(rest[0] ?? "") && rest[1] !== undefined) aliases.push(rest[1]);
-    }
-    for (const alias of aliases) {
-      const expanded = gitHookSkip(alias.startsWith("!") ? alias.slice(1) : `git ${alias}`, depth + 1);
-      if (expanded) return expanded;
-    }
-    if (!HOOKED.has(sub)) continue;
-    // Another git directory, exec path or config home is another set of hooks.
-    if (environment.some((value) => /^(?:GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|GIT_TEMPLATE_DIR|HOME|XDG_CONFIG_HOME)=/.test(value))
-      || globals.some((option) => /^--(?:git-dir|exec-path)(?:=|$)/.test(option))) {
-      return "pointing git at another directory or config";
-    }
-    const takesValue = (value: string): boolean => VALUE_OPTIONS.has(value) || /^-[a-zA-Z]*[mFtCc]$/.test(value);
-    // A `$(…)` may name a ref from a read-only git query (`git push origin "$(git branch
-    // --show-current)"`); anywhere else a computed word could be `--no-verify`.
-    const isGitQuery = (word: ShellWord): boolean =>
-      word.value.includes(SUBSTITUTION) && segment.substitutions.every((inner) => /^git\s+(?:rev-parse|branch|symbolic-ref|describe)\b/.test(inner));
-    // Unquoted, `$x`, `*` and `{a,b}` become several words — a message value included:
-    // `-m {x,--no-verify}` is `-m x --no-verify`.
-    const splitsIntoWords = (word: ShellWord): boolean => /[$`*?[]|\{[^}]*,/.test(word.unquoted);
-    for (let at = position + 1; at < words.length; at++) {
-      const word = words[at]!;
-      const value = word.value;
-      if (isGitQuery(word)) continue;
-      if (/[$`]/.test(value) || splitsIntoWords(word)) return "an option computed at run time";
-      if (takesValue(value)) {
-        if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value)) return "git commit -n";
-        at++;
-        const optionValue = words[at];
-        if (optionValue !== undefined && !isGitQuery(optionValue) && splitsIntoWords(optionValue)) return "an option computed at run time";
-        continue;
-      }
-      if (value.startsWith("--no-veri")) return "--no-verify";
+  }
+  return null;
+}
+
+/** The hook skip of the git invocation whose `git` word stands at `gitAt`, or null. When
+ *  `git` is not the command name, the first hooked subcommand after it is the one judged. */
+function gitInvocationSkip(segment: ShellSegment, words: ShellWord[], gitAt: number, isWrapped: boolean, depth: number): string | null {
+  const environment = words.slice(0, gitAt).map((word) => word.value);
+  let position = gitAt + 1;
+  const globals: string[] = [];
+  while (position < words.length && words[position]!.value.startsWith("-")) {
+    const option = words[position]!.value;
+    const takesNext = GLOBAL_VALUE_OPTIONS.has(option);
+    globals.push(takesNext ? `${option}=${words[position + 1]?.value ?? ""}` : option);
+    position += takesNext ? 2 : 1;
+  }
+  if (isWrapped && !HOOKED.has(words[position]?.value ?? "")) {
+    const hooked = words.findIndex((word, at) => at > position && HOOKED.has(word.value));
+    if (hooked >= 0) position = hooked;
+  }
+  const sub = words[position]?.value ?? "";
+  // An alias is a command git will run later under another name: judge what it expands to.
+  const aliases = globals.map((option) => /^-c=?(alias\.[^=]+)=(.*)$/s.exec(option.replace(/^-c(?=[^=])/, "-c=")))
+    .filter((match) => match !== null).map((match) => match[2]!);
+  if (sub === "config") {
+    const rest = words.slice(position + 1).map((word) => word.value).filter((value) => !value.startsWith("-"));
+    if (/^alias\./i.test(rest[0] ?? "") && rest[1] !== undefined) aliases.push(rest[1]);
+  }
+  for (const alias of aliases) {
+    const expanded = gitHookSkip(alias.startsWith("!") ? alias.slice(1) : `git ${alias}`, depth + 1);
+    if (expanded) return expanded;
+  }
+  if (!HOOKED.has(sub)) return null;
+  // Another git directory, exec path or config home is another set of hooks.
+  if (environment.some((value) => /^(?:GIT_DIR|GIT_COMMON_DIR|GIT_EXEC_PATH|GIT_TEMPLATE_DIR|HOME|XDG_CONFIG_HOME)=/.test(value))
+    || globals.some((option) => /^--(?:git-dir|exec-path)(?:=|$)/.test(option))) {
+    return "pointing git at another directory or config";
+  }
+  const takesValue = (value: string): boolean => VALUE_OPTIONS.has(value) || /^-[a-zA-Z]*[mFtCc]$/.test(value);
+  // A `$(…)` may name a ref from a read-only git query (`git push origin "$(git branch
+  // --show-current)"`); anywhere else a computed word could be `--no-verify`.
+  const isGitQuery = (word: ShellWord): boolean =>
+    word.value.includes(SUBSTITUTION) && segment.substitutions.every((inner) => /^git\s+(?:rev-parse|branch|symbolic-ref|describe)\b/.test(inner));
+  // Unquoted, `$x`, `*` and `{a,b}` become several words — a message value included:
+  // `-m {x,--no-verify}` is `-m x --no-verify`.
+  const splitsIntoWords = (word: ShellWord): boolean => /[$`*?[]|\{[^}]*,/.test(word.unquoted);
+  for (let at = position + 1; at < words.length; at++) {
+    const word = words[at]!;
+    const value = word.value;
+    if (isGitQuery(word)) continue;
+    if (/[$`]/.test(value) || splitsIntoWords(word)) return "an option computed at run time";
+    if (takesValue(value)) {
       if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value)) return "git commit -n";
+      at++;
+      const optionValue = words[at];
+      if (optionValue !== undefined && !isGitQuery(optionValue) && splitsIntoWords(optionValue)) return "an option computed at run time";
+      continue;
     }
+    if (value.startsWith("--no-veri")) return "--no-verify";
+    if (sub === "commit" && /^-[a-zA-Z]*n[a-zA-Z]*$/.test(value)) return "git commit -n";
   }
   return null;
 }

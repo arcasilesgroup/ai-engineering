@@ -7,6 +7,8 @@
 // backticks, heredocs, comments, redirections and one-word `${…}`; it does not expand
 // aliases, functions or arithmetic. Shapes it cannot read come back as null and the caller denies.
 
+import { basename } from "node:path";
+
 /** A redirection operator starting at `lastIndex`. `>(` is process substitution, not a redirect. */
 const REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/y;
 const asOperator = (operator: string): string => (operator.includes("<&") ? " < " : " > ");
@@ -143,9 +145,14 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
     substitutions = [...frame.parentSubstitutions, isSingleCommand ? segments[frame.innerStart]!.text.trim() : ""];
   };
   const source = command.replace(/\\\r?\n/g, "");
+  // Whether the next character begins a word: only there does `#` open a comment, so the
+  // `#` of `a\ #` (an escaped space, still inside the word) is a character, as in bash.
+  let isWordStart = true;
   for (let index = 0; index < source.length; index++) {
     const char = source[index]!;
     const next = source[index + 1];
+    const wasWordStart = isWordStart;
+    isWordStart = false;
     if (quote === "'") {
       if (char === "'") quote = null;
       current += char;
@@ -160,10 +167,15 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       index = end;
     } else if (char === "$" && next === "(") {
       open(")");
+      isWordStart = true;
       index++;
     } else if (char === "`") {
-      if (quote === null && nesting.at(-1)?.closer === "`") close();
-      else open("`");
+      if (quote === null && nesting.at(-1)?.closer === "`") {
+        close();
+      } else {
+        open("`");
+        isWordStart = true;
+      }
     } else if (quote === '"') {
       if (char === '"') quote = null;
       current += char;
@@ -173,18 +185,21 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
     } else if ((char === "<" || char === ">") && next === "(") {
       open(")");
       isProcessSubstitution = true;
+      isWordStart = true;
       index++;
-    } else if (char === "#" && /(^|\s)$/.test(current)) {
+    } else if (char === "#" && wasWordStart) {
       while (index + 1 < source.length && source[index + 1] !== "\n") index++;
     } else if (char === "<" && next === "<" && source[index + 2] === "<") {
       // A here-string is one word of data, not a heredoc.
       current += "<<<";
+      isWordStart = true;
       index += 2;
     } else if (char === "<" && next === "<") {
       const heredoc = HEREDOC.exec(source.slice(index));
       if (heredoc === null) return UNREADABLE;
       pending.push({ delimiter: heredoc[4]!, isLiteral: heredoc[2] !== "" || heredoc[3] !== "", stripsTabs: heredoc[1] === "-", owner: heredocs });
       current += heredoc[0];
+      isWordStart = true;
       index += heredoc[0].length - 1;
     } else if (redirectAt(source, index) !== null) {
       const operator = redirectAt(source, index)!;
@@ -192,9 +207,11 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       copiedUpTo = index + operator.length;
       // Read whole, so the `|` of `>|` or the `&` of `>&` never cuts the command.
       current += operator;
+      isWordStart = true;
       index += operator.length - 1;
     } else if (char === "\n" && pending.length > 0) {
       cut();
+      isWordStart = true;
       for (const heredoc of pending.splice(0)) {
         const bodyStart = index + 1;
         let lineStart = bodyStart;
@@ -225,13 +242,16 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       const isOr = next === "|";
       if (isOr || next === "&") index++;
       cut(!isOr);
+      isWordStart = true;
     } else if (char === ")" && nesting.at(-1)?.closer === ")") {
       close();
     } else if (";&\n()".includes(char)) {
       if (char === "&" && next === "&") index++;
       cut();
+      isWordStart = true;
     } else {
       current += char;
+      isWordStart = /\s/.test(char);
     }
   }
   cut();
@@ -239,6 +259,47 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
   return { segments, normalized: normalized + source.slice(copiedUpTo) };
 }
 const UNREADABLE = { segments: null, normalized: null };
+
+/** Words the shell reads as grammar where a command name would stand: `{ git …; }`,
+ *  `! git …`, `if git …`, `do git …`. `for`, `select` and `case` are not here: the words
+ *  after them are a name and a list, never a command, so they stand as the name. */
+export const RESERVED_WORDS = new Set(["!", "{", "}", "if", "then", "elif", "else", "fi", "do", "done", "while", "until", "esac", "coproc"]);
+
+/** Commands that run the command after them (`nice -n 5 git …`, `sudo -u x rm …`). */
+export const COMMAND_PREFIXES = new Set(["sudo", "doas", "command", "builtin", "exec", "env", "nohup", "time", "nice", "xargs", "timeout", "stdbuf", "busybox"]);
+
+/** Prefix options that take the next word as their value (`xargs -a list rm`). */
+const PREFIX_VALUE_OPTIONS: Record<string, RegExp> = {
+  xargs: /^-[0-9A-Za-z]*[aIiLlnsPEed]$/,
+  sudo: /^-[A-Za-z]*[ugCDhpRrT]$/,
+  doas: /^-[A-Za-z]*[uC]$/,
+  env: /^-[A-Za-z]*[uCS]$/,
+  nice: /^-n$/,
+  timeout: /^-[sk]$/,
+  stdbuf: /^-[ioe]$/,
+  exec: /^-a$/,
+};
+
+/** Where the command name of `words` stands, from `start`: past reserved words, `NAME=value`
+ *  assignments, and run-it-for-me prefixes with their options and values. The one place
+ *  every guard asks "which program runs here". `nameOf` reads a word as a program name. */
+export function commandIndex(words: readonly string[], nameOf: (word: string) => string = basename, start = 0): number {
+  let index = start;
+  while (index < words.length) {
+    const word = words[index]!;
+    if (RESERVED_WORDS.has(word) || /^[A-Za-z_]\w*=/.test(word)) {
+      index++;
+      continue;
+    }
+    const prefix = nameOf(word);
+    if (!COMMAND_PREFIXES.has(prefix)) return index;
+    index++;
+    while (index < words.length && /^(?:-|[A-Za-z_]\w*=|\d+(?:\.\d+)?[smhd]?$)/.test(words[index]!)) {
+      index += PREFIX_VALUE_OPTIONS[prefix]?.test(words[index]!) ? 2 : 1;
+    }
+  }
+  return index;
+}
 
 export type ShellWord = {
   value: string;

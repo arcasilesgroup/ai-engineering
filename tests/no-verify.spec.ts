@@ -172,8 +172,42 @@ describe("checkBash", () => {
   });
 
   test.each([
+    ["an escaped space before # (-n)", "echo a\\ #; git commit -n -m x", "git commit -n"],
+    ["an escaped space before # (--no-verify)", "echo a\\ #; git commit --no-verify -m x", "--no-verify"],
+    ["a brace group", "{ git commit -n -m x; }", "git commit -n"],
+    ["a negation", "! git commit -n -m x", "git commit -n"],
+    ["an if condition", "if git commit -n -m x; then :; fi", "git commit -n"],
+    ["a for body", "for i in 1; do git commit -n -m x; done", "git commit -n"],
+    ["a while body", "while true; do git commit -n; done", "git commit -n"],
+    ["command -p", "command -p git commit -n -m x", "git commit -n"],
+    ["env -i", "env -i git commit -n -m x", "git commit -n"],
+    ["env -u NAME", "env -u FOO BAR=1 git commit -n -m x", "git commit -n"],
+    ["nice -n 5", "nice -n 5 git commit -m x --no-verify", "--no-verify"],
+    ["time", "time git commit -n", "git commit -n"],
+    ["time -p", "time -p git push --no-verify", "--no-verify"],
+    ["xargs", "xargs git commit -n", "git commit -n"],
+    ["xargs -n 1", "xargs -n 1 git commit -n", "git commit -n"],
+    ["sudo -u", "sudo -u x git commit -n", "git commit -n"],
+    ["timeout DURATION", "timeout 5 git commit -n", "git commit -n"],
+    ["stdbuf", "stdbuf -o L git push --no-verify", "--no-verify"],
+    ["an unknown wrapper", "chronic git commit -n -m x", "git commit -n"],
+    ["an unknown wrapper with global options", "ionice -c3 git -C . push --no-verify", "--no-verify"],
+  ])("denies %s, reason verbatim", (_name, command, label) => {
+    expect(checkBash(command, null)).toMatchObject({ deny: true, reason: expect.stringContaining(skipReason(label)) });
+  });
+
+  test.each([
     ["clean commit", "git commit -m ok"],
     ["HUSKY=1", "HUSKY=1 git commit -m ok"],
+    ["a quoted #", "echo \"a # b\"; git status"],
+    ["a # inside a word", "echo a#b"],
+    ["a message with a colon", "git commit -m \"feat: x\""],
+    ["an if over a read", "if git diff --quiet; then echo ok; fi"],
+    ["env before a test run", "env FOO=1 bun test 2>&1 | tail -3"],
+    ["nice before a test run", "nice -n 5 bun test 2>&1 | tail -3"],
+    ["a for loop", "for f in *.ts; do echo $f; done"],
+    ["git log -n", "git log -n 5"],
+    ["a commit message naming -n", "git commit -m \"git commit -n is denied\""],
   ])("allows %s", (_name, command) => {
     expect(checkBash(command, null)).toBeUndefined();
   });
