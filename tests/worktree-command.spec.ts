@@ -7,7 +7,7 @@
 // One test swaps a logging `git` shim onto PATH to read back the exact argv the
 // verb emits; the shim delegates to the real binary, so behaviour is unchanged.
 
-import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
@@ -27,6 +27,10 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { runWorktreeCommand } from "./fixtures/worktree-command.ts";
+
+// Each case drives dozens of real git processes; on Windows a process start costs
+// ~10× more, and the slowest cases land at ~5 s against Bun's 5 s default.
+if (process.platform === "win32") setDefaultTimeout(20_000);
 
 const CLI = join(import.meta.dir, "..", "src", "cli.ts");
 const REAL_GIT = Bun.which("git") ?? "git";

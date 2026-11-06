@@ -249,7 +249,8 @@ export async function runPackageConsumerSmoke(
       tarballHashAfter,
     };
   } finally {
-    rmSync(smokeRoot, { recursive: true, force: true });
+    // Windows can hold a just-exited installer's handle for a moment (EBUSY).
+    rmSync(smokeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 }
 
