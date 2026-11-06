@@ -13,6 +13,9 @@ import { join } from "node:path";
 import { evaluateReleasePolicy } from "../scripts/release-policy.ts";
 
 const REPO = join(import.meta.dir, "..");
+// The policy runs on the Linux release runner. The hosted Windows image cannot create the
+// SSH-signed tag fixtures these cases build, so they would test the fixture, not the policy.
+const IS_WINDOWS = process.platform === "win32";
 const POLICY_SCRIPT = join(REPO, "scripts/release-policy.ts");
 const TAG = "v9.9.9";
 const FROZEN_TAG = "2.6.0";
@@ -221,7 +224,7 @@ function trustedConfig(): Pick<PolicyArgs, "allowedSigners" | "signerFingerprint
 
 if (!hasSshKeygen) console.warn("release-policy.spec: skipping signed-tag cases — ssh-keygen is not on PATH, so no SSH-signed tag fixture can be generated");
 
-describe("U5 — a controlled fixture with every piece of evidence is allowed", () => {
+describe.skipIf(IS_WINDOWS)("U5 — a controlled fixture with every piece of evidence is allowed", () => {
   test.skipIf(!hasSshKeygen)(`allowed: annotated SSH-signed tag, allowlisted key and fingerprint, every NOTICE row verified`, () => {
     const fixture = newFixture();
     signedTag(fixture, releaseKey);
@@ -247,7 +250,7 @@ describe("U5 — a controlled fixture with every piece of evidence is allowed", 
   });
 });
 
-describe("U4 — signer configuration fails closed", () => {
+describe.skipIf(IS_WINDOWS)("U4 — signer configuration fails closed", () => {
   test.skipIf(!hasSshKeygen)("absent or blank configuration refuses, naming each missing variable", () => {
     const fixture = newFixture();
     signedTag(fixture, releaseKey);
@@ -281,7 +284,7 @@ describe("U4 — signer configuration fails closed", () => {
   });
 });
 
-describe("U4 — the tag must exist, be annotated, signed and verified by an allowlisted key", () => {
+describe.skipIf(IS_WINDOWS)("U4 — the tag must exist, be annotated, signed and verified by an allowlisted key", () => {
   test.skipIf(!hasSshKeygen)("a missing tag refuses", () => {
     const fixture = newFixture();
     expect(evaluate(fixture, { ...trustedConfig(), noticePath: verifiedNotice(fixture) })).toEqual({
@@ -363,7 +366,7 @@ describe("U4 — the tag must exist, be annotated, signed and verified by an all
   });
 });
 
-describe("U4 — the signed tag must name the dispatched commit", () => {
+describe.skipIf(IS_WINDOWS)("U4 — the signed tag must name the dispatched commit", () => {
   test.skipIf(!hasSshKeygen)("a valid signed tag on commit A refuses a release dispatched for commit B, naming both", () => {
     const fixture = newFixture();
     const tagged = head(fixture);
@@ -433,7 +436,7 @@ describe("U4 — the signed tag must name the dispatched commit", () => {
   });
 });
 
-describe("U4 — every bundled content row needs owner-verified redistribution rights", () => {
+describe.skipIf(IS_WINDOWS)("U4 — every bundled content row needs owner-verified redistribution rights", () => {
   test.skipIf(!hasSshKeygen)("each unresolved row refuses by name, in table order, with its reason", () => {
     const fixture = newFixture();
     signedTag(fixture, releaseKey);
@@ -494,7 +497,7 @@ describe("U4 — every bundled content row needs owner-verified redistribution r
   });
 });
 
-describe("U4 — refusals are reported together, and the policy only reads", () => {
+describe.skipIf(IS_WINDOWS)("U4 — refusals are reported together, and the policy only reads", () => {
   test.skipIf(!hasSshKeygen)("configuration, tag and rights refusals arrive in one report, in that order", () => {
     const fixture = newFixture();
     lightweightTag(fixture);
@@ -574,7 +577,7 @@ describe("U4 — refusals are reported together, and the policy only reads", () 
   });
 });
 
-describe("real repository — publication stays blocked on unresolved rights", () => {
+describe.skipIf(IS_WINDOWS)("real repository — publication stays blocked on unresolved rights", () => {
   test.skipIf(!hasSshKeygen)("the repository NOTICE.md refuses, naming at least ai-verify and ai-audit-design", () => {
     const fixture = newFixture();
     signedTag(fixture, releaseKey);

@@ -412,7 +412,8 @@ describe("the SBOM names the tarball it describes", () => {
       const packageDirectory = join(root, "package");
       writeManifest(packageDirectory, { name: PACKAGE_NAME, version: "9.9.9", license: "Apache-2.0" });
       const tarball = join(root, "ai-engineering.tgz");
-      const packed = spawnSync("tar", ["-czf", tarball, "package"], { cwd: root, encoding: "utf8" });
+      // A relative archive name: GNU tar (Git Bash on Windows) reads "D:\..." as a remote host.
+      const packed = spawnSync("tar", ["-czf", "ai-engineering.tgz", "package"], { cwd: root, encoding: "utf8" });
       expect(packed.status).toBe(0);
       const tarballSha256 = createHash("sha256").update(readFileSync(tarball)).digest("hex");
       const build = (out: string) =>
