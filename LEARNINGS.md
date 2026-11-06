@@ -1952,3 +1952,17 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** The lexer tracks word starts; one `commandIndex` in `shell.ts` skips reserved words, assignments and prefix commands with their options, used by both guards; every `git` word in a segment is judged.
 - **Lesson:** "Which program runs here" must have one answer shared by every guard.
 - **Tags:** review, guards, security, parsing
+
+### L268 · 2026-11-06 · production-readiness #3 · review
+- **Failure:** The SBOM did not name the tarball it described; publish checked the tarball only against a digest file inside the same artifact; the main-ancestry check failed whenever main moved; non-SPDX license text slipped through as an id.
+- **Root cause:** Each proof was checked against evidence that travelled with the thing it proved, and a shallow fetch made history look parentless.
+- **Fix:** The SBOM carries the tarball sha256 with a serial derived from it; the package job exports the digest as a job output that publish compares before `npm publish`; full-history fetch for ancestry; non-SPDX text counts as missing license.
+- **Lesson:** Compare an artifact with a reference that cannot be replaced together with it.
+- **Tags:** review, release, supply-chain
+
+### L269 · 2026-11-06 · production-readiness #4 · review
+- **Failure:** The release policy verified the tag's signature but not that it named the dispatched commit, and the existing tag check ran after the irreversible `npm publish`; THIRD-PARTY-NOTICES listed content NOTICE.md did not.
+- **Root cause:** The signature proved who signed, not what was signed for this run; the notices had drifted after skills were removed.
+- **Fix:** The policy takes `--sha` and refuses a tag on any other commit before anything is built; notices list only shipped content.
+- **Lesson:** A signature authorizes a commit; check that commit is the one you are about to publish, before any one-way step.
+- **Tags:** review, release, signing
