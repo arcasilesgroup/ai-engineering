@@ -379,6 +379,16 @@ describe("no-verify: how a git command is read", () => {
     expect(label("git commit -m ok >-n")).toBeNull();
   });
 
+  test("an escaped or quoted > is a character, never a redirect that hides the next word", () => {
+    expect(label(`git commit -m \\> ${NV}`)).toBe(NV);
+    expect(label("git commit -m x \\> -n")).toBe("git commit -n");
+    expect(label(`git commit -m "a > b" ${NV}`)).toBe(NV);
+    expect(label('git commit -m "a > b"')).toBeNull();
+    expect(label("git commit -m 'x>y'")).toBeNull();
+    // `\\` is a backslash, so the `>` after it is a real redirect to a file of that name.
+    expect(label(`git commit -m \\\\> ${NV}`)).toBeNull();
+  });
+
   test("every value-taking git global swallows its value before the subcommand is read", () => {
     expect(label("git --super-prefix x/ commit -n")).toBe("git commit -n");
     expect(label("git --attr-source HEAD commit -n")).toBe("git commit -n");
@@ -468,8 +478,16 @@ describe("policy: what a command needs", () => {
     expect(needs("echo x &> /etc/ai-eng-policy")).toBe("2000");
     expect(needs("echo x >&/etc/ai-eng-policy")).toBe("2000");
     expect(needs("echo x>/etc/ai-eng-policy")).toBe("2000");
+    expect(needs('echo "x">/etc/ai-eng-policy')).toBe("2000");
+    expect(needs("echo 'x'>>/etc/ai-eng-policy")).toBe("2000");
     expect(needs("echo x 3<>/etc/ai-eng-policy")).toBe("6000");
     expect(needs("wc -l </etc/ai-eng-policy")).toBe("4000");
+  });
+
+  test("a quoted or escaped > is text: no redirect, no write", () => {
+    expect(needs('echo "a>b"')).toBe("0004");
+    expect(needs("echo 'a>b'")).toBe("0004");
+    expect(needs("echo x\\>/etc/ai-eng-policy")).toBe("0004");
   });
 
   test("a descriptor copy names no file; a stderr target in the workspace is a workspace write", () => {
@@ -487,6 +505,18 @@ describe("policy: what a command needs", () => {
     expect(needs("cat ../../../../../etc/hosts")).toBe("4000");
     expect(needs("go test ./...")).toBe("0601");
     expect(needs("cat ~/x/../.ssh/id_rsa")).toBe("4000");
+  });
+
+  test("a Windows home is read in its Git Bash spelling, so a .. detour still lands in ~/.ssh", () => {
+    const homeBefore = process.env.HOME;
+    process.env.HOME = "C:\\Users\\Me";
+    try {
+      expect(needs("cat ~/x/../.ssh/id_rsa")).toBe("4000");
+      expect(needs("echo x > ~/x/../.ssh/authorized_keys")).toBe("2000");
+    } finally {
+      if (homeBefore === undefined) delete process.env.HOME;
+      else process.env.HOME = homeBefore;
+    }
   });
 });
 

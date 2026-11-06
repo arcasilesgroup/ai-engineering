@@ -7,12 +7,20 @@
 // comments and redirections; it does not expand aliases, functions or arithmetic. Shapes
 // it cannot read come back as null and the caller denies.
 
+/** A redirection operator starting at `lastIndex`. `>(` is process substitution, not a redirect. */
+const REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/y;
+const asOperator = (operator: string): string => (operator.includes("<&") ? " < " : " > ");
+function redirectAt(text: string, at: number): string | null {
+  REDIRECT_OPERATOR.lastIndex = at;
+  return REDIRECT_OPERATOR.exec(text)?.[0] ?? null;
+}
+
 /** Every redirection operator, spelled as one ` > ` or ` < `, so `>|`, `>!`, `>&`, `&>`,
  *  `&>>`, `>>|` and `{fd}>` reach the same target test and their `|`/`&` stop reading as
- *  command separators. `>(` is left alone: it is process substitution, not a redirect. */
-const REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/g;
+ *  command separators. Only where the shell reads an operator: a quoted or escaped `>` is
+ *  a character, and spacing it out would turn `\>` into an escaped space and a redirect. */
 export function normalizeRedirects(command: string): string {
-  return command.replace(REDIRECT_OPERATOR, (operator) => (operator.includes("<&") ? " < " : " > "));
+  return readShell(command).normalized ?? command.replace(new RegExp(REDIRECT_OPERATOR.source, "g"), asOperator);
 }
 
 export type ShellSegment = {
@@ -37,9 +45,18 @@ export const SUBSTITUTION = "$__SUB__";
  *  refuse it too, so nothing legitimate is lost). The code inside `$(…)`, backticks and
  *  `<(…)` is its own segment, judged like top-level code; the command around it continues
  *  as one segment with SUBSTITUTION in its place, so `git commit -m "$(…)" --no-verify`
- *  keeps every word. Comments are skipped; an unquoted heredoc that expands is read too. */
+ *  keeps every word. Comments are skipped; an unquoted heredoc that expands is read too.
+ *  A redirection operator is read whole, as written. */
 export function shellSegments(command: string): ShellSegment[] | null {
+  return readShell(command).segments;
+}
+
+/** One pass of the grammar: the segments, and the whole command with only the operators
+ *  the shell reads respelled (null when the quoting cannot be read). */
+function readShell(command: string): { segments: ShellSegment[] | null; normalized: string | null } {
   const segments: ShellSegment[] = [];
+  let normalized = "";
+  let copiedUpTo = 0;
   type Heredoc = { body: string; isLiteral: boolean };
   type Frame = { quote: string | null; closer: string; parent: string; parentIsAfterPipe: boolean; parentSubstitutions: string[]; parentHeredocs: Heredoc[]; innerStart: number };
   const nesting: Frame[] = [];
@@ -112,10 +129,17 @@ export function shellSegments(command: string): ShellSegment[] | null {
       index += 2;
     } else if (char === "<" && next === "<") {
       const heredoc = HEREDOC.exec(source.slice(index));
-      if (heredoc === null) return null;
+      if (heredoc === null) return UNREADABLE;
       pending.push({ delimiter: heredoc[4]!, isLiteral: heredoc[2] !== "" || heredoc[3] !== "", stripsTabs: heredoc[1] === "-", owner: heredocs });
       current += heredoc[0];
       index += heredoc[0].length - 1;
+    } else if (redirectAt(source, index) !== null) {
+      const operator = redirectAt(source, index)!;
+      normalized += source.slice(copiedUpTo, index) + asOperator(operator);
+      copiedUpTo = index + operator.length;
+      // Read whole, so the `|` of `>|` or the `&` of `>&` never cuts the command.
+      current += operator;
+      index += operator.length - 1;
     } else if (char === "\n" && pending.length > 0) {
       cut();
       for (const heredoc of pending.splice(0)) {
@@ -140,7 +164,7 @@ export function shellSegments(command: string): ShellSegment[] | null {
         heredoc.owner.push({ body, isLiteral: heredoc.isLiteral });
         if (!heredoc.isLiteral && /\$\(|`/.test(body)) {
           const expanded = shellSegments(body.replace(/['"]/g, " "));
-          if (expanded === null) return null;
+          if (expanded === null) return UNREADABLE;
           segments.push(...expanded);
         }
       }
@@ -158,8 +182,10 @@ export function shellSegments(command: string): ShellSegment[] | null {
     }
   }
   cut();
-  return quote === null && nesting.length === 0 ? segments : null;
+  if (quote !== null || nesting.length > 0) return UNREADABLE;
+  return { segments, normalized: normalized + source.slice(copiedUpTo) };
 }
+const UNREADABLE = { segments: null, normalized: null };
 
 export type ShellWord = { value: string; isQuoted: boolean; isOperator: boolean };
 

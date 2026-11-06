@@ -127,7 +127,9 @@ function resolvePath(rawPath: string, cwd: string): string {
  *  sends it to external. */
 function resolveParentSegments(path: string, cwd: string): string {
   if (path === "~" || path.startsWith("~/")) {
-    const home = homedir().toLowerCase();
+    // Git Bash spells the Windows home `C:\Users\me` as `/c/users/me`; left as written, a
+    // `..` detour (`~/x/../.ssh/id_rsa`) would never be read back as `~/.ssh`.
+    const home = homedir().toLowerCase().replaceAll("\\", "/").replace(/^([a-z]):/, "/$1");
     if (!home.startsWith("/")) return path;
     const landed = posix.resolve(home, path.slice(2));
     return landed === home || landed.startsWith(`${home}/`) ? `~${landed.slice(home.length)}` : landed;
@@ -227,7 +229,7 @@ const WORKSPACE_EXECUTE = (segment: string): boolean =>
 /** A write-shaped segment: its path tokens are judged read+write, and a
  *  segment with no resolvable path still costs a workspace write. */
 const WRITES = (segment: string): boolean =>
-  segment.includes(">") ||
+  bareOperatorIndex(segment, ">") >= 0 ||
   segment.includes("tee ") ||
   segment.startsWith("mkdir ") ||
   segment.startsWith("touch ") ||
@@ -258,13 +260,32 @@ const WRITES = (segment: string): boolean =>
  *  file targets. `>&` comes before `>` so `>&1` reads as a descriptor copy. */
 const REDIRECT = /^(?:\d+|\{\w+\})?(&>>?|>&|>>?[|!]?|<>|<&|<)(?![<(])(.*)$/;
 
-/** `x>/etc/foo` is the word `x` and a redirect to /etc/foo, as the shell reads it.
- *  A quote before the operator may make it text, so that word is left whole. */
+/** `x>/etc/foo` and `"x">/etc/foo` are the word and a redirect to /etc/foo, as the shell
+ *  reads them; a `>` inside quotes or after a backslash is text, so that word is left whole. */
 function splitAttachedRedirect(token: string): string[] {
-  let at = token.search(/[<>]/);
-  if (at <= 0 || /["'`]/.test(token.slice(0, at))) return [token];
-  if (token[at - 1] === "&") at--;
-  return at === 0 ? [token] : [token.slice(0, at), token.slice(at)];
+  const at = bareOperatorIndex(token, "<>");
+  if (at < 0) return [token];
+  const start = token[at - 1] === "&" ? at - 1 : at;
+  return start === 0 ? [token] : [token.slice(0, start), token.slice(start)];
+}
+
+/** Where the first of `operators` the shell reads as an operator sits, or -1: one inside
+ *  quotes or after a backslash is a character. */
+function bareOperatorIndex(text: string, operators: string): number {
+  let quote: string | null = null;
+  for (let at = 0; at < text.length; at++) {
+    const char = text[at]!;
+    if (char === "\\" && quote !== "'") {
+      at++;
+    } else if (quote !== null) {
+      if (char === quote) quote = null;
+    } else if (char === "'" || char === '"' || char === "`") {
+      quote = char;
+    } else if (operators.includes(char)) {
+      return at;
+    }
+  }
+  return -1;
 }
 
 function scanSegment(mask: { value: number }, segment: string, cwd: string): void {
