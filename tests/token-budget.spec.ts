@@ -106,17 +106,20 @@ describe("token budgets", () => {
     const message = join(import.meta.dir, `.token-budget-message-${randomUUID()}`);
     const shim = join(import.meta.dir, "gitleaks");
     try {
-      const preCommit = runAiEng(["git", "pre-commit"], { env: index.env });
-      writeFileSync(message, "docs: verify silent hooks\n");
-      const commitMsg = runAiEng(["git", "commit-msg", message]);
-
+      // Both hooks hard-fail without gitleaks (§12.1); CI's check job has none, so the
+      // green path is measured against a shim that passes for both.
       if (existsSync(shim)) throw new Error("tests/gitleaks is already in use");
       writeFileSync(shim, "#!/bin/sh\nexit 0\n");
       chmodSync(shim, 0o755);
+      const shimPath = `${import.meta.dir}${delimiter}${process.env.PATH ?? ""}`;
+      const preCommit = runAiEng(["git", "pre-commit"], { env: { ...index.env, PATH: shimPath } });
+      writeFileSync(message, "docs: verify silent hooks\n");
+      const commitMsg = runAiEng(["git", "commit-msg", message]);
+
       const prePush = runAiEng(["git", "pre-push"], {
         env: {
           ...BASE_ENV,
-          PATH: `${import.meta.dir}${delimiter}${process.env.PATH ?? ""}`,
+          PATH: shimPath,
           AI_ENG_PUSH_REFS: "",
         },
       });
