@@ -11,20 +11,25 @@
 // canon, the machine carriers and — through template.ts's gitEnv — the global git config
 // of the developer running the suite are never touched.
 
-import { describe, test, expect, afterEach, afterAll } from "bun:test";
+import { describe, test, expect, afterEach, afterAll, spyOn } from "bun:test";
+import * as childProcess from "node:child_process";
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
+  readlinkSync,
+  realpathSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { initMain, surfaceHint } from "../src/commands/init.ts";
 import {
   contractEntries,
@@ -39,8 +44,15 @@ import {
 import { SURFACES, type Surface } from "../src/surfaces/adapters.ts";
 import { parseLock } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
+import { usePrivateStdin } from "./fixtures/private-stdin.ts";
+import { recordGitCommands } from "./fixtures/git-recorder.ts";
 
 const cwdBefore = process.cwd();
+const envBefore = snapshotSandboxEnv();
+// The keys go through a stdin only this suite writes to: on the runner's real one, a stray
+// byte from whatever launched `bun test` answers the open prompt (tests/fixtures/private-stdin.ts).
+const stdin = usePrivateStdin();
 const GIT_IDENTITY = ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"] as const;
 
 process.env["NO_COLOR"] = "1";
@@ -51,7 +63,8 @@ let sandbox: string | undefined;
 
 /** A repo-shaped sandbox of its own and a machine of its own. Nothing outside it is
  *  written: AI_ENG_HOME redirects the canon and the carrier base, and template.ts puts
- *  the global git config under the same override. */
+ *  the global git config under the same override — only while GIT_CONFIG_GLOBAL is
+ *  unset, so the sandbox owns that variable too instead of writing to an inherited one. */
 function sandboxed(): { cwd: string; machine: string } {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-init-"));
   const cwd = join(sandbox, "project");
@@ -60,6 +73,7 @@ function sandboxed(): { cwd: string; machine: string } {
   mkdirSync(machine, { recursive: true });
   process.env["AI_ENG_HOME"] = machine;
   process.env["PI_CODING_AGENT_DIR"] = join(machine, "pi-agent");
+  delete process.env["GIT_CONFIG_GLOBAL"];
   process.chdir(cwd);
   return { cwd, machine };
 }
@@ -135,9 +149,7 @@ async function driven(flags: Parameters<typeof initMain>[0], steps: Array<[strin
 
 afterEach(() => {
   process.chdir(cwdBefore);
-  delete process.env["AI_ENG_HOME"];
-  delete process.env["PI_CODING_AGENT_DIR"];
-  delete process.env["GIT_CONFIG_GLOBAL"];
+  restoreSandboxEnv(envBefore);
   for (const name of GIT_IDENTITY) delete process.env[name];
   // scriptedInput attaches one data listener per call; a suite that runs the verb a
   // dozen times would otherwise cross Node's cap of 10 and print a leak warning.
@@ -147,7 +159,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  process.stdin.pause(); // a flowing stdin keeps the process alive past the last test
+  stdin.restore();
 });
 
 const byId = (id: string): Surface => {
@@ -155,6 +167,142 @@ const byId = (id: string): Surface => {
   if (!found) throw new Error(`surface ${id} is not declared in surfaces.json`);
   return found;
 };
+
+const REPO_ROOT = resolve(import.meta.dir, "..");
+
+function skillNames(root: string): string[] {
+  if (!existsSync(root)) return [];
+  return readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && existsSync(join(root, entry.name, "SKILL.md")))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+function filesBelow(directory: string): string[] {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? filesBelow(path) : [path];
+  });
+}
+
+type Execution = { command: string; args: string[]; cwd: string; isShell: boolean };
+
+const INTERPRETERS = new Set(["sh", "bash", "zsh", "dash", "fish", "node", "bun", "bunx", "npx", "deno", "tsx", "python", "python3", "perl", "ruby", "pwsh", "powershell", "cmd", "env"]);
+
+/** Every process the code under test starts, through node:child_process or Bun's own
+ *  spawn, recorded and then run as asked. */
+function recordExecutions(): { executions: Execution[]; restore: () => void } {
+  const executions: Execution[] = [];
+  const asStrings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
+  const optionsOf = (values: unknown[]): { cwd?: unknown; shell?: unknown } =>
+    (values.find((value) => value !== null && typeof value === "object" && !Array.isArray(value)) ?? {}) as { cwd?: unknown; shell?: unknown };
+  const recordNode = (command: unknown, rest: unknown[], isShellCommand: boolean) => {
+    const options = optionsOf(rest);
+    executions.push({
+      command: String(command),
+      args: asStrings(rest.find(Array.isArray)),
+      cwd: typeof options.cwd === "string" ? options.cwd : process.cwd(),
+      isShell: isShellCommand || Boolean(options.shell),
+    });
+  };
+  const spies: Array<{ mockRestore: () => void }> = [];
+  for (const name of ["spawn", "spawnSync", "execFile", "execFileSync", "fork"] as const) {
+    const original = childProcess[name] as (...values: unknown[]) => unknown;
+    spies.push(spyOn(childProcess, name).mockImplementation(((...values: unknown[]) => {
+      recordNode(values[0], values.slice(1), false);
+      return original(...values);
+    }) as never));
+  }
+  for (const name of ["exec", "execSync"] as const) {
+    const original = childProcess[name] as (...values: unknown[]) => unknown;
+    spies.push(spyOn(childProcess, name).mockImplementation(((...values: unknown[]) => {
+      recordNode(values[0], values.slice(1), true);
+      return original(...values);
+    }) as never));
+  }
+  for (const name of ["spawn", "spawnSync"] as const) {
+    const original = Bun[name].bind(Bun) as (...values: unknown[]) => unknown;
+    spies.push(spyOn(Bun, name).mockImplementation(((...values: unknown[]) => {
+      const first = values[0] as { cmd?: unknown; cwd?: unknown } | unknown[];
+      const command = Array.isArray(first) ? asStrings(first) : asStrings(first.cmd);
+      const options = (Array.isArray(first) ? values[1] : first) as { cwd?: unknown } | undefined;
+      executions.push({ command: command[0] ?? "", args: command.slice(1), cwd: typeof options?.cwd === "string" ? options.cwd : process.cwd(), isShell: false });
+      return original(...values);
+    }) as never));
+  }
+  return { executions, restore: () => { for (const spy of spies) spy.mockRestore(); } };
+}
+
+/** Proof that installing the canon ran nothing out of it: no started process names,
+ *  or runs inside, the machine home, and none is a shell or an interpreter. */
+function assertExecutedNothingFrom(machine: string, executions: Execution[]): void {
+  const machinePaths = [machine, realpathSync(machine)];
+  const isUnderMachine = (value: string) => machinePaths.some((path) => value === path || value.includes(`${path}/`));
+  const touchingCanon = executions.filter((run) => [run.command, run.cwd, ...run.args].some(isUnderMachine));
+  const interpreters = executions.filter((run) => run.isShell || run.command === process.execPath || INTERPRETERS.has(basename(run.command)));
+  expect({ touchingCanon, interpreters }).toEqual({ touchingCanon: [], interpreters: [] });
+}
+
+/** The [canon].packs value as TOML itself reads it, or null when the document has none.
+ *  Parsing instead of matching text means every layout TOML allows counts, so "writes no
+ *  [canon].packs" cannot pass because the key was spelled in a shape a regex missed. */
+function canonPacks(config: string): unknown[] | null {
+  const document = Bun.TOML.parse(config) as Record<string, unknown>;
+  const canon = document["canon"];
+  if (typeof canon !== "object" || canon === null || !("packs" in canon)) return null;
+  const packs: unknown = canon.packs;
+  return Array.isArray(packs) ? packs : [packs];
+}
+
+function assertCanon(home: string): void {
+  const sourceSkills = join(REPO_ROOT, "skills");
+  const installedSkills = join(home, "skills");
+  const names = skillNames(sourceSkills);
+  expect(names.length).toBeGreaterThan(0);
+  expect(skillNames(installedSkills)).toEqual(names);
+  for (const name of names) {
+    const source = join(sourceSkills, name);
+    const installed = join(installedSkills, name);
+    for (const path of filesBelow(source).filter((file) => basename(file) !== ".DS_Store")) {
+      expect(readFileSync(join(installed, relative(source, path)), "utf8")).toBe(readFileSync(path, "utf8"));
+    }
+  }
+
+  const sourceAgents = join(REPO_ROOT, "agents");
+  const installedAgents = join(home, "agents");
+  const agentNames = readdirSync(sourceAgents).filter((name) => name.endsWith(".md")).sort();
+  expect(existsSync(installedAgents)).toBe(true);
+  expect(readdirSync(installedAgents).filter((name) => name.endsWith(".md")).sort()).toEqual(agentNames);
+  for (const name of agentNames) {
+    expect(readFileSync(join(installedAgents, name), "utf8")).toBe(readFileSync(join(sourceAgents, name), "utf8"));
+  }
+}
+
+describe("init · the [canon].packs probe the no-pack assertions rely on", () => {
+  const surfaces = '[surfaces]\nenabled = ["claude-code"]\n';
+  for (const { layout, config } of [
+    { layout: "standard table", config: `${surfaces}\n[canon]\npacks = ["triage", "review"]\n` },
+    { layout: "standard table with spacing and a comment", config: `${surfaces}\n[canon]   # legacy\n  packs   =   [ "triage" , "review" ]  # chosen\n` },
+    { layout: "inline table", config: `canon = { packs = ["triage", "review"] }\n${surfaces}` },
+    { layout: "dotted key", config: `canon.packs = ["triage", "review"]\n${surfaces}` },
+    { layout: "quoted dotted key", config: `"canon"."packs" = ["triage", "review"]\n${surfaces}` },
+    { layout: "multiline array", config: `${surfaces}\n[canon]\npacks = [\n  "triage", # first\n  "review",\n]\n` },
+    { layout: "CRLF line endings", config: `${surfaces}\n[canon]\npacks = ["triage", "review"]\n`.replaceAll("\n", "\r\n") },
+  ]) {
+    test(`detects [canon].packs in the ${layout} layout`, () => {
+      expect(canonPacks(config)).toEqual(["triage", "review"]);
+    });
+  }
+
+  test("detects an explicitly empty or non-array packs value, and reports only a truly absent key as null", () => {
+    expect(canonPacks(`${surfaces}\n[canon]\npacks = []\n`)).toEqual([]);
+    expect(canonPacks(`${surfaces}\n[canon]\npacks = "all"\n`)).toEqual(["all"]);
+    expect(canonPacks(surfaces)).toBeNull();
+    expect(canonPacks(`${surfaces}\n[canon]\n# packs = ["triage"]\n`)).toBeNull();
+    expect(canonPacks(`${surfaces}\n[other]\npacks = ["triage"]\n`)).toBeNull();
+  });
+});
 
 describe("init · the plan seams (src/commands/init-shared.ts)", () => {
   test("detectCommands reads the target tree", () => {
@@ -291,12 +439,20 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(false);
   });
 
-  test("--yes in a bare folder creates the repo and scaffolds the whole contract", async () => {
+  test("--yes in a bare folder creates the repo and leaves the whole contract for review", async () => {
     const { cwd, machine: home } = sandboxed();
-    // OS droppings present BEFORE init: the baseline commit must not carry them.
+    // OS droppings present before init stay ignored while project files await review.
     mkdirSync(join(cwd, "node_modules", "dep"), { recursive: true });
     writeFileSync(join(cwd, ".DS_Store"), "junk");
     writeFileSync(join(cwd, "node_modules", "dep", "index.js"), "junk");
+    const globalConfig = join(home, "isolated-gitconfig");
+    const globalConfigBefore = "[user]\n\tname = Isolated test\n";
+    writeFileSync(globalConfig, globalConfigBefore);
+    const machineSettings = join(home, ".claude", "settings.json");
+    const machineSettingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(machineSettings, machineSettingsBefore);
+    process.env["GIT_CONFIG_GLOBAL"] = globalConfig;
     for (const name of GIT_IDENTITY) process.env[name] = name === "GIT_AUTHOR_EMAIL" || name === "GIT_COMMITTER_EMAIL" ? "test@example.com" : "Test";
     const { result, out } = await capture(() => initMain({ yes: true }));
     expect(result).toBe(0);
@@ -306,14 +462,23 @@ describe("init · initMain, phase 1 and phase 2", () => {
     // The chain's runtime state, dropped after install, stays out of git status too.
     mkdirSync(join(cwd, ".ai-engineering", "receipts"), { recursive: true });
     writeFileSync(join(cwd, ".ai-engineering", "receipts", "r.json"), "{}");
-    expect(gitIn(["status", "--porcelain"], cwd)).toBe("");
+    const status = gitIn(["status", "--porcelain"], cwd);
+    expect(status).toContain("?? AGENTS.md");
+    expect(status).toContain("?? .ai-engineering/");
+    expect(status).not.toContain(".DS_Store");
+    expect(status).not.toContain("node_modules");
+    expect(status).not.toContain("receipts");
 
     expect(existsSync(join(cwd, ".git"))).toBe(true); // it created the repo itself (§14.1)
+    expect(gitIn(["rev-parse", "--verify", "HEAD"], cwd)).toBe("");
+    expect(readFileSync(globalConfig, "utf8")).toBe(globalConfigBefore);
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true);
     const decisions = readFileSync(join(cwd, "DECISIONS.md"), "utf8");
     expect(decisions).toContain(`Date: ${new Date().toISOString().slice(0, 10)}`);
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
     expect(config).toContain('enabled = ["claude-code"]');
+    expect(canonPacks(config)).toBeNull();
+    assertCanon(home);
 
     // Claude Code reads AGENTS.md natively now — no CLAUDE.md shim is written.
     expect(existsSync(join(cwd, "CLAUDE.md"))).toBe(false);
@@ -327,19 +492,60 @@ describe("init · initMain, phase 1 and phase 2", () => {
     // git silently ignores a hook that is not executable.
     for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
       const path = join(cwd, ".git", "hooks", shim);
-      expect(statSync(path).mode & 0o111).toBeGreaterThan(0);
+      // Windows has no execute bit; Git for Windows runs a hook whatever its mode.
+      if (process.platform !== "win32") expect(statSync(path).mode & 0o111).toBeGreaterThan(0);
       expect(readFileSync(path, "utf8")).toContain("ai-eng");
     }
 
-    // The machine carrier and the git floor's second life, both under the sandbox home.
-    expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toContain("ai-eng chain");
-    const templateDir = gitIn(["config", "--get", "init.templateDir"], cwd, { GIT_CONFIG_GLOBAL: join(home, "gitconfig") }).trim();
-    expect(templateDir).toBe(join(home, "git-template"));
-    expect(existsSync(join(templateDir, "hooks", "pre-commit"))).toBe(true);
-
-    expect(gitIn(["log", "--oneline", "-1"], cwd)).toContain(`install governance ${VERSION}`);
-    expect(out).toContain("machine carrier");
+    expect(out).toContain("~/.claude/settings.json");
+    expect(out).toContain("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
     expect(out).toContain("Bootstrap mode"); // no src/ yet, so arch-tests hold off
+  });
+
+  test("init leaves the existing commit alone, spawns no commit, and leaves global config untouched", async () => {
+    const { cwd, machine: home } = sandboxed();
+    const globalConfig = join(home, "isolated-gitconfig");
+    const globalConfigBefore = "[user]\n\tname = Isolated test\n";
+    writeFileSync(globalConfig, globalConfigBefore);
+    process.env["GIT_CONFIG_GLOBAL"] = globalConfig;
+
+    gitIn(["init", "-q"], cwd);
+    gitIn(["config", "user.name", "CP10 test"], cwd);
+    gitIn(["config", "user.email", "cp10@example.com"], cwd);
+    writeFileSync(join(cwd, "baseline.txt"), "review me\n");
+    gitIn(["add", "baseline.txt"], cwd);
+    gitIn(["commit", "-qm", "baseline"], cwd);
+
+    const headBefore = gitIn(["rev-parse", "HEAD"], cwd).trim();
+    const countBefore = gitIn(["rev-list", "--count", "HEAD"], cwd).trim();
+    expect(headBefore).not.toBe("");
+    const recorder = recordGitCommands(sandbox!);
+    let result: number;
+    try {
+      result = (await capture(() => initMain({ yes: true }))).result;
+    } finally {
+      recorder.stop();
+    }
+
+    const commands = recorder.commands();
+    expect({
+      result,
+      head: gitIn(["rev-parse", "HEAD"], cwd).trim(),
+      commitCount: gitIn(["rev-list", "--count", "HEAD"], cwd).trim(),
+      hasUncommittedChanges: gitIn(["status", "--porcelain"], cwd).trim().length > 0,
+      spawnedCommit: commands.some((args) => /(^|\s)commit(\s|$)/.test(args)),
+      spawnedNoVerify: commands.some((args) => /(^|\s)--no-verify(\s|$)/.test(args)),
+      globalConfig: readFileSync(globalConfig, "utf8"),
+    }).toEqual({
+      result: 0,
+      head: headBefore,
+      commitCount: countBefore,
+      hasUncommittedChanges: true,
+      spawnedCommit: false,
+      spawnedNoVerify: false,
+      globalConfig: globalConfigBefore,
+    });
   });
 
   test("a second --yes run hands off to update and never touches the contract", async () => {
@@ -443,6 +649,23 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(out).toContain("not valid JSON");
   });
 
+  test("F11: a dangling machine settings link is refused and init still records its lock", async () => {
+    const { cwd, machine: home } = sandboxed();
+    mkdirSync(join(cwd, ".git"));
+    const settings = join(home, ".claude", "settings.json");
+    const dotfilesTarget = join(home, "dotfiles", "claude-settings.json");
+    mkdirSync(dirname(settings), { recursive: true });
+    symlinkSync(dotfilesTarget, settings);
+
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["claude-code"] }));
+
+    expect(result).toBe(0);
+    expect(out).toContain("~/.claude/settings.json — unreadable, a dangling link, not a regular file, or changing while read; left untouched");
+    expect(readlinkSync(settings)).toBe(dotfilesTarget);
+    expect(existsSync(dotfilesTarget)).toBe(false);
+    expect(parseLock(readFileSync(join(cwd, ".ai-engineering", "ai-eng.lock"), "utf8")).version).toBe(VERSION);
+  });
+
   test("closing line names /ai-config-to-project", async () => {
     const { cwd } = sandboxed();
     gitIn(["init", "-q"], cwd);
@@ -463,7 +686,9 @@ describe("init · the git floor's own housekeeping", () => {
     expect(out).toContain("unset — it pointed at ai-eng's own floor");
     // git only reads .git/hooks while the setting is unset, so the floor runs again.
     expect(gitIn(["config", "--get", "core.hooksPath"], cwd).trim()).toBe("");
-    expect(statSync(join(cwd, ".git", "hooks", "pre-commit")).mode & 0o111).toBeGreaterThan(0);
+    expect(readFileSync(join(cwd, ".git", "hooks", "pre-commit"), "utf8")).toContain("ai-eng");
+    // Windows has no execute bit; Git for Windows runs a hook whatever its mode.
+    if (process.platform !== "win32") expect(statSync(join(cwd, ".git", "hooks", "pre-commit")).mode & 0o111).toBeGreaterThan(0);
   });
 
   test("a core.hooksPath the user set is named and never deleted", async () => {
@@ -477,23 +702,54 @@ describe("init · the git floor's own housekeeping", () => {
     expect(out).toContain("core.hooksPath is yours");
   });
 
-  test("git refusing the template dir is reported, not claimed", async () => {
-    const { cwd, machine: home } = sandboxed();
-    mkdirSync(join(cwd, ".git"));
-    process.env["GIT_CONFIG_GLOBAL"] = join(home, "no-such-dir", "gitconfig"); // git cannot write here
-
-    const { result, out } = await capture(() => initMain({ yes: true }));
-    expect(result).toBe(0);
-    expect(out).toContain("git init.templateDir not set");
-    expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true); // the repo install still happened
-  });
 });
 
-describe("init · the prompt paths a non-TTY --yes run never reaches", () => {
+describe("init · non-interactive default skill installation", () => {
+  test("fresh init installs every skill and resource without a pack prompt or config key, and runs none of them", async () => {
+    const { cwd, machine: home } = sandboxed();
+    const recorder = recordExecutions();
+    let run: { result: number; out: string };
+    try {
+      run = await capture(() => initMain({ yes: true }));
+    } finally {
+      recorder.restore();
+    }
+
+    expect(run.result).toBe(0);
+    expect(run.out).not.toMatch(/(?:which|select|choose)[^\n]*packs?/i);
+    const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
+    expect(canonPacks(config)).toBeNull();
+    assertCanon(home);
+    // The recorder sees what init really starts: it created the repo with git itself.
+    expect(recorder.executions.some((execution) => basename(execution.command) === "git" && execution.args.includes("init"))).toBe(true);
+    assertExecutedNothingFrom(home, recorder.executions);
+  });
+
+  test("init --global installs the complete canon, runs none of it, and leaves an existing machine hook file alone", async () => {
+    const { machine: home } = sandboxed();
+    const settings = join(home, ".claude", "settings.json");
+    const settingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(dirname(settings), { recursive: true });
+    writeFileSync(settings, settingsBefore);
+    const recorder = recordExecutions();
+    let run: { result: number; out: string };
+    try {
+      run = await capture(() => initMain({ yes: true, global: true }));
+    } finally {
+      recorder.restore();
+    }
+
+    expect(run.result).toBe(0);
+    expect(run.out).not.toMatch(/(?:which|select|choose)[^\n]*packs?/i);
+    assertCanon(home);
+    expect(readFileSync(settings, "utf8")).toBe(settingsBefore);
+    assertExecutedNothingFrom(home, recorder.executions);
+  });
+
   test("declining the canon offer installs nothing at all", async () => {
     const { cwd, machine: home } = sandboxed();
     mkdirSync(join(cwd, ".git"));
-    const { result, out } = await driven({}, [["install it now", "n"]]);
+    const { result, out } = await driven({}, [["install", "n"]]);
     expect(result).toBe(0);
     expect(existsSync(join(home, "skills"))).toBe(false);
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(false);
@@ -509,16 +765,20 @@ describe("init · the prompt paths a non-TTY --yes run never reaches", () => {
     expect(out).toContain("Inside a repo, ai-eng init governs it too");
   });
 
-  test("a bare folder answered yes creates the repo and takes the surface the human picks", async () => {
+  test("a bare folder answered yes creates the repo, takes the surface the human picks, and asks nothing about packs", async () => {
     const { cwd, machine: home } = sandboxed();
-    const { result } = await driven({}, [
+    // Only the repo and surface questions are answered: any further prompt leaves init waiting.
+    const { result, out } = await driven({}, [
       ["Create", "y"],
       ["governed", " \n"],
     ]);
     expect(result).toBe(0);
-    expect(existsSync(join(home, "skills"))).toBe(true);
+    expect(out).not.toMatch(/packs?\b/i);
+    assertCanon(home);
     expect(existsSync(join(cwd, ".git"))).toBe(true);
-    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('enabled = ["claude-code"]');
+    const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
+    expect(config).toContain('enabled = ["claude-code"]');
+    expect(canonPacks(config)).toBeNull();
   });
 
   test("detected surfaces are ticked by default, and the machine writes can be declined", async () => {
@@ -530,7 +790,6 @@ describe("init · the prompt paths a non-TTY --yes run never reaches", () => {
     const { result, out } = await driven({}, [
       ["governed", "\n"],
       ["carriers", "n"],
-      ["templateDir", "n"],
     ]);
     expect(result).toBe(0);
     expect(out).toContain("global canon intact"); // a healthy machine is never re-written without a question
@@ -544,7 +803,7 @@ describe("init · the prompt paths a non-TTY --yes run never reaches", () => {
     expect(existsSync(join(home, ".claude", "settings.json"))).toBe(false);
     expect(existsSync(join(home, ".omp", "agent", "hooks", "pre", "ai-eng.ts"))).toBe(false);
     expect(existsSync(join(home, ".config", "opencode", "plugins", "ai-eng.ts"))).toBe(false);
-    expect(existsSync(join(home, "gitconfig"))).toBe(false); // the floor's templateDir was refused too
+    expect(existsSync(join(home, "gitconfig"))).toBe(false); // init does not write global Git config
     expect(out).toContain("machine carriers not written");
     expect(out).toContain("4 surfaces");
   });
@@ -574,7 +833,8 @@ describe("init · the prompt paths a non-TTY --yes run never reaches", () => {
     expect(existsSync(join(cwd, ".ai-engineering"))).toBe(false);
   });
 
-  test("git init failing is a hard stop, not a silent half-install", async () => {
+  // A read-only folder is a POSIX mode: Windows ignores 0o555 on a directory, so git init succeeds there.
+  test.skipIf(process.platform === "win32")("git init failing is a hard stop, not a silent half-install", async () => {
     const { cwd } = sandboxed();
     chmodSync(cwd, 0o555);
     try {

@@ -11,7 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mergeDaily, summarizeBySession, summarizeReceipts, type Receipt } from "../src/receipts.ts";
+import { mergeDaily, summarizeReceipts, type Receipt } from "../src/receipts.ts";
 
 function dirWith(receipts: Receipt[]): string {
   const dir = mkdtempSync(join(tmpdir(), "ai-eng-summary-"));
@@ -78,6 +78,24 @@ describe("summarizeReceipts — the aggregates the gc keeps (G2-G4, G7)", () => 
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test("the doctor summary ignores timestamped receipts outside the 14-day health window", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-eng-summary-window-"));
+    const recent = receipt({ ts: new Date(Date.now() - 13 * 86_400_000).toISOString() });
+    const old = receipt({ ts: new Date(Date.now() - 15 * 86_400_000).toISOString() });
+    const write = (value: Receipt): void => {
+      const stamp = value.ts.replace(/[:.]/g, "-");
+      writeFileSync(join(dir, `${stamp}-${value.event}-${value.operation_id}.json`), JSON.stringify(value));
+    };
+    write(recent);
+    write(old);
+
+    try {
+      const summary = summarizeReceipts(dir);
+      expect(summary.total).toBe(1);
+      expect(summary.daily[recent.ts.slice(0, 10)]).toEqual({ runs: 1, denies: 0 });
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test("denies.json is not counted as a receipt, exactly like summary.json", () => {
     const dir = dirWith([receipt({}), receipt({})]);
     try {
@@ -112,39 +130,5 @@ describe("mergeDaily — the gc merge, not the gc overwrite (G5-G6)", () => {
     const current = { [day(1)]: { runs: 3, denies: 1 } };
     expect(mergeDaily(undefined, current, 90, Date.UTC(2026, 8, 20))).toEqual(current);
     expect(mergeDaily({} as Record<string, never>, current, 90, Date.UTC(2026, 8, 20))).toEqual(current);
-  });
-});
-
-describe("summarizeBySession — sessions grouped and sorted newest first", () => {
-  test("groups by session_id, sums runs and denies, unions tools and guards", () => {
-    const dir = dirWith([
-      receipt({ session_id: "s1", tool: "Bash", ts: "2026-01-01T00:00:00Z" }),
-      receipt({ session_id: "s1", tool: "Write", ts: "2026-01-01T00:02:00Z" }),
-      deny({ session_id: "s2", ts: "2026-01-01T00:01:00Z" }),
-      receipt({ ts: "2026-01-01T00:03:00Z" }),
-    ]);
-    const sessions = summarizeBySession(dir);
-    expect(sessions.map((s) => s.session_id)).toEqual(["unknown", "s1", "s2"]);
-    const s1 = sessions.find((s) => s.session_id === "s1")!;
-    expect(s1.runs).toBe(2);
-    expect(s1.denies).toBe(0);
-    expect([...s1.tools].sort()).toEqual(["Bash", "Write"]);
-    expect(s1.first_ts).toBe("2026-01-01T00:00:00Z");
-    expect(s1.last_ts).toBe("2026-01-01T00:02:00Z");
-    const s2 = sessions.find((s) => s.session_id === "s2")!;
-    expect(s2.denies).toBe(1);
-    expect(s2.guards_denied).toEqual(["self-protect"]);
-  });
-
-  test("a session with no session_id field lands under unknown and carries the torn write", () => {
-    const dir = dirWith([receipt({ ts: "2026-02-02T10:00:00Z" })]);
-    const sessions = summarizeBySession(dir);
-    expect(sessions).toHaveLength(1);
-    expect(sessions[0]!.session_id).toBe("unknown");
-    expect(sessions[0]!.last_ts).toBe("2026-02-02T10:00:00Z");
-  });
-
-  test("an empty directory yields no sessions", () => {
-    expect(summarizeBySession(dirWith([]))).toEqual([]);
   });
 });

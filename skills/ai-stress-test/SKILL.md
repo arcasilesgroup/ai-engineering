@@ -195,5 +195,5 @@ Not for:
 Lane: standard
 Writes: performance-report.md
 Read by: ai-verify
-Dies: ai-eng spec close
+Dies: when the performance report is handed to ai-verify
 Next: ai-verify, ai-debug (if bottleneck found)

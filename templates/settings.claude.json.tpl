@@ -9,11 +9,6 @@
             "type": "command",
             "command": "ai-eng chain PreToolUse",
             "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface claude-code",
-            "timeout": 5
           }
         ]
       }
@@ -23,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface claude-code",
+            "command": "ai-eng chain Stop",
             "timeout": 5
           }
         ]

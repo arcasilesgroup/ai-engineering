@@ -7,9 +7,9 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
-import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules, loadCircuitBreakerConfig } from "../env.ts";
-import { normalise, deduplicable, fingerprint, loopExact } from "./payload.ts";
-import type { Payload } from "./payload.ts";
+import { repoRoot, isGoverned, adoptSession, sessionId, receiptsDir, loadLocalRules } from "../env.ts";
+import { normalise, deduplicable, fingerprint, loopExact } from "../payload.ts";
+import type { Payload } from "../payload.ts";
 import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
@@ -17,11 +17,11 @@ import { policyModeFor, runPolicy } from "../guards/policy.ts";
 import { runInjection, type GuardResult as InjectionGuardResult } from "../guards/injection.ts";
 import { runSpokenSecret } from "../guards/spoken-secret.ts";
 import { runLoopGuard } from "../guards/loop.ts";
-import { CircuitBreaker } from "../guards/circuit-breaker.ts";
+import { runCheckpointGuard } from "../guards/checkpoint.ts";
 import { isTestCommand, rewrite } from "../guards/wrap.ts";
-import { writeReceipt, upsertDenyLedger } from "../receipts.ts";
+import { writeReceipt, upsertDenyLedger, retainReceipts, type Receipt } from "../receipts.ts";
 
-export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret";
+export type GuardName = "self-protect" | "no-verify" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret" | "checkpoint";
 
 type GuardRow = { name: GuardName; matcher: RegExp };
 type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | { deny: false; review: true; reason: string; rule: { id: string; name: string; risk: number } } | undefined;
@@ -29,8 +29,6 @@ type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | { deny:
 export type ChainContext = {
   repoRoot: string | null;
   loopOverride: boolean;
-  /** Circuit breaker for external service calls (Jev, MCP). Shared per process. */
-  circuitBreaker: CircuitBreaker;
 };
 
 /** event -> [(guard, tool matcher)]. Adding an entry point means adding a row here,
@@ -41,9 +39,11 @@ export const TABLE: Record<string, GuardRow[]> = {
     { name: "no-verify", matcher: /^(Bash|PowerShell|shell|command|Edit|Write|MultiEdit|NotebookEdit)$/ },
     { name: "policy", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
-    { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
+    { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ },
+    { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
   ],
+  Stop: [{ name: "checkpoint", matcher: /^$/ }],
   PostToolUse: [
     { name: "injection", matcher: /^(WebFetch|Fetch|WebSearch|mcp__.*|tool_result)$/ },
     { name: "loop", matcher: /^.*$/ },
@@ -55,9 +55,7 @@ export const TABLE: Record<string, GuardRow[]> = {
 };
 
 const HOT_PATH_BUDGET_MS = 200;
-
-/** Shared circuit breaker instance per process. Created once, reused across runs. */
-const sharedCircuitBreaker = new CircuitBreaker();
+const UNREADABLE_PAYLOAD = "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.";
 
 export type ChainOptions = {
   surface?: string;
@@ -152,19 +150,35 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   // asked in one place (§A). Everything below assumes a repo that asked for policy.
   if (root === null || !isGoverned(root)) return { action: "allow", guards: [], receiptId: null };
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
+    return denyOutcome("chain", UNREADABLE_PAYLOAD, [], event, options, started, root, "unknown");
   }
   // The payload boundary is fail-closed like every guard: an object that throws while
   // being read (an in-process host can hand us one) must deny, never escape as an
   // uncaught exception — a crashing hook is a hook that lets the call through.
   let payload: Payload;
   try {
-    payload = normalise(rawPayload, options.surface);
-  } catch {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
+    payload = normalise(rawPayload, options.surface, event);
+  } catch (error) {
+    // normalise refuses on purpose (an unmeasured tool, an ambiguous patch) with a TypeError
+    // that says which; anything else is a payload that could not be read at all.
+    const why = error instanceof TypeError && error.message ? `BLOCKED: ${error.message} Nothing here can say whether this action is safe, so it was not run.` : UNREADABLE_PAYLOAD;
+    return denyOutcome("chain", why, [], event, options, started, root, "unknown");
   }
   adoptSession(payload.session_id);
   payload._event = event;
+  const tool = payload.tool_name;
+  if (event === "PreToolUse" && (typeof tool !== "string" || tool.trim().length === 0)) {
+    return denyOutcome(
+      "chain",
+      "BLOCKED: PreToolUse payload has no tool name, so it cannot be evaluated safely.",
+      [],
+      event,
+      options,
+      started,
+      root,
+      "unknown",
+    );
+  }
   // Phase 1: attach declarative local rules from config.toml to the payload.
   // The injection guard reads payload.localRules and evaluates them before
   // falling through to the built-in IOC catalogue.
@@ -172,17 +186,17 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   if (localRules.length > 0) {
     (payload as Record<string, unknown>)["localRules"] = localRules;
   }
-  const tool = payload.tool_name;
-  const fp = fingerprint(payload);
+  // A BigInt or a cycle in an in-process tool_input makes JSON.stringify throw: a payload
+  // that cannot be fingerprinted cannot be judged, so it denies like any unreadable one.
+  let fp: string;
+  try {
+    fp = fingerprint(payload);
+  } catch {
+    return denyOutcome("chain", UNREADABLE_PAYLOAD, [], event, options, started, root, "unknown");
+  }
 
   const overrides = readOverrides(root);
-  // Configure the shared circuit breaker from config.toml (once per process;
-  // subsequent reads update the thresholds without creating new instances).
-  const cbConfig = loadCircuitBreakerConfig(root);
-  if (cbConfig.failureThreshold !== undefined || cbConfig.resetMs !== undefined) {
-    sharedCircuitBreaker.configure(cbConfig);
-  }
-  const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null, circuitBreaker: sharedCircuitBreaker };
+  const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
 
   // Same call, same answer: no guard decides the same call twice. The cache lives inside
   // .ai-engineering/ — the directory the lock owns and uninstall sweeps — and not at the
@@ -232,7 +246,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   // receipt but still allow the call. The receipt carries the review metadata
   // for later analysis; the call itself proceeds.
   if (reviewResult !== undefined) {
-    const receipt = writeReceipt({
+    const receipt = recordReceipt({
       event,
       surface: options.surface ?? "unknown",
       tool,
@@ -243,7 +257,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     }, root);
     return { action: "review", reason: reviewResult.reason, rule: reviewResult.rule, guards: ran, receiptId: receipt?.operation_id ?? null };
   }
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool,
@@ -253,6 +267,35 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     session_id: sessionId(),
   }, root);
   return { action: "allow", guards: ran, receiptId: receipt?.operation_id ?? null };
+}
+
+/** Write the chain's receipt, then let retention run (its daily claim makes every
+ *  call after the backlog is clear a single failed create). The git floor never calls this. */
+function recordReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | "ts">, root: string): Receipt | null {
+  const written = writeReceipt(receipt, root);
+  if (written) retainReceipts(root);
+  return written;
+}
+
+/** What `ai-eng wrap` asks before it runs anything, so the wrapper can never run a command
+ *  the guards did not see: the guards that judge what a command DOES, in the governed
+ *  root of the directory it runs in. Loop keeps its per-call count on the original call;
+ *  replaying it would count one call twice. */
+export function judgeWrappedCommand(command: string, cwd: string): string | null {
+  const root = repoRoot(cwd);
+  // The chain only rewrites inside a governed repo, so a wrap anywhere else was not ours:
+  // run from outside, it would be a way to reach the governed repo with nothing judging.
+  if (root === null || !isGoverned(root)) return "ai-eng wrap only runs inside the governed repository that rewrote the command";
+  const payload = normalise({ tool_name: "Bash", tool_input: { command }, cwd });
+  payload._event = "PreToolUse";
+  const localRules = loadLocalRules(root);
+  if (localRules.length > 0) (payload as Record<string, unknown>)["localRules"] = localRules;
+  const ctx: ChainContext = { repoRoot: root, loopOverride: false };
+  for (const name of ["self-protect", "no-verify", "policy", "injection", "checkpoint"] as const) {
+    const outcome = dispatchGuard(name, payload, ctx);
+    if (outcome?.deny === true) return outcome.reason;
+  }
+  return null;
 }
 
 function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): GuardOutcome {
@@ -283,6 +326,8 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
           return runInjection(payload);
         case "spoken-secret":
           return runSpokenSecret(payload);
+        case "checkpoint":
+          return runCheckpointGuard(payload, ctx.repoRoot);
         default:
           return runLoopGuard(payload, ctx.loopOverride);
       }
@@ -324,7 +369,7 @@ function denyOutcome(
     const repeats = upsertDenyLedger(receiptsDir(root), loopKey);
     if (repeats > 0) reason += ` · this exact call has been denied ${repeats} times before`;
   }
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool,
@@ -350,7 +395,7 @@ function rewriteOutcome(
   root: string,
 ): ChainOutcome {
   const latency = Math.max(1, Date.now() - started);
-  const receipt = writeReceipt({
+  const receipt = recordReceipt({
     event,
     surface: options.surface ?? "unknown",
     tool: "Bash",
@@ -372,7 +417,7 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
     body = JSON.parse(raw) as Record<string, unknown>;
     if (body === null || Array.isArray(body) || typeof body !== "object") throw new Error("not an object");
   } catch {
-    deny("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", options.dialect ?? "claude", event);
+    deny("chain", UNREADABLE_PAYLOAD, options.dialect ?? "claude", event);
   }
   const outcome = runChain(body, event, options);
   // An allow is a verdict too, and one host reads an empty answer as a refusal.

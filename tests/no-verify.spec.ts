@@ -7,7 +7,7 @@
 // avoid contiguous silencer bytes: this file is itself judged by the guard it
 // tests when it is written.
 import { describe, expect, test, beforeAll, afterAll } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -17,7 +17,7 @@ import {
   hooksPathTargets,
   runNoVerify,
 } from "../src/guards/no-verify.ts";
-import type { Payload } from "../src/chain/payload.ts";
+import type { Payload } from "../src/payload.ts";
 
 const hookReason = (target: string) => `this points core.hooksPath at ${target || "nothing"} instead`;
 const skipReason = (label: string) => `${label} skips the git hooks`;
@@ -38,13 +38,18 @@ const payload = (tool_name: string, tool_input: Record<string, unknown>): Payloa
   tool_input,
 });
 
-// Fixture root for the exists/does-not-exist arms. The relative-name case also
-// needs the name to be absent from the test cwd, which the unique name gives.
-const FX = "noverify-hooks-fixture";
+// Fixture root for the floor/no-floor arms: FX is the repo's own .git/hooks (the only
+// accepted hooksPath); EMPTY and LOOKALIKE exist but are not it.
+const FX = join(".git", "hooks");
+const EMPTY = "noverify-empty-dir";
+const LOOKALIKE = "noverify-lookalike-hooks";
 let root = "";
 beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), "noverify-"));
-  mkdirSync(join(root, FX));
+  mkdirSync(join(root, FX), { recursive: true });
+  mkdirSync(join(root, EMPTY));
+  mkdirSync(join(root, LOOKALIKE));
+  writeFileSync(join(root, LOOKALIKE, "pre-commit"), "#!/bin/sh\n# ai-eng git floor shim\nexit 0\n");
 });
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
@@ -95,9 +100,35 @@ describe("hooksPathElsewhere", () => {
     expect(hooksPathElsewhere(join(root, "no-such-dir"), root)).toBe(true);
   });
 
+  test("a path that exists but is not this repo's .git/hooks, or sits outside the repo, is elsewhere", () => {
+    expect(hooksPathElsewhere(EMPTY, root)).toBe(true);
+    expect(hooksPathElsewhere(LOOKALIKE, root)).toBe(true);
+    expect(hooksPathElsewhere("/dev/null", root)).toBe(true);
+    expect(checkBash("git commit --no-veri -m x", root)?.deny).toBe(true);
+    expect(checkBash("git commit --no-ver''ify -m x", root)?.deny).toBe(true);
+    expect(checkBash("GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m x", root)?.deny).toBe(true);
+    for (const command of [
+      "x=--no-verify; git commit $x -m y", "git commit -m x $(echo --no-ver)ify", "git commit -m x --no-ver?fy",
+      "git commit -m x --no-ver{ify,}", 'git commit -m "$(printf a)" --no-verify', "GIT_CONFIG_GLOBAL=h.cfg git commit -m x",
+      "git -c include.path=h.cfg commit -m x", "git config include.path ../h.cfg", "git pull --no-verify",
+      "git -ccore.hooksPath=/x commit -m x", "git -c core.hooksPath commit -m x", "git -c alias.c='commit --no-verify' c -m x",
+      "git config alias.c 'commit --no-verify'", "git -c alias.x='!git commit -n' x", "GIT_DIR=x git commit -m x",
+      "HOME=. git commit -m x", "git --git-dir=x commit -m x",
+    ]) {
+      expect(checkBash(command, root)?.deny, command).toBe(true);
+    }
+    for (const command of [
+      'git commit -m "fix: handle -n flag"', "git commit -m 'docs: never use --no-verify'",
+      "git commit -m \"$(cat <<'EOF'\nfeat: x\n\nUse -n carefully\nEOF\n)\"", 'git push origin "$(git branch --show-current)"',
+      "git log -n 5", 'git commit -m "fix: $(date)"',
+    ]) {
+      expect(checkBash(command, root), command).toBeUndefined();
+    }
+  });
+
   test("relative path resolves against repoRoot, not cwd", () => {
-    expect(existsSync(join(process.cwd(), FX))).toBe(false);
     expect(hooksPathElsewhere(FX, root)).toBe(false);
+    expect(hooksPathElsewhere(FX, join(root, EMPTY))).toBe(true);
   });
 });
 
@@ -121,7 +152,8 @@ describe("checkBash", () => {
   });
 
   test("allows a target that exists under repoRoot", () => {
-    expect(checkBash(`git config core.hooksPath ${FX}`, root)).toBeUndefined();
+    // Spelled as a shell reads it: a backslash in an unquoted word is an escape, not a separator.
+    expect(checkBash("git config core.hooksPath .git/hooks", root)).toBeUndefined();
   });
 
   test.each([
@@ -140,8 +172,49 @@ describe("checkBash", () => {
   });
 
   test.each([
+    ["an escaped space before # (-n)", "echo a\\ #; git commit -n -m x", "git commit -n"],
+    ["an escaped space before # (--no-verify)", "echo a\\ #; git commit --no-verify -m x", "--no-verify"],
+    ["a brace group", "{ git commit -n -m x; }", "git commit -n"],
+    ["a negation", "! git commit -n -m x", "git commit -n"],
+    ["an if condition", "if git commit -n -m x; then :; fi", "git commit -n"],
+    ["a for body", "for i in 1; do git commit -n -m x; done", "git commit -n"],
+    ["a while body", "while true; do git commit -n; done", "git commit -n"],
+    ["command -p", "command -p git commit -n -m x", "git commit -n"],
+    ["env -i", "env -i git commit -n -m x", "git commit -n"],
+    ["env -u NAME", "env -u FOO BAR=1 git commit -n -m x", "git commit -n"],
+    ["nice -n 5", "nice -n 5 git commit -m x --no-verify", "--no-verify"],
+    ["time", "time git commit -n", "git commit -n"],
+    ["time -p", "time -p git push --no-verify", "--no-verify"],
+    ["xargs", "xargs git commit -n", "git commit -n"],
+    ["xargs -n 1", "xargs -n 1 git commit -n", "git commit -n"],
+    ["sudo -u", "sudo -u x git commit -n", "git commit -n"],
+    ["timeout DURATION", "timeout 5 git commit -n", "git commit -n"],
+    ["stdbuf", "stdbuf -o L git push --no-verify", "--no-verify"],
+    ["an unknown wrapper", "chronic git commit -n -m x", "git commit -n"],
+    ["an unknown wrapper with global options", "ionice -c3 git -C . push --no-verify", "--no-verify"],
+    ["a single-quoted heredoc delimiter glued to #", "cat <<'EOF'#; git commit --no-verify -m x\nbody\nEOF#", "--no-verify"],
+    ["a double-quoted heredoc delimiter glued to #", "cat <<\"EOF\"#; git commit --no-verify -m x\nbody\nEOF#", "--no-verify"],
+    ["an unquoted heredoc delimiter glued to #", "cat <<EOF#; git commit --no-verify -m x\nbody\nEOF#", "--no-verify"],
+    ["a heredoc delimiter glued to # (-n)", "cat <<'EOF'#; git commit -n -m x\nbody\nEOF#", "git commit -n"],
+  ])("denies %s, reason verbatim", (_name, command, label) => {
+    expect(checkBash(command, null)).toMatchObject({ deny: true, reason: expect.stringContaining(skipReason(label)) });
+  });
+
+  test.each([
     ["clean commit", "git commit -m ok"],
     ["HUSKY=1", "HUSKY=1 git commit -m ok"],
+    ["a quoted #", "echo \"a # b\"; git status"],
+    ["a # inside a word", "echo a#b"],
+    ["a message with a colon", "git commit -m \"feat: x\""],
+    ["an if over a read", "if git diff --quiet; then echo ok; fi"],
+    ["env before a test run", "env FOO=1 bun test 2>&1 | tail -3"],
+    ["nice before a test run", "nice -n 5 bun test 2>&1 | tail -3"],
+    ["a for loop", "for f in *.ts; do echo $f; done"],
+    ["git log -n", "git log -n 5"],
+    ["a commit message naming -n", "git commit -m \"git commit -n is denied\""],
+    ["a commit after a closed heredoc", "cat <<'EOF'\nbody\nEOF\ngit commit -m \"x\""],
+    ["a heredoc body naming the skip flag", "git commit -F - <<'EOF'\n# not a comment\nnever pass --no-verify\nEOF"],
+    ["a comment after a word", "echo a # comment; git commit -n"],
   ])("allows %s", (_name, command) => {
     expect(checkBash(command, null)).toBeUndefined();
   });

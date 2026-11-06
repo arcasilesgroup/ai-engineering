@@ -1,5 +1,93 @@
 # Changelog
 
+## Unreleased
+
+- The command-scope policy now defaults to `4667` for every install and new project
+  (was `0467`): system read and external write are allowed; system write and execute
+  stay denied. Set `guards.policy_mode` in `.ai-engineering/config.toml` to narrow it.
+- Floating core keeps the guard floor and orchestration ceremony in core, using the
+  user's existing Git, host, and forge for the rest of the workflow.
+- `ai-eng init` installs every skill and its resources by default, with no pack prompt
+  or selection; a fresh init writes no `[canon].packs`, and a legacy value is ignored
+  with its config bytes preserved.
+- Cleanup and uninstall delete only files ai-eng can prove it wrote, by exact bytes or a
+  recorded hash; edited, user-added, linked and unproven files are kept and named. A
+  settings file that cannot be changed safely is refused with a warning and left as it was.
+- `ai-eng config` changes only `surfaces.enabled` and keeps every other byte, comments and
+  line endings included; a layout it cannot edit safely is refused with the file unchanged.
+- The checkpoint viewer opens the new current checkpoint during live updates and keeps its
+  findings visible, linked from the status banner.
+- The pre-push hook denies a direct push to the detected base, and denies when no base can
+  be detected.
+- Worktree merge and review commits use your own Git identity, and
+  `ai-eng worktree rm --force` no longer needs a detected base.
+- Automatic receipt retention refuses a linked or escaping `.ai-engineering/receipts`
+  folder, deletes only receipt files it wrote, keeps at least one day of history, and never
+  changes the host's working directory.
+- The checkpoint guard judges where a write lands, so case, link, `cd` and `json.tool -`
+  aliases no longer reach the checkpoint file.
+- The installed `ai-eng` command starts with Bun alone (no Node needed), and the package now
+  requires Bun 1.4.4 or later. A smoke test installs the real packed tarball and runs it.
+- CI runs the full test suite on Linux, macOS and Windows.
+- Windows fixes: hooks no longer fail open, because the chain reads stdin before it exits;
+  self-protect matches governed paths written with either slash; network-share paths are
+  never opened; `AI_ENG_HOME` must stay inside its home; and protected home folders stay
+  protected when reached through `..`.
+- The shell guards read redirects and quoting, ANSI-C quoting (`$'...'`) and heredoc
+  delimiters the way the shell does, and find `git` behind shell keywords and prefix
+  commands. Shell text a guard cannot read is denied, and a malformed hook payload is
+  denied instead of crashing the chain.
+- `ai-eng init` and `update` create the machine-level Claude, Codex and Copilot carriers when
+  they are missing.
+- `ai-eng wrap` keeps a run's evidence when the command's output overflows.
+- Receipt retention opens each receipt only once.
+- A release verifies the exact dispatched commit, packs one tarball, records its digest and
+  publishes that same file, with a CycloneDX SBOM that lists only runtime dependencies.
+- Publishing requires a signed, annotated release tag on the dispatched commit, made by an
+  allowlisted key, plus verified redistribution rights for bundled content. Publication
+  stays blocked until the owner resolves the unresolved rows in `NOTICE.md`.
+- The README now states the security boundary: what the guards stop and where they end.
+
+### 3.0 migration guide (unreleased)
+
+The 3.0 major release removes the `workspace`, `briefing`, `upgrade` and `spec`
+CLI verbs and the `worktree rebase` subcommand. Use `ai-eng worktree new`,
+`list`, `merge` and `rm` for worktree operations; use the `ai-orchestrator`
+skill and `.ai-engineering/workflow/checkpoints/<slug>.json` for feature
+checkpoints; use native `git rebase <detected base>` when a feature needs
+synchronization. Upgrade the installed package with
+`bun add -g ai-engineering@latest`, then run `ai-eng update` to reconcile packaged assets.
+
+Checkpoint lifecycle data now uses `reviewed_base` instead of `reviewed_main`.
+The reader accepts the legacy field and normalizes it; new plans and writes use
+`reviewed_base`. Every shipped skill now comes from `skills/` and is installed by
+`ai-eng init` and `ai-eng update`. Existing `[canon].packs` values are legacy settings:
+update preserves their config bytes and ignores their values.
+
+`init` and `update` leave their file changes for review; they do not commit.
+Only the explicitly approved worktree merge flow creates its reviewed merge
+commit, and the feature checkout remains available afterward. Verify the
+migrated installation with `ai-eng doctor`.
+
+- Worktree lifecycle awareness now reads pre-worktree approval from the exact fresh
+  brainstorm artifact only when no local feature branch exists, without writing a
+  second state store. Existing worktree checkpoints remain authoritative;
+  `request-changes` uses the full pending checkpoint-only commit SHA as a
+  compare-and-swap token before clearing review pins.
+- Worktree creation starts from the invoking checkout's current `HEAD` and accepts
+  a branch name only; it does not accept file hints or create a hint manifest. The
+  detected base is recorded for integration, not used as the starting commit.
+- Worktree cleanup now removes terminal control characters from ignored filenames in
+  its output, and a `constructor` slug no longer blocks later worktree creation.
+- Azure triage now validates source-linked claims and explains Recommendation and
+  Why now alongside dates, discussion, parent/sprint context and evidence coverage.
+  Current commitments and blockers can change recommendation order without
+  changing native Priority/Severity; critical risk stays first. Partial chronology
+  cannot establish current work. Existing inventory-only and GitHub behavior stays
+  intact, and invalid evidence preserves the previous report.
+- Add a memory-only synthetic preview for complete, limited and empty Azure
+  reports; no live tenant or private report is used.
+
 ## 2.6.0
 
 ### Minor Changes
@@ -55,15 +143,19 @@
 
 All notable changes, written for someone reading what changed, not how. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## Historical notes (unreleased at the time)
+
+These entries preserve earlier release history. Current 3.0 behavior is described
+in the migration guide above.
 
 ### Added
 
+- Earlier worktree lifecycle flow used a managed rebase to sync a clean feature with local `main`, then removed the reviewed feature checkout after merge. 3.0 removes that managed rebase step: synchronization uses native `git rebase <detected base>`, and `worktree merge` checks the reviewed feature and `reviewed_base` against the detected base while retaining the feature checkout.
 - `ai-git-cleanup` skill: list finished local branches and worktrees with the evidence behind each recommendation, then remove only what a person approves at two confirmation gates — local git only.
 - `ai-git-cleanup` v2: the two gates become one — a single view shows the full analysis table with its per-row command plan, the `fetchStatus` of the initial best-effort fetch, and the `postSync` post-cleanup sync (`git worktree prune` only when a worktree removal is queued, `git pull --ff-only` on the default branch only when it is behind its upstream, the ahead count reported — never pushed), and that one approval covers deletions and sync alike — local git only, still never zero confirmations.
 - `ai-git-cleanup` v3: the flow turns action-first — phase 0 migrates to the default branch automatically and reversibly (auto-stash a dirty tree, `git switch` to the default, `git pull --ff-only` pinned to the default branch as destination with HEAD already there, WARN-and-continue), phase 1 classifies branches deterministically in code with protection filtered before every category, phase 2 asks exactly once per delete batch (delete all, pick, or stop — never zero confirmations), and phase 3 executes the batch then prints the per-branch report: default branch, previous (pre-migration) branch, stash state, and an action/reason/upstream/ahead/behind row for every branch — local git only; the analysis-first two-gate flow and `references/merge-evidence.md` are…
-- Git worktree flow: the framework's missing git contract is written into `AGENTS.md` and the shipped `AGENTS.md.tpl` — a session that writes code works in `<repo>.worktrees/<slug>` on `feat/<slug>` cut from the local `main`, merges back with `git merge --no-ff`, never pushes, and the design artifacts are committed in the primary tree before any worktree is cut, no worktree ever staging them. The new `ai-eng worktree new|rm|list` verb cuts, lists and removes those worktrees and refuses to cut one while a design slot is uncommitted; `ai-git-cleanup` is rewritten into one automatic pass that removes dead worktrees and branches already merged into the local `main`, keeps anything unmerged, unprovable, detached or dirty, force-deletes nothing and asks no question and no name; and `ai-pr` replaces `ai-pr-loop-fix`, cutting the pull-request branch from the local `main` without a worktree, pushing, opening the pull request against `main`, watching CI and review comments, fixing only the obvious failures in bounded iterations and merging with a merge commit (auto-merge on by default and switched off on request — "open the pull request" stops before the merge). `ai-audit-code` gains a `## Findings` block (every finding cites its `file:line` or a path, verify before deleting, a test that only asserted a symbol is not a consumer) and `ai-security` states that CRITICAL through LOW take no severity without an attack path, with the validator never the author of the proof-of-concept it judges.
-- `ai-github-triage` skill: reads every open issue and pull request of a repository and writes one ranked page at `.ai-engineering/triage.html` — the three things to start on first, what is already answered, what to close — with every claim pinned to a permalink at a commit SHA; read-only on GitHub, and the page is built from the shared block's two new components, the expandable `.item` row and the `.band` chip that ranks it, registered in `artifact-design.md` instead of invented a second time.
+- Earlier Git worktree guidance required feature branches to start from local `main`, required clean design slots, and described merge-time checkout removal. The 3.0 contract starts `worktree new` from the invoking checkout's `HEAD`, reports dirty design files while leaving them in the source checkout, and merges to the detected base without deleting the feature checkout. The `ai-git-cleanup` and `ai-pr` notes that follow preserve the earlier flow's other behavior: `ai-git-cleanup` was rewritten into one automatic pass that removes dead worktrees and branches already merged into local `main`, keeps anything unmerged, unprovable, detached or dirty, force-deletes nothing and asks no question or name; `ai-pr` replaced `ai-pr-loop-fix`, cutting the pull-request branch from local `main` without a worktree, pushing, opening the pull request against `main`, watching CI and review comments, fixing only obvious failures in bounded iterations and merging with a merge commit (auto-merge on by default and switched off on request — "open the pull request" stops before the merge). `ai-audit-code` gained a `## Findings` block (every finding cites its `file:line` or a path, verify before deleting, a test that only asserted a symbol is not a consumer) and `ai-security` stated that CRITICAL through LOW take no severity without an attack path, with the validator never the author of the proof-of-concept it judges.
+- `ai-triage` replaces `ai-github-triage` as the single public backlog skill for GitHub and Azure DevOps Services. It preserves complete, read-only GitHub issue and pull-request triage and adds one explicitly scoped Azure DevOps backlog per report; ambiguous scope stops before reads, and Azure access uses the already-authenticated `az` CLI with its Azure DevOps extension without writing credentials.
 
 ### Changed
 

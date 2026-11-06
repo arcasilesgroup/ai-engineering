@@ -32,6 +32,14 @@ Write `.ai-engineering/workflow/checkpoints/<feature-slug>.json` in exactly this
   "summary": "One or two sentences on what the finished feature does.",
   "plain_summary": "Plain English for a non-technical owner: what people will be able to do when this is finished.",
   "gating": "Work checkpoints in order. Within a checkpoint, the gates run in order: behavior, then ui, then review. A checkpoint is \"passed\" only when every gate is \"passed\" or \"n/a\". Do not start checkpoint N+1 until checkpoint N has passed.",
+  "lifecycle": {
+    "phase": "implementation",
+    "plan_approval": "approved",
+    "app_review": "not-started",
+    "base_ref": null,
+    "reviewed_base": null,
+    "reviewed_feature": null
+  },
   "checkpoints": [
     {
       "id": 1,

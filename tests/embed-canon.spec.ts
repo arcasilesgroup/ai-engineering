@@ -5,9 +5,9 @@
 // temp directory: the real canon home is never touched.
 
 import { describe, expect, test, afterEach } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, symlinkSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, symlinkSync, linkSync, rmSync, readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import {
   embeddedUnder,
   canonSkills,
@@ -15,12 +15,26 @@ import {
   removeStaleCanonFiles,
   canonDrift,
   materializeSkills,
+  materializeAgents,
   embeddedPath,
   embeddedTemplate,
   embeddedChainBundle,
+  recordCanonOwnership,
+  CANON_OWNERSHIP_NAME,
 } from "../src/embed.ts";
+import { sha256 } from "../src/install.ts";
 
 const roots: string[] = [];
+const root = join(import.meta.dir, "..");
+
+function filesBelow(directory: string): string[] {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? filesBelow(path) : [path];
+  });
+}
+
 function sandbox(): string {
   const dir = mkdtempSync(join(tmpdir(), "ai-eng-embed-"));
   roots.push(dir);
@@ -40,6 +54,45 @@ describe("the embedded payload", () => {
     for (const key of templates.keys()) {
       expect(key.startsWith("templates/")).toBe(true);
       expect(key.startsWith("..")).toBe(false);
+    }
+  });
+
+  test("the generated payload embeds every skills asset and no packs or test-only eval fixtures", () => {
+    const skillFiles = filesBelow(join(root, "skills")).filter((path) => !path.endsWith(`${sep}.DS_Store`));
+    const sourcePaths = skillFiles.map((path) => relative(root, path).split(sep).join("/")).sort();
+    const embeddedSkills = embeddedUnder("skills/");
+    expect(sourcePaths.length).toBeGreaterThan(0);
+    expect([...embeddedSkills.keys()].sort()).toEqual(sourcePaths);
+    for (const path of sourcePaths) {
+      expect(readFileSync(embeddedPath(embeddedSkills.get(path)!))).toEqual(readFileSync(join(root, path)));
+    }
+    expect(embeddedUnder("packs/").size).toBe(0);
+  });
+
+  test("test-only verification eval fixtures are absent from the generated payload", () => {
+    expect(embeddedUnder("packs/verify-tiers/evals/").size).toBe(0);
+    expect(embeddedUnder("tests/fixtures/verify-tiers/evals/").size).toBe(0);
+  });
+
+  test("verify setup guide paths resolve in the skills inventory and installed payload", () => {
+    const canon = canonSkills();
+    const guidePath = "skills/ai-verify/VERIFICATION-SETUP-GUIDE.md";
+    const guideRef = canon.get(guidePath);
+    if (guideRef === undefined) throw new Error("the skills inventory is missing the verify setup guide");
+    const guide = readFileSync(embeddedPath(guideRef), "utf8");
+    const sourceSkillPath = /^VERIFY=\/path\/to\/(skills\/[^\s]+)$/m.exec(guide)?.[1];
+    if (sourceSkillPath === undefined) throw new Error("guide is missing the selected skill source path");
+    expect(canon.has(`${sourceSkillPath}/SKILL.md`)).toBe(true);
+    expect(guide).toContain('cp -R "$VERIFY" "$SKILLS/"');
+    expect(guide).not.toContain("packs/");
+    const references = [...guide.matchAll(/`(skills\/[^`]+)`/g)]
+      .map(([, path]) => path)
+      .filter((path): path is string => path !== undefined && !path.includes("<"));
+
+    expect(references.length).toBeGreaterThan(0);
+    for (const path of references) {
+      const prefix = path.endsWith("/") ? path : `${path}/`;
+      expect([...canon.keys()].some((asset) => asset === path || asset.startsWith(prefix))).toBe(true);
     }
   });
 
@@ -72,17 +125,20 @@ describe("the embedded payload", () => {
 });
 
 describe("the canon sweep (§14.3 — never delete a file we did not install)", () => {
-  test("a renamed asset inside a folder we ship is ours; another skill and a dot entry are not", () => {
+  test("a renamed asset inside a folder we ship is ours while its recorded hash holds; another skill and a dot entry are not", () => {
     const home = sandbox();
     const folder = skillFolder();
     mkdirSync(join(home, "skills", folder), { recursive: true });
     writeFileSync(join(home, "skills", folder, "renamed-page.md"), "gone from the payload");
+    writeFileSync(join(home, "skills", folder, "my-notes.md"), "mine");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/renamed-page.md`]: sha256("gone from the payload") } }));
     mkdirSync(join(home, "skills", "somebody-elses-skill"), { recursive: true });
     writeFileSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"), "mine");
     writeFileSync(join(home, "skills", ".DS_Store"), "noise");
 
-    const { stale, foreign } = canonExtras(home);
+    const { stale, kept, foreign } = canonExtras(home);
     expect(stale).toEqual([`skills/${folder}/renamed-page.md`]);
+    expect(kept).toEqual([`skills/${folder}/my-notes.md`]);
     expect(foreign).toEqual(["skills/somebody-elses-skill/SKILL.md"]);
   });
 
@@ -97,17 +153,61 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
     expect(foreign).toContain(`skills/${folder}/linked.md`);
   });
 
-  test("the sweep takes the stale file and the folder it empties, and leaves the foreign skill standing", () => {
+  test("the sweep takes a stale file whose recorded hash still matches, and the folder it empties", () => {
     const home = sandbox();
     const folder = skillFolder();
-    mkdirSync(join(home, "skills", folder), { recursive: true });
-    writeFileSync(join(home, "skills", folder, "orphan.md"), "x");
+    mkdirSync(join(home, "skills", folder, "old"), { recursive: true });
+    writeFileSync(join(home, "skills", folder, "old", "orphan.md"), "x");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/old/orphan.md`]: sha256("x") } }));
     mkdirSync(join(home, "skills", "somebody-elses-skill"), { recursive: true });
     writeFileSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"), "mine");
 
-    expect(removeStaleCanonFiles(home)).toEqual([`skills/${folder}/orphan.md`]);
-    expect(existsSync(join(home, "skills", folder, "orphan.md"))).toBe(false);
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: [`skills/${folder}/old/orphan.md`], kept: [], unproven: [], refused: [] });
+    expect(existsSync(join(home, "skills", folder, "old"))).toBe(false);
     expect(existsSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"))).toBe(true);
+  });
+
+  test("F15: a file the user added or edited inside a shipped folder is kept: no recorded hash proves it ours", () => {
+    const home = sandbox();
+    const folder = skillFolder();
+    mkdirSync(join(home, "skills", folder), { recursive: true });
+    writeFileSync(join(home, "skills", folder, "my-notes.md"), "mine");
+    writeFileSync(join(home, "skills", folder, "renamed-page.md"), "edited by hand");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/renamed-page.md`]: sha256("as shipped") } }));
+
+    expect(removeStaleCanonFiles(home)).toEqual({
+      removed: [],
+      kept: [`skills/${folder}/my-notes.md`, `skills/${folder}/renamed-page.md`],
+      unproven: [],
+      refused: [],
+    });
+    expect(readFileSync(join(home, "skills", folder, "my-notes.md"), "utf8")).toBe("mine");
+    expect(readFileSync(join(home, "skills", folder, "renamed-page.md"), "utf8")).toBe("edited by hand");
+  });
+
+  test("F19: the ownership record replaces its own name: a hard-linked user file keeps its bytes, a link there is refused", () => {
+    const home = sandbox();
+    const recordPath = join(home, CANON_OWNERSHIP_NAME);
+    const userFile = join(home, "my-notes.txt");
+    writeFileSync(userFile, "MY PRECIOUS NOTES\n");
+    linkSync(userFile, recordPath);
+
+    expect(recordCanonOwnership(home)).toBeNull();
+    expect(readFileSync(userFile, "utf8")).toBe("MY PRECIOUS NOTES\n");
+    const [shippedPath, shippedRef] = [...canonSkills()][0]!;
+    const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
+    expect(record.files[shippedPath]).toBe(sha256(readFileSync(embeddedPath(shippedRef), "utf8")));
+
+    rmSync(recordPath);
+    const elsewhere = join(home, "elsewhere.txt");
+    writeFileSync(elsewhere, "theirs\n");
+    symlinkSync(elsewhere, recordPath);
+    expect(recordCanonOwnership(home)).toBe(
+      `${recordPath} is a link, not a regular file, or not writable — ownership record not written; stale canon files will be kept, not swept`,
+    );
+    expect(readlinkSync(recordPath)).toBe(elsewhere);
+    expect(readFileSync(elsewhere, "utf8")).toBe("theirs\n");
+    expect(readdirSync(home).filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 
   test("a folder that still holds a shipped file is not emptied", () => {
@@ -115,18 +215,74 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
     materializeSkills(join(home, "skills"));
     const folder = skillFolder();
     writeFileSync(join(home, "skills", folder, "orphan.md"), "x");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/orphan.md`]: sha256("x") } }));
 
-    removeStaleCanonFiles(home);
+    expect(removeStaleCanonFiles(home).removed).toEqual([`skills/${folder}/orphan.md`]);
     expect(existsSync(join(home, "skills", folder))).toBe(true);
     expect(existsSync(join(home, "skills", aSkillPath().slice("skills/".length)))).toBe(true);
   });
 });
 
+describe("materialization never writes through a link (§14.3)", () => {
+  const linkedLine = (paths: string[]): string =>
+    `⚠ ${paths.length} path(s) where ai-eng installs are links or not its own folders or files — never written through, left as they are (the link and what it points at untouched): ${paths.join(", ")}. Move one aside to let ai-eng install there`;
+
+  test("a linked skill file is refused, its external target keeps its bytes, and the rest of the payload still lands", () => {
+    const home = sandbox();
+    const external = join(home, "dotfiles", "SKILL.md");
+    mkdirSync(join(home, "dotfiles"), { recursive: true });
+    writeFileSync(external, "theirs\n");
+    const [linkedKey] = [...canonSkills().keys()].filter((key) => key.endsWith("/SKILL.md"));
+    const skillsRoot = join(home, "skills");
+    const linked = join(skillsRoot, linkedKey!.slice("skills/".length));
+    mkdirSync(join(linked, ".."), { recursive: true });
+    symlinkSync(external, linked);
+
+    const lines = materializeSkills(skillsRoot);
+
+    expect(lines).toContain(linkedLine([join(realpathSync(skillsRoot), linkedKey!.slice("skills/".length))]));
+    expect(readlinkSync(linked)).toBe(external);
+    expect(readFileSync(external, "utf8")).toBe("theirs\n");
+    for (const [key, ref] of canonSkills()) {
+      if (key === linkedKey) continue;
+      expect(readFileSync(join(home, key))).toEqual(readFileSync(embeddedPath(ref)));
+    }
+  });
+
+  test("a linked canon root is refused and nothing is written into the folder it points at", () => {
+    const home = sandbox();
+    const external = join(home, "elsewhere");
+    mkdirSync(external);
+    const skillsRoot = join(home, "skills");
+    symlinkSync(external, skillsRoot, "dir");
+
+    expect(materializeSkills(skillsRoot)).toEqual([linkedLine([skillsRoot])]);
+    expect(readlinkSync(skillsRoot)).toBe(external);
+    expect(readdirSync(external)).toEqual([]);
+  });
+
+  test("a linked agent file is refused and its external target keeps its bytes", () => {
+    const home = sandbox();
+    const agentsRoot = join(home, "agents");
+    const [agentKey] = [...embeddedUnder("agents/").keys()];
+    if (agentKey === undefined) throw new Error("the payload ships no agents");
+    const external = join(home, "my-agent.md");
+    writeFileSync(external, "mine\n");
+    mkdirSync(agentsRoot);
+    const linked = join(agentsRoot, agentKey.slice("agents/".length));
+    symlinkSync(external, linked);
+
+    expect(materializeAgents(agentsRoot)).toContain(linkedLine([join(realpathSync(agentsRoot), agentKey.slice("agents/".length))]));
+    expect(readlinkSync(linked)).toBe(external);
+    expect(readFileSync(external, "utf8")).toBe("mine\n");
+  });
+});
+
 describe("workflow kit — embedded payload includes kit skill paths", () => {
-  test("U3: embedded payload includes ai-orchestrator and ai-design-md-planner skill paths", () => {
-    const paths = [...canonSkills().keys()];
-    expect(paths.some((path) => path.startsWith("skills/ai-orchestrator/"))).toBe(true);
-    expect(paths.some((path) => path.startsWith("skills/ai-design-md-planner/"))).toBe(true);
+  test("the orchestrator and every specialist skill are in the default skills inventory", () => {
+    const skillPaths = [...canonSkills().keys()];
+    expect(skillPaths.some((path) => path.startsWith("skills/ai-orchestrator/"))).toBe(true);
+    expect(skillPaths.some((path) => path.startsWith("skills/ai-design-md-planner/"))).toBe(true);
   });
 });
 
@@ -134,7 +290,7 @@ describe("drift is a measurement, not a claim", () => {
   test("a freshly materialized canon is intact: nothing missing, nothing drifted, nothing stale", () => {
     const home = sandbox();
     expect(materializeSkills(join(home, "skills"))[0]).toMatch(/^materialized \d+ assets → /);
-    expect(canonDrift(home)).toEqual({ verified: canonSkills().size, drift: 0, missing: 0, stale: 0, foreign: 0 });
+    expect(canonDrift(home)).toEqual({ verified: canonSkills().size, drift: 0, missing: 0, stale: 0, kept: 0, unproven: 0, foreign: 0 });
   });
 
   test("a canon can be complete and dirty at once: an edited file counts as drift, a deleted one as missing", () => {
@@ -150,11 +306,18 @@ describe("drift is a measurement, not a claim", () => {
     expect(canonDrift(home).missing).toBe(1);
   });
 
-  test("an extra file we do not ship is counted, never silently ignored", () => {
+  test("F20: an extra file we do not ship is counted, never silently ignored — stale only while its recorded hash proves it ours", () => {
     const home = sandbox();
     materializeSkills(join(home, "skills"));
     mkdirSync(join(home, "skills", skillFolder()), { recursive: true });
-    writeFileSync(join(home, "skills", skillFolder(), "left-behind.md"), "x");
-    expect(canonDrift(home).stale).toBe(1);
+    const key = `skills/${skillFolder()}/left-behind.md`;
+    writeFileSync(join(home, key), "x");
+    expect(canonDrift(home)).toMatchObject({ stale: 0, kept: 0, unproven: 1 });
+
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: {} }));
+    expect(canonDrift(home)).toMatchObject({ stale: 0, kept: 1, unproven: 0 });
+
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [key]: sha256("x") } }));
+    expect(canonDrift(home)).toMatchObject({ stale: 1, kept: 0, unproven: 0 });
   });
 });

@@ -11,7 +11,7 @@ You are the **coordinator**. You run in the main session because only the main s
 ## Setup
 
 - **Thread file:** under `/ai-orchestrator`, it's `.ai-engineering/workflow/reviews/<slug>-<id>.md`. Standalone, it's `.ai-engineering/workflow/reviews/<topic>-<YYYY-MM-DD>.md`. Create it with a header: the checkpoint's goal and acceptance criteria (or the user's scope), the `changed_files`, and the verify commands. Nothing else.
-- **Scope:** the checkpoint slice and `changed_files`. Standalone, it's `git diff HEAD` plus untracked files, and the verify commands are the full test suite, lint and build from the **Project config** section of `AGENTS.md`.
+- **Scope:** the checkpoint slice and `changed_files`. Run from the selected checkout, whether that is the current checkout or its chosen worktree. Standalone, it's `git diff HEAD` plus untracked files, and the verify commands are the full test suite, lint and build from the **Project config** section of `AGENTS.md`.
 - **Under `/ai-orchestrator`,** prompts start with the gate markers: `[checkpoint <slug>#<id> review]` for the critic and `[checkpoint <slug>#<id> fix]` for the fixer.
 
 ## Rounds (at most 4)

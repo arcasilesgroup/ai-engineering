@@ -1,12 +1,12 @@
 // tests/uninstall-command.spec.ts — behaviour gates for `ai-eng uninstall`
 // (src/commands/uninstall.ts). The product's promise is "revert ai-eng's files, keep
 // yours", so every claim here is about the disk afterwards: the files that are gone, the
-// files still there with their original bytes, the restored `git config
+// files still there with their original bytes, the restored legacy `git config
 // init.templateDir`, the machine record, and the number uninstallMain() returns.
 //
 // The starting states are built with the real installers — `install()` over
 // planEntries()/contractEntries() plus lockText(), exactly init's shape;
-// installMachineCarriers(); installTemplateDir() — and only the end state is asserted.
+// installMachineCarriers(); legacy template state is seeded as older versions wrote it.
 // The interactive path is driven through src/ui.ts's scriptedInput: keys are fed only
 // after the prompt that reads them has rendered, so nothing here can block on a TTY.
 //
@@ -15,24 +15,28 @@
 // over the developer's), so ~/.claude, ~/.ai-engineering, ~/.pi and ~/.gitconfig are never
 // read or written.
 
-import { afterAll, afterEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import * as fs from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { hostname, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { uninstallMain } from "../src/commands/uninstall.ts";
+import { embeddedPath, embeddedUnder, recordCanonOwnership } from "../src/embed.ts";
 import { contractEntries, planEntries } from "../src/commands/init-shared.ts";
 import { buildLock, install, lockText, sha256 } from "../src/install.ts";
-import { SHIMS, installTemplateDir } from "../src/floor/template.ts";
-import { installMachineCarriers, machineStateFile, readMachineState, rememberTemplateDir } from "../src/surfaces/adapters.ts";
+import { installCanon, installMachineCarriers, machineStateFile, machineStateLockFile, machineStateLockScope, readMachineState } from "../src/surfaces/adapters.ts";
 import { VERSION } from "../src/version.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
+import { usePrivateStdin } from "./fixtures/private-stdin.ts";
 
 const cwdBefore = process.cwd();
+const envBefore = snapshotSandboxEnv();
 process.env["NO_COLOR"] = "1";
 process.env["CI"] = "1";
-// scriptedInput adds one data listener per call and a question chain crosses Node's default
-// cap of 10; the wrapper raises it for its own stream, not for the real stdin it listens on.
-process.stdin.setMaxListeners(0);
+// The keys go through a stdin only this suite writes to: on the runner's real one, a stray
+// byte from whatever launched `bun test` answers the open prompt (tests/fixtures/private-stdin.ts).
+const stdin = usePrivateStdin();
 
 /** The prompt fragments. Each one is text that appears for the FIRST time at the prompt
  *  it belongs to — a fragment already on screen would match instantly and the key would
@@ -44,14 +48,24 @@ const MACHINE = "Delete the machine side";
 const PROJECT_KEYS = "\r";
 const EVERYTHING_KEYS = "\x1b[B\r";
 const CANCEL_KEYS = "\x1b[B\x1b[B\r";
+const LEGACY_SHIMS = ["pre-commit", "commit-msg", "pre-push"] as const;
+const LEGACY_SHIM_MARKER = "ai-eng git floor shim";
+const OPTIONAL_PACKS = [
+  { id: "triage", skill: "ai-triage" },
+  { id: "design-md-planner", skill: "ai-design-md-planner" },
+  { id: "audit-design", skill: "ai-audit-design" },
+  { id: "visual-recap", skill: "ai-visual-recap" },
+  { id: "writing-behavior", skill: "ai-writing-behavior" },
+  { id: "stress-test", skill: "ai-stress-test" },
+] as const;
 
 let sandbox: string | undefined;
 
 /** A repo-shaped project and a machine of its own. Nothing outside this directory is
  *  written: AI_ENG_HOME redirects the canon, the carrier base and — through template.ts —
  *  the global git config; PI_CODING_AGENT_DIR redirects the two relocatable agent dirs
- *  OUTSIDE the canon home, so a carrier removed there is removed by the sweep and not by
- *  the rmSync of the canon home. */
+ *  OUTSIDE the canon home, so a carrier removed there is removed by the sweep rather than
+ *  by deleting the machine home. */
 function sandboxed(): { cwd: string; machine: string; agentDir: string } {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-uninstall-"));
   const cwd = join(sandbox, "project");
@@ -62,8 +76,8 @@ function sandboxed(): { cwd: string; machine: string; agentDir: string } {
   process.env["AI_ENG_HOME"] = machine;
   process.env["PI_CODING_AGENT_DIR"] = agentDir;
   // template.ts honours a caller that brought its own global git config, and this one is
-  // deliberately OUTSIDE the canon home: the Everything scope deletes that home, so a
-  // config kept inside it could not show whether the setting was restored.
+  // deliberately OUTSIDE the canon home, so the test proves the setting is restored
+  // independently of the selective machine-asset sweep.
   process.env["GIT_CONFIG_GLOBAL"] = join(sandbox, "gitconfig");
   process.chdir(cwd);
   return { cwd, machine, agentDir };
@@ -74,8 +88,7 @@ function gitInit(cwd: string): void {
   if (done.status !== 0) throw new Error(`git init failed: ${done.stderr}`);
 }
 
-/** The global `init.templateDir` exactly as git sees it for this sandbox — the file
- *  template.ts writes into, read back with the same variable. */
+/** The global `init.templateDir` exactly as git sees it for this sandbox. */
 function globalTemplateDir(): string | null {
   const done = spawnSync("git", ["config", "--global", "--get", "init.templateDir"], {
     encoding: "utf8",
@@ -91,6 +104,28 @@ function setGlobalTemplateDir(dir: string): void {
   });
 }
 
+function writeLegacyTemplateShims(dir: string, names: readonly string[] = LEGACY_SHIMS): void {
+  for (const name of names) {
+    const path = join(dir, "hooks", name);
+    mkdirSync(join(dir, "hooks"), { recursive: true });
+    writeFileSync(path, `#!/bin/sh\n# ${LEGACY_SHIM_MARKER}\n`, { mode: 0o755 });
+  }
+}
+
+function recordLegacyTemplateDir(previous: string | null, ours: string | null): void {
+  writeFileSync(
+    machineStateFile(),
+    `${JSON.stringify({ version: "2.5.0", carriers: {}, templateDir: { previous, ours } }, null, 2)}\n`,
+  );
+}
+
+function sourceSkillFile(skillName: string): string {
+  const repo = join(import.meta.dir, "..");
+  const path = join(repo, "skills", skillName, "SKILL.md");
+  if (!existsSync(path)) throw new Error(`the canonical inventory has no SKILL.md for ${skillName}`);
+  return path;
+}
+
 /** A real init-shaped install: the contract files once, the plan's files, the shims made
  *  executable, and the lock built from the same entries — src/commands/init.ts's
  *  scaffoldProject(), with the human's lines left out. Returns the paths it owns. */
@@ -99,7 +134,7 @@ function initShaped(surfaces: string[]): string[] {
   install(cwd, contractEntries("2026-09-14"));
   const entries = planEntries(surfaces);
   install(cwd, entries);
-  for (const shim of SHIMS) {
+  for (const shim of LEGACY_SHIMS) {
     const path = join(cwd, ".git", "hooks", shim);
     if (existsSync(path)) chmodSync(path, 0o755);
   }
@@ -162,6 +197,40 @@ async function uninstall(steps: Array<[string, string]>): Promise<{ result: numb
   }
 }
 
+function replaceParentOnChdir(parent: string, outside: string): { wasTriggered: () => boolean; restore: () => void } {
+  const originalChdir = process.chdir.bind(process);
+  let wasTriggered = false;
+  process.chdir = (directory: string) => {
+    if (!wasTriggered && String(directory) === parent) {
+      wasTriggered = true;
+      renameSync(parent, `${parent}-before-race`);
+      symlinkSync(outside, parent, "dir");
+    }
+    originalChdir(directory);
+  };
+  return {
+    wasTriggered: () => wasTriggered,
+    restore: () => { process.chdir = originalChdir; },
+  };
+}
+
+function mutateFileOnSecondChdir(parent: string, mutate: () => void): { wasTriggered: () => boolean; restore: () => void } {
+  const originalChdir = process.chdir.bind(process);
+  let parentChanges = 0;
+  let wasTriggered = false;
+  process.chdir = (directory: string) => {
+    if (directory === parent && ++parentChanges === 2) {
+      wasTriggered = true;
+      mutate();
+    }
+    originalChdir(directory);
+  };
+  return {
+    wasTriggered: () => wasTriggered,
+    restore: () => { process.chdir = originalChdir; },
+  };
+}
+
 /** The "Everything" scope: scope, Confirm?, the contract question, the machine question. */
 function everythingScope(contract: string, machine: string): Array<[string, string]> {
   return [
@@ -174,18 +243,14 @@ function everythingScope(contract: string, machine: string): Array<[string, stri
 
 afterEach(() => {
   process.chdir(cwdBefore);
-  delete process.env["AI_ENG_HOME"];
-  delete process.env["PI_CODING_AGENT_DIR"];
-  delete process.env["GIT_CONFIG_GLOBAL"];
+  // Restore, never delete: a later suite in the same process must see the home it started with.
+  restoreSandboxEnv(envBefore);
   if (sandbox) rmSync(sandbox, { recursive: true, force: true });
   sandbox = undefined;
 });
 
 afterAll(() => {
-  // scriptedInput attaches a data listener to the real stdin on every call; leaving the
-  // stream flowing keeps the process alive after the last test.
-  process.stdin.pause();
-  process.stdin.removeAllListeners("data");
+  stdin.restore();
 });
 
 describe("uninstall · this project (the lock is the ownership register)", () => {
@@ -222,6 +287,33 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(out).toContain("✓ .cursor/hooks.json removed · still the template ai-eng installed");
     expect(out).toContain("✓ ai-eng.lock deleted · 8 owned files swept");
     expect(out).toContain("ai-eng is no longer active in this repo. Your contract files remain.");
+  });
+
+  test("a byte on the runner's own stdin never answers a prompt: the sweep still runs", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    initShaped(["cursor"]);
+    // Premise: the suite's prompts read a stream of their own, not the runner's.
+    expect(process.stdin).not.toBe(stdin.runnerStdin);
+
+    const cap = startCapture();
+    const run = uninstallMain();
+    try {
+      await until(cap, SELECT);
+      // A newline from the shell that launched the run — on a shared stdin it is Enter on
+      // the scope picker, the scripted Enter then lands on "Confirm?" (default No), and
+      // nothing is removed.
+      stdin.runnerStdin.emit("data", Buffer.from("\n"));
+      await sleep(40);
+      process.stdin.emit("data", Buffer.from(PROJECT_KEYS));
+      await until(cap, CONFIRM);
+      process.stdin.emit("data", Buffer.from("y"));
+      expect(await run).toBe(0);
+    } finally {
+      cap.stop();
+    }
+    expect(existsSync(join(cwd, ".ai-engineering", "ai-eng.lock"))).toBe(false);
+    expect(existsSync(join(cwd, ".cursor", "hooks.json"))).toBe(false);
   });
 
   test("a settings file the user already owned: their hook entries survive verbatim, ours do not", async () => {
@@ -360,6 +452,187 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(out).toContain("▲ ../victim.txt kept · lock path escapes this repo — not ai-eng's");
   });
 
+  test("a linked parent in the project sweep is refused", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    mkdirSync(join(cwd, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["cursor"]\n');
+    const outside = join(sandbox!, "outside");
+    mkdirSync(outside);
+    const victim = join(outside, "hooks.json");
+    const payload = "outside project\n";
+    writeFileSync(victim, payload);
+    symlinkSync(outside, join(cwd, ".cursor"), "dir");
+    writeFileSync(
+      join(cwd, ".ai-engineering", "ai-eng.lock"),
+      lockText({ version: VERSION, assets: { ".cursor/hooks.json": sha256(payload) } }),
+    );
+
+    const { result, out } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+
+    expect(result).toBe(0);
+    expect(readFileSync(victim, "utf8")).toBe(payload);
+    expect(lstatSync(join(cwd, ".cursor")).isSymbolicLink()).toBe(true);
+    expect(out).toContain("▲ .cursor/hooks.json kept · linked path — not ai-eng's");
+  });
+
+  test("a parent replaced by a symlink before unlink remains untouched", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    mkdirSync(join(cwd, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["cursor"]\n');
+    const parent = join(cwd, ".cursor");
+    mkdirSync(parent);
+    const outside = join(sandbox!, "outside");
+    mkdirSync(outside);
+    const payload = "same hash, outside the project\n";
+    writeFileSync(join(parent, "hooks.json"), payload);
+    const victim = join(outside, "hooks.json");
+    writeFileSync(victim, payload);
+    writeFileSync(
+      join(cwd, ".ai-engineering", "ai-eng.lock"),
+      lockText({ version: VERSION, assets: { ".cursor/hooks.json": sha256(payload) } }),
+    );
+    const race = replaceParentOnChdir(realpathSync(parent), outside);
+
+    let out = "";
+    try {
+      ({ out } = await uninstall([
+        [SELECT, PROJECT_KEYS],
+        [CONFIRM, "y"],
+      ]));
+    } finally {
+      race.restore();
+    }
+
+    expect(race.wasTriggered()).toBe(true);
+    expect(readFileSync(victim, "utf8")).toBe(payload);
+    expect(readFileSync(join(`${parent}-before-race`, "hooks.json"), "utf8")).toBe(payload);
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
+  });
+
+  test("a parent replaced by a symlink before write remains untouched", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    const mine = {
+      version: 1,
+      hooks: { preToolUse: [{ type: "command", command: "echo my own guard", timeout: 5 }] },
+    };
+    const settings = join(cwd, ".cursor", "hooks.json");
+    mkdirSync(join(cwd, ".cursor"), { recursive: true });
+    writeFileSync(settings, `${JSON.stringify(mine, null, 2)}\n`);
+    initShaped(["cursor"]);
+    const originalSettings = readFileSync(settings, "utf8");
+    const parent = realpathSync(join(cwd, ".cursor"));
+    const outside = join(sandbox!, "outside");
+    mkdirSync(outside);
+    const victim = join(outside, "hooks.json");
+    writeFileSync(victim, "outside settings\n");
+    const race = replaceParentOnChdir(parent, outside);
+
+    let out = "";
+    try {
+      ({ out } = await uninstall([
+        [SELECT, PROJECT_KEYS],
+        [CONFIRM, "y"],
+      ]));
+    } finally {
+      race.restore();
+    }
+
+    expect(race.wasTriggered()).toBe(true);
+    expect(readFileSync(victim, "utf8")).toBe("outside settings\n");
+    expect(readFileSync(join(`${parent}-before-race`, "hooks.json"), "utf8")).toBe(originalSettings);
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
+  });
+
+  test("a same-content file replacement before unlink is preserved", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    mkdirSync(join(cwd, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["cursor"]\n');
+    const parent = join(cwd, ".cursor");
+    mkdirSync(parent);
+    const file = join(parent, "hooks.json");
+    const payload = "canon payload\n";
+    writeFileSync(file, payload);
+    writeFileSync(
+      join(cwd, ".ai-engineering", "ai-eng.lock"),
+      lockText({ version: VERSION, assets: { ".cursor/hooks.json": sha256(payload) } }),
+    );
+    const race = mutateFileOnSecondChdir(realpathSync(parent), () => {
+      renameSync(file, `${file}-before-race`);
+      writeFileSync(file, payload);
+    });
+
+    let out = "";
+    try {
+      ({ out } = await uninstall([
+        [SELECT, PROJECT_KEYS],
+        [CONFIRM, "y"],
+      ]));
+    } finally {
+      race.restore();
+    }
+
+    expect(race.wasTriggered()).toBe(true);
+    expect(readFileSync(file, "utf8")).toBe(payload);
+    expect(readFileSync(`${file}-before-race`, "utf8")).toBe(payload);
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
+  });
+
+  test("changed settings content before write is preserved", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    const mine = {
+      version: 1,
+      hooks: { preToolUse: [{ type: "command", command: "echo my own guard", timeout: 5 }] },
+    };
+    const settings = join(cwd, ".cursor", "hooks.json");
+    mkdirSync(join(cwd, ".cursor"), { recursive: true });
+    writeFileSync(settings, `${JSON.stringify(mine, null, 2)}\n`);
+    initShaped(["cursor"]);
+    const originalIdentity = lstatSync(settings).ino;
+    const replacement = "replacement user content\n";
+    const parent = realpathSync(join(cwd, ".cursor"));
+    const race = mutateFileOnSecondChdir(parent, () => writeFileSync(settings, replacement));
+
+    let out = "";
+    try {
+      ({ out } = await uninstall([
+        [SELECT, PROJECT_KEYS],
+        [CONFIRM, "y"],
+      ]));
+    } finally {
+      race.restore();
+    }
+
+    expect(race.wasTriggered()).toBe(true);
+    expect(lstatSync(settings).ino).toBe(originalIdentity);
+    expect(readFileSync(settings, "utf8")).toBe(replacement);
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
+  });
+
+  test("project pruning keeps a non-empty carrier directory", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    initShaped(["cursor"]);
+    const userFile = join(cwd, ".cursor", "notes.txt");
+    writeFileSync(userFile, "keep this\n");
+
+    const { result } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+
+    expect(result).toBe(0);
+    expect(readFileSync(userFile, "utf8")).toBe("keep this\n");
+    expect(existsSync(join(cwd, ".cursor"))).toBe(true);
+  });
+
   test("Cancel at the scope question removes nothing", async () => {
     const { cwd } = sandboxed();
     gitInit(cwd);
@@ -415,7 +688,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
 
     expect(result).toBe(0);
     // The reported line is the carriers step's own: these two files live in the HOST's agent
-    // dir, outside the canon home this scope deletes, so an orphan is exactly what is left
+    // dir, outside the canon home this scope sweeps, so an orphan is exactly what is left
     // if the sweep misses them.
     expect(out).toContain("✓ ~/.pi/agent/extensions/ai-eng.ts removed");
     expect(existsSync(entry)).toBe(false);
@@ -462,7 +735,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(out).toContain("AGENTS.md · DECISIONS.md · .ai-engineering/");
   });
 
-  test("a machine settings carrier is stripped of our entries, and said", async () => {
+  test("a machine settings carrier is refused without identity-bound mutation, and said", async () => {
     const { cwd, machine } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
@@ -470,16 +743,145 @@ describe("uninstall · the machine side (Everything scope)", () => {
     // lock predates, so the project sweep keeps it as the user's and the declaration is
     // still readable when the machine side runs.
     writeFileSync(join(cwd, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["copilot"]\n');
-    expect(installMachineCarriers(["copilot-cli"]).written).toEqual(["~/.copilot/hooks/ai-eng.json"]);
+    const copilotSettings = join(machine, ".copilot", "hooks", "ai-eng.json");
+    mkdirSync(join(machine, ".copilot", "hooks"), { recursive: true });
+    const originalSettings = `${JSON.stringify({ user: "owned" }, null, 2)}\n`;
+    writeFileSync(copilotSettings, originalSettings);
+    expect(installMachineCarriers(["copilot-cli"]).refused).toEqual([{
+      path: "~/.copilot/hooks/ai-eng.json",
+      reason: "identity-bound-settings-mutation-unavailable",
+    }]);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 
     expect(result).toBe(0);
-    // Our entries came out of the user-scope file the CLI reads and never the repo copy.
-    expect(out).toContain("✓ ~/.copilot/hooks/ai-eng.json: ai-eng entries removed, yours kept");
-    expect(out).toContain(`▲ ${machine} deleted`);
-    expect(existsSync(machine)).toBe(false);
+    expect(out).toContain("safe machine-settings removal is unavailable");
+    expect(out).toContain(`✓ ${machine} kept · 0 canon-owned file(s) removed · 0 machine artifacts swept · other files kept`);
+    expect(readFileSync(copilotSettings, "utf8")).toBe(originalSettings);
+    expect(existsSync(machine)).toBe(true);
     expect(existsSync(join(cwd, ".ai-engineering", "config.toml"))).toBe(true); // "no" kept the project's files
+  });
+
+  // Windows has no unreadable mode: chmod 0o000 only clears the write bit, so the file stays readable.
+  test.skipIf(process.platform === "win32")("F11: an unreadable machine settings file is refused and the canon sweep still runs", async () => {
+    if (process.getuid?.() === 0) return; // root reads a mode-000 file, so there is nothing to refuse
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const [assetPath, assetRef] = [...embeddedUnder("skills/")].find(([path]) => path.endsWith("/SKILL.md"))!;
+    mkdirSync(dirname(join(machine, assetPath)), { recursive: true });
+    writeFileSync(join(machine, assetPath), readFileSync(embeddedPath(assetRef)));
+    const settings = join(machine, ".claude", "settings.json");
+    mkdirSync(dirname(settings), { recursive: true });
+    writeFileSync(settings, '{\n  "user": "keep"\n}\n');
+    chmodSync(settings, 0o000);
+
+    const run = await uninstall(everythingScope("n", "y")).finally(() => chmodSync(settings, 0o644));
+
+    expect(run.result).toBe(0);
+    expect(run.out).toContain("~/.claude/settings.json — unreadable, a dangling link, not a regular file, or changing while read; left untouched");
+    expect(existsSync(join(machine, assetPath))).toBe(false);
+    expect(readFileSync(settings, "utf8")).toBe('{\n  "user": "keep"\n}\n');
+  });
+
+  test("F17: Everything removes the version cache and ownership record it wrote, so an otherwise empty home goes", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    writeFileSync(join(machine, "version.json"), JSON.stringify({ version: VERSION, ts: Date.now() }));
+    recordCanonOwnership(machine);
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(out).toContain(`${machine} deleted`);
+    expect(existsSync(machine)).toBe(false);
+  });
+
+  test("F29: a canon file and a slash command in read-only folders are kept and named, and the machine home stays", async () => {
+    // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+    if (process.platform === "win32" || process.getuid?.() === 0) return;
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    installCanon(VERSION);
+    const skillFolder = join(machine, "skills", "ai-debug");
+    const commands = join(machine, ".config", "opencode", "commands");
+    const canonFile = join(realpathSync(machine), "skills", "ai-debug", "SKILL.md");
+    const command = join(commands, "ai-debug.md");
+    const canonBytes = readFileSync(canonFile, "utf8");
+    const commandBytes = readFileSync(command, "utf8");
+    chmodSync(skillFolder, 0o555);
+    chmodSync(commands, 0o555);
+
+    const run = await uninstall(everythingScope("n", "y")).finally(() => {
+      chmodSync(skillFolder, 0o755);
+      chmodSync(commands, 0o755);
+    });
+
+    const keptText = "kept · still ai-eng's, but it changed during uninstall or the filesystem refused the change — preserved";
+    expect(run.result).toBe(0);
+    expect(run.out).toContain(`${canonFile} ${keptText}`);
+    expect(run.out).toContain(`${command} ${keptText}`);
+    expect(readFileSync(canonFile, "utf8")).toBe(canonBytes);
+    expect(readFileSync(command, "utf8")).toBe(commandBytes);
+    expect(run.out).toContain(`${machine} kept`);
+  });
+
+  test("F22: the ownership record stays while a file it vouches for remains", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const olderPage = "skills/ai-debug/a-page-an-older-version-shipped.md";
+    mkdirSync(join(machine, "skills", "ai-debug"), { recursive: true });
+    writeFileSync(join(machine, olderPage), "older payload\n");
+    const record = JSON.stringify({ files: { [olderPage]: sha256("older payload\n") } });
+    writeFileSync(join(machine, "canon-owned.json"), record);
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(readFileSync(join(machine, olderPage), "utf8")).toBe("older payload\n");
+    expect(readFileSync(join(machine, "canon-owned.json"), "utf8")).toBe(record);
+    expect(out).toContain(`${machine} kept`);
+  });
+
+  // Windows will not rename a directory that is a process's working directory, so the swap cannot be staged there.
+  test.skipIf(process.platform === "win32")("F9: a canon parent swapped for a link at unlink time never redirects deletion outside the canon", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const [assetPath, assetRef] = [...embeddedUnder("skills/")].find(([path]) => path.endsWith("/SKILL.md"))!;
+    const payload = readFileSync(embeddedPath(assetRef));
+    const canonFile = join(realpathSync(machine), assetPath);
+    const canonParent = dirname(canonFile);
+    mkdirSync(canonParent, { recursive: true });
+    writeFileSync(canonFile, payload);
+    const outside = join(sandbox!, "outside");
+    mkdirSync(outside);
+    const victim = join(outside, "SKILL.md");
+    writeFileSync(victim, payload);
+
+    const originalUnlinkSync = fs.unlinkSync;
+    let wasSwapped = false;
+    const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path) => {
+      const isCanonUnlink = String(path) === canonFile || (String(path) === "SKILL.md" && process.cwd() === canonParent);
+      if (!wasSwapped && isCanonUnlink) {
+        wasSwapped = true;
+        renameSync(canonParent, `${canonParent}-before-race`);
+        symlinkSync(outside, canonParent, "dir");
+      }
+      return originalUnlinkSync(path);
+    });
+    try {
+      await uninstall(everythingScope("n", "y"));
+    } finally {
+      unlinkSpy.mockRestore();
+    }
+
+    expect(wasSwapped).toBe(true);
+    expect(readFileSync(victim)).toEqual(payload);
+    expect(lstatSync(canonParent).isSymbolicLink()).toBe(true);
   });
 
   test("the project scope stops at the repo: carriers and their record stay", async () => {
@@ -524,17 +926,16 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(existsSync(join(cwd, "AGENTS.md"))).toBe(true);
   });
 
-  test("a templateDir we created is removed and the setting goes back to unset", async () => {
-    const { cwd } = sandboxed();
+  test("an older version's templateDir is removed and the setting goes back to unset", async () => {
+    const { cwd, machine } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
 
-    const floor = installTemplateDir();
-    expect(floor.status).toBe("created");
-    const ours = floor.ours ?? "";
-    for (const shim of SHIMS) expect(existsSync(join(ours, "hooks", shim))).toBe(true);
+    const ours = join(machine, "git-template");
+    writeLegacyTemplateShims(ours);
+    recordLegacyTemplateDir(null, ours);
+    setGlobalTemplateDir(ours);
     expect(globalTemplateDir()).toBe(ours);
-    rememberTemplateDir(floor.previous, floor.ours);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 
@@ -542,6 +943,102 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(globalTemplateDir()).toBeNull(); // it was unset before, so it is unset after
     expect(existsSync(ours)).toBe(false);
     expect(out).toContain("✓ git init.templateDir unset (it was unset before)");
+  });
+
+  test("F18: a dead run's lock and claim are recovered before the git floor is read", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const ours = join(machine, "git-template");
+    writeLegacyTemplateShims(ours);
+    recordLegacyTemplateDir(null, ours);
+    setGlobalTemplateDir(ours);
+    const deadPid = spawnSync("true").pid;
+    writeFileSync(machineStateLockFile(), JSON.stringify({ pid: deadPid, hostname: hostname(), startedAt: "2026-01-01T00:00:00.000Z", ...machineStateLockScope() }));
+    renameSync(machineStateFile(), join(machine, ".machine.json.4242.abcdef012345.claim"));
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(globalTemplateDir()).toBeNull();
+    expect(out).toContain("✓ git init.templateDir unset (it was unset before)");
+    expect(existsSync(machineStateLockFile())).toBe(false);
+  });
+
+  test("F18: a lock this run cannot prove stale leaves git init.templateDir alone, and says so", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const ours = join(machine, "git-template");
+    writeLegacyTemplateShims(ours);
+    recordLegacyTemplateDir(null, ours);
+    setGlobalTemplateDir(ours);
+    const lockPath = machineStateLockFile();
+    const foreignLock = JSON.stringify({ pid: 1, hostname: "another-host", startedAt: "2026-01-01T00:00:00.000Z" });
+    writeFileSync(lockPath, foreignLock);
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(globalTemplateDir()).toBe(ours);
+    expect(out).toContain(`git init.templateDir not restored — ${lockPath} — held by another ai-eng run`);
+    expect(readFileSync(lockPath, "utf8")).toBe(foreignLock);
+  });
+
+  test("an older templateDir is restored and legacy pack settings do not limit uninstall", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    writeFileSync(
+      join(cwd, ".ai-engineering", "config.toml"),
+      `[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = [${[...OPTIONAL_PACKS.map((pack) => pack.id), "verify-tiers"].map((pack) => `"${pack}"`).join(", ")}]\n`,
+    );
+    const coreSkill = join(machine, "skills", "ai-orchestrator", "SKILL.md");
+    mkdirSync(join(machine, "skills", "ai-orchestrator"), { recursive: true });
+    writeFileSync(coreSkill, readFileSync(join(import.meta.dir, "..", "skills", "ai-orchestrator", "SKILL.md"), "utf8"));
+    const installedPackSkills = OPTIONAL_PACKS.map(({ skill }) => {
+      const path = join(machine, "skills", skill, "SKILL.md");
+      mkdirSync(join(machine, "skills", skill), { recursive: true });
+      writeFileSync(path, readFileSync(sourceSkillFile(skill), "utf8"));
+      return path;
+    });
+    const verifyTiersPack = join(machine, "skills", "ai-verify", "tiers", "installed-pack-check");
+    mkdirSync(join(machine, "skills", "ai-verify", "tiers"), { recursive: true });
+    writeFileSync(verifyTiersPack, "selected verify-tiers pack\n");
+    const customSkill = join(machine, "skills", "my-local-skill", "SKILL.md");
+    mkdirSync(join(machine, "skills", "my-local-skill"), { recursive: true });
+    writeFileSync(customSkill, "my local skill\n");
+    const editedSkill = join(machine, "skills", "ai-debug", "SKILL.md");
+    mkdirSync(join(machine, "skills", "ai-debug"), { recursive: true });
+    writeFileSync(editedSkill, "my edited skill\n");
+    const unrelated = join(machine, "notes.txt");
+    writeFileSync(unrelated, "keep this file\n");
+    expect([...installedPackSkills, verifyTiersPack, customSkill, editedSkill, unrelated].every(existsSync)).toBe(true);
+
+    const previous = join(sandbox!, "older-template");
+    const ours = join(sandbox!, "legacy-owned-template");
+    writeLegacyTemplateShims(ours);
+    mkdirSync(join(previous, "hooks"), { recursive: true });
+    const existingHook = "#!/bin/sh\necho older template\n";
+    writeFileSync(join(previous, "hooks", "pre-commit"), existingHook);
+    setGlobalTemplateDir(ours);
+    recordLegacyTemplateDir(previous, ours);
+    expect(globalTemplateDir()).toBe(ours);
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(existsSync(coreSkill)).toBe(false);
+    for (const path of installedPackSkills) expect(existsSync(path)).toBe(false);
+    expect(existsSync(verifyTiersPack)).toBe(true);
+    expect(readFileSync(customSkill, "utf8")).toBe("my local skill\n");
+    expect(readFileSync(editedSkill, "utf8")).toBe("my edited skill\n");
+    expect(readFileSync(unrelated, "utf8")).toBe("keep this file\n");
+    expect(existsSync(machine)).toBe(true);
+    expect(globalTemplateDir()).toBe(previous);
+    expect(existsSync(ours)).toBe(false);
+    expect(readFileSync(join(previous, "hooks", "pre-commit"), "utf8")).toBe(existingHook);
+    expect(out).toContain(`✓ git init.templateDir restored to ${previous}`);
   });
 
   test("a templateDir the user owned keeps their setting and loses only our shims", async () => {
@@ -552,15 +1049,9 @@ describe("uninstall · the machine side (Everything scope)", () => {
     mkdirSync(join(userDir, "hooks"), { recursive: true });
     const theirs = "#!/bin/sh\necho my own pre-push\n";
     writeFileSync(join(userDir, "hooks", "pre-push"), theirs);
+    writeLegacyTemplateShims(userDir, ["pre-commit", "commit-msg"]);
     setGlobalTemplateDir(userDir);
-
-    const floor = installTemplateDir();
-    expect(floor.status).toBe("joined");
-    expect(floor.ours).toBeNull(); // we joined their directory; we own no directory here
-    expect(floor.previous).toBe(userDir);
-    expect(existsSync(join(userDir, "hooks", "pre-commit"))).toBe(true);
-    expect(existsSync(userDir)).toBe(true);
-    rememberTemplateDir(floor.previous, floor.ours);
+    recordLegacyTemplateDir(userDir, null);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 

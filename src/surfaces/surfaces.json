@@ -11,6 +11,12 @@
         "loop": "native",
         "loopEvidence": "claude 2.1.251: --permission-mode auto|bypassPermissions|dontAsk with -p, plus --bg, --resume and --agents"
       },
+      "stopHook": {
+        "supported": true,
+        "event": "Stop",
+        "source": "code.claude.com/docs/en/hooks: Stop fires when Claude finishes responding and exit 2 blocks the turn",
+        "measured": "2026-10-27"
+      },
       "promptHook": {
         "supported": true,
         "event": "UserPromptSubmit",
@@ -91,6 +97,12 @@
         "loop": "native",
         "loopEvidence": "cursor-agent: --mode plan plus --force/--yolo (allow commands unless explicitly denied) and --sandbox"
       },
+      "stopHook": {
+        "supported": true,
+        "event": "stop",
+        "source": "cursor.com/docs/hooks: stop can send followup_message as the next user message",
+        "measured": "2026-10-27"
+      },
       "promptHook": {
         "supported": false,
         "source": "cursor.com/docs/hooks (2026-09-25): beforeSubmitPrompt can block with continue false. research/009 did not fire it, so it stays unwired",
@@ -105,7 +117,7 @@
           "measured": "2026-09-11"
         }
       ],
-      "note": "keeps its carrier in the repo because its user level loses to the project and its cloud VMs never read your home (research/003). a shell's output is not replaced: postToolUse can add context, and only an MCP result can be swapped (research/009, Cursor 3.21.18, 2026-09-25)"
+      "note": "keeps its carrier in the repo because its user level loses to the project and its cloud VMs never read your home (research/003). a shell's output is not replaced: postToolUse can add context, and only an MCP result can be swapped (research/009, Cursor 3.21.18, 2026-09-25); no token savings from output rewriting"
     },
     {
       "id": "codex",
@@ -167,7 +179,7 @@
           "measured": "2026-09-25"
         }
       ],
-      "note": "Copilot CLI only: command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; cloud/VS Code are intentionally outside this surface"
+      "note": "Copilot CLI only: command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; cloud/VS Code are intentionally outside this surface; no token savings from output rewriting"
     },
     {
       "id": "pi",

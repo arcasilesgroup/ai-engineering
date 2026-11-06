@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="ai-feature" content="worktree-lifecycle-governance">
+  <meta name="ai-approved" content="2026-10-09">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+  <title>Brainstorm · local worktree lifecycle</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #001E2B;
+      --surface: #112733;
+      --surface-2: #1C2D38;
+      --line: rgba(61, 79, 88, .55);
+      --accent: #00ED64;
+      --accent-soft: #71F6BA;
+      --text: #FFFFFF;
+      --muted: #C1C7C6;
+      --subtle: #889397;
+      --warning: #FFC010;
+      --danger: #FF6960;
+      --sans: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+      --mono: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.65 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent-soft); text-decoration: none; }
+    a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .skip {
+      position: absolute; top: 8px; left: 8px; transform: translateY(-150%);
+      padding: 8px 12px; border-radius: 6px; background: var(--surface); color: var(--text);
+    }
+    .skip:focus { transform: none; }
+    header {
+      padding: 72px 24px 48px;
+      text-align: center;
+      border-bottom: 1px solid var(--line);
+      background: radial-gradient(ellipse at top, #112733 0, var(--bg) 72%);
+    }
+    .mark {
+      display: inline-grid; width: 42px; height: 42px; place-items: center;
+      margin-bottom: 20px; border: 1px solid var(--line); border-radius: 10px;
+      color: var(--accent); font: 700 18px var(--mono);
+    }
+    .eyebrow {
+      color: var(--accent); font: 11px var(--mono);
+      letter-spacing: .2em; text-transform: uppercase;
+    }
+    h1 { margin: 12px 0; font-size: clamp(32px, 6vw, 48px); line-height: 1.08; letter-spacing: -.03em; }
+    .summary { max-width: 680px; margin: 0 auto; color: var(--muted); font-size: 17px; }
+    .status { margin-top: 18px; color: var(--accent-soft); font: 12px var(--mono); }
+    nav {
+      position: sticky; top: 0; z-index: 2; display: flex; justify-content: center;
+      gap: 4px; overflow-x: auto; padding: 10px 16px;
+      border-bottom: 1px solid var(--line); background: rgba(0, 30, 43, .92);
+      backdrop-filter: blur(12px); white-space: nowrap;
+    }
+    nav a {
+      padding: 7px 10px; border-radius: 999px; color: var(--muted);
+      font: 11px var(--mono);
+    }
+    nav a:hover, nav a.active, nav a[aria-current="location"] { background: rgba(0, 237, 100, .1); color: var(--accent); text-decoration: none; }
+    main { max-width: 900px; margin: 0 auto; padding: 12px 24px 64px; }
+    section { padding: 34px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 88px; }
+    .number { display: block; margin-bottom: 8px; color: var(--accent); font: 11px var(--mono); letter-spacing: .16em; }
+    h2 { margin: 0 0 12px; font-size: 24px; line-height: 1.2; }
+    h3 { margin: 22px 0 8px; color: var(--accent-soft); font-size: 15px; }
+    p { margin: 8px 0; color: var(--muted); }
+    ul, ol { margin: 10px 0; padding-left: 22px; color: var(--muted); }
+    li { margin: 7px 0; }
+    strong { color: var(--text); }
+    code {
+      padding: 2px 6px; border: 1px solid var(--line); border-radius: 5px;
+      background: var(--surface-2); color: var(--accent-soft);
+      font: 12px/1.6 var(--mono); overflow-wrap: anywhere;
+    }
+    .callout {
+      margin: 16px 0; padding: 16px 18px; border-left: 2px solid var(--accent);
+      border-radius: 0 10px 10px 0; background: var(--surface);
+    }
+    .callout.warning { border-color: var(--warning); }
+    .callout.danger { border-color: var(--danger); }
+    .callout p { margin: 0; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .card { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    .card h3 { margin-top: 0; }
+    footer { padding: 24px; color: var(--subtle); text-align: center; font: 11px var(--mono); }
+    @media (max-width: 640px) {
+      header { padding: 56px 20px 36px; }
+      main { padding: 8px 20px 48px; }
+      nav { justify-content: flex-start; }
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Saltar al contenido</a>
+  <header>
+    <div class="mark" aria-hidden="true">{ai}</div>
+    <div class="eyebrow">Brainstorm · local worktree lifecycle</div>
+    <h1>Un hub local, estados fiables</h1>
+    <p class="summary">Un centro local reúne los worktrees de los proyectos configurados y muestra su estado con evidencia de Git y checkpoints; antes de crear un worktree, la aprobación se proyecta desde el brainstorm aprobado.</p>
+    <p class="status">complete · 2026-10-09</p>
+  </header>
+  <nav aria-label="Secciones del brainstorm">
+    <a href="#idea">01 Idea</a><a href="#why">02 Por qué</a><a href="#who">03 Para quién</a>
+    <a href="#today">04 Hoy</a><a href="#success">05 Éxito</a><a href="#decided">06 Decisiones</a>
+    <a href="#open">07 Abiertas</a><a href="#guardrails">08 Límites</a><a href="#out">09 Fuera</a>
+    <a href="#research">10 Investigar</a><a href="#handoff">11 Handoff</a>
+  </nav>
+  <main id="main">
+    <section id="idea">
+      <span class="number">01</span><h2>La idea en palabras llanas</h2>
+      <p>Un hub local descubre proyectos bajo las carpetas elegidas en Settings. Muestra sus worktrees y estados. Al abrir una feature, presenta su viewer actual. Cada estado depende de evidencia local, no de una suposición.</p>
+    </section>
+    <section id="why">
+      <span class="number">02</span><h2>Por qué importa</h2>
+      <p>Un worktree queda como <code>Unknown</code> si Git o su checkpoint faltan, no coinciden o no se pueden validar. Es más seguro mostrar la incertidumbre que inferir actividad a partir de una rama o un proceso abierto.</p>
+    </section>
+    <section id="who">
+      <span class="number">03</span><h2>Para quién es</h2>
+      <p>Para quien coordina proyectos y sesiones de agentes en una máquina y necesita saber qué está activo, qué espera revisión y qué se cerró.</p>
+    </section>
+    <section id="today">
+      <span class="number">04</span><h2>Qué existe hoy</h2>
+      <ul>
+        <li>El CLI del repositorio incluye <code>ai-eng worktree list [slug]</code> para revisar el estado y <code>request-changes &lt;slug&gt; &lt;sha&gt;</code> para devolver una revisión pendiente sin sobrescribir cambios concurrentes.</li>
+        <li>Los worktrees existentes se clasifican a partir de Git y de <code>workflow/checkpoints/&lt;slug&gt;.json</code>. Si falta evidencia válida o no coincide con el worktree, el estado es <code>Unknown</code>.</li>
+        <li>Antes de crear el worktree, la aprobación se proyecta en modo lectura desde el brainstorm exacto, reciente y aprobado; no se escribe un registro lifecycle previo.</li>
+        <li>La opción de archivos de <code>worktree new</code> guarda pistas de solapamiento en <code>.ai-eng-worktrees.json</code>, fuera del repositorio. Son advisory: no autorizan trabajo ni sustituyen el checkpoint.</li>
+        <li>El experimento anterior con <code>.ai-eng-lifecycle</code> se retiró durante la integración para evitar dos fuentes de estado.</li>
+      </ul>
+    </section>
+    <section id="success">
+      <span class="number">05</span><h2>Cómo se ve el éxito</h2>
+      <ol>
+        <li>Una sola instancia local descubre las raíces elegidas y se reutiliza si ya responde.</li>
+        <li>La lista identifica cada proyecto y agrupa sus worktrees por estado. La selección abre el viewer correspondiente.</li>
+        <li>El checkpoint registra las transiciones del worktree; los cambios con revisión pendiente usan su SHA completo para evitar actualizaciones obsoletas.</li>
+        <li>Un checkpoint ausente, ambiguo, obsoleto o incompatible se muestra como <code>Unknown</code>; las pistas de archivos nunca cambian esa decisión.</li>
+        <li>La aprobación humana del brainstorm permite iniciar; la revisión humana final sigue siendo necesaria antes del merge y la limpieza.</li>
+      </ol>
+    </section>
+    <section id="decided">
+      <span class="number">06</span><h2>Decisiones ya tomadas</h2>
+      <div class="grid">
+        <div class="card"><h3>Fuente de estado</h3><p>Git y el checkpoint gobiernan los worktrees existentes. Antes de crear uno, el brainstorm aprobado es evidencia de inicio de solo lectura; no hay un registro lifecycle paralelo.</p></div>
+        <div class="card"><h3>Aprobaciones</h3><p>La aprobación humana del brainstorm permite iniciar. Las pistas de archivos no aprueban trabajo; merge y limpieza conservan su revisión humana final.</p></div>
+        <div class="card"><h3>Independencia</h3><p>Cada feature mantiene su brief en <code>.ai-engineering/workflow/features/&lt;slug&gt;/brainstorm.html</code>. Los cambios se hacen en su worktree.</p></div>
+        <div class="card"><h3>Descubrimiento</h3><p>El hub es local, consulta Git y respeta la raíz de worktrees configurada. No deduce actividad por la rama o un proceso abierto.</p></div>
+      </div>
+    </section>
+    <section id="open">
+      <span class="number">07</span><h2>Decisiones todavía abiertas</h2>
+      <ul>
+        <li>El inventario se actualiza al iniciar y bajo demanda; no mantiene observación continua.</li>
+        <li>Settings ofrece selector nativo y permite rutas pegadas, ambas con validación visible.</li>
+        <li>Solo se abren documentos canónicos de una allowlist; no se abren prototipos ni archivos parciales.</li>
+      </ul>
+    </section>
+    <section id="guardrails">
+      <span class="number">08</span><h2>Restricciones y guardarraíles</h2>
+      <ul>
+        <li>El hub escucha solo en loopback y no hace merge ni elimina worktrees.</li>
+        <li>Ni el checkpoint ni las pistas de archivos conceden aprobación; solo la aprobación humana del brainstorm permite iniciar.</li>
+        <li>Git y el checkpoint son autoridad para worktrees existentes. Las pistas opcionales quedan fuera del repositorio y solo advierten de solapamientos.</li>
+        <li>El hub no hace merge ni elimina worktrees. Los errores al actualizar estado se muestran explícitamente.</li>
+      </ul>
+    </section>
+    <section id="out">
+      <span class="number">09</span><h2>Fuera de alcance</h2>
+      <p>Coordinación entre máquinas, inferir actividad por procesos o ramas, y controlar merge o limpieza desde el hub.</p>
+    </section>
+    <section id="research">
+      <span class="number">10</span><h2>Investigar antes de cerrar</h2>
+      <ol>
+        <li>Publicar y actualizar el CLI que incluye los comandos de worktree; verificar la versión instalada antes de depender de ellos.</li>
+        <li>Probar el lector con raíz predeterminada y <code>worktrees_dir</code> personalizado, incluyendo worktrees prunables.</li>
+        <li>Confirmar cómo se comparte el puerto del hub entre proyectos y cómo se recupera una instancia que no responde.</li>
+      </ol>
+    </section>
+    <section id="handoff">
+      <span class="number">11</span><h2>Handoff</h2>
+      <p>El hub y los ajustes globales se implementan en este repositorio. Los checkpoints lifecycle sí se versionan; el registro paralelo se retiró. La integración y la limpieza siguen fuera del hub y requieren revisión humana.</p>
+      <div class="callout warning"><p><strong>Distribución:</strong> la versión publicada puede no incluir todavía los comandos de worktree; verificar y actualizar el CLI instalado antes de depender de ellos.</p></div>
+    </section>
+  </main>
+  <footer>{ai} Engineering · feature-scoped brainstorm</footer>
+<script>
+/* scroll-spy: mark the nav link for the section in view.
+   Lead matches scroll-margin-top (88px): the highlight flips when the
+   heading clears the sticky nav. */
+(function () {
+  const lead = 88;
+  const links = document.querySelectorAll('nav a[href^="#"]');
+  function updateNav() {
+    let current = "";
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (!href) continue;
+      const section = document.getElementById(href.slice(1));
+      if (!section) continue;
+      if (section.getBoundingClientRect().top <= lead) current = href.slice(1);
+    }
+    for (const link of links) {
+      const on = link.getAttribute("href") === "#" + current;
+      link.classList.toggle("active", on);
+      if (on) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
+})();
+</script>
+</body>
+</html>

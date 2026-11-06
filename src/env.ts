@@ -2,7 +2,7 @@
 // floor every module needs and none may guess at.
 
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 
 /** AI_ENG_HOME for tests; ~/.ai-engineering in the wild. An override that resolves
@@ -15,19 +15,23 @@ export function home(): string {
   if (override) {
     const root = repoRoot();
     const resolved = resolve(override);
-    if (root === null || !(resolved === root || resolved.startsWith(root + "/"))) return override;
+    if (root === null || !(resolved === root || resolved.startsWith(root + sep))) return override;
   }
   return join(homedir(), ".ai-engineering");
 }
 
-/** The repo this call happens in: the nearest ancestor with .git or .ai-engineering.
- *  NOT the gate — a repo having a root says nothing about it having asked for policy. */
+/** Prefer the outermost governed ancestor so a nested .git cannot escape its policy.
+ *  For an ungoverned tree, preserve the nearest repository boundary. */
 export function repoRoot(start?: string): string | null {
   let dir = resolve(start ?? process.cwd());
+  let nearestBoundary: string | null = null;
+  let outermostGoverned: string | null = null;
   for (;;) {
-    if (existsSync(join(dir, ".git")) || existsSync(join(dir, ".ai-engineering", "config.toml"))) return dir;
+    const hasConfig = existsSync(join(dir, ".ai-engineering", "config.toml"));
+    if (existsSync(join(dir, ".git")) || hasConfig) nearestBoundary ??= dir;
+    if (hasConfig && isGoverned(dir)) outermostGoverned = dir;
     const parent = resolve(dir, "..");
-    if (parent === dir) return null;
+    if (parent === dir) return outermostGoverned ?? nearestBoundary;
     dir = parent;
   }
 }
@@ -176,34 +180,6 @@ export interface LocalRuleConfig {
   case_sensitive?: boolean;
   action: "block" | "review";
   risk: number;
-}
-
-/** Circuit breaker settings from config.toml. */
-export interface CircuitBreakerConfig {
-  failureThreshold?: number;
-  resetMs?: number;
-}
-
-/** Load circuit breaker settings from config.toml. Returns defaults when absent. */
-export function loadCircuitBreakerConfig(root?: string | null): CircuitBreakerConfig {
-  const resolved = root === undefined ? repoRoot() : root;
-  if (!resolved) return {};
-  const path = configPath(resolved);
-  if (!existsSync(path)) return {};
-  try {
-    const doc = Bun.TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
-    const guards = doc["guards"];
-    if (!guards || typeof guards !== "object" || Array.isArray(guards)) return {};
-    const cb = (guards as Record<string, unknown>)["circuit_breaker"];
-    if (!cb || typeof cb !== "object" || Array.isArray(cb)) return {};
-    const cfg = cb as Record<string, unknown>;
-    const result: CircuitBreakerConfig = {};
-    if (typeof cfg["failure_threshold"] === "number") result.failureThreshold = cfg["failure_threshold"];
-    if (typeof cfg["reset_ms"] === "number") result.resetMs = cfg["reset_ms"];
-    return result;
-  } catch {
-    return {};
-  }
 }
 
 /** Load local rules from the repo's config.toml. Returns [] when absent or unparseable. */

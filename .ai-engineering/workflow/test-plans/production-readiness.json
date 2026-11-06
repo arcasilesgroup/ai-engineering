@@ -1,0 +1,128 @@
+{
+  "feature": "Production readiness",
+  "slug": "production-readiness",
+  "order": ["unit", "api", "cli", "ui"],
+  "gating": "Work checkpoints 1 through 4 in order. Within each checkpoint, run unit, API, and CLI/static checks in order; do not begin the next checkpoint until its predecessor passes. All UI gates are n/a, so no UI e2e cases are planned.",
+  "layers": {
+    "unit": [
+      {
+        "id": "U1",
+        "case": "The package manifest and packed-file assertions describe the executable entry point and complete relevant tarball contents, and introduce no smol-toml runtime dependency.",
+        "file": "tests/npm-manifest.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "U2",
+        "case": "Receipt retention removes only the intended stale batch, preserves young and late-arriving receipts, maintains a single concurrent claim, remains bounded in reads, and drains a backlog when writes exceed the batch size.",
+        "file": "tests/receipts-retention.spec.ts",
+        "checkpoint": 2
+      },
+      {
+        "id": "U3",
+        "case": "The CycloneDX SBOM is derived from the installed tarball's runtime graph, includes the package and runtime transitive dependencies, excludes development dependencies, and refuses missing license metadata for any included component.",
+        "file": "tests/release-sbom.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "U4",
+        "case": "Release policy refuses every publication channel when bundled-content redistribution rights are unresolved, and refuses absent, malformed, or untrusted signer fingerprints, unannotated tags, and invalid signatures before any publication side effect; an isolated 2.6.0 fixture remains unchanged.",
+        "file": "tests/release-policy.spec.ts",
+        "checkpoint": 4
+      },
+      {
+        "id": "U5",
+        "case": "A controlled local fixture with a valid annotated signed tag, a test-only allowlisted fingerprint, and synthetic complete rights evidence is permitted; it does not claim or configure real production authorization.",
+        "file": "tests/release-policy.spec.ts",
+        "checkpoint": 4
+      }
+    ],
+    "api": [],
+    "cli": [
+      {
+        "id": "C1",
+        "case": "Install the exact packed tarball in fresh npm and Bun consumers and verify the installed command's exact version output and exit status, using the installed package rather than checkout files.",
+        "file": "tests/package-consumer.spec.ts",
+        "command": "bun test --parallel=1 tests/package-consumer.spec.ts tests/launcher.spec.ts tests/npm-manifest.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "C2",
+        "case": "Run the installed command with Bun available and Node absent, proving the Bun shebang works; when Bun is absent, verify a clear nonzero refusal without a stack trace.",
+        "file": "tests/launcher.spec.ts",
+        "command": "bun test --parallel=1 tests/package-consumer.spec.ts tests/launcher.spec.ts tests/npm-manifest.spec.ts",
+        "checkpoint": 1
+      },
+      {
+        "id": "C3",
+        "case": "Retain distinct Linux, macOS, and Windows CI results for the full serial Bun suite and existing init, doctor, uninstall, and build smoke checks; each result identifies the tested revision and includes receipt-retention coverage.",
+        "file": ".github/workflows/platforms.yml",
+        "command": "bun test --parallel=1",
+        "checkpoint": 2
+      },
+      {
+        "id": "C4",
+        "case": "The release workflow checks out and asserts the exact dispatched SHA, completes lint, typecheck, full serial tests, and build before release build or publication, then smoke-tests, inventories, and publishes the same tarball digest without repacking.",
+        "file": ".github/workflows/release.yml",
+        "command": "bun test --parallel=1 tests/package-consumer.spec.ts tests/release-sbom.spec.ts",
+        "checkpoint": 3
+      },
+      {
+        "id": "C5",
+        "case": "Review README.md against actual guard behavior: it explains that the Copilot CLI adapter can fail open, command guards do not sandbox opaque programs or scripts prepared in earlier calls, and OS-level isolation is recommended for untrusted code.",
+        "file": "README.md",
+        "checkpoint": 4
+      }
+    ],
+    "ui": []
+  },
+  "checkpoints": [
+    {
+      "id": 1,
+      "verify": [
+        "bun test --parallel=1 tests/package-consumer.spec.ts tests/launcher.spec.ts tests/npm-manifest.spec.ts",
+        "bun run lint",
+        "bun run typecheck",
+        "bun test --parallel=1",
+        "bun run build"
+      ]
+    },
+    {
+      "id": 2,
+      "verify": [
+        "bun test --parallel=1 tests/receipts-retention.spec.ts",
+        "bun run lint",
+        "bun run typecheck",
+        "bun test --parallel=1",
+        "bun run build"
+      ]
+    },
+    {
+      "id": 3,
+      "verify": [
+        "bun test --parallel=1 tests/package-consumer.spec.ts tests/release-sbom.spec.ts",
+        "bun run lint",
+        "bun run typecheck",
+        "bun test --parallel=1",
+        "bun run build"
+      ]
+    },
+    {
+      "id": 4,
+      "verify": [
+        "bun test --parallel=1 tests/release-policy.spec.ts",
+        "bun run lint",
+        "bun run typecheck",
+        "bun test --parallel=1",
+        "bun run build"
+      ]
+    }
+  ],
+  "blockers": [
+    "Owner-verified redistribution rights for upstream bundled content, including the unresolved H4 items, remain unresolved; tests and fixtures do not establish authorization.",
+    "The owner-configured production signing fingerprint remains unresolved; do not guess, supply, or commit a real fingerprint. Keep publication blocked until an owner verifies it."
+  ],
+  "not_tested": [
+    "UI e2e cases are omitted because all four checkpoint UI gates are n/a.",
+    "A synthetic permitted release fixture proves policy behavior only; it does not authorize a real signer, resolve upstream rights, publish, push, or dispatch a workflow."
+  ]
+}

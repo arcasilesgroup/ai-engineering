@@ -18,7 +18,7 @@ import {
   loopSignature,
   normalise,
   type Payload,
-} from "../src/chain/payload.ts";
+} from "../src/payload.ts";
 import { allow, allowRewrite, deny } from "../src/chain/dialect.ts";
 import { isTestCommand, rewrite } from "../src/guards/wrap.ts";
 
@@ -68,6 +68,81 @@ describe("normalise — one shape out of every host spelling", () => {
     const p = normalise({ toolName: "Bash", toolInput: { command: "ls" } });
     expect(p.tool_name).toBe("");
     expect(p.tool_input).toEqual({});
+  });
+
+  test("Copilot CLI camelCase payloads map their tool, args, and session", () => {
+    const objectArgs = normalise(
+      { sessionId: "copilot-session", toolName: "bash", toolArgs: { command: "git status" } },
+      "copilot-cli",
+    );
+    expect(objectArgs.tool_name).toBe("Bash");
+    expect(objectArgs.tool_input).toEqual({ command: "git status" });
+    expect(objectArgs.session_id).toBe("copilot-session");
+
+    const stringArgs = normalise(
+      { sessionId: "copilot-session", toolName: "create", toolArgs: '{"file_path":"a.md","content":"x"}' },
+      "copilot-cli",
+    );
+    expect(stringArgs.tool_name).toBe("Write");
+    expect(stringArgs.tool_input).toEqual({ file_path: "a.md", content: "x" });
+  });
+
+  test("Copilot CLI edit and view tool names use canonical guard names", () => {
+    const calls = [
+      ["edit", "Edit", { path: "a.md", old_str: "a", new_str: "b" }],
+      ["str_replace_editor", "Edit", { command: "str_replace", path: "a.md" }],
+      ["str_replace_editor", "Read", { command: "view", path: "a.md" }],
+      ["view", "Read", { path: "a.md" }],
+      ["powershell", "PowerShell", { command: "Get-Location" }],
+      ["apply_patch", "Edit", "*** Begin Patch\n*** Add File: a.md\n+x\n*** End Patch"],
+    ] as const;
+    for (const [toolName, expected, toolArgs] of calls) {
+      expect(normalise({ toolName, toolArgs }, "copilot-cli").tool_name).toBe(expected);
+    }
+    const edit = normalise({ toolName: "edit", toolArgs: JSON.stringify({ path: "a.md", old_str: "a", new_str: "b" }) }, "copilot-cli");
+    expect(edit.tool_input).toEqual({ file_path: "a.md", old_string: "a", new_string: "b" });
+  });
+
+  test("apply_patch yields every path it touches, and refuses what it cannot read", () => {
+    const patch = "*** Begin Patch\n*** Add File: a.md\n+x\n*** Update File: b.ts\n*** Move to: c.ts\n@@\n-y\n+z\n*** Delete File: d.ts\n*** End Patch";
+    expect(normalise({ toolName: "apply_patch", toolArgs: patch }, "copilot-cli").tool_input["file_paths"]).toEqual(["a.md", "b.ts", "c.ts", "d.ts"]);
+    expect(normalise({ tool_name: "Edit", tool_input: patch }, "copilot").tool_input["file_paths"]).toEqual(["a.md", "b.ts", "c.ts", "d.ts"]);
+    for (const bad of [
+      "echo hi",
+      "*** Begin Patch\n*** Add File: a.md\n+x",
+      "*** Begin Patch\n***Update File: b.ts\n*** End Patch",
+      "*** Begin Patch\n*** Move to: c.ts\n*** End Patch",
+      "*** Begin Patch\n*** Add File: a.md\n*** End Patch\n*** Begin Patch\n*** Add File: b.md\n*** End Patch",
+      "*** Begin Patch\n*** Add File: a.md\u2028*** Add File: .ai-engineering/config.toml\n+x\n*** End Patch",
+    ]) {
+      expect(() => normalise({ toolName: "apply_patch", toolArgs: bad }, "copilot-cli"), bad).toThrow();
+    }
+    const two = { input: "*** Begin Patch\n*** Add File: a.md\n+x\n*** End Patch", patch: "*** Begin Patch\n*** Add File: b.md\n+x\n*** End Patch" };
+    expect(() => normalise({ toolName: "apply_patch", toolArgs: two }, "copilot-cli")).toThrow();
+  });
+
+  test("Copilot's own bookkeeping tools pass; shell keystrokes and file-writing SQL do not", () => {
+    for (const toolName of ["report_intent", "read_bash", "task_complete", "store_memory"]) {
+      expect(normalise({ toolName, toolArgs: {} }, "copilot-cli").tool_name).toBe(toolName);
+    }
+    expect(() => normalise({ toolName: "sql", toolArgs: { query: "ATTACH DATABASE 'x.db' AS y" } }, "copilot-cli")).toThrow();
+    expect(() => normalise({ toolName: "write_bash", toolArgs: { input: "y{enter}" } }, "copilot-cli")).toThrow();
+    // PostToolUse cannot stop anything: an unmeasured tool there is not a denial.
+    expect(normalise({ toolName: "future_tool", toolArgs: {} }, "copilot-cli", "PostToolUse").tool_name).toBe("future_tool");
+  });
+
+  test("Copilot interactive write and patch tools fail closed", () => {
+    for (const toolName of ["apply_patch", "write_bash"]) {
+      expect(() => normalise({ toolName, toolArgs: { input: "anything" } }, "copilot-cli")).toThrow();
+    }
+    expect(() => normalise({ toolName: "future_tool", toolArgs: {} }, "copilot-cli")).toThrow();
+  });
+
+  test("malformed Copilot arguments are rejected instead of normalized to an empty object", () => {
+    for (const toolArgs of ["not json", "null", "[]", "42", ""]) {
+      expect(() => normalise({ toolName: "bash", toolArgs }, "copilot-cli")).toThrow();
+    }
+    expect(() => normalise({ toolName: "bash", toolArgs: {} }, "copilot-cli")).toThrow();
   });
 
   test("input-side camelCase keys inside tool_input are translated (filePath → file_path)", () => {
@@ -142,11 +217,14 @@ describe("normalise — one shape out of every host spelling", () => {
     expect(normalise({ tool_name: "Bash" }).tool_input).toEqual({});
   });
 
-  test("notebook_path is promoted to file_path only when file_path is falsy-absent", () => {
+  test("notebook_path is promoted to file_path; two different target paths fail closed", () => {
     const promoted = normalise({ tool_name: "Edit", tool_input: { notebook_path: "n.ipynb" } });
     expect(promoted.tool_input["file_path"]).toBe("n.ipynb");
-    const shadowed = normalise({ tool_name: "Edit", tool_input: { notebook_path: "n.ipynb", file_path: "real.ipynb" } });
-    expect(shadowed.tool_input["file_path"]).toBe("real.ipynb");
+    // The guard would judge one path while the tool writes the other.
+    expect(() => normalise({ tool_name: "Edit", tool_input: { notebook_path: "n.ipynb", file_path: "real.ipynb" } })).toThrow();
+    expect(() => normalise({ toolName: "edit", toolArgs: { path: ".ai-engineering/config.toml", file_path: "src/a.ts", old_str: "a", new_str: "b" } }, "copilot-cli")).toThrow();
+    const sidecar = normalise({ toolName: "edit", toolArgs: { path: "src/a.ts", input: "*** Begin Patch\n*** Add File: x.md\n+x\n*** End Patch", old_str: "a", new_str: "b" } }, "copilot-cli");
+    expect(sidecar.tool_input["file_path"]).toBe("src/a.ts");
   });
 });
 
@@ -223,9 +301,10 @@ describe("deny / allowRewrite / allow — the claude wire is the default", () =>
   });
 
   test("allowRewrite without optional arguments emits the claude envelope with the PreToolUse event", () => {
-    const r = envelope(() => allowRewrite("ai-eng wrap test -- bun test", undefined, undefined));
+    const command = `ai-eng wrap test --base64 ${Buffer.from("bun test").toString("base64url")}`;
+    const r = envelope(() => allowRewrite(command, undefined, undefined));
     expect(r.code).toBe(0);
-    expect((r.json["updatedInput"] as Record<string, unknown>)["command"]).toBe("ai-eng wrap test -- bun test");
+    expect((r.json["updatedInput"] as Record<string, unknown>)["command"]).toBe(command);
   });
 
   test("the loop guard carries the override pointer in its denial", () => {
@@ -301,6 +380,6 @@ describe("wrap — the test-command decision table", () => {
   test("a non-test command does not wrap and the rewrite is the exact primitive", () => {
     expect(isTestCommand("git commit -m x").wrap).toBe(false);
     expect(isTestCommand("make build").wrap).toBe(false);
-    expect(rewrite("bun test")).toBe("ai-eng wrap test -- bun test");
+    expect(rewrite("bun test")).toBe(`ai-eng wrap test --base64 ${Buffer.from("bun test").toString("base64url")}`);
   });
 });

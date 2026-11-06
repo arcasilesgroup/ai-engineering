@@ -7,29 +7,34 @@
 // The interactive prompt is fed through ui.ts's own scripted-input replay (a bare Enter
 // or a real TTY would hang the suite).
 
-import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { afterAll, afterEach, describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PassThrough } from "node:stream";
 import { stripVTControlCharacters } from "node:util";
 import { configMain } from "../src/commands/config.ts";
+import { canonSkills, embeddedPath } from "../src/embed.ts";
 import { isGoverned } from "../src/env.ts";
+import { installCanon } from "../src/surfaces/adapters.ts";
 import { cancelled, confirmDefault, end, fail, frame, info, ok, pathList, scriptedInput, section, spinner, summary, warn } from "../src/ui.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
+import { usePrivateStdin } from "./fixtures/private-stdin.ts";
+import { VERSION } from "../src/version.ts";
 
-// scriptedInput() adds a data listener to the real stdin on every call; a file that
-// drives several prompts crosses Node's cap of 10 and prints a leak warning in the middle
-// of the assertions. The listeners are all consumed by their own queue.
-process.stdin.setMaxListeners(0);
+// The keys go through a stdin only this suite writes to: on the runner's real one, a stray
+// byte from whatever launched `bun test` lands in the open picker (tests/fixtures/private-stdin.ts).
+const stdin = usePrivateStdin();
+afterAll(() => stdin.restore());
 
 const roots: string[] = [];
 const savedCwd = process.cwd();
+const savedEnv = snapshotSandboxEnv();
 
 afterEach(() => {
   process.chdir(savedCwd);
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
-  delete process.env["AI_ENG_HOME"];
-  delete process.env["PI_CODING_AGENT_DIR"];
+  restoreSandboxEnv(savedEnv);
 });
 
 function tempDir(prefix: string): string {
@@ -72,6 +77,14 @@ function governedRepo(config = SOURCE): { repo: string; home: string } {
 }
 
 const configOf = (repo: string): string => readFileSync(join(repo, ".ai-engineering", "config.toml"), "utf8");
+
+function expectFullCanonInstalled(home: string): void {
+  const inventory = canonSkills();
+  expect(inventory.size).toBeGreaterThan(0);
+  for (const [path, ref] of inventory) {
+    expect(readFileSync(join(home, path), "utf8")).toBe(readFileSync(embeddedPath(ref), "utf8"));
+  }
+}
 
 /** `configMain` resolves the repo from the cwd: the test owns the cwd for the call. */
 function runConfig(repo: string, flags: { add?: string; remove?: string }): Promise<{ result: number; out: string }> {
@@ -126,6 +139,57 @@ describe("ai-eng config · --add and --remove", () => {
     expect(isGoverned(repo)).toBe(true);
   });
 
+  test("--add changes only the surface setting and preserves a legacy pack block and full canon", async () => {
+    const config =
+      '# keep me\n[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = ["triage"]\n\n[models]\ndecide = "x"\n';
+    const { repo, home } = governedRepo(config);
+    installCanon(VERSION);
+
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe(
+      '# keep me\n[surfaces]\nenabled = ["claude-code", "cursor"]\n\n[canon]\npacks = ["triage"]\n\n[models]\ndecide = "x"\n',
+    );
+    expectFullCanonInstalled(home);
+  });
+
+  // Every byte outside the one list survives, whatever shape the legacy pack key had.
+  test.each([
+    ["no legacy pack block", ""],
+    ["an empty pack list", "[canon]\npacks = []\n\n"],
+    ["a commented multi-line pack list", '[canon] # legacy, ignored now\n# packs once filtered the canon\npacks = [\n  "triage", # keep\n  "debug",\n]\n\n'],
+    ["a pack value that is not a list", '[canon]\npacks = "everything"\n\n'],
+  ])("--add then --remove change only the surface list beside %s", async (_shape, legacy) => {
+    const layout = (list: string): string =>
+      `# keep me\n\n${legacy}[surfaces]  # the gate\n# enabled = ["old"]\nenabled = ${list}\n\n[models]\ndecide = "x" # mine\n`;
+    const { repo, home } = governedRepo(layout('["claude-code"]'));
+    installCanon(VERSION);
+
+    expect((await runConfig(repo, { add: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe(layout('["claude-code", "cursor"]'));
+
+    expect((await runConfig(repo, { remove: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe(layout('["claude-code"]'));
+    expect(isGoverned(repo)).toBe(true);
+    expectFullCanonInstalled(home);
+  });
+
+  test("F28: what the canon install could not do is shown as a warning, never dropped or marked ✓", async () => {
+    const { repo, home } = governedRepo();
+    installCanon(VERSION);
+    const skill = join(home, "skills", "ai-debug");
+    const dotfiles = join(home, "dotfiles-ai-debug");
+    renameSync(skill, dotfiles);
+    symlinkSync(dotfiles, skill, "dir");
+
+    const { result, out } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(out).toContain(`▲ 1 path(s) where ai-eng installs are links or not its own folders or files — never written through, left as they are (the link and what it points at untouched): ${join(realpathSync(join(home, "skills")), "ai-debug")}`);
+    expect(out).not.toContain("✓ ⚠");
+  });
+
   test("--add refuses a surface with no adapter and leaves the config byte-identical", async () => {
     const { repo } = governedRepo();
 
@@ -151,16 +215,25 @@ describe("ai-eng config · --add and --remove", () => {
     expect(existsSync(join(home, ".claude", "settings.json"))).toBe(false);
   });
 
-  test("--add writes both carriers of a surface that reads the repo and the machine", async () => {
+  test("--add writes the repo carrier and refuses unsafe machine settings unchanged", async () => {
     const { repo, home } = governedRepo();
+    installCanon(VERSION);
+    const machineSettings = join(home, ".copilot", "hooks", "ai-eng.json");
+    const machineSettingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(join(home, ".copilot", "hooks"), { recursive: true });
+    writeFileSync(machineSettings, machineSettingsBefore);
 
     const { result: code, out } = await runConfig(repo, { add: "copilot" });
 
     expect(code).toBe(0);
-    expect(out).toContain("✓  ~/.copilot/hooks/ai-eng.json written (machine carrier)");
     expect(out).toContain("✓  .github/hooks/ai-eng.json written (repo carrier)");
+    expect(out).toContain("~/.copilot/hooks/ai-eng.json");
+    expect(out).toContain("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
     expect(existsSync(join(repo, ".github", "hooks", "ai-eng.json"))).toBe(true);
-    expect(existsSync(join(home, ".copilot", "hooks", "ai-eng.json"))).toBe(true);
+    expect(readFileSync(join(repo, ".github", "hooks", "ai-eng.json"), "utf8")).toContain("ai-eng chain PreToolUse --surface copilot-cli");
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "copilot-cli"]\n');
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
+    expectFullCanonInstalled(home);
   });
 
   test("--remove takes our entries out of a shared settings file and keeps the user's", async () => {
@@ -503,9 +576,55 @@ describe("the rewrite never turns a governed repo ungoverned (§09.2 regression)
     const { result } = await runConfig(repo, { add: "cursor" });
 
     expect(result).toBe(0);
-    const config = configOf(repo);
-    expect(config.match(/^\[surfaces\]$/gm)).toHaveLength(1);
-    expect(config).toContain('enabled = ["claude-code", "cursor"]');
+    expect(configOf(repo)).toBe('[surfaces]\n  enabled = ["claude-code", "cursor"]\n');
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  // F4: the key line is the user's — its indentation and the spacing around `=` survive.
+  test("the key's indentation and spacing around = are kept when the list changes", async () => {
+    const layout = (list: string): string => `[surfaces]\n\tenabled\t=\t${list}\n`;
+    const { repo } = governedRepo(layout('["claude-code"]'));
+
+    expect((await runConfig(repo, { add: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe(layout('["claude-code", "cursor"]'));
+    expect((await runConfig(repo, { remove: "claude-code" })).result).toBe(0);
+    expect(configOf(repo)).toBe(layout('["cursor"]'));
+  });
+
+  test("a commented [surfaces] header is rewritten without adding a duplicate", async () => {
+    const source = '# keep me\n[surfaces] # keep this comment\nenabled = ["claude-code"]\n';
+    const { repo } = governedRepo(source);
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe('# keep me\n[surfaces] # keep this comment\nenabled = ["claude-code", "cursor"]\n');
+    expect(configOf(repo).match(/^\[surfaces\]/gm)).toHaveLength(1);
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  // A commented header is a comment, not a table: the real [surfaces] below or around it
+  // is the one rewritten, in place, and no second table is appended.
+  test.each([
+    ["a commented header above the real one", '# [surfaces]\n# enabled = ["old"]\n[surfaces]\nenabled = LIST\n\n[models]\ndecide = "x"\n'],
+    ["a commented header with no space after the hash", '#[surfaces]\n[surfaces]\nenabled = LIST\n'],
+    ["a commented header inside another table", '[models]\ndecide = "x"\n# [surfaces] lives below\n\n[surfaces] # the gate\nenabled = LIST\n'],
+    ["a commented header of another table before the key", '[surfaces]\n# [models] moved below\n  # [notices]\nenabled = LIST\n\n[models]\ndecide = "x"\n'],
+    ["a header comment that itself holds brackets", '[surfaces] # see [models] and [notices]\nenabled = LIST\n\n[notices]\nenabled = true\n'],
+  ])("%s: the valid [surfaces] table is updated in place", async (_layout, template) => {
+    const { repo } = governedRepo(template.replace("LIST", '["claude-code"]'));
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe(template.replace("LIST", '["claude-code", "cursor"]'));
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  test("a comment after the enabled list is kept when the list is rewritten", async () => {
+    const { repo } = governedRepo('[surfaces]\nenabled = ["claude-code"] # the hosts this repo governs\n');
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "cursor"] # the hosts this repo governs\n');
     expect(isGoverned(repo)).toBe(true);
   });
 
@@ -525,5 +644,98 @@ describe("the rewrite never turns a governed repo ungoverned (§09.2 regression)
     expect(result).toBe(0);
     expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "cursor"]\n\n[notices]\nenabled = false\n');
     expect(isGoverned(repo)).toBe(true);
+  });
+
+  test("a multi-line enabled list gains a line in its own style, keeping its comments", async () => {
+    const { repo } = governedRepo('[surfaces]\nenabled = [\n  "claude-code", # the main one\n]\n\n[models]\ndecide = "x"\n');
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = [\n  "claude-code", # the main one\n  "cursor",\n]\n\n[models]\ndecide = "x"\n');
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  // F3: every comment in a multi-line list is the user's. An item comes and goes as one
+  // line in the existing style; the opening-line comment, the comments between items and
+  // the one after `]` all stay.
+  test("a commented multi-line list is edited item by item, every other comment kept", async () => {
+    const { repo } = governedRepo('[surfaces]\nenabled = [ # hosts\n  "claude-code", # main\n  # cursor later\n] # end\n');
+
+    expect((await runConfig(repo, { add: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = [ # hosts\n  "claude-code", # main\n  "cursor",\n  # cursor later\n] # end\n');
+
+    expect((await runConfig(repo, { remove: "claude-code" })).result).toBe(0);
+    expect(configOf(repo)).toBe('[surfaces]\nenabled = [ # hosts\n  "cursor",\n  # cursor later\n] # end\n');
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  test("a multi-line list written without a trailing comma keeps that style", async () => {
+    const { repo } = governedRepo("[surfaces]\nenabled = [\n    'claude-code'\n]\n");
+
+    expect((await runConfig(repo, { add: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe("[surfaces]\nenabled = [\n    'claude-code',\n    'cursor'\n]\n");
+  });
+
+  // F1: a CRLF file stays CRLF everywhere — no line loses its `\r`, no new line lacks one.
+  test.each([
+    ["a one-line list", '[surfaces]\r\nenabled = LIST\r\n\r\n[models]\r\ndecide = "x"\r\n', '["claude-code"]', '["claude-code", "cursor"]'],
+    ["a one-line list with a comment", "[surfaces]\r\nenabled = LIST # hosts\r\n", '["claude-code"]', '["claude-code", "cursor"]'],
+    ["a multi-line list", "[surfaces]\r\nenabled = LIST\r\n", '[\r\n  "claude-code", # main\r\n]', '[\r\n  "claude-code", # main\r\n  "cursor",\r\n]'],
+  ])("a CRLF config with %s keeps its line endings", async (_layout, template, before, after) => {
+    const { repo } = governedRepo(template.replace("LIST", before));
+
+    expect((await runConfig(repo, { add: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe(template.replace("LIST", after));
+    expect((await runConfig(repo, { remove: "cursor" })).result).toBe(0);
+    expect(configOf(repo)).toBe(template.replace("LIST", before));
+  });
+
+  // F2: under CRLF the header's comment runs up to `\r`, and the table is still found.
+  test("a commented [surfaces] header in a CRLF file is rewritten in place", async () => {
+    const { repo } = governedRepo('[surfaces] # gate\r\nenabled = ["claude-code"]\r\n');
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe('[surfaces] # gate\r\nenabled = ["claude-code", "cursor"]\r\n');
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  test("a [ surfaces ] header written with spaces is the same table, rewritten in place", async () => {
+    const { repo } = governedRepo('[ surfaces ]\nenabled = ["claude-code"]\n');
+    const { result } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(0);
+    expect(configOf(repo)).toBe('[ surfaces ]\nenabled = ["claude-code", "cursor"]\n');
+    expect(isGoverned(repo)).toBe(true);
+  });
+
+  // Layouts the line edit cannot rewrite: refused before any write, file byte-identical.
+  test.each([
+    ["a dotted surfaces.enabled key", 'surfaces.enabled = ["claude-code"]\n\n[models]\ndecide = "x"\n'],
+    ["an inline surfaces table", 'surfaces = { enabled = ["claude-code"] }\n\n[models]\ndecide = "x"\n'],
+  ])("%s is refused and left byte-identical", async (_layout, source) => {
+    const { repo } = governedRepo(source);
+    const { result, out } = await runConfig(repo, { add: "cursor" });
+
+    expect(result).toBe(2);
+    expect(out).toContain("✗  .ai-engineering/config.toml is laid out in a way this command cannot rewrite");
+    expect(out).toContain('Edit it by hand: under [surfaces], set enabled = ["claude-code", "cursor"]');
+    expect(out).toContain("└  Nothing changed.");
+    expect(configOf(repo)).toBe(source);
+    expect(isGoverned(repo)).toBe(true);
+    expect(existsSync(join(repo, ".cursor"))).toBe(false);
+  });
+
+  test("a refused --remove leaves the surface's carrier in place too", async () => {
+    const source = 'surfaces = { enabled = ["claude-code", "cursor"] }\n';
+    const { repo } = governedRepo(source);
+    mkdirSync(join(repo, ".cursor"), { recursive: true });
+    writeFileSync(join(repo, ".cursor", "hooks.json"), '{ "hooks": {} }\n');
+
+    const { result } = await runConfig(repo, { remove: "cursor" });
+
+    expect(result).toBe(2);
+    expect(configOf(repo)).toBe(source);
+    expect(readFileSync(join(repo, ".cursor", "hooks.json"), "utf8")).toBe('{ "hooks": {} }\n');
   });
 });

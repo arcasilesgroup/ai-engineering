@@ -3,8 +3,8 @@
 // the original: every expectation in tests/policy-guard.spec.ts was first
 // confirmed by running policy.rs itself. A command is classified into scopes
 // (system / external / network / workspace) × permissions (read 4 / write 2 /
-// execute 1), as four octal digits, left to right: `0467` = workspace
-// everything, network read+write, external read, system nothing. A command
+// execute 1), as four octal digits, left to right: `4667` = workspace
+// everything, network read+write, external read+write, system read. A command
 // runs when its required bits are a subset of the configured mode; an invalid
 // mode normalises to `0000` — the same fail-closed as a crashing guard.
 //
@@ -13,10 +13,14 @@
 // heredoc form; the edit tools cover it here).
 
 import { readFileSync, realpathSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { join, posix } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { quotedSpanEnd, rawShellWords } from "./shell.ts";
 
-export const DEFAULT_MODE = "0467";
+/** What every install and new project gets while config.toml says nothing. System read
+ *  includes the paths this file calls sensitive (~/.ssh, .env, *.pem): reading them is
+ *  allowed; writing or executing anything at system scope is not. */
+export const DEFAULT_MODE = "4667";
 
 const SCOPE_SYSTEM = 8;
 const SCOPE_EXTERNAL = 4;
@@ -97,15 +101,17 @@ function addMode(mask: { value: number }, scopes: number, permissions: number): 
 }
 
 /** Relative paths resolve against the session cwd so `cat src/x.py` and
- *  `cat /repo/src/x.py` classify the same. A path that contains `..` anywhere
- *  stays unresolved and lands in external — the original's rule, and the one
- *  that classifies `go test ./...` as external read+write. */
+ *  `cat /repo/src/x.py` classify the same. A `..` segment is resolved before
+ *  scoping; a path that merely contains `..` inside a segment (`./...`) stays
+ *  unresolved and lands in external — the original's rule, and the one that
+ *  classifies `go test ./...` as external read+write. */
 function resolvePath(rawPath: string, cwd: string): string {
   const path = rawPath
     .replace(/^["']+|["']+$/g, "")
     .replace(/^of=/, "")
     .replace(/[;,)]+$/, "");
   if (path.length === 0) return "";
+  if (path.split("/").includes("..")) return resolveParentSegments(path, cwd);
   if (path.startsWith("/") || path.startsWith("~")) return path;
   if (cwd.length === 0) return path;
   if (path.startsWith("./") || path.startsWith("../")) {
@@ -113,6 +119,25 @@ function resolvePath(rawPath: string, cwd: string): string {
     return `${cwd}/${path.replace(/^\.+/, "")}`;
   }
   return `${cwd}/${path}`;
+}
+
+/** A `..` segment moves the path, so the scope is judged where it lands: `x/../../y`
+ *  from the repo is outside it, `/tmp/../etc` is /etc. `~/` resolves against the home
+ *  directory and is written back as `~/…` so the sensitive-path rule still reads it.
+ *  With no absolute cwd to resolve against the path stays as written, and its `..`
+ *  sends it to external. */
+export function resolveParentSegments(path: string, cwd: string, homeDirectory = homedir()): string {
+  if (path === "~" || path.startsWith("~/")) {
+    // Git Bash spells the Windows home `C:\Users\me` as `/c/users/me`; left as written, a
+    // `..` detour (`~/x/../.ssh/id_rsa`) would never be read back as `~/.ssh`.
+    const home = homeDirectory.toLowerCase().replaceAll("\\", "/").replace(/^([a-z]):/, "/$1");
+    if (!home.startsWith("/")) return path;
+    const landed = posix.resolve(home, path.slice(2));
+    return landed === home || landed.startsWith(`${home}/`) ? `~${landed.slice(home.length)}` : landed;
+  }
+  if (path.startsWith("/")) return posix.normalize(path);
+  if (path.startsWith("~") || !cwd.startsWith("/")) return path;
+  return posix.resolve(cwd, path);
 }
 
 function addPath(mask: { value: number }, rawPath: string, permissions: number, cwd: string): void {
@@ -205,7 +230,7 @@ const WORKSPACE_EXECUTE = (segment: string): boolean =>
 /** A write-shaped segment: its path tokens are judged read+write, and a
  *  segment with no resolvable path still costs a workspace write. */
 const WRITES = (segment: string): boolean =>
-  segment.includes(">") ||
+  bareOperatorIndex(segment, ">") >= 0 ||
   segment.includes("tee ") ||
   segment.startsWith("mkdir ") ||
   segment.startsWith("touch ") ||
@@ -231,6 +256,31 @@ const WRITES = (segment: string): boolean =>
   segment.startsWith("go test") ||
   segment.startsWith("npm test");
 
+/** A redirection, optionally fd-prefixed (`2>`, `{fd}>`): the operator and the target
+ *  when it is attached. Heredocs (`<<`) and process substitution (`<(`, `>(`) are not
+ *  file targets. `>&` comes before `>` so `>&1` reads as a descriptor copy. */
+const REDIRECT = /^(?:\d+|\{\w+\})?(&>>?|>&|>>?[|!]?|<>|<&|<)(?![<(])(.*)$/;
+
+/** `x>/etc/foo` and `"x">/etc/foo` are the word and a redirect to /etc/foo, as the shell
+ *  reads them; a `>` inside quotes or after a backslash is text, so that word is left whole. */
+function splitAttachedRedirect(token: string): string[] {
+  const at = bareOperatorIndex(token, "<>");
+  if (at < 0) return [token];
+  const start = token[at - 1] === "&" ? at - 1 : at;
+  return start === 0 ? [token] : [token.slice(0, start), token.slice(start)];
+}
+
+/** Where the first of `operators` the shell reads as an operator sits, or -1: one inside
+ *  quotes (`$'…'` included), `${…}` or after a backslash is a character. */
+function bareOperatorIndex(text: string, operators: string): number {
+  for (let at = 0; at < text.length; at++) {
+    const spanEnd = quotedSpanEnd(text, at);
+    if (spanEnd >= 0) at = spanEnd;
+    else if (operators.includes(text[at]!)) return at;
+  }
+  return -1;
+}
+
 function scanSegment(mask: { value: number }, segment: string, cwd: string): void {
   if (SYSTEM_EXECUTE(segment)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
   if (SYSTEM_WRITE(segment)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
@@ -247,29 +297,32 @@ function scanSegment(mask: { value: number }, segment: string, cwd: string): voi
 
   let pathPermissions = PERM_READ;
   let flags = 0;
-  let redirectPermissions = 0;
   if (WRITES(segment)) {
     pathPermissions = PERM_READ | PERM_WRITE;
     flags = 1;
   }
 
-  for (const token of segment.split(/\s+/)) {
-    if (redirectPermissions !== 0) {
-      addPath(mask, token, redirectPermissions, cwd);
-      flags = 3;
-      redirectPermissions = 0;
-    } else if (token === ">" || token === ">>" || token === "1>" || token === "1>>") {
-      redirectPermissions = PERM_WRITE;
-    } else if (token === "<>") {
-      redirectPermissions = PERM_READ | PERM_WRITE;
-    } else if (token.startsWith("2>")) {
-      // stderr targets are noise here
-    } else if (token.startsWith(">")) {
-      addPath(mask, token.replace(/^>+/, ""), PERM_WRITE, cwd);
-      flags = 3;
-    } else if (token.startsWith("<>")) {
-      addPath(mask, token.slice(2), PERM_READ | PERM_WRITE, cwd);
-      flags = 3;
+  let pending: { permissions: number; isDuplicate: boolean } | null = null;
+  const judgeRedirect = (target: string, permissions: number, isDuplicate: boolean): void => {
+    // `2>&1`, `<&0` and `>&-` copy or close a descriptor: they name no file.
+    if (isDuplicate && /^(\d+|-)$/.test(target)) return;
+    addPath(mask, target, permissions, cwd);
+    flags = 3;
+  };
+  for (const token of rawShellWords(segment).flatMap(splitAttachedRedirect)) {
+    if (pending !== null) {
+      judgeRedirect(token, pending.permissions, pending.isDuplicate);
+      pending = null;
+      continue;
+    }
+    const redirect = REDIRECT.exec(token);
+    if (redirect !== null) {
+      const operator = redirect[1]!;
+      const target = redirect[2]!;
+      const permissions = operator === "<>" ? PERM_READ | PERM_WRITE : operator.startsWith("<") ? PERM_READ : PERM_WRITE;
+      const isDuplicate = operator === ">&" || operator === "<&";
+      if (target.length === 0) pending = { permissions, isDuplicate };
+      else judgeRedirect(target, permissions, isDuplicate);
     } else if (
       token.startsWith("/") ||
       token.startsWith("./") ||

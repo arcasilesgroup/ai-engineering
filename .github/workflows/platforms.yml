@@ -21,14 +21,24 @@ jobs:
       # policy allows GitHub-owned actions plus nine org patterns, and a workflow that
       # names anything else never starts (startup_failure, no logs). Node is on every
       # hosted runner, and the registry pins the version's integrity itself.
-      - run: npm install -g bun@1.4.2
+      - run: npm install -g bun@1.4.4
       - run: bun install --frozen-lockfile
+      - name: Tested revision (${{ matrix.os }})
+        shell: bash
+        run: git rev-parse HEAD
+      # Before the build, so no test can lean on a dist/ left behind by a later step.
+      - name: Full serial suite on ${{ matrix.os }}
+        shell: bash
+        run: bun test --parallel=1
       - name: Build the real binary
         run: bun run build
+      # The demo lives outside the checkout: a folder inside this governed repository is
+      # governed by it (the outermost governed ancestor wins), so doctor would judge
+      # ai-engineering itself instead of the bare folder.
       - name: init --yes on a bare folder (§18 H2 acceptance)
         shell: bash
         run: |
-          mkdir demo && cd demo
+          mkdir "$RUNNER_TEMP/demo" && cd "$RUNNER_TEMP/demo"
           "$GITHUB_WORKSPACE/dist/ai-eng" init --yes --surface claude-code
           test -f AGENTS.md
           test -f .ai-engineering/ai-eng.lock
@@ -37,12 +47,12 @@ jobs:
           test -f "$HOME/.claude/settings.json"
       - name: doctor responds (chain test inside)
         shell: bash
-        run: cd demo && "$GITHUB_WORKSPACE/dist/ai-eng" doctor
+        run: cd "$RUNNER_TEMP/demo" && "$GITHUB_WORKSPACE/dist/ai-eng" doctor
       - name: uninstall keeps the user's files
         shell: bash
         run: |
           set -euo pipefail
-          cd demo
+          cd "$RUNNER_TEMP/demo"
           echo "" | "$GITHUB_WORKSPACE/dist/ai-eng" uninstall
           test -f AGENTS.md && test -f DECISIONS.md
           echo "uninstall left the contract files in place"

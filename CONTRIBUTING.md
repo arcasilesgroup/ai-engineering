@@ -34,23 +34,55 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
 
 - Add or update tests for the code you change, even if nobody asked.
 - After moving files or changing imports, re-run lint and typecheck.
-- Match the existing architecture: `src/cli.ts` dispatches only — logic lives
-  in `src/{chain,floor,guards,spec,wrap,surfaces}/`; `src/commands/*.ts` are
-  thin parsers.
-- Product spec is `docs/blueprint.html` (v17): §-references in code and docs
-  point at it. A behavior change without a blueprint section is a spec change —
-  propose it in an issue first.
+- Match the existing architecture: `src/cli.ts` dispatches to command entry
+  points; implementation lives in `src/{chain,floor,guards,git,surfaces,workflow,wrap}/`.
+  The source and its tests define behavior. `docs/blueprint.html` records design
+  context; update the user-facing docs and tests when behavior changes.
+- When a feature needs synchronization, use native `git rebase <detected base>`
+  from the selected feature checkout after its implementation checkpoints and
+  behavior and review gates pass (a UI gate may be `n/a`). The CLI does not run
+  rebases. Resolve conflicts in that checkout or abort with `git rebase --abort`.
+  If the base moves during the rebase, synchronize again and rerun affected gates.
+- Run `ai-eng worktree merge <slug>` only after human app review. The checkpoint
+  must be `ready-to-merge`, have every planned gate complete, and record the
+  approved review against the exact `reviewed_base` and `reviewed_feature` commit
+  IDs. The command creates a normal hook-running merge in a temporary detached
+  worktree. It publishes to the detected local base only if that ref still equals
+  `reviewed_base`, then refreshes any matching base checkout and verifies the
+  exact merge parents and ancestry. The feature worktree and branch remain in
+  place after publication; remove them later with `ai-eng worktree rm <slug>`.
+- A conflicting merge stays in the temporary detached worktree, not the
+  feature. The command attempts to abort and remove that temporary transaction
+  and returns an error; the reviewed feature remains available. If temporary
+  cleanup cannot be verified, follow the path and state in the error. A refusal
+  or pre-publication hook failure also leaves the feature available. If the base
+  moved before publication and no matching merge was already published,
+  synchronize again, rerun affected gates, and obtain renewed app review. If a
+  commit hook fails, fix its reported cause before retrying; rerun affected
+  checks and review if the feature or reviewed refs change. After publication,
+  refresh or verification failures preserve the feature worktree; resolve the
+  obstruction and retry `ai-eng worktree merge <slug>`, which recognizes its
+  already-published reviewed merge. Before removing a feature, use
+  `ai-eng worktree list` to confirm its exact path and branch, then run
+  `ai-eng worktree rm <slug>` when the checkout is safe to remove. A successful
+  removal deletes the checkpoint with the worktree; no separate completion
+  record or declaration manifest remains.
 
 ## Commit and PR conventions
 
 - Conventional Commits; commit messages must carry the `Receipt-Id` trailer
   when the git hooks require it (the hook enforces this).
 - PR title: `<area>: <imperative summary>` (e.g. `chain: cache verdicts per tool_use_id`).
-- Local flow: work in a worktree (`ai-eng worktree new <slug>`), then merge your branch into the local `main`. A session never pushes.
-- The pull request against `origin/main` is your decision. It is cut from the local `main`, never from a worktree.
+- Local flow: create a feature worktree with `ai-eng worktree new <branch>`,
+  synchronize with native `git rebase <detected base>` when needed, publish the
+  reviewed merge with `ai-eng worktree merge <slug>`, then remove the worktree
+  explicitly when it is no longer needed.
+- When the user requests a PR, `ai-pr` pushes and verifies the current branch
+  from the current checkout or selected worktree before opening it. It does not
+  create or switch branches, and it uses the selected base without assuming local `main`.
 - CI runs build, lint, typecheck, the full test suite, gitleaks, semgrep,
-  trivy, `bun audit`, SonarCloud and Snyk — your commit must pass everything
-  it will face there.
+  trivy and `bun audit`. SonarCloud and Snyk jobs run when their tokens are
+  configured. Your commit must pass the jobs it will face there.
 
 ## Changesets and releases
 
@@ -60,8 +92,28 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
   `package.json` and `CHANGELOG.md`; it does not publish.
 - Dispatch `.github/workflows/release.yml` with a channel: `integration` ships a
   candidate (GitHub prerelease + npm `next`), `production` ships the real one
-  (GitHub release marked latest + npm `latest`). It builds the 8 binaries + SBOM +
-  GitHub Release and publishes npm under OIDC trusted publishing.
+  (GitHub release marked latest + npm `latest`). It gates the dispatched SHA (lint,
+  typecheck, full suite, build), builds the 8 binaries, packs one npm tarball —
+  smoke-tested against its recorded digest and described by a runtime-only CycloneDX
+  SBOM that names its sha256 — and publishes that
+  exact tarball, checked against its digest, under OIDC trusted publishing.
+- Before anything is built, the `policy` job runs `scripts/release-policy.ts`: the
+  release tag (`v` + the `package.json` version) must already exist as an annotated tag
+  SSH-signed by an allowlisted key on exactly the commit you dispatch (the job passes
+  `--sha "$GITHUB_SHA"` and refuses a tag on any other commit), and every row of
+  `NOTICE.md` must read `verified`.
+  An owner sets two repository variables after verifying the signer:
+  `RELEASE_ALLOWED_SIGNERS` (the key's `allowed_signers` line, `<principal> <public key>`)
+  and `RELEASE_SIGNER_FINGERPRINTS` (its `SHA256:` fingerprint from
+  `ssh-keygen -lf <key>.pub`; comma- or newline-separated). The release owner signs and
+  pushes the tag on the commit it will dispatch, then dispatches that commit:
+  `git -c gpg.format=ssh -c user.signingKey=<path to key>.pub tag -s vX.Y.Z -m "vX.Y.Z" <commit>`
+  then `git push origin vX.Y.Z`. Never move or re-sign an existing tag; cut a new version.
+  To check before dispatching: `bun scripts/release-policy.ts --tag vX.Y.Z --sha <commit>`.
+- The policy lives in the workflow file, so a branch could ship a copy without it. Restrict
+  the `release` environment's deployment branches to `main` (Settings → Environments →
+  release → Deployment branches) so only `main`'s `release.yml` can reach the npm and
+  GitHub publish steps.
 
 ## Reporting bugs and security issues
 

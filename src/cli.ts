@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // src/cli.ts — raw argv, prompts only for what's missing (@clack/prompts). Human
-// verbs get a line in --help. Machine verbs (chain|git|wrap|spec|worktree|adapt|briefing)
+// verbs get a line in --help. Machine verbs (chain|git|wrap|worktree|adapt)
 // are named on one line: agents and hooks type them, people do not.
 
 import { VERSION } from "./version.ts";
@@ -11,20 +11,17 @@ import { surfaceDialect } from "./surfaces/adapters.ts";
 import { doctorMain } from "./commands/doctor.ts";
 import { initMain } from "./commands/init.ts";
 import { updateMain } from "./commands/update.ts";
-import { upgradeMain } from "./commands/upgrade.ts";
 import { uninstallMain } from "./commands/uninstall.ts";
 import { configMain } from "./commands/config.ts";
 import { adaptMain } from "./commands/adapt.ts";
 import { worktreeMain } from "./commands/worktree.ts";
-import { generateBriefing, formatBriefing } from "./commands/briefing.ts";
 import { wrapMain } from "./wrap/index.ts";
-import { specMain } from "./spec/index.ts";
 import { floor } from "./floor/entry.ts";
 import { suggestVerb } from "./shared-verbs.ts";
 
 
 const argv = process.argv.slice(2);
-const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, json: true, force: true };
+const BOOLS: Record<string, true> = { yes: true, global: true, help: true, version: true, gc: true, force: true };
 const boolFlags: Record<string, true> = {};
 const valueFlags: Record<string, string> = {};
 const positionals: string[] = [];
@@ -60,12 +57,20 @@ if (flags.help || !verb) {
   process.stdout.write("  ai-eng doctor     12 checks + one real adversarial probe + --gc\n");
   process.stdout.write("  ai-eng config     add or remove surfaces, and regenerate their adapters\n");
   process.stdout.write("  ai-eng update     rewrite ai-eng's files from the installed binary (zero network)\n");
-  process.stdout.write("  ai-eng upgrade    delegate to bun/npm\n");
   process.stdout.write("  ai-eng uninstall  revert ours, keep yours\n\n");
-  process.stdout.write("Machine verbs (hooks/CI/agents): chain · git · wrap · spec · worktree · adapt · briefing\n");
+  process.stdout.write("Machine verbs (hooks/CI/agents): chain · git · wrap · worktree · adapt\n");
   process.exit(flags.help ? 0 : 2);
 }
 
+/** The hook payload. Not `Bun.stdin.text()`: on Windows (Bun 1.4) that read, awaited after
+ *  module evaluation, does not keep the process alive, so `chain` exited 0 before the
+ *  payload arrived and every hook allowed (oven-sh/bun#41850). The stream iterator holds
+ *  the event loop until EOF. */
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+  return Buffer.concat(chunks).toString("utf8");
+}
 
 async function main(): Promise<number> {
   switch (verb) {
@@ -75,7 +80,7 @@ async function main(): Promise<number> {
         process.stderr.write("usage: ai-eng chain <event> < payload-json\n");
         return 2;
       }
-      const raw = await Bun.stdin.text();
+      const raw = await readStdin();
       const surface = surfaceList[0] ?? "claude-code";
       chainMain(event, raw, { surface, dialect: surfaceDialect(surface) });
       return 0; // chainMain exits on its own when it denies
@@ -84,8 +89,6 @@ async function main(): Promise<number> {
       return floor(String(flags._[1] ?? ""), flags._[2] != null ? String(flags._[2]) : undefined);
     case "wrap":
       return wrapMain(process.argv.slice(3).map(String));
-    case "spec":
-      return specMain(flags._.slice(1).map(String));
     case "worktree":
       return worktreeMain(flags._.slice(1).map(String), flags.force === true);
     case "init":
@@ -101,20 +104,9 @@ async function main(): Promise<number> {
     case "adapt":
       return adaptMain(flags._.slice(1).map(String));
     case "update":
-      { const code = await updateMain({ yes: flags.yes === true }); if (code === 0) maybeNotice(); return code; }
-    case "upgrade":
-      return upgradeMain();
+      return updateMain({ yes: flags.yes === true });
     case "uninstall":
       return uninstallMain();
-    case "briefing": {
-      const briefing = generateBriefing();
-      if (flags.json) {
-        process.stdout.write(JSON.stringify(briefing, null, 2) + "\n");
-      } else {
-        process.stdout.write(formatBriefing(briefing) + "\n");
-      }
-      return 0;
-    }
     default: {
       const typed = String(verb);
       const suggestion = suggestVerb(typed);

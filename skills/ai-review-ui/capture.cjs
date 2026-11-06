@@ -39,6 +39,15 @@ async function step(page, s) {
   if (s.select !== undefined) return field(page, s.select).selectOption({ label: s.value }, o);
   if (s.check !== undefined) return field(page, s.check).check(o);
   if (s.click !== undefined) return page.getByRole(s.role || "button", { name: s.click, exact: true }).first().click(o);
+  if (s.scroll !== undefined) {
+    return page.locator(s.scroll).first().evaluate((element, position) => {
+      const scrollTop = position === "top" ? 0 : element.scrollHeight;
+      const isScrollable = element.scrollHeight > element.clientHeight
+        && ["auto", "scroll"].includes(getComputedStyle(element).overflowY);
+      if (isScrollable) element.scrollTop = scrollTop;
+      else window.scrollTo(0, position === "top" ? 0 : document.documentElement.scrollHeight);
+    }, s.to || "bottom", o);
+  }
   if (s.press !== undefined) return page.keyboard.press(s.press);
   if (s.waitFor !== undefined) return page.getByText(s.waitFor).first().waitFor(o);
   if (s.wait !== undefined) return page.waitForTimeout(s.wait);
@@ -108,8 +117,8 @@ async function side(browser, vp, url, steps, storage) {
   const report = [];
   const states = scope ? sc.states.filter((st) => st.regions?.length && st.regions.every((r) => scope.includes(r))) : sc.states;
   if (scope) console.log(`scope ${scope.join(",")}: ${states.length}/${sc.states.length} states (${sc.states.filter((s) => !states.includes(s)).map((s) => s.name).join(", ") || "none"} out of scope)`);
-  for (const vp of viewports) {
-    for (const st of states) {
+  for (const st of states) {
+    for (const vp of st.viewports || viewports) {
       const tag = `${st.name}-${vp[0]}`;
       const q = st.proto_query ? `?${st.proto_query}` : "";
       const proto = await side(browser, vp, `file://${path.join(root, ".ai-engineering", "workflow", "prototypes", `${name}.html`)}${q}`, st.steps || []);

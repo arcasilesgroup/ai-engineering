@@ -66,11 +66,19 @@ type NodeId =
   | "extra";
 
 type ViewerNodes = Record<NodeId, DomNode>;
+type StepDetails = { dataset: { id: string }; open: boolean; ontoggle: (() => void) | null };
+type GoLink = { dataset: { go: string }; onclick: (() => void) | null };
 type ViewerHarness = {
   api: ViewerApi;
   nodes: ViewerNodes;
   byId: Record<string, DomNode>;
   tickAgain: () => Promise<void>;
+  /** Simulates the person opening or closing a rendered step card. */
+  setStepOpen: (id: number, isOpen: boolean) => void;
+  /** Simulates the person clicking the link rendered in the status banner. */
+  clickBannerLink: () => void;
+  /** Element ids the viewer scrolled into view, in order. */
+  scrolledTo: string[];
 };
 
 function templateHtml(): string {
@@ -158,10 +166,18 @@ async function withViewer(
   };
 
   let pendingTick: (() => void | Promise<void>) | null = null;
+  let stepDetails: StepDetails[] = [];
+  let bannerLinks: GoLink[] = [];
+  const scrolledTo: string[] = [];
+  const goLinksIn = (html: string): GoLink[] =>
+    [...html.matchAll(/data-go="([^"]*)"/g)].map((m) => ({ dataset: { go: m[1] ?? "" }, onclick: null }));
   const fetchMap = opts.fetchText;
   Object.assign(globalThis, {
     document: {
       getElementById(id: string) {
+        if (id.startsWith("step-") && nodes.steps.innerHTML.includes(`id="${id}"`)) {
+          return { scrollIntoView: () => scrolledTo.push(id) };
+        }
         return byId[id] ?? null;
       },
       createElement(_tag: string) {
@@ -171,8 +187,16 @@ async function withViewer(
         };
         return node;
       },
-      querySelectorAll() {
-        return [];
+      querySelectorAll(selector: string) {
+        if (selector === "[data-go]") {
+          bannerLinks = goLinksIn(nodes.bannerText.innerHTML);
+          return [...bannerLinks, ...goLinksIn(nodes.journey.innerHTML)];
+        }
+        if (selector !== "details.step") return [];
+        stepDetails = [
+          ...nodes.steps.innerHTML.matchAll(/<details class="step[^"]*" id="step-[^"]*" data-id="([^"]*)"\s*(open)?\s*>/g),
+        ].map((m) => ({ dataset: { id: m[1] ?? "" }, open: m[2] !== undefined, ontoggle: null }));
+        return stepDetails;
       },
       title: "",
     },
@@ -208,6 +232,22 @@ async function withViewer(
         if (!pendingTick) throw new Error("no tick registered");
         await pendingTick();
       },
+      setStepOpen: (id, isOpen) => {
+        const details = stepDetails.find((d) => d.dataset.id === String(id));
+        if (!details?.ontoggle) throw new Error(`step ${id} has no toggle handler`);
+        details.open = isOpen;
+        nodes.steps.innerHTML = nodes.steps.innerHTML.replace(
+          new RegExp(`(<details class="step[^"]*" id="step-${id}" data-id="${id}")\\s*(?:open)?\\s*>`),
+          isOpen ? "$1 open>" : "$1 >",
+        );
+        details.ontoggle();
+      },
+      clickBannerLink: () => {
+        const [link] = bannerLinks;
+        if (!link?.onclick) throw new Error("banner has no clickable link");
+        link.onclick();
+      },
+      scrolledTo,
     });
   } finally {
     Object.assign(globalThis, previous);
@@ -221,6 +261,265 @@ const samplePlan = JSON.stringify({
 });
 
 const twoPlanIndex = '<a href="demo.json">demo</a><a href="other.json">other</a>';
+
+describe("viewer-audit — current checkpoint findings", () => {
+  test("a halted plan keeps the current checkpoint findings link in the status banner", async () => {
+    const plan = JSON.stringify({
+      feature: "Floating core",
+      halted: { reason: "review <input> is needed" },
+      checkpoints: [
+        {
+          id: 19,
+          title: "Install every skill",
+          size: "xl",
+          status: "pending",
+          gates: { behavior: { status: "failed", attempts: 2, findings: ["Gate failed"] } },
+        },
+      ],
+    });
+
+    await withViewer({}, ({ api, nodes }) => {
+      expect(api.load(plan)).toBe(true);
+      expect(nodes.bannerText.innerHTML).toContain("Stopped. Needs your input: review &lt;input&gt; is needed");
+      expect(nodes.bannerText.innerHTML).toContain('href="#step-19"');
+      expect(nodes.bannerText.innerHTML).toContain("View 1 finding");
+    });
+  });
+
+  test("failed gate findings are visible and linked from the status banner", async () => {
+    const finding = "9 init-command tests failed; focused rerun passed 33 tests";
+    const plan = JSON.stringify({
+      feature: "Floating core",
+      slug: "floating-core",
+      checkpoints: [
+        {
+          id: 19,
+          title: "Install every skill",
+          simple: "Get every tool during setup",
+          size: "xl",
+          status: "pending",
+          gates: {
+            behavior: { status: "failed", attempts: 2, findings: [finding] },
+          },
+        },
+      ],
+    });
+
+    await withViewer({}, ({ api, nodes }) => {
+      expect(api.load(plan)).toBe(true);
+
+      const card = nodes.steps.innerHTML;
+      expect(card.indexOf(finding)).toBeGreaterThan(-1);
+      expect(card.indexOf(finding)).toBeLessThan(card.indexOf('<details class="tech"'));
+      expect(nodes.bannerText.innerHTML).toContain('href="#step-19"');
+      expect(nodes.bannerText.innerHTML).toContain("View 1 finding");
+    });
+  });
+
+  test("opens the new current checkpoint when live progress advances", async () => {
+    const initialPlan = JSON.stringify({
+      feature: "Floating core",
+      checkpoints: [
+        { id: 18, title: "Move skill sources", size: "l", status: "pending", gates: {} },
+        { id: 19, title: "Install every skill", size: "xl", status: "pending", gates: {} },
+      ],
+    });
+    const advancedPlan = JSON.stringify({
+      feature: "Floating core",
+      checkpoints: [
+        { id: 18, title: "Move skill sources", size: "l", status: "passed", gates: {} },
+        {
+          id: 19,
+          title: "Install every skill",
+          size: "xl",
+          status: "pending",
+          gates: {
+            behavior: { status: "failed", attempts: 2, findings: ["Gate failed"] },
+          },
+        },
+      ],
+    });
+
+    await withViewer({}, ({ api, nodes }) => {
+      expect(api.load(initialPlan)).toBe(true);
+      expect(api.load(advancedPlan)).toBe(true);
+      expect(nodes.steps.innerHTML).toContain(
+        '<details class="step failed current" id="step-19" data-id="19" open>',
+      );
+    });
+  });
+});
+
+function stepCardHtml(stepsHtml: string, id: number): string {
+  const at = stepsHtml.indexOf(`id="step-${id}"`);
+  if (at < 0) throw new Error(`step ${id} card missing`);
+  const start = stepsHtml.lastIndexOf('<details class="step', at);
+  const next = stepsHtml.indexOf('<details class="step', at);
+  return stepsHtml.slice(start, next < 0 ? undefined : next);
+}
+
+function isStepOpen(stepsHtml: string, id: number): boolean {
+  return new RegExp(`<details class="step[^"]*" id="step-${id}" data-id="${id}"\\s*open\\s*>`).test(stepsHtml);
+}
+
+const hostileFinding = '<img src=x onerror=alert(1)> broke "init"';
+const hostileFindingHtml =
+  '<div class="finding"><b>Works:</b> &lt;img src=x onerror=alert(1)&gt; broke &quot;init&quot;</div>';
+const objectFinding = { detail: "<script>steal()</script>" };
+const objectFindingHtml =
+  '<div class="finding"><b>Code review:</b> {&quot;detail&quot;:&quot;&lt;script&gt;steal()&lt;/script&gt;&quot;}</div>';
+
+function findingsPlan(opts: { behaviorAttempts: number; haltedReason?: string }): string {
+  return JSON.stringify({
+    feature: "Floating core",
+    ...(opts.haltedReason ? { halted: { reason: opts.haltedReason } } : {}),
+    checkpoints: [
+      { id: 22, title: "Earlier step", size: "m", status: "passed", gates: {} },
+      {
+        id: 23,
+        title: "Keep findings visible",
+        size: "l",
+        status: "pending",
+        gates: {
+          behavior: { status: "failed", attempts: opts.behaviorAttempts, findings: [hostileFinding] },
+          review: { status: "pending", attempts: 0, findings: [objectFinding] },
+        },
+      },
+      { id: 24, title: "Later step", size: "l", status: "pending", gates: {} },
+    ],
+  });
+}
+
+function expectCurrentFindingsVisibleAndEscaped(stepsHtml: string): void {
+  expect(isStepOpen(stepsHtml, 23)).toBe(true);
+  const card = stepCardHtml(stepsHtml, 23);
+  const techAt = card.indexOf('<details class="tech"');
+  expect(techAt).toBeGreaterThan(-1);
+  for (const findingHtml of [hostileFindingHtml, objectFindingHtml]) {
+    const findingAt = card.indexOf(findingHtml);
+    expect(findingAt).toBeGreaterThan(-1);
+    expect(findingAt).toBeLessThan(techAt);
+  }
+  expect(stepsHtml).not.toContain("<img");
+  expect(stepsHtml).not.toContain("<script");
+}
+
+describe("viewer-audit — checkpoint 23 live progress and visible findings", () => {
+  const progressPlan = (opts: { isStep18Passed: boolean; step19Behavior?: object }): string =>
+    JSON.stringify({
+      feature: "Floating core",
+      checkpoints: [
+        { id: 18, title: "Move skill sources", size: "l", status: opts.isStep18Passed ? "passed" : "pending", gates: {} },
+        {
+          id: 19,
+          title: "Install every skill",
+          size: "xl",
+          status: "pending",
+          gates: opts.step19Behavior ? { behavior: opts.step19Behavior } : {},
+        },
+        { id: 20, title: "Ship the release", size: "m", status: "pending", gates: {} },
+      ],
+    });
+  const before = progressPlan({ isStep18Passed: false });
+  const advanced = progressPlan({ isStep18Passed: true });
+  const retried = progressPlan({
+    isStep18Passed: true,
+    step19Behavior: { status: "failed", attempts: 1, findings: ["Gate failed"] },
+  });
+
+  async function withServedPlan(
+    firstPlan: string,
+    run: (harness: ViewerHarness, serve: (plan: string) => void) => Promise<void>,
+  ): Promise<void> {
+    let servedPlan = firstPlan;
+    await withViewer(
+      {
+        search: "?plan=demo",
+        fetchText: async (url) => {
+          if (url === "./") return "";
+          if (url === "./demo.json") return servedPlan;
+          throw new Error("404");
+        },
+      },
+      async (harness) => {
+        await harness.api.servedInit();
+        await run(harness, (plan) => {
+          servedPlan = plan;
+        });
+      },
+    );
+  }
+
+  test("a polled update that advances the current step opens the new step and keeps every other card as the person left it", async () => {
+    await withServedPlan(before, async ({ nodes, tickAgain, setStepOpen }, serve) => {
+      expect(isStepOpen(nodes.steps.innerHTML, 18)).toBe(true);
+      expect(isStepOpen(nodes.steps.innerHTML, 19)).toBe(false);
+      expect(isStepOpen(nodes.steps.innerHTML, 20)).toBe(false);
+
+      setStepOpen(18, false);
+      setStepOpen(20, true);
+      serve(advanced);
+      await tickAgain();
+      expect(stepCardHtml(nodes.steps.innerHTML, 19)).toStartWith(
+        '<details class="step running current" id="step-19" data-id="19" open>',
+      );
+      expect(isStepOpen(nodes.steps.innerHTML, 18)).toBe(false);
+      expect(isStepOpen(nodes.steps.innerHTML, 20)).toBe(true);
+    });
+  });
+
+  test("a polled update that keeps the current step leaves open and closed cards exactly as the person set them", async () => {
+    await withServedPlan(advanced, async ({ nodes, tickAgain, setStepOpen }, serve) => {
+      expect(isStepOpen(nodes.steps.innerHTML, 19)).toBe(true);
+
+      setStepOpen(18, true);
+      setStepOpen(19, false);
+      serve(retried);
+      await tickAgain();
+      expect(nodes.steps.innerHTML).toContain("Gate failed");
+      expect(isStepOpen(nodes.steps.innerHTML, 18)).toBe(true);
+      expect(isStepOpen(nodes.steps.innerHTML, 19)).toBe(false);
+      expect(isStepOpen(nodes.steps.innerHTML, 20)).toBe(false);
+    });
+  });
+
+  test("clicking the banner link reopens the closed current card with its findings and scrolls to it", async () => {
+    await withViewer({}, ({ api, nodes, setStepOpen, clickBannerLink, scrolledTo }) => {
+      expect(api.load(findingsPlan({ behaviorAttempts: 1 }))).toBe(true);
+      setStepOpen(23, false);
+      expect(isStepOpen(nodes.steps.innerHTML, 23)).toBe(false);
+
+      clickBannerLink();
+      expectCurrentFindingsVisibleAndEscaped(nodes.steps.innerHTML);
+      expect(scrolledTo).toEqual(["step-23"]);
+    });
+  });
+
+  for (const { label, behaviorAttempts, bannerClass } of [
+    { label: "fixing", behaviorAttempts: 1, bannerClass: "banner run" },
+    { label: "stuck", behaviorAttempts: 3, bannerClass: "banner stop" },
+  ]) {
+    test(`active ${label} banner links to the current step findings shown escaped outside Technical details`, async () => {
+      await withViewer({}, ({ api, nodes }) => {
+        expect(api.load(findingsPlan({ behaviorAttempts }))).toBe(true);
+        expect(nodes.banner.className).toBe(bannerClass);
+        expect(nodes.bannerText.innerHTML).toEndWith(' · <a href="#step-23" data-go="23">View 2 findings</a>');
+        expectCurrentFindingsVisibleAndEscaped(nodes.steps.innerHTML);
+      });
+    });
+  }
+
+  test("halted banner links to the current step findings shown escaped outside Technical details", async () => {
+    await withViewer({}, ({ api, nodes }) => {
+      expect(api.load(findingsPlan({ behaviorAttempts: 2, haltedReason: "approve <b>scope</b>" }))).toBe(true);
+      expect(nodes.banner.className).toBe("banner stop");
+      expect(nodes.bannerText.innerHTML).toBe(
+        'Stopped. Needs your input: approve &lt;b&gt;scope&lt;/b&gt; · <a href="#step-23" data-go="23">View 2 findings</a>',
+      );
+      expectCurrentFindingsVisibleAndEscaped(nodes.steps.innerHTML);
+    });
+  });
+});
 
 describe("viewer-audit — checkpoint 1 offline on failed plan load", () => {
   test("U1: invalid JSON → load false, #empty shown, #app hidden", async () => {

@@ -50,4 +50,7 @@ export default {
   thresholds: { high: 90, low: 85, break: 85 },
   tempDirName: ".stryker-tmp",
   bun: { timeout: 30000 },
+  // The serial suite is ~2,100 tests; its instrumented dry run passes 5 minutes (the
+  // default) on a hosted runner. The score threshold above is unchanged.
+  dryRunTimeoutMinutes: 15,
 };

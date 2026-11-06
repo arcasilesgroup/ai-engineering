@@ -1,15 +1,9 @@
-// tests/update-command.spec.ts — the two verbs the CLI delegates to and no test
-// measured end to end: `update` (re-install this repo's assets from the installed
-// binary, zero network) and `upgrade` (frame, inline changelog, hand the install to
-// bun/npm).
+// tests/update-command.spec.ts — `update` re-installs this repo's assets from the
+// installed binary, with zero network.
 //
 // Every run is sandboxed in a mkdtemp tree: AI_ENG_HOME and PI_CODING_AGENT_DIR so the
-// machine half (canon, mirrors, carriers, git templateDir) lands in the temp dir and
-// never in the developer's real home, and GIT_CONFIG_GLOBAL so the templateDir write
-// never reaches ~/.gitconfig. `upgrade`'s registry read and its install hand-off are
-// served by a fake `bun`/`npm` first on PATH — deterministic, offline, and no real
-// `bun add -g`. The fake writes down its argv, so what the verb spawned is asserted,
-// not inferred.
+// machine half (canon, mirrors and carriers) lands in the temp dir and never in the
+// developer's real home.
 //
 // syncPlan is pure — a directory of prepared files plus a lock's asset map in, the
 // verdict out. updateMain runs in-process (its lines are what coverage counts). The
@@ -18,23 +12,24 @@
 
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { basename, delimiter, join, dirname, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { PassThrough } from "node:stream";
 import { syncPlan, updateMain } from "../src/commands/update.ts";
-import { changelogSection, installCommand, upgradeMain } from "../src/commands/upgrade.ts";
 import { planEntries } from "../src/commands/init-shared.ts";
+import { carrierFiles } from "../src/surfaces/adapters.ts";
 import { mergeSharedText, sha256 } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import type { PlanEntry } from "../src/install.ts";
+import { recordGitCommands } from "./fixtures/git-recorder.ts";
 
 const SANDBOX = mkdtempSync(join(tmpdir(), "ai-eng-update-cmd-"));
 const ENG_HOME = join(SANDBOX, "home");
 const CWD = process.cwd();
-/** A version the registry does not have, so upgrade takes its long path. */
-const NEWER = "99.0.0";
-const KEYS = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL", "NO_COLOR", "CI", "AI_ENG_NO_UPDATE_NOTICES", "FAKE_MANAGER_LOG", "PATH"] as const;
+const REPO_ROOT = resolve(import.meta.dir, "..");
+const KEYS = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL", "NO_COLOR", "CI", "AI_ENG_NO_UPDATE_NOTICES", "PATH"] as const;
 const saved: Partial<Record<(typeof KEYS)[number], string | undefined>> = {};
 let savedStdin: PropertyDescriptor | undefined;
 
@@ -44,8 +39,6 @@ beforeEach(() => {
   process.env.AI_ENG_HOME = ENG_HOME;
   process.env.PI_CODING_AGENT_DIR = join(SANDBOX, "pi-agent");
   process.env.GIT_CONFIG_GLOBAL = join(ENG_HOME, "gitconfig");
-  process.env.FAKE_MANAGER_LOG = join(SANDBOX, "manager.log");
-  rmSync(process.env.FAKE_MANAGER_LOG, { force: true }); // one log per test, or the argv of the last one lies about this one
   process.env.NO_COLOR = "1";
   process.env.CI = "true";
   process.env.AI_ENG_NO_UPDATE_NOTICES = "1";
@@ -103,14 +96,6 @@ function pipeStdin(): PassThrough {
   return stream;
 }
 
-/** A keypress as clack reads it. `upgrade` hands its prompt `process.stdin` itself — the
- *  binding inside @clack/core is taken at import, so replacing process.stdin after the
- *  fact does not reach it — and the event is emitted on that stream, which is exactly
- *  what the reader would do with a key pressed in a terminal. */
-function press(name: string, sequence: string): void {
-  process.stdin.emit("keypress", sequence, { name, sequence, ctrl: name === "cancel" });
-}
-
 const DOWN = "\x1b[B";
 const ENTER = "\n";
 const CANCEL = "\x03";
@@ -124,6 +109,12 @@ function governedRepo(name: string): string {
   writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
   spawnSync("git", ["init", "-q"], { cwd: repo });
   return repo;
+}
+
+function gitIn(repo: string, args: string[]): string {
+  const result = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+  if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+  return result.stdout ?? "";
 }
 
 /** A repo the binary has already installed into, with one hook patched by hand: the one
@@ -145,29 +136,49 @@ function entryFor(entries: PlanEntry[], path: string): PlanEntry {
   return found;
 }
 
-/** A `bun` and an `npm` first on PATH that answer `pm view`/`view` with a version, record
- *  their argv, and exit with the code the manager would. No registry is ever reached. */
-function fakeManagers(name: string): string {
-  const bin = join(SANDBOX, name);
-  mkdirSync(bin, { recursive: true });
-  const script = [
-    "#!/bin/sh",
-    'printf "%s\\n" "$*" >> "$FAKE_MANAGER_LOG"',
-    'case "$1" in',
-    "  pm|view) echo " + NEWER + " ;;",
-    "  install) exit 4 ;;",
-    "  *) exit 0 ;;",
-    "esac",
-    "",
-  ].join("\n");
-  for (const manager of ["bun", "npm"]) writeFileSync(join(bin, manager), script, { mode: 0o755 });
-  process.env.PATH = `${bin}:${process.env.PATH}`;
-  return bin;
+function filesBelow(directory: string): string[] {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? filesBelow(path) : [path];
+  });
 }
 
-function managerLog(): string {
-  const path = join(SANDBOX, "manager.log");
-  return existsSync(path) ? readFileSync(path, "utf8").trimEnd() : "";
+type SourceSkillFile = { skill: string; relativePath: string; content: string; bytes: Buffer<ArrayBuffer> };
+
+function sourceSkillFiles(): SourceSkillFile[] {
+  const skillsRoot = join(REPO_ROOT, "skills");
+  return readdirSync(skillsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(join(skillsRoot, entry.name, "SKILL.md")))
+    .flatMap((entry) => {
+      const skillRoot = join(skillsRoot, entry.name);
+      return filesBelow(skillRoot).filter((path) => basename(path) !== ".DS_Store").map((path) => ({
+        skill: entry.name,
+        relativePath: relative(skillRoot, path),
+        content: readFileSync(path, "utf8"),
+        bytes: readFileSync(path),
+      }));
+    });
+}
+
+function assertAllSkillsInstalled(additionalNames: string[] = [], editedFiles: string[] = []): void {
+  const files = sourceSkillFiles();
+  const expectedNames = [...new Set(files.map((file) => file.skill)), ...additionalNames].sort();
+  const installedRoot = join(ENG_HOME, "skills");
+  const installedNames = readdirSync(installedRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(join(installedRoot, entry.name, "SKILL.md")))
+    .map((entry) => entry.name)
+    .sort();
+  expect(files.length).toBeGreaterThan(0);
+  expect(installedNames).toEqual(expectedNames);
+  for (const file of files) {
+    const installedPath = join(installedRoot, file.skill, file.relativePath);
+    if (editedFiles.includes(`${file.skill}/${file.relativePath}`)) {
+      expect(existsSync(installedPath)).toBe(true);
+    } else {
+      expect(readFileSync(installedPath)).toEqual(file.bytes);
+    }
+  }
 }
 
 describe("syncPlan · what the binary decides to write, keep or refuse", () => {
@@ -230,6 +241,22 @@ describe("syncPlan · what the binary decides to write, keep or refuse", () => {
     expect(edited.updates).toEqual([]);
   });
 
+  test("a locally edited skill stays protected by its recorded hash", () => {
+    const skillPath = "skills/ai-debug/SKILL.md";
+    const ours = readFileSync(join(REPO_ROOT, skillPath), "utf8");
+    const root = join(SANDBOX, "plan-edited-skill");
+    const absolute = join(root, skillPath);
+    const localEdit = `${ours}\n# local edit\n`;
+    mkdirSync(dirname(absolute), { recursive: true });
+    writeFileSync(absolute, localEdit);
+
+    const plan = syncPlan([{ path: skillPath, ours }], root, { [skillPath]: sha256(ours) });
+
+    expect(plan.conflicts).toEqual([skillPath]);
+    expect(plan.updates).toEqual([]);
+    expect(readFileSync(absolute, "utf8")).toBe(localEdit);
+  });
+
   test("a shared settings file is updated by its merge, never called a conflict", () => {
     const cursor = planEntries(["cursor"]);
     const settings = entryFor(cursor, ".cursor/hooks.json");
@@ -275,6 +302,10 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const repo = governedRepo("repo-fresh");
     writeFileSync(join(repo, "AGENTS.md"), "# my contract, never yours\n");
     const declaration = '[surfaces]\nenabled = ["claude-code"]\n';
+    const machineSettings = join(ENG_HOME, ".claude", "settings.json");
+    const machineSettingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(dirname(machineSettings), { recursive: true });
+    writeFileSync(machineSettings, machineSettingsBefore);
     process.chdir(repo);
 
     const first = await captured(() => updateMain({ yes: true }));
@@ -292,11 +323,14 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(lock).not.toInclude(".ai-engineering/config.toml");
     expect(readFileSync(join(repo, "AGENTS.md"), "utf8")).toBe("# my contract, never yours\n");
     // A git shim that is not executable is a git hook that silently never runs.
-    expect(statSync(join(repo, ".git", "hooks", "pre-commit")).mode & 0o111).not.toBe(0);
-    // The machine half went to the sandbox home — the canon, and claude-code's carrier,
-    // which no longer belongs in the repo.
-    expect(existsSync(join(ENG_HOME, ".claude", "settings.json"))).toBe(true);
+    // Windows has no execute bit; Git for Windows runs a hook whatever its mode.
+    if (process.platform !== "win32") expect(statSync(join(repo, ".git", "hooks", "pre-commit")).mode & 0o111).not.toBe(0);
+    // The local canon still installs completely; unsafe machine-settings mutation is refused.
+    expect(first.out).toInclude("~/.claude/settings.json");
+    expect(first.out).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
     expect(existsSync(join(repo, ".claude", "settings.json"))).toBe(false);
+    assertAllSkillsInstalled();
 
     const bytes = readFileSync(lockPath, "utf8");
     const mtime = statSync(lockPath).mtimeMs;
@@ -310,14 +344,260 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(second.out).toInclude("Machine side");
     expect(second.out).toInclude("nothing to write");
     expect(second.out).toInclude("global canon");
-    expect(second.out).toInclude("machine carrier already current");
-    expect(second.out).toInclude("git init.templateDir");
+    expect(second.out).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
     expect(second.out).toInclude("Nothing written");
-    // The carrier the first run wrote is current now: reported as checked, never counted
-    // as a write — the module carrier used to be rewritten and reported every run.
+    // A refused settings registration is never reported as a successful write.
     expect(second.out).not.toInclude("machine carrier · written");
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
     expect(readFileSync(lockPath, "utf8")).toBe(bytes);
     expect(statSync(lockPath).mtimeMs).toBe(mtime);
+  });
+
+  test("a fresh machine gets the missing settings carriers doctor sends it here for", async () => {
+    // The CI runner's shape: no ~/.claude/settings.json, no ~/.codex, no ~/.copilot.
+    const freshHome = join(SANDBOX, "home-fresh-settings");
+    mkdirSync(freshHome, { recursive: true });
+    process.env.AI_ENG_HOME = freshHome;
+    const repo = governedRepo("repo-fresh-settings");
+    writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code", "codex", "copilot-cli"]\n');
+    process.chdir(repo);
+    const carriers: Array<[string, string]> = [
+      ["claude-code", ".claude/settings.json"],
+      ["codex", ".codex/hooks.json"],
+      ["copilot-cli", ".copilot/hooks/ai-eng.json"],
+    ];
+
+    const first = await captured(() => updateMain({ yes: true }));
+    expect(first.value).toBe(0);
+    for (const [id, path] of carriers) {
+      expect(readFileSync(join(freshHome, path), "utf8")).toBe(carrierFiles(id, "machine")!.main);
+      expect(first.out).toInclude(`~/${path} · machine carrier · written`);
+    }
+    expect(first.out).not.toInclude("unavailable on this platform");
+    const recorded = JSON.parse(readFileSync(join(freshHome, "machine.json"), "utf8")) as { carriers: Record<string, string> };
+    for (const [id] of carriers) expect(recorded.carriers[id]).toBe(sha256(carrierFiles(id, "machine")!.main));
+
+    const second = await captured(() => updateMain({ yes: true }));
+    expect(second.value).toBe(0);
+    for (const [, path] of carriers) expect(second.out).toInclude(`~/${path} · machine carrier already current`);
+    expect(second.out).not.toInclude("machine carrier · written");
+  });
+
+  for (const { name, bytes } of [
+    { name: "absent", bytes: '[surfaces]\nenabled = ["claude-code"]\n' },
+    { name: "empty", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = []\n' },
+    { name: "partial", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = ["triage"]\n' },
+    { name: "legacy", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = ["triage", "removed-pack"]\n' },
+    { name: "inline-table", bytes: 'canon = { packs = ["triage"] }\n[surfaces]\nenabled = ["claude-code"]\n' },
+    { name: "dotted-key", bytes: 'canon.packs = ["triage"]\n\n[surfaces]\nenabled = ["claude-code"]\n' },
+    { name: "multiline", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = [\n  "triage", # kept by hand\n  "review",\n]\n' },
+    { name: "non-array", bytes: '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = "all"\n' },
+    { name: "crlf", bytes: '[surfaces]\r\nenabled = ["claude-code"]\r\n\r\n[canon]\r\npacks = ["triage"]   # legacy\r\n' },
+  ]) {
+    test(`update ignores ${name} legacy pack settings and installs all skills`, async () => {
+      rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
+      const repo = governedRepo(`repo-legacy-packs-${name}`);
+      const configPath = join(repo, ".ai-engineering", "config.toml");
+      writeFileSync(configPath, bytes);
+      const mtime = statSync(configPath).mtimeMs;
+      process.chdir(repo);
+
+      const run = await captured(() => updateMain({ yes: true }));
+
+      expect(run.value).toBe(0);
+      expect(readFileSync(configPath)).toEqual(Buffer.from(bytes));
+      expect(statSync(configPath).mtimeMs).toBe(mtime);
+      assertAllSkillsInstalled();
+    });
+  }
+
+  test("a canon an earlier pack-filtered install left partial gains every missing skill, and config.toml keeps its bytes", async () => {
+    rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
+    const repo = governedRepo("repo-legacy-partial-canon");
+    const configPath = join(repo, ".ai-engineering", "config.toml");
+    const legacyConfig = '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = []\n';
+    writeFileSync(configPath, legacyConfig);
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const lockBefore = readFileSync(lockPath, "utf8");
+    // The shape a core-only install left: whole skill folders absent, the lock in place.
+    const skillNames = [...new Set(sourceSkillFiles().map((file) => file.skill))].sort();
+    const removed = skillNames.filter((_, index) => index % 2 === 1);
+    expect(removed.length).toBeGreaterThan(0);
+    for (const name of removed) rmSync(join(ENG_HOME, "skills", name), { recursive: true });
+    const mtime = statSync(configPath).mtimeMs;
+
+    const run = await captured(() => updateMain({ yes: true }));
+
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude("global canon outdated or incomplete — re-installed");
+    expect(readFileSync(configPath)).toEqual(Buffer.from(legacyConfig));
+    expect(statSync(configPath).mtimeMs).toBe(mtime);
+    expect(readFileSync(lockPath, "utf8")).toBe(lockBefore);
+    assertAllSkillsInstalled();
+  });
+
+  test("update repairs a missing skill resource and preserves edited and user-owned skills", async () => {
+    rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
+    const repo = governedRepo("repo-skill-repair");
+    const configPath = join(repo, ".ai-engineering", "config.toml");
+    const legacyConfig = '[surfaces]\nenabled = ["claude-code"]\n\n[canon]\npacks = ["removed-pack"]\n';
+    writeFileSync(configPath, legacyConfig);
+    const machineSettings = join(ENG_HOME, ".claude", "settings.json");
+    const machineSettingsBefore = '{\n  "user": "repair"\n}\n';
+    mkdirSync(dirname(machineSettings), { recursive: true });
+    writeFileSync(machineSettings, machineSettingsBefore);
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+
+    const sourceFiles = sourceSkillFiles();
+    // A shipped sibling of the edited file: preserving one edited file must not stop the
+    // rest of its skill folder from being repaired.
+    const missingSibling = sourceFiles.find((file) => file.relativePath !== "SKILL.md");
+    const editedSource = sourceFiles.find((file) => file.skill === missingSibling?.skill && file.relativePath === "SKILL.md");
+    const missingSource = sourceFiles.find((file) => file.skill !== editedSource?.skill && file.relativePath !== "SKILL.md");
+    const missingSkill = sourceFiles.find((file) => file.skill !== editedSource?.skill && file.skill !== missingSource?.skill)?.skill;
+    if (editedSource === undefined || missingSource === undefined || missingSibling === undefined || missingSkill === undefined) {
+      throw new Error("the skills inventory needs a SKILL.md, nested resources and a third skill for repair coverage");
+    }
+    const skill = join(ENG_HOME, "skills", editedSource.skill, editedSource.relativePath);
+    const localEdit = Buffer.concat([readFileSync(skill), Buffer.from("\nLocal change.\n")]);
+    writeFileSync(skill, localEdit);
+    const missingPath = join(ENG_HOME, "skills", missingSource.skill, missingSource.relativePath);
+    rmSync(missingPath);
+    const missingSiblingPath = join(ENG_HOME, "skills", missingSibling.skill, missingSibling.relativePath);
+    rmSync(missingSiblingPath);
+    rmSync(join(ENG_HOME, "skills", missingSkill), { recursive: true });
+    const userOwnedSkill = join(ENG_HOME, "skills", "my-local-skill", "SKILL.md");
+    const userOwnedResource = join(ENG_HOME, "skills", "my-local-skill", "references", "notes.md");
+    mkdirSync(dirname(userOwnedResource), { recursive: true });
+    writeFileSync(userOwnedSkill, "# mine\n");
+    writeFileSync(userOwnedResource, "my notes\n");
+
+    const repair = await captured(() => updateMain({ yes: true }));
+
+    expect(repair.value).toBe(0);
+    expect(repair.out).toInclude("global canon repaired · local changes kept");
+    expect(repair.out).toInclude(`skills/${editedSource.skill}/${editedSource.relativePath} · local change kept`);
+    expect(readFileSync(skill)).toEqual(localEdit);
+    expect(readFileSync(missingPath)).toEqual(missingSource.bytes);
+    expect(readFileSync(missingSiblingPath)).toEqual(missingSibling.bytes);
+    expect(readFileSync(userOwnedSkill, "utf8")).toBe("# mine\n");
+    expect(readFileSync(userOwnedResource, "utf8")).toBe("my notes\n");
+    expect(readFileSync(configPath)).toEqual(Buffer.from(legacyConfig));
+    // Machine settings are not part of the canon: the repair neither writes nor removes them.
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
+    assertAllSkillsInstalled(["my-local-skill"], [`${editedSource.skill}/${editedSource.relativePath}`]);
+  });
+
+  test("F20: a user file kept in a shipped skill folder does not make every update re-run the canon repair", async () => {
+    rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
+    const repo = governedRepo("repo-kept-user-file");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const notes = join(ENG_HOME, "skills", "ai-debug", "my-notes.md");
+    writeFileSync(notes, "mine\n");
+    try {
+      const second = await captured(() => updateMain({ yes: true }));
+      expect(second.value).toBe(0);
+      expect(second.out).not.toInclude("re-installed");
+      expect(second.out).not.toInclude("global canon repaired");
+      expect(second.out).toInclude("global canon ·");
+      expect(readFileSync(notes, "utf8")).toBe("mine\n");
+    } finally {
+      rmSync(notes);
+    }
+  });
+
+  test("update leaves HEAD unchanged, spawns no commit, and leaves global config untouched", async () => {
+    const globalConfig = join(SANDBOX, "isolated-gitconfig-update");
+    const globalConfigBefore = "[user]\n\tname = Isolated test\n";
+    writeFileSync(globalConfig, globalConfigBefore);
+    process.env.GIT_CONFIG_GLOBAL = globalConfig;
+
+    const repo = governedRepo("repo-no-commit");
+    gitIn(repo, ["config", "user.name", "CP10 test"]);
+    gitIn(repo, ["config", "user.email", "cp10@example.com"]);
+    writeFileSync(join(repo, "baseline.txt"), "review me\n");
+    gitIn(repo, ["add", "baseline.txt"]);
+    gitIn(repo, ["commit", "-qm", "test: add CP10 baseline"]);
+
+    const headBefore = gitIn(repo, ["rev-parse", "HEAD"]).trim();
+    const countBefore = gitIn(repo, ["rev-list", "--count", "HEAD"]).trim();
+    process.chdir(repo);
+    const recorder = recordGitCommands(SANDBOX);
+    let result: number;
+    try {
+      result = (await captured(() => updateMain({ yes: true }))).value;
+    } finally {
+      recorder.stop();
+    }
+
+    const commands = recorder.commands();
+    expect({
+      result,
+      head: gitIn(repo, ["rev-parse", "HEAD"]).trim(),
+      commitCount: gitIn(repo, ["rev-list", "--count", "HEAD"]).trim(),
+      hasUncommittedChanges: gitIn(repo, ["status", "--porcelain"]).trim().length > 0,
+      spawnedCommit: commands.some((args) => /(^|\s)commit(\s|$)/.test(args)),
+      spawnedNoVerify: commands.some((args) => /(^|\s)--no-verify(\s|$)/.test(args)),
+      globalConfig: readFileSync(globalConfig, "utf8"),
+    }).toEqual({
+      result: 0,
+      head: headBefore,
+      commitCount: countBefore,
+      hasUncommittedChanges: true,
+      spawnedCommit: false,
+      spawnedNoVerify: false,
+      globalConfig: globalConfigBefore,
+    });
+  });
+
+  test("the update CLI does not fetch or enter the notice path", () => {
+    const isolatedHome = join(SANDBOX, "no-notice-home");
+    const noNoticeConfig = join(isolatedHome, "gitconfig");
+    const shimDir = join(SANDBOX, "notice-bin");
+    const noticeLog = join(SANDBOX, "notice-calls");
+    const fetchLog = join(SANDBOX, "fetch-calls");
+    const runner = join(SANDBOX, "run-update.ts");
+    mkdirSync(isolatedHome, { recursive: true });
+    writeFileSync(noNoticeConfig, "[user]\n\tname = Isolated test\n");
+    process.env.GIT_CONFIG_GLOBAL = noNoticeConfig;
+    const repo = governedRepo("repo-no-notice");
+    mkdirSync(shimDir, { recursive: true });
+
+    const quote = (value: string) => JSON.stringify(value);
+    writeFileSync(join(shimDir, "bun"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${quote(noticeLog)}\nprintf '99.0.0\\n'\n`);
+    writeFileSync(join(shimDir, "npm"), `#!/bin/sh\nprintf '%s\\n' "$*" >> ${quote(noticeLog)}\nprintf '99.0.0\\n'\n`);
+    chmodSync(join(shimDir, "bun"), 0o755);
+    chmodSync(join(shimDir, "npm"), 0o755);
+
+    const cli = join(import.meta.dir, "..", "src", "cli.ts");
+    const cliUrl = pathToFileURL(cli).href;
+    writeFileSync(runner, `
+      import { writeFileSync } from "node:fs";
+      globalThis.fetch = () => {
+        writeFileSync(${quote(fetchLog)}, "called");
+        throw new Error("update unexpectedly fetched");
+      };
+      process.argv = [process.argv[0], ${quote(cli)}, "update", "--yes"];
+      await import(${quote(cliUrl)});
+    `);
+
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      AI_ENG_HOME: isolatedHome,
+      PI_CODING_AGENT_DIR: join(SANDBOX, "no-notice-pi"),
+      GIT_CONFIG_GLOBAL: join(isolatedHome, "gitconfig"),
+      PATH: `${shimDir}${delimiter}${process.env.PATH ?? ""}`,
+    };
+    delete env.AI_ENG_NO_UPDATE_NOTICES;
+    const run = spawnSync(process.execPath, [runner], { cwd: repo, encoding: "utf8", env });
+
+    expect(run.status).toBe(0);
+    expect(existsSync(fetchLog)).toBe(false);
+    expect(existsSync(noticeLog)).toBe(false);
   });
 
   test("--yes keeps a patched hook: nothing written and the lock left as it was", async () => {
@@ -406,7 +686,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const repo = governedRepo("repo-moved");
     mkdirSync(join(repo, ".agents", "hooks"), { recursive: true });
     mkdirSync(join(repo, ".pi", "extensions"), { recursive: true });
-    writeFileSync(join(repo, ".agents/hooks/ai-eng.ts"), "#!/usr/bin/env bun\n// ai-eng chain\n");
+    writeFileSync(join(repo, ".agents/hooks/ai-eng.ts"), carrierFiles("oh-my-pi", "repo")!.main);
     writeFileSync(join(repo, ".pi/extensions/ai-eng.ts"), "// hand-written by a person, nothing to do with the product\n");
     process.chdir(repo);
 
@@ -418,149 +698,90 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(readFileSync(join(repo, ".pi/extensions/ai-eng.ts"), "utf8")).toInclude("hand-written");
     expect(run.out).toInclude("kept");
   });
-});
 
-describe("upgrade · the frame, the changelog, and the hand-off", () => {
-  test("the print-command helper chooses by the manager the user picked", () => {
-    expect(installCommand("bun", "2.1.0")).toBe("bun add -g ai-engineering@2.1.0");
-    expect(installCommand("npm", "2.1.0")).toBe("npm install -g ai-engineering@2.1.0");
-  });
+  // Windows has no unreadable mode: chmod 0o000 only clears the write bit, so the file stays readable.
+  test.skipIf(process.platform === "win32")("F11: an unreadable machine settings file is refused, and the lock is still written", async () => {
+    if (process.getuid?.() === 0) return; // root reads a mode-000 file, so there is nothing to refuse
+    const repo = governedRepo("repo-unreadable-machine-settings");
+    const machineSettings = join(ENG_HOME, ".claude", "settings.json");
+    const settingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(dirname(machineSettings), { recursive: true });
+    writeFileSync(machineSettings, settingsBefore);
+    chmodSync(machineSettings, 0o000);
+    process.chdir(repo);
 
-  test("the inline changelog section is found, and its absence is answered honestly", () => {
-    const root = join(SANDBOX, "changelog");
-    mkdirSync(root, { recursive: true });
-    const path = join(root, "CHANGELOG.md");
-    writeFileSync(path, "# Changes\n\n## 9.9.9\n\n### Added\n\n- a thing\n\n## 9.9.8\n\n- an older thing\n");
+    const run = await captured(() => updateMain({ yes: true })).finally(() => chmodSync(machineSettings, 0o644));
 
-    // The section the file actually carries, headings and all — the bug this pins is
-    // fixed: `$` under the `m` flag used to close the group on the blank line under the
-    // heading, so a real section came back as "" and upgrade printed the URL instead.
-    const section = changelogSection(root, "9.9.9");
-    expect(section).toBe("### Added\n\n- a thing");
-
-    // A body on the very next line is one section too, not one line of it.
-    writeFileSync(path, "# Changes\n\n## 9.9.9\n- the first line of the release notes\n- the second\n\n## 9.9.8\n- old\n");
-    expect(changelogSection(root, "9.9.9")).toBe("- the first line of the release notes\n- the second");
-
-    writeFileSync(path, "# Changes\n\n## 9.9.9\n\n### Added\n\n- a thing\n\n## 9.9.8\n\n- an older thing\n");
-    expect(changelogSection(root, "9.9.7")).toBeNull();
-    // The dots are literal: a version is not a regex, and 9x9x9 is not 9.9.9.
-    writeFileSync(path, "## 9x9x9\n\n- nothing to do with that release\n");
-    expect(changelogSection(root, "9.9.9")).toBeNull();
-    rmSync(path);
-    expect(changelogSection(root, "9.9.9")).toBeNull();
-  });
-
-  test("offline: the registry read fails, so upgrade says nothing and returns 0", async () => {
-    const bin = join(SANDBOX, "bin-offline");
-    mkdirSync(bin, { recursive: true });
-    for (const manager of ["bun", "npm"]) writeFileSync(join(bin, manager), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
-    process.env.PATH = `${bin}:${process.env.PATH}`;
-
-    const run = await captured(() => upgradeMain());
     expect(run.value).toBe(0);
-    expect(run.out).toInclude("could not read the registry version");
-    expect(run.out).toInclude("Nothing done.");
+    expect(run.out).toInclude("~/.claude/settings.json — unreadable, a dangling link, not a regular file, or changing while read; left untouched");
+    expect(readFileSync(machineSettings, "utf8")).toBe(settingsBefore);
+    expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toInclude(`version = "${VERSION}"`);
   });
 
-  test("already the latest: no prompt, no command, nothing done", async () => {
-    const bin = join(SANDBOX, "bin-latest");
-    mkdirSync(bin, { recursive: true });
-    for (const manager of ["bun", "npm"]) writeFileSync(join(bin, manager), `#!/bin/sh\necho ${VERSION}\n`, { mode: 0o755 });
-    process.env.PATH = `${bin}:${process.env.PATH}`;
+  for (const linked of ["skills/ai-verify", "skills"] as const) {
+    test(`F27: a symlinked \`${linked}\` is a refusal, not a crash: the link and its target stay, the path is named, the lock is written`, async () => {
+      process.chdir(governedRepo(`repo-linked-${linked.replace("/", "-")}-first`));
+      expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+      // A dotfiles setup: the user's own copy, lacking one shipped page, linked in its place.
+      const inCanon = join(ENG_HOME, linked);
+      // A linked skill is found under the canon's resolved root; the linked root by its own name.
+      const linkPath = linked === "skills" ? inCanon : join(realpathSync(dirname(inCanon)), basename(inCanon));
+      const dotfiles = join(SANDBOX, `dotfiles-${linked.replace("/", "-")}`);
+      renameSync(inCanon, dotfiles);
+      const page = join(dotfiles, linked === "skills" ? "ai-verify" : "", "VERIFICATION-SETUP-GUIDE.md");
+      const shipped = readFileSync(page);
+      rmSync(page);
+      symlinkSync(dotfiles, inCanon, "dir");
+      const before = filesBelow(dotfiles).map((path) => [path, readFileSync(path)] as const);
+      const repo = governedRepo(`repo-linked-${linked.replace("/", "-")}`);
+      process.chdir(repo);
 
-    const run = await captured(() => upgradeMain());
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude("already the latest");
-    expect(run.out).toInclude("Nothing to upgrade.");
-  });
+      try {
+        const run = await captured(() => updateMain({ yes: true }));
 
-  test("a local changelog section renders inline instead of the URL", async () => {
-    // The shape matters: the regex only returns a body that starts on the line right under
-    // the heading, and only its first line (see the bug pinned in the changelog test), so
-    // this is the one input that takes the inline branch at all.
-    const cwd = join(SANDBOX, "inline-changelog");
-    mkdirSync(cwd, { recursive: true });
-    writeFileSync(join(cwd, "CHANGELOG.md"), `# Changes\n\n## ${NEWER}\n- the inline body\n- never rendered\n\n## 1.0.0\n- old\n`);
-    process.chdir(cwd);
-    fakeManagers("bin-inline");
-
-    const run = await captured(async () => {
-      const running = upgradeMain();
-      await tick(20);
-      press("cancel", CANCEL); // the frame is what is under test, not the choice
-      return running;
+        expect(run.value).toBe(0);
+        expect(run.out).toInclude(`path(s) where ai-eng installs are links or not its own folders or files — never written through, left as they are (the link and what it points at untouched): ${linkPath}`);
+        expect(readlinkSync(inCanon)).toBe(dotfiles);
+        expect(existsSync(page)).toBe(false);
+        expect(filesBelow(dotfiles).map((path) => [path, readFileSync(path)] as const)).toEqual(before);
+        expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toInclude(`version = "${VERSION}"`);
+      } finally {
+        rmSync(inCanon);
+        renameSync(dotfiles, inCanon);
+        writeFileSync(join(inCanon, linked === "skills" ? "ai-verify" : "", "VERIFICATION-SETUP-GUIDE.md"), shipped);
+      }
     });
+  }
 
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude(`What's new in ${NEWER}`);
-    expect(run.out).toInclude("· the inline body"); // the `- ` bullet becomes the frame's mark
-    expect(run.out).not.toInclude("blob/main/CHANGELOG.md");
-  });
+  test("F25: a recorded stale page the filesystem will not delete is kept and named, and the lock is still written", async () => {
+    // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+    if (process.platform === "win32" || process.getuid?.() === 0) return;
+    process.chdir(governedRepo("repo-undeletable-stale-page-first"));
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const key = "skills/ai-verify/evals/README.md";
+    const folder = join(ENG_HOME, "skills", "ai-verify", "evals");
+    const page = "# Evals — an outdated page this binary no longer ships\n";
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(ENG_HOME, key), page);
+    const recordPath = join(ENG_HOME, "canon-owned.json");
+    const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
+    writeFileSync(recordPath, JSON.stringify({ files: { ...record.files, [key]: sha256(page) } }));
+    // A repo with nothing installed yet: the run has repo assets to write and a lock to record.
+    const repo = governedRepo("repo-undeletable-stale-page");
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    process.chdir(repo);
+    chmodSync(folder, 0o555);
 
-  test("bun chosen: the frame shows what's new and the hand-off runs the command it printed", async () => {
-    fakeManagers("bin-bun");
+    try {
+      const run = await captured(() => updateMain({ yes: true })).finally(() => chmodSync(folder, 0o755));
 
-    const run = await captured(async () => {
-      const running = upgradeMain();
-      await tick(20);
-      press("return", ENTER); // the highlighted option: bun
-      return running;
-    });
-
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude(`What's new in ${NEWER}`);
-    expect(run.out).toInclude(`bun add -g ai-engineering@${NEWER}`);
-    expect(run.out).toInclude("Upgraded");
-    expect(run.out).toInclude("ai-eng update");
-    expect(managerLog().split("\n")).toEqual(["pm view ai-engineering version", `add -g ai-engineering@${NEWER}`]);
-  });
-
-  test("print chosen: the command is printed and nothing is spawned", async () => {
-    fakeManagers("bin-print");
-
-    const run = await captured(async () => {
-      const running = upgradeMain();
-      await tick(20);
-      press("down", DOWN);
-      press("down", DOWN); // "Just print the command, I'll run it myself"
-      press("return", ENTER);
-      return running;
-    });
-
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude(`Run: bun add -g ai-engineering@${NEWER} (or the npm equivalent)`);
-    // The registry read is all that ran: no install was handed to any manager.
-    expect(managerLog()).toBe("pm view ai-engineering version");
-  });
-
-  test("npm chosen and the manager fails: its exit code is the verb's", async () => {
-    fakeManagers("bin-npm");
-
-    const run = await captured(async () => {
-      const running = upgradeMain();
-      await tick(20);
-      press("down", DOWN); // npm
-      press("return", ENTER);
-      return running;
-    });
-
-    expect(run.value).toBe(4);
-    expect(managerLog().split("\n")).toEqual(["pm view ai-engineering version", `install -g ai-engineering@${NEWER}`]);
-  });
-
-  test("a cancelled prompt upgrades nothing", async () => {
-    fakeManagers("bin-cancel");
-
-    const run = await captured(async () => {
-      const running = upgradeMain();
-      await tick(20);
-      press("cancel", CANCEL);
-      return running;
-    });
-
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude("Nothing done — upgrade proposes, the human disposes.");
-    expect(managerLog()).toBe("pm view ai-engineering version");
+      expect(run.value).toBe(0);
+      expect(run.out).toInclude(`removal refused by the filesystem (a read-only, locked or busy folder), kept and retried by the next ai-eng update: ${key}`);
+      expect(run.out).not.toInclude("user file");
+      expect(readFileSync(join(ENG_HOME, key), "utf8")).toBe(page);
+      expect(readFileSync(lockPath, "utf8")).toInclude(`version = "${VERSION}"`);
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
   });
 });

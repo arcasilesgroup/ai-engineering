@@ -10,6 +10,8 @@ license: MIT
 
 **Project specifics** (test file locations, commands, frameworks, how to act as a role, e2e sign-in) come from the **Project config** section of `AGENTS.md`. Read it first. If a value you need is missing there, infer it from the existing tests and config files, and say so in your report.
 
+Keep plans and tests in the task's selected checkout, whether that is the current checkout or its chosen worktree.
+
 Rule: **push every check to the lowest layer that can prove it.** A browser test is only for things that exist only in the browser. Layers run in order, and a layer runs only once the one below it passes:
 
 | # | Layer | Proves | Where / Run |
@@ -70,7 +72,7 @@ Once they finish, run layers 1 and 2 yourself. For failures, fix the tests; if t
 
 Do this only after layers 1–3 pass.
 
-- If `@playwright/test` isn't installed where Project config → *E2E tests* says, **ask before adding it**, because it's a new dependency. Under `/ai-orchestrator`, it's listed in `new_dependencies` and approved at the checkpoint review, so add it without asking.
+- If `@playwright/test` isn't installed where Project config → *E2E tests* says, **ask before adding it**, because it's a new dependency. `/ai-orchestrator` does not approve dependencies through a plan review; get approval for a missing dependency separately before installing it.
 - Load the signed-in session from `.ai-engineering/workflow/playwright/auth.json`, the same file `/ai-review-ui` uses; per-role files are `.ai-engineering/workflow/playwright/auth-<role>.json`. If it's missing, ask the user to run `! npx -y playwright codegen --save-storage=.ai-engineering/workflow/playwright/auth.json <web URL><sign-in path>` (both from Project config).
 - Keep the tests few and flow-shaped: one spec per user journey, not one per assertion.
 - Use role and label locators (`getByRole`, `getByLabel`), not CSS selectors.

@@ -1,19 +1,25 @@
 // `ai-eng doctor` — 12 checks + one real test. The difference with theater: it
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
-import { canonDrift } from "../embed.ts";
-import { existsSync, readFileSync, readdirSync, lstatSync, statSync, unlinkSync, writeFileSync, rmSync } from "node:fs";
+import { canonDrift, canonExtras, refusedStaleCanonFiles, unprovenCanonText } from "../embed.ts";
+import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
-import { mergeDaily, pruneDenyLedger, summarizeReceipts, type DailyPoint, type DenyLedger, type ReceiptSummary } from "../receipts.ts";
+import {
+  gcReceipts,
+  RECEIPT_HEALTH_WINDOW_DAYS,
+  receiptsTtlDays,
+  summarizeReceipts,
+  type DenyLedger,
+  type ReceiptSummary,
+} from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
-import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, readMachineState } from "../surfaces/adapters.ts";
-import { unmetTriggers } from "../spec/triggers.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
+import { refuseLine } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
 import { readOverrides, overrideDaysLeft } from "../chain/dialect.ts";
-import { checkpointGateReportLines } from "./checkpoint-gate-report.ts";
 import * as ui from "../ui.ts";
 
 export type CheckResult = { readonly name: string; readonly status: "ok" | "warn" | "fail"; readonly detail: string };
@@ -59,8 +65,10 @@ async function checkMirrors(root: string | null): Promise<CheckResult | null> {
       mirrorBroken += 1;
       continue;
     }
-    const links = readdirSync(target.dir, { withFileTypes: true }).filter((e) => e.isSymbolicLink());
-    if (links.length > 0) mirrorOK += 1;
+    // A dangling link is not a mirror: the canon it pointed at is gone, so the
+    // editor reads an empty directory. Resolution is what makes the link real.
+    const liveLinks = readdirSync(target.dir, { withFileTypes: true }).filter((e) => e.isSymbolicLink() && existsSync(join(target.dir, e.name)));
+    if (liveLinks.length > 0) mirrorOK += 1;
     else mirrorBroken += 1;
   }
   return {
@@ -83,9 +91,22 @@ function checkCanon(): CheckResult {
   // this line reads 101/101. `foreign` is reported and never counted against
   // health — it is somebody's, and we do not delete it.
   const canonBits = [`${canon.verified}/${canonTotal} files verified`, `${canon.drift} drift`, `${canon.missing} missing`];
-  if (canon.stale > 0) canonBits.push(`${canon.stale} stale (ai-eng update sweeps what we shipped)`);
+  // A stale file whose last removal was refused is still ours: named with the step that clears it.
+  const refused = canon.stale === 0 ? [] : refusedStaleCanonFiles(home());
+  if (canon.stale > refused.length) canonBits.push(`${canon.stale - refused.length} stale (ai-eng update sweeps what we shipped)`);
+  if (refused.length > 0) canonBits.push(`${refused.length} stale, removal refused: ${refused.join(", ")} — make the folder writable, then ai-eng update`);
+  // Kept user files are reported, never counted against health: update keeps them by
+  // design, so a warning about them could never be cleared.
+  if (canon.kept > 0) canonBits.push(`${canon.kept} kept user file(s) in shipped skill folders (never deleted)`);
   if (canon.foreign > 0) canonBits.push(`${canon.foreign} not ours (left alone)`);
   return { name: "canon", status: canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? "ok" : "warn", detail: canonBits.join(" · ") };
+}
+
+/** Unproven extras get a row of their own: update never deletes them (no hash proves them
+ *  ours), so only the person can clear it, and the row says how. */
+function checkCanonUnproven(): CheckResult | null {
+  const { unproven } = canonExtras(home());
+  return unproven.length === 0 ? null : { name: "canon unproven", status: "warn", detail: unprovenCanonText(unproven) };
 }
 
 function checkAssets(root: string | null): CheckResult | null {
@@ -164,9 +185,8 @@ function checkChainTest(gap: string | null): CheckResult {
  *  the honest absence of history, not a forgery.
  *  todo: names the dominant guard of the whole live window, not of the spike
  *  week per day — upgrade only if it ever misnames a real one. */
-function denySpike(dir: string | null): { last7: number; prior7: number; guard: string } | null {
-  if (!dir) return null;
-  const live = summarizeReceipts(dir);
+function denySpike(live: ReceiptSummary | null): { last7: number; prior7: number; guard: string } | null {
+  if (live === null) return null;
   const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
   let last7 = 0;
   let prior7 = 0;
@@ -190,7 +210,7 @@ function checkReceipts(root?: string | null): CheckResult {
   // ledger's repeats and the 7-day deviation, all on the same line.
   const dir = receiptsDir(root);
   const summary = summarizeReceipts(dir ?? undefined);
-  let detail = `${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`;
+  let detail = `last ${RECEIPT_HEALTH_WINDOW_DAYS}d: ${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`;
   if (summary.denies > 0) {
     const topOf = (m: Record<string, number>) => Object.entries(m).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
     detail += ` · top ${topOf(summary.per_guard)}/${topOf(summary.per_tool)}`;
@@ -209,7 +229,7 @@ function checkReceipts(root?: string | null): CheckResult {
     /* no ledger yet */
   }
   if (repeats > 0) detail += ` · repeats ${repeats}`;
-  const spike = denySpike(dir);
+  const spike = denySpike(dir === null ? null : summary);
   if (spike) detail += ` · spike ${spike.last7} vs ${spike.prior7} the week before (${spike.guard})`;
   return { name: "receipts", status: summary.p95 <= CEILING_MS && spike === null ? "ok" : "warn", detail };
 }
@@ -317,21 +337,6 @@ function checkResearchCache(root: string | null): CheckResult {
   return { name: "research cache", status: stale.length > 0 ? "warn" : "ok", detail: lines.join(" · ") };
 }
 
-async function checkTriggers(root: string | null): Promise<CheckResult | null> {
-  // 10b. conditional nodes: a trigger that fired and left no artifact. This is the
-  //      "if it touches UI" sentence made checkable (§20.1).
-  const specPath = root ? join(root, ".ai-engineering", "spec.html") : null;
-  const hasContract = specPath !== null && existsSync(specPath);
-  if (!hasContract || !root) return null;
-  const lock = parseLock(readFileSync(join(root, ".ai-engineering", "ai-eng.lock"), "utf8"));
-  if (!lock.base_sha) return { name: "triggers", status: "warn", detail: "no base_sha in the lock — this milestone cannot judge its conditional nodes; reopen it with ai-eng spec open" };
-  const spec = readFileSync(join(root, ".ai-engineering", "spec.html"), "utf8");
-  const abandoned = new Set([...spec.matchAll(/^ABANDON:\s*(\S+)/gm)].map((m) => m[1]!));
-  const unmet = unmetTriggers(root, lock.base_sha, abandoned);
-  if (unmet.length === 0) return { name: "triggers", status: "ok", detail: "no fired trigger is missing its artifact" };
-  return { name: "triggers", status: "warn", detail: unmet.map((entry) => `${entry.id} fired on ${entry.sample} → ${entry.skill} left no artifact`).join(" · ") };
-}
-
 function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
   // 11. surfaces: two questions that must never share one line.
   //     (a) the MACHINE carrier — is it where that host actually reads, and is it the
@@ -392,6 +397,8 @@ function checkMachineState(surfaces: string[]): CheckResult | null {
   //      downgrade is not cosmetic: the carrier is the new binary's, the chain it calls
   //      would be the old one, and the old one has no gate — so the policy would fall
   //      back onto repos that never asked for it (F7).
+  const unavailable = machineStateUnavailable();
+  if (unavailable !== null) return { name: "machine state", status: "warn", detail: refuseLine(unavailable).replace(/^⚠ /, "") };
   const state = readMachineState();
   if (Object.keys(state.carriers).length === 0) return null;
   const downgrade = state.version !== "" && state.version !== VERSION && compareVersions(state.version, VERSION) > 0;
@@ -439,6 +446,8 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   const mirrors = await checkMirrors(root);
   if (mirrors) results.push(mirrors);
   results.push(checkCanon());
+  const unproven = checkCanonUnproven();
+  if (unproven) results.push(unproven);
   const assets = checkAssets(root);
   if (assets) results.push(assets);
   const floor = checkGitFloor(root);
@@ -449,10 +458,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   results.push(checkArch(root));
   results.push(checkSpecSlot(root));
   results.push(checkResearchCache(root));
-  const triggers = await checkTriggers(root);
-  if (triggers) results.push(triggers);
   results.push(...checkSurfaces(root, surfaces));
-  results.push({ name: "checkpoint gate", status: "ok", detail: checkpointGateReportLines(SURFACES, Object.fromEntries(SURFACES.flatMap((s) => { const files = carrierFiles(s.id, "machine") ?? carrierFiles(s.id, "repo"); return files ? [[s.id, files.main] as const] : []; }))).join(" · ") });
   const state = checkMachineState(surfaces);
   if (state) results.push(state);
   results.push(checkBehaviors(root));
@@ -494,51 +500,6 @@ function committedAgeDays(root: string, path: string): number | null {
 }
 
 /** `doctor --gc` — execute what the audit proposes, in one commit (§21.3). */
-/** Merge the live summary with any prior summary.json and write it back. */
-function mergeAndWriteSummary(receipts: string, summary: ReceiptSummary): void {
-  let prior: { daily?: Record<string, DailyPoint> } | null = null;
-  try {
-    prior = JSON.parse(readFileSync(join(receipts, "summary.json"), "utf8")) as { daily?: Record<string, DailyPoint> };
-  } catch {
-    /* no prior summary, or a torn one: the live window starts the series */
-  }
-  const merged = { ...summary, daily: mergeDaily(prior?.daily, summary.daily), gc: new Date().toISOString() };
-  writeFileSync(join(receipts, "summary.json"), JSON.stringify(merged));
-}
-
-function gcReceipts(receipts: string, ttlDays: number): string[] {
-  // Receipts: aggregate, then delete. They carry no citation to respect — their
-  // permanent half is the Receipt-Id trailer on the commit. Two files are the gc's
-  // own memory, not its trash: summary.json (the series) and denies.json (the
-  // ledger). The mtime sweep skips both — leaving summary.json to age out was
-  // eating the only long-term memory on the second quiet month — and each is
-  // pruned by its own contents instead: the series by day-age, the ledger by
-  // last_seen and count.
-  const lines: string[] = [];
-  if (!existsSync(receipts)) return lines;
-  const summary = summarizeReceipts(receipts);
-  const cut = Date.now() - ttlDays * 86_400_000;
-  // Files only: a planted DIRECTORY named like a receipt (`mkdir bomb.json`) made
-  // unlinkSync throw EISDIR/EPERM before the summary write, bricking the gc on
-  // every future run and freezing the spike baseline at the forged state
-  // (audit run-1 F4). A directory in the receipts folder is not a receipt.
-  const stale = readdirSync(receipts)
-    .filter((name) => name !== "summary.json" && name !== "denies.json" && lstatSync(join(receipts, name)).isFile())
-    .map((name) => ({ name, ts: statMtime(join(receipts, name)) }))
-    .filter((entry) => entry.ts < cut);
-  for (const entry of stale) unlinkSync(join(receipts, entry.name));
-  if (stale.length > 0) {
-    // The stale files are part of the story the summary tells: the summarizer's
-    // name-window now skips receipts whose stamp predates the TTL, so the live
-    // count alone would understate the store by exactly the files being deleted.
-    mergeAndWriteSummary(receipts, { ...summary, total: summary.total + stale.length });
-    lines.push(`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
-  }
-  const ledger = join(receipts, "denies.json");
-  if (existsSync(ledger)) pruneDenyLedger(ledger);
-  return lines;
-}
-
 /** Should this entry be collected (deleted) during gc? Returns "immune" if cited
  *  by a governor, "collect" if old enough and tracked by git, "skip" otherwise. */
 function collectVerdict(root: string, folder: string, dir: string, name: string, olderDays: number): "immune" | "collect" | "skip" {
@@ -629,10 +590,16 @@ function gc(cwd = process.cwd()): string[] {
   const config = loadConfig();
   const gcConfig = config["gc"] ?? {};
   const maxFiles = Number(gcConfig["max_files"] ?? 25);
-  const ttlDays = Number(String(gcConfig["receipts_ttl"] ?? "30d").replace("d", ""));
+  const ttlDays = receiptsTtlDays(config);
   const olderDays = Number(String(gcConfig["older_than"] ?? "90d").replace("d", ""));
   const keepRuns = Number(gcConfig["keep_runs"] ?? 5);
-  lines.push(...gcReceipts(join(root, ".ai-engineering", "receipts"), ttlDays));
+  const receipts = gcReceipts(root, ttlDays);
+  if (receipts.refused !== null) {
+    lines.push(`⚠ receipts: ${receipts.refused} is a link or resolves outside the repository — retention skipped, nothing deleted`);
+    // Every folder below hangs off .ai-engineering: when that is not the repo's own, none is collected.
+    if (receipts.refused === ".ai-engineering") return lines;
+  }
+  if (receipts.deleted > 0) lines.push(`✓ receipts: ${receipts.deleted} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
   for (const folder of ["research", "reports", join("design", "audits")]) {
     lines.push(...gcFolder(root, folder, maxFiles, olderDays));
   }
@@ -640,14 +607,6 @@ function gc(cwd = process.cwd()): string[] {
   lines.push(...gcSecurity(root, join(root, ".ai-engineering", "security"), olderDays, keepRuns));
   if (lines.length === 0) lines.push("✓ gc: nothing to collect");
   return lines;
-}
-
-function statMtime(path: string): number {
-  try {
-    return lstatSync(path).mtimeMs;
-  } catch {
-    return 0;
-  }
 }
 
 function lintBehavior(content: string, folder: string): string | null {
@@ -667,9 +626,9 @@ export async function doctorMain(flags: { gc?: boolean; cwd?: string }): Promise
     return 0;
   }
   const root = repoRoot(flags.cwd) ?? flags.cwd ?? process.cwd();
-  const { results, fail } = await runChecks(flags.cwd);
   const runtime = `bun ${typeof Bun !== "undefined" ? Bun.version : "?"}`;
   ui.frame(`Health check · ${root.split("/").pop()} · ${runtime} · ai-eng ${VERSION}`);
+  const { results, fail } = await runChecks(flags.cwd);
   // One block per status — the eye scans three ideas, not twelve lines
   // (the ✓/▲/✗ families of §14.2).
   const toRow = (r: CheckResult): ui.Row => ({ mark: r.status, text: `${r.name} · ${r.detail}` });

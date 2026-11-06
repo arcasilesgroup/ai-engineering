@@ -1,0 +1,3 @@
+# Windows runners check out with core.autocrlf=true; tests compare committed bytes
+# (generated bundles, embedded assets, templates), so every checkout keeps LF.
+* text=auto eol=lf

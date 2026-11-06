@@ -1,19 +1,11 @@
 ---
 name: ai-architect
 description: >-
-  Research and advise on the best way to approach a software project, including
-  architecture, tech stack, implementation strategy, pricing/operating-cost
-  tradeoffs, benchmark research, and comparisons with similar real-world
-  projects. When the project hinges on a technical mechanism, it can also run a
-  gated arXiv prior-art deep dive before recommending a path. Use before
-  building, mid-build, or after completion when the user asks for project
-  strategy, optimal approach, research comparables, similar projects, stack
-  selection, vendor/service choice, repo analysis, architecture critique,
-  implementation feedback, a prioritized improvement plan, or asks "has anyone
-  solved this", "what's the state of the art", "check prior art", "how should I
-  build this", or "am I about to rebuild something that already exists". Not
-  for narrow single-bug debugging or isolated file edits — use /ai-debug — nor
-  for deciding what to build — use /ai-orchestrator.
+  Advises on project strategy, architecture, stacks, services, costs, comparables,
+  prior art, or repo design before, during, or after a build. Trigger: "how should
+  I build this", "state of the art", "has anyone solved this", or "am I rebuilding
+  something that exists". Not for narrow bugs (/ai-debug) or deciding scope
+  (/ai-orchestrator).
 license: MIT
 ---
 

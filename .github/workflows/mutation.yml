@@ -19,9 +19,7 @@ permissions:
   contents: read
 
 jobs:
-  # Two legs, one body: the nightly runs on schedule/dispatch; the pr leg runs on
-  # pull requests. Split to avoid an actionlint false-positive on matrix.leg in a
-  # job-level if (actionlint doesn't support it; GitHub Actions does).
+  # One job serves nightly, on-demand, and governance PR runs.
   campaign:
     runs-on: ubuntu-latest
     # The hard ceiling, not the estimate. Measured: this campaign took 4m29s on the
@@ -29,57 +27,20 @@ jobs:
     # and 11m21s at `concurrency: 2` on the 8-core laptop that built the tier. The
     # ceiling covers the slower of the two, with room for the plugin's known flake (one
     # spurious dry-run failure in seven when the machine is loaded).
-    timeout-minutes: 15
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Bun
-        run: npm install -g bun@1.4.2
+        run: npm install -g bun@1.4.4
       - name: Dependencies
         run: bun install --frozen-lockfile
       - name: Node the campaign runs on
         run: node -v
-      - name: Restore the previous campaign's results
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: reports
-          key: stryker-incremental-${{ hashFiles('bun.lock') }}
-          restore-keys: stryker-incremental-
-      # The exit code IS the gate: below thresholds.break the step fails and the
-      # clear-text report names the survivors. Nothing here re-reads the report to
-      # decide — a gate that parses its own output is a gate that can be wrong twice.
-      - name: Mutation campaign
-        run: bunx stryker run
-      - name: Upload the report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: mutation-report
-          path: reports/
-          if-no-files-found: error
-
-  campaign-pr:
-    # Only runs on pull requests that touch governance files.
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - name: Bun
-        run: npm install -g bun@1.4.2
-      - name: Dependencies
-        run: bun install --frozen-lockfile
-      - name: Node the campaign runs on
-        run: node -v
-      # Name the diff the campaign was routed on, and fail hard when it
-      # cannot be computed — a shallow checkout once made the sibling job in check.yml
-      # spend its life reporting "oracle skipped" instead of failing.
       - name: The governance files this pull request touches
+        if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
@@ -95,13 +56,16 @@ jobs:
           path: reports
           key: stryker-incremental-${{ hashFiles('bun.lock') }}
           restore-keys: stryker-incremental-
+      # The exit code IS the gate: below thresholds.break the step fails and the
+      # clear-text report names the survivors. Nothing here re-reads the report to
+      # decide — a gate that parses its own output is a gate that can be wrong twice.
       - name: Mutation campaign
         run: bunx stryker run
       - name: Upload the report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mutation-report-pr
+          name: ${{ github.event_name == 'pull_request' && 'mutation-report-pr' || 'mutation-report' }}
           path: reports/
           if-no-files-found: error
 

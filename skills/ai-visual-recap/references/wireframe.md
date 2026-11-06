@@ -174,7 +174,7 @@ check/serve or verify command for `<plan-dir>`.
 **Choose the outer frame deliberately.** Wireframe and diagram data accept
 `frame: "auto" | "show" | "hide"` in block data (`<Screen frame="hide">` in
 MDX wireframes, `<Diagram frame="hide">` for MDX diagrams). Leave it unset or
-`auto` when the host context should decide: Plan and recap surfaces default to a
+`auto` when the host context should decide: planning and recap surfaces default to a
 drawn outer frame; docs surfaces default to no outer frame. Use `show` for
 standalone product screens, before/after recap comparisons, screenshot-like
 artifacts, and visuals that need containment from surrounding prose. Use `hide`

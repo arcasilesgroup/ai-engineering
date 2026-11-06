@@ -20,8 +20,23 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { EMBEDDED } from "../src/assets";
 
 const root = join(import.meta.dir, "..");
+
+test("triage skill script modules and declarations are embedded as their exact text", () => {
+  for (const filename of [
+    "resolve-target.mjs",
+    "resolve-target.d.mts",
+    "render-report.mjs",
+    "render-report.d.mts",
+    "collect-azure.mjs",
+    "collect-azure.d.mts",
+  ]) {
+    const assetPath = `skills/ai-triage/scripts/${filename}`;
+    expect(readFileSync(EMBEDDED[`../${assetPath}`]!, "utf8")).toBe(readFileSync(join(root, assetPath), "utf8"));
+  }
+});
 
 test("rebuilding chain-entry.ts reproduces the committed chain bundle byte for byte", () => {
   const dir = mkdtempSync(join(tmpdir(), "ai-eng-bundle-"));
@@ -41,7 +56,8 @@ test("every .embed fixture copy is the byte-for-byte twin of the skill it came f
   expect(copies.length).toBeGreaterThan(0);
   for (const entry of copies) {
     const rel = String(entry);
-    const source = join(root, "skills", rel.slice(0, -".txt".length));
+    const sourcePath = rel.slice(0, -".txt".length);
+    const source = join(root, "skills", sourcePath);
     expect(existsSync(source)).toBe(true);
     expect(readFileSync(join(copyDir, rel), "utf8")).toBe(readFileSync(source, "utf8"));
   }

@@ -15,5 +15,6 @@ export function isTestCommand(command: string): WrapDecision {
 
 /** The rewritten command the surface executes instead of the original. */
 export function rewrite(command: string): string {
-  return `ai-eng wrap test -- ${command}`;
+  // ponytail: base64url keeps the command in one shell-safe token; no shell-escape parser.
+  return `ai-eng wrap test --base64 ${Buffer.from(command, "utf8").toString("base64url")}`;
 }

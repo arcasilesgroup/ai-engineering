@@ -1,0 +1,309 @@
+[
+  {
+    "verdict": "confirmed",
+    "title": "Wrap rewrite reparses quoted command text as shell syntax",
+    "description": "On rewrite-capable surfaces, the wrap guard rewrites a test-looking Bash command to `ai-eng wrap test -- <original>`. The host shell removes quoting once; wrapMain then joins argv with spaces and runs it through `/bin/sh -c`, making quoted metacharacters live. In a local reproduction, `npm test '>' .ai-engineering/config.toml` passed the original guard checks, returned a rewrite, and truncated config.toml. The unquoted control was denied. The independent validator rated the incremental impact MEDIUM because other shell forms already pass some guard paths.",
+    "root_cause": "wrapMain in src/wrap/index.ts does not preserve the original command argument boundaries when launching the filtered command, allowing shell syntax that was inert during guard evaluation to execute as a redirection.",
+    "intended_behavior": "The wrapper should filter output without changing the command that the guards approved.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/chain/mod.ts",
+        "line": 198,
+        "scope": "runChain",
+        "description": "The original Bash command is evaluated by the guard chain."
+      },
+      {
+        "kind": "propagation",
+        "file": "src/chain/mod.ts",
+        "line": 265,
+        "scope": "dispatchGuard",
+        "description": "A test-looking command returns a rewrite that prefixes `ai-eng wrap test --`."
+      },
+      {
+        "kind": "propagation",
+        "file": "src/wrap/index.ts",
+        "line": 36,
+        "scope": "wrapMain",
+        "description": "The wrapper joins argv with spaces, losing the original quoting boundaries."
+      },
+      {
+        "kind": "sink",
+        "file": "src/wrap/index.ts",
+        "line": 46,
+        "scope": "wrapMain",
+        "description": "The joined string is re-evaluated by `/bin/sh -c`; the redirect truncates config.toml."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "system_configuration",
+        "description": "The enabled surface applies the rewrite: Cursor, Codex, OpenCode, Pi, or Oh My Pi. Claude Code does not use this rewrite path."
+      },
+      {
+        "kind": "data_state",
+        "description": "The command qualifies for wrapping and does not use a form that makes wrap skip the rewrite."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A prompt-injected or misbehaving governed agent using its ordinary Bash tool.",
+      "payloads": [
+        "npm test '>' .ai-engineering/config.toml"
+      ],
+      "instructions": [
+        "Submit the payload as a Bash tool call on a rewrite-capable surface.",
+        "The chain returns a wrap rewrite and the host runs the rewritten shell line.",
+        "The wrapper joins argv and executes the command through `/bin/sh -c`.",
+        "The redirect truncates the protected config file and subsequent calls may be ungoverned."
+      ],
+      "expected_result": "The config file is truncated even though the original quoted operator passed guard evaluation."
+    },
+    "remediation": {
+      "strategy": "Pass the original command as one argument or through a dedicated input channel; never join argv and reparse it. Ensure later guards still run after a rewrite."
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "A single ordinary test command triggers the rewrite on affected surfaces."
+      },
+      "impact": {
+        "score": "medium",
+        "reason": "The payload bypasses self-protect and can change governance state, but independent validation found limited incremental capability over other accepted shell forms."
+      },
+      "overall_severity": "medium"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "Reproduced with the real chain and shell; host execution of the rewritten command is the surface contract."
+    },
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "1e3eaa134bbc45c35305b01cd82b125ca2cb8b25"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "Nested .git marker changes the root and turns every guard off",
+    "description": "runChain resolves the governed root from the host-reported cwd. repoRoot stops at the nearest directory containing any .git entry, including an empty file or directory. An agent can create nested/.git, change into nested, and cause the chain to treat it as an ungoverned repository. Local reproduction allowed writes to the parent repository's config and hooks and `git commit --no-verify`, with no guards or receipt; the same calls from the root were denied.",
+    "root_cause": "repoRoot in src/env.ts does not anchor root selection to the governed workspace, allowing a nested agent-created .git marker to move the chain into an ungoverned directory.",
+    "intended_behavior": "A session operating inside a governed workspace should remain governed when its working directory changes to a nested directory.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/chain/mod.ts",
+        "line": 144,
+        "scope": "runChain",
+        "description": "The chain resolves the root using the host payload cwd."
+      },
+      {
+        "kind": "propagation",
+        "file": "src/env.ts",
+        "line": 28,
+        "scope": "repoRoot",
+        "description": "The root search stops at the first ancestor with an existing .git entry."
+      },
+      {
+        "kind": "sink",
+        "file": "src/chain/mod.ts",
+        "line": 150,
+        "scope": "runChain",
+        "description": "The nested directory has no governance config, so the chain returns allow before guards and receipts."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "third_party_dependency",
+        "description": "The host must update hook cwd after the agent changes directory. This is documented for Claude Code but was not tested in a live host session."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A prompt-injected or misbehaving agent already working in a governed repository.",
+      "payloads": [
+        "mkdir -p nested/.git",
+        "git -C .. commit --no-verify -am x",
+        "Write ../.ai-engineering/config.toml"
+      ],
+      "instructions": [
+        "Create a nested .git marker using an allowed Bash call.",
+        "Change into the nested directory so the host reports it as cwd.",
+        "Issue a destructive tool call targeting the parent governed repository."
+      ],
+      "expected_result": "The chain returns allow with no guards and no receipt for operations denied when called from the governed root."
+    },
+    "remediation": {
+      "strategy": "Pin the governed root at session start or select the outermost governed ancestor. Resolve write targets against the repository that owns each path."
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "The bypass requires two ordinary allowed operations and no payload obfuscation."
+      },
+      "impact": {
+        "score": "high",
+        "reason": "All guards and receipts are silently skipped for subsequent calls in the session."
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "The code path and local CLI behavior were reproduced; host cwd propagation is documented but was not exercised live."
+    },
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "1e3eaa134bbc45c35305b01cd82b125ca2cb8b25"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "Copilot CLI camelCase payload leaves tool name empty and skips guards",
+    "description": "The shipped Copilot templates register camelCase preToolUse. Its documented payload uses toolName and toolArgs, while normalise reads only tool_name/tool and tool_input/input. The chain therefore receives an empty tool name and empty input, and allows destructive calls without the relevant guards. Local CLI tests denied snake_case payloads but allowed the documented camelCase payload, including `git commit --no-verify` and writes to config.toml.",
+    "root_cause": "normalise in src/payload.ts does not map Copilot's toolName and toolArgs to the canonical payload fields, allowing calls to reach the guard chain with an empty tool name.",
+    "intended_behavior": "The installed Copilot surface should map host tool events to the same guarded operations as other supported surfaces.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "templates/settings.copilot.json.tpl",
+        "line": 4,
+        "scope": "preToolUse",
+        "description": "The carrier registers the camelCase preToolUse event."
+      },
+      {
+        "kind": "propagation",
+        "file": "src/chain/mod.ts",
+        "line": 159,
+        "scope": "runChain",
+        "description": "The raw payload is passed to normalise for the copilot-cli surface."
+      },
+      {
+        "kind": "propagation",
+        "file": "src/payload.ts",
+        "line": 66,
+        "scope": "normalise",
+        "description": "Only snake_case tool fields and the generic tool/input aliases are read, leaving the Copilot tool name empty."
+      },
+      {
+        "kind": "sink",
+        "file": "src/chain/mod.ts",
+        "line": 198,
+        "scope": "runChain",
+        "description": "Guard selection uses the empty tool name and the destructive call is allowed."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "system_configuration",
+        "description": "The repository or machine enables the copilot-cli surface."
+      },
+      {
+        "kind": "third_party_dependency",
+        "description": "Copilot emits the documented camelCase payload for the registered camelCase event; a live host payload was not captured."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A prompt-injected or misbehaving agent using Copilot CLI in a governed repository.",
+      "payloads": [
+        "{\"sessionId\":\"a\",\"timestamp\":1,\"cwd\":\"<repo>\",\"toolName\":\"bash\",\"toolArgs\":{\"command\":\"git commit --no-verify -m x\"}}",
+        "{\"sessionId\":\"a\",\"timestamp\":1,\"cwd\":\"<repo>\",\"toolName\":\"create\",\"toolArgs\":{\"file_path\":\".ai-engineering/config.toml\",\"content\":\"\"}}"
+      ],
+      "instructions": [
+        "Issue a Bash or file-writing tool call through Copilot CLI.",
+        "The host sends the camelCase preToolUse payload to the installed carrier.",
+        "normalise leaves tool_name empty and the chain returns allow."
+      ],
+      "expected_result": "The call proceeds with no applicable guards or denial, while the equivalent snake_case payload is denied."
+    },
+    "remediation": {
+      "strategy": "Map Copilot event fields and tool names to canonical payload values or register an event with the expected schema. Fail closed when a PreToolUse payload has no tool name."
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "Every tool call on the enabled surface uses the mismatched payload shape."
+      },
+      "impact": {
+        "score": "high",
+        "reason": "All security guards are skipped on a surface the product declares governable."
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "medium",
+      "reason": "The CLI behavior and source mapping were reproduced; payload casing is based on the official host reference and SDK types, not a live Copilot process."
+    },
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "1e3eaa134bbc45c35305b01cd82b125ca2cb8b25"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "adapt apply accepts an agent-generated hash as human approval",
+    "description": "adapt apply checks that a proposal's embedded SHA-256 matches the payload on the same agent-writable page. An agent can compute that hash, write the proposal, and invoke `ai-eng adapt apply`, which replaces protected governance files and commits them with an Approved-by trailer derived from Git identity. In a local governed repository, this removed the governance config; subsequent protected calls and `git commit --no-verify` were allowed.",
+    "root_cause": "adaptApply in src/commands/adapt.ts does not verify a human-held secret or out-of-band approval, allowing the governed agent to self-approve writes to protected governance files.",
+    "intended_behavior": "Only a proposal explicitly approved by a person should be allowed to modify governance files.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/cli.ts",
+        "line": 95,
+        "scope": "main",
+        "description": "The CLI dispatches the agent-invokable `adapt apply` command."
+      },
+      {
+        "kind": "propagation",
+        "file": "src/commands/adapt.ts",
+        "line": 83,
+        "scope": "adaptApply",
+        "description": "The proposal hash is compared to the payload stored on the same writable page."
+      },
+      {
+        "kind": "sink",
+        "file": "src/commands/adapt.ts",
+        "line": 108,
+        "scope": "adaptApply",
+        "description": "The validated payload replaces a protected governance file; the command then commits it."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "system_configuration",
+        "description": "The agent can write the proposal page and invoke the CLI; Git identity must be available or can be set repository-locally."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A prompt-injected or misbehaving governed agent with ordinary Write and Bash tools.",
+      "payloads": [
+        "Write a proposal page with payload {\".ai-engineering/config.toml\":\"# governance removed\\n\"} and its matching SHA-256.",
+        "Bash: ai-eng adapt apply"
+      ],
+      "instructions": [
+        "Compute the SHA-256 for the agent-controlled payload and put it on the proposal page.",
+        "Write the proposal page in the allowed session artifact area.",
+        "Run `ai-eng adapt apply` from the governed repository."
+      ],
+      "expected_result": "The protected config is replaced and committed with an Approved-by trailer, after which governance checks can be bypassed."
+    },
+    "remediation": {
+      "strategy": "Require an approval signal the agent cannot create, such as a human TTY confirmation showing the diff or a human-held signing key. Deny governance-changing CLI verbs from the governed session."
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "The operation requires only normal Write and Bash calls by the governed agent."
+      },
+      "impact": {
+        "score": "high",
+        "reason": "Protected configuration can be removed or weakened and the commit can falsely imply human approval."
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "The full chain, CLI write, and resulting Git commit were reproduced in a local scratch repository."
+    },
+    "disposition": {
+      "status": "fixed",
+      "landed_in": "1e3eaa134bbc45c35305b01cd82b125ca2cb8b25"
+    }
+  }
+]

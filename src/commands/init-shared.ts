@@ -4,10 +4,10 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { PlanEntry } from "../install.ts";
+import type { Row } from "../ui.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate } from "../embed.ts";
 import { SURFACES, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
-import { plantWorkflowFiles } from "./plant-workflow.ts";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
@@ -18,6 +18,45 @@ export function repoTemplateRoot(): string {
  *  exactly as it was — and the line says what that costs, because a surface whose
  *  settings file could not be merged has no hooks behind it (§13). */
 export function refuseLine(refused: { path: string; reason: string }): string {
+  if (refused.reason === "identity-bound-settings-mutation-unavailable") {
+    return `⚠ ${refused.path} — safe machine-settings replacement/removal is unavailable on this platform; left untouched`;
+  }
+  if (refused.reason === "machine-state-identity-unverified") {
+    return `⚠ ${refused.path} — machine state is linked, changed, or shared with another path; left untouched`;
+  }
+  if (refused.reason === "settings-changed-after-validation") {
+    return `⚠ ${refused.path} — settings changed during validation; left untouched`;
+  }
+  if (refused.reason === "settings-unreadable") {
+    return `⚠ ${refused.path} — unreadable, a dangling link, not a regular file, or changing while read; left untouched`;
+  }
+  if (refused.reason === "machine-state-busy") {
+    return `⚠ ${refused.path} — held by another ai-eng run, one on another host, or one this run cannot prove has stopped; machine state left untouched. If no ai-eng run is using this home, delete ${refused.path} and run again`;
+  }
+  if (refused.reason === "machine-state-lock-stale") {
+    return `⚠ ${refused.path} — left by an ai-eng run that is no longer running; the next ai-eng update reclaims it`;
+  }
+  if (refused.reason === "machine-state-stranded") {
+    return `⚠ machine.json is missing; an interrupted ai-eng run left its previous contents at ${refused.path} — move the right copy back to machine.json by hand; machine state left untouched`;
+  }
+  if (refused.reason === "machine-state-copy-kept") {
+    return `⚠ ${refused.path} — an earlier copy of machine.json left by an interrupted ai-eng run; kept beside the current one — compare them and delete the one you do not need`;
+  }
+  if (refused.reason === "machine-state-unreadable") {
+    return `⚠ ${refused.path} — machine state cannot be read or is not valid JSON; left untouched`;
+  }
+  if (refused.reason === "machine-state-kept-aside") {
+    return `⚠ machine.json changed while this run was replacing it; its previous contents are kept at ${refused.path} — move them back by hand`;
+  }
+  if (refused.reason === "carrier-path-unwritable") {
+    return `⚠ ${refused.path} — a link, a directory, or a file this installer cannot write is there; the carrier was not written`;
+  }
+  if (refused.reason === "carrier-edited") {
+    return `⚠ ${refused.path} — changed since ai-eng wrote it; kept`;
+  }
+  if (refused.reason === "removal-refused") {
+    return `⚠ ${refused.path} — still exactly ai-eng's, but it could not be removed (changed meanwhile, or a read-only, locked or busy folder); kept. Make the folder writable, then run again`;
+  }
   const why =
     refused.reason === "not-json"
       ? "not valid JSON"
@@ -25,6 +64,12 @@ export function refuseLine(refused: { path: string; reason: string }): string {
         ? "laid out in a style this installer would have to reformat (tabs, CRLF, a compact one-liner)"
         : "not a JSON object";
   return `⚠ ${refused.path} — ${why}: left exactly as it is, so this surface runs without guards until you move it aside or reformat it`;
+}
+
+/** An install line as a report row: a ⚠ line is a warning, never shown under a ✓. */
+export function installLineRow(line: string, mark: "ok" | "sub" = "ok"): Row {
+  if (line.startsWith("⚠ ")) return { mark: "warn", text: line.slice(2) };
+  return { mark, text: line.replace(/^✓ /, "") };
 }
 
 function render(template: string, vars: Record<string, string>): string {
@@ -58,7 +103,12 @@ export function planEntries(surfaces: string[]): PlanEntry[] {
   return [
     { path: ".ai-engineering/overrides.toml", ours: embeddedTemplate("overrides.toml.tpl") },
     { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
-    { path: ".ai-engineering/config.toml", ours: render(embeddedTemplate("config.toml.tpl"), { surfaces: surfaces.map((s) => `"${s}"`).join(", ") }) },
+    {
+      path: ".ai-engineering/config.toml",
+      ours: embeddedTemplate("config.toml.tpl", {
+        surfaces: surfaces.map((s) => `"${s}"`).join(", "),
+      }),
+    },
     // The merge gate belongs to the project, not to one editor: it hung off the
     // claude-code case, so choosing OpenCode/OMP/Codex/Cursor/Copilot CLI/Pi installed
     // guards and adapters with no workflow at all, and nothing said so (§17).
@@ -103,7 +153,6 @@ export function surfaceOptions(): Surface[] {
  *  with them: a project that already owns one keeps it (`install()` reports it as
  *  "yours, untouched"), and uninstall's project sweep never takes it back. */
 export function contractEntries(date: string, root: string = repoTemplateRoot()): PlanEntry[] {
-  plantWorkflowFiles(root);
   return [
     { path: "AGENTS.md", ours: render(embeddedTemplate("AGENTS.md.tpl"), { version: VERSION, commands: detectCommands(root) }) },
     { path: "DECISIONS.md", ours: render(embeddedTemplate("DECISIONS.md.tpl"), { date, version: VERSION }) },

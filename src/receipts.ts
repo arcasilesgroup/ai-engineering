@@ -2,10 +2,11 @@
 // hash-chain: the real signature is the Receipt-Id trailer in the commit — git
 // already is the chain.
 
-import { writeFileSync, readFileSync, readdirSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { closeSync, constants, openSync, writeFileSync, readFileSync, readdirSync, mkdirSync, lstatSync, realpathSync, renameSync, rmSync, unlinkSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
-import { printable, receiptsDir } from "./env.ts";
+import { loadConfig, printable, receiptsDir, type Config } from "./env.ts";
+import { readProjectFileSnapshot, safeProjectPath, takeCheckedProjectFile, withCheckedProjectParent } from "./shared-project-fs.ts";
 
 export type Receipt = {
   schema: "urn:ai-eng:receipt:2";
@@ -17,11 +18,44 @@ export type Receipt = {
   latency_ms: number;
   outcome: "allow" | "deny" | "error";
   ts: string;
-  /** The session this receipt belongs to. Present when the surface sent a session
-   *  id; absent in legacy receipts and git-floor writes. Groupable via
-   *  summarizeBySession(). */
+  /** The session this receipt belongs to when the surface supplied an id. */
   session_id?: string;
 };
+
+const AI_DIR = ".ai-engineering";
+const RECEIPTS_REL = `${AI_DIR}/receipts`;
+
+/** Where a repo's receipts folder stands. A cloned repo can commit `.ai-engineering` or
+ *  `receipts` as a link into the user's home; every reader that writes or deletes there
+ *  first needs it `checked`: both are real folders whose real path stays inside the repo. */
+type ReceiptsFolder = { kind: "checked"; path: string } | { kind: "absent" } | { kind: "refused"; rel: string };
+
+function receiptsFolder(root: string): ReceiptsFolder {
+  for (const rel of [AI_DIR, RECEIPTS_REL]) {
+    try {
+      lstatSync(join(root, rel));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return { kind: "absent" };
+      return { kind: "refused", rel };
+    }
+    if (safeProjectPath(root, rel) === null) return { kind: "refused", rel };
+  }
+  const path = safeProjectPath(root, RECEIPTS_REL);
+  return path === null ? { kind: "refused", rel: RECEIPTS_REL } : { kind: "checked", path };
+}
+
+/** The checked receipts folder, created when missing and checked again after the create
+ *  (R38); null when it cannot be proven to be the repo's own folder. */
+function ensureReceiptsFolder(root: string): string | null {
+  const aiDir = safeProjectPath(root, AI_DIR);
+  if (aiDir === null) return null;
+  try {
+    mkdirSync(join(aiDir, "receipts"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") return null;
+  }
+  return safeProjectPath(root, RECEIPTS_REL);
+}
 
 export function writeReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | "ts">, root?: string | null): Receipt | null {
   const dir = receiptsDir(root);
@@ -33,9 +67,11 @@ export function writeReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | 
     ...receipt,
   };
   try {
-    mkdirSync(dir, { recursive: true });
+    const folder = ensureReceiptsFolder(dirname(dirname(dir)));
+    if (folder === null) return null;
     const stamp = full.ts.replace(/[:.]/g, "-");
-    writeFileSync(join(dir, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full));
+    // "wx": a fresh name only — never through a link or over a file already there.
+    writeFileSync(join(folder, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
     return full;
   } catch {
     return null;
@@ -57,6 +93,8 @@ export type ReceiptSummary = {
   /** ISO-date → activity of that day, from the receipts' own ts. */
   daily: Record<string, DailyPoint>;
 };
+
+export const RECEIPT_HEALTH_WINDOW_DAYS = 14;
 
 /** True for a receipt that ran the surface tool-use guard chain (the only runs the
  *  50ms ceiling in doctor measures). The git floor (gitleaks ~700ms) and the spec
@@ -114,26 +152,16 @@ export function summarizeReceipts(dir?: string | null): ReceiptSummary {
   // `dir` is tri-state: `undefined` = resolve the caller's repo, `null` = no store
   // at all (the caller already knows this root has none), a string = that store.
   const target = dir === undefined ? receiptsDir() : dir;
-  const tally: ReceiptTally = {
-    total: 0,
-    denies: 0,
-    latencies: [],
-    per: { per_guard: {}, per_tool: {}, per_surface: {} },
-    daily: {},
-  };
+  const tally = emptyTally();
   if (target) {
     try {
-      // The filename carries the ISO timestamp the receipt was written with, so the
-      // window is cut by name before any file is opened: a repo that runs the chain
-      // all day accumulates tens of thousands of receipts, and every pre-commit hook
-      // (src/floor/entry.ts) pays this scan — opening each file for 36k receipts
-      // cost 5 s on the dev machine. Files that predate the window are either past
-      // the gc's TTL (config.toml `[gc].receipts_ttl`, default 30d — the gc
-      // aggregates and deletes them) or a fixture with a crafted name, and the
-      // doctor's deviation rule reads a 14-day window, so a 40-day stamp covers
-      // both. Only a timestamped name is skipped unopened; every other file —
-      // fixtures, future shapes — is parsed exactly as before.
-      const cutoff = new Date(Date.now() - 40 * 86_400_000).toISOString().slice(0, 10).replaceAll("-", "");
+      // The doctor needs only the 14-day deny window. Raw receipts remain on disk
+      // for the configured retention period; this only bounds the health summary.
+      // Skipping by filename avoids opening and parsing older records on each check.
+      const cutoff = new Date(Date.now() - RECEIPT_HEALTH_WINDOW_DAYS * 86_400_000)
+        .toISOString()
+        .slice(0, 10)
+        .replaceAll("-", "");
       for (const name of readdirSync(target)) {
         if (!name.endsWith(".json")) continue;
         // gc writes its own summary into this folder; counting it as a receipt would
@@ -150,73 +178,18 @@ export function summarizeReceipts(dir?: string | null): ReceiptSummary {
       /* no receipts yet */
     }
   }
+  return summaryOf(tally);
+}
+
+function emptyTally(): ReceiptTally {
+  return { total: 0, denies: 0, latencies: [], per: { per_guard: {}, per_tool: {}, per_surface: {} }, daily: {} };
+}
+
+function summaryOf(tally: ReceiptTally): ReceiptSummary {
   const { latencies } = tally;
   latencies.sort((a, b) => a - b);
   const pick = (q: number) => (latencies.length ? latencies[Math.min(latencies.length - 1, Math.floor(q * latencies.length))]! : 0);
   return { total: tally.total, denies: tally.denies, p50: pick(0.5), p95: pick(0.95), ...tally.per, daily: tally.daily };
-}
-
-export type SessionSummary = {
-  session_id: string;
-  runs: number;
-  denies: number;
-  first_ts: string;
-  last_ts: string;
-  tools: string[];
-  guards_denied: string[];
-};
-
-/** Group receipts by session_id. Sessions without a session_id are grouped under
- *  "unknown". Returns sessions sorted by last_ts descending (most recent first). */
-export function summarizeBySession(dir?: string): SessionSummary[] {
-  const target = dir ?? receiptsDir();
-  const sessions = new Map<string, { runs: number; denies: number; first_ts: string; last_ts: string; tools: Set<string>; guards_denied: Set<string> }>();
-  if (target) {
-    try {
-      for (const name of readdirSync(target)) {
-        if (!name.endsWith(".json")) continue;
-        if (name === "summary.json" || name === "denies.json") continue;
-        try {
-          const receipt = JSON.parse(readFileSync(join(target, name), "utf8")) as Receipt;
-          const sid = receipt.session_id ?? "unknown";
-          const existing = sessions.get(sid);
-          const tools = existing?.tools ?? new Set<string>();
-          const guards_denied = existing?.guards_denied ?? new Set<string>();
-          if (typeof receipt.tool === "string") tools.add(printable(receipt.tool));
-          if (receipt.outcome === "deny" && typeof receipt.guards?.denied_by === "string") {
-            guards_denied.add(printable(receipt.guards.denied_by));
-          }
-          sessions.set(sid, {
-            runs: (existing?.runs ?? 0) + 1,
-            denies: (existing?.denies ?? 0) + (receipt.outcome === "deny" ? 1 : 0),
-            first_ts: existing === undefined || (typeof receipt.ts === "string" && receipt.ts < existing.first_ts)
-              ? (typeof receipt.ts === "string" ? receipt.ts : (existing?.first_ts ?? ""))
-              : existing.first_ts,
-            last_ts: existing === undefined || (typeof receipt.ts === "string" && receipt.ts > existing.last_ts)
-              ? (typeof receipt.ts === "string" ? receipt.ts : (existing?.last_ts ?? ""))
-              : existing.last_ts,
-            tools,
-            guards_denied,
-          });
-        } catch {
-          /* torn write */
-        }
-      }
-    } catch {
-      /* no receipts */
-    }
-  }
-  return [...sessions.entries()]
-    .map(([session_id, s]) => ({
-      session_id,
-      runs: s.runs,
-      denies: s.denies,
-      first_ts: s.first_ts,
-      last_ts: s.last_ts,
-      tools: [...s.tools],
-      guards_denied: [...s.guards_denied],
-    }))
-    .sort((a, b) => b.last_ts.localeCompare(a.last_ts));
 }
 
 /** A summand from a file an adversary may have written: finite, non-negative, whole,
@@ -268,16 +241,17 @@ export const LEDGER_CAP = 500;
 export function upsertDenyLedger(dir: string | null, key: string): number {
   if (!dir) return 0;
   try {
-    const file = join(dir, "denies.json");
+    const folder = ensureReceiptsFolder(dirname(dirname(dir)));
+    if (folder === null) return 0;
+    const file = join(folder, "denies.json");
     let ledger: DenyLedger = {};
     try {
-      ledger = JSON.parse(readFileSync(file, "utf8")) as DenyLedger;
+      ledger = JSON.parse(readNoFollow(file)) as DenyLedger;
     } catch {
       /* first entry, or a torn file — both mean no prior */
     }
     const prior = typeof ledger[key]?.n === "number" && Number.isFinite(ledger[key]!.n) ? Math.max(0, Math.floor(ledger[key]!.n)) : 0;
     ledger[key] = { n: prior + 1, last_seen: new Date().toISOString() };
-    mkdirSync(dir, { recursive: true });
     // Re-emit at most the newest LEDGER_CAP well-formed entries: attacker-planted
     // bulk and hostile shapes never survive the round-trip on the hot path.
     const fresh = Object.entries(ledger)
@@ -286,7 +260,7 @@ export function upsertDenyLedger(dir: string | null, key: string): number {
       .slice(0, LEDGER_CAP);
     const kept: DenyLedger = {};
     for (const [k, entry] of fresh) kept[k] = { n: Math.max(1, Math.floor(entry.n)), last_seen: entry.last_seen };
-    writeFileSync(file, JSON.stringify(kept));
+    writeNoFollow(file, JSON.stringify(kept));
     return prior;
   } catch {
     return 0;
@@ -298,7 +272,7 @@ export function upsertDenyLedger(dir: string | null, key: string): number {
  *  the sweep must never delete it by mtime, which is why it prunes by content. */
 export function pruneDenyLedger(file: string, ttlDays = 90, cap = LEDGER_CAP, now = Date.now()): void {
   try {
-    const ledger = JSON.parse(readFileSync(file, "utf8")) as DenyLedger;
+    const ledger = JSON.parse(readNoFollow(file)) as DenyLedger;
     const cutoff = new Date(now - ttlDays * 86_400_000).toISOString();
     const fresh = Object.entries(ledger)
       .filter(([, entry]) => typeof entry?.last_seen === "string" && entry.last_seen >= cutoff)
@@ -306,8 +280,255 @@ export function pruneDenyLedger(file: string, ttlDays = 90, cap = LEDGER_CAP, no
       .slice(0, cap);
     const kept: DenyLedger = {};
     for (const [key, entry] of fresh) kept[key] = entry;
-    writeFileSync(file, JSON.stringify(kept));
+    writeNoFollow(file, JSON.stringify(kept));
   } catch {
     /* a ledger that cannot be read cannot be pruned; the chain keeps writing it */
   }
+}
+
+/** The ledger is read and rewritten in place; a link planted at its name (a file in the
+ *  user's home) is refused (ELOOP), never read or truncated through. */
+function readNoFollow(path: string): string {
+  const descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    return readFileSync(descriptor, "utf8");
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+function writeNoFollow(path: string, text: string): void {
+  const descriptor = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o666);
+  try {
+    writeFileSync(descriptor, text);
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+/** The most receipts one automatic retention pass deletes. A repo that never ran the
+ *  gc may hold tens of thousands, and the chain call that triggers the pass must not
+ *  pay for all of them at once: while a backlog remains, the next call takes the next
+ *  batch. */
+export const RECEIPTS_GC_BATCH = 500;
+
+const DEFAULT_RECEIPTS_TTL_DAYS = 30;
+/** The shortest retention a repo can ask for: `[gc].receipts_ttl` comes from a file a
+ *  cloned repo controls, so "0d" must not mean "delete every receipt now". */
+export const MIN_RECEIPTS_TTL_DAYS = 1;
+
+/** `[gc].receipts_ttl` in days: "30d" when the key is absent or unreadable, never below
+ *  MIN_RECEIPTS_TTL_DAYS. */
+export function receiptsTtlDays(config: Config): number {
+  const days = Number(String(config["gc"]?.["receipts_ttl"] ?? `${DEFAULT_RECEIPTS_TTL_DAYS}d`).replace("d", ""));
+  if (!Number.isFinite(days)) return DEFAULT_RECEIPTS_TTL_DAYS;
+  return Math.max(MIN_RECEIPTS_TTL_DAYS, days);
+}
+
+/** The names the receipt writers produce, and the only names retention deletes:
+ *  writeReceipt's `<ISO stamp>-<event>-<8 hex>.json` (aged by that stamp) and wrap's
+ *  `<8 hex>.log` full output (aged by its mtime). */
+const RECEIPT_NAME = /^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)-[A-Za-z0-9_-]+-[0-9a-f]{8}\.json$/;
+const WRAP_LOG_NAME = /^[0-9a-f]{8}\.log$/;
+const stampOf = (ms: number): string => new Date(ms).toISOString().replace(/[:.]/g, "-");
+
+/** Fold the receipts this pass collected into summary.json. The daily series is the
+ *  gc's long-term memory and is additive — each receipt is tallied once, on the pass
+ *  that deletes it, so a day split across batches sums instead of being overwritten.
+ *  The other figures describe the receipts this pass collected; `total` is how many
+ *  receipts the store held when the pass ran. Written via rename inside the checked
+ *  folder so a reader never sees a torn file — a torn summary reads back as no prior and
+ *  loses the series — and a link planted at the name is replaced, never written through. */
+function mergeAndWriteSummary(root: string, folder: string, collected: ReceiptSummary, total: number, now: number): void {
+  const summaryPath = join(folder, "summary.json");
+  let prior: { daily?: Record<string, DailyPoint> } | null = null;
+  const snapshot = readProjectFileSnapshot(root, summaryPath, withCheckedProjectParent);
+  try {
+    if (snapshot !== null) prior = JSON.parse(snapshot.content.toString("utf8")) as { daily?: Record<string, DailyPoint> };
+  } catch {
+    /* no prior summary, or a torn one: the collected batch starts the series */
+  }
+  const summed: Record<string, DailyPoint> = {};
+  for (const [day, point] of Object.entries(collected.daily)) {
+    const before = prior?.daily?.[day];
+    summed[day] = { runs: count(before?.runs) + point.runs, denies: count(before?.denies) + point.denies };
+  }
+  const merged = { ...collected, total, daily: mergeDaily(prior?.daily, summed, 90, now), gc: new Date(now).toISOString() };
+  withCheckedProjectParent(root, summaryPath, (path) => {
+    // Not a .json name, and never a receipt stamp: no reader counts it, no sweep ages it as a receipt.
+    const staging = join(dirname(path), `.summary-${randomUUID()}.tmp`);
+    try {
+      writeFileSync(staging, JSON.stringify(merged), { flag: "wx" });
+      renameSync(staging, path);
+    } finally {
+      rmSync(staging, { force: true });
+    }
+    return true;
+  });
+}
+
+/** One gc pass over the receipts folder: how many it deleted, and whether stale
+ *  receipts were left for a later pass. */
+type ReceiptsPass = { deleted: number; hasBacklog: boolean };
+type StaleReceipt = { stamp: string; name: string };
+
+/** The listing behind a pass, taken from the checked folder: the receipts older
+ *  than `cutStamp` and how many receipts the store holds. Only names a receipt writer
+ *  produces are candidates; anything else in the folder is never aged or deleted. */
+function listStaleReceipts(root: string, folder: string, cutStamp: string): { stale: StaleReceipt[]; stored: number } | null {
+  let listing: { stale: StaleReceipt[]; stored: number } | null = null;
+  const isListed = withCheckedProjectParent(root, join(folder, "summary.json"), () => {
+    const stale: StaleReceipt[] = [];
+    let stored = 0;
+    for (const name of readdirSync(folder)) {
+      // The gc's own memory, not its trash: summary.json (the series) and denies.json
+      // (the ledger) are pruned by their contents, never swept by age.
+      if (name === "summary.json" || name === "denies.json") continue;
+      if (name.endsWith(".json")) stored += 1;
+      const named = RECEIPT_NAME.exec(name)?.[1];
+      if (named !== undefined) {
+        if (named < cutStamp) stale.push({ stamp: named, name });
+        continue;
+      }
+      if (!WRAP_LOG_NAME.test(name)) continue;
+      try {
+        const aged = stampOf(lstatSync(join(folder, name)).mtimeMs);
+        if (aged < cutStamp) stale.push({ stamp: aged, name });
+      } catch {
+        /* gone between the listing and the stat: nothing left to collect */
+      }
+    }
+    listing = { stale, stored };
+    return true;
+  });
+  return isListed ? listing : null;
+}
+
+/** The pass behind gcReceipts, over the checked folder. Its cost is bounded by the batch,
+ *  not by the store: staleness comes from the timestamp writeReceipt put in the name, so
+ *  the folder is listed once and only the receipts being deleted are stat-ed and opened
+ *  (F7: 36k opens cost 5 s, and the automatic pass runs inside a tool-use hook). Null
+ *  when the folder could not be entered as checked. */
+function collectReceipts(root: string, folder: string, ttlDays: number, maxDeletes: number | undefined, now: number): ReceiptsPass | null {
+  const listing = listStaleReceipts(root, folder, stampOf(now - ttlDays * 86_400_000));
+  if (listing === null) return null;
+  const { stale, stored } = listing;
+  stale.sort((a, b) => (a.stamp < b.stamp ? -1 : a.stamp > b.stamp ? 1 : 0));
+  const canonicalRoot = canonicalPath(root);
+  if (canonicalRoot === null) return null;
+  const limit = maxDeletes ?? stale.length;
+  const tally = emptyTally();
+  let deleted = 0;
+  let consumed = 0;
+  for (const entry of stale) {
+    if (deleted >= limit) break;
+    consumed += 1;
+    // Regular files only, opened once, read and removed through the folder re-checked before
+    // each step while still the exact file read: a link, a directory (audit run-1 F4) or a
+    // file swapped after the listing is kept. The root is resolved once per pass, not per file.
+    const content = takeCheckedProjectFile(canonicalRoot, join(folder, entry.name));
+    if (content === null) continue;
+    deleted += 1;
+    // Tallied only once the unlink succeeded, so two passes never count one receipt twice.
+    if (!entry.name.endsWith(".json")) continue;
+    try {
+      tallyReceipt(JSON.parse(content.toString("utf8")) as Receipt, tally);
+    } catch {
+      /* a torn write is data, not a crash */
+    }
+  }
+  if (deleted > 0) mergeAndWriteSummary(root, folder, summaryOf(tally), stored, now);
+  withCheckedProjectParent(root, join(folder, "denies.json"), (path) => {
+    pruneDenyLedger(path, 90, LEDGER_CAP, now);
+    return true;
+  });
+  return { deleted, hasBacklog: consumed < stale.length };
+}
+
+function canonicalPath(path: string): string | null {
+  try {
+    return realpathSync(path);
+  } catch {
+    return null;
+  }
+}
+
+/** What the gc's receipts pass did: how many receipts it deleted, and the folder it
+ *  refused to touch because it is a link or resolves outside the repo. */
+export type ReceiptsGc = { deleted: number; refused: string | null };
+
+/** The gc's receipts pass over `root`'s receipts folder. `maxDeletes` bounds one pass
+ *  (oldest first) — `doctor --gc` leaves it unbounded. Receipts carry no citation to
+ *  respect: their permanent half is the Receipt-Id trailer on the commit. */
+export function gcReceipts(root: string, ttlDays: number, options: { maxDeletes?: number; now?: number } = {}): ReceiptsGc {
+  const folder = receiptsFolder(root);
+  if (folder.kind === "absent") return { deleted: 0, refused: null };
+  if (folder.kind === "refused") return { deleted: 0, refused: folder.rel };
+  const pass = collectReceipts(root, folder.path, ttlDays, options.maxDeletes, options.now ?? Date.now());
+  return pass === null ? { deleted: 0, refused: RECEIPTS_REL } : { deleted: pass.deleted, refused: null };
+}
+
+/** Automatic retention, run by the chain after it writes its receipt: at most
+ *  RECEIPTS_GC_BATCH deletions per pass, and once the backlog is clear, at most one
+ *  pass per calendar day (UTC) per repo. A receipts folder that is not the repo's own is
+ *  skipped. It runs inside the host's process, so it never changes the working directory,
+ *  and it never throws — housekeeping must not change a verdict. */
+export function retainReceipts(root: string, now = Date.now()): { ran: boolean; deleted: number } {
+  try {
+    return runRetention(root, now);
+  } catch {
+    return { ran: false, deleted: 0 };
+  }
+}
+
+function runRetention(root: string, now: number): { ran: boolean; deleted: number } {
+  const idle = { ran: false, deleted: 0 };
+  const today = `receipts-retention-${new Date(now).toISOString().slice(0, 10)}`;
+  // The claim lives in the gitignored cache, not the receipts folder, so no reader of
+  // receipts ever sees it and the sweep can never delete it.
+  const aiDir = safeProjectPath(root, AI_DIR);
+  if (aiDir === null) return idle;
+  try {
+    mkdirSync(join(aiDir, "cache"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") return idle;
+  }
+  const cache = safeProjectPath(root, `${AI_DIR}/cache`);
+  if (cache === null) return idle;
+  const claim = join(cache, today);
+  // Exclusive create: of the parallel tool calls that open a day, exactly one runs
+  // the pass. Already claimed, or an unwritable cache — either way, skip.
+  const isClaimed = withCheckedProjectParent(root, claim, (path) => {
+    closeSync(openSync(path, "wx"));
+    return true;
+  });
+  if (!isClaimed) return idle;
+  let pass: ReceiptsPass = { deleted: 0, hasBacklog: false };
+  try {
+    const folder = receiptsFolder(root);
+    if (folder.kind === "checked") {
+      pass = collectReceipts(root, folder.path, receiptsTtlDays(loadConfig(root)), RECEIPTS_GC_BATCH, now) ?? pass;
+    }
+  } catch {
+    /* the day stays claimed: a pass that throws is not retried on every call */
+  }
+  // A backlog bigger than one batch drains over the next calls; the day is only
+  // done once a pass leaves nothing stale behind. A claim that cannot be released
+  // only delays the next batch to tomorrow.
+  let entries: string[] = [];
+  try {
+    entries = readdirSync(cache);
+  } catch {
+    /* an unreadable cache keeps its claims; the next day tries again */
+  }
+  for (const entry of entries) {
+    const isOldClaim = entry.startsWith("receipts-retention-") && entry !== today;
+    if (!isOldClaim && !(entry === today && pass.hasBacklog)) continue;
+    // The cache is re-checked before each unlink: a folder swapped for a link meanwhile is left alone.
+    withCheckedProjectParent(root, join(cache, entry), (path) => {
+      unlinkSync(path);
+      return true;
+    });
+  }
+  return { ran: true, deleted: pass.deleted };
 }

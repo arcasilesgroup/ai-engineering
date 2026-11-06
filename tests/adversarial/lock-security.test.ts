@@ -9,12 +9,15 @@
 //    FULL plan records our template hash for files install() classified as the
 //    user's, and the next update reports a false conflict while uninstall strips a
 //    file the binary never owned.
-import { test, expect } from "bun:test";
+import { test, expect, spyOn } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { existsSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import * as fs from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
+import { installMachineCarriers } from "../../src/surfaces/adapters.ts";
+import { refuseLine } from "../../src/commands/init-shared.ts";
 
 const cli = join(import.meta.dir, "..", "..", "src", "cli.ts");
 
@@ -24,6 +27,82 @@ const cli = join(import.meta.dir, "..", "..", "src", "cli.ts");
  *  what happened once, and why this constant exists. */
 function envWithHome(home: string): Record<string, string> {
   return { ...(process.env as Record<string, string>), AI_ENG_HOME: home, NO_COLOR: "1", CI: "1", AI_ENG_NO_UPDATE_NOTICES: "1" };
+}
+
+type AliasType = "symlink" | "hard-link";
+
+type MachineAlias = {
+  statePath: string;
+  settingsPath: string;
+  stateBytes: Buffer;
+  aliasType: AliasType;
+};
+
+const MACHINE_STATE_BYTES = Buffer.from('{\n  "version": "user-owned",\n  "carriers": { "opencode": "previous" }\n}\n');
+// Windows stores a relative symlink target with backslashes, whatever separator it was given.
+const MACHINE_LINK_TARGET = join("..", "machine.json");
+
+function createMachineAlias(home: string, aliasType: AliasType, stateBytes = MACHINE_STATE_BYTES): MachineAlias {
+  const statePath = join(home, "machine.json");
+  const settingsPath = join(home, ".claude", "settings.json");
+  mkdirSync(dirname(settingsPath), { recursive: true });
+  writeFileSync(statePath, stateBytes);
+  if (aliasType === "symlink") symlinkSync(MACHINE_LINK_TARGET, settingsPath);
+  else linkSync(statePath, settingsPath);
+  return { statePath, settingsPath, stateBytes, aliasType };
+}
+
+function expectMachineAliasPreserved(alias: MachineAlias): void {
+  const stateExists = existsSync(alias.statePath);
+  const settingsExists = existsSync(alias.settingsPath);
+  const settingsEntryExists = (() => {
+    try {
+      lstatSync(alias.settingsPath);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  const settingsIsSymlink = settingsEntryExists && lstatSync(alias.settingsPath).isSymbolicLink();
+  const preserved: {
+    stateExists: boolean;
+    stateBytes: Buffer | null;
+    settingsEntryExists: boolean;
+    settingsIsSymlink: boolean;
+    settingsLinkText: string | null;
+    settingsBytes: Buffer | null;
+    sharesInode: boolean;
+  } = {
+    stateExists,
+    stateBytes: stateExists ? readFileSync(alias.statePath) : null,
+    settingsEntryExists,
+    settingsIsSymlink,
+    settingsLinkText: settingsIsSymlink ? readlinkSync(alias.settingsPath) : null,
+    settingsBytes: settingsExists ? readFileSync(alias.settingsPath) : null,
+    sharesInode: stateExists && settingsEntryExists
+      ? lstatSync(alias.statePath).ino === lstatSync(alias.settingsPath).ino
+      : false,
+  };
+  expect(preserved).toEqual({
+    stateExists: true,
+    stateBytes: alias.stateBytes,
+    settingsEntryExists: true,
+    settingsIsSymlink: alias.aliasType === "symlink",
+    settingsLinkText: alias.aliasType === "symlink" ? MACHINE_LINK_TARGET : null,
+    settingsBytes: alias.aliasType === "hard-link" || settingsExists ? alias.stateBytes : null,
+    sharesInode: alias.aliasType === "hard-link",
+  });
+}
+
+function createRepo(sandbox: string, isGoverned: boolean): string {
+  const repo = join(sandbox, "repo");
+  mkdirSync(repo, { recursive: true });
+  spawnSync("git", ["init", "-q"], { cwd: repo });
+  if (isGoverned) {
+    mkdirSync(join(repo, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["opencode"]\n');
+  }
+  return repo;
 }
 
 test("uninstall refuses lock keys that escape the repo", () => {
@@ -39,8 +118,9 @@ test("uninstall refuses lock keys that escape the repo", () => {
     writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
     writeFileSync(victim, "you-are-the-victim\n");
     // The malicious lock: a quoted TOML key that escapes root, keyed with the
-    // victim's real sha256.
-    const escapeKey = relative(repo, victim);
+    // victim's real sha256. Lock keys are "/"-separated; a Windows backslash would be an
+    // invalid TOML escape and fail the parse before the sweep is ever reached.
+    const escapeKey = relative(repo, victim).split(sep).join("/");
     writeFileSync(
       join(repo, ".ai-engineering", "ai-eng.lock"),
       `version = "2.0.0"\n\n[assets]\n"${escapeKey}" = "${createHash("sha256").update(readFileSync(victim)).digest("hex")}"\n`,
@@ -57,6 +137,78 @@ test("uninstall refuses lock keys that escape the repo", () => {
     // And the sweep says why, in plain words.
     expect(run.stdout + run.stderr).toInclude("escapes this repo");
   } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+for (const aliasType of ["symlink", "hard-link"] as const) {
+  for (const operation of ["init", "update", "uninstall"] as const) {
+    test(`I76: ${operation} preserves an unselected ${aliasType} to machine.json`, () => {
+      const sandbox = mkdtempSync(join(tmpdir(), `ai-eng-i76-${operation}-${aliasType}-`));
+      const repo = createRepo(sandbox, operation !== "init");
+      const home = join(sandbox, "home");
+      const alias = createMachineAlias(home, aliasType);
+      try {
+        const args = operation === "init"
+          ? ["init", "--yes", "--surface", "opencode"]
+          : operation === "update"
+            ? ["update", "--yes"]
+            : ["uninstall"];
+        const run = spawnSync(process.execPath, [cli, ...args], {
+          cwd: repo,
+          encoding: "utf8",
+          env: envWithHome(home),
+          input: operation === "uninstall" ? "\u001b[B\ryyy" : "\r",
+        });
+        const output = run.stdout + run.stderr;
+        expect(run.status, output).toBe(0);
+        expectMachineAliasPreserved(alias);
+        expect(output).toInclude("~/.claude/settings.json");
+        expect(output).toInclude("safe machine-settings");
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
+    });
+  }
+}
+
+test("I76: an unselected settings link replaced before the machine-state commit is preserved", () => {
+  const sandbox = mkdtempSync(join(tmpdir(), "ai-eng-i76-replacement-"));
+  const repo = createRepo(sandbox, false);
+  const home = join(sandbox, "home");
+  const statePath = join(home, "machine.json");
+  const settingsPath = join(home, ".claude", "settings.json");
+  mkdirSync(dirname(settingsPath), { recursive: true });
+  writeFileSync(statePath, MACHINE_STATE_BYTES);
+  writeFileSync(settingsPath, '{"user":"keep"}\n');
+
+  const previousCwd = process.cwd();
+  const previousHome = process.env["AI_ENG_HOME"];
+  const originalWriteFileSync = fs.writeFileSync;
+  let wasReplaced = false;
+  let report: ReturnType<typeof installMachineCarriers> | undefined;
+  process.chdir(repo);
+  process.env["AI_ENG_HOME"] = home;
+  const writeSpy = spyOn(fs, "writeFileSync").mockImplementation((...args) => {
+    if (!wasReplaced && String(args[0]) !== statePath) {
+      wasReplaced = true;
+      fs.renameSync(settingsPath, `${settingsPath}.before-replacement`);
+      fs.symlinkSync(MACHINE_LINK_TARGET, settingsPath);
+    }
+    return originalWriteFileSync(...args);
+  });
+  try {
+    report = installMachineCarriers(["opencode"]);
+    expect(wasReplaced).toBe(true);
+    expect(report.refused.map(refuseLine)).toContain(
+      "⚠ ~/.claude/settings.json — safe machine-settings replacement/removal is unavailable on this platform; left untouched",
+    );
+    expectMachineAliasPreserved({ statePath, settingsPath, stateBytes: MACHINE_STATE_BYTES, aliasType: "symlink" });
+  } finally {
+    writeSpy.mockRestore();
+    process.chdir(previousCwd);
+    if (previousHome === undefined) delete process.env["AI_ENG_HOME"];
+    else process.env["AI_ENG_HOME"] = previousHome;
     rmSync(sandbox, { recursive: true, force: true });
   }
 });
@@ -78,6 +230,10 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
     const husky = "#!/bin/sh\n# husky: my own hook\nnpx lint-staged\n";
     writeFileSync(join(repo, ".git", "hooks", "pre-commit"), husky);
     writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+    const machineSettings = join(sandbox, "home", ".claude", "settings.json");
+    const machineSettingsBefore = '{\n  "user": "keep"\n}\n';
+    mkdirSync(join(sandbox, "home", ".claude"), { recursive: true });
+    writeFileSync(machineSettings, machineSettingsBefore);
     // NO lock: the recovery state. update must install what is absent and leave
     // the user's files alone — and the rebuilt lock must NOT claim them.
     const first = spawnSync(process.execPath, [cli, "update", "--yes"], {
@@ -87,14 +243,19 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
       input: "\r",
     });
     expect(first.status).toBe(0);
+    expect(existsSync(join(repo, ".ai-engineering", "overrides.toml"))).toBe(true);
+    expect(existsSync(join(repo, ".github", "workflows", "ai-eng-check.yml"))).toBe(true);
     // The user's hook is untouched, byte for byte.
     expect(readFileSync(join(repo, ".git", "hooks", "pre-commit"), "utf8")).toBe(husky);
-    // A repo settings file is not a plan entry any more: claude-code reads from the
-    // machine, so the repo copy — the user's — is not touched at all. The machine copy
-    // is where our entries go (carrier-merge.test.ts proves the merge itself).
+    // The repo settings are not a plan entry, and unsafe machine-settings mutation is
+    // refused rather than risking a write to the user's settings.
     expect(readFileSync(join(repo, ".claude", "settings.json"), "utf8")).toBe('{\n  "editor": "vim"\n}\n');
-    expect(readFileSync(join(sandbox, "home", ".claude", "settings.json"), "utf8")).toInclude("ai-eng chain PreToolUse");
+    expect(first.stdout + first.stderr).toInclude("~/.claude/settings.json");
+    expect(first.stdout + first.stderr).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
     const lock = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
+    expect(lock).toInclude('".ai-engineering/overrides.toml"');
+    expect(lock).toInclude('".github/workflows/ai-eng-check.yml"');
     // The lock must not carry the user's hook at all.
     expect(lock).not.toInclude(".git/hooks/pre-commit");
     expect(lock).not.toInclude(".claude/settings.json");
@@ -108,6 +269,7 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
     expect(second.status).toBe(0);
     expect(second.stdout + second.stderr).not.toInclude("patched by you");
     expect(readFileSync(join(repo, ".git", "hooks", "pre-commit"), "utf8")).toBe(husky);
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }

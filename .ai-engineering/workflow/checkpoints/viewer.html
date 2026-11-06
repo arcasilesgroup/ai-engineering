@@ -159,7 +159,7 @@ const MAX_TRIES = 3;
 const served = location.protocol.startsWith("http");
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-let plan = null, tests = null, lastText = "", lastTests = "", openIds = null;
+let plan = null, tests = null, lastText = "", lastTests = "", openIds = null, lastCurrentId = null;
 
 const gs = (cp, k) => { const g = cp.gates?.[k]; return !g ? "pending" : g.status === "n/a" ? "na" : g.status || "pending"; };
 const tries = (cp, k) => cp.gates?.[k]?.attempts || 0;
@@ -188,18 +188,30 @@ function render() {
   const current = cps.find((c) => c.status !== "passed");
   const done = cps.filter((c) => c.status === "passed").length;
   if (openIds === null) openIds = new Set(current ? [current.id] : []);
+  else if (current && current.id !== lastCurrentId) openIds.add(current.id);
+  lastCurrentId = current?.id ?? null;
 
   $("title").textContent = plan.feature || plan.slug || "Untitled feature";
   $("summary").textContent = plan.plain_summary || plan.summary || "";
   document.title = `${plan.feature || "Feature"} · ${done}/${cps.length}`;
 
   const b = $("banner");
-  if (plan.halted?.reason) { b.className = "banner stop"; $("bannerText").textContent = `Stopped. Needs your input: ${plan.halted.reason}`; }
+  if (plan.halted?.reason) {
+    b.className = "banner stop";
+    const message = `Stopped. Needs your input: ${plan.halted.reason}`;
+    const findings = current ? nProblems(current) : 0;
+    const linkText = findings ? `View ${findings} finding${findings === 1 ? "" : "s"}` : "View current step";
+    const link = current ? ` · <a href="#step-${esc(current.id)}" data-go="${esc(current.id)}">${linkText}</a>` : "";
+    $("bannerText").innerHTML = `${esc(message)}${link}`;
+  }
   else if (!current) { b.className = "banner done"; $("bannerText").textContent = `All ${cps.length} steps done. Ready for you to try it.`; }
   else {
     const st = stepState(current, current.id);
     b.className = "banner " + (st === "blocked" ? "stop" : "run");
-    $("bannerText").textContent = st === "blocked" ? `Step ${current.id} of ${cps.length} is stuck and needs you.` : `Step ${current.id} of ${cps.length}: ${activity(current)}`;
+    const message = st === "blocked" ? `Step ${current.id} of ${cps.length} is stuck and needs you.` : `Step ${current.id} of ${cps.length}: ${activity(current)}`;
+    const findings = nProblems(current);
+    const linkText = findings ? `View ${findings} finding${findings === 1 ? "" : "s"}` : "View current step";
+    $("bannerText").innerHTML = `${esc(message)} · <a href="#step-${esc(current.id)}" data-go="${esc(current.id)}">${linkText}</a>`;
   }
 
   $("journey").innerHTML = cps.map((cp, i) => {
@@ -251,9 +263,8 @@ function stepCard(cp, currentId) {
       ${p.why ? `<h2>Why it matters</h2><p>${esc(p.why)}</p>` : ""}
       ${p.check ? `<h2>How you can check it</h2><p>${esc(p.check)}</p>` : ""}
       ${cp.ui?.prototype ? `<h2>Design to compare with</h2><p>${served ? `<a href="../../../${esc(cp.ui.prototype)}" target="_blank" rel="noopener">Open the prototype</a>` : `<code>${esc(cp.ui.prototype)}</code>`}</p>` : ""}
-      ${problems ? `<h2>Problems being fixed</h2><p>The automatic checks found ${nProblems(cp)} ${nProblems(cp) === 1 ? "problem" : "problems"}. The agent is fixing ${nProblems(cp) === 1 ? "it" : "them"} by itself, so you don't need to do anything.</p>` : ""}
+      ${problems ? `<h2>Problems found</h2>${problems}` : ""}
       <details class="tech" data-region="tech-details"><summary>Technical details</summary>
-        ${problems ? `<h2>Problems found</h2>${problems}` : ""}
         <p><b>${esc(cp.title)}</b> · size ${esc(cp.size)}${cp.builds_on?.length ? ` · builds on step ${cp.builds_on.map(esc).join(", ")}` : ""}</p>
         ${cp.goal ? `<p>${esc(cp.goal)}</p>` : ""}
         ${cp.acceptance?.length ? `<h2>Done when</h2><ul>${cp.acceptance.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}

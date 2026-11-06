@@ -8,16 +8,27 @@
 // fail-closed boundaries (unreadable payload, crashing guard).
 
 import { describe, expect, test, afterAll, beforeEach } from "bun:test";
+import { randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runChain, TABLE, type ChainOutcome } from "../src/chain/mod.ts";
 
+const cli = join(import.meta.dir, "..", "src", "cli.ts");
 let scratch: string;
+let machineHome: string;
 let cwdBefore: string;
+const homeBefore = process.env.AI_ENG_HOME;
 beforeEach(() => {
   if (!scratch) {
     scratch = mkdtempSync(join(tmpdir(), "ai-eng-dispatch-"));
+    // The loop guard keeps its per-session window under the machine home. Left on the
+    // real one, the fixed "dispatch" session carries calls over from earlier and
+    // concurrent runs, and a third `bun test` in the window is a loop deny, not a rewrite.
+    // It sits outside the scratch repo: a home inside the repo would be ignored.
+    machineHome = mkdtempSync(join(tmpdir(), "ai-eng-dispatch-home-"));
+    process.env.AI_ENG_HOME = machineHome;
     cwdBefore = process.cwd();
     // The gate resolves the repo from the process cwd when the payload carries no
     // cwd of its own — chdir once into the scratch repo, restore in afterAll.
@@ -29,7 +40,10 @@ beforeEach(() => {
 });
 afterAll(() => {
   if (cwdBefore) process.chdir(cwdBefore);
+  if (homeBefore === undefined) delete process.env.AI_ENG_HOME;
+  else process.env.AI_ENG_HOME = homeBefore;
   if (scratch) rmSync(scratch, { recursive: true, force: true });
+  if (machineHome) rmSync(machineHome, { recursive: true, force: true });
 });
 
 const RUN = (payload: Record<string, unknown>, event = "PreToolUse"): ChainOutcome =>
@@ -39,6 +53,43 @@ const bash = (command: string, id = "u1"): Record<string, unknown> =>
 const writeTool = (path: string, id = "u1"): Record<string, unknown> =>
   ({ tool_name: "Write", tool_input: { file_path: path, content: "x" }, tool_use_id: id, session_id: "dispatch" });
 
+function stopPlan(): Record<string, unknown> {
+  const gate = (status: string, attempts: number) => ({ status, attempts, findings: [] });
+  return {
+    slug: "dispatch",
+    feature: "Dispatch",
+    summary: "Stop routing fixture",
+    lifecycle: {
+      phase: "implementation",
+      plan_approval: "approved",
+      app_review: "not-started",
+      base_ref: null,
+      reviewed_base: null,
+      reviewed_feature: null,
+    },
+    halted: null,
+    assumptions: [],
+    notes: [],
+    checkpoints: [{
+      id: 1,
+      title: "Active checkpoint",
+      goal: "Keep Stop gated",
+      tasks: [],
+      files: [],
+      acceptance: [],
+      verify: [],
+      ui: null,
+      status: "in_progress",
+      changed_files: [],
+      gates: {
+        behavior: gate("failed", 1),
+        ui: gate("pending", 0),
+        review: gate("pending", 0),
+      },
+    }],
+  };
+}
+
 describe("TABLE — the routing invariants the outcomes cannot show", () => {
   test("every matcher is anchored: a prefix of a tool name must not sneak through", () => {
     for (const rows of [TABLE.PreToolUse!, TABLE.PostToolUse!, TABLE.UserPromptSubmit!]) {
@@ -47,6 +98,18 @@ describe("TABLE — the routing invariants the outcomes cannot show", () => {
         expect(row.matcher.source.endsWith("$")).toBe(true);
       }
     }
+  });
+
+  test("checkpoint guard routes every governed tool and the Stop event", () => {
+    const preToolCheckpoint = (TABLE.PreToolUse ?? []).filter((row) => String(row.name) === "checkpoint");
+    expect(preToolCheckpoint).toHaveLength(1);
+    for (const tool of ["Write", "Edit", "MultiEdit", "Task", "Agent", "Bash"]) {
+      expect(preToolCheckpoint[0]!.matcher.test(tool)).toBe(true);
+    }
+
+    const stopCheckpoint = (TABLE["Stop"] ?? []).filter((row) => String(row.name) === "checkpoint");
+    expect(stopCheckpoint).toHaveLength(1);
+    expect(stopCheckpoint[0]!.matcher.test("")).toBe(true);
   });
 });
 
@@ -129,17 +192,20 @@ describe("runChain — routing observed through outcomes", () => {
     const outcome = RUN(bash("bun test"));
     expect(outcome.action).toBe("rewrite");
     if (outcome.action === "rewrite") {
-      expect(outcome.command).toBe("ai-eng wrap test -- bun test");
+      expect(outcome.command).toBe(`ai-eng wrap test --base64 ${Buffer.from("bun test").toString("base64url")}`);
       expect(outcome.guards).toContain("wrap");
+      expect(outcome.guards).toContain("loop");
+      expect(outcome.guards).toContain("checkpoint");
     }
   });
 
   test("a redelivered wrapped call rewrites again — a rewrite is never cached as a deny", () => {
     // Pre-fix, rememberVerdict stored wrap's deny:true shape and the second delivery
     // of the same physical call replayed it as a hard deny (audit run-1).
-    const first = RUN(bash("bun test", "u-rewrite"));
+    const wrapped = { ...bash("bun test", "u-rewrite"), session_id: `rewrite-redelivery-${randomUUID()}` };
+    const first = RUN(wrapped);
     expect(first.action).toBe("rewrite");
-    const second = RUN(bash("bun test", "u-rewrite"));
+    const second = RUN(wrapped);
     expect(second.action).toBe("rewrite");
   });
 
@@ -162,6 +228,146 @@ describe("runChain — routing observed through outcomes", () => {
     } finally {
       rmSync(bare, { recursive: true, force: true });
     }
+  });
+
+  test("a nested .git marker cannot escape a governed ancestor", () => {
+    const nested = join(scratch, "nested");
+    mkdirSync(join(nested, ".git"), { recursive: true });
+    const target = join(scratch, ".ai-engineering", "config.toml");
+    const outcome = RUN({ ...bash(`rm -f ${target}`), cwd: nested });
+    expect(outcome.action).toBe("deny");
+    if (outcome.action === "deny") expect(outcome.by).toBe("self-protect");
+    const relative = RUN({ ...bash("rm -f ../.ai-engineering/config.toml", "u-nested-relative"), cwd: nested });
+    expect(relative.action).toBe("deny");
+    const hookBypass = RUN({ ...bash("git -C .. commit --no-verify -m x", "u-nested-no-verify"), cwd: nested });
+    expect(hookBypass.action).toBe("deny");
+    // Outermost governed wins, so a config written ABOVE the repo would move the root.
+    const hijack = runChain(
+      { sessionId: `copilot-hijack-${randomUUID()}`, toolName: "create", toolArgs: { path: "../.ai-engineering/config.toml", file_text: "[surfaces]\nenabled = []\n" }, cwd: scratch },
+      "PreToolUse",
+      { inProcess: true, surface: "copilot-cli" },
+    );
+    expect(hijack.action).toBe("deny");
+  });
+
+  test("Copilot apply_patch is judged per file: governed or ambiguous denies, plain source passes", () => {
+    const run = randomUUID();
+    const copilot = (toolArgs: unknown, id: string) => runChain(
+      { sessionId: `copilot-patch-${id}-${run}`, toolName: "apply_patch", toolArgs, cwd: scratch },
+      "PreToolUse",
+      { inProcess: true, surface: "copilot-cli" },
+    );
+    const governed = copilot("*** Begin Patch\n*** Add File: notes.md\n+x\n*** Update File: src/a.ts\n*** Move to: .ai-engineering/config.toml\n*** End Patch", "governed");
+    expect(governed.action).toBe("deny");
+    if (governed.action === "deny") expect(governed.by).toBe("self-protect");
+    const ambiguous = copilot("*** Begin Patch\n*** Add File: notes.md\n+x\n*** Rename File: .ai-engineering/config.toml\n*** End Patch", "ambiguous");
+    expect(ambiguous.action).toBe("deny");
+    if (ambiguous.action === "deny") expect(ambiguous.by).toBe("chain");
+    expect(copilot({ input: "*** Begin Patch\n*** Add File: notes.md\n+x\n*** End Patch" }, "plain").action).toBe("allow");
+  });
+
+  test("Copilot camelCase Bash payloads reach the same write guard", () => {
+    const target = join(scratch, ".ai-engineering", "config.toml");
+    const outcome = runChain({
+      sessionId: "copilot-session",
+      toolName: "bash",
+      toolArgs: JSON.stringify({ command: `echo x > ${target}` }),
+      cwd: scratch,
+    }, "PreToolUse", { inProcess: true, surface: "copilot-cli" });
+    expect(outcome.action).toBe("deny");
+    if (outcome.action === "deny") expect(outcome.by).toBe("self-protect");
+  });
+
+  test("Copilot interactive write and patch tools fail closed", () => {
+    for (const toolName of ["write_bash", "apply_patch"]) {
+      const outcome = runChain({
+        sessionId: `copilot-${toolName}`,
+        toolName,
+        toolArgs: { input: "echo x > .ai-engineering/config.toml{enter}" },
+        cwd: scratch,
+      }, "PreToolUse", { inProcess: true, surface: "copilot-cli" });
+      expect(outcome.action, toolName).toBe("deny");
+      if (outcome.action === "deny") expect(outcome.by, toolName).toBe("chain");
+    }
+  });
+
+  test("a PreToolUse payload without a tool name is denied", () => {
+    const outcome = RUN({ tool_use_id: "e1", session_id: "dispatch" });
+    expect(outcome.action).toBe("deny");
+    if (outcome.action === "deny") expect(outcome.by).toBe("chain");
+  });
+});
+
+describe("Copilot deliveries — one physical call, every registration", () => {
+  // Copilot runs the chain once per registered carrier: the repo `.github/hooks` entry and
+  // the machine `preToolUse` (copilot-cli) plus `PreToolUse` (copilot) entries. The shapes
+  // below are the ones recorded in a real session's hook log.
+  const vscodeName: Record<string, string> = { bash: "Bash", view: "Read", apply_patch: "Edit" };
+  const deliver = (format: "cli" | "vscode", tool: string, args: unknown, session: string, at: number): ChainOutcome =>
+    runChain(
+      format === "cli"
+        ? { sessionId: session, timestamp: at, cwd: scratch, toolName: tool, toolArgs: args }
+        : { hook_event_name: "PreToolUse", session_id: session, timestamp: new Date(at).toISOString(), cwd: scratch, tool_name: vscodeName[tool] ?? tool, tool_input: args },
+      "PreToolUse",
+      { inProcess: true, surface: format === "cli" ? "copilot-cli" : "copilot" },
+    );
+  /** One call as the host delivers it: the same payload to all three registrations. */
+  const call = (tool: string, args: unknown, session: string, at: number): ChainOutcome[] =>
+    [deliver("cli", tool, args, session, at), deliver("cli", tool, args, session, at), deliver("vscode", tool, args, session, at)];
+  const patch = "*** Begin Patch\n*** Update File: src/a.ts\n@@\n-a\n+b\n*** End Patch";
+  const MINUTE = 60_000;
+
+  test("a first call reaching three registrations is judged once, not as three attempts", () => {
+    const run = randomUUID();
+    const calls: Array<[string, unknown]> = [
+      ["skill", { skill: "ai-explore" }],
+      ["task_complete", { summary: "Read-only repository review is complete." }],
+      ["ask_user", { message: "¿Cómo prefieres desbloquearlo?" }],
+      ["view", { path: join(scratch, "src", "a.ts") }],
+      ["bash", { command: "git --no-pager status --short --branch", description: "Check current worktree status" }],
+      ["apply_patch", patch],
+      ["codegraph-codegraph_explore", { projectPath: scratch, query: "Find runtime imports", maxFiles: 12 }],
+    ];
+    calls.forEach(([tool, args], index) => {
+      for (const outcome of call(tool, args, `first-${run}-${index}`, 1_000_000)) expect(outcome.action, tool).not.toBe("deny");
+    });
+  });
+
+  test("repeated read and control calls keep working", () => {
+    const session = `read-control-${randomUUID()}`;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const at = 2_000_000 + attempt * MINUTE;
+      for (const [tool, args] of [
+        ["view", { path: join(scratch, "src", "a.ts") }],
+        ["task_complete", { summary: "done" }],
+        ["report_intent", { intent: "Reviewing" }],
+        ["codegraph-codegraph_explore", { projectPath: scratch, query: "callers of runChain" }],
+      ] as Array<[string, unknown]>) {
+        for (const outcome of call(tool, args, session, at + 1)) expect(outcome.action, `${tool} #${attempt + 1}`).not.toBe("deny");
+      }
+    }
+  });
+
+  test("retrying the same action is still bounded", () => {
+    for (const [tool, args] of [
+      ["bash", { command: "rm -rf build", description: "Clean" }],
+      ["apply_patch", patch],
+    ] as Array<[string, unknown]>) {
+      const session = `retry-${randomUUID()}`;
+      expect(call(tool, args, session, 3_000_000).every((outcome) => outcome.action !== "deny"), tool).toBe(true);
+      expect(call(tool, args, session, 3_000_000 + MINUTE).every((outcome) => outcome.action !== "deny"), tool).toBe(true);
+      const third = call(tool, args, session, 3_000_000 + 2 * MINUTE);
+      expect(third.some((outcome) => outcome.action === "deny" && outcome.by === "loop"), tool).toBe(true);
+    }
+  });
+
+  test("unknown MCP tools and ambiguous patches still deny, and say why", () => {
+    const run = randomUUID();
+    const unknown = deliver("cli", "github-mcp-server-create_pull_request", { title: "x" }, `mcp-${run}`, 4_000_000);
+    expect(unknown.action).toBe("deny");
+    if (unknown.action === "deny") expect(unknown.reason).toContain("github-mcp-server-create_pull_request");
+    const ambiguous = deliver("cli", "apply_patch", "*** Begin Patch\n***Update File: .ai-engineering/config.toml\n*** End Patch", `amb-${run}`, 4_000_000);
+    expect(ambiguous.action).toBe("deny");
   });
 });
 
@@ -189,12 +395,6 @@ describe("runChain — fail-closed boundaries", () => {
     const outcome = runChain(hostile as unknown as Record<string, unknown>, "PreToolUse", { inProcess: true });
     expect(outcome.action).toBe("deny");
     if (outcome.action === "deny") expect(outcome.reason).toBe("BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.");
-  });
-
-  test("a missing tool_name normalises to empty and still routes loop", () => {
-    const outcome = RUN({ tool_use_id: "e1", session_id: "dispatch" });
-    expect(outcome.action).toBe("allow");
-    if (outcome.action === "allow") expect(outcome.guards).toEqual(["loop"]);
   });
 
   test("a deny carries a receipt id; the receipt lands under .ai-engineering/receipts", () => {
@@ -296,5 +496,69 @@ describe("runChain — overrides and context", () => {
       rmSync(other, { recursive: true, force: true });
       void governed;
     }
+  });
+});
+
+describe("Stop — the checkpoint guard reaches the harness event envelope", () => {
+  test("an open checkpoint is denied with a Codex Stop envelope", () => {
+    const emptyGitConfig = join(scratch, "empty-gitconfig");
+    writeFileSync(emptyGitConfig, "");
+    const gitEnv = {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: emptyGitConfig,
+      GIT_CONFIG_SYSTEM: emptyGitConfig,
+      GIT_TERMINAL_PROMPT: "0",
+    };
+    const git = (args: string[]) => {
+      const result = spawnSync("git", args, { cwd: scratch, encoding: "utf8", env: gitEnv });
+      if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+    };
+    git(["init", "-q", "-b", "main"]);
+    git(["config", "user.name", "Chain Dispatch Test"]);
+    git(["config", "user.email", "chain-dispatch@example.invalid"]);
+    writeFileSync(join(scratch, "base.txt"), "base\n");
+    git(["add", "base.txt"]);
+    git(["commit", "-q", "-m", "base"]);
+
+    const planPath = join(scratch, ".ai-engineering", "workflow", "checkpoints", "dispatch.json");
+    mkdirSync(join(scratch, ".ai-engineering", "workflow", "checkpoints"), { recursive: true });
+    writeFileSync(planPath, JSON.stringify(stopPlan()));
+    const transcriptPath = join(scratch, "transcript.jsonl");
+    writeFileSync(
+      transcriptPath,
+      '{"name":"Skill","input":{"skill":"ai-orchestrator"}} read .ai-engineering/workflow/checkpoints/dispatch.json\n',
+    );
+    expect(readFileSync(planPath, "utf8")).toContain('"status":"failed"');
+    expect(readFileSync(transcriptPath, "utf8")).toContain(".ai-engineering/workflow/checkpoints/dispatch.json");
+
+    const result = spawnSync(
+      process.execPath,
+      [cli, "chain", "Stop", "--surface", "codex"],
+      {
+        cwd: scratch,
+        encoding: "utf8",
+        env: {
+          ...gitEnv,
+          AI_ENG_HOME: join(scratch, "ai-eng-home"),
+          AI_ENG_NO_UPDATE_NOTICES: "1",
+        },
+        input: JSON.stringify({
+          hook_event_name: "Stop",
+          session_id: "dispatch-stop-envelope",
+          transcript_path: transcriptPath,
+          cwd: scratch,
+        }),
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).not.toBe("");
+    expect(JSON.parse(result.stdout)).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "Stop",
+        permissionDecision: "deny",
+        permissionDecisionReason: expect.stringContaining("checkpoint"),
+      },
+    });
   });
 });

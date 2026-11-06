@@ -12,12 +12,11 @@ import { PassThrough } from "node:stream";
 import { join } from "node:path";
 import { select, multiselect, isCancel } from "@clack/prompts";
 import { scriptedInput } from "../ui.ts";
-import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, rememberTemplateDir, type Surface } from "../surfaces/adapters.ts";
-import { installTemplateDir } from "../floor/template.ts";
+import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, type Surface } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
-import { canonDrift, type CanonDrift } from "../embed.ts";
+import { canonDrift, changedCanonSkills, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
+import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { VERSION } from "../version.ts";
@@ -165,7 +164,8 @@ async function installCanonOrReport(
         return 0;
       }
     }
-    const canonLines = installCanon(VERSION).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
+    const preservedSkills = canon.drift > 0 ? changedCanonSkills(home()) : [];
+    const canonLines = installCanon(VERSION, preservedSkills).map((line) => installLineRow(line));
     if (reinstalling) {
       ui.section("global canon outdated or incomplete — re-installing", canonLines, canonSummary(canon));
     } else {
@@ -328,7 +328,6 @@ async function scaffoldAndCarriers(
   if (keptExisting) lines.unshift("· AGENTS.md — yours, untouched");
   sp.stop();
   await installCarriers(flags, picked, machineAgreed, confirmWithInput, lines);
-  await installTemplate(machineAgreed, confirmWithInput, lines);
   return lines;
 }
 
@@ -361,27 +360,6 @@ async function installCarriers(
       for (const path of report.written) lines.push(`✓ ${path} — machine carrier`);
       for (const path of report.untouched) lines.push(`· ${path} — machine carrier already current`);
       for (const refused of report.refused) lines.push(refuseLine(refused));
-    }
-  }
-}
-
-/** Write the git floor into the global init.templateDir, so new clones are born with it. */
-async function installTemplate(
-  machineAgreed: boolean,
-  confirmWithInput: ConfirmInput,
-  lines: string[],
-): Promise<void> {
-  // The git floor's second life, and it is the REPO's floor, not the carriers': a repo
-  // whose surfaces all read from the checkout still deserves clones born with the shims,
-  // instead of a CI step rebuilding them after the fact (§13.2). It rides the same
-  // machine-side permission as everything else that writes outside the repo.
-  if (machineAgreed || (await confirmWithInput("Write the git floor into your global init.templateDir, so new clones are born with it?", true)) === true) {
-    const template = installTemplateDir();
-    if (template.status !== "failed") {
-      rememberTemplateDir(template.previous, template.ours);
-      lines.push(`✓ ${template.line}`);
-    } else {
-      lines.push(`⚠ ${template.line}`);
     }
   }
 }
@@ -432,23 +410,6 @@ async function resolvePhase(
   return { machineAgreed, picked: pickedResult };
 }
 
-/** Commit the contract and close the verb. */
-function commitContract(cwd: string): number {
-  // The first commit of the contract: the lockfile and the Receipt-Id trailer get
-  // their baseline from second zero (§08).
-  let commitLine = "contract commit pending (do it yourself with git)";
-  try {
-    execFileSync("git", ["add", "-A"], { cwd });
-    execFileSync("git", ["commit", "-q", "-m", `chore(ai-eng): install governance ${VERSION}`, "--no-verify", "--no-gpg-sign"], { cwd });
-    commitLine = `chore(ai-eng): install governance ${VERSION}`;
-  } catch {
-    /* nothing staged or git refused — the pending note stands */
-  }
-  ui.section("Governance installed", [{ mark: "ok", text: `commit: ${commitLine}`, dim: "git revert is the rollback" }]);
-  ui.end("Three steps I can't do for you: 1. Trust the workspace in your surface (without trust, hooks do not run) · 2. ai-eng doctor — verify the chain responds · 3. Open the IDE and load /ai-config-to-project — adapt this project's rules");
-  return 0;
-}
-
 export async function initMain(flags: { yes?: boolean; global?: boolean; surface?: string[] }): Promise<number> {
   const input = scriptedInput();
   const confirmWithInput: ConfirmInput = (message, initial) => ui.confirmDefault(message, initial, input as never);
@@ -459,5 +420,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   if (typeof resolved === "number") return resolved;
   const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.machineAgreed, confirmWithInput);
   renderSections(cwd, resolved.picked, lines);
-  return commitContract(cwd);
+  ui.section("Governance installed", [{ mark: "ok", text: "Changes are waiting for your review; nothing was committed." }]);
+  ui.end("Three steps I can't do for you: 1. Trust the workspace in your surface (without trust, hooks do not run) · 2. ai-eng doctor — verify the chain responds · 3. Open the IDE and load /ai-config-to-project — adapt this project's rules");
+  return 0;
 }

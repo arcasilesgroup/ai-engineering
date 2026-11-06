@@ -19,20 +19,22 @@
     "THIRD-PARTY-NOTICES.md",
     "CHANGELOG.md"
   ],
-  "packageManager": "bun@1.4.2",
+  "packageManager": "bun@1.4.4",
   "repository": {
     "type": "git",
     "url": "https://github.com/arcasilesgroup/ai-engineering.git"
   },
   "engines": {
-    "bun": ">=1.4.0"
+    "bun": ">=1.4.4"
   },
   "scripts": {
     "build": "bun scripts/build.ts",
     "test": "bun test",
-    "lint": "oxlint src tests",
-    "typecheck": "oxlint --type-aware --type-check src tests",
+    "lint": "oxlint src tests --ignore-pattern 'tests/fixtures/verify-tiers/evals/**'",
+    "typecheck": "oxlint --type-aware --type-check src tests --ignore-pattern 'tests/fixtures/verify-tiers/evals/**'",
     "arch": "bun test tests/arch.spec.ts",
+    "bench": "bun scripts/bench-chain.ts",
+    "tokens": "bun scripts/tokens.ts",
     "mutation": "stryker run",
     "changeset": "changeset"
   },
@@ -51,6 +53,9 @@
   },
   "overrides": {
     "smol-toml": "1.7.2",
-    "brace-expansion": "5.0.12"
+    "brace-expansion": "5.0.12",
+    "launch-editor": "2.14.2",
+    "shell-quote": "1.12.0",
+    "zod": "4.6.7"
   }
 }

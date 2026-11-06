@@ -8,6 +8,7 @@ import { describe, expect, test, afterAll, spyOn } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runChain } from "../src/chain/mod.ts";
 import { deny, allowRewrite, allow, readOverrides, overrideDaysLeft, overrideActive } from "../src/chain/dialect.ts";
 
 class ExitSignal extends Error {
@@ -54,6 +55,13 @@ function repoWithOverrides(toml: string): string {
   writeFileSync(join(root, ".ai-engineering", "overrides.toml"), toml);
   return root;
 }
+
+function governedRepo(): string {
+  const root = repoWithOverrides("");
+  writeFileSync(join(root, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+  return root;
+}
+
 afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
@@ -97,6 +105,81 @@ describe("deny — one envelope per host, chosen by what that host's validator r
     const { stderr } = envelope(() => deny("loop", "the same call five times", "claude"));
     expect(stderr).toContain("[[guard.off]] with reason + until");
   });
+});
+
+describe("CP5 U30 — deny and Stop envelopes", () => {
+  const stopReason = "[ai-eng] checkpoint: CP3 cannot pass: review is pending. Next: run the CP3 review.";
+  const externalDenials = [
+    ["Claude PreToolUse exits 2", "claude", "PreToolUse", 2, {
+      permission: "deny",
+      continue: false,
+      user_message: stopReason,
+      userMessage: stopReason,
+      stop_reason: stopReason,
+      stopReason,
+    }],
+    ["Claude Stop exits 2", "claude", "Stop", 2, {
+      permission: "deny",
+      continue: false,
+      user_message: stopReason,
+      userMessage: stopReason,
+      stop_reason: stopReason,
+      stopReason,
+    }],
+    ["Cursor Shell/Bash denial is permission JSON with exit 0", "cursor", "PreToolUse", 0, {
+      permission: "deny",
+      user_message: stopReason,
+      agent_message: stopReason,
+    }],
+    ["Cursor Stop returns a follow-up message with exit 0", "cursor", "Stop", 0, {
+      followup_message: stopReason,
+    }],
+    ["Codex Stop is hookSpecificOutput JSON with exit 0", "codex", "Stop", 0, {
+      hookSpecificOutput: {
+        hookEventName: "Stop",
+        permissionDecision: "deny",
+        permissionDecisionReason: stopReason,
+      },
+    }],
+    ["Copilot CLI denial is permissionDecision JSON with exit 0", "copilot", "PreToolUse", 0, {
+      permissionDecision: "deny",
+      permissionDecisionReason: stopReason,
+    }],
+  ] as const;
+
+  test.each(externalDenials)("%s", (_name, dialect, event, expectedCode, expectedJson) => {
+    const result = envelope(() => deny("checkpoint", stopReason.slice("[ai-eng] checkpoint: ".length), dialect, event));
+    expect(result.code).toBe(expectedCode);
+    expect(result.json).toEqual(expectedJson);
+    expect(result.stderr).toContain(stopReason);
+  });
+
+  test.each(["pi", "opencode", "oh-my-pi"])("%s returns an in-process denial without a stdout envelope", (surface) => {
+    const root = governedRepo();
+    const output: string[] = [];
+    const outSpy = spyOn(process.stdout, "write").mockImplementation(((chunk: string) => {
+      output.push(String(chunk));
+      return true;
+    }) as never);
+    try {
+      const outcome = runChain(
+        {
+          cwd: root,
+          tool_name: "Bash",
+          tool_input: { command: "git commit --no-verify -m blocked" },
+          session_id: `checkpoint-envelope-${surface}`,
+        },
+        "PreToolUse",
+        { surface, inProcess: true },
+      );
+      expect(outcome.action).toBe("deny");
+      if (outcome.action === "deny") expect(outcome.by).toBe("no-verify");
+      expect(output).toEqual([]);
+    } finally {
+      outSpy.mockRestore();
+    }
+  });
+
 });
 
 describe("allowRewrite — the rewrite reaches the host in the field that host reads", () => {
@@ -150,7 +233,9 @@ describe("allow — silence, except where an empty stdout is a policy error", ()
 describe("the override switch (the only mechanism that turns a guard off)", () => {
   test("a repo with no overrides file has no overrides, and neither does no repo at all", () => {
     expect(readOverrides(null)).toEqual([]);
-    expect(readOverrides(mkdtempSync(join(tmpdir(), "ai-eng-bare-")))).toEqual([]);
+    const bare = mkdtempSync(join(tmpdir(), "ai-eng-bare-"));
+    roots.push(bare);
+    expect(readOverrides(bare)).toEqual([]);
   });
 
   test("[[guard.off]] nests as a dotted key — the literal is dead config and must read as empty", () => {

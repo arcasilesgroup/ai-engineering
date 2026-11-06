@@ -2,12 +2,14 @@
 // guard rewrites; this proves the rewrite is worth making: failures survive,
 // noise dies, counts are true, and the receipt id rides the trace line.
 
-import { beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import * as childProcess from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { detectRunner, paint, paintVitestJson, countSummary } from "../src/wrap/paint.ts";
 import { wrapMain } from "../src/wrap/index.ts";
+import { rewrite } from "../src/guards/wrap.ts";
 
 describe("wrap · detectRunner", () => {
   test("names the runner from the command", () => {
@@ -142,33 +144,149 @@ test("checkout page loads", () => { expect("x").toBe("Total") });
 `,
     );
   });
-  test("filters a real bun run: noise gone, counts true, receipt line present", () => {
-    const prevCwd = process.cwd();
-    const prevHome = process.env.AI_ENG_HOME;
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  function runWrap(command: string): { status: number; out: string } {
+    const previousCwd = process.cwd();
+    const previousHome = process.env.AI_ENG_HOME;
     process.chdir(dir);
     process.env.AI_ENG_HOME = home;
-    const lines: string[] = [];
+    const chunks: string[] = [];
     const write = process.stdout.write.bind(process.stdout);
     process.stdout.write = ((chunk: string | Uint8Array) => {
-      lines.push(String(chunk));
+      chunks.push(String(chunk));
       return true;
     }) as typeof process.stdout.write;
-    let status: number;
     try {
-      status = wrapMain(["test", "--", "bun test"]);
+      const status = wrapMain(["test", "--base64", Buffer.from(command).toString("base64url")]);
+      return { status, out: chunks.join("") };
     } finally {
       process.stdout.write = write;
-      process.chdir(prevCwd);
-      if (prevHome === undefined) delete process.env.AI_ENG_HOME;
-      else process.env.AI_ENG_HOME = prevHome;
+      process.chdir(previousCwd);
+      if (previousHome === undefined) delete process.env.AI_ENG_HOME;
+      else process.env.AI_ENG_HOME = previousHome;
     }
-    const out = lines.join("");
+  }
+
+  function expectReceiptLog(out: string, stdout: string): void {
+    const lastLine = out.trimEnd().split("\n").at(-1) ?? "";
+    const receiptPath = /(?:^|\s)(\.ai-engineering\/receipts\/[^/\s]+\.log)$/.exec(lastLine)?.[1];
+    expect(receiptPath).toBeDefined();
+    if (receiptPath === undefined) return;
+    expect(readFileSync(join(dir, receiptPath))).toEqual(Buffer.from(stdout));
+  }
+
+  test("filters a real bun run: noise gone, counts true, receipt line present", () => {
+    const { status, out } = runWrap("bun test");
     expect(status).toBe(1); // the failing run keeps its exit code
     expect(out).toContain("× checkout page loads");
     expect(out).not.toContain("a passes");
     expect(out).toContain("2 passed · 1 failed");
     expect(out).toMatch(/\[ai-eng\] wrap: bun · salida filtrada · receipt [0-9a-f]{8}\n/);
   });
+  test("saves byte-exact stdout, prints its path last, filters passes, and preserves non-zero status", () => {
+    const stdout = "passing output\nFAIL visible failure\n";
+    // The trailing comment names a runner: the wrapper only runs test-shaped commands.
+    const { status, out } = runWrap("printf 'passing output\\nFAIL visible failure\\n'; exit 7 # npm test");
+    expect(status).toBe(7);
+    expect(out).toContain("FAIL visible failure");
+    expect(out).not.toContain("passing output");
+    expectReceiptLog(out, stdout);
+  });
+  test("preserves zero status and still saves the full output", () => {
+    const stdout = "clean run noise\n";
+    const { status, out } = runWrap("printf 'clean run noise\\n' # npm test");
+    expect(status).toBe(0);
+    expect(out).not.toContain("clean run noise");
+    expectReceiptLog(out, stdout);
+  });
+
+  test("an encoded rewrite preserves quoted shell text without evaluating it", () => {
+    const marker = join(dir, "quoted-shell-payload");
+    const redirected = join(dir, "quoted-redirect-target");
+    const command = `printf '%s\\n' '$(touch ${marker})' '>' '${redirected}' # npm test`;
+    const rewritten = rewrite(command);
+    expect(rewritten).toBe(`ai-eng wrap test --base64 ${Buffer.from(command).toString("base64url")}`);
+    expect(runWrap(command).status).toBe(0);
+    expect(existsSync(marker)).toBe(false);
+    expect(existsSync(redirected)).toBe(false);
+  });
+
+  test("the wrapper runs only test commands the guards allow from where it runs", () => {
+    const marker = join(dir, "trampoline");
+    const config = join(dir, ".ai-engineering", "config.toml");
+    const error = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (() => true) as typeof process.stderr.write;
+    try {
+      expect(runWrap(`touch ${marker}`).status).toBe(2);
+      expect(runWrap(`npm test; rm -f ${config}`).status).toBe(2);
+      expect(runWrap("npm test; git commit --no-verify -m x").status).toBe(2);
+      // Outside a governed repo the chain never rewrote anything: the wrapper refuses.
+      const outside = mkdtempSync(join(tmpdir(), "wrap-ungoverned-"));
+      const previousCwd = process.cwd();
+      process.chdir(outside);
+      try {
+        expect(wrapMain(["test", "--base64", Buffer.from(`npm test; rm -f ${config}`).toString("base64url")])).toBe(2);
+      } finally {
+        process.chdir(previousCwd);
+        rmSync(outside, { recursive: true, force: true });
+      }
+    } finally {
+      process.stderr.write = error;
+    }
+    expect(existsSync(marker)).toBe(false);
+    expect(existsSync(config)).toBe(true);
+  });
+
+  test("a shell that cannot start is named and exits 127, never painted as a run", () => {
+    const missing = Object.assign(new Error("spawnSync sh ENOENT"), { code: "ENOENT" });
+    const spawn = spyOn(childProcess, "spawnSync").mockReturnValue({
+      pid: 0, output: [], stdout: "", stderr: "", status: null, signal: null, error: missing,
+    } as never);
+    const errors: string[] = [];
+    const error = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string) => (errors.push(String(chunk)), true)) as typeof process.stderr.write;
+    try {
+      const { status, out } = runWrap("npm test");
+      expect({ status, out }).toEqual({ status: 127, out: "" });
+    } finally {
+      process.stderr.write = error;
+      spawn.mockRestore();
+    }
+    const shell = process.platform === "win32" ? "sh" : "/bin/sh";
+    expect(errors.join("")).toBe(`ai-eng wrap: could not start ${shell}: spawnSync sh ENOENT\n`);
+  });
+
+  test("a run that overflows the output buffer is still reported: captured failures, receipt, log, nonzero", () => {
+    // Over ~1 MiB Bun stops the child with ENOBUFS and a pid: the command ran, so what it
+    // printed before the cut is the evidence, not a "could not start".
+    const firstLine = "FAIL visible failure\n";
+    const { status, out } = runWrap(`printf '${firstLine.trimEnd()}\\n'; printf '%2000000s' x; exit 3 # npm test`);
+    expect(status).toBe(1);
+    expect(out).toContain("FAIL visible failure");
+    expect(out).toMatch(/\[ai-eng\] wrap: generic · salida filtrada · receipt [0-9a-f]{8}\n/);
+    const logPath = /full output: (\.ai-engineering\/receipts\/[^/\s]+\.log)\n$/.exec(out)?.[1];
+    expect(logPath).toBeDefined();
+    const saved = readFileSync(join(dir, logPath ?? "missing"), "utf8");
+    expect(saved.startsWith(`${firstLine} `)).toBe(true);
+    expect(saved.length).toBeGreaterThanOrEqual(1024 * 1024);
+  });
+
+  test("legacy raw wrapper arguments are refused", () => {
+    const marker = join(dir, "legacy-raw-command");
+    const error = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (() => true) as typeof process.stderr.write;
+    try {
+      expect(wrapMain(["test", "--", `touch ${marker}`])).toBe(2);
+    } finally {
+      process.stderr.write = error;
+    }
+    expect(existsSync(marker)).toBe(false);
+  });
+
   test("usage error without a command", () => {
     const err = process.stderr.write.bind(process.stderr);
     process.stderr.write = (() => true) as typeof process.stderr.write;

@@ -160,8 +160,8 @@ describe("classification — build tools and control structures", () => {
 
 describe("mode handling — fail-closed like the original", () => {
   test("normalizeMode: default when silent, 0000 when invalid", () => {
-    expect(normalizeMode(undefined, DEFAULT_MODE)).toBe("0467");
-    expect(normalizeMode("", DEFAULT_MODE)).toBe("0467");
+    expect(normalizeMode(undefined, DEFAULT_MODE)).toBe("4667");
+    expect(normalizeMode("", DEFAULT_MODE)).toBe("4667");
     expect(normalizeMode("0767", DEFAULT_MODE)).toBe("0767");
     for (const invalid of ["bad1", "046", "04670", "0487", " 0467", "0467 "]) {
       expect(normalizeMode(invalid, DEFAULT_MODE)).toBe("0000");
@@ -184,15 +184,15 @@ describe("mode handling — fail-closed like the original", () => {
 });
 
 describe("policyModeFor — the config knob", () => {
-  test("defaults to 0467 when config is silent, honours an explicit value, 0000 on garbage", () => {
-    expect(policyModeFor(null)).toBe("0467");
+  test("defaults to 4667 when config is silent, honours an explicit value, 0000 on garbage", () => {
+    expect(policyModeFor(null)).toBe("4667");
     const repo = mkdtempSync(join(tmpdir(), "ai-eng-policy-cfg-"));
     try {
       const ai = join(repo, ".ai-engineering");
       mkdirSync(ai, { recursive: true });
       const config = join(ai, "config.toml");
       writeFileSync(config, '[surfaces]\nenabled = ["claude-code"]\n');
-      expect(policyModeFor(repo)).toBe("0467");
+      expect(policyModeFor(repo)).toBe("4667");
       writeFileSync(config, '[guards]\npolicy_mode = "0444"\n');
       expect(policyModeFor(repo)).toBe("0444");
       writeFileSync(config, '[guards]\npolicy_mode = "open"\n');
@@ -238,23 +238,23 @@ describe("the chain — one row in TABLE, deny and allow through runChain", () =
     expect(rows.indexOf("policy")).toBeLessThan(rows.indexOf("wrap"));
   });
 
-  test("default mode 0467: workspace and network pass, system and secrets do not", () => {
+  test("default mode 4667: workspace, network, external and system reads pass; system writes and execution do not", () => {
     expect(RUN("ls", "p1").action).toBe("allow");
     // Not `bun test` — that one is rewritten by the wrap guard, not judged here.
     expect(RUN("node script.js", "p2").action).toBe("allow");
     expect(RUN("curl https://example.com", "p3").action).toBe("allow");
     expect(RUN("git push", "p4").action).toBe("allow");
-    const denied = RUN("cat /etc/hosts", "p5");
+    expect(RUN("cat /etc/hosts", "p5").action).toBe("allow");
+    expect(RUN("echo hi > ~/note.txt", "p10").action).toBe("allow");
+    expect(RUN("rm -rf /*", "p6").action).toBe("deny");
+    const denied = RUN("sudo echo blocked", "p8");
     expect(denied.action).toBe("deny");
     if (denied.action === "deny") {
       expect(denied.by).toBe("policy");
-      expect(denied.reason).toContain("4000");
+      expect(denied.reason).toContain("allows 4667");
     }
-    expect(RUN("rm -rf /*", "p6").action).toBe("deny");
     expect(RUN("dd if=image of=/dev/disk1", "p7").action).toBe("deny");
-    expect(RUN("sudo echo blocked", "p8").action).toBe("deny");
-    expect(RUN("cat ~/.ssh/id_rsa", "p9").action).toBe("deny");
-    expect(RUN("echo hi > ~/note.txt", "p10").action).toBe("deny");
+    expect(RUN("echo x > /etc/hosts", "p9").action).toBe("deny");
   });
 
   test("an invalid policy_mode in config fails closed as 0000", () => {

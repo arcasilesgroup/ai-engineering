@@ -15,12 +15,14 @@
 // tmpdir must be gone after every preCommit call that materialised blobs.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
 import { floor } from "../src/floor/entry.ts";
+import { resolveContext } from "../src/git/context.ts";
+import { compileGitleaksShim, pathWithOnlyGit, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
 
 const SECRET = "AKIAIOSFODNN7EXAMPLE";
 const roots: string[] = [];
@@ -29,12 +31,16 @@ const PATH_BEFORE = process.env.PATH ?? "";
 const CWD_BEFORE = process.cwd();
 const GIT_CONFIG_GLOBAL_BEFORE = process.env.GIT_CONFIG_GLOBAL;
 
+let shimDir = "";
+
 beforeAll(() => {
   process.env.AI_ENG_HOME = mkdtempSync(join(tmpdir(), "ai-eng-floor-gates-home-"));
+  shimDir = compileGitleaksShim();
 });
 afterAll(() => {
   if (HOME_BEFORE === undefined) delete process.env.AI_ENG_HOME;
   else process.env.AI_ENG_HOME = HOME_BEFORE;
+  if (shimDir) rmSync(shimDir, { recursive: true, force: true });
 });
 afterEach(() => {
   process.chdir(CWD_BEFORE);
@@ -69,6 +75,33 @@ function tempRepo(governed: boolean): string {
   return dir;
 }
 
+function pushBaseFixture(base: "develop" | "main"): { repo: string; branch: string; sha: string } {
+  const repo = tempRepo(true);
+  const branch = "feature/push-protection";
+  run("git", repo, ["checkout", "-b", branch]);
+  write(repo, "fixture.txt", "fixture\n");
+  run("git", repo, ["add", "fixture.txt"]);
+  run("git", repo, ["commit", "-q", "-m", "test: create push fixture"]);
+  const sha = run("git", repo, ["rev-parse", "HEAD"]).stdout.trim();
+  expect(sha).toMatch(/^[a-f0-9]{40}$/);
+
+  for (const name of ["develop", "main"]) run("git", repo, ["branch", name, sha]);
+  write(
+    repo,
+    ".ai-engineering/config.toml",
+    `[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "${base}"\n`,
+  );
+
+  const context = resolveContext(repo);
+  expect(context).toMatchObject({ branch, base, baseSource: "config", baseRemote: null });
+  expect(run("git", repo, ["symbolic-ref", "--quiet", "HEAD"]).stdout.trim()).toBe(`refs/heads/${branch}`);
+  expect(run("git", repo, ["remote"]).stdout.trim()).toBe("");
+  for (const name of ["develop", "main"]) {
+    expect(run("git", repo, ["show-ref", "--verify", "--hash", `refs/heads/${name}`]).stdout.trim()).toBe(sha);
+  }
+  return { repo, branch, sha };
+}
+
 function write(root: string, name: string, content: string): string {
   const path = join(root, name);
   mkdirSync(dirname(path), { recursive: true });
@@ -76,16 +109,19 @@ function write(root: string, name: string, content: string): string {
   return path;
 }
 
+/** Declares `[git] base` so pre-push, which denies when no base resolves, reaches the scan. */
+function declareBase(root: string): void {
+  write(root, ".ai-engineering/config.toml", '[surfaces]\nenabled = ["claude-code"]\n\n[git]\nbase = "main"\n');
+}
+
 function stage(root: string, files: Record<string, string>): void {
   for (const [name, content] of Object.entries(files)) write(root, name, content);
   run("git", root, ["add", ...Object.keys(files)]);
 }
 
-/** Path with git symlinked and nothing else: proves the "gitleaks missing" HARD FAIL. */
+/** Path with git and no gitleaks: proves the "gitleaks missing" HARD FAIL. */
 function pathWithoutGitleaks(): void {
-  const dir = tempDir("ai-eng-gates-gitonly-");
-  symlinkSync(execFileSync("which", ["git"], { encoding: "utf8" }).trim(), join(dir, "git"));
-  process.env.PATH = dir;
+  process.env.PATH = pathWithOnlyGit();
 }
 
 function captureStderr(): { text: () => string; restore: () => void } {
@@ -106,30 +142,8 @@ function stagedScratchCount(): number {
 /** The argv-strict gitleaks shim. The floor's argument contract, executable:
  *  `version` probe and the two scan shapes must arrive byte-exact or the shim
  *  exits 42 with BADECHO on stderr (so an unexpected run is visible in lines). */
-function installStrictShim(opts: { scanExit: number; scanOut?: string; versionExit?: number }): string {
-  const dir = tempDir("ai-eng-gates-bin-");
-  const shim = join(dir, "gitleaks");
-  const out = JSON.stringify(opts.scanOut ?? "");
-  writeFileSync(
-    shim,
-    [
-      "#!/bin/sh",
-      'if [ "$1" = "version" ]; then',
-      `  echo "8.18.0"; exit ${opts.versionExit ?? 0};`,
-      "fi",
-      'if [ "$1" = "dir" ] && [ "$2" = "--redact" ] && [ "$3" = "--no-banner" ] && [ "$4" = "--exit-code" ] && [ "$5" = "1" ] && [ -d "$6" ]; then',
-      `  printf '%b' ${out}; exit ${opts.scanExit};`,
-      "fi",
-      'if [ "$1" = "git" ] && [ "$2" = "--redact" ] && [ "$3" = "-v" ]; then',
-      `  printf '%b' ${out}; exit ${opts.scanExit};`,
-      "fi",
-      'echo "BADECHO: $*" >&2; exit 42;',
-      "",
-    ].join("\n"),
-  );
-  execFileSync("chmod", ["0755", shim]);
-  process.env.PATH = `${dir}:${PATH_BEFORE}`;
-  return dir;
+function installStrictShim(opts: { scanExit: number; scanOut?: string; versionExit?: number }): void {
+  useGitleaksShim(shimDir, { mode: "strict", ...opts }, PATH_BEFORE);
 }
 
 
@@ -145,14 +159,15 @@ function stagedBlobErrorOut(): string {
 }
 
 describe("floor gates — git() plumbing and the diff --check branch", () => {
-  test("a git failure outside any repository surfaces git's stderr bytes verbatim, trimmed", () => {
+  test("a git failure outside any repository preserves stderr content across line normalization", () => {
     const nowhere = tempDir("ai-eng-gates-nowhere-");
     const result = preCommit(nowhere);
     const done = spawnSync("git", ["diff", "--cached", "--check"], { cwd: nowhere, encoding: "utf8" });
     expect(done.status).not.toBe(0);
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toBe("diff --check found whitespace problems:");
-    expect(result.lines[1]).toBe((done.stderr ?? "").trim());
+    const normalize = (text: string) => text.replace(/\s*\|\s*/g, " ").replace(/\s+/g, " ").trim();
+    expect(normalize(result.lines[1] ?? "")).toBe(normalize(done.stderr ?? ""));
     expect(result.lines[1]!.length).toBeGreaterThan(0);
   });
 
@@ -167,6 +182,7 @@ describe("floor gates — git() plumbing and the diff --check branch", () => {
 describe("floor gates — whichGitleaks missing is a HARD FAIL", () => {
   test("preCommit without gitleaks refuses with the install hint, prePush likewise", () => {
     const repo = tempRepo(true);
+    declareBase(repo);
     stage(repo, { "clean.txt": "clean\n" });
     pathWithoutGitleaks();
     const commit = preCommit(repo);
@@ -322,6 +338,7 @@ describe("floor gates — the staged-secret scan contract", () => {
 
   test("a pre-push scan must arrive as `git --redact -v`, truncated to 2000 chars on failure", () => {
     const repo = tempRepo(true);
+    declareBase(repo);
     installStrictShim({ scanExit: 0 });
     write(repo, "app.ts", "clean\n");
     expect(prePush(repo)).toEqual({ ok: true, lines: [] });
@@ -334,6 +351,28 @@ describe("floor gates — the staged-secret scan contract", () => {
     expect(result.lines[1]!.length).toBe(2000);
     expect(result.lines[1]).toBe(long.slice(0, 2000));
   });
+});
+
+describe("floor gates — push protection follows the detected base", () => {
+  test.each([
+    { base: "develop", target: "develop", decision: "deny" },
+    { base: "develop", target: "main", decision: "allow" },
+    { base: "main", target: "main", decision: "deny" },
+  ] as const)(
+    "with base $base, a push to $target is $decision",
+    ({ base, target, decision }) => {
+      const { repo, branch, sha } = pushBaseFixture(base);
+      installStrictShim({ scanExit: 0 });
+      const previousRefs = process.env.AI_ENG_PUSH_REFS;
+      process.env.AI_ENG_PUSH_REFS = `refs/heads/${branch} ${sha} refs/heads/${target} ${"0".repeat(40)}`;
+      try {
+        expect(prePush(repo).ok).toBe(decision === "allow");
+      } finally {
+        if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+        else process.env.AI_ENG_PUSH_REFS = previousRefs;
+      }
+    },
+  );
 });
 
 describe("floor gates — commitMsg contract corners", () => {
@@ -426,8 +465,8 @@ describe("floor gates — the entry dispatcher", () => {
     expect(receipt.tool).toBe("pre-commit");
     expect(receipt.latency_ms).toBeGreaterThanOrEqual(0);
     expect(receipt.latency_ms).toBeLessThan(10_000);
-    expect(err.text()).toMatch(/^\[git floor\] pre-commit ✓ \(\d+ms · \d+ receipts\)\n$/);
-    expect(Number(err.text().match(/✓ \((\d+)ms/)?.[1])).toBeLessThan(10_000);
+    // F7: a green pre-commit is silent — the receipt is the record, not a stderr line.
+    expect(err.text()).toBe("");
   });
 
   test("a foreign repo (root but not governed) also passes in silence", async () => {
@@ -489,21 +528,7 @@ describe("floor gates — the staged scan's exception is HEAD's allowlist paths,
   /** A gitleaks shim that records the GITLEAKS_CONFIG it was handed (and copies the
    *  config's bytes out before the floor's scratch is cleaned), then passes the scan. */
   const installEnvShim = (record: string): void => {
-    const dir = tempDir("ai-eng-gates-env-");
-    const shim = join(dir, "gitleaks");
-    writeFileSync(
-      shim,
-      [
-        "#!/bin/sh",
-        'if [ "$1" = "version" ]; then echo "8.18.0"; exit 0; fi',
-        `printf '%s' "\${GITLEAKS_CONFIG-unset}" > "${record}"`,
-        `if [ -n "\${GITLEAKS_CONFIG-}" ]; then cp "$GITLEAKS_CONFIG" "${record}.copy"; fi`,
-        "exit 0",
-        "",
-      ].join("\n"),
-    );
-    chmodSync(shim, "0755");
-    process.env.PATH = `${dir}:${PATH_BEFORE}`;
+    useGitleaksShim(shimDir, { mode: "record-env", record }, PATH_BEFORE);
   };
 
   const committedAllowlist = (repo: string, paths: string[]): void => {
@@ -544,5 +569,108 @@ describe("floor gates — the staged scan's exception is HEAD's allowlist paths,
     stage(repo, { "clean.txt": "clean\n" });
     expect(preCommit(repo)).toEqual({ ok: true, lines: [] });
     expect(readFileSync(record, "utf8")).toBe("unset");
+  });
+
+  test("invalid committed TOML falls back to the default gitleaks rules", () => {
+    const repo = tempRepo(true);
+    write(repo, ".gitleaksrc.toml", "[allowlist\npaths = [\n");
+    run("git", repo, ["add", ".gitleaksrc.toml"]);
+    run("git", repo, ["commit", "-q", "-m", "chore: add invalid fixture config"]);
+    const record = join(tempDir("ai-eng-gates-rec-"), "env");
+    installEnvShim(record);
+    stage(repo, { "clean.txt": "clean\n" });
+
+    const previousConfig = process.env.GITLEAKS_CONFIG;
+    delete process.env.GITLEAKS_CONFIG;
+    try {
+      expect(preCommit(repo)).toEqual({ ok: true, lines: [] });
+      expect(readFileSync(record, "utf8")).toBe("unset");
+    } finally {
+      if (previousConfig === undefined) delete process.env.GITLEAKS_CONFIG;
+      else process.env.GITLEAKS_CONFIG = previousConfig;
+    }
+  });
+});
+
+describe("floor gates — pre-push fails closed on the base (checkpoint 24)", () => {
+  const ZERO = "0".repeat(40);
+
+  function pushRefs(localRef: string, sha: string, remoteRef: string): () => void {
+    const previousRefs = process.env.AI_ENG_PUSH_REFS;
+    process.env.AI_ENG_PUSH_REFS = `${localRef} ${sha} ${remoteRef} ${ZERO}`;
+    return () => {
+      if (previousRefs === undefined) delete process.env.AI_ENG_PUSH_REFS;
+      else process.env.AI_ENG_PUSH_REFS = previousRefs;
+    };
+  }
+
+  /** A governed repo checked out on `branch` with one commit; `base` is written as [git] base when given. */
+  function pushRepo(branch: string, base: string | null): { repo: string; sha: string } {
+    const repo = tempRepo(true);
+    run("git", repo, ["symbolic-ref", "HEAD", `refs/heads/${branch}`]);
+    write(repo, "fixture.txt", "fixture\n");
+    run("git", repo, ["add", "fixture.txt"]);
+    run("git", repo, ["commit", "-q", "-m", "test: create push fixture"]);
+    const sha = run("git", repo, ["rev-parse", "HEAD"]).stdout.trim();
+    expect(sha).toMatch(/^[a-f0-9]{40}$/);
+    const declared = base === null ? "" : `\n[git]\nbase = "${base}"\n`;
+    write(repo, ".ai-engineering/config.toml", `[surfaces]\nenabled = ["claude-code"]\n${declared}`);
+    expect(run("git", repo, ["symbolic-ref", "--quiet", "HEAD"]).stdout.trim()).toBe(`refs/heads/${branch}`);
+    expect(run("git", repo, ["remote"]).stdout.trim()).toBe("");
+    return { repo, sha };
+  }
+
+  test("a direct push to the base is denied when the base is the current branch", () => {
+    const { repo, sha } = pushRepo("main", "main");
+    expect(readFileSync(join(repo, ".ai-engineering", "config.toml"), "utf8")).toContain('[git]\nbase = "main"\n');
+    expect(resolveContext(repo)).toMatchObject({ branch: "main" });
+    expect(run("git", repo, ["show-ref", "--verify", "--hash", "refs/heads/main"]).stdout.trim()).toBe(sha);
+    // The scan would pass: only the base rule can stop this push.
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs("refs/heads/main", sha, "refs/heads/main");
+    try {
+      expect(prePush(repo)).toEqual({
+        ok: false,
+        lines: ["direct push to detected base refs/heads/main is not allowed — open a PR instead."],
+      });
+    } finally {
+      restore();
+    }
+  });
+
+  test("a push is denied with the next step named when no base can be resolved", () => {
+    const { repo, sha } = pushRepo("feature/no-base", null);
+    expect(resolveContext(repo)).toMatchObject({ branch: "feature/no-base", base: null, baseSource: "ask" });
+    expect(run("git", repo, ["for-each-ref", "--format=%(refname)", "refs/remotes"]).stdout.trim()).toBe("");
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs("refs/heads/feature/no-base", sha, "refs/heads/feature/no-base");
+    try {
+      const result = prePush(repo);
+      expect(result.ok).toBe(false);
+      expect(result.lines.join("\n")).toContain("[git] base");
+    } finally {
+      restore();
+    }
+  });
+
+  test("a feature branch pushed to its own upstream stays allowed", () => {
+    const branch = "feature/own-upstream";
+    const { repo, sha } = pushRepo(branch, null);
+    run("git", repo, ["branch", "main", sha]);
+    run("git", repo, ["remote", "add", "origin", join(repo, "unused-remote.git")]);
+    run("git", repo, ["update-ref", "refs/remotes/origin/main", sha]);
+    run("git", repo, ["update-ref", `refs/remotes/origin/${branch}`, sha]);
+    run("git", repo, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+    run("git", repo, ["config", `branch.${branch}.remote`, "origin"]);
+    run("git", repo, ["config", `branch.${branch}.merge`, `refs/heads/${branch}`]);
+    expect(run("git", repo, ["rev-parse", "--abbrev-ref", "@{upstream}"]).stdout.trim()).toBe(`origin/${branch}`);
+    expect(resolveContext(repo)).toMatchObject({ branch, base: "main", baseSource: "remote-head", baseRemote: "origin" });
+    installStrictShim({ scanExit: 0 });
+    const restore = pushRefs(`refs/heads/${branch}`, sha, `refs/heads/${branch}`);
+    try {
+      expect(prePush(repo)).toEqual({ ok: true, lines: [] });
+    } finally {
+      restore();
+    }
   });
 });

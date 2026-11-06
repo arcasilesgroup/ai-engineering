@@ -1,0 +1,3548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>ai-engineering · Local project explorer</title>
+<style>
+:root {
+  --bg: #001E2B;
+  --surface: #112733;
+  --surface-raised: #1C2D38;
+  --surface-selected: rgba(28, 45, 56, .72);
+  --line: #889397;
+  --line-strong: #C1C7C6;
+  --divider: rgba(61, 79, 88, .6);
+  --accent: #00ED64;
+  --accent-soft: #71F6BA;
+  --focus: #0498EC;
+  --text: #E8EDEB;
+  --heading: #FFFFFF;
+  --muted: #C1C7C6;
+  --subtle: #C1C7C6;
+  --warning: #FFC010;
+  --danger: #FF6960;
+  --font-sans: "Archivo Variable", "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", Consolas, monospace;
+  --radius: 24px;
+  --radius-small: 6px;
+  --radius-control: 4px;
+  --radius-code: 12px;
+  --radius-pill: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --explorer-width: 344px;
+}
+
+* { box-sizing: border-box; }
+
+html { min-width: 320px; background: var(--bg); }
+
+body {
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button { color: inherit; font: inherit; background: transparent; }
+button, summary { -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  transform: translateY(-150%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 8px 12px;
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.skip-link:focus { transform: none; }
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--line);
+  padding: 0 var(--space-5);
+  background: rgba(0, 30, 43, .94);
+  backdrop-filter: blur(14px) saturate(145%);
+}
+
+.brand {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 650;
+  text-decoration: none;
+  text-align: left;
+}
+
+.brand-title { display: grid; min-width: 0; gap: 2px; }
+.brand-wordmark { display: inline-flex; align-items: baseline; color: var(--heading); font-size: 15px; line-height: 1.2; letter-spacing: -.025em; }
+.brand-wordmark .brand-brace { color: var(--accent); }
+.brand-wordmark-name { margin-left: 5px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0; }
+.brand-caption { color: var(--muted); font: 9px/1.2 var(--font-mono); letter-spacing: .12em; }
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.sample-tag {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: var(--muted);
+  font: 10px/1.2 var(--font-mono);
+  white-space: nowrap;
+}
+
+.sample-tag { color: var(--subtle); }
+
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--explorer-width) minmax(0, 1fr);
+  min-height: calc(100dvh - 58px);
+}
+
+.explorer {
+  position: sticky;
+  top: 58px;
+  min-width: 0;
+  height: calc(100dvh - 58px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.explorer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 19px 16px 13px;
+}
+
+.explorer-hint {
+  margin: 0;
+  padding: 0 16px 10px;
+  color: var(--subtle);
+  font-size: 10px;
+}
+
+.explorer-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+}
+
+.root-count {
+  color: var(--subtle);
+  font: 10px/1.4 var(--font-mono);
+  white-space: nowrap;
+}
+
+.tree-nav { padding: 0 8px 20px; }
+
+.tree-toggle {
+  min-width: 0;
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: color 130ms var(--ease-out), background-color 130ms var(--ease-out), transform 130ms var(--ease-out);
+}
+
+.tree-project-button:hover, .tree-item:hover, .tree-branch-button:hover, .tree-group-button:hover, .tree-toggle:hover { background: rgba(255,255,255,.055); }
+.tree-project-button:active:not(:focus-visible), .tree-item:active:not(:focus-visible), .tree-branch-button:active:not(:focus-visible), .tree-group-button:active:not(:focus-visible), .tree-toggle:active:not(:focus-visible) { transform: scale(.99); }
+
+.all-projects {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 7px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.all-projects[aria-current="page"] {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.all-projects .count {
+  margin-left: auto;
+  color: var(--subtle);
+  font: 10px/1 var(--font-mono);
+}
+
+.project-node { margin-top: 2px; }
+
+.tree-project-line {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  gap: 2px;
+}
+
+.tree-toggle {
+  display: grid;
+  width: 24px;
+  min-height: 36px;
+  place-items: center;
+  border-radius: 5px;
+  color: var(--subtle);
+  font: 13px/1 var(--font-mono);
+}
+
+.tree-toggle::before { content: "›"; }
+.tree-toggle[aria-expanded="true"]::before { content: "⌄"; }
+
+.tree-project-button {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  padding: 6px 8px 7px;
+}
+
+.tree-project-button[aria-current="page"] {
+  border-color: var(--line);
+  background: var(--surface-selected);
+}
+
+.project-root-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-root-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.provider-tag {
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 6px;
+  color: var(--subtle);
+  font: 9px/1.3 var(--font-mono);
+}
+
+.project-remote {
+  overflow-wrap: anywhere;
+  color: var(--subtle);
+  font: 9.5px/1.45 var(--font-mono);
+}
+
+.tree-project-children { padding: 2px 0 8px 14px; }
+.tree-folder { margin-top: 3px; }
+.tree-history-note { display: block; padding: 6px 8px; color: var(--subtle); font-size: 10px; }
+.tree-loading { display: grid; gap: 10px; padding: 10px; }
+.tree-loading span { height: 35px; border-radius: 6px; background: var(--surface); }
+.tree-empty, .tree-error { padding: 10px 11px; color: var(--muted); font-size: 11px; }
+.tree-error { color: var(--danger); }
+
+.tree-item {
+  display: flex;
+  width: 100%;
+  min-height: 31px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 5px 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.tree-item:hover { color: var(--text); }
+.tree-item[aria-current="page"] {
+  border-color: rgba(0,237,100,.24);
+  background: rgba(0,237,100,.07);
+  color: var(--accent-soft);
+}
+
+.tree-file-type {
+  flex: none;
+  color: var(--accent-soft);
+  font: 9px/1 var(--font-mono);
+}
+
+.tree-folder { margin-top: 3px; }
+
+.tree-group-button {
+  display: flex;
+  width: 100%;
+  min-height: 31px;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 5px;
+  padding: 5px 8px;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tree-group-button:hover { background: rgba(0,104,74,.12); color: var(--text); }
+.tree-group-chevron {
+  display: grid;
+  width: 12px;
+  flex: none;
+  place-items: center;
+  color: var(--subtle);
+  transition: transform 160ms var(--ease-out);
+}
+.tree-group-name { min-width: 0; overflow-wrap: anywhere; }
+.tree-group-count { margin-left: auto; color: var(--subtle); font: 9px/1 var(--font-mono); }
+.tree-nested { margin-left: 10px; border-left: 1px solid var(--line); padding-left: 7px; }
+
+.tree-branch {
+  margin: 2px 0;
+  border-radius: 6px;
+}
+
+.tree-branch-line {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 25px;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.tree-branch-button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 7px;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tree-branch-button:hover { background: rgba(255,255,255,.045); color: var(--text); }
+.tree-branch-button[aria-current="page"] {
+  border-color: var(--line);
+  background: var(--surface-selected);
+  color: var(--text);
+}
+
+.tree-file[aria-current="page"] { color: var(--accent-soft); }
+
+.branch-label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: 10px/1.5 var(--font-mono);
+}
+
+.tree-branch-files { margin: 0 0 5px 15px; border-left: 1px solid var(--line); padding-left: 7px; }
+
+.tree-branch-files .tree-item {
+  min-height: 28px;
+  font-size: 10.5px;
+}
+
+.status-badge {
+  display: inline-flex;
+  min-height: 20px;
+  flex: none;
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 2px 6px;
+  color: var(--muted);
+  font: 9px/1.25 var(--font-mono);
+  white-space: nowrap;
+}
+
+.status-badge.in-progress { border-color: rgba(0,237,100,.36); color: var(--accent-soft); }
+.status-badge.needs-review { border-color: rgba(255,192,16,.4); color: var(--warning); }
+.status-badge.blocked { border-color: rgba(255,105,96,.42); color: var(--danger); }
+.status-badge.unknown { border-color: rgba(255,192,16,.4); color: var(--warning); }
+.status-badge.closed { border-color: var(--line); color: var(--subtle); }
+
+.main-pane {
+  min-width: 0;
+  padding: 27px clamp(16px, 2.6vw, 38px) 60px;
+}
+
+.pane-content {
+  width: min(100%, 1160px);
+  margin-inline: auto;
+}
+
+.pane-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: 23px;
+}
+
+.pane-header-copy { min-width: 0; }
+
+.pane-eyebrow {
+  margin: 0 0 5px;
+  color: var(--accent);
+  font: 600 10px/1.4 var(--font-mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+h1, h2, h3, h4, p { margin-top: 0; }
+
+h1 {
+  margin-bottom: 7px;
+  font-size: clamp(23px, 3vw, 31px);
+  line-height: 1.15;
+  letter-spacing: -.03em;
+}
+
+.pane-subtitle {
+  max-width: 65ch;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.surface {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 25px;
+  overflow: hidden;
+}
+
+.summary-item { min-width: 0; padding: 14px 16px; }
+.summary-item + .summary-item { border-left: 1px solid var(--line); }
+.summary-value { display: block; margin-bottom: 3px; font: 650 20px/1.2 var(--font-mono); }
+.summary-label { color: var(--muted); font-size: 11px; }
+.summary-item.attention .summary-value { color: var(--warning); }
+
+.content-section { margin-top: 25px; }
+
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: 9px;
+}
+
+.section-heading h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.section-heading span { color: var(--subtle); font: 10px/1.4 var(--font-mono); }
+
+.project-list, .activity-list { display: grid; }
+
+.project-summary-row, .activity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 13px 14px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 130ms var(--ease-out);
+}
+
+.project-summary-row:first-child, .activity-row:first-child { border-top: 1px solid var(--line); }
+.project-summary-row:hover, .activity-row:hover { background: rgba(255,255,255,.035); }
+.project-summary-row:active:not(:focus-visible), .activity-row:active:not(:focus-visible) { transform: scale(.997); }
+
+.project-summary-main, .activity-main { min-width: 0; }
+
+.project-summary-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 9px;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.project-summary-path, .activity-branch {
+  overflow-wrap: anywhere;
+  color: var(--subtle);
+  font: 10px/1.45 var(--font-mono);
+}
+
+.project-summary-counts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  color: var(--muted);
+  font: 10px/1.4 var(--font-mono);
+}
+
+.project-summary-counts span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
+.activity-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+
+.activity-title {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.activity-project {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent-soft);
+  font: 10px/1.4 var(--font-mono);
+}
+
+.activity-open {
+  color: var(--accent-soft);
+  font: 11px/1.4 var(--font-mono);
+  white-space: nowrap;
+}
+
+.empty-inline {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-small);
+  padding: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pane-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: 19px;
+}
+.copy-path-button {
+  min-height: 44px;
+  flex: none;
+  border-color: var(--divider);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.copy-path-button .tree-icon { width: 15px; height: 15px; }
+.copy-path-button:hover { border-color: var(--line-strong); background: var(--surface-raised); color: var(--text); }
+
+.breadcrumb {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--subtle);
+  font: 10px/1.5 var(--font-mono);
+}
+
+.breadcrumb strong { color: var(--muted); font-weight: 500; }
+
+.button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  padding: 7px 11px;
+  background: var(--surface-raised);
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 620;
+  transition: background-color 130ms var(--ease-out), border-color 130ms var(--ease-out), transform 130ms var(--ease-out);
+}
+
+.button:hover { border-color: rgba(0,237,100,.42); background: rgba(0,104,74,.12); }
+.button:active:not(:focus-visible) { transform: scale(.98); }
+.button.primary { border-color: rgba(0,237,100,.35); color: var(--accent-soft); }
+
+.project-hero {
+  margin-bottom: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  background: linear-gradient(120deg, var(--surface), rgba(28,45,56,.55));
+}
+
+.project-hero h1 { margin-bottom: 5px; }
+.project-hero p { max-width: 68ch; margin: 0; color: var(--muted); font-size: 12.5px; }
+.project-hero .project-remote-large { margin: 0 0 9px; color: var(--accent-soft); font: 10px/1.5 var(--font-mono); }
+
+.project-statline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  padding: 11px 13px;
+  background: var(--surface);
+  color: var(--muted);
+  font: 10px/1.4 var(--font-mono);
+}
+
+.project-statline span + span { border-left: 1px solid var(--line); padding-left: 10px; }
+.project-statline strong { color: var(--text); font-weight: 650; }
+
+.docs-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  padding: 11px;
+  background: var(--surface);
+}
+
+.doc-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  padding: 7px 10px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  cursor: pointer;
+  font: 10px/1.4 var(--font-mono);
+}
+
+.doc-button:hover { border-color: var(--line-strong); color: var(--text); }
+.doc-button .file-type { color: var(--accent-soft); font-size: 9px; }
+
+.feature-list { display: grid; }
+.feature-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 11px 13px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.feature-list-row:first-child { border-top: 1px solid var(--line); }
+.feature-list-row:hover { background: rgba(255,255,255,.035); }
+.feature-list-title { display: block; color: var(--text); font-size: 11.5px; font-weight: 620; }
+.feature-list-branch { display: block; margin-top: 3px; color: var(--subtle); font: 10px/1.4 var(--font-mono); overflow-wrap: anywhere; }
+
+.viewer-shell {
+  width: min(100%, 920px);
+  margin-inline: auto;
+}
+
+.viewer-empty {
+  max-width: 740px;
+  margin: 6vh auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 26px;
+  background: var(--surface);
+}
+
+.viewer-empty h1 { margin: 0 0 8px; font-size: 22px; }
+.viewer-empty p { margin: 0; color: var(--muted); font-size: 12px; }
+
+.viewer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: 15px;
+}
+
+.viewer-title-block { min-width: 0; }
+.viewer-eyebrow { margin: 0 0 6px; color: var(--accent); font: 600 10px/1.4 var(--font-mono); letter-spacing: .16em; text-transform: uppercase; }
+.viewer-header h1 { margin-bottom: 6px; font-size: clamp(22px, 3vw, 28px); }
+.viewer-summary { max-width: 68ch; margin: 0; color: var(--muted); font-size: 13px; }
+
+.viewer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin: 10px 0 0;
+  color: var(--subtle);
+  font: 10px/1.5 var(--font-mono);
+}
+
+.viewer-actions { display: flex; flex: none; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+.ide-action {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.ide-preview-note {
+  margin: 0;
+  color: var(--subtle);
+  font-size: 9px;
+  text-align: right;
+}
+
+.viewer-banner {
+  display: flex;
+  min-height: 50px;
+  align-items: center;
+  gap: 10px;
+  margin: 17px 0 20px;
+  border: 1px solid rgba(0,237,100,.32);
+  border-radius: var(--radius-small);
+  padding: 11px 14px;
+  background: rgba(0,237,100,.07);
+  color: var(--accent-soft);
+  font-weight: 620;
+  font-size: 12px;
+}
+
+.viewer-banner.done { background: rgba(0,237,100,.12); color: var(--accent); }
+.viewer-banner.stop { border-color: rgba(255,105,96,.4); background: rgba(255,105,96,.08); color: var(--danger); }
+.viewer-banner .banner-mark { flex: none; font: 13px/1 var(--font-mono); }
+
+.journey {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 18px 0 8px;
+  overflow-x: auto;
+  padding: 4px 2px;
+  scrollbar-width: thin;
+}
+
+.journey-step {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--subtle);
+  cursor: pointer;
+  font: 600 11px/1 var(--font-mono);
+}
+
+.journey-step.passed { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+.journey-step.current { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 3px rgba(0,237,100,.1); }
+.journey-step.failed, .journey-step.blocked { border-color: var(--danger); color: var(--danger); }
+.journey-step:active:not(:focus-visible) { transform: scale(.97); }
+.journey-line { min-width: 8px; height: 2px; flex: 1; background: var(--line-strong); }
+.journey-line.passed { background: var(--accent); }
+
+.journey-caption { margin: 0 0 15px; color: var(--subtle); font-size: 11px; }
+
+.checkpoint-list { display: grid; gap: 9px; }
+
+.checkpoint {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.checkpoint.current { border-color: rgba(0,237,100,.42); }
+.checkpoint.blocked { border-color: rgba(255,105,96,.38); }
+
+.checkpoint > summary {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 15px;
+  align-items: start;
+  gap: 11px;
+  padding: 13px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.checkpoint > summary::-webkit-details-marker { display: none; }
+
+.checkpoint-number {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  color: var(--subtle);
+  font: 600 11px/1 var(--font-mono);
+}
+
+.checkpoint.passed .checkpoint-number { background: rgba(0,237,100,.15); color: var(--accent); }
+.checkpoint.current .checkpoint-number { background: rgba(0,237,100,.13); color: var(--accent-soft); }
+.checkpoint.blocked .checkpoint-number { background: rgba(255,105,96,.15); color: var(--danger); }
+
+.checkpoint-copy { min-width: 0; }
+.checkpoint-state { display: block; margin-bottom: 3px; color: var(--subtle); font: 9px/1.4 var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
+.checkpoint.current .checkpoint-state { color: var(--accent-soft); }
+.checkpoint.blocked .checkpoint-state { color: var(--danger); }
+.checkpoint-title { display: block; margin-bottom: 8px; color: var(--text); font-size: 13px; font-weight: 620; overflow-wrap: anywhere; }
+.checkpoint-chevron { color: var(--subtle); font: 12px/1 var(--font-mono); }
+.checkpoint[open] .checkpoint-chevron::before { content: "⌄"; }
+.checkpoint-chevron::before { content: "›"; }
+
+.gate-list { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.gate {
+  display: inline-flex;
+  min-height: 23px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.gate.passed { border-color: rgba(0,237,100,.3); background: rgba(0,237,100,.08); color: var(--accent-soft); }
+.gate.failed, .gate.blocked { border-color: rgba(255,105,96,.38); background: rgba(255,105,96,.07); color: var(--danger); }
+.gate.running { border-color: rgba(0,237,100,.32); color: var(--accent-soft); }
+.gate.na { border-style: dashed; color: var(--subtle); }
+
+.checkpoint-body {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding: 13px 16px 16px 57px;
+}
+
+.checkpoint-body h3 { margin: 0 0 3px; color: var(--accent-soft); font: 600 9px/1.4 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+.checkpoint-body p { margin: 0; color: var(--muted); font-size: 11.5px; }
+
+.checkpoint-findings {
+  border-left: 3px solid var(--danger);
+  padding: 7px 10px;
+  background: rgba(255,105,96,.07);
+}
+
+.checkpoint-findings h3 { color: var(--danger); }
+.checkpoint-findings p { margin-top: 4px; font: 10px/1.5 var(--font-mono); }
+
+.technical-details {
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+
+.technical-details > summary {
+  min-height: 32px;
+  padding: 7px 0;
+  color: var(--subtle);
+  cursor: pointer;
+  font: 10px/1.4 var(--font-mono);
+  list-style-position: inside;
+}
+
+.technical-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 8px 0; }
+.technical-grid h3 { margin-top: 0; }
+.technical-grid ul { margin: 0; padding-left: 17px; color: var(--muted); font-size: 10.5px; }
+.technical-grid li { margin: 3px 0; overflow-wrap: anywhere; }
+
+.viewer-extra {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.viewer-note { border: 1px solid var(--line); border-radius: var(--radius-small); padding: 13px; background: var(--surface); }
+.viewer-note h3 { margin: 0 0 7px; color: var(--accent-soft); font: 600 9px/1.4 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; }
+.viewer-note ul { margin: 0; padding-left: 16px; color: var(--muted); font-size: 10.5px; }
+.viewer-note li { margin: 3px 0; }
+
+.document-frame {
+  max-width: 860px;
+  margin-inline: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.document-body { max-width: 700px; margin-inline: auto; padding: clamp(20px,4vw,44px); }
+.document-body .document-summary { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+.document-body h1 { margin-bottom: 12px; font-size: clamp(22px,3vw,31px); }
+.document-body h2 { margin: 25px 0 7px; font-size: 14px; }
+.document-body p, .document-body li { color: var(--muted); font-size: 12px; line-height: 1.65; }
+.document-body ul { padding-left: 19px; }
+.document-stamp { display: inline-block; margin-bottom: 12px; color: var(--accent); font: 10px/1.4 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+
+.action-feedback {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 5;
+  max-width: min(390px, calc(100vw - 36px));
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  padding: 12px 15px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.24);
+}
+
+.state-panel {
+  max-width: 650px;
+  margin: 8vh auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: clamp(22px,4vw,38px);
+  background: var(--surface);
+}
+
+.state-panel h1 { margin-bottom: 8px; font-size: 22px; }
+.state-panel p { margin-bottom: 0; color: var(--muted); font-size: 12px; }
+.state-panel.error { border-color: rgba(255,105,96,.4); }
+.state-panel.error h1 { color: var(--danger); }
+
+.skeleton-line {
+  height: 16px;
+  margin: 13px 0;
+  border-radius: 5px;
+  background: var(--surface-raised);
+}
+
+.skeleton-line.short { width: 45%; }
+.skeleton-row { height: 58px; margin-top: 9px; border-radius: var(--radius-small); background: var(--surface-raised); }
+
+@media (max-width: 900px) {
+  :root { --explorer-width: 286px; }
+  .main-pane { padding-inline: 20px; }
+  .project-summary-counts { gap: 5px; }
+}
+
+@media (max-width: 760px) {
+  .app-shell { grid-template-columns: minmax(0,1fr); }
+  .explorer {
+    position: static;
+    height: auto;
+    max-height: 42dvh;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .main-pane { padding: 20px 16px 42px; }
+  .viewer-header { flex-direction: column; }
+  .viewer-actions { justify-content: flex-start; }
+  .ide-action { justify-items: start; }
+  .ide-preview-note { text-align: left; }
+}
+
+@media (max-width: 520px) {
+  .app-header { min-height: 54px; padding-inline: 10px; gap: 8px; }
+  .brand { gap: 7px; }
+  .brand-title strong { font-size: 11px; }
+  .brand-title span { font-size: 8px; }
+  .header-meta { gap: 5px; }
+  .sample-tag { min-height: 23px; padding: 3px 6px; font-size: 8px; }
+  .app-shell { min-height: calc(100dvh - 54px); }
+  .explorer { max-height: 38dvh; }
+  .explorer-head { padding: 12px 11px 8px; }
+  .tree-nav { padding-inline: 5px; }
+  .main-pane { padding: 18px 12px 34px; }
+  .pane-header { flex-direction: column; gap: 8px; }
+  .summary-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .summary-item { padding: 11px; }
+  .summary-item:nth-child(2n) { border-left: 1px solid var(--line); }
+  .summary-item:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .summary-item:nth-child(3) { border-left: 0; }
+  .project-summary-counts { justify-content: flex-start; }
+  .project-summary-row, .activity-row { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  .activity-row .status-badge { justify-self: start; }
+  .technical-grid, .viewer-extra { grid-template-columns: minmax(0,1fr); }
+  .checkpoint > summary { grid-template-columns: 28px minmax(0,1fr) 12px; gap: 8px; padding: 11px; }
+  .checkpoint-number { width: 27px; height: 27px; }
+  .checkpoint-body { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-header { background: var(--bg); backdrop-filter: none; }
+}
+
+@media (prefers-contrast: more) {
+  :root { --muted: #E8EDEB; --subtle: #C1C7C6; --line: rgba(193,199,198,.55); }
+  .surface, .project-node, .checkpoint, .document-frame { border-color: var(--line-strong); }
+}
+
+/* Brand radius roles: control 4px, button 6px, code 12px, card 24px, pill. */
+.app-header { border-bottom-color: var(--divider); }
+.explorer { border-right-color: var(--divider); }
+.tree-nav { padding: 4px 10px 24px; }
+.tree-project { margin: 0 0 8px; }
+.tree-project-line { grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 3px; }
+.tree-toggle { border-radius: var(--radius-control); color: var(--muted); }
+.tree-item, .tree-group-button { border-radius: var(--radius-control); }
+.tree-project-button { gap: 3px; border-radius: var(--radius-small); padding: 8px 10px; }
+.tree-project-button[aria-current="page"] { border-color: var(--line); background: var(--surface-selected); }
+.project-root-name { font-size: 13px; }
+.project-remote { font-size: 10px; }
+.tree-project-children { margin: 3px 0 0 13px; border-left: 1px solid var(--divider); padding: 4px 0 5px 10px; }
+.tree-group { margin-top: 5px; }
+.tree-group-button { min-height: 34px; border-radius: var(--radius-control); font-size: 11.5px; }
+.tree-nested, .tree-branch-files { border-left-color: var(--divider); }
+.tree-nested { margin-left: 9px; padding-left: 8px; }
+.tree-branch { margin: 3px 0; }
+.tree-branch-line { grid-template-columns: minmax(0, 1fr) 28px; gap: 3px; }
+.tree-branch-button { min-height: 36px; align-items: center; gap: 7px; border-radius: var(--radius-control); padding: 6px 8px; }
+.branch-label { font-size: 10.5px; }
+.tree-item { min-height: 34px; border-radius: var(--radius-control); font-size: 11.5px; }
+.tree-branch-files .tree-item { min-height: 32px; font-size: 11px; }
+.tree-file-label { display: grid; min-width: 0; gap: 2px; }
+.tree-scope-tag { color: var(--muted); font: 9px/1.3 var(--font-mono); }
+.status-badge { border-color: var(--line); }
+.status-badge, .provider-tag, .sample-tag, .gate, .project-summary-counts span { border-radius: var(--radius-pill); }
+.button { border-radius: var(--radius-small); }
+.doc-button { border-radius: var(--radius-small); }
+.button.primary { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+.button.primary:hover { border-color: var(--accent-soft); background: var(--accent-soft); color: var(--bg); }
+.surface, .project-hero, .checkpoint, .document-frame, .state-panel { border-color: var(--line); }
+.summary-strip, .checkpoint { border-radius: var(--radius); }
+.docs-row, .project-statline, .viewer-note, .empty-inline { border-radius: var(--radius); }
+code { border-radius: var(--radius-code); }
+.document-frame { max-width: none; margin: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; }
+.document-body { max-width: none; margin: 0; padding: 24px 0; }
+.document-body .document-summary { max-width: 84ch; }
+.document-body section { max-width: 90ch; }
+.document-scope-note { max-width: 90ch; margin: 20px 0; border-left: 3px solid var(--warning); padding: 12px 14px; background: rgba(255,192,16,.08); color: var(--text); font-size: 12px; line-height: 1.6; }
+.document-scope-note code { color: var(--text); font: 11px/1.5 var(--font-mono); }
+.mobile-explorer-back { display: none; }
+.sample-tag-short { display: none; }
+.main-pane { overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .app-shell { display: block; min-height: calc(100dvh - 58px); }
+  .explorer { display: none; height: auto; max-height: none; border: 0; }
+  .main-pane { display: block; height: calc(100dvh - 58px); overflow: auto; padding: 16px 16px 36px; }
+  body[data-mobile-pane="explorer"] .explorer { display: block; height: calc(100dvh - 58px); overflow: auto; }
+  body[data-mobile-pane="explorer"] .main-pane { display: none; }
+  body[data-mobile-pane="content"] .explorer { display: none; }
+  body[data-mobile-pane="content"] .mobile-explorer-back { display: inline-flex; }
+  .mobile-explorer-back { min-height: 34px; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: var(--radius-small); padding: 5px 9px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 11px; }
+  .mobile-explorer-back:hover { border-color: var(--line-strong); }
+  .tree-project-children { margin-left: 0; padding-left: 12px; }
+}
+
+@media (max-width: 520px) {
+  .app-header { min-height: 58px; padding-inline: 12px; }
+  .brand { gap: 8px; }
+  .brand-wordmark { font-size: 14px; }
+  .brand-wordmark-name { font-size: 11px; }
+  .brand-caption { font-size: 8px; }
+  .header-meta { gap: 5px; }
+  .sample-tag { min-height: 24px; padding: 4px 7px; font-size: 9px; }
+  .sample-tag-full { display: none; }
+  .sample-tag-short { display: inline; }
+  .explorer-head { padding: 15px 14px 10px; }
+  .tree-nav { padding-inline: 8px; }
+  .main-pane { padding: 14px 12px 30px; }
+  .pane-toolbar { align-items: flex-start; }
+  .document-body { padding: 20px 0; }
+}
+
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  --surface-selected: #1C2D38;
+  --line: rgba(61, 79, 88, .3);
+  --divider: rgba(61, 79, 88, .6);
+  --explorer-width: 344px;
+}
+
+body {
+  overflow-x: hidden;
+  color: #E8EDEB;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.app-header {
+  min-height: 64px;
+  border-bottom: 1px solid var(--divider);
+  padding-inline: clamp(16px, 2vw, 28px);
+  background: var(--bg);
+  backdrop-filter: none;
+}
+
+.brand {
+  min-height: 48px;
+  border-radius: var(--radius-small);
+  margin-left: -8px;
+  padding: 4px 8px;
+  transition: background-color 130ms var(--ease-out);
+}
+
+.brand:hover { background: rgba(255,255,255,.05); }
+.brand[aria-current="page"] { background: rgba(28,45,56,.68); }
+.brand-wordmark { font-size: 19px; font-weight: 700; }
+.brand-wordmark-name { margin-left: 6px; color: var(--text); font-size: 16px; font-weight: 600; }
+.brand-caption { font-size: 10px; letter-spacing: .08em; }
+
+.sample-tag {
+  min-height: 44px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: var(--muted);
+  font: 12px/1.4 var(--font-sans);
+}
+
+.sample-tag-short { display: none; }
+
+.app-shell {
+  grid-template-columns: var(--explorer-width) minmax(0, 1fr);
+  min-height: calc(100dvh - 64px);
+}
+
+.explorer {
+  top: 64px;
+  height: calc(100dvh - 64px);
+  border-right: 1px solid var(--divider);
+  background: var(--surface);
+}
+
+.explorer-head { padding: 24px 18px 12px; }
+.explorer-head h2 { font-size: 15px; font-weight: 650; }
+.root-count { font-size: 12px; }
+
+.explorer-hint {
+  max-width: 40ch;
+  padding: 0 18px 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tree-nav { padding: 4px 12px 24px; }
+.tree-project { margin: 0 0 8px; }
+.tree-project-line { grid-template-columns: minmax(0, 1fr) 44px; align-items: stretch; gap: 4px; }
+
+.tree-toggle {
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--radius-small);
+  color: var(--muted);
+}
+
+.tree-toggle::before {
+  content: "›";
+  font: 19px/1 var(--font-sans);
+}
+
+.tree-toggle[aria-expanded="true"]::before { content: "⌄"; }
+.tree-toggle:hover { background: rgba(255,255,255,.05); }
+
+.tree-project-button {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--radius-small);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.tree-project-button[aria-current="page"] {
+  border: 0;
+  background: var(--surface-raised);
+  color: var(--heading);
+}
+
+.tree-project-copy { display: grid; min-width: 0; gap: 2px; }
+.project-root-line { flex-wrap: wrap; gap: 4px 9px; }
+.project-root-name { font-size: 14px; font-weight: 650; }
+.provider-tag { border: 0; padding: 0; color: var(--muted); font: 12px/1.4 var(--font-sans); }
+.project-remote { color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+.tree-project-children {
+  margin: 6px 0 10px;
+  border: 0;
+  padding: 0 0 0 18px;
+}
+
+.tree-group { margin-top: 7px; }
+.tree-group-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  border-radius: var(--radius-small);
+  padding: 0 2px 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.tree-group-button:hover { background: rgba(255,255,255,.05); color: var(--text); }
+.tree-group-name { min-width: 0; }
+.tree-group-count { margin-left: auto; }
+.tree-group-chevron { display: grid; width: 44px; height: 44px; flex: none; place-items: center; margin-left: auto; color: var(--muted); }
+.tree-group-count + .tree-group-chevron { margin-left: 0; }
+
+.tree-group-count { font-size: 12px; }
+.tree-nested, .tree-branch-files { border: 0; }
+.tree-nested { margin-left: 16px; padding-left: 12px; }
+.tree-branch { margin: 3px 0; }
+.tree-branch-line { grid-template-columns: minmax(0, 1fr) 44px; align-items: stretch; gap: 4px; }
+
+.tree-branch-button {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  min-height: 48px;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--radius-small);
+  padding: 7px 8px;
+}
+
+.tree-branch-button:hover { background: rgba(255,255,255,.05); color: var(--text); }
+.tree-branch-button[aria-current="page"] { border: 0; background: var(--surface-raised); color: var(--heading); }
+.tree-branch-copy { display: grid; min-width: 0; justify-items: start; gap: 4px; }
+.branch-label { font-size: 12px; line-height: 1.5; }
+
+.tree-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  min-height: 44px;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--radius-small);
+  padding: 7px 8px;
+  font-size: 14px;
+}
+
+.tree-item:hover { background: rgba(255,255,255,.05); color: var(--text); }
+.tree-item[aria-current="page"] { border: 0; background: var(--surface-raised); color: var(--heading); }
+.tree-branch-files .tree-item { min-height: 44px; font-size: 14px; }
+.tree-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--muted);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.35;
+}
+
+.icon-definitions { position: absolute; width: 0; height: 0; overflow: hidden; }
+.tree-file-label { display: grid; min-width: 0; gap: 3px; }
+.tree-scope-tag { color: var(--muted); font: 11px/1.35 var(--font-sans); }
+.tree-history-note { padding: 8px; color: var(--muted); font-size: 13px; }
+.tree-loading { display: block; padding: 12px 10px; color: var(--muted); font-size: 13px; }
+.tree-loading::before { content: "Loading project roots"; }
+.tree-loading span { display: none; }
+.tree-empty, .tree-error { padding: 10px; font-size: 13px; }
+
+.status-badge {
+  min-height: 24px;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 3px 8px;
+  background: rgba(193,199,198,.1);
+  color: var(--muted);
+  font: 12px/1.3 var(--font-sans);
+}
+
+.status-badge.in-progress { background: rgba(0,237,100,.12); color: var(--accent-soft); }
+.status-badge.needs-review, .status-badge.unknown { background: rgba(255,192,16,.12); color: var(--warning); }
+.status-badge.blocked { background: rgba(255,105,96,.12); color: var(--danger); }
+.status-badge.closed { background: rgba(193,199,198,.08); color: var(--muted); }
+
+.main-pane { min-width: 0; padding: 30px clamp(20px, 3vw, 44px) 64px; }
+.pane-content { width: min(100%, 1160px); }
+.pane-header { margin-bottom: 30px; }
+.pane-eyebrow { margin-bottom: 8px; color: var(--accent-soft); font: 600 12px/1.4 var(--font-sans); letter-spacing: .02em; text-transform: none; }
+h1 { margin-bottom: 8px; font-size: clamp(26px, 2.3vw, 32px); line-height: 1.2; letter-spacing: -.025em; }
+.pane-subtitle { font-size: 15px; line-height: 1.55; }
+
+.surface {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-code);
+  background: var(--surface);
+}
+
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 32px 0 42px;
+  overflow: hidden;
+  padding: 14px 16px;
+}
+
+.summary-item { display: grid; gap: 4px; padding: 0 16px; }
+.summary-item:first-child { padding-left: 0; }
+.summary-item + .summary-item { border-left: 1px solid var(--divider); }
+.summary-value { margin: 0; font: 650 25px/1.15 var(--font-sans); font-variant-numeric: tabular-nums; }
+.summary-label { color: var(--muted); font-size: 13px; }
+.summary-item.attention .summary-value { color: var(--warning); }
+
+.content-section { margin-top: 28px; }
+.section-heading { margin-bottom: 12px; }
+.section-heading h2 { font-size: 18px; font-weight: 650; }
+.section-heading span { color: var(--muted); font: 12px/1.4 var(--font-sans); }
+.project-list, .activity-list, .feature-list {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+}
+
+.project-list.surface, .activity-list.surface, .feature-list.surface {
+  border-radius: var(--radius-code);
+}
+
+.project-summary-row, .activity-row, .feature-list-row {
+  min-height: 68px;
+  border: 0;
+  border-bottom: 1px solid var(--divider);
+  border-radius: 0;
+  padding: 14px;
+  background: transparent;
+  transition: background-color 130ms var(--ease-out);
+}
+
+.project-summary-row:last-child, .activity-row:last-child, .feature-list-row:last-child { border-bottom: 0; }
+.project-summary-row:hover, .activity-row:hover, .feature-list-row:hover { background: rgba(28,45,56,.78); }
+.project-summary-title { margin-bottom: 4px; font-size: 15px; font-weight: 650; }
+.project-summary-path, .activity-branch { color: var(--muted); font: 12px/1.5 var(--font-mono); }
+.project-summary-counts { gap: 6px 14px; color: var(--muted); font: 12px/1.4 var(--font-sans); }
+.project-summary-counts span { border: 0; border-radius: 0; padding: 0; }
+.activity-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+.activity-title { margin-bottom: 4px; font-size: 15px; font-weight: 650; }
+.activity-project { margin-bottom: 4px; color: var(--muted); font: 12px/1.4 var(--font-sans); }
+.activity-open { color: var(--accent-soft); font: 13px/1.4 var(--font-sans); }
+.empty-inline { border: 0; border-radius: 0; padding: 16px 12px; color: var(--muted); font-size: 14px; }
+
+.pane-toolbar { margin-bottom: 28px; }
+#project-overview-view .pane-toolbar { margin-bottom: 20px; }
+.breadcrumb { gap: 8px; color: var(--muted); font: 13px/1.5 var(--font-sans); }
+.breadcrumb strong { color: var(--text); font-weight: 600; }
+.skip-link { display: inline-flex; min-height: 44px; align-items: center; }
+a { color: var(--focus); text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--accent-soft); }
+.technical-grid a { display: inline-flex; min-height: 44px; align-items: center; }
+
+.button {
+  min-height: 44px;
+  border: 0;
+  border-radius: var(--radius-small);
+  padding: 9px 14px;
+  background: var(--surface-raised);
+  font-size: 14px;
+}
+
+.button:hover { background: #263A45; }
+.button.primary { border: 0; background: var(--accent); color: var(--bg); }
+.button.primary:hover { background: var(--accent-soft); color: var(--bg); }
+
+.project-hero {
+  margin-bottom: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-code);
+  padding: 18px 20px;
+  background: linear-gradient(120deg, var(--surface), rgba(28,45,56,.55));
+}
+
+.project-hero h1 { margin-bottom: 6px; }
+.project-hero p { max-width: 68ch; font-size: 15px; }
+.project-hero .project-remote-large { margin-bottom: 10px; color: var(--muted); font: 13px/1.5 var(--font-mono); }
+
+.project-statline {
+  display: flex;
+  align-items: center;
+  gap: 8px 24px;
+  min-height: 40px;
+  margin: 0 0 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  padding: 8px 12px;
+  background: var(--surface);
+  color: var(--muted);
+  font: 12px/1.45 var(--font-mono);
+}
+
+.project-statline span + span { border-left: 1px solid var(--divider); padding-left: 12px; }
+.project-statline strong { color: var(--text); font-weight: 650; }
+.docs-row { display: flex; gap: 8px; border-radius: var(--radius-code); padding: 8px; }
+.doc-button {
+  min-height: 44px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-small);
+  padding: 8px 10px;
+  background: var(--surface-raised);
+  font: 14px/1.4 var(--font-mono);
+}
+.doc-button:hover { border-color: var(--line-strong); background: #263A45; color: var(--text); }
+.doc-button .file-type { color: var(--muted); font-size: 11px; }
+.feature-list-title { font-size: 14px; font-weight: 650; }
+.feature-list-branch { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.feature-list-row { min-height: 60px; padding: 9px 14px; }
+
+.viewer-shell { width: min(100%, 980px); }
+.viewer-header { gap: 24px; margin-bottom: 24px; }
+.viewer-eyebrow { margin-bottom: 8px; color: var(--accent-soft); font: 600 12px/1.4 var(--font-sans); letter-spacing: .02em; text-transform: none; }
+.viewer-header h1 { font-size: clamp(26px, 2.3vw, 32px); }
+.viewer-summary { font-size: 15px; }
+.viewer-meta { gap: 6px 16px; margin-top: 12px; color: var(--muted); font: 12px/1.5 var(--font-mono); }
+.viewer-actions { align-items: flex-start; gap: 12px; }
+.ide-action { gap: 7px; }
+.ide-preview-note { max-width: 190px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+
+.viewer-banner {
+  min-height: 52px;
+  gap: 12px;
+  margin: 24px 0 22px;
+  border: 0;
+  border-radius: var(--radius-small);
+  padding: 13px 16px;
+  background: rgba(0,237,100,.1);
+  color: var(--accent-soft);
+  font-size: 14px;
+}
+
+.viewer-banner.done { background: rgba(0,237,100,.13); color: var(--accent-soft); }
+.viewer-banner.stop { border: 0; background: rgba(255,105,96,.12); color: var(--danger); }
+.journey { margin: 20px 0 8px; }
+.journey-step { width: 44px; height: 44px; border: 1px solid var(--line-strong); background: var(--bg); font-size: 12px; }
+.journey-step.passed { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+.journey-step.current { border-color: var(--accent-soft); background: rgba(0,237,100,.1); color: var(--accent-soft); box-shadow: none; }
+.journey-step.failed, .journey-step.blocked { border-color: var(--danger); background: rgba(255,105,96,.1); color: var(--danger); }
+.journey-line { height: 1px; background: var(--line); }
+.journey-line.passed { background: var(--accent); }
+.journey-caption { margin-bottom: 18px; color: var(--muted); font-size: 13px; }
+
+.checkpoint-list { gap: 10px; }
+.checkpoint {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.checkpoint.current, .checkpoint.blocked { border: 0; }
+.checkpoint > summary {
+  min-height: 68px;
+  grid-template-columns: 40px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 12px;
+  border-radius: var(--radius-small);
+  padding: 12px;
+}
+
+.checkpoint.current > summary { background: rgba(28,45,56,.68); }
+.checkpoint-number { width: 36px; height: 36px; background: var(--surface-raised); font-size: 12px; }
+.checkpoint.passed .checkpoint-number { background: rgba(0,237,100,.14); color: var(--accent-soft); }
+.checkpoint.current .checkpoint-number { background: rgba(0,237,100,.14); color: var(--accent-soft); }
+.checkpoint.blocked .checkpoint-number { background: rgba(255,105,96,.14); color: var(--danger); }
+.checkpoint-state { margin-bottom: 4px; color: var(--muted); font: 12px/1.4 var(--font-sans); letter-spacing: 0; text-transform: none; }
+.checkpoint.current .checkpoint-state { color: var(--accent-soft); }
+.checkpoint.failed .checkpoint-number { background: rgba(255,105,96,.12); color: var(--danger); }
+.checkpoint.failed .checkpoint-state { color: var(--danger); }
+.checkpoint.blocked .checkpoint-state { color: var(--danger); }
+.checkpoint-title { margin-bottom: 9px; font-size: 15px; font-weight: 650; }
+.checkpoint-chevron { width: 16px; color: var(--muted); font: 18px/1 var(--font-sans); }
+.checkpoint-chevron::before { content: "›"; }
+.checkpoint[open] .checkpoint-chevron::before { content: "⌄"; }
+.gate-list { gap: 7px; }
+.gate { min-height: 24px; border: 0; border-radius: var(--radius-control); padding: 4px 8px; background: rgba(193,199,198,.08); font-size: 12px; }
+.gate.passed { border: 0; background: rgba(0,237,100,.1); color: var(--accent-soft); }
+.gate.failed, .gate.blocked { border: 0; background: rgba(255,105,96,.1); color: var(--danger); }
+.gate.running { border: 0; background: rgba(0,237,100,.1); color: var(--accent-soft); }
+.gate.na { border: 0; color: var(--muted); }
+
+.checkpoint-body {
+  gap: 18px;
+  border: 0;
+  padding: 10px 16px 24px 64px;
+}
+
+.checkpoint-body h3, .technical-grid h3, .viewer-note h3 {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font: 600 13px/1.4 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.checkpoint-body p { font-size: 14px; line-height: 1.55; }
+.checkpoint-findings { border: 0; border-radius: var(--radius-small); padding: 12px 14px; background: rgba(255,105,96,.1); }
+.checkpoint-findings h3 { color: var(--danger); }
+.checkpoint-findings p { margin-top: 5px; font: 13px/1.5 var(--font-sans); }
+.technical-details { border: 0; padding-top: 4px; }
+.technical-details > summary { min-height: 44px; padding: 10px 0; color: var(--muted); font: 13px/1.4 var(--font-sans); }
+.technical-grid { gap: 16px 24px; padding: 10px 0; }
+.technical-grid ul, .viewer-note ul { padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.technical-grid li, .viewer-note li { margin: 4px 0; overflow-wrap: anywhere; }
+.viewer-extra { gap: 28px; margin-top: 34px; }
+.viewer-note { border: 0; border-radius: 0; padding: 0; background: transparent; }
+.viewer-empty { max-width: 740px; margin: 28px 0; border: 0; border-radius: 0; padding: 0; background: transparent; }
+.viewer-empty h1 { font-size: 26px; }
+.viewer-empty p { font-size: 14px; }
+
+.document-frame { max-width: none; margin: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; }
+.document-body { width: min(100%, 84ch); margin: 0; padding: 26px 0; }
+.document-body .document-summary { max-width: 70ch; margin-bottom: 24px; font-size: 16px; }
+.document-body h1 { margin-bottom: 12px; font-size: clamp(28px, 2.6vw, 34px); }
+.document-body h2 { margin: 30px 0 8px; font-size: 21px; }
+.document-body p, .document-body li { font-size: 15px; line-height: 1.65; }
+.document-stamp { margin-bottom: 14px; color: var(--accent-soft); font: 600 12px/1.4 var(--font-sans); letter-spacing: .02em; text-transform: none; }
+.document-scope-note { max-width: 78ch; margin: 22px 0; border-left: 3px solid var(--warning); border-radius: 0 var(--radius-small) var(--radius-small) 0; padding: 13px 16px; background: rgba(255,192,16,.09); font-size: 14px; }
+
+.state-panel { max-width: 650px; margin: 48px 0; border: 0; border-radius: 0; padding: 0; background: transparent; }
+.state-panel h1 { font-size: 28px; }
+.state-panel p { font-size: 15px; }
+.state-panel.error h1 { color: var(--danger); }
+.skeleton-line, .skeleton-row { display: none; }
+
+.action-feedback {
+  right: 18px;
+  bottom: 18px;
+  max-width: min(390px, calc(100vw - 36px));
+  border: 0;
+  border-radius: var(--radius-small);
+  padding: 14px 16px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 14px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.22);
+}
+
+.mobile-explorer-back {
+  min-height: 44px;
+  border: 0;
+  border-radius: var(--radius-small);
+  padding: 8px 11px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.mobile-explorer-back:hover { background: #263A45; }
+
+@media (max-width: 900px) {
+  :root { --explorer-width: 300px; }
+  .main-pane { padding-inline: 24px; }
+}
+
+@media (max-width: 760px) {
+  .app-shell { display: block; min-height: calc(100dvh - 64px); }
+  .explorer { display: none; height: auto; max-height: none; border: 0; }
+  .main-pane { display: block; height: calc(100dvh - 64px); overflow: auto; padding: 24px 20px 42px; }
+  body[data-mobile-pane="explorer"] .explorer { display: block; height: calc(100dvh - 64px); overflow: auto; }
+  body[data-mobile-pane="explorer"] .main-pane { display: none; }
+  body[data-mobile-pane="content"] .explorer { display: none; }
+  body[data-mobile-pane="content"] .mobile-explorer-back { display: inline-flex; }
+  .viewer-header { flex-direction: column; }
+  .viewer-actions { justify-content: flex-start; }
+  .ide-action { justify-items: start; }
+  .ide-preview-note { max-width: none; text-align: left; }
+}
+
+@media (max-width: 520px) {
+  .app-header { min-height: 64px; padding-inline: 12px; gap: 6px; }
+  .brand-wordmark { font-size: 17px; }
+  .brand-wordmark-name { font-size: 14px; }
+  .header-meta { gap: 6px; }
+  .sample-tag { min-height: 44px; font-size: 11px; }
+  .sample-tag-full { display: none; }
+  .sample-tag-short { display: inline; }
+  .mobile-explorer-back { padding-inline: 10px; }
+  .main-pane { padding: 22px 16px 36px; }
+  .pane-header { flex-direction: column; gap: 8px; }
+  .summary-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin: 28px 0 36px; padding: 12px; }
+  .summary-item { padding: 0 10px 12px; }
+  .summary-item:first-child, .summary-item:nth-child(odd) { padding-left: 0; }
+  .summary-item:nth-child(odd) { border-left: 0; }
+  .summary-item:nth-child(even) { padding-right: 0; }
+  .summary-item:nth-child(n+3) { border-top: 1px solid var(--divider); padding-top: 12px; }
+  .content-section { margin-top: 32px; }
+  .section-heading { align-items: flex-start; }
+  .project-summary-counts { justify-content: flex-start; }
+  .project-summary-row, .activity-row { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 10px; }
+  .activity-row .status-badge, .activity-row .activity-open { justify-self: start; }
+  .technical-grid, .viewer-extra { grid-template-columns: minmax(0, 1fr); }
+  .checkpoint > summary { grid-template-columns: 36px minmax(0, 1fr) 16px; gap: 9px; padding: 11px 8px; }
+  .checkpoint-body { padding: 10px 10px 22px; }
+  .docs-row { flex-wrap: wrap; }
+  .document-body { padding: 22px 0; }
+}
+
+@media (max-width: 360px) {
+  .brand-caption { display: none; }
+  .brand-wordmark { font-size: 16px; }
+  .brand-wordmark-name { font-size: 13px; }
+  .sample-tag { font-size: 10px; }
+  .mobile-explorer-back { padding-inline: 8px; }
+  .main-pane { padding-inline: 14px; }
+  .journey-line { min-width: 4px; }
+}
+
+.app-shell { grid-template-columns: minmax(240px, var(--explorer-width)) 8px minmax(0, 1fr); }
+.explorer { border-right: 0; }
+.resize-handle {
+  position: relative;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+}
+.resize-handle::before {
+  position: absolute;
+  inset: 0 auto 0 3px;
+  width: 1px;
+  background: var(--divider);
+  content: "";
+  transition: background-color 140ms var(--ease-out), width 140ms var(--ease-out);
+}
+.resize-handle:hover::before, .resize-handle:focus-visible::before, body.is-resizing .resize-handle::before {
+  left: 2px;
+  width: 3px;
+  background: var(--accent);
+}
+.resize-handle:focus-visible { outline: 0; }
+.resize-handle:focus-visible::before { box-shadow: 0 0 0 2px var(--bg); }
+body.is-resizing, body.is-resizing * { cursor: col-resize !important; user-select: none !important; }
+.header-context:empty { display: none; }
+.header-context .button { white-space: nowrap; }
+.mobile-explorer-back { display: none; }
+.explorer-head { padding-bottom: 10px; }
+.explorer-hint { display: none; }
+.tree-project-line { display: block; }
+.tree-project-button, .tree-group-button {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 44px;
+  padding: 7px 9px;
+  text-align: left;
+}
+.tree-project-button { grid-template-columns: 18px minmax(0, 1fr) 16px; }
+.tree-project-button[aria-current="page"], .tree-project-button[aria-expanded="true"] {
+  border-color: transparent;
+  background: var(--surface-selected);
+}
+.tree-project-copy { display: grid; min-width: 0; gap: 1px; }
+.project-root-line { min-width: 0; flex-wrap: nowrap; gap: 7px; }
+.project-root-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.provider-tag { font-size: 9px; }
+.project-remote { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.tree-project-chevron, .tree-group-chevron, .branch-chevron {
+  display: grid;
+  width: 16px;
+  height: 20px;
+  place-items: center;
+  color: var(--subtle);
+}
+.tree-project-chevron::before, .tree-group-chevron::before, .branch-chevron::before {
+  display: block;
+  content: "›";
+  font: 17px/1 var(--font-sans);
+  transition: transform 180ms var(--ease-out);
+}
+.tree-project-button[aria-expanded="true"] .tree-project-chevron,
+.tree-group-button[aria-expanded="true"] .tree-group-chevron,
+.tree-branch-button[aria-expanded="true"] .branch-chevron { transform: none; }
+.tree-project-button[aria-expanded="true"] .tree-project-chevron::before,
+.tree-group-button[aria-expanded="true"] .tree-group-chevron::before,
+.tree-branch-button[aria-expanded="true"] .branch-chevron::before { transform: rotate(90deg); }
+.tree-project-children { padding: 2px 0 7px 13px; }
+.tree-group { margin-top: 2px; }
+.tree-group-button {
+  grid-template-columns: 18px minmax(0, 1fr) auto 16px;
+  min-height: 44px;
+  font-size: 12px;
+}
+.tree-group-count { margin: 0; font-size: 10px; }
+.tree-group-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-nested { margin: 0 0 3px 13px; border: 0; padding: 0 0 0 7px; }
+.tree-item {
+  min-height: 44px;
+  grid-template-columns: 16px minmax(0, 1fr);
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 7px 8px;
+  font-size: 13px;
+  text-align: left;
+}
+.tree-file-label, .tree-status-label { flex: 1; min-width: 0; text-align: left; }
+.tree-file-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-scope-tag { display: none; }
+.tree-item .tree-icon { width: 15px; height: 15px; }
+.doc-button { white-space: nowrap; }
+.tree-branch { margin: 1px 0; }
+.tree-branch-line { display: block; }
+.tree-branch-button {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 7px 8px;
+  border-radius: var(--radius-small);
+}
+.tree-branch-button:hover, .tree-branch-button[aria-expanded="true"] { background: rgba(255,255,255,.045); }
+.tree-branch-button[aria-current="page"] { border-color: transparent; background: var(--surface-selected); }
+.branch-label {
+  display: block;
+  overflow: hidden;
+  font: 12px/1.4 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.branch-status {
+  width: 8px;
+  height: 8px;
+  justify-self: center;
+  border-radius: 50%;
+  background: var(--subtle);
+}
+.branch-status.in-progress { background: var(--accent); }
+.branch-status.needs-review, .branch-status.unknown { background: var(--warning); }
+.branch-status.blocked { background: var(--danger); }
+.branch-status.closed { background: var(--muted); }
+.branch-status.in-progress::after, .branch-status.needs-review::after {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  content: "";
+  animation: status-pulse 1.8s ease-out infinite;
+}
+.branch-status.in-progress::after { background: var(--accent); }
+.branch-status.needs-review::after { background: var(--warning); animation-duration: 2.8s; }
+@keyframes status-pulse {
+  0% { opacity: .55; transform: scale(1); }
+  70%, 100% { opacity: 0; transform: scale(2.5); }
+}
+.tree-branch-files { margin: 0 0 5px 8px; border: 0; padding: 0 0 0 10px; }
+.tree-branch-files .tree-item { min-height: 44px; font-size: 13px; }
+.tree-status-item { justify-content: flex-start; }
+.viewer-heading-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.viewer-heading-line h1 { margin: 0; }
+.viewer-heading-line .status-badge { min-height: 24px; flex: none; }
+.mobile-explorer-back {
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  border: 0;
+  border-radius: var(--radius-small);
+  padding: 7px 10px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+}
+.mobile-explorer-back:hover { background: var(--surface-raised); }
+.action-feedback { max-width: min(360px, calc(100vw - 32px)); }
+.copy-path-button.button {
+  display: grid;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-small);
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.copy-path-button.button:hover { border: 0; background: var(--surface-raised); color: var(--text); }
+.copy-path-button .tree-icon { width: 16px; height: 16px; }
+.action-feedback {
+  right: auto;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+@media (max-width: 760px) {
+  .app-shell { display: block; }
+  .resize-handle { display: none; }
+  .main-pane { padding-top: 12px; }
+  .mobile-explorer-back { display: inline-flex; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .branch-status.in-progress::after, .branch-status.needs-review::after { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+.workspace-settings {
+  width: min(540px, calc(100vw - 24px));
+  max-width: 540px;
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  margin: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0;
+  background: var(--surface);
+  color: var(--text);
+}
+.workspace-settings::backdrop {
+  background: rgba(0, 15, 21, .76);
+  backdrop-filter: blur(3px);
+}
+.settings-panel { display: grid; gap: 16px; padding: 24px; }
+.settings-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.settings-title { margin: 0; color: var(--heading); font-size: 18px; line-height: 1.3; }
+.settings-description { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.settings-close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-small);
+  color: var(--muted);
+  cursor: pointer;
+}
+.settings-callout {
+  border: 1px solid rgba(0, 237, 100, .26);
+  border-radius: var(--radius-small);
+  padding: 10px 12px;
+  background: rgba(0, 237, 100, .07);
+  color: var(--accent-soft);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.settings-section-label { margin: 0 0 8px; color: var(--heading); font-size: 12px; }
+.settings-root-list { display: grid; gap: 7px; }
+.settings-root-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-small);
+  padding: 9px 11px;
+  background: var(--surface-raised);
+}
+.settings-root-path { min-width: 0; overflow-wrap: anywhere; color: var(--text); font: 11px/1.5 var(--font-mono); }
+.settings-remove {
+  min-height: 32px;
+  flex: none;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 4px 8px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 10px;
+}
+.settings-remove:hover { background: rgba(255, 105, 96, .1); color: var(--danger); }
+.settings-root-form { display: grid; gap: 7px; margin-top: 14px; }
+.settings-root-form label { color: var(--muted); font-size: 11px; }
+.settings-add-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
+.settings-root-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  padding: 9px 11px;
+  background: var(--bg);
+  color: var(--text);
+  font: 11px/1.4 var(--font-mono);
+}
+.settings-root-input::placeholder { color: var(--muted); opacity: .8; }
+.settings-helper, .settings-prototype-note { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.settings-validation { margin: 0; color: var(--danger); font-size: 11px; }
+.settings-actions { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--divider); padding-top: 14px; }
+.workspace-settings-trigger { flex: none; }
+@media (max-width: 520px) {
+  .settings-panel { gap: 14px; padding: 18px; }
+  .settings-add-row { grid-template-columns: minmax(0, 1fr); }
+  .settings-add-row .button { width: 100%; }
+}
+  .action-feedback { position: static; width: fit-content; max-width: 100%; margin: 0 0 16px; transform: none; text-align: left; }
+  </style>
+</head>
+<body data-mobile-pane="content">
+<a class="skip-link" href="#main-pane">Skip to main content</a>
+<svg class="icon-definitions" aria-hidden="true">
+  <symbol id="icon-project" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M5 5.5h6M5 8h6M5 10.5h3"/></symbol>
+  <symbol id="icon-home" viewBox="0 0 16 16"><path d="m2 7 6-5 6 5v6a1 1 0 0 1-1 1H9.5V9h-3v5H3a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="icon-progress" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M5 5.5h2M9 5.5h2M5 8h2M9 8h2M5 10.5h2M9 10.5h2"/></symbol>
+  <symbol id="icon-folder" viewBox="0 0 16 16"><path d="M2 4.25h4.5L8 5.75h6v6.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="icon-branch" viewBox="0 0 16 16"><circle cx="4.5" cy="3" r="1.4"/><circle cx="4.5" cy="13" r="1.4"/><circle cx="11.5" cy="8" r="1.4"/><path d="M4.5 4.5v7M4.5 10c0-1.4 1.1-2 2.8-2h2.7"/></symbol>
+  <symbol id="icon-history" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 4.5v3.7l2.5 1.5"/></symbol>
+  <symbol id="icon-file" viewBox="0 0 16 16"><path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3M6 8h4M6 10.5h4"/></symbol>
+  <symbol id="icon-copy" viewBox="0 0 16 16"><rect x="5.5" y="2.5" width="8" height="10" rx="1"/><path d="M10.5 13v.5a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1H4"/></symbol>
+</svg>
+<header class="app-header" data-region="app-header">
+  <button class="brand" type="button" id="all-projects-link" aria-label="All projects">
+    <span class="brand-title">
+      <span class="brand-wordmark"><span class="brand-brace">{</span>ai<span class="brand-brace">}</span><span class="brand-wordmark-name">engineering</span></span>
+    </span>
+  </button>
+  <div class="header-context" id="header-context" data-region="header-context"></div>
+  <button class="button workspace-settings-trigger" type="button" id="open-workspace-settings" data-region="settings-trigger" aria-haspopup="dialog">Settings</button>
+</header>
+
+<dialog class="workspace-settings" id="workspace-settings-dialog" data-region="settings-dialog" aria-labelledby="workspace-settings-title">
+  <div class="settings-panel">
+    <div class="settings-heading-row">
+      <div>
+        <h2 class="settings-title" id="workspace-settings-title">Workspace settings</h2>
+        <p class="settings-description">Choose the folders this workspace searches for repositories.</p>
+      </div>
+      <button class="settings-close" type="button" id="close-workspace-settings" aria-label="Close settings">×</button>
+    </div>
+    <div class="settings-callout" data-region="settings-guidance">Repositories are discovered under selected roots. Worktrees come from Git.</div>
+    <section aria-labelledby="settings-roots-heading">
+      <h3 class="settings-section-label" id="settings-roots-heading">Search roots</h3>
+      <div class="settings-root-list" id="settings-root-list" data-region="settings-root-list"></div>
+      <form class="settings-root-form" id="settings-root-form" data-region="settings-add-root" novalidate>
+        <label for="settings-root-input">Additional folder path</label>
+        <div class="settings-add-row">
+          <input class="settings-root-input" id="settings-root-input" name="searchRoot" type="text" placeholder="For example, ~/src" autocomplete="off">
+          <button class="button" type="submit">Add root</button>
+          <button class="button" id="choose-workspace-folder" type="button">Choose folder</button>
+        </div>
+        <p class="settings-helper">Use a specific folder, such as <code>~/repos</code> or <code>~/src</code>. If folder selection is unavailable, enter an absolute path here.</p>
+        <p class="settings-validation" id="settings-validation" data-region="settings-validation" role="alert" hidden></p>
+      </form>
+    </section>
+    <p class="settings-prototype-note" data-region="settings-prototype-note">Prototype only. This screen does not scan folders or save settings to disk.</p>
+    <div class="settings-actions">
+      <button class="button" type="button" id="cancel-workspace-settings">Cancel</button>
+      <button class="button primary" type="button" id="save-workspace-settings">Save settings</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="app-shell" id="app-shell">
+  <aside class="explorer" data-region="project-explorer" aria-label="Project explorer">
+    <div class="explorer-head">
+      <h2>Project explorer</h2>
+      <span class="root-count" id="root-count">3 roots</span>
+    </div>
+    <nav class="tree-nav" id="project-tree" data-region="project-tree" aria-label="Projects, files, and worktrees"></nav>
+  </aside>
+  <div class="resize-handle" id="explorer-resize-handle" role="separator" tabindex="0" aria-label="Resize project explorer" aria-orientation="vertical" aria-valuemin="240" aria-valuemax="520" aria-valuenow="344" title="Drag to resize. Use arrow keys to adjust."></div>
+
+  <main class="main-pane" id="main-pane" data-region="main-pane">
+    <div class="action-feedback" id="action-feedback" data-region="action-feedback" role="status" aria-live="polite" hidden></div>
+    <button class="mobile-explorer-back" type="button" id="mobile-explorer-back" data-region="mobile-explorer-back">← Explorer</button>
+    <section class="pane-content" id="all-projects-view" data-region="all-projects-view"></section>
+    <section class="pane-content" id="project-overview-view" data-region="project-overview" hidden></section>
+    <section class="pane-content" id="feature-viewer-view" data-region="feature-viewer" hidden></section>
+    <section class="pane-content" id="document-view" data-region="document-preview" hidden></section>
+    <section class="state-panel" id="loading-state" data-region="loading-state" aria-label="Loading projects" hidden>
+      <p class="pane-eyebrow">Project explorer</p>
+      <h1>Loading local projects</h1>
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line short"></div>
+      <div class="skeleton-row"></div>
+      <div class="skeleton-row"></div>
+    </section>
+    <section class="state-panel" id="empty-state" data-region="empty-state" hidden>
+      <p class="pane-eyebrow">Project explorer</p>
+      <h1>No AI Engineering-governed projects found</h1>
+      <p>No governed repositories were found under the configured roots. Repositories appear here after AI Engineering governance is established.</p>
+    </section>
+    <section class="state-panel error" id="error-state" data-region="error-state" role="alert" hidden>
+      <p class="pane-eyebrow">Project explorer</p>
+      <h1>Local project roots could not be loaded</h1>
+      <p>The hub cannot read its local project list. No worktree or feature has been marked as closed.</p>
+      <button class="button primary" id="retry" type="button">Try again</button>
+    </section>
+  </main>
+</div>
+
+<script>
+const gateNames = [
+  ["behavior", "Works", "testing that it works"],
+  ["ui", "Looks right", "comparing it with the design"],
+  ["review", "Code review", "reviewing the code"]
+];
+const MAX_GATE_ATTEMPTS = 3;
+
+function gate(status = "pending", attempts = 0, findings = []) {
+  return { status, attempts, findings };
+}
+
+function checkpoint(id, title, simple, status, plain, gateOverrides = {}, tasks = [], details = {}) {
+  const defaultGate = status === "passed" ? "passed" : "pending";
+  return {
+    id,
+    title,
+    simple,
+    size: id <= 2 ? "s" : "m",
+    goal: plain.what,
+    plain,
+    builds_on: details.builds_on ?? (id > 1 ? [id - 1] : []),
+    tasks: details.tasks ?? (tasks.length ? tasks : [simple]),
+    files: details.files ?? [],
+    acceptance: details.acceptance ?? [plain.check],
+    verify: details.verify ?? ["bun test"],
+    ui: details.ui ?? null,
+    gates: {
+      behavior: gate(gateOverrides.behavior?.status ?? defaultGate, gateOverrides.behavior?.attempts ?? 0, gateOverrides.behavior?.findings ?? []),
+      ui: gate(gateOverrides.ui?.status ?? "n/a", gateOverrides.ui?.attempts ?? 0, gateOverrides.ui?.findings ?? []),
+      review: gate(gateOverrides.review?.status ?? defaultGate, gateOverrides.review?.attempts ?? 0, gateOverrides.review?.findings ?? [])
+    },
+    status
+  };
+}
+
+const features = [
+  {
+    projectId: "ai-engineering",
+    slug: "worktree-lifecycle-governance",
+    branch: "feat/worktree-lifecycle-governance",
+    title: "Local worktree lifecycle governance",
+    status: "in-progress",
+    currentId: 4,
+    plain_summary: "Show local projects, worktrees, and the feature work that needs attention.",
+    testPlan: {
+      layers: {
+        unit: [{ checkpoint: 1, case: "Resolve every worktree to its project root" }],
+        api: [{ checkpoint: 2, case: "Return project and branch identity for each worktree" }],
+        cli: [],
+        ui: [
+          { checkpoint: 3, case: "Open the project brainstorm from the repository root" },
+          { checkpoint: 4, case: "Open a selected branch in the feature viewer" }
+        ]
+      }
+    },
+    new_dependencies: ["No new packages. The prototype uses inline HTML, CSS, and JavaScript."],
+    brainstorm: {
+      title: "Local work hub",
+      summary: "One project explorer shows local repository roots, branch worktrees, and feature progress.",
+      sections: [
+        ["Problem", "The feature viewer is opened separately for each worktree."],
+        ["Goal", "Browse project files and open a worktree in its feature progress viewer."],
+        ["Decisions", "Show root repository name separately from each feature branch."]
+      ]
+    },
+    checkpoints: [
+      checkpoint(1, "Inspect project roots", "Read each project's Git root", "passed", {
+        what: "Find the repository root that owns each local worktree.",
+        why: "A branch name alone does not say which project it belongs to.",
+        check: "Every worktree is linked to one project root."
+      }),
+      checkpoint(2, "Show worktrees under each project", "Group branches by project root", "passed", {
+        what: "List active branches under their GitHub or Azure DevOps repository root.",
+        why: "A person can tell which project a feature belongs to.",
+        check: "Every branch row shows its root project."
+      }),
+      checkpoint(3, "Open generated project files", "Browse brainstorm and PRD files", "passed", {
+        what: "Expose the project brainstorm and PRD in the explorer tree.",
+        why: "The design context is close to the work it guides.",
+        check: "The selected HTML document opens in the right pane."
+      }),
+      checkpoint(4, "Open feature progress in place", "Show the existing checkpoint viewer", "failed", {
+        what: "Render the selected worktree's progress in the main pane.",
+        why: "The person needs to inspect current gates without leaving the project hub.",
+        check: "The viewer keeps the project and branch context visible."
+      }, {
+        behavior: { status: "failed", attempts: 1, findings: ["The selected branch lost its project context after navigating back."] },
+        ui: { status: "pending" },
+        review: { status: "pending" }
+      }, ["Render project and branch context in the feature viewer"], {
+        files: [
+          "src/shared-worktree.ts",
+          "src/commands/worktree.ts",
+          "tests/worktree-command.spec.ts",
+          ".ai-engineering/workflow/prototypes/001-worktree-overview.html"
+        ],
+        acceptance: [
+          "The selected branch keeps its provider, repository, and status visible.",
+          "Opening a project root and expanding its tree remain separate actions."
+        ],
+        verify: ["bun test tests/worktree-command.spec.ts", "bun test tests/arch.spec.ts"],
+        ui: {
+          route: "/.ai-engineering/workflow/checkpoints/overview.html",
+          scope: ["project-explorer", "feature-viewer"],
+          prototype: ".ai-engineering/workflow/prototypes/001-worktree-overview.html"
+        }
+      }),
+      checkpoint(5, "Open a worktree in the default IDE", "Use the operating system's default app", "pending", {
+        what: "Open the selected worktree folder with the system default IDE.",
+        why: "The person can inspect the files directly without copying a path.",
+        check: "The requested project branch is the folder that opens."
+      }),
+      checkpoint(6, "Handle project and checkpoint gaps", "Keep unreadable work visible", "pending", {
+        what: "Show an unknown state when a project root or checkpoint cannot be read.",
+        why: "Missing data must not look like completed work.",
+        check: "Unreadable items remain visible and do not block other projects."
+      })
+    ],
+    assumptions: ["The live app uses the OS default IDE association. This prototype only simulates that action."],
+    notes: ["Per-feature brainstorm files are proposed and need a separate lifecycle decision."]
+  },
+  {
+    projectId: "ai-engineering",
+    slug: "ai-git-cleanup-v3",
+    branch: "feat/ai-git-cleanup-v3",
+    title: "Safe Git cleanup",
+    status: "needs-review",
+    plain_summary: "Remove finished local work only when Git can prove it is safe.",
+    currentId: 4,
+    brainstorm: {
+      title: "Safe Git cleanup",
+      summary: "Remove dead worktrees and branches only when Git can prove they are finished.",
+      sections: [
+        ["Problem", "Stale work can collect beside active worktrees."],
+        ["Goal", "Remove only finished local work and keep unmerged branches."],
+        ["Rules", "The final app review remains a human decision."]
+      ]
+    },
+    checkpoints: [
+      checkpoint(1, "List eligible worktrees", "Find work that is safe to remove", "passed", { what: "List only worktrees whose branches are already integrated.", why: "Cleanup must not guess whether code is disposable.", check: "Every listed branch is merged into local main." }),
+      checkpoint(2, "Keep unmerged branches", "Preserve work that has not landed", "passed", { what: "Skip branches that have not reached local main.", why: "A cleanup pass must not remove active work.", check: "Unmerged branches remain untouched." }),
+      checkpoint(3, "Remove merged work safely", "Delete only verified finished work", "passed", { what: "Remove verified worktrees and their merged branches.", why: "Finished local work should be easy to clean up.", check: "Git confirms each branch is merged before deletion." }),
+      checkpoint(4, "Verify the cleanup result", "Report what changed", "passed", { what: "Show removed items and remaining work.", why: "A person needs a clear record of cleanup.", check: "The result matches the actual Git state." })
+    ],
+    assumptions: [],
+    notes: []
+  },
+  {
+    projectId: "ai-engineering",
+    slug: "viewer-audit",
+    branch: "feat/viewer-audit",
+    title: "Checkpoint viewer improvements",
+    status: "blocked",
+    currentId: 3,
+    halted: { reason: "A decision is needed before the viewer change continues." },
+    plain_summary: "Improve the checkpoint detail page without changing its plan format.",
+    brainstorm: {
+      title: "Checkpoint viewer improvements",
+      summary: "Make feature progress easier to read while preserving the current plan format.",
+      sections: [
+        ["Problem", "Several states need clearer labels."],
+        ["Goal", "Improve the existing viewer without changing checkpoint data."]
+      ]
+    },
+    checkpoints: [
+      checkpoint(1, "Review the current viewer", "Map current progress states", "passed", { what: "List the current viewer states and labels.", why: "Changes should preserve useful behavior.", check: "Existing viewer states are documented." }),
+      checkpoint(2, "Define the target changes", "Keep the checkpoint format stable", "passed", { what: "Choose which details need better wayfinding.", why: "Clear scope prevents accidental redesign.", check: "The checkpoint JSON format stays unchanged." }),
+      checkpoint(3, "Resolve the open decision", "Wait for the design decision", "blocked", { what: "Pause while an interaction choice is unresolved.", why: "The agent should not guess a workflow choice.", check: "The feature resumes after the decision is recorded." }, {
+        behavior: { status: "passed" },
+        ui: { status: "n/a" },
+        review: { status: "blocked" }
+      }),
+      checkpoint(4, "Verify the updated page", "Check the final viewer states", "pending", { what: "Verify the approved viewer behavior.", why: "Every state should remain understandable.", check: "The viewer passes behavior and accessibility checks." })
+    ],
+    assumptions: [],
+    notes: []
+  },
+  {
+    projectId: "ai-engineering",
+    slug: "workflow-kit",
+    branch: "feat/workflow-kit",
+    title: "Workflow kit",
+    status: "in-progress",
+    currentId: 3,
+    plain_summary: "Install the guided feature workflow and its supporting tools.",
+    brainstorm: {
+      title: "Workflow kit",
+      summary: "Ship the local feature workflow, including its viewer and checkpoint helpers.",
+      sections: [
+        ["Problem", "The feature loop needs a shared set of guides and gates."],
+        ["Goal", "Install a repeatable local feature build flow."]
+      ]
+    },
+    checkpoints: [
+      checkpoint(1, "Copy the build playbooks", "Add the feature workflow guides", "passed", { what: "Ship the feature build instructions.", why: "The workflow needs a shared starting point.", check: "The installed skills are available." }),
+      checkpoint(2, "Install the five helpers", "Make workflow agents available", "passed", { what: "Install the agents used by the feature loop.", why: "The workflow delegates repeatable tasks.", check: "All required helper files are installed." }),
+      checkpoint(3, "Add the checkpoint gate", "Prevent work from skipping ahead", "running", { what: "Enforce checkpoint order before implementation.", why: "A later step must not start before its prerequisites pass.", check: "The gate rejects out-of-order work." }, {
+        behavior: { status: "running" },
+        ui: { status: "n/a" },
+        review: { status: "pending" }
+      }),
+      checkpoint(4, "Finish the viewer", "Show the plan and gate state", "pending", { what: "Display checkpoint status in the feature viewer.", why: "The person needs a useful overview.", check: "The viewer shows each checkpoint." })
+    ],
+    assumptions: [],
+    notes: []
+  },
+  {
+    projectId: "ai-engineering",
+    slug: "partial-checkpoint",
+    branch: "feat/partial-checkpoint",
+    title: "Unmatched local worktree",
+    status: "unknown",
+    currentId: 0,
+    plain_summary: "Git lists a worktree, but no matching checkpoint file was found.",
+    brainstorm: {
+      title: "Unmatched local worktree",
+      summary: "Keep an unrecognized worktree visible without treating missing progress data as completion.",
+      sections: [
+        ["Problem", "The repository lists a worktree without a matching checkpoint file."],
+        ["Goal", "Show its branch and unknown state without inventing progress."],
+        ["Status", "This brief is representative sample content."]
+      ]
+    },
+    checkpoints: [],
+    assumptions: [],
+    notes: []
+  },
+  {
+    projectId: "nn-skills",
+    slug: "nn-keynote-unregistered",
+    branch: "feat/nn-keynote-unregistered",
+    title: "Missing lifecycle checkpoint example",
+    status: "unknown",
+    currentId: 0,
+    plain_summary: "This example has no valid lifecycle checkpoint, so its state remains unknown.",
+    lifecycleCheckpointMissing: true,
+    lifecycleCheckpointPath: ".ai-engineering/workflow/checkpoints/nn-keynote-unregistered.json",
+    brainstorm: {
+      title: "Missing lifecycle checkpoint",
+      summary: "Keep a worktree unknown until its checkpoint contains valid lifecycle evidence.",
+      sections: [
+        ["Problem", "The workspace cannot classify a worktree without a matching lifecycle checkpoint."],
+        ["Goal", "Show Unknown rather than infer activity from a branch."]
+      ]
+    },
+    checkpoints: [],
+    assumptions: [],
+    notes: []
+  },
+  {
+    projectId: "nn-skills",
+    slug: "nn-keynote",
+    branch: "feat/nn-keynote",
+    title: "Lifecycle checkpoint integration",
+    status: "in-progress",
+    currentId: 1,
+    plain_summary: "A verified lifecycle checkpoint reports active implementation.",
+    lifecycleCheckpointMissing: false,
+    lifecycleCheckpointPath: ".ai-engineering/workflow/checkpoints/nn-keynote.json",
+    brainstorm: {
+      title: "Lifecycle checkpoint integration",
+      summary: "Expose explicit worktree lifecycle state to the local workspace.",
+      sections: [
+        ["Problem", "A workspace cannot classify a worktree from branch presence alone."],
+        ["Goal", "Read lifecycle status from the feature checkpoint and verify it against Git."],
+        ["Decision", "Keep the checkpoint as the only lifecycle source."]
+      ]
+    },
+    checkpoints: [
+      checkpoint(1, "Record active lifecycle phase", "Show verified implementation state", "running", {
+        what: "Keep a valid implementation phase in the feature checkpoint.",
+        why: "The workspace needs an explicit signal instead of guessing from Git.",
+        check: "The checkpoint matches the slug, branch, and current lifecycle state."
+      }, {
+        behavior: { status: "passed" },
+        ui: { status: "n/a" },
+        review: { status: "pending" }
+      })
+    ],
+    assumptions: [],
+    notes: []
+  },
+  {
+    projectId: "ai-engineering",
+    slug: "git-worktree-flow",
+    branch: "feat/git-worktree-flow",
+    title: "Git worktree workflow",
+    status: "closed",
+    currentId: 4,
+    plain_summary: "Keep each feature isolated and make local worktree cleanup safe.",
+    brainstorm: {
+      title: "Git worktree workflow",
+      summary: "Keep feature branches isolated and merge them into local main safely.",
+      sections: [
+        ["Problem", "Concurrent sessions can make changes hard to separate."],
+        ["Goal", "Use one worktree per feature and keep cleanup safe."]
+      ]
+    },
+    checkpoints: [
+      checkpoint(1, "Create an isolated worktree", "Give the feature its own branch", "passed", { what: "Create a dedicated worktree for the feature.", why: "Independent changes stay separate.", check: "The branch is isolated from other work." }),
+      checkpoint(2, "Keep changes scoped", "Track feature changes in its branch", "passed", { what: "Keep feature edits within the worktree.", why: "A feature should not capture sibling edits.", check: "Only the feature branch contains these changes." }),
+      checkpoint(3, "Merge into local main", "Integrate the approved feature", "passed", { what: "Merge the reviewed feature into local main.", why: "The local main remains the integration point.", check: "The merge is recorded on local main." }),
+      checkpoint(4, "Remove the finished worktree", "Clean up after merge", "passed", { what: "Remove the worktree after successful merge.", why: "Finished work should leave a clean local workspace.", check: "The merged branch is no longer an active worktree." })
+    ],
+    assumptions: [],
+    notes: []
+  },
+  {
+    projectId: "checkout-api",
+    slug: "checkout-deployment-safety",
+    branch: "feat/checkout-deployment-safety",
+    title: "Checkout deployment safety",
+    status: "in-progress",
+    currentId: 1,
+    plain_summary: "Add release checks that protect checkout deployments.",
+    brainstorm: {
+      title: "Checkout deployment safety",
+      summary: "Add release checks while keeping rollback steps visible to the team.",
+      sections: [
+        ["Problem", "A release needs repeatable checks before reaching the default branch."],
+        ["Goal", "Verify release and rollback behavior in the feature worktree."]
+      ]
+    },
+    checkpoints: [
+      checkpoint(1, "Add release checks", "Check the release before merge", "running", { what: "Add validation to the checkout release path.", why: "An unsafe deployment can interrupt purchases.", check: "The release checks cover the planned behavior." }, {
+        behavior: { status: "running" },
+        ui: { status: "n/a" },
+        review: { status: "pending" }
+      }),
+      checkpoint(2, "Verify rollback behavior", "Test the recovery path", "pending", { what: "Confirm the release can be rolled back.", why: "A release failure needs a safe recovery path.", check: "The rollback checks pass." }),
+      checkpoint(3, "Review the finished flow", "Show the final checkout flow", "pending", { what: "Present the completed change for review.", why: "The feature owner verifies the final behavior.", check: "The final app review is complete." })
+    ],
+    assumptions: [],
+    notes: []
+  },
+  {
+    projectId: "warehouse-mobile",
+    slug: "warehouse-picking-flow",
+    branch: "feat/warehouse-picking-flow",
+    title: "Warehouse picking flow",
+    status: "closed",
+    currentId: 3,
+    plain_summary: "Let staff review a pick list and confirm items from a handheld device.",
+    brainstorm: {
+      title: "Warehouse picking flow",
+      summary: "Let staff review one pick list and mark items as picked.",
+      sections: [
+        ["Problem", "Paper pick lists make it hard to see which items are complete."],
+        ["Goal", "Show the current pick list and record item completion."]
+      ]
+    },
+    checkpoints: [
+      checkpoint(1, "Show the picking list", "Display the next items to pick", "passed", { what: "Show the current order and items.", why: "Staff need to see the next action.", check: "The active pick list is readable." }),
+      checkpoint(2, "Confirm picked items", "Record completed items", "passed", { what: "Let staff mark an item as picked.", why: "The list should reflect progress.", check: "Picked items are saved." }),
+      checkpoint(3, "Merge the finished feature", "Close the reviewed worktree", "passed", { what: "Merge the finished work into local main.", why: "The approved feature is ready for use.", check: "The branch is merged and the worktree is removed." })
+    ],
+    assumptions: [],
+    notes: []
+  }
+];
+
+const projects = [
+  {
+    id: "ai-engineering",
+    name: "ai-engineering",
+    provider: "GitHub",
+    remote: "arcasilesgroup/ai-engineering",
+    rootPath: "/workspace/arcasilesgroup/ai-engineering",
+    worktreeRootPath: "/workspace/arcasilesgroup/ai-engineering.worktrees",
+    summary: "Engineering workflow tools, checkpoint viewer, and local worktree governance.",
+    documents: {
+      "brainstorm.html": {
+        title: "Local project explorer",
+        summary: "A two-pane local hub for project roots, worktrees, design files, and feature progress.",
+        sections: [
+          ["Problem", "Feature work is split across separate local viewers and worktree folders."],
+          ["Goal", "Browse each project root and open a worktree in its existing progress viewer."],
+          ["Decisions", "Keep brainstorm approval and final app review. Open the feature viewer from its worktree branch."]
+        ]
+      },
+      "PRD.html": {
+        title: "Local project observability",
+        summary: "Show project roots from GitHub or Azure DevOps alongside their worktree branches.",
+        sections: [
+          ["Goal", "Inspect project documents and feature worktrees from one local application."],
+          ["Rules", "The repository root identifies a project. A worktree branch identifies one feature."],
+          ["Out of scope", "Remote coordination, automatic merge, or deleting worktrees from the explorer."]
+        ]
+      }
+    }
+  },
+  {
+    id: "nn-skills",
+    name: "nn-skills",
+    provider: "GitHub",
+    remote: "nn/nn-skills",
+    rootPath: "/workspace/nn/nn-skills",
+    worktreeRootPath: "/workspace/nn/nn-skills.worktrees",
+    summary: "Skills and agent workflows with local lifecycle-aware worktrees.",
+    documents: {
+      "brainstorm.html": {
+        title: "Lifecycle status integration",
+        summary: "Publish explicit feature phases to local statusline consumers.",
+        sections: [
+          ["Problem", "A worktree can exist without a lifecycle registration."],
+          ["Goal", "Keep the displayed lifecycle state explicit and verifiable."]
+        ]
+      },
+      "PRD.html": {
+        title: "Lifecycle status projection",
+        summary: "Expose checkpoint lifecycle transitions through a compatible local record.",
+        sections: [
+          ["Rule", "Missing or invalid registration remains Unknown."],
+          ["Source", "The feature checkpoint is authoritative; the record is generated."]
+        ]
+      }
+    }
+  },
+  {
+    id: "checkout-api",
+    name: "checkout-api",
+    provider: "Azure DevOps",
+    remote: "Commerce / checkout-api",
+    rootPath: "/workspace/commerce/checkout-api",
+    worktreeRootPath: "/workspace/commerce/checkout-api.worktrees",
+    summary: "Checkout release safeguards and payment flow updates.",
+    documents: {
+      "brainstorm.html": {
+        title: "Checkout deployment safety",
+        summary: "Add release checks while keeping rollback steps visible to the team.",
+        sections: [
+          ["Problem", "A release needs a repeatable check before it reaches the default branch."],
+          ["Goal", "Verify release and rollback behavior in the feature worktree."]
+        ]
+      },
+      "PRD.html": {
+        title: "Checkout release safeguards",
+        summary: "Protect local feature branches with explicit behavior and review gates.",
+        sections: [
+          ["Goal", "Prevent an unsafe release while preserving the existing checkout flow."],
+          ["Rules", "Run behavior checks before final app review and local merge."]
+        ]
+      }
+    }
+  },
+  {
+    id: "warehouse-mobile",
+    name: "warehouse-mobile",
+    provider: "GitHub",
+    remote: "sample-labs/warehouse-mobile",
+    rootPath: "/workspace/sample-labs/warehouse-mobile",
+    worktreeRootPath: "/workspace/sample-labs/warehouse-mobile.worktrees",
+    summary: "A mobile picking flow for warehouse staff.",
+    documents: {
+      "brainstorm.html": {
+        title: "Warehouse picking flow",
+        summary: "Let staff review a pick list and confirm items from a handheld device.",
+        sections: [
+          ["Problem", "Paper pick lists make it hard to see which items are complete."],
+          ["Goal", "Show the current pick list and record item completion."]
+        ]
+      },
+      "PRD.html": {
+        title: "Mobile picking",
+        summary: "A focused workflow for reviewing and completing one pick list.",
+        sections: [
+          ["Goal", "Make the next item and current list status easy to understand."],
+          ["Rules", "Completed work remains available in local history."]
+        ]
+      }
+    }
+  }
+];
+
+const STATUS_LABELS = {
+  "in-progress": "In progress",
+  "needs-review": "Needs review",
+  blocked: "Blocked",
+  unknown: "Unknown",
+  closed: "Closed"
+};
+
+const $ = (id) => document.getElementById(id);
+let activeProjectId = null;
+let selectedFeature = null;
+let selectedDocument = null;
+let feedbackTimeout = null;
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[character]);
+}
+
+function featureKey(feature) {
+  return `${feature.projectId}:${feature.slug}`;
+}
+
+function projectById(projectId) {
+  return projects.find((project) => project.id === projectId);
+}
+
+function documentAbsolutePath(project, fileName, feature) {
+  const directory = feature
+    ? `${project.worktreeRootPath}/${feature.slug}`
+    : project.rootPath;
+  const relativePath = feature
+    ? `.ai-engineering/workflow/features/${feature.slug}/${fileName}`
+    : `.ai-engineering/${fileName}`;
+  return `${directory}/${relativePath}`;
+}
+
+function featureByKey(key) {
+  return features.find((feature) => featureKey(feature) === key);
+}
+
+function projectFeatures(projectId) {
+  return features.filter((feature) => feature.projectId === projectId);
+}
+
+function projectGroups(projectId) {
+  const items = projectFeatures(projectId);
+  return {
+    worktrees: items.filter((feature) => feature.isWorktree !== false && feature.status !== "closed"),
+    history: items.filter((feature) => feature.status === "closed")
+  };
+}
+
+function renderBranch(feature) {
+  const key = featureKey(feature);
+  const branchId = `branch-files-${key.replace(/[^a-z0-9-]/gi, "-")}`;
+  const project = projectById(feature.projectId);
+  const statusLabel = STATUS_LABELS[feature.status];
+  return `
+    <div class="tree-branch">
+      <button class="tree-branch-button" type="button" data-toggle-target="${branchId}" data-toggle-label="worktree ${escapeHtml(feature.branch)} under ${escapeHtml(project.name)}" aria-controls="${branchId}" aria-expanded="false" aria-label="Expand worktree ${escapeHtml(feature.branch)} in ${escapeHtml(project.name)}. Status: ${escapeHtml(statusLabel)}" title="Status: ${escapeHtml(statusLabel)}">
+        <span class="branch-status ${escapeHtml(feature.status)}" aria-hidden="true"></span>
+        <span class="branch-label">${escapeHtml(feature.branch)}</span>
+        <span class="branch-chevron" aria-hidden="true"></span>
+      </button>
+      <div class="tree-branch-files tree-nested" id="${branchId}" hidden>
+        <button class="tree-item tree-status-item" type="button" data-open-feature="${escapeHtml(key)}" aria-label="Open progress for ${escapeHtml(feature.branch)}. Status: ${escapeHtml(statusLabel)}">
+          <svg class="tree-icon" aria-hidden="true"><use href="#icon-progress"></use></svg>
+          <span class="tree-status-label">Progress</span>
+        </button>
+        <button class="tree-item tree-file" type="button" data-open-document="brainstorm.html" data-project-id="${escapeHtml(feature.projectId)}" data-feature-key="${escapeHtml(key)}" aria-label="Open feature brainstorm.html for ${escapeHtml(feature.branch)}">
+          <svg class="tree-icon" aria-hidden="true"><use href="#icon-file"></use></svg>
+          <span class="tree-file-label">brainstorm.html</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderExplorer() {
+  $("project-tree").innerHTML = projects.map((project) => {
+    const { worktrees, history } = projectGroups(project.id);
+    const projectChildrenId = `project-children-${project.id}`;
+    const docsId = `project-docs-${project.id}`;
+    const worktreesId = `project-worktrees-${project.id}`;
+    const historyId = `project-history-${project.id}`;
+    return `
+      <section class="tree-project">
+        <div class="tree-project-line">
+          <button class="tree-project-button" type="button" data-toggle-target="${projectChildrenId}" data-toggle-label="project ${escapeHtml(project.name)}" aria-controls="${projectChildrenId}" aria-expanded="false" aria-label="Expand project ${escapeHtml(project.name)}">
+            <svg class="tree-icon" aria-hidden="true"><use href="#icon-project"></use></svg>
+            <span class="tree-project-copy">
+              <span class="project-root-line">
+                <span class="project-root-name">${escapeHtml(project.name)}</span>
+                <span class="provider-tag">${escapeHtml(project.provider)}</span>
+              </span>
+              <span class="project-remote">${escapeHtml(project.remote)}</span>
+            </span>
+            <span class="tree-project-chevron" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="tree-project-children" id="${projectChildrenId}" hidden>
+          <button class="tree-item tree-overview-item" type="button" data-open-project="${escapeHtml(project.id)}" aria-label="Open overview for ${escapeHtml(project.name)}" ${activeProjectId === project.id && !selectedFeature && !selectedDocument ? 'aria-current="page"' : ""}>
+            <svg class="tree-icon" aria-hidden="true"><use href="#icon-home"></use></svg>
+            <span class="tree-file-label">Overview</span>
+          </button>
+          <div class="tree-group">
+            <button class="tree-group-button" type="button" data-toggle-target="${docsId}" data-toggle-label="project files for ${escapeHtml(project.name)}" aria-controls="${docsId}" aria-expanded="false" aria-label="Expand project files for ${escapeHtml(project.name)}">
+              <svg class="tree-icon" aria-hidden="true"><use href="#icon-folder"></use></svg>
+              <span class="tree-group-name">Project files</span>
+              <span class="tree-group-count" aria-hidden="true"></span>
+              <span class="tree-group-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="tree-group-children tree-nested" id="${docsId}" hidden>
+              <button class="tree-item tree-file" type="button" data-open-document="brainstorm.html" data-project-id="${escapeHtml(project.id)}" aria-label="Open project-level brainstorm.html for ${escapeHtml(project.name)}">
+                <svg class="tree-icon" aria-hidden="true"><use href="#icon-file"></use></svg>
+                <span class="tree-file-label">brainstorm.html</span>
+              </button>
+              <button class="tree-item tree-file" type="button" data-open-document="PRD.html" data-project-id="${escapeHtml(project.id)}" aria-label="Open project PRD.html for ${escapeHtml(project.name)}">
+                <svg class="tree-icon" aria-hidden="true"><use href="#icon-file"></use></svg>
+                <span class="tree-file-label">PRD.html</span>
+              </button>
+            </div>
+          </div>
+          <div class="tree-group">
+            <button class="tree-group-button" type="button" data-toggle-target="${worktreesId}" data-toggle-label="worktrees for ${escapeHtml(project.name)}" aria-controls="${worktreesId}" aria-expanded="false" aria-label="Expand worktrees for ${escapeHtml(project.name)}">
+              <svg class="tree-icon" aria-hidden="true"><use href="#icon-branch"></use></svg>
+              <span class="tree-group-name">Worktrees</span>
+              <span class="tree-group-count">${worktrees.length}</span>
+              <span class="tree-group-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="tree-group-children tree-nested" id="${worktreesId}" hidden>
+              ${worktrees.length ? worktrees.map((feature) => renderBranch(feature)).join("") : `<span class="tree-history-note">No active worktrees</span>`}
+            </div>
+          </div>
+          <div class="tree-group">
+            <button class="tree-group-button" type="button" data-toggle-target="${historyId}" data-toggle-label="history for ${escapeHtml(project.name)}" aria-controls="${historyId}" aria-expanded="false" aria-label="Expand history for ${escapeHtml(project.name)}">
+              <svg class="tree-icon" aria-hidden="true"><use href="#icon-history"></use></svg>
+              <span class="tree-group-name">History</span>
+              <span class="tree-group-count">${history.length}</span>
+              <span class="tree-group-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="tree-group-children tree-nested" id="${historyId}" hidden>
+              ${history.length ? history.map((feature) => renderBranch(feature)).join("") : `<span class="tree-history-note">No closed features</span>`}
+            </div>
+          </div>
+        </div>
+      </section>
+    `;
+  }).join("");
+  $("root-count").textContent = `${projects.length} roots`;
+}
+
+function expandTreeAncestors(row) {
+  for (let parent = row?.parentElement; parent && parent !== $("project-tree"); parent = parent.parentElement) {
+    if (!parent.hidden) continue;
+    parent.hidden = false;
+    const disclosure = $("project-tree").querySelector(`[aria-controls="${parent.id}"]`);
+    if (!disclosure) continue;
+    disclosure.setAttribute("aria-expanded", "true");
+    disclosure.setAttribute("aria-label", `Collapse ${disclosure.dataset.toggleLabel ?? "tree item"}`);
+  }
+}
+
+function syncTreeSelection() {
+  const selectedFeatureKey = selectedFeature && !selectedDocument ? featureKey(selectedFeature) : null;
+  document.querySelectorAll("#project-tree [data-open-feature]").forEach((button) => {
+    if (button.dataset.openFeature === selectedFeatureKey) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  document.querySelectorAll("#project-tree [data-open-document]").forEach((button) => {
+    const isSelected = selectedDocument
+      && button.dataset.projectId === selectedDocument.projectId
+      && button.dataset.openDocument === selectedDocument.fileName
+      && (button.dataset.featureKey ?? null) === selectedDocument.featureKey;
+    if (isSelected) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  document.querySelectorAll("#project-tree [data-open-project]").forEach((button) => {
+    const isSelected = activeProjectId === button.dataset.openProject && !selectedFeature && !selectedDocument;
+    if (isSelected) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  const isAllProjectsSelected = activeProjectId === null && !selectedFeature && !selectedDocument;
+  if (isAllProjectsSelected) $("all-projects-link").setAttribute("aria-current", "page");
+  else $("all-projects-link").removeAttribute("aria-current");
+  expandTreeAncestors($("project-tree").querySelector('[aria-current="page"]'));
+}
+
+function summaryCounts(featureItems) {
+  return {
+    worktrees: featureItems.filter((feature) => feature.isWorktree !== false && feature.status !== "closed").length,
+    needsYou: featureItems.filter((feature) => ["needs-review", "blocked", "unknown"].includes(feature.status)).length,
+    history: featureItems.filter((feature) => feature.status === "closed").length
+  };
+}
+
+function renderAttentionRow(feature) {
+  const project = projectById(feature.projectId);
+  return `
+    <button class="activity-row" type="button" data-open-feature="${escapeHtml(featureKey(feature))}" aria-label="Open viewer for ${escapeHtml(feature.branch)} in ${escapeHtml(project.name)}">
+      <span class="activity-main">
+        <span class="activity-title">${escapeHtml(feature.title)}</span>
+        <span class="activity-project">${escapeHtml(project.name)} · ${escapeHtml(project.remote)}</span>
+        <span class="activity-branch">${escapeHtml(feature.branch)}</span>
+      </span>
+      <span class="status-badge ${escapeHtml(feature.status)}">${STATUS_LABELS[feature.status]}</span>
+      <span class="activity-open">Open viewer</span>
+    </button>
+  `;
+}
+
+function getCurrentCheckpoint(feature) {
+  return feature.checkpoints.find((item) => item.status !== "passed") ?? null;
+}
+
+function hasReachedGateAttemptLimit(checkpoint) {
+  return checkpoint.gates && Object.values(checkpoint.gates).some((gate) => gate.status === "failed" && (gate.attempts ?? 0) >= MAX_GATE_ATTEMPTS);
+}
+
+function checkpointState(feature, checkpoint) {
+  if (feature.status === "unknown") return "unknown";
+  if (checkpoint.status === "passed") return "passed";
+  if (checkpoint.status === "blocked") return "blocked";
+  if (hasReachedGateAttemptLimit(checkpoint)) return "blocked";
+  if (checkpoint.id !== feature.currentId) return "pending";
+  if (checkpoint.gates && Object.values(checkpoint.gates).some((gate) => gate.status === "failed")) return "failed";
+  if (checkpoint.status === "failed") return "failed";
+  return checkpoint.gates && Object.values(checkpoint.gates).some((gate) => gate.status === "running") ? "running" : "pending";
+}
+
+function currentActivity(feature, checkpoint) {
+  if (!checkpoint) return "Wrapping up";
+  const activeGate = gateNames.find(([key]) => ["running", "pending", "failed"].includes(checkpoint.gates?.[key]?.status));
+  if (!activeGate) return "Wrapping up";
+  const [key, , doing] = activeGate;
+  const gate = checkpoint.gates?.[key];
+  if (gate?.status === "failed") {
+    if ((gate.attempts ?? 0) >= MAX_GATE_ATTEMPTS) return `Stuck after ${MAX_GATE_ATTEMPTS} attempts; needs your input`;
+    return `Fixing problems found while ${doing} (try ${(gate.attempts ?? 0) + 1})`;
+  }
+  return doing.charAt(0).toUpperCase() + doing.slice(1);
+}
+
+function renderGatePills(checkpoint) {
+  return gateNames.map(([key, label]) => {
+    const gate = checkpoint.gates?.[key] ?? { status: "pending", attempts: 0 };
+    if (gate.status === "n/a") return `<span class="gate na">${label}: no screen</span>`;
+    const icon = { passed: "✓", failed: "×", running: "…", pending: "○", blocked: "×" }[gate.status] ?? "○";
+    const retry = gate.attempts ? ` · ${gate.attempts} ${gate.attempts === 1 ? "retry" : "retries"}` : "";
+    const findings = gate.findings?.length ? ` title="${escapeHtml(gate.findings.join("; "))}"` : "";
+    return `<span class="gate ${escapeHtml(gate.status)}"${findings}>${icon} ${label}${retry}</span>`;
+  }).join("");
+}
+
+function renderFindingList(checkpoint) {
+  const findings = gateNames.flatMap(([key, label]) => (checkpoint.gates?.[key]?.findings ?? []).map((finding) => ({ label, finding })));
+  if (!findings.length) return "";
+  return `<section class="checkpoint-findings" data-region="checkpoint-findings"><h3>Problems found</h3>${findings.map(({ label, finding }) => `<p><strong>${label}:</strong> ${escapeHtml(finding)}</p>`).join("")}</section>`;
+}
+
+function renderTechnicalDetails(checkpoint, plan) {
+  const sections = [
+    ["Checkpoint", [checkpoint.title]],
+    ["Goal", checkpoint.goal ? [checkpoint.goal] : []],
+    ["Done when", checkpoint.acceptance],
+    ["Tasks", checkpoint.tasks],
+    ["Files", checkpoint.files],
+    ["Check commands", checkpoint.verify]
+  ].filter(([, list]) => Array.isArray(list) && list.length);
+  const testCases = Object.entries(plan.testPlan?.layers ?? {}).flatMap(([layer, cases]) => cases
+    .filter((testCase) => testCase.checkpoint === checkpoint.id)
+    .map((testCase) => `${layer}: ${testCase.case}`));
+  if (testCases.length) sections.push(["Tests", testCases]);
+  if (checkpoint.ui) sections.push(["Screen", [
+    checkpoint.ui.route,
+    ...(checkpoint.ui.scope?.length ? [`Parts: ${checkpoint.ui.scope.join(", ")}`] : []),
+    ...(checkpoint.ui.prototype ? [{ label: "Design to compare", href: `../../../${checkpoint.ui.prototype}` }] : [])
+  ]]);
+  if (checkpoint.builds_on?.length) sections.push(["Builds on", checkpoint.builds_on.map((id) => `Step ${id}`)]);
+  if (checkpoint.id === 1 && plan.new_dependencies?.length) sections.push(["Dependencies", plan.new_dependencies]);
+  sections.push(["Step size", [checkpoint.size]]);
+  if (!sections.length) return "";
+  return `
+    <details class="technical-details" data-region="technical-details">
+      <summary>Technical details</summary>
+      <div class="technical-grid">
+        ${sections.map(([title, entries]) => `<section><h3>${title}</h3><ul>${entries.map((entry) => `<li>${typeof entry === "object" ? `${escapeHtml(entry.label)}: <a href="${escapeHtml(entry.href)}" target="_blank" rel="noopener">Open the prototype</a>` : escapeHtml(entry)}</li>`).join("")}</ul></section>`).join("")}
+      </div>
+    </details>
+  `;
+}
+
+function renderCheckpointCard(feature, checkpoint) {
+  const state = checkpointState(feature, checkpoint);
+  const current = checkpoint.id === feature.currentId;
+  const stateLabel = state === "passed" ? "Done" : state === "blocked" ? "Stuck, needs your input" : state === "failed" ? "Fixing problems" : current ? "In progress" : "Not started";
+  return `
+    <details class="checkpoint ${state}" id="checkpoint-${checkpoint.id}" ${current ? "open" : ""} ${feature.status === "unknown" ? "aria-disabled=true" : ""}>
+      <summary>
+        <span class="checkpoint-number">${feature.status === "unknown" ? "?" : state === "passed" ? "✓" : checkpoint.id}</span>
+        <span class="checkpoint-copy">
+          <span class="checkpoint-state">Step ${checkpoint.id} · ${stateLabel}</span>
+          <h2 class="checkpoint-title">${escapeHtml(checkpoint.simple || checkpoint.goal || checkpoint.title)}</h2>
+          <span class="gate-list">${renderGatePills(checkpoint)}</span>
+        </span>
+        <span class="checkpoint-chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="checkpoint-body">
+        ${checkpoint.plain?.what ? `<section><h3>What you get</h3><p>${escapeHtml(checkpoint.plain.what)}</p></section>` : ""}
+        ${checkpoint.plain?.why ? `<section><h3>Why it matters</h3><p>${escapeHtml(checkpoint.plain.why)}</p></section>` : ""}
+        ${checkpoint.plain?.check ? `<section><h3>How you can check it</h3><p>${escapeHtml(checkpoint.plain.check)}</p></section>` : ""}
+        ${renderFindingList(checkpoint)}
+        ${renderTechnicalDetails(checkpoint, feature)}
+      </div>
+    </details>
+  `;
+}
+
+function renderFeatureViewer(feature) {
+  const project = projectById(feature.projectId);
+  const plan = feature;
+  setHeaderAction(feature);
+  if (!plan || feature.status === "unknown" || !plan.checkpoints?.length) {
+    const emptyTitle = feature.lifecycleCheckpointMissing ? "Lifecycle checkpoint missing" : "Checkpoint not found";
+    const emptyDescription = feature.lifecycleCheckpointMissing
+      ? "Git lists this worktree, but no valid lifecycle checkpoint was found. Its phase remains Unknown. Branch presence alone is not evidence of active implementation."
+      : "Git lists this worktree, but no matching checkpoint was found. The feature is not marked as complete.";
+    $("feature-viewer-view").innerHTML = `
+      <div class="viewer-shell">
+        <div class="pane-toolbar">
+          <span class="breadcrumb">${escapeHtml(project.provider)} <span aria-hidden="true">/</span> ${escapeHtml(project.remote)} <span aria-hidden="true">/</span> <strong>${escapeHtml(feature.branch)}</strong></span>
+        </div>
+        <section class="viewer-empty" data-region="viewer-empty">
+          <p class="viewer-eyebrow">${feature.lifecycleCheckpointMissing ? "Lifecycle status" : "Feature progress"}</p>
+          <div class="viewer-heading-line"><h1>${escapeHtml(emptyTitle)}</h1><span class="status-badge ${escapeHtml(feature.status)}">${STATUS_LABELS[feature.status]}</span></div>
+          <p>${escapeHtml(emptyDescription)}</p>
+          ${feature.lifecycleCheckpointMissing ? `<aside class="viewer-note" data-region="lifecycle-checkpoint-detail"><h3>Lifecycle evidence</h3><ul><li>Expected path: <code>${escapeHtml(feature.lifecycleCheckpointPath)}</code></li><li>This example deliberately omits valid lifecycle data, so Unknown is correct.</li><li>The checkpoint must match the feature slug and live worktree; branch presence alone is not enough.</li></ul></aside>` : ""}
+        </section>
+      </div>
+    `;
+    showMainView("feature-viewer-view");
+    return;
+  }
+
+  const checkpoints = plan.checkpoints ?? [];
+  const current = getCurrentCheckpoint(feature);
+  const currentPosition = current ? checkpoints.indexOf(current) + 1 : checkpoints.length;
+  const isRetryLimitReached = current && hasReachedGateAttemptLimit(current);
+  const state = isRetryLimitReached ? "blocked" : feature.status;
+  const bannerClass = state === "blocked" ? "stop" : state === "needs-review" || state === "closed" ? "done" : "run";
+  const bannerText = feature.halted?.reason
+    ? `Stopped. Needs your input: ${feature.halted.reason}`
+    : !current
+      ? `All ${checkpoints.length} steps done. ${state === "closed" ? "This feature is closed." : "Ready for app review."}`
+      : state === "blocked"
+        ? isRetryLimitReached
+          ? `Step ${current.id} of ${checkpoints.length} is stuck after ${MAX_GATE_ATTEMPTS} attempts and needs your input.`
+          : `Step ${current.id} of ${checkpoints.length} is stuck and needs your input.`
+        : `Step ${currentPosition} of ${checkpoints.length}: ${currentActivity(feature, current)}`;
+
+  $("feature-viewer-view").innerHTML = `
+    <div class="viewer-shell">
+      <div class="pane-toolbar">
+        <span class="breadcrumb">${escapeHtml(project.provider)} <span aria-hidden="true">/</span> ${escapeHtml(project.remote)} <span aria-hidden="true">/</span> <strong>${escapeHtml(feature.branch)}</strong></span>
+      </div>
+      <header class="viewer-header" data-region="viewer-header">
+        <div class="viewer-title-block">
+          <p class="viewer-eyebrow">Feature progress</p>
+          <div class="viewer-heading-line">
+            <h1>${escapeHtml(feature.title)}</h1>
+            <span class="status-badge ${escapeHtml(state)}">${STATUS_LABELS[state]}</span>
+          </div>
+          <p class="viewer-summary">${escapeHtml(plan.plain_summary)}</p>
+          <div class="viewer-meta">
+            <span>Project: ${escapeHtml(project.name)}</span>
+            <span>Branch: ${escapeHtml(feature.branch)}</span>
+            <span>Worktree: ${feature.status === "closed" ? "closed" : "present"}</span>
+          </div>
+        </div>
+      </header>
+      <div class="viewer-banner ${bannerClass}" role="status" data-region="status-banner">
+        <span class="banner-mark" aria-hidden="true">${bannerClass === "stop" ? "!" : bannerClass === "done" ? "✓" : "•"}</span>
+        <span>${escapeHtml(bannerText)}</span>
+      </div>
+      <div class="journey" role="group" aria-label="Steps overview" data-region="journey">
+        ${checkpoints.map((checkpoint, index) => {
+          const stepState = checkpointState(feature, checkpoint);
+          const stepClass = stepState;
+          const stepLabel = feature.status === "unknown"
+            ? "Unknown"
+            : checkpoint.status === "passed"
+              ? "Done"
+              : stepState === "blocked"
+                ? "Stuck, needs your input"
+                : stepState === "failed"
+                  ? "Fixing problems"
+                  : stepState === "running"
+                    ? "In progress"
+                    : "Not started";
+          const accessibleLabel = feature.status === "unknown" ? `Step ${checkpoint.id}: Unknown` : `Go to step ${checkpoint.id}: ${checkpoint.simple}, ${stepLabel}`;
+          return `${index ? `<span class="journey-line ${checkpoint.status === "passed" ? "passed" : ""}" aria-hidden="true"></span>` : ""}<button class="journey-step ${escapeHtml(stepClass)}" type="button" data-jump="${checkpoint.id}" aria-label="${escapeHtml(accessibleLabel)}">${feature.status === "unknown" ? "?" : checkpoint.status === "passed" ? "✓" : checkpoint.id}</button>`;
+        }).join("")}
+      </div>
+      <p class="journey-caption">Small steps first. Each step passes its checks before the next one starts.</p>
+      <section class="checkpoint-list" data-region="checkpoint-card" aria-label="Feature checkpoints">
+        ${checkpoints.length ? checkpoints.map((checkpoint) => renderCheckpointCard(feature, checkpoint)).join("") : `<section class="empty-inline" data-region="unknown-checkpoint">Checkpoint details are unavailable. Git shows this worktree, but no matching checkpoint was found.</section>`}
+      </section>
+      ${plan.assumptions?.length || plan.notes?.length ? `<div class="viewer-extra">
+        ${plan.assumptions?.length ? `<section class="viewer-note" data-region="assumptions"><h3>Decisions made for you</h3><ul>${plan.assumptions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>` : ""}
+        ${plan.notes?.length ? `<section class="viewer-note" data-region="notes"><h3>Left for later</h3><ul>${plan.notes.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>` : ""}
+      </div>` : ""}
+    </div>
+  `;
+  showMainView("feature-viewer-view");
+}
+
+function renderProjectOverview(project) {
+  const rootFeatures = projectFeatures(project.id);
+  const groups = projectGroups(project.id);
+  const counts = { worktrees: groups.worktrees.length, history: groups.history.length, needsYou: rootFeatures.filter((item) => ["needs-review", "blocked", "unknown"].includes(item.status)).length };
+  $("project-overview-view").innerHTML = `
+    <div class="pane-toolbar"><span class="breadcrumb">All projects <span aria-hidden="true">/</span> <strong>${escapeHtml(project.name)}</strong></span></div>
+    <header class="project-hero">
+      <p class="pane-eyebrow">${escapeHtml(project.provider)} project root</p>
+      <h1>${escapeHtml(project.name)}</h1>
+      <p class="project-remote-large">${escapeHtml(project.remote)}</p>
+      <p>${escapeHtml(project.summary)}</p>
+    </header>
+    <div class="project-statline surface" data-region="project-summary">
+      <span><strong>${counts.worktrees}</strong> worktrees</span>
+      <span><strong>${counts.needsYou}</strong> need you</span>
+      <span><strong>${counts.history}</strong> in history</span>
+    </div>
+    <section class="content-section" data-region="project-documents">
+      <div class="section-heading"><h2>Project files</h2><span>.ai-engineering/</span></div>
+      <div class="docs-row surface">
+        <button class="doc-button" type="button" data-open-document="brainstorm.html" data-project-id="${escapeHtml(project.id)}"><span class="file-type">HTML</span>brainstorm.html</button>
+        <button class="doc-button" type="button" data-open-document="PRD.html" data-project-id="${escapeHtml(project.id)}"><span class="file-type">HTML</span>PRD.html</button>
+      </div>
+    </section>
+    <section class="content-section" data-region="project-worktrees">
+      <div class="section-heading"><h2>Worktrees</h2><span>${groups.worktrees.length} present</span></div>
+      <div class="feature-list surface">
+        ${groups.worktrees.length ? groups.worktrees.map((feature) => renderFeatureRow(feature, project)).join("") : `<p class="empty-inline">No worktrees are present for this project.</p>`}
+      </div>
+    </section>
+    <section class="content-section" data-region="project-history">
+      <div class="section-heading"><h2>History</h2><span>${groups.history.length} closed</span></div>
+      <div class="feature-list surface">
+        ${groups.history.length ? groups.history.map((feature) => renderFeatureRow(feature, project)).join("") : `<p class="empty-inline">No closed features in this project.</p>`}
+      </div>
+    </section>
+  `;
+  showMainView("project-overview-view");
+}
+
+function renderFeatureRow(feature, project) {
+  return `
+    <button class="feature-list-row" type="button" data-open-feature="${escapeHtml(featureKey(feature))}" aria-label="Open viewer for ${escapeHtml(feature.branch)} in ${escapeHtml(project.name)}">
+      <span>
+        <span class="feature-list-title">${escapeHtml(feature.branch)} <span class="status-badge ${escapeHtml(feature.status)}">${STATUS_LABELS[feature.status]}</span></span>
+        <span class="feature-list-branch">${escapeHtml(feature.title)}</span>
+      </span>
+      <span class="activity-open">Open viewer</span>
+    </button>
+  `;
+}
+
+function renderDocument(projectId, fileName, featureKeyValue = null) {
+  const project = projectById(projectId);
+  const feature = featureKeyValue ? featureByKey(featureKeyValue) : null;
+  const document = feature ? feature.brainstorm : project.documents[fileName];
+  if (!document) return;
+  selectedDocument = { projectId, fileName, featureKey: featureKeyValue };
+  const absolutePath = documentAbsolutePath(project, fileName, feature);
+  const relativePath = feature
+    ? `.ai-engineering/workflow/features/${feature.slug}/${fileName}`
+    : `.ai-engineering/${fileName}`;
+  $("document-view").innerHTML = `
+    <div class="pane-toolbar">
+      <span class="breadcrumb">${escapeHtml(project.provider)} <span aria-hidden="true">/</span> ${escapeHtml(project.remote)} <span aria-hidden="true">/</span> ${feature ? `${escapeHtml(feature.branch)} / ` : ""}<strong>${escapeHtml(relativePath)}</strong><button class="button copy-path-button" type="button" data-copy-path="${escapeHtml(absolutePath)}" aria-label="Copy absolute path for ${escapeHtml(fileName)}" title="Copy absolute file path" data-region="copy-path-action"><svg class="tree-icon" aria-hidden="true"><use href="#icon-copy"></use></svg></button></span>
+    </div>
+    <article class="document-frame">
+      <div class="document-body" data-region="document-content">
+        <span class="document-stamp">${feature ? "PROPOSED FEATURE BRIEF" : "PROJECT SCOPE"}</span>
+        <h1>${escapeHtml(document.title)}</h1>
+        <p class="document-summary">${escapeHtml(document.summary)}</p>
+        ${feature ? `<aside class="document-scope-note" data-region="document-scope-note"><strong>Proposed placement.</strong> This feature-level brainstorm is a sample, not an existing product artifact. Current lifecycle guidance keeps the project-level <code>.ai-engineering/brainstorm.html</code> in the primary tree and says worktrees do not stage it. Deciding whether feature briefs belong in worktrees needs an implementation and lifecycle decision before product code.</aside>` : ""}
+        ${document.sections.map(([heading, body]) => `<section><h2>${escapeHtml(heading)}</h2><p>${escapeHtml(body)}</p></section>`).join("")}
+      </div>
+    </article>
+  `;
+  showMainView("document-view");
+}
+
+function renderEmpty(view = "all") {
+  if (view === "project") {
+    $("empty-state").innerHTML = `<p class="pane-eyebrow">Worktree explorer</p><h1>No worktree found</h1><p>This project root has no registered feature branch yet.</p>`;
+  } else {
+    $("empty-state").innerHTML = `<p class="pane-eyebrow">Project explorer</p><h1>No AI Engineering-governed projects found</h1><p>No governed repositories were found under the configured roots. Repositories appear here after AI Engineering governance is established.</p>`;
+  }
+  showMainView("empty-state");
+}
+
+function renderError() {
+  showMainView("error-state");
+}
+
+function showMainView(id) {
+  for (const viewId of ["all-projects-view", "project-overview-view", "feature-viewer-view", "document-view", "loading-state", "empty-state", "error-state"]) {
+    $(viewId).hidden = viewId !== id;
+  }
+  const cameFromExplorer = $("project-tree").contains(document.activeElement);
+  setMobilePane("content");
+  if (cameFromExplorer && window.matchMedia("(max-width: 760px)").matches) {
+    $("mobile-explorer-back").focus({ preventScroll: true });
+  }
+}
+
+function setMobilePane(pane) {
+  document.body.dataset.mobilePane = pane;
+  if (pane !== "explorer" || !window.matchMedia("(max-width: 760px)").matches) return;
+  const selectedRow = $("project-tree").querySelector('[aria-current="page"]')
+    ?? $("project-tree").querySelector('[data-toggle-target^="project-children-"]');
+  expandTreeAncestors(selectedRow);
+  selectedRow?.focus({ preventScroll: true });
+}
+
+function setHeaderAction(feature = null) {
+  const slot = $("header-context");
+  slot.innerHTML = feature && feature.status !== "closed"
+    ? `<button class="button primary" type="button" data-open-ide="${escapeHtml(featureKey(feature))}" title="Prototype only. Does not launch an IDE." data-region="ide-action">Open in IDE</button>`
+    : "";
+}
+
+function showAllProjects(pushHistory = true) {
+  activeProjectId = null;
+  selectedFeature = null;
+  selectedDocument = null;
+  setHeaderAction();
+  syncTreeSelection();
+  renderAllProjects();
+  showMainView("all-projects-view");
+  if (pushHistory) history.pushState({ view: "all" }, "", location.pathname);
+}
+
+function showProject(projectId, pushHistory = true) {
+  const project = projectById(projectId);
+  if (!project) return;
+  activeProjectId = projectId;
+  selectedFeature = null;
+  selectedDocument = null;
+  setHeaderAction();
+  renderProjectOverview(project);
+  syncTreeSelection();
+  if (pushHistory) history.pushState({ view: "project", project: projectId }, "", `${location.pathname}?state=project&project=${encodeURIComponent(projectId)}`);
+}
+
+function showFeature(featureKeyValue, pushHistory = true) {
+  const feature = featureByKey(featureKeyValue);
+  if (!feature) return;
+  selectedFeature = feature;
+  activeProjectId = feature.projectId;
+  selectedDocument = null;
+  renderFeatureViewer(feature);
+  syncTreeSelection();
+  if (pushHistory) history.pushState({ view: "viewer", project: feature.projectId, feature: feature.slug }, "", `${location.pathname}?state=viewer&project=${encodeURIComponent(feature.projectId)}&feature=${encodeURIComponent(feature.slug)}`);
+}
+
+function showDocument(projectId, fileName, branchKey = null, pushHistory = true) {
+  const project = projectById(projectId);
+  if (!project) return;
+  activeProjectId = projectId;
+  selectedFeature = branchKey ? featureByKey(branchKey) : null;
+  setHeaderAction(selectedFeature);
+  renderDocument(projectId, fileName, branchKey);
+  syncTreeSelection();
+  if (pushHistory) {
+    const query = new URLSearchParams({ state: "document", project: projectId, file: fileName });
+    if (branchKey) query.set("feature", selectedFeature.slug);
+    history.pushState({ view: "document", project: projectId, file: fileName, feature: selectedFeature?.slug ?? null }, "", `${location.pathname}?${query}`);
+  }
+}
+
+function renderAllProjects() {
+  const openWorktrees = features.filter((feature) => feature.isWorktree !== false && feature.status !== "closed");
+  const attention = features.filter((feature) => ["needs-review", "blocked", "unknown"].includes(feature.status));
+  const totalHistory = features.filter((feature) => feature.status === "closed").length;
+  $("all-projects-view").innerHTML = `
+    <header class="pane-header">
+      <div class="pane-header-copy">
+        <p class="pane-eyebrow">Project activity</p>
+        <h1>All projects</h1>
+        <p class="pane-subtitle">Example roots, worktrees, and the files that guide each feature.</p>
+      </div>
+    </header>
+    ${renderSummaryStrip(projects.length, openWorktrees.length, attention.length, totalHistory)}
+    <section class="content-section" data-region="project-roots">
+      <div class="section-heading"><h2>Project roots</h2><span>GitHub and Azure DevOps</span></div>
+      <div class="project-list surface">${projects.map(renderProjectRow).join("")}</div>
+    </section>
+    <section class="content-section" data-region="attention-list">
+      <div class="section-heading"><h2>Needs your attention</h2><span>${attention.length} items</span></div>
+      <div class="activity-list surface">
+        ${attention.map(renderAttentionRow).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderSummaryStrip(projectCount, worktreeCount, attentionCount, historyCount) {
+  return `
+    <div class="summary-strip surface" data-region="summary">
+      <div class="summary-item"><span class="summary-value">${projectCount}</span><span class="summary-label">Project roots</span></div>
+      <div class="summary-item"><span class="summary-value">${worktreeCount}</span><span class="summary-label">Worktrees</span></div>
+      <div class="summary-item attention"><span class="summary-value">${attentionCount}</span><span class="summary-label">Needs you</span></div>
+      <div class="summary-item"><span class="summary-value">${historyCount}</span><span class="summary-label">History</span></div>
+    </div>
+  `;
+}
+
+function renderProjectRow(project) {
+  const items = projectFeatures(project.id);
+  const counts = summaryCounts(items);
+  return `
+    <button class="project-summary-row" type="button" data-open-project="${escapeHtml(project.id)}" aria-label="Open project overview for ${escapeHtml(project.name)}">
+      <span class="project-summary-main">
+        <span class="project-summary-title">${escapeHtml(project.name)} <span class="provider-tag">${escapeHtml(project.provider)}</span></span>
+        <span class="project-summary-path">${escapeHtml(project.remote)}</span>
+      </span>
+      <span class="project-summary-counts">
+        <span>${counts.worktrees} worktrees</span>
+        <span>${counts.needsYou} need you</span>
+        <span>${counts.history} closed</span>
+      </span>
+    </button>
+  `;
+}
+
+function renderAttentionRow(feature) {
+  const project = projectById(feature.projectId);
+  return `
+    <button class="activity-row" type="button" data-open-feature="${escapeHtml(featureKey(feature))}" aria-label="Open viewer for ${escapeHtml(feature.branch)} in ${escapeHtml(project.name)}">
+      <span class="activity-main">
+        <span class="activity-title">${escapeHtml(feature.title)}</span>
+        <span class="activity-project">${escapeHtml(project.name)} / ${escapeHtml(project.remote)}</span>
+        <span class="activity-branch">${escapeHtml(feature.branch)}</span>
+      </span>
+      <span class="status-badge ${escapeHtml(feature.status)}">${STATUS_LABELS[feature.status]}</span>
+      <span class="activity-open">Open viewer</span>
+    </button>
+  `;
+}
+
+function showDataState(state) {
+  setHeaderAction();
+  if (state === "loading") {
+    $("project-tree").innerHTML = `<div class="tree-loading"><span></span><span></span><span></span></div>`;
+    showMainView("loading-state");
+    return;
+  }
+  if (state === "empty") {
+    $("project-tree").innerHTML = `<p class="tree-empty">No AI Engineering-governed projects found.</p>`;
+    $("root-count").textContent = "1 root";
+    renderEmpty();
+    return;
+  }
+  if (state === "error") {
+    $("project-tree").innerHTML = `<p class="tree-error">Project list unavailable.</p>`;
+    renderError();
+    return;
+  }
+  renderExplorer();
+  syncTreeSelection();
+  renderAllProjects();
+  showMainView("all-projects-view");
+  if (state === "already-running") {
+    showFeedback("Illustrative reuse only; no running process was checked or discovered.");
+  }
+}
+
+function showIdeFeedback(feature) {
+  const project = projectById(feature.projectId);
+  showFeedback(`Prototype only. No IDE was opened for ${project.name}/${feature.branch}.`);
+}
+
+function showFeedback(message) {
+  clearTimeout(feedbackTimeout);
+  $("action-feedback").textContent = message;
+  $("action-feedback").hidden = false;
+  feedbackTimeout = setTimeout(hideFeedback, 2400);
+}
+
+function hideFeedback() {
+  clearTimeout(feedbackTimeout);
+  feedbackTimeout = null;
+  $("action-feedback").hidden = true;
+}
+
+async function copyAbsolutePath(path) {
+  try {
+    await navigator.clipboard.writeText(path);
+    showFeedback("Path copied");
+  } catch (error) {
+    showFeedback(`Clipboard unavailable. Copy this path manually: ${path}`);
+  }
+}
+
+function renderFromLocation() {
+  const params = new URLSearchParams(location.search);
+  const state = params.get("state");
+  if (["loading", "empty", "error", "already-running"].includes(state)) {
+    showDataState(state);
+    return;
+  }
+  if (state === "viewer") {
+    const feature = features.find((item) => item.projectId === params.get("project") && item.slug === params.get("feature"));
+    if (feature) { showDataState("default"); showFeature(featureKey(feature), false); return; }
+  }
+  if (state === "project") {
+    showDataState("default");
+    showProject(params.get("project"), false);
+    return;
+  }
+  if (state === "document") {
+    showDataState("default");
+    const feature = features.find((item) => item.projectId === params.get("project") && item.slug === params.get("feature"));
+    showDocument(params.get("project"), params.get("file") ?? "brainstorm.html", feature ? featureKey(feature) : null, false);
+    return;
+  }
+  if (state === "ide-opened") {
+    showDataState("default");
+    const feature = features.find((item) => item.projectId === params.get("project") && item.slug === params.get("feature")) ?? features[0];
+    showFeature(featureKey(feature), false);
+    showIdeFeedback(feature);
+    return;
+  }
+  showAllProjects(false);
+}
+
+document.addEventListener("click", (event) => {
+  const target = event.target.closest("button");
+  if (!target) return;
+  if (target.id === "mobile-explorer-back") {
+    setMobilePane("explorer");
+    return;
+  }
+  if (target.id === "all-projects-link" || target.dataset.openAll !== undefined) {
+    event.preventDefault();
+    hideFeedback();
+    showAllProjects();
+    return;
+  }
+  if (target.dataset.toggleTarget) {
+    const content = document.getElementById(target.dataset.toggleTarget);
+    if (!content) return;
+    const isExpanded = target.getAttribute("aria-expanded") === "true";
+    target.setAttribute("aria-expanded", String(!isExpanded));
+    content.hidden = isExpanded;
+    target.setAttribute("aria-label", `${isExpanded ? "Expand" : "Collapse"} ${target.dataset.toggleLabel ?? "tree item"}`);
+    return;
+  }
+  if (target.dataset.openProject) { hideFeedback(); showProject(target.dataset.openProject); return; }
+  if (target.dataset.openFeature) { hideFeedback(); showFeature(target.dataset.openFeature); return; }
+  if (target.dataset.openDocument) {
+    hideFeedback();
+    showDocument(target.dataset.projectId, target.dataset.openDocument, target.dataset.featureKey ?? null);
+    return;
+  }
+  if (target.dataset.copyPath) {
+    hideFeedback();
+    copyAbsolutePath(target.dataset.copyPath);
+    return;
+  }
+  if (target.dataset.openIde) {
+    const feature = featureByKey(target.dataset.openIde);
+    if (feature) showIdeFeedback(feature);
+    return;
+  }
+  if (target.dataset.jump) {
+    const card = document.getElementById(`checkpoint-${target.dataset.jump}`);
+    if (card) {
+      card.open = true;
+      card.scrollIntoView({ block: "start" });
+    }
+    return;
+  }
+  if (target.id === "back-to-project") {
+    hideFeedback();
+    showProject(target.dataset.projectId);
+    return;
+  }
+  if (target.id === "retry") {
+    showDataState("default");
+  }
+});
+
+const resizeHandle = $("explorer-resize-handle");
+const MIN_EXPLORER_WIDTH = 240;
+const MAX_EXPLORER_WIDTH = 520;
+let resizePointerId = null;
+let resizePointerOffset = 0;
+
+function setExplorerWidth(width) {
+  const maxWidth = Math.max(MIN_EXPLORER_WIDTH, Math.min(MAX_EXPLORER_WIDTH, window.innerWidth - 360));
+  const nextWidth = Math.max(MIN_EXPLORER_WIDTH, Math.min(maxWidth, width));
+  document.documentElement.style.setProperty("--explorer-width", `${nextWidth}px`);
+  resizeHandle.setAttribute("aria-valuemax", String(maxWidth));
+  resizeHandle.setAttribute("aria-valuenow", String(Math.round(nextWidth)));
+}
+
+if (!window.matchMedia("(max-width: 760px)").matches) {
+  setExplorerWidth(parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--explorer-width")));
+}
+
+resizeHandle.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0 || window.matchMedia("(max-width: 760px)").matches) return;
+  event.preventDefault();
+  resizePointerId = event.pointerId;
+  resizePointerOffset = event.clientX - resizeHandle.getBoundingClientRect().left;
+  resizeHandle.setPointerCapture(event.pointerId);
+  document.body.classList.add("is-resizing");
+  setExplorerWidth(resizeHandle.getBoundingClientRect().left);
+});
+
+resizeHandle.addEventListener("pointermove", (event) => {
+  if (event.pointerId === resizePointerId) setExplorerWidth(event.clientX - resizePointerOffset);
+});
+
+function stopExplorerResize(event) {
+  if (event.pointerId !== resizePointerId) return;
+  resizePointerId = null;
+  document.body.classList.remove("is-resizing");
+}
+
+resizeHandle.addEventListener("pointerup", stopExplorerResize);
+resizeHandle.addEventListener("pointercancel", stopExplorerResize);
+window.addEventListener("resize", () => {
+  if (window.matchMedia("(max-width: 760px)").matches) return;
+  const currentWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--explorer-width"));
+  setExplorerWidth(currentWidth);
+});
+resizeHandle.addEventListener("keydown", (event) => {
+  const currentWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--explorer-width"));
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    event.preventDefault();
+    setExplorerWidth(currentWidth + (event.key === "ArrowLeft" ? -16 : 16));
+  } else if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    setExplorerWidth(event.key === "Home" ? MIN_EXPLORER_WIDTH : MAX_EXPLORER_WIDTH);
+  }
+});
+
+window.addEventListener("popstate", renderFromLocation);
+
+const initialState = new URLSearchParams(location.search).get("state");
+if (initialState === "viewer" || initialState === "project" || initialState === "document" || initialState === "ide-opened") {
+  renderFromLocation();
+} else {
+  showDataState(initialState ?? "default");
+}
+</script>
+<script>
+let workspaceSearchRoots = ["~/repos", "~/projects"];
+let draftSearchRoots = [];
+const settingsDialog = document.getElementById("workspace-settings-dialog");
+const settingsRootList = document.getElementById("settings-root-list");
+const settingsRootInput = document.getElementById("settings-root-input");
+const settingsValidation = document.getElementById("settings-validation");
+const settingsTrigger = document.getElementById("open-workspace-settings");
+
+function renderWorkspaceRoots(focusTarget = null) {
+  if (focusTarget === null) {
+    const focusedRoot = document.activeElement?.dataset.removeRoot;
+    if (focusedRoot !== undefined) {
+      focusTarget = { root: focusedRoot, index: draftSearchRoots.indexOf(focusedRoot) };
+    }
+  }
+  settingsRootList.replaceChildren();
+  for (const root of draftSearchRoots) {
+    const row = document.createElement("div");
+    row.className = "settings-root-row";
+    const path = document.createElement("code");
+    path.className = "settings-root-path";
+    path.textContent = root;
+    const remove = document.createElement("button");
+    remove.className = "settings-remove";
+    remove.type = "button";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove ${root}`);
+    remove.dataset.removeRoot = root;
+    row.append(path, remove);
+    settingsRootList.append(row);
+  }
+  if (focusTarget) {
+    const nextRoot = draftSearchRoots.includes(focusTarget.root)
+      ? focusTarget.root
+      : draftSearchRoots[Math.max(0, Math.min(focusTarget.index, draftSearchRoots.length - 1))];
+    const removeButtons = [...settingsRootList.querySelectorAll("button[data-remove-root]")];
+    const replacement = removeButtons.find((button) => button.dataset.removeRoot === nextRoot);
+    (replacement || settingsRootInput).focus({ preventScroll: true });
+  }
+}
+
+function showSettingsValidation(message) {
+  settingsRootInput.setAttribute("aria-invalid", "true");
+  settingsRootInput.setAttribute("aria-describedby", "settings-validation");
+  settingsValidation.textContent = message;
+  settingsValidation.hidden = false;
+}
+
+function clearSettingsValidation() {
+  settingsRootInput.removeAttribute("aria-invalid");
+  settingsRootInput.removeAttribute("aria-describedby");
+  settingsValidation.hidden = true;
+  settingsValidation.textContent = "";
+}
+
+function openWorkspaceSettings() {
+  draftSearchRoots = [...workspaceSearchRoots];
+  renderWorkspaceRoots();
+  settingsRootInput.value = "";
+  clearSettingsValidation();
+  settingsDialog.showModal();
+  settingsRootInput.focus();
+}
+
+function closeWorkspaceSettings() {
+  if (settingsDialog.open) settingsDialog.close();
+  draftSearchRoots = [...workspaceSearchRoots];
+  clearSettingsValidation();
+}
+
+function addWorkspaceRoot(event) {
+  event.preventDefault();
+  const typedPath = settingsRootInput.value.trim();
+  const root = typedPath.replace(/[\\/]+$/, "");
+  const isHomePath = /^~[\\/][^\\/]+/.test(typedPath);
+  const isPosixPath = typedPath.startsWith("/") && root.length > 1;
+  const isDrivePath = /^[A-Za-z]:[\\/][^\\/]+/.test(typedPath);
+  const isNetworkPath = /^\\\\[^\\]+\\[^\\]+/.test(typedPath);
+  const hasTraversalSegment = typedPath.replace(/\\/g, "/").split("/").some((segment) => segment === "." || segment === "..");
+  if (!root || hasTraversalSegment || !(isHomePath || isPosixPath || isDrivePath || isNetworkPath)) {
+    showSettingsValidation(hasTraversalSegment
+      ? "Parent-directory segments are not allowed in a search root."
+      : "Enter a specific absolute folder path, not a filesystem root.");
+    settingsRootInput.focus();
+    return;
+  }
+  const normalized = root.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+  if (draftSearchRoots.some((entry) => entry.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase() === normalized)) {
+    showSettingsValidation("That search root is already listed.");
+    settingsRootInput.focus();
+    return;
+  }
+  draftSearchRoots.push(root);
+  renderWorkspaceRoots();
+  settingsRootInput.value = "";
+  clearSettingsValidation();
+  settingsRootInput.focus();
+}
+
+document.getElementById("settings-root-form").addEventListener("submit", addWorkspaceRoot);
+document.getElementById("choose-workspace-folder").addEventListener("click", () => {
+  settingsRootInput.value = "~/repos";
+  clearSettingsValidation();
+  settingsRootInput.focus();
+});
+settingsRootList.addEventListener("click", (event) => {
+  const remove = event.target.closest("button[data-remove-root]");
+  if (!remove) return;
+  const focusTarget = { root: remove.dataset.removeRoot, index: draftSearchRoots.indexOf(remove.dataset.removeRoot) };
+  draftSearchRoots = draftSearchRoots.filter((root) => root !== remove.dataset.removeRoot);
+  renderWorkspaceRoots(focusTarget);
+  clearSettingsValidation();
+});
+settingsTrigger.addEventListener("click", openWorkspaceSettings);
+document.getElementById("close-workspace-settings").addEventListener("click", closeWorkspaceSettings);
+document.getElementById("cancel-workspace-settings").addEventListener("click", closeWorkspaceSettings);
+document.getElementById("save-workspace-settings").addEventListener("click", () => {
+  workspaceSearchRoots = [...draftSearchRoots];
+  closeWorkspaceSettings();
+  showFeedback("Settings updated for this prototype session only. Repositories are discovered under selected roots and worktrees come from Git. No folders were scanned.");
+});
+settingsDialog.addEventListener("cancel", () => {
+  draftSearchRoots = [...workspaceSearchRoots];
+  clearSettingsValidation();
+});
+settingsDialog.addEventListener("click", (event) => {
+  if (event.target === settingsDialog) closeWorkspaceSettings();
+});
+</script>
+</body>
+</html>

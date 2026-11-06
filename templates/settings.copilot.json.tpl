@@ -6,11 +6,6 @@
         "type": "command",
         "command": "ai-eng chain PreToolUse --surface copilot-cli",
         "timeoutSec": 10
-      },
-      {
-        "type": "command",
-        "command": "python3 \"$HOME/.ai-engineering/scripts/checkpoint-gate.py\" --surface copilot-cli",
-        "timeoutSec": 10
       }
     ],
     "postToolUse": [

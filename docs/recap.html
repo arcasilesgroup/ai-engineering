@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23001E2B%22/%3E%3Crect x=%220.5%22 y=%220.5%22 width=%2231%22 height=%2231%22 rx=%226.5%22 fill=%22none%22 stroke=%22%2300ED64%22 stroke-opacity=%220.35%22/%3E%3Ctext x=%2216%22 y=%2217%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-family=%22ui-monospace, Menlo, Consolas, 'DejaVu Sans Mono', monospace%22 font-size=%2214%22 font-weight=%22700%22 letter-spacing=%22-1%22%3E%3Ctspan fill=%22%2300ED64%22%3E%7B%3C/tspan%3E%3Ctspan fill=%22%23E8EEF7%22%3Eai%3C/tspan%3E%3Ctspan fill=%22%2300ED64%22%3E%7D%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{ai} Engineering — product recap</title>
+<title>{ai} Engineering — historical product snapshot</title>
 <meta name="description" content="What ai-engineering is and how it works: the repository, the guards, the executable contract, the skill canon, the surfaces, CI and the lifecycle.">
 <meta name="color-scheme" content="dark">
 <style>
@@ -285,10 +285,10 @@
 <header class="hero">
   <span class="corner tl"></span><span class="corner tr"></span>
   <span class="corner bl"></span><span class="corner br"></span>
-  <div class="stamp">Product recap · {ai} Engineering</div>
+  <div class="stamp">Historical snapshot · {ai} Engineering</div>
   <h1><span class="x">{</span>ai<span class="x">}</span> Engineering</h1>
   <p class="sub">The feature path now is ai-research, then ai-brainstorm, then ai-orchestrator. ai-plan, ai-goal, ai-proof and spec run are retired. Sections below that still name them describe an older release, not the loop to run.</p>
-  <p class="sub">The governance floor under an AI coding agent: <strong>install</strong> the contract, <strong>guard</strong> every tool call, <strong>prove</strong> every claim of done. This page is the product as it stands — the mechanism, the contract and the file behind each behaviour.</p>
+  <p class="sub">The governance floor under an AI coding agent: <strong>install</strong> the contract, <strong>guard</strong> every tool call, <strong>prove</strong> every claim of done. This historical snapshot records the mechanisms, contract and file paths from an earlier state. For current guidance, see <a href="../README.md">README.md</a>.</p>
   <p class="meta"><b>1</b> binary · <b>20</b> canon skills · <b>5</b> guards · <b>8</b> surfaces · <b>6</b> human + <b>4</b> machine verbs · <b>4</b> contract files</p>
 </header>
 
@@ -330,7 +330,7 @@
     </div>
     <div class="card">
       <h3><span class="pill p-fix">prove</span> Receipts, not promises</h3>
-      <p><code>ai-eng spec run</code> executes the milestone's gates and writes a receipt per run; a check that cannot execute is red, never absent. <code>ai-eng doctor</code> runs its twelve checks plus one real adversarial payload, and reports the chain's p50 and p95 latency. Every decision, rewrite and gate run lands in <code>.ai-engineering/receipts/</code>.</p>
+      <p><code>ai-orchestrator</code> advances each checkpoint only after its required gates pass; the checkpoint JSON records progress and evidence. <code>ai-eng doctor</code> runs its checks and an adversarial probe. Chain decisions and tool-call outcomes are recorded in <code>.ai-engineering/receipts/</code>.</p>
     </div>
   </div>
 
@@ -377,7 +377,7 @@
   <span class="dim">pre-push: gitleaks over the unpushed history</span>
   <span class="dim">— independent of every surface: it runs even when you edit outside an agent</span>
   <span class="ed">▼</span>
-<span class="nd">PLANE 3 · CI GATE</span>  <span class="dim">ai-eng spec run (a check that does not run is red)</span>
+<span class="nd">PLANE 3 · CI GATE</span>  <span class="dim">the repository's declared build and test checks</span>
   <span class="dim">· typecheck / lint / test / arch when the project declares them</span>
   <span class="dim">gitleaks pinned by version + sha256 · semgrep p/ci · trivy vuln,misconfig HIGH,CRITICAL</span></div>
   </div>
@@ -388,7 +388,7 @@
   </div>
 
   <h3>2.1 · The autonomous loop: what it does, where it stops, how it reports</h3>
-  <p>A human calls one skill after another as needed. An autonomous agent has no such judgement, so the loop <em>is</em> a skill — <code>ai-goal</code> — and it does not implement the loop: it contracts it. A surface that declares a native goal mode (<code>loop: "native"</code> in the surfaces registry) runs the loop; a surface that declares none runs in facilitator mode, where the skill walks <code>plan.html</code> one step at a time and the human is the clock. Either way <code>ai-goal</code> fixes what the loop must consume (<code>.ai-engineering/plan.html</code>), which gates it must close (<code>ai-eng spec run</code>, receipt attached), and the three stops it may not cross. Guards cannot be skipped from inside the loop because they live below it, in the tool layer.</p>
+  <p>A human can choose skills as needed. For a gated feature, <code>ai-orchestrator</code> records the checkpoints in <code>.ai-engineering/workflow/checkpoints/&lt;slug&gt;.json</code> and guides the agent through the required implementation, behavior, UI and review gates. The checkpoint guard enforces phase and gate ordering independently of the host's goal loop. Tool guards still run beneath that workflow.</p>
 <div class="flow"><span class="nd">GOAL</span>  <span class="dim">the human gives the target, not the steps</span>
   <span class="ed">▼</span>
 <span class="nd">ai-plan</span>  <span class="wd">spec.html (WHAT: gates) + plan.html (HOW: order)</span>  <span class="dim">both are review surfaces (<a href="#s17">§17</a>)</span>
@@ -581,7 +581,7 @@
       <tr><td>Build the binary from the sources</td><td><code>bun install</code> · <code>bun run build</code> → <code>dist/ai-eng</code></td><td>bun</td></tr>
       <tr><td>Run the local binary in another repository</td><td><code>bun link</code>, then <code>ai-eng init</code> where you want it</td><td>bun. Nothing is published and the global install is untouched</td></tr>
       <tr><td>Publish a version</td><td>merge the Version Packages PR, then dispatch <code>release.yml</code> with <code>integration</code> or <code>production</code></td><td>CI, behind the <code>release</code> environment. The version decides what the artifact is; the channel declares the intent, and a mismatch fails the run</td></tr>
-      <tr><td>Install it on another machine</td><td><code>bun add -g ai-engineering</code> · <code>npm install -g ai-engineering</code> · or the release asset, checksum and attestation verified</td><td>bun/npm, or you — <code>ai-eng upgrade</code> prints and delegates the same command</td></tr>
+      <tr><td>Install it on another machine</td><td><code>bun add -g ai-engineering</code> · <code>npm install -g ai-engineering</code> · or a release asset</td><td>Use the package manager to update the package, then <code>ai-eng update</code> to reconcile local assets</td></tr>
       <tr><td>Refresh the installed assets to the running binary</td><td><code>ai-eng update</code></td><td>ai-eng, with no network: it reads the binary already installed</td></tr>
       <tr><td>Move ai-eng's own work to the cloud</td><td><code>git push</code></td><td>git</td></tr>
     </tbody>
@@ -669,7 +669,7 @@
     </div>
     <div class="card">
       <h4>Written later, by the verb that owns it</h4>
-      <p><code>spec.html</code> and <code>plan.html</code> come from <code>ai-eng spec open</code>, which refuses to open a second contract while one is live and records the commit the milestone starts from. <code>brainstorm.md</code> and <code>recap.html</code> belong to the same slot, and <code>ai-eng spec close</code> deletes all four from the tree — git keeps the history. <code>receipts/</code> fills as guards run. <code>research/</code>, <code>design/</code>, <code>security/</code> and <code>reports/</code> exist once their verb has been used; <code>doctor --gc</code> applies the growth caps in <code>config.toml</code> and aggregates or deletes what no document cites.</p>
+      <p>Each feature checkpoint lives in <code>.ai-engineering/workflow/checkpoints/&lt;slug&gt;.json</code>, with a separate test plan and review evidence. An optional <code>recap.html</code> is created only when requested. <code>receipts/</code> fills as guards run. <code>research/</code>, <code>design/</code>, <code>security/</code> and <code>reports/</code> are created when their tools write to them; <code>doctor --gc</code> applies the growth caps in <code>config.toml</code> and aggregates expired receipts.</p>
     </div>
   </div>
 
@@ -699,7 +699,7 @@
       <tr><td>Code style</td><td>KISS, YAGNI, DRY, SOLID, TDD, Clean Code. Explain it so someone who doesn't code can follow along.</td></tr>
       <tr><td>Build and test commands</td><td>Generated at install time from the project manifest (§6.5) — never hand-written.</td></tr>
       <tr><td>Workflow</td><td>Green gate before "done", with the proving output shown. A decision that always comes out the same is code, not a prompt. Task status: 🟢 done with the proof pasted · 🟡 pending with the next action named · 🔴 blocked with the exact question.</td></tr>
-      <tr><td>Lifecycle</td><td>Every skill declares lane, artifact and successor in a <code>## Lifecycle</code> block inside its <code>SKILL.md</code>; follow the <code>Next:</code> a skill hands you. Lanes are light (spike and bounded work, no contract), standard (<code>spec.html</code> + <code>plan.html</code>) and full (architectural, with the triggered nodes). Approvals are spoken — the human says approve, ok, go or close, and the agent runs <code>ai-eng spec approve</code> or <code>ai-eng spec close</code> underneath; never on its own initiative.</td></tr>
+      <tr><td>Lifecycle</td><td>Every skill declares lane, artifact and successor in a <code>## Lifecycle</code> block inside its <code>SKILL.md</code>; follow the <code>Next:</code> a skill hands you. Lanes are light (spike and bounded work), standard (the brainstorm and orchestrator workflow) and full (architectural, with triggered nodes). Human approvals are spoken and recorded in the checkpoint plan; the agent does not approve its own work.</td></tr>
       <tr><td>Architecture layers</td><td><code>src/**</code> is editable; the arch-test reads <code>.ai-engineering/arch.rules.json</code>, so a layer change is a PR against that file, never a silent edit to the test (§13).</td></tr>
       <tr><td>Session hygiene</td><td><code>/clear</code> between tasks · <code>/compact</code> before stopping, not after · batch prompting · check <code>/usage</code> when the context inflates.</td></tr>
       <tr><td>Pull requests</td><td>Run lint and the full suite before committing. Add or update tests for the code you change. After moving files or changing imports, re-run lint and typecheck. Title format <code>&lt;area&gt;: &lt;imperative summary&gt;</code>. Subject ≤ 50 chars; the body explains WHY when it is not obvious.</td></tr>
@@ -729,16 +729,16 @@ until  = "2026-09-05"          # every exception expires — there is no infinit
   <h3 id="s06-specplan">6.3 · spec.html + plan.html — executable WHAT and ordered HOW</h3>
   <p>One pair per milestone, in <code>.ai-engineering/</code>, from <code>templates/spec.html.tpl</code> and <code>templates/plan.html.tpl</code>. They are HTML because a visual surface needs no separate renderer, and they never restate each other.</p>
   <p><strong><code>spec.html</code> says WHAT and WHY.</strong> Requirements, constraints, data contracts and acceptance gates. The gates live inside <code>&lt;pre id="gates"&gt;</code> in the format owned by <code>skills/ai-proof/references/gates.md</code>: a line <code>- [ ] G1: &lt;outcome&gt;</code>, indented <code>CHECK:</code> and <code>EXPECT:</code> lines, an <code>EVIDENCE:</code> line that starts at <code>pending</code>, <code>ABANDON: G1 &lt;reason&gt;</code> as the honest exit, and an optional <code>Jobs: &lt;n&gt;</code> capping concurrency for checks that are not parallel-safe. Maximum 30 gates per milestone. It is stable: it changes only when the scope changes, and CI executes it.</p>
-  <p><code>ai-eng spec approve</code> pins the spec's sha256 into <code>.ai-engineering/ai-eng.lock</code>; from then on the self-protect guard denies agent writes to it, and <code>ai-eng spec run</code> refuses a spec whose hash does not match. Running the gates ticks the boxes and rewrites the <code>EVIDENCE:</code> lines in that same file, so both are normalized away before the comparison — the act of running never revokes the authorization that allowed the run.</p>
+  <p>The checkpoint guard validates plan updates against the active lifecycle and gate order. Human approvals and reviewed commit IDs are recorded in the checkpoint JSON; the guard rejects an out-of-order transition instead of relying on a separate spec hash.</p>
   <p><strong><code>plan.html</code> says HOW, WHEN and IN WHAT ORDER.</strong> Steps that close gates (step 3 closes G2+G4), their dependencies, the <code>Jobs:</code> that must never run in parallel and the risk points. It is dynamic: the loop marks it every iteration, and CI never executes it. Its derived truth is the receipts of <code>spec.html</code> — a step marked done with no receipt behind its gate is a claim.</p>
 
   <div class="grid g3">
     <div class="card"><h4>Generation</h4><p><code>ai-plan</code> writes both files when the milestone opens: <code>spec.html</code> with the acceptance gates and <code>plan.html</code> with the ordered steps. Two files, one truth each — never one file mixing requirements with a schedule.</p></div>
-    <div class="card"><h4>Review</h4><p>The initial review surface is <code>spec.html</code> itself; <code>ai-visual-recap</code> — a skill, not a CLI — writes <code>recap.html</code> when the milestone closes.</p></div>
-    <div class="card"><h4>Execution</h4><p><code>ai-eng spec run</code> executes every <code>CHECK</code> of <code>spec.html</code> through <code>skills/ai-proof/scripts/gate-check.mjs</code> (never reimplemented), writes a receipt and exits non-zero when a check could not run: a check that does not run is red, never green by absence of an executor. No gates at all — the run refuses.</p></div>
+    <div class="card"><h4>Review</h4><p>The initial review surface is <code>spec.html</code> itself; <code>ai-visual-recap</code> — a skill, not a CLI — writes an optional <code>recap.html</code> only when the user invokes it.</p></div>
+    <div class="card"><h4>Execution</h4><p>The orchestrator runs the commands named by the active checkpoint and records each gate result in the checkpoint plan. A check must execute and produce evidence before its gate can pass.</p></div>
   </div>
 
-  <p>The machine verb has four steps: <code>ai-eng spec run</code>, <code>spec open &lt;milestone&gt;</code> (claims the slot and records the commit the milestone starts from, the base every conditional node is judged against), <code>spec approve</code>, and <code>spec close</code> — the only exit: it requires evidence or an honest ABANDON per gate, checks the contract was not edited after approval, refuses when a fired trigger left no artifact, then archives the pair to git and frees the slot. <code>spec.html</code> and <code>plan.html</code> are two of the four slot files, alongside <code>brainstorm.md</code> and <code>recap.html</code>.</p>
+  <p>The feature workflow records plan approval, implementation, behavior, UI and review state in the checkpoint JSON. The guard checks each state transition and the orchestrator requires evidence for each gate. Checkpoint plans and test plans are committed in the selected checkout; no separate CLI lifecycle command is needed.</p>
 
   <h3 id="s06-models">6.4 · The model pin</h3>
 <pre># .ai-engineering/config.toml
@@ -760,7 +760,7 @@ verify  = "gpt-5.6-luna"     # binary PASS/FAIL checks — cheap</pre>
       <tr><td>none of the above</td><td colspan="3"><code>typecheck: (detect your language here) · test: (your runner)</code> — the file says what it does not know instead of guessing.</td></tr>
     </tbody>
   </table></div>
-  <p><code>init</code> also writes <code>.github/workflows/ai-eng-check.yml</code> from <code>templates/ci.yml.tpl</code>: it runs the project-declared <code>typecheck</code>, <code>lint</code>, <code>test</code> and <code>arch</code> scripts, but only when <code>package.json</code> exists, then runs <code>ai-eng spec run</code> (§14). <strong>The five guards do not depend on the language</strong> — they match shell command lines and file content, not source syntax, which is why the same chain governs a Rust and a Python repo.</p>
+  <p><code>init</code> also writes <code>.github/workflows/ai-eng-check.yml</code> from <code>templates/ci.yml.tpl</code> to run the supported project checks. The checkpoint plan records the feature-specific commands and their gate results. <strong>The protection guards do not depend on the language</strong> — they match shell command lines and file content, not source syntax.</p>
 </section>
 
 <!-- ═══════ 07 GUARDS ═══════ -->
@@ -871,7 +871,7 @@ allow-list). Silencing a check is skipping a hook. If the skip is legitimate,
       <tr><td>a node per skill</td><td>A skill whose <code>## Lifecycle</code> block is missing or omits any of <code>Lane</code>, <code>Writes</code>, <code>Read by</code>, <code>Dies</code>, <code>Next</code>.</td></tr>
       <tr><td>closed and terminal</td><td>A <code>Next</code> that names something which is not a skill; two skills writing the same artifact that is not one of the four shared slots (<code>.ai-engineering/spec.html</code>, <code>plan.html</code>, <code>brainstorm.md</code>, <code>recap.html</code>); a canon with no terminal node.</td></tr>
       <tr><td>closed vocabularies</td><td>A lane outside <code>light</code>, <code>standard</code>, <code>full</code>, <code>any</code>; a trigger outside <code>ui</code>, <code>security</code>, <code>open-questions</code>, <code>arch-change</code>, <code>public-interface</code>; a trigger with no condition or no kind; a path trigger that states a sentence instead of globs.</td></tr>
-      <tr><td>the human speaks words</td><td>A stop that does not declare the words a person can say (<code>approve</code>, <code>close</code>, …), what it confirms, and the <code>ai-eng spec</code> command the agent runs. <code>approve</code> and <code>close</code> must exist somewhere in the canon.</td></tr>
+      <tr><td>the human speaks words</td><td>A stop declares the words a person can say (<code>approve</code>, <code>close</code>, …), what the approval confirms, and the checkpoint state the agent updates. The checkpoint guard checks that the approval is present before the next phase.</td></tr>
       <tr><td>the lane is named where it is decided</td><td><code>ai-brainstorm</code> failing to route all three lanes: it must name <code>ai-plan</code>, <code>ai-verify</code> and at least one of <code>ai-research</code> / <code>ai-architect</code> in its <code>Next</code>.</td></tr>
       <tr><td>every condition reaches the planner</td><td>A trigger id declared in the canon that <code>ai-plan</code> never names. A condition the planner cannot see is a condition that never fires.</td></tr>
     </tbody>
@@ -916,7 +916,7 @@ license: Apache-2.0
   <p>The method itself ships as files beside that entry point: <code>references/gates.md</code>, <code>method.md</code>, <code>orchestration.md</code>, <code>token-economy.md</code>; <code>scripts/gate-check.mjs</code>, <code>install-hooks.mjs</code>, <code>stop-hook.mjs</code>; <code>templates/PLAN.md</code>, <code>gates-leaf.md</code>, <code>gates-node.md</code>. The seam is four rules:</p>
   <ol>
     <li>The milestone's gates file is <code>.ai-engineering/spec.html</code> — not <code>GATES.md</code> in the repository root — because it is the contract CI verifies.</li>
-    <li><code>ai-eng spec run</code> executes each <code>CHECK</code>, matches its <code>EXPECT</code>, writes the receipt, and fails the run when a check could not execute. Green by absence of an executor is impossible.</li>
+    <li>The commands named by the checkpoint execute before their gates pass; the plan records their results and evidence. A check that did not run cannot satisfy a gate.</li>
     <li>Who verifies is the <code>verify</code> tier of the model pin; in orchestrated mode the judge is the <code>decide</code> tier. Cheap for the binary checks, expensive for the judge.</li>
     <li>The stop hook installs only on Pi and Zed, through <code>node &lt;this-skill-dir&gt;/scripts/install-hooks.mjs</code>, offered once and never silently; on the core surfaces the loop guard covers the same failure, so the hook is not installed there.</li>
   </ol>
@@ -949,7 +949,7 @@ Source: unlazy by Leonxlnx — https://github.com/Leonxlnx/unlazy (MIT).</pre>
   <p>Three contracts are shared by all twenty skills, and nothing more:</p>
   <ul>
     <li><strong>one format</strong> — the gates format (<code>CHECK</code> / <code>EXPECT</code> / <code>EVIDENCE</code> / <code>ABANDON:</code>). <code>ai-plan</code> writes it into <code>spec.html</code>; the CI consumes it; a gate nobody can execute is a failure, not a pass.</li>
-    <li><strong>one executor</strong> — <code>ai-eng spec run</code>, which wraps <code>skills/ai-proof/scripts/gate-check.mjs</code>. One runner for the milestone's gates, in the developer's terminal and in CI, exiting non-zero when a check could not run.</li>
+    <li><strong>one check list</strong> — the checkpoint plan names the commands and gates for a feature. The orchestrator runs those checks in the selected checkout and records their results; CI runs the repository's own configured jobs.</li>
     <li><strong>one pin</strong> — <code>[models]</code> in <code>.ai-engineering/config.toml</code>: <code>decide</code>, <code>execute</code>, <code>verify</code>. Every skill reads the same table; ai-eng never calls a model, it injects the line and the surface resolves the names natively.</li>
   </ul>
   <div class="flow"><span class="nd">ai-brainstorm</span> <span class="ed">──▶</span> <span class="nd">ai-plan</span> <span class="ed">──writes──▶</span> <span class="wd">spec.html + plan.html</span> <span class="dim">(gates: CHECK / EXPECT / EVIDENCE / ABANDON)</span>
@@ -996,8 +996,8 @@ Source: unlazy by Leonxlnx — https://github.com/Leonxlnx/unlazy (MIT).</pre>
       <p><strong>The no-verify guard.</strong> Denies <code>--no-verify</code> and every other hook-skip, a <code>core.hooksPath</code> redirect away from the floor, and check silences (<code>eslint-disable</code>, <code>@ts-ignore</code>, <code>noqa</code>, <code>nosec</code>, <code>NOLINT</code>, allow-lists).</p>
       <p><strong>The self-protect guard.</strong> Denies writes against the governed files, against a <code>spec.html</code> whose sha256 is pinned in the lock, and against the canon skills.</p>
       <p><strong>The injection guard.</strong> Instruction-shaped text in what the agent is about to consume is denied before the model reads it; on a page already fetched, the block is containment and says so.</p>
-      <p><strong>The spec runner.</strong> <code>ai-eng spec run</code> — a check that could not execute fails the run, so CI is never green by absence of an executor.</p>
-      <p><strong>CI.</strong> Typecheck, lint, <code>bun test</code>, the architecture test (<code>bun run arch</code>), a live contract enforced with <code>ai-eng spec run</code>, and the scanners: gitleaks, a pinned semgrep, trivy at HIGH+CRITICAL, and <code>bun audit --audit-level=high</code> over the lockfile the repository actually has.</p>
+      <p><strong>Checkpoint gates.</strong> Each gate needs its listed check to run and its result to be recorded before the plan can pass that gate.</p>
+      <p><strong>CI.</strong> The repository workflow runs the project's configured build, lint, typecheck, test and architecture jobs. Feature-specific evidence stays in the checkpoint plan.</p>
       <p>The only way past any of it is <code>.ai-engineering/overrides.toml</code> with a reason and an end date. An override lands in the receipt, is required in the commit footer, and shows in <code>doctor</code> until it expires.</p>
     </div>
     <div class="card">
@@ -1248,7 +1248,7 @@ exit 1</pre>
   <p>Any other sub-verb exits 2 with the usage line.</p>
 
   <h3>11.11 · <code>complete</code></h3>
-  <p><code>ai-eng complete</code> writes the shell completion script through <code>@bomb.sh/tab</code>, for the shell detected from <code>ZSH_VERSION</code>, <code>BASH_VERSION</code> or <code>FISH_VERSION</code> — bash when none is set. There is no <code>ai-eng tab</code> verb, and <code>complete</code> is not one of the six.</p>
+  <p>Run <code>ai-eng --help</code> to see the current human and machine verbs. Shell completion files are not part of the CLI package.</p>
 </section>
 
 <!-- ═══════ 12 WRAP ═══════ -->
@@ -1483,18 +1483,18 @@ exit 1</pre>
       <tr><td>1</td><td>Idea</td><td><code>ai-brainstorm</code></td><td><code>.ai-engineering/brainstorm.md</code> — the interview down to plain language, plus the gap list (transient: it dies when the contract is approved)</td><td>the lane classification (spike / bounded / architectural)</td></tr>
       <tr><td>2</td><td>Evidence <span class="pill p-dim">optional</span></td><td><code>ai-research</code></td><td><code>.ai-engineering/research/NNN-{name}.html</code> — numbered citations, branding of <a href="#s17">§17</a></td><td>—</td></tr>
       <tr><td>3</td><td>Does it already exist? <span class="pill p-dim">optional</span></td><td><code>ai-architect</code></td><td>existence-check + prior art; the layer proposal as a diff of <code>arch.rules.json</code></td><td>approving the PR diff (<a href="#s13">§13</a>)</td></tr>
-      <tr><td>4</td><td>Contract</td><td><code>ai-plan</code></td><td><code>.ai-engineering/spec.html</code> (WHAT: gates with CHECK / EXPECT / EVIDENCE, at most 30) + <code>plan.html</code> (HOW: steps → gates, dependencies, nodes)</td><td><span class="pill p-bad">⏸ STOP 1</span> approve spec + plan; <code>ai-eng spec approve</code> pins the spec's sha256 in <code>ai-eng.lock</code>, and without approval the loop does not run (<a href="#s02">§02</a>)</td></tr>
+      <tr><td>4</td><td>Plan</td><td><code>ai-orchestrator</code></td><td><code>.ai-engineering/workflow/checkpoints/&lt;slug&gt;.json</code> records scope, checkpoints and gates; a separate JSON file records planned tests</td><td><span class="pill p-bad">⏸ STOP</span> human plan approval is recorded in the checkpoint before implementation</td></tr>
       <tr><td>5</td><td>Model <span class="pill p-ok">automatic</span></td><td>— (<code>config.toml</code> <code>[models]</code> + the surface's own selector)</td><td>nothing — one pin per kind of work (<code>decide</code>, <code>execute</code>, <code>verify</code>); ai-eng never calls a model, it only states the pin</td><td>the pin is written once, by hand</td></tr>
       <tr><td>6</td><td>Execution</td><td><strong>the surface's native goal loop</strong> under the <code>ai-goal</code> contract (<a href="#s15-loop">§15.3</a>)</td><td>code + <code>.ai-engineering/receipts/*.json</code> — a receipt is the local proof that a gate <em>ran</em>: no receipt, no green, not in the plan and not in CI; plan.html carries the per-step state</td><td><span class="pill p-bad">⏸ STOP 2</span> loop guard · <span class="pill p-bad">⏸ STOP 3</span> destructive action or budget</td></tr>
       <tr><td>7</td><td>UI <span class="pill p-dim">if it touches UI</span></td><td><code>ai-design</code> → the routed skill</td><td><strong>before</strong> the code: <code>.ai-engineering/design/direction.html</code> (palette, type, motion, components). The implementation runs in the routed skill, with direction.html as its input. <strong>After</strong>: <code>ai-audit-design</code> measures in a real browser → <code>design/audits/NNN-{name}.html</code></td><td>choosing a direction — no direction.html, no UI ticket</td></tr>
       <tr><td>8</td><td>Judgement</td><td><code>ai-verify</code></td><td>verdicts land as the EVIDENCE of spec.html plus a receipt; the skill runs in three shapes (standalone, embedded in the chain, chain), the judge at the <code>decide</code> model tier and binary checks at <code>verify</code></td><td>—</td></tr>
       <tr><td>9</td><td>Security <span class="pill p-dim">if it touches security</span></td><td><code>ai-security</code></td><td><code>.ai-engineering/security/run-N/findings.json</code> + <code>REPORT.md</code>; zero open HIGH findings, schema-validated, is the milestone gate</td><td>— (the validator is not the finder)</td></tr>
-      <tr><td>10</td><td>Proof</td><td><code>ai-proof</code> + <code>ai-eng spec run</code></td><td>a receipt per run; a check that cannot execute exits non-zero and turns CI red</td><td>—</td></tr>
+      <tr><td>10</td><td>Proof</td><td>commands listed in the checkpoint plan</td><td>each gate records its executed result and evidence</td><td>—</td></tr>
       <tr><td>11</td><td>Docs</td><td><code>ai-write</code></td><td>README / docs/ of the project, verified against the tree; <code>not-covered:</code> marks what could not be proven</td><td>—</td></tr>
-      <tr><td>12</td><td>Close</td><td><code>ai-visual-recap</code> + git</td><td>the milestone recap HTML; <code>ai-eng spec close</code> archives spec.html, plan.html, brainstorm.md and recap.html to git and deletes them from the tree</td><td>reviewing the recap; the human tags — the binary never touches the remote (<a href="#s04">§04</a>)</td></tr>
+      <tr><td>12</td><td>Close</td><td>git; optional visual recap when requested</td><td>publish a reviewed merge to the detected local base; the feature checkout remains available until explicitly removed</td><td>review the recap if created; a human decides whether to push</td></tr>
     </tbody>
   </table></div>
-  <p>The order runs on <strong>three lanes</strong>. <strong>Light</strong> — spike or bounded work: no contract, it explores and throws away what does not serve. <strong>Standard</strong> — the contract: <code>ai-plan</code> writes spec.html + plan.html, the loop runs, <code>ai-eng spec run</code> closes the gates and <code>ai-eng spec close</code> closes the milestone. <strong>Full</strong> — architectural: the same contract plus the nodes their conditions fire (<a href="#s15-lanes">§15.4</a>). The lane is <strong>one-way</strong>: a milestone may climb when the evidence asks for it, never descend silently. Each skill declares its own lane, artifacts, successor and death in a <code>## Lifecycle</code> block inside its SKILL.md, and the canon test fails when a skill declares none — that is what makes the order checkable instead of aspirational. There is deliberately no central router: the skill in front of you already knows what comes next.</p>
+  <p>The order runs on <strong>three lanes</strong>. <strong>Light</strong> — spike or bounded work: no contract, it explores and throws away what does not serve. <strong>Standard</strong> — <code>ai-brainstorm</code> records intent and <code>ai-orchestrator</code> builds through checkpoint gates. <strong>Full</strong> — the same workflow plus the nodes triggered by architectural changes. The lane is <strong>one-way</strong>: a feature may climb when the evidence asks for it, never descend silently. Each skill declares its lane, artifacts, successor and end condition in a <code>## Lifecycle</code> block inside its <code>SKILL.md</code>, so the next step stays checkable.</p>
   <p class="dim">Outside the order, when they are needed: <code>ai-explore</code> (where does X live?) before any step that needs the real tree; <code>ai-debug</code> (reproduction + test) as soon as something fails; <code>ai-note</code> for a finding the team must remember; <code>ai-issue-report</code> for a structured incident report; <code>ai-read-docs</code> before using a third-party API; <code>ai-writing-behavior</code> when a recurring trajectory failure deserves written criteria (<a href="#s16-behavior">§16.7</a>). The grounding duty of <a href="#s08">§08</a> binds steps 1→4: no file, API or library is cited that <code>ai-explore</code> or <code>ai-read-docs</code> has not opened in the session — the spec is written from readings, not from memory. Session economy (limits, compaction) belongs to each surface's harness; it is not a skill.</p>
 
   <h3 id="s15-loop">15.2 · The loop is the surface's native loop</h3>
@@ -1523,7 +1523,7 @@ exit 1</pre>
         <span class="ed">╲</span>                                                    <span class="ed">╱</span>
                     <span class="wd">the same floor</span>  <span class="dim">— guards on every edit · git floor on every commit · spec run on every PR</span>
                     <span class="dim">the guards run whatever happens: skipping a phase of the order switches off no protection</span></div>
-  <p class="dim">The test of the map: if at the close of a milestone you cannot point at the receipt that closed each gate, the DECISIONS.md line that justifies each decision, and the plan.html step that ordered each commit — the cycle was improvised, not followed. <code>ai-visual-recap</code> shows exactly those three things, which is why it closes the milestone instead of summarising it.</p>
+  <p class="dim">The test of the map: if at the close of a milestone you cannot point at the receipt that closed each gate, the DECISIONS.md line that justifies each decision, and the plan.html step that ordered each commit — the cycle was improvised, not followed. When the user wants a visual report, they can invoke <code>ai-visual-recap</code>; the recap is optional and does not replace proof or close the milestone.</p>
 </section>
 
 <!-- ═══════ 16 FILE LIFECYCLE ═══════ -->
@@ -1540,8 +1540,8 @@ exit 1</pre>
       <tr><td><code>ai-brainstorm</code></td><td><code>.ai-engineering/brainstorm.md</code></td><td><code>ai-plan</code> (the gap list becomes questions)</td><td>step 1</td><td>STOP 1 approved — what did not fit spec/plan was noise</td></tr>
       <tr><td><code>ai-research</code></td><td><code>.ai-engineering/research/NNN-{name}.html</code></td><td>humans, <code>ai-architect</code>, <code>ai-plan</code> (citations)</td><td>step 2</td><td><strong>immune while cited</strong> — an NNN is never rewritten; <code>doctor --gc</code> removes what is uncited and old from the tree, and git is the archive (<a href="#s16-gc">§16.5</a>)</td></tr>
       <tr><td><code>ai-architect</code></td><td>a diff of <code>.ai-engineering/arch.rules.json</code> in a PR</td><td>the arch test, <code>ai-plan</code></td><td>step 3</td><td><strong>permanent</strong> — it evolves by pull request, never auto-written (<a href="#s13">§13</a>)</td></tr>
-      <tr><td><code>ai-plan</code></td><td><code>.ai-engineering/spec.html</code> + <code>plan.html</code></td><td>CI (<code>spec run</code>), <code>ai-goal</code>, <code>ai-proof</code>, the human</td><td>step 4 (<code>ai-eng spec open</code> claims the slot)</td><td><code>ai-eng spec close</code> at step 12 — git keeps the history</td></tr>
-      <tr><td>STOP 1 + lock</td><td>the sha256 of spec.html in <code>ai-eng.lock</code></td><td>the <code>self-protect</code> guard, <code>doctor</code></td><td>the human approves (<code>ai-eng spec approve</code>)</td><td>the milestone close — the next contract takes the entry</td></tr>
+      <tr><td><code>ai-orchestrator</code></td><td>checkpoint plan JSON, test plan and review records</td><td>the agent, gates and human reviewer</td><td>plan approval starts implementation</td><td>Git history keeps committed checkpoint evidence</td></tr>
+      <tr><td>Checkpoint guard</td><td>lifecycle phase, gate states and reviewed SHAs</td><td>the chain checkpoint guard</td><td>every protected plan write</td><td>the next phase after its required gates pass</td></tr>
       <tr><td><code>ai-goal</code> (native loop)</td><td>per-step state in <code>plan.html</code></td><td>the human, the next iteration of the loop</td><td>step 6</td><td>with the milestone — plan.html dies with spec.html</td></tr>
       <tr><td><code>ai-proof</code> / chain / floor</td><td><code>.ai-engineering/receipts/*.json</code></td><td><code>doctor</code> (aggregated), CI, the human auditing</td><td>every gate that runs</td><td><code>receipts_ttl</code> → <code>doctor --gc</code> aggregates them into <code>summary.json</code> and deletes them; the <code>Receipt-Id</code> trailer on the commit is the permanent half</td></tr>
       <tr><td><code>ai-design</code></td><td><code>.ai-engineering/design/direction.html</code></td><td>the routed implementation skill, <code>ai-audit-design</code>, the human</td><td>step 7, before the code</td><td>when a new decision changes the direction (a DECISIONS.md block) — never per pull request</td></tr>
@@ -1565,7 +1565,7 @@ exit 1</pre>
   <h3 id="s16-slot">16.2 · Cleaning and concurrency: one slot per checkout, a worktree per agent</h3>
   <p>There is exactly <strong>one</strong> spec.html, plan.html, brainstorm.md and recap.html per repository: they are slots, not numbered files. Two questions follow — who cleans, and what happens when two agents want the slot at once.</p>
   <div class="grid g2">
-    <div class="card"><h4>Cleaning is a ritual with verbs</h4><p><code>ai-eng spec open &lt;milestone&gt;</code> claims the slot and refuses when a live contract already exists; <code>ai-eng spec approve</code> pins the approved spec's sha256 in the lock (STOP 1). <code>ai-eng spec close</code> is the only exit: it verifies that every gate has a receipt or an ABANDON with a reason, that no fired trigger was left without an artifact, archives spec/plan/brainstorm/recap to git, deletes them from the tree and frees the slot. Because human cleaning is forgotten, <code>doctor</code> audits it: a live spec.html whose milestone already has a tag is a FAIL; a brainstorm.md older than the last approval is a WARN with the deletion proposed; receipts past <code>receipts_ttl</code> are aggregated and deleted. The invariant: no file outlives what it documents, and a file that cannot name the live milestone it belongs to is dated rubbish.</p></div>
+    <div class="card"><h4>Checkpoint plans follow their feature</h4><p>A feature plan lives at <code>.ai-engineering/workflow/checkpoints/&lt;slug&gt;.json</code> in its selected checkout. The checkpoint guard rejects out-of-order state changes. <code>ai-eng worktree list</code> shows registered worktrees, and <code>ai-eng worktree rm &lt;slug&gt;</code> removes one only after its safety checks pass. Committed plan updates remain in Git history.</p></div>
     <div class="card"><h4>Concurrency is a slot, not a shared file</h4><p>Two agents writing the same spec.html on the same branch is the one forbidden configuration, and the lock makes it physical: the sha256 pinned at STOP 1 makes the second writer receive a DENY from the <code>self-protect</code> guard. The sanctioned pattern for parallel features is <strong>one <code>git worktree</code> per agent</strong> — each worktree is a governed checkout with its own <code>.ai-engineering/</code>, so it has its own slot, its own receipts, its own plan.html, and two milestones on two branches are two contracts that never touch. When they converge, a merge conflict in spec.html <em>is</em> the gate: git raises it, a human resolves it, <code>ai-plan</code> merges the contracts.</p></div>
   </div>
   <p>This adds no human verb and no dependency: <code>open</code>, <code>approve</code>, <code>run</code> and <code>close</code> are subcommands of the machine verb <code>spec</code>, and worktree is git. The binary never touches the remote (<a href="#s04">§04</a>).</p>

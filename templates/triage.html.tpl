@@ -191,6 +191,26 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 @media (prefers-reduced-transparency:reduce){nav{background:var(--bg);backdrop-filter:none}}
 @media (prefers-contrast:more){:root{--dim:#E8EDEB;--comment:#C1C7C6}.card,.note,p,li,td{color:var(--dim)}nav a{color:#E8EDEB}}
 @media print{nav,.skip{display:none}body{background:#fff;color:#111}section{page-break-inside:avoid}}
+.item .analysis{white-space:pre-line;overflow-wrap:anywhere}
+.analysis strong{color:var(--text);font-weight:620}
+.type-chip{display:inline-block;border:1px solid var(--line-strong);border-radius:999px;padding:2px 8px;font-family:var(--mono);font-size:10px;line-height:1.5;letter-spacing:.02em;color:var(--dim);white-space:nowrap}
+.tree-list{display:grid;gap:var(--s3);margin:0}
+.tree-group{position:relative;display:grid;gap:var(--s2);padding:var(--s3) 0 var(--s4) var(--s5);border-bottom:1px solid var(--line)}
+.tree-row{display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap;min-width:0}
+.tree-role{min-width:78px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--comment)}
+.tree-current{color:var(--text);font-weight:600}
+.tree-title{font-family:var(--sans);font-size:var(--fs-small);color:var(--dim);overflow-wrap:anywhere}
+.tree-state{font-family:var(--mono);font-size:10px;color:var(--comment)}
+.tree-branch,.tree-children{display:grid;gap:var(--s2);margin-left:var(--s4);padding-left:var(--s4);border-left:1px solid var(--line-strong)}
+.tree-branch>.tree-current::before,.tree-child::before{content:'';width:10px;border-top:1px solid var(--line-strong);margin-left:calc(-1 * var(--s4));flex:0 0 10px}
+.tree-row a{font-family:var(--mono);font-size:11px;font-weight:600}
+@media (max-width:700px){.tree-group{padding-left:var(--s3)}.tree-role{min-width:66px}}
+.azure-type-state table{min-width:0}
+.azure-type-state th{white-space:normal}
+.azure-signals .kv .ilbl{font-size:var(--fs-label);line-height:var(--lh-small);overflow-wrap:anywhere}
+.azure-signals .ibody .kv>span:last-child{overflow-wrap:anywhere}
+.azure-signals .item>summary{min-height:44px}
+.azure-signals .coverage-gap{border-left:3px solid var(--warn);padding-left:var(--s3)}
 </style>
 </head>
 <body>
@@ -215,6 +235,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
 <main id="main">
 <div class="container">
 
+<!-- report-content-start -->
 <!-- Triage contract (ai-github-triage): the page is a decision surface, not a
      transcript. Every claim is a permalink at a commit SHA; no permalink means
      no claim. The reader must be able to pick the first item to work on from
@@ -229,19 +250,24 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
        <details class="item" id="i{{number}}">
          <summary>
            <span class="band band-p0">P0</span>          the band chip
-           <a class="iid" href="{{url}}">#{{number}}</a> the id IS the link out
+           <span class="type-chip">{{type}}</span>
+           <a class="iid" href="{{url}}" target="_blank" rel="noreferrer noopener">#{{number}}</a> the id IS the link out
            <span class="ititle">{{title}}</span>        bold subject, code inline
            <span class="imeta">{{effort}}</span>        the right rail
          </summary>
          <div class="ibody">
-           <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+           <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">{{context}}</span></div>
+           <div class="kv"><span class="ilbl">Related context</span><div class="xref"><div class="tree-list" role="list">{{related_context}}</div></div></div>
            <div class="kv"><span class="ilbl">Why now</span><span>{{why_now}}</span></div>
            <div class="kv"><span class="ilbl">Signals</span><span class="sig">{{signals}}</span></div>
            <div class="kv"><span class="ilbl">Evidence</span><span class="xref">{{evidence}}</span></div>
          </div>
        </details>
 
-     Context is plain language for an engineer who has read nothing: what the
+     Analysis is CONTEXT rendered by renderAnalysis, not raw HTML or Markdown.
+     Related context is renderHierarchy output; omit the row when verified empty.
+     Both helpers live in skills/ai-triage/scripts/render-report.mjs.
+     Analysis is plain language for an engineer who has read nothing: what the
      item is about, why it exists, what happens if nobody touches it. Not a
      restatement of the title. A row whose context is missing says so.
 
@@ -321,12 +347,14 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <details class="item" id="i{{number}}">
       <summary>
         <span class="band band-{{band}}">{{band_label}}</span>
-        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="type-chip">{{type}}</span>
+        <a class="iid" href="{{url}}" target="_blank" rel="noreferrer noopener">#{{number}}</a>
         <span class="ititle">{{title}}</span>
         <span class="imeta">{{effort}}</span>
       </summary>
       <div class="ibody">
-        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Related context</span><div class="xref"><div class="tree-list" role="list">{{related_context}}</div></div></div>
         <div class="kv"><span class="ilbl">Why now</span><span>{{why_now}}</span></div>
         <div class="kv"><span class="ilbl">Signals</span><span class="sig">{{signals}}</span></div>
         <div class="kv"><span class="ilbl">Evidence</span><span class="xref">{{evidence}}</span></div>
@@ -344,11 +372,13 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
       <summary>
         <span class="pill p-ok">{{verdict}}</span>
         <span class="pill {{severity_class}}">{{severity}}</span>
-        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="type-chip">{{type}}</span>
+        <a class="iid" href="{{url}}" target="_blank" rel="noreferrer noopener">#{{number}}</a>
         <span class="ititle">{{title}}</span>
       </summary>
       <div class="ibody">
-        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Related context</span><div class="xref"><div class="tree-list" role="list">{{related_context}}</div></div></div>
         <div class="kv"><span class="ilbl">Root cause</span><span>{{root_cause}}</span></div>
         <div class="kv"><span class="ilbl">Evidence</span><span class="xref">{{evidence}}</span></div>
       </div>
@@ -364,11 +394,13 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <details class="item" id="i{{number}}">
       <summary>
         <span class="pill p-ok">{{verdict}}</span>
-        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="type-chip">{{type}}</span>
+        <a class="iid" href="{{url}}" target="_blank" rel="noreferrer noopener">#{{number}}</a>
         <span class="ititle">{{question}}</span>
       </summary>
       <div class="ibody">
-        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Related context</span><div class="xref"><div class="tree-list" role="list">{{related_context}}</div></div></div>
         <div class="kv"><span class="ilbl">Draft answer</span><span>{{draft_answer}}</span></div>
         <div class="kv"><span class="ilbl">Confidence</span><span>{{confidence}}</span></div>
       </div>
@@ -384,11 +416,13 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <details class="item" id="i{{number}}">
       <summary>
         <span class="pill p-dim">{{verdict}}</span>
-        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="type-chip">{{type}}</span>
+        <a class="iid" href="{{url}}" target="_blank" rel="noreferrer noopener">#{{number}}</a>
         <span class="ititle">{{title}}</span>
       </summary>
       <div class="ibody">
-        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Related context</span><div class="xref"><div class="tree-list" role="list">{{related_context}}</div></div></div>
         <div class="kv"><span class="ilbl">Reason</span><span>{{reason}}</span></div>
         <div class="kv"><span class="ilbl">Evidence</span><span class="xref">{{evidence}}</span></div>
       </div>
@@ -404,11 +438,13 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <details class="item" id="i{{number}}">
       <summary>
         <span class="pill p-dim">{{feasibility}}</span>
-        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="type-chip">{{type}}</span>
+        <a class="iid" href="{{url}}" target="_blank" rel="noreferrer noopener">#{{number}}</a>
         <span class="ititle">{{title}}</span>
       </summary>
       <div class="ibody">
-        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Related context</span><div class="xref"><div class="tree-list" role="list">{{related_context}}</div></div></div>
         <div class="kv"><span class="ilbl">Exists today</span><span>{{exists_today}}</span></div>
         <div class="kv"><span class="ilbl">Evidence</span><span class="xref">{{evidence}}</span></div>
       </div>
@@ -424,12 +460,14 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
     <details class="item" id="i{{number}}">
       <summary>
         <span class="pill {{action_class}}">{{action}}</span>
-        <a class="iid" href="{{url}}">#{{number}}</a>
+        <span class="type-chip">{{type}}</span>
+        <a class="iid" href="{{url}}" target="_blank" rel="noreferrer noopener">#{{number}}</a>
         <span class="ititle">{{title}}</span>
         <span class="imeta">{{branch}}</span>
       </summary>
       <div class="ibody">
-        <div class="kv"><span class="ilbl">Context</span><span>{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Analysis</span><span class="analysis">{{context}}</span></div>
+        <div class="kv"><span class="ilbl">Related context</span><div class="xref"><div class="tree-list" role="list">{{related_context}}</div></div></div>
         <div class="kv"><span class="ilbl">Checks</span><span>{{checks}}</span></div>
         <div class="kv"><span class="ilbl">Closes</span><span class="xref">{{closes}}</span></div>
       </div>
@@ -464,6 +502,7 @@ footer a{color:var(--dim);display:inline-block;padding:12px 4px}
   <p>{{coverage}}</p>
 </section>
 
+<!-- report-content-end -->
 </div>
 </main>
 

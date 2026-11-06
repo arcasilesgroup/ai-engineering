@@ -147,8 +147,8 @@ If those answers require oral context, keep editing.
 
 1. Output lives at `.agents/behaviors/<name>/BEHAVIOR.md` — at the ROOT of the
    repository, not under `.ai-engineering/`, because half the world reads it: human
-   reviewers, eval judges, other tools. ai-eng only validates. This is an on-demand
-   skill (the 19th of the canon).
+   reviewers, eval judges, other tools. ai-eng only validates. This skill runs on
+   demand.
 2. In an observational eval, the evaluated agent stays blind to the spec: showing it
    the spec beforehand would measure obedience, not conduct.
 3. A checkpoint asks "was the step met?" (binary). `BEHAVIOR.md` asks "did the

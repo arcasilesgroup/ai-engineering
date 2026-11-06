@@ -1,13 +1,14 @@
 # .ai-engineering/config.toml — what CANNOT be deduced from code (§08).
 # This file is the right place for your thresholds and pins: edit it by hand or
 # run `ai-eng config` for surfaces. The chain reads it; it never edits it.
+# Skills: every shipped skill and its resources install by default; there is no
+# pack selection. A legacy [canon].packs value is ignored and never rewritten.
 
 [surfaces]
 # Which agent surfaces (IDEs/CLIs) this project is governed on. Every client uses
 # the same definitions from ai-eng — no per-IDE forks. Options: claude-code, oh-my-pi, opencode, cursor, codex, copilot, pi, zed.
 # `ai-eng config` rewrites this list and installs/removes each surface's adapter files.
 enabled = [{{surfaces}}]
-
 
 [guards]
 # Loop guard thresholds: identical-call repetition and failure streaks (§10).
@@ -17,9 +18,10 @@ loop_failures = 5  # same signature failing → deny
 
 # Command-scope policy (ported from bash-guard): four octal digits, left to
 # right system/external/network/workspace, bits 4:read 2:write 1:execute.
-# Default 0467 — workspace everything, network read+write, external read,
-# system nothing. An invalid value fails closed as 0000.
-# policy_mode = "0467"
+# Default 4667 — workspace everything, network read+write, external read+write,
+# system read (system write and execute stay denied). An invalid value fails
+# closed as 0000.
+# policy_mode = "4667"
 
 # Local rules — declarative injection rules evaluated by the injection guard.
 # Each rule matches against a scope (all_text, tool_name, or raw_json) with
@@ -43,6 +45,15 @@ loop_failures = 5  # same signature failing → deny
 # [guards.circuit_breaker]
 # failure_threshold = 5   # consecutive failures before opening (default: 5)
 # reset_ms = 30000        # milliseconds before half-open recovery (default: 30000)
+
+# Git — optional; leave commented out to let ai-eng detect it.
+# base: the branch your work merges into. Without it the base is the default branch
+# of the current branch's upstream remote (or origin), read from local refs; when
+# nothing answers, or it equals the current branch, ai-eng asks.
+# worktrees_dir: where `ai-eng worktree new` creates worktrees.
+# [git]
+# base = "develop"
+# worktrees_dir = "../<repo>.worktrees"
 
 [gc]
 # Growth caps for the NNN folders (research/, audits/, security/, reports/,

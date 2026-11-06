@@ -16,7 +16,7 @@
 // file-scanning bootstrap (the floor's gitleaks gate already owns what lands in a
 // commit; this guard's surface is the PROMPT, the one place gitleaks cannot see).
 
-import type { Payload } from "../chain/payload.ts";
+import type { Payload } from "../payload.ts";
 
 export const MIN_BYTES = 8; // a rule shorter than this matches inside unrelated words
 export const SHORT_FLOOR = 4; // below this no rule should exist at all
@@ -39,7 +39,6 @@ const PLACEHOLDER =
   /^(your[_-]|my[_-]|some[_-]|the[_-])|^(changeme|change[_-]me|replace|placeholder|example|dummy|sample|todo|tbd|none|null|nil|n\/?a|xxx+|\.\.\.|\*+)$|^[<${].*[>}]$|(here|goes[_-]here|_here)$/i;
 
 const BARE_PATH = /^(\/|~\/|\.\/|[a-z]:\\)/i;
-const BARE_HOST_OR_URL = /^([a-z][a-z0-9+.-]*:\/\/)?[a-z0-9.-]+(:\d+)?(\/[^\s]*)?$/i;
 
 const LABEL_NOISE: Record<string, true> = {
   my: true, the: true, our: true, a: true, an: true, new: true, current: true, old: true, and: true, is: true,
@@ -57,6 +56,10 @@ const SPOKEN =
   /\b(?<key>(?:[A-Za-z]+[ _-]){0,3}?(?:pass(?:word|phrase)|secret|api[ _-]?key|access[ _-]?key|token|credential)s?)\b(?:\s+(?:is|are|was|will be)|\s*[:=])\s+(?<val>"[^"\n]+"|'[^'\n]+'|`[^`\n]+`|[^\s,;]+)(?<rest>[^,;.\n]*)/gi;
 
 const QUOTES = "\"'`";
+
+// Anything said as a value, whether or not its key reads as a secret (`token=…`,
+// `my pin is …`): a label must never repeat it.
+const VALUE_SHAPED = /(?:[:=]|\b(?:is|are|was|will be)\b)\s*("[^"\n]+"|'[^'\n]+'|`[^`\n]+`|[^\s,;]+)/gi;
 
 export function slug(text: string): string {
   return (
@@ -80,7 +83,6 @@ export function judge(key: string, value: string): { decide: boolean; reason: st
     return { decide: false, reason: "placeholder or non-secret value" };
   if (/^\d+$/.test(value)) return { decide: false, reason: "numeric value" };
   if (!creds && BARE_PATH.test(value)) return { decide: false, reason: "filesystem path" };
-  if (!creds && !keyed && BARE_HOST_OR_URL.test(value)) return { decide: false, reason: "host or URL without credentials" };
   const n = new TextEncoder().encode(value).length;
   if (n < SHORT_FLOOR) return { decide: false, reason: `${n} bytes: too short for any rule` };
   if (n < MIN_BYTES) return { decide: false, reason: `${n} bytes: below the 8-byte floor; handle by hand` };
@@ -111,6 +113,22 @@ function labelFor(key: string): string {
   return slug("prompt-" + (words.length > 0 ? words.join("-") : "secret"));
 }
 
+/** The key with every word that is, or holds, part of a value the prompt carries
+ *  removed. SPOKEN's key reaches back up to three words, and those words can be an
+ *  earlier value (`token=abcdefghij and api key: …`): a label or message built from
+ *  them would print the secret it warns about. */
+function keyWithoutValues(key: string, valueParts: string[]): string {
+  const leaks = (word: string): boolean => {
+    const lower = word.toLowerCase();
+    return valueParts.some((part) => part.includes(lower) || (part.length >= SHORT_FLOOR && lower.includes(part)));
+  };
+  const kept = key
+    .replace(/[A-Za-z0-9]+/g, (word) => (leaks(word) ? "" : word))
+    .replace(/[\s_-]{2,}/g, (separators) => separators[0]!)
+    .replace(/^[\s_-]+|[\s_-]+$/g, "");
+  return kept.length > 0 ? kept : "secret";
+}
+
 export type Candidates = {
   /** Exact values with a clean boundary: a label for the thing, never the value. */
   auto: Array<{ value: string; label: string }>;
@@ -125,13 +143,20 @@ export function candidates(prompt: string): Candidates {
   const auto: Candidates["auto"] = [];
   const manual: string[] = [];
   const seen = new Set<string>();
-  for (const match of [...prompt.matchAll(ASSIGNED), ...prompt.matchAll(SPOKEN)]) {
+  const matches = [...prompt.matchAll(ASSIGNED), ...prompt.matchAll(SPOKEN)];
+  const valueTexts = [
+    ...matches.map((match) => `${match.groups?.val ?? ""} ${match.groups?.rest ?? ""}`),
+    ...[...prompt.matchAll(VALUE_SHAPED)].map((match) => match[1]!),
+  ];
+  const valueParts = valueTexts.flatMap((text) => text.toLowerCase().match(/[a-z0-9]+/g) ?? []);
+  for (const match of matches) {
     const groups = match.groups ?? {};
     const { token, quoted } = unquote(groups.val ?? "");
     const trimmed = token.trim().replace(/[.,;:!?]+$/, "");
-    const key = (groups.key ?? "secret").replace(/^[-_ ]+|[-_ ]+$/g, "");
-    if (PUBLIC_KEY.test(key) || trimmed.length === 0 || seen.has(trimmed)) continue;
+    const rawKey = (groups.key ?? "secret").replace(/^[-_ ]+|[-_ ]+$/g, "");
+    if (PUBLIC_KEY.test(rawKey) || trimmed.length === 0 || seen.has(trimmed)) continue;
     seen.add(trimmed);
+    const key = keyWithoutValues(rawKey, valueParts);
     // an exact span: quoted, or a single bare token that stands on its own
     if (quoted || usable(trimmed)) {
       if (usable(trimmed)) auto.push({ value: trimmed, label: labelFor(key) });

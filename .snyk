@@ -1,7 +1,7 @@
 # Snyk (https://snyk.io) policy file — exclusions and ignores for this repository.
 #
 # One exclusion, and it is named rather than general: the eval scorer
-# (skills/ai-verify/evals/scripts/score.ts) compiles the regexes a manifest carries, and
+# (tests/fixtures/verify-tiers/evals/scripts/score.ts) compiles the regexes a manifest carries, and
 # Snyk Code reads `new RegExp(pattern)` as a ReDoS sink. The rule cannot tell an input the
 # operator wrote and typed from one an attacker controls. That scorer runs offline against
 # a manifest a person authored for their own eval run, and the file itself refuses the
@@ -11,7 +11,7 @@
 version: v1.25.0
 exclude:
   code:
-    - "skills/ai-verify/evals/scripts/score.ts"
+    - "tests/fixtures/verify-tiers/evals/scripts/score.ts"
     # src/chain/mod.ts: all matchers in TABLE are hardcoded RegExp literals;
     # tool is the value tested, not the pattern. Simple alternations cannot backtrack.
     - "src/chain/mod.ts"

@@ -9,16 +9,21 @@
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { doctorMain } from "../src/commands/doctor.ts";
+import { canonSkills } from "../src/embed.ts";
 import { lockText, sha256 } from "../src/install.ts";
+import * as receiptsModule from "../src/receipts.ts";
 import { carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES } from "../src/surfaces/adapters.ts";
+import * as uiModule from "../src/ui.ts";
 import { VERSION } from "../src/version.ts";
+import { writeFakeCommand } from "./fixtures/fake-command.ts";
+import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 
 const GOVERNED = '[surfaces]\nenabled = ["claude-code"]\n';
-const ORIGINAL = { cwd: process.cwd(), path: process.env.PATH ?? "" };
+const ORIGINAL = { cwd: process.cwd(), path: process.env.PATH ?? "", sandbox: snapshotSandboxEnv() };
 const temps: string[] = [];
 
 function tempDir(prefix: string): string {
@@ -29,8 +34,7 @@ function tempDir(prefix: string): string {
 
 afterEach(() => {
   process.chdir(ORIGINAL.cwd);
-  delete process.env.AI_ENG_HOME;
-  delete process.env.PI_CODING_AGENT_DIR;
+  restoreSandboxEnv(ORIGINAL.sandbox);
   process.env.PATH = ORIGINAL.path;
   for (const dir of temps.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
@@ -100,10 +104,8 @@ function writeFloor(root: string): void {
 /** A `gitleaks` the test owns, so the check never depends on the machine. */
 function gitleaks(status: number): void {
   const dir = tempDir("ai-eng-doc-bin-");
-  const file = join(dir, "gitleaks");
-  writeFileSync(file, `#!/bin/sh\nexit ${status}\n`);
-  chmodSync(file, 0o755);
-  process.env.PATH = `${dir}:${ORIGINAL.path}`;
+  writeFakeCommand(dir, "gitleaks", { exitCode: status });
+  process.env.PATH = `${dir}${delimiter}${ORIGINAL.path}`;
 }
 
 function receipt(latency: number, outcome: "allow" | "deny", event = "PreToolUse"): string {
@@ -163,7 +165,7 @@ function gitInit(root: string): string {
 }
 
 describe("doctor · a repo where everything is green", () => {
-  test("every check passes, the summary says so and the exit code is 0", async () => {
+  test("reports chain, canon, carriers and receipts without retired reports", async () => {
     healthy();
     const run = await doctor();
     expect(run.code).toBe(0);
@@ -179,12 +181,14 @@ describe("doctor · a repo where everything is green", () => {
     expect(detail(run, "assets")).toBe(`installed by ${VERSION}`);
     expect(detail(run, "git floor")).toBe("marker hooks in .git/hooks/ · gitleaks present");
     expect(detail(run, "chain test")).toMatch(/^adversarial payload \(git commit -n\) → DENY in \d+ms$/);
-    expect(detail(run, "receipts")).toMatch(/^\d+ runs · \d+ denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)( · top [^ ]+)?$/);
+    expect(detail(run, "receipts")).toMatch(/^last 14d: \d+ runs · \d+ denies · p50 \d+ms · p95 \d+ms \(ceiling 50\)( · top [^ ]+)?$/);
     expect(detail(run, "overrides")).toBe("none active");
     expect(detail(run, "arch")).toBe("active — src/ present");
-    expect(detail(run, "spec slot")).toBe("clean slot: 0 zombie contracts");
     expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
     expect(detail(run, "behaviors")).toBe("no behaviors declared");
+    expect(run.out).not.toContain("checkpoint gate");
+    expect(run.out).not.toContain("checkpoint-gate-report");
+    expect(run.out).not.toContain("plant-workflow");
   });
 
   test("a warn is not a failure: warnings alone return 0 under an Attention block", async () => {
@@ -200,6 +204,15 @@ describe("doctor · a repo where everything is green", () => {
     expect(row(run, "mirrors")).toContain("▲");
     expect(detail(run, "mirrors")).toBe("3/3 mirrors empty or missing → ai-eng init --global");
     expect(detail(run, "canon")).toContain("files verified · 0 drift");
+    expect(detail(run, "canon")).toContain("missing");
+  });
+
+  test("a mirror whose links dangle is broken: the canon the links point at is gone", async () => {
+    const { home } = healthy();
+    rmSync(join(home, "skills"), { recursive: true, force: true });
+    const run = await doctor();
+    expect(row(run, "mirrors")).toContain("▲");
+    expect(detail(run, "mirrors")).toBe("3/3 mirrors empty or missing → ai-eng init --global");
     expect(detail(run, "canon")).toContain("missing");
   });
 });
@@ -242,7 +255,7 @@ describe("doctor · config.toml is the gate", () => {
     expect(row(run, "config.toml")).toContain("✗");
     expect(detail(run, "config.toml")).toBe("absent — the gate reads this file; without it this repo is not governed");
     expect(detail(run, "chain test")).toBe("not governed (no-config) — the chain applies no policy here, so an allow is the gate working");
-    expect(detail(run, "receipts")).toContain("0 runs · 0 denies");
+    expect(detail(run, "receipts")).toContain("last 14d: 0 runs · 0 denies");
     expect(run.code).toBe(2);
 
     sandbox("this is not = toml = at all\n");
@@ -269,6 +282,44 @@ describe("doctor · config.toml is the gate", () => {
 });
 
 describe("doctor · the canon and the lock", () => {
+  test("F26: a stale page ai-eng proved its own but could not remove stays stale across runs, keeps its hash, and is named as removal refused", async () => {
+    // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+    if (process.platform === "win32" || process.getuid?.() === 0) return;
+    const { home } = healthy();
+    const key = "skills/ai-verify/evals/README.md";
+    const folder = join(home, "skills", "ai-verify", "evals");
+    const page = "# Evals — an outdated page this binary no longer ships\n";
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(home, key), page);
+    const recordPath = join(home, "canon-owned.json");
+    const before = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
+    writeFileSync(recordPath, JSON.stringify({ files: { ...before.files, [key]: sha256(page) } }));
+    const refusedText = `1 stale file(s) ai-eng shipped earlier — removal refused by the filesystem (a read-only, locked or busy folder), kept and retried by the next ai-eng update: ${key}. Make the folder writable, then run ai-eng update`;
+
+    chmodSync(folder, 0o555);
+    try {
+      for (let pass = 0; pass < 2; pass += 1) {
+        const lines = installCanon(VERSION);
+        expect(lines).toContain(`⚠ ${refusedText}`);
+        expect(lines.join("\n")).not.toContain("user file");
+        const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string>; refused: string[] };
+        expect(record.files[key]).toBe(sha256(page));
+        expect(record.refused).toEqual([key]);
+      }
+      const run = await doctor();
+      expect(row(run, "canon")).toContain("▲");
+      expect(detail(run, "canon")).toContain(`1 stale, removal refused: ${key} — make the folder writable, then ai-eng update`);
+      expect(detail(run, "canon")).not.toContain("kept user file");
+    } finally {
+      chmodSync(folder, 0o755);
+    }
+
+    // Once the folder lets it, the next run removes it: it was ours all along.
+    installCanon(VERSION);
+    expect(existsSync(join(home, key))).toBe(false);
+    expect(row(await doctor(), "canon")).toContain("✓");
+  });
+
   test("an intact canon is ok; an edited skill drifts; a file we do not ship is named but not held against it", async () => {
     const { home } = healthy();
     let run = await doctor();
@@ -290,8 +341,98 @@ describe("doctor · the canon and the lock", () => {
     writeFileSync(join(home, "skills", "ai-debug", "orphan.md"), "a file this binary no longer ships\n");
     run = await doctor();
     expect(row(run, "canon")).toContain("▲");
-    expect(detail(run, "canon")).toContain("1 stale (ai-eng update sweeps what we shipped)");
+    expect(detail(run, "canon")).toContain("1 kept user file(s) in shipped skill folders (never deleted)");
     expect(detail(run, "canon")).toContain("1 not ours (left alone)");
+  });
+
+  test("F20: a user file in a shipped skill folder is reported as kept and never warned about; a recorded one is stale", async () => {
+    const { home } = healthy();
+    const key = "skills/ai-debug/my-notes.md";
+    writeFileSync(join(home, key), "mine\n");
+    let run = await doctor();
+    expect(row(run, "canon")).toContain("✓");
+    expect(detail(run, "canon")).toContain("1 kept user file(s) in shipped skill folders (never deleted)");
+    expect(detail(run, "canon")).not.toContain("stale");
+
+    const recordPath = join(home, "canon-owned.json");
+    const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
+    writeFileSync(recordPath, JSON.stringify({ files: { ...record.files, [key]: sha256("mine\n") } }));
+    run = await doctor();
+    expect(row(run, "canon")).toContain("▲");
+    expect(detail(run, "canon")).toContain("1 stale (ai-eng update sweeps what we shipped)");
+  });
+
+  test("F23: pages an install left before ownership was recorded are unproven, never a user file: warned with the manual step, kept, and cleared only by hand", async () => {
+    const { home } = healthy();
+    // A v2.6.0 install: it shipped these pages and wrote no canon-owned.json.
+    rmSync(join(home, "canon-owned.json"));
+    const readme = "skills/ai-verify/evals/README.md";
+    const catalog = "skills/ai-verify/evals/bug-catalog.md";
+    mkdirSync(join(home, "skills", "ai-verify", "evals"), { recursive: true });
+    writeFileSync(join(home, readme), "# Evals — test the reviewer, not just the code\n");
+    writeFileSync(join(home, catalog), "# Bug catalog\n");
+    const unprovenText = (paths: string[]) =>
+      `${paths.length} file(s) in shipped skill folders that ai-eng cannot prove it wrote (left from before ownership was recorded: an outdated page of ours or a file of yours) — never deleted: ${paths.join(", ")}. Review each: delete it by hand, or move a file you keep out of the skill folder`;
+
+    let run = await doctor();
+    expect(row(run, "canon")).toContain("✓");
+    expect(detail(run, "canon")).not.toContain("kept user file");
+    expect(row(run, "canon unproven")).toContain("▲");
+    expect(detail(run, "canon unproven")).toBe(unprovenText([catalog, readme]));
+
+    // The repair update runs keeps them and carries them into the new record, so a second
+    // run does not mistake them for files the user added after it.
+    for (let pass = 0; pass < 2; pass += 1) expect(installCanon(VERSION)).toContain(`⚠ ${unprovenText([catalog, readme])}`);
+    expect(readFileSync(join(home, readme), "utf8")).toBe("# Evals — test the reviewer, not just the code\n");
+    expect((JSON.parse(readFileSync(join(home, "canon-owned.json"), "utf8")) as { unproven: string[] }).unproven).toEqual([catalog, readme]);
+    run = await doctor();
+    expect(detail(run, "canon unproven")).toBe(unprovenText([catalog, readme]));
+
+    rmSync(join(home, catalog));
+    expect(detail(await doctor(), "canon unproven")).toBe(unprovenText([readme]));
+    rmSync(join(home, readme));
+    run = await doctor();
+    expect(row(run, "canon unproven")).toBe("(no row for canon unproven)");
+    expect(row(run, "canon")).toContain("✓");
+  });
+
+  test("the full installed skill inventory is verified despite a legacy pack filter", async () => {
+    const legacyConfig = `${GOVERNED}\n[canon]\npacks = ["triage"]\n`;
+    const { home } = healthy(legacyConfig);
+    const sourceSkills = join(import.meta.dir, "..", "skills");
+    const expectedSkillNames = readdirSync(sourceSkills, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && existsSync(join(sourceSkills, entry.name, "SKILL.md")))
+      .map((entry) => entry.name)
+      .sort();
+    const installedSkillNames = readdirSync(join(home, "skills"), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && existsSync(join(home, "skills", entry.name, "SKILL.md")))
+      .map((entry) => entry.name)
+      .sort();
+    expect(installedSkillNames).toEqual(expectedSkillNames);
+
+    const run = await doctor();
+    const expectedFiles = canonSkills().size;
+    expect(detail(run, "canon")).toBe(`${expectedFiles}/${expectedFiles} files verified · 0 drift · 0 missing`);
+    expect(row(run, "canon")).toContain("✓");
+  });
+
+  // A legacy pack list once narrowed what doctor looked at: a skill outside it could be
+  // gone and the canon row still read green. Every shape the old key took must be ignored.
+  test.each([
+    ["absent", ""],
+    ["empty", "\n[canon]\npacks = []\n"],
+    ["partial", '\n[canon]\npacks = ["ai-debug"]\n'],
+    ["an unknown pack name", '\n[canon]\npacks = ["no-such-pack"]\n'],
+    ["not a list", '\n[canon]\npacks = "everything"\n'],
+  ])("a skill missing outside the legacy pack list (%s) is still reported missing", async (_shape, legacy) => {
+    const { home } = healthy(`${GOVERNED}${legacy}`);
+    rmSync(join(home, "skills", "ai-verify", "SKILL.md"));
+
+    const run = await doctor();
+    const expectedFiles = canonSkills().size;
+    expect(detail(run, "canon")).toBe(`${expectedFiles - 1}/${expectedFiles} files verified · 0 drift · 1 missing`);
+    expect(row(run, "canon")).toContain("▲");
+    expect(row(run, "config.toml")).toContain("✓");
   });
 
   test("assets: a matching lock is ok, a stale one names both versions, no lock and no version warn", async () => {
@@ -342,6 +483,30 @@ describe("doctor · the canon and the lock", () => {
     expect(row(run, "machine state")).toContain("✓");
     expect(detail(run, "machine state")).toBe(`carriers written by ${VERSION} · definitions unchanged`);
   });
+
+  test("F18: machine state held by a lock or left under a claim name is named, never read as no state", async () => {
+    const { home } = sandbox();
+    const state = join(home, "machine.json");
+    const recorded = JSON.stringify({ version: VERSION, carriers: { "claude-code": sha256(carrierFiles("claude-code", "machine")!.main) } });
+    writeFileSync(state, recorded);
+    const lock = join(home, ".machine.json.lock");
+    writeFileSync(lock, JSON.stringify({ pid: 1, hostname: "another-host", startedAt: "2026-01-01T00:00:00.000Z" }));
+    let run = await doctor();
+    expect(row(run, "machine state")).toContain("▲");
+    expect(detail(run, "machine state")).toBe(
+      `${lock} — held by another ai-eng run, one on another host, or one this run cannot prove has stopped; machine state left untouched. If no ai-eng run is using this home, delete ${lock} and run again`,
+    );
+
+    rmSync(lock);
+    rmSync(state);
+    const claim = join(home, ".machine.json.4242.abcdef012345.claim");
+    writeFileSync(claim, recorded);
+    run = await doctor();
+    expect(row(run, "machine state")).toContain("▲");
+    expect(detail(run, "machine state")).toBe(
+      `machine.json is missing; an interrupted ai-eng run left its previous contents at ${claim} — move the right copy back to machine.json by hand; machine state left untouched`,
+    );
+  });
 });
 
 describe("doctor · the git floor", () => {
@@ -370,6 +535,31 @@ describe("doctor · the git floor", () => {
 });
 
 describe("doctor · receipts and overrides", () => {
+  test("doctor opens its frame before reusing one raw receipt summary", async () => {
+    sandbox();
+    const events: string[] = [];
+    const originalSummary = receiptsModule.summarizeReceipts;
+    const summarize = spyOn(receiptsModule, "summarizeReceipts").mockImplementation((dir) => {
+      events.push("summary");
+      return originalSummary(dir);
+    });
+    const frame = spyOn(uiModule, "frame").mockImplementation(() => {
+      events.push("frame");
+    });
+
+    // A spy on a module export outlives the file: in one `bun test` process the
+    // next suite's frame() would stay this silent stub (the mutation dry run on Linux).
+    try {
+      await doctor();
+
+      expect(summarize).toHaveBeenCalledTimes(1);
+      expect(events.slice(0, 2)).toEqual(["frame", "summary"]);
+    } finally {
+      summarize.mockRestore();
+      frame.mockRestore();
+    }
+  });
+
   test("receipts under the ceiling are ok; a slow one warns with the p95 that says so", async () => {
     const { root } = sandbox();
     const receipts = join(root, ".ai-engineering", "receipts");
@@ -377,12 +567,12 @@ describe("doctor · receipts and overrides", () => {
     writeFileSync(join(receipts, "fast.json"), receipt(2, "allow"));
     let run = await doctor();
     expect(row(run, "receipts")).toContain("✓");
-    expect(detail(run, "receipts")).toMatch(/^2 runs · 1 denies · p50 \d+ms · p95 \d+ms \(ceiling 50\) · top no-verify\/Bash$/);
+    expect(detail(run, "receipts")).toMatch(/^last 14d: 2 runs · 1 denies · p50 \d+ms · p95 \d+ms \(ceiling 50\) · top no-verify\/Bash$/);
 
     writeFileSync(join(receipts, "slow.json"), receipt(400, "deny"));
     run = await doctor();
     expect(row(run, "receipts")).toContain("▲");
-    expect(detail(run, "receipts")).toMatch(/^\d+ runs · \d+ denies · p50 \d+ms · p95 400ms \(ceiling 50\)( · top .*)?$/);
+    expect(detail(run, "receipts")).toMatch(/^last 14d: \d+ runs · \d+ denies · p50 \d+ms · p95 400ms \(ceiling 50\)( · top .*)?$/);
   });
 
   test("deviation: the receipts row WARNs with the spike named when 7-day denies pass 3x the prior week", async () => {
@@ -535,7 +725,7 @@ describe("doctor · receipts and overrides", () => {
   });
 });
 
-describe("doctor · arch, the spec slot and the triggers", () => {
+describe("doctor · arch", () => {
   test("arch is active with src/ present and bootstrap without it", async () => {
     const { root } = sandbox();
     writeFileSync(join(root, ".ai-engineering", "arch.rules.json"), "{}");
@@ -560,80 +750,6 @@ describe("doctor · arch, the spec slot and the triggers", () => {
     expect(detail(run, "arch")).not.toBe("bootstrap mode — src/ empty");
   });
 
-  test("spec slot: approved is ok, unapproved warns, orphans name the artifact", async () => {
-    const { root } = sandbox();
-    const spec = join(root, ".ai-engineering", "spec.html");
-    const lock = join(root, ".ai-engineering", "ai-eng.lock");
-
-    writeFileSync(spec, "<html>contract</html>");
-    writeFileSync(lock, lockText({ version: VERSION, assets: {}, spec_sha256: "abc123" }));
-    let run = await doctor();
-    expect(row(run, "spec slot")).toContain("✓");
-    expect(detail(run, "spec slot")).toBe("contract approved (sha256 in lock)");
-
-    writeFileSync(lock, lockText({ version: VERSION, assets: {} }));
-    run = await doctor();
-    expect(row(run, "spec slot")).toContain("▲");
-    expect(detail(run, "spec slot")).toBe("live spec.html WITHOUT approval — STOP 1 pending or zombie contract");
-
-    rmSync(spec);
-    writeFileSync(join(root, ".ai-engineering", "brainstorm.html"), "# brainstorm\n");
-    writeFileSync(join(root, ".ai-engineering", "recap.html"), "<html>recap</html>");
-    run = await doctor();
-    expect(detail(run, "spec slot")).toContain("orphan brainstorm.html + recap.html with no live contract");
-
-    rmSync(join(root, ".ai-engineering", "recap.html"));
-    run = await doctor();
-    expect(detail(run, "spec slot")).toContain("orphan brainstorm.html with no live contract");
-  });
-
-  test("triggers: no base_sha cannot judge, a base_sha with nothing changed is ok", async () => {
-    const { root } = sandbox();
-    const ai = join(root, ".ai-engineering");
-    writeFileSync(join(ai, "spec.html"), "<html>contract</html>");
-
-    writeFileSync(join(ai, "ai-eng.lock"), lockText({ version: VERSION, assets: {}, spec_sha256: "abc123" }));
-    let run = await doctor();
-    expect(row(run, "triggers")).toContain("▲");
-    expect(detail(run, "triggers")).toBe("no base_sha in the lock — this milestone cannot judge its conditional nodes; reopen it with ai-eng spec open");
-
-    writeFileSync(join(ai, "ai-eng.lock"), lockText({ version: VERSION, assets: {}, spec_sha256: "abc123", base_sha: "0".repeat(40) }));
-    run = await doctor();
-    expect(row(run, "triggers")).toContain("✓");
-    expect(detail(run, "triggers")).toBe("no fired trigger is missing its artifact");
-  });
-
-  test("triggers: a fired conditional node that left no artifact is named", async () => {
-    const { root } = sandbox();
-    const ai = join(root, ".ai-engineering");
-    writeFileSync(join(ai, "spec.html"), "<html>contract</html>");
-    gitInit(root);
-    commit(root, "base");
-    const base = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
-    writeFileSync(join(ai, "ai-eng.lock"), lockText({ version: VERSION, assets: {}, spec_sha256: "abc123", base_sha: base }));
-    commit(root, "lock");
-    writeFileSync(join(root, "app.css"), "body { color: red }\n");
-
-    const run = await doctor();
-    expect(row(run, "triggers")).toContain("▲");
-    expect(detail(run, "triggers")).toContain("ui fired on app.css → ai-audit-design left no artifact");
-  });
-
-  test("triggers: an ABANDON id silences the node it abandons", async () => {
-    const { root } = sandbox();
-    const ai = join(root, ".ai-engineering");
-    writeFileSync(join(ai, "spec.html"), "ABANDON: ui\n<html>contract</html>");
-    gitInit(root);
-    commit(root, "base");
-    const base = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
-    writeFileSync(join(ai, "ai-eng.lock"), lockText({ version: VERSION, assets: {}, spec_sha256: "abc123", base_sha: base }));
-    commit(root, "lock");
-    writeFileSync(join(root, "app.css"), "body { color: red }\n");
-
-    const run = await doctor();
-    expect(row(run, "triggers")).toContain("✓");
-    expect(detail(run, "triggers")).toBe("no fired trigger is missing its artifact");
-  });
 });
 
 describe("doctor · surface carriers", () => {
@@ -758,6 +874,23 @@ describe("doctor --gc", () => {
     const summary = JSON.parse(readFileSync(join(receipts, "summary.json"), "utf8")) as { total: number; gc?: unknown };
     expect(summary.total).toBe(2);
     expect(typeof summary.gc).toBe("string");
+  });
+
+  test("a receipts folder that is a link is named in a warning and nothing at its target is deleted", async () => {
+    const { root } = sandbox(`${GOVERNED}\n[gc]\nreceipts_ttl = "0d"\n`);
+    const outside = tempDir("ai-eng-doc-outside-");
+    const stale = join(outside, "2026-01-01T00-00-00-000Z-PreToolUse-abcdef12.json");
+    writeFileSync(stale, receipt(12, "allow"));
+    const old = new Date(Date.now() - 60 * 86_400_000);
+    utimesSync(stale, old, old);
+    symlinkSync(outside, join(root, ".ai-engineering", "receipts"), "dir");
+
+    const run = await doctor({ gc: true });
+
+    expect(run.code).toBe(0);
+    expect(run.out).toContain("⚠ receipts: .ai-engineering/receipts is a link or resolves outside the repository — retention skipped, nothing deleted");
+    expect(readdirSync(outside)).toEqual(["2026-01-01T00-00-00-000Z-PreToolUse-abcdef12.json"]);
+    expect(readFileSync(stale, "utf8")).toBe(receipt(12, "allow"));
   });
 
   test("old artifacts are archived in git, cited ones stay, a full folder is flagged", async () => {
