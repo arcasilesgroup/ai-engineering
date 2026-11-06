@@ -23,6 +23,13 @@ jobs:
       # hosted runner, and the registry pins the version's integrity itself.
       - run: npm install -g bun@1.4.2
       - run: bun install --frozen-lockfile
+      - name: Tested revision (${{ matrix.os }})
+        shell: bash
+        run: git rev-parse HEAD
+      # Before the build, so no test can lean on a dist/ left behind by a later step.
+      - name: Full serial suite on ${{ matrix.os }}
+        shell: bash
+        run: bun test --parallel=1
       - name: Build the real binary
         run: bun run build
       - name: init --yes on a bare folder (§18 H2 acceptance)

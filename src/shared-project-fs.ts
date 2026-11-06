@@ -90,12 +90,46 @@ export type ParentBinding = (root: string, absolute: string, action: (name: stri
 export function withCheckedProjectParent(root: string, absolute: string, action: (path: string) => boolean): boolean {
   try {
     const canonicalRoot = realpathSync(root);
-    const parent = dirname(absolute);
-    if (!lstatSync(parent).isDirectory() || realpathSync(parent) !== parent || !pathIsWithin(canonicalRoot, parent)) return false;
+    if (!isCheckedFolder(canonicalRoot, dirname(absolute))) return false;
     return action(absolute);
   } catch (error) {
     if (isFilesystemRefusal(error)) return false;
     throw error;
+  }
+}
+
+/** True while `folder` is a real folder, spelled by its own real path, inside `canonicalRoot`.
+ *  Throws the filesystem's refusal when the folder cannot be read. */
+function isCheckedFolder(canonicalRoot: string, folder: string): boolean {
+  return lstatSync(folder).isDirectory() && realpathSync(folder) === folder && pathIsWithin(canonicalRoot, folder);
+}
+
+/** Reads a regular file and removes it, opening it exactly once, for a sweep over many files
+ *  that resolved `canonicalRoot` once (each extra open or root resolution is paid per file,
+ *  and Windows resolves a path by opening a handle). The folder is checked before the read
+ *  and again before the unlink, and the name must still be the very file that was opened and
+ *  read (same dev, ino, size and times): a link, a directory or a file swapped meanwhile is
+ *  kept. Returns the bytes removed, or null when the file was kept. */
+export function takeCheckedProjectFile(canonicalRoot: string, absolute: string): Buffer | null {
+  const folder = dirname(absolute);
+  let descriptor: number | null = null;
+  try {
+    if (!isCheckedFolder(canonicalRoot, folder)) return null;
+    const entryBefore = lstatSync(absolute);
+    if (entryBefore.isSymbolicLink() || !entryBefore.isFile()) return null;
+    descriptor = openSync(absolute, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const opened = fstatSync(descriptor);
+    if (!sameFileVersion(entryBefore, opened)) return null;
+    const content = readFileSync(descriptor);
+    const afterRead = fstatSync(descriptor);
+    if (!sameFileVersion(opened, afterRead) || content.length !== afterRead.size) return null;
+    if (!isCheckedFolder(canonicalRoot, folder) || !sameFileVersion(afterRead, lstatSync(absolute))) return null;
+    unlinkSync(absolute);
+    return content;
+  } catch {
+    return null;
+  } finally {
+    if (descriptor !== null) closeSync(descriptor);
   }
 }
 

@@ -2,11 +2,11 @@
 // hash-chain: the real signature is the Receipt-Id trailer in the commit — git
 // already is the chain.
 
-import { closeSync, constants, openSync, writeFileSync, readFileSync, readdirSync, mkdirSync, lstatSync, renameSync, rmSync, unlinkSync } from "node:fs";
+import { closeSync, constants, openSync, writeFileSync, readFileSync, readdirSync, mkdirSync, lstatSync, realpathSync, renameSync, rmSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { loadConfig, printable, receiptsDir, type Config } from "./env.ts";
-import { readProjectFileSnapshot, safeProjectPath, unlinkProjectPath, withCheckedProjectParent } from "./shared-project-fs.ts";
+import { readProjectFileSnapshot, safeProjectPath, takeCheckedProjectFile, withCheckedProjectParent } from "./shared-project-fs.ts";
 
 export type Receipt = {
   schema: "urn:ai-eng:receipt:2";
@@ -414,6 +414,8 @@ function collectReceipts(root: string, folder: string, ttlDays: number, maxDelet
   if (listing === null) return null;
   const { stale, stored } = listing;
   stale.sort((a, b) => (a.stamp < b.stamp ? -1 : a.stamp > b.stamp ? 1 : 0));
+  const canonicalRoot = canonicalPath(root);
+  if (canonicalRoot === null) return null;
   const limit = maxDeletes ?? stale.length;
   const tally = emptyTally();
   let deleted = 0;
@@ -421,17 +423,16 @@ function collectReceipts(root: string, folder: string, ttlDays: number, maxDelet
   for (const entry of stale) {
     if (deleted >= limit) break;
     consumed += 1;
-    const path = join(folder, entry.name);
-    // Regular files only, read and removed through the folder re-checked before each step
-    // while still the exact file read: a link, a directory (audit run-1 F4) or a file
-    // swapped after the listing is kept.
-    const snapshot = readProjectFileSnapshot(root, path, withCheckedProjectParent);
-    if (snapshot === null || !unlinkProjectPath(root, path, snapshot, withCheckedProjectParent)) continue;
+    // Regular files only, opened once, read and removed through the folder re-checked before
+    // each step while still the exact file read: a link, a directory (audit run-1 F4) or a
+    // file swapped after the listing is kept. The root is resolved once per pass, not per file.
+    const content = takeCheckedProjectFile(canonicalRoot, join(folder, entry.name));
+    if (content === null) continue;
     deleted += 1;
     // Tallied only once the unlink succeeded, so two passes never count one receipt twice.
     if (!entry.name.endsWith(".json")) continue;
     try {
-      tallyReceipt(JSON.parse(snapshot.content.toString("utf8")) as Receipt, tally);
+      tallyReceipt(JSON.parse(content.toString("utf8")) as Receipt, tally);
     } catch {
       /* a torn write is data, not a crash */
     }
@@ -442,6 +443,14 @@ function collectReceipts(root: string, folder: string, ttlDays: number, maxDelet
     return true;
   });
   return { deleted, hasBacklog: consumed < stale.length };
+}
+
+function canonicalPath(path: string): string | null {
+  try {
+    return realpathSync(path);
+  } catch {
+    return null;
+  }
 }
 
 /** What the gc's receipts pass did: how many receipts it deleted, and the folder it
