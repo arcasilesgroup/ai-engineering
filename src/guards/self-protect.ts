@@ -896,7 +896,9 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
     };
     const canon = (text: string, base: string): string => {
       const expanded = text.replace(/(^|[\s"'=])~\//g, `$1${machineBase()}/`);
-      const absolute = expanded.replace(/(\/[\w.@+-]+)+/g, (m) => canonPath(m));
+      // Only a path that starts at a `/`: the tail of `.git/hooks/x` is not `/hooks/x`, and
+      // on Windows rewriting it as one turns its `/` into `\`, hiding it from the relative rewrite.
+      const absolute = expanded.replace(/(?<![\w.@+-])(\/[\w.@+-]+)+/g, (m) => canonPath(m));
       // A relative path escapes a substring test on absolute literals:
       // `> .git/hooks/pre-commit` never matches the absolute literal, so a session
       // can disarm the floor with a redirect or a chmod. Resolve every relative

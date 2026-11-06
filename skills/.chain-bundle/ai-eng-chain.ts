@@ -577,14 +577,24 @@ import { basename, resolve as resolve2, isAbsolute, join as join3 } from "path";
 import { realpathSync } from "fs";
 
 // src/guards/shell.ts
-var REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/g;
+var REDIRECT_OPERATOR = /(?:\{\w+\}|\d+)?(?:&>>?|>>?[|!&]?|<>|<&)(?!\()/y;
+var asOperator = (operator) => operator.includes("<&") ? " < " : " > ";
+function redirectAt(text, at) {
+  REDIRECT_OPERATOR.lastIndex = at;
+  return REDIRECT_OPERATOR.exec(text)?.[0] ?? null;
+}
 function normalizeRedirects(command) {
-  return command.replace(REDIRECT_OPERATOR, (operator) => operator.includes("<&") ? " < " : " > ");
+  return readShell(command).normalized ?? command.replace(new RegExp(REDIRECT_OPERATOR.source, "g"), asOperator);
 }
 var HEREDOC = /^<<(-?)[ \t]*(\\?)(['"]?)([^\s'"<>|;&()]+)\3/;
 var SUBSTITUTION = "$__SUB__";
 function shellSegments(command) {
+  return readShell(command).segments;
+}
+function readShell(command) {
   const segments = [];
+  let normalized = "";
+  let copiedUpTo = 0;
   const nesting = [];
   const pending = [];
   let current = "";
@@ -659,10 +669,16 @@ function shellSegments(command) {
     } else if (char === "<" && next === "<") {
       const heredoc = HEREDOC.exec(source.slice(index));
       if (heredoc === null)
-        return null;
+        return UNREADABLE;
       pending.push({ delimiter: heredoc[4], isLiteral: heredoc[2] !== "" || heredoc[3] !== "", stripsTabs: heredoc[1] === "-", owner: heredocs });
       current += heredoc[0];
       index += heredoc[0].length - 1;
+    } else if (redirectAt(source, index) !== null) {
+      const operator = redirectAt(source, index);
+      normalized += source.slice(copiedUpTo, index) + asOperator(operator);
+      copiedUpTo = index + operator.length;
+      current += operator;
+      index += operator.length - 1;
     } else if (char === `
 ` && pending.length > 0) {
       cut();
@@ -690,7 +706,7 @@ function shellSegments(command) {
         if (!heredoc.isLiteral && /\$\(|`/.test(body)) {
           const expanded = shellSegments(body.replace(/['"]/g, " "));
           if (expanded === null)
-            return null;
+            return UNREADABLE;
           segments.push(...expanded);
         }
       }
@@ -711,8 +727,11 @@ function shellSegments(command) {
     }
   }
   cut();
-  return quote === null && nesting.length === 0 ? segments : null;
+  if (quote !== null || nesting.length > 0)
+    return UNREADABLE;
+  return { segments, normalized: normalized + source.slice(copiedUpTo) };
 }
+var UNREADABLE = { segments: null, normalized: null };
 var ANSI_ESCAPES = { n: `
 `, t: "\t", r: "\r", "\\": "\\", "'": "'", '"': '"', e: "\x1B", a: "\x07", "0": "\x00" };
 function shellWords(text) {
@@ -1837,7 +1856,7 @@ function runSelfProtect(payload, repoRoot) {
     };
     const canon = (text, base) => {
       const expanded = text.replace(/(^|[\s"'=])~\//g, `$1${machineBase()}/`);
-      const absolute = expanded.replace(/(\/[\w.@+-]+)+/g, (m) => canonPath(m));
+      const absolute = expanded.replace(/(?<![\w.@+-])(\/[\w.@+-]+)+/g, (m) => canonPath(m));
       return absolute.replace(RELATIVE_PATH, (match, lead, token) => `${lead}${canonPath(join4(base, token))}`);
     };
     const canonicalPaths = {
@@ -1969,7 +1988,7 @@ function resolvePath(rawPath, cwd) {
 }
 function resolveParentSegments(path, cwd) {
   if (path === "~" || path.startsWith("~/")) {
-    const home = homedir2().toLowerCase();
+    const home = homedir2().toLowerCase().replaceAll("\\", "/").replace(/^([a-z]):/, "/$1");
     if (!home.startsWith("/"))
       return path;
     const landed = posix.resolve(home, path.slice(2));
@@ -1995,15 +2014,31 @@ var NETWORK_EXECUTE = (segment) => (segment.includes("| bash") || segment.includ
 var SYSTEM_EXECUTE = (segment) => /^(sudo|su|doas)(\s|$)/.test(segment) || /^(shutdown|reboot|halt|poweroff)/.test(segment);
 var SYSTEM_WRITE = (segment) => /^(mkfs|fdisk|diskutil)/.test(segment) || /^mount |^umount /.test(segment);
 var WORKSPACE_EXECUTE = (segment) => segment.startsWith("./") || segment.startsWith("bash ") || segment.startsWith("sh ") || segment.startsWith("zsh ") || segment.startsWith("python") || segment.startsWith("node ") || segment.startsWith("ruby ") || segment.startsWith("perl ") || segment.startsWith("npm test") || segment.startsWith("npm run") || segment.startsWith("make") || segment.startsWith("cargo test") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("git cherry-pick") || segment.includes("function ") || segment.includes("()") || segment.includes("{") || segment.includes(" if ") || segment.startsWith("if ") || segment.includes(" for ") || segment.startsWith("for ") || segment.includes(" while ") || segment.startsWith("while ") || segment.includes(" case ") || segment.startsWith("case ") || segment.includes(":(){:|:&};:");
-var WRITES = (segment) => segment.includes(">") || segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
+var WRITES = (segment) => bareOperatorIndex(segment, ">") >= 0 || segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
 var REDIRECT2 = /^(?:\d+|\{\w+\})?(&>>?|>&|>>?[|!]?|<>|<&|<)(?![<(])(.*)$/;
 function splitAttachedRedirect(token) {
-  let at = token.search(/[<>]/);
-  if (at <= 0 || /["'`]/.test(token.slice(0, at)))
+  const at = bareOperatorIndex(token, "<>");
+  if (at < 0)
     return [token];
-  if (token[at - 1] === "&")
-    at--;
-  return at === 0 ? [token] : [token.slice(0, at), token.slice(at)];
+  const start = token[at - 1] === "&" ? at - 1 : at;
+  return start === 0 ? [token] : [token.slice(0, start), token.slice(start)];
+}
+function bareOperatorIndex(text, operators) {
+  let quote = null;
+  for (let at = 0;at < text.length; at++) {
+    const char = text[at];
+    if (char === "\\" && quote !== "'") {
+      at++;
+    } else if (quote !== null) {
+      if (char === quote)
+        quote = null;
+    } else if (char === "'" || char === '"' || char === "`") {
+      quote = char;
+    } else if (operators.includes(char)) {
+      return at;
+    }
+  }
+  return -1;
 }
 function scanSegment(mask, segment, cwd) {
   if (SYSTEM_EXECUTE(segment))

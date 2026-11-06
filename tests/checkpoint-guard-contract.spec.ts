@@ -17,7 +17,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join, relative } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import { normalise, type Payload } from "../src/payload.ts";
 import { runCheckpointGuard } from "../src/guards/checkpoint.ts";
 
@@ -626,11 +626,13 @@ describe("Bash writes into the checkpoint folder", () => {
       expect(run(fixture, bash(`cd "$X" && printf x > ${join(fixture.root, "plans", "demo.json")}`))).toEqual(refused(SHELL_WRITE));
       mkdirSync(join(fixture.folder, "a~b"));
       expect(run(fixture, bash("cd plans/a~b/.. && printf x > demo.json"))).toEqual(refused(SHELL_WRITE));
-      const fromHome = relative(homedir(), fixture.folder);
-      if (fromHome.startsWith("..")) return;
+      // A `~/` path exists only when the folder sits under the home directory: across Windows
+      // drives `relative` answers an absolute path. The shell spells the rest with `/`.
+      const fromHome = relative(homedir(), fixture.folder).split(sep).join("/");
+      if (fromHome.startsWith("..") || isAbsolute(fromHome)) return;
       expect(run(fixture, bash(`cd ~/${fromHome} && printf x > demo.json`))).toEqual(refused(SHELL_WRITE));
       expect(run(fixture, bash(`cd ~ && cd ${fromHome} && printf x > demo.json`))).toEqual(refused(SHELL_WRITE));
-      const linkedFromHome = relative(homedir(), join(fixture.root, "plans", "demo.json"));
+      const linkedFromHome = relative(homedir(), join(fixture.root, "plans", "demo.json")).split(sep).join("/");
       expect(run(fixture, bash(`cd "$X" && printf x > ~/${linkedFromHome}`))).toEqual(refused(SHELL_WRITE));
     });
   });
@@ -753,7 +755,8 @@ describe("Stop gate", () => {
       const counter = counterFile(fixture, session);
       expect(readdirSync(counterFolder(fixture))).toEqual([counter.slice(counterFolder(fixture).length + 1)]);
       expect(readFileSync(counter, "utf8")).toBe("1");
-      expect(statSync(counter).mode & 0o777).toBe(0o600);
+      // Windows keeps no owner/group/other bits: every file reports 0o666 there.
+      if (process.platform !== "win32") expect(statSync(counter).mode & 0o777).toBe(0o600);
       save(fixture.planPath, plan([done(1), done(2), done(3)]));
       expect(run(fixture, stop(fixture, session))).toEqual(ALLOWED);
       expect(readdirSync(counterFolder(fixture))).toEqual([]);
