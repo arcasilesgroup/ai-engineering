@@ -48,19 +48,30 @@ const REQUIRED_PACKED_FILES = [
 ];
 const FORBIDDEN_PACKED_FILES = ["scripts/build.ts"];
 
+/** npm and npm's `.cmd` shims are batch files on Windows, which only run
+ *  through cmd.exe. With `shell`, the command line is joined unquoted, so every
+ *  part is quoted here: a temp path with a space must stay one argument. */
+function needsWindowsShell(command: string): boolean {
+  return process.platform === "win32" && (command === "npm" || command.endsWith(".cmd"));
+}
+
 function runCommand(
   command: string,
   args: string[],
   cwd: string,
   env: NodeJS.ProcessEnv = process.env,
+  input?: Buffer,
 ): CommandResult {
-  const result = spawnSync(command, args, {
+  const isShell = needsWindowsShell(command);
+  const quote = (part: string) => (isShell ? `"${part}"` : part);
+  const result = spawnSync(quote(command), args.map(quote), {
     cwd,
     env,
+    input,
     encoding: "utf8",
     timeout: 120_000,
     maxBuffer: 10 * 1024 * 1024,
-    shell: process.platform === "win32" && (command === "npm" || command.endsWith(".cmd")),
+    shell: isShell,
   });
   return {
     status: result.status,
@@ -122,12 +133,14 @@ function packTarball(packDirectory: string): { tarballPath: string; files: strin
 }
 
 /** An already-packed tarball's file inventory, in the `npm pack --json` shape:
- *  npm roots every entry under `package/`, and directories are not files. */
+ *  npm roots every entry under `package/`, and directories are not files. The
+ *  archive goes in on stdin: GNU tar reads `C:\...` as a remote host, while
+ *  every tar reads `-` the same way. */
 function tarballFiles(tarballPath: string): string[] {
-  const listing = runCommand("tar", ["-tzf", tarballPath], PACKAGE_ROOT);
+  const listing = runCommand("tar", ["-tzf", "-"], PACKAGE_ROOT, process.env, readFileSync(tarballPath));
   requireCommandSuccess("tar listing", listing);
   return listing.stdout
-    .split("\n")
+    .split(/\r?\n/)
     .filter((entry) => entry !== "" && !entry.endsWith("/"))
     .map((entry) => entry.replace(/^package\//, ""))
     .sort();
@@ -137,13 +150,12 @@ function installPath(consumerRoot: string): string {
   return join(consumerRoot, "node_modules", "ai-engineering");
 }
 
-function installedCommandPath(consumerRoot: string): string {
-  return join(
-    consumerRoot,
-    "node_modules",
-    ".bin",
-    process.platform === "win32" ? "ai-eng.cmd" : "ai-eng",
-  );
+/** The command each package manager links. On Windows npm's cmd-shim writes
+ *  `ai-eng.cmd` and Bun writes an `ai-eng.exe` shim; both read the launcher's
+ *  `#!/usr/bin/env bun` and start it with the bun on PATH. */
+function installedCommandPath(consumerRoot: string, manager: "npm" | "bun"): string {
+  const windowsName = manager === "npm" ? "ai-eng.cmd" : "ai-eng.exe";
+  return join(consumerRoot, "node_modules", ".bin", process.platform === "win32" ? windowsName : "ai-eng");
 }
 
 /** Without a tarball, packs this checkout; with one, smoke-tests that exact
@@ -191,7 +203,7 @@ export async function runPackageConsumerSmoke(
       version: string;
     };
     const npmCommand = runCommand(
-      installedCommandPath(npmConsumer),
+      installedCommandPath(npmConsumer, "npm"),
       ["--version"],
       npmConsumer,
     );
@@ -199,20 +211,12 @@ export async function runPackageConsumerSmoke(
     const bunOnlyDirectory = createBunOnlyPath(smokeRoot);
     const bunOnlyEnvironment = { ...process.env, PATH: bunOnlyDirectory };
     const nodeProbe = runCommand("node", ["--version"], bunConsumer, bunOnlyEnvironment);
-    const bunOnlyCommand =
-      process.platform === "win32"
-        ? runCommand(
-            process.execPath,
-            [join(bunPackageRoot, "bin", "ai-eng.js"), "--version"],
-            bunConsumer,
-            bunOnlyEnvironment,
-          )
-        : runCommand(
-            installedCommandPath(bunConsumer),
-            ["--version"],
-            bunConsumer,
-            bunOnlyEnvironment,
-          );
+    const bunOnlyCommand = runCommand(
+      installedCommandPath(bunConsumer, "bun"),
+      ["--version"],
+      bunConsumer,
+      bunOnlyEnvironment,
+    );
     const tarballHashAfter = sha256File(tarballPath);
 
     if (bunManifest.version !== npmManifest.version) {

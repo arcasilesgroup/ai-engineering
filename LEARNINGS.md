@@ -1840,3 +1840,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Count `-` as an operand, honour `--`, skip option values, and allow json.tool only with exactly one operand that is the checkpoint file.
 - **Lesson:** An exception to a write guard must parse the tool's real argument syntax; `-` is an operand, not an option.
 - **Tags:** review, guard, security, parsing
+
+### L252 · 2026-11-06 · production-readiness #1 · review
+- **Failure:** Launcher tests ran the checkout's own launcher, so after `bun run build` the missing-Bun refusal test got exit 0; staged coverage for dist preference and dev-checkout detection was lost.
+- **Root cause:** The rewritten tests ran the checkout's own launcher, so the result depended on whether `dist/` existed rather than on what the launcher does.
+- **Fix:** Each case stages its own launcher copy under `os.tmpdir()` with exactly the files it is about; the Windows smoke runs the real installed shims.
+- **Lesson:** A launcher test must control everything next to the launcher, so stage it outside the repo instead of trusting the checkout's state.
+- **Tags:** review, launcher, tests, isolation
