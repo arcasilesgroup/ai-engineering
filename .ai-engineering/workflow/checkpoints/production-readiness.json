@@ -143,11 +143,11 @@
       "changed_files": [".github/workflows/release.yml", "scripts/release-sbom.ts", "scripts/package-consumer-smoke.ts", "tests/release-sbom.spec.ts", "tests/release-workflow.spec.ts", "tests/package-consumer.spec.ts", "CONTRIBUTING.md"],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 0, "findings": ["At 2a42c921/f511b6b6: focused release, SBOM, workflow and consumer tests pass (64); lint, typecheck, build green; full serial suite 2105 pass / 16 skip / 0 fail. Real end-to-end pack, smoke with --digest and SBOM: 6 runtime components, all MIT, edges correct."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 2, "findings": ["Round 1: SBOM lacked the tarball digest; tag/SHA check after npm publish; shallow main-ancestry fetch; non-SPDX license ids — fixed in 1ac4765c.", "Round 2: digest compared only with a file inside the same artifact — fixed in f511b6b6 (package job output compared in publish before npm publish).", "Round 3 PASS.", "Deferred MINOR: LeafyGreen palette notice wording names brand/tokens.json, while hex values ship in skills/ai-brainstorm/references/artifact-design.md and templates."] }
       },
-      "status": "pending"
+      "status": "passed"
     },
     {
       "id": 4,
@@ -189,21 +189,23 @@
         "bun test --parallel=1",
         "bun run build"
       ],
-      "changed_files": [],
+      "changed_files": [".github/workflows/release.yml", "scripts/release-policy.ts", "tests/release-policy.spec.ts", "NOTICE.md", "THIRD-PARTY-NOTICES.md", "README.md", "CONTRIBUTING.md"],
       "ui": null,
       "gates": {
-        "behavior": { "status": "pending", "attempts": 0, "findings": [] },
+        "behavior": { "status": "passed", "attempts": 0, "findings": ["tests/release-policy.spec.ts 26+ pass (unsigned, lightweight, wrong key, fingerprint mismatch, tag on another commit, unresolved NOTICE row, missing column, allowed fixture); lint, typecheck, full suite 2105 pass / 0 fail. Real run refuses: signer variables unset, v2.6.0 lightweight and on another commit, rights unresolved for ai-architect, ai-verify, ai-audit-design and the spoken-secret classifier — publication is blocked by design until the owner resolves them."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "passed", "attempts": 2, "findings": ["Round 1: BLOCKER tag not checked against the dispatched commit before npm publish; MAJOR notices listed unshipped content — fixed in 1ac4765c.", "Round 2: MAJOR release environment has no deployment-branch restriction (repository setting) — documented as an owner step in CONTRIBUTING.md (no remote settings changed).", "Round 3 PASS.", "Owner actions: create an SSH signing key, set RELEASE_ALLOWED_SIGNERS and RELEASE_SIGNER_FINGERPRINTS, restrict the release environment to main, resolve the four unresolved NOTICE rows."] }
       },
-      "status": "pending"
+      "status": "passed"
     }
   ],
   "assumptions": [
     "Bun remains the supported runtime, and the built-in TOML parser remains in use [approved production-readiness brainstorm; package.json and src].",
     "No signing fingerprint or redistribution right is inferred; an authorized owner must supply and verify each fact [approved brainstorm; current NOTICE.md and THIRD-PARTY-NOTICES.md].",
     "The published 2.6.0 tag and all remote release state remain unchanged [approved brainstorm].",
-    "Checkpoint 2's review gate reached 3 attempts on shell-guard parser edge cases (ANSI-C quoting, parameter expansion, brace expansion) surfaced by mutation testing, not on the multi-OS goal, which is green in CI. Instead of splitting, the guard lexer fails closed on constructs it cannot model, and review continues [orchestrator autonomy, 2026-11-06]."
+    "Checkpoint 2's review gate reached 3 attempts on shell-guard parser edge cases (ANSI-C quoting, parameter expansion, brace expansion) surfaced by mutation testing, not on the multi-OS goal, which is green in CI. Instead of splitting, the guard lexer fails closed on constructs it cannot model, and review continues [orchestrator autonomy, 2026-11-06].",
+    "To finish overnight, checkpoint 3 and 4 tests and implementation ran in parallel with checkpoint 2's last review rounds (disjoint files); each checkpoint still passed its own behavior and review gates in order before being marked passed [owner delegation, 2026-11-06].",
+    "Integration is by pull request #749 to origin/main, merged on the owner's explicit instruction; the owner's instruction is the app-review approval [owner delegation, 2026-11-06]."
   ],
   "new_dependencies": [],
   "notes": [
