@@ -1917,3 +1917,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Return 127 only when the spawn has no pid; on ENOBUFS print what was captured, record the receipt and log, exit 1.
 - **Lesson:** A spawn error does not mean the command never ran — check the pid before throwing away a run's evidence.
 - **Tags:** review, wrap, evidence
+
+### L263 · 2026-11-06 · production-readiness #2 · review
+- **Failure:** Mutation testing exposed four guard gaps: `git 2>/dev/null commit --no-verify` allowed; `echo x 2>/etc/foo` scored as a workspace write; a BigInt or cyclic payload crashed the chain instead of denying; a spoken-secret label quoted part of an earlier value.
+- **Root cause:** Guards parsed command words, not what the shell does (redirect targets kept as arguments, `..` unresolved); fingerprinting ran `JSON.stringify` outside any try; the label reached back into value text.
+- **Fix:** Drop redirect operators with their targets before parsing; one redirect parser for policy and `..` resolved against cwd; fingerprint failure denies with a receipt; key words matching a value are dropped from labels.
+- **Lesson:** A surviving mutant in a guard is a question about a real input — answer it with that input before calling the mutant equivalent.
+- **Tags:** review, guards, security, mutation
