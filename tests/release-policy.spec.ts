@@ -577,19 +577,16 @@ describe.skipIf(IS_WINDOWS)("U4 — refusals are reported together, and the poli
   });
 });
 
-describe.skipIf(IS_WINDOWS)("real repository — publication stays blocked on unresolved rights", () => {
-  test.skipIf(!hasSshKeygen)("the repository NOTICE.md refuses, naming at least ai-verify and ai-audit-design", () => {
+describe.skipIf(IS_WINDOWS)("real repository — rights attested, so NOTICE.md no longer blocks publication", () => {
+  test.skipIf(!hasSshKeygen)("every row of the repository NOTICE.md records verified redistribution rights", () => {
     const fixture = newFixture();
     signedTag(fixture, releaseKey);
-    const result = evaluate(fixture, { ...trustedConfig(), noticePath: join(REPO, "NOTICE.md") });
-    const unresolved = /^(\S+) redistribution rights are unresolved \((.+)\): an owner must verify them and mark the row verified in NOTICE\.md\.$/;
-    const parsed = result.refusals.map((refusal) => refusal.match(unresolved));
-    expect(result.allowed).toBe(false);
-    expect(parsed.every((match) => match !== null)).toBe(true);
-    const named = parsed.map((match) => match?.[1]);
-    expect(named).toContain("ai-verify");
-    expect(named).toContain("ai-audit-design");
-    expect(parsed.every((match) => (match?.[2] ?? "").trim() !== "")).toBe(true);
+    // The refusal path is covered by the fixtures above; this asserts the checkout we
+    // ship from has no row left unresolved, which is what the owner attested.
+    expect(evaluate(fixture, { ...trustedConfig(), noticePath: join(REPO, "NOTICE.md") })).toEqual({
+      allowed: true,
+      refusals: [],
+    });
   });
 });
 
