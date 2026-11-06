@@ -253,6 +253,66 @@ describe("retainReceipts — bounded in work, not only in deletions", () => {
     expect(receiptsTouched.sort()).toEqual([...stale].sort());
     expect(receiptNames(root)).toEqual([...young].sort());
   });
+
+  // Profile of the 3×batch backlog case: each deleted receipt cost ~28 filesystem calls,
+  // two opens and two resolutions of the repo root among them; the opens alone were most
+  // of a ~750 ms pass on macOS, and Windows resolves a path by opening a handle. The work
+  // is linear in the batch, so it is pinned by count, never by a wall-clock budget.
+
+  /** Every call `spied` received during one retainReceipts pass over `root`, as its first argument. */
+  function callsDuringPass(root: string, spied: "openSync" | "realpathSync"): { result: Retention; paths: string[] } {
+    const spy = spyOn(fs, spied);
+    let result: Retention;
+    let paths: string[];
+    try {
+      result = retainReceipts(root, NOW);
+    } finally {
+      // Read the calls before restoring: mockRestore() clears them.
+      paths = spy.mock.calls.map((call) => String((call as unknown[])[0]));
+      spy.mockRestore();
+    }
+    return { result, paths };
+  }
+
+  test("a pass opens each receipt it deletes exactly once", () => {
+    const root = governedRepo("7d");
+    const dir = receiptsOf(root);
+    const stale = seedMany(root, 40, NOW - 10 * DAY);
+    const young = seedMany(root, 3, NOW - 2 * DAY);
+
+    const { result, paths } = callsDuringPass(root, "openSync");
+
+    expect(result).toEqual({ ran: true, deleted: stale.length });
+    expect(receiptNames(root)).toEqual([...young].sort());
+    const folders = [dir, realpathSync(dir)];
+    const opensPerReceipt = new Map<string, number>();
+    for (const path of paths) {
+      if (!folders.some((folder) => path.startsWith(folder)) || !isReceiptName(basename(path))) continue;
+      opensPerReceipt.set(basename(path), (opensPerReceipt.get(basename(path)) ?? 0) + 1);
+    }
+    // Every deleted receipt is read for the series, so each must appear: the spy is not blind.
+    expect([...opensPerReceipt.keys()].sort()).toEqual([...stale].sort());
+    expect([...new Set(opensPerReceipt.values())]).toEqual([1]);
+  });
+
+  test("a pass resolves the repo root as often for a large batch as for a small one", () => {
+    const rootResolutions = (staleCount: number): number => {
+      const root = governedRepo("7d");
+      seedMany(root, staleCount, NOW - 10 * DAY);
+      const { result, paths } = callsDuringPass(root, "realpathSync");
+      expect(result).toEqual({ ran: true, deleted: staleCount });
+      expect(receiptNames(root)).toEqual([]);
+      const rootForms = [root, realpathSync(root)];
+      return paths.filter((path) => rootForms.includes(path)).length;
+    };
+
+    const small = rootResolutions(5);
+    const large = rootResolutions(40);
+
+    // Positive control: the pass does resolve the root, so equality below is not 0 === 0.
+    expect(small).toBeGreaterThan(0);
+    expect(large).toBe(small);
+  });
 });
 
 describe("retainReceipts — a backlog bigger than one batch drains the same day", () => {
