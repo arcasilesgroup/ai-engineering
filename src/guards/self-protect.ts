@@ -219,11 +219,15 @@ function slashed(path: string): string {
 /** On Windows `//host/share` — the tail of every URL, `https://example.com/i.sh` — resolves
  *  to a UNC path, and opening one connects to that host over SMB: seconds per name, and the
  *  machine's NTLM credentials offered to whoever answers. A network path is judged by its
- *  text alone; it is never resolved. Device paths (`\\?\C:\`, `\\.\`) stay local. */
-function isNetworkPath(path: string): boolean {
-  if (sep !== "\\") return false;
+ *  text alone; it is never resolved. A device path (`\\?\`, `\\.\`, `\??\`) is local only
+ *  when it names a drive letter: `\\?\UNC\`, `\\?\GLOBALROOT\Device\Mup\` and the rest of
+ *  the device namespace can reach a share, so they count as network and are never opened. */
+export function isNetworkPath(path: string, isWindows = sep === "\\"): boolean {
+  if (!isWindows) return false;
   const native = path.replaceAll("/", "\\");
-  return native.startsWith("\\\\") && !/^\\\\[?.]\\(?!UNC\\)/i.test(native);
+  const device = /^(?:\\\\[?.]|\\\?\?)\\/.exec(native);
+  if (device !== null) return !/^[A-Za-z]:(?:\\|$)/.test(native.slice(device[0].length));
+  return native.startsWith("\\\\");
 }
 
 /** realpathSync for a local path; a network path throws, so callers keep its text form. */

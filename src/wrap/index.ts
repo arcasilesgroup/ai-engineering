@@ -72,8 +72,11 @@ export function wrapMain(args: string[]): number {
   });
   const timedOut = done.error != null && (done.error as NodeJS.ErrnoException).code === "ETIMEDOUT";
   // A command that never started has no counts to paint: "? passed · 0 failed" with a
-  // receipt would report a run that did not happen.
-  if (done.error != null && !timedOut) {
+  // receipt would report a run that did not happen. Only a spawn with no pid never
+  // started: ENOBUFS (output over maxBuffer) stops a running child, and what it printed
+  // before the cut is still the run's evidence.
+  const neverStarted = !timedOut && !(done.pid > 0);
+  if (done.error != null && neverStarted) {
     process.stderr.write(`ai-eng wrap: could not start ${SHELL}: ${done.error.message}\n`);
     return 127;
   }

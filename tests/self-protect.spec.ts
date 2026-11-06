@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
-import { protectedPaths, writesTo, runSelfProtect, type ProtectedPaths } from "../src/guards/self-protect.ts";
+import { isNetworkPath, protectedPaths, writesTo, runSelfProtect, type ProtectedPaths } from "../src/guards/self-protect.ts";
 
 /** A path as a Bash command line carries it: a backslash in an unquoted word is an escape
  *  to the shell, so a Windows path is written with `/`, the way Git Bash takes it. */
@@ -593,5 +593,51 @@ describe("runSelfProtect — shell commands", () => {
     // lines does not become a protected name.
     const stem = lock.slice(0, -".lock".length);
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm <<F\n${stem}\n.lock` } }, repo)).toBeUndefined();
+  });
+});
+
+describe("isNetworkPath — a path that can reach a share is never opened", () => {
+  const windowsVerdicts = (paths: string[]): Record<string, boolean> =>
+    Object.fromEntries(paths.map((path) => [path, isNetworkPath(path, true)]));
+
+  test("on Windows, UNC and every non-drive device path count as network", () => {
+    expect(windowsVerdicts([
+      "\\\\host\\share\\x",
+      "//host/share/x",
+      "\\\\?\\UNC\\host\\share\\x",
+      "//?/UNC/host/share",
+      "\\\\?\\GLOBALROOT\\Device\\Mup\\host\\share",
+      "\\\\.\\GLOBALROOT\\Device\\Mup\\host\\share",
+      "\\\\?\\Device\\Mup\\host\\share",
+      "\\??\\UNC\\host\\share",
+      "\\\\.\\pipe\\x",
+    ])).toEqual({
+      "\\\\host\\share\\x": true,
+      "//host/share/x": true,
+      "\\\\?\\UNC\\host\\share\\x": true,
+      "//?/UNC/host/share": true,
+      "\\\\?\\GLOBALROOT\\Device\\Mup\\host\\share": true,
+      "\\\\.\\GLOBALROOT\\Device\\Mup\\host\\share": true,
+      "\\\\?\\Device\\Mup\\host\\share": true,
+      "\\??\\UNC\\host\\share": true,
+      "\\\\.\\pipe\\x": true,
+    });
+  });
+
+  test("on Windows, drive-letter paths, device or plain, stay local", () => {
+    expect(windowsVerdicts(["\\\\?\\C:\\x", "\\\\.\\d:\\x", "\\??\\C:\\x", "C:\\x", "C:/x", "\\x", "x\\y"])).toEqual({
+      "\\\\?\\C:\\x": false,
+      "\\\\.\\d:\\x": false,
+      "\\??\\C:\\x": false,
+      "C:\\x": false,
+      "C:/x": false,
+      "\\x": false,
+      "x\\y": false,
+    });
+  });
+
+  test("on POSIX nothing is a network path: `//host/share` is a local directory there", () => {
+    expect([isNetworkPath("/repo/x", false), isNetworkPath("//host/share", false), isNetworkPath("\\\\host\\share", false)])
+      .toEqual([false, false, false]);
   });
 });

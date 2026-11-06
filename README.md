@@ -123,7 +123,7 @@ bun add -g ai-engineering@latest && ai-eng init    # or: npm install -g ai-engin
 ```
 
 `ai-eng` runs its TypeScript source under [Bun](https://bun.com), so install Bun once
-(>= 1.4). `init` then asks which agents to govern, installs the skill canon on your machine,
+(>= 1.4.4). `init` then asks which agents to govern, installs the skill canon on your machine,
 and writes the contract into the repository you are standing in. It is idempotent: run it
 again whenever you like.
 
@@ -409,7 +409,7 @@ is a historical snapshot; use this README and the source tree for current guidan
 |---|---|
 | Hooks do not fire | The workspace is not trusted in your host. Trust it, then run `ai-eng doctor` and look for the `chain test` line |
 | A legitimate command was denied | Add an entry to `.ai-engineering/overrides.toml` with a `reason` and an `until` date. `doctor` shows the time it has left |
-| `ai-eng: bun not found` | The launcher runs the source under Bun. Install Bun (>= 1.4) once; `npm install -g` works after that |
+| `ai-eng: bun not found` | The launcher runs the source under Bun. Install Bun (>= 1.4.4) once; `npm install -g` works after that |
 | Doctor reports canon drift | A payload file changed without `bun scripts/gen-assets.ts`. Run it, then `ai-eng update` |
 | You want no update notice | Set `AI_ENG_NO_UPDATE_NOTICES=1` |
 | You want it gone | `ai-eng uninstall` reverts ours and keeps your contract files |

@@ -260,6 +260,21 @@ test("checkout page loads", () => { expect("x").toBe("Total") });
     expect(errors.join("")).toBe(`ai-eng wrap: could not start ${shell}: spawnSync sh ENOENT\n`);
   });
 
+  test("a run that overflows the output buffer is still reported: captured failures, receipt, log, nonzero", () => {
+    // Over ~1 MiB Bun stops the child with ENOBUFS and a pid: the command ran, so what it
+    // printed before the cut is the evidence, not a "could not start".
+    const firstLine = "FAIL visible failure\n";
+    const { status, out } = runWrap(`printf '${firstLine.trimEnd()}\\n'; printf '%2000000s' x; exit 3 # npm test`);
+    expect(status).toBe(1);
+    expect(out).toContain("FAIL visible failure");
+    expect(out).toMatch(/\[ai-eng\] wrap: generic · salida filtrada · receipt [0-9a-f]{8}\n/);
+    const logPath = /full output: (\.ai-engineering\/receipts\/[^/\s]+\.log)\n$/.exec(out)?.[1];
+    expect(logPath).toBeDefined();
+    const saved = readFileSync(join(dir, logPath ?? "missing"), "utf8");
+    expect(saved.startsWith(`${firstLine} `)).toBe(true);
+    expect(saved.length).toBeGreaterThanOrEqual(1024 * 1024);
+  });
+
   test("legacy raw wrapper arguments are refused", () => {
     const marker = join(dir, "legacy-raw-command");
     const error = process.stderr.write.bind(process.stderr);

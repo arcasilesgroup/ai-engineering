@@ -48,7 +48,7 @@ function repositoryPaths(paths: string[]): string[] {
 
 test("the manifest declares the Bun executable and exact runtime contract", () => {
   expect(pkg.bin).toEqual({ "ai-eng": "bin/ai-eng.js" });
-  expect(pkg.engines).toEqual({ bun: ">=1.4.0" });
+  expect(pkg.engines).toEqual({ bun: ">=1.4.4" });
   expect(pkg.dependencies).toEqual({ "@clack/prompts": "1.7.0", "fast-wrap-ansi": "0.2.2" });
   expect(pkg.files).toEqual([
     "bin",
