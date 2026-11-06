@@ -1,10 +1,12 @@
 // The release SBOM: what a consumer actually installs from the packed tarball — the
 // package and every runtime dependency Node resolves from it, each with its license.
 // Development-only dependencies never install for a consumer, so they never appear.
+// Built from a tarball, the SBOM names that tarball's sha256, and its serial number is
+// derived from it: the same tarball always yields the same SBOM, byte for byte.
 //
 // Usage: bun scripts/release-sbom.ts --tarball <file.tgz> --out <sbom.json>
 //        bun scripts/release-sbom.ts --consumer <installed consumer dir> --out <sbom.json>
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -29,6 +31,7 @@ type Component = {
   name: string;
   version: string;
   purl: string;
+  hashes?: Array<{ alg: "SHA-256"; content: string }>;
   licenses: License[];
 };
 
@@ -56,6 +59,8 @@ export class MissingLicenseError extends Error {
 }
 
 const SPDX_ID = /^[A-Za-z0-9.+-]+$/;
+const SPDX_OPERATOR = /^(AND|OR|WITH)$/;
+const SHA256_HEX = /^[0-9a-f]{64}$/;
 
 function readManifest(directory: string): Manifest {
   return JSON.parse(readFileSync(join(directory, "package.json"), "utf8")) as Manifest;
@@ -67,22 +72,52 @@ function purlOf(name: string, version: string): string {
   return `pkg:npm/${namespace}${encodeURIComponent(bareName ?? name)}@${encodeURIComponent(version)}`;
 }
 
-function licenseOf(value: string): License {
-  return SPDX_ID.test(value) ? { license: { id: value } } : { expression: value };
+/** `UNLICENSED` and `SEE LICENSE IN <file>` say no license is granted, or point at text
+ *  nobody here can read: neither is a license a consumer can rely on. */
+function isSpdxLicenseId(token: string): boolean {
+  return SPDX_ID.test(token) && !/^unlicensed$/i.test(token) && !/^see([-.]|$)/i.test(token);
 }
 
-/** `license: "MIT"`, `license: "(MIT OR ISC)"`, or the legacy `licenses: [{ type }]`. */
+/** An SPDX id becomes `license.id`, an SPDX expression (ids joined by AND, OR or WITH)
+ *  stays an `expression`; anything else is not license metadata at all. */
+function licenseOf(declared: unknown): License | undefined {
+  if (typeof declared !== "string") return undefined;
+  const value = declared.trim();
+  if (isSpdxLicenseId(value)) return { license: { id: value } };
+  const tokens = value.replace(/[()]/g, " ").split(/\s+/).filter((token) => token !== "");
+  const hasOperator = tokens.some((token) => SPDX_OPERATOR.test(token));
+  const isExpression = hasOperator && tokens.every((token) => SPDX_OPERATOR.test(token) || isSpdxLicenseId(token));
+  return isExpression ? { expression: value } : undefined;
+}
+
+/** `license: "MIT"`, `license: "(MIT OR ISC)"`, `license: { type }`, or the legacy
+ *  `licenses: [{ type }]`. One unreadable entry makes the whole declaration missing:
+ *  a partial list would understate what the component asks of its consumer. */
 function licensesOf(manifest: Manifest): License[] {
   const declared = manifest.license;
-  if (typeof declared === "string" && declared.trim() !== "") return [licenseOf(declared.trim())];
-  if (typeof declared === "object" && declared !== null && "type" in declared && typeof declared.type === "string") {
-    return [licenseOf(declared.type)];
+  const isDeclared = declared !== undefined && declared !== null && !(typeof declared === "string" && declared.trim() === "");
+  if (isDeclared) {
+    const type = typeof declared === "object" && "type" in declared ? declared.type : declared;
+    const license = licenseOf(type);
+    return license ? [license] : [];
   }
   const legacy = Array.isArray(manifest.licenses) ? (manifest.licenses as unknown[]) : [];
-  return legacy
-    .map((entry) => (typeof entry === "string" ? entry : (entry as { type?: unknown } | null)?.type))
-    .filter((type): type is string => typeof type === "string" && type.trim() !== "")
-    .map((type) => licenseOf(type.trim()));
+  const licenses = legacy.map((entry) => licenseOf(typeof entry === "string" ? entry : (entry as { type?: unknown } | null)?.type));
+  return licenses.every((license) => license !== undefined) ? (licenses as License[]) : [];
+}
+
+/** A deterministic RFC 9562 version-8 UUID from the first 16 bytes of a SHA-256 digest. */
+export function serialNumberFromDigest(sha256Hex: string): string {
+  if (!SHA256_HEX.test(sha256Hex)) throw new Error(`${sha256Hex} is not a lowercase hex SHA-256 digest`);
+  const bytes = Buffer.from(sha256Hex.slice(0, 32), "hex");
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x80;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `urn:uuid:${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function sha256Of(content: string | Buffer): string {
+  return createHash("sha256").update(content).digest("hex");
 }
 
 /** Node's lookup: `<dir>/node_modules/<name>` from the requiring package up to the
@@ -119,7 +154,9 @@ function byText(left: string, right: string): number {
   return left < right ? -1 : 1;
 }
 
-export function buildRuntimeSbom(options: { consumerRoot: string; packageName: string }): CycloneDxBom {
+/** With `tarballSha256`, the root component names that digest and the serial number is
+ *  derived from it; without, the serial number is derived from the package's name@version. */
+export function buildRuntimeSbom(options: { consumerRoot: string; packageName: string; tarballSha256?: string }): CycloneDxBom {
   const consumerRoot = resolve(options.consumerRoot);
   const packageDirectory = join(consumerRoot, "node_modules", options.packageName);
   if (!existsSync(join(packageDirectory, "package.json"))) {
@@ -157,12 +194,16 @@ export function buildRuntimeSbom(options: { consumerRoot: string; packageName: s
     .sort(byText);
   if (unlicensed.length > 0) throw new MissingLicenseError(unlicensed);
 
+  const { tarballSha256 } = options;
+  const metadataComponent: Component = tarballSha256 === undefined
+    ? root
+    : { ...root, hashes: [{ alg: "SHA-256", content: tarballSha256 }] };
   return {
     bomFormat: "CycloneDX",
     specVersion: "1.5",
-    serialNumber: `urn:uuid:${randomUUID()}`,
+    serialNumber: serialNumberFromDigest(tarballSha256 ?? sha256Of(`${options.packageName}@${root.version}`)),
     version: 1,
-    metadata: { component: root },
+    metadata: { component: metadataComponent },
     components: [...components.values()].filter((component) => component !== root).sort((left, right) => byText(left.purl, right.purl)),
     dependencies: [...edges.entries()]
       .map(([ref, dependsOn]) => ({ ref, dependsOn }))
@@ -171,20 +212,24 @@ export function buildRuntimeSbom(options: { consumerRoot: string; packageName: s
 }
 
 /** Installs the exact tarball the way a consumer does — runtime dependencies only,
- *  no install scripts — in a scratch directory outside the checkout. */
-function installConsumer(tarball: string): string {
+ *  no install scripts — in a scratch directory outside the checkout. The bytes that are
+ *  hashed are the bytes installed: npm reads a private copy, never the path again. */
+function installConsumer(tarball: string): { consumerRoot: string; tarballSha256: string } {
+  const tarballBytes = readFileSync(resolve(tarball));
   const consumerRoot = mkdtempSync(join(realpathSync(tmpdir()), "ai-eng-release-sbom-"));
+  const installedCopy = join(consumerRoot, "package.tgz");
+  writeFileSync(installedCopy, tarballBytes);
   writeFileSync(join(consumerRoot, "package.json"), '{"name":"sbom-consumer","private":true}\n');
   const install = runCommand(
     "npm",
-    ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", resolve(tarball)],
+    ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", installedCopy],
     consumerRoot,
   );
   if (install.status !== 0) {
     rmSync(consumerRoot, { recursive: true, force: true });
     throw new Error(`npm install of ${tarball} failed (status ${install.status ?? install.errorCode}).\n${install.stderr || install.stdout}`);
   }
-  return consumerRoot;
+  return { consumerRoot, tarballSha256: sha256Of(tarballBytes) };
 }
 
 function main(): void {
@@ -195,9 +240,15 @@ function main(): void {
   if (!out || Boolean(tarball) === Boolean(consumer)) {
     throw new Error("usage: bun scripts/release-sbom.ts (--tarball <file.tgz> | --consumer <dir>) --out <sbom.json>");
   }
-  const consumerRoot = consumer ? resolve(consumer) : installConsumer(tarball ?? "");
+  const { consumerRoot, tarballSha256 } = consumer
+    ? { consumerRoot: resolve(consumer), tarballSha256: undefined }
+    : installConsumer(tarball ?? "");
   try {
-    const bom = buildRuntimeSbom({ consumerRoot, packageName: "ai-engineering" });
+    const bom = buildRuntimeSbom({
+      consumerRoot,
+      packageName: "ai-engineering",
+      ...(tarballSha256 === undefined ? {} : { tarballSha256 }),
+    });
     writeFileSync(out, `${JSON.stringify(bom, null, 2)}\n`);
     process.stdout.write(`SBOM for ${String(bom.metadata.component["purl"])}: ${bom.components.length} runtime component(s) → ${out}\n`);
   } finally {

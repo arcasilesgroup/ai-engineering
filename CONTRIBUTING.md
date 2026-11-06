@@ -94,18 +94,22 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
   candidate (GitHub prerelease + npm `next`), `production` ships the real one
   (GitHub release marked latest + npm `latest`). It gates the dispatched SHA (lint,
   typecheck, full suite, build), builds the 8 binaries, packs one npm tarball —
-  smoke-tested and described by a runtime-only CycloneDX SBOM — and publishes that
+  smoke-tested against its recorded digest and described by a runtime-only CycloneDX
+  SBOM that names its sha256 — and publishes that
   exact tarball, checked against its digest, under OIDC trusted publishing.
 - Before anything is built, the `policy` job runs `scripts/release-policy.ts`: the
   release tag (`v` + the `package.json` version) must already exist as an annotated tag
-  SSH-signed by an allowlisted key, and every row of `NOTICE.md` must read `verified`.
+  SSH-signed by an allowlisted key on exactly the commit you dispatch (the job passes
+  `--sha "$GITHUB_SHA"` and refuses a tag on any other commit), and every row of
+  `NOTICE.md` must read `verified`.
   An owner sets two repository variables after verifying the signer:
   `RELEASE_ALLOWED_SIGNERS` (the key's `allowed_signers` line, `<principal> <public key>`)
   and `RELEASE_SIGNER_FINGERPRINTS` (its `SHA256:` fingerprint from
   `ssh-keygen -lf <key>.pub`; comma- or newline-separated). The release owner signs and
-  pushes the tag before dispatching:
-  `git -c gpg.format=ssh -c user.signingKey=<path to key>.pub tag -s vX.Y.Z -m "vX.Y.Z"`
+  pushes the tag on the commit it will dispatch, then dispatches that commit:
+  `git -c gpg.format=ssh -c user.signingKey=<path to key>.pub tag -s vX.Y.Z -m "vX.Y.Z" <commit>`
   then `git push origin vX.Y.Z`. Never move or re-sign an existing tag; cut a new version.
+  To check before dispatching: `bun scripts/release-policy.ts --tag vX.Y.Z --sha <commit>`.
 
 ## Reporting bugs and security issues
 

@@ -1,18 +1,23 @@
-// Release policy: nothing is published unless the release tag already exists, is an
-// annotated tag SSH-signed by a key the owner allowlisted (RELEASE_ALLOWED_SIGNERS) whose
-// fingerprint is listed (RELEASE_SIGNER_FINGERPRINTS), and every bundled-content row in
-// NOTICE.md records verified redistribution rights. Every refusal is reported together.
-// The policy only reads: it never creates, moves or deletes a tag.
+// Release policy: nothing is published unless the release tag already exists, names the
+// dispatched commit, is an annotated tag SSH-signed by a key the owner allowlisted
+// (RELEASE_ALLOWED_SIGNERS) whose fingerprint is listed (RELEASE_SIGNER_FINGERPRINTS), and
+// every bundled-content row in NOTICE.md records verified redistribution rights. Every
+// refusal is reported together. The policy only reads: it never creates, moves or deletes
+// a tag.
 //
-// Usage: bun scripts/release-policy.ts --tag <tag>   (reads NOTICE.md from the cwd)
+// Usage: bun scripts/release-policy.ts --tag <tag> [--sha <commit>]
+//        (--sha defaults to GITHUB_SHA; reads NOTICE.md from the cwd)
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { devNull, tmpdir } from "node:os";
 import { join } from "node:path";
+import { parseArgs } from "node:util";
 
 export type PolicyInput = {
   repoRoot: string;
   tag: string;
+  /** The commit the release was dispatched for; the tag must name exactly this commit. */
+  dispatchedCommit: string | undefined;
   allowedSigners: string | undefined;
   signerFingerprints: string | undefined;
   noticePath: string;
@@ -21,7 +26,8 @@ export type PolicyResult = { allowed: boolean; refusals: string[] };
 
 const FINGERPRINT = /^SHA256:[A-Za-z0-9+/]{43}$/;
 const SIGNATURE_BLOCK = /^-----BEGIN (SSH SIGNATURE|PGP SIGNATURE|PGP MESSAGE|SIGNED MESSAGE)-----$/m;
-const USAGE = "usage: bun scripts/release-policy.ts --tag <tag>";
+const FULL_COMMIT = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+const USAGE = "usage: bun scripts/release-policy.ts --tag <tag> [--sha <commit>]   (--sha defaults to GITHUB_SHA)";
 
 /** Fingerprints the owner listed, or the refusals explaining why the list cannot be trusted.
  *  `undefined` fingerprints means the configuration refused and the signer cannot be matched. */
@@ -75,13 +81,43 @@ function verifiedSigner(repoRoot: string, tag: string, allowedSigners: string): 
   }
 }
 
+/** The commit the run releases, or the refusal explaining why it cannot be compared. */
+function dispatchedCommitRefusals(dispatchedCommit: string | undefined): string[] {
+  const dispatched = (dispatchedCommit ?? "").trim();
+  if (dispatched === "") {
+    return ['The dispatched commit is unknown: pass --sha <commit> (the workflow passes "$GITHUB_SHA") so the policy can prove the tag names it.'];
+  }
+  if (FULL_COMMIT.test(dispatched)) return [];
+  return [`--sha ${dispatched} is not a full lowercase commit SHA: pass the dispatched commit as git rev-parse prints it.`];
+}
+
+/** A signed tag on any other commit vouches for a revision this run does not ship. An
+ *  unknown or malformed dispatched commit is refused once, by dispatchedCommitRefusals. */
+function commitMismatchRefusals(input: PolicyInput): string[] {
+  const { repoRoot, tag } = input;
+  const dispatched = (input.dispatchedCommit ?? "").trim();
+  if (dispatchedCommitRefusals(dispatched).length > 0) return [];
+  const tagged = git(repoRoot, ["rev-parse", "--verify", "--quiet", `refs/tags/${tag}^{commit}`]);
+  const taggedCommit = tagged.stdout.trim();
+  if (tagged.status !== 0 || taggedCommit === "") {
+    return [`Tag ${tag} does not name a commit: sign the tag on the commit you dispatch.`];
+  }
+  if (taggedCommit === dispatched) return [];
+  return [`Tag ${tag} points at ${taggedCommit}, not the dispatched commit ${dispatched}: sign the tag on the commit you dispatch.`];
+}
+
 function tagRefusals(input: PolicyInput, fingerprints: string[] | undefined): string[] {
   const { repoRoot, tag } = input;
   const objectType = git(repoRoot, ["cat-file", "-t", `refs/tags/${tag}`]);
   if (objectType.status !== 0) {
     return [`Tag ${tag} does not exist: the release owner must push a signed annotated tag (git tag -s) before publishing.`];
   }
-  if (objectType.stdout.trim() !== "tag") {
+  return [...signatureRefusals(input, fingerprints, objectType.stdout.trim()), ...commitMismatchRefusals(input)];
+}
+
+function signatureRefusals(input: PolicyInput, fingerprints: string[] | undefined, objectType: string): string[] {
+  const { repoRoot, tag } = input;
+  if (objectType !== "tag") {
     return [`Tag ${tag} is lightweight: release from a new version whose tag is signed and annotated (git tag -s); never move an existing tag.`];
   }
   const tagObject = git(repoRoot, ["cat-file", "tag", `refs/tags/${tag}`]);
@@ -153,19 +189,40 @@ export function evaluateReleasePolicy(input: PolicyInput): PolicyResult {
     );
   }
   const { fingerprints, refusals: fingerprintRefusals } = parseFingerprints(input.signerFingerprints);
-  refusals.push(...fingerprintRefusals, ...tagRefusals(input, fingerprints), ...noticeRefusals(input.noticePath));
+  refusals.push(
+    ...fingerprintRefusals,
+    ...dispatchedCommitRefusals(input.dispatchedCommit),
+    ...tagRefusals(input, fingerprints),
+    ...noticeRefusals(input.noticePath),
+  );
   return { allowed: refusals.length === 0, refusals };
 }
 
+function parseCli(argv: string[]): { tag: string; sha: string | undefined } | undefined {
+  try {
+    const { values, positionals } = parseArgs({
+      args: argv,
+      options: { tag: { type: "string" }, sha: { type: "string" } },
+      allowPositionals: true,
+      strict: true,
+    });
+    if (positionals.length > 0 || values.tag === undefined || values.tag.trim() === "") return undefined;
+    return { tag: values.tag, sha: values.sha };
+  } catch {
+    return undefined;
+  }
+}
+
 if (import.meta.main) {
-  const [flag, tag, ...extra] = process.argv.slice(2);
-  if (flag !== "--tag" || tag === undefined || tag.trim() === "" || extra.length > 0) {
+  const cli = parseCli(process.argv.slice(2));
+  if (cli === undefined) {
     process.stderr.write(`${USAGE}\n`);
     process.exit(1);
   }
   const { refusals } = evaluateReleasePolicy({
     repoRoot: process.cwd(),
-    tag,
+    tag: cli.tag,
+    dispatchedCommit: cli.sha ?? process.env["GITHUB_SHA"],
     allowedSigners: process.env["RELEASE_ALLOWED_SIGNERS"],
     signerFingerprints: process.env["RELEASE_SIGNER_FINGERPRINTS"],
     noticePath: join(process.cwd(), "NOTICE.md"),

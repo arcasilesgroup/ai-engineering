@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, delimiter, dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { releaseFlags } from "../scripts/release-flags.ts";
 
 type Step = {
@@ -260,6 +261,14 @@ describe("release.yml — one tarball, packed once, proven, then published", () 
     ]);
   });
 
+  test("the smoke test refuses a tarball that is not the one its recorded digest names", () => {
+    const tarball = pathEntries(packageUpload()).find((entry) => entry.endsWith(".tgz")) ?? "";
+    const smoke = stepsOf("package")
+      .flatMap(commandLines)
+      .filter((line) => /scripts\/package-consumer-smoke\.ts/.test(line));
+    expect(smoke).toEqual([`bun scripts/package-consumer-smoke.ts --tarball ${tarball} --digest ${digestFile()}`]);
+  });
+
   test("the package artifact carries the tarball, its digest and the SBOM", () => {
     const entries = pathEntries(packageUpload());
     expect(entries.filter((entry) => entry.endsWith(".tgz")).length).toBe(1);
@@ -363,12 +372,49 @@ describe("release.yml — the existing release guards are preserved", () => {
     expect(outcome(disagreeing)).toEqual({ status: 1, output: "" });
   });
 
-  test("the released revision must be on main, before publication", () => {
+  test("the released revision must be on main, before publication — even after main moved past it", () => {
     const mainStep = allSteps().find(({ step }) =>
       runsCommand(step, /git merge-base --is-ancestor "\$GITHUB_SHA" FETCH_HEAD/),
     )?.step;
     if (!mainStep) throw new Error("no step proves the released revision is on main");
-    expect(commandLines(mainStep)).toContain("git fetch --depth=1 origin main");
     expect(guardRunsBeforePublication(mainStep)).toBe(true);
+
+    const scratch = newScratchRoot();
+    const env = isolatedGitEnv(scratch);
+    const origin = join(scratch, "origin");
+    mkdirSync(origin);
+    git(origin, env, ["init", "-q", "-b", "main"]);
+    commit(origin, env, "root");
+    const dispatched = commit(origin, env, "dispatched");
+    git(origin, env, ["checkout", "-q", "-b", "side"]);
+    const offMain = commit(origin, env, "off main");
+    git(origin, env, ["checkout", "-q", "main"]);
+    // The runner's checkout: depth 1, at the dispatched commit (main's tip at clone time).
+    const cloneAt = (branch: string, name: string, depth: string[]) => {
+      git(scratch, env, ["clone", "-q", ...depth, "--branch", branch, pathToFileURL(origin).href, name]);
+      return join(scratch, name);
+    };
+    const shallow = cloneAt("main", "shallow", ["--depth", "1"]);
+    const full = cloneAt("main", "full", []);
+    const shallowOffMain = cloneAt("side", "shallow-side", ["--depth", "1"]);
+    // Main moves on while the run waits for approval.
+    commit(origin, env, "after dispatch 1");
+    commit(origin, env, "after dispatch 2");
+    expect(git(shallow, env, ["rev-parse", "--is-shallow-repository"])).toBe("true");
+    expect(git(full, env, ["rev-parse", "--is-shallow-repository"])).toBe("false");
+    expect(git(shallow, env, ["rev-parse", "HEAD"])).toBe(dispatched);
+    expect(git(shallowOffMain, env, ["rev-parse", "HEAD"])).toBe(offMain);
+    expect(git(origin, env, ["rev-parse", "main"])).not.toBe(dispatched);
+
+    const fromShallow = runStepScript(mainStep, shallow, { ...env, GITHUB_SHA: dispatched }, scratch);
+    const fromFull = runStepScript(mainStep, full, { ...env, GITHUB_SHA: dispatched }, scratch);
+    const offMainRun = runStepScript(mainStep, shallowOffMain, { ...env, GITHUB_SHA: offMain }, scratch);
+
+    expect({ status: fromShallow.status, stdout: fromShallow.stdout }).toEqual({ status: 0, stdout: "" });
+    expect({ status: fromFull.status, stdout: fromFull.stdout }).toEqual({ status: 0, stdout: "" });
+    expect({ status: offMainRun.status, stdout: offMainRun.stdout }).toEqual({
+      status: 1,
+      stdout: `::error::${offMain} is not an ancestor of main — a deployment ships reviewed history, or nothing.\n`,
+    });
   });
 });

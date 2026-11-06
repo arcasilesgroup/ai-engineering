@@ -450,9 +450,9 @@ Versioning runs on [changesets](.changeset/README.md). Releases go out from a di
 workflow with two channels, `integration` (`next`) and `production` (`latest`), each building
 the cross-compiled binaries, the SBOM and the attestations.
 
-**Releases.** Publication requires a signed annotated tag from an allowlisted fingerprint
-and verified redistribution rights for every row of [NOTICE.md](NOTICE.md)
-(`scripts/release-policy.ts` checks both). Publication is blocked until the owner resolves
+**Releases.** Publication requires a signed annotated tag from an allowlisted fingerprint,
+on exactly the dispatched commit, and verified redistribution rights for every row of [NOTICE.md](NOTICE.md)
+(`scripts/release-policy.ts` checks all three). Publication is blocked until the owner resolves
 the items listed under "Open H4 issues" in NOTICE.md.
 
 ## Maintainers

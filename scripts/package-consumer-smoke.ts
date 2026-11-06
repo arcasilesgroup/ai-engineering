@@ -12,7 +12,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
@@ -291,20 +291,75 @@ export function packageConsumerFailures(result: PackageConsumerResult): string[]
   return failures;
 }
 
-if (import.meta.main) {
-  const { values } = parseArgs({ options: { tarball: { type: "string" } } });
-  runPackageConsumerSmoke({ tarball: values.tarball })
-    .then((result) => {
-      const failures = packageConsumerFailures(result);
-      if (failures.length > 0) {
-        for (const failure of failures) process.stderr.write(`✗ ${failure}\n`);
-        process.exitCode = 1;
-        return;
+/** Why `digestText` (one `sha256sum` line) does not vouch for the tarball, or undefined
+ *  when it names this tarball with exactly this digest. */
+export function tarballDigestRefusal(options: {
+  tarballPath: string;
+  tarballSha256: string;
+  digestPath: string;
+  digestText: string;
+}): string | undefined {
+  const { tarballPath, tarballSha256, digestPath, digestText } = options;
+  const name = basename(tarballPath);
+  const lines = digestText.split(/\r?\n/).filter((line) => line.trim() !== "");
+  const match = lines.length === 1 ? /^([0-9a-fA-F]{64}) [ *](.+)$/.exec(lines[0] ?? "") : null;
+  const [, recorded, listed] = match ?? [];
+  if (recorded === undefined || listed === undefined) {
+    return `${digestPath} is not one sha256sum line for ${name}: record it with sha256sum ${name} > ${digestPath}.`;
+  }
+  if (listed !== name) return `${digestPath} records the digest of ${listed}, not ${name}: smoke-test the tarball the digest names.`;
+  if (recorded.toLowerCase() !== tarballSha256) {
+    return `${name} has sha256 ${tarballSha256}, but ${digestPath} records ${recorded.toLowerCase()}: this is not the tarball whose digest was recorded.`;
+  }
+  return undefined;
+}
+
+async function main(): Promise<void> {
+  const fail = (message: string) => {
+    process.stderr.write(`✗ ${message}\n`);
+    process.exitCode = 1;
+  };
+  try {
+    const { values } = parseArgs({ options: { tarball: { type: "string" }, digest: { type: "string" } } });
+    const { tarball, digest } = values;
+    if (digest !== undefined && tarball === undefined) {
+      fail("--digest checks a tarball: usage: bun scripts/package-consumer-smoke.ts [--tarball <file.tgz> [--digest <file.sha256>]]");
+      return;
+    }
+    const tarballSha256 = tarball === undefined ? undefined : sha256File(resolve(tarball));
+    if (tarball !== undefined && tarballSha256 !== undefined) {
+      process.stdout.write(`sha256=${tarballSha256}\n`);
+      if (digest !== undefined) {
+        let digestText: string;
+        try {
+          digestText = readFileSync(digest, "utf8");
+        } catch {
+          fail(`${digest} could not be read: record the tarball's digest with sha256sum before smoke-testing it.`);
+          return;
+        }
+        const refusal = tarballDigestRefusal({ tarballPath: tarball, tarballSha256, digestPath: digest, digestText });
+        if (refusal !== undefined) {
+          fail(refusal);
+          return;
+        }
       }
-      process.stdout.write(`Package consumer smoke passed for ai-engineering ${result.version}.\n`);
-    })
-    .catch((error: unknown) => {
-      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-      process.exitCode = 1;
-    });
+    }
+    const result = await runPackageConsumerSmoke({ tarball });
+    const failures = packageConsumerFailures(result);
+    if (tarballSha256 !== undefined && result.tarballHashBefore !== tarballSha256) {
+      failures.push("the tarball changed between its digest check and the consumer installation");
+    }
+    if (failures.length > 0) {
+      for (const failure of failures) fail(failure);
+      return;
+    }
+    process.stdout.write(`Package consumer smoke passed for ai-engineering ${result.version}.\n`);
+  } catch (error: unknown) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  }
+}
+
+if (import.meta.main) {
+  void main();
 }

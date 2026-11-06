@@ -64,9 +64,9 @@ jobs:
       - run: bun test --parallel=1
       - run: bun run build
 
-  # Nothing is built or published unless the release tag already exists, is an annotated
-  # tag SSH-signed by an allowlisted key, and every row of NOTICE.md records verified
-  # redistribution rights. The owner configures the two repository variables below
+  # Nothing is built or published unless the release tag already exists, names the
+  # dispatched commit, is an annotated tag SSH-signed by an allowlisted key, and every row
+  # of NOTICE.md records verified redistribution rights. The owner configures the two repository variables below
   # (Settings → Secrets and variables → Actions → Variables) only after verifying the
   # signer in person: RELEASE_ALLOWED_SIGNERS holds the key's allowed_signers line and
   # RELEASE_SIGNER_FINGERPRINTS its `ssh-keygen -lf` SHA256 fingerprint. Unset, the
@@ -112,12 +112,14 @@ jobs:
           { echo "tag=$tag"; echo "prerelease=$prerelease"; } >> "$GITHUB_OUTPUT"
           echo "channel=$CHANNEL · version=$version · tag=$tag · prerelease=$prerelease"
 
-      - name: The release tag is signed by an allowlisted key and every right is verified
+      # The tag must name the dispatched commit here, before anything is built: the
+      # publish job's own tag check runs after `npm publish`, which cannot be undone.
+      - name: The release tag names this commit, is signed by an allowlisted key, and every right is verified
         env:
           TAG: ${{ steps.flags.outputs.tag }}
           RELEASE_ALLOWED_SIGNERS: ${{ vars.RELEASE_ALLOWED_SIGNERS }}
           RELEASE_SIGNER_FINGERPRINTS: ${{ vars.RELEASE_SIGNER_FINGERPRINTS }}
-        run: bun scripts/release-policy.ts --tag "$TAG"
+        run: bun scripts/release-policy.ts --tag "$TAG" --sha "$GITHUB_SHA"
 
   # One tarball, packed once. It is smoke-tested as a consumer installs it, described
   # by an SBOM of what that install pulls in, and its digest travels with it: publish
@@ -142,10 +144,12 @@ jobs:
           mv "$packed" ai-engineering.tgz
           sha256sum ai-engineering.tgz > ai-engineering.tgz.sha256
           cat ai-engineering.tgz.sha256
+      # --digest: the smoke refuses unless the file it tests is the one the digest names.
       - name: Smoke-test the tarball as npm and Bun consumers install it
-        run: bun scripts/package-consumer-smoke.ts --tarball ai-engineering.tgz
+        run: bun scripts/package-consumer-smoke.ts --tarball ai-engineering.tgz --digest ai-engineering.tgz.sha256
       # The SBOM describes what a consumer installs from this tarball — runtime
       # dependencies only, each with its license — not the repository and its tooling.
+      # It names the tarball's sha256, and its serial number is derived from it.
       - name: SBOM (CycloneDX, runtime dependencies of the packed tarball)
         run: bun scripts/release-sbom.ts --tarball ai-engineering.tgz --out ai-engineering.cdx.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -263,10 +267,16 @@ jobs:
           pattern: ai-eng-*
           path: dist-artifacts
 
+      # Full history: on a depth-1 checkout a depth-1 fetch of main holds only main's tip,
+      # so the ancestry check failed whenever main had moved past the dispatched commit.
       - name: The released revision must be on main
         run: |
           set -euo pipefail
-          git fetch --depth=1 origin main
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+            git fetch --unshallow --no-tags origin main
+          else
+            git fetch --no-tags origin main
+          fi
           if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
             echo "::error::$GITHUB_SHA is not an ancestor of main — a deployment ships reviewed history, or nothing."
             exit 1

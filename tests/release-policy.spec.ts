@@ -1,5 +1,5 @@
-// Release policy: nothing is published unless the release tag already exists, is an
-// annotated tag cryptographically signed with SSH by a key the owner allowlisted — both
+// Release policy: nothing is published unless the release tag already exists, names the
+// dispatched commit, is an annotated tag cryptographically signed with SSH by a key the owner allowlisted — both
 // in RELEASE_ALLOWED_SIGNERS and by fingerprint in RELEASE_SIGNER_FINGERPRINTS — and every
 // bundled-content row in NOTICE.md records owner-verified redistribution rights. Every
 // fixture is a throwaway repository under os.tmpdir() signed by a key generated here; no
@@ -46,6 +46,13 @@ const NOTICE_NO_ROWS =
   "NOTICE.md lists no bundled content in its attribution table: restore the attribution rows before publishing.";
 const noticeUnparseableRow = (line: number) =>
   `NOTICE.md line ${line} is not a parseable attribution row: give it every column and a Redistribution value of verified or unresolved (<reason>).`;
+const DISPATCHED_UNKNOWN =
+  'The dispatched commit is unknown: pass --sha <commit> (the workflow passes "$GITHUB_SHA") so the policy can prove the tag names it.';
+const dispatchedMalformed = (sha: string) =>
+  `--sha ${sha} is not a full lowercase commit SHA: pass the dispatched commit as git rev-parse prints it.`;
+const tagOnOtherCommit = (tag: string, tagged: string, dispatched: string) =>
+  `Tag ${tag} points at ${tagged}, not the dispatched commit ${dispatched}: sign the tag on the commit you dispatch.`;
+const USAGE = "usage: bun scripts/release-policy.ts --tag <tag> [--sha <commit>]   (--sha defaults to GITHUB_SHA)\n";
 const rightsUnresolved = (content: string, reason: string) =>
   `${content} redistribution rights are unresolved (${reason}): an owner must verify them and mark the row verified in NOTICE.md.`;
 
@@ -71,6 +78,8 @@ function isolatedEnv(globalConfig: string): NodeJS.ProcessEnv {
   }
   delete env["RELEASE_ALLOWED_SIGNERS"];
   delete env["RELEASE_SIGNER_FINGERPRINTS"];
+  // CI sets GITHUB_SHA for the suite itself; a fixture names its dispatched commit explicitly.
+  delete env["GITHUB_SHA"];
   return {
     ...env,
     GIT_CONFIG_GLOBAL: globalConfig,
@@ -170,10 +179,21 @@ function verifiedNotice(fixture: Fixture): string {
   return writeNotice(fixture, [...NOTICE_HEAD, ...NOTICE_TABLE_HEADER, ...VERIFIED_ROWS, ...NOTICE_TAIL]);
 }
 
-type PolicyArgs = { tag?: string; allowedSigners?: string | undefined; signerFingerprints?: string | undefined; noticePath: string };
+type PolicyArgs = {
+  tag?: string;
+  dispatchedCommit?: string | undefined;
+  allowedSigners?: string | undefined;
+  signerFingerprints?: string | undefined;
+  noticePath: string;
+};
+
+function head(fixture: Fixture): string {
+  return git(fixture, ["rev-parse", "HEAD"]).trim();
+}
 
 /** Evaluates in-process with the fixture's isolated git configuration in effect, then
- *  puts the suite's environment back exactly as it was. */
+ *  puts the suite's environment back exactly as it was. The dispatched commit is the
+ *  fixture's HEAD unless the case names one (an explicit undefined stays undefined). */
 function evaluate(fixture: Fixture, args: PolicyArgs) {
   const saved = { global: process.env["GIT_CONFIG_GLOBAL"], nosystem: process.env["GIT_CONFIG_NOSYSTEM"] };
   process.env["GIT_CONFIG_GLOBAL"] = fixture.globalConfig;
@@ -182,6 +202,7 @@ function evaluate(fixture: Fixture, args: PolicyArgs) {
     return evaluateReleasePolicy({
       repoRoot: fixture.repo,
       tag: args.tag ?? TAG,
+      dispatchedCommit: "dispatchedCommit" in args ? args.dispatchedCommit : head(fixture),
       allowedSigners: args.allowedSigners,
       signerFingerprints: args.signerFingerprints,
       noticePath: args.noticePath,
@@ -217,7 +238,7 @@ describe("U5 — a controlled fixture with every piece of evidence is allowed", 
     const fixture = newFixture();
     signedTag(fixture, releaseKey);
     writeFileSync(join(fixture.repo, "NOTICE.md"), [...NOTICE_HEAD, ...NOTICE_TABLE_HEADER, ...VERIFIED_ROWS, ...NOTICE_TAIL].join("\n"));
-    const result = spawnSync(process.execPath, [POLICY_SCRIPT, "--tag", TAG], {
+    const result = spawnSync(process.execPath, [POLICY_SCRIPT, "--tag", TAG, "--sha", head(fixture)], {
       cwd: fixture.repo,
       env: { ...fixture.env, RELEASE_ALLOWED_SIGNERS: releaseKey.allowedSignersLine, RELEASE_SIGNER_FINGERPRINTS: releaseKey.fingerprint },
       encoding: "utf8",
@@ -342,6 +363,76 @@ describe("U4 — the tag must exist, be annotated, signed and verified by an all
   });
 });
 
+describe("U4 — the signed tag must name the dispatched commit", () => {
+  test.skipIf(!hasSshKeygen)("a valid signed tag on commit A refuses a release dispatched for commit B, naming both", () => {
+    const fixture = newFixture();
+    const tagged = head(fixture);
+    signedTag(fixture, releaseKey);
+    git(fixture, ["-c", "commit.gpgsign=false", "commit", "--allow-empty", "-q", "-m", "dispatched"]);
+    const dispatched = head(fixture);
+    expect(dispatched).not.toBe(tagged);
+    expect(git(fixture, ["rev-parse", `${TAG}^{commit}`]).trim()).toBe(tagged);
+    const noticePath = verifiedNotice(fixture);
+
+    expect(evaluate(fixture, { ...trustedConfig(), dispatchedCommit: dispatched, noticePath })).toEqual({
+      allowed: false,
+      refusals: [tagOnOtherCommit(TAG, tagged, dispatched)],
+    });
+    expect(evaluate(fixture, { ...trustedConfig(), dispatchedCommit: tagged, noticePath })).toEqual({ allowed: true, refusals: [] });
+  });
+
+  test.skipIf(!hasSshKeygen)("a lightweight tag on another commit reports both refusals", () => {
+    const fixture = newFixture();
+    const tagged = head(fixture);
+    lightweightTag(fixture);
+    git(fixture, ["-c", "commit.gpgsign=false", "commit", "--allow-empty", "-q", "-m", "dispatched"]);
+    const dispatched = head(fixture);
+    expect(evaluate(fixture, { ...trustedConfig(), dispatchedCommit: dispatched, noticePath: verifiedNotice(fixture) })).toEqual({
+      allowed: false,
+      refusals: [tagLightweight(TAG), tagOnOtherCommit(TAG, tagged, dispatched)],
+    });
+  });
+
+  test.skipIf(!hasSshKeygen)("an unknown or abbreviated dispatched commit refuses instead of skipping the comparison", () => {
+    const fixture = newFixture();
+    signedTag(fixture, releaseKey);
+    const noticePath = verifiedNotice(fixture);
+    const abbreviated = head(fixture).slice(0, 12);
+    expect(evaluate(fixture, { ...trustedConfig(), dispatchedCommit: undefined, noticePath })).toEqual({
+      allowed: false,
+      refusals: [DISPATCHED_UNKNOWN],
+    });
+    expect(evaluate(fixture, { ...trustedConfig(), dispatchedCommit: " ", noticePath })).toEqual({
+      allowed: false,
+      refusals: [DISPATCHED_UNKNOWN],
+    });
+    expect(evaluate(fixture, { ...trustedConfig(), dispatchedCommit: abbreviated, noticePath })).toEqual({
+      allowed: false,
+      refusals: [dispatchedMalformed(abbreviated)],
+    });
+  });
+
+  test.skipIf(!hasSshKeygen)("the CLI takes the dispatched commit from --sha, else GITHUB_SHA, and refuses without either", () => {
+    const fixture = newFixture();
+    const tagged = head(fixture);
+    signedTag(fixture, releaseKey);
+    git(fixture, ["-c", "commit.gpgsign=false", "commit", "--allow-empty", "-q", "-m", "dispatched"]);
+    const dispatched = head(fixture);
+    writeFileSync(join(fixture.repo, "NOTICE.md"), [...NOTICE_HEAD, ...NOTICE_TABLE_HEADER, ...VERIFIED_ROWS, ...NOTICE_TAIL].join("\n"));
+    const env = { ...fixture.env, RELEASE_ALLOWED_SIGNERS: releaseKey.allowedSignersLine, RELEASE_SIGNER_FINGERPRINTS: releaseKey.fingerprint };
+    const cli = (args: string[], extraEnv: NodeJS.ProcessEnv = {}) => {
+      const result = spawnSync(process.execPath, [POLICY_SCRIPT, "--tag", TAG, ...args], { cwd: fixture.repo, env: { ...env, ...extraEnv }, encoding: "utf8" });
+      return { status: result.status, stderr: result.stderr };
+    };
+
+    expect(cli(["--sha", dispatched])).toEqual({ status: 1, stderr: `${tagOnOtherCommit(TAG, tagged, dispatched)}\n` });
+    expect(cli([], { GITHUB_SHA: dispatched })).toEqual({ status: 1, stderr: `${tagOnOtherCommit(TAG, tagged, dispatched)}\n` });
+    expect(cli(["--sha", tagged], { GITHUB_SHA: dispatched })).toEqual({ status: 0, stderr: "" });
+    expect(cli([])).toEqual({ status: 1, stderr: `${DISPATCHED_UNKNOWN}\n` });
+    expect(cli(["--sha", tagged, "extra"])).toEqual({ status: 1, stderr: USAGE });
+  });
+});
+
 describe("U4 — every bundled content row needs owner-verified redistribution rights", () => {
   test.skipIf(!hasSshKeygen)("each unresolved row refuses by name, in table order, with its reason", () => {
     const fixture = newFixture();
@@ -431,7 +522,7 @@ describe("U4 — refusals are reported together, and the policy only reads", () 
       join(fixture.repo, "NOTICE.md"),
       [...NOTICE_HEAD, ...NOTICE_TABLE_HEADER, "| ai-gamma | upstream | community | none | local | unresolved (no license — H4) |", ...NOTICE_TAIL].join("\n"),
     );
-    const result = spawnSync(process.execPath, [POLICY_SCRIPT, "--tag", TAG], {
+    const result = spawnSync(process.execPath, [POLICY_SCRIPT, "--tag", TAG, "--sha", head(fixture)], {
       cwd: fixture.repo,
       env: { ...fixture.env, RELEASE_SIGNER_FINGERPRINTS: releaseKey.fingerprint },
       encoding: "utf8",
@@ -449,10 +540,7 @@ describe("U4 — refusals are reported together, and the policy only reads", () 
       env: { ...fixture.env, RELEASE_ALLOWED_SIGNERS: releaseKey.allowedSignersLine, RELEASE_SIGNER_FINGERPRINTS: releaseKey.fingerprint },
       encoding: "utf8",
     });
-    expect({ status: result.status, stderr: result.stderr }).toEqual({
-      status: 1,
-      stderr: "usage: bun scripts/release-policy.ts --tag <tag>\n",
-    });
+    expect({ status: result.status, stderr: result.stderr }).toEqual({ status: 1, stderr: USAGE });
   });
 
   test.skipIf(!hasSshKeygen)("no tag is created, moved or deleted, and a fixture 2.6.0 tag stays byte-identical", () => {
@@ -467,11 +555,13 @@ describe("U4 — refusals are reported together, and the policy only reads", () 
     const frozenBefore = frozenObject();
     const noticePath = verifiedNotice(fixture);
 
+    const frozenCommit = git(fixture, ["rev-parse", `${FROZEN_TAG}^{commit}`]).trim();
     for (const tag of [FROZEN_TAG, TAG, "v9.9.7", "v0.0.0-absent"]) {
       evaluate(fixture, { ...trustedConfig(), tag, noticePath });
-      evaluate(fixture, { allowedSigners: undefined, signerFingerprints: undefined, tag, noticePath });
+      evaluate(fixture, { ...trustedConfig(), tag, dispatchedCommit: frozenCommit, noticePath });
+      evaluate(fixture, { allowedSigners: undefined, signerFingerprints: undefined, dispatchedCommit: undefined, tag, noticePath });
     }
-    const cli = spawnSync(process.execPath, [POLICY_SCRIPT, "--tag", FROZEN_TAG], {
+    const cli = spawnSync(process.execPath, [POLICY_SCRIPT, "--tag", FROZEN_TAG, "--sha", head(fixture)], {
       cwd: fixture.repo,
       env: { ...fixture.env, RELEASE_ALLOWED_SIGNERS: releaseKey.allowedSignersLine, RELEASE_SIGNER_FINGERPRINTS: releaseKey.fingerprint },
       encoding: "utf8",
@@ -522,16 +612,17 @@ describe("release.yml — the policy job gates every publication channel", () =>
     }
     return seen;
   };
-  const POLICY_COMMAND = /^bun scripts\/release-policy\.ts --tag \S+$/;
+  const POLICY_COMMAND = /^bun scripts\/release-policy\.ts --tag "\$TAG" --sha "\$GITHUB_SHA"$/;
   const PUBLICATION = /\bnpm publish\b|\bgh release (create|upload|edit|delete)\b|\bgh api\b.*\breleases\b/;
 
-  test("a policy job runs scripts/release-policy.ts with the tag and the owner's repository variables", () => {
+  test("a policy job runs scripts/release-policy.ts with the tag, the dispatched SHA and the owner's repository variables", () => {
     const steps = jobs["policy"]?.steps ?? [];
     const policyIndex = steps.findIndex((step) => commandLines(step).some((line) => POLICY_COMMAND.test(line)));
     expect(policyIndex).toBeGreaterThanOrEqual(0);
     const policyStep = steps[policyIndex] ?? {};
     const env = { ...jobs["policy"]?.env, ...policyStep.env };
-    expect({ signers: env["RELEASE_ALLOWED_SIGNERS"], fingerprints: env["RELEASE_SIGNER_FINGERPRINTS"] }).toEqual({
+    expect({ tag: env["TAG"], signers: env["RELEASE_ALLOWED_SIGNERS"], fingerprints: env["RELEASE_SIGNER_FINGERPRINTS"] }).toEqual({
+      tag: "${{ steps.flags.outputs.tag }}",
       signers: "${{ vars.RELEASE_ALLOWED_SIGNERS }}",
       fingerprints: "${{ vars.RELEASE_SIGNER_FINGERPRINTS }}",
     });

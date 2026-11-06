@@ -1,14 +1,19 @@
 // The release SBOM describes what a consumer actually installs: the packed package and
 // the runtime dependencies Node resolves from it — never the repository root, never a
 // development-only dependency, and never a component whose license nobody declared.
+// Its serial number is derived, never random: the same input yields the same bytes.
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildRuntimeSbom, MissingLicenseError } from "../scripts/release-sbom.ts";
+import { buildRuntimeSbom, MissingLicenseError, serialNumberFromDigest } from "../scripts/release-sbom.ts";
 
 const PACKAGE_NAME = "ai-engineering";
-const SERIAL_NUMBER = /^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const SBOM_SCRIPT = join(import.meta.dir, "..", "scripts", "release-sbom.ts");
+// sha256("ai-engineering@9.9.9") = c3f396fa7a77926ef8b1…, as a version-8 UUID.
+const NAME_VERSION_SERIAL = "urn:uuid:c3f396fa-7a77-826e-b8b1-72d55426d461";
 
 const ROOT_REF = "pkg:npm/ai-engineering@9.9.9";
 const A_REF = "pkg:npm/a@1.0.0";
@@ -78,11 +83,6 @@ function rootComponent(): Record<string, unknown> {
   };
 }
 
-function withoutSerialNumber(bom: Record<string, unknown>): Record<string, unknown> {
-  const { serialNumber: _serialNumber, ...rest } = bom;
-  return rest;
-}
-
 function captureError(build: () => unknown): unknown {
   try {
     build();
@@ -99,11 +99,10 @@ describe("buildRuntimeSbom — the installed package's runtime graph as CycloneD
 
     const bom = buildRuntimeSbom({ consumerRoot, packageName: PACKAGE_NAME });
 
-    expect(bom.serialNumber).toMatch(SERIAL_NUMBER);
     expect(bom).toEqual({
       bomFormat: "CycloneDX",
       specVersion: "1.5",
-      serialNumber: bom.serialNumber,
+      serialNumber: NAME_VERSION_SERIAL,
       version: 1,
       metadata: { component: rootComponent() },
       components: [
@@ -181,9 +180,10 @@ describe("buildRuntimeSbom — the installed package's runtime graph as CycloneD
 
     const bom = buildRuntimeSbom({ consumerRoot, packageName: PACKAGE_NAME });
 
-    expect(withoutSerialNumber(bom)).toEqual({
+    expect(bom).toEqual({
       bomFormat: "CycloneDX",
       specVersion: "1.5",
+      serialNumber: NAME_VERSION_SERIAL,
       version: 1,
       metadata: { component: rootComponent() },
       components: [
@@ -262,7 +262,7 @@ describe("buildRuntimeSbom — the installed package's runtime graph as CycloneD
     expect(bom.components.map((component: { purl: string }) => component.purl)).toEqual([B_REF, A_REF, C1_REF]);
   });
 
-  test("the output is identical whatever order dependencies were declared in, except the serial number", () => {
+  test("the output is byte-identical whatever order dependencies were declared in, serial number included", () => {
     const declaredFirst = newConsumerRoot();
     const declaredReversed = newConsumerRoot();
     writeBaseFixture(declaredFirst);
@@ -271,7 +271,8 @@ describe("buildRuntimeSbom — the installed package's runtime graph as CycloneD
     const first = buildRuntimeSbom({ consumerRoot: declaredFirst, packageName: PACKAGE_NAME });
     const reversed = buildRuntimeSbom({ consumerRoot: declaredReversed, packageName: PACKAGE_NAME });
 
-    expect(JSON.stringify(withoutSerialNumber(reversed))).toBe(JSON.stringify(withoutSerialNumber(first)));
+    expect(JSON.stringify(reversed)).toBe(JSON.stringify(first));
+    expect(first.serialNumber).toBe(NAME_VERSION_SERIAL);
   });
 
   test("runtime components without license metadata block the SBOM and are named", () => {
@@ -321,4 +322,115 @@ describe("buildRuntimeSbom — the installed package's runtime graph as CycloneD
     expect((error as Error).message).toContain(A_REF);
     expect((error as Error).message).toMatch(/\bc\b/);
   });
+
+  test("UNLICENSED, SEE LICENSE IN, blank and non-SPDX text are missing license metadata, not a license", () => {
+    const declarations: Array<[string, Record<string, unknown>]> = [
+      ["a", { license: "UNLICENSED" }],
+      ["c", { license: "SEE LICENSE IN LICENSE.md" }],
+      ["@s/b", { license: "MIT License" }],
+      ["d", { license: "   " }],
+      ["e", { license: "(MIT OR UNLICENSED)" }],
+      ["f", { license: { type: "SEE-LICENSE-IN-FILE" } }],
+      ["g", { licenses: [{ type: "MIT" }, { type: "Custom terms" }] }],
+    ];
+    const consumerRoot = newConsumerRoot();
+    const modules = join(consumerRoot, "node_modules");
+    writeManifest(consumerRoot, { name: "consumer", version: "0.0.0", private: true });
+    writeManifest(join(modules, PACKAGE_NAME), {
+      name: PACKAGE_NAME,
+      version: "9.9.9",
+      license: "Apache-2.0",
+      dependencies: Object.fromEntries(declarations.map(([name]) => [name, "1.0.0"])),
+    });
+    for (const [name, license] of declarations) writeManifest(join(modules, name), { name, version: "1.0.0", ...license });
+
+    const error = captureError(() => buildRuntimeSbom({ consumerRoot, packageName: PACKAGE_NAME }));
+
+    expect(error).toBeInstanceOf(MissingLicenseError);
+    expect((error as MissingLicenseError).components).toEqual([
+      "pkg:npm/%40s/b@1.0.0",
+      "pkg:npm/a@1.0.0",
+      "pkg:npm/c@1.0.0",
+      "pkg:npm/d@1.0.0",
+      "pkg:npm/e@1.0.0",
+      "pkg:npm/f@1.0.0",
+      "pkg:npm/g@1.0.0",
+    ]);
+  });
+
+  test("an SPDX id is a license id; an SPDX expression with AND, OR or WITH stays an expression", () => {
+    const consumerRoot = newConsumerRoot();
+    const modules = join(consumerRoot, "node_modules");
+    writeManifest(consumerRoot, { name: "consumer", version: "0.0.0", private: true });
+    writeManifest(join(modules, PACKAGE_NAME), {
+      name: PACKAGE_NAME,
+      version: "9.9.9",
+      license: "Apache-2.0",
+      dependencies: { a: "1.0.0", c: "1.0.0", d: "1.0.0" },
+    });
+    writeManifest(join(modules, "a"), { name: "a", version: "1.0.0", license: "Apache-2.0 WITH LLVM-exception" });
+    writeManifest(join(modules, "c"), { name: "c", version: "1.0.0", license: "MIT AND (BSD-3-Clause OR GPL-2.0+)" });
+    writeManifest(join(modules, "d"), { name: "d", version: "1.0.0", licenses: ["MIT", { type: "LicenseRef-Vendor" }] });
+
+    const bom = buildRuntimeSbom({ consumerRoot, packageName: PACKAGE_NAME });
+
+    expect(bom.components.map((component) => [component.purl, component.licenses])).toEqual([
+      ["pkg:npm/a@1.0.0", [{ expression: "Apache-2.0 WITH LLVM-exception" }]],
+      ["pkg:npm/c@1.0.0", [{ expression: "MIT AND (BSD-3-Clause OR GPL-2.0+)" }]],
+      ["pkg:npm/d@1.0.0", [{ license: { id: "MIT" } }, { license: { id: "LicenseRef-Vendor" } }]],
+    ]);
+  });
+});
+
+describe("the SBOM names the tarball it describes", () => {
+  test("serialNumberFromDigest is a version-8 RFC 9562 UUID from the digest's first 16 bytes", () => {
+    expect(serialNumberFromDigest("0".repeat(64))).toBe("urn:uuid:00000000-0000-8000-8000-000000000000");
+    expect(serialNumberFromDigest("f".repeat(64))).toBe("urn:uuid:ffffffff-ffff-8fff-bfff-ffffffffffff");
+    expect(serialNumberFromDigest("0123456789abcdef".repeat(4))).toBe("urn:uuid:01234567-89ab-8def-8123-456789abcdef");
+    expect(() => serialNumberFromDigest("F".repeat(64))).toThrow();
+    expect(() => serialNumberFromDigest("0".repeat(63))).toThrow();
+  });
+
+  test("given the tarball's sha256, the root component carries it and the serial number derives from it", () => {
+    const consumerRoot = newConsumerRoot();
+    writeBaseFixture(consumerRoot);
+    const tarballSha256 = "0123456789abcdef".repeat(4);
+
+    const bom = buildRuntimeSbom({ consumerRoot, packageName: PACKAGE_NAME, tarballSha256 });
+
+    expect({ serialNumber: bom.serialNumber, component: bom.metadata.component }).toEqual({
+      serialNumber: "urn:uuid:01234567-89ab-8def-8123-456789abcdef",
+      component: { ...rootComponent(), hashes: [{ alg: "SHA-256", content: tarballSha256 }] },
+    });
+    expect(Object.keys(bom.metadata.component)).toEqual(["type", "bom-ref", "name", "version", "purl", "licenses", "hashes"]);
+  });
+
+  test(
+    "the CLI built from --tarball names that file's sha256 and writes the same bytes on every run",
+    () => {
+      const root = newConsumerRoot();
+      const packageDirectory = join(root, "package");
+      writeManifest(packageDirectory, { name: PACKAGE_NAME, version: "9.9.9", license: "Apache-2.0" });
+      const tarball = join(root, "ai-engineering.tgz");
+      const packed = spawnSync("tar", ["-czf", tarball, "package"], { cwd: root, encoding: "utf8" });
+      expect(packed.status).toBe(0);
+      const tarballSha256 = createHash("sha256").update(readFileSync(tarball)).digest("hex");
+      const build = (out: string) =>
+        spawnSync(process.execPath, [SBOM_SCRIPT, "--tarball", tarball, "--out", join(root, out)], { cwd: root, encoding: "utf8" });
+
+      const first = build("first.cdx.json");
+      const second = build("second.cdx.json");
+
+      expect({ status: first.status, stderr: first.stderr }).toEqual({ status: 0, stderr: "" });
+      expect({ status: second.status, stderr: second.stderr }).toEqual({ status: 0, stderr: "" });
+      const bytes = readFileSync(join(root, "first.cdx.json"), "utf8");
+      expect(readFileSync(join(root, "second.cdx.json"), "utf8")).toBe(bytes);
+      const bom = JSON.parse(bytes) as { serialNumber: string; metadata: { component: Record<string, unknown> } };
+      expect({ serialNumber: bom.serialNumber, component: bom.metadata.component }).toEqual({
+        serialNumber: serialNumberFromDigest(tarballSha256),
+        component: { ...rootComponent(), hashes: [{ alg: "SHA-256", content: tarballSha256 }] },
+      });
+    },
+    { timeout: 120_000 },
+  );
 });
