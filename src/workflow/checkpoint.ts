@@ -171,7 +171,7 @@ function normalizeLifecycle(
   if (
     keys.some((key) => !allowed.has(key)) ||
     keys.length < 4 ||
-    keys.length > (legacy ? 6 : 6) ||
+    keys.length > 6 ||
     (legacy && Object.hasOwn(value, "reviewed_base"))
   ) {
     fail("lifecycle", "contains missing, duplicate or unsupported fields");

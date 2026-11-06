@@ -911,7 +911,7 @@ export function machineStateUnavailable(): MachineRefusal | null {
     return { path: machineStateLockFile(), reason: isStale ? MACHINE_STATE_LOCK_STALE : MACHINE_STATE_BUSY };
   }
   if (!names.includes(MACHINE_STATE_NAME)) {
-    const copies = names.filter(isClaimName).sort().map((name) => join(directory, name));
+    const copies = names.filter(isClaimName).sort((left, right) => left.localeCompare(right)).map((name) => join(directory, name));
     return copies.length === 0 ? null : { path: copies.join(", "), reason: MACHINE_STATE_STRANDED };
   }
   try {

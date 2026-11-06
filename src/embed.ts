@@ -163,7 +163,7 @@ function isPathList(value: unknown): value is string[] {
 export function isVersionCacheRecord(text: string): boolean {
   try {
     const record = JSON.parse(text) as Record<string, unknown>;
-    const keys = Object.keys(record).sort();
+    const keys = Object.keys(record).sort((left, right) => left.localeCompare(right));
     return keys.length === 2 && keys[0] === "ts" && keys[1] === "version"
       && typeof record["version"] === "string" && typeof record["ts"] === "number";
   } catch {
