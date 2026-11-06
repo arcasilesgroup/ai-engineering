@@ -92,12 +92,20 @@ function requireCommandSuccess(label: string, result: CommandResult): void {
   );
 }
 
+// Bun (>= 1.4.4) stamps an installed package with its own cache marker; it is the
+// installer's metadata, not a file the tarball shipped.
+const INSTALLER_METADATA = new Set([".bun-tag"]);
+
 function listFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) return listFiles(path).map((child) => join(entry.name, child));
     return [entry.name];
   }).map((path) => path.split(sep).join("/")).sort();
+}
+
+function listInstalledFiles(packageRoot: string): string[] {
+  return listFiles(packageRoot).filter((path) => !INSTALLER_METADATA.has(path));
 }
 
 function sha256File(path: string): string {
@@ -229,8 +237,8 @@ export async function runPackageConsumerSmoke(
     return {
       version: npmManifest.version,
       packedFiles: packed.files,
-      npmInstalledFiles: listFiles(npmPackageRoot),
-      bunInstalledFiles: listFiles(bunPackageRoot),
+      npmInstalledFiles: listInstalledFiles(npmPackageRoot),
+      bunInstalledFiles: listInstalledFiles(bunPackageRoot),
       npmInstall,
       bunInstall,
       npmCommand,
