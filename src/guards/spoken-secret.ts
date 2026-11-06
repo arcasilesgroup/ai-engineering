@@ -39,7 +39,6 @@ const PLACEHOLDER =
   /^(your[_-]|my[_-]|some[_-]|the[_-])|^(changeme|change[_-]me|replace|placeholder|example|dummy|sample|todo|tbd|none|null|nil|n\/?a|xxx+|\.\.\.|\*+)$|^[<${].*[>}]$|(here|goes[_-]here|_here)$/i;
 
 const BARE_PATH = /^(\/|~\/|\.\/|[a-z]:\\)/i;
-const BARE_HOST_OR_URL = /^([a-z][a-z0-9+.-]*:\/\/)?[a-z0-9.-]+(:\d+)?(\/[^\s]*)?$/i;
 
 const LABEL_NOISE: Record<string, true> = {
   my: true, the: true, our: true, a: true, an: true, new: true, current: true, old: true, and: true, is: true,
@@ -80,7 +79,6 @@ export function judge(key: string, value: string): { decide: boolean; reason: st
     return { decide: false, reason: "placeholder or non-secret value" };
   if (/^\d+$/.test(value)) return { decide: false, reason: "numeric value" };
   if (!creds && BARE_PATH.test(value)) return { decide: false, reason: "filesystem path" };
-  if (!creds && !keyed && BARE_HOST_OR_URL.test(value)) return { decide: false, reason: "host or URL without credentials" };
   const n = new TextEncoder().encode(value).length;
   if (n < SHORT_FLOOR) return { decide: false, reason: `${n} bytes: too short for any rule` };
   if (n < MIN_BYTES) return { decide: false, reason: `${n} bytes: below the 8-byte floor; handle by hand` };
