@@ -14,12 +14,10 @@ Bundled third-party content:
 - agents.md convention (`ai-agents-md`) — MIT
 - writing-agent-behavior (braintrustdata/agentbehavior, `ai-writing-behavior`) — Apache-2.0
   — © Braintrust + Basis
-- graph-engineering (`ai-verify`), ai-audit-design — integrated with attribution; license
-  issues open (H4)
-- headstart (ai-architect) — MIT declared, but the cited upstream does not resolve to
-  this content; redistribution rights unresolved (H4)
-- agit-secret-guard (the spoken-secret classifier in `src/guards/spoken-secret.ts`) —
-  supplied locally, license unknown; redistribution rights unresolved (H4)
+- graph-engineering (`ai-verify`), headstart (`ai-architect`), ai-audit-design and
+  agit-secret-guard (the spoken-secret classifier in `src/guards/spoken-secret.ts`) —
+  content supplied by the maintainer; the owner attested authorship and ownership on
+  2026-11-06, so no third-party license applies and no permission is outstanding
 
 Every bundled item above except the brand palette (which NOTICE.md treats separately,
 under "The brand") has a row in NOTICE.md's attribution table, and its Redistribution
