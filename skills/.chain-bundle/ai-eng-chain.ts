@@ -2825,7 +2825,7 @@ function normalizeLifecycle(value, context) {
     "reviewed_main",
     "reviewed_feature"
   ]);
-  if (keys.some((key) => !allowed.has(key)) || keys.length < 4 || keys.length > (legacy ? 6 : 6) || legacy && Object.hasOwn(value, "reviewed_base")) {
+  if (keys.some((key) => !allowed.has(key)) || keys.length < 4 || keys.length > 6 || legacy && Object.hasOwn(value, "reviewed_base")) {
     fail("lifecycle", "contains missing, duplicate or unsupported fields");
   }
   const phase = value.phase === "complete" ? "ready-to-merge" : value.phase;
