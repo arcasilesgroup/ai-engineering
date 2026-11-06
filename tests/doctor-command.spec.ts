@@ -543,14 +543,21 @@ describe("doctor · receipts and overrides", () => {
       events.push("summary");
       return originalSummary(dir);
     });
-    spyOn(uiModule, "frame").mockImplementation(() => {
+    const frame = spyOn(uiModule, "frame").mockImplementation(() => {
       events.push("frame");
     });
 
-    await doctor();
+    // A spy on a module export outlives the file: in one `bun test` process the
+    // next suite's frame() would stay this silent stub (the mutation dry run on Linux).
+    try {
+      await doctor();
 
-    expect(summarize).toHaveBeenCalledTimes(1);
-    expect(events.slice(0, 2)).toEqual(["frame", "summary"]);
+      expect(summarize).toHaveBeenCalledTimes(1);
+      expect(events.slice(0, 2)).toEqual(["frame", "summary"]);
+    } finally {
+      summarize.mockRestore();
+      frame.mockRestore();
+    }
   });
 
   test("receipts under the ceiling are ok; a slow one warns with the p95 that says so", async () => {
