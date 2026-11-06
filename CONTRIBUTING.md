@@ -110,6 +110,10 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
   `git -c gpg.format=ssh -c user.signingKey=<path to key>.pub tag -s vX.Y.Z -m "vX.Y.Z" <commit>`
   then `git push origin vX.Y.Z`. Never move or re-sign an existing tag; cut a new version.
   To check before dispatching: `bun scripts/release-policy.ts --tag vX.Y.Z --sha <commit>`.
+- The policy lives in the workflow file, so a branch could ship a copy without it. Restrict
+  the `release` environment's deployment branches to `main` (Settings → Environments →
+  release → Deployment branches) so only `main`'s `release.yml` can reach the npm and
+  GitHub publish steps.
 
 ## Reporting bugs and security issues
 

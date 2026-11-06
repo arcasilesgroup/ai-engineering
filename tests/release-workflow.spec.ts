@@ -17,7 +17,7 @@ type Step = {
   with?: Record<string, unknown>;
   env?: Record<string, unknown>;
 };
-type Job = { needs?: string | string[]; steps?: Step[] };
+type Job = { needs?: string | string[]; steps?: Step[]; outputs?: Record<string, string> };
 type Workflow = { jobs?: Record<string, Job> };
 
 const REPO = join(import.meta.dir, "..");
@@ -343,6 +343,13 @@ describe("release.yml — one tarball, packed once, proven, then published", () 
 });
 
 describe("release.yml — the existing release guards are preserved", () => {
+  test("publish compares the tarball with the package job's digest output, not only the artifact's own digest file", () => {
+    const outputs = requireJob("package").outputs ?? {};
+    expect(outputs["tarball_sha256"]).toMatch(/steps\.pack\.outputs\.sha256/);
+    const check = requireStep("publish", (step) => runsCommand(step, /sha256sum ai-engineering\.tgz/), "publish digest check");
+    expect(String(check.env?.["EXPECTED_SHA256"] ?? "")).toContain("needs.package.outputs.tarball_sha256");
+    expect(commandStepIndex("publish", /sha256sum ai-engineering\.tgz/)).toBeLessThan(commandStepIndex("publish", /npm publish/));
+  });
   function guardRunsBeforePublication(step: Step): boolean {
     const owner = allSteps().find((candidate) => candidate.step === step)?.jobName ?? "";
     if (owner === "publish") return stepsOf("publish").indexOf(step) < commandStepIndex("publish", /^npm publish\b/);

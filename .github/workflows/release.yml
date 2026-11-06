@@ -129,6 +129,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # The digest leaves this job as an output, not only inside the artifact: code in a
+    # parallel job of the same run could replace the artifact, digest file included.
+    outputs:
+      tarball_sha256: ${{ steps.pack.outputs.sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -138,12 +142,14 @@ jobs:
       # A fixed name keeps the artifact's paths static; npm reads the package's name
       # and version from the manifest inside the tarball, not from its filename.
       - name: Pack the tarball and record its digest
+        id: pack
         run: |
           set -euo pipefail
           packed="$(npm pack --json | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8"))[0].filename')"
           mv "$packed" ai-engineering.tgz
           sha256sum ai-engineering.tgz > ai-engineering.tgz.sha256
           cat ai-engineering.tgz.sha256
+          echo "sha256=$(cut -d' ' -f1 ai-engineering.tgz.sha256)" >> "$GITHUB_OUTPUT"
       # --digest: the smoke refuses unless the file it tests is the one the digest names.
       - name: Smoke-test the tarball as npm and Bun consumers install it
         run: bun scripts/package-consumer-smoke.ts --tarball ai-engineering.tgz --digest ai-engineering.tgz.sha256
@@ -257,9 +263,18 @@ jobs:
       # Before anything else: the tarball about to ship is byte-for-byte the one the
       # package job smoke-tested and described, or the run stops here.
       - name: The tarball is the one the package job proved
+        env:
+          EXPECTED_SHA256: ${{ needs.package.outputs.tarball_sha256 }}
         run: |
           set -euo pipefail
           cd npm-package
+          # The job output is the reference; the digest file travels with the artifact
+          # and could be replaced together with it.
+          actual="$(sha256sum ai-engineering.tgz | cut -d' ' -f1)"
+          if [ -z "$EXPECTED_SHA256" ] || [ "$actual" != "$EXPECTED_SHA256" ]; then
+            echo "::error::tarball sha256 $actual does not match the package job's $EXPECTED_SHA256"
+            exit 1
+          fi
           sha256sum -c ai-engineering.tgz.sha256
       - run: npm install -g bun@1.4.4
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
