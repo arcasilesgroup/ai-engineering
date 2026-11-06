@@ -1966,3 +1966,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** The policy takes `--sha` and refuses a tag on any other commit before anything is built; notices list only shipped content.
 - **Lesson:** A signature authorizes a commit; check that commit is the one you are about to publish, before any one-way step.
 - **Tags:** review, release, signing
+
+### L270 · 2026-11-06 · production-readiness #4 · behavior
+- **Failure:** On windows-latest 22 release tests failed: signed-tag fixtures were never created, and `tar -czf D:\...` exited 2.
+- **Root cause:** The hosted Windows image cannot build the SSH-signed tag fixtures; GNU tar from Git Bash reads a drive letter as a remote host.
+- **Fix:** Skip the signing-fixture cases on win32 (the policy runs on the Linux release runner); pass tar a relative archive name.
+- **Lesson:** Give tar relative archive paths, and run a tool's fixture-heavy tests only on the platform the tool runs on.
+- **Tags:** behavior, windows, release, tests
