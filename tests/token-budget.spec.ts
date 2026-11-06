@@ -124,9 +124,13 @@ describe("token budgets", () => {
         },
       });
 
-      for (const result of [preCommit, commitMsg, prePush]) {
-        expect(result.status).toBe(0);
-        expect(outputLineCount(result)).toBe(0);
+      // One comparison per hook, so a CI failure names the hook and shows what it printed.
+      for (const [hook, result] of Object.entries({ preCommit, commitMsg, prePush })) {
+        expect({ hook, status: result.status, output: `${result.stdout}${result.stderr}`.trimEnd() }).toEqual({
+          hook,
+          status: 0,
+          output: "",
+        });
       }
     } finally {
       rmSync(index.path, { force: true });
