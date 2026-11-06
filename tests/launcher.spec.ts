@@ -1,59 +1,26 @@
-// bin/ai-eng.js is the launcher that decides whether the CLI runs at all: the
-// dev-checkout dist binary, the bun source path, or the honest error. The
-// realpath invocation guard already broke once (a
-// symlink made the launcher a silent no-op); these tests keep that class of
-// failure out. The shim is plain Node JS on purpose, so the suite runs it with
-// `node` — the same runtime npm installs use.
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { afterAll, describe, expect, test } from "bun:test";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { delimiter, join } from "node:path";
+import { describe, expect, test } from "bun:test";
 import { resolveTarget } from "../bin/ai-eng.js";
 
-const LAUNCHER = new URL("../bin/ai-eng.js", import.meta.url).pathname;
+const ROOT = join(import.meta.dir, "..");
+const LAUNCHER = join(ROOT, "bin", "ai-eng.js");
+const VERSION = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string }).version;
 
-// The launcher resolves the platform at runtime; tests must create the right
-// binary name for the host this CI job runs on. musl (Alpine) is excluded:
-// CI runs Ubuntu glibc, and local dev is macOS.
-const TARGET = resolveTarget(process.platform, process.arch, false) ?? "linux-x64";
-const BIN_NAME = `ai-eng-${TARGET}`;
-
-const roots: string[] = [];
-const PATH_BEFORE = process.env.PATH ?? "";
-
-function stagedLauncher(prefix: string): { root: string; launcher: string } {
-  const root = mkdtempSync(join(tmpdir(), prefix));
-  roots.push(root);
-  // Copy the launcher into a staging tree so each case controls what sits
-  // next to it: a dist build, a leftover node_modules package, or neither.
-  const bin = join(root, "ai-engineing", "bin", "ai-eng.js");
-  mkdirSync(dirname(bin), { recursive: true });
-  copyFileSync(LAUNCHER, bin);
-  chmodSync(bin, 0o755);
-  return { root, launcher: bin };
-}
-
-/** Run the staged launcher under real node — the runtime npm installs use.
- *  `bun test` sets process.execPath to bun, and under bun the launcher takes
- *  its source path instead of the binary paths under test. Resolved to an
- *  absolute path because the no-binary case strips PATH. */
-const NODE = (() => {
+function findNode(): string {
   if (process.env.AI_ENG_TEST_NODE) return process.env.AI_ENG_TEST_NODE;
-  const found = spawnSync("sh", ["-c", "command -v node"], { encoding: "utf8" });
-  return found.status === 0 ? found.stdout.trim() : "node";
-})();
 
-function run(launcher: string, args: string[]) {
-  const done = spawnSync(NODE, [launcher, ...args], { encoding: "utf8" });
-  return { status: done.status ?? 1, stdout: done.stdout ?? "", stderr: done.stderr ?? "" };
+  const executable = process.platform === "win32" ? "node.exe" : "node";
+  const found = (process.env.PATH ?? "")
+    .split(delimiter)
+    .map((directory) => join(directory, executable))
+    .find((path) => existsSync(path));
+  if (!found) throw new Error("Node is required to exercise the npm launcher refusal path");
+  return found;
 }
 
-afterAll(() => {
-  if (PATH_BEFORE === undefined) delete process.env.PATH;
-  else process.env.PATH = PATH_BEFORE;
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
-});
+const NODE = findNode();
 
 describe("resolveTarget", () => {
   test("maps the seven host shapes to package suffixes", () => {
@@ -63,7 +30,7 @@ describe("resolveTarget", () => {
     expect(resolveTarget("linux", "x64", false)).toBe("linux-x64");
     expect(resolveTarget("linux", "x64", true)).toBe("linux-musl-x64");
     expect(resolveTarget("linux", "arm64", true)).toBe("linux-musl-arm64");
-    expect(resolveTarget("sunos", "x64", false)).toBeNull(); // not a supported host
+    expect(resolveTarget("sunos", "x64", false)).toBeNull();
   });
 
   test("musl only applies to linux", () => {
@@ -72,118 +39,63 @@ describe("resolveTarget", () => {
   });
 });
 
-describe("launcher resolution order", () => {
-  test("a leftover platform package is never consulted — the scheme is gone", () => {
-    const { root, launcher } = stagedLauncher("ai-eng-launcher-pkg-");
-    const pkgDir = join(root, "ai-engineering", "node_modules", `ai-engineering-${TARGET}`);
-    mkdirSync(join(pkgDir, "bin"), { recursive: true });
-    // If anything still resolves these packages, the launcher would run them:
-    // it must not. No dist, no bun on PATH → the honest error instead.
-    writeFileSync(join(pkgDir, "package.json"), '{"name":"fake","version":"0.0.0"}\n');
-    writeFileSync(join(pkgDir, "bin", "ai-eng"), '#!/bin/sh\necho from-platform-package "$@"\n');
-    chmodSync(join(pkgDir, "bin", "ai-eng"), 0o755);
+test("the npm executable declares Bun as its shebang runtime", () => {
+  const launcher = readFileSync(LAUNCHER, "utf8");
+  expect(launcher.slice(0, launcher.indexOf("\n"))).toBe("#!/usr/bin/env bun");
+});
 
-    const done = spawnSync(NODE, [launcher, "--version"], {
+test("the executable reports the exact version when Bun runs without Node on PATH", () => {
+  if (process.platform === "win32") {
+    const done = spawnSync(process.execPath, [LAUNCHER, "--version"], {
       encoding: "utf8",
-      env: { ...process.env, PATH: "/usr/bin:/bin" },
+      env: { ...process.env, PATH: "" },
     });
-    expect(done.status).toBe(1);
-    expect(done.stdout ?? "").not.toContain("from-platform-package");
-    expect(done.stderr ?? "").toContain("no bun runtime");
-  });
+    expect({ status: done.status ?? 1, stdout: done.stdout ?? "", stderr: done.stderr ?? "" }).toEqual({
+      status: 0,
+      stdout: `ai-eng ${VERSION}\n`,
+      stderr: "",
+    });
+    return;
+  }
 
-  test("a stray dist build for this host runs before the source", () => {
-    const { launcher } = stagedLauncher("ai-eng-launcher-dist-");
-    const dist = join(dirname(dirname(launcher)), "dist");
-    mkdirSync(dist, { recursive: true });
-    writeFileSync(join(dist, BIN_NAME), "#!/bin/sh\necho from-dist \"$@\"\n");
-    chmodSync(join(dist, BIN_NAME), 0o755);
-
-    const { status, stdout } = run(launcher, ["--version"]);
-    expect(status).toBe(0);
-    expect(stdout).toContain("from-dist");
-  });
-
-  test("a published install with no binary runs the source through bun", () => {
-    // The npm contract: no scripts/build.ts marker, no dist, no platform
-    // package — the launcher still runs src/cli.ts via the bun on PATH.
-    const { root, launcher } = stagedLauncher("ai-eng-launcher-npm-");
-    mkdirSync(join(dirname(dirname(launcher)), "src"), { recursive: true });
-    writeFileSync(join(dirname(dirname(launcher)), "src", "cli.ts"), "// not executed: the fake bun answers\n");
-    const fakeBin = join(root, "fake-bin");
-    mkdirSync(fakeBin, { recursive: true });
-    writeFileSync(join(fakeBin, "bun"), "#!/bin/sh\necho from-npm-source\n");
-    chmodSync(join(fakeBin, "bun"), 0o755);
-
-    const done = spawnSync(NODE, [launcher, "--version"], {
+  const bunOnlyPath = join(ROOT, `.launcher-bun-only-${process.pid}`);
+  mkdirSync(bunOnlyPath);
+  try {
+    symlinkSync(process.execPath, join(bunOnlyPath, "bun"));
+    const done = spawnSync(LAUNCHER, ["--version"], {
       encoding: "utf8",
-      env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH ?? ""}` },
+      env: { ...process.env, PATH: bunOnlyPath },
     });
-    expect(done.status).toBe(0);
-    expect(done.stdout ?? "").toContain("from-npm-source");
-  });
-
-  test("a dev checkout runs dist/ai-eng", () => {
-    // `bun link` of this repo. scripts/build.ts is the marker that is not in
-    // the published tarball, and `bun run build` writes dist/ai-eng.
-    const { launcher } = stagedLauncher("ai-eng-launcher-dev-");
-    const pkgRoot = dirname(dirname(launcher));
-    mkdirSync(join(pkgRoot, "scripts"), { recursive: true });
-    writeFileSync(join(pkgRoot, "scripts", "build.ts"), "// dev checkout marker\n");
-    const dist = join(pkgRoot, "dist");
-    mkdirSync(dist, { recursive: true });
-    writeFileSync(join(dist, "ai-eng"), "#!/bin/sh\necho from-dist-plain\n");
-    chmodSync(join(dist, "ai-eng"), 0o755);
-
-    const { status, stdout } = run(launcher, ["--version"]);
-    expect(status).toBe(0);
-    expect(stdout).toContain("from-dist-plain");
-  });
-
-  test("a dev checkout with no dist runs the source through bun", () => {
-    const { root, launcher } = stagedLauncher("ai-eng-launcher-source-");
-    const pkgRoot = dirname(dirname(launcher));
-    mkdirSync(join(pkgRoot, "scripts"), { recursive: true });
-    writeFileSync(join(pkgRoot, "scripts", "build.ts"), "// dev checkout marker\n");
-    mkdirSync(join(pkgRoot, "src"), { recursive: true });
-    writeFileSync(join(pkgRoot, "src", "cli.ts"), "// not executed: the fake bun answers\n");
-    const fakeBin = join(root, "fake-bin");
-    mkdirSync(fakeBin, { recursive: true });
-    writeFileSync(join(fakeBin, "bun"), "#!/bin/sh\necho from-bun-source\n");
-    chmodSync(join(fakeBin, "bun"), 0o755);
-
-    const done = spawnSync(NODE, [launcher, "--version"], {
-      encoding: "utf8",
-      env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH ?? ""}` },
+    expect({ status: done.status ?? 1, stdout: done.stdout ?? "", stderr: done.stderr ?? "" }).toEqual({
+      status: 0,
+      stdout: `ai-eng ${VERSION}\n`,
+      stderr: "",
     });
-    expect(done.status).toBe(0);
-    expect(done.stdout ?? "").toContain("from-bun-source");
+  } finally {
+    rmSync(bunOnlyPath, { recursive: true, force: true });
+  }
+});
+
+test("the npm Node entry reports the exact version through Bun", () => {
+  const done = spawnSync(NODE, [LAUNCHER, "--version"], {
+    encoding: "utf8",
+    env: { ...process.env },
   });
-
-  test("with no binary anywhere, exits 1 with the honest error — never a stack trace", () => {
-    const { launcher } = stagedLauncher("ai-eng-launcher-none-");
-    // No dist, no bun on PATH: the launcher must report the miss, not crash
-    // importing src/cli.ts.
-    const { status, stderr } = spawnSync(NODE, [launcher, "--version"], {
-      encoding: "utf8",
-      env: { ...process.env, PATH: "/usr/bin:/bin" },
-    });
-    expect(status).toBe(1);
-    expect(stderr).toContain("no bun runtime");
-    expect(stderr).not.toContain("Error");
+  expect({ status: done.status ?? 1, stdout: done.stdout ?? "", stderr: done.stderr ?? "" }).toEqual({
+    status: 0,
+    stdout: `ai-eng ${VERSION}\n`,
+    stderr: "",
   });
+});
 
-  test("argv through a symlink still launches (realpath invocation guard)", () => {
-    const { root, launcher } = stagedLauncher("ai-eng-launcher-symlink-");
-    const link = join(root, "ai-eng-link.js");
-    symlinkSync(launcher, link);
-    const dist = join(dirname(dirname(launcher)), "dist");
-    mkdirSync(dist, { recursive: true });
-    writeFileSync(join(dist, BIN_NAME), "#!/bin/sh\necho via-symlink \"$@\"\n");
-    chmodSync(join(dist, BIN_NAME), 0o755);
-
-    const { status, stdout } = run(link, ["--version"]);
-    expect(status).toBe(0);
-    expect(stdout).toContain("via-symlink");
+test("the npm Node entry refuses clearly when Bun is absent", () => {
+  const done = spawnSync(NODE, [LAUNCHER, "--version"], {
+    encoding: "utf8",
+    env: { ...process.env, PATH: "" },
+  });
+  expect({ status: done.status ?? 1, stdout: done.stdout ?? "", stderr: done.stderr ?? "" }).toEqual({
+    status: 1,
+    stdout: "",
+    stderr: "ai-eng: no bun runtime on PATH to run the source.\n  install bun: https://bun.com\n",
   });
 });

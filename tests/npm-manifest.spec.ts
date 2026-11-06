@@ -5,11 +5,14 @@
 // and every install warned 404. The runtime replaces the binaries — engines.bun is
 // the requirement v0.13.0 carried as `requires-python`.
 import { test, expect } from "bun:test";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 const root = join(import.meta.dir, "..");
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+  bin?: Record<string, string>;
+  dependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
   engines?: { bun?: string };
   files?: string[];
@@ -22,16 +25,46 @@ function filesBelow(directory: string): string[] {
   });
 }
 
-function packageFiles(): string[] {
-  return (pkg.files ?? []).flatMap((entry) => {
-    const path = join(root, entry);
-    if (!existsSync(path)) return [];
-    const paths = statSync(path).isDirectory() ? filesBelow(path) : [path];
-    return paths.map((file) => relative(root, file).split(sep).join("/"));
+let packedFilesCache: string[] | undefined;
+
+function packedFiles(): string[] {
+  if (packedFilesCache) return packedFilesCache;
+
+  const result = spawnSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], {
+    cwd: root,
+    encoding: "utf8",
   });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`npm pack dry run failed: ${result.stderr}`);
+
+  const packResults = JSON.parse(result.stdout) as Array<{ files: Array<{ path: string }> }>;
+  if (packResults.length !== 1) throw new Error(`Expected one npm pack result, got ${packResults.length}`);
+  packedFilesCache = packResults[0]!.files.map(({ path }) => path).sort();
+  return packedFilesCache;
 }
 
-test("the package declares no optionalDependencies — the platform scheme is gone", () => {
+function repositoryPaths(paths: string[]): string[] {
+  return paths.map((path) => relative(root, path).split(sep).join("/")).sort();
+}
+
+test("the manifest declares the Bun executable and exact runtime contract", () => {
+  expect(pkg.bin).toEqual({ "ai-eng": "bin/ai-eng.js" });
+  expect(pkg.engines).toEqual({ bun: ">=1.4.0" });
+  expect(pkg.dependencies).toEqual({ "@clack/prompts": "1.7.0", "fast-wrap-ansi": "0.2.2" });
+  expect(pkg.files).toEqual([
+    "bin",
+    "src",
+    "skills",
+    "agents",
+    "scripts/.embed",
+    "templates",
+    "NOTICE.md",
+    "THIRD-PARTY-NOTICES.md",
+    "CHANGELOG.md",
+  ]);
+});
+
+test("the source-only package declares no optional platform dependencies", () => {
   expect(pkg.optionalDependencies).toBeUndefined();
 });
 
@@ -40,21 +73,36 @@ test("the platform-package scripts are gone with the scheme", () => {
   expect(existsSync(join(root, "scripts", "set-platform-deps.ts"))).toBe(false);
 });
 
-test("the runtime the source-only package requires is declared", () => {
-  expect(pkg.engines?.bun).toBeDefined();
+test("npm's packed runtime includes every launcher, source, and embedded asset file", () => {
+  const files = packedFiles();
+  const expectedRuntimeFiles = repositoryPaths(
+    ["bin", "src", "scripts/.embed"].flatMap((directory) => filesBelow(join(root, directory))),
+  );
+  const actualRuntimeFiles = files
+    .filter((path) => path.startsWith("bin/") || path.startsWith("src/") || path.startsWith("scripts/.embed/"))
+    .sort();
+
+  expect(actualRuntimeFiles).toEqual(expectedRuntimeFiles);
+  expect(files.filter((path) => path === "package.json")).toEqual(["package.json"]);
+  expect(files.filter((path) => path.startsWith("dist/"))).toEqual([]);
+  expect(files.filter((path) => path === "scripts/build.ts")).toEqual([]);
 });
 
 test("skills ship in npm and packs do not", () => {
-  expect(pkg.files?.some((path) => path === "skills" || path === "skills/")).toBe(true);
-  const files = packageFiles();
-  expect(files.some((path) => path.startsWith("skills/") && path.endsWith("/SKILL.md"))).toBe(true);
-  expect(files.some((path) => path.startsWith("packs/"))).toBe(false);
+  expect(packedFiles().filter((path) => path.startsWith("skills/"))).toEqual(
+    repositoryPaths(filesBelow(join(root, "skills"))),
+  );
+  expect(packedFiles().filter((path) => path.startsWith("packs/"))).toEqual([]);
 });
 
 test("test-only eval fixtures are absent from the npm package", () => {
-  const files = packageFiles();
-  expect(files.some((path) => /(?:^|\/)verify-tiers\/evals\//.test(path))).toBe(false);
-  expect(files.some((path) => path.startsWith("tests/fixtures/verify-tiers/evals/"))).toBe(false);
+  expect(
+    packedFiles().filter(
+      (path) =>
+        /(?:^|\/)verify-tiers\/evals\//.test(path) ||
+        path.startsWith("tests/fixtures/verify-tiers/evals/"),
+    ),
+  ).toEqual([]);
 });
 
 test("ai-code-review's review and debt workflows live in ai-verify", () => {
