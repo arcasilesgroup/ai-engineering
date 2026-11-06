@@ -1945,3 +1945,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** One quote reader (including ANSI-C) shared by every splitter; constructs the lexer cannot model mark the command unreadable, and every guard denies unreadable text; the home is injected into the resolver.
 - **Lesson:** When a lexer meets syntax it cannot model, report "unreadable" in one place so every guard fails closed — never chase variants per guard. Never fake HOME through `process.env` while Bun can write.
 - **Tags:** review, guards, security, fail-closed
+
+### L267 · 2026-11-06 · production-readiness #2 · review
+- **Failure:** Round 4 found `echo a\ #; git commit -n` treated as a comment, and `git` behind `{`, `!`, `if`, `for`, `command -p`, `env -i`, `nice -n` never judged as git.
+- **Root cause:** The lexer decided "comment" from the last character appended (an escaped space counted); no-verify and self-protect each kept a short prefix list without reserved words or prefix options.
+- **Fix:** The lexer tracks word starts; one `commandIndex` in `shell.ts` skips reserved words, assignments and prefix commands with their options, used by both guards; every `git` word in a segment is judged.
+- **Lesson:** "Which program runs here" must have one answer shared by every guard.
+- **Tags:** review, guards, security, parsing
