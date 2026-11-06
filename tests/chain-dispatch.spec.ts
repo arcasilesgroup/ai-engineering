@@ -17,10 +17,18 @@ import { runChain, TABLE, type ChainOutcome } from "../src/chain/mod.ts";
 
 const cli = join(import.meta.dir, "..", "src", "cli.ts");
 let scratch: string;
+let machineHome: string;
 let cwdBefore: string;
+const homeBefore = process.env.AI_ENG_HOME;
 beforeEach(() => {
   if (!scratch) {
     scratch = mkdtempSync(join(tmpdir(), "ai-eng-dispatch-"));
+    // The loop guard keeps its per-session window under the machine home. Left on the
+    // real one, the fixed "dispatch" session carries calls over from earlier and
+    // concurrent runs, and a third `bun test` in the window is a loop deny, not a rewrite.
+    // It sits outside the scratch repo: a home inside the repo would be ignored.
+    machineHome = mkdtempSync(join(tmpdir(), "ai-eng-dispatch-home-"));
+    process.env.AI_ENG_HOME = machineHome;
     cwdBefore = process.cwd();
     // The gate resolves the repo from the process cwd when the payload carries no
     // cwd of its own — chdir once into the scratch repo, restore in afterAll.
@@ -32,7 +40,10 @@ beforeEach(() => {
 });
 afterAll(() => {
   if (cwdBefore) process.chdir(cwdBefore);
+  if (homeBefore === undefined) delete process.env.AI_ENG_HOME;
+  else process.env.AI_ENG_HOME = homeBefore;
   if (scratch) rmSync(scratch, { recursive: true, force: true });
+  if (machineHome) rmSync(machineHome, { recursive: true, force: true });
 });
 
 const RUN = (payload: Record<string, unknown>, event = "PreToolUse"): ChainOutcome =>
