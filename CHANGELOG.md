@@ -26,6 +26,27 @@
   changes the host's working directory.
 - The checkpoint guard judges where a write lands, so case, link, `cd` and `json.tool -`
   aliases no longer reach the checkpoint file.
+- The installed `ai-eng` command starts with Bun alone (no Node needed), and the package now
+  requires Bun 1.4.4 or later. A smoke test installs the real packed tarball and runs it.
+- CI runs the full test suite on Linux, macOS and Windows.
+- Windows fixes: hooks no longer fail open, because the chain reads stdin before it exits;
+  self-protect matches governed paths written with either slash; network-share paths are
+  never opened; `AI_ENG_HOME` must stay inside its home; and protected home folders stay
+  protected when reached through `..`.
+- The shell guards read redirects and quoting, ANSI-C quoting (`$'...'`) and heredoc
+  delimiters the way the shell does, and find `git` behind shell keywords and prefix
+  commands. Shell text a guard cannot read is denied, and a malformed hook payload is
+  denied instead of crashing the chain.
+- `ai-eng init` and `update` create the machine-level Claude, Codex and Copilot carriers when
+  they are missing.
+- `ai-eng wrap` keeps a run's evidence when the command's output overflows.
+- Receipt retention opens each receipt only once.
+- A release verifies the exact dispatched commit, packs one tarball, records its digest and
+  publishes that same file, with a CycloneDX SBOM that lists only runtime dependencies.
+- Publishing requires a signed, annotated release tag on the dispatched commit, made by an
+  allowlisted key, plus verified redistribution rights for bundled content. Publication
+  stays blocked until the owner resolves the unresolved rows in `NOTICE.md`.
+- The README now states the security boundary: what the guards stop and where they end.
 
 ### 3.0 migration guide (unreleased)
 

@@ -9,6 +9,7 @@ CHANGELOG.md                   User-facing change log
 LEARNINGS.md                   Append-only failure log + promoted Rules
 FILEMAP.md                     This file
 PERMISSIONS.md                 Azure DevOps triage read routes and scope boundaries
+.gitattributes                 Keeps LF line endings on every checkout, Windows included
 docs/
   blueprint.html               Product design context and decisions
   recap.html                   Historical product snapshot; use README.md and the source tree for current guidance
@@ -55,6 +56,8 @@ scripts/
   bench-chain.ts               `bun run bench`: prints the chain's p95 latency; never a gate
   tokens.ts                    `bun run tokens`: report skill-frontmatter and AGENTS-template byte/4 counts
   package-consumer-smoke.ts    Pack (or take `--tarball`), install in temp npm and Bun consumers, run `ai-eng --version`
+  release-sbom.ts              Runtime-only CycloneDX SBOM for a packed tarball, named by its sha256
+  release-policy.ts            Release gate: signed annotated tag on the dispatched SHA by an allowlisted key, verified NOTICE.md rights
   .embed/<skill-name>/scripts/  Generated text payloads for skill scripts
 skills/                        Installed skill canon
   ai-brainstorm/SKILL.md       Interview, classify and record approved feature intent
@@ -77,11 +80,24 @@ tests/
   fixtures/verify-tiers/evals/ Test-only verifier scoring tools and evaluation fixtures
   test-hygiene.spec.ts         No suite writes under tests/; sandboxed suites restore env and cwd
   package-consumer.spec.ts     The packed tarball installs and reports its version, Bun-only PATH included
+  release-sbom.spec.ts         The SBOM lists only the installed runtime graph, deterministically
+  release-workflow.spec.ts     release.yml builds from the dispatched SHA, packs once and publishes that tarball
+  release-policy.spec.ts       Tag, signer and NOTICE.md refusals of the release policy
+  chain-contract.spec.ts       Dispatcher receipts, repo resolution, verdict cache and malformed-payload denial
+  checkpoint-guard-contract.spec.ts  Exact checkpoint-guard refusals and allowed writes
+  self-protect-contract.spec.ts  Exact self-protect verdict per shell shape and the layer that gives it
+  shell-guard-contract.spec.ts  The shared shell reader: segments, quoting, redirects and substitutions
+  guards-contract.spec.ts      Exact verdicts of the smaller guards and the override switch
+  floor-contract.spec.ts       Uninstall's git-template restore and pre-push through the hook entry
   receipts-retention.spec.ts   Daily, batched receipt retention triggered by the chain
   fixtures/
     env-snapshot.preload.ts    Records env and cwd before and after every suite for test-hygiene.spec.ts
     sandbox-env.ts             Snapshot/restore of AI_ENG_HOME, PI_CODING_AGENT_DIR, GIT_CONFIG_GLOBAL for sandboxed suites
     private-stdin.ts           A suite-owned stdin for prompt-driving suites, so runner input never answers a prompt
+    fake-command.ts            Writes a PATH stand-in for a tool: shell script on POSIX, batch file on Windows
+    git-recorder.ts            Records the git commands a test's code starts, on every platform
+    gitleaks-shim.ts           Compiles and configures a `gitleaks` stand-in the floor finds on PATH
+    gitleaks-shim-main.ts      The program behind gitleaks-shim.ts; answers from gitleaks-shim.json
     worktree-command.ts        In-process worktree command harness with isolated cwd, env and captured output
     triage-azure-signals-preview.mjs  Synthetic writer preview on loopback, memory-only reports
 templates/
