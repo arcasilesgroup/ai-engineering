@@ -99,7 +99,7 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 1, "findings": ["Attempt 1 failed: stale chain bundle; first multi-OS run — ubuntu 74 dangling-process timeouts (Bun 1.4.2 Linux spawnSync bug), windows ~300 fails (git os.devNull, short names, chain stdin fail-open, self-protect separators, POSIX fixtures), CI-only token-budget, carrier creation refused, demo inside governed checkout (L254-L261).", "Pass at 816ad180: platforms run 42152053523 full serial suite green on ubuntu, macOS and windows plus init/doctor/uninstall; check run 42152048027 (typecheck, lint, full suite, arch, build, doctor, security, SonarCloud) green; e2e and ai-eng-check green. Retention backlog case 2930→2375 ms; each deleted receipt opened once."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "failed", "attempts": 1, "findings": ["MAJOR src/wrap/index.ts:76-79 treats every spawnSync error but timeout as 'could not start sh' (127), including ENOBUFS (>~1 MiB output): captured output, painted failures, receipt and log dropped.", "MINOR src/guards/self-protect.ts:226 isNetworkPath treats \\\\?\\GLOBALROOT\\Device\\Mup paths as local (SMB credential leak path); no tests for UNC/device paths.", "MINOR adapters.ts uninstall refuses to remove a settings file whose bytes match the recorded install hash (R28 asymmetry).", "MINOR win32 skips of git-shim CLI cases (argv quoting) in worktree-command; package.json engines.bun >=1.4.0 allows the Linux spawnSync bug."] }
       },
       "status": "pending"
     },
