@@ -56,7 +56,7 @@
       "gates": {
         "behavior": { "status": "passed", "attempts": 0, "findings": ["Focused 14/14, lint, typecheck, build green. Full serial suite 1747 pass / 16 skip / 1 fail: pre-existing artifact-scroll-spy failure from the approved brainstorm's minified script (on main since 40a18cab); fixed in 214adac5, scroll-spy 4/4."] },
         "ui": { "status": "n/a", "attempts": 0, "findings": [] },
-        "review": { "status": "pending", "attempts": 0, "findings": [] }
+        "review": { "status": "failed", "attempts": 1, "findings": ["MAJOR tests/launcher.spec.ts:47-101 runs the real checkout launcher, so results depend on dist/ (built checkout: missing-Bun refusal test gets exit 0); deleted staged coverage for dist preference, dev-checkout detection, published install without binary, leftover platform-package refusal.", "MINOR launcher.spec.ts:61 Bun-only PATH dir created inside repo root (R41).", "MINOR Windows: smoke bypasses installed .cmd shim; PATH='' launcher test.", "MINOR smoke script: shell:true unquoted paths on Windows; tar -tzf needs --force-local with GNU tar on Windows."] }
       },
       "status": "pending"
     },
