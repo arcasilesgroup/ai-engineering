@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.0.0
+
+### Major Changes
+
+- [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Prepare the 3.0 release with the breaking CLI and checkpoint workflow changes.
+
+### Minor Changes
+
+- [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Add guarded `ai-eng worktree rebase <slug>` and human-reviewed `ai-eng worktree merge <slug>` commands for managed feature worktrees.
+  
+  Add the local workspace hub with governed project discovery, evidence-backed worktree filters and history, and persisted search-root settings with native folder selection.
+
+- [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Add local worktree lifecycle tracking and remove the checkpoint-plan approval stop.
+
+- [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Production readiness: the installed command starts with Bun (no Node needed) and a smoke test installs the real packed tarball; the full test suite runs on Linux, macOS and Windows; a release verifies the exact dispatched commit, packs once, publishes that same tarball and ships a runtime-only CycloneDX SBOM; publication requires an annotated tag signed by an allowlisted key and verified redistribution rights. Windows fixes close fail-open paths in the hook chain and self-protect, and the guards now deny shell text they cannot read.
+
 ## Unreleased
 
 - The command-scope policy now defaults to `4667` for every install and new project
