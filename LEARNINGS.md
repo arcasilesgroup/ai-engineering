@@ -1931,3 +1931,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** A per-file scratch machine home, restored and deleted in `afterAll`.
 - **Lesson:** A test that runs the chain in-process must point `AI_ENG_HOME` at a scratch folder; the hygiene check only sees env and `tests/` folders, not writes into the real home.
 - **Tags:** behavior, tests, isolation, flaky
+
+### L265 · 2026-11-06 · production-readiness #2 · review
+- **Failure:** The redirect fix let `git commit -m \> --no-verify` through; on Windows `echo x > ~/x/../.ssh/authorized_keys` escaped the protected-home rule.
+- **Root cause:** A respelling pass over raw text spaced out an escaped `>` into a real operator; policy resolved `..` only against a home written with `/`, not the Windows home as Git Bash writes it.
+- **Fix:** Redirect recognition lives inside the quote/escape-aware lexer; policy maps the Windows home to its Git Bash form before resolving `..`.
+- **Lesson:** A respelling pass must follow the same quote and escape rules as the parser that reads its output, and path scoping must use the shell's own spelling of home.
+- **Tags:** review, guards, security, windows
