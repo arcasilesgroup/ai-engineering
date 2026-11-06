@@ -140,7 +140,7 @@
         "bun test --parallel=1",
         "bun run build"
       ],
-      "changed_files": [],
+      "changed_files": [".github/workflows/release.yml", "scripts/release-sbom.ts", "scripts/package-consumer-smoke.ts", "tests/release-sbom.spec.ts", "tests/release-workflow.spec.ts", "tests/package-consumer.spec.ts", "CONTRIBUTING.md"],
       "ui": null,
       "gates": {
         "behavior": { "status": "pending", "attempts": 0, "findings": [] },
