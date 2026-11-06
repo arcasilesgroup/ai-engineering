@@ -84,6 +84,7 @@ the judgment calls where they belong: with you.
 - [The idea](#the-idea)
 - [Why this exists](#why-this-exists)
 - [Security](#security)
+- [Security boundary](#security-boundary)
 - [Install](#install)
 - [Quick start](#quick-start)
 - [How a tool call is decided](#how-a-tool-call-is-decided)
@@ -115,6 +116,19 @@ Security is the product, so it comes early. A guard bypass is critical by defini
 - **One optional outbound metadata read.** `init` and `doctor` check the package registry
   at most once per 24 hours; set `AI_ENG_NO_UPDATE_NOTICES=1` to disable it. Offline
   checks stay silent.
+
+## Security boundary
+
+The guards stop an agent's mistakes. They are not a sandbox, so know where they end:
+
+The Copilot CLI adapter can fail open. If the hook command fails or times out, Copilot CLI
+may let the tool call proceed without a verdict.
+
+Command guards read the visible command text. They do not sandbox opaque programs or
+scripts prepared in earlier calls: a script written in one call and run in a later call
+does whatever it contains.
+
+For untrusted code, use OS-level isolation: a container, a VM or an OS sandbox.
 
 ## Install
 
@@ -435,6 +449,11 @@ CLI. After installing it, run `vhs quickstart.tape` or `vhs chain.tape` from
 Versioning runs on [changesets](.changeset/README.md). Releases go out from a dispatched
 workflow with two channels, `integration` (`next`) and `production` (`latest`), each building
 the cross-compiled binaries, the SBOM and the attestations.
+
+**Releases.** Publication requires a signed annotated tag from an allowlisted fingerprint
+and verified redistribution rights for every row of [NOTICE.md](NOTICE.md)
+(`scripts/release-policy.ts` checks both). Publication is blocked until the owner resolves
+the items listed under "Open H4 issues" in NOTICE.md.
 
 ## Maintainers
 

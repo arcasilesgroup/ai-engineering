@@ -96,6 +96,16 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
   typecheck, full suite, build), builds the 8 binaries, packs one npm tarball —
   smoke-tested and described by a runtime-only CycloneDX SBOM — and publishes that
   exact tarball, checked against its digest, under OIDC trusted publishing.
+- Before anything is built, the `policy` job runs `scripts/release-policy.ts`: the
+  release tag (`v` + the `package.json` version) must already exist as an annotated tag
+  SSH-signed by an allowlisted key, and every row of `NOTICE.md` must read `verified`.
+  An owner sets two repository variables after verifying the signer:
+  `RELEASE_ALLOWED_SIGNERS` (the key's `allowed_signers` line, `<principal> <public key>`)
+  and `RELEASE_SIGNER_FINGERPRINTS` (its `SHA256:` fingerprint from
+  `ssh-keygen -lf <key>.pub`; comma- or newline-separated). The release owner signs and
+  pushes the tag before dispatching:
+  `git -c gpg.format=ssh -c user.signingKey=<path to key>.pub tag -s vX.Y.Z -m "vX.Y.Z"`
+  then `git push origin vX.Y.Z`. Never move or re-sign an existing tag; cut a new version.
 
 ## Reporting bugs and security issues
 

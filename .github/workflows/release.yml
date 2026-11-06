@@ -64,11 +64,66 @@ jobs:
       - run: bun test --parallel=1
       - run: bun run build
 
+  # Nothing is built or published unless the release tag already exists, is an annotated
+  # tag SSH-signed by an allowlisted key, and every row of NOTICE.md records verified
+  # redistribution rights. The owner configures the two repository variables below
+  # (Settings → Secrets and variables → Actions → Variables) only after verifying the
+  # signer in person: RELEASE_ALLOWED_SIGNERS holds the key's allowed_signers line and
+  # RELEASE_SIGNER_FINGERPRINTS its `ssh-keygen -lf` SHA256 fingerprint. Unset, the
+  # policy refuses. No fingerprint is ever committed here. The version and channel are
+  # resolved here too, so a mismatch also stops the run before anything is built; publish
+  # reads the tag from this job's outputs.
+  policy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.flags.outputs.tag }}
+      prerelease: ${{ steps.flags.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+      - run: npm install -g bun@1.4.4
+      - name: Resolve the version — and what it means
+        id: flags
+        env:
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./package.json").version')"
+          flags="$(bun scripts/release-flags.ts "$version")"
+          tag="$(printf '%s\n' "$flags" | sed -n 's/^tag=//p')"
+          prerelease="$(printf '%s\n' "$flags" | sed -n 's/^prerelease=//p')"
+          # The version decides what it is; the channel declares what we mean. They have
+          # to agree, or the run stops before publishing anything. (The values are read
+          # from the command, not from this step's own outputs: GitHub resolves
+          # `steps.<id>.outputs` before the step runs, so those would be empty here.)
+          if [ "$CHANNEL" = "integration" ] && [ "$prerelease" != "true" ]; then
+            echo "::error::$version is a final version — integration ships candidates. Use channel=production, or let changesets cut a prerelease."
+            exit 1
+          fi
+          if [ "$CHANNEL" = "production" ] && [ "$prerelease" = "true" ]; then
+            echo "::error::$version is a prerelease — production ships final versions. Use channel=integration."
+            exit 1
+          fi
+          { echo "tag=$tag"; echo "prerelease=$prerelease"; } >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL · version=$version · tag=$tag · prerelease=$prerelease"
+
+      - name: The release tag is signed by an allowlisted key and every right is verified
+        env:
+          TAG: ${{ steps.flags.outputs.tag }}
+          RELEASE_ALLOWED_SIGNERS: ${{ vars.RELEASE_ALLOWED_SIGNERS }}
+          RELEASE_SIGNER_FINGERPRINTS: ${{ vars.RELEASE_SIGNER_FINGERPRINTS }}
+        run: bun scripts/release-policy.ts --tag "$TAG"
+
   # One tarball, packed once. It is smoke-tested as a consumer installs it, described
   # by an SBOM of what that install pulls in, and its digest travels with it: publish
   # ships this file, not a second pack of the checkout.
   package:
-    needs: verify
+    needs: [verify, policy]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -103,7 +158,7 @@ jobs:
             ai-engineering.cdx.json
 
   build:
-    needs: verify
+    needs: [verify, policy]
     strategy:
       fail-fast: false
       matrix:
@@ -177,7 +232,7 @@ jobs:
           path: dist/ai-eng-*
 
   publish:
-    needs: [build, package]
+    needs: [policy, build, package]
     runs-on: ubuntu-latest
     # Required reviewers live on this environment (Settings → Environments): the job
     # waits for an approval, and the environment's secrets are not exposed while it
@@ -207,31 +262,6 @@ jobs:
         with:
           pattern: ai-eng-*
           path: dist-artifacts
-
-      - name: Resolve the version — and what it means
-        id: flags
-        env:
-          CHANNEL: ${{ inputs.channel }}
-        run: |
-          set -euo pipefail
-          version="$(node -p 'require("./package.json").version')"
-          flags="$(bun scripts/release-flags.ts "$version")"
-          tag="$(printf '%s\n' "$flags" | sed -n 's/^tag=//p')"
-          prerelease="$(printf '%s\n' "$flags" | sed -n 's/^prerelease=//p')"
-          # The version decides what it is; the channel declares what we mean. They have
-          # to agree, or the run stops before publishing anything. (The values are read
-          # from the command, not from this step's own outputs: GitHub resolves
-          # `steps.<id>.outputs` before the step runs, so those would be empty here.)
-          if [ "$CHANNEL" = "integration" ] && [ "$prerelease" != "true" ]; then
-            echo "::error::$version is a final version — integration ships candidates. Use channel=production, or let changesets cut a prerelease."
-            exit 1
-          fi
-          if [ "$CHANNEL" = "production" ] && [ "$prerelease" = "true" ]; then
-            echo "::error::$version is a prerelease — production ships final versions. Use channel=integration."
-            exit 1
-          fi
-          { echo "tag=$tag"; echo "prerelease=$prerelease"; } >> "$GITHUB_OUTPUT"
-          echo "channel=$CHANNEL · version=$version · tag=$tag · prerelease=$prerelease"
 
       - name: The released revision must be on main
         run: |
@@ -287,7 +317,7 @@ jobs:
       # nothing half-published that a human has to unpick.
       - name: Publish to npm (the registry channel)
         env:
-          TAG: ${{ steps.flags.outputs.tag }}
+          TAG: ${{ needs.policy.outputs.tag }}
           CHANNEL: ${{ inputs.channel }}
         run: |
           set -euo pipefail
@@ -310,8 +340,8 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.flags.outputs.tag }}
-          PRERELEASE: ${{ steps.flags.outputs.prerelease }}
+          TAG: ${{ needs.policy.outputs.tag }}
+          PRERELEASE: ${{ needs.policy.outputs.prerelease }}
         run: |
           set -euo pipefail
           mapfile -t files < <(find dist-artifacts -type f -name 'ai-eng-*' ! -name '*.map')

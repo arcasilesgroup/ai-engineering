@@ -170,7 +170,7 @@ function verifiedNotice(fixture: Fixture): string {
   return writeNotice(fixture, [...NOTICE_HEAD, ...NOTICE_TABLE_HEADER, ...VERIFIED_ROWS, ...NOTICE_TAIL]);
 }
 
-type PolicyArgs = { tag?: string; allowedSigners?: string; signerFingerprints?: string; noticePath: string };
+type PolicyArgs = { tag?: string; allowedSigners?: string | undefined; signerFingerprints?: string | undefined; noticePath: string };
 
 /** Evaluates in-process with the fixture's isolated git configuration in effect, then
  *  puts the suite's environment back exactly as it was. */
@@ -514,7 +514,7 @@ describe("release.yml — the policy job gates every publication channel", () =>
   };
   const transitiveNeeds = (name: string): Set<string> => {
     const seen = new Set<string>();
-    const pending = needsOf(name);
+    const pending = [...needsOf(name)];
     for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
       if (seen.has(next)) continue;
       seen.add(next);

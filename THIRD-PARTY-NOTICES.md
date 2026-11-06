@@ -14,6 +14,13 @@ Bundled third-party content:
 - writing-agent-behavior (braintrustdata/agentbehavior) — Apache-2.0 — © Braintrust + Basis
 - Loop-Engineering, design-orchestrator (claude-design-skills), graph-engineering,
   ai-audit-design — integrated with attribution; license issues open (H4)
+- headstart (ai-architect) — MIT declared, but the cited upstream does not resolve to
+  this content; redistribution rights unresolved (H4)
+- agit-secret-guard (the spoken-secret classifier in `src/guards/spoken-secret.ts`) —
+  supplied locally, license unknown; redistribution rights unresolved (H4)
+
+NOTICE.md's Redistribution column records which rows are verified; publication is
+refused while any row is unresolved (`scripts/release-policy.ts`).
 
 Not bundled (offered as install commands only, §14.1): caveman, engram,
 impeccable, hallmark, shadcn, astryx, emil-design-eng, ui-ux-pro-max, tasteskill,
