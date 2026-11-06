@@ -1889,3 +1889,24 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Windows-aware fake commands, a compiled gitleaks shim and a git recorder; wrap uses `sh` from PATH with an honest 127; unquoted npm; explicit `/` in TOML and link text; POSIX-only properties skip on win32 with a reason.
 - **Lesson:** A test must build its own premise with platform-neutral stand-ins; never rely on `/bin/sh`, `:` or the CI checkout's git state.
 - **Tags:** behavior, windows, tests, fixtures
+
+### L259 · 2026-11-06 · production-readiness #2 · behavior
+- **Failure:** On Windows self-protect took 22 s on URLs in shell commands; two request-changes cases failed deterministically.
+- **Root cause:** A `//host/...` fragment resolves to a network share on Windows, so canonicalisation opened a connection per URL (sending the machine's login credentials); the transaction folder repeated the slug and crossed the 260-character path limit.
+- **Fix:** Judge network paths by their text and never open them; name the folder `.ai-eng-changes-<uuid>`.
+- **Lesson:** Never let a guard touch a `//host` path on Windows, and keep scratch paths short.
+- **Tags:** behavior, windows, security, paths
+
+### L260 · 2026-11-06 · production-readiness #2 · behavior
+- **Failure:** CI `doctor` failed "machine carrier ~/.claude/settings.json missing → ai-eng update"; `update --yes` and `init` left it missing ("unavailable on this platform") on every OS.
+- **Root cause:** The fail-closed rule for machine settings (L226) refused every change, including creating a missing file, so no command could install the claude, codex or copilot carriers.
+- **Fix:** Create a missing settings file with an exclusive, no-follow open inside the validated folder and record its identity; replacing or removing an existing file stays refused.
+- **Lesson:** Fail closed on mutations you cannot bind to a file's identity; an exclusive create can be bound, and refusing it turns the remedy into a no-op.
+- **Tags:** behavior, carriers, fail-closed
+
+### L261 · 2026-11-06 · production-readiness #2 · behavior
+- **Failure:** The mutation dry run failed `config-command` frame tests (no `┌`) and a `git add` in token-budget.
+- **Root cause:** A doctor test replaced `src/ui.ts`'s frame function and never restored it, leaking into later files in one-process runs (Stryker, Linux file order); the Stryker sandbox is an ignored folder, so a plain `git add` is refused.
+- **Fix:** Restore stand-ins in `finally`; `git add --force` into the test's private index.
+- **Lesson:** A test that replaces a module function must restore it in `finally` — file order differs by OS and runner.
+- **Tags:** behavior, tests, isolation, mutation
