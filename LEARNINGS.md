@@ -1938,3 +1938,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Redirect recognition lives inside the quote/escape-aware lexer; policy maps the Windows home to its Git Bash form before resolving `..`.
 - **Lesson:** A respelling pass must follow the same quote and escape rules as the parser that reads its output, and path scoping must use the shell's own spelling of home.
 - **Tags:** review, guards, security, windows
+
+### L266 · 2026-11-06 · production-readiness #2 · review
+- **Failure:** Round 3 found more parser escapes: ANSI-C quoting hid a clobber redirect onto a git hook; `${x:-> --no-verify}` and `-m {x,--no-verify}` hid skip flags; a quoted word with a space hid a write to `~/.ssh`. A test faking a Windows HOME made Bun write its cache under a relative `C:/` folder in the repo.
+- **Root cause:** Each guard special-cased the shell syntax it knew; anything the lexer could not model was read as harmless text. The fake HOME went through `process.env`.
+- **Fix:** One quote reader (including ANSI-C) shared by every splitter; constructs the lexer cannot model mark the command unreadable, and every guard denies unreadable text; the home is injected into the resolver.
+- **Lesson:** When a lexer meets syntax it cannot model, report "unreadable" in one place so every guard fails closed — never chase variants per guard. Never fake HOME through `process.env` while Bun can write.
+- **Tags:** review, guards, security, fail-closed
