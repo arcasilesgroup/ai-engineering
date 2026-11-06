@@ -3862,7 +3862,7 @@ function rewrite(command) {
 }
 
 // src/receipts.ts
-import { closeSync as closeSync2, constants as constants2, openSync as openSync2, writeFileSync as writeFileSync3, readFileSync as readFileSync11, readdirSync as readdirSync2, mkdirSync as mkdirSync3, lstatSync as lstatSync4, renameSync, rmSync, unlinkSync as unlinkSync3 } from "fs";
+import { closeSync as closeSync2, constants as constants2, openSync as openSync2, writeFileSync as writeFileSync3, readFileSync as readFileSync11, readdirSync as readdirSync2, mkdirSync as mkdirSync3, lstatSync as lstatSync4, realpathSync as realpathSync8, renameSync, rmSync, unlinkSync as unlinkSync3 } from "fs";
 import { dirname as dirname4, join as join11 } from "path";
 import { createHash as createHash5, randomUUID } from "crypto";
 
@@ -3937,8 +3937,7 @@ function withSafeProjectParent(root, absolute, action) {
 function withCheckedProjectParent(root, absolute, action) {
   try {
     const canonicalRoot = realpathSync7(root);
-    const parent = dirname3(absolute);
-    if (!lstatSync3(parent).isDirectory() || realpathSync7(parent) !== parent || !pathIsWithin(canonicalRoot, parent))
+    if (!isCheckedFolder(canonicalRoot, dirname3(absolute)))
       return false;
     return action(absolute);
   } catch (error) {
@@ -3947,11 +3946,39 @@ function withCheckedProjectParent(root, absolute, action) {
     throw error;
   }
 }
+function isCheckedFolder(canonicalRoot, folder) {
+  return lstatSync3(folder).isDirectory() && realpathSync7(folder) === folder && pathIsWithin(canonicalRoot, folder);
+}
+function takeCheckedProjectFile(canonicalRoot, absolute) {
+  const folder = dirname3(absolute);
+  let descriptor = null;
+  try {
+    if (!isCheckedFolder(canonicalRoot, folder))
+      return null;
+    const entryBefore = lstatSync3(absolute);
+    if (entryBefore.isSymbolicLink() || !entryBefore.isFile())
+      return null;
+    descriptor = openSync(absolute, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const opened = fstatSync(descriptor);
+    if (!sameFileVersion(entryBefore, opened))
+      return null;
+    const content = readFileSync10(descriptor);
+    const afterRead = fstatSync(descriptor);
+    if (!sameFileVersion(opened, afterRead) || content.length !== afterRead.size)
+      return null;
+    if (!isCheckedFolder(canonicalRoot, folder) || !sameFileVersion(afterRead, lstatSync3(absolute)))
+      return null;
+    unlinkSync2(absolute);
+    return content;
+  } catch {
+    return null;
+  } finally {
+    if (descriptor !== null)
+      closeSync(descriptor);
+  }
+}
 function sameFileVersion(left, right) {
   return left.isFile() && right.isFile() && left.dev === right.dev && left.ino === right.ino && left.size === right.size && left.mtimeMs === right.mtimeMs && left.ctimeMs === right.ctimeMs;
-}
-function matchesProjectFile(stat, snapshot) {
-  return stat.isFile() && stat.dev === snapshot.dev && stat.ino === snapshot.ino && stat.size === snapshot.size && stat.mtimeMs === snapshot.mtimeMs && stat.ctimeMs === snapshot.ctimeMs;
 }
 function readProjectFileSnapshot(root, absolute, bindParent = withSafeProjectParent) {
   let snapshot = null;
@@ -3990,61 +4017,6 @@ function readProjectFileSnapshot(root, absolute, bindParent = withSafeProjectPar
     }
   });
   return didRead ? snapshot : null;
-}
-function fileMatchesSnapshotAtPath(name, descriptor, snapshot) {
-  try {
-    const beforeRead = fstatSync(descriptor);
-    if (!matchesProjectFile(beforeRead, snapshot))
-      return false;
-    const content = Buffer.alloc(snapshot.size);
-    let bytesRead = 0;
-    while (bytesRead < content.length) {
-      const count = readSync(descriptor, content, bytesRead, content.length - bytesRead, bytesRead);
-      if (count === 0)
-        return false;
-      bytesRead += count;
-    }
-    const afterRead = fstatSync(descriptor);
-    const currentEntry = lstatSync3(name);
-    return content.equals(snapshot.content) && matchesProjectFile(afterRead, snapshot) && sameFileVersion(beforeRead, afterRead) && sameFileVersion(afterRead, currentEntry);
-  } catch {
-    return false;
-  }
-}
-function openMatchingProjectFile(name, snapshot, flags) {
-  let descriptor = null;
-  let isValid = false;
-  try {
-    const entryBefore = lstatSync3(name);
-    if (!matchesProjectFile(entryBefore, snapshot))
-      return null;
-    descriptor = openSync(name, flags | constants.O_NOFOLLOW);
-    const opened = fstatSync(descriptor);
-    if (!sameFileVersion(entryBefore, opened) || !fileMatchesSnapshotAtPath(name, descriptor, snapshot))
-      return null;
-    isValid = true;
-    return descriptor;
-  } catch {
-    return null;
-  } finally {
-    if (descriptor !== null && !isValid)
-      closeSync(descriptor);
-  }
-}
-function unlinkProjectPath(root, absolute, snapshot, bindParent = withSafeProjectParent) {
-  return bindParent(root, absolute, (name) => {
-    const descriptor = openMatchingProjectFile(name, snapshot, constants.O_RDONLY);
-    if (descriptor === null)
-      return false;
-    try {
-      if (!fileMatchesSnapshotAtPath(name, descriptor, snapshot))
-        return false;
-      unlinkSync2(name);
-      return true;
-    } finally {
-      closeSync(descriptor);
-    }
-  });
 }
 function pathIsWithin(root, candidate) {
   const pathFromRoot = relative3(root, candidate);
@@ -4271,6 +4243,9 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
     return null;
   const { stale, stored } = listing;
   stale.sort((a, b) => a.stamp < b.stamp ? -1 : a.stamp > b.stamp ? 1 : 0);
+  const canonicalRoot = canonicalPath(root);
+  if (canonicalRoot === null)
+    return null;
   const limit = maxDeletes ?? stale.length;
   const tally = emptyTally();
   let deleted = 0;
@@ -4279,15 +4254,14 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
     if (deleted >= limit)
       break;
     consumed += 1;
-    const path = join11(folder, entry.name);
-    const snapshot = readProjectFileSnapshot(root, path, withCheckedProjectParent);
-    if (snapshot === null || !unlinkProjectPath(root, path, snapshot, withCheckedProjectParent))
+    const content = takeCheckedProjectFile(canonicalRoot, join11(folder, entry.name));
+    if (content === null)
       continue;
     deleted += 1;
     if (!entry.name.endsWith(".json"))
       continue;
     try {
-      tallyReceipt(JSON.parse(snapshot.content.toString("utf8")), tally);
+      tallyReceipt(JSON.parse(content.toString("utf8")), tally);
     } catch {}
   }
   if (deleted > 0)
@@ -4297,6 +4271,13 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
     return true;
   });
   return { deleted, hasBacklog: consumed < stale.length };
+}
+function canonicalPath(path) {
+  try {
+    return realpathSync8(path);
+  } catch {
+    return null;
+  }
 }
 function retainReceipts(root, now = Date.now()) {
   try {
