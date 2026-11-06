@@ -1031,7 +1031,9 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
     return { code: 1, out: "", err: `worktree request-changes: cannot commit the checkpoint: ${identity.message}; no files were changed.\n` };
   }
 
-  const transactionPath = join(root, `.request-changes-${slug}-${randomUUID()}`);
+  // No slug in the name: the checkpoint path below repeats it, and with the temporary
+  // file's UUID a long slug pushed paths past Windows' 260-character MAX_PATH.
+  const transactionPath = join(root, `.ai-eng-changes-${randomUUID()}`);
   const added = git(repo, ["worktree", "add", "--detach", transactionPath, expectedCheckpointCommit]);
   if (added.status !== 0) {
     return {

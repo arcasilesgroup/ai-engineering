@@ -216,6 +216,22 @@ function slashed(path: string): string {
   return sep === "\\" ? path.replaceAll("\\", "/") : path;
 }
 
+/** On Windows `//host/share` — the tail of every URL, `https://example.com/i.sh` — resolves
+ *  to a UNC path, and opening one connects to that host over SMB: seconds per name, and the
+ *  machine's NTLM credentials offered to whoever answers. A network path is judged by its
+ *  text alone; it is never resolved. Device paths (`\\?\C:\`, `\\.\`) stay local. */
+function isNetworkPath(path: string): boolean {
+  if (sep !== "\\") return false;
+  const native = path.replaceAll("/", "\\");
+  return native.startsWith("\\\\") && !/^\\\\[?.]\\(?!UNC\\)/i.test(native);
+}
+
+/** realpathSync for a local path; a network path throws, so callers keep its text form. */
+function localRealpath(path: string): string {
+  if (isNetworkPath(path)) throw new Error(`${path} is a network path and is never opened`);
+  return realpathSync(path);
+}
+
 function expandBraces(pattern: string, found: string[] = []): string[] {
   const group = /\{([^{}]*,[^{}]*)\}/.exec(pattern);
   if (group === null) {
@@ -248,6 +264,8 @@ function pathCandidates(word: string, bases: string[]): string[] | null {
           continue;
         }
         const isRooted = isAbsolute(pattern);
+        // A scan from a network directory would open it: too broad to read, so it denies.
+        if (isNetworkPath(isRooted ? pattern : base)) return null;
         let count = 0;
         try {
           for (const match of new Bun.Glob(isRooted ? pattern.slice(1) : pattern).scanSync({ cwd: isRooted ? "/" : base, dot: true, absolute: true, onlyFiles: false })) {
@@ -266,7 +284,7 @@ function pathCandidates(word: string, bases: string[]): string[] | null {
 function isAncestorOfProtected(paths: ProtectedPaths, candidate: string): boolean {
   let canonical = candidate;
   try {
-    canonical = realpathSync(candidate);
+    canonical = localRealpath(candidate);
   } catch {
     /* not there yet */
   }
@@ -784,14 +802,14 @@ function offendingTarget(paths: ProtectedPaths, target: string, bases: string[])
     // the tmpdir alias of a governed path evades (same canon the command branch uses).
     let canonical = resolved;
     try {
-      canonical = realpathSync(resolved);
+      canonical = localRealpath(resolved);
     } catch {
       // Not-yet-existing file: canonicalize the longest existing prefix.
       let prefix = parse(resolved).root;
       for (const part of resolved.slice(prefix.length).split(sep)) {
         const next = join(prefix, part);
         try {
-          prefix = realpathSync(next);
+          prefix = localRealpath(next);
         } catch {
           prefix = next;
         }

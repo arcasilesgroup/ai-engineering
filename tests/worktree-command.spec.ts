@@ -190,7 +190,8 @@ function parseWorktreeEntries(registrations: string): WorktreeRegistration[] {
       const branchLine = lines.find((line) => line.startsWith("branch "));
       const headLine = lines.find((line) => line.startsWith("HEAD "));
       return {
-        path: pathLine.slice("worktree ".length),
+        // git prints `C:/...` on Windows; resolve gives the native form the product reports.
+        path: resolve(pathLine.slice("worktree ".length)),
         branch: branchLine?.slice("branch ".length),
         head: headLine?.slice("HEAD ".length),
       };
@@ -691,6 +692,9 @@ function initRepo(dir: string): string {
   git(["config", "user.name", "Ada Lovelace"], dir);
   git(["config", "user.email", "ada@example.com"], dir);
   git(["config", "commit.gpgsign", "false"], dir);
+  // Every commit otherwise spawns `git maintenance run --auto`: a throwaway repo never
+  // needs it, and on Windows each extra process is what pushes a two-merge test past 5 s.
+  git(["config", "maintenance.auto", "false"], dir);
   writeFileSync(join(dir, "README.md"), "# fixture\n");
   git(["add", "-A"], dir);
   git(["commit", "-q", "-m", "fixture base"], dir);
@@ -2358,7 +2362,8 @@ describe("ai-eng worktree rm (checkpoint 4)", () => {
     expect(branchNames(repo)).toContain("feat/alpha");
   });
 
-  test("rm strips terminal controls from ignored filenames", () => {
+  // Windows forbids control characters in file names, so no such ignored file can exist there.
+  test.skipIf(process.platform === "win32")("rm strips terminal controls from ignored filenames", () => {
     const repo = tempRepo();
     const root = defaultRoot(repo);
     cleanups.push(root);

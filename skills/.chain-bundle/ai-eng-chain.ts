@@ -1219,6 +1219,17 @@ var EMBEDDED_PATH = /(?:~|\.{1,2})?\/?[\w.@+-]*(?:\/[\w.@+-]+)+|\.ai-engineering
 function slashed(path) {
   return sep2 === "\\" ? path.replaceAll("\\", "/") : path;
 }
+function isNetworkPath(path) {
+  if (sep2 !== "\\")
+    return false;
+  const native = path.replaceAll("/", "\\");
+  return native.startsWith("\\\\") && !/^\\\\[?.]\\(?!UNC\\)/i.test(native);
+}
+function localRealpath(path) {
+  if (isNetworkPath(path))
+    throw new Error(`${path} is a network path and is never opened`);
+  return realpathSync2(path);
+}
 function expandBraces(pattern, found = []) {
   const group = /\{([^{}]*,[^{}]*)\}/.exec(pattern);
   if (group === null) {
@@ -1251,6 +1262,8 @@ function pathCandidates(word, bases) {
           continue;
         }
         const isRooted = isAbsolute2(pattern);
+        if (isNetworkPath(isRooted ? pattern : base))
+          return null;
         let count = 0;
         try {
           for (const match of new Bun.Glob(isRooted ? pattern.slice(1) : pattern).scanSync({ cwd: isRooted ? "/" : base, dot: true, absolute: true, onlyFiles: false })) {
@@ -1267,7 +1280,7 @@ function pathCandidates(word, bases) {
 function isAncestorOfProtected(paths, candidate) {
   let canonical = candidate;
   try {
-    canonical = realpathSync2(candidate);
+    canonical = localRealpath(candidate);
   } catch {}
   const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute2(path))];
   return protectedRoots.some((root) => {
@@ -1728,13 +1741,13 @@ function offendingTarget(paths, target, bases) {
     const resolved = isAbsolute2(expanded) ? resolve3(expanded) : resolve3(base, expanded);
     let canonical = resolved;
     try {
-      canonical = realpathSync2(resolved);
+      canonical = localRealpath(resolved);
     } catch {
       let prefix = parse(resolved).root;
       for (const part of resolved.slice(prefix.length).split(sep2)) {
         const next = join4(prefix, part);
         try {
-          prefix = realpathSync2(next);
+          prefix = localRealpath(next);
         } catch {
           prefix = next;
         }

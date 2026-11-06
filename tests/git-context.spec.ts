@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { embeddedTemplate } from "../src/embed.ts";
 import { loadConfig } from "../src/env.ts";
 import { resolveContext } from "../src/git/context.ts";
@@ -569,7 +569,8 @@ describe("isolated runs ignore the repository-discovery environment a hook inher
       expect(spawnSync("git", ["symbolic-ref", "--short", "HEAD"], { cwd: work, encoding: "utf8", env: process.env }).stdout.trim()).toBe("other");
       expect(runGit(["symbolic-ref", "--short", "HEAD"], { cwd: work }).stdout.trim()).toBe("other");
 
-      expect(runGit(["rev-parse", "--show-toplevel"], { cwd: work, isolated: true })).toEqual({ status: 0, stdout: `${work}\n`, stderr: "" });
+      // git prints paths with `/` on every platform (C:/Users/... on Windows).
+      expect(runGit(["rev-parse", "--show-toplevel"], { cwd: work, isolated: true })).toEqual({ status: 0, stdout: `${work.split(sep).join("/")}\n`, stderr: "" });
       expect(view(resolveContext(work))).toEqual({
         root: work,
         branch: "feature",
