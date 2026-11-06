@@ -140,6 +140,18 @@ describe("unreadable payloads deny by chain, with no guard run and an unknown-to
     expectReceipt(root, outcome.receiptId, { event: "PreToolUse", surface: "unknown", tool: "unknown", guards: { ran: [], denied_by: "chain" }, outcome: "deny" });
   });
 
+  test("a tool_input that cannot be fingerprinted (a BigInt, a cycle) denies by chain, never throws", () => {
+    const root = governedRepo();
+    const cyclic: Record<string, unknown> = { command: "git status" };
+    cyclic["self"] = cyclic;
+    for (const tool_input of [{ command: "git status", size: 1n }, cyclic]) {
+      const outcome = run({ tool_name: "Bash", tool_input, cwd: root, session_id: session(), tool_use_id: "t-1" });
+      expect(outcome).toEqual({ action: "deny", by: "chain", reason: UNREADABLE, guards: [], receiptId: expect.any(String) });
+      if (outcome.action !== "deny") continue;
+      expectReceipt(root, outcome.receiptId, { event: "PreToolUse", surface: "unknown", tool: "unknown", guards: { ran: [], denied_by: "chain" }, outcome: "deny" });
+    }
+  });
+
   test("a guard that throws denies by its own name and stops the chain there", () => {
     const root = governedRepo();
     const outcome = run({ tool_name: "WebFetch", tool_input: {}, tool_response: { size: 1n }, cwd: root, session_id: session() }, "PostToolUse");

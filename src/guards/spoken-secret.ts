@@ -57,6 +57,10 @@ const SPOKEN =
 
 const QUOTES = "\"'`";
 
+// Anything said as a value, whether or not its key reads as a secret (`token=…`,
+// `my pin is …`): a label must never repeat it.
+const VALUE_SHAPED = /(?:[:=]|\b(?:is|are|was|will be)\b)\s*("[^"\n]+"|'[^'\n]+'|`[^`\n]+`|[^\s,;]+)/gi;
+
 export function slug(text: string): string {
   return (
     text
@@ -109,6 +113,22 @@ function labelFor(key: string): string {
   return slug("prompt-" + (words.length > 0 ? words.join("-") : "secret"));
 }
 
+/** The key with every word that is, or holds, part of a value the prompt carries
+ *  removed. SPOKEN's key reaches back up to three words, and those words can be an
+ *  earlier value (`token=abcdefghij and api key: …`): a label or message built from
+ *  them would print the secret it warns about. */
+function keyWithoutValues(key: string, valueParts: string[]): string {
+  const leaks = (word: string): boolean => {
+    const lower = word.toLowerCase();
+    return valueParts.some((part) => part.includes(lower) || (part.length >= SHORT_FLOOR && lower.includes(part)));
+  };
+  const kept = key
+    .replace(/[A-Za-z0-9]+/g, (word) => (leaks(word) ? "" : word))
+    .replace(/[\s_-]{2,}/g, (separators) => separators[0]!)
+    .replace(/^[\s_-]+|[\s_-]+$/g, "");
+  return kept.length > 0 ? kept : "secret";
+}
+
 export type Candidates = {
   /** Exact values with a clean boundary: a label for the thing, never the value. */
   auto: Array<{ value: string; label: string }>;
@@ -123,13 +143,20 @@ export function candidates(prompt: string): Candidates {
   const auto: Candidates["auto"] = [];
   const manual: string[] = [];
   const seen = new Set<string>();
-  for (const match of [...prompt.matchAll(ASSIGNED), ...prompt.matchAll(SPOKEN)]) {
+  const matches = [...prompt.matchAll(ASSIGNED), ...prompt.matchAll(SPOKEN)];
+  const valueTexts = [
+    ...matches.map((match) => `${match.groups?.val ?? ""} ${match.groups?.rest ?? ""}`),
+    ...[...prompt.matchAll(VALUE_SHAPED)].map((match) => match[1]!),
+  ];
+  const valueParts = valueTexts.flatMap((text) => text.toLowerCase().match(/[a-z0-9]+/g) ?? []);
+  for (const match of matches) {
     const groups = match.groups ?? {};
     const { token, quoted } = unquote(groups.val ?? "");
     const trimmed = token.trim().replace(/[.,;:!?]+$/, "");
-    const key = (groups.key ?? "secret").replace(/^[-_ ]+|[-_ ]+$/g, "");
-    if (PUBLIC_KEY.test(key) || trimmed.length === 0 || seen.has(trimmed)) continue;
+    const rawKey = (groups.key ?? "secret").replace(/^[-_ ]+|[-_ ]+$/g, "");
+    if (PUBLIC_KEY.test(rawKey) || trimmed.length === 0 || seen.has(trimmed)) continue;
     seen.add(trimmed);
+    const key = keyWithoutValues(rawKey, valueParts);
     // an exact span: quoted, or a single bare token that stands on its own
     if (quoted || usable(trimmed)) {
       if (usable(trimmed)) auto.push({ value: trimmed, label: labelFor(key) });

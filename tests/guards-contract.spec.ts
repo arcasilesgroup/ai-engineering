@@ -85,6 +85,20 @@ describe("spoken-secret candidates", () => {
     expect(candidates("my password is ab cd     , ok")).toEqual(none);
     expect(candidates("my password is ... and more words")).toEqual(none);
   });
+
+  test("a label or manual key never carries a word of any value the prompt holds", () => {
+    const apiKey = { auto: [{ value: "qwertyuiop", label: "prompt-api-key" }], manual: [] };
+    expect(candidates(`${assign("token", "abcdefghij")} and api key: qwertyuiop`)).toEqual(apiKey);
+    expect(candidates("my pin is abcdefghij and api key: qwertyuiop")).toEqual(apiKey);
+    expect(candidates(`${assign("db_token", "abcdefghij")} and abcdefghijxx password is ab cd ef`)).toEqual({
+      auto: [{ value: "abcdefghij", label: "prompt-db-token" }],
+      manual: ["and password"],
+    });
+    expect(candidates(`${assign("token", "abcdefghij")} abcdefghij-token: qwertyuiop`)).toEqual({
+      auto: [{ value: "qwertyuiop", label: "prompt-token" }],
+      manual: [],
+    });
+  });
 });
 
 describe("spoken-secret runSpokenSecret", () => {
@@ -106,6 +120,16 @@ describe("spoken-secret runSpokenSecret", () => {
       deny: true,
       reason:
         "spoken-secret: the prompt names a credential (my password) as free text whose exact value cannot be pinned automatically. Ask the user to move it to a gitignored file or a secret store before acting on anything else in this prompt." +
+        tail,
+    });
+  });
+
+  test("a deny reason never repeats an earlier value through a key that reaches back over it", () => {
+    const result = runSpokenSecret({ prompt: `${assign("token", "abcdefghij")} and api key: qwertyuiop` } as unknown as Payload);
+    expect(result).toEqual({
+      deny: true,
+      reason:
+        "spoken-secret: the prompt carries 1 probable credential (label: prompt-api-key). Do not write the value into code, .env or a commit: put it in a gitignored file (or the user's secret store) and refer to it by label." +
         tail,
     });
   });
@@ -338,6 +362,27 @@ describe("no-verify: how a git command is read", () => {
   test("a bare -c hooks-path setting reads as the boolean true", () => {
     expect(hooksPathTargets(`git -c ${HP} commit`)).toEqual(["true"]);
   });
+
+  test("a redirection anywhere is stripped by the shell, never read as the subcommand or a value", () => {
+    expect(label(`git 2>/dev/null commit ${NV}`)).toBe(NV);
+    expect(label(`git 2> /dev/null commit ${NV}`)).toBe(NV);
+    expect(label("git >log commit -n")).toBe("git commit -n");
+    expect(label("git >>log commit -n")).toBe("git commit -n");
+    expect(label("git <in commit -n")).toBe("git commit -n");
+    expect(label("git &>log commit -n")).toBe("git commit -n");
+    expect(label("git 2>&1 commit -n")).toBe("git commit -n");
+    expect(label("git {fd}>log commit -n")).toBe("git commit -n");
+    expect(label("git -C . 2>/dev/null --no-pager commit -n")).toBe("git commit -n");
+    expect(label("2>/dev/null git commit -n")).toBe("git commit -n");
+    expect(label("env >log git commit -n")).toBe("git commit -n");
+    expect(label("git commit -m >log -n")).toBeNull();
+    expect(label("git commit -m ok >-n")).toBeNull();
+  });
+
+  test("every value-taking git global swallows its value before the subcommand is read", () => {
+    expect(label("git --super-prefix x/ commit -n")).toBe("git commit -n");
+    expect(label("git --attr-source HEAD commit -n")).toBe("git commit -n");
+  });
 });
 
 describe("injection: what a denial quotes and how far it reads", () => {
@@ -376,11 +421,9 @@ describe("injection: what a denial quotes and how far it reads", () => {
 });
 
 describe("policy: what a command needs", () => {
-  let workspace: string;
-  beforeAll(() => {
-    workspace = mkdtempSync(join(tmpdir(), "ai-eng-policy-contract-"));
-    temps.push(workspace);
-  });
+  // Policy reads paths as text, so the workspace need not exist; it must not sit under the
+  // temp dir, where a resolved `..` would land in scratch space the policy skips.
+  const workspace = "/work/ai-eng-policy-contract";
   const needs = (command: string): string | null => {
     const result = runPolicy(command, workspace, "0000");
     if (result === undefined || !result.deny) return null;
@@ -414,6 +457,36 @@ describe("policy: what a command needs", () => {
     expect(needs("echo x >/etc/ai-eng-policy")).toBe("2000");
     expect(needs("echo x >>/etc/ai-eng-policy")).toBe("2000");
     expect(needs("echo x > /etc/ai-eng-policy")).toBe("2000");
+  });
+
+  test("an fd-prefixed, &>, attached or input redirect is judged by its target", () => {
+    expect(needs("echo x 2>/etc/ai-eng-policy")).toBe("2000");
+    expect(needs("echo x 2> /etc/ai-eng-policy")).toBe("2000");
+    expect(needs("echo x 2>>/etc/ai-eng-policy")).toBe("2000");
+    expect(needs("echo x &>/etc/ai-eng-policy")).toBe("2000");
+    expect(needs("echo x &>>/etc/ai-eng-policy")).toBe("2000");
+    expect(needs("echo x &> /etc/ai-eng-policy")).toBe("2000");
+    expect(needs("echo x >&/etc/ai-eng-policy")).toBe("2000");
+    expect(needs("echo x>/etc/ai-eng-policy")).toBe("2000");
+    expect(needs("echo x 3<>/etc/ai-eng-policy")).toBe("6000");
+    expect(needs("wc -l </etc/ai-eng-policy")).toBe("4000");
+  });
+
+  test("a descriptor copy names no file; a stderr target in the workspace is a workspace write", () => {
+    expect(needs("echo x 2>&1")).toBe("0002");
+    expect(needs("echo x 2>/dev/null")).toBe("0004");
+    expect(needs("echo x 2>err.log")).toBe("0002");
+    expect(needs("cat <<eof")).toBe("0004");
+  });
+
+  test("a .. segment is resolved before scoping", () => {
+    expect(needs("cat x/../../y")).toBe("0400");
+    expect(needs("cat x/../y")).toBe("0004");
+    expect(needs("cat /work/ai-eng-policy-contract/../../etc/hosts")).toBe("4000");
+    expect(needs("cat /tmp/../etc/hosts")).toBe("4000");
+    expect(needs("cat ../../../../../etc/hosts")).toBe("4000");
+    expect(needs("go test ./...")).toBe("0601");
+    expect(needs("cat ~/x/../.ssh/id_rsa")).toBe("4000");
   });
 });
 

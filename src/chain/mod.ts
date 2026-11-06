@@ -55,6 +55,7 @@ export const TABLE: Record<string, GuardRow[]> = {
 };
 
 const HOT_PATH_BUDGET_MS = 200;
+const UNREADABLE_PAYLOAD = "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.";
 
 export type ChainOptions = {
   surface?: string;
@@ -149,7 +150,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   // asked in one place (§A). Everything below assumes a repo that asked for policy.
   if (root === null || !isGoverned(root)) return { action: "allow", guards: [], receiptId: null };
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
+    return denyOutcome("chain", UNREADABLE_PAYLOAD, [], event, options, started, root, "unknown");
   }
   // The payload boundary is fail-closed like every guard: an object that throws while
   // being read (an in-process host can hand us one) must deny, never escape as an
@@ -160,7 +161,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   } catch (error) {
     // normalise refuses on purpose (an unmeasured tool, an ambiguous patch) with a TypeError
     // that says which; anything else is a payload that could not be read at all.
-    const why = error instanceof TypeError && error.message ? `BLOCKED: ${error.message} Nothing here can say whether this action is safe, so it was not run.` : "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.";
+    const why = error instanceof TypeError && error.message ? `BLOCKED: ${error.message} Nothing here can say whether this action is safe, so it was not run.` : UNREADABLE_PAYLOAD;
     return denyOutcome("chain", why, [], event, options, started, root, "unknown");
   }
   adoptSession(payload.session_id);
@@ -185,7 +186,14 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   if (localRules.length > 0) {
     (payload as Record<string, unknown>)["localRules"] = localRules;
   }
-  const fp = fingerprint(payload);
+  // A BigInt or a cycle in an in-process tool_input makes JSON.stringify throw: a payload
+  // that cannot be fingerprinted cannot be judged, so it denies like any unreadable one.
+  let fp: string;
+  try {
+    fp = fingerprint(payload);
+  } catch {
+    return denyOutcome("chain", UNREADABLE_PAYLOAD, [], event, options, started, root, "unknown");
+  }
 
   const overrides = readOverrides(root);
   const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
@@ -409,7 +417,7 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
     body = JSON.parse(raw) as Record<string, unknown>;
     if (body === null || Array.isArray(body) || typeof body !== "object") throw new Error("not an object");
   } catch {
-    deny("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", options.dialect ?? "claude", event);
+    deny("chain", UNREADABLE_PAYLOAD, options.dialect ?? "claude", event);
   }
   const outcome = runChain(body, event, options);
   // An allow is a verdict too, and one host reads an empty answer as a refusal.

@@ -814,8 +814,20 @@ var RAW_SKIPS = [
 ];
 var HOOKED = new Set(["commit", "push", "merge", "pull", "rebase", "am", "cherry-pick", "revert"]);
 var VALUE_OPTIONS = new Set(["-m", "--message", "-F", "--file", "-t", "--template", "--author", "--date", "--trailer", "--cleanup", "-C", "--reuse-message", "-c", "--reedit-message", "--fixup", "--squash"]);
-var GLOBAL_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace"]);
+var GLOBAL_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix", "--attr-source"]);
 var RUN_PREFIXES = new Set(["sudo", "env", "command", "exec", "nohup", "time", "nice", "xargs"]);
+function argumentWords(text) {
+  const words = shellWords(text);
+  const kept = [];
+  for (let at = 0;at < words.length; at++) {
+    if (words[at].isOperator) {
+      at++;
+      continue;
+    }
+    kept.push(words[at]);
+  }
+  return kept;
+}
 function gitHookSkip(command, depth = 0) {
   if (depth > 3)
     return "git aliases nested too deep to read";
@@ -823,7 +835,7 @@ function gitHookSkip(command, depth = 0) {
   if (segments === null)
     return;
   for (const segment of segments) {
-    const words = shellWords(segment.text).filter((word) => !word.isOperator);
+    const words = argumentWords(segment.text);
     let index = 0;
     while (index < words.length && (/^[A-Za-z_]\w*=/.test(words[index].value) || RUN_PREFIXES.has(basename(words[index].value))))
       index++;
@@ -1881,8 +1893,8 @@ function runSelfProtect(payload, repoRoot) {
 
 // src/guards/policy.ts
 import { readFileSync as readFileSync4, realpathSync as realpathSync3 } from "fs";
-import { join as join5 } from "path";
-import { tmpdir } from "os";
+import { join as join5, posix } from "path";
+import { homedir as homedir2, tmpdir } from "os";
 var DEFAULT_MODE = "4667";
 var SCOPE_SYSTEM = 8;
 var SCOPE_EXTERNAL = 4;
@@ -1942,6 +1954,8 @@ function resolvePath(rawPath, cwd) {
   const path = rawPath.replace(/^["']+|["']+$/g, "").replace(/^of=/, "").replace(/[;,)]+$/, "");
   if (path.length === 0)
     return "";
+  if (path.split("/").includes(".."))
+    return resolveParentSegments(path, cwd);
   if (path.startsWith("/") || path.startsWith("~"))
     return path;
   if (cwd.length === 0)
@@ -1952,6 +1966,20 @@ function resolvePath(rawPath, cwd) {
     return `${cwd}/${path.replace(/^\.+/, "")}`;
   }
   return `${cwd}/${path}`;
+}
+function resolveParentSegments(path, cwd) {
+  if (path === "~" || path.startsWith("~/")) {
+    const home = homedir2().toLowerCase();
+    if (!home.startsWith("/"))
+      return path;
+    const landed = posix.resolve(home, path.slice(2));
+    return landed === home || landed.startsWith(`${home}/`) ? `~${landed.slice(home.length)}` : landed;
+  }
+  if (path.startsWith("/"))
+    return posix.normalize(path);
+  if (path.startsWith("~") || !cwd.startsWith("/"))
+    return path;
+  return posix.resolve(cwd, path);
 }
 function addPath(mask, rawPath, permissions, cwd) {
   const resolved = resolvePath(rawPath, cwd);
@@ -1968,6 +1996,15 @@ var SYSTEM_EXECUTE = (segment) => /^(sudo|su|doas)(\s|$)/.test(segment) || /^(sh
 var SYSTEM_WRITE = (segment) => /^(mkfs|fdisk|diskutil)/.test(segment) || /^mount |^umount /.test(segment);
 var WORKSPACE_EXECUTE = (segment) => segment.startsWith("./") || segment.startsWith("bash ") || segment.startsWith("sh ") || segment.startsWith("zsh ") || segment.startsWith("python") || segment.startsWith("node ") || segment.startsWith("ruby ") || segment.startsWith("perl ") || segment.startsWith("npm test") || segment.startsWith("npm run") || segment.startsWith("make") || segment.startsWith("cargo test") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("git cherry-pick") || segment.includes("function ") || segment.includes("()") || segment.includes("{") || segment.includes(" if ") || segment.startsWith("if ") || segment.includes(" for ") || segment.startsWith("for ") || segment.includes(" while ") || segment.startsWith("while ") || segment.includes(" case ") || segment.startsWith("case ") || segment.includes(":(){:|:&};:");
 var WRITES = (segment) => segment.includes(">") || segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
+var REDIRECT2 = /^(?:\d+|\{\w+\})?(&>>?|>&|>>?[|!]?|<>|<&|<)(?![<(])(.*)$/;
+function splitAttachedRedirect(token) {
+  let at = token.search(/[<>]/);
+  if (at <= 0 || /["'`]/.test(token.slice(0, at)))
+    return [token];
+  if (token[at - 1] === "&")
+    at--;
+  return at === 0 ? [token] : [token.slice(0, at), token.slice(at)];
+}
 function scanSegment(mask, segment, cwd) {
   if (SYSTEM_EXECUTE(segment))
     addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
@@ -1987,26 +2024,33 @@ function scanSegment(mask, segment, cwd) {
     addMode(mask, SCOPE_WORKSPACE, PERM_EXECUTE);
   let pathPermissions = PERM_READ;
   let flags = 0;
-  let redirectPermissions = 0;
   if (WRITES(segment)) {
     pathPermissions = PERM_READ | PERM_WRITE;
     flags = 1;
   }
-  for (const token of segment.split(/\s+/)) {
-    if (redirectPermissions !== 0) {
-      addPath(mask, token, redirectPermissions, cwd);
-      flags = 3;
-      redirectPermissions = 0;
-    } else if (token === ">" || token === ">>" || token === "1>" || token === "1>>") {
-      redirectPermissions = PERM_WRITE;
-    } else if (token === "<>") {
-      redirectPermissions = PERM_READ | PERM_WRITE;
-    } else if (token.startsWith("2>")) {} else if (token.startsWith(">")) {
-      addPath(mask, token.replace(/^>+/, ""), PERM_WRITE, cwd);
-      flags = 3;
-    } else if (token.startsWith("<>")) {
-      addPath(mask, token.slice(2), PERM_READ | PERM_WRITE, cwd);
-      flags = 3;
+  let pending = null;
+  const judgeRedirect = (target, permissions, isDuplicate) => {
+    if (isDuplicate && /^(\d+|-)$/.test(target))
+      return;
+    addPath(mask, target, permissions, cwd);
+    flags = 3;
+  };
+  for (const token of segment.split(/\s+/).flatMap(splitAttachedRedirect)) {
+    if (pending !== null) {
+      judgeRedirect(token, pending.permissions, pending.isDuplicate);
+      pending = null;
+      continue;
+    }
+    const redirect = REDIRECT2.exec(token);
+    if (redirect !== null) {
+      const operator = redirect[1];
+      const target = redirect[2];
+      const permissions = operator === "<>" ? PERM_READ | PERM_WRITE : operator.startsWith("<") ? PERM_READ : PERM_WRITE;
+      const isDuplicate = operator === ">&" || operator === "<&";
+      if (target.length === 0)
+        pending = { permissions, isDuplicate };
+      else
+        judgeRedirect(target, permissions, isDuplicate);
     } else if (token.startsWith("/") || token.startsWith("./") || token.startsWith("../") || token.startsWith("~/") || RE_SENSITIVE_PATH.test(token)) {
       addPath(mask, token, pathPermissions, cwd);
       flags = 3;
@@ -2325,6 +2369,7 @@ function runInjection(payload) {
 
 // src/guards/spoken-secret.ts
 var MIN_BYTES = 8;
+var SHORT_FLOOR = 4;
 var NOT_A_SECRET = {
   true: true,
   false: true,
@@ -2374,6 +2419,7 @@ var LABEL_NOISE = {
 var ASSIGNED = /\b(?<key>[A-Za-z][A-Za-z0-9_-]*(?:pass(?:word|wd|phrase)?|pwd|secret|token|key|credential|dsn))\s*[:=]\s*(?<val>"[^"\n]+"|'[^'\n]+'|`[^`\n]+`|[^\s,;]+)/gi;
 var SPOKEN = /\b(?<key>(?:[A-Za-z]+[ _-]){0,3}?(?:pass(?:word|phrase)|secret|api[ _-]?key|access[ _-]?key|token|credential)s?)\b(?:\s+(?:is|are|was|will be)|\s*[:=])\s+(?<val>"[^"\n]+"|'[^'\n]+'|`[^`\n]+`|[^\s,;]+)(?<rest>[^,;.\n]*)/gi;
 var QUOTES = "\"'`";
+var VALUE_SHAPED = /(?:[:=]|\b(?:is|are|was|will be)\b)\s*("[^"\n]+"|'[^'\n]+'|`[^`\n]+`|[^\s,;]+)/gi;
 function slug(text) {
   return text.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase().slice(0, 48) || "value";
 }
@@ -2389,18 +2435,33 @@ function labelFor(key) {
   const words = key.toLowerCase().split(/[\s_-]+/).filter((w) => w.length > 0 && !LABEL_NOISE[w]);
   return slug("prompt-" + (words.length > 0 ? words.join("-") : "secret"));
 }
+function keyWithoutValues(key, valueParts) {
+  const leaks = (word) => {
+    const lower = word.toLowerCase();
+    return valueParts.some((part) => part.includes(lower) || part.length >= SHORT_FLOOR && lower.includes(part));
+  };
+  const kept = key.replace(/[A-Za-z0-9]+/g, (word) => leaks(word) ? "" : word).replace(/[\s_-]{2,}/g, (separators) => separators[0]).replace(/^[\s_-]+|[\s_-]+$/g, "");
+  return kept.length > 0 ? kept : "secret";
+}
 function candidates(prompt) {
   const auto = [];
   const manual = [];
   const seen = new Set;
-  for (const match of [...prompt.matchAll(ASSIGNED), ...prompt.matchAll(SPOKEN)]) {
+  const matches = [...prompt.matchAll(ASSIGNED), ...prompt.matchAll(SPOKEN)];
+  const valueTexts = [
+    ...matches.map((match) => `${match.groups?.val ?? ""} ${match.groups?.rest ?? ""}`),
+    ...[...prompt.matchAll(VALUE_SHAPED)].map((match) => match[1])
+  ];
+  const valueParts = valueTexts.flatMap((text) => text.toLowerCase().match(/[a-z0-9]+/g) ?? []);
+  for (const match of matches) {
     const groups = match.groups ?? {};
     const { token, quoted } = unquote(groups.val ?? "");
     const trimmed = token.trim().replace(/[.,;:!?]+$/, "");
-    const key = (groups.key ?? "secret").replace(/^[-_ ]+|[-_ ]+$/g, "");
-    if (PUBLIC_KEY.test(key) || trimmed.length === 0 || seen.has(trimmed))
+    const rawKey = (groups.key ?? "secret").replace(/^[-_ ]+|[-_ ]+$/g, "");
+    if (PUBLIC_KEY.test(rawKey) || trimmed.length === 0 || seen.has(trimmed))
       continue;
     seen.add(trimmed);
+    const key = keyWithoutValues(rawKey, valueParts);
     if (quoted || usable(trimmed)) {
       if (usable(trimmed))
         auto.push({ value: trimmed, label: labelFor(key) });
@@ -2553,7 +2614,7 @@ import {
   unlinkSync,
   writeFileSync as writeFileSync2
 } from "fs";
-import { homedir as homedir2 } from "os";
+import { homedir as homedir3 } from "os";
 import { basename as basename3, dirname as dirname2, isAbsolute as isAbsolute5, join as join9, relative as relative2, resolve as resolve6, sep as sep5 } from "path";
 import { isDeepStrictEqual } from "util";
 
@@ -3651,7 +3712,7 @@ function shellPath(cwd, word) {
   if (/[$`]/.test(word) || /^~[^/]/.test(word))
     return null;
   if (word === "~" || word.startsWith("~/"))
-    return join9(homedir2(), word.slice(1));
+    return join9(homedir3(), word.slice(1));
   return resolve6(cwd, word);
 }
 function shellWritesIntoCheckpoints(command, cwd, repo) {
@@ -3665,7 +3726,7 @@ function shellWritesIntoCheckpoints(command, cwd, repo) {
       const operand = rest.find((word) => !word.startsWith("-") || word === "-");
       if (name === "pushd")
         stack.push(directory);
-      const next = operand === undefined ? homedir2() : operand === "-" || directory === null ? null : shellPath(directory, operand);
+      const next = operand === undefined ? homedir3() : operand === "-" || directory === null ? null : shellPath(directory, operand);
       directory = next;
       continue;
     }
@@ -4361,6 +4422,7 @@ var TABLE = {
   UserPromptSubmit: [{ name: "spoken-secret", matcher: /^$/ }]
 };
 var HOT_PATH_BUDGET_MS = 200;
+var UNREADABLE_PAYLOAD = "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.";
 function selected(event, tool) {
   if (!(event in TABLE))
     return [];
@@ -4411,13 +4473,13 @@ function runChain(rawPayload, event, options = {}) {
   if (root === null || !isGoverned(root))
     return { action: "allow", guards: [], receiptId: null };
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, "unknown");
+    return denyOutcome("chain", UNREADABLE_PAYLOAD, [], event, options, started, root, "unknown");
   }
   let payload;
   try {
     payload = normalise(rawPayload, options.surface, event);
   } catch (error) {
-    const why = error instanceof TypeError && error.message ? `BLOCKED: ${error.message} Nothing here can say whether this action is safe, so it was not run.` : "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.";
+    const why = error instanceof TypeError && error.message ? `BLOCKED: ${error.message} Nothing here can say whether this action is safe, so it was not run.` : UNREADABLE_PAYLOAD;
     return denyOutcome("chain", why, [], event, options, started, root, "unknown");
   }
   adoptSession(payload.session_id);
@@ -4430,7 +4492,12 @@ function runChain(rawPayload, event, options = {}) {
   if (localRules.length > 0) {
     payload["localRules"] = localRules;
   }
-  const fp = fingerprint(payload);
+  let fp;
+  try {
+    fp = fingerprint(payload);
+  } catch {
+    return denyOutcome("chain", UNREADABLE_PAYLOAD, [], event, options, started, root, "unknown");
+  }
   const overrides = readOverrides(root);
   const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
   const dedup = deduplicable(payload) && event === "PreToolUse";

@@ -4,7 +4,7 @@
 import { basename, resolve, isAbsolute, join } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Payload } from "../payload.ts";
-import { normalizeRedirects, shellSegments, shellWords, SUBSTITUTION, unquoteShell } from "./shell.ts";
+import { normalizeRedirects, shellSegments, shellWords, SUBSTITUTION, unquoteShell, type ShellWord } from "./shell.ts";
 
 type Skip = { pattern: RegExp; label: string };
 
@@ -27,8 +27,24 @@ const RAW_SKIPS: Skip[] = [
 const HOOKED = new Set(["commit", "push", "merge", "pull", "rebase", "am", "cherry-pick", "revert"]);
 /** Options whose next word is a value (a message, a file, an author), never an option. */
 const VALUE_OPTIONS = new Set(["-m", "--message", "-F", "--file", "-t", "--template", "--author", "--date", "--trailer", "--cleanup", "-C", "--reuse-message", "-c", "--reedit-message", "--fixup", "--squash"]);
-const GLOBAL_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace"]);
+const GLOBAL_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix", "--attr-source"]);
 const RUN_PREFIXES = new Set(["sudo", "env", "command", "exec", "nohup", "time", "nice", "xargs"]);
+
+/** The words git receives: the shell strips every redirection (`2>/dev/null`, `>log`,
+ *  `<in`, `&>out`, `2>&1`) wherever it stands, so the operator and its target are not
+ *  arguments and must never be read as the subcommand or an option's value. */
+function argumentWords(text: string): ShellWord[] {
+  const words = shellWords(text);
+  const kept: ShellWord[] = [];
+  for (let at = 0; at < words.length; at++) {
+    if (words[at]!.isOperator) {
+      at++;
+      continue;
+    }
+    kept.push(words[at]!);
+  }
+  return kept;
+}
 
 /** The hook skip a hooked git command spells as the shell will read it, or null. A message
  *  that mentions `-n` or `--no-verify` is prose; `$x`, `$(…)` or a glob in an option slot is
@@ -39,7 +55,7 @@ function gitHookSkip(command: string, depth = 0): string | null | undefined {
   const segments = shellSegments(normalizeRedirects(command));
   if (segments === null) return undefined;
   for (const segment of segments) {
-    const words = shellWords(segment.text).filter((word) => !word.isOperator);
+    const words = argumentWords(segment.text);
     let index = 0;
     while (index < words.length && (/^[A-Za-z_]\w*=/.test(words[index]!.value) || RUN_PREFIXES.has(basename(words[index]!.value)))) index++;
     if (basename(words[index]?.value ?? "") !== "git") continue;
