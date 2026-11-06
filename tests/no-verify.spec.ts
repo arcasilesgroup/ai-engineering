@@ -192,6 +192,10 @@ describe("checkBash", () => {
     ["stdbuf", "stdbuf -o L git push --no-verify", "--no-verify"],
     ["an unknown wrapper", "chronic git commit -n -m x", "git commit -n"],
     ["an unknown wrapper with global options", "ionice -c3 git -C . push --no-verify", "--no-verify"],
+    ["a single-quoted heredoc delimiter glued to #", "cat <<'EOF'#; git commit --no-verify -m x\nbody\nEOF#", "--no-verify"],
+    ["a double-quoted heredoc delimiter glued to #", "cat <<\"EOF\"#; git commit --no-verify -m x\nbody\nEOF#", "--no-verify"],
+    ["an unquoted heredoc delimiter glued to #", "cat <<EOF#; git commit --no-verify -m x\nbody\nEOF#", "--no-verify"],
+    ["a heredoc delimiter glued to # (-n)", "cat <<'EOF'#; git commit -n -m x\nbody\nEOF#", "git commit -n"],
   ])("denies %s, reason verbatim", (_name, command, label) => {
     expect(checkBash(command, null)).toMatchObject({ deny: true, reason: expect.stringContaining(skipReason(label)) });
   });
@@ -208,6 +212,9 @@ describe("checkBash", () => {
     ["a for loop", "for f in *.ts; do echo $f; done"],
     ["git log -n", "git log -n 5"],
     ["a commit message naming -n", "git commit -m \"git commit -n is denied\""],
+    ["a commit after a closed heredoc", "cat <<'EOF'\nbody\nEOF\ngit commit -m \"x\""],
+    ["a heredoc body naming the skip flag", "git commit -F - <<'EOF'\n# not a comment\nnever pass --no-verify\nEOF"],
+    ["a comment after a word", "echo a # comment; git commit -n"],
   ])("allows %s", (_name, command) => {
     expect(checkBash(command, null)).toBeUndefined();
   });

@@ -180,8 +180,21 @@ describe("shellSegments: here-strings and heredocs", () => {
     ]);
   });
 
+  test("the delimiter is the whole word: a `#` glued to it is part of it, not a comment", () => {
+    expect(shellSegments("cat <<'EOF'#; ls\nEOF\nbody\nEOF#")).toEqual([
+      segment("cat <<'EOF'#", { heredocs: [{ body: "EOF\nbody\n", isLiteral: true }] }),
+      segment(" ls"),
+      segment(""),
+    ]);
+    expect(shellSegments('cat <<"E"F#x\nEF#x')).toEqual([
+      segment('cat <<"E"F#x', { heredocs: [{ body: "", isLiteral: true }] }),
+      segment(""),
+    ]);
+  });
+
   test("an unreadable heredoc delimiter or body cannot be read", () => {
     expect(shellSegments("cat <<")).toBeNull();
+    expect(shellSegments("cat <<$'EOF'\nEOF")).toBeNull();
     expect(shellSegments("cat <<EOF\n$(x\nEOF")).toBeNull();
   });
 

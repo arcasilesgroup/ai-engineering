@@ -587,7 +587,41 @@ function redirectAt(text, at) {
 function normalizeRedirects(command) {
   return readShell(command).normalized ?? command.replace(new RegExp(REDIRECT_OPERATOR.source, "g"), asOperator);
 }
-var HEREDOC = /^<<(-?)[ \t]*(\\?)(['"]?)([^\s'"<>|;&()]+)\3/;
+function heredocAt(source, at) {
+  const stripsTabs = source[at + 2] === "-";
+  let index = at + (stripsTabs ? 3 : 2);
+  while (source[index] === " " || source[index] === "\t")
+    index++;
+  const wordStart = index;
+  let delimiter = "";
+  let isLiteral = false;
+  while (index < source.length && !/[\s<>|;&()]/.test(source[index])) {
+    const char = source[index];
+    if (char === "`" || char === "$" && /['"({]/.test(source[index + 1] ?? ""))
+      return null;
+    if (char === "\\") {
+      if (index + 1 >= source.length)
+        return null;
+      delimiter += source[index + 1];
+      isLiteral = true;
+      index += 2;
+    } else if (char === "'" || char === '"') {
+      const close = quotedSpanEnd(source, index);
+      if (close >= source.length)
+        return null;
+      const body = source.slice(index + 1, close);
+      delimiter += char === '"' ? body.replace(/\\(["\\$`])/g, "$1") : body;
+      isLiteral = true;
+      index = close + 1;
+    } else {
+      delimiter += char;
+      index++;
+    }
+  }
+  if (index === wordStart)
+    return null;
+  return { length: index - at, delimiter, isLiteral, stripsTabs };
+}
 function quotedSpanEnd(text, at) {
   const closeOf = (from, closer, hasEscapes) => {
     for (let index = from;index < text.length; index++) {
@@ -731,13 +765,13 @@ function readShell(command) {
       isWordStart = true;
       index += 2;
     } else if (char === "<" && next === "<") {
-      const heredoc = HEREDOC.exec(source.slice(index));
+      const heredoc = heredocAt(source, index);
       if (heredoc === null)
         return UNREADABLE;
-      pending.push({ delimiter: heredoc[4], isLiteral: heredoc[2] !== "" || heredoc[3] !== "", stripsTabs: heredoc[1] === "-", owner: heredocs });
-      current += heredoc[0];
+      pending.push({ delimiter: heredoc.delimiter, isLiteral: heredoc.isLiteral, stripsTabs: heredoc.stripsTabs, owner: heredocs });
+      current += source.slice(index, index + heredoc.length);
       isWordStart = true;
-      index += heredoc[0].length - 1;
+      index += heredoc.length - 1;
     } else if (redirectAt(source, index) !== null) {
       const operator = redirectAt(source, index);
       normalized += source.slice(copiedUpTo, index) + asOperator(operator);

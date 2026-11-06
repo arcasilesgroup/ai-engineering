@@ -37,7 +37,41 @@ export type ShellSegment = {
   substitutions: string[];
 };
 
-const HEREDOC = /^<<(-?)[ \t]*(\\?)(['"]?)([^\s'"<>|;&()]+)\3/;
+/** The heredoc operator starting at `at` and its delimiter, read as the one shell word bash
+ *  reads: quoted parts and unquoted text run together until an unescaped blank or operator,
+ *  so in `<<'EOF'#` the delimiter is `EOF#` and that `#` opens no comment. `delimiter` is
+ *  the word with quotes removed; any quoting makes the body literal. Null when no word
+ *  follows or the word holds something the reader cannot hold (`$'…'`, `$(…)`, a backtick). */
+function heredocAt(source: string, at: number): { length: number; delimiter: string; isLiteral: boolean; stripsTabs: boolean } | null {
+  const stripsTabs = source[at + 2] === "-";
+  let index = at + (stripsTabs ? 3 : 2);
+  while (source[index] === " " || source[index] === "\t") index++;
+  const wordStart = index;
+  let delimiter = "";
+  let isLiteral = false;
+  while (index < source.length && !/[\s<>|;&()]/.test(source[index]!)) {
+    const char = source[index]!;
+    if (char === "`" || (char === "$" && /['"({]/.test(source[index + 1] ?? ""))) return null;
+    if (char === "\\") {
+      if (index + 1 >= source.length) return null;
+      delimiter += source[index + 1];
+      isLiteral = true;
+      index += 2;
+    } else if (char === "'" || char === '"') {
+      const close = quotedSpanEnd(source, index);
+      if (close >= source.length) return null;
+      const body = source.slice(index + 1, close);
+      delimiter += char === '"' ? body.replace(/\\(["\\$`])/g, "$1") : body;
+      isLiteral = true;
+      index = close + 1;
+    } else {
+      delimiter += char;
+      index++;
+    }
+  }
+  if (index === wordStart) return null;
+  return { length: index - at, delimiter, isLiteral, stripsTabs };
+}
 
 /** Where the quoted text, escape or `${…}` starting at `at` ends (its last character), -1
  *  when none starts there, or past the end when it never closes. Inside `$'…'` a backslash
@@ -195,12 +229,12 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       isWordStart = true;
       index += 2;
     } else if (char === "<" && next === "<") {
-      const heredoc = HEREDOC.exec(source.slice(index));
+      const heredoc = heredocAt(source, index);
       if (heredoc === null) return UNREADABLE;
-      pending.push({ delimiter: heredoc[4]!, isLiteral: heredoc[2] !== "" || heredoc[3] !== "", stripsTabs: heredoc[1] === "-", owner: heredocs });
-      current += heredoc[0];
+      pending.push({ delimiter: heredoc.delimiter, isLiteral: heredoc.isLiteral, stripsTabs: heredoc.stripsTabs, owner: heredocs });
+      current += source.slice(index, index + heredoc.length);
       isWordStart = true;
-      index += heredoc[0].length - 1;
+      index += heredoc.length - 1;
     } else if (redirectAt(source, index) !== null) {
       const operator = redirectAt(source, index)!;
       normalized += source.slice(copiedUpTo, index) + asOperator(operator);
