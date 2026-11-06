@@ -34,7 +34,76 @@ permissions:
   contents: read
 
 jobs:
+  # The gate runs on the exact revision that ships: `ref: github.sha` pins every
+  # checkout below to the dispatched commit, never to whatever the branch moved to
+  # while the run waited, and this job proves the pin held before trusting it.
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - name: The checkout is the dispatched SHA
+        run: |
+          set -euo pipefail
+          head="$(git rev-parse HEAD)"
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "::error::checked out $head, not the dispatched $GITHUB_SHA — a release gates the revision it ships, or nothing."
+            exit 1
+          fi
+      # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
+      # policy allows GitHub-owned actions plus org patterns, and a workflow that
+      # names anything else never starts (startup_failure, no logs). Node is on every
+      # hosted runner, and the registry pins the version's integrity itself.
+      - run: npm install -g bun@1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun test --parallel=1
+      - run: bun run build
+
+  # One tarball, packed once. It is smoke-tested as a consumer installs it, described
+  # by an SBOM of what that install pulls in, and its digest travels with it: publish
+  # ships this file, not a second pack of the checkout.
+  package:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - run: npm install -g bun@1.4.4
+      - run: bun install --frozen-lockfile
+      # A fixed name keeps the artifact's paths static; npm reads the package's name
+      # and version from the manifest inside the tarball, not from its filename.
+      - name: Pack the tarball and record its digest
+        run: |
+          set -euo pipefail
+          packed="$(npm pack --json | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8"))[0].filename')"
+          mv "$packed" ai-engineering.tgz
+          sha256sum ai-engineering.tgz > ai-engineering.tgz.sha256
+          cat ai-engineering.tgz.sha256
+      - name: Smoke-test the tarball as npm and Bun consumers install it
+        run: bun scripts/package-consumer-smoke.ts --tarball ai-engineering.tgz
+      # The SBOM describes what a consumer installs from this tarball — runtime
+      # dependencies only, each with its license — not the repository and its tooling.
+      - name: SBOM (CycloneDX, runtime dependencies of the packed tarball)
+        run: bun scripts/release-sbom.ts --tarball ai-engineering.tgz --out ai-engineering.cdx.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-package
+          if-no-files-found: error
+          path: |
+            ai-engineering.tgz
+            ai-engineering.tgz.sha256
+            ai-engineering.cdx.json
+
   build:
+    needs: verify
     strategy:
       fail-fast: false
       matrix:
@@ -62,10 +131,8 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
-      # policy allows GitHub-owned actions plus org patterns, and a workflow that
-      # names anything else never starts (startup_failure, no logs). Node is on every
-      # hosted runner, and the registry pins the version's integrity itself.
+        with:
+          ref: ${{ github.sha }}
       - run: npm install -g bun@1.4.4
       - run: bun install --frozen-lockfile
       # build.ts names the artifact after the target (dist/ai-eng-<target>): eight
@@ -110,7 +177,7 @@ jobs:
           path: dist/ai-eng-*
 
   publish:
-    needs: build
+    needs: [build, package]
     runs-on: ubuntu-latest
     # Required reviewers live on this environment (Settings → Environments): the job
     # waits for an approval, and the environment's secrets are not exposed while it
@@ -122,9 +189,23 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: npm-package
+          path: npm-package
+      # Before anything else: the tarball about to ship is byte-for-byte the one the
+      # package job smoke-tested and described, or the run stops here.
+      - name: The tarball is the one the package job proved
+        run: |
+          set -euo pipefail
+          cd npm-package
+          sha256sum -c ai-engineering.tgz.sha256
       - run: npm install -g bun@1.4.4
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
+          pattern: ai-eng-*
           path: dist-artifacts
 
       - name: Resolve the version — and what it means
@@ -161,26 +242,17 @@ jobs:
             exit 1
           fi
 
-      - name: SBOM (CycloneDX, pinned by version + sha256)
-        run: |
-          set -euo pipefail
-          ver=v13.1.0
-          base="https://github.com/cdxgen/cdxgen/releases/download/${ver}"
-          curl -sSfL -o cdxgen "$base/cdxgen-linux-amd64"
-          echo "b9575914c36e601296d75f322123643b2531251235159f51578b507da6d9931f  cdxgen" | sha256sum -c -
-          chmod +x cdxgen
-          ./cdxgen -o sbom.json .
-
       - name: Checksums (the client's CI verifies the binary against this file)
         run: |
           set -euo pipefail
           (cd dist-artifacts && find . -type f -name 'ai-eng-*' ! -name '*.map' -exec sha256sum {} \; | sed 's|\./ai-eng-[^/]*/||' | sort -k2) > CHECKSUMS-SHA256.txt
-          sha256sum sbom.json >> CHECKSUMS-SHA256.txt
+          (cd npm-package && sha256sum ai-engineering.tgz ai-engineering.cdx.json) >> CHECKSUMS-SHA256.txt
           cat CHECKSUMS-SHA256.txt
 
       # Attesting the checksums file attests every subject it names — the eight
-      # binaries AND sbom.json. Without this, the pair (checksums + SBOM) could be
-      # swapped together: the digests are what the verification below believes.
+      # binaries, the npm tarball AND its SBOM. Without this, the pair (checksums +
+      # SBOM) could be swapped together: the digests are what the verification below
+      # believes.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-checksums: CHECKSUMS-SHA256.txt
@@ -225,8 +297,9 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           if [ "$CHANNEL" = "production" ]; then dist_tag=latest; else dist_tag=next; fi
           # Source-only package: no platform packages exist to publish alongside
-          # it, so the registry channel is one publish of one tarball.
-          npm publish --provenance --tag "$dist_tag"
+          # it, so the registry channel is one publish of one tarball — the one the
+          # package job packed, smoke-tested and described, checked above by digest.
+          npm publish ./npm-package/ai-engineering.tgz --provenance --tag "$dist_tag"
           {
             echo "npm publish completed (OIDC trusted publishing)"
             echo "Package: ai-engineering@$(node -p 'require("./package.json").version')"
@@ -268,7 +341,7 @@ jobs:
           # instead of asking GitHub to create it — a ruleset 422 cannot leave a
           # draft half-published.
           gh release create "$TAG" --verify-tag --draft --title "$TAG" --generate-notes
-          gh release upload "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json attestation-verify.log publish-proof.txt
+          gh release upload "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt npm-package/ai-engineering.cdx.json npm-package/ai-engineering.tgz.sha256 attestation-verify.log publish-proof.txt
           published_flags=()
           if [ "$PRERELEASE" = "true" ]; then published_flags+=(--prerelease); fi
           gh release edit "$TAG" --draft=false "${published_flags[@]}"

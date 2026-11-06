@@ -92,8 +92,10 @@ To test the CLI against real repos: `bun link`, then run `ai-eng` anywhere.
   `package.json` and `CHANGELOG.md`; it does not publish.
 - Dispatch `.github/workflows/release.yml` with a channel: `integration` ships a
   candidate (GitHub prerelease + npm `next`), `production` ships the real one
-  (GitHub release marked latest + npm `latest`). It builds the 8 binaries + SBOM +
-  GitHub Release and publishes npm under OIDC trusted publishing.
+  (GitHub release marked latest + npm `latest`). It gates the dispatched SHA (lint,
+  typecheck, full suite, build), builds the 8 binaries, packs one npm tarball —
+  smoke-tested and described by a runtime-only CycloneDX SBOM — and publishes that
+  exact tarball, checked against its digest, under OIDC trusted publishing.
 
 ## Reporting bugs and security issues
 
