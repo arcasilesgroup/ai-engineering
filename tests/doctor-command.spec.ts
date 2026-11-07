@@ -127,7 +127,7 @@ function shipClaudeCarrier(_home: string): void {
   const placement = machineCarrier(SURFACES.find((surface) => surface.id === "claude-code")!)!;
   const target = carrierPath(placement);
   mkdirSync(join(target, ".."), { recursive: true });
-  writeFileSync(target, carrierFiles("claude-code", "machine")!.main);
+  writeFileSync(target, carrierFiles("claude-code")!.main);
 }
 
 /** A repo where every check the caller did not deliberately break is green: the
@@ -477,7 +477,7 @@ describe("doctor · the canon and the lock", () => {
     run = await doctor();
     expect(detail(run, "machine state")).toBe(`carrier definition changed since ${VERSION}.0: claude-code → ai-eng update`);
 
-    const shipped = carrierFiles("claude-code", "machine")!;
+    const shipped = carrierFiles("claude-code")!;
     writeFileSync(state, JSON.stringify({ version: VERSION, carriers: { "claude-code": sha256(shipped.main) } }));
     run = await doctor();
     expect(row(run, "machine state")).toContain("✓");
@@ -487,7 +487,7 @@ describe("doctor · the canon and the lock", () => {
   test("F18: machine state held by a lock or left under a claim name is named, never read as no state", async () => {
     const { home } = sandbox();
     const state = join(home, "machine.json");
-    const recorded = JSON.stringify({ version: VERSION, carriers: { "claude-code": sha256(carrierFiles("claude-code", "machine")!.main) } });
+    const recorded = JSON.stringify({ version: VERSION, carriers: { "claude-code": sha256(carrierFiles("claude-code")!.main) } });
     writeFileSync(state, recorded);
     const lock = join(home, ".machine.json.lock");
     writeFileSync(lock, JSON.stringify({ pid: 1, hostname: "another-host", startedAt: "2026-01-01T00:00:00.000Z" }));
@@ -762,7 +762,7 @@ describe("doctor · surface carriers", () => {
 
     const placement = machineCarrier(SURFACES.find((surface) => surface.id === "claude-code")!)!;
     mkdirSync(join(home, ".claude"), { recursive: true });
-    writeFileSync(carrierPath(placement), carrierFiles("claude-code", "machine")!.main);
+    writeFileSync(carrierPath(placement), carrierFiles("claude-code")!.main);
     run = await doctor();
     expect(row(run, "surface claude-code")).toContain("✓");
     expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
@@ -773,7 +773,7 @@ describe("doctor · surface carriers", () => {
     process.env.PI_CODING_AGENT_DIR = agentDir;
     sandbox('[surfaces]\nenabled = ["oh-my-pi"]\n');
     const placement = machineCarrier(SURFACES.find((surface) => surface.id === "oh-my-pi")!)!;
-    const files = carrierFiles("oh-my-pi", "machine")!;
+    const files = carrierFiles("oh-my-pi")!;
     const entry = carrierPath(placement);
     const chain = carrierPath(placement, placement.chain!);
     expect(entry.startsWith(agentDir)).toBe(true);
@@ -799,7 +799,8 @@ describe("doctor · surface carriers", () => {
     expect(row(run, "surface copilot-cli")).toContain("▲");
     expect(detail(run, "surface copilot-cli")).toContain("machine carrier ~/.copilot/hooks/ai-eng.json missing → ai-eng update");
     expect(detail(run, "surface copilot-cli")).toContain("repo carrier .github/hooks/ai-eng.json missing → ai-eng update");
-    expect(detail(run, "surface copilot-cli")).toContain("cloud/VS Code are intentionally outside this surface");
+    // The note says VS Code shares this surface's hook files, so nobody wires it twice.
+    expect(detail(run, "surface copilot-cli")).toContain("the CLI and VS Code share — same hook files");
     expect(row(run, "surface zed")).toContain("✓");
     expect(detail(run, "surface zed")).toContain("no carrier: guard wiring is not implemented for this host");
     expect(run.code).toBe(2);
@@ -932,7 +933,7 @@ describe("a half-installed module host is a report, not a crash", () => {
     process.env.PI_CODING_AGENT_DIR = agentDir;
     sandbox('[surfaces]\nenabled = ["oh-my-pi"]\n');
     const placement = machineCarrier(SURFACES.find((surface) => surface.id === "oh-my-pi")!)!;
-    const files = carrierFiles("oh-my-pi", "machine")!;
+    const files = carrierFiles("oh-my-pi")!;
     mkdirSync(join(agentDir, "hooks", "pre"), { recursive: true });
     writeFileSync(carrierPath(placement), files.main); // the bundle is deliberately absent
 

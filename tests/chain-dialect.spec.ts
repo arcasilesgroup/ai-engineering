@@ -67,17 +67,12 @@ afterAll(() => {
 });
 
 describe("deny — one envelope per host, chosen by what that host's validator reads", () => {
-  test("claude gets the byte-for-byte blob on stdout and exit 2, with the reason on stderr", () => {
+  test("claude gets exit 2 and the reason on stderr, with nothing on stdout", () => {
+    // Claude Code parses stdout JSON even on exit 2, and `continue: false` there stops the
+    // whole turn: the agent never reads the reason. Silence on stdout keeps it a denial.
     const { json, stderr, code } = envelope(() => deny("no-verify", "the hooks were skipped", "claude"));
     expect(code).toBe(2);
-    expect(json).toEqual({
-      permission: "deny",
-      continue: false,
-      user_message: "[ai-eng] no-verify: the hooks were skipped",
-      userMessage: "[ai-eng] no-verify: the hooks were skipped",
-      stop_reason: "[ai-eng] no-verify: the hooks were skipped",
-      stopReason: "[ai-eng] no-verify: the hooks were skipped",
-    });
+    expect(json).toEqual({});
     expect(stderr).toContain("[ai-eng] no-verify: the hooks were skipped");
   });
 
@@ -110,22 +105,8 @@ describe("deny — one envelope per host, chosen by what that host's validator r
 describe("CP5 U30 — deny and Stop envelopes", () => {
   const stopReason = "[ai-eng] checkpoint: CP3 cannot pass: review is pending. Next: run the CP3 review.";
   const externalDenials = [
-    ["Claude PreToolUse exits 2", "claude", "PreToolUse", 2, {
-      permission: "deny",
-      continue: false,
-      user_message: stopReason,
-      userMessage: stopReason,
-      stop_reason: stopReason,
-      stopReason,
-    }],
-    ["Claude Stop exits 2", "claude", "Stop", 2, {
-      permission: "deny",
-      continue: false,
-      user_message: stopReason,
-      userMessage: stopReason,
-      stop_reason: stopReason,
-      stopReason,
-    }],
+    ["Claude PreToolUse exits 2", "claude", "PreToolUse", 2, {}],
+    ["Claude Stop exits 2", "claude", "Stop", 2, {}],
     ["Cursor Shell/Bash denial is permission JSON with exit 0", "cursor", "PreToolUse", 0, {
       permission: "deny",
       user_message: stopReason,

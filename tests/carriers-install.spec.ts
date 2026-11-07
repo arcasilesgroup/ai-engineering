@@ -6,8 +6,8 @@
 // the carriers, and GIT_CONFIG_GLOBAL isolates legacy template restoration.
 //
 // Settings templates that cannot be reproduced remain refused by mergeSharedText.
-// Machine settings are also refused when mutation is needed: portable path-based
-// rename/unlink cannot bind the syscall to the identity that was just validated.
+// An existing machine settings file takes our entries by a staged rename over it, and is
+// refused when it is hard-linked or changes between the snapshot and the rename.
 
 import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -373,7 +373,7 @@ describe("installer: the files a user shares with us", () => {
     mkdirSync(repo, { recursive: true });
     const settings = join(repo, ".claude", "settings.json");
     write(settings, USER_SETTINGS);
-    const entry: PlanEntry = { path: ".claude/settings.json", ours: carrierFiles("claude-code", "machine")!.main, merge: true };
+    const entry: PlanEntry = { path: ".claude/settings.json", ours: carrierFiles("claude-code")!.main, merge: true };
 
     const first = install(repo, [entry]);
     expect(first.written).toEqual([".claude/settings.json"]);
@@ -571,13 +571,13 @@ describe("carriers on the machine", () => {
 
     const cursor = byId("cursor") as StopSurface;
     expect(cursor.stopHook?.event).toBe("stop");
-    const cursorHooks = JSON.parse(carrierFiles("cursor", "repo")!.main) as {
+    const cursorHooks = JSON.parse(carrierFiles("cursor")!.main) as {
       hooks: { stop: Array<{ command: string }> };
     };
     expect(cursorHooks.hooks.stop[0]?.command).toBe("ai-eng chain Stop --surface cursor");
   });
 
-  test("an update refuses a machine settings rewrite and keeps the user's hook", () => {
+  test("an update swaps the old python gate for the chain and keeps the user's hooks", () => {
     const base = useHome("machine-update-old-gate");
     const settings = join(base, ".claude", "settings.json");
     const oldPythonGate = '[ -f "$HOME/.ai-engineering/scripts/checkpoint-gate.py" ] || exit 0; python3 "$HOME/.ai-engineering/scripts/checkpoint-gate.py" --surface claude-code';
@@ -596,12 +596,18 @@ describe("carriers on the machine", () => {
       }, null, 2)}\n`,
     );
 
-    const before = readFileSync(settings);
-    expect(installMachineCarriers(["claude-code"]).refused).toEqual([{
-      path: "~/.claude/settings.json",
-      reason: "identity-bound-settings-mutation-unavailable",
-    }]);
-    expect(readFileSync(settings)).toEqual(before);
+    const report = installMachineCarriers(["claude-code"]);
+    expect(report.refused).toEqual([]);
+    expect(report.written).toEqual(["~/.claude/settings.json"]);
+    const after = readFileSync(settings, "utf8");
+    const commands = new Set<string>();
+    collectTemplateCommands(JSON.parse(after), commands);
+    // The bare legacy gate was ours and goes; a line of the user's that merely wraps it stays.
+    expect(commands.has(oldPythonGate)).toBe(false);
+    expect(commands.has(wrappedUserHook)).toBe(true);
+    expect(commands.has("my-own-audit.sh")).toBe(true);
+    expect(after).toInclude(CHAIN);
+    expect((JSON.parse(after) as { env: unknown }).env).toEqual({ MY_FLAG: "1" });
   });
 
   test("carrierBase follows the host's agent dir env, and carrierPath rebases onto it", () => {
@@ -642,10 +648,10 @@ describe("carriers on the machine", () => {
     expect(surfaceCanGovern(byId("zed"))).toBe(false); // denies through its own permissions, never by running us
   });
 
-  test("installMachineCarriers: a missing settings file is created from the template; changed settings fail closed, garbage remains refused", () => {
+  test("installMachineCarriers: a missing settings file is created from the template; a user's settings take our entries, garbage remains refused", () => {
     const base = useHome("machine-install");
     const carrier = join(base, ".claude", "settings.json");
-    const ours = carrierFiles("claude-code", "machine")!.main;
+    const ours = carrierFiles("claude-code")!.main;
 
     // Nothing of the user's is at that name, so exclusive creation replaces nothing.
     expect(installMachineCarriers(["claude-code", "zed", "no-such-host"])).toEqual({
@@ -659,14 +665,10 @@ describe("carriers on the machine", () => {
     expect(state.carriers["claude-code"]).toBe(sha256(ours));
     expect(installMachineCarriers(["claude-code"])).toEqual({ written: [], untouched: ["~/.claude/settings.json"], refused: [] });
 
-    // A settings file belongs to the person; the machine carrier is not written into it.
+    // A settings file belongs to the person: ours go in by marker, theirs stay.
     write(carrier, USER_SETTINGS);
-    const originalBytes = readFileSync(carrier);
-    expect(installMachineCarriers(["claude-code"]).refused).toEqual([{
-      path: "~/.claude/settings.json",
-      reason: "identity-bound-settings-mutation-unavailable",
-    }]);
-    expect(readFileSync(carrier)).toEqual(originalBytes);
+    expect(installMachineCarriers(["claude-code"])).toEqual({ written: ["~/.claude/settings.json"], untouched: [], refused: [] });
+    expect(readFileSync(carrier, "utf8")).toBe((mergeSharedText(USER_SETTINGS, ours) as { text: string }).text);
 
     // Not JSON: still refused with the parser's specific reason.
     const comments = '{\n  // my notes\n  "model": "opus"\n}\n';
@@ -684,22 +686,106 @@ describe("carriers on the machine", () => {
     const originalBytes = readFileSync(settings);
     const originalRenameSync = fs.renameSync;
     let didAttemptSettingsRename = false;
+    // The rename runs from inside the settings folder, so its target is the bare name.
     const renameSpy = spyOn(fs, "renameSync").mockImplementation((...args) => {
-      if (String(args[1]) === settings) didAttemptSettingsRename = true;
+      if (basename(String(args[1])) === "settings.json") {
+        didAttemptSettingsRename = true;
+        throw Object.assign(new Error("EIO: injected rename failure"), { code: "EIO" });
+      }
       return originalRenameSync(...args);
     });
 
+    let report: ReturnType<typeof installMachineCarriers>;
     try {
-      expect(installMachineCarriers(["claude-code"]).refused).toEqual([{
-        path: "~/.claude/settings.json",
-        reason: "identity-bound-settings-mutation-unavailable",
-      }]);
+      report = installMachineCarriers(["claude-code"]);
     } finally {
       renameSpy.mockRestore();
     }
 
-    expect(didAttemptSettingsRename).toBe(false);
+    expect(didAttemptSettingsRename).toBe(true);
+    expect(report.refused).toEqual([{
+      path: "~/.claude/settings.json",
+      reason: "identity-bound-settings-mutation-unavailable",
+    }]);
+    expect(report.written).toEqual([]);
     expect(readFileSync(settings).equals(originalBytes)).toBe(true);
+    // The staged copy is swept: a failed replace leaves nothing of ours beside the file.
+    expect(readdirSync(dirname(settings)).filter((name) => name.startsWith(".settings.json.ai-eng-"))).toEqual([]);
+    expect(readMachineState().carriers["claude-code"]).toBeUndefined();
+  });
+
+  test("a hard-linked settings file is refused on install and remove: a second name would keep the old bytes", () => {
+    const base = useHome("machine-settings-hard-link");
+    const settings = join(base, ".claude", "settings.json");
+    const secondName = join(base, "dotfiles-settings.json");
+    const withOurs = (mergeSharedText(USER_SETTINGS, carrierFiles("claude-code")!.main) as { text: string }).text;
+    for (const [operation, content] of [["install", USER_SETTINGS], ["remove", withOurs]] as const) {
+      rmSync(settings, { force: true });
+      rmSync(secondName, { force: true });
+      write(settings, content);
+      linkSync(settings, secondName);
+
+      const refused = operation === "install"
+        ? installMachineCarriers(["claude-code"]).refused
+        : removeMachineCarriers(["claude-code"]).refused;
+
+      expect(refused).toEqual([{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }]);
+      expect(readFileSync(settings, "utf8")).toBe(content);
+      expect(lstatSync(settings).ino).toBe(lstatSync(secondName).ino);
+    }
+  });
+
+  test("an existing user's settings are merged, a second install is a no-op, and remove restores the original bytes", () => {
+    const base = useHome("machine-settings-round-trip");
+    const settings = join(base, ".claude", "settings.json");
+    write(settings, USER_SETTINGS);
+    const originalBytes = readFileSync(settings);
+
+    expect(installMachineCarriers(["claude-code"])).toEqual({ written: ["~/.claude/settings.json"], untouched: [], refused: [] });
+    const merged = JSON.parse(readFileSync(settings, "utf8")) as { env: unknown; hooks: { PreToolUse: unknown[] } };
+    expect(merged.env).toEqual({ MY_FLAG: "1" });
+    const commands = new Set<string>();
+    collectTemplateCommands(merged.hooks, commands);
+    expect(commands.has("my-own-audit.sh")).toBe(true);
+    expect([...commands].some((command) => command.includes(CHAIN))).toBe(true);
+    expect(readMachineState().carriers["claude-code"]).toBe(sha256(carrierFiles("claude-code")!.main));
+
+    const mergedBytes = readFileSync(settings);
+    const mergedIno = lstatSync(settings).ino;
+    expect(installMachineCarriers(["claude-code"])).toEqual({ written: [], untouched: ["~/.claude/settings.json"], refused: [] });
+    expect(readFileSync(settings)).toEqual(mergedBytes);
+    expect(lstatSync(settings).ino).toBe(mergedIno);
+
+    expect(removeMachineCarriers(["claude-code"])).toEqual({
+      lines: ["~/.claude/settings.json: ai-eng entries removed, yours kept"],
+      refused: [],
+    });
+    expect(readFileSync(settings)).toEqual(originalBytes);
+    expect(existsSync(machineStateFile())).toBe(false);
+  });
+
+  test("a symlinked settings file stays a link; its target takes our entries and gives them back", () => {
+    const base = useHome("machine-settings-symlink");
+    const settings = join(base, ".claude", "settings.json");
+    const target = join(base, "dotfiles", "claude-settings.json");
+    write(target, USER_SETTINGS);
+    mkdirSync(dirname(settings), { recursive: true });
+    symlinkSync(target, settings);
+
+    expect(installMachineCarriers(["claude-code"])).toEqual({ written: ["~/.claude/settings.json"], untouched: [], refused: [] });
+    expect(lstatSync(settings).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(settings)).toBe(target);
+    expect(readFileSync(target, "utf8")).toInclude(CHAIN);
+    expect(readFileSync(target, "utf8")).toInclude("my-own-audit.sh");
+    // Nothing staged is left in either folder.
+    for (const folder of [dirname(settings), dirname(target)]) {
+      expect(readdirSync(folder).filter((name) => name.includes(".ai-eng-"))).toEqual([]);
+    }
+
+    expect(removeMachineCarriers(["claude-code"]).refused).toEqual([]);
+    expect(lstatSync(settings).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(settings)).toBe(target);
+    expect(readFileSync(target, "utf8")).toBe(USER_SETTINGS);
   });
 
   test("I74: settings aliases to machine.json are refused without changing or deleting either path", () => {
@@ -720,7 +806,7 @@ describe("carriers on the machine", () => {
         reason: "identity-bound-settings-mutation-unavailable",
       }]);
       expect(refuseLine(installed.refused[0]!)).toBe(
-        "⚠ ~/.claude/settings.json — safe machine-settings replacement/removal is unavailable on this platform; left untouched",
+        "⚠ ~/.claude/settings.json — changed while ai-eng was writing it, or it is a hard link with a second name; left untouched, so this surface runs without guards — run ai-eng init again",
       );
       expect(readFileSync(statePath)).toEqual(originalBytes);
 
@@ -798,7 +884,7 @@ describe("carriers on the machine", () => {
           }
         } else {
           mkdirSync(dirname(moduleCarrier), { recursive: true });
-          writeFileSync(moduleCarrier, carrierFiles("opencode", "machine")!.main);
+          writeFileSync(moduleCarrier, carrierFiles("opencode")!.main);
           const originalUnlinkSync = fs.unlinkSync;
           const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path) => {
             if (String(path) === moduleCarrier || String(path) === basename(moduleCarrier)) addAlias();
@@ -874,91 +960,72 @@ describe("carriers on the machine", () => {
     }
   });
 
-  test("a settings replacement at the commit boundary is preserved because no identity-bound syscall runs", () => {
+  test("a settings file swapped after its snapshot is refused and left as swapped, on install and on remove", () => {
     const base = useHome("machine-commit-boundary");
     const settings = join(base, ".claude", "settings.json");
-    write(settings, USER_SETTINGS);
-    const replacementBytes = Buffer.from('{"model":"replacement"}\n');
-    const originalWriteFileSync = fs.writeFileSync;
-    const originalUnlinkSync = fs.unlinkSync;
+    const settingsFolder = dirname(settings);
+    const withOurs = (mergeSharedText(USER_SETTINGS, carrierFiles("claude-code")!.main) as { text: string }).text;
+    const originalOpenSync = fs.openSync;
     const originalRenameSync = fs.renameSync;
-    const originalLinkSync = fs.linkSync;
-    let replacedBeforeInstallReturned = false;
-    let replacedBeforeRemovalReturned = false;
-    let didAttemptSettingsPathMutation = false;
-    const isStateSyscall = (...paths: unknown[]) =>
-      paths.some((path) => typeof path === "string" && basename(path) === "machine.json");
-    const writeFileSpy = spyOn(fs, "writeFileSync").mockImplementation((...args) => {
-      if (String(args[0]) === settings) didAttemptSettingsPathMutation = true;
-      return originalWriteFileSync(...args);
-    });
-    const linkSpy = spyOn(fs, "linkSync").mockImplementation((existing, created) => {
-      if (String(created) === settings) didAttemptSettingsPathMutation = true;
-      if (!replacedBeforeInstallReturned && isStateSyscall(created)) {
-        replacedBeforeInstallReturned = true;
-        originalRenameSync(settings, `${settings}.before-install`);
-        originalWriteFileSync(settings, replacementBytes);
-      }
-      return originalLinkSync(existing, created);
-    });
-    const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path, ...args) => {
-      if (String(path) === settings) didAttemptSettingsPathMutation = true;
-      return originalUnlinkSync(path, ...args);
-    });
-    const renameSpy = spyOn(fs, "renameSync").mockImplementation((...args) => {
-      if (String(args[1]) === settings) didAttemptSettingsPathMutation = true;
-      if (!replacedBeforeRemovalReturned && isStateSyscall(args[0])) {
-        replacedBeforeRemovalReturned = true;
-        originalRenameSync(settings, `${settings}.before-removal`);
-        originalWriteFileSync(settings, Buffer.from('{"model":"second replacement"}\n'));
-      }
-      return originalRenameSync(...args);
-    });
+    const originalWriteFileSync = fs.writeFileSync;
+    // The swap lands while ai-eng stages its copy: after the snapshot, before the rename.
+    for (const [operation, content, swappedIn] of [
+      ["install", USER_SETTINGS, Buffer.from('{"model":"replacement"}\n')],
+      ["remove", withOurs, Buffer.from('{"model":"second replacement"}\n')],
+    ] as const) {
+      write(settings, content);
+      let didSwap = false;
+      const openSpy = spyOn(fs, "openSync").mockImplementation((...args) => {
+        if (!didSwap && basename(String(args[0])).startsWith(".settings.json.ai-eng-")) {
+          didSwap = true;
+          originalRenameSync(settings, `${settings}.before-${operation}`);
+          originalWriteFileSync(settings, swappedIn);
+        }
+        return originalOpenSync(...args);
+      });
 
-    try {
-      expect(installMachineCarriers(["claude-code"]).refused).toHaveLength(1);
-      expect(readFileSync(settings)).toEqual(replacementBytes);
-      expect(removeMachineCarriers(["claude-code"]).refused).toEqual([{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }]);
-    } finally {
-      renameSpy.mockRestore();
-      unlinkSpy.mockRestore();
-      linkSpy.mockRestore();
-      writeFileSpy.mockRestore();
+      let refused: Array<{ path: string; reason: string }>;
+      try {
+        refused = operation === "install"
+          ? installMachineCarriers(["claude-code"]).refused
+          : removeMachineCarriers(["claude-code"]).refused;
+      } finally {
+        openSpy.mockRestore();
+      }
+
+      expect(didSwap).toBe(true);
+      expect(refused).toEqual([{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }]);
+      expect(readFileSync(settings)).toEqual(swappedIn);
+      expect(readFileSync(`${settings}.before-${operation}`, "utf8")).toBe(content);
+      expect(readdirSync(settingsFolder).filter((name) => name.startsWith(".settings.json.ai-eng-"))).toEqual([]);
     }
-
-    expect(replacedBeforeInstallReturned).toBe(true);
-    expect(replacedBeforeRemovalReturned).toBe(true);
-    expect(didAttemptSettingsPathMutation).toBe(false);
-    expect(readFileSync(settings)).toEqual(Buffer.from('{"model":"second replacement"}\n'));
   });
 
-  test("carrierFiles: the machine copy and the repo copy are different files, and the in-process hosts ship a bundle", () => {
-    // Copilot's CLI combines repo and machine hooks and fails CLOSED on a missing binary,
-    // so the machine template guards the call; the repo copy has no such guard.
-    const cli = carrierFiles("copilot-cli", "machine")!;
+  test("carrierFiles: Copilot's one guarded template serves both scopes, and the in-process hosts ship a bundle", () => {
+    // Copilot fails CLOSED on a missing binary in both scopes, so its single template guards
+    // the call per shell — bash and PowerShell — and machine and repo get the same bytes.
+    const cli = carrierFiles("copilot-cli")!;
     expect(cli.main).toInclude("command -v ai-eng");
+    expect(cli.main).toInclude('"powershell"');
     expect(cli.main).toInclude("--surface copilot-cli");
     expect(cli.main).toInclude('"preToolUse"');
     expect(cli.main).toInclude('"postToolUse"');
     expect(cli.chain).toBeNull();
-    const repo = carrierFiles("copilot-cli", "repo")!;
-    expect(repo.main).not.toInclude("command -v ai-eng");
-    expect(repo.main).toInclude('"preToolUse"');
-    expect(repo.main).toInclude('"postToolUse"');
+    expect(carrierFiles("copilot-cli")!.main).toBe(cli.main);
 
     // An in-process host is imported by the host itself: the chain bundle must sit beside
     // the entry, and the entry imports it by name.
-    const pi = carrierFiles("pi", "machine")!;
+    const pi = carrierFiles("pi")!;
     expect(pi.chain).toInclude("ai-eng-chain");
     expect(pi.main).toInclude('from "./.ai-eng-chain.ts"');
-    expect(carrierFiles("cursor", "repo")!.main).toInclude('"failClosed": true');
+    expect(carrierFiles("cursor")!.main).toInclude('"failClosed": true');
   });
 
   test("installMachineCarriers: a missing settings carrier and its folder are created; a dangling link at that name is refused", () => {
     const base = useHome("machine-current");
     const carrier = join(base, ".codex", "hooks.json");
     expect(installMachineCarriers(["codex"])).toEqual({ written: ["~/.codex/hooks.json"], untouched: [], refused: [] });
-    expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("codex", "machine")!.main);
+    expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("codex")!.main);
 
     // A name that is there — even a link to nothing — is not missing: it is never written through.
     rmSync(carrier);
@@ -971,7 +1038,7 @@ describe("carriers on the machine", () => {
 
   test("installMachineCarriers: a module carrier is written whole, with its chain bundle beside it", () => {
     const base = useHome("machine-module");
-    const files = carrierFiles("opencode", "machine")!;
+    const files = carrierFiles("opencode")!;
     expect(installMachineCarriers(["opencode"]).written).toEqual(["~/.config/opencode/plugins/ai-eng.ts"]);
 
     const main = join(base, ".config", "opencode", "plugins", "ai-eng.ts");
@@ -1011,7 +1078,7 @@ describe("carriers on the machine", () => {
     process.env["PI_CODING_AGENT_DIR"] = agentDir;
 
     expect(installMachineCarriers(["oh-my-pi"]).written).toEqual(["~/.omp/agent/hooks/pre/ai-eng.ts"]);
-    expect(readFileSync(join(agentDir, "hooks", "pre", "ai-eng.ts"), "utf8")).toBe(carrierFiles("oh-my-pi", "machine")!.main);
+    expect(readFileSync(join(agentDir, "hooks", "pre", "ai-eng.ts"), "utf8")).toBe(carrierFiles("oh-my-pi")!.main);
     expect(existsSync(join(agentDir, "hooks", "pre", ".ai-eng-chain.ts"))).toBe(true);
     // A carrier the host would never read is the bug this table exists to end.
     expect(existsSync(join(base, ".omp"))).toBe(false);
@@ -1031,26 +1098,29 @@ describe("carriers on the machine", () => {
     );
 
     const swept = removeMachineCarriers(["claude-code", "opencode", "zed", "no-such-host"]);
-    expect(swept.refused).toEqual([{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }]);
+    expect(swept.refused).toEqual([]);
     expect(swept.lines).toEqual([
+      "~/.claude/settings.json removed (it held only ai-eng entries)",
       "~/.config/opencode/plugins/ai-eng.ts removed",
     ]);
-    expect(existsSync(carrier)).toBe(true);
+    expect(existsSync(carrier)).toBe(false);
     expect(existsSync(plugin)).toBe(false);
     expect(existsSync(bundle)).toBe(false);
     // Nothing left to remember: an empty machine.json would be a stale record.
     expect(existsSync(machineStateFile())).toBe(false);
   });
 
-  test("removeMachineCarriers: an existing user's settings file is refused unchanged", () => {
+  test("removeMachineCarriers: a user's settings file with nothing of ours is left byte for byte, and says nothing", () => {
     const base = useHome("machine-remove-keeps");
     const carrier = join(base, ".claude", "settings.json");
     write(carrier, USER_SETTINGS);
+    const inode = lstatSync(carrier).ino;
 
     const swept = removeMachineCarriers(["claude-code"]);
-    expect(swept.refused).toEqual([{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }]);
+    expect(swept.refused).toEqual([]);
     expect(swept.lines).toEqual([]);
     expect(readFileSync(carrier, "utf8")).toBe(USER_SETTINGS);
+    expect(lstatSync(carrier).ino).toBe(inode);
   });
 
   test("removeMachineCarriers: a file it cannot rewrite is refused by name, and left alone", () => {
@@ -1059,7 +1129,7 @@ describe("carriers on the machine", () => {
     const comments = '{\n  // mine\n  "model": "opus"\n}\n';
     write(carrier, comments);
 
-    expect(removeMachineCarriers(["claude-code"])).toEqual({ lines: [], refused: [{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }] });
+    expect(removeMachineCarriers(["claude-code"])).toEqual({ lines: [], refused: [{ path: "~/.claude/settings.json", reason: "removal-refused" }] });
     expect(readFileSync(carrier, "utf8")).toBe(comments);
   });
 
@@ -1137,7 +1207,7 @@ describe("carriers on the machine", () => {
     expect(second!.refused).toEqual([{ path: machineStateLockFile(), reason: "machine-state-busy" }]);
     expect(first.refused).toEqual([]);
     const committed = readMachineState();
-    expect(committed.carriers).toEqual({ pi: "owned", opencode: sha256(carrierFiles("opencode", "machine")!.main) });
+    expect(committed.carriers).toEqual({ pi: "owned", opencode: sha256(carrierFiles("opencode")!.main) });
     expect(committed.templateDir).toEqual({ previous: "/theirs", ours: null });
     expect(privateNames()).toEqual([]);
 
@@ -1171,7 +1241,7 @@ describe("carriers on the machine", () => {
     writeFileSync(lockPath, lockOf(deadPid, hostname()));
     expect(installMachineCarriers(["opencode"]).refused).toEqual([]);
     expect(existsSync(lockPath)).toBe(false);
-    expect(readMachineState().carriers["opencode"]).toBe(sha256(carrierFiles("opencode", "machine")!.main));
+    expect(readMachineState().carriers["opencode"]).toBe(sha256(carrierFiles("opencode")!.main));
 
     for (const held of [lockOf(process.pid, hostname()), lockOf(deadPid, `${hostname()}-elsewhere`), "", "{not json"]) {
       writeFileSync(lockPath, held);
@@ -1212,7 +1282,7 @@ describe("carriers on the machine", () => {
     expect(existsSync(claim)).toBe(false);
     const recovered = readMachineState();
     expect(recovered.templateDir).toEqual({ previous: "/theirs", ours: null });
-    expect(recovered.carriers).toEqual({ pi: "owned", opencode: sha256(carrierFiles("opencode", "machine")!.main) });
+    expect(recovered.carriers).toEqual({ pi: "owned", opencode: sha256(carrierFiles("opencode")!.main) });
 
     writeFileSync(claim, original);
     const { refused } = installMachineCarriers(["opencode"]);
@@ -1243,9 +1313,9 @@ describe("carriers on the machine", () => {
       { path: `~/${machineCarrier(byId("oh-my-pi"))!.path}`, reason: "carrier-edited" },
     ]);
     expect(readFileSync(plugin, "utf8")).toBe(edited);
-    expect(readFileSync(bundle, "utf8")).toBe(carrierFiles("opencode", "machine")!.chain!);
+    expect(readFileSync(bundle, "utf8")).toBe(carrierFiles("opencode")!.chain!);
     expect(lstatSync(omp).isDirectory()).toBe(true);
-    expect(readMachineState().carriers["opencode"]).toBe(sha256(carrierFiles("opencode", "machine")!.main));
+    expect(readMachineState().carriers["opencode"]).toBe(sha256(carrierFiles("opencode")!.main));
   });
 
   test("machine.json keeps legacy restore state, and reads as nothing when it is garbage", () => {
@@ -1264,11 +1334,11 @@ describe("carriers on the machine", () => {
       templateDir: { previous: "/some/other/templateDir", ours: null },
     });
 
-    // A refused carrier update must preserve restore data from an older version.
+    // A carrier merged into the user's settings must keep restore data from an older version.
     write(join(base, ".claude", "settings.json"), USER_SETTINGS);
-    installMachineCarriers(["claude-code"]);
+    expect(installMachineCarriers(["claude-code"]).refused).toEqual([]);
     const state = readMachineState();
-    expect(state.carriers["claude-code"]).toBeUndefined();
+    expect(state.carriers["claude-code"]).toBe(sha256(carrierFiles("claude-code")!.main));
     expect(state.templateDir).toEqual({ previous: "/some/other/templateDir", ours: null });
 
     // Uninstall still needs the legacy record after the carriers are removed.
@@ -1296,7 +1366,7 @@ describe("what 2.2.0 moved out of the repo", () => {
     const root = join(sandbox, "moved-basic");
     const onlyOurs = `${JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ command: `${CHAIN} PreToolUse` }] }] } }, null, 2)}\n`;
     write(join(root, ".claude", "settings.json"), onlyOurs);
-    write(join(root, ".agents", "hooks", "ai-eng.ts"), carrierFiles("oh-my-pi", "machine")!.main);
+    write(join(root, ".agents", "hooks", "ai-eng.ts"), carrierFiles("oh-my-pi")!.main);
     const theirs = "// a plugin of theirs that mentions nothing\nconsole.log('mine');\n";
     write(join(root, ".opencode", "plugins", "ai-eng.ts"), theirs);
 
@@ -1363,7 +1433,7 @@ describe("what 2.2.0 moved out of the repo", () => {
       if (aliasType === "symlink") symlinkSync(homeSettings, repoSettings);
       else linkSync(homeSettings, repoSettings);
       const plugin = join(root, ".opencode", "plugins", "ai-eng.ts");
-      write(plugin, `${carrierFiles("opencode", "machine")!.main}// my own line\n`);
+      write(plugin, `${carrierFiles("opencode")!.main}// my own line\n`);
 
       expect(sweepMovedRepoCarriers(root)).toEqual({
         removed: [],
@@ -1486,7 +1556,7 @@ describe("installCanon and what leaves with it", () => {
     }
   });
 
-  test("I68: the canon and every mirror hold each file of the single skills source while repo carriers scaffold and machine settings stay as they were", () => {
+  test("I68: the canon and every mirror hold each file of the single skills source while repo carriers scaffold and machine settings keep the user's keys", () => {
     const base = useHome("canon-single-source");
     const sourceRoot = join(import.meta.dir, "..", "skills");
     const filesBelow = (directory: string): string[] =>
@@ -1525,11 +1595,12 @@ describe("installCanon and what leaves with it", () => {
     for (const surface of repoSurfaces) {
       expect(readFileSync(join(repoRoot, repoCarrier(surface)!.path), "utf8")).toInclude(CHAIN);
     }
-    expect(machineReport.refused).toEqual(settingsSurfaces.map((surface) => ({
-      path: `~/${machineCarrier(surface)!.path}`,
-      reason: "identity-bound-settings-mutation-unavailable",
-    })));
-    for (const [path, bytes] of settingsBefore) expect(readFileSync(path, "utf8")).toBe(bytes);
+    expect(machineReport.refused).toEqual([]);
+    for (const surface of settingsSurfaces) {
+      const after = JSON.parse(readFileSync(carrierPath(machineCarrier(surface)!), "utf8")) as { user?: unknown };
+      expect(after.user).toBe(surface.id);
+      expect(readFileSync(carrierPath(machineCarrier(surface)!), "utf8")).toInclude(CHAIN);
+    }
   });
 
   test("installCanon repairs missing payload byte-for-byte, keeps the changed files it is told to preserve, and leaves a user's own skill folder alone", () => {

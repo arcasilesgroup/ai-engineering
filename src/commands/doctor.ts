@@ -350,7 +350,7 @@ function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
     if (!surface) continue;
     const machine = machineCarrier(surface);
     const repo = repoCarrier(surface);
-    const files = carrierFiles(id, "machine");
+    const files = carrierFiles(id);
     const parts: string[] = [];
     let status: CheckResult["status"] = "ok";
     if (machine && files) {
@@ -403,7 +403,7 @@ function checkMachineState(surfaces: string[]): CheckResult | null {
   if (Object.keys(state.carriers).length === 0) return null;
   const downgrade = state.version !== "" && state.version !== VERSION && compareVersions(state.version, VERSION) > 0;
   const changed = surfaces.filter((id) => {
-    const files = carrierFiles(id, "machine");
+    const files = carrierFiles(id);
     const recorded = state.carriers[id];
     return files !== null && recorded !== undefined && recorded !== sha256(files.main);
   });

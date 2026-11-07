@@ -59,10 +59,17 @@ function managedCommands(): Set<string> {
 
 const LEGACY_CHECKPOINT_HOOK = /^(?:\[ -f "\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py" \] \|\| exit 0; )?python3 "\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py" --surface [a-z0-9-]+$/;
 
+/** 3.0.0's repo-scope Copilot line, before the template learned to guard it: still ours. */
+const LEGACY_BARE_CHAIN_HOOK = /^ai-eng chain (?:PreToolUse|PostToolUse) --surface copilot-cli$/;
+
 function isOurs(value: unknown): boolean {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
   const command = (value as { command?: unknown }).command;
-  return typeof command === "string" && (managedCommands().has(command) || LEGACY_CHECKPOINT_HOOK.test(command));
+  if (typeof command !== "string") return false;
+  // A Windows install calls the `.cmd`/`.exe` shim by name (adapters.ts hookLauncher):
+  // the same line, so the same marker.
+  const portable = command.replace(/ai-eng\.(?:cmd|exe) chain /g, "ai-eng chain ");
+  return managedCommands().has(portable) || LEGACY_CHECKPOINT_HOOK.test(portable) || LEGACY_BARE_CHAIN_HOOK.test(portable);
 }
 
 const isEmptyContainer = (value: unknown): boolean =>

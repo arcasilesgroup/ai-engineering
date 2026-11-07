@@ -288,9 +288,7 @@ describe("deny / allowRewrite / allow — the claude wire is the default", () =>
     const r = envelope(() => deny("guard", "because"));
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("[ai-eng] guard: because");
-    expect(r.json["permission"]).toBe("deny");
-    expect(r.json["continue"]).toBe(false);
-    expect(r.json["user_message"]).toBe("[ai-eng] guard: because");
+    expect(r.json).toEqual({});
   });
 
   test("the event argument defaults to PreToolUse — proven on the wire that names it", () => {

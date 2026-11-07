@@ -77,9 +77,12 @@ test("init recovers a repo whose lock was uninstalled (no update↔init deadlock
   expect(existsSync(join(repo, ".ai-engineering", "ai-eng.lock"))).toBe(true);
   expect(existsSync(join(repo, ".git", "hooks", "pre-commit"))).toBe(true);
   expect(existsSync(join(engHome, "skills", "ai-brainstorm", "SKILL.md"))).toBe(true);
-  expect(output).toInclude("~/.claude/settings.json");
-  expect(output).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
-  expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
+  // The recovered init still reaches the machine side: ours merged in, the user's key kept.
+  expect(output).toInclude("~/.claude/settings.json · machine carrier · written");
+  const machineSettingsAfter = readFileSync(machineSettings, "utf8");
+  expect(machineSettingsAfter).not.toBe(machineSettingsBefore);
+  expect(machineSettingsAfter).toInclude("ai-eng chain");
+  expect((JSON.parse(machineSettingsAfter) as { editor?: unknown }).editor).toBe("vim");
   expect(existsSync(join(repo, ".claude", "settings.json"))).toBe(false);
 });
 

@@ -3,7 +3,7 @@
 
 import surfacesJson from "./surfaces.json";
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { closeSync, constants, existsSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { hostname } from "node:os";
 import { basename, join, dirname, relative, resolve, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
@@ -108,26 +108,47 @@ export function carrierPath(placement: Carrier, relative?: string): string {
 }
 
 /** surface id → the entry template and whether the host needs the chain bundle
- *  beside it. Copilot is the one scope-dependent row: the CLI reads the machine file
- *  and never the repo one, and it fails CLOSED on a missing binary — so the machine
- *  template guards the call with `command -v`. Null for a surface with no generator
- *  (§13: no adapter, no offer). */
-const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; cli?: string }> = {
+ *  beside it. Copilot fails CLOSED on a missing binary, in both scopes, so its one
+ *  template guards the call per shell (`bash` and `powershell`). Null for a surface
+ *  with no generator (§13: no adapter, no offer). */
+const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean }> = {
   "claude-code": { main: "settings.claude.json.tpl", chain: false },
   "oh-my-pi": { main: "plugin.omp.ts.tpl", chain: true },
   opencode: { main: "plugin.opencode.ts.tpl", chain: true },
   pi: { main: "plugin.pi.ts.tpl", chain: true },
   codex: { main: "settings.codex.json.tpl", chain: false },
   cursor: { main: "settings.cursor.json.tpl", chain: false },
-  copilot: { main: "settings.copilot.json.tpl", chain: false, cli: "settings.copilot.cli.json.tpl" },
+  copilot: { main: "settings.copilot.json.tpl", chain: false },
 };
 
-export function carrierFiles(id: string, scope: Carrier["scope"]): { main: string; chain: string | null } | null {
+/** The launcher name a hook line must call on this machine. On Windows a bare `ai-eng`
+ *  resolves, in PowerShell, to npm's `ai-eng.ps1` — and the Restricted execution policy a
+ *  fresh Windows laptop ships with refuses to load it, so every hook errors and the
+ *  fail-closed hosts deny every tool call. The `.exe` (bun) or `.cmd` (npm) shim beside it
+ *  runs under any policy, in PowerShell, cmd and Git Bash alike. First hit in PATH order,
+ *  the way the shell will resolve it; `.cmd` when nothing is on PATH yet (npm's shim). */
+export function hookLauncher(platform: NodeJS.Platform = process.platform, path: string = process.env["PATH"] ?? process.env["Path"] ?? ""): string {
+  if (platform !== "win32") return "ai-eng";
+  for (const dir of path.split(";").filter(Boolean)) {
+    for (const name of ["ai-eng.exe", "ai-eng.cmd"]) if (existsSync(join(dir, name))) return name;
+  }
+  return "ai-eng.cmd";
+}
+
+/** A settings template with its hook lines calling `launcher`. Only the call is renamed:
+ *  the `command -v ai-eng` / `Get-Command ai-eng` probes look for any form of it. */
+export function withLauncher(template: string, launcher: string = hookLauncher()): string {
+  return launcher === "ai-eng" ? template : template.replaceAll("ai-eng chain ", `${launcher} chain `);
+}
+
+export function carrierFiles(id: string): { main: string; chain: string | null } | null {
   // The surface id is copilot-cli; the template row kept the short name.
   const row = CARRIER_TEMPLATES[id] ?? (id === "copilot-cli" ? CARRIER_TEMPLATES["copilot"] : undefined);
   if (!row) return null;
-  const main = scope === "machine" && row.cli ? row.cli : row.main;
-  return { main: embeddedTemplate(main), chain: row.chain ? embeddedChainBundle() : null };
+  const template = embeddedTemplate(row.main);
+  // Module carriers run the chain in-process: there is no hook line to rename.
+  const main = row.main.endsWith(".json.tpl") ? withLauncher(template) : template;
+  return { main, chain: row.chain ? embeddedChainBundle() : null };
 }
 
 /** What the chain must write when this surface denies. Default: claude. */
@@ -422,14 +443,9 @@ function holdsAiEngEntries(current: string): boolean {
 }
 
 function shippedCarrierModules(owner: string): string[] {
-  const shipped: string[] = [];
-  for (const scope of ["machine", "repo"] as const) {
-    const files = carrierFiles(owner, scope);
-    if (files === null) continue;
-    shipped.push(files.main);
-    if (files.chain !== null) shipped.push(files.chain);
-  }
-  return shipped;
+  const files = carrierFiles(owner);
+  if (files === null) return [];
+  return files.chain === null ? [files.main] : [files.main, files.chain];
 }
 
 /** Whether anything — a file, a directory, a dangling link — has this name. A path that
@@ -1262,7 +1278,7 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
   for (const id of surfaceIds) {
     const surface = SURFACES.find((s) => s.id === id);
     const placement = surface ? machineCarrier(surface) : null;
-    const files = carrierFiles(id, "machine");
+    const files = carrierFiles(id);
     if (!surface || !placement || !files) continue;
     const absolute = carrierPath(placement);
     const definition = sha256(files.main);
@@ -1354,10 +1370,16 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       }
       continue;
     }
-    report.refused.push({
-      path: `~/${placement.path}`,
-      reason: SETTINGS_MUTATION_REFUSED,
-    });
+    const replaced = replaceMachineSettings(snapshot, absolute, merged.text);
+    if (replaced === null) {
+      report.refused.push({ path: `~/${placement.path}`, reason: SETTINGS_MUTATION_REFUSED });
+      continue;
+    }
+    // The end-of-run re-check compares against the file this run wrote, not the one it read.
+    const settingsEntry = settingsSnapshots.find((entry) => entry.id === id);
+    if (settingsEntry !== undefined) settingsEntry.snapshot = replaced;
+    state.carriers[id] = definition;
+    report.written.push(`~/${placement.path}`);
   }
   for (const refusal of machineSettingsMutationRefusals(settingsSnapshots)) {
     mayWriteMachineState = false;
@@ -1411,6 +1433,58 @@ function createMachineSettings(snapshot: MachineSettingsSnapshot, absolute: stri
     && after.file.stat.ino === created.ino
     && after.file.content.toString("utf8") === content;
   return isOurs ? after : null;
+}
+
+/** Replace a settings file the person owns with `content` — only while it is still the very
+ *  file that was read, and only through its one name (a hard link's second name would be
+ *  left on the old bytes). Staged beside it with O_EXCL, never through a link, then renamed
+ *  over it: the host never reads half a file, and a failure leaves the original. A link to
+ *  a dotfiles repo stays a link; its target is what gets replaced.
+ *
+ *  The last check and the rename are two calls, so a file swapped in between them is
+ *  replaced. Whoever can do that inside your home already owns your editor's settings.
+ *  Refusing every existing settings file instead (3.0.0) left every existing user with no
+ *  hooks at all. */
+function replaceMachineSettings(snapshot: MachineSettingsSnapshot, absolute: string, content: string): MachineSettingsSnapshot | null {
+  const original = snapshot.file;
+  if (original === null || original.stat.nlink !== 1 || !machineSettingsSnapshotMatches(snapshot)) return null;
+  const parent = snapshot.link === null ? snapshot.sourceParent : snapshot.targetParent;
+  const name = snapshot.link === null ? snapshot.sourceName : snapshot.targetName;
+  const staged = `.${name}.ai-eng-${randomBytes(6).toString("hex")}`;
+  const isReplaced = withMachineSettingsDirectory(parent, () => {
+    let descriptor: number | null = null;
+    try {
+      descriptor = openSync(staged, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, original.stat.mode & 0o777);
+      writeFileSync(descriptor, content);
+      closeSync(descriptor);
+      descriptor = null;
+      if (!sameMachineSettingsFile(readMachineSettingsFile(name), original)) throw new Error("changed while staged");
+      renameSync(staged, name);
+      return true;
+    } catch {
+      if (descriptor !== null) closeSync(descriptor);
+      try {
+        unlinkSync(staged);
+      } catch {
+        // Never staged, or already renamed: nothing of ours is left to sweep.
+      }
+      return false;
+    }
+  });
+  if (isReplaced !== true) return null;
+  const after = readableMachineSettings(absolute);
+  return after?.file?.content.toString("utf8") === content ? after : null;
+}
+
+/** Remove a settings file that held only ai-eng's entries, while it is still the file read. */
+function unlinkMachineSettings(snapshot: MachineSettingsSnapshot): boolean {
+  const original = snapshot.file;
+  if (original === null || snapshot.link !== null || original.stat.nlink !== 1) return false;
+  return withMachineSettingsDirectory(snapshot.sourceParent, () => {
+    if (!sameMachineSettingsFile(readMachineSettingsFile(snapshot.sourceName), original)) return false;
+    unlinkSync(snapshot.sourceName);
+    return true;
+  }) === true;
 }
 
 function writeCarrierModule(path: string, content: string): boolean {
@@ -1473,7 +1547,32 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
       delete state.carriers[id];
       continue;
     }
-    refused.push({ path: `~/${placement.path}`, reason: SETTINGS_MUTATION_REFUSED });
+    const current = snapshot.file.content.toString("utf8");
+    const stripped = stripSharedText(current);
+    if (stripped === null) {
+      refused.push({ path: `~/${placement.path}`, reason: REMOVAL_REFUSED });
+      continue;
+    }
+    if (stripped === current) {
+      delete state.carriers[id];
+      continue;
+    }
+    const settingsEntry = settingsSnapshots.find((entry) => entry.id === id);
+    if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0 && unlinkMachineSettings(snapshot)) {
+      // The absent file is what the end-of-run re-check must find, not a null snapshot.
+      if (settingsEntry !== undefined) settingsEntry.snapshot = readableMachineSettings(absolute);
+      delete state.carriers[id];
+      lines.push(`~/${placement.path} removed (it held only ai-eng entries)`);
+      continue;
+    }
+    const replaced = replaceMachineSettings(snapshot, absolute, stripped);
+    if (replaced === null) {
+      refused.push({ path: `~/${placement.path}`, reason: SETTINGS_MUTATION_REFUSED });
+      continue;
+    }
+    if (settingsEntry !== undefined) settingsEntry.snapshot = replaced;
+    delete state.carriers[id];
+    lines.push(`~/${placement.path}: ai-eng entries removed, yours kept`);
   }
   for (const refusal of machineSettingsMutationRefusals(settingsSnapshots)) {
     mayMutateMachineState = false;
@@ -1493,7 +1592,7 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
  *  binary writes; an edited entry is the user's now and is kept and named, together with
  *  the bundle it imports. */
 function removeCarrierModule(id: string, placement: Carrier): { isEntryRemoved: boolean; isEntryKept: boolean; kept: MachineRefusal[] } {
-  const files = carrierFiles(id, "machine");
+  const files = carrierFiles(id);
   const entry = removeExactFile(carrierPath(placement), files?.main ?? null);
   if (entry === "kept" || entry === "refused") {
     return { isEntryRemoved: false, isEntryKept: true, kept: [{ path: `~/${placement.path}`, reason: carrierKeptReason(entry) }] };

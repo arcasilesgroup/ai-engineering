@@ -149,7 +149,7 @@
     },
     {
       "id": "copilot-cli",
-      "label": "Copilot CLI",
+      "label": "GitHub Copilot (CLI + VS Code)",
       "tier": "best-effort",
       "dialect": "copilot",
       "can": {
@@ -168,18 +168,18 @@
           "scope": "repo",
           "kind": "settings",
           "path": ".github/hooks/ai-eng.json",
-          "source": "GitHub Docs hooks reference (2026-09-25): cloud agent loads .github/hooks/*.json; VS Code support is not documented",
-          "measured": "2026-09-25"
+          "source": "GitHub Docs hooks reference (2026-09-25): cloud agent loads .github/hooks/*.json · code.visualstudio.com/docs/copilot/customization/hooks (2026-11-07): VS Code reads workspace .github/hooks/*.json through the same Copilot harness",
+          "measured": "2026-11-07"
         },
         {
           "scope": "machine",
           "kind": "settings",
           "path": ".copilot/hooks/ai-eng.json",
-          "source": "GitHub Docs hooks reference (2026-09-25): Copilot CLI combines repository and user hooks; user path is ~/.copilot/hooks/*.json",
-          "measured": "2026-09-25"
+          "source": "GitHub Docs hooks reference (2026-09-25): Copilot CLI combines repository and user hooks; user path is ~/.copilot/hooks/*.json · code.visualstudio.com/docs/copilot/customization/hooks (2026-11-07): VS Code reads ~/.copilot/hooks/ too, and the harness takes `command` as the fallback with `bash`/`powershell` per platform",
+          "measured": "2026-11-07"
         }
       ],
-      "note": "Copilot CLI only: command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; cloud/VS Code are intentionally outside this surface; no token savings from output rewriting"
+      "note": "One surface for the Copilot harness that the CLI and VS Code share — same hook files, same camelCase payload — so the hooks never run twice; `--surface copilot-vscode` or `vscode` selects it. VS Code finds the skills in ~/.claude/skills and ~/.agents/skills. Command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; no token savings from output rewriting"
     },
     {
       "id": "pi",

@@ -121,8 +121,8 @@ Security is the product, so it comes early. A guard bypass is critical by defini
 
 The guards stop an agent's mistakes. They are not a sandbox, so know where they end:
 
-The Copilot CLI adapter can fail open. If the hook command fails or times out, Copilot CLI
-may let the tool call proceed without a verdict.
+The Copilot adapter (CLI and VS Code) fails open on purpose when `ai-eng` is not on PATH,
+so a machine without it is not locked out; a hook that times out also lets the call proceed.
 
 Command guards read the visible command text. They do not sandbox opaque programs or
 scripts prepared in earlier calls: a script written in one call and run in a later call

@@ -325,10 +325,13 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     // A git shim that is not executable is a git hook that silently never runs.
     // Windows has no execute bit; Git for Windows runs a hook whatever its mode.
     if (process.platform !== "win32") expect(statSync(join(repo, ".git", "hooks", "pre-commit")).mode & 0o111).not.toBe(0);
-    // The local canon still installs completely; unsafe machine-settings mutation is refused.
-    expect(first.out).toInclude("~/.claude/settings.json");
-    expect(first.out).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
-    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
+    // The local canon installs completely, and the user's machine settings take our entries
+    // beside their own keys.
+    expect(first.out).toInclude("~/.claude/settings.json · machine carrier · written");
+    const machineSettingsMerged = readFileSync(machineSettings, "utf8");
+    expect(JSON.parse(machineSettingsMerged).user).toBe("keep");
+    expect(machineSettingsMerged).toInclude("ai-eng chain");
+    expect(machineSettingsMerged).not.toBe(machineSettingsBefore);
     expect(existsSync(join(repo, ".claude", "settings.json"))).toBe(false);
     assertAllSkillsInstalled();
 
@@ -344,11 +347,11 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(second.out).toInclude("Machine side");
     expect(second.out).toInclude("nothing to write");
     expect(second.out).toInclude("global canon");
-    expect(second.out).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
+    expect(second.out).toInclude("~/.claude/settings.json · machine carrier already current");
     expect(second.out).toInclude("Nothing written");
-    // A refused settings registration is never reported as a successful write.
+    // A carrier already merged is never reported as a second write.
     expect(second.out).not.toInclude("machine carrier · written");
-    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsMerged);
     expect(readFileSync(lockPath, "utf8")).toBe(bytes);
     expect(statSync(lockPath).mtimeMs).toBe(mtime);
   });
@@ -370,12 +373,12 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const first = await captured(() => updateMain({ yes: true }));
     expect(first.value).toBe(0);
     for (const [id, path] of carriers) {
-      expect(readFileSync(join(freshHome, path), "utf8")).toBe(carrierFiles(id, "machine")!.main);
+      expect(readFileSync(join(freshHome, path), "utf8")).toBe(carrierFiles(id)!.main);
       expect(first.out).toInclude(`~/${path} · machine carrier · written`);
     }
     expect(first.out).not.toInclude("unavailable on this platform");
     const recorded = JSON.parse(readFileSync(join(freshHome, "machine.json"), "utf8")) as { carriers: Record<string, string> };
-    for (const [id] of carriers) expect(recorded.carriers[id]).toBe(sha256(carrierFiles(id, "machine")!.main));
+    for (const [id] of carriers) expect(recorded.carriers[id]).toBe(sha256(carrierFiles(id)!.main));
 
     const second = await captured(() => updateMain({ yes: true }));
     expect(second.value).toBe(0);
@@ -450,6 +453,9 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     writeFileSync(machineSettings, machineSettingsBefore);
     process.chdir(repo);
     expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    // The first update merged our entries into the user's file; that is the baseline now.
+    const machineSettingsMerged = readFileSync(machineSettings, "utf8");
+    expect(machineSettingsMerged).toInclude('"user": "repair"');
 
     const sourceFiles = sourceSkillFiles();
     // A shipped sibling of the edited file: preserving one edited file must not stop the
@@ -487,7 +493,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(readFileSync(userOwnedResource, "utf8")).toBe("my notes\n");
     expect(readFileSync(configPath)).toEqual(Buffer.from(legacyConfig));
     // Machine settings are not part of the canon: the repair neither writes nor removes them.
-    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsMerged);
     assertAllSkillsInstalled(["my-local-skill"], [`${editedSource.skill}/${editedSource.relativePath}`]);
   });
 
@@ -686,7 +692,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const repo = governedRepo("repo-moved");
     mkdirSync(join(repo, ".agents", "hooks"), { recursive: true });
     mkdirSync(join(repo, ".pi", "extensions"), { recursive: true });
-    writeFileSync(join(repo, ".agents/hooks/ai-eng.ts"), carrierFiles("oh-my-pi", "repo")!.main);
+    writeFileSync(join(repo, ".agents/hooks/ai-eng.ts"), carrierFiles("oh-my-pi")!.main);
     writeFileSync(join(repo, ".pi/extensions/ai-eng.ts"), "// hand-written by a person, nothing to do with the product\n");
     process.chdir(repo);
 

@@ -38,7 +38,9 @@ export function repoRoot(start?: string): string | null {
 
 const configPath = (root: string) => join(root, ".ai-engineering", "config.toml");
 
-const SURFACE_ALIASES: Record<string, string> = { copilot: "copilot-cli" };
+// VS Code's Copilot runs the same Copilot harness as the CLI and reads the same hook files
+// (.github/hooks/*.json, ~/.copilot/hooks/): one surface, so the hooks never run twice.
+const SURFACE_ALIASES: Record<string, string> = { copilot: "copilot-cli", "copilot-vscode": "copilot-cli", vscode: "copilot-cli" };
 
 export function canonicalSurfaceId(id: string): string {
   return SURFACE_ALIASES[id] ?? id;

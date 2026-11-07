@@ -329,7 +329,7 @@ function removeInstallerRecords(machineDir: string, refused: string[]): number {
 
 function machineRefusalText(refused: { path: string; reason: string }): string {
   if (refused.reason === "identity-bound-settings-mutation-unavailable") {
-    return `${refused.path} left alone — safe machine-settings removal is unavailable on this platform`;
+    return `${refused.path} left alone — it changed while ai-eng was removing its entries, or it is a hard link with a second name; remove the ai-eng chain lines by hand`;
   }
   if (refused.reason === "machine-state-identity-unverified") {
     return `${refused.path} left alone — it is linked, changed, or shared with another path`;

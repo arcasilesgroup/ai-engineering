@@ -62,9 +62,12 @@ function hookLines(file: string): Array<{ key: string; line: string }> {
   const walk = (node: unknown): void => {
     if (Array.isArray(node)) return node.forEach(walk);
     if (node === null || typeof node !== "object") return;
+    // Beside a `powershell` line the Copilot harness hands `command` to bash only.
+    const hasPowerShell = typeof (node as Record<string, unknown>)["powershell"] === "string";
     for (const [key, value] of Object.entries(node)) {
-      if (typeof value === "string" && ["command", "bash", "powershell", "windows", "linux", "osx"].includes(key) && value.includes("ai-eng")) found.push({ key, line: value });
-      else walk(value);
+      if (typeof value === "string" && ["command", "bash", "powershell", "windows", "linux", "osx"].includes(key) && value.includes("ai-eng")) {
+        found.push({ key: key === "command" && hasPowerShell ? "bash" : key, line: value });
+      } else walk(value);
     }
   };
   walk(JSON.parse(readFileSync(file, "utf8")));
@@ -105,6 +108,14 @@ const work = mkdtempSync(join(tmpdir(), "first install "));
 const bare = join(work, "not governed");
 mkdirSync(bare);
 
+// Everyone who already uses Claude Code has this file: 3.0.0 refused to merge into it and
+// installed no hooks at all. Seeded the way Claude Code writes it, unless one is there.
+const userSettings = join(homedir(), ".claude", "settings.json");
+if (!existsSync(userSettings)) {
+  mkdirSync(join(homedir(), ".claude"), { recursive: true });
+  writeFileSync(userSettings, `${JSON.stringify({ model: "opus" }, null, 2)}\n`);
+}
+
 const version = aiEng("--version", work);
 cells.push({ surface: "-", check: "ai-eng --version", shell: IS_WINDOWS ? "cmd" : "sh", ok: version.status === 0, detail: (version.stdout || version.stderr).slice(0, 160) });
 
@@ -125,12 +136,15 @@ for (const surface of SURFACES) {
       cells.push({ surface, check: "module carrier + chain bundle", shell: "-", ok: existsSync(chain), detail: existsSync(chain) ? "present" : `no ${chain}` });
       continue;
     }
-    for (const { key, line } of hookLines(carrier)) {
+    const lines = hookLines(carrier);
+    cells.push({ surface, check: `hook lines in ${carrier.replace(homedir(), "~").replace(repo, "<repo>")}`, shell: "-", ok: lines.length > 0, detail: `${lines.length} line(s)` });
+    for (const { key, line } of lines) {
       const event = eventOf(line);
       for (const shell of shells()) {
         // A hook line under the `powershell` key is never handed to bash, and vice versa.
-        if (key === "bash" && shell.name.startsWith("power")) continue;
-        if ((key === "powershell" || key === "windows") && !shell.name.includes("powershell") && shell.name !== "pwsh") continue;
+        const isPowerShell = shell.name.startsWith("powershell") || shell.name === "pwsh";
+        if (key === "bash" && isPowerShell) continue;
+        if ((key === "powershell" || key === "windows") && !isPowerShell) continue;
         for (const [where, cwd] of [["governed", repo], ["ungoverned", bare]] as const) {
           const [file, argv] = shell.argv(line);
           const r = run(file, argv, { cwd, input: payloadFor(surface, cwd, event) });

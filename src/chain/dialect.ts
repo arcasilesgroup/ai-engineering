@@ -3,9 +3,11 @@
 // permission — so the envelope is written and flushed deliberately before exit.
 //
 // Per host, per the installed versions' docs:
-// - claude: exit 2 + stderr blocks. The JSON blob below is kept byte-for-byte —
-//   an unmeasured wire change on the surface that works is the one change nobody
-//   can justify.
+// - claude: exit 2 + the reason on stderr, and NOTHING on stdout. Claude Code still
+//   parses stdout JSON on exit 2, and `continue: false` there "stops Claude entirely"
+//   (code.claude.com/docs/en/hooks): every denial ended the turn instead of handing the
+//   agent the reason, and on Stop it ended the turn the checkpoint gate meant to keep
+//   going. Exit 2 alone blocks the tool, the prompt, or the stop, per event.
 // - codex: stdout {"hookSpecificOutput":{...,"permissionDecision":"deny"}}, exit 0.
 //   A non-zero exit is NOT the contract, and `continue: false` is on Codex's
 //   unsupported list — "hook fails, tool proceeds". The wrong envelope fail-opens.
@@ -51,17 +53,7 @@ export function deny(guard: string, message: string, dialect: Dialect = "claude"
   if (dialect === "copilot") {
     writeJsonAndExit({ permissionDecision: "deny", permissionDecisionReason: text }, 0);
   }
-  writeJsonAndExit(
-    {
-      permission: "deny",
-      continue: false,
-      user_message: text,
-      userMessage: text,
-      stop_reason: text,
-      stopReason: text,
-    },
-    2,
-  );
+  process.exit(2);
 }
 
 /** The allowed-rewrite envelope (wrap): same per-host split as deny — Cursor reads

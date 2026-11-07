@@ -35,7 +35,7 @@ function repoRoot(start) {
   }
 }
 var configPath = (root) => join(root, ".ai-engineering", "config.toml");
-var SURFACE_ALIASES = { copilot: "copilot-cli" };
+var SURFACE_ALIASES = { copilot: "copilot-cli", "copilot-vscode": "copilot-cli", vscode: "copilot-cli" };
 function canonicalSurfaceId(id) {
   return SURFACE_ALIASES[id] ?? id;
 }
@@ -501,14 +501,7 @@ function deny(guard, message, dialect = "claude", event = "PreToolUse") {
   if (dialect === "copilot") {
     writeJsonAndExit({ permissionDecision: "deny", permissionDecisionReason: text }, 0);
   }
-  writeJsonAndExit({
-    permission: "deny",
-    continue: false,
-    user_message: text,
-    userMessage: text,
-    stop_reason: text,
-    stopReason: text
-  }, 2);
+  process.exit(2);
 }
 function allowRewrite(command, dialect = "claude", event = "PreToolUse") {
   if (dialect === "codex") {

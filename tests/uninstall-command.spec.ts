@@ -735,7 +735,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(out).toContain("AGENTS.md · DECISIONS.md · .ai-engineering/");
   });
 
-  test("a machine settings carrier is refused without identity-bound mutation, and said", async () => {
+  test("a machine settings carrier merged into the user's file leaves it with ours out and theirs in, and said", async () => {
     const { cwd, machine } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
@@ -747,17 +747,17 @@ describe("uninstall · the machine side (Everything scope)", () => {
     mkdirSync(join(machine, ".copilot", "hooks"), { recursive: true });
     const originalSettings = `${JSON.stringify({ user: "owned" }, null, 2)}\n`;
     writeFileSync(copilotSettings, originalSettings);
-    expect(installMachineCarriers(["copilot-cli"]).refused).toEqual([{
-      path: "~/.copilot/hooks/ai-eng.json",
-      reason: "identity-bound-settings-mutation-unavailable",
-    }]);
+    expect(installMachineCarriers(["copilot-cli"])).toEqual({ written: ["~/.copilot/hooks/ai-eng.json"], untouched: [], refused: [] });
+    expect(readFileSync(copilotSettings, "utf8")).toInclude("ai-eng chain");
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 
     expect(result).toBe(0);
-    expect(out).toContain("safe machine-settings removal is unavailable");
+    expect(out).toContain("~/.copilot/hooks/ai-eng.json: ai-eng entries removed, yours kept");
     expect(out).toContain(`✓ ${machine} kept · 0 canon-owned file(s) removed · 0 machine artifacts swept · other files kept`);
-    expect(readFileSync(copilotSettings, "utf8")).toBe(originalSettings);
+    // Every hook of ours is out and the user's key stays. Copilot's `version: 1` is a scalar
+    // the merge set and the strip cannot tell from one the user wrote, so it stays too.
+    expect(JSON.parse(readFileSync(copilotSettings, "utf8"))).toEqual({ user: "owned", version: 1 });
     expect(existsSync(machine)).toBe(true);
     expect(existsSync(join(cwd, ".ai-engineering", "config.toml"))).toBe(true); // "no" kept the project's files
   });

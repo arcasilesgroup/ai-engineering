@@ -163,8 +163,9 @@ for (const aliasType of ["symlink", "hard-link"] as const) {
         const output = run.stdout + run.stderr;
         expect(run.status, output).toBe(0);
         expectMachineAliasPreserved(alias);
+        // The refusal is named, in init/update's words and in uninstall's.
         expect(output).toInclude("~/.claude/settings.json");
-        expect(output).toInclude("safe machine-settings");
+        expect(output).toInclude("or it is a hard link with a second name");
       } finally {
         rmSync(sandbox, { recursive: true, force: true });
       }
@@ -201,7 +202,7 @@ test("I76: an unselected settings link replaced before the machine-state commit 
     report = installMachineCarriers(["opencode"]);
     expect(wasReplaced).toBe(true);
     expect(report.refused.map(refuseLine)).toContain(
-      "⚠ ~/.claude/settings.json — safe machine-settings replacement/removal is unavailable on this platform; left untouched",
+      "⚠ ~/.claude/settings.json — changed while ai-eng was writing it, or it is a hard link with a second name; left untouched, so this surface runs without guards — run ai-eng init again",
     );
     expectMachineAliasPreserved({ statePath, settingsPath, stateBytes: MACHINE_STATE_BYTES, aliasType: "symlink" });
   } finally {
@@ -247,12 +248,13 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
     expect(existsSync(join(repo, ".github", "workflows", "ai-eng-check.yml"))).toBe(true);
     // The user's hook is untouched, byte for byte.
     expect(readFileSync(join(repo, ".git", "hooks", "pre-commit"), "utf8")).toBe(husky);
-    // The repo settings are not a plan entry, and unsafe machine-settings mutation is
-    // refused rather than risking a write to the user's settings.
+    // The repo settings are not a plan entry; the machine settings take our entries by
+    // marker and keep the user's key.
     expect(readFileSync(join(repo, ".claude", "settings.json"), "utf8")).toBe('{\n  "editor": "vim"\n}\n');
-    expect(first.stdout + first.stderr).toInclude("~/.claude/settings.json");
-    expect(first.stdout + first.stderr).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
-    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
+    expect(first.stdout + first.stderr).toInclude("~/.claude/settings.json · machine carrier · written");
+    const machineSettingsMerged = readFileSync(machineSettings, "utf8");
+    expect(JSON.parse(machineSettingsMerged).user).toBe("keep");
+    expect(machineSettingsMerged).toInclude("ai-eng chain");
     const lock = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
     expect(lock).toInclude('".ai-engineering/overrides.toml"');
     expect(lock).toInclude('".github/workflows/ai-eng-check.yml"');
@@ -269,7 +271,8 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
     expect(second.status).toBe(0);
     expect(second.stdout + second.stderr).not.toInclude("patched by you");
     expect(readFileSync(join(repo, ".git", "hooks", "pre-commit"), "utf8")).toBe(husky);
-    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsBefore);
+    // A second update is a no-op on the merged machine settings.
+    expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsMerged);
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }
