@@ -330,7 +330,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(first.out).toInclude("~/.claude/settings.json · machine carrier · written");
     const machineSettingsMerged = readFileSync(machineSettings, "utf8");
     expect(JSON.parse(machineSettingsMerged).user).toBe("keep");
-    expect(machineSettingsMerged).toInclude("ai-eng chain");
+    expect(machineSettingsMerged).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
     expect(machineSettingsMerged).not.toBe(machineSettingsBefore);
     expect(existsSync(join(repo, ".claude", "settings.json"))).toBe(false);
     assertAllSkillsInstalled();

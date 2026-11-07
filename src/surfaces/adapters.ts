@@ -111,8 +111,9 @@ export function carrierPath(placement: Carrier, relative?: string): string {
  *  beside it. Copilot fails CLOSED on a missing binary, in both scopes, so its one
  *  template guards the call per shell (`bash` and `powershell`). Null for a surface
  *  with no generator (§13: no adapter, no offer). */
-const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean }> = {
-  "claude-code": { main: "settings.claude.json.tpl", chain: false },
+const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; isExitStatusRead?: boolean }> = {
+  // Claude denies by exit status (2); every other JSON host reads the verdict from stdout.
+  "claude-code": { main: "settings.claude.json.tpl", chain: false, isExitStatusRead: true },
   "oh-my-pi": { main: "plugin.omp.ts.tpl", chain: true },
   opencode: { main: "plugin.opencode.ts.tpl", chain: true },
   pi: { main: "plugin.pi.ts.tpl", chain: true },
@@ -135,10 +136,18 @@ export function hookLauncher(platform: NodeJS.Platform = process.platform, path:
   return "ai-eng.cmd";
 }
 
+/** `powershell -Command` turns a native exit 2 into exit 1, and Claude reads exit 1 as a
+ *  non-blocking error: the denial becomes an allow (first-install probe, windows-latest).
+ *  Passing the status on by hand keeps it 2. Git Bash reads the same text the same way:
+ *  `$LASTEXITCODE` is unset there, so `exit` returns the chain's own status. */
+export const KEEP_EXIT_STATUS = "; exit $LASTEXITCODE";
+
 /** A settings template with its hook lines calling `launcher`. Only the call is renamed:
  *  the `command -v ai-eng` / `Get-Command ai-eng` probes look for any form of it. */
-export function withLauncher(template: string, launcher: string = hookLauncher()): string {
-  return launcher === "ai-eng" ? template : template.replaceAll("ai-eng chain ", `${launcher} chain `);
+export function withLauncher(template: string, launcher: string = hookLauncher(), isExitStatusRead = false): string {
+  if (launcher === "ai-eng") return template;
+  const renamed = template.replaceAll("ai-eng chain ", `${launcher} chain `);
+  return isExitStatusRead ? renamed.replace(/("command": "[^"]+ chain [A-Za-z]+)"/g, `$1${KEEP_EXIT_STATUS}"`) : renamed;
 }
 
 export function carrierFiles(id: string, scope: Carrier["scope"] = "machine"): { main: string; chain: string | null } | null {
@@ -149,7 +158,7 @@ export function carrierFiles(id: string, scope: Carrier["scope"] = "machine"): {
   // Only this machine's own files name this machine's launcher. A repo file is committed
   // and read on every teammate's OS: `ai-eng.cmd` there is "command not found" on a Mac.
   // Module carriers run the chain in-process: there is no hook line to rename.
-  const main = scope === "machine" && row.main.endsWith(".json.tpl") ? withLauncher(template) : template;
+  const main = scope === "machine" && row.main.endsWith(".json.tpl") ? withLauncher(template, hookLauncher(), row.isExitStatusRead === true) : template;
   return { main, chain: row.chain ? embeddedChainBundle() : null };
 }
 

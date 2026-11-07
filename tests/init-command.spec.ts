@@ -500,7 +500,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     // The user's machine settings take our entries beside their own keys.
     expect(out).toContain("~/.claude/settings.json — machine carrier");
     const machineSettingsMerged = readFileSync(machineSettings, "utf8");
-    expect(machineSettingsMerged).toContain("ai-eng chain");
+    expect(machineSettingsMerged).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
     expect(machineSettingsMerged).not.toBe(machineSettingsBefore);
     for (const [key, value] of Object.entries(JSON.parse(machineSettingsBefore) as Record<string, unknown>)) {
       expect((JSON.parse(machineSettingsMerged) as Record<string, unknown>)[key]).toEqual(value);

@@ -70,7 +70,10 @@ describe("withLauncher — only the call is renamed", () => {
 
   test("a Windows-rendered entry is ours: a re-init replaces it, uninstall takes it out", () => {
     const template = embeddedTemplate("settings.claude.json.tpl");
-    const windows = withLauncher(template, "ai-eng.cmd");
+    const windows = withLauncher(template, "ai-eng.cmd", true);
+    // PowerShell would hand Claude exit 1 for the chain's 2: the line passes the status on.
+    expect(windows).toContain('"command": "ai-eng.cmd chain PreToolUse; exit $LASTEXITCODE"');
+    expect(withLauncher(embeddedTemplate("settings.codex.json.tpl"), "ai-eng.cmd")).not.toContain("LASTEXITCODE");
     const user = `${JSON.stringify({ model: "opus" }, null, 2)}\n`;
     const installed = mergeSharedText(user, windows);
     if ("refused" in installed) throw new Error(installed.refused);

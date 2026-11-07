@@ -69,7 +69,7 @@ function isOurs(value: unknown): boolean {
   if (typeof command !== "string") return false;
   // A Windows install calls the `.cmd`/`.exe` shim by name (adapters.ts hookLauncher):
   // the same line, so the same marker.
-  const portable = command.replace(/ai-eng\.(?:cmd|exe) chain /g, "ai-eng chain ");
+  const portable = command.replace(/ai-eng\.(?:cmd|exe) chain /g, "ai-eng chain ").replace(/; exit \$LASTEXITCODE$/, "");
   return managedCommands().has(portable) || LEGACY_CHECKPOINT_HOOK.test(portable) || LEGACY_COPILOT_HOOK.test(portable);
 }
 

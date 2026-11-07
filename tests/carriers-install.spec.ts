@@ -36,6 +36,7 @@ import {
   carrierBase,
   carrierFiles,
   carrierPath,
+  hookLauncher,
   installAgentsCanon,
   installCanon,
   installMachineCarriers,
@@ -51,6 +52,7 @@ import {
   surfaceCanGovern,
   surfaceDialect,
   sweepMovedRepoCarriers,
+  withLauncher,
 } from "../src/surfaces/adapters.ts";
 import { restoreTemplateDir } from "../src/floor/template.ts";
 import { planEntries, refuseLine } from "../src/commands/init-shared.ts";
@@ -59,6 +61,8 @@ import { VERSION } from "../src/version.ts";
 const SHIM_MARKER = "ai-eng git floor shim";
 const LEGACY_SHIMS = ["pre-commit", "commit-msg", "pre-push"] as const;
 const CHAIN = "ai-eng chain";
+// A machine carrier names the launcher this machine has (ai-eng.cmd or ai-eng.exe on Windows).
+const MACHINE_CHAIN = `${hookLauncher()} chain`;
 
 let sandbox: string;
 const OWNED_ENV = ["AI_ENG_HOME", "PI_CODING_AGENT_DIR", "GIT_CONFIG_GLOBAL"] as const;
@@ -379,7 +383,7 @@ describe("installer: the files a user shares with us", () => {
     expect(first.written).toEqual([".claude/settings.json"]);
     const merged = readFileSync(settings, "utf8");
     expect(merged).toInclude("my-own-audit.sh");
-    expect(merged).toInclude(`${CHAIN} PreToolUse`);
+    expect(merged).toInclude(`${MACHINE_CHAIN} PreToolUse`);
     // Nothing foreign was reformatted: their block is verbatim, and out again it is the
     // file they had before we existed.
     expect(merged).toInclude('  "env": {\n    "MY_FLAG": "1"\n  }');
@@ -574,7 +578,7 @@ describe("carriers on the machine", () => {
     const cursorHooks = JSON.parse(carrierFiles("cursor")!.main) as {
       hooks: { stop: Array<{ command: string }> };
     };
-    expect(cursorHooks.hooks.stop[0]?.command).toBe("ai-eng chain Stop --surface cursor");
+    expect(cursorHooks.hooks.stop[0]?.command).toBe(withLauncher("ai-eng chain Stop --surface cursor"));
   });
 
   test("an update swaps the old python gate for the chain and keeps the user's hooks", () => {
@@ -606,7 +610,7 @@ describe("carriers on the machine", () => {
     expect(commands.has(oldPythonGate)).toBe(false);
     expect(commands.has(wrappedUserHook)).toBe(true);
     expect(commands.has("my-own-audit.sh")).toBe(true);
-    expect(after).toInclude(CHAIN);
+    expect(after).toInclude(MACHINE_CHAIN);
     expect((JSON.parse(after) as { env: unknown }).env).toEqual({ MY_FLAG: "1" });
   });
 
@@ -747,7 +751,7 @@ describe("carriers on the machine", () => {
     const commands = new Set<string>();
     collectTemplateCommands(merged.hooks, commands);
     expect(commands.has("my-own-audit.sh")).toBe(true);
-    expect([...commands].some((command) => command.includes(CHAIN))).toBe(true);
+    expect([...commands].some((command) => command.includes(MACHINE_CHAIN))).toBe(true);
     expect(readMachineState().carriers["claude-code"]).toBe(sha256(carrierFiles("claude-code")!.main));
 
     const mergedBytes = readFileSync(settings);
@@ -775,7 +779,7 @@ describe("carriers on the machine", () => {
     expect(installMachineCarriers(["claude-code"])).toEqual({ written: ["~/.claude/settings.json"], untouched: [], refused: [] });
     expect(lstatSync(settings).isSymbolicLink()).toBe(true);
     expect(readlinkSync(settings)).toBe(target);
-    expect(readFileSync(target, "utf8")).toInclude(CHAIN);
+    expect(readFileSync(target, "utf8")).toInclude(MACHINE_CHAIN);
     expect(readFileSync(target, "utf8")).toInclude("my-own-audit.sh");
     // Nothing staged is left in either folder.
     for (const folder of [dirname(settings), dirname(target)]) {
@@ -1599,7 +1603,7 @@ describe("installCanon and what leaves with it", () => {
     for (const surface of settingsSurfaces) {
       const after = JSON.parse(readFileSync(carrierPath(machineCarrier(surface)!), "utf8")) as { user?: unknown };
       expect(after.user).toBe(surface.id);
-      expect(readFileSync(carrierPath(machineCarrier(surface)!), "utf8")).toInclude(CHAIN);
+      expect(readFileSync(carrierPath(machineCarrier(surface)!), "utf8")).toInclude(MACHINE_CHAIN);
     }
   });
 

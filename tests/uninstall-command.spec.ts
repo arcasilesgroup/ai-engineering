@@ -748,7 +748,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
     const originalSettings = `${JSON.stringify({ user: "owned" }, null, 2)}\n`;
     writeFileSync(copilotSettings, originalSettings);
     expect(installMachineCarriers(["copilot-cli"])).toEqual({ written: ["~/.copilot/hooks/ai-eng.json"], untouched: [], refused: [] });
-    expect(readFileSync(copilotSettings, "utf8")).toInclude("ai-eng chain");
+    expect(readFileSync(copilotSettings, "utf8")).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 

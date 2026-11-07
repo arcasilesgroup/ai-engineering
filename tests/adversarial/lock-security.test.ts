@@ -254,7 +254,7 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
     expect(first.stdout + first.stderr).toInclude("~/.claude/settings.json · machine carrier · written");
     const machineSettingsMerged = readFileSync(machineSettings, "utf8");
     expect(JSON.parse(machineSettingsMerged).user).toBe("keep");
-    expect(machineSettingsMerged).toInclude("ai-eng chain");
+    expect(machineSettingsMerged).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
     const lock = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
     expect(lock).toInclude('".ai-engineering/overrides.toml"');
     expect(lock).toInclude('".github/workflows/ai-eng-check.yml"');
@@ -276,4 +276,5 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }
-});
+  // Two spawned updates: windows-latest needs more than bun's 5 s default, which kills the child (status null).
+}, 30_000);

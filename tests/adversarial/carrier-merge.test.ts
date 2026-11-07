@@ -249,7 +249,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     const settings = join(home, ".claude", "settings.json");
     const userBytes = `${JSON.stringify(userSettings, null, 2)}\n`;
     const merged = readFileSync(settings, "utf8");
-    expect(merged).toInclude("ai-eng chain");
+    expect(merged).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
     expect((JSON.parse(merged) as Settings).env).toEqual(userSettings.env);
     expect(existsSync(join(home, "machine.json"))).toBe(true);
     // Everything scope: down-arrow to it, then a bare `y` per confirmation (clack answers
@@ -293,7 +293,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
       for (const group of groups) expect(afterInit.hooks?.[event]).toContainEqual(group);
     }
     const ourCommands = Object.values(afterInit.hooks ?? {}).flat().flatMap((group) => group.hooks ?? []).map((hook) => hook.command ?? "");
-    expect(ourCommands.some((command) => command.startsWith("ai-eng chain"))).toBe(true);
+    expect(ourCommands.some((command) => /^ai-eng(?:\.cmd|\.exe)? chain/.test(command))).toBe(true);
 
     // Idempotent: a second install is not a second copy.
     const once = readFileSync(settings, "utf8");

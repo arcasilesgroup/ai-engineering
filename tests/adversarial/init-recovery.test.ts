@@ -81,7 +81,7 @@ test("init recovers a repo whose lock was uninstalled (no update↔init deadlock
   expect(output).toInclude("~/.claude/settings.json · machine carrier · written");
   const machineSettingsAfter = readFileSync(machineSettings, "utf8");
   expect(machineSettingsAfter).not.toBe(machineSettingsBefore);
-  expect(machineSettingsAfter).toInclude("ai-eng chain");
+  expect(machineSettingsAfter).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
   expect((JSON.parse(machineSettingsAfter) as { editor?: unknown }).editor).toBe("vim");
   expect(existsSync(join(repo, ".claude", "settings.json"))).toBe(false);
 });
