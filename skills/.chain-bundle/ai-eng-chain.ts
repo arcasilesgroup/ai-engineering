@@ -3990,8 +3990,11 @@ function bumpStopCounter(path, root) {
   writeFileSync2(path, String(next), { mode: 384 });
   return next;
 }
+function isContinuingAfterStop(payload) {
+  return payload["stop_hook_active"] === true;
+}
 function faultRefusal(payload, refusal) {
-  return payload["stop_hook_active"] === true ? { deny: false } : refusal;
+  return isContinuingAfterStop(payload) ? { deny: false } : refusal;
 }
 function checkStop(payload, repoRoot) {
   if (payload.stop_reason === "user_interrupt" || payload.stop_reason === "ask_user_question") {
@@ -4022,11 +4025,19 @@ function checkStop(payload, repoRoot) {
     try {
       checkpoint = readCheckpoint(path, checkpointContext(root, slug));
     } catch (error) {
-      return faultRefusal(payload, deny2(`Checkpoint ${slug}`, "Stop gate", `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint JSON before ending the turn"));
+      const detail = `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`;
+      if (!isContinuingAfterStop(payload))
+        return deny2(`Checkpoint ${slug}`, "Stop gate", detail, "repair the checkpoint JSON before ending the turn");
+      problems.push(`${slug}: ${detail}`);
+      continue;
     }
     const sequenceError = requireSequentialCheckpoints(checkpoint, path);
-    if (sequenceError !== undefined)
-      return faultRefusal(payload, sequenceError);
+    if (sequenceError !== undefined) {
+      if (!isContinuingAfterStop(payload))
+        return sequenceError;
+      problems.push(`${slug}: checkpoint IDs in ${path} are not sequential`);
+      continue;
+    }
     const halted = checkpoint.halted;
     if (typeof halted === "object" && halted !== null && "reason" in halted && typeof halted.reason === "string" && halted.reason.length > 0)
       continue;

@@ -65,6 +65,12 @@ describe("retireNpmPowerShellShim — PowerShell runs the .cmd, never the .ps1",
     expect(retireNpmPowerShellShim("win32", lonely)).toBeNull();
     expect(existsSync(join(lonely, "ai-eng.ps1"))).toBe(true);
 
+    // The first .ps1 on PATH is the one PowerShell runs: a later one is not touched for it.
+    const later = binDir("retire-later", ["ai-eng.cmd"]);
+    writeFileSync(join(later, "ai-eng.ps1"), OURS);
+    expect(retireNpmPowerShellShim("win32", `${lonely};${later}`)).toBeNull();
+    expect(existsSync(join(later, "ai-eng.ps1"))).toBe(true);
+
     const posix = binDir("retire-posix", ["ai-eng.cmd"]);
     writeFileSync(join(posix, "ai-eng.ps1"), OURS);
     expect(retireNpmPowerShellShim("darwin", posix)).toBeNull();

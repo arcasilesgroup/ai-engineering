@@ -609,13 +609,19 @@ function bumpStopCounter(path: string, root: string): number {
   return next;
 }
 
-/** A Stop refused for a fault — no repo, an unreadable folder, a corrupt checkpoint, a
- *  counter that cannot be saved — is refused once. Continuing cannot cure a fault the
- *  agent may not even be allowed to touch (the checkpoint file is guarded), so when the
- *  host says this stop already follows a refusal (`stop_hook_active`), it goes through.
- *  Open gates are bounded separately, by MAX_STOP_BLOCKS. */
+/** Exit 2 on Stop makes Claude continue, and it then sends the next Stop with
+ *  `stop_hook_active`. A fault the agent cannot cure by continuing (the checkpoint file is
+ *  itself guarded) must not hold the turn forever:
+ *  - a fault that leaves nothing to judge (no repo, an unreadable folder, a counter that
+ *    cannot be saved) is refused once, then the stop goes through;
+ *  - a fault in one checkpoint file becomes one more problem beside the other files' open
+ *    gates, so it is still reported and bounded by MAX_STOP_BLOCKS like they are. */
+function isContinuingAfterStop(payload: Payload): boolean {
+  return payload["stop_hook_active"] === true;
+}
+
 function faultRefusal(payload: Payload, refusal: CheckpointGuardResult): CheckpointGuardResult {
-  return payload["stop_hook_active"] === true ? { deny: false } : refusal;
+  return isContinuingAfterStop(payload) ? { deny: false } : refusal;
 }
 
 function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
@@ -648,10 +654,17 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     try {
       checkpoint = readCheckpoint(path, checkpointContext(root, slug));
     } catch (error) {
-      return faultRefusal(payload, deny(`Checkpoint ${slug}`, "Stop gate", `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint JSON before ending the turn"));
+      const detail = `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`;
+      if (!isContinuingAfterStop(payload)) return deny(`Checkpoint ${slug}`, "Stop gate", detail, "repair the checkpoint JSON before ending the turn");
+      problems.push(`${slug}: ${detail}`);
+      continue;
     }
     const sequenceError = requireSequentialCheckpoints(checkpoint, path);
-    if (sequenceError !== undefined) return faultRefusal(payload, sequenceError);
+    if (sequenceError !== undefined) {
+      if (!isContinuingAfterStop(payload)) return sequenceError;
+      problems.push(`${slug}: checkpoint IDs in ${path} are not sequential`);
+      continue;
+    }
     const halted = checkpoint.halted;
     if (
       typeof halted === "object" &&

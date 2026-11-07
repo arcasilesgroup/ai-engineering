@@ -7,7 +7,7 @@ import { closeSync, constants, existsSync, fstatSync, ftruncateSync, linkSync, l
 import { hostname } from "node:os";
 import { basename, join, dirname, relative, resolve, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
-import { mergeSharedText, stripSharedText, sha256 } from "../install.ts";
+import { KEEP_EXIT_STATUS, mergeSharedText, portableHookText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
 import {
   materializeSkills, materializeAgents, materializeScripts, embeddedTemplate, embeddedChainBundle, removeStaleCanonFiles,
@@ -147,7 +147,9 @@ export function retireNpmPowerShellShim(platform: NodeJS.Platform = process.plat
   if (platform !== "win32") return null;
   for (const dir of path.split(";").filter(Boolean)) {
     const shim = join(dir, "ai-eng.ps1");
-    if (!existsSync(shim) || !existsSync(join(dir, "ai-eng.cmd"))) continue;
+    if (!existsSync(shim)) continue;
+    // Only the first .ps1 on PATH is the one PowerShell runs; removing a later one fixes nothing.
+    if (!existsSync(join(dir, "ai-eng.cmd"))) return null;
     try {
       if (!/ai-engineering[\\/]+bin[\\/]+ai-eng\.js/.test(readFileSync(shim, "utf8"))) return null;
       unlinkSync(shim);
@@ -163,7 +165,6 @@ export function retireNpmPowerShellShim(platform: NodeJS.Platform = process.plat
  *  non-blocking error: the denial becomes an allow (first-install probe, windows-latest).
  *  Passing the status on by hand keeps it 2. Git Bash reads the same text the same way:
  *  `$LASTEXITCODE` is unset there, so `exit` returns the chain's own status. */
-export const KEEP_EXIT_STATUS = "; exit $LASTEXITCODE";
 
 /** A settings template with its hook lines calling `launcher`. Only the call is renamed:
  *  the `command -v ai-eng` / `Get-Command ai-eng` probes look for any form of it. */
@@ -240,8 +241,6 @@ export function installCanon(version: string, preserveSkills: readonly string[] 
   // a shim still holding one of them is ours to refresh.
   const earlierCommands = renderCommands(canonDir);
   lines.push(...warningsOf(materializeSkills(canonDir, preserveSkills)));
-  const retiredShim = retireNpmPowerShellShim();
-  if (retiredShim !== null) lines.push(retiredShim);
   const swept = removeStaleCanonFiles(home());
   if (swept.removed.length > 0) lines.push(`✓ swept ${swept.removed.length} file(s) this binary no longer ships: ${swept.removed.join(", ")}`);
   if (swept.refused.length > 0) lines.push(`⚠ ${refusedStaleCanonText(swept.refused)}`);
@@ -1316,7 +1315,7 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
     const files = carrierFiles(id);
     if (!surface || !placement || !files) continue;
     const absolute = carrierPath(placement);
-    const definition = sha256(files.main);
+    const definition = sha256(portableHookText(files.main));
     if (placement.kind === "module") {
       // A module carrier is ours whole — never merged into — but rewriting the bytes
       // already there is not an install. Reporting it as `written` is how an update that

@@ -14,7 +14,7 @@ import { install, buildLock, lockText, parseLock, sha256, mergeSharedText } from
 import type { PlanEntry } from "../install.ts";
 import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
 import { canonDrift, changedCanonSkills, isFilesystemRefusal, refusedChangeText, type CanonDrift } from "../embed.ts";
-import { installCanon, installMachineCarriers, machineStateFile, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
+import { installCanon, installMachineCarriers, machineStateFile, retireNpmPowerShellShim, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
 import { runGit } from "../git/run.ts";
 import { installLineRow, planEntries, refuseLine } from "./init-shared.ts";
 import { VERSION } from "../version.ts";
@@ -101,6 +101,12 @@ function installMachineSide(
     rows.push(...preservedSkills.map((path): ui.Row => ({ mark: "warn", text: `${path} · local change kept` })));
   } else {
     rows.push({ mark: "muted", text: `global canon · ${canon.verified} files match ai-eng ${VERSION}` });
+  }
+  // Every update, healthy canon or not: npm writes the .ps1 back on a reinstall of the same version.
+  const retiredShim = retireNpmPowerShellShim();
+  if (retiredShim !== null) {
+    rows.push(installLineRow(retiredShim));
+    if (retiredShim.startsWith("✓")) written += 1;
   }
   const machineReport = installMachineCarriers(enabledSurfaces());
   written += machineReport.written.length;

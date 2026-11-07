@@ -12,7 +12,7 @@ import { PassThrough } from "node:stream";
 import { join } from "node:path";
 import { select, multiselect, isCancel } from "@clack/prompts";
 import { scriptedInput } from "../ui.ts";
-import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, type Surface } from "../surfaces/adapters.ts";
+import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, retireNpmPowerShellShim, type Surface } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, changedCanonSkills, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home } from "../env.ts";
@@ -348,6 +348,9 @@ async function installCarriers(
     const surface = SURFACES.find((s) => s.id === id);
     return surface !== undefined && machineCarrier(surface) !== null;
   });
+  // Every init, whatever the surfaces: Cursor's repo-only hook is the one that needs it most.
+  const retiredShim = retireNpmPowerShellShim();
+  if (retiredShim !== null) lines.push(retiredShim);
   if (machineScoped.length > 0) {
     const agreed =
       machineAgreed ||
