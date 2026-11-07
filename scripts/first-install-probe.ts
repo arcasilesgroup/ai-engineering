@@ -55,15 +55,6 @@ function hostRuns(surface: string, key: string, shell: string): boolean {
   return true;
 }
 
-/** A red cell this branch knows about and cannot fix in the line itself: shown in amber,
- *  named, never counted green. Cursor's line lives in the repo, shared by every OS, and
- *  Cursor has no per-OS key; PowerShell resolves the bare name to npm's ai-eng.ps1, which
- *  Restricted refuses and which loses the hook's stdin. bun's install has no .ps1. */
-function knownGap(surface: string, shell: string): string | null {
-  if (IS_WINDOWS && surface === "cursor" && POWERSHELLS.has(shell)) return "known: npm's ai-eng.ps1 under PowerShell — install with `bun add -g ai-engineering`";
-  return null;
-}
-
 function run(file: string, argv: string[], options: { cwd: string; input?: string }) {
   const started = performance.now();
   const result = spawnSync(file, argv, { cwd: options.cwd, input: options.input ?? "", encoding: "utf8", timeout: 60_000, shell: false });
@@ -136,7 +127,7 @@ function countFiles(dir: string): number {
   return readdirSync(dir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).length;
 }
 
-type Cell = { surface: string; check: string; shell: string; ok: boolean; detail: string; known?: string | null };
+type Cell = { surface: string; check: string; shell: string; ok: boolean; detail: string };
 const cells: Cell[] = [];
 const work = mkdtempSync(join(tmpdir(), "first install "));
 const bare = join(work, "not governed");
@@ -182,17 +173,16 @@ for (const surface of SURFACES) {
       const event = eventOf(line);
       for (const shell of shells()) {
         if (!hostRuns(surface, key, shell.name)) continue;
-        const known = knownGap(surface, shell.name);
         for (const [where, cwd] of [["governed", repo], ["ungoverned", bare]] as const) {
           const [file, argv] = shell.argv(line);
           const r = run(file, argv, { cwd, input: payloadFor(surface, cwd, event) });
           const ok = r.status === 0 && r.ms <= MAX_HOOK_MS && !isDeny(r.stdout);
-          cells.push({ surface, check: `${key}:${event} ${where}`, shell: shell.name, ok, known, detail: `exit ${r.status} ${r.ms}ms ${(r.stderr || r.stdout).replace(/\s+/g, " ").slice(0, 160)}` });
+          cells.push({ surface, check: `${key}:${event} ${where}`, shell: shell.name, ok, detail: `exit ${r.status} ${r.ms}ms ${(r.stderr || r.stdout).replace(/\s+/g, " ").slice(0, 160)}` });
         }
         if (event !== "PreToolUse") continue;
         const [file, argv] = shell.argv(line);
         const refused = run(file, argv, { cwd: repo, input: payloadFor(surface, repo, event, ALWAYS_REFUSED) });
-        cells.push({ surface, check: `${key}:${event} refuses --no-verify`, shell: shell.name, ok: refusesInHostShape(surface, refused), known, detail: `exit ${refused.status} stdout ${refused.stdout.slice(0, 80) || "(empty)"}` });
+        cells.push({ surface, check: `${key}:${event} refuses --no-verify`, shell: shell.name, ok: refusesInHostShape(surface, refused), detail: `exit ${refused.status} stdout ${refused.stdout.slice(0, 80) || "(empty)"}` });
       }
     }
   }
@@ -201,11 +191,9 @@ for (const surface of SURFACES) {
 const skills = countFiles(join(homedir(), ".ai-engineering", "skills"));
 cells.push({ surface: "-", check: "skills canon", shell: "-", ok: skills > 0, detail: `${skills} files in ~/.ai-engineering/skills` });
 
-const red = cells.filter((c) => !c.ok && !c.known);
-const amber = cells.filter((c) => !c.ok && c.known);
-const mark = (c: Cell) => (c.ok ? "🟢" : c.known ? "🟡" : "🔴");
-const table = ["| ok | surface | check | shell | detail |", "|---|---|---|---|---|", ...cells.map((c) => `| ${mark(c)} | ${c.surface} | ${c.check} | ${c.shell} | ${(c.known && !c.ok ? `${c.known} · ` : "") + c.detail.replace(/\|/g, "\\|")} |`)].join("\n");
-const summary = `## first-install probe · ${process.platform}-${process.arch}\n\n${cells.length - red.length - amber.length}/${cells.length} green · ${amber.length} known gap(s) · ${red.length} red\n\n${table}\n`;
+const red = cells.filter((c) => !c.ok);
+const table = ["| ok | surface | check | shell | detail |", "|---|---|---|---|---|", ...cells.map((c) => `| ${c.ok ? "🟢" : "🔴"} | ${c.surface} | ${c.check} | ${c.shell} | ${c.detail.replace(/\|/g, "\\|")} |`)].join("\n");
+const summary = `## first-install probe · ${process.platform}-${process.arch}\n\n${cells.length - red.length}/${cells.length} green\n\n${table}\n`;
 console.log(summary);
 writeFileSync(join(process.env.PROBE_OUT ?? work, `probe-${process.platform}.json`), JSON.stringify(cells, null, 2));
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);

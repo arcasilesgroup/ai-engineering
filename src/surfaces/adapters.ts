@@ -136,6 +136,29 @@ export function hookLauncher(platform: NodeJS.Platform = process.platform, path:
   return "ai-eng.cmd";
 }
 
+/** npm writes three shims for `ai-eng` on Windows, and PowerShell resolves the bare name to
+ *  `ai-eng.ps1` first. The Restricted policy a fresh laptop ships with refuses to load it, and
+ *  under `-Command` it hands the program no stdin, so a hook gets an empty payload. Every
+ *  PowerShell host hits it (Cursor's repo line has no per-OS key), and so does a person
+ *  typing `ai-eng init` in PowerShell. The `ai-eng.cmd` beside it does the same job under
+ *  any policy. Only a .ps1 that launches this package goes, and only beside its .cmd; npm
+ *  writes it again on the next install, and the next init or update takes it out again. */
+export function retireNpmPowerShellShim(platform: NodeJS.Platform = process.platform, path: string = process.env["PATH"] ?? process.env["Path"] ?? ""): string | null {
+  if (platform !== "win32") return null;
+  for (const dir of path.split(";").filter(Boolean)) {
+    const shim = join(dir, "ai-eng.ps1");
+    if (!existsSync(shim) || !existsSync(join(dir, "ai-eng.cmd"))) continue;
+    try {
+      if (!/ai-engineering[\\/]+bin[\\/]+ai-eng\.js/.test(readFileSync(shim, "utf8"))) return null;
+      unlinkSync(shim);
+      return `✓ removed npm's ${shim}: PowerShell now runs ai-eng.cmd, under any execution policy`;
+    } catch {
+      return `⚠ ${shim} could not be removed: PowerShell hosts will run it, and the Restricted policy refuses it — delete it, or install with bun`;
+    }
+  }
+  return null;
+}
+
 /** `powershell -Command` turns a native exit 2 into exit 1, and Claude reads exit 1 as a
  *  non-blocking error: the denial becomes an allow (first-install probe, windows-latest).
  *  Passing the status on by hand keeps it 2. Git Bash reads the same text the same way:
@@ -217,6 +240,8 @@ export function installCanon(version: string, preserveSkills: readonly string[] 
   // a shim still holding one of them is ours to refresh.
   const earlierCommands = renderCommands(canonDir);
   lines.push(...warningsOf(materializeSkills(canonDir, preserveSkills)));
+  const retiredShim = retireNpmPowerShellShim();
+  if (retiredShim !== null) lines.push(retiredShim);
   const swept = removeStaleCanonFiles(home());
   if (swept.removed.length > 0) lines.push(`✓ swept ${swept.removed.length} file(s) this binary no longer ships: ${swept.removed.join(", ")}`);
   if (swept.refused.length > 0) lines.push(`⚠ ${refusedStaleCanonText(swept.refused)}`);

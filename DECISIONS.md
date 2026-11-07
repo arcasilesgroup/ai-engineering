@@ -161,3 +161,25 @@ Merge our entries by marker and replace the file with `replaceMachineSettings`: 
 
 - **Keep refusing:** no hooks for any existing user is the outcome the product exists to prevent. Rejected.
 - **Write in place (2.6.0):** a crash mid-write leaves half a settings file. Rejected.
+
+## D-008: On Windows, init removes npm's ai-eng.ps1
+
+Status: Accepted · Date: 2026-11-07
+
+### Context
+
+`npm install -g` on Windows writes three shims for `ai-eng`: an extensionless one for Git Bash, `ai-eng.cmd` and `ai-eng.ps1`. PowerShell resolves a bare `ai-eng` to the `.ps1` first. The Restricted execution policy that a fresh Windows laptop ships with refuses to load it, and under `powershell -Command` it starts the program with no stdin, so a hook receives an empty payload. Cursor runs hooks in PowerShell, and its hook file lives in the repo, shared by every OS, with no per-OS key; a person typing `ai-eng init` in a PowerShell window hits the same refusal. The `first-install` CI job measured both on windows-latest.
+
+### Decision
+
+`installCanon` (init and update) removes `ai-eng.ps1` from the first PATH directory that holds one, but only when its text launches this package (`ai-engineering/bin/ai-eng.js`) and an `ai-eng.cmd` sits beside it. PowerShell then runs the `.cmd`, which works under any policy and passes stdin through.
+
+### Consequences
+
+- A bare `ai-eng` works in every Windows shell, for hooks and for people.
+- npm writes the `.ps1` again on the next install or upgrade; the next init or update removes it again, and the README names the one command that does it.
+
+### Alternatives considered
+
+- **Tell Windows users to install with bun:** true but it does not fix the people who already ran the README's npm line. Rejected as the only answer.
+- **Write `ai-eng.cmd` into the repo hook file:** breaks every macOS and Linux teammate. Rejected.

@@ -424,7 +424,7 @@ is a historical snapshot; use this README and the source tree for current guidan
 | Hooks do not fire | The workspace is not trusted in your host. Trust it, then run `ai-eng doctor` and look for the `chain test` line |
 | A legitimate command was denied | Add an entry to `.ai-engineering/overrides.toml` with a `reason` and an `until` date. `doctor` shows the time it has left |
 | `ai-eng: bun not found` | The launcher runs the source under Bun. Install Bun (>= 1.4.4) once; `npm install -g` works after that |
-| Cursor on Windows denies every call | Cursor runs hooks in PowerShell, which picks npm's `ai-eng.ps1`: the default execution policy refuses it and it drops the hook's input. Install with `bun add -g ai-engineering`, which writes no `.ps1` |
+| `ai-eng.ps1 cannot be loaded` on Windows | npm wrote it again on an install or upgrade. PowerShell picks it before `ai-eng.cmd`, and the default execution policy refuses it. Run `ai-eng.cmd update` once: init and update remove that `.ps1` |
 | Doctor reports canon drift | A payload file changed without `bun scripts/gen-assets.ts`. Run it, then `ai-eng update` |
 | You want no update notice | Set `AI_ENG_NO_UPDATE_NOTICES=1` |
 | You want it gone | `ai-eng uninstall` reverts ours and keeps your contract files |

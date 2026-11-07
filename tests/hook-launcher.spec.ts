@@ -2,10 +2,10 @@
 // Restricted execution policy a fresh laptop ships with: a bare `ai-eng` resolves to npm's
 // ai-eng.ps1, which that policy refuses to load (first-install probe, windows-latest, 3.0.0).
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { carrierFiles, hookLauncher, withLauncher } from "../src/surfaces/adapters.ts";
+import { carrierFiles, hookLauncher, retireNpmPowerShellShim, withLauncher } from "../src/surfaces/adapters.ts";
 import { canonicalSurfaceId } from "../src/env.ts";
 import { mergeSharedText, stripSharedText } from "../src/install.ts";
 import { embeddedTemplate } from "../src/embed.ts";
@@ -40,6 +40,35 @@ describe("hookLauncher — the name a hook line calls", () => {
 
   test("on Windows with nothing on PATH yet falls back to the .cmd npm will write", () => {
     expect(hookLauncher("win32", "")).toBe("ai-eng.cmd");
+  });
+});
+
+describe("retireNpmPowerShellShim — PowerShell runs the .cmd, never the .ps1", () => {
+  const OURS = '#!/usr/bin/env pwsh\n& "bun$exe"  "$basedir/node_modules/ai-engineering/bin/ai-eng.js" $args\n';
+
+  test("removes npm's .ps1 for this package when its .cmd is beside it", () => {
+    const dir = binDir("retire-ours", ["ai-eng", "ai-eng.cmd"]);
+    writeFileSync(join(dir, "ai-eng.ps1"), OURS);
+    expect(retireNpmPowerShellShim("win32", dir)).toStartWith("✓ removed npm's ");
+    expect(existsSync(join(dir, "ai-eng.ps1"))).toBe(false);
+    expect(existsSync(join(dir, "ai-eng.cmd"))).toBe(true);
+  });
+
+  test("keeps a .ps1 that launches something else, one with no .cmd to fall back on, and everything off Windows", () => {
+    const foreign = binDir("retire-foreign", ["ai-eng.cmd"]);
+    writeFileSync(join(foreign, "ai-eng.ps1"), "& my-own-tool $args\n");
+    expect(retireNpmPowerShellShim("win32", foreign)).toBeNull();
+    expect(existsSync(join(foreign, "ai-eng.ps1"))).toBe(true);
+
+    const lonely = binDir("retire-lonely", []);
+    writeFileSync(join(lonely, "ai-eng.ps1"), OURS);
+    expect(retireNpmPowerShellShim("win32", lonely)).toBeNull();
+    expect(existsSync(join(lonely, "ai-eng.ps1"))).toBe(true);
+
+    const posix = binDir("retire-posix", ["ai-eng.cmd"]);
+    writeFileSync(join(posix, "ai-eng.ps1"), OURS);
+    expect(retireNpmPowerShellShim("darwin", posix)).toBeNull();
+    expect(existsSync(join(posix, "ai-eng.ps1"))).toBe(true);
   });
 });
 
