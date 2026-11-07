@@ -1,0 +1,53 @@
+name: first-install
+# What a person does on a fresh machine: install the package, `ai-eng init`, and let
+# the host run the hook lines init wrote — in the host's own shell. platforms.yml
+# proves the compiled binary; this proves the install a user gets (§17).
+on:
+  push:
+    branches: ["fix/first-install"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      published:
+        description: "Probe a published version instead of this checkout (e.g. 3.0.0)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        source: [checkout, published]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # bun from npm, not oven-sh/setup-bun: the repository's action allowlist (platforms.yml).
+      - run: npm install -g bun@1.4.4
+      - run: bun install --frozen-lockfile
+      - name: Install the package the way the README says
+        shell: bash
+        env:
+          PUBLISHED: ${{ inputs.published || '3.0.0' }}
+        run: |
+          if [ "${{ matrix.source }}" = "published" ]; then
+            npm install -g "ai-engineering@$PUBLISHED"
+          else
+            npm pack --silent >/dev/null
+            npm install -g ./ai-engineering-*.tgz
+          fi
+      - name: Probe every hook line in every host shell
+        # The published row is the baseline: it reports, it does not gate.
+        continue-on-error: ${{ matrix.source == 'published' }}
+        shell: bash
+        env:
+          PROBE_OUT: ${{ runner.temp }}
+        run: bun scripts/first-install-probe.ts
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-${{ matrix.os }}-${{ matrix.source }}
+          path: ${{ runner.temp }}/probe-*.json
