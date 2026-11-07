@@ -141,13 +141,15 @@ export function withLauncher(template: string, launcher: string = hookLauncher()
   return launcher === "ai-eng" ? template : template.replaceAll("ai-eng chain ", `${launcher} chain `);
 }
 
-export function carrierFiles(id: string): { main: string; chain: string | null } | null {
+export function carrierFiles(id: string, scope: Carrier["scope"] = "machine"): { main: string; chain: string | null } | null {
   // The surface id is copilot-cli; the template row kept the short name.
   const row = CARRIER_TEMPLATES[id] ?? (id === "copilot-cli" ? CARRIER_TEMPLATES["copilot"] : undefined);
   if (!row) return null;
   const template = embeddedTemplate(row.main);
+  // Only this machine's own files name this machine's launcher. A repo file is committed
+  // and read on every teammate's OS: `ai-eng.cmd` there is "command not found" on a Mac.
   // Module carriers run the chain in-process: there is no hook line to rename.
-  const main = row.main.endsWith(".json.tpl") ? withLauncher(template) : template;
+  const main = scope === "machine" && row.main.endsWith(".json.tpl") ? withLauncher(template) : template;
   return { main, chain: row.chain ? embeddedChainBundle() : null };
 }
 
@@ -1265,9 +1267,8 @@ function serializeMachineState(state: MachineState): string {
  *  whose readers live in the repo (§13.2).
  *
  *  A `settings` carrier can be user-owned. A missing one is created exclusively from our
- *  template; read-only checks are allowed, but writes that need a pathname replacement
- *  are refused because the portable filesystem API cannot bind that replacement to the
- *  identity that was validated. */
+ *  template; an existing one gets our entries merged in by marker and is replaced only
+ *  while it is still the file that was read (replaceMachineSettings, DECISIONS.md D-007). */
 export function installMachineCarriers(surfaceIds: string[]): MachineReport {
   const stateRecord = readMachineStateRecord();
   const report: MachineReport = { written: [], untouched: [], refused: interruptedCopyRefusals(stateRecord) };
@@ -1506,8 +1507,8 @@ function writeCarrierModule(path: string, content: string): boolean {
 /** Take the machine carriers back out. Our entries out of a shared settings file by
  *  marker, our module and its bundle away whole — and nothing else: a name that merely
  *  looks like ours is not evidence, so a settings file we cannot rewrite is left alone
- *  and said. The portable filesystem API cannot bind a pathname replacement and
- *  rename/unlink into one operation, so shared settings changes fail closed. */
+ *  and said. A hook line left behind once the package is gone errors on every call, so
+ *  our entries do come out of a file the person owns (replaceMachineSettings, D-007). */
 export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; refused: MachineRefusal[] } {
   const lines: string[] = [];
   const stateRecord = readMachineStateRecord();

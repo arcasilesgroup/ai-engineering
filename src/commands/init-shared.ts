@@ -128,7 +128,7 @@ export function planEntries(surfaces: string[]): PlanEntry[] {
 function surfaceEntries(id: string): PlanEntry[] {
   const surface = SURFACES.find((s) => s.id === id);
   const placement = surface ? repoCarrier(surface) : null;
-  const files = carrierFiles(id);
+  const files = carrierFiles(id, "repo");
   if (!placement || !files) return [];
   const entries: PlanEntry[] = [{ path: placement.path, ours: files.main, merge: placement.kind === "settings" }];
   if (placement.chain && files.chain) entries.push({ path: placement.chain, ours: files.chain });

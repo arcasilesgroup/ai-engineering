@@ -75,13 +75,23 @@ function hookLines(file: string): Array<{ key: string; line: string }> {
 }
 
 let calls = 0;
-function payloadFor(surface: string, cwd: string, event: string): string {
+function payloadFor(surface: string, cwd: string, event: string, command = "git status"): string {
   // One session per call: the loop guard rightly denies the same call repeated in one session.
   const base = { session_id: `probe-${++calls}`, cwd, hook_event_name: event };
   if (event === "UserPromptSubmit") return JSON.stringify({ ...base, prompt: "/ai-brainstorm hello" });
   if (event === "Stop") return JSON.stringify({ ...base, stop_hook_active: false });
-  const tool = surface === "copilot-cli" ? { toolName: "bash", toolArgs: JSON.stringify({ command: "git status" }) } : { tool_name: "Bash", tool_input: { command: "git status" } };
+  const tool = surface === "copilot-cli" ? { toolName: "bash", toolArgs: JSON.stringify({ command }) } : { tool_name: "Bash", tool_input: { command } };
   return JSON.stringify({ ...base, ...tool });
+}
+
+/** A hook that exits 0 on everything also exits 0 when it never ran: stdin lost between
+ *  shells, a crash an `|| exit 0` swallowed, `exit $null` after a shim that did not start.
+ *  So every PreToolUse line must also refuse a call that is always refused, in the shape
+ *  its host reads: exit 2 with a silent stdout for Claude, deny JSON with exit 0 elsewhere. */
+const ALWAYS_REFUSED = "git commit --no-verify -m probe";
+function refusesInHostShape(surface: string, result: { status: number | null; stdout: string }): boolean {
+  if (surface === "claude-code") return result.status === 2 && result.stdout === "";
+  return result.status === 0 && isDeny(result.stdout);
 }
 
 function eventOf(line: string): string {
@@ -114,6 +124,12 @@ const userSettings = join(homedir(), ".claude", "settings.json");
 if (!existsSync(userSettings)) {
   mkdirSync(join(homedir(), ".claude"), { recursive: true });
   writeFileSync(userSettings, `${JSON.stringify({ model: "opus" }, null, 2)}\n`);
+}
+// Codex too: a hooks file of the person's own, so the probe walks the merge, not the create.
+const codexHooks = join(homedir(), ".codex", "hooks.json");
+if (!existsSync(codexHooks)) {
+  mkdirSync(join(homedir(), ".codex"), { recursive: true });
+  writeFileSync(codexHooks, `${JSON.stringify({ hooks: {} }, null, 2)}\n`);
 }
 
 const version = aiEng("--version", work);
@@ -151,6 +167,10 @@ for (const surface of SURFACES) {
           const ok = r.status === 0 && r.ms <= MAX_HOOK_MS && !isDeny(r.stdout);
           cells.push({ surface, check: `${key}:${event} ${where}`, shell: shell.name, ok, detail: `exit ${r.status} ${r.ms}ms ${(r.stderr || r.stdout).replace(/\s+/g, " ").slice(0, 160)}` });
         }
+        if (event !== "PreToolUse") continue;
+        const [file, argv] = shell.argv(line);
+        const refused = run(file, argv, { cwd: repo, input: payloadFor(surface, repo, event, ALWAYS_REFUSED) });
+        cells.push({ surface, check: `${key}:${event} refuses --no-verify`, shell: shell.name, ok: refusesInHostShape(surface, refused), detail: `exit ${refused.status} stdout ${refused.stdout.slice(0, 80) || "(empty)"}` });
       }
     }
   }

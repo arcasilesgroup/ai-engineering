@@ -5,7 +5,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { hookLauncher, withLauncher } from "../src/surfaces/adapters.ts";
+import { carrierFiles, hookLauncher, withLauncher } from "../src/surfaces/adapters.ts";
+import { canonicalSurfaceId } from "../src/env.ts";
 import { mergeSharedText, stripSharedText } from "../src/install.ts";
 import { embeddedTemplate } from "../src/embed.ts";
 
@@ -43,12 +44,28 @@ describe("hookLauncher — the name a hook line calls", () => {
 });
 
 describe("withLauncher — only the call is renamed", () => {
-  test("every hook line calls the shim, and the guard still probes for any ai-eng", () => {
-    const rendered = withLauncher(embeddedTemplate("settings.copilot.json.tpl"), "ai-eng.cmd");
+  test("every hook line calls the shim, and the guards still probe for any ai-eng", () => {
+    const rendered = withLauncher(embeddedTemplate("settings.claude.json.tpl"), "ai-eng.cmd");
     expect(rendered).not.toContain('"ai-eng chain ');
-    expect(rendered).toContain("ai-eng.cmd chain PreToolUse --surface copilot-cli");
-    expect(rendered).toContain("Get-Command ai-eng -ErrorAction SilentlyContinue");
-    expect(rendered).toContain("command -v ai-eng >/dev/null");
+    expect(rendered).toContain('"ai-eng.cmd chain PreToolUse"');
+    const copilot = withLauncher(embeddedTemplate("settings.copilot.json.tpl"), "ai-eng.cmd");
+    expect(copilot).toContain("command -v ai-eng >/dev/null 2>&1 || exit 0; ai-eng.cmd chain PreToolUse");
+  });
+
+  test("a repo carrier is the same bytes on every OS: only machine files name the launcher", () => {
+    // Run on any OS: the repo render never depends on this machine's PATH.
+    expect(carrierFiles("cursor", "repo")!.main).toBe(embeddedTemplate("settings.cursor.json.tpl"));
+    expect(carrierFiles("copilot-cli", "repo")!.main).toBe(embeddedTemplate("settings.copilot.json.tpl"));
+  });
+
+  test("3.0.0's Copilot lines are ours: a re-init replaces them instead of adding a second hook", () => {
+    const legacy = (event: string) => ({ type: "command", command: `command -v ai-eng >/dev/null 2>&1 && ai-eng chain ${event} --surface copilot-cli || exit 0`, timeoutSec: 10 });
+    const old = `${JSON.stringify({ version: 1, hooks: { preToolUse: [legacy("PreToolUse")], postToolUse: [legacy("PostToolUse")] } }, null, 2)}\n`;
+    const merged = mergeSharedText(old, embeddedTemplate("settings.copilot.json.tpl"));
+    if ("refused" in merged) throw new Error(merged.refused);
+    const hooks = (JSON.parse(merged.text) as { hooks: Record<string, unknown[]> }).hooks;
+    expect(hooks["preToolUse"]).toHaveLength(1);
+    expect(hooks["postToolUse"]).toHaveLength(1);
   });
 
   test("a Windows-rendered entry is ours: a re-init replaces it, uninstall takes it out", () => {
@@ -65,15 +82,24 @@ describe("withLauncher — only the call is renamed", () => {
 });
 
 describe("the Copilot template — one file the CLI and VS Code both read", () => {
-  test("every entry carries a bash line and a PowerShell line, each guarded against a missing ai-eng", () => {
+  test("every entry fails open only on a missing ai-eng, never on a chain that crashed", () => {
     const hooks = (JSON.parse(embeddedTemplate("settings.copilot.json.tpl")) as { hooks: Record<string, Array<Record<string, string>>> }).hooks;
     for (const entries of Object.values(hooks)) {
       for (const entry of entries) {
-        expect(entry["command"]).toStartWith("command -v ai-eng >/dev/null 2>&1 && ");
-        expect(entry["command"]).toEndWith(" || exit 0");
-        expect(entry["powershell"]).toStartWith("if (Get-Command ai-eng -ErrorAction SilentlyContinue) { ");
-        expect(entry["powershell"]).toContain("exit $LASTEXITCODE");
+        // `a && b || exit 0` would also turn b's failure into an allow.
+        expect(entry["command"]).toStartWith("command -v ai-eng >/dev/null 2>&1 || exit 0; ai-eng chain ");
+        expect(entry["command"]).not.toEndWith("|| exit 0");
+        // An Application is a .cmd or .exe, never the .ps1 a Restricted policy refuses.
+        expect(entry["powershell"]).toStartWith("$c = Get-Command ai-eng -CommandType Application ");
+        // A shim that could not start leaves $LASTEXITCODE unset: `exit $null` would allow.
+        expect(entry["powershell"]).toContain("if ($null -eq $LASTEXITCODE) { exit 1 }");
       }
     }
+  });
+
+  test("VS Code selects the Copilot surface: one carrier set, so no hook runs twice", () => {
+    expect(canonicalSurfaceId("vscode")).toBe("copilot-cli");
+    expect(canonicalSurfaceId("copilot-vscode")).toBe("copilot-cli");
+    expect(canonicalSurfaceId("copilot")).toBe("copilot-cli");
   });
 });

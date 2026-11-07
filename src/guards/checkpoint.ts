@@ -609,6 +609,15 @@ function bumpStopCounter(path: string, root: string): number {
   return next;
 }
 
+/** A Stop refused for a fault — no repo, an unreadable folder, a corrupt checkpoint, a
+ *  counter that cannot be saved — is refused once. Continuing cannot cure a fault the
+ *  agent may not even be allowed to touch (the checkpoint file is guarded), so when the
+ *  host says this stop already follows a refusal (`stop_hook_active`), it goes through.
+ *  Open gates are bounded separately, by MAX_STOP_BLOCKS. */
+function faultRefusal(payload: Payload, refusal: CheckpointGuardResult): CheckpointGuardResult {
+  return payload["stop_hook_active"] === true ? { deny: false } : refusal;
+}
+
 function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
   if (payload.stop_reason === "user_interrupt" || payload.stop_reason === "ask_user_question") {
     return { deny: false };
@@ -618,7 +627,7 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
   try {
     root = resolveContext(repoRoot).root;
   } catch (error) {
-    return deny("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event");
+    return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event"));
   }
 
   const folder = join(root, ".ai-engineering", "workflow", "checkpoints");
@@ -627,7 +636,7 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     files = readdirSync(folder).filter((file) => file.endsWith(".json")).sort();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return { deny: false };
-    return deny("Checkpoint", "Stop gate", `cannot list ${folder} (${error instanceof Error ? error.message : String(error)})`, "restore access to the checkpoint directory before stopping");
+    return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot list ${folder} (${error instanceof Error ? error.message : String(error)})`, "restore access to the checkpoint directory before stopping"));
   }
 
   const problems: string[] = [];
@@ -639,10 +648,10 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     try {
       checkpoint = readCheckpoint(path, checkpointContext(root, slug));
     } catch (error) {
-      return deny(`Checkpoint ${slug}`, "Stop gate", `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint JSON before ending the turn");
+      return faultRefusal(payload, deny(`Checkpoint ${slug}`, "Stop gate", `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint JSON before ending the turn"));
     }
     const sequenceError = requireSequentialCheckpoints(checkpoint, path);
-    if (sequenceError !== undefined) return sequenceError;
+    if (sequenceError !== undefined) return faultRefusal(payload, sequenceError);
     const halted = checkpoint.halted;
     if (
       typeof halted === "object" &&
@@ -672,7 +681,7 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
   try {
     blocks = bumpStopCounter(counter, root);
   } catch (error) {
-    return deny("Checkpoint", "Stop gate", `cannot persist the consecutive-stop limit (${error instanceof Error ? error.message : String(error)})`, "restore access to .ai-engineering/cache and retry");
+    return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot persist the consecutive-stop limit (${error instanceof Error ? error.message : String(error)})`, "restore access to .ai-engineering/cache and retry"));
   }
   if (blocks > MAX_STOP_BLOCKS) {
     resetStopCounter(counter);

@@ -724,6 +724,30 @@ describe("Stop gate", () => {
     });
   });
 
+  test("a fault refuses the stop once: once the host is already continuing for it, the stop goes through", () => {
+    // Exit 2 on Stop makes Claude continue. A corrupt checkpoint the agent is not allowed
+    // to edit would otherwise hold it forever; open gates stay bounded by the counter.
+    withFixture((fixture) => {
+      const path = join(realpathSync(fixture.root), ...FOLDER.split("/"), "alpha.json");
+      transcript(fixture, `{"skill":"ai-orchestrator"} ${FOLDER}/alpha.json`);
+      save(join(fixture.folder, "alpha.json"), JSON.stringify({ ...plan(undefined, lifecycle(), "alpha"), checkpoints: [] }));
+      expect(run(fixture, stop(fixture))).toEqual(refused(
+        `Checkpoint alpha cannot pass: Stop gate cannot validate ${path} (checkpoint checkpoints: must be a non-empty array). Next: repair the checkpoint JSON before ending the turn.`,
+      ));
+      expect(run(fixture, stop(fixture, randomUUID(), { stop_hook_active: true }))).toEqual(ALLOWED);
+      save(join(fixture.folder, "alpha.json"), plan([done(1), open(3)], lifecycle(), "alpha"));
+      expect(run(fixture, stop(fixture, randomUUID(), { stop_hook_active: true }))).toEqual(ALLOWED);
+    });
+  });
+
+  test("open gates are not a fault: stop_hook_active alone does not let the stop through", () => {
+    withFixture((fixture) => {
+      transcript(fixture);
+      save(fixture.planPath, midway());
+      expect(run(fixture, stop(fixture, randomUUID(), { stop_hook_active: true }))).toEqual(stopRefusal(fixture));
+    });
+  });
+
   test("no checkpoint folder allows; a folder that cannot be listed refuses", () => {
     withFixture((fixture) => {
       transcript(fixture);

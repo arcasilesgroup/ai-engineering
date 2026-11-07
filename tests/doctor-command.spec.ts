@@ -800,7 +800,7 @@ describe("doctor · surface carriers", () => {
     expect(detail(run, "surface copilot-cli")).toContain("machine carrier ~/.copilot/hooks/ai-eng.json missing → ai-eng update");
     expect(detail(run, "surface copilot-cli")).toContain("repo carrier .github/hooks/ai-eng.json missing → ai-eng update");
     // The note says VS Code shares this surface's hook files, so nobody wires it twice.
-    expect(detail(run, "surface copilot-cli")).toContain("the CLI and VS Code share — same hook files");
+    expect(detail(run, "surface copilot-cli")).toContain("the CLI and VS Code share — the same hook files");
     expect(row(run, "surface zed")).toContain("✓");
     expect(detail(run, "surface zed")).toContain("no carrier: guard wiring is not implemented for this host");
     expect(run.code).toBe(2);

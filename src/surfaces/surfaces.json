@@ -179,7 +179,7 @@
           "measured": "2026-11-07"
         }
       ],
-      "note": "One surface for the Copilot harness that the CLI and VS Code share — same hook files, same camelCase payload — so the hooks never run twice; `--surface copilot-vscode` or `vscode` selects it. VS Code finds the skills in ~/.claude/skills and ~/.agents/skills. Command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; no token savings from output rewriting"
+      "note": "One surface for the Copilot harness that the CLI and VS Code share — the same hook files, so the hooks never run twice (VS Code may send the snake_case payload; the chain reads both, tests/chain-dispatch.spec.ts), and both read a top-level permissionDecision (code.visualstudio.com/docs/copilot/customization/hooks); `--surface copilot-vscode` or `vscode` selects it. VS Code finds the skills in ~/.claude/skills and ~/.agents/skills. Command/HTTP userPromptSubmitted output is ignored, postToolUse can add context but does not replace tool output, and receipts persist locally; no token savings from output rewriting"
     },
     {
       "id": "pi",

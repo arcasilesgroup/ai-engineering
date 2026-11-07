@@ -369,7 +369,8 @@ function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
         if (drift) status = "warn";
         parts.push(drift ? `machine carrier ~/${machine.path} is NOT the one this binary ships → ai-eng update` : `machine carrier ~/${machine.path} matches the binary`);
       } else {
-        const ours = readFileSync(absolute, "utf8").includes("ai-eng chain");
+        // A Windows install calls the .cmd/.exe shim by name (adapters.ts hookLauncher).
+        const ours = /ai-eng(?:\.cmd|\.exe)? chain /.test(readFileSync(absolute, "utf8"));
         if (!ours) status = "warn";
         parts.push(ours ? `machine carrier ~/${machine.path} carries the ai-eng entries` : `machine carrier ~/${machine.path} has no ai-eng entries → ai-eng update`);
       }

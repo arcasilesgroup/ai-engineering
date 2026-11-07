@@ -7,7 +7,9 @@
 //   parses stdout JSON on exit 2, and `continue: false` there "stops Claude entirely"
 //   (code.claude.com/docs/en/hooks): every denial ended the turn instead of handing the
 //   agent the reason, and on Stop it ended the turn the checkpoint gate meant to keep
-//   going. Exit 2 alone blocks the tool, the prompt, or the stop, per event.
+//   going. Exit 2 alone blocks the tool, the prompt, or the stop, per event. On
+//   PostToolUse the tool already ran: the reason reaches the agent as feedback, the
+//   containment the injection guard asks for, without ending the session.
 // - codex: stdout {"hookSpecificOutput":{...,"permissionDecision":"deny"}}, exit 0.
 //   A non-zero exit is NOT the contract, and `continue: false` is on Codex's
 //   unsupported list — "hook fails, tool proceeds". The wrong envelope fail-opens.

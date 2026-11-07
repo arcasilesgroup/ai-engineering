@@ -1810,3 +1810,19 @@ describe("installCanon and what leaves with it", () => {
     expect(readFileSync(join(replacement, "SKILL.md"), "utf8")).toBe("user skill\n");
   });
 });
+
+describe("a settings file's permissions survive the merge", () => {
+  // ~/.claude/settings.json can hold API keys under `env`: a 0600 file must never come
+  // back 0644 from the staged copy that replaces it.
+  test.skipIf(process.platform === "win32")("a 0600 settings file stays 0600 through install and through remove", () => {
+    const base = useHome("settings-mode");
+    const settings = join(base, ".claude", "settings.json");
+    write(settings, USER_SETTINGS);
+    fs.chmodSync(settings, 0o600);
+    expect(installMachineCarriers(["claude-code"]).written).toEqual(["~/.claude/settings.json"]);
+    expect(fs.statSync(settings).mode & 0o777).toBe(0o600);
+    expect(removeMachineCarriers(["claude-code"]).refused).toEqual([]);
+    expect(fs.readFileSync(settings, "utf8")).toBe(USER_SETTINGS);
+    expect(fs.statSync(settings).mode & 0o777).toBe(0o600);
+  });
+});

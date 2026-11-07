@@ -139,3 +139,25 @@ Give focused-check tasks an explicit time bound and checkable stop condition. If
 
 - **Treat STOP as proof of termination:** the task still reported running afterward. Rejected.
 - **Wait indefinitely for the original task:** no new check result or confirmed stop was available. Rejected.
+
+## D-007: ai-eng merges its hooks into a settings file the person already has
+
+Status: Accepted · Date: 2026-11-07 · Supersedes the 3.0.0 refusal (R38, "when the API cannot make that binding, refuse with a warning")
+
+### Context
+
+3.0.0 refused to write into any existing machine settings file (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.copilot/hooks/ai-eng.json`), because the portable filesystem API cannot bind the last identity check and the rename into one operation. Almost everyone who already uses a host has that file, so at a workshop every first install on every OS ended with no hooks while `init` said governance was installed, and `uninstall` could not take the entries back out. The `first-install` CI job reproduces it against the published 3.0.0 on Windows, Linux and macOS.
+
+### Decision
+
+Merge our entries by marker and replace the file with `replaceMachineSettings`: stage a copy beside it (O_EXCL, never through a link, same permission bits), re-check that the file is still byte- and stat-identical to the one read, then rename over it. Still refused: a hard link with a second name, an alias of `machine.json`, a file that changed while staged, a layout the merge would have to reformat. A symlink to a dotfiles repo stays a link and its target is replaced.
+
+### Consequences
+
+- Existing users get hooks on the first run, and uninstall removes them.
+- A write that lands between the last check and the rename is lost: in practice the host itself rewriting its settings at that instant. Whoever else can swap that file already owns the person's editor settings.
+
+### Alternatives considered
+
+- **Keep refusing:** no hooks for any existing user is the outcome the product exists to prevent. Rejected.
+- **Write in place (2.6.0):** a crash mid-write leaves half a settings file. Rejected.
