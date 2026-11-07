@@ -5,7 +5,7 @@ import surfacesJson from "./surfaces.json";
 import { randomBytes } from "node:crypto";
 import { closeSync, constants, existsSync, fchmodSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { hostname } from "node:os";
-import { basename, join, dirname, relative, resolve, sep, isAbsolute } from "node:path";
+import { basename, delimiter, join, dirname, relative, resolve, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
 import { KEEP_EXIT_STATUS, mergeSharedText, portableHookText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
@@ -128,6 +128,11 @@ const CARRIER_TEMPLATES: Record<string, { main: string; chain: boolean; isExitSt
  *  fail-closed hosts deny every tool call. The `.exe` (bun) or `.cmd` (npm) shim beside it
  *  runs under any policy, in PowerShell, cmd and Git Bash alike. First hit in PATH order,
  *  the way the shell will resolve it; `.cmd` when nothing is on PATH yet (npm's shim). */
+/** Whether a file of exactly this name sits in a PATH directory. */
+export function isOnPath(name: string, path: string = process.env["PATH"] ?? process.env["Path"] ?? ""): boolean {
+  return path.split(delimiter).filter(Boolean).some((dir) => existsSync(join(dir, name)));
+}
+
 export function hookLauncher(platform: NodeJS.Platform = process.platform, path: string = process.env["PATH"] ?? process.env["Path"] ?? ""): string {
   if (platform !== "win32") return "ai-eng";
   for (const dir of path.split(";").filter(Boolean)) {

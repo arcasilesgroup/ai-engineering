@@ -15,7 +15,7 @@ import {
   type ReceiptSummary,
 } from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
-import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, isOnPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
 import { refuseLine } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
@@ -370,9 +370,17 @@ function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
         parts.push(drift ? `machine carrier ~/${machine.path} is NOT the one this binary ships → ai-eng update` : `machine carrier ~/${machine.path} matches the binary`);
       } else {
         // A Windows install calls the .cmd/.exe shim by name (adapters.ts hookLauncher).
-        const ours = /ai-eng(?:\.cmd|\.exe)? chain /.test(readFileSync(absolute, "utf8"));
+        const text = readFileSync(absolute, "utf8");
+        const ours = /ai-eng(?:\.cmd|\.exe)? chain /.test(text);
         if (!ours) status = "warn";
         parts.push(ours ? `machine carrier ~/${machine.path} carries the ai-eng entries` : `machine carrier ~/${machine.path} has no ai-eng entries → ai-eng update`);
+        // A Windows render names one shim. Swap npm for bun (or back) and that name is gone:
+        // the host errors on every call while the file still looks like ours.
+        for (const launcher of new Set([...text.matchAll(/(ai-eng\.(?:cmd|exe)) chain /g)].map((match) => match[1]!))) {
+          if (isOnPath(launcher)) continue;
+          status = status === "fail" ? "fail" : "warn";
+          parts.push(`machine carrier ~/${machine.path} calls ${launcher}, which is not on PATH → ai-eng update`);
+        }
       }
     }
     if (repo) {

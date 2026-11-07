@@ -13,10 +13,10 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSyn
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { doctorMain } from "../src/commands/doctor.ts";
-import { canonSkills } from "../src/embed.ts";
+import { canonSkills, embeddedTemplate } from "../src/embed.ts";
 import { lockText, sha256 } from "../src/install.ts";
 import * as receiptsModule from "../src/receipts.ts";
-import { carrierDefinition, carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES } from "../src/surfaces/adapters.ts";
+import { carrierDefinition, carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES, withLauncher } from "../src/surfaces/adapters.ts";
 import * as uiModule from "../src/ui.ts";
 import { VERSION } from "../src/version.ts";
 import { writeFakeCommand } from "./fixtures/fake-command.ts";
@@ -766,6 +766,27 @@ describe("doctor · surface carriers", () => {
     run = await doctor();
     expect(row(run, "surface claude-code")).toContain("✓");
     expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
+  });
+
+  test("a machine carrier that calls a shim no longer on PATH is named (npm swapped for bun)", async () => {
+    const { home } = sandbox('[surfaces]\nenabled = ["claude-code"]\n');
+    const placement = machineCarrier(SURFACES.find((surface) => surface.id === "claude-code")!)!;
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    const shimDir = tempDir("ai-eng-doc-shim-");
+    const previousPath = process.env.PATH;
+    try {
+      writeFileSync(carrierPath(placement), withLauncher(embeddedTemplate("settings.claude.json.tpl"), "ai-eng.exe", true));
+      process.env.PATH = shimDir;
+      let run = await doctor();
+      expect(row(run, "surface claude-code")).toContain("▲");
+      expect(detail(run, "surface claude-code")).toContain("calls ai-eng.exe, which is not on PATH → ai-eng update");
+
+      writeFileSync(join(shimDir, "ai-eng.exe"), "");
+      run = await doctor();
+      expect(detail(run, "surface claude-code")).not.toContain("not on PATH");
+    } finally {
+      process.env.PATH = previousPath;
+    }
   });
 
   test("a module carrier resolves through its agent dir, drifts on other bytes and matches its own", async () => {
