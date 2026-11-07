@@ -15,7 +15,7 @@ import {
   type ReceiptSummary,
 } from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
-import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
 import { refuseLine } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
@@ -350,7 +350,7 @@ function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
     if (!surface) continue;
     const machine = machineCarrier(surface);
     const repo = repoCarrier(surface);
-    const files = carrierFiles(id, "machine");
+    const files = carrierFiles(id);
     const parts: string[] = [];
     let status: CheckResult["status"] = "ok";
     if (machine && files) {
@@ -369,9 +369,19 @@ function checkSurfaces(root: string | null, surfaces: string[]): CheckResult[] {
         if (drift) status = "warn";
         parts.push(drift ? `machine carrier ~/${machine.path} is NOT the one this binary ships → ai-eng update` : `machine carrier ~/${machine.path} matches the binary`);
       } else {
-        const ours = readFileSync(absolute, "utf8").includes("ai-eng chain");
+        // A Windows install calls the .cmd/.exe shim by name (adapters.ts hookLauncher).
+        const text = readFileSync(absolute, "utf8");
+        const ours = /ai-eng(?:\.cmd|\.exe)? chain /.test(text);
         if (!ours) status = "warn";
         parts.push(ours ? `machine carrier ~/${machine.path} carries the ai-eng entries` : `machine carrier ~/${machine.path} has no ai-eng entries → ai-eng update`);
+        // A Windows render names one shim. Swap npm for bun (or back) and that name is gone:
+        // the host errors on every call while the file still looks like ours.
+        const current = hookLauncher();
+        for (const launcher of new Set([...text.matchAll(/(ai-eng\.(?:cmd|exe)) chain /g)].map((match) => match[1]!))) {
+          if (isOnPath(launcher) || !isOnPath(current)) continue;
+          status = status === "fail" ? "fail" : "warn";
+          parts.push(`machine carrier ~/${machine.path} calls ${launcher}, which is not on PATH; this PATH runs ${current} → ai-eng update`);
+        }
       }
     }
     if (repo) {
@@ -403,9 +413,9 @@ function checkMachineState(surfaces: string[]): CheckResult | null {
   if (Object.keys(state.carriers).length === 0) return null;
   const downgrade = state.version !== "" && state.version !== VERSION && compareVersions(state.version, VERSION) > 0;
   const changed = surfaces.filter((id) => {
-    const files = carrierFiles(id, "machine");
+    const files = carrierFiles(id);
     const recorded = state.carriers[id];
-    return files !== null && recorded !== undefined && recorded !== sha256(files.main);
+    return files !== null && recorded !== undefined && recorded !== carrierDefinition(files.main);
   });
   let status: CheckResult["status"];
   let detail: string;

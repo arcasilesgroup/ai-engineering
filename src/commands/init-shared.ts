@@ -19,7 +19,7 @@ export function repoTemplateRoot(): string {
  *  settings file could not be merged has no hooks behind it (§13). */
 export function refuseLine(refused: { path: string; reason: string }): string {
   if (refused.reason === "identity-bound-settings-mutation-unavailable") {
-    return `⚠ ${refused.path} — safe machine-settings replacement/removal is unavailable on this platform; left untouched`;
+    return `⚠ ${refused.path} — changed while ai-eng was writing it, or it is a hard link with a second name; left untouched, so this surface runs without guards — run ai-eng init again`;
   }
   if (refused.reason === "machine-state-identity-unverified") {
     return `⚠ ${refused.path} — machine state is linked, changed, or shared with another path; left untouched`;
@@ -138,7 +138,7 @@ function surfaceEntries(id: string): PlanEntry[] {
 /** A surface earns a place in a picker only with an adapter behind it: the
  *  declaration in surfaces.json is the plan, the generator is the proof. */
 export function hasAdapter(id: string): boolean {
-  return carrierFiles(id, "repo") !== null;
+  return carrierFiles(id) !== null;
 }
 
 /** The question init and config ask. Options sit on the next lines, with no tier headers. */

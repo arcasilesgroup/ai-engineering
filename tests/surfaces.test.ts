@@ -139,12 +139,17 @@ test("init scaffolds each surface's carrier where its host reads it", () => {
   }
   // Cursor must fail CLOSED: a hook that cannot run cannot silently allow.
   expect(readFileSync(join(fresh, ".cursor/hooks.json"), "utf8")).toInclude('"failClosed": true');
-  // Repo-owned carriers still install; unsafe machine settings remain untouched.
-  expect(output).toInclude("~/.codex/hooks.json");
-  expect(output).toInclude("~/.copilot/hooks/ai-eng.json");
-  expect(output).toInclude("safe machine-settings replacement/removal is unavailable on this platform; left untouched");
-  expect(readFileSync(codexSettings, "utf8")).toBe(codexSettingsBefore);
-  expect(readFileSync(copilotSettings, "utf8")).toBe(copilotSettingsBefore);
+  // The machine carriers land in the user's existing files, by marker, beside their keys.
+  expect(output).toInclude("~/.codex/hooks.json — machine carrier");
+  expect(output).toInclude("~/.copilot/hooks/ai-eng.json — machine carrier");
+  for (const [path, before, marker] of [
+    [codexSettings, codexSettingsBefore, "--surface codex"],
+    [copilotSettings, copilotSettingsBefore, "--surface copilot-cli"],
+  ] as const) {
+    const after = readFileSync(path, "utf8");
+    expect(after).toInclude(marker);
+    expect((JSON.parse(after) as { user?: unknown }).user).toBe((JSON.parse(before) as { user: unknown }).user);
+  }
   // And the repo is NOT carrying them: a hook file nobody reads is the bug this
   // milestone exists to end, not a harmless extra.
   expect(existsSync(join(fresh, ".codex"))).toBe(false);

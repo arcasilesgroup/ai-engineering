@@ -658,8 +658,8 @@ describe("C5 — README.md states the guard boundary", () => {
     .map((paragraph) => paragraph.replace(/\s+/g, " "));
   const paragraphWith = (...patterns: RegExp[]) => paragraphs.find((paragraph) => patterns.every((pattern) => pattern.test(paragraph)));
 
-  test("the Copilot CLI adapter can fail open", () => {
-    expect(paragraphWith(/copilot cli/i, /fail(s)? open/i)).toBeDefined();
+  test("the Copilot adapter (CLI and VS Code) can fail open", () => {
+    expect(paragraphWith(/copilot adapter \(cli and vs code\)/i, /fail(s)? open/i)).toBeDefined();
   });
 
   test("command guards do not sandbox opaque programs or scripts prepared in earlier calls", () => {

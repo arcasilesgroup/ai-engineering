@@ -724,6 +724,45 @@ describe("Stop gate", () => {
     });
   });
 
+  test("a corrupt checkpoint cannot hold a continuing turn forever: it is counted like an open gate", () => {
+    // Exit 2 on Stop makes Claude continue. A corrupt checkpoint the agent is not allowed
+    // to edit would otherwise refuse every Stop; continuing, it is bounded by the counter.
+    withFixture((fixture) => {
+      const path = join(realpathSync(fixture.root), ...FOLDER.split("/"), "alpha.json");
+      transcript(fixture, `{"skill":"ai-orchestrator"} ${FOLDER}/alpha.json`);
+      save(join(fixture.folder, "alpha.json"), JSON.stringify({ ...plan(undefined, lifecycle(), "alpha"), checkpoints: [] }));
+      expect(run(fixture, stop(fixture))).toEqual(refused(
+        `Checkpoint alpha cannot pass: Stop gate cannot validate ${path} (checkpoint checkpoints: must be a non-empty array). Next: repair the checkpoint JSON before ending the turn.`,
+      ));
+      const session = randomUUID();
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const result = run(fixture, stop(fixture, session, { stop_hook_active: true }));
+        expect(result?.deny === true ? result.reason : "").toContain(`alpha: cannot validate ${path}`);
+      }
+      expect(run(fixture, stop(fixture, session, { stop_hook_active: true }))).toEqual(ALLOWED);
+    });
+  });
+
+  test("a corrupt checkpoint does not hide another checkpoint's open gates", () => {
+    withFixture((fixture) => {
+      transcript(fixture, `{"skill":"ai-orchestrator"} ${FOLDER}/alpha.json ${FOLDER}/beta.json`);
+      save(join(fixture.folder, "alpha.json"), JSON.stringify({ ...plan(undefined, lifecycle(), "alpha"), checkpoints: [] }));
+      save(join(fixture.folder, "beta.json"), plan([done(1), item(2, "pending", "failed", "n/a", "pending")], lifecycle(), "beta"));
+      const result = run(fixture, stop(fixture, randomUUID(), { stop_hook_active: true }));
+      const reason = result?.deny === true ? result.reason : "";
+      expect(reason).toContain("alpha: cannot validate");
+      expect(reason).toContain("beta CP2 Checkpoint 2: gates not yet proven (behavior=failed, review=pending)");
+    });
+  });
+
+  test("open gates are not a fault: stop_hook_active alone does not let the stop through", () => {
+    withFixture((fixture) => {
+      transcript(fixture);
+      save(fixture.planPath, midway());
+      expect(run(fixture, stop(fixture, randomUUID(), { stop_hook_active: true }))).toEqual(stopRefusal(fixture));
+    });
+  });
+
   test("no checkpoint folder allows; a folder that cannot be listed refuses", () => {
     withFixture((fixture) => {
       transcript(fixture);

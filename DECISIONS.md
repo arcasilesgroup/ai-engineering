@@ -139,3 +139,47 @@ Give focused-check tasks an explicit time bound and checkable stop condition. If
 
 - **Treat STOP as proof of termination:** the task still reported running afterward. Rejected.
 - **Wait indefinitely for the original task:** no new check result or confirmed stop was available. Rejected.
+
+## D-007: ai-eng merges its hooks into a settings file the person already has
+
+Status: Accepted · Date: 2026-11-07 · Supersedes the 3.0.0 refusal (R38, "when the API cannot make that binding, refuse with a warning")
+
+### Context
+
+3.0.0 refused to write into any existing machine settings file (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.copilot/hooks/ai-eng.json`), because the portable filesystem API cannot bind the last identity check and the rename into one operation. Almost everyone who already uses a host has that file, so at a workshop every first install on every OS ended with no hooks while `init` said governance was installed, and `uninstall` could not take the entries back out. The `first-install` CI job reproduces it against the published 3.0.0 on Windows, Linux and macOS.
+
+### Decision
+
+Merge our entries by marker and replace the file with `replaceMachineSettings`: stage a copy beside it (O_EXCL, never through a link, same permission bits), re-check that the file is still byte- and stat-identical to the one read, then rename over it. Still refused: a hard link with a second name, an alias of `machine.json`, a file that changed while staged, a layout the merge would have to reformat. A symlink to a dotfiles repo stays a link and its target is replaced.
+
+### Consequences
+
+- Existing users get hooks on the first run, and uninstall removes them.
+- A write that lands between the last check and the rename is lost: in practice the host itself rewriting its settings at that instant. Whoever else can swap that file already owns the person's editor settings.
+
+### Alternatives considered
+
+- **Keep refusing:** no hooks for any existing user is the outcome the product exists to prevent. Rejected.
+- **Write in place (2.6.0):** a crash mid-write leaves half a settings file. Rejected.
+
+## D-008: On Windows, init removes npm's ai-eng.ps1
+
+Status: Accepted · Date: 2026-11-07
+
+### Context
+
+`npm install -g` on Windows writes three shims for `ai-eng`: an extensionless one for Git Bash, `ai-eng.cmd` and `ai-eng.ps1`. PowerShell resolves a bare `ai-eng` to the `.ps1` first. The Restricted execution policy that a fresh Windows laptop ships with refuses to load it, and under `powershell -Command` it starts the program with no stdin, so a hook receives an empty payload. Cursor runs hooks in PowerShell, and its hook file lives in the repo, shared by every OS, with no per-OS key; a person typing `ai-eng init` in a PowerShell window hits the same refusal. The `first-install` CI job measured both on windows-latest.
+
+### Decision
+
+`installCanon` (init and update) removes `ai-eng.ps1` from the first PATH directory that holds one, but only when its text launches this package (`ai-engineering/bin/ai-eng.js`) and an `ai-eng.cmd` sits beside it. PowerShell then runs the `.cmd`, which works under any policy and passes stdin through.
+
+### Consequences
+
+- A bare `ai-eng` works in every Windows shell, for hooks and for people.
+- npm writes the `.ps1` again on the next install or upgrade; the next init or update removes it again, and the README names the one command that does it.
+
+### Alternatives considered
+
+- **Tell Windows users to install with bun:** true but it does not fix the people who already ran the README's npm line. Rejected as the only answer.
+- **Write `ai-eng.cmd` into the repo hook file:** breaks every macOS and Linux teammate. Rejected.

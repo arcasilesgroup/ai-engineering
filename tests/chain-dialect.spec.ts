@@ -18,7 +18,7 @@ class ExitSignal extends Error {
 }
 
 /** Run an envelope function, capturing stdout, stderr and the exit status it chose. */
-function envelope(fn: () => void): { json: Record<string, unknown>; stderr: string; code: number } {
+function envelope(fn: () => void): { json: Record<string, unknown>; stdout: string; stderr: string; code: number } {
   const out: string[] = [];
   const err: string[] = [];
   const outSpy = spyOn(process.stdout, "write").mockImplementation(((chunk: string) => {
@@ -36,7 +36,7 @@ function envelope(fn: () => void): { json: Record<string, unknown>; stderr: stri
     fn();
   } catch (error) {
     if (error instanceof ExitSignal) {
-      return { json: out.length > 0 ? (JSON.parse(out.join("")) as Record<string, unknown>) : {}, stderr: err.join(""), code: error.code };
+      return { json: out.length > 0 ? (JSON.parse(out.join("")) as Record<string, unknown>) : {}, stdout: out.join(""), stderr: err.join(""), code: error.code };
     }
     throw error;
   } finally {
@@ -67,18 +67,15 @@ afterAll(() => {
 });
 
 describe("deny — one envelope per host, chosen by what that host's validator reads", () => {
-  test("claude gets the byte-for-byte blob on stdout and exit 2, with the reason on stderr", () => {
-    const { json, stderr, code } = envelope(() => deny("no-verify", "the hooks were skipped", "claude"));
-    expect(code).toBe(2);
-    expect(json).toEqual({
-      permission: "deny",
-      continue: false,
-      user_message: "[ai-eng] no-verify: the hooks were skipped",
-      userMessage: "[ai-eng] no-verify: the hooks were skipped",
-      stop_reason: "[ai-eng] no-verify: the hooks were skipped",
-      stopReason: "[ai-eng] no-verify: the hooks were skipped",
-    });
-    expect(stderr).toContain("[ai-eng] no-verify: the hooks were skipped");
+  test("claude gets exit 2 and the reason on stderr, with nothing on stdout", () => {
+    // Claude Code parses stdout JSON even on exit 2, and `continue: false` there stops the
+    // whole turn: the agent never reads the reason. Silence on stdout keeps it a denial.
+    for (const event of ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop"]) {
+      const { stdout, stderr, code } = envelope(() => deny("no-verify", "the hooks were skipped", "claude", event));
+      expect(code).toBe(2);
+      expect(stdout).toBe("");
+      expect(stderr).toContain("[ai-eng] no-verify: the hooks were skipped");
+    }
   });
 
   test("codex denies through hookSpecificOutput and exits 0 — a non-zero exit is not its contract", () => {
@@ -110,22 +107,8 @@ describe("deny — one envelope per host, chosen by what that host's validator r
 describe("CP5 U30 — deny and Stop envelopes", () => {
   const stopReason = "[ai-eng] checkpoint: CP3 cannot pass: review is pending. Next: run the CP3 review.";
   const externalDenials = [
-    ["Claude PreToolUse exits 2", "claude", "PreToolUse", 2, {
-      permission: "deny",
-      continue: false,
-      user_message: stopReason,
-      userMessage: stopReason,
-      stop_reason: stopReason,
-      stopReason,
-    }],
-    ["Claude Stop exits 2", "claude", "Stop", 2, {
-      permission: "deny",
-      continue: false,
-      user_message: stopReason,
-      userMessage: stopReason,
-      stop_reason: stopReason,
-      stopReason,
-    }],
+    ["Claude PreToolUse exits 2", "claude", "PreToolUse", 2, {}],
+    ["Claude Stop exits 2", "claude", "Stop", 2, {}],
     ["Cursor Shell/Bash denial is permission JSON with exit 0", "cursor", "PreToolUse", 0, {
       permission: "deny",
       user_message: stopReason,

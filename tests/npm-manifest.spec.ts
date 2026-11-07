@@ -18,9 +18,12 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
   files?: string[];
 };
 
+/** The files npm would pack below a folder. `.DS_Store` is on npm's always-ignored list, so
+ *  one Finder left in a macOS checkout is never shipped and must not be expected. */
 function filesBelow(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
+    if (entry.name === ".DS_Store") return [];
     return entry.isDirectory() ? filesBelow(path) : [path];
   });
 }

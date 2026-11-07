@@ -121,8 +121,8 @@ Security is the product, so it comes early. A guard bypass is critical by defini
 
 The guards stop an agent's mistakes. They are not a sandbox, so know where they end:
 
-The Copilot CLI adapter can fail open. If the hook command fails or times out, Copilot CLI
-may let the tool call proceed without a verdict.
+The Copilot adapter (CLI and VS Code) fails open on purpose when `ai-eng` is not on PATH,
+so a machine without it is not locked out; a hook that times out also lets the call proceed.
 
 Command guards read the visible command text. They do not sandbox opaque programs or
 scripts prepared in earlier calls: a script written in one call and run in a later call
@@ -424,6 +424,7 @@ is a historical snapshot; use this README and the source tree for current guidan
 | Hooks do not fire | The workspace is not trusted in your host. Trust it, then run `ai-eng doctor` and look for the `chain test` line |
 | A legitimate command was denied | Add an entry to `.ai-engineering/overrides.toml` with a `reason` and an `until` date. `doctor` shows the time it has left |
 | `ai-eng: bun not found` | The launcher runs the source under Bun. Install Bun (>= 1.4.4) once; `npm install -g` works after that |
+| `ai-eng.ps1 cannot be loaded` on Windows | npm wrote it again on an install or upgrade. PowerShell picks it before `ai-eng.cmd`, and the default execution policy refuses it. Run `ai-eng.cmd update` once: init and update remove that `.ps1` |
 | Doctor reports canon drift | A payload file changed without `bun scripts/gen-assets.ts`. Run it, then `ai-eng update` |
 | You want no update notice | Set `AI_ENG_NO_UPDATE_NOTICES=1` |
 | You want it gone | `ai-eng uninstall` reverts ours and keeps your contract files |

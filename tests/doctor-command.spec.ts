@@ -13,10 +13,10 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSyn
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { doctorMain } from "../src/commands/doctor.ts";
-import { canonSkills } from "../src/embed.ts";
+import { canonSkills, embeddedTemplate } from "../src/embed.ts";
 import { lockText, sha256 } from "../src/install.ts";
 import * as receiptsModule from "../src/receipts.ts";
-import { carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES } from "../src/surfaces/adapters.ts";
+import { carrierDefinition, carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES, withLauncher } from "../src/surfaces/adapters.ts";
 import * as uiModule from "../src/ui.ts";
 import { VERSION } from "../src/version.ts";
 import { writeFakeCommand } from "./fixtures/fake-command.ts";
@@ -127,7 +127,7 @@ function shipClaudeCarrier(_home: string): void {
   const placement = machineCarrier(SURFACES.find((surface) => surface.id === "claude-code")!)!;
   const target = carrierPath(placement);
   mkdirSync(join(target, ".."), { recursive: true });
-  writeFileSync(target, carrierFiles("claude-code", "machine")!.main);
+  writeFileSync(target, carrierFiles("claude-code")!.main);
 }
 
 /** A repo where every check the caller did not deliberately break is green: the
@@ -477,8 +477,8 @@ describe("doctor · the canon and the lock", () => {
     run = await doctor();
     expect(detail(run, "machine state")).toBe(`carrier definition changed since ${VERSION}.0: claude-code → ai-eng update`);
 
-    const shipped = carrierFiles("claude-code", "machine")!;
-    writeFileSync(state, JSON.stringify({ version: VERSION, carriers: { "claude-code": sha256(shipped.main) } }));
+    const shipped = carrierFiles("claude-code")!;
+    writeFileSync(state, JSON.stringify({ version: VERSION, carriers: { "claude-code": carrierDefinition(shipped.main) } }));
     run = await doctor();
     expect(row(run, "machine state")).toContain("✓");
     expect(detail(run, "machine state")).toBe(`carriers written by ${VERSION} · definitions unchanged`);
@@ -487,7 +487,7 @@ describe("doctor · the canon and the lock", () => {
   test("F18: machine state held by a lock or left under a claim name is named, never read as no state", async () => {
     const { home } = sandbox();
     const state = join(home, "machine.json");
-    const recorded = JSON.stringify({ version: VERSION, carriers: { "claude-code": sha256(carrierFiles("claude-code", "machine")!.main) } });
+    const recorded = JSON.stringify({ version: VERSION, carriers: { "claude-code": carrierDefinition(carrierFiles("claude-code")!.main) } });
     writeFileSync(state, recorded);
     const lock = join(home, ".machine.json.lock");
     writeFileSync(lock, JSON.stringify({ pid: 1, hostname: "another-host", startedAt: "2026-01-01T00:00:00.000Z" }));
@@ -762,10 +762,37 @@ describe("doctor · surface carriers", () => {
 
     const placement = machineCarrier(SURFACES.find((surface) => surface.id === "claude-code")!)!;
     mkdirSync(join(home, ".claude"), { recursive: true });
-    writeFileSync(carrierPath(placement), carrierFiles("claude-code", "machine")!.main);
+    writeFileSync(carrierPath(placement), carrierFiles("claude-code")!.main);
     run = await doctor();
     expect(row(run, "surface claude-code")).toContain("✓");
     expect(detail(run, "surface claude-code")).toBe("machine carrier ~/.claude/settings.json carries the ai-eng entries");
+  });
+
+  test("a machine carrier that calls a shim no longer on PATH is named (npm swapped for bun)", async () => {
+    const { home } = sandbox('[surfaces]\nenabled = ["claude-code"]\n');
+    const placement = machineCarrier(SURFACES.find((surface) => surface.id === "claude-code")!)!;
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    const shimDir = tempDir("ai-eng-doc-shim-");
+    const previousPath = process.env.PATH;
+    try {
+      writeFileSync(carrierPath(placement), withLauncher(embeddedTemplate("settings.claude.json.tpl"), "ai-eng.exe", true));
+      process.env.PATH = shimDir;
+      // No ai-eng on PATH at all: not this check's finding.
+      let run = await doctor();
+      expect(detail(run, "surface claude-code")).not.toContain("not on PATH");
+
+      // The other install's shim is what this PATH runs now.
+      writeFileSync(join(shimDir, process.platform === "win32" ? "ai-eng.cmd" : "ai-eng"), "");
+      run = await doctor();
+      expect(row(run, "surface claude-code")).toContain("▲");
+      expect(detail(run, "surface claude-code")).toContain("calls ai-eng.exe, which is not on PATH");
+
+      writeFileSync(join(shimDir, "ai-eng.exe"), "");
+      run = await doctor();
+      expect(detail(run, "surface claude-code")).not.toContain("not on PATH");
+    } finally {
+      process.env.PATH = previousPath;
+    }
   });
 
   test("a module carrier resolves through its agent dir, drifts on other bytes and matches its own", async () => {
@@ -773,7 +800,7 @@ describe("doctor · surface carriers", () => {
     process.env.PI_CODING_AGENT_DIR = agentDir;
     sandbox('[surfaces]\nenabled = ["oh-my-pi"]\n');
     const placement = machineCarrier(SURFACES.find((surface) => surface.id === "oh-my-pi")!)!;
-    const files = carrierFiles("oh-my-pi", "machine")!;
+    const files = carrierFiles("oh-my-pi")!;
     const entry = carrierPath(placement);
     const chain = carrierPath(placement, placement.chain!);
     expect(entry.startsWith(agentDir)).toBe(true);
@@ -799,7 +826,8 @@ describe("doctor · surface carriers", () => {
     expect(row(run, "surface copilot-cli")).toContain("▲");
     expect(detail(run, "surface copilot-cli")).toContain("machine carrier ~/.copilot/hooks/ai-eng.json missing → ai-eng update");
     expect(detail(run, "surface copilot-cli")).toContain("repo carrier .github/hooks/ai-eng.json missing → ai-eng update");
-    expect(detail(run, "surface copilot-cli")).toContain("cloud/VS Code are intentionally outside this surface");
+    // The note says VS Code shares this surface's hook files, so nobody wires it twice.
+    expect(detail(run, "surface copilot-cli")).toContain("the CLI and VS Code share — the same hook files");
     expect(row(run, "surface zed")).toContain("✓");
     expect(detail(run, "surface zed")).toContain("no carrier: guard wiring is not implemented for this host");
     expect(run.code).toBe(2);
@@ -932,7 +960,7 @@ describe("a half-installed module host is a report, not a crash", () => {
     process.env.PI_CODING_AGENT_DIR = agentDir;
     sandbox('[surfaces]\nenabled = ["oh-my-pi"]\n');
     const placement = machineCarrier(SURFACES.find((surface) => surface.id === "oh-my-pi")!)!;
-    const files = carrierFiles("oh-my-pi", "machine")!;
+    const files = carrierFiles("oh-my-pi")!;
     mkdirSync(join(agentDir, "hooks", "pre"), { recursive: true });
     writeFileSync(carrierPath(placement), files.main); // the bundle is deliberately absent
 

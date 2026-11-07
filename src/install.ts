@@ -59,10 +59,29 @@ function managedCommands(): Set<string> {
 
 const LEGACY_CHECKPOINT_HOOK = /^(?:\[ -f "\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py" \] \|\| exit 0; )?python3 "\$HOME\/\.ai-engineering\/scripts\/checkpoint-gate\.py" --surface [a-z0-9-]+$/;
 
+/** 3.0.0's two Copilot lines — the bare repo one and the machine one whose `|| exit 0`
+ *  also swallowed a crashing chain — are still ours to replace and to take out. */
+const LEGACY_COPILOT_HOOK = /^(?:command -v ai-eng >\/dev\/null 2>&1 && )?ai-eng chain (?:PreToolUse|PostToolUse) --surface copilot-cli(?: \|\| exit 0)?$/;
+
+/** What a Windows render appends to a hook line whose host reads the exit status
+ *  (adapters.ts withLauncher): `powershell -Command` would turn exit 2 into exit 1. */
+export const KEEP_EXIT_STATUS = "; exit $LASTEXITCODE";
+// Only right after `chain <Event>`: Copilot's own PowerShell line ends in the same words.
+const KEEP_EXIT_STATUS_TAIL = new RegExp(`( chain [A-Za-z]+)${KEEP_EXIT_STATUS.replace(/[$]/g, "\\$&")}(?=$|")`, "g");
+
+/** A hook text with this machine's launcher taken back out: the `.cmd`/`.exe` name and the
+ *  exit-status tail a Windows render adds. The same line on every OS, so the same marker,
+ *  and the same hash whichever shim PATH happens to put first. */
+export function portableHookText(text: string): string {
+  return text.replace(/ai-eng\.(?:cmd|exe) chain /g, "ai-eng chain ").replace(KEEP_EXIT_STATUS_TAIL, "$1");
+}
+
 function isOurs(value: unknown): boolean {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
   const command = (value as { command?: unknown }).command;
-  return typeof command === "string" && (managedCommands().has(command) || LEGACY_CHECKPOINT_HOOK.test(command));
+  if (typeof command !== "string") return false;
+  const portable = portableHookText(command);
+  return managedCommands().has(portable) || LEGACY_CHECKPOINT_HOOK.test(portable) || LEGACY_COPILOT_HOOK.test(portable);
 }
 
 const isEmptyContainer = (value: unknown): boolean =>

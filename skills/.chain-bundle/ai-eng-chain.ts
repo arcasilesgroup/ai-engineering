@@ -35,7 +35,7 @@ function repoRoot(start) {
   }
 }
 var configPath = (root) => join(root, ".ai-engineering", "config.toml");
-var SURFACE_ALIASES = { copilot: "copilot-cli" };
+var SURFACE_ALIASES = { copilot: "copilot-cli", "copilot-vscode": "copilot-cli", vscode: "copilot-cli" };
 function canonicalSurfaceId(id) {
   return SURFACE_ALIASES[id] ?? id;
 }
@@ -501,14 +501,7 @@ function deny(guard, message, dialect = "claude", event = "PreToolUse") {
   if (dialect === "copilot") {
     writeJsonAndExit({ permissionDecision: "deny", permissionDecisionReason: text }, 0);
   }
-  writeJsonAndExit({
-    permission: "deny",
-    continue: false,
-    user_message: text,
-    userMessage: text,
-    stop_reason: text,
-    stopReason: text
-  }, 2);
+  process.exit(2);
 }
 function allowRewrite(command, dialect = "claude", event = "PreToolUse") {
   if (dialect === "codex") {
@@ -3997,6 +3990,12 @@ function bumpStopCounter(path, root) {
   writeFileSync2(path, String(next), { mode: 384 });
   return next;
 }
+function isContinuingAfterStop(payload) {
+  return payload["stop_hook_active"] === true;
+}
+function faultRefusal(payload, refusal) {
+  return isContinuingAfterStop(payload) ? { deny: false } : refusal;
+}
 function checkStop(payload, repoRoot) {
   if (payload.stop_reason === "user_interrupt" || payload.stop_reason === "ask_user_question") {
     return { deny: false };
@@ -4005,7 +4004,7 @@ function checkStop(payload, repoRoot) {
   try {
     root = resolveContext(repoRoot).root;
   } catch (error) {
-    return deny2("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event");
+    return faultRefusal(payload, deny2("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event"));
   }
   const folder = join9(root, ".ai-engineering", "workflow", "checkpoints");
   let files;
@@ -4014,7 +4013,7 @@ function checkStop(payload, repoRoot) {
   } catch (error) {
     if (error.code === "ENOENT")
       return { deny: false };
-    return deny2("Checkpoint", "Stop gate", `cannot list ${folder} (${error instanceof Error ? error.message : String(error)})`, "restore access to the checkpoint directory before stopping");
+    return faultRefusal(payload, deny2("Checkpoint", "Stop gate", `cannot list ${folder} (${error instanceof Error ? error.message : String(error)})`, "restore access to the checkpoint directory before stopping"));
   }
   const problems = [];
   for (const file of files) {
@@ -4026,11 +4025,19 @@ function checkStop(payload, repoRoot) {
     try {
       checkpoint = readCheckpoint(path, checkpointContext(root, slug));
     } catch (error) {
-      return deny2(`Checkpoint ${slug}`, "Stop gate", `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint JSON before ending the turn");
+      const detail = `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`;
+      if (!isContinuingAfterStop(payload))
+        return deny2(`Checkpoint ${slug}`, "Stop gate", detail, "repair the checkpoint JSON before ending the turn");
+      problems.push(`${slug}: ${detail}`);
+      continue;
     }
     const sequenceError = requireSequentialCheckpoints(checkpoint, path);
-    if (sequenceError !== undefined)
-      return sequenceError;
+    if (sequenceError !== undefined) {
+      if (!isContinuingAfterStop(payload))
+        return sequenceError;
+      problems.push(`${slug}: checkpoint IDs in ${path} are not sequential`);
+      continue;
+    }
     const halted = checkpoint.halted;
     if (typeof halted === "object" && halted !== null && "reason" in halted && typeof halted.reason === "string" && halted.reason.length > 0)
       continue;
@@ -4050,7 +4057,7 @@ function checkStop(payload, repoRoot) {
   try {
     blocks = bumpStopCounter(counter, root);
   } catch (error) {
-    return deny2("Checkpoint", "Stop gate", `cannot persist the consecutive-stop limit (${error instanceof Error ? error.message : String(error)})`, "restore access to .ai-engineering/cache and retry");
+    return faultRefusal(payload, deny2("Checkpoint", "Stop gate", `cannot persist the consecutive-stop limit (${error instanceof Error ? error.message : String(error)})`, "restore access to .ai-engineering/cache and retry"));
   }
   if (blocks > MAX_STOP_BLOCKS) {
     resetStopCounter(counter);

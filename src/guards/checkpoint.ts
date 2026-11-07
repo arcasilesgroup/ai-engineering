@@ -609,6 +609,21 @@ function bumpStopCounter(path: string, root: string): number {
   return next;
 }
 
+/** Exit 2 on Stop makes Claude continue, and it then sends the next Stop with
+ *  `stop_hook_active`. A fault the agent cannot cure by continuing (the checkpoint file is
+ *  itself guarded) must not hold the turn forever:
+ *  - a fault that leaves nothing to judge (no repo, an unreadable folder, a counter that
+ *    cannot be saved) is refused once, then the stop goes through;
+ *  - a fault in one checkpoint file becomes one more problem beside the other files' open
+ *    gates, so it is still reported and bounded by MAX_STOP_BLOCKS like they are. */
+function isContinuingAfterStop(payload: Payload): boolean {
+  return payload["stop_hook_active"] === true;
+}
+
+function faultRefusal(payload: Payload, refusal: CheckpointGuardResult): CheckpointGuardResult {
+  return isContinuingAfterStop(payload) ? { deny: false } : refusal;
+}
+
 function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
   if (payload.stop_reason === "user_interrupt" || payload.stop_reason === "ask_user_question") {
     return { deny: false };
@@ -618,7 +633,7 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
   try {
     root = resolveContext(repoRoot).root;
   } catch (error) {
-    return deny("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event");
+    return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event"));
   }
 
   const folder = join(root, ".ai-engineering", "workflow", "checkpoints");
@@ -627,7 +642,7 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     files = readdirSync(folder).filter((file) => file.endsWith(".json")).sort();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return { deny: false };
-    return deny("Checkpoint", "Stop gate", `cannot list ${folder} (${error instanceof Error ? error.message : String(error)})`, "restore access to the checkpoint directory before stopping");
+    return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot list ${folder} (${error instanceof Error ? error.message : String(error)})`, "restore access to the checkpoint directory before stopping"));
   }
 
   const problems: string[] = [];
@@ -639,10 +654,17 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
     try {
       checkpoint = readCheckpoint(path, checkpointContext(root, slug));
     } catch (error) {
-      return deny(`Checkpoint ${slug}`, "Stop gate", `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`, "repair the checkpoint JSON before ending the turn");
+      const detail = `cannot validate ${path} (${error instanceof Error ? error.message : String(error)})`;
+      if (!isContinuingAfterStop(payload)) return deny(`Checkpoint ${slug}`, "Stop gate", detail, "repair the checkpoint JSON before ending the turn");
+      problems.push(`${slug}: ${detail}`);
+      continue;
     }
     const sequenceError = requireSequentialCheckpoints(checkpoint, path);
-    if (sequenceError !== undefined) return sequenceError;
+    if (sequenceError !== undefined) {
+      if (!isContinuingAfterStop(payload)) return sequenceError;
+      problems.push(`${slug}: checkpoint IDs in ${path} are not sequential`);
+      continue;
+    }
     const halted = checkpoint.halted;
     if (
       typeof halted === "object" &&
@@ -672,7 +694,7 @@ function checkStop(payload: Payload, repoRoot: string): CheckpointGuardResult {
   try {
     blocks = bumpStopCounter(counter, root);
   } catch (error) {
-    return deny("Checkpoint", "Stop gate", `cannot persist the consecutive-stop limit (${error instanceof Error ? error.message : String(error)})`, "restore access to .ai-engineering/cache and retry");
+    return faultRefusal(payload, deny("Checkpoint", "Stop gate", `cannot persist the consecutive-stop limit (${error instanceof Error ? error.message : String(error)})`, "restore access to .ai-engineering/cache and retry"));
   }
   if (blocks > MAX_STOP_BLOCKS) {
     resetStopCounter(counter);

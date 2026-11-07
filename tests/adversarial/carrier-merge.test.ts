@@ -1,5 +1,6 @@
-// Adversarial: settings files can be user-owned. Repo settings merge by marker; machine
-// settings fail closed when pathname mutation cannot be bound to the validated identity.
+// Adversarial: settings files can be user-owned. Repo and machine settings both merge by
+// marker; a machine settings file is replaced through a staged rename, never rewritten in
+// place, and its user keys survive install and uninstall.
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -7,7 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mergeSharedText, sha256, stripSharedText } from "../../src/install.ts";
-import { carrierFiles, removeMachineCarriers, readMachineState } from "../../src/surfaces/adapters.ts";
+import { carrierDefinition, carrierFiles, removeMachineCarriers, readMachineState } from "../../src/surfaces/adapters.ts";
 
 type HookGroup = { matcher?: string; hooks?: Array<{ command?: string }> };
 type Settings = { permissions?: unknown; env?: unknown; hooks?: Record<string, HookGroup[]>; $comment?: string };
@@ -133,7 +134,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
       ["codex", join(home, ".codex", "hooks.json")],
       ["copilot-cli", join(home, ".copilot", "hooks", "ai-eng.json")],
     ] as const) {
-      expect(readFileSync(path, "utf8")).toBe(carrierFiles(id, "machine")!.main);
+      expect(readFileSync(path, "utf8")).toBe(carrierFiles(id)!.main);
     }
     // The OMP carrier is a hook FACTORY (default export, pi.on) at the path omp's own
     // loader scans. The module it used to ship exported beforeToolCall and lived in
@@ -198,14 +199,14 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     expect(initialized.status).toBe(0);
     expect(initialized.stdout + initialized.stderr).not.toInclude("safe machine-settings replacement/removal is unavailable");
     const carrier = join(home, ".codex", "hooks.json");
-    const ours = carrierFiles("codex", "machine")!.main;
+    const ours = carrierFiles("codex")!.main;
     expect(readFileSync(carrier, "utf8")).toBe(ours);
     const updated = run(["update", "--yes"], repo);
     expect(updated.status).toBe(0);
     expect(updated.stdout + updated.stderr).toInclude("~/.codex/hooks.json · machine carrier already current");
     expect(readFileSync(carrier, "utf8")).toBe(ours);
     const state = withHome(() => readMachineState());
-    expect(state.carriers["codex"]).toBe(sha256(ours));
+    expect(state.carriers["codex"]).toBe(carrierDefinition(ours));
     const doctor = run(["doctor"], repo);
     expect(doctor.stdout + doctor.stderr).toInclude("machine carrier ~/.codex/hooks.json carries the ai-eng entries");
   });
@@ -227,7 +228,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     expect(missing.status).toBe(2);
     // The command doctor names is the one that fixes it.
     expect(run(["update", "--yes"], repo).status).toBe(0);
-    expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("claude-code", "machine")!.main);
+    expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("claude-code")!.main);
     const fixed = run(["doctor"], repo);
     const fixedOut = fixed.stdout + fixed.stderr;
     expect(fixedOut).toInclude("machine carrier ~/.claude/settings.json carries the ai-eng entries");
@@ -244,19 +245,20 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     writeFileSync(join(home, ".claude", "settings.json"), `${JSON.stringify(userSettings, null, 2)}\n`);
     const initialized = run(["init", "--yes", "--surface", "claude-code,cursor"], repo);
     expect(initialized.status).toBe(0);
-    expect(initialized.stdout + initialized.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
+    expect(initialized.stdout + initialized.stderr).toInclude("~/.claude/settings.json — machine carrier");
     const settings = join(home, ".claude", "settings.json");
-    const beforeUninstall = readFileSync(settings, "utf8");
-    expect(beforeUninstall).toBe(`${JSON.stringify(userSettings, null, 2)}\n`);
+    const userBytes = `${JSON.stringify(userSettings, null, 2)}\n`;
+    const merged = readFileSync(settings, "utf8");
+    expect(merged).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
+    expect((JSON.parse(merged) as Settings).env).toEqual(userSettings.env);
     expect(existsSync(join(home, "machine.json"))).toBe(true);
     // Everything scope: down-arrow to it, then a bare `y` per confirmation (clack answers
     // on the key, not on Enter).
     const out = run(["uninstall"], repo, "\u001b[B\ryyy");
     const text = out.stdout + out.stderr;
-    expect(text).toInclude("safe machine-settings removal is unavailable");
+    expect(text).toInclude("~/.claude/settings.json: ai-eng entries removed, yours kept");
     expect(existsSync(settings)).toBe(true);
-    const afterUninstall = readFileSync(settings, "utf8");
-    expect(afterUninstall).toBe(beforeUninstall);
+    expect(readFileSync(settings, "utf8")).toBe(userBytes);
   });
 
   test("update recreates a lost machine settings carrier", () => {
@@ -271,7 +273,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     const out = run(["update", "--yes"], repo);
     expect(out.status, out.stdout + out.stderr).toBe(0);
     expect(out.stdout + out.stderr).toInclude("~/.claude/settings.json · machine carrier · written");
-    expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("claude-code", "machine")!.main);
+    expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("claude-code")!.main);
   });
 
   test("user hooks survive init, update and uninstall, and ours leave with us", () => {
@@ -283,10 +285,15 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
 
     const initialized = run(["init", "--yes", "--surface", "claude-code"], repo);
     expect(initialized.status).toBe(0);
-    expect(initialized.stdout + initialized.stderr).toInclude("safe machine-settings replacement/removal is unavailable");
     const afterInit = JSON.parse(readFileSync(settings, "utf8")) as Settings;
-    expect(afterInit).toEqual(before);
-    expect(readFileSync(settings, "utf8")).toBe(beforeBytes);
+    // Theirs survive the merge, key for key and hook for hook; ours sit beside them.
+    expect(afterInit.permissions).toEqual(before.permissions);
+    expect(afterInit.env).toEqual(before.env);
+    for (const [event, groups] of Object.entries(before.hooks ?? {})) {
+      for (const group of groups) expect(afterInit.hooks?.[event]).toContainEqual(group);
+    }
+    const ourCommands = Object.values(afterInit.hooks ?? {}).flat().flatMap((group) => group.hooks ?? []).map((hook) => hook.command ?? "");
+    expect(ourCommands.some((command) => /^ai-eng(?:\.cmd|\.exe)? chain/.test(command))).toBe(true);
 
     // Idempotent: a second install is not a second copy.
     const once = readFileSync(settings, "utf8");
@@ -299,9 +306,9 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     run(["uninstall", "--project"], repo, "\ry");
     expect(readFileSync(settings, "utf8")).toBe(once);
 
-    // Machine scope refuses to mutate the user-owned settings path.
+    // Machine scope takes ours out and gives the user back their file, byte for byte.
     const swept = withHome(() => removeMachineCarriers(["claude-code"]));
-    expect(swept.refused).toEqual([{ path: "~/.claude/settings.json", reason: "identity-bound-settings-mutation-unavailable" }]);
+    expect(swept).toEqual({ lines: ["~/.claude/settings.json: ai-eng entries removed, yours kept"], refused: [] });
     const afterUninstall = readFileSync(settings, "utf8");
     expect(afterUninstall).toBe(beforeBytes);
     expect(JSON.parse(afterUninstall)).toEqual(before);
@@ -366,7 +373,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     spawnSync("git", ["init", "-q"], { cwd: repo });
     const initialized = run(["init", "--yes", "--surface", "claude-code"], repo);
     expect(initialized.status).toBe(0);
-    expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toBe(carrierFiles("claude-code", "machine")!.main);
+    expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toBe(carrierFiles("claude-code")!.main);
     expect(existsSync(join(repo, ".claude"))).toBe(false); // the carrier is not the repo's copy
   });
 });
