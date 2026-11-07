@@ -14,8 +14,8 @@ import {
   type DenyLedger,
   type ReceiptSummary,
 } from "../receipts.ts";
-import { parseLock, portableHookText, sha256 } from "../install.ts";
-import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
+import { parseLock, sha256 } from "../install.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
 import { refuseLine } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
@@ -406,7 +406,7 @@ function checkMachineState(surfaces: string[]): CheckResult | null {
   const changed = surfaces.filter((id) => {
     const files = carrierFiles(id);
     const recorded = state.carriers[id];
-    return files !== null && recorded !== undefined && recorded !== sha256(portableHookText(files.main));
+    return files !== null && recorded !== undefined && recorded !== carrierDefinition(files.main);
   });
   let status: CheckResult["status"];
   let detail: string;

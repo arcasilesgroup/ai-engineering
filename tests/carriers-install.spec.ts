@@ -34,6 +34,7 @@ import { buildLock, install, lockText, mergeSharedText, parseLock, sha256, strip
 import {
   SURFACES,
   carrierBase,
+  carrierDefinition,
   carrierFiles,
   carrierPath,
   hookLauncher,
@@ -52,7 +53,6 @@ import {
   surfaceCanGovern,
   surfaceDialect,
   sweepMovedRepoCarriers,
-  withLauncher,
 } from "../src/surfaces/adapters.ts";
 import { restoreTemplateDir } from "../src/floor/template.ts";
 import { planEntries, refuseLine } from "../src/commands/init-shared.ts";
@@ -575,10 +575,11 @@ describe("carriers on the machine", () => {
 
     const cursor = byId("cursor") as StopSurface;
     expect(cursor.stopHook?.event).toBe("stop");
-    const cursorHooks = JSON.parse(carrierFiles("cursor")!.main) as {
+    // Cursor's only carrier is the repo's: the same bytes on every OS.
+    const cursorHooks = JSON.parse(carrierFiles("cursor", "repo")!.main) as {
       hooks: { stop: Array<{ command: string }> };
     };
-    expect(cursorHooks.hooks.stop[0]?.command).toBe(withLauncher("ai-eng chain Stop --surface cursor"));
+    expect(cursorHooks.hooks.stop[0]?.command).toBe("ai-eng chain Stop --surface cursor");
   });
 
   test("an update swaps the old python gate for the chain and keeps the user's hooks", () => {
@@ -666,7 +667,7 @@ describe("carriers on the machine", () => {
     expect(readFileSync(carrier, "utf8")).toBe(ours);
     const state = readMachineState();
     expect(state.version).toBe(VERSION);
-    expect(state.carriers["claude-code"]).toBe(sha256(ours));
+    expect(state.carriers["claude-code"]).toBe(carrierDefinition(ours));
     expect(installMachineCarriers(["claude-code"])).toEqual({ written: [], untouched: ["~/.claude/settings.json"], refused: [] });
 
     // A settings file belongs to the person: ours go in by marker, theirs stay.
@@ -752,7 +753,7 @@ describe("carriers on the machine", () => {
     collectTemplateCommands(merged.hooks, commands);
     expect(commands.has("my-own-audit.sh")).toBe(true);
     expect([...commands].some((command) => command.includes(MACHINE_CHAIN))).toBe(true);
-    expect(readMachineState().carriers["claude-code"]).toBe(sha256(carrierFiles("claude-code")!.main));
+    expect(readMachineState().carriers["claude-code"]).toBe(carrierDefinition(carrierFiles("claude-code")!.main));
 
     const mergedBytes = readFileSync(settings);
     const mergedIno = lstatSync(settings).ino;
@@ -1342,7 +1343,7 @@ describe("carriers on the machine", () => {
     write(join(base, ".claude", "settings.json"), USER_SETTINGS);
     expect(installMachineCarriers(["claude-code"]).refused).toEqual([]);
     const state = readMachineState();
-    expect(state.carriers["claude-code"]).toBe(sha256(carrierFiles("claude-code")!.main));
+    expect(state.carriers["claude-code"]).toBe(carrierDefinition(carrierFiles("claude-code")!.main));
     expect(state.templateDir).toEqual({ previous: "/some/other/templateDir", ours: null });
 
     // Uninstall still needs the legacy record after the carriers are removed.
@@ -1828,5 +1829,19 @@ describe("a settings file's permissions survive the merge", () => {
     expect(removeMachineCarriers(["claude-code"]).refused).toEqual([]);
     expect(fs.readFileSync(settings, "utf8")).toBe(USER_SETTINGS);
     expect(fs.statSync(settings).mode & 0o777).toBe(0o600);
+  });
+
+  test.skipIf(process.platform === "win32")("a 0664 settings file stays 0664 even under umask 022", () => {
+    const base = useHome("settings-mode-group");
+    const settings = join(base, ".claude", "settings.json");
+    write(settings, USER_SETTINGS);
+    fs.chmodSync(settings, 0o664);
+    const previous = process.umask(0o022);
+    try {
+      expect(installMachineCarriers(["claude-code"]).written).toEqual(["~/.claude/settings.json"]);
+      expect(fs.statSync(settings).mode & 0o777).toBe(0o664);
+    } finally {
+      process.umask(previous);
+    }
   });
 });

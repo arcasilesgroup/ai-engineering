@@ -19,7 +19,7 @@ import { pathToFileURL } from "node:url";
 import { PassThrough } from "node:stream";
 import { syncPlan, updateMain } from "../src/commands/update.ts";
 import { planEntries } from "../src/commands/init-shared.ts";
-import { carrierFiles } from "../src/surfaces/adapters.ts";
+import { carrierDefinition, carrierFiles } from "../src/surfaces/adapters.ts";
 import { mergeSharedText, sha256 } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import type { PlanEntry } from "../src/install.ts";
@@ -378,7 +378,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     }
     expect(first.out).not.toInclude("unavailable on this platform");
     const recorded = JSON.parse(readFileSync(join(freshHome, "machine.json"), "utf8")) as { carriers: Record<string, string> };
-    for (const [id] of carriers) expect(recorded.carriers[id]).toBe(sha256(carrierFiles(id)!.main));
+    for (const [id] of carriers) expect(recorded.carriers[id]).toBe(carrierDefinition(carrierFiles(id)!.main));
 
     const second = await captured(() => updateMain({ yes: true }));
     expect(second.value).toBe(0);

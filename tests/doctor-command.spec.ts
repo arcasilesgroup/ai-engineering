@@ -16,7 +16,7 @@ import { doctorMain } from "../src/commands/doctor.ts";
 import { canonSkills } from "../src/embed.ts";
 import { lockText, sha256 } from "../src/install.ts";
 import * as receiptsModule from "../src/receipts.ts";
-import { carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES } from "../src/surfaces/adapters.ts";
+import { carrierDefinition, carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES } from "../src/surfaces/adapters.ts";
 import * as uiModule from "../src/ui.ts";
 import { VERSION } from "../src/version.ts";
 import { writeFakeCommand } from "./fixtures/fake-command.ts";
@@ -478,7 +478,7 @@ describe("doctor · the canon and the lock", () => {
     expect(detail(run, "machine state")).toBe(`carrier definition changed since ${VERSION}.0: claude-code → ai-eng update`);
 
     const shipped = carrierFiles("claude-code")!;
-    writeFileSync(state, JSON.stringify({ version: VERSION, carriers: { "claude-code": sha256(shipped.main) } }));
+    writeFileSync(state, JSON.stringify({ version: VERSION, carriers: { "claude-code": carrierDefinition(shipped.main) } }));
     run = await doctor();
     expect(row(run, "machine state")).toContain("✓");
     expect(detail(run, "machine state")).toBe(`carriers written by ${VERSION} · definitions unchanged`);
@@ -487,7 +487,7 @@ describe("doctor · the canon and the lock", () => {
   test("F18: machine state held by a lock or left under a claim name is named, never read as no state", async () => {
     const { home } = sandbox();
     const state = join(home, "machine.json");
-    const recorded = JSON.stringify({ version: VERSION, carriers: { "claude-code": sha256(carrierFiles("claude-code")!.main) } });
+    const recorded = JSON.stringify({ version: VERSION, carriers: { "claude-code": carrierDefinition(carrierFiles("claude-code")!.main) } });
     writeFileSync(state, recorded);
     const lock = join(home, ".machine.json.lock");
     writeFileSync(lock, JSON.stringify({ pid: 1, hostname: "another-host", startedAt: "2026-01-01T00:00:00.000Z" }));

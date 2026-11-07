@@ -3,7 +3,7 @@
 
 import surfacesJson from "./surfaces.json";
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, existsSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { closeSync, constants, existsSync, fchmodSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { hostname } from "node:os";
 import { basename, join, dirname, relative, resolve, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
@@ -172,6 +172,12 @@ export function withLauncher(template: string, launcher: string = hookLauncher()
   if (launcher === "ai-eng") return template;
   const renamed = template.replaceAll("ai-eng chain ", `${launcher} chain `);
   return isExitStatusRead ? renamed.replace(/("command": "[^"]+ chain [A-Za-z]+)"/g, `$1${KEEP_EXIT_STATUS}"`) : renamed;
+}
+
+/** The definition machine.json records for a carrier: its hash with this machine's launcher
+ *  taken out, so a PATH that puts the bun or the npm shim first changes nothing. */
+export function carrierDefinition(main: string): string {
+  return sha256(portableHookText(main));
 }
 
 export function carrierFiles(id: string, scope: Carrier["scope"] = "machine"): { main: string; chain: string | null } | null {
@@ -1315,7 +1321,7 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
     const files = carrierFiles(id);
     if (!surface || !placement || !files) continue;
     const absolute = carrierPath(placement);
-    const definition = sha256(portableHookText(files.main));
+    const definition = carrierDefinition(files.main);
     if (placement.kind === "module") {
       // A module carrier is ours whole — never merged into — but rewriting the bytes
       // already there is not an install. Reporting it as `written` is how an update that
@@ -1489,6 +1495,8 @@ function replaceMachineSettings(snapshot: MachineSettingsSnapshot, absolute: str
     let descriptor: number | null = null;
     try {
       descriptor = openSync(staged, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, original.stat.mode & 0o777);
+      // The umask trims the mode open() was given: a 0664 file would come back 0644.
+      if (process.platform !== "win32") fchmodSync(descriptor, original.stat.mode & 0o777);
       writeFileSync(descriptor, content);
       closeSync(descriptor);
       descriptor = null;

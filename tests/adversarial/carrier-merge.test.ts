@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mergeSharedText, sha256, stripSharedText } from "../../src/install.ts";
-import { carrierFiles, removeMachineCarriers, readMachineState } from "../../src/surfaces/adapters.ts";
+import { carrierDefinition, carrierFiles, removeMachineCarriers, readMachineState } from "../../src/surfaces/adapters.ts";
 
 type HookGroup = { matcher?: string; hooks?: Array<{ command?: string }> };
 type Settings = { permissions?: unknown; env?: unknown; hooks?: Record<string, HookGroup[]>; $comment?: string };
@@ -206,7 +206,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     expect(updated.stdout + updated.stderr).toInclude("~/.codex/hooks.json · machine carrier already current");
     expect(readFileSync(carrier, "utf8")).toBe(ours);
     const state = withHome(() => readMachineState());
-    expect(state.carriers["codex"]).toBe(sha256(ours));
+    expect(state.carriers["codex"]).toBe(carrierDefinition(ours));
     const doctor = run(["doctor"], repo);
     expect(doctor.stdout + doctor.stderr).toInclude("machine carrier ~/.codex/hooks.json carries the ai-eng entries");
   });

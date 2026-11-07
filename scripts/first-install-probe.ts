@@ -147,6 +147,10 @@ if (!existsSync(codexHooks)) {
   writeFileSync(codexHooks, `${JSON.stringify({ hooks: {} }, null, 2)}\n`);
 }
 
+// npm's PowerShell shim, read before the first init removes it, to plant it back later.
+const npmShim = IS_WINDOWS ? (process.env["PATH"] ?? "").split(";").map((dir) => join(dir, "ai-eng.ps1")).find((path) => existsSync(path)) : undefined;
+const npmShimText = npmShim === undefined ? null : readFileSync(npmShim, "utf8");
+
 const version = aiEng("--version", work);
 cells.push({ surface: "-", check: "ai-eng --version", shell: IS_WINDOWS ? "cmd" : "sh", ok: version.status === 0, detail: (version.stdout || version.stderr).slice(0, 160) });
 
@@ -171,8 +175,12 @@ for (const surface of SURFACES) {
     cells.push({ surface, check: `hook lines in ${carrier.replace(homedir(), "~").replace(repo, "<repo>")}`, shell: "-", ok: lines.length > 0, detail: `${lines.length} line(s)` });
     for (const { key, line } of lines) {
       const event = eventOf(line);
-      for (const shell of shells()) {
-        if (!hostRuns(surface, key, shell.name)) continue;
+      // A line judged in no shell would pass in silence (a runner without Git Bash). A
+      // PowerShell line off Windows is no such line: no host hands it to anything there.
+      const judgedIn = shells().filter((shell) => hostRuns(surface, key, shell.name));
+      const isForThisOs = IS_WINDOWS || (key !== "powershell" && key !== "windows");
+      if (judgedIn.length === 0 && isForThisOs) cells.push({ surface, check: `${key}:${event} judged`, shell: "-", ok: false, detail: "no shell its host uses is on this runner" });
+      for (const shell of judgedIn) {
         for (const [where, cwd] of [["governed", repo], ["ungoverned", bare]] as const) {
           const [file, argv] = shell.argv(line);
           const r = run(file, argv, { cwd, input: payloadFor(surface, cwd, event) });
@@ -186,6 +194,16 @@ for (const surface of SURFACES) {
       }
     }
   }
+}
+
+// The README's fix for a .ps1 npm wrote back on a reinstall: `ai-eng.cmd update`, with the
+// canon already healthy. Planted back, it must be gone again after that one command.
+if (npmShim !== undefined && npmShimText !== null) {
+  const initRemoved = !existsSync(npmShim);
+  cells.push({ surface: "-", check: "init removed npm's ai-eng.ps1", shell: "-", ok: initRemoved, detail: npmShim });
+  writeFileSync(npmShim, npmShimText);
+  const update = run("cmd.exe", ["/d", "/s", "/c", "ai-eng.cmd update --yes"], { cwd: join(work, `repo ${SURFACES[0]}`) });
+  cells.push({ surface: "-", check: "update removes a reinstalled ai-eng.ps1", shell: "cmd", ok: !existsSync(npmShim), detail: `exit ${update.status} ${update.stderr.slice(-120)}` });
 }
 
 const skills = countFiles(join(homedir(), ".ai-engineering", "skills"));
