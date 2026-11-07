@@ -777,9 +777,15 @@ describe("doctor · surface carriers", () => {
     try {
       writeFileSync(carrierPath(placement), withLauncher(embeddedTemplate("settings.claude.json.tpl"), "ai-eng.exe", true));
       process.env.PATH = shimDir;
+      // No ai-eng on PATH at all: not this check's finding.
       let run = await doctor();
+      expect(detail(run, "surface claude-code")).not.toContain("not on PATH");
+
+      // The other install's shim is what this PATH runs now.
+      writeFileSync(join(shimDir, process.platform === "win32" ? "ai-eng.cmd" : "ai-eng"), "");
+      run = await doctor();
       expect(row(run, "surface claude-code")).toContain("▲");
-      expect(detail(run, "surface claude-code")).toContain("calls ai-eng.exe, which is not on PATH → ai-eng update");
+      expect(detail(run, "surface claude-code")).toContain("calls ai-eng.exe, which is not on PATH");
 
       writeFileSync(join(shimDir, "ai-eng.exe"), "");
       run = await doctor();
