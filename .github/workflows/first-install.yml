@@ -4,12 +4,12 @@ name: first-install
 # proves the compiled binary; this proves the install a user gets (§17).
 on:
   push:
-    branches: ["fix/first-install"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
     inputs:
       published:
-        description: "Probe a published version instead of this checkout (e.g. 3.0.0)"
+        description: "Published version for the baseline row (default: latest)"
         required: false
 
 permissions:
@@ -31,7 +31,7 @@ jobs:
       - name: Install the package the way the README says
         shell: bash
         env:
-          PUBLISHED: ${{ inputs.published || '3.0.0' }}
+          PUBLISHED: ${{ inputs.published || 'latest' }}
         run: |
           if [ "${{ matrix.source }}" = "published" ]; then
             npm install -g "ai-engineering@$PUBLISHED"
