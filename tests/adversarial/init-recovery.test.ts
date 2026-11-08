@@ -182,53 +182,50 @@ test("config --add in a bare repo says 'run ai-eng init first', not ENOENT", () 
 });
 
 // The protocol seam: update.ts hands install() a `sha256:<hex>` sentinel as
-// "previous ours" (update.ts:147). install() must understand it — treating it as a
-// literal hash makes "Take the new version everywhere" write 0 files, turns safe
-// version-bump updates into false "patched by you" conflicts, and records hashes
-// that exist nowhere on disk.
+// "previous ours". A recorded file is ai-eng's and takes the new template, edited or
+// not; only seeded config the project edited stays the project's. Treating the
+// sentinel as a literal hash would misjudge every seeded config file.
 import { install, sha256 as sha } from "../../src/install.ts";
 import type { PlanEntry } from "../../src/install.ts";
 
-test('install honors the "sha256:" sentinel: take writes, unedited updates apply', () => {
+test('install honors the "sha256:" sentinel: a recorded file takes ours, edited or not; edited seeded config stays', () => {
   const root = join(sandbox, "protocol");
   mkdirSync(join(root, ".claude"), { recursive: true });
   const oldTpl = '{"hooks": "old"}\n';
   const newTpl = '{"hooks": "new"}\n';
   const entry: PlanEntry = { path: ".claude/settings.json", ours: newTpl };
-
-  // Case A — the real take flow: lock holds the hash of the OLD template, disk
-  // holds the user's edit (≠ old). install() sees a conflict; update.ts resolves
-  // it as "take" and passes the force flag. The file must land as newTpl.
-  const theirEdit = oldTpl + "// user tweak\n";
-  writeFileSync(join(root, ".claude", "settings.json"), theirEdit);
   const prevOld = (path: string) => (path === entry.path ? `sha256:${sha(oldTpl)}` : null);
-  let report = install(root, [entry], prevOld, (path) => path === entry.path);
+
+  // Case A — recorded and edited: ai-eng's file, so it takes the new template.
+  writeFileSync(join(root, ".claude", "settings.json"), oldTpl + "// user tweak\n");
+  let report = install(root, [entry], prevOld);
   expect(report.written).toEqual([".claude/settings.json"]);
   expect(readFileSync(join(root, ".claude", "settings.json"), "utf8")).toBe(newTpl);
 
-  // Case A2 — same conflict, no force (the human said keep / --yes): untouched.
-  writeFileSync(join(root, ".claude", "settings.json"), theirEdit);
-  report = install(root, [entry], prevOld);
-  expect(report.conflicts).toEqual([".claude/settings.json"]);
-  expect(readFileSync(join(root, ".claude", "settings.json"), "utf8")).toBe(theirEdit);
-
-  // Case B — safe update: disk is exactly the recorded old version. install()
-  // must update it, not raise a conflict.
+  // Case B — exactly the recorded old version: a plain update.
   writeFileSync(join(root, ".claude", "settings.json"), oldTpl);
   report = install(root, [entry], prevOld);
   expect(report.written).toEqual([".claude/settings.json"]);
   expect(readFileSync(join(root, ".claude", "settings.json"), "utf8")).toBe(newTpl);
 
-  // Case C — an edit NOT in the lock stays untouched: the sentinel must not
-  // turn the overwrite into a blind clobber.
+  // Case C — never recorded: the project's own file, untouched.
   const unrecorded = oldTpl + "// a different edit\n";
   writeFileSync(join(root, ".claude", "settings.json"), unrecorded);
-  report = install(root, [entry], (path) => (path === entry.path ? `sha256:${sha("deadbeef".repeat(8))}` : null));
-  expect(report.conflicts).toEqual([".claude/settings.json"]);
+  report = install(root, [entry], () => null);
+  expect(report.yours).toEqual([".claude/settings.json"]);
   expect(readFileSync(join(root, ".claude", "settings.json"), "utf8")).toBe(unrecorded);
+
+  // Case D — seeded config: follows the sentinel while unedited, the project's once edited.
+  const config: PlanEntry = { path: [".ai-engineering", "arch.rules.json"].join("/"), ours: "{}\n" };
+  mkdirSync(join(root, ".ai-engineering"), { recursive: true });
+  writeFileSync(join(root, config.path), "[]\n");
+  expect(install(root, [config], () => `sha256:${sha("[]\n")}`).written).toEqual([config.path]);
+  writeFileSync(join(root, config.path), '{"mine": 1}\n');
+  expect(install(root, [config], () => `sha256:${sha("{}\n")}`).yours).toEqual([config.path]);
+  expect(readFileSync(join(root, config.path), "utf8")).toBe('{"mine": 1}\n');
 });
 
-test("update repairs missing global canon files and preserves local edits", () => {
+test("update repairs missing global canon files and rewrites an edited shipped page", () => {
   const locallyEdited = join(engHome, "skills", "ai-brainstorm", "SKILL.md");
   const shippedBrainstorm = readFileSync(join(import.meta.dir, "../../skills/ai-brainstorm/SKILL.md"));
   const missing = join(engHome, "skills", "ai-debug", "SKILL.md");
@@ -237,22 +234,16 @@ test("update repairs missing global canon files and preserves local edits", () =
   expect(existsSync(locallyEdited)).toBe(true);
   expect(existsSync(missing)).toBe(true);
 
-  const localEdit = "# locally edited\n";
-  writeFileSync(locallyEdited, localEdit);
+  writeFileSync(locallyEdited, "# locally edited\n");
   rmSync(missing);
-  try {
-    const run = eng(["update", "--yes"]);
-    expect(run.stdout + run.stderr).toContain("global canon repaired · local changes kept");
-    expect(readFileSync(locallyEdited, "utf8")).toBe(localEdit);
-    expect(existsSync(missing)).toBe(true);
-    expect(readFileSync(missing, "utf8")).toBe(expectedPayload);
-  } finally {
-    // The edit is this case's fixture, not state for the cases after it.
-    writeFileSync(locallyEdited, shippedBrainstorm);
-  }
-
-  // With the fixture restored, a clean update has nothing to repair and leaves zero drift.
+  const run = eng(["update", "--yes"]);
+  expect(run.stdout + run.stderr).toContain("global canon outdated or incomplete — re-installed");
+  expect(run.stdout + run.stderr).not.toContain("local change");
+  // The shipped page is ai-eng's: the edit is replaced, the missing file comes back.
   expect(readFileSync(locallyEdited)).toEqual(shippedBrainstorm);
+  expect(readFileSync(missing, "utf8")).toBe(expectedPayload);
+
+  // A second update has nothing to repair and leaves zero drift.
   const clean = eng(["update", "--yes"]);
   const cleanOut = clean.stdout + clean.stderr;
   expect(clean.status).toBe(0);

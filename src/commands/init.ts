@@ -14,7 +14,7 @@ import { select, multiselect, isCancel } from "@clack/prompts";
 import { scriptedInput } from "../ui.ts";
 import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machineCarrier, retireNpmPowerShellShim, type Surface } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
-import { canonDrift, changedCanonSkills, type CanonDrift } from "../embed.ts";
+import { canonDrift, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home } from "../env.ts";
 import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
@@ -67,11 +67,11 @@ function scaffoldProject(surfaces: string[], contract: PlanEntry[]): string[] {
   // may be written: a kept file was filtered out, a replaced one was written above.
   const contractReport = install(cwd, contract);
   for (const written of contractReport.written) lines.push(`✓ ${written} (contract)`);
-  for (const untouched of contractReport.untouched) lines.push(`· ${untouched} — yours, untouched`);
+  for (const untouched of contractReport.yours) lines.push(`· ${untouched} — yours, untouched`);
   const entries = planEntries(surfaces);
   const report = install(cwd, entries);
   for (const written of report.written) lines.push(`✓ ${written}`);
-  for (const conflict of report.conflicts) lines.push(`⚠ ${conflict} — edited by you: 3-way diff required, not touched`);
+  for (const path of report.yours) lines.push(`· ${path} — already here and not written by ai-eng: yours, untouched`);
   for (const refused of report.refused) lines.push(refuseLine(refused));
   // Hook shims must be executable or git silently ignores them.
   for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
@@ -99,7 +99,10 @@ function scaffoldProject(surfaces: string[], contract: PlanEntry[]): string[] {
   // un-approve a milestone (same reason as update.ts).
   const lockPath = join(cwd, ".ai-engineering", "ai-eng.lock");
   const carried = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : null;
-  const lock = buildLock(entries, VERSION, { spec_sha256: carried?.spec_sha256, base_sha: carried?.base_sha });
+  // The lock is the ownership ledger: it claims only what ai-eng wrote or already matched.
+  // A file of the project's left untouched must stay the project's on every later update.
+  const notOurs = new Set([...report.yours, ...report.refused.map((refused) => refused.path)]);
+  const lock = buildLock(entries.filter((entry) => !notOurs.has(entry.path)), VERSION, { spec_sha256: carried?.spec_sha256, base_sha: carried?.base_sha });
   writeFileSync(join(cwd, ".ai-engineering", "ai-eng.lock"), lockText(lock));
   lines.push(`✓ .ai-engineering/ai-eng.lock (${Object.keys(lock.assets).length} assets with sha256)`);
   return lines;
@@ -164,8 +167,7 @@ async function installCanonOrReport(
         return 0;
       }
     }
-    const preservedSkills = canon.drift > 0 ? changedCanonSkills(home()) : [];
-    const canonLines = installCanon(VERSION, preservedSkills).map((line) => installLineRow(line));
+    const canonLines = installCanon(VERSION).map((line) => installLineRow(line));
     if (reinstalling) {
       ui.section("global canon outdated or incomplete — re-installing", canonLines, canonSummary(canon));
     } else {

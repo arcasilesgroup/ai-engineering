@@ -3,8 +3,8 @@
 
 import { EMBEDDED } from "./assets.ts";
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, openSync, writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, renameSync, unlinkSync, lstatSync, realpathSync, type Stats } from "node:fs";
-import { join, dirname, resolve, relative, sep, isAbsolute } from "node:path";
+import { closeSync, constants, fstatSync, ftruncateSync, openSync, writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, renameSync, unlinkSync, lstatSync, realpathSync, type Dirent, type Stats } from "node:fs";
+import { basename, join, dirname, resolve, relative, sep, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hashFile } from "./shared-hash.ts";
 import {
@@ -36,127 +36,118 @@ export function canonSkills(): Map<string, string> {
   return out;
 }
 
-/** Existing canon files without a matching payload hash are not safe to replace:
- *  unlike repo assets, the machine canon has no ownership lock. */
-export function changedCanonSkills(homeDir: string): string[] {
-  return [...canonSkills()]
-    .filter(([path, ref]) => {
-      const installed = join(homeDir, path);
-      const embedded = embeddedPath(ref);
-      return existsSync(installed) && existsSync(embedded) && hashFile(installed) !== hashFile(embedded);
-    })
-    .map(([path]) => path);
-}
+export type CanonDrift = { verified: number; drift: number; missing: number; stale: number; foreign: number };
 
-export type CanonDrift = { verified: number; drift: number; missing: number; stale: number; kept: number; unproven: number; foreign: number };
-
-export type CanonExtras = { stale: string[]; kept: string[]; unproven: string[]; foreign: string[] };
-
-/** Files sitting in the canon home that this binary does not ship. Inside a folder we
- *  ship, a file is `stale` — ours to sweep, a renamed asset or a deleted page — only
- *  while its bytes still equal the hash recorded when an installer wrote it. It is
- *  `unproven` when no record covered it: releases before the record wrote no canon
- *  hashes anywhere, so such a file may be an outdated page of ours or a file of the
- *  user's, and nothing can tell which. Any other file there is a `kept` user file,
- *  added or edited by hand after the record existed. Neither is ever deleted. Anything
- *  else in the canon home (a skill of your own, a symlink) is `foreign`. Dot entries are
- *  the OS talking (.DS_Store) and are ignored either way. A payload walk never sees an
+/** What sits in the machine home beside this binary's payload.
+ *  - `stale`: an entry inside a skill folder this binary ships that the payload does not
+ *    have. The folder is ai-eng's whole, so a renamed asset, a page an older release
+ *    shipped and a file added there by hand are the same thing: swept.
+ *  - `retired`: a skill folder, agent or script an earlier ai-eng installed (its ownership
+ *    record names it) that this binary no longer ships. Swept whole.
+ *  - `foreign`: anything else in the skills home — a skill of your own, in a folder of its
+ *    own name. Never touched.
+ *  Dot entries are the OS talking (.DS_Store) and are ignored. A payload walk never sees an
  *  orphan, so without this walk a renamed asset lives in every installed canon forever. */
+export type CanonExtras = { stale: string[]; retired: string[]; foreign: string[] };
+
+/** Every payload file ai-eng installs into the machine home, keyed as it lands there
+ *  ("skills/…", "agents/…", "scripts/…"). */
+function machinePayload(): Map<string, string> {
+  return new Map([...canonSkills(), ...embeddedUnder("agents/"), ...embeddedUnder("scripts/")]);
+}
+
 export function canonExtras(homeDir: string): CanonExtras {
-  const payload = canonSkills();
-  const shipped = new Set([...payload.keys()].map((path) => path.split("/")[1] ?? ""));
-  const owned = readCanonOwnership(homeDir);
+  const payload = machinePayload();
+  const shipped = new Set([...canonSkills().keys()].map(skillFolderOf));
+  const recorded = readCanonOwnership(homeDir) ?? new Map<string, string>();
+  const recordedSkills = new Set([...recorded.keys()].filter((key) => key.startsWith("skills/")).map(skillFolderOf));
   const stale: string[] = [];
-  const kept: string[] = [];
-  const unproven: string[] = [];
+  const retired: string[] = [];
   const foreign: string[] = [];
-  const walk = (dir: string, relative: string): void => {
-    let entries;
-    try {
-      entries = readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return; // an unreadable directory is reported by nobody and breaks nothing
+  for (const entry of listEntries(join(homeDir, "skills"))) {
+    if (entry.name.startsWith(".")) continue;
+    const key = `skills/${entry.name}`;
+    if (shipped.has(entry.name) && entry.isDirectory()) {
+      stale.push(...walkEntries(join(homeDir, key), key).filter((path) => !payload.has(path)));
+    } else if (recordedSkills.has(entry.name) && entry.isDirectory()) {
+      retired.push(key);
+    } else {
+      foreign.push(key);
     }
-    for (const entry of entries) {
-      if (entry.name.startsWith(".")) continue;
-      const rel = relative.length === 0 ? entry.name : `${relative}/${entry.name}`;
-      const absolute = join(dir, entry.name);
-      if (entry.isSymbolicLink()) {
-        foreign.push(`skills/${rel}`); // someone linked something in: never ours
-        continue;
-      }
-      if (entry.isDirectory()) {
-        walk(absolute, rel);
-        continue;
-      }
-      const key = `skills/${rel}`;
-      if (payload.has(key)) continue;
-      if (!shipped.has(rel.split("/")[0]!)) foreign.push(key);
-      else if (owned !== null && isRecordedCanonFile(owned.files, key, absolute)) stale.push(key);
-      else if (owned === null || owned.unproven.has(key)) unproven.push(key);
-      else kept.push(key);
-    }
-  };
-  walk(join(homeDir, "skills"), "");
+  }
+  // An agent or script ai-eng recorded and no longer ships: only the recorded name is ours,
+  // because ~/.claude/agents may be a link into this folder and hold the user's own agents.
+  for (const key of recorded.keys()) {
+    if (key.startsWith("skills/") || payload.has(key)) continue;
+    if (isFileOrLink(join(homeDir, key))) retired.push(key);
+  }
   const byPath = (a: string, b: string): number => a.localeCompare(b, "en");
-  return { stale: stale.sort(byPath), kept: kept.sort(byPath), unproven: unproven.sort(byPath), foreign: foreign.sort(byPath) };
+  return { stale: stale.sort(byPath), retired: retired.sort(byPath), foreign: foreign.sort(byPath) };
 }
 
-/** The one line doctor and installCanon print for stale files ai-eng proved its own but could
- *  not remove: they stay stale, so the next run tries again once the folder lets it. */
-export function refusedStaleCanonText(paths: readonly string[]): string {
-  return `${paths.length} stale file(s) ai-eng shipped earlier — removal refused by the filesystem (a read-only, locked or busy folder), kept and retried by the next ai-eng update: ${paths.join(", ")}. Make the folder writable, then run ai-eng update`;
+/** A payload file's key as an installer records it: `skills/<skill>/<file…>`, `agents/<file>`
+ *  or `scripts/<file…>`, with no empty, `.` or `..` segment and no dot-led skill, agent or script name. */
+function isRecordKey(key: string): boolean {
+  const segments = key.split("/");
+  if (segments.some((segment) => segment.length === 0 || segment === "." || segment === ".." || segment.includes("\\"))) return false;
+  if (segments.length < 2 || segments[1]!.startsWith(".")) return false; // a dot-led skill, agent or script is never ours
+  if (segments[0] === "skills") return segments.length >= 3;
+  if (segments[0] === "agents") return segments.length === 2;
+  return segments[0] === "scripts" && segments.length >= 2;
 }
 
-/** The stale files whose removal the last install was refused. */
-export function refusedStaleCanonFiles(homeDir: string): string[] {
-  const refused = readCanonOwnership(homeDir)?.refused ?? new Set<string>();
-  return canonExtras(homeDir).stale.filter((path) => refused.has(path));
+/** "skills/ai-verify/SKILL.md" → "ai-verify". */
+function skillFolderOf(key: string): string {
+  return key.split("/")[1] ?? "";
 }
 
-/** The one line doctor and installCanon print for unproven files, with the step that clears it. */
-export function unprovenCanonText(paths: readonly string[]): string {
-  return `${paths.length} file(s) in shipped skill folders that ai-eng cannot prove it wrote (left from before ownership was recorded: an outdated page of ours or a file of yours) — never deleted: ${paths.join(", ")}. Review each: delete it by hand, or move a file you keep out of the skill folder`;
-}
-
-function isRecordedCanonFile(owned: Map<string, string>, key: string, absolute: string): boolean {
-  const recorded = owned.get(key);
-  if (recorded === undefined) return false;
+function listEntries(directory: string): Dirent[] {
   try {
-    return hashFile(absolute) === recorded;
+    return readdirSync(directory, { withFileTypes: true });
   } catch {
-    return false;
+    return []; // an unreadable directory is reported by nobody and breaks nothing
   }
 }
 
-/** The record of every canon file installCanon last wrote, path → sha256, in the canon home,
- *  the extras it found with no record to prove them either way (`unproven`), and the stale
- *  files it proved its own but could not remove (`refused`, whose hashes stay in `files`). */
+/** Every file and link under a folder, as home-relative keys. Links are entries, never followed. */
+function walkEntries(directory: string, key: string): string[] {
+  const out: string[] = [];
+  for (const entry of listEntries(directory)) {
+    if (entry.name.startsWith(".")) continue;
+    const childKey = `${key}/${entry.name}`;
+    if (entry.isDirectory() && !entry.isSymbolicLink()) out.push(...walkEntries(join(directory, entry.name), childKey));
+    else out.push(childKey);
+  }
+  return out;
+}
+
+/** The one line doctor and installCanon print for files of ours the filesystem would not let go. */
+export function refusedStaleCanonText(paths: readonly string[]): string {
+  return `${paths.length} file(s) ai-eng no longer ships — removal refused by the filesystem (a read-only, locked or busy folder), retried by the next ai-eng update: ${paths.join(", ")}. Make the folder writable, then run ai-eng update`;
+}
+
+/** The record of every machine payload file an installer wrote, path → sha256, in the
+ *  machine home. It is how a later binary knows a skill, agent or script it stopped shipping
+ *  was ai-eng's to remove. */
 export const CANON_OWNERSHIP_NAME = "canon-owned.json";
 
-type CanonOwnership = { files: Map<string, string>; unproven: Set<string>; refused: Set<string> };
-
-/** Only a `{ files: { path: sha256 }, unproven?: path[], refused?: path[] }` document is this installer's record. */
-function parseCanonOwnership(text: string): CanonOwnership | null {
+/** Only a `{ files: { path: sha256 } }` document whose every path has the shape an installer
+ *  writes is this installer's record (older releases wrote `unproven` and `refused` lists
+ *  beside it; they are read past). The record decides what gets deleted, so one odd key —
+ *  "", "agents", "skills/.." — makes the whole record untrusted rather than a delete target. */
+function parseCanonOwnership(text: string): Map<string, string> | null {
   try {
-    const record = JSON.parse(text) as { files?: unknown; unproven?: unknown; refused?: unknown };
+    const record = JSON.parse(text) as { files?: unknown };
     if (record === null || typeof record !== "object" || record.files === null || typeof record.files !== "object") return null;
     const files = new Map<string, string>();
     for (const [path, hash] of Object.entries(record.files as Record<string, unknown>)) {
-      if (typeof hash !== "string") return null;
+      if (typeof hash !== "string" || !isRecordKey(path)) return null;
       files.set(path, hash);
     }
-    const unproven = record.unproven ?? [];
-    const refused = record.refused ?? [];
-    if (!isPathList(unproven) || !isPathList(refused)) return null;
-    return { files, unproven: new Set(unproven), refused: new Set(refused) };
+    return files;
   } catch {
     return null;
   }
-}
-
-function isPathList(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((path) => typeof path === "string");
 }
 
 /** The `{ version, ts }` record installCanon and the notice check write to version.json, and nothing else. */
@@ -171,12 +162,22 @@ export function isVersionCacheRecord(text: string): boolean {
   }
 }
 
-/** The record is removable only while it parses and no file it vouches for is left: it is
+/** The record is removable only while it parses and nothing it vouches for is left: it is
  *  the one proof that such a file is ai-eng's, so deleting it first strands that file. */
 export function isRemovableCanonOwnershipRecord(homeDir: string, text: string): boolean {
   const owned = parseCanonOwnership(text);
   if (owned === null) return false;
-  return ![...owned.files.keys()].some((path) => isPathPresent(join(homeDir, path)));
+  return ![...owned.keys()].some((path) => isPathPresent(join(homeDir, path)));
+}
+
+/** A file or a link at the path (a folder is never a recorded agent or script). */
+function isFileOrLink(path: string): boolean {
+  try {
+    const entry = lstatSync(path);
+    return entry.isFile() || entry.isSymbolicLink();
+  } catch {
+    return false;
+  }
 }
 
 function isPathPresent(path: string): boolean {
@@ -191,39 +192,46 @@ function isPathPresent(path: string): boolean {
 }
 
 /** Null when there is no record this installer can trust: none yet, unreadable, or not its shape. */
-function readCanonOwnership(homeDir: string): CanonOwnership | null {
+function readCanonOwnership(homeDir: string): Map<string, string> | null {
   const absolute = safeProjectPath(homeDir, CANON_OWNERSHIP_NAME);
   const snapshot = absolute === null ? null : readProjectFileSnapshot(homeDir, absolute);
   return snapshot === null ? null : parseCanonOwnership(snapshot.content.toString("utf8"));
 }
 
-/** Remember the payload this binary just installed, so a later binary that stops shipping
- *  a page can prove the page on disk is still the one it wrote. `unproven` carries the
- *  extras no record covered forward: the new record lists only this payload, and without
- *  the list they would read as files the user added after it. `refused` carries the stale
- *  files whose removal the filesystem refused, with the hash that proved them ours: without
- *  it they would read as user files too, and no later run would retry. The record is staged under
- *  a private name and renamed over its own: a rename replaces the directory entry, so a
- *  file of the user's hard-linked at that name keeps its bytes. A link or a non-file at
- *  the name is refused, and the warning is returned. */
-export function recordCanonOwnership(homeDir: string, unproven: readonly string[] = [], refused: readonly string[] = []): string | null {
+/** The skill folders, agents and scripts the ownership record names: what ai-eng installed
+ *  on this machine, now or in an earlier release. Uninstall removes these whole. */
+export function recordedMachinePaths(homeDir: string): string[] {
+  const keys = new Set([...machinePayload().keys(), ...(readCanonOwnership(homeDir)?.keys() ?? [])]);
+  const paths = new Set<string>();
+  for (const key of keys) paths.add(key.startsWith("skills/") ? `skills/${skillFolderOf(key)}` : key);
+  return [...paths].sort((a, b) => a.localeCompare(b, "en"));
+}
+
+/** Remember the payload this binary just installed, so a later binary that stops shipping a
+ *  skill, agent or script knows it is ai-eng's to remove. Whatever an earlier record names
+ *  that is still on disk (a removal the filesystem refused) stays named, so the next run
+ *  retries it; so does `alsoKeep`, a retired path (or skill folder) still left outside the
+ *  home (an agent's copy in ~/.claude/agents, a skill's slash command). The record is staged under a private name and renamed over its own: a rename
+ *  replaces the directory entry, so a file of the user's hard-linked at that name keeps its
+ *  bytes. A link or a non-file at the name is refused, and the warning is returned. */
+export function recordCanonOwnership(homeDir: string, alsoKeep: readonly string[] = []): string | null {
   const files: Record<string, string> = {};
-  for (const [path, ref] of canonSkills()) {
+  for (const [path, hash] of readCanonOwnership(homeDir) ?? []) {
+    const left = path.startsWith("skills/") ? join(homeDir, "skills", skillFolderOf(path)) : join(homeDir, path);
+    if (isPathPresent(left) || alsoKeep.some((kept) => path === kept || path.startsWith(`${kept}/`))) files[path] = hash;
+  }
+  for (const [path, ref] of machinePayload()) {
     const embedded = embeddedPath(ref);
     if (existsSync(embedded)) files[path] = hashFile(embedded);
   }
-  const previous = readCanonOwnership(homeDir)?.files ?? new Map<string, string>();
-  const stillOwned = refused.filter((path) => previous.has(path));
-  for (const path of stillOwned) files[path] = previous.get(path)!;
-  const refusal = `${join(homeDir, CANON_OWNERSHIP_NAME)} is a link, not a regular file, or not writable — ownership record not written; stale canon files will be kept, not swept`;
+  const refusal = `${join(homeDir, CANON_OWNERSHIP_NAME)} is a link, not a regular file, or not writable — ownership record not written; a skill ai-eng stops shipping will not be swept`;
   let canonicalHome: string;
   try {
     canonicalHome = realpathSync(homeDir);
   } catch {
     return refusal;
   }
-  const byPath = (a: string, b: string): number => a.localeCompare(b, "en");
-  const record = `${JSON.stringify({ files, unproven: [...unproven].sort(byPath), refused: stillOwned.sort(byPath) }, null, 2)}\n`;
+  const record = `${JSON.stringify({ files: Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b, "en"))) }, null, 2)}\n`;
   const isWritten = withSafeProjectParent(canonicalHome, join(canonicalHome, CANON_OWNERSHIP_NAME), (name) => replaceRegularFile(name, record));
   return isWritten ? null : refusal;
 }
@@ -254,37 +262,77 @@ function replaceRegularFile(name: string, contents: string): boolean {
   }
 }
 
-/** Sweep the stale files inside folders we ship, then the directories they leave empty.
- *  A stale file goes only while its bytes equal the hash recorded when this installer
- *  wrote it: a page the user added or edited has no such proof and stays (§14.3). A stale
- *  file still ours that could not be removed (a refused delete, or one that could not be
- *  re-read) is `refused`: still ai-eng's, never a user file. */
-export function removeStaleCanonFiles(homeDir: string): { removed: string[]; kept: string[]; unproven: string[]; refused: string[] } {
+/** Remove one file or link under the machine home, bound to its checked parent. A link goes
+ *  as a link: what it points at is never touched. */
+export function removeMachineEntry(homeDir: string, key: string): boolean {
+  const parent = safeProjectPath(homeDir, dirname(key));
+  if (parent === null) return false;
+  const absolute = join(parent, basename(key));
+  let entry: Stats;
+  try {
+    entry = lstatSync(absolute);
+  } catch {
+    return true; // already gone
+  }
+  if (entry.isSymbolicLink()) {
+    return withSafeProjectParent(homeDir, absolute, (name) => {
+      // Still the very link that was judged: a file swapped in at the name is not removed.
+      const current = lstatSync(name);
+      if (!current.isSymbolicLink() || current.dev !== entry.dev || current.ino !== entry.ino) return false;
+      unlinkSync(name);
+      return true;
+    });
+  }
+  const snapshot = readProjectFileSnapshot(homeDir, absolute);
+  return snapshot !== null && unlinkProjectPath(homeDir, absolute, snapshot);
+}
+
+/** Remove a machine path ai-eng owns — a file, a link, or a folder with everything in it —
+ *  then the folders it leaves empty, up to (not including) the home's top-level folder.
+ *  Returns the keys the filesystem would not let go. */
+export function removeMachinePath(homeDir: string, key: string): string[] {
+  const absolute = join(homeDir, key);
+  let isFolder = false;
+  try {
+    const entry = lstatSync(absolute);
+    isFolder = entry.isDirectory() && !entry.isSymbolicLink();
+  } catch {
+    return [];
+  }
+  const refused = (isFolder ? walkEntries(absolute, key) : [key]).filter((entry) => !removeMachineEntry(homeDir, entry));
+  if (isFolder) pruneEmptyFoldersUnder(homeDir, absolute);
+  const top = join(homeDir, key.split("/")[0]!);
+  let directory = isFolder ? absolute : dirname(absolute);
+  while (directory !== top && pathIsWithin(top, directory)) {
+    if (!pruneEmptyDirectoryWithin(homeDir, directory)) break;
+    directory = dirname(directory);
+  }
+  return refused;
+}
+
+/** Empty folders below `directory` (deepest first) go; the walk never follows a link. */
+function pruneEmptyFoldersUnder(homeDir: string, directory: string): void {
+  for (const entry of listEntries(directory)) {
+    if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+    const child = join(directory, entry.name);
+    pruneEmptyFoldersUnder(homeDir, child);
+    pruneEmptyDirectoryWithin(homeDir, child);
+  }
+}
+
+/** Sweep everything canonExtras calls ai-eng's and not shipped: stale entries inside the
+ *  skill folders we ship, and retired skills, agents and scripts. Edited or not, they are
+ *  ai-eng's — a file of your own belongs in a folder of your own. */
+export function removeStaleCanonFiles(homeDir: string): { removed: string[]; refused: string[] } {
+  const extras = canonExtras(homeDir);
   const removed: string[] = [];
   const refused: string[] = [];
-  const extras = canonExtras(homeDir);
-  const kept: string[] = [...extras.kept];
-  const owned = readCanonOwnership(homeDir)?.files ?? new Map<string, string>();
-  const skillsRoot = safeProjectPath(homeDir, "skills");
-  for (const key of extras.stale) {
-    const absolute = safeProjectPath(homeDir, key);
-    const snapshot = absolute === null ? null : readProjectFileSnapshot(homeDir, absolute);
-    if (snapshot !== null && snapshot.hash !== owned.get(key)) {
-      kept.push(key); // edited since the walk proved it ours: the user's now
-      continue;
-    }
-    if (absolute === null || snapshot === null || !unlinkProjectPath(homeDir, absolute, snapshot)) {
-      refused.push(key);
-      continue;
-    }
-    removed.push(key);
-    let directory = dirname(absolute);
-    while (skillsRoot !== null && directory !== skillsRoot && pathIsWithin(skillsRoot, directory)) {
-      if (!pruneEmptyDirectoryWithin(homeDir, directory)) break;
-      directory = dirname(directory);
-    }
+  for (const key of [...extras.stale, ...extras.retired]) {
+    const left = removeMachinePath(homeDir, key);
+    if (left.length === 0) removed.push(key);
+    else refused.push(...left);
   }
-  return { removed, kept: kept.sort((a, b) => a.localeCompare(b, "en")), unproven: extras.unproven, refused };
+  return { removed, refused };
 }
 
 /** The installed canon against this binary's payload, byte for byte — the one
@@ -292,12 +340,12 @@ export function removeStaleCanonFiles(homeDir: string): { removed: string[]; kep
  *  Existence probes and a marker file are not enough: notice.ts caches the
  *  REGISTRY version in the same version.json that installCanon wrote the
  *  INSTALLED version into, so a canon reads "intact · nothing to install" with
- *  34 files missing. It counts the files the payload does not have as well: a
- *  canon can be complete and dirty at once, and only the payload walk sees both
+ *  34 files missing. It counts the entries the payload does not have as well: a
+ *  canon can be complete and dirty at once, and only the extras walk sees both
  *  halves. */
 export function canonDrift(homeDir: string): CanonDrift {
   const extras = canonExtras(homeDir);
-  const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale: extras.stale.length, kept: extras.kept.length, unproven: extras.unproven.length, foreign: extras.foreign.length };
+  const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale: extras.stale.length + extras.retired.length, foreign: extras.foreign.length };
   for (const [path, ref] of canonSkills()) {
     const installed = join(homeDir, path);
     const embedded = embeddedPath(ref);
@@ -308,16 +356,12 @@ export function canonDrift(homeDir: string): CanonDrift {
   return out;
 }
 
+
 /** Materialize all embedded skills into a target directory. The embedded refs are
  *  absolute paths at runtime — Bun rewrites the import to the asset's real location,
  *  and in a compiled binary it is the virtualized copy inside the executable. */
-export function materializeSkills(
-  destRoot: string,
-  preserve: readonly string[] = [],
-): string[] {
-  const skills = new Map(embeddedUnder("skills/"));
-  for (const path of preserve) skills.delete(path);
-  return materializePrefix("skills/", destRoot, skills);
+export function materializeSkills(destRoot: string): string[] {
+  return materializePrefix("skills/", destRoot);
 }
 
 /** Materialize embedded agents/*.md into a target directory (workflow-kit agents canon). */
@@ -452,8 +496,16 @@ function resolvedFromRef(source: string, dest: string, executablePattern: RegExp
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
   // O_NOFOLLOW: a link that appears after the check is refused (ELOOP), never written through.
-  const descriptor = openSync(dest, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o666);
+  let descriptor = openSync(dest, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW, 0o666);
+  if (fstatSync(descriptor).nlink > 1) {
+    // A second name (a hard link from the user's dotfiles) would receive our bytes too: our
+    // name gets a fresh file of its own, and the other name keeps what it holds.
+    closeSync(descriptor);
+    unlinkSync(dest);
+    descriptor = openSync(dest, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o666);
+  }
   try {
+    ftruncateSync(descriptor, 0);
     writeFileSync(descriptor, readFileSync(source));
   } finally {
     closeSync(descriptor);

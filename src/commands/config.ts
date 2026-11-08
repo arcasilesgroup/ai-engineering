@@ -6,8 +6,7 @@ import { PassThrough } from "node:stream";
 import { install, stripSharedText } from "../install.ts";
 import { join } from "node:path";
 import { multiselect, isCancel } from "@clack/prompts";
-import { canonicalSurfaceId, repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
-import { changedCanonSkills } from "../embed.ts";
+import { canonicalSurfaceId, repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
 import { SURFACES, mirrorTargets, surfaceCanGovern, repoCarrier, machineCarrier, installMachineCarriers, installCanon, type Surface } from "../surfaces/adapters.ts";
 import { hasAdapter, installLineRow, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions } from "./init-shared.ts";
 import * as ui from "../ui.ts";
@@ -177,7 +176,7 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   if (!writeConfigSurfaces(join(root, ".ai-engineering", "config.toml"), current)) return 2;
   for (const id of removing) removeSurfaceFiles(root, id);
   // The canon is refreshed quietly; only what it could not do is said, as a warning.
-  const canonWarnings = installCanon(VERSION, changedCanonSkills(home())).filter((line) => line.startsWith("⚠ ")).map((line) => installLineRow(line));
+  const canonWarnings = installCanon(VERSION).filter((line) => line.startsWith("⚠ ")).map((line) => installLineRow(line));
   if (canonWarnings.length > 0) ui.section("Global canon", canonWarnings);
   installNewSurfaces(root, current, surfacesBefore, addedNow);
   showSurfaceDelta(current, surfacesBefore);

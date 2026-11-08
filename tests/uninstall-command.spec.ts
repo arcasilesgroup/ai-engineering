@@ -374,13 +374,15 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(out).toContain(".cursor/hooks.json not rewritten — not JSON this installer can rewrite without reformatting it (review by hand)");
   });
 
-  test("a file you edited after install is kept, and named", async () => {
+  test("a file ai-eng wrote goes even when edited; seeded config you edited is yours and stays", async () => {
     const { cwd } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
     const rules = join(cwd, ".ai-engineering", "arch.rules.json");
     const edited = `${readFileSync(rules, "utf8")}\n`;
     writeFileSync(rules, edited);
+    const workflow = join(cwd, ".github", "workflows", "ai-eng-check.yml");
+    writeFileSync(workflow, `${readFileSync(workflow, "utf8")}# my extra step\n`);
 
     const { result, out } = await uninstall([
       [SELECT, PROJECT_KEYS],
@@ -389,7 +391,9 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
 
     expect(result).toBe(0);
     expect(readFileSync(rules, "utf8")).toBe(edited);
-    expect(out).toContain("▲ .ai-engineering/arch.rules.json kept · you edited it after install — it is yours now");
+    expect(out).toContain("✓ .ai-engineering/arch.rules.json kept · config you edited — yours");
+    expect(existsSync(workflow)).toBe(false);
+    expect(out).toContain("✓ .github/workflows/ai-eng-check.yml removed · edited since install — ai-eng's file all the same");
     expect(existsSync(join(cwd, ".git", "hooks", "pre-commit"))).toBe(false);
   });
 
@@ -754,7 +758,7 @@ describe("uninstall · the machine side (Everything scope)", () => {
 
     expect(result).toBe(0);
     expect(out).toContain("~/.copilot/hooks/ai-eng.json: ai-eng entries removed, yours kept");
-    expect(out).toContain(`✓ ${machine} kept · 0 canon-owned file(s) removed · 0 machine artifacts swept · other files kept`);
+    expect(out).toContain(`✓ ${machine} kept · 0 ai-eng path(s) removed · 0 machine artifacts swept · other files kept`);
     // Every hook of ours is out and the user's key stays. Copilot's `version: 1` is a scalar
     // the merge set and the strip cannot tell from one the user wrote, so it stays too.
     expect(JSON.parse(readFileSync(copilotSettings, "utf8"))).toEqual({ user: "owned", version: 1 });
@@ -828,21 +832,27 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(run.out).toContain(`${machine} kept`);
   });
 
-  test("F22: the ownership record stays while a file it vouches for remains", async () => {
+  test("F22: Everything removes ai-eng's skill folders whole, edited or not, and a retired one; a skill of your own and the record's other paths stay", async () => {
     const { cwd, machine } = sandboxed();
     gitInit(cwd);
     initShaped(["claude-code"]);
     const olderPage = "skills/ai-debug/a-page-an-older-version-shipped.md";
     mkdirSync(join(machine, "skills", "ai-debug"), { recursive: true });
     writeFileSync(join(machine, olderPage), "older payload\n");
-    const record = JSON.stringify({ files: { [olderPage]: sha256("older payload\n") } });
-    writeFileSync(join(machine, "canon-owned.json"), record);
+    mkdirSync(join(machine, "skills", "ai-retired"), { recursive: true });
+    writeFileSync(join(machine, "skills", "ai-retired", "SKILL.md"), "edited by hand\n");
+    mkdirSync(join(machine, "skills", "my-own-skill"), { recursive: true });
+    writeFileSync(join(machine, "skills", "my-own-skill", "SKILL.md"), "mine\n");
+    writeFileSync(join(machine, "canon-owned.json"), JSON.stringify({ files: { "skills/ai-retired/SKILL.md": sha256("as shipped\n") } }));
 
     const { result, out } = await uninstall(everythingScope("n", "y"));
 
     expect(result).toBe(0);
-    expect(readFileSync(join(machine, olderPage), "utf8")).toBe("older payload\n");
-    expect(readFileSync(join(machine, "canon-owned.json"), "utf8")).toBe(record);
+    expect(existsSync(join(machine, "skills", "ai-debug"))).toBe(false);
+    expect(existsSync(join(machine, "skills", "ai-retired"))).toBe(false);
+    expect(readFileSync(join(machine, "skills", "my-own-skill", "SKILL.md"), "utf8")).toBe("mine\n");
+    // Nothing the record vouches for is left, so the record goes with the payload.
+    expect(existsSync(join(machine, "canon-owned.json"))).toBe(false);
     expect(out).toContain(`${machine} kept`);
   });
 
@@ -1030,9 +1040,10 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(result).toBe(0);
     expect(existsSync(coreSkill)).toBe(false);
     for (const path of installedPackSkills) expect(existsSync(path)).toBe(false);
-    expect(existsSync(verifyTiersPack)).toBe(true);
+    // A shipped skill folder is ai-eng's whole: an extra file in it and an edited page go too.
+    expect(existsSync(verifyTiersPack)).toBe(false);
     expect(readFileSync(customSkill, "utf8")).toBe("my local skill\n");
-    expect(readFileSync(editedSkill, "utf8")).toBe("my edited skill\n");
+    expect(existsSync(editedSkill)).toBe(false);
     expect(readFileSync(unrelated, "utf8")).toBe("keep this file\n");
     expect(existsSync(machine)).toBe(true);
     expect(globalTemplateDir()).toBe(previous);

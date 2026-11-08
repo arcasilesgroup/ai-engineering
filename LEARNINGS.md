@@ -34,7 +34,7 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - R25: Keep documentation aligned with current behavior, enforced scope, and supported commands; mark superseded behavior as historical. (from L162, L171, L209, L210)
 - R26: Route artifacts and next-step handoffs from the selected lane, as declared by each skill's Lifecycle. (from L189, L193, L194)
 - R27: Resolve worktree source and ownership from the invoking or Git-registered checkout, consistent branch-to-path mapping, and a fresh checkpoint—not branch prefixes or directory layout. Establish freshness and owner ambiguity before matching a supplied SHA; unknown ownership stays ambiguous. (from L86, L167, L170, L172, L175, L177–L182)
-- R28: Ownership means exact bytes, a recorded hash, or the exact name-and-target link ai-eng wrote; install and cleanup share that one rule, and anything unproven is kept and named (labelled unproven, never the user's), never deleted. Test repair with missing files; when a finding names one write path, sweep its siblings. (from L203, L205, L236, L238, L241, L243, L244)
+- R28: What ai-eng wrote is ai-eng's and always converges to the binary, edited or not: a skill folder it ships is its whole, a recorded path stays its after an edit, and install, update and uninstall share that one rule. Only what it never wrote (a skill in a folder of your own name, a pre-existing file, a link of yours) and seeded config you edited are yours and never touched. Test repair with missing files; when a finding names one write path, sweep its siblings. (from L203, L205, L236, L238, L241, L243, L244, L271)
 - R29: Apply defaults and explicit values in one render, and preserve the distinction between omitted and explicitly empty configuration. (from L198, L199, L201, L204)
 - R30: Serialize shared claims at the claim boundary and hold the lock across the whole claim; a liveness check or read-then-write does not provide exclusive ownership. A lock records its owner and is reclaimed only when that owner is provably dead; when staleness cannot be proven, hold it. (from L125, L136, L238, L239, L241)
 - R31: Merged into R38.
@@ -1973,3 +1973,10 @@ Accumulated failures and lessons from building features, mostly written by `/ai-
 - **Fix:** Skip the signing-fixture cases on win32 (the policy runs on the Linux release runner); pass tar a relative archive name.
 - **Lesson:** Give tar relative archive paths, and run a tool's fixture-heavy tests only on the platform the tool runs on.
 - **Tags:** behavior, windows, release, tests
+
+### L271 · 2026-11-08 · canon ownership · behavior
+- **Failure:** `ai-eng init --global` on 3.0.1 reported 28 drifted and 30 "unproven" canon files and left all of them: drifted pages of ours were preserved as "local changes", the unproven ones (pages older releases shipped) were never deleted, a skill ai-eng stopped shipping stayed installed forever, and in the repo an edited CI workflow or hook stayed "yours now".
+- **Root cause:** Ownership was proved per file by bytes, so an edit or a missing record turned an ai-eng file into a user file, and nothing could converge it again.
+- **Fix:** Ownership is by path: a shipped skill folder is ai-eng's whole (every extra swept, every drift rewritten); the ownership record names skills, agents and scripts, so a retired one is swept with its mirror links and slash command; a lock-recorded repo file is rewritten or removed, edited or not. Only seeded config (`config.toml`, `overrides.toml`, `arch.rules.json`) becomes the project's on its first edit.
+- **Lesson:** Decide ownership by who wrote the path, not by whether its bytes still match; a rule that lets ours become yours leaves installs half-updated forever.
+- **Tags:** behavior, install, ownership

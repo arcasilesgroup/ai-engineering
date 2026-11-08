@@ -1,11 +1,14 @@
-// The installer behind init/uninstall/update: templates → disk, idempotent, 3-way diff
-// when the user edited what we installed. Never overwrites a user-edited file in
-// silence — that is the worst class of bug a governance tool can have (§14.5).
+// The installer behind init/uninstall/update: templates → disk, idempotent. One rule
+// decides every file: what ai-eng wrote is ai-eng's and always holds this binary's
+// bytes, edited or not (git keeps any edit). What it never wrote — a file the project
+// already had — is the project's and is never touched. The one exception is the config
+// ai-eng seeds for the project to own (SEEDED_CONFIG): it is the project's from its
+// first edit.
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
-import { embeddedTemplate, embeddedUnder } from "./embed.ts";
+import { embeddedTemplate, embeddedUnder, isFilesystemRefusal, readProjectFileSnapshot, safeProjectPath, writeProjectFile } from "./embed.ts";
 export { hashFile } from "./shared-hash.ts";
 
 export type PlanEntry = {
@@ -17,10 +20,18 @@ export type PlanEntry = {
   merge?: boolean;
 };
 
+/** The config ai-eng seeds for the project to own: written while absent, refreshed while
+ *  it still holds the bytes ai-eng recorded, and the project's from its first edit. */
+export const SEEDED_CONFIG: ReadonlySet<string> = new Set([
+  ".ai-engineering/config.toml",
+  ".ai-engineering/overrides.toml",
+  ".ai-engineering/arch.rules.json",
+]);
+
 export type InstallReport = {
   written: string[];
-  untouched: string[]; // already ours-current, or the user's own file
-  conflicts: string[]; // user-edited AND ours changed: needs the human
+  untouched: string[]; // already byte-identical to ours (or a merge with nothing to add)
+  yours: string[]; // the project's: never written by ai-eng, or seeded config it edited
   /** Files we were asked to merge into and could not: not JSON, or not an object.
    *  Untouched, and named — an installer that quietly skips a surface's carrier
    *  leaves a repo that believes it is governed and is not (§13). */
@@ -211,20 +222,16 @@ export function stripSharedText(current: string): string | null {
   return serialize(stripValue(existing), shape);
 }
 
-/** Idempotent install. A file byte-identical to ours is a no-op; a file exactly the
- *  previous version of ours is a safe update; a file the user edited AND that changed
- *  between versions is a conflict, listed — never silently overwritten. `previousOurs`
- *  may answer with the previous text OR with a `sha256:<hex>` sentinel — update.ts
- *  stores hashes in the lock, not bytes.
- *  `force` is the human's resolved decision (update's "take"): write ours even
- *  over an edit — only a caller that asked may pass it. */
+/** Idempotent install. A file byte-identical to ours is a no-op; a file ai-eng wrote
+ *  (`previousOurs` answers with its recorded `sha256:<hex>`) receives ours, edited or
+ *  not — except seeded config the project edited, which is the project's now. A file
+ *  ai-eng never wrote is the project's and is left alone. */
 export function install(
   repoRoot: string,
   entries: PlanEntry[],
   previousOurs?: (path: string) => string | null,
-  force?: (path: string) => boolean,
 ): InstallReport {
-  const report: InstallReport = { written: [], untouched: [], conflicts: [], refused: [] };
+  const report: InstallReport = { written: [], untouched: [], yours: [], refused: [] };
   for (const entry of entries) {
     const absolute = join(repoRoot, entry.path);
     const oursHash = sha256(entry.ours);
@@ -253,30 +260,48 @@ export function install(
         continue;
       }
       const previous = previousOurs?.(entry.path) ?? null;
-      if (previous === null) {
-        report.untouched.push(entry.path); // we never installed it: it is the user's
+      const isEditedConfig = SEEDED_CONFIG.has(entry.path) && sha256(current) !== previous?.slice("sha256:".length);
+      if (previous === null || isEditedConfig) {
+        report.yours.push(entry.path);
         continue;
       }
-      const currentHash = sha256(current);
-      const previousHash = previous.slice("sha256:".length);
-      if (currentHash === previousHash) {
-        writeFileSync(absolute, entry.ours);
-        report.written.push(entry.path);
+      const refusal = rewriteInPlace(repoRoot, entry.path, entry.ours);
+      if (refusal !== null) {
+        report.refused.push({ path: entry.path, reason: refusal });
         continue;
       }
-      if (force?.(entry.path)) {
-        writeFileSync(absolute, entry.ours);
-        report.written.push(entry.path);
-        continue;
-      }
-      report.conflicts.push(entry.path);
+      report.written.push(entry.path);
       continue;
     }
     mkdirSync(dirname(absolute), { recursive: true });
-    writeFileSync(absolute, entry.ours);
+    try {
+      // wx: a dangling link at the name is refused (EEXIST), never followed to create its target.
+      writeFileSync(absolute, entry.ours, { flag: "wx" });
+    } catch (error) {
+      if (!isFilesystemRefusal(error)) throw error;
+      report.refused.push({ path: entry.path, reason: error.code === "EEXIST" ? LINKED : WRITE_REFUSED });
+      continue;
+    }
     report.written.push(entry.path);
   }
   return report;
+}
+
+/** The refusal for a path ai-eng owns that is a link, sits under one, or has a second name. */
+export const LINKED = "linked";
+/** The refusal for a path ai-eng owns that the filesystem would not let it write. */
+export const WRITE_REFUSED = "write-refused";
+
+/** Rewrite a file ai-eng owns through its checked parent: never through a link (the file or
+ *  a folder above it), and never a file with a second name (a hard link from elsewhere would
+ *  receive the bytes too). Null when written, else the reason it was refused. */
+function rewriteInPlace(root: string, rel: string, contents: string): string | null {
+  const absolute = safeProjectPath(root, rel);
+  if (absolute === null) return LINKED;
+  const snapshot = readProjectFileSnapshot(root, absolute);
+  if (snapshot === null) return WRITE_REFUSED;
+  if (snapshot.nlink !== 1) return LINKED;
+  return writeProjectFile(root, absolute, snapshot, contents) ? null : WRITE_REFUSED;
 }
 
 /** The lockfile: sha256 per installed asset + the approved-spec pin. Nothing downloads;

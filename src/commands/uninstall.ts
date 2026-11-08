@@ -2,20 +2,21 @@
 // ai-eng's (hooks, settings entries, adapters, CI workflow, config, lock) and
 // prunes the dirs that end up empty — nothing that depends on ai-eng is left
 // behind. "Everything" ALSO removes the machine side (~/.ai-engineering: the
-// global skill canon and mirrors). Deleting what the user edited is the worst
-// class of bug a governance tool can have: edited files are kept and named,
-// contract files survive "This project", and "Everything" asks twice.
+// global skill canon and mirrors). What ai-eng wrote goes, edited or not (git keeps a
+// tracked edit); what it never wrote stays. Seeded config the project edited is the
+// project's and stays, contract files survive "This project", and "Everything" asks
+// twice.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, unlinkSync, readdirSync, rmSync, lstatSync, realpathSync, rmdirSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { existsSync, unlinkSync, readdirSync, rmSync, lstatSync, rmdirSync } from "node:fs";
+import { join, resolve, sep } from "node:path";
 import { SURFACES, machineStateUnavailable, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
 import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
-import { parseLock, sha256, stripSharedText } from "../install.ts";
+import { parseLock, sha256, stripSharedText, SEEDED_CONFIG } from "../install.ts";
 import { hashFile } from "../install.ts";
 import {
-  embeddedPath, embeddedTemplate, embeddedUnder, isFilesystemRefusal, isRemovableCanonOwnershipRecord, isVersionCacheRecord, pruneEmptyDirectoryWithin,
+  embeddedTemplate, isFilesystemRefusal, isRemovableCanonOwnershipRecord, recordedMachinePaths, removeMachinePath, isVersionCacheRecord, pruneEmptyDirectoryWithin,
   readProjectFileSnapshot, refusedChangeText, safeProjectPath, unlinkProjectPath, withSafeProjectParent, writeProjectFile,
   CANON_OWNERSHIP_NAME, type ProjectFileSnapshot,
 } from "../embed.ts";
@@ -214,9 +215,9 @@ function sweepAsset(
     }
     return;
   }
-  // Git shims are judged by their marker (the only test that survives a
-  // user re-chmod); everything else by the lock's hash: delete only what
-  // still matches what we installed — an edited file is yours now, kept and named.
+  // Git shims are judged by their marker (the only test that survives a user re-chmod):
+  // a hook the user wrote over ours is no longer ai-eng's shim. Seeded config the project
+  // edited is the project's. Every other file the lock names is ai-eng's, edited or not.
   if (rel.startsWith(".git/hooks/")) {
     if (snapshot.content.includes(Buffer.from("ai-eng git floor shim"))) {
       if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
@@ -229,15 +230,17 @@ function sweepAsset(
     }
     return;
   }
-  if (snapshot.hash === assets[rel]) {
-    if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
-      removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
-      return;
-    }
-    removed.push({ mark: "ok", text: `${rel} removed` });
-  } else {
-    removed.push({ mark: "warn", text: `${rel} kept`, dim: "you edited it after install — it is yours now" });
+  if (SEEDED_CONFIG.has(rel) && snapshot.hash !== assets[rel]) {
+    removed.push({ mark: "ok", text: `${rel} kept`, dim: "config you edited — yours" });
+    return;
   }
+  if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
+    removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
+    return;
+  }
+  removed.push(snapshot.hash === assets[rel]
+    ? { mark: "ok", text: `${rel} removed` }
+    : { mark: "ok", text: `${rel} removed`, dim: "edited since install — ai-eng's file all the same" });
 }
 
 function pruneCreatedDirs(root: string, removed: ui.Row[]): void {
@@ -260,49 +263,22 @@ function pruneEmptyDirectory(directory: string): boolean {
   }
 }
 
-function removeEmbeddedAssets(machineDir: string, prefix: string, refused: string[]): number {
-  // The machine home can contain user data: remove only byte-identical payloads, never follow
-  // links, and bind each unlink to the checked parent and the hashed inode (R38).
-  const assetRoot = join(machineDir, prefix.slice(0, -1));
-  let rootStat;
-  try {
-    rootStat = lstatSync(assetRoot);
-  } catch {
-    return 0;
-  }
-  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) return 0;
-  let canonicalRoot: string;
-  try {
-    canonicalRoot = realpathSync(assetRoot);
-  } catch {
-    return 0;
-  }
+/** Remove every machine path ai-eng installed — each skill folder it ships or shipped
+ *  (whole), its agents and its scripts — edited or not: they are ai-eng's. A skill of your
+ *  own, in a folder of its own name, and any agent or script ai-eng never shipped stay. */
+function removeMachinePayload(machineDir: string, refused: string[]): number {
   let removed = 0;
-
-  for (const [path, ref] of embeddedUnder(prefix)) {
-    const destination = safeProjectPath(canonicalRoot, path.slice(prefix.length));
-    if (destination === null || destination === canonicalRoot) continue;
-
+  for (const key of recordedMachinePaths(machineDir)) {
     try {
-      const payload = embeddedPath(ref);
-      if (!existsSync(payload)) continue;
-      const snapshot = readProjectFileSnapshot(canonicalRoot, destination);
-      if (snapshot === null || snapshot.hash !== hashFile(payload)) continue;
-      if (!unlinkProjectPath(canonicalRoot, destination, snapshot)) {
-        refused.push(destination);
-        continue;
-      }
-      removed += 1;
-      let directory = dirname(destination);
-      while (directory !== canonicalRoot) {
-        if (!pruneEmptyDirectoryWithin(canonicalRoot, directory)) break;
-        directory = dirname(directory);
-      }
-      pruneEmptyDirectoryWithin(dirname(canonicalRoot), canonicalRoot);
+      lstatSync(join(machineDir, key));
     } catch {
-      /* changed, unreadable, or already removed: preserve it */
+      continue; // absent: nothing to remove
     }
+    const left = removeMachinePath(machineDir, key);
+    if (left.length === 0) removed += 1;
+    else refused.push(...left.map((path) => join(machineDir, path)));
   }
+  for (const folder of ["skills", "agents", "scripts"]) pruneEmptyDirectoryWithin(machineDir, join(machineDir, folder));
   return removed;
 }
 
@@ -394,13 +370,10 @@ async function removeEverything(root: string, input: unknown, declared: string[]
     const floor = restoreRecordedTemplateDir();
     const refusedPaths: string[] = [];
     const swept = removeMachineArtifacts(refusedPaths);
-    const canonAssetsRemoved = ["skills/", "agents/", "scripts/"].reduce(
-      (count, prefix) => count + removeEmbeddedAssets(machineDir, prefix, refusedPaths),
-      0,
-    ) + removeInstallerRecords(machineDir, refusedPaths);
+    const canonAssetsRemoved = removeMachinePayload(machineDir, refusedPaths) + removeInstallerRecords(machineDir, refusedPaths);
     pruneEmptyDirectory(machineDir);
     const userFilesRemain = existsSync(machineDir);
-    const cleanup = `${canonAssetsRemoved} canon-owned file(s) removed · ${swept} machine artifacts swept`;
+    const cleanup = `${canonAssetsRemoved} ai-eng path(s) removed · ${swept} machine artifacts swept`;
     extra.push(userFilesRemain
       ? { mark: "ok", text: `${machineDir} kept`, dim: `${cleanup} · other files kept` }
       : { mark: "warn", text: `${machineDir} deleted`, dim: cleanup });

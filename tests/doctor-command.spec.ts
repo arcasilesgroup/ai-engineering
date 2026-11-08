@@ -282,45 +282,32 @@ describe("doctor · config.toml is the gate", () => {
 });
 
 describe("doctor · the canon and the lock", () => {
-  test("F26: a stale page ai-eng proved its own but could not remove stays stale across runs, keeps its hash, and is named as removal refused", async () => {
+  test("F26: a stale page the filesystem will not let go stays stale across runs, is named for a retry, and goes once the folder allows it", async () => {
     // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
     if (process.platform === "win32" || process.getuid?.() === 0) return;
     const { home } = healthy();
     const key = "skills/ai-verify/evals/README.md";
     const folder = join(home, "skills", "ai-verify", "evals");
-    const page = "# Evals — an outdated page this binary no longer ships\n";
     mkdirSync(folder, { recursive: true });
-    writeFileSync(join(home, key), page);
-    const recordPath = join(home, "canon-owned.json");
-    const before = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
-    writeFileSync(recordPath, JSON.stringify({ files: { ...before.files, [key]: sha256(page) } }));
-    const refusedText = `1 stale file(s) ai-eng shipped earlier — removal refused by the filesystem (a read-only, locked or busy folder), kept and retried by the next ai-eng update: ${key}. Make the folder writable, then run ai-eng update`;
+    writeFileSync(join(home, key), "# Evals — an outdated page this binary no longer ships\n");
+    const refusedText = `1 file(s) ai-eng no longer ships — removal refused by the filesystem (a read-only, locked or busy folder), retried by the next ai-eng update: ${key}. Make the folder writable, then run ai-eng update`;
 
     chmodSync(folder, 0o555);
     try {
-      for (let pass = 0; pass < 2; pass += 1) {
-        const lines = installCanon(VERSION);
-        expect(lines).toContain(`⚠ ${refusedText}`);
-        expect(lines.join("\n")).not.toContain("user file");
-        const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string>; refused: string[] };
-        expect(record.files[key]).toBe(sha256(page));
-        expect(record.refused).toEqual([key]);
-      }
+      for (let pass = 0; pass < 2; pass += 1) expect(installCanon(VERSION)).toContain(`⚠ ${refusedText}`);
       const run = await doctor();
       expect(row(run, "canon")).toContain("▲");
-      expect(detail(run, "canon")).toContain(`1 stale, removal refused: ${key} — make the folder writable, then ai-eng update`);
-      expect(detail(run, "canon")).not.toContain("kept user file");
+      expect(detail(run, "canon")).toContain("1 stale (ai-eng update sweeps what ai-eng no longer ships)");
     } finally {
       chmodSync(folder, 0o755);
     }
 
-    // Once the folder lets it, the next run removes it: it was ours all along.
     installCanon(VERSION);
     expect(existsSync(join(home, key))).toBe(false);
     expect(row(await doctor(), "canon")).toContain("✓");
   });
 
-  test("an intact canon is ok; an edited skill drifts; a file we do not ship is named but not held against it", async () => {
+  test("an intact canon is ok; an edited skill drifts; a skill of your own is named but not held against it; an extra in a shipped folder is stale", async () => {
     const { home } = healthy();
     let run = await doctor();
     expect(row(run, "canon")).toContain("✓");
@@ -338,31 +325,14 @@ describe("doctor · the canon and the lock", () => {
     expect(row(run, "canon")).toContain("▲");
     expect(detail(run, "canon")).toContain("1 drift");
 
-    writeFileSync(join(home, "skills", "ai-debug", "orphan.md"), "a file this binary no longer ships\n");
+    writeFileSync(join(home, "skills", "ai-debug", "orphan.md"), "a file this binary does not ship\n");
     run = await doctor();
     expect(row(run, "canon")).toContain("▲");
-    expect(detail(run, "canon")).toContain("1 kept user file(s) in shipped skill folders (never deleted)");
+    expect(detail(run, "canon")).toContain("1 stale (ai-eng update sweeps what ai-eng no longer ships)");
     expect(detail(run, "canon")).toContain("1 not ours (left alone)");
   });
 
-  test("F20: a user file in a shipped skill folder is reported as kept and never warned about; a recorded one is stale", async () => {
-    const { home } = healthy();
-    const key = "skills/ai-debug/my-notes.md";
-    writeFileSync(join(home, key), "mine\n");
-    let run = await doctor();
-    expect(row(run, "canon")).toContain("✓");
-    expect(detail(run, "canon")).toContain("1 kept user file(s) in shipped skill folders (never deleted)");
-    expect(detail(run, "canon")).not.toContain("stale");
-
-    const recordPath = join(home, "canon-owned.json");
-    const record = JSON.parse(readFileSync(recordPath, "utf8")) as { files: Record<string, string> };
-    writeFileSync(recordPath, JSON.stringify({ files: { ...record.files, [key]: sha256("mine\n") } }));
-    run = await doctor();
-    expect(row(run, "canon")).toContain("▲");
-    expect(detail(run, "canon")).toContain("1 stale (ai-eng update sweeps what we shipped)");
-  });
-
-  test("F23: pages an install left before ownership was recorded are unproven, never a user file: warned with the manual step, kept, and cleared only by hand", async () => {
+  test("F23: pages an install left before ownership was recorded are stale like any other, and the next install sweeps them", async () => {
     const { home } = healthy();
     // A v2.6.0 install: it shipped these pages and wrote no canon-owned.json.
     rmSync(join(home, "canon-owned.json"));
@@ -371,28 +341,15 @@ describe("doctor · the canon and the lock", () => {
     mkdirSync(join(home, "skills", "ai-verify", "evals"), { recursive: true });
     writeFileSync(join(home, readme), "# Evals — test the reviewer, not just the code\n");
     writeFileSync(join(home, catalog), "# Bug catalog\n");
-    const unprovenText = (paths: string[]) =>
-      `${paths.length} file(s) in shipped skill folders that ai-eng cannot prove it wrote (left from before ownership was recorded: an outdated page of ours or a file of yours) — never deleted: ${paths.join(", ")}. Review each: delete it by hand, or move a file you keep out of the skill folder`;
 
     let run = await doctor();
-    expect(row(run, "canon")).toContain("✓");
-    expect(detail(run, "canon")).not.toContain("kept user file");
-    expect(row(run, "canon unproven")).toContain("▲");
-    expect(detail(run, "canon unproven")).toBe(unprovenText([catalog, readme]));
-
-    // The repair update runs keeps them and carries them into the new record, so a second
-    // run does not mistake them for files the user added after it.
-    for (let pass = 0; pass < 2; pass += 1) expect(installCanon(VERSION)).toContain(`⚠ ${unprovenText([catalog, readme])}`);
-    expect(readFileSync(join(home, readme), "utf8")).toBe("# Evals — test the reviewer, not just the code\n");
-    expect((JSON.parse(readFileSync(join(home, "canon-owned.json"), "utf8")) as { unproven: string[] }).unproven).toEqual([catalog, readme]);
-    run = await doctor();
-    expect(detail(run, "canon unproven")).toBe(unprovenText([catalog, readme]));
-
-    rmSync(join(home, catalog));
-    expect(detail(await doctor(), "canon unproven")).toBe(unprovenText([readme]));
-    rmSync(join(home, readme));
-    run = await doctor();
+    expect(row(run, "canon")).toContain("▲");
+    expect(detail(run, "canon")).toContain("2 stale");
     expect(row(run, "canon unproven")).toBe("(no row for canon unproven)");
+
+    expect(installCanon(VERSION)).toContain(`✓ swept 2 path(s) this binary no longer ships: ${catalog}, ${readme}`);
+    expect(existsSync(join(home, "skills", "ai-verify", "evals"))).toBe(false);
+    run = await doctor();
     expect(row(run, "canon")).toContain("✓");
   });
 
