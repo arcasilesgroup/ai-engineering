@@ -1,35 +1,37 @@
 // `ai-eng update` — re-install this repo's assets from the installed binary. ZERO
 // network: the payload leaves the binary the user already installed (§14.3). What
-// User-owned contract and config files are never rewritten.
+// What ai-eng wrote is ai-eng's and always receives this binary's bytes, edited or not
+// (an edit is overwritten: commit or copy it first to keep it); what it never wrote, and seeded config the project edited, is the
+// project's and is never rewritten.
 // It refreshes BOTH halves ai-eng installed: the machine side (the global canon and
 // its mirrors) and this repo's assets. cli-ux-14 work point 04: compute the sync
-// plan first, show it, resolve conflicts with the human (keep-yours default),
-// confirm Apply, then write — never the reverse. Human-facing lines go through
+// plan first, show it, confirm Apply, then write — never the reverse. Human-facing lines go through
 // src/ui.ts.
 
 import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
-import { select, confirm, isCancel } from "@clack/prompts";
-import { install, buildLock, lockText, parseLock, sha256, mergeSharedText } from "../install.ts";
+import { confirm, isCancel } from "@clack/prompts";
+import { install, buildLock, lockText, parseLock, sha256, mergeSharedText, SEEDED_CONFIG } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
 import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
-import { canonDrift, changedCanonSkills, isFilesystemRefusal, refusedChangeText, type CanonDrift } from "../embed.ts";
+import { canonDrift, isFilesystemRefusal, refusedChangeText, type CanonDrift } from "../embed.ts";
 import { installCanon, installMachineCarriers, machineStateFile, retireNpmPowerShellShim, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
 import { runGit } from "../git/run.ts";
 import { installLineRow, planEntries, refuseLine } from "./init-shared.ts";
+import { retiredPaths, retiredPlanNote, sweepRetiredAssets } from "./uninstall.ts";
 import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 
 export type SyncPlan = {
-  current: string[]; // byte-identical to what this binary installs
-  updates: string[]; // previous version of ours on disk → safe update
+  current: string[]; // byte-identical to what this binary installs, or a merge with nothing to add
+  updates: string[]; // ai-eng's, holding other bytes (an older release, or an edit): rewritten
   fresh: string[]; // not on disk yet
-  conflicts: string[]; // user-edited AND ours changed since their install
+  yours: string[]; // the project's: never written by ai-eng, or seeded config it edited
   verbatim: string[]; // subset of current that byte-matches ours — provably ours
 };
 export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Record<string, string>): SyncPlan {
-  const plan: SyncPlan = { current: [], updates: [], fresh: [], conflicts: [], verbatim: [] };
+  const plan: SyncPlan = { current: [], updates: [], fresh: [], yours: [], verbatim: [] };
   for (const entry of entries) {
     const absolute = join(root, entry.path);
     if (!existsSync(absolute)) {
@@ -42,11 +44,10 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
       plan.verbatim.push(entry.path);
       continue;
     }
-    // A file we share with the user is never a conflict and never "yours, untouched":
-    // install() merges our entries into it by marker, so the merge IS the update —
-    // and a settings file the user already had before init is exactly the file that
-    // must receive our hooks, not the one to walk past (§03). Planned as an update
-    // only when the merge would really change it, so a second update says nothing.
+    // A file we share with the user is never written whole: install() merges our entries
+    // into it by marker, so the merge IS the update — and a settings file the user already
+    // had before init is exactly the file that must receive our hooks (§03). Planned as an
+    // update only when the merge would really change it, so a second update says nothing.
     if (entry.merge === true) {
       const merged = mergeSharedText(readFileSync(absolute, "utf8"), entry.ours);
       if (!("refused" in merged) && merged.changed) plan.updates.push(entry.path);
@@ -54,15 +55,11 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
       continue;
     }
     const recorded = previousAssets[entry.path];
-    if (!recorded) {
-      plan.current.push(entry.path); // we never installed it: the user's own
+    if (!recorded || (SEEDED_CONFIG.has(entry.path) && currentHash !== recorded)) {
+      plan.yours.push(entry.path); // never ai-eng's, or seeded config the project made its own
       continue;
     }
-    if (currentHash === recorded) {
-      plan.updates.push(entry.path); // exact previous version: safe update
-      continue;
-    }
-    plan.conflicts.push(entry.path);
+    plan.updates.push(entry.path); // ai-eng's: an older release, or an edit — rewritten
   }
   return plan;
 }
@@ -80,25 +77,21 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
  *  verified reads as a half that never looked, and "all 7 assets current" then buries the
  *  only question the run was asked. The rows carry the outcome, so there is no need for
  *  two kinds of proof: `written` for a change, `muted` for a part that checked out. */
-function installMachineSide(
-  root: string,
-  canon: CanonDrift,
-  canonRepair: string[],
-  preservedSkills: string[],
-): { rows: ui.Row[]; written: number } {
+function installMachineSide(root: string, canon: CanonDrift): { rows: ui.Row[]; written: number } {
   const rows: ui.Row[] = [];
   let written = 0;
+  // The repair rewrites edited pages and sweeps extras: a write, so it runs here, after Apply.
+  const canonRepair = canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? [] : installCanon(VERSION);
   if (canonRepair.length > 0) {
     written += 1;
     const counts: Array<[number, string]> = [[canon.drift, "drifted"], [canon.missing, "missing"], [canon.stale, "stale"]];
     const why = counts.filter(([count]) => count > 0).map(([count, word]) => `${count} ${word}`).join(" · ");
     rows.push({
       mark: "ok",
-      text: preservedSkills.length > 0 ? "global canon repaired · local changes kept" : "global canon outdated or incomplete — re-installed",
+      text: "global canon outdated or incomplete — re-installed",
       dim: why,
     });
     rows.push(...canonRepair.map((line) => installLineRow(line, "sub")));
-    rows.push(...preservedSkills.map((path): ui.Row => ({ mark: "warn", text: `${path} · local change kept` })));
   } else {
     rows.push({ mark: "muted", text: `global canon · ${canon.verified} files match ai-eng ${VERSION}` });
   }
@@ -146,10 +139,22 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // file on disk is treated as the user's, and the lock is rebuilt at the end.
   const previous = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: "", assets: {} };
   const surfaces = enabledSurfaces();
+  const shipped = planEntries(surfaces);
   // Config is user-owned; update must not rewrite legacy keys or their bytes.
-  const entries: PlanEntry[] = planEntries(surfaces).filter((entry) => entry.path !== ".ai-engineering/config.toml");
+  const entries: PlanEntry[] = shipped.filter((entry) => entry.path !== CONFIG_PATH);
   const plan = syncPlan(entries, root, previous.assets);
-  const pending = [...plan.updates, ...plan.fresh];
+  // Recorded by an earlier release and no longer shipped: still ai-eng's, so it goes.
+  const retired = retiredPaths(previous.assets, shipped);
+  // Planned with the sweep's own decision: a settings file is stripped, not removed, and a path
+  // the sweep keeps (escaping the repo, linked, absent) is no planned write.
+  const retiredOnDisk = retired.flatMap((path) => {
+    const note = retiredPlanNote(root, path, previous.assets);
+    return note === null ? [] : [{ path, note }];
+  });
+  const pending = [...plan.updates, ...plan.fresh, ...retiredOnDisk.map((retiredRow) => retiredRow.path)];
+  // Nothing to write, yet the lock still claims a file that is no longer ai-eng's (config
+  // the project edited) or no longer shipped: it is rebuilt with no Apply question.
+  const isLockStale = retired.length > 0 || plan.yours.some((path) => previous.assets[path] !== undefined);
 
   // The frame states the repo's state in plain words: "unknown" would be a fallback
   // lying about a recoverable state, and no internal verb reaches a user anyway.
@@ -169,16 +174,15 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // once. A canon section of its own printed before the questions left the run
   // looking like two unrelated commands (cli-ux-14).
   const canon = canonDrift(home());
-  const preservedSkills = canon.drift > 0 ? changedCanonSkills(home()) : [];
-  const canonRepair = canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? [] : installCanon(VERSION, preservedSkills);
-  if (pending.length === 0 && plan.conflicts.length === 0) {
+  if (pending.length === 0 && !isLockStale) {
     // The repo half reports what it holds, not only how many: a bare "all 7 assets
     // current" cannot say whether anything was verified (cli-ux-14).
     ui.section("Repo assets", [
       { mark: "muted", text: `all ${plan.current.length} assets current — nothing to sync` },
       ...(plan.current.length > 0 ? [{ mark: "sub", text: ui.pathList(plan.current) } satisfies ui.Row] : []),
+      ...yoursRows(plan.yours),
     ]);
-    const machine = installMachineSide(root, canon, canonRepair, preservedSkills);
+    const machine = installMachineSide(root, canon);
     machineSection(machine);
     ui.end(
       machine.written === 0
@@ -187,79 +191,39 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     );
     return 0;
   }
-  // Concept blocks, not line-spam (§14.3 mockup): one block per idea. And a
-  // question only appears when there is a real decision left to make:
-  // sync-plan when files change, ONE conflict decision, Apply only when
-  // something will actually be written.
-  if (pending.length > 0) {
-    const rows: ui.Row[] = [
-      ...plan.updates.map((path): ui.Row => ({ mark: "ok", text: path, dim: `new version from binary ${VERSION}` })),
-      ...plan.fresh.map((path): ui.Row => ({ mark: "ok", text: path, dim: "new asset" })),
-    ];
-    if (plan.current.length > 0) {
-      rows.push({ mark: "sub", text: ui.pathList(plan.current) }, { mark: "muted", text: `${plan.current.length} already current or yours — untouched` });
-    }
-    ui.section("What needs to sync", rows, [
-      plan.updates.length > 0 ? `${plan.updates.length} update${plan.updates.length === 1 ? "" : "s"}` : "",
-      plan.fresh.length > 0 ? `${plan.fresh.length} new` : "",
-    ].filter((part) => part.length > 0).join(" · "));
+  // Concept blocks, not line-spam (§14.3 mockup): one block per idea, and Apply only
+  // when something will actually be written. There is no decision to ask about: a file
+  // ai-eng wrote takes this binary's bytes, and a file of the project's is never touched.
+  const rows: ui.Row[] = [
+    ...plan.updates.map((path): ui.Row => ({
+      mark: "ok",
+      text: path,
+      dim: isEditedSinceWritten(root, path, previous.assets) ? `edited since ai-eng wrote it — ai-eng's file, overwritten with ${VERSION} (commit or copy the edit first to keep it)` : `new version from binary ${VERSION}`,
+    })),
+    ...plan.fresh.map((path): ui.Row => ({ mark: "ok", text: path, dim: "new asset" })),
+    ...retiredOnDisk.map(({ path, note }): ui.Row => ({ mark: "ok", text: path, dim: `no longer shipped by ai-eng ${VERSION} — ${note}` })),
+  ];
+  if (plan.current.length > 0) {
+    rows.push({ mark: "sub", text: ui.pathList(plan.current) }, { mark: "muted", text: `${plan.current.length} already current — untouched` });
   }
-
-  // Conflict resolution BEFORE any write: ONE decision for the whole set —
-  // the same question N times is noise, and keep-yours is the default:
-  // deleting what the user edited is the worst class of bug a governance
-  // tool can have. The file list rides inside the question itself.
-  let takeAll = false;
-  if (plan.conflicts.length > 0) {
-    // --yes resolves conservatively: keep-yours. Unattended recovery may install
-    // what is absent but never overwrites what the human edited.
-    const choice = opts.yes === true ? "keep" : await select({
-      message: `${plan.conflicts.length === 1 ? "A file" : `${plan.conflicts.length} files`} patched by you also changed in binary ${VERSION}. What wins?\n${ui.pathList(plan.conflicts)}`,
-      options: [
-        { value: "keep", label: "Keep mine everywhere", hint: "your patches stay; the new version is one git revert away" },
-        { value: "take", label: "Take the new version everywhere", hint: "your edits survive in git history" },
-      ],
-      input: input as never,
-    });
-    if (isCancel(choice)) {
-      ui.cancelled("Nothing written.");
-      return 0;
-    }
-    takeAll = choice === "take";
-  }
-  const takeCount = takeAll ? plan.conflicts.length : 0;
-  const writeCount = pending.length + takeCount;
-  if (writeCount === 0) {
-    // Keep-mine everywhere with nothing else pending: the repo is already
-    // exactly as you left it. Say so and close — no lock rewrite, no commit.
-    // The machine half runs anyway: it is not part of the plan, so "the repo needs
-    // nothing" is not the same question as "the machine needs nothing".
-    ui.section("Kept", [{ mark: "info", text: "your patches stay", dim: ui.pathList(plan.conflicts) }, { mark: "muted", text: "nothing written — the repo is exactly as you left it" }]);
-    const machine = installMachineSide(root, canon, canonRepair, preservedSkills);
-    machineSection(machine);
-    ui.end(
-      machine.written === 0
-        ? `Nothing written — the repo and the machine already match ai-eng ${VERSION} · Next: ai-eng doctor`
-        : `Machine side updated to ai-eng ${VERSION} · your patches stayed · Next: ai-eng doctor`,
-    );
-    return 0;
-  }
-  const apply = opts.yes === true ? true : await confirm({ message: `Apply? ${writeCount} write${writeCount === 1 ? "" : "s"}${plan.conflicts.length > 0 && takeCount === 0 ? " · your patches stay untouched" : ""}`, initialValue: true, input: input as never });
+  rows.push(...yoursRows(plan.yours));
+  ui.section("What needs to sync", rows, [
+    plan.updates.length > 0 ? `${plan.updates.length} update${plan.updates.length === 1 ? "" : "s"}` : "",
+    plan.fresh.length > 0 ? `${plan.fresh.length} new` : "",
+    retiredOnDisk.length > 0 ? `${retiredOnDisk.length} retired` : "",
+  ].filter((part) => part.length > 0).join(" · "));
+  const writeCount = pending.length;
+  const apply = opts.yes === true || writeCount === 0 ? true : await confirm({ message: `Apply? ${writeCount} write${writeCount === 1 ? "" : "s"}`, initialValue: true, input: input as never });
   if (isCancel(apply) || apply === false) {
     ui.cancelled("Nothing written.");
     return 0;
   }
-  // Writes: keep-yours means install() must not touch the conflict at all — the
-  // entry comes out of the plan AND out of the lock (a kept file is the user's;
-  // recording our hash for it would make the NEXT update overwrite their edit in
-  // silence). take means install() writes ours over the edit: that is the force
-  // channel — only a human decision reaches it.
-  const take = () => takeAll;
-  const writable = takeAll ? entries : entries.filter((entry) => !plan.conflicts.includes(entry.path));
-  const report = install(root, writable, (path) => {
+  const report = install(root, entries, (path) => {
     const hash = previous.assets[path];
     return hash ? `sha256:${hash}` : null;
-  }, take);
+  });
+  const retiredRows: ui.Row[] = [];
+  const retiredKept = sweepRetiredAssets(root, retired, previous.assets, retiredRows);
   // Freshly written git shims must stay executable or git silently ignores them.
   const shimRefusals: ui.Row[] = [];
   for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
@@ -271,35 +235,39 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
       shimRefusals.push({ mark: "warn", text: refusedChangeText(shimPath, error) });
     }
   }
-  const keptPaths = takeAll ? [] : plan.conflicts;
-  const keptCount = keptPaths.length;
   const resultRows: ui.Row[] = [
     { mark: "ok", text: `${report.written.length} asset${report.written.length === 1 ? "" : "s"} synced`, dim: "sha256 recorded in ai-eng.lock" },
-    ...(keptCount > 0 ? [{ mark: "info", text: "kept yours", dim: keptPaths.join("  ·  ") } satisfies ui.Row] : []),
     ...report.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })),
     ...shimRefusals,
+    ...retiredRows,
   ];
-  ui.section("Synced", resultRows, plan.conflicts.length > 0
-    ? `${plan.conflicts.length} conflict${plan.conflicts.length === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`
-    : "nothing of yours touched");
-  machineSection(installMachineSide(root, canon, canonRepair, preservedSkills));
+  ui.section("Synced", resultRows, report.yours.length > 0 ? `${report.yours.length} file${report.yours.length === 1 ? "" : "s"} of yours untouched` : "nothing of yours touched");
+  machineSection(installMachineSide(root, canon));
   // The lock is the ownership ledger: it may only claim files this run actually
-  // made ours — written now, taken over by explicit human resolution, or
-  // already byte-identical to ours (verbatim). A MERGED file is ours by entry, not by
-  // hash: the merge is what puts our hooks in it, and uninstall is what takes them back
-  // out, so the lock has to carry the path or the sweep never finds it. A file we could
-  // not merge (not JSON) is not ours and is not claimed. "current" also holds files
-  // install() calls untouched/user's (the no-lock recovery state): recording those make
-  // the next update report a false conflict and uninstall strip a file the binary never
-  // owned.
+  // made ours — written now, or already byte-identical to ours (verbatim). A MERGED
+  // file is ours by entry, not by hash: the merge is what puts our hooks in it, and
+  // uninstall is what takes them back out, so the lock has to carry the path or the sweep
+  // never finds it. A file we could not merge (not JSON) is not ours and is not claimed.
+  // A file of the project's is never claimed: recording it would make the next update
+  // overwrite it and uninstall delete it, and the binary never owned it.
   const refused = new Set(report.refused.map((entry) => entry.path));
   const merged = entries.filter((entry) => entry.merge === true && !refused.has(entry.path)).map((entry) => entry.path);
   const oursNow = new Set([...report.written, ...plan.verbatim, ...merged]);
   const lock = buildLock(
-    entries.filter((entry) => (takeAll || !plan.conflicts.includes(entry.path)) && oursNow.has(entry.path)),
+    entries.filter((entry) => oursNow.has(entry.path)),
     VERSION,
     { spec_sha256: previous.spec_sha256, base_sha: previous.base_sha },
   );
+  // A recorded file this run could not write or remove (read-only, or a link now at its name)
+  // is still ai-eng's: it keeps its previous entry, so the next update retries it and uninstall
+  // knows it. So does config.toml while it holds the bytes ai-eng recorded: update never
+  // rewrites it, yet until its first edit it is ai-eng's for uninstall to take back.
+  const mergedEntries = new Set(entries.filter((entry) => entry.merge === true).map((entry) => entry.path));
+  for (const [path, recorded] of Object.entries(previous.assets)) {
+    const isRefusedWrite = refused.has(path) && !mergedEntries.has(path);
+    const isUntouchedConfig = path === CONFIG_PATH && existsSync(join(root, path)) && sha256(readFileSync(join(root, path), "utf8")) === recorded;
+    if (isRefusedWrite || retiredKept.includes(path) || isUntouchedConfig) lock.assets[path] = recorded;
+  }
   try {
     writeFileSync(lockPath, lockText(lock));
   } catch (error) {
@@ -313,4 +281,18 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   const changesAreVisible = status.status !== 0 || status.stdout.trim().length > 0;
   ui.end(`${changesAreVisible ? "Changes are waiting for your review" : "Nothing to commit"}; nothing was committed · Next: ai-eng doctor — verify the chain responds`);
   return 0;
+}
+
+const CONFIG_PATH = ".ai-engineering/config.toml";
+
+/** The block naming the project's files a run leaves alone. */
+function yoursRows(yours: string[]): ui.Row[] {
+  if (yours.length === 0) return [];
+  return [{ mark: "sub", text: ui.pathList(yours) }, { mark: "muted", text: `${yours.length} yours (not written by ai-eng, or config you edited) — untouched` }];
+}
+
+/** Whether a file ai-eng wrote no longer holds the bytes the lock recorded for it. */
+function isEditedSinceWritten(root: string, path: string, recorded: Record<string, string>): boolean {
+  const hash = recorded[path];
+  return hash !== undefined && sha256(readFileSync(join(root, path), "utf8")) !== hash;
 }

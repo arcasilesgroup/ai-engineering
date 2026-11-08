@@ -11,7 +11,7 @@ import { KEEP_EXIT_STATUS, mergeSharedText, portableHookText, stripSharedText, s
 import { VERSION } from "../version.ts";
 import {
   materializeSkills, materializeAgents, materializeScripts, embeddedTemplate, embeddedChainBundle, removeStaleCanonFiles,
-  recordCanonOwnership, unprovenCanonText, isVersionCacheRecord, safeProjectPath, readProjectFileSnapshot, unlinkProjectPath, writeProjectFile,
+  recordCanonOwnership, recordedMachinePaths, removeMachineEntry, embeddedUnder, isVersionCacheRecord, safeProjectPath, readProjectFileSnapshot, unlinkProjectPath, writeProjectFile,
   refusedStaleCanonText, refusedChangeText, isFilesystemRefusal,
 } from "../embed.ts";
 import type { Dialect } from "../chain/dialect.ts";
@@ -245,20 +245,22 @@ export function mirrorTargets(): MirrorTarget[] {
  *
  *  The carriers are NOT here: they follow the declared surfaces, not the canon, and
  *  `installMachineCarriers()` owns them (§13.2). */
-export function installCanon(version: string, preserveSkills: readonly string[] = []): string[] {
+export function installCanon(version: string): string[] {
   const lines: string[] = [];
   const canonDir = join(home(), "skills");
-  // The command bodies the previous install rendered, read before this one rewrites the canon:
-  // a shim still holding one of them is ours to refresh.
+  // Read before this run changes the canon: the skills whose slash commands the previous
+  // install wrote (a skill gone since leaves a command to take out), and the agents ai-eng
+  // retires now (a copy of one in ~/.claude/agents goes with it).
   const earlierCommands = renderCommands(canonDir);
-  lines.push(...warningsOf(materializeSkills(canonDir, preserveSkills)));
+  const shippedAgents = new Set(shippedAgentNames());
+  const retiredAgents = recordedMachinePaths(home()).filter((key) => key.startsWith("agents/")).map((key) => basename(key)).filter((name) => !shippedAgents.has(name));
+  const aiEngSkills = aiEngSkillNames(home());
+  // Everything ai-eng shipped is rewritten, edited or not, and everything it no longer ships
+  // is swept: a skill folder of ours is ai-eng's whole, so it always equals this binary.
+  lines.push(...warningsOf(materializeSkills(canonDir)));
   const swept = removeStaleCanonFiles(home());
-  if (swept.removed.length > 0) lines.push(`✓ swept ${swept.removed.length} file(s) this binary no longer ships: ${swept.removed.join(", ")}`);
+  if (swept.removed.length > 0) lines.push(`✓ swept ${swept.removed.length} path(s) this binary no longer ships: ${swept.removed.join(", ")}`);
   if (swept.refused.length > 0) lines.push(`⚠ ${refusedStaleCanonText(swept.refused)}`);
-  if (swept.kept.length > 0) lines.push(`✓ kept ${swept.kept.length} user file(s) — not shipped by this binary and not provably written by ai-eng, so never deleted: ${swept.kept.join(", ")}`);
-  if (swept.unproven.length > 0) lines.push(`⚠ ${unprovenCanonText(swept.unproven)}`);
-  const recordRefusal = recordCanonOwnership(home(), swept.unproven, swept.refused);
-  if (recordRefusal !== null) lines.push(`⚠ ${recordRefusal}`);
   lines.push(...refusalAsLines(canonDir, () => {
     const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
     return [`✓ ${home()}/skills/ — ${entries.length} skills installed`];
@@ -275,8 +277,18 @@ export function installCanon(version: string, preserveSkills: readonly string[] 
       return [`✓ Symlink → ${target.label} (${mirrored.count} skills)`, ...kept];
     }));
   }
-  lines.push(...installCommands(canonDir, earlierCommands));
-  lines.push(...refusalAsLines(join(machineBase(), ".claude", "agents"), installAgentsCanon));
+  lines.push(...installCommands(canonDir, earlierCommands, aiEngSkills));
+  const agentsMirror = join(machineBase(), ".claude", "agents");
+  lines.push(...refusalAsLines(agentsMirror, () => installAgentsCanon(retiredAgents)));
+  // Written last: a retired agent whose mirror copy could not be removed stays recorded, so
+  // the next run retries it instead of forgetting it was ai-eng's.
+  const leftInMirror = retiredAgents.filter((name) => isRegularFile(join(agentsMirror, name))).map((name) => `agents/${name}`);
+  const commandsDir = join(machineBase(), ".config", "opencode", "commands");
+  const leftCommands = [...aiEngSkills]
+    .filter((name) => !pathEntryExists(join(canonDir, name)) && isRegularFile(join(commandsDir, `${name}.md`)))
+    .map((name) => `skills/${name}`);
+  const recordRefusal = recordCanonOwnership(home(), [...leftInMirror, ...leftCommands]);
+  if (recordRefusal !== null) lines.push(`⚠ ${recordRefusal}`);
   const scriptLines = materializeScripts(join(home(), "scripts"));
   if (scriptLines.some((line) => line.startsWith("materialized "))) lines.push(`✓ ~/.ai-engineering/scripts/ — checkpoint gate`);
   lines.push(...warningsOf(scriptLines));
@@ -319,15 +331,13 @@ function refusalAsLines(path: string, step: () => string[]): string[] {
 }
 
 /** Materialize ~/.ai-engineering/agents and mirror it at ~/.claude/agents (symlink, or copy).
- *  The mirror is ours only as the exact link this installer writes (`<home>/agents`, the F10
- *  rule) or, in a real folder, as files holding ai-eng's bytes; a link or a file of the user's
- *  is kept and named, never repointed or overwritten.
+ *  The mirror is ours as the exact link this installer writes (`<home>/agents`, the F10
+ *  rule) or, in a real folder, as the files named after ai-eng's agents: those always hold
+ *  ai-eng's bytes, and a retired one goes. A link of the user's at the mirror, and every
+ *  other agent in the folder, is theirs and never touched.
  *  Exported so tests can drive the mirror under AI_ENG_HOME without writing the real home. */
-export function installAgentsCanon(): string[] {
+export function installAgentsCanon(retired: readonly string[] = []): string[] {
   const agentsCanon = join(home(), "agents");
-  // The bytes the previous install wrote, read before this one replaces them: a mirror copy
-  // still equal to them is ours to refresh.
-  const earlier = readAgentFiles(agentsCanon);
   const materialized = warningsOf(materializeAgents(agentsCanon));
   const agentFiles = readdirSync(agentsCanon).filter((name) => name.endsWith(".md"));
   const lines = [`✓ ~/.ai-engineering/agents/ — ${agentFiles.length} agents installed`, ...materialized];
@@ -355,43 +365,44 @@ export function installAgentsCanon(): string[] {
       mkdirSync(agentsMirror, { recursive: true });
     }
   }
-  return [...lines, ...copyAgentsInto(agentsMirror, agentsCanon, agentFiles, earlier)];
+  return [...lines, ...copyAgentsInto(agentsMirror, agentsCanon, shippedAgentNames(), retired)];
 }
 
-/** The regular agent files in a folder, by name; links and anything unreadable are skipped. */
-function readAgentFiles(directory: string): Map<string, Buffer> {
-  const files = new Map<string, Buffer>();
-  let names: string[];
-  try {
-    names = readdirSync(directory).filter((name) => name.endsWith(".md"));
-  } catch {
-    return files;
-  }
-  for (const name of names) {
-    const absolute = safeProjectPath(directory, name);
-    const snapshot = absolute === null ? null : readProjectFileSnapshot(directory, absolute);
-    if (snapshot !== null) files.set(name, snapshot.content);
-  }
-  return files;
+/** The agent files this binary ships, by file name. */
+function shippedAgentNames(): string[] {
+  return [...embeddedUnder("agents/").keys()].map((path) => path.slice("agents/".length)).filter((name) => name.endsWith(".md"));
 }
 
-/** Copy the agents into a real mirror folder: a missing file is created, a file still holding
- *  this or the previous install's bytes is refreshed, anything else is the user's and stays. */
-function copyAgentsInto(mirror: string, canon: string, names: readonly string[], earlier: ReadonlyMap<string, Buffer>): string[] {
+/** Copy the agents into a real mirror folder: each of ai-eng's agents always holds ai-eng's
+ *  bytes, and a retired one goes. A link at one of those names is the user's and stays. */
+function copyAgentsInto(mirror: string, canon: string, names: readonly string[], retired: readonly string[]): string[] {
   const kept: string[] = [];
   const refused: string[] = [];
   for (const name of names) {
-    const outcome = copyAgentFile(mirror, name, readFileSync(join(canon, name)), earlier.get(name));
+    const outcome = copyAgentFile(mirror, name, readFileSync(join(canon, name)));
     if (outcome === "kept") kept.push(name);
     if (outcome === "refused") refused.push(join(mirror, name));
   }
+  for (const name of retired) {
+    if (!isRegularFile(join(mirror, name)) || removeMachineEntry(mirror, name)) continue;
+    refused.push(join(mirror, name));
+  }
   const lines = ["✓ Copy → ~/.claude/agents (copy)"];
-  if (kept.length > 0) lines.push(`⚠ ${kept.length} file(s) in ~/.claude/agents are yours (they differ from ai-eng's agent of the same name) — kept: ${kept.join(", ")}. Delete or rename one to receive ai-eng's version`);
-  if (refused.length > 0) lines.push(`⚠ ${refused.length} agent file(s) not written — changed meanwhile, or the filesystem refused; left as they are: ${refused.join(", ")}`);
+  if (kept.length > 0) lines.push(`⚠ ${kept.length} link(s) of yours in ~/.claude/agents under the name of an ai-eng agent — kept, never written through: ${kept.join(", ")}. Move one aside to receive ai-eng's agent`);
+  if (refused.length > 0) lines.push(`⚠ ${refused.length} agent file(s) not written or removed — changed meanwhile, or the filesystem refused; left as they are: ${refused.join(", ")}`);
   return lines;
 }
 
-function copyAgentFile(mirror: string, name: string, ours: Buffer, earlier: Buffer | undefined): "written" | "current" | "kept" | "refused" {
+/** A plain file at the path (a link, a folder or nothing is not). */
+function isRegularFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function copyAgentFile(mirror: string, name: string, ours: Buffer): "written" | "current" | "kept" | "refused" {
   if (!pathEntryExists(join(mirror, name))) {
     try {
       // wx: never through a link or over a file that appeared since the check.
@@ -406,15 +417,15 @@ function copyAgentFile(mirror: string, name: string, ours: Buffer, earlier: Buff
   const snapshot = absolute === null ? null : readProjectFileSnapshot(mirror, absolute);
   if (absolute === null || snapshot === null) return "kept";
   if (snapshot.content.equals(ours)) return "current";
-  if (earlier === undefined || !snapshot.content.equals(earlier)) return "kept";
   return writeProjectFile(mirror, absolute, snapshot, ours.toString("utf8")) ? "written" : "refused";
 }
 
 /** The pre-2.2.0 repo paths of the carriers that now live on the machine, keyed to the
  *  surface that owned them. The refresh sweeps these so an old install does not keep
  *  ghost carriers — a hook file nobody reads is the exact bug 2.2.0 exists to end. This
- *  map is history, not a second source of truth: nothing current is computed from it. */
-const MOVED_REPO_CARRIERS: Record<string, string> = {
+ *  map is history, not a second source of truth: nothing is installed from it, and the lock
+ *  sweeps read it only so a settings file among them is stripped by marker, never deleted. */
+export const MOVED_REPO_CARRIERS: Readonly<Record<string, string>> = {
   ".claude/settings.json": "claude-code",
   ".opencode/plugins/ai-eng.ts": "opencode",
   ".opencode/plugins/ai-eng-chain.ts": "opencode",
@@ -1333,13 +1344,14 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       // changed nothing came back with a line claiming the machine side was the work
       // (cli-ux-14): the count has to mean something or the report cannot.
       const chainPath = placement.chain ? carrierPath(placement, placement.chain) : null;
-      // Ours to rewrite: this binary's bytes, or the bytes whose hash the last install recorded.
-      // The bundle is ours with its entry: both are written together, and only the entry's
-      // hash is recorded. Anything else is an edit of the user's, kept and named (R28).
-      const recorded = state.carriers[id];
-      const entry = carrierFileOwner(absolute, files.main, (content) => recorded !== undefined && sha256(content) === recorded);
+      // Ours to rewrite once ai-eng recorded writing it, edited or not: a carrier is ai-eng's
+      // file. The bundle is ours with its entry, or by the record alone (a removal that took
+      // the entry and was refused the bundle). A file there that ai-eng never recorded is
+      // somebody else's, kept and named (R28).
+      const isRecorded = state.carriers[id] !== undefined;
+      const entry = carrierFileOwner(absolute, files.main, () => isRecorded);
       const isEntryOurs = entry === "current" || entry === "ours";
-      const chain = chainPath === null || !files.chain ? "current" : carrierFileOwner(chainPath, files.chain, () => isEntryOurs);
+      const chain = chainPath === null || !files.chain ? "current" : carrierFileOwner(chainPath, files.chain, () => isRecorded || isEntryOurs);
       if (entry === "current" && chain === "current") {
         state.carriers[id] = definition;
         report.untouched.push(`~/${placement.path}`);
@@ -1539,7 +1551,9 @@ function writeCarrierModule(path: string, content: string): boolean {
   try {
     mkdirSync(dirname(path), { recursive: true });
     descriptor = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | constants.O_NONBLOCK, 0o644);
-    if (!fstatSync(descriptor).isFile()) return false;
+    // A second name (a hard link) would receive the rewrite too: that file is not ai-eng's.
+    const opened = fstatSync(descriptor);
+    if (!opened.isFile() || opened.nlink !== 1) return false;
     ftruncateSync(descriptor, 0);
     writeFileSync(descriptor, content);
     return true;
@@ -1568,11 +1582,12 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
     if (!surface || !placement) continue;
     const absolute = carrierPath(placement);
     if (placement.kind === "module") {
-      const outcome = removeCarrierModule(id, placement);
+      const outcome = removeCarrierModule(id, placement, state.carriers[id] !== undefined);
       refused.push(...outcome.kept);
-      if (outcome.isEntryKept) continue;
-      delete state.carriers[id];
       if (outcome.isEntryRemoved) lines.push(`~/${placement.path} removed`);
+      // The record goes only with the last file: a bundle left unrecorded would be kept forever.
+      if (outcome.isEntryKept || outcome.kept.length > 0) continue;
+      delete state.carriers[id];
       continue;
     }
     if (!pathEntryExists(absolute)) {
@@ -1635,16 +1650,16 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
   return { lines, refused };
 }
 
-/** A module carrier and its bundle leave only while they are byte for byte what this
- *  binary writes; an edited entry is the user's now and is kept and named, together with
- *  the bundle it imports. */
-function removeCarrierModule(id: string, placement: Carrier): { isEntryRemoved: boolean; isEntryKept: boolean; kept: MachineRefusal[] } {
+/** A module carrier and its bundle leave when ai-eng recorded writing them, edited or not,
+ *  or while they are byte for byte what this binary writes. A file there ai-eng never
+ *  recorded is somebody else's and is kept and named, together with the bundle it imports. */
+function removeCarrierModule(id: string, placement: Carrier, isRecorded: boolean): { isEntryRemoved: boolean; isEntryKept: boolean; kept: MachineRefusal[] } {
   const files = carrierFiles(id);
-  const entry = removeExactFile(carrierPath(placement), files?.main ?? null);
+  const entry = removeExactFile(carrierPath(placement), isRecorded ? ANY_CONTENT : files?.main ?? null);
   if (entry === "kept" || entry === "refused") {
     return { isEntryRemoved: false, isEntryKept: true, kept: [{ path: `~/${placement.path}`, reason: carrierKeptReason(entry) }] };
   }
-  const chain = placement.chain === undefined ? "absent" : removeExactFile(carrierPath(placement, placement.chain), files?.chain ?? null);
+  const chain = placement.chain === undefined ? "absent" : removeExactFile(carrierPath(placement, placement.chain), isRecorded ? ANY_CONTENT : files?.chain ?? null);
   const kept = chain === "kept" || chain === "refused" ? [{ path: `~/${placement.chain}`, reason: carrierKeptReason(chain) }] : [];
   return { isEntryRemoved: entry === "removed", isEntryKept: false, kept };
 }
@@ -1653,14 +1668,19 @@ function carrierKeptReason(outcome: "kept" | "refused"): string {
   return outcome === "refused" ? REMOVAL_REFUSED : CARRIER_EDITED;
 }
 
-/** Remove one file through its checked parent, only while it holds exactly `expected`.
- *  `refused` is a file still exactly ours whose delete failed: not the user's edit. */
-function removeExactFile(absolute: string, expected: string | null): "removed" | "kept" | "refused" | "absent" {
+/** `removeExactFile`'s answer for a file proven ai-eng's by record: whatever it holds. */
+const ANY_CONTENT = Symbol("any content");
+
+/** Remove one regular file through its checked parent, only while it holds exactly
+ *  `expected` (or anything, for ANY_CONTENT). `refused` is a file still ours whose delete
+ *  failed: not somebody else's. */
+function removeExactFile(absolute: string, expected: string | typeof ANY_CONTENT | null): "removed" | "kept" | "refused" | "absent" {
   if (!pathEntryExists(absolute)) return "absent";
   const root = dirname(absolute);
   const checked = safeProjectPath(root, basename(absolute));
   const snapshot = checked === null ? null : readProjectFileSnapshot(root, checked);
-  if (checked === null || snapshot === null || expected === null || !snapshot.content.equals(Buffer.from(expected))) return "kept";
+  if (checked === null || snapshot === null || expected === null) return "kept";
+  if (expected !== ANY_CONTENT && !snapshot.content.equals(Buffer.from(expected))) return "kept";
   return unlinkProjectPath(root, checked, snapshot) ? "removed" : "refused";
 }
 
@@ -1748,10 +1768,13 @@ export function removeMachineArtifacts(refused: string[] = []): number {
     pruneIfEmpty(target.dir);
   }
   const commandsDir = join(base, ".config", "opencode", "commands");
-  for (const name of names(canonDir)) {
-    // Ours only while it is exactly the body installCommands renders: an edited one stays.
+  const aiEngSkills = aiEngSkillNames(home());
+  // A retired skill's folder can be gone while its command was left by a refused removal.
+  for (const name of new Set([...names(canonDir), ...aiEngSkills])) {
+    // An ai-eng skill's command is ai-eng's whatever it holds; one for a skill of yours is
+    // ai-eng's only while it is exactly the body installCommands renders.
     const command = join(commandsDir, `${name}.md`);
-    const outcome = removeExactFile(command, commandBody(canonDir, name));
+    const outcome = removeExactFile(command, aiEngSkills.has(name) ? ANY_CONTENT : commandBody(canonDir, name));
     if (outcome === "removed") removed += 1;
     if (outcome === "refused") refused.push(command);
   }
@@ -1774,7 +1797,7 @@ function pruneIfEmpty(dir: string): void {
  *  skill is a command the day it ships — never a second list to keep in sync.
  *  Cursor, Copilot CLI and Copilot Chat in VS Code read the mirrors themselves
  *  (.agents/skills, .claude/skills) and need no shim. */
-function installCommands(canonDir: string, earlier: ReadonlyMap<string, string>): string[] {
+function installCommands(canonDir: string, earlier: ReadonlyMap<string, string>, aiEngSkills: ReadonlySet<string>): string[] {
   const dir = join(machineBase(), ".config", "opencode", "commands");
   let count = 0;
   const kept: string[] = [];
@@ -1786,17 +1809,42 @@ function installCommands(canonDir: string, earlier: ReadonlyMap<string, string>)
     if (!isFilesystemRefusal(error)) throw error;
     return [`⚠ ${refusedChangeText(canonDir, error)}`];
   }
+  // A command of an ai-eng skill is ai-eng's whatever it holds; one ai-eng wrote for a skill
+  // of yours in the canon is ai-eng's only while it still holds what ai-eng wrote.
+  const isOurs = (name: string) => (current: string): boolean => aiEngSkills.has(name) || current === earlier.get(name);
   for (const [name, body] of bodies) {
-    const outcome = writeOwnedText(dir, `${name}.md`, body, earlier.get(name));
+    const outcome = writeOwnedText(dir, `${name}.md`, body, isOurs(name));
     if (outcome === "written" || outcome === "current") count += 1;
     if (outcome === "kept") kept.push(`${name}.md`);
     if (outcome === "refused") refused.push(join(dir, `${name}.md`));
   }
+  // A command ai-eng wrote for a skill that is gone from the canon goes with the skill.
+  // An ai-eng skill's command goes whatever it holds (the record keeps naming a retired skill
+  // while its command is left, so a refused removal is retried); a command ai-eng wrote for a
+  // skill of yours goes only while it still holds what ai-eng wrote.
+  for (const file of listCommandFiles(dir)) {
+    const name = file.slice(0, -".md".length);
+    const command = join(dir, file);
+    if (bodies.has(name) || !isRegularFile(command)) continue;
+    let current: string;
+    try {
+      current = readFileSync(command, "utf8");
+    } catch {
+      continue; // unreadable: not judged, so not removed
+    }
+    if (!isOurs(name)(current)) continue;
+    if (!removeMachineEntry(dir, file)) refused.push(command);
+  }
   kept.sort((a, b) => a.localeCompare(b, "en"));
   const lines = count > 0 ? [`✓ ~/.config/opencode/commands/ — ${count} slash commands (/<skill-name>)`] : [];
-  if (kept.length > 0) lines.push(`⚠ ${kept.length} slash command(s) in ~/.config/opencode/commands are yours (a link, or edited since ai-eng wrote them) — kept: ${kept.join(", ")}. Delete one to receive ai-eng's version`);
+  if (kept.length > 0) lines.push(`⚠ ${kept.length} slash command(s) in ~/.config/opencode/commands are yours (a link, or your own command under a skill's name) — kept: ${kept.join(", ")}. Move one aside to receive ai-eng's command`);
   if (refused.length > 0) lines.push(`⚠ ${refused.length} slash command(s) not written — changed meanwhile, or the filesystem refused; left as they are: ${refused.join(", ")}`);
   return lines;
+}
+
+/** The skills ai-eng ships or shipped on this machine (its ownership record), by name. */
+function aiEngSkillNames(homeDir: string): Set<string> {
+  return new Set(recordedMachinePaths(homeDir).filter((key) => key.startsWith("skills/")).map((key) => key.slice("skills/".length)));
 }
 
 /** Every skill's command body as the canon renders it now, by skill name. An unreadable canon
@@ -1817,10 +1865,10 @@ function renderCommands(canonDir: string, isStrict = false): Map<string, string>
   return bodies;
 }
 
-/** Write a file only ai-eng owns: a missing one is created (`wx`, never through a link); an
- *  existing one is refreshed only while it is a single-named regular file holding ai-eng's
- *  current bytes or the bytes it wrote last time. A link or anything else is the user's. */
-function writeOwnedText(dir: string, name: string, ours: string, earlier: string | undefined): "written" | "current" | "kept" | "refused" {
+/** Write a file ai-eng owns: a missing one is created (`wx`, never through a link); an
+ *  existing one receives ai-eng's bytes while `isOurs` says so and it is a single-named
+ *  regular file. A link or a second name is somebody else's and is never written through. */
+function writeOwnedText(dir: string, name: string, ours: string, isOurs: (current: string) => boolean): "written" | "current" | "kept" | "refused" {
   const path = join(dir, name);
   if (!pathEntryExists(path)) {
     try {
@@ -1837,7 +1885,7 @@ function writeOwnedText(dir: string, name: string, ours: string, earlier: string
   if (absolute === null || snapshot === null) return "kept";
   const current = snapshot.content.toString("utf8");
   if (current === ours) return "current";
-  if (earlier === undefined || current !== earlier) return "kept";
+  if (snapshot.nlink !== 1 || !isOurs(current)) return "kept";
   return writeProjectFile(dir, absolute, snapshot, ours) ? "written" : "refused";
 }
 
@@ -1852,6 +1900,15 @@ function commandBody(canonDir: string, name: string): string | null {
     return null;
   }
   return `---\ndescription: ${description}\n---\n\nLoad the \`${name}\` skill via the skill tool, then execute it for this request:\n\n$ARGUMENTS\n`;
+}
+
+/** The `.md` files in the commands folder; none when it cannot be read. */
+function listCommandFiles(dir: string): string[] {
+  try {
+    return readdirSync(dir).filter((name) => name.endsWith(".md") && !name.startsWith("."));
+  } catch {
+    return [];
+  }
 }
 
 /** One palette line out of a SKILL.md description: folded YAML collapsed to a single
@@ -1897,6 +1954,16 @@ function linkSkills(canonDir: string, mirrorDir: string): { count: number; kept:
       count += 1;
     } catch {
       /* FS refused: leave absent, doctor reports the mirror gap */
+    }
+  }
+  // The exact link ai-eng writes, to a skill no longer in the canon: ours, and now dangling.
+  for (const name of readdirSync(mirrorDir)) {
+    const linkPath = join(mirrorDir, name);
+    if (name.startsWith(".") || pathEntryExists(join(canonDir, name))) continue;
+    try {
+      if (lstatSync(linkPath).isSymbolicLink() && readlinkSync(linkPath) === join(canonDir, name)) removeMachineEntry(mirrorDir, name);
+    } catch {
+      /* not ours, or the filesystem refused: doctor reports a dangling mirror entry */
     }
   }
   return { count, kept };

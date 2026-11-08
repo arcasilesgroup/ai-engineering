@@ -124,65 +124,105 @@ describe("the embedded payload", () => {
   });
 });
 
-describe("the canon sweep (§14.3 — never delete a file we did not install)", () => {
-  test("a renamed asset inside a folder we ship is ours while its recorded hash holds; another skill and a dot entry are not", () => {
+describe("the canon sweep — a skill folder ai-eng ships is ai-eng's whole", () => {
+  test("every extra inside a shipped folder is stale, edited, added by hand or left by an older release; another skill and a dot entry are not", () => {
     const home = sandbox();
     const folder = skillFolder();
     mkdirSync(join(home, "skills", folder), { recursive: true });
     writeFileSync(join(home, "skills", folder, "renamed-page.md"), "gone from the payload");
-    writeFileSync(join(home, "skills", folder, "my-notes.md"), "mine");
-    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/renamed-page.md`]: sha256("gone from the payload") } }));
+    writeFileSync(join(home, "skills", folder, "my-notes.md"), "added by hand");
     mkdirSync(join(home, "skills", "somebody-elses-skill"), { recursive: true });
     writeFileSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"), "mine");
     writeFileSync(join(home, "skills", ".DS_Store"), "noise");
 
-    const { stale, kept, foreign } = canonExtras(home);
-    expect(stale).toEqual([`skills/${folder}/renamed-page.md`]);
-    expect(kept).toEqual([`skills/${folder}/my-notes.md`]);
-    expect(foreign).toEqual(["skills/somebody-elses-skill/SKILL.md"]);
+    const { stale, retired, foreign } = canonExtras(home);
+    expect(stale).toEqual([`skills/${folder}/my-notes.md`, `skills/${folder}/renamed-page.md`]);
+    expect(retired).toEqual([]);
+    expect(foreign).toEqual(["skills/somebody-elses-skill"]);
   });
 
-  test("a symlink in the canon home is never ours to delete", () => {
+  test("a link inside a shipped folder goes as a link; what it points at is never touched", () => {
     const home = sandbox();
     const folder = skillFolder();
     mkdirSync(join(home, "skills", folder), { recursive: true });
-    symlinkSync("/tmp/ai-eng-not-ours", join(home, "skills", folder, "linked.md"));
+    const target = join(home, "theirs.md");
+    writeFileSync(target, "theirs\n");
+    symlinkSync(target, join(home, "skills", folder, "linked.md"));
 
-    const { stale, foreign } = canonExtras(home);
-    expect(stale).toEqual([]);
-    expect(foreign).toContain(`skills/${folder}/linked.md`);
+    expect(canonExtras(home).stale).toEqual([`skills/${folder}/linked.md`]);
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: [`skills/${folder}/linked.md`], refused: [] });
+    expect(existsSync(join(home, "skills", folder, "linked.md"))).toBe(false);
+    expect(readFileSync(target, "utf8")).toBe("theirs\n");
   });
 
-  test("the sweep takes a stale file whose recorded hash still matches, and the folder it empties", () => {
+  test("the sweep takes every stale file, with or without a record, and the folder it empties", () => {
     const home = sandbox();
     const folder = skillFolder();
     mkdirSync(join(home, "skills", folder, "old"), { recursive: true });
     writeFileSync(join(home, "skills", folder, "old", "orphan.md"), "x");
-    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/old/orphan.md`]: sha256("x") } }));
+    writeFileSync(join(home, "skills", folder, "edited-page.md"), "edited by hand");
     mkdirSync(join(home, "skills", "somebody-elses-skill"), { recursive: true });
     writeFileSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"), "mine");
 
-    expect(removeStaleCanonFiles(home)).toEqual({ removed: [`skills/${folder}/old/orphan.md`], kept: [], unproven: [], refused: [] });
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: [`skills/${folder}/edited-page.md`, `skills/${folder}/old/orphan.md`], refused: [] });
     expect(existsSync(join(home, "skills", folder, "old"))).toBe(false);
     expect(existsSync(join(home, "skills", "somebody-elses-skill", "SKILL.md"))).toBe(true);
   });
 
-  test("F15: a file the user added or edited inside a shipped folder is kept: no recorded hash proves it ours", () => {
+  test("a skill, agent or script an earlier ai-eng recorded and this binary no longer ships is retired and swept whole", () => {
+    const home = sandbox();
+    mkdirSync(join(home, "skills", "ai-retired", "references"), { recursive: true });
+    writeFileSync(join(home, "skills", "ai-retired", "SKILL.md"), "old skill");
+    writeFileSync(join(home, "skills", "ai-retired", "references", "added.md"), "added by hand");
+    mkdirSync(join(home, "agents"), { recursive: true });
+    writeFileSync(join(home, "agents", "retired-agent.md"), "old agent, edited");
+    writeFileSync(join(home, "agents", "my-own-agent.md"), "mine");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({
+      files: { "skills/ai-retired/SKILL.md": sha256("old skill"), "agents/retired-agent.md": sha256("old agent") },
+    }));
+
+    expect(canonExtras(home).retired).toEqual(["agents/retired-agent.md", "skills/ai-retired"]);
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: ["agents/retired-agent.md", "skills/ai-retired"], refused: [] });
+    expect(existsSync(join(home, "skills", "ai-retired"))).toBe(false);
+    expect(existsSync(join(home, "agents", "retired-agent.md"))).toBe(false);
+    expect(readFileSync(join(home, "agents", "my-own-agent.md"), "utf8")).toBe("mine");
+  });
+
+  test("a retired folder goes whole, dot entries too: a .DS_Store never leaves it half-removed", () => {
+    const home = sandbox();
+    mkdirSync(join(home, "skills", "ai-retired", "refs"), { recursive: true });
+    writeFileSync(join(home, "skills", "ai-retired", "SKILL.md"), "old skill");
+    writeFileSync(join(home, "skills", "ai-retired", ".DS_Store"), "os");
+    writeFileSync(join(home, "skills", "ai-retired", "refs", ".DS_Store"), "os");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { "skills/ai-retired/SKILL.md": sha256("old skill") } }));
+
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: ["skills/ai-retired"], refused: [] });
+    expect(existsSync(join(home, "skills", "ai-retired"))).toBe(false);
+  });
+
+  test("a dot entry inside a shipped folder that stays is left alone", () => {
     const home = sandbox();
     const folder = skillFolder();
     mkdirSync(join(home, "skills", folder), { recursive: true });
-    writeFileSync(join(home, "skills", folder, "my-notes.md"), "mine");
-    writeFileSync(join(home, "skills", folder, "renamed-page.md"), "edited by hand");
-    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/renamed-page.md`]: sha256("as shipped") } }));
+    writeFileSync(join(home, "skills", folder, ".DS_Store"), "os");
 
-    expect(removeStaleCanonFiles(home)).toEqual({
-      removed: [],
-      kept: [`skills/${folder}/my-notes.md`, `skills/${folder}/renamed-page.md`],
-      unproven: [],
-      refused: [],
-    });
-    expect(readFileSync(join(home, "skills", folder, "my-notes.md"), "utf8")).toBe("mine");
-    expect(readFileSync(join(home, "skills", folder, "renamed-page.md"), "utf8")).toBe("edited by hand");
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: [], refused: [] });
+    expect(readFileSync(join(home, "skills", folder, ".DS_Store"), "utf8")).toBe("os");
+  });
+
+  test("the record names what is installed now, and keeps naming a retired path still on disk so the next run retries it", () => {
+    const home = sandbox();
+    mkdirSync(join(home, "skills", "ai-retired"), { recursive: true });
+    writeFileSync(join(home, "skills", "ai-retired", "SKILL.md"), "old skill");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { "skills/ai-retired/SKILL.md": "abc", "skills/ai-gone/SKILL.md": "def" }, unproven: ["x"] }));
+
+    expect(recordCanonOwnership(home)).toBeNull();
+    const record = JSON.parse(readFileSync(join(home, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string>; unproven?: unknown };
+    expect(record.files["skills/ai-retired/SKILL.md"]).toBe("abc");
+    expect(record.files["skills/ai-gone/SKILL.md"]).toBeUndefined();
+    expect(record.unproven).toBeUndefined();
+    const [agentKey] = [...embeddedUnder("agents/").keys()];
+    expect(record.files[agentKey!]).toBeDefined();
   });
 
   test("F19: the ownership record replaces its own name: a hard-linked user file keeps its bytes, a link there is refused", () => {
@@ -203,11 +243,42 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
     writeFileSync(elsewhere, "theirs\n");
     symlinkSync(elsewhere, recordPath);
     expect(recordCanonOwnership(home)).toBe(
-      `${recordPath} is a link, not a regular file, or not writable — ownership record not written; stale canon files will be kept, not swept`,
+      `${recordPath} is a link, not a regular file, or not writable — ownership record not written; a skill ai-eng stops shipping will not be swept`,
     );
     expect(readlinkSync(recordPath)).toBe(elsewhere);
     expect(readFileSync(elsewhere, "utf8")).toBe("theirs\n");
     expect(readdirSync(home).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+  });
+
+  test("a record with a key no installer writes is untrusted: nothing is retired, nothing of yours goes", () => {
+    for (const key of ["", "agents", "skills", "skills/ai-retired", "skills/../x/y", "agents/../skills"]) {
+      const home = sandbox();
+      mkdirSync(join(home, "agents"), { recursive: true });
+      writeFileSync(join(home, "agents", "my-own-agent.md"), "mine");
+      mkdirSync(join(home, "skills", "my-own-skill"), { recursive: true });
+      writeFileSync(join(home, "skills", "my-own-skill", "SKILL.md"), "mine");
+      writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [key]: "abc", "skills/my-own-skill/SKILL.md": "def" } }));
+
+      expect(canonExtras(home).retired).toEqual([]);
+      expect(removeStaleCanonFiles(home)).toEqual({ removed: [], refused: [] });
+      expect(readFileSync(join(home, "agents", "my-own-agent.md"), "utf8")).toBe("mine");
+      expect(readFileSync(join(home, "skills", "my-own-skill", "SKILL.md"), "utf8")).toBe("mine");
+    }
+  });
+
+  test("materialize gives a hard-linked canon file a name of its own: the other name keeps its bytes", () => {
+    const home = sandbox();
+    materializeSkills(join(home, "skills"));
+    const [path, ref] = [...canonSkills()][0]!;
+    const dotfile = join(home, "dotfiles-page.md");
+    rmSync(join(home, path));
+    writeFileSync(dotfile, "my edited copy\n");
+    linkSync(dotfile, join(home, path));
+
+    materializeSkills(join(home, "skills"));
+
+    expect(readFileSync(dotfile, "utf8")).toBe("my edited copy\n");
+    expect(readFileSync(join(home, path))).toEqual(readFileSync(embeddedPath(ref)));
   });
 
   test("a folder that still holds a shipped file is not emptied", () => {
@@ -215,11 +286,20 @@ describe("the canon sweep (§14.3 — never delete a file we did not install)", 
     materializeSkills(join(home, "skills"));
     const folder = skillFolder();
     writeFileSync(join(home, "skills", folder, "orphan.md"), "x");
-    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [`skills/${folder}/orphan.md`]: sha256("x") } }));
 
     expect(removeStaleCanonFiles(home).removed).toEqual([`skills/${folder}/orphan.md`]);
     expect(existsSync(join(home, "skills", folder))).toBe(true);
     expect(existsSync(join(home, "skills", aSkillPath().slice("skills/".length)))).toBe(true);
+  });
+
+  test("materialize rewrites a shipped file the user edited: ai-eng's bytes, always", () => {
+    const home = sandbox();
+    materializeSkills(join(home, "skills"));
+    const [path, ref] = [...canonSkills()][0]!;
+    writeFileSync(join(home, path), "hand-edited\n");
+
+    materializeSkills(join(home, "skills"));
+    expect(readFileSync(join(home, path))).toEqual(readFileSync(embeddedPath(ref)));
   });
 });
 
@@ -290,7 +370,7 @@ describe("drift is a measurement, not a claim", () => {
   test("a freshly materialized canon is intact: nothing missing, nothing drifted, nothing stale", () => {
     const home = sandbox();
     expect(materializeSkills(join(home, "skills"))[0]).toMatch(/^materialized \d+ assets → /);
-    expect(canonDrift(home)).toEqual({ verified: canonSkills().size, drift: 0, missing: 0, stale: 0, kept: 0, unproven: 0, foreign: 0 });
+    expect(canonDrift(home)).toEqual({ verified: canonSkills().size, drift: 0, missing: 0, stale: 0, foreign: 0 });
   });
 
   test("a canon can be complete and dirty at once: an edited file counts as drift, a deleted one as missing", () => {
@@ -306,18 +386,15 @@ describe("drift is a measurement, not a claim", () => {
     expect(canonDrift(home).missing).toBe(1);
   });
 
-  test("F20: an extra file we do not ship is counted, never silently ignored — stale only while its recorded hash proves it ours", () => {
+  test("F20: an extra file we do not ship is counted, never silently ignored — stale, with or without a record", () => {
     const home = sandbox();
     materializeSkills(join(home, "skills"));
-    mkdirSync(join(home, "skills", skillFolder()), { recursive: true });
-    const key = `skills/${skillFolder()}/left-behind.md`;
-    writeFileSync(join(home, key), "x");
-    expect(canonDrift(home)).toMatchObject({ stale: 0, kept: 0, unproven: 1 });
+    writeFileSync(join(home, "skills", skillFolder(), "left-behind.md"), "x");
+    expect(canonDrift(home)).toMatchObject({ stale: 1 });
 
-    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: {} }));
-    expect(canonDrift(home)).toMatchObject({ stale: 0, kept: 1, unproven: 0 });
-
-    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [key]: sha256("x") } }));
-    expect(canonDrift(home)).toMatchObject({ stale: 1, kept: 0, unproven: 0 });
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { "skills/ai-retired/SKILL.md": "abc" } }));
+    mkdirSync(join(home, "skills", "ai-retired"));
+    writeFileSync(join(home, "skills", "ai-retired", "SKILL.md"), "old");
+    expect(canonDrift(home)).toMatchObject({ stale: 2, foreign: 0 });
   });
 });

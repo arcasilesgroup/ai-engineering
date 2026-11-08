@@ -12,7 +12,7 @@
 
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, delimiter, join, dirname, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -20,7 +20,7 @@ import { PassThrough } from "node:stream";
 import { syncPlan, updateMain } from "../src/commands/update.ts";
 import { planEntries } from "../src/commands/init-shared.ts";
 import { carrierDefinition, carrierFiles } from "../src/surfaces/adapters.ts";
-import { mergeSharedText, sha256 } from "../src/install.ts";
+import { mergeSharedText, sha256, stripSharedText } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import type { PlanEntry } from "../src/install.ts";
 import { recordGitCommands } from "./fixtures/git-recorder.ts";
@@ -96,8 +96,6 @@ function pipeStdin(): PassThrough {
   return stream;
 }
 
-const DOWN = "\x1b[B";
-const ENTER = "\n";
 const CANCEL = "\x03";
 
 /** A governed repo: config.toml declares the surface, and .git exists the way any repo
@@ -117,8 +115,8 @@ function gitIn(repo: string, args: string[]): string {
   return result.stdout ?? "";
 }
 
-/** A repo the binary has already installed into, with one hook patched by hand: the one
- *  state that leaves a decision for the human. */
+/** A repo the binary has already installed into, with one hook patched by hand: a file
+ *  ai-eng wrote and the person edited. */
 async function patchedRepo(name: string): Promise<{ repo: string; shim: string; lockPath: string }> {
   const repo = governedRepo(name);
   process.chdir(repo);
@@ -192,7 +190,7 @@ describe("syncPlan · what the binary decides to write, keep or refuse", () => {
     expect([...plan.fresh].sort()).toEqual(paths);
     expect(plan.current).toEqual([]);
     expect(plan.updates).toEqual([]);
-    expect(plan.conflicts).toEqual([]);
+    expect(plan.yours).toEqual([]);
     expect(plan.verbatim).toEqual([]);
   });
 
@@ -210,54 +208,46 @@ describe("syncPlan · what the binary decides to write, keep or refuse", () => {
     expect([...plan.verbatim].sort()).toEqual(paths);
     expect(plan.updates).toEqual([]);
     expect(plan.fresh).toEqual([]);
-    expect(plan.conflicts).toEqual([]);
+    expect(plan.yours).toEqual([]);
   });
 
-  test("a file we never installed is the user's own, not a conflict to resolve", () => {
+  test("a file ai-eng never wrote is the project's own, left alone", () => {
     const root = join(SANDBOX, "plan-users");
     mkdirSync(join(root, ".github", "workflows"), { recursive: true });
     writeFileSync(join(root, ".github/workflows/ai-eng-check.yml"), "name: mine\n");
     const plan = syncPlan(entries, root, {});
-    // No lock entry: we have no evidence we ever wrote it, so an edit is not ours to judge.
-    expect(plan.current).toEqual([".github/workflows/ai-eng-check.yml"]);
-    expect(plan.conflicts).toEqual([]);
+    // No lock entry: ai-eng never wrote it, so it is not ai-eng's to rewrite.
+    expect(plan.yours).toEqual([".github/workflows/ai-eng-check.yml"]);
+    expect(plan.current).toEqual([]);
     expect(plan.updates).toEqual([]);
   });
 
-  test("the recorded hash decides update from conflict", () => {
+  test("a file ai-eng wrote is updated, edited or not; seeded config the project edited is the project's", () => {
     const root = join(SANDBOX, "plan-updates");
     const target = ".github/workflows/ai-eng-check.yml";
     mkdirSync(join(root, ".github", "workflows"), { recursive: true });
     const previousOurs = "on: [push]\n# v previous\n";
     writeFileSync(join(root, target), previousOurs);
-    const untouched = syncPlan(entries, root, { [target]: sha256(previousOurs) });
-    expect(untouched.updates).toEqual([target]);
-    expect(untouched.conflicts).toEqual([]);
+    expect(syncPlan(entries, root, { [target]: sha256(previousOurs) }).updates).toEqual([target]);
 
-    // Same lock, one edit by hand: now the human owns the decision.
+    // The same file edited by hand is still ai-eng's: it takes this binary's bytes.
     writeFileSync(join(root, target), `${previousOurs}# mine too\n`);
     const edited = syncPlan(entries, root, { [target]: sha256(previousOurs) });
-    expect(edited.conflicts).toEqual([target]);
-    expect(edited.updates).toEqual([]);
+    expect(edited.updates).toEqual([target]);
+    expect(edited.yours).toEqual([]);
+
+    // Seeded config is the project's from its first edit, and while unedited it follows ai-eng.
+    const config = ".ai-engineering/overrides.toml";
+    mkdirSync(join(root, ".ai-engineering"), { recursive: true });
+    writeFileSync(join(root, config), "# seeded by an older ai-eng\n");
+    expect(syncPlan(entries, root, { [config]: sha256("# seeded by an older ai-eng\n") }).updates).toContain(config);
+    writeFileSync(join(root, config), "# seeded by an older ai-eng\nmine = true\n");
+    const tuned = syncPlan(entries, root, { [config]: sha256("# seeded by an older ai-eng\n") });
+    expect(tuned.yours).toContain(config);
+    expect(tuned.updates).not.toContain(config);
   });
 
-  test("a locally edited skill stays protected by its recorded hash", () => {
-    const skillPath = "skills/ai-debug/SKILL.md";
-    const ours = readFileSync(join(REPO_ROOT, skillPath), "utf8");
-    const root = join(SANDBOX, "plan-edited-skill");
-    const absolute = join(root, skillPath);
-    const localEdit = `${ours}\n# local edit\n`;
-    mkdirSync(dirname(absolute), { recursive: true });
-    writeFileSync(absolute, localEdit);
-
-    const plan = syncPlan([{ path: skillPath, ours }], root, { [skillPath]: sha256(ours) });
-
-    expect(plan.conflicts).toEqual([skillPath]);
-    expect(plan.updates).toEqual([]);
-    expect(readFileSync(absolute, "utf8")).toBe(localEdit);
-  });
-
-  test("a shared settings file is updated by its merge, never called a conflict", () => {
+  test("a shared settings file is updated by its merge, never written whole", () => {
     const cursor = planEntries(["cursor"]);
     const settings = entryFor(cursor, ".cursor/hooks.json");
     expect(settings.merge).toBe(true);
@@ -277,12 +267,12 @@ describe("syncPlan · what the binary decides to write, keep or refuse", () => {
     expect(again.updates).toEqual([]);
     expect(again.current).toEqual([settings.path]);
 
-    // A file that is not JSON is left exactly as it is: not ours to rewrite, not a
-    // conflict — the surface simply runs unguarded and the installer says so elsewhere.
+    // A file that is not JSON is left exactly as it is: not ours to rewrite — the surface
+    // simply runs unguarded and the installer says so elsewhere.
     writeFileSync(path, "// hand-written settings\n");
     const refused = syncPlan(cursor, root, {});
     expect(refused.updates).toEqual([]);
-    expect(refused.conflicts).toEqual([]);
+    expect(refused.yours).toEqual([]);
     expect(refused.current).toEqual([settings.path]);
   });
 });
@@ -441,7 +431,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     assertAllSkillsInstalled();
   });
 
-  test("update repairs a missing skill resource and preserves edited and user-owned skills", async () => {
+  test("update repairs a missing skill resource, rewrites an edited shipped page, and keeps a skill of your own", async () => {
     rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
     const repo = governedRepo("repo-skill-repair");
     const configPath = join(repo, ".ai-engineering", "config.toml");
@@ -458,8 +448,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(machineSettingsMerged).toInclude('"user": "repair"');
 
     const sourceFiles = sourceSkillFiles();
-    // A shipped sibling of the edited file: preserving one edited file must not stop the
-    // rest of its skill folder from being repaired.
+    // A shipped sibling of the edited file: one skill folder with an edit and a gap at once.
     const missingSibling = sourceFiles.find((file) => file.relativePath !== "SKILL.md");
     const editedSource = sourceFiles.find((file) => file.skill === missingSibling?.skill && file.relativePath === "SKILL.md");
     const missingSource = sourceFiles.find((file) => file.skill !== editedSource?.skill && file.relativePath !== "SKILL.md");
@@ -484,9 +473,10 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const repair = await captured(() => updateMain({ yes: true }));
 
     expect(repair.value).toBe(0);
-    expect(repair.out).toInclude("global canon repaired · local changes kept");
-    expect(repair.out).toInclude(`skills/${editedSource.skill}/${editedSource.relativePath} · local change kept`);
-    expect(readFileSync(skill)).toEqual(localEdit);
+    expect(repair.out).toInclude("global canon outdated or incomplete — re-installed");
+    expect(repair.out).not.toInclude("local change kept");
+    // The shipped page is ai-eng's: the edit is replaced by this binary's bytes.
+    expect(readFileSync(skill)).toEqual(editedSource.bytes);
     expect(readFileSync(missingPath)).toEqual(missingSource.bytes);
     expect(readFileSync(missingSiblingPath)).toEqual(missingSibling.bytes);
     expect(readFileSync(userOwnedSkill, "utf8")).toBe("# mine\n");
@@ -494,26 +484,27 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(readFileSync(configPath)).toEqual(Buffer.from(legacyConfig));
     // Machine settings are not part of the canon: the repair neither writes nor removes them.
     expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsMerged);
-    assertAllSkillsInstalled(["my-local-skill"], [`${editedSource.skill}/${editedSource.relativePath}`]);
+    assertAllSkillsInstalled(["my-local-skill"]);
   });
 
-  test("F20: a user file kept in a shipped skill folder does not make every update re-run the canon repair", async () => {
+  test("F20: a file added by hand inside a shipped skill folder is swept once, and the next update finds the canon clean", async () => {
     rmSync(join(ENG_HOME, "skills"), { recursive: true, force: true });
     const repo = governedRepo("repo-kept-user-file");
     process.chdir(repo);
     expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
     const notes = join(ENG_HOME, "skills", "ai-debug", "my-notes.md");
     writeFileSync(notes, "mine\n");
-    try {
-      const second = await captured(() => updateMain({ yes: true }));
-      expect(second.value).toBe(0);
-      expect(second.out).not.toInclude("re-installed");
-      expect(second.out).not.toInclude("global canon repaired");
-      expect(second.out).toInclude("global canon ·");
-      expect(readFileSync(notes, "utf8")).toBe("mine\n");
-    } finally {
-      rmSync(notes);
-    }
+
+    const second = await captured(() => updateMain({ yes: true }));
+    expect(second.value).toBe(0);
+    expect(second.out).toInclude("re-installed");
+    expect(second.out).toInclude("skills/ai-debug/my-notes.md");
+    expect(existsSync(notes)).toBe(false);
+
+    const third = await captured(() => updateMain({ yes: true }));
+    expect(third.value).toBe(0);
+    expect(third.out).not.toInclude("re-installed");
+    expect(third.out).toInclude("global canon ·");
   });
 
   test("update leaves HEAD unchanged, spawns no commit, and leaves global config untouched", async () => {
@@ -606,86 +597,247 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(existsSync(noticeLog)).toBe(false);
   });
 
-  test("--yes keeps a patched hook: nothing written and the lock left as it was", async () => {
+  test("--yes rewrites a patched hook: ai-eng's file takes this binary's bytes, named, and the lock follows", async () => {
     const { shim, lockPath } = await patchedRepo("repo-patched");
-    const bytes = readFileSync(lockPath, "utf8");
 
     const run = await captured(() => updateMain({ yes: true }));
     expect(run.value).toBe(0);
-    expect(run.out).toInclude("your patches stay");
-    expect(run.out).toInclude("nothing written");
-    // The kept file is named, not silently skipped.
     expect(run.out).toInclude("hooks/pre-commit");
-    expect(readFileSync(shim, "utf8")).toInclude("# my custom bit");
-    // Nothing written means the ownership ledger is not rewritten either: a run that takes
-    // no decision leaves the lock exactly as the previous install left it.
-    expect(readFileSync(lockPath, "utf8")).toBe(bytes);
-  });
-
-  test("a human who takes the new version gets it written over the patch, and the lock follows", async () => {
-    const { shim, lockPath } = await patchedRepo("repo-take");
-    const stdin = pipeStdin();
-
-    const run = await captured(async () => {
-      const running = updateMain();
-      await tick(20);
-      // The question reaches the human with the file named inside it: one decision, not N.
-      stdin.write(DOWN + ENTER); // down: "Take the new version everywhere"
-      await tick(60);
-      stdin.write(ENTER); // Apply? — the initial value is yes
-      return running;
-    });
-
-    expect(run.value).toBe(0);
-    expect(run.out).toInclude("What wins?");
-    expect(run.out).toInclude("1 conflict resolved");
+    expect(run.out).toInclude("edited since ai-eng wrote it");
+    expect(run.out).not.toInclude("What wins?");
     expect(readFileSync(shim, "utf8")).toBe(entryFor(planEntries(["claude-code"]), ".git/hooks/pre-commit").ours);
-    // Taken by an explicit human decision is owned again: the ledger says so, so the next
-    // unattended update compares against the version actually on disk.
     expect(readFileSync(lockPath, "utf8")).toInclude('".git/hooks/pre-commit"');
   });
 
-  test("cancelling Apply writes nothing, even after choosing to keep yours", async () => {
-    const { repo, shim, lockPath } = await patchedRepo("repo-cancel");
+  // Windows has no read-only mode a write respects here, and root ignores the mode.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)("a recorded file the filesystem will not let update write is named, still ai-eng's, and keeps its lock entry for the retry", async () => {
+    const { repo, lockPath } = await patchedRepo("repo-readonly-recorded");
+    const workflow = join(repo, ".github", "workflows", "ai-eng-check.yml");
+    writeFileSync(workflow, `${readFileSync(workflow, "utf8")}# my extra step\n`);
+    const recorded = /"\.github\/workflows\/ai-eng-check\.yml" = "([0-9a-f]{64})"/.exec(readFileSync(lockPath, "utf8"))?.[1];
+    expect(recorded).toBeDefined();
+    chmodSync(workflow, 0o444);
+
+    const run = await captured(() => updateMain({ yes: true })).finally(() => chmodSync(workflow, 0o644));
+
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude("the filesystem refused the write");
+    expect(readFileSync(workflow, "utf8")).toInclude("# my extra step");
+    expect(readFileSync(lockPath, "utf8")).toInclude(`".github/workflows/ai-eng-check.yml" = "${recorded!}"`);
+  });
+
+  test("seeded config the project edited stays the project's: untouched, named, and no longer claimed by the lock", async () => {
+    const repo = governedRepo("repo-tuned-config");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const overrides = join(repo, ".ai-engineering", "overrides.toml");
+    const tuned = `${readFileSync(overrides, "utf8")}\n# tuned for this project\n`;
+    writeFileSync(overrides, tuned);
+    // Something else is pending, so the run reaches Apply and rewrites the lock.
+    rmSync(join(repo, ".github", "workflows", "ai-eng-check.yml"));
+
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude("yours (not written by ai-eng, or config you edited)");
+    expect(readFileSync(overrides, "utf8")).toBe(tuned);
+    expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).not.toInclude(".ai-engineering/overrides.toml");
+  });
+
+  test("cancelling Apply writes nothing: not the repo, and not the canon it would repair", async () => {
+    const { shim, lockPath } = await patchedRepo("repo-cancel");
     const bytes = readFileSync(lockPath, "utf8");
-    // Something IS pending, or the keep decision short-circuits and Apply is never asked.
-    const missing = join(repo, ".github", "workflows", "ai-eng-check.yml");
-    rmSync(missing);
+    // A canon that needs repair too: the repair rewrites and sweeps, so it waits for Apply.
+    const page = join(ENG_HOME, "skills", "ai-debug", "SKILL.md");
+    const shippedPage = readFileSync(page, "utf8");
+    const editedPage = `${shippedPage}\nLocal change.\n`;
+    writeFileSync(page, editedPage);
+    const notes = join(ENG_HOME, "skills", "ai-debug", "my-notes.md");
+    writeFileSync(notes, "mine\n");
+    const stdin = pipeStdin();
+
+    try {
+      const run = await captured(async () => {
+        const running = updateMain();
+        await tick(20);
+        stdin.write(CANCEL); // ctrl-c at "Apply?"
+        return running;
+      });
+
+      expect(run.value).toBe(0);
+      expect(run.out).toInclude("Nothing written.");
+      expect(readFileSync(shim, "utf8")).toInclude("# my custom bit");
+      expect(readFileSync(lockPath, "utf8")).toBe(bytes);
+      expect(readFileSync(page, "utf8")).toBe(editedPage);
+      expect(existsSync(notes)).toBe(true);
+    } finally {
+      writeFileSync(page, shippedPage);
+      rmSync(notes, { force: true });
+    }
+  });
+
+  test("an edited seeded config alone is named as yours, and the lock stops claiming it with no Apply question", async () => {
+    const repo = governedRepo("repo-tuned-config-alone");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const overrides = join(repo, ".ai-engineering", "overrides.toml");
+    const tuned = `${readFileSync(overrides, "utf8")}\n# tuned for this project\n`;
+    writeFileSync(overrides, tuned);
+    pipeStdin(); // no key ever arrives: an Apply question would hang the run
+
+    const run = await captured(() => updateMain());
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude("yours (not written by ai-eng, or config you edited)");
+    expect(run.out).not.toInclude("Apply?");
+    expect(readFileSync(overrides, "utf8")).toBe(tuned);
+    expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).not.toInclude(".ai-engineering/overrides.toml");
+  });
+
+  test("a recorded file this binary no longer ships is ai-eng's: removed, edited or not, and dropped from the lock", async () => {
+    const repo = governedRepo("repo-retired");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const retired = ".github/workflows/ai-eng-retired.yml";
+    const config = ".ai-engineering/config.toml";
+    const configHash = sha256(readFileSync(join(repo, config), "utf8"));
+    writeFileSync(join(repo, retired), "name: retired\n# edited\n");
+    // The lock's [assets] table is last, so an appended row joins it. config.toml is
+    // recorded and untouched: ai-eng's, though update never rewrites it, so it stays recorded.
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}"${retired}" = "${sha256("name: retired\n")}"\n"${config}" = "${configHash}"\n`);
+
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude(retired);
+    expect(existsSync(join(repo, retired))).toBe(false);
+    const lock = readFileSync(lockPath, "utf8");
+    expect(lock).not.toInclude(retired);
+    expect(lock).toInclude(`"${config}" = "${configHash}"`);
+  });
+
+  test("an older lock's repo settings carrier is the project's file: only ai-eng's entries come out, its own keys stay", async () => {
+    const repo = governedRepo("repo-retired-settings");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const settings = join(repo, ".claude", "settings.json");
+    const ours = carrierFiles("claude-code", "repo")!.main;
+    const theirs = `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`;
+    const merged = mergeSharedText(theirs, ours);
+    if ("refused" in merged) throw new Error(`fixture merge refused: ${merged.refused}`);
+    mkdirSync(dirname(settings), { recursive: true });
+    writeFileSync(settings, merged.text);
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}".claude/settings.json" = "${sha256(ours)}"\n`);
+
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    expect(readFileSync(settings, "utf8")).toBe(theirs);
+    expect(readFileSync(lockPath, "utf8")).not.toInclude(".claude/settings.json");
+  });
+
+  test.skipIf(process.platform === "win32")("the Apply plan promises what the retired sweep does: a settings file is stripped, a linked path is not removed", async () => {
+    const repo = governedRepo("repo-retired-plan");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const ours = carrierFiles("claude-code", "repo")!.main;
+    const merged = mergeSharedText(`${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`, ours);
+    if ("refused" in merged) throw new Error(`fixture merge refused: ${merged.refused}`);
+    mkdirSync(join(repo, ".claude"), { recursive: true });
+    writeFileSync(join(repo, ".claude", "settings.json"), merged.text);
+    const linked = ".github/workflows/ai-eng-retired.yml";
+    const outside = join(SANDBOX, "retired-plan-outside.yml");
+    writeFileSync(outside, "mine\n");
+    mkdirSync(join(repo, ".github", "workflows"), { recursive: true });
+    symlinkSync(outside, join(repo, linked));
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}".claude/settings.json" = "${sha256(ours)}"\n"${linked}" = "${sha256("name: x\n")}"\n`);
+    const bytes = readFileSync(lockPath, "utf8");
     const stdin = pipeStdin();
 
     const run = await captured(async () => {
       const running = updateMain();
       await tick(20);
-      stdin.write(ENTER); // Enter on the first option: keep mine
-      await tick(60);
-      stdin.write(CANCEL); // ctrl-c at "Apply?"
+      stdin.write(CANCEL); // ctrl-c at "Apply?": only the plan is printed
       return running;
     });
-
     expect(run.value).toBe(0);
-    expect(run.out).toInclude("Nothing written.");
-    expect(readFileSync(shim, "utf8")).toInclude("# my custom bit");
-    expect(existsSync(missing)).toBe(false); // the pending asset was not written either
+    const planLine = (path: string): string => run.out.split("\n").find((line) => line.includes(path)) ?? "";
+    expect(planLine(".claude/settings.json")).toInclude("your keys kept");
+    expect(planLine(".claude/settings.json")).not.toInclude("removed");
+    expect(planLine(linked)).toBe("");
+    expect(run.out).toInclude("Apply? 1 write");
     expect(readFileSync(lockPath, "utf8")).toBe(bytes);
   });
 
-  test("cancelling the conflict question writes nothing at all", async () => {
-    const { shim, lockPath } = await patchedRepo("repo-conflict-cancel");
-    const bytes = readFileSync(lockPath, "utf8");
-    const stdin = pipeStdin();
+  test.skipIf(process.platform === "win32")("a retired settings file with a second name (a hard link) is never planned as a strip, keeps its lock entry, and is stripped once it has one name", async () => {
+    const repo = governedRepo("repo-retired-hardlink");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const settings = join(repo, ".claude", "settings.json");
+    const ours = carrierFiles("claude-code", "repo")!.main;
+    const merged = mergeSharedText(`${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`, ours);
+    if ("refused" in merged) throw new Error(`fixture merge refused: ${merged.refused}`);
+    mkdirSync(dirname(settings), { recursive: true });
+    writeFileSync(settings, merged.text);
+    const secondName = join(SANDBOX, "retired-hardlink-second-name.json");
+    linkSync(settings, secondName);
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}".claude/settings.json" = "${sha256(ours)}"\n`);
 
-    const run = await captured(async () => {
-      const running = updateMain();
-      await tick(20);
-      stdin.write(CANCEL); // ctrl-c at "What wins?"
-      return running;
-    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const stdin = pipeStdin();
+      const run = await captured(async () => {
+        const running = updateMain();
+        await tick(20);
+        stdin.write(CANCEL); // an Apply question would be cancelled here: the run must not ask one
+        return running;
+      });
+      expect(run.value).toBe(0);
+      expect(run.out).not.toInclude("stripped");
+      expect(run.out).not.toInclude("Apply?");
+      expect(readFileSync(settings, "utf8")).toBe(merged.text);
+      expect(readFileSync(lockPath, "utf8")).toInclude(".claude/settings.json");
+    }
 
+    rmSync(secondName);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    expect(readFileSync(settings, "utf8")).toBe(stripSharedText(merged.text)!);
+    expect(readFileSync(settings, "utf8")).toInclude("Bash(ls)");
+    expect(readFileSync(lockPath, "utf8")).not.toInclude(".claude/settings.json");
+  });
+
+  test("a lock key escaping the repo is never planned as a removal, and the file it names stays", async () => {
+    const repo = governedRepo("repo-retired-escape");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const outside = join(SANDBOX, "outside-the-repo.txt");
+    writeFileSync(outside, "not ai-eng's\n");
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}"../outside-the-repo.txt" = "${sha256("not ai-eng's\n")}"\n`);
+
+    const run = await captured(() => updateMain({ yes: true }));
     expect(run.value).toBe(0);
-    expect(run.out).toInclude("Nothing written.");
-    // Not one byte of the patched hook, and not one byte of the ledger.
-    expect(readFileSync(shim, "utf8")).toInclude("# my custom bit");
-    expect(readFileSync(lockPath, "utf8")).toBe(bytes);
+    expect(run.out).not.toInclude("no longer shipped");
+    expect(run.out).not.toInclude("retired");
+    expect(readFileSync(outside, "utf8")).toBe("not ai-eng's\n");
+  });
+
+  // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)("a retired file the filesystem will not delete keeps its lock entry for the retry", async () => {
+    const repo = governedRepo("repo-retired-refused");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const folder = join(repo, ".ai-eng-retired");
+    const retired = ".ai-eng-retired/old.txt";
+    mkdirSync(folder);
+    writeFileSync(join(repo, retired), "old\n");
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}"${retired}" = "${sha256("old\n")}"\n`);
+    chmodSync(folder, 0o555);
+
+    const run = await captured(() => updateMain({ yes: true })).finally(() => chmodSync(folder, 0o755));
+    expect(run.value).toBe(0);
+    expect(existsSync(join(repo, retired))).toBe(true);
+    expect(readFileSync(lockPath, "utf8")).toInclude(`"${retired}" = "${sha256("old\n")}"`);
   });
 
   test("carriers that moved out of the repo are swept, and one we cannot claim is kept and named", async () => {
@@ -705,9 +857,9 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(run.out).toInclude("kept");
   });
 
-  // Windows has no unreadable mode: chmod 0o000 only clears the write bit, so the file stays readable.
-  test.skipIf(process.platform === "win32")("F11: an unreadable machine settings file is refused, and the lock is still written", async () => {
-    if (process.getuid?.() === 0) return; // root reads a mode-000 file, so there is nothing to refuse
+  // Windows has no unreadable mode: chmod 0o000 only clears the write bit, so the file stays
+  // readable — and root reads a mode-000 file, so there is nothing to refuse there either.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)("F11: an unreadable machine settings file is refused, and the lock is still written", async () => {
     const repo = governedRepo("repo-unreadable-machine-settings");
     const machineSettings = join(ENG_HOME, ".claude", "settings.json");
     const settingsBefore = '{\n  "user": "keep"\n}\n';
@@ -759,9 +911,8 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     });
   }
 
-  test("F25: a recorded stale page the filesystem will not delete is kept and named, and the lock is still written", async () => {
-    // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
-    if (process.platform === "win32" || process.getuid?.() === 0) return;
+  // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)("F25: a stale page the filesystem will not delete is named for a retry, and the lock is still written", async () => {
     process.chdir(governedRepo("repo-undeletable-stale-page-first"));
     expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
     const key = "skills/ai-verify/evals/README.md";
@@ -782,7 +933,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
       const run = await captured(() => updateMain({ yes: true })).finally(() => chmodSync(folder, 0o755));
 
       expect(run.value).toBe(0);
-      expect(run.out).toInclude(`removal refused by the filesystem (a read-only, locked or busy folder), kept and retried by the next ai-eng update: ${key}`);
+      expect(run.out).toInclude(`removal refused by the filesystem (a read-only, locked or busy folder), retried by the next ai-eng update: ${key}`);
       expect(run.out).not.toInclude("user file");
       expect(readFileSync(join(ENG_HOME, key), "utf8")).toBe(page);
       expect(readFileSync(lockPath, "utf8")).toInclude(`version = "${VERSION}"`);

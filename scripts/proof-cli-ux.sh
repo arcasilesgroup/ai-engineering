@@ -108,12 +108,15 @@ if printf '%s\n' "$UPD_OUT" | grep -q 'machine carrier · written'; then
 fi
 printf '%s\n' "$UPD_OUT" | grep -E 'Machine side|global canon|Nothing written' | sed 's/^/G7b evidence: /'
 
-# ── G8: user-patched hook survives update with keep-mine default ───────
+# ── G8: a hook ai-eng wrote stays ai-eng's when patched: listed, then rewritten ──
+G8_SHIPPED="$(mktemp)"; cp .git/hooks/pre-commit "$G8_SHIPPED"
 printf '\n# my custom bit: pnpm install --frozen\n' >> .git/hooks/pre-commit
 G8_OUT=$(printf '\n' | $CLI update 2>&1)
-printf '%s\n' "$G8_OUT" | grep 'patched by you' | sed 's/^/G8 evidence: /'
-printf '%s\n' "$G8_OUT" | grep -q 'patched by you' || die "G8: conflict not listed"
-grep -q 'my custom bit' .git/hooks/pre-commit || die "G8: user patch lost"
+printf '%s\n' "$G8_OUT" | grep 'edited since ai-eng wrote it' | sed 's/^/G8 evidence: /'
+printf '%s\n' "$G8_OUT" | grep -q 'edited since ai-eng wrote it' || die "G8: edited hook not listed"
+# Rewritten means the exact shipped bytes back, not only the edit gone.
+cmp -s "$G8_SHIPPED" .git/hooks/pre-commit || die "G8: edited hook not rewritten to the shipped bytes"
+rm -f "$G8_SHIPPED"
 
 
 # ── R15-1: re-init "rewrite files" path runs update without crashing ──

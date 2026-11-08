@@ -1,7 +1,7 @@
 // `ai-eng doctor` — 12 checks + one real test. The difference with theater: it
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
-import { canonDrift, canonExtras, refusedStaleCanonFiles, unprovenCanonText } from "../embed.ts";
+import { canonDrift } from "../embed.ts";
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -14,7 +14,7 @@ import {
   type DenyLedger,
   type ReceiptSummary,
 } from "../receipts.ts";
-import { parseLock, sha256 } from "../install.ts";
+import { parseLock } from "../install.ts";
 import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
 import { refuseLine } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
@@ -91,22 +91,11 @@ function checkCanon(): CheckResult {
   // this line reads 101/101. `foreign` is reported and never counted against
   // health — it is somebody's, and we do not delete it.
   const canonBits = [`${canon.verified}/${canonTotal} files verified`, `${canon.drift} drift`, `${canon.missing} missing`];
-  // A stale file whose last removal was refused is still ours: named with the step that clears it.
-  const refused = canon.stale === 0 ? [] : refusedStaleCanonFiles(home());
-  if (canon.stale > refused.length) canonBits.push(`${canon.stale - refused.length} stale (ai-eng update sweeps what we shipped)`);
-  if (refused.length > 0) canonBits.push(`${refused.length} stale, removal refused: ${refused.join(", ")} — make the folder writable, then ai-eng update`);
-  // Kept user files are reported, never counted against health: update keeps them by
-  // design, so a warning about them could never be cleared.
-  if (canon.kept > 0) canonBits.push(`${canon.kept} kept user file(s) in shipped skill folders (never deleted)`);
+  // Stale is ai-eng's own (a page, skill, agent or script this binary no longer ships):
+  // update sweeps it, and names any path the filesystem refuses.
+  if (canon.stale > 0) canonBits.push(`${canon.stale} stale (ai-eng update sweeps what ai-eng no longer ships)`);
   if (canon.foreign > 0) canonBits.push(`${canon.foreign} not ours (left alone)`);
   return { name: "canon", status: canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? "ok" : "warn", detail: canonBits.join(" · ") };
-}
-
-/** Unproven extras get a row of their own: update never deletes them (no hash proves them
- *  ours), so only the person can clear it, and the row says how. */
-function checkCanonUnproven(): CheckResult | null {
-  const { unproven } = canonExtras(home());
-  return unproven.length === 0 ? null : { name: "canon unproven", status: "warn", detail: unprovenCanonText(unproven) };
 }
 
 function checkAssets(root: string | null): CheckResult | null {
@@ -456,8 +445,6 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   const mirrors = await checkMirrors(root);
   if (mirrors) results.push(mirrors);
   results.push(checkCanon());
-  const unproven = checkCanonUnproven();
-  if (unproven) results.push(unproven);
   const assets = checkAssets(root);
   if (assets) results.push(assets);
   const floor = checkGitFloor(root);

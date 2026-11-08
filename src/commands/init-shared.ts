@@ -52,7 +52,15 @@ export function refuseLine(refused: { path: string; reason: string }): string {
     return `⚠ ${refused.path} — a link, a directory, or a file this installer cannot write is there; the carrier was not written`;
   }
   if (refused.reason === "carrier-edited") {
-    return `⚠ ${refused.path} — changed since ai-eng wrote it; kept`;
+    return `⚠ ${refused.path} — already there and not written by ai-eng; kept`;
+  }
+  if (refused.reason === "linked") {
+    return `⚠ ${refused.path} — a link, under a linked folder, or a file with a second name (a hard link); never written through, left as it is. Move it aside to receive ai-eng's version`;
+  }
+  if (refused.reason === "write-refused") {
+    // Covers a rewrite of a file ai-eng owns AND a first create where nothing exists yet:
+    // the line may claim neither "still ai-eng's" nor "left as it is" for the second.
+    return `⚠ ${refused.path} — the filesystem refused the write (a read-only, locked or busy file or folder); nothing was written there, and the next ai-eng update retries it`;
   }
   if (refused.reason === "removal-refused") {
     return `⚠ ${refused.path} — still exactly ai-eng's, but it could not be removed (changed meanwhile, or a read-only, locked or busy folder); kept. Make the folder writable, then run again`;

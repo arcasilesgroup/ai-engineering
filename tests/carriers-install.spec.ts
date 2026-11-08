@@ -11,7 +11,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { CANON_OWNERSHIP_NAME, canonDrift, changedCanonSkills, embeddedPath, embeddedTemplate, embeddedUnder } from "../src/embed.ts";
+import { CANON_OWNERSHIP_NAME, canonDrift, embeddedPath, embeddedTemplate, embeddedUnder } from "../src/embed.ts";
 import * as fs from "node:fs";
 import {
   existsSync,
@@ -471,7 +471,7 @@ describe("installer: the files a user shares with us", () => {
     expect(install(repo, [entry])).toEqual({
       written: [],
       untouched: [],
-      conflicts: [],
+      yours: [],
       refused: [{ path: "settings.json", reason: "not-json" }],
     });
     expect(readFileSync(settings, "utf8")).toBe(comments);
@@ -483,15 +483,15 @@ describe("installer: the files a user shares with us", () => {
     const target = join(repo, "hooks.json");
     const entry: PlanEntry = { path: "hooks.json", ours: '{"v":2}\n' };
     write(target, entry.ours);
-    expect(install(repo, [entry])).toEqual({ written: [], untouched: ["hooks.json"], conflicts: [], refused: [] });
+    expect(install(repo, [entry])).toEqual({ written: [], untouched: ["hooks.json"], yours: [], refused: [] });
 
     const theirs = '{"hooks":{"PreToolUse":[{"command":"my-wrapper.sh -- ai-eng chain"}]}}\n';
     write(target, theirs);
-    expect(install(repo, [entry], () => null)).toEqual({ written: [], untouched: ["hooks.json"], conflicts: [], refused: [] });
+    expect(install(repo, [entry], () => null)).toEqual({ written: [], untouched: [], yours: ["hooks.json"], refused: [] });
     expect(readFileSync(target, "utf8")).toBe(theirs);
   });
 
-  test("install: the recorded version updates, an edit conflicts, and force is the only way over it", () => {
+  test("install: a file ai-eng wrote takes ours, edited or not; seeded config the project edited stays the project's", () => {
     const repo = join(sandbox, "install-three-way");
     mkdirSync(repo, { recursive: true });
     const target = join(repo, "hooks.json");
@@ -503,18 +503,74 @@ describe("installer: the files a user shares with us", () => {
     expect(install(repo, [entry], previousOurs).written).toEqual(["hooks.json"]);
     expect(readFileSync(target, "utf8")).toBe(entry.ours);
 
-    const edited = '{"v":1}\n';
-    write(target, edited);
-    expect(install(repo, [entry], previousOurs)).toEqual({
-      written: [],
-      untouched: [],
-      conflicts: ["hooks.json"],
-      refused: [],
-    });
-    expect(readFileSync(target, "utf8")).toBe(edited);
-
-    expect(install(repo, [entry], previousOurs, () => true).written).toEqual(["hooks.json"]);
+    write(target, '{"v":1}\n');
+    expect(install(repo, [entry], previousOurs)).toEqual({ written: ["hooks.json"], untouched: [], yours: [], refused: [] });
     expect(readFileSync(target, "utf8")).toBe(entry.ours);
+
+    const config: PlanEntry = { path: ".ai-engineering/overrides.toml", ours: "# v2\n" };
+    write(join(repo, config.path), "# v1\n");
+    expect(install(repo, [config], () => `sha256:${sha256("# v1\n")}`).written).toEqual([config.path]);
+    write(join(repo, config.path), "# v2\nmine = true\n");
+    expect(install(repo, [config], () => `sha256:${sha256("# v2\n")}`)).toEqual({ written: [], untouched: [], yours: [config.path], refused: [] });
+    expect(readFileSync(join(repo, config.path), "utf8")).toBe("# v2\nmine = true\n");
+  });
+
+  test("install never writes a recorded path through a link or a second name: refused, and the other file keeps its bytes", () => {
+    const repo = join(sandbox, "install-linked");
+    const outside = join(sandbox, "install-linked-outside.md");
+    mkdirSync(repo, { recursive: true });
+    const entry: PlanEntry = { path: "AGENTS.md", ours: "OURS\n" };
+    const recorded = (): string => `sha256:${sha256("older ours\n")}`;
+
+    write(outside, "theirs\n");
+    symlinkSync(outside, join(repo, "AGENTS.md"));
+    expect(install(repo, [entry], recorded)).toEqual({ written: [], untouched: [], yours: [], refused: [{ path: "AGENTS.md", reason: "linked" }] });
+    expect(readFileSync(outside, "utf8")).toBe("theirs\n");
+
+    rmSync(join(repo, "AGENTS.md"));
+    linkSync(outside, join(repo, "AGENTS.md"));
+    expect(install(repo, [entry], recorded).refused).toEqual([{ path: "AGENTS.md", reason: "linked" }]);
+    expect(readFileSync(outside, "utf8")).toBe("theirs\n");
+
+    // A dangling link at a fresh path is refused too, never followed to create its target.
+    const dangling = join(sandbox, "install-linked-nowhere.md");
+    symlinkSync(dangling, join(repo, "CLAUDE.md"));
+    expect(install(repo, [{ path: "CLAUDE.md", ours: "OURS\n" }]).refused).toEqual([{ path: "CLAUDE.md", reason: "linked" }]);
+    expect(existsSync(dangling)).toBe(false);
+
+    // A fresh path under a linked folder is refused too: creating it would land outside the repo.
+    const outsideFolder = join(sandbox, "install-linked-folder-outside");
+    mkdirSync(outsideFolder, { recursive: true });
+    symlinkSync(outsideFolder, join(repo, ".github"), "dir");
+    const fresh: PlanEntry = { path: join(".github", "workflows", "ai-eng.yml"), ours: "OURS\n" };
+    expect(install(repo, [fresh]).refused).toEqual([{ path: fresh.path, reason: "linked" }]);
+    expect(existsSync(join(outsideFolder, "workflows"))).toBe(false);
+  });
+
+  test("install never merges into a shared settings file through a link or a second name: refused, and the other file keeps its bytes", () => {
+    const repo = join(sandbox, "install-merge-linked");
+    const outside = join(sandbox, "install-merge-linked-outside.json");
+    mkdirSync(join(repo, ".cursor"), { recursive: true });
+    const entry: PlanEntry = { path: ".cursor/hooks.json", ours: carrierFiles("cursor", "repo")!.main, merge: true };
+    const theirs = '{\n  "version": 1\n}\n';
+
+    write(outside, theirs);
+    symlinkSync(outside, join(repo, entry.path));
+    expect(install(repo, [entry])).toEqual({ written: [], untouched: [], yours: [], refused: [{ path: entry.path, reason: "linked" }] });
+    expect(readFileSync(outside, "utf8")).toBe(theirs);
+
+    rmSync(join(repo, entry.path));
+    linkSync(outside, join(repo, entry.path));
+    expect(install(repo, [entry]).refused).toEqual([{ path: entry.path, reason: "linked" }]);
+    expect(readFileSync(outside, "utf8")).toBe(theirs);
+
+    // A real file under a linked folder: the merge would land outside the repo.
+    rmSync(join(repo, ".cursor"), { recursive: true });
+    const outsideFolder = join(sandbox, "install-merge-linked-folder");
+    write(join(outsideFolder, "hooks.json"), theirs);
+    symlinkSync(outsideFolder, join(repo, ".cursor"), "dir");
+    expect(install(repo, [entry]).refused).toEqual([{ path: entry.path, reason: "linked" }]);
+    expect(readFileSync(join(outsideFolder, "hooks.json"), "utf8")).toBe(theirs);
   });
 
   test("install creates a missing file, parents and all", () => {
@@ -1052,8 +1108,8 @@ describe("carriers on the machine", () => {
     expect(readFileSync(chain, "utf8")).toBe(files.chain!);
     expect(readMachineState().carriers["opencode"]).toBe(sha256(files.main));
 
-    // Ours whole, while it is ours: a reinstall never merges into it. The bytes an earlier
-    // install recorded are refreshed; a file a hand edited is the user's, kept and named.
+    // Ours whole once ai-eng recorded writing it: a reinstall never merges into it, and an
+    // older or hand-edited copy takes this binary's bytes. One ai-eng never recorded is kept.
     // Bytes already ours are not a write at all — the count is what update's report
     // prints, and a no-op reported as a write is a lie the frame cannot afford (cli-ux-14).
     const earlier = "// the carrier an earlier release wrote\n";
@@ -1063,6 +1119,12 @@ describe("carriers on the machine", () => {
     expect(installMachineCarriers(["opencode"]).written).toEqual(["~/.config/opencode/plugins/ai-eng.ts"]);
     expect(readFileSync(main, "utf8")).toBe(files.main);
     const patched = `${files.main}\n// patched by hand\n`;
+    writeFileSync(main, patched);
+    expect(installMachineCarriers(["opencode"]).written).toEqual(["~/.config/opencode/plugins/ai-eng.ts"]);
+    expect(readFileSync(main, "utf8")).toBe(files.main);
+    const unrecorded = JSON.parse(readFileSync(machineStateFile(), "utf8")) as { carriers: Record<string, string> };
+    delete unrecorded.carriers["opencode"];
+    writeFileSync(machineStateFile(), JSON.stringify(unrecorded));
     writeFileSync(main, patched);
     expect(installMachineCarriers(["opencode"]).refused).toEqual([{ path: "~/.config/opencode/plugins/ai-eng.ts", reason: "carrier-edited" }]);
     expect(readFileSync(main, "utf8")).toBe(patched);
@@ -1300,27 +1362,74 @@ describe("carriers on the machine", () => {
     );
   });
 
-  test("F16: an edited module carrier and its bundle are kept, and a directory there does not abort removal", () => {
+  test("F16: an edited module carrier ai-eng recorded goes with its bundle; an unrecorded one is kept; a directory there does not abort removal", () => {
     const base = useHome("machine-remove-edited-module");
     installMachineCarriers(["opencode"]);
     const plugin = join(base, ".config", "opencode", "plugins", "ai-eng.ts");
     const bundle = join(base, ".config", "opencode", "plugins", "ai-eng-chain.ts");
-    const edited = `${readFileSync(plugin, "utf8")}// my own tweak\n`;
-    writeFileSync(plugin, edited);
+    writeFileSync(plugin, `${readFileSync(plugin, "utf8")}// my own tweak\n`);
     const omp = carrierPath(machineCarrier(byId("oh-my-pi"))!);
     mkdirSync(omp, { recursive: true });
 
     const swept = removeMachineCarriers(["opencode", "oh-my-pi"]);
 
-    expect(swept.lines).toEqual([]);
-    expect(swept.refused).toEqual([
-      { path: "~/.config/opencode/plugins/ai-eng.ts", reason: "carrier-edited" },
-      { path: `~/${machineCarrier(byId("oh-my-pi"))!.path}`, reason: "carrier-edited" },
-    ]);
-    expect(readFileSync(plugin, "utf8")).toBe(edited);
-    expect(readFileSync(bundle, "utf8")).toBe(carrierFiles("opencode")!.chain!);
+    expect(swept.lines).toEqual(["~/.config/opencode/plugins/ai-eng.ts removed"]);
+    expect(swept.refused).toEqual([{ path: `~/${machineCarrier(byId("oh-my-pi"))!.path}`, reason: "carrier-edited" }]);
+    expect(existsSync(plugin)).toBe(false);
+    expect(existsSync(bundle)).toBe(false);
     expect(lstatSync(omp).isDirectory()).toBe(true);
+    expect(readMachineState().carriers["opencode"]).toBeUndefined();
+
+    // Never recorded: a plugin of the same name is somebody else's, and stays with its bundle.
+    const theirs = "// somebody else's plugin\n";
+    write(plugin, theirs);
+    write(bundle, carrierFiles("opencode")!.chain!);
+    expect(removeMachineCarriers(["opencode"]).refused).toEqual([{ path: "~/.config/opencode/plugins/ai-eng.ts", reason: "carrier-edited" }]);
+    expect(readFileSync(plugin, "utf8")).toBe(theirs);
+    expect(existsSync(bundle)).toBe(true);
+  });
+
+  test("a recorded module carrier with a second name is refused, never written through: the other name keeps its bytes", () => {
+    const base = useHome("machine-module-hard-link");
+    installMachineCarriers(["opencode"]);
+    const plugins = join(base, ".config", "opencode", "plugins");
+    for (const file of ["ai-eng-chain.ts", "ai-eng.ts"]) {
+      const secondName = join(base, `elsewhere-${file}`);
+      linkSync(join(plugins, file), secondName);
+      writeFileSync(secondName, "// the other name's own bytes\n");
+
+      expect(installMachineCarriers(["opencode"]).refused).toEqual([{ path: "~/.config/opencode/plugins/ai-eng.ts", reason: "carrier-path-unwritable" }]);
+      expect(readFileSync(secondName, "utf8")).toBe("// the other name's own bytes\n");
+      rmSync(secondName);
+    }
+  });
+
+  test("a recorded carrier whose bundle could not be removed stays recorded, and the next removal takes the bundle", () => {
+    const base = useHome("machine-remove-bundle-refused");
+    installMachineCarriers(["opencode"]);
+    const bundle = join(base, ".config", "opencode", "plugins", "ai-eng-chain.ts");
+    writeFileSync(bundle, `${readFileSync(bundle, "utf8")}// edited\n`);
+    const originalUnlinkSync = fs.unlinkSync;
+    const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path) => {
+      if (typeof path === "string" && basename(path) === "ai-eng-chain.ts") throw Object.assign(new Error("denied"), { code: "EACCES" });
+      return originalUnlinkSync(path);
+    });
+    let swept: ReturnType<typeof removeMachineCarriers>;
+    try {
+      swept = removeMachineCarriers(["opencode"]);
+    } finally {
+      unlinkSpy.mockRestore();
+    }
+
+    expect(swept.refused).toEqual([{ path: "~/.config/opencode/plugins/ai-eng-chain.ts", reason: "removal-refused" }]);
+    expect(existsSync(bundle)).toBe(true);
     expect(readMachineState().carriers["opencode"]).toBe(sha256(carrierFiles("opencode")!.main));
+    // By the record, the edited bundle is still ai-eng's: an install rewrites it.
+    expect(installMachineCarriers(["opencode"]).refused).toEqual([]);
+    expect(readFileSync(bundle, "utf8")).toBe(carrierFiles("opencode")!.chain!);
+
+    expect(removeMachineCarriers(["opencode"]).refused).toEqual([]);
+    expect(existsSync(bundle)).toBe(false);
   });
 
   test("machine.json keeps legacy restore state, and reads as nothing when it is garbage", () => {
@@ -1474,15 +1583,20 @@ describe("installCanon and what leaves with it", () => {
     expect(readdirSync(escaped)).toEqual([]);
   });
 
-  test("F30: the agents mirror never overwrites a same-named file of the user's, nor repoints a link of theirs", () => {
+  test("F30: an ai-eng agent in the agents mirror always holds ai-eng's bytes; a link of the user's is never repointed", () => {
     const base = useHome("agents-mirror-user");
     const mirror = join(base, ".claude", "agents");
     const agent = readdirSync(join(import.meta.dir, "..", "agents")).filter((name) => name.endsWith(".md")).sort()[0]!;
-    write(join(mirror, agent), "# my own agent of the same name\n");
+    write(join(mirror, agent), "# an edited copy of ai-eng's agent\n");
+    write(join(mirror, "my-own-agent.md"), "mine\n");
 
-    const lines = installAgentsCanon();
-    expect(readFileSync(join(mirror, agent), "utf8")).toBe("# my own agent of the same name\n");
-    expect(lines).toContain(`⚠ 1 file(s) in ~/.claude/agents are yours (they differ from ai-eng's agent of the same name) — kept: ${agent}. Delete or rename one to receive ai-eng's version`);
+    installAgentsCanon(["retired-agent.md"]);
+    expect(readFileSync(join(mirror, agent), "utf8")).toBe(readFileSync(join(import.meta.dir, "..", "agents", agent), "utf8"));
+    expect(readFileSync(join(mirror, "my-own-agent.md"), "utf8")).toBe("mine\n");
+
+    write(join(mirror, "retired-agent.md"), "an agent ai-eng no longer ships\n");
+    installAgentsCanon(["retired-agent.md"]);
+    expect(existsSync(join(mirror, "retired-agent.md"))).toBe(false);
 
     rmSync(mirror, { recursive: true });
     const dotfiles = join(base, "dotfiles-agents");
@@ -1608,7 +1722,7 @@ describe("installCanon and what leaves with it", () => {
     }
   });
 
-  test("installCanon repairs missing payload byte-for-byte, keeps the changed files it is told to preserve, and leaves a user's own skill folder alone", () => {
+  test("installCanon repairs missing payload byte-for-byte, rewrites an edited page, and leaves a user's own skill folder alone", () => {
     const base = useHome("canon-repair-preserve");
     const skills = allSkillInventory();
     installCanon("2.2.0");
@@ -1617,47 +1731,97 @@ describe("installCanon and what leaves with it", () => {
     if (withResource === undefined || wholeSkill === undefined) throw new Error("the skills inventory needs a skill with a resource and a second skill");
     const resource = [...withResource.files.keys()].find((path) => path !== "SKILL.md")!;
     const editedPath = join(base, "skills", withResource.name, "SKILL.md");
-    const edited = Buffer.concat([readFileSync(editedPath), Buffer.from("\nmy local change\n")]);
-    writeFileSync(editedPath, edited);
+    writeFileSync(editedPath, Buffer.concat([readFileSync(editedPath), Buffer.from("\nmy local change\n")]));
     rmSync(join(base, "skills", withResource.name, resource));
     rmSync(join(base, "skills", wholeSkill.name), { recursive: true });
     write(join(base, "skills", "my-own-skill", "SKILL.md"), "# mine\n");
     write(join(base, "skills", "my-own-skill", "scripts", "run.sh"), "echo mine\n");
     expect(canonDrift(base)).toMatchObject({ drift: 1 });
-    const preserved = changedCanonSkills(base);
-    expect(preserved).toEqual([`skills/${withResource.name}/SKILL.md`]);
 
-    installCanon("2.2.0", preserved);
+    installCanon("2.2.0");
 
-    expect(readFileSync(editedPath)).toEqual(edited);
     expect(readFileSync(join(base, "skills", "my-own-skill", "SKILL.md"), "utf8")).toBe("# mine\n");
     expect(readFileSync(join(base, "skills", "my-own-skill", "scripts", "run.sh"), "utf8")).toBe("echo mine\n");
     expect(installedSkillNames(base)).toEqual([...skills.map((skill) => skill.name), "my-own-skill"].sort());
     for (const [path, ref] of embeddedUnder("skills/")) {
-      if (path === `skills/${withResource.name}/SKILL.md`) continue;
       expect(readFileSync(join(base, path))).toEqual(readFileSync(embeddedPath(ref)));
     }
-    expect(canonDrift(base)).toMatchObject({ drift: 1, missing: 0, stale: 0 });
+    expect(canonDrift(base)).toMatchObject({ drift: 0, missing: 0, stale: 0 });
   });
 
-  test("installCanon sweeps a page it recorded writing and keeps one it cannot prove", () => {
+  test("the 3.0.1 report: pages older releases left and outdated shipped pages converge in one install, and the second finds nothing to do", () => {
+    const base = useHome("canon-301-report");
+    // The 30 paths `ai-eng init --global` 3.0.1 named as "cannot prove it wrote", with no
+    // ownership record, beside shipped pages an older release wrote and a skill of the user's.
+    const leftByOlderReleases = [
+      "skills/ai-verify/evals/README.md",
+      "skills/ai-verify/evals/fixtures/node-web/src/api/orders.ts",
+      "skills/ai-verify/tiers/2-embedded/feature-verify/SKILL.md",
+      "skills/ai-verify/tiers/3-chain/_support/review/CONVENTIONS.md",
+      "skills/ai-visual-recap/references/connection.md",
+    ];
+    installCanon("3.0.1");
+    rmSync(join(base, CANON_OWNERSHIP_NAME));
+    for (const key of leftByOlderReleases) write(join(base, key), "a page an older release shipped\n");
+    const outdated = [...embeddedUnder("skills/").keys()].filter((key) => !key.split("/")[1]!.startsWith(".")).slice(0, 28);
+    for (const key of outdated) writeFileSync(join(base, key), "an outdated version of this page\n");
+    write(join(base, "skills", "my-own-skill", "SKILL.md"), "---\ndescription: mine\n---\n");
+    expect(canonDrift(base)).toMatchObject({ drift: 28, stale: leftByOlderReleases.length, foreign: 1 });
+
+    const lines = installCanon(VERSION);
+
+    expect(lines.filter((line) => line.startsWith("⚠"))).toEqual([]);
+    expect(lines).toContain(`✓ swept ${leftByOlderReleases.length} path(s) this binary no longer ships: ${[...leftByOlderReleases].sort((a, b) => a.localeCompare(b, "en")).join(", ")}`);
+    expect(canonDrift(base)).toEqual({ verified: canonDrift(base).verified, drift: 0, missing: 0, stale: 0, foreign: 1 });
+    for (const key of leftByOlderReleases) expect(existsSync(join(base, key))).toBe(false);
+    expect(existsSync(join(base, "skills", "ai-verify", "evals"))).toBe(false);
+    expect(readFileSync(join(base, "skills", "my-own-skill", "SKILL.md"), "utf8")).toInclude("mine");
+    expect(installCanon(VERSION).filter((line) => line.startsWith("⚠") || line.includes("swept"))).toEqual([]);
+  });
+
+  test("installCanon sweeps every page it does not ship from a shipped folder, and a retired skill with its links and command", () => {
     const base = useHome("canon-sweep");
     const renamed = "skills/ai-brainstorm/a-page-that-was-renamed.md";
     const notes = "skills/ai-brainstorm/my-notes.md";
     write(join(base, renamed), "old\n");
     write(join(base, notes), "mine\n");
-    writeFileSync(join(base, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { [renamed]: sha256("old\n") } }));
+    installCanon("2.2.0");
+    expect(existsSync(join(base, renamed))).toBe(false);
+    expect(existsSync(join(base, notes))).toBe(false);
+    expect(existsSync(join(base, "skills", "ai-brainstorm", "SKILL.md"))).toBe(true);
+
+    // A skill an earlier ai-eng shipped: linked into every mirror, with a command, and then
+    // recorded the way that release's record named it.
+    write(join(base, "skills", "ai-retired", "SKILL.md"), "---\ndescription: retired\n---\n");
+    installCanon("2.2.0");
+    const command = join(base, ".config", "opencode", "commands", "ai-retired.md");
+    expect(existsSync(command)).toBe(true);
+    for (const target of mirrorTargets()) expect(lstatSync(join(target.dir, "ai-retired")).isSymbolicLink()).toBe(true);
+    const record = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
+    writeFileSync(join(base, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { ...record.files, "skills/ai-retired/SKILL.md": "abc" } }));
+    writeFileSync(command, "edited by hand\n");
 
     const lines = installCanon("2.2.0");
-    expect(lines).toContain(`✓ swept 1 file(s) this binary no longer ships: ${renamed}`);
-    expect(lines).toContain(`✓ kept 1 user file(s) — not shipped by this binary and not provably written by ai-eng, so never deleted: ${notes}`);
-    expect(existsSync(join(base, renamed))).toBe(false);
-    expect(readFileSync(join(base, notes), "utf8")).toBe("mine\n");
-    expect(existsSync(join(base, "skills", "ai-brainstorm", "SKILL.md"))).toBe(true);
-    // The new record is this payload: the kept page is not in it, so it stays the user's.
-    const record = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
-    expect(record.files[notes]).toBeUndefined();
-    expect(record.files["skills/ai-brainstorm/SKILL.md"]).toBe(sha256(readFileSync(join(base, "skills", "ai-brainstorm", "SKILL.md"), "utf8")));
+    expect(lines).toContain("✓ swept 1 path(s) this binary no longer ships: skills/ai-retired");
+    expect(existsSync(join(base, "skills", "ai-retired"))).toBe(false);
+    expect(existsSync(command)).toBe(false);
+    for (const target of mirrorTargets()) expect(existsSync(join(target.dir, "ai-retired"))).toBe(false);
+    for (const target of mirrorTargets()) expect(lstatSync(join(target.dir, "ai-brainstorm")).isSymbolicLink()).toBe(true);
+    const after = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
+    expect(after.files["skills/ai-retired/SKILL.md"]).toBeUndefined();
+    expect(after.files["skills/ai-brainstorm/SKILL.md"]).toBe(sha256(readFileSync(join(base, "skills", "ai-brainstorm", "SKILL.md"), "utf8")));
+  });
+
+  test("a home reached through a linked folder (macOS /var → /private/var) is swept and pruned all the same", () => {
+    const real = useHome("canon-linked-home");
+    const linked = join(sandbox, "canon-linked-home-link");
+    fs.symlinkSync(real, linked);
+    process.env["AI_ENG_HOME"] = linked;
+    installCanon("2.2.0");
+    write(join(real, "skills", "ai-brainstorm", "an-old-folder", "page.md"), "old\n");
+
+    expect(installCanon("2.2.0")).toContain("✓ swept 1 path(s) this binary no longer ships: skills/ai-brainstorm/an-old-folder/page.md");
+    expect(existsSync(join(real, "skills", "ai-brainstorm", "an-old-folder"))).toBe(false);
   });
 
   test("removeMachineArtifacts removes only what points into the canon, and prunes what it emptied", () => {
@@ -1706,7 +1870,7 @@ describe("installCanon and what leaves with it", () => {
     expect(existsSync(join(base, ".claude", "skills"))).toBe(true);
   });
 
-  test("F31: a slash command that is a link or edited is the user's: kept, named, never written through", () => {
+  test("F31: an ai-eng skill's slash command is rewritten even when edited; a link of the user's is kept, named, never written through", () => {
     const base = useHome("canon-commands-user");
     installCanon("2.2.0");
     const commands = join(base, ".config", "opencode", "commands");
@@ -1723,10 +1887,11 @@ describe("installCanon and what leaves with it", () => {
 
     const lines = installCanon("2.2.0");
 
-    expect(lines).toContain("⚠ 2 slash command(s) in ~/.config/opencode/commands are yours (a link, or edited since ai-eng wrote them) — kept: ai-debug.md, ai-verify.md. Delete one to receive ai-eng's version");
+    expect(lines).toContain("⚠ 1 slash command(s) in ~/.config/opencode/commands are yours (a link, or your own command under a skill's name) — kept: ai-debug.md. Move one aside to receive ai-eng's command");
     expect(readlinkSync(join(commands, "ai-debug.md"))).toBe(dotfile);
     expect(readFileSync(dotfile, "utf8")).toBe("my own ai-debug command\n");
-    expect(readFileSync(join(commands, "ai-verify.md"), "utf8")).toBe(edited);
+    expect(readFileSync(join(commands, "ai-verify.md"), "utf8")).not.toBe(edited);
+    expect(readFileSync(join(commands, "ai-verify.md"), "utf8")).toInclude("Load the `ai-verify` skill");
     expect(readFileSync(join(commands, "ai-explore.md"), "utf8")).not.toBe(olderBody);
     expect(readFileSync(join(commands, "ai-explore.md"), "utf8")).toInclude("Load the `ai-explore` skill");
   });
@@ -1780,18 +1945,80 @@ describe("installCanon and what leaves with it", () => {
     expect(existsSync(join(target.dir, "ai-debug"))).toBe(false);
   });
 
-  test("F14: removeMachineArtifacts keeps an edited slash command and removes the untouched ones", () => {
-    const base = useHome("canon-remove-edited-command");
+  test("a command of a skill of yours that left the canon stays when edited, and so does one you wrote in ai-eng's shape", () => {
+    const base = useHome("canon-commands-yours-gone");
+    write(join(base, "skills", "my-own-skill", "SKILL.md"), "---\ndescription: mine\n---\n");
     installCanon("2.2.0");
     const commands = join(base, ".config", "opencode", "commands");
-    const edited = join(commands, "ai-debug.md");
-    const editedBytes = `${readFileSync(edited, "utf8")}\nMy own notes for this command.\n`;
-    writeFileSync(edited, editedBytes);
+    const mine = join(commands, "my-own-skill.md");
+    const edited = `${readFileSync(mine, "utf8")}\nMy notes.\n`;
+    writeFileSync(mine, edited);
+    const copied = join(commands, "not-a-skill.md");
+    write(copied, "---\ndescription: x\n---\n\nLoad the `not-a-skill` skill via the skill tool, then execute it for this request:\n\n$ARGUMENTS\n");
+    rmSync(join(base, "skills", "my-own-skill"), { recursive: true });
+
+    installCanon("2.2.0");
+
+    expect(readFileSync(mine, "utf8")).toBe(edited);
+    expect(existsSync(copied)).toBe(true);
+  });
+
+  test("a retired skill's command the filesystem would not remove stays recorded and goes on the next run", () => {
+    // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+    if (process.platform === "win32" || process.getuid?.() === 0) return;
+    const base = useHome("canon-retired-command-retry");
+    write(join(base, "skills", "ai-retired", "SKILL.md"), "---\ndescription: retired\n---\n");
+    installCanon("2.2.0");
+    const record = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
+    writeFileSync(join(base, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { ...record.files, "skills/ai-retired/SKILL.md": "abc" } }));
+    const commands = join(base, ".config", "opencode", "commands");
+    fs.chmodSync(commands, 0o555);
+    try {
+      installCanon("2.2.0");
+    } finally {
+      fs.chmodSync(commands, 0o755);
+    }
+    expect(existsSync(join(base, "skills", "ai-retired"))).toBe(false);
+    expect(existsSync(join(commands, "ai-retired.md"))).toBe(true);
+    const kept = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
+    expect(kept.files["skills/ai-retired/SKILL.md"]).toBe("abc");
+    // The canon home itself is clean, but the leftover is a repair: update must run installCanon.
+    expect(canonDrift(base).stale).toBe(1);
+
+    installCanon("2.2.0");
+    expect(existsSync(join(commands, "ai-retired.md"))).toBe(false);
+    const after = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
+    expect(after.files["skills/ai-retired/SKILL.md"]).toBeUndefined();
+    expect(canonDrift(base).stale).toBe(0);
+  });
+
+  test("removeMachineArtifacts removes the command of a retired skill whose folder is already gone", () => {
+    const base = useHome("canon-remove-retired-command");
+    installCanon("2.2.0");
+    const record = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
+    writeFileSync(join(base, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { ...record.files, "skills/ai-retired/SKILL.md": "abc" } }));
+    const command = join(base, ".config", "opencode", "commands", "ai-retired.md");
+    write(command, "a command ai-eng wrote, edited since\n");
 
     removeMachineArtifacts();
 
-    expect(readdirSync(commands)).toEqual(["ai-debug.md"]);
-    expect(readFileSync(edited, "utf8")).toBe(editedBytes);
+    expect(existsSync(command)).toBe(false);
+  });
+
+  test("F14: removeMachineArtifacts removes an ai-eng skill's command even when edited, and keeps an edited one of a skill of yours", () => {
+    const base = useHome("canon-remove-edited-command");
+    write(join(base, "skills", "my-own-skill", "SKILL.md"), "---\ndescription: mine\n---\n");
+    installCanon("2.2.0");
+    const commands = join(base, ".config", "opencode", "commands");
+    writeFileSync(join(commands, "ai-debug.md"), `${readFileSync(join(commands, "ai-debug.md"), "utf8")}\nMy own notes.\n`);
+    const mine = join(commands, "my-own-skill.md");
+    const mineBytes = `${readFileSync(mine, "utf8")}\nMy own notes for this command.\n`;
+    writeFileSync(mine, mineBytes);
+
+    removeMachineArtifacts();
+
+    expect(readdirSync(commands)).toEqual(["my-own-skill.md"]);
+    expect(readFileSync(mine, "utf8")).toBe(mineBytes);
   });
 
   test("removeMachineArtifacts preserves a mirror link replaced after validation", () => {
