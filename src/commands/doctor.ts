@@ -14,7 +14,7 @@ import {
   type DenyLedger,
   type ReceiptSummary,
 } from "../receipts.ts";
-import { parseLock, sha256 } from "../install.ts";
+import { parseLock } from "../install.ts";
 import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
 import { refuseLine } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
