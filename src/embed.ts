@@ -291,17 +291,21 @@ export function removeMachineEntry(homeDir: string, key: string): boolean {
  *  then the folders it leaves empty, up to (not including) the home's top-level folder.
  *  Returns the keys the filesystem would not let go. */
 export function removeMachinePath(homeDir: string, key: string): string[] {
-  const absolute = join(homeDir, key);
+  // The home's real spelling: the folder prune checks each parent against its realpath, and
+  // a home under a linked folder (macOS /var → /private/var) would fail that check.
+  let canonicalHome: string;
   let isFolder = false;
   try {
-    const entry = lstatSync(absolute);
+    canonicalHome = realpathSync(homeDir);
+    const entry = lstatSync(join(canonicalHome, key));
     isFolder = entry.isDirectory() && !entry.isSymbolicLink();
   } catch {
     return [];
   }
+  const absolute = join(canonicalHome, key);
   const refused = (isFolder ? walkEntries(absolute, key) : [key]).filter((entry) => !removeMachineEntry(homeDir, entry));
   if (isFolder) pruneEmptyFoldersUnder(homeDir, absolute);
-  const top = join(homeDir, key.split("/")[0]!);
+  const top = join(canonicalHome, key.split("/")[0]!);
   let directory = isFolder ? absolute : dirname(absolute);
   while (directory !== top && pathIsWithin(top, directory)) {
     if (!pruneEmptyDirectoryWithin(homeDir, directory)) break;

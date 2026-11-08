@@ -269,7 +269,7 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
       input: "\r",
     });
     expect(second.status).toBe(0);
-    expect(second.stdout + second.stderr).not.toInclude("patched by you");
+    expect(second.stdout + second.stderr).not.toInclude("edited since ai-eng wrote it");
     expect(readFileSync(join(repo, ".git", "hooks", "pre-commit"), "utf8")).toBe(husky);
     // A second update is a no-op on the merged machine settings.
     expect(readFileSync(machineSettings, "utf8")).toBe(machineSettingsMerged);

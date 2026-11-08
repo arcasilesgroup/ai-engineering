@@ -8,7 +8,7 @@
 // twice.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, unlinkSync, readdirSync, rmSync, lstatSync, rmdirSync } from "node:fs";
+import { existsSync, unlinkSync, readdirSync, rmSync, lstatSync, rmdirSync, realpathSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { SURFACES, machineStateUnavailable, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
@@ -267,18 +267,26 @@ function pruneEmptyDirectory(directory: string): boolean {
  *  (whole), its agents and its scripts — edited or not: they are ai-eng's. A skill of your
  *  own, in a folder of its own name, and any agent or script ai-eng never shipped stay. */
 function removeMachinePayload(machineDir: string, refused: string[]): number {
+  // The real spelling: the prune binds each folder to its realpath, and a home under a
+  // linked folder (macOS /var → /private/var) would otherwise never be pruned.
+  let canonicalMachineDir: string;
+  try {
+    canonicalMachineDir = realpathSync(machineDir);
+  } catch {
+    return 0;
+  }
   let removed = 0;
   for (const key of recordedMachinePaths(machineDir)) {
     try {
-      lstatSync(join(machineDir, key));
+      lstatSync(join(canonicalMachineDir, key));
     } catch {
       continue; // absent: nothing to remove
     }
     const left = removeMachinePath(machineDir, key);
     if (left.length === 0) removed += 1;
-    else refused.push(...left.map((path) => join(machineDir, path)));
+    else refused.push(...left.map((path) => join(canonicalMachineDir, path)));
   }
-  for (const folder of ["skills", "agents", "scripts"]) pruneEmptyDirectoryWithin(machineDir, join(machineDir, folder));
+  for (const folder of ["skills", "agents", "scripts"]) pruneEmptyDirectoryWithin(machineDir, join(canonicalMachineDir, folder));
   return removed;
 }
 

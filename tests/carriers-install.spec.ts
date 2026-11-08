@@ -1735,6 +1735,18 @@ describe("installCanon and what leaves with it", () => {
     expect(after.files["skills/ai-brainstorm/SKILL.md"]).toBe(sha256(readFileSync(join(base, "skills", "ai-brainstorm", "SKILL.md"), "utf8")));
   });
 
+  test("a home reached through a linked folder (macOS /var → /private/var) is swept and pruned all the same", () => {
+    const real = useHome("canon-linked-home");
+    const linked = join(sandbox, "canon-linked-home-link");
+    fs.symlinkSync(real, linked);
+    process.env["AI_ENG_HOME"] = linked;
+    installCanon("2.2.0");
+    write(join(real, "skills", "ai-brainstorm", "an-old-folder", "page.md"), "old\n");
+
+    expect(installCanon("2.2.0")).toContain("✓ swept 1 path(s) this binary no longer ships: skills/ai-brainstorm/an-old-folder/page.md");
+    expect(existsSync(join(real, "skills", "ai-brainstorm", "an-old-folder"))).toBe(false);
+  });
+
   test("removeMachineArtifacts removes only what points into the canon, and prunes what it emptied", () => {
     const base = useHome("canon-remove");
     // Nothing installed: every mirror is absent, and the command still answers zero.
