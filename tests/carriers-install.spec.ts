@@ -537,6 +537,40 @@ describe("installer: the files a user shares with us", () => {
     symlinkSync(dangling, join(repo, "CLAUDE.md"));
     expect(install(repo, [{ path: "CLAUDE.md", ours: "OURS\n" }]).refused).toEqual([{ path: "CLAUDE.md", reason: "linked" }]);
     expect(existsSync(dangling)).toBe(false);
+
+    // A fresh path under a linked folder is refused too: creating it would land outside the repo.
+    const outsideFolder = join(sandbox, "install-linked-folder-outside");
+    mkdirSync(outsideFolder, { recursive: true });
+    symlinkSync(outsideFolder, join(repo, ".github"), "dir");
+    const fresh: PlanEntry = { path: join(".github", "workflows", "ai-eng.yml"), ours: "OURS\n" };
+    expect(install(repo, [fresh]).refused).toEqual([{ path: fresh.path, reason: "linked" }]);
+    expect(existsSync(join(outsideFolder, "workflows"))).toBe(false);
+  });
+
+  test("install never merges into a shared settings file through a link or a second name: refused, and the other file keeps its bytes", () => {
+    const repo = join(sandbox, "install-merge-linked");
+    const outside = join(sandbox, "install-merge-linked-outside.json");
+    mkdirSync(join(repo, ".cursor"), { recursive: true });
+    const entry: PlanEntry = { path: ".cursor/hooks.json", ours: carrierFiles("cursor", "repo")!.main, merge: true };
+    const theirs = '{\n  "version": 1\n}\n';
+
+    write(outside, theirs);
+    symlinkSync(outside, join(repo, entry.path));
+    expect(install(repo, [entry])).toEqual({ written: [], untouched: [], yours: [], refused: [{ path: entry.path, reason: "linked" }] });
+    expect(readFileSync(outside, "utf8")).toBe(theirs);
+
+    rmSync(join(repo, entry.path));
+    linkSync(outside, join(repo, entry.path));
+    expect(install(repo, [entry]).refused).toEqual([{ path: entry.path, reason: "linked" }]);
+    expect(readFileSync(outside, "utf8")).toBe(theirs);
+
+    // A real file under a linked folder: the merge would land outside the repo.
+    rmSync(join(repo, ".cursor"), { recursive: true });
+    const outsideFolder = join(sandbox, "install-merge-linked-folder");
+    write(join(outsideFolder, "hooks.json"), theirs);
+    symlinkSync(outsideFolder, join(repo, ".cursor"), "dir");
+    expect(install(repo, [entry]).refused).toEqual([{ path: entry.path, reason: "linked" }]);
+    expect(readFileSync(join(outsideFolder, "hooks.json"), "utf8")).toBe(theirs);
   });
 
   test("install creates a missing file, parents and all", () => {
@@ -1355,6 +1389,49 @@ describe("carriers on the machine", () => {
     expect(existsSync(bundle)).toBe(true);
   });
 
+  test("a recorded module carrier with a second name is refused, never written through: the other name keeps its bytes", () => {
+    const base = useHome("machine-module-hard-link");
+    installMachineCarriers(["opencode"]);
+    const plugins = join(base, ".config", "opencode", "plugins");
+    for (const file of ["ai-eng-chain.ts", "ai-eng.ts"]) {
+      const secondName = join(base, `elsewhere-${file}`);
+      linkSync(join(plugins, file), secondName);
+      writeFileSync(secondName, "// the other name's own bytes\n");
+
+      expect(installMachineCarriers(["opencode"]).refused).toEqual([{ path: "~/.config/opencode/plugins/ai-eng.ts", reason: "carrier-path-unwritable" }]);
+      expect(readFileSync(secondName, "utf8")).toBe("// the other name's own bytes\n");
+      rmSync(secondName);
+    }
+  });
+
+  test("a recorded carrier whose bundle could not be removed stays recorded, and the next removal takes the bundle", () => {
+    const base = useHome("machine-remove-bundle-refused");
+    installMachineCarriers(["opencode"]);
+    const bundle = join(base, ".config", "opencode", "plugins", "ai-eng-chain.ts");
+    writeFileSync(bundle, `${readFileSync(bundle, "utf8")}// edited\n`);
+    const originalUnlinkSync = fs.unlinkSync;
+    const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path) => {
+      if (typeof path === "string" && basename(path) === "ai-eng-chain.ts") throw Object.assign(new Error("denied"), { code: "EACCES" });
+      return originalUnlinkSync(path);
+    });
+    let swept: ReturnType<typeof removeMachineCarriers>;
+    try {
+      swept = removeMachineCarriers(["opencode"]);
+    } finally {
+      unlinkSpy.mockRestore();
+    }
+
+    expect(swept.refused).toEqual([{ path: "~/.config/opencode/plugins/ai-eng-chain.ts", reason: "removal-refused" }]);
+    expect(existsSync(bundle)).toBe(true);
+    expect(readMachineState().carriers["opencode"]).toBe(sha256(carrierFiles("opencode")!.main));
+    // By the record, the edited bundle is still ai-eng's: an install rewrites it.
+    expect(installMachineCarriers(["opencode"]).refused).toEqual([]);
+    expect(readFileSync(bundle, "utf8")).toBe(carrierFiles("opencode")!.chain!);
+
+    expect(removeMachineCarriers(["opencode"]).refused).toEqual([]);
+    expect(existsSync(bundle)).toBe(false);
+  });
+
   test("machine.json keeps legacy restore state, and reads as nothing when it is garbage", () => {
     const base = useHome("machine-state");
     writeFileSync(
@@ -1905,11 +1982,27 @@ describe("installCanon and what leaves with it", () => {
     expect(existsSync(join(commands, "ai-retired.md"))).toBe(true);
     const kept = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
     expect(kept.files["skills/ai-retired/SKILL.md"]).toBe("abc");
+    // The canon home itself is clean, but the leftover is a repair: update must run installCanon.
+    expect(canonDrift(base).stale).toBe(1);
 
     installCanon("2.2.0");
     expect(existsSync(join(commands, "ai-retired.md"))).toBe(false);
     const after = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
     expect(after.files["skills/ai-retired/SKILL.md"]).toBeUndefined();
+    expect(canonDrift(base).stale).toBe(0);
+  });
+
+  test("removeMachineArtifacts removes the command of a retired skill whose folder is already gone", () => {
+    const base = useHome("canon-remove-retired-command");
+    installCanon("2.2.0");
+    const record = JSON.parse(readFileSync(join(base, CANON_OWNERSHIP_NAME), "utf8")) as { files: Record<string, string> };
+    writeFileSync(join(base, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { ...record.files, "skills/ai-retired/SKILL.md": "abc" } }));
+    const command = join(base, ".config", "opencode", "commands", "ai-retired.md");
+    write(command, "a command ai-eng wrote, edited since\n");
+
+    removeMachineArtifacts();
+
+    expect(existsSync(command)).toBe(false);
   });
 
   test("F14: removeMachineArtifacts removes an ai-eng skill's command even when edited, and keeps an edited one of a skill of yours", () => {

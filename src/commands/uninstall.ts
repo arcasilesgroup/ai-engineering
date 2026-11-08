@@ -2,18 +2,18 @@
 // ai-eng's (hooks, settings entries, adapters, CI workflow, config, lock) and
 // prunes the dirs that end up empty — nothing that depends on ai-eng is left
 // behind. "Everything" ALSO removes the machine side (~/.ai-engineering: the
-// global skill canon and mirrors). What ai-eng wrote goes, edited or not (git keeps a
-// tracked edit); what it never wrote stays. Seeded config the project edited is the
+// global skill canon and mirrors). What ai-eng wrote goes, edited or not (git keeps
+// only a committed edit); what it never wrote stays. Seeded config the project edited is the
 // project's and stays, contract files survive "This project", and "Everything" asks
 // twice.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, unlinkSync, readdirSync, rmSync, lstatSync, rmdirSync, realpathSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
-import { SURFACES, machineStateUnavailable, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
+import { MOVED_REPO_CARRIERS, SURFACES, machineStateUnavailable, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
 import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
-import { parseLock, sha256, stripSharedText, SEEDED_CONFIG } from "../install.ts";
+import { parseLock, sha256, stripSharedText, SEEDED_CONFIG, type PlanEntry } from "../install.ts";
 import { hashFile } from "../install.ts";
 import {
   embeddedTemplate, isFilesystemRefusal, isRemovableCanonOwnershipRecord, recordedMachinePaths, removeMachinePath, isVersionCacheRecord, pruneEmptyDirectoryWithin,
@@ -28,32 +28,10 @@ import { scriptedInput } from "../ui.ts";
 
 /** Why a file ai-eng meant to remove or rewrite is still there: it changed under the run,
  *  or the filesystem refused (a read-only, locked or busy folder). Either way it stays. */
-const PRESERVED = "file changed during uninstall, or the filesystem refused the change — preserved";
-
-/** Our hook entries out of a surface settings file; the user's hooks stay. The
- *  marker logic lives in install.ts beside its inverse, so what init merges in and
- *  what uninstall takes out can never drift apart. Unparseable → left alone with a
- *  warn: never rewrite what you cannot read. */
-function stripAiEngHooks(root: string, absolute: string, rel: string, snapshot: ProjectFileSnapshot, removed: ui.Row[]): void {
-  const stripped = stripSharedText(snapshot.content.toString("utf8"));
-  if (stripped === null) {
-    removed.push({ mark: "warn", text: `${rel} not rewritten — not JSON this installer can rewrite without reformatting it (review by hand)` });
-    return;
-  }
-  if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
-    if (!unlinkProjectPath(root, absolute, snapshot)) {
-      removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
-      return;
-    }
-    removed.push({ mark: "ok", text: `${rel} removed`, dim: "it held only ai-eng entries" });
-    return;
-  }
-  if (!writeProjectFile(root, absolute, snapshot, stripped)) {
-    removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
-    return;
-  }
-  removed.push({ mark: "ok", text: `${rel}: removed the ai-eng hook entries, kept yours` });
-}
+const PRESERVED = "file changed during this run, or the filesystem refused the change — preserved";
+/** A settings file with a second name: never written through, so ai-eng's entries stay
+ *  until it has one name. Its lock entry stays too, or no later run would strip them. */
+const HARD_LINKED = "a file with a second name (a hard link) — never written through; ai-eng's entries stay until it has one name, and the next run strips them";
 
 /** Read the declared surfaces and build the asset map from the lock, falling
  *  back to the binary's own file list when the lock is missing or empty. The
@@ -62,7 +40,7 @@ function readAssetsFromLock(
   root: string,
   declared: string[],
   removed: ui.Row[],
-): { assets: Record<string, string>; hasLock: boolean; lockSnapshot: ProjectFileSnapshot | null } {
+): { assets: Record<string, string>; isLockRecorded: boolean; hasLock: boolean; lockSnapshot: ProjectFileSnapshot | null } {
   // The lock is the ownership register; when it is gone (a half-finished
   // uninstall, a hand-deletion), the binary's own planEntries list is the
   // fallback — same paths, hashes recomputed from the payload it installs.
@@ -76,16 +54,17 @@ function readAssetsFromLock(
   const lockSnapshot = hasLock && lockPath !== null ? readProjectFileSnapshot(root, lockPath) : null;
   if (hasLock && lockSnapshot === null) {
     removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: PRESERVED });
-    return { assets: {}, hasLock: false, lockSnapshot: null };
+    return { assets: {}, isLockRecorded: false, hasLock: false, lockSnapshot: null };
   }
   let assets: Record<string, string> = lockSnapshot === null ? {} : parseLock(lockSnapshot.content.toString("utf8")).assets;
-  if (Object.keys(assets).length === 0) {
+  const isLockRecorded = Object.keys(assets).length !== 0;
+  if (!isLockRecorded) {
     assets = Object.fromEntries(
       planEntries(declared).map((entry) => [entry.path, sha256(entry.ours)]),
     );
     removed.push({ mark: "muted", text: "no lock — swept by the binary's own file list" });
   }
-  return { assets, hasLock, lockSnapshot };
+  return { assets, isLockRecorded, hasLock, lockSnapshot };
 }
 
 /** Sweep every declared asset from the project tree and prune empty dirs. */
@@ -94,10 +73,10 @@ function sweepProjectSide(
   declared: string[],
   removed: ui.Row[],
 ): void {
-  const { assets, hasLock, lockSnapshot } = readAssetsFromLock(root, declared, removed);
+  const { assets, isLockRecorded, hasLock, lockSnapshot } = readAssetsFromLock(root, declared, removed);
   const settingsByPath = collectSettingsByPath();
   for (const rel of Object.keys(assets)) {
-    sweepAsset(root, rel, assets, settingsByPath, removed);
+    sweepAsset(root, rel, assets, isLockRecorded, settingsByPath, removed);
   }
   if (hasLock) {
     const lockPath = safeProjectPath(root, ".ai-engineering/ai-eng.lock");
@@ -165,80 +144,134 @@ async function pickScope(input: unknown): Promise<"project" | "everything" | nul
   return "project";
 }
 
+/** Every repo settings file ai-eng merged into, now or in an earlier release: the user's
+ *  file with our entries in it, so it is stripped by marker and never deleted whole. */
 function collectSettingsByPath(): Map<string, string> {
   const settingsByPath = new Map<string, string>();
   for (const surface of SURFACES) {
     const placement = repoCarrier(surface);
     if (placement?.kind === "settings") settingsByPath.set(placement.path, surface.label);
   }
+  for (const [path, owner] of Object.entries(MOVED_REPO_CARRIERS)) {
+    if (path.endsWith(".json")) settingsByPath.set(path, owner);
+  }
   return settingsByPath;
 }
+
+/** The paths a lock records that this run does not write: retired by a release, or of a
+ *  surface left out. Still ai-eng's, so they go — init and update share this one rule. */
+export function retiredPaths(assets: Record<string, string>, shipped: readonly PlanEntry[]): string[] {
+  return Object.keys(assets).filter((path) => !shipped.some((entry) => entry.path === path));
+}
+
+/** Remove each retired path by the same rules as uninstall. Returns the ones still ai-eng's
+ *  that could not be removed: their lock entry has to stay, or the next run never retries them. */
+export function sweepRetiredAssets(root: string, paths: readonly string[], assets: Record<string, string>, removed: ui.Row[]): string[] {
+  const settingsByPath = collectSettingsByPath();
+  return paths.filter((rel) => {
+    const before = removed.length;
+    sweepAsset(root, rel, assets, true, settingsByPath, removed);
+    return removed.slice(before).some((row) => "dim" in row && (row.dim === PRESERVED || row.dim === HARD_LINKED));
+  });
+}
+
+/** The Apply plan's note for a retired path: what the sweep will do to it, or null when the
+ *  sweep leaves it as it is. Same decision the sweep acts on, so the plan cannot promise a
+ *  removal the sweep will not make (a settings file is stripped, a linked path is kept). */
+export function retiredPlanNote(root: string, rel: string, assets: Record<string, string>): string | null {
+  const step = decideSweep(root, rel, assets, true, collectSettingsByPath());
+  if (step.kind === "leave") return null;
+  return step.kind === "rewrite" ? "ai-eng's entries stripped, your keys kept" : "removed";
+}
+
+/** What the sweep does with one recorded path. Decided before anything is touched, so the
+ *  update plan and the sweep itself read the one answer. `row` is what a done step reports. */
+type SweepStep =
+  | { kind: "leave"; row?: ui.Row }
+  | { kind: "unlink"; absolute: string; snapshot: ProjectFileSnapshot; row: ui.Row }
+  | { kind: "rewrite"; absolute: string; snapshot: ProjectFileSnapshot; text: string; row: ui.Row };
 
 function sweepAsset(
   root: string,
   rel: string,
   assets: Record<string, string>,
+  isLockRecorded: boolean,
   settingsByPath: Map<string, string>,
   removed: ui.Row[],
 ): void {
+  const step = decideSweep(root, rel, assets, isLockRecorded, settingsByPath);
+  if (step.kind === "leave") {
+    if (step.row !== undefined) removed.push(step.row);
+    return;
+  }
+  const isDone = step.kind === "unlink"
+    ? unlinkProjectPath(root, step.absolute, step.snapshot)
+    : writeProjectFile(root, step.absolute, step.snapshot, step.text);
+  removed.push(isDone ? step.row : { mark: "warn", text: `${rel} kept`, dim: PRESERVED });
+}
+
+function decideSweep(
+  root: string,
+  rel: string,
+  assets: Record<string, string>,
+  isLockRecorded: boolean,
+  settingsByPath: Map<string, string>,
+): SweepStep {
   // The lock is untrusted input: a crafted key can point outside the repo —
   // a lock entry escaping to $HOME with a matching hash makes the sweep
   // delete it. A path that escapes root is not ours, no matter what the lock
   // claims: skip it, keep the sweep honest.
   const absolute = resolve(root, rel);
   if (absolute !== root && !absolute.startsWith(root + sep)) {
-    removed.push({ mark: "warn", text: `${rel} kept`, dim: "lock path escapes this repo — not ai-eng's" });
-    return;
+    return { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: "lock path escapes this repo — not ai-eng's" } };
   }
-  if (!existsSync(absolute)) return;
+  if (!existsSync(absolute)) return { kind: "leave" };
   const safeAbsolute = safeProjectPath(root, rel);
   if (safeAbsolute === null) {
-    removed.push({ mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" });
-    return;
+    return { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: "linked path — not ai-eng's" } };
   }
   const snapshot = readProjectFileSnapshot(root, safeAbsolute);
   if (snapshot === null) {
-    removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
-    return;
+    return { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: PRESERVED } };
   }
+  const unlink = (row: ui.Row): SweepStep => ({ kind: "unlink", absolute: safeAbsolute, snapshot, row });
   if (settingsByPath.has(rel)) {
     // Unedited: the whole file is ai-eng's template — it goes. Edited: the
-    // user's keys stay, only our hook entries come out.
-    if (snapshot.hash === assets[rel]) {
-      if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
-        removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
-        return;
-      }
-      removed.push({ mark: "ok", text: `${rel} removed`, dim: "still the template ai-eng installed" });
-    } else {
-      stripAiEngHooks(root, safeAbsolute, rel, snapshot, removed);
+    // user's keys stay, only our hook entries come out. The marker logic lives in
+    // install.ts beside its inverse, so what init merges in and what uninstall takes
+    // out can never drift apart. Unparseable: never rewrite what you cannot read.
+    if (snapshot.hash === assets[rel]) return unlink({ mark: "ok", text: `${rel} removed`, dim: "still the template ai-eng installed" });
+    const stripped = stripSharedText(snapshot.content.toString("utf8"));
+    if (stripped === null) {
+      return { kind: "leave", row: { mark: "warn", text: `${rel} not rewritten — not JSON this installer can rewrite without reformatting it (review by hand)` } };
     }
-    return;
+    if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
+      return unlink({ mark: "ok", text: `${rel} removed`, dim: "it held only ai-eng entries" });
+    }
+    // A second name would receive the rewrite too, so the write would refuse: leave it now,
+    // or the plan promises a strip the sweep never makes and the lock retries it forever.
+    if (snapshot.nlink !== 1) {
+      return { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: HARD_LINKED } };
+    }
+    return { kind: "rewrite", absolute: safeAbsolute, snapshot, text: stripped, row: { mark: "ok", text: `${rel}: removed the ai-eng hook entries, kept yours` } };
   }
   // Git shims are judged by their marker (the only test that survives a user re-chmod):
   // a hook the user wrote over ours is no longer ai-eng's shim. Seeded config the project
   // edited is the project's. Every other file the lock names is ai-eng's, edited or not.
   if (rel.startsWith(".git/hooks/")) {
-    if (snapshot.content.includes(Buffer.from("ai-eng git floor shim"))) {
-      if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
-        removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
-        return;
-      }
-      removed.push({ mark: "ok", text: `${rel} removed`, dim: "marker-matched — never by name alone" });
-    } else {
-      removed.push({ mark: "warn", text: `${rel} kept`, dim: "no ai-eng marker: it is yours now" });
-    }
-    return;
+    return snapshot.content.includes(Buffer.from("ai-eng git floor shim"))
+      ? unlink({ mark: "ok", text: `${rel} removed`, dim: "marker-matched — never by name alone" })
+      : { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: "no ai-eng marker: it is yours now" } };
   }
   if (SEEDED_CONFIG.has(rel) && snapshot.hash !== assets[rel]) {
-    removed.push({ mark: "ok", text: `${rel} kept`, dim: "config you edited — yours" });
-    return;
+    return { kind: "leave", row: { mark: "ok", text: `${rel} kept`, dim: "config you edited — yours" } };
   }
-  if (!unlinkProjectPath(root, safeAbsolute, snapshot)) {
-    removed.push({ mark: "warn", text: `${rel} kept`, dim: PRESERVED });
-    return;
+  // Without a lock the path is only one the binary would ship, not proof ai-eng wrote
+  // this file: only bytes identical to ai-eng's own say so.
+  if (!isLockRecorded && snapshot.hash !== assets[rel]) {
+    return { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: "no lock records it and its bytes are not ai-eng's — yours" } };
   }
-  removed.push(snapshot.hash === assets[rel]
+  return unlink(snapshot.hash === assets[rel]
     ? { mark: "ok", text: `${rel} removed` }
     : { mark: "ok", text: `${rel} removed`, dim: "edited since install — ai-eng's file all the same" });
 }
@@ -278,7 +311,10 @@ function removeMachinePayload(machineDir: string, refused: string[]): number {
   let removed = 0;
   for (const key of recordedMachinePaths(machineDir)) {
     try {
-      lstatSync(join(canonicalMachineDir, key));
+      // Only a skill key names a folder; an agent or script was written as a file, so a
+      // real folder at that name is not what ai-eng wrote, and it stays.
+      const entry = lstatSync(join(canonicalMachineDir, key));
+      if (entry.isDirectory() && !key.startsWith("skills/")) continue;
     } catch {
       continue; // absent: nothing to remove
     }
@@ -301,7 +337,11 @@ const INSTALLER_RECORDS: ReadonlyArray<{ name: string; isRemovable: (machineDir:
 
 function removeInstallerRecords(machineDir: string, refused: string[]): number {
   let removed = 0;
+  // A path refused outside the home (a slash command, a mirror entry) has only the ownership
+  // record to prove it ai-eng's, so the record stays while anything was refused.
+  const isAnythingRefused = refused.length > 0;
   for (const record of INSTALLER_RECORDS) {
+    if (isAnythingRefused && record.name === CANON_OWNERSHIP_NAME) continue;
     const absolute = safeProjectPath(machineDir, record.name);
     const snapshot = absolute === null ? null : readProjectFileSnapshot(machineDir, absolute);
     if (absolute === null || snapshot === null || !record.isRemovable(machineDir, snapshot.content.toString("utf8"))) continue;

@@ -12,7 +12,7 @@
 
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, delimiter, join, dirname, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -20,7 +20,7 @@ import { PassThrough } from "node:stream";
 import { syncPlan, updateMain } from "../src/commands/update.ts";
 import { planEntries } from "../src/commands/init-shared.ts";
 import { carrierDefinition, carrierFiles } from "../src/surfaces/adapters.ts";
-import { mergeSharedText, sha256 } from "../src/install.ts";
+import { mergeSharedText, sha256, stripSharedText } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import type { PlanEntry } from "../src/install.ts";
 import { recordGitCommands } from "./fixtures/git-recorder.ts";
@@ -609,9 +609,8 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(readFileSync(lockPath, "utf8")).toInclude('".git/hooks/pre-commit"');
   });
 
-  test("a recorded file the filesystem will not let update write is named, still ai-eng's, and keeps its lock entry for the retry", async () => {
-    // Windows has no read-only mode a write respects here, and root ignores the mode.
-    if (process.platform === "win32" || process.getuid?.() === 0) return;
+  // Windows has no read-only mode a write respects here, and root ignores the mode.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)("a recorded file the filesystem will not let update write is named, still ai-eng's, and keeps its lock entry for the retry", async () => {
     const { repo, lockPath } = await patchedRepo("repo-readonly-recorded");
     const workflow = join(repo, ".github", "workflows", "ai-eng-check.yml");
     writeFileSync(workflow, `${readFileSync(workflow, "utf8")}# my extra step\n`);
@@ -644,22 +643,201 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).not.toInclude(".ai-engineering/overrides.toml");
   });
 
-  test("cancelling Apply writes nothing", async () => {
+  test("cancelling Apply writes nothing: not the repo, and not the canon it would repair", async () => {
     const { shim, lockPath } = await patchedRepo("repo-cancel");
+    const bytes = readFileSync(lockPath, "utf8");
+    // A canon that needs repair too: the repair rewrites and sweeps, so it waits for Apply.
+    const page = join(ENG_HOME, "skills", "ai-debug", "SKILL.md");
+    const shippedPage = readFileSync(page, "utf8");
+    const editedPage = `${shippedPage}\nLocal change.\n`;
+    writeFileSync(page, editedPage);
+    const notes = join(ENG_HOME, "skills", "ai-debug", "my-notes.md");
+    writeFileSync(notes, "mine\n");
+    const stdin = pipeStdin();
+
+    try {
+      const run = await captured(async () => {
+        const running = updateMain();
+        await tick(20);
+        stdin.write(CANCEL); // ctrl-c at "Apply?"
+        return running;
+      });
+
+      expect(run.value).toBe(0);
+      expect(run.out).toInclude("Nothing written.");
+      expect(readFileSync(shim, "utf8")).toInclude("# my custom bit");
+      expect(readFileSync(lockPath, "utf8")).toBe(bytes);
+      expect(readFileSync(page, "utf8")).toBe(editedPage);
+      expect(existsSync(notes)).toBe(true);
+    } finally {
+      writeFileSync(page, shippedPage);
+      rmSync(notes, { force: true });
+    }
+  });
+
+  test("an edited seeded config alone is named as yours, and the lock stops claiming it with no Apply question", async () => {
+    const repo = governedRepo("repo-tuned-config-alone");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const overrides = join(repo, ".ai-engineering", "overrides.toml");
+    const tuned = `${readFileSync(overrides, "utf8")}\n# tuned for this project\n`;
+    writeFileSync(overrides, tuned);
+    pipeStdin(); // no key ever arrives: an Apply question would hang the run
+
+    const run = await captured(() => updateMain());
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude("yours (not written by ai-eng, or config you edited)");
+    expect(run.out).not.toInclude("Apply?");
+    expect(readFileSync(overrides, "utf8")).toBe(tuned);
+    expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).not.toInclude(".ai-engineering/overrides.toml");
+  });
+
+  test("a recorded file this binary no longer ships is ai-eng's: removed, edited or not, and dropped from the lock", async () => {
+    const repo = governedRepo("repo-retired");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const retired = ".github/workflows/ai-eng-retired.yml";
+    const config = ".ai-engineering/config.toml";
+    const configHash = sha256(readFileSync(join(repo, config), "utf8"));
+    writeFileSync(join(repo, retired), "name: retired\n# edited\n");
+    // The lock's [assets] table is last, so an appended row joins it. config.toml is
+    // recorded and untouched: ai-eng's, though update never rewrites it, so it stays recorded.
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}"${retired}" = "${sha256("name: retired\n")}"\n"${config}" = "${configHash}"\n`);
+
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    expect(run.out).toInclude(retired);
+    expect(existsSync(join(repo, retired))).toBe(false);
+    const lock = readFileSync(lockPath, "utf8");
+    expect(lock).not.toInclude(retired);
+    expect(lock).toInclude(`"${config}" = "${configHash}"`);
+  });
+
+  test("an older lock's repo settings carrier is the project's file: only ai-eng's entries come out, its own keys stay", async () => {
+    const repo = governedRepo("repo-retired-settings");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const settings = join(repo, ".claude", "settings.json");
+    const ours = carrierFiles("claude-code", "repo")!.main;
+    const theirs = `${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`;
+    const merged = mergeSharedText(theirs, ours);
+    if ("refused" in merged) throw new Error(`fixture merge refused: ${merged.refused}`);
+    mkdirSync(dirname(settings), { recursive: true });
+    writeFileSync(settings, merged.text);
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}".claude/settings.json" = "${sha256(ours)}"\n`);
+
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    expect(readFileSync(settings, "utf8")).toBe(theirs);
+    expect(readFileSync(lockPath, "utf8")).not.toInclude(".claude/settings.json");
+  });
+
+  test.skipIf(process.platform === "win32")("the Apply plan promises what the retired sweep does: a settings file is stripped, a linked path is not removed", async () => {
+    const repo = governedRepo("repo-retired-plan");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const ours = carrierFiles("claude-code", "repo")!.main;
+    const merged = mergeSharedText(`${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`, ours);
+    if ("refused" in merged) throw new Error(`fixture merge refused: ${merged.refused}`);
+    mkdirSync(join(repo, ".claude"), { recursive: true });
+    writeFileSync(join(repo, ".claude", "settings.json"), merged.text);
+    const linked = ".github/workflows/ai-eng-retired.yml";
+    const outside = join(SANDBOX, "retired-plan-outside.yml");
+    writeFileSync(outside, "mine\n");
+    mkdirSync(join(repo, ".github", "workflows"), { recursive: true });
+    symlinkSync(outside, join(repo, linked));
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}".claude/settings.json" = "${sha256(ours)}"\n"${linked}" = "${sha256("name: x\n")}"\n`);
     const bytes = readFileSync(lockPath, "utf8");
     const stdin = pipeStdin();
 
     const run = await captured(async () => {
       const running = updateMain();
       await tick(20);
-      stdin.write(CANCEL); // ctrl-c at "Apply?"
+      stdin.write(CANCEL); // ctrl-c at "Apply?": only the plan is printed
       return running;
     });
-
     expect(run.value).toBe(0);
-    expect(run.out).toInclude("Nothing written.");
-    expect(readFileSync(shim, "utf8")).toInclude("# my custom bit");
+    const planLine = (path: string): string => run.out.split("\n").find((line) => line.includes(path)) ?? "";
+    expect(planLine(".claude/settings.json")).toInclude("your keys kept");
+    expect(planLine(".claude/settings.json")).not.toInclude("removed");
+    expect(planLine(linked)).toBe("");
+    expect(run.out).toInclude("Apply? 1 write");
     expect(readFileSync(lockPath, "utf8")).toBe(bytes);
+  });
+
+  test.skipIf(process.platform === "win32")("a retired settings file with a second name (a hard link) is never planned as a strip, keeps its lock entry, and is stripped once it has one name", async () => {
+    const repo = governedRepo("repo-retired-hardlink");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const settings = join(repo, ".claude", "settings.json");
+    const ours = carrierFiles("claude-code", "repo")!.main;
+    const merged = mergeSharedText(`${JSON.stringify({ permissions: { allow: ["Bash(ls)"] } }, null, 2)}\n`, ours);
+    if ("refused" in merged) throw new Error(`fixture merge refused: ${merged.refused}`);
+    mkdirSync(dirname(settings), { recursive: true });
+    writeFileSync(settings, merged.text);
+    const secondName = join(SANDBOX, "retired-hardlink-second-name.json");
+    linkSync(settings, secondName);
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}".claude/settings.json" = "${sha256(ours)}"\n`);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const stdin = pipeStdin();
+      const run = await captured(async () => {
+        const running = updateMain();
+        await tick(20);
+        stdin.write(CANCEL); // an Apply question would be cancelled here: the run must not ask one
+        return running;
+      });
+      expect(run.value).toBe(0);
+      expect(run.out).not.toInclude("stripped");
+      expect(run.out).not.toInclude("Apply?");
+      expect(readFileSync(settings, "utf8")).toBe(merged.text);
+      expect(readFileSync(lockPath, "utf8")).toInclude(".claude/settings.json");
+    }
+
+    rmSync(secondName);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    expect(readFileSync(settings, "utf8")).toBe(stripSharedText(merged.text)!);
+    expect(readFileSync(settings, "utf8")).toInclude("Bash(ls)");
+    expect(readFileSync(lockPath, "utf8")).not.toInclude(".claude/settings.json");
+  });
+
+  test("a lock key escaping the repo is never planned as a removal, and the file it names stays", async () => {
+    const repo = governedRepo("repo-retired-escape");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const outside = join(SANDBOX, "outside-the-repo.txt");
+    writeFileSync(outside, "not ai-eng's\n");
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}"../outside-the-repo.txt" = "${sha256("not ai-eng's\n")}"\n`);
+
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    expect(run.out).not.toInclude("no longer shipped");
+    expect(run.out).not.toInclude("retired");
+    expect(readFileSync(outside, "utf8")).toBe("not ai-eng's\n");
+  });
+
+  // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)("a retired file the filesystem will not delete keeps its lock entry for the retry", async () => {
+    const repo = governedRepo("repo-retired-refused");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const folder = join(repo, ".ai-eng-retired");
+    const retired = ".ai-eng-retired/old.txt";
+    mkdirSync(folder);
+    writeFileSync(join(repo, retired), "old\n");
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}"${retired}" = "${sha256("old\n")}"\n`);
+    chmodSync(folder, 0o555);
+
+    const run = await captured(() => updateMain({ yes: true })).finally(() => chmodSync(folder, 0o755));
+    expect(run.value).toBe(0);
+    expect(existsSync(join(repo, retired))).toBe(true);
+    expect(readFileSync(lockPath, "utf8")).toInclude(`"${retired}" = "${sha256("old\n")}"`);
   });
 
   test("carriers that moved out of the repo are swept, and one we cannot claim is kept and named", async () => {
@@ -679,9 +857,9 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(run.out).toInclude("kept");
   });
 
-  // Windows has no unreadable mode: chmod 0o000 only clears the write bit, so the file stays readable.
-  test.skipIf(process.platform === "win32")("F11: an unreadable machine settings file is refused, and the lock is still written", async () => {
-    if (process.getuid?.() === 0) return; // root reads a mode-000 file, so there is nothing to refuse
+  // Windows has no unreadable mode: chmod 0o000 only clears the write bit, so the file stays
+  // readable — and root reads a mode-000 file, so there is nothing to refuse there either.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)("F11: an unreadable machine settings file is refused, and the lock is still written", async () => {
     const repo = governedRepo("repo-unreadable-machine-settings");
     const machineSettings = join(ENG_HOME, ".claude", "settings.json");
     const settingsBefore = '{\n  "user": "keep"\n}\n';
@@ -733,9 +911,8 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     });
   }
 
-  test("F25: a stale page the filesystem will not delete is named for a retry, and the lock is still written", async () => {
-    // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
-    if (process.platform === "win32" || process.getuid?.() === 0) return;
+  // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)("F25: a stale page the filesystem will not delete is named for a retry, and the lock is still written", async () => {
     process.chdir(governedRepo("repo-undeletable-stale-page-first"));
     expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
     const key = "skills/ai-verify/evals/README.md";

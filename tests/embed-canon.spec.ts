@@ -188,6 +188,28 @@ describe("the canon sweep — a skill folder ai-eng ships is ai-eng's whole", ()
     expect(readFileSync(join(home, "agents", "my-own-agent.md"), "utf8")).toBe("mine");
   });
 
+  test("a retired folder goes whole, dot entries too: a .DS_Store never leaves it half-removed", () => {
+    const home = sandbox();
+    mkdirSync(join(home, "skills", "ai-retired", "refs"), { recursive: true });
+    writeFileSync(join(home, "skills", "ai-retired", "SKILL.md"), "old skill");
+    writeFileSync(join(home, "skills", "ai-retired", ".DS_Store"), "os");
+    writeFileSync(join(home, "skills", "ai-retired", "refs", ".DS_Store"), "os");
+    writeFileSync(join(home, CANON_OWNERSHIP_NAME), JSON.stringify({ files: { "skills/ai-retired/SKILL.md": sha256("old skill") } }));
+
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: ["skills/ai-retired"], refused: [] });
+    expect(existsSync(join(home, "skills", "ai-retired"))).toBe(false);
+  });
+
+  test("a dot entry inside a shipped folder that stays is left alone", () => {
+    const home = sandbox();
+    const folder = skillFolder();
+    mkdirSync(join(home, "skills", folder), { recursive: true });
+    writeFileSync(join(home, "skills", folder, ".DS_Store"), "os");
+
+    expect(removeStaleCanonFiles(home)).toEqual({ removed: [], refused: [] });
+    expect(readFileSync(join(home, "skills", folder, ".DS_Store"), "utf8")).toBe("os");
+  });
+
   test("the record names what is installed now, and keeps naming a retired path still on disk so the next run retries it", () => {
     const home = sandbox();
     mkdirSync(join(home, "skills", "ai-retired"), { recursive: true });

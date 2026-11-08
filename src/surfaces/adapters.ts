@@ -423,8 +423,9 @@ function copyAgentFile(mirror: string, name: string, ours: Buffer): "written" | 
 /** The pre-2.2.0 repo paths of the carriers that now live on the machine, keyed to the
  *  surface that owned them. The refresh sweeps these so an old install does not keep
  *  ghost carriers — a hook file nobody reads is the exact bug 2.2.0 exists to end. This
- *  map is history, not a second source of truth: nothing current is computed from it. */
-const MOVED_REPO_CARRIERS: Record<string, string> = {
+ *  map is history, not a second source of truth: nothing is installed from it, and the lock
+ *  sweeps read it only so a settings file among them is stripped by marker, never deleted. */
+export const MOVED_REPO_CARRIERS: Readonly<Record<string, string>> = {
   ".claude/settings.json": "claude-code",
   ".opencode/plugins/ai-eng.ts": "opencode",
   ".opencode/plugins/ai-eng-chain.ts": "opencode",
@@ -1344,12 +1345,13 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       // (cli-ux-14): the count has to mean something or the report cannot.
       const chainPath = placement.chain ? carrierPath(placement, placement.chain) : null;
       // Ours to rewrite once ai-eng recorded writing it, edited or not: a carrier is ai-eng's
-      // file. The bundle is ours with its entry: both are written together. A file there
-      // that ai-eng never recorded is somebody else's, kept and named (R28).
+      // file. The bundle is ours with its entry, or by the record alone (a removal that took
+      // the entry and was refused the bundle). A file there that ai-eng never recorded is
+      // somebody else's, kept and named (R28).
       const isRecorded = state.carriers[id] !== undefined;
       const entry = carrierFileOwner(absolute, files.main, () => isRecorded);
       const isEntryOurs = entry === "current" || entry === "ours";
-      const chain = chainPath === null || !files.chain ? "current" : carrierFileOwner(chainPath, files.chain, () => isEntryOurs);
+      const chain = chainPath === null || !files.chain ? "current" : carrierFileOwner(chainPath, files.chain, () => isRecorded || isEntryOurs);
       if (entry === "current" && chain === "current") {
         state.carriers[id] = definition;
         report.untouched.push(`~/${placement.path}`);
@@ -1549,7 +1551,9 @@ function writeCarrierModule(path: string, content: string): boolean {
   try {
     mkdirSync(dirname(path), { recursive: true });
     descriptor = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | constants.O_NONBLOCK, 0o644);
-    if (!fstatSync(descriptor).isFile()) return false;
+    // A second name (a hard link) would receive the rewrite too: that file is not ai-eng's.
+    const opened = fstatSync(descriptor);
+    if (!opened.isFile() || opened.nlink !== 1) return false;
     ftruncateSync(descriptor, 0);
     writeFileSync(descriptor, content);
     return true;
@@ -1580,9 +1584,10 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
     if (placement.kind === "module") {
       const outcome = removeCarrierModule(id, placement, state.carriers[id] !== undefined);
       refused.push(...outcome.kept);
-      if (outcome.isEntryKept) continue;
-      delete state.carriers[id];
       if (outcome.isEntryRemoved) lines.push(`~/${placement.path} removed`);
+      // The record goes only with the last file: a bundle left unrecorded would be kept forever.
+      if (outcome.isEntryKept || outcome.kept.length > 0) continue;
+      delete state.carriers[id];
       continue;
     }
     if (!pathEntryExists(absolute)) {
@@ -1764,7 +1769,8 @@ export function removeMachineArtifacts(refused: string[] = []): number {
   }
   const commandsDir = join(base, ".config", "opencode", "commands");
   const aiEngSkills = aiEngSkillNames(home());
-  for (const name of names(canonDir)) {
+  // A retired skill's folder can be gone while its command was left by a refused removal.
+  for (const name of new Set([...names(canonDir), ...aiEngSkills])) {
     // An ai-eng skill's command is ai-eng's whatever it holds; one for a skill of yours is
     // ai-eng's only while it is exactly the body installCommands renders.
     const command = join(commandsDir, `${name}.md`);

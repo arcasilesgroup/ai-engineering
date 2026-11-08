@@ -436,6 +436,27 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(out).toContain("no lock — swept by the binary's own file list");
   });
 
+  test("with no lock, a file at a shipped path whose bytes are not ai-eng's is never deleted", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    unlinkSync(join(cwd, ".ai-engineering", "ai-eng.lock"));
+    // No lock records it, so a different file at this name may well be the project's own.
+    const workflow = join(cwd, ".github", "workflows", "ai-eng-check.yml");
+    const theirs = "name: our own check\non: push\n";
+    writeFileSync(workflow, theirs);
+
+    const { result, out } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+
+    expect(result).toBe(0);
+    expect(readFileSync(workflow, "utf8")).toBe(theirs);
+    expect(out).toContain("▲ .github/workflows/ai-eng-check.yml kept · no lock records it and its bytes are not ai-eng's — yours");
+    expect(existsSync(join(cwd, ".ai-engineering", "config.toml"))).toBe(false);
+  });
+
   test("a lock key that escapes the repo is refused: the file outside is untouched", async () => {
     const { cwd } = sandboxed();
     gitInit(cwd);
@@ -515,7 +536,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(race.wasTriggered()).toBe(true);
     expect(readFileSync(victim, "utf8")).toBe(payload);
     expect(readFileSync(join(`${parent}-before-race`, "hooks.json"), "utf8")).toBe(payload);
-    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during this run, or the filesystem refused the change — preserved");
   });
 
   test("a parent replaced by a symlink before write remains untouched", async () => {
@@ -550,7 +571,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(race.wasTriggered()).toBe(true);
     expect(readFileSync(victim, "utf8")).toBe("outside settings\n");
     expect(readFileSync(join(`${parent}-before-race`, "hooks.json"), "utf8")).toBe(originalSettings);
-    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during this run, or the filesystem refused the change — preserved");
   });
 
   test("a same-content file replacement before unlink is preserved", async () => {
@@ -585,7 +606,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(race.wasTriggered()).toBe(true);
     expect(readFileSync(file, "utf8")).toBe(payload);
     expect(readFileSync(`${file}-before-race`, "utf8")).toBe(payload);
-    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during this run, or the filesystem refused the change — preserved");
   });
 
   test("changed settings content before write is preserved", async () => {
@@ -617,7 +638,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(race.wasTriggered()).toBe(true);
     expect(lstatSync(settings).ino).toBe(originalIdentity);
     expect(readFileSync(settings, "utf8")).toBe(replacement);
-    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during uninstall, or the filesystem refused the change — preserved");
+    expect(out).toContain("▲ .cursor/hooks.json kept · file changed during this run, or the filesystem refused the change — preserved");
   });
 
   test("project pruning keeps a non-empty carrier directory", async () => {
@@ -832,6 +853,31 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(run.out).toContain(`${machine} kept`);
   });
 
+  // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)("a retired skill's command the filesystem would not remove keeps the ownership record, and the next uninstall takes it", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const commands = join(machine, ".config", "opencode", "commands");
+    const command = join(commands, "ai-retired.md");
+    mkdirSync(commands, { recursive: true });
+    writeFileSync(command, "a command ai-eng wrote for a skill it no longer ships\n");
+    writeFileSync(join(machine, "canon-owned.json"), JSON.stringify({ files: { "skills/ai-retired/SKILL.md": sha256("as shipped\n") } }));
+    chmodSync(commands, 0o555);
+
+    const first = await uninstall(everythingScope("n", "y")).finally(() => chmodSync(commands, 0o755));
+
+    expect(first.out).toContain(`${command} kept`);
+    expect(existsSync(join(machine, "canon-owned.json"))).toBe(true);
+
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    const second = await uninstall(everythingScope("n", "y"));
+
+    expect(second.result).toBe(0);
+    expect(existsSync(command)).toBe(false);
+  });
+
   test("F22: Everything removes ai-eng's skill folders whole, edited or not, and a retired one; a skill of your own and the record's other paths stay", async () => {
     const { cwd, machine } = sandboxed();
     gitInit(cwd);
@@ -853,6 +899,23 @@ describe("uninstall · the machine side (Everything scope)", () => {
     expect(readFileSync(join(machine, "skills", "my-own-skill", "SKILL.md"), "utf8")).toBe("mine\n");
     // Nothing the record vouches for is left, so the record goes with the payload.
     expect(existsSync(join(machine, "canon-owned.json"))).toBe(false);
+    expect(out).toContain(`${machine} kept`);
+  });
+
+  test("Everything never deletes a folder of yours at a name ai-eng recorded as a file", async () => {
+    const { cwd, machine } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    // ai-eng wrote a file at agents/ai-retired.md; a folder there now is not what it wrote.
+    writeFileSync(join(machine, "canon-owned.json"), JSON.stringify({ files: { "agents/ai-retired.md": sha256("as shipped\n") } }));
+    const theirs = join(machine, "agents", "ai-retired.md", "notes.md");
+    mkdirSync(dirname(theirs), { recursive: true });
+    writeFileSync(theirs, "mine\n");
+
+    const { result, out } = await uninstall(everythingScope("n", "y"));
+
+    expect(result).toBe(0);
+    expect(readFileSync(theirs, "utf8")).toBe("mine\n");
     expect(out).toContain(`${machine} kept`);
   });
 

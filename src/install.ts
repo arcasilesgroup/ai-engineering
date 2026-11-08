@@ -1,12 +1,12 @@
 // The installer behind init/uninstall/update: templates → disk, idempotent. One rule
 // decides every file: what ai-eng wrote is ai-eng's and always holds this binary's
-// bytes, edited or not (git keeps any edit). What it never wrote — a file the project
+// bytes, edited or not (an edit is overwritten: commit or copy it first). What it never wrote — a file the project
 // already had — is the project's and is never touched. The one exception is the config
 // ai-eng seeds for the project to own (SEEDED_CONFIG): it is the project's from its
 // first edit.
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { embeddedTemplate, embeddedUnder, isFilesystemRefusal, isPathPresent, readProjectFileSnapshot, safeProjectPath, writeProjectFile } from "./embed.ts";
 export { hashFile } from "./shared-hash.ts";
@@ -251,7 +251,12 @@ export function install(
           report.untouched.push(entry.path);
           continue;
         }
-        writeFileSync(absolute, merged.text);
+        // The user's file, so never written through a link or a second name: that is another file.
+        const mergeRefusal = rewriteInPlace(repoRoot, entry.path, merged.text);
+        if (mergeRefusal !== null) {
+          report.refused.push({ path: entry.path, reason: mergeRefusal });
+          continue;
+        }
         report.written.push(entry.path);
         continue;
       }
@@ -275,7 +280,7 @@ export function install(
     }
     // existsSync said absent, yet a name is there: a dangling link. Windows' exclusive create
     // follows one to create its target, so it is refused here, before any write.
-    if (isPathPresent(absolute)) {
+    if (isPathPresent(absolute) || !isRealFolderChain(repoRoot, dirname(absolute))) {
       report.refused.push({ path: entry.path, reason: LINKED });
       continue;
     }
@@ -297,6 +302,15 @@ export function install(
 export const LINKED = "linked";
 /** The refusal for a path ai-eng owns that the filesystem would not let it write. */
 export const WRITE_REFUSED = "write-refused";
+
+/** True when the folders that already exist on the way to `folder` are real folders inside
+ *  the repo: a linked .github or .ai-engineering would make mkdir and the create land outside
+ *  it. The missing rest is created by mkdir as real folders. */
+function isRealFolderChain(root: string, folder: string): boolean {
+  let existing = folder;
+  while (!isPathPresent(existing) && dirname(existing) !== existing) existing = dirname(existing);
+  return safeProjectPath(root, relative(root, existing)) !== null;
+}
 
 /** Rewrite a file ai-eng owns through its checked parent: never through a link (the file or
  *  a folder above it), and never a file with a second name (a hard link from elsewhere would

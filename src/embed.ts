@@ -109,13 +109,14 @@ function listEntries(directory: string): Dirent[] {
   }
 }
 
-/** Every file and link under a folder, as home-relative keys. Links are entries, never followed. */
-function walkEntries(directory: string, key: string): string[] {
+/** Every file and link under a folder, as home-relative keys. Links are entries, never followed.
+ *  Dot entries are skipped in a shipped folder that stays, and taken with a folder that goes whole. */
+function walkEntries(directory: string, key: string, isWholeFolder = false): string[] {
   const out: string[] = [];
   for (const entry of listEntries(directory)) {
-    if (entry.name.startsWith(".")) continue;
+    if (entry.name.startsWith(".") && !isWholeFolder) continue;
     const childKey = `${key}/${entry.name}`;
-    if (entry.isDirectory() && !entry.isSymbolicLink()) out.push(...walkEntries(join(directory, entry.name), childKey));
+    if (entry.isDirectory() && !entry.isSymbolicLink()) out.push(...walkEntries(join(directory, entry.name), childKey, isWholeFolder));
     else out.push(childKey);
   }
   return out;
@@ -304,7 +305,7 @@ export function removeMachinePath(homeDir: string, key: string): string[] {
     return [];
   }
   const absolute = join(canonicalHome, key);
-  const refused = (isFolder ? walkEntries(absolute, key) : [key]).filter((entry) => !removeMachineEntry(homeDir, entry));
+  const refused = (isFolder ? walkEntries(absolute, key, true) : [key]).filter((entry) => !removeMachineEntry(homeDir, entry));
   if (isFolder) pruneEmptyFoldersUnder(homeDir, absolute);
   const top = join(canonicalHome, key.split("/")[0]!);
   let directory = isFolder ? absolute : dirname(absolute);
@@ -312,6 +313,9 @@ export function removeMachinePath(homeDir: string, key: string): string[] {
     if (!pruneEmptyDirectoryWithin(homeDir, directory)) break;
     directory = dirname(directory);
   }
+  // A folder the walk could not see into (unreadable) is still
+  // there: report it, or the sweep claims success and retries it forever in silence.
+  if (isFolder && refused.length === 0 && isPathPresent(absolute)) return [key];
   return refused;
 }
 
@@ -350,7 +354,8 @@ export function removeStaleCanonFiles(homeDir: string): { removed: string[]; ref
  *  halves. */
 export function canonDrift(homeDir: string): CanonDrift {
   const extras = canonExtras(homeDir);
-  const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale: extras.stale.length + extras.retired.length, foreign: extras.foreign.length };
+  const stale = extras.stale.length + extras.retired.length + retainedOutsideHome(homeDir);
+  const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale, foreign: extras.foreign.length };
   for (const [path, ref] of canonSkills()) {
     const installed = join(homeDir, path);
     const embedded = embeddedPath(ref);
@@ -361,6 +366,13 @@ export function canonDrift(homeDir: string): CanonDrift {
   return out;
 }
 
+/** Retired paths the record keeps naming although the home no longer has them: the record
+ *  keeps such a path only while a copy outside the home is left (an agent in ~/.claude/agents,
+ *  a skill's slash command) after a refused removal, and only installCanon retries it. */
+function retainedOutsideHome(homeDir: string): number {
+  const shipped = new Set([...machinePayload().keys()].map((key) => key.startsWith("skills/") ? `skills/${skillFolderOf(key)}` : key));
+  return recordedMachinePaths(homeDir).filter((path) => !shipped.has(path) && !isPathPresent(join(homeDir, path))).length;
+}
 
 /** Materialize all embedded skills into a target directory. The embedded refs are
  *  absolute paths at runtime — Bun rewrites the import to the asset's real location,

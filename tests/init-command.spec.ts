@@ -42,7 +42,7 @@ import {
   surfaceOptions,
 } from "../src/commands/init-shared.ts";
 import { SURFACES, type Surface } from "../src/surfaces/adapters.ts";
-import { parseLock } from "../src/install.ts";
+import { parseLock, sha256 } from "../src/install.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 import { usePrivateStdin } from "./fixtures/private-stdin.ts";
@@ -334,6 +334,9 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
       expect(line(reason)).toContain("left exactly as it is");
       expect(line(reason)).toContain("runs without guards");
     }
+    // write-refused also covers a first create that never happened: nothing there to call ai-eng's.
+    expect(line("write-refused")).toContain("nothing was written there, and the next ai-eng update retries it");
+    expect(line("write-refused")).not.toContain("still ai-eng's");
   });
 
   test("gitHookEntries lands the three marker-managed shims in .git/hooks", () => {
@@ -652,6 +655,82 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(result).toBe(0);
     expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toBe(userSettings);
     expect(out).toContain("not valid JSON");
+  });
+
+  test("init over a lock it left behind keeps every recorded path ai-eng's: an edit is rewritten, a refused path keeps its entry", async () => {
+    const { cwd } = sandboxed();
+    mkdirSync(join(cwd, ".git"));
+    expect((await capture(() => initMain({ yes: true, surface: ["cursor"] }))).result).toBe(0);
+    const lockPath = join(cwd, ".ai-engineering", "ai-eng.lock");
+    const before = parseLock(readFileSync(lockPath, "utf8"));
+    const workflow = join(cwd, ".github", "workflows", "ai-eng-check.yml");
+    const ours = readFileSync(workflow, "utf8");
+    writeFileSync(workflow, `${ours}# edited\n`);
+    const hook = join(cwd, ".git", "hooks", "pre-push");
+    rmSync(hook);
+    symlinkSync(join(sandbox ?? cwd, "elsewhere-pre-push"), hook);
+    // Half-uninstalled: no config.toml, so init scaffolds again instead of handing off to update.
+    rmSync(join(cwd, ".ai-engineering", "config.toml"));
+
+    expect((await capture(() => initMain({ yes: true, surface: ["cursor"] }))).result).toBe(0);
+    const after = parseLock(readFileSync(lockPath, "utf8"));
+    expect(readFileSync(workflow, "utf8")).toBe(ours);
+    expect(after.assets[".github/workflows/ai-eng-check.yml"]).toBe(before.assets[".github/workflows/ai-eng-check.yml"]);
+    expect(after.assets[".git/hooks/pre-push"]).toBe(before.assets[".git/hooks/pre-push"]);
+  });
+
+  test("init over a lock it left behind sweeps a recorded path it no longer writes: retired, or of a surface left out", async () => {
+    const { cwd } = sandboxed();
+    mkdirSync(join(cwd, ".git"));
+    expect((await capture(() => initMain({ yes: true, surface: ["cursor"] }))).result).toBe(0);
+    const lockPath = join(cwd, ".ai-engineering", "ai-eng.lock");
+    const retired = ".github/workflows/ai-eng-retired.yml";
+    writeFileSync(join(cwd, retired), "name: retired\n# edited\n");
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}"${retired}" = "${sha256("name: retired\n")}"\n`);
+    expect(existsSync(join(cwd, ".cursor", "hooks.json"))).toBe(true);
+    rmSync(join(cwd, ".ai-engineering", "config.toml"));
+
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["claude-code"] }));
+    expect(result).toBe(0);
+    expect(out).toContain(retired);
+    expect(existsSync(join(cwd, retired))).toBe(false);
+    expect(existsSync(join(cwd, ".cursor", "hooks.json"))).toBe(false);
+    const lock = readFileSync(lockPath, "utf8");
+    expect(lock).not.toContain(retired);
+    expect(lock).not.toContain(".cursor/hooks.json");
+  });
+
+  // Windows chmod cannot deny a delete, and root ignores the mode: nothing to refuse there.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)("init over a lock it left behind keeps the entry of a retired file the filesystem will not delete", async () => {
+    const { cwd } = sandboxed();
+    mkdirSync(join(cwd, ".git"));
+    expect((await capture(() => initMain({ yes: true, surface: ["cursor"] }))).result).toBe(0);
+    const lockPath = join(cwd, ".ai-engineering", "ai-eng.lock");
+    const folder = join(cwd, ".ai-eng-retired");
+    const retired = ".ai-eng-retired/old.txt";
+    mkdirSync(folder);
+    writeFileSync(join(cwd, retired), "old\n");
+    writeFileSync(lockPath, `${readFileSync(lockPath, "utf8")}"${retired}" = "${sha256("old\n")}"\n`);
+    rmSync(join(cwd, ".ai-engineering", "config.toml"));
+    chmodSync(folder, 0o555);
+
+    const { result } = await capture(() => initMain({ yes: true, surface: ["cursor"] })).finally(() => chmodSync(folder, 0o755));
+    expect(result).toBe(0);
+    expect(existsSync(join(cwd, retired))).toBe(true);
+    expect(parseLock(readFileSync(lockPath, "utf8")).assets[retired]).toBe(sha256("old\n"));
+  });
+
+  test("a surface file the project already had is reported under Scaffolded, never as a contract file", async () => {
+    const { cwd } = sandboxed();
+    mkdirSync(join(cwd, ".git"));
+    mkdirSync(join(cwd, ".github", "workflows"), { recursive: true });
+    writeFileSync(join(cwd, ".github", "workflows", "ai-eng-check.yml"), "name: mine\n");
+
+    const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
+    expect(result).toBe(0);
+    const yoursRow = out.indexOf(".github/workflows/ai-eng-check.yml — already here");
+    expect(yoursRow).toBeGreaterThan(out.indexOf("Scaffolded"));
+    expect(out.indexOf("Scaffolded")).toBeGreaterThan(out.indexOf("Your contract files"));
   });
 
   test("F11: a dangling machine settings link is refused and init still records its lock", async () => {

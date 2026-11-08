@@ -19,6 +19,7 @@ import { canonicalSurfaceId, home } from "../env.ts";
 import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
+import { retiredPaths, sweepRetiredAssets } from "./uninstall.ts";
 import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
 
@@ -67,12 +68,26 @@ function scaffoldProject(surfaces: string[], contract: PlanEntry[]): string[] {
   // may be written: a kept file was filtered out, a replaced one was written above.
   const contractReport = install(cwd, contract);
   for (const written of contractReport.written) lines.push(`✓ ${written} (contract)`);
-  for (const untouched of contractReport.yours) lines.push(`· ${untouched} — yours, untouched`);
+  for (const untouched of contractReport.yours) lines.push(`· ${untouched} (contract) — yours, untouched`);
+  // A repo that already carries a lock (config.toml gone, so init runs instead of update) keeps
+  // what it records as ai-eng's: an edited recorded file is rewritten, never handed over.
+  const lockPath = join(cwd, ".ai-engineering", "ai-eng.lock");
+  const carried = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : null;
+  const recordedHash = (path: string): string | null => {
+    const hash = carried?.assets[path];
+    return hash ? `sha256:${hash}` : null;
+  };
   const entries = planEntries(surfaces);
-  const report = install(cwd, entries);
+  const report = install(cwd, entries, recordedHash);
   for (const written of report.written) lines.push(`✓ ${written}`);
   for (const path of report.yours) lines.push(`· ${path} — already here and not written by ai-eng: yours, untouched`);
   for (const refused of report.refused) lines.push(refuseLine(refused));
+  // What the carried lock records and this run does not write goes, by update's rule: a re-init
+  // that dropped it from the ledger unswept would leave a file no later run can see.
+  const retiredRows: ui.Row[] = [];
+  const carriedAssets = carried?.assets ?? {};
+  const retiredKept = sweepRetiredAssets(cwd, retiredPaths(carriedAssets, entries), carriedAssets, retiredRows);
+  for (const row of retiredRows) lines.push(`${row.mark === "warn" ? "⚠" : "✓"} ${row.text}${"dim" in row && row.dim ? ` — ${row.dim}` : ""}`);
   // Hook shims must be executable or git silently ignores them.
   for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
     const shimPath = join(cwd, ".git", "hooks", shim);
@@ -95,15 +110,22 @@ function scaffoldProject(surfaces: string[], contract: PlanEntry[]): string[] {
       lines.push(`⚠ core.hooksPath is yours (${hooksPathValue}): git will not read .git/hooks, so the ai-eng floor does not run. Keep it and call \`ai-eng git pre-commit\` from your hook, or unset it.`);
     }
   }
-  // A repo that already carries a contract keeps its pin: re-init is not a way to
-  // un-approve a milestone (same reason as update.ts).
-  const lockPath = join(cwd, ".ai-engineering", "ai-eng.lock");
-  const carried = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : null;
   // The lock is the ownership ledger: it claims only what ai-eng wrote or already matched.
   // A file of the project's left untouched must stay the project's on every later update.
-  const notOurs = new Set([...report.yours, ...report.refused.map((refused) => refused.path)]);
+  // A carried contract keeps its pin: re-init is not a way to un-approve a milestone.
+  const refused = new Set(report.refused.map((entry) => entry.path));
+  const notOurs = new Set([...report.yours, ...refused]);
   const lock = buildLock(entries.filter((entry) => !notOurs.has(entry.path)), VERSION, { spec_sha256: carried?.spec_sha256, base_sha: carried?.base_sha });
-  writeFileSync(join(cwd, ".ai-engineering", "ai-eng.lock"), lockText(lock));
+  // A recorded file this run could not write is still ai-eng's (same as update.ts): it keeps
+  // its previous entry, so the next update retries it and uninstall knows it.
+  for (const entry of entries) {
+    const recorded = carried?.assets[entry.path];
+    if (entry.merge !== true && refused.has(entry.path) && recorded !== undefined) lock.assets[entry.path] = recorded;
+  }
+  for (const [path, recorded] of Object.entries(carriedAssets)) {
+    if (retiredKept.includes(path)) lock.assets[path] = recorded;
+  }
+  writeFileSync(lockPath, lockText(lock));
   lines.push(`✓ .ai-engineering/ai-eng.lock (${Object.keys(lock.assets).length} assets with sha256)`);
   return lines;
 }
@@ -327,7 +349,7 @@ async function scaffoldAndCarriers(
   sp.start("Scaffolding governance…");
   const lines = scaffoldProject(picked, contract);
   if (replacedExisting) lines.unshift("✓ AGENTS.md (contract) — replaced the file that was there");
-  if (keptExisting) lines.unshift("· AGENTS.md — yours, untouched");
+  if (keptExisting) lines.unshift("· AGENTS.md (contract) — yours, untouched");
   sp.stop();
   await installCarriers(flags, picked, machineAgreed, confirmWithInput, lines);
   return lines;
@@ -372,7 +394,8 @@ async function installCarriers(
 /** Split the scaffold report into contract vs machine, and print both sections. */
 function renderSections(cwd: string, picked: string[], lines: string[]): void {
   // next step — each idea one block, the dim tail carries the why.
-  const contract = lines.filter((l) => l.includes("(contract)") || l.startsWith("·"));
+  // By tag, not by marker: a surface file of the project's is a "·" row too, and not a contract file.
+  const contract = lines.filter((l) => l.includes("(contract)"));
   const machine = lines.filter((l) => !contract.includes(l));
   const toRow = (line: string): ui.Row => {
     if (line.startsWith("⚠")) return { mark: "warn", text: line.slice(2) };
