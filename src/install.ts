@@ -8,7 +8,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
-import { embeddedTemplate, embeddedUnder, isFilesystemRefusal, readProjectFileSnapshot, safeProjectPath, writeProjectFile } from "./embed.ts";
+import { embeddedTemplate, embeddedUnder, isFilesystemRefusal, isPathPresent, readProjectFileSnapshot, safeProjectPath, writeProjectFile } from "./embed.ts";
 export { hashFile } from "./shared-hash.ts";
 
 export type PlanEntry = {
@@ -273,9 +273,15 @@ export function install(
       report.written.push(entry.path);
       continue;
     }
+    // existsSync said absent, yet a name is there: a dangling link. Windows' exclusive create
+    // follows one to create its target, so it is refused here, before any write.
+    if (isPathPresent(absolute)) {
+      report.refused.push({ path: entry.path, reason: LINKED });
+      continue;
+    }
     mkdirSync(dirname(absolute), { recursive: true });
     try {
-      // wx: a dangling link at the name is refused (EEXIST), never followed to create its target.
+      // wx: a name that appears after the check above is refused (EEXIST), never overwritten.
       writeFileSync(absolute, entry.ours, { flag: "wx" });
     } catch (error) {
       if (!isFilesystemRefusal(error)) throw error;

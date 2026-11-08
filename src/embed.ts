@@ -180,7 +180,8 @@ function isFileOrLink(path: string): boolean {
   }
 }
 
-function isPathPresent(path: string): boolean {
+/** Present as a name: a dangling link counts, which existsSync (it follows links) misses. */
+export function isPathPresent(path: string): boolean {
   try {
     lstatSync(path);
     return true;
