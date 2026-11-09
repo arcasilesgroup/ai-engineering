@@ -767,8 +767,9 @@ function readShell(command) {
       index += heredoc.length - 1;
     } else if (redirectAt(source, index) !== null) {
       const operator = redirectAt(source, index);
-      normalized += source.slice(copiedUpTo, index) + asOperator(operator);
-      copiedUpTo = index + operator.length;
+      const descriptor = operator.endsWith("&") ? /^(?:\d+|-)(?=$|[\s;&|)<>])/.exec(source.slice(index + operator.length))?.[0] : undefined;
+      normalized += source.slice(copiedUpTo, index) + asOperator(operator) + (descriptor === undefined ? "" : `/dev/fd/${descriptor}`);
+      copiedUpTo = index + operator.length + (descriptor?.length ?? 0);
       current += operator;
       isWordStart = true;
       index += operator.length - 1;
@@ -1177,7 +1178,12 @@ var REDIRECT = /\d*>>?\s*("[^"]*"|'[^']*'|[^\s;|&]+)/g;
 var SEPARATORS = /[\n;|&]+/;
 var REDIRECTION = /^(?:\{[\w]+\})?\d*(?:&>>?|>>?[|!&]?|<>|<{1,3}|<&)(.*)$/;
 var RELATIVE_PATH = /(^|[\s"'=<>|;&(])((?:\.\.?\/)?[\w.@+-]+(?:\/[\w.@+-]+)+)/g;
-var AI_ENG_COMMANDS = new Set(["ai-eng", "ai-eng.js", "ai-eng.cmd", "ai-eng.exe", "ai-engineering"]);
+var AI_ENG_COMMANDS = new Set(["ai-eng", "ai-eng.js", "ai-eng.cmd", "ai-eng.exe"]);
+var AI_ENG_PACKAGE = /^ai-engineering(?:@.*)?$/;
+var RUNTIMES = new Set(["bun", "node", "npx", "bunx", "pnpx"]);
+var PACKAGE_MANAGERS = new Set(["npm", "pnpm", "yarn"]);
+var COPIERS = new Set(["cp", "mv", "ln", "rsync", "tar", "ditto", "install", "zip", "pax", "scp", "copy-item", "cpi", "move-item", "mi", "rename-item", "rni"]);
+var EXEC_WRAPPERS = new Set(["sudo", "env", "nice", "nohup", "command", "doas"]);
 var CLI_WRAPPERS = new Set(["bunx", "command", "env", "exec", "nohup", "npx", "npm", "pnpm", "script", "sudo", "time", "timeout", "xargs", "yarn"]);
 function commandName(word) {
   const unquoted = word.replace(/['"]/g, "").replace(/^[()]+|[()]+$/g, "");
@@ -1206,7 +1212,12 @@ function stripRedirections(args) {
   return kept;
 }
 function isCliEntrypoint(word) {
-  return ["cli.ts", "cli.js"].includes(commandName(word)) || AI_ENG_COMMANDS.has(commandName(word));
+  const name = commandName(word);
+  return ["cli.ts", "cli.js"].includes(name) || AI_ENG_COMMANDS.has(name) || AI_ENG_PACKAGE.test(name);
+}
+function startsEntrypoint(before) {
+  const names = before.map(commandName);
+  return names.some((name) => RUNTIMES.has(name)) || names.some((name) => PACKAGE_MANAGERS.has(name)) && names.some((name) => ["exec", "x", "dlx"].includes(name));
 }
 function restrictedAiEngArgs(args) {
   const words = stripRedirections(args);
@@ -1348,6 +1359,13 @@ var TREE_WRITERS = new Set([
 var DIFF_APPLIERS = new Set(["patch", "ed", "ex"]);
 var GIT_TREE_WRITERS = new Set(["mv", "rm", "checkout", "restore", "clean"]);
 var GLOB_CHARS = /[*?[]/;
+var NAMES_THE_PACKAGE = new Set(["git", "gh", "npm", "pnpm", "yarn"]);
+function couldSpellGovernanceVerb(word) {
+  if (!GLOB_CHARS.test(word))
+    return false;
+  const pattern = new RegExp(`^${word.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
+  return ["uninstall", "wrap", "adapt", "config"].some((verb) => pattern.test(verb));
+}
 var OUTPUT_OPTION = /^(?:-o|-O|-out|--out|--output|--output-document|--outfile|--log-file)$/;
 var ATTACHED_OUTPUT = /^(?:-o.|-O.|--out=|--output=|--output-document=|--outfile=|--log-file=|of=)/;
 var MAX_GLOB_MATCHES = 2000;
@@ -1361,6 +1379,10 @@ function gitSubcommand(args) {
       return { name: arg, index };
   }
   return { name: "", index: args.length };
+}
+function gitWorkingDirIndexes(args) {
+  const end = gitSubcommand(args).index;
+  return args.flatMap((_arg, index) => index < end && args[index - 1] === "-C" ? [index] : []);
 }
 function isReader(verb, args) {
   if (args.some((arg) => /^--(?:output|out|output-document|outfile|log-file)(?:=|$)/.test(arg)))
@@ -1511,15 +1533,15 @@ function judgeShell(command, context, depth = 0) {
   });
   let hasUnknownBase = false;
   for (const { name, args } of parsed) {
-    if (name !== "cd" && name !== "pushd")
-      continue;
-    const target = args.find((arg) => !/^-[LPe@]*$/.test(arg) && arg !== "--");
-    if (target === undefined || target === "-")
-      continue;
-    if (/[$`]/.test(target))
-      hasUnknownBase = true;
-    else
-      bases.push(...pathCandidates(target, [...bases]) ?? []);
+    const targets = name === "git" ? gitWorkingDirIndexes(args).map((index) => args[index]) : name === "cd" || name === "pushd" ? [args.find((arg) => !/^-[LPe@]*$/.test(arg) && arg !== "--")] : [];
+    for (const target of targets) {
+      if (target === undefined || target === "-")
+        continue;
+      if (/[$`]/.test(target))
+        hasUnknownBase = true;
+      else
+        bases.push(...pathCandidates(target, [...bases]) ?? []);
+    }
   }
   const names = (word, includesCheckpoints = true) => {
     const candidates = pathCandidates(word, bases);
@@ -1592,7 +1614,12 @@ function judgeShell(command, context, depth = 0) {
     if (DIFF_APPLIERS.has(name) || name === "git" && ["apply", "am"].includes(gitSubcommand(args).name)) {
       return `${name} applies edits whose target files are not on the command line; use the edit tool`;
     }
-    if ((isWriter || writeTargets.length > 0) && args.some((arg) => AI_ENG_COMMANDS.has(commandName(arg)))) {
+    const writesAFile = writeTargets.length > 0;
+    const execProgram = (index) => commandName(args.slice(index + 1).find((word) => !EXEC_WRAPPERS.has(commandName(word)) && !word.startsWith("-")) ?? "");
+    const execCopies = name === "find" && args.some((arg, index) => /^-(?:exec|execdir|ok|okdir)$/.test(arg) && COPIERS.has(execProgram(index)));
+    const copiesPackage = (COPIERS.has(name) || execCopies) && args.some((arg) => AI_ENG_PACKAGE.test(commandName(arg)));
+    const copiesBinary = args.some((arg) => AI_ENG_COMMANDS.has(commandName(arg))) || copiesPackage;
+    if ((isWriter || writesAFile || execCopies) && copiesBinary) {
       return "it copies or links the ai-eng binary, which would let its verbs run under another name";
     }
     const extractTo = extractionTarget(name, args);
@@ -1603,22 +1630,24 @@ function judgeShell(command, context, depth = 0) {
       const computedOutput = args.findIndex((arg, index) => OUTPUT_OPTION.test(arg) && /[$`]/.test(args[index + 1] ?? "") || ATTACHED_OUTPUT.test(arg) && /[$`]/.test(arg));
       if (computedOutput >= 0)
         return `${name} writes to an output path computed at run time`;
-      for (const arg of args) {
+      const workingDirs = name === "git" && gitSubcommand(args).name !== "clean" ? gitWorkingDirIndexes(args) : [];
+      const isProse = name === "git" || name === "gh" && GH_PROSE_SUBCOMMANDS.has(args[0] ?? "");
+      for (const [index, arg] of args.entries()) {
         if (isWriter && (arg.includes("$") || arg.includes("`")))
           return `${name} acts on a path computed at run time`;
         if (isWriter && hasUnknownBase && isRelative(arg))
           return `${name} acts on a relative path after a cd to a directory computed at run time`;
-        const embedded = name === "git" ? [] : (arg.match(EMBEDDED_PATH) ?? []).filter((path) => path !== arg);
+        const embedded = isProse ? [] : (arg.match(EMBEDDED_PATH) ?? []).filter((path) => path !== arg);
         for (const path of [arg, ...embedded]) {
           const hit = names(path, name !== "git");
           if (hit !== null)
             return `${name} names ${hit}, which governs this session, and ${name} is not a read-only command`;
         }
-        if (isWriter && (pathCandidates(arg, bases) ?? []).some((candidate) => isAncestorOfProtected(context.paths, candidate))) {
+        if (isWriter && !workingDirs.includes(index) && (pathCandidates(arg, bases) ?? []).some((candidate) => isAncestorOfProtected(context.paths, candidate))) {
           return `${name} acts on ${arg}, which contains what governs this session; name the files you mean`;
         }
       }
-      if (!SHELLS.has(name) && name !== "git") {
+      if (!SHELLS.has(name) && !isProse) {
         for (const text of [...segment.heredocs.map(({ body }) => body), ...inputs]) {
           if (RESTRICTED_TEXT.test(text))
             return `${name} reads input that invokes a governance-changing ai-eng verb`;
@@ -1630,12 +1659,29 @@ function judgeShell(command, context, depth = 0) {
           return `${name} is handed code that invokes a governance-changing ai-eng verb`;
       }
     }
+    const xargsAt = plain.findIndex((word) => commandName(word) === "xargs");
+    if (xargsAt >= 0) {
+      const xargsArgs = stripRedirections(plain.slice(xargsAt + 1));
+      const replaceFlag = xargsArgs.findIndex((word) => ["-I", "-J"].includes(word));
+      const attached = xargsArgs.map((word) => /^(?:-I|-J|-i|--replace=)(.+)$/.exec(word)?.[1]).find((value) => value !== undefined);
+      const impliesBraces = xargsArgs.some((word) => word === "-i" || word === "--replace");
+      const placeholder = replaceFlag >= 0 ? xargsArgs[replaceFlag + 1] : attached ?? (impliesBraces ? "{}" : undefined);
+      const words = xargsArgs.filter((word, index) => !word.startsWith("-") && (replaceFlag < 0 || index !== replaceFlag + 1));
+      const runnerAt = words.findIndex((word) => RUNTIMES.has(commandName(word)) || PACKAGE_MANAGERS.has(commandName(word)));
+      const isManager = runnerAt >= 0 && PACKAGE_MANAGERS.has(commandName(words[runnerAt]));
+      const program = runnerAt < 0 ? undefined : words.slice(runnerAt + 1).find((word) => !(isManager && ["exec", "x", "dlx"].includes(word)));
+      if (runnerAt >= 0 && (program === undefined || program === placeholder)) {
+        return "it runs a program named on stdin through a package runner, which may be ai-eng";
+      }
+    }
     for (let index = 0;index < plain.length; index++) {
       const word = plain[index];
-      const viaRuntime = index > 0 && isCliEntrypoint(word) && plain.slice(0, index).some((before) => ["bun", "node"].includes(commandName(before)));
-      if (!AI_ENG_COMMANDS.has(commandName(word)) && !viaRuntime)
-        continue;
+      const viaRuntime = index > 0 && isCliEntrypoint(word) && startsEntrypoint(plain.slice(0, index));
       const rest = plain.slice(index + 1).flatMap((arg) => expandBraces(arg));
+      const isUnknownVerb = !NAMES_THE_PACKAGE.has(name) && rest.some((arg) => /[$`]/.test(arg) || couldSpellGovernanceVerb(arg));
+      const asBin = AI_ENG_PACKAGE.test(commandName(word)) && (index === verb.index || restrictedAiEngArgs(rest) || isUnknownVerb);
+      if (!AI_ENG_COMMANDS.has(commandName(word)) && !viaRuntime && !asBin)
+        continue;
       if (rest.some((arg) => /[$`]/.test(arg) || GLOB_CHARS.test(arg)) || plain.slice(0, index).some((before) => commandName(before) === "xargs")) {
         return "it runs ai-eng with arguments computed at run time";
       }
@@ -1663,6 +1709,8 @@ function judgeShell(command, context, depth = 0) {
     }
     if (name === "git")
       nested.push(...gitCodeValues(args));
+    if (name === "gh" && args[0] === "config" && args[1] === "set" && GH_CODE_KEYS.has(args[2] ?? "") && args[3] !== undefined)
+      nested.push(args[3]);
     for (const word of plain.slice(0, verb.index).concat(name === "export" || name === "declare" ? args : [])) {
       const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word);
       if (assignment && CODE_VARIABLES.has(assignment[1]))
@@ -1723,7 +1771,9 @@ function globNamesProtected(word, bases, paths) {
   return null;
 }
 var GIT_CODE_KEYS = /^(?:core\.(?:fsmonitor|editor|pager|sshcommand)|diff\.external|sequence\.editor|credential\.helper|gpg\.program|alias\..*|filter\..*|.*\.(?:askpass|textconv|command|cmd|driver|tool))$/i;
-var CODE_VARIABLES = new Set(["GIT_EDITOR", "GIT_PAGER", "GIT_SSH_COMMAND", "GIT_SSH", "GIT_EXTERNAL_DIFF", "GIT_ASKPASS", "GIT_SEQUENCE_EDITOR", "EDITOR", "VISUAL", "PAGER", "SSH_ASKPASS", "PROMPT_COMMAND", "BASH_ENV", "ENV"]);
+var CODE_VARIABLES = new Set(["GIT_EDITOR", "GIT_PAGER", "GIT_SSH_COMMAND", "GIT_SSH", "GIT_EXTERNAL_DIFF", "GIT_ASKPASS", "GIT_SEQUENCE_EDITOR", "EDITOR", "VISUAL", "PAGER", "SSH_ASKPASS", "PROMPT_COMMAND", "BASH_ENV", "ENV", "GH_BROWSER", "BROWSER", "GH_EDITOR", "GH_PAGER"]);
+var GH_PROSE_SUBCOMMANDS = new Set(["pr", "issue", "release", "run", "workflow", "label", "search"]);
+var GH_CODE_KEYS = new Set(["editor", "pager", "browser"]);
 var COMMAND_RUNNERS = new Set(["watch", "su", "runuser", "flock", "script", "trap"]);
 function gitCodeValues(args) {
   const values = [];
@@ -1767,7 +1817,7 @@ function restrictedCommandWords(words, depth) {
     return false;
   const index = commandStart(words);
   const executable = commandName(words[index] ?? "");
-  if (AI_ENG_COMMANDS.has(executable))
+  if (AI_ENG_COMMANDS.has(executable) || AI_ENG_PACKAGE.test(executable))
     return restrictedAiEngArgs(words.slice(index + 1));
   if (executable === "bun" || executable === "node") {
     const entrypoint = words.findIndex((word, position) => position > index && isCliEntrypoint(word));
@@ -2147,7 +2197,7 @@ var NETWORK_EXECUTE = (segment) => (segment.includes("| bash") || segment.includ
 var SYSTEM_EXECUTE = (segment) => /^(sudo|su|doas)(\s|$)/.test(segment) || /^(shutdown|reboot|halt|poweroff)/.test(segment);
 var SYSTEM_WRITE = (segment) => /^(mkfs|fdisk|diskutil)/.test(segment) || /^mount |^umount /.test(segment);
 var WORKSPACE_EXECUTE = (segment) => segment.startsWith("./") || segment.startsWith("bash ") || segment.startsWith("sh ") || segment.startsWith("zsh ") || segment.startsWith("python") || segment.startsWith("node ") || segment.startsWith("ruby ") || segment.startsWith("perl ") || segment.startsWith("npm test") || segment.startsWith("npm run") || segment.startsWith("make") || segment.startsWith("cargo test") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("git cherry-pick") || segment.includes("function ") || segment.includes("()") || segment.includes("{") || segment.includes(" if ") || segment.startsWith("if ") || segment.includes(" for ") || segment.startsWith("for ") || segment.includes(" while ") || segment.startsWith("while ") || segment.includes(" case ") || segment.startsWith("case ") || segment.includes(":(){:|:&};:");
-var WRITES = (segment) => bareOperatorIndex(segment, ">") >= 0 || segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
+var WRITES = (segment) => segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.startsWith("chmod ") || segment.startsWith("chown ") || segment.startsWith("ln ") || segment.startsWith("install ") || segment.startsWith("truncate ") || segment.startsWith("rsync ") || segment.startsWith("dd ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
 var REDIRECT2 = /^(?:\d+|\{\w+\})?(&>>?|>&|>>?[|!]?|<>|<&|<)(?![<(])(.*)$/;
 function splitAttachedRedirect(token) {
   const at = bareOperatorIndex(token, "<>");
@@ -2166,16 +2216,21 @@ function bareOperatorIndex(text, operators) {
   }
   return -1;
 }
-function scanSegment(mask, segment, cwd) {
+var ASSIGNMENT = /^[a-z_]\w*=/;
+function scanSegment(mask, written, cwd) {
+  const words = rawShellWords(written);
+  const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
+  const segment = written.replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
   if (SYSTEM_EXECUTE(segment))
     addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
   if (SYSTEM_WRITE(segment))
     addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
-  if (NETWORK_READ(segment))
+  const either = (shape) => shape(written) || shape(segment);
+  if (either(NETWORK_READ))
     addMode(mask, SCOPE_NETWORK, PERM_READ);
-  if (NETWORK_WRITE(segment)) {
+  if (either(NETWORK_WRITE)) {
     addMode(mask, SCOPE_NETWORK, PERM_WRITE);
-  } else if (NETWORK_EXECUTE(segment)) {
+  } else if (either(NETWORK_EXECUTE)) {
     addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
   }
   if (RE_ROOT_DELETE.test(segment) || RE_DEVICE_WRITE.test(segment)) {
@@ -2185,7 +2240,8 @@ function scanSegment(mask, segment, cwd) {
     addMode(mask, SCOPE_WORKSPACE, PERM_EXECUTE);
   let pathPermissions = PERM_READ;
   let flags = 0;
-  if (WRITES(segment)) {
+  const writerShape = segment.replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "").replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
+  if (WRITES(writerShape)) {
     pathPermissions = PERM_READ | PERM_WRITE;
     flags = 1;
   }
@@ -2196,7 +2252,8 @@ function scanSegment(mask, segment, cwd) {
     addPath(mask, target, permissions, cwd);
     flags = 3;
   };
-  for (const token of rawShellWords(segment).flatMap(splitAttachedRedirect)) {
+  const tokens = words.flatMap((word, at) => splitAttachedRedirect(word).map((token) => ({ token, permissions: at === verbAt ? PERM_READ : pathPermissions })));
+  for (const { token, permissions: tokenPermissions } of tokens) {
     if (pending !== null) {
       judgeRedirect(token, pending.permissions, pending.isDuplicate);
       pending = null;
@@ -2213,13 +2270,13 @@ function scanSegment(mask, segment, cwd) {
       else
         judgeRedirect(target, permissions, isDuplicate);
     } else if (token.startsWith("/") || token.startsWith("./") || token.startsWith("../") || token.startsWith("~/") || RE_SENSITIVE_PATH.test(token)) {
-      addPath(mask, token, pathPermissions, cwd);
+      addPath(mask, token, tokenPermissions, cwd);
       flags = 3;
     } else if (token.includes("/") && !token.startsWith("-")) {
       const isUrl = token.startsWith("http://") || token.startsWith("https://") || token.startsWith("ftp://") || token.includes("://") || token.includes(":/");
       const isPath = !isUrl && !token.endsWith(".exe") && !token.endsWith(".sh") && !token.includes("git") && !token.includes("npm") && !token.includes("cargo") && !token.includes("python") && !token.includes("node");
       if (isPath) {
-        addPath(mask, token, pathPermissions, cwd);
+        addPath(mask, token, tokenPermissions, cwd);
         flags = 3;
       }
     }
@@ -2232,7 +2289,9 @@ function scanScript(script, cwd) {
   const joined = script.replace(/\\\n/g, " ");
   if (joined.includes("/dev/tcp"))
     addMode(mask, SCOPE_NETWORK, PERM_READ | PERM_WRITE);
-  const normalized = joined.replaceAll("&&", `
+  const substitutions = [...joined.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)].map((match) => match[1] ?? match[2] ?? "");
+  const normalized = [joined, ...substitutions].join(`
+`).replaceAll("&&", `
 `).replaceAll("||", `
 `).replaceAll(";", `
 `);

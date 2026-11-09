@@ -46,7 +46,18 @@ export type ProtectedPaths = {
   terminal: string[];
 };
 
-const AI_ENG_COMMANDS = new Set(["ai-eng", "ai-eng.js", "ai-eng.cmd", "ai-eng.exe", "ai-engineering"]);
+/** The binary's own file names: ai-eng under any of these is ai-eng, wherever it sits. */
+const AI_ENG_COMMANDS = new Set(["ai-eng", "ai-eng.js", "ai-eng.cmd", "ai-eng.exe"]);
+/** The npm package, or its folder. The word is ai-eng only where a runtime or a package
+ *  runner starts it (`npx ai-engineering@3 uninstall`, `bun node_modules/ai-engineering`):
+ *  anywhere else it is the repo slug, a checkout folder, or what `npm view` looks up. */
+const AI_ENG_PACKAGE = /^ai-engineering(?:@.*)?$/;
+const RUNTIMES = new Set(["bun", "node", "npx", "bunx", "pnpx"]);
+const PACKAGE_MANAGERS = new Set(["npm", "pnpm", "yarn"]);
+/** Verbs that copy, move or link a tree: what lets the package folder run under another name. */
+const COPIERS = new Set(["cp", "mv", "ln", "rsync", "tar", "ditto", "install", "zip", "pax", "scp", "copy-item", "cpi", "move-item", "mi", "rename-item", "rni"]);
+/** Words that run the next word as the program, as `find -exec sudo cp …` does. */
+const EXEC_WRAPPERS = new Set(["sudo", "env", "nice", "nohup", "command", "doas"]);
 const CLI_WRAPPERS = new Set(["bunx", "command", "env", "exec", "nohup", "npx", "npm", "pnpm", "script", "sudo", "time", "timeout", "xargs", "yarn"]);
 
 function commandName(word: string): string {
@@ -81,7 +92,15 @@ function stripRedirections(args: string[]): string[] {
 }
 
 function isCliEntrypoint(word: string): boolean {
-  return ["cli.ts", "cli.js"].includes(commandName(word)) || AI_ENG_COMMANDS.has(commandName(word));
+  const name = commandName(word);
+  return ["cli.ts", "cli.js"].includes(name) || AI_ENG_COMMANDS.has(name) || AI_ENG_PACKAGE.test(name);
+}
+
+/** True when a word in `before` would start the entrypoint that follows: a runtime, a
+ *  package runner, or `npm|pnpm|yarn exec|x|dlx`. */
+function startsEntrypoint(before: string[]): boolean {
+  const names = before.map(commandName);
+  return names.some((name) => RUNTIMES.has(name)) || (names.some((name) => PACKAGE_MANAGERS.has(name)) && names.some((name) => ["exec", "x", "dlx"].includes(name)));
 }
 
 /** A verb word anywhere in the arguments counts: flags and their values are not parsed,
@@ -153,6 +172,17 @@ const TREE_WRITERS = new Set([
 const DIFF_APPLIERS = new Set(["patch", "ed", "ex"]);
 const GIT_TREE_WRITERS = new Set(["mv", "rm", "checkout", "restore", "clean"]);
 const GLOB_CHARS = /[*?[]/;
+
+/** Commands that only ever name the package, never run it as a bin. */
+const NAMES_THE_PACKAGE = new Set(["git", "gh", "npm", "pnpm", "yarn"]);
+
+/** Whether a glob word could expand to a governance-changing verb: `u*nstall` could,
+ *  `*.md` could not. */
+function couldSpellGovernanceVerb(word: string): boolean {
+  if (!GLOB_CHARS.test(word)) return false;
+  const pattern = new RegExp(`^${word.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
+  return ["uninstall", "wrap", "adapt", "config"].some((verb) => pattern.test(verb));
+}
 /** Options whose value is a file the program writes. */
 const OUTPUT_OPTION = /^(?:-o|-O|-out|--out|--output|--output-document|--outfile|--log-file)$/;
 const ATTACHED_OUTPUT = /^(?:-o.|-O.|--out=|--output=|--output-document=|--outfile=|--log-file=|of=)/;
@@ -168,6 +198,13 @@ function gitSubcommand(args: string[]): { name: string; index: number } {
     else if (!arg.startsWith("-")) return { name: arg, index };
   }
   return { name: "", index: args.length };
+}
+
+/** Where each `git -C dir` value sits. Git runs from dir, as after `cd dir`: dir is a base
+ *  for the paths after it, never a target of the subcommand. */
+function gitWorkingDirIndexes(args: string[]): number[] {
+  const end = gitSubcommand(args).index;
+  return args.flatMap((_arg, index) => (index < end && args[index - 1] === "-C" ? [index] : []));
 }
 
 function isReader(verb: string, args: string[]): boolean {
@@ -344,11 +381,14 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
   // after it; a directory computed at run time makes those paths unknowable.
   let hasUnknownBase = false;
   for (const { name, args } of parsed) {
-    if (name !== "cd" && name !== "pushd") continue;
-    const target = args.find((arg) => !/^-[LPe@]*$/.test(arg) && arg !== "--");
-    if (target === undefined || target === "-") continue;
-    if (/[$`]/.test(target)) hasUnknownBase = true;
-    else bases.push(...(pathCandidates(target, [...bases]) ?? []));
+    const targets = name === "git"
+      ? gitWorkingDirIndexes(args).map((index) => args[index]!)
+      : name === "cd" || name === "pushd" ? [args.find((arg) => !/^-[LPe@]*$/.test(arg) && arg !== "--")] : [];
+    for (const target of targets) {
+      if (target === undefined || target === "-") continue;
+      if (/[$`]/.test(target)) hasUnknownBase = true;
+      else bases.push(...(pathCandidates(target, [...bases]) ?? []));
+    }
   }
   const names = (word: string, includesCheckpoints = true): string | null => {
     const candidates = pathCandidates(word, bases);
@@ -409,7 +449,16 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     if (DIFF_APPLIERS.has(name) || (name === "git" && ["apply", "am"].includes(gitSubcommand(args).name))) {
       return `${name} applies edits whose target files are not on the command line; use the edit tool`;
     }
-    if ((isWriter || writeTargets.length > 0) && args.some((arg) => AI_ENG_COMMANDS.has(commandName(arg)))) {
+    // Any redirect counts, /dev/null included: the segment's own redirect says nothing about
+    // an enclosing `{ …; } > file`, `( … ) > file` or a `| tee file` further down the pipe.
+    const writesAFile = writeTargets.length > 0;
+    // `find … -exec cp {} …` copies whatever find matched, so the package name counts there too.
+    // The program -exec runs, past a wrapper such as `sudo` or `env`.
+    const execProgram = (index: number): string => commandName(args.slice(index + 1).find((word) => !EXEC_WRAPPERS.has(commandName(word)) && !word.startsWith("-")) ?? "");
+    const execCopies = name === "find" && args.some((arg, index) => /^-(?:exec|execdir|ok|okdir)$/.test(arg) && COPIERS.has(execProgram(index)));
+    const copiesPackage = (COPIERS.has(name) || execCopies) && args.some((arg) => AI_ENG_PACKAGE.test(commandName(arg)));
+    const copiesBinary = args.some((arg) => AI_ENG_COMMANDS.has(commandName(arg))) || copiesPackage;
+    if ((isWriter || writesAFile || execCopies) && copiesBinary) {
       return "it copies or links the ai-eng binary, which would let its verbs run under another name";
     }
     const extractTo = extractionTarget(name, args);
@@ -419,23 +468,28 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
     if (!isReader(name, args)) {
       const computedOutput = args.findIndex((arg, index) => (OUTPUT_OPTION.test(arg) && /[$`]/.test(args[index + 1] ?? "")) || (ATTACHED_OUTPUT.test(arg) && /[$`]/.test(arg)));
       if (computedOutput >= 0) return `${name} writes to an output path computed at run time`;
-      for (const arg of args) {
+      // `git clean` empties its working directory itself: there `-C dir` is the target.
+      const workingDirs = name === "git" && gitSubcommand(args).name !== "clean" ? gitWorkingDirIndexes(args) : [];
+      // A commit message or a PR body is prose: only git's and gh's whole arguments are
+      // paths, and their heredocs are messages. gh is trusted by allowlist: an alias the
+      // agent defines, `gh ext`, `gh config` and `gh repo clone -- -c …` can all run code.
+      const isProse = name === "git" || (name === "gh" && GH_PROSE_SUBCOMMANDS.has(args[0] ?? ""));
+      for (const [index, arg] of args.entries()) {
         if (isWriter && (arg.includes("$") || arg.includes("`"))) return `${name} acts on a path computed at run time`;
         if (isWriter && hasUnknownBase && isRelative(arg)) return `${name} acts on a relative path after a cd to a directory computed at run time`;
-        // A commit message is prose: only git's whole arguments are paths. Git records
-        // checkpoint files; it is the edit tools that must write them.
-        const embedded = name === "git" ? [] : (arg.match(EMBEDDED_PATH) ?? []).filter((path) => path !== arg);
+        // Git records checkpoint files; it is the edit tools that must write them.
+        const embedded = isProse ? [] : (arg.match(EMBEDDED_PATH) ?? []).filter((path) => path !== arg);
         for (const path of [arg, ...embedded]) {
           const hit = names(path, name !== "git");
           if (hit !== null) return `${name} names ${hit}, which governs this session, and ${name} is not a read-only command`;
         }
-        if (isWriter && (pathCandidates(arg, bases) ?? []).some((candidate) => isAncestorOfProtected(context.paths, candidate))) {
+        if (isWriter && !workingDirs.includes(index) && (pathCandidates(arg, bases) ?? []).some((candidate) => isAncestorOfProtected(context.paths, candidate))) {
           return `${name} acts on ${arg}, which contains what governs this session; name the files you mean`;
         }
       }
       // A heredoc or here-string is the program's input: `vim -es`, `sqlite3 .output`,
-      // `python3`, `at` and `crontab` act on whatever it says. A git heredoc is a message.
-      if (!SHELLS.has(name) && name !== "git") {
+      // `python3`, `at` and `crontab` act on whatever it says.
+      if (!SHELLS.has(name) && !isProse) {
         for (const text of [...segment.heredocs.map(({ body }) => body), ...inputs]) {
           if (RESTRICTED_TEXT.test(text)) return `${name} reads input that invokes a governance-changing ai-eng verb`;
           const hit = (text.match(EMBEDDED_PATH) ?? []).map((path) => names(path)).find((found) => found !== null);
@@ -446,12 +500,41 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       }
     }
 
-    // ai-eng anywhere in the segment: behind nice/watch/find -exec, or fed by xargs.
+    // `… | xargs npx` takes the program from stdin: a runner after xargs with no program
+    // named after it may start ai-eng's package, so it is judged as starting ai-eng.
+    const xargsAt = plain.findIndex((word) => commandName(word) === "xargs");
+    if (xargsAt >= 0) {
+      const xargsArgs = stripRedirections(plain.slice(xargsAt + 1));
+      // `-I {}` (or `-I{}`, `--replace=x`) names a placeholder stdin fills in.
+      // GNU `-i` and a bare `--replace` take no word: their placeholder is `{}`.
+      const replaceFlag = xargsArgs.findIndex((word) => ["-I", "-J"].includes(word));
+      const attached = xargsArgs.map((word) => /^(?:-I|-J|-i|--replace=)(.+)$/.exec(word)?.[1]).find((value) => value !== undefined);
+      const impliesBraces = xargsArgs.some((word) => word === "-i" || word === "--replace");
+      const placeholder = replaceFlag >= 0 ? xargsArgs[replaceFlag + 1] : attached ?? (impliesBraces ? "{}" : undefined);
+      const words = xargsArgs.filter((word, index) => !word.startsWith("-") && (replaceFlag < 0 || index !== replaceFlag + 1));
+      const runnerAt = words.findIndex((word) => RUNTIMES.has(commandName(word)) || PACKAGE_MANAGERS.has(commandName(word)));
+      // A package manager names its runner subcommand first (`npm exec`, `pnpm dlx`).
+      const isManager = runnerAt >= 0 && PACKAGE_MANAGERS.has(commandName(words[runnerAt]!));
+      const program = runnerAt < 0 ? undefined : words.slice(runnerAt + 1).find((word) => !(isManager && ["exec", "x", "dlx"].includes(word)));
+      if (runnerAt >= 0 && (program === undefined || program === placeholder)) {
+        return "it runs a program named on stdin through a package runner, which may be ai-eng";
+      }
+    }
+
+    // ai-eng anywhere in the segment: behind nice/watch/find -exec, or fed by xargs. The
+    // package name counts as the binary where it is the command (an older bin was named so).
     for (let index = 0; index < plain.length; index++) {
       const word = plain[index]!;
-      const viaRuntime = index > 0 && isCliEntrypoint(word) && plain.slice(0, index).some((before) => ["bun", "node"].includes(commandName(before)));
-      if (!AI_ENG_COMMANDS.has(commandName(word)) && !viaRuntime) continue;
+      const viaRuntime = index > 0 && isCliEntrypoint(word) && startsEntrypoint(plain.slice(0, index));
       const rest = plain.slice(index + 1).flatMap((arg) => expandBraces(arg));
+      // Behind a launcher the guards do not model (watch, flock, uv run…), the package
+      // name followed by a governance verb is still that bin: a stale global install of an
+      // older release put a command named `ai-engineering` on PATH.
+      // A verb computed at run time, or a glob that could spell one, counts too — except
+      // where the command only names the package (`npm view ai-engineering $FIELD`).
+      const isUnknownVerb = !NAMES_THE_PACKAGE.has(name) && rest.some((arg) => /[$`]/.test(arg) || couldSpellGovernanceVerb(arg));
+      const asBin = AI_ENG_PACKAGE.test(commandName(word)) && (index === verb.index || restrictedAiEngArgs(rest) || isUnknownVerb);
+      if (!AI_ENG_COMMANDS.has(commandName(word)) && !viaRuntime && !asBin) continue;
       if (rest.some((arg) => /[$`]/.test(arg) || GLOB_CHARS.test(arg)) || plain.slice(0, index).some((before) => commandName(before) === "xargs")) {
         return "it runs ai-eng with arguments computed at run time";
       }
@@ -476,6 +559,8 @@ function judgeShell(command: string, context: ShellContext, depth = 0): string |
       });
     }
     if (name === "git") nested.push(...gitCodeValues(args));
+    // `gh config set editor|pager|browser <cmd>` stores a command gh runs later.
+    if (name === "gh" && args[0] === "config" && args[1] === "set" && GH_CODE_KEYS.has(args[2] ?? "") && args[3] !== undefined) nested.push(args[3]);
     for (const word of plain.slice(0, verb.index).concat(name === "export" || name === "declare" ? args : [])) {
       const assignment = /^([A-Za-z_]\w*)=(.*)$/s.exec(word);
       if (assignment && CODE_VARIABLES.has(assignment[1]!)) nested.push(assignment[2]!);
@@ -539,7 +624,12 @@ function globNamesProtected(word: string, bases: string[], paths: ProtectedPaths
 /** git config keys whose values git runs as programs. */
 const GIT_CODE_KEYS = /^(?:core\.(?:fsmonitor|editor|pager|sshcommand)|diff\.external|sequence\.editor|credential\.helper|gpg\.program|alias\..*|filter\..*|.*\.(?:askpass|textconv|command|cmd|driver|tool))$/i;
 /** Environment variables a tool runs as a command. */
-const CODE_VARIABLES = new Set(["GIT_EDITOR", "GIT_PAGER", "GIT_SSH_COMMAND", "GIT_SSH", "GIT_EXTERNAL_DIFF", "GIT_ASKPASS", "GIT_SEQUENCE_EDITOR", "EDITOR", "VISUAL", "PAGER", "SSH_ASKPASS", "PROMPT_COMMAND", "BASH_ENV", "ENV"]);
+const CODE_VARIABLES = new Set(["GIT_EDITOR", "GIT_PAGER", "GIT_SSH_COMMAND", "GIT_SSH", "GIT_EXTERNAL_DIFF", "GIT_ASKPASS", "GIT_SEQUENCE_EDITOR", "EDITOR", "VISUAL", "PAGER", "SSH_ASKPASS", "PROMPT_COMMAND", "BASH_ENV", "ENV", "GH_BROWSER", "BROWSER", "GH_EDITOR", "GH_PAGER"]);
+
+/** gh subcommands whose arguments are titles, bodies and comments: prose, never code. */
+const GH_PROSE_SUBCOMMANDS = new Set(["pr", "issue", "release", "run", "workflow", "label", "search"]);
+/** `gh config set` keys whose value is a command gh runs. */
+const GH_CODE_KEYS = new Set(["editor", "pager", "browser"]);
 /** Verbs that hand one of their arguments to a shell. */
 const COMMAND_RUNNERS = new Set(["watch", "su", "runuser", "flock", "script", "trap"]);
 
@@ -587,7 +677,7 @@ function restrictedCommandWords(words: string[], depth: number): boolean {
   const index = commandStart(words);
 
   const executable = commandName(words[index] ?? "");
-  if (AI_ENG_COMMANDS.has(executable)) return restrictedAiEngArgs(words.slice(index + 1));
+  if (AI_ENG_COMMANDS.has(executable) || AI_ENG_PACKAGE.test(executable)) return restrictedAiEngArgs(words.slice(index + 1));
   if (executable === "bun" || executable === "node") {
     const entrypoint = words.findIndex((word, position) => position > index && isCliEntrypoint(word));
     if (entrypoint >= 0) return restrictedAiEngArgs(words.slice(entrypoint + 1));

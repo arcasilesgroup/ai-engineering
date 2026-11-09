@@ -533,7 +533,7 @@ describe("policy: what a command needs", () => {
   });
 
   test("a descriptor copy names no file; a stderr target in the workspace is a workspace write", () => {
-    expect(needs("echo x 2>&1")).toBe("0002");
+    expect(needs("echo x 2>&1")).toBe("0004");
     expect(needs("echo x 2>/dev/null")).toBe("0004");
     expect(needs("echo x 2>err.log")).toBe("0002");
     expect(needs("cat <<eof")).toBe("0004");

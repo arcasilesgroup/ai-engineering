@@ -598,6 +598,155 @@ describe("runSelfProtect — shell commands", () => {
   });
 });
 
+// Commands an agent runs every day. Each one was denied with a false reason because
+// "ai-engineering" — the repo slug, a checkout path, the npm package — was read as the
+// ai-eng binary, `2>&1` was read as a write to a file named 1, `git -C <repo>` as a write
+// to the repo, and a PR body as code. REPO is a checkout whose folder is ai-engineering.
+const SLUG = "-R arcasilesgroup/ai-engineering";
+const AGENT_COMMANDS: Array<[string, string]> = [
+  ["case 1: gh pr checks piped through tail", `gh pr checks 755 ${SLUG} --watch --interval 30 2>&1 | tail -30`],
+  ["case 2: gh run view piped through grep", `gh run view 42503483752 ${SLUG} --log-failed 2>&1 | grep -E "FAIL|error" | head -10`],
+  ["case 3: gh run view saved to a log", `gh run view 1 ${SLUG} --log-failed > /tmp/x/check2.log 2>&1`],
+  ["case 4: gh pr view with a jq filter", `gh pr view 756 ${SLUG} --json files --jq '.files[].path'`],
+  ["case 5: gh pr list with a jq template", `gh pr list ${SLUG} --state merged --limit 10 --json number,headRefName -q '.[] | "#\\(.number) \\(.headRefName)"'`],
+  ["case 6: gh run view with a jq join", `gh run view 42519530946 ${SLUG} --json status,jobs --jq '.jobs[] | [.name, .status] | join(" | ")'`],
+  ["case 7: npm view of the package, then gh release list", `npm view ai-engineering dist-tags version 2>&1 | head; gh release list ${SLUG} --limit 3`],
+  ["case 8: a loop polling npm for the published version", `for i in 1 2; do v=$(npm view ai-engineering dist-tags.latest --prefer-online); [ "$v" = "3.0.2" ] && break; sleep 30; done`],
+  ["case 8: the same loop with stderr discarded", `for i in 1 2; do v=$(npm view ai-engineering dist-tags.latest --prefer-online 2>/dev/null); [ "$v" = "3.0.2" ] && break; sleep 30; done`],
+  ["case 9: git -C <repo> rm of the report files doctor names","git -C REPO rm -q .ai-engineering/brainstorm.html .ai-engineering/recap.html"],
+  ["case 9: plain rm of the report files doctor names", "rm .ai-engineering/brainstorm.html .ai-engineering/recap.html"],
+  ["case 10: a PR body that mentions a carrier", `gh pr create ${SLUG} --title t --body "wires \`.cursor/hooks.json\` for cursor"`],
+  ["case 10: a PR body that mentions an ai-eng verb", 'gh pr create --title t --body "ai-eng uninstall now removes the hooks"'],
+  ["case 10: a PR body read from a heredoc", "gh pr create --title t --body-file - <<'EOF'\nwires .cursor/hooks.json and .git/hooks/pre-commit\nEOF"],
+  ["case 12: cd <repo> then git push by absolute path", "cd REPO && /usr/bin/git push -u origin fix/x 2>&1 | tail -5"],
+  ["case 12: cd <repo>, commit from a heredoc, push", "cd REPO && git add -u && git commit -q -F - <<'EOF'\nThe /var alias on macOS and rm of report files.\nEOF\ngit push"],
+  ["case 13: bun test with a quoted pattern naming /var", 'cd REPO && export TMPDIR=/private/tmp/t-runs && bun test tests/ -t "macOS /var alias" 2>&1 | tail -20'],
+  ["case 14: an env prefix before bun test", 'TMPDIR=/private/tmp/t-runs bun test tests/ -t "macOS /var alias"'],
+  ["a read of the binary", "head -20 bin/ai-eng.js"],
+  ["xargs handing files to a named npx program", "git ls-files '*.ts' | xargs npx prettier --check"],
+  ["xargs -I with a named npx program", "git ls-files | xargs -I {} npx prettier --write {}"],
+  ["a grep for the package over markdown", "grep -rn ai-engineering *.md"],
+  ["npm view of the package with a computed field", "npm view ai-engineering $FIELD"],
+  ["a grep over a checkout named ai-engineering", "grep -rn foo REPO --include='*.ts'"],
+  ["removing a scratch checkout named ai-engineering", "rm -rf /tmp/t-runs/ai-engineering"],
+  ["control: git -C <repo> push", "git -C REPO push -u origin b"],
+  ["control: gh pr checks", `gh pr checks 757 ${SLUG}`],
+  ["control: ai-eng update --yes", "ai-eng update --yes"],
+  ["control: ai-eng doctor", "ai-eng doctor"],
+  ["control: ai-eng --version", "ai-eng --version"],
+];
+// What stays denied: a copy, link or computed run of the binary, a hand edit of a
+// governance file, and a program whose text no one can read before it runs.
+const STILL_DENIED: Array<[string, string]> = [
+  ["copying the binary", "cp ~/.bun/bin/ai-eng /tmp/x"],
+  ["linking the binary", "ln -s $(which ai-eng) /tmp/eng"],
+  ["streaming the binary into a file", "cat bin/ai-eng.js 2>/dev/null > /tmp/z"],
+  ["computed ai-eng arguments", "ai-eng $(echo uninstall)"],
+  ["eval of ai-eng", 'eval "ai-eng uninstall"'],
+  ["the package run by npx", "npx ai-engineering uninstall"],
+  ["a pinned package run by npx", "npx ai-engineering@3.0.2 uninstall"],
+  ["the package run by bunx", "bunx ai-engineering@latest uninstall"],
+  ["the package run by npm exec", "npm exec ai-engineering -- uninstall"],
+  ["the package run by pnpm dlx", "pnpm dlx ai-engineering uninstall"],
+  ["the package run with computed arguments", "npx ai-engineering $(echo uninstall)"],
+  ["the package run by bun x", "bun x ai-engineering uninstall"],
+  ["the package run by pnpx", "pnpx ai-engineering uninstall"],
+  ["the package folder run by bun", "bun ./node_modules/ai-engineering uninstall"],
+  ["copying the package folder", "cp -r node_modules/ai-engineering /tmp/p"],
+  ["streaming the binary into another descriptor", "cat bin/ai-eng.js >&3"],
+  ["a gh alias imported from a heredoc", "gh alias import - <<'EOF'\nz: '!ai-eng uninstall'\nEOF"],
+  ["a redirect into config.toml", "echo x > .ai-engineering/config.toml"],
+  ["a policy_mode appended to config.toml", "printf 'policy_mode = \"7777\"' >> .ai-engineering/config.toml"],
+  ["a sed widening policy_mode", "sed -i '' s/4667/7777/ .ai-engineering/config.toml"],
+  ["rm of the lock", "rm .ai-engineering/ai-eng.lock"],
+  ["sed -i on a git hook", "sed -i '' s/a/b/ .git/hooks/pre-commit"],
+  ["git -C <repo> rm of the whole tree", "git -C REPO rm -r ."],
+  ["git -C . rm of the whole tree", "git -C . rm -r ."],
+  ["git -C <repo> rm of config.toml", "git -C REPO rm .ai-engineering/config.toml"],
+  ["git -C <repo> rm of config.toml after a cd away", "cd /tmp && git -C REPO rm .ai-engineering/config.toml"],
+  ["git -C into the hooks", "git -C .git/hooks rm pre-commit"],
+  ["gh writing a hook", "gh release download v1 -O .git/hooks/pre-commit"],
+  ["gh output redirected into a hook", "gh api repos/x/y --jq . > .git/hooks/pre-commit"],
+  ["a gh alias that runs ai-eng", "gh alias set z '!ai-eng uninstall'"],
+  ["a gh alias that writes a hook", "gh alias set z '!echo x > .git/hooks/pre-commit'"],
+  // Case 11, kept: inside a Python program a string naming .git/hooks/pre-commit cannot be
+  // told from open('.git/hooks/pre-commit', 'w') without running Python. Use the edit tool.
+  ["case 11: a python3 heredoc that names a git hook", "python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('scripts/proof-cli-ux.sh')\np.write_text(p.read_text() + '# .git/hooks/pre-commit')\nEOF"],
+  ["case 11: a python3 heredoc that names the settings carrier", "python3 - <<EOF\nbody = 'mentions .claude/settings.json'\nEOF"],
+  ["a python3 heredoc that writes a git hook", "python3 - <<'EOF'\nopen('.git/hooks/pre-commit', 'w').write('exit 0')\nEOF"],
+  // gh stores the value of these keys as a command and runs it later.
+  ["a gh browser that runs ai-eng", "gh config set browser 'sh -c \"ai-eng uninstall\"' && gh browse"],
+  ["a gh editor that runs ai-eng", "gh config set editor \"sh -c 'ai-eng adapt apply'\""],
+  ["a gh pager that runs ai-eng", "gh config set pager \"sh -c 'ai-eng uninstall'\""],
+  ["a gh editor that copies the binary", "gh config set editor \"sh -c 'cp ~/.bun/bin/ai-eng /tmp/x'\""],
+  ["GH_BROWSER carrying ai-eng", "GH_BROWSER='sh -c \"ai-eng uninstall\"' gh browse"],
+  ["GH_PAGER carrying ai-eng", "GH_PAGER='sh -c \"ai-eng uninstall\"' gh pr list"],
+  ["BROWSER carrying ai-eng", "BROWSER='sh -c \"ai-eng uninstall\"' gh browse"],
+  // find copies whatever it matched: the package under another name.
+  ["find -exec cp of the package", "find node_modules -maxdepth 1 -name ai-engineering -exec cp -r {} /tmp/evil \\;"],
+  // A redirect inside a group, a subshell or before a tee says nothing about the outer write.
+  ["the binary streamed out of a group", "{ cat ~/.bun/bin/ai-eng 2>/dev/null; } > /tmp/eng"],
+  ["the binary streamed out of a subshell", "( cat bin/ai-eng.js >/dev/fd/1 ) > /tmp/evil.js"],
+  ["the binary piped into tee", "cat bin/ai-eng.js 2>/dev/null | tee /tmp/evil.js"],
+  ["git -C . clean of ignored files", "git -C . clean -fdx"],
+  // gh is prose only for pr, issue, release and the like: anything else may run code.
+  ["a gh alias handed ai-eng", "gh alias set x '!sh -c \"$1\"' && gh x 'ai-eng uninstall'"],
+  ["a gh alias fed ai-eng on stdin", "gh alias set x '!sh' && gh x <<< 'ai-eng uninstall'"],
+  ["gh ext running ai-eng", "gh ext exec x 'ai-eng uninstall'"],
+  ["gh extensions running ai-eng", "gh extensions exec x 'ai-eng uninstall'"],
+  ["gh repo clone passing a git hook config", "gh repo clone o/r /tmp/probe-x -- -c 'core.fsmonitor=ai-eng uninstall'"],
+  ["a redirect glued to a descriptor copy, into config", "echo x 2>&1>.ai-engineering/config.toml"],
+  ["a redirect glued to a descriptor copy, into a hook", "echo x 2>&1>.git/hooks/pre-commit"],
+  // xargs takes the program from stdin: a package runner behind it may start ai-eng.
+  ["the package fed to npx through xargs", "echo ai-engineering uninstall | xargs npx"],
+  ["the package fed to npx through xargs -n2", "echo ai-engineering uninstall | xargs -n2 npx"],
+  ["the package fed to bunx through xargs", "echo ai-engineering uninstall | xargs bunx"],
+  ["the package fed to npm exec through xargs", "echo ai-engineering uninstall | xargs npm exec"],
+  ["the package read from a file by xargs npx", "echo ai-engineering > /tmp/probe-x; xargs npx < /tmp/probe-x"],
+  // An older release shipped a bin named after the package.
+  ["the package name as the command", "ai-engineering uninstall"],
+  ["the package bin by path", "./node_modules/.bin/ai-engineering uninstall"],
+  ["the package bin behind watch", "watch ai-engineering uninstall"],
+  ["the package bin behind flock", "flock /tmp/l ai-engineering uninstall"],
+  ["the package bin behind caffeinate", "caffeinate ai-engineering uninstall"],
+  ["the package bin behind uv run", "uv run ai-engineering uninstall"],
+  ["the package fed to npx through xargs -I", "echo ai-engineering | xargs -I{} npx {} uninstall"],
+  ["the package fed to npx through xargs -I x", "echo ai-engineering | xargs -I x npx x uninstall"],
+  ["the package fed to npx through xargs -i", "echo ai-engineering | xargs -i npx {} uninstall"],
+  ["the package fed to npx through xargs --replace", "echo ai-engineering | xargs --replace npx {} uninstall"],
+  ["the package bin behind caffeinate with a computed verb", "caffeinate ai-engineering $V"],
+  ["the package bin behind uv run with a quoted computed verb", 'uv run ai-engineering "$V"'],
+  ["the package bin behind setsid with a computed verb", "setsid ai-engineering $V"],
+  ["the package bin behind caffeinate with a glob verb", "caffeinate ai-engineering u*nstall"],
+  ["find -exec sudo cp of the package", "find node_modules -name ai-engineering -exec sudo cp -r {} /tmp/probe-x \\;"],
+  ["find -exec env cp of the package", "find node_modules -name ai-engineering -exec env cp -r {} /tmp/probe-x \\;"],
+  ["zip of the package to stdout", "zip -r - node_modules/ai-engineering > /tmp/probe-x.zip"],
+];
+
+describe("runSelfProtect — agentic commands are judged by what they do", () => {
+  // A checkout named ai-engineering, with every governance file in place.
+  function agentRepo(): string {
+    const repo = join(tempDir("ai-eng-agentic-"), "ai-engineering");
+    for (const name of [".ai-engineering/config.toml", ".ai-engineering/ai-eng.lock", ".ai-engineering/brainstorm.html", ".ai-engineering/recap.html", ".git/hooks/pre-commit", ".claude/settings.json", ".cursor/hooks.json"]) {
+      write(repo, name, "");
+    }
+    return repo;
+  }
+  const judge = (template: string): ReturnType<typeof runSelfProtect> => {
+    const repo = agentRepo();
+    const command = template.replaceAll("REPO", shellSpelling(repo));
+    return runSelfProtect({ tool_name: "Bash", tool_input: { command }, cwd: repo }, repo);
+  };
+
+  test.each(AGENT_COMMANDS)("allows %s", (_label, command) => {
+    expect(judge(command)).toBeUndefined();
+  });
+
+  test.each(STILL_DENIED)("still denies %s", (_label, command) => {
+    expect(judge(command)?.deny).toBe(true);
+  });
+});
+
 describe("isNetworkPath — a path that can reach a share is never opened", () => {
   const windowsVerdicts = (paths: string[]): Record<string, boolean> =>
     Object.fromEntries(paths.map((path) => [path, isNetworkPath(path, true)]));

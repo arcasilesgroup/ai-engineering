@@ -237,8 +237,12 @@ function readShell(command: string): { segments: ShellSegment[] | null; normaliz
       index += heredoc.length - 1;
     } else if (redirectAt(source, index) !== null) {
       const operator = redirectAt(source, index)!;
-      normalized += source.slice(copiedUpTo, index) + asOperator(operator);
-      copiedUpTo = index + operator.length;
+      // `2>&1` copies a descriptor. Respelled ` > 1` it would read as a write to a file named
+      // 1, so the descriptor is spelled as the file it is: /dev/fd/1. A redirect right after
+      // it (`2>&1>file`) is a redirect of its own, so `<` and `>` end the descriptor too.
+      const descriptor = operator.endsWith("&") ? /^(?:\d+|-)(?=$|[\s;&|)<>])/.exec(source.slice(index + operator.length))?.[0] : undefined;
+      normalized += source.slice(copiedUpTo, index) + asOperator(operator) + (descriptor === undefined ? "" : `/dev/fd/${descriptor}`);
+      copiedUpTo = index + operator.length + (descriptor?.length ?? 0);
       // Read whole, so the `|` of `>|` or the `&` of `>&` never cuts the command.
       current += operator;
       isWordStart = true;
