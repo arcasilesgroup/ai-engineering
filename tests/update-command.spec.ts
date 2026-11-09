@@ -597,6 +597,33 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(existsSync(noticeLog)).toBe(false);
   });
 
+  test("the plan names a shared settings file as merged, never overwritten, and each ↳ list sits under its own heading", async () => {
+    const repo = governedRepo("repo-plan-rows");
+    writeFileSync(join(repo, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["cursor"]\n');
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    // The project's own hooks file, without ai-eng's entries, under a lock that recorded
+    // an older ai-eng write: the merge has work to do, and the file is edited.
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const hooks = join(repo, ".cursor", "hooks.json");
+    const theirs = `${JSON.stringify({ version: 1, hooks: { stop: [{ command: "my-own-hook" }] } }, null, 2)}\n`;
+    writeFileSync(hooks, theirs);
+    writeFileSync(lockPath, readFileSync(lockPath, "utf8").replace(/^"\.cursor\/hooks\.json" = ".*"$/m, `".cursor/hooks.json" = "${sha256("older ai-eng bytes\n")}"`));
+
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(0);
+    const lines = run.out.split("\n");
+    const row = lines.find((line) => line.includes(".cursor/hooks.json") && !line.includes("↳")) ?? "";
+    expect(row).toInclude("your keys kept");
+    expect(row).not.toInclude("overwritten");
+    expect(readFileSync(hooks, "utf8")).toInclude("my-own-hook");
+    // A ↳ list follows the heading it belongs to, never the row above it.
+    const current = lines.findIndex((line) => line.includes("already current — untouched"));
+    expect(current).toBeGreaterThan(-1);
+    expect(lines[current + 1]).toInclude("↳");
+    expect(lines[current - 1]).not.toInclude("↳");
+  });
+
   test("--yes rewrites a patched hook: ai-eng's file takes this binary's bytes, named, and the lock follows", async () => {
     const { shim, lockPath } = await patchedRepo("repo-patched");
 

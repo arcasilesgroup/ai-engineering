@@ -194,17 +194,16 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // Concept blocks, not line-spam (§14.3 mockup): one block per idea, and Apply only
   // when something will actually be written. There is no decision to ask about: a file
   // ai-eng wrote takes this binary's bytes, and a file of the project's is never touched.
+  // A shared settings file is merged by marker: only ai-eng's entries change, so it is
+  // never announced as overwritten, edited or not.
+  const mergedPaths = new Set(entries.filter((entry) => entry.merge === true).map((entry) => entry.path));
   const rows: ui.Row[] = [
-    ...plan.updates.map((path): ui.Row => ({
-      mark: "ok",
-      text: path,
-      dim: isEditedSinceWritten(root, path, previous.assets) ? `edited since ai-eng wrote it — ai-eng's file, overwritten with ${VERSION} (commit or copy the edit first to keep it)` : `new version from binary ${VERSION}`,
-    })),
+    ...plan.updates.map((path): ui.Row => ({ mark: "ok", text: path, dim: updateNote(root, path, previous.assets, mergedPaths) })),
     ...plan.fresh.map((path): ui.Row => ({ mark: "ok", text: path, dim: "new asset" })),
     ...retiredOnDisk.map(({ path, note }): ui.Row => ({ mark: "ok", text: path, dim: `no longer shipped by ai-eng ${VERSION} — ${note}` })),
   ];
   if (plan.current.length > 0) {
-    rows.push({ mark: "sub", text: ui.pathList(plan.current) }, { mark: "muted", text: `${plan.current.length} already current — untouched` });
+    rows.push({ mark: "muted", text: `${plan.current.length} already current — untouched` }, { mark: "sub", text: ui.pathList(plan.current) });
   }
   rows.push(...yoursRows(plan.yours));
   ui.section("What needs to sync", rows, [
@@ -288,7 +287,15 @@ const CONFIG_PATH = ".ai-engineering/config.toml";
 /** The block naming the project's files a run leaves alone. */
 function yoursRows(yours: string[]): ui.Row[] {
   if (yours.length === 0) return [];
-  return [{ mark: "sub", text: ui.pathList(yours) }, { mark: "muted", text: `${yours.length} yours (not written by ai-eng, or config you edited) — untouched` }];
+  return [{ mark: "muted", text: `${yours.length} yours (not written by ai-eng, or config you edited) — untouched` }, { mark: "sub", text: ui.pathList(yours) }];
+}
+
+/** What the Apply plan says an update does to one path. */
+function updateNote(root: string, path: string, recorded: Record<string, string>, mergedPaths: ReadonlySet<string>): string {
+  if (mergedPaths.has(path)) return `ai-eng's entries refreshed to ${VERSION}, your keys kept`;
+  return isEditedSinceWritten(root, path, recorded)
+    ? `edited since ai-eng wrote it — ai-eng's file, overwritten with ${VERSION} (commit or copy the edit first to keep it)`
+    : `new version from binary ${VERSION}`;
 }
 
 /** Whether a file ai-eng wrote no longer holds the bytes the lock recorded for it. */
