@@ -180,8 +180,35 @@ const NAMES_THE_PACKAGE = new Set(["git", "gh", "npm", "pnpm", "yarn"]);
  *  `*.md` could not. */
 function couldSpellGovernanceVerb(word: string): boolean {
   if (!GLOB_CHARS.test(word)) return false;
-  const pattern = new RegExp(`^${word.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
+  let pattern: RegExp;
+  try {
+    pattern = new RegExp(`^${globToRegexSource(word)}$`);
+  } catch {
+    return true; // a class this reading cannot compile (`[z-a]`): assume it could spell one
+  }
   return ["uninstall", "wrap", "adapt", "config"].some((verb) => pattern.test(verb));
+}
+
+/** A shell glob as regex source: `*` and `?` are wildcards, a closed `[…]` (or `[!…]`) is a
+ *  class whose ranges keep their meaning, and anything else — an unclosed `[` included — is
+ *  a literal character. */
+function globToRegexSource(glob: string): string {
+  const escape = (text: string): string => text.replace(/[\\^$.*+?()[\]{}|/-]/g, "\\$&");
+  let source = "";
+  for (let at = 0; at < glob.length; at++) {
+    const char = glob[at]!;
+    const classEnd = char === "[" ? glob.indexOf("]", at + 2) : -1;
+    if (char === "*") source += ".*";
+    else if (char === "?") source += ".";
+    else if (classEnd > at) {
+      const body = glob.slice(at + 1, classEnd);
+      const isNegated = body.startsWith("!");
+      const members = (isNegated ? body.slice(1) : body).replace(/[\\^]/g, "\\$&");
+      source += `[${isNegated ? "^" : ""}${members}]`;
+      at = classEnd;
+    } else source += escape(char);
+  }
+  return source;
 }
 /** Options whose value is a file the program writes. */
 const OUTPUT_OPTION = /^(?:-o|-O|-out|--out|--output|--output-document|--outfile|--log-file)$/;

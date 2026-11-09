@@ -627,6 +627,9 @@ const AGENT_COMMANDS: Array<[string, string]> = [
   ["xargs -I with a named npx program", "git ls-files | xargs -I {} npx prettier --write {}"],
   ["a grep for the package over markdown", "grep -rn ai-engineering *.md"],
   ["npm view of the package with a computed field", "npm view ai-engineering $FIELD"],
+  // A word with an unclosed `[` is a literal, never a reason for the guard to fail.
+  ["a grep pattern with an unclosed bracket", "gh pr diff 760 -R arcasilesgroup/ai-engineering | grep -E '^\\+.*\"version\"|^\\+## |^\\+- \\[#'"],
+  ["the package name next to a lone bracket", "ls ai-engineering ["],
   ["a grep over a checkout named ai-engineering", "grep -rn foo REPO --include='*.ts'"],
   ["removing a scratch checkout named ai-engineering", "rm -rf /tmp/t-runs/ai-engineering"],
   ["control: git -C <repo> push", "git -C REPO push -u origin b"],
@@ -718,6 +721,8 @@ const STILL_DENIED: Array<[string, string]> = [
   ["the package bin behind uv run with a quoted computed verb", 'uv run ai-engineering "$V"'],
   ["the package bin behind setsid with a computed verb", "setsid ai-engineering $V"],
   ["the package bin behind caffeinate with a glob verb", "caffeinate ai-engineering u*nstall"],
+  ["the package bin behind caffeinate with a bracket-range verb", "caffeinate ai-engineering u[a-z]install"],
+  ["the package bin behind caffeinate with a negated-class verb", "caffeinate ai-engineering [!x]ninstall"],
   ["find -exec sudo cp of the package", "find node_modules -name ai-engineering -exec sudo cp -r {} /tmp/probe-x \\;"],
   ["find -exec env cp of the package", "find node_modules -name ai-engineering -exec env cp -r {} /tmp/probe-x \\;"],
   ["zip of the package to stdout", "zip -r - node_modules/ai-engineering > /tmp/probe-x.zip"],
