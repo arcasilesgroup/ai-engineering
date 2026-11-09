@@ -16,7 +16,7 @@ import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machi
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
+import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, surfacePickHint, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { retiredPaths, sweepRetiredAssets } from "./uninstall.ts";
@@ -41,23 +41,6 @@ function canonSummary(canon: { drift: number; missing: number; stale: number }):
   const parts = [`${canon.drift} drifted`, `${canon.missing} missing`];
   if (canon.stale > 0) parts.push(`${canon.stale} stale`);
   return parts.join(" · ");
-}
-
-const DENY_HINTS: Record<string, string> = {
-  throw: "blocks by throwing",
-  "host-only": "the host denies through its own permissions; no hook for us to run",
-};
-const CAN_BLOCK = "can't block tool calls";
-
-/** The row's own delta. A surface with nothing degraded gets an empty hint. */
-export function surfaceHint(s: Surface): string {
-  const delta: string[] = [];
-  const denyHint = s.can.deny === true ? null : (DENY_HINTS[String(s.can.deny)] ?? CAN_BLOCK);
-  if (denyHint) delta.push(denyHint);
-  if (s.can.rewriteOut === false) delta.push("can't rewrite output");
-  else if (typeof s.can.rewriteOut === "string") delta.push("rewrites output wholesale");
-  if (s.note !== undefined) delta.push(s.note);
-  return delta.join(" · ");
 }
 
 function scaffoldProject(surfaces: string[], contract: PlanEntry[]): string[] {
@@ -272,7 +255,7 @@ async function pickSurfaces(
   } else {
     const answer = await multiselect({
       message: SURFACE_PICK_MESSAGE,
-      options: surfaceOptions().map((s) => ({ value: s.id, label: s.label, hint: surfaceHint(s) })),
+      options: surfaceOptions().map((s) => ({ value: s.id, label: s.label, hint: surfacePickHint(s, false) })),
       initialValues: detectedSurfaces(cwd),
       required: true,
       input: input as never,

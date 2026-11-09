@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { multiselect, isCancel } from "@clack/prompts";
 import { canonicalSurfaceId, repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
 import { SURFACES, mirrorTargets, surfaceCanGovern, repoCarrier, machineCarrier, installMachineCarriers, installCanon, type Surface } from "../surfaces/adapters.ts";
-import { hasAdapter, installLineRow, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions } from "./init-shared.ts";
+import { hasAdapter, installLineRow, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions, surfacePickHint } from "./init-shared.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -63,7 +63,7 @@ async function pickSurfaces(
 ): Promise<string[] | null> {
   const picked = await multiselect({
     message: SURFACE_PICK_MESSAGE,
-    options: surfaceOptions().map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) })),
+    options: surfaceOptions().map((s) => ({ value: s.id, label: s.label, hint: surfacePickHint(s, current.includes(s.id)) })),
     initialValues: current.filter((id) => SURFACES.some((s) => s.id === id)),
     required: true,
     input: input as never,
@@ -410,12 +410,4 @@ function installSurfaceFiles(root: string, id: string): void {
     for (const path of report.written) ui.ok(`${path} written (repo carrier)`);
     for (const refused of report.refused) ui.warn(refuseLine(refused));
   }
-}
-
-/** The config hint: the ticked checkbox already says installed; the hint
- *  carries only the one thing a tick cannot say — this surface cannot block
- *  a tool call, so the live guards will not run on it. */
-function configHint(surface: Surface, installed: boolean): string {
-  if (surfaceCanGovern(surface)) return "";
-  return installed ? "can't block tool calls — the guards will not run here" : "can't block tool calls";
 }

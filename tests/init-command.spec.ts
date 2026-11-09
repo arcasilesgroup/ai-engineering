@@ -30,7 +30,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { initMain, surfaceHint } from "../src/commands/init.ts";
+import { initMain } from "../src/commands/init.ts";
+import { surfacePickHint } from "../src/commands/init-shared.ts";
 import {
   contractEntries,
   detectCommands,
@@ -397,31 +398,19 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
   });
 });
 
-describe("init · surfaceHint states the row's own delta", () => {
-  test("a surface hint describes only its own capabilities", () => {
-    expect(surfaceHint(byId("claude-code"))).toContain("can't rewrite output");
+describe("init · the surface pick shows the name, and only what a tick cannot say", () => {
+  test("a surface that governs has no hint: no notes, no capability list", () => {
+    for (const id of ["claude-code", "codex", "cursor", "copilot-cli"]) {
+      const surface = SURFACES.find((s) => s.id === id);
+      if (surface === undefined) continue;
+      expect(surfacePickHint(surface, false)).toBe("");
+    }
   });
 
-  test("each deny class is named in the row's own words", () => {
-    expect(surfaceHint(byId("opencode"))).toContain("blocks by throwing");
-    expect(surfaceHint(byId("zed"))).toContain("the host denies through its own permissions; no hook for us to run");
-    const cannotBlock = { ...byId("claude-code"), can: { ...byId("claude-code").can, deny: false, rewriteOut: true }, note: undefined } as unknown as Surface;
-    expect(surfaceHint(cannotBlock)).toBe("can't block tool calls");
-  });
-
-  test("a rewrite that is absent, wholesale or total is stated", () => {
-    expect(surfaceHint(byId("zed"))).toContain("can't rewrite output");
-    expect(surfaceHint(byId("cursor"))).not.toContain("can't rewrite output");
-    expect(surfaceHint(byId("codex"))).toContain("rewrites output wholesale");
-  });
-
-  test("the row's own note rides with the hint rather than hiding in the header", () => {
-    const note = byId("codex").note ?? "";
-    expect(note.length).toBeGreaterThan(0);
-    expect(surfaceHint(byId("codex"))).toContain(note);
-    const hint = surfaceHint(byId("cursor"));
-    expect(hint).toContain("research/003");
-    expect(hint).toContain("a shell's output is not replaced");
+  test("a surface that cannot block a tool call says so, briefly", () => {
+    const cannotBlock = { ...byId("claude-code"), can: { ...byId("claude-code").can, deny: false } } as unknown as Surface;
+    expect(surfacePickHint(cannotBlock, false)).toBe("can't block tool calls");
+    expect(surfacePickHint(cannotBlock, true)).toBe("can't block tool calls — the guards will not run here");
   });
 });
 
