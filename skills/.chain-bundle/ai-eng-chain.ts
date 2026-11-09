@@ -1363,8 +1363,34 @@ var NAMES_THE_PACKAGE = new Set(["git", "gh", "npm", "pnpm", "yarn"]);
 function couldSpellGovernanceVerb(word) {
   if (!GLOB_CHARS.test(word))
     return false;
-  const pattern = new RegExp(`^${word.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
+  let pattern;
+  try {
+    pattern = new RegExp(`^${globToRegexSource(word)}$`);
+  } catch {
+    return true;
+  }
   return ["uninstall", "wrap", "adapt", "config"].some((verb) => pattern.test(verb));
+}
+function globToRegexSource(glob) {
+  const escape = (text) => text.replace(/[\\^$.*+?()[\]{}|/-]/g, "\\$&");
+  let source = "";
+  for (let at = 0;at < glob.length; at++) {
+    const char = glob[at];
+    const classEnd = char === "[" ? glob.indexOf("]", at + 2) : -1;
+    if (char === "*")
+      source += ".*";
+    else if (char === "?")
+      source += ".";
+    else if (classEnd > at) {
+      const body = glob.slice(at + 1, classEnd);
+      const isNegated = body.startsWith("!");
+      const members = (isNegated ? body.slice(1) : body).replace(/[\\^]/g, "\\$&");
+      source += `[${isNegated ? "^" : ""}${members}]`;
+      at = classEnd;
+    } else
+      source += escape(char);
+  }
+  return source;
 }
 var OUTPUT_OPTION = /^(?:-o|-O|-out|--out|--output|--output-document|--outfile|--log-file)$/;
 var ATTACHED_OUTPUT = /^(?:-o.|-O.|--out=|--output=|--output-document=|--outfile=|--log-file=|of=)/;
