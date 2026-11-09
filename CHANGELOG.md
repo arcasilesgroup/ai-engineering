@@ -1,5 +1,31 @@
 # Changelog
 
+## 3.0.3
+
+### Patch Changes
+
+- [#761](https://github.com/arcasilesgroup/ai-engineering/pull/761) [`c5c7825`](https://github.com/arcasilesgroup/ai-engineering/commit/c5c7825eba0a4556c028b8aa85d06dd930fd3695) Thanks [@soydachi](https://github.com/soydachi)! - The guards stop blocking everyday agent commands for reasons that were not true.
+  
+  - The word `ai-engineering` (the repo slug, a checkout folder, the npm package) no longer counts as the `ai-eng` binary. It still counts when it is the command itself, or when a runner such as `npx`, `bunx` or `bun` starts it.
+  - `2>&1` is no longer read as a write to a file.
+  - `git -C <repo>` is a working folder, like `cd`.
+  - The text of `gh pr`, `gh issue` and `gh release` (titles, bodies, comments) is prose, not code.
+  - The command-scope policy no longer reads `/usr/bin/git` or a `NAME=value` prefix as a system write.
+  
+  What the guards protected before is still protected, and some gaps are closed too:
+  
+  - `npx ai-engineering@<version> uninstall` is blocked.
+  - So is the package fed to a runner through `xargs`.
+  - So is a command stored in `gh config set editor|pager|browser` or in `GH_BROWSER`, `GH_EDITOR` or `GH_PAGER`.
+  - So is a write hidden after a `$(…)`, a shell keyword or a redirect glued to `2>&1`.
+  
+  A heredoc's lines are still judged as commands, whoever reads them. To pass a commit message or a PR body that names system paths, write it to a file first (`git commit -F <file>`, `gh pr create --body-file <file>`).
+
+- [#758](https://github.com/arcasilesgroup/ai-engineering/pull/758) [`43db82c`](https://github.com/arcasilesgroup/ai-engineering/commit/43db82c1d564304f610e41c4f5cbc0229affad71) Thanks [@soydachi](https://github.com/soydachi)! - `ai-eng update`'s plan now reads the way it acts:
+  
+  - A shared settings file, such as `.cursor/hooks.json`, says "ai-eng's entries refreshed, your keys kept". It no longer says "overwritten", because it is merged by marker and your keys stay.
+  - Each `↳` list of paths now sits under its own heading ("already current", "yours"). Before, it sat under the row above, so the current files seemed to be the ones updated.
+
 ## 3.0.2
 
 ### Patch Changes
