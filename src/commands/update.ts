@@ -153,8 +153,11 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   });
   const pending = [...plan.updates, ...plan.fresh, ...retiredOnDisk.map((retiredRow) => retiredRow.path)];
   // Nothing to write, yet the lock still claims a file that is no longer ai-eng's (config
-  // the project edited) or no longer shipped: it is rebuilt with no Apply question.
-  const isLockStale = retired.length > 0 || plan.yours.some((path) => previous.assets[path] !== undefined);
+  // the project edited) or no longer shipped, or names an older binary — doctor asks for
+  // `ai-eng update` then, so update must answer it: the lock is rebuilt with no Apply question.
+  const isLockStale = retired.length > 0
+    || plan.yours.some((path) => previous.assets[path] !== undefined)
+    || (existsSync(lockPath) && previous.version !== VERSION);
 
   // The frame states the repo's state in plain words: "unknown" would be a fallback
   // lying about a recoverable state, and no internal verb reaches a user anyway.

@@ -719,6 +719,21 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).not.toInclude(".ai-engineering/overrides.toml");
   });
 
+  test("a lock an older binary wrote is moved to this version, so doctor's 'run ai-eng update' is answered", async () => {
+    const repo = governedRepo("repo-older-lock");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    const lockPath = join(repo, ".ai-engineering", "ai-eng.lock");
+    const current = readFileSync(lockPath, "utf8");
+    writeFileSync(lockPath, current.replace(/^version = ".*"$/m, 'version = "0.0.1"'));
+    pipeStdin(); // no key ever arrives: an Apply question would hang the run
+
+    const run = await captured(() => updateMain());
+    expect(run.value).toBe(0);
+    expect(run.out).not.toInclude("Apply?");
+    expect(readFileSync(lockPath, "utf8")).toBe(current);
+  });
+
   test("a recorded file this binary no longer ships is ai-eng's: removed, edited or not, and dropped from the lock", async () => {
     const repo = governedRepo("repo-retired");
     process.chdir(repo);
