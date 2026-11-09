@@ -16,7 +16,7 @@ import { SURFACES, surfaceCanGovern, installCanon, installMachineCarriers, machi
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, surfacePickHint, refuseLine } from "./init-shared.ts";
+import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { retiredPaths, sweepRetiredAssets } from "./uninstall.ts";
@@ -225,9 +225,9 @@ async function reinitHandoff(
     const action = flags.yes === true ? "update" : await select({
       message: "This project is already governed. What do you want to do?",
       options: [
-        { value: "update", label: "Rewrite ai-eng's files from the installed binary (ai-eng update)", hint: "overwrites hooks, settings, CI workflow — never your AGENTS.md or DECISIONS.md" },
-        { value: "config", label: "Change which agent surfaces this project is governed on (ai-eng config)" },
-        { value: "exit", label: "Exit — change nothing" },
+        { value: "update", label: "Update ai-eng's files" },
+        { value: "config", label: "Change agent surfaces" },
+        { value: "exit", label: "Exit" },
       ],
       input: input as never,
     });
@@ -255,7 +255,7 @@ async function pickSurfaces(
   } else {
     const answer = await multiselect({
       message: SURFACE_PICK_MESSAGE,
-      options: surfaceOptions().map((s) => ({ value: s.id, label: s.label, hint: surfacePickHint(s, false) })),
+      options: surfaceOptions().map((s) => ({ value: s.id, label: s.label })),
       initialValues: detectedSurfaces(cwd),
       required: true,
       input: input as never,

@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { multiselect, isCancel } from "@clack/prompts";
 import { canonicalSurfaceId, repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
 import { SURFACES, mirrorTargets, surfaceCanGovern, repoCarrier, machineCarrier, installMachineCarriers, installCanon, type Surface } from "../surfaces/adapters.ts";
-import { hasAdapter, installLineRow, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions, surfacePickHint } from "./init-shared.ts";
+import { hasAdapter, installLineRow, planEntries, refuseLine, SURFACE_PICK_MESSAGE, surfaceOptions } from "./init-shared.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -63,7 +63,7 @@ async function pickSurfaces(
 ): Promise<string[] | null> {
   const picked = await multiselect({
     message: SURFACE_PICK_MESSAGE,
-    options: surfaceOptions().map((s) => ({ value: s.id, label: s.label, hint: surfacePickHint(s, current.includes(s.id)) })),
+    options: surfaceOptions().map((s) => ({ value: s.id, label: s.label })),
     initialValues: current.filter((id) => SURFACES.some((s) => s.id === id)),
     required: true,
     input: input as never,

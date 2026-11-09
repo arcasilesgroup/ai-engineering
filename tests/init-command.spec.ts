@@ -31,7 +31,6 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { initMain } from "../src/commands/init.ts";
-import { surfacePickHint } from "../src/commands/init-shared.ts";
 import {
   contractEntries,
   detectCommands,
@@ -398,21 +397,6 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
   });
 });
 
-describe("init · the surface pick shows the name, and only what a tick cannot say", () => {
-  test("a surface that governs has no hint: no notes, no capability list", () => {
-    for (const id of ["claude-code", "codex", "cursor", "copilot-cli"]) {
-      const surface = SURFACES.find((s) => s.id === id);
-      if (surface === undefined) continue;
-      expect(surfacePickHint(surface, false)).toBe("");
-    }
-  });
-
-  test("a surface that cannot block a tool call says so, briefly", () => {
-    const cannotBlock = { ...byId("claude-code"), can: { ...byId("claude-code").can, deny: false } } as unknown as Surface;
-    expect(surfacePickHint(cannotBlock, false)).toBe("can't block tool calls");
-    expect(surfacePickHint(cannotBlock, true)).toBe("can't block tool calls — the guards will not run here");
-  });
-});
 
 describe("init · initMain, phase 1 and phase 2", () => {
   test("--global installs the canon, leaves the repo alone, and a rerun is idempotent", async () => {
@@ -887,7 +871,7 @@ describe("init · non-interactive default skill installation", () => {
     const agents = readFileSync(join(cwd, "AGENTS.md"), "utf8");
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
 
-    // Two downs land on "Exit — change nothing"; the select starts on "update".
+    // Two downs land on "Exit"; the select starts on "update".
     const { result, out } = await driven({}, [["governed", "\x1b[B\x1b[B\n"]]);
     expect(result).toBe(0);
     expect(out).toContain("Nothing changed.");

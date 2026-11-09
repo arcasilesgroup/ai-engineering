@@ -7,7 +7,7 @@ import type { PlanEntry } from "../install.ts";
 import type { Row } from "../ui.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate } from "../embed.ts";
-import { SURFACES, repoCarrier, carrierFiles, surfaceCanGovern, type Surface } from "../surfaces/adapters.ts";
+import { SURFACES, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
@@ -151,14 +151,6 @@ export function hasAdapter(id: string): boolean {
 
 /** The question init and config ask. Options sit on the next lines, with no tier headers. */
 export const SURFACE_PICK_MESSAGE = "Which agent surfaces is this project governed on?";
-
-/** The surface pick's hint, the same in init and config: the label names the surface,
- *  and the hint carries only the one thing a tick cannot say — this surface cannot block
- *  a tool call, so the live guards will not run on it. */
-export function surfacePickHint(surface: Surface, installed: boolean): string {
-  if (surfaceCanGovern(surface)) return "";
-  return installed ? "can't block tool calls — the guards will not run here" : "can't block tool calls";
-}
 
 /** The flat picker options shared by init and config. */
 export function surfaceOptions(): Surface[] {
