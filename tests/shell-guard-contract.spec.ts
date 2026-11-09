@@ -30,7 +30,7 @@ const resolved = (command: string): string[] => shellSegments(command)!.map(reso
 
 describe("normalizeRedirects", () => {
   test("input duplication reads as `<`, every output form as `>`, process substitution untouched", () => {
-    expect(normalizeRedirects("a <&3 2>&1 >| f >(tee g)")).toBe("a  < 3  > 1  >  f >(tee g)");
+    expect(normalizeRedirects("a <&3 2>&1 >| f >(tee g)")).toBe("a  < /dev/fd/3  > /dev/fd/1  >  f >(tee g)");
   });
 });
 

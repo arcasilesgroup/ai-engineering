@@ -8,6 +8,10 @@
 // runs when its required bits are a subset of the configured mode; an invalid
 // mode normalises to `0000` — the same fail-closed as a crashing guard.
 //
+// Departed from on purpose, so an agent's daily commands pass: a redirect writes only its
+// own target (`2>&1` writes nothing), and an absolute verb or a `NAME=value` prefix still
+// reads as the command it runs. A heredoc's lines are still judged as commands.
+//
 // Not ported on purpose: the Jev semantic layer (an LLM deciding per call is a
 // prompt where this repo requires code) and apply_patch parsing (a Codex-only
 // heredoc form; the edit tools cover it here).
@@ -228,9 +232,10 @@ const WORKSPACE_EXECUTE = (segment: string): boolean =>
   segment.includes(":(){:|:&};:");
 
 /** A write-shaped segment: its path tokens are judged read+write, and a
- *  segment with no resolvable path still costs a workspace write. */
+ *  segment with no resolvable path still costs a workspace write. A redirect is not a
+ *  shape: its own target is judged as the write, so `2>&1` writes nothing and
+ *  `ls /usr/bin > out.txt` does not write /usr/bin (policy.rs counts both). */
 const WRITES = (segment: string): boolean =>
-  bareOperatorIndex(segment, ">") >= 0 ||
   segment.includes("tee ") ||
   segment.startsWith("mkdir ") ||
   segment.startsWith("touch ") ||
@@ -238,6 +243,13 @@ const WRITES = (segment: string): boolean =>
   segment.startsWith("mv ") ||
   segment.startsWith("rm ") ||
   segment.includes(" rm ") ||
+  segment.startsWith("chmod ") ||
+  segment.startsWith("chown ") ||
+  segment.startsWith("ln ") ||
+  segment.startsWith("install ") ||
+  segment.startsWith("truncate ") ||
+  segment.startsWith("rsync ") ||
+  segment.startsWith("dd ") ||
   segment.includes("sed -i") ||
   segment.includes(" -delete") ||
   segment.startsWith("git fetch") ||
@@ -281,13 +293,23 @@ function bareOperatorIndex(text: string, operators: string): number {
   return -1;
 }
 
-function scanSegment(mask: { value: number }, segment: string, cwd: string): void {
+const ASSIGNMENT = /^[a-z_]\w*=/;
+
+function scanSegment(mask: { value: number }, written: string, cwd: string): void {
+  const words = rawShellWords(written);
+  const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
+  // The shapes read `git push` however it is spelled: `/usr/bin/git push` and
+  // `TMPDIR=x git push` run the same program (policy.rs reads neither as git push).
+  const segment = written.replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
   if (SYSTEM_EXECUTE(segment)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
   if (SYSTEM_WRITE(segment)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
-  if (NETWORK_READ(segment)) addMode(mask, SCOPE_NETWORK, PERM_READ);
-  if (NETWORK_WRITE(segment)) {
+  // The network shapes look for a URL anywhere, so they also read the prefix the
+  // stripping drops: `X=https://… fetch $X | bash` keeps its URL there.
+  const either = (shape: (text: string) => boolean): boolean => shape(written) || shape(segment);
+  if (either(NETWORK_READ)) addMode(mask, SCOPE_NETWORK, PERM_READ);
+  if (either(NETWORK_WRITE)) {
     addMode(mask, SCOPE_NETWORK, PERM_WRITE);
-  } else if (NETWORK_EXECUTE(segment)) {
+  } else if (either(NETWORK_EXECUTE)) {
     addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
   }
   if (RE_ROOT_DELETE.test(segment) || RE_DEVICE_WRITE.test(segment)) {
@@ -297,7 +319,13 @@ function scanSegment(mask: { value: number }, segment: string, cwd: string): voi
 
   let pathPermissions = PERM_READ;
   let flags = 0;
-  if (WRITES(segment)) {
+  // The writer is judged by the program it runs, whatever sits before it: a shell keyword
+  // (`then /bin/rm …`), an env prefix or an absolute path.
+  const writerShape = segment
+    .replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "")
+    .replace(/^(?:[a-z_]\w*=\S*\s+)*/, "")
+    .replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
+  if (WRITES(writerShape)) {
     pathPermissions = PERM_READ | PERM_WRITE;
     flags = 1;
   }
@@ -309,7 +337,9 @@ function scanSegment(mask: { value: number }, segment: string, cwd: string): voi
     addPath(mask, target, permissions, cwd);
     flags = 3;
   };
-  for (const token of rawShellWords(segment).flatMap(splitAttachedRedirect)) {
+  // Running a program reads it and never writes it: `/usr/bin/git rm a` writes a, not git.
+  const tokens = words.flatMap((word, at) => splitAttachedRedirect(word).map((token) => ({ token, permissions: at === verbAt ? PERM_READ : pathPermissions })));
+  for (const { token, permissions: tokenPermissions } of tokens) {
     if (pending !== null) {
       judgeRedirect(token, pending.permissions, pending.isDuplicate);
       pending = null;
@@ -330,7 +360,7 @@ function scanSegment(mask: { value: number }, segment: string, cwd: string): voi
       token.startsWith("~/") ||
       RE_SENSITIVE_PATH.test(token)
     ) {
-      addPath(mask, token, pathPermissions, cwd);
+      addPath(mask, token, tokenPermissions, cwd);
       flags = 3;
     } else if (token.includes("/") && !token.startsWith("-")) {
       const isUrl =
@@ -349,7 +379,7 @@ function scanSegment(mask: { value: number }, segment: string, cwd: string): voi
         !token.includes("python") &&
         !token.includes("node");
       if (isPath) {
-        addPath(mask, token, pathPermissions, cwd);
+        addPath(mask, token, tokenPermissions, cwd);
         flags = 3;
       }
     }
@@ -361,7 +391,10 @@ function scanScript(script: string, cwd: string): number {
   const mask = { value: 0 };
   const joined = script.replace(/\\\n/g, " ");
   if (joined.includes("/dev/tcp")) addMode(mask, SCOPE_NETWORK, PERM_READ | PERM_WRITE);
-  const normalized = joined.replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n");
+  // A command substitution runs a command of its own: its body is judged as one more
+  // segment, while the segment around it stays whole so its writer still sees every path.
+  const substitutions = [...joined.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)].map((match) => match[1] ?? match[2] ?? "");
+  const normalized = [joined, ...substitutions].join("\n").replaceAll("&&", "\n").replaceAll("||", "\n").replaceAll(";", "\n");
   for (const segment of normalized.split("\n").map((s) => s.trim())) {
     if (segment.length > 0) scanSegment(mask, segment, cwd);
   }
