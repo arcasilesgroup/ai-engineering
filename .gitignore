@@ -1,6 +1,7 @@
 node_modules/
 dist/
-.0*.bun-build
+# build.ts leaves an orphaned compile scratch in the cwd when it is interrupted;
+# `*.bun-build` already matches the dotted names (`*` swallows the leading dot).
 *.bun-build
 .DS_Store
 .ai-engineering/receipts/

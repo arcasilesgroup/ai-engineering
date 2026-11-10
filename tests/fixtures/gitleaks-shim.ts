@@ -45,3 +45,13 @@ export function pathWithOnlyGit(): string {
   if (Bun.which("gitleaks", { PATH: onlyGit }) !== null) throw new Error(`${onlyGit} also holds gitleaks`);
   return onlyGit;
 }
+
+/** The install hint the floor prints on the OS running the test, so an assertion
+ *  on it holds on every CI leg, not only the one that runs brew. */
+export function gitleaksInstallHint(): string {
+  return process.platform === "win32"
+    ? "choco install gitleaks (or scoop install gitleaks)"
+    : process.platform === "darwin"
+      ? "brew install gitleaks"
+      : "apt install gitleaks (or download the binary from the gitleaks releases page)";
+}

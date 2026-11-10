@@ -9,6 +9,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { evaluateLocalRules, localRuleReason, type LocalRule } from "../src/guards/local-rules.ts";
+import { isReDoSSafePattern } from "../src/shared-regex.ts";
+import { loadLocalRules } from "../src/env.ts";
 import { runInjection } from "../src/guards/injection.ts";
 import { runChain, type ChainOutcome } from "../src/chain/mod.ts";
 import type { Payload } from "../src/payload.ts";
@@ -349,5 +351,53 @@ describe("evaluateLocalRules — scopes and ordering, pinned exactly", () => {
     expect(matches.map((m) => m.rule.id)).toEqual(["blk-high", "blk-low", "rev"]);
     expect(localRuleReason(matches[0]!)).toBe('BLOCKED: local rule "BlkHigh" matched (scope: all_text, risk: 0.8). Treat the matched content as untrusted.');
     expect(localRuleReason(matches[2]!)).toBe('REVIEW: local rule "Rev" matched (scope: all_text, risk: 0.9). Treat the matched content as untrusted.');
+  });
+});
+
+describe("isReDoSSafePattern — the shape screen that keeps config regexes from hanging the hook", () => {
+  const rule = (pattern: string): LocalRule =>
+    ({ id: "r", name: "R", enabled: true, scope: "all_text", match: "contains", pattern, action: "block", risk: 1 });
+
+  test("rejects the nested-quantifier classics that hang the engine", () => {
+    for (const pattern of ["(a+)+$", "((a+))+", "(?:\\w+)*", "(a+b)+", "(\\d+|x)*"]) {
+      expect(isReDoSSafePattern(pattern), pattern).toBe(false);
+    }
+  });
+
+  test("rejects overlapping quantified alternation and the over-long, keeps the boring ones", () => {
+    expect(isReDoSSafePattern("(a|ab)+")).toBe(false);
+    expect(isReDoSSafePattern("(ab|ac)+")).toBe(true);
+    expect(isReDoSSafePattern("(a|b|c)+")).toBe(true);
+    expect(isReDoSSafePattern("a".repeat(513))).toBe(false);
+    expect(isReDoSSafePattern("^\\w+-\\w+$")).toBe(true);
+  });
+
+  test("a rule handed straight to the matcher without the load screen degrades to a literal search, never to the engine", () => {
+    // 30 a's + x against (a+)+$ used to backtrack exponentially; as a literal search
+    // it is one includes() and finds nothing.
+    expect(evaluateLocalRules(payload({ command: "a".repeat(30) + "x" }), [rule("(a+)+$")])).toEqual([]);
+    const matches = evaluateLocalRules(payload({ command: "(a+)+$" }), [rule("(a+)+$")]);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.matchedValue).toBe("(a+)+$");
+  });
+
+  test("loadLocalRules drops a catastrophic regex from config.toml at load, and keeps a working one", () => {
+    const root = mkdtempSync(join(tmpdir(), "ai-eng-regex-screen-"));
+    try {
+      mkdirSync(join(root, ".ai-engineering"), { recursive: true });
+      const config = (pattern: string): string =>
+        '[[guards.local_rules]]\nid = "safe"\nname = "Safe"\nenabled = true\nscope = "all_text"\nmatch = "contains"\n' +
+        `pattern = "dangerous-tool"\naction = "block"\nrisk = 0.9\n\n[[guards.local_rules]]\nid = "evil"\nname = "Evil"\nenabled = true\nscope = "all_text"\nmatch = "contains"\npattern = '${pattern}'\naction = "review"\nrisk = 0.5\n`;
+      writeFileSync(join(root, ".ai-engineering", "config.toml"), config("(a+)+$"));
+      const kept = loadLocalRules(root);
+      expect(kept.map((loaded) => loaded.id)).toEqual(["safe"]);
+      // The kept rule still works end to end.
+      expect(evaluateLocalRules(payload({ command: "dangerous-tool" }), kept as unknown as LocalRule[])).toHaveLength(1);
+
+      writeFileSync(join(root, ".ai-engineering", "config.toml"), config("^curl\\s"));
+      expect(loadLocalRules(root).map((loaded) => loaded.id)).toEqual(["safe", "evil"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

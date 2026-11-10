@@ -3,7 +3,7 @@
 // deny, or denies slow, is FAIL — not WARN (§14.2).
 import { canonDrift } from "../embed.ts";
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
 import {
@@ -15,7 +15,8 @@ import {
   type ReceiptSummary,
 } from "../receipts.ts";
 import { parseLock } from "../install.ts";
-import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath } from "../surfaces/adapters.ts";
+import { machineStateUnavailable, readMachineState } from "../surfaces/machine-state.ts";
 import { refuseLine } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
@@ -56,7 +57,7 @@ async function checkMirrors(root: string | null): Promise<CheckResult | null> {
   // 3b. Skill mirrors: the canon only reaches IDEs through them. A mirror dir
   //    missing its links is the P0-1 failure mode (silent ENOENT in installCanon).
   if (!root) return null;
-  const { mirrorTargets } = await import("../surfaces/adapters.ts");
+  const { mirrorTargets } = await import("../surfaces/canon-install.ts");
   const mirrors = mirrorTargets();
   let mirrorOK = 0;
   let mirrorBroken = 0;
@@ -689,7 +690,7 @@ export async function doctorMain(flags: { gc?: boolean; cwd?: string }): Promise
   }
   const root = repoRoot(flags.cwd) ?? flags.cwd ?? process.cwd();
   const runtime = `bun ${typeof Bun !== "undefined" ? Bun.version : "?"}`;
-  ui.frame(`Health check · ${root.split("/").pop()} · ${runtime} · ai-eng ${VERSION}`);
+  ui.frame(`Health check · ${basename(root)} · ${runtime} · ai-eng ${VERSION}`);
   const { results, fail } = await runChecks(flags.cwd);
   // One block per status — the eye scans three ideas, not twelve lines
   // (the ✓/▲/✗ families of §14.2).

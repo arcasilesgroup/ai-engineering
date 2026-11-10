@@ -140,18 +140,22 @@ const SILENCES: RegExp[] = [
 // which git reads as the boolean `true` — a relative directory with no hooks in it.
 const INLINE = /-c\s*core\.hookspath(?:=(\S*))?(?=\s|$)/gi;
 
-/** Every value this command would leave core.hooksPath at, as written. Empty string
- *  means unset, which stops every hook in the repo and says nothing. */
+/** Every value this command would leave core.hooksPath at, as written. Unsetting is
+ *  deliberately absent: no core.hooksPath at all is git's default .git/hooks — the
+ *  floor's own location, since init wires no redirect there — so `--unset` is the safe
+ *  direction (it restores the hooks, it does not stop them) and the set-or-change
+ *  direction is the one this list exists to deny. */
 export function hooksPathTargets(command: string): string[] {
   const words = command.split(/\s+/);
   const found: string[] = [];
   for (const match of command.matchAll(INLINE)) found.push((match[1] ?? "true").replace(/^["']|["']$/g, ""));
   if (words.some((w) => w === "config") && words.some((w) => w.toLowerCase() === "core.hookspath")) {
-    if (words.some((w) => w.startsWith("--unset"))) {
-      found.push("");
-    } else if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
+    if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
       const index = words.findIndex((w) => w.toLowerCase() === "core.hookspath");
       const after = words.slice(index + 1).filter((w) => !w.startsWith("-"));
+      // A bare `--unset` leaves nothing after the key: no target, allowed. Anything
+      // trailing still reads as a value — git itself would refuse it, but refusing a
+      // half-readable config edit is the cheap side to err on.
       if (after.length > 0) found.push(after[0]!.replace(/^["']|["']$/g, ""));
     }
   }

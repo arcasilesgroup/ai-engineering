@@ -91,7 +91,14 @@ function stageSecrets(cwd: string): FloorResult {
   if (!gitleaks) {
     return {
       ok: false,
-      lines: ["gitleaks is not installed — HARD FAIL, never silent degradation (§12.1).", "Install it: brew install gitleaks"],
+      lines: [
+        "gitleaks is not installed — HARD FAIL, never silent degradation (§12.1).",
+        process.platform === "win32"
+          ? "Install it: choco install gitleaks (or scoop install gitleaks)"
+          : process.platform === "darwin"
+            ? "Install it: brew install gitleaks"
+            : "Install it: apt install gitleaks (or download the binary from the gitleaks releases page)",
+      ],
     };
   }
   // `git --staged` scans 0 commits on a fresh HEAD and passes silently, so the
@@ -199,7 +206,7 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   }
   const gitleaks = whichGitleaks();
   if (!gitleaks) {
-    return { ok: false, lines: ["gitleaks is not installed — HARD FAIL (§12.1). brew install gitleaks"] };
+    return { ok: false, lines: [`gitleaks is not installed — HARD FAIL (§12.1). ${process.platform === "win32" ? "choco install gitleaks (or scoop install gitleaks)" : process.platform === "darwin" ? "brew install gitleaks" : "apt install gitleaks"}`] };
   }
   try {
     execFileSync(gitleaks, ["git", "--redact", "-v", "-c", join(cwd, ".gitleaksrc.toml")], { cwd, stdio: "pipe" });

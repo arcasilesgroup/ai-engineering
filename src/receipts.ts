@@ -57,6 +57,15 @@ function ensureReceiptsFolder(root: string): string | null {
   return safeProjectPath(root, RECEIPTS_REL);
 }
 
+/** The event names its receipt file, and a caller- or surface-supplied `/` in it would
+ *  send the write into a subfolder no reader, retention pass or summary ever lists —
+ *  the receipt would vanish. Flattened to the filename's own alphabet (RECEIPT_NAME's
+ *  [A-Za-z0-9_-]): anything else becomes "-", repeats collapse, and edge "-" is
+ *  trimmed. One input, one name, always. */
+export function receiptEventName(event: string): string {
+  return event.replace(/[^A-Za-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
 export function writeReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | "ts">, root?: string | null): Receipt | null {
   const dir = receiptsDir(root);
   if (!dir) return null; // a stray call with no governed repo writes nothing
@@ -71,7 +80,7 @@ export function writeReceipt(receipt: Omit<Receipt, "schema" | "operation_id" | 
     if (folder === null) return null;
     const stamp = full.ts.replace(/[:.]/g, "-");
     // "wx": a fresh name only — never through a link or over a file already there.
-    writeFileSync(join(folder, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
+    writeFileSync(join(folder, `${stamp}-${receiptEventName(full.event)}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
     return full;
   } catch {
     return null;

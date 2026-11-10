@@ -8,6 +8,42 @@ import { dirname as dirname5, join as join12 } from "path";
 import { homedir } from "os";
 import { join, resolve, sep } from "path";
 import { existsSync, readFileSync } from "fs";
+
+// src/shared-regex.ts
+var PATTERN_CAP = 512;
+var QUANTIFIER = "(?:[+*]|\\{\\d+(?:,\\d*)?\\})";
+function isReDoSSafePattern(pattern) {
+  if (pattern.length > PATTERN_CAP)
+    return false;
+  if (!/[[\](){}*+?^$|\\]/.test(pattern))
+    return true;
+  let flattened = pattern.replace(/\[(?:[^\]\\]|\\.)*\]/g, " ");
+  const nestedQuantifier = new RegExp(`\\((?:\\?:)?[^()]*${QUANTIFIER}[^()]*\\)${QUANTIFIER}`);
+  const quantifiedGroup = new RegExp(`\\((?:\\?:)?[^()]*${QUANTIFIER}[^()]*\\)`, "g");
+  let previous = "";
+  while (true) {
+    if (nestedQuantifier.test(flattened))
+      return false;
+    previous = flattened;
+    flattened = flattened.replace(quantifiedGroup, "S*");
+    if (flattened === previous)
+      break;
+  }
+  for (const group of flattened.matchAll(/\((?:\?:)?([^()]*)\)[*+{]/g)) {
+    const alternatives = group[1].split("|");
+    for (let left = 0;left < alternatives.length; left++) {
+      for (let right = left + 1;right < alternatives.length; right++) {
+        const first = alternatives[left];
+        const second = alternatives[right];
+        if (first === "" || second === "" || first.startsWith(second) || second.startsWith(first))
+          return false;
+      }
+    }
+  }
+  return true;
+}
+
+// src/env.ts
 function home() {
   const override = process.env.AI_ENG_HOME;
   if (override) {
@@ -113,6 +149,7 @@ function intOr(value, fallback) {
 function printable(text) {
   return text.replace(/[\p{C}]/gu, "").slice(0, 200);
 }
+var warnedUnsafePatterns = new Set;
 function loadLocalRules(root) {
   const resolved = root === undefined ? repoRoot() : root;
   if (!resolved)
@@ -128,7 +165,17 @@ function loadLocalRules(root) {
     const localRules = guards["local_rules"];
     if (!Array.isArray(localRules))
       return [];
-    return localRules.filter((r) => r !== null && typeof r === "object" && !Array.isArray(r) && typeof r["id"] === "string" && typeof r["pattern"] === "string");
+    const parsed = localRules.filter((r) => r !== null && typeof r === "object" && !Array.isArray(r) && typeof r["id"] === "string" && typeof r["pattern"] === "string");
+    return parsed.filter((rule) => {
+      if (isReDoSSafePattern(rule.pattern))
+        return true;
+      if (!warnedUnsafePatterns.has(rule.id)) {
+        warnedUnsafePatterns.add(rule.id);
+        process.stderr.write(`[ai-eng] local rule ${JSON.stringify(rule.id)} dropped: its pattern matches a known catastrophic-backtracking shape and would hang the hook \u2014 rewrite it in config.toml (several simpler patterns do the same job).
+`);
+      }
+      return false;
+    });
   } catch {
     return [];
   }
@@ -1074,9 +1121,7 @@ function hooksPathTargets(command) {
   for (const match of command.matchAll(INLINE))
     found.push((match[1] ?? "true").replace(/^["']|["']$/g, ""));
   if (words.some((w) => w === "config") && words.some((w) => w.toLowerCase() === "core.hookspath")) {
-    if (words.some((w) => w.startsWith("--unset"))) {
-      found.push("");
-    } else if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
+    if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
       const index = words.findIndex((w) => w.toLowerCase() === "core.hookspath");
       const after = words.slice(index + 1).filter((w) => !w.startsWith("-"));
       if (after.length > 0)
@@ -2407,6 +2452,8 @@ function collectToolNames(value, output) {
     }
   }
 }
+var MAX_REGEX_SUBJECT = 1e4;
+var patternSafety = new Map;
 function matches(rule, candidate) {
   const left = rule.caseSensitive ? candidate : candidate.toLowerCase();
   const right = rule.caseSensitive ? rule.pattern : rule.pattern.toLowerCase();
@@ -2415,8 +2462,16 @@ function matches(rule, candidate) {
   try {
     const isRegex = /[[\](){}*+?^$|\\]/.test(rule.pattern);
     if (isRegex) {
+      let isSafe = patternSafety.get(rule.pattern);
+      if (isSafe === undefined) {
+        isSafe = isReDoSSafePattern(rule.pattern);
+        patternSafety.set(rule.pattern, isSafe);
+      }
+      if (!isSafe)
+        return left.includes(right);
       const flags = rule.caseSensitive ? "" : "i";
-      return new RegExp(rule.pattern, flags).test(candidate);
+      const subject = candidate.length > MAX_REGEX_SUBJECT ? candidate.slice(0, MAX_REGEX_SUBJECT) : candidate;
+      return new RegExp(rule.pattern, flags).test(subject);
     }
   } catch {}
   return left.includes(right);
@@ -4396,6 +4451,9 @@ function ensureReceiptsFolder(root) {
   }
   return safeProjectPath(root, RECEIPTS_REL);
 }
+function receiptEventName(event) {
+  return event.replace(/[^A-Za-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
 function writeReceipt(receipt, root) {
   const dir = receiptsDir(root);
   if (!dir)
@@ -4411,7 +4469,7 @@ function writeReceipt(receipt, root) {
     if (folder === null)
       return null;
     const stamp = full.ts.replace(/[:.]/g, "-");
-    writeFileSync3(join11(folder, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
+    writeFileSync3(join11(folder, `${stamp}-${receiptEventName(full.event)}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
     return full;
   } catch {
     return null;

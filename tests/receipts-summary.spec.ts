@@ -8,10 +8,10 @@
 // Test names are load-bearing: spec.html's -t filters name them exactly.
 
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mergeDaily, summarizeReceipts, type Receipt } from "../src/receipts.ts";
+import { mergeDaily, receiptEventName, summarizeReceipts, writeReceipt, type Receipt } from "../src/receipts.ts";
 
 function dirWith(receipts: Receipt[]): string {
   const dir = mkdtempSync(join(tmpdir(), "ai-eng-summary-"));
@@ -130,5 +130,34 @@ describe("mergeDaily — the gc merge, not the gc overwrite (G5-G6)", () => {
     const current = { [day(1)]: { runs: 3, denies: 1 } };
     expect(mergeDaily(undefined, current, 90, Date.UTC(2026, 8, 20))).toEqual(current);
     expect(mergeDaily({} as Record<string, never>, current, 90, Date.UTC(2026, 8, 20))).toEqual(current);
+  });
+});
+
+describe("receiptEventName — an event never steers the receipt into a subfolder", () => {
+  test("pre/pre flattens to a single flat, deterministic token", () => {
+    expect(receiptEventName("pre/pre")).toBe("pre-pre");
+    expect(receiptEventName("pre/pre")).toBe(receiptEventName("pre/pre"));
+  });
+
+  test("disallowed characters become one dash, repeats collapse, edges trim", () => {
+    expect(receiptEventName("git pre-commit // x")).toBe("git-pre-commit-x");
+    expect(receiptEventName("--y--")).toBe("y");
+    expect(receiptEventName("PreToolUse")).toBe("PreToolUse");
+  });
+
+  test("writeReceipt leaves exactly one flat file for an event containing a slash", () => {
+    const root = mkdtempSync(join(tmpdir(), "ai-eng-receipt-event-"));
+    try {
+      mkdirSync(join(root, ".ai-engineering"), { recursive: true });
+      writeFileSync(join(root, ".ai-engineering", "config.toml"), '[surfaces]\nenabled = ["claude-code"]\n');
+      const receipt = writeReceipt({ event: "pre/pre", surface: "claude-code", tool: "Bash", guards: { ran: [], denied_by: null }, latency_ms: 1, outcome: "allow" }, root);
+      expect(receipt).not.toBeNull();
+      const files = readdirSync(join(root, ".ai-engineering", "receipts"));
+      expect(files).toHaveLength(1);
+      expect(files[0]).toContain(receiptEventName("pre/pre"));
+      expect(files[0]).not.toContain("/");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

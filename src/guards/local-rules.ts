@@ -5,6 +5,7 @@
 // Inspired by Pyro's local-rules pattern (DelvisorLabs/Pyro).
 
 import type { Payload } from "../payload.ts";
+import { isReDoSSafePattern } from "../shared-regex.ts";
 
 export type LocalRuleScope = "all_text" | "tool_name" | "raw_json";
 export type LocalRuleMatch = "contains" | "equals";
@@ -77,6 +78,12 @@ function collectToolNames(value: unknown, output: string[]): void {
   }
 }
 
+const MAX_REGEX_SUBJECT = 10_000;
+/** Safety verdicts per pattern. Rules repeat on every payload, so the screen runs once
+ *  per distinct pattern, never per candidate; a rule hand-built outside the config load
+ *  (tests, embedders) gets the same protection as config does. */
+const patternSafety = new Map<string, boolean>();
+
 function matches(rule: LocalRule, candidate: string): boolean {
   const left = rule.caseSensitive ? candidate : candidate.toLowerCase();
   const right = rule.caseSensitive ? rule.pattern : rule.pattern.toLowerCase();
@@ -86,8 +93,16 @@ function matches(rule: LocalRule, candidate: string): boolean {
   try {
     const isRegex = /[[\](){}*+?^$|\\]/.test(rule.pattern);
     if (isRegex) {
+      let isSafe = patternSafety.get(rule.pattern);
+      if (isSafe === undefined) {
+        isSafe = isReDoSSafePattern(rule.pattern);
+        patternSafety.set(rule.pattern, isSafe);
+      }
+      if (!isSafe) return left.includes(right);
       const flags = rule.caseSensitive ? "" : "i";
-      return new RegExp(rule.pattern, flags).test(candidate);
+      // Bounded subject: even a screened pattern is never handed an unbounded haystack.
+      const subject = candidate.length > MAX_REGEX_SUBJECT ? candidate.slice(0, MAX_REGEX_SUBJECT) : candidate;
+      return new RegExp(rule.pattern, flags).test(subject);
     }
   } catch {
     // Invalid regex falls through to literal contains

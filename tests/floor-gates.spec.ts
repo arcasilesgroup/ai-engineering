@@ -22,7 +22,7 @@ import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
 import { floor } from "../src/floor/entry.ts";
 import { resolveContext } from "../src/git/context.ts";
-import { compileGitleaksShim, pathWithOnlyGit, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
+import { compileGitleaksShim, gitleaksInstallHint, pathWithOnlyGit, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
 
 const SECRET = "AKIAIOSFODNN7EXAMPLE";
 const roots: string[] = [];
@@ -188,10 +188,10 @@ describe("floor gates — whichGitleaks missing is a HARD FAIL", () => {
     const commit = preCommit(repo);
     expect(commit.ok).toBe(false);
     expect(commit.lines[0]).toContain("gitleaks is not installed");
-    expect(commit.lines[1]).toBe("Install it: brew install gitleaks");
+    expect(commit.lines[1]).toBe(`Install it: ${gitleaksInstallHint()}`);
     const push = prePush(repo);
     expect(push.ok).toBe(false);
-    expect(push.lines[0]).toBe("gitleaks is not installed — HARD FAIL (§12.1). brew install gitleaks");
+    expect(push.lines[0]).toBe(`gitleaks is not installed — HARD FAIL (§12.1). ${gitleaksInstallHint()}`);
   });
 });
 

@@ -19,7 +19,7 @@ import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
 import { floor } from "../src/floor/entry.ts";
 import { resolveContext } from "../src/git/context.ts";
-import { compileGitleaksShim, pathWithOnlyGit, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
+import { compileGitleaksShim, gitleaksInstallHint, pathWithOnlyGit, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
 
 const SECRET = "AKIAIOSFODNN7EXAMPLE";
 const roots: string[] = [];
@@ -189,7 +189,7 @@ describe("preCommit — diff --check, then the staged-secret scan, then DECISION
 
     expect(result.ok).toBe(false);
     expect(result.lines).toContain("gitleaks is not installed — HARD FAIL, never silent degradation (§12.1).");
-    expect(result.lines).toContain("Install it: brew install gitleaks");
+    expect(result.lines).toContain(`Install it: ${gitleaksInstallHint()}`);
   });
 
   test("requires a DECISIONS.md block when the commit is wider than 10 files", () => {
@@ -414,7 +414,7 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
     const result = prePush(repo);
 
     expect(result.ok).toBe(false);
-    expect(result.lines).toEqual(["gitleaks is not installed — HARD FAIL (§12.1). brew install gitleaks"]);
+    expect(result.lines).toEqual([`gitleaks is not installed — HARD FAIL (§12.1). ${gitleaksInstallHint()}`]);
   });
 
   test("an expired dated override leaves the gate live again (§09.1)", () => {

@@ -64,6 +64,8 @@
 
 - [ ] G2: <an outcome only existing artifacts can show>
   CHECK: sh -c 'test -f README.md && echo "README.md $(wc -c < README.md) bytes"'
+  # Windows equivalent of the sh -c CHECK above (same semantics: fail if README.md is missing, print its size):
+  CHECK: powershell -Command "if (Test-Path README.md) { Write-Output \"README.md $((Get-Item README.md).Length) bytes\" } else { exit 1 }"
   EVIDENCE: pending
 
 </pre>
