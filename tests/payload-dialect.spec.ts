@@ -117,6 +117,10 @@ describe("normalise — one shape out of every host spelling", () => {
     expect(toolName("websearch")).toBe("WebSearch");
     // Anything not measured passes through untouched.
     expect(toolName("question")).toBe("question");
+    // OpenCode sends edit replacements as oldString/newString; no-verify reads new_string.
+    const edit = normalise({ tool_name: "edit", tool_input: { path: "a.ts", oldString: "x", newString: "eslint-disable-next-line" } }, "opencode");
+    expect(edit.tool_name).toBe("Edit");
+    expect(edit.tool_input).toEqual({ path: "a.ts", old_string: "x", new_string: "eslint-disable-next-line" });
   });
 
   test("apply_patch yields every path it touches, and refuses what it cannot read", () => {

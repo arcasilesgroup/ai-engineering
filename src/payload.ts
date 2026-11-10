@@ -25,6 +25,10 @@ export const BUILT_IN_ALIASES: Record<string, string> = {
   hookEventName: "hook_event_name",
   toolUseId: "tool_use_id",
   filePath: "file_path",
+  // OpenCode 2.x (and any TS host using the same spellings) sends edit replacements this
+  // way; no-verify reads new_string/content, so the raw spelling was a silent bypass.
+  oldString: "old_string",
+  newString: "new_string",
   workspaceRoot: "cwd",
   workspacePath: "cwd",
 };

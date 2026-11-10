@@ -67,8 +67,8 @@ export default {
             const after = chain("PostToolUse", { ...judgement, tool_response: textOf(result) }, { surface: "opencode" });
             if (after.action === "deny") {
               // Containment, not prevention: the tool already ran, so the whole result is
-              // rejected — no field of it (content, output, metadata) reaches the model or
-              // the host's other consumers.
+              // rejected — no result field reaches the model or the host's consumers. The
+              // verdict itself names the guard and quotes a short excerpt, by design.
               throw new Error(`[ai-eng] ${after.by}: ${after.reason}`);
             }
             return result;

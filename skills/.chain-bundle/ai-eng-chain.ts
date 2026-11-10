@@ -144,6 +144,8 @@ var BUILT_IN_ALIASES = {
   hookEventName: "hook_event_name",
   toolUseId: "tool_use_id",
   filePath: "file_path",
+  oldString: "old_string",
+  newString: "new_string",
   workspaceRoot: "cwd",
   workspacePath: "cwd"
 };
