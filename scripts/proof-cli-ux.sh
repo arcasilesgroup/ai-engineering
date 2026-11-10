@@ -37,7 +37,7 @@ say "G4 evidence: path1 bare-folder → git repo created"
 # Path 3: re-init a governed repo → offers three options.
 REINIT_OUT=$(printf '\n' | $CLI init 2>&1)
 printf '%s\n' "$REINIT_OUT" | grep -q "already governed" || die "G4 path3: re-init prompt missing"
-printf '%s\n' "$REINIT_OUT" | grep -q "config" || die "G4 path3: config option missing"
+printf '%s\n' "$REINIT_OUT" | grep -q "Change agent surfaces" || die "G4 path3: change-surfaces option missing"
 printf '%s\n' "$REINIT_OUT" | grep 'already governed' | head -1 | sed 's/^/G4 evidence: path3 /'
 printf '\n\n\n' | $CLI init >/dev/null 2>&1
 # Path 4: CI/script: --yes --surface claude-code → zero prompts, exit 0.

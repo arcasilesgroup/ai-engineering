@@ -13,7 +13,6 @@ import { join } from "node:path";
 import { removeMachineArtifacts, SURFACES, machineCarrier, repoCarrier } from "../src/surfaces/adapters.ts";
 import { canonSkills, embeddedPath } from "../src/embed.ts";
 import { machineBase } from "../src/env.ts";
-import { surfaceHint } from "../src/commands/init.ts";
 import { runChain } from "../src/chain/mod.ts";
 
 const cli = join(import.meta.dir, "..", "src", "cli.ts");
@@ -212,24 +211,6 @@ test("cursor allow envelope: a permitted call answers, and the silent hosts stay
   const claude = chain("claude-code", clean("allow-claude"));
   expect(claude.status).toBe(0);
   expect(claude.stdout).toBe("");
-});
-
-test("a surface hint states only that row's measured gap", () => {
-  // The picker has no tier header, so the hint is the only place a gap can be said.
-  // Cursor's command rewrite is measured (research/009); the shell-output gap stays on the row.
-  const caveat = (id: string): string => {
-    const surface = SURFACES.find((entry) => entry.id === id);
-    return surface === undefined ? "" : surfaceHint(surface);
-  };
-  expect(caveat("cursor")).toInclude("research/003");
-  expect(caveat("cursor")).toInclude("a shell's output is not replaced");
-  expect(caveat("cursor")).toInclude("research/009");
-  expect(caveat("cursor")).not.toInclude("can't rewrite output");
-  expect(caveat("codex")).toInclude("/hooks");
-  expect(caveat("copilot-cli")).toInclude("userPromptSubmitted output is ignored");
-  expect(caveat("claude-code")).toBe("can't rewrite output");
-  // A host with nothing degraded says nothing: an empty hint is the honest answer.
-  expect(caveat("oh-my-pi")).toBe("");
 });
 
 test("a Read payload carrying `path` still reaches the injection guard", () => {

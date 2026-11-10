@@ -30,7 +30,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { initMain, surfaceHint } from "../src/commands/init.ts";
+import { initMain } from "../src/commands/init.ts";
 import {
   contractEntries,
   detectCommands,
@@ -397,33 +397,6 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
   });
 });
 
-describe("init · surfaceHint states the row's own delta", () => {
-  test("a surface hint describes only its own capabilities", () => {
-    expect(surfaceHint(byId("claude-code"))).toContain("can't rewrite output");
-  });
-
-  test("each deny class is named in the row's own words", () => {
-    expect(surfaceHint(byId("opencode"))).toContain("blocks by throwing");
-    expect(surfaceHint(byId("zed"))).toContain("the host denies through its own permissions; no hook for us to run");
-    const cannotBlock = { ...byId("claude-code"), can: { ...byId("claude-code").can, deny: false, rewriteOut: true }, note: undefined } as unknown as Surface;
-    expect(surfaceHint(cannotBlock)).toBe("can't block tool calls");
-  });
-
-  test("a rewrite that is absent, wholesale or total is stated", () => {
-    expect(surfaceHint(byId("zed"))).toContain("can't rewrite output");
-    expect(surfaceHint(byId("cursor"))).not.toContain("can't rewrite output");
-    expect(surfaceHint(byId("codex"))).toContain("rewrites output wholesale");
-  });
-
-  test("the row's own note rides with the hint rather than hiding in the header", () => {
-    const note = byId("codex").note ?? "";
-    expect(note.length).toBeGreaterThan(0);
-    expect(surfaceHint(byId("codex"))).toContain(note);
-    const hint = surfaceHint(byId("cursor"));
-    expect(hint).toContain("research/003");
-    expect(hint).toContain("a shell's output is not replaced");
-  });
-});
 
 describe("init · initMain, phase 1 and phase 2", () => {
   test("--global installs the canon, leaves the repo alone, and a rerun is idempotent", async () => {
@@ -898,7 +871,7 @@ describe("init · non-interactive default skill installation", () => {
     const agents = readFileSync(join(cwd, "AGENTS.md"), "utf8");
     const config = readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8");
 
-    // Two downs land on "Exit — change nothing"; the select starts on "update".
+    // Two downs land on "Exit"; the select starts on "update".
     const { result, out } = await driven({}, [["governed", "\x1b[B\x1b[B\n"]]);
     expect(result).toBe(0);
     expect(out).toContain("Nothing changed.");

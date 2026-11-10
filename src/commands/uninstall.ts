@@ -132,9 +132,9 @@ async function pickScope(input: unknown): Promise<"project" | "everything" | nul
   const scope = await select({
     message: "What do you want to remove?",
     options: [
-      { value: "project", label: "This project only — every file the lock says ai-eng owns" },
-      { value: "everything", label: `Everything — this project AND ${home()} (global skills)` },
-      { value: "cancel", label: "Cancel — remove nothing" },
+      { value: "project", label: "This project" },
+      { value: "everything", label: "Everything" },
+      { value: "cancel", label: "Cancel" },
     ],
     input: input as never,
   });

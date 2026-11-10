@@ -43,23 +43,6 @@ function canonSummary(canon: { drift: number; missing: number; stale: number }):
   return parts.join(" · ");
 }
 
-const DENY_HINTS: Record<string, string> = {
-  throw: "blocks by throwing",
-  "host-only": "the host denies through its own permissions; no hook for us to run",
-};
-const CAN_BLOCK = "can't block tool calls";
-
-/** The row's own delta. A surface with nothing degraded gets an empty hint. */
-export function surfaceHint(s: Surface): string {
-  const delta: string[] = [];
-  const denyHint = s.can.deny === true ? null : (DENY_HINTS[String(s.can.deny)] ?? CAN_BLOCK);
-  if (denyHint) delta.push(denyHint);
-  if (s.can.rewriteOut === false) delta.push("can't rewrite output");
-  else if (typeof s.can.rewriteOut === "string") delta.push("rewrites output wholesale");
-  if (s.note !== undefined) delta.push(s.note);
-  return delta.join(" · ");
-}
-
 function scaffoldProject(surfaces: string[], contract: PlanEntry[]): string[] {
   const cwd = process.cwd();
   const lines: string[] = [];
@@ -242,9 +225,9 @@ async function reinitHandoff(
     const action = flags.yes === true ? "update" : await select({
       message: "This project is already governed. What do you want to do?",
       options: [
-        { value: "update", label: "Rewrite ai-eng's files from the installed binary (ai-eng update)", hint: "overwrites hooks, settings, CI workflow — never your AGENTS.md or DECISIONS.md" },
-        { value: "config", label: "Change which agent surfaces this project is governed on (ai-eng config)" },
-        { value: "exit", label: "Exit — change nothing" },
+        { value: "update", label: "Update ai-eng's files" },
+        { value: "config", label: "Change agent surfaces" },
+        { value: "exit", label: "Exit" },
       ],
       input: input as never,
     });
@@ -272,7 +255,7 @@ async function pickSurfaces(
   } else {
     const answer = await multiselect({
       message: SURFACE_PICK_MESSAGE,
-      options: surfaceOptions().map((s) => ({ value: s.id, label: s.label, hint: surfaceHint(s) })),
+      options: surfaceOptions().map((s) => ({ value: s.id, label: s.label })),
       initialValues: detectedSurfaces(cwd),
       required: true,
       input: input as never,

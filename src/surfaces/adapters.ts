@@ -210,19 +210,6 @@ export function surfaceCanGovern(surface: Surface): boolean {
   return surface.can.deny === true || surface.can.deny === "throw";
 }
 
-/** The tier headers for the grouped surface multiselect (init + config share
- *  them): the group carries the capability class, the option hint the delta. */
-/** The picker's group headers. Each one states what holds for EVERY row under it — the
- *  per-row degradation belongs to the row, from the measured fields beside it. research/003
- *  puts the rule: "the label is the promise; the fields are the measurement. They are
- *  allowed to disagree — but not silently". */
-export const SURFACE_TIERS: ReadonlyArray<readonly [string, string]> = [
-  ["core", "core — deny + rewrite"],
-  ["experimental", "experimental — deny yes; the row names what degrades"],
-  ["best-effort", "best-effort — deny yes; what survives is the host's deployment"],
-  ["skills-only", "skills only — no guards in hot-path"],
-];
-
 type MirrorTarget = { dir: string; label: string };
 
 /** Re-exported for the callers that already know the surfaces layer: the definition is
