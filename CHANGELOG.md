@@ -83,24 +83,23 @@
 
 ### Minor Changes
 
-- [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Add guarded `ai-eng worktree rebase <slug>` and human-reviewed `ai-eng worktree merge <slug>` commands for managed feature worktrees.
+- [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Add the human-reviewed `ai-eng worktree merge <slug>` command for managed feature worktrees.
   
   Add the local workspace hub with governed project discovery, evidence-backed worktree filters and history, and persisted search-root settings with native folder selection.
 
 - [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Add local worktree lifecycle tracking and remove the checkpoint-plan approval stop.
 
 - [#749](https://github.com/arcasilesgroup/ai-engineering/pull/749) [`9932b24`](https://github.com/arcasilesgroup/ai-engineering/commit/9932b2494b62c6ccb6be47a7686cedf17cbc23c0) Thanks [@soydachi](https://github.com/soydachi)! - Production readiness: the installed command starts with Bun (no Node needed) and a smoke test installs the real packed tarball; the full test suite runs on Linux, macOS and Windows; a release verifies the exact dispatched commit, packs once, publishes that same tarball and ships a runtime-only CycloneDX SBOM; publication requires an annotated tag signed by an allowlisted key and verified redistribution rights. Windows fixes close fail-open paths in the hook chain and self-protect, and the guards now deny shell text they cannot read.
-
-## Unreleased
-
+- Floating core keeps the guard floor and orchestration ceremony in core, using the
+  user's existing Git, host, and forge for the rest of the workflow.
 - The command-scope policy now defaults to `4667` for every install and new project
   (was `0467`): system read and external write are allowed; system write and execute
   stay denied. Set `guards.policy_mode` in `.ai-engineering/config.toml` to narrow it.
-- Floating core keeps the guard floor and orchestration ceremony in core, using the
-  user's existing Git, host, and forge for the rest of the workflow.
 - `ai-eng init` installs every skill and its resources by default, with no pack prompt
   or selection; a fresh init writes no `[canon].packs`, and a legacy value is ignored
   with its config bytes preserved.
+- `ai-eng init` and `update` create the machine-level Claude, Codex and Copilot carriers when
+  they are missing.
 - Cleanup and uninstall delete only files ai-eng can prove it wrote, by exact bytes or a
   recorded hash; edited, user-added, linked and unproven files are kept and named. A
   settings file that cannot be changed safely is refused with a warning and left as it was.
@@ -114,12 +113,9 @@
   `ai-eng worktree rm --force` no longer needs a detected base.
 - Automatic receipt retention refuses a linked or escaping `.ai-engineering/receipts`
   folder, deletes only receipt files it wrote, keeps at least one day of history, and never
-  changes the host's working directory.
+  changes the host's working directory. Receipt retention opens each receipt only once.
 - The checkpoint guard judges where a write lands, so case, link, `cd` and `json.tool -`
   aliases no longer reach the checkpoint file.
-- The installed `ai-eng` command starts with Bun alone (no Node needed), and the package now
-  requires Bun 1.4.4 or later. A smoke test installs the real packed tarball and runs it.
-- CI runs the full test suite on Linux, macOS and Windows.
 - Windows fixes: hooks no longer fail open, because the chain reads stdin before it exits;
   self-protect matches governed paths written with either slash; network-share paths are
   never opened; `AI_ENG_HOME` must stay inside its home; and protected home folders stay
@@ -128,18 +124,28 @@
   delimiters the way the shell does, and find `git` behind shell keywords and prefix
   commands. Shell text a guard cannot read is denied, and a malformed hook payload is
   denied instead of crashing the chain.
-- `ai-eng init` and `update` create the machine-level Claude, Codex and Copilot carriers when
-  they are missing.
 - `ai-eng wrap` keeps a run's evidence when the command's output overflows.
-- Receipt retention opens each receipt only once.
-- A release verifies the exact dispatched commit, packs one tarball, records its digest and
-  publishes that same file, with a CycloneDX SBOM that lists only runtime dependencies.
-- Publishing requires a signed, annotated release tag on the dispatched commit, made by an
-  allowlisted key, plus verified redistribution rights for bundled content. Publication
-  stays blocked until the owner resolves the unresolved rows in `NOTICE.md`.
 - The README now states the security boundary: what the guards stop and where they end.
+- Worktree lifecycle awareness now reads pre-worktree approval from the exact fresh
+  brainstorm artifact only when no local feature branch exists, without writing a
+  second state store. Existing worktree checkpoints remain authoritative;
+  `request-changes` uses the full pending checkpoint-only commit SHA as a
+  compare-and-swap token before clearing review pins.
+- Worktree creation starts from the invoking checkout's current `HEAD` and accepts
+  a branch name only; it does not accept file hints or create a hint manifest. The
+  detected base is recorded for integration, not used as the starting commit.
+- Worktree cleanup now removes terminal control characters from ignored filenames in
+  its output, and a `constructor` slug no longer blocks later worktree creation.
+- Azure triage now validates source-linked claims and explains Recommendation and
+  Why now alongside dates, discussion, parent/sprint context and evidence coverage.
+  Current commitments and blockers can change recommendation order without
+  changing native Priority/Severity; critical risk stays first. Partial chronology
+  cannot establish current work. Existing inventory-only and GitHub behavior stays
+  intact, and invalid evidence preserves the previous report.
+- Add a memory-only synthetic preview for complete, limited and empty Azure
+  reports; no live tenant or private report is used.
 
-### 3.0 migration guide (unreleased)
+### 3.0 migration guide
 
 The 3.0 major release removes the `workspace`, `briefing`, `upgrade` and `spec`
 CLI verbs and the `worktree rebase` subcommand. Use `ai-eng worktree new`,
@@ -160,24 +166,9 @@ Only the explicitly approved worktree merge flow creates its reviewed merge
 commit, and the feature checkout remains available afterward. Verify the
 migrated installation with `ai-eng doctor`.
 
-- Worktree lifecycle awareness now reads pre-worktree approval from the exact fresh
-  brainstorm artifact only when no local feature branch exists, without writing a
-  second state store. Existing worktree checkpoints remain authoritative;
-  `request-changes` uses the full pending checkpoint-only commit SHA as a
-  compare-and-swap token before clearing review pins.
-- Worktree creation starts from the invoking checkout's current `HEAD` and accepts
-  a branch name only; it does not accept file hints or create a hint manifest. The
-  detected base is recorded for integration, not used as the starting commit.
-- Worktree cleanup now removes terminal control characters from ignored filenames in
-  its output, and a `constructor` slug no longer blocks later worktree creation.
-- Azure triage now validates source-linked claims and explains Recommendation and
-  Why now alongside dates, discussion, parent/sprint context and evidence coverage.
-  Current commitments and blockers can change recommendation order without
-  changing native Priority/Severity; critical risk stays first. Partial chronology
-  cannot establish current work. Existing inventory-only and GitHub behavior stays
-  intact, and invalid evidence preserves the previous report.
-- Add a memory-only synthetic preview for complete, limited and empty Azure
-  reports; no live tenant or private report is used.
+## Unreleased
+
+<!-- Nothing pending. List a change here only when it has not shipped in a tagged release. -->
 
 ## 2.6.0
 

@@ -160,7 +160,7 @@ describe("token budgets", () => {
 
       expect(commitMsg.status).toBe(0);
       expect(outputLineCount(commitMsg)).toBe(0);
-      expect(readFileSync(message, "utf8")).toContain("Override-Reason: freeze exception");
+      expect(readFileSync(message, "utf8")).not.toContain("Override-Reason");
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

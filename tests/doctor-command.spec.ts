@@ -905,6 +905,40 @@ describe("doctor --gc", () => {
     expect(existsSync(join(ai, "security", "run-1"))).toBe(false);
     expect(existsSync(join(ai, "security", "run-6"))).toBe(true);
   });
+
+  test("security gc orders runs by number: with 12 runs and keep_runs 10, run-1 and run-2 die, run-10 survives", async () => {
+    const { root } = sandbox(`${GOVERNED}\n[gc]\nkeep_runs = 10\nolder_than = "0d"\n`);
+    const ai = join(root, ".ai-engineering");
+    for (let n = 1; n <= 12; n += 1) {
+      mkdirSync(join(ai, "security", `run-${n}`), { recursive: true });
+      writeFileSync(join(ai, "security", `run-${n}`, "findings.json"), "{}");
+    }
+    gitInit(root);
+    commit(root, "runs", { GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z" });
+
+    const run = await doctor({ gc: true });
+
+    // Lexicographic order would kill run-10/11/12 (they sort before run-2) — the newest, exactly backwards.
+    expect(run.out).toContain("✓ security/: archived 2 in git and deleted (keeping the last 10)");
+    for (let n = 1; n <= 12; n += 1) {
+      expect(existsSync(join(ai, "security", `run-${n}`))).toBe(n > 2);
+    }
+  });
+
+  test("a directory inside a gc folder is named in a warning and left alone, not unlinked", async () => {
+    const { root } = sandbox(`${GOVERNED}\n[gc]\nolder_than = "0d"\n`);
+    const ai = join(root, ".ai-engineering");
+    mkdirSync(join(ai, "research", "012-bundle"), { recursive: true });
+    writeFileSync(join(ai, "research", "012-bundle", "index.html"), "<html>bundle</html>");
+    gitInit(root);
+    commit(root, "bundle", { GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z" });
+
+    const run = await doctor({ gc: true });
+
+    // git tracks what is inside the directory, so the verdict is "collect" — the unlink used to throw EISDIR.
+    expect(run.out).toContain("⚠ research/: 1 entries are not plain files — left alone (012-bundle)");
+    expect(existsSync(join(ai, "research", "012-bundle", "index.html"))).toBe(true);
+  });
 });
 
 describe("a half-installed module host is a report, not a crash", () => {

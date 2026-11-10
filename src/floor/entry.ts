@@ -5,7 +5,6 @@ import { repoRoot, isGoverned } from "../env.ts";
 import { preCommit, commitMsg, prePush } from "./index.ts";
 import { createHash } from "node:crypto";
 import { writeReceipt } from "../receipts.ts";
-import { readOverrides, overrideActive } from "../chain/dialect.ts";
 
 function writeHookOutput(result: { ok: boolean; lines: string[] }): void {
   if (result.ok || result.lines.length === 0) return;
@@ -49,10 +48,10 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
       process.stderr.write("usage: ai-eng git commit-msg <msgfile>\n");
       return 2;
     }
-    const overrides = readOverrides(root);
-    const active = overrides.find((o) => overrideActive(overrides, o.name) !== null) ?? null;
+    // No override lookup here: the floor has no guard an override can excuse, so
+    // stamping a reason would write false exceptions into git history (T19).
     const id = createHash("sha256").update(`${new Date().toISOString()}:floor`).digest("hex").slice(0, 8);
-    const result = commitMsg(msgFile, id, active?.reason ?? null);
+    const result = commitMsg(msgFile, id);
     writeHookOutput(result);
     return result.ok ? 0 : 1;
   }

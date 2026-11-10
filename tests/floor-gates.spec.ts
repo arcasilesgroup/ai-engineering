@@ -378,7 +378,7 @@ describe("floor gates — push protection follows the detected base", () => {
 describe("floor gates — commitMsg contract corners", () => {
   test("a conventional word inside the first line is not a conventional message", () => {
     const msg = write(tempDir("ai-eng-gates-msg-"), "COMMIT_EDITMSG", "this mentions feat: but is not it\n");
-    const result = commitMsg(msg, "abc12345", null);
+    const result = commitMsg(msg, "abc12345");
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toBe(
       'the message does not follow the Conventional Commits convention: "this mentions feat: but is not it"',
@@ -389,21 +389,10 @@ describe("floor gates — commitMsg contract corners", () => {
   test("a first line longer than 72 chars is reported truncated to 72", () => {
     const long = `${"a".repeat(80)}: tail`;
     const msg = write(tempDir("ai-eng-gates-msg-"), "COMMIT_EDITMSG", `${long}\n`);
-    const result = commitMsg(msg, "abc12345", null);
+    const result = commitMsg(msg, "abc12345");
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toBe(
       `the message does not follow the Conventional Commits convention: "${long.slice(0, 72)}"`,
-    );
-  });
-
-  test("an override reason longer than 80 chars travels truncated to 80", () => {
-    const reason = `r${"e".repeat(99)}`;
-    const msg = write(tempDir("ai-eng-gates-msg-"), "COMMIT_EDITMSG", "chore: land it\n");
-    const result = commitMsg(msg, "abc12345", reason);
-    expect(result.ok).toBe(true);
-    expect(result.lines).toEqual([`active override travels in the commit: ${reason.slice(0, 80)}`]);
-    expect(readFileSync(msg, "utf8")).toBe(
-      `chore: land it\n\nReceipt-Id: abc12345\nOverride-Reason: ${reason}\n`,
     );
   });
 
@@ -412,7 +401,7 @@ describe("floor gates — commitMsg contract corners", () => {
     const msg = write(tempDir("ai-eng-gates-msg-"), "COMMIT_EDITMSG", before);
     chmodSync(msg, 0o444);
     try {
-      const result = commitMsg(msg, "newvalue", null);
+      const result = commitMsg(msg, "newvalue");
       expect(result.ok).toBe(true);
       expect(result.lines).toEqual([]);
       expect(readFileSync(msg, "utf8")).toBe(before);

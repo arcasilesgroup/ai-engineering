@@ -8,13 +8,12 @@
 // twice.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, unlinkSync, readdirSync, rmSync, lstatSync, rmdirSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync, readdirSync, rmSync, lstatSync, rmdirSync, realpathSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { MOVED_REPO_CARRIERS, SURFACES, machineStateUnavailable, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
 import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
 import { parseLock, sha256, stripSharedText, SEEDED_CONFIG, type PlanEntry } from "../install.ts";
-import { hashFile } from "../install.ts";
 import {
   embeddedTemplate, isFilesystemRefusal, isRemovableCanonOwnershipRecord, recordedMachinePaths, removeMachinePath, isVersionCacheRecord, pruneEmptyDirectoryWithin,
   readProjectFileSnapshot, refusedChangeText, safeProjectPath, unlinkProjectPath, withSafeProjectParent, writeProjectFile,
@@ -235,12 +234,15 @@ function decideSweep(
     return { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: PRESERVED } };
   }
   const unlink = (row: ui.Row): SweepStep => ({ kind: "unlink", absolute: safeAbsolute, snapshot, row });
+  // The lock's hashes are of the LF text ai-eng wrote: hash the file the same way,
+  // so a CRLF checkout (core.autocrlf on Windows) is still recognized as ai-eng's.
+  const diskHash = sha256(snapshot.content.toString("utf8"));
   if (settingsByPath.has(rel)) {
     // Unedited: the whole file is ai-eng's template — it goes. Edited: the
     // user's keys stay, only our hook entries come out. The marker logic lives in
     // install.ts beside its inverse, so what init merges in and what uninstall takes
     // out can never drift apart. Unparseable: never rewrite what you cannot read.
-    if (snapshot.hash === assets[rel]) return unlink({ mark: "ok", text: `${rel} removed`, dim: "still the template ai-eng installed" });
+    if (diskHash === assets[rel]) return unlink({ mark: "ok", text: `${rel} removed`, dim: "still the template ai-eng installed" });
     const stripped = stripSharedText(snapshot.content.toString("utf8"));
     if (stripped === null) {
       return { kind: "leave", row: { mark: "warn", text: `${rel} not rewritten — not JSON this installer can rewrite without reformatting it (review by hand)` } };
@@ -263,15 +265,15 @@ function decideSweep(
       ? unlink({ mark: "ok", text: `${rel} removed`, dim: "marker-matched — never by name alone" })
       : { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: "no ai-eng marker: it is yours now" } };
   }
-  if (SEEDED_CONFIG.has(rel) && snapshot.hash !== assets[rel]) {
+  if (SEEDED_CONFIG.has(rel) && diskHash !== assets[rel]) {
     return { kind: "leave", row: { mark: "ok", text: `${rel} kept`, dim: "config you edited — yours" } };
   }
   // Without a lock the path is only one the binary would ship, not proof ai-eng wrote
   // this file: only bytes identical to ai-eng's own say so.
-  if (!isLockRecorded && snapshot.hash !== assets[rel]) {
+  if (!isLockRecorded && diskHash !== assets[rel]) {
     return { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: "no lock records it and its bytes are not ai-eng's — yours" } };
   }
-  return unlink(snapshot.hash === assets[rel]
+  return unlink(diskHash === assets[rel]
     ? { mark: "ok", text: `${rel} removed` }
     : { mark: "ok", text: `${rel} removed`, dim: "edited since install — ai-eng's file all the same" });
 }
@@ -396,7 +398,7 @@ async function removeEverything(root: string, input: unknown, declared: string[]
     // init: ours goes only while it is byte-identical to the template — an edited one
     // holds the user's rules and stays, named.
     const gitignore = join(root, ".gitignore");
-    const ours = existsSync(gitignore) && hashFile(gitignore) === sha256(embeddedTemplate("gitignore.tpl"));
+    const ours = existsSync(gitignore) && sha256(readFileSync(gitignore, "utf8")) === sha256(embeddedTemplate("gitignore.tpl"));
     if (ours) attempt(gitignore, () => unlinkSync(gitignore));
     const projectHome = join(root, ".ai-engineering");
     attempt(projectHome, () => rmSync(projectHome, { recursive: true, force: true }));

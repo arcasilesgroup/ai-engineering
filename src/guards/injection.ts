@@ -11,6 +11,7 @@ import { dirname, isAbsolute, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Payload } from "../payload.ts";
 import { evaluateLocalRules, localRuleReason, type LocalRule } from "./local-rules.ts";
+import { isNetworkPath } from "./self-protect.ts";
 
 
 /** The directory of THIS guard source, walked up to the package root (the one holding
@@ -122,6 +123,8 @@ function scanPath(target: string, cwd: unknown): { path: string; excerpt: string
   const resolved = isAbsolute(target) ? target : resolve(base, target);
   const root = trustedRoot();
   if (root !== null && resolved.startsWith(root)) return null;
+  // Opening a share on Windows negotiates SMB auth with its host — an NTLM leak. Never opened.
+  if (isNetworkPath(resolved)) return null;
   let text: string;
   try {
     text = readFileSync(resolved, "utf8").slice(0, MAX_BYTES);

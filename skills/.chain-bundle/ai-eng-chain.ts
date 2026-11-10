@@ -2561,6 +2561,8 @@ function scanPath(target, cwd) {
   const root = trustedRoot();
   if (root !== null && resolved.startsWith(root))
     return null;
+  if (isNetworkPath(resolved))
+    return null;
   let text;
   try {
     text = readFileSync5(resolved, "utf8").slice(0, MAX_BYTES);

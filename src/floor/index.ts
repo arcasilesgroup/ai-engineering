@@ -145,8 +145,9 @@ function stageSecrets(cwd: string): FloorResult {
     rmSync(scratch, { recursive: true, force: true });
   }
 }
-/** commit-msg: convention + Receipt-Id trailer + override reason when active. */
-export function commitMsg(msgFile: string, receiptId: string, overrideReason: string | null): FloorResult {
+/** commit-msg: convention + Receipt-Id trailer. No Override-Reason: the floor has no
+ *  guard an override can excuse, so any stamped reason would be false history (T19). */
+export function commitMsg(msgFile: string, receiptId: string): FloorResult {
   const lines: string[] = [];
   let content: string;
   try {
@@ -161,16 +162,10 @@ export function commitMsg(msgFile: string, receiptId: string, overrideReason: st
       lines: [`the message does not follow the Conventional Commits convention: "${first.slice(0, 72)}"`, "Format: type(scope): description"],
     };
   }
-  // The two trailers are independent: an amend (or the hook firing twice) finds the
-  // Receipt-Id already there, and the override reason is the only record that the commit
-  // landed under an exception (§09.1) — dropping it there erased the justification while
-  // still reporting success.
+  // The Receipt-Id trailer is idempotent: an amend (or the hook firing twice) finds it
+  // already there and leaves the message untouched.
   let next = content;
   if (!next.includes("Receipt-Id:")) next = `${next.trimEnd()}\n\nReceipt-Id: ${receiptId}\n`;
-  if (overrideReason && !next.includes("Override-Reason:")) {
-    next = `${next.trimEnd()}\nOverride-Reason: ${overrideReason}\n`;
-    lines.push(`active override travels in the commit: ${overrideReason.slice(0, 80)}`);
-  }
   if (next !== content) writeFileSync(msgFile, next);
   return { ok: true, lines };
 }

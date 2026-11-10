@@ -2,7 +2,7 @@
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
 import { canonDrift } from "../embed.ts";
-import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
@@ -574,15 +574,19 @@ function gcFolder(root: string, folder: string, maxFiles: number, olderDays: num
   if (!existsSync(dir)) return lines;
   const entries = readdirSync(dir).filter((name) => name !== "summary.json");
   const collected: string[] = [];
+  const notFiles: string[] = [];
   let immune = 0;
   for (const name of entries) {
     const verdict = collectVerdict(root, folder, dir, name, olderDays);
     if (verdict === "immune") { immune += 1; continue; }
     if (verdict === "skip") continue;
+    // git tracks what is *inside* a directory, so a directory reaches "collect" — unlink would throw EISDIR.
+    if (!lstatSync(join(dir, name)).isFile()) { notFiles.push(name); continue; }
     unlinkSync(join(dir, name));
     collected.push(`${folder}/${name}`);
   }
   if (collected.length > 0) lines.push(`✓ ${folder}/: archived ${collected.length} in git and deleted (${collected.join(", ")})`);
+  if (notFiles.length > 0) lines.push(`⚠ ${folder}/: ${notFiles.length} entries are not plain files — left alone (${notFiles.join(", ")})`);
   if (immune > 0) lines.push(`  ${folder}/: ${immune} cited by a permanent governor — immune`);
   const remaining = readdirSync(dir).length;
   if (remaining > maxFiles) lines.push(`⚠ ${folder}/: ${remaining} > max_files=${maxFiles} — review before the next pass`);
@@ -604,7 +608,8 @@ function gcSecurity(root: string, security: string, olderDays: number, keepRuns:
   if (!existsSync(security)) return lines;
   const runs = readdirSync(security)
     .filter((name) => name.startsWith("run-"))
-    .sort((a, b) => a.localeCompare(b, "en"));
+    // by the numeric suffix — run-10 is newer than run-2, but sorts before it as text
+    .sort((a, b) => Number(a.slice(4)) - Number(b.slice(4)));
   const beyond = runs.slice(0, Math.max(0, runs.length - keepRuns));
   const collected: string[] = [];
   for (const run of beyond) {

@@ -397,6 +397,25 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(existsSync(join(cwd, ".git", "hooks", "pre-commit"))).toBe(false);
   });
 
+  test("a file ai-eng wrote goes even when the checkout made its bytes CRLF (core.autocrlf on Windows)", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    // Same LF text the lock recorded, checked out as CRLF — not an edit.
+    const workflow = join(cwd, ".github", "workflows", "ai-eng-check.yml");
+    writeFileSync(workflow, readFileSync(workflow, "utf8").replaceAll("\n", "\r\n"));
+
+    const { result, out } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+
+    expect(result).toBe(0);
+    expect(existsSync(workflow)).toBe(false);
+    expect(out).toContain("✓ .github/workflows/ai-eng-check.yml removed");
+    expect(out).not.toContain(".github/workflows/ai-eng-check.yml kept");
+  });
+
   test("a git hook someone else wrote is never deleted; ours are removed", async () => {
     const { cwd } = sandboxed();
     gitInit(cwd);
