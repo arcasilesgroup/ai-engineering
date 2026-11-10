@@ -6,8 +6,9 @@ import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { closeSync, constants, cpSync, existsSync, fchmodSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { hostname } from "node:os";
-import { basename, delimiter, join, dirname, relative, resolve, sep, isAbsolute } from "node:path";
+import { basename, delimiter, join, dirname, resolve } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
+import { pathIsWithin } from "../shared-project-fs.ts";
 import { KEEP_EXIT_STATUS, mergeSharedText, portableHookText, stripSharedText, sha256 } from "../install.ts";
 import { VERSION } from "../version.ts";
 import {
@@ -1771,12 +1772,7 @@ export function removeMachineArtifacts(refused: string[] = []): number {
       return [];
     }
   };
-  const isCanonPath = (candidate: string): boolean => {
-    const pathFromCanon = relative(canonReal, candidate);
-    return pathFromCanon === "" || (
-      pathFromCanon !== ".." && !pathFromCanon.startsWith(`..${sep}`) && !isAbsolute(pathFromCanon)
-    );
-  };
+  const isCanonPath = (candidate: string): boolean => pathIsWithin(canonReal, candidate);
   const removeCanonLink = (directory: string, name: string): boolean => {
     const link = join(directory, name);
     const originalStat = lstatSync(link);

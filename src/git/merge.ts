@@ -4,15 +4,14 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
-  realpathSync,
   renameSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { printable } from "../env.ts";
-import { assertCheckpointTransition, parseCheckpoint, readCheckpoint, serializeCheckpoint, type Checkpoint, type CheckpointContext } from "../workflow/checkpoint.ts";
+import { assertCheckpointTransition, checkpointFileIdentity, parseCheckpoint, readCheckpoint, serializeCheckpoint, type Checkpoint, type CheckpointContext } from "../workflow/checkpoint.ts";
 import { resolveContext } from "./context.ts";
 import { commitIdentityEnv, runGit, type GitResult } from "./run.ts";
 import {
@@ -59,17 +58,7 @@ function fullObject(cwd: string, revision: string): string | null {
 function safeCheckpointPath(path: string, slug: string): string | null {
   const checkpointPath = join(path, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   try {
-    const stat = lstatSync(checkpointPath);
-    const resolved = realpathSync.native(checkpointPath);
-    const relativePath = relative(canonicalize(path), resolved);
-    if (
-      !stat.isFile() ||
-      stat.isSymbolicLink() ||
-      relativePath === "" ||
-      relativePath === ".." ||
-      relativePath.startsWith(`..${sep}`) ||
-      isAbsolute(relativePath)
-    ) return null;
+    if (checkpointFileIdentity(checkpointPath, path) === null) return null;
     return checkpointPath;
   } catch {
     return null;

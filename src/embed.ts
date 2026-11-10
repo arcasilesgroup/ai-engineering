@@ -4,7 +4,7 @@
 import { EMBEDDED } from "./assets.ts";
 import { randomBytes } from "node:crypto";
 import { closeSync, constants, fstatSync, ftruncateSync, openSync, writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, renameSync, unlinkSync, lstatSync, realpathSync, type Dirent, type Stats } from "node:fs";
-import { basename, join, dirname, resolve, relative, sep, isAbsolute } from "node:path";
+import { basename, join, dirname, resolve, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hashFile } from "./shared-hash.ts";
 import {
@@ -479,8 +479,7 @@ export function embeddedPath(ref: string, base: string = import.meta.url): strin
 }
 
 function assertInsideRoot(root: string, candidate: string): void {
-  const pathFromRoot = relative(root, candidate);
-  if (pathFromRoot === ".." || pathFromRoot.startsWith(`..${sep}`) || isAbsolute(pathFromRoot)) {
+  if (!pathIsWithin(root, candidate)) {
     throw new Error(`embedded asset destination escapes its root: ${candidate}`);
   }
 }

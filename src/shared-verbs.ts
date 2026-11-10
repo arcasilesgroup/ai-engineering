@@ -5,19 +5,22 @@
 // It lives here rather than in cli.ts because cli.ts runs main() on import and so
 // cannot be a pure seam — and the suggestion is the part worth testing.
 
-/** Every verb the binary answers to. The machine verbs stay off the human list
- *  in --help — but a human who types `ai-eng chian` still deserves the answer. */
+/** The verbs a person types, in help order, each with its one-line --help answer. */
+export const HUMAN_VERBS: readonly { readonly verb: string; readonly description: string }[] = [
+  { verb: "init", description: "install governance (global without a repo; contract inside)" },
+  { verb: "doctor", description: "12 checks + one real adversarial probe + --gc" },
+  { verb: "config", description: "add or remove surfaces, and regenerate their adapters" },
+  { verb: "update", description: "rewrite ai-eng's files from the installed binary (zero network)" },
+  { verb: "uninstall", description: "revert ours, keep yours" },
+];
+
+/** Verbs typed by agents and hooks, never by a person — named on one line in --help. */
+export const MACHINE_VERBS: readonly string[] = ["chain", "git", "wrap", "worktree", "adapt"];
+
+/** Every verb the binary answers to. */
 export const ALL_VERBS: readonly string[] = [
-  "init",
-  "doctor",
-  "config",
-  "adapt",
-  "update",
-  "uninstall",
-  "chain",
-  "git",
-  "wrap",
-  "worktree",
+  ...HUMAN_VERBS.map((entry) => entry.verb),
+  ...MACHINE_VERBS,
 ];
 
 /** Levenshtein, two rows. The inputs are short and there is no dependency to add. */

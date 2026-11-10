@@ -39,13 +39,6 @@ loop_failures = 5  # same signature failing → deny
 # action = "block"
 # risk = 0.9
 
-# Circuit breaker — protects against external service failures (Jev, MCP).
-# After failure_threshold consecutive failures, the circuit opens and rejects
-# immediately for reset_ms milliseconds, then tries once to recover.
-# [guards.circuit_breaker]
-# failure_threshold = 5   # consecutive failures before opening (default: 5)
-# reset_ms = 30000        # milliseconds before half-open recovery (default: 30000)
-
 # Git — optional; leave commented out to let ai-eng detect it.
 # base: the branch your work merges into. Without it the base is the default branch
 # of the current branch's upstream remote (or origin), read from local refs; when

@@ -1,4 +1,4 @@
-// src/shared-worktree.ts — where a worktree lives, what a slug may be, and the git
+// src/git/shared-worktree.ts — where a worktree lives, what a slug may be, and the git
 // argv the `ai-eng worktree` verb runs.
 // Every git value is an argv element: no command is ever assembled as a shell string.
 
@@ -14,12 +14,13 @@ import {
   writeFileSync,
 } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { loadConfig, printable } from "./env.ts";
-import { namedBase, resolveContext } from "./git/context.ts";
-import { commitIdentityEnv, type GitResult, runGit } from "./git/run.ts";
-import { reviewedFeatureChainProblem } from "./git/merge.ts";
+import { pathIsWithin } from "../shared-project-fs.ts";
+import { loadConfig, printable } from "../env.ts";
+import { namedBase, resolveContext } from "./context.ts";
+import { commitIdentityEnv, type GitResult, runGit } from "./run.ts";
+import { reviewedFeatureChainProblem } from "./merge.ts";
 import {
   canonicalize,
   gitOperationState,
@@ -28,14 +29,15 @@ import {
   worktreeRoot,
   worktreeStatus,
   type WorktreeStatus,
-} from "./git/worktree.ts";
+} from "./worktree.ts";
 import {
   gatesComplete,
   parseCheckpoint,
   readCheckpoint,
   serializeCheckpoint,
+  checkpointFileIdentity,
   type Checkpoint,
-} from "./workflow/checkpoint.ts";
+} from "../workflow/checkpoint.ts";
 
 /** The shape of a slug: the user types it, and it becomes both `feat/<slug>` and the
  *  worktree directory name. The orchestrator compares it literally against
@@ -74,12 +76,6 @@ function canonicalizeForCreation(path: string): string {
       throw error;
     }
   }
-}
-
-function isPathWithin(root: string, candidate: string): boolean {
-  const pathFromRoot = relative(root, candidate);
-  return pathFromRoot === "" ||
-    (pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep}`) && !isAbsolute(pathFromRoot));
 }
 
 /** The primary checkout, asked of git — never the nearest `.git`, which inside a
@@ -203,7 +199,7 @@ export function worktreeNew(branchInput: string): WorktreeResult {
   }
   const directoryName = branchInput.startsWith("feat/") ? branchInput.slice("feat/".length) : branchInput;
   const target = resolve(canonicalRoot, directoryName);
-  if (!isPathWithin(canonicalRoot, target)) {
+  if (!pathIsWithin(canonicalRoot, target)) {
     return { code: 2, out: "", err: `worktree new: ${target} is outside the configured worktree root; choose a branch with a repository-local path.\n` };
   }
   const listed = openWorktrees(repo);
@@ -286,7 +282,7 @@ export function worktreeNew(branchInput: string): WorktreeResult {
       err: `worktree new: cannot resolve target parent ${parent} safely (${error instanceof Error ? error.message : String(error)}); inspect or repair its path components, then retry.\n`,
     };
   }
-  if (!isPathWithin(canonicalRoot, canonicalParent)) {
+  if (!pathIsWithin(canonicalRoot, canonicalParent)) {
     return {
       code: 2,
       out: "",
@@ -306,7 +302,7 @@ export function worktreeNew(branchInput: string): WorktreeResult {
       err: `worktree new: cannot revalidate target ${target} after creating its parent (${error instanceof Error ? error.message : String(error)}); inspect or repair the configured root and parent, then retry.\n`,
     };
   }
-  if (currentRoot !== canonicalRoot || !isPathWithin(currentRoot, currentParent)) {
+  if (currentRoot !== canonicalRoot || !pathIsWithin(currentRoot, currentParent)) {
     return {
       code: 2,
       out: "",
@@ -405,16 +401,7 @@ function lifecycleStatus(
   }
   let parsed: Checkpoint;
   try {
-    const checkpointStat = lstatSync(checkpointPath);
-    const checkpointRelative = relative(canonicalize(worktreePath), realpathSync.native(checkpointPath));
-    if (
-      !checkpointStat.isFile() ||
-      checkpointStat.isSymbolicLink() ||
-      checkpointRelative === "" ||
-      checkpointRelative === ".." ||
-      checkpointRelative.startsWith(`..${sep}`) ||
-      isAbsolute(checkpointRelative)
-    ) {
+    if (checkpointFileIdentity(checkpointPath, worktreePath) === null) {
       return { label: "unknown (checkpoint is not a worktree-local file)", files: [] };
     }
     parsed = readCheckpoint(checkpointPath, { repoPath: worktreePath, slug, baseRef });
@@ -953,16 +940,7 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   let checkpointContents: string;
   let checkpoint: Checkpoint;
   try {
-    const stat = lstatSync(checkpointPath);
-    const relativePath = relative(canonicalize(entry.path), realpathSync.native(checkpointPath));
-    if (
-      !stat.isFile() ||
-      stat.isSymbolicLink() ||
-      relativePath === "" ||
-      relativePath === ".." ||
-      relativePath.startsWith(`..${sep}`) ||
-      isAbsolute(relativePath)
-    ) {
+    if (checkpointFileIdentity(checkpointPath, entry.path) === null) {
       return { code: 1, out: "", err: "worktree request-changes: checkpoint is not a worktree-local file.\n" };
     }
     checkpoint = readCheckpoint(checkpointPath, {
@@ -1047,16 +1025,8 @@ export function worktreeRequestChanges(slug: string, expectedCheckpointCommit: s
   let transactionMode: number;
   let transactionPlan: Checkpoint;
   try {
-    const stat = lstatSync(transactionCheckpoint);
-    const relativePath = relative(canonicalize(transactionPath), realpathSync.native(transactionCheckpoint));
-    if (
-      !stat.isFile() ||
-      stat.isSymbolicLink() ||
-      relativePath === "" ||
-      relativePath === ".." ||
-      relativePath.startsWith(`..${sep}`) ||
-      isAbsolute(relativePath)
-    ) {
+    const stat = checkpointFileIdentity(transactionCheckpoint, transactionPath);
+    if (stat === null) {
       const cleanup = cleanupRequestChangesWorktree(repo, transactionPath, expectedCheckpointCommit, checkpointRelative);
       return {
         code: 1,
