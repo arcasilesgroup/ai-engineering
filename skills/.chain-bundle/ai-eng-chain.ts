@@ -144,6 +144,8 @@ var BUILT_IN_ALIASES = {
   hookEventName: "hook_event_name",
   toolUseId: "tool_use_id",
   filePath: "file_path",
+  oldString: "old_string",
+  newString: "new_string",
   workspaceRoot: "cwd",
   workspacePath: "cwd"
 };
@@ -163,7 +165,8 @@ var LOWER_TOOLS = {
 var TOOL_ALIASES_BY_SURFACE = {
   cursor: { Shell: "Bash" },
   pi: LOWER_TOOLS,
-  "oh-my-pi": LOWER_TOOLS
+  "oh-my-pi": LOWER_TOOLS,
+  opencode: { ...LOWER_TOOLS, shell: "Bash", webfetch: "WebFetch", websearch: "WebSearch", subagent: "Task" }
 };
 var COPILOT_TOOLS = {
   bash: "Bash",
@@ -1890,7 +1893,7 @@ function protectedPaths(repoRoot) {
   literals.push(join4(machineBase(), ".agents", "skills"));
   literals.push(join4(machineBase(), ".config", "opencode", "skill"));
   literals.push(globalHome);
-  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json", ".gitconfig", ".config/git/config"]) {
+  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".config/opencode/ai-eng", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json", ".gitconfig", ".config/git/config"]) {
     literals.push(join4(machineBase(), carrier));
   }
   if (!repoRoot)

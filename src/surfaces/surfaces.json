@@ -68,21 +68,21 @@
         "deny": "throw",
         "rewriteOut": true,
         "loop": "native",
-        "loopEvidence": "opencode 1.18.29: --auto (auto-approve permissions not explicitly denied) with `opencode run`, --continue and --fork"
+        "loopEvidence": "opencode 2.2.5: --auto (auto-approve permissions not explicitly denied) with `opencode run`, --continue and --fork"
       },
       "promptHook": {
         "supported": false,
-        "source": "opencode.ai/docs/plugins (2026-09-22): the plugin API exposes beforeToolCall/afterToolCall — no prompt-submission hook exists to attach",
-        "measured": "2026-09-22"
+        "source": "opencode 2.2.5 plugin context (2026-11-10): tool, permission, event and session are exposed — no prompt-submission hook exists to attach",
+        "measured": "2026-11-10"
       },
       "carriers": [
         {
           "scope": "machine",
           "kind": "module",
           "path": ".config/opencode/plugins/ai-eng.ts",
-          "chain": ".config/opencode/plugins/ai-eng-chain.ts",
-          "source": "research/004 §01 (opencode loads plugins from ~/.config/opencode/plugins/)",
-          "measured": "2026-09-14"
+          "chain": ".config/opencode/ai-eng/ai-eng-chain.ts",
+          "source": "OpenCode 2.2.5 (2026-11-10): the loader imports EVERY *.ts in ~/.config/opencode/plugins as a plugin ENTRY, so the chain bundle 3.0.x wrote there died as an invalid plugin and took the provider config hook with it — the bundle now sits one directory up, outside the scan. 2.x takes a default { id, setup } and gates a call by wrapping tool.execute; 1.x calls each exported function and keeps the returned hooks, so the carrier follows the installed major",
+          "measured": "2026-11-10"
         }
       ]
     },

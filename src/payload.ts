@@ -25,6 +25,10 @@ export const BUILT_IN_ALIASES: Record<string, string> = {
   hookEventName: "hook_event_name",
   toolUseId: "tool_use_id",
   filePath: "file_path",
+  // OpenCode 2.x (and any TS host using the same spellings) sends edit replacements this
+  // way; no-verify reads new_string/content, so the raw spelling was a silent bypass.
+  oldString: "old_string",
+  newString: "new_string",
   workspaceRoot: "cwd",
   workspacePath: "cwd",
 };
@@ -59,6 +63,10 @@ const TOOL_ALIASES_BY_SURFACE: Record<string, Record<string, string>> = {
   // anything else passes through untouched, so a new host tool can never be mangled.
   pi: LOWER_TOOLS,
   "oh-my-pi": LOWER_TOOLS,
+  // OpenCode 2.2.5 (2026-11-10, live probe): the shell tool is `shell` and the file tools
+  // are lowercase too. Without this map every matcher but the loop's missed the call, so
+  // the carrier was installed and denied nothing.
+  opencode: { ...LOWER_TOOLS, shell: "Bash", webfetch: "WebFetch", websearch: "WebSearch", subagent: "Task" },
 };
 
 /** Copilot CLI runtime tool names → the guard names (docs.github.com/en/copilot/reference/hooks-reference,

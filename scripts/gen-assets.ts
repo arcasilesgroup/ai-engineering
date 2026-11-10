@@ -1,10 +1,10 @@
 // Generator for src/assets.ts: embeds every skill and template file into the
 // binary as Bun file imports. The binary IS the payload (blueprint 07). Run:
 //   bun scripts/gen-assets.ts
-// Also bundles src/chain for in-process plugin hosts (P0-2): the
-// OMP/OpenCode plugin templates import ./ai-eng-chain.ts, which must be a
-// self-contained module — not a re-export of src/ (its relative imports die in
-// a foreign repo) and not a placeholder comment (the plugin never loaded).
+// Also bundles src/chain for in-process plugin hosts (P0-2): the OMP, Pi and
+// OpenCode plugin templates import the bundle, which must be a self-contained
+// module — not a re-export of src/ (its relative imports die in a foreign repo)
+// and not a placeholder comment (the plugin never loaded).
 import { readdirSync, writeFileSync, mkdirSync, appendFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { join, relative, dirname } from "node:path";
 

@@ -103,6 +103,26 @@ describe("normalise — one shape out of every host spelling", () => {
     expect(edit.tool_input).toEqual({ file_path: "a.md", old_string: "a", new_string: "b" });
   });
 
+  test("OpenCode's lowercase tool names reach the guards under the names their matchers know", () => {
+    // Measured on OpenCode 2.2.5 (2026-11-10): the shell tool is `shell`, the file tools
+    // are `read`/`write`/`edit`, and the web tools are `webfetch`/`websearch`. Without the
+    // map every guard but the loop's skipped the call, so the carrier denied nothing.
+    const toolName = (tool: string): string => normalise({ tool_name: tool, tool_input: {} }, "opencode").tool_name;
+    expect(toolName("shell")).toBe("Bash");
+    expect(toolName("bash")).toBe("Bash");
+    expect(toolName("read")).toBe("Read");
+    expect(toolName("write")).toBe("Write");
+    expect(toolName("edit")).toBe("Edit");
+    expect(toolName("webfetch")).toBe("WebFetch");
+    expect(toolName("websearch")).toBe("WebSearch");
+    // Anything not measured passes through untouched.
+    expect(toolName("question")).toBe("question");
+    // OpenCode sends edit replacements as oldString/newString; no-verify reads new_string.
+    const edit = normalise({ tool_name: "edit", tool_input: { path: "a.ts", oldString: "x", newString: "eslint-disable-next-line" } }, "opencode");
+    expect(edit.tool_name).toBe("Edit");
+    expect(edit.tool_input).toEqual({ path: "a.ts", old_string: "x", new_string: "eslint-disable-next-line" });
+  });
+
   test("apply_patch yields every path it touches, and refuses what it cannot read", () => {
     const patch = "*** Begin Patch\n*** Add File: a.md\n+x\n*** Update File: b.ts\n*** Move to: c.ts\n@@\n-y\n+z\n*** Delete File: d.ts\n*** End Patch";
     expect(normalise({ toolName: "apply_patch", toolArgs: patch }, "copilot-cli").tool_input["file_paths"]).toEqual(["a.md", "b.ts", "c.ts", "d.ts"]);

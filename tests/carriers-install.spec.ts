@@ -718,17 +718,18 @@ describe("carriers on the machine", () => {
     expect(installMachineCarriers(["claude-code", "zed", "no-such-host"])).toEqual({
       written: ["~/.claude/settings.json"],
       untouched: [],
+      retired: [],
       refused: [],
     });
     expect(readFileSync(carrier, "utf8")).toBe(ours);
     const state = readMachineState();
     expect(state.version).toBe(VERSION);
     expect(state.carriers["claude-code"]).toBe(carrierDefinition(ours));
-    expect(installMachineCarriers(["claude-code"])).toEqual({ written: [], untouched: ["~/.claude/settings.json"], refused: [] });
+    expect(installMachineCarriers(["claude-code"])).toEqual({ written: [], untouched: ["~/.claude/settings.json"], retired: [], refused: [] });
 
     // A settings file belongs to the person: ours go in by marker, theirs stay.
     write(carrier, USER_SETTINGS);
-    expect(installMachineCarriers(["claude-code"])).toEqual({ written: ["~/.claude/settings.json"], untouched: [], refused: [] });
+    expect(installMachineCarriers(["claude-code"])).toEqual({ written: ["~/.claude/settings.json"], untouched: [], retired: [], refused: [] });
     expect(readFileSync(carrier, "utf8")).toBe((mergeSharedText(USER_SETTINGS, ours) as { text: string }).text);
 
     // Not JSON: still refused with the parser's specific reason.
@@ -802,7 +803,7 @@ describe("carriers on the machine", () => {
     write(settings, USER_SETTINGS);
     const originalBytes = readFileSync(settings);
 
-    expect(installMachineCarriers(["claude-code"])).toEqual({ written: ["~/.claude/settings.json"], untouched: [], refused: [] });
+    expect(installMachineCarriers(["claude-code"])).toEqual({ written: ["~/.claude/settings.json"], untouched: [], retired: [], refused: [] });
     const merged = JSON.parse(readFileSync(settings, "utf8")) as { env: unknown; hooks: { PreToolUse: unknown[] } };
     expect(merged.env).toEqual({ MY_FLAG: "1" });
     const commands = new Set<string>();
@@ -813,7 +814,7 @@ describe("carriers on the machine", () => {
 
     const mergedBytes = readFileSync(settings);
     const mergedIno = lstatSync(settings).ino;
-    expect(installMachineCarriers(["claude-code"])).toEqual({ written: [], untouched: ["~/.claude/settings.json"], refused: [] });
+    expect(installMachineCarriers(["claude-code"])).toEqual({ written: [], untouched: ["~/.claude/settings.json"], retired: [], refused: [] });
     expect(readFileSync(settings)).toEqual(mergedBytes);
     expect(lstatSync(settings).ino).toBe(mergedIno);
 
@@ -833,7 +834,7 @@ describe("carriers on the machine", () => {
     mkdirSync(dirname(settings), { recursive: true });
     symlinkSync(target, settings);
 
-    expect(installMachineCarriers(["claude-code"])).toEqual({ written: ["~/.claude/settings.json"], untouched: [], refused: [] });
+    expect(installMachineCarriers(["claude-code"])).toEqual({ written: ["~/.claude/settings.json"], untouched: [], retired: [], refused: [] });
     expect(lstatSync(settings).isSymbolicLink()).toBe(true);
     expect(readlinkSync(settings)).toBe(target);
     expect(readFileSync(target, "utf8")).toInclude(MACHINE_CHAIN);
@@ -1085,7 +1086,7 @@ describe("carriers on the machine", () => {
   test("installMachineCarriers: a missing settings carrier and its folder are created; a dangling link at that name is refused", () => {
     const base = useHome("machine-current");
     const carrier = join(base, ".codex", "hooks.json");
-    expect(installMachineCarriers(["codex"])).toEqual({ written: ["~/.codex/hooks.json"], untouched: [], refused: [] });
+    expect(installMachineCarriers(["codex"])).toEqual({ written: ["~/.codex/hooks.json"], untouched: [], retired: [], refused: [] });
     expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("codex")!.main);
 
     // A name that is there — even a link to nothing — is not missing: it is never written through.
@@ -1103,7 +1104,7 @@ describe("carriers on the machine", () => {
     expect(installMachineCarriers(["opencode"]).written).toEqual(["~/.config/opencode/plugins/ai-eng.ts"]);
 
     const main = join(base, ".config", "opencode", "plugins", "ai-eng.ts");
-    const chain = join(base, ".config", "opencode", "plugins", "ai-eng-chain.ts");
+    const chain = join(base, ".config", "opencode", "ai-eng", "ai-eng-chain.ts");
     expect(readFileSync(main, "utf8")).toBe(files.main);
     expect(readFileSync(chain, "utf8")).toBe(files.chain!);
     expect(readMachineState().carriers["opencode"]).toBe(sha256(files.main));
@@ -1131,12 +1132,78 @@ describe("carriers on the machine", () => {
     rmSync(main);
     expect(installMachineCarriers(["opencode"]).written).toEqual(["~/.config/opencode/plugins/ai-eng.ts"]);
 
-    expect(installMachineCarriers(["opencode"])).toEqual({ written: [], untouched: ["~/.config/opencode/plugins/ai-eng.ts"], refused: [] });
+    expect(installMachineCarriers(["opencode"])).toEqual({ written: [], untouched: ["~/.config/opencode/plugins/ai-eng.ts"], retired: [], refused: [] });
     // A missing chain bundle beside an identical main is still a write: half a carrier is
     // not current.
     rmSync(chain);
     expect(installMachineCarriers(["opencode"]).written).toEqual(["~/.config/opencode/plugins/ai-eng.ts"]);
     expect(readFileSync(chain, "utf8")).toBe(files.chain!);
+  });
+
+  test("opencode: the chain sits outside the plugin scan, and the entry speaks the host's plugin API", () => {
+    const base = useHome("machine-opencode-layout");
+    const previous = process.env["AI_ENG_OPENCODE_MAJOR"];
+    // This is the 2.x layout; the next test owns the version choice.
+    process.env["AI_ENG_OPENCODE_MAJOR"] = "2";
+    try {
+      const placement = machineCarrier(byId("opencode"))!;
+      const scan = join(base, ".config", "opencode", "plugins");
+      const chain = carrierPath(placement, placement.chain);
+      // Every *.ts inside the scan is imported as a plugin ENTRY. The bundle 3.0.x wrote
+      // there was refused ("Plugin export is not a function") and its failure took the
+      // provider config hook down with it, so the bundle lives one directory up.
+      expect(chain).toBe(join(base, ".config", "opencode", "ai-eng", "ai-eng-chain.ts"));
+      expect(relative(scan, chain).startsWith("..")).toBe(true);
+      const main = carrierFiles("opencode")!.main;
+      expect(main).toInclude('from "../ai-eng/ai-eng-chain.ts"');
+      // OpenCode 2.x loads a default { id, setup } definition. beforeToolCall/afterToolCall
+      // are not hooks there: the loader called them as plugin factories and died on the
+      // hook object it expected back.
+      expect(main).toInclude("setup:");
+      expect(main).toInclude("tool.transform");
+      expect(main).not.toInclude("beforeToolCall");
+      expect(main).not.toInclude("afterToolCall");
+    } finally {
+      if (previous === undefined) delete process.env["AI_ENG_OPENCODE_MAJOR"];
+      else process.env["AI_ENG_OPENCODE_MAJOR"] = previous;
+    }
+  });
+
+  test("opencode: the carrier follows the plugin API the installed host speaks", () => {
+    const previous = process.env["AI_ENG_OPENCODE_MAJOR"];
+    try {
+      process.env["AI_ENG_OPENCODE_MAJOR"] = "1";
+      const v1 = carrierFiles("opencode")!.main;
+      expect(v1).toInclude('"tool.execute.before"');
+      expect(v1).toInclude('"tool.execute.after"');
+      expect(v1).not.toInclude("export async function beforeToolCall");
+      expect(v1).not.toInclude("export async function afterToolCall");
+      process.env["AI_ENG_OPENCODE_MAJOR"] = "2";
+      const v2 = carrierFiles("opencode")!.main;
+      expect(v2).toInclude("setup:");
+      expect(v2).not.toInclude('"tool.execute.before"');
+    } finally {
+      if (previous === undefined) delete process.env["AI_ENG_OPENCODE_MAJOR"];
+      else process.env["AI_ENG_OPENCODE_MAJOR"] = previous;
+    }
+  });
+
+  test("installMachineCarriers retires the chain 3.0.x left inside OpenCode's plugin scan", () => {
+    const base = useHome("machine-opencode-scanned-chain");
+    const scanned = join(base, ".config", "opencode", "plugins", "ai-eng-chain.ts");
+    // A file that is not one of our generated bundles is somebody else's: kept, unmentioned,
+    // and still kept after the surface itself is recorded (the record is not ownership).
+    write(scanned, "// somebody else's module\n");
+    expect(installMachineCarriers(["opencode"]).retired).toEqual([]);
+    expect(installMachineCarriers(["opencode"]).retired).toEqual([]);
+    expect(existsSync(scanned)).toBe(true);
+
+    // A bundle an older release wrote: its own header and trailer say it is ours.
+    write(scanned, '// @bun\n// src/chain/mod.ts\nvar x = 1;\n\nexport default "ai-eng-chain";\n');
+    const report = installMachineCarriers(["opencode"]);
+    expect(report.retired).toEqual(["~/.config/opencode/plugins/ai-eng-chain.ts"]);
+    expect(existsSync(scanned)).toBe(false);
+    expect(existsSync(join(base, ".config", "opencode", "ai-eng", "ai-eng-chain.ts"))).toBe(true);
   });
 
   test("installMachineCarriers honors PI_CODING_AGENT_DIR: the host's directory, not the default one", () => {
@@ -1155,7 +1222,7 @@ describe("carriers on the machine", () => {
     const base = useHome("machine-remove");
     installMachineCarriers(["opencode"]);
     const plugin = join(base, ".config", "opencode", "plugins", "ai-eng.ts");
-    const bundle = join(base, ".config", "opencode", "plugins", "ai-eng-chain.ts");
+    const bundle = join(base, ".config", "opencode", "ai-eng", "ai-eng-chain.ts");
     // A settings carrier holding our entry and nothing else, in a shape this code can
     // reproduce: out it comes at uninstall, whole.
     const carrier = join(base, ".claude", "settings.json");
@@ -1366,7 +1433,7 @@ describe("carriers on the machine", () => {
     const base = useHome("machine-remove-edited-module");
     installMachineCarriers(["opencode"]);
     const plugin = join(base, ".config", "opencode", "plugins", "ai-eng.ts");
-    const bundle = join(base, ".config", "opencode", "plugins", "ai-eng-chain.ts");
+    const bundle = join(base, ".config", "opencode", "ai-eng", "ai-eng-chain.ts");
     writeFileSync(plugin, `${readFileSync(plugin, "utf8")}// my own tweak\n`);
     const omp = carrierPath(machineCarrier(byId("oh-my-pi"))!);
     mkdirSync(omp, { recursive: true });
@@ -1393,9 +1460,10 @@ describe("carriers on the machine", () => {
     const base = useHome("machine-module-hard-link");
     installMachineCarriers(["opencode"]);
     const plugins = join(base, ".config", "opencode", "plugins");
-    for (const file of ["ai-eng-chain.ts", "ai-eng.ts"]) {
-      const secondName = join(base, `elsewhere-${file}`);
-      linkSync(join(plugins, file), secondName);
+    const chainFile = join(base, ".config", "opencode", "ai-eng", "ai-eng-chain.ts");
+    for (const file of [chainFile, join(plugins, "ai-eng.ts")]) {
+      const secondName = join(base, `elsewhere-${basename(file)}`);
+      linkSync(file, secondName);
       writeFileSync(secondName, "// the other name's own bytes\n");
 
       expect(installMachineCarriers(["opencode"]).refused).toEqual([{ path: "~/.config/opencode/plugins/ai-eng.ts", reason: "carrier-path-unwritable" }]);
@@ -1407,7 +1475,7 @@ describe("carriers on the machine", () => {
   test("a recorded carrier whose bundle could not be removed stays recorded, and the next removal takes the bundle", () => {
     const base = useHome("machine-remove-bundle-refused");
     installMachineCarriers(["opencode"]);
-    const bundle = join(base, ".config", "opencode", "plugins", "ai-eng-chain.ts");
+    const bundle = join(base, ".config", "opencode", "ai-eng", "ai-eng-chain.ts");
     writeFileSync(bundle, `${readFileSync(bundle, "utf8")}// edited\n`);
     const originalUnlinkSync = fs.unlinkSync;
     const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation((path) => {
@@ -1421,7 +1489,7 @@ describe("carriers on the machine", () => {
       unlinkSpy.mockRestore();
     }
 
-    expect(swept.refused).toEqual([{ path: "~/.config/opencode/plugins/ai-eng-chain.ts", reason: "removal-refused" }]);
+    expect(swept.refused).toEqual([{ path: "~/.config/opencode/ai-eng/ai-eng-chain.ts", reason: "removal-refused" }]);
     expect(existsSync(bundle)).toBe(true);
     expect(readMachineState().carriers["opencode"]).toBe(sha256(carrierFiles("opencode")!.main));
     // By the record, the edited bundle is still ai-eng's: an install rewrites it.

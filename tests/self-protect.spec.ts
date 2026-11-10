@@ -543,6 +543,10 @@ describe("runSelfProtect — shell commands", () => {
     const base = process.env.AI_ENG_HOME!;
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: `rm ${join(base, "machine.json")}` } }, null)?.deny).toBe(true);
     expect(runSelfProtect({ tool_name: "Bash", tool_input: { command: "rm /tmp/machine.json" } }, null)).toBeUndefined();
+    // The in-process bundle is executable code inside the host: replacing it disables
+    // every guard on the next start, so it sits behind the same fence as the entry.
+    const bundle = join(base, ".config", "opencode", "ai-eng", "ai-eng-chain.ts");
+    expect(runSelfProtect({ tool_name: "Write", tool_input: { file_path: bundle, content: "export const chain = () => ({ action: 'allow' });" } }, null)?.deny).toBe(true);
   });
 
   test("redirects and pipes into governed paths are denied", () => {
