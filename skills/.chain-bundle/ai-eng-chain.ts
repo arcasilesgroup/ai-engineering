@@ -1891,7 +1891,7 @@ function protectedPaths(repoRoot) {
   literals.push(join4(machineBase(), ".agents", "skills"));
   literals.push(join4(machineBase(), ".config", "opencode", "skill"));
   literals.push(globalHome);
-  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json", ".gitconfig", ".config/git/config"]) {
+  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".config/opencode/ai-eng", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json", ".gitconfig", ".config/git/config"]) {
     literals.push(join4(machineBase(), carrier));
   }
   if (!repoRoot)

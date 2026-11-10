@@ -26,13 +26,19 @@ type PluginContext = {
   location?: { directory?: string };
 };
 
-/** The tool's own output as text: the injection guard's containment arm reads it. */
+/** The tool's own output as text: the injection guard's containment arm reads it. A
+ *  result nests its text (`content` parts, `output`), and JSON.stringify would turn real
+ *  whitespace into escaped `\n`, so the injection patterns would miss it. */
 function textOf(value: unknown): string {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map(textOf).join("\n");
   if (value !== null && typeof value === "object") {
-    const part = value as { text?: unknown };
-    if (typeof part.text === "string") return part.text;
+    const record = value as { text?: unknown; content?: unknown; output?: unknown };
+    if (typeof record.text === "string") return record.text;
+    const parts: string[] = [];
+    if (record.content !== undefined) parts.push(textOf(record.content));
+    if (record.output !== undefined) parts.push(textOf(record.output));
+    if (parts.length > 0) return parts.join("\n");
     return JSON.stringify(value);
   }
   return String(value ?? "");
