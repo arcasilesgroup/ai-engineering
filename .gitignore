@@ -15,3 +15,6 @@ package-lock.json
 # In CI the report is an artifact, never a commit.
 reports/
 .stryker-tmp/
+# Local review scratchpads and delta builds: CI artifacts, never source.
+.audit-scratch/
+.delta/
