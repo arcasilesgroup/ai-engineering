@@ -385,9 +385,15 @@ test("the generated OpenCode 2.x carrier denies, rewrites and contains through t
     await registry.get("opencode_session_rename")!.execute({ title: "x" }, {});
     expect(calls.at(-1)!.name).toBe("session_rename");
 
-    // PostToolUse containment replaces what the model would read.
-    const contained = (await registry.get("websearch")!.execute({ query: "x" }, {})) as { content?: string };
-    expect(contained.content).toInclude("containment, not prevention");
+    // PostToolUse containment rejects the whole result: it ran, nothing of it is returned.
+    let contained: unknown;
+    try {
+      await registry.get("websearch")!.execute({ query: "x" }, {});
+    } catch (error) {
+      contained = error;
+    }
+    expect(String(contained)).toInclude("injection");
+    expect(calls.at(-1)!.name).toBe("websearch");
   } finally {
     if (previous === undefined) delete process.env["AI_ENG_OPENCODE_MAJOR"];
     else process.env["AI_ENG_OPENCODE_MAJOR"] = previous;

@@ -66,9 +66,10 @@ export default {
             const result = await execute(input, call);
             const after = chain("PostToolUse", { ...judgement, tool_response: textOf(result) }, { surface: "opencode" });
             if (after.action === "deny") {
-              // Containment, not prevention: the tool already ran, so its output is
-              // replaced with the reason instead of the injected text reaching the model.
-              return { ...(result !== null && typeof result === "object" ? result : {}), content: `[ai-eng] ${after.by}: ${after.reason}` };
+              // Containment, not prevention: the tool already ran, so the whole result is
+              // rejected — no field of it (content, output, metadata) reaches the model or
+              // the host's other consumers.
+              throw new Error(`[ai-eng] ${after.by}: ${after.reason}`);
             }
             return result;
           };
