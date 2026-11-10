@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.5
+
+### Patch Changes
+
+- [#766](https://github.com/arcasilesgroup/ai-engineering/pull/766) [`f447189`](https://github.com/arcasilesgroup/ai-engineering/commit/f4471894d592ef63601bc229036fd592904b6bfd) Thanks [@soydachi](https://github.com/soydachi)! - Every ai-eng question now shows only the titles of its options, without a description beside them:
+  
+  - **Surface picker (`init` and `config`):** only the surface names (Claude Code, Cursor, GitHub Copilot (CLI + VS Code)…). The capability notes, which ran to six lines for Copilot, are gone. `ai-eng doctor` still shows them, and `init` still warns after the pick when a surface cannot block tool calls.
+  - **Re-running `init` on a governed repo:** the choices read "Update ai-eng's files", "Change agent surfaces" and "Exit".
+  - **`uninstall`:** the choices read "This project", "Everything" and "Cancel". The block above the question still explains what each scope removes.
+
 ## 3.0.4
 
 ### Patch Changes
