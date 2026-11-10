@@ -9,7 +9,8 @@ import * as fs from "node:fs";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { installCanon, mirrorTargets, removeMachineArtifacts } from "../src/surfaces/adapters.ts";
+import { installCanon, mirrorTargets } from "../src/surfaces/canon-install.ts";
+import { removeMachineArtifacts } from "../src/surfaces/carriers-install.ts";
 import { VERSION } from "../src/version.ts";
 
 let sandbox: string;

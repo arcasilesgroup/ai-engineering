@@ -10,7 +10,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync, readdirSync, rmSync, lstatSync, rmdirSync, realpathSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
-import { MOVED_REPO_CARRIERS, SURFACES, machineStateUnavailable, removeMachineArtifacts, removeMachineCarriers, repoCarrier, readMachineState } from "../surfaces/adapters.ts";
+import { MOVED_REPO_CARRIERS, removeMachineArtifacts, removeMachineCarriers } from "../surfaces/carriers-install.ts";
+import { SURFACES, repoCarrier } from "../surfaces/adapters.ts";
+import { machineStateUnavailable, readMachineState } from "../surfaces/machine-state.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
 import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
 import { parseLock, sha256, stripSharedText, SEEDED_CONFIG, type PlanEntry } from "../install.ts";

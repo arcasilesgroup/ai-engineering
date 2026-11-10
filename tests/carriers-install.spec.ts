@@ -38,22 +38,14 @@ import {
   carrierFiles,
   carrierPath,
   hookLauncher,
-  installAgentsCanon,
-  installCanon,
-  installMachineCarriers,
   machineCarrier,
-  machineStateFile,
-  machineStateLockFile,
-  machineStateLockScope,
-  mirrorTargets,
-  readMachineState,
   repoCarrier,
-  removeMachineArtifacts,
-  removeMachineCarriers,
   surfaceCanGovern,
   surfaceDialect,
-  sweepMovedRepoCarriers,
 } from "../src/surfaces/adapters.ts";
+import { installAgentsCanon, installCanon, mirrorTargets } from "../src/surfaces/canon-install.ts";
+import { installMachineCarriers, removeMachineArtifacts, removeMachineCarriers, sweepMovedRepoCarriers } from "../src/surfaces/carriers-install.ts";
+import { machineStateFile, machineStateLockFile, machineStateLockScope, readMachineState } from "../src/surfaces/machine-state.ts";
 import { restoreTemplateDir } from "../src/floor/template.ts";
 import { planEntries, refuseLine } from "../src/commands/init-shared.ts";
 import { VERSION } from "../src/version.ts";

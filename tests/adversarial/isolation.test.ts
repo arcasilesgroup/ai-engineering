@@ -3,7 +3,7 @@ import { test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { mirrorTargets } from "../../src/surfaces/adapters.ts";
+import { mirrorTargets } from "../../src/surfaces/canon-install.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "../fixtures/sandbox-env.ts";
 
 let override: string;

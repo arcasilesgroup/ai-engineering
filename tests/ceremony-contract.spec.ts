@@ -16,7 +16,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, posix } from "node:path";
 import { embeddedChainBundle, embeddedTemplate } from "../src/embed.ts";
-import { installCanon } from "../src/surfaces/adapters.ts";
+import { installCanon } from "../src/surfaces/canon-install.ts";
 import { VERSION } from "../src/version.ts";
 
 const REPO = join(import.meta.dir, "..");
