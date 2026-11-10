@@ -930,3 +930,47 @@ describe("a half-installed module host is a report, not a crash", () => {
     expect(detail(run, "surface oh-my-pi")).toContain("is NOT the one this binary ships");
   });
 });
+
+describe("doctor · secrets allowlist against its recorded baseline", () => {
+  test("the first look records the baseline from both allowlist files", async () => {
+    const { root } = sandbox();
+    writeFileSync(join(root, ".gitleaksignore"), "# fixtures with fake values\n0b4827d003e5d1ae:.env:generic-api-key:1\n");
+    writeFileSync(join(root, ".gitleaksrc.toml"), '[allowlist]\npaths = ["*.env", "tests/fixtures/**"]\n');
+
+    const run = await doctor();
+
+    expect(row(run, "secrets allowlist")).toContain("✓");
+    expect(detail(run, "secrets allowlist")).toBe("baseline recorded (3 entries)");
+    const baseline = readFileSync(join(root, ".ai-engineering", "allowlist-baseline.txt"), "utf8");
+    expect(baseline).toContain("ignore:0b4827d003e5d1ae:.env:generic-api-key:1");
+    expect(baseline).toContain("path:*.env");
+    expect(baseline).toContain("path:tests/fixtures/**");
+  });
+
+  test("a widened allowlist warns naming the new entries; unchanged passes again", async () => {
+    const { root } = sandbox();
+    writeFileSync(join(root, ".gitleaksignore"), "0b4827d003e5d1ae:.env:generic-api-key:1\n");
+    const recorded = await doctor();
+    expect(detail(recorded, "secrets allowlist")).toBe("baseline recorded (1 entry)");
+
+    // The two-commit bypass lives here: an entry the recorded baseline does not hold.
+    writeFileSync(join(root, ".gitleaksignore"), "0b4827d003e5d1ae:.env:generic-api-key:1\n1111111111111111:.env.local:aws-access-key-id:2\n");
+    const widened = await doctor();
+    expect(row(widened, "secrets allowlist")).toContain("▲");
+    expect(detail(widened, "secrets allowlist")).toContain("widened beyond the recorded baseline");
+    expect(detail(widened, "secrets allowlist")).toContain("ignore:1111111111111111:.env.local:aws-access-key-id:2");
+    expect(detail(widened, "secrets allowlist")).not.toContain("0b4827d0");
+
+    // Narrowing back is never a warning.
+    writeFileSync(join(root, ".gitleaksignore"), "0b4827d003e5d1ae:.env:generic-api-key:1\n");
+    const steady = await doctor();
+    expect(row(steady, "secrets allowlist")).toContain("✓");
+    expect(detail(steady, "secrets allowlist")).toBe("1 entry matches the baseline");
+  });
+
+  test("a repo with no exemptions carries no row", async () => {
+    sandbox();
+    const run = await doctor();
+    expect(row(run, "secrets allowlist")).toBe("(no row for secrets allowlist)");
+  });
+});

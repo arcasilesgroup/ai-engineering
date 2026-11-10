@@ -550,16 +550,18 @@ describe("floor gates — the staged scan's exception is HEAD's allowlist paths,
     expect(trusted).toContain("tests/spoken-secret.spec.ts");
   });
 
-  test("an allowlist widened in this very commit is not the one the scan trusts", () => {
+  test("an allowlist widened in this very commit earns no exemption at all", () => {
+    // The old contract handed HEAD's paths and relied on them being narrow; now the
+    // commit that edits the dials is scanned by the default rules entirely — no
+    // GITLEAKS_CONFIG travels, so the widening commit cannot carry its own secret.
     const repo = tempRepo(true);
     committedAllowlist(repo, ["tests/only-head.ts"]);
     const record = join(tempDir("ai-eng-gates-rec-"), "env");
     installEnvShim(record);
     stage(repo, { ".gitleaksrc.toml": `[allowlist]\npaths = ["*"]\n`, "clean.txt": "clean\n" });
     expect(preCommit(repo)).toEqual({ ok: true, lines: [] });
-    const trusted = readFileSync(`${record}.copy`, "utf8");
-    expect(trusted).toContain("tests/only-head.ts");
-    expect(trusted).not.toContain('"*"');
+    expect(readFileSync(record, "utf8")).toBe("unset");
+    expect(existsSync(`${record}.copy`)).toBe(false);
   });
 
   test("no committed config means no exception: the default rules decide", () => {
@@ -589,6 +591,45 @@ describe("floor gates — the staged scan's exception is HEAD's allowlist paths,
       if (previousConfig === undefined) delete process.env.GITLEAKS_CONFIG;
       else process.env.GITLEAKS_CONFIG = previousConfig;
     }
+  });
+
+  const installLeakyShim = (): void => {
+    // The stand-in that honours exemptions like the real binary: the handed
+    // GITLEAKS_CONFIG allowlist paths and a .gitleaksignore in the scan root
+    // suppress the finding; the default rules find it otherwise.
+    useGitleaksShim(shimDir, { mode: "leaky" }, PATH_BEFORE);
+  };
+
+  test("a commit that touches .gitleaksignore scans with no exemption: its secret is found", () => {
+    // HEAD's allowlist covers everything, and the commit brings its own fingerprint —
+    // the old flow would pass; the editor of the dials is scanned by default rules.
+    const repo = tempRepo(true);
+    committedAllowlist(repo, ["*"]);
+    installLeakyShim();
+    stage(repo, { ".gitleaksignore": "0b4827d003e5d1ae:config.env:generic-api-key:1\n", "config.env": `AWS_ACCESS_KEY_ID=${SECRET}\n` });
+    const result = preCommit(repo);
+    expect(result.ok).toBe(false);
+    expect(result.lines[0]).toBe("gitleaks: secret in the staged files → BLOCKED.");
+  });
+
+  test("a commit that touches .gitleaksrc.toml scans with no exemption: its secret is found", () => {
+    // The widening commit itself can never be the one that exploits the widening:
+    // HEAD allows only *.md, the commit widens to * and carries the secret.
+    const repo = tempRepo(true);
+    committedAllowlist(repo, ["*.md"]);
+    installLeakyShim();
+    stage(repo, { ".gitleaksrc.toml": `[allowlist]\npaths = ["*"]\n`, "config.env": `AWS_ACCESS_KEY_ID=${SECRET}\n` });
+    const result = preCommit(repo);
+    expect(result.ok).toBe(false);
+    expect(result.lines[0]).toBe("gitleaks: secret in the staged files → BLOCKED.");
+  });
+
+  test("untouched allowlist files keep the exemption: a covered path still passes", () => {
+    const repo = tempRepo(true);
+    committedAllowlist(repo, ["config\\.env"]);
+    installLeakyShim();
+    stage(repo, { "config.env": `AWS_ACCESS_KEY_ID=${SECRET}\n`, "clean.txt": "clean\n" });
+    expect(preCommit(repo)).toEqual({ ok: true, lines: [] });
   });
 });
 

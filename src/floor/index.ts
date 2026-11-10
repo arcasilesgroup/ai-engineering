@@ -4,7 +4,7 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { repoRoot } from "../env.ts";
 import { namedBase } from "../git/context.ts";
@@ -61,6 +61,14 @@ function decisionsBlock(cwd: string): FloorResult {
  *  narrow). No HEAD config, no parse, no paths → no exception: the default rules
  *  decide, which is the fail-narrow direction. The argv never changes — the
  *  contract test pins `dir --redact --no-banner --exit-code 1 <dir>` byte-exact. */
+
+/** The dials of the staged exemption itself. When the staged diff touches any of them,
+ *  the scan runs with NO exemption (no HEAD allowlist, no materialised
+ *  .gitleaksignore): the editor of the allowlist cannot benefit from it, so a commit
+ *  that widens the list while carrying its own secret — or its own fingerprint — is
+ *  judged by the default rules. */
+const ALLOWLIST_FILES = new Set([".gitleaksrc.toml", ".gitleaksignore", ".gitleaks.toml", "gitleaks.toml"]);
+
 function headAllowlistEnv(cwd: string, scratch: string): NodeJS.ProcessEnv | undefined {
   const head = runGit(["show", "HEAD:.gitleaksrc.toml"], { cwd });
   if (head.status !== 0) return undefined;
@@ -93,6 +101,10 @@ function stageSecrets(cwd: string): FloorResult {
     .map((f) => f.trim())
     .filter((f) => f.length > 0);
   if (staged.length === 0) return { ok: true, lines: [] };
+  // The commit that edits the exemption dials is scanned without them (see
+  // ALLOWLIST_FILES): basenames match because gitleaks honours a .gitleaksignore only
+  // at the scan root, but a stray nested copy must not survive either.
+  const isEditingAllowlist = staged.some((f) => ALLOWLIST_FILES.has(basename(f)));
   // The bytes git will commit, not the bytes on disk: a staged secret whose working
   // copy is overwritten would pass this gate and reach the commit (audit FLOOR-01).
   // `gitleaks git --staged` scans zero on a fresh HEAD, so the staged blobs are
@@ -101,6 +113,9 @@ function stageSecrets(cwd: string): FloorResult {
   const present: string[] = [];
   try {
     for (const file of staged) {
+      // A materialised .gitleaksignore is an exemption the reviewed baseline never
+      // carried: when the commit edits the dials, they never reach the scan at all.
+      if (isEditingAllowlist && ALLOWLIST_FILES.has(basename(file))) continue;
       const blob = spawnSync("git", ["-C", cwd, "show", `:${file}`], { encoding: "buffer" });
       if (blob.status !== 0) continue;
       const copy = join(scratch, file);
@@ -110,7 +125,7 @@ function stageSecrets(cwd: string): FloorResult {
     }
     if (present.length === 0) return { ok: true, lines: [] };
     const args = ["dir", "--redact", "--no-banner", "--exit-code", "1", scratch];
-    execFileSync(gitleaks, args, { cwd, stdio: "pipe", env: headAllowlistEnv(cwd, scratch) });
+    execFileSync(gitleaks, args, { cwd, stdio: "pipe", env: isEditingAllowlist ? undefined : headAllowlistEnv(cwd, scratch) });
     return { ok: true, lines: [] };
   } catch (error) {
     const e = error as { stdout?: unknown; stderr?: unknown; message?: string };

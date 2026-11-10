@@ -46,12 +46,17 @@ const RE_EXTERNAL_PATH = /(^|[\s"'`])(~|\$home)(\/|[\s"'`]|$)|(^|[\s"'`])\/[A-Za
 const RE_DEVICE_WRITE =
   /(^|[\s])(of=|>|1>|>>|1>>)\s*\/dev\/(sd[a-z][0-9]*|disk[0-9]+|rdisk[0-9]+|nvme[0-9]+n[0-9]+(p[0-9]+)?|vd[a-z][0-9]*|xvd[a-z][0-9]*|hd[a-z][0-9]*)([\s]|$)/i;
 
+// A win32 drive (`c:/…`) or a UNC share (`//server/share`): after backslash
+// normalisation these are the spellings the POSIX root rules cannot name, so a
+// path carrying one is never silently read as the workspace.
+const RE_WIN32_ROOT = /^[a-z]:\/|^\/\//i;
+
 /** The original skips /tmp because temp files are not system state; on macOS
  *  the temp dir lives under /var/folders, which the system-path rule would
  *  otherwise swallow — so the same skip covers both tmpdir spellings. Paths
  *  arrive lowercased (classification normalises), so the roots compare in
  *  lowercase too. */
-const TEMP_ROOTS = [...new Set([tmpdir(), realpathSync(tmpdir())])].map((r) => r.replace(/\/$/, "").toLowerCase());
+const TEMP_ROOTS = [...new Set([tmpdir(), realpathSync(tmpdir())])].map((r) => r.replace(/\/$/, "").replaceAll("\\", "/").toLowerCase());
 
 function isTempPath(resolved: string): boolean {
   return resolved === "/tmp" || resolved.startsWith("/tmp/") || TEMP_ROOTS.some((root) => resolved === root || resolved.startsWith(`${root}/`));
@@ -113,10 +118,13 @@ function resolvePath(rawPath: string, cwd: string): string {
   const path = rawPath
     .replace(/^["']+|["']+$/g, "")
     .replace(/^of=/, "")
-    .replace(/[;,)]+$/, "");
+    .replace(/[;,)]+$/, "")
+    // Windows paths arrive with `\`; everything below, including the win32 root
+    // test, reasons in the `/` form.
+    .replaceAll("\\", "/");
   if (path.length === 0) return "";
   if (path.split("/").includes("..")) return resolveParentSegments(path, cwd);
-  if (path.startsWith("/") || path.startsWith("~")) return path;
+  if (RE_WIN32_ROOT.test(path) || path.startsWith("/") || path.startsWith("~")) return path;
   if (cwd.length === 0) return path;
   if (path.startsWith("./") || path.startsWith("../")) {
     if (path.includes("..")) return path;
@@ -129,7 +137,7 @@ function resolvePath(rawPath: string, cwd: string): string {
  *  from the repo is outside it, `/tmp/../etc` is /etc. `~/` resolves against the home
  *  directory and is written back as `~/…` so the sensitive-path rule still reads it.
  *  With no absolute cwd to resolve against the path stays as written, and its `..`
- *  sends it to external. */
+ *  sends it to external. A win32 drive cwd (`c:/repo`) joins and normalises the same way. */
 export function resolveParentSegments(path: string, cwd: string, homeDirectory = homedir()): string {
   if (path === "~" || path.startsWith("~/")) {
     // Git Bash spells the Windows home `C:\Users\me` as `/c/users/me`; left as written, a
@@ -139,8 +147,9 @@ export function resolveParentSegments(path: string, cwd: string, homeDirectory =
     const landed = posix.resolve(home, path.slice(2));
     return landed === home || landed.startsWith(`${home}/`) ? `~${landed.slice(home.length)}` : landed;
   }
-  if (path.startsWith("/")) return posix.normalize(path);
-  if (path.startsWith("~") || !cwd.startsWith("/")) return path;
+  if (path.startsWith("/") || RE_WIN32_ROOT.test(path)) return posix.normalize(path);
+  if (path.startsWith("~") || !(cwd.startsWith("/") || RE_WIN32_ROOT.test(cwd))) return path;
+  if (RE_WIN32_ROOT.test(cwd) && !cwd.startsWith("/")) return posix.normalize(`${cwd}/${path}`);
   return posix.resolve(cwd, path);
 }
 
@@ -155,7 +164,7 @@ function addPath(mask: { value: number }, rawPath: string, permissions: number, 
       ? SCOPE_SYSTEM
       : cwd.length > 0 && (resolved === cwd || resolved.startsWith(`${cwd}/`))
         ? SCOPE_WORKSPACE
-        : RE_EXTERNAL_PATH.test(resolved) || resolved.includes("..")
+        : RE_EXTERNAL_PATH.test(resolved) || resolved.includes("..") || RE_WIN32_ROOT.test(resolved)
           ? SCOPE_EXTERNAL
           : SCOPE_WORKSPACE;
   addMode(mask, scope, permissions);
@@ -177,8 +186,10 @@ const NETWORK_WRITE = (segment: string): boolean =>
   segment.includes("scp ") ||
   segment.includes("curl -d ") ||
   segment.includes("curl --data") ||
-  segment.includes("curl -f ") ||
-  segment.includes("curl -t ");
+  // -T reads as -t and -F as -f once the classification lowercases, and the flag
+  // may sit anywhere in curl's flag list, so the match is not anchored after `curl`.
+  (segment.includes("curl ") &&
+    [" -t ", " -f ", " --upload-file", " --form"].some((flag) => segment.includes(flag)));
 
 /** curl | bash — the network-execute form. */
 const NETWORK_EXECUTE = (segment: string): boolean =>
@@ -243,6 +254,10 @@ const WRITES = (segment: string): boolean =>
   segment.startsWith("mv ") ||
   segment.startsWith("rm ") ||
   segment.includes(" rm ") ||
+  segment.startsWith("del ") ||
+  segment.includes(" del ") ||
+  segment.startsWith("rd ") ||
+  segment.includes(" rd ") ||
   segment.startsWith("chmod ") ||
   segment.startsWith("chown ") ||
   segment.startsWith("ln ") ||
@@ -252,6 +267,10 @@ const WRITES = (segment: string): boolean =>
   segment.startsWith("dd ") ||
   segment.includes("sed -i") ||
   segment.includes(" -delete") ||
+  // PowerShell's twins of the deleters and writers above.
+  segment.includes("remove-item") ||
+  segment.includes("set-content") ||
+  segment.includes("new-item") ||
   segment.startsWith("git fetch") ||
   segment.startsWith("git pull") ||
   segment.startsWith("git clone") ||
@@ -362,13 +381,19 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
     ) {
       addPath(mask, token, tokenPermissions, cwd);
       flags = 3;
-    } else if (token.includes("/") && !token.startsWith("-")) {
+    } else if (
+      (token.includes("/") ||
+        // A win32 raw path (`c:\…`, `\\server\…`) carries no `/`: it is still a path.
+        RE_WIN32_ROOT.test(token.replaceAll("\\", "/"))) &&
+      !token.startsWith("-")
+    ) {
       const isUrl =
         token.startsWith("http://") ||
         token.startsWith("https://") ||
         token.startsWith("ftp://") ||
         token.includes("://") ||
-        token.includes(":/");
+        // A win32 drive (`c:/…`) also carries `:/`; it is a path, not a URL scheme.
+        (token.includes(":/") && !RE_WIN32_ROOT.test(token));
       const isPath =
         !isUrl &&
         !token.endsWith(".exe") &&
@@ -410,7 +435,7 @@ function maskToMode(mask: number): string {
  *  floor every shell call pays). */
 export function classifyRequiredMode(command: string, cwd: string): string {
   if (command.length === 0) return "0000";
-  const mask = scanScript(command.toLowerCase(), cwd.toLowerCase());
+  const mask = scanScript(command.toLowerCase(), cwd.toLowerCase().replaceAll("\\", "/"));
   return maskToMode(mask === 0 ? PERM_READ : mask);
 }
 

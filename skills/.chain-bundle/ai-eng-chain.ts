@@ -1904,6 +1904,8 @@ function protectedPaths(repoRoot) {
     literals.push(join4(aiEng, name));
   }
   literals.push(join4(repoRoot, ".git", "hooks"));
+  literals.push(join4(repoRoot, ".gitleaksrc.toml"));
+  literals.push(join4(repoRoot, ".gitleaksignore"));
   let specPinned = false;
   try {
     const lock = Bun.TOML.parse(readFileSync3(join4(aiEng, "ai-eng.lock"), "utf8"));
@@ -1950,6 +1952,7 @@ function expandTilde(path) {
 }
 var GOVERNANCE_FILE = new RegExp([
   String.raw`(?:^|/)\.ai-engineering/(?:config\.toml|overrides\.toml|ai-eng\.lock|arch\.rules\.json)$`,
+  String.raw`(?:^|/)\.gitleaks(?:rc\.toml|ignore)$`,
   String.raw`(?:^|/)\.git/(?:hooks(?:/|$)|config$)`,
   String.raw`(?:^|/)\.github/hooks(?:/|$)`,
   String.raw`(?:^|/)\.github/copilot/settings(?:\.local)?\.json$`,
@@ -2139,7 +2142,8 @@ var RE_SYSTEM_PATH = /(^|[\s"'`])(\/etc|\/usr|\/bin|\/sbin|\/var|\/library|\/sys
 var RE_SENSITIVE_PATH = /(^|[\s"'`])(~|\$home)\/(\.ssh|\.gnupg|\.aws|\.docker)(\/|[\s"'`]|$)|(^|[\s"'`])([^\s"'`]*\.(env|pem|key)|[^\s"'`]*(token|credential|secret)[^\s"'`]*)/i;
 var RE_EXTERNAL_PATH = /(^|[\s"'`])(~|\$home)(\/|[\s"'`]|$)|(^|[\s"'`])\/[A-Za-z0-9._-]/i;
 var RE_DEVICE_WRITE = /(^|[\s])(of=|>|1>|>>|1>>)\s*\/dev\/(sd[a-z][0-9]*|disk[0-9]+|rdisk[0-9]+|nvme[0-9]+n[0-9]+(p[0-9]+)?|vd[a-z][0-9]*|xvd[a-z][0-9]*|hd[a-z][0-9]*)([\s]|$)/i;
-var TEMP_ROOTS = [...new Set([tmpdir(), realpathSync3(tmpdir())])].map((r) => r.replace(/\/$/, "").toLowerCase());
+var RE_WIN32_ROOT = /^[a-z]:\/|^\/\//i;
+var TEMP_ROOTS = [...new Set([tmpdir(), realpathSync3(tmpdir())])].map((r) => r.replace(/\/$/, "").replaceAll("\\", "/").toLowerCase());
 function isTempPath(resolved) {
   return resolved === "/tmp" || resolved.startsWith("/tmp/") || TEMP_ROOTS.some((root) => resolved === root || resolved.startsWith(`${root}/`));
 }
@@ -2182,12 +2186,12 @@ function addMode(mask, scopes, permissions) {
   mask.value |= bits;
 }
 function resolvePath(rawPath, cwd) {
-  const path = rawPath.replace(/^["']+|["']+$/g, "").replace(/^of=/, "").replace(/[;,)]+$/, "");
+  const path = rawPath.replace(/^["']+|["']+$/g, "").replace(/^of=/, "").replace(/[;,)]+$/, "").replaceAll("\\", "/");
   if (path.length === 0)
     return "";
   if (path.split("/").includes(".."))
     return resolveParentSegments(path, cwd);
-  if (path.startsWith("/") || path.startsWith("~"))
+  if (RE_WIN32_ROOT.test(path) || path.startsWith("/") || path.startsWith("~"))
     return path;
   if (cwd.length === 0)
     return path;
@@ -2206,10 +2210,12 @@ function resolveParentSegments(path, cwd, homeDirectory = homedir2()) {
     const landed = posix.resolve(home, path.slice(2));
     return landed === home || landed.startsWith(`${home}/`) ? `~${landed.slice(home.length)}` : landed;
   }
-  if (path.startsWith("/"))
+  if (path.startsWith("/") || RE_WIN32_ROOT.test(path))
     return posix.normalize(path);
-  if (path.startsWith("~") || !cwd.startsWith("/"))
+  if (path.startsWith("~") || !(cwd.startsWith("/") || RE_WIN32_ROOT.test(cwd)))
     return path;
+  if (RE_WIN32_ROOT.test(cwd) && !cwd.startsWith("/"))
+    return posix.normalize(`${cwd}/${path}`);
   return posix.resolve(cwd, path);
 }
 function addPath(mask, rawPath, permissions, cwd) {
@@ -2217,16 +2223,16 @@ function addPath(mask, rawPath, permissions, cwd) {
   if (resolved.length === 0 || isTempPath(resolved) || resolved === "/dev/null" || resolved.startsWith("&")) {
     return;
   }
-  const scope = resolved.startsWith("/dev/tcp") ? SCOPE_NETWORK : resolved === "/" || resolved === "/*" || RE_SENSITIVE_PATH.test(resolved) || RE_SYSTEM_PATH.test(resolved) ? SCOPE_SYSTEM : cwd.length > 0 && (resolved === cwd || resolved.startsWith(`${cwd}/`)) ? SCOPE_WORKSPACE : RE_EXTERNAL_PATH.test(resolved) || resolved.includes("..") ? SCOPE_EXTERNAL : SCOPE_WORKSPACE;
+  const scope = resolved.startsWith("/dev/tcp") ? SCOPE_NETWORK : resolved === "/" || resolved === "/*" || RE_SENSITIVE_PATH.test(resolved) || RE_SYSTEM_PATH.test(resolved) ? SCOPE_SYSTEM : cwd.length > 0 && (resolved === cwd || resolved.startsWith(`${cwd}/`)) ? SCOPE_WORKSPACE : RE_EXTERNAL_PATH.test(resolved) || resolved.includes("..") || RE_WIN32_ROOT.test(resolved) ? SCOPE_EXTERNAL : SCOPE_WORKSPACE;
   addMode(mask, scope, permissions);
 }
 var NETWORK_READ = (segment) => segment.includes("curl ") || segment.includes("wget ") || segment.includes("http ") || segment.includes("https://") || segment.includes("http://") || segment.startsWith("git clone") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git ls-remote");
-var NETWORK_WRITE = (segment) => segment.startsWith("git push") || segment.includes("scp ") || segment.includes("curl -d ") || segment.includes("curl --data") || segment.includes("curl -f ") || segment.includes("curl -t ");
+var NETWORK_WRITE = (segment) => segment.startsWith("git push") || segment.includes("scp ") || segment.includes("curl -d ") || segment.includes("curl --data") || segment.includes("curl ") && [" -t ", " -f ", " --upload-file", " --form"].some((flag) => segment.includes(flag));
 var NETWORK_EXECUTE = (segment) => (segment.includes("| bash") || segment.includes("| sh") || segment.includes("eval ") || segment.includes("source <(") || segment.includes("bash -c $(") || segment.includes("sh -c $(")) && (segment.includes("curl ") || segment.includes("wget ") || segment.includes("http://") || segment.includes("https://"));
 var SYSTEM_EXECUTE = (segment) => /^(sudo|su|doas)(\s|$)/.test(segment) || /^(shutdown|reboot|halt|poweroff)/.test(segment);
 var SYSTEM_WRITE = (segment) => /^(mkfs|fdisk|diskutil)/.test(segment) || /^mount |^umount /.test(segment);
 var WORKSPACE_EXECUTE = (segment) => segment.startsWith("./") || segment.startsWith("bash ") || segment.startsWith("sh ") || segment.startsWith("zsh ") || segment.startsWith("python") || segment.startsWith("node ") || segment.startsWith("ruby ") || segment.startsWith("perl ") || segment.startsWith("npm test") || segment.startsWith("npm run") || segment.startsWith("make") || segment.startsWith("cargo test") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("git cherry-pick") || segment.includes("function ") || segment.includes("()") || segment.includes("{") || segment.includes(" if ") || segment.startsWith("if ") || segment.includes(" for ") || segment.startsWith("for ") || segment.includes(" while ") || segment.startsWith("while ") || segment.includes(" case ") || segment.startsWith("case ") || segment.includes(":(){:|:&};:");
-var WRITES = (segment) => segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.startsWith("chmod ") || segment.startsWith("chown ") || segment.startsWith("ln ") || segment.startsWith("install ") || segment.startsWith("truncate ") || segment.startsWith("rsync ") || segment.startsWith("dd ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
+var WRITES = (segment) => segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.startsWith("del ") || segment.includes(" del ") || segment.startsWith("rd ") || segment.includes(" rd ") || segment.startsWith("chmod ") || segment.startsWith("chown ") || segment.startsWith("ln ") || segment.startsWith("install ") || segment.startsWith("truncate ") || segment.startsWith("rsync ") || segment.startsWith("dd ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.includes("remove-item") || segment.includes("set-content") || segment.includes("new-item") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
 var REDIRECT2 = /^(?:\d+|\{\w+\})?(&>>?|>&|>>?[|!]?|<>|<&|<)(?![<(])(.*)$/;
 function splitAttachedRedirect(token) {
   const at = bareOperatorIndex(token, "<>");
@@ -2301,8 +2307,8 @@ function scanSegment(mask, written, cwd) {
     } else if (token.startsWith("/") || token.startsWith("./") || token.startsWith("../") || token.startsWith("~/") || RE_SENSITIVE_PATH.test(token)) {
       addPath(mask, token, tokenPermissions, cwd);
       flags = 3;
-    } else if (token.includes("/") && !token.startsWith("-")) {
-      const isUrl = token.startsWith("http://") || token.startsWith("https://") || token.startsWith("ftp://") || token.includes("://") || token.includes(":/");
+    } else if ((token.includes("/") || RE_WIN32_ROOT.test(token.replaceAll("\\", "/"))) && !token.startsWith("-")) {
+      const isUrl = token.startsWith("http://") || token.startsWith("https://") || token.startsWith("ftp://") || token.includes("://") || token.includes(":/") && !RE_WIN32_ROOT.test(token);
       const isPath = !isUrl && !token.endsWith(".exe") && !token.endsWith(".sh") && !token.includes("git") && !token.includes("npm") && !token.includes("cargo") && !token.includes("python") && !token.includes("node");
       if (isPath) {
         addPath(mask, token, tokenPermissions, cwd);
@@ -2337,7 +2343,7 @@ function maskToMode(mask) {
 function classifyRequiredMode(command, cwd) {
   if (command.length === 0)
     return "0000";
-  const mask = scanScript(command.toLowerCase(), cwd.toLowerCase());
+  const mask = scanScript(command.toLowerCase(), cwd.toLowerCase().replaceAll("\\", "/"));
   return maskToMode(mask === 0 ? PERM_READ : mask);
 }
 function evaluate(command, cwd, allowedMode) {

@@ -4,7 +4,7 @@
 import surfacesJson from "./surfaces.json";
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, existsSync, fchmodSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { closeSync, constants, cpSync, existsSync, fchmodSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { hostname } from "node:os";
 import { basename, delimiter, join, dirname, relative, resolve, sep, isAbsolute } from "node:path";
 import { home, versionFile, machineBase } from "../env.ts";
@@ -253,8 +253,8 @@ export function mirrorTargets(): MirrorTarget[] {
   ];
 }
 
-/** Install the global canon once per machine, then symlink the mirrors (junction or
- *  verified copy on Windows — symlinks where the OS supports them).
+/** Install the global canon once per machine, then mirror it (symlink, junction or verified
+ *  copy on Windows — symlinks where the OS supports them).
  *
  *  The carriers are NOT here: they follow the declared surfaces, not the canon, and
  *  `installMachineCarriers()` owns them (§13.2). */
@@ -287,7 +287,9 @@ export function installCanon(version: string): string[] {
       mkdirSync(target.dir, { recursive: true });
       const mirrored = linkSkills(canonDir, target.dir);
       const kept = mirrored.kept.length === 0 ? [] : [`⚠ ${target.label}: ${mirrored.kept.length} link(s) of yours under a skill's name point elsewhere — kept, never repointed: ${mirrored.kept.join(", ")}`];
-      return [`✓ Symlink → ${target.label} (${mirrored.count} skills)`, ...kept];
+      if (mirrored.copies === 0) return [`✓ Symlink → ${target.label} (${mirrored.count} skills)`, ...kept];
+      const linked = mirrored.count === 0 ? [] : [`✓ Symlink → ${target.label} (${mirrored.count} skills)`];
+      return [...linked, `✓ Copy → ${target.label} (${mirrored.copies} skills)`, ...kept];
     }));
   }
   lines.push(...installCommands(canonDir, earlierCommands, aiEngSkills));
@@ -1815,10 +1817,43 @@ export function removeMachineArtifacts(refused: string[] = []): number {
       process.chdir(previousDirectory);
     }
   };
+  /** A verified copy ai-eng's fallback wrote: a plain folder under a canon skill's name that
+   *  still holds exactly the canon's bytes. Anything else there — an edited copy, a folder of
+   *  yours, a skill retired from the canon whose bytes can no longer be proven ours — stays. */
+  const removeCanonCopy = (directory: string, name: string): boolean => {
+    const copy = join(directory, name);
+    let originalStat: Stats;
+    try {
+      originalStat = lstatSync(copy);
+    } catch {
+      return false;
+    }
+    if (originalStat.isSymbolicLink() || !originalStat.isDirectory()) return false;
+    if (!sameDirectory(join(canonDir, name), copy)) return false;
+    const parent = canonical(directory);
+    const previousDirectory = process.cwd();
+    try {
+      process.chdir(parent);
+      if (realpathSync(".") !== parent) return false;
+      const currentStat = lstatSync(name);
+      if (currentStat.isSymbolicLink() || !currentStat.isDirectory() || !sameDirectory(join(canonDir, name), name)) {
+        return false;
+      }
+      try {
+        rmSync(name, { recursive: true });
+      } catch (error) {
+        if (isFilesystemRefusal(error)) refused.push(copy);
+        return false;
+      }
+      return true;
+    } finally {
+      process.chdir(previousDirectory);
+    }
+  };
   for (const target of mirrorTargets()) {
     for (const name of names(target.dir)) {
       try {
-        if (removeCanonLink(target.dir, name)) removed += 1;
+        if (removeCanonLink(target.dir, name) || removeCanonCopy(target.dir, name)) removed += 1;
       } catch {
         /* not ours or not readable: leave it */
       }
@@ -1988,9 +2023,14 @@ function isLinkTo(link: string, target: string): boolean {
 
 /** Link each skill into a mirror. Only the exact link ai-eng writes (`<name> -> <canon>/<name>`,
  *  live or dangling) is ours and is left as is; a link of the user's under that name is kept and
- *  named, and a real directory there is theirs too. */
-function linkSkills(canonDir: string, mirrorDir: string): { count: number; kept: string[] } {
+ *  named, and a real directory there is theirs too — unless it is byte for byte a copy of the
+ *  canon skill, which only ai-eng's own fallback copy is.
+ *  When the OS refuses the link (Windows without developer mode refuses `dir` symlinks), a
+ *  junction is tried — it needs no privilege — and only when even that is refused does a
+ *  verified copy take over, so a stock Windows `init --global` still leaves every mirror usable. */
+function linkSkills(canonDir: string, mirrorDir: string): { count: number; kept: string[]; copies: number } {
   let count = 0;
+  let copies = 0;
   const kept: string[] = [];
   for (const name of readdirSync(canonDir)) {
     if (name.startsWith(".")) continue; // the canon's dot-entries are payload, not skills
@@ -2002,17 +2042,32 @@ function linkSkills(canonDir: string, mirrorDir: string): { count: number; kept:
       /* absent: create */
     }
     if (entry !== null) {
-      if (!entry.isSymbolicLink()) continue; // a real directory there is not ours to replace
-      if (isLinkTo(linkPath, join(canonDir, name))) count += 1;
-      else kept.push(name);
+      if (entry.isSymbolicLink()) {
+        if (isLinkTo(linkPath, join(canonDir, name))) count += 1;
+        else kept.push(name);
+      } else if (entry.isDirectory() && sameDirectory(join(canonDir, name), linkPath)) {
+        copies += 1; // a verified copy from an earlier link-less run, still current
+      }
       continue;
     }
     try {
       symlinkSync(join(canonDir, name), linkPath, "dir");
       count += 1;
+      continue;
     } catch {
-      /* FS refused: leave absent, doctor reports the mirror gap */
+      /* the OS refused the link: fall through to the junction, then the copy */
     }
+    if (process.platform === "win32") {
+      try {
+        symlinkSync(join(canonDir, name), linkPath, "junction");
+        count += 1;
+        continue;
+      } catch {
+        /* junction refused too: fall through to the verified copy */
+      }
+    }
+    if (copySkillInto(join(canonDir, name), linkPath)) copies += 1;
+    /* a copy the filesystem refused is swept or left absent: doctor reports the mirror gap */
   }
   // The exact link ai-eng writes, to a skill no longer in the canon: ours, and now dangling.
   for (const name of readdirSync(mirrorDir)) {
@@ -2024,5 +2079,62 @@ function linkSkills(canonDir: string, mirrorDir: string): { count: number; kept:
       /* not ours, or the filesystem refused: doctor reports a dangling mirror entry */
     }
   }
-  return { count, kept };
+  return { count, kept, copies };
+}
+
+/** Copy one skill folder into a mirror — the fallback when no form of link is possible.
+ *  The copy is only accepted when every file byte-equals the canon afterwards, the same
+ *  judgment the removal side later uses to tell ai-eng's copy from the user's folder. */
+function copySkillInto(canonSkill: string, mirrorPath: string): boolean {
+  try {
+    cpSync(canonSkill, mirrorPath, { recursive: true, errorOnExist: true, force: false });
+  } catch (error) {
+    // EEXIST: the name was taken meanwhile — never ours to touch. Any other refusal half-landed
+    // a copy of ours, which is swept so the next run can retry it.
+    if (isFilesystemRefusal(error) && error.code === "EEXIST") return false;
+    try {
+      if (lstatSync(mirrorPath).isDirectory() && !lstatSync(mirrorPath).isSymbolicLink()) rmSync(mirrorPath, { recursive: true });
+    } catch {
+      /* keep whatever landed: doctor reports the mirror gap */
+    }
+    return false;
+  }
+  return sameDirectory(canonSkill, mirrorPath);
+}
+
+/** Byte-for-byte equality of two skill folders: same entries, same kinds, same bytes. A
+ *  symlink, a socket, or anything unreadable is never equal — the doubt always keeps the folder. */
+function sameDirectory(left: string, right: string): boolean {
+  const names = (directory: string): string[] | null => {
+    try {
+      return readdirSync(directory).sort();
+    } catch {
+      return null;
+    }
+  };
+  const leftNames = names(left);
+  const rightNames = names(right);
+  if (leftNames === null || rightNames === null || leftNames.length !== rightNames.length) return false;
+  for (const name of leftNames) {
+    if (!rightNames.includes(name)) return false;
+    let leftEntry: Stats | null = null;
+    let rightEntry: Stats | null = null;
+    try {
+      leftEntry = lstatSync(join(left, name));
+      rightEntry = lstatSync(join(right, name));
+    } catch {
+      return false;
+    }
+    if (leftEntry.isDirectory() !== rightEntry.isDirectory() || (!leftEntry.isDirectory() && !leftEntry.isFile())) return false;
+    if (leftEntry.isDirectory()) {
+      if (!sameDirectory(join(left, name), join(right, name))) return false;
+      continue;
+    }
+    try {
+      if (!readFileSync(join(left, name)).equals(readFileSync(join(right, name)))) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
 }
