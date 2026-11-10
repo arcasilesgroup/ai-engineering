@@ -16,7 +16,10 @@ type CallArgs = { args: Record<string, unknown> };
 type CallResult = { output: unknown };
 type AfterCall = Call & { args?: Record<string, unknown> };
 
-export async function AiEng() {
+export async function AiEng(host: { directory?: string } = {}) {
+  // The host's workspace is the root the gate has to ask: the process may have been
+  // started somewhere else entirely.
+  const cwd = typeof host.directory === "string" ? host.directory : process.cwd();
   return {
     "tool.execute.before": async (call: Call, callArgs: CallArgs): Promise<void> => {
       const outcome = chain(
@@ -26,7 +29,7 @@ export async function AiEng() {
           tool_input: callArgs.args,
           session_id: call.sessionID,
           tool_use_id: call.callID,
-          cwd: process.cwd(),
+          cwd,
         },
         { surface: "opencode" },
       );
@@ -43,6 +46,7 @@ export async function AiEng() {
           tool_response: result.output,
           session_id: call.sessionID,
           tool_use_id: call.callID,
+          cwd,
         },
         { surface: "opencode" },
       );

@@ -1142,23 +1142,31 @@ describe("carriers on the machine", () => {
 
   test("opencode: the chain sits outside the plugin scan, and the entry speaks the host's plugin API", () => {
     const base = useHome("machine-opencode-layout");
-    const placement = machineCarrier(byId("opencode"))!;
-    const scan = join(base, ".config", "opencode", "plugins");
-    const chain = carrierPath(placement, placement.chain);
-    // Every *.ts inside the scan is imported as a plugin ENTRY. The bundle 3.0.x wrote
-    // there was refused ("Plugin export is not a function") and its failure took the
-    // provider config hook down with it, so the bundle lives one directory up.
-    expect(chain).toBe(join(base, ".config", "opencode", "ai-eng", "ai-eng-chain.ts"));
-    expect(relative(scan, chain).startsWith("..")).toBe(true);
-    const main = carrierFiles("opencode")!.main;
-    expect(main).toInclude('from "../ai-eng/ai-eng-chain.ts"');
-    // OpenCode 2.x loads a default { id, setup } definition. beforeToolCall/afterToolCall
-    // are not hooks there: the loader called them as plugin factories and died on the
-    // hook object it expected back.
-    expect(main).toInclude("setup:");
-    expect(main).toInclude("tool.transform");
-    expect(main).not.toInclude("beforeToolCall");
-    expect(main).not.toInclude("afterToolCall");
+    const previous = process.env["AI_ENG_OPENCODE_MAJOR"];
+    // This is the 2.x layout; the next test owns the version choice.
+    process.env["AI_ENG_OPENCODE_MAJOR"] = "2";
+    try {
+      const placement = machineCarrier(byId("opencode"))!;
+      const scan = join(base, ".config", "opencode", "plugins");
+      const chain = carrierPath(placement, placement.chain);
+      // Every *.ts inside the scan is imported as a plugin ENTRY. The bundle 3.0.x wrote
+      // there was refused ("Plugin export is not a function") and its failure took the
+      // provider config hook down with it, so the bundle lives one directory up.
+      expect(chain).toBe(join(base, ".config", "opencode", "ai-eng", "ai-eng-chain.ts"));
+      expect(relative(scan, chain).startsWith("..")).toBe(true);
+      const main = carrierFiles("opencode")!.main;
+      expect(main).toInclude('from "../ai-eng/ai-eng-chain.ts"');
+      // OpenCode 2.x loads a default { id, setup } definition. beforeToolCall/afterToolCall
+      // are not hooks there: the loader called them as plugin factories and died on the
+      // hook object it expected back.
+      expect(main).toInclude("setup:");
+      expect(main).toInclude("tool.transform");
+      expect(main).not.toInclude("beforeToolCall");
+      expect(main).not.toInclude("afterToolCall");
+    } finally {
+      if (previous === undefined) delete process.env["AI_ENG_OPENCODE_MAJOR"];
+      else process.env["AI_ENG_OPENCODE_MAJOR"] = previous;
+    }
   });
 
   test("opencode: the carrier follows the plugin API the installed host speaks", () => {
@@ -1183,12 +1191,15 @@ describe("carriers on the machine", () => {
   test("installMachineCarriers retires the chain 3.0.x left inside OpenCode's plugin scan", () => {
     const base = useHome("machine-opencode-scanned-chain");
     const scanned = join(base, ".config", "opencode", "plugins", "ai-eng-chain.ts");
-    write(scanned, "// the bundle an older release wrote\n");
-    // A file ai-eng never recorded is somebody else's: kept, and said nothing about.
+    // A file that is not one of our generated bundles is somebody else's: kept, unmentioned,
+    // and still kept after the surface itself is recorded (the record is not ownership).
+    write(scanned, "// somebody else's module\n");
+    expect(installMachineCarriers(["opencode"]).retired).toEqual([]);
     expect(installMachineCarriers(["opencode"]).retired).toEqual([]);
     expect(existsSync(scanned)).toBe(true);
 
-    // Recorded: ai-eng wrote the carrier at that path, and no file there can be a plugin.
+    // A bundle an older release wrote: its own header and trailer say it is ours.
+    write(scanned, '// @bun\n// src/chain/mod.ts\nvar x = 1;\n\nexport default "ai-eng-chain";\n');
     const report = installMachineCarriers(["opencode"]);
     expect(report.retired).toEqual(["~/.config/opencode/plugins/ai-eng-chain.ts"]);
     expect(existsSync(scanned)).toBe(false);

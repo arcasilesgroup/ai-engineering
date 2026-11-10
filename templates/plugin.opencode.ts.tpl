@@ -11,6 +11,9 @@ import { chain } from "../ai-eng/ai-eng-chain.ts";
 
 type ToolCall = { sessionID?: string; id?: string };
 type ToolDefinition = {
+  /** The registry's own key. Namespaced tools (an MCP tool, `opencode_session_rename`)
+   *  have an `id` that differs from the name shown to the model. */
+  id?: string;
   name: string;
   execute?: (input: Record<string, unknown>, call: ToolCall) => Promise<unknown>;
 };
@@ -45,7 +48,8 @@ export default {
       for (const definition of tools.list()) {
         if (typeof definition.execute !== "function") continue;
         const name = definition.name;
-        tools.update(name, (tool) => {
+        // `update` is keyed by the registry's id, not by the name the model sees.
+        tools.update(definition.id ?? name, (tool) => {
           const execute = tool.execute;
           if (typeof execute !== "function") return;
           tool.execute = async (input, call) => {

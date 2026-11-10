@@ -200,7 +200,9 @@ function opencodeMajor(): number | null {
   const pinned = process.env["AI_ENG_OPENCODE_MAJOR"];
   if (pinned !== undefined) return /^\d+$/.test(pinned) ? Number(pinned) : null;
   if (probedOpencodeMajor === undefined) {
-    const probe = spawnSync("opencode", ["--version"], { encoding: "utf8", timeout: 5000 });
+    // On Windows an npm install is an `opencode.cmd` shim, which spawnSync cannot execute
+    // without a shell; the probe failing there would hand a 1.x host the 2.x file.
+    const probe = spawnSync("opencode", ["--version"], { encoding: "utf8", timeout: 5000, shell: process.platform === "win32" });
     const match = /^v?(\d+)/.exec((probe.stdout ?? "").trim());
     probedOpencodeMajor = match === null ? null : Number(match[1]);
   }
@@ -1361,11 +1363,16 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       // somebody else's, kept and named (R28).
       const isRecorded = state.carriers[id] !== undefined;
       // 3.0.x wrote the bundle INSIDE OpenCode's plugin scan; the loader imported it as a
-      // plugin entry and the host died. Ours by record, so it goes before the new pair lands.
+      // plugin entry and the host died. Ours by its generated header, so it goes first.
       if (id === "opencode") {
-        const retired = retireScannedChain(isRecorded);
+        const retired = retireScannedChain();
         if (retired === "removed") report.retired.push(`~/${RETIRED_SCANNED_CHAIN}`);
-        if (retired === "refused") report.refused.push({ path: `~/${RETIRED_SCANNED_CHAIN}`, reason: REMOVAL_REFUSED });
+        if (retired === "refused") {
+          report.refused.push({ path: `~/${RETIRED_SCANNED_CHAIN}`, reason: REMOVAL_REFUSED });
+          // The loader still imports that file, so the host stays broken; writing the new
+          // pair beside it would report a fix that cannot take effect.
+          continue;
+        }
       }
       const entry = carrierFileOwner(absolute, files.main, () => isRecorded);
       const isEntryOurs = entry === "current" || entry === "ours";
@@ -1601,9 +1608,13 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
     const absolute = carrierPath(placement);
     if (placement.kind === "module") {
       if (id === "opencode") {
-        const retired = retireScannedChain(state.carriers[id] !== undefined);
+        const retired = retireScannedChain();
         if (retired === "removed") lines.push(`~/${RETIRED_SCANNED_CHAIN} removed (it sat inside OpenCode's plugin scan)`);
-        if (retired === "refused") refused.push({ path: `~/${RETIRED_SCANNED_CHAIN}`, reason: REMOVAL_REFUSED });
+        if (retired === "refused") {
+          refused.push({ path: `~/${RETIRED_SCANNED_CHAIN}`, reason: REMOVAL_REFUSED });
+          // Keep the record: the leftover is still ours, and the next uninstall retries.
+          continue;
+        }
       }
       const outcome = removeCarrierModule(id, placement, state.carriers[id] !== undefined);
       refused.push(...outcome.kept);
@@ -1675,14 +1686,26 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
 
 /** The chain bundle older releases wrote INSIDE OpenCode's plugin scan. The loader imports
  *  every file there as a plugin entry and takes its default export as a plugin; a bundle is
- *  not one, so the host refused it and its provider config hook failed with it. Retired from
- *  a recorded install only — a file ai-eng never recorded is somebody else's. */
+ *  not one, so the host refused it and its provider config hook failed with it. */
 const RETIRED_SCANNED_CHAIN = ".config/opencode/plugins/ai-eng-chain.ts";
+const AI_ENG_BUNDLE_HEADER = "// @bun\n";
+const AI_ENG_BUNDLE_TRAILER = 'export default "ai-eng-chain";';
 
-/** Remove the retired bundle when ai-eng's record covers it, or only when it holds exactly
- *  what this binary ships. Never reported as a write: it is a file leaving, not arriving. */
-function retireScannedChain(isRecorded: boolean): "removed" | "kept" | "refused" | "absent" {
-  return removeExactFile(join(machineBase(), RETIRED_SCANNED_CHAIN), isRecorded ? ANY_CONTENT : null);
+/** Remove the retired bundle when it is one of ours, judged by the header and trailer every
+ *  generated bundle carries — never by the machine.json record, which says ai-eng wrote the
+ *  surface, not this file. A file a person put at that path is kept, before and after the
+ *  surface is recorded. Never reported as a write: it is a file leaving, not arriving. */
+function retireScannedChain(): "removed" | "kept" | "refused" | "absent" {
+  const absolute = join(machineBase(), RETIRED_SCANNED_CHAIN);
+  if (!pathEntryExists(absolute)) return "absent";
+  try {
+    if (!lstatSync(absolute).isFile()) return "kept";
+    const content = readFileSync(absolute, "utf8");
+    if (!content.startsWith(AI_ENG_BUNDLE_HEADER) || !content.trimEnd().endsWith(AI_ENG_BUNDLE_TRAILER)) return "kept";
+    return removeExactFile(absolute, content);
+  } catch {
+    return "kept";
+  }
 }
 
 /** A module carrier and its bundle leave when ai-eng recorded writing them, edited or not,

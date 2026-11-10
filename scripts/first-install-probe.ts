@@ -11,10 +11,11 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { carrierPath, type Carrier } from "../src/surfaces/adapters.ts";
 import surfacesJson from "../src/surfaces/surfaces.json";
 
 const IS_WINDOWS = process.platform === "win32";
-const SURFACES = (process.env.PROBE_SURFACES ?? "claude-code,copilot-cli,codex,cursor,pi").split(",");
+const SURFACES = (process.env.PROBE_SURFACES ?? "claude-code,copilot-cli,codex,cursor,opencode,pi").split(",");
 // A slow hook is a broken hook: the hosts kill it at their timeout (claude 5 s).
 const MAX_HOOK_MS = Number(process.env.PROBE_MAX_HOOK_MS ?? 5000);
 
@@ -118,11 +119,13 @@ function isDeny(stdout: string): boolean {
 }
 
 function carriersOf(surface: string, repo: string): Array<{ absolute: string; chain: string | undefined }> {
-  const row = surfacesJson.surfaces.find((s) => s.id === surface);
-  return (row?.carriers ?? []).map((carrier) => {
-    const base = carrier.scope === "repo" ? repo : homedir();
-    return { absolute: join(base, carrier.path), chain: carrier.chain === undefined ? undefined : join(base, carrier.chain) };
-  });
+  const row = surfacesJson.surfaces.find((s) => s.id === surface) as { carriers?: Carrier[] } | undefined;
+  const at = (carrier: Carrier, relative: string): string =>
+    carrier.scope === "repo" ? join(repo, relative) : carrierPath(carrier, relative);
+  return (row?.carriers ?? []).map((carrier) => ({
+    absolute: at(carrier, carrier.path),
+    chain: carrier.chain === undefined ? undefined : at(carrier, carrier.chain),
+  }));
 }
 
 function countFiles(dir: string): number {
