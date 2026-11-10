@@ -401,6 +401,7 @@ function installSurfaceFiles(root: string, id: string): void {
   if (machine !== null) {
     const report = installMachineCarriers([id]);
     for (const path of report.written) ui.ok(`${path} written (machine carrier)`);
+    for (const path of report.retired) ui.ok(`${path} retired (every file in OpenCode's plugin folder is loaded as a plugin)`);
     for (const refused of report.refused) ui.warn(refuseLine(refused));
     if (report.written.length === 0 && report.refused.length === 0 && report.untouched.length > 0) ui.info(`${machine.path} was already current`);
   }

@@ -2,6 +2,7 @@
 // or TS module (OpenCode/OMP). Surface = ~150 LOC of adapter + its proof (§13).
 
 import surfacesJson from "./surfaces.json";
+import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { closeSync, constants, existsSync, fchmodSync, fstatSync, ftruncateSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { hostname } from "node:os";
@@ -185,11 +186,34 @@ export function carrierDefinition(main: string): string {
   return sha256(portableHookText(main));
 }
 
+/** OpenCode 1.x keeps the 1.x template; 2.x gets the one this binary ships as `main`. */
+const OPENCODE_V1_TEMPLATE = "plugin.opencode.v1.ts.tpl";
+
+/** Which OpenCode plugin API the host on PATH speaks. 2.x takes a default `{ id, setup }`
+ *  definition; 1.x calls each exported function and keeps the hooks it returns. The two
+ *  are mutually exclusive — the wrong file stops the host at startup, which is exactly what
+ *  3.0.x shipped — so the carrier follows the binary. `AI_ENG_OPENCODE_MAJOR` pins the
+ *  answer for tests and for a host this PATH does not reach. */
+let probedOpencodeMajor: number | null | undefined;
+
+function opencodeMajor(): number | null {
+  const pinned = process.env["AI_ENG_OPENCODE_MAJOR"];
+  if (pinned !== undefined) return /^\d+$/.test(pinned) ? Number(pinned) : null;
+  if (probedOpencodeMajor === undefined) {
+    const probe = spawnSync("opencode", ["--version"], { encoding: "utf8", timeout: 5000 });
+    const match = /^v?(\d+)/.exec((probe.stdout ?? "").trim());
+    probedOpencodeMajor = match === null ? null : Number(match[1]);
+  }
+  return probedOpencodeMajor;
+}
+
+/** The template this host will load. Unknown counts as the current major: a host that is
+ *  not installed reads nothing, and the next update corrects the file once it is. */
 export function carrierFiles(id: string, scope: Carrier["scope"] = "machine"): { main: string; chain: string | null } | null {
   // The surface id is copilot-cli; the template row kept the short name.
   const row = CARRIER_TEMPLATES[id] ?? (id === "copilot-cli" ? CARRIER_TEMPLATES["copilot"] : undefined);
   if (!row) return null;
-  const template = embeddedTemplate(row.main);
+  const template = embeddedTemplate(id === "opencode" && (opencodeMajor() ?? 2) < 2 ? OPENCODE_V1_TEMPLATE : row.main);
   // Only this machine's own files name this machine's launcher. A repo file is committed
   // and read on every teammate's OS: `ai-eng.cmd` there is "command not found" on a Mac.
   // Module carriers run the chain in-process: there is no hook line to rename.
@@ -503,7 +527,7 @@ function pathEntryExists(path: string): boolean {
   }
 }
 
-export type MachineReport = { written: string[]; untouched: string[]; refused: Array<{ path: string; reason: string }> };
+export type MachineReport = { written: string[]; untouched: string[]; retired: string[]; refused: Array<{ path: string; reason: string }> };
 const SETTINGS_MUTATION_REFUSED = "identity-bound-settings-mutation-unavailable";
 const SETTINGS_UNREADABLE = "settings-unreadable";
 const CARRIER_UNWRITABLE = "carrier-path-unwritable";
@@ -1313,7 +1337,7 @@ function serializeMachineState(state: MachineState): string {
  *  while it is still the file that was read (replaceMachineSettings, DECISIONS.md D-007). */
 export function installMachineCarriers(surfaceIds: string[]): MachineReport {
   const stateRecord = readMachineStateRecord();
-  const report: MachineReport = { written: [], untouched: [], refused: interruptedCopyRefusals(stateRecord) };
+  const report: MachineReport = { written: [], untouched: [], retired: [], refused: interruptedCopyRefusals(stateRecord) };
   const state = machineStateFromRecord(stateRecord);
   const settingsSnapshots = snapshotMachineSettingsSurfaces();
   let mayWriteMachineState = !settingsSnapshots.some((entry) => entry.aliasesMachineState || entry.failed);
@@ -1336,6 +1360,13 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
       // the entry and was refused the bundle). A file there that ai-eng never recorded is
       // somebody else's, kept and named (R28).
       const isRecorded = state.carriers[id] !== undefined;
+      // 3.0.x wrote the bundle INSIDE OpenCode's plugin scan; the loader imported it as a
+      // plugin entry and the host died. Ours by record, so it goes before the new pair lands.
+      if (id === "opencode") {
+        const retired = retireScannedChain(isRecorded);
+        if (retired === "removed") report.retired.push(`~/${RETIRED_SCANNED_CHAIN}`);
+        if (retired === "refused") report.refused.push({ path: `~/${RETIRED_SCANNED_CHAIN}`, reason: REMOVAL_REFUSED });
+      }
       const entry = carrierFileOwner(absolute, files.main, () => isRecorded);
       const isEntryOurs = entry === "current" || entry === "ours";
       const chain = chainPath === null || !files.chain ? "current" : carrierFileOwner(chainPath, files.chain, () => isRecorded || isEntryOurs);
@@ -1569,6 +1600,11 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
     if (!surface || !placement) continue;
     const absolute = carrierPath(placement);
     if (placement.kind === "module") {
+      if (id === "opencode") {
+        const retired = retireScannedChain(state.carriers[id] !== undefined);
+        if (retired === "removed") lines.push(`~/${RETIRED_SCANNED_CHAIN} removed (it sat inside OpenCode's plugin scan)`);
+        if (retired === "refused") refused.push({ path: `~/${RETIRED_SCANNED_CHAIN}`, reason: REMOVAL_REFUSED });
+      }
       const outcome = removeCarrierModule(id, placement, state.carriers[id] !== undefined);
       refused.push(...outcome.kept);
       if (outcome.isEntryRemoved) lines.push(`~/${placement.path} removed`);
@@ -1635,6 +1671,18 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
   const stateRefusal = mayMutateMachineState ? commitMachineState(stateRecord, nextState) : null;
   if (stateRefusal !== null) refused.push(stateRefusal);
   return { lines, refused };
+}
+
+/** The chain bundle older releases wrote INSIDE OpenCode's plugin scan. The loader imports
+ *  every file there as a plugin entry and takes its default export as a plugin; a bundle is
+ *  not one, so the host refused it and its provider config hook failed with it. Retired from
+ *  a recorded install only — a file ai-eng never recorded is somebody else's. */
+const RETIRED_SCANNED_CHAIN = ".config/opencode/plugins/ai-eng-chain.ts";
+
+/** Remove the retired bundle when ai-eng's record covers it, or only when it holds exactly
+ *  what this binary ships. Never reported as a write: it is a file leaving, not arriving. */
+function retireScannedChain(isRecorded: boolean): "removed" | "kept" | "refused" | "absent" {
+  return removeExactFile(join(machineBase(), RETIRED_SCANNED_CHAIN), isRecorded ? ANY_CONTENT : null);
 }
 
 /** A module carrier and its bundle leave when ai-eng recorded writing them, edited or not,

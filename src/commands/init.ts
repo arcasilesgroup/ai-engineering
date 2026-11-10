@@ -368,6 +368,7 @@ async function installCarriers(
     } else {
       const report = installMachineCarriers(machineScoped);
       for (const path of report.written) lines.push(`✓ ${path} — machine carrier`);
+      for (const path of report.retired) lines.push(`✓ ${path} — retired (every file in OpenCode's plugin folder is loaded as a plugin)`);
       for (const path of report.untouched) lines.push(`· ${path} — machine carrier already current`);
       for (const refused of report.refused) lines.push(refuseLine(refused));
     }

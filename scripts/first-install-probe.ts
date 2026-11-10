@@ -117,9 +117,12 @@ function isDeny(stdout: string): boolean {
   return /"(?:permissionDecision|decision|permission)"\s*:\s*"(?:deny|block)"|"continue"\s*:\s*false/.test(stdout);
 }
 
-function carriersOf(surface: string, repo: string): string[] {
+function carriersOf(surface: string, repo: string): Array<{ absolute: string; chain: string | undefined }> {
   const row = surfacesJson.surfaces.find((s) => s.id === surface);
-  return (row?.carriers ?? []).map((c) => join(c.scope === "repo" ? repo : homedir(), c.path));
+  return (row?.carriers ?? []).map((carrier) => {
+    const base = carrier.scope === "repo" ? repo : homedir();
+    return { absolute: join(base, carrier.path), chain: carrier.chain === undefined ? undefined : join(base, carrier.chain) };
+  });
 }
 
 function countFiles(dir: string): number {
@@ -161,14 +164,18 @@ for (const surface of SURFACES) {
   const init = aiEng(`init --yes --surface ${surface}`, repo);
   cells.push({ surface, check: "init", shell: "-", ok: init.status === 0, detail: `exit ${init.status} ${init.ms}ms ${init.stderr.split("\n").slice(-2).join(" ").slice(0, 200)}` });
 
-  for (const carrier of carriersOf(surface, repo)) {
+  for (const placement of carriersOf(surface, repo)) {
+    const carrier = placement.absolute;
     if (!existsSync(carrier)) {
       cells.push({ surface, check: `carrier ${carrier.replace(homedir(), "~").replace(repo, "<repo>")}`, shell: "-", ok: false, detail: "missing" });
       continue;
     }
     if (!carrier.endsWith(".json")) {
-      const chain = carrier.replace(/ai-eng(\.ts)$/, (_m, ext) => (surface === "opencode" ? `ai-eng-chain${ext}` : `.ai-eng-chain${ext}`));
-      cells.push({ surface, check: "module carrier + chain bundle", shell: "-", ok: existsSync(chain), detail: existsSync(chain) ? "present" : `no ${chain}` });
+      // The chain sits where the surface table says: beside the entry for the hosts that
+      // read it there, one directory up for OpenCode, whose plugin folder loads every file.
+      const chain = placement.chain;
+      const isPresent = chain !== undefined && existsSync(chain);
+      cells.push({ surface, check: "module carrier + chain bundle", shell: "-", ok: isPresent, detail: chain === undefined ? "no chain in the surface table" : isPresent ? "present" : `no ${chain}` });
       continue;
     }
     const lines = hookLines(carrier);

@@ -104,6 +104,8 @@ function installMachineSide(root: string, canon: CanonDrift): { rows: ui.Row[]; 
   const machineReport = installMachineCarriers(enabledSurfaces());
   written += machineReport.written.length;
   rows.push(...machineReport.written.map((path): ui.Row => ({ mark: "ok", text: path, dim: "machine carrier · written" })));
+  written += machineReport.retired.length;
+  rows.push(...machineReport.retired.map((path): ui.Row => ({ mark: "ok", text: path, dim: "retired — every file in OpenCode's plugin folder is loaded as a plugin" })));
   rows.push(...machineReport.untouched.map((path): ui.Row => ({ mark: "muted", text: `${path} · machine carrier already current` })));
   rows.push(...machineReport.refused.map((refused): ui.Row => ({ mark: "warn", text: refuseLine(refused).replace(/^⚠ /, "") })));
   const moved = sweepMovedRepoCarriers(root);

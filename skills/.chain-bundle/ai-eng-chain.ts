@@ -163,7 +163,8 @@ var LOWER_TOOLS = {
 var TOOL_ALIASES_BY_SURFACE = {
   cursor: { Shell: "Bash" },
   pi: LOWER_TOOLS,
-  "oh-my-pi": LOWER_TOOLS
+  "oh-my-pi": LOWER_TOOLS,
+  opencode: { ...LOWER_TOOLS, shell: "Bash", webfetch: "WebFetch", websearch: "WebSearch", subagent: "Task" }
 };
 var COPILOT_TOOLS = {
   bash: "Bash",
