@@ -3,6 +3,12 @@ name: check
 # Every action is pinned by commit SHA: a tag is mutable, a SHA is not.
 on: [push, pull_request]
 
+# One suite at a time per ref: a pushed-over PR run is dead weight. On main nothing is
+# cancelled — every result a branch reaches is recorded.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -23,7 +29,7 @@ jobs:
           set -euo pipefail
           sh scripts/toolchain.sh actionlint
           cp templates/ci.yml.tpl "$RUNNER_TEMP/ci-tpl.yml"
-          actionlint .github/workflows/{check,e2e,mutation,platforms,release,version}.yml "$RUNNER_TEMP/ci-tpl.yml"
+          actionlint .github/workflows/{check,e2e,mutation,platforms,release,version,ai-eng-check,first-install}.yml "$RUNNER_TEMP/ci-tpl.yml"
       - run: bun install --frozen-lockfile
       - name: Typecheck
         run: bun run typecheck
@@ -124,7 +130,8 @@ jobs:
     needs: [tokens, check]
     if: needs.tokens.outputs.sonar == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Three scans plus their cool-downs must fit inside the ceiling.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -134,7 +141,33 @@ jobs:
         with:
           name: check-coverage
           path: coverage
-      - name: SonarCloud scan
+      # SonarCloud's own wait for the report's CE task dies more often from the SaaS's
+      # side than ours ("CE Task finished abnormally", run 42825697352): infra, not
+      # code. A dead CE task can only be waited on again by re-submitting the analysis,
+      # so the scan is the retry unit — three attempts, a minute apart, and only the
+      # final attempt decides the job (the first two are marked tolerated).
+      - name: SonarCloud scan (1/3)
+        id: scan-1
+        uses: SonarSource/sonarqube-scan-action@4d1dc0c91ee400dcf8a6dddf2f705ac36542e304 # v8.4.0
+        continue-on-error: true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Cool down, then retry the wait (attempts 2 and 3)
+        run: sleep 60
+        if: steps.scan-1.outcome == 'failure'
+      - name: SonarCloud scan (2/3)
+        id: scan-2
+        if: steps.scan-1.outcome == 'failure'
+        uses: SonarSource/sonarqube-scan-action@4d1dc0c91ee400dcf8a6dddf2f705ac36542e304 # v8.4.0
+        continue-on-error: true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Cool down before the final attempt
+        run: sleep 60
+        if: steps.scan-2.outcome == 'failure'
+      - name: SonarCloud scan (3/3, final — this attempt decides)
+        id: scan-3
+        if: steps.scan-2.outcome == 'failure'
         uses: SonarSource/sonarqube-scan-action@4d1dc0c91ee400dcf8a6dddf2f705ac36542e304 # v8.4.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
