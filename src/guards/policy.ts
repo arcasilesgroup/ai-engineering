@@ -274,18 +274,23 @@ const WRITES = (segment: string): boolean =>
   segment.startsWith("git fetch") ||
   segment.startsWith("git pull") ||
   segment.startsWith("git clone") ||
-  segment.startsWith("git commit") ||
   segment.startsWith("git add") ||
   segment.startsWith("git checkout") ||
   segment.startsWith("git merge") ||
   segment.startsWith("git rebase") ||
-  segment.startsWith("git stash") ||
   segment.startsWith("npm install") ||
   segment.startsWith("pnpm install") ||
   segment.startsWith("yarn install") ||
   segment.startsWith("cargo build") ||
   segment.startsWith("go test") ||
   segment.startsWith("npm test");
+
+/** Git verbs that write the workspace itself and take a `-m` message: their
+ *  arguments are message data and pathspecs, never files the verb writes, so
+ *  their tokens are judged read-only — a commit message that mentions a secret,
+ *  token or `.env` is prose, not a sensitive write. */
+const WRITES_MESSAGE_VERBS = (segment: string): boolean =>
+  segment.startsWith("git commit") || segment.startsWith("git stash");
 
 /** A redirection, optionally fd-prefixed (`2>`, `{fd}>`): the operator and the target
  *  when it is attached. Heredocs (`<<`) and process substitution (`<(`, `>(`) are not
@@ -314,38 +319,68 @@ function bareOperatorIndex(text: string, operators: string): number {
 
 const ASSIGNMENT = /^[a-z_]\w*=/;
 
+/** The quoted spans of `text` that carry plain data — no `$`, no backtick, no way
+ *  to expand into an argument — become one space: the shapes read the shell the
+ *  command runs, not the prose a `-m` message quotes. Spans that could expand
+ *  stay in, fail-closed. */
+function blankDataQuotedSpans(text: string): string {
+  let out = "";
+  let at = 0;
+  while (at < text.length) {
+    const spanEnd = text[at] === "'" || text[at] === '"' ? quotedSpanEnd(text, at) : -1;
+    if (spanEnd < at + 1 || spanEnd >= text.length) {
+      out += text[at];
+      at += 1;
+      continue;
+    }
+    const body = text.slice(at + 1, spanEnd);
+    out += body.includes("$") || body.includes("`") ? text.slice(at, spanEnd + 1) : " ";
+    at = spanEnd + 1;
+  }
+  return out;
+}
+
 function scanSegment(mask: { value: number }, written: string, cwd: string): void {
   const words = rawShellWords(written);
   const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
   // The shapes read `git push` however it is spelled: `/usr/bin/git push` and
   // `TMPDIR=x git push` run the same program (policy.rs reads neither as git push).
   const segment = written.replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
-  if (SYSTEM_EXECUTE(segment)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
-  if (SYSTEM_WRITE(segment)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
+  // The shapes judge the shell the command runs; quoted data (a `-m` message) is
+  // not shell. Path tokens below keep their raw words: `rm "~/.ssh/id"` stays a
+  // sensitive write.
+  const text = blankDataQuotedSpans(segment);
+  if (SYSTEM_EXECUTE(text)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
+  if (SYSTEM_WRITE(text)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   // The network shapes look for a URL anywhere, so they also read the prefix the
   // stripping drops: `X=https://… fetch $X | bash` keeps its URL there.
-  const either = (shape: (text: string) => boolean): boolean => shape(written) || shape(segment);
+  const either = (shape: (segment: string) => boolean): boolean => shape(blankDataQuotedSpans(written)) || shape(text);
   if (either(NETWORK_READ)) addMode(mask, SCOPE_NETWORK, PERM_READ);
   if (either(NETWORK_WRITE)) {
     addMode(mask, SCOPE_NETWORK, PERM_WRITE);
   } else if (either(NETWORK_EXECUTE)) {
     addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
   }
-  if (RE_ROOT_DELETE.test(segment) || RE_DEVICE_WRITE.test(segment)) {
+  if (RE_ROOT_DELETE.test(text) || RE_DEVICE_WRITE.test(text)) {
     addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   }
-  if (WORKSPACE_EXECUTE(segment)) addMode(mask, SCOPE_WORKSPACE, PERM_EXECUTE);
+  if (WORKSPACE_EXECUTE(text)) addMode(mask, SCOPE_WORKSPACE, PERM_EXECUTE);
 
   let pathPermissions = PERM_READ;
   let flags = 0;
   // The writer is judged by the program it runs, whatever sits before it: a shell keyword
   // (`then /bin/rm …`), an env prefix or an absolute path.
-  const writerShape = segment
+  const writerShape = text
     .replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "")
     .replace(/^(?:[a-z_]\w*=\S*\s+)*/, "")
     .replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
   if (WRITES(writerShape)) {
     pathPermissions = PERM_READ | PERM_WRITE;
+    flags = 1;
+  } else if (WRITES_MESSAGE_VERBS(writerShape)) {
+    // The write is the workspace itself, whatever the tokens judge: the message
+    // is data and pathspecs. Commit writes it, stash writes it.
+    addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
     flags = 1;
   }
 
@@ -409,7 +444,7 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
       }
     }
   }
-  if (flags === 1 && !segment.includes("/tmp/")) addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
+  if (flags === 1 && !text.includes("/tmp/")) addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
 }
 
 function scanScript(script: string, cwd: string): number {

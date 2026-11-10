@@ -2277,7 +2277,8 @@ var NETWORK_EXECUTE = (segment) => (segment.includes("| bash") || segment.includ
 var SYSTEM_EXECUTE = (segment) => /^(sudo|su|doas)(\s|$)/.test(segment) || /^(shutdown|reboot|halt|poweroff)/.test(segment);
 var SYSTEM_WRITE = (segment) => /^(mkfs|fdisk|diskutil)/.test(segment) || /^mount |^umount /.test(segment);
 var WORKSPACE_EXECUTE = (segment) => segment.startsWith("./") || segment.startsWith("bash ") || segment.startsWith("sh ") || segment.startsWith("zsh ") || segment.startsWith("python") || segment.startsWith("node ") || segment.startsWith("ruby ") || segment.startsWith("perl ") || segment.startsWith("npm test") || segment.startsWith("npm run") || segment.startsWith("make") || segment.startsWith("cargo test") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("git cherry-pick") || segment.includes("function ") || segment.includes("()") || segment.includes("{") || segment.includes(" if ") || segment.startsWith("if ") || segment.includes(" for ") || segment.startsWith("for ") || segment.includes(" while ") || segment.startsWith("while ") || segment.includes(" case ") || segment.startsWith("case ") || segment.includes(":(){:|:&};:");
-var WRITES = (segment) => segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.startsWith("del ") || segment.includes(" del ") || segment.startsWith("rd ") || segment.includes(" rd ") || segment.startsWith("chmod ") || segment.startsWith("chown ") || segment.startsWith("ln ") || segment.startsWith("install ") || segment.startsWith("truncate ") || segment.startsWith("rsync ") || segment.startsWith("dd ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.includes("remove-item") || segment.includes("set-content") || segment.includes("new-item") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
+var WRITES = (segment) => segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.startsWith("del ") || segment.includes(" del ") || segment.startsWith("rd ") || segment.includes(" rd ") || segment.startsWith("chmod ") || segment.startsWith("chown ") || segment.startsWith("ln ") || segment.startsWith("install ") || segment.startsWith("truncate ") || segment.startsWith("rsync ") || segment.startsWith("dd ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.includes("remove-item") || segment.includes("set-content") || segment.includes("new-item") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
+var WRITES_MESSAGE_VERBS = (segment) => segment.startsWith("git commit") || segment.startsWith("git stash");
 var REDIRECT2 = /^(?:\d+|\{\w+\})?(&>>?|>&|>>?[|!]?|<>|<&|<)(?![<(])(.*)$/;
 function splitAttachedRedirect(token) {
   const at = bareOperatorIndex(token, "<>");
@@ -2297,15 +2298,32 @@ function bareOperatorIndex(text, operators) {
   return -1;
 }
 var ASSIGNMENT = /^[a-z_]\w*=/;
+function blankDataQuotedSpans(text) {
+  let out = "";
+  let at = 0;
+  while (at < text.length) {
+    const spanEnd = text[at] === "'" || text[at] === '"' ? quotedSpanEnd(text, at) : -1;
+    if (spanEnd < at + 1 || spanEnd >= text.length) {
+      out += text[at];
+      at += 1;
+      continue;
+    }
+    const body = text.slice(at + 1, spanEnd);
+    out += body.includes("$") || body.includes("`") ? text.slice(at, spanEnd + 1) : " ";
+    at = spanEnd + 1;
+  }
+  return out;
+}
 function scanSegment(mask, written, cwd) {
   const words = rawShellWords(written);
   const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
   const segment = written.replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
-  if (SYSTEM_EXECUTE(segment))
+  const text = blankDataQuotedSpans(segment);
+  if (SYSTEM_EXECUTE(text))
     addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
-  if (SYSTEM_WRITE(segment))
+  if (SYSTEM_WRITE(text))
     addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
-  const either = (shape) => shape(written) || shape(segment);
+  const either = (shape) => shape(blankDataQuotedSpans(written)) || shape(text);
   if (either(NETWORK_READ))
     addMode(mask, SCOPE_NETWORK, PERM_READ);
   if (either(NETWORK_WRITE)) {
@@ -2313,16 +2331,19 @@ function scanSegment(mask, written, cwd) {
   } else if (either(NETWORK_EXECUTE)) {
     addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
   }
-  if (RE_ROOT_DELETE.test(segment) || RE_DEVICE_WRITE.test(segment)) {
+  if (RE_ROOT_DELETE.test(text) || RE_DEVICE_WRITE.test(text)) {
     addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   }
-  if (WORKSPACE_EXECUTE(segment))
+  if (WORKSPACE_EXECUTE(text))
     addMode(mask, SCOPE_WORKSPACE, PERM_EXECUTE);
   let pathPermissions = PERM_READ;
   let flags = 0;
-  const writerShape = segment.replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "").replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
+  const writerShape = text.replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "").replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
   if (WRITES(writerShape)) {
     pathPermissions = PERM_READ | PERM_WRITE;
+    flags = 1;
+  } else if (WRITES_MESSAGE_VERBS(writerShape)) {
+    addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
     flags = 1;
   }
   let pending = null;
@@ -2361,7 +2382,7 @@ function scanSegment(mask, written, cwd) {
       }
     }
   }
-  if (flags === 1 && !segment.includes("/tmp/"))
+  if (flags === 1 && !text.includes("/tmp/"))
     addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
 }
 function scanScript(script, cwd) {

