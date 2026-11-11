@@ -12,6 +12,14 @@ import { runGit } from "../git/run.ts";
 
 type FloorResult = { ok: boolean; lines: string[] };
 
+/** The package-manager line both gitleaks hints print: pre-commit and pre-push must
+ *  never drift apart, and the specs read this same source. */
+export function gitleaksInstallHint(): string {
+  if (process.platform === "win32") return "choco install gitleaks (or scoop install gitleaks)";
+  if (process.platform === "darwin") return "brew install gitleaks";
+  return "apt install gitleaks (or download the binary from the gitleaks releases page)";
+}
+
 /** pre-commit: diff --check · gitleaks --staged · DECISIONS.md if >10 files or new dep. */
 export function preCommit(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const lines: string[] = [];
@@ -93,11 +101,7 @@ function stageSecrets(cwd: string): FloorResult {
       ok: false,
       lines: [
         "gitleaks is not installed — HARD FAIL, never silent degradation (§12.1).",
-        process.platform === "win32"
-          ? "Install it: choco install gitleaks (or scoop install gitleaks)"
-          : process.platform === "darwin"
-            ? "Install it: brew install gitleaks"
-            : "Install it: apt install gitleaks (or download the binary from the gitleaks releases page)",
+        `Install it: ${gitleaksInstallHint()}`,
       ],
     };
   }
@@ -206,7 +210,7 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   }
   const gitleaks = whichGitleaks();
   if (!gitleaks) {
-    return { ok: false, lines: [`gitleaks is not installed — HARD FAIL (§12.1). ${process.platform === "win32" ? "choco install gitleaks (or scoop install gitleaks)" : process.platform === "darwin" ? "brew install gitleaks" : "apt install gitleaks"}`] };
+    return { ok: false, lines: [`gitleaks is not installed — HARD FAIL (§12.1). ${gitleaksInstallHint()}`] };
   }
   try {
     execFileSync(gitleaks, ["git", "--redact", "-v", "-c", join(cwd, ".gitleaksrc.toml")], { cwd, stdio: "pipe" });

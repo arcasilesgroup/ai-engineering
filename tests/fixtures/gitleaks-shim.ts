@@ -47,11 +47,6 @@ export function pathWithOnlyGit(): string {
 }
 
 /** The install hint the floor prints on the OS running the test, so an assertion
- *  on it holds on every CI leg, not only the one that runs brew. */
-export function gitleaksInstallHint(): string {
-  return process.platform === "win32"
-    ? "choco install gitleaks (or scoop install gitleaks)"
-    : process.platform === "darwin"
-      ? "brew install gitleaks"
-      : "apt install gitleaks (or download the binary from the gitleaks releases page)";
-}
+ *  on it holds on every CI leg, not only the one that runs brew. Read from the
+ *  floor itself so production and assertion can never drift apart. */
+export { gitleaksInstallHint } from "../../src/floor/index.ts";

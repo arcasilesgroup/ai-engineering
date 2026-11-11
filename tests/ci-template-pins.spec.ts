@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "..");
 const TEMPLATE = resolve(ROOT, "templates/ci.yml.tpl");
-const WORKFLOW = resolve(ROOT, ".github/workflows/check.yml");
+const WORKFLOWS = resolve(ROOT, ".github/workflows");
+const WORKFLOW = resolve(WORKFLOWS, "check.yml");
 const TOOLCHAIN = resolve(ROOT, "scripts/toolchain.sh");
 
 const template = readFileSync(TEMPLATE, "utf8");
-const workflow = readFileSync(WORKFLOW, "utf8");
 const toolchain = readFileSync(TOOLCHAIN, "utf8");
 
 function pinOf(source: string, name: string): string | undefined {
@@ -38,12 +38,14 @@ function expectSamePin(actual: string, expected: string, regenerate: string): vo
 }
 
 describe("ci template pins track their source of truth", () => {
-  test("actions/checkout matches .github/workflows/check.yml", () => {
-    expectSamePin(
-      pinOf(template, "actions/checkout") ?? "(none)",
-      pinOf(workflow, "actions/checkout") ?? "(none)",
-      "templates/ci.yml.tpl (source of truth: .github/workflows/check.yml)",
-    );
+  test("actions/checkout is one pin across the template and every workflow", () => {
+    const expected = pinOf(template, "actions/checkout") ?? "(none)";
+    const offenders = readdirSync(WORKFLOWS)
+      .filter((name) => name.endsWith(".yml"))
+      .map((name) => ({ name, pin: pinOf(readFileSync(resolve(WORKFLOWS, name), "utf8"), "actions/checkout") }))
+      .filter((entry) => entry.pin !== undefined && entry.pin !== expected)
+      .map((entry) => `${entry.name} pins ${entry.pin}`);
+    expectSamePin(offenders.join(", ") || expected, expected, "templates/ci.yml.tpl (source of truth: every .github/workflows/*.yml)");
   });
 
   test("gitleaks version + sha256 match scripts/toolchain.sh", () => {

@@ -35,12 +35,13 @@ afterEach(() => {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-mirror-fallback-"));
 });
 
-/** The stock-Windows refusal: every `dir` symlink fails with EPERM. A junction attempt goes
- *  to the real fs (which refuses it on this OS too), so the chain ends at the verified copy. */
+/** The no-links-at-all refusal: a stock Windows laptop without developer mode refuses
+ *  `dir` symlinks, and an OS (or policy) that refuses links refuses `junction` too —
+ *  so the chain ends at the verified copy on every platform, deterministically. */
 function refuseDirSymlinks(): () => void {
   const original = fs.symlinkSync.bind(fs);
   const spy = spyOn(fs, "symlinkSync").mockImplementation((...args: unknown[]) => {
-    if (args[2] === "dir") {
+    if (args[2] === "dir" || args[2] === "junction") {
       const error = new Error("operation not permitted") as NodeJS.ErrnoException;
       error.code = "EPERM";
       throw error;
