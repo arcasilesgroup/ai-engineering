@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.7
+
+### Patch Changes
+
+- [#771](https://github.com/arcasilesgroup/ai-engineering/pull/771) [`842116f`](https://github.com/arcasilesgroup/ai-engineering/commit/842116f6239bbd7dcaf00b4f291ce5aa79ed972b) Thanks [@soydachi](https://github.com/soydachi)! - The 2025-11-14 review lands: releases gate on green checks (ci-gate polls the dispatched SHA's check runs, platforms runs on v* tags, the version-packages pull request wakes its own CI, SonarCloud waits retry through infrastructure failures), the policy guard reads Windows paths and PowerShell verbs and stops reading commit-message prose as shell, the secrets gate scans the allowlist editor without exemptions and doctor compares the live allowlist against a versioned baseline, skill mirrors fall back to junction and byte-verified copies on Windows, the identity ledger hashes line-ending-normalized text, doctor keeps the newest audits and survives directories, the injection guard never opens a network share, local-rules patterns with catastrophic backtracking shapes die at load, and a long tail of portability, documentation and simplicity fixes (adapters split by job, one path predicate, the learnings log archived).
+
 ## 3.0.6
 
 ### Patch Changes
