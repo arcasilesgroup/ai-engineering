@@ -5,7 +5,7 @@ import {
   worktreeNew,
   worktreeRequestChanges,
   worktreeRm,
-} from "../shared-worktree.ts";
+} from "../git/shared-worktree.ts";
 import { worktreeMerge } from "../git/merge.ts";
 
 const USAGE =

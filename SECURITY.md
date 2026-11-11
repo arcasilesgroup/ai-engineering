@@ -18,7 +18,8 @@ Do **not** open a public issue for exploitable findings.
 
 | Version | Supported |
 |---|---|
-| 2.x | yes |
+| 3.x | yes |
+| 2.x | no |
 
 Only the current major line receives security fixes; older lines are archived
 and unsupported.

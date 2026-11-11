@@ -46,12 +46,17 @@ const RE_EXTERNAL_PATH = /(^|[\s"'`])(~|\$home)(\/|[\s"'`]|$)|(^|[\s"'`])\/[A-Za
 const RE_DEVICE_WRITE =
   /(^|[\s])(of=|>|1>|>>|1>>)\s*\/dev\/(sd[a-z][0-9]*|disk[0-9]+|rdisk[0-9]+|nvme[0-9]+n[0-9]+(p[0-9]+)?|vd[a-z][0-9]*|xvd[a-z][0-9]*|hd[a-z][0-9]*)([\s]|$)/i;
 
+// A win32 drive (`c:/…`) or a UNC share (`//server/share`): after backslash
+// normalisation these are the spellings the POSIX root rules cannot name, so a
+// path carrying one is never silently read as the workspace.
+const RE_WIN32_ROOT = /^[a-z]:\/|^\/\//i;
+
 /** The original skips /tmp because temp files are not system state; on macOS
  *  the temp dir lives under /var/folders, which the system-path rule would
  *  otherwise swallow — so the same skip covers both tmpdir spellings. Paths
  *  arrive lowercased (classification normalises), so the roots compare in
  *  lowercase too. */
-const TEMP_ROOTS = [...new Set([tmpdir(), realpathSync(tmpdir())])].map((r) => r.replace(/\/$/, "").toLowerCase());
+const TEMP_ROOTS = [...new Set([tmpdir(), realpathSync(tmpdir())])].map((r) => r.replace(/\/$/, "").replaceAll("\\", "/").toLowerCase());
 
 function isTempPath(resolved: string): boolean {
   return resolved === "/tmp" || resolved.startsWith("/tmp/") || TEMP_ROOTS.some((root) => resolved === root || resolved.startsWith(`${root}/`));
@@ -113,10 +118,13 @@ function resolvePath(rawPath: string, cwd: string): string {
   const path = rawPath
     .replace(/^["']+|["']+$/g, "")
     .replace(/^of=/, "")
-    .replace(/[;,)]+$/, "");
+    .replace(/[;,)]+$/, "")
+    // Windows paths arrive with `\`; everything below, including the win32 root
+    // test, reasons in the `/` form.
+    .replaceAll("\\", "/");
   if (path.length === 0) return "";
   if (path.split("/").includes("..")) return resolveParentSegments(path, cwd);
-  if (path.startsWith("/") || path.startsWith("~")) return path;
+  if (RE_WIN32_ROOT.test(path) || path.startsWith("/") || path.startsWith("~")) return path;
   if (cwd.length === 0) return path;
   if (path.startsWith("./") || path.startsWith("../")) {
     if (path.includes("..")) return path;
@@ -129,7 +137,7 @@ function resolvePath(rawPath: string, cwd: string): string {
  *  from the repo is outside it, `/tmp/../etc` is /etc. `~/` resolves against the home
  *  directory and is written back as `~/…` so the sensitive-path rule still reads it.
  *  With no absolute cwd to resolve against the path stays as written, and its `..`
- *  sends it to external. */
+ *  sends it to external. A win32 drive cwd (`c:/repo`) joins and normalises the same way. */
 export function resolveParentSegments(path: string, cwd: string, homeDirectory = homedir()): string {
   if (path === "~" || path.startsWith("~/")) {
     // Git Bash spells the Windows home `C:\Users\me` as `/c/users/me`; left as written, a
@@ -139,8 +147,9 @@ export function resolveParentSegments(path: string, cwd: string, homeDirectory =
     const landed = posix.resolve(home, path.slice(2));
     return landed === home || landed.startsWith(`${home}/`) ? `~${landed.slice(home.length)}` : landed;
   }
-  if (path.startsWith("/")) return posix.normalize(path);
-  if (path.startsWith("~") || !cwd.startsWith("/")) return path;
+  if (path.startsWith("/") || RE_WIN32_ROOT.test(path)) return posix.normalize(path);
+  if (path.startsWith("~") || !(cwd.startsWith("/") || RE_WIN32_ROOT.test(cwd))) return path;
+  if (RE_WIN32_ROOT.test(cwd) && !cwd.startsWith("/")) return posix.normalize(`${cwd}/${path}`);
   return posix.resolve(cwd, path);
 }
 
@@ -155,7 +164,7 @@ function addPath(mask: { value: number }, rawPath: string, permissions: number, 
       ? SCOPE_SYSTEM
       : cwd.length > 0 && (resolved === cwd || resolved.startsWith(`${cwd}/`))
         ? SCOPE_WORKSPACE
-        : RE_EXTERNAL_PATH.test(resolved) || resolved.includes("..")
+        : RE_EXTERNAL_PATH.test(resolved) || resolved.includes("..") || RE_WIN32_ROOT.test(resolved)
           ? SCOPE_EXTERNAL
           : SCOPE_WORKSPACE;
   addMode(mask, scope, permissions);
@@ -177,8 +186,10 @@ const NETWORK_WRITE = (segment: string): boolean =>
   segment.includes("scp ") ||
   segment.includes("curl -d ") ||
   segment.includes("curl --data") ||
-  segment.includes("curl -f ") ||
-  segment.includes("curl -t ");
+  // -T reads as -t and -F as -f once the classification lowercases, and the flag
+  // may sit anywhere in curl's flag list, so the match is not anchored after `curl`.
+  (segment.includes("curl ") &&
+    [" -t ", " -f ", " --upload-file", " --form"].some((flag) => segment.includes(flag)));
 
 /** curl | bash — the network-execute form. */
 const NETWORK_EXECUTE = (segment: string): boolean =>
@@ -243,6 +254,10 @@ const WRITES = (segment: string): boolean =>
   segment.startsWith("mv ") ||
   segment.startsWith("rm ") ||
   segment.includes(" rm ") ||
+  segment.startsWith("del ") ||
+  segment.includes(" del ") ||
+  segment.startsWith("rd ") ||
+  segment.includes(" rd ") ||
   segment.startsWith("chmod ") ||
   segment.startsWith("chown ") ||
   segment.startsWith("ln ") ||
@@ -252,21 +267,30 @@ const WRITES = (segment: string): boolean =>
   segment.startsWith("dd ") ||
   segment.includes("sed -i") ||
   segment.includes(" -delete") ||
+  // PowerShell's twins of the deleters and writers above.
+  segment.includes("remove-item") ||
+  segment.includes("set-content") ||
+  segment.includes("new-item") ||
   segment.startsWith("git fetch") ||
   segment.startsWith("git pull") ||
   segment.startsWith("git clone") ||
-  segment.startsWith("git commit") ||
   segment.startsWith("git add") ||
   segment.startsWith("git checkout") ||
   segment.startsWith("git merge") ||
   segment.startsWith("git rebase") ||
-  segment.startsWith("git stash") ||
   segment.startsWith("npm install") ||
   segment.startsWith("pnpm install") ||
   segment.startsWith("yarn install") ||
   segment.startsWith("cargo build") ||
   segment.startsWith("go test") ||
   segment.startsWith("npm test");
+
+/** Git verbs that write the workspace itself and take a `-m` message: their
+ *  arguments are message data and pathspecs, never files the verb writes, so
+ *  their tokens are judged read-only — a commit message that mentions a secret,
+ *  token or `.env` is prose, not a sensitive write. */
+const WRITES_MESSAGE_VERBS = (segment: string): boolean =>
+  segment.startsWith("git commit") || segment.startsWith("git stash");
 
 /** A redirection, optionally fd-prefixed (`2>`, `{fd}>`): the operator and the target
  *  when it is attached. Heredocs (`<<`) and process substitution (`<(`, `>(`) are not
@@ -295,38 +319,68 @@ function bareOperatorIndex(text: string, operators: string): number {
 
 const ASSIGNMENT = /^[a-z_]\w*=/;
 
+/** The quoted spans of `text` that carry plain data — no `$`, no backtick, no way
+ *  to expand into an argument — become one space: the shapes read the shell the
+ *  command runs, not the prose a `-m` message quotes. Spans that could expand
+ *  stay in, fail-closed. */
+function blankDataQuotedSpans(text: string): string {
+  let out = "";
+  let at = 0;
+  while (at < text.length) {
+    const spanEnd = text[at] === "'" || text[at] === '"' ? quotedSpanEnd(text, at) : -1;
+    if (spanEnd < at + 1 || spanEnd >= text.length) {
+      out += text[at];
+      at += 1;
+      continue;
+    }
+    const body = text.slice(at + 1, spanEnd);
+    out += body.includes("$") || body.includes("`") ? text.slice(at, spanEnd + 1) : " ";
+    at = spanEnd + 1;
+  }
+  return out;
+}
+
 function scanSegment(mask: { value: number }, written: string, cwd: string): void {
   const words = rawShellWords(written);
   const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
   // The shapes read `git push` however it is spelled: `/usr/bin/git push` and
   // `TMPDIR=x git push` run the same program (policy.rs reads neither as git push).
   const segment = written.replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
-  if (SYSTEM_EXECUTE(segment)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
-  if (SYSTEM_WRITE(segment)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
+  // The shapes judge the shell the command runs; quoted data (a `-m` message) is
+  // not shell. Path tokens below keep their raw words: `rm "~/.ssh/id"` stays a
+  // sensitive write.
+  const text = blankDataQuotedSpans(segment);
+  if (SYSTEM_EXECUTE(text)) addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
+  if (SYSTEM_WRITE(text)) addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   // The network shapes look for a URL anywhere, so they also read the prefix the
   // stripping drops: `X=https://… fetch $X | bash` keeps its URL there.
-  const either = (shape: (text: string) => boolean): boolean => shape(written) || shape(segment);
+  const either = (shape: (segment: string) => boolean): boolean => shape(blankDataQuotedSpans(written)) || shape(text);
   if (either(NETWORK_READ)) addMode(mask, SCOPE_NETWORK, PERM_READ);
   if (either(NETWORK_WRITE)) {
     addMode(mask, SCOPE_NETWORK, PERM_WRITE);
   } else if (either(NETWORK_EXECUTE)) {
     addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
   }
-  if (RE_ROOT_DELETE.test(segment) || RE_DEVICE_WRITE.test(segment)) {
+  if (RE_ROOT_DELETE.test(text) || RE_DEVICE_WRITE.test(text)) {
     addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   }
-  if (WORKSPACE_EXECUTE(segment)) addMode(mask, SCOPE_WORKSPACE, PERM_EXECUTE);
+  if (WORKSPACE_EXECUTE(text)) addMode(mask, SCOPE_WORKSPACE, PERM_EXECUTE);
 
   let pathPermissions = PERM_READ;
   let flags = 0;
   // The writer is judged by the program it runs, whatever sits before it: a shell keyword
   // (`then /bin/rm …`), an env prefix or an absolute path.
-  const writerShape = segment
+  const writerShape = text
     .replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "")
     .replace(/^(?:[a-z_]\w*=\S*\s+)*/, "")
     .replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
   if (WRITES(writerShape)) {
     pathPermissions = PERM_READ | PERM_WRITE;
+    flags = 1;
+  } else if (WRITES_MESSAGE_VERBS(writerShape)) {
+    // The write is the workspace itself, whatever the tokens judge: the message
+    // is data and pathspecs. Commit writes it, stash writes it.
+    addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
     flags = 1;
   }
 
@@ -362,13 +416,19 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
     ) {
       addPath(mask, token, tokenPermissions, cwd);
       flags = 3;
-    } else if (token.includes("/") && !token.startsWith("-")) {
+    } else if (
+      (token.includes("/") ||
+        // A win32 raw path (`c:\…`, `\\server\…`) carries no `/`: it is still a path.
+        RE_WIN32_ROOT.test(token.replaceAll("\\", "/"))) &&
+      !token.startsWith("-")
+    ) {
       const isUrl =
         token.startsWith("http://") ||
         token.startsWith("https://") ||
         token.startsWith("ftp://") ||
         token.includes("://") ||
-        token.includes(":/");
+        // A win32 drive (`c:/…`) also carries `:/`; it is a path, not a URL scheme.
+        (token.includes(":/") && !RE_WIN32_ROOT.test(token));
       const isPath =
         !isUrl &&
         !token.endsWith(".exe") &&
@@ -384,7 +444,7 @@ function scanSegment(mask: { value: number }, written: string, cwd: string): voi
       }
     }
   }
-  if (flags === 1 && !segment.includes("/tmp/")) addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
+  if (flags === 1 && !text.includes("/tmp/")) addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
 }
 
 function scanScript(script: string, cwd: string): number {
@@ -410,7 +470,7 @@ function maskToMode(mask: number): string {
  *  floor every shell call pays). */
 export function classifyRequiredMode(command: string, cwd: string): string {
   if (command.length === 0) return "0000";
-  const mask = scanScript(command.toLowerCase(), cwd.toLowerCase());
+  const mask = scanScript(command.toLowerCase(), cwd.toLowerCase().replaceAll("\\", "/"));
   return maskToMode(mask === 0 ? PERM_READ : mask);
 }
 

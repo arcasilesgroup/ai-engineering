@@ -492,7 +492,6 @@
 │   ├── shared-verbs.ts           # the verb list and the typo suggestion
 │   ├── branding.ts               # the logo block; colours from node:util, plain on a non-TTY
 │   ├── notice.ts                 # one version-notice line, cached 24h, silent when offline
-│   ├── skills-lint.ts            # sha256 helper for the canon gates
 │   ├── embedded.d.ts             # ambient types for asset imports
 │   └── version.ts                # reads the version from package.json, the only place it is written
 ├── skills/                       # the canon: one flat directory per ai-* skill, no packaging layer
@@ -1372,7 +1371,7 @@ exit 1</pre>
 "layers": { "cli": "src/cli.ts", "commands": "src/commands/**", "guards": "src/guards/**",
             "chain": "src/chain/**", "floor": "src/floor/**", "spec": "src/spec/**",
             "wrap": "src/wrap/**", "surfaces": "src/surfaces/**",
-            "shared": "src/shared-*.ts,src/{env,install,receipts,embed,skills-lint}.ts",
+            "shared": "src/shared-*.ts,src/{env,install,receipts,embed}.ts",
             "templates-assets": "templates/**" }
 "rules": [
   { "from": "guards", "mayNotImport": "commands" },

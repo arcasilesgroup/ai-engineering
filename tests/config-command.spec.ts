@@ -16,7 +16,7 @@ import { stripVTControlCharacters } from "node:util";
 import { configMain } from "../src/commands/config.ts";
 import { canonSkills, embeddedPath } from "../src/embed.ts";
 import { isGoverned } from "../src/env.ts";
-import { installCanon } from "../src/surfaces/adapters.ts";
+import { installCanon } from "../src/surfaces/canon-install.ts";
 import { cancelled, confirmDefault, end, fail, frame, info, ok, pathList, scriptedInput, section, spinner, summary, warn } from "../src/ui.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 import { usePrivateStdin } from "./fixtures/private-stdin.ts";

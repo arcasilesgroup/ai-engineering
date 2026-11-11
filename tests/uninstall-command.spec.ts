@@ -25,7 +25,9 @@ import { uninstallMain } from "../src/commands/uninstall.ts";
 import { embeddedPath, embeddedUnder, recordCanonOwnership } from "../src/embed.ts";
 import { contractEntries, planEntries } from "../src/commands/init-shared.ts";
 import { buildLock, install, lockText, sha256 } from "../src/install.ts";
-import { installCanon, installMachineCarriers, machineStateFile, machineStateLockFile, machineStateLockScope, readMachineState } from "../src/surfaces/adapters.ts";
+import { installCanon } from "../src/surfaces/canon-install.ts";
+import { installMachineCarriers } from "../src/surfaces/carriers-install.ts";
+import { machineStateFile, machineStateLockFile, machineStateLockScope, readMachineState } from "../src/surfaces/machine-state.ts";
 import { VERSION } from "../src/version.ts";
 import { restoreSandboxEnv, snapshotSandboxEnv } from "./fixtures/sandbox-env.ts";
 import { usePrivateStdin } from "./fixtures/private-stdin.ts";
@@ -395,6 +397,25 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(existsSync(workflow)).toBe(false);
     expect(out).toContain("✓ .github/workflows/ai-eng-check.yml removed · edited since install — ai-eng's file all the same");
     expect(existsSync(join(cwd, ".git", "hooks", "pre-commit"))).toBe(false);
+  });
+
+  test("a file ai-eng wrote goes even when the checkout made its bytes CRLF (core.autocrlf on Windows)", async () => {
+    const { cwd } = sandboxed();
+    gitInit(cwd);
+    initShaped(["claude-code"]);
+    // Same LF text the lock recorded, checked out as CRLF — not an edit.
+    const workflow = join(cwd, ".github", "workflows", "ai-eng-check.yml");
+    writeFileSync(workflow, readFileSync(workflow, "utf8").replaceAll("\n", "\r\n"));
+
+    const { result, out } = await uninstall([
+      [SELECT, PROJECT_KEYS],
+      [CONFIRM, "y"],
+    ]);
+
+    expect(result).toBe(0);
+    expect(existsSync(workflow)).toBe(false);
+    expect(out).toContain("✓ .github/workflows/ai-eng-check.yml removed");
+    expect(out).not.toContain(".github/workflows/ai-eng-check.yml kept");
   });
 
   test("a git hook someone else wrote is never deleted; ours are removed", async () => {

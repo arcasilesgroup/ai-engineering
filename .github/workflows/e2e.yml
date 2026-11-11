@@ -7,6 +7,12 @@ name: e2e
 # npm and every ref it names exists.
 on: [push, pull_request]
 
+# One install pipeline at a time per ref: a pushed-over PR run is dead weight. On main
+# nothing is cancelled — every result a branch reaches is recorded.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 

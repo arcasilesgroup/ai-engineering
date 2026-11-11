@@ -19,7 +19,7 @@ import { dirname, join } from "node:path";
 import { commitMsg, preCommit, prePush } from "../src/floor/index.ts";
 import { floor } from "../src/floor/entry.ts";
 import { resolveContext } from "../src/git/context.ts";
-import { compileGitleaksShim, pathWithOnlyGit, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
+import { compileGitleaksShim, gitleaksInstallHint, pathWithOnlyGit, useGitleaksShim } from "./fixtures/gitleaks-shim.ts";
 
 const SECRET = "AKIAIOSFODNN7EXAMPLE";
 const roots: string[] = [];
@@ -189,7 +189,7 @@ describe("preCommit — diff --check, then the staged-secret scan, then DECISION
 
     expect(result.ok).toBe(false);
     expect(result.lines).toContain("gitleaks is not installed — HARD FAIL, never silent degradation (§12.1).");
-    expect(result.lines).toContain("Install it: brew install gitleaks");
+    expect(result.lines).toContain(`Install it: ${gitleaksInstallHint()}`);
   });
 
   test("requires a DECISIONS.md block when the commit is wider than 10 files", () => {
@@ -237,11 +237,11 @@ describe("preCommit — diff --check, then the staged-secret scan, then DECISION
   });
 });
 
-describe("commitMsg — the convention, the Receipt-Id trailer, the override reason", () => {
+describe("commitMsg — the convention and the Receipt-Id trailer", () => {
   test("refuses a message that breaks Conventional Commits", () => {
     const msg = write(tempDir("ai-eng-floor-msg-"), "COMMIT_EDITMSG", "just some words\n");
 
-    const result = commitMsg(msg, "abc12345", null);
+    const result = commitMsg(msg, "abc12345");
 
     expect(result.ok).toBe(false);
     expect(result.lines[0]).toBe('the message does not follow the Conventional Commits convention: "just some words"');
@@ -252,7 +252,7 @@ describe("commitMsg — the convention, the Receipt-Id trailer, the override rea
   test("accepts a conventional message and appends the Receipt-Id trailer", () => {
     const msg = write(tempDir("ai-eng-floor-msg-"), "COMMIT_EDITMSG", "feat(floor): block staged secrets\n\nThe body.\n");
 
-    const result = commitMsg(msg, "7f3a0000", null);
+    const result = commitMsg(msg, "7f3a0000");
 
     expect(result.ok).toBe(true);
     expect(readFileSync(msg, "utf8")).toBe("feat(floor): block staged secrets\n\nThe body.\n\nReceipt-Id: 7f3a0000\n");
@@ -262,25 +262,24 @@ describe("commitMsg — the convention, the Receipt-Id trailer, the override rea
     const before = "fix: keep the trailer\n\nReceipt-Id: deadbeef\n";
     const msg = write(tempDir("ai-eng-floor-msg-"), "COMMIT_EDITMSG", before);
 
-    const result = commitMsg(msg, "newvalue", null);
+    const result = commitMsg(msg, "newvalue");
 
     expect(result.ok).toBe(true);
     expect(result.lines).toEqual([]);
     expect(readFileSync(msg, "utf8")).toBe(before);
   });
 
-  test("travels the active override reason in the commit", () => {
+  test("stamps no Override-Reason even under a live override — no false exceptions in history", () => {
     const msg = write(tempDir("ai-eng-floor-msg-"), "COMMIT_EDITMSG", "chore: land it\n");
 
-    const result = commitMsg(msg, "abc12345", "hotfix under a declared override");
+    const result = commitMsg(msg, "abc12345");
 
     expect(result.ok).toBe(true);
-    expect(readFileSync(msg, "utf8")).toBe("chore: land it\n\nReceipt-Id: abc12345\nOverride-Reason: hotfix under a declared override\n");
-    expect(result.lines).toContain("active override travels in the commit: hotfix under a declared override");
+    expect(readFileSync(msg, "utf8")).toBe("chore: land it\n\nReceipt-Id: abc12345\n");
   });
 
   test("refuses a message file it cannot read", () => {
-    const result = commitMsg(join(tempDir("ai-eng-floor-msg-"), "absent"), "abc12345", null);
+    const result = commitMsg(join(tempDir("ai-eng-floor-msg-"), "absent"), "abc12345");
 
     expect(result.ok).toBe(false);
     expect(result.lines).toEqual(["commit-msg: cannot read the commit message."]);
@@ -415,7 +414,7 @@ describe("prePush — the whole unpushed surface, and dated overrides", () => {
     const result = prePush(repo);
 
     expect(result.ok).toBe(false);
-    expect(result.lines).toEqual(["gitleaks is not installed — HARD FAIL (§12.1). brew install gitleaks"]);
+    expect(result.lines).toEqual([`gitleaks is not installed — HARD FAIL (§12.1). ${gitleaksInstallHint()}`]);
   });
 
   test("an expired dated override leaves the gate live again (§09.1)", () => {
@@ -529,7 +528,7 @@ describe("floor — the dispatcher the shims exec into", () => {
     expect(err.text()).toBe("usage: ai-eng git commit-msg <msgfile>\n");
   });
 
-  test("commit-msg: a live dated override travels as an Override-Reason trailer", async () => {
+  test("commit-msg: a live dated override stamps no Override-Reason trailer (T19)", async () => {
     const repo = tempRepo(true);
     write(repo, ".ai-engineering/overrides.toml", '[[guard.off]]\nname = "floor"\nreason = "sealed build window"\nuntil = "2999-01-01"\n');
     process.chdir(repo);
@@ -544,7 +543,9 @@ describe("floor — the dispatcher the shims exec into", () => {
 
     expect(code).toBe(0);
     expect(err.text()).toBe("");
-    expect(readFileSync(msg, "utf8")).toContain("Override-Reason: sealed build window");
+    const content = readFileSync(msg, "utf8");
+    expect(content).not.toContain("Override-Reason");
+    expect(content).toMatch(/Receipt-Id: [0-9a-f]{8}\n$/);
   });
 
   test("commit-msg: an expired dated override no longer travels (§09.1)", async () => {

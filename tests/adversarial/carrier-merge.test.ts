@@ -8,7 +8,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mergeSharedText, sha256, stripSharedText } from "../../src/install.ts";
-import { carrierDefinition, carrierFiles, removeMachineCarriers, readMachineState } from "../../src/surfaces/adapters.ts";
+import { carrierDefinition, carrierFiles } from "../../src/surfaces/adapters.ts";
+import { removeMachineCarriers } from "../../src/surfaces/carriers-install.ts";
+import { readMachineState } from "../../src/surfaces/machine-state.ts";
 
 type HookGroup = { matcher?: string; hooks?: Array<{ command?: string }> };
 type Settings = { permissions?: unknown; env?: unknown; hooks?: Record<string, HookGroup[]>; $comment?: string };

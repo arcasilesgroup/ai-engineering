@@ -15,7 +15,10 @@ import { install, buildLock, lockText, parseLock, sha256, mergeSharedText, SEEDE
 import type { PlanEntry } from "../install.ts";
 import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
 import { canonDrift, isFilesystemRefusal, refusedChangeText, type CanonDrift } from "../embed.ts";
-import { installCanon, installMachineCarriers, machineStateFile, retireNpmPowerShellShim, sweepMovedRepoCarriers } from "../surfaces/adapters.ts";
+import { installCanon } from "../surfaces/canon-install.ts";
+import { installMachineCarriers, sweepMovedRepoCarriers } from "../surfaces/carriers-install.ts";
+import { machineStateFile } from "../surfaces/machine-state.ts";
+import { retireNpmPowerShellShim } from "../surfaces/adapters.ts";
 import { runGit } from "../git/run.ts";
 import { installLineRow, planEntries, refuseLine } from "./init-shared.ts";
 import { retiredPaths, retiredPlanNote, sweepRetiredAssets } from "./uninstall.ts";
@@ -67,7 +70,8 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
 /** The machine half of an update: the global canon, the declared surfaces' carriers,
  *  the sweep of pre-2.2.0 repo carriers, and the git floor. Carriers live on the
  *  machine — at the home path each host actually reads (the carrier table in
- *  surfaces/adapters.ts), not in the repo checkout — so none of it is a repo-side
+ *  surfaces/adapters.ts and its carrier-install modules), not in the repo checkout — so none of it is a
+ *  repo-side
  *  asset, and that is exactly why it must not sit behind the plan's early returns.
  *  `doctor` sends a machine that lost its carrier here ("→ ai-eng update"); a repo
  *  whose own assets are current is the normal shape of that machine, and returning

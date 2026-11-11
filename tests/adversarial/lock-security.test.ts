@@ -16,7 +16,7 @@ import * as fs from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
-import { installMachineCarriers } from "../../src/surfaces/adapters.ts";
+import { installMachineCarriers } from "../../src/surfaces/carriers-install.ts";
 import { refuseLine } from "../../src/commands/init-shared.ts";
 
 const cli = join(import.meta.dir, "..", "..", "src", "cli.ts");

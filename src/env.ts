@@ -4,6 +4,7 @@
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import { isReDoSSafePattern } from "./shared-regex.ts";
 
 /** AI_ENG_HOME for tests; ~/.ai-engineering in the wild. An override that resolves
  *  inside the governed repository is refused: Bun loads a committed `.env` into the
@@ -184,7 +185,14 @@ export interface LocalRuleConfig {
   risk: number;
 }
 
-/** Load local rules from the repo's config.toml. Returns [] when absent or unparseable. */
+/** ReDoS screening lives in shared-regex.ts; this is the load-side gate for it.
+ *  A rule whose pattern matches a known catastrophic-backtracking shape is dropped
+ *  here, loudly but once per process per rule: this load runs on every chain event,
+ *  and a broken config must not become per-payload stderr noise. The dropped rule
+ *  must never reach the matcher, where it would hang the hook on a hostile payload
+ *  instead of answering it. */
+const warnedUnsafePatterns = new Set<string>();
+
 export function loadLocalRules(root?: string | null): LocalRuleConfig[] {
   const resolved = root === undefined ? repoRoot() : root;
   if (!resolved) return [];
@@ -196,11 +204,21 @@ export function loadLocalRules(root?: string | null): LocalRuleConfig[] {
     if (!guards || typeof guards !== "object" || Array.isArray(guards)) return [];
     const localRules = (guards as Record<string, unknown>)["local_rules"];
     if (!Array.isArray(localRules)) return [];
-    return localRules.filter((r): r is LocalRuleConfig =>
+    const parsed = localRules.filter((r): r is LocalRuleConfig =>
       r !== null && typeof r === "object" && !Array.isArray(r)
       && typeof (r as Record<string, unknown>)["id"] === "string"
       && typeof (r as Record<string, unknown>)["pattern"] === "string"
     );
+    return parsed.filter((rule) => {
+      if (isReDoSSafePattern(rule.pattern)) return true;
+      // Once per process per rule: this load runs on every chain event, and a broken
+      // config must not turn into per-payload stderr noise.
+      if (!warnedUnsafePatterns.has(rule.id)) {
+        warnedUnsafePatterns.add(rule.id);
+        process.stderr.write(`[ai-eng] local rule ${JSON.stringify(rule.id)} dropped: its pattern matches a known catastrophic-backtracking shape and would hang the hook — rewrite it in config.toml (several simpler patterns do the same job).\n`);
+      }
+      return false;
+    });
   } catch {
     return [];
   }

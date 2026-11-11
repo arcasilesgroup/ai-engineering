@@ -1,0 +1,3 @@
+path:tests/spoken-secret.spec.ts
+path:tests/unit/security/test_redactor.py
+path:tests/unit/hooks/test_runtime_state.py

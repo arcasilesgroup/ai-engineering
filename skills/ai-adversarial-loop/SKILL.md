@@ -30,7 +30,7 @@ Unlike the orchestrator's "fresh workers" rule, each role here keeps its context
 
 ## At the end
 
-- **Learnings:** for every `LESSON:` line the fixer returned, and every arbiter ruling, append a Log entry to `LEARNINGS.md` with gate `review`. Disputes the critic withdrew are learnings for the critic; tag them `review-noise`.
+- **Learnings:** for every `LESSON:` line the fixer returned, and every arbiter ruling, append a Log entry to `docs/history/learnings-log.md` (append-only, continuing its numbering) and, when it qualifies, promote it into a `LEARNINGS.md` Rule with gate `review`. Disputes the critic withdrew are learnings for the critic; tag them `review-noise`.
 - **Commit** (under `/ai-orchestrator`, per its Commits table): the thread file and the fixer's `FILES`. Use `fix(<slug>#N): adversarial round <k>` after each fixer round, and `gate(<slug>#N): review passed` at the end.
 - **Return** (to the orchestrator, or tell the user), in at most 6 lines:
   - PASS or FAIL;

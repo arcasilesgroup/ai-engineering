@@ -13,7 +13,10 @@ export type GitleaksBehaviour =
   /** Only the floor's exact argv gets `scanOut`/`scanExit`; anything else exits 42 with BADECHO. */
   | { mode: "strict"; scanExit: number; scanOut?: string; versionExit?: number }
   /** Records GITLEAKS_CONFIG (or "unset") to `record`, copies the config to `record.copy`, passes. */
-  | { mode: "record-env"; record: string };
+  | { mode: "record-env"; record: string }
+  /** Like the real binary with exemptions: honours the handed GITLEAKS_CONFIG allowlist
+   *  paths and a .gitleaksignore in the scan root; finds the AWS key otherwise. */
+  | { mode: "leaky" };
 
 /** Compiles the stand-in into a fresh directory and returns that directory. */
 export function compileGitleaksShim(): string {
@@ -42,3 +45,8 @@ export function pathWithOnlyGit(): string {
   if (Bun.which("gitleaks", { PATH: onlyGit }) !== null) throw new Error(`${onlyGit} also holds gitleaks`);
   return onlyGit;
 }
+
+/** The install hint the floor prints on the OS running the test, so an assertion
+ *  on it holds on every CI leg, not only the one that runs brew. Read from the
+ *  floor itself so production and assertion can never drift apart. */
+export { gitleaksInstallHint } from "../../src/floor/index.ts";

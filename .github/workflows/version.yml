@@ -30,3 +30,22 @@ jobs:
           # the deployment a side effect of merging, so versioning stays here and the
           # deployment is release.yml's job with an explicit channel.
           publish-script: echo "versioning only — the deployment is release.yml (channel=integration|production)"
+      # GITHUB_TOKEN-created PRs are a CI dead zone: a pull_request event raised by
+      # this workflow's own token starts nothing (docs.github.com/en/actions/
+      # concepts/security/github_token), so the Version Packages PR merged green-on-
+      # nothing (PR #769). Close and reopen it — the reopen event carries an identity
+      # that is not this job's token, and that one does trigger the pull_request
+      # workflows. No open PR means there was nothing to version: stop quietly.
+      - name: Bounce the Version Packages PR so its own CI runs (close + reopen)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head changeset-release/main --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$pr" ]; then
+            echo "no Version Packages PR open — nothing to version, nothing to bounce"
+            exit 0
+          fi
+          reason="Closed and reopened by the version workflow so the pull_request workflows run: a PR opened with GITHUB_TOKEN does not trigger them (github.com/actions/docs#suppressed-workflow-runs)."
+          gh pr close "$pr" --repo "$GITHUB_REPOSITORY" --comment "$reason"
+          gh pr reopen "$pr" --repo "$GITHUB_REPOSITORY"

@@ -14,13 +14,13 @@ permissions:
   contents: read
 
 env:
-  AI_ENG_VERSION: v2.0.0-rc.1
+  AI_ENG_VERSION: v3.0.6
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Bun from npm, not from an action: not every organization permits a given
       # third-party action, and one that does not makes the whole workflow fail at
       # startup with no logs at all. Node is on every hosted runner, and the registry
@@ -75,7 +75,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: gitleaks (pinned by version + sha256)
         run: |

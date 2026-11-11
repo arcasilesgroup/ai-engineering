@@ -162,6 +162,13 @@ describe("injection · pre-read deny on shell and file tools", () => {
     expect(runInjection(shellPayload(`cat ${join(root, "absent.txt")}`, root))).toBeUndefined();
   });
 
+  test("a network path is never opened: it scans like a nonexistent path", () => {
+    // Opening a UNC path on Windows negotiates SMB auth with the share's host — an NTLM
+    // credential leak. Both spellings are refused before any filesystem call.
+    expect(runInjection(shellPayload("cat \\\\server\\share\\poison.txt"))).toBeUndefined();
+    expect(runInjection(shellPayload("cat //server/share/poison.txt"))).toBeUndefined();
+  });
+
   test("a relative path resolves against the cwd the host reported, not the process cwd", () => {
     const root = scratch();
     writeFileSync(join(root, "poison.txt"), IOC);

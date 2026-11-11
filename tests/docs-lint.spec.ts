@@ -6,7 +6,12 @@ import { ALL_VERBS } from "../src/shared-verbs.ts";
 const ROOT = resolve(import.meta.dir, "..");
 const DOCUMENT_PATHS = [
   "README.md",
+  "AGENTS.md",
+  "CHANGELOG.md",
   "CONTRIBUTING.md",
+  "DECISIONS.md",
+  "FILEMAP.md",
+  "LEARNINGS.md",
   "SECURITY.md",
   "PERMISSIONS.md",
   "NOTICE.md",
@@ -15,6 +20,12 @@ const DOCUMENT_PATHS = [
   "templates",
 ];
 const DOCUMENT_EXTENSION = /\.(?:md|markdown|html|htm)$/i;
+
+// shortcut: CHANGELOG.md cites verbs from past releases (`ai-eng spec`, `ai-eng briefing`
+// under 2.x), which the verb lint would flag because they are gone from ALL_VERBS — a
+// changelog is history, not living docs. Re-evaluate when CHANGELOG gains a new
+// Unreleased verb citation: remove the exclusion and see whether the failure is real.
+const VERB_SCOPE_EXCLUDED_PATHS = new Set(["CHANGELOG.md"]);
 
 type Document = { path: string; content: string };
 type Link = { value: string; source: string };
@@ -212,7 +223,10 @@ function brokenLinks(document: Document): string[] {
 
 describe("CP17 docs lint", () => {
   test("every documented ai-eng verb is registered by the CLI", () => {
-    expect(unknownVerbCitations(documentsInScope())).toEqual([]);
+    const livingDocuments = documentsInScope().filter(
+      (document) => !VERB_SCOPE_EXCLUDED_PATHS.has(relative(ROOT, document.path)),
+    );
+    expect(unknownVerbCitations(livingDocuments)).toEqual([]);
   });
 
   test("relative Markdown and HTML links and anchors resolve within the repository", () => {

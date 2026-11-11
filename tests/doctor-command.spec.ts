@@ -16,7 +16,8 @@ import { doctorMain } from "../src/commands/doctor.ts";
 import { canonSkills, embeddedTemplate } from "../src/embed.ts";
 import { lockText, sha256 } from "../src/install.ts";
 import * as receiptsModule from "../src/receipts.ts";
-import { carrierDefinition, carrierFiles, carrierPath, installCanon, machineCarrier, SURFACES, withLauncher } from "../src/surfaces/adapters.ts";
+import { carrierDefinition, carrierFiles, carrierPath, machineCarrier, SURFACES, withLauncher } from "../src/surfaces/adapters.ts";
+import { installCanon } from "../src/surfaces/canon-install.ts";
 import * as uiModule from "../src/ui.ts";
 import { VERSION } from "../src/version.ts";
 import { writeFakeCommand } from "./fixtures/fake-command.ts";
@@ -905,6 +906,40 @@ describe("doctor --gc", () => {
     expect(existsSync(join(ai, "security", "run-1"))).toBe(false);
     expect(existsSync(join(ai, "security", "run-6"))).toBe(true);
   });
+
+  test("security gc orders runs by number: with 12 runs and keep_runs 10, run-1 and run-2 die, run-10 survives", async () => {
+    const { root } = sandbox(`${GOVERNED}\n[gc]\nkeep_runs = 10\nolder_than = "0d"\n`);
+    const ai = join(root, ".ai-engineering");
+    for (let n = 1; n <= 12; n += 1) {
+      mkdirSync(join(ai, "security", `run-${n}`), { recursive: true });
+      writeFileSync(join(ai, "security", `run-${n}`, "findings.json"), "{}");
+    }
+    gitInit(root);
+    commit(root, "runs", { GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z" });
+
+    const run = await doctor({ gc: true });
+
+    // Lexicographic order would kill run-10/11/12 (they sort before run-2) — the newest, exactly backwards.
+    expect(run.out).toContain("✓ security/: archived 2 in git and deleted (keeping the last 10)");
+    for (let n = 1; n <= 12; n += 1) {
+      expect(existsSync(join(ai, "security", `run-${n}`))).toBe(n > 2);
+    }
+  });
+
+  test("a directory inside a gc folder is named in a warning and left alone, not unlinked", async () => {
+    const { root } = sandbox(`${GOVERNED}\n[gc]\nolder_than = "0d"\n`);
+    const ai = join(root, ".ai-engineering");
+    mkdirSync(join(ai, "research", "012-bundle"), { recursive: true });
+    writeFileSync(join(ai, "research", "012-bundle", "index.html"), "<html>bundle</html>");
+    gitInit(root);
+    commit(root, "bundle", { GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z" });
+
+    const run = await doctor({ gc: true });
+
+    // git tracks what is inside the directory, so the verdict is "collect" — the unlink used to throw EISDIR.
+    expect(run.out).toContain("⚠ research/: 1 entries are not plain files — left alone (012-bundle)");
+    expect(existsSync(join(ai, "research", "012-bundle", "index.html"))).toBe(true);
+  });
 });
 
 describe("a half-installed module host is a report, not a crash", () => {
@@ -928,5 +963,49 @@ describe("a half-installed module host is a report, not a crash", () => {
     expect(run.out).toContain("surface oh-my-pi");
     expect(row(run, "surface oh-my-pi")).toContain("▲");
     expect(detail(run, "surface oh-my-pi")).toContain("is NOT the one this binary ships");
+  });
+});
+
+describe("doctor · secrets allowlist against its recorded baseline", () => {
+  test("the first look records the baseline from both allowlist files", async () => {
+    const { root } = sandbox();
+    writeFileSync(join(root, ".gitleaksignore"), "# fixtures with fake values\n0b4827d003e5d1ae:.env:generic-api-key:1\n");
+    writeFileSync(join(root, ".gitleaksrc.toml"), '[allowlist]\npaths = ["*.env", "tests/fixtures/**"]\n');
+
+    const run = await doctor();
+
+    expect(row(run, "secrets allowlist")).toContain("✓");
+    expect(detail(run, "secrets allowlist")).toBe("baseline recorded (3 entries)");
+    const baseline = readFileSync(join(root, ".ai-engineering", "allowlist-baseline.txt"), "utf8");
+    expect(baseline).toContain("ignore:0b4827d003e5d1ae:.env:generic-api-key:1");
+    expect(baseline).toContain("path:*.env");
+    expect(baseline).toContain("path:tests/fixtures/**");
+  });
+
+  test("a widened allowlist warns naming the new entries; unchanged passes again", async () => {
+    const { root } = sandbox();
+    writeFileSync(join(root, ".gitleaksignore"), "0b4827d003e5d1ae:.env:generic-api-key:1\n");
+    const recorded = await doctor();
+    expect(detail(recorded, "secrets allowlist")).toBe("baseline recorded (1 entry)");
+
+    // The two-commit bypass lives here: an entry the recorded baseline does not hold.
+    writeFileSync(join(root, ".gitleaksignore"), "0b4827d003e5d1ae:.env:generic-api-key:1\n1111111111111111:.env.local:aws-access-key-id:2\n");
+    const widened = await doctor();
+    expect(row(widened, "secrets allowlist")).toContain("▲");
+    expect(detail(widened, "secrets allowlist")).toContain("widened beyond the recorded baseline");
+    expect(detail(widened, "secrets allowlist")).toContain("ignore:1111111111111111:.env.local:aws-access-key-id:2");
+    expect(detail(widened, "secrets allowlist")).not.toContain("0b4827d0");
+
+    // Narrowing back is never a warning.
+    writeFileSync(join(root, ".gitleaksignore"), "0b4827d003e5d1ae:.env:generic-api-key:1\n");
+    const steady = await doctor();
+    expect(row(steady, "secrets allowlist")).toContain("✓");
+    expect(detail(steady, "secrets allowlist")).toBe("1 entry matches the baseline");
+  });
+
+  test("a repo with no exemptions carries no row", async () => {
+    sandbox();
+    const run = await doctor();
+    expect(row(run, "secrets allowlist")).toBe("(no row for secrets allowlist)");
   });
 });

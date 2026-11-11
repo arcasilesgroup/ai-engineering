@@ -284,6 +284,7 @@ function writeAll(descriptor: number, bytes: Buffer): void {
   }
 }
 
+/** True when candidate is root itself or descends from it (relative() comparison is case-conformant per OS). */
 export function pathIsWithin(root: string, candidate: string): boolean {
   const pathFromRoot = relative(root, candidate);
   return pathFromRoot === "" || (

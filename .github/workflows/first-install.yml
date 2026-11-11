@@ -12,6 +12,12 @@ on:
         description: "Published version for the baseline row (default: latest)"
         required: false
 
+# One probe at a time per ref: a pushed-over PR run is dead weight. On main nothing is
+# cancelled — every result a branch reaches is recorded.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 

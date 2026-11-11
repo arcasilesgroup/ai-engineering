@@ -6,7 +6,7 @@ What each file and folder is for. Update it whenever files are added, moved, or 
 AGENTS.md                      Project instructions + Project config read by skills/agents
 DECISIONS.md                   Standing decisions (## D-NNN)
 CHANGELOG.md                   User-facing change log
-LEARNINGS.md                   Append-only failure log + promoted Rules
+LEARNINGS.md                   Promoted rules; its append-only log lives in docs/history/learnings-log.md
 FILEMAP.md                     This file
 PERMISSIONS.md                 Azure DevOps triage read routes and scope boundaries
 .gitattributes                 Keeps LF line endings on every checkout, Windows included
@@ -36,11 +36,11 @@ src/
     context.ts                 resolveContext: root, branch or detached, linked worktree, base and its source (6.7)
     merge.ts                   Reviewed-SHA merge transaction, exact parents/tree, base-ref CAS and safe checkout refresh
     worktree.ts                Shared worktree reads: root, registered list, status, in-progress operation
+    shared-worktree.ts         Worktree inventory, creation, lifecycle SHA-CAS, listing and safe removal
   workflow/
     checkpoint.ts              Checkpoint schema, lifecycle transitions, legacy normalization and brainstorm approval
   guards/
     checkpoint.ts              Checkpoint schema, lifecycle, gate order and Stop enforcement in the chain
-  shared-worktree.ts           Worktree inventory, creation, lifecycle SHA-CAS, listing and safe removal
   shared-hash.ts               Shared SHA-256 file hashing helper
   shared-project-fs.ts         Guarded project-path reads and writes: refuse links and paths that leave the repository
 tests/

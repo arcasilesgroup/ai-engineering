@@ -27,9 +27,11 @@ function cachedVersion(cachePath: string): { version: string; fresh: boolean } {
 
 /** Latest registry version via the package managers; null when offline. */
 export function registryVersion(): string | null {
-  const bun = spawnSync("bun", ["pm", "view", "ai-engineering", "version"], { encoding: "utf8" });
+  const bun = spawnSync("bun", ["pm", "view", "ai-engineering", "version"], { encoding: "utf8", timeout: 15_000 });
   if (bun.status === 0 && bun.stdout) return bun.stdout.trim().split("\n").pop() ?? null;
-  const npm = spawnSync("npm", ["view", "ai-engineering", "version"], { encoding: "utf8" });
+  // npm ships as npm.cmd on Windows, which spawnSync cannot execute without a shell —
+  // the same shim the adapters use for opencode (https://nodejs.org/api/spawn.html).
+  const npm = spawnSync("npm", ["view", "ai-engineering", "version"], { encoding: "utf8", timeout: 15_000, shell: process.platform === "win32" });
   if (npm.status === 0 && npm.stdout) return npm.stdout.trim().split("\n").pop() ?? null;
   return null;
 }

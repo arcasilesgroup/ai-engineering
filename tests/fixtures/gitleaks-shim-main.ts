@@ -18,17 +18,19 @@ function isDirectory(path: string | undefined): boolean {
   }
 }
 
-/** The first text file under `root` that carries an AWS key id, as `grep -rIl` finds it. */
-function firstLeak(root: string): string | null {
+/** The first text file under `root` that carries an AWS key id, as `grep -rIl` finds it.
+ *  `allowed` decides per relative path; the default scans everything. */
+function firstLeak(root: string, allowed: (relative: string) => boolean = () => true, prefix = ""): string | null {
   for (const name of readdirSync(root)) {
     const path = join(root, name);
+    const relative = prefix.length === 0 ? name : `${prefix}/${name}`;
     const entry = lstatSync(path);
     if (entry.isDirectory()) {
-      const nested = firstLeak(path);
+      const nested = firstLeak(path, allowed, relative);
       if (nested !== null) return nested;
       continue;
     }
-    if (!entry.isFile()) continue;
+    if (!entry.isFile() || !allowed(relative)) continue;
     const bytes = readFileSync(path);
     if (bytes.includes(0)) continue;
     if (/AKIA[0-9A-Z]+/.test(bytes.toString("utf8"))) return path;
@@ -55,6 +57,32 @@ if (behaviour.mode === "record-env") {
   writeFileSync(behaviour.record, config ?? "unset");
   if (config) copyFileSync(config, `${behaviour.record}.copy`);
   answer("", 0);
+}
+
+if (behaviour.mode === "leaky") {
+  const target = args.findLast((arg) => isDirectory(arg)) ?? ".";
+  const exemptions: string[] = [];
+  const config = process.env["GITLEAKS_CONFIG"];
+  if (config) {
+    try {
+      const parsed = Bun.TOML.parse(readFileSync(config, "utf8")) as { allowlist?: { paths?: string[] } };
+      exemptions.push(...(parsed.allowlist?.paths ?? []));
+    } catch {
+      // a config this fixture cannot read exempts nothing
+    }
+  }
+  // The fixture is blunt about .gitleaksignore: its presence in the scan root
+  // suppresses the one finding the fixture can produce.
+  let isIgnored = false;
+  try {
+    readFileSync(join(target, ".gitleaksignore"));
+    isIgnored = true;
+  } catch {
+    // no ignore file in the scan root
+  }
+  const hit = firstLeak(target, (relative) => !isIgnored && !exemptions.some((pattern) => pattern === "*" || new RegExp(pattern).test(relative)));
+  if (hit === null) answer("", 0);
+  answer(`Finding:     AWS access token\nFile:        ${hit}\nRuleID:      aws-access-token\n`, 1);
 }
 
 if (behaviour.mode === "strict") {

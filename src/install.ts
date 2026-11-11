@@ -39,7 +39,10 @@ export type InstallReport = {
 };
 
 export function sha256(text: string): string {
-  return createHash("sha256").update(text).digest("hex");
+  // Identity-ledger hashing, not a data hash: a CRLF checkout (core.autocrlf on
+  // Windows) holds ai-eng's LF bytes as CRLF, and that is not an edit. Normalizing
+  // is identity on the LF-canonical side, so hashes recorded by past releases still match.
+  return createHash("sha256").update(text.replace(/\r\n/g, "\n")).digest("hex");
 }
 
 let managedHookCommands: Set<string> | undefined;

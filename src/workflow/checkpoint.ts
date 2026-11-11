@@ -1,6 +1,7 @@
-import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync, type Stats } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { resolveContext } from "../git/context.ts";
+import { canonicalize } from "../git/worktree.ts";
 import { runGit } from "../git/run.ts";
 
 export type CheckpointPhase =
@@ -391,6 +392,22 @@ export function parseCheckpoint(
   const checkpoint = normalizeCheckpoint(value, context);
   verifiedCheckpoints.add(checkpoint);
   return checkpoint;
+}
+
+/** Trusted checkpoint identity: lstat'd (never through links) as a regular file strictly
+ *  inside worktreeRoot — reparenting or symlinked checkpoints yield null; throws unreadable. */
+export function checkpointFileIdentity(checkpointPath: string, worktreeRoot: string): Stats | null {
+  const stat = lstatSync(checkpointPath);
+  const relativePath = relative(canonicalize(worktreeRoot), realpathSync.native(checkpointPath));
+  if (
+    !stat.isFile() ||
+    stat.isSymbolicLink() ||
+    relativePath === "" ||
+    relativePath === ".." ||
+    relativePath.startsWith(`..${sep}`) ||
+    isAbsolute(relativePath)
+  ) return null;
+  return stat;
 }
 
 export function readCheckpointText(

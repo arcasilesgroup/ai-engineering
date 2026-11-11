@@ -211,6 +211,22 @@ describe("syncPlan · what the binary decides to write, keep or refuse", () => {
     expect(plan.yours).toEqual([]);
   });
 
+  test("a CRLF checkout (core.autocrlf on Windows) is still recognized: the lock hashes LF bytes", () => {
+    const root = join(SANDBOX, "plan-crlf");
+    for (const entry of entries) {
+      mkdirSync(dirname(join(root, entry.path)), { recursive: true });
+      // What git writes on Windows: the LF bytes ai-eng wrote, checked out as CRLF.
+      writeFileSync(join(root, entry.path), entry.ours.replaceAll("\n", "\r\n"));
+    }
+    const previous = Object.fromEntries(entries.map((entry) => [entry.path, sha256(entry.ours)]));
+    const plan = syncPlan(entries, root, previous);
+    expect([...plan.current].sort()).toEqual(paths);
+    expect([...plan.verbatim].sort()).toEqual(paths);
+    expect(plan.updates).toEqual([]);
+    expect(plan.yours).toEqual([]);
+    expect(plan.fresh).toEqual([]);
+  });
+
   test("a file ai-eng never wrote is the project's own, left alone", () => {
     const root = join(SANDBOX, "plan-users");
     mkdirSync(join(root, ".github", "workflows"), { recursive: true });

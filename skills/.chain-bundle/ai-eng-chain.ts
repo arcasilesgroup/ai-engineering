@@ -8,6 +8,42 @@ import { dirname as dirname5, join as join12 } from "path";
 import { homedir } from "os";
 import { join, resolve, sep } from "path";
 import { existsSync, readFileSync } from "fs";
+
+// src/shared-regex.ts
+var PATTERN_CAP = 512;
+var QUANTIFIER = "(?:[+*]|\\{\\d+(?:,\\d*)?\\})";
+function isReDoSSafePattern(pattern) {
+  if (pattern.length > PATTERN_CAP)
+    return false;
+  if (!/[[\](){}*+?^$|\\]/.test(pattern))
+    return true;
+  let flattened = pattern.replace(/\[(?:[^\]\\]|\\.)*\]/g, " ");
+  const nestedQuantifier = new RegExp(`\\((?:\\?:)?[^()]*${QUANTIFIER}[^()]*\\)${QUANTIFIER}`);
+  const quantifiedGroup = new RegExp(`\\((?:\\?:)?[^()]*${QUANTIFIER}[^()]*\\)`, "g");
+  let previous = "";
+  while (true) {
+    if (nestedQuantifier.test(flattened))
+      return false;
+    previous = flattened;
+    flattened = flattened.replace(quantifiedGroup, "S*");
+    if (flattened === previous)
+      break;
+  }
+  for (const group of flattened.matchAll(/\((?:\?:)?([^()]*)\)[*+{]/g)) {
+    const alternatives = group[1].split("|");
+    for (let left = 0;left < alternatives.length; left++) {
+      for (let right = left + 1;right < alternatives.length; right++) {
+        const first = alternatives[left];
+        const second = alternatives[right];
+        if (first === "" || second === "" || first.startsWith(second) || second.startsWith(first))
+          return false;
+      }
+    }
+  }
+  return true;
+}
+
+// src/env.ts
 function home() {
   const override = process.env.AI_ENG_HOME;
   if (override) {
@@ -113,6 +149,7 @@ function intOr(value, fallback) {
 function printable(text) {
   return text.replace(/[\p{C}]/gu, "").slice(0, 200);
 }
+var warnedUnsafePatterns = new Set;
 function loadLocalRules(root) {
   const resolved = root === undefined ? repoRoot() : root;
   if (!resolved)
@@ -128,7 +165,17 @@ function loadLocalRules(root) {
     const localRules = guards["local_rules"];
     if (!Array.isArray(localRules))
       return [];
-    return localRules.filter((r) => r !== null && typeof r === "object" && !Array.isArray(r) && typeof r["id"] === "string" && typeof r["pattern"] === "string");
+    const parsed = localRules.filter((r) => r !== null && typeof r === "object" && !Array.isArray(r) && typeof r["id"] === "string" && typeof r["pattern"] === "string");
+    return parsed.filter((rule) => {
+      if (isReDoSSafePattern(rule.pattern))
+        return true;
+      if (!warnedUnsafePatterns.has(rule.id)) {
+        warnedUnsafePatterns.add(rule.id);
+        process.stderr.write(`[ai-eng] local rule ${JSON.stringify(rule.id)} dropped: its pattern matches a known catastrophic-backtracking shape and would hang the hook \u2014 rewrite it in config.toml (several simpler patterns do the same job).
+`);
+      }
+      return false;
+    });
   } catch {
     return [];
   }
@@ -1074,9 +1121,7 @@ function hooksPathTargets(command) {
   for (const match of command.matchAll(INLINE))
     found.push((match[1] ?? "true").replace(/^["']|["']$/g, ""));
   if (words.some((w) => w === "config") && words.some((w) => w.toLowerCase() === "core.hookspath")) {
-    if (words.some((w) => w.startsWith("--unset"))) {
-      found.push("");
-    } else if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
+    if (!words.some((w) => ["--get", "--get-all", "--list"].includes(w))) {
       const index = words.findIndex((w) => w.toLowerCase() === "core.hookspath");
       const after = words.slice(index + 1).filter((w) => !w.startsWith("-"));
       if (after.length > 0)
@@ -1904,6 +1949,8 @@ function protectedPaths(repoRoot) {
     literals.push(join4(aiEng, name));
   }
   literals.push(join4(repoRoot, ".git", "hooks"));
+  literals.push(join4(repoRoot, ".gitleaksrc.toml"));
+  literals.push(join4(repoRoot, ".gitleaksignore"));
   let specPinned = false;
   try {
     const lock = Bun.TOML.parse(readFileSync3(join4(aiEng, "ai-eng.lock"), "utf8"));
@@ -1950,6 +1997,7 @@ function expandTilde(path) {
 }
 var GOVERNANCE_FILE = new RegExp([
   String.raw`(?:^|/)\.ai-engineering/(?:config\.toml|overrides\.toml|ai-eng\.lock|arch\.rules\.json)$`,
+  String.raw`(?:^|/)\.gitleaks(?:rc\.toml|ignore)$`,
   String.raw`(?:^|/)\.git/(?:hooks(?:/|$)|config$)`,
   String.raw`(?:^|/)\.github/hooks(?:/|$)`,
   String.raw`(?:^|/)\.github/copilot/settings(?:\.local)?\.json$`,
@@ -2139,7 +2187,8 @@ var RE_SYSTEM_PATH = /(^|[\s"'`])(\/etc|\/usr|\/bin|\/sbin|\/var|\/library|\/sys
 var RE_SENSITIVE_PATH = /(^|[\s"'`])(~|\$home)\/(\.ssh|\.gnupg|\.aws|\.docker)(\/|[\s"'`]|$)|(^|[\s"'`])([^\s"'`]*\.(env|pem|key)|[^\s"'`]*(token|credential|secret)[^\s"'`]*)/i;
 var RE_EXTERNAL_PATH = /(^|[\s"'`])(~|\$home)(\/|[\s"'`]|$)|(^|[\s"'`])\/[A-Za-z0-9._-]/i;
 var RE_DEVICE_WRITE = /(^|[\s])(of=|>|1>|>>|1>>)\s*\/dev\/(sd[a-z][0-9]*|disk[0-9]+|rdisk[0-9]+|nvme[0-9]+n[0-9]+(p[0-9]+)?|vd[a-z][0-9]*|xvd[a-z][0-9]*|hd[a-z][0-9]*)([\s]|$)/i;
-var TEMP_ROOTS = [...new Set([tmpdir(), realpathSync3(tmpdir())])].map((r) => r.replace(/\/$/, "").toLowerCase());
+var RE_WIN32_ROOT = /^[a-z]:\/|^\/\//i;
+var TEMP_ROOTS = [...new Set([tmpdir(), realpathSync3(tmpdir())])].map((r) => r.replace(/\/$/, "").replaceAll("\\", "/").toLowerCase());
 function isTempPath(resolved) {
   return resolved === "/tmp" || resolved.startsWith("/tmp/") || TEMP_ROOTS.some((root) => resolved === root || resolved.startsWith(`${root}/`));
 }
@@ -2182,12 +2231,12 @@ function addMode(mask, scopes, permissions) {
   mask.value |= bits;
 }
 function resolvePath(rawPath, cwd) {
-  const path = rawPath.replace(/^["']+|["']+$/g, "").replace(/^of=/, "").replace(/[;,)]+$/, "");
+  const path = rawPath.replace(/^["']+|["']+$/g, "").replace(/^of=/, "").replace(/[;,)]+$/, "").replaceAll("\\", "/");
   if (path.length === 0)
     return "";
   if (path.split("/").includes(".."))
     return resolveParentSegments(path, cwd);
-  if (path.startsWith("/") || path.startsWith("~"))
+  if (RE_WIN32_ROOT.test(path) || path.startsWith("/") || path.startsWith("~"))
     return path;
   if (cwd.length === 0)
     return path;
@@ -2206,10 +2255,12 @@ function resolveParentSegments(path, cwd, homeDirectory = homedir2()) {
     const landed = posix.resolve(home, path.slice(2));
     return landed === home || landed.startsWith(`${home}/`) ? `~${landed.slice(home.length)}` : landed;
   }
-  if (path.startsWith("/"))
+  if (path.startsWith("/") || RE_WIN32_ROOT.test(path))
     return posix.normalize(path);
-  if (path.startsWith("~") || !cwd.startsWith("/"))
+  if (path.startsWith("~") || !(cwd.startsWith("/") || RE_WIN32_ROOT.test(cwd)))
     return path;
+  if (RE_WIN32_ROOT.test(cwd) && !cwd.startsWith("/"))
+    return posix.normalize(`${cwd}/${path}`);
   return posix.resolve(cwd, path);
 }
 function addPath(mask, rawPath, permissions, cwd) {
@@ -2217,16 +2268,17 @@ function addPath(mask, rawPath, permissions, cwd) {
   if (resolved.length === 0 || isTempPath(resolved) || resolved === "/dev/null" || resolved.startsWith("&")) {
     return;
   }
-  const scope = resolved.startsWith("/dev/tcp") ? SCOPE_NETWORK : resolved === "/" || resolved === "/*" || RE_SENSITIVE_PATH.test(resolved) || RE_SYSTEM_PATH.test(resolved) ? SCOPE_SYSTEM : cwd.length > 0 && (resolved === cwd || resolved.startsWith(`${cwd}/`)) ? SCOPE_WORKSPACE : RE_EXTERNAL_PATH.test(resolved) || resolved.includes("..") ? SCOPE_EXTERNAL : SCOPE_WORKSPACE;
+  const scope = resolved.startsWith("/dev/tcp") ? SCOPE_NETWORK : resolved === "/" || resolved === "/*" || RE_SENSITIVE_PATH.test(resolved) || RE_SYSTEM_PATH.test(resolved) ? SCOPE_SYSTEM : cwd.length > 0 && (resolved === cwd || resolved.startsWith(`${cwd}/`)) ? SCOPE_WORKSPACE : RE_EXTERNAL_PATH.test(resolved) || resolved.includes("..") || RE_WIN32_ROOT.test(resolved) ? SCOPE_EXTERNAL : SCOPE_WORKSPACE;
   addMode(mask, scope, permissions);
 }
 var NETWORK_READ = (segment) => segment.includes("curl ") || segment.includes("wget ") || segment.includes("http ") || segment.includes("https://") || segment.includes("http://") || segment.startsWith("git clone") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git ls-remote");
-var NETWORK_WRITE = (segment) => segment.startsWith("git push") || segment.includes("scp ") || segment.includes("curl -d ") || segment.includes("curl --data") || segment.includes("curl -f ") || segment.includes("curl -t ");
+var NETWORK_WRITE = (segment) => segment.startsWith("git push") || segment.includes("scp ") || segment.includes("curl -d ") || segment.includes("curl --data") || segment.includes("curl ") && [" -t ", " -f ", " --upload-file", " --form"].some((flag) => segment.includes(flag));
 var NETWORK_EXECUTE = (segment) => (segment.includes("| bash") || segment.includes("| sh") || segment.includes("eval ") || segment.includes("source <(") || segment.includes("bash -c $(") || segment.includes("sh -c $(")) && (segment.includes("curl ") || segment.includes("wget ") || segment.includes("http://") || segment.includes("https://"));
 var SYSTEM_EXECUTE = (segment) => /^(sudo|su|doas)(\s|$)/.test(segment) || /^(shutdown|reboot|halt|poweroff)/.test(segment);
 var SYSTEM_WRITE = (segment) => /^(mkfs|fdisk|diskutil)/.test(segment) || /^mount |^umount /.test(segment);
 var WORKSPACE_EXECUTE = (segment) => segment.startsWith("./") || segment.startsWith("bash ") || segment.startsWith("sh ") || segment.startsWith("zsh ") || segment.startsWith("python") || segment.startsWith("node ") || segment.startsWith("ruby ") || segment.startsWith("perl ") || segment.startsWith("npm test") || segment.startsWith("npm run") || segment.startsWith("make") || segment.startsWith("cargo test") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("git cherry-pick") || segment.includes("function ") || segment.includes("()") || segment.includes("{") || segment.includes(" if ") || segment.startsWith("if ") || segment.includes(" for ") || segment.startsWith("for ") || segment.includes(" while ") || segment.startsWith("while ") || segment.includes(" case ") || segment.startsWith("case ") || segment.includes(":(){:|:&};:");
-var WRITES = (segment) => segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.startsWith("chmod ") || segment.startsWith("chown ") || segment.startsWith("ln ") || segment.startsWith("install ") || segment.startsWith("truncate ") || segment.startsWith("rsync ") || segment.startsWith("dd ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git commit") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("git stash") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
+var WRITES = (segment) => segment.includes("tee ") || segment.startsWith("mkdir ") || segment.startsWith("touch ") || segment.startsWith("cp ") || segment.startsWith("mv ") || segment.startsWith("rm ") || segment.includes(" rm ") || segment.startsWith("del ") || segment.includes(" del ") || segment.startsWith("rd ") || segment.includes(" rd ") || segment.startsWith("chmod ") || segment.startsWith("chown ") || segment.startsWith("ln ") || segment.startsWith("install ") || segment.startsWith("truncate ") || segment.startsWith("rsync ") || segment.startsWith("dd ") || segment.includes("sed -i") || segment.includes(" -delete") || segment.includes("remove-item") || segment.includes("set-content") || segment.includes("new-item") || segment.startsWith("git fetch") || segment.startsWith("git pull") || segment.startsWith("git clone") || segment.startsWith("git add") || segment.startsWith("git checkout") || segment.startsWith("git merge") || segment.startsWith("git rebase") || segment.startsWith("npm install") || segment.startsWith("pnpm install") || segment.startsWith("yarn install") || segment.startsWith("cargo build") || segment.startsWith("go test") || segment.startsWith("npm test");
+var WRITES_MESSAGE_VERBS = (segment) => segment.startsWith("git commit") || segment.startsWith("git stash");
 var REDIRECT2 = /^(?:\d+|\{\w+\})?(&>>?|>&|>>?[|!]?|<>|<&|<)(?![<(])(.*)$/;
 function splitAttachedRedirect(token) {
   const at = bareOperatorIndex(token, "<>");
@@ -2246,15 +2298,32 @@ function bareOperatorIndex(text, operators) {
   return -1;
 }
 var ASSIGNMENT = /^[a-z_]\w*=/;
+function blankDataQuotedSpans(text) {
+  let out = "";
+  let at = 0;
+  while (at < text.length) {
+    const spanEnd = text[at] === "'" || text[at] === '"' ? quotedSpanEnd(text, at) : -1;
+    if (spanEnd < at + 1 || spanEnd >= text.length) {
+      out += text[at];
+      at += 1;
+      continue;
+    }
+    const body = text.slice(at + 1, spanEnd);
+    out += body.includes("$") || body.includes("`") ? text.slice(at, spanEnd + 1) : " ";
+    at = spanEnd + 1;
+  }
+  return out;
+}
 function scanSegment(mask, written, cwd) {
   const words = rawShellWords(written);
   const verbAt = words.findIndex((word) => !ASSIGNMENT.test(word));
   const segment = written.replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
-  if (SYSTEM_EXECUTE(segment))
+  const text = blankDataQuotedSpans(segment);
+  if (SYSTEM_EXECUTE(text))
     addMode(mask, SCOPE_SYSTEM, PERM_EXECUTE);
-  if (SYSTEM_WRITE(segment))
+  if (SYSTEM_WRITE(text))
     addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
-  const either = (shape) => shape(written) || shape(segment);
+  const either = (shape) => shape(blankDataQuotedSpans(written)) || shape(text);
   if (either(NETWORK_READ))
     addMode(mask, SCOPE_NETWORK, PERM_READ);
   if (either(NETWORK_WRITE)) {
@@ -2262,16 +2331,19 @@ function scanSegment(mask, written, cwd) {
   } else if (either(NETWORK_EXECUTE)) {
     addMode(mask, SCOPE_NETWORK, PERM_EXECUTE);
   }
-  if (RE_ROOT_DELETE.test(segment) || RE_DEVICE_WRITE.test(segment)) {
+  if (RE_ROOT_DELETE.test(text) || RE_DEVICE_WRITE.test(text)) {
     addMode(mask, SCOPE_SYSTEM, PERM_WRITE);
   }
-  if (WORKSPACE_EXECUTE(segment))
+  if (WORKSPACE_EXECUTE(text))
     addMode(mask, SCOPE_WORKSPACE, PERM_EXECUTE);
   let pathPermissions = PERM_READ;
   let flags = 0;
-  const writerShape = segment.replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "").replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
+  const writerShape = text.replace(/^(?:(?:then|do|else|elif|if|while|until|time|!|\{|\()\s+)+/, "").replace(/^(?:[a-z_]\w*=\S*\s+)*/, "").replace(/^\/\S*\/(?=[^\s/]+(?:\s|$))/, "");
   if (WRITES(writerShape)) {
     pathPermissions = PERM_READ | PERM_WRITE;
+    flags = 1;
+  } else if (WRITES_MESSAGE_VERBS(writerShape)) {
+    addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
     flags = 1;
   }
   let pending = null;
@@ -2301,8 +2373,8 @@ function scanSegment(mask, written, cwd) {
     } else if (token.startsWith("/") || token.startsWith("./") || token.startsWith("../") || token.startsWith("~/") || RE_SENSITIVE_PATH.test(token)) {
       addPath(mask, token, tokenPermissions, cwd);
       flags = 3;
-    } else if (token.includes("/") && !token.startsWith("-")) {
-      const isUrl = token.startsWith("http://") || token.startsWith("https://") || token.startsWith("ftp://") || token.includes("://") || token.includes(":/");
+    } else if ((token.includes("/") || RE_WIN32_ROOT.test(token.replaceAll("\\", "/"))) && !token.startsWith("-")) {
+      const isUrl = token.startsWith("http://") || token.startsWith("https://") || token.startsWith("ftp://") || token.includes("://") || token.includes(":/") && !RE_WIN32_ROOT.test(token);
       const isPath = !isUrl && !token.endsWith(".exe") && !token.endsWith(".sh") && !token.includes("git") && !token.includes("npm") && !token.includes("cargo") && !token.includes("python") && !token.includes("node");
       if (isPath) {
         addPath(mask, token, tokenPermissions, cwd);
@@ -2310,7 +2382,7 @@ function scanSegment(mask, written, cwd) {
       }
     }
   }
-  if (flags === 1 && !segment.includes("/tmp/"))
+  if (flags === 1 && !text.includes("/tmp/"))
     addMode(mask, SCOPE_WORKSPACE, PERM_WRITE);
 }
 function scanScript(script, cwd) {
@@ -2337,7 +2409,7 @@ function maskToMode(mask) {
 function classifyRequiredMode(command, cwd) {
   if (command.length === 0)
     return "0000";
-  const mask = scanScript(command.toLowerCase(), cwd.toLowerCase());
+  const mask = scanScript(command.toLowerCase(), cwd.toLowerCase().replaceAll("\\", "/"));
   return maskToMode(mask === 0 ? PERM_READ : mask);
 }
 function evaluate(command, cwd, allowedMode) {
@@ -2401,6 +2473,8 @@ function collectToolNames(value, output) {
     }
   }
 }
+var MAX_REGEX_SUBJECT = 1e4;
+var patternSafety = new Map;
 function matches(rule, candidate) {
   const left = rule.caseSensitive ? candidate : candidate.toLowerCase();
   const right = rule.caseSensitive ? rule.pattern : rule.pattern.toLowerCase();
@@ -2409,8 +2483,16 @@ function matches(rule, candidate) {
   try {
     const isRegex = /[[\](){}*+?^$|\\]/.test(rule.pattern);
     if (isRegex) {
+      let isSafe = patternSafety.get(rule.pattern);
+      if (isSafe === undefined) {
+        isSafe = isReDoSSafePattern(rule.pattern);
+        patternSafety.set(rule.pattern, isSafe);
+      }
+      if (!isSafe)
+        return left.includes(right);
       const flags = rule.caseSensitive ? "" : "i";
-      return new RegExp(rule.pattern, flags).test(candidate);
+      const subject = candidate.length > MAX_REGEX_SUBJECT ? candidate.slice(0, MAX_REGEX_SUBJECT) : candidate;
+      return new RegExp(rule.pattern, flags).test(subject);
     }
   } catch {}
   return left.includes(right);
@@ -2554,6 +2636,8 @@ function scanPath(target, cwd) {
   const resolved = isAbsolute3(target) ? target : resolve4(base, target);
   const root = trustedRoot();
   if (root !== null && resolved.startsWith(root))
+    return null;
+  if (isNetworkPath(resolved))
     return null;
   let text;
   try {
@@ -4388,6 +4472,9 @@ function ensureReceiptsFolder(root) {
   }
   return safeProjectPath(root, RECEIPTS_REL);
 }
+function receiptEventName(event) {
+  return event.replace(/[^A-Za-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
 function writeReceipt(receipt, root) {
   const dir = receiptsDir(root);
   if (!dir)
@@ -4403,7 +4490,7 @@ function writeReceipt(receipt, root) {
     if (folder === null)
       return null;
     const stamp = full.ts.replace(/[:.]/g, "-");
-    writeFileSync3(join11(folder, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
+    writeFileSync3(join11(folder, `${stamp}-${receiptEventName(full.event)}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
     return full;
   } catch {
     return null;

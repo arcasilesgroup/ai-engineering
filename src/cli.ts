@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // src/cli.ts — raw argv, prompts only for what's missing (@clack/prompts). Human
-// verbs get a line in --help. Machine verbs (chain|git|wrap|worktree|adapt)
-// are named on one line: agents and hooks type them, people do not.
+// verbs get a line in --help. Machine verbs are named on one line: agents and
+// hooks type them, people do not. Both lists come from shared-verbs.ts.
 
 import { VERSION } from "./version.ts";
 import { showLogo } from "./branding.ts";
@@ -17,7 +17,7 @@ import { adaptMain } from "./commands/adapt.ts";
 import { worktreeMain } from "./commands/worktree.ts";
 import { wrapMain } from "./wrap/index.ts";
 import { floor } from "./floor/entry.ts";
-import { suggestVerb } from "./shared-verbs.ts";
+import { suggestVerb, HUMAN_VERBS, MACHINE_VERBS, ALL_VERBS } from "./shared-verbs.ts";
 
 
 const argv = process.argv.slice(2);
@@ -53,12 +53,11 @@ if (flags.version) {
 if (flags.help || !verb) {
   showLogo(VERSION);
   process.stdout.write("\n");
-  process.stdout.write("  ai-eng init       install governance (global without a repo; contract inside)\n");
-  process.stdout.write("  ai-eng doctor     12 checks + one real adversarial probe + --gc\n");
-  process.stdout.write("  ai-eng config     add or remove surfaces, and regenerate their adapters\n");
-  process.stdout.write("  ai-eng update     rewrite ai-eng's files from the installed binary (zero network)\n");
-  process.stdout.write("  ai-eng uninstall  revert ours, keep yours\n\n");
-  process.stdout.write("Machine verbs (hooks/CI/agents): chain · git · wrap · worktree · adapt\n");
+  const nameWidth = Math.max(...HUMAN_VERBS.map((entry) => entry.verb.length)) + 2;
+  for (const { verb: name, description } of HUMAN_VERBS)
+    process.stdout.write(`  ai-eng ${name.padEnd(nameWidth)}${description}\n`);
+  process.stdout.write("\n");
+  process.stdout.write(`Machine verbs (hooks/CI/agents): ${MACHINE_VERBS.join(" · ")}\n`);
   process.exit(flags.help ? 0 : 2);
 }
 
@@ -73,54 +72,58 @@ async function readStdin(): Promise<string> {
 }
 
 async function main(): Promise<number> {
-  switch (verb) {
-    case "chain": {
-      const event = String(flags._[1] ?? "");
-      if (!event) {
-        process.stderr.write("usage: ai-eng chain <event> < payload-json\n");
-        return 2;
-      }
-      const raw = await readStdin();
-      const surface = surfaceList[0] ?? "claude-code";
-      chainMain(event, raw, { surface, dialect: surfaceDialect(surface) });
-      return 0; // chainMain exits on its own when it denies
-    }
-    case "git":
-      return floor(String(flags._[1] ?? ""), flags._[2] != null ? String(flags._[2]) : undefined);
-    case "wrap":
-      return wrapMain(process.argv.slice(3).map(String));
-    case "worktree":
-      return worktreeMain(flags._.slice(1).map(String), flags.force === true);
-    case "init":
-      { const code = await initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList }); if (code === 0) maybeNotice(); return code; }
-    case "doctor":
-      { const code = await doctorMain({ gc: flags.gc === true }); if (code === 0) maybeNotice(); return code; }
-    case "config": {
-      const configFlags: { add?: string; remove?: string } = {};
-      if (typeof flags.add === "string") configFlags.add = flags.add;
-      if (typeof flags.remove === "string") configFlags.remove = flags.remove;
-      return configMain(configFlags);
-    }
-    case "adapt":
-      return adaptMain(flags._.slice(1).map(String));
-    case "update":
-      return updateMain({ yes: flags.yes === true });
-    case "uninstall":
-      return uninstallMain();
-    default: {
-      const typed = String(verb);
-      const suggestion = suggestVerb(typed);
-      process.stderr.write(`unknown verb: ${typed}\n`);
-      process.stderr.write(
-        suggestion
-          ? `did you mean \`ai-eng ${suggestion}\`? run \`ai-eng --help\` for the rest.\n`
-          : "run `ai-eng --help` for the human verbs and the machine ones.\n",
-      );
+  const handler = verb !== undefined ? verbMain[verb] : undefined;
+  if (handler) return await handler();
+  const typed = String(verb);
+  const suggestion = suggestVerb(typed);
+  process.stderr.write(`unknown verb: ${typed}\n`);
+  process.stderr.write(
+    suggestion
+      ? `did you mean \`ai-eng ${suggestion}\`? run \`ai-eng --help\` for the rest.\n`
+      : "run `ai-eng --help` for the human verbs and the machine ones.\n",
+  );
+  return 2;
+}
+
+/** One handler per verb. The verb list is ALL_VERBS; a verb added there without
+ *  a handler here crashes on boot instead of answering "unknown verb". */
+const verbMain: Record<string, () => number | Promise<number>> = {
+  chain: async () => {
+    const event = String(flags._[1] ?? "");
+    if (!event) {
+      process.stderr.write("usage: ai-eng chain <event> < payload-json\n");
       return 2;
     }
-  }
-
-}
+    const raw = await readStdin();
+    const surface = surfaceList[0] ?? "claude-code";
+    chainMain(event, raw, { surface, dialect: surfaceDialect(surface) });
+    return 0; // chainMain exits on its own when it denies
+  },
+  git: () => floor(String(flags._[1] ?? ""), flags._[2] != null ? String(flags._[2]) : undefined),
+  wrap: () => wrapMain(process.argv.slice(3).map(String)),
+  worktree: () => worktreeMain(flags._.slice(1).map(String), flags.force === true),
+  init: async () => {
+    const code = await initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList });
+    if (code === 0) maybeNotice();
+    return code;
+  },
+  doctor: async () => {
+    const code = await doctorMain({ gc: flags.gc === true });
+    if (code === 0) maybeNotice();
+    return code;
+  },
+  config: () => {
+    const configFlags: { add?: string; remove?: string } = {};
+    if (typeof flags.add === "string") configFlags.add = flags.add;
+    if (typeof flags.remove === "string") configFlags.remove = flags.remove;
+    return configMain(configFlags);
+  },
+  adapt: () => adaptMain(flags._.slice(1).map(String)),
+  update: () => updateMain({ yes: flags.yes === true }),
+  uninstall: () => uninstallMain(),
+};
+const unhandledVerbs = ALL_VERBS.filter((name) => !(name in verbMain));
+if (unhandledVerbs.length > 0) throw new Error(`verb without a handler: ${unhandledVerbs.join(", ")}`);
 
 main()
   .then((code) => process.exit(code))

@@ -17,11 +17,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { installAgentsCanon } from "../src/surfaces/adapters.ts";
+import { installAgentsCanon } from "../src/surfaces/canon-install.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const AGENTS = join(ROOT, "agents");
-const ADAPTERS = join(ROOT, "src", "surfaces", "adapters.ts");
+const CANON_INSTALL = join(ROOT, "src", "surfaces", "canon-install.ts");
 
 const KIT_AGENTS = [
   "checkpoint-planner",
@@ -82,7 +82,7 @@ describe("workflow kit — five agents ship with matching frontmatter", () => {
   });
 
   test("installCanon source names the agents canon mirror", () => {
-    const source = readFileSync(ADAPTERS, "utf8");
+    const source = readFileSync(CANON_INSTALL, "utf8");
     expect(source).toContain(".ai-engineering/agents");
   });
 

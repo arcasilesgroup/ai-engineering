@@ -453,8 +453,9 @@ the cross-compiled binaries, the SBOM and the attestations.
 
 **Releases.** Publication requires a signed annotated tag from an allowlisted fingerprint,
 on exactly the dispatched commit, and verified redistribution rights for every row of [NOTICE.md](NOTICE.md)
-(`scripts/release-policy.ts` checks all three). Publication is blocked until the owner resolves
-the items listed under "Open H4 issues" in NOTICE.md.
+(`scripts/release-policy.ts` checks all three). The H4 rights questions closed with the
+owner's attestation (2026-11-06); publication stays refused while any NOTICE.md attribution
+row does not read `verified`.
 
 ## Maintainers
 

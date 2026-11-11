@@ -2,8 +2,8 @@
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
 import { canonDrift } from "../embed.ts";
-import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync, unlinkSync, rmSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces, receiptsDir } from "../env.ts";
 import {
@@ -15,7 +15,8 @@ import {
   type ReceiptSummary,
 } from "../receipts.ts";
 import { parseLock } from "../install.ts";
-import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath, machineStateUnavailable, readMachineState } from "../surfaces/adapters.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierDefinition, carrierFiles, carrierPath, hookLauncher, isOnPath } from "../surfaces/adapters.ts";
+import { machineStateUnavailable, readMachineState } from "../surfaces/machine-state.ts";
 import { refuseLine } from "./init-shared.ts";
 import { VERSION, compareVersions } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
@@ -56,7 +57,7 @@ async function checkMirrors(root: string | null): Promise<CheckResult | null> {
   // 3b. Skill mirrors: the canon only reaches IDEs through them. A mirror dir
   //    missing its links is the P0-1 failure mode (silent ENOENT in installCanon).
   if (!root) return null;
-  const { mirrorTargets } = await import("../surfaces/adapters.ts");
+  const { mirrorTargets } = await import("../surfaces/canon-install.ts");
   const mirrors = mirrorTargets();
   let mirrorOK = 0;
   let mirrorBroken = 0;
@@ -134,6 +135,64 @@ function checkGitFloor(root: string | null): CheckResult | null {
   else if (wired) status = "warn";
   else status = "fail";
   return { name: "git floor", status, detail };
+}
+
+/** The secrets gate's own baseline: the live exemptions (.gitleaksignore fingerprints
+ *  + .gitleaksrc.toml allowlist paths) against what was recorded the first time doctor
+ *  looked. A widened allowlist is how a secret walks past the floor two commits later
+ *  (widen in one commit, filter the secret in the next), so entries the baseline does
+ *  not hold are a warning; narrowing is never a warning. Whether an entry is
+ *  justified is the reader's call — the row names it. */
+const ALLOWLIST_BASELINE = join(".ai-engineering", "allowlist-baseline.txt");
+
+function liveAllowlistEntries(root: string): string[] {
+  const entries: string[] = [];
+  const ignorePath = join(root, ".gitleaksignore");
+  if (existsSync(ignorePath)) {
+    for (const line of readFileSync(ignorePath, "utf8").split("\n")) {
+      const entry = line.trim();
+      if (entry.length > 0 && !entry.startsWith("#")) entries.push(`ignore:${entry}`);
+    }
+  }
+  const configPath = join(root, ".gitleaksrc.toml");
+  if (existsSync(configPath)) {
+    try {
+      const parsed = Bun.TOML.parse(readFileSync(configPath, "utf8")) as { allowlist?: { paths?: unknown } };
+      const paths = Array.isArray(parsed.allowlist?.paths)
+        ? (parsed.allowlist.paths as unknown[]).filter((p): p is string => typeof p === "string")
+        : [];
+      entries.push(...paths.map((p) => `path:${p}`));
+    } catch {
+      entries.push("config:unreadable");
+    }
+  }
+  return entries;
+}
+
+function checkSecretsAllowlist(root: string | null): CheckResult | null {
+  // Only a governed repo carries a baseline: creating .ai-engineering in a repo that
+  // never ran init would be doctor governing by side effect.
+  if (!root || !existsSync(join(root, ".ai-engineering"))) return null;
+  const live = liveAllowlistEntries(root);
+  if (live.length === 0) return null;
+  const baselinePath = join(root, ALLOWLIST_BASELINE);
+  const baseline = existsSync(baselinePath)
+    ? readFileSync(baselinePath, "utf8").split("\n").map((l) => l.trim()).filter((l) => l.length > 0)
+    : null;
+  if (baseline === null) {
+    // First look: what exists now becomes the recorded baseline — the widening this
+    // check exists for is the one that happens after a baseline is on disk.
+    try {
+      writeFileSync(baselinePath, `${live.join("\n")}\n`);
+    } catch {
+      return { name: "secrets allowlist", status: "warn", detail: `cannot record the baseline at ${ALLOWLIST_BASELINE} — the live allowlist holds ${live.length} entries` };
+    }
+    return { name: "secrets allowlist", status: "ok", detail: `baseline recorded (${live.length} ${live.length === 1 ? "entry" : "entries"})` };
+  }
+  const baselineSet = new Set(baseline);
+  const widened = live.filter((entry) => !baselineSet.has(entry));
+  if (widened.length === 0) return { name: "secrets allowlist", status: "ok", detail: `${live.length} ${live.length === 1 ? "entry matches" : "entries match"} the baseline` };
+  return { name: "secrets allowlist", status: "warn", detail: `widened beyond the recorded baseline: ${widened.join(", ")} — review the commit that added it, or re-record the baseline if it is legitimate` };
 }
 
 function checkChainTest(gap: string | null): CheckResult {
@@ -449,6 +508,8 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   if (assets) results.push(assets);
   const floor = checkGitFloor(root);
   if (floor) results.push(floor);
+  const allowlist = checkSecretsAllowlist(root);
+  if (allowlist) results.push(allowlist);
   results.push(checkChainTest(gap));
   results.push(checkReceipts(root));
   results.push(checkOverrides(root));
@@ -514,15 +575,19 @@ function gcFolder(root: string, folder: string, maxFiles: number, olderDays: num
   if (!existsSync(dir)) return lines;
   const entries = readdirSync(dir).filter((name) => name !== "summary.json");
   const collected: string[] = [];
+  const notFiles: string[] = [];
   let immune = 0;
   for (const name of entries) {
     const verdict = collectVerdict(root, folder, dir, name, olderDays);
     if (verdict === "immune") { immune += 1; continue; }
     if (verdict === "skip") continue;
+    // git tracks what is *inside* a directory, so a directory reaches "collect" — unlink would throw EISDIR.
+    if (!lstatSync(join(dir, name)).isFile()) { notFiles.push(name); continue; }
     unlinkSync(join(dir, name));
     collected.push(`${folder}/${name}`);
   }
   if (collected.length > 0) lines.push(`✓ ${folder}/: archived ${collected.length} in git and deleted (${collected.join(", ")})`);
+  if (notFiles.length > 0) lines.push(`⚠ ${folder}/: ${notFiles.length} entries are not plain files — left alone (${notFiles.join(", ")})`);
   if (immune > 0) lines.push(`  ${folder}/: ${immune} cited by a permanent governor — immune`);
   const remaining = readdirSync(dir).length;
   if (remaining > maxFiles) lines.push(`⚠ ${folder}/: ${remaining} > max_files=${maxFiles} — review before the next pass`);
@@ -544,7 +609,8 @@ function gcSecurity(root: string, security: string, olderDays: number, keepRuns:
   if (!existsSync(security)) return lines;
   const runs = readdirSync(security)
     .filter((name) => name.startsWith("run-"))
-    .sort((a, b) => a.localeCompare(b, "en"));
+    // by the numeric suffix — run-10 is newer than run-2, but sorts before it as text
+    .sort((a, b) => Number(a.slice(4)) - Number(b.slice(4)));
   const beyond = runs.slice(0, Math.max(0, runs.length - keepRuns));
   const collected: string[] = [];
   for (const run of beyond) {
@@ -624,7 +690,7 @@ export async function doctorMain(flags: { gc?: boolean; cwd?: string }): Promise
   }
   const root = repoRoot(flags.cwd) ?? flags.cwd ?? process.cwd();
   const runtime = `bun ${typeof Bun !== "undefined" ? Bun.version : "?"}`;
-  ui.frame(`Health check · ${root.split("/").pop()} · ${runtime} · ai-eng ${VERSION}`);
+  ui.frame(`Health check · ${basename(root)} · ${runtime} · ai-eng ${VERSION}`);
   const { results, fail } = await runChecks(flags.cwd);
   // One block per status — the eye scans three ideas, not twelve lines
   // (the ✓/▲/✗ families of §14.2).

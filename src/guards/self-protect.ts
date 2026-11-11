@@ -785,6 +785,10 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   // stay writable lets a session overwrite the hook with `exit 0`
   // (Write/Edit/redirect all allowed).
   literals.push(join(repoRoot, ".git", "hooks"));
+  // The secrets gate's own dials: whoever can widen .gitleaksrc.toml or append a
+  // fingerprint to .gitleaksignore can walk a secret past the floor a commit later.
+  literals.push(join(repoRoot, ".gitleaksrc.toml"));
+  literals.push(join(repoRoot, ".gitleaksignore"));
   // spec.html is protected ONLY once approved: its sha256 sits in the lock (§9.3).
   // The fence is that file, not the word. Matching the substring "spec.html" also denied
   // `templates/spec.html.tpl` — the payload `init` generates every project's contract
@@ -859,6 +863,7 @@ function expandTilde(path: string): string {
  *  session even when this one never wrote a governed file. */
 const GOVERNANCE_FILE = new RegExp([
   String.raw`(?:^|/)\.ai-engineering/(?:config\.toml|overrides\.toml|ai-eng\.lock|arch\.rules\.json)$`,
+  String.raw`(?:^|/)\.gitleaks(?:rc\.toml|ignore)$`,
   String.raw`(?:^|/)\.git/(?:hooks(?:/|$)|config$)`,
   String.raw`(?:^|/)\.github/hooks(?:/|$)`,
   String.raw`(?:^|/)\.github/copilot/settings(?:\.local)?\.json$`,

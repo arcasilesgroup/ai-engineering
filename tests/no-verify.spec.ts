@@ -62,7 +62,7 @@ describe("hooksPathTargets", () => {
     ["main attack", "git config core.hooksPath /tmp/evil", ["/tmp/evil"]],
     ["-C before the subcommand", "git -C sub config core.hooksPath /tmp/evil", ["/tmp/evil"]],
     ["inline -c, interior quote survives", "git -c core.hooksPath=/tmp/ev'il commit", ["/tmp/ev'il"]],
-    ["unset", "git config --unset core.hooksPath", [""]],
+    ["unset, the safe direction", "git config --unset core.hooksPath", []],
     ["--unset only as a suffix", "git config x--unset core.hooksPath /tmp/evil", ["/tmp/evil"]],
     ["single-quoted value", "git config core.hooksPath '/tmp/evil'", ["/tmp/evil"]],
     ["double-quoted value", 'git config core.hooksPath "/tmp/evil"', ["/tmp/evil"]],
@@ -139,10 +139,14 @@ describe("checkBash", () => {
     if (result?.deny) expect(result.reason).toInclude(hookReason("/tmp/evil"));
   });
 
-  test("denies unset as 'nothing', and the reason says so", () => {
-    const result = checkBash("git config --unset core.hooksPath", null);
+  test("allows the safe direction: --unset restores git's default .git/hooks, where the floor lives", () => {
+    expect(checkBash("git config --unset core.hooksPath", root)).toBeUndefined();
+    expect(checkBash("git config --unset core.hookspath", root)).toBeUndefined();
+  });
+
+  test("still denies the set-or-change direction on the same command line", () => {
+    const result = checkBash("git config --unset core.hooksPath; git config core.hooksPath /tmp/evil", root);
     expect(result?.deny).toBe(true);
-    if (result?.deny) expect(result.reason).toInclude(hookReason("nothing"));
   });
 
   test("denies an inline -c target", () => {

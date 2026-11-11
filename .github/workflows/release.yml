@@ -121,11 +121,83 @@ jobs:
           RELEASE_SIGNER_FINGERPRINTS: ${{ vars.RELEASE_SIGNER_FINGERPRINTS }}
         run: bun scripts/release-policy.ts --tag "$TAG" --sha "$GITHUB_SHA"
 
+  # The last gate before anything is packed: the CI of the dispatched SHA concluded
+  # success — including the cross-OS platforms matrix and the first-install probes of
+  # the checkout, which only run with that SHA when the ref is a tag (platforms.yml).
+  # Dispatch can start while those runs are still working, so the gate polls the
+  # check-runs every 30 seconds, holds for whatever is pending, fails at once on a
+  # finished failure, and gives up — failing — after 60 minutes. What is excluded is
+  # excluded on purpose: SonarCloud is absent when its token is, and the published
+  # first-install rows are the baseline, not the gate.
+  ci-gate:
+    needs: [verify, policy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      checks: read # reading the check-runs of the dispatched SHA
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: The CI of ${{ github.sha }} concluded success on every release-gate check
+        run: |
+          set -euo pipefail
+          required=(
+            'check'
+            'security'
+            'e2e'
+            'init-doctor-uninstall (ubuntu-latest)'
+            'init-doctor-uninstall (macos-latest)'
+            'init-doctor-uninstall (windows-latest)'
+            'probe (ubuntu-latest, checkout)'
+            'probe (macos-latest, checkout)'
+            'probe (windows-latest, checkout)'
+          )
+          deadline=$(( $(date +%s) + 60 * 60 ))
+          while :; do
+            declare -A runs=()
+            while IFS=$'\t' read -r name status conclusion; do
+              state="${status}:${conclusion}"
+              # Keep the least favourable duplicate: two workflows may share a job
+              # name (check.yml and ai-eng-check.yml both have `check` and
+              # `security`), a finished failure is never overwritten, and anything
+              # still in motion yields to the newest report.
+              case "${runs[${name}]:-}" in
+                completed:*) [ "${runs[${name}]}" = "completed:success" ] || continue ;;
+              esac
+              runs[${name}]="${state}"
+            done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" \
+                       --jq '.check_runs[] | .name + "\t" + .status + "\t" + (.conclusion // "")')
+            pending=0
+            report=""
+            for name in "${required[@]}"; do
+              state="${runs[${name}]:-missing}"
+              if [ "${state}" = "completed:success" ]; then continue; fi
+              case "${state}" in
+                completed:*)
+                  echo "::error::CI gate on $GITHUB_SHA — ${name} concluded ${state#completed:}"
+                  exit 1 ;;
+              esac
+              pending=1
+              report="${report}  ${name}: ${state}"$'\n'
+            done
+            if [ "${pending}" -eq 0 ]; then
+              echo "Every release-gate check concluded success on ${GITHUB_SHA}."
+              exit 0
+            fi
+            if [ "$(date +%s)" -ge "${deadline}" ]; then
+              echo "::error::CI did not conclude on ${GITHUB_SHA} within 60 minutes:"$'\n'"${report}"
+              exit 1
+            fi
+            echo "The gate holds for CI on ${GITHUB_SHA}:"$'\n'"${report}"
+            sleep 30
+          done
+
   # One tarball, packed once. It is smoke-tested as a consumer installs it, described
   # by an SBOM of what that install pulls in, and its digest travels with it: publish
   # ships this file, not a second pack of the checkout.
   package:
-    needs: [verify, policy]
+    needs: [verify, policy, ci-gate]
     runs-on: ubuntu-latest
     permissions:
       contents: read
