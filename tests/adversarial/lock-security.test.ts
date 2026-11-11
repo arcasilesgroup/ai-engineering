@@ -79,7 +79,11 @@ function expectMachineAliasPreserved(alias: MachineAlias): void {
     settingsIsSymlink,
     settingsLinkText: settingsIsSymlink ? readlinkSync(alias.settingsPath) : null,
     settingsBytes: settingsExists ? readFileSync(alias.settingsPath) : null,
-    sharesInode: stateExists && settingsEntryExists
+    // A symlink's inode as lstat reports it is not portable — Windows can report the
+    // target's — so inode sharing is only read where it means something: hard links.
+    // The symlink itself is still proven by its kind, target text and the bytes the
+    // test reads through it.
+    sharesInode: alias.aliasType === "hard-link" && stateExists && settingsEntryExists
       ? lstatSync(alias.statePath).ino === lstatSync(alias.settingsPath).ino
       : false,
   };
