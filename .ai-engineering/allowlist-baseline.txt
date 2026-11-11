@@ -1,7 +1,3 @@
-ignore:.ai-engineering/policies/.signatures.json:jwt:3
-ignore:0b4827d003e5d1aeb42332262336cc1ba59bf844:.gitleaksignore:generic-api-key:12
-ignore:077ea12ed3df5fbfd0fb3feb70f618714c166de6:stacks/dotnet/security.md:generic-api-key:333
-ignore:077ea12ed3df5fbfd0fb3feb70f618714c166de6:stacks/python/security.md:generic-api-key:211
 path:tests/spoken-secret.spec.ts
 path:tests/unit/security/test_redactor.py
 path:tests/unit/hooks/test_runtime_state.py

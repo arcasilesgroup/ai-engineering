@@ -8,7 +8,7 @@
     "floor": "src/floor/**",
     "wrap": "src/wrap/**",
     "surfaces": "src/surfaces/**",
-    "shared": "src/shared-*.ts,src/{install,receipts,embed,skills-lint,assets,branding,notice,theme,ui,version}.ts,src/embedded.d.ts",
+    "shared": "src/shared-*.ts,src/{install,receipts,embed,assets,branding,notice,theme,ui,version}.ts,src/embedded.d.ts",
     "env": "src/env.ts",
     "templates-assets": "templates/**",
     "git": "src/git/**",

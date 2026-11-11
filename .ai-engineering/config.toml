@@ -17,7 +17,7 @@ loop_failures = 5  # same signature failing → deny
 
 # Command-scope policy (ported from bash-guard): four octal digits, left to
 # right system/external/network/workspace, bits 4:read 2:write 1:execute.
-# Default 0467 — workspace everything, network read+write, external read,
+# Default 4667 — workspace everything, network read+write, external read,
 # system nothing. An invalid value fails closed as 0000.
 policy_mode = "4667"
 
@@ -37,12 +37,6 @@ policy_mode = "4667"
 # action = "block"
 # risk = 0.9
 
-# Circuit breaker — protects against external service failures (Jev, MCP).
-# After failure_threshold consecutive failures, the circuit opens and rejects
-# immediately for reset_ms milliseconds, then tries once to recover.
-# [guards.circuit_breaker]
-# failure_threshold = 5   # consecutive failures before opening (default: 5)
-# reset_ms = 30000        # milliseconds before half-open recovery (default: 30000)
 
 [gc]
 # Growth caps for the NNN folders (research/, audits/, security/, reports/,
