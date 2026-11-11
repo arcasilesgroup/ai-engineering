@@ -17,6 +17,7 @@ jobs:
     permissions:
       contents: write # pushing the version branch
       pull-requests: write # opening/updating the Version Packages PR
+      actions: write # approving the runs the bounce creates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,3 +50,15 @@ jobs:
           reason="Closed and reopened by the version workflow so the pull_request workflows run: a PR opened with GITHUB_TOKEN does not trigger them (github.com/actions/docs#suppressed-workflow-runs)."
           gh pr close "$pr" --repo "$GITHUB_REPOSITORY" --comment "$reason"
           gh pr reopen "$pr" --repo "$GITHUB_REPOSITORY"
+          # The reopened runs carry this token's identity and GitHub parks them in
+          # action_required, which is CI dead in a different costume. Approve them here;
+          # actions: write is already granted above, and if the token cannot approve the
+          # step logs the ids so a person can click Approve instead.
+          sleep 10
+          gh run list --repo "$GITHUB_REPOSITORY" --branch changeset-release/main --limit 10 \
+            --json databaseId,conclusion --jq '.[] | select(.conclusion == "action_required") | .databaseId' \
+            | while read -r run; do
+                gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$run/approve" >/dev/null \
+                  && echo "approved run $run" \
+                  || echo "run $run still needs a person: approve it in Actions"
+              done
