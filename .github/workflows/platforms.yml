@@ -36,17 +36,9 @@ jobs:
         shell: bash
         run: git rev-parse HEAD
       # Before the build, so no test can lean on a dist/ left behind by a later step.
-      # I76 is flaky on windows-latest CI (failed on 977ecfdb, passed on the next push
-      # — run 42825538084): one retry there, none elsewhere, until the test itself
-      # accepts that Windows may refuse to create the symlink it wants.
       - name: Full serial suite on ${{ matrix.os }}
-        if: runner.os != 'Windows'
         shell: bash
         run: bun test --parallel=1
-      - name: Full serial suite on ${{ matrix.os }} (one retry — I76)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: bun test --parallel=1 --retry 1
       - name: Build the real binary
         run: bun run build
       # The demo lives outside the checkout: a folder inside this governed repository is
