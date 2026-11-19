@@ -73,5 +73,8 @@ target/
 # commits machine paths. Research, config.toml and ai-eng.lock DO belong in git.
 .ai-engineering/receipts/
 .ai-engineering/cache/
+.ai-engineering/research-cache/
 .ai-engineering/workflow/playwright/
 .claude/reviews/
+# A person's own Claude Code settings for this repo: never shared.
+.claude/settings.local.json

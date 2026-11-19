@@ -3,8 +3,8 @@ name: ai-security
 description: >-
   Audits code for exploitable vulnerabilities with independent validation and schema-checked
   findings. Trigger: milestone security audits, "security review", "find security bugs", or
-  "pen-test". Reports real impact, not theory. Not for runtime diagnosis (/ai-debug) or diff
-  correctness (/ai-verify).
+  "pen-test". Reports real impact, not theory. Not for one change's security review (the
+  security-audit lane of /ai-verify), runtime diagnosis (/ai-debug) or diff correctness (/ai-verify).
 license: MIT
 ---
 

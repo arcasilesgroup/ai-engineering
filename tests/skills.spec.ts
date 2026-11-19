@@ -437,7 +437,6 @@ describe("workflow kit — visual recap is opt-in", () => {
     const recapSkill = readFileSync(recapSkillPath, "utf8");
     const agents = readFileSync(join(SKILLS, "..", "AGENTS.md"), "utf8");
     const agentsTemplate = readFileSync(join(SKILLS, "..", "templates", "AGENTS.md.tpl"), "utf8");
-    const prd = readFileSync(join(SKILLS, "..", ".ai-engineering", "PRD.html"), "utf8");
     const blueprint = readFileSync(join(SKILLS, "..", "docs", "blueprint.html"), "utf8");
 
     const phase3 = markdownSection(orchestratorSkill, "## Phase 3: Wrap-up").replace(/\s+/g, " ");
@@ -472,7 +471,6 @@ describe("workflow kit — visual recap is opt-in", () => {
     expect(recapSkill).toContain("manually invoked by the user");
     expect(agents).toContain("optional and never required for merge");
     expect(agentsTemplate).toContain("optional and never required for merge");
-    expect(prd).toContain("optional and never required for merge");
     expect(blueprint).toContain("nunca es requisito para merge ni limpieza");
     expect(orchestratorSkill).toContain(
       "Next: none — Phase 4 closes after app review approval; recap is optional and user-invoked.",

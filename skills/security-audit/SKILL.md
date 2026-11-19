@@ -1,7 +1,7 @@
 ---
 name: security-audit
 license: LicenseRef-Attributed
-description: Audit the codebase for exploitable security issues — traces attacker-controlled input to dangerous sinks across HTTP handlers, background jobs, auth and access control, and anything shipped to the client, and checks dependencies for known CVEs. Use when asked for a security review or audit, to check for vulnerabilities or leaked secrets, or before shipping code that handles auth, user input, or external requests.
+description: The security lane of /ai-verify — reviews the change or paths ai-verify scopes, tracing attacker-controlled input to dangerous sinks across HTTP handlers, background jobs, auth and access control, and anything shipped to the client, and checks touched dependencies for known CVEs. Use when /ai-verify runs its lanes, or to check one change that handles auth, user input or external requests before it ships. Not for a whole-codebase or milestone audit with validated findings — use /ai-security.
 ---
 
 # Security audit

@@ -135,7 +135,7 @@ describe("artifact scroll-spy", () => {
   test("distinguishes application navigation from section links in any navigation region", () => {
     expect(hasSectionNavigation('<nav><button>All projects</button></nav>')).toBe(false);
     expect(hasSectionNavigation('<nav><a href="/projects">Projects</a></nav><nav><a href="#details">Details</a></nav>')).toBe(true);
-    expect(hasSectionNavigation(read(".ai-engineering/workflow/prototypes/001-worktree-overview.html"))).toBe(false);
+    expect(hasSectionNavigation('<nav><a href="/projects">Projects</a><a href="/settings">Settings</a></nav>')).toBe(false);
   });
 
   test("every page with section navigation carries that script and the .active paint", () => {

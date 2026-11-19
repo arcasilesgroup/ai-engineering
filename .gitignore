@@ -6,8 +6,17 @@ dist/
 .DS_Store
 .ai-engineering/receipts/
 .ai-engineering/cache/
+.ai-engineering/research-cache/
 .ai-engineering/workflow/playwright/
 .claude/reviews/
+.claude/settings.local.json
+# Secrets and logs: the same lines templates/gitignore.tpl gives every governed repo.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log
 # Generated, never committed: the lcov report SonarCloud reads, and the npm lockfile
 # the Snyk job builds from package.json (this repository installs from bun.lock).
 coverage/

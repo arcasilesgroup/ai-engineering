@@ -299,7 +299,7 @@ asked out loud, once. The UI trigger uses the `ai-audit-design` skill.
 | `full-review` | Coordinates the complete set of review skills |
 | `perf-audit` | Audits performance for measurable, user-visible costs |
 | `review-router` | Selects the review lanes a change needs |
-| `security-audit` | Traces attacker-controlled input to exploitable sinks |
+| `security-audit` | The security lane of `/ai-verify`: one change, traced from attacker-controlled input to exploitable sinks. A milestone audit is `ai-security` |
 
 </details>
 
