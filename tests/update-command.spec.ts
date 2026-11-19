@@ -180,7 +180,7 @@ function assertAllSkillsInstalled(additionalNames: string[] = [], editedFiles: s
 }
 
 describe("syncPlan · what the binary decides to write, keep or refuse", () => {
-  const entries = planEntries(["claude-code"]);
+  const entries = planEntries(["claude-code"], "github-actions");
   const paths = entries.map((entry) => entry.path).sort();
 
   test("nothing on disk yet is fresh — the whole payload", () => {
@@ -264,7 +264,7 @@ describe("syncPlan · what the binary decides to write, keep or refuse", () => {
   });
 
   test("a shared settings file is updated by its merge, never written whole", () => {
-    const cursor = planEntries(["cursor"]);
+    const cursor = planEntries(["cursor"], "github-actions");
     const settings = entryFor(cursor, ".cursor/hooks.json");
     expect(settings.merge).toBe(true);
     const root = join(SANDBOX, "plan-merge");
@@ -648,7 +648,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(run.out).toInclude("hooks/pre-commit");
     expect(run.out).toInclude("edited since ai-eng wrote it");
     expect(run.out).not.toInclude("What wins?");
-    expect(readFileSync(shim, "utf8")).toBe(entryFor(planEntries(["claude-code"]), ".git/hooks/pre-commit").ours);
+    expect(readFileSync(shim, "utf8")).toBe(entryFor(planEntries(["claude-code"], "github-actions"), ".git/hooks/pre-commit").ours);
     expect(readFileSync(lockPath, "utf8")).toInclude('".git/hooks/pre-commit"');
   });
 
@@ -998,5 +998,59 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     } finally {
       rmSync(folder, { recursive: true, force: true });
     }
+  });
+});
+
+describe("update · the CI provider the repo declares", () => {
+  const GITHUB = join(".github", "workflows", "ai-eng-check.yml");
+  const AZURE = join(".azure-pipelines", "ai-eng-check.yml");
+  const declare = (repo: string, ci: string): void =>
+    writeFileSync(join(repo, ".ai-engineering", "config.toml"), `[surfaces]\nenabled = ["claude-code"]\n\n[ci]\nprovider = "${ci}"\n`);
+
+  test("a config with no [ci] block keeps the GitHub workflow: repos governed before the choice existed keep their gate", async () => {
+    const repo = governedRepo("ci-silent");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    expect(existsSync(join(repo, GITHUB))).toBe(true);
+    expect(existsSync(join(repo, AZURE))).toBe(false);
+  });
+
+  test("switching to azure-pipelines writes the Azure gate and retires the GitHub one", async () => {
+    const repo = governedRepo("ci-switch");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    declare(repo, "azure-pipelines");
+
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    expect(existsSync(join(repo, AZURE))).toBe(true);
+    expect(existsSync(join(repo, GITHUB))).toBe(false);
+    const lock = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
+    expect(lock).toInclude('".azure-pipelines/ai-eng-check.yml"');
+    expect(lock).not.toInclude('".github/workflows/ai-eng-check.yml"');
+  });
+
+  test("none retires the gate and writes no other", async () => {
+    const repo = governedRepo("ci-none");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    declare(repo, "none");
+
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    expect(existsSync(join(repo, GITHUB))).toBe(false);
+    expect(existsSync(join(repo, AZURE))).toBe(false);
+  });
+
+  test("an unknown provider is refused before anything is written", async () => {
+    const repo = governedRepo("ci-unknown");
+    process.chdir(repo);
+    expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
+    declare(repo, "jenkins");
+    const lockBefore = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
+
+    const run = await captured(() => updateMain({ yes: true }));
+    expect(run.value).toBe(2);
+    expect(run.err).toInclude('"jenkins"');
+    expect(existsSync(join(repo, GITHUB))).toBe(true);
+    expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toBe(lockBefore);
   });
 });

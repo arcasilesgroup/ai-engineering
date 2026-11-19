@@ -17,8 +17,8 @@ import { installMachineCarriers } from "../surfaces/carriers-install.ts";
 import { SURFACES, surfaceCanGovern, machineCarrier, retireNpmPowerShellShim, type Surface } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
-import { canonicalSurfaceId, home } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine } from "./init-shared.ts";
+import { canonicalSurfaceId, home, isCiProvider, CI_PROVIDERS, type CiProvider } from "../env.ts";
+import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, AZURE_PIPELINE_PATH } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { retiredPaths, sweepRetiredAssets } from "./uninstall.ts";
@@ -37,6 +37,16 @@ function detectedSurfaces(cwd: string): string[] {
   return detected;
 }
 
+type InitFlags = { yes?: boolean; global?: boolean; surface?: string[]; ci?: string };
+
+/** Where the origin remote is hosted — a suggestion for the CI question, never a
+ *  decision: a GitHub repository can build on Azure Pipelines and the other way round. */
+function detectedCiProvider(cwd: string): CiProvider {
+  const origin = spawnSync("git", ["-C", cwd, "remote", "get-url", "origin"], { encoding: "utf8" });
+  const url = (origin.stdout ?? "").trim();
+  return /dev\.azure\.com|visualstudio\.com/.test(url) ? "azure-pipelines" : "github-actions";
+}
+
 /** The canon's drift in one line — the counts that matter, and only the ones that are
  *  non-zero beyond the first two. Nested template literals read as arithmetic. */
 function canonSummary(canon: { drift: number; missing: number; stale: number }): string {
@@ -45,7 +55,7 @@ function canonSummary(canon: { drift: number; missing: number; stale: number }):
   return parts.join(" · ");
 }
 
-function scaffoldProject(surfaces: string[], contract: PlanEntry[]): string[] {
+function scaffoldProject(surfaces: string[], ci: CiProvider, contract: PlanEntry[]): string[] {
   const cwd = process.cwd();
   const lines: string[] = [];
   // Contract files: written ONCE. The AGENTS.md question is already resolved where the
@@ -62,7 +72,7 @@ function scaffoldProject(surfaces: string[], contract: PlanEntry[]): string[] {
     const hash = carried?.assets[path];
     return hash ? `sha256:${hash}` : null;
   };
-  const entries = planEntries(surfaces);
+  const entries = planEntries(surfaces, ci);
   const report = install(cwd, entries, recordedHash);
   for (const written of report.written) lines.push(`✓ ${written}`);
   for (const path of report.yours) lines.push(`· ${path} — already here and not written by ai-eng: yours, untouched`);
@@ -120,7 +130,7 @@ type ConfirmInput = (message: string, initial: boolean) => Promise<boolean>;
 
 /** Phase 1 machine side (§14.5b): install/repair the global canon, or report it healthy. */
 async function resolveMachineSide(
-  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  flags: InitFlags,
   inRepo: boolean,
   confirmWithInput: ConfirmInput,
 ): Promise<number | { machineAgreed: boolean }> {
@@ -152,7 +162,7 @@ async function resolveMachineSide(
 
 /** Install or report the global canon, one section either way. Returns an exit code only on the declined-offer path. */
 async function installCanonOrReport(
-  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  flags: InitFlags,
   inRepo: boolean,
   canonDir: string,
   canon: CanonDrift,
@@ -188,7 +198,7 @@ async function installCanonOrReport(
 
 /** Outside a repo: init creates the repo itself (confirm, or --yes to proceed). */
 async function ensureRepo(
-  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  flags: InitFlags,
   inRepo: boolean,
   cwd: string,
   confirmWithInput: ConfirmInput,
@@ -214,7 +224,7 @@ async function ensureRepo(
 
 /** Phase 2 re-init hand-off: already-governed repo routes to update/config/exit. */
 async function reinitHandoff(
-  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  flags: InitFlags,
   cwd: string,
   input: NodeJS.ReadStream | PassThrough,
 ): Promise<number | null> {
@@ -247,7 +257,7 @@ async function reinitHandoff(
 
 /** Pick which surfaces govern this project. Detected hosts start ticked; --yes and --surface skip the prompt. */
 async function pickSurfaces(
-  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  flags: InitFlags,
   cwd: string,
   input: NodeJS.ReadStream | PassThrough,
 ): Promise<number | string[]> {
@@ -269,6 +279,34 @@ async function pickSurfaces(
     picked = answer;
   }
   return picked.map(canonicalSurfaceId);
+}
+
+const CI_LABELS: Record<CiProvider, string> = {
+  "github-actions": "GitHub Actions",
+  "azure-pipelines": "Azure Pipelines",
+  none: "None — I bring my own gate",
+};
+
+/** Pick where the merge gate runs. The origin remote preselects; --ci and --yes skip the prompt. */
+async function pickCi(flags: InitFlags, cwd: string, input: NodeJS.ReadStream | PassThrough): Promise<number | CiProvider> {
+  if (flags.ci !== undefined) {
+    if (isCiProvider(flags.ci)) return flags.ci;
+    ui.fail(`--ci "${flags.ci}" is not a CI provider: use ${CI_PROVIDERS.join(", ")}.`);
+    return 2;
+  }
+  const detected = detectedCiProvider(cwd);
+  if (flags.yes === true) return detected;
+  const answer = await select({
+    message: "Where does this project's CI run?",
+    options: CI_PROVIDERS.map((provider) => ({ value: provider, label: CI_LABELS[provider] })),
+    initialValue: detected,
+    input: input as never,
+  });
+  if (isCancel(answer)) {
+    ui.cancelled();
+    return 0;
+  }
+  return answer;
 }
 
 /** Refuse a surface this release cannot actually enforce, before any promise is printed. */
@@ -300,8 +338,9 @@ function validateSurfaces(picked: string[]): number | null {
 
 /** Scaffold the repo, then ride the same machine-side permission for carriers and the git floor. */
 async function scaffoldAndCarriers(
-  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  flags: InitFlags,
   picked: string[],
+  ci: CiProvider,
   machineAgreed: boolean,
   confirmWithInput: ConfirmInput,
 ): Promise<string[]> {
@@ -332,7 +371,7 @@ async function scaffoldAndCarriers(
   }
   const sp = ui.spinner();
   sp.start("Scaffolding governance…");
-  const lines = scaffoldProject(picked, contract);
+  const lines = scaffoldProject(picked, ci, contract);
   if (replacedExisting) lines.unshift("✓ AGENTS.md (contract) — replaced the file that was there");
   if (keptExisting) lines.unshift("· AGENTS.md (contract) — yours, untouched");
   sp.stop();
@@ -342,7 +381,7 @@ async function scaffoldAndCarriers(
 
 /** Write the machine carriers for the surfaces that read their hooks from the user's home. */
 async function installCarriers(
-  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  flags: InitFlags,
   picked: string[],
   machineAgreed: boolean,
   confirmWithInput: ConfirmInput,
@@ -378,7 +417,7 @@ async function installCarriers(
 }
 
 /** Split the scaffold report into contract vs machine, and print both sections. */
-function renderSections(cwd: string, picked: string[], lines: string[]): void {
+function renderSections(cwd: string, picked: string[], ci: CiProvider, lines: string[]): void {
   // next step — each idea one block, the dim tail carries the why.
   // By tag, not by marker: a surface file of the project's is a "·" row too, and not a contract file.
   const contract = lines.filter((l) => l.includes("(contract)"));
@@ -390,7 +429,7 @@ function renderSections(cwd: string, picked: string[], lines: string[]): void {
   };
   if (contract.length > 0) ui.section("Your contract files", contract.map(toRow), "yours to edit — ai-eng never rewrites them");
   const plural = picked.length === 1 ? "" : "s";
-  ui.section("Scaffolded", machine.map(toRow), `${picked.length} surface${plural}: ${picked.join(", ")}`);
+  ui.section("Scaffolded", machine.map(toRow), `${picked.length} surface${plural}: ${picked.join(", ")} · CI: ${ci}`);
   // Bootstrap note (§14.1 mockup): no src/ yet — arch-tests hold off until there is code.
   if (!existsSync(join(cwd, "src"))) {
     ui.section("Bootstrap mode", [
@@ -404,12 +443,12 @@ function renderSections(cwd: string, picked: string[], lines: string[]): void {
  *  surface pick, and validation. Returns either an exit code (early-return) or the
  *  resolved values the scaffold phase needs. */
 async function resolvePhase(
-  flags: { yes?: boolean; global?: boolean; surface?: string[] },
+  flags: InitFlags,
   cwd: string,
   inRepo: boolean,
   input: NodeJS.ReadStream | PassThrough,
   confirmWithInput: ConfirmInput,
-): Promise<number | { machineAgreed: boolean; picked: string[] }> {
+): Promise<number | { machineAgreed: boolean; picked: string[]; ci: CiProvider }> {
   const machineSide = await resolveMachineSide(flags, inRepo, confirmWithInput);
   if (typeof machineSide === "number") return machineSide;
   const machineAgreed = machineSide.machineAgreed;
@@ -421,10 +460,12 @@ async function resolvePhase(
   if (typeof pickedResult === "number") return pickedResult;
   const invalid = validateSurfaces(pickedResult);
   if (invalid !== null) return invalid;
-  return { machineAgreed, picked: pickedResult };
+  const ci = await pickCi(flags, cwd, input);
+  if (typeof ci === "number") return ci;
+  return { machineAgreed, picked: pickedResult, ci };
 }
 
-export async function initMain(flags: { yes?: boolean; global?: boolean; surface?: string[] }): Promise<number> {
+export async function initMain(flags: InitFlags): Promise<number> {
   const input = scriptedInput();
   const confirmWithInput: ConfirmInput = (message, initial) => ui.confirmDefault(message, initial, input as never);
   ui.frame(`{ai} Engineering ${VERSION}`);
@@ -432,9 +473,17 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   const inRepo = existsSync(join(cwd, ".git")) || existsSync(join(cwd, ".ai-engineering"));
   const resolved = await resolvePhase(flags, cwd, inRepo, input, confirmWithInput);
   if (typeof resolved === "number") return resolved;
-  const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.machineAgreed, confirmWithInput);
-  renderSections(cwd, resolved.picked, lines);
+  const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.ci, resolved.machineAgreed, confirmWithInput);
+  renderSections(cwd, resolved.picked, resolved.ci, lines);
   ui.section("Governance installed", [{ mark: "ok", text: "Changes are waiting for your review; nothing was committed." }]);
+  // Azure DevOps keeps pipelines and PR validation outside the repository: init writes
+  // the file and names the two clicks; creating remote policy is not ours to do.
+  if (resolved.ci === "azure-pipelines") {
+    ui.section("Azure DevOps — two steps in the portal", [
+      { mark: "sub", text: `Pipelines → New pipeline → Existing Azure Pipelines YAML file → ${AZURE_PIPELINE_PATH}` },
+      { mark: "sub", text: "Repos → Branches → default branch → Branch policies → Build validation → this pipeline, Required" },
+    ]);
+  }
   ui.end("Three steps I can't do for you: 1. Trust the workspace in your surface (without trust, hooks do not run) · 2. ai-eng doctor — verify the chain responds · 3. Open the IDE and load /ai-config-to-project — adapt this project's rules");
   return 0;
 }

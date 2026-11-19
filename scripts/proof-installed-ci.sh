@@ -42,6 +42,14 @@ INSTALLED="$P2DIR/.github/workflows/ai-eng-check.yml"
 cmp -s "$INSTALLED" "$TEMPLATE" || die "P2: the installed workflow differs from $TEMPLATE"
 say "P2 evidence: workflow installed, byte-identical to $TEMPLATE"
 
+# ── P3: --ci azure-pipelines installs the Azure gate instead, byte-identical too ──
+AZURE_TEMPLATE="$REPO/templates/azure-pipelines.yml.tpl"
+P3DIR="$(mktemp -d)"; cd "$P3DIR" || exit 1; git init -q .
+$AI_ENG_BIN init --yes --surface claude-code --ci azure-pipelines >/dev/null 2>&1 || die "P3: init --ci azure-pipelines exited non-zero"
+cmp -s "$P3DIR/.azure-pipelines/ai-eng-check.yml" "$AZURE_TEMPLATE" || die "P3: the installed pipeline differs from $AZURE_TEMPLATE"
+[ ! -e "$P3DIR/.github/workflows/ai-eng-check.yml" ] || die "P3: an Azure project also received the GitHub workflow"
+say "P3 evidence: Azure pipeline installed, byte-identical to $AZURE_TEMPLATE, no GitHub workflow"
+
 # The template's own rules (no fail-open, nothing from npm, every action SHA-pinned,
 # one declared version) are asserted in tests/installed-ci.spec.ts, against the same
 # bytes P2 proved identical to what init installs. Re-checking them here would be the

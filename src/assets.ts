@@ -123,6 +123,7 @@ import atemplates_gitignore_tpl from "../templates/gitignore.tpl" with { type: "
 import atemplates_git_commit_msg_tpl from "../templates/git-commit-msg.tpl" with { type: "file" };
 import atemplates_git_pre_commit_tpl from "../templates/git-pre-commit.tpl" with { type: "file" };
 import atemplates_PRD_html_tpl from "../templates/PRD.html.tpl" with { type: "file" };
+import atemplates_azure_pipelines_yml_tpl from "../templates/azure-pipelines.yml.tpl" with { type: "file" };
 import atemplates_spec_html_tpl from "../templates/spec.html.tpl" with { type: "file" };
 import atemplates_plugin_omp_ts_tpl from "../templates/plugin.omp.ts.tpl" with { type: "file" };
 import atemplates_plugin_pi_ts_tpl from "../templates/plugin.pi.ts.tpl" with { type: "file" };
@@ -259,6 +260,7 @@ export const EMBEDDED: Record<string, string> = {
   "../templates/git-commit-msg.tpl": atemplates_git_commit_msg_tpl as unknown as string,
   "../templates/git-pre-commit.tpl": atemplates_git_pre_commit_tpl as unknown as string,
   "../templates/PRD.html.tpl": atemplates_PRD_html_tpl as unknown as string,
+  "../templates/azure-pipelines.yml.tpl": atemplates_azure_pipelines_yml_tpl as unknown as string,
   "../templates/spec.html.tpl": atemplates_spec_html_tpl as unknown as string,
   "../templates/plugin.omp.ts.tpl": atemplates_plugin_omp_ts_tpl as unknown as string,
   "../templates/plugin.pi.ts.tpl": atemplates_plugin_pi_ts_tpl as unknown as string,

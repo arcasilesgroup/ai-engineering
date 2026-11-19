@@ -8,6 +8,7 @@ import type { Row } from "../ui.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate } from "../embed.ts";
 import { SURFACES, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
+import type { CiProvider } from "../env.ts";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
@@ -107,7 +108,20 @@ export function gitHookEntries(): PlanEntry[] {
   ];
 }
 
-export function planEntries(surfaces: string[]): PlanEntry[] {
+/** Not the root azure-pipelines.yml: an Azure DevOps project usually already has one,
+ *  and install() would keep it as the project's — leaving the repo with no gate. */
+export const AZURE_PIPELINE_PATH = ".azure-pipelines/ai-eng-check.yml";
+
+/** The merge gate for one CI provider. It belongs to the project, not to one editor:
+ *  it once hung off the claude-code case, so choosing any other surface installed
+ *  guards and adapters with no workflow at all, and nothing said so (§17). */
+export function ciEntries(provider: CiProvider): PlanEntry[] {
+  if (provider === "github-actions") return [{ path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") }];
+  if (provider === "azure-pipelines") return [{ path: AZURE_PIPELINE_PATH, ours: embeddedTemplate("azure-pipelines.yml.tpl") }];
+  return [];
+}
+
+export function planEntries(surfaces: string[], ci: CiProvider): PlanEntry[] {
   return [
     { path: ".ai-engineering/overrides.toml", ours: embeddedTemplate("overrides.toml.tpl") },
     { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
@@ -115,12 +129,10 @@ export function planEntries(surfaces: string[]): PlanEntry[] {
       path: ".ai-engineering/config.toml",
       ours: embeddedTemplate("config.toml.tpl", {
         surfaces: surfaces.map((s) => `"${s}"`).join(", "),
+        ci,
       }),
     },
-    // The merge gate belongs to the project, not to one editor: it hung off the
-    // claude-code case, so choosing OpenCode/OMP/Codex/Cursor/Copilot CLI/Pi installed
-    // guards and adapters with no workflow at all, and nothing said so (§17).
-    { path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") },
+    ...ciEntries(ci),
     ...gitHookEntries(),
     ...surfaces.flatMap(surfaceEntries),
   ];

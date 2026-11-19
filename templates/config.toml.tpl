@@ -10,6 +10,14 @@
 # `ai-eng config` rewrites this list and installs/removes each surface's adapter files.
 enabled = [{{surfaces}}]
 
+[ci]
+# Where this project's merge gate runs: github-actions | azure-pipelines | none.
+# github-actions → .github/workflows/ai-eng-check.yml
+# azure-pipelines → .azure-pipelines/ai-eng-check.yml
+# none → no CI file; bring your own gate. Change it here, then run `ai-eng update`:
+# the new provider's file is written and the old one is removed.
+provider = "{{ci}}"
+
 [guards]
 # Loop guard thresholds: identical-call repetition and failure streaks (§10).
 loop_window = 6    # remembered calls

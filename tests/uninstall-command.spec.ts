@@ -134,7 +134,7 @@ function sourceSkillFile(skillName: string): string {
 function initShaped(surfaces: string[]): string[] {
   const cwd = process.cwd();
   install(cwd, contractEntries("2026-09-14"));
-  const entries = planEntries(surfaces);
+  const entries = planEntries(surfaces, "github-actions");
   install(cwd, entries);
   for (const shim of LEGACY_SHIMS) {
     const path = join(cwd, ".git", "hooks", shim);

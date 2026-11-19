@@ -34,7 +34,10 @@ for (let i = 0; i < argv.length; i++) {
   } else if (arg.startsWith("--") && BOOLS[arg.slice(2)]) {
     boolFlags[arg.slice(2)] = true;
   } else if (arg.startsWith("--")) {
-    valueFlags[arg.slice(2)] = argv[++i] ?? "";
+    // `--ci=azure-pipelines` and `--ci azure-pipelines` are the same flag.
+    const equals = arg.indexOf("=");
+    if (equals > 2) valueFlags[arg.slice(2, equals)] = arg.slice(equals + 1);
+    else valueFlags[arg.slice(2)] = argv[++i] ?? "";
   } else {
     positionals.push(arg);
   }
@@ -103,7 +106,7 @@ const verbMain: Record<string, () => number | Promise<number>> = {
   wrap: () => wrapMain(process.argv.slice(3).map(String)),
   worktree: () => worktreeMain(flags._.slice(1).map(String), flags.force === true),
   init: async () => {
-    const code = await initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList });
+    const code = await initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList, ...(typeof flags.ci === "string" ? { ci: flags.ci } : {}) });
     if (code === 0) maybeNotice();
     return code;
   },

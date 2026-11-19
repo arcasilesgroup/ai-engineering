@@ -14,14 +14,14 @@ import { MOVED_REPO_CARRIERS, removeMachineArtifacts, removeMachineCarriers } fr
 import { SURFACES, repoCarrier } from "../surfaces/adapters.ts";
 import { machineStateUnavailable, readMachineState } from "../surfaces/machine-state.ts";
 import { restoreTemplateDir } from "../floor/template.ts";
-import { repoRoot, home, enabledSurfaces, isGoverned } from "../env.ts";
+import { repoRoot, home, enabledSurfaces, isGoverned, CI_PROVIDERS, ciProvider } from "../env.ts";
 import { parseLock, sha256, stripSharedText, SEEDED_CONFIG, type PlanEntry } from "../install.ts";
 import {
   embeddedTemplate, isFilesystemRefusal, isRemovableCanonOwnershipRecord, recordedMachinePaths, removeMachinePath, isVersionCacheRecord, pruneEmptyDirectoryWithin,
   readProjectFileSnapshot, refusedChangeText, safeProjectPath, unlinkProjectPath, withSafeProjectParent, writeProjectFile,
   CANON_OWNERSHIP_NAME, type ProjectFileSnapshot,
 } from "../embed.ts";
-import { planEntries, refuseLine } from "./init-shared.ts";
+import { ciEntries, planEntries, refuseLine } from "./init-shared.ts";
 import { select, isCancel } from "@clack/prompts";
 import * as ui from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -60,8 +60,14 @@ function readAssetsFromLock(
   let assets: Record<string, string> = lockSnapshot === null ? {} : parseLock(lockSnapshot.content.toString("utf8")).assets;
   const isLockRecorded = Object.keys(assets).length !== 0;
   if (!isLockRecorded) {
+    // Every provider's gate, not only the declared one: config.toml may already be gone,
+    // and a file is swept only when its bytes are still exactly ai-eng's.
+    // The declared provider still renders config.toml's bytes, so an untouched one matches.
+    const everyGate = CI_PROVIDERS.flatMap(ciEntries);
+    const declaredCi = ciProvider(root);
+    const shipped = planEntries(declared, typeof declaredCi === "string" ? declaredCi : "none");
     assets = Object.fromEntries(
-      planEntries(declared).map((entry) => [entry.path, sha256(entry.ours)]),
+      [...shipped, ...everyGate].map((entry) => [entry.path, sha256(entry.ours)]),
     );
     removed.push({ mark: "muted", text: "no lock — swept by the binary's own file list" });
   }
@@ -282,7 +288,7 @@ function decideSweep(
 
 function pruneCreatedDirs(root: string, removed: ui.Row[]): void {
   // Dirs ai-eng created are pruned only when the sweep left them empty.
-  for (const dir of [".ai-engineering", ".claude", ".cursor", ".codex", ".copilot", ".opencode/plugins", ".agents/hooks", ".pi/extensions", ".github/workflows"]) {
+  for (const dir of [".ai-engineering", ".claude", ".cursor", ".codex", ".copilot", ".opencode/plugins", ".agents/hooks", ".pi/extensions", ".github/workflows", ".azure-pipelines"]) {
     if (pruneIfEmpty(root, dir)) removed.push({ mark: "muted", text: `${dir}/ removed (empty)` });
   }
   for (const dir of [".opencode", ".agents", ".pi", ".github"]) {

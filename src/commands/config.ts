@@ -409,7 +409,7 @@ function installSurfaceFiles(root: string, id: string): void {
   }
   const repo = repoCarrier(surface);
   if (repo !== null) {
-    const report = install(root, planEntries([id]).filter((entry) => entry.path === repo.path || entry.path === repo.chain));
+    const report = install(root, planEntries([id], "none").filter((entry) => entry.path === repo.path || entry.path === repo.chain));
     for (const path of report.written) ui.ok(`${path} written (repo carrier)`);
     for (const refused of report.refused) ui.warn(refuseLine(refused));
   }

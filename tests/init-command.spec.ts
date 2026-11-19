@@ -346,7 +346,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
   });
 
   test("planEntries installs the floor and only the carriers read from the checkout", () => {
-    const entries = planEntries(["claude-code", "cursor"]);
+    const entries = planEntries(["claude-code", "cursor"], "github-actions");
     const paths = entries.map((e) => e.path);
     expect(paths).toContain(".ai-engineering/overrides.toml");
     expect(paths).toContain(".ai-engineering/arch.rules.json");
@@ -362,7 +362,7 @@ describe("init · the plan seams (src/commands/init-shared.ts)", () => {
     // A settings file the user may already own goes in by marker, never whole.
     expect(entries.find((e) => e.path === ".cursor/hooks.json")?.merge).toBe(true);
     // A surface with nothing to enforce in the checkout adds no files at all.
-    expect(planEntries(["zed"]).map((e) => e.path)).toEqual(paths.filter((p) => p !== ".cursor/hooks.json"));
+    expect(planEntries(["zed"], "github-actions").map((e) => e.path)).toEqual(paths.filter((p) => p !== ".cursor/hooks.json"));
   });
 
   test("surfaceOptions offers only surfaces with an adapter behind them", () => {
@@ -559,6 +559,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const { result, out } = await driven({}, [
       ["Create", "y"],
       ["governed", " \n"],
+      ["CI run", "\n"],
       ["AGENTS.md already exists", "n"],
     ]);
     expect(result).toBe(0);
@@ -572,6 +573,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     const { result, out } = await driven({}, [
       ["Create", "y"],
       ["governed", " \n"],
+      ["CI run", "\n"],
       ["AGENTS.md already exists", "y"],
     ]);
     expect(result).toBe(0);
@@ -822,12 +824,27 @@ describe("init · non-interactive default skill installation", () => {
     expect(out).toContain("Inside a repo, ai-eng init governs it too");
   });
 
-  test("a bare folder answered yes creates the repo, takes the surface the human picks, and asks nothing about packs", async () => {
-    const { cwd, machine: home } = sandboxed();
-    // Only the repo and surface questions are answered: any further prompt leaves init waiting.
+  test("the CI question installs the gate of the provider the human picks", async () => {
+    const { cwd } = sandboxed();
     const { result, out } = await driven({}, [
       ["Create", "y"],
       ["governed", " \n"],
+      ["CI run", "\u001b[B\n"], // one down from the GitHub suggestion: Azure Pipelines
+    ]);
+    expect(result).toBe(0);
+    expect(existsSync(join(cwd, ".azure-pipelines", "ai-eng-check.yml"))).toBe(true);
+    expect(existsSync(join(cwd, ".github", "workflows", "ai-eng-check.yml"))).toBe(false);
+    expect(readFileSync(join(cwd, ".ai-engineering", "config.toml"), "utf8")).toContain('provider = "azure-pipelines"');
+    expect(out).toContain("Build validation");
+  });
+
+  test("a bare folder answered yes creates the repo, takes the surface the human picks, and asks nothing about packs", async () => {
+    const { cwd, machine: home } = sandboxed();
+    // Only the repo, surface and CI questions are answered: any further prompt leaves init waiting.
+    const { result, out } = await driven({}, [
+      ["Create", "y"],
+      ["governed", " \n"],
+      ["CI run", "\n"],
     ]);
     expect(result).toBe(0);
     expect(out).not.toMatch(/packs?\b/i);
@@ -846,6 +863,7 @@ describe("init · non-interactive default skill installation", () => {
 
     const { result, out } = await driven({}, [
       ["governed", "\n"],
+      ["CI run", "\n"],
       ["carriers", "n"],
     ]);
     expect(result).toBe(0);

@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
 import { install, buildLock, lockText, parseLock, sha256, mergeSharedText, SEEDED_CONFIG } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
-import { repoRoot, enabledSurfaces, home, isGoverned } from "../env.ts";
+import { repoRoot, enabledSurfaces, home, isGoverned, ciProvider, CI_PROVIDERS } from "../env.ts";
 import { canonDrift, isFilesystemRefusal, refusedChangeText, type CanonDrift } from "../embed.ts";
 import { installCanon } from "../surfaces/canon-install.ts";
 import { installMachineCarriers, sweepMovedRepoCarriers } from "../surfaces/carriers-install.ts";
@@ -145,7 +145,13 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // file on disk is treated as the user's, and the lock is rebuilt at the end.
   const previous = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: "", assets: {} };
   const surfaces = enabledSurfaces();
-  const shipped = planEntries(surfaces);
+  // An unknown provider would retire the gate the repo has: refuse before writing anything.
+  const ci = ciProvider(root);
+  if (typeof ci !== "string") {
+    process.stderr.write(`update: [ci].provider = "${ci.unknown}" in ${CONFIG_PATH} is not one of ${CI_PROVIDERS.join(", ")} — nothing written.\n`);
+    return 2;
+  }
+  const shipped = planEntries(surfaces, ci);
   // Config is user-owned; update must not rewrite legacy keys or their bytes.
   const entries: PlanEntry[] = shipped.filter((entry) => entry.path !== CONFIG_PATH);
   const plan = syncPlan(entries, root, previous.assets);
