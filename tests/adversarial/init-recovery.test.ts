@@ -255,12 +255,10 @@ test("update repairs missing global canon files and rewrites an edited shipped p
   expect(doctor.stdout + doctor.stderr).toContain("0 drift · 0 missing");
 });
 
-test("a repo with no machine-side canon is offered it, never handed it (§14.5b)", () => {
+test("a repo with no machine-side canon gets it back with no question (D-012)", () => {
   // `uninstall` scope "Everything" removes ~/.ai-engineering and leaves the repo
-  // governed. Running `ai-eng init` inside that repo then installed the machine side
-  // in silence — a whole-home write the human never asked for. §14.5b path 2:
-  // «no global canon — install it now and I continue with the repo, ok?»: offered,
-  // and a "no" leaves the machine untouched.
+  // governed. Running `ai-eng init` inside that repo reinstalls the machine side: a repo
+  // is not governed without the canon, and update and config write it without asking.
   const freshHome = join(sandbox, "offered-home");
   const freshRepo = join(sandbox, "offered-repo");
   mkdirSync(freshHome, { recursive: true });
@@ -271,19 +269,13 @@ test("a repo with no machine-side canon is offered it, never handed it (§14.5b)
   // "yes" has nothing to write and cannot stall on a second question.
   expect(engAt(freshRepo, engHome, ["init", "--yes", "--surface", "claude-code"], "").status).toBe(0);
 
-  const refused = engAt(freshRepo, freshHome, ["init"], "n\n");
-  // clack wraps the prompt at the terminal width and draws a gutter where it breaks,
-  // so the wrap point moves with the length of the sandbox path: in CI the break fell
-  // between "install it" and "now", and the assertion passed or failed by where tmpdir
-  // happens to be. Read the sentence, not the frame: the box characters and the
-  // wrapping are presentation, so strip them before matching.
-  const rendered = (refused.stdout + refused.stderr).replace(/[│┌└◇◆●○─]/g, " ").replace(/\s+/g, " ");
-  expect(rendered).toInclude("install it now");
-  expect(existsSync(join(freshHome, "skills"))).toBe(false);
-
-  const accepted = engAt(freshRepo, freshHome, ["init"], "y\n");
+  // No answer on stdin: the canon comes first and asks nothing; the already-governed
+  // hand-off that follows cancels on the empty input and changes nothing in the repo.
+  const run = engAt(freshRepo, freshHome, ["init"], "");
+  const rendered = (run.stdout + run.stderr).replace(/[│┌└◇◆●○─]/g, " ").replace(/\s+/g, " ");
+  expect(rendered).not.toInclude("install it now");
   expect(existsSync(join(freshHome, "skills", "ai-debug", "SKILL.md"))).toBe(true);
-  expect(accepted.status).toBe(0);
+  expect(run.status).toBe(0);
 });
 
 test("the canon is swept of what we no longer ship, and nothing else is touched", () => {

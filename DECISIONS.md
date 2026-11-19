@@ -251,3 +251,24 @@ A `lease` guard holds a folder for the session that writes in it: a file edit, o
 
 - **Every agent always in a worktree:** no hold to wait on, more friction for one session. Rejected by the owner.
 - **A shorter or longer window:** 5 minutes lets a pause lose the folder; 60 blocks for nothing. The owner chose 15.
+
+## D-012: init installs the machine side without asking
+
+Status: Accepted · Date: 2026-11-20
+
+### Context
+
+`ai-eng init` asked twice before writing outside the repo: once to install the global canon on a machine without it, and once to add the guard hook to the home-scoped carriers (Claude Code, Pi, Codex, Copilot, OpenCode). A "no" to either left a repo that called itself governed with no guards running in those tools. `update` and `config --add` already wrote the same files without a question, and the carrier merge keeps every setting of the person's own.
+
+### Decision
+
+`init` installs or repairs the canon and writes the home carriers of the picked surfaces every time, with no question. It still asks before creating a git repository in a bare folder and before overwriting an AGENTS.md that is already there: those touch the person's own files.
+
+### Consequences
+
+- A governed repo always has its guards running in the tools it declares.
+- A second `init` writes nothing twice: the carrier merge is by marker, and an up-to-date carrier is reported unchanged.
+
+### Alternatives considered
+
+- **Keep the questions with Yes as the default:** one Enter each, and a "no" still produced a repo governed by nothing. Rejected.
