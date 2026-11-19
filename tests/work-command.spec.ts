@@ -4,12 +4,13 @@
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { workMain } from "../src/commands/work.ts";
 import { readLease, runLease } from "../src/guards/lease.ts";
+import { worktreeStatus } from "../src/git/worktree.ts";
 import { normalise } from "../src/payload.ts";
 
 const roots: string[] = [];
@@ -164,6 +165,28 @@ describe("ai-eng work tidy", () => {
     git(dir, ["worktree", "add", "-q", "-b", "feat/ghost", tree]);
     rmSync(tree, { recursive: true, force: true });
     expect(work(dir, ["tidy"]).out).toContain("✓ ghost worktrees pruned");
+  });
+});
+
+describe("a CRLF checkout — core.autocrlf, as Windows ships it in the system config", () => {
+  test("is clean, and its landed lane is tidied: isolation keeps the person's line endings", () => {
+    const dir = repo();
+    const globalConfig = join(dir, "..", "gitconfig-crlf");
+    writeFileSync(globalConfig, "[core]\n\tautocrlf = true\n");
+    const saved = process.env["GIT_CONFIG_GLOBAL"];
+    process.env["GIT_CONFIG_GLOBAL"] = globalConfig;
+    try {
+      const tree = join(dir, "..", "crlf-tree");
+      git(dir, ["worktree", "add", "-q", "-b", "feat/crlf", tree]);
+      expect(readFileSync(join(tree, "README.md"), "utf8")).toContain("\r\n");
+      expect(worktreeStatus(tree)).toEqual({ paths: [], untracked: [] });
+      const tip = git(tree, ["rev-parse", "HEAD"]);
+      forge(dir, [{ number: 9, state: "MERGED", headRefName: "feat/crlf", headRefOid: tip }]);
+      expect(work(dir, ["tidy"]).out).toContain("✓ feat/crlf removed — PR #9 merged, and its folder");
+    } finally {
+      if (saved === undefined) delete process.env["GIT_CONFIG_GLOBAL"];
+      else process.env["GIT_CONFIG_GLOBAL"] = saved;
+    }
   });
 });
 

@@ -52,6 +52,12 @@ function readBoard(root: string, isJson: boolean): Board {
   }
 }
 
+/** The uncommitted paths, named: the first three and how many more. */
+function pending(paths: string[]): string {
+  const shown = paths.slice(0, 3).join(", ");
+  return paths.length > 3 ? `${shown} and ${paths.length - 3} more` : shown;
+}
+
 function git(root: string, args: string[]): { ok: boolean; out: string } {
   const done = runGit(args, { cwd: root, isolated: true });
   return { ok: done.status === 0, out: `${done.stdout}${done.stderr}`.trim() };
@@ -89,7 +95,7 @@ function tidyLane(root: string, lane: Lane, current: string | null): string {
   if (lane.path !== null) {
     const status = worktreeStatus(lane.path);
     if (status.detail !== undefined) return mutedLine(`${lane.name} kept — its folder ${lane.path} could not be read: ${status.detail}`);
-    if (status.paths.length > 0) return mutedLine(`${lane.name} kept — its folder ${lane.path} has uncommitted work`);
+    if (status.paths.length > 0) return mutedLine(`${lane.name} kept — its folder ${lane.path} has uncommitted work (${pending(status.paths)})`);
     const removed = git(root, ["worktree", "remove", lane.path]);
     if (!removed.ok) return mutedLine(`${lane.name} kept — git worktree remove refused: ${removed.out}`);
   }
@@ -127,7 +133,7 @@ function park(root: string, branch: string, reason: string, until: string | unde
   // nobody watches. Commit it on the branch first; stash is never the answer.
   if (lane?.path) {
     const status = worktreeStatus(lane.path);
-    if (status.paths.length > 0) return fail(`${branch} has uncommitted work in ${lane.path} — commit it on the branch (git commit -m "wip: …"), then park`);
+    if (status.paths.length > 0) return fail(`${branch} has uncommitted work in ${lane.path} (${pending(status.paths)}) — commit it on the branch (git commit -m "wip: …"), then park`);
   }
   const value = until === undefined ? reason.trim() : `${reason.trim()}|${until}`;
   const set = git(root, ["config", `branch.${branch}.${PARK_KEY}`, value]);
@@ -154,7 +160,7 @@ function drop(root: string, branch: string): number {
   if (lane?.path) {
     const status = worktreeStatus(lane.path);
     if (status.detail !== undefined) return fail(`${lane.path} could not be read (${status.detail}) — nothing was dropped`);
-    if (status.paths.length > 0) return fail(`${branch} has uncommitted work in ${lane.path} — commit it on the branch first, then drop`);
+    if (status.paths.length > 0) return fail(`${branch} has uncommitted work in ${lane.path} (${pending(status.paths)}) — commit it on the branch first, then drop`);
   }
   const date = new Date().toISOString().slice(0, 10);
   const isTaken = git(root, ["rev-parse", "--verify", "--quiet", `refs/archive/${branch}`]).ok;

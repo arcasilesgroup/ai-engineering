@@ -1,8 +1,8 @@
 // @bun
 // src/chain/mod.ts
-import { readFileSync as readFileSync13, writeFileSync as writeFileSync5, mkdirSync as mkdirSync5 } from "fs";
+import { readFileSync as readFileSync13, writeFileSync as writeFileSync6, mkdirSync as mkdirSync5 } from "fs";
 import { createHash as createHash6 } from "crypto";
-import { dirname as dirname6, join as join13 } from "path";
+import { dirname as dirname6, join as join14 } from "path";
 
 // src/env.ts
 import { homedir } from "os";
@@ -3066,18 +3066,21 @@ import {
   realpathSync as realpathSync6,
   statSync as statSync2,
   unlinkSync,
-  writeFileSync as writeFileSync3
+  writeFileSync as writeFileSync4
 } from "fs";
 import { homedir as homedir3 } from "os";
-import { basename as basename4, dirname as dirname3, isAbsolute as isAbsolute5, join as join10, relative as relative2, resolve as resolve7, sep as sep5 } from "path";
+import { basename as basename4, dirname as dirname3, isAbsolute as isAbsolute5, join as join11, relative as relative2, resolve as resolve7, sep as sep5 } from "path";
 import { isDeepStrictEqual } from "util";
 
 // src/git/context.ts
 import { existsSync as existsSync5, readFileSync as readFileSync8, realpathSync as realpathSync4 } from "fs";
-import { join as join8 } from "path";
+import { join as join9 } from "path";
 
 // src/git/run.ts
 import { spawnSync } from "child_process";
+import { mkdtempSync, writeFileSync as writeFileSync3 } from "fs";
+import { tmpdir as tmpdir2 } from "os";
+import { join as join8 } from "path";
 var NO_CONFIG_FILE = "/dev/null";
 var repositoryEnvVars;
 function localEnvVars(cwd) {
@@ -3101,11 +3104,33 @@ function repositoryScopedEnv(cwd) {
     delete env[name];
   return env;
 }
+var lineEndingConfigs = new Map;
+function isolatedGlobalConfig() {
+  const key = `${process.env["GIT_CONFIG_GLOBAL"] ?? ""}\x00${process.env["GIT_CONFIG_SYSTEM"] ?? ""}`;
+  const known = lineEndingConfigs.get(key);
+  if (known !== undefined)
+    return known;
+  let file = NO_CONFIG_FILE;
+  const done = spawnSync("git", ["config", "--get", "core.autocrlf"], { cwd: tmpdir2(), encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+  const value = (done.stdout ?? "").trim().toLowerCase();
+  if (done.status === 0 && ["true", "false", "input"].includes(value)) {
+    try {
+      file = join8(mkdtempSync(join8(tmpdir2(), "ai-eng-git-")), "config");
+      writeFileSync3(file, `[core]
+	autocrlf = ${value}
+`, { mode: 384 });
+    } catch {
+      file = NO_CONFIG_FILE;
+    }
+  }
+  lineEndingConfigs.set(key, file);
+  return file;
+}
 function isolatedEnv(cwd, overrides) {
   const env = repositoryScopedEnv(cwd);
   if (env instanceof Error)
     return env;
-  return { ...env, GIT_CONFIG_GLOBAL: NO_CONFIG_FILE, GIT_CONFIG_SYSTEM: NO_CONFIG_FILE, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
+  return { ...env, GIT_CONFIG_GLOBAL: isolatedGlobalConfig(), GIT_CONFIG_SYSTEM: NO_CONFIG_FILE, GIT_CONFIG_NOSYSTEM: "1", ...overrides };
 }
 function runGit(args, opts) {
   try {
@@ -3176,7 +3201,7 @@ function readConfig(path) {
   }
 }
 function configuredBase(root) {
-  const path = join8(root, ".ai-engineering", "config.toml");
+  const path = join9(root, ".ai-engineering", "config.toml");
   const config = readConfig(path);
   const section = typeof config === "object" && config !== null && "git" in config ? config.git : undefined;
   if (section === undefined)
@@ -3257,7 +3282,7 @@ function resolveContext(cwd, opts = {}) {
 
 // src/workflow/checkpoint.ts
 import { lstatSync, readFileSync as readFileSync9, realpathSync as realpathSync5 } from "fs";
-import { isAbsolute as isAbsolute4, join as join9, relative, resolve as resolve6, sep as sep4 } from "path";
+import { isAbsolute as isAbsolute4, join as join10, relative, resolve as resolve6, sep as sep4 } from "path";
 var SHA_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 var SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 var GATE_STATUSES = ["pending", "failed", "passed", "n/a", "blocked"];
@@ -3529,14 +3554,14 @@ function readCheckpointText(path, context, allowMissing = false) {
     const repoRoot = realpathSync5.native(context.repoPath);
     const absolutePath = isAbsolute4(path) ? resolve6(path) : resolve6(repoRoot, path);
     const relativePath = relative(repoRoot, absolutePath);
-    const expectedPath = join9(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
+    const expectedPath = join10(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
     if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep4}`) || isAbsolute4(relativePath) || absolutePath !== expectedPath) {
       fail("path", "is not the repository-local checkpoint file for this slug");
     }
     let currentPath = repoRoot;
     const components = relativePath.split(sep4);
     for (const [index, component] of components.entries()) {
-      currentPath = join9(currentPath, component);
+      currentPath = join10(currentPath, component);
       let stat;
       try {
         stat = lstatSync(currentPath);
@@ -3813,11 +3838,11 @@ function realTarget(path, hops = 0) {
   let current = path;
   for (;; ) {
     try {
-      return join10(realpathSync6(current), ...rest);
+      return join11(realpathSync6(current), ...rest);
     } catch {}
     try {
       if (hops < MAX_LINK_HOPS && lstatSync2(current).isSymbolicLink()) {
-        return realTarget(join10(resolve7(dirname3(current), readlinkSync(current)), ...rest), hops + 1);
+        return realTarget(join11(resolve7(dirname3(current), readlinkSync(current)), ...rest), hops + 1);
       }
     } catch {}
     const parent = dirname3(current);
@@ -3870,7 +3895,7 @@ function checkpointWithSameInode(folder, path) {
     if (!name.endsWith(".json"))
       continue;
     try {
-      const candidate = statSync2(join10(folder, name));
+      const candidate = statSync2(join11(folder, name));
       if (candidate.dev === target.dev && candidate.ino === target.ino)
         return name.slice(0, -".json".length);
     } catch {}
@@ -3882,7 +3907,7 @@ function aliasedCheckpoint(repoRoot, filePath) {
     return null;
   const repo = realRepo(repoRoot);
   const absolutePath = isAbsolute5(filePath) ? resolve7(filePath) : resolve7(repoRoot, filePath);
-  const sameFile = checkpointWithSameInode(join10(repo.root, CHECKPOINTS_DIR), absolutePath);
+  const sameFile = checkpointWithSameInode(join11(repo.root, CHECKPOINTS_DIR), absolutePath);
   if (sameFile !== null)
     return sameFile;
   return CHECKPOINT_PATH.exec(landsAt(repo, absolutePath))?.[1] ?? null;
@@ -3996,7 +4021,7 @@ function checkFirstPlan(root, checkpoint) {
   }
   let html;
   try {
-    html = readFileSync10(join10(root, ".ai-engineering", "brainstorm.html"), "utf8");
+    html = readFileSync10(join11(root, ".ai-engineering", "brainstorm.html"), "utf8");
   } catch (error) {
     return deny2(`Checkpoint ${checkpoint.slug}`, "plan approval", `cannot read the matching brainstorm (${error instanceof Error ? error.message : String(error)})`, "restore the approved brainstorm and retry the plan write");
   }
@@ -4082,7 +4107,7 @@ function checkMarker(payload, repoRoot) {
     return deny2(label, "checkpoint stage", `does not recognize "${stage}"`, "use tests, implement, behavior, ui, review, or fix");
   }
   let checkpoint;
-  const path = join10(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
+  const path = join11(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${slug}.json`);
   try {
     checkpoint = readCheckpoint(path, checkpointContext(repoRoot, slug));
   } catch (error) {
@@ -4166,7 +4191,7 @@ function shellPath(cwd, word) {
   if (/[$`]/.test(word) || /^~[^/]/.test(word))
     return null;
   if (word === "~" || word.startsWith("~/"))
-    return join10(homedir3(), word.slice(1));
+    return join11(homedir3(), word.slice(1));
   return resolve7(cwd, word);
 }
 function shellWritesIntoCheckpoints(command, cwd, repo) {
@@ -4243,12 +4268,12 @@ function orchestratorTranscript(payload, slug) {
 function stopCounterPath(root, sessionId) {
   const session = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : "unknown";
   const hash = createHash3("sha256").update(session).digest("hex");
-  return join10(root, ".ai-engineering", "cache", "checkpoint-stop", `${hash}.txt`);
+  return join11(root, ".ai-engineering", "cache", "checkpoint-stop", `${hash}.txt`);
 }
 function ensureCounterDirectory(directory, root) {
   let current = root;
   for (const part of relative2(root, directory).split(sep5)) {
-    current = join10(current, part);
+    current = join11(current, part);
     try {
       const stat = lstatSync2(current);
       if (stat.isSymbolicLink() || !stat.isDirectory())
@@ -4280,7 +4305,7 @@ function bumpStopCounter(path, root) {
       throw error;
   }
   const next = count + 1;
-  writeFileSync3(path, String(next), { mode: 384 });
+  writeFileSync4(path, String(next), { mode: 384 });
   return next;
 }
 function isContinuingAfterStop(payload) {
@@ -4299,7 +4324,7 @@ function checkStop(payload, repoRoot) {
   } catch (error) {
     return faultRefusal(payload, deny2("Checkpoint", "Stop gate", `cannot resolve the repository (${error instanceof Error ? error.message : String(error)})`, "return to the repository and retry the Stop event"));
   }
-  const folder = join10(root, ".ai-engineering", "workflow", "checkpoints");
+  const folder = join11(root, ".ai-engineering", "workflow", "checkpoints");
   let files;
   try {
     files = readdirSync(folder).filter((file) => file.endsWith(".json")).sort();
@@ -4313,7 +4338,7 @@ function checkStop(payload, repoRoot) {
     const slug = file.slice(0, -".json".length);
     if (!orchestratorTranscript(payload, slug))
       continue;
-    const path = join10(folder, file);
+    const path = join11(folder, file);
     let checkpoint;
     try {
       checkpoint = readCheckpoint(path, checkpointContext(root, slug));
@@ -4402,14 +4427,14 @@ function rewrite(command) {
 }
 
 // src/receipts.ts
-import { closeSync as closeSync2, constants as constants2, openSync as openSync2, writeFileSync as writeFileSync4, readFileSync as readFileSync12, readdirSync as readdirSync2, mkdirSync as mkdirSync4, lstatSync as lstatSync4, realpathSync as realpathSync8, renameSync, rmSync as rmSync2, unlinkSync as unlinkSync3 } from "fs";
-import { dirname as dirname5, join as join12 } from "path";
+import { closeSync as closeSync2, constants as constants2, openSync as openSync2, writeFileSync as writeFileSync5, readFileSync as readFileSync12, readdirSync as readdirSync2, mkdirSync as mkdirSync4, lstatSync as lstatSync4, realpathSync as realpathSync8, renameSync, rmSync as rmSync2, unlinkSync as unlinkSync3 } from "fs";
+import { dirname as dirname5, join as join13 } from "path";
 import { createHash as createHash5, randomUUID } from "crypto";
 
 // src/shared-project-fs.ts
 import { createHash as createHash4 } from "crypto";
 import { closeSync, constants, fstatSync, ftruncateSync, lstatSync as lstatSync3, openSync, readFileSync as readFileSync11, readSync, realpathSync as realpathSync7, rmdirSync, unlinkSync as unlinkSync2, writeSync } from "fs";
-import { basename as basename5, dirname as dirname4, isAbsolute as isAbsolute6, join as join11, relative as relative3, resolve as resolve8, sep as sep6 } from "path";
+import { basename as basename5, dirname as dirname4, isAbsolute as isAbsolute6, join as join12, relative as relative3, resolve as resolve8, sep as sep6 } from "path";
 function safeProjectPath(root, rel) {
   let canonicalRoot;
   try {
@@ -4422,7 +4447,7 @@ function safeProjectPath(root, rel) {
     return null;
   let current = canonicalRoot;
   for (const component of relative3(canonicalRoot, absolute).split(sep6).filter(Boolean)) {
-    current = join11(current, component);
+    current = join12(current, component);
     try {
       if (lstatSync3(current).isSymbolicLink() || !pathIsWithin(canonicalRoot, realpathSync7(current)))
         return null;
@@ -4569,7 +4594,7 @@ var RECEIPTS_REL = `${AI_DIR}/receipts`;
 function receiptsFolder(root) {
   for (const rel of [AI_DIR, RECEIPTS_REL]) {
     try {
-      lstatSync4(join12(root, rel));
+      lstatSync4(join13(root, rel));
     } catch (error) {
       if (error.code === "ENOENT")
         return { kind: "absent" };
@@ -4586,7 +4611,7 @@ function ensureReceiptsFolder(root) {
   if (aiDir === null)
     return null;
   try {
-    mkdirSync4(join12(aiDir, "receipts"));
+    mkdirSync4(join13(aiDir, "receipts"));
   } catch (error) {
     if (error.code !== "EEXIST")
       return null;
@@ -4611,7 +4636,7 @@ function writeReceipt(receipt, root) {
     if (folder === null)
       return null;
     const stamp = full.ts.replace(/[:.]/g, "-");
-    writeFileSync4(join12(folder, `${stamp}-${receiptEventName(full.event)}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
+    writeFileSync5(join13(folder, `${stamp}-${receiptEventName(full.event)}-${full.operation_id}.json`), JSON.stringify(full), { flag: "wx" });
     return full;
   } catch {
     return null;
@@ -4670,7 +4695,7 @@ function upsertDenyLedger(dir, key) {
     const folder = ensureReceiptsFolder(dirname5(dirname5(dir)));
     if (folder === null)
       return 0;
-    const file = join12(folder, "denies.json");
+    const file = join13(folder, "denies.json");
     let ledger = {};
     try {
       ledger = JSON.parse(readNoFollow(file));
@@ -4709,7 +4734,7 @@ function readNoFollow(path) {
 function writeNoFollow(path, text) {
   const descriptor = openSync2(path, constants2.O_WRONLY | constants2.O_CREAT | constants2.O_TRUNC | constants2.O_NOFOLLOW, 438);
   try {
-    writeFileSync4(descriptor, text);
+    writeFileSync5(descriptor, text);
   } finally {
     closeSync2(descriptor);
   }
@@ -4727,7 +4752,7 @@ var RECEIPT_NAME = /^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)-[A-Za-z0-9_-]+
 var WRAP_LOG_NAME = /^[0-9a-f]{8}\.log$/;
 var stampOf = (ms) => new Date(ms).toISOString().replace(/[:.]/g, "-");
 function mergeAndWriteSummary(root, folder, collected, total, now) {
-  const summaryPath = join12(folder, "summary.json");
+  const summaryPath = join13(folder, "summary.json");
   let prior = null;
   const snapshot = readProjectFileSnapshot(root, summaryPath, withCheckedProjectParent);
   try {
@@ -4741,9 +4766,9 @@ function mergeAndWriteSummary(root, folder, collected, total, now) {
   }
   const merged = { ...collected, total, daily: mergeDaily(prior?.daily, summed, 90, now), gc: new Date(now).toISOString() };
   withCheckedProjectParent(root, summaryPath, (path) => {
-    const staging = join12(dirname5(path), `.summary-${randomUUID()}.tmp`);
+    const staging = join13(dirname5(path), `.summary-${randomUUID()}.tmp`);
     try {
-      writeFileSync4(staging, JSON.stringify(merged), { flag: "wx" });
+      writeFileSync5(staging, JSON.stringify(merged), { flag: "wx" });
       renameSync(staging, path);
     } finally {
       rmSync2(staging, { force: true });
@@ -4753,7 +4778,7 @@ function mergeAndWriteSummary(root, folder, collected, total, now) {
 }
 function listStaleReceipts(root, folder, cutStamp) {
   let listing = null;
-  const isListed = withCheckedProjectParent(root, join12(folder, "summary.json"), () => {
+  const isListed = withCheckedProjectParent(root, join13(folder, "summary.json"), () => {
     const stale = [];
     let stored = 0;
     for (const name of readdirSync2(folder)) {
@@ -4770,7 +4795,7 @@ function listStaleReceipts(root, folder, cutStamp) {
       if (!WRAP_LOG_NAME.test(name))
         continue;
       try {
-        const aged = stampOf(lstatSync4(join12(folder, name)).mtimeMs);
+        const aged = stampOf(lstatSync4(join13(folder, name)).mtimeMs);
         if (aged < cutStamp)
           stale.push({ stamp: aged, name });
       } catch {}
@@ -4797,7 +4822,7 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
     if (deleted >= limit)
       break;
     consumed += 1;
-    const content = takeCheckedProjectFile(canonicalRoot, join12(folder, entry.name));
+    const content = takeCheckedProjectFile(canonicalRoot, join13(folder, entry.name));
     if (content === null)
       continue;
     deleted += 1;
@@ -4809,7 +4834,7 @@ function collectReceipts(root, folder, ttlDays, maxDeletes, now) {
   }
   if (deleted > 0)
     mergeAndWriteSummary(root, folder, summaryOf(tally), stored, now);
-  withCheckedProjectParent(root, join12(folder, "denies.json"), (path) => {
+  withCheckedProjectParent(root, join13(folder, "denies.json"), (path) => {
     pruneDenyLedger(path, 90, LEDGER_CAP, now);
     return true;
   });
@@ -4836,7 +4861,7 @@ function runRetention(root, now) {
   if (aiDir === null)
     return idle;
   try {
-    mkdirSync4(join12(aiDir, "cache"));
+    mkdirSync4(join13(aiDir, "cache"));
   } catch (error) {
     if (error.code !== "EEXIST")
       return idle;
@@ -4844,7 +4869,7 @@ function runRetention(root, now) {
   const cache = safeProjectPath(root, `${AI_DIR}/cache`);
   if (cache === null)
     return idle;
-  const claim = join12(cache, today);
+  const claim = join13(cache, today);
   const isClaimed = withCheckedProjectParent(root, claim, (path) => {
     closeSync2(openSync2(path, "wx"));
     return true;
@@ -4866,7 +4891,7 @@ function runRetention(root, now) {
     const isOldClaim = entry.startsWith("receipts-retention-") && entry !== today;
     if (!isOldClaim && !(entry === today && pass.hasBacklog))
       continue;
-    withCheckedProjectParent(root, join12(cache, entry), (path) => {
+    withCheckedProjectParent(root, join13(cache, entry), (path) => {
       unlinkSync3(path);
       return true;
     });
@@ -5000,7 +5025,7 @@ function rememberVerdict(file, fp, verdict) {
     const trimmed = {};
     for (const key of Object.keys(book).slice(-500))
       trimmed[key] = book[key];
-    writeFileSync5(file, JSON.stringify(trimmed));
+    writeFileSync6(file, JSON.stringify(trimmed));
   } catch {}
 }
 function hostCwd(raw) {
@@ -5048,7 +5073,7 @@ function runChain(rawPayload, event, options = {}) {
   const overrides = readOverrides(root);
   const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
   const dedup = deduplicable(payload) && event === "PreToolUse";
-  const cacheFile = join13(root, ".ai-engineering", "cache", "verdicts", `${createHash6("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
+  const cacheFile = join14(root, ".ai-engineering", "cache", "verdicts", `${createHash6("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {
