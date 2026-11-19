@@ -7,9 +7,10 @@ import { repoRoot } from "../env.ts";
 import { lanes, PARK_KEY, type Board, type Lane, type LaneState } from "../git/lanes.ts";
 import { runGit } from "../git/run.ts";
 import { worktreeStatus } from "../git/worktree.ts";
+import { readLease, releaseLease } from "../guards/lease.ts";
 
 const USAGE =
-  "usage: ai-eng work [--json] | tidy | park <branch> <reason> [--until YYYY-MM-DD] | resume <branch> | drop <branch>\n";
+  "usage: ai-eng work [--json] | tidy | park <branch> <reason> [--until YYYY-MM-DD] | resume <branch> | drop <branch> | release\n";
 
 const ORDER: LaneState[] = ["active", "ready", "parked", "landed", "orphan", "ghost"];
 
@@ -154,6 +155,17 @@ export function workMain(args: string[], flags: { json?: boolean; until?: string
       return branch === undefined || rest.length > 0 ? fail(USAGE.trim()) : resume(root, branch);
     case "drop":
       return branch === undefined || rest.length > 0 ? fail(USAGE.trim()) : drop(root, branch);
+    case "release": {
+      if (branch !== undefined) return fail(USAGE.trim());
+      const held = readLease(root);
+      if (held === null) {
+        process.stdout.write(`nothing to release — no session holds ${root}\n`);
+        return 0;
+      }
+      releaseLease(root);
+      process.stdout.write(`✓ ${root} released — it was held by session ${held.session.slice(0, 8)}; the next session to write here holds it\n`);
+      return 0;
+    }
     default:
       return fail(USAGE.trim());
   }

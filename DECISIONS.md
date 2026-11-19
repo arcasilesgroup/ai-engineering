@@ -229,3 +229,25 @@ A lane is a branch, its folder and its PR, and its state is computed from git an
 
 - **Every agent always in a worktree:** simpler to explain, heavier for the one-session case. Rejected for now.
 - **A lanes file:** a second source of truth that drifts from git. Rejected.
+
+## D-011: A folder is held by the session writing in it, for 15 minutes
+
+Status: Accepted · Date: 2026-11-19
+
+### Context
+
+D-010 left lane rule 2 (one folder, one writer) to the agent, which cannot see another session. Two sessions in one checkout is how one session's `git add -A` took another's 34 files.
+
+### Decision
+
+A `lease` guard holds a folder for the session that writes in it: a file edit, or a git command that writes the index, a ref or the tree. Another session's write there is denied and sent to a worktree. The hold lives in the folder's own git directory, lapses after 15 minutes without a write (`[work] lease_minutes`), ends with the holder's `SessionEnd` where the host sends one (Claude Code), and `ai-eng work release` frees it by hand. A host that sends no session id is never judged.
+
+### Consequences
+
+- Reading, testing and building stay free for every session: only writes are held.
+- After closing a session on a host with no SessionEnd, the next session waits up to 15 minutes or runs `ai-eng work release`.
+
+### Alternatives considered
+
+- **Every agent always in a worktree:** no hold to wait on, more friction for one session. Rejected by the owner.
+- **A shorter or longer window:** 5 minutes lets a pause lose the folder; 60 blocks for nothing. The owner chose 15.

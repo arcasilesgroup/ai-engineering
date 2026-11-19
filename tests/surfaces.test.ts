@@ -43,7 +43,7 @@ const DENYING = { tool_name: "Bash", tool_input: { command: "git commit -n -m x"
 
 /** A fresh session per call: the loop guard counts repeats inside one session, and a
  *  test that reuses one session tests the loop guard instead of the surface. */
-const clean = (n: string) => ({ tool_name: "Bash", tool_input: { command: "git commit -m 'feat: ok'" }, tool_use_id: `c${n}`, session_id: `clean-${n}` });
+const clean = (n: string) => ({ tool_name: "Bash", tool_input: { command: `git commit -m 'feat: ok ${n}'` }, tool_use_id: `c${n}`, session_id: "clean" });
 
 beforeAll(() => {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-surfaces-"));

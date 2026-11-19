@@ -57,6 +57,17 @@
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ai-eng chain SessionEnd",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

@@ -13,6 +13,7 @@ import type { Payload } from "../payload.ts";
 import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runNoStash } from "../guards/no-stash.ts";
+import { releaseLease, runLease } from "../guards/lease.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
 import { policyModeFor, runPolicy } from "../guards/policy.ts";
 import { runInjection, type GuardResult as InjectionGuardResult } from "../guards/injection.ts";
@@ -24,7 +25,7 @@ import { writeReceipt, upsertDenyLedger, retainReceipts, type Receipt } from "..
 import { refreshInBackground, sessionStartContext } from "../notice.ts";
 import { lanes, laneSummary } from "../git/lanes.ts";
 
-export type GuardName = "self-protect" | "no-verify" | "no-stash" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret" | "checkpoint";
+export type GuardName = "self-protect" | "no-verify" | "no-stash" | "policy" | "injection" | "loop" | "wrap" | "spoken-secret" | "checkpoint" | "lease";
 
 type GuardRow = { name: GuardName; matcher: RegExp };
 type GuardOutcome = { deny: true; reason: string; rewriteTo?: string } | { deny: false; review: true; reason: string; rule: { id: string; name: string; risk: number } } | undefined;
@@ -45,6 +46,7 @@ export const TABLE: Record<string, GuardRow[]> = {
     { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
     { name: "checkpoint", matcher: /^(Write|Edit|MultiEdit|Task|Agent|Bash)$/ },
+    { name: "lease", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
   ],
   Stop: [{ name: "checkpoint", matcher: /^$/ }],
@@ -59,6 +61,8 @@ export const TABLE: Record<string, GuardRow[]> = {
   // No guard: a session start only tells the agent what the version cache and the lock
   // say (sessionStartContext). It never denies, and chainMain answers it before runChain.
   SessionStart: [],
+  // No guard either: the ending session frees the folder it holds (lease.ts).
+  SessionEnd: [],
 };
 
 const HOT_PATH_BUDGET_MS = 200;
@@ -325,6 +329,8 @@ function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): Gu
           return runNoVerify(payload, ctx.repoRoot);
         case "no-stash":
           return runNoStash(payload);
+        case "lease":
+          return runLease(payload, ctx.repoRoot);
         case "policy": {
           const command = payload.tool_input["command"];
           if (typeof command !== "string" || command.length === 0) return undefined;
@@ -446,9 +452,29 @@ export function sessionStart(raw: string): void {
   process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } })}\n`);
 }
 
+/** SessionEnd: the session that holds this folder lets it go now, instead of in fifteen
+ *  minutes. Only its own lease: another session's is never released from here. */
+export function sessionEnd(raw: string): void {
+  let body: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  const session = typeof body["session_id"] === "string" ? body["session_id"] : "";
+  const root = repoRoot(hostCwd(body));
+  if (root === null || session === "" || !isGoverned(root)) return;
+  releaseLease(root, session);
+}
+
 export function chainMain(event: string, raw: string, options: ChainOptions = {}): void {
   if (event === "SessionStart") {
     sessionStart(raw);
+    process.exit(0);
+  }
+  if (event === "SessionEnd") {
+    sessionEnd(raw);
     process.exit(0);
   }
   if (!raw.trim()) process.exit(0); // nothing was decided, so there is nothing to judge

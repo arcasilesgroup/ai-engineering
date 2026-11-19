@@ -56,11 +56,13 @@ loop_failures = 5  # same signature failing → deny
 # base = "develop"
 # worktrees_dir = "../<repo>.worktrees"
 
-# Lanes (ai-eng work): how many may be active at once, and how many days without a
-# commit, a PR or a park make a lane an orphan. Uncomment to change.
+# Lanes (ai-eng work): how many may be active at once, how many days without a commit,
+# a PR or a park make a lane an orphan, and how many minutes without a write free a
+# folder another session was writing in. Uncomment to change.
 # [work]
 # max_active = 3
 # orphan_days = 3
+# lease_minutes = 15
 
 [gc]
 # Growth caps for the NNN folders (research/, audits/, security/, reports/,

@@ -48,7 +48,7 @@ A receipt for every verdict, on disk, in git.</p>
 
 | | |
 |---|---|
-| **5** protection guards | Tool-specific checks; the workflow checkpoint gate is separate |
+| **7** protection guards | Tool-specific checks; the workflow checkpoint gate is separate |
 | **1** prompt guard | `spoken-secret`, on surfaces with a prompt hook |
 | **1** output filter | `wrap` reduces test-output context; it is not a protection guard |
 | **1** npm package | `ai-engineering`; release binaries are separate assets |
@@ -189,11 +189,13 @@ governs, in a fixed order, and the first deny wins.
 |---|---|---|
 | 1 | `self-protect` | writes against anything that governs the agent: `.ai-engineering/` (except the milestone slots a session owns), the surface settings, the git hooks, the global canon |
 | 2 | `no-verify` | `--no-verify`, `git commit -n`, `HUSKY=0`, deleting `.git/hooks/`, repointing `core.hooksPath`, and every linter silence: `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `noqa`, `nosec`, `NOLINTNEXTLINE` |
-| 3 | `policy` | commands outside the configured scope. Four octal digits for system, external, network and workspace, each read, write or execute. The default is `4667`: system read only, everything else read and write, workspace execute too |
-| 4 | `injection` | reading a file whose text carries an instruction payload, and acting on a fetched page that carries one. The text is treated as data, never as an order |
-| 5 | `wrap` | output optimization, not a protection guard. It rewrites recognized test commands so `ai-eng wrap test -- <command>` prints failing blocks and a summary, reducing test-output context |
-| 6 | `loop` | the same call repeated, or the same failure retried with the arguments tweaked. Thresholds live in `config.toml` |
-| 7 | `checkpoint` | validates workflow phase and gate writes when a checkpoint is active |
+| 3 | `no-stash` | creating a stash, which takes work off its branch and every board; `list`, `show`, `apply`, `pop` and `branch` still work |
+| 4 | `policy` | commands outside the configured scope. Four octal digits for system, external, network and workspace, each read, write or execute. The default is `4667`: system read only, everything else read and write, workspace execute too |
+| 5 | `injection` | reading a file whose text carries an instruction payload, and acting on a fetched page that carries one. The text is treated as data, never as an order |
+| 6 | `wrap` | output optimization, not a protection guard. It rewrites recognized test commands so `ai-eng wrap test -- <command>` prints failing blocks and a summary, reducing test-output context |
+| 7 | `loop` | the same call repeated, or the same failure retried with the arguments tweaked. Thresholds live in `config.toml` |
+| 8 | `checkpoint` | validates workflow phase and gate writes when a checkpoint is active |
+| 9 | `lease` | a second session's write in a folder another session wrote in during the last 15 minutes (`[work] lease_minutes`); it is sent to a worktree, and `ai-eng work release` frees the folder |
 
 Separately, `spoken-secret` checks submitted prompts on surfaces with a prompt hook. It
 denies a prompt that appears to contain a credential and never prints the value it found.

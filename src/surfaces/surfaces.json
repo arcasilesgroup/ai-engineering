@@ -29,6 +29,12 @@
         "source": "code.claude.com/docs/en/hooks: SessionStart (matchers startup|resume|clear|compact) adds hookSpecificOutput.additionalContext to the session",
         "measured": "2026-11-19"
       },
+      "sessionEndHook": {
+        "supported": true,
+        "event": "SessionEnd",
+        "source": "code.claude.com/docs/en/hooks: SessionEnd runs when a session ends, with session_id and cwd; it cannot block",
+        "measured": "2026-11-19"
+      },
       "carriers": [
         {
           "scope": "machine",
