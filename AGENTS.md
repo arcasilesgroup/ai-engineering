@@ -54,6 +54,7 @@ Replies to a person, and handoffs to another agent, follow the voice standard in
 
 ## Git workflow
 See **Where to work** for checkout, worktree, and integration choices. `.ai-engineering/recap.html` is optional and never required for merge.
+- Push only your own feature branch to origin, never the base or integration branch. Do not open a PR unless asked: a person opens it.
 
 ## Pull requests
 - Run lint and the full test suite before committing; the commit must pass everything it will face in CI.
