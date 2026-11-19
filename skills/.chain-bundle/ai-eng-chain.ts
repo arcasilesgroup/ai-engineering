@@ -1233,7 +1233,7 @@ function runNoStash(payload) {
 
 // src/guards/lease.ts
 import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync3, rmSync, statSync, writeFileSync } from "fs";
-import { dirname, join as join4, resolve as resolve3 } from "path";
+import { dirname, isAbsolute as isAbsolute2, join as join4, relative as relativePath, resolve as resolve3 } from "path";
 var MINUTE_MS = 60 * 1000;
 var FILE_WRITES = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 var GIT_WRITES = new Set(["add", "commit", "checkout", "switch", "reset", "restore", "merge", "rebase", "cherry-pick", "revert", "stash", "rm", "mv", "pull", "am", "apply"]);
@@ -1292,9 +1292,23 @@ function writesThroughGit(command) {
     return GIT_WRITES.has(words[index] ?? "");
   });
 }
-function isWrite(payload) {
-  if (FILE_WRITES.has(payload.tool_name))
-    return true;
+function targetPath(payload) {
+  for (const key of ["file_path", "notebook_path", "path"]) {
+    const value = payload.tool_input[key];
+    if (typeof value === "string" && value.length > 0)
+      return value;
+  }
+  return null;
+}
+function isWriteInto(payload, root) {
+  if (FILE_WRITES.has(payload.tool_name)) {
+    const target = targetPath(payload);
+    if (target === null)
+      return true;
+    const cwd = typeof payload["cwd"] === "string" && payload["cwd"].length > 0 ? payload["cwd"] : root;
+    const relative = relativePath(resolve3(root), resolve3(cwd, target));
+    return relative === "" || !(relative.startsWith("..") || isAbsolute2(relative));
+  }
   if (payload.tool_name !== "Bash" && payload.tool_name !== "PowerShell")
     return false;
   const command = payload.tool_input["command"];
@@ -1302,7 +1316,7 @@ function isWrite(payload) {
 }
 function runLease(payload, root, now = Date.now()) {
   const session = typeof payload.session_id === "string" ? payload.session_id.trim() : "";
-  if (root === null || session === "" || !isWrite(payload))
+  if (root === null || session === "" || !isWriteInto(payload, root))
     return;
   const lease = readLease(root);
   const minutes = leaseMinutes(root);
@@ -1320,7 +1334,7 @@ function runLease(payload, root, now = Date.now()) {
 }
 
 // src/guards/self-protect.ts
-import { basename as basename3, isAbsolute as isAbsolute2, join as join5, parse, resolve as resolve4, sep as sep2 } from "path";
+import { basename as basename3, isAbsolute as isAbsolute3, join as join5, parse, resolve as resolve4, sep as sep2 } from "path";
 import { existsSync as existsSync3, readFileSync as readFileSync4, realpathSync as realpathSync2 } from "fs";
 var WRITERS = {
   rm: true,
@@ -1645,7 +1659,7 @@ function pathCandidates(word, bases) {
           found.push(resolve4(base, pattern));
           continue;
         }
-        const isRooted = isAbsolute2(pattern);
+        const isRooted = isAbsolute3(pattern);
         if (isNetworkPath(isRooted ? pattern : base))
           return null;
         let count = 0;
@@ -1666,7 +1680,7 @@ function isAncestorOfProtected(paths, candidate) {
   try {
     canonical = localRealpath(candidate);
   } catch {}
-  const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute2(path))];
+  const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute3(path))];
   return protectedRoots.some((root) => {
     let real = root;
     try {
@@ -1745,7 +1759,7 @@ function judgeShell(command, context, depth = 0) {
     const hit = candidates.find((candidate) => offendingTarget(context.paths, candidate, bases) !== null || includesCheckpoints && CHECKPOINT_FILE.test(slashed(candidate)));
     return hit ?? globNamesProtected(word, bases, context.paths);
   };
-  const isRelative = (word) => !isAbsolute2(expandTilde(word)) && !word.startsWith("-");
+  const isRelative = (word) => !isAbsolute3(expandTilde(word)) && !word.startsWith("-");
   for (const { segment, words, plain, writeTargets, inputs, verb, name, args } of parsed) {
     const verbWord = words.find((word) => !word.isOperator && word.value === plain[verb.index]);
     const rawVerb = verbWord?.original ?? "";
@@ -1946,7 +1960,7 @@ function extractionTarget(name, args) {
 function globNamesProtected(word, bases, paths) {
   if (!GLOB_CHARS.test(word) && !/\{[^}]*,/.test(word))
     return null;
-  const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute2(path))];
+  const protectedRoots = [...paths.literals, ...paths.terminal.filter((path) => isAbsolute3(path))];
   for (const pattern of expandBraces(expandTilde(word))) {
     for (const base of bases) {
       const segments = slashed(resolve4(base, pattern)).toLowerCase().split("/");
@@ -2153,7 +2167,7 @@ function offendingPath(paths, rawText) {
 function offendingTarget(paths, target, bases) {
   const expanded = expandTilde(target);
   for (const base of bases) {
-    const resolved = isAbsolute2(expanded) ? resolve4(expanded) : resolve4(base, expanded);
+    const resolved = isAbsolute3(expanded) ? resolve4(expanded) : resolve4(base, expanded);
     let canonical = resolved;
     try {
       canonical = localRealpath(resolved);
@@ -2250,7 +2264,7 @@ function runSelfProtect(payload, repoRoot) {
       }),
       specPinned: paths.specPinned,
       terminal: paths.terminal.map((p) => {
-        if (!isAbsolute2(p))
+        if (!isAbsolute3(p))
           return p;
         try {
           return realpathSync2(p);
@@ -2547,7 +2561,7 @@ function runPolicy(command, cwd, allowedMode) {
 
 // src/guards/injection.ts
 import { readFileSync as readFileSync6, existsSync as existsSync4 } from "fs";
-import { dirname as dirname2, isAbsolute as isAbsolute3, resolve as resolve5, sep as sep3 } from "path";
+import { dirname as dirname2, isAbsolute as isAbsolute4, resolve as resolve5, sep as sep3 } from "path";
 import { fileURLToPath } from "url";
 
 // src/guards/local-rules.ts
@@ -2754,7 +2768,7 @@ function readTargets(command) {
 }
 function scanPath(target, cwd) {
   const base = typeof cwd === "string" && cwd.length > 0 ? cwd : process.cwd();
-  const resolved = isAbsolute3(target) ? target : resolve5(base, target);
+  const resolved = isAbsolute4(target) ? target : resolve5(base, target);
   const root = trustedRoot();
   if (root !== null && resolved.startsWith(root))
     return null;
@@ -3069,7 +3083,7 @@ import {
   writeFileSync as writeFileSync4
 } from "fs";
 import { homedir as homedir3 } from "os";
-import { basename as basename4, dirname as dirname3, isAbsolute as isAbsolute5, join as join11, relative as relative2, resolve as resolve7, sep as sep5 } from "path";
+import { basename as basename4, dirname as dirname3, isAbsolute as isAbsolute6, join as join11, relative as relative2, resolve as resolve7, sep as sep5 } from "path";
 import { isDeepStrictEqual } from "util";
 
 // src/git/context.ts
@@ -3282,7 +3296,7 @@ function resolveContext(cwd, opts = {}) {
 
 // src/workflow/checkpoint.ts
 import { lstatSync, readFileSync as readFileSync9, realpathSync as realpathSync5 } from "fs";
-import { isAbsolute as isAbsolute4, join as join10, relative, resolve as resolve6, sep as sep4 } from "path";
+import { isAbsolute as isAbsolute5, join as join10, relative, resolve as resolve6, sep as sep4 } from "path";
 var SHA_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 var SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 var GATE_STATUSES = ["pending", "failed", "passed", "n/a", "blocked"];
@@ -3552,10 +3566,10 @@ function parseCheckpoint(contents, context, options = {}) {
 function readCheckpointText(path, context, allowMissing = false) {
   try {
     const repoRoot = realpathSync5.native(context.repoPath);
-    const absolutePath = isAbsolute4(path) ? resolve6(path) : resolve6(repoRoot, path);
+    const absolutePath = isAbsolute5(path) ? resolve6(path) : resolve6(repoRoot, path);
     const relativePath = relative(repoRoot, absolutePath);
     const expectedPath = join10(repoRoot, ".ai-engineering", "workflow", "checkpoints", `${context.slug}.json`);
-    if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep4}`) || isAbsolute4(relativePath) || absolutePath !== expectedPath) {
+    if (relativePath === "" || relativePath === ".." || relativePath.startsWith(`..${sep4}`) || isAbsolute5(relativePath) || absolutePath !== expectedPath) {
       fail("path", "is not the repository-local checkpoint file for this slug");
     }
     let currentPath = repoRoot;
@@ -3825,7 +3839,7 @@ function checkpointTarget(repoRoot, filePath) {
   if (typeof filePath !== "string" || filePath.length === 0)
     return null;
   const root = resolve7(repoRoot);
-  const absolutePath = isAbsolute5(filePath) ? resolve7(filePath) : resolve7(root, filePath);
+  const absolutePath = isAbsolute6(filePath) ? resolve7(filePath) : resolve7(root, filePath);
   for (const base of new Set([root, realRootOf(root)])) {
     const match = CHECKPOINT_PATH.exec(relative2(base, absolutePath).split(sep5).join("/"));
     if (match?.[1])
@@ -3906,7 +3920,7 @@ function aliasedCheckpoint(repoRoot, filePath) {
   if (typeof filePath !== "string" || filePath.length === 0)
     return null;
   const repo = realRepo(repoRoot);
-  const absolutePath = isAbsolute5(filePath) ? resolve7(filePath) : resolve7(repoRoot, filePath);
+  const absolutePath = isAbsolute6(filePath) ? resolve7(filePath) : resolve7(repoRoot, filePath);
   const sameFile = checkpointWithSameInode(join11(repo.root, CHECKPOINTS_DIR), absolutePath);
   if (sameFile !== null)
     return sameFile;
@@ -4223,7 +4237,7 @@ function shellWritesIntoCheckpoints(command, cwd, repo) {
         return true;
     }
     for (const target of writeTargets(segment, words)) {
-      const absolute = isAbsolute5(target) || target.startsWith("~") ? shellPath("/", target) : directory === null ? null : shellPath(directory, target);
+      const absolute = isAbsolute6(target) || target.startsWith("~") ? shellPath("/", target) : directory === null ? null : shellPath(directory, target);
       if (absolute === null ? mentionsCheckpoints : landsInCheckpoints(repo, absolute))
         return true;
     }
@@ -4434,7 +4448,7 @@ import { createHash as createHash5, randomUUID } from "crypto";
 // src/shared-project-fs.ts
 import { createHash as createHash4 } from "crypto";
 import { closeSync, constants, fstatSync, ftruncateSync, lstatSync as lstatSync3, openSync, readFileSync as readFileSync11, readSync, realpathSync as realpathSync7, rmdirSync, unlinkSync as unlinkSync2, writeSync } from "fs";
-import { basename as basename5, dirname as dirname4, isAbsolute as isAbsolute6, join as join12, relative as relative3, resolve as resolve8, sep as sep6 } from "path";
+import { basename as basename5, dirname as dirname4, isAbsolute as isAbsolute7, join as join12, relative as relative3, resolve as resolve8, sep as sep6 } from "path";
 function safeProjectPath(root, rel) {
   let canonicalRoot;
   try {
@@ -4585,7 +4599,7 @@ function readProjectFileSnapshot(root, absolute, bindParent = withSafeProjectPar
 }
 function pathIsWithin(root, candidate) {
   const pathFromRoot = relative3(root, candidate);
-  return pathFromRoot === "" || pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep6}`) && !isAbsolute6(pathFromRoot);
+  return pathFromRoot === "" || pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep6}`) && !isAbsolute7(pathFromRoot);
 }
 
 // src/receipts.ts
