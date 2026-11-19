@@ -883,7 +883,8 @@ describe("init · non-interactive default skill installation", () => {
     // The three whose readers live in the home get their carrier, and nothing is asked.
     const claude = readFileSync(join(home, ".claude", "settings.json"), "utf8");
     expect(claude).toContain('"model": "mine"');
-    expect(claude).toContain("ai-eng chain PreToolUse");
+    // The launcher is `ai-eng` on POSIX and `ai-eng.cmd` on Windows: match what follows it.
+    expect(claude).toContain(" chain PreToolUse");
     // Oh My Pi's lands where PI_CODING_AGENT_DIR points (the sandbox redirects it): the row says so.
     expect(out).toContain(".omp/agent/hooks/pre/ai-eng.ts");
     expect(existsSync(join(home, ".config", "opencode", "plugins", "ai-eng.ts"))).toBe(true);
@@ -893,7 +894,7 @@ describe("init · non-interactive default skill installation", () => {
     // A second init writes nothing twice: the hook is there once, the person's key still there.
     expect(await initMain({ yes: true })).toBe(0);
     const again = readFileSync(join(home, ".claude", "settings.json"), "utf8");
-    expect(again.split("ai-eng chain PreToolUse").length - 1).toBe(1);
+    expect(again.split(" chain PreToolUse").length - 1).toBe(1);
     expect(again).toContain('"model": "mine"');
   });
 
