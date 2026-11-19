@@ -247,7 +247,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     writeFileSync(join(home, ".claude", "settings.json"), `${JSON.stringify(userSettings, null, 2)}\n`);
     const initialized = run(["init", "--yes", "--surface", "claude-code,cursor"], repo);
     expect(initialized.status).toBe(0);
-    expect(initialized.stdout + initialized.stderr).toInclude("~/.claude/settings.json — machine carrier");
+    expect(initialized.stdout + initialized.stderr).toInclude("installed  ~/.claude/settings.json · machine carrier");
     const settings = join(home, ".claude", "settings.json");
     const userBytes = `${JSON.stringify(userSettings, null, 2)}\n`;
     const merged = readFileSync(settings, "utf8");
@@ -274,7 +274,7 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     rmSync(carrier);
     const out = run(["update", "--yes"], repo);
     expect(out.status, out.stdout + out.stderr).toBe(0);
-    expect(out.stdout + out.stderr).toInclude("~/.claude/settings.json · machine carrier · written");
+    expect(out.stdout + out.stderr).toInclude("installed  ~/.claude/settings.json · machine carrier");
     expect(readFileSync(carrier, "utf8")).toBe(carrierFiles("claude-code")!.main);
   });
 

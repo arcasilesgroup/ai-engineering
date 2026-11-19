@@ -61,14 +61,6 @@ export async function fetchLatest(): Promise<string | null> {
   }
 }
 
-/** The latest version through the cache: a fresh entry — an answer or a failure — is final. */
-export async function latestVersion(): Promise<string | null> {
-  const cache = readCache();
-  if (cache !== null && isFresh(cache)) return cache.version;
-  const latest = await fetchLatest();
-  writeCache(latest);
-  return latest;
-}
 
 export function noticesOff(root: string | null = repoRoot()): boolean {
   if (process.env["AI_ENG_NO_UPDATE_NOTICES"]) return true;
@@ -118,13 +110,24 @@ export function agentLines(found: Signal[]): string[] {
   );
 }
 
+export type NoticeLine = { readonly kind: Signal["kind"]; readonly line: string };
+
+/** Cache and lock only. A stale or missing cache calls `onStale` and still answers
+ *  from whatever the cache already holds, so the verb never waits on the registry. */
+function cachedSignals(root: string | null, onStale: () => void): Signal[] {
+  const cache = readCache();
+  if (cache === null || !isFresh(cache)) onStale();
+  return signals({ binary: VERSION, latest: cache?.version ?? null, lockVersion: lockVersion(root) });
+}
+
 /** The end-of-verb notice: at most one line per signal, none when all is current or
  *  the notices are off. The caller prints them: this module stays free of the UI, so
- *  the chain bundle that reads it at session start carries no prompt library. */
-export async function noticeNow(): Promise<string[]> {
+ *  the chain bundle that reads it at session start carries no prompt library.
+ *  A stale cache refreshes in the background; this call does not wait. */
+export function noticeNow(onStale: () => void = refreshInBackground): NoticeLine[] {
   const root = repoRoot();
   if (noticesOff(root)) return [];
-  return noticeLines(signals({ binary: VERSION, latest: await latestVersion(), lockVersion: lockVersion(root) }));
+  return cachedSignals(root, onStale).map((signal) => ({ kind: signal.kind, line: noticeLines([signal])[0] ?? "" }));
 }
 
 /** What the agent is told at session start — no network: the cache and the lock only.
@@ -132,9 +135,7 @@ export async function noticeNow(): Promise<string[]> {
  *  next session. Null when there is nothing to say or the notices are off. */
 export function sessionStartContext(root: string | null, onStale: () => void = () => {}): string | null {
   if (noticesOff(root)) return null;
-  const cache = readCache();
-  if (cache === null || !isFresh(cache)) onStale();
-  const lines = agentLines(signals({ binary: VERSION, latest: cache?.version ?? null, lockVersion: lockVersion(root) }));
+  const lines = agentLines(cachedSignals(root, onStale));
   return lines.length === 0 ? null : lines.join("\n");
 }
 

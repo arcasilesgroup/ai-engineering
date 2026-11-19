@@ -255,7 +255,7 @@ test("update rebuilds the lock without claiming user-owned files (recovery state
     // The repo settings are not a plan entry; the machine settings take our entries by
     // marker and keep the user's key.
     expect(readFileSync(join(repo, ".claude", "settings.json"), "utf8")).toBe('{\n  "editor": "vim"\n}\n');
-    expect(first.stdout + first.stderr).toInclude("~/.claude/settings.json · machine carrier · written");
+    expect(first.stdout + first.stderr).toInclude("installed  ~/.claude/settings.json · machine carrier");
     const machineSettingsMerged = readFileSync(machineSettings, "utf8");
     expect(JSON.parse(machineSettingsMerged).user).toBe("keep");
     expect(machineSettingsMerged).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);

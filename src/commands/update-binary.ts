@@ -62,7 +62,10 @@ function defaultDeps(): BinaryDeps {
  *  run, or of a refusal to sync with a binary that is not the one just installed. */
 export async function updateBinary(opts: { yes: boolean }, deps: BinaryDeps = defaultDeps()): Promise<number | null> {
   if (process.env[RELAUNCHED_ENV] === "1" || noticesOff()) return null;
+  const spin = ui.spinner();
+  spin.start("Checking the registry");
   const latest = await deps.fetchLatest();
+  spin.stop();
   writeCache(latest);
   // Offline, a failed read, or nothing newer: the sync runs exactly as before, quietly.
   if (latest === null || compareVersions(latest, VERSION) <= 0) return null;

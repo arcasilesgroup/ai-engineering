@@ -286,9 +286,9 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(readFileSync(join(cwd, "DECISIONS.md"), "utf8")).toBe(decisions);
     expect(readFileSync(join(cwd, ".ai-engineering", "spec", "plan.md"), "utf8")).toBe(plan);
     expect(existsSync(join(cwd, ".ai-engineering"))).toBe(true); // the spec keeps it alive
-    expect(out).toContain("✓ .cursor/hooks.json removed · still the template ai-eng installed");
-    expect(out).toContain("✓ ai-eng.lock deleted · 8 owned files swept");
-    expect(out).toContain("ai-eng is no longer active in this repo. Your contract files remain.");
+    expect(out).toContain("✓ removed    .cursor/hooks.json · still the template ai-eng installed");
+    expect(out).toContain("✓ removed    ai-eng.lock · 8 owned files swept");
+    expect(out).toContain("ai-eng is out of this repo. Contract files remain.");
   });
 
   test("a byte on the runner's own stdin never answers a prompt: the sweep still runs", async () => {
@@ -353,7 +353,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     // the two apart would need a ledger of what each merge added (install.ts:73-77).
     expect(restored).toMatchObject({ failClosed: true });
     expect(existsSync(join(cwd, ".cursor"))).toBe(true); // their file keeps the dir
-    expect(out).toContain("✓ .cursor/hooks.json: removed the ai-eng hook entries, kept yours");
+    expect(out).toContain("✓ updated    .cursor/hooks.json · ai-eng entries removed, yours kept");
   });
 
   test("a settings file this installer cannot reproduce is left alone, and said", async () => {
@@ -393,9 +393,9 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
 
     expect(result).toBe(0);
     expect(readFileSync(rules, "utf8")).toBe(edited);
-    expect(out).toContain("✓ .ai-engineering/arch.rules.json kept · config you edited — yours");
+    expect(out).toContain("· unchanged  .ai-engineering/arch.rules.json · config you edited — yours");
     expect(existsSync(workflow)).toBe(false);
-    expect(out).toContain("✓ .github/workflows/ai-eng-check.yml removed · edited since install — ai-eng's file all the same");
+    expect(out).toContain("✓ removed    .github/workflows/ai-eng-check.yml · edited since install — ai-eng's file all the same");
     expect(existsSync(join(cwd, ".github"))).toBe(false); // the workflow was all it held
     expect(existsSync(join(cwd, ".git", "hooks", "pre-commit"))).toBe(false);
   });
@@ -415,7 +415,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
 
     expect(result).toBe(0);
     expect(existsSync(workflow)).toBe(false);
-    expect(out).toContain("✓ .github/workflows/ai-eng-check.yml removed");
+    expect(out).toContain("✓ removed    .github/workflows/ai-eng-check.yml");
     expect(out).not.toContain(".github/workflows/ai-eng-check.yml kept");
   });
 

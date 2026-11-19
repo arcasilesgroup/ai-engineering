@@ -6,7 +6,7 @@
 import { VERSION } from "./version.ts";
 import { showLogo } from "./branding.ts";
 import { noticeNow, refreshVersionCache, REFRESH_ENV } from "./notice.ts";
-import { warn } from "./ui.ts";
+import { info, warn } from "./ui.ts";
 import { chainMain } from "./chain/mod.ts";
 import { surfaceDialect } from "./surfaces/adapters.ts";
 import { doctorMain } from "./commands/doctor.ts";
@@ -62,11 +62,13 @@ if (flags.version && !isRefreshChild) {
 if (!isRefreshChild && (flags.help || !verb)) {
   showLogo(VERSION);
   process.stdout.write("\n");
-  const nameWidth = Math.max(...HUMAN_VERBS.map((entry) => entry.verb.length)) + 2;
+  const listed = [...HUMAN_VERBS, ...MACHINE_VERBS];
+  const nameWidth = Math.max(...listed.map((entry) => entry.verb.length)) + 2;
   for (const { verb: name, description } of HUMAN_VERBS)
     process.stdout.write(`  ai-eng ${name.padEnd(nameWidth)}${description}\n`);
   process.stdout.write("\n");
-  process.stdout.write(`Machine verbs (hooks/CI/agents): ${MACHINE_VERBS.join(" · ")}\n`);
+  for (const { verb: name, description } of MACHINE_VERBS)
+    process.stdout.write(`  ai-eng ${name.padEnd(nameWidth)}${description}\n`);
   process.exit(flags.help ? 0 : 2);
 }
 
@@ -91,7 +93,10 @@ async function main(): Promise<number> {
     // Once, at the end of a verb a person typed and that succeeded. Not after `update`:
     // it asks the registry itself, and a relaunched run would answer for the old binary.
     if (code === 0 && verb !== "update" && HUMAN_VERBS.some((entry) => entry.verb === verb)) {
-      for (const line of await noticeNow()) warn(line);
+      for (const notice of noticeNow()) {
+        if (notice.kind === "newer") info(notice.line);
+        else warn(notice.line);
+      }
     }
     return code;
   }

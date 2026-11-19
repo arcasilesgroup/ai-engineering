@@ -140,8 +140,8 @@ test("init scaffolds each surface's carrier where its host reads it", () => {
   // Cursor must fail CLOSED: a hook that cannot run cannot silently allow.
   expect(readFileSync(join(fresh, ".cursor/hooks.json"), "utf8")).toInclude('"failClosed": true');
   // The machine carriers land in the user's existing files, by marker, beside their keys.
-  expect(output).toInclude("~/.codex/hooks.json — machine carrier");
-  expect(output).toInclude("~/.copilot/hooks/ai-eng.json — machine carrier");
+  expect(output).toInclude("installed  ~/.codex/hooks.json · machine carrier");
+  expect(output).toInclude("installed  ~/.copilot/hooks/ai-eng.json · machine carrier");
   for (const [path, before, marker] of [
     [codexSettings, codexSettingsBefore, "--surface codex"],
     [copilotSettings, copilotSettingsBefore, "--surface copilot-cli"],

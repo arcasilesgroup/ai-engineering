@@ -9,7 +9,7 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync, readdirSync, rmSync, lstatSync, rmdirSync, realpathSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { MOVED_REPO_CARRIERS, removeMachineArtifacts, removeMachineCarriers } from "../surfaces/carriers-install.ts";
 import { SURFACES, repoCarrier } from "../surfaces/adapters.ts";
 import { machineStateUnavailable, readMachineState } from "../surfaces/machine-state.ts";
@@ -21,7 +21,7 @@ import {
   readProjectFileSnapshot, refusedChangeText, safeProjectPath, unlinkProjectPath, withSafeProjectParent, writeProjectFile,
   CANON_OWNERSHIP_NAME, type ProjectFileSnapshot,
 } from "../embed.ts";
-import { ciEntries, planEntries, refuseLine } from "./init-shared.ts";
+import { ciEntries, planEntries, refuseText } from "./init-shared.ts";
 import { select, isCancel } from "@clack/prompts";
 import * as ui from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -90,7 +90,7 @@ function sweepProjectSide(
     if (lockPath === null || lockSnapshot === null || !unlinkProjectPath(root, lockPath, lockSnapshot)) {
       removed.push({ mark: "warn", text: "ai-eng.lock kept", dim: PRESERVED });
     } else {
-      removed.push({ mark: "ok", text: "ai-eng.lock deleted", dim: `${Object.keys(assets).length} owned files swept` });
+      removed.push(ui.fileRow("removed", "ai-eng.lock", `${Object.keys(assets).length} owned files swept`));
     }
   } else {
     removed.push({ mark: "muted", text: `${Object.keys(assets).length} owned files swept` });
@@ -264,31 +264,31 @@ function decideSweep(
     // user's keys stay, only our hook entries come out. The marker logic lives in
     // install.ts beside its inverse, so what init merges in and what uninstall takes
     // out can never drift apart. Unparseable: never rewrite what you cannot read.
-    if (diskHash === assets[rel]) return unlink({ mark: "ok", text: `${rel} removed`, dim: "still the template ai-eng installed" });
+    if (diskHash === assets[rel]) return unlink(ui.fileRow("removed", rel, "still the template ai-eng installed"));
     const stripped = stripSharedText(snapshot.content.toString("utf8"));
     if (stripped === null) {
       return { kind: "leave", row: { mark: "warn", text: `${rel} not rewritten — not JSON this installer can rewrite without reformatting it (review by hand)` } };
     }
     if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
-      return unlink({ mark: "ok", text: `${rel} removed`, dim: "it held only ai-eng entries" });
+      return unlink(ui.fileRow("removed", rel, "it held only ai-eng entries"));
     }
     // A second name would receive the rewrite too, so the write would refuse: leave it now,
     // or the plan promises a strip the sweep never makes and the lock retries it forever.
     if (snapshot.nlink !== 1) {
       return { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: HARD_LINKED } };
     }
-    return { kind: "rewrite", absolute: safeAbsolute, snapshot, text: stripped, row: { mark: "ok", text: `${rel}: removed the ai-eng hook entries, kept yours` } };
+    return { kind: "rewrite", absolute: safeAbsolute, snapshot, text: stripped, row: ui.fileRow("updated", rel, "ai-eng entries removed, yours kept") };
   }
   // Git shims are judged by their marker (the only test that survives a user re-chmod):
   // a hook the user wrote over ours is no longer ai-eng's shim. Seeded config the project
   // edited is the project's. Every other file the lock names is ai-eng's, edited or not.
   if (rel.startsWith(".git/hooks/")) {
     return snapshot.content.includes(Buffer.from("ai-eng git floor shim"))
-      ? unlink({ mark: "ok", text: `${rel} removed`, dim: "marker-matched — never by name alone" })
+      ? unlink(ui.fileRow("removed", rel, "marker-matched — never by name alone"))
       : { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: "no ai-eng marker: it is yours now" } };
   }
   if (SEEDED_CONFIG.has(rel) && diskHash !== assets[rel]) {
-    return { kind: "leave", row: { mark: "ok", text: `${rel} kept`, dim: "config you edited — yours" } };
+    return { kind: "leave", row: ui.fileRow("unchanged", rel, "config you edited — yours") };
   }
   // Without a lock the path is only one the binary would ship, not proof ai-eng wrote
   // this file: only bytes identical to ai-eng's own say so.
@@ -296,8 +296,8 @@ function decideSweep(
     return { kind: "leave", row: { mark: "warn", text: `${rel} kept`, dim: "no lock records it and its bytes are not ai-eng's — yours" } };
   }
   return unlink(diskHash === assets[rel]
-    ? { mark: "ok", text: `${rel} removed` }
-    : { mark: "ok", text: `${rel} removed`, dim: "edited since install — ai-eng's file all the same" });
+    ? ui.fileRow("removed", rel)
+    : ui.fileRow("removed", rel, "edited since install — ai-eng's file all the same"));
 }
 
 function pruneCreatedDirs(root: string, removed: ui.Row[]): void {
@@ -382,7 +382,7 @@ function machineRefusalText(refused: { path: string; reason: string }): string {
   if (refused.reason === "machine-state-identity-unverified") {
     return `${refused.path} left alone — it is linked, changed, or shared with another path`;
   }
-  return refuseLine(refused).replace(/^⚠ /, "");
+  return refuseText(refused);
 }
 
 /** Restore git `init.templateDir` from the machine state. State that cannot be read now
@@ -391,7 +391,7 @@ function machineRefusalText(refused: { path: string; reason: string }): string {
 function restoreRecordedTemplateDir(): ui.Row | null {
   const unavailable = machineStateUnavailable();
   if (unavailable !== null) {
-    return { mark: "warn", text: `git init.templateDir not restored — ${refuseLine(unavailable).replace(/^⚠ /, "")}` };
+    return { mark: "warn", text: `git init.templateDir not restored — ${refuseText(unavailable)}` };
   }
   const floorState = readMachineState().templateDir;
   if (floorState === undefined) return null;
@@ -461,8 +461,8 @@ async function removeEverything(root: string, input: unknown, declared: string[]
 
 export async function uninstallMain(): Promise<number> {
   const input = scriptedInput();
-  ui.frame(`Uninstall · ai-eng ${VERSION}`);
   const root = repoRoot();
+  ui.frame(ui.frameTitle("uninstall", root === null ? "this folder" : basename(root), VERSION));
   if (root === null || !isGoverned(root)) {
     ui.fail("you are not in a governed repo — nothing of this project to remove");
     ui.end("Nothing done.");
@@ -479,7 +479,7 @@ export async function uninstallMain(): Promise<number> {
   // ── project side ──────────────────────────────────────────────
   const removed: ui.Row[] = [];
   spawnSync("git", ["-C", root, "config", "--unset", "core.hooksPath"]);
-  removed.push({ mark: "ok", text: "git: core.hooksPath reverted to default" });
+  removed.push(ui.fileRow("updated", "core.hooksPath", "reverted to default"));
   sweepProjectSide(root, declared, removed);
   // Rendered as one block: what went, at a glance.
   ui.section("Removed", removed);
@@ -487,6 +487,6 @@ export async function uninstallMain(): Promise<number> {
     const extra = await removeEverything(root, input, declared);
     ui.section("Everything scope — the extra sweep", extra);
   }
-  ui.end(scope === "everything" ? "ai-eng removed from this machine as far as you chose. Your work survives unless you said otherwise." : "ai-eng is no longer active in this repo. Your contract files remain.");
+  ui.end(scope === "everything" ? "ai-eng is off this machine. Your files remain." : "ai-eng is out of this repo. Contract files remain.");
   return 0;
 }

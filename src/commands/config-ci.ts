@@ -49,7 +49,7 @@ export function changeCi(root: string, next: CiProvider): number {
   writeFileSync(configPath, rewritten);
   ui.section("CI changed", swapGate(root, next), `provider: ${next}`);
   if (next === "azure-pipelines") ui.section("Azure DevOps — two steps in the portal", AZURE_PORTAL_STEPS);
-  ui.end("Done. Review the diff, then commit it.");
+  ui.end("Next: review the diff, then commit it.");
   return 0;
 }
 

@@ -311,7 +311,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     process.chdir(foreign);
     const run = await captured(() => updateMain({ yes: true }));
     expect(run.value).toBe(2);
-    expect(run.err).toInclude("not in a governed repo");
+    expect(run.out).toInclude("not in a governed repo");
     expect(existsSync(join(foreign, ".ai-engineering"))).toBe(false);
   });
 
@@ -344,7 +344,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     if (process.platform !== "win32") expect(statSync(join(repo, ".git", "hooks", "pre-commit")).mode & 0o111).not.toBe(0);
     // The local canon installs completely, and the user's machine settings take our entries
     // beside their own keys.
-    expect(first.out).toInclude("~/.claude/settings.json · machine carrier · written");
+    expect(first.out).toInclude("installed  ~/.claude/settings.json · machine carrier");
     const machineSettingsMerged = readFileSync(machineSettings, "utf8");
     expect(JSON.parse(machineSettingsMerged).user).toBe("keep");
     expect(machineSettingsMerged).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
@@ -391,7 +391,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     expect(first.value).toBe(0);
     for (const [id, path] of carriers) {
       expect(readFileSync(join(freshHome, path), "utf8")).toBe(carrierFiles(id)!.main);
-      expect(first.out).toInclude(`~/${path} · machine carrier · written`);
+      expect(first.out).toInclude(`installed  ~/${path} · machine carrier`);
     }
     expect(first.out).not.toInclude("unavailable on this platform");
     const recorded = JSON.parse(readFileSync(join(freshHome, "machine.json"), "utf8")) as { carriers: Record<string, string> };
@@ -889,7 +889,7 @@ describe("updateMain · rewriting this repo's assets from the binary", () => {
     const run = await captured(() => updateMain({ yes: true }));
     expect(run.value).toBe(0);
     expect(run.out).not.toInclude("no longer shipped");
-    expect(run.out).not.toInclude("retired");
+    expect(run.out).not.toInclude("retired —");
     expect(readFileSync(outside, "utf8")).toBe("not ai-eng's\n");
   });
 
@@ -1063,7 +1063,7 @@ describe("update · the CI provider the repo declares", () => {
 
     const run = await captured(() => updateMain({ yes: true }));
     expect(run.value).toBe(2);
-    expect(run.err).toInclude('"jenkins"');
+    expect(run.out).toInclude('"jenkins"');
     expect(existsSync(join(repo, GITHUB))).toBe(true);
     expect(readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8")).toBe(lockBefore);
   });

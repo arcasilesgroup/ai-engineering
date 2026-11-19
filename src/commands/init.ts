@@ -9,16 +9,16 @@ import { PassThrough } from "node:stream";
 // Every line a human sees goes through src/ui.ts: the frame must survive the
 // whole flow (cli-ux-14 work point 02).
 
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { select, multiselect, isCancel } from "@clack/prompts";
 import { scriptedInput } from "../ui.ts";
 import { installCanon } from "../surfaces/canon-install.ts";
 import { installMachineCarriers } from "../surfaces/carriers-install.ts";
-import { SURFACES, surfaceCanGovern, machineCarrier, retireNpmPowerShellShim, type Surface } from "../surfaces/adapters.ts";
+import { SURFACES, surfaceCanGovern, machineCarrier, retireNpmPowerShellShim } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home, isCiProvider, CI_PROVIDERS, type CiProvider } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions } from "./init-shared.ts";
+import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, refuseText, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { retiredPaths, sweepRetiredAssets } from "./uninstall.ts";
@@ -60,15 +60,17 @@ function canonSummary(canon: { drift: number; missing: number; stale: number }):
   return parts.join(" · ");
 }
 
-function scaffoldProject(surfaces: string[], ci: CiProvider, contract: PlanEntry[]): string[] {
+
+function scaffoldProject(surfaces: string[], ci: CiProvider, contract: PlanEntry[]): ScaffoldRows {
   const cwd = process.cwd();
-  const lines: string[] = [];
+  const rows: ui.Row[] = [];
+  const contractRows: ui.Row[] = [];
   // Contract files: written ONCE. The AGENTS.md question is already resolved where the
   // prompt lives (scaffoldAndCarriers), so what reaches install() here is exactly what
   // may be written: a kept file was filtered out, a replaced one was written above.
   const contractReport = install(cwd, contract);
-  for (const written of contractReport.written) lines.push(`✓ ${written} (contract)`);
-  for (const untouched of contractReport.yours) lines.push(`· ${untouched} (contract) — yours, untouched`);
+  for (const written of contractReport.written) contractRows.push(ui.fileRow("installed", written, "contract"));
+  for (const untouched of contractReport.yours) contractRows.push(ui.fileRow("unchanged", untouched, "contract · yours, untouched"));
   // A repo that already carries a lock (config.toml gone, so init runs instead of update) keeps
   // what it records as ai-eng's: an edited recorded file is rewritten, never handed over.
   const lockPath = join(cwd, ".ai-engineering", "ai-eng.lock");
@@ -79,21 +81,21 @@ function scaffoldProject(surfaces: string[], ci: CiProvider, contract: PlanEntry
   };
   const entries = planEntries(surfaces, ci);
   const report = install(cwd, entries, recordedHash);
-  for (const written of report.written) lines.push(`✓ ${written}`);
-  for (const path of report.yours) lines.push(`· ${path} — already here and not written by ai-eng: yours, untouched`);
-  for (const refused of report.refused) lines.push(refuseLine(refused));
+  for (const written of report.written) rows.push(ui.fileRow("installed", written));
+  for (const path of report.yours) rows.push(ui.fileRow("unchanged", path, "already here and not written by ai-eng: yours, untouched"));
+  for (const refused of report.refused) rows.push({ mark: "warn", text: refuseText(refused) });
   // What the carried lock records and this run does not write goes, by update's rule: a re-init
   // that dropped it from the ledger unswept would leave a file no later run can see.
   const retiredRows: ui.Row[] = [];
   const carriedAssets = carried?.assets ?? {};
   const retiredKept = sweepRetiredAssets(cwd, retiredPaths(carriedAssets, entries), carriedAssets, retiredRows);
-  for (const row of retiredRows) lines.push(`${row.mark === "warn" ? "⚠" : "✓"} ${row.text}${"dim" in row && row.dim ? ` — ${row.dim}` : ""}`);
+  rows.push(...retiredRows);
   // Hook shims must be executable or git silently ignores them.
   for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
     const shimPath = join(cwd, ".git", "hooks", shim);
     if (existsSync(shimPath)) chmodSync(shimPath, 0o755);
   }
-  lines.push("✓ git floor → .git/hooks/{pre-commit,commit-msg,pre-push} (marker-managed)");
+  rows.push({ mark: "ok", text: "git floor → .git/hooks/{pre-commit,commit-msg,pre-push}", dim: "marker-managed" });
   // core.hooksPath is NOT redirected: the hooks live in their standard location.
   // The shims live in .git/hooks, which git only reads while `core.hooksPath` is unset —
   // so a repo that points it somewhere else (husky, pre-commit) would carry our floor and
@@ -105,9 +107,9 @@ function scaffoldProject(surfaces: string[], ci: CiProvider, contract: PlanEntry
   if (hooksPathValue.length > 0) {
     if (hooksPathValue.includes("ai-eng")) {
       spawnSync("git", ["-C", cwd, "config", "--unset", "core.hooksPath"]);
-      lines.push(`✓ git core.hooksPath (${hooksPathValue}) unset — it pointed at ai-eng's own floor`);
+      rows.push(ui.fileRow("updated", "core.hooksPath", `unset — was ${hooksPathValue}`));
     } else {
-      lines.push(`⚠ core.hooksPath is yours (${hooksPathValue}): git will not read .git/hooks, so the ai-eng floor does not run. Keep it and call \`ai-eng git pre-commit\` from your hook, or unset it.`);
+      rows.push({ mark: "warn", text: `core.hooksPath is yours (${hooksPathValue}): git will not read .git/hooks, so the ai-eng floor does not run. Keep it and call \`ai-eng git pre-commit\` from your hook, or unset it.` });
     }
   }
   // The lock is the ownership ledger: it claims only what ai-eng wrote or already matched.
@@ -126,8 +128,8 @@ function scaffoldProject(surfaces: string[], ci: CiProvider, contract: PlanEntry
     if (retiredKept.includes(path)) lock.assets[path] = recorded;
   }
   writeFileSync(lockPath, lockText(lock));
-  lines.push(`✓ .ai-engineering/ai-eng.lock (${Object.keys(lock.assets).length} assets with sha256)`);
-  return lines;
+  rows.push(ui.fileRow("installed", ".ai-engineering/ai-eng.lock", `${Object.keys(lock.assets).length} assets with sha256`));
+  return { contract: contractRows, files: rows };
 }
 
 /** The local confirm closure — one shared prompt helper threaded into the machine/repo steps. */
@@ -159,7 +161,7 @@ async function resolveMachineSide(
   const canonExit = await installCanonOrReport(flags, inRepo, canonDir, canon, canonHealthy, confirmWithInput);
   if (canonExit !== null) return canonExit;
   if (flags.global) {
-    ui.end("Machine side done. Inside a repo, ai-eng init governs the project too.");
+    ui.end("Next: ai-eng init inside a repo.");
     return 0;
   }
   return { machineAgreed };
@@ -342,7 +344,7 @@ async function scaffoldAndCarriers(
   ci: CiProvider,
   machineAgreed: boolean,
   confirmWithInput: ConfirmInput,
-): Promise<string[]> {
+): Promise<ScaffoldRows> {
   const cwd = process.cwd();
   // An AGENTS.md this project already had is named and asked about before anything is
   // written: default, --yes and cancel keep it byte for byte; only a human yes replaces
@@ -369,13 +371,13 @@ async function scaffoldAndCarriers(
     }
   }
   const sp = ui.spinner();
-  sp.start("Scaffolding governance…");
-  const lines = scaffoldProject(picked, ci, contract);
-  if (replacedExisting) lines.unshift("✓ AGENTS.md (contract) — replaced the file that was there");
-  if (keptExisting) lines.unshift("· AGENTS.md (contract) — yours, untouched");
+  sp.start("Scaffolding");
+  const rows = scaffoldProject(picked, ci, contract);
+  if (replacedExisting) rows.contract.unshift(ui.fileRow("updated", "AGENTS.md", "contract — replaced the file that was there"));
+  if (keptExisting) rows.contract.unshift(ui.fileRow("unchanged", "AGENTS.md", "contract · yours, untouched"));
   sp.stop();
-  await installCarriers(flags, picked, machineAgreed, confirmWithInput, lines);
-  return lines;
+  await installCarriers(flags, picked, machineAgreed, confirmWithInput, rows.files);
+  return rows;
 }
 
 /** Write the machine carriers for the surfaces that read their hooks from the user's home. */
@@ -384,7 +386,7 @@ async function installCarriers(
   picked: string[],
   machineAgreed: boolean,
   confirmWithInput: ConfirmInput,
-  lines: string[],
+  rows: ui.Row[],
 ): Promise<void> {
   // The machine side of the declared surfaces: five of the seven hosts read their
   // carrier from the user's home, so that is where it goes — once per machine, not once
@@ -397,7 +399,7 @@ async function installCarriers(
   });
   // Every init, whatever the surfaces: Cursor's repo-only hook is the one that needs it most.
   const retiredShim = retireNpmPowerShellShim();
-  if (retiredShim !== null) lines.push(retiredShim);
+  if (retiredShim !== null) rows.push(installLineRow(retiredShim));
   if (machineScoped.length > 0) {
     // Named by what the person sees — the tool and the file — not by ai-eng's word for it.
     const tools = listed(machineScoped.map((id) => SURFACES.find((s) => s.id === id)?.label ?? id));
@@ -411,31 +413,26 @@ async function installCarriers(
       flags.yes === true ||
       (await confirmWithInput(`${tools} only load hooks from your home folder, not from this repo. Add ai-eng's guard hook to ${files}? Your own settings there are kept.`, true)) === true;
     if (!agreed) {
-      lines.push(`⚠ guard hook not added — ai-eng's guards do not run in ${tools} until you run ai-eng init again`);
+      rows.push({ mark: "warn", text: `guard hook not added — ai-eng's guards do not run in ${tools} until you run ai-eng init again` });
     } else {
       const report = installMachineCarriers(machineScoped);
-      for (const path of report.written) lines.push(`✓ ${path} — machine carrier`);
-      for (const path of report.retired) lines.push(`✓ ${path} — retired (every file in OpenCode's plugin folder is loaded as a plugin)`);
-      for (const path of report.untouched) lines.push(`· ${path} — machine carrier already current`);
-      for (const refused of report.refused) lines.push(refuseLine(refused));
+      for (const path of report.written) rows.push(ui.fileRow("installed", path, "machine carrier"));
+      for (const path of report.retired) rows.push(ui.fileRow("removed", path, "OpenCode loads every file in its plugin folder"));
+      for (const path of report.untouched) rows.push(ui.fileRow("unchanged", path, "machine carrier already current"));
+      for (const refused of report.refused) rows.push(installLineRow(refuseLine(refused)));
     }
   }
 }
 
-/** Split the scaffold report into contract vs machine, and print both sections. */
-function renderSections(cwd: string, picked: string[], ci: CiProvider, lines: string[]): void {
-  // next step — each idea one block, the dim tail carries the why.
-  // By tag, not by marker: a surface file of the project's is a "·" row too, and not a contract file.
-  const contract = lines.filter((l) => l.includes("(contract)"));
-  const machine = lines.filter((l) => !contract.includes(l));
-  const toRow = (line: string): ui.Row => {
-    if (line.startsWith("⚠")) return { mark: "warn", text: line.slice(2) };
-    if (line.startsWith("·")) return { mark: "muted", text: line.slice(2) };
-    return { mark: "ok", text: line.replace(/^✓ /, "") };
-  };
-  if (contract.length > 0) ui.section("Your contract files", contract.map(toRow), "yours to edit — ai-eng never rewrites them");
+/** The contract files and everything else, kept apart where they are written — never
+ *  sorted afterwards by reading the words of a row. */
+type ScaffoldRows = { contract: ui.Row[]; files: ui.Row[] };
+
+/** Print the contract section, then the scaffold. */
+function renderSections(cwd: string, picked: string[], ci: CiProvider, rows: ScaffoldRows): void {
+  if (rows.contract.length > 0) ui.section("Your contract files", rows.contract, "yours to edit — ai-eng never rewrites them");
   const plural = picked.length === 1 ? "" : "s";
-  ui.section("Scaffolded", machine.map(toRow), `${picked.length} surface${plural}: ${picked.join(", ")} · CI: ${ci}`);
+  ui.section("Scaffolded", rows.files, `${picked.length} surface${plural}: ${picked.join(", ")} · CI: ${ci}`);
   // Bootstrap note (§14.1 mockup): no src/ yet — arch-tests hold off until there is code.
   if (!existsSync(join(cwd, "src"))) {
     ui.section("Bootstrap mode", [
@@ -474,15 +471,19 @@ async function resolvePhase(
 export async function initMain(flags: InitFlags): Promise<number> {
   const input = scriptedInput();
   const confirmWithInput: ConfirmInput = (message, initial) => ui.confirmDefault(message, initial, input as never);
-  ui.frame(`{ai} Engineering ${VERSION}`);
   const cwd = process.cwd();
   const inRepo = existsSync(join(cwd, ".git")) || existsSync(join(cwd, ".ai-engineering"));
+  const subject = flags.global && !inRepo ? "this machine" : inRepo ? basename(cwd) : "this folder";
+  ui.frame(ui.frameTitle("init", subject, VERSION));
   const resolved = await resolvePhase(flags, cwd, inRepo, input, confirmWithInput);
   if (typeof resolved === "number") return resolved;
   const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.ci, resolved.machineAgreed, confirmWithInput);
   renderSections(cwd, resolved.picked, resolved.ci, lines);
-  ui.section("Governance installed", [{ mark: "ok", text: "Changes are waiting for your review; nothing was committed." }]);
+  ui.section("Installed", [
+    { mark: "warn", text: "Trust this workspace in your editor, or the hooks do not run." },
+    { mark: "ok", text: "Nothing committed." },
+  ]);
   if (resolved.ci === "azure-pipelines") ui.section("Azure DevOps — two steps in the portal", AZURE_PORTAL_STEPS);
-  ui.end("Three steps I can't do for you: 1. Trust the workspace in your surface (without trust, hooks do not run) · 2. ai-eng doctor — verify the chain responds · 3. Open the IDE and load /ai-config-to-project — adapt this project's rules");
+  ui.end("Next: ai-eng doctor");
   return 0;
 }

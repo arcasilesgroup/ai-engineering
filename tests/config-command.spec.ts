@@ -129,8 +129,8 @@ describe("ai-eng config · --add and --remove", () => {
     expect(code).toBe(0);
     expect(configOf(repo)).toBe('# keep me\n[surfaces]\nenabled = ["claude-code", "cursor"]\n\n[models]\ndecide = "x"\n');
     expect(out).toContain("◆  Surfaces changed  ·  2 enabled: claude-code, cursor");
-    expect(out).toContain("│  ✓ + cursor · adapter + skill mirror written");
-    expect(out).toContain("└  Done. Run ai-eng doctor to verify.");
+    expect(out).toContain("│  ✓ installed  cursor · adapter + skill mirror written");
+    expect(out).toContain("└  Next: ai-eng doctor");
 
     // The adapter itself, not just the claim: a declaration nobody enforces is the bug
     // this verb exists to end.
@@ -228,8 +228,8 @@ describe("ai-eng config · --add and --remove", () => {
     const { result: code, out } = await runConfig(repo, { add: "copilot" });
 
     expect(code).toBe(0);
-    expect(out).toContain("✓  .github/hooks/ai-eng.json written (repo carrier)");
-    expect(out).toContain("✓  ~/.copilot/hooks/ai-eng.json written (machine carrier)");
+    expect(out).toContain("✓  installed  .github/hooks/ai-eng.json · repo carrier");
+    expect(out).toContain("✓  installed  ~/.copilot/hooks/ai-eng.json · machine carrier");
     expect(existsSync(join(repo, ".github", "hooks", "ai-eng.json"))).toBe(true);
     expect(readFileSync(join(repo, ".github", "hooks", "ai-eng.json"), "utf8")).toContain("ai-eng chain PreToolUse --surface copilot-cli");
     expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "copilot-cli"]\n');
@@ -251,8 +251,8 @@ describe("ai-eng config · --add and --remove", () => {
     const { result: code, out } = await runConfig(repo, { remove: "cursor" });
 
     expect(code).toBe(0);
-    expect(out).toContain("✓  .cursor/hooks.json: ai-eng entries removed, yours kept");
-    expect(out).toContain("│  ✓ - cursor · off in this repo");
+    expect(out).toContain("✓  updated    .cursor/hooks.json · ai-eng entries removed, yours kept");
+    expect(out).toContain("│  ✓ removed    cursor · off in this repo");
     expect(configOf(repo)).toBe(SOURCE);
     const kept = readFileSync(join(repo, ".cursor", "hooks.json"), "utf8");
     expect(kept).not.toContain("ai-eng chain");
@@ -267,7 +267,7 @@ describe("ai-eng config · --add and --remove", () => {
     const { result: code, out } = await runConfig(repo, { remove: "cursor" });
 
     expect(code).toBe(0);
-    expect(out).toContain("✓  .cursor/hooks.json removed (it held only ai-eng entries)");
+    expect(out).toContain("✓  removed    .cursor/hooks.json · it held only ai-eng entries");
     expect(existsSync(join(repo, ".cursor", "hooks.json"))).toBe(false);
     expect(configOf(repo)).toBe(SOURCE);
   });
@@ -337,7 +337,7 @@ describe("ai-eng config · --add and --remove", () => {
     const { result: code, out } = await answer;
     expect(code).toBe(0);
     expect(out).toContain("◆  Surfaces changed  ·  1 enabled: cursor");
-    expect(out).toContain("│  ✓ - claude-code · off in this repo");
+    expect(out).toContain("│  ✓ removed    claude-code · off in this repo");
     expect(configOf(repo)).toBe('[surfaces]\nenabled = ["cursor"]\n');
     // Cursor stayed declared, so its carrier was neither rewritten nor taken away.
     expect(readFileSync(join(repo, ".cursor", "hooks.json"), "utf8")).toBe('{ "mine": true }\n');
@@ -355,8 +355,8 @@ describe("ai-eng config · --add and --remove", () => {
 
     const { result: code, out } = await answer;
     expect(code).toBe(0);
-    expect(out).toContain("│  ✓ + oh-my-pi · adapter + skill mirror written");
-    expect(out).toContain("✓  ~/.omp/agent/hooks/pre/ai-eng.ts written (machine carrier)");
+    expect(out).toContain("│  ✓ installed  oh-my-pi · adapter + skill mirror written");
+    expect(out).toContain("✓  installed  ~/.omp/agent/hooks/pre/ai-eng.ts · machine carrier");
     expect(configOf(repo)).toBe('[surfaces]\nenabled = ["claude-code", "cursor", "oh-my-pi"]\n');
     // An in-process host is installed where the host reads it: its agent dir, not ours.
     expect(existsSync(join(home, "agent-dir", "hooks", "pre", "ai-eng.ts"))).toBe(true);

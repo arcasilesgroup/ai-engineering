@@ -14,11 +14,11 @@ import {
   agentLines,
   fetchLatest,
   isFresh,
-  latestVersion,
   lockVersion,
   noticeLines,
   noticeNow,
   readCache,
+  refreshVersionCache,
   sessionStartContext,
   signals,
 } from "../src/notice.ts";
@@ -116,38 +116,51 @@ describe("signals — what is worth saying, from three versions (pure)", () => {
   });
 });
 
+/** The notice from a folder that is no repo, so only the registry signal can speak. */
+function noticeOutside(onStale: () => void): ReturnType<typeof noticeNow> {
+  process.chdir(sandbox("outside"));
+  return noticeNow(onStale);
+}
+
 describe("the registry read — one request, remembered for 24 h whatever it answered", () => {
-  test("a fresh answer in the cache is final: no request", async () => {
+  test("a fresh answer in the cache is final: no refresh, no request", () => {
     freshHome();
     const server = registry({ version: NEXT });
-    cacheWith(VERSION, HOUR);
-    expect(await latestVersion()).toBe(VERSION);
+    cacheWith(NEXT, HOUR);
+    let stale = 0;
+    expect(noticeOutside(() => (stale += 1)).map((notice) => notice.kind)).toEqual(["newer"]);
+    expect(stale).toBe(0);
     expect(server.requests()).toBe(0);
   });
 
-  test("a failure an hour old is remembered too: no request, and no version", async () => {
+  test("a failure an hour old is remembered too: no refresh, and no version", () => {
     freshHome();
-    const server = registry({ version: NEXT });
     cacheWith(null, HOUR);
-    expect(await latestVersion()).toBeNull();
-    expect(server.requests()).toBe(0);
+    let stale = 0;
+    expect(noticeOutside(() => (stale += 1))).toEqual([]);
+    expect(stale).toBe(0);
   });
 
-  test("a stale cache asks once and stores the answer", async () => {
+  test("a stale cache answers at once and is refreshed: one request, the answer stored", async () => {
     freshHome();
     const server = registry({ version: NEXT });
     cacheWith(VERSION, 25 * HOUR);
-    expect(await latestVersion()).toBe(NEXT);
+    let stale = 0;
+    expect(noticeOutside(() => (stale += 1))).toEqual([]);
+    expect(stale).toBe(1);
+    await refreshVersionCache();
     expect(server.requests()).toBe(1);
     expect(readCache()?.version).toBe(NEXT);
   });
 
-  test("a failed read is stored as a failure, so the next run does not ask", async () => {
+  test("a failed refresh is stored as a failure, so the next run does not ask", async () => {
     freshHome();
     const server = registry({ error: "down" }, 503);
-    expect(await latestVersion()).toBeNull();
+    await refreshVersionCache();
     expect(readCache()).toMatchObject({ version: null });
-    expect(await latestVersion()).toBeNull();
+    let stale = 0;
+    noticeOutside(() => (stale += 1));
+    expect(stale).toBe(0);
     expect(server.requests()).toBe(1);
   });
 
@@ -163,12 +176,16 @@ describe("the registry read — one request, remembered for 24 h whatever it ans
     expect(await fetchLatest()).toBeNull();
   });
 
-  test("a corrupt cache reads as no cache, and is replaced", async () => {
+  test("a corrupt cache reads as no cache, asks for a refresh, and is replaced", async () => {
     freshHome();
     const server = registry({ version: NEXT });
     writeFileSync(versionFile(), "{not json");
     expect(readCache()).toBeNull();
-    expect(await latestVersion()).toBe(NEXT);
+    let stale = 0;
+    noticeOutside(() => (stale += 1));
+    expect(stale).toBe(1);
+    await refreshVersionCache();
+    expect(readCache()?.version).toBe(NEXT);
     expect(server.requests()).toBe(1);
   });
 
@@ -185,7 +202,7 @@ describe("noticeNow — the end-of-verb lines", () => {
     const server = registry({ version: NEXT });
     cacheWith(NEXT, HOUR);
     process.chdir(sandbox("outside"));
-    expect(await noticeNow()).toEqual([`ai-eng ${NEXT} available (you have ${VERSION}) → ai-eng update`]);
+    expect(noticeNow(() => {})).toEqual([{ kind: "newer", line: `ai-eng ${NEXT} available (you have ${VERSION}) → ai-eng update` }]);
     expect(server.requests()).toBe(0);
   });
 
@@ -193,7 +210,7 @@ describe("noticeNow — the end-of-verb lines", () => {
     freshHome();
     cacheWith(VERSION, HOUR);
     process.chdir(repoInstalledWith(PREVIOUS));
-    expect(await noticeNow()).toEqual([`this repo was installed with ai-eng ${PREVIOUS}, the binary is ${VERSION} → ai-eng update`]);
+    expect(noticeNow(() => {})).toEqual([{ kind: "repo-behind", line: `this repo was installed with ai-eng ${PREVIOUS}, the binary is ${VERSION} → ai-eng update` }]);
   });
 
   test("AI_ENG_NO_UPDATE_NOTICES=1 says nothing and asks nothing", async () => {
@@ -201,7 +218,7 @@ describe("noticeNow — the end-of-verb lines", () => {
     const server = registry({ version: NEXT });
     process.env["AI_ENG_NO_UPDATE_NOTICES"] = "1";
     process.chdir(repoInstalledWith(PREVIOUS));
-    expect(await noticeNow()).toEqual([]);
+    expect(noticeNow(() => {})).toEqual([]);
     expect(server.requests()).toBe(0);
     expect(existsSync(join(home, "version.json"))).toBe(false);
   });
@@ -210,7 +227,18 @@ describe("noticeNow — the end-of-verb lines", () => {
     freshHome();
     cacheWith(NEXT, HOUR);
     process.chdir(repoInstalledWith(PREVIOUS, '[surfaces]\nenabled = ["claude-code"]\n\n[notices]\nenabled = false\n'));
-    expect(await noticeNow()).toEqual([]);
+    expect(noticeNow(() => {})).toEqual([]);
+  });
+
+  test("a stale cache asks for a refresh and does not wait on the registry", () => {
+    freshHome();
+    const server = registry({ version: NEXT });
+    cacheWith(VERSION, 25 * HOUR);
+    process.chdir(sandbox("outside"));
+    let asked = 0;
+    expect(noticeNow(() => (asked += 1))).toEqual([]);
+    expect(asked).toBe(1);
+    expect(server.requests()).toBe(0);
   });
 });
 

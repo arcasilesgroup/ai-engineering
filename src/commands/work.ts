@@ -3,16 +3,54 @@
 // tip in refs/archive/ before the branch goes. Every write is a compare-and-swap on the
 // tip the board saw, never --force, and a folder with uncommitted work is never removed.
 
+import { styleText } from "node:util";
 import { repoRoot } from "../env.ts";
 import { lanes, PARK_KEY, type Board, type Lane, type LaneState } from "../git/lanes.ts";
 import { runGit } from "../git/run.ts";
 import { worktreeStatus } from "../git/worktree.ts";
 import { readLease, releaseLease } from "../guards/lease.ts";
+import { MARKS } from "../theme.ts";
+import { spinner } from "../ui.ts";
 
 const USAGE =
   "usage: ai-eng work [--json] | tidy | park <branch> <reason> [--until YYYY-MM-DD] | resume <branch> | drop <branch> | release\n";
 
 const ORDER: LaneState[] = ["active", "ready", "parked", "landed", "orphan", "ghost"];
+
+/** Decision colour, from the same four marks the file rows use. `active` stays the terminal default. */
+const STATE_MARK: Record<LaneState, keyof typeof MARKS | null> = {
+  active: null,
+  ready: "ok",
+  parked: "info",
+  orphan: "warn",
+  landed: "muted",
+  ghost: "muted",
+};
+
+function paintState(state: LaneState): string {
+  const padded = state.padEnd(7);
+  const mark = STATE_MARK[state];
+  return mark === null ? padded : styleText(MARKS[mark], padded);
+}
+
+function okLine(text: string): string {
+  return styleText(MARKS.ok, `✓ ${text}`);
+}
+
+function mutedLine(text: string): string {
+  return styleText(MARKS.muted, `· ${text}`);
+}
+
+function readBoard(root: string, isJson: boolean): Board {
+  if (isJson) return lanes(root, { refresh: true });
+  const spin = spinner();
+  spin.start("Reading lanes");
+  try {
+    return lanes(root, { refresh: true });
+  } finally {
+    spin.stop();
+  }
+}
 
 function git(root: string, args: string[]): { ok: boolean; out: string } {
   const done = runGit(args, { cwd: root, isolated: true });
@@ -27,7 +65,7 @@ export function renderBoard(board: Board): string {
   for (const state of ORDER) {
     for (const lane of board.lanes.filter((entry) => entry.state === state)) {
       const age = lane.ageDays === null ? "" : `${lane.ageDays} d  `;
-      lines.push(`${state.padEnd(7)}  ${lane.name.padEnd(width)}  ${age}${lane.detail}`);
+      lines.push(`${paintState(state)}  ${lane.name.padEnd(width)}  ${age}${lane.detail}`);
     }
   }
   if (board.lanes.length > 0) lines.push("");
@@ -47,26 +85,26 @@ function nextStep(board: Board): string | null {
 /** Remove one landed lane: its worktree when clean, then its branch only if its tip is
  *  still the one the board saw. The checked-out branch of this checkout stays. */
 function tidyLane(root: string, lane: Lane, current: string | null): string {
-  if (lane.name === current) return `· ${lane.name} kept — it is checked out here; switch to the base, then run tidy again`;
+  if (lane.name === current) return mutedLine(`${lane.name} kept — it is checked out here; switch to the base, then run tidy again`);
   if (lane.path !== null) {
     const status = worktreeStatus(lane.path);
-    if (status.detail !== undefined || status.paths.length > 0) return `· ${lane.name} kept — its folder ${lane.path} has uncommitted work`;
+    if (status.detail !== undefined || status.paths.length > 0) return mutedLine(`${lane.name} kept — its folder ${lane.path} has uncommitted work`);
     const removed = git(root, ["worktree", "remove", lane.path]);
-    if (!removed.ok) return `· ${lane.name} kept — git worktree remove refused: ${removed.out}`;
+    if (!removed.ok) return mutedLine(`${lane.name} kept — git worktree remove refused: ${removed.out}`);
   }
   const deleted = git(root, ["update-ref", "-d", `refs/heads/${lane.name}`, lane.tip ?? ""]);
-  if (!deleted.ok) return `· ${lane.name} kept — it moved since the board read it`;
+  if (!deleted.ok) return mutedLine(`${lane.name} kept — it moved since the board read it`);
   git(root, ["config", "--remove-section", `branch.${lane.name}`]);
-  return `✓ ${lane.name} removed — ${lane.detail}${lane.path === null ? "" : `, and its folder ${lane.path}`}`;
+  return okLine(`${lane.name} removed — ${lane.detail}${lane.path === null ? "" : `, and its folder ${lane.path}`}`);
 }
 
 function tidy(root: string): number {
-  const board = lanes(root, { refresh: true });
+  const board = readBoard(root, false);
   const current = git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"]).out || null;
   const lines = board.lanes.filter((lane) => lane.state === "landed").map((lane) => tidyLane(root, lane, current));
   if (board.lanes.some((lane) => lane.state === "ghost")) {
     const pruned = git(root, ["worktree", "prune"]);
-    lines.push(pruned.ok ? "✓ ghost worktrees pruned" : `· ghost worktrees kept — git worktree prune: ${pruned.out}`);
+    lines.push(pruned.ok ? okLine("ghost worktrees pruned") : mutedLine(`ghost worktrees kept — git worktree prune: ${pruned.out}`));
   }
   if (lines.length === 0) lines.push("nothing has landed — nothing to tidy");
   if (board.forgeNote !== null) lines.push(`forge: ${board.forgeNote}`);
@@ -93,14 +131,14 @@ function park(root: string, branch: string, reason: string, until: string | unde
   const value = until === undefined ? reason.trim() : `${reason.trim()}|${until}`;
   const set = git(root, ["config", `branch.${branch}.${PARK_KEY}`, value]);
   if (!set.ok) return fail(`could not record the park: ${set.out}`);
-  process.stdout.write(`✓ ${branch} parked — ${reason.trim()}${until === undefined ? "" : ` · until ${until}`}\n`);
+  process.stdout.write(`${okLine(`${branch} parked — ${reason.trim()}${until === undefined ? "" : ` · until ${until}`}`)}\n`);
   return 0;
 }
 
 function resume(root: string, branch: string): number {
   if (branchTip(root, branch) === null) return fail(`there is no branch ${branch}`);
   git(root, ["config", "--unset", `branch.${branch}.${PARK_KEY}`]);
-  process.stdout.write(`✓ ${branch} is active again\n`);
+  process.stdout.write(`${okLine(`${branch} is active again`)}\n`);
   return 0;
 }
 
@@ -128,7 +166,7 @@ function drop(root: string, branch: string): number {
   const deleted = git(root, ["update-ref", "-d", `refs/heads/${branch}`, tip]);
   if (!deleted.ok) return fail(`archived at ${archive}, but ${branch} moved meanwhile — kept`);
   git(root, ["config", "--remove-section", `branch.${branch}`]);
-  process.stdout.write(`✓ ${branch} dropped — kept at ${archive}; bring it back with: git branch ${branch} ${archive}\n`);
+  process.stdout.write(`${okLine(`${branch} dropped — kept at ${archive}; bring it back with: git branch ${branch} ${archive}`)}\n`);
   return 0;
 }
 
@@ -143,7 +181,7 @@ export function workMain(args: string[], flags: { json?: boolean; until?: string
   const [action, branch, ...rest] = args;
   switch (action) {
     case undefined: {
-      const board = lanes(root, { refresh: true });
+      const board = readBoard(root, flags.json === true);
       process.stdout.write(flags.json === true ? `${JSON.stringify(board, null, 2)}\n` : renderBoard(board));
       return 0;
     }
@@ -163,7 +201,7 @@ export function workMain(args: string[], flags: { json?: boolean; until?: string
         return 0;
       }
       releaseLease(root);
-      process.stdout.write(`✓ ${root} released — it was held by session ${held.session.slice(0, 8)}; the next session to write here holds it\n`);
+      process.stdout.write(`${okLine(`${root} released — it was held by session ${held.session.slice(0, 8)}; the next session to write here holds it`)}\n`);
       return 0;
     }
     default:

@@ -474,7 +474,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
     }
 
     // The user's machine settings take our entries beside their own keys.
-    expect(out).toContain("~/.claude/settings.json — machine carrier");
+    expect(out).toContain("installed  ~/.claude/settings.json · machine carrier");
     const machineSettingsMerged = readFileSync(machineSettings, "utf8");
     expect(machineSettingsMerged).toMatch(/ai-eng(?:\.cmd|\.exe)? chain/);
     expect(machineSettingsMerged).not.toBe(machineSettingsBefore);
@@ -703,7 +703,7 @@ describe("init · initMain, phase 1 and phase 2", () => {
 
     const { result, out } = await capture(() => initMain({ yes: true, surface: ["cursor"] }));
     expect(result).toBe(0);
-    const yoursRow = out.indexOf(".github/workflows/ai-eng-check.yml — already here");
+    const yoursRow = out.indexOf("unchanged  .github/workflows/ai-eng-check.yml · already here");
     expect(yoursRow).toBeGreaterThan(out.indexOf("Scaffolded"));
     expect(out.indexOf("Scaffolded")).toBeGreaterThan(out.indexOf("Your contract files"));
   });
@@ -725,12 +725,13 @@ describe("init · initMain, phase 1 and phase 2", () => {
     expect(parseLock(readFileSync(join(cwd, ".ai-engineering", "ai-eng.lock"), "utf8")).version).toBe(VERSION);
   });
 
-  test("closing line names /ai-config-to-project", async () => {
+  test("closing line names the next command", async () => {
     const { cwd } = sandboxed();
     gitIn(["init", "-q"], cwd);
     const { result, out } = await capture(() => initMain({ yes: true }));
     expect(result).toBe(0);
-    expect(out).toContain("/ai-config-to-project");
+    expect(out).toContain("└  Next: ai-eng doctor");
+    expect(out).toContain("Trust this workspace in your editor, or the hooks do not run.");
   });
 });
 
@@ -742,7 +743,7 @@ describe("init · the git floor's own housekeeping", () => {
 
     const { result, out } = await capture(() => initMain({ yes: true }));
     expect(result).toBe(0);
-    expect(out).toContain("unset — it pointed at ai-eng's own floor");
+    expect(out).toContain("updated    core.hooksPath · unset — was .ai-engineering/git-template/hooks");
     // git only reads .git/hooks while the setting is unset, so the floor runs again.
     expect(gitIn(["config", "--get", "core.hooksPath"], cwd).trim()).toBe("");
     expect(readFileSync(join(cwd, ".git", "hooks", "pre-commit"), "utf8")).toContain("ai-eng");

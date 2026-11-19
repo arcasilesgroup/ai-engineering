@@ -33,13 +33,30 @@ export function cancelled(message = "Cancelled."): void {
   frameOpen = false;
 }
 
+/** What a file row did. The colour stays the outcome; the word is the fact. */
+export type FileAction = "installed" | "updated" | "removed" | "unchanged";
+
+const ACTION_WIDTH = "unchanged".length;
+
 /** A row inside a concept block. Marks reuse the line grammar (✓◆▲✗); `muted`
  *  dims the whole row (bulk/unchanged), `sub` is a `↳` continuation under the
- *  row above it. `dim` is the optional gray tail after the text — the "why". */
+ *  row above it. `dim` is the optional gray tail after the text — the "why".
+ *  `action` names a file outcome in a fixed column. */
 export type Row =
-  | { readonly mark: "ok" | "info" | "warn" | "fail"; readonly text: string; readonly dim?: string }
-  | { readonly mark: "muted"; readonly text: string }
+  | { readonly mark: "ok" | "info" | "warn" | "fail"; readonly text: string; readonly dim?: string; readonly action?: FileAction }
+  | { readonly mark: "muted"; readonly text: string; readonly dim?: string; readonly action?: "unchanged" }
   | { readonly mark: "sub"; readonly text: string };
+
+/** One file outcome, mark included. Callers pass the path and the why. */
+export function fileRow(action: FileAction, text: string, dim?: string): Row {
+  if (action === "unchanged") return dim ? { mark: "muted", text, dim, action } : { mark: "muted", text, action };
+  return dim ? { mark: "ok", text, dim, action } : { mark: "ok", text, action };
+}
+
+/** `verb · subject · ai-eng version` — the same frame title on every human verb. */
+export function frameTitle(verb: string, subject: string, version: string): string {
+  return `${verb} · ${subject} · ai-eng ${version}`;
+}
 
 const MARKS = {
   ok: styleText(MARK_COLOURS.ok, "✓"),
@@ -51,8 +68,22 @@ const MARKS = {
   sub: "",
 } as const;
 
+function actionParts(action: FileAction, text: string, dim?: string): { symbol: string; message: string } {
+  const message = `${action.padEnd(ACTION_WIDTH)}  ${text}`;
+  if (action === "unchanged") {
+    const tail = dim ? ` · ${dim}` : "";
+    return { symbol: styleText(MARK_COLOURS.muted, "·"), message: styleText("dim", `${message}${tail}`) };
+  }
+  const tail = dim ? ` ${styleText("dim", `· ${dim}`)}` : "";
+  return { symbol: MARKS.ok, message: `${message}${tail}` };
+}
+
 function renderRow(row: Readonly<Row>): string {
   if (row.mark === "sub") return `${styleText("dim", "    ↳")} ${row.text}`;
+  if ("action" in row && row.action !== undefined) {
+    const parts = actionParts(row.action, row.text, "dim" in row ? row.dim : undefined);
+    return `${parts.symbol} ${parts.message}`;
+  }
   if (row.mark === "muted") return styleText("dim", row.text);
   const head = `${MARKS[row.mark]} ${row.text}`;
   return typeof row.dim === "string" && row.dim.length > 0 ? `${head} ${styleText("dim", `· ${row.dim}`)}` : head;
@@ -108,6 +139,12 @@ export function pathList(paths: readonly string[]): string {
 
 export function ok(message: string): void {
   log.message(wrapMessage(message), { symbol: MARKS.ok });
+}
+
+/** One file outcome on its own line. The word is the same column `fileRow` uses inside a section. */
+export function file(action: FileAction, text: string, dim?: string): void {
+  const parts = actionParts(action, text, dim);
+  log.message(wrapMessage(parts.message), { symbol: parts.symbol });
 }
 
 /** `│  ◆ <message>` — the action/progress mark; neutral inside the frame. */

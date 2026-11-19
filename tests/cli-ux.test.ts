@@ -3,9 +3,11 @@
 // through the sandbox proofs (scripts/proof-cli-ux.sh), not here.
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
+import { stripVTControlCharacters } from "node:util";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileRow, section } from "../src/ui.ts";
 import { ALL_VERBS, suggestVerb } from "../src/shared-verbs.ts";
 
 
@@ -70,6 +72,32 @@ describe("branding · the terminal identity", () => {
       if (ambientNoColor !== undefined) process.env["NO_COLOR"] = ambientNoColor;
     }
     expect(chunks.join("")).toContain("\u001B[38;2;0;237;100m");
+  });
+});
+
+
+describe("file rows name the outcome in one column", () => {
+  test("installed, updated, removed and unchanged share the column", () => {
+    const chunks: string[] = [];
+    const spy = spyOn(process.stdout, "write").mockImplementation(((chunk: unknown) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as never);
+    try {
+      section("Synced", [
+        fileRow("installed", "a.ts"),
+        fileRow("updated", "b.ts", "from binary"),
+        fileRow("removed", "c.ts"),
+        fileRow("unchanged", "e.ts"),
+      ]);
+    } finally {
+      spy.mockRestore();
+    }
+    const out = stripVTControlCharacters(chunks.join(""));
+    expect(out).toContain("✓ installed  a.ts");
+    expect(out).toContain("✓ updated    b.ts · from binary");
+    expect(out).toContain("✓ removed    c.ts");
+    expect(out).toContain("· unchanged  e.ts");
   });
 });
 

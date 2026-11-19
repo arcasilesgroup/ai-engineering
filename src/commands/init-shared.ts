@@ -75,6 +75,11 @@ export function refuseLine(refused: { path: string; reason: string }): string {
   return `⚠ ${refused.path} — ${why}: left exactly as it is, so this surface runs without guards until you move it aside or reformat it`;
 }
 
+/** The refusal without its ⚠, for a row or a detail that brings its own mark. */
+export function refuseText(refused: { path: string; reason: string }): string {
+  return refuseLine(refused).slice("⚠ ".length);
+}
+
 /** An install line as a report row: a ⚠ line is a warning, never shown under a ✓. */
 export function installLineRow(line: string, mark: "ok" | "sub" = "ok"): Row {
   if (line.startsWith("⚠ ")) return { mark: "warn", text: line.slice(2) };
