@@ -1,11 +1,13 @@
-// `ai-eng config` — add/remove surfaces, regenerate their adapters and mirrors.
+// `ai-eng config` — change what init chose: add/remove surfaces (regenerating their
+// adapters and mirrors) or switch the CI provider (config-ci.ts).
 // Never touches AGENTS.md and never writes overrides (those are manual, with reason).
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { install, stripSharedText } from "../install.ts";
 import { join } from "node:path";
-import { multiselect, isCancel } from "@clack/prompts";
+import { multiselect, select, isCancel } from "@clack/prompts";
+import { changeCi, changeCiFromFlag, pickCi } from "./config-ci.ts";
 import { canonicalSurfaceId, repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
 import { mirrorTargets, installCanon } from "../surfaces/canon-install.ts";
 import { installMachineCarriers } from "../surfaces/carriers-install.ts";
@@ -159,7 +161,20 @@ function showSurfaceDelta(current: string[], before: string[]): void {
   }
 }
 
-export async function configMain(flags: { add?: string; remove?: string }): Promise<number> {
+/** No flags: ask which of init's choices to change. Null when cancelled. */
+async function pickSetting(input: NodeJS.ReadStream | PassThrough): Promise<"surfaces" | "ci" | null> {
+  const answer = await select({
+    message: "What do you want to change?",
+    options: [
+      { value: "surfaces" as const, label: "Agent surfaces" },
+      { value: "ci" as const, label: "CI provider" },
+    ],
+    input: input as never,
+  });
+  return isCancel(answer) ? null : answer;
+}
+
+export async function configMain(flags: { add?: string; remove?: string; ci?: string }): Promise<number> {
   const input = scriptedInput();
   ui.frame(`Configuration · ai-eng ${VERSION}`);
   const root = repoRoot();
@@ -169,6 +184,22 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
     ui.fail("you are not in a governed repo — run ai-eng init first");
     ui.end("Nothing changed.");
     return 2;
+  }
+  if (flags.ci !== undefined) return changeCiFromFlag(root, flags.ci);
+  if (flags.add === undefined && flags.remove === undefined) {
+    const setting = await pickSetting(input);
+    if (setting === null) {
+      ui.cancelled("Nothing changed.");
+      return 0;
+    }
+    if (setting === "ci") {
+      const next = await pickCi(input, root);
+      if (next === null) {
+        ui.cancelled("Nothing changed.");
+        return 0;
+      }
+      return changeCi(root, next);
+    }
   }
   // Governed means the declaration parsed, so enabledSurfaces() cannot be guessing here.
   const surfacesBefore = enabledSurfaces();

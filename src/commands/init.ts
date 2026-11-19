@@ -18,7 +18,7 @@ import { SURFACES, surfaceCanGovern, machineCarrier, retireNpmPowerShellShim, ty
 import { install, buildLock, lockText, parseLock, type PlanEntry } from "../install.ts";
 import { canonDrift, type CanonDrift } from "../embed.ts";
 import { canonicalSurfaceId, home, isCiProvider, CI_PROVIDERS, type CiProvider } from "../env.ts";
-import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, AZURE_PIPELINE_PATH } from "./init-shared.ts";
+import { planEntries, contractEntries, hasAdapter, installLineRow, SURFACE_PICK_MESSAGE, surfaceOptions, refuseLine, AZURE_PORTAL_STEPS, CI_PICK_MESSAGE, ciOptions } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { retiredPaths, sweepRetiredAssets } from "./uninstall.ts";
@@ -238,7 +238,7 @@ async function reinitHandoff(
       message: "This project is already governed. What do you want to do?",
       options: [
         { value: "update", label: "Update ai-eng's files" },
-        { value: "config", label: "Change agent surfaces" },
+        { value: "config", label: "Change settings (agent surfaces, CI)" },
         { value: "exit", label: "Exit" },
       ],
       input: input as never,
@@ -281,12 +281,6 @@ async function pickSurfaces(
   return picked.map(canonicalSurfaceId);
 }
 
-const CI_LABELS: Record<CiProvider, string> = {
-  "github-actions": "GitHub Actions",
-  "azure-pipelines": "Azure Pipelines",
-  none: "None — I bring my own gate",
-};
-
 /** Pick where the merge gate runs. The origin remote preselects; --ci and --yes skip the prompt. */
 async function pickCi(flags: InitFlags, cwd: string, input: NodeJS.ReadStream | PassThrough): Promise<number | CiProvider> {
   if (flags.ci !== undefined) {
@@ -297,8 +291,8 @@ async function pickCi(flags: InitFlags, cwd: string, input: NodeJS.ReadStream | 
   const detected = detectedCiProvider(cwd);
   if (flags.yes === true) return detected;
   const answer = await select({
-    message: "Where does this project's CI run?",
-    options: CI_PROVIDERS.map((provider) => ({ value: provider, label: CI_LABELS[provider] })),
+    message: CI_PICK_MESSAGE,
+    options: ciOptions(),
     initialValue: detected,
     input: input as never,
   });
@@ -476,14 +470,7 @@ export async function initMain(flags: InitFlags): Promise<number> {
   const lines = await scaffoldAndCarriers(flags, resolved.picked, resolved.ci, resolved.machineAgreed, confirmWithInput);
   renderSections(cwd, resolved.picked, resolved.ci, lines);
   ui.section("Governance installed", [{ mark: "ok", text: "Changes are waiting for your review; nothing was committed." }]);
-  // Azure DevOps keeps pipelines and PR validation outside the repository: init writes
-  // the file and names the two clicks; creating remote policy is not ours to do.
-  if (resolved.ci === "azure-pipelines") {
-    ui.section("Azure DevOps — two steps in the portal", [
-      { mark: "sub", text: `Pipelines → New pipeline → Existing Azure Pipelines YAML file → ${AZURE_PIPELINE_PATH}` },
-      { mark: "sub", text: "Repos → Branches → default branch → Branch policies → Build validation → this pipeline, Required" },
-    ]);
-  }
+  if (resolved.ci === "azure-pipelines") ui.section("Azure DevOps — two steps in the portal", AZURE_PORTAL_STEPS);
   ui.end("Three steps I can't do for you: 1. Trust the workspace in your surface (without trust, hooks do not run) · 2. ai-eng doctor — verify the chain responds · 3. Open the IDE and load /ai-config-to-project — adapt this project's rules");
   return 0;
 }

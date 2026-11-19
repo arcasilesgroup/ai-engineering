@@ -116,9 +116,10 @@ const verbMain: Record<string, () => number | Promise<number>> = {
     return code;
   },
   config: () => {
-    const configFlags: { add?: string; remove?: string } = {};
+    const configFlags: { add?: string; remove?: string; ci?: string } = {};
     if (typeof flags.add === "string") configFlags.add = flags.add;
     if (typeof flags.remove === "string") configFlags.remove = flags.remove;
+    if (typeof flags.ci === "string") configFlags.ci = flags.ci;
     return configMain(configFlags);
   },
   adapt: () => adaptMain(flags._.slice(1).map(String)),
