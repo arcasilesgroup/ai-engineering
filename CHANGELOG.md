@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.8
+
+### Patch Changes
+
+- [#778](https://github.com/arcasilesgroup/ai-engineering/pull/778) [`2666ea5`](https://github.com/arcasilesgroup/ai-engineering/commit/2666ea5929c9e3d840e7f84da4decf98021f5fea) Thanks [@soydachi](https://github.com/soydachi)! - The generated AGENTS.md now says to push only your own feature branch to origin, never the base or integration branch, and to leave opening the PR to a person unless asked.
+
 ## 3.0.7
 
 ### Patch Changes
