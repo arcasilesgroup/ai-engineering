@@ -161,6 +161,11 @@ const READERS = new Set([
   "dir", "resolve-path", "write-output", "write-host",
 ]);
 const GIT_READERS = new Set(["diff", "log", "show", "status", "blame", "ls-files", "cat-file", "grep", "check-ignore", "rev-parse", "shortlog", "describe"]);
+/** git subcommands that record what is on disk without changing a byte of it. An agent may
+ *  stage and commit governance files ai-eng wrote (the lock after `ai-eng update`): the
+ *  guard's job is that the agent cannot WRITE them, and `git add -A` staged them anyway.
+ *  checkout and restore stay writers: they overwrite the working tree. */
+const GIT_RECORDERS = new Set(["add", "commit"]);
 const FIND_ACTIONS = /^-(?:delete|exec|execdir|ok|okdir|fprint0?|fprintf|fls)$/;
 /** Verbs that act on a whole tree: naming a directory that holds governance names it too. */
 const TREE_WRITERS = new Set([
@@ -237,7 +242,10 @@ function gitWorkingDirIndexes(args: string[]): number[] {
 function isReader(verb: string, args: string[]): boolean {
   // `git diff --output=x` writes: a long output option is never a read.
   if (args.some((arg) => /^--(?:output|out|output-document|outfile|log-file)(?:=|$)/.test(arg))) return false;
-  if (verb === "git") return GIT_READERS.has(gitSubcommand(args).name);
+  if (verb === "git") {
+    const subcommand = gitSubcommand(args).name;
+    return GIT_READERS.has(subcommand) || GIT_RECORDERS.has(subcommand);
+  }
   if (verb === "find") return !args.some((arg) => FIND_ACTIONS.test(arg));
   return READERS.has(verb);
 }

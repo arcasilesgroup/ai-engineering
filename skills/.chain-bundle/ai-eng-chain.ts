@@ -1497,6 +1497,7 @@ var READERS = new Set([
   "write-host"
 ]);
 var GIT_READERS = new Set(["diff", "log", "show", "status", "blame", "ls-files", "cat-file", "grep", "check-ignore", "rev-parse", "shortlog", "describe"]);
+var GIT_RECORDERS = new Set(["add", "commit"]);
 var FIND_ACTIONS = /^-(?:delete|exec|execdir|ok|okdir|fprint0?|fprintf|fls)$/;
 var TREE_WRITERS = new Set([
   "rm",
@@ -1596,8 +1597,10 @@ function gitWorkingDirIndexes(args) {
 function isReader(verb, args) {
   if (args.some((arg) => /^--(?:output|out|output-document|outfile|log-file)(?:=|$)/.test(arg)))
     return false;
-  if (verb === "git")
-    return GIT_READERS.has(gitSubcommand(args).name);
+  if (verb === "git") {
+    const subcommand = gitSubcommand(args).name;
+    return GIT_READERS.has(subcommand) || GIT_RECORDERS.has(subcommand);
+  }
   if (verb === "find")
     return !args.some((arg) => FIND_ACTIONS.test(arg));
   return READERS.has(verb);
