@@ -383,7 +383,9 @@ describe("ai-eng config · the CI provider", () => {
     const { result: code, out } = await runConfig(repo, { ci: "azure-pipelines" });
     expect(code).toBe(0);
     expect(readFileSync(join(repo, AZURE), "utf8")).toBe(ciEntries("azure-pipelines")[0]!.ours);
-    expect(existsSync(join(repo, GITHUB))).toBe(false);
+    // The workflow was all .github held: no empty folders are left behind.
+    expect(existsSync(join(repo, ".github"))).toBe(false);
+    expect(out).toContain(".github/workflows/ removed (empty)");
     // A config from before the choice existed gains the [ci] table; nothing else moves.
     expect(configOf(repo)).toBe(`${SOURCE}\n[ci]\nprovider = "azure-pipelines"\n`);
     expect(lockOf(repo)).toInclude('".azure-pipelines/ai-eng-check.yml"');
@@ -391,13 +393,21 @@ describe("ai-eng config · the CI provider", () => {
     expect(out).toContain("Build validation");
   });
 
+  test("a .github folder that still holds the project's files stays; only the empty workflows folder goes", async () => {
+    const repo = githubRepo();
+    writeFileSync(join(repo, ".github", "dependabot.yml"), "version: 2\n");
+    expect((await runConfig(repo, { ci: "azure-pipelines" })).result).toBe(0);
+    expect(existsSync(join(repo, ".github", "workflows"))).toBe(false);
+    expect(readFileSync(join(repo, ".github", "dependabot.yml"), "utf8")).toBe("version: 2\n");
+  });
+
   test("--ci rewrites an existing [ci].provider in place and keeps its comments", async () => {
     const config = `${SOURCE}\n[ci]\n# where the gate runs\nprovider = "github-actions" # set by init\n`;
     const repo = githubRepo(config);
     expect((await runConfig(repo, { ci: "none" })).result).toBe(0);
     expect(configOf(repo)).toBe(config.replace('"github-actions"', '"none"'));
-    expect(existsSync(join(repo, GITHUB))).toBe(false);
-    expect(existsSync(join(repo, AZURE))).toBe(false);
+    expect(existsSync(join(repo, ".github"))).toBe(false);
+    expect(existsSync(join(repo, ".azure-pipelines"))).toBe(false);
   });
 
   test("--ci of the provider already declared writes nothing", async () => {

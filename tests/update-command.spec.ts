@@ -1023,7 +1023,7 @@ describe("update · the CI provider the repo declares", () => {
 
     expect((await captured(() => updateMain({ yes: true }))).value).toBe(0);
     expect(existsSync(join(repo, AZURE))).toBe(true);
-    expect(existsSync(join(repo, GITHUB))).toBe(false);
+    expect(existsSync(join(repo, ".github"))).toBe(false); // no empty folders left behind
     const lock = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
     expect(lock).toInclude('".azure-pipelines/ai-eng-check.yml"');
     expect(lock).not.toInclude('".github/workflows/ai-eng-check.yml"');

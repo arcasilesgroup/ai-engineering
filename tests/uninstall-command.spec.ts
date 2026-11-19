@@ -396,6 +396,7 @@ describe("uninstall · this project (the lock is the ownership register)", () =>
     expect(out).toContain("✓ .ai-engineering/arch.rules.json kept · config you edited — yours");
     expect(existsSync(workflow)).toBe(false);
     expect(out).toContain("✓ .github/workflows/ai-eng-check.yml removed · edited since install — ai-eng's file all the same");
+    expect(existsSync(join(cwd, ".github"))).toBe(false); // the workflow was all it held
     expect(existsSync(join(cwd, ".git", "hooks", "pre-commit"))).toBe(false);
   });
 

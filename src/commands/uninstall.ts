@@ -9,7 +9,7 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync, readdirSync, rmSync, lstatSync, rmdirSync, realpathSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { MOVED_REPO_CARRIERS, removeMachineArtifacts, removeMachineCarriers } from "../surfaces/carriers-install.ts";
 import { SURFACES, repoCarrier } from "../surfaces/adapters.ts";
 import { machineStateUnavailable, readMachineState } from "../surfaces/machine-state.ts";
@@ -175,11 +175,25 @@ export function retiredPaths(assets: Record<string, string>, shipped: readonly P
  *  that could not be removed: their lock entry has to stay, or the next run never retries them. */
 export function sweepRetiredAssets(root: string, paths: readonly string[], assets: Record<string, string>, removed: ui.Row[]): string[] {
   const settingsByPath = collectSettingsByPath();
-  return paths.filter((rel) => {
+  const kept = paths.filter((rel) => {
     const before = removed.length;
     sweepAsset(root, rel, assets, true, settingsByPath, removed);
     return removed.slice(before).some((row) => "dim" in row && (row.dim === PRESERVED || row.dim === HARD_LINKED));
   });
+  for (const rel of paths) pruneEmptyParents(root, rel, removed);
+  return kept;
+}
+
+/** A retired file's folders go with it once nothing else is in them: switching from GitHub
+ *  Actions to Azure Pipelines must not leave an empty .github/workflows behind. A folder
+ *  that still holds anything stops the climb, and nothing under .git is touched — git owns
+ *  that tree. The next install that needs a folder creates it again. */
+function pruneEmptyParents(root: string, rel: string, removed: ui.Row[]): void {
+  if (rel === ".git" || rel.startsWith(".git/")) return;
+  for (let dir = dirname(rel); dir !== "." && dir !== ""; dir = dirname(dir)) {
+    if (!pruneIfEmpty(root, dir)) return;
+    removed.push({ mark: "muted", text: `${dir}/ removed (empty)` });
+  }
 }
 
 /** The Apply plan's note for a retired path: what the sweep will do to it, or null when the
@@ -288,7 +302,7 @@ function decideSweep(
 
 function pruneCreatedDirs(root: string, removed: ui.Row[]): void {
   // Dirs ai-eng created are pruned only when the sweep left them empty.
-  for (const dir of [".ai-engineering", ".claude", ".cursor", ".codex", ".copilot", ".opencode/plugins", ".agents/hooks", ".pi/extensions", ".github/workflows", ".azure-pipelines"]) {
+  for (const dir of [".ai-engineering", ".claude", ".cursor", ".codex", ".copilot", ".opencode/plugins", ".agents/hooks", ".pi/extensions", ".github/workflows", ".github", ".azure-pipelines"]) {
     if (pruneIfEmpty(root, dir)) removed.push({ mark: "muted", text: `${dir}/ removed (empty)` });
   }
   for (const dir of [".opencode", ".agents", ".pi", ".github"]) {
