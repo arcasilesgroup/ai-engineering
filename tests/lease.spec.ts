@@ -2,7 +2,8 @@
 // holds the folder; another session's write is sent to a worktree; the hold lapses after
 // [work] lease_minutes without a write, ends with SessionEnd, or is released by hand.
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { sessionEnd, sessionStart } from "../src/chain/mod.ts";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -118,6 +119,43 @@ describe("runLease — one folder, one writer", () => {
     expect(readLease(dir)?.session).toBe("session-a");
     expect(releaseLease(dir, "session-a")).toBe(true);
     expect(readLease(dir)).toBeNull();
+  });
+});
+
+describe("sessionStart and sessionEnd in process", () => {
+  test("SessionEnd frees only its own session's hold, and an unreadable payload is silence", () => {
+    const dir = repo();
+    runLease(edit(dir, "session-a"), dir, Date.now());
+    sessionEnd("not json");
+    sessionEnd(JSON.stringify({ session_id: "session-b", cwd: dir }));
+    expect(readLease(dir)?.session).toBe("session-a");
+    sessionEnd(JSON.stringify({ session_id: "session-a", cwd: dir }));
+    expect(readLease(dir)).toBeNull();
+  });
+
+  test("SessionStart answers with additionalContext in a governed repo, and nothing elsewhere", () => {
+    const dir = repo();
+    writeFileSync(join(dir, "README.md"), "changed\n");
+    git(dir, ["stash", "push", "-q"]);
+    const chunks: string[] = [];
+    const spy = spyOn(process.stdout, "write").mockImplementation(((chunk: unknown) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as never);
+    const optOut = process.env["AI_ENG_NO_UPDATE_NOTICES"];
+    process.env["AI_ENG_NO_UPDATE_NOTICES"] = "1";
+    try {
+      sessionStart(JSON.stringify({ cwd: dir }));
+      sessionStart("not json");
+      sessionStart(JSON.stringify({ cwd: tmpdir() }));
+    } finally {
+      spy.mockRestore();
+      if (optOut === undefined) delete process.env["AI_ENG_NO_UPDATE_NOTICES"];
+      else process.env["AI_ENG_NO_UPDATE_NOTICES"] = optOut;
+    }
+    const answers = chunks.join("").trim().split("\n").filter((line) => line.length > 0);
+    expect(answers).toHaveLength(1);
+    expect(JSON.parse(answers[0]!).hookSpecificOutput.additionalContext).toContain("lanes: 1 orphan");
   });
 });
 
