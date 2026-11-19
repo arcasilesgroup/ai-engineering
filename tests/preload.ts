@@ -28,6 +28,10 @@ Object.defineProperty(process.stdout, "columns", { value: undefined, configurabl
 // local port nothing listens on, so it fails at once — and every CLI the suite spawns
 // inherits it. A test that wants an answer serves one on its own port.
 process.env["AI_ENG_REGISTRY_URL"] ??= "http://127.0.0.1:9/ai-engineering/latest";
+// And no version notice unless a test asks for one (notice.spec, update-binary.spec delete
+// this): a human verb with a stale cache spawns a detached refresh, and under the mutation
+// runner that grandchild inherits its sync port and stalls the whole dry run.
+process.env["AI_ENG_NO_UPDATE_NOTICES"] ??= "1";
 
 const initialEnv = snapshotSandboxEnv();
 const initialCwd = process.cwd();

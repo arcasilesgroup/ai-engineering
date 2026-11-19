@@ -88,7 +88,8 @@ function tidyLane(root: string, lane: Lane, current: string | null): string {
   if (lane.name === current) return mutedLine(`${lane.name} kept — it is checked out here; switch to the base, then run tidy again`);
   if (lane.path !== null) {
     const status = worktreeStatus(lane.path);
-    if (status.detail !== undefined || status.paths.length > 0) return mutedLine(`${lane.name} kept — its folder ${lane.path} has uncommitted work`);
+    if (status.detail !== undefined) return mutedLine(`${lane.name} kept — its folder ${lane.path} could not be read: ${status.detail}`);
+    if (status.paths.length > 0) return mutedLine(`${lane.name} kept — its folder ${lane.path} has uncommitted work`);
     const removed = git(root, ["worktree", "remove", lane.path]);
     if (!removed.ok) return mutedLine(`${lane.name} kept — git worktree remove refused: ${removed.out}`);
   }
@@ -152,7 +153,8 @@ function drop(root: string, branch: string): number {
   const lane = lanes(root, { refresh: false }).lanes.find((entry) => entry.name === branch);
   if (lane?.path) {
     const status = worktreeStatus(lane.path);
-    if (status.detail !== undefined || status.paths.length > 0) return fail(`${branch} has uncommitted work in ${lane.path} — commit it on the branch first, then drop`);
+    if (status.detail !== undefined) return fail(`${lane.path} could not be read (${status.detail}) — nothing was dropped`);
+    if (status.paths.length > 0) return fail(`${branch} has uncommitted work in ${lane.path} — commit it on the branch first, then drop`);
   }
   const date = new Date().toISOString().slice(0, 10);
   const isTaken = git(root, ["rev-parse", "--verify", "--quiet", `refs/archive/${branch}`]).ok;

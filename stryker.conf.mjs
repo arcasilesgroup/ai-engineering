@@ -49,7 +49,12 @@ export default {
   // survivors, so the red says what is missing instead of just being red.
   thresholds: { high: 90, low: 85, break: 85 },
   tempDirName: ".stryker-tmp",
-  bun: { timeout: 30000 },
+  // The plugin's `timeout` is the whole `bun test` subprocess, not one test, and it adds a
+  // fixed 30 s drain ceiling: 30 000 here meant 60 s for the full dry run, which measured
+  // 57 s at 2,332 tests on a hosted runner and passed 60 s once the suite grew past 2,400
+  // (3 min on a loaded laptop). Five minutes leaves room to grow; a mutant's run selects
+  // only its covering tests, far below it.
+  bun: { timeout: 300000 },
   // The serial suite is ~2,100 tests; its instrumented dry run passes 5 minutes (the
   // default) on a hosted runner. The score threshold above is unchanged.
   dryRunTimeoutMinutes: 15,
